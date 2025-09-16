@@ -1,0 +1,15 @@
+assemble:
+    - from: batch
+      into: batch
+liferay-ai-commerce-accelerator-batch:
+    name: Liferay AI Commerce Accelerator Batch
+    oAuthApplicationHeadlessServer: liferay-ai-commerce-accelerator-batch-oauth-application-headless-server
+    type: batch
+liferay-ai-commerce-accelerator-batch-oauth-application-headless-server:
+    .serviceAddress: localhost:8080
+    .serviceScheme: http
+    name: Liferay AI Commerce Accelerator Batch OAuth Application Headless Servers
+    scopes:
+        - Liferay.Headless.Batch.Engine.everything
+        - Liferay.Object.Admin.REST.everything
+    type: oAuthApplicationHeadlessServer
