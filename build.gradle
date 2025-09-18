@@ -1,1 +1,180 @@
-// Check GETTING_STARTED.md for information regarding usage.
+import groovy.json.JsonOutput
+import org.gradle.api.file.DuplicatesStrategy
+
+def CX_DIR        = file(findProperty('cx.dir') ?: "$rootDir/client-extensions/ai-commerce-accelerator-frontend")
+def FRAGMENTS_DIR = file(findProperty('fragments.dir') ?: "$rootDir/fragments")
+def FRAGMENT_DIR  = file(findProperty('fragment.dir') ?: "$rootDir/fragments/ai-commerce-accelerator")
+
+def FRAGMENTS_ZIP_NAME = "ai-accelerator-fragments.zip"
+def FRAGMENTS_ZIP_OUT  = layout.buildDirectory.dir("fragments")
+
+// Import scope (GLOBAL by default)
+def COMPANY_WEB_ID = (findProperty('companyWebId') ?: '*')
+def GROUP_KEY      = (findProperty('groupKey') ?: null)
+
+// liferay.home (defaults to ./bundles)
+def liferayHome    = providers.gradleProperty('liferay.home').orElse("$rootDir/bundles")
+
+// Detect package manager
+def useYarn        = new File(CX_DIR, "yarn.lock").exists()
+def useNpmCi       = new File(CX_DIR, "package-lock.json").exists()
+
+// Generated files
+def GENERATED_FRAGMENT_CSS = layout.buildDirectory.file('tmp/fragment.css')
+def GENERATED_DESCRIPTOR   = layout.buildDirectory.file('tmp/liferay-deploy-fragments.json')
+
+// Prefer an existing descriptor next to the set if present; fall back to generated
+def existingDescriptorCandidates = [
+    new File(FRAGMENTS_DIR.parentFile ?: rootDir, 'liferay-deploy-fragments.json'), // sibling to the set
+    new File(FRAGMENTS_DIR, 'liferay-deploy-fragments.json')
+]
+def existingDescriptor = existingDescriptorCandidates.find { it.exists() }
+
+// The source dir that holds the descriptor we will add at ZIP root
+def descriptorSourceDirProvider = providers.provider {
+    (existingDescriptor ?: GENERATED_DESCRIPTOR.get().asFile).parentFile
+}
+
+// Handy: the name of your fragment-set folder inside the ZIP
+def FRAGMENT_SET_NAME = FRAGMENTS_DIR.name
+
+// ===================== TASKS =====================
+
+// --- Install + Build CX with Vite (auto yarn/npm) ---
+tasks.register('buildFrontendCX') {
+    group = 'build'
+    description = "Install deps and build the Import Map CX (${useYarn ? 'yarn' : 'npm'})."
+    onlyIf { CX_DIR.exists() }
+    doLast {
+        if (useYarn) {
+            exec { workingDir CX_DIR; commandLine 'yarn', 'install' }
+            exec { workingDir CX_DIR; commandLine 'yarn', 'build' }
+        } else {
+            exec { workingDir CX_DIR; commandLine 'npm', (useNpmCi ? 'ci' : 'install') }
+            exec { workingDir CX_DIR; commandLine 'npm', 'run', 'build' }
+        }
+    }
+}
+
+// --- Generate liferay-deploy-fragments.json if not present ---
+tasks.register('generateDeployDescriptor') {
+    group = 'build'
+    description = 'Create liferay-deploy-fragments.json (if one is not already provided).'
+    inputs.property('companyWebId', COMPANY_WEB_ID)
+    if (GROUP_KEY != null) inputs.property('groupKey', GROUP_KEY)
+    outputs.file(GENERATED_DESCRIPTOR)
+    onlyIf { existingDescriptor == null }
+
+    doLast {
+        def json = [:]
+        if (COMPANY_WEB_ID == '*') {
+            json.companyWebId = '*'
+        } else {
+            json.companyWebId = COMPANY_WEB_ID
+            if (GROUP_KEY) json.groupKey = GROUP_KEY
+        }
+        def outFile = GENERATED_DESCRIPTOR.get().asFile
+        outFile.parentFile.mkdirs()
+        outFile.text = JsonOutput.prettyPrint(JsonOutput.toJson(json))
+        logger.lifecycle("Generated descriptor at ${outFile}")
+    }
+}
+
+// --- Produce a stable fragment.css from the built CX CSS (or stub if none) ---
+tasks.register('generateFragmentCss') {
+    group = 'build'
+    description = 'Create build/tmp/fragment.css from the latest CX-built CSS (or a stub).'
+    dependsOn tasks.named('buildFrontendCX')
+    outputs.file(GENERATED_FRAGMENT_CSS)
+
+    doLast {
+        def cssDir = new File(CX_DIR, 'build/static')
+        def files = cssDir.exists() ? fileTree(cssDir).matching { include '**/*.css' }.files : [] as Set<File>
+
+        def outFile = GENERATED_FRAGMENT_CSS.get().asFile
+        outFile.parentFile.mkdirs()
+
+        if (!files || files.isEmpty()) {
+            outFile.text = '/* No built CSS found; ensure src/app.scss is imported by src/index.jsx */'
+            logger.lifecycle("No CSS emitted by Vite under ${cssDir}; wrote stub fragment.css.")
+        } else {
+            def latest = files.sort { -it.lastModified() }.first()
+            ant.copy(file: latest, tofile: outFile)
+            logger.lifecycle("Selected CSS: ${latest.name} -> fragment.css")
+        }
+    }
+}
+
+// --- Copy fragment.css into the fragment folder (overwrites previous copy) ---
+tasks.register('syncFragmentCssToFragment', Copy) {
+    group = 'build'
+    description = 'Copy build/tmp/fragment.css into the fragment as fragment.css.'
+    dependsOn tasks.named('generateFragmentCss')
+
+    from(GENERATED_FRAGMENT_CSS.map { it.asFile })
+    into(FRAGMENT_DIR)
+    rename { 'fragment.css' }
+}
+
+// --- Zip with correct Liferay structure ---
+tasks.register('zipFragments', Zip) {
+    group = 'build'
+    description = 'Zip the fragment set with the descriptor at ZIP root.'
+    archiveFileName.set(FRAGMENTS_ZIP_NAME)
+    destinationDirectory.set(FRAGMENTS_ZIP_OUT)
+
+    dependsOn tasks.named('generateDeployDescriptor')
+    dependsOn tasks.named('syncFragmentCssToFragment')
+
+    duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+
+    // Include the entire fragment-set directory AS a top-level folder inside the ZIP:
+    // [zip]/[fragment-set-name]/(collection.json + fragment folders)
+    from(FRAGMENTS_DIR) {
+        include '**/*'
+        exclude 'liferay-deploy-fragments.json'  // ensure descriptor is only at ZIP root
+        into(FRAGMENT_SET_NAME)
+    }
+
+    // Include exactly one liferay-deploy-fragments.json at ZIP root
+    from(descriptorSourceDirProvider) {
+        include 'liferay-deploy-fragments.json'
+        // no into() here => placed at ZIP root
+    }
+}
+
+// --- Auto-deploy the ZIP to <liferay.home or ./bundles>/deploy ---
+tasks.register('autoDeployFragments', Copy) {
+    group = 'build'
+    description = 'Copy the fragments ZIP to the bundle deploy/ folder.'
+    dependsOn tasks.named('zipFragments')
+    from(tasks.named('zipFragments').flatMap { it.archiveFile })
+
+    doFirst {
+        def deployDir = new File(liferayHome.get() + '/deploy')
+        if (!deployDir.exists()) deployDir.mkdirs()
+    }
+    into(liferayHome.map { it + '/deploy' })
+}
+
+// ===================== LIFECYCLE WIRING =====================
+tasks.named('assemble') {
+    dependsOn tasks.named('zipFragments')
+}
+tasks.matching { it.name == 'deploy' }.configureEach {
+    dependsOn tasks.named('zipFragments')
+    dependsOn tasks.named('autoDeployFragments')
+}
+
+// Helper
+tasks.register('printArtifacts') {
+    group = 'help'
+    doLast {
+        println "Fragments ZIP: ${tasks.named('zipFragments').get().archiveFile.get().asFile}"
+        println "Deploy dir:    ${liferayHome.get()}/deploy"
+        println "Fragment set:  ${FRAGMENT_SET_NAME} (from ${FRAGMENTS_DIR})"
+        println "Fragment dir:  ${FRAGMENT_DIR}"
+        println "CX dir:        ${CX_DIR}"
+        println "Package mgr:   ${useYarn ? 'yarn' : 'npm'}"
+    }
+}

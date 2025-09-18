@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#000000" />
+    <link
+      rel="stylesheet"
+      href="https://cdn.jsdelivr.net/npm/@clayui/css@3.0.0/lib/css/atlas.css"
+    />
+    <title>Liferay AI Commerce Accelerator</title>
+
+    <script type="text/javascript">
+      (function () {
+        if (!window.Liferay) {
+          window.Liferay = {};
+        }
+
+        if (!window.Liferay.Util) {
+          window.Liferay.Util = {};
+        }
+
+        if (!window.Liferay.Icons) {
+          window.Liferay.Icons = {};
+        }
+
+        window.Liferay.Util.fetch = function (url, options = {}) {
+          const basicAuth = 'Basic ' + btoa('test@liferay.com:test1234');
+
+          const headers = new Headers(options.headers || {});
+          headers.set('Authorization', basicAuth);
+
+          return fetch(url, {
+            ...options,
+            headers,
+          });
+        };
+
+        if (!window.Liferay.ThemeDisplay) {
+          window.Liferay.ThemeDisplay = {};
+          window.Liferay.ThemeDisplay.getLanguageId = () => {
+            return 'fr_FR';
+          };
+        }
+
+        window.Liferay.Icons.spritemap = '/icons.svg';
+      })();
+    </script>
+  </head>
+  <body>
+    <script type="module" src="/src/index.jsx"></script>
+
+    <noscript>You need to enable JavaScript to run this app.</noscript>
+
+    <liferay-ai-commerce-accelerator-frontend></liferay-ai-commerce-accelerator-frontend>
+  </body>
+</html>
