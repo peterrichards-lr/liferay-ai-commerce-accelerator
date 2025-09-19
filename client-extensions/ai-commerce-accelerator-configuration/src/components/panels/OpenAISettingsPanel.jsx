@@ -1,118 +1,256 @@
-// OpenAISettingsPanel.jsx
-import { useEffect, useState } from 'react';
+// OpenAISettingsPanel.jsx (refactored)
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import ClayAlert from '@clayui/alert';
 import ClayButton from '@clayui/button';
 import ClayForm, { ClayInput } from '@clayui/form';
 import ClayIcon from '@clayui/icon';
+import ClayLayout from '@clayui/layout';
 import { getKeyValue, persistConfigKey } from '../../utils/api';
 
 const OPEN_AI_KEY_KEY = 'open-ai-key';
 
 export default function OpenAISettingsPanel() {
-  const [currentKey, setCurrentKey] = useState('');
-  const [lastSavedKey, setLastSavedKey] = useState('');
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+
+  const [keyValue, setKeyValue] = useState('');
+  const [lastSaved, setLastSaved] = useState('');
+  const [show, setShow] = useState(false);
   const [issues, setIssues] = useState([]);
-  const disabled = issues.length > 0;
-  const dirty = currentKey !== lastSavedKey;
 
-  useEffect(() => {
-    const run = async () => {
-      const found = [];
-      setIssues(found);
-      if (found.length === 0) {
-        const key = await getKeyValue(OPEN_AI_KEY_KEY);
-        setCurrentKey(key || '');
-        setLastSavedKey(key || '');
-      }
-    };
-    run();
-  }, []);
+  const maskedMultiline = useMemo(
+    () => (keyValue ? keyValue.replace(/[^\n]/g, '•') : ''),
+    [keyValue]
+  );
 
-  const onSave = async () => {
+  const copySecret = useCallback(async () => {
     try {
-      await persistConfigKey(OPEN_AI_KEY_KEY, currentKey);
-      setLastSavedKey(currentKey);
-      Liferay.Util.openToast({
-        message: 'Open AI key saved successfully.',
+      await navigator.clipboard.writeText(keyValue);
+      Liferay?.Util?.openToast?.({
+        message: 'Key copied to clipboard.',
         type: 'success',
       });
-    } catch (error) {
-      if (error.hasOwnProperty('status')) {
-        if (String(error.status) === '400') {
-          let response = error.message.replace('HTTP 400 : ', '');
-          try {
-            response = JSON.parse(response);
-          } catch {}
-          Liferay.Util.openToast({
-            message: response?.title || 'Failed to save Open AI key.',
-            type: 'danger',
-          });
-          return;
-        }
-      }
-      console.error(error);
-      Liferay.Util.openToast({
-        message: 'Failed to save Open AI key.',
+    } catch {
+      Liferay?.Util?.openToast?.({
+        message: 'Could not copy key.',
         type: 'danger',
       });
     }
-  };
+  }, [keyValue]);
 
-  const onCancel = () => setCurrentKey(lastSavedKey);
+  const dirty = keyValue !== lastSaved;
 
+  // -----------------------------
+  // Load existing value
+  // -----------------------------
+  useEffect(() => {
+    let alive = true;
+    (async () => {
+      setLoading(true);
+      try {
+        const raw = await getKeyValue(OPEN_AI_KEY_KEY);
+        const initial = typeof raw === 'string' ? raw : '';
+        if (!alive) return;
+        setKeyValue(initial);
+        setLastSaved(initial);
+      } catch (e) {
+        Liferay?.Util?.openToast?.({
+          message: 'Failed to load OpenAI key.',
+          type: 'danger',
+        });
+      } finally {
+        if (alive) setLoading(false);
+      }
+    })();
+    return () => {
+      alive = false;
+    };
+  }, []);
+
+  // -----------------------------
+  // Unsaved-changes guard & shortcut
+  // -----------------------------
+  useEffect(() => {
+    const onBeforeUnload = (e) => {
+      if (!dirty) return;
+      e.preventDefault();
+      e.returnValue = '';
+    };
+    window.addEventListener('beforeunload', onBeforeUnload);
+    return () => window.removeEventListener('beforeunload', onBeforeUnload);
+  }, [dirty]);
+
+  useEffect(() => {
+    const onKey = (e) => {
+      const key = e.key?.toLowerCase();
+      if ((e.metaKey || e.ctrlKey) && key === 's') {
+        e.preventDefault();
+        onSave();
+      }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  });
+
+  // -----------------------------
+  // Validation
+  // -----------------------------
+  useEffect(() => {
+    const errs = [];
+    const v = keyValue.trim();
+    if (v.length === 0) {
+      errs.push('API key is required.');
+    }
+    if (/\s/.test(v)) {
+      errs.push('Key must not contain spaces or newlines.');
+    }
+    if (v.length > 0 && v.length < 12) {
+      errs.push('Key looks too short. Please check you pasted the full value.');
+    }
+    setIssues(errs);
+  }, [keyValue]);
+
+  const masked = useMemo(
+    () => (keyValue ? keyValue.replace(/.(?=.{4})/g, '•') : ''),
+    [keyValue]
+  );
+
+  // -----------------------------
+  // Actions
+  // -----------------------------
+  const onSave = useCallback(async () => {
+    if (saving || issues.length) return;
+    setSaving(true);
+    try {
+      await persistConfigKey(OPEN_AI_KEY_KEY, keyValue.trim());
+      setLastSaved(keyValue.trim());
+      Liferay?.Util?.openToast?.({
+        message: 'OpenAI key saved.',
+        type: 'success',
+      });
+    } catch (e) {
+      // eslint-disable-next-line no-console
+      console.error(e);
+      Liferay?.Util?.openToast?.({
+        message: 'Failed to save OpenAI key.',
+        type: 'danger',
+      });
+    } finally {
+      setSaving(false);
+    }
+  }, [saving, keyValue, issues.length]);
+
+  const onCancel = useCallback(() => setKeyValue(lastSaved), [lastSaved]);
+  const onClear = useCallback(() => setKeyValue(''), []);
+
+  // -----------------------------
+  // Render
+  // -----------------------------
   return (
-    <div className="sheet sheet-lg">
+    <ClayLayout.Sheet aria-busy={loading || saving} aria-live="polite">
       <div className="sheet-header">
-        <h2 className="sheet-title">Open AI</h2>
+        <h2 className="sheet-title">OpenAI Settings</h2>
         <div className="sheet-text">
-          Configure the OpenAI API key used by the generator in live.
+          Stored under <code>{OPEN_AI_KEY_KEY}</code> as plain text. In
+          production, prefer using environment variables or a secrets vault
+          rather than storing keys in the database.
         </div>
       </div>
 
-      {disabled && (
-        <ClayAlert displayType="warning" title="Warning">
-          {issues.length === 1 ? (
-            issues[0]
-          ) : (
-            <ul className="mb-0">
-              {issues.map((msg, i) => (
-                <li key={i}>{msg}</li>
-              ))}
-            </ul>
-          )}
+      {!!issues.length && (
+        <ClayAlert
+          displayType="warning"
+          title="Please review"
+          role="alert"
+          aria-live="assertive"
+          className="mb-3"
+        >
+          <ul className="my-2">
+            {issues.map((m, i) => (
+              <li key={i}>{m}</li>
+            ))}
+          </ul>
         </ClayAlert>
       )}
 
       <div className="sheet-section">
-        <h3
-          className="sheet-subtitle"
-          style={{
-            marginBottom: 0,
-            padding: '0.75rem 1.25rem',
-            paddingLeft: 0,
-          }}
-        >
-          Open AI Key
-        </h3>
-        <div className="text-secondary small mb-3">
-          Stored under <code>{OPEN_AI_KEY_KEY}</code> as plain text string.
-        </div>
         <ClayForm.Group>
-          <label htmlFor="openAiKey">Key</label>
-          <br />
-          <textarea
-            id="openAiKey"
-            type="text"
-            value={currentKey}
-            onChange={(e) => setCurrentKey(e.target.value)}
-            disabled={disabled}
-            style={{
-              minHeight: 80,
-              width: '100%',
-              resize: 'vertical',
-              fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace',
-            }}
-          />
+          <label htmlFor="openai-key" className="font-weight-semi-bold">
+            OpenAI API Key
+          </label>
+          <div className="d-flex align-items-start">
+            {show ? (
+              <ClayInput
+                id="openai-key"
+                component="textarea" // <-- multiline
+                rows={6}
+                placeholder="Paste your key…"
+                value={keyValue}
+                onChange={(e) => setKeyValue(e.target.value)}
+                aria-invalid={!!issues.length}
+                autoComplete="off"
+                style={{
+                  fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace',
+                }}
+              />
+            ) : (
+              <ClayInput
+                id="openai-key-masked"
+                component="textarea" // <-- multiline but masked
+                rows={6}
+                value={maskedMultiline}
+                readOnly
+                aria-label="Hidden OpenAI key (masked)"
+                style={{
+                  fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace',
+                }}
+              />
+            )}
+
+            <div className="ml-2 d-flex flex-column">
+              <ClayButton
+                type="button"
+                displayType="secondary"
+                onClick={() => setShow((s) => !s)}
+                aria-label={show ? 'Hide key' : 'Show key'}
+                title={show ? 'Hide key' : 'Show key'}
+                className="mb-2"
+              >
+                <ClayIcon symbol={show ? 'view' : 'hidden'} />
+              </ClayButton>
+
+              <ClayButton
+                type="button"
+                displayType="secondary"
+                onClick={copySecret}
+                disabled={!keyValue}
+                aria-label="Copy key"
+                title="Copy key"
+                className="mb-2"
+              >
+                <ClayIcon symbol="copy" />
+              </ClayButton>
+
+              <ClayButton
+                type="button"
+                displayType="secondary"
+                onClick={() => setKeyValue('')}
+                aria-label="Clear key"
+                title="Clear key"
+              >
+                <ClayIcon symbol="times" />
+              </ClayButton>
+            </div>
+          </div>
+          <small className="form-text text-secondary">
+            The value is used by backend services to make requests to the OpenAI
+            API.
+          </small>
+          {keyValue && !show && (
+            <div className="text-secondary small mt-1" aria-hidden="true">
+              Preview: <code>{masked}</code>
+            </div>
+          )}
         </ClayForm.Group>
       </div>
 
@@ -121,21 +259,26 @@ export default function OpenAISettingsPanel() {
           <ClayButton
             onClick={onSave}
             className="mr-2"
-            disabled={disabled || !dirty}
+            disabled={!dirty || saving || issues.length > 0}
+            aria-disabled={!dirty || saving || issues.length > 0}
+            aria-label={saving ? 'Saving OpenAI key…' : 'Save OpenAI key'}
           >
-            <ClayIcon symbol="disk" />
-            <span className="ml-2">Save</span>
+            <ClayIcon symbol={saving ? 'time' : 'disk'} />
+            <span className="ml-2">{saving ? 'Saving…' : 'Save'}</span>
           </ClayButton>
+
           <ClayButton
             displayType="secondary"
             onClick={onCancel}
-            disabled={disabled || !dirty}
+            disabled={!dirty || saving}
+            aria-disabled={!dirty || saving}
+            aria-label="Cancel changes"
           >
             <ClayIcon symbol="restore" />
             <span className="ml-2">Cancel</span>
           </ClayButton>
         </div>
       </div>
-    </div>
+    </ClayLayout.Sheet>
   );
 }

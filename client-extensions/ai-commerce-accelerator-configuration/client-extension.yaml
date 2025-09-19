@@ -9,8 +9,6 @@ liferay-ai-commerce-accelerator-configuration:
   panelAppOrder: 700
   panelCategoryKey: control_panel.configuration
   type: customElement
-  cssURLs:
-    - liferay-ai-commerce-accelerator-configuration.min.*.css
   urls:
     - liferay-ai-commerce-accelerator-configuration.min.*.js
   useESM: true

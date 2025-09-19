@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import ClayForm, { ClayInput } from '@clayui/form';
 import ClayAlert from '@clayui/alert';
 import ClayButton from '@clayui/button';
@@ -9,300 +9,315 @@ import { getKeyValue, persistConfigKey } from '../../utils/api';
 const BATCH_POLLING_KEY = 'batch-polling-config';
 
 const DEFAULTS = {
-  pollInterval: 5000,
-  minPollInterval: 2000,
+  pollInterval: 5000, // ms
+  minPollInterval: 2000, // ms
   maxPollAttempts: 120,
   maxRetries: 3,
 };
 
+function toInt(v, fallback) {
+  const n = typeof v === 'string' ? parseInt(v, 10) : v;
+  return Number.isFinite(n) ? n : fallback;
+}
+
+function msToHHMMSS(ms) {
+  if (!Number.isFinite(ms) || ms <= 0) return '—';
+  const s = Math.floor(ms / 1000);
+  const hh = String(Math.floor(s / 3600)).padStart(2, '0');
+  const mm = String(Math.floor((s % 3600) / 60)).padStart(2, '0');
+  const ss = String(s % 60).padStart(2, '0');
+  return `${hh}:${mm}:${ss}`;
+}
+
 export default function BatchPollingConfigPanel() {
-  // raw configValue string from Liferay (stringified JSON)
-  const [currentKey, setCurrentKey] = useState('');
-  const [lastSavedKey, setLastSavedKey] = useState('');
-
-  // parsed form model
-  const [model, setModel] = useState(DEFAULTS);
-
-  // issues/disabled
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
   const [issues, setIssues] = useState([]);
-  const disabled = issues.length > 0;
 
-  // load on mount
+  const [values, setValues] = useState(DEFAULTS);
+  const [lastSaved, setLastSaved] = useState(DEFAULTS);
+
+  const dirty = useMemo(
+    () => JSON.stringify(values) !== JSON.stringify(lastSaved),
+    [values, lastSaved]
+  );
+
+  // Load config
   useEffect(() => {
-    const run = async () => {
-      const found = [];
-      setIssues(found);
-      if (found.length === 0) {
-        const key = await getKeyValue(BATCH_POLLING_KEY);
-        const str = key || '';
-        setCurrentKey(str);
-        setLastSavedKey(str);
-
-        // parse or fall back to defaults
+    let alive = true;
+    (async () => {
+      setLoading(true);
+      try {
+        const raw = await getKeyValue(BATCH_POLLING_KEY);
+        let parsed = {};
         try {
-          const parsed = str ? JSON.parse(str) : DEFAULTS;
-          setModel((m) => ({ ...m, ...parsed }));
+          parsed = raw ? JSON.parse(raw) : {};
         } catch {
-          // if corrupt, show warning but still show defaults in fields
-          setModel(DEFAULTS);
-          setIssues((prev) => [
-            ...prev,
-            'Stored value is not valid JSON. Editing and saving will overwrite it.',
-          ]);
+          parsed = {};
         }
-      }
-    };
-    run();
-  }, []);
-
-  // derived validation
-  const validation = useMemo(() => {
-    const msgs = [];
-    const { pollInterval, minPollInterval, maxPollAttempts, maxRetries } =
-      model;
-
-    const ints = [
-      'pollInterval',
-      'minPollInterval',
-      'maxPollAttempts',
-      'maxRetries',
-    ];
-    ints.forEach((k) => {
-      const v = model[k];
-      if (!Number.isInteger(v) || v < 0)
-        msgs.push(`${k} must be a non-negative integer.`);
-    });
-
-    if (
-      Number.isInteger(model.pollInterval) &&
-      Number.isInteger(model.minPollInterval)
-    ) {
-      if (model.pollInterval < model.minPollInterval) {
-        msgs.push('pollInterval should be ≥ minPollInterval.');
-      }
-    }
-
-    return msgs;
-  }, [model]);
-
-  const dirty = currentKey !== lastSavedKey;
-
-  // sync currentKey (string) from model whenever model changes
-  useEffect(() => {
-    try {
-      const str = JSON.stringify({
-        pollInterval: toInt(model.pollInterval, DEFAULTS.pollInterval),
-        minPollInterval: toInt(model.minPollInterval, DEFAULTS.minPollInterval),
-        maxPollAttempts: toInt(model.maxPollAttempts, DEFAULTS.maxPollAttempts),
-        maxRetries: toInt(model.maxRetries, DEFAULTS.maxRetries),
-      });
-      setCurrentKey(str);
-    } catch {
-      // ignore—validation will block save
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [
-    model.pollInterval,
-    model.minPollInterval,
-    model.maxPollAttempts,
-    model.maxRetries,
-  ]);
-
-  const onSave = async () => {
-    try {
-      await persistConfigKey(BATCH_POLLING_KEY, currentKey);
-      setLastSavedKey(currentKey);
-      Liferay.Util.openToast({
-        message: 'Batch polling config saved.',
-        type: 'success',
-      });
-      // clear any “corrupt JSON” warning once saved
-      setIssues((prev) => prev.filter((m) => !m.includes('not valid JSON')));
-    } catch (error) {
-      if (error?.status && String(error.status) === '400') {
-        let response = error.message.replace('HTTP 400 : ', '');
-        try {
-          response = JSON.parse(response);
-        } catch {}
-        Liferay.Util.openToast({
-          message: response?.title || 'Failed to save batch polling config.',
+        const merged = {
+          pollInterval: toInt(parsed.pollInterval, DEFAULTS.pollInterval),
+          minPollInterval: toInt(
+            parsed.minPollInterval,
+            DEFAULTS.minPollInterval
+          ),
+          maxPollAttempts: toInt(
+            parsed.maxPollAttempts,
+            DEFAULTS.maxPollAttempts
+          ),
+          maxRetries: toInt(parsed.maxRetries, DEFAULTS.maxRetries),
+        };
+        if (!alive) return;
+        setValues(merged);
+        setLastSaved(merged);
+      } catch (e) {
+        Liferay?.Util?.openToast?.({
+          message: 'Failed to load batch polling config.',
           type: 'danger',
         });
-        return;
+      } finally {
+        if (alive) setLoading(false);
       }
-      console.error(error);
-      Liferay.Util.openToast({
-        message: 'Failed to save batch polling config.',
+    })();
+    return () => {
+      alive = false;
+    };
+  }, []);
+
+  // Before unload warning
+  useEffect(() => {
+    const onBeforeUnload = (e) => {
+      if (!dirty) return;
+      e.preventDefault();
+      e.returnValue = '';
+    };
+    window.addEventListener('beforeunload', onBeforeUnload);
+    return () => window.removeEventListener('beforeunload', onBeforeUnload);
+  }, [dirty]);
+
+  // Cmd/Ctrl+S to save
+  useEffect(() => {
+    const onKey = (e) => {
+      const key = e.key?.toLowerCase();
+      if ((e.metaKey || e.ctrlKey) && key === 's') {
+        e.preventDefault();
+        onSave();
+      }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  });
+
+  const estimatedDurationMs = useMemo(() => {
+    const { pollInterval, maxPollAttempts } = values;
+    return Number.isFinite(pollInterval) && Number.isFinite(maxPollAttempts)
+      ? Math.max(0, pollInterval) * Math.max(0, maxPollAttempts)
+      : 0;
+  }, [values]);
+
+  // Validation
+  useEffect(() => {
+    const found = [];
+    const { pollInterval, minPollInterval, maxPollAttempts, maxRetries } =
+      values;
+
+    if (!Number.isFinite(pollInterval) || pollInterval <= 0)
+      found.push('Poll interval must be a positive number (ms).');
+    if (!Number.isFinite(minPollInterval) || minPollInterval <= 0)
+      found.push('Minimum poll interval must be a positive number (ms).');
+    if (
+      Number.isFinite(pollInterval) &&
+      Number.isFinite(minPollInterval) &&
+      pollInterval < minPollInterval
+    )
+      found.push(
+        'Poll interval must be greater than or equal to the minimum poll interval.'
+      );
+
+    if (!Number.isFinite(maxPollAttempts) || maxPollAttempts < 1)
+      found.push('Max poll attempts must be at least 1.');
+    if (!Number.isFinite(maxRetries) || maxRetries < 0)
+      found.push('Max retries cannot be negative.');
+
+    if (
+      Number.isFinite(estimatedDurationMs) &&
+      estimatedDurationMs > 1000 * 60 * 60 * 3
+    ) {
+      found.push(
+        'Warning: Total polling window exceeds 3 hours. Consider lowering attempts or interval.'
+      );
+    }
+
+    setIssues(found);
+  }, [values, estimatedDurationMs]);
+
+  const onSave = useCallback(async () => {
+    if (saving) return;
+    setSaving(true);
+    try {
+      const payload = JSON.stringify(values);
+      await persistConfigKey(BATCH_POLLING_KEY, payload);
+      setLastSaved(values);
+      Liferay?.Util?.openToast?.({
+        message: 'Batch polling configuration saved.',
+        type: 'success',
+      });
+    } catch (e) {
+      // eslint-disable-next-line no-console
+      console.error(e);
+      Liferay?.Util?.openToast?.({
+        message: 'Failed to save batch polling configuration.',
         type: 'danger',
       });
+    } finally {
+      setSaving(false);
     }
-  };
+  }, [saving, values]);
 
-  const onCancel = () => {
-    setCurrentKey(lastSavedKey);
-    try {
-      const parsed = lastSavedKey ? JSON.parse(lastSavedKey) : DEFAULTS;
-      setModel({ ...DEFAULTS, ...parsed });
-    } catch {
-      setModel(DEFAULTS);
-    }
-  };
+  const onCancel = useCallback(() => setValues(lastSaved), [lastSaved]);
 
-  const setNum = (field) => (e) =>
-    setModel((m) => ({ ...m, [field]: toInt(e.target.value, m[field]) }));
+  const onNumberChange = (key) => (e) => {
+    const next = toInt(e.target.value, values[key]);
+    setValues((v) => ({ ...v, [key]: next }));
+  };
 
   return (
-    <div className="sheet sheet-lg">
+    <ClayLayout.Sheet aria-busy={loading || saving} aria-live="polite">
       <div className="sheet-header">
-        <h2 className="sheet-title">Batch Polling Configuration</h2>
+        <h2 className="sheet-title">Batch Polling</h2>
         <div className="sheet-text">
-          Configure polling cadence and retry behavior.
-        </div>
-      </div>
-
-      <div className="sheet-section">
-        <h3
-          className="sheet-subtitle"
-          style={{
-            marginBottom: 0,
-            padding: '0.75rem 1.25rem',
-            paddingLeft: 0,
-          }}
-        >
-          Polling
-        </h3>
-        <div className="text-secondary small mb-3">
-          Stored under <code>{BATCH_POLLING_KEY}</code> as JSON:
+          Stored under <code>{BATCH_POLLING_KEY}</code> as JSON:{' '}
           <code>
             {'{ pollInterval, minPollInterval, maxPollAttempts, maxRetries }'}
           </code>
-        </div>
-
-        {!!issues.length && (
-          <ClayAlert displayType="warning" title="Warning" className="mb-3">
-            {issues.length === 1 ? (
-              issues[0]
-            ) : (
-              <ul className="mb-0">
-                {issues.map((m, i) => (
-                  <li key={i}>{m}</li>
-                ))}
-              </ul>
-            )}
-          </ClayAlert>
-        )}
-
-        {!!validation.length && (
-          <ClayAlert
-            displayType="danger"
-            title="Please fix the following"
-            className="mb-3"
-          >
-            <ul className="mb-0">
-              {validation.map((m, i) => (
-                <li key={i}>{m}</li>
-              ))}
-            </ul>
-          </ClayAlert>
-        )}
-
-        <ClayLayout.Row>
-          <ClayLayout.Col md={6} xs={12}>
-            <ClayForm.Group>
-              <label htmlFor="pollInterval">Poll interval (ms)</label>
-              <ClayInput
-                id="pollInterval"
-                type="number"
-                min={0}
-                step={100}
-                value={model.pollInterval}
-                onChange={setNum('pollInterval')}
-              />
-              <small className="form-text text-secondary">
-                Delay between polls once a batch is running.
-              </small>
-            </ClayForm.Group>
-
-            <ClayForm.Group>
-              <label htmlFor="minPollInterval">
-                Minimum poll interval (ms)
-              </label>
-              <ClayInput
-                id="minPollInterval"
-                type="number"
-                min={0}
-                step={100}
-                value={model.minPollInterval}
-                onChange={setNum('minPollInterval')}
-              />
-              <small className="form-text text-secondary">
-                Lower bound to prevent aggressive polling.
-              </small>
-            </ClayForm.Group>
-          </ClayLayout.Col>
-
-          <ClayLayout.Col md={6} xs={12}>
-            <ClayForm.Group>
-              <label htmlFor="maxPollAttempts">Max poll attempts</label>
-              <ClayInput
-                id="maxPollAttempts"
-                type="number"
-                min={0}
-                step={1}
-                value={model.maxPollAttempts}
-                onChange={setNum('maxPollAttempts')}
-              />
-              <small className="form-text text-secondary">
-                Stop polling after this many attempts.
-              </small>
-            </ClayForm.Group>
-
-            <ClayForm.Group>
-              <label htmlFor="maxRetries">Max retries</label>
-              <ClayInput
-                id="maxRetries"
-                type="number"
-                min={0}
-                step={1}
-                value={model.maxRetries}
-                onChange={setNum('maxRetries')}
-              />
-              <small className="form-text text-secondary">
-                Number of times to retry failed batches.
-              </small>
-            </ClayForm.Group>
-          </ClayLayout.Col>
-        </ClayLayout.Row>
-
-        <div className="sheet-footer">
-          <div className="btn-group-item">
-            <ClayButton
-              onClick={onSave}
-              className="mr-2"
-              disabled={
-                disabled || validation.length > 0 || currentKey === lastSavedKey
-              }
-            >
-              <ClayIcon symbol="disk" />
-              <span className="ml-2">Save</span>
-            </ClayButton>
-            <ClayButton
-              displayType="secondary"
-              onClick={onCancel}
-              disabled={disabled || currentKey === lastSavedKey}
-            >
-              <ClayIcon symbol="restore" />
-              <span className="ml-2">Cancel</span>
-            </ClayButton>
+          .
+          <div className="mt-1">
+            Estimated total polling window:{' '}
+            <strong>{msToHHMMSS(estimatedDurationMs)}</strong>
           </div>
         </div>
       </div>
-    </div>
-  );
-}
 
-function toInt(v, fallback) {
-  // accept string or number; coerce to int if finite, else fallback
-  const n = typeof v === 'string' ? parseInt(v, 10) : v;
-  return Number.isFinite(n) ? n : fallback;
+      {!!issues.length && (
+        <ClayAlert
+          displayType="warning"
+          title="Please review"
+          role="alert"
+          aria-live="assertive"
+          className="mb-3"
+        >
+          <ul className="my-2">
+            {issues.map((m, i) => (
+              <li key={i}>{m}</li>
+            ))}
+          </ul>
+        </ClayAlert>
+      )}
+
+      <div className="sheet-section">
+        <ClayForm.Group>
+          <label htmlFor="poll-interval" className="font-weight-semi-bold">
+            Poll interval (ms)
+          </label>
+          <ClayInput
+            id="poll-interval"
+            type="number"
+            min={1}
+            step={100}
+            value={values.pollInterval}
+            onChange={onNumberChange('pollInterval')}
+          />
+          <small className="form-text text-secondary">
+            How long to wait between each poll attempt.
+          </small>
+        </ClayForm.Group>
+
+        <ClayForm.Group>
+          <label htmlFor="min-poll-interval" className="font-weight-semi-bold">
+            Minimum poll interval (ms)
+          </label>
+          <ClayInput
+            id="min-poll-interval"
+            type="number"
+            min={1}
+            step={100}
+            value={values.minPollInterval}
+            onChange={onNumberChange('minPollInterval')}
+          />
+          <small className="form-text text-secondary">
+            Lower bound for adaptive backoff—actual interval should never dip
+            below this.
+          </small>
+        </ClayForm.Group>
+
+        <ClayForm.Group>
+          <label htmlFor="max-poll-attempts" className="font-weight-semi-bold">
+            Max poll attempts
+          </label>
+          <ClayInput
+            id="max-poll-attempts"
+            type="number"
+            min={1}
+            step={1}
+            value={values.maxPollAttempts}
+            onChange={onNumberChange('maxPollAttempts')}
+          />
+          <small className="form-text text-secondary">
+            Ceiling on how many polls to perform before giving up.
+          </small>
+        </ClayForm.Group>
+
+        <ClayForm.Group>
+          <label htmlFor="max-retries" className="font-weight-semi-bold">
+            Max retries
+          </label>
+          <ClayInput
+            id="max-retries"
+            type="number"
+            min={0}
+            step={1}
+            value={values.maxRetries}
+            onChange={onNumberChange('maxRetries')}
+          />
+          <small className="form-text text-secondary">
+            How many times the batch job may be re-run upon failure.
+          </small>
+        </ClayForm.Group>
+      </div>
+
+      <div className="sheet-footer">
+        <div className="btn-group-item">
+          <ClayButton
+            onClick={onSave}
+            className="mr-2"
+            disabled={
+              !dirty || saving || issues.some((m) => !m.startsWith('Warning:'))
+            }
+            aria-disabled={
+              !dirty || saving || issues.some((m) => !m.startsWith('Warning:'))
+            }
+            aria-label={
+              saving
+                ? 'Saving batch polling configuration…'
+                : 'Save batch polling configuration'
+            }
+          >
+            <ClayIcon symbol={saving ? 'time' : 'disk'} />
+            <span className="ml-2">{saving ? 'Saving…' : 'Save'}</span>
+          </ClayButton>
+
+          <ClayButton
+            displayType="secondary"
+            onClick={onCancel}
+            disabled={!dirty || saving}
+            aria-disabled={!dirty || saving}
+            aria-label="Cancel changes"
+          >
+            <ClayIcon symbol="restore" />
+            <span className="ml-2">Cancel</span>
+          </ClayButton>
+        </div>
+      </div>
+    </ClayLayout.Sheet>
+  );
 }

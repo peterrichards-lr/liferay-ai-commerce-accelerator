@@ -1,5 +1,5 @@
 import PropTypes from 'prop-types';
-import { useMemo, useState, useRef } from 'react';
+import { useMemo, useRef, useState, useCallback } from 'react';
 import ClayForm, { ClayInput } from '@clayui/form';
 import ClayAlert from '@clayui/alert';
 import ClayLabel from '@clayui/label';
@@ -25,8 +25,46 @@ function byteSizeFromBase64(b64) {
   }
 }
 
-function formatMB(bytes) {
+function toMB(bytes) {
   return (bytes / (1024 * 1024)).toFixed(2);
+}
+
+// Basic signature sniffing for common types (PNG, JPEG, PDF, WEBP)
+function detectMimeFromBase64(b64) {
+  try {
+    const head = atob(b64.slice(0, 64));
+    const bytes = Array.from(head, (c) => c.charCodeAt(0));
+    const startsWith = (...sig) => sig.every((v, i) => bytes[i] === v);
+    // '%PDF' -> 0x25 0x50 0x44 0x46
+    if (startsWith(0x25, 0x50, 0x44, 0x46)) return 'application/pdf';
+    // PNG -> 89 50 4E 47 0D 0A 1A 0A
+    if (startsWith(0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a))
+      return 'image/png';
+    // JPEG -> FF D8 FF
+    if (startsWith(0xff, 0xd8, 0xff)) return 'image/jpeg';
+    // WEBP (RIFF....WEBP)
+    if (
+      bytes[0] === 0x52 &&
+      bytes[1] === 0x49 &&
+      bytes[2] === 0x46 &&
+      bytes[3] === 0x46 &&
+      bytes[8] === 0x57 &&
+      bytes[9] === 0x45 &&
+      bytes[10] === 0x42 &&
+      bytes[11] === 0x50
+    )
+      return 'image/webp';
+  } catch {}
+  return null;
+}
+
+function fileToDataURL(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result || ''));
+    reader.onerror = () => reject(new Error('Failed to read file.'));
+    reader.readAsDataURL(file);
+  });
 }
 
 export default function PlaceholderItem({
@@ -41,8 +79,10 @@ export default function PlaceholderItem({
 
   const { base64Data, mimeType } = value;
   const [uploadError, setUploadError] = useState('');
+  const [dragOver, setDragOver] = useState(false);
   const fileInputRef = useRef(null);
 
+  // Normalize incoming value (raw base64 or data URL)
   const normalized = useMemo(() => {
     const parsed = parseMaybeDataUrl(base64Data);
     const effectiveMime = fixedMimeType ?? mimeType;
@@ -64,13 +104,22 @@ export default function PlaceholderItem({
 
   const isValid = useMemo(() => {
     if (!normalized.base64) return false;
-    return isBase64Strict(normalized.base64);
+    // allow whitespace in textarea input (strip before validation)
+    const trimmed = normalized.base64.replace(/\s+/g, '');
+    return isBase64Strict(trimmed);
   }, [normalized.base64]);
 
-  const src =
-    isValid && normalized.mime
-      ? `data:${normalized.mime};base64,${normalized.base64}`
-      : null;
+  const approxBytes = normalized.base64
+    ? byteSizeFromBase64(normalized.base64.replace(/\s+/g, ''))
+    : 0;
+
+  const src = useMemo(() => {
+    if (!isValid || !normalized.mime) return null;
+    return `data:${normalized.mime};base64,${normalized.base64.replace(
+      /\s+/g,
+      ''
+    )}`;
+  }, [isValid, normalized.mime, normalized.base64]);
 
   const status = !normalized.base64
     ? { type: 'secondary', text: 'Empty' }
@@ -78,75 +127,151 @@ export default function PlaceholderItem({
     ? { type: 'success', text: 'Ready' }
     : { type: 'warning', text: 'Invalid base64' };
 
-  const approxBytes = normalized.base64
-    ? byteSizeFromBase64(normalized.base64)
-    : 0;
-
   const accept =
     fixedMimeType === 'application/pdf'
       ? 'application/pdf'
       : 'image/png,image/jpeg,image/webp';
 
-  const onPickFile = () => fileInputRef.current?.click();
+  const onPickFile = useCallback(() => fileInputRef.current?.click(), []);
 
-  const onFileChange = (e) => {
-    setUploadError('');
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    const type = file.type || '';
-    if (fixedMimeType === 'application/pdf') {
-      if (type !== 'application/pdf') {
-        setUploadError('Only PDF files are allowed.');
-        e.target.value = '';
-        return;
-      }
-    } else {
-      if (!/^image\/(png|jpeg|webp)$/.test(type)) {
-        setUploadError('Allowed image types: PNG, JPEG, WEBP.');
-        e.target.value = '';
-        return;
-      }
-    }
-
-    if (file.size > maxFileSizeBytes) {
-      setUploadError(
-        `File is too large (${formatMB(
-          file.size
-        )} MB). Max allowed is ${formatMB(maxFileSizeBytes)} MB.`
-      );
-      e.target.value = '';
-      return;
-    }
-
-    const reader = new FileReader();
-    reader.onload = () => {
-      const dataUrl = String(reader.result || '');
-      if (!dataUrl.startsWith('data:')) {
+  const ingestDataUrl = useCallback(
+    (dataUrl, overrideMime) => {
+      if (!dataUrl?.startsWith('data:')) {
         setUploadError('Failed to read file.');
         return;
       }
-      if (!fixedMimeType && type && (!mimeType || mimeType === '')) {
-        onChange({ base64Data: dataUrl, mimeType: type });
+      if (!fixedMimeType && overrideMime && (!mimeType || mimeType === '')) {
+        onChange({ base64Data: dataUrl, mimeType: overrideMime });
       } else {
         onChange({ base64Data: dataUrl });
       }
-      e.target.value = '';
-    };
-    reader.onerror = () => {
-      setUploadError('Failed to read file.');
-      e.target.value = '';
-    };
-    reader.readAsDataURL(file);
-  };
+    },
+    [fixedMimeType, mimeType, onChange]
+  );
 
-  const onClear = () => {
+  const validateSelectedFile = useCallback(
+    (file) => {
+      const type = file.type || '';
+      if (fixedMimeType === 'application/pdf') {
+        if (type !== 'application/pdf') return 'Only PDF files are allowed.';
+      } else if (!/^image\/(png|jpeg|webp)$/.test(type)) {
+        return 'Allowed image types: PNG, JPEG, WEBP.';
+      }
+      if (file.size > maxFileSizeBytes) {
+        return `File is too large (${toMB(
+          file.size
+        )} MB). Max allowed is ${toMB(maxFileSizeBytes)} MB.`;
+      }
+      return null;
+    },
+    [fixedMimeType, maxFileSizeBytes]
+  );
+
+  const onFileChange = useCallback(
+    async (e) => {
+      setUploadError('');
+      const file = e.target.files?.[0];
+      if (!file) return;
+      const err = validateSelectedFile(file);
+      if (err) {
+        setUploadError(err);
+        e.target.value = '';
+        return;
+      }
+      try {
+        const dataUrl = await fileToDataURL(file);
+        ingestDataUrl(dataUrl, file.type);
+      } catch (ex) {
+        setUploadError('Failed to read file.');
+      } finally {
+        e.target.value = '';
+      }
+    },
+    [validateSelectedFile, ingestDataUrl]
+  );
+
+  const onClear = useCallback(() => {
     setUploadError('');
     onChange({ base64Data: '' });
-  };
+  }, [onChange]);
+
+  const onTextChange = useCallback(
+    (raw) => {
+      const parsed = parseMaybeDataUrl(raw);
+      if (parsed) {
+        if (!fixedMimeType && !mimeType) {
+          onChange({ base64Data: raw, mimeType: parsed.mime });
+        } else {
+          onChange({ base64Data: raw });
+        }
+      } else {
+        onChange({ base64Data: raw });
+      }
+    },
+    [fixedMimeType, mimeType, onChange]
+  );
+
+  // drag & drop support
+  const onDrop = useCallback(
+    async (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      setDragOver(false);
+      setUploadError('');
+      const file = e.dataTransfer?.files?.[0];
+      if (!file) return;
+      const err = validateSelectedFile(file);
+      if (err) {
+        setUploadError(err);
+        return;
+      }
+      try {
+        const dataUrl = await fileToDataURL(file);
+        ingestDataUrl(dataUrl, file.type);
+      } catch {
+        setUploadError('Failed to read file.');
+      }
+    },
+    [validateSelectedFile, ingestDataUrl]
+  );
+
+  const onPaste = useCallback(
+    async (e) => {
+      // Support pasting an image/PDF file directly from clipboard
+      const item = Array.from(e.clipboardData?.items || []).find(
+        (it) => it.kind === 'file'
+      );
+      if (item) {
+        const file = item.getAsFile();
+        if (file) {
+          e.preventDefault();
+          const err = validateSelectedFile(file);
+          if (err) {
+            setUploadError(err);
+            return;
+          }
+          try {
+            const dataUrl = await fileToDataURL(file);
+            ingestDataUrl(dataUrl, file.type);
+          } catch {
+            setUploadError('Failed to read file.');
+          }
+        }
+      }
+    },
+    [validateSelectedFile, ingestDataUrl]
+  );
+
+  // If user pasted raw base64 without MIME, we can show a hint based on signature
+  const sniffedMime = useMemo(() => {
+    if (!normalized.mime && isValid && normalized.base64) {
+      return detectMimeFromBase64(normalized.base64.replace(/\s+/g, ''));
+    }
+    return null;
+  }, [normalized.mime, isValid, normalized.base64]);
 
   return (
-    <div>
+    <div role="group" aria-labelledby={`${prefix}-heading`}>
       <div className="d-flex align-items-center mb-2">
         <ClayLabel displayType={status.type}>{status.text}</ClayLabel>
         {approxBytes > 0 && (
@@ -164,6 +289,7 @@ export default function PlaceholderItem({
             onChange={onFileChange}
           />
           <ClayButton
+            type="button"
             displayType="secondary"
             onClick={onPickFile}
             className="mr-2"
@@ -171,7 +297,7 @@ export default function PlaceholderItem({
             <ClayIcon symbol="upload" />
             <span className="ml-2">Upload file</span>
           </ClayButton>
-          <ClayButton displayType="secondary" onClick={onClear}>
+          <ClayButton type="button" displayType="secondary" onClick={onClear}>
             <ClayIcon symbol="times" />
             <span className="ml-2">Clear</span>
           </ClayButton>
@@ -179,7 +305,11 @@ export default function PlaceholderItem({
       </div>
 
       <ClayForm.Group className="mb-3">
-        <label htmlFor={`${prefix}-b64`} className="font-weight-semi-bold">
+        <label
+          id={`${prefix}-heading`}
+          htmlFor={`${prefix}-b64`}
+          className="font-weight-semi-bold"
+        >
           Base64 (or data URL)
         </label>
         <br />
@@ -187,19 +317,8 @@ export default function PlaceholderItem({
           id={`${prefix}-b64`}
           placeholder="Paste base64… or a full data URL like data:application/pdf;base64,JVBERi0xL…"
           value={base64Data}
-          onChange={(e) => {
-            const raw = e.target.value;
-            const parsed = parseMaybeDataUrl(raw);
-            if (parsed) {
-              if (!fixedMimeType && !mimeType) {
-                onChange({ base64Data: raw, mimeType: parsed.mime });
-              } else {
-                onChange({ base64Data: raw });
-              }
-            } else {
-              onChange({ base64Data: raw });
-            }
-          }}
+          onChange={(e) => onTextChange(e.target.value)}
+          onPaste={onPaste}
           aria-invalid={!!base64Data && !isValid}
           autoComplete="off"
           autoCorrect="off"
@@ -212,22 +331,44 @@ export default function PlaceholderItem({
             resize: 'vertical',
             fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace',
           }}
+          onDragOver={(e) => {
+            e.preventDefault();
+            e.dataTransfer.dropEffect = 'copy';
+            setDragOver(true);
+          }}
+          onDragLeave={() => setDragOver(false)}
+          onDrop={onDrop}
+          className={dragOver ? 'border-primary' : ''}
         />
         <small className="form-text text-secondary">
-          Paste raw base64 or a full data URL. Upload also supported.
+          Paste raw base64 or a full data URL. You can also drag & drop a file
+          or paste directly from the clipboard.
         </small>
+        {!!sniffedMime && !fixedMimeType && !mimeType && (
+          <small className="form-text text-secondary">
+            Detected type from bytes: <code>{sniffedMime}</code>
+          </small>
+        )}
         {!!base64Data && !isValid && (
           <ClayAlert
             displayType="warning"
             className="mt-2"
             title="Invalid base64"
+            role="alert"
+            aria-live="assertive"
           >
             Make sure you pasted only the base64 portion (after the comma) or a
             full data URL.
           </ClayAlert>
         )}
         {!!uploadError && (
-          <ClayAlert displayType="danger" className="mt-2" title="Upload error">
+          <ClayAlert
+            displayType="danger"
+            className="mt-2"
+            title="Upload error"
+            role="alert"
+            aria-live="assertive"
+          >
             {uploadError}
           </ClayAlert>
         )}
@@ -273,7 +414,7 @@ export default function PlaceholderItem({
         >
           {src ? (
             <Base64Viewer
-              base64Data={normalized.base64}
+              base64Data={normalized.base64.replace(/\s+/g, '')}
               mimeType={normalized.mime}
               width="100%"
               height={
