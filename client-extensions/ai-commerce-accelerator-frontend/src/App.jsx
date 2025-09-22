@@ -1,5 +1,7 @@
-import React, { useState, useRef, useEffect } from 'react';
-import { AppProvider, useApi, useApp  } from './context/AppContext.jsx';
+import React, { useState, useEffect, useCallback } from 'react';
+import { AppProvider, useApi, useApp } from './context/AppContext.jsx';
+
+import useRealtimeWebSocket from './hooks/useRealtimeWebSocket';
 
 import ConfigurationPanel from './components/ConfigurationPanel';
 import DataGeneratorForm from './components/DataGeneratorForm';
@@ -8,7 +10,7 @@ import ProgressMonitor from './components/ProgressMonitor';
 import notifyUser from './utils/notifications';
 
 export function AppUI() {
-  const {config, setConfig} = useApp();
+  const { config, setConfig } = useApp();
   const api = useApi();
 
   const [generationConfig, setGenerationConfig] = useState({
@@ -44,20 +46,24 @@ export function AppUI() {
     pdfs: { total: 0, completed: 0, errors: [] },
   });
   const [logs, setLogs] = useState([]);
+  const addLog = useCallback((message, type = 'info') => {
+    const timestamp = new Date().toLocaleTimeString();
+    setLogs((prev) => [{ timestamp, message, type }, ...prev]);
+  }, []);
+  const clearLogs = () => {
+    setLogs([]);
+  };
+
   const [connectionEstablished, setConnectionEstablished] = useState(false);
   const [openAiKeyAvailable, setOpenAiKeyAvailable] = useState(false);
 
-  const wsRef = useRef(null);
-  const [wsConnected, setWsConnected] = useState(false);
-
-  useEffect(() => {
-    return () => {
-      if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
-        wsRef.current.close(1000, 'Component unmounting');
-        wsRef.current = null;
-      }
-    };
-  }, []);
+  const { wsRef, wsConnected } = useRealtimeWebSocket({
+    enabled: connectionEstablished && !!config.microserviceUrl,
+    microserviceUrl: config.microserviceUrl,
+    loggingLevel: config.wsLoggingLevel,
+    onLog: addLog,
+    onProgress: setProgress,
+  });
 
   useEffect(() => {
     // Force demo mode when no OpenAI key is available
@@ -69,409 +75,6 @@ export function AppUI() {
     }
     // When key becomes available, user has choice (no auto-disable)
   }, [openAiKeyAvailable]);
-
-  // WebSocket connection management
-  useEffect(() => {
-    const effectId =
-      config.wsLoggingLevel !== 'off'
-        ? Math.random().toString(36).substring(7)
-        : null;
-
-    if (config.wsLoggingLevel !== 'off') {
-      console.log('🔄 WebSocket useEffect triggered [' + effectId + ']:', {
-        connectionEstablished,
-        microserviceUrl: config.microserviceUrl,
-        currentWsState: wsRef.current ? wsRef.current.readyState : 'null',
-        wsConnected,
-        timestamp: new Date().toISOString(),
-      });
-    }
-
-    if (!connectionEstablished || !config.microserviceUrl) {
-      if (config.wsLoggingLevel !== 'off') {
-        console.log(
-          'ℹ️ WebSocket connection skipped [' +
-            effectId +
-            '] - prerequisites not met'
-        );
-      }
-      return;
-    }
-
-    // Skip if already connected and healthy
-    if (
-      wsRef.current &&
-      wsRef.current.readyState === WebSocket.OPEN &&
-      wsConnected
-    ) {
-      if (config.wsLoggingLevel !== 'off') {
-        console.log(
-          'ℹ️ WebSocket already healthy, skipping connection [' + effectId + ']'
-        );
-      }
-      return;
-    }
-
-    // Cleanup existing connection if not healthy
-    if (wsRef.current && wsRef.current.readyState !== WebSocket.OPEN) {
-      if (config.wsLoggingLevel !== 'off') {
-        console.log(
-          '🔄 WebSocket effect cleanup [' +
-            effectId +
-            '] - dependency change or unmount'
-        );
-      }
-      try {
-        wsRef.current.close();
-      } catch (closeError) {
-        if (config.wsLoggingLevel !== 'off') {
-          console.warn('Warning during WebSocket close:', closeError);
-        }
-      }
-      wsRef.current = null;
-      setWsConnected(false);
-    }
-
-    const microserviceUrl = config.microserviceUrl?.replace(/\/$/, '');
-    const wsUrl = microserviceUrl.replace(/^http/, 'ws');
-
-    if (config.wsLoggingLevel !== 'off') {
-      console.log('🔗 Attempting WebSocket connection [' + effectId + ']:', {
-        wsUrl,
-        microserviceUrl,
-        timestamp: new Date().toISOString(),
-      });
-    }
-
-    try {
-      if (config.wsLoggingLevel !== 'off') {
-        console.log('🔗 Creating new WebSocket [' + effectId + ']:', {
-          wsUrl,
-          microserviceUrl,
-          timestamp: new Date().toISOString(),
-        });
-      }
-
-      const ws = new WebSocket(wsUrl);
-      wsRef.current = ws;
-
-      // Add connection timeout
-      const connectionTimeout = setTimeout(() => {
-        if (ws.readyState === WebSocket.CONNECTING) {
-          console.warn('⏰ WebSocket connection timeout [' + effectId + ']');
-          ws.close();
-          addLog(
-            'WebSocket connection timed out. Check if microservice is running on ' +
-              microserviceUrl,
-            'warning'
-          );
-        }
-      }, 10000); // 10 second timeout
-
-      ws.onopen = (event) => {
-        clearTimeout(connectionTimeout);
-        if (config.wsLoggingLevel !== 'off') {
-          console.log('✅ WebSocket connected [' + effectId + ']:', {
-            url: wsUrl,
-            readyState: ws.readyState,
-            timestamp: new Date().toISOString(),
-            protocol: ws.protocol,
-            extensions: ws.extensions,
-          });
-        }
-        setWsConnected(true);
-        addLog('WebSocket connection established successfully.', 'success');
-
-        // Send a ping to test the connection
-        try {
-          ws.send(
-            JSON.stringify({
-              type: 'ping',
-              timestamp: new Date().toISOString(),
-            })
-          );
-          if (config.wsLoggingLevel === 'verbose') {
-            console.log('📤 Sent ping to WebSocket server [' + effectId + ']');
-          }
-        } catch (pingError) {
-          if (config.wsLoggingLevel !== 'off') {
-            console.warn('Failed to send ping:', pingError);
-          }
-        }
-      };
-
-      ws.onmessage = (event) => {
-        let data;
-        try {
-          data = JSON.parse(event.data);
-          if (config.wsLoggingLevel === 'verbose') {
-            console.log('📨 WebSocket message received [' + effectId + ']:', {
-              messageType: data.type,
-              timestamp: data.timestamp || new Date().toISOString(),
-              batchId: data.batchId,
-              hasData: !!data,
-              dataKeys: Object.keys(data),
-              fullMessage: data,
-            });
-          } else if (config.wsLoggingLevel === 'info') {
-            console.log(
-              '📨 WebSocket message [' + effectId + ']:',
-              data.type,
-              data.batchId ? `(Batch: ${data.batchId})` : ''
-            );
-          }
-
-          // Handle pong response
-          if (data.type === 'pong') {
-            if (config.wsLoggingLevel === 'verbose') {
-              console.log('🏓 Received pong from server [' + effectId + ']');
-            }
-            return;
-          }
-
-          // Handle connected message
-          if (data.type === 'connected') {
-            if (config.wsLoggingLevel !== 'off') {
-              console.log(
-                '🤝 Received connected confirmation from server [' +
-                  effectId +
-                  ']'
-              );
-            }
-            addLog('Connected to real-time updates', 'success');
-            return;
-          }
-
-          // Handle generation session completion
-          if (data.type === 'generation_session_complete') {
-            if (config.wsLoggingLevel !== 'off') {
-              console.log(
-                '🎉 Generation session completed [' + effectId + ']:',
-                data
-              );
-            }
-            addLog(
-              '✓ All batches completed - starting image and PDF processing...',
-              'success'
-            );
-            return;
-          }
-
-          // Update progress counts based on entity type
-          const updateProgressCounts = (
-            entityType,
-            successCount,
-            failureCount
-          ) => {
-            setProgress((prev) => {
-              const currentEntityProgress = prev[entityType] || {
-                completed: 0,
-                errors: [],
-              };
-              switch (entityType) {
-                case 'pdfs':
-                case 'images':
-                  return {
-                    ...prev,
-                    [entityType]: {
-                      ...currentEntityProgress,
-                      completed: successCount,
-                      errors: [
-                        ...currentEntityProgress.errors,
-                        ...(data.errors || []),
-                      ],
-                    },
-                  };
-                default:
-                  return {
-                    ...prev,
-                    [entityType]: {
-                      ...currentEntityProgress,
-                      completed: currentEntityProgress.completed + successCount,
-                      errors: [
-                        ...currentEntityProgress.errors,
-                        ...(data.errors || []),
-                      ],
-                    },
-                  };
-              }
-            });
-          };
-
-          switch (data.type) {
-            case 'batch_started':
-              addLog(
-                `⏳ Batch started: ${data.batchId} (${data.entityType}) - ${data.totalItems} items`,
-                'info'
-              );
-              setProgress((prev) => {
-                const currentEntity = prev[data.entityType] || {
-                  total: 0,
-                  completed: 0,
-                  errors: [],
-                };
-                return {
-                  ...prev,
-                  [data.entityType]: {
-                    ...currentEntity,
-                    total: currentEntity.total + data.totalItems,
-                    errors: currentEntity.errors || [],
-                  },
-                };
-              });
-              break;
-            case 'batch_progress':
-              addLog(
-                `⏳ Batch progress: ${data.batchId} (${data.entityType}) - ${data.completedCount}/${data.totalItems} (${data.progress}%)`,
-                'info'
-              );
-              setProgress((prev) => ({
-                ...prev,
-                [data.entityType]: {
-                  ...prev[data.entityType],
-                  completed: data.completedCount,
-                },
-              }));
-              break;
-            case 'batch_completed':
-              addLog(
-                `✅ Batch completed: ${data.batchId} (${data.entityType}) - ${
-                  data.successCount || 0
-                } items processed`,
-                'success'
-              );
-              updateProgressCounts(
-                data.entityType,
-                data.successCount || 0,
-                data.failureCount || 0
-              );
-              break;
-
-            case 'session_completed':
-              addLog(
-                `🎉 All batches completed for ${data.entityType} - starting post-processing...`,
-                'success'
-              );
-              break;
-
-            case 'post_processing_started':
-              addLog(
-                `📎 Starting post-processing for images and PDFs...`,
-                'info'
-              );
-              break;
-
-            case 'post_processing_progress':
-              addLog(
-                `📎 Post-processing progress: ${data.data.processedCount}/${data.data.totalCount} (${data.data.progress}%)`,
-                'info'
-              );
-              break;
-
-            case 'post_processing_completed':
-              const errorMsg =
-                data.data.errorCount > 0
-                  ? ` with ${data.data.errorCount} errors`
-                  : '';
-              addLog(
-                `✅ Post-processing completed: ${data.data.processedCount}/${data.data.totalCount} products${errorMsg}`,
-                data.data.errorCount > 0 ? 'warning' : 'success'
-              );
-              break;
-
-            default:
-              if (config.wsLoggingLevel !== 'off') {
-                console.log(
-                  'ℹ️ Unhandled WebSocket message type [' + effectId + ']:',
-                  data.type,
-                  data
-                );
-              }
-              break;
-          }
-        } catch (parseError) {
-          if (config.wsLoggingLevel !== 'off') {
-            console.error(
-              '❌ WebSocket message parse error [' + effectId + ']:',
-              parseError,
-              'Raw data:',
-              event.data
-            );
-          }
-          addLog('WebSocket received invalid message format.', 'error');
-        }
-      };
-
-      ws.onerror = (error) => {
-        clearTimeout(connectionTimeout);
-        if (config.wsLoggingLevel !== 'off') {
-          console.error('❌ WebSocket error [' + effectId + ']:', {
-            error,
-            url: wsUrl,
-            readyState: ws.readyState,
-            timestamp: new Date().toISOString(),
-          });
-        }
-        setWsConnected(false);
-        addLog(
-          `WebSocket connection error: Unable to connect to ${microserviceUrl}. Please check if the microservice is running.`,
-          'error'
-        );
-      };
-
-      ws.onclose = (event) => {
-        clearTimeout(connectionTimeout);
-        if (config.wsLoggingLevel !== 'off') {
-          console.log('🔌 WebSocket disconnected [' + effectId + ']:', {
-            code: event.code,
-            reason: event.reason || 'No reason provided',
-            wasClean: event.wasClean,
-            timestamp: new Date().toISOString(),
-          });
-        }
-        setWsConnected(false);
-
-        // Only log if it was an unexpected closure
-        if (event.code !== 1000) {
-          addLog(
-            'WebSocket connection lost. Updates may be delayed.',
-            'warning'
-          );
-        } else if (event.code === 1000 && config.wsLoggingLevel !== 'off') {
-          console.log('ℹ️ WebSocket disconnected cleanly.');
-        }
-      };
-    } catch (error) {
-      if (config.wsLoggingLevel !== 'off') {
-        console.error(
-          '❌ Failed to create WebSocket connection [' + effectId + ']:',
-          error
-        );
-      }
-      setWsConnected(false);
-      addLog('Failed to establish WebSocket connection.', 'error');
-      wsRef.current = null; // Ensure ref is cleared on error
-    }
-
-    // Cleanup function
-    return () => {
-      if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
-        if (config.wsLoggingLevel !== 'off') {
-          console.log('🧹 Cleaning up WebSocket connection [' + effectId + ']');
-        }
-        wsRef.current.close(1000, 'Component unmounting');
-      }
-    };
-  }, [connectionEstablished, config.microserviceUrl, config.wsLoggingLevel]);
-
-  const addLog = (message, type = 'info') => {
-    const timestamp = new Date().toLocaleTimeString();
-    setLogs((prev) => [...prev, { timestamp, message, type }]);
-  };
-
-  const clearLogs = () => {
-    setLogs([]);
-  };
 
   const exportConfiguration = () => {
     const exportData = {
@@ -1038,10 +641,7 @@ export function AppUI() {
                 : `✓ Successfully generated ${totalOrdersCreated} orders`;
               addLog(orderMessage, 'success');
             } else {
-              addLog(
-                `✗ Order generation failed: ${response.error}`,
-                'error'
-              );
+              addLog(`✗ Order generation failed: ${response.error}`, 'error');
               setProgress((prev) => ({
                 ...prev,
                 orders: {
