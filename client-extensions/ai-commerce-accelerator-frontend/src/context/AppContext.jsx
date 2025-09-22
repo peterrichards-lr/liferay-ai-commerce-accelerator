@@ -30,6 +30,7 @@ export function AppProvider({ initialConfig, children }) {
     () => ({ config, setConfig: updateConfig, api }),
     [config, api, updateConfig]
   );
+
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>;
 }
 

@@ -5,7 +5,7 @@ import { progressReducer, initialProgress } from './state/progressReducer';
 import useActivityLog from './hooks/useActivityLog';
 import useRealtimeWebSocket from './hooks/useRealtimeWebSocket';
 
-import ConfigurationPanel from './components/ConfigurationPanel';
+import ApplicationConfigPanel from './components/config/ApplicationConfigPanel';
 import DataGeneratorForm from './components/DataGeneratorForm';
 import ProgressMonitor from './components/ProgressMonitor';
 
@@ -24,6 +24,8 @@ export function AppUI() {
   );
 
   const { config, setConfig } = useApp();
+
+  const isHosted = false; //!!config.liferayHosted;
 
   const { logs, addLog, addLogGroup, clearLogs } = useActivityLog({
     level: config?.wsLoggingLevel || 'info',
@@ -72,6 +74,11 @@ export function AppUI() {
 
   const [connectionEstablished, setConnectionEstablished] = useState(false);
   const [openAiKeyAvailable, setOpenAiKeyAvailable] = useState(false);
+
+  const [catalogs, setCatalogs] = useState([]);
+  const [channels, setChannels] = useState([]);
+  const [languages, setLanguages] = useState([]);
+  const [currencies, setCurrencies] = useState([]);
 
   const { wsRef, wsConnected } = useRealtimeWebSocket({
     enabled: connectionEstablished && !!config.microserviceUrl,
@@ -138,7 +145,7 @@ export function AppUI() {
       if (!file) return;
 
       const reader = new FileReader();
-      reader.onload = (e) => {
+      reader.onload = async (e) => {
         try {
           const importedData = JSON.parse(e.target.result);
 
@@ -196,16 +203,20 @@ export function AppUI() {
             }
           });
 
+          if (newConfig.channelId != null) {
+            await selectChannel(newConfig.channelId, {
+              selectedLanguages: newConfig.selectedLanguages,
+              currencyCode: newConfig.currencyCode,
+            });
+          }
+
           setConfig(newConfig);
 
-          // Set the imported generation configuration
           if (importedData.generationConfig) {
             setGenerationConfig(importedData.generationConfig);
           }
 
-          // Handle connection state based on whether connection parameters changed
           if (connectionParamsWillChange) {
-            // Connection parameters changed, reset connection state
             if (mountedRef.current) setConnectionEstablished(false);
             if (mountedRef.current) setOpenAiKeyAvailable(false);
 
@@ -229,29 +240,50 @@ export function AppUI() {
       };
 
       reader.readAsText(file);
-      // Clear the input so the same file can be imported again if needed
       event.target.value = '';
     },
     [config, setConfig, connectionEstablished, notifyUser, setGenerationConfig]
   );
 
-  const buildCommonPayload = useCallback(
-    () => ({
-      liferayUrl: config.liferayUrl,
-      clientId: config.clientId,
-      clientSecret: config.clientSecret,
-      catalogId: toInt(config.catalogId),
-      channelId: toInt(config.channelId),
-      currencyCode: config.currencyCode,
-      aiModel: config.aiModel,
-      batchSize: config.batchSize,
-      pollingDelay: config.pollingDelay,
-      selectedLanguages: toArray(config.selectedLanguages),
-    }),
+  const buildPayload = useCallback(
+    (overrides = {}) => {
+      const {
+        includeCredentials = !config.liferayHosted,
+        channel,
+        siteGroupId,
+        ...rest
+      } = overrides;
+
+      const base = {
+        liferayUrl: config.liferayUrl,
+        microserviceUrl: config.microserviceUrl,
+        localeCode: config.localeCode,
+        languageId: config.languageId,
+        pollingDelay: config.pollingDelay,
+
+        catalogId: toInt(config.catalogId),
+        channelId:
+          channel?.id != null ? toInt(channel.id) : toInt(config.channelId),
+        siteGroupId: channel?.siteGroupId ?? siteGroupId,
+        currencyCode: config.currencyCode,
+
+        aiModel: config.aiModel,
+        batchSize: config.batchSize,
+        selectedLanguages: toArray(config.selectedLanguages),
+
+        ...rest,
+      };
+
+      if (includeCredentials && config.clientId && config.clientSecret) {
+        base.clientId = config.clientId;
+        base.clientSecret = config.clientSecret;
+      }
+
+      return base;
+    },
     [config]
   );
 
-  // Function to handle data generation
   const generateData = async (currentGenerationConfig) => {
     const handleGenerate = async (generationConfig) => {
       if (!connectionEstablished) {
@@ -262,9 +294,6 @@ export function AppUI() {
           );
         return;
       }
-
-      // The WebSocket connection is managed by the main useEffect
-      // No manual connection needed here
 
       console.log('🚀 Starting generation process:', {
         wsConnected,
@@ -319,12 +348,8 @@ export function AppUI() {
         let totalImagesCreated = 0;
         let totalPDFsCreated = 0;
 
-        // Generate Products and Accounts in parallel for better performance
-        // Orders will be generated last since they depend on both products and accounts
-
         const parallelTasks = [];
 
-        // Step 1: Prepare Products generation task
         if (generationConfig.productCount > 0) {
           const productTask = async () => {
             try {
@@ -335,9 +360,7 @@ export function AppUI() {
                 );
 
               const response = await api.post('/api/generate/products', {
-                ...buildCommonPayload(),
-                microserviceUrl:
-                  config.microserviceUrl || window.location.origin,
+                ...buildPayload(),
                 count: generationConfig.productCount,
                 categories: generationConfig.categories,
                 generatePriceLists: generationConfig.generatePriceLists,
@@ -365,19 +388,16 @@ export function AppUI() {
                 totalPDFsCreated = response.pdfCount || 0;
 
                 if (response.batchId) {
-                  // Batch mode - WebSocket will handle progress updates
                   const batchMessage = generationConfig.demoMode
                     ? `✓ Successfully submitted ${totalProductsCreated} demo products for batch creation (Batch ID: ${response.batchId})`
                     : `✓ Successfully submitted ${totalProductsCreated} products for batch creation (Batch ID: ${response.batchId})`;
                   if (mountedRef.current) addLog(batchMessage, 'success');
                 } else {
-                  // Individual mode - immediate success
                   const productMessage = generationConfig.demoMode
                     ? `✓ Successfully generated ${totalProductsCreated} demo products`
                     : `✓ Successfully generated ${totalProductsCreated} products`;
                   if (mountedRef.current) addLog(productMessage, 'success');
 
-                  // Update progress immediately for non-batch operations
                   setProgress((prev) => ({
                     ...prev,
                     products: {
@@ -393,7 +413,6 @@ export function AppUI() {
                     : `✓ Generated ${totalPDFsCreated} product PDFs`;
                   if (mountedRef.current) addLog(pdfMessage, 'success');
 
-                  // Update PDF progress immediately
                   setProgress((prev) => ({
                     ...prev,
                     pdfs: { ...prev.pdfs, completed: totalPDFsCreated },
@@ -405,6 +424,7 @@ export function AppUI() {
                     `✗ Product generation failed: ${response.error}`,
                     'error'
                   );
+
                 setProgress((prev) => ({
                   ...prev,
                   products: {
@@ -434,7 +454,6 @@ export function AppUI() {
           parallelTasks.push(productTask);
         }
 
-        // Step 2: Prepare Accounts generation task
         if (generationConfig.accountCount > 0) {
           const accountTask = async () => {
             try {
@@ -445,7 +464,7 @@ export function AppUI() {
                 );
 
               const response = await api.post('/api/generate/accounts', {
-                ...buildCommonPayload(),
+                ...buildPayload(),
                 count: generationConfig.accountCount,
                 demoMode: generationConfig.demoMode,
               });
@@ -454,19 +473,16 @@ export function AppUI() {
                 totalAccountsCreated = response.count || 0;
 
                 if (response.batchId) {
-                  // Batch mode - WebSocket will handle progress updates
                   const batchMessage = generationConfig.demoMode
                     ? `✓ Successfully submitted ${totalAccountsCreated} demo accounts for batch creation (Batch ID: ${response.batchId})`
                     : `✓ Successfully submitted ${totalAccountsCreated} accounts for batch creation (Batch ID: ${response.batchId})`;
                   if (mountedRef.current) addLog(batchMessage, 'success');
                 } else {
-                  // Individual mode - immediate success
                   const accountMessage = generationConfig.demoMode
                     ? `✓ Successfully generated ${totalAccountsCreated} demo accounts`
                     : `✓ Successfully generated ${totalAccountsCreated} accounts`;
                   if (mountedRef.current) addLog(accountMessage, 'success');
 
-                  // Update progress immediately for non-batch operations
                   setProgress((prev) => ({
                     ...prev,
                     accounts: {
@@ -510,7 +526,6 @@ export function AppUI() {
           parallelTasks.push(accountTask);
         }
 
-        // Execute products and accounts generation in parallel
         if (parallelTasks.length > 0) {
           if (mountedRef.current)
             addLog(
@@ -522,7 +537,6 @@ export function AppUI() {
             addLog(`✓ Parallel generation tasks completed`, 'success');
         }
 
-        // Step 3: Generate Orders (LAST - depends on products and accounts)
         if (generationConfig.orderCount > 0) {
           try {
             const hasProducts = generationConfig.productCount > 0;
@@ -534,7 +548,6 @@ export function AppUI() {
                 'info'
               );
 
-            // If products or accounts were just created, wait and verify they're available
             if (hasProducts || hasAccounts) {
               if (mountedRef.current)
                 addLog(
@@ -542,11 +555,10 @@ export function AppUI() {
                   'info'
                 );
 
-              // Wait with retries to ensure data is available
               let retries = 0;
-              const maxRetries = 12; // 60 seconds total
-              let productsAvailable = !hasProducts; // true if we don't need products
-              let accountsAvailable = !hasAccounts; // true if we don't need accounts
+              const maxRetries = 12;
+              let productsAvailable = !hasProducts;
+              let accountsAvailable = !hasAccounts;
 
               while (
                 (!productsAvailable || !accountsAvailable) &&
@@ -560,7 +572,6 @@ export function AppUI() {
                   );
 
                 try {
-                  // Check products availability
                   if (hasProducts && !productsAvailable) {
                     const productsCheck = await api.post(
                       '/api/validate/products',
@@ -587,7 +598,6 @@ export function AppUI() {
                     }
                   }
 
-                  // Check accounts availability
                   if (hasAccounts && !accountsAvailable) {
                     const accountsCheck = await api.post(
                       '/api/validate/accounts',
@@ -598,17 +608,18 @@ export function AppUI() {
                         requiredCount: totalAccountsCreated,
                       }
                     );
-                    accountsAvailable = accountsCheck.data.sufficient;
+
+                    accountsAvailable = res.sufficient;
                     if (accountsAvailable) {
                       if (mountedRef.current)
                         addLog(
-                          `✓ Found ${accountsCheck.data.count} accounts available (${accountsCheck.data.required} required)`,
+                          `✓ Found ${accountsCheck.count} accounts available (${accountsCheck.required} required)`,
                           'success'
                         );
                     } else {
                       if (mountedRef.current)
                         addLog(
-                          `⚠ Only ${accountsCheck.data.count} accounts found, ${accountsCheck.data.required} required`,
+                          `⚠ Only ${accountsCheck.count} accounts found, ${accountsCheck.required} required`,
                           'info'
                         );
                     }
@@ -629,7 +640,6 @@ export function AppUI() {
                   );
                 }
 
-                // Wait 5 seconds before next check
                 await new Promise((resolve) => setTimeout(resolve, 5000));
               }
 
@@ -645,7 +655,6 @@ export function AppUI() {
               }
             }
 
-            // Determine if retry should be enabled based on whether we created products/accounts
             const enableRetry =
               totalProductsCreated > 0 || totalAccountsCreated > 0;
 
@@ -658,10 +667,9 @@ export function AppUI() {
             }
 
             const response = await api.post('/api/generate/orders', {
-              ...buildCommonPayload(),
+              ...buildPayload(),
               orderCount: generationConfig.orderCount,
               demoMode: generationConfig.demoMode,
-              microserviceUrl: config.microserviceUrl,
               enableRetry: enableRetry,
             });
 
@@ -683,9 +691,8 @@ export function AppUI() {
               }));
             }
           } catch (error) {
-            const errorMessage = error.response?.data?.error || error.message;
+            const errorMessage = error.response?.error || error.message;
 
-            // Check for specific validation errors that users can fix
             if (errorMessage.includes('No products available')) {
               if (mountedRef.current)
                 addLog(
@@ -713,8 +720,6 @@ export function AppUI() {
           }
         }
 
-        // Final progress updates are handled by WebSocket for batch operations
-        // Only update for non-batch operations or orders (which are always individual)
         if (totalOrdersCreated > 0) {
           setProgress((prev) => ({
             ...prev,
@@ -729,9 +734,7 @@ export function AppUI() {
       } catch (error) {
         if (mountedRef.current)
           addLog(
-            `Generation failed: ${
-              error.response?.data?.error || error.message
-            }`,
+            `Generation failed: ${error.response?.error || error.message}`,
             'error'
           );
       } finally {
@@ -742,37 +745,116 @@ export function AppUI() {
     handleGenerate(currentGenerationConfig);
   };
 
-  // Function to handle connection testing and update state
-  const testConnection = async () => {
-    try {
-      const response = await api.get('/api/health');
-      if (response.status === 200) {
-        if (mountedRef.current) setConnectionEstablished(true);
-        if (mountedRef.current)
-          addLog(
-            'Connection to microservice established successfully.',
-            'success'
-          );
+  const loadRootLists = async () => {
+    const payload = buildPayload();
 
-        // OpenAI key availability is already set from the connection test
-        // No need for separate status check
-      } else {
-        if (mountedRef.current) setConnectionEstablished(false);
-        if (mountedRef.current) setOpenAiKeyAvailable(false); // Reset OpenAI status if connection fails
-        if (mountedRef.current)
-          addLog('Failed to establish connection to microservice.', 'error');
-      }
-    } catch (error) {
-      if (mountedRef.current) setConnectionEstablished(false);
-      if (mountedRef.current) setOpenAiKeyAvailable(false); // Reset OpenAI status if connection fails
-      if (mountedRef.current)
-        addLog(
-          `Connection test failed: ${
-            error.response?.data?.error || error.message
-          }`,
-          'error'
+    const [cat, ch] = await Promise.all([
+      api.post('/api/get-catalogs', payload),
+      api.post('/api/get-channels', payload),
+    ]);
+
+    const cats = Array.isArray(cat?.catalogs) ? cat.catalogs : [];
+    const chs = Array.isArray(ch?.channels) ? ch.channels : [];
+
+    setCatalogs(cats);
+    setChannels(chs);
+
+    return { catalogs: cats, channels: chs };
+  };
+
+  const loadChannelDependent = async (channelOrId) => {
+    let chObj =
+      channelOrId && typeof channelOrId === 'object'
+        ? channelOrId
+        : (channels || []).find((c) => String(c.id) === String(channelOrId));
+
+    if (!chObj) {
+      const fresh = (await loadRootLists()).channels;
+      chObj = fresh.find((c) => String(c.id) === String(channelOrId));
+      if (!chObj) {
+        notifyUser(
+          'Selected channel not found. Please test the connection again.',
+          'warning'
         );
+        return null;
+      }
     }
+
+    const payload = buildPayload({ channel: chObj });
+
+    const [langsRes, currsRes] = await Promise.all([
+      api.post('/api/get-languages', payload),
+      api.post('/api/get-currencies', payload),
+    ]);
+
+    const langs = Array.isArray(langsRes?.languages) ? langsRes.languages : [];
+    const currs = Array.isArray(currsRes?.currencies)
+      ? currsRes.currencies
+      : [];
+
+    setLanguages(langs);
+    setCurrencies(currs);
+
+    setConfig((prev) => ({
+      ...prev,
+      channelId: chObj.id,
+      ...(prev.currencyCode
+        ? {}
+        : chObj.currencyCode
+        ? { currencyCode: chObj.currencyCode }
+        : {}),
+    }));
+
+    return chObj;
+  };
+
+  const testConnection = async () => {
+    const payload = buildPayload();
+    const res = await api.post('/api/test-connection', payload);
+
+    if (!res?.success) {
+      setConnectionEstablished(false);
+      setOpenAiKeyAvailable(false);
+      throw new Error(res?.message || 'Failed to establish connection.');
+    }
+
+    // Optional: log server message
+    addLog(res.message || 'Connected.', 'success');
+
+    setOpenAiKeyAvailable(Boolean(res.openAiKeyAvailable));
+
+    await loadRootLists(); // fetch catalogs + channels
+    setConnectionEstablished(true);
+
+    return res;
+  };
+
+  const selectChannel = async (
+    channelObjOrId,
+    { selectedLanguages, currencyCode } = {}
+  ) => {
+    const chObj = await loadChannelDependent(channelObjOrId);
+    if (!chObj) return;
+
+    // Re-apply selections AFTER options load
+    setConfig((prev) => {
+      const available = new Set(
+        (languages || []).map((l) => l.code ?? l.locale ?? l.id)
+      );
+      const nextLangs = Array.isArray(selectedLanguages)
+        ? selectedLanguages.filter((code) => available.has(code))
+        : prev.selectedLanguages;
+
+      const nextCurr =
+        currencyCode ?? prev.currencyCode ?? chObj.currencyCode ?? '';
+
+      return {
+        ...prev,
+        channelId: chObj.id,
+        selectedLanguages: nextLangs,
+        currencyCode: nextCurr,
+      };
+    });
   };
 
   const subtitle = React.useMemo(
@@ -797,15 +879,21 @@ export function AppUI() {
             <div className="card-body">
               <div className="row">
                 <div className="col-lg-4">
-                  <ConfigurationPanel
-                    config={config}
-                    setConfig={setConfig}
+                  <ApplicationConfigPanel
                     disabled={isGenerating}
                     generationConfig={generationConfig}
-                    onTestConnection={testConnection} // Pass testConnection function
+                    // NEW: wire the connection test + status + lists
+                    onTestConnection={testConnection}
                     onConnectionStatusChange={setConnectionEstablished}
-                    onOpenAiKeyStatusChange={setOpenAiKeyAvailable} // Pass callback to update OpenAI key status
-                    openAiKeyAvailable={openAiKeyAvailable} // Pass OpenAI key status
+                    connected={connectionEstablished}
+                    catalogs={catalogs}
+                    channels={channels}
+                    languages={languages}
+                    currencies={currencies}
+                    onSelectChannel={selectChannel}
+                    // Keep OpenAI key plumbing (for DataGeneratorForm/demo mode)
+                    onOpenAiKeyStatusChange={setOpenAiKeyAvailable}
+                    openAiKeyAvailable={openAiKeyAvailable}
                   />
                 </div>
                 <div className="col-lg-8">

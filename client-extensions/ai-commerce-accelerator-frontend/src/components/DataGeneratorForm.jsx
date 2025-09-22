@@ -129,6 +129,16 @@ function DataGeneratorForm({
           <i className="icon icon-magic"></i>
           Data Generation
         </h5>
+
+        {typeof openAiKeyAvailable === 'boolean' && (
+          <span
+            className={`label ${
+              openAiKeyAvailable ? 'label-success' : 'label-warning'
+            }`}
+          >
+            {openAiKeyAvailable ? 'OpenAI key detected' : 'OpenAI key not set'}
+          </span>
+        )}
       </div>
       <div className="form-body">
         <form name="dataGeneration" onSubmit={handleSubmit}>

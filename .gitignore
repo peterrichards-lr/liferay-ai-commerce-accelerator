@@ -29,4 +29,5 @@ test-results
 package-lock.json
 package.json
 yarn.lock
-fragments/ai-commerce-accelerator/fragment.css
+fragments/**/*.css
+

@@ -355,6 +355,10 @@ liferay-ai-commerce-accelerator-frontend {
     gap: 0.5rem;
   }
 
+  .text-info {
+    font-size: 0.875rem;
+  }
+
   .log-entry {
     margin-bottom: 0.75rem;
     padding: 0.75rem;
@@ -558,6 +562,8 @@ liferay-ai-commerce-accelerator-frontend {
     border-bottom: 1px solid #dee2e6;
     background: #f8f9fa;
     border-radius: 8px 8px 0 0;
+    display: flex;
+    justify-content: space-between;
   }
 
   .form-header h5 {
@@ -1058,5 +1064,9 @@ liferay-ai-commerce-accelerator-frontend {
       flex-direction: column;
       gap: 0.5rem;
     }
+  }
+
+  .form-check-input {
+    margin-right: 0.325rem;
   }
 }
