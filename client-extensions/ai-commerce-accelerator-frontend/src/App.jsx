@@ -1,10 +1,8 @@
 import React, { useState, useEffect, useCallback, useReducer } from 'react';
 import { AppProvider, useApi, useApp } from './context/AppContext.jsx';
-import {
-  progressReducer,
-  initialProgress
-} from './state/progressReducer';
+import { progressReducer, initialProgress } from './state/progressReducer';
 
+import useActivityLog from './hooks/useActivityLog';
 import useRealtimeWebSocket from './hooks/useRealtimeWebSocket';
 
 import ConfigurationPanel from './components/ConfigurationPanel';
@@ -13,8 +11,28 @@ import ProgressMonitor from './components/ProgressMonitor';
 
 import notifyUser from './utils/notifications';
 
+const toInt = (v) => (v == null || v === '' ? undefined : parseInt(v, 10));
+const toArray = (v) => (Array.isArray(v) ? v : v ? [v] : []);
+
 export function AppUI() {
+  const mountedRef = React.useRef(true);
+  useEffect(
+    () => () => {
+      mountedRef.current = false;
+    },
+    []
+  );
+
   const { config, setConfig } = useApp();
+
+  const { logs, addLog, addLogGroup, clearLogs } = useActivityLog({
+    level: config?.wsLoggingLevel || 'info',
+    maxEntries: 500,
+    dedupeWindowMs: 1000,
+    mirrorToConsole: true,
+    storageKey: 'activityLog:v1',
+  });
+
   const api = useApi();
 
   const [generationConfig, setGenerationConfig] = useState({
@@ -52,25 +70,23 @@ export function AppUI() {
     }
   }, []);
 
-  const [logs, setLogs] = useState([]);
-  const addLog = useCallback((message, type = 'info') => {
-    const timestamp = new Date().toLocaleTimeString();
-    setLogs((prev) => [{ timestamp, message, type }, ...prev]);
-  }, []);
-  const clearLogs = () => {
-    setLogs([]);
-  };
-
   const [connectionEstablished, setConnectionEstablished] = useState(false);
   const [openAiKeyAvailable, setOpenAiKeyAvailable] = useState(false);
 
   const { wsRef, wsConnected } = useRealtimeWebSocket({
     enabled: connectionEstablished && !!config.microserviceUrl,
     microserviceUrl: config.microserviceUrl,
-    loggingLevel: config.wsLoggingLevel,
+    loggingLevel: config?.wsLoggingLevel ?? 'off',
     onLog: addLog,
     onProgress: setProgress,
   });
+
+  const wsStatus =
+    !connectionEstablished || !config?.microserviceUrl
+      ? 'disabled'
+      : wsConnected
+      ? 'connected'
+      : 'connecting';
 
   useEffect(() => {
     // Force demo mode when no OpenAI key is available
@@ -116,114 +132,134 @@ export function AppUI() {
     notifyUser('Configuration exported successfully');
   };
 
-  const importConfiguration = (event) => {
-    const file = event.target.files[0];
-    if (!file) return;
+  const importConfiguration = useCallback(
+    (event) => {
+      const file = event.target.files[0];
+      if (!file) return;
 
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      try {
-        const importedData = JSON.parse(e.target.result);
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        try {
+          const importedData = JSON.parse(e.target.result);
 
-        // Only validate fields that are actually present in the imported data
-        const fieldsToValidate = ['liferayUrl', 'clientId', 'clientSecret'];
-        const missingFields = [];
+          // Only validate fields that are actually present in the imported data
+          const fieldsToValidate = ['liferayUrl', 'clientId', 'clientSecret'];
+          const missingFields = [];
 
-        fieldsToValidate.forEach((field) => {
-          if (
-            importedData.hasOwnProperty(field) &&
-            (!importedData[field] || importedData[field].trim() === '')
-          ) {
-            missingFields.push(field);
+          fieldsToValidate.forEach((field) => {
+            const val = importedData[field];
+            const empty =
+              val == null || (typeof val === 'string' && val.trim() === '');
+            if (importedData.hasOwnProperty(field) && empty) {
+              missingFields.push(field);
+            }
+          });
+
+          if (missingFields.length > 0) {
+            notifyUser(
+              `Invalid values for: ${missingFields.join(', ')}`,
+              'danger'
+            );
+            return;
           }
-        });
 
-        if (missingFields.length > 0) {
-          notifyUser(
-            `Invalid values for: ${missingFields.join(', ')}`,
-            'danger'
-          );
-          return;
-        }
+          // Check if connection parameters will change
+          const connectionParamsWillChange =
+            (importedData.hasOwnProperty('liferayUrl') &&
+              config.liferayUrl !== importedData.liferayUrl) ||
+            (importedData.hasOwnProperty('clientId') &&
+              config.clientId !== importedData.clientId) ||
+            (importedData.hasOwnProperty('clientSecret') &&
+              config.clientSecret !== importedData.clientSecret);
 
-        // Check if connection parameters will change
-        const connectionParamsWillChange =
-          (importedData.hasOwnProperty('liferayUrl') &&
-            config.liferayUrl !== importedData.liferayUrl) ||
-          (importedData.hasOwnProperty('clientId') &&
-            config.clientId !== importedData.clientId) ||
-          (importedData.hasOwnProperty('clientSecret') &&
-            config.clientSecret !== importedData.clientSecret);
+          // Import general configuration fields
+          const allowedConfigFields = [
+            'liferayUrl',
+            'microserviceUrl',
+            'clientId',
+            'clientSecret',
+            'batchSize',
+            'pollingDelay',
+            'aiModel',
+            'currencyCode',
+            'selectedLanguages',
+            'catalogId',
+            'channelId',
+            'reactLoggingLevel',
+            'wsLoggingLevel',
+          ];
 
-        // Import general configuration fields
-        const allowedConfigFields = [
-          'liferayUrl',
-          'microserviceUrl',
-          'clientId',
-          'clientSecret',
-          'batchSize',
-          'pollingDelay',
-          'aiModel',
-          'currencyCode',
-          'selectedLanguages',
-          'catalogId',
-          'channelId',
-          'reactLoggingLevel',
-          'wsLoggingLevel',
-        ];
+          const newConfig = { ...config };
+          allowedConfigFields.forEach((field) => {
+            if (importedData.hasOwnProperty(field)) {
+              newConfig[field] = importedData[field];
+            }
+          });
 
-        const newConfig = { ...config };
-        allowedConfigFields.forEach((field) => {
-          if (importedData.hasOwnProperty(field)) {
-            newConfig[field] = importedData[field];
+          setConfig(newConfig);
+
+          // Set the imported generation configuration
+          if (importedData.generationConfig) {
+            setGenerationConfig(importedData.generationConfig);
           }
-        });
 
-        setConfig(newConfig);
+          // Handle connection state based on whether connection parameters changed
+          if (connectionParamsWillChange) {
+            // Connection parameters changed, reset connection state
+            if (mountedRef.current) setConnectionEstablished(false);
+            if (mountedRef.current) setOpenAiKeyAvailable(false);
 
-        // Set the imported generation configuration
-        if (importedData.generationConfig) {
-          setGenerationConfig(importedData.generationConfig);
-        }
-
-        // Handle connection state based on whether connection parameters changed
-        if (connectionParamsWillChange) {
-          // Connection parameters changed, reset connection state
-          setConnectionEstablished(false);
-          setOpenAiKeyAvailable(false);
-
+            notifyUser(
+              'Configuration imported successfully. Please test connection with new parameters.'
+            );
+          } else {
+            notifyUser(
+              connectionEstablished
+                ? 'Configuration imported successfully! Connection maintained.'
+                : 'Configuration imported successfully.'
+            );
+          }
+        } catch (error) {
           notifyUser(
-            'Configuration imported successfully. Please test connection with new parameters.'
-          );
-        } else {
-          notifyUser(
-            connectionEstablished
-              ? 'Configuration imported successfully! Connection maintained.'
-              : 'Configuration imported successfully.'
+            'Failed to import configuration. Invalid JSON file.',
+            'danger',
+            error
           );
         }
-      } catch (error) {
-        notifyUser(
-          'Failed to import configuration. Invalid JSON file.',
-          'danger',
-          error
-        );
-      }
-    };
+      };
 
-    reader.readAsText(file);
-    // Clear the input so the same file can be imported again if needed
-    event.target.value = '';
-  };
+      reader.readAsText(file);
+      // Clear the input so the same file can be imported again if needed
+      event.target.value = '';
+    },
+    [config, setConfig, connectionEstablished, notifyUser, setGenerationConfig]
+  );
+
+  const buildCommonPayload = useCallback(
+    () => ({
+      liferayUrl: config.liferayUrl,
+      clientId: config.clientId,
+      clientSecret: config.clientSecret,
+      catalogId: toInt(config.catalogId),
+      channelId: toInt(config.channelId),
+      currencyCode: config.currencyCode,
+      aiModel: config.aiModel,
+      batchSize: config.batchSize,
+      pollingDelay: config.pollingDelay,
+      selectedLanguages: toArray(config.selectedLanguages),
+    }),
+    [config]
+  );
 
   // Function to handle data generation
   const generateData = async (currentGenerationConfig) => {
     const handleGenerate = async (generationConfig) => {
       if (!connectionEstablished) {
-        addLog(
-          'Please test the connection first before generating data.',
-          'error'
-        );
+        if (mountedRef.current)
+          addLog(
+            'Please test the connection first before generating data.',
+            'error'
+          );
         return;
       }
 
@@ -237,7 +273,7 @@ export function AppUI() {
         wsState: wsRef.current ? wsRef.current.readyState : 'null',
       });
 
-      setIsGenerating(true);
+      if (mountedRef.current) setIsGenerating(true);
       setProgress({
         products: {
           total: generationConfig.productCount,
@@ -270,10 +306,11 @@ export function AppUI() {
         },
       });
 
-      addLog(
-        `Starting data generation: ${generationConfig.productCount} products, ${generationConfig.accountCount} accounts, ${generationConfig.orderCount} orders`,
-        'info'
-      );
+      if (mountedRef.current)
+        addLog(
+          `Starting data generation: ${generationConfig.productCount} products, ${generationConfig.accountCount} accounts, ${generationConfig.orderCount} orders`,
+          'info'
+        );
 
       try {
         let totalProductsCreated = 0;
@@ -291,26 +328,16 @@ export function AppUI() {
         if (generationConfig.productCount > 0) {
           const productTask = async () => {
             try {
-              addLog(
-                `Generating ${generationConfig.productCount} products...`,
-                'info'
-              );
+              if (mountedRef.current)
+                addLog(
+                  `Generating ${generationConfig.productCount} products...`,
+                  'info'
+                );
 
               const response = await api.post('/api/generate/products', {
-                liferayUrl: config.liferayUrl,
-                clientId: config.clientId,
-                clientSecret: config.clientSecret,
-                catalogId: parseInt(config.catalogId),
-                channelId: parseInt(config.channelId),
-                currencyCode: config.currencyCode,
-                aiModel: config.aiModel,
-                batchSize: config.batchSize,
-                pollingDelay: config.pollingDelay,
+                ...buildCommonPayload(),
                 microserviceUrl:
                   config.microserviceUrl || window.location.origin,
-                selectedLanguages: Array.isArray(config.selectedLanguages)
-                  ? config.selectedLanguages
-                  : [],
                 count: generationConfig.productCount,
                 categories: generationConfig.categories,
                 generatePriceLists: generationConfig.generatePriceLists,
@@ -342,13 +369,13 @@ export function AppUI() {
                   const batchMessage = generationConfig.demoMode
                     ? `✓ Successfully submitted ${totalProductsCreated} demo products for batch creation (Batch ID: ${response.batchId})`
                     : `✓ Successfully submitted ${totalProductsCreated} products for batch creation (Batch ID: ${response.batchId})`;
-                  addLog(batchMessage, 'success');
+                  if (mountedRef.current) addLog(batchMessage, 'success');
                 } else {
                   // Individual mode - immediate success
                   const productMessage = generationConfig.demoMode
                     ? `✓ Successfully generated ${totalProductsCreated} demo products`
                     : `✓ Successfully generated ${totalProductsCreated} products`;
-                  addLog(productMessage, 'success');
+                  if (mountedRef.current) addLog(productMessage, 'success');
 
                   // Update progress immediately for non-batch operations
                   setProgress((prev) => ({
@@ -364,7 +391,7 @@ export function AppUI() {
                   const pdfMessage = generationConfig.demoMode
                     ? `✓ Generated ${totalPDFsCreated} demo PDFs`
                     : `✓ Generated ${totalPDFsCreated} product PDFs`;
-                  addLog(pdfMessage, 'success');
+                  if (mountedRef.current) addLog(pdfMessage, 'success');
 
                   // Update PDF progress immediately
                   setProgress((prev) => ({
@@ -373,10 +400,11 @@ export function AppUI() {
                   }));
                 }
               } else {
-                addLog(
-                  `✗ Product generation failed: ${response.error}`,
-                  'error'
-                );
+                if (mountedRef.current)
+                  addLog(
+                    `✗ Product generation failed: ${response.error}`,
+                    'error'
+                  );
                 setProgress((prev) => ({
                   ...prev,
                   products: {
@@ -386,12 +414,13 @@ export function AppUI() {
                 }));
               }
             } catch (error) {
-              addLog(
-                `✗ Product generation failed: ${
-                  error.response?.data?.error || error.message
-                }`,
-                'error'
-              );
+              if (mountedRef.current)
+                addLog(
+                  `✗ Product generation failed: ${
+                    error.response?.data?.error || error.message
+                  }`,
+                  'error'
+                );
               setProgress((prev) => ({
                 ...prev,
                 products: {
@@ -409,21 +438,14 @@ export function AppUI() {
         if (generationConfig.accountCount > 0) {
           const accountTask = async () => {
             try {
-              addLog(
-                `Generating ${generationConfig.accountCount} accounts...`,
-                'info'
-              );
+              if (mountedRef.current)
+                addLog(
+                  `Generating ${generationConfig.accountCount} accounts...`,
+                  'info'
+                );
 
               const response = await api.post('/api/generate/accounts', {
-                liferayUrl: config.liferayUrl,
-                clientId: config.clientId,
-                clientSecret: config.clientSecret,
-                aiModel: config.aiModel,
-                batchSize: config.batchSize,
-                pollingDelay: config.pollingDelay,
-                selectedLanguages: Array.isArray(config.selectedLanguages)
-                  ? config.selectedLanguages
-                  : [],
+                ...buildCommonPayload(),
                 count: generationConfig.accountCount,
                 demoMode: generationConfig.demoMode,
               });
@@ -436,13 +458,13 @@ export function AppUI() {
                   const batchMessage = generationConfig.demoMode
                     ? `✓ Successfully submitted ${totalAccountsCreated} demo accounts for batch creation (Batch ID: ${response.batchId})`
                     : `✓ Successfully submitted ${totalAccountsCreated} accounts for batch creation (Batch ID: ${response.batchId})`;
-                  addLog(batchMessage, 'success');
+                  if (mountedRef.current) addLog(batchMessage, 'success');
                 } else {
                   // Individual mode - immediate success
                   const accountMessage = generationConfig.demoMode
                     ? `✓ Successfully generated ${totalAccountsCreated} demo accounts`
                     : `✓ Successfully generated ${totalAccountsCreated} accounts`;
-                  addLog(accountMessage, 'success');
+                  if (mountedRef.current) addLog(accountMessage, 'success');
 
                   // Update progress immediately for non-batch operations
                   setProgress((prev) => ({
@@ -454,10 +476,11 @@ export function AppUI() {
                   }));
                 }
               } else {
-                addLog(
-                  `✗ Account generation failed: ${response.error}`,
-                  'error'
-                );
+                if (mountedRef.current)
+                  addLog(
+                    `✗ Account generation failed: ${response.error}`,
+                    'error'
+                  );
                 setProgress((prev) => ({
                   ...prev,
                   accounts: {
@@ -467,12 +490,13 @@ export function AppUI() {
                 }));
               }
             } catch (error) {
-              addLog(
-                `✗ Account generation failed: ${
-                  error.response?.data?.error || error.message
-                }`,
-                'error'
-              );
+              if (mountedRef.current)
+                addLog(
+                  `✗ Account generation failed: ${
+                    error.response?.data?.error || error.message
+                  }`,
+                  'error'
+                );
               setProgress((prev) => ({
                 ...prev,
                 accounts: {
@@ -488,12 +512,14 @@ export function AppUI() {
 
         // Execute products and accounts generation in parallel
         if (parallelTasks.length > 0) {
-          addLog(
-            `Executing ${parallelTasks.length} generation tasks in parallel...`,
-            'info'
-          );
+          if (mountedRef.current)
+            addLog(
+              `Executing ${parallelTasks.length} generation tasks in parallel...`,
+              'info'
+            );
           await Promise.all(parallelTasks.map((task) => task()));
-          addLog(`✓ Parallel generation tasks completed`, 'success');
+          if (mountedRef.current)
+            addLog(`✓ Parallel generation tasks completed`, 'success');
         }
 
         // Step 3: Generate Orders (LAST - depends on products and accounts)
@@ -502,17 +528,19 @@ export function AppUI() {
             const hasProducts = generationConfig.productCount > 0;
             const hasAccounts = generationConfig.accountCount > 0;
 
-            addLog(
-              `Generating ${generationConfig.orderCount} orders...`,
-              'info'
-            );
+            if (mountedRef.current)
+              addLog(
+                `Generating ${generationConfig.orderCount} orders...`,
+                'info'
+              );
 
             // If products or accounts were just created, wait and verify they're available
             if (hasProducts || hasAccounts) {
-              addLog(
-                '⏳ Verifying products and accounts are available in Liferay...',
-                'info'
-              );
+              if (mountedRef.current)
+                addLog(
+                  '⏳ Verifying products and accounts are available in Liferay...',
+                  'info'
+                );
 
               // Wait with retries to ensure data is available
               let retries = 0;
@@ -525,10 +553,11 @@ export function AppUI() {
                 retries < maxRetries
               ) {
                 retries++;
-                addLog(
-                  `⏳ Checking data availability (attempt ${retries}/${maxRetries})...`,
-                  'info'
-                );
+                if (mountedRef.current)
+                  addLog(
+                    `⏳ Checking data availability (attempt ${retries}/${maxRetries})...`,
+                    'info'
+                  );
 
                 try {
                   // Check products availability
@@ -544,15 +573,17 @@ export function AppUI() {
                     );
                     productsAvailable = productsCheck.sufficient;
                     if (productsAvailable) {
-                      addLog(
-                        `✓ Found ${productsCheck.count} products available (${productsCheck.required} required)`,
-                        'success'
-                      );
+                      if (mountedRef.current)
+                        addLog(
+                          `✓ Found ${productsCheck.count} products available (${productsCheck.required} required)`,
+                          'success'
+                        );
                     } else {
-                      addLog(
-                        `⚠ Only ${productsCheck.count} products found, ${productsCheck.required} required`,
-                        'info'
-                      );
+                      if (mountedRef.current)
+                        addLog(
+                          `⚠ Only ${productsCheck.count} products found, ${productsCheck.required} required`,
+                          'info'
+                        );
                     }
                   }
 
@@ -569,23 +600,26 @@ export function AppUI() {
                     );
                     accountsAvailable = accountsCheck.data.sufficient;
                     if (accountsAvailable) {
-                      addLog(
-                        `✓ Found ${accountsCheck.data.count} accounts available (${accountsCheck.data.required} required)`,
-                        'success'
-                      );
+                      if (mountedRef.current)
+                        addLog(
+                          `✓ Found ${accountsCheck.data.count} accounts available (${accountsCheck.data.required} required)`,
+                          'success'
+                        );
                     } else {
-                      addLog(
-                        `⚠ Only ${accountsCheck.data.count} accounts found, ${accountsCheck.data.required} required`,
-                        'info'
-                      );
+                      if (mountedRef.current)
+                        addLog(
+                          `⚠ Only ${accountsCheck.data.count} accounts found, ${accountsCheck.data.required} required`,
+                          'info'
+                        );
                     }
                   }
 
                   if (productsAvailable && accountsAvailable) {
-                    addLog(
-                      '✓ All required data is now available in Liferay',
-                      'success'
-                    );
+                    if (mountedRef.current)
+                      addLog(
+                        '✓ All required data is now available in Liferay',
+                        'success'
+                      );
                     break;
                   }
                 } catch (checkError) {
@@ -616,25 +650,15 @@ export function AppUI() {
               totalProductsCreated > 0 || totalAccountsCreated > 0;
 
             if (enableRetry) {
-              addLog(
-                `Retry enabled: Dependencies were created in this session`,
-                'info'
-              );
+              if (mountedRef.current)
+                addLog(
+                  `Retry enabled: Dependencies were created in this session`,
+                  'info'
+                );
             }
 
             const response = await api.post('/api/generate/orders', {
-              liferayUrl: config.liferayUrl,
-              clientId: config.clientId,
-              clientSecret: config.clientSecret,
-              catalogId: parseInt(config.catalogId),
-              channelId: parseInt(config.channelId),
-              currencyCode: config.currencyCode,
-              aiModel: config.aiModel,
-              batchSize: config.batchSize,
-              pollingDelay: config.pollingDelay,
-              selectedLanguages: Array.isArray(config.selectedLanguages)
-                ? config.selectedLanguages
-                : [],
+              ...buildCommonPayload(),
               orderCount: generationConfig.orderCount,
               demoMode: generationConfig.demoMode,
               microserviceUrl: config.microserviceUrl,
@@ -646,9 +670,10 @@ export function AppUI() {
               const orderMessage = generationConfig.demoMode
                 ? `✓ Successfully generated ${totalOrdersCreated} demo orders`
                 : `✓ Successfully generated ${totalOrdersCreated} orders`;
-              addLog(orderMessage, 'success');
+              if (mountedRef.current) addLog(orderMessage, 'success');
             } else {
-              addLog(`✗ Order generation failed: ${response.error}`, 'error');
+              if (mountedRef.current)
+                addLog(`✗ Order generation failed: ${response.error}`, 'error');
               setProgress((prev) => ({
                 ...prev,
                 orders: {
@@ -662,17 +687,20 @@ export function AppUI() {
 
             // Check for specific validation errors that users can fix
             if (errorMessage.includes('No products available')) {
-              addLog(
-                '⚠️ Cannot generate orders: No products found. Orders require existing products.',
-                'warning'
-              );
+              if (mountedRef.current)
+                addLog(
+                  '⚠️ Cannot generate orders: No products found. Orders require existing products.',
+                  'warning'
+                );
             } else if (errorMessage.includes('No accounts available')) {
-              addLog(
-                '⚠️ Cannot generate orders: No accounts found. Orders require existing accounts.',
-                'warning'
-              );
+              if (mountedRef.current)
+                addLog(
+                  '⚠️ Cannot generate orders: No accounts found. Orders require existing accounts.',
+                  'warning'
+                );
             } else {
-              addLog(`✗ Order generation failed: ${errorMessage}`, 'error');
+              if (mountedRef.current)
+                addLog(`✗ Order generation failed: ${errorMessage}`, 'error');
             }
 
             setProgress((prev) => ({
@@ -697,14 +725,17 @@ export function AppUI() {
         const completionMessage = generationConfig.demoMode
           ? 'Demo data generation completed! (No AI credits used)'
           : 'Data generation process completed!';
-        addLog(completionMessage, 'success');
+        if (mountedRef.current) addLog(completionMessage, 'success');
       } catch (error) {
-        addLog(
-          `Generation failed: ${error.response?.data?.error || error.message}`,
-          'error'
-        );
+        if (mountedRef.current)
+          addLog(
+            `Generation failed: ${
+              error.response?.data?.error || error.message
+            }`,
+            'error'
+          );
       } finally {
-        setIsGenerating(false);
+        if (mountedRef.current) setIsGenerating(false);
       }
     };
 
@@ -716,34 +747,40 @@ export function AppUI() {
     try {
       const response = await api.get('/api/health');
       if (response.status === 200) {
-        setConnectionEstablished(true);
-        addLog(
-          'Connection to microservice established successfully.',
-          'success'
-        );
+        if (mountedRef.current) setConnectionEstablished(true);
+        if (mountedRef.current)
+          addLog(
+            'Connection to microservice established successfully.',
+            'success'
+          );
 
         // OpenAI key availability is already set from the connection test
         // No need for separate status check
       } else {
-        setConnectionEstablished(false);
-        setOpenAiKeyAvailable(false); // Reset OpenAI status if connection fails
-        addLog('Failed to establish connection to microservice.', 'error');
+        if (mountedRef.current) setConnectionEstablished(false);
+        if (mountedRef.current) setOpenAiKeyAvailable(false); // Reset OpenAI status if connection fails
+        if (mountedRef.current)
+          addLog('Failed to establish connection to microservice.', 'error');
       }
     } catch (error) {
-      setConnectionEstablished(false);
-      setOpenAiKeyAvailable(false); // Reset OpenAI status if connection fails
-      addLog(
-        `Connection test failed: ${
-          error.response?.data?.error || error.message
-        }`,
-        'error'
-      );
+      if (mountedRef.current) setConnectionEstablished(false);
+      if (mountedRef.current) setOpenAiKeyAvailable(false); // Reset OpenAI status if connection fails
+      if (mountedRef.current)
+        addLog(
+          `Connection test failed: ${
+            error.response?.data?.error || error.message
+          }`,
+          'error'
+        );
     }
   };
 
-  const subtitle =
-    config?.subtitle ||
-    'Generate comprehensive Commerce data using AI and Liferay Headless APIs';
+  const subtitle = React.useMemo(
+    () =>
+      config?.subtitle ||
+      'Generate comprehensive Commerce data using AI and Liferay Headless APIs',
+    [config?.subtitle]
+  );
 
   return (
     <div className="container-fluid py-4">
@@ -824,7 +861,7 @@ export function AppUI() {
                     isGenerating={isGenerating}
                     onClearLogs={clearLogs}
                     generationConfig={generationConfig}
-                    microserviceUrl={config.microserviceUrl}
+                    wsStatus={wsStatus}
                   />
                 </div>
               </div>

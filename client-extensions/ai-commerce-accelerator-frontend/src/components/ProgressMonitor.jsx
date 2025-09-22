@@ -1,11 +1,49 @@
 import React, { useState, useEffect } from 'react';
 
+function formatTimestamp(ts) {
+  if (!ts) return 'Never';
+  try {
+    const d = new Date(Number(ts));
+    return d.toLocaleString(undefined, {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+    });
+  } catch {
+    return String(ts);
+  }
+}
+
+function WsDot({ status }) {
+  const labelMap = {
+    connected: 'Live updates: connected',
+    connecting: 'Live updates: connecting',
+    disabled: 'Live updates: disabled',
+    error: 'Live updates: error',
+    closed: 'Live updates: closed',
+  };
+
+  const label = labelMap[status] || 'Live updates';
+  return (
+    <span
+      className={`ws-dot ws-${status}`}
+      title={label}
+      aria-label={label}
+      role="status"
+    />
+  );
+}
+
 function ProgressMonitor({
   progress,
   logs,
   isGenerating,
   onClearLogs,
   generationConfig,
+  wsStatus = 'disabled',
 }) {
   const [startTime, setStartTime] = useState(null);
   const [lastUpdateTime, setLastUpdateTime] = useState(null);
@@ -387,8 +425,10 @@ function ProgressMonitor({
 
           <div className="last-updated">
             <small className="info-text">
-              Last updated: {lastUpdateTime || ''}
+              Last updated:{' '}
+              {lastUpdateTime ? formatTimestamp(lastUpdateTime) : ''}
             </small>
+            <WsDot status={wsStatus} />
           </div>
         </div>
       </div>

@@ -10,12 +10,65 @@ liferay-ai-commerce-accelerator-frontend {
     box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
   }
 
-  .monitor-header {
+  .monitor-header,
+  .last-updated {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding-bottom: 1rem;
+    padding: 1rem;
     border-bottom: 2px solid var(--clay-border-color);
+  }
+
+  .ws-dot {
+    display: inline-block;
+    width: 10px;
+    height: 10px;
+    border-radius: 9999px;
+    margin-right: 8px;
+    vertical-align: -1px;
+    /* sits nicely with text */
+    box-shadow: 0 0 0 2px rgba(0, 0, 0, 0.06) inset;
+  }
+
+  .ws-connected {
+    background: #16a34a;
+  }
+
+  /* green-600 */
+  .ws-connecting {
+    background: #f59e0b;
+    animation: ws-pulse 1.2s ease-in-out infinite;
+  }
+
+  /* amber-500 */
+  .ws-disabled {
+    background: #9ca3af;
+  }
+
+  /* gray-400 */
+  .ws-error {
+    background: #ef4444;
+  }
+
+  /* red-500 */
+  .ws-closed {
+    background: #9ca3af;
+  }
+
+  /* gray-400 */
+
+  @keyframes ws-pulse {
+    0% {
+      opacity: .45;
+    }
+
+    50% {
+      opacity: 1;
+    }
+
+    100% {
+      opacity: .45;
+    }
   }
 
   .connection-status {
