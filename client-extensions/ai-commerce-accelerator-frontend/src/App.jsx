@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import axios from 'axios';
+import { AppProvider, useApi, useApp  } from './context/AppContext.jsx';
 
 import ConfigurationPanel from './components/ConfigurationPanel';
 import DataGeneratorForm from './components/DataGeneratorForm';
@@ -7,25 +7,9 @@ import ProgressMonitor from './components/ProgressMonitor';
 
 import notifyUser from './utils/notifications';
 
-export default function LiferayAiCommerceAcceleratorFrontend({
-  config: fragmentConfig,
-  runtime,
-}) {
-  const [config, setConfig] = useState({
-    liferayUrl: 'http://localhost:8080',
-    microserviceUrl: 'http://localhost:3001',
-    clientId: '',
-    clientSecret: '',
-    catalogId: '',
-    channelId: '',
-    currencyCode: 'USD',
-    aiModel: 'gpt-4o',
-    batchSize: 5,
-    pollingDelay: 10,
-    selectedLanguages: [],
-    reactLoggingLevel: 'off',
-    wsLoggingLevel: 'off',
-  });
+export function AppUI() {
+  const {config, setConfig} = useApp();
+  const api = useApi();
 
   const [generationConfig, setGenerationConfig] = useState({
     productCount: 10,
@@ -702,58 +686,52 @@ export default function LiferayAiCommerceAcceleratorFrontend({
                 'info'
               );
 
-              const response = await axios.post(
-                config.microserviceUrl
-                  ? `${config.microserviceUrl}/api/generate/products`
-                  : '/api/generate/products',
-                {
-                  liferayUrl: config.liferayUrl,
-                  clientId: config.clientId,
-                  clientSecret: config.clientSecret,
-                  catalogId: parseInt(config.catalogId),
-                  channelId: parseInt(config.channelId),
-                  currencyCode: config.currencyCode,
-                  aiModel: config.aiModel,
-                  batchSize: config.batchSize,
-                  pollingDelay: config.pollingDelay,
-                  microserviceUrl:
-                    config.microserviceUrl || window.location.origin,
-                  selectedLanguages: Array.isArray(config.selectedLanguages)
-                    ? config.selectedLanguages
-                    : [],
-                  count: generationConfig.productCount,
-                  categories: generationConfig.categories,
-                  generatePriceLists: generationConfig.generatePriceLists,
-                  generateBulkPricing: generationConfig.generateBulkPricing,
-                  generateTierPricing: generationConfig.generateTierPricing,
-                  generateImages: generationConfig.generateImages,
-                  imageWidth: generationConfig.imageWidth,
-                  imageHeight: generationConfig.imageHeight,
-                  imageQuality: generationConfig.imageQuality,
-                  imageStyle: generationConfig.imageStyle,
-                  imageRatio: generationConfig.imageRatio,
-                  generateSpecifications:
-                    generationConfig.generateSpecifications,
-                  generateSkuVariants: generationConfig.generateSkuVariants,
-                  generatePDFs: generationConfig.generatePDFs,
-                  pdfRatio: generationConfig.pdfRatio,
-                  useCustomImage: generationConfig.useCustomImage,
-                  customImageFile: generationConfig.customImageFile,
-                  useCustomPDF: generationConfig.useCustomPDF,
-                  customPDFFile: generationConfig.customPDFFile,
-                  demoMode: generationConfig.demoMode,
-                }
-              );
+              const response = await api.post('/api/generate/products', {
+                liferayUrl: config.liferayUrl,
+                clientId: config.clientId,
+                clientSecret: config.clientSecret,
+                catalogId: parseInt(config.catalogId),
+                channelId: parseInt(config.channelId),
+                currencyCode: config.currencyCode,
+                aiModel: config.aiModel,
+                batchSize: config.batchSize,
+                pollingDelay: config.pollingDelay,
+                microserviceUrl:
+                  config.microserviceUrl || window.location.origin,
+                selectedLanguages: Array.isArray(config.selectedLanguages)
+                  ? config.selectedLanguages
+                  : [],
+                count: generationConfig.productCount,
+                categories: generationConfig.categories,
+                generatePriceLists: generationConfig.generatePriceLists,
+                generateBulkPricing: generationConfig.generateBulkPricing,
+                generateTierPricing: generationConfig.generateTierPricing,
+                generateImages: generationConfig.generateImages,
+                imageWidth: generationConfig.imageWidth,
+                imageHeight: generationConfig.imageHeight,
+                imageQuality: generationConfig.imageQuality,
+                imageStyle: generationConfig.imageStyle,
+                imageRatio: generationConfig.imageRatio,
+                generateSpecifications: generationConfig.generateSpecifications,
+                generateSkuVariants: generationConfig.generateSkuVariants,
+                generatePDFs: generationConfig.generatePDFs,
+                pdfRatio: generationConfig.pdfRatio,
+                useCustomImage: generationConfig.useCustomImage,
+                customImageFile: generationConfig.customImageFile,
+                useCustomPDF: generationConfig.useCustomPDF,
+                customPDFFile: generationConfig.customPDFFile,
+                demoMode: generationConfig.demoMode,
+              });
 
-              if (response.data.success) {
-                totalProductsCreated = response.data.count || 0;
-                totalPDFsCreated = response.data.pdfCount || 0;
+              if (response.success) {
+                totalProductsCreated = response.count || 0;
+                totalPDFsCreated = response.pdfCount || 0;
 
-                if (response.data.batchId) {
+                if (response.batchId) {
                   // Batch mode - WebSocket will handle progress updates
                   const batchMessage = generationConfig.demoMode
-                    ? `✓ Successfully submitted ${totalProductsCreated} demo products for batch creation (Batch ID: ${response.data.batchId})`
-                    : `✓ Successfully submitted ${totalProductsCreated} products for batch creation (Batch ID: ${response.data.batchId})`;
+                    ? `✓ Successfully submitted ${totalProductsCreated} demo products for batch creation (Batch ID: ${response.batchId})`
+                    : `✓ Successfully submitted ${totalProductsCreated} products for batch creation (Batch ID: ${response.batchId})`;
                   addLog(batchMessage, 'success');
                 } else {
                   // Individual mode - immediate success
@@ -786,14 +764,14 @@ export default function LiferayAiCommerceAcceleratorFrontend({
                 }
               } else {
                 addLog(
-                  `✗ Product generation failed: ${response.data.error}`,
+                  `✗ Product generation failed: ${response.error}`,
                   'error'
                 );
                 setProgress((prev) => ({
                   ...prev,
                   products: {
                     ...prev.products,
-                    errors: [...prev.products.errors, response.data.error],
+                    errors: [...prev.products.errors, response.error],
                   },
                 }));
               }
@@ -826,33 +804,28 @@ export default function LiferayAiCommerceAcceleratorFrontend({
                 'info'
               );
 
-              const response = await axios.post(
-                config.microserviceUrl
-                  ? `${config.microserviceUrl}/api/generate/accounts`
-                  : '/api/generate/accounts',
-                {
-                  liferayUrl: config.liferayUrl,
-                  clientId: config.clientId,
-                  clientSecret: config.clientSecret,
-                  aiModel: config.aiModel,
-                  batchSize: config.batchSize,
-                  pollingDelay: config.pollingDelay,
-                  selectedLanguages: Array.isArray(config.selectedLanguages)
-                    ? config.selectedLanguages
-                    : [],
-                  count: generationConfig.accountCount,
-                  demoMode: generationConfig.demoMode,
-                }
-              );
+              const response = await api.post('/api/generate/accounts', {
+                liferayUrl: config.liferayUrl,
+                clientId: config.clientId,
+                clientSecret: config.clientSecret,
+                aiModel: config.aiModel,
+                batchSize: config.batchSize,
+                pollingDelay: config.pollingDelay,
+                selectedLanguages: Array.isArray(config.selectedLanguages)
+                  ? config.selectedLanguages
+                  : [],
+                count: generationConfig.accountCount,
+                demoMode: generationConfig.demoMode,
+              });
 
-              if (response.data.success) {
-                totalAccountsCreated = response.data.count || 0;
+              if (response.success) {
+                totalAccountsCreated = response.count || 0;
 
-                if (response.data.batchId) {
+                if (response.batchId) {
                   // Batch mode - WebSocket will handle progress updates
                   const batchMessage = generationConfig.demoMode
-                    ? `✓ Successfully submitted ${totalAccountsCreated} demo accounts for batch creation (Batch ID: ${response.data.batchId})`
-                    : `✓ Successfully submitted ${totalAccountsCreated} accounts for batch creation (Batch ID: ${response.data.batchId})`;
+                    ? `✓ Successfully submitted ${totalAccountsCreated} demo accounts for batch creation (Batch ID: ${response.batchId})`
+                    : `✓ Successfully submitted ${totalAccountsCreated} accounts for batch creation (Batch ID: ${response.batchId})`;
                   addLog(batchMessage, 'success');
                 } else {
                   // Individual mode - immediate success
@@ -872,14 +845,14 @@ export default function LiferayAiCommerceAcceleratorFrontend({
                 }
               } else {
                 addLog(
-                  `✗ Account generation failed: ${response.data.error}`,
+                  `✗ Account generation failed: ${response.error}`,
                   'error'
                 );
                 setProgress((prev) => ({
                   ...prev,
                   accounts: {
                     ...prev.accounts,
-                    errors: [...prev.accounts.errors, response.data.error],
+                    errors: [...prev.accounts.errors, response.error],
                   },
                 }));
               }
@@ -950,10 +923,8 @@ export default function LiferayAiCommerceAcceleratorFrontend({
                 try {
                   // Check products availability
                   if (hasProducts && !productsAvailable) {
-                    const productsCheck = await axios.post(
-                      config.microserviceUrl
-                        ? `${config.microserviceUrl}/api/validate/products`
-                        : '/api/validate/products',
+                    const productsCheck = await api.post(
+                      '/api/validate/products',
                       {
                         liferayUrl: config.liferayUrl,
                         clientId: config.clientId,
@@ -961,15 +932,15 @@ export default function LiferayAiCommerceAcceleratorFrontend({
                         requiredCount: totalProductsCreated,
                       }
                     );
-                    productsAvailable = productsCheck.data.sufficient;
+                    productsAvailable = productsCheck.sufficient;
                     if (productsAvailable) {
                       addLog(
-                        `✓ Found ${productsCheck.data.count} products available (${productsCheck.data.required} required)`,
+                        `✓ Found ${productsCheck.count} products available (${productsCheck.required} required)`,
                         'success'
                       );
                     } else {
                       addLog(
-                        `⚠ Only ${productsCheck.data.count} products found, ${productsCheck.data.required} required`,
+                        `⚠ Only ${productsCheck.count} products found, ${productsCheck.required} required`,
                         'info'
                       );
                     }
@@ -977,10 +948,8 @@ export default function LiferayAiCommerceAcceleratorFrontend({
 
                   // Check accounts availability
                   if (hasAccounts && !accountsAvailable) {
-                    const accountsCheck = await axios.post(
-                      config.microserviceUrl
-                        ? `${config.microserviceUrl}/api/validate/accounts`
-                        : '/api/validate/accounts',
+                    const accountsCheck = await api.post(
+                      '/api/validate/accounts',
                       {
                         liferayUrl: config.liferayUrl,
                         clientId: config.clientId,
@@ -1043,46 +1012,41 @@ export default function LiferayAiCommerceAcceleratorFrontend({
               );
             }
 
-            const response = await axios.post(
-              config.microserviceUrl
-                ? `${config.microserviceUrl}/api/generate/orders`
-                : '/api/generate/orders',
-              {
-                liferayUrl: config.liferayUrl,
-                clientId: config.clientId,
-                clientSecret: config.clientSecret,
-                catalogId: parseInt(config.catalogId),
-                channelId: parseInt(config.channelId),
-                currencyCode: config.currencyCode,
-                aiModel: config.aiModel,
-                batchSize: config.batchSize,
-                pollingDelay: config.pollingDelay,
-                selectedLanguages: Array.isArray(config.selectedLanguages)
-                  ? config.selectedLanguages
-                  : [],
-                orderCount: generationConfig.orderCount,
-                demoMode: generationConfig.demoMode,
-                microserviceUrl: config.microserviceUrl,
-                enableRetry: enableRetry,
-              }
-            );
+            const response = await api.post('/api/generate/orders', {
+              liferayUrl: config.liferayUrl,
+              clientId: config.clientId,
+              clientSecret: config.clientSecret,
+              catalogId: parseInt(config.catalogId),
+              channelId: parseInt(config.channelId),
+              currencyCode: config.currencyCode,
+              aiModel: config.aiModel,
+              batchSize: config.batchSize,
+              pollingDelay: config.pollingDelay,
+              selectedLanguages: Array.isArray(config.selectedLanguages)
+                ? config.selectedLanguages
+                : [],
+              orderCount: generationConfig.orderCount,
+              demoMode: generationConfig.demoMode,
+              microserviceUrl: config.microserviceUrl,
+              enableRetry: enableRetry,
+            });
 
-            if (response.data.success) {
-              totalOrdersCreated = response.data.count || 0;
+            if (response.success) {
+              totalOrdersCreated = response.count || 0;
               const orderMessage = generationConfig.demoMode
                 ? `✓ Successfully generated ${totalOrdersCreated} demo orders`
                 : `✓ Successfully generated ${totalOrdersCreated} orders`;
               addLog(orderMessage, 'success');
             } else {
               addLog(
-                `✗ Order generation failed: ${response.data.error}`,
+                `✗ Order generation failed: ${response.error}`,
                 'error'
               );
               setProgress((prev) => ({
                 ...prev,
                 orders: {
                   ...prev.orders,
-                  errors: [...prev.orders.errors, response.data.error],
+                  errors: [...prev.orders.errors, response.error],
                 },
               }));
             }
@@ -1143,11 +1107,7 @@ export default function LiferayAiCommerceAcceleratorFrontend({
   // Function to handle connection testing and update state
   const testConnection = async () => {
     try {
-      const response = await axios.get(
-        config.microserviceUrl
-          ? `${config.microserviceUrl}/api/health`
-          : '/api/health'
-      );
+      const response = await api.get('/api/health');
       if (response.status === 200) {
         setConnectionEstablished(true);
         addLog(
@@ -1175,7 +1135,7 @@ export default function LiferayAiCommerceAcceleratorFrontend({
   };
 
   const subtitle =
-    fragmentConfig?.subtitle ||
+    config?.subtitle ||
     'Generate comprehensive Commerce data using AI and Liferay Headless APIs';
 
   return (
@@ -1186,7 +1146,7 @@ export default function LiferayAiCommerceAcceleratorFrontend({
             <div className="card-header bg-primary text-white">
               <h1 className="h3 mb-0">
                 <i className="fas fa-robot me-2"></i>
-                {fragmentConfig?.title ?? 'Liferay AI Commerce Accelerator'}
+                {config?.title ?? 'Liferay AI Commerce Accelerator'}
               </h1>
               {subtitle && <p className="mb-0 mt-2">{subtitle}</p>}
             </div>
@@ -1266,5 +1226,13 @@ export default function LiferayAiCommerceAcceleratorFrontend({
         </div>
       </div>
     </div>
+  );
+}
+
+export default function AppRoot({ config: initialConfig }) {
+  return (
+    <AppProvider initialConfig={initialConfig}>
+      <AppUI />
+    </AppProvider>
   );
 }

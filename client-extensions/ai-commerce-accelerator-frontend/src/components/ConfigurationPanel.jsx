@@ -1,10 +1,9 @@
 import React, { useState } from 'react';
-import axios from 'axios';
+import { useApp, useApi } from '../context/AppContext';
+
 import notifyUser from '../utils/notifications';
 
 function ConfigurationPanel({
-  config,
-  setConfig,
   disabled,
   onConnectionStatusChange,
   onOpenAiKeyStatusChange,
@@ -19,6 +18,9 @@ function ConfigurationPanel({
   const [isLoadingLanguages, setIsLoadingLanguages] = useState(false);
   const [connectionEstablished, setConnectionEstablished] = useState(false);
   const [validationErrors, setValidationErrors] = useState({});
+
+  const { config, setConfig } = useApp();
+  const api = useApi();
 
   const handleConfigChange = (field, value) => {
     setConfig((prev) => ({ ...prev, [field]: value }));
@@ -51,20 +53,19 @@ function ConfigurationPanel({
         clientId: config.clientId,
         clientSecret: config.clientSecret,
         localeCode: config.localeCode,
+        languageId: config.languageId,
         siteGroupId: siteGroupId,
       };
 
-      const languageResponse = await axios.post(
-        config.microserviceUrl
-          ? `${config.microserviceUrl}/api/get-languages`
-          : '/api/get-languages',
+      const languageResponse = await api.post(
+        '/api/get-languages',
         connectionConfig
       );
 
-      if (languageResponse.data.success) {
-        setAvailableLanguages(languageResponse.data.languages);
+      if (languageResponse.success) {
+        setAvailableLanguages(languageResponse.languages);
 
-        const defaultLanguages = languageResponse.data.languages
+        const defaultLanguages = languageResponse.languages
           .filter((language) => language.markedAsDefault)
           .map((language) => language.id);
 
@@ -116,20 +117,19 @@ function ConfigurationPanel({
       clientId: config.clientId,
       clientSecret: config.clientSecret,
       localeCode: config.localeCode,
+      languageId: config.languageId,
     };
 
     setIsLoadingCatalogs(true);
     try {
-      const catalogResponse = await axios.post(
-        config.microserviceUrl
-          ? `${config.microserviceUrl}/api/get-catalogs`
-          : '/api/get-catalogs',
+      const catalogResponse = await api.post(
+        '/api/get-catalogs',
         connectionConfig
       );
-      if (catalogResponse.data.success) {
-        setAvailableCatalogs(catalogResponse.data.catalogs);
-        if (!config.catalogId && catalogResponse.data.catalogs.length > 0) {
-          handleConfigChange('catalogId', catalogResponse.data.catalogs[0].id);
+      if (catalogResponse.success) {
+        setAvailableCatalogs(catalogResponse.catalogs);
+        if (!config.catalogId && catalogResponse.catalogs.length > 0) {
+          handleConfigChange('catalogId', catalogResponse.catalogs[0].id);
         }
       }
     } catch (error) {
@@ -141,16 +141,14 @@ function ConfigurationPanel({
 
     setIsLoadingChannels(true);
     try {
-      const channelResponse = await axios.post(
-        config.microserviceUrl
-          ? `${config.microserviceUrl}/api/get-channels`
-          : '/api/get-channels',
+      const channelResponse = await api.post(
+        '/api/get-channels',
         connectionConfig
       );
-      if (channelResponse.data.success) {
-        setAvailableChannels(channelResponse.data.channels);
-        if (!config.channelId && channelResponse.data.channels.length > 0) {
-          const firstChannel = channelResponse.data.channels[0];
+      if (channelResponse.success) {
+        setAvailableChannels(channelResponse.channels);
+        if (!config.channelId && channelResponse.channels.length > 0) {
+          const firstChannel = channelResponse.channels[0];
           const firstChannelId = firstChannel.id;
           setConfig((prev) => ({
             ...prev,
@@ -172,14 +170,12 @@ function ConfigurationPanel({
 
     setIsLoadingCurrencies(true);
     try {
-      const currencyResponse = await axios.post(
-        config.microserviceUrl
-          ? `${config.microserviceUrl}/api/get-currencies`
-          : '/api/get-currencies',
+      const currencyResponse = await api.post(
+        '/api/get-currencies',
         connectionConfig
       );
-      if (currencyResponse.data.success) {
-        setAvailableCurrencies(currencyResponse.data.currencies);
+      if (currencyResponse.success) {
+        setAvailableCurrencies(currencyResponse.currencies);
       }
     } catch (error) {
       console.error('Failed to fetch currencies:', error);
@@ -217,23 +213,18 @@ function ConfigurationPanel({
     }
 
     try {
-      const response = await axios.post(
-        config.microserviceUrl
-          ? `${config.microserviceUrl}/api/test-connection`
-          : '/api/test-connection',
-        config
-      );
-      if (response.data.success) {
+      const response = await api.post('/api/test-connection', config);
+      if (response.success) {
         setConnectionEstablished(true);
 
         if (onConnectionStatusChange) {
           onConnectionStatusChange(true);
         }
         if (onOpenAiKeyStatusChange) {
-          onOpenAiKeyStatusChange(response.data.openAiKeyAvailable);
+          onOpenAiKeyStatusChange(response.openAiKeyAvailable);
         }
 
-        if (!response.data.openAiKeyAvailable) {
+        if (!response.openAiKeyAvailable) {
           setConfig((prev) => ({ ...prev, demoMode: true }));
           notifyUser(
             'Connection successful! OpenAI key not found - Demo mode enabled.',
@@ -253,7 +244,7 @@ function ConfigurationPanel({
         if (onOpenAiKeyStatusChange) {
           onOpenAiKeyStatusChange(false);
         }
-        notifyUser('Connection failed', 'danger', response.data.error);
+        notifyUser('Connection failed', 'danger', response.error);
       }
     } catch (error) {
       setConnectionEstablished(false);
@@ -331,7 +322,10 @@ function ConfigurationPanel({
       }
 
       if (Object.keys(newValidationErrors).length === 0) {
-        notifyUser('Connection test failed. Please check your configuration.', 'danger');
+        notifyUser(
+          'Connection test failed. Please check your configuration.',
+          'danger'
+        );
       }
 
       console.error(
