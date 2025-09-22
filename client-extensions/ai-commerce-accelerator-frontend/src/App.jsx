@@ -1,5 +1,9 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useReducer } from 'react';
 import { AppProvider, useApi, useApp } from './context/AppContext.jsx';
+import {
+  progressReducer,
+  initialProgress
+} from './state/progressReducer';
 
 import useRealtimeWebSocket from './hooks/useRealtimeWebSocket';
 
@@ -38,13 +42,16 @@ export function AppUI() {
     demoMode: true,
   });
   const [isGenerating, setIsGenerating] = useState(false);
-  const [progress, setProgress] = useState({
-    products: { total: 0, completed: 0, errors: [] },
-    accounts: { total: 0, completed: 0, errors: [] },
-    orders: { total: 0, completed: 0, errors: [] },
-    images: { total: 0, completed: 0, errors: [] },
-    pdfs: { total: 0, completed: 0, errors: [] },
-  });
+
+  const [progress, dispatch] = useReducer(progressReducer, initialProgress);
+  const setProgress = useCallback((arg) => {
+    if (typeof arg === 'function') {
+      dispatch({ type: 'APPLY_UPDATER', updater: arg });
+    } else {
+      dispatch({ type: 'MERGE', payload: arg });
+    }
+  }, []);
+
   const [logs, setLogs] = useState([]);
   const addLog = useCallback((message, type = 'info') => {
     const timestamp = new Date().toLocaleTimeString();
