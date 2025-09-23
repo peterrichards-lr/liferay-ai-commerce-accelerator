@@ -14,6 +14,30 @@ import notifyUser from './utils/notifications';
 const toInt = (v) => (v == null || v === '' ? undefined : parseInt(v, 10));
 const toArray = (v) => (Array.isArray(v) ? v : v ? [v] : []);
 
+function toFormData(obj, files = {}) {
+  const fd = new FormData();
+
+  Object.entries(obj).forEach(([key, value]) => {
+    if (value === undefined) return;
+    if (value === null) {
+      fd.append(key, '');
+      return;
+    }
+    if (value instanceof File || value instanceof Blob) {
+      return;
+    }
+    const isObject = typeof value === 'object';
+    fd.append(key, isObject ? JSON.stringify(value) : String(value));
+  });
+
+  Object.entries(files).forEach(([field, file]) => {
+    if (!file) return;
+    fd.append(field, file, file.name || field);
+  });
+
+  return fd;
+}
+
 export function AppUI() {
   const mountedRef = React.useRef(true);
   useEffect(
@@ -25,7 +49,7 @@ export function AppUI() {
 
   const { config, setConfig } = useApp();
 
-  const isHosted = false; //!!config.liferayHosted;
+  const isHosted = !!config.liferayHosted;
 
   const { logs, addLog, addLogGroup, clearLogs } = useActivityLog({
     level: config?.wsLoggingLevel || 'info',
@@ -111,7 +135,6 @@ export function AppUI() {
       liferayUrl: config.liferayUrl,
       microserviceUrl: config.microserviceUrl,
       batchSize: config.batchSize,
-      pollingDelay: config.pollingDelay,
       aiModel: config.aiModel,
       currencyCode: config.currencyCode,
       localeCode: config.localeCode,
@@ -186,7 +209,6 @@ export function AppUI() {
             'clientId',
             'clientSecret',
             'batchSize',
-            'pollingDelay',
             'aiModel',
             'currencyCode',
             'selectedLanguages',
@@ -260,6 +282,7 @@ export function AppUI() {
         localeCode: config.localeCode,
         languageId: config.languageId,
         pollingDelay: config.pollingDelay,
+        pollingRetries: config.pollingRetries,
 
         catalogId: toInt(config.catalogId),
         channelId:
@@ -359,29 +382,54 @@ export function AppUI() {
                   'info'
                 );
 
-              const response = await api.post('/api/generate/products', {
+              const basePayload = {
                 ...buildPayload(),
                 count: generationConfig.productCount,
                 categories: generationConfig.categories,
+
                 generatePriceLists: generationConfig.generatePriceLists,
                 generateBulkPricing: generationConfig.generateBulkPricing,
                 generateTierPricing: generationConfig.generateTierPricing,
+
                 generateImages: generationConfig.generateImages,
                 imageWidth: generationConfig.imageWidth,
                 imageHeight: generationConfig.imageHeight,
                 imageQuality: generationConfig.imageQuality,
                 imageStyle: generationConfig.imageStyle,
                 imageRatio: generationConfig.imageRatio,
+
                 generateSpecifications: generationConfig.generateSpecifications,
                 generateSkuVariants: generationConfig.generateSkuVariants,
+
                 generatePDFs: generationConfig.generatePDFs,
                 pdfRatio: generationConfig.pdfRatio,
+
                 useCustomImage: generationConfig.useCustomImage,
-                customImageFile: generationConfig.customImageFile,
                 useCustomPDF: generationConfig.useCustomPDF,
-                customPDFFile: generationConfig.customPDFFile,
+
                 demoMode: generationConfig.demoMode,
-              });
+              };
+
+              const imageFile = generationConfig.useCustomImage
+                ? generationConfig.customImageFile
+                : null;
+              const pdfFile = generationConfig.useCustomPDF
+                ? generationConfig.customPDFFile
+                : null;
+
+              let response;
+debugger;
+              if (imageFile || pdfFile) {
+                // Multipart: meta as fields, plus files
+                const form = toFormData(basePayload, {
+                  customImageFile: imageFile,
+                  customPDFFile: pdfFile,
+                });
+
+                response = await api.post('/api/generate/products', form);
+              } else {
+                response = await api.post('/api/generate/products', basePayload);
+              }
 
               if (response.success) {
                 totalProductsCreated = response.count || 0;
@@ -556,18 +604,17 @@ export function AppUI() {
                 );
 
               let retries = 0;
-              const maxRetries = 12;
               let productsAvailable = !hasProducts;
               let accountsAvailable = !hasAccounts;
 
               while (
                 (!productsAvailable || !accountsAvailable) &&
-                retries < maxRetries
+                retries < config.maxRetries
               ) {
                 retries++;
                 if (mountedRef.current)
                   addLog(
-                    `⏳ Checking data availability (attempt ${retries}/${maxRetries})...`,
+                    `⏳ Checking data availability (attempt ${retries}/${config.maxRetries})...`,
                     'info'
                   );
 
@@ -640,7 +687,9 @@ export function AppUI() {
                   );
                 }
 
-                await new Promise((resolve) => setTimeout(resolve, 5000));
+                await new Promise((resolve) =>
+                  setTimeout(resolve, config.pollingDelay)
+                );
               }
 
               if (!productsAvailable) {
@@ -795,9 +844,12 @@ export function AppUI() {
     setLanguages(langs);
     setCurrencies(currs);
 
+    const selectLangs = langs.filter((lang) => lang.markedAsDefault).map((lang) => lang.id);
+
     setConfig((prev) => ({
       ...prev,
       channelId: chObj.id,
+      selectedLanguages: selectLangs,
       ...(prev.currencyCode
         ? {}
         : chObj.currencyCode

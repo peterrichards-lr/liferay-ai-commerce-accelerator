@@ -12,7 +12,7 @@ export default function ConnectionAuthCard({
   const [loading, setLoading] = useState(false);
   const [status, setStatus] = useState('idle'); // idle | success | error
 
-  const isHosted = false; //!!config.liferayHosted;
+  const isHosted = !!config.liferayHosted;
 
   const onTest = async () => {
     if (disabled) return;

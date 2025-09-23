@@ -10,7 +10,14 @@
                 },
                 {
                     "dataType": "int",
-                    "defaultValue": "1500",
+                    "defaultValue": "12",
+                    "label": "polling-retries",
+                    "name": "polliingRetries",
+                    "type": "text"
+                },
+                {
+                    "dataType": "int",
+                    "defaultValue": "5000",
                     "label": "polling-delay",
                     "name": "pollingDelay",
                     "type": "text"

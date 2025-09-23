@@ -20,7 +20,8 @@ export const DEFAULTS = {
   // AI / runtime
   aiModel: 'gpt-4o-mini',
   batchSize: 10,
-  pollingDelay: 15000,
+  pollingDelay: 10000,
+  pollingRetries: 12,
 
   // UI
   showProgress: true,

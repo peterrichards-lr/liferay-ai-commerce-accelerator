@@ -34,6 +34,7 @@ export function normalizeConfig(incoming = {}) {
     aiModel: str(cfg.aiModel, DEFAULTS.aiModel),
     batchSize: num(cfg.batchSize, DEFAULTS.batchSize),
     pollingDelay: num(cfg.pollingDelay, DEFAULTS.pollingDelay),
+    pollingRetries: num(cfg.pollingRetries, DEFAULTS.pollingRetries),
 
     // UI
     showProgress: bool(cfg.showProgress, DEFAULTS.showProgress),

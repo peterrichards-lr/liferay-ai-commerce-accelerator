@@ -60,7 +60,8 @@ class LiferayAiCommerceAcceleratorElement extends HTMLElement {
       'title',
       'subtitle',
       'ws-logging-level',
-+     'polling-delay',
+      'polling-delay',
+      'polling-retries',
     ];
   }
 
