@@ -1,0 +1,108 @@
+
+{
+  "Electronics": {
+    "names": [
+      "SmartPhone Pro",
+      "Wireless Headphones", 
+      "Gaming Laptop",
+      "Smart Watch",
+      "Bluetooth Speaker",
+      "Tablet Computer",
+      "Digital Camera",
+      "Wireless Earbuds",
+      "Portable Monitor",
+      "Smart TV"
+    ],
+    "options": [
+      { "name": "Color", "values": ["Black", "White", "Silver", "Space Gray", "Blue"] },
+      { "name": "Storage", "values": ["64GB", "128GB", "256GB", "512GB", "1TB"] },
+      { "name": "Screen Size", "values": ["5.4\"", "6.1\"", "6.7\"", "12.9\"", "15.6\""] },
+      { "name": "Connectivity", "values": ["WiFi", "Cellular", "Bluetooth", "USB-C"] }
+    ],
+    "specs": ["Screen Size", "Battery Life", "Processor", "RAM", "Storage Capacity", "Operating System", "Connectivity", "Camera Resolution", "Warranty", "Weight"]
+  },
+  "Clothing": {
+    "names": [
+      "Cotton T-Shirt",
+      "Denim Jeans", 
+      "Wool Sweater",
+      "Running Shoes",
+      "Baseball Cap",
+      "Leather Jacket",
+      "Summer Dress",
+      "Athletic Shorts",
+      "Winter Coat",
+      "Casual Sneakers"
+    ],
+    "options": [
+      { "name": "Size", "values": ["XS", "S", "M", "L", "XL", "XXL"] },
+      { "name": "Color", "values": ["Black", "White", "Navy", "Red", "Gray", "Blue"] },
+      { "name": "Material", "values": ["Cotton", "Polyester", "Wool", "Silk", "Denim"] },
+      { "name": "Fit Type", "values": ["Regular", "Slim", "Relaxed", "Athletic"] }
+    ],
+    "specs": ["Material", "Care Instructions", "Fit Type", "Season", "Brand", "Country of Origin", "Closure Type", "Sleeve Length", "Pattern", "Collar Type"]
+  },
+  "Home & Garden": {
+    "names": [
+      "Garden Hose",
+      "Patio Umbrella",
+      "Flower Pot",
+      "Outdoor Chair", 
+      "BBQ Grill",
+      "Garden Tool Set",
+      "Decorative Planter",
+      "Outdoor Table",
+      "Solar Lights",
+      "Watering Can"
+    ],
+    "options": [
+      { "name": "Size", "values": ["Small", "Medium", "Large", "Extra Large"] },
+      { "name": "Material", "values": ["Wood", "Metal", "Plastic", "Glass", "Ceramic"] },
+      { "name": "Weather Resistant", "values": ["Yes", "No"] },
+      { "name": "Assembly Required", "values": ["Yes", "No"] }
+    ],
+    "specs": ["Dimensions", "Weight", "Material", "Weather Resistance", "Assembly Required", "Maintenance", "Capacity", "Power Source", "Warranty", "Safety Features"]
+  },
+  "Sports": {
+    "names": [
+      "Basketball",
+      "Tennis Racket",
+      "Yoga Mat",
+      "Dumbbells",
+      "Bicycle Helmet",
+      "Swimming Goggles",
+      "Golf Clubs",
+      "Soccer Ball",
+      "Fitness Tracker",
+      "Hiking Backpack"
+    ],
+    "options": [
+      { "name": "Size", "values": ["Small", "Medium", "Large", "Extra Large"] },
+      { "name": "Weight", "values": ["Light", "Medium", "Heavy"] },
+      { "name": "Color", "values": ["Black", "Blue", "Red", "Green", "Orange"] },
+      { "name": "Skill Level", "values": ["Beginner", "Intermediate", "Advanced", "Professional"] }
+    ],
+    "specs": ["Dimensions", "Weight", "Material", "Skill Level", "Sport Type", "Brand", "Durability", "Warranty", "Care Instructions", "Age Group"]
+  },
+  "Books": {
+    "names": [
+      "Programming Guide",
+      "Science Fiction Novel",
+      "History Textbook",
+      "Cookbook Collection",
+      "Art Tutorial",
+      "Business Strategy",
+      "Travel Guide",
+      "Children's Story",
+      "Self-Help Manual",
+      "Technical Reference"
+    ],
+    "options": [
+      { "name": "Format", "values": ["Hardcover", "Paperback", "Digital", "Audiobook"] },
+      { "name": "Language", "values": ["English", "Spanish", "French", "German", "Italian"] },
+      { "name": "Edition", "values": ["First", "Second", "Third", "Revised", "Anniversary"] },
+      { "name": "Age Group", "values": ["Children", "Young Adult", "Adult", "All Ages"] }
+    ],
+    "specs": ["Pages", "Publisher", "Publication Date", "ISBN", "Language", "Format", "Genre", "Author", "Edition", "Age Rating"]
+  }
+}

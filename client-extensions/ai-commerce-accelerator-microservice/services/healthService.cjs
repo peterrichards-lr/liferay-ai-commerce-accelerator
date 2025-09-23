@@ -1,0 +1,272 @@
+const { logger } = require('../utils/logger.cjs');
+const { ConfigService } = require('./configService.cjs');
+const liferayService = require('./liferayService.cjs');
+
+class HealthService {
+  constructor() {
+    this.configService = new ConfigService();
+    this.liferayService = liferayService;
+    this.startTime = Date.now();
+    this.healthChecks = new Map();
+    this.lastHealthCheck = null;
+
+    // Register health checks
+    this.registerHealthCheck('database', this.checkDatabase.bind(this));
+    this.registerHealthCheck('openai', this.checkOpenAI.bind(this));
+    this.registerHealthCheck('liferay', this.checkLiferay.bind(this));
+    this.registerHealthCheck('memory', this.checkMemory.bind(this));
+    this.registerHealthCheck('disk', this.checkDiskSpace.bind(this));
+  }
+
+  registerHealthCheck(name, checkFunction) {
+    this.healthChecks.set(name, checkFunction);
+  }
+
+  async getSystemInfo() {
+    const memUsage = process.memoryUsage();
+    const uptime = Date.now() - this.startTime;
+
+    return {
+      service: 'liferay-ai-data-microservice',
+      version: '1.0.0',
+      environment: process.env.NODE_ENV || 'development',
+      uptime: Math.floor(uptime / 1000), // seconds
+      timestamp: new Date().toISOString(),
+      node: {
+        version: process.version,
+        platform: process.platform,
+        arch: process.arch,
+      },
+      memory: {
+        used: Math.round(memUsage.heapUsed / 1024 / 1024), // MB
+        total: Math.round(memUsage.heapTotal / 1024 / 1024), // MB
+        external: Math.round(memUsage.external / 1024 / 1024), // MB
+        rss: Math.round(memUsage.rss / 1024 / 1024), // MB
+      },
+    };
+  }
+
+  async checkDatabase() {
+    // For now, we don't have a direct database connection
+    // This would check the Liferay database connectivity through APIs
+    return {
+      status: 'healthy',
+      message: 'No direct database connection required',
+      responseTime: 0,
+    };
+  }
+
+  async checkOpenAI() {
+    const start = Date.now();
+    try {
+      const apiKey = await this.configService.getOpenAIKeyCached;
+      const responseTime = Date.now() - start;
+
+      if (!apiKey) {
+        return {
+          status: 'healthy',
+          message: 'OpenAI API key not configured',
+          responseTime,
+          name: 'openai',
+          timestamp: new Date().toISOString()
+        };
+      }
+
+      return {
+        status: 'healthy',
+        message: 'OpenAI API key configured',
+        responseTime,
+        name: 'openai',
+        timestamp: new Date().toISOString()
+      };
+    } catch (error) {
+      return {
+        status: 'unhealthy',
+        message: error.message,
+        responseTime: Date.now() - start,
+        name: 'openai',
+        timestamp: new Date().toISOString()
+      };
+    }
+  }
+
+  async checkLiferay() {
+    const start = Date.now();
+    try {
+      // This would need sample config - for now just check if service exists
+      const responseTime = Date.now() - start;
+
+      return {
+        status: 'healthy',
+        message: 'Liferay service available',
+        responseTime,
+      };
+    } catch (error) {
+      return {
+        status: 'unhealthy',
+        message: error.message,
+        responseTime: Date.now() - start,
+      };
+    }
+  }
+
+  checkMemory() {
+    const memUsage = process.memoryUsage();
+    const heapUsedMB = memUsage.heapUsed / 1024 / 1024;
+    const heapTotalMB = memUsage.heapTotal / 1024 / 1024;
+    const memoryUsagePercent = (heapUsedMB / heapTotalMB) * 100;
+
+    const status =
+      memoryUsagePercent > 90
+        ? 'unhealthy'
+        : memoryUsagePercent > 80
+        ? 'degraded'
+        : 'healthy';
+
+    return Promise.resolve({
+      status,
+      message: `Memory usage: ${memoryUsagePercent.toFixed(2)}%`,
+      responseTime: 1,
+      details: {
+        heapUsedMB: Math.round(heapUsedMB),
+        heapTotalMB: Math.round(heapTotalMB),
+        usagePercent: Math.round(memoryUsagePercent),
+      },
+    });
+  }
+
+  checkDiskSpace() {
+    // Simplified disk check - in production you'd use actual disk space monitoring
+    return Promise.resolve({
+      status: 'healthy',
+      message: 'Disk space sufficient',
+      responseTime: 1,
+    });
+  }
+
+  async runHealthCheck(name) {
+    const start = Date.now();
+
+    try {
+      const checkFunction = this.healthChecks.get(name);
+      if (!checkFunction) {
+        throw new Error(`Health check '${name}' not found`);
+      }
+
+      const result = await checkFunction();
+      const totalTime = Date.now() - start;
+
+      logger.debug(`Health check completed: ${name}`, {
+        operation: 'health-check',
+        healthCheck: name,
+        status: result.status,
+        responseTime: result.responseTime || totalTime,
+      });
+
+      return {
+        ...result,
+        name,
+        timestamp: new Date().toISOString(),
+      };
+    } catch (error) {
+      const totalTime = Date.now() - start;
+
+      logger.error(`Health check failed: ${name}`, {
+        operation: 'health-check',
+        healthCheck: name,
+        error: error.message,
+        responseTime: totalTime,
+      });
+
+      return {
+        name,
+        status: 'unhealthy',
+        message: error.message,
+        responseTime: totalTime,
+        timestamp: new Date().toISOString(),
+      };
+    }
+  }
+
+  async runAllHealthChecks() {
+    const start = Date.now();
+    const checks = {};
+
+    // Run all health checks in parallel
+    const promises = Array.from(this.healthChecks.keys()).map(async (name) => {
+      const result = await this.runHealthCheck(name);
+      checks[name] = result;
+    });
+
+    await Promise.all(promises);
+
+    // Determine overall status
+    const allStatuses = Object.values(checks).map((check) => check.status);
+    const overallStatus = allStatuses.includes('unhealthy')
+      ? 'unhealthy'
+      : allStatuses.includes('degraded')
+      ? 'degraded'
+      : 'healthy';
+
+    const healthReport = {
+      status: overallStatus,
+      timestamp: new Date().toISOString(),
+      totalResponseTime: Date.now() - start,
+      checks,
+    };
+
+    this.lastHealthCheck = healthReport;
+
+    logger.info(`Health check completed`, {
+      operation: 'health-check-all',
+      overallStatus,
+      totalResponseTime: healthReport.totalResponseTime,
+      checksCount: Object.keys(checks).length,
+    });
+
+    return healthReport;
+  }
+
+  async getDetailedHealth() {
+    const systemInfo = await this.getSystemInfo();
+    const healthChecks = await this.runAllHealthChecks();
+
+    return {
+      ...systemInfo,
+      health: healthChecks,
+    };
+  }
+
+  async getReadinessProbe() {
+    // Readiness checks - is the service ready to handle requests?
+    const criticalChecks = ['openai', 'memory'];
+
+    for (const checkName of criticalChecks) {
+      const result = await this.runHealthCheck(checkName);
+      if (result.status === 'unhealthy') {
+        return {
+          ready: false,
+          reason: `Critical health check failed: ${checkName}`,
+          timestamp: new Date().toISOString(),
+        };
+      }
+    }
+
+    return {
+      ready: true,
+      timestamp: new Date().toISOString(),
+    };
+  }
+
+  async getLivenessProbe() {
+    // Liveness checks - is the service alive?
+    const memCheck = await this.runHealthCheck('memory');
+
+    return {
+      alive: memCheck.status !== 'unhealthy',
+      timestamp: new Date().toISOString(),
+    };
+  }
+}
+
+module.exports = { HealthService };

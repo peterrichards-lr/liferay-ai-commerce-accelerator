@@ -151,7 +151,7 @@ export function AppUI() {
 
     const link = document.createElement('a');
     link.href = url;
-    link.download = `ai-generator-config-${
+    link.download = `ai-commerce-accelerator-config-${
       new Date().toISOString().split('T')[0]
     }.json`;
     document.body.appendChild(link);

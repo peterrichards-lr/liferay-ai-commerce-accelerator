@@ -31,3 +31,4 @@ package.json
 yarn.lock
 fragments/**/*.css
 
+/client-extensions/ai-commerce-accelerator-microservice/logs

@@ -1,0 +1,38 @@
+
+{
+  "Electronics": {
+    "basePrice": { "min": 50, "max": 2000 },
+    "priceModifiers": {
+      "Color": { "Black": 0, "White": 5, "Silver": 10, "Space Gray": 15, "Blue": 0 },
+      "Storage": { "64GB": 0, "128GB": 50, "256GB": 100, "512GB": 200, "1TB": 400 }
+    }
+  },
+  "Clothing": {
+    "basePrice": { "min": 15, "max": 300 },
+    "priceModifiers": {
+      "Size": { "XS": 0, "S": 0, "M": 0, "L": 0, "XL": 5, "XXL": 10 },
+      "Material": { "Cotton": 0, "Polyester": -5, "Wool": 25, "Silk": 50, "Denim": 10 }
+    }
+  },
+  "Home & Garden": {
+    "basePrice": { "min": 20, "max": 800 },
+    "priceModifiers": {
+      "Size": { "Small": 0, "Medium": 25, "Large": 50, "Extra Large": 100 },
+      "Material": { "Wood": 20, "Metal": 15, "Plastic": 0, "Glass": 30, "Ceramic": 25 }
+    }
+  },
+  "Sports": {
+    "basePrice": { "min": 25, "max": 500 },
+    "priceModifiers": {
+      "Skill Level": { "Beginner": 0, "Intermediate": 50, "Advanced": 100, "Professional": 200 },
+      "Weight": { "Light": 0, "Medium": 10, "Heavy": 20 }
+    }
+  },
+  "Books": {
+    "basePrice": { "min": 10, "max": 80 },
+    "priceModifiers": {
+      "Format": { "Hardcover": 15, "Paperback": 0, "Digital": -5, "Audiobook": 10 },
+      "Edition": { "First": 0, "Second": 5, "Third": 10, "Revised": 5, "Anniversary": 20 }
+    }
+  }
+}
