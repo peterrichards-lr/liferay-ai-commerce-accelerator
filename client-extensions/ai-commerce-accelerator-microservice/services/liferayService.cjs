@@ -50,7 +50,6 @@ class LiferayService {
 
       return {
         status: 'connected',
-        catalogsFound: response.data.totalCount || 0,
         message: 'Successfully connected to Liferay Commerce using OAuth 2',
       };
     } catch (error) {
@@ -716,7 +715,7 @@ class LiferayService {
       return (
         response.data?.items.map((currency) => ({
           code: currency.code,
-          name: currency.name[config.laguageId],
+          name: currency.name[config.languageId],
         })) || []
       );
     } catch (error) {
