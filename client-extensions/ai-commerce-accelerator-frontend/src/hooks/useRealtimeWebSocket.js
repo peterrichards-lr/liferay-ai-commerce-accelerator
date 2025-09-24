@@ -1,5 +1,18 @@
 import { useEffect, useRef, useState } from 'react';
 
+const normalizeEntityType = (t) => {
+  const s = String(t || '').toLowerCase();
+  if (!s) return null;
+  if (['product', 'products'].includes(s)) return 'products';
+  if (['account', 'accounts', 'customer', 'customers', 'users'].includes(s))
+    return 'accounts';
+  if (['order', 'orders'].includes(s)) return 'orders';
+  if (['image', 'images', 'picture', 'pictures', 'media'].includes(s))
+    return 'images';
+  if (['pdf', 'pdfs', 'document', 'documents'].includes(s)) return 'pdfs';
+  return s; // fallback: let it flow if you’ve added custom buckets
+};
+
 export default function useRealtimeWebSocket({
   enabled, // boolean: connectionEstablished && !!microserviceUrl
   microserviceUrl, // string
@@ -191,22 +204,24 @@ export default function useRealtimeWebSocket({
             });
           };
 
+          const entityKey = normalizeEntityType(entitType);
+
           // mirror your original switch
           switch (data.type) {
             case 'batch_started':
               onLog?.(
-                `⏳ Batch started: ${data.batchId} (${data.entityType}) - ${data.totalItems} items`,
+                `⏳ Batch started: ${data.batchId} (${entityKey}) - ${data.totalItems} items`,
                 'info'
               );
               onProgress?.((prev) => {
-                const current = prev[data.entityType] || {
+                const current = prev[entityKey] || {
                   total: 0,
                   completed: 0,
                   errors: [],
                 };
                 return {
                   ...prev,
-                  [data.entityType]: {
+                  [entityKey]: {
                     ...current,
                     total: (current.total || 0) + data.totalItems,
                     errors: current.errors || [],
@@ -217,13 +232,13 @@ export default function useRealtimeWebSocket({
 
             case 'batch_progress':
               onLog?.(
-                `⏳ Batch progress: ${data.batchId} (${data.entityType}) - ${data.completedCount}/${data.totalItems} (${data.progress}%)`,
+                `⏳ Batch progress: ${data.batchId} (${entityKey}) - ${data.completedCount}/${data.totalItems} (${data.progress}%)`,
                 'info'
               );
               onProgress?.((prev) => ({
                 ...prev,
-                [data.entityType]: {
-                  ...prev[data.entityType],
+                [entityKey]: {
+                  ...prev[entityKey],
                   completed: data.completedCount,
                 },
               }));
@@ -231,13 +246,13 @@ export default function useRealtimeWebSocket({
 
             case 'batch_completed':
               onLog?.(
-                `✅ Batch completed: ${data.batchId} (${data.entityType}) - ${
+                `✅ Batch completed: ${data.batchId} (${entityKey}) - ${
                   data.successCount || 0
                 } items processed`,
                 'success'
               );
               updateProgressCounts(
-                data.entityType,
+                entityKey,
                 data.successCount || 0,
                 data.failureCount || 0
               );
@@ -245,7 +260,7 @@ export default function useRealtimeWebSocket({
 
             case 'session_completed':
               onLog?.(
-                `🎉 All batches completed for ${data.entityType} - starting post-processing...`,
+                `🎉 All batches completed for ${entityKey} - starting post-processing...`,
                 'success'
               );
               break;

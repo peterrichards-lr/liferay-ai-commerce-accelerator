@@ -48,7 +48,11 @@ const batchPollingService = new BatchPollingService(wss);
 
 // Initialize ProductGenerator after WebSocket server is created
 const ProductGeneratorClass = require('./services/productGenerator.cjs');
+const AccountGenerator = require('./services/accountGenerator.cjs');
+const OrderGenerator = require('./services/orderGenerator.cjs');
 const productGenerator = new ProductGeneratorClass(wss);
+const accountGenerator = new AccountGenerator(wss);
+const orderGenerator = new OrderGenerator(wss);
 
 // WebSocket connection handler
 wss.on('connection', (ws, request) => {
@@ -394,7 +398,14 @@ require('./routes/batch.cjs')(app, cacheService, batchPollingService, logger);
 require('./routes/cache.cjs')(app, cacheService, logger);
 require('./routes/config.cjs')(app, logger);
 require('./routes/get.cjs')(app, liferayService, logger);
-require('./routes/generate.cjs')(app, liferayService, productGenerator, logger);
+require('./routes/generate.cjs')(
+  app,
+  liferayService,
+  productGenerator,
+  accountGenerator,
+  orderGenerator,
+  logger
+);
 require('./routes/get.cjs')(app, liferayService, logger);
 require('./routes/health.cjs')(app, logger);
 require('./routes/queue.cjs')(app, logger);

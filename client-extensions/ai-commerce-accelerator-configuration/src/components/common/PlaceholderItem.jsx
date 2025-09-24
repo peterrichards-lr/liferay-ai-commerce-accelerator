@@ -8,10 +8,26 @@ import ClayIcon from '@clayui/icon';
 import Base64Viewer from './Base64Viewer';
 import { isBase64 as isBase64Strict, randomPrefix } from '../../utils/api';
 
+const BASE64_CHAR_LIMIT = 65000;
+const MAX_BYTES_FROM_CHAR_LIMIT = 3 * Math.floor(BASE64_CHAR_LIMIT / 4);
+
+function getBase64Payload(raw) {
+  if (!raw) return '';
+  const s = String(raw).trim();
+  const m = /^data:[^;]+;base64,(.+)$/i.exec(s);
+  return (m ? m[1] : s).replace(/\s+/g, '');
+}
+
 function parseMaybeDataUrl(raw) {
   const m = /^data:([^;]+);base64,(.+)$/i.exec(raw?.trim() || '');
   if (m) return { mime: m[1], b64: m[2] };
   return null;
+}
+
+function countBase64Chars(raw) {
+  const parsed = parseMaybeDataUrl(raw);
+  const b64 = parsed ? parsed.b64 : raw || '';
+  return b64.replace(/\s+/g, '').length;
 }
 
 function byteSizeFromBase64(b64) {
@@ -67,6 +83,68 @@ function fileToDataURL(file) {
   });
 }
 
+async function resizeBase64ToFitLimit(
+  dataUrl,
+  {
+    targetCharLimit = BASE64_CHAR_LIMIT,
+    preferType, // e.g., 'image/jpeg', 'image/webp'
+  } = {}
+) {
+  const payload = getBase64Payload(dataUrl);
+  if (!payload) return dataUrl;
+
+  // Fast path: already fits.
+  if (payload.length <= targetCharLimit) return dataUrl;
+
+  const img = await new Promise((resolve, reject) => {
+    const i = new Image();
+    i.onload = () => resolve(i);
+    i.onerror = () => reject(new Error('Failed to decode image'));
+    i.src = dataUrl;
+  });
+
+  // Decide output type (favor jpeg for best size; keep webp if source is webp)
+  const isWebp = /^data:image\/webp/i.test(dataUrl);
+  const targetType = isWebp ? 'image/webp' : preferType || 'image/jpeg';
+
+  const canvas = document.createElement('canvas');
+  const ctx = canvas.getContext('2d', { willReadFrequently: false });
+
+  // Initial scale guess based on area ~ proportional to Base64 length
+  const currentLen = payload.length;
+  let scale = Math.sqrt(targetCharLimit / currentLen);
+  scale = Math.min(1, Math.max(0.05, scale));
+
+  const drawScaled = (s) => {
+    const w = Math.max(1, Math.floor(img.width * s));
+    const h = Math.max(1, Math.floor(img.height * s));
+    canvas.width = w;
+    canvas.height = h;
+    ctx.clearRect(0, 0, w, h);
+    ctx.drawImage(img, 0, 0, w, h);
+  };
+
+  // Try a few passes: reduce scale and/or quality until we fit
+  let quality = 0.92;
+  let result = dataUrl;
+  for (let pass = 0; pass < 8; pass = 1) {
+    drawScaled(scale);
+    result = canvas.toDataURL(targetType, quality);
+    const len = getBase64Payload(result).length;
+    if (len <= targetCharLimit) return result;
+    // tighten: alternate reducing scale and quality
+    if (pass % 2 === 0) {
+      scale *= 0.85; // shrink geometry
+      scale = Math.max(0.05, scale);
+    } else {
+      quality *= 0.85; // lower compression quality
+      quality = Math.max(0.2, quality);
+    }
+  }
+  // Return the smallest we managed (even if still too big)
+  return result;
+}
+
 export default function PlaceholderItem({
   value,
   onChange,
@@ -79,8 +157,22 @@ export default function PlaceholderItem({
 
   const { base64Data, mimeType } = value;
   const [uploadError, setUploadError] = useState('');
+  const [oversizeDataUrl, setOversizeDataUrl] = useState(null);
+  const [oversizeType, setOversizeType] = useState('');
+  const [isResizing, setIsResizing] = useState(false);
   const [dragOver, setDragOver] = useState(false);
   const fileInputRef = useRef(null);
+
+  // live base64 char count (ignores data URL header and whitespace)
+  const base64CharCount = useMemo(
+    () => countBase64Chars(base64Data || ''),
+    [base64Data]
+  );
+
+  const remainingChars = useMemo(
+    () => BASE64_CHAR_LIMIT - base64CharCount,
+    [base64CharCount]
+  );
 
   // Normalize incoming value (raw base64 or data URL)
   const normalized = useMemo(() => {
@@ -157,10 +249,16 @@ export default function PlaceholderItem({
       } else if (!/^image\/(png|jpeg|webp)$/.test(type)) {
         return 'Allowed image types: PNG, JPEG, WEBP.';
       }
-      if (file.size > maxFileSizeBytes) {
-        return `File is too large (${toMB(
-          file.size
-        )} MB). Max allowed is ${toMB(maxFileSizeBytes)} MB.`;
+      const hardLimit = Math.min(maxFileSizeBytes, MAX_BYTES_FROM_CHAR_LIMIT);
+      if (file.size > hardLimit) {
+        return {
+          code: 'too_large_for_base64',
+          message: `File is too large (${toMB(
+            file.size
+          )} MB). Max allowed for this field is ${toMB(
+            hardLimit
+          )} MB to keep the Base64 under ${BASE64_CHAR_LIMIT.toLocaleString()} characters.`,
+        };
       }
       return null;
     },
@@ -170,11 +268,32 @@ export default function PlaceholderItem({
   const onFileChange = useCallback(
     async (e) => {
       setUploadError('');
+      setOversizeType('');
+      setOversizeDataUrl(null);
       const file = e.target.files?.[0];
       if (!file) return;
       const err = validateSelectedFile(file);
       if (err) {
-        setUploadError(err);
+        if (
+          typeof err === 'object' &&
+          err.code === 'too_large_for_base64' &&
+          /^image\//.test(file.type)
+        ) {
+          try {
+            const dataUrl = await fileToDataURL(file);
+            setOversizeDataUrl(dataUrl);
+            setOversizeType(file.type);
+            setUploadError(err.message);
+          } catch {
+            setUploadError('Failed to read file.');
+          } finally {
+            e.target.value = '';
+          }
+          return;
+        }
+        setUploadError(
+          typeof err === 'string' ? err : err.message || 'Upload error.'
+        );
         e.target.value = '';
         return;
       }
@@ -192,6 +311,8 @@ export default function PlaceholderItem({
 
   const onClear = useCallback(() => {
     setUploadError('');
+    setOversizeDataUrl(null);
+    setOversizeType('');
     onChange({ base64Data: '' });
   }, [onChange]);
 
@@ -218,11 +339,30 @@ export default function PlaceholderItem({
       e.stopPropagation();
       setDragOver(false);
       setUploadError('');
+      setOversizeDataUrl(null);
+      setOversizeType('');
       const file = e.dataTransfer?.files?.[0];
       if (!file) return;
       const err = validateSelectedFile(file);
       if (err) {
-        setUploadError(err);
+        if (
+          typeof err === 'object' &&
+          err.code === 'too_large_for_base64' &&
+          /^image\//.test(file.type)
+        ) {
+          try {
+            const dataUrl = await fileToDataURL(file);
+            setOversizeDataUrl(dataUrl);
+            setOversizeType(file.type);
+            setUploadError(err.message);
+          } catch {
+            setUploadError('Failed to read file.');
+          }
+          return;
+        }
+        setUploadError(
+          typeof err === 'string' ? err : err.message || 'Upload error.'
+        );
         return;
       }
       try {
@@ -247,7 +387,24 @@ export default function PlaceholderItem({
           e.preventDefault();
           const err = validateSelectedFile(file);
           if (err) {
-            setUploadError(err);
+            if (
+              typeof err === 'object' &&
+              err.code === 'too_large_for_base64' &&
+              /^image\//.test(file.type)
+            ) {
+              try {
+                const dataUrl = await fileToDataURL(file);
+                setOversizeDataUrl(dataUrl);
+                setOversizeType(file.type);
+                setUploadError(err.message);
+              } catch {
+                setUploadError('Failed to read file.');
+              }
+              return;
+            }
+            setUploadError(
+              typeof err === 'string' ? err : err.message || 'Upload error.'
+            );
             return;
           }
           try {
@@ -261,6 +418,34 @@ export default function PlaceholderItem({
     },
     [validateSelectedFile, ingestDataUrl]
   );
+
+  const handleResizeToFit = useCallback(async () => {
+    if (!oversizeDataUrl) return;
+    try {
+      setIsResizing(true);
+      const resized = await resizeBase64ToFitLimit(oversizeDataUrl, {
+        targetCharLimit: BASE64_CHAR_LIMIT,
+        preferType: /^image\/webp/i.test(oversizeType)
+          ? 'image/webp'
+          : 'image/jpeg',
+      });
+      const len = getBase64Payload(resized).length;
+      if (len > BASE64_CHAR_LIMIT) {
+        setUploadError(
+          `Tried to reduce the image but it still exceeds ${BASE64_CHAR_LIMIT.toLocaleString()} Base64 characters.`
+        );
+        return;
+      }
+      ingestDataUrl(resized, oversizeType);
+      setOversizeDataUrl(null);
+      setOversizeType('');
+      setUploadError('');
+    } catch {
+      setUploadError('Failed to resize the image.');
+    } finally {
+      setIsResizing(false);
+    }
+  }, [oversizeDataUrl, oversizeType, ingestDataUrl]);
 
   // If user pasted raw base64 without MIME, we can show a hint based on signature
   const sniffedMime = useMemo(() => {
@@ -340,6 +525,16 @@ export default function PlaceholderItem({
           onDrop={onDrop}
           className={dragOver ? 'border-primary' : ''}
         />
+        <div className="d-flex mt-1">
+          <small
+            id={`${prefix}-b64-counter`}
+            className={remainingChars < 0 ? 'text-danger' : 'text-secondary'}
+          >
+            {remainingChars.toLocaleString()} /{' '}
+            {BASE64_CHAR_LIMIT.toLocaleString()} characters left
+          </small>
+        </div>
+
         <small className="form-text text-secondary">
           Paste raw base64 or a full data URL. You can also drag & drop a file
           or paste directly from the clipboard.
@@ -369,7 +564,20 @@ export default function PlaceholderItem({
             role="alert"
             aria-live="assertive"
           >
-            {uploadError}
+            <div className="d-flex align-items-center">
+              <span>{uploadError}</span>
+              {!!oversizeDataUrl && (
+                <ClayButton
+                  small
+                  displayType="secondary"
+                  className="ml-3"
+                  onClick={handleResizeToFit}
+                  disabled={isResizing}
+                >
+                  {isResizing ? 'Resizing…' : 'Reduce image to fit'}
+                </ClayButton>
+              )}
+            </div>
           </ClayAlert>
         )}
       </ClayForm.Group>

@@ -73,7 +73,7 @@ function registerDataGenerationWorkers() {
       let result;
       if (options.demoMode) {
         const mockGenerator = new MockDataGenerator();
-        result = await mockGenerator.generateAccounts(config, {
+        result = mockGenerator.generateAccountData(config, {
           ...options,
           onProgress: (progress) => updateProgress(5 + progress * 0.9),
         });

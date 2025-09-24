@@ -2,11 +2,14 @@ import React, { useState } from 'react';
 import ClayCard from '@clayui/card';
 import ClayForm, { ClayInput } from '@clayui/form';
 import { useApp } from '../../context/AppContext';
+import FieldError from '../FieldError';
+import { getConnectionErrorsMap } from '../../utils/validation';
 
 export default function ConnectionAuthCard({
   onTestConnection,
   disabled = false,
-  openAiKeyAvailable,
+  errors,
+  onErrorsChange,
 }) {
   const { config, setConfig } = useApp();
   const [loading, setLoading] = useState(false);
@@ -14,11 +17,23 @@ export default function ConnectionAuthCard({
 
   const isHosted = !!config.liferayHosted;
 
+  const update = (patch) => {
+    const next = { ...config, ...patch };
+    setConfig(patch);
+    const map = getConnectionErrorsMap(next, isHosted);
+    onErrorsChange?.(map);
+  };
+
+  const handleBlur = () => {
+    const map = getConnectionErrorsMap(config);
+    onErrorsChange?.(map);
+  };
+
   const onTest = async () => {
     if (disabled) return;
     setLoading(true);
     try {
-      await onTestConnection(); // App.jsx owns the GET + POSTs
+      await onTestConnection();
       setStatus('success');
     } catch {
       setStatus('error');
@@ -48,11 +63,13 @@ export default function ConnectionAuthCard({
               id="microserviceUrl"
               aria-label="Microservice URL"
               value={config.microserviceUrl}
-              onChange={(e) => setConfig({ microserviceUrl: e.target.value })}
+              onBlur={handleBlur}
+              onChange={(e) => update({ microserviceUrl: e.target.value })}
               placeholder="http://localhost:3001"
               autoComplete="off"
               disabled={disabled || loading}
             />
+            <FieldError errors={errors.microserviceUrl} />
           </ClayForm.Group>
 
           <div
@@ -67,10 +84,12 @@ export default function ConnectionAuthCard({
                 id="clientId"
                 aria-label="Client ID (temporary)"
                 value={config.clientId || ''}
-                onChange={(e) => setConfig({ clientId: e.target.value })}
+                onBlur={handleBlur}
+                onChange={(e) => update({ clientId: e.target.value })}
                 disabled={disabled || loading}
                 autoComplete="off"
               />
+              <FieldError errors={errors.clientId} />
             </ClayForm.Group>
             <ClayForm.Group>
               <label htmlFor="clientSecret" className="form-label">
@@ -81,10 +100,12 @@ export default function ConnectionAuthCard({
                 aria-label="Client Secret (temporary)"
                 type="password"
                 value={config.clientSecret || ''}
-                onChange={(e) => setConfig({ clientSecret: e.target.value })}
+                onBlur={handleBlur}
+                onChange={(e) => update({ clientSecret: e.target.value })}
                 disabled={disabled || loading}
                 autoComplete="off"
               />
+              <FieldError errors={errors.clientSecret} />
             </ClayForm.Group>
           </div>
 
@@ -100,10 +121,12 @@ export default function ConnectionAuthCard({
                 id="localeCode"
                 aria-label="Locale"
                 value={config.localeCode}
-                onChange={(e) => setConfig({ localeCode: e.target.value })}
+                onBlur={handleBlur}
+                onChange={(e) => update({ localeCode: e.target.value })}
                 placeholder="en-US"
                 disabled={disabled || loading}
               />
+              <FieldError errors={errors.localeCode} />
             </ClayForm.Group>
             <ClayForm.Group>
               <label htmlFor="pollingDelay" className="form-label">
@@ -113,16 +136,21 @@ export default function ConnectionAuthCard({
                 id="pollingDelay"
                 aria-label="Polling Delay (ms)"
                 type="number"
-                min={250}
-                step={50}
+                min={5000}
+                step={500}
                 value={config.pollingDelay}
+                onBlur={handleBlur}
                 onChange={(e) =>
-                  setConfig({
-                    pollingDelay: Math.max(250, Number(e.target.value) || 250),
+                  update({
+                    pollingDelay: Math.max(
+                      5000,
+                      Number(e.target.value) || 5000
+                    ),
                   })
                 }
                 disabled={disabled || loading}
               />
+              <FieldError errors={errors.pollingDelay} />
             </ClayForm.Group>
             <ClayForm.Group>
               <label htmlFor="liferayUrl" className="form-label">
@@ -132,10 +160,12 @@ export default function ConnectionAuthCard({
                 id="liferayUrl"
                 aria-label="Liferay URL"
                 value={config.liferayUrl}
-                onChange={(e) => setConfig({ liferayUrl: e.target.value })}
+                onBlur={handleBlur}
+                onChange={(e) => update({ liferayUrl: e.target.value })}
                 placeholder="http://localhost:8080"
                 disabled={disabled || loading}
               />
+              <FieldError errors={errors.liferayUrl} />
             </ClayForm.Group>
           </div>
         </>

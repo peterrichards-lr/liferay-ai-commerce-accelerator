@@ -1,5 +1,11 @@
 import React, { useState, useEffect } from 'react';
 
+import {
+  getProgressPercentage,
+  expectedImageTotal,
+  expectedPdfTotal,
+} from '../state/progressSelectors';
+
 function formatTimestamp(ts) {
   if (!ts) return 'Never';
   try {
@@ -42,11 +48,15 @@ function ProgressMonitor({
   logs,
   isGenerating,
   onClearLogs,
+  onReset,
   generationConfig,
   wsStatus = 'disabled',
 }) {
   const [startTime, setStartTime] = useState(null);
   const [lastUpdateTime, setLastUpdateTime] = useState(null);
+
+  const getExpectedImageCount = () => expectedImageTotal(generationConfig);
+  const getExpectedPdfCount = () => expectedPdfTotal(generationConfig);
 
   // Track generation timing
   useEffect(() => {
@@ -67,31 +77,10 @@ function ProgressMonitor({
     }
   }, [progress, isGenerating]);
 
-  const getProgressPercentage = (completed, total) => {
-    return total > 0 ? (completed / total) * 100 : 0;
-  };
-
   const getProgressBarClass = (percentage) => {
     if (percentage === 100) return 'complete';
     if (percentage > 0) return 'active';
     return 'pending';
-  };
-
-  // Calculate expected counts based on ratios
-  const getExpectedImageCount = () => {
-    if (!generationConfig?.imageRatio || !generationConfig?.productCount)
-      return 0;
-    return Math.round(
-      (generationConfig.productCount * generationConfig.imageRatio) / 100
-    );
-  };
-
-  const getExpectedPdfCount = () => {
-    if (!generationConfig?.pdfRatio || !generationConfig?.productCount)
-      return 0;
-    return Math.round(
-      (generationConfig.productCount * generationConfig.pdfRatio) / 100
-    );
   };
 
   // Get content type descriptions
@@ -107,22 +96,6 @@ function ProgressMonitor({
     return 'AI-generated PDFs';
   };
 
-  const getTotalProgress = () => {
-    const totalItems =
-      progress.products.total +
-      progress.accounts.total +
-      progress.orders.total +
-      (progress.images?.total || 0) +
-      progress.pdfs.total;
-    const completedItems =
-      progress.products.completed +
-      progress.accounts.completed +
-      progress.orders.completed +
-      (progress.images?.completed || 0) +
-      progress.pdfs.completed;
-    return { total: totalItems, completed: completedItems };
-  };
-
   return (
     <div className="progress-monitor">
       <div className="monitor-card">
@@ -131,12 +104,25 @@ function ProgressMonitor({
             <i className="icon icon-chart"></i>
             Progress Monitor
           </h5>
-          {isGenerating && (
-            <div className="connection-status">
-              <i className="icon icon-check text-success"></i>
-              <small className="text-success">Active</small>
-            </div>
-          )}
+          <div className="header-actions">
+            {isGenerating && (
+              <div className="connection-status">
+                <i className="icon icon-restore"></i>
+                <small className="text-success">Active</small>
+              </div>
+            )}
+            <button
+              type="button"
+              className="btn btn-outline-secondary btn-sm reset-button"
+              onClick={onReset}
+              disabled={isGenerating}
+              title="Reset progress counters and clear the activity log"
+              aria-label="Reset progress and clear log"
+            >
+              <span className="icon icon-restore"></span>
+              Reset
+            </button>
+          </div>
         </div>
         <div className="monitor-body">
           <div className="progress-sections">

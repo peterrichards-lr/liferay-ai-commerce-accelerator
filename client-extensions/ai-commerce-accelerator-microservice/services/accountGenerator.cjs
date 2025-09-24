@@ -2,45 +2,31 @@ const aiService = require('./aiService.cjs');
 const liferayService = require('./liferayService.cjs');
 const { MockDataGenerator } = require('./mockDataGenerator.cjs');
 const { logger } = require('../utils/logger.cjs');
-const { v4: uuidv4 } = require('uuid');
+const { BatchPollingService } = require('./batchPollingService.cjs');
 const { cacheService } = require('./cacheService.cjs'); // Assuming cacheService is available here
 
 class AccountGenerator {
-  constructor() {
-    this.mockDataGenerator = new MockDataGenerator();
+  constructor(wss = null) {
     this.aiService = aiService; // Make aiService accessible within the class
-    // Initialize batchPollingService and websocketService if they are part of the class
-    // For this example, we'll assume they are initialized elsewhere or are static
-    // If they are instance members, they should be initialized in the constructor.
-    // Example:
-    // const BatchPollingService = require('./batchPollingService.cjs');
-    // this.batchPollingService = new BatchPollingService();
-    // const WebsocketService = require('./websocketService.cjs');
-    // this.websocketService = WebsocketService; // Or new WebsocketService() depending on its design
-    // For now, we'll use placeholders to avoid breaking the code if these are not yet implemented/imported
-    this.batchPollingService = {
-      startPolling: () => {} // Placeholder
-    };
-    this.websocketService = {
-      broadcastBatchUpdate: () => {} // Placeholder
-    };
+    this.mockDataGenerator = new MockDataGenerator();
+    this.batchPollingService = new BatchPollingService(wss); // Initialize the polling service with WebSocket server
   }
 
-  async generateAccounts(config, options = {}) {
-    const correlationId = uuidv4();
+  setWebSocketServer(wss) {
+    this.batchPollingService.setWebSocketServer(wss);
+  }
 
-    // Use the configured batch size from config, not derived from count
-    const batchSize = config.batchSize || 1;
-    // Use batch mode when batchSize > 1
-    const effectiveUseBatch = batchSize > 1;
+  async generateAccounts(config, options) {
+    const correlationId = config.correlationId || uuidv4();
+    const useBatch = config.batchSize > 1 && options.accountCount > 1;
 
     logger.info('Starting account generation', {
       correlationId: correlationId,
       operation: 'generate-accounts',
-      accountCount: options.count || 0,
-      useBatch: effectiveUseBatch,
-      demoMode: !!config.demoMode,
-      batchSize: batchSize,
+      accountCount: options.accountCount || 0,
+      useBatch,
+      demoMode: options.demoMode,
+      batchSize: config.batchSize,
     });
 
     const results = {
@@ -51,60 +37,43 @@ class AccountGenerator {
 
     try {
       // Early validation for OpenAI key if not in demo mode
-      if (!config.demoMode && !options.demoMode) {
+      if (!options.demoMode) {
         try {
           await this.aiService.getOpenAIClient();
           console.log('✓ OpenAI API key validated for account generation');
         } catch (error) {
-          const errorMessage = 'OpenAI API key not configured. Please set it in the AI Configuration object or enable demo mode.';
-          console.error('✗ OpenAI key validation failed for accounts:', error.message);
+          const errorMessage =
+            'OpenAI API key not configured. Please set it in the AI Configuration object or enable demo mode.';
+          console.error(
+            '✗ OpenAI key validation failed for accounts:',
+            error.message
+          );
           throw new Error(errorMessage);
         }
       }
 
-      // Ensure count is properly defined
-      const accountCount = options.count || 0;
-
       console.log(`=== STARTING ACCOUNT GENERATION ===`);
       console.log(
-        `Count: ${accountCount}, Batch mode: ${effectiveUseBatch}, Demo mode: ${!!config.demoMode}, Batch size: ${batchSize}`
+        `Count: ${options.accountCount}, Batch mode: ${useBatch}, Demo mode: ${options.demoMode}, Batch size: ${config.batchSize}`
       );
       console.log(`Target Liferay URL: ${config.liferayUrl}`);
 
-      // Input validation
-      if (!config.liferayUrl || !config.clientId || !config.clientSecret) {
-        throw new Error('Missing required Liferay configuration');
-      }
-
-      if (config.count <= 0) {
-        throw new Error('Account count must be greater than 0');
-      }
-
-      // Validate pollingDelay
-      if (config.pollingDelay === undefined || config.pollingDelay === null) {
-        throw new Error('pollingDelay is required');
-      }
-
-      const pollingDelay = parseInt(config.pollingDelay);
-      if (isNaN(pollingDelay) || pollingDelay < 5 || pollingDelay > 600) {
-        throw new Error('pollingDelay must be between 5 and 600 seconds');
-      }
-
-
       let accountDataList;
-      if (config.demoMode || options.demoMode) {
-        console.log(`Demo mode: Generating ${accountCount} mock accounts`);
+      if (options.demoMode) {
+        console.log(
+          `Demo mode: Generating ${options.accountCount} mock accounts`
+        );
         const mockGen = new MockDataGenerator();
-        accountDataList = mockGen.generateAccountData(accountCount);
+        accountDataList = mockGen.generateAccountData(options.accountCount);
         console.log(
           `Demo: Generated ${accountDataList.length} mock account data entries`
         );
       } else {
         console.log(
-          `AI mode: Generating ${accountCount} accounts using ${config.aiModel}`
+          `AI mode: Generating ${options.accountCount} accounts using ${config.aiModel}`
         );
         accountDataList = await this.aiService.generateAccountData(
-          accountCount,
+          options.accountCount,
           config.aiModel || 'gpt-4o'
         );
         console.log(
@@ -112,21 +81,150 @@ class AccountGenerator {
         );
       }
 
-      if (effectiveUseBatch) {
-        console.log(`Using batch operations for ${accountDataList.length} accounts`);
-        // Create callback URL for batch status updates
-        const callbackUrl = config.microserviceUrl
-          ? `${config.microserviceUrl}/api/batch-callback`
-          : null;
-
-        return await this.createAccountsBatch(
-          config,
-          accountDataList,
-          callbackUrl
+      if (useBatch) {
+        console.log(
+          `Creating ${accountDataList.length} accounts using batch endpoint with batch size ${config.batchSize}...`
         );
+
+        const callbackUrl =
+          config.microserviceUrl && config.microserviceUrl !== 'null'
+            ? `${config.microserviceUrl}/api/batch/callback`
+            : null;
+
+        // Split account into batches based on batchSize
+        const accountBatches = [];
+        for (let i = 0; i < accountDataList.length; i += config.batchSize) {
+          accountBatches.push(accountDataList.slice(i, i + config.batchSize));
+        }
+
+        console.log(
+          `Split ${accountDataList.length} products into ${accountBatches.length} batches of max size ${config.batchSize}`
+        );
+
+        const batchIds = [];
+        // Process each batch
+        for (
+          let batchIndex = 0;
+          batchIndex < accountBatches.length;
+          batchIndex++
+        ) {
+          const batch = accountBatches[batchIndex];
+          console.log(
+            `Submitting batch ${batchIndex + 1}/${accountBatches.length} with ${
+              batch.length
+            } accounts...`
+          );
+
+          const result = await this.createAccountsBatch(
+            config,
+            batch,
+            callbackUrl
+          );
+
+          batchIds.push(result.batchId); // Store batchId
+
+          // Store batch config for polling (if callback URL is provided)
+          if (result.batchId && callbackUrl) {
+            // Get poll interval from config with validation
+            const pollInterval = Math.max(config.pollInterval || 5000, 2000); // Minimum 2 seconds
+            const maxPollAttempts = config.maxPollAttempts || 120; // Default 10 minutes
+
+            const { cacheService } = require('./cacheService.cjs');
+            cacheService.set(
+              `batch:${result.batchId}:config`,
+              {
+                liferayUrl: config.liferayUrl,
+                clientId: config.clientId,
+                clientSecret: config.clientSecret,
+                localeCode: config.localeCode,
+                entityType: 'accounts',
+                createdAt: new Date().toISOString(),
+              },
+              3600000 // 1 hour cache
+            );
+
+            logger.info('Batch config stored for polling', {
+              operation: 'batch-config-store',
+              batchId: result.batchId,
+              pollInterval,
+              maxPollAttempts,
+            });
+
+            // Start polling for this batch
+            this.batchPollingService.startPolling(
+              result.batchId,
+              {
+                liferayUrl: config.liferayUrl,
+                clientId: config.clientId,
+                clientSecret: config.clientSecret,
+                localeCode: config.localeCode,
+                entityType: 'accounts',
+              },
+              {
+                pollInterval: config.pollingDelay * 1000, // Convert to milliseconds
+                maxPollAttempts: Math.ceil(
+                  600000 / (config.pollingDelay * 1000)
+                ), // Max 10 minutes
+                onStatusChange: (status) => {
+                  logger.log('debug', 'Batch status update', {
+                    operation: 'batch-status-update',
+                    batchId: status.batchId,
+                    status: status.status,
+                    processedCount: status.processedCount,
+                    totalCount: status.totalCount,
+                  });
+                },
+                onComplete: (results) => {
+                  this.handleBatchComplete(results);
+                },
+                onError: (error) => {
+                  logger.log('error', 'Batch polling error', {
+                    operation: 'batch-polling-error',
+                    batchId: result.batchId,
+                    error: error.message,
+                  });
+                },
+              }
+            );
+          }
+
+          logger.info('Batch submission completed', {
+            operation: 'create-products-batch',
+            batchId: result.batchId,
+            productCount: batch.length,
+            status: result.status,
+            callbackUrl: callbackUrl || 'none',
+          });
+
+          results.accounts.push({
+            batchIndex: batchIndex + 1,
+            totalBatches: accountBatches.length,
+            batchId: result.batchId,
+            status: result.status,
+            accountCount: batch.length,
+            accounts: batch.map((p) => ({
+              name: p.name?.en_US || p.name,
+              externalReferenceCode: p.externalReferenceCode,
+            })),
+          });
+          results.created += batch.length;
+
+          // Add delay between batch submissions to avoid overwhelming the server
+          if (batchIndex < accountBatches.length - 1) {
+            await new Promise((resolve) => setTimeout(resolve, 1000));
+          }
+        }
+
+        return results;
       } else {
-        console.log(`Using individual operations for ${accountDataList.length} accounts`);
-        return await this.generateAccountsIndividually(config, accountDataList);
+        console.log(
+          `Using individual operations for ${accountDataList.length} accounts`
+        );
+        return await this.generateAccountsIndividually(
+          config,
+          options,
+          accountDataList
+        );
       }
     } catch (error) {
       logger.error('Account generation failed', {
@@ -138,14 +236,13 @@ class AccountGenerator {
     }
   }
 
-  async generateAccountsIndividually(config, accountDataList) {
+  async generateAccountsIndividually(config, options, accountDataList) {
     const generatedAccounts = [];
     const errors = [];
 
     // Generate accounts using the same mechanism for both demo and live modes
     for (let i = 0; i < accountDataList.length; i++) {
       const accountData = accountDataList[i];
-      const correlationId = uuidv4();
 
       try {
         // Both modes use the same Liferay API mechanism
@@ -156,19 +253,19 @@ class AccountGenerator {
         generatedAccounts.push(createdAccount);
 
         logger.info('Account created successfully', {
-          correlationId: correlationId,
+          correlationId: config.correlationId,
           operation: 'create-account',
           accountId: createdAccount.id,
           accountName: createdAccount.name,
-          mode: config.demoMode ? 'demo' : 'live',
+          mode: options.demoMode ? 'demo' : 'live',
         });
       } catch (error) {
         logger.error('Account creation failed', {
-          correlationId: correlationId,
+          correlationId: config.correlationId,
           operation: 'create-account',
           error: error.message,
           accountIndex: i,
-          mode: config.demoMode ? 'demo' : 'live',
+          mode: options.demoMode ? 'demo' : 'live',
         });
 
         errors.push({
@@ -180,11 +277,11 @@ class AccountGenerator {
     }
 
     logger.info('Account generation completed', {
-      correlationId: uuidv4(),
+      correlationId: config.correlationId,
       operation: 'generate-accounts',
       created: generatedAccounts.length,
       errors: errors.length,
-      mode: config.demoMode ? 'demo' : 'live',
+      mode: options.demoMode ? 'demo' : 'live',
     });
 
     return {
@@ -199,7 +296,7 @@ class AccountGenerator {
   async generateAccountsBatch(config, accountsData, callbackUrl) {
     try {
       logger.info('Starting batch account generation', {
-        correlationId: uuidv4(),
+        correlationId: config.correlationId,
         operation: 'generate-accounts-batch',
         count: accountsData.length,
         aiModel: config.aiModel,
@@ -231,11 +328,6 @@ class AccountGenerator {
         }),
       }));
 
-      // Create batch with callback URL
-      // const callbackUrl = config.microserviceUrl
-      //   ? `${config.microserviceUrl}/api/batch-callback`
-      //   : null;
-
       const batchResult = await liferayService.createAccountsBatch(
         config,
         accountsData, // Ensure this is the correct data format for liferayService
@@ -253,13 +345,13 @@ class AccountGenerator {
           clientSecret: config.clientSecret,
           localeCode: config.localeCode,
           entityType: 'accounts',
-          createdAt: new Date().toISOString()
+          createdAt: new Date().toISOString(),
         },
         1800000 // 30 minutes
       );
 
       const pollingDelay = parseInt(config.pollingDelay); // Assuming pollingDelay is already validated in generateAccounts
-      const pollInterval = pollingDelay * 1000; // Convert to milliseconds
+      const pollInterval = pollingDelay;
       const maxPollAttempts = Math.ceil(600000 / pollInterval); // Max 10 minutes (600 seconds)
 
       // Start polling for this batch
@@ -275,13 +367,13 @@ class AccountGenerator {
           logger.error('Account batch polling error', {
             operation: 'batch-polling-error',
             batchId,
-            error: error.message
+            error: error.message,
           });
-        }
+        },
       });
 
       logger.info('Batch account creation initiated', {
-        correlationId: uuidv4(),
+        correlationId: config.correlationId,
         operation: 'generate-accounts-batch',
         batchId: batchResult.batchId,
         accountCount: accountsData.length,
@@ -296,7 +388,7 @@ class AccountGenerator {
       };
     } catch (error) {
       logger.error('Batch account generation failed', {
-        correlationId: uuidv4(),
+        correlationId: config.correlationId,
         operation: 'generate-accounts-batch',
         error: error.message,
         count: accountsData.length,
@@ -309,7 +401,7 @@ class AccountGenerator {
   async createAccountsBatch(config, accountsData, callbackUrl) {
     try {
       logger.info('Creating accounts batch with callback', {
-        correlationId: uuidv4(),
+        correlationId: config.correlationId,
         operation: 'create-accounts-batch',
         accountCount: accountsData.length,
         callbackUrl: callbackUrl,
@@ -327,7 +419,7 @@ class AccountGenerator {
       };
     } catch (error) {
       logger.error('Failed to create accounts batch', {
-        correlationId: uuidv4(),
+        correlationId: config.correlationId,
         operation: 'create-accounts-batch',
         error: error.message,
         accountCount: accountsData.length,
@@ -365,7 +457,7 @@ class AccountGenerator {
       }
 
       logger.info('Creating account with Liferay API', {
-        correlationId: uuidv4(),
+        correlationId: config.correlationId,
         operation: 'create-account',
         accountName: liferayAccount.name,
         hasEmail: !!accountData.emailAddress,
@@ -377,7 +469,7 @@ class AccountGenerator {
       );
 
       logger.info('Account created successfully', {
-        correlationId: uuidv4(),
+        correlationId: config.correlationId,
         operation: 'create-account',
         accountId: createdAccount.id,
         accountName: createdAccount.name,
@@ -386,7 +478,7 @@ class AccountGenerator {
       return createdAccount;
     } catch (error) {
       logger.error('Failed to create account', {
-        correlationId: uuidv4(),
+        correlationId: config.correlationId,
         operation: 'create-account',
         error: error.message,
         accountName: accountData.name || 'unknown',
@@ -416,7 +508,7 @@ class AccountGenerator {
       batchId: results.batchId,
       status: results.status,
       processedCount: results.processedCount,
-      totalCount: results.totalCount
+      totalCount: results.totalCount,
     });
 
     // Process batch results and determine success/failure counts
@@ -433,7 +525,7 @@ class AccountGenerator {
           failureCount++;
           failures.push({
             index,
-            error: item.error || item.message || 'Unknown error'
+            error: item.error || item.message || 'Unknown error',
           });
         }
       });
@@ -441,19 +533,7 @@ class AccountGenerator {
       // If content is not an array, assume all were successful if status is COMPLETED
       successCount = results.processedCount || results.totalCount || 0;
     }
-
-    // Send WebSocket update
-    if (this.websocketService) {
-      this.websocketService.broadcastBatchUpdate({
-        type: failureCount > 0 ? 'batch_completed_with_errors' : 'batch_completed', // Changed type for clarity on errors
-        entityType: 'accounts', // Assuming entityType is 'accounts'
-        batchId: results.batchId,
-        successCount,
-        failureCount,
-        details: failureCount > 0 ? { failures } : null
-      });
-    }
   }
 }
 
-module.exports = new AccountGenerator();
+module.exports = AccountGenerator;

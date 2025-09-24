@@ -9,10 +9,47 @@ import ApplicationConfigPanel from './components/config/ApplicationConfigPanel';
 import DataGeneratorForm from './components/DataGeneratorForm';
 import ProgressMonitor from './components/ProgressMonitor';
 
+import {
+  computeTotalsFromConfig,
+  expectedImageTotal,
+  expectedPdfTotal,
+  clampCompleted,
+} from './state/progressSelectors';
+
 import notifyUser from './utils/notifications';
+
+import {
+  getConnectionErrorsMap,
+  getCommerceErrorsMap,
+  getGenerationErrorsMap,
+  flattenErrorsMap,
+  hasAnyErrors,
+} from './utils/validation';
 
 const toInt = (v) => (v == null || v === '' ? undefined : parseInt(v, 10));
 const toArray = (v) => (Array.isArray(v) ? v : v ? [v] : []);
+
+const initialGenerationConfig = {
+  productCount: 10,
+  accountCount: 5,
+  orderCount: 20,
+  categories: ['Electronics', 'Clothing', 'Home & Garden', 'Sports', 'Books'],
+  generatePriceLists: false,
+  generateBulkPricing: false,
+  generateTierPricing: false,
+  imageMode: 'default',
+  imageWidth: 1024,
+  imageHeight: 1024,
+  imageQuality: 'standard',
+  imageStyle: 'photographic',
+  imageRatio: 25,
+  customImageFile: null,
+  generateSpecifications: false,
+  generateSkuVariants: false,
+  pdfMode: 'default',
+  pdfRatio: 10,
+  demoMode: true,
+};
 
 function toFormData(obj, files = {}) {
   const fd = new FormData();
@@ -48,46 +85,24 @@ export function AppUI() {
   );
 
   const { config, setConfig } = useApp();
+  const [catalogs, setCatalogs] = useState([]);
+  const [channels, setChannels] = useState([]);
+  const [languages, setLanguages] = useState([]);
+  const [currencies, setCurrencies] = useState([]);
+  const [isGenerating, setIsGenerating] = useState(false);
 
-  const isHosted = !!config.liferayHosted;
-
-  const { logs, addLog, addLogGroup, clearLogs } = useActivityLog({
+  const initialLoggingConfig = {
     level: config?.wsLoggingLevel || 'info',
     maxEntries: 500,
     dedupeWindowMs: 1000,
     mirrorToConsole: true,
     storageKey: 'activityLog:v1',
-  });
+  };
 
-  const api = useApi();
+  const [generationConfig, setGenerationConfig] = useState(
+    initialGenerationConfig
+  );
 
-  const [generationConfig, setGenerationConfig] = useState({
-    productCount: 10,
-    accountCount: 5,
-    orderCount: 20,
-    categories: ['Electronics', 'Clothing', 'Home & Garden', 'Sports', 'Books'],
-    generatePriceLists: false,
-    generateBulkPricing: false,
-    generateTierPricing: false,
-    generateImages: false,
-    imageWidth: 1024,
-    imageHeight: 1024,
-    imageQuality: 'standard',
-    imageStyle: 'photographic',
-    imageRatio: 25,
-    generateSpecifications: false,
-    generateSkuVariants: false,
-    generatePDFs: false,
-    pdfRatio: 10,
-    useCustomImage: false,
-    customImageFile: null,
-    useCustomPDF: false,
-    customPDFFile: null,
-    demoMode: true,
-  });
-  const [isGenerating, setIsGenerating] = useState(false);
-
-  const [progress, dispatch] = useReducer(progressReducer, initialProgress);
   const setProgress = useCallback((arg) => {
     if (typeof arg === 'function') {
       dispatch({ type: 'APPLY_UPDATER', updater: arg });
@@ -99,10 +114,8 @@ export function AppUI() {
   const [connectionEstablished, setConnectionEstablished] = useState(false);
   const [openAiKeyAvailable, setOpenAiKeyAvailable] = useState(false);
 
-  const [catalogs, setCatalogs] = useState([]);
-  const [channels, setChannels] = useState([]);
-  const [languages, setLanguages] = useState([]);
-  const [currencies, setCurrencies] = useState([]);
+  const { logs, addLog, clearLogs } = useActivityLog(initialLoggingConfig);
+  const [progress, dispatch] = useReducer(progressReducer, initialProgress);
 
   const { wsRef, wsConnected } = useRealtimeWebSocket({
     enabled: connectionEstablished && !!config.microserviceUrl,
@@ -111,6 +124,60 @@ export function AppUI() {
     onLog: addLog,
     onProgress: setProgress,
   });
+
+  const isHosted = !!config.liferayHosted;
+  const forceDemoMode = connectionEstablished && !openAiKeyAvailable;
+
+  const commerceConfigured =
+    !!config.catalogId &&
+    !!config.channelId &&
+    !!config.currencyCode &&
+    Array.isArray(config.selectedLanguages) &&
+    config.selectedLanguages.length > 0;
+
+  const [connectionErrors, setConnectionErrors] = useState({});
+
+  const commerceErrors = getCommerceErrorsMap(config);
+  const generationErrors = getGenerationErrorsMap(generationConfig);
+
+  const firstConnectionError = flattenErrorsMap(connectionErrors)[0];
+  const firstCommerceError = flattenErrorsMap(commerceErrors)[0];
+  const firstGenerationError = flattenErrorsMap(generationErrors)[0];
+
+  let disabled = isGenerating;
+  let disabledReason = '';
+
+  if (firstConnectionError) {
+    disabled = true;
+    disabledReason = firstConnectionError;
+  } else if (!connectionEstablished) {
+    disabled = true;
+    disabledReason = 'Please test the connection first.';
+  } else if (firstCommerceError) {
+    disabled = true;
+    disabledReason = firstCommerceError;
+  } else if (firstGenerationError) {
+    disabled = true;
+    disabledReason = 'Fix the highlighted issues to continue.';
+  } else if (isGenerating) {
+    disabled = true;
+    disabledReason = generationConfig.demoMode
+      ? 'Generating demo data…'
+      : 'Generating data…';
+  }
+
+  useEffect(() => {
+    if (!forceDemoMode) return;
+
+    setGenerationConfig((prev) => {
+      const next = { ...prev, demoMode: true };
+      if (next.imageMode === 'generate') next.imageMode = 'default';
+      if (next.pdfMode === 'generate') next.pdfMode = 'default';
+      return next;
+    });
+  }, [forceDemoMode, setGenerationConfig]);
+
+  const api = useApi();
 
   const wsStatus =
     !connectionEstablished || !config?.microserviceUrl
@@ -129,6 +196,55 @@ export function AppUI() {
     }
     // When key becomes available, user has choice (no auto-disable)
   }, [openAiKeyAvailable]);
+
+  useEffect(() => {
+    if (isGenerating) return;
+
+    const { products, accounts, orders } =
+      computeTotalsFromConfig(generationConfig);
+
+    setProgress((prev) => {
+      let changed = false;
+
+      const next = { ...prev };
+
+      if (prev.products?.total !== products) {
+        changed = true;
+        next.products = {
+          ...prev.products,
+          total: products,
+          completed: clampCompleted(prev.products.completed, products),
+        };
+      }
+
+      if (prev.accounts?.total !== accounts) {
+        changed = true;
+        next.accounts = {
+          ...prev.accounts,
+          total: accounts,
+          completed: clampCompleted(prev.accounts.completed, accounts),
+        };
+      }
+
+      if (prev.orders?.total !== orders) {
+        changed = true;
+        next.orders = {
+          ...prev.orders,
+          total: orders,
+          // completed: clampCompleted(prev.orders.completed, orders),
+        };
+      }
+
+      return changed ? next : prev;
+    });
+  }, [
+    isGenerating,
+    generationConfig.productCount,
+    generationConfig.categories,
+    generationConfig.accountCount,
+    generationConfig.orderCount,
+    setProgress,
+  ]);
 
   const exportConfiguration = () => {
     const exportData = {
@@ -287,7 +403,8 @@ export function AppUI() {
         catalogId: toInt(config.catalogId),
         channelId:
           channel?.id != null ? toInt(channel.id) : toInt(config.channelId),
-        siteGroupId: channel?.siteGroupId ?? siteGroupId,
+        siteGroupId:
+          channel?.siteGroupId ?? siteGroupId ?? toInt(config.siteGroupId),
         currencyCode: config.currencyCode,
 
         aiModel: config.aiModel,
@@ -328,7 +445,9 @@ export function AppUI() {
       if (mountedRef.current) setIsGenerating(true);
       setProgress({
         products: {
-          total: generationConfig.productCount,
+          total:
+            (Number(generationConfig.productCount) || 0) *
+            (generationConfig.categories?.length || 0),
           completed: 0,
           errors: [],
         },
@@ -345,14 +464,18 @@ export function AppUI() {
         images: {
           completed: 0,
           total: Math.ceil(
-            generationConfig.productCount * (generationConfig.imageRatio / 100)
+            (Number(generationConfig.productCount) || 0) *
+              (generationConfig.categories?.length || 0) *
+              ((Number(generationConfig.imageRatio) || 0) / 100)
           ),
           errors: [],
         },
         pdfs: {
           completed: 0,
           total: Math.ceil(
-            generationConfig.productCount * (generationConfig.pdfRatio / 100)
+            (Number(generationConfig.productCount) || 0) *
+              (generationConfig.categories?.length || 0) *
+              ((Number(generationConfig.pdfRatio) || 0) / 100)
           ),
           errors: [],
         },
@@ -384,41 +507,43 @@ export function AppUI() {
 
               const basePayload = {
                 ...buildPayload(),
-                count: generationConfig.productCount,
-                categories: generationConfig.categories,
+                productCount: generationConfig.productCount,
+                productCategories: generationConfig.categories,
 
                 generatePriceLists: generationConfig.generatePriceLists,
                 generateBulkPricing: generationConfig.generateBulkPricing,
                 generateTierPricing: generationConfig.generateTierPricing,
 
-                generateImages: generationConfig.generateImages,
+                imageMode: generationConfig.imageMode,
+                imageRatio: generationConfig.imageRatio,
+                customImageFile: generationConfig.customImageFile,
+
                 imageWidth: generationConfig.imageWidth,
                 imageHeight: generationConfig.imageHeight,
                 imageQuality: generationConfig.imageQuality,
                 imageStyle: generationConfig.imageStyle,
-                imageRatio: generationConfig.imageRatio,
 
                 generateSpecifications: generationConfig.generateSpecifications,
                 generateSkuVariants: generationConfig.generateSkuVariants,
 
-                generatePDFs: generationConfig.generatePDFs,
+                pdfMode: generationConfig.pdfMode,
                 pdfRatio: generationConfig.pdfRatio,
-
-                useCustomImage: generationConfig.useCustomImage,
-                useCustomPDF: generationConfig.useCustomPDF,
+                customPdfFile: generationConfig.customPdfFile,
 
                 demoMode: generationConfig.demoMode,
               };
 
-              const imageFile = generationConfig.useCustomImage
-                ? generationConfig.customImageFile
-                : null;
-              const pdfFile = generationConfig.useCustomPDF
-                ? generationConfig.customPDFFile
-                : null;
+              const imageFile =
+                generationConfig.imageMode === 'custom'
+                  ? generationConfig.customImageFile
+                  : null;
+              const pdfFile =
+                generationConfig.pdfMode === 'custom'
+                  ? generationConfig.customPDFFile
+                  : null;
 
               let response;
-debugger;
+
               if (imageFile || pdfFile) {
                 // Multipart: meta as fields, plus files
                 const form = toFormData(basePayload, {
@@ -426,13 +551,23 @@ debugger;
                   customPDFFile: pdfFile,
                 });
 
+                if (forceDemoMode) {
+                  body.demoMode = true;
+                  if (body.imageMode === 'generate') body.imageMode = 'default';
+                  if (body.pdfMode === 'generate') body.pdfMode = 'default';
+                }
+
                 response = await api.post('/api/generate/products', form);
               } else {
-                response = await api.post('/api/generate/products', basePayload);
+                response = await api.post(
+                  '/api/generate/products',
+                  basePayload
+                );
               }
 
               if (response.success) {
                 totalProductsCreated = response.count || 0;
+                totalImagesCreated = response.imageCount || 0;
                 totalPDFsCreated = response.pdfCount || 0;
 
                 if (response.batchId) {
@@ -455,10 +590,24 @@ debugger;
                   }));
                 }
 
-                if (generationConfig.generatePDFs && totalPDFsCreated > 0) {
-                  const pdfMessage = generationConfig.demoMode
-                    ? `✓ Generated ${totalPDFsCreated} demo PDFs`
-                    : `✓ Generated ${totalPDFsCreated} product PDFs`;
+                if (
+                  generationConfig.imageMode === 'generate' &&
+                  totalImagesCreated > 0
+                ) {
+                  const imageMessage = `✓ Generated ${totalImagesCreated} product images`;
+                  if (mountedRef.current) addLog(imageMessage, 'success');
+
+                  setProgress((prev) => ({
+                    ...prev,
+                    images: { ...prev.images, completed: totalImagesCreated },
+                  }));
+                }
+
+                if (
+                  generationConfig.pdfMode === 'generate' &&
+                  totalPDFsCreated > 0
+                ) {
+                  const pdfMessage = `✓ Generated ${totalPDFsCreated} product PDFs`;
                   if (mountedRef.current) addLog(pdfMessage, 'success');
 
                   setProgress((prev) => ({
@@ -513,7 +662,7 @@ debugger;
 
               const response = await api.post('/api/generate/accounts', {
                 ...buildPayload(),
-                count: generationConfig.accountCount,
+                accountCount: generationConfig.accountCount,
                 demoMode: generationConfig.demoMode,
               });
 
@@ -609,12 +758,12 @@ debugger;
 
               while (
                 (!productsAvailable || !accountsAvailable) &&
-                retries < config.maxRetries
+                retries < config.pollingRetries
               ) {
                 retries++;
                 if (mountedRef.current)
                   addLog(
-                    `⏳ Checking data availability (attempt ${retries}/${config.maxRetries})...`,
+                    `⏳ Checking data availability (attempt ${retries}/${config.pollingRetries})...`,
                     'info'
                   );
 
@@ -656,7 +805,7 @@ debugger;
                       }
                     );
 
-                    accountsAvailable = res.sufficient;
+                    accountsAvailable = accountsCheck.sufficient;
                     if (accountsAvailable) {
                       if (mountedRef.current)
                         addLog(
@@ -844,11 +993,14 @@ debugger;
     setLanguages(langs);
     setCurrencies(currs);
 
-    const selectLangs = langs.filter((lang) => lang.markedAsDefault).map((lang) => lang.id);
+    const selectLangs = langs
+      .filter((lang) => lang.markedAsDefault)
+      .map((lang) => lang.id);
 
     setConfig((prev) => ({
       ...prev,
       channelId: chObj.id,
+      siteGroupId: chObj.siteGroupId,
       selectedLanguages: selectLangs,
       ...(prev.currencyCode
         ? {}
@@ -861,6 +1013,18 @@ debugger;
   };
 
   const testConnection = async () => {
+    const errs = getConnectionErrorsMap(config);
+    setConnectionErrors(errs);
+
+    if (hasAnyErrors(errs)) {
+      const firstKey = Object.keys(errs)[0];
+      requestAnimationFrame(() => {
+        const el = document.getElementById(`conn_${firstKey}`);
+        if (el) el.focus();
+      });
+      throw new Error('Fix the highlighted issues to continue.');
+    }
+
     const payload = buildPayload();
     const res = await api.post('/api/test-connection', payload);
 
@@ -903,6 +1067,7 @@ debugger;
       return {
         ...prev,
         channelId: chObj.id,
+        siteGroupId: chObj.siteGroupId,
         selectedLanguages: nextLangs,
         currencyCode: nextCurr,
       };
@@ -915,6 +1080,31 @@ debugger;
       'Generate comprehensive Commerce data using AI and Liferay Headless APIs',
     [config?.subtitle]
   );
+
+  const handleProgressReset = React.useCallback(() => {
+    clearLogs();
+
+    const { products, accounts, orders } =
+      computeTotalsFromConfig(generationConfig);
+    const images = expectedImageTotal(generationConfig);
+    const pdfs = expectedPdfTotal(generationConfig);
+
+    setProgress(() => ({
+      ...initialProgress,
+      products: { ...initialProgress.products, total: products },
+      accounts: { ...initialProgress.accounts, total: accounts },
+      orders: { ...initialProgress.orders, total: orders },
+      images: { ...initialProgress.images, total: images },
+      pdfs: { ...initialProgress.pdfs, total: pdfs },
+    }));
+
+    notifyUser('Progress and activity log have been reset.');
+  }, [clearLogs, setProgress, generationConfig, notifyUser]);
+
+  const handleSettingsReset = React.useCallback(() => {
+    setGenerationConfig(initialGenerationConfig);
+    notifyUser('Generator settings restored to defaults.');
+  }, []);
 
   return (
     <div className="container-fluid py-4">
@@ -934,7 +1124,6 @@ debugger;
                   <ApplicationConfigPanel
                     disabled={isGenerating}
                     generationConfig={generationConfig}
-                    // NEW: wire the connection test + status + lists
                     onTestConnection={testConnection}
                     onConnectionStatusChange={setConnectionEstablished}
                     connected={connectionEstablished}
@@ -943,9 +1132,12 @@ debugger;
                     languages={languages}
                     currencies={currencies}
                     onSelectChannel={selectChannel}
-                    // Keep OpenAI key plumbing (for DataGeneratorForm/demo mode)
+                    commerceConfigured={commerceConfigured}
                     onOpenAiKeyStatusChange={setOpenAiKeyAvailable}
                     openAiKeyAvailable={openAiKeyAvailable}
+                    connectionErrors={connectionErrors}
+                    commerceErrors={commerceErrors}
+                    onErrorsChange={setConnectionErrors}
                   />
                 </div>
                 <div className="col-lg-8">
@@ -990,16 +1182,21 @@ debugger;
                   <DataGeneratorForm
                     generationConfig={generationConfig}
                     setGenerationConfig={setGenerationConfig}
-                    disabled={isGenerating}
                     onGenerate={generateData}
-                    connectionEstablished={connectionEstablished}
+                    onResetSettings={handleSettingsReset}
+                    disabled={disabled}
+                    disabledReason={disabledReason}
+                    isGenerating={isGenerating}
+                    forceDemoMode={forceDemoMode}
                     openAiKeyAvailable={openAiKeyAvailable}
+                    validationErrors={generationErrors}
                   />
                   <ProgressMonitor
                     progress={progress}
                     logs={logs}
                     isGenerating={isGenerating}
                     onClearLogs={clearLogs}
+                    onReset={handleProgressReset}
                     generationConfig={generationConfig}
                     wsStatus={wsStatus}
                   />

@@ -1,7 +1,6 @@
 export const DEFAULTS = {
   // Hosting / endpoints
   liferayHosted: false,
-  liferayUrl: 'http://localhost:8080',
   microserviceUrl: 'http://localhost:3001',
 
   // Display
@@ -15,6 +14,7 @@ export const DEFAULTS = {
   currencyCode: 'USD',
   catalogId: null,
   channelId: null,
+  siteGroupId: null,
   selectedLanguages: [],
 
   // AI / runtime
@@ -23,15 +23,12 @@ export const DEFAULTS = {
   pollingDelay: 10000,
   pollingRetries: 12,
 
-  // UI
-  showProgress: true,
+  // Misc
   demoMode: false,
   wsLoggingLevel: 'off',
 
-  // Feature flags
-  featureFlags: { pdf: true, images: true },
-
-  // Auth (only used when NOT hosted in Liferay)
+  // Only used when NOT hosted in Liferay
   clientId: '',
   clientSecret: '',
+  liferayUrl: 'http://localhost:8080',
 };

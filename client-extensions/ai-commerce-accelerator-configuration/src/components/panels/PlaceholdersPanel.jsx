@@ -45,19 +45,23 @@ export default function PlaceholdersPanel() {
       pdfMime !== lastPdfMime ||
       imgBase64 !== lastImgBase64 ||
       imgMime !== lastImgMime,
-    [pdfBase64, lastPdfBase64, pdfMime, lastPdfMime, imgBase64, lastImgBase64, imgMime, lastImgMime]
+    [
+      pdfBase64,
+      lastPdfBase64,
+      pdfMime,
+      lastPdfMime,
+      imgBase64,
+      lastImgBase64,
+      imgMime,
+      lastImgMime,
+    ]
   );
 
-  const estimatedPdfBytes = useMemo(() => Math.floor((pdfBase64.length * 3) / 4), [pdfBase64]);
-  const estimatedImgBytes = useMemo(() => Math.floor((imgBase64.length * 3) / 4), [imgBase64]);
-
-  // -----------------------------
-  // Validators (very lightweight)
-  // -----------------------------
   const validateBase64 = useCallback((s) => {
     if (!s) return ['No data provided'];
-    // base64 is typically A-Z, a-z, 0-9, +, /, = padding
-    if (!/^[A-Za-z0-9+/=\n\r]+$/.test(s)) return ['Invalid Base64 characters detected'];
+    // Validate base64 string and full data URL. base63 is typically A-Z, a-z, 0-9, +, /, = padding
+    if (!/^[data]?.*[base64,]?[A-Za-z0-9+/=\n\r]+$/.test(s))
+      return ['Invalid Base64 characters detected'];
     return [];
   }, []);
 
@@ -86,7 +90,10 @@ export default function PlaceholdersPanel() {
 
         // PDF: fixed MIME
         try {
-          const { base64 } = parsePlaceholderValue(rawPdf || '', 'application/pdf');
+          const { base64 } = parsePlaceholderValue(
+            rawPdf || '',
+            'application/pdf'
+          );
           setPdfBase64(base64);
           setPdfMime('application/pdf');
           setLastPdfBase64(base64);
@@ -97,7 +104,10 @@ export default function PlaceholdersPanel() {
 
         // Image: editable MIME
         try {
-          const { base64, mimeType } = parsePlaceholderValue(rawImg || '', 'image/png');
+          const { base64, mimeType } = parsePlaceholderValue(
+            rawImg || '',
+            'image/png'
+          );
           setImgBase64(base64);
           setImgMime(mimeType || 'image/png');
           setLastImgBase64(base64);
@@ -107,7 +117,10 @@ export default function PlaceholdersPanel() {
         }
       } catch (e) {
         // surface a generic toast if both fail at network level
-        Liferay?.Util?.openToast?.({ message: 'Failed to load placeholders.', type: 'danger' });
+        Liferay?.Util?.openToast?.({
+          message: 'Failed to load placeholders.',
+          type: 'danger',
+        });
       } finally {
         if (!controller.signal.aborted) setLoading(false);
       }
@@ -144,8 +157,16 @@ export default function PlaceholdersPanel() {
     if (saving) return; // drop double clicks
     setSaving(true);
     try {
-      const pdfPayload = normalizeToJsonPayload(pdfBase64, 'application/pdf', 'application/pdf');
-      const imgPayload = normalizeToJsonPayload(imgBase64, 'image/png', imgMime);
+      const pdfPayload = normalizeToJsonPayload(
+        pdfBase64,
+        'application/pdf',
+        'application/pdf'
+      );
+      const imgPayload = normalizeToJsonPayload(
+        imgBase64,
+        'image/png',
+        imgMime
+      );
 
       await Promise.all([
         persistConfigKey(PDF_PLACEHOLDER_KEY, JSON.stringify(pdfPayload)),
@@ -157,12 +178,18 @@ export default function PlaceholdersPanel() {
       setLastImgBase64(imgPayload.base64);
       setLastImgMime(imgPayload.mimeType);
 
-      Liferay?.Util?.openToast?.({ message: 'Placeholders saved successfully.', type: 'success' });
+      Liferay?.Util?.openToast?.({
+        message: 'Placeholders saved successfully.',
+        type: 'success',
+      });
     } catch (error) {
       // Log and toast
       // eslint-disable-next-line no-console
       console.error(error);
-      Liferay?.Util?.openToast?.({ message: 'Failed to save placeholders.', type: 'danger' });
+      Liferay?.Util?.openToast?.({
+        message: 'Failed to save placeholders.',
+        type: 'danger',
+      });
     } finally {
       setSaving(false);
     }
@@ -188,25 +215,39 @@ export default function PlaceholdersPanel() {
     ) : null;
 
   return (
-    <div className="sheet sheet-lg" aria-busy={loading || saving} aria-live="polite">
+    <div
+      className="sheet sheet-lg"
+      aria-busy={loading || saving}
+      aria-live="polite"
+    >
       <div className="sheet-header">
         <h2 className="sheet-title">Placeholders</h2>
         <div className="sheet-text">
-          PDF placeholder (MIME fixed) and Image placeholder (MIME editable & persisted). Estimated sizes are shown below.
+          <p>
+            PDF placeholder (MIME fixed) and Image placeholder (MIME editable &
+            persisted). Estimated sizes are shown below.
+          </p>
+          <p>
+            For larger files, it may be best to upload them as custom files in
+            the data generator. In the case of images, there is an option to try
+            and reduce the file size.
+          </p>
         </div>
       </div>
 
       <div className="sheet-section">
         <ClayPanel displayTitle="PDF Placeholder" displayType="unstyled">
           <div className="text-secondary small mb-3">
-            Stored under <code>{PDF_PLACEHOLDER_KEY}</code> as JSON: <code>{'{ mimeType, base64 }'}</code> with <code>mimeType="application/pdf"</code>.
-            <div className="mt-1">Estimated size: {(estimatedPdfBytes / 1024).toFixed(1)} KB</div>
+            Stored under <code>{PDF_PLACEHOLDER_KEY}</code> as JSON:{' '}
+            <code>{'{ mimeType, base64 }'}</code> with{' '}
+            <code>mimeType="application/pdf"</code>.
           </div>
           <PlaceholderItem
             prefix="pdf"
             value={{ base64Data: pdfBase64, mimeType: pdfMime }}
             onChange={(patch) => {
-              if (patch.base64Data !== undefined) setPdfBase64(patch.base64Data);
+              if (patch.base64Data !== undefined)
+                setPdfBase64(patch.base64Data);
               if (patch.mimeType !== undefined) setPdfMime('application/pdf');
             }}
             fixedMimeType="application/pdf"
@@ -216,14 +257,17 @@ export default function PlaceholdersPanel() {
 
         <ClayPanel displayTitle="Image Placeholder" displayType="unstyled">
           <div className="text-secondary small mb-3">
-            Stored under <code>{IMAGE_PLACEHOLDER_KEY}</code> as JSON: <code>{'{ mimeType, base64 }'}</code> with an editable <code>mimeType</code> (e.g. <code>image/png</code>, <code>image/jpeg</code>, <code>image/webp</code>).
-            <div className="mt-1">Estimated size: {(estimatedImgBytes / 1024).toFixed(1)} KB</div>
+            Stored under <code>{IMAGE_PLACEHOLDER_KEY}</code> as JSON:{' '}
+            <code>{'{ mimeType, base64 }'}</code> with an editable{' '}
+            <code>mimeType</code> (e.g. <code>image/png</code>,{' '}
+            <code>image/jpeg</code>, <code>image/webp</code>).
           </div>
           <PlaceholderItem
             prefix="img"
             value={{ base64Data: imgBase64, mimeType: imgMime }}
             onChange={(patch) => {
-              if (patch.base64Data !== undefined) setImgBase64(patch.base64Data);
+              if (patch.base64Data !== undefined)
+                setImgBase64(patch.base64Data);
               if (patch.mimeType !== undefined) setImgMime(patch.mimeType);
             }}
           />

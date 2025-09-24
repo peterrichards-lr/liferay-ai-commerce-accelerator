@@ -10,19 +10,24 @@ export default function ApplicationConfigPanel({
   generationConfig,
   onTestConnection,
   onConnectionStatusChange,
+  commerceConfigured,
   connected,
   catalogs = [],
   channels = [],
   languages = [],
   currencies = [],
   onSelectChannel,
+  connectionErrors = [],
+  commerceErrors = [],
+  onErrorsChange,
 }) {
   const { config } = useApp();
 
   const handleTest = async () => {
     try {
       const result = await onTestConnection(); // parent does GET + POSTs
-      onConnectionStatusChange && onConnectionStatusChange(true, result);
+      if (result)
+        onConnectionStatusChange && onConnectionStatusChange(true, result);
     } catch (e) {
       onConnectionStatusChange && onConnectionStatusChange(false, e?.result);
       throw e;
@@ -31,8 +36,12 @@ export default function ApplicationConfigPanel({
 
   return (
     <div className="application-config grid grid-cols-1 gap-16">
-      {/* Connection is always rendered; hides inputs internally when hosted */}
-      <ConnectionAuthCard disabled={disabled} onTestConnection={handleTest} />
+      <ConnectionAuthCard
+        disabled={disabled}
+        onTestConnection={handleTest}
+        errors={connectionErrors}
+        onErrorsChange={onErrorsChange}
+      />
 
       <CommerceCard
         disabled={disabled || !connected}
@@ -42,9 +51,10 @@ export default function ApplicationConfigPanel({
         currencies={currencies}
         connected={!!connected}
         onSelectChannel={onSelectChannel}
+        commerceConfigured={commerceConfigured}
+        errors={commerceErrors}
       />
 
-      {/* Advanced is always available */}
       <AdvancedPanel disabled={disabled} generationConfig={generationConfig} />
     </div>
   );

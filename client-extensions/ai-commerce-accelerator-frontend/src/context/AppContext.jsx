@@ -9,22 +9,27 @@ export function AppProvider({ initialConfig, children }) {
     normalizeConfig(initialConfig)
   );
 
+  const updateConfig = React.useCallback((patch) => {
+    setConfig((prev) => {
+      const raw = typeof patch === 'function' ? patch(prev) : patch || {};
+      const PROTECTED_KEYS = new Set(['siteGroupId', 'channelId', 'catalogId']);
+      const safe = { ...raw };
+      for (const k of PROTECTED_KEYS) {
+        if (safe[k] == null) delete safe[k];
+      }
+      const merged = { ...prev, ...safe };
+      return normalizeConfig(merged);
+    });
+  }, []);
+
   React.useEffect(() => {
-    setConfig((prev) => normalizeConfig({ ...prev, ...(initialConfig || {}) }));
-  }, [initialConfig]);
+    if (initialConfig) updateConfig(initialConfig);
+  }, [initialConfig, updateConfig]);
 
   const api = React.useMemo(
     () => createApiClient({ baseUrl: config.microserviceUrl }),
     [config.microserviceUrl]
   );
-
-  const updateConfig = React.useCallback((patch) => {
-    setConfig((prev) => {
-      const next =
-        typeof patch === 'function' ? patch(prev) : { ...prev, ...patch };
-      return normalizeConfig(next);
-    });
-  }, []);
 
   const value = React.useMemo(
     () => ({ config, setConfig: updateConfig, api }),

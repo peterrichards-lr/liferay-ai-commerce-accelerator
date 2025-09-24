@@ -1,17 +1,20 @@
 const aiService = require('./aiService.cjs');
 const liferayService = require('./liferayService.cjs');
-const { PDFGenerator } = require('./pdfGenerator.cjs');
+const { MediaGenerator } = require('./mediaGenerator.cjs');
 const { MockDataGenerator } = require('./mockDataGenerator.cjs');
 const batchProcessor = require('../utils/batchProcessor.cjs');
 const { v4: uuidv4 } = require('uuid');
 const { logger } = require('../utils/logger.cjs');
 const { BatchPollingService } = require('./batchPollingService.cjs');
+const { sanitizedObject } = require('../utils/normalize.cjs');
+
+const { ASSET_TYPE, VIEWABLE_BY } = require('../utils/liferayPermissions.cjs');
 
 class ProductGenerator {
   constructor(wss = null) {
     this.aiService = aiService;
     this.liferayService = liferayService;
-    this.pdfGenerator = new PDFGenerator();
+    this.mediaGenerator = new MediaGenerator();
     this.mockDataGenerator = new MockDataGenerator();
     this.batchPollingService = new BatchPollingService(wss); // Initialize the polling service with WebSocket server
   }
@@ -20,78 +23,41 @@ class ProductGenerator {
     this.batchPollingService.setWebSocketServer(wss);
   }
 
-  async generateProducts(config, options = {}) {
+  async generateProducts(config, options) {
     const correlationId = uuidv4();
-    const mockGen = new MockDataGenerator();
 
     console.log('=== STARTING PRODUCT GENERATION ===');
     console.log('Demo mode:', !!options.demoMode);
-    console.log('Config:', config);
-    console.log('Generation Options:', options);
+    console.log('Config:', sanitizedObject(config));
+    console.log('Generation Options:', sanitizedObject(options));
 
-    // Determine whether to use batch operations based on batch size
-    const useBatch = (options.batchSize || 1) > 1;
-    console.log(`Using ${useBatch ? 'batch' : 'individual'} operations (batch size: ${options.batchSize || 1})`);
+    const useBatch = config.batchSize > 1 && options.productCount > 1;
+    console.log(
+      `Using ${useBatch ? 'batch' : 'individual'} operations (batch size: ${
+        config.batchSize || 1
+      })`
+    );
 
     logger.info('Starting product generation', {
       correlationId: correlationId,
       operation: 'generate-products',
-      productCount: options.count,
-      accountCount: options.accountCount,
-      orderCount: options.orderCount,
-      categories: options.categories?.length || 0,
+      productCount: options.productCount,
+      categories: options.productCategories?.length || 0,
       useBatch: useBatch,
-      batchSize: options.batchSize || 1
+      batchSize: config.batchSize || 1,
     });
 
     const results = {
       products: [],
-      accounts: [],
-      orders: [],
       created: 0,
       errors: [],
     };
 
     try {
-      // Input validation
-      if (!config.liferayUrl || !config.clientId || !config.clientSecret) {
-        throw new Error('Missing required Liferay configuration');
-      }
+      this.validateConfig(config);
+      await this.validateOptions(options);
 
-      if (!config.catalogId) {
-        throw new Error('Catalog ID is required for product generation');
-      }
-
-      if (config.count <= 0) {
-        throw new Error('Product count must be greater than 0');
-      }
-
-      // Validate pollingDelay - check both config and options
-      const pollingDelayValue = options.pollingDelay || config.pollingDelay;
-      if (pollingDelayValue === undefined || pollingDelayValue === null) {
-        throw new Error('pollingDelay is required');
-      }
-
-      const pollingDelay = parseInt(pollingDelayValue);
-      if (isNaN(pollingDelay) || pollingDelay < 5 || pollingDelay > 600) {
-        throw new Error('pollingDelay must be between 5 and 600 seconds');
-      }
-
-      await this.validateConfig(config);
-
-      // Early validation for OpenAI key if not in demo mode
-      if (!config.demoMode && !options.demoMode) {
-        try {
-          await this.aiService.getOpenAIClient();
-          console.log('✓ OpenAI API key validated successfully');
-        } catch (error) {
-          const errorMessage = 'OpenAI API key not configured. Please set it in the AI Configuration object or enable demo mode.';
-          console.error('✗ OpenAI key validation failed:', error.message);
-          throw new Error(errorMessage);
-        }
-      }
-
-      const selectedCategories = options.categories || ['Electronics'];
+      const selectedCategories = options.productCategories || ['Electronics'];
       const selectedLanguages = config.selectedLanguages || ['en-US'];
 
       console.log('=== VALIDATED CONFIG ===');
@@ -107,40 +73,40 @@ class ProductGenerator {
       });
 
       console.log(`Using catalog ID: ${config.catalogId}`);
-
-      if (!config.liferayUrl) {
-        throw new Error('Liferay URL is required');
-      }
-      if (!config.clientId || !config.clientSecret) {
-        throw new Error('OAuth client credentials are required');
-      }
-
-      console.log(`Demo mode: ${config.demoMode ? 'ENABLED' : 'DISABLED'}`);
+      console.log(`Demo mode: ${options.demoMode ? 'ENABLED' : 'DISABLED'}`);
       console.log(`Target Liferay URL: ${config.liferayUrl}`);
-      console.log(`Selected languages: ${(config.selectedLanguages || ['en-US']).join(', ')}`);
+      console.log(
+        `Selected languages: ${(config.selectedLanguages || ['en-US']).join(
+          ', '
+        )}`
+      );
 
       let catalogOptions = {};
       if (options.generateSkuVariants) {
-        catalogOptions = await this.createCatalogOptions(config, selectedCategories);
+        catalogOptions = await this.createCatalogOptions(
+          config,
+          selectedCategories
+        );
       }
 
       let catalogSpecifications = {};
       if (options.generateSpecifications) {
-        catalogSpecifications = await this.createCatalogSpecifications(config, selectedCategories);
+        catalogSpecifications = await this.createCatalogSpecifications(
+          config,
+          selectedCategories
+        );
       }
 
-      const productsPerCategory = Math.ceil(options.count / selectedCategories.length);
-
-      const languageCodes = selectedLanguages.map(lang => lang.replace('-', '_'));
-
-
+      const productsPerCategory = options.productCount;
       for (const category of selectedCategories) {
         console.log(`Generating products for category: ${category}`);
 
         try {
           let productDataList;
-          if (config.demoMode || options.demoMode) {
-            console.log(`Demo mode: Generating ${productsPerCategory} mock products`);
+          if (options.demoMode) {
+            console.log(
+              `Demo mode: Generating ${productsPerCategory} mock products`
+            );
             productDataList = this.mockDataGenerator.generateProductData(
               category,
               productsPerCategory,
@@ -153,89 +119,107 @@ class ProductGenerator {
                 generatePriceLists: options.generatePriceLists,
                 generateBulkPricing: options.generateBulkPricing,
                 generateTierPricing: options.generateTierPricing,
-                generatePDFs: options.pdfRatio > 0, // Enable if ratio > 0 in demo mode
-                generateImages: options.imageRatio > 0, // Enable if ratio > 0 in demo mode
+                imageMode: options.imageMode,
                 imageRatio: options.imageRatio || 0,
+                pdfMode: options.pdfMode,
                 pdfRatio: options.pdfRatio || 0,
-                // Pass custom files for demo mode
-                customImageFile: options.customImageFile,
-                customPDFFile: options.customPDFFile,
-                useCustomImage: options.useCustomImage,
-                useCustomPDF: options.useCustomPDF
               }
             );
-            console.log(`Demo: Generated ${productDataList.length} ${category} products`);
+            console.log(
+              `Demo: Generated ${productDataList.length} ${category} products`
+            );
           } else {
-            console.log(`AI mode: Generating ${productsPerCategory} products using ${config.aiModel}`);
+            console.log(
+              `AI mode: Generating ${productsPerCategory} products using ${config.aiModel}`
+            );
             productDataList = await this.aiService.generateProductData(
               category,
               productsPerCategory,
+              config,
               config.aiModel,
-              config.selectedLanguages || ['en-US'],
-              {
-                catalogId: config.catalogId,
-                generateSpecifications: options.generateSpecifications,
-                generateAttachments: false,
-                generateSkuVariants: options.generateSkuVariants
-              }
-            );
-            console.log(`AI: Generated ${productDataList.length} ${category} products`);
-          }
-
-          // Deterministic selection for images and PDFs
-          let productsForImages = [];
-          let productsForPDFs = [];
-          
-          // In demo mode, process images if ratio > 0, regardless of generateImages flag
-          if ((options.generateImages || (options.demoMode && options.imageRatio > 0)) && options.imageRatio > 0) {
-            productsForImages = this.pdfGenerator.selectProductsForImages(
-              productDataList,
-              options.imageRatio
+              config.selectedLanguages || ['en-US']
             );
             console.log(
-              `Selected ${productsForImages.length} products for image assignment (${options.imageRatio}% ratio) ${options.demoMode ? '(Demo Mode)' : ''}`
-            );
-          }
-          
-          // In demo mode, process PDFs if ratio > 0, regardless of generatePDFs flag
-          if ((options.generatePDFs || (options.demoMode && options.pdfRatio > 0)) && options.pdfRatio > 0) {
-            productsForPDFs = this.pdfGenerator.selectProductsForPDFs(
-              productDataList,
-              options.pdfRatio
-            );
-            console.log(
-              `Selected ${productsForPDFs.length} products for PDF generation (${options.pdfRatio}% ratio) ${options.demoMode ? '(Demo Mode)' : ''}`
+              `AI: Generated ${productDataList.length} ${category} products`
             );
           }
 
-          // Apply deterministic image and PDF assignment
-          if (productsForImages.length > 0) {
-            productsForImages.forEach(product => {
-              if (options.useCustomImage && options.customImageFile) {
-                product.defaultImage = options.customImageFile;
-              } else {
-                // Use default placeholder image (base64 simple JPEG - 100x100 pixel gray square)
-                product.defaultImage = 'data:image/jpeg;base64,/9j/4AAQSkZJRgABAQEASABIAAD/2wBDAAEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQH/2wBDAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQH/wAARCABkAGQDASIAAhEBAxEB/8QAHwAAAQUBAQEBAQEAAAAAAAAAAAECAwQFBgcICQoL/8QAtRAAAgEDAwIEAwUFBAQAAAF9AQIDAAQRBRIhMUEGE1FhByJxFDKBkaEII0KxwRVS0fAkM2JyggkKFhcYGRolJicoKSo0NTY3ODk6Q0RFRkdISUpTVFVWV1hZWmNkZWZnaGlqc3R1dnd4eXqDhIWGh4iJipKTlJWWl5iZmqKjpKWmp6ipqrKztLW2t7i5usLDxMXGx8jJytLT1NXW19jZ2uHi4+Tl5ufo6erx8vP09fb3+Pn6/8QAHwEAAwEBAQEBAQEBAQAAAAAAAAECAwQFBgcICQoL/8QAtREAAgECBAQDBAcFBAQAAQJ3AAECAxEEBSExBhJBUQdhcRMiMoEIFEKRobHBCSMzUvAVYnLRChYkNOEl8RcYGRomJygpKjU2Nzg5OkNERUZHSElKU1RVVldYWVpjZGVmZ2hpanN0dXZ3eHl6goOEhYaHiImKkpOUlZaXmJmaoqOkpaanqKmqsrO0tba3uLm6wsPExcbHyMnK0tPU1dbX2Nna4uPk5ebn6Onq8vP09fb3+Pn6/9oADAMBAAIRAxEAPwD9U6KKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKAP/2Q==';
+          if (options.imageMode !== 'none') {
+            let productsForImages = [];
+            if (options.demoMode && options.imageRatio > 0) {
+              productsForImages = this.mediaGenerator.selectProductsForImages(
+                productDataList,
+                options.imageRatio
+              );
+              console.log(
+                `Selected ${
+                  productsForImages.length
+                } products for image assignment (${
+                  options.imageRatio
+                }% ratio) ${options.demoMode ? '(Demo Mode)' : ''}`
+              );
+            }
+
+            if (productsForImages.length > 0) {
+              let image;
+              if (options.imageMode === 'default') {
+                image = await this.mediaGenerator.getDefaultBase64ImageDataUrl(
+                  config
+                );
+              } else if (options.imageMode === 'custom') {
+                image = options.customImageFile;
               }
-            });
+              productsForImages.forEach((product) => {
+                product.images = [];
+                product.images.push(image);
+              });
+            }
           }
-          
-          if (productsForPDFs.length > 0) {
-            productsForPDFs.forEach(product => {
-              if (options.useCustomPDF && options.customPDFFile) {
-                product.defaultAttachment = options.customPDFFile;
-              } else {
-                // Use the valid PDF constant (already includes data URI prefix for consistent handling)
-                product.defaultAttachment = 'data:application/pdf;base64,JVBERi0xLjQKJeLjz9MKMSAwIG9iago8PAovVHlwZSAvQ2F0YWxvZwovUGFnZXMgMiAwIFIKPj4KZW5kb2JqCjIgMCBvYmoKPDwKL1R5cGUgL1BhZ2VzCi9LaWRzIFszIDAgUl0KL0NvdW50IDEKL01lZGlhQm94IFswIDAgNjEyIDc5Ml0KPj4KZW5kb2JqCjMgMCBvYmoKPDwKL1R5cGUgL1BhZ2UKL1BhcmVudCAyIDAgUgovQ29udGVudHMgNCAwIFIKPj4KZW5kb2JqCjQgMCBvYmoKPDwKL0xlbmd0aCA0NAo+PgpzdHJlYW0KQlQKL0YxIDEyIFRmCjEwMCA1MDAgVGQKKEhlbGxvIFdvcmxkKSBUagpFVAplbmRzdHJlYW0KZW5kb2JqCjUgMCBvYmoKPDwKL1R5cGUgL0ZvbnREZXNjcmlwdG9yCi9Gb250TmFtZSAvVGltZXMtUm9tYW4KL0ZsYWdzIDMyCi9Gb250QkJveCBbLTE2OCAtMjE4IDEwMDAgODk4XQovSXRhbGljQW5nbGUgMAovQXNjZW50IDg5OAovRGVzY2VudCAtMjE4Ci9DYXBIZWlnaHQgNjYyCi9TdGVtViA5NQovWEhlaWdodCA0NDYKPj4KZW5kb2JqCjYgMCBvYmoKPDwKL1R5cGUgL0ZvbnQKL1N1YnR5cGUgL1R5cGUxCi9CYXNlRm9udCAvVGltZXMtUm9tYW4KL0ZvbnREZXNjcmlwdG9yIDUgMCBSCj4+CmVuZG9iagp4cmVmCjAgNwowMDAwMDAwMDAwIDY1NTM1IGYgCjAwMDAwMDAwMDkgMDAwMDAgbiAKMDAwMDAwMDA0NyAwMDAwMCBuIAowMDAwMDAwMDk4IDAwMDAwIG4gCjAwMDAwMDAxMzkgMDAwMDAgbiAKMDAwMDAwMDIzNSAwMDAwMCBuIAowMDAwMDAwNDMxIDAwMDAwIG4gCnRyYWlsZXIKPDwKL1NpemUgNwovUm9vdCAxIDAgUgo+PgpzdGFydHhyZWYKNTI4CiUlRU9G';
+
+          if (options.pdfMode !== 'none') {
+            let productsForPDFs = [];
+            if (options.demoMode && options.pdfRatio > 0) {
+              productsForPDFs = this.mediaGenerator.selectProductsForPDFs(
+                productDataList,
+                options.pdfRatio
+              );
+              console.log(
+                `Selected ${
+                  productsForPDFs.length
+                } products for PDF generation (${options.pdfRatio}% ratio) ${
+                  options.demoMode ? '(Demo Mode)' : ''
+                }`
+              );
+            }
+
+            if (productsForPDFs.length > 0) {
+              let pdf;
+              if (options.pdfMode === 'default') {
+                pdf = await this.mediaGenerator.getgetDefaultBase64PdfDataUrl(
+                  config
+                );
+              } else if (options.pdfMode === 'custom') {
+                pdf = options.customPdfFile;
               }
-            });
+              productsForPDFs.forEach((product) => {
+                product.attachments = [];
+                product.attachments.push(pdf);
+              });
+            }
           }
 
-          console.log(`Processing ${productDataList.length} products for category ${category} using ${useBatch ? 'batch' : 'individual'} operations...`);
+          console.log(
+            `Processing ${
+              productDataList.length
+            } products for category ${category} using ${
+              useBatch ? 'batch' : 'individual'
+            } operations...`
+          );
 
-          const preparedProducts = productDataList.map(productData => {
+          const preparedProducts = productDataList.map((productData) => {
             const liferayProduct = {
-              active: productData.active !== undefined ? productData.active : true,
+              active:
+                productData.active !== undefined ? productData.active : true,
               catalogId: parseInt(config.catalogId),
               name: productData.name,
               description: productData.description,
@@ -263,50 +247,53 @@ class ProductGenerator {
               liferayProduct.skus = productData.skus;
             } else if (productData.baseSku) {
               const basePrice = Math.floor(Math.random() * 500) + 50;
-              liferayProduct.skus = [{
-                cost: Math.round(basePrice * 0.6),
-                externalReferenceCode: productData.baseSku,
-                inventoryLevel: Math.floor(Math.random() * 50) + 10,
-                neverExpire: true,
-                price: basePrice,
-                published: true,
-                purchasable: true,
-                sku: productData.baseSku
-              }];
+              liferayProduct.skus = [
+                {
+                  cost: Math.round(basePrice * 0.6),
+                  externalReferenceCode: productData.baseSku,
+                  inventoryLevel: Math.floor(Math.random() * 50) + 10,
+                  neverExpire: true,
+                  price: basePrice,
+                  published: true,
+                  purchasable: true,
+                  sku: productData.baseSku,
+                },
+              ];
             } else {
-              const fallbackSku = `SKU-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`;
+              const fallbackSku = `SKU-${Date.now()}-${Math.random()
+                .toString(36)
+                .substr(2, 5)}`;
               const basePrice = Math.floor(Math.random() * 500) + 50;
-              liferayProduct.skus = [{
-                cost: Math.round(basePrice * 0.6),
-                externalReferenceCode: fallbackSku,
-                inventoryLevel: Math.floor(Math.random() * 50) + 10,
-                neverExpire: true,
-                price: basePrice,
-                published: true,
-                purchasable: true,
-                sku: fallbackSku
-              }];
-            }
-
-            if (productData.attachments && Array.isArray(productData.attachments) && productData.attachments.length > 0) {
-              // Ensure all attachments use title field, not name
-              liferayProduct.attachments = productData.attachments.map(att => ({
-                ...att,
-                title: att.title || { en_US: 'Product Attachment' }
-              }));
+              liferayProduct.skus = [
+                {
+                  cost: Math.round(basePrice * 0.6),
+                  externalReferenceCode: fallbackSku,
+                  inventoryLevel: Math.floor(Math.random() * 50) + 10,
+                  neverExpire: true,
+                  price: basePrice,
+                  published: true,
+                  purchasable: true,
+                  sku: fallbackSku,
+                },
+              ];
             }
 
             return liferayProduct;
           });
 
           if (useBatch) {
-            console.log(`Creating ${preparedProducts.length} products using batch endpoint with batch size ${options.batchSize}...`);
+            console.log(
+              `Creating ${preparedProducts.length} products using batch endpoint with batch size ${config.batchSize}...`
+            );
 
-            const callbackUrl = config.microserviceUrl && config.microserviceUrl !== 'null' ? `${config.microserviceUrl}/api/batch-callback` : null;
+            const callbackUrl =
+              config.microserviceUrl && config.microserviceUrl !== 'null'
+                ? `${config.microserviceUrl}/api/batch/callback`
+                : null;
 
             // Remove images and attachments from products for batch creation
             // These will be added separately after the products are created
-            const cleanedProducts = preparedProducts.map(product => {
+            const cleanedProducts = preparedProducts.map((product) => {
               const cleanProduct = { ...product };
               // Remove images and attachments to avoid batch processing issues
               delete cleanProduct.images;
@@ -316,17 +303,29 @@ class ProductGenerator {
 
             // Split products into batches based on batchSize
             const productBatches = [];
-            for (let i = 0; i < cleanedProducts.length; i += options.batchSize) {
-              productBatches.push(cleanedProducts.slice(i, i + options.batchSize));
+            for (let i = 0; i < cleanedProducts.length; i += config.batchSize) {
+              productBatches.push(
+                cleanedProducts.slice(i, i + config.batchSize)
+              );
             }
 
-            console.log(`Split ${cleanedProducts.length} products into ${productBatches.length} batches of max size ${options.batchSize}`);
+            console.log(
+              `Split ${cleanedProducts.length} products into ${productBatches.length} batches of max size ${config.batchSize}`
+            );
 
             const batchIds = [];
             // Process each batch
-            for (let batchIndex = 0; batchIndex < productBatches.length; batchIndex++) {
+            for (
+              let batchIndex = 0;
+              batchIndex < productBatches.length;
+              batchIndex++
+            ) {
               const batch = productBatches[batchIndex];
-              console.log(`Submitting batch ${batchIndex + 1}/${productBatches.length} with ${batch.length} products...`);
+              console.log(
+                `Submitting batch ${batchIndex + 1}/${
+                  productBatches.length
+                } with ${batch.length} products...`
+              );
 
               const result = await liferayService.createProductsBatch(
                 config,
@@ -338,9 +337,11 @@ class ProductGenerator {
 
               // Store batch config for polling (if callback URL is provided)
               if (result.batchId && callbackUrl) {
-
                 // Get poll interval from config with validation
-                const pollInterval = Math.max(config.pollInterval || 5000, 2000); // Minimum 2 seconds
+                const pollInterval = Math.max(
+                  config.pollInterval || 5000,
+                  2000
+                ); // Minimum 2 seconds
                 const maxPollAttempts = config.maxPollAttempts || 120; // Default 10 minutes
 
                 const { cacheService } = require('./cacheService.cjs');
@@ -352,7 +353,7 @@ class ProductGenerator {
                     clientSecret: config.clientSecret,
                     localeCode: config.localeCode,
                     entityType: 'products',
-                    createdAt: new Date().toISOString()
+                    createdAt: new Date().toISOString(),
                   },
                   3600000 // 1 hour cache
                 );
@@ -361,59 +362,53 @@ class ProductGenerator {
                   operation: 'batch-config-store',
                   batchId: result.batchId,
                   pollInterval,
-                  maxPollAttempts
+                  maxPollAttempts,
                 });
 
                 // Start polling for this batch
-                this.batchPollingService.startPolling(result.batchId, {
-                  liferayUrl: config.liferayUrl,
-                  clientId: config.clientId,
-                  clientSecret: config.clientSecret,
-                  localeCode: config.localeCode,
-                  entityType: 'products'
-                }, {
-                  pollInterval: pollingDelay * 1000, // Convert to milliseconds
-                  maxPollAttempts: Math.ceil(600000 / (pollingDelay * 1000)), // Max 10 minutes
-                  onStatusChange: (status) => {
-                    logger.log('debug', 'Batch status update', {
-                      operation: 'batch-status-update',
-                      batchId: status.batchId,
-                      status: status.status,
-                      processedCount: status.processedCount,
-                      totalCount: status.totalCount
-                    });
-                    // Broadcast status update via WebSocket
-                    if (this.websocketService) {
-                      this.websocketService.broadcastBatchUpdate({
-                        type: 'batch_progress',
-                        entityType: 'products',
+                this.batchPollingService.startPolling(
+                  result.batchId,
+                  {
+                    liferayUrl: config.liferayUrl,
+                    clientId: config.clientId,
+                    clientSecret: config.clientSecret,
+                    localeCode: config.localeCode,
+                    entityType: 'products',
+                  },
+                  {
+                    pollInterval: config.pollingDelay * 1000, // Convert to milliseconds
+                    maxPollAttempts: Math.ceil(
+                      600000 / (config.pollingDelay * 1000)
+                    ), // Max 10 minutes
+                    onStatusChange: (status) => {
+                      logger.log('debug', 'Batch status update', {
+                        operation: 'batch-status-update',
                         batchId: status.batchId,
                         status: status.status,
                         processedCount: status.processedCount,
-                        totalCount: status.totalCount
+                        totalCount: status.totalCount,
                       });
-                    }
-                  },
-                  onComplete: (results) => {
-                    this.handleBatchComplete(results);
-                  },
-                  onError: (error) => {
-                    logger.log('error', 'Batch polling error', {
-                      operation: 'batch-polling-error',
-                      batchId: result.batchId,
-                      error: error.message
-                    });
+                    },
+                    onComplete: (results) => {
+                      this.handleBatchComplete(results);
+                    },
+                    onError: (error) => {
+                      logger.log('error', 'Batch polling error', {
+                        operation: 'batch-polling-error',
+                        batchId: result.batchId,
+                        error: error.message,
+                      });
+                    },
                   }
-                });
+                );
               }
-
 
               logger.info('Batch submission completed', {
                 operation: 'create-products-batch',
                 batchId: result.batchId,
                 productCount: batch.length,
                 status: result.status,
-                callbackUrl: callbackUrl || 'none'
+                callbackUrl: callbackUrl || 'none',
               });
 
               results.products.push({
@@ -423,41 +418,57 @@ class ProductGenerator {
                 batchId: result.batchId,
                 status: result.status,
                 productCount: batch.length,
-                products: batch.map(p => ({
+                products: batch.map((p) => ({
                   name: p.name?.en_US || p.name,
-                  externalReferenceCode: p.externalReferenceCode
-                }))
+                  externalReferenceCode: p.externalReferenceCode,
+                })),
               });
               results.created += batch.length;
 
               // Add delay between batch submissions to avoid overwhelming the server
               if (batchIndex < productBatches.length - 1) {
-                await new Promise(resolve => setTimeout(resolve, 1000));
+                await new Promise((resolve) => setTimeout(resolve, 1000));
               }
             }
 
             // The global BatchPollingService will handle session completion and trigger post-processing
             // Store the session context for post-processing
-            const sessionId = `products_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+            const sessionId = `products_${Date.now()}_${Math.random()
+              .toString(36)
+              .substr(2, 9)}`;
 
             // Register the generation session with the global batch polling service
-            this.batchPollingService.registerGenerationSession(sessionId, batchIds, batchIds.length);
+            this.batchPollingService.registerGenerationSession(
+              sessionId,
+              batchIds,
+              batchIds.length
+            );
 
             // Store session data for post-processing
             const { cacheService } = require('./cacheService.cjs');
-            cacheService.set(`session:${sessionId}:context`, {
-              config,
-              productDataList,
-              preparedProducts,
-              options,
-              sessionId
-            }, 1800000); // 30 minutes cache
+            cacheService.set(
+              `session:${sessionId}:context`,
+              {
+                config,
+                productDataList,
+                preparedProducts,
+                options,
+                sessionId,
+              },
+              1800000
+            ); // 30 minutes cache
 
             // In demo mode, check ratios instead of generate flags
-            const hasImages = options.demoMode ? options.imageRatio > 0 : (options.generateImages && options.imageRatio > 0);
-            const hasPDFs = options.demoMode ? options.pdfRatio > 0 : (options.generatePDFs && options.pdfRatio > 0);
-            const hasAttachments = productDataList.some(p => p.defaultImage || p.defaultAttachment);
-            
+            const hasImages = options.demoMode
+              ? options.imageRatio > 0
+              : options.generateImages && options.imageRatio > 0;
+            const hasPDFs = options.demoMode
+              ? options.pdfRatio > 0
+              : options.generatePDFs && options.pdfRatio > 0;
+            const hasAttachments = productDataList.some(
+              (p) => p.images || p.attachments
+            );
+
             logger.info('Session registered for post-processing', {
               operation: 'session-register',
               sessionId,
@@ -465,44 +476,147 @@ class ProductGenerator {
               hasImages,
               hasPDFs,
               hasAttachments,
-              demoMode: options.demoMode
+              demoMode: options.demoMode,
             });
 
-            console.log(`Session ${sessionId} registered - post-processing will trigger after all batches complete`);
+            console.log(
+              `Session ${sessionId} registered - post-processing will trigger after all batches complete`
+            );
 
             // Post-processing will be handled after all batches complete
           } else {
-            console.log(`Creating ${preparedProducts.length} products individually...`);
+            console.log(
+              `Creating ${preparedProducts.length} products individually...`
+            );
 
             for (let i = 0; i < preparedProducts.length; i++) {
               const productData = preparedProducts[i];
               const originalProduct = productDataList[i];
 
               try {
-                const createdProduct = await this.liferayService.createProduct(config, productData);
+                const createdProduct = await this.liferayService.createProduct(
+                  config,
+                  productData
+                );
                 results.products.push(createdProduct);
                 results.created++;
-                console.log(`✓ Created product: ${createdProduct.name?.en_US || createdProduct.name}`);
+                console.log(
+                  `✓ Created product: ${
+                    createdProduct.name?.en_US || createdProduct.name
+                  }`
+                );
 
-                if (originalProduct.defaultImage) {
-                  await this.liferayService.addProductImageByBase64(
-                    config,
-                    createdProduct.externalReferenceCode,
-                    originalProduct.defaultImage
-                  );
-                  console.log(`✓ Added image to product: ${createdProduct.externalReferenceCode}`);
+                const productERC = originalProduct.externalReferenceCode;
+
+                if (originalProduct.images) {
+                  for (const image of originalProduct.images) {
+                    if (options.imageMode === 'custom') {
+                      const imgERC = `IMG_${productERC}_${Math.random()
+                        .toString(36)
+                        .slice(2, 8)}`;
+                      const doc =
+                        await liferayService.uploadSiteDocumentMultipart(
+                          config,
+                          image,
+                          {
+                            title: `Product Image - ${productERC}`,
+                            externalReferenceCode: imgERC,
+                            documentFolderId: options.uploadFolderId,
+                            documentFolderExternalReferenceCode:
+                              options.uploadFolderERC,
+                            viewableBy: 'Anyone',
+                          }
+                        );
+
+                      if (doc) {
+                        await liferayService.patchPermissionsByAsset(config, {
+                          assetType: ASSET_TYPE.DOCUMENT,
+                          id: doc.id,
+                          viewableBy: VIEWABLE_BY.ANYONE,
+                        });
+                      }
+
+                      // choose the right URL field from Liferay's response
+                      const imageUrlData = {
+                        title: { en_US: `Product Image - ${productERC}` },
+                        src: `${config.liferayUrl}${doc.contentUrl}`,
+                      };
+
+                      await liferayService.addProductImageByUrl(
+                        config,
+                        productERC,
+                        imageUrlData
+                      );
+                    } else {
+                      await this.liferayService.addProductImageByBase64(
+                        config,
+                        createdProduct.externalReferenceCode,
+                        image
+                      );
+                    }
+                    console.log(
+                      `✓ Added image to product: ${createdProduct.externalReferenceCode}`
+                    );
+                  }
                 }
 
-                if (originalProduct.defaultAttachment) {
-                  await this.liferayService.addProductAttachmentByBase64(
-                    config,
-                    createdProduct.externalReferenceCode,
-                    originalProduct.defaultAttachment
-                  );
-                  console.log(`✓ Added attachment to product: ${createdProduct.externalReferenceCode}`);
+                if (originalProduct.attachments) {
+                  for (const attachment of originalProduct.attachments) {
+                    if (options.pdfMode === 'custom') {
+                      const pdfERC = `PDF_${productERC}_${Math.random()
+                        .toString(36)
+                        .slice(2, 8)}`;
+                      const doc =
+                        await liferayService.uploadSiteDocumentMultipart(
+                          config,
+                          attachment,
+                          {
+                            title: `Product Documentation - ${productERC}`,
+                            externalReferenceCode: pdfERC,
+                            documentFolderId: options.uploadFolderId,
+                            documentFolderExternalReferenceCode:
+                              options.uploadFolderERC,
+                            viewableBy: 'Anyone',
+                          }
+                        );
+
+                      if (doc) {
+                        await liferayService.patchPermissionsByAsset(config, {
+                          assetType: ASSET_TYPE.DOCUMENT,
+                          id: doc.id,
+                          viewableBy: VIEWABLE_BY.ANYONE,
+                        });
+                      }
+                      const attachmentUrlData = {
+                        title: {
+                          en_US: `Product Documentation - ${productERC}`,
+                        },
+                        src: `${config.liferayUrl}${doc.contentUrl}`,
+                      };
+                      await liferayService.addProductAttachmentByUrl(
+                        config,
+                        productERC,
+                        attachmentUrlData
+                      );
+                    } else {
+                      await this.liferayService.addProductAttachmentByBase64(
+                        config,
+                        createdProduct.externalReferenceCode,
+                        { attachment }
+                      );
+                    }
+                    console.log(
+                      `✓ Added attachment to product: ${createdProduct.externalReferenceCode}`
+                    );
+                  }
                 }
               } catch (error) {
-                console.error(`Failed to create product ${productData.name?.en_US || productData.name}:`, error.message);
+                console.error(
+                  `Failed to create product ${
+                    productData.name?.en_US || productData.name
+                  }:`,
+                  error.message
+                );
                 results.errors.push({
                   category,
                   product: productData.name?.en_US || productData.name,
@@ -514,10 +628,14 @@ class ProductGenerator {
 
           // Only generate pricing if price lists option is enabled
           if (options.generatePriceLists && productDataList.length > 0) {
-            console.log(`Generating pricing for ${productDataList.length} products...`);
+            console.log(
+              `Generating pricing for ${productDataList.length} products...`
+            );
             await this.generateProductPricing(
               config,
-              productDataList.map(pd => ({sku: pd.baseSku || pd.externalReferenceCode})), // Pass only necessary info for pricing
+              productDataList.map((pd) => ({
+                sku: pd.baseSku || pd.externalReferenceCode,
+              })), // Pass only necessary info for pricing
               {
                 generateBulkPricing: options.generateBulkPricing,
                 generateTierPricing: options.generateTierPricing,
@@ -544,20 +662,24 @@ class ProductGenerator {
       logger.error('Product generation failed', {
         operation: 'generate-products',
         error: error.message,
-        stack: error.stack
+        stack: error.stack,
       });
       throw error;
     }
   }
 
   async createCatalogOptions(config, categories) {
-    console.log(`Creating catalog-level options for SKU variants... (Demo mode: ${config.demoMode})`);
+    console.log(
+      `Creating catalog-level options for SKU variants... (Demo mode: ${options.demoMode})`
+    );
     console.log(`Liferay URL: ${config.liferayUrl}`);
     console.log(`Categories to process: ${categories.join(', ')}`);
     const catalogOptions = {};
 
     const selectedLanguages = config.selectedLanguages || ['en-US'];
-    const languageCodes = selectedLanguages.map(lang => lang.replace('-', '_'));
+    const languageCodes = selectedLanguages.map((lang) =>
+      lang.replace('-', '_')
+    );
 
     const getOptionCharacteristics = (optionName, values) => {
       const name = optionName.toLowerCase();
@@ -566,38 +688,71 @@ class ProductGenerator {
         fieldType: 'select',
         skuContributor: true,
         required: false,
-        facetable: true
+        facetable: true,
       };
 
-      if (values.length <= 4 && (name.includes('type') || name.includes('style') || name.includes('format') || name.includes('edition'))) {
+      if (
+        values.length <= 4 &&
+        (name.includes('type') ||
+          name.includes('style') ||
+          name.includes('format') ||
+          name.includes('edition'))
+      ) {
         characteristics.fieldType = 'radio';
         characteristics.required = true;
         characteristics.skuContributor = true;
       }
 
-      if (values.length === 2 && (values.some(v => v.toLowerCase().includes('yes') || v.toLowerCase().includes('no')) || values.some(v => v.toLowerCase().includes('enabled') || v.toLowerCase().includes('disabled')))) {
+      if (
+        values.length === 2 &&
+        (values.some(
+          (v) =>
+            v.toLowerCase().includes('yes') || v.toLowerCase().includes('no')
+        ) ||
+          values.some(
+            (v) =>
+              v.toLowerCase().includes('enabled') ||
+              v.toLowerCase().includes('disabled')
+          ))
+      ) {
         characteristics.fieldType = 'checkbox';
         characteristics.skuContributor = false;
         characteristics.facetable = false;
       }
 
-      if (name.includes('feature') || name.includes('accessory') || name.includes('addon')) {
+      if (
+        name.includes('feature') ||
+        name.includes('accessory') ||
+        name.includes('addon')
+      ) {
         characteristics.fieldType = 'checkbox_multiple';
         characteristics.skuContributor = false;
       }
 
-      if (name.includes('weight') || name.includes('quantity') || (name.includes('size') && values.some(v => /\d/.test(v)))) {
+      if (
+        name.includes('weight') ||
+        name.includes('quantity') ||
+        (name.includes('size') && values.some((v) => /\d/.test(v)))
+      ) {
         characteristics.fieldType = 'numeric';
         characteristics.skuContributor = false;
       }
 
-      if (name.includes('custom') || name.includes('personalization') || name.includes('engraving')) {
+      if (
+        name.includes('custom') ||
+        name.includes('personalization') ||
+        name.includes('engraving')
+      ) {
         characteristics.fieldType = 'text';
         characteristics.skuContributor = false;
         characteristics.facetable = false;
       }
 
-      if (name.includes('warranty') || name.includes('delivery') || name.includes('expiration')) {
+      if (
+        name.includes('warranty') ||
+        name.includes('delivery') ||
+        name.includes('expiration')
+      ) {
         characteristics.fieldType = 'date';
         characteristics.skuContributor = false;
       }
@@ -608,7 +763,11 @@ class ProductGenerator {
         characteristics.facetable = false;
       }
 
-      if (name.includes('color') || name.includes('size') || name.includes('material')) {
+      if (
+        name.includes('color') ||
+        name.includes('size') ||
+        name.includes('material')
+      ) {
         characteristics.required = true;
         characteristics.facetable = true;
       }
@@ -621,7 +780,10 @@ class ProductGenerator {
         { name: 'Color', values: ['Black', 'White', 'Silver', 'Space Gray'] },
         { name: 'Storage', values: ['64GB', '128GB', '256GB', '512GB', '1TB'] },
         { name: 'Screen Size', values: ['5.4"', '6.1"', '6.7"', '12.9"'] },
-        { name: 'Connectivity', values: ['WiFi', 'Cellular', 'Bluetooth', 'USB-C'] },
+        {
+          name: 'Connectivity',
+          values: ['WiFi', 'Cellular', 'Bluetooth', 'USB-C'],
+        },
       ],
       Clothing: [
         { name: 'Size', values: ['XS', 'S', 'M', 'L', 'XL', 'XXL'] },
@@ -638,31 +800,48 @@ class ProductGenerator {
     };
 
     for (const category of categories) {
-      const categoryOptions = categoryOptionsMap[category] || categoryOptionsMap['Electronics'];
+      const categoryOptions =
+        categoryOptionsMap[category] || categoryOptionsMap['Electronics'];
       catalogOptions[category] = [];
-      console.log(`Processing ${categoryOptions.length} options for category: ${category}`);
+      console.log(
+        `Processing ${categoryOptions.length} options for category: ${category}`
+      );
 
       for (const optionData of categoryOptions) {
         try {
-          console.log(`Attempting to create option: ${optionData.name} for category ${category}`);
-          const optionERC = `OPT-${category.toUpperCase()}-${optionData.name.toUpperCase().replace(/\s+/g, '_')}`;
+          console.log(
+            `Attempting to create option: ${optionData.name} for category ${category}`
+          );
+          const optionERC = `OPT-${category.toUpperCase()}-${optionData.name
+            .toUpperCase()
+            .replace(/\s+/g, '_')}`;
 
-          const optionCharacteristics = getOptionCharacteristics(optionData.name, optionData.values);
+          const optionCharacteristics = getOptionCharacteristics(
+            optionData.name,
+            optionData.values
+          );
 
           const optionName = {};
           const optionDescription = {};
 
-          languageCodes.forEach(langCode => {
+          languageCodes.forEach((langCode) => {
             const suffix = langCode === 'en_US' ? '' : ` (${langCode})`;
             optionName[langCode] = `${optionData.name}${suffix}`;
-            optionDescription[langCode] = `${optionData.name} option for ${category}${suffix}`;
+            optionDescription[
+              langCode
+            ] = `${optionData.name} option for ${category}${suffix}`;
           });
 
           let option;
           try {
-            console.log(`Calling liferayService.createOption for ${optionData.name}...`);
+            console.log(
+              `Calling liferayService.createOption for ${optionData.name}...`
+            );
             option = await this.liferayService.createOption(config, {
-              key: `${category.toLowerCase()}-${optionData.name.toLowerCase().replace(/\s+/g, '-').replace(/&/g, 'and')}`,
+              key: `${category.toLowerCase()}-${optionData.name
+                .toLowerCase()
+                .replace(/\s+/g, '-')
+                .replace(/&/g, 'and')}`,
               name: optionName,
               description: optionDescription,
               fieldType: optionCharacteristics.fieldType,
@@ -671,16 +850,30 @@ class ProductGenerator {
               skuContributor: optionCharacteristics.skuContributor,
               externalReferenceCode: optionERC,
             });
-            console.log(`✓ Successfully created option: ${option.name.en_US} (ID: ${option.id}, Type: ${optionCharacteristics.fieldType}, SKU: ${optionCharacteristics.skuContributor}, Required: ${optionCharacteristics.required}, Facetable: ${optionCharacteristics.facetable})`);
+            console.log(
+              `✓ Successfully created option: ${option.name.en_US} (ID: ${option.id}, Type: ${optionCharacteristics.fieldType}, SKU: ${optionCharacteristics.skuContributor}, Required: ${optionCharacteristics.required}, Facetable: ${optionCharacteristics.facetable})`
+            );
           } catch (createError) {
-            if (createError.message.includes('409') || createError.message.includes('conflict')) {
-              console.log(`Option ${optionData.name} already exists, fetching existing option...`);
-              option = await this.liferayService.getOptionByERC(config, optionERC);
+            if (
+              createError.message.includes('409') ||
+              createError.message.includes('conflict')
+            ) {
+              console.log(
+                `Option ${optionData.name} already exists, fetching existing option...`
+              );
+              option = await this.liferayService.getOptionByERC(
+                config,
+                optionERC
+              );
               if (!option) {
-                console.warn(`Could not find existing option with ERC: ${optionERC}, skipping...`);
+                console.warn(
+                  `Could not find existing option with ERC: ${optionERC}, skipping...`
+                );
                 continue;
               }
-              console.log(`Using existing option: ${option.name.en_US} (ID: ${option.id})`);
+              console.log(
+                `Using existing option: ${option.name.en_US} (ID: ${option.id})`
+              );
             } else {
               throw createError;
             }
@@ -689,44 +882,72 @@ class ProductGenerator {
           const optionValues = [];
           for (let i = 0; i < optionData.values.length; i++) {
             const value = optionData.values[i];
-            const valueERC = `VAL-${optionERC}-${value.toUpperCase().replace(/\s+/g, '_')}`;
+            const valueERC = `VAL-${optionERC}-${value
+              .toUpperCase()
+              .replace(/\s+/g, '_')}`;
 
             const valueName = {};
-            languageCodes.forEach(langCode => {
+            languageCodes.forEach((langCode) => {
               const suffix = langCode === 'en_US' ? '' : ` (${langCode})`;
               valueName[langCode] = `${value}${suffix}`;
             });
 
             try {
-              const optionValue = await this.liferayService.createOptionValue(config, option.id, {
-                name: valueName,
-                key: `${category.toLowerCase()}-${value.toLowerCase().replace(/\s+/g, '-').replace(/&/g, 'and')}`,
-                priority: i + 1,
-                externalReferenceCode: valueERC,
-              });
+              const optionValue = await this.liferayService.createOptionValue(
+                config,
+                option.id,
+                {
+                  name: valueName,
+                  key: `${category.toLowerCase()}-${value
+                    .toLowerCase()
+                    .replace(/\s+/g, '-')
+                    .replace(/&/g, 'and')}`,
+                  priority: i + 1,
+                  externalReferenceCode: valueERC,
+                }
+              );
               optionValues.push(optionValue);
             } catch (valueError) {
-              if (valueError.message.includes('409') || valueError.message.includes('conflict')) {
-                console.log(`Option value ${value} already exists for option ${option.id}, fetching existing value...`);
-                const existingValue = await this.liferayService.getOptionValueByERC(config, option.id, valueERC);
+              if (
+                valueError.message.includes('409') ||
+                valueError.message.includes('conflict')
+              ) {
+                console.log(
+                  `Option value ${value} already exists for option ${option.id}, fetching existing value...`
+                );
+                const existingValue =
+                  await this.liferayService.getOptionValueByERC(
+                    config,
+                    option.id,
+                    valueERC
+                  );
                 if (existingValue) {
                   optionValues.push(existingValue);
-                  console.log(`Using existing option value: ${existingValue.name.en_US}`);
+                  console.log(
+                    `Using existing option value: ${existingValue.name.en_US}`
+                  );
                 }
               } else {
-                console.warn(`Failed to create option value ${value}: ${valueError.message}`);
+                console.warn(
+                  `Failed to create option value ${value}: ${valueError.message}`
+                );
               }
             }
           }
 
-          console.log(`Processed ${optionValues.length} values for option: ${option.name.en_US}`);
+          console.log(
+            `Processed ${optionValues.length} values for option: ${option.name.en_US}`
+          );
 
           catalogOptions[category].push({
             ...option,
             values: optionValues,
           });
         } catch (error) {
-          console.error(`Failed to process option ${optionData.name} for ${category}:`, error);
+          console.error(
+            `Failed to process option ${optionData.name} for ${category}:`,
+            error
+          );
         }
       }
     }
@@ -735,86 +956,266 @@ class ProductGenerator {
   }
 
   async createCatalogSpecifications(config, categories) {
-    console.log('Creating catalog-level specifications with option categories...');
+    console.log(
+      'Creating catalog-level specifications with option categories...'
+    );
     const catalogSpecifications = {};
 
     const selectedLanguages = config.selectedLanguages || ['en-US'];
-    const languageCodes = selectedLanguages.map(lang => lang.replace('-', '_'));
+    const languageCodes = selectedLanguages.map((lang) =>
+      lang.replace('-', '_')
+    );
 
     const categoryGroupsMap = {
       Electronics: [
-        { key: 'performance', title: 'Performance Specifications', description: 'Core performance and capability specifications', priority: 1 },
-        { key: 'connectivity', title: 'Connectivity & Features', description: 'Connectivity options and additional features', priority: 2 },
-        { key: 'physical', title: 'Physical Specifications', description: 'Physical dimensions, weight, and material specifications', priority: 3 },
-        { key: 'support', title: 'Support & Warranty', description: 'Warranty and support information', priority: 4 }
+        {
+          key: 'performance',
+          title: 'Performance Specifications',
+          description: 'Core performance and capability specifications',
+          priority: 1,
+        },
+        {
+          key: 'connectivity',
+          title: 'Connectivity & Features',
+          description: 'Connectivity options and additional features',
+          priority: 2,
+        },
+        {
+          key: 'physical',
+          title: 'Physical Specifications',
+          description:
+            'Physical dimensions, weight, and material specifications',
+          priority: 3,
+        },
+        {
+          key: 'support',
+          title: 'Support & Warranty',
+          description: 'Warranty and support information',
+          priority: 4,
+        },
       ],
       Clothing: [
-        { key: 'material-care', title: 'Material & Care', description: 'Fabric composition and care instructions', priority: 1 },
-        { key: 'fit-style', title: 'Fit & Style', description: 'Fit type, style, and design specifications', priority: 2 },
-        { key: 'details', title: 'Design Details', description: 'Specific design features and details', priority: 3 },
-        { key: 'origin', title: 'Brand & Origin', description: 'Brand and manufacturing information', priority: 4 }
+        {
+          key: 'material-care',
+          title: 'Material & Care',
+          description: 'Fabric composition and care instructions',
+          priority: 1,
+        },
+        {
+          key: 'fit-style',
+          title: 'Fit & Style',
+          description: 'Fit type, style, and design specifications',
+          priority: 2,
+        },
+        {
+          key: 'details',
+          title: 'Design Details',
+          description: 'Specific design features and details',
+          priority: 3,
+        },
+        {
+          key: 'origin',
+          title: 'Brand & Origin',
+          description: 'Brand and manufacturing information',
+          priority: 4,
+        },
       ],
       'Home & Garden': [
-        { key: 'dimensions-weight', title: 'Size & Weight', description: 'Physical dimensions and weight specifications', priority: 1 },
-        { key: 'material-build', title: 'Materials & Construction', description: 'Materials used and construction details', priority: 2 },
-        { key: 'features', title: 'Features & Capabilities', description: 'Product features and functional capabilities', priority: 3 },
-        { key: 'care-warranty', title: 'Care & Warranty', description: 'Maintenance requirements and warranty information', priority: 4 }
-      ]
+        {
+          key: 'dimensions-weight',
+          title: 'Size & Weight',
+          description: 'Physical dimensions and weight specifications',
+          priority: 1,
+        },
+        {
+          key: 'material-build',
+          title: 'Materials & Construction',
+          description: 'Materials used and construction details',
+          priority: 2,
+        },
+        {
+          key: 'features',
+          title: 'Features & Capabilities',
+          description: 'Product features and functional capabilities',
+          priority: 3,
+        },
+        {
+          key: 'care-warranty',
+          title: 'Care & Warranty',
+          description: 'Maintenance requirements and warranty information',
+          priority: 4,
+        },
+      ],
     };
 
     const categorySpecificationsMap = {
       Electronics: [
-        { key: 'screen-size', title: 'Screen Size', priority: 1, group: 'physical' },
-        { key: 'battery-life', title: 'Battery Life', priority: 2, group: 'performance' },
-        { key: 'processor', title: 'Processor', priority: 3, group: 'performance' },
+        {
+          key: 'screen-size',
+          title: 'Screen Size',
+          priority: 1,
+          group: 'physical',
+        },
+        {
+          key: 'battery-life',
+          title: 'Battery Life',
+          priority: 2,
+          group: 'performance',
+        },
+        {
+          key: 'processor',
+          title: 'Processor',
+          priority: 3,
+          group: 'performance',
+        },
         { key: 'ram', title: 'RAM', priority: 4, group: 'performance' },
-        { key: 'storage-capacity', title: 'Storage Capacity', priority: 5, group: 'performance' },
-        { key: 'operating-system', title: 'Operating System', priority: 6, group: 'performance' },
-        { key: 'connectivity', title: 'Connectivity', priority: 7, group: 'connectivity' },
-        { key: 'camera-resolution', title: 'Camera Resolution', priority: 8, group: 'connectivity' },
+        {
+          key: 'storage-capacity',
+          title: 'Storage Capacity',
+          priority: 5,
+          group: 'performance',
+        },
+        {
+          key: 'operating-system',
+          title: 'Operating System',
+          priority: 6,
+          group: 'performance',
+        },
+        {
+          key: 'connectivity',
+          title: 'Connectivity',
+          priority: 7,
+          group: 'connectivity',
+        },
+        {
+          key: 'camera-resolution',
+          title: 'Camera Resolution',
+          priority: 8,
+          group: 'connectivity',
+        },
         { key: 'warranty', title: 'Warranty', priority: 9, group: 'support' },
-        { key: 'weight', title: 'Weight', priority: 10, group: 'physical' }
+        { key: 'weight', title: 'Weight', priority: 10, group: 'physical' },
       ],
       Clothing: [
-        { key: 'material', title: 'Material', priority: 1, group: 'material-care' },
-        { key: 'care-instructions', title: 'Care Instructions', priority: 2, group: 'material-care' },
+        {
+          key: 'material',
+          title: 'Material',
+          priority: 1,
+          group: 'material-care',
+        },
+        {
+          key: 'care-instructions',
+          title: 'Care Instructions',
+          priority: 2,
+          group: 'material-care',
+        },
         { key: 'fit-type', title: 'Fit Type', priority: 3, group: 'fit-style' },
         { key: 'season', title: 'Season', priority: 4, group: 'fit-style' },
         { key: 'brand', title: 'Brand', priority: 5, group: 'origin' },
-        { key: 'country-of-origin', title: 'Country of Origin', priority: 6, group: 'origin' },
-        { key: 'closure-type', title: 'Closure Type', priority: 7, group: 'details' },
-        { key: 'sleeve-length', title: 'Sleeve Length', priority: 8, group: 'details' },
+        {
+          key: 'country-of-origin',
+          title: 'Country of Origin',
+          priority: 6,
+          group: 'origin',
+        },
+        {
+          key: 'closure-type',
+          title: 'Closure Type',
+          priority: 7,
+          group: 'details',
+        },
+        {
+          key: 'sleeve-length',
+          title: 'Sleeve Length',
+          priority: 8,
+          group: 'details',
+        },
         { key: 'pattern', title: 'Pattern', priority: 9, group: 'details' },
-        { key: 'collar-type', title: 'Collar Type', priority: 10, group: 'details' }
+        {
+          key: 'collar-type',
+          title: 'Collar Type',
+          priority: 10,
+          group: 'details',
+        },
       ],
       'Home & Garden': [
-        { key: 'dimensions', title: 'Dimensions', priority: 1, group: 'dimensions-weight' },
-        { key: 'weight', title: 'Weight', priority: 2, group: 'dimensions-weight' },
-        { key: 'material', title: 'Material', priority: 3, group: 'material-build' },
-        { key: 'weather-resistance', title: 'Weather Resistance', priority: 4, group: 'features' },
-        { key: 'assembly-required', title: 'Assembly Required', priority: 5, group: 'material-build' },
-        { key: 'maintenance', title: 'Maintenance', priority: 6, group: 'care-warranty' },
+        {
+          key: 'dimensions',
+          title: 'Dimensions',
+          priority: 1,
+          group: 'dimensions-weight',
+        },
+        {
+          key: 'weight',
+          title: 'Weight',
+          priority: 2,
+          group: 'dimensions-weight',
+        },
+        {
+          key: 'material',
+          title: 'Material',
+          priority: 3,
+          group: 'material-build',
+        },
+        {
+          key: 'weather-resistance',
+          title: 'Weather Resistance',
+          priority: 4,
+          group: 'features',
+        },
+        {
+          key: 'assembly-required',
+          title: 'Assembly Required',
+          priority: 5,
+          group: 'material-build',
+        },
+        {
+          key: 'maintenance',
+          title: 'Maintenance',
+          priority: 6,
+          group: 'care-warranty',
+        },
         { key: 'capacity', title: 'Capacity', priority: 7, group: 'features' },
-        { key: 'power-source', title: 'Power Source', priority: 8, group: 'features' },
-        { key: 'warranty', title: 'Warranty', priority: 9, group: 'care-warranty' },
-        { key: 'safety-features', title: 'Safety Features', priority: 10, group: 'features' }
+        {
+          key: 'power-source',
+          title: 'Power Source',
+          priority: 8,
+          group: 'features',
+        },
+        {
+          key: 'warranty',
+          title: 'Warranty',
+          priority: 9,
+          group: 'care-warranty',
+        },
+        {
+          key: 'safety-features',
+          title: 'Safety Features',
+          priority: 10,
+          group: 'features',
+        },
       ],
     };
 
     for (const category of categories) {
-      const categorySpecs = categorySpecificationsMap[category] || categorySpecificationsMap['Electronics'];
-      const categoryGroups = categoryGroupsMap[category] || categoryGroupsMap['Electronics'];
+      const categorySpecs =
+        categorySpecificationsMap[category] ||
+        categorySpecificationsMap['Electronics'];
+      const categoryGroups =
+        categoryGroupsMap[category] || categoryGroupsMap['Electronics'];
       catalogSpecifications[category] = [];
 
       const optionCategories = {};
       for (const groupData of categoryGroups) {
         try {
-          const categoryERC = `OPTCAT-${category.toUpperCase()}-${groupData.key.toUpperCase().replace(/-/g, '_')}`;
+          const categoryERC = `OPTCAT-${category.toUpperCase()}-${groupData.key
+            .toUpperCase()
+            .replace(/-/g, '_')}`;
 
           const categoryTitle = {};
           const categoryDescription = {};
 
-          languageCodes.forEach(langCode => {
+          languageCodes.forEach((langCode) => {
             const suffix = langCode === 'en_US' ? '' : ` (${langCode})`;
             categoryTitle[langCode] = `${groupData.title}${suffix}`;
             categoryDescription[langCode] = `${groupData.description}${suffix}`;
@@ -822,23 +1223,40 @@ class ProductGenerator {
 
           let optionCategory;
           try {
-            optionCategory = await this.liferayService.createOptionCategory(config, {
-              key: `${category.toLowerCase()}-${groupData.key}`,
-              title: categoryTitle,
-              description: categoryDescription,
-              priority: groupData.priority,
-              externalReferenceCode: categoryERC,
-            });
-            console.log(`Created option category: ${optionCategory.title.en_US} (ID: ${optionCategory.id}, Key: ${groupData.key})`);
+            optionCategory = await this.liferayService.createOptionCategory(
+              config,
+              {
+                key: `${category.toLowerCase()}-${groupData.key}`,
+                title: categoryTitle,
+                description: categoryDescription,
+                priority: groupData.priority,
+                externalReferenceCode: categoryERC,
+              }
+            );
+            console.log(
+              `Created option category: ${optionCategory.title.en_US} (ID: ${optionCategory.id}, Key: ${groupData.key})`
+            );
           } catch (createError) {
-            if (createError.message.includes('409') || createError.message.includes('conflict')) {
-              console.log(`Option category ${groupData.title} already exists, fetching existing category...`);
-              optionCategory = await this.liferayService.getOptionCategoryByERC(config, categoryERC);
+            if (
+              createError.message.includes('409') ||
+              createError.message.includes('conflict')
+            ) {
+              console.log(
+                `Option category ${groupData.title} already exists, fetching existing category...`
+              );
+              optionCategory = await this.liferayService.getOptionCategoryByERC(
+                config,
+                categoryERC
+              );
               if (!optionCategory) {
-                console.warn(`Could not find existing option category with ERC: ${categoryERC}, skipping...`);
+                console.warn(
+                  `Could not find existing option category with ERC: ${categoryERC}, skipping...`
+                );
                 continue;
               }
-              console.log(`Using existing option category: ${optionCategory.title.en_US} (ID: ${optionCategory.id})`);
+              console.log(
+                `Using existing option category: ${optionCategory.title.en_US} (ID: ${optionCategory.id})`
+              );
             } else {
               throw createError;
             }
@@ -846,18 +1264,23 @@ class ProductGenerator {
 
           optionCategories[groupData.key] = optionCategory;
         } catch (error) {
-          console.error(`Failed to process option category ${groupData.title} for ${category}:`, error);
+          console.error(
+            `Failed to process option category ${groupData.title} for ${category}:`,
+            error
+          );
         }
       }
 
       for (const specData of categorySpecs) {
         try {
-          const specERC = `SPEC-${category.toUpperCase()}-${specData.key.toUpperCase().replace(/-/g, '_')}`;
+          const specERC = `SPEC-${category.toUpperCase()}-${specData.key
+            .toUpperCase()
+            .replace(/-/g, '_')}`;
 
           const specTitle = {};
           const specOptionCategory = {};
 
-          languageCodes.forEach(langCode => {
+          languageCodes.forEach((langCode) => {
             const suffix = langCode === 'en_US' ? '' : ` (${langCode})`;
             specTitle[langCode] = `${specData.title}${suffix}`;
             specOptionCategory[langCode] = `${category}${suffix}`;
@@ -875,23 +1298,41 @@ class ProductGenerator {
           };
 
           if (linkedOptionCategory) {
-            specificationPayload.optionCategoryExternalReferenceCode = linkedOptionCategory.externalReferenceCode;
+            specificationPayload.optionCategoryExternalReferenceCode =
+              linkedOptionCategory.externalReferenceCode;
             specificationPayload.optionCategoryId = linkedOptionCategory.id;
           }
 
           let specification;
           try {
-            specification = await this.liferayService.createSpecification(config, specificationPayload);
-            console.log(`Created specification: ${specification.title.en_US} (ID: ${specification.id}, Key: ${specData.key}, Group: ${specData.group})`);
+            specification = await this.liferayService.createSpecification(
+              config,
+              specificationPayload
+            );
+            console.log(
+              `Created specification: ${specification.title.en_US} (ID: ${specification.id}, Key: ${specData.key}, Group: ${specData.group})`
+            );
           } catch (createError) {
-            if (createError.message.includes('409') || createError.message.includes('conflict')) {
-              console.log(`Specification ${specData.title} already exists, fetching existing specification...`);
-              specification = await this.liferayService.getSpecificationByERC(config, specERC);
+            if (
+              createError.message.includes('409') ||
+              createError.message.includes('conflict')
+            ) {
+              console.log(
+                `Specification ${specData.title} already exists, fetching existing specification...`
+              );
+              specification = await this.liferayService.getSpecificationByERC(
+                config,
+                specERC
+              );
               if (!specification) {
-                console.warn(`Could not find existing specification with ERC: ${specERC}, skipping...`);
+                console.warn(
+                  `Could not find existing specification with ERC: ${specERC}, skipping...`
+                );
                 continue;
               }
-              console.log(`Using existing specification: ${specification.title.en_US} (ID: ${specification.id})`);
+              console.log(
+                `Using existing specification: ${specification.title.en_US} (ID: ${specification.id})`
+              );
             } else {
               throw createError;
             }
@@ -899,16 +1340,22 @@ class ProductGenerator {
 
           if (linkedOptionCategory) {
             specification.optionCategoryId = linkedOptionCategory.id;
-            specification.optionCategoryExternalReferenceCode = linkedOptionCategory.externalReferenceCode;
+            specification.optionCategoryExternalReferenceCode =
+              linkedOptionCategory.externalReferenceCode;
           }
 
           catalogSpecifications[category].push(specification);
         } catch (error) {
-          console.error(`Failed to process specification ${specData.title} for ${category}:`, error);
+          console.error(
+            `Failed to process specification ${specData.title} for ${category}:`,
+            error
+          );
         }
       }
 
-      console.log(`Processed ${catalogSpecifications[category].length} specifications for category: ${category}`);
+      console.log(
+        `Processed ${catalogSpecifications[category].length} specifications for category: ${category}`
+      );
     }
 
     return catalogSpecifications;
@@ -927,7 +1374,9 @@ class ProductGenerator {
           en_US: 'AI generated product description',
         },
         productType: productData.productType || 'simple',
-        externalReferenceCode: productData.externalReferenceCode || `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+        externalReferenceCode:
+          productData.externalReferenceCode ||
+          `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
       };
 
       // Always include these core properties if available
@@ -956,13 +1405,25 @@ class ProductGenerator {
       if (options.generateSkuVariants && productData.defaultSku) {
         liferayProduct.defaultSku = productData.defaultSku;
       }
-      if (options.generateSkuVariants && productData.options && Array.isArray(productData.options)) {
+      if (
+        options.generateSkuVariants &&
+        productData.options &&
+        Array.isArray(productData.options)
+      ) {
         liferayProduct.productOptions = productData.options;
       }
-      if (options.generateSpecifications && productData.specifications && Array.isArray(productData.specifications)) {
+      if (
+        options.generateSpecifications &&
+        productData.specifications &&
+        Array.isArray(productData.specifications)
+      ) {
         liferayProduct.productSpecifications = productData.specifications;
       }
-      if (options.generateSkuVariants && productData.skuVariants && Array.isArray(productData.skuVariants)) {
+      if (
+        options.generateSkuVariants &&
+        productData.skuVariants &&
+        Array.isArray(productData.skuVariants)
+      ) {
         liferayProduct.skus = productData.skuVariants;
       }
 
@@ -972,15 +1433,18 @@ class ProductGenerator {
         name: liferayProduct.name?.en_US,
         catalogId: liferayProduct.catalogId,
         includeOptions: options.generateSkuVariants,
-        includeSpecifications: options.generateSpecifications
+        includeSpecifications: options.generateSpecifications,
       });
 
-      const createdProduct = await this.liferayService.createProduct(config, liferayProduct);
+      const createdProduct = await this.liferayService.createProduct(
+        config,
+        liferayProduct
+      );
 
       logger.info('Basic product created successfully', {
         operation: 'create-basic-product',
         productId: createdProduct.id,
-        sku: createdProduct.sku
+        sku: createdProduct.sku,
       });
 
       return createdProduct;
@@ -988,7 +1452,7 @@ class ProductGenerator {
       logger.error('Failed to create basic product', {
         operation: 'create-basic-product',
         error: error.message,
-        sku: productData.baseSku || productData.sku || 'unknown'
+        sku: productData.baseSku || productData.sku || 'unknown',
       });
       throw error;
     }
@@ -996,7 +1460,11 @@ class ProductGenerator {
 
   async createSingleProduct(config, productData, options) {
     try {
-      const createdProduct = await this.createBasicProduct(config, productData, options);
+      const createdProduct = await this.createBasicProduct(
+        config,
+        productData,
+        options
+      );
 
       logger.info('Adding optional product components', {
         operation: 'create-single-product',
@@ -1004,12 +1472,16 @@ class ProductGenerator {
         options: {
           generateSkuVariants: options.generateSkuVariants,
           generateSpecifications: options.generateSpecifications,
-          generateAttachments: options.generateAttachments
-        }
+          generateAttachments: options.generateAttachments,
+        },
       });
 
       // Only add optional components if the corresponding options are enabled
-      if (options.generateSkuVariants && options.catalogOptions && options.catalogOptions.length > 0) {
+      if (
+        options.generateSkuVariants &&
+        options.catalogOptions &&
+        options.catalogOptions.length > 0
+      ) {
         await this.addProductOptions(
           config,
           createdProduct.id,
@@ -1017,7 +1489,10 @@ class ProductGenerator {
         );
       }
 
-      if (options.generateSpecifications && (productData.specifications || options.catalogSpecifications)) {
+      if (
+        options.generateSpecifications &&
+        (productData.specifications || options.catalogSpecifications)
+      ) {
         await this.addProductSpecifications(
           config,
           createdProduct.id,
@@ -1034,7 +1509,11 @@ class ProductGenerator {
         );
       }
 
-      if (options.generateSkuVariants && options.catalogOptions && options.catalogOptions.length > 0) {
+      if (
+        options.generateSkuVariants &&
+        options.catalogOptions &&
+        options.catalogOptions.length > 0
+      ) {
         await this.createProductSkus(
           config,
           createdProduct.id,
@@ -1048,35 +1527,52 @@ class ProductGenerator {
       logger.error('Failed to create product with components', {
         operation: 'create-single-product',
         error: error.message,
-        sku: productData.baseSku || productData.sku || 'unknown'
+        sku: productData.baseSku || productData.sku || 'unknown',
       });
       throw error;
     }
   }
 
-  async addProductSpecifications(config, productId, productSpecifications, catalogSpecifications) {
+  async addProductSpecifications(
+    config,
+    productId,
+    productSpecifications,
+    catalogSpecifications
+  ) {
     try {
       const specificationsToAdd = [];
 
       if (catalogSpecifications && catalogSpecifications.length > 0) {
         for (const catalogSpec of catalogSpecifications) {
-          const productSpec = productSpecifications?.find(ps =>
-            ps.key === catalogSpec.key || ps.name === catalogSpec.title?.en_US
+          const productSpec = productSpecifications?.find(
+            (ps) =>
+              ps.key === catalogSpec.key || ps.name === catalogSpec.title?.en_US
           );
 
           const specificationPayload = {
-            specificationExternalReferenceCode: catalogSpec.externalReferenceCode,
+            specificationExternalReferenceCode:
+              catalogSpec.externalReferenceCode,
             specificationKey: catalogSpec.key,
             specificationPriority: catalogSpec.priority || 0,
             label: catalogSpec.title,
-            value: productSpec?.value ? (typeof productSpec.value === 'string' ? { en_US: productSpec.value } : productSpec.value) : { en_US: `Mock ${catalogSpec.title?.en_US || catalogSpec.key} Value` },
+            value: productSpec?.value
+              ? typeof productSpec.value === 'string'
+                ? { en_US: productSpec.value }
+                : productSpec.value
+              : {
+                  en_US: `Mock ${
+                    catalogSpec.title?.en_US || catalogSpec.key
+                  } Value`,
+                },
           };
 
           if (catalogSpec.optionCategoryId) {
-            specificationPayload.optionCategoryId = catalogSpec.optionCategoryId;
+            specificationPayload.optionCategoryId =
+              catalogSpec.optionCategoryId;
           }
           if (catalogSpec.optionCategoryExternalReferenceCode) {
-            specificationPayload.optionCategoryExternalReferenceCode = catalogSpec.optionCategoryExternalReferenceCode;
+            specificationPayload.optionCategoryExternalReferenceCode =
+              catalogSpec.optionCategoryExternalReferenceCode;
           }
 
           specificationsToAdd.push(specificationPayload);
@@ -1085,17 +1581,24 @@ class ProductGenerator {
 
       if (productSpecifications) {
         for (const spec of productSpecifications) {
-          const alreadyAdded = specificationsToAdd.some(s =>
-            s.specificationKey === spec.key || s.specificationKey === spec.name
+          const alreadyAdded = specificationsToAdd.some(
+            (s) =>
+              s.specificationKey === spec.key ||
+              s.specificationKey === spec.name
           );
 
           if (!alreadyAdded) {
             specificationsToAdd.push({
-              specificationExternalReferenceCode: `SPEC-${spec.key || spec.name}-${Date.now()}`,
+              specificationExternalReferenceCode: `SPEC-${
+                spec.key || spec.name
+              }-${Date.now()}`,
               specificationKey: spec.key || spec.name,
               specificationPriority: spec.priority || 0,
               label: { en_US: spec.name || spec.key },
-              value: typeof spec.value === 'string' ? { en_US: spec.value } : spec.value,
+              value:
+                typeof spec.value === 'string'
+                  ? { en_US: spec.value }
+                  : spec.value,
             });
           }
         }
@@ -1105,15 +1608,24 @@ class ProductGenerator {
         await batchProcessor.processBatch(
           specificationsToAdd,
           async (specData) => {
-            return await this.liferayService.addProductSpecification(config, productId, specData);
+            return await this.liferayService.addProductSpecification(
+              config,
+              productId,
+              specData
+            );
           },
           5
         );
 
-        console.log(`Added ${specificationsToAdd.length} specifications to product ${productId}`);
+        console.log(
+          `Added ${specificationsToAdd.length} specifications to product ${productId}`
+        );
       }
     } catch (error) {
-      console.error(`Failed to add specifications to product ${productId}:`, error);
+      console.error(
+        `Failed to add specifications to product ${productId}:`,
+        error
+      );
     }
   }
 
@@ -1240,7 +1752,11 @@ class ProductGenerator {
           }-${Date.now()}`,
         };
 
-        await this.liferayService.createPriceEntry(config, priceListId, tierEntry);
+        await this.liferayService.createPriceEntry(
+          config,
+          priceListId,
+          tierEntry
+        );
       }
 
       console.log(`Created bulk pricing tiers for product ${product.sku}`);
@@ -1252,15 +1768,27 @@ class ProductGenerator {
     }
   }
 
-  async createSpecificationCategories(categories, selectedLanguages = ['en_US'], mockSpecCategories = null) {
+  async createSpecificationCategories(
+    categories,
+    selectedLanguages = ['en_US'],
+    mockSpecCategories = null
+  ) {
     try {
-      const specCategories = mockSpecCategories || await this.aiService.generateSpecificationCategories(categories, selectedLanguages);
+      const specCategories =
+        mockSpecCategories ||
+        (await this.aiService.generateSpecificationCategories(
+          categories,
+          selectedLanguages
+        ));
 
       for (const category of specCategories) {
         try {
           await this.liferayService.createSpecificationCategory(category);
         } catch (error) {
-          console.error(`Failed to create specification category ${category.key}:`, error.message);
+          console.error(
+            `Failed to create specification category ${category.key}:`,
+            error.message
+          );
         }
       }
     } catch (error) {
@@ -1284,8 +1812,14 @@ class ProductGenerator {
       }
 
       if (productOptionsToAdd.length > 0) {
-        await this.liferayService.addProductOptions(config, productId, productOptionsToAdd);
-        console.log(`Added ${productOptionsToAdd.length} options to product ${productId}`);
+        await this.liferayService.addProductOptions(
+          config,
+          productId,
+          productOptionsToAdd
+        );
+        console.log(
+          `Added ${productOptionsToAdd.length} options to product ${productId}`
+        );
       }
     } catch (error) {
       console.error(`Failed to add options to product ${productId}:`, error);
@@ -1309,7 +1843,9 @@ class ProductGenerator {
       let variantCount = 0;
 
       for (const value1 of option1.values.slice(0, 3)) {
-        const option2Values = option2 ? option2.values.slice(0, 3) : [{ id: null, name: { en_US: 'Standard' } }];
+        const option2Values = option2
+          ? option2.values.slice(0, 3)
+          : [{ id: null, name: { en_US: 'Standard' } }];
 
         for (const value2 of option2Values) {
           if (variantCount >= maxVariants) break;
@@ -1317,7 +1853,11 @@ class ProductGenerator {
           const priceModifier = (Math.random() - 0.5) * 0.4;
           const variantPrice = Math.round(basePrice * (1 + priceModifier));
 
-          const skuCode = `${productData.baseSku}-${value1.name.en_US.substr(0, 2).toUpperCase()}${option2 ? `-${value2.name.en_US.substr(0, 2).toUpperCase()}` : ''}`;
+          const skuCode = `${productData.baseSku}-${value1.name.en_US
+            .substr(0, 2)
+            .toUpperCase()}${
+            option2 ? `-${value2.name.en_US.substr(0, 2).toUpperCase()}` : ''
+          }`;
 
           const skuOptions = {
             [option1.id]: value1.id,
@@ -1355,10 +1895,7 @@ class ProductGenerator {
       );
       return createdSkus;
     } catch (error) {
-      console.error(
-        `Failed to create SKUs for product ${productId}:`,
-        error
-      );
+      console.error(`Failed to create SKUs for product ${productId}:`, error);
       return [];
     }
   }
@@ -1414,25 +1951,30 @@ class ProductGenerator {
 
   async testBasicProductCreation(config) {
     try {
-      await this.validateConfig(config);
-
-
+      this.validateConfig(config);
 
       const testProductData = {
         name: { en_US: 'Test Product ' + Date.now() },
-        description: { en_US: 'This is a test product created to verify basic product creation functionality.' },
+        description: {
+          en_US:
+            'This is a test product created to verify basic product creation functionality.',
+        },
         baseSku: `TEST-${Date.now()}`,
         productType: 'simple',
-        externalReferenceCode: `TEST-${Date.now()}`
+        externalReferenceCode: `TEST-${Date.now()}`,
       };
 
       console.log('Creating test product...');
-      const createdProduct = await this.createBasicProduct(config, testProductData, {});
+      const createdProduct = await this.createBasicProduct(
+        config,
+        testProductData,
+        {}
+      );
 
       console.log('✓ Test product created successfully:', {
         id: createdProduct.id,
         sku: createdProduct.sku,
-        name: createdProduct.name?.en_US
+        name: createdProduct.name?.en_US,
       });
 
       return createdProduct;
@@ -1442,29 +1984,82 @@ class ProductGenerator {
     }
   }
 
-  async validateConfig(config) {
+  async validateOptions(options) {
+    if (
+      !options.productCount ||
+      typeof options.productCount !== 'number' ||
+      options.productCount <= 0
+    ) {
+      throw new Error('Product count must be greater than 0');
+    }
+
+    if (!options.demoMode) {
+      try {
+        await this.aiService.getOpenAIClient();
+        console.log('✓ OpenAI API key validated successfully');
+      } catch (error) {
+        const errorMessage =
+          'OpenAI API key not configured. Please set it in the AI Configuration object or enable demo mode.';
+        console.error('✗ OpenAI key validation failed:', error.message);
+        throw new Error(errorMessage);
+      }
+    }
+  }
+
+  validateConfig(config) {
     if (!config.liferayUrl) {
       throw new Error('Liferay URL is required.');
     }
     if (!config.clientId || !config.clientSecret) {
-      throw new Error('Liferay OAuth client credentials (clientId, clientSecret) are required.');
+      throw new Error(
+        'Liferay OAuth client credentials (clientId, clientSecret) are required.'
+      );
     }
-    if (!config.catalogId || typeof config.catalogId !== 'number' || config.catalogId <= 0) {
+    if (
+      !config.catalogId ||
+      typeof config.catalogId !== 'number' ||
+      config.catalogId <= 0
+    ) {
       throw new Error('Catalog ID is required and must be a positive integer.');
+    }
+
+    const pollingRetriesValue = config.pollingRetries;
+    if (pollingRetriesValue === undefined || pollingRetriesValue === null) {
+      throw new Error('pollingRetries is required');
+    }
+
+    const pollingRetries = parseInt(pollingRetriesValue);
+    if (isNaN(pollingRetries) || pollingRetries < 0 || pollingRetries > 20) {
+      throw new Error('pollingRetries must be between 0 and 20');
+    }
+
+    const pollingDelayValue = config.pollingDelay;
+    if (pollingDelayValue === undefined || pollingDelayValue === null) {
+      throw new Error('pollingDelay is required');
+    }
+
+    const pollingDelay = parseInt(pollingDelayValue);
+    if (isNaN(pollingDelay) || pollingDelay < 5000 || pollingDelay > 600000) {
+      throw new Error('pollingDelay must be between 5 and 600 seconds');
     }
   }
 
-  async processImageAndPDFAttachments(config, productDataList, preparedProducts, options) {
+  async processImageAndPDFAttachments(
+    config,
+    productDataList,
+    preparedProducts,
+    options
+  ) {
     logger.info('Starting post-processing for images and PDFs', {
       operation: 'process-attachments',
       productCount: productDataList.length,
-      generateImages: options.generateImages,
-      generatePDFs: options.generatePDFs
+      imageMode: options.imageMode,
+      pdfMode: options.pdfMode,
     });
 
     // Count images and PDFs to process
-    const imageCount = productDataList.filter(p => p.defaultImage).length;
-    const pdfCount = productDataList.filter(p => p.defaultAttachment).length;
+    const imageCount = productDataList.filter((p) => p.images).length;
+    const pdfCount = productDataList.filter((p) => p.attachments).length;
 
     // Broadcast separate batch_started messages for images and PDFs
     if (global.broadcastBatchUpdate) {
@@ -1473,16 +2068,16 @@ class ProductGenerator {
           type: 'batch_started',
           entityType: 'images',
           batchId: 'images-processing',
-          totalItems: imageCount
+          totalItems: imageCount,
         });
       }
-      
+
       if (pdfCount > 0) {
         global.broadcastBatchUpdate('pdfs-processing', {
-          type: 'batch_started', 
+          type: 'batch_started',
           entityType: 'pdfs',
           batchId: 'pdfs-processing',
-          totalItems: pdfCount
+          totalItems: pdfCount,
         });
       }
     }
@@ -1498,15 +2093,56 @@ class ProductGenerator {
 
       try {
         // Add images
-        if (originalProduct.defaultImage) {
-          await this.liferayService.addProductImageByBase64(
-            config,
-            preparedProduct.externalReferenceCode,
-            originalProduct.defaultImage
-          );
-          console.log(`✓ Added image to product: ${preparedProduct.externalReferenceCode}`);
-          imageProcessedCount++;
-          
+        if (originalProduct.images) {
+          for (const image of originalProduct.images) {
+            if (options.imageMode === 'custom') {
+              const imgERC = `IMG_${productERC}_${Math.random()
+                .toString(36)
+                .slice(2, 8)}`;
+              const doc = await liferayService.uploadSiteDocumentMultipart(
+                config,
+                image,
+                {
+                  title: `Product Image - ${productERC}`,
+                  externalReferenceCode: imgERC,
+                  documentFolderId: options.uploadFolderId,
+                  documentFolderExternalReferenceCode: options.uploadFolderERC,
+                  viewableby: 'Anyone',
+                }
+              );
+
+              if (doc) {
+                await liferayService.patchPermissionsByAsset(config, {
+                  assetType: ASSET_TYPE.DOCUMENT,
+                  id: doc.id,
+                  viewableBy: VIEWABLE_BY.ANYONE,
+                });
+              }
+
+              // choose the right URL field from Liferay's response
+              const imageUrlData = {
+                title: { en_US: `Product Image - ${productERC}` },
+                url: `${config.liferayUrl}${doc.contentUrl}`,
+              };
+
+              await liferayService.addProductImageByUrl(
+                config,
+                productERC,
+                imageUrlData
+              );
+            } else {
+              await this.liferayService.addProductImageByBase64(
+                config,
+                preparedProduct.externalReferenceCode,
+                image
+              );
+            }
+            console.log(
+              `✓ Added image to product: ${preparedProduct.externalReferenceCode}`
+            );
+            imageProcessedCount++;
+          }
+
           // Broadcast image progress
           if (global.broadcastBatchUpdate) {
             global.broadcastBatchUpdate('images-progress', {
@@ -1515,21 +2151,60 @@ class ProductGenerator {
               batchId: 'images-processing',
               processedCount: imageProcessedCount,
               totalItems: imageCount,
-              progress: Math.round((imageProcessedCount / imageCount) * 100)
+              progress: Math.round((imageProcessedCount / imageCount) * 100),
             });
           }
         }
 
         // Add PDFs/attachments
-        if (originalProduct.defaultAttachment) {
-          await this.liferayService.addProductAttachmentByBase64(
-            config,
-            preparedProduct.externalReferenceCode,
-            originalProduct.defaultAttachment
-          );
-          console.log(`✓ Added attachment to product: ${preparedProduct.externalReferenceCode}`);
-          pdfProcessedCount++;
-          
+        if (originalProduct.attachments) {
+          for (const attachment of originalProduct.attachments) {
+            if (options.pdfMode === 'custom') {
+              const pdfERC = `PDF_${productERC}_${Math.random()
+                .toString(36)
+                .slice(2, 8)}`;
+              const doc = await liferayService.uploadSiteDocumentMultipart(
+                config,
+                attachment,
+                {
+                  title: `Product Documentation - ${productERC}`,
+                  externalReferenceCode: pdfERC,
+                  documentFolderId: options.uploadFolderId,
+                  documentFolderExternalReferenceCode: options.uploadFolderERC,
+                  viewableby: 'Anyone',
+                }
+              );
+
+              if (doc) {
+                await liferayService.patchPermissionsByAsset(config, {
+                  assetType: ASSET_TYPE.DOCUMENT,
+                  id: doc.id,
+                  viewableBy: VIEWABLE_BY.ANYONE,
+                });
+              }
+
+              const attachmentUrlData = {
+                title: { en_US: `Product Documentation - ${productERC}` },
+                url: `${config.liferayUrl}${doc.contentUrl}`,
+              };
+              await liferayService.addProductAttachmentByUrl(
+                config,
+                productERC,
+                attachmentUrlData
+              );
+            } else {
+              await this.liferayService.addProductAttachmentByBase64(
+                config,
+                preparedProduct.externalReferenceCode,
+                { attachment }
+              );
+            }
+            console.log(
+              `✓ Added attachment to product: ${preparedProduct.externalReferenceCode}`
+            );
+            pdfProcessedCount++;
+          }
+
           // Broadcast PDF progress
           if (global.broadcastBatchUpdate) {
             global.broadcastBatchUpdate('pdfs-progress', {
@@ -1538,20 +2213,22 @@ class ProductGenerator {
               batchId: 'pdfs-processing',
               processedCount: pdfProcessedCount,
               totalItems: pdfCount,
-              progress: Math.round((pdfProcessedCount / pdfCount) * 100)
+              progress: Math.round((pdfProcessedCount / pdfCount) * 100),
             });
           }
         }
-
       } catch (error) {
-        console.error(`Failed to add image/attachment to product ${preparedProduct.externalReferenceCode}:`, error.message);
-        if (originalProduct.defaultImage) {
+        console.error(
+          `Failed to add image/attachment to product ${preparedProduct.externalReferenceCode}:`,
+          error.message
+        );
+        if (originalProduct.image) {
           imageErrors.push({
             product: preparedProduct.externalReferenceCode,
             error: `Image error: ${error.message}`,
           });
         }
-        if (originalProduct.defaultAttachment) {
+        if (originalProduct.attachment) {
           pdfErrors.push({
             product: preparedProduct.externalReferenceCode,
             error: `PDF error: ${error.message}`,
@@ -1569,18 +2246,18 @@ class ProductGenerator {
           batchId: 'images-processing',
           processedCount: imageProcessedCount,
           errorCount: imageErrors.length,
-          errors: imageErrors.slice(0, 5)
+          errors: imageErrors.slice(0, 5),
         });
       }
-      
+
       if (pdfCount > 0) {
         global.broadcastBatchUpdate('pdfs-complete', {
           type: 'batch_completed',
-          entityType: 'pdfs', 
+          entityType: 'pdfs',
           batchId: 'pdfs-processing',
           processedCount: pdfProcessedCount,
           errorCount: pdfErrors.length,
-          errors: pdfErrors.slice(0, 5)
+          errors: pdfErrors.slice(0, 5),
         });
       }
     }
@@ -1592,10 +2269,14 @@ class ProductGenerator {
       imageCount,
       pdfCount,
       imageErrorCount: imageErrors.length,
-      pdfErrorCount: pdfErrors.length
+      pdfErrorCount: pdfErrors.length,
     });
 
-    console.log(`✅ Post-processing completed: Images ${imageProcessedCount}/${imageCount}, PDFs ${pdfProcessedCount}/${pdfCount}, Total errors: ${imageErrors.length + pdfErrors.length}`);
+    console.log(
+      `✅ Post-processing completed: Images ${imageProcessedCount}/${imageCount}, PDFs ${pdfProcessedCount}/${pdfCount}, Total errors: ${
+        imageErrors.length + pdfErrors.length
+      }`
+    );
   }
 
   async handleBatchComplete(results) {
@@ -1604,7 +2285,7 @@ class ProductGenerator {
       batchId: results.batchId,
       status: results.status,
       processedCount: results.processedCount,
-      totalCount: results.totalCount
+      totalCount: results.totalCount,
     });
 
     // Process batch results and determine success/failure counts
@@ -1621,7 +2302,7 @@ class ProductGenerator {
           failureCount++;
           failures.push({
             index,
-            error: item.error || item.message || 'Unknown error'
+            error: item.error || item.message || 'Unknown error',
           });
         }
       });
@@ -1638,7 +2319,7 @@ class ProductGenerator {
         batchId: results.batchId,
         successCount,
         failureCount,
-        details: failureCount > 0 ? { failures } : null
+        details: failureCount > 0 ? { failures } : null,
       });
     }
   }

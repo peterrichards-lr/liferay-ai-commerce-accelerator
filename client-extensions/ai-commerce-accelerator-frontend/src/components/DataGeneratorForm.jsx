@@ -1,12 +1,24 @@
-import React, { useState } from 'react';
+import React from 'react';
+import FieldError from './FieldError';
+
+function hasErr(map, key, msgStartsWith) {
+  const list = map?.[key] || [];
+  return msgStartsWith
+    ? list.some((m) => m.startsWith(msgStartsWith))
+    : list.length > 0;
+}
 
 function DataGeneratorForm({
   generationConfig,
   setGenerationConfig,
-  disabled,
   onGenerate,
-  connectionEstablished,
+  onResetSettings,
+  disabled,
+  disabledReason,
+  isGenerating,
+  forceDemoMode,
   openAiKeyAvailable,
+  validationErrors,
 }) {
   const handleConfigChange = (field, value) => {
     setGenerationConfig((prev) => ({ ...prev, [field]: value }));
@@ -26,49 +38,12 @@ function DataGeneratorForm({
     onGenerate(generationConfig);
   };
 
-  const getValidationIssues = () => {
-    const issues = [];
-    if (generationConfig.productCount < 0)
-      issues.push('Product count cannot be negative.');
-    if (generationConfig.accountCount < 0)
-      issues.push('Account count cannot be negative.');
-    if (generationConfig.orderCount < 0)
-      issues.push('Order count cannot be negative.');
-    if (generationConfig.productCount > 100)
-      issues.push('Product count cannot exceed 100.');
-    if (generationConfig.accountCount > 50)
-      issues.push('Account count cannot exceed 50.');
-    if (generationConfig.orderCount > 200)
-      issues.push('Order count cannot exceed 200.');
-    if (generationConfig.imageRatio < 0 || generationConfig.imageRatio > 100)
-      issues.push('Image assignment ratio must be between 0 and 100.');
-    if (generationConfig.pdfRatio < 0 || generationConfig.pdfRatio > 100)
-      issues.push('PDF assignment ratio must be between 0 and 100.');
-
-    if (generationConfig.useCustomImage && !generationConfig.customImageFile) {
-      issues.push('Please upload a custom image.');
-    }
-    if (generationConfig.useCustomPDF && !generationConfig.customPDFFile) {
-      issues.push('Please upload a custom PDF.');
-    }
-
-    if (
-      generationConfig.productCount > 0 &&
-      generationConfig.categories.length === 0
-    ) {
-      issues.push('Please select at least one category for products.');
-    }
-
-    return issues;
-  };
-
   const costEstimate = () => {
     if (generationConfig.demoMode) return { total: 0, breakdown: [] };
 
     const breakdown = [];
     let total = 0;
 
-    // Base data generation cost
     const totalEntities =
       generationConfig.productCount +
       generationConfig.accountCount +
@@ -81,7 +56,7 @@ function DataGeneratorForm({
       total += baseCost;
     }
 
-    // AI image generation cost
+    // NOTE: If you're fully on enums, switch these two to imageMode/pdfMode === 'generate'
     if (generationConfig.generateImages && generationConfig.productCount > 0) {
       const imageCount = Math.ceil(
         generationConfig.productCount * (generationConfig.imageRatio / 100)
@@ -93,7 +68,6 @@ function DataGeneratorForm({
       total += imageCost;
     }
 
-    // AI PDF generation cost
     if (generationConfig.generatePDFs && generationConfig.productCount > 0) {
       const pdfCount = Math.ceil(
         generationConfig.productCount * (generationConfig.pdfRatio / 100)
@@ -106,7 +80,6 @@ function DataGeneratorForm({
     return { total, breakdown };
   };
 
-  const validationIssues = getValidationIssues();
   const estimatedCost = costEstimate();
 
   const availableCategories = [
@@ -122,6 +95,11 @@ function DataGeneratorForm({
     'Office Supplies',
   ];
 
+  // Only lock fields when globally disabled AND there are no validation errors
+  const shouldDisableFields =
+    disabled && Object.keys(validationErrors || {}).length === 0;
+  const lockFields = shouldDisableFields;
+
   return (
     <div className="form-card">
       <div className="form-header">
@@ -129,16 +107,29 @@ function DataGeneratorForm({
           <i className="icon icon-magic"></i>
           Data Generation
         </h5>
-
-        {typeof openAiKeyAvailable === 'boolean' && (
-          <span
-            className={`label ${
-              openAiKeyAvailable ? 'label-success' : 'label-warning'
-            }`}
+        <div className="form-header-actions">
+          {typeof openAiKeyAvailable === 'boolean' && (
+            <span
+              className={`label ${
+                openAiKeyAvailable ? 'label-success' : 'label-warning'
+              }`}
+            >
+              {openAiKeyAvailable
+                ? 'OpenAI key detected'
+                : 'OpenAI key not set'}
+            </span>
+          )}
+          <button
+            type="button"
+            className="btn btn-outline-secondary btn-sm"
+            onClick={onResetSettings}
+            disabled={isGenerating}
+            title="Reset generator settings to defaults"
           >
-            {openAiKeyAvailable ? 'OpenAI key detected' : 'OpenAI key not set'}
-          </span>
-        )}
+            <span className="icon icon-restore"></span>
+            Reset Settings
+          </button>
+        </div>
       </div>
       <div className="form-body">
         <form name="dataGeneration" onSubmit={handleSubmit}>
@@ -147,19 +138,15 @@ function DataGeneratorForm({
               <div className="form-group">
                 <label htmlFor="dataGeneration_productCount">
                   Products to Generate
+                  <small className="config-subtitle">
+                    (Number per selected category)
+                  </small>
                 </label>
                 <input
                   id="dataGeneration_productCount"
                   type="number"
                   className={`form-input ${
-                    validationIssues.includes(
-                      'Product count cannot be negative.'
-                    ) ||
-                    validationIssues.includes(
-                      'Product count cannot exceed 100.'
-                    )
-                      ? 'invalid'
-                      : ''
+                    hasErr(validationErrors, 'productCount') ? 'invalid' : ''
                   }`}
                   min="0"
                   max="100"
@@ -167,25 +154,10 @@ function DataGeneratorForm({
                   onChange={(e) =>
                     handleConfigChange('productCount', parseInt(e.target.value))
                   }
-                  disabled={disabled}
+                  disabled={lockFields}
                 />
-                {validationIssues.includes(
-                  'Product count cannot be negative.'
-                ) && (
-                  <div className="error-message">
-                    {validationIssues.find((issue) =>
-                      issue.startsWith('Product count cannot be negative.')
-                    )}
-                  </div>
-                )}
-                {validationIssues.includes(
-                  'Product count cannot exceed 100.'
-                ) && (
-                  <div className="error-message">
-                    {validationIssues.find((issue) =>
-                      issue.startsWith('Product count cannot exceed 100.')
-                    )}
-                  </div>
+                {hasErr(validationErrors, 'productCount') && (
+                  <FieldError errors={validationErrors.productCount} />
                 )}
               </div>
             </div>
@@ -198,12 +170,7 @@ function DataGeneratorForm({
                   id="dataGeneration_accountCount"
                   type="number"
                   className={`form-input ${
-                    validationIssues.includes(
-                      'Account count cannot be negative.'
-                    ) ||
-                    validationIssues.includes('Account count cannot exceed 50.')
-                      ? 'invalid'
-                      : ''
+                    hasErr(validationErrors, 'accountCount') ? 'invalid' : ''
                   }`}
                   min="0"
                   max="50"
@@ -211,25 +178,10 @@ function DataGeneratorForm({
                   onChange={(e) =>
                     handleConfigChange('accountCount', parseInt(e.target.value))
                   }
-                  disabled={disabled}
+                  disabled={lockFields}
                 />
-                {validationIssues.includes(
-                  'Account count cannot be negative.'
-                ) && (
-                  <div className="error-message">
-                    {validationIssues.find((issue) =>
-                      issue.startsWith('Account count cannot be negative.')
-                    )}
-                  </div>
-                )}
-                {validationIssues.includes(
-                  'Account count cannot exceed 50.'
-                ) && (
-                  <div className="error-message">
-                    {validationIssues.find((issue) =>
-                      issue.startsWith('Account count cannot exceed 50.')
-                    )}
-                  </div>
+                {hasErr(validationErrors, 'accountCount') && (
+                  <FieldError errors={validationErrors.accountCount} />
                 )}
               </div>
             </div>
@@ -242,9 +194,7 @@ function DataGeneratorForm({
                   id="dataGeneration_orderCount"
                   type="number"
                   className={`form-input ${
-                    validationIssues.includes('Order count cannot be negative.')
-                      ? 'invalid'
-                      : ''
+                    hasErr(validationErrors, 'orderCount') ? 'invalid' : ''
                   }`}
                   min="0"
                   max="200"
@@ -252,25 +202,10 @@ function DataGeneratorForm({
                   onChange={(e) =>
                     handleConfigChange('orderCount', parseInt(e.target.value))
                   }
-                  disabled={disabled}
+                  disabled={lockFields}
                 />
-                {validationIssues.includes(
-                  'Order count cannot be negative.'
-                ) && (
-                  <div className="error-message">
-                    {validationIssues.find((issue) =>
-                      issue.startsWith('Order count cannot be negative.')
-                    )}
-                  </div>
-                )}
-                {validationIssues.includes(
-                  'Order count cannot exceed 200.'
-                ) && (
-                  <div className="error-message">
-                    {validationIssues.find((issue) =>
-                      issue.startsWith('Order count cannot exceed 200.')
-                    )}
-                  </div>
+                {hasErr(validationErrors, 'orderCount') && (
+                  <FieldError errors={validationErrors.orderCount} />
                 )}
               </div>
             </div>
@@ -284,11 +219,12 @@ function DataGeneratorForm({
                 id="dataGeneration_demoMode"
                 checked={generationConfig.demoMode}
                 onChange={(e) =>
-                  handleConfigChange('demoMode', e.target.checked)
+                  setGenerationConfig((prev) => ({
+                    ...prev,
+                    demoMode: e.target.checked,
+                  }))
                 }
-                disabled={
-                  disabled || (!openAiKeyAvailable && connectionEstablished)
-                }
+                disabled={lockFields || forceDemoMode}
               />
               <label
                 className="checkbox-label"
@@ -299,15 +235,33 @@ function DataGeneratorForm({
                 (for testing)
               </label>
             </div>
-            {connectionEstablished && !openAiKeyAvailable && (
+
+            {forceDemoMode && (
               <div className="text-info mt-2">
                 <i className="fas fa-info-circle me-1"></i>
-                OpenAI API key not found. Only demo mode is available.
+                OpenAI API key not found. Demo mode is enforced, and AI
+                generation options are disabled.
               </div>
             )}
             <small className="help-text">
               Perfect for testing the interface and progress tracking without
               consuming API credits
+            </small>
+          </div>
+
+          <div className="divider"></div>
+
+          <div className="form-group">
+            <h5
+              className={`section-title ${
+                generationConfig.productCount === 0 ? 'muted' : ''
+              }`}
+            >
+              <i className="icon icon-settings"></i>
+              Product Configuration Options
+            </h5>
+            <small className="section-subtitle">
+              The following options are only applicable when generating products
             </small>
           </div>
 
@@ -327,9 +281,7 @@ function DataGeneratorForm({
                     <div className="checkbox-wrapper">
                       <input
                         className={`checkbox-input ${
-                          validationIssues.includes(
-                            'Please select at least one category for products.'
-                          ) && generationConfig.productCount > 0
+                          hasErr(validationErrors, 'categories')
                             ? 'invalid'
                             : ''
                         }`}
@@ -340,7 +292,7 @@ function DataGeneratorForm({
                           handleCategoryChange(category, e.target.checked)
                         }
                         disabled={
-                          disabled ||
+                          lockFields ||
                           (generationConfig.productCount === 0 &&
                             generationConfig.accountCount === 0)
                         }
@@ -349,11 +301,7 @@ function DataGeneratorForm({
                         className={`checkbox-label ${
                           generationConfig.productCount === 0 ? 'muted' : ''
                         } ${
-                          validationIssues.includes(
-                            'Please select at least one category for products.'
-                          ) && generationConfig.productCount > 0
-                            ? 'error'
-                            : ''
+                          hasErr(validationErrors, 'categories') ? 'error' : ''
                         }`}
                         htmlFor={`dataGeneration_category-${category}`}
                       >
@@ -362,32 +310,11 @@ function DataGeneratorForm({
                     </div>
                   </div>
                 ))}
-              </div>
-              {validationIssues.includes(
-                'Please select at least one category for products.'
-              ) &&
-                generationConfig.productCount > 0 && (
-                  <div className="error-message">
-                    Please select at least one category for products.
-                  </div>
+                {hasErr(validationErrors, 'categories') && (
+                  <FieldError errors={validationErrors.categories} />
                 )}
+              </div>
             </div>
-          </div>
-
-          <div className="divider"></div>
-
-          <div className="form-group">
-            <h5
-              className={`section-title ${
-                generationConfig.productCount === 0 ? 'muted' : ''
-              }`}
-            >
-              <i className="icon icon-settings"></i>
-              Product Configuration Options
-            </h5>
-            <small className="section-subtitle">
-              The following options are only applicable when generating products
-            </small>
           </div>
 
           <div
@@ -420,7 +347,9 @@ function DataGeneratorForm({
                           e.target.checked
                         )
                       }
-                      disabled={disabled || generationConfig.productCount === 0}
+                      disabled={
+                        lockFields || generationConfig.productCount === 0
+                      }
                     />
                     <label
                       className={`checkbox-label ${
@@ -443,7 +372,9 @@ function DataGeneratorForm({
                           e.target.checked
                         )
                       }
-                      disabled={disabled || generationConfig.productCount === 0}
+                      disabled={
+                        lockFields || generationConfig.productCount === 0
+                      }
                     />
                     <label
                       className={`checkbox-label ${
@@ -466,7 +397,9 @@ function DataGeneratorForm({
                           e.target.checked
                         )
                       }
-                      disabled={disabled || generationConfig.productCount === 0}
+                      disabled={
+                        lockFields || generationConfig.productCount === 0
+                      }
                     />
                     <label
                       className={`checkbox-label ${
@@ -489,7 +422,9 @@ function DataGeneratorForm({
                           e.target.checked
                         )
                       }
-                      disabled={disabled || generationConfig.productCount === 0}
+                      disabled={
+                        lockFields || generationConfig.productCount === 0
+                      }
                     />
                     <label
                       className={`checkbox-label ${
@@ -512,7 +447,9 @@ function DataGeneratorForm({
                           e.target.checked
                         )
                       }
-                      disabled={disabled || generationConfig.productCount === 0}
+                      disabled={
+                        lockFields || generationConfig.productCount === 0
+                      }
                     />
                     <label
                       className={`checkbox-label ${
@@ -535,9 +472,9 @@ function DataGeneratorForm({
                       }`}
                     >
                       <i className="icon icon-warning demo-mode-icon"></i>
-                      Demo Mode Content Options
+                      Demo Mode Media Options
                       <small className="config-subtitle">
-                        (Uses default assets, no AI costs)
+                        (Uses existing assets, no AI costs)
                       </small>
                     </h6>
 
@@ -555,12 +492,13 @@ function DataGeneratorForm({
                               type="radio"
                               name="imageSource"
                               id="dataGeneration_noImages"
-                              checked={generationConfig.imageRatio === 0}
+                              checked={generationConfig.imageMode === 'none'}
                               onChange={() =>
-                                handleConfigChange('imageRatio', 0)
+                                handleConfigChange('imageMode', 'none')
                               }
                               disabled={
-                                disabled || generationConfig.productCount === 0
+                                lockFields ||
+                                generationConfig.productCount === 0
                               }
                             />
                             <label
@@ -581,15 +519,13 @@ function DataGeneratorForm({
                               type="radio"
                               name="imageSource"
                               id="dataGeneration_useDefaultImage"
-                              checked={
-                                !generationConfig.useCustomImage &&
-                                generationConfig.imageRatio > 0
+                              checked={generationConfig.imageMode === 'default'}
+                              onChange={() =>
+                                handleConfigChange('imageMode', 'default')
                               }
-                              onChange={() => {
-                                handleConfigChange('useCustomImage', false);
-                              }}
                               disabled={
-                                disabled || generationConfig.productCount === 0
+                                lockFields ||
+                                generationConfig.productCount === 0
                               }
                             />
                             <label
@@ -610,15 +546,13 @@ function DataGeneratorForm({
                               type="radio"
                               name="imageSource"
                               id="dataGeneration_useCustomImage"
-                              checked={
-                                generationConfig.useCustomImage &&
-                                generationConfig.imageRatio > 0
+                              checked={generationConfig.imageMode === 'custom'}
+                              onChange={() =>
+                                handleConfigChange('imageMode', 'custom')
                               }
-                              onChange={() => {
-                                handleConfigChange('useCustomImage', true);
-                              }}
                               disabled={
-                                disabled || generationConfig.productCount === 0
+                                lockFields ||
+                                generationConfig.productCount === 0
                               }
                             />
                             <label
@@ -634,14 +568,12 @@ function DataGeneratorForm({
                           </div>
                         </div>
 
-                        {generationConfig.useCustomImage && (
+                        {generationConfig.imageMode === 'custom' && (
                           <div className="file-upload-section">
                             <input
                               type="file"
                               className={`file-input ${
-                                validationIssues.includes(
-                                  'Please upload a custom image.'
-                                )
+                                hasErr(validationErrors, 'customImageFile')
                                   ? 'invalid'
                                   : ''
                               }`}
@@ -652,14 +584,12 @@ function DataGeneratorForm({
                                   e.target.files[0]
                                 )
                               }
-                              disabled={disabled}
+                              disabled={lockFields}
                             />
-                            {validationIssues.includes(
-                              'Please upload a custom image.'
-                            ) && (
-                              <div className="error-message">
-                                Please upload a custom image.
-                              </div>
+                            {hasErr(validationErrors, 'customImageFile') && (
+                              <FieldError
+                                errors={validationErrors.customImageFile}
+                              />
                             )}
                             <small className="help-text">
                               This image will be used for all products
@@ -667,8 +597,7 @@ function DataGeneratorForm({
                           </div>
                         )}
 
-                        {(generationConfig.useCustomImage ||
-                          generationConfig.imageRatio > 0) && (
+                        {generationConfig.imageMode !== 'none' && (
                           <div className="ratio-input-section">
                             <label htmlFor="dataGeneration_imageRatio">
                               Image Assignment Ratio
@@ -678,9 +607,7 @@ function DataGeneratorForm({
                                 id="dataGeneration_imageRatio"
                                 type="number"
                                 className={`form-input ${
-                                  validationIssues.includes(
-                                    'Image assignment ratio must be between 0 and 100.'
-                                  )
+                                  hasErr(validationErrors, 'imageRatio')
                                     ? 'invalid'
                                     : ''
                                 }`}
@@ -693,17 +620,14 @@ function DataGeneratorForm({
                                     parseInt(e.target.value)
                                   )
                                 }
-                                disabled={disabled}
+                                disabled={lockFields}
                               />
                               <span className="input-unit">%</span>
                             </div>
-                            {validationIssues.includes(
-                              'Image assignment ratio must be between 0 and 100.'
-                            ) && (
-                              <div className="error-message">
-                                Image assignment ratio must be between 0 and
-                                100.
-                              </div>
+                            {hasErr(validationErrors, 'imageRatio') && (
+                              <FieldError
+                                errors={validationErrors.imageRatio}
+                              />
                             )}
                             <small className="help-text">
                               Assign images to this percentage of products
@@ -725,10 +649,13 @@ function DataGeneratorForm({
                               type="radio"
                               name="pdfSource"
                               id="dataGeneration_noPDFs"
-                              checked={generationConfig.pdfRatio === 0}
-                              onChange={() => handleConfigChange('pdfRatio', 0)}
+                              checked={generationConfig.pdfMode === 'none'}
+                              onChange={() =>
+                                handleConfigChange('pdfMode', 'none')
+                              }
                               disabled={
-                                disabled || generationConfig.productCount === 0
+                                lockFields ||
+                                generationConfig.productCount === 0
                               }
                             />
                             <label
@@ -749,15 +676,13 @@ function DataGeneratorForm({
                               type="radio"
                               name="pdfSource"
                               id="dataGeneration_useDefaultPDF"
-                              checked={
-                                !generationConfig.useCustomPDF &&
-                                generationConfig.pdfRatio > 0
+                              checked={generationConfig.pdfMode === 'default'}
+                              onChange={() =>
+                                handleConfigChange('pdfMode', 'default')
                               }
-                              onChange={() => {
-                                handleConfigChange('useCustomPDF', false);
-                              }}
                               disabled={
-                                disabled || generationConfig.productCount === 0
+                                lockFields ||
+                                generationConfig.productCount === 0
                               }
                             />
                             <label
@@ -778,15 +703,13 @@ function DataGeneratorForm({
                               type="radio"
                               name="pdfSource"
                               id="dataGeneration_useCustomPDF"
-                              checked={
-                                generationConfig.useCustomPDF &&
-                                generationConfig.pdfRatio > 0
+                              checked={generationConfig.pdfMode === 'custom'}
+                              onChange={() =>
+                                handleConfigChange('pdfMode', 'custom')
                               }
-                              onChange={() => {
-                                handleConfigChange('useCustomPDF', true);
-                              }}
                               disabled={
-                                disabled || generationConfig.productCount === 0
+                                lockFields ||
+                                generationConfig.productCount === 0
                               }
                             />
                             <label
@@ -802,14 +725,12 @@ function DataGeneratorForm({
                           </div>
                         </div>
 
-                        {generationConfig.useCustomPDF && (
+                        {generationConfig.pdfMode === 'custom' && (
                           <div className="file-upload-section">
                             <input
                               type="file"
                               className={`file-input ${
-                                validationIssues.includes(
-                                  'Please upload a custom PDF.'
-                                )
+                                hasErr(validationErrors, 'customPDFFile')
                                   ? 'invalid'
                                   : ''
                               }`}
@@ -820,14 +741,12 @@ function DataGeneratorForm({
                                   e.target.files[0]
                                 )
                               }
-                              disabled={disabled}
+                              disabled={lockFields}
                             />
-                            {validationIssues.includes(
-                              'Please upload a custom PDF.'
-                            ) && (
-                              <div className="error-message">
-                                Please upload a custom PDF.
-                              </div>
+                            {hasErr(validationErrors, 'customPDFFile') && (
+                              <FieldError
+                                errors={validationErrors.customPDFFile}
+                              />
                             )}
                             <small className="help-text">
                               This PDF will be used for all products
@@ -835,8 +754,7 @@ function DataGeneratorForm({
                           </div>
                         )}
 
-                        {(generationConfig.useCustomPDF ||
-                          generationConfig.pdfRatio > 0) && (
+                        {generationConfig.pdfMode !== 'none' && (
                           <div className="ratio-input-section">
                             <label htmlFor="dataGeneration_pdfRatio">
                               PDF Assignment Ratio
@@ -846,9 +764,7 @@ function DataGeneratorForm({
                                 id="dataGeneration_pdfRatio"
                                 type="number"
                                 className={`form-input ${
-                                  validationIssues.includes(
-                                    'PDF assignment ratio must be between 0 and 100.'
-                                  )
+                                  hasErr(validationErrors, 'pdfRatio')
                                     ? 'invalid'
                                     : ''
                                 }`}
@@ -861,16 +777,12 @@ function DataGeneratorForm({
                                     parseInt(e.target.value)
                                   )
                                 }
-                                disabled={disabled}
+                                disabled={lockFields}
                               />
                               <span className="input-unit">%</span>
                             </div>
-                            {validationIssues.includes(
-                              'PDF assignment ratio must be between 0 and 100.'
-                            ) && (
-                              <div className="error-message">
-                                PDF assignment ratio must be between 0 and 100.
-                              </div>
+                            {hasErr(validationErrors, 'pdfRatio') && (
+                              <FieldError errors={validationErrors.pdfRatio} />
                             )}
                             <small className="help-text">
                               Assign PDFs to this percentage of products
@@ -907,17 +819,14 @@ function DataGeneratorForm({
                               className="radio-input"
                               type="radio"
                               name="imageSource"
-                              id="dataGeneration_noImages"
-                              checked={
-                                !generationConfig.generateImages &&
-                                !generationConfig.useCustomImage
+                              id="dataGeneration_noImages_live"
+                              checked={generationConfig.imageMode === 'none'}
+                              onChange={() =>
+                                handleConfigChange('imageMode', 'none')
                               }
-                              onChange={() => {
-                                handleConfigChange('generateImages', false);
-                                handleConfigChange('useCustomImage', false);
-                              }}
                               disabled={
-                                disabled || generationConfig.productCount === 0
+                                lockFields ||
+                                generationConfig.productCount === 0
                               }
                             />
                             <label
@@ -926,7 +835,7 @@ function DataGeneratorForm({
                                   ? 'muted'
                                   : ''
                               }`}
-                              htmlFor="dataGeneration_noImages"
+                              htmlFor="dataGeneration_noImages_live"
                             >
                               No images
                             </label>
@@ -938,13 +847,15 @@ function DataGeneratorForm({
                               type="radio"
                               name="imageSource"
                               id="dataGeneration_generateImages"
-                              checked={generationConfig.generateImages}
-                              onChange={() => {
-                                handleConfigChange('generateImages', true);
-                                handleConfigChange('useCustomImage', false);
-                              }}
+                              checked={
+                                generationConfig.imageMode === 'generate'
+                              }
+                              onChange={() =>
+                                handleConfigChange('imageMode', 'generate')
+                              }
                               disabled={
-                                disabled || generationConfig.productCount === 0
+                                lockFields ||
+                                generationConfig.productCount === 0
                               }
                             />
                             <label
@@ -965,14 +876,14 @@ function DataGeneratorForm({
                               className="radio-input"
                               type="radio"
                               name="imageSource"
-                              id="dataGeneration_useCustomImage"
-                              checked={generationConfig.useCustomImage}
-                              onChange={() => {
-                                handleConfigChange('generateImages', false);
-                                handleConfigChange('useCustomImage', true);
-                              }}
+                              id="dataGeneration_useCustomImage_live"
+                              checked={generationConfig.imageMode === 'custom'}
+                              onChange={() =>
+                                handleConfigChange('imageMode', 'custom')
+                              }
                               disabled={
-                                disabled || generationConfig.productCount === 0
+                                lockFields ||
+                                generationConfig.productCount === 0
                               }
                             />
                             <label
@@ -981,21 +892,19 @@ function DataGeneratorForm({
                                   ? 'muted'
                                   : ''
                               }`}
-                              htmlFor="dataGeneration_useCustomImage"
+                              htmlFor="dataGeneration_useCustomImage_live"
                             >
                               Upload custom image
                             </label>
                           </div>
                         </div>
 
-                        {generationConfig.useCustomImage && (
+                        {generationConfig.imageMode === 'custom' && (
                           <div className="file-upload-section">
                             <input
                               type="file"
                               className={`file-input ${
-                                validationIssues.includes(
-                                  'Please upload a custom image.'
-                                )
+                                hasErr(validationErrors, 'customImageFile')
                                   ? 'invalid'
                                   : ''
                               }`}
@@ -1006,14 +915,12 @@ function DataGeneratorForm({
                                   e.target.files[0]
                                 )
                               }
-                              disabled={disabled}
+                              disabled={lockFields}
                             />
-                            {validationIssues.includes(
-                              'Please upload a custom image.'
-                            ) && (
-                              <div className="error-message">
-                                Please upload a custom image.
-                              </div>
+                            {hasErr(validationErrors, 'customImageFile') && (
+                              <FieldError
+                                errors={validationErrors.customImageFile}
+                              />
                             )}
                             <small className="help-text">
                               This image will be used for all products
@@ -1021,7 +928,7 @@ function DataGeneratorForm({
                           </div>
                         )}
 
-                        {generationConfig.generateImages && (
+                        {generationConfig.imageMode === 'generate' && (
                           <div className="ai-options-panel">
                             <small className="warning-text">
                               High-quality AI image generation can be expensive
@@ -1042,7 +949,7 @@ function DataGeneratorForm({
                                       parseInt(e.target.value)
                                     )
                                   }
-                                  disabled={disabled}
+                                  disabled={lockFields}
                                 >
                                   <option value="512">512px</option>
                                   <option value="768">768px</option>
@@ -1064,7 +971,7 @@ function DataGeneratorForm({
                                       parseInt(e.target.value)
                                     )
                                   }
-                                  disabled={disabled}
+                                  disabled={lockFields}
                                 >
                                   <option value="512">512px</option>
                                   <option value="768">768px</option>
@@ -1086,7 +993,7 @@ function DataGeneratorForm({
                                       e.target.value
                                     )
                                   }
-                                  disabled={disabled}
+                                  disabled={lockFields}
                                 >
                                   <option value="standard">
                                     Standard (Lower cost)
@@ -1110,7 +1017,7 @@ function DataGeneratorForm({
                                       e.target.value
                                     )
                                   }
-                                  disabled={disabled}
+                                  disabled={lockFields}
                                 >
                                   <option value="photographic">
                                     Photographic
@@ -1129,20 +1036,17 @@ function DataGeneratorForm({
                           </div>
                         )}
 
-                        {(generationConfig.generateImages ||
-                          generationConfig.useCustomImage) && (
+                        {generationConfig.imageMode !== 'none' && (
                           <div className="ratio-input-section">
-                            <label htmlFor="dataGeneration_imageRatio">
+                            <label htmlFor="dataGeneration_imageRatio_live">
                               Image Assignment Ratio
                             </label>
                             <div className="input-with-unit">
                               <input
-                                id="dataGeneration_imageRatio"
+                                id="dataGeneration_imageRatio_live"
                                 type="number"
                                 className={`form-input ${
-                                  validationIssues.includes(
-                                    'Image assignment ratio must be between 0 and 100.'
-                                  )
+                                  hasErr(validationErrors, 'imageRatio')
                                     ? 'invalid'
                                     : ''
                                 }`}
@@ -1155,20 +1059,17 @@ function DataGeneratorForm({
                                     parseInt(e.target.value)
                                   )
                                 }
-                                disabled={disabled}
+                                disabled={lockFields}
                               />
                               <span className="input-unit">%</span>
                             </div>
-                            {validationIssues.includes(
-                              'Image assignment ratio must be between 0 and 100.'
-                            ) && (
-                              <div className="error-message">
-                                Image assignment ratio must be between 0 and
-                                100.
-                              </div>
+                            {hasErr(validationErrors, 'imageRatio') && (
+                              <FieldError
+                                errors={validationErrors.imageRatio}
+                              />
                             )}
                             <small className="help-text">
-                              {generationConfig.generateImages
+                              {generationConfig.imageMode === 'generate'
                                 ? 'Generate images for this percentage of products'
                                 : 'Assign custom image to this percentage of products'}
                             </small>
@@ -1188,17 +1089,14 @@ function DataGeneratorForm({
                               className="radio-input"
                               type="radio"
                               name="pdfSource"
-                              id="dataGeneration_noPDFs"
-                              checked={
-                                !generationConfig.generatePDFs &&
-                                !generationConfig.useCustomPDF
+                              id="dataGeneration_noPDFs_live"
+                              checked={generationConfig.pdfMode === 'none'}
+                              onChange={() =>
+                                handleConfigChange('pdfMode', 'none')
                               }
-                              onChange={() => {
-                                handleConfigChange('generatePDFs', false);
-                                handleConfigChange('useCustomPDF', false);
-                              }}
                               disabled={
-                                disabled || generationConfig.productCount === 0
+                                lockFields ||
+                                generationConfig.productCount === 0
                               }
                             />
                             <label
@@ -1207,7 +1105,7 @@ function DataGeneratorForm({
                                   ? 'muted'
                                   : ''
                               }`}
-                              htmlFor="dataGeneration_noPDFs"
+                              htmlFor="dataGeneration_noPDFs_live"
                             >
                               No PDFs
                             </label>
@@ -1219,13 +1117,13 @@ function DataGeneratorForm({
                               type="radio"
                               name="pdfSource"
                               id="dataGeneration_generatePDFs"
-                              checked={generationConfig.generatePDFs}
-                              onChange={() => {
-                                handleConfigChange('generatePDFs', true);
-                                handleConfigChange('useCustomPDF', false);
-                              }}
+                              checked={generationConfig.pdfMode === 'generate'}
+                              onChange={() =>
+                                handleConfigChange('pdfMode', 'generate')
+                              }
                               disabled={
-                                disabled || generationConfig.productCount === 0
+                                lockFields ||
+                                generationConfig.productCount === 0
                               }
                             />
                             <label
@@ -1246,14 +1144,14 @@ function DataGeneratorForm({
                               className="radio-input"
                               type="radio"
                               name="pdfSource"
-                              id="dataGeneration_useCustomPDF"
-                              checked={generationConfig.useCustomPDF}
-                              onChange={() => {
-                                handleConfigChange('generatePDFs', false);
-                                handleConfigChange('useCustomPDF', true);
-                              }}
+                              id="dataGeneration_useCustomPDF_live"
+                              checked={generationConfig.pdfMode === 'custom'}
+                              onChange={() =>
+                                handleConfigChange('pdfMode', 'custom')
+                              }
                               disabled={
-                                disabled || generationConfig.productCount === 0
+                                lockFields ||
+                                generationConfig.productCount === 0
                               }
                             />
                             <label
@@ -1262,21 +1160,19 @@ function DataGeneratorForm({
                                   ? 'muted'
                                   : ''
                               }`}
-                              htmlFor="dataGeneration_useCustomPDF"
+                              htmlFor="dataGeneration_useCustomPDF_live"
                             >
                               Upload custom PDF
                             </label>
                           </div>
                         </div>
 
-                        {generationConfig.useCustomPDF && (
+                        {generationConfig.pdfMode === 'custom' && (
                           <div className="file-upload-section">
                             <input
                               type="file"
                               className={`file-input ${
-                                validationIssues.includes(
-                                  'Please upload a custom PDF.'
-                                )
+                                hasErr(validationErrors, 'customPDFFile')
                                   ? 'invalid'
                                   : ''
                               }`}
@@ -1287,14 +1183,12 @@ function DataGeneratorForm({
                                   e.target.files[0]
                                 )
                               }
-                              disabled={disabled}
+                              disabled={lockFields}
                             />
-                            {validationIssues.includes(
-                              'Please upload a custom PDF.'
-                            ) && (
-                              <div className="error-message">
-                                Please upload a custom PDF.
-                              </div>
+                            {hasErr(validationErrors, 'customPDFFile') && (
+                              <FieldError
+                                errors={validationErrors.customPDFFile}
+                              />
                             )}
                             <small className="help-text">
                               This PDF will be used for all products
@@ -1302,28 +1196,17 @@ function DataGeneratorForm({
                           </div>
                         )}
 
-                        {generationConfig.generatePDFs && (
-                          <div className="ai-options-panel">
-                            <small className="warning-text">
-                              AI-generated specs, warranties, and manuals
-                            </small>
-                          </div>
-                        )}
-
-                        {(generationConfig.generatePDFs ||
-                          generationConfig.useCustomPDF) && (
+                        {generationConfig.pdfMode !== 'none' && (
                           <div className="ratio-input-section">
-                            <label htmlFor="dataGeneration_pdfRatio">
+                            <label htmlFor="dataGeneration_pdfRatio_live">
                               PDF Assignment Ratio
                             </label>
                             <div className="input-with-unit">
                               <input
-                                id="dataGeneration_pdfRatio"
+                                id="dataGeneration_pdfRatio_live"
                                 type="number"
                                 className={`form-input ${
-                                  validationIssues.includes(
-                                    'PDF assignment ratio must be between 0 and 100.'
-                                  )
+                                  hasErr(validationErrors, 'pdfRatio')
                                     ? 'invalid'
                                     : ''
                                 }`}
@@ -1336,19 +1219,15 @@ function DataGeneratorForm({
                                     parseInt(e.target.value)
                                   )
                                 }
-                                disabled={disabled}
+                                disabled={lockFields}
                               />
                               <span className="input-unit">%</span>
                             </div>
-                            {validationIssues.includes(
-                              'PDF assignment ratio must be between 0 and 100.'
-                            ) && (
-                              <div className="error-message">
-                                PDF assignment ratio must be between 0 and 100.
-                              </div>
+                            {hasErr(validationErrors, 'pdfRatio') && (
+                              <FieldError errors={validationErrors.pdfRatio} />
                             )}
                             <small className="help-text">
-                              {generationConfig.generatePDFs
+                              {generationConfig.pdfMode === 'generate'
                                 ? 'Generate PDFs for this percentage of products'
                                 : 'Assign custom PDF to this percentage of products'}
                             </small>
@@ -1364,70 +1243,69 @@ function DataGeneratorForm({
 
           <div className="divider"></div>
 
-          <div className="cost-estimation">
-            <div className="cost-card">
-              <h5 className="cost-title">
-                <i className="icon icon-dollar"></i>
-                Cost Estimation
-              </h5>
-              <div className="cost-summary">
-                <h6>Estimated Cost:</h6>
-                <h5 className="cost-amount">
-                  ${estimatedCost.total.toFixed(2)}
+          {!generationConfig.demoMode && (
+            <div className="cost-estimation">
+              <div className="cost-card">
+                <h5 className="cost-title">
+                  <i className="icon icon-dollar"></i>
+                  Cost Estimation
                 </h5>
+                <div className="cost-summary">
+                  <h6>Estimated Cost:</h6>
+                  <h5 className="cost-amount">
+                    ${estimatedCost.total.toFixed(2)}
+                  </h5>
+                </div>
+                {estimatedCost.breakdown.length > 0 && (
+                  <ul className="cost-breakdown">
+                    {estimatedCost.breakdown.map((item, index) => (
+                      <li key={index}>{item}</li>
+                    ))}
+                  </ul>
+                )}
               </div>
-              {estimatedCost.breakdown.length > 0 && (
-                <ul className="cost-breakdown">
-                  {estimatedCost.breakdown.map((item, index) => (
-                    <li key={index}>{item}</li>
-                  ))}
-                </ul>
-              )}
             </div>
-          </div>
+          )}
 
           <div className="submit-section">
-            <button
-              type="submit"
-              className={`submit-button ${
-                generationConfig.demoMode ? 'demo-mode' : 'generate-mode'
-              }`}
-              disabled={
-                disabled ||
-                !connectionEstablished ||
-                validationIssues.length > 0
-              }
+            <span
+              title={disabled && !isGenerating ? disabledReason : undefined}
+              style={{ display: 'inline-block' }}
             >
-              {disabled ? (
-                <>
-                  <span className="spinner"></span>
-                  {generationConfig.demoMode
-                    ? 'Generating Demo Data...'
-                    : 'Generating Data...'}
-                </>
-              ) : !connectionEstablished ? (
-                <>
-                  <i className="icon icon-plug"></i>
-                  Test Connection First
-                </>
-              ) : validationIssues.length > 0 ? (
-                <>
-                  <i className="icon icon-warning error-icon"></i>
-                  Fix Issues to Generate
-                </>
-              ) : (
-                <>
-                  <i
-                    className={`icon ${
-                      generationConfig.demoMode ? 'icon-flask' : 'icon-play'
-                    }`}
-                  ></i>
-                  {generationConfig.demoMode
-                    ? 'Start Demo Generation'
-                    : 'Start Generation'}
-                </>
-              )}
-            </button>
+              <button
+                type="submit"
+                className={`submit-button ${
+                  generationConfig.demoMode ? 'demo-mode' : 'generate-mode'
+                }`}
+                disabled={disabled}
+                aria-disabled={disabled ? 'true' : 'false'}
+              >
+                {isGenerating ? (
+                  <div className="processing-indicator">
+                    <span className="pm-spinner" aria-hidden="true" />
+                    {generationConfig.demoMode
+                      ? 'Generating Demo Data...'
+                      : 'Generating Data...'}
+                  </div>
+                ) : disabled ? (
+                  <>
+                    <i className="icon icon-warning error-icon"></i>
+                    {disabledReason || 'Not ready to generate yet'}
+                  </>
+                ) : (
+                  <>
+                    <i
+                      className={`icon ${
+                        generationConfig.demoMode ? 'icon-flask' : 'icon-play'
+                      }`}
+                    />
+                    {generationConfig.demoMode
+                      ? 'Start Demo Generation'
+                      : 'Start Generation'}
+                  </>
+                )}
+              </button>
+            </span>
           </div>
         </form>
       </div>

@@ -2,7 +2,6 @@ const { logger } = require('../utils/logger.cjs');
 const { cacheService } = require('./cacheService.cjs');
 const { OAuthService } = require('./oauthService.cjs');
 const axios = require('axios');
-const { v4: uuidv4 } = require('uuid');
 
 class BatchPollingService {
   constructor(wss = null) {
@@ -165,7 +164,7 @@ class BatchPollingService {
     }
   }
 
-  async startPolling(batchId, config, options = {}) {
+  async startPolling(batchId, config, options) {
     // Skip polling for mock batch IDs used for WebSocket progress tracking
     const mockBatchIds = ['images-processing', 'pdfs-processing', 'images-progress', 'pdfs-progress', 'images-complete', 'pdfs-complete'];
     if (mockBatchIds.includes(batchId)) {
@@ -309,7 +308,7 @@ class BatchPollingService {
       }
 
       // Check if we've exceeded max attempts
-      if (pollData.attempts >= pollData.maxAttempts) {
+      if (pollData.attempts > pollData.maxAttempts) {
         logger.error('Batch polling exceeded max attempts', {
           operation: 'batch-polling-timeout',
           batchId,

@@ -6,15 +6,6 @@ import { useApp } from '../../context/AppContext';
 export default function AdvancedPanel({ disabled = false, generationConfig }) {
   const { config, setConfig } = useApp();
 
-  // Optional: prefill from generationConfig when present
-  React.useEffect(() => {
-    if (!generationConfig) return;
-    // Example only; uncomment/adjust if you want to prefill:
-    // if (generationConfig.defaultBatch && !config.batchSize) {
-    //   setConfig({ batchSize: generationConfig.defaultBatch });
-    // }
-  }, [generationConfig]); // eslint-disable-line react-hooks/exhaustive-deps
-
   return (
     <ClayPanel
       collapsable

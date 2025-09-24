@@ -37,6 +37,12 @@ function ConfigurationPanel({
           currencyCode: selectedChannel.currencyCode,
         }));
       }
+      if (selectedChannel?.siteGroupId) {
+        setConfig((prev) => ({
+          ...prev,
+          siteGroupId: selectedChannel.siteGroupId,
+        }));
+      }
     }
   };
 

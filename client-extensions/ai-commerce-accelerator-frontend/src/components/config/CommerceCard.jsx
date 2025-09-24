@@ -1,7 +1,8 @@
 import React from 'react';
 import ClayCard from '@clayui/card';
-import ClayForm, { ClaySelect, ClaySelectBox } from '@clayui/form';
+import ClayForm, { ClaySelect } from '@clayui/form';
 import { useApp } from '../../context/AppContext';
+import FieldError from '../FieldError';
 
 export default function CommerceCard({
   disabled,
@@ -11,8 +12,47 @@ export default function CommerceCard({
   currencies = [],
   connected = false,
   onSelectChannel,
+  commerceConfigured,
+  errors,
 }) {
   const { config, setConfig } = useApp();
+
+  React.useEffect(() => {
+    if (!connected) return;
+    if (!config.catalogId && catalogs.length === 1) {
+      setConfig({ catalogId: Number(catalogs[0].id) });
+    }
+  }, [connected, catalogs, config.catalogId, setConfig]);
+
+  React.useEffect(() => {
+    if (!connected) return;
+    if (!config.channelId && channels.length === 1) {
+      onSelectChannel?.(Number(channels[0].id));
+    }
+  }, [connected, channels, config.channelId, onSelectChannel]);
+
+  React.useEffect(() => {
+    if (!connected || !config.channelId) return;
+    const noneSelected =
+      !Array.isArray(config.selectedLanguages) ||
+      config.selectedLanguages.length === 0;
+    if (noneSelected && languages.length === 1) {
+      setConfig({ selectedLanguages: [languages[0].id] });
+    }
+  }, [
+    connected,
+    config.channelId,
+    languages,
+    config.selectedLanguages,
+    setConfig,
+  ]);
+
+  React.useEffect(() => {
+    if (!connected || !config.channelId) return;
+    if (!config.currencyCode && currencies.length === 1) {
+      setConfig({ currencyCode: currencies[0].code });
+    }
+  }, [connected, config.channelId, currencies, config.currencyCode, setConfig]);
 
   return (
     <ClayCard className="p-4">
@@ -24,6 +64,12 @@ export default function CommerceCard({
         </p>
       ) : (
         <>
+          {!commerceConfigured && (
+            <small className="section-subtitle">
+              Configure Catalog, Channel, Currency, and Languages to enable
+              generation.
+            </small>
+          )}
           <ClayForm.Group className="mb-3">
             <label htmlFor="catalogId" className="form-label">
               Catalog
@@ -42,6 +88,7 @@ export default function CommerceCard({
                 <ClaySelect.Option key={c.id} value={c.id} label={c.name} />
               ))}
             </ClaySelect>
+            <FieldError errors={errors.catalogId} />
           </ClayForm.Group>
 
           <ClayForm.Group className="mb-3">
@@ -63,6 +110,7 @@ export default function CommerceCard({
                 <ClaySelect.Option key={c.id} value={c.id} label={c.name} />
               ))}
             </ClaySelect>
+            <FieldError errors={errors.channelId} />
           </ClayForm.Group>
 
           <div
@@ -125,6 +173,7 @@ export default function CommerceCard({
                     {config.selectedLanguages.length} language(s) selected
                   </small>
                 )}
+              <FieldError errors={errors.selectedLanguages} />
             </div>
 
             <ClayForm.Group>
@@ -146,6 +195,7 @@ export default function CommerceCard({
                   />
                 ))}
               </ClaySelect>
+              <FieldError errors={errors.currencyCode} />
             </ClayForm.Group>
           </div>
         </>

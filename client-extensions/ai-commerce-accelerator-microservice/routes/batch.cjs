@@ -1,27 +1,32 @@
+const { v4: uuidv4 } = require('uuid');
+const {
+  sanitizedObject,
+  parseBatchStatuses,
+} = require('../utils/normalize.cjs');
+
 module.exports = function (app, cacheService, batchPollingService, logger) {
   // Batch callback endpoint for Liferay to call when batch processing is submitted
   app.post('/api/batch/callback', async (req, res) => {
     const correlationId = req.headers['x-correlation-id'] || uuidv4();
+
+    const [{ batchId, status }] = parseBatchStatuses(req.body);
 
     try {
       // Log batch submission callback
       logger.info('Received batch submission callback from Liferay', {
         correlationId: correlationId,
         operation: 'batch-callback',
-        batchId: req.body?.batchId,
-        status: req.body?.status,
+        batchId: batchId,
+        status: status,
         bodyKeys: req.body ? Object.keys(req.body) : [],
       });
 
       console.log('=== BATCH SUBMISSION CALLBACK ===');
-      console.log('Batch ID:', req.body?.batchId || 'Not provided');
-      console.log('Status:', req.body?.status || 'Not provided');
+      console.log('Batch ID:', batchId || 'Not provided');
+      console.log('Status:', status || 'Not provided');
+
       // Log callback data with sensitive fields redacted
-      const sanitizedCallback = { ...req.body };
-      if (sanitizedCallback.clientSecret)
-        sanitizedCallback.clientSecret = '[REDACTED]';
-      if (sanitizedCallback.openaiApiKey)
-        sanitizedCallback.openaiApiKey = '[REDACTED]';
+      const sanitizedCallback = sanitizedObject({ ...req.body });
       console.log(
         'Full callback data:',
         JSON.stringify(sanitizedCallback, null, 2)
@@ -29,14 +34,12 @@ module.exports = function (app, cacheService, batchPollingService, logger) {
       console.log('=== END CALLBACK ===');
 
       // Store initial batch submission data
-      if (req.body?.batchId) {
-        const batchId = req.body.batchId;
-
+      if (batchId) {
         // Cache the submission callback
         cacheService.set(
           `batch:${batchId}:submission`,
           {
-            status: req.body.status,
+            status: status,
             submittedAt: new Date().toISOString(),
             rawCallback: req.body,
           },
@@ -139,8 +142,7 @@ module.exports = function (app, cacheService, batchPollingService, logger) {
         message: 'Batch callback received successfully',
         correlationId: correlationId,
         pollingStarted:
-          !!req.body?.batchId &&
-          !!cacheService.get(`batch:${req.body.batchId}:config`),
+          !!batchId && !!cacheService.get(`batch:${batchId}:config`),
       });
     } catch (error) {
       logger.error('Error processing batch callback', {

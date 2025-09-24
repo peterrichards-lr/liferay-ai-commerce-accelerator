@@ -4,226 +4,94 @@ const {
   toBoolean,
   toNumber,
   parseMaybeJSON,
-  bufferToDataUrl,
+  buildConfigAndOptions,
+  sanitizedObject,
 } = require('..//utils/normalize.cjs');
 const {
   inputValidationMiddleware,
 } = require('../middleware/securityMiddleware.cjs');
-const orderGenerator = require('../services/orderGenerator.cjs');
 const {
   generateDataSchema,
   generateOrdersSchema,
+  generateAccountsSchema,
 } = require('../utils/schemas.cjs');
+const {
+  handleDemoProductGeneration,
+  handleDemoAccountGeneration,
+  handleDemoOrderGeneration,
+} = require('../utils/misc.cjs');
+const { ASSET_TYPE, VIEWABLE_BY } = require('../utils/liferayPermissions.cjs');
 
 const upload = multer({
   storage: multer.memoryStorage(),
   limits: { fileSize: 15 * 1024 * 1024 }, // 15MB per file (tune as needed)
 });
 
-module.exports = function (app, liferayService, productGenerator, logger) {
-  async function handleDemoProductGeneration(req, res) {
-    const {
-      liferayUrl,
-      clientId,
-      clientSecret,
-      catalogId,
-      count,
-      categories,
-      generatePDFs,
-      pdfRatio,
-      selectedLanguages,
-      batchSize,
-      microserviceUrl,
-      pollingDelay,
-    } = req.body;
+module.exports = function (app, liferayService, productGenerator, accountGenerator, orderCount, logger) {
+  app.post(
+    '/api/generate/accounts',
+    inputValidationMiddleware(generateAccountsSchema),
+    async (req, res) => {
+      const { config, options } = buildConfigAndOptions(req);
 
-    try {
-      console.log(
-        `Demo mode: Generating ${count} mock products using batch endpoint`
-      );
-
-      const validMicroserviceUrl =
-        microserviceUrl &&
-        microserviceUrl !== 'undefined' &&
-        microserviceUrl !== 'null'
-          ? microserviceUrl
-          : null;
-
-      const config = {
-        liferayUrl,
-        clientId,
-        clientSecret,
-        catalogId,
-        microserviceUrl: validMicroserviceUrl,
-        demoMode: true,
-        selectedLanguages,
-        pollingDelay: pollingDelay,
-      };
-
-      const options = {
-        count: count,
-        categories: categories,
-        catalogId: config.catalogId,
-        generatePDFs,
-        pdfRatio: pdfRatio,
-        generateImages: req.body.generateImages,
-        imageRatio: req.body.imageRatio || 0,
-        batchSize: batchSize,
-        pollingDelay: pollingDelay,
-        demoMode: true,
-      };
-
-      // Use the same productGenerator.generateProducts method as live mode
-      const result = await productGenerator.generateProducts(config, options);
-
-      // Calculate PDFs
-      const expectedPDFs =
-        generatePDFs && pdfRatio > 0 ? Math.ceil(count * (pdfRatio / 100)) : 0;
-
-      // Emit progress update via WebSocket for PDF generation
-      if (generatePDFs && result.pdfProgress) {
-        global.broadcastProgress({
-          type: 'generation-progress',
-          generator: 'product',
-          subType: 'pdf',
-          batchId: result.products[0]?.batchId,
-          progress: result.pdfProgress.current / result.pdfProgress.total,
-          current: result.pdfProgress.current,
-          total: result.pdfProgress.total,
-          timestamp: new Date().toISOString(),
+      try {
+        logger.info('Account generation request received', {
+          correlationId: config.correlationId,
+          operation: 'generate-accounts',
+          accountCount: options.accountCount,
+          batchSize: config.batchSize,
+          pollingDelay: config.pollingDelay,
+          demoMode: !!config.demoMode,
         });
-      }
 
-      // Emit progress update via WebSocket for Image generation
-      if (req.body.generateImages && result.imageProgress) {
-        global.broadcastProgress({
-          type: 'generation-progress',
-          generator: 'product',
-          subType: 'image',
-          batchId: result.products[0]?.batchId,
-          progress: result.imageProgress.current / result.imageProgress.total,
-          current: result.imageProgress.current,
-          total: result.imageProgress.total,
-          timestamp: new Date().toISOString(),
+        if (config.demoMode) {
+          return handleDemoAccountGeneration(config, options);
+        }
+
+        const results = await accountGenerator.generateAccounts(
+          config,
+          options
+        );
+
+        // For batch operations, return different response format
+        if (results.batchId) {
+          res.json({
+            success: true,
+            batchId: results.batchId,
+            count: results.count,
+            status: results.status,
+            message: results.message,
+            batch: true,
+          });
+        } else {
+          // Individual creation response
+          res.json({
+            success: true,
+            count: results.created,
+            errors: results.errors,
+            data: results.accounts,
+            batch: false,
+          });
+        }
+      } catch (error) {
+        logger.errorWithStack(error, {
+          correlationId: config.correlationId,
+          operation: 'generate-accounts',
         });
-      }
+        let errorMessage = error.message;
+        if (error.message.includes('OpenAI API key not configured')) {
+          errorMessage =
+            'AI service error: OpenAI API key not configured. Please set it in the AI Configuration object.';
+        }
 
-      // Fix for undefined products log message
-      console.log(
-        `Demo: Successfully initiated batch creation of ${
-          result.created || 0
-        } products`
-      );
-
-      res.json({
-        success: true,
-        batchId: result.products[0]?.batchId,
-        count: result.created || 0, // Ensure count is a number
-        pdfCount: expectedPDFs,
-        errors: result.errors,
-        status: result.products[0]?.status || 'submitted',
-        demo: true,
-        batch: true,
-      });
-    } catch (error) {
-      logger.errorWithStack(error, {
-        correlationId: req.correlationId,
-        operation: 'demo-generate-products',
-      });
-      res.status(500).json({
-        success: false,
-        error: 'Demo product generation failed',
-        demo: true,
-      });
-    }
-  }
-  async function handleDemoOrderGeneration(req, res) {
-    const {
-      liferayUrl,
-      clientId,
-      clientSecret,
-      catalogId,
-      channelId,
-      currencyCode,
-      localeCode,
-      aiModel,
-      selectedLanguages,
-      orderCount,
-      batchSize,
-      microserviceUrl,
-      pollingDelay,
-    } = req.body;
-
-    try {
-      console.log(
-        `Demo mode: Generating ${orderCount} mock orders using consistent service approach`
-      );
-
-      // Validate catalogId is provided as integer
-      if (!catalogId || typeof catalogId !== 'number' || catalogId <= 0) {
-        return res.status(400).json({
+        res.status(500).json({
           success: false,
-          error: 'catalogId is required and must be a positive integer',
-          demo: true,
+          error: `Account generation failed: ${errorMessage}`,
+          details: error.stack,
         });
       }
-
-      const config = {
-        liferayUrl,
-        clientId,
-        clientSecret,
-        catalogId,
-        channelId,
-        currencyCode,
-        localeCode,
-        microserviceUrl,
-        aiModel: aiModel || 'gpt-4o',
-        selectedLanguages,
-        demoMode: true,
-        pollingDelay: pollingDelay,
-      };
-
-      const options = {
-        count: orderCount,
-        batchSize: batchSize,
-        catalogId: config.catalogId,
-        enableRetry: req.body.enableRetry,
-      };
-
-      // Use the same orderGenerator.generateOrders method as live mode
-      const result = await orderGenerator.generateOrders(config, options);
-
-      res.json({
-        success: true,
-        count: result.created,
-        errors: result.errors,
-        data: result.orders,
-        demo: true,
-      });
-    } catch (error) {
-      logger.errorWithStack(error, {
-        correlationId: req.correlationId,
-        operation: 'demo-generate-orders',
-      });
-
-      // Check for validation errors that should be warnings
-      const errorMessage = error.message || 'Demo order generation failed';
-      let statusCode = 500;
-
-      if (
-        errorMessage.includes('No products available') ||
-        errorMessage.includes('No accounts available')
-      ) {
-        statusCode = 400; // Bad request for validation errors
-      }
-
-      res.status(statusCode).json({
-        success: false,
-        error: errorMessage,
-        demo: true,
-      });
     }
-  }
+  );
 
   app.post(
     '/api/generate/products',
@@ -237,16 +105,19 @@ module.exports = function (app, liferayService, productGenerator, logger) {
       if (b.categories) b.categories = parseMaybeJSON(b.categories) || [];
       if (b.selectedLanguages)
         b.selectedLanguages = parseMaybeJSON(b.selectedLanguages) || [];
+      if (b.productCategories)
+        b.productCategories = parseMaybeJSON(b.productCategories) || [];
 
       // Numbers
       [
-        'count',
+        'productCount',
         'imageWidth',
         'imageHeight',
         'imageRatio',
         'pdfRatio',
         'batchSize',
         'pollingDelay',
+        'pollingRetries',
         'catalogId',
         'channelId',
         'siteGroupId',
@@ -257,284 +128,108 @@ module.exports = function (app, liferayService, productGenerator, logger) {
         'generatePriceLists',
         'generateBulkPricing',
         'generateTierPricing',
-        'generateImages',
         'generateSpecifications',
         'generateSkuVariants',
-        'generatePDFs',
         'demoMode',
-        'generateAttachments',
       ].forEach((k) => (b[k] = toBoolean(b[k])));
 
       next();
     },
     inputValidationMiddleware(generateDataSchema),
     async (req, res) => {
+      const { config, options } = buildConfigAndOptions(req);
+
       try {
-        const b = req.body || {};
-
-        // Convert uploaded files → data URLs (if present)
-        const imgFile = (req.files?.customImageFile || [])[0];
-        const pdfFile = (req.files?.customPDFFile || [])[0];
-
-        let customImageDataUrl,
-          customPdfDataUrl,
-          customImageName,
-          customPdfName;
-
-        if (imgFile?.buffer?.length) {
-          customImageDataUrl = bufferToDataUrl(
-            imgFile.buffer,
-            imgFile.mimetype || 'image/jpeg'
-          );
-          customImageName = imgFile.originalname || 'image';
-        }
-        if (pdfFile?.buffer?.length) {
-          customPdfDataUrl = bufferToDataUrl(
-            pdfFile.buffer,
-            pdfFile.mimetype || 'application/pdf'
-          );
-          customPdfName = pdfFile.originalname || 'file.pdf';
-        }
-
-        // If the client sometimes sends base64 in JSON, honor it as fallback
-        if (!customImageDataUrl && b.customImageBase64) {
-          customImageDataUrl = /^data:/.test(b.customImageBase64)
-            ? b.customImageBase64
-            : `data:image/jpeg;base64,${b.customImageBase64}`;
-          customImageName = b.customImageName || customImageName || 'image';
-        }
-        if (!customPdfDataUrl && b.customPdfBase64) {
-          customPdfDataUrl = /^data:/.test(b.customPdfBase64)
-            ? b.customPdfBase64
-            : `data:application/pdf;base64,${b.customPdfBase64}`;
-          customPdfName = b.customPdfName || customPdfName || 'file.pdf';
-        }
-
-        // Build the flat payload to your generator/Liferay
-        const payload = {
-          // connection + i18n
-          liferayUrl: b.liferayUrl,
-          microserviceUrl: b.microserviceUrl,
-          localeCode: b.localeCode,
-          languageId: b.languageId,
-          pollingDelay: b.pollingDelay,
-
-          // commerce
-          catalogId: b.catalogId,
-          channelId: b.channelId,
-          siteGroupId: b.siteGroupId,
-          currencyCode: b.currencyCode,
-
-          // generation config
-          aiModel: b.aiModel,
-          batchSize: b.batchSize,
-          selectedLanguages: b.selectedLanguages || [],
-          categories: b.categories || [],
-          count: b.count,
-
-          // toggles & params
-          generatePriceLists: b.generatePriceLists,
-          generateBulkPricing: b.generateBulkPricing,
-          generateTierPricing: b.generateTierPricing,
-          generateAttachments: b.generateAttachments,
-          generateSpecifications: b.generateSpecifications,
-          generateSkuVariants: b.generateSkuVariants,
-          generateImages: b.generateImages,
-          imageWidth: b.imageWidth,
-          imageHeight: b.imageHeight,
-          imageQuality: b.imageQuality,
-          imageStyle: b.imageStyle,
-          imageRatio: b.imageRatio,
-          generatePDFs: b.generatePDFs,
-          pdfRatio: b.pdfRatio,
-          demoMode: b.demoMode,
-
-          // credentials (flat)
-          clientId: b.clientId,
-          clientSecret: b.clientSecret,
-
-          // data URLs (optional)
-          customImageDataUrl,
-          customImageName,
-          customPdfDataUrl,
-          customPdfName,
-        };
-
-        // Call your internal generator or Liferay here…
-        // const out = await liferayService.generateProducts(payload);
-
-        return res.json({
-          success: true,
-          message: 'Generation request accepted',
-        });
-      } catch (err) {
-        logger.errorWithStack(err, {
-          correlationId: req.correlationId,
-          operation: 'generate-products',
-        });
-        return res.status(400).json({ success: false, error: err.message });
-      }
-    }
-  );
-
-  app.post(
-    '/api/generate/products',
-    inputValidationMiddleware(generateDataSchema),
-    async (req, res) => {
-      try {
-        const {
-          liferayUrl,
-          clientId,
-          clientSecret,
-          catalogId,
-          channelId,
-          currencyCode,
-          localeCode,
-          aiModel,
-          selectedLanguages,
-          productCount,
-          productCategories,
-          generatePriceLists,
-          generateBulkPricing,
-          generateTierPricing,
-          generateAttachments,
-          generateSpecifications,
-          generatePDFs,
-          pdfRatio,
-          batchSize,
-          demoMode,
-          microserviceUrl,
-          pollingDelay,
-        } = req.body;
-
-        if (!req.body.count && !productCount) {
+        if (!options.productCount) {
           return res.status(400).json({
             success: false,
             error: 'Product count is required',
           });
         }
 
-        if (!req.body.categories && !productCategories) {
+        if (!options.productCategories) {
           return res.status(400).json({
             success: false,
             error: 'Product categories are required',
           });
         }
 
-        if (!batchSize) {
+        if (!config.batchSize) {
           return res.status(400).json({
             success: false,
             error: 'Batch size is required',
           });
         }
 
-        if (!aiModel) {
+        if (!options.demoMode && !config.aiModel) {
           return res.status(400).json({
             success: false,
             error: 'AI model is required',
           });
         }
 
-        const actualCount = req.body.count || productCount;
-        const actualBatchSize =
-          actualCount > 5 ? Math.max(batchSize, 5) : batchSize;
+        const actualCount =
+          options.productCount > 5
+            ? Math.max(config.batchSize, 5)
+            : options.productCount;
 
-        // Determine microservice URL - use environment variable or construct from request
-        let microserviceUrlFromConfig = microserviceUrl;
-        if (
-          !microserviceUrlFromConfig ||
-          microserviceUrlFromConfig === 'null' ||
-          microserviceUrlFromConfig === 'undefined'
-        ) {
-          // Try to construct from environment or request headers
-          const protocol =
-            req.headers['x-forwarded-proto'] || (req.secure ? 'https' : 'http');
-          const host =
-            req.headers['x-forwarded-host'] ||
-            req.headers.host ||
-            `localhost:${PORT}`;
-          microserviceUrlFromConfig = `${protocol}://${host}`;
-          console.log(
-            `Constructed microservice URL: ${microserviceUrlFromConfig}`
+        let folderERC;
+        let folder;
+
+        if (options.customImageFile || options.customPdfFile) {
+          folderERC = `AICA_${Date.now().toString(36)}_${Math.random()
+            .toString(36)
+            .slice(2, 8)}`;
+          const folderName = `AI Commerce Accelerator - ${new Date()
+            .toISOString()
+            .slice(0, 10)} - ${folderERC.slice(-6)}`;
+
+          const response = await liferayService.createSiteDocumentsFolder(
+            config,
+            config.siteGroupId,
+            folderName,
+            folderERC
           );
+
+          folder = response.folder;
+
+          if (folder) {
+            await liferayService.patchPermissionsByAsset(config, {
+              assetType: ASSET_TYPE.DOCUMENT_FOLDER,
+              id: folder.id,
+              viewableBy: VIEWABLE_BY.ANYONE,
+            });
+          }
+
+          options.uploadFolderId = folder.id;
+          options.uploadFolderERC =
+            options.customImageFile || options.customPdfFile ? folderERC : null;
         }
-
-        console.log(`Using microservice URL: ${microserviceUrlFromConfig}`);
-
-        // Validate the constructed URL
-        try {
-          new URL(microserviceUrlFromConfig);
-        } catch (urlError) {
-          console.warn(
-            `Invalid microservice URL constructed: ${microserviceUrlFromConfig}, falling back to null`
-          );
-          microserviceUrlFromConfig = null;
-        }
-
-        let config = {
-          liferayUrl: req.body.liferayUrl,
-          clientId: req.body.clientId,
-          clientSecret: req.body.clientSecret,
-          catalogId: parseInt(req.body.catalogId),
-          channelId: req.body.channelId ? parseInt(req.body.channelId) : null,
-          currencyCode: req.body.currencyCode || 'USD',
-          localeCode: req.body.localeCode || 'en-US',
-          selectedLanguages: req.body.selectedLanguages || ['en-US'],
-          aiModel: req.body.aiModel || 'gpt-4o',
-          demoMode: req.body.demoMode || false,
-          microserviceUrl:
-            req.body.microserviceUrl && req.body.microserviceUrl !== 'null'
-              ? req.body.microserviceUrl
-              : null,
-          pollingDelay: parseInt(req.body.pollingDelay) || 10,
-        };
-
-        let options = {
-          count: req.body.count || 10,
-          categories: req.body.categories || [],
-          generatePriceLists: req.body.generatePriceLists || false,
-          generateBulkPricing: req.body.generateBulkPricing || false,
-          generateTierPricing: req.body.generateTierPricing || false,
-          generateImages: req.body.generateImages || false,
-          imageWidth: req.body.imageWidth || 1024,
-          imageHeight: req.body.imageHeight || 1024,
-          imageQuality: req.body.imageQuality || 'standard',
-          imageStyle: req.body.imageStyle || 'photographic',
-          imageRatio: req.body.imageRatio || 25,
-          generateSpecifications: req.body.generateSpecifications || false,
-          generateSkuVariants: req.body.generateSkuVariants || false,
-          generatePDFs: req.body.generatePDFs || false,
-          pdfRatio: req.body.pdfRatio || 10,
-          batchSize: parseInt(req.body.batchSize) || 5,
-          pollingDelay: parseInt(req.body.pollingDelay) || 10,
-          demoMode: req.body.demoMode || false,
-          useCustomImage: req.body.useCustomImage || false,
-          useCustomPDF: req.body.useCustomPDF || false,
-          microserviceUrl:
-            req.body.microserviceUrl && req.body.microserviceUrl !== 'null'
-              ? req.body.microserviceUrl
-              : null,
-        };
 
         logger.info('Starting product generation', {
-          correlationId: req.correlationId,
+          correlationId: config.correlationId,
           operation: 'generate-products',
-          productCount: actualCount,
-          demoMode: !!options.demoMode,
+          productCount: options.productCount,
+          demoMode: options.demoMode,
           categories: options.categories?.length || 0,
-          microserviceUrl: microserviceUrlFromConfig,
+          microserviceUrl: options.microserviceUrl,
         });
 
         if (options.demoMode) {
-          return handleDemoProductGeneration(req, res);
+          return handleDemoProductGeneration(
+            config,
+            options,
+            productGenerator,
+            res
+          );
         }
 
-        if (options.generatePDFs && options.pdfRatio > 0) {
+        if (options.pdfMode === 'generate' && options.pdfRatio > 0) {
           const expectedPDFs = Math.ceil(
             actualCount * (options.pdfRatio / 100)
           );
           logger.info('PDF generation configured', {
-            correlationId: req.correlationId,
+            correlationId: config.correlationId,
             operation: 'generate-products',
             expectedPDFs,
             pdfRatio: options.pdfRatio,
@@ -542,22 +237,10 @@ module.exports = function (app, liferayService, productGenerator, logger) {
           });
         }
 
-        const results = await productGenerator.generateProducts(config, {
-          count: actualCount,
-          categories: options.categories,
-          batchSize: actualBatchSize,
-          generateSkuVariants: generateSkuVariants,
-          generateSpecifications: generateSpecifications,
-          generateAttachments: generateAttachments,
-          generatePriceLists: generatePriceLists,
-          generateBulkPricing: generateBulkPricing,
-          generateTierPricing: generateTierPricing,
-          generatePDFs: generatePDFs,
-          generateImages: req.body.generateImages,
-          pdfRatio: pdfRatio,
-          imageRatio: req.body.imageRatio || 0,
-          demoMode: demoMode,
-        });
+        const results = await productGenerator.generateProducts(
+          config,
+          options
+        );
 
         // Safe calculation of total products created
         let totalProductsCreated = 0;
@@ -571,7 +254,7 @@ module.exports = function (app, liferayService, productGenerator, logger) {
         }
 
         // Emit progress update via WebSocket for PDF generation
-        if (generatePDFs && results.pdfProgress) {
+        if (pdfMode === 'generate' && results.pdfProgress) {
           global.broadcastProgress({
             type: 'generation-progress',
             generator: 'product',
@@ -585,7 +268,7 @@ module.exports = function (app, liferayService, productGenerator, logger) {
         }
 
         // Emit progress update via WebSocket for Image generation
-        if (req.body.generateImages && results.imageProgress) {
+        if (imageMode === 'generate' && results.imageProgress) {
           global.broadcastProgress({
             type: 'generation-progress',
             generator: 'product',
@@ -649,52 +332,16 @@ module.exports = function (app, liferayService, productGenerator, logger) {
             ip: req.ip,
             userAgent: req.get('User-Agent'),
           },
-          configDetails: {
-            liferayUrl: config?.liferayUrl,
-            catalogId: config?.catalogId,
-            clientId: config?.clientId,
-            clientSecret: config?.clientSecret ? '[REDACTED]' : undefined,
-            aiModel: config?.aiModel,
-          },
-          optionsDetails: {
-            productCount: options?.count,
-            batchSize: options?.batchSize,
-          },
+          sanitizeConfig: sanitizedObject(config),
+          sanitizeOptions: sanitizedObject(options),
         });
 
         console.error('=== PRODUCT GENERATION ERROR DEBUG ===');
         console.error('Error Message:', errorMessage);
         console.error('Error Name:', error.name);
         console.error('Error Type:', typeof error);
-        // Log request body with sensitive fields redacted
-        const sanitizedBody = { ...req.body };
-        if (sanitizedBody.clientSecret)
-          sanitizedBody.clientSecret = '[REDACTED]';
-        if (sanitizedBody.openaiApiKey)
-          sanitizedBody.openaiApiKey = '[REDACTED]';
-        if (sanitizedBody.Authorization)
-          sanitizedBody.Authorization = '[REDACTED]';
+        const sanitizedBody = sanitizedObject(req.body);
         console.error('Request Body:', JSON.stringify(sanitizedBody, null, 2));
-        console.error(
-          'Config Object:',
-          JSON.stringify(
-            req.body.config,
-            (key, value) => (key === 'clientSecret' ? '[REDACTED]' : value),
-            2
-          )
-        );
-        // Log options with sensitive fields redacted
-        const sanitizedOptions = req.body.options
-          ? { ...req.body.options }
-          : {};
-        if (sanitizedOptions.clientSecret)
-          sanitizedOptions.clientSecret = '[REDACTED]';
-        if (sanitizedOptions.openaiApiKey)
-          sanitizedOptions.openaiApiKey = '[REDACTED]';
-        console.error(
-          'Options Object:',
-          JSON.stringify(sanitizedOptions, null, 2)
-        );
         console.error('Full Error Object:', JSON.stringify(error, null, 2));
         console.error('Error Stack:', error.stack);
         console.error('=== END ERROR DEBUG ===');
@@ -709,38 +356,26 @@ module.exports = function (app, liferayService, productGenerator, logger) {
   );
 
   app.post('/api/validate/products', async (req, res) => {
+    const { config, options } = buildConfigAndOptions(req);
     try {
-      const { liferayUrl, clientId, clientSecret, catalogId, requiredCount } =
-        req.body;
-
-      const config = {
-        liferayUrl,
-        clientId,
-        clientSecret,
-        catalogId: parseInt(catalogId),
-      };
-
-      const products = await liferayService.getProducts(
-        config,
-        config.catalogId
-      );
+      const products = await liferayService.getProducts(config);
 
       res.json({
         available: products.length > 0,
         count: products.length,
-        required: requiredCount || 1,
-        sufficient: products.length >= (requiredCount || 1),
+        required: options.requiredCount || 1,
+        sufficient: products.length >= (options.requiredCount || 1),
         timestamp: new Date().toISOString(),
       });
     } catch (error) {
       logger.errorWithStack(error, {
-        correlationId: req.correlationId,
+        correlationId: config.correlationId,
         operation: 'validate-products',
       });
       res.json({
         available: false,
         count: 0,
-        required: req.body.requiredCount || 1,
+        required: options.requiredCount || 1,
         sufficient: false,
         error: error.message,
         timestamp: new Date().toISOString(),
@@ -749,33 +384,26 @@ module.exports = function (app, liferayService, productGenerator, logger) {
   });
 
   app.post('/api/validate/accounts', async (req, res) => {
+    const { config, options } = buildConfigAndOptions(req);
     try {
-      const { liferayUrl, clientId, clientSecret, requiredCount } = req.body;
-
-      const config = {
-        liferayUrl,
-        clientId,
-        clientSecret,
-      };
-
       const accounts = await liferayService.getAccounts(config);
 
       res.json({
         available: accounts.length > 0,
         count: accounts.length,
-        required: requiredCount || 1,
-        sufficient: accounts.length >= (requiredCount || 1),
+        required: options.requiredCount || 1,
+        sufficient: accounts.length >= (options.requiredCount || 1),
         timestamp: new Date().toISOString(),
       });
     } catch (error) {
       logger.errorWithStack(error, {
-        correlationId: req.correlationId,
+        correlationId: config.correlationId,
         operation: 'validate-accounts',
       });
       res.json({
         available: false,
         count: 0,
-        required: req.body.requiredCount || 1,
+        required: options.equiredCount || 1,
         sufficient: false,
         error: error.message,
         timestamp: new Date().toISOString(),
@@ -787,50 +415,34 @@ module.exports = function (app, liferayService, productGenerator, logger) {
     '/api/generate/orders',
     inputValidationMiddleware(generateOrdersSchema),
     async (req, res) => {
+      const { config, options } = buildConfigAndOptions(req);
       try {
-        const {
-          liferayUrl,
-          clientId,
-          clientSecret,
-          catalogId,
-          channelId,
-          currencyCode,
-          localeCode,
-          aiModel,
-          selectedLanguages,
-          orderCount,
-          batchSize,
-          demoMode,
-          microserviceUrl,
-          pollingDelay,
-        } = req.body;
-
-        if (demoMode) {
-          return handleDemoOrderGeneration(req, res);
+        if (options.demoMode) {
+          return handleDemoOrderGeneration(config, options, res);
         }
 
-        if (!channelId) {
+        if (!config.channelId) {
           return res.status(400).json({
             success: false,
             error: 'channelId is required for order generation',
           });
         }
 
-        if (!currencyCode) {
+        if (!config.currencyCode) {
           return res.status(400).json({
             success: false,
             error: 'currencyCode is required for order generation',
           });
         }
 
-        if (!aiModel) {
+        if (!config.aiModel) {
           return res.status(400).json({
             success: false,
             error: 'AI model is required',
           });
         }
 
-        if (!batchSize) {
+        if (!config.batchSize) {
           return res.status(400).json({
             success: false,
             error: 'Batch size is required',
@@ -838,10 +450,10 @@ module.exports = function (app, liferayService, productGenerator, logger) {
         }
 
         const productValidation = await liferayService.validateProducts({
-          liferayUrl,
-          clientId,
-          clientSecret,
-          catalogId,
+          liferayUrl: config.liferayUrl,
+          clientId: config.clientId,
+          clientSecret: config.clientSecret,
+          catalogId: config.catalogId,
           requiredCount: 1,
         });
 
@@ -852,9 +464,9 @@ module.exports = function (app, liferayService, productGenerator, logger) {
         }
 
         const accountValidation = await liferayService.validateAccounts({
-          liferayUrl,
-          clientId,
-          clientSecret,
+          liferayUrl: config.liferayUrl,
+          clientId: config.clientId,
+          clientSecret: config.clientSecret,
           requiredCount: 1,
         });
 
@@ -864,34 +476,9 @@ module.exports = function (app, liferayService, productGenerator, logger) {
           );
         }
 
-        console.log(`Starting order generation: ${orderCount} orders`);
+        console.log(`Starting order generation: ${options.orderCount} orders`);
 
-        const config = {
-          liferayUrl,
-          clientId,
-          clientSecret,
-          catalogId,
-          channelId,
-          currencyCode,
-          localeCode,
-          microserviceUrl: microserviceUrl || req.body.microserviceUrl,
-          aiModel,
-          selectedLanguages,
-          demoMode,
-          pollingDelay: pollingDelay,
-        };
-
-        const options = {
-          count: orderCount,
-          batchSize: batchSize,
-          catalogId: config.catalogId,
-          enableRetry: req.body.enableRetry,
-        };
-
-        const results = await orderGenerator.generateOrders(config, {
-          count: orderCount,
-          batchSize: batchSize,
-        });
+        const results = await orderGenerator.generateOrders(config, options);
 
         // Emit progress update via WebSocket for PDF generation
         if (results.pdfProgress) {
@@ -930,7 +517,7 @@ module.exports = function (app, liferayService, productGenerator, logger) {
         });
       } catch (error) {
         logger.errorWithStack(error, {
-          correlationId: req.correlationId,
+          correlationId: config.correlationId,
           operation: 'generate-orders',
         });
 
