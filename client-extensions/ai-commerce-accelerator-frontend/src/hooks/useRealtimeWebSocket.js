@@ -1,5 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
 
+const clampToTotal = (total, n) =>
+  Math.max(0, Math.min(Number.isFinite(total) ? total : n, n));
+
 const normalizeEntityType = (t) => {
   const s = String(t || '').toLowerCase();
   if (!s) return null;
@@ -22,6 +25,7 @@ export default function useRealtimeWebSocket({
 }) {
   const wsRef = useRef(null);
   const [wsConnected, setWsConnected] = useState(false);
+  const seenBatchIdsRef = useRef(new Set());
 
   // unmount cleanup guard
   useEffect(() => {
@@ -152,6 +156,11 @@ export default function useRealtimeWebSocket({
             );
           }
 
+          if (data.type === 'batch_completed' && data.batchId) {
+            if (seenBatchIdsRef.current.has(data.batchId)) return; // drop duplicate
+            seenBatchIdsRef.current.add(data.batchId);
+          }
+
           // control messages
           if (data.type === 'pong') return;
           if (data.type === 'connected') {
@@ -173,38 +182,50 @@ export default function useRealtimeWebSocket({
             failureCount
           ) => {
             onProgress?.((prev) => {
-              const current = prev[entityType] || { completed: 0, errors: [] };
-              switch (entityType) {
-                case 'pdfs':
+              const bucket = entityType; // already normalized earlier
+              const current = prev[bucket] || { completed: 0, errors: [] };
+              const total = current.total ?? Infinity;
+
+              let nextCompleted;
+
+              switch (bucket) {
                 case 'images':
-                  return {
-                    ...prev,
-                    [entityType]: {
-                      ...current,
-                      completed: successCount,
-                      errors: [
-                        ...(current.errors || []),
-                        ...(data.errors || []),
-                      ],
-                    },
-                  };
+                case 'pdfs':
+                case 'accounts':
+                  // Absolute (some services emit a final count or we may set it via HTTP fallback)
+                  nextCompleted = Math.max(
+                    current.completed || 0,
+                    successCount || 0
+                  );
+                  break;
+
                 default:
-                  return {
-                    ...prev,
-                    [entityType]: {
-                      ...current,
-                      completed: (current.completed || 0) + successCount,
-                      errors: [
-                        ...(current.errors || []),
-                        ...(data.errors || []),
-                      ],
-                    },
-                  };
+                  // Incremental (products/orders batches usually come as deltas)
+                  nextCompleted =
+                    (current.completed || 0) + (successCount || 0);
+                  break;
               }
+
+              nextCompleted = clampToTotal(total, nextCompleted);
+
+              return {
+                ...prev,
+                [bucket]: {
+                  ...current,
+                  completed: nextCompleted,
+                  errors: [
+                    ...(current.errors || []),
+                    ...(failureCount
+                      ? ['batch failures: ' + failureCount]
+                      : []),
+                    ...(data.errors || []),
+                  ],
+                },
+              };
             });
           };
 
-          const entityKey = normalizeEntityType(entitType);
+          const entityKey = normalizeEntityType(data.entityType);
 
           // mirror your original switch
           switch (data.type) {

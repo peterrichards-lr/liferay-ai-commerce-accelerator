@@ -27,7 +27,14 @@ const upload = multer({
   limits: { fileSize: 15 * 1024 * 1024 }, // 15MB per file (tune as needed)
 });
 
-module.exports = function (app, liferayService, productGenerator, accountGenerator, orderCount, logger) {
+module.exports = function (
+  app,
+  liferayService,
+  productGenerator,
+  accountGenerator,
+  orderGenerator,
+  logger
+) {
   app.post(
     '/api/generate/accounts',
     inputValidationMiddleware(generateAccountsSchema),
@@ -45,7 +52,12 @@ module.exports = function (app, liferayService, productGenerator, accountGenerat
         });
 
         if (config.demoMode) {
-          return handleDemoAccountGeneration(config, options);
+          return handleDemoAccountGeneration(
+            config,
+            options,
+            accountGenerator,
+            res
+          );
         }
 
         const results = await accountGenerator.generateAccounts(
@@ -418,7 +430,12 @@ module.exports = function (app, liferayService, productGenerator, accountGenerat
       const { config, options } = buildConfigAndOptions(req);
       try {
         if (options.demoMode) {
-          return handleDemoOrderGeneration(config, options, res);
+          return handleDemoOrderGeneration(
+            config,
+            options,
+            orderGenerator,
+            res
+          );
         }
 
         if (!config.channelId) {

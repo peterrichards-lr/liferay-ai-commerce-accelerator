@@ -680,13 +680,20 @@ export function AppUI() {
                     : `✓ Successfully generated ${totalAccountsCreated} accounts`;
                   if (mountedRef.current) addLog(accountMessage, 'success');
 
-                  setProgress((prev) => ({
-                    ...prev,
-                    accounts: {
-                      ...prev.accounts,
-                      completed: totalAccountsCreated,
-                    },
-                  }));
+                  setProgress((prev) => {
+                    const total = prev.accounts?.total ?? Infinity;
+                    const nextCompleted = Math.max(
+                      prev.accounts?.completed || 0,
+                      totalAccountsCreated || 0
+                    );
+                    return {
+                      ...prev,
+                      accounts: {
+                        ...prev.accounts,
+                        completed: Math.min(nextCompleted, total), // clamp to total
+                      },
+                    };
+                  });
                 }
               } else {
                 if (mountedRef.current)

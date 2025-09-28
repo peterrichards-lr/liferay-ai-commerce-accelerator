@@ -6,10 +6,11 @@ const { BatchPollingService } = require('./batchPollingService.cjs');
 const { cacheService } = require('./cacheService.cjs'); // Assuming cacheService is available here
 
 class AccountGenerator {
-  constructor(wss = null) {
+  constructor(batchPollingService = null, wss = null) {
     this.aiService = aiService; // Make aiService accessible within the class
     this.mockDataGenerator = new MockDataGenerator();
-    this.batchPollingService = new BatchPollingService(wss); // Initialize the polling service with WebSocket server
+    this.wss = wss;
+    this.batchPollingService = batchPollingService ?? new BatchPollingService(wss); // Initialize the polling service with WebSocket server
   }
 
   setWebSocketServer(wss) {

@@ -89,7 +89,7 @@ async function handleDemoProductGeneration(
   }
 }
 
-async function handleDemoOrderGeneration(config, options, res) {
+async function handleDemoOrderGeneration(config, options, orderGenerator, res) {
   try {
     console.log(
       `Demo mode: Generating ${options.orderCount} mock orders using consistent service approach`
@@ -143,7 +143,12 @@ async function handleDemoOrderGeneration(config, options, res) {
   }
 }
 
-async function handleDemoAccountGeneration(config, options, res) {
+async function handleDemoAccountGeneration(
+  config,
+  options,
+  accountGenerator,
+  res
+) {
   try {
     logger.info('Demo account generation started', {
       correlationId: config.correlationId,

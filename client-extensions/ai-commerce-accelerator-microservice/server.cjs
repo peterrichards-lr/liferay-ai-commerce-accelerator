@@ -4,8 +4,8 @@ const express = require('express');
 const cors = require('cors');
 const path = require('path');
 const http = require('http');
-const WebSocket = require('ws');
 
+const { createWebSocketService } = require('./services/webSocketService.cjs');
 const { logger } = require('./utils/logger.cjs');
 const { cacheService } = require('./services/cacheService.cjs');
 const { BatchPollingService } = require('./services/batchPollingService.cjs');
@@ -35,323 +35,23 @@ const liferayService = require('./services/liferayService.cjs');
 
 const app = express();
 const server = http.createServer(app);
-const wss = new WebSocket.Server({ server });
+const ws = createWebSocketService({ server, logger });
 
 const PORT = lookupConfig('server.port') || 3000;
 
 // Initialize BatchPollingService with WebSocket server
 console.log(
   '🔌 Initializing BatchPollingService with WebSocket server:',
-  !!wss
+  !!ws.wss
 );
-const batchPollingService = new BatchPollingService(wss);
+const batchPollingService = new BatchPollingService(ws.wss);
 
-// Initialize ProductGenerator after WebSocket server is created
-const ProductGeneratorClass = require('./services/productGenerator.cjs');
+const ProductGenerator = require('./services/productGenerator.cjs');
 const AccountGenerator = require('./services/accountGenerator.cjs');
 const OrderGenerator = require('./services/orderGenerator.cjs');
-const productGenerator = new ProductGeneratorClass(wss);
-const accountGenerator = new AccountGenerator(wss);
-const orderGenerator = new OrderGenerator(wss);
-
-// WebSocket connection handler
-wss.on('connection', (ws, request) => {
-  const correlationId = request.headers['x-correlation-id'] || uuidv4();
-  ws.correlationId = correlationId;
-  ws.isAlive = true;
-
-  console.log(
-    '🔌 WebSocket connection established from:',
-    request.socket.remoteAddress
-  );
-  console.log('🔌 Total WebSocket clients now:', wss.clients.size);
-
-  logger.info('WebSocket connection established', {
-    operation: 'websocket-connect',
-    correlationId,
-    clientIP: request.socket.remoteAddress,
-    connectedClients: wss.clients.size,
-    origin: request.headers.origin,
-    userAgent: request.headers['user-agent'],
-  });
-
-  // Set up ping/pong for connection health
-  ws.on('pong', () => {
-    ws.isAlive = true;
-  });
-
-  ws.on('message', (message) => {
-    try {
-      const data = JSON.parse(message);
-      handleWebSocketMessage(ws, data);
-    } catch (error) {
-      logger.error('Invalid WebSocket message', {
-        operation: 'websocket-message-error',
-        correlationId,
-        error: error.message,
-        rawMessage: message.toString(),
-      });
-
-      // Don't close connection on parse error, just log it
-      if (ws.readyState === WebSocket.OPEN) {
-        ws.send(
-          JSON.stringify({ type: 'error', message: 'Invalid message format' })
-        );
-      }
-    }
-  });
-
-  ws.on('close', (code, reason) => {
-    logger.info('WebSocket connection closed', {
-      operation: 'websocket-disconnect',
-      correlationId,
-      code,
-      reason: reason ? reason.toString() : 'No reason provided',
-      remainingClients: Math.max(0, wss.clients.size - 1),
-    });
-  });
-
-  ws.on('error', (error) => {
-    logger.error('WebSocket error', {
-      operation: 'websocket-error',
-      correlationId,
-      error: error.message,
-      stack: error.stack,
-    });
-  });
-
-  // Send welcome message
-  if (ws.readyState === WebSocket.OPEN) {
-    ws.send(
-      JSON.stringify({
-        type: 'connected',
-        correlationId,
-        timestamp: new Date().toISOString(),
-      })
-    );
-  }
-});
-
-// WebSocket health check - ping all clients every 30 seconds
-const wsHealthCheck = setInterval(() => {
-  wss.clients.forEach((ws) => {
-    if (ws.isAlive === false) {
-      logger.warn('Terminating unresponsive WebSocket connection', {
-        operation: 'websocket-health-check',
-        correlationId: ws.correlationId,
-      });
-      return ws.terminate();
-    }
-
-    ws.isAlive = false;
-    if (ws.readyState === WebSocket.OPEN) {
-      ws.ping();
-    }
-  });
-}, 30000);
-
-function handleWebSocketMessage(ws, data) {
-  const { type, payload } = data;
-
-  switch (type) {
-    case 'subscribe-batch':
-      if (payload?.batchId) {
-        ws.batchId = payload.batchId;
-        logger.debug('WebSocket subscribed to batch updates', {
-          operation: 'websocket-subscribe-batch',
-          correlationId: ws.correlationId,
-          batchId: payload.batchId,
-        });
-
-        // Send acknowledgment
-        if (ws.readyState === WebSocket.OPEN) {
-          ws.send(
-            JSON.stringify({
-              type: 'batch_subscription_confirmed',
-              batchId: payload.batchId,
-              timestamp: new Date().toISOString(),
-            })
-          );
-        }
-      }
-      break;
-
-    case 'unsubscribe-batch':
-      const oldBatchId = ws.batchId;
-      ws.batchId = null;
-      logger.debug('WebSocket unsubscribed from batch updates', {
-        operation: 'websocket-unsubscribe-batch',
-        correlationId: ws.correlationId,
-        previousBatchId: oldBatchId,
-      });
-      break;
-
-    case 'ping':
-      logger.debug('Received ping from client', {
-        operation: 'websocket-ping-received',
-        correlationId: ws.correlationId,
-      });
-
-      if (ws.readyState === WebSocket.OPEN) {
-        ws.send(
-          JSON.stringify({
-            type: 'pong',
-            timestamp: new Date().toISOString(),
-          })
-        );
-      }
-      break;
-
-    case 'pong':
-      logger.debug('Received pong from client', {
-        operation: 'websocket-pong-received',
-        correlationId: ws.correlationId,
-      });
-      ws.isAlive = true;
-      break;
-
-    default:
-      logger.warn('Unknown WebSocket message type', {
-        operation: 'websocket-unknown-message',
-        correlationId: ws.correlationId,
-        messageType: type,
-        hasPayload: !!payload,
-      });
-
-      // Send error response for unknown message types
-      if (ws.readyState === WebSocket.OPEN) {
-        ws.send(
-          JSON.stringify({
-            type: 'error',
-            message: `Unknown message type: ${type}`,
-            timestamp: new Date().toISOString(),
-          })
-        );
-      }
-  }
-}
-
-function broadcastBatchUpdate(batchId, update) {
-  if (!wss) {
-    logger.error('No WebSocket server available', {
-      operation: 'websocket-broadcast-no-server',
-      batchId,
-    });
-    console.log('❌ No WebSocket server available for broadcasting');
-    return;
-  }
-
-  const message = JSON.stringify({
-    type: 'batch_completed',
-    batchId,
-    entityType: update.entityType || 'products',
-    successCount: update?.processedCount || update?.totalCount || 0,
-    failureCount: update?.errorCount || 0,
-    details: update,
-    timestamp: new Date().toISOString(),
-  });
-
-  let broadcastCount = 0;
-  let failedCount = 0;
-
-  // Broadcast to all connected WebSocket clients
-  wss.clients.forEach((client) => {
-    if (client.readyState === WebSocket.OPEN) {
-      try {
-        client.send(message);
-        broadcastCount++;
-
-        logger.debug('Broadcasted batch update to WebSocket client', {
-          operation: 'websocket-broadcast-success',
-          batchId,
-          clientCorrelationId: client.correlationId,
-          messageType: 'batch_completed',
-        });
-      } catch (error) {
-        failedCount++;
-        logger.error('Failed to broadcast to WebSocket client', {
-          operation: 'websocket-broadcast-error',
-          batchId,
-          clientCorrelationId: client.correlationId,
-          error: error.message,
-        });
-      }
-    } else {
-      logger.debug('Skipping closed WebSocket client', {
-        operation: 'websocket-broadcast-skip',
-        batchId,
-        clientCorrelationId: client.correlationId,
-        clientState: client.readyState,
-      });
-    }
-  });
-
-  logger.info('Batch update broadcast completed', {
-    operation: 'batch-broadcast-complete',
-    batchId,
-    totalClients: wss.clients.size,
-    broadcastSuccessful: broadcastCount,
-    broadcastFailed: failedCount,
-    messageSize: message.length,
-  });
-
-  // If no clients received the message, log a warning
-  if (broadcastCount === 0) {
-    logger.warn('No WebSocket clients received batch update', {
-      operation: 'batch-broadcast-no-recipients',
-      batchId,
-      totalClients: wss.clients.size,
-      messageData: message,
-    });
-  }
-}
-
-// Set up global broadcast function for session completion
-global.broadcastSessionComplete = (sessionId, messageData) => {
-  if (!wss) {
-    console.log(
-      '❌ No WebSocket server available for broadcasting session completion'
-    );
-    return;
-  }
-
-  let broadcastCount = 0;
-  let failedCount = 0;
-
-  wss.clients.forEach((ws) => {
-    if (ws.readyState === 1) {
-      // WebSocket.OPEN
-      try {
-        ws.send(JSON.stringify(messageData));
-        broadcastCount++;
-      } catch (error) {
-        failedCount++;
-        logger.error('Failed to send session completion WebSocket message', {
-          operation: 'websocket-session-broadcast-error',
-          error: error.message,
-          sessionId,
-          clientCorrelationId: ws.correlationId,
-        });
-      }
-    }
-  });
-
-  logger.info('Session completion broadcast completed', {
-    operation: 'session-broadcast-complete',
-    sessionId,
-    totalClients: wss.clients.size,
-    broadcastSuccessful: broadcastCount,
-    broadcastFailed: failedCount,
-    messageSize: JSON.stringify(messageData).length,
-  });
-
-  console.log(
-    `📡 Session completion broadcast: ${broadcastCount} clients notified for session ${sessionId}`
-  );
-};
-
-// Make broadcastBatchUpdate globally available
-global.broadcastBatchUpdate = broadcastBatchUpdate;
+const productGenerator = new ProductGenerator(batchPollingService, ws.wss);
+const accountGenerator = new AccountGenerator(batchPollingService, ws.wss);
+const orderGenerator = new OrderGenerator(batchPollingService, ws.wss);
 
 // Initialize workers
 registerDataGenerationWorkers();
@@ -655,7 +355,6 @@ process.on('unhandledRejection', (reason, promise) => {
   });
 });
 
-// Start server with WebSocket support
 server.listen(PORT, '0.0.0.0', () => {
   logger.success('Server started successfully', {
     operation: 'server-start',
@@ -668,15 +367,13 @@ server.listen(PORT, '0.0.0.0', () => {
     `Liferay Commerce AI Data Generator server running on http://0.0.0.0:${PORT}`
   );
   console.log(`Frontend available at: http://localhost:${PORT}`);
-  console.log(
-    `WebSocket server listening for batch updates on ws://localhost:${PORT}`
-  );
+  console.log(`WebSocket server listening on ws://localhost:${PORT}`);
 
   // Test WebSocket server is working
   console.log('🔌 WebSocket server status:', {
-    listening: wss.listening !== undefined ? wss.listening : 'unknown',
-    clients: wss.clients.size,
-    readyState: wss.readyState !== undefined ? wss.readyState : 'unknown',
+    listening: ws.wss.listening !== undefined ? ws.wss.listening : 'unknown',
+    clients: ws.wss.clients.size,
+    readyState: ws.wss.readyState !== undefined ? ws.wss.readyState : 'unknown',
   });
 });
 
@@ -686,17 +383,7 @@ process.on('SIGTERM', () => {
     operation: 'server-shutdown',
   });
 
-  // Clear WebSocket health check interval
-  if (wsHealthCheck) {
-    clearInterval(wsHealthCheck);
-  }
-
-  // Close all WebSocket connections
-  wss.clients.forEach((client) => {
-    if (client.readyState === WebSocket.OPEN) {
-      client.close(1001, 'Server shutting down');
-    }
-  });
+  ws.stop();
 
   batchPollingService.stopAllPolling();
 

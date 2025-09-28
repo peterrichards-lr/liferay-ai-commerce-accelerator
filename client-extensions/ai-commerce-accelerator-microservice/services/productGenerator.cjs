@@ -11,12 +11,13 @@ const { sanitizedObject } = require('../utils/normalize.cjs');
 const { ASSET_TYPE, VIEWABLE_BY } = require('../utils/liferayPermissions.cjs');
 
 class ProductGenerator {
-  constructor(wss = null) {
+  constructor(batchPollingService = null, wss = null) {
     this.aiService = aiService;
     this.liferayService = liferayService;
     this.mediaGenerator = new MediaGenerator();
     this.mockDataGenerator = new MockDataGenerator();
-    this.batchPollingService = new BatchPollingService(wss); // Initialize the polling service with WebSocket server
+    this.wss = wss;
+    this.batchPollingService = batchPollingService ?? new BatchPollingService(wss); // Initialize the polling service with WebSocket server
   }
 
   setWebSocketServer(wss) {
