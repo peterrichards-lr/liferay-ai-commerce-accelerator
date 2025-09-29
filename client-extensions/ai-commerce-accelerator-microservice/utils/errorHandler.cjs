@@ -66,7 +66,10 @@ class ErrorHandler {
         case 400:
           // Log the request body for 400 BAD REQUEST errors
           if (requestBody) {
-            console.error(`Request body that caused 400 BAD REQUEST:`, JSON.stringify(requestBody, null, 2));
+            console.error(
+              `Request body that caused 400 BAD REQUEST:`,
+              JSON.stringify(requestBody, null, 2)
+            );
           }
           return this.createError(
             `Bad request: ${data?.title || 'Invalid data provided'}`,
@@ -197,11 +200,20 @@ ErrorHandler.handleError = (error, req, res, next) => {
   let statusCode = 500;
   if (error.statusCode) {
     statusCode = error.statusCode;
-  } else if (error.message?.includes('404') || error.message?.includes('not found')) {
+  } else if (
+    error.message?.includes('404') ||
+    error.message?.includes('not found')
+  ) {
     statusCode = 404;
-  } else if (error.message?.includes('401') || error.message?.includes('unauthorized')) {
+  } else if (
+    error.message?.includes('401') ||
+    error.message?.includes('unauthorized')
+  ) {
     statusCode = 401;
-  } else if (error.message?.includes('403') || error.message?.includes('forbidden')) {
+  } else if (
+    error.message?.includes('403') ||
+    error.message?.includes('forbidden')
+  ) {
     statusCode = 403;
   }
 
@@ -221,8 +233,8 @@ ErrorHandler.handleError = (error, req, res, next) => {
       error: {
         message: error.message,
         stack: error.stack,
-        name: error.name
-      }
+        name: error.name,
+      },
     });
   }
 

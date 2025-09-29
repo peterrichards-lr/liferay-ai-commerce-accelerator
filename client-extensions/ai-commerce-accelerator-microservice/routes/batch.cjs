@@ -1,4 +1,6 @@
 const { v4: uuidv4 } = require('uuid');
+const WebSocket = require('ws');
+const { get: getWs } = require('../services/wsBus.cjs');
 const {
   sanitizedObject,
   parseBatchStatuses,
@@ -117,7 +119,8 @@ module.exports = function (app, cacheService, batchPollingService, logger) {
                 timestamp: new Date().toISOString(),
               });
 
-              wss.clients.forEach((client) => {
+              const ws = getWs();
+              ws.wss.clients.forEach((client) => {
                 if (client.readyState === WebSocket.OPEN) {
                   client.send(errorMessage);
                 }

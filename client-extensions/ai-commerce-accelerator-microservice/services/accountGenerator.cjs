@@ -4,17 +4,15 @@ const { MockDataGenerator } = require('./mockDataGenerator.cjs');
 const { logger } = require('../utils/logger.cjs');
 const { BatchPollingService } = require('./batchPollingService.cjs');
 const { cacheService } = require('./cacheService.cjs'); // Assuming cacheService is available here
+const { get: getWs } = require('../services/wsBus.cjs');
 
 class AccountGenerator {
-  constructor(batchPollingService = null, wss = null) {
+  constructor(batchPollingService = null) {
     this.aiService = aiService; // Make aiService accessible within the class
-    this.mockDataGenerator = new MockDataGenerator();
-    this.wss = wss;
-    this.batchPollingService = batchPollingService ?? new BatchPollingService(wss); // Initialize the polling service with WebSocket server
-  }
 
-  setWebSocketServer(wss) {
-    this.batchPollingService.setWebSocketServer(wss);
+    this.ws = getWs();
+    this.batchPollingService =
+      batchPollingService ?? new BatchPollingService(this.ws); // Initialize the polling service with WebSocket server
   }
 
   async generateAccounts(config, options) {
@@ -162,10 +160,8 @@ class AccountGenerator {
                 entityType: 'accounts',
               },
               {
-                pollInterval: config.pollingDelay * 1000, // Convert to milliseconds
-                maxPollAttempts: Math.ceil(
-                  600000 / (config.pollingDelay * 1000)
-                ), // Max 10 minutes
+                pollInterval: config.pollingDelay,
+                maxPollAttempts: config.pollingReties,
                 onStatusChange: (status) => {
                   logger.log('debug', 'Batch status update', {
                     operation: 'batch-status-update',

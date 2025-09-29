@@ -68,7 +68,7 @@ class HealthService {
           message: 'OpenAI API key not configured',
           responseTime,
           name: 'openai',
-          timestamp: new Date().toISOString()
+          timestamp: new Date().toISOString(),
         };
       }
 
@@ -77,7 +77,7 @@ class HealthService {
         message: 'OpenAI API key configured',
         responseTime,
         name: 'openai',
-        timestamp: new Date().toISOString()
+        timestamp: new Date().toISOString(),
       };
     } catch (error) {
       return {
@@ -85,7 +85,7 @@ class HealthService {
         message: error.message,
         responseTime: Date.now() - start,
         name: 'openai',
-        timestamp: new Date().toISOString()
+        timestamp: new Date().toISOString(),
       };
     }
   }

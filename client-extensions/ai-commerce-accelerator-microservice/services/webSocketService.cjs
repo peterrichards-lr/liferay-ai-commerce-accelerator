@@ -1,6 +1,7 @@
 // services/webSocketService.cjs
 const WebSocket = require('ws');
 const { v4: uuidv4 } = require('uuid');
+const { BATCH_START } = require('../utils/wsEvents.cjs');
 
 function createWebSocketService({
   server,
@@ -12,8 +13,8 @@ function createWebSocketService({
   const wss = new WebSocket.Server({ server });
 
   // Track subscribers (optionally by batch)
-  const clients = new Set();          // all sockets
-  const byBatch = new Map();          // batchId -> Set<ws>
+  const clients = new Set(); // all sockets
+  const byBatch = new Map(); // batchId -> Set<ws>
 
   // Basic helpers
   const safeJSON = (o) => JSON.stringify(o);
@@ -135,7 +136,9 @@ function createWebSocketService({
       }
       ws.isAlive = false;
       if (ws.readyState === WebSocket.OPEN) {
-        try { ws.ping(); } catch {}
+        try {
+          ws.ping();
+        } catch {}
       }
     }
   }, heartbeatIntervalMs);
@@ -156,7 +159,10 @@ function createWebSocketService({
     let sent = 0;
     for (const ws of targets) {
       if (ws.readyState === WebSocket.OPEN) {
-        try { ws.send(packet); sent++; } catch {}
+        try {
+          ws.send(packet);
+          sent++;
+        } catch {}
       }
     }
     return sent;
@@ -164,35 +170,138 @@ function createWebSocketService({
 
   // Emitters that match your UI hook
   const emitBatchStarted = ({ batchId, entityType, totalItems }) =>
-    broadcast({ type: 'batch_started', batchId, entityType, totalItems, timestamp: now() });
+    broadcast({
+      type: BATCH_START,
+      batchId,
+      entityType,
+      totalItems,
+      timestamp: now(),
+    });
 
-  const emitBatchProgress = ({ batchId, entityType, completedCount, totalItems, progress }) =>
-    broadcast({ type: 'batch_progress', batchId, entityType, completedCount, totalItems, progress, timestamp: now() });
+  const emitBatchProgress = ({
+    batchId,
+    entityType,
+    completedCount,
+    totalItems,
+    progress,
+  }) =>
+    broadcast({
+      type: 'batch_progress',
+      batchId,
+      entityType,
+      completedCount,
+      totalItems,
+      progress,
+      timestamp: now(),
+    });
 
-  const emitBatchCompleted = ({ batchId, entityType, successCount, failureCount = 0, errors = [] }) =>
-    broadcast({ type: 'batch_completed', batchId, entityType, successCount, failureCount, errors, timestamp: now() });
+  const emitBatchCompleted = ({
+    batchId,
+    entityType,
+    successCount,
+    failureCount = 0,
+    errors = [],
+  }) =>
+    broadcast({
+      type: 'batch_completed',
+      batchId,
+      entityType,
+      successCount,
+      failureCount,
+      errors,
+      timestamp: now(),
+    });
 
   const emitSessionCompleted = ({ entityType }) =>
     broadcast({ type: 'session_completed', entityType, timestamp: now() });
 
   const emitPostProcessingStarted = ({ entityType }) =>
-    broadcast({ type: 'post_processing_started', entityType, timestamp: now() });
+    broadcast({
+      type: 'post_processing_started',
+      entityType,
+      timestamp: now(),
+    });
 
-  const emitPostProcessingProgress = ({ entityType, processedCount, totalCount, progress }) =>
-    broadcast({ type: 'post_processing_progress', entityType, data: { processedCount, totalCount, progress }, timestamp: now() });
+  const emitPostProcessingProgress = ({
+    entityType,
+    processedCount,
+    totalCount,
+    progress,
+  }) =>
+    broadcast({
+      type: 'post_processing_progress',
+      entityType,
+      data: { processedCount, totalCount, progress },
+      timestamp: now(),
+    });
 
-  const emitPostProcessingCompleted = ({ entityType, processedCount, totalCount, errorCount = 0, errors = [] }) =>
-    broadcast({ type: 'post_processing_completed', entityType, data: { processedCount, totalCount, errorCount, errors }, timestamp: now() });
+  const emitPostProcessingCompleted = ({
+    entityType,
+    processedCount,
+    totalCount,
+    errorCount = 0,
+    errors = [],
+  }) =>
+    broadcast({
+      type: 'post_processing_completed',
+      entityType,
+      data: { processedCount, totalCount, errorCount, errors },
+      timestamp: now(),
+    });
 
   const emitGenerationSessionComplete = () =>
     broadcast({ type: 'generation_session_complete', timestamp: now() });
 
+  const emitGenerationProgress = ({
+    percent,
+    message,
+    phase,
+    batchId,
+    entityType,
+  } = {}) =>
+    broadcast(
+      {
+        type: 'generation-progress',
+        percent,
+        message,
+        phase,
+        entityType,
+        ...(batchId ? { batchId } : {}),
+        timestamp: new Date().toISOString(),
+      },
+      { batchId }
+    );
+
+  const emitBatchFailed = ({
+    batchId,
+    entityType,
+    error,
+    successCount = 0,
+    failureCount = 0,
+    details = {},
+  }) =>
+    broadcast({
+      type: 'batch_failed',
+      batchId,
+      entityType,
+      error,
+      successCount,
+      failureCount,
+      details,
+      timestamp: new Date().toISOString(),
+    });
+
   function stop() {
     clearInterval(heartbeat);
     for (const ws of clients) {
-      try { if (ws.readyState === WebSocket.OPEN) ws.close(1001, 'Server shutting down'); } catch {}
+      try {
+        if (ws.readyState === WebSocket.OPEN)
+          ws.close(1001, 'Server shutting down');
+      } catch {}
     }
-    try { wss.close(); } catch {}
+    try {
+      wss.close();
+    } catch {}
   }
 
   const now = () => new Date().toISOString();
@@ -209,6 +318,8 @@ function createWebSocketService({
     emitPostProcessingProgress,
     emitPostProcessingCompleted,
     emitGenerationSessionComplete,
+    emitGenerationProgress,
+    emitBatchFailed,
     stop,
   };
 }

@@ -1,4 +1,15 @@
 import { useEffect, useRef, useState } from 'react';
+import {
+  BATCH_COMPLETED,
+  BATCH_PROGRESS,
+  BATCH_START,
+  GENERATION_SESSION_COMPLETE,
+  POSTPROC_COMPLETED,
+  POSTPROC_PROGRESS,
+  POSTPROC_STARTED,
+  SESSION_COMPLETE,
+  WebSocketConnection
+} from '../utils/webSocket';
 
 const clampToTotal = (total, n) =>
   Math.max(0, Math.min(Number.isFinite(total) ? total : n, n));
@@ -30,7 +41,7 @@ export default function useRealtimeWebSocket({
   // unmount cleanup guard
   useEffect(() => {
     return () => {
-      if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+      if (wsRef.current && wsRef.current.readyState === WebSocketConnection.OPEN) {
         wsRef.current.close(1000, 'Component unmounting');
         wsRef.current = null;
       }
@@ -156,7 +167,7 @@ export default function useRealtimeWebSocket({
             );
           }
 
-          if (data.type === 'batch_completed' && data.batchId) {
+          if (data.type === BATCH_COMPLETED && data.batchId) {
             if (seenBatchIdsRef.current.has(data.batchId)) return; // drop duplicate
             seenBatchIdsRef.current.add(data.batchId);
           }
@@ -167,7 +178,7 @@ export default function useRealtimeWebSocket({
             onLog?.('Connected to real-time updates', 'success');
             return;
           }
-          if (data.type === 'generation_session_complete') {
+          if (data.type === GENERATION_SESSION_COMPLETE) {
             onLog?.(
               '✓ All batches completed - starting image and PDF processing...',
               'success'
@@ -189,8 +200,8 @@ export default function useRealtimeWebSocket({
               let nextCompleted;
 
               switch (bucket) {
-                case 'images':
-                case 'pdfs':
+                //case 'images':
+                //case 'pdfs':
                 case 'accounts':
                   // Absolute (some services emit a final count or we may set it via HTTP fallback)
                   nextCompleted = Math.max(
@@ -229,7 +240,7 @@ export default function useRealtimeWebSocket({
 
           // mirror your original switch
           switch (data.type) {
-            case 'batch_started':
+            case BATCH_START:
               onLog?.(
                 `⏳ Batch started: ${data.batchId} (${entityKey}) - ${data.totalItems} items`,
                 'info'
@@ -251,7 +262,7 @@ export default function useRealtimeWebSocket({
               });
               break;
 
-            case 'batch_progress':
+            case BATCH_PROGRESS:
               onLog?.(
                 `⏳ Batch progress: ${data.batchId} (${entityKey}) - ${data.completedCount}/${data.totalItems} (${data.progress}%)`,
                 'info'
@@ -265,7 +276,7 @@ export default function useRealtimeWebSocket({
               }));
               break;
 
-            case 'batch_completed':
+            case BATCH_COMPLETED:
               onLog?.(
                 `✅ Batch completed: ${data.batchId} (${entityKey}) - ${
                   data.successCount || 0
@@ -279,35 +290,40 @@ export default function useRealtimeWebSocket({
               );
               break;
 
-            case 'session_completed':
+            case SESSION_COMPLETE:
               onLog?.(
                 `🎉 All batches completed for ${entityKey} - starting post-processing...`,
                 'success'
               );
               break;
 
-            case 'post_processing_started':
+            case POSTPROC_STARTED:
               onLog?.(
-                `📎 Starting post-processing for images and PDFs...`,
+                `📎 Starting post-processing for ${entityKey}...`,
                 'info'
               );
               break;
 
-            case 'post_processing_progress':
+            case POSTPROC_PROGRESS:
               onLog?.(
-                `📎 Post-processing progress: ${data.data.processedCount}/${data.data.totalCount} (${data.data.progress}%)`,
+                `📎 Post-processing progress: ${data.data.processedCount}/${data.data.totalCount} ${entityKey} (${data.data.progress}%)`,
                 'info'
               );
               break;
 
-            case 'post_processing_completed': {
+            case POSTPROC_COMPLETED: {
               const errorMsg =
                 data.data.errorCount > 0
                   ? ` with ${data.data.errorCount} errors`
                   : '';
               onLog?.(
-                `✅ Post-processing completed: ${data.data.processedCount}/${data.data.totalCount} products${errorMsg}`,
+                `✅ Post-processing for ${entityKey} completed: ${data.data.processedCount}/${data.data.totalCount} products${errorMsg}`,
                 data.data.errorCount > 0 ? 'warning' : 'success'
+              );
+              updateProgressCounts(
+                entityKey,
+                data.data.processedCount || 0,
+                data.data.errorCount || 0
               );
               break;
             }

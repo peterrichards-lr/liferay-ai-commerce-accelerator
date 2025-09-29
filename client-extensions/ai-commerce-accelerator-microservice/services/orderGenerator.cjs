@@ -5,17 +5,15 @@ const { v4: uuidv4 } = require('uuid');
 const batchProcessor = require('../utils/batchProcessor.cjs');
 const { MockDataGenerator } = require('./mockDataGenerator.cjs');
 const { BatchPollingService } = require('./batchPollingService.cjs');
+const { get: getWs } = require('../services/wsBus.cjs');
 
 class OrderGenerator {
-  constructor(batchPollingService = null, wss = null) {
+  constructor(batchPollingService = null) {
     this.aiService = aiService; // Make aiService accessible within the class
     this.mockDataGenerator = new MockDataGenerator();
-    this.wss = wss;
-    this.batchPollingService = batchPollingService ?? new BatchPollingService(wss); // Initialize the polling service with WebSocket server
-  }
-
-  setWebSocketServer(wss) {
-    this.batchPollingService.setWebSocketServer(wss);
+    this.ws = getWs();
+    this.batchPollingService =
+      batchPollingService ?? new BatchPollingService(this.ws); // Initialize the polling service with WebSocket server
   }
 
   async generateOrders(config, options) {

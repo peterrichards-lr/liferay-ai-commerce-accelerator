@@ -1,7 +1,6 @@
 const fs = require('fs');
 const path = require('path');
 
-
 class MockDataGenerator {
   constructor() {
     this.categoryData = null;

@@ -267,30 +267,24 @@ module.exports = function (
 
         // Emit progress update via WebSocket for PDF generation
         if (pdfMode === 'generate' && results.pdfProgress) {
-          global.broadcastProgress({
-            type: 'generation-progress',
-            generator: 'product',
-            subType: 'pdf',
+          getWs().emitGenerationProgress({
+            percent: Math.round(
+              (results.pdfProgress.current / result.pdfProgresss.total) * 100
+            ),
+            entityType: 'pdfs',
             batchId: results.batchId,
-            progress: results.pdfProgress.current / results.pdfProgress.total,
-            current: results.pdfProgress.current,
-            total: results.pdfProgress.total,
-            timestamp: new Date().toISOString(),
           });
         }
 
         // Emit progress update via WebSocket for Image generation
         if (imageMode === 'generate' && results.imageProgress) {
-          global.broadcastProgress({
-            type: 'generation-progress',
-            generator: 'product',
-            subType: 'image',
+          getWs().emitGenerationProgress({
+            percent: Math.round(
+              (results.imageProgress.current / results.imageProgress.total) *
+                100
+            ),
+            entityType: 'images',
             batchId: results.batchId,
-            progress:
-              results.imageProgress.current / results.imageProgress.total,
-            current: results.imageProgress.current,
-            total: results.imageProgress.total,
-            timestamp: new Date().toISOString(),
           });
         }
 
@@ -496,35 +490,6 @@ module.exports = function (
         console.log(`Starting order generation: ${options.orderCount} orders`);
 
         const results = await orderGenerator.generateOrders(config, options);
-
-        // Emit progress update via WebSocket for PDF generation
-        if (results.pdfProgress) {
-          global.broadcastProgress({
-            type: 'generation-progress',
-            generator: 'order',
-            subType: 'pdf',
-            batchId: results.batchId,
-            progress: results.pdfProgress.current / results.pdfProgress.total,
-            current: results.pdfProgress.current,
-            total: results.pdfProgress.total,
-            timestamp: new Date().toISOString(),
-          });
-        }
-
-        // Emit progress update via WebSocket for Image generation
-        if (results.imageProgress) {
-          global.broadcastProgress({
-            type: 'generation-progress',
-            generator: 'order',
-            subType: 'image',
-            batchId: results.batchId,
-            progress:
-              results.imageProgress.current / results.imageProgress.total,
-            current: results.imageProgress.current,
-            total: results.imageProgress.total,
-            timestamp: new Date().toISOString(),
-          });
-        }
 
         res.json({
           success: true,

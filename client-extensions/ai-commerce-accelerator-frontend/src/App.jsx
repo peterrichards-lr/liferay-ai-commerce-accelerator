@@ -7,7 +7,7 @@ import useRealtimeWebSocket from './hooks/useRealtimeWebSocket';
 
 import ApplicationConfigPanel from './components/config/ApplicationConfigPanel';
 import DataGeneratorForm from './components/DataGeneratorForm';
-import ProgressMonitor from './components/ProgressMonitor';
+import ProgressMonitor from './components/dashboard/Dashboard.jsx';
 
 import {
   computeTotalsFromConfig,
@@ -30,7 +30,7 @@ const toInt = (v) => (v == null || v === '' ? undefined : parseInt(v, 10));
 const toArray = (v) => (Array.isArray(v) ? v : v ? [v] : []);
 
 const initialGenerationConfig = {
-  productCount: 10,
+  productCount: 2,
   accountCount: 5,
   orderCount: 20,
   categories: ['Electronics', 'Clothing', 'Home & Garden', 'Sports', 'Books'],

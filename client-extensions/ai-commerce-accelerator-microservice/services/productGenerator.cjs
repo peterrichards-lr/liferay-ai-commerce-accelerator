@@ -7,21 +7,19 @@ const { v4: uuidv4 } = require('uuid');
 const { logger } = require('../utils/logger.cjs');
 const { BatchPollingService } = require('./batchPollingService.cjs');
 const { sanitizedObject } = require('../utils/normalize.cjs');
+const { get: getWs } = require('../services/wsBus.cjs');
 
 const { ASSET_TYPE, VIEWABLE_BY } = require('../utils/liferayPermissions.cjs');
 
 class ProductGenerator {
-  constructor(batchPollingService = null, wss = null) {
+  constructor(batchPollingService = null) {
     this.aiService = aiService;
     this.liferayService = liferayService;
     this.mediaGenerator = new MediaGenerator();
     this.mockDataGenerator = new MockDataGenerator();
-    this.wss = wss;
-    this.batchPollingService = batchPollingService ?? new BatchPollingService(wss); // Initialize the polling service with WebSocket server
-  }
-
-  setWebSocketServer(wss) {
-    this.batchPollingService.setWebSocketServer(wss);
+    this.ws = getWs();
+    this.batchPollingService =
+      batchPollingService ?? new BatchPollingService(this.ws); // Initialize the polling service with WebSocket server
   }
 
   async generateProducts(config, options) {
@@ -145,6 +143,7 @@ class ProductGenerator {
             );
           }
 
+          let productImagesPrepared, productPdfsPrepared;
           if (options.imageMode !== 'none') {
             let productsForImages = [];
             if (options.demoMode && options.imageRatio > 0) {
@@ -161,7 +160,9 @@ class ProductGenerator {
               );
             }
 
-            if (productsForImages.length > 0) {
+            productImagesPrepared = productsForImages.length;
+
+            if (productImagesPrepared > 0) {
               let image;
               if (options.imageMode === 'default') {
                 image = await this.mediaGenerator.getDefaultBase64ImageDataUrl(
@@ -193,7 +194,8 @@ class ProductGenerator {
               );
             }
 
-            if (productsForPDFs.length > 0) {
+            productPdfsPrepared = productsForPDFs.length;
+            if (productPdfsPrepared > 0) {
               let pdf;
               if (options.pdfMode === 'default') {
                 pdf = await this.mediaGenerator.getgetDefaultBase64PdfDataUrl(
@@ -377,10 +379,8 @@ class ProductGenerator {
                     entityType: 'products',
                   },
                   {
-                    pollInterval: config.pollingDelay * 1000, // Convert to milliseconds
-                    maxPollAttempts: Math.ceil(
-                      600000 / (config.pollingDelay * 1000)
-                    ), // Max 10 minutes
+                    pollInterval: config.pollingDelay,
+                    maxPollAttempts: config.pollingRetries,
                     onStatusChange: (status) => {
                       logger.log('debug', 'Batch status update', {
                         operation: 'batch-status-update',
@@ -432,7 +432,6 @@ class ProductGenerator {
               }
             }
 
-            // The global BatchPollingService will handle session completion and trigger post-processing
             // Store the session context for post-processing
             const sessionId = `products_${Date.now()}_${Math.random()
               .toString(36)
@@ -459,13 +458,6 @@ class ProductGenerator {
               1800000
             ); // 30 minutes cache
 
-            // In demo mode, check ratios instead of generate flags
-            const hasImages = options.demoMode
-              ? options.imageRatio > 0
-              : options.generateImages && options.imageRatio > 0;
-            const hasPDFs = options.demoMode
-              ? options.pdfRatio > 0
-              : options.generatePDFs && options.pdfRatio > 0;
             const hasAttachments = productDataList.some(
               (p) => p.images || p.attachments
             );
@@ -474,8 +466,8 @@ class ProductGenerator {
               operation: 'session-register',
               sessionId,
               totalBatches: batchIds.length,
-              hasImages,
-              hasPDFs,
+              hasImages: options.imageMode !== 'none',
+              hasPDFs: options.pdfMode !== 'none',
               hasAttachments,
               demoMode: options.demoMode,
             });
@@ -509,7 +501,10 @@ class ProductGenerator {
 
                 const productERC = originalProduct.externalReferenceCode;
 
+                let imagesApplied = 0,
+                  pdfsApplied = 0;
                 if (originalProduct.images) {
+                  this.ws.emitPostProcessingStarted({ entityType: 'images' });
                   for (const image of originalProduct.images) {
                     if (options.imageMode === 'custom') {
                       const imgERC = `IMG_${productERC}_${Math.random()
@@ -537,7 +532,6 @@ class ProductGenerator {
                         });
                       }
 
-                      // choose the right URL field from Liferay's response
                       const imageUrlData = {
                         title: { en_US: `Product Image - ${productERC}` },
                         src: `${config.liferayUrl}${doc.contentUrl}`,
@@ -558,10 +552,25 @@ class ProductGenerator {
                     console.log(
                       `✓ Added image to product: ${createdProduct.externalReferenceCode}`
                     );
+                    imagesApplied++;
+                    this.ws.emitPostProcessingProgress({
+                      entityType: 'images',
+                      processedCount: imagesApplied,
+                      totalCount: productImagesPrepared,
+                      progress: Math.round(
+                        (imagesApplied / productImagesPrepared) * 100
+                      ),
+                    });
                   }
+                  this.ws.emitPostProcessingCompleted({
+                    entityType: 'images',
+                    processedCount: imagesApplied,
+                    totalCount: productImagesPrepared,
+                  });
                 }
 
                 if (originalProduct.attachments) {
+                  this.ws.emitPostProcessingStarted({ entityType: 'pdfs' });
                   for (const attachment of originalProduct.attachments) {
                     if (options.pdfMode === 'custom') {
                       const pdfERC = `PDF_${productERC}_${Math.random()
@@ -609,7 +618,21 @@ class ProductGenerator {
                     console.log(
                       `✓ Added attachment to product: ${createdProduct.externalReferenceCode}`
                     );
+                    pdfsApplied++;
+                    this.ws.emitPostProcessingProgress({
+                      entityType: 'pdfs',
+                      processedCount: pdfsApplied,
+                      totalCount: productPdfsPrepared,
+                      progress: Math.round(
+                        (pdfsApplied / productPdfsPrepared) * 100
+                      ),
+                    });
                   }
+                  this.ws.emitPostProcessingCompleted({
+                    entityType: 'pdfs',
+                    processedCount: pdfsApplied,
+                    totalCount: productPdfsPrepared,
+                  });
                 }
               } catch (error) {
                 console.error(
@@ -1903,8 +1926,6 @@ class ProductGenerator {
 
   async generateProductPDF(config, product, productData, category) {
     try {
-      const pdfGenerator = new PDFGenerator();
-
       console.log(`Generating AI content for PDF...`);
       const pdfContent = await this.aiService.generatePDFContent(
         productData,
@@ -1913,7 +1934,7 @@ class ProductGenerator {
       );
 
       console.log(`Creating PDF document...`);
-      const pdfResult = await pdfGenerator.generateAndUploadProductPDF(
+      const pdfResult = await this.mediaGenerator.generateAndUploadProductPDF(
         pdfContent,
         productData.baseSku || product.sku
       );
@@ -1946,41 +1967,6 @@ class ProductGenerator {
       console.log(`✓ PDF successfully attached to product`);
     } catch (error) {
       console.error('Error generating product PDF:', error);
-      throw error;
-    }
-  }
-
-  async testBasicProductCreation(config) {
-    try {
-      this.validateConfig(config);
-
-      const testProductData = {
-        name: { en_US: 'Test Product ' + Date.now() },
-        description: {
-          en_US:
-            'This is a test product created to verify basic product creation functionality.',
-        },
-        baseSku: `TEST-${Date.now()}`,
-        productType: 'simple',
-        externalReferenceCode: `TEST-${Date.now()}`,
-      };
-
-      console.log('Creating test product...');
-      const createdProduct = await this.createBasicProduct(
-        config,
-        testProductData,
-        {}
-      );
-
-      console.log('✓ Test product created successfully:', {
-        id: createdProduct.id,
-        sku: createdProduct.sku,
-        name: createdProduct.name?.en_US,
-      });
-
-      return createdProduct;
-    } catch (error) {
-      console.error('Test product creation failed:', error.message);
       throw error;
     }
   }
@@ -2062,25 +2048,20 @@ class ProductGenerator {
     const imageCount = productDataList.filter((p) => p.images).length;
     const pdfCount = productDataList.filter((p) => p.attachments).length;
 
-    // Broadcast separate batch_started messages for images and PDFs
-    if (global.broadcastBatchUpdate) {
-      if (imageCount > 0) {
-        global.broadcastBatchUpdate('images-processing', {
-          type: 'batch_started',
-          entityType: 'images',
-          batchId: 'images-processing',
-          totalItems: imageCount,
-        });
-      }
+    if (imageCount > 0) {
+      this.ws.emitBatchStarted({
+        batchId: 'images-processing',
+        entityType: 'images',
+        totalItems: imageCount,
+      });
+    }
 
-      if (pdfCount > 0) {
-        global.broadcastBatchUpdate('pdfs-processing', {
-          type: 'batch_started',
-          entityType: 'pdfs',
-          batchId: 'pdfs-processing',
-          totalItems: pdfCount,
-        });
-      }
+    if (pdfCount > 0) {
+      this.ws.emitBatchStarted({
+        batchId: 'pdfs-processing',
+        entityType: 'pdfs',
+        totalItems: pdfCount,
+      });
     }
 
     let imageProcessedCount = 0;
@@ -2145,16 +2126,13 @@ class ProductGenerator {
           }
 
           // Broadcast image progress
-          if (global.broadcastBatchUpdate) {
-            global.broadcastBatchUpdate('images-progress', {
-              type: 'batch_progress',
-              entityType: 'images',
-              batchId: 'images-processing',
-              processedCount: imageProcessedCount,
-              totalItems: imageCount,
-              progress: Math.round((imageProcessedCount / imageCount) * 100),
-            });
-          }
+          this.ws.emitBatchProgress({
+            batchId: 'images-processing',
+            entityType: 'images',
+            completedCount: imageProcessedCount,
+            totalItems: imageCount,
+            progress: Math.round((imageProcessedCount / imageCount) * 100),
+          });
         }
 
         // Add PDFs/attachments
@@ -2206,17 +2184,13 @@ class ProductGenerator {
             pdfProcessedCount++;
           }
 
-          // Broadcast PDF progress
-          if (global.broadcastBatchUpdate) {
-            global.broadcastBatchUpdate('pdfs-progress', {
-              type: 'batch_progress',
-              entityType: 'pdfs',
-              batchId: 'pdfs-processing',
-              processedCount: pdfProcessedCount,
-              totalItems: pdfCount,
-              progress: Math.round((pdfProcessedCount / pdfCount) * 100),
-            });
-          }
+          this.ws.emitBatchProgress({
+            batchId: 'pdfs-processing',
+            entityType: 'pdfs',
+            completedCount: pdfProcessedCount,
+            totalItems: pdfCount,
+            progress: Math.round((pdfProcessedCount / pdfCount) * 100),
+          });
         }
       } catch (error) {
         console.error(
@@ -2239,28 +2213,25 @@ class ProductGenerator {
     }
 
     // Broadcast separate completion messages for images and PDFs
-    if (global.broadcastBatchUpdate) {
-      if (imageCount > 0) {
-        global.broadcastBatchUpdate('images-complete', {
-          type: 'batch_completed',
-          entityType: 'images',
-          batchId: 'images-processing',
-          processedCount: imageProcessedCount,
-          errorCount: imageErrors.length,
-          errors: imageErrors.slice(0, 5),
-        });
-      }
+    if (imageCount > 0) {
+      this.ws.emitBatchCompleted({
+        type: 'batch_completed',
+        entityType: 'images',
+        batchId: 'images-processing',
+        successCount: imageProcessedCount,
+        failureCount: imageErrors.length,
+        errors: imageErrors.slice(0, 5),
+      });
+    }
 
-      if (pdfCount > 0) {
-        global.broadcastBatchUpdate('pdfs-complete', {
-          type: 'batch_completed',
-          entityType: 'pdfs',
-          batchId: 'pdfs-processing',
-          processedCount: pdfProcessedCount,
-          errorCount: pdfErrors.length,
-          errors: pdfErrors.slice(0, 5),
-        });
-      }
+    if (pdfCount > 0) {
+      this.ws.emitBatchCompleted({
+        batchId: 'pdfs-processing',
+        entityType: 'pdfs',
+        successCount: pdfProcessedCount,
+        failureCount: pdfErrors.length,
+        errors: pdfErrors.slice(0, 5),
+      });
     }
 
     logger.info('Post-processing completed', {
@@ -2313,16 +2284,13 @@ class ProductGenerator {
     }
 
     // Send WebSocket update
-    if (global.broadcastBatchUpdate) {
-      global.broadcastBatchUpdate({
-        type: failureCount > 0 ? 'batch_failed' : 'batch_completed',
-        entityType: 'products',
-        batchId: results.batchId,
-        successCount,
-        failureCount,
-        details: failureCount > 0 ? { failures } : null,
-      });
-    }
+    this.ws.emitBatchCompleted({
+      batchId: results.batchId,
+      entityType: 'products',
+      successCount,
+      failureCount,
+      errors: failureCount > 0 ? { failures } : null,
+    });
   }
 }
 

@@ -1,25 +1,18 @@
+const axios = require('axios');
+const WebSocket = require('ws');
+
 const { logger } = require('../utils/logger.cjs');
 const { cacheService } = require('./cacheService.cjs');
 const { OAuthService } = require('./oauthService.cjs');
-const axios = require('axios');
+const { get: getWs } = require('../services/wsBus.cjs');
 
 class BatchPollingService {
-  constructor(wss = null) {
+  constructor() {
     this.oauthService = new OAuthService();
     this.pollingIntervals = new Map();
     this.activePolls = new Map();
-    this.wss = wss; // WebSocket server for broadcasting updates
     this.generationSessions = new Map(); // Track batches by generation session
-
-    if (wss) {
-      console.log('✅ BatchPollingService initialized with WebSocket server');
-    } else {
-      console.log('⚠️ BatchPollingService initialized without WebSocket server');
-    }
-  }
-
-  setWebSocketServer(wss) {
-    this.wss = wss;
+    this.ws = getWs();
   }
 
   // Track batches for a generation session
@@ -29,14 +22,14 @@ class BatchPollingService {
       completedBatches: new Set(),
       totalExpected: totalExpectedBatches,
       startTime: new Date(),
-      sessionId
+      sessionId,
     });
 
     logger.info('Registered generation session', {
       operation: 'generation-session-register',
       sessionId,
       batchIds: Array.from(batchIds),
-      totalExpected: totalExpectedBatches
+      totalExpected: totalExpectedBatches,
     });
   }
 
@@ -47,14 +40,15 @@ class BatchPollingService {
       return false;
     }
 
-    const allBatchesCompleted = session.batchIds.size === session.completedBatches.size;
+    const allBatchesCompleted =
+      session.batchIds.size === session.completedBatches.size;
 
     if (allBatchesCompleted) {
       logger.info('Generation session completed - all batches finished', {
         operation: 'generation-session-complete',
         sessionId,
         totalBatches: session.batchIds.size,
-        completedBatches: session.completedBatches.size
+        completedBatches: session.completedBatches.size,
       });
 
       // Trigger post-processing for images and PDFs
@@ -75,7 +69,7 @@ class BatchPollingService {
       logger.info('Triggering post-processing for session', {
         operation: 'post-processing-trigger',
         sessionId,
-        completedBatches: Array.from(session.completedBatches)
+        completedBatches: Array.from(session.completedBatches),
       });
 
       // Broadcast session completion event
@@ -83,14 +77,11 @@ class BatchPollingService {
         type: 'generation_session_complete',
         sessionId,
         completedBatches: Array.from(session.completedBatches),
-        timestamp: new Date().toISOString()
+        timestamp: new Date().toISOString(),
       };
 
-      // Use global broadcast function if available
-      if (typeof global.broadcastSessionComplete === 'function') {
-        global.broadcastSessionComplete(sessionId, message);
-      } else if (this.wss) {
-        this.wss.clients.forEach((ws) => {
+      if (this.ws.wss) {
+        this.ws.wss.clients.forEach((ws) => {
           if (ws.readyState === 1) {
             try {
               ws.send(JSON.stringify(message));
@@ -98,42 +89,64 @@ class BatchPollingService {
               logger.error('Failed to broadcast session completion', {
                 operation: 'websocket-session-broadcast-error',
                 error: error.message,
-                sessionId
+                sessionId,
               });
             }
           }
         });
       }
 
-      console.log(`🎉 Generation session ${sessionId} completed - ready for post-processing!`);
+      console.log(
+        `🎉 Generation session ${sessionId} completed - ready for post-processing!`
+      );
 
       // Retrieve session context and trigger post-processing
       const { cacheService } = require('./cacheService.cjs');
       const sessionContext = cacheService.get(`session:${sessionId}:context`);
 
       if (sessionContext) {
-        const { config, productDataList, preparedProducts, options } = sessionContext;
+        const { config, productDataList, preparedProducts, options } =
+          sessionContext;
 
         // Check if post-processing is needed (images, PDFs, or attachments)
         // In demo mode, check ratios instead of generate flags
         const demoMode = sessionContext.options?.demoMode;
-        const hasImages = demoMode ? sessionContext.options?.imageRatio > 0 : (sessionContext.options?.generateImages && sessionContext.options?.imageRatio > 0);
-        const hasPDFs = demoMode ? sessionContext.options?.pdfRatio > 0 : (sessionContext.options?.generatePDFs && sessionContext.options?.pdfRatio > 0);
-        const hasAttachments = sessionContext.productDataList?.some(p => p.defaultImage || p.defaultAttachment);
+        const hasImages = demoMode
+          ? sessionContext.options?.imageRatio > 0
+          : sessionContext.options?.generateImages &&
+            sessionContext.options?.imageRatio > 0;
+        const hasPDFs = demoMode
+          ? sessionContext.options?.pdfRatio > 0
+          : sessionContext.options?.generatePDFs &&
+            sessionContext.options?.pdfRatio > 0;
+        const hasAttachments = sessionContext.productDataList?.some(
+          (p) => p.defaultImage || p.defaultAttachment
+        );
 
         if (hasImages || hasPDFs || hasAttachments) {
           logger.info('Starting post-processing for session', {
             operation: 'post-processing-start',
             sessionId,
-            hasImages: demoMode ? options.imageRatio > 0 : (options.generateImages && options.imageRatio > 0),
-            hasPDFs: demoMode ? options.pdfRatio > 0 : (options.generatePDFs && options.pdfRatio > 0),
-            hasAttachments: productDataList.some(p => p.defaultImage || p.defaultAttachment)
+            hasImages: demoMode
+              ? options.imageRatio > 0
+              : options.generateImages && options.imageRatio > 0,
+            hasPDFs: demoMode
+              ? options.pdfRatio > 0
+              : options.generatePDFs && options.pdfRatio > 0,
+            hasAttachments: productDataList.some(
+              (p) => p.defaultImage || p.defaultAttachment
+            ),
           });
 
           // Import and call post-processing
           const ProductGeneratorClass = require('./productGenerator.cjs');
-          const productGenerator = new ProductGeneratorClass(this.wss);
-          await productGenerator.processImageAndPDFAttachments(config, productDataList, preparedProducts, options);
+          const productGenerator = new ProductGeneratorClass(this.ws);
+          await productGenerator.processImageAndPDFAttachments(
+            config,
+            productDataList,
+            preparedProducts,
+            options
+          );
 
           // Clean up session context
           cacheService.delete(`session:${sessionId}:context`);
@@ -145,33 +158,42 @@ class BatchPollingService {
             demoMode,
             imageRatio: sessionContext.options?.imageRatio || 0,
             pdfRatio: sessionContext.options?.pdfRatio || 0,
-            hasAttachments
+            hasAttachments,
           });
         }
       } else {
         logger.warn('Session context not found for post-processing', {
           operation: 'post-processing-no-context',
-          sessionId
+          sessionId,
         });
       }
-
     } catch (error) {
       logger.error('Error triggering post-processing', {
         operation: 'post-processing-trigger-error',
         sessionId,
-        error: error.message
+        error: error.message,
       });
     }
   }
 
   async startPolling(batchId, config, options) {
     // Skip polling for mock batch IDs used for WebSocket progress tracking
-    const mockBatchIds = ['images-processing', 'pdfs-processing', 'images-progress', 'pdfs-progress', 'images-complete', 'pdfs-complete'];
+    const mockBatchIds = [
+      'images-processing',
+      'pdfs-processing',
+      'images-progress',
+      'pdfs-progress',
+      'images-complete',
+      'pdfs-complete',
+    ];
     if (mockBatchIds.includes(batchId)) {
-      logger.info('Skipping polling for mock batch ID used for WebSocket progress', {
-        operation: 'polling-skip-mock',
-        batchId
-      });
+      logger.info(
+        'Skipping polling for mock batch ID used for WebSocket progress',
+        {
+          operation: 'polling-skip-mock',
+          batchId,
+        }
+      );
       return;
     }
 
@@ -181,14 +203,14 @@ class BatchPollingService {
       onStatusChange,
       onComplete,
       onError,
-      entityType // Added entityType for context
+      entityType, // Added entityType for context
     } = options;
 
     if (this.activePolls.has(batchId)) {
       logger.warn('Polling already active for batch', {
         operation: 'batch-polling-start',
         batchId,
-        message: 'Polling already in progress'
+        message: 'Polling already in progress',
       });
       return;
     }
@@ -203,7 +225,7 @@ class BatchPollingService {
       onComplete,
       onError,
       entityType, // Store entityType
-      startTime: new Date()
+      startTime: new Date(),
     };
 
     this.activePolls.set(batchId, pollData);
@@ -213,7 +235,7 @@ class BatchPollingService {
       batchId,
       pollInterval,
       maxAttempts: maxPollAttempts,
-      entityType // Log entityType
+      entityType, // Log entityType
     });
 
     await this.pollBatchStatus(batchId);
@@ -255,8 +277,18 @@ class BatchPollingService {
       const batchStatus = status.executeStatus || status.status || 'UNKNOWN';
 
       // Map Liferay field names to our expected field names
-      const totalCount = status.itemsTotal || status.totalItemsCount || status.taskItemTotalCount || status.totalCount || 0;
-      const processedCount = status.itemsProcessed || status.processedItemsCount || status.taskItemCompletedCount || status.processedCount || 0;
+      const totalCount =
+        status.itemsTotal ||
+        status.totalItemsCount ||
+        status.taskItemTotalCount ||
+        status.totalCount ||
+        0;
+      const processedCount =
+        status.itemsProcessed ||
+        status.processedItemsCount ||
+        status.taskItemCompletedCount ||
+        status.processedCount ||
+        0;
       const errorCount = status.failedItems?.length || status.errorCount || 0;
 
       logger.debug('Batch status polled', {
@@ -270,19 +302,23 @@ class BatchPollingService {
         rawStatus: {
           totalItemsCount: status.totalItemsCount,
           processedItemsCount: status.processedItemsCount,
-          failedItemsLength: status.failedItems?.length
-        }
+          failedItemsLength: status.failedItems?.length,
+        },
       });
 
       // Update cache with current status
-      cacheService.set(`batch:${batchId}:status`, {
-        status: batchStatus,
-        totalCount,
-        processedCount,
-        errorCount,
-        lastChecked: new Date().toISOString(),
-        attempt: pollData.attempts
-      }, 300000);
+      cacheService.set(
+        `batch:${batchId}:status`,
+        {
+          status: batchStatus,
+          totalCount,
+          processedCount,
+          errorCount,
+          lastChecked: new Date().toISOString(),
+          attempt: pollData.attempts,
+        },
+        300000
+      );
 
       // Call status change callback
       if (pollData.onStatusChange) {
@@ -292,7 +328,7 @@ class BatchPollingService {
           totalCount,
           processedCount,
           errorCount,
-          attempt: pollData.attempts
+          attempt: pollData.attempts,
         });
       }
 
@@ -313,11 +349,15 @@ class BatchPollingService {
           operation: 'batch-polling-timeout',
           batchId,
           attempts: pollData.attempts,
-          maxAttempts: pollData.maxAttempts
+          maxAttempts: pollData.maxAttempts,
         });
 
         if (pollData.onError) {
-          pollData.onError(new Error(`Batch polling timed out after ${pollData.maxAttempts} attempts`));
+          pollData.onError(
+            new Error(
+              `Batch polling timed out after ${pollData.maxAttempts} attempts`
+            )
+          );
         }
 
         this.stopPolling(batchId);
@@ -330,13 +370,12 @@ class BatchPollingService {
       }, pollData.pollInterval);
 
       this.pollingIntervals.set(batchId, timeoutId);
-
     } catch (error) {
       logger.error('Error polling batch status', {
         operation: 'batch-polling-error',
         batchId,
         error: error.message,
-        attempt: pollData.attempts
+        attempt: pollData.attempts,
       });
 
       if (pollData.onError) {
@@ -345,10 +384,11 @@ class BatchPollingService {
 
       // Continue polling unless it's a critical error
       // Stop polling on 401, 404, 406 (Not Acceptable) which indicates the batch endpoint is no longer valid
-      const shouldStopPolling = error.message.includes('401') ||
-                               error.message.includes('404') ||
-                               error.message.includes('406') ||
-                               pollData.attempts >= pollData.maxAttempts;
+      const shouldStopPolling =
+        error.message.includes('401') ||
+        error.message.includes('404') ||
+        error.message.includes('406') ||
+        pollData.attempts >= pollData.maxAttempts;
 
       if (shouldStopPolling) {
         logger.warn('Stopping polling due to error condition', {
@@ -356,7 +396,7 @@ class BatchPollingService {
           batchId,
           error: error.message,
           attempts: pollData.attempts,
-          httpStatus: error.response?.status
+          httpStatus: error.response?.status,
         });
         this.stopPolling(batchId);
       } else {
@@ -375,7 +415,7 @@ class BatchPollingService {
     if (alreadyProcessed) {
       logger.warn('Batch completion already processed, skipping duplicate', {
         operation: 'batch-complete-duplicate',
-        batchId
+        batchId,
       });
       return;
     }
@@ -385,7 +425,8 @@ class BatchPollingService {
 
     // Map Liferay field names to our expected field names
     const totalCount = status.totalItemsCount || status.totalCount || 0;
-    const processedCount = status.processedItemsCount || status.processedCount || 0;
+    const processedCount =
+      status.processedItemsCount || status.processedCount || 0;
     const errorCount = status.failedItems?.length || status.errorCount || 0;
 
     logger.info('Batch completed successfully', {
@@ -397,8 +438,8 @@ class BatchPollingService {
       rawStatus: {
         totalItemsCount: totalCount,
         processedItemsCount: processedCount,
-        failedItemsLength: status.failedItems?.length
-      }
+        failedItemsLength: status.failedItems?.length,
+      },
     });
 
     // Stop polling immediately to prevent additional requests
@@ -410,7 +451,7 @@ class BatchPollingService {
       totalCount,
       processedCount,
       errorCount,
-      completedAt: new Date().toISOString()
+      completedAt: new Date().toISOString(),
     };
 
     // Get entity type from polling data or batch configuration
@@ -428,33 +469,19 @@ class BatchPollingService {
       status: 'COMPLETED',
       processedCount: results.processedCount,
       totalCount: results.totalCount,
-      entityType
+      entityType,
     });
 
-    // Use global broadcastBatchUpdate function if available, otherwise check WebSocket server
-    // Skip broadcasting for image/PDF processing as ProductGenerator handles these directly
-    if (typeof global.broadcastBatchUpdate === 'function' && !batchId.toString().includes('images') && !batchId.toString().includes('pdfs')) {
-      logger.info('Using global broadcastBatchUpdate function', {
-        operation: 'batch-complete-broadcast',
-        batchId,
-        entityType
-      });
-
-      global.broadcastBatchUpdate(batchId, {
-        status: 'completed',
-        entityType: entityType,
-        ...results
-      });
-    } else if (!this.wss) {
+    if (!this.ws) {
       logger.error('No WebSocket server available', {
         operation: 'websocket-broadcast-no-server',
-        batchId
+        batchId,
       });
       console.log('❌ No WebSocket server available for broadcasting');
-    } else if (this.wss.clients.size === 0) {
+    } else if (this.ws.wss.clients.size === 0) {
       logger.warn('No WebSocket clients connected', {
         operation: 'websocket-broadcast-no-clients',
-        batchId
+        batchId,
       });
       console.log('⚠️ No WebSocket clients connected for broadcasting');
     } else {
@@ -470,52 +497,66 @@ class BatchPollingService {
           totalCount: results.totalCount,
           processedCount: results.processedCount,
           errorCount: results.errorCount,
-          completedAt: results.completedAt
+          completedAt: results.completedAt,
         },
-        timestamp: new Date().toISOString()
+        timestamp: new Date().toISOString(),
       };
 
-      console.log('🔥 Broadcasting batch completion message:', JSON.stringify(message, null, 2));
-      console.log(`📡 WebSocket clients available: ${this.wss.clients.size}`);
+      console.log(
+        '🔥 Broadcasting batch completion message:',
+        JSON.stringify(message, null, 2)
+      );
+      console.log(
+        `📡 WebSocket clients available: ${this.ws.wss.clients.size}`
+      );
 
       let broadcastCount = 0;
       let failedCount = 0;
       let clientsInfo = [];
 
-      this.wss.clients.forEach((ws) => {
+      this.ws.wss.clients.forEach((ws) => {
         const clientInfo = {
           correlationId: ws.correlationId || 'unknown',
           readyState: ws.readyState,
           isOpen: ws.readyState === 1,
-          url: ws.url || 'unknown'
+          url: ws.url || 'unknown',
         };
         clientsInfo.push(clientInfo);
 
-        if (ws.readyState === 1) { // WebSocket.OPEN
+        if (ws.readyState === WebSocket.OPEN) {
           try {
             ws.send(JSON.stringify(message));
             broadcastCount++;
-            console.log(`✅ Message sent to client ${ws.correlationId || 'unknown'}`);
+            console.log(
+              `✅ Message sent to client ${ws.correlationId || 'unknown'}`
+            );
           } catch (error) {
             failedCount++;
-            console.error(`❌ Failed to send to client ${ws.correlationId || 'unknown'}:`, error.message);
+            console.error(
+              `❌ Failed to send to client ${ws.correlationId || 'unknown'}:`,
+              error.message
+            );
             logger.error('Failed to send WebSocket message', {
               operation: 'websocket-send-error',
               error: error.message,
               batchId,
-              clientCorrelationId: ws.correlationId
+              clientCorrelationId: ws.correlationId,
             });
           }
         } else {
-          console.log(`⚠️ Skipping client ${ws.correlationId || 'unknown'} - readyState: ${ws.readyState} (expected: 1 for OPEN)`);
+          console.log(
+            `⚠️ Skipping client ${
+              ws.correlationId || 'unknown'
+            } - readyState: ${ws.readyState} (expected: 1 for OPEN)`
+          );
         }
       });
 
       console.log('📊 WebSocket broadcast summary:', {
-        totalClients: this.wss.clients.size,
+        totalClients: this.ws.wss.clients.size,
         broadcastSuccessful: broadcastCount,
         broadcastFailed: failedCount,
-        clientsInfo
+        clientsInfo,
       });
 
       logger.info('Broadcasted batch completion via WebSocket', {
@@ -523,19 +564,21 @@ class BatchPollingService {
         batchId,
         entityType,
         successCount: results.processedCount,
-        clientCount: this.wss.clients.size,
+        clientCount: this.ws.wss.clients.size,
         broadcastSuccessful: broadcastCount,
-        broadcastFailed: failedCount
+        broadcastFailed: failedCount,
       });
 
       // If no messages were sent successfully, log as warning
       if (broadcastCount === 0) {
-        console.warn('⚠️ No WebSocket clients received the batch completion message!');
+        console.warn(
+          '⚠️ No WebSocket clients received the batch completion message!'
+        );
         logger.warn('No WebSocket clients received message', {
           operation: 'websocket-broadcast-no-recipients',
           batchId,
-          totalClients: this.wss.clients.size,
-          reason: failedCount > 0 ? 'send_failures' : 'no_open_connections'
+          totalClients: this.ws.wss.clients.size,
+          reason: failedCount > 0 ? 'send_failures' : 'no_open_connections',
         });
       }
     }
@@ -558,7 +601,7 @@ class BatchPollingService {
     if (alreadyProcessed) {
       logger.warn('Batch failure already processed, skipping duplicate', {
         operation: 'batch-failed-duplicate',
-        batchId
+        batchId,
       });
       return;
     }
@@ -568,7 +611,8 @@ class BatchPollingService {
 
     // Map Liferay field names to our expected field names
     const totalCount = status.totalItemsCount || status.totalCount || 0;
-    const processedCount = status.processedItemsCount || status.processedCount || 0;
+    const processedCount =
+      status.processedItemsCount || status.processedCount || 0;
     const errorCount = status.failedItems?.length || status.errorCount || 0;
 
     logger.error('Batch failed', {
@@ -580,8 +624,8 @@ class BatchPollingService {
       rawStatus: {
         totalItemsCount: totalCount,
         processedItemsCount: processedCount,
-        failedItemsLength: status.failedItems?.length
-      }
+        failedItemsLength: status.failedItems?.length,
+      },
     });
 
     // Stop polling immediately to prevent additional requests
@@ -593,7 +637,7 @@ class BatchPollingService {
       totalCount,
       processedCount,
       errorCount,
-      failedAt: new Date().toISOString()
+      failedAt: new Date().toISOString(),
     };
 
     // Get entity type from polling data or batch configuration
@@ -612,33 +656,19 @@ class BatchPollingService {
       processedCount: results.processedCount,
       totalCount: results.totalCount,
       errorCount: results.errorCount,
-      entityType
+      entityType,
     });
 
-    // Use global broadcastBatchUpdate function if available, otherwise check WebSocket server
-    if (typeof global.broadcastBatchUpdate === 'function') {
-      logger.info('Using global broadcastBatchUpdate function for failure', {
-        operation: 'batch-failed-broadcast',
-        batchId,
-        entityType
-      });
-
-      global.broadcastBatchUpdate(batchId, {
-        type: 'batch_failed',
-        entityType,
-        error: `Batch failed with ${results.errorCount} errors`,
-        data: results
-      });
-    } else if (!this.wss) {
+    if (!this.ws) {
       logger.error('No WebSocket server available for failure broadcast', {
         operation: 'websocket-broadcast-no-server',
-        batchId
+        batchId,
       });
       console.log('❌ No WebSocket server available for broadcasting failure');
-    } else if (this.wss.clients.size === 0) {
+    } else if (this.ws.wss.clients.size === 0) {
       logger.warn('No WebSocket clients connected for failure broadcast', {
         operation: 'websocket-broadcast-no-clients',
-        batchId
+        batchId,
       });
       console.log('⚠️ No WebSocket clients connected for broadcasting failure');
     } else {
@@ -653,14 +683,14 @@ class BatchPollingService {
           totalCount: results.totalCount,
           processedCount: results.processedCount,
           errorCount: results.errorCount,
-          failedAt: results.failedAt
+          failedAt: results.failedAt,
         },
-        timestamp: new Date().toISOString()
+        timestamp: new Date().toISOString(),
       };
 
       let broadcastCount = 0;
-      this.wss.clients.forEach((ws) => {
-        if (ws.readyState === 1) { // WebSocket.OPEN
+      this.ws.wss.clients.forEach((ws) => {
+        if (ws.readyState === WebSocket.OPEN) {
           try {
             ws.send(JSON.stringify(message));
             broadcastCount++;
@@ -668,7 +698,7 @@ class BatchPollingService {
             logger.error('Failed to send WebSocket message', {
               operation: 'websocket-send-error',
               error: error.message,
-              batchId
+              batchId,
             });
           }
         }
@@ -679,8 +709,8 @@ class BatchPollingService {
         batchId,
         entityType,
         errorCount: results.errorCount,
-        clientCount: this.wss.clients.size,
-        broadcastSuccessful: broadcastCount
+        clientCount: this.ws.wss.clients.size,
+        broadcastSuccessful: broadcastCount,
       });
     }
 
@@ -689,7 +719,9 @@ class BatchPollingService {
 
     const pollDataForFailure = this.activePolls.get(batchId);
     if (pollDataForFailure && pollDataForFailure.onError) {
-      pollDataForFailure.onError(new Error(`Batch failed with ${status.errorCount || 0} errors`));
+      pollDataForFailure.onError(
+        new Error(`Batch failed with ${status.errorCount || 0} errors`)
+      );
     }
   }
 
@@ -704,7 +736,7 @@ class BatchPollingService {
 
     logger.info('Stopped polling for batch', {
       operation: 'batch-polling-stop',
-      batchId
+      batchId,
     });
   }
 
@@ -723,7 +755,7 @@ class BatchPollingService {
       attempts: pollData.attempts,
       maxAttempts: pollData.maxAttempts,
       startTime: pollData.startTime,
-      isActive: true
+      isActive: true,
     };
   }
 
@@ -738,7 +770,7 @@ class BatchPollingService {
           batchId,
           sessionId,
           completedBatches: session.completedBatches.size,
-          totalBatches: session.batchIds.size
+          totalBatches: session.batchIds.size,
         });
 
         // Check if this session is now complete
@@ -752,7 +784,7 @@ class BatchPollingService {
       this.stopPolling(batchId);
     }
     logger.info('Stopped all batch polling', {
-      operation: 'batch-polling-stop-all'
+      operation: 'batch-polling-stop-all',
     });
   }
 }

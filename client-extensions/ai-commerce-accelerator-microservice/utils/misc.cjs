@@ -1,7 +1,5 @@
 const { logger } = require('../utils/logger.cjs');
-
-const orderGenerator = require('../services/orderGenerator.cjs');
-const accountGenerator = require('../services/accountGenerator.cjs');
+const { get: getWs } = require('../services/wsBus.cjs');
 
 function getRandomInt(max) {
   return Math.floor(Math.random() * max);
@@ -28,34 +26,28 @@ async function handleDemoProductGeneration(
     // Calculate PDFs
     const expectedPDFs =
       options.pdfMode !== 'none' && options.pdfRatio > 0
-        ? Math.ceil(options.productCount * (options.pdfRatio / 100))
+        ? Math.ceil((options.productCount * options.pdfRatio) / 100)
         : 0;
 
     // Emit progress update via WebSocket for PDF generation
     if (options.pdfMode === 'generate' && result.pdfProgress) {
-      global.broadcastProgress({
-        type: 'generation-progress',
-        generator: 'product',
-        subType: 'pdf',
+      getWs().emitGenerationProgress({
+        percent: Math.round(
+          (result.pdfProgress.current / result.pdfProgress.total) * 100
+        ),
+        entityType: 'pdfs',
         batchId: result.products[0]?.batchId,
-        progress: result.pdfProgress.current / result.pdfProgress.total,
-        current: result.pdfProgress.current,
-        total: result.pdfProgress.total,
-        timestamp: new Date().toISOString(),
       });
     }
 
     // Emit progress update via WebSocket for Image generation
     if (options.imageMode === 'generate' && result.imageProgress) {
-      global.broadcastProgress({
-        type: 'generation-progress',
-        generator: 'product',
-        subType: 'image',
+      getWs().emitGenerationProgress({
+        percent: Math.round(
+          (result.imageProgress.current / result.imageProgress.total) * 100
+        ),
+        entityType: 'images',
         batchId: result.products[0]?.batchId,
-        progress: result.imageProgress.current / result.imageProgress.total,
-        current: result.imageProgress.current,
-        total: result.imageProgress.total,
-        timestamp: new Date().toISOString(),
       });
     }
 

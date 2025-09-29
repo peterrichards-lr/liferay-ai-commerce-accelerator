@@ -1,16 +1,16 @@
 liferay-ai-commerce-accelerator-frontend {
-  .progress-monitor {
+  .dashboard {
     width: 100%;
   }
 
-  .monitor-card {
+  .dashboard-card {
     border: 1px solid #dee2e6;
     border-radius: 8px;
     background: var(--body-bg, white);
     box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
   }
 
-  .monitor-header,
+  .dashboard-header,
   .last-updated {
     display: flex;
     align-items: center;
@@ -85,14 +85,14 @@ liferay-ai-commerce-accelerator-frontend {
     font-weight: 500;
   }
 
-  .monitor-header h5 {
+  .dashboard-header h5 {
     margin: 0;
     font-size: 1.125rem;
     font-weight: 600;
     color: #495057;
   }
 
-  .monitor-body {
+  .dashboard-body {
     padding: 1.5rem;
   }
 
@@ -1054,27 +1054,27 @@ liferay-ai-commerce-accelerator-frontend {
     content: '🔄';
   }
 
-  .progress-monitor .monitor-header {
+  .dashboard .dashboard-header {
     display: flex;
     justify-content: space-between;
     align-items: center;
     gap: .75rem
   }
 
-  .progress-monitor .monitor-title {
+  .dashboard .dashboard-title {
     display: flex;
     align-items: center;
     gap: .5rem;
     margin: 0
   }
 
-  .progress-monitor .header-actions {
+  .dashboard .header-actions {
     display: flex;
     align-items: center;
     gap: .5rem
   }
 
-  .progress-monitor .reset-button {
+  .dashboard .reset-button {
     display: inline-flex;
     align-items: center;
     line-height: 1.2

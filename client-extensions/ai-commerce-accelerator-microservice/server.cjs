@@ -5,7 +5,7 @@ const cors = require('cors');
 const path = require('path');
 const http = require('http');
 
-const { createWebSocketService } = require('./services/webSocketService.cjs');
+const { init: initWs } = require('./services/wsBus.cjs');
 const { logger } = require('./utils/logger.cjs');
 const { cacheService } = require('./services/cacheService.cjs');
 const { BatchPollingService } = require('./services/batchPollingService.cjs');
@@ -29,13 +29,12 @@ const {
 const {
   registerDataGenerationWorkers,
 } = require('./workers/dataGenerationWorkers.cjs');
-const { v4: uuidv4 } = require('uuid');
 
 const liferayService = require('./services/liferayService.cjs');
 
 const app = express();
 const server = http.createServer(app);
-const ws = createWebSocketService({ server, logger });
+const ws = initWs(server, logger);
 
 const PORT = lookupConfig('server.port') || 3000;
 
@@ -44,14 +43,14 @@ console.log(
   '🔌 Initializing BatchPollingService with WebSocket server:',
   !!ws.wss
 );
-const batchPollingService = new BatchPollingService(ws.wss);
+const batchPollingService = new BatchPollingService();
 
 const ProductGenerator = require('./services/productGenerator.cjs');
 const AccountGenerator = require('./services/accountGenerator.cjs');
 const OrderGenerator = require('./services/orderGenerator.cjs');
-const productGenerator = new ProductGenerator(batchPollingService, ws.wss);
-const accountGenerator = new AccountGenerator(batchPollingService, ws.wss);
-const orderGenerator = new OrderGenerator(batchPollingService, ws.wss);
+const productGenerator = new ProductGenerator(batchPollingService);
+const accountGenerator = new AccountGenerator(batchPollingService);
+const orderGenerator = new OrderGenerator(batchPollingService);
 
 // Initialize workers
 registerDataGenerationWorkers();

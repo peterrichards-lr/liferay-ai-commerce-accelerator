@@ -51,13 +51,19 @@ export const computeTotalsFromConfig = (generationConfig) => ({
 });
 
 export const expectedImageTotal = (generationConfig) => {
-  const totalProducts = computeActualProductTotal(generationConfig);
+  const totalProducts =
+    generationConfig.imageMode !== 'none'
+      ? computeActualProductTotal(generationConfig)
+      : 0;
   const ratio = Number(generationConfig?.imageRatio) || 0;
   return Math.round((totalProducts * ratio) / 100);
 };
 
 export const expectedPdfTotal = (generationConfig) => {
-  const totalProducts = computeActualProductTotal(generationConfig);
+  const totalProducts =
+    generationConfig.pdfMode !== 'none'
+      ? computeActualProductTotal(generationConfig)
+      : 0;
   const ratio = Number(generationConfig?.pdfRatio) || 0;
   return Math.round((totalProducts * ratio) / 100);
 };

@@ -12,7 +12,9 @@ class AIService {
   async getOpenAIClient(requestConfig) {
     if (!this.openai) {
       if (!requestConfig) {
-        throw new Error('OAuth configuration required to initialize OpenAI client');
+        throw new Error(
+          'OAuth configuration required to initialize OpenAI client'
+        );
       }
       const apiKey = await this.configService.getOpenAIKey(requestConfig);
       this.openai = new OpenAI({ apiKey });
@@ -23,7 +25,8 @@ class AIService {
     try {
       const openai = await this.getOpenAIClient(requestConfig);
       const productName = product.name?.en_US || product.name;
-      const productDescription = product.description?.en_US || product.description;
+      const productDescription =
+        product.description?.en_US || product.description;
 
       const prompt = `Generate comprehensive PDF content for a ${category} product named "${productName}".
 
@@ -89,14 +92,24 @@ class AIService {
       throw error;
     }
   }
-  async generateProductData(category, count = 1, requestConfig, model = 'gpt-4o', selectedLanguages = ['en-US']) {
+  async generateProductData(
+    category,
+    count = 1,
+    requestConfig,
+    model = 'gpt-4o',
+    selectedLanguages = ['en-US']
+  ) {
     try {
       // Convert language codes from hyphen to underscore format for Liferay
-      const languageCodes = selectedLanguages.map(lang => lang.replace('-', '_'));
+      const languageCodes = selectedLanguages.map((lang) =>
+        lang.replace('-', '_')
+      );
       const languageList = selectedLanguages.join(', ');
 
       const prompt = `Generate realistic product data for ${count} ${category} products with multilingual content for these languages: ${languageList}. Each product should have:
-            - name (object with language codes as keys: ${languageCodes.map(code => `"${code}": "translated name"`).join(', ')})
+            - name (object with language codes as keys: ${languageCodes
+              .map((code) => `"${code}": "translated name"`)
+              .join(', ')})
             - description (object with language codes as keys for detailed, marketing-friendly descriptions)
             - shortDescription (object with language codes as keys for brief summaries)
             - urls (object with language codes as keys for lowercase names with no spaces)
@@ -113,17 +126,34 @@ class AIService {
             - externalReferenceCode (unique identifier)
 
             IMPORTANT: For multilingual fields (name, description, shortDescription, urls, metaDescription, metaKeyword, metaTitle),
-            create objects where each key is a language code (${languageCodes.join(', ')}) and each value is the content translated into that language.
+            create objects where each key is a language code (${languageCodes.join(
+              ', '
+            )}) and each value is the content translated into that language.
 
             For URLs, use the name in lowercase with spaces replaced by hyphens.
 
             Example structure:
             {
               "name": {
-                ${languageCodes.map(code => `"${code}": "Product Name in ${code.replace('_', '-')} language"`).join(',\n                ')}
+                ${languageCodes
+                  .map(
+                    (code) =>
+                      `"${code}": "Product Name in ${code.replace(
+                        '_',
+                        '-'
+                      )} language"`
+                  )
+                  .join(',\n                ')}
               },
               "urls": {
-                ${languageCodes.map(code => `"${code}": "product-name-in-${code.replace('_', '-').toLowerCase()}"`).join(',\n                ')}
+                ${languageCodes
+                  .map(
+                    (code) =>
+                      `"${code}": "product-name-in-${code
+                        .replace('_', '-')
+                        .toLowerCase()}"`
+                  )
+                  .join(',\n                ')}
               },
               "baseSku": "PRODUCT-001",
               "skus": [{
@@ -189,7 +219,9 @@ class AIService {
 
   async generateAccountData(count = 1, requestConfig, model = 'gpt-4o') {
     try {
-      const prompt = `Generate ${count} realistic business account${count > 1 ? 's' : ''} with the following properties:
+      const prompt = `Generate ${count} realistic business account${
+        count > 1 ? 's' : ''
+      } with the following properties:
             - name: Company name (string, required)
             - description: Business description (string, optional)
             - type: Account type, always "business" (string, required)
@@ -232,7 +264,13 @@ class AIService {
     }
   }
 
-  async generateOrderData(products, accounts, count = 1, requestConfig, model = 'gpt-4o') {
+  async generateOrderData(
+    products,
+    accounts,
+    count = 1,
+    requestConfig,
+    model = 'gpt-4o'
+  ) {
     try {
       const productList = products.map((p) => ({
         name: p.name?.en_US || p.name,
