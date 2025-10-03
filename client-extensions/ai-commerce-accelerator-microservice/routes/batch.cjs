@@ -9,9 +9,7 @@ const {
 module.exports = function (app, cacheService, batchPollingService, logger) {
   // Batch callback endpoint for Liferay to call when batch processing is submitted
   app.post('/api/batch/callback', async (req, res) => {
-    const correlationId = req.headers['x-correlation-id'] || uuidv4();
-
-    const [{ batchId, status }] = parseBatchStatuses(req.body);
+    const [{ batchId, status, correlationId }] = parseBatchStatuses(req.body);
 
     try {
       // Log batch submission callback

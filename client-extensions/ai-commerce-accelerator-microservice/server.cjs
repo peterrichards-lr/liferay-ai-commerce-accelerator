@@ -1,4 +1,4 @@
-const { lookupConfig } = require('@rotty3000/config-node');
+const { lookupConfig, lxcConfig } = require('@rotty3000/config-node');
 
 const express = require('express');
 const cors = require('cors');
@@ -55,19 +55,25 @@ const orderGenerator = new OrderGenerator(batchPollingService);
 // Initialize workers
 registerDataGenerationWorkers();
 
-// Core middleware with secure CORS configuration
+const lxcDXPServerProtocol = lookupConfig(
+  'com.liferay.lxc.dxp.server.protocol'
+);
+
+const domains = lxcConfig.dxpDomains();
+
+const allowList =
+  domains
+    .map((domain) => `${lxcDXPServerProtocol}://${domain}`)
+    .concat(lookupConfig('allow.list') || []) || [];
+
+console.log('allowList', allowList);
+
 app.use(
   cors({
-    origin: process.env.ALLOWED_ORIGINS
-      ? process.env.ALLOWED_ORIGINS.split(',')
-      : [
-          'http://localhost:8080',
-          'http://localhost:3000',
-          'http://localhost:3001',
-          'http://localhost:5173',
-        ],
+    origin: allowList,
     credentials: true,
     optionsSuccessStatus: 200,
+    exposedHeaders: ['X-Correlation-ID'],
   })
 );
 
@@ -108,6 +114,7 @@ require('./routes/generate.cjs')(
 require('./routes/get.cjs')(app, liferayService, logger);
 require('./routes/health.cjs')(app, logger);
 require('./routes/queue.cjs')(app, logger);
+require('./routes/delete.cjs')(app, liferayService, logger);
 
 app.post(
   '/api/test-connection',
@@ -268,9 +275,7 @@ server.listen(PORT, '0.0.0.0', () => {
 
   // Test WebSocket server is working
   console.log('🔌 WebSocket server status:', {
-    listening: ws.wss.listening !== undefined ? ws.wss.listening : 'unknown',
     clients: ws.wss.clients.size,
-    readyState: ws.wss.readyState !== undefined ? ws.wss.readyState : 'unknown',
   });
 });
 

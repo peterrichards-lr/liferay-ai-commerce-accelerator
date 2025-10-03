@@ -1,10 +1,11 @@
 const { v4: uuidv4 } = require('uuid');
 const { logger } = require('../utils/logger.cjs');
+const { CORRELATION_ID_HEADER } = require('../utils/sharedConstants.cjs');
 
 // Correlation ID middleware
 function correlationIdMiddleware(req, res, next) {
-  req.correlationId = req.get('X-Correlation-ID') || uuidv4();
-  res.set('X-Correlation-ID', req.correlationId);
+  req.correlationId = req.get(CORRELATION_ID_HEADER) || uuidv4();
+  res.set(CORRELATION_ID_HEADER, req.correlationId);
   next();
 }
 

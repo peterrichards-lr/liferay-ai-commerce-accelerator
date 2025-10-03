@@ -1,7 +1,7 @@
-// services/webSocketService.cjs
 const WebSocket = require('ws');
 const { v4: uuidv4 } = require('uuid');
 const { BATCH_START } = require('../utils/wsEvents.cjs');
+const { CORRELATION_ID_HEADER } = require('../utils/sharedConstants.cjs');
 
 function createWebSocketService({
   server,
@@ -28,8 +28,12 @@ function createWebSocketService({
 
   // Connection handling
   wss.on('connection', (ws, req) => {
-    ws.id = uuidv4();
+    const url = new URL(req.url, 'http://localhost');
+    const correlationId = url.searchParams.get(CORRELATION_ID_HEADER) || uuidv4();
+    ws.id = correlationId;
+    ws.correlationId = correlationId;
     ws.isAlive = true;
+    ws.url = req.headers.origin;
     clients.add(ws);
 
     logger?.info?.('WebSocket connection', {
@@ -37,6 +41,7 @@ function createWebSocketService({
       clientIP: req?.socket?.remoteAddress,
       id: ws.id,
       connectedClients: clients.size,
+      correlationId: ws.correlationId,
     });
 
     // Health

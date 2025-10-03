@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { useApp } from '../context/AppContext';
 import {
   BATCH_COMPLETED,
   BATCH_PROGRESS,
@@ -8,7 +9,7 @@ import {
   POSTPROC_PROGRESS,
   POSTPROC_STARTED,
   SESSION_COMPLETE,
-  WebSocketConnection
+  WebSocketConnection,
 } from '../utils/webSocket';
 
 const clampToTotal = (total, n) =>
@@ -34,6 +35,7 @@ export default function useRealtimeWebSocket({
   onLog, // function(message, type)
   onProgress, // React setState for progress
 }) {
+  const { getCorrelationId } = useApp();
   const wsRef = useRef(null);
   const [wsConnected, setWsConnected] = useState(false);
   const seenBatchIdsRef = useRef(new Set());
@@ -41,7 +43,10 @@ export default function useRealtimeWebSocket({
   // unmount cleanup guard
   useEffect(() => {
     return () => {
-      if (wsRef.current && wsRef.current.readyState === WebSocketConnection.OPEN) {
+      if (
+        wsRef.current &&
+        wsRef.current.readyState === WebSocketConnection.OPEN
+      ) {
         wsRef.current.close(1000, 'Component unmounting');
         wsRef.current = null;
       }
@@ -104,7 +109,11 @@ export default function useRealtimeWebSocket({
         wsUrl,
         microserviceUrl: trimmed,
       });
-      const ws = new WebSocket(wsUrl);
+      const cid = getCorrelationId?.();
+      console.log('cid', cid);
+      const url = new URL(wsUrl);
+      if (cid) url.searchParams.set('x-correlation-id', cid);
+      const ws = new WebSocket(url.toString());
       wsRef.current = ws;
 
       // 10s connection timeout

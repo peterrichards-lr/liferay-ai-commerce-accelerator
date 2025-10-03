@@ -1,15 +1,28 @@
-import * as React from 'react';
+import React, {
+  useState,
+  useEffect,
+  useCallback,
+  createContext,
+  useMemo,
+  useContext,
+  useRef,
+} from 'react';
 import { normalizeConfig } from '../config/normalize.js';
 import { createApiClient } from '../services/apiClient.js';
 
-const AppContext = React.createContext(null);
+const AppContext = createContext(null);
 
-export function AppProvider({ initialConfig, children }) {
-  const [config, setConfig] = React.useState(() =>
-    normalizeConfig(initialConfig)
-  );
+export function AppProvider({
+  className = 'app-root',
+  initialConfig,
+  children,
+}) {
+  const rootRef = useRef(null);
+  const [correlationId, setCorrelationId] = useState();
+  const [config, setConfig] = useState(() => normalizeConfig(initialConfig));
+  const getCorrelationId = useCallback(() => correlationId, [correlationId]);
 
-  const updateConfig = React.useCallback((patch) => {
+  const updateConfig = useCallback((patch) => {
     setConfig((prev) => {
       const raw = typeof patch === 'function' ? patch(prev) : patch || {};
       const PROTECTED_KEYS = new Set(['siteGroupId', 'channelId', 'catalogId']);
@@ -22,25 +35,43 @@ export function AppProvider({ initialConfig, children }) {
     });
   }, []);
 
-  React.useEffect(() => {
+  useEffect(() => {
     if (initialConfig) updateConfig(initialConfig);
   }, [initialConfig, updateConfig]);
 
-  const api = React.useMemo(
-    () => createApiClient({ baseUrl: config.microserviceUrl }),
-    [config.microserviceUrl]
+  const api = useMemo(
+    () =>
+      createApiClient({
+        baseUrl: config.microserviceUrl,
+        getCorrelationId,
+        setCorrelationId,
+      }),
+    [config.microserviceUrl, getCorrelationId]
   );
 
-  const value = React.useMemo(
-    () => ({ config, setConfig: updateConfig, api }),
+  const value = useMemo(
+    () => ({
+      config,
+      setConfig: updateConfig,
+      api,
+      rootRef,
+      getRoot: () => rootRef.current,
+      getCorrelationId,
+    }),
     [config, api, updateConfig]
   );
 
-  return <AppContext.Provider value={value}>{children}</AppContext.Provider>;
+  return (
+    <AppContext.Provider value={value}>
+      <div ref={rootRef} className={className} id="app-root">
+        {children}
+      </div>
+    </AppContext.Provider>
+  );
 }
 
 export function useApp() {
-  const ctx = React.useContext(AppContext);
+  const ctx = useContext(AppContext);
   if (!ctx) throw new Error('useApp must be used within <AppProvider>');
   return ctx;
 }

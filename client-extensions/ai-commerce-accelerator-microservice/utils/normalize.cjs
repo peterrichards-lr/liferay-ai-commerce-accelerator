@@ -205,9 +205,10 @@ function sanitizedObject(obj) {
 }
 
 function parseBatchStatuses(obj) {
-  return Object.entries(obj).map(([batchId, status]) => ({
+  return Object.entries(obj).map(([batchId, status, correlationId]) => ({
     batchId,
     status,
+    correlationId,
   }));
 }
 
