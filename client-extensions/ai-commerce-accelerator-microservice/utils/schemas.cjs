@@ -1,9 +1,7 @@
-const { generateAccounts } = require('../services/accountGenerator.cjs');
-
 const connectionSchema = {
   liferayUrl: { type: 'string', required: true, pattern: /^https?:\/\/.+/ },
-  clientId: { type: 'string', required: true, minLength: 1 },
-  clientSecret: { type: 'string', required: true, minLength: 1 },
+  clientId: { type: 'string', required: false, minLength: 1 },
+  clientSecret: { type: 'string', required: false, minLength: 1 },
 };
 
 const aiModelSchema = {
@@ -38,7 +36,7 @@ const commerceSchema = {
 };
 
 const generateDataSchema = {
-  ...connectionSchema,
+  //...connectionSchema,
   ...aiModelSchema,
   ...modeSchema,
   ...commerceSchema,

@@ -23,8 +23,6 @@ class ProductGenerator {
   }
 
   async generateProducts(config, options) {
-    const correlationId = uuidv4();
-
     console.log('=== STARTING PRODUCT GENERATION ===');
     console.log('Demo mode:', !!options.demoMode);
     console.log('Config:', sanitizedObject(config));
@@ -38,7 +36,7 @@ class ProductGenerator {
     );
 
     logger.info('Starting product generation', {
-      correlationId: correlationId,
+      correlationId: config.correlationId,
       operation: 'generate-products',
       productCount: options.productCount,
       categories: options.productCategories?.length || 0,
@@ -56,19 +54,16 @@ class ProductGenerator {
       this.validateConfig(config);
       await this.validateOptions(options);
 
-      const selectedCategories = options.productCategories || ['Electronics'];
-      const selectedLanguages = config.selectedLanguages || ['en-US'];
-
       console.log('=== VALIDATED CONFIG ===');
-      console.log('Selected categories:', selectedCategories);
-      console.log('Selected languages:', selectedLanguages);
+      console.log('Selected categories:', options.productCategories);
+      console.log('Selected languages:', config.selectedLanguages);
       console.log('Generate SKU variants:', options.generateSkuVariants);
 
       logger.info('Configuration validated', {
-        correlationId: correlationId,
+        correlationId: config.correlationId,
         operation: 'validate-config',
-        categories: selectedCategories,
-        languages: selectedLanguages,
+        categories: options.productCategories,
+        languages: config.selectedLanguages,
       });
 
       console.log(`Using catalog ID: ${config.catalogId}`);
@@ -82,22 +77,19 @@ class ProductGenerator {
 
       let catalogOptions = {};
       if (options.generateSkuVariants) {
-        catalogOptions = await this.createCatalogOptions(
-          config,
-          selectedCategories
-        );
+        catalogOptions = await this.createCatalogOptions(config, options);
       }
 
       let catalogSpecifications = {};
       if (options.generateSpecifications) {
         catalogSpecifications = await this.createCatalogSpecifications(
           config,
-          selectedCategories
+          options
         );
       }
 
       const productsPerCategory = options.productCount;
-      for (const category of selectedCategories) {
+      for (const category of options.productCategories) {
         console.log(`Generating products for category: ${category}`);
 
         try {
@@ -308,7 +300,9 @@ class ProductGenerator {
             const productBatches = [];
             for (let i = 0; i < cleanedProducts.length; i += config.batchSize) {
               productBatches.push(
-                cleanedProducts.slice(i, i + config.batchSize)
+                cleanedProducts.length <= config.batchSize
+                  ? cleanedProducts.slice(0, cleanedProducts.length)
+                  : cleanedProducts.slice(i, i + config.batchSize)
               );
             }
 
@@ -388,6 +382,7 @@ class ProductGenerator {
                         status: status.status,
                         processedCount: status.processedCount,
                         totalCount: status.totalCount,
+                        entityType: 'products',
                       });
                     },
                     onComplete: (results) => {
@@ -398,6 +393,7 @@ class ProductGenerator {
                         operation: 'batch-polling-error',
                         batchId: result.batchId,
                         error: error.message,
+                        entityType: 'products',
                       });
                     },
                   }
@@ -692,7 +688,8 @@ class ProductGenerator {
     }
   }
 
-  async createCatalogOptions(config, categories) {
+  async createCatalogOptions(config, options) {
+    const categories = options.productCategories;
     console.log(
       `Creating catalog-level options for SKU variants... (Demo mode: ${options.demoMode})`
     );
@@ -979,7 +976,8 @@ class ProductGenerator {
     return catalogOptions;
   }
 
-  async createCatalogSpecifications(config, categories) {
+  async createCatalogSpecifications(config, options) {
+    const categories = options.productCategories;
     console.log(
       'Creating catalog-level specifications with option categories...'
     );
@@ -1994,14 +1992,6 @@ class ProductGenerator {
   }
 
   validateConfig(config) {
-    if (!config.liferayUrl) {
-      throw new Error('Liferay URL is required.');
-    }
-    if (!config.clientId || !config.clientSecret) {
-      throw new Error(
-        'Liferay OAuth client credentials (clientId, clientSecret) are required.'
-      );
-    }
     if (
       !config.catalogId ||
       typeof config.catalogId !== 'number' ||

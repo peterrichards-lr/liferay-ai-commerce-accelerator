@@ -1,3 +1,4 @@
+/* eslint-disable no-console */
 const axios = require('axios');
 const FormData = require('form-data');
 const fs = require('fs');
@@ -20,8 +21,91 @@ const {
 class LiferayService {
   constructor() {
     this.axiosInstance = null;
-    // OAuthService is now instantiated where needed with parameters
+    this.oauthService = new OAuthService();
     this.baseUrl = liferayConfig.liferayUrl;
+  }
+
+  _errRef() {
+    return `LIFR-${Date.now()}-${uuidv4().slice(0, 8)}`;
+  }
+
+  _asItems(data) {
+    if (Array.isArray(data)) return data;
+    if (Array.isArray(data?.items)) return data.items;
+    return [];
+  }
+
+  async _client(config) {
+    return this.createAxiosInstance(config);
+  }
+
+  async _request(
+    config,
+    { method, url, data, headers, op, onError, friendly }
+  ) {
+    const client = await this._client(config);
+    try {
+      const res = await client.request({ method, url, data, headers });
+      return res.data;
+    } catch (error) {
+      const errorReference = this._errRef();
+      console.error(`Error Reference: ${errorReference}`);
+
+      const baseLog = {
+        operation: op || method?.toLowerCase() || 'request',
+        url,
+        status: error.response?.status,
+        statusText: error.response?.statusText,
+        data: error.response?.data,
+        timestamp: new Date().toISOString(),
+        errorReference,
+      };
+
+      if (logger?.error) logger.error(`Request failed: ${op || url}`, baseLog);
+      else console.error('Request failed:', baseLog);
+
+      if (onError === 'handle') {
+        throw ErrorHandler.handleLiferayError(
+          error,
+          op || 'request',
+          data,
+          errorReference
+        );
+      }
+
+      const msg =
+        friendly ||
+        error.response?.data?.title ||
+        error.response?.data?.detail ||
+        error.message;
+
+      const wrapped = new Error(msg);
+      wrapped.response = {
+        status: error.response?.status,
+        data: error.response?.data,
+        errorReference,
+      };
+      throw wrapped;
+    }
+  }
+
+  async _get(config, url, op, friendly) {
+    return this._request(config, { method: 'GET', url, op, friendly });
+  }
+
+  async _post(config, url, data, op, friendly, onError = 'throw') {
+    return this._request(config, {
+      method: 'POST',
+      url,
+      data,
+      op,
+      friendly,
+      onError,
+    });
+  }
+
+  async _put(config, url, data, op, friendly) {
+    return this._request(config, { method: 'PUT', url, data, op, friendly });
   }
 
   _normalizePermissionItems(items = []) {
@@ -56,7 +140,7 @@ class LiferayService {
       if (strategy === 'replace' || strategy === 'replaceSelected') {
         merged = proposedMap.has(role) ? next : cur;
       } else {
-        merged = new Set([...cur, ...next]); // union
+        merged = new Set([...cur, ...next]);
       }
 
       for (const r of remove[role] || []) merged.delete(r);
@@ -66,139 +150,59 @@ class LiferayService {
     return this._denormalizePermissionMap(out);
   }
 
-  _resolvePermissionsOps(assetType) {
+  _permissionsOps(assetType) {
     switch (assetType) {
       case ASSET_TYPE.DOCUMENT_FOLDER:
         return {
-          get: async (config, id) => {
-            const client = await this.createAxiosInstance(config);
-            const { data } = await client.get(
-              PATH.DOCUMENT_FOLDER_PERMISSIONS(id)
-            );
-            return Array.isArray(data)
-              ? data
-              : Array.isArray(data?.items)
-              ? data.items
-              : [];
-          },
-          put: async (config, id, items) => {
-            const client = await this.createAxiosInstance(config);
-            const { data } = await client.put(
-              PATH.DOCUMENT_FOLDER_PERMISSIONS(id),
-              items
-            );
-            return data;
-          },
+          getPath: (id) => PATH.DOCUMENT_FOLDER_PERMISSIONS(id),
+          putPath: (id) => PATH.DOCUMENT_FOLDER_PERMISSIONS(id),
         };
       case ASSET_TYPE.DOCUMENT:
         return {
-          get: async (config, id) => {
-            const client = await this.createAxiosInstance(config);
-            const { data } = await client.get(PATH.DOCUMENT_PERMISSIONS(id));
-            return Array.isArray(data)
-              ? data
-              : Array.isArray(data?.items)
-              ? data.items
-              : [];
-          },
-          put: async (config, id, items) => {
-            const client = await this.createAxiosInstance(config);
-            const { data } = await client.put(
-              PATH.DOCUMENT_PERMISSIONS(id),
-              items
-            );
-            return data;
-          },
+          getPath: (id) => PATH.DOCUMENT_PERMISSIONS(id),
+          putPath: (id) => PATH.DOCUMENT_PERMISSIONS(id),
         };
       default:
         throw new Error(`Unsupported assetType: ${assetType}`);
     }
   }
 
-  async getDocumentFolderPermissions(config, folderId) {
-    const client = await this.createAxiosInstance(config);
-    const { data } = await client.get(
-      PATH.DOCUMENT_FOLDER_PERMISSIONS(folderId)
+  async _getPermissions(config, assetType, id) {
+    const ops = this._permissionsOps(assetType);
+    const data = await this._get(
+      config,
+      ops.getPath(id),
+      `get-permissions:${assetType}`
     );
-    return Array.isArray(data) ? data : data.items || [];
+    return this._asItems(data);
   }
 
-  async putDocumentFolderPermissions(config, folderId, items) {
-    const client = await this.createAxiosInstance(config);
-
-    // Guard + normalize
+  async _putPermissions(config, assetType, id, items) {
     if (!Array.isArray(items)) {
-      throw new TypeError(
-        'putDocumentFolderPermissions: items must be an array'
-      );
-    }
-    const payload = items.map((it) => ({
-      roleName: it?.roleName,
-      // ensure plain array of strings
-      actionIds: Array.isArray(it?.actionIds) ? it.actionIds.slice() : [],
-    }));
-
-    const { data } = await client.put(
-      PATH.DOCUMENT_FOLDER_PERMISSIONS(folderId),
-      payload,
-      {
-        headers: { 'Content-Type': 'application/json' },
-        // Bypass any global transform that might url-encode arrays
-        transformRequest: [
-          (data, headers) => {
-            headers['Content-Type'] = 'application/json';
-            return JSON.stringify(data);
-          },
-        ],
-      }
-    );
-    return data;
-  }
-
-  async getDocumentPermissions(config, documentId) {
-    const client = await this.createAxiosInstance(config);
-    const { data } = await client.get(PATH.DOCUMENT_PERMISSIONS(documentId));
-    return Array.isArray(data) ? data : data.items || [];
-  }
-
-  async putDocumentPermissions(config, documentId, items) {
-    const client = await this.createAxiosInstance(config);
-
-    if (!Array.isArray(items)) {
-      throw new TypeError('putDocumentPermissions: items must be an array');
+      throw new TypeError('_putPermissions: items must be an array');
     }
     const payload = items.map((it) => ({
       roleName: it?.roleName,
       actionIds: Array.isArray(it?.actionIds) ? it.actionIds.slice() : [],
     }));
-
-    const { data } = await client.put(
-      PATH.DOCUMENT_PERMISSIONS(documentId),
+    const ops = this._permissionsOps(assetType);
+    return this._put(
+      config,
+      ops.putPath(id),
       payload,
-      {
-        headers: { 'Content-Type': 'application/json' },
-        transformRequest: [
-          (data, headers) => {
-            headers['Content-Type'] = 'application/json';
-            return JSON.stringify(data);
-          },
-        ],
-      }
+      `put-permissions:${assetType}`
     );
-    return data;
   }
 
   async createAxiosInstance(config) {
-    const oauthService = new OAuthService(
-      config.liferayUrl,
-      config.clientId,
-      config.clientSecret
-    );
-    const accessToken = await oauthService.getAccessToken(
-      config.liferayUrl,
-      config.clientId,
-      config.clientSecret
-    );
+    const accessToken =
+      config.clientId === null
+        ? await this.oauthService.getAccessTokenFromRoute()
+        : await this.oauthService.getAccessToken(
+            config.liferayUrl,
+            config.clientId,
+            config.clientSecret
+          );
 
     return axios.create({
       baseURL: config.liferayUrl,
@@ -215,22 +219,14 @@ class LiferayService {
     try {
       try {
         new URL(config.liferayUrl);
-      } catch (urlError) {
+      } catch {
         throw new Error(`Invalid URL format: ${config.liferayUrl}`);
       }
 
-      const oauthService = new OAuthService(
-        config.liferayUrl,
-        config.clientId,
-        config.clientSecret
-      );
-      oauthService.validateOAuthConfig(config);
+      if (!this.oauthService.isLiferayRouteAvailable)
+        this.oauthService.validateOAuthConfig(config);
 
-      const client = await this.createAxiosInstance(config);
-
-      const response = await client.get(
-        '/o/headless-admin-user/v1.0/my-user-account'
-      );
+      await this._get(config, PATH.ME, 'test-connection');
 
       return {
         status: 'connected',
@@ -274,12 +270,9 @@ class LiferayService {
         structuredError.errorType = 'auth_config';
         structuredError.field = 'clientSecret';
       } else if (
-        error.response?.status === 401 ||
-        error.response?.status === 403 ||
-        error.statusCode === 401 ||
-        error.statusCode === 403 ||
-        error.status === 401 ||
-        error.status === 403 ||
+        [401, 403].includes(error.response?.status) ||
+        [401, 403].includes(error.statusCode) ||
+        [401, 403].includes(error.status) ||
         error.message.includes('OAuth authentication failed')
       ) {
         structuredError.error =
@@ -287,7 +280,6 @@ class LiferayService {
         structuredError.errorType = 'auth_error';
         structuredError.field = 'clientSecret';
 
-        // Use the OAuth service error reference if available
         if (error.errorReference) {
           structuredError.errorReference = error.errorReference;
         }
@@ -299,26 +291,22 @@ class LiferayService {
         structuredError.field = 'liferayUrl';
       }
 
-      // Generate a unique error reference code only if not already provided by OAuth service
-      const errorReference =
-        structuredError.errorReference ||
-        `LIFR-${Date.now()}-${uuidv4().slice(0, 8)}`;
-      console.error(`Error Reference: ${errorReference}`); // Log to microservice console
-      structuredError.errorReference = errorReference; // Add to structured error for potential internal use
+      const errorReference = structuredError.errorReference || this._errRef();
+      console.error(`Error Reference: ${errorReference}`);
+      structuredError.errorReference = errorReference;
 
-      // For UI, only pass back the error reference and a user-friendly message
       const uiErrorResponse = {
         success: false,
         error: structuredError.error,
         errorType: structuredError.errorType,
         field: structuredError.field,
         status: structuredError.status,
-        errorReference: errorReference, // Include the reference code in the UI response
+        errorReference,
       };
 
       const errorResponse = new Error(structuredError.error);
       errorResponse.response = {
-        data: uiErrorResponse, // Use the UI-focused response
+        data: uiErrorResponse,
         status: structuredError.status || 500,
       };
 
@@ -327,1158 +315,351 @@ class LiferayService {
   }
 
   async getCatalogs(config) {
-    try {
-      const client = await this.createAxiosInstance(config);
-      const response = await client.get(
-        '/o/headless-commerce-admin-catalog/v1.0/catalogs'
-      );
-      return response.data.items || [];
-    } catch (error) {
-      console.error('Failed to fetch catalogs:', error);
-      throw new Error(`Failed to fetch catalogs: ${error.message}`);
-    }
+    const data = await this._get(config, PATH.CATALOGS, 'get-catalogs');
+    return this._asItems(data);
   }
 
   async getChannels(config) {
-    try {
-      const client = await this.createAxiosInstance(config);
-      const response = await client.get(
-        '/o/headless-commerce-admin-channel/v1.0/channels'
-      );
-      return response.data.items || [];
-    } catch (error) {
-      console.error('Failed to fetch channels:', error);
-      throw new Error(`Failed to fetch channels: ${error.message}`);
-    }
-  }
-
-  async createProduct(config, productData) {
-    try {
-      const client = await this.createAxiosInstance(config);
-
-      if (!productData.catalogId && config.catalogId) {
-        productData.catalogId = parseInt(config.catalogId);
-      }
-
-      console.log('Creating product with payload:', {
-        sku: productData.sku,
-        name: productData.name?.en_US || 'N/A',
-        catalogId: productData.catalogId,
-        productType: productData.productType,
-        payloadKeys: Object.keys(productData),
-      });
-
-      const response = await client.post(
-        '/o/headless-commerce-admin-catalog/v1.0/products',
-        productData
-      );
-      return response.data;
-    } catch (error) {
-      const errorReference = `LIFR-${Date.now()}-${uuidv4().slice(0, 8)}`;
-      console.error(`Error Reference: ${errorReference}`);
-      console.error('Product creation failed:', {
-        error: error.response?.data || error.message,
-        status: error.response?.status,
-        statusText: error.response?.statusText,
-        requestPayload: {
-          sku: productData.sku,
-          name: productData.name?.en_US || 'N/A',
-          catalogId: productData.catalogId,
-          invalidProperties: Object.keys(productData).filter(
-            (key) =>
-              ![
-                'catalogId',
-                'name',
-                'description',
-                'shortDescription',
-                'sku',
-                'productType',
-                'active',
-                'externalReferenceCode',
-                'metaDescription',
-                'metaTitle',
-              ].includes(key)
-          ),
-        },
-        timestamp: new Date().toISOString(),
-        errorReference: errorReference,
-      });
-
-      throw ErrorHandler.handleLiferayError(
-        error,
-        'create-product',
-        productData,
-        errorReference
-      );
-    }
-  }
-
-  async createProductsBatch(config, productsData, callbackUrl) {
-    try {
-      const client = await this.createAxiosInstance(config);
-
-      const batchPayload = {
-        createStrategy: 'INSERT',
-        items: productsData,
-      };
-
-      let url = '/o/headless-commerce-admin-catalog/v1.0/products/batch';
-      if (callbackUrl && callbackUrl !== 'null') {
-        url += `?callbackURL=${encodeURIComponent(callbackUrl)}`;
-      }
-
-      logger.info('Sending batch product creation request', {
-        operation: 'create-products-batch',
-        productCount: productsData.length,
-        callbackUrl: callbackUrl || 'none',
-        url: url,
-      });
-
-      const response = await client.post(url, batchPayload);
-
-      logger.info('Batch product creation initiated', {
-        operation: 'create-products-batch',
-        batchId: response.data.id || 'unknown',
-        status: response.data.status || 'submitted',
-      });
-
-      return {
-        batchId: response.data.id || `batch-${Date.now()}`,
-        status: response.data.status || 'submitted',
-        productCount: productsData.length,
-      };
-    } catch (error) {
-      const errorReference = `LIFR-${Date.now()}-${uuidv4().slice(0, 8)}`;
-      console.error(`Error Reference: ${errorReference}`);
-      logger.error('Failed to create products batch', {
-        operation: 'create-products-batch',
-        error: error.message,
-        status: error.response?.status,
-        data: error.response?.data,
-        errorReference: errorReference,
-      });
-      throw new Error(
-        `Failed to create products batch: ${
-          error.response?.data?.title ||
-          error.response?.data?.detail ||
-          error.message
-        }`
-      );
-    }
-  }
-
-  async addProductImageByBase64(config, productERC, imageData, priority = 1.0) {
-    try {
-      if (!config) return;
-      if (!productERC) return;
-      if (!imageData) return;
-
-      const client = await this.createAxiosInstance(config);
-
-      // Extract base64 data from data URL format
-      let base64Data = imageData;
-      let contentType = 'image/jpeg'; // default fallback
-
-      if (imageData.startsWith('data:')) {
-        const match = imageData.match(/^data:([^;]+);base64,(.*)$/);
-        if (match) {
-          contentType = match[1] || contentType;
-          base64Data = match[2];
-        } else {
-          // fallback if somehow split fails
-          base64Data = imageData.split(',')[1];
-        }
-      }
-
-      const payload = {
-        attachment: base64Data,
-        title: {
-          en_US: `Product Image - ${productERC}`,
-        },
-        contentType,
-        priority,
-      };
-
-      const response = await client.post(
-        `/o/headless-commerce-admin-catalog/v1.0/products/by-externalReferenceCode/${productERC}/images/by-base64`,
-        payload
-      );
-      return response.data;
-    } catch (error) {
-      const errorReference = `LIFR-${Date.now()}-${uuidv4().slice(0, 8)}`;
-      console.error(`Error Reference: ${errorReference}`);
-      console.error(
-        'Failed to add product image by base64:',
-        error.response?.data || error.message
-      );
-      throw new Error(
-        `Failed to add product image: ${
-          error.response?.data?.title || error.message
-        }`
-      );
-    }
-  }
-
-  async addProductAttachmentByBase64(
-    config,
-    productERC,
-    attachmentMetaData,
-    priority = 1.0
-  ) {
-    try {
-      if (!config) return;
-      if (!productERC) return;
-      if (!attachmentMetaData) return;
-
-      const client = await this.createAxiosInstance(config);
-
-      const attachmentData = attachmentMetaData?.attachment;
-      if (!attachmentData) return;
-
-      // Extract base64 data from data URL format and validate PDF
-      let base64Data = attachmentData;
-      if (attachmentData.startsWith('data:')) {
-        base64Data = attachmentData.split(',')[1];
-      }
-
-      // Validate that the base64 decodes to a valid PDF
-      try {
-        const pdfBuffer = Buffer.from(base64Data, 'base64');
-        const pdfHeader = pdfBuffer.slice(0, 4).toString();
-        if (pdfHeader !== '%PDF') {
-          console.warn(
-            `Warning: PDF attachment for ${productERC} does not have valid PDF header, got: ${pdfHeader}`
-          );
-        }
-      } catch (validationError) {
-        console.error(
-          `PDF validation failed for ${productERC}:`,
-          validationError.message
-        );
-      }
-
-      const payload = {
-        attachment: base64Data,
-        title: attachmentMetaData.title || {
-          en_US: `Product Documentation - ${productERC}`,
-        },
-        contentType: attachmentMetaData.contentType || 'application/pdf',
-        priority,
-      };
-
-      const response = await client.post(
-        `/o/headless-commerce-admin-catalog/v1.0/products/by-externalReferenceCode/${productERC}/attachments/by-base64`,
-        payload
-      );
-      return response.data;
-    } catch (error) {
-      const errorReference = `LIFR-${Date.now()}-${uuidv4().slice(0, 8)}`;
-      console.error(`Error Reference: ${errorReference}`);
-      console.error(
-        'Failed to add product attachment by base64:',
-        error.response?.data || error.message
-      );
-      throw new Error(
-        `Failed to add product attachment: ${
-          error.response?.data?.title || error.message
-        }`
-      );
-    }
-  }
-
-  async addProductImageByUrl(config, productERC, imageUrlData) {
-    try {
-      const client = await this.createAxiosInstance(config);
-
-      const response = await client.post(
-        `/o/headless-commerce-admin-catalog/v1.0/products/by-externalReferenceCode/${productERC}/images/by-url`,
-        imageUrlData
-      );
-      return response.data;
-    } catch (error) {
-      const errorReference = `LIFR-${Date.now()}-${uuidv4().slice(0, 8)}`;
-      console.error(`Error Reference: ${errorReference}`);
-      console.error('imageUrlData', imageUrlData);
-      console.error(
-        'Failed to add product image by URL:',
-        error.response?.data || error.message
-      );
-      throw new Error(
-        `Failed to add product image: ${
-          error.response?.data?.title || error.message
-        }`
-      );
-    }
-  }
-
-  async addProductAttachmentByUrl(config, productERC, attachmentUrlData) {
-    try {
-      const client = await this.createAxiosInstance(config);
-      const response = await client.post(
-        `/o/headless-commerce-admin-catalog/v1.0/products/by-externalReferenceCode/${productERC}/attachments/by-url`,
-        attachmentUrlData
-      );
-      return response.data;
-    } catch (error) {
-      const errorReference = `LIFR-${Date.now()}-${uuidv4().slice(0, 8)}`;
-      console.error(`Error Reference: ${errorReference}`);
-      console.error(
-        'Failed to add product attachment by URL:',
-        error.response?.data || error.message
-      );
-      throw new Error(
-        `Failed to add product attachment: ${
-          error.response?.data?.title || error.message
-        }`
-      );
-    }
-  }
-
-  async createAccountsBatch(config, accountsData, callbackUrl) {
-    try {
-      const oauthService = new OAuthService(
-        config.liferayUrl,
-        config.clientId,
-        config.clientSecret
-      );
-      const token = await oauthService.getAccessToken(
-        config.liferayUrl,
-        config.clientId,
-        config.clientSecret
-      );
-
-      const batchPayload = {
-        createStrategy: 'INSERT',
-        items: accountsData,
-      };
-
-      const finalCallbackUrl = callbackUrl;
-
-      logger.info('Sending batch account creation request', {
-        operation: 'create-accounts-batch',
-        accountCount: accountsData.length,
-        callbackUrl: finalCallbackUrl,
-      });
-
-      const response = await axios.post(
-        `${
-          config.liferayUrl
-        }/o/headless-admin-user/v1.0/accounts/batch?callbackURL=${encodeURIComponent(
-          finalCallbackUrl
-        )}`,
-        batchPayload,
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-            'Content-Type': 'application/json',
-          },
-        }
-      );
-
-      logger.info('Batch account creation initiated', {
-        operation: 'create-accounts-batch',
-        batchId: response.data.id || 'unknown',
-        status: response.data.status || 'submitted',
-      });
-
-      return {
-        batchId: response.data.id || `batch-${Date.now()}`,
-        status: response.data.status || 'submitted',
-        accountCount: accountsData.length,
-      };
-    } catch (error) {
-      const errorReference = `LIFR-${Date.now()}-${uuidv4().slice(0, 8)}`;
-      console.error(`Error Reference: ${errorReference}`);
-      logger.error('Failed to create accounts batch', {
-        operation: 'create-accounts-batch',
-        error: error.message,
-        status: error.response?.status,
-        data: error.response?.data,
-        errorReference: errorReference,
-      });
-      throw new Error(
-        `Failed to create accounts batch: ${
-          error.response?.data?.title ||
-          error.response?.data?.detail ||
-          error.message
-        }`
-      );
-    }
-  }
-
-  async createAccount(config, accountData) {
-    try {
-      const oauthService = new OAuthService(
-        config.liferayUrl,
-        config.clientId,
-        config.clientSecret
-      );
-      const token = await oauthService.getAccessToken(
-        config.liferayUrl,
-        config.clientId,
-        config.clientSecret
-      );
-
-      const response = await axios.post(
-        `${config.liferayUrl}/o/headless-admin-user/v1.0/accounts`,
-        accountData,
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-            'Content-Type': 'application/json',
-          },
-        }
-      );
-
-      logger.info('Account created successfully', {
-        operation: 'create-account',
-        accountId: response.data.id,
-        accountName: response.data.name,
-      });
-
-      return response.data;
-    } catch (error) {
-      const errorReference = `LIFR-${Date.now()}-${uuidv4().slice(0, 8)}`;
-      console.error(`Error Reference: ${errorReference}`);
-      logger.error('Failed to create account', {
-        operation: 'create-account',
-        error: error.message,
-        status: error.response?.status,
-        data: error.response?.data,
-        errorReference: errorReference,
-      });
-      throw ErrorHandler.handleLiferayError(
-        error,
-        'create-account',
-        accountData,
-        errorReference
-      );
-    }
-  }
-
-  async createOrder(config, orderData) {
-    try {
-      const client = await this.createAxiosInstance(config);
-
-      if (!orderData.channelId) {
-        throw new Error('channelId is required for order creation');
-      }
-      if (!orderData.currencyCode) {
-        throw new Error('currencyCode is required for order creation');
-      }
-
-      orderData.channelId = parseInt(orderData.channelId);
-      orderData.currencyCode = orderData.currencyCode;
-
-      console.log('Creating order with payload:', {
-        channelId: orderData.channelId,
-        currencyCode: orderData.currencyCode,
-        accountId: orderData.accountId,
-        payloadKeys: Object.keys(orderData),
-      });
-
-      const response = await client.post(
-        '/o/headless-commerce-admin-order/v1.0/orders',
-        orderData
-      );
-      return response.data;
-    } catch (error) {
-      const errorReference = `LIFR-${Date.now()}-${uuidv4().slice(0, 8)}`;
-      console.error(`Error Reference: ${errorReference}`);
-      console.error('Order creation failed:', {
-        error: error.response?.data || error.message,
-        status: error.response?.status,
-        statusText: error.response?.statusText,
-        requestPayload: {
-          channelId: orderData.channelId,
-          currencyCode: orderData.currencyCode,
-          accountId: orderData.accountId,
-          invalidProperties: Object.keys(orderData).filter(
-            (key) =>
-              ![
-                'channelId',
-                'currencyCode',
-                'accountId',
-                'orderTypeExternalReferenceCode',
-                'orderDate',
-                'externalReferenceCode',
-                'orderStatus',
-              ].includes(key)
-          ),
-        },
-        timestamp: new Date().toISOString(),
-        errorReference: errorReference,
-      });
-
-      throw new Error(
-        `Failed to create order: ${
-          error.response?.data?.title ||
-          error.response?.data?.detail ||
-          error.message
-        }`
-      );
-    }
+    const data = await this._get(config, PATH.CHANNELS, 'get-channels');
+    return this._asItems(data);
   }
 
   async getProducts(config) {
-    try {
-      const client = await this.createAxiosInstance(config);
-      let url = '/o/headless-commerce-admin-catalog/v1.0/products';
-
-      if (config.catalogId) {
-        url += `?filter=catalogId eq ${config.catalogId}`;
-      }
-
-      const response = await client.get(url);
-      return response.data.items || [];
-    } catch (error) {
-      const errorReference = `LIFR-${Date.now()}-${uuidv4().slice(0, 8)}`;
-      console.error(`Error Reference: ${errorReference}`);
-      console.error('Failed to fetch products:', error);
-      throw new Error(`Failed to fetch products: ${error.message}`);
-    }
+    let url =
+      PATH.PRODUCTS +
+      (config.catalogId ? `?filter=catalogId eq ${config.catalogId}` : '');
+    const data = await this._get(config, url, 'get-products');
+    return this._asItems(data);
   }
 
   async getAccounts(config) {
-    try {
-      const oauthService = new OAuthService(
-        config.liferayUrl,
-        config.clientId,
-        config.clientSecret
-      );
-      const token = await oauthService.getAccessToken(
-        config.liferayUrl,
-        config.clientId,
-        config.clientSecret
-      );
-
-      const response = await axios.get(
-        `${config.liferayUrl}/o/headless-admin-user/v1.0/accounts`,
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        }
-      );
-
-      return response.data.items || [];
-    } catch (error) {
-      const errorReference = `LIFR-${Date.now()}-${uuidv4().slice(0, 8)}`;
-      console.error(`Error Reference: ${errorReference}`);
-      logger.error('Failed to fetch accounts', {
-        operation: 'get-accounts',
-        error: error.message,
-        status: error.response?.status,
-        errorReference: errorReference,
-      });
-      throw error;
-    }
-  }
-
-  async createPriceList(config, priceListData) {
-    try {
-      const client = await this.createAxiosInstance(config);
-      const response = await client.post(
-        '/o/headless-commerce-admin-pricing/v1.0/price-lists',
-        priceListData
-      );
-      return response.data;
-    } catch (error) {
-      const errorReference = `LIFR-${Date.now()}-${uuidv4().slice(0, 8)}`;
-      console.error(`Error Reference: ${errorReference}`);
-      console.error(
-        'Failed to create price list:',
-        error.response?.data || error.message
-      );
-      throw new Error(
-        `Failed to create price list: ${
-          error.response?.data?.title || error.message
-        }`
-      );
-    }
-  }
-
-  async createPriceEntry(config, priceListId, priceEntryData) {
-    try {
-      const client = await this.createAxiosInstance(config);
-      const response = await client.post(
-        `/o/headless-commerce-admin-pricing/v1.0/price-lists/${priceListId}/price-entries`,
-        priceEntryData
-      );
-      return response.data;
-    } catch (error) {
-      const errorReference = `LIFR-${Date.now()}-${uuidv4().slice(0, 8)}`;
-      console.error(`Error Reference: ${errorReference}`);
-      console.error(
-        'Failed to create price entry:',
-        error.response?.data || error.message
-      );
-      throw new Error(
-        `Failed to create price entry: ${
-          error.response?.data?.title || error.message
-        }`
-      );
-    }
-  }
-
-  async addProductSpecification(config, productId, specData) {
-    try {
-      const client = await this.createAxiosInstance(config);
-      const response = await client.post(
-        `/o/headless-commerce-admin-catalog/v1.0/products/${productId}/product-specifications`,
-        specData
-      );
-      return response.data;
-    } catch (error) {
-      const errorReference = `LIFR-${Date.now()}-${uuidv4().slice(0, 8)}`;
-      console.error(`Error Reference: ${errorReference}`);
-      console.error(
-        'Failed to add product specification:',
-        error.response?.data || error.message
-      );
-      throw new Error(
-        `Failed to add specification: ${
-          error.response?.data?.title || error.message
-        }`
-      );
-    }
-  }
-
-  async addProductAttachment(config, productId, attachmentData) {
-    try {
-      const oauthService = new OAuthService(
-        config.liferayUrl,
-        config.clientId,
-        config.clientSecret
-      );
-      const accessToken = await oauthService.getAccessToken(
-        config.liferayUrl,
-        config.clientId,
-        config.clientSecret
-      );
-
-      const response = await axios.post(
-        `${config.liferayUrl}/o/headless-commerce-admin-catalog/v1.0/products/${productId}/attachments`,
-        attachmentData,
-        {
-          headers: {
-            Authorization: `Bearer ${accessToken}`,
-            'Content-Type': 'application/json',
-          },
-        }
-      );
-
-      return response.data;
-    } catch (error) {
-      logger.errorWithStack(error, {
-        operation: 'add-product-attachment',
-        productId,
-        attachmentData,
-        errorDetails: error.response?.data,
-      });
-      throw error;
-    }
-  }
-
-  async addProductImage(config, productId, imageData) {
-    try {
-      const oauthService = new OAuthService(
-        config.liferayUrl,
-        config.clientId,
-        config.clientSecret
-      );
-      const accessToken = await oauthService.getAccessToken(
-        config.liferayUrl,
-        config.clientId,
-        config.clientSecret
-      );
-
-      // Use the product images endpoint instead of attachments
-      const response = await axios.post(
-        `${config.liferayUrl}/o/headless-commerce-admin-catalog/v1.0/products/${productId}/images`,
-        {
-          title: imageData.title,
-          src: imageData.src,
-          attachment: imageData.attachment,
-          priority: 0,
-        },
-        {
-          headers: {
-            Authorization: `Bearer ${accessToken}`,
-            'Content-Type': 'application/json',
-          },
-        }
-      );
-
-      return response.data;
-    } catch (error) {
-      logger.errorWithStack(error, {
-        operation: 'add-product-image',
-        productId,
-        imageData,
-        errorDetails: error.response?.data,
-      });
-      throw error;
-    }
+    const data = await this._get(config, PATH.ACCOUNTS, 'get-accounts');
+    return this._asItems(data);
   }
 
   async getCurrencies(config) {
-    try {
-      const client = await this.createAxiosInstance(config);
-      const response = await client.get(
-        '/o/headless-commerce-admin-catalog/v1.0/currencies'
-      );
-      return (
-        response.data?.items.map((currency) => ({
-          code: currency.code,
-          name: currency.name[config.languageId],
-        })) || []
-      );
-    } catch (error) {
-      const errorReference = `LIFR-${Date.now()}-${uuidv4().slice(0, 8)}`;
-      console.error(`Error Reference: ${errorReference}`);
-      console.error('Failed to fetch currencies:', error);
-      throw new Error(`Failed to fetch currencies: ${error.message}`);
-    }
+    const data = await this._get(config, PATH.CURRENCIES, 'get-currencies');
+    const items = this._asItems(data);
+    return items.map((currency) => ({
+      code: currency.code,
+      name: currency.name?.[config.languageId],
+    }));
   }
 
   async getSiteLanguages(config, siteGroupId) {
-    try {
-      const client = await this.createAxiosInstance(config);
-      const response = await client.get(
-        `/o/headless-delivery/v1.0/sites/${siteGroupId}/languages`
-      );
-      return response.data.items || [];
-    } catch (error) {
-      const errorReference = `LIFR-${Date.now()}-${uuidv4().slice(0, 8)}`;
-      console.error(`Error Reference: ${errorReference}`);
-      console.error('Failed to fetch site languages:', error);
-      throw new Error(`Failed to fetch site languages: ${error.message}`);
-    }
+    const data = await this._get(
+      config,
+      PATH.SITE_LANGUAGES(siteGroupId),
+      'get-site-languages'
+    );
+    return this._asItems(data);
   }
 
-  async createProductSku(config, productId, skuData) {
-    try {
-      const client = await this.createAxiosInstance(config);
-
-      const response = await client.post(
-        `/o/headless-commerce-admin-catalog/v1.0/products/${productId}/skus`,
-        skuData
-      );
-
-      logger.info('SKU created successfully', {
-        correlationId: uuidv4(),
-        operation: 'create-sku',
-        productId: productId,
-        sku: response.data.sku,
-        skuId: response.data.id,
-      });
-
-      return response.data;
-    } catch (error) {
-      const errorReference = `LIFR-${Date.now()}-${uuidv4().slice(0, 8)}`;
-      console.error(`Error Reference: ${errorReference}`);
-      logger.error('Failed to create SKU', {
-        correlationId: uuidv4(),
-        operation: 'create-sku',
-        error: {
-          message: error.message,
-          status: error.response?.status,
-          data: error.response?.data,
-        },
-        productId: productId,
-        skuData: skuData,
-        timestamp: new Date().toISOString(),
-        errorReference: errorReference,
-      });
-
-      throw new Error(
-        `Failed to create SKU: ${
-          error.response?.data?.title ||
-          error.response?.data?.detail ||
-          error.message
-        }`
-      );
+  async createProduct(config, productData) {
+    if (!productData.catalogId && config.catalogId) {
+      productData.catalogId = parseInt(config.catalogId, 10);
     }
+
+    console.log('Creating product with payload:', {
+      sku: productData.sku,
+      name: productData.name?.en_US || 'N/A',
+      catalogId: productData.catalogId,
+      productType: productData.productType,
+      payloadKeys: Object.keys(productData),
+    });
+
+    const data = await this._post(
+      config,
+      PATH.PRODUCTS,
+      productData,
+      'create-product',
+      null,
+      'handle'
+    );
+    return data;
   }
 
-  async addProductOptions(config, productId, productOptions) {
-    try {
-      const client = await this.createAxiosInstance(config);
+  async createProductsBatch(config, productsData, callbackUrl) {
+    const batchPayload = { createStrategy: 'INSERT', items: productsData };
 
-      const response = await client.post(
-        `/o/headless-commerce-admin-catalog/v1.0/products/${productId}/productOptions`,
-        productOptions
-      );
+    const url = PATH.PRODUCTS_BATCH(callbackUrl);
 
-      logger.info('Product options added successfully', {
-        correlationId: uuidv4(),
-        operation: 'add-product-options',
-        productId: productId,
-        optionsCount: productOptions.length,
-      });
+    logger.info('Sending batch product creation request', {
+      operation: 'create-products-batch',
+      productCount: productsData.length,
+      callbackUrl: callbackUrl || 'none',
+      url,
+    });
 
-      return response.data;
-    } catch (error) {
-      const errorReference = `LIFR-${Date.now()}-${uuidv4().slice(0, 8)}`;
-      console.error(`Error Reference: ${errorReference}`);
-      logger.error('Failed to add product options', {
-        correlationId: uuidv4(),
-        operation: 'add-product-options',
-        error: {
-          message: error.message,
-          status: error.response?.status,
-          data: error.response?.data,
-        },
-        productId: productId,
-        productOptions: productOptions,
-        timestamp: new Date().toISOString(),
-        errorReference: errorReference,
-      });
+    const data = await this._post(
+      config,
+      url,
+      batchPayload,
+      'create-products-batch',
+      'Failed to create products batch'
+    );
+    logger.info('Batch product creation initiated', {
+      operation: 'create-products-batch',
+      batchId: data.id || 'unknown',
+      status: data.status || 'submitted',
+    });
 
-      throw new Error(
-        `Failed to add product options: ${
-          error.response?.data?.title ||
-          error.response?.data?.detail ||
-          error.message
-        }`
-      );
-    }
+    return {
+      batchId: data.id || `batch-${Date.now()}`,
+      status: data.status || 'submitted',
+      productCount: productsData.length,
+    };
+  }
+
+  async createAccount(config, accountData) {
+    const data = await this._post(
+      config,
+      PATH.ACCOUNTS,
+      accountData,
+      'create-account',
+      null,
+      'handle'
+    );
+
+    logger.info('Account created successfully', {
+      operation: 'create-account',
+      accountId: data.id,
+      accountName: data.name,
+    });
+
+    return data;
+  }
+
+  async createAccountsBatch(config, accountsData, callbackUrl) {
+    const batchPayload = { createStrategy: 'INSERT', items: accountsData };
+    const url = PATH.ACCOUNTS_BATCH(callbackUrl);
+
+    logger.info('Sending batch account creation request', {
+      operation: 'create-accounts-batch',
+      accountCount: accountsData.length,
+      callbackUrl,
+    });
+
+    const data = await this._post(
+      config,
+      url,
+      batchPayload,
+      'create-accounts-batch',
+      'Failed to create accounts batch'
+    );
+
+    logger.info('Batch account creation initiated', {
+      operation: 'create-accounts-batch',
+      batchId: data.id || 'unknown',
+      status: data.status || 'submitted',
+    });
+
+    return {
+      batchId: data.id || `batch-${Date.now()}`,
+      status: data.status || 'submitted',
+      accountCount: accountsData.length,
+    };
+  }
+
+  async createOrder(config, orderData) {
+    if (!orderData.channelId)
+      throw new Error('channelId is required for order creation');
+    if (!orderData.currencyCode)
+      throw new Error('currencyCode is required for order creation');
+
+    orderData.channelId = parseInt(orderData.channelId, 10);
+
+    console.log('Creating order with payload:', {
+      channelId: orderData.channelId,
+      currencyCode: orderData.currencyCode,
+      accountId: orderData.accountId,
+      payloadKeys: Object.keys(orderData),
+    });
+
+    return await this._post(
+      config,
+      PATH.ORDERS,
+      orderData,
+      'create-order',
+      'Failed to create order'
+    );
+  }
+
+  async createPriceList(config, priceListData) {
+    return await this._post(
+      config,
+      PATH.PRICE_LISTS,
+      priceListData,
+      'create-price-list',
+      'Failed to create price list'
+    );
+  }
+
+  async createPriceEntry(config, priceListId, priceEntryData) {
+    return await this._post(
+      config,
+      PATH.PRICE_ENTRIES(priceListId),
+      priceEntryData,
+      'create-price-entry',
+      'Failed to create price entry'
+    );
   }
 
   async createSkuPriceEntry(config, priceListId, skuId, priceEntryData) {
-    try {
-      const client = await this.createAxiosInstance(config);
-      const response = await client.post(
-        `/o/headless-commerce-admin-pricing/v1.0/price-lists/${priceListId}/price-entries`,
-        { ...priceEntryData, skuId }
-      );
-      return response.data;
-    } catch (error) {
-      const errorReference = `LIFR-${Date.now()}-${uuidv4().slice(0, 8)}`;
-      console.error(`Error Reference: ${errorReference}`);
-      console.error(
-        'Failed to create SKU price entry:',
-        error.response?.data || error.message
-      );
-      throw new Error(
-        `Failed to create SKU price entry: ${
-          error.response?.data?.title || error.message
-        }`
-      );
-    }
+    return await this._post(
+      config,
+      PATH.PRICE_ENTRIES(priceListId),
+      { ...priceEntryData, skuId },
+      'create-sku-price-entry',
+      'Failed to create SKU price entry'
+    );
+  }
+
+  async createProductSku(config, productId, skuData) {
+    return await this._post(
+      config,
+      PATH.PRODUCT_SKUS(productId),
+      skuData,
+      'create-sku',
+      'Failed to create SKU'
+    );
+  }
+
+  async addProductOptions(config, productId, productOptions) {
+    return await this._post(
+      config,
+      PATH.PRODUCT_OPTIONS(productId),
+      productOptions,
+      'add-product-options',
+      'Failed to add product options'
+    );
   }
 
   async createOption(config, optionData) {
-    try {
-      console.log(`LiferayService.createOption called with:`, {
-        optionKey: optionData.key,
-        optionName: optionData.name?.en_US,
-        fieldType: optionData.fieldType,
-        liferayUrl: config.liferayUrl,
-      });
-      const client = await this.createAxiosInstance(config);
-      console.log(
-        `Making POST request to: ${config.liferayUrl}/o/headless-commerce-admin-catalog/v1.0/options`
-      );
-      const response = await client.post(
-        '/o/headless-commerce-admin-catalog/v1.0/options',
-        optionData
-      );
-      console.log(`✓ Option created successfully:`, response.data);
-      return response.data;
-    } catch (error) {
-      const errorReference = `LIFR-${Date.now()}-${uuidv4().slice(0, 8)}`;
-      console.error(`Error Reference: ${errorReference}`);
-      if (error.response?.status === 500) {
-        console.error(
-          'Internal Server Error - Create Option Request Details:',
-          {
-            url: '/o/headless-commerce-admin-catalog/v1.0/options',
-            method: 'POST',
-            requestBody: optionData,
-            config: {
-              liferayUrl: config.liferayUrl,
-              localeCode: config.localeCode,
-            },
-            response: {
-              status: error.response.status,
-              statusText: error.response.statusText,
-              data: error.response.data,
-            },
-            timestamp: new Date().toISOString(),
-            errorReference: errorReference,
-          }
-        );
-      }
+    console.log(`LiferayService.createOption called with:`, {
+      optionKey: optionData.key,
+      optionName: optionData.name?.en_US,
+      fieldType: optionData.fieldType,
+      liferayUrl: config.liferayUrl,
+    });
 
-      console.error(
-        'Failed to create option:',
-        error.response?.data || error.message
-      );
-      throw new Error(
-        `Failed to create option: ${
-          error.response?.data?.title || error.message
-        }`
-      );
-    }
+    const data = await this._post(
+      config,
+      PATH.OPTIONS,
+      optionData,
+      'create-option',
+      'Failed to create option'
+    );
+
+    console.log(`✓ Option created successfully:`, data);
+    return data;
   }
 
   async createOptionValue(config, optionId, optionValueData) {
-    try {
-      const client = await this.createAxiosInstance(config);
-      const response = await client.post(
-        `/o/headless-commerce-admin-catalog/v1.0/options/${optionId}/optionValues`,
-        optionValueData
-      );
-      return response.data;
-    } catch (error) {
-      const errorReference = `LIFR-${Date.now()}-${uuidv4().slice(0, 8)}`;
-      console.error(`Error Reference: ${errorReference}`);
-      if (error.response?.status === 500) {
-        console.error(
-          'Internal Server Error - Create Option Value Request Details:',
-          {
-            url: `/o/headless-commerce-admin-catalog/v1.0/options/${optionId}/optionValues`,
-            method: 'POST',
-            optionId: optionId,
-            requestBody: optionValueData,
-            config: {
-              liferayUrl: config.liferayUrl,
-              localeCode: config.localeCode,
-            },
-            response: {
-              status: error.response.status,
-              statusText: error.response.statusText,
-              data: error.response.data,
-            },
-            timestamp: new Date().toISOString(),
-            errorReference: errorReference,
-          }
-        );
-      }
-
-      console.error(
-        'Failed to create option value:',
-        error.response?.data || error.message
-      );
-      throw new Error(
-        `Failed to create option value: ${
-          error.response?.data?.title || error.message
-        }`
-      );
-    }
+    return await this._post(
+      config,
+      PATH.OPTION_VALUES(optionId),
+      optionValueData,
+      'create-option-value',
+      'Failed to create option value'
+    );
   }
 
   async getOptionByERC(config, externalReferenceCode) {
     try {
-      const client = await this.createAxiosInstance(config);
-      const response = await client.get(
-        `/o/headless-commerce-admin-catalog/v1.0/options/by-external-reference-code/${externalReferenceCode}`
+      return await this._get(
+        config,
+        PATH.OPTION_BY_ERC(externalReferenceCode),
+        'get-option-by-erc'
       );
-      return response.data;
     } catch (error) {
-      const errorReference = `LIFR-${Date.now()}-${uuidv4().slice(0, 8)}`;
-      console.error(`Error Reference: ${errorReference}`);
-      if (error.response?.status === 404) {
-        return null;
-      }
-      console.error(
-        'Failed to get option by ERC:',
-        error.response?.data || error.message
-      );
-      throw new Error(
-        `Failed to get option by ERC: ${
-          error.response?.data?.title || error.message
-        }`
-      );
+      if (error.response?.status === 404) return null;
+      throw new Error(`Failed to get option by ERC: ${error.message}`);
     }
   }
 
   async getOptionValueByERC(config, optionId, externalReferenceCode) {
     try {
-      const client = await this.createAxiosInstance(config);
-      const response = await client.get(
-        `/o/headless-commerce-admin-catalog/v1.0/options/${optionId}/optionValues/by-external-reference-code/${externalReferenceCode}`
+      return await this._get(
+        config,
+        PATH.OPTION_VALUE_BY_ERC(optionId, externalReferenceCode),
+        'get-option-value-by-erc'
       );
-      return response.data;
     } catch (error) {
-      const errorReference = `LIFR-${Date.now()}-${uuidv4().slice(0, 8)}`;
-      console.error(`Error Reference: ${errorReference}`);
-      if (error.response?.status === 404) {
-        return null;
-      }
-      console.error(
-        'Failed to get option value by ERC:',
-        error.response?.data || error.message
-      );
-      throw new Error(
-        `Failed to get option value by ERC: ${
-          error.response?.data?.title || error.message
-        }`
-      );
+      if (error.response?.status === 404) return null;
+      throw new Error(`Failed to get option value by ERC: ${error.message}`);
     }
   }
 
   async createOptionCategory(config, optionCategoryData) {
-    try {
-      const client = await this.createAxiosInstance(config);
-      const response = await client.post(
-        '/o/headless-commerce-admin-catalog/v1.0/optionCategories',
-        optionCategoryData
-      );
-      return response.data;
-    } catch (error) {
-      const errorReference = `LIFR-${Date.now()}-${uuidv4().slice(0, 8)}`;
-      console.error(`Error Reference: ${errorReference}`);
-      if (error.response?.status === 500) {
-        console.error(
-          'Internal Server Error - Create Option Category Request Details:',
-          {
-            url: '/o/headless-commerce-admin-catalog/v1.0/optionCategories',
-            method: 'POST',
-            requestBody: optionCategoryData,
-            config: {
-              liferayUrl: config.liferayUrl,
-              localeCode: config.localeCode,
-            },
-            response: {
-              status: error.response.status,
-              statusText: error.response.statusText,
-              data: error.response.data,
-            },
-            timestamp: new Date().toISOString(),
-            errorReference: errorReference,
-          }
-        );
-      }
-
-      console.error(
-        'Failed to create option category:',
-        error.response?.data || error.message
-      );
-      throw new Error(
-        `Failed to create option category: ${
-          error.response?.data?.title || error.message
-        }`
-      );
-    }
+    return await this._post(
+      config,
+      PATH.OPTION_CATEGORIES,
+      optionCategoryData,
+      'create-option-category',
+      'Failed to create option category'
+    );
   }
 
   async getOptionCategoryByERC(config, externalReferenceCode) {
     try {
-      const client = await this.createAxiosInstance(config);
-      const response = await client.get(
-        `/o/headless-commerce-admin-catalog/v1.0/optionCategories/by-external-reference-code/${externalReferenceCode}`
+      return await this._get(
+        config,
+        PATH.OPTION_CATEGORY_BY_ERC(externalReferenceCode),
+        'get-option-category-by-erc'
       );
-      return response.data;
     } catch (error) {
-      const errorReference = `LIFR-${Date.now()}-${uuidv4().slice(0, 8)}`;
-      console.error(`Error Reference: ${errorReference}`);
-      if (error.response?.status === 404) {
-        return null;
-      }
-      console.error(
-        'Failed to get option category by ERC:',
-        error.response?.data || error.message
-      );
-      throw new Error(
-        `Failed to get option category by ERC: ${
-          error.response?.data?.title || error.message
-        }`
-      );
+      if (error.response?.status === 404) return null;
+      throw new Error(`Failed to get option category by ERC: ${error.message}`);
     }
   }
 
   async createSpecification(config, specificationData) {
-    try {
-      const client = await this.createAxiosInstance(config);
-      const response = await client.post(
-        '/o/headless-commerce-admin-catalog/v1.0/specifications',
-        specificationData
-      );
-      return response.data;
-    } catch (error) {
-      const errorReference = `LIFR-${Date.now()}-${uuidv4().slice(0, 8)}`;
-      console.error(`Error Reference: ${errorReference}`);
-      if (error.response?.status === 500) {
-        console.error(
-          'Internal Server Error - Create Specification Request Details:',
-          {
-            url: '/o/headless-commerce-admin-catalog/v1.0/specifications',
-            method: 'POST',
-            requestBody: specificationData,
-            config: {
-              liferayUrl: config.liferayUrl,
-              localeCode: config.localeCode,
-            },
-            response: {
-              status: error.response.status,
-              statusText: error.response.statusText,
-              data: error.response.data,
-            },
-            timestamp: new Date().toISOString(),
-            errorReference: errorReference,
-          }
-        );
-      }
-
-      console.error(
-        'Failed to create specification:',
-        error.response?.data || error.message
-      );
-      throw new Error(
-        `Failed to create specification: ${
-          error.response?.data?.title || error.message
-        }`
-      );
-    }
+    return await this._post(
+      config,
+      PATH.SPECIFICATIONS,
+      specificationData,
+      'create-specification',
+      'Failed to create specification'
+    );
   }
 
   async getSpecificationByERC(config, externalReferenceCode) {
     try {
-      const client = await this.createAxiosInstance(config);
-      const response = await client.get(
-        `/o/headless-commerce-admin-catalog/v1.0/specifications/by-external-reference-code/${externalReferenceCode}`
+      return await this._get(
+        config,
+        PATH.SPECIFICATION_BY_ERC(externalReferenceCode),
+        'get-specification-by-erc'
       );
-      return response.data;
     } catch (error) {
-      const errorReference = `LIFR-${Date.now()}-${uuidv4().slice(0, 8)}`;
-      console.error(`Error Reference: ${errorReference}`);
-      if (error.response?.status === 404) {
-        return null;
-      }
-      console.error(
-        'Failed to get specification by ERC:',
-        error.response?.data || error.message
-      );
-      throw new Error(
-        `Failed to get specification by ERC: ${
-          error.response?.data?.title || error.message
-        }`
-      );
+      if (error.response?.status === 404) return null;
+      throw new Error(`Failed to get specification by ERC: ${error.message}`);
     }
   }
 
   async getConfig(config, configKey) {
     try {
-      const client = await this.createAxiosInstance(config);
-      const filter = encodeURIComponent(
-        `configKey eq '${configKey}' and configStatus eq 'Active'`
-      );
+      const filter = `configKey eq '${configKey}' and configStatus eq 'Active'`;
 
-      const url = `/o/c/aicommerceacceleratorconfigurations/?fields=configValue&filter=${filter}`;
+      const url = PATH.CUSTOM_OBJECT_QUERY(PATH.CUSTOM_OBJECTS.AICA_CONFIGS, {
+        fields: 'configValue',
+        filter,
+      });
 
       logger.info('Getting configuration from Liferay', {
         operation: 'get-config',
-        configKey: configKey,
-        url: url,
+        configKey,
+        url,
         baseURL: config.liferayUrl,
       });
 
-      const response = await client.get(url);
-
-      return response.data;
+      const data = await this._get(
+        config,
+        url,
+        'get-config',
+        'Failed to get configuration entry'
+      );
+      return data;
     } catch (error) {
       const errorReference = `LIFR-${Date.now()}-${uuidv4().slice(0, 8)}`;
       console.error(`Error Reference: ${errorReference}`);
@@ -1487,8 +668,8 @@ class LiferayService {
         error: error.message,
         status: error.response?.status,
         data: error.response?.data,
-        configKey: configKey,
-        errorReference: errorReference,
+        configKey,
+        errorReference,
       });
 
       throw new Error(
@@ -1507,10 +688,8 @@ class LiferayService {
     externalReferenceCode,
     nameOverride
   ) {
-    const client = await this.createAxiosInstance(config);
     try {
-      const folder = await getDocumentsFolderByERC.call(
-        this,
+      const folder = await this.getDocumentsFolderByERC(
         config,
         siteGroupId,
         externalReferenceCode
@@ -1518,43 +697,41 @@ class LiferayService {
       return folder;
     } catch (err) {
       if (err?.response?.status !== 404) throw err;
+
       const name =
         nameOverride ??
         `AI Commerce Accelerator - ${
           new Date().toISOString().split('T')[0]
         } - ${externalReferenceCode.slice(-6)}`;
-      const { data } = await client.post(
-        `/o/headless-delivery/v1.0/sites/${siteGroupId}/documents-folders`,
+
+      this._post(
+        config,
+        PATH.DOCUMENT_FOLDERS(siteGroupId),
         {
           name,
           externalReferenceCode,
           description: 'Uploads from AI Commerce Accelerator',
-        }
+        },
+        'create-documents-folder',
+        'Failed to create documents folder'
       );
-      return data;
     }
   }
 
   async getDocumentsFolderByERC(config, siteId, externalReferenceCode) {
-    const client = await this.createAxiosInstance(config);
-    const { data } = await client.get(
-      `/o/headless-delivery/v1.0/sites/${siteId}/documents-folders/by-externalReferenceCode/${encodeURIComponent(
-        externalReferenceCode
-      )}`
+    return this._get(
+      config,
+      PATH.DOCUMENT_FOLDER_BY_ERC(siteId, externalReferenceCode),
+      'get-documents-folder-by-erc'
     );
-    return data; // folder
   }
 
   async createSiteDocumentsFolder(config, siteId, opts = {}) {
     if (!config || !siteId) return;
 
-    const client = await this.createAxiosInstance(config);
-
-    let folderName = opts.folderName;
-    let folderERC = opts.folderExternalReferenceCode;
+    let { folderName, folderExternalReferenceCode: folderERC } = opts;
 
     if (!folderName || !folderERC) {
-      // friendly name + short hash
       const date = new Date();
       const yyyy = date.getFullYear();
       const mm = String(date.getMonth() + 1).padStart(2, '0');
@@ -1573,31 +750,66 @@ class LiferayService {
       viewableBy: opts.viewableBy || 'Owner',
     };
 
-    // POST /v1.0/sites/{siteId}/documents-folders
-    const { data: folder } = await client.post(
-      `/o/headless-delivery/v1.0/sites/${siteId}/document-folders`,
-      payload
+    const folder = await this._post(
+      config,
+      PATH.DOCUMENT_FOLDERS(siteId),
+      payload,
+      'create-site-documents-folder',
+      'Failed to create site documents folder'
     );
 
     return { folder, folderName, folderERC };
   }
 
+  async _postMultipart(config, url, form, op, friendly) {
+    const client = await this._client(config);
+    try {
+      const { data } = await client.post(url, form, {
+        headers: {
+          ...form.getHeaders(),
+          Accept: 'application/json',
+        },
+        // keep FormData unmodified
+        transformRequest: [(d) => d],
+        maxBodyLength: Infinity,
+        maxContentLength: Infinity,
+      });
+      return data;
+    } catch (error) {
+      const errorReference = this._errRef();
+      console.error(`Error Reference: ${errorReference}`);
+      const baseLog = {
+        operation: op || 'post-multipart',
+        url,
+        status: error.response?.status,
+        statusText: error.response?.statusText,
+        data: error.response?.data,
+        timestamp: new Date().toISOString(),
+        errorReference,
+      };
+      if (logger?.error) logger.error('Multipart request failed', baseLog);
+      const msg =
+        friendly ||
+        error.response?.data?.title ||
+        error.response?.data?.detail ||
+        error.message;
+
+      const wrapped = new Error(msg);
+      wrapped.response = {
+        status: error.response?.status,
+        data: error.response?.data,
+        errorReference,
+      };
+      throw wrapped;
+    }
+  }
+
   async uploadSiteDocumentMultipart(config, file, opts = {}) {
-    const client = await this.createAxiosInstance(config);
+    const form = new FormData();
 
-    // Pick correct FormData implementation (browser vs Node)
-    const FormDataCtor =
-      typeof FormData !== 'undefined'
-        ? FormData
-        : (await import('form-data')).default;
-
-    const form = new FormDataCtor();
-
-    // Resolve filename/mime
     const filename = opts.filename || file?.filename || 'upload.bin';
     const mime = opts.mime || file?.mime || 'application/octet-stream';
 
-    // ----- JSON 'document' part (as STRING, no filename) -----
     const documentJson = {
       title: opts.title || filename || 'Uploaded Document',
       description:
@@ -1612,18 +824,15 @@ class LiferayService {
       viewableBy: opts.viewableBy || 'Owner',
     };
 
-    // IMPORTANT: no filename here; send as a plain field with JSON content type
     form.append('document', JSON.stringify(documentJson), {
       contentType: 'application/json; charset=utf-8',
     });
 
-    // ----- binary 'file' part -----
     if (Buffer.isBuffer(file)) {
       form.append('file', file, { filename, contentType: mime });
     } else if (file?.buffer && Buffer.isBuffer(file.buffer)) {
       form.append('file', file.buffer, { filename, contentType: mime });
     } else if (file?.path) {
-      const fs = require('fs');
       form.append('file', fs.createReadStream(file.path), {
         filename,
         contentType: mime,
@@ -1634,20 +843,163 @@ class LiferayService {
       );
     }
 
-    const url = `/o/headless-delivery/v1.0/sites/${config.siteGroupId}/documents`;
+    const url = PATH.SITE_DOCUMENTS(config.siteGroupId);
+    return this._postMultipart(
+      config,
+      url,
+      form,
+      'upload-site-document-multipart',
+      'Failed to upload site document'
+    );
+  }
 
-    const { data } = await client.post(url, form, {
-      headers: {
-        ...form.getHeaders(), // sets proper multipart boundary
-        Accept: 'application/json',
+  _extractDataUrlBase64(input) {
+    if (typeof input !== 'string') return { base64: null, contentType: null };
+    if (!input.startsWith('data:')) return { base64: input, contentType: null };
+
+    const match = input.match(/^data:([^;]+);base64,(.*)$/);
+    if (match) return { contentType: match[1] || null, base64: match[2] || '' };
+
+    const parts = input.split(',');
+    return { contentType: null, base64: parts[1] || '' };
+  }
+
+  async _postProductMediaByBase64(
+    config,
+    productERC,
+    { base64, contentType, title, priority, type }
+  ) {
+    const url =
+      type === 'image'
+        ? PATH.PRODUCT_IMAGES_BY_BASE64(productERC)
+        : PATH.PRODUCT_ATTACHMENTS_BY_BASE64(productERC);
+    const payload = {
+      attachment: base64,
+      title: title || {
+        en_US: `${
+          type === 'image' ? 'Product Image' : 'Product Documentation'
+        } - ${productERC}`,
       },
-      // Avoid any global transform that might stringify the FormData as querystring
-      transformRequest: [(data, headers) => data],
-      maxBodyLength: Infinity,
-      maxContentLength: Infinity,
-    });
+      contentType:
+        contentType || (type === 'image' ? 'image/jpeg' : 'application/pdf'),
+      priority: priority ?? 1.0,
+    };
+    return this._post(
+      config,
+      url,
+      payload,
+      `add-product-${type}-by-base64`,
+      `Failed to add product ${type}`
+    );
+  }
 
-    return data;
+  async _postProductMediaByUrl(config, productERC, { src, title, type }) {
+    const url =
+      type === 'image'
+        ? PATH.PRODUCT_IMAGES_BY_URL(productERC)
+        : PATH.PRODUCT_ATTACHMENTS_BY_URL(productERC);
+    const payload = {
+      externalReferenceCode: `${
+        type === 'image' ? 'IMG' : 'ATT'
+      }_${Date.now()}`,
+      title: title || {
+        en_US: `${type === 'image' ? 'Image' : 'Attachment'} for ${productERC}`,
+      },
+      src,
+    };
+    return this._post(
+      config,
+      url,
+      payload,
+      `add-product-${type}-by-url`,
+      `Failed to add product ${type}`
+    );
+  }
+
+  async addProductImageByBase64(config, productERC, imageData, priority = 1.0) {
+    if (!config || !productERC || !imageData) return;
+    const { base64, contentType } = this._extractDataUrlBase64(imageData);
+    return this._postProductMediaByBase64(config, productERC, {
+      base64,
+      contentType: contentType || 'image/jpeg',
+      priority,
+      type: 'image',
+    });
+  }
+
+  async addProductAttachmentByBase64(
+    config,
+    productERC,
+    attachmentMetaData,
+    priority = 1.0
+  ) {
+    if (!config || !productERC || !attachmentMetaData?.attachment) return;
+
+    const { base64 } = this._extractDataUrlBase64(
+      attachmentMetaData.attachment
+    );
+
+    try {
+      const pdfBuffer = Buffer.from(base64 || '', 'base64');
+      const pdfHeader = pdfBuffer.slice(0, 4).toString();
+      if (pdfHeader !== '%PDF') {
+        console.warn(
+          `Warning: PDF attachment for ${productERC} does not have valid PDF header, got: ${pdfHeader}`
+        );
+      }
+    } catch (validationError) {
+      console.error(
+        `PDF validation failed for ${productERC}:`,
+        validationError.message
+      );
+    }
+
+    return this._postProductMediaByBase64(config, productERC, {
+      base64,
+      contentType: attachmentMetaData.contentType || 'application/pdf',
+      title: attachmentMetaData.title,
+      priority,
+      type: 'attachment',
+    });
+  }
+
+  async addProductImageByUrl(config, productERC, imageUrlData) {
+    return this._postProductMediaByUrl(config, productERC, {
+      src: imageUrlData.src,
+      title: imageUrlData.title,
+      type: 'image',
+    });
+  }
+
+  async addProductAttachmentByUrl(config, productERC, attachmentUrlData) {
+    return this._postProductMediaByUrl(config, productERC, {
+      src: attachmentUrlData.src,
+      title: attachmentUrlData.title,
+      type: 'attachment',
+    });
+  }
+
+  async addProductAttachment(config, productId, attachmentData) {
+    return this._postProductMediaByUrl(config, productERC, {
+      src: imageUrlData.src,
+      title: imageUrlData.title,
+      type: 'image',
+    });
+  }
+
+  async addProductImage(config, productId, imageData) {
+    return await this._post(
+      config,
+      PATH.PRODUCT_IMAGES(productId),
+      {
+        title: imageData.title,
+        src: imageData.src,
+        attachment: imageData.attachment,
+        priority: 0,
+      },
+      'add-product-image',
+      'Failed to add product image'
+    );
   }
 
   async attachSiteDocumentToProductByUrl(config, productERC, doc) {
@@ -1657,34 +1009,49 @@ class LiferayService {
         doc.title ||
         (isImage ? `Image for ${productERC}` : `Attachment for ${productERC}`),
     };
-    const payload = {
-      externalReferenceCode: `${isImage ? 'IMG' : 'ATT'}_${Date.now()}`,
-      title,
-      src: doc.contentUrl,
-    };
-
-    if (isImage) {
-      return this.addProductImageByUrl(config, productERC, payload);
-    }
-    return this.addProductAttachmentByUrl(config, productERC, payload);
+    const payload = { title, src: doc.contentUrl };
+    return isImage
+      ? this.addProductImageByUrl(config, productERC, payload)
+      : this.addProductAttachmentByUrl(config, productERC, payload);
   }
 
   async attachDocumentToProduct(config, productERC, doc) {
     const isImage = /^(png|jpg|jpeg|webp|gif)$/i.test(doc.fileExtension || '');
-
-    if (isImage) {
-      return this.addProductImageByUrl(config, productERC, {
-        externalReferenceCode: `IMG_${Date.now()}`,
-        title: { en_US: doc.title || `Image for ${productERC}` },
-        src: doc.contentUrl,
-      });
-    }
-
-    return this.addProductAttachmentByUrl(config, productERC, {
-      externalReferenceCode: `ATT_${Date.now()}`,
-      title: { en_US: doc.title || `Attachment for ${productERC}` },
+    const payload = {
+      externalReferenceCode: `${isImage ? 'IMG' : 'ATT'}_${Date.now()}`,
+      title: {
+        en_US:
+          doc.title ||
+          (isImage
+            ? `Image for ${productERC}`
+            : `Attachment for ${productERC}`),
+      },
       src: doc.contentUrl,
-    });
+    };
+    return isImage
+      ? this.addProductImageByUrl(config, productERC, payload)
+      : this.addProductAttachmentByUrl(config, productERC, payload);
+  }
+
+  async getDocumentFolderPermissions(config, folderId) {
+    return this._getPermissions(config, ASSET_TYPE.DOCUMENT_FOLDER, folderId);
+  }
+
+  async putDocumentFolderPermissions(config, folderId, items) {
+    return this._putPermissions(
+      config,
+      ASSET_TYPE.DOCUMENT_FOLDER,
+      folderId,
+      items
+    );
+  }
+
+  async getDocumentPermissions(config, documentId) {
+    return this._getPermissions(config, ASSET_TYPE.DOCUMENT, documentId);
+  }
+
+  async putDocumentPermissions(config, documentId, items) {
+    return this._putPermissions(config, ASSET_TYPE.DOCUMENT, documentId, items);
   }
 
   async patchPermissionsByAsset(config, opts) {
@@ -1704,13 +1071,8 @@ class LiferayService {
     if (!viewableBy)
       throw new Error('patchPermissionsByAsset: viewableBy is required.');
 
-    // Resolve ops
-    const ops = this._resolvePermissionsOps(assetType);
+    const currentItems = await this._getPermissions(config, assetType, id);
 
-    // GET current (normalized to array via the getters above)
-    const currentItems = await ops.get(config, id);
-
-    // Build proposed
     const built = buildPermissionsItems({
       assetType,
       viewableBy,
@@ -1718,14 +1080,11 @@ class LiferayService {
       includeRoles,
     });
 
-    // Merge → returns array
     const merged = this._mergePermissionsItems(currentItems, built, {
       strategy,
       remove,
     });
-
-    // PUT raw array
-    return ops.put(config, id, merged);
+    return this._putPermissions(config, assetType, id, merged);
   }
 
   async patchDocumentFolderPermissions(config, folderId, builderOpts) {
@@ -1746,7 +1105,7 @@ class LiferayService {
 
   async mutateDocumentFolderPermissions(config, folderId, builderOrMutator) {
     const current = await this.getDocumentFolderPermissions(config, folderId);
-    const currentItems = current.items || [];
+    const currentItems = current.items || current;
 
     if (typeof builderOrMutator === 'function') {
       const nextItems = await builderOrMutator(currentItems, {
@@ -1764,7 +1123,6 @@ class LiferayService {
       return this.putDocumentFolderPermissions(config, folderId, merged);
     }
 
-    // else treat as builder options object
     return this.patchDocumentFolderPermissions(
       config,
       folderId,
@@ -1774,7 +1132,7 @@ class LiferayService {
 
   async mutateDocumentPermissions(config, documentId, builderOrMutator) {
     const current = await this.getDocumentPermissions(config, documentId);
-    const currentItems = current.items || [];
+    const currentItems = current.items || current;
 
     if (typeof builderOrMutator === 'function') {
       const nextItems = await builderOrMutator(currentItems, {
@@ -1794,6 +1152,8 @@ class LiferayService {
 
     return this.patchDocumentPermissions(config, documentId, builderOrMutator);
   }
+
+  async createVocabulary(config, options) {}
 }
 
 module.exports = new LiferayService();

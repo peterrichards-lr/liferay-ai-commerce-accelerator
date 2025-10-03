@@ -1,5 +1,16 @@
+const { lookupConfig } = require('@rotty3000/config-node');
 const { logger } = require('../utils/logger.cjs');
 const { get: getWs } = require('../services/wsBus.cjs');
+
+const applicationExternalReferenceCodes = {
+  OAUTH_AGENT_EXTERNAL_REFERENCE_CODE: lookupConfig(
+    'main.liferay.agent.oauth.application'
+  ),
+
+  OAUTH_SERVER_EXTERNAL_REFERENCE_CODE: lookupConfig(
+    'main.liferay.server.oauth.application'
+  ),
+};
 
 function getRandomInt(max) {
   return Math.floor(Math.random() * max);
@@ -20,38 +31,18 @@ async function handleDemoProductGeneration(
       `Demo mode: Generating ${options.productCount} mock products using batch endpoint`
     );
 
-    // Use the same productGenerator.generateProducts method as live mode
     const result = await productGenerator.generateProducts(config, options);
 
-    // Calculate PDFs
     const expectedPDFs =
       options.pdfMode !== 'none' && options.pdfRatio > 0
         ? Math.ceil((options.productCount * options.pdfRatio) / 100)
         : 0;
 
-    // Emit progress update via WebSocket for PDF generation
-    if (options.pdfMode === 'generate' && result.pdfProgress) {
-      getWs().emitGenerationProgress({
-        percent: Math.round(
-          (result.pdfProgress.current / result.pdfProgress.total) * 100
-        ),
-        entityType: 'pdfs',
-        batchId: result.products[0]?.batchId,
-      });
-    }
+    const expectedImages =
+      options.imageMode !== 'none' && options.imageRatio > 0
+        ? Math.ceil((options.productCount * options.imageRatio) / 100)
+        : 0;
 
-    // Emit progress update via WebSocket for Image generation
-    if (options.imageMode === 'generate' && result.imageProgress) {
-      getWs().emitGenerationProgress({
-        percent: Math.round(
-          (result.imageProgress.current / result.imageProgress.total) * 100
-        ),
-        entityType: 'images',
-        batchId: result.products[0]?.batchId,
-      });
-    }
-
-    // Fix for undefined products log message
     console.log(
       `Demo: Successfully initiated batch creation of ${
         result.created || 0
@@ -63,6 +54,7 @@ async function handleDemoProductGeneration(
       batchId: result.products[0]?.batchId,
       count: result.created || 0,
       pdfCount: expectedPDFs,
+      imageCount: expectedImages,
       errors: result.errors,
       status: result.products[0]?.status || 'submitted',
       demo: true,
@@ -294,6 +286,7 @@ function buildDataUrl({ contentType, base64 }) {
 }
 
 module.exports = {
+  applicationExternalReferenceCodes,
   getRandomInt,
   handleDemoProductGeneration,
   handleDemoAccountGeneration,

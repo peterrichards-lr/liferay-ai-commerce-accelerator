@@ -150,6 +150,7 @@ module.exports = function (
     inputValidationMiddleware(generateDataSchema),
     async (req, res) => {
       const { config, options } = buildConfigAndOptions(req);
+      config.correlationId = req.correlationId ?? uuidv4();
 
       try {
         if (!options.productCount) {
@@ -180,14 +181,17 @@ module.exports = function (
           });
         }
 
-        const actualCount =
-          options.productCount > 5
-            ? Math.max(config.batchSize, 5)
-            : options.productCount;
+        logger.info('Starting product generation', {
+          correlationId: config.correlationId,
+          operation: 'generate-products',
+          productCount: options.productCount,
+          demoMode: options.demoMode,
+          categories: options.categories?.length || 0,
+          microserviceUrl: options.microserviceUrl,
+        });
 
         let folderERC;
         let folder;
-
         if (options.customImageFile || options.customPdfFile) {
           folderERC = `AICA_${Date.now().toString(36)}_${Math.random()
             .toString(36)
@@ -204,7 +208,6 @@ module.exports = function (
           );
 
           folder = response.folder;
-
           if (folder) {
             await liferayService.patchPermissionsByAsset(config, {
               assetType: ASSET_TYPE.DOCUMENT_FOLDER,
@@ -218,15 +221,6 @@ module.exports = function (
             options.customImageFile || options.customPdfFile ? folderERC : null;
         }
 
-        logger.info('Starting product generation', {
-          correlationId: config.correlationId,
-          operation: 'generate-products',
-          productCount: options.productCount,
-          demoMode: options.demoMode,
-          categories: options.categories?.length || 0,
-          microserviceUrl: options.microserviceUrl,
-        });
-
         if (options.demoMode) {
           return handleDemoProductGeneration(
             config,
@@ -236,6 +230,37 @@ module.exports = function (
           );
         }
 
+        /*
+    // Emit progress update via WebSocket for PDF generation
+    if (options.pdfMode === 'generate' && result.pdfProgress) {
+      getWs().emitGenerationProgress({
+        percent: Math.round(
+          (result.pdfProgress.current / result.pdfProgress.total) * 100
+        ),
+        entityType: 'pdfs',
+        batchId: result.products[0]?.batchId,
+      });
+    }
+
+    // Emit progress update via WebSocket for Image generation
+    if (options.imageMode === 'generate' && result.imageProgress) {
+      getWs().emitGenerationProgress({
+        percent: Math.round(
+          (result.imageProgress.current / result.imageProgress.total) * 100
+        ),
+        entityType: 'images',
+        batchId: result.products[0]?.batchId,
+      });
+    }
+      */
+
+
+        const actualCount =
+          options.productCount > 5
+            ? Math.max(config.batchSize, 5)
+            : options.productCount;
+            
+        // Untested
         if (options.pdfMode === 'generate' && options.pdfRatio > 0) {
           const expectedPDFs = Math.ceil(
             actualCount * (options.pdfRatio / 100)
@@ -311,7 +336,7 @@ module.exports = function (
           message: 'Products generated successfully',
           count: totalProductsCreated,
           products: results.products || [],
-          correlationId: req.correlationId,
+          correlationId: config.correlationId,
           timestamp: new Date().toISOString(),
         });
       } catch (error) {
@@ -323,7 +348,7 @@ module.exports = function (
 
         // Enhanced error logging with full request/response context
         logger.error('Product generation failed - Enhanced Debug Info', {
-          correlationId: req.correlationId,
+          correlationId: config.correlationId,
           operation: 'generate-products',
           error: errorMessage,
           errorName: error.name || 'UnknownError',

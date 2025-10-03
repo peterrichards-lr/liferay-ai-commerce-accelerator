@@ -1,6 +1,5 @@
-const axios = require('axios');
-
 const liferayService = require('./liferayService.cjs');
+const { CacheService } = require('./cacheService.cjs');
 
 const OPENAPI_CACHE_KEY = 'OPENAI_API_KEY';
 const OPENAI_CONFIG_KEY = 'open-ai-key';
@@ -13,24 +12,13 @@ const DEFAULT_PDF_CONFIG_HEY = 'default-pdf';
 
 class ConfigService {
   constructor() {
-    this.cache = new Map();
-    this.cacheTimeout = 5 * 60 * 1000; // 5 minutes
+    this.cache = new CacheService();
   }
 
   async getConfig(requestConfig, cacheKey, configKey) {
     if (!requestConfig) {
       throw new Error(
         'OAuth configuration required: liferayUrl, clientId, and clientSecret must be provided'
-      );
-    }
-
-    if (
-      !requestConfig.liferayUrl ||
-      !requestConfig.clientId ||
-      !requestConfig.clientSecret
-    ) {
-      throw new Error(
-        'Missing OAuth parameters: liferayUrl, clientId, and clientSecret are required'
       );
     }
 

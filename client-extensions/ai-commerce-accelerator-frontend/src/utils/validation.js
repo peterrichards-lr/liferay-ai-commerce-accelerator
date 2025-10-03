@@ -24,11 +24,13 @@ export function getConnectionErrorsMap(cfg) {
     (errors.localeCode ??= []).push('Locale code is required.');
   }
 
-  if (!cfg.clientId || String(cfg.clientId).trim().length === 0) {
-    (errors.clientId ??= []).push('Client ID is required.');
-  }
-  if (!cfg.clientSecret || String(cfg.clientSecret).trim().length === 0) {
-    (errors.clientSecret ??= []).push('Client Secret is required.');
+  if (!cfg.liferayHosted) {
+    if (!cfg.clientId || String(cfg.clientId).trim().length === 0) {
+      (errors.clientId ??= []).push('Client ID is required.');
+    }
+    if (!cfg.clientSecret || String(cfg.clientSecret).trim().length === 0) {
+      (errors.clientSecret ??= []).push('Client Secret is required.');
+    }
   }
 
   return errors;

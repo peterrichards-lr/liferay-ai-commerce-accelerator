@@ -97,7 +97,7 @@ class AccountGenerator {
         }
 
         console.log(
-          `Split ${accountDataList.length} products into ${accountBatches.length} batches of max size ${config.batchSize}`
+          `Split ${accountDataList.length} accounts into ${accountBatches.length} batches of max size ${config.batchSize}`
         );
 
         const batchIds = [];
@@ -169,6 +169,7 @@ class AccountGenerator {
                     status: status.status,
                     processedCount: status.processedCount,
                     totalCount: status.totalCount,
+                    entityType: 'accounts',
                   });
                 },
                 onComplete: (results) => {
@@ -179,6 +180,7 @@ class AccountGenerator {
                     operation: 'batch-polling-error',
                     batchId: result.batchId,
                     error: error.message,
+                    entityType: 'accounts',
                   });
                 },
               }
@@ -186,9 +188,9 @@ class AccountGenerator {
           }
 
           logger.info('Batch submission completed', {
-            operation: 'create-products-batch',
+            operation: 'create-accounts-batch',
             batchId: result.batchId,
-            productCount: batch.length,
+            accountCount: batch.length,
             status: result.status,
             callbackUrl: callbackUrl || 'none',
           });

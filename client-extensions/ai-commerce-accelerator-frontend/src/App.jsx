@@ -125,7 +125,6 @@ export function AppUI() {
     onProgress: setProgress,
   });
 
-  const isHosted = !!config.liferayHosted;
   const forceDemoMode = connectionEstablished && !openAiKeyAvailable;
 
   const commerceConfigured =

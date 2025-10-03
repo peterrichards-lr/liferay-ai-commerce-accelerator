@@ -244,6 +244,13 @@ class BatchPollingService {
   async pollBatchStatus(batchId) {
     const pollData = this.activePolls.get(batchId);
     if (!pollData) {
+      logger.info(`Unable to find poll data - ${batchId}`);
+      return;
+    }
+    const config = pollData.config;
+
+    if (!config) {
+      logger.info(`Unable to find config in the poll data - ${batchId}`);
       return;
     }
 
@@ -251,15 +258,17 @@ class BatchPollingService {
       pollData.attempts++;
 
       // Create axios instance with OAuth token
-      const accessToken = await this.oauthService.getAccessToken(
-        pollData.config.liferayUrl,
-        pollData.config.clientId,
-        pollData.config.clientSecret,
-        pollData.config.localeCode
-      );
+      const accessToken =
+        config.clientId === null
+          ? await this.oauthService.getAccessTokenFromRoute()
+          : await this.oauthService.getAccessToken(
+              config.liferayUrl,
+              config.clientId,
+              config.clientSecret
+            );
 
       const client = axios.create({
-        baseURL: pollData.config.liferayUrl,
+        baseURL: config.liferayUrl,
         headers: {
           Authorization: `Bearer ${accessToken}`,
           'Content-Type': 'application/json',

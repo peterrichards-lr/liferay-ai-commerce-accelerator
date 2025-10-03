@@ -40,6 +40,19 @@ def FRAGMENT_SET_NAME = FRAGMENTS_DIR.name
 
 // ===================== TASKS =====================
 
+// Helper
+tasks.register('printArtifacts') {
+    group = 'help'
+    doLast {
+        println "Fragments ZIP: ${tasks.named('zipFragments').get().archiveFile.get().asFile}"
+        println "Deploy dir:    ${liferayHome.get()}/deploy"
+        println "Fragment set:  ${FRAGMENT_SET_NAME} (from ${FRAGMENTS_DIR})"
+        println "Fragment dir:  ${FRAGMENT_DIR}"
+        println "CX dir:        ${CX_DIR}"
+        println "Package mgr:   ${useYarn ? 'yarn' : 'npm'}"
+    }
+}
+
 // --- Install + Build CX with Vite (auto yarn/npm) ---
 tasks.register('buildFrontendCX') {
     group = 'build'
@@ -84,9 +97,9 @@ tasks.register('generateDeployDescriptor') {
 tasks.register('generateFragmentCss') {
     group = 'build'
     description = 'Create build/tmp/fragment.css from the latest CX-built CSS (or a stub).'
+    dependsOn tasks.named('printArtifacts')
     dependsOn tasks.named('buildFrontendCX')
     outputs.file(GENERATED_FRAGMENT_CSS)
-
     doLast {
         def cssDir = new File(CX_DIR, 'build/static')
         def files = cssDir.exists() ? fileTree(cssDir).matching { include '**/*.css' }.files : [] as Set<File>
@@ -164,17 +177,4 @@ tasks.named('assemble') {
 tasks.matching { it.name == 'deploy' }.configureEach {
     dependsOn tasks.named('zipFragments')
     dependsOn tasks.named('autoDeployFragments')
-}
-
-// Helper
-tasks.register('printArtifacts') {
-    group = 'help'
-    doLast {
-        println "Fragments ZIP: ${tasks.named('zipFragments').get().archiveFile.get().asFile}"
-        println "Deploy dir:    ${liferayHome.get()}/deploy"
-        println "Fragment set:  ${FRAGMENT_SET_NAME} (from ${FRAGMENTS_DIR})"
-        println "Fragment dir:  ${FRAGMENT_DIR}"
-        println "CX dir:        ${CX_DIR}"
-        println "Package mgr:   ${useYarn ? 'yarn' : 'npm'}"
-    }
 }

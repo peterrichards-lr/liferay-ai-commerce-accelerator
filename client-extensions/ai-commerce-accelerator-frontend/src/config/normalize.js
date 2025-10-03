@@ -28,7 +28,6 @@ export function normalizeConfig(incoming = {}) {
     '_',
     '-'
   );
-
   return {
     // Hosting
     liferayHosted: bool(cfg.liferayHosted, DEFAULTS.liferayHosted),

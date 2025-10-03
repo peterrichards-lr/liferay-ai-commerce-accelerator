@@ -1,28 +1,167 @@
+const { lxcConfig } = require('@rotty3000/config-node');
 const axios = require('axios');
 const crypto = require('crypto');
+
+const { CacheService } = require('./cacheService.cjs');
 const { logger } = require('../utils/logger.cjs');
+const { applicationExternalReferenceCodes } = require('../utils/misc.cjs');
+
+const serverOauthApp = lxcConfig.oauthApplication(
+  applicationExternalReferenceCodes.OAUTH_SERVER_EXTERNAL_REFERENCE_CODE
+);
 
 class OAuthService {
-  constructor(liferayUrl, clientId, clientSecret) {
-    this.liferayUrl = liferayUrl;
-    this.clientId = clientId;
-    this.clientSecret = clientSecret;
-    this.tokenCache = new Map();
+  constructor() {
+    this.tokenCache = new CacheService();
+
+    const lxcDXPMainDomain = lxcConfig.dxpMainDomain();
+    const lxcDXPServerProtocol = lxcConfig.dxpProtocol();
+    const uri = serverOauthApp.tokenUri();
+    this.liferayUrl = `${lxcDXPServerProtocol}://${lxcDXPMainDomain}`;
+    this.tokenEndpoint = `${this.liferayUrl}${uri}`;
   }
 
-  generateCacheKey() {
-    return `${this.liferayUrl}_${this.clientId}`;
+  _generateCacheKey(liferayUrl, clientId) {
+    return `${liferayUrl}_${clientId}`;
   }
 
-  generateErrorReference() {
+  _generateErrorReference() {
     const timestamp = Date.now();
     const randomBytes = crypto.randomBytes(4).toString('hex');
     return `LIFR_${timestamp}_${randomBytes}`;
   }
 
-  async getAccessToken(liferayUrl, clientId, clientSecret) {
+  _getAccessTokenFromCache(cacheKey) {
+    const cached = this.tokenCache.get(cacheKey);
+
+    if (cached && cached.expiresAt > Date.now()) {
+      return cached.token;
+    }
+    return null;
+  }
+
+  _addAccessTokenToCache(cacheKey, token, expiresIn = 3600) {
+    this.tokenCache.set(cacheKey, {
+      token,
+      expiresAt: Date.now() + (expiresIn - 60) * 1000,
+    });
+  }
+
+  async _createAccessToken(tokenUrl, clientId, clientSecret) {
+    logger.info(`Creating new access token for ${clientId} using ${tokenUrl}`);
+    return await axios.post(
+      tokenUrl,
+      new URLSearchParams({
+        grant_type: 'client_credentials',
+        client_id: clientId,
+        client_secret: clientSecret,
+      }),
+      {
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded',
+        },
+      }
+    );
+  }
+
+  _getTokenUrl(liferayUrl) {
+    return `${liferayUrl}/o/oauth2/token`;
+  }
+
+  async _createOrGetAccessToken(liferayUrl, clientId, clientSecret) {
+    const cacheKey = this._generateCacheKey(liferayUrl, clientId);
+    let token = this._getAccessTokenFromCache(cacheKey);
+    if (token) {
+      return token;
+    }
+
+    const tokenUrl = this.tokenEndpoint ?? this._getTokenUrl(liferayUrl);
+    const response = await this._createAccessToken(tokenUrl, clientId, clientSecret);
+    token = response.data.access_token;
+    const expiresIn = response.data.expires_in || 3600;
+
+    this._addAccessTokenToCache(cacheKey, token, expiresIn);
+
+    return token;
+  }
+
+  _handleException(error, liferayUrl = null, clientId = null) {
+    const errorRef = this._generateErrorReference();
+
+    console.error(`OAuth Error [${errorRef}]:`, {
+      status: error.response?.status,
+      statusText: error.response?.statusText,
+      data: error.response?.data,
+      message: error.message,
+      stack: error.stack,
+      url: liferayUrl,
+      clientId: clientId,
+      timestamp: new Date().toISOString(),
+    });
+
+    let customError;
+
+    if (
+      error.code === 'ENOTFOUND' ||
+      error.code === 'ECONNREFUSED' ||
+      error.code === 'ETIMEDOUT'
+    ) {
+      customError = new Error(`Network connection failed: ${error.code}`);
+      customError.statusCode = 0; // Network error, no HTTP status
+    } else if (
+      error.response?.status === 401 ||
+      error.response?.status === 403
+    ) {
+      customError = new Error('OAuth authentication failed');
+      customError.statusCode = error.response.status;
+      customError.errorType = 'auth_error';
+      customError.field = 'clientSecret';
+    } else {
+      customError = new Error(`OAuth request failed: ${error.message}`);
+      customError.statusCode = error.response?.status || 500;
+    }
+
+    customError.errorReference = errorRef;
+    customError.code = error.code; // Preserve original error code
+    throw customError;
+  }
+
+  async getAccessTokenFromRoute() {
+    const clientId = serverOauthApp.clientId();
+    const clientSecret = serverOauthApp.clientSecret();
+
+    if (!this.liferayUrl || !clientId || !clientSecret) {
+      const errorRef = this._generateErrorReference();
+      console.error(
+        `OAuth Error [${errorRef}]: Unable to obtain LXC configuration`,
+        {
+          liferayUrl: this.liferayUrl || 'undefined',
+          clientId: clientId || 'undefined',
+          clientSecret: clientSecret ? '[PROVIDED]' : 'undefined',
+          timestamp: new Date().toISOString(),
+        }
+      );
+
+      const customError = new Error('OAuth configuration not found');
+      customError.statusCode = 500;
+      customError.errorReference = errorRef;
+      throw customError;
+    }
+
+    try {
+      return this._createOrGetAccessToken(
+        this.liferayUrl,
+        clientId,
+        clientSecret
+      );
+    } catch (error) {
+      this.handleException(error, this.liferayUrl, clientId);
+    }
+  }
+
+  async getAccessTokenWithCredentials(liferayUrl, clientId, clientSecret) {
     if (!liferayUrl || !clientId || !clientSecret) {
-      const errorRef = this.generateErrorReference();
+      const errorRef = this._generateErrorReference();
       console.error(`OAuth Error [${errorRef}]: Missing required parameters`, {
         liferayUrl: liferayUrl || 'undefined',
         clientId: clientId || 'undefined',
@@ -36,78 +175,17 @@ class OAuthService {
       throw customError;
     }
 
-    const cacheKey = `${liferayUrl}_${clientId}`;
-    const cached = this.tokenCache.get(cacheKey);
-
-    if (cached && cached.expiresAt > Date.now()) {
-      return cached.token;
-    }
-
-    const tokenUrl = `${liferayUrl}/o/oauth2/token`;
     try {
-      const response = await axios.post(
-        tokenUrl,
-        new URLSearchParams({
-          grant_type: 'client_credentials',
-          client_id: clientId,
-          client_secret: clientSecret,
-        }),
-        {
-          headers: {
-            'Content-Type': 'application/x-www-form-urlencoded',
-          },
-        }
-      );
-
-      const token = response.data.access_token;
-      const expiresIn = response.data.expires_in || 3600;
-
-      this.tokenCache.set(cacheKey, {
-        token,
-        expiresAt: Date.now() + (expiresIn - 60) * 1000,
-      });
-
-      return token;
+      return this._createOrGetAccessToken(liferayUrl, clientId, clientSecret);
     } catch (error) {
-      const errorRef = this.generateErrorReference();
-
-      console.error(`OAuth Error [${errorRef}]:`, {
-        status: error.response?.status,
-        statusText: error.response?.statusText,
-        data: error.response?.data,
-        message: error.message,
-        stack: error.stack,
-        url: tokenUrl,
-        clientId: clientId,
-        timestamp: new Date().toISOString(),
-      });
-
-      let customError;
-
-      if (
-        error.code === 'ENOTFOUND' ||
-        error.code === 'ECONNREFUSED' ||
-        error.code === 'ETIMEDOUT'
-      ) {
-        customError = new Error(`Network connection failed: ${error.code}`);
-        customError.statusCode = 0; // Network error, no HTTP status
-      } else if (
-        error.response?.status === 401 ||
-        error.response?.status === 403
-      ) {
-        customError = new Error('OAuth authentication failed');
-        customError.statusCode = error.response.status;
-        customError.errorType = 'auth_error';
-        customError.field = 'clientSecret';
-      } else {
-        customError = new Error(`OAuth request failed: ${error.message}`);
-        customError.statusCode = error.response?.status || 500;
-      }
-
-      customError.errorReference = errorRef;
-      customError.code = error.code; // Preserve original error code
-      throw customError;
+      this._handleException(error, liferayUrl, clientId);
     }
+  }
+
+  async getAccessToken(liferayUrl, clientId, clientSecret) {
+    return !liferayUrl || !clientId || !clientSecret
+      ? this.getAccessTokenFromRoute()
+      : this.getAccessTokenWithCredentials(liferayUrl, clientId, clientSecret);
   }
 
   async getAccessTokenWithCode(
@@ -118,10 +196,8 @@ class OAuthService {
     redirectUri
   ) {
     try {
-      const tokenUrl = `${liferayUrl}/o/oauth2/token`;
-
       const response = await axios.post(
-        tokenUrl,
+        this._getTokenUrl(liferayUrl),
         new URLSearchParams({
           grant_type: 'authorization_code',
           client_id: clientId,
@@ -138,7 +214,7 @@ class OAuthService {
 
       return response.data;
     } catch (error) {
-      const errorRef = this.generateErrorReference();
+      const errorRef = this._generateErrorReference();
       console.error(
         `OAuth code exchange failed [${errorRef}]:`,
         error.response?.data || error.message
@@ -172,6 +248,14 @@ class OAuthService {
 
   clearTokenCache() {
     this.tokenCache.clear();
+  }
+
+  isLiferayRouteAvailable() {
+    return (
+      this.tokenEndpoint &&
+      serverOauthApp.clientId() &&
+      serverOauthApp.clientSecret()
+    );
   }
 
   validateOAuthConfig(config) {
