@@ -56,7 +56,10 @@ function validateInput(data, schema) {
       errors.push(`${field} must be of type boolean`);
     } else if (rules.type === 'array' && !Array.isArray(value)) {
       errors.push(`${field} must be of type array`);
-    } else if (rules.type === 'object' && (typeof value !== 'object' || value === null || Array.isArray(value))) {
+    } else if (
+      rules.type === 'object' &&
+      (typeof value !== 'object' || value === null || Array.isArray(value))
+    ) {
       errors.push(`${field} must be of type object`);
     }
 

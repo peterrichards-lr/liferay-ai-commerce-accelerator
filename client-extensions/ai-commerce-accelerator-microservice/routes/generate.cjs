@@ -1,5 +1,5 @@
+const { DEBUG } = require('../utils/constants.cjs');
 const multer = require('multer');
-
 const {
   toBoolean,
   toNumber,
@@ -254,12 +254,11 @@ module.exports = function (
     }
       */
 
-
         const actualCount =
           options.productCount > 5
             ? Math.max(config.batchSize, 5)
             : options.productCount;
-            
+
         // Untested
         if (options.pdfMode === 'generate' && options.pdfRatio > 0) {
           const expectedPDFs = Math.ceil(
@@ -368,15 +367,18 @@ module.exports = function (
         });
 
         if (DEBUG) {
-          logger.debug('=== PRODUCT GENERATION ERROR DEBUG ===');
-          logger.debug('Error Message:', errorMessage);
-          logger.debug('Error Name:', error.name);
-          logger.debug('Error Type:', typeof error);
+          console.error('=== PRODUCT GENERATION ERROR DEBUG ===');
+          console.error('Error Message:', errorMessage);
+          console.error('Error Name:', error.name);
+          console.error('Error Type:', typeof error);
           const sanitizedBody = sanitizedObject(req.body);
-          logger.debug('Request Body:', JSON.stringify(sanitizedBody, null, 2));
-          logger.debug('Full Error Object:', JSON.stringify(error, null, 2));
-          logger.debug('Error Stack:', error.stack);
-          logger.debug('=== END ERROR DEBUG ===');
+          console.error(
+            'Request Body:',
+            JSON.stringify(sanitizedBody, null, 2)
+          );
+          console.error('Full Error Object:', JSON.stringify(error, null, 2));
+          console.error('Error Stack:', error.stack);
+          console.error('=== END ERROR DEBUG ===');
         }
 
         res.status(500).json({
@@ -391,13 +393,13 @@ module.exports = function (
   app.post('/api/validate/products', async (req, res) => {
     const { config, options } = buildConfigAndOptions(req);
     try {
-      const products = await liferayService.getProducts(config);
+      const productCount = await liferayService.getProductCount(config);
 
       res.json({
-        available: products.length > 0,
-        count: products.length,
+        available: productCount > 0,
+        count: productCount,
         required: options.requiredCount || 1,
-        sufficient: products.length >= (options.requiredCount || 1),
+        sufficient: productCount >= (options.requiredCount || 1),
         timestamp: new Date().toISOString(),
       });
     } catch (error) {
@@ -419,13 +421,13 @@ module.exports = function (
   app.post('/api/validate/accounts', async (req, res) => {
     const { config, options } = buildConfigAndOptions(req);
     try {
-      const accounts = await liferayService.getAccounts(config);
+      const accountCount = await liferayService.getAccountCount(config);
 
       res.json({
-        available: accounts.length > 0,
-        count: accounts.length,
+        available: accountCount > 0,
+        count: accountCount,
         required: options.requiredCount || 1,
-        sufficient: accounts.length >= (options.requiredCount || 1),
+        sufficient: accountCount >= (options.requiredCount || 1),
         timestamp: new Date().toISOString(),
       });
     } catch (error) {

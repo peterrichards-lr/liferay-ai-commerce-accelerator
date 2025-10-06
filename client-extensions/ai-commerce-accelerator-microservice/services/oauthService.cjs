@@ -76,7 +76,11 @@ class OAuthService {
     }
 
     const tokenUrl = this.tokenEndpoint ?? this._getTokenUrl(liferayUrl);
-    const response = await this._createAccessToken(tokenUrl, clientId, clientSecret);
+    const response = await this._createAccessToken(
+      tokenUrl,
+      clientId,
+      clientSecret
+    );
     token = response.data.access_token;
     const expiresIn = response.data.expires_in || 3600;
 

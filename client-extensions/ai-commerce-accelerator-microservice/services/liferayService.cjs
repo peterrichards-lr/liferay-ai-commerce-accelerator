@@ -1,4 +1,3 @@
-/* eslint-disable no-console */
 const axios = require('axios');
 const FormData = require('form-data');
 const fs = require('fs');
@@ -17,6 +16,7 @@ const {
   VIEWABLE_BY,
   buildPermissionsItems,
 } = require('../utils/liferayPermissions.cjs');
+const { DEBUG } = require('../utils/constants.cjs');
 
 class LiferayService {
   constructor() {
@@ -27,6 +27,10 @@ class LiferayService {
 
   _errRef() {
     return `LIFR-${Date.now()}-${uuidv4().slice(0, 8)}`;
+  }
+
+  _asCount(data) {
+    return data?.totalCount || data?.items?.totalCount || 0;
   }
 
   _asItems(data) {
@@ -41,56 +45,96 @@ class LiferayService {
 
   async _request(
     config,
-    { method, url, data, headers, op, onError, friendly }
+    { method = 'GET', url, data, params, headers, op, friendly } = {}
   ) {
-    const client = await this._client(config);
+    const client = await this.createAxiosInstance(config);
+
     try {
-      const res = await client.request({ method, url, data, headers });
+      const res = await client.request({ method, url, data, params, headers });
       return res.data;
-    } catch (error) {
-      const errorReference = this._errRef();
-      console.error(`Error Reference: ${errorReference}`);
+    } catch (err) {
+      const res = err.response;
+      const req = err.request;
 
-      const baseLog = {
-        operation: op || method?.toLowerCase() || 'request',
+      const status = res?.status;
+      const statusText = res?.statusText;
+      const resHeaders = res?.headers || {};
+      const body = res?.data;
+
+      const problem =
+        body && typeof body === 'object'
+          ? {
+              status: body.status,
+              title: body.title,
+              type: body.type,
+              detail: body.detail,
+              errorReference:
+                body.errorReference || resHeaders['x-liferay-error-reference'],
+            }
+          : null;
+
+      const msgParts = [
+        op || friendly || 'Request failed',
+        status ? `HTTP ${status}${statusText ? ' ' + statusText : ''}` : null,
+        problem?.title ? `— ${problem.title}` : null,
+        problem?.detail ? ` — ${problem.detail}` : null,
+        problem?.errorReference ? ` [ref=${problem.errorReference}]` : null,
+      ].filter(Boolean);
+      const message = msgParts.join('');
+
+      logger?.error?.('Request failed', {
+        op,
+        friendly,
+        method,
         url,
-        status: error.response?.status,
-        statusText: error.response?.statusText,
-        data: error.response?.data,
-        timestamp: new Date().toISOString(),
-        errorReference,
+        params,
+        status,
+        statusText,
+        errorReference: problem?.errorReference,
+        problem,
+        responseBody: typeof body === 'string' ? body : _stringifySafe(body),
+        headers,
+        responseHeaders: resHeaders,
+      });
+
+      const e = new Error(op || friendly || 'Request failed');
+      e.name = 'LiferayRequestError';
+      e.status = status;
+      e.statusText = statusText;
+      e.errorReference = problem?.errorReference;
+      e.problem = problem;
+      e.response = { status, statusText, headers: resHeaders, data: body };
+      e.request = {
+        method,
+        url,
+        params,
+        hasData: !!data,
       };
-
-      if (logger?.error) logger.error(`Request failed: ${op || url}`, baseLog);
-      else console.error('Request failed:', baseLog);
-
-      if (onError === 'handle') {
-        throw ErrorHandler.handleLiferayError(
-          error,
-          op || 'request',
-          data,
-          errorReference
-        );
-      }
-
-      const msg =
-        friendly ||
-        error.response?.data?.title ||
-        error.response?.data?.detail ||
-        error.message;
-
-      const wrapped = new Error(msg);
-      wrapped.response = {
-        status: error.response?.status,
-        data: error.response?.data,
-        errorReference,
-      };
-      throw wrapped;
+      throw e;
     }
   }
 
-  async _get(config, url, op, friendly) {
-    return this._request(config, { method: 'GET', url, op, friendly });
+  async _get(config, url, opts = {}, op, friendly) {
+    const client = await this.createAxiosInstance(config);
+    const { params, headers } = opts || {};
+
+    const paramsSerializer = (p) =>
+      new URLSearchParams(
+        Object.entries(p || {}).filter(
+          ([, v]) => v !== undefined && v !== null && v !== ''
+        )
+      ).toString();
+
+    const reqCfg = { params, headers, paramsSerializer };
+    if (DEBUG) {
+      logger.debug('http:get', {
+        url,
+        params,
+      });
+    }
+
+    const { data } = await client.get(url, reqCfg);
+    return data;
   }
 
   async _post(config, url, data, op, friendly, onError = 'throw') {
@@ -106,6 +150,10 @@ class LiferayService {
 
   async _put(config, url, data, op, friendly) {
     return this._request(config, { method: 'PUT', url, data, op, friendly });
+  }
+
+  async _delete(config, url, data, op, friendly) {
+    return this._request(config, { method: 'DELETE', url, data, op, friendly });
   }
 
   _normalizePermissionItems(items = []) {
@@ -332,9 +380,22 @@ class LiferayService {
     return this._asItems(data);
   }
 
+  async getProductCount(config) {
+    let url =
+      PATH.PRODUCTS +
+      (config.catalogId ? `?filter=catalogId eq ${config.catalogId}` : '');
+    const data = await this._get(config, url, 'get-products');
+    return this._asCount(data);
+  }
+
   async getAccounts(config) {
     const data = await this._get(config, PATH.ACCOUNTS, 'get-accounts');
     return this._asItems(data);
+  }
+
+  async getAccountCount(config) {
+    const data = await this._get(config, PATH.ACCOUNTS, 'get-accounts');
+    return this._asCount(data);
   }
 
   async getCurrencies(config) {
@@ -1151,6 +1212,517 @@ class LiferayService {
     }
 
     return this.patchDocumentPermissions(config, documentId, builderOrMutator);
+  }
+
+  async deleteCommerceOrders(config, opts = {}) {
+    const {
+      pageSize = 200,
+      batchSize = 500,
+      filter,
+      callbackUrl,
+      dryRun = false,
+    } = opts;
+
+    const orderIds = await this._collectPagedIds(config, {
+      listUrl: PATH.ORDERS,
+      pageSize,
+      filter,
+      fields: 'id',
+      op: 'orders:list',
+      friendly: 'List orders',
+      sort: 'orderId:asc',
+    });
+
+    const batchUrl = PATH.ORDERS_BATCH?.(callbackUrl) || `${PATH.ORDERS}/batch`;
+
+    return this._deleteByBatch(config, {
+      batchUrl,
+      ids: orderIds,
+      batchSize,
+      dryRun,
+      op: 'orders:batch-delete',
+      friendly: 'Delete orders (batch)',
+    });
+  }
+
+  async deleteCommerceProducts(
+    config,
+    {
+      pageSize = 200,
+      batchSize = 500,
+      productFilter,
+      callbackUrl,
+      dryRun = false,
+    } = {}
+  ) {
+    const { catalogId } = config || {};
+    if (catalogId === undefined || catalogId === null) {
+      throw new Error('deleteCommerceProducts: config.catalogId is required');
+    }
+
+    const catalogClause =
+      typeof catalogId === 'number'
+        ? `catalogId eq ${catalogId}`
+        : `catalogId eq '${String(catalogId).replace(/'/g, "''")}'`;
+
+    const filter = this._combineODataFilters(catalogClause, productFilter);
+
+    const productIds = await this._collectPagedIds(config, {
+      listUrl: PATH.PRODUCTS,
+      pageSize,
+      filter,
+      fields: 'productId',
+      idKey: 'productId',
+      op: 'products:list',
+      friendly: `List products in catalog ${catalogId}`,
+    });
+
+    const batchUrl =
+      PATH.PRODUCTS_BATCH?.(callbackUrl) || `${PATH.PRODUCTS}/batch`;
+
+    return this._deleteByBatch(config, {
+      batchUrl,
+      ids: productIds,
+      batchSize,
+      dryRun,
+      idProp: 'productId',
+      op: 'products:batch-delete',
+      friendly: `Delete products (batch) in catalog ${catalogId}`,
+    });
+  }
+
+  async deleteCommerceAccounts(config, opts = {}) {
+    const {
+      pageSize = 200,
+      batchSize = 500,
+      filter,
+      callbackUrl,
+      dryRun = false,
+    } = opts;
+
+    const accountIds = await this._collectPagedIds(config, {
+      listUrl: PATH.ACCOUNTS,
+      pageSize,
+      filter,
+      fields: 'id',
+      op: 'accounts:list',
+      friendly: 'List accounts',
+    });
+
+    const batchUrl =
+      PATH.ACCOUNTS_BATCH?.(callbackUrl) || `${PATH.ACCOUNTS}/batch`;
+
+    return this._deleteByBatch(config, {
+      batchUrl,
+      ids: accountIds,
+      batchSize,
+      dryRun,
+      op: 'accounts:batch-delete',
+      friendly: 'Delete accounts (batch)',
+    });
+  }
+
+  _combineODataFilters(a, b) {
+    if (!a) return b || '';
+    if (!b) return a || '';
+    return `(${a}) and (${b})`;
+  }
+
+  async _collectPagedIds(
+    config,
+    {
+      listUrl,
+      pageSize = 100,
+      filter,
+      sort,
+      itemsKey = 'items',
+      idKey = 'id',
+      idSelector,
+      useTotalCount = true,
+      maxPages = 10000,
+      sleepBetweenMs = 0,
+      fields,
+      op,
+      friendly,
+    }
+  ) {
+    const ids = new Set();
+
+    try {
+      const askedSort = this._sanitizeSort(sort, idKey);
+      const baseParams = {
+        page: 1,
+        pageSize,
+        ...(filter ? { filter } : {}),
+        ...(askedSort ? { sort: askedSort } : {}),
+        ...(fields ? { fields } : {}),
+      };
+
+      const first = await this._get(
+        config,
+        listUrl,
+        { params: baseParams },
+        op,
+        friendly
+      );
+
+      const serverPage = typeof first?.page === 'number' ? first.page : 1;
+      const serverPageSize =
+        typeof first?.pageSize === 'number' && first.pageSize > 0
+          ? first.pageSize
+          : pageSize;
+      const totalCount =
+        useTotalCount && typeof first?.totalCount === 'number'
+          ? first.totalCount
+          : null;
+      const lastPage =
+        typeof first?.lastPage === 'number' ? first.lastPage : null;
+
+      const firstItems = (first && first[itemsKey]) || [];
+      for (const it of firstItems) {
+        const id =
+          typeof idSelector === 'function' ? idSelector(it) : it?.[idKey];
+        if (id != null) ids.add(id);
+      }
+      let fetched = firstItems.length;
+
+      if (DEBUG) {
+        const sample = firstItems
+          .slice(0, 5)
+          .map((it) => (idSelector ? idSelector(it) : it?.[idKey]))
+          .filter((v) => v != null);
+        logger.debug('pager:first', {
+          askedPage: 1,
+          askedPageSize: pageSize,
+          usedSort: askedSort || '(none)',
+          serverPage,
+          serverPageSize,
+          serverLast: lastPage,
+          serverTotal: totalCount,
+          itemsOnThisPage: firstItems.length,
+          uniqueIdsSoFar: ids.size,
+          sample,
+        });
+      }
+
+      if (
+        (totalCount != null && fetched >= totalCount) ||
+        firstItems.length === 0 ||
+        (lastPage != null && lastPage <= 1)
+      ) {
+        return Array.from(ids);
+      }
+
+      let nextPage = serverPage + 1;
+      let stickyRetry = 1;
+
+      for (let safety = 0; safety < maxPages; safety++) {
+        const params = {
+          page: nextPage,
+          pageSize: serverPageSize,
+          ...(filter ? { filter } : {}),
+          ...(askedSort ? { sort: askedSort } : {}),
+          ...(fields ? { fields } : {}),
+        };
+
+        let data = await this._get(config, listUrl, { params }, op, friendly);
+        let curPage = typeof data?.page === 'number' ? data.page : nextPage;
+
+        // One-time retry with cache-buster if server sticks to page 1
+        if (nextPage > 1 && curPage === 1 && stickyRetry > 0) {
+          stickyRetry--;
+          data = await this._get(
+            config,
+            listUrl,
+            { params: { ...params, _t: Date.now() } },
+            op,
+            friendly
+          );
+          curPage = typeof data?.page === 'number' ? data.page : nextPage;
+        }
+
+        const items = (data && data[itemsKey]) || [];
+        const before = ids.size;
+        for (const it of items) {
+          const id =
+            typeof idSelector === 'function' ? idSelector(it) : it?.[idKey];
+          if (id != null) ids.add(id);
+        }
+        fetched += items.length;
+
+        if (DEBUG) {
+          logger.debug('pager:page', {
+            listUrl,
+            askedPage: nextPage,
+            usedPageSize: serverPageSize,
+            usedSort: askedSort || '(none)',
+            serverPage: curPage,
+            serverLast:
+              typeof data?.lastPage === 'number' ? data.lastPage : null,
+            serverTotal:
+              typeof data?.totalCount === 'number'
+                ? data.totalCount
+                : totalCount,
+            itemsOnThisPage: items.length,
+            newIdsOnThisPage: ids.size - before,
+            uniqueIdsSoFar: ids.size,
+          });
+        }
+
+        const dataTotal =
+          typeof data?.totalCount === 'number' ? data.totalCount : totalCount;
+        if (useTotalCount && dataTotal != null && ids.size >= dataTotal) break;
+
+        const dataLast =
+          typeof data?.lastPage === 'number' ? data.lastPage : lastPage;
+        if (dataLast != null && curPage >= dataLast) break;
+
+        if (items.length === 0) break;
+
+        nextPage = (curPage || nextPage) + 1;
+        if (sleepBetweenMs > 0) await this._sleep(sleepBetweenMs);
+      }
+    } catch (error) {
+      console.error('_collectPagedIds', error);
+      throw error;
+    }
+
+    return Array.from(ids);
+  }
+
+  _sanitizeSort(sort, idKey, { disallow = [] } = {}) {
+    if (!sort) return null;
+    const raw = String(sort).trim();
+    if (!raw) return null;
+
+    const pk = String(idKey || 'id').toLowerCase();
+    const blocked = new Set([
+      pk,
+      ...disallow.map((f) => String(f).toLowerCase()),
+    ]);
+
+    const tokens = raw
+      .split(',')
+      .map((t) => t.trim())
+      .filter(Boolean)
+      .filter((token) => {
+        const field = token.split(':')[0].trim().toLowerCase();
+        return !blocked.has(field);
+      });
+
+    return tokens.length ? tokens.join(',') : null;
+  }
+
+  _pageMeta(data) {
+    return {
+      page: typeof data?.page === 'number' ? data.page : null,
+      pageSize: typeof data?.pageSize === 'number' ? data.pageSize : null,
+      lastPage: typeof data?.lastPage === 'number' ? data.lastPage : null,
+      totalCount: typeof data?.totalCount === 'number' ? data.totalCount : null,
+    };
+  }
+
+  async _deleteByBatch(
+    config,
+    {
+      batchUrl,
+      ids,
+      batchSize = 500,
+      dryRun = false,
+      idProp = 'id',
+      op,
+      friendly,
+    }
+  ) {
+    const summary = {
+      total: ids.length,
+      batches: Math.ceil(ids.length / Math.max(1, batchSize)),
+      submitted: 0,
+      failures: [],
+      dryRun,
+      batchRefs: [],
+    };
+    if (!ids.length || dryRun) return summary;
+
+    const toBatchObjects = (chunk) =>
+      chunk.map((v) => {
+        if (v == null) return { [idProp]: v };
+        if (typeof v !== 'object') return { [idProp]: v };
+        if (Object.prototype.hasOwnProperty.call(v, idProp)) return v;
+        const candidate =
+          v.id ??
+          v.productId ??
+          v.orderId ??
+          v.accountId ??
+          v[keyFromOnlyProp(v)];
+        return { [idProp]: candidate };
+      });
+
+    function keyFromOnlyProp(o) {
+      const keys = Object.keys(o || {});
+      return keys.length === 1 ? keys[0] : undefined;
+    }
+
+    for (let i = 0; i < ids.length; i += batchSize) {
+      const chunk = ids.slice(i, i + batchSize);
+      const body = toBatchObjects(chunk);
+
+      try {
+        const response = await this._delete(
+          config,
+          batchUrl,
+          body,
+          op,
+          friendly
+        );
+
+        const location =
+          res?.headers?.location || res?.headers?.Location || undefined; // if _request surfaces headers
+        const taskERC =
+          res?.data?.externalReferenceCode || res?.data?.erc || null;
+        const taskId =
+          res?.data?.id ||
+          res?.data?.batchEngineImportTaskId ||
+          `batch-${Date.now()}`;
+
+        summary.batchRefs.push({
+          index: summary.submitted,
+          location: location || null,
+          taskERC,
+          taskId,
+          status: response.status || 'submitted',
+        });
+
+        summary.submitted += 1;
+      } catch (err) {
+        summary.failures.push({
+          batchIndex: summary.submitted,
+          status: err?.status ?? err?.response?.status,
+          error: err?.response?.data ?? String(err?.message ?? err),
+          ids: chunk,
+        });
+      }
+    }
+
+    return summary;
+  }
+
+  async _deleteByIds(
+    config,
+    {
+      baseDeletePath,
+      ids,
+      concurrency = 6,
+      retryOn = [],
+      dryRun = false,
+      op,
+      friendly,
+    }
+  ) {
+    const summary = {
+      total: ids.length,
+      deleted: 0,
+      notFound: 0,
+      failures: [],
+      dryRun,
+      get succeeded() {
+        return this.deleted + this.notFound;
+      },
+    };
+    if (!ids.length || dryRun) return summary;
+
+    let idx = 0;
+    const worker = async () => {
+      while (true) {
+        const i = idx++;
+        if (i >= ids.length) return;
+        const id = ids[i];
+        try {
+          await this._delete(
+            config,
+            `${baseDeletePath}/${encodeURIComponent(id)}`,
+            undefined,
+            op,
+            friendly
+          );
+          summary.deleted++;
+        } catch (err) {
+          const status = err?.response?.status;
+          const payload = err?.response?.data;
+          const retriable = retryOn.includes(status) && attempts < retryLimit;
+          if (!retriable) {
+            summary.failures.push({
+              id,
+              status,
+              error: payload ?? String(err?.message ?? err),
+            });
+            break;
+          }
+          attempts++;
+          await this._sleep(backoffMs * attempts);
+        }
+      }
+    };
+
+    const n = Math.min(concurrency, Math.max(1, ids.length));
+    await Promise.all(Array.from({ length: n }, () => worker()));
+    return summary;
+  }
+
+  _sleep(ms) {
+    return new Promise((r) => setTimeout(r, ms));
+  }
+
+  async _drainCollection(
+    config,
+    {
+      listUrl,
+      pageSize = 50,
+      filter,
+      maxChecks = 10,
+      delayMs = 500,
+      itemsKey = 'items',
+      op = 'drain:check',
+      friendly = 'Check drain',
+    }
+  ) {
+    let attempt = 0;
+    while (attempt < maxChecks) {
+      const data = await this._get(
+        config,
+        listUrl,
+        { params: { page: 1, pageSize, ...(filter ? { filter } : {}) } },
+        op,
+        friendly
+      );
+      const items = (data && data[itemsKey]) || [];
+      if (items.length === 0) return true;
+      attempt += 1;
+      await this._sleep(delayMs);
+    }
+    return false;
+  }
+
+  _stringifySafe(obj, max = 20_000) {
+    try {
+      const seen = new WeakSet();
+      const s = JSON.stringify(
+        obj,
+        (k, v) => {
+          if (typeof v === 'object' && v !== null) {
+            if (seen.has(v)) return '[Circular]';
+            seen.add(v);
+          }
+          if (typeof v === 'string' && v.length > 2000)
+            return v.slice(0, 2000) + '…';
+          return v;
+        },
+        2
+      );
+      return s.length > max ? s.slice(0, max) + '…' : s;
+    } catch {
+      return String(obj);
+    }
   }
 }
 

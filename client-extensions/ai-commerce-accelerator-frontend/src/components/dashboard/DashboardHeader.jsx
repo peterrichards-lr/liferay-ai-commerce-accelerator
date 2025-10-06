@@ -1,6 +1,6 @@
 import React from 'react';
 
-function DashboardHeader({handleReset, isGenerating}) {
+function DashboardHeader({ handleReset, isGenerating }) {
   return (
     <div className="dashboard-header">
       <h5>

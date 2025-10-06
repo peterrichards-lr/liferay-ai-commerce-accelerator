@@ -2,9 +2,46 @@ import React from 'react';
 import ClayPanel from '@clayui/panel';
 import ClayForm, { ClayInput, ClaySelect } from '@clayui/form';
 import { useApp } from '../../context/AppContext';
+import { ConfirmProvider, useConfirm } from '../ConfirmProvider';
 
-export default function AdvancedPanel({ disabled = false, generationConfig }) {
+export default function AdvancedPanel({
+  disabled = false,
+  connected = false,
+  generationConfig,
+  onClearCommerceData,
+}) {
   const { config, setConfig } = useApp();
+
+  function ClearCommerceDataButton({ disabled = false }) {
+    const confirm = useConfirm();
+
+    const onClick = async () => {
+      const ok = await confirm({
+        title: 'Clear Commerce Data',
+        message:
+          'This cannot be undone. All selected Commerce Data will be removed.',
+        confirmText: 'Delete',
+        cancelText: 'Cancel',
+        destructive: true,
+      });
+      if (ok) {
+        onClearCommerceData &&
+          typeof onClearCommerceData === 'function' &&
+          (await onClearCommerceData());
+      }
+    };
+    return (
+      <button
+        type="button"
+        className={`btn w-100 btn-danger my-2 py-2`}
+        onClick={onClick}
+        disabled={disabled}
+      >
+        <i className={`icon icon-warning`}></i>
+        Clear Commerce Data
+      </button>
+    );
+  }
 
   return (
     <ClayPanel
@@ -49,7 +86,7 @@ export default function AdvancedPanel({ disabled = false, generationConfig }) {
           <div className="form-text">Choose based on speed/cost needs.</div>
         </ClayForm.Group>
 
-        <ClayForm.Group className="mb-0">
+        <ClayForm.Group>
           <label htmlFor="wsLoggingLevel" className="form-label">
             WebSocket Logging
           </label>
@@ -65,6 +102,18 @@ export default function AdvancedPanel({ disabled = false, generationConfig }) {
             <ClaySelect.Option value="debug" label="Debug" />
           </ClaySelect>
           <div className="form-text">Enable only for troubleshooting.</div>
+        </ClayForm.Group>
+
+        <div className="divider"></div>
+
+        <ClayForm.Group>
+          <ConfirmProvider>
+            <ClearCommerceDataButton disabled={!connected} />
+          </ConfirmProvider>
+          <div className="form-text">
+            Proceeding will delete the Commerce data in your Liferay DXP
+            instance.
+          </div>
         </ClayForm.Group>
       </ClayPanel.Body>
     </ClayPanel>

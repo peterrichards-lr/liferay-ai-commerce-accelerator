@@ -116,6 +116,7 @@ require('./routes/generate.cjs')(
 require('./routes/get.cjs')(app, liferayService, logger);
 require('./routes/health.cjs')(app, logger);
 require('./routes/queue.cjs')(app, logger);
+require('./routes/delete.cjs')(app, liferayService, logger);
 
 app.post(
   '/api/test-connection',

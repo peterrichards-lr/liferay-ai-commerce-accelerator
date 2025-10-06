@@ -29,7 +29,8 @@ function createWebSocketService({
   // Connection handling
   wss.on('connection', (ws, req) => {
     const url = new URL(req.url, 'http://localhost');
-    const correlationId = url.searchParams.get(CORRELATION_ID_HEADER) || uuidv4();
+    const correlationId =
+      url.searchParams.get(CORRELATION_ID_HEADER) || uuidv4();
     ws.id = correlationId;
     ws.correlationId = correlationId;
     ws.isAlive = true;

@@ -611,7 +611,7 @@ export default function PlaceholderItem({
           )}
       </ClayForm.Group>
 
-      <ClayForm.Group className="mb-0">
+      <ClayForm.Group >
         <label className="font-weight-semi-bold" htmlFor={`${prefix}-preview`}>
           Preview
         </label>

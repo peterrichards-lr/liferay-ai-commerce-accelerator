@@ -54,12 +54,17 @@ const PATH = {
 
   PRODUCTS: BASE.PRODUCTS,
   PRODUCTS_BATCH: (callbackURL) =>
-    `${BASE.PRODUCTS}/batch${callbackURL ? `?callbackURL=${enc(callbackURL)}` : ''}`,
+    `${BASE.PRODUCTS}/batch${
+      callbackURL ? `?callbackURL=${enc(callbackURL)}` : ''
+    }`,
   PRODUCT_SKUS: (productId) => `${BASE.PRODUCTS}/${productId}/skus`,
-  PRODUCT_OPTIONS: (productId) => `${BASE.PRODUCTS}/${productId}/productOptions`,
-  PRODUCT_SPECIFICATIONS: (productId) => `${BASE.PRODUCTS}/${productId}/product-specifications`,
+  PRODUCT_OPTIONS: (productId) =>
+    `${BASE.PRODUCTS}/${productId}/productOptions`,
+  PRODUCT_SPECIFICATIONS: (productId) =>
+    `${BASE.PRODUCTS}/${productId}/product-specifications`,
   PRODUCT_IMAGES: (productId) => `${BASE.PRODUCTS}/${productId}/images`,
-  PRODUCT_ATTACHMENTS: (productId) => `${BASE.PRODUCTS}/${productId}/attachments`,
+  PRODUCT_ATTACHMENTS: (productId) =>
+    `${BASE.PRODUCTS}/${productId}/attachments`,
   PRODUCT_IMAGES_BY_URL: (erc) =>
     `${byERC(BASE.PRODUCTS, erc, VARIANT.products)}/images/by-url`,
   PRODUCT_ATTACHMENTS_BY_URL: (erc) =>
@@ -85,21 +90,33 @@ const PATH = {
 
   ACCOUNTS: BASE.ACCOUNTS,
   ACCOUNTS_BATCH: (callbackURL) =>
-    `${BASE.ACCOUNTS}/batch${callbackURL ? `?callbackURL=${enc(callbackURL)}` : ''}`,
+    `${BASE.ACCOUNTS}/batch${
+      callbackURL ? `?callbackURL=${enc(callbackURL)}` : ''
+    }`,
 
   ORDERS: BASE.ORDERS,
+  ORDERS_BATCH: (callbackURL) =>
+    `${BASE.ORDERS}/batch${
+      callbackURL ? `?callbackURL=${enc(callbackURL)}` : ''
+    }`,
+
   CATALOGS: BASE.CATALOGS,
   CHANNELS: BASE.CHANNELS,
   CURRENCIES: BASE.CURRENCIES,
   ME: BASE.ME,
 
-  DOCUMENT_FOLDERS: (siteId) => `${BASE.DELIVERY}/sites/${siteId}/document-folders`,
+  DOCUMENT_FOLDERS: (siteId) =>
+    `${BASE.DELIVERY}/sites/${siteId}/document-folders`,
   DOCUMENT_FOLDER_BY_ERC: (siteId, erc) =>
-    `${BASE.DELIVERY}/sites/${siteId}/document-folders/by-externalReferenceCode/${enc(erc)}`,
-  SITE_LANGUAGES: (siteGroupId) => `${BASE.DELIVERY}/sites/${siteGroupId}/languages`,
+    `${
+      BASE.DELIVERY
+    }/sites/${siteId}/document-folders/by-externalReferenceCode/${enc(erc)}`,
+  SITE_LANGUAGES: (siteGroupId) =>
+    `${BASE.DELIVERY}/sites/${siteGroupId}/languages`,
   SITE_DOCUMENTS: (siteId) => `${BASE.DELIVERY}/sites/${siteId}/documents`,
 
-  DOCUMENT_FOLDER: (folderId) => `${BASE.DELIVERY}/document-folders/${folderId}`,
+  DOCUMENT_FOLDER: (folderId) =>
+    `${BASE.DELIVERY}/document-folders/${folderId}`,
   DOCUMENT_FOLDER_PERMISSIONS: (folderId) =>
     `${BASE.DELIVERY}/document-folders/${folderId}/permissions`,
   DOCUMENT: (documentId) => `${BASE.DELIVERY}/documents/${documentId}`,
@@ -113,12 +130,15 @@ const PATH = {
       case 'document':
         return `${BASE.DELIVERY}/documents/${id}/permissions`;
       default:
-        throw new Error(`PATH.PERMISSIONS_BY_ASSET: unsupported assetType "${assetType}"`);
+        throw new Error(
+          `PATH.PERMISSIONS_BY_ASSET: unsupported assetType "${assetType}"`
+        );
     }
   },
 
   CUSTOM_OBJECT: (plural) => `${BASE.C_OBJECT}/${plural}`,
-  CUSTOM_OBJECT_QUERY: (plural, params) => `${BASE.C_OBJECT}/${plural}${q(params)}`,
+  CUSTOM_OBJECT_QUERY: (plural, params) =>
+    `${BASE.C_OBJECT}/${plural}${q(params)}`,
 };
 
 module.exports = { PATH, byERC };

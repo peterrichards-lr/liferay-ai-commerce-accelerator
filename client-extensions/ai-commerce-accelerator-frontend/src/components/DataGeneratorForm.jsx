@@ -237,7 +237,7 @@ function DataGeneratorForm({
             </div>
 
             {forceDemoMode && (
-              <div className="text-info mt-2">
+              <div className="text-info my-2">
                 <i className="fas fa-info-circle me-1"></i>
                 OpenAI API key not found. Demo mode is enforced, and AI
                 generation options are disabled.
@@ -1274,7 +1274,7 @@ function DataGeneratorForm({
             >
               <button
                 type="submit"
-                className={`submit-button ${
+                className={`submit-button w-100 btn my-2 py-2 ${
                   generationConfig.demoMode ? 'demo-mode' : 'generate-mode'
                 }`}
                 disabled={disabled}

@@ -173,17 +173,21 @@ export default function ConnectionAuthCard({
 
       <button
         type="button"
-        className={`btn w-100 btn-${displayType}`}
+        className={`btn w-100 btn-${displayType} my-2 py-2`}
         onClick={onTest}
         disabled={disabled || loading}
       >
         <i
-          className={`fas ${
-            status === 'success' ? 'fa-check' : 'fa-plug'
+          className={`icon ${
+            displayType === 'success'
+              ? 'icon-connected'
+              : displayType === 'danger'
+              ? 'icon-connection-failed'
+              : 'icon-connection-unknown'
           } me-2`}
         ></i>
         {status === 'success'
-          ? 'Connected ✓'
+          ? 'Connected'
           : status === 'error'
           ? 'Retry Connection'
           : 'Test Connection & Load Data'}

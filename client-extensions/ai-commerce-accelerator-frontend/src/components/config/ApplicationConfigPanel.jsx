@@ -20,6 +20,7 @@ export default function ApplicationConfigPanel({
   connectionErrors = [],
   commerceErrors = [],
   onErrorsChange,
+  onClearCommerceData,
 }) {
   const { config } = useApp();
 
@@ -55,7 +56,12 @@ export default function ApplicationConfigPanel({
         errors={commerceErrors}
       />
 
-      <AdvancedPanel disabled={disabled} generationConfig={generationConfig} />
+      <AdvancedPanel
+        disabled={disabled}
+        connected={!!connected}
+        generationConfig={generationConfig}
+        onClearCommerceData={onClearCommerceData}
+      />
     </div>
   );
 }

@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import ClayCard from '@clayui/card';
 import ClayForm, { ClaySelect } from '@clayui/form';
 import { useApp } from '../../context/AppContext';
@@ -17,21 +17,21 @@ export default function CommerceCard({
 }) {
   const { config, setConfig } = useApp();
 
-  React.useEffect(() => {
+  useEffect(() => {
     if (!connected) return;
     if (!config.catalogId && catalogs.length === 1) {
       setConfig({ catalogId: Number(catalogs[0].id) });
     }
   }, [connected, catalogs, config.catalogId, setConfig]);
 
-  React.useEffect(() => {
+  useEffect(() => {
     if (!connected) return;
     if (!config.channelId && channels.length === 1) {
       onSelectChannel?.(Number(channels[0].id));
     }
   }, [connected, channels, config.channelId, onSelectChannel]);
 
-  React.useEffect(() => {
+  useEffect(() => {
     if (!connected || !config.channelId) return;
     const noneSelected =
       !Array.isArray(config.selectedLanguages) ||
@@ -47,7 +47,7 @@ export default function CommerceCard({
     setConfig,
   ]);
 
-  React.useEffect(() => {
+  useEffect(() => {
     if (!connected || !config.channelId) return;
     if (!config.currencyCode && currencies.length === 1) {
       setConfig({ currencyCode: currencies[0].code });

@@ -1,4 +1,11 @@
-import React, { useState, useEffect, useCallback, useReducer } from 'react';
+import React, {
+  useState,
+  useEffect,
+  useCallback,
+  useReducer,
+  useRef,
+  useMemo,
+} from 'react';
 import { AppProvider, useApi, useApp } from './context/AppContext.jsx';
 import { progressReducer, initialProgress } from './state/progressReducer';
 
@@ -76,7 +83,7 @@ function toFormData(obj, files = {}) {
 }
 
 export function AppUI() {
-  const mountedRef = React.useRef(true);
+  const mountedRef = useRef(true);
   useEffect(
     () => () => {
       mountedRef.current = false;
@@ -116,6 +123,32 @@ export function AppUI() {
 
   const { logs, addLog, clearLogs } = useActivityLog(initialLoggingConfig);
   const [progress, dispatch] = useReducer(progressReducer, initialProgress);
+
+  const logDeletionSummary = (summary) => {
+    if (!summary || typeof summary !== 'object') return;
+
+    const plural = (n, s, p = s + 'es') => `${n} ${n === 1 ? s : p}`;
+
+    Object.entries(summary).forEach(([entity, s]) => {
+      if (!s) return;
+      const total = s.total ?? 0;
+      const batches = s.batches ?? 0;
+      const batchesText = plural(batches, 'batch', 'batches');
+      const dryTag = s.dryRun ? ' (dry run)' : '';
+
+      addLog(`Submitted ${entity} for deletion: ${total} over ${batchesText}${dryTag}`, 'info');
+
+      const failures = Array.isArray(s.failures) ? s.failures : [];
+      if (failures.length > 0) {
+        addLog(
+          `${entity}: ${failures.length} failure${
+            failures.length === 1 ? '' : 's'
+          }`,
+          'error'
+        );
+      }
+    });
+  };
 
   const { wsRef, wsConnected } = useRealtimeWebSocket({
     enabled: connectionEstablished && !!config.microserviceUrl,
@@ -1080,14 +1113,20 @@ export function AppUI() {
     });
   };
 
-  const subtitle = React.useMemo(
+  const subtitle = useMemo(
     () =>
       config?.subtitle ||
       'Generate comprehensive Commerce data using AI and Liferay Headless APIs',
     [config?.subtitle]
   );
 
-  const handleProgressReset = React.useCallback(() => {
+  const handleClearCommerceData = useCallback(async () => {
+    const payload = buildPayload();
+    const summary = await api.post('/api/delete-commerce-data', payload);
+    logDeletionSummary(summary);
+  });
+
+  const handleProgressReset = useCallback(() => {
     clearLogs();
 
     const { products, accounts, orders } =
@@ -1107,7 +1146,7 @@ export function AppUI() {
     notifyUser('Progress and activity log have been reset.');
   }, [clearLogs, setProgress, generationConfig, notifyUser]);
 
-  const handleSettingsReset = React.useCallback(() => {
+  const handleSettingsReset = useCallback(() => {
     setGenerationConfig(initialGenerationConfig);
     notifyUser('Generator settings restored to defaults.');
   }, []);
@@ -1144,11 +1183,12 @@ export function AppUI() {
                     connectionErrors={connectionErrors}
                     commerceErrors={commerceErrors}
                     onErrorsChange={setConnectionErrors}
+                    onClearCommerceData={handleClearCommerceData}
                   />
                 </div>
                 <div className="col-lg-8">
                   <div className="d-flex justify-content-between align-items-center mb-3">
-                    <h5 className="mb-0">
+                    <h5>
                       <i className="fas fa-cogs me-2"></i>
                       Application Configuration
                     </h5>

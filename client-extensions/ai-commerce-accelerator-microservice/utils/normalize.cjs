@@ -1,3 +1,5 @@
+const { logger } = require('./logger.cjs');
+
 function toBoolean(v) {
   if (typeof v === 'boolean') return v;
   if (typeof v !== 'string') return false;

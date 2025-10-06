@@ -2,9 +2,7 @@ const {
   inputValidationMiddleware,
 } = require('../middleware/securityMiddleware.cjs');
 
-const {
-  connectionSchema
-} = require('../utils/schemas.cjs');
+const { connectionSchema } = require('../utils/schemas.cjs');
 
 module.exports = function (app, liferayService, logger) {
   app.post(

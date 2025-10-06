@@ -1,5 +1,5 @@
-const { v4: uuidv4 } = require('uuid');
 const WebSocket = require('ws');
+const { DEBUG } = require('../utils/constants.cjs');
 const { get: getWs } = require('../services/wsBus.cjs');
 const {
   sanitizedObject,

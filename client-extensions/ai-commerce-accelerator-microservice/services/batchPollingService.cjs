@@ -6,6 +6,12 @@ const { cacheService } = require('./cacheService.cjs');
 const { OAuthService } = require('./oauthService.cjs');
 const { get: getWs } = require('../services/wsBus.cjs');
 
+function extractIdFromLocation(location) {
+  if (!location || typeof location !== 'string') return null;
+  const m = location.match(/\/import-task\/(\d+)/);
+  return m ? m[1] : null;
+}
+
 class BatchPollingService {
   constructor() {
     this.oauthService = new OAuthService();
@@ -176,41 +182,52 @@ class BatchPollingService {
     }
   }
 
-  async startPolling(batchId, config, options) {
-    // Skip polling for mock batch IDs used for WebSocket progress tracking
-    const mockBatchIds = [
-      'images-processing',
-      'pdfs-processing',
-      'images-progress',
-      'pdfs-progress',
-      'images-complete',
-      'pdfs-complete',
-    ];
-    if (mockBatchIds.includes(batchId)) {
-      logger.info(
-        'Skipping polling for mock batch ID used for WebSocket progress',
-        {
-          operation: 'polling-skip-mock',
-          batchId,
-        }
-      );
-      return;
-    }
+  startMonitors(jobs = [], globalOptions = {}) {
+    for (const job of jobs) {
+      const { entity, refs = [], meta = {} } = job;
+      const { mode = 'generate', affectsProgress = true } = meta;
 
+      for (const ref of refs) {
+        const batchId = ref.taskId || extractIdFromLocation(ref.location);
+        if (!batchId) continue;
+
+        cacheService.set(
+          `batch:${batchId}:config`,
+          { entityType: entity, mode, affectsProgress },
+          300000
+        );
+
+        this.startPolling(
+          batchId,
+          meta.config || {},
+          {
+            ...globalOptions,
+            entityType: entity,
+            mode,
+            affectsProgress,
+          }
+        );
+      }
+    }
+  }
+
+  async startPolling(batchId, config, options = {}) {
     const {
-      pollInterval = 5000, // Default 5 seconds
-      maxPollAttempts = 120, // Max 10 minutes (120 * 5s)
+      pollInterval = 5000,
+      maxPollAttempts = 120,
       onStatusChange,
       onComplete,
       onError,
-      entityType, // Added entityType for context
+      entityType,
+      // NEW:
+      mode = 'generate', // 'generate' | 'delete' | 'other'
+      affectsProgress = true,
     } = options;
 
     if (this.activePolls.has(batchId)) {
       logger.warn('Polling already active for batch', {
         operation: 'batch-polling-start',
         batchId,
-        message: 'Polling already in progress',
       });
       return;
     }
@@ -224,7 +241,9 @@ class BatchPollingService {
       onStatusChange,
       onComplete,
       onError,
-      entityType, // Store entityType
+      entityType,
+      mode,
+      affectsProgress,
       startTime: new Date(),
     };
 
@@ -235,7 +254,9 @@ class BatchPollingService {
       batchId,
       pollInterval,
       maxAttempts: maxPollAttempts,
-      entityType, // Log entityType
+      entityType,
+      mode,
+      affectsProgress,
     });
 
     await this.pollBatchStatus(batchId);
@@ -419,7 +440,6 @@ class BatchPollingService {
   }
 
   async handleBatchComplete(batchId, status, client) {
-    // Check if we've already processed this batch completion to prevent duplicates
     const alreadyProcessed = cacheService.get(`batch:${batchId}:completed`);
     if (alreadyProcessed) {
       logger.warn('Batch completion already processed, skipping duplicate', {
@@ -465,12 +485,12 @@ class BatchPollingService {
 
     // Get entity type from polling data or batch configuration
     const pollData = this.activePolls.get(batchId);
-    let entityType = pollData?.entityType;
-
-    if (!entityType) {
-      const batchConfig = cacheService.get(`batch:${batchId}:config`);
-      entityType = batchConfig?.entityType || 'products'; // Default to products instead of unknown
-    }
+    const affectsProgress = pollData?.affectsProgress ?? true;
+    const entityType =
+      pollData?.entityType ||
+      cacheService.get(`batch:${batchId}:config`)?.entityType ||
+      'products';
+    const mode = pollData?.mode || 'generate';
 
     logger.info('Handling batch completion', {
       operation: 'batch-complete-handler',
@@ -496,6 +516,8 @@ class BatchPollingService {
     } else {
       const message = {
         type: 'batch_completed',
+        mode,
+        activityOnly: !affectsProgress,
         batchId,
         entityType,
         successCount: results.processedCount,
@@ -600,8 +622,9 @@ class BatchPollingService {
       pollDataForCompletion.onComplete(results);
     }
 
-    // Check if this batch completion triggers session completion
-    this.markBatchCompleteInSessions(batchId);
+    if (affectsProgress && mode === 'generate') {
+      this.markBatchCompleteInSessions(batchId);
+    }
   }
 
   async handleBatchFailed(batchId, status, client) {
@@ -649,14 +672,13 @@ class BatchPollingService {
       failedAt: new Date().toISOString(),
     };
 
-    // Get entity type from polling data or batch configuration
     const pollData = this.activePolls.get(batchId);
-    let entityType = pollData?.entityType;
-
-    if (!entityType) {
-      const batchConfig = cacheService.get(`batch:${batchId}:config`);
-      entityType = batchConfig?.entityType || 'products'; // Default to products instead of unknown
-    }
+    const affectsProgress = pollData?.affectsProgress ?? true;
+    const entityType =
+      pollData?.entityType ||
+      cacheService.get(`batch:${batchId}:config`)?.entityType ||
+      'products';
+    const mode = pollData?.mode || 'generate';
 
     logger.info('Handling batch failure', {
       operation: 'batch-failed-handler',
@@ -715,6 +737,8 @@ class BatchPollingService {
 
       logger.info('Broadcasted batch failure via WebSocket', {
         operation: 'websocket-broadcast',
+        mode,
+        activityOnly: !affectsProgress,
         batchId,
         entityType,
         errorCount: results.errorCount,
@@ -768,12 +792,10 @@ class BatchPollingService {
     };
   }
 
-  // Mark a batch as completed in all relevant sessions
   markBatchCompleteInSessions(batchId) {
     for (const [sessionId, session] of this.generationSessions.entries()) {
       if (session.batchIds.has(batchId)) {
         session.completedBatches.add(batchId);
-
         logger.debug('Marked batch complete in session', {
           operation: 'batch-complete-session-mark',
           batchId,
@@ -781,8 +803,6 @@ class BatchPollingService {
           completedBatches: session.completedBatches.size,
           totalBatches: session.batchIds.size,
         });
-
-        // Check if this session is now complete
         this.checkSessionCompletion(sessionId);
       }
     }

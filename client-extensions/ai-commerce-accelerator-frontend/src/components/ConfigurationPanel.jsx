@@ -345,7 +345,7 @@ function ConfigurationPanel({
     <div className="d-flex flex-column h-100">
       <div className="card">
         <div className="card-header">
-          <h5 className="mb-0">
+          <h5>
             <i className="fas fa-cog me-2"></i>
             Liferay Configuration
           </h5>
@@ -677,7 +677,7 @@ function ConfigurationPanel({
       </div>
       <div className="card">
         <div className="card-header">
-          <h5 className="mb-0">
+          <h5>
             <i className="fas fa-cog me-2"></i>
             Generator Configuration
           </h5>
