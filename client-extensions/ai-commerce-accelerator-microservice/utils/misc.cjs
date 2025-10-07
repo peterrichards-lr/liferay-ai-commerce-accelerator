@@ -1,16 +1,4 @@
-const { lookupConfig } = require('@rotty3000/config-node');
 const { logger } = require('../utils/logger.cjs');
-const { get: getWs } = require('../services/wsBus.cjs');
-
-const applicationExternalReferenceCodes = {
-  OAUTH_AGENT_EXTERNAL_REFERENCE_CODE: lookupConfig(
-    'main.liferay.agent.oauth.application'
-  ),
-
-  OAUTH_SERVER_EXTERNAL_REFERENCE_CODE: lookupConfig(
-    'main.liferay.server.oauth.application'
-  ),
-};
 
 function getRandomInt(max) {
   return Math.floor(Math.random() * max);
@@ -286,7 +274,6 @@ function buildDataUrl({ contentType, base64 }) {
 }
 
 module.exports = {
-  applicationExternalReferenceCodes,
   getRandomInt,
   handleDemoProductGeneration,
   handleDemoAccountGeneration,

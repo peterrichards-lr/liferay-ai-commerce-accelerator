@@ -1,6 +1,7 @@
 const { logger } = require('../utils/logger.cjs');
 const { ConfigService } = require('./configService.cjs');
 const liferayService = require('./liferayService.cjs');
+const { env } = require('../utils/constants.cjs');
 
 class HealthService {
   constructor() {
@@ -29,7 +30,7 @@ class HealthService {
     return {
       service: 'liferay-ai-data-microservice',
       version: '1.0.0',
-      environment: process.env.NODE_ENV || 'development',
+      environment: env.NODE_ENV,
       uptime: Math.floor(uptime / 1000), // seconds
       timestamp: new Date().toISOString(),
       node: {

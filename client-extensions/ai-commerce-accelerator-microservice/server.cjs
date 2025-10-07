@@ -5,6 +5,7 @@ const cors = require('cors');
 const path = require('path');
 const http = require('http');
 
+const {env} =require('./utils/constants.cjs');
 const { init: initWs } = require('./services/wsBus.cjs');
 const { logger } = require('./utils/logger.cjs');
 const { cacheService } = require('./services/cacheService.cjs');
@@ -264,7 +265,7 @@ server.listen(PORT, '0.0.0.0', () => {
     operation: 'server-start',
     port: PORT,
     host: '0.0.0.0',
-    environment: process.env.NODE_ENV || 'development',
+    environment: env.NODE_ENV,
     websocketEnabled: true,
   });
   console.log(

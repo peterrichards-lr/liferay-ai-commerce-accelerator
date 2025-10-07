@@ -4,7 +4,7 @@ const crypto = require('crypto');
 
 const { CacheService } = require('./cacheService.cjs');
 const { logger } = require('../utils/logger.cjs');
-const { applicationExternalReferenceCodes } = require('../utils/misc.cjs');
+const { applicationExternalReferenceCodes } = require('../utils/constants.cjs');
 
 const serverOauthApp = lxcConfig.oauthApplication(
   applicationExternalReferenceCodes.OAUTH_SERVER_EXTERNAL_REFERENCE_CODE

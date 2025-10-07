@@ -29,5 +29,6 @@
   ],
   "main.liferay.server.oauth.application": "liferay-ai-commerce-accelerator-microservice-oauth-application-headless-server",
   "server.port": 3001,
-  "token.check.exclude.list": []
+  "token.check.exclude.list": [],
+  "enable.debug": true
 }

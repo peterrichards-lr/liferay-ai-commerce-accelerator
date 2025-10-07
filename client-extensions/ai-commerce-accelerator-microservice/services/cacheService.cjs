@@ -1,11 +1,12 @@
 const { logger } = require('../utils/logger.cjs');
+const {env} = require('../utils/constants.cjs');
 
 class CacheService {
   constructor() {
     this.cache = new Map();
     this.ttlMap = new Map();
-    this.maxSize = parseInt(process.env.CACHE_MAX_SIZE) || 1000;
-    this.defaultTTL = parseInt(process.env.CACHE_DEFAULT_TTL) || 300000; // 5 minutes
+    this.maxSize = env.CACHE_MAX_SIZE;
+    this.defaultTTL = env.CACHE_DEFAULT_TTL;
 
     // Cleanup expired entries every minute
     setInterval(() => this.cleanup(), 60000);

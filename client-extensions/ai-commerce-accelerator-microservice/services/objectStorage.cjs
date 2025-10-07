@@ -2,6 +2,8 @@ const { Storage, File } = require('@google-cloud/storage');
 const { Response } = require('express');
 const { randomUUID } = require('crypto');
 
+const { env } = require('../utils/constants.cjs');
+
 const REPLIT_SIDECAR_ENDPOINT = 'http://127.0.0.1:1106';
 
 // The object storage client is used to interact with the object storage service.
@@ -37,7 +39,7 @@ class ObjectStorageService {
 
   // Gets the public object search paths.
   getPublicObjectSearchPaths() {
-    const pathsStr = process.env.PUBLIC_OBJECT_SEARCH_PATHS || '';
+    const pathsStr = env.PUBLIC_OBJECT_SEARCH_PATHS;
     const paths = Array.from(
       new Set(
         pathsStr
@@ -57,7 +59,7 @@ class ObjectStorageService {
 
   // Gets the private object directory.
   getPrivateObjectDir() {
-    const dir = process.env.PRIVATE_OBJECT_DIR || '';
+    const dir = env.PRIVATE_OBJECT_DIR;
     if (!dir) {
       throw new Error(
         "PRIVATE_OBJECT_DIR not set. Create a bucket in 'Object Storage' " +

@@ -1,6 +1,8 @@
 const fs = require('fs');
 const path = require('path');
 
+const {env} = require('./constants.cjs');
+
 // Ensure logs directory exists
 const logsDir = path.join(__dirname, '../logs');
 if (!fs.existsSync(logsDir)) {
@@ -28,7 +30,7 @@ class Logger {
       correlationId,
       userId,
       operation,
-      environment: process.env.NODE_ENV || 'development',
+      environment: env.NODE_ENV,
       service: 'liferay-ai-data-microservice',
       version: '1.0.0',
       ...meta,
@@ -85,8 +87,8 @@ class Logger {
 
   debug(message, meta = {}) {
     if (
-      process.env.NODE_ENV === 'development' ||
-      process.env.DEBUG === 'true'
+      env.NODE_ENV === 'development' ||
+      env.DEBUG === true
     ) {
       this.log('debug', message, meta);
     }
