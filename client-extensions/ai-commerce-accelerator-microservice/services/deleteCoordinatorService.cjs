@@ -34,14 +34,13 @@ function recordBatches(batchRefs, config, entityType) {
         clientId: config.clientId,
         clientSecret: config.clientSecret,
         localeCode: config.localeCode,
-        // helpful extras for polling/UI
-        entityType, // 'orders' | 'accounts' | 'products'
-        mode: 'delete', // so UI can treat as activity-only
-        affectsProgress: false, // do not alter generation progress bars
+        entityType,
+        mode: 'delete',
+        affectsProgress: false,
         correlationId: config.correlationId || null,
         createdAt: new Date().toISOString(),
       },
-      60 * 60 * 1000 // 1 hour
+      60 * 60 * 1000
     );
 
     logger.info('Batch config stored', {

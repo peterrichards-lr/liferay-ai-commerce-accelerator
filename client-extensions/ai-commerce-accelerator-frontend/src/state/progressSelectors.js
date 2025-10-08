@@ -48,6 +48,8 @@ export const computeTotalsFromConfig = (generationConfig) => ({
       : 0),
   accounts: computeAccountTotal(generationConfig),
   orders: computeOrderTotal(generationConfig),
+  images: expectedImageTotal(generationConfig),
+  pdf: expectedPdfTotal(generationConfig),
 });
 
 export const expectedImageTotal = (generationConfig) => {

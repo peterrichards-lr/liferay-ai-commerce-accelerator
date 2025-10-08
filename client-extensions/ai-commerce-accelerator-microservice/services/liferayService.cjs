@@ -45,12 +45,31 @@ class LiferayService {
 
   async _request(
     config,
-    { method = 'GET', url, data, params, headers, op, friendly } = {}
+    {
+      method = 'GET',
+      url,
+      data,
+      params,
+      headers,
+      op,
+      friendly,
+      fullResponse = false,
+    } = {}
   ) {
     const client = await this.createAxiosInstance(config);
 
     try {
       const res = await client.request({ method, url, data, params, headers });
+
+      if (fullResponse) {
+        return {
+          data: res.data,
+          headers: res.headers || {},
+          status: res.status,
+          statusText: res.statusText,
+        };
+      }
+
       return res.data;
     } catch (err) {
       const res = err.response;
@@ -104,18 +123,12 @@ class LiferayService {
       e.errorReference = problem?.errorReference;
       e.problem = problem;
       e.response = { status, statusText, headers: resHeaders, data: body };
-      e.request = {
-        method,
-        url,
-        params,
-        hasData: !!data,
-      };
+      e.request = { method, url, params, hasData: !!data };
       throw e;
     }
   }
 
-  async _get(config, url, opts = {}, op, friendly) {
-    const client = await this.createAxiosInstance(config);
+  async _get(config, url, opts = {}, op, friendly, fullResponse = false) {
     const { params, headers } = opts || {};
 
     const paramsSerializer = (p) =>
@@ -125,19 +138,30 @@ class LiferayService {
         )
       ).toString();
 
-    const reqCfg = { params, headers, paramsSerializer };
-    if (DEBUG) {
-      logger.debug('http:get', {
-        url,
-        params,
-      });
-    }
+    const qs = paramsSerializer(params);
+    const finalUrl = qs ? `${url}${url.includes('?') ? '&' : '?'}${qs}` : url;
 
-    const { data } = await client.get(url, reqCfg);
-    return data;
+    logger.debug('http:get', { url: finalUrl, params });
+
+    return this._request(config, {
+      method: 'GET',
+      url: finalUrl,
+      headers,
+      op,
+      friendly,
+      fullResponse,
+    });
   }
 
-  async _post(config, url, data, op, friendly, onError = 'throw') {
+  async _post(
+    config,
+    url,
+    data,
+    op,
+    friendly,
+    onError = 'throw',
+    fullResponse = false
+  ) {
     return this._request(config, {
       method: 'POST',
       url,
@@ -145,15 +169,30 @@ class LiferayService {
       op,
       friendly,
       onError,
+      fullResponse,
     });
   }
 
-  async _put(config, url, data, op, friendly) {
-    return this._request(config, { method: 'PUT', url, data, op, friendly });
+  async _put(config, url, data, op, friendly, fullResponse = false) {
+    return this._request(config, {
+      method: 'PUT',
+      url,
+      data,
+      op,
+      friendly,
+      fullResponse,
+    });
   }
 
-  async _delete(config, url, data, op, friendly) {
-    return this._request(config, { method: 'DELETE', url, data, op, friendly });
+  async _delete(config, url, data, op, friendly, fullResponse = false) {
+    return this._request(config, {
+      method: 'DELETE',
+      url,
+      data,
+      op,
+      friendly,
+      fullResponse,
+    });
   }
 
   _normalizePermissionItems(items = []) {
@@ -1568,12 +1607,13 @@ class LiferayService {
       const body = toBatchObjects(chunk);
 
       try {
-        const response = await this._delete(
+        const res = await this._delete(
           config,
           batchUrl,
           body,
           op,
-          friendly
+          friendly,
+          true
         );
 
         const location =
@@ -1723,6 +1763,13 @@ class LiferayService {
     } catch {
       return String(obj);
     }
+  }
+
+  async getImportTask(batchId) {
+    return _get(
+      `/o/headless-batch-engine/v1.0/import-task/${batchId}`,
+      (fullResponse = true)
+    );
   }
 }
 

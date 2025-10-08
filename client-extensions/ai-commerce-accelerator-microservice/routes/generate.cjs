@@ -367,18 +367,15 @@ module.exports = function (
         });
 
         if (DEBUG) {
-          console.error('=== PRODUCT GENERATION ERROR DEBUG ===');
-          console.error('Error Message:', errorMessage);
-          console.error('Error Name:', error.name);
-          console.error('Error Type:', typeof error);
+          logger.error('=== PRODUCT GENERATION ERROR DEBUG ===');
+          logger.error('Error Message:', errorMessage);
+          logger.error('Error Name:', error.name);
+          logger.error('Error Type:', typeof error);
           const sanitizedBody = sanitizedObject(req.body);
-          console.error(
-            'Request Body:',
-            JSON.stringify(sanitizedBody, null, 2)
-          );
-          console.error('Full Error Object:', JSON.stringify(error, null, 2));
-          console.error('Error Stack:', error.stack);
-          console.error('=== END ERROR DEBUG ===');
+          logger.error('Request Body:', { payload: sanitizedCallback });
+          logger.error('Full Error Object:', { payload: error });
+          logger.error('Error Stack:', error.stack);
+          logger.error('=== END ERROR DEBUG ===');
         }
 
         res.status(500).json({

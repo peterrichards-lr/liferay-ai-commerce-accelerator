@@ -4,8 +4,8 @@ export const initialProgress = {
   products: { total: 0, completed: 0, errors: [] },
   accounts: { total: 0, completed: 0, errors: [] },
   orders: { total: 0, completed: 0, errors: [] },
-  images: { total: 0, completed: 0, errors: [] },
-  pdfs: { total: 0, completed: 0, errors: [] },
+  images: { expected: 0, total: 0, completed: 0, errors: [] },
+  pdfs: { expected: 0, total: 0, completed: 0, errors: [] },
 };
 
 export function progressReducer(state, action) {
@@ -28,6 +28,17 @@ export function progressReducer(state, action) {
 
     case 'MERGE': {
       return { ...state, ...action.payload };
+    }
+
+    case 'SET_EXPECTED': {
+      const { entity, expected } = action;
+      const cur = state[entity] || {
+        expected: 0,
+        total: 0,
+        completed: 0,
+        errors: [],
+      };
+      return { ...state, [entity]: { ...cur, expected } };
     }
 
     case 'SET_TOTAL': {
@@ -81,6 +92,11 @@ export const ProgressActions = {
   apply: (updater) => ({ type: 'APPLY_UPDATER', updater }),
   merge: (payload) => ({ type: 'MERGE', payload }),
   setTotal: (entity, total) => ({ type: 'SET_TOTAL', entity, total }),
+  setExpeced: (entity, expected) => ({
+    type: 'SET_EXPECTED',
+    entity,
+    expected,
+  }),
   setCompleted: (entity, completed) => ({
     type: 'SET_COMPLETED',
     entity,

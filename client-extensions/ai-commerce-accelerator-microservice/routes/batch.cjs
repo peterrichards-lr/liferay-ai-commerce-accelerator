@@ -12,10 +12,10 @@ module.exports = function (app, cacheService, batchPollingService, logger) {
 
     try {
       logger.info('Received batch submission callback from Liferay', {
-        correlationId: correlationId,
+        correlationId,
         operation: 'batch-callback',
-        batchId: batchId,
-        status: status,
+        batchId,
+        status,
         bodyKeys: req.body ? Object.keys(req.body) : [],
       });
 
@@ -35,17 +35,19 @@ module.exports = function (app, cacheService, batchPollingService, logger) {
         cacheService.set(
           `batch:${batchId}:submission`,
           {
-            status: status,
+            status,
             submittedAt: new Date().toISOString(),
             rawCallback: req.body,
           },
           3600000
         );
 
-        const batchConfig = cacheService.get(`batch:${batchId}:config`);
+        let batchConfig = cacheService.get(`batch:${batchId}:config`);
+
         if (batchConfig) {
-          const pollInterval = Math.max(batchConfig.pollInterval || 5000, 2000); // Minimum 2 seconds
+          const pollInterval = Math.max(batchConfig.pollInterval || 5000, 2000);
           const maxPollAttempts = batchConfig.maxPollAttempts || 120;
+          const entityType = batchConfig.entityType || 'products';
 
           logger.info('Starting batch status polling', {
             operation: 'batch-polling-init',
@@ -54,8 +56,6 @@ module.exports = function (app, cacheService, batchPollingService, logger) {
             maxPollAttempts,
             correlationId,
           });
-
-          const entityType = batchConfig.entityType || 'products';
 
           batchPollingService.startPolling(batchId, batchConfig, {
             pollInterval,
@@ -67,7 +67,7 @@ module.exports = function (app, cacheService, batchPollingService, logger) {
                 status: statusUpdate.status,
                 processedCount: statusUpdate.processedCount,
                 totalCount: statusUpdate.totalCount,
-                entityType: entityType,
+                entityType,
               });
             },
             onComplete: (results) => {
@@ -76,12 +76,12 @@ module.exports = function (app, cacheService, batchPollingService, logger) {
                 batchId,
                 processedCount: results.processedCount,
                 totalCount: results.totalCount,
-                entityType: entityType,
+                entityType,
               });
 
               broadcastBatchUpdate(batchId, {
                 status: 'completed',
-                entityType: entityType,
+                entityType,
                 data: results,
               });
 
@@ -94,13 +94,13 @@ module.exports = function (app, cacheService, batchPollingService, logger) {
                 operation: 'batch-error',
                 batchId,
                 error: error.message,
-                entityType: entityType,
+                entityType,
               });
 
               const errorMessage = JSON.stringify({
                 type: 'batch_failed',
                 batchId,
-                entityType: entityType,
+                entityType,
                 error: error.message,
                 timestamp: new Date().toISOString(),
               });
@@ -118,24 +118,66 @@ module.exports = function (app, cacheService, batchPollingService, logger) {
             },
           });
         } else {
-          logger.warn('No config found for batch, cannot start polling', {
+          logger.warn('No config found for batch, attempting recovery', {
             operation: 'batch-callback-no-config',
             batchId,
             correlationId,
           });
+
+          try {
+            const taskRes = liferayService.getImportTask(batchId);
+            const task = taskRes.data;
+
+            let entityType = 'unknown';
+            const className = task?.className || '';
+
+            if (className.includes('Order')) entityType = 'orders';
+            else if (className.includes('Account')) entityType = 'accounts';
+            else if (className.includes('Product')) entityType = 'products';
+
+            batchConfig = {
+              liferayUrl: process.env.LIFERAY_URL || 'http://localhost:8080',
+              clientId: process.env.LIFERAY_CLIENT_ID,
+              clientSecret: process.env.LIFERAY_CLIENT_SECRET,
+              entityType,
+              mode: 'delete',
+              correlationId,
+              createdAt: new Date().toISOString(),
+            };
+
+            cacheService.set(`batch:${batchId}:config`, batchConfig, 3600000);
+
+            logger.info('Recovered batch config from Liferay task metadata', {
+              operation: 'batch-callback-config-recovered',
+              batchId,
+              entityType,
+              className,
+            });
+
+            batchPollingService.startPolling(batchId, batchConfig, {
+              entityType,
+              mode: 'delete',
+            });
+          } catch (recoveryErr) {
+            logger.error('Failed to recover batch config from Liferay', {
+              operation: 'batch-callback-recovery-error',
+              batchId,
+              error: recoveryErr.message,
+            });
+          }
         }
       }
 
       res.status(200).json({
         success: true,
         message: 'Batch callback received successfully',
-        correlationId: correlationId,
+        correlationId,
         pollingStarted:
           !!batchId && !!cacheService.get(`batch:${batchId}:config`),
       });
     } catch (error) {
       logger.error('Error processing batch callback', {
-        correlationId: correlationId,
+        correlationId,
         operation: 'batch-callback',
         error: error.message,
         stack: error.stack,
@@ -144,7 +186,7 @@ module.exports = function (app, cacheService, batchPollingService, logger) {
       res.status(500).json({
         success: false,
         error: 'Failed to process batch callback',
-        correlationId: correlationId,
+        correlationId,
       });
     }
   });

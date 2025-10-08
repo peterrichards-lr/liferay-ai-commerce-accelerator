@@ -11,6 +11,8 @@ import StatusMonitor from './StatusMonitor';
 import DashboardHeader from './DashboardHeader';
 import ProgressMonitor from './ProgressMonitor';
 
+import { buildFilename, exportJsonFile } from '../../utils/fileHelper';
+
 const STORAGE_KEYS = {
   start: 'progress.startTime',
   last: 'progress.lastUpdateTime',
@@ -54,6 +56,20 @@ function Dashboard({
 }) {
   const frozenRef = useRef(false);
 
+  const [screenReaderStatus, setScreenReaderStatus] = useState('');
+  const hasProgress =
+    !!progress &&
+    typeof progress === 'object' &&
+    Object.values(progress).some(
+      (s) =>
+        (Number(s?.completed) || 0) > 0 ||
+        (Array.isArray(s?.errors) && s.errors.length > 0)
+    );
+  const hasLogs = Array.isArray(logs) && logs.length > 0;
+  const summaryDisabled = isGenerating || !hasProgress;
+  const logDisabled = isGenerating || !hasLogs;
+  const allDisabled = isGenerating || !hasProgress || !hasLogs;
+
   const [{ startTime, lastUpdateTime, endTime }, setTimes] = useState(() => {
     const { start, last, end } = loadPersistedTimes();
     return { startTime: start, lastUpdateTime: last, endTime: end };
@@ -65,6 +81,70 @@ function Dashboard({
     const effectiveEnd = end ?? last ?? Date.now();
     return Math.max(0, effectiveEnd - start);
   });
+
+  const handleExportSummary = () => {
+    const filename = buildFilename('progress-summary');
+    try {
+      exportJsonFile(
+        {
+          timestamp: new Date().toISOString(),
+          summary: progress,
+          webSocketStatus: wsStatus,
+          lastRun: {
+            lastUpdateTime,
+            displayElapsedMs,
+          },
+        },
+        filename
+      );
+      setScreenReaderStatus(`Download started: ${filename}`);
+    } catch (e) {
+      setScreenReaderStatus(`Export failed: ${e?.message || 'Unknown error'}`);
+    }
+  };
+
+  const handleExportLog = () => {
+    const filename = buildFilename('activity-log');
+    try {
+      exportJsonFile(
+        {
+          timestamp: new Date().toISOString(),
+          activityLog: logs,
+          webSocketStatus: wsStatus,
+          lastRun: {
+            lastUpdateTime,
+            displayElapsedMs,
+          },
+        },
+        filename
+      );
+      setScreenReaderStatus(`Download started: ${filename}`);
+    } catch (e) {
+      setScreenReaderStatus(`Export failed: ${e?.message || 'Unknown error'}`);
+    }
+  };
+
+  const handleExportAll = () => {
+    const filename = buildFilename('monitor-and-log');
+    try {
+      exportJsonFile(
+        {
+          timestamp: new Date().toISOString(),
+          summary: progress,
+          activityLog: logs,
+          webSocketStatus: wsStatus,
+          lastRun: {
+            lastUpdateTime,
+            displayElapsedMs,
+          },
+        },
+        filename
+      );
+      setScreenReaderStatus(`Download started: ${filename}`);
+    } catch (e) {
+      setScreenReaderStatus(`Export failed: ${e?.message || 'Unknown error'}`);
+    }
+  };
 
   const startRun = useCallback(() => {
     frozenRef.current = false;
@@ -176,6 +256,70 @@ function Dashboard({
             elapsedMs={displayElapsedMs}
             wsStatus={wsStatus}
           />
+
+          <div className="export-controls">
+            <div
+              className="export-controls__group"
+              role="group"
+              aria-label="Export options"
+              aria-busy={isGenerating ? 'true' : undefined}
+            >
+              <button
+                type="button"
+                className="btn btn-outline-secondary btn-sm export-button"
+                onClick={handleExportSummary}
+                aria-label="Export progress summary as JSON"
+                aria-controls="progress-summary"
+                disabled={summaryDisabled}
+                aria-disabled={summaryDisabled ? 'true' : undefined}
+                title={
+                  summaryDisabled
+                    ? 'Nothing to export yet'
+                    : 'Download the current progress summary (JSON)'
+                }
+              >
+                <span className="icon icon-export"></span>
+                Export Summary
+              </button>
+              <button
+                type="button"
+                className="btn btn-outline-secondary btn-sm export-button"
+                onClick={handleExportLog}
+                aria-label="Export activity log as JSON"
+                aria-controls="activity-log"
+                disabled={logDisabled}
+                aria-disabled={logDisabled ? 'true' : undefined}
+                title={
+                  logDisabled
+                    ? 'No activity entries yet'
+                    : 'Download the activity log entries (JSON)'
+                }
+              >
+                <span className="icon icon-export"></span>
+                Export Log
+              </button>
+              <button
+                type="button"
+                className="btn btn-outline-secondary btn-sm export-button"
+                onClick={handleExportAll}
+                aria-label="Export progress summary and activity log as a single JSON file"
+                aria-controls="progress-summary activity-log"
+                disabled={allDisabled}
+                aria-disabled={allDisabled ? 'true' : undefined}
+                title={
+                  allDisabled
+                    ? 'Nothing to export yet'
+                    : 'Download both summary and activity log (JSON)'
+                }
+              >
+                <span className="icon icon-export"></span>
+                Export All
+              </button>
+            </div>
+            <div aria-live="polite" aria-atomic="true" className="sr-only">
+              {screenReaderStatus}
+            </div>
+          </div>
         </div>
       </div>
     </div>

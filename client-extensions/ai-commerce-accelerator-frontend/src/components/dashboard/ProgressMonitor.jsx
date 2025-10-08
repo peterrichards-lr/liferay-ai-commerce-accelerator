@@ -1,15 +1,8 @@
 import React from 'react';
 
-import {
-  getProgressPercentage,
-  expectedImageTotal,
-  expectedPdfTotal,
-} from '../../state/progressSelectors';
+import { getProgressPercentage } from '../../state/progressSelectors';
 
 function ProgressMonitor({ generationConfig, progress }) {
-  const getExpectedImageCount = () => expectedImageTotal(generationConfig);
-  const getExpectedPdfCount = () => expectedPdfTotal(generationConfig);
-
   const getProgressBarClass = (percentage) => {
     if (percentage === 100) return 'complete';
     if (percentage > 0) return 'active';
@@ -156,7 +149,7 @@ function ProgressMonitor({ generationConfig, progress }) {
               </h6>
               <span className="progress-count">
                 {progress.images?.completed || 0} /{' '}
-                {progress.images?.total || getExpectedImageCount()}
+                {progress.images?.total || progress.images?.expected}
               </span>
             </div>
             <div className="progress-bar-container">
@@ -188,15 +181,14 @@ function ProgressMonitor({ generationConfig, progress }) {
                   Image generation disabled
                 </small>
               )}
-            {(getExpectedImageCount() > 0 &&
-              (progress.images?.total === 0) ||
-                progress.images?.completed < progress.images?.total) && (
-                <small className="info-text">
-                  <i className="icon icon-info"></i>
-                  Expected {getExpectedImageCount()} products with{' '}
-                  {getImageContentType().toLowerCase()}
-                </small>
-              )}
+            {((progress.images?.expected > 0 && progress.images?.total === 0) ||
+              progress.images?.completed < progress.images?.total) && (
+              <small className="info-text">
+                <i className="icon icon-info"></i>
+                Expected {progress.images.expected} products with{' '}
+                {getImageContentType().toLowerCase()}
+              </small>
+            )}
           </div>
 
           <div className="progress-item">
@@ -207,7 +199,7 @@ function ProgressMonitor({ generationConfig, progress }) {
               </h6>
               <span className="progress-count">
                 {progress.pdfs.completed} /{' '}
-                {progress.pdfs.total || getExpectedPdfCount()}
+                {progress.pdfs.total || progress.pdfs.expected}
               </span>
             </div>
             <div className="progress-bar-container">
@@ -239,11 +231,11 @@ function ProgressMonitor({ generationConfig, progress }) {
                   PDF generation disabled
                 </small>
               )}
-            {((getExpectedPdfCount() > 0 && progress.pdfs?.total === 0) ||
+            {((progress.pdf?.expected > 0 && progress.pdfs?.total === 0) ||
               progress.pdfs?.completed < progress.pdfs?.total) && (
               <small className="info-text">
                 <i className="icon icon-info"></i>
-                Expected {getExpectedPdfCount()} products with{' '}
+                Expected {progress.pdfs.expected} products with{' '}
                 {getPdfContentType().toLowerCase()}
               </small>
             )}

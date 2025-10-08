@@ -33,6 +33,8 @@ import {
   hasAnyErrors,
 } from './utils/validation';
 
+import { buildFilename, exportJsonFile } from './utils/fileHelper.js';
+
 const toInt = (v) => (v == null || v === '' ? undefined : parseInt(v, 10));
 const toArray = (v) => (Array.isArray(v) ? v : v ? [v] : []);
 
@@ -136,7 +138,10 @@ export function AppUI() {
       const batchesText = plural(batches, 'batch', 'batches');
       const dryTag = s.dryRun ? ' (dry run)' : '';
 
-      addLog(`Submitted ${entity} for deletion: ${total} over ${batchesText}${dryTag}`, 'info');
+      addLog(
+        `Submitted ${entity} for deletion: ${total} over ${batchesText}${dryTag}`,
+        'info'
+      );
 
       const failures = Array.isArray(s.failures) ? s.failures : [];
       if (failures.length > 0) {
@@ -232,7 +237,7 @@ export function AppUI() {
   useEffect(() => {
     if (isGenerating) return;
 
-    const { products, accounts, orders } =
+    const { products, accounts, orders, images, pdfs } =
       computeTotalsFromConfig(generationConfig);
 
     setProgress((prev) => {
@@ -267,6 +272,24 @@ export function AppUI() {
         };
       }
 
+      if (prev.images?.total !== images) {
+        changed = true;
+        next.images = {
+          ...prev.images,
+          total: images,
+          // completed: clampCompleted(prev.images.completed, images),
+        };
+      }
+
+      if (prev.pdfs?.total !== images) {
+        changed = true;
+        next.pdfs = {
+          ...prev.pdfs,
+          total: pdfs,
+          // completed: clampCompleted(prev.images.completed, images),
+        };
+      }
+
       return changed ? next : prev;
     });
   }, [
@@ -293,19 +316,8 @@ export function AppUI() {
       exportedAt: new Date().toISOString(),
     };
 
-    const dataStr = JSON.stringify(exportData, null, 2);
-    const dataBlob = new Blob([dataStr], { type: 'application/json' });
-    const url = URL.createObjectURL(dataBlob);
-
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = `ai-commerce-accelerator-config-${
-      new Date().toISOString().split('T')[0]
-    }.json`;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    URL.revokeObjectURL(url);
+    const filename = buildFilename('ai-commerce-accelerator-config');
+    exportJsonFile(exportData, filename);
 
     notifyUser('Configuration exported successfully');
   };
@@ -1139,8 +1151,8 @@ export function AppUI() {
       products: { ...initialProgress.products, total: products },
       accounts: { ...initialProgress.accounts, total: accounts },
       orders: { ...initialProgress.orders, total: orders },
-      images: { ...initialProgress.images, total: images },
-      pdfs: { ...initialProgress.pdfs, total: pdfs },
+      images: { ...initialProgress.images, total: images, expected: images },
+      pdfs: { ...initialProgress.pdfs, total: pdfs, expected: pdfs },
     }));
 
     notifyUser('Progress and activity log have been reset.');
