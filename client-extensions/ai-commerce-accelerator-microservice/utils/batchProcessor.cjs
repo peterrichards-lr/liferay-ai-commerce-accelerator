@@ -1,6 +1,7 @@
 const liferayConfig = require('../config/liferayConfig.cjs');
 const { logger } = require('./logger.cjs');
 const { ErrorHandler } = require('./errorHandler.cjs');
+const { delay } = require('../utils/misc.cjs');
 
 class BatchProcessor {
   async processBatch(
@@ -53,7 +54,7 @@ class BatchProcessor {
 
       // Add delay between batches to avoid overwhelming the server
       if (i + actualBatchSize < items.length) {
-        await this.delay(liferayConfig.batchConfig.batchDelay);
+        await delay(liferayConfig.batchConfig.batchDelay);
       }
     }
 
@@ -131,7 +132,7 @@ class BatchProcessor {
           `Attempt ${attempt} failed, retrying in ${retryDelay}ms:`,
           error.message
         );
-        await this.delay(retryDelay);
+        await delay(retryDelay);
       }
     }
 
@@ -156,10 +157,7 @@ class BatchProcessor {
         results.successful.push(result);
         logger.trace(`Processed item ${i + 1}/${items.length} successfully`);
       } catch (error) {
-        logger.error(
-          `Failed to process item ${i + 1}/${items.length}:`,
-          error
-        );
+        logger.error(`Failed to process item ${i + 1}/${items.length}:`, error);
         results.errors.push({
           error: error.message || error.toString(),
           index: i,
@@ -179,7 +177,7 @@ class BatchProcessor {
 
       // Add small delay between items to avoid overwhelming the server
       if (i < items.length - 1) {
-        await this.delay(100);
+        await delay(100);
       }
     }
 
@@ -187,10 +185,6 @@ class BatchProcessor {
       `Sequential processing completed: ${results.successful.length} successful, ${results.errors.length} errors`
     );
     return results;
-  }
-
-  delay(ms) {
-    return new Promise((resolve) => setTimeout(resolve, ms));
   }
 
   // Helper method to split array into chunks
@@ -251,7 +245,7 @@ class BatchProcessor {
       }
 
       if (i + actualBatchSize < items.length) {
-        await this.delay(liferayConfig.batchConfig.batchDelay);
+        await delay(liferayConfig.batchConfig.batchDelay);
       }
     }
 

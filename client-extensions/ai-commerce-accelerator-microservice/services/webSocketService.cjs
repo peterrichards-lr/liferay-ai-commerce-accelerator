@@ -2,11 +2,12 @@ const WebSocket = require('ws');
 const { v4: uuidv4 } = require('uuid');
 const { BATCH_START } = require('../utils/wsEvents.cjs');
 const { CORRELATION_ID_HEADER } = require('../utils/sharedConstants.cjs');
+const { delay } = require('../utils/misc.cjs');
 
 function createWebSocketService({
   server,
   logger = console,
-  heartbeatIntervalMs = 30_000, // ping every 30s
+  heartbeatIntervalMs = 30000,
 } = {}) {
   if (!server) throw new Error('webSocketService requires an HTTP server');
 
@@ -28,13 +29,17 @@ function createWebSocketService({
 
   // Connection handling
   wss.on('connection', (ws, req) => {
-    const url = new URL(req.url, 'http://localhost');
-    const correlationId =
-      url.searchParams.get(CORRELATION_ID_HEADER) || uuidv4();
-    ws.id = correlationId;
-    ws.correlationId = correlationId;
+    try {
+      const url = new URL(req.url, `http://${req.headers.host}`);
+      const correlationId = url.searchParams.get(CORRELATION_ID_HEADER) || null;
+      ws.id = correlationId;
+      ws.correlationId = correlationId;
+    } catch {
+      logger.warn('Unable to attach the correlation Id to the web socket');
+    }
     ws.isAlive = true;
     ws.url = req.headers.origin;
+    ws.ip = req.socket.remoteAddress;
     clients.add(ws);
 
     logger?.info?.('WebSocket connection', {
@@ -312,10 +317,26 @@ function createWebSocketService({
 
   const now = () => new Date().toISOString();
 
+  const broadcastWithRetry = async (message, retries = [300, 1500]) => {
+    let result = broadcast(message);
+    for (const retryDelay of retries) {
+      if (result.ok > 0) return result;
+      delay(retryDelay);
+      result = broadcast(message);
+    }
+    return result;
+  };
+
+  const clientCount = () => {
+    return clients.size || 0;
+  };
+
   // Public API
   return {
     wss, // keep for legacy constructors that expect the raw server
     broadcast,
+    broadcastWithRetry,
+    clientCount,
     emitBatchStarted,
     emitBatchProgress,
     emitBatchCompleted,

@@ -1,5 +1,5 @@
 const liferayService = require('./liferayService.cjs');
-const { CacheService } = require('./cacheService.cjs');
+const { cacheService } = require('./cacheService.cjs');
 
 const OPENAPI_CACHE_KEY = 'OPENAI_API_KEY';
 const OPENAI_CONFIG_KEY = 'open-ai-key';
@@ -11,10 +11,6 @@ const DEFAULT_PDF_CACHE_KEY = 'DEFAULT_PDF_KEY';
 const DEFAULT_PDF_CONFIG_HEY = 'default-pdf';
 
 class ConfigService {
-  constructor() {
-    this.cache = new CacheService();
-  }
-
   async getConfig(requestConfig, cacheKey, configKey) {
     if (!requestConfig) {
       throw new Error(
@@ -22,8 +18,8 @@ class ConfigService {
       );
     }
 
-    const cached = this.cache.get(cacheKey);
-    if (cached && Date.now() - cached.timestamp < this.cacheTimeout) {
+    const cached = cacheService.get(cacheKey);
+    if (cached) {
       return cached.value;
     }
 
@@ -32,7 +28,7 @@ class ConfigService {
       const apiKey = response.items[0].configValue;
 
       // Cache the result
-      this.cache.set(cacheKey, {
+      cacheService.set(cacheKey, {
         value: apiKey,
         timestamp: Date.now(),
       });
@@ -42,12 +38,7 @@ class ConfigService {
   }
 
   getConfigCached(cacheKey) {
-    const cached = this.cache.get(cacheKey);
-    if (cached && Date.now() - cached.timestamp < this.cacheTimeout) {
-      return cached.value;
-    } else {
-      return null;
-    }
+    return cacheService.get(cacheKey);
   }
 
   async getDefaultImage(requestConfig) {
@@ -95,10 +86,7 @@ class ConfigService {
         DEFAULT_PDF_CONFIG_HEY
       );
     } catch (error) {
-      logger.error(
-        'Failed to get the default PDF from Liferay Object:',
-        error
-      );
+      logger.error('Failed to get the default PDF from Liferay Object:', error);
       throw new Error(
         'Default PDF not configured. Please set it in the AI Configuration object.'
       );
@@ -129,7 +117,7 @@ class ConfigService {
   }
 
   clearCache() {
-    this.cache.clear();
+    cacheService.clear();
   }
 }
 

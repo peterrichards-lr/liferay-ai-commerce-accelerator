@@ -6,14 +6,13 @@ const batchProcessor = require('../utils/batchProcessor.cjs');
 const { MockDataGenerator } = require('./mockDataGenerator.cjs');
 const { BatchPollingService } = require('./batchPollingService.cjs');
 const { get: getWs } = require('../services/wsBus.cjs');
+const { delay } = require('../utils/misc.cjs');
 
 class OrderGenerator {
   constructor(batchPollingService = null) {
     this.aiService = aiService; // Make aiService accessible within the class
     this.mockDataGenerator = new MockDataGenerator();
-    this.ws = getWs();
-    this.batchPollingService =
-      batchPollingService ?? new BatchPollingService(this.ws); // Initialize the polling service with WebSocket server
+    this.batchPollingService = batchPollingService;
   }
 
   async generateOrders(config, options) {
@@ -101,7 +100,9 @@ class OrderGenerator {
           accounts,
           config.aiModel || 'gpt-4o'
         );
-        logger.trace(`AI: Generated ${orderDataList.length} order data entries`);
+        logger.trace(
+          `AI: Generated ${orderDataList.length} order data entries`
+        );
       }
 
       // Create orders using appropriate method
@@ -287,9 +288,7 @@ class OrderGenerator {
             logger.trace(
               `No products found, retrying in ${config.pollingDelay}ms...`
             );
-            await new Promise((resolve) =>
-              setTimeout(resolve, config.pollingDelay)
-            );
+            await delay(config.pollingDelay);
             continue;
           } else {
             throw new Error(
@@ -303,9 +302,7 @@ class OrderGenerator {
             logger.trace(
               `No accounts found, retrying in ${config.pollingDelay}ms...`
             );
-            await new Promise((resolve) =>
-              setTimeout(resolve, config.pollingDelay)
-            );
+            await delay(config.pollingDelay);
             continue;
           } else {
             throw new Error(
@@ -325,9 +322,7 @@ class OrderGenerator {
           logger.trace(
             `Dependency check failed, retrying in ${config.pollingDelay}ms... (${error.message})`
           );
-          await new Promise((resolve) =>
-            setTimeout(resolve, config.pollingDelay)
-          );
+          await delay(config.pollingDelay);
           continue;
         }
         throw error;

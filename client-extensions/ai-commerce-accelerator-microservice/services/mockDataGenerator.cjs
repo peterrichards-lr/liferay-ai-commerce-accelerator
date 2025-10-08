@@ -541,10 +541,6 @@ class MockDataGenerator {
     return specCategories;
   }
 
-  async delay(ms) {
-    return new Promise((resolve) => setTimeout(resolve, ms));
-  }
-
   reloadConfiguration() {
     logger.trace('Reloading configuration data...');
     this.loadConfigurationData();

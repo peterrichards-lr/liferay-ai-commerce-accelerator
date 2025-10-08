@@ -277,13 +277,41 @@ function buildDataUrl({ contentType, base64 }) {
   return `data:${contentType};base64,${base64}`;
 }
 
+const delay = (ms = 1000) => new Promise((r) => setTimeout(r, ms));
+
+const delayCall = (fn, ms = 1000, thisArg = null, ...args) => {
+  if (typeof fn !== 'function') return null;
+  return setTimeout(() => fn.apply(thisArg, args), ms);
+};
+
+const debounce = (fn, ms = 300) => {
+  if (typeof fn !== 'function') return null;
+  let t;
+  return (...args) => {
+    clearTimeout(t);
+    t = setTimeout(() => fn(...args), ms);
+  };
+};
+
+function inferEntityTypeFromClassName(className = '') {
+  const s = String(className).toLowerCase();
+  if (s.includes('.order')) return 'orders';
+  if (s.includes('.account')) return 'accounts';
+  if (s.includes('.product')) return 'products';
+  return 'unknown';
+}
+
 module.exports = {
   buildDataUrl,
+  debounce,
+  delay,
+  delayCall,
   errorReference,
   getRandomInt,
   handleDemoAccountGeneration,
   handleDemoOrderGeneration,
   handleDemoProductGeneration,
+  inferEntityTypeFromClassName,
   parseDataUrl,
   ratioTrigger,
 };

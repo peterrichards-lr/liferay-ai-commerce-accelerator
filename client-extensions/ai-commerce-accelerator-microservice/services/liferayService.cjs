@@ -17,16 +17,13 @@ const {
   buildPermissionsItems,
 } = require('../utils/liferayPermissions.cjs');
 const { DEBUG } = require('../utils/constants.cjs');
+const { delay } = require('../utils/misc.cjs');
 
 class LiferayService {
   constructor() {
     this.axiosInstance = null;
     this.oauthService = new OAuthService();
     this.baseUrl = liferayConfig.liferayUrl;
-  }
-
-  _errRef() {
-    return `LIFR-${Date.now()}-${uuidv4().slice(0, 8)}`;
   }
 
   _asCount(data) {
@@ -56,10 +53,15 @@ class LiferayService {
       fullResponse = false,
     } = {}
   ) {
-    const client = await this.createAxiosInstance(config);
-
     try {
-      const res = await client.request({ method, url, data, params, headers });
+      const client = await this._client(config);
+      const res = await client.request({
+        method,
+        url,
+        data,
+        params,
+        headers,
+      });
 
       if (fullResponse) {
         return {
@@ -92,15 +94,6 @@ class LiferayService {
             }
           : null;
 
-      const msgParts = [
-        op || friendly || 'Request failed',
-        status ? `HTTP ${status}${statusText ? ' ' + statusText : ''}` : null,
-        problem?.title ? `— ${problem.title}` : null,
-        problem?.detail ? ` — ${problem.detail}` : null,
-        problem?.errorReference ? ` [ref=${problem.errorReference}]` : null,
-      ].filter(Boolean);
-      const message = msgParts.join('');
-
       logger?.error?.('Request failed', {
         op,
         friendly,
@@ -111,7 +104,8 @@ class LiferayService {
         statusText,
         errorReference: problem?.errorReference,
         problem,
-        responseBody: typeof body === 'string' ? body : _stringifySafe(body),
+        responseBody:
+          typeof body === 'string' ? body : this._stringifySafe(body),
         headers,
         responseHeaders: resHeaders,
       });
@@ -282,14 +276,11 @@ class LiferayService {
   }
 
   async createAxiosInstance(config) {
-    const accessToken =
-      config.clientId === null
-        ? await this.oauthService.getAccessTokenFromRoute()
-        : await this.oauthService.getAccessToken(
-            config.liferayUrl,
-            config.clientId,
-            config.clientSecret
-          );
+    const accessToken = await this.oauthService.getAccessToken(
+      config.liferayUrl,
+      config.clientId,
+      config.clientSecret
+    );
 
     return axios.create({
       baseURL: config.liferayUrl,
@@ -320,10 +311,9 @@ class LiferayService {
         message: 'Successfully connected to Liferay Commerce using OAuth 2',
       };
     } catch (error) {
-      logger.error(
-        'OAuth connection test failed:',
-        error.response?.data || error.message
-      );
+      logger.error('OAuth connection test failed', {
+        error: error.response?.data || error.message,
+      });
 
       const structuredError = {
         success: false,
@@ -378,7 +368,7 @@ class LiferayService {
         structuredError.field = 'liferayUrl';
       }
 
-      const errorReference = structuredError.errorReference || this._errRef();
+      const errorReference = structuredError.errorReference || errorReference();
       logger.error(`Error Reference: ${errorReference}`);
       structuredError.errorReference = errorReference;
 
@@ -569,7 +559,7 @@ class LiferayService {
 
     orderData.channelId = parseInt(orderData.channelId, 10);
 
-    logger.debug('Creating order with payload:', {
+    logger.trace('Creating order with payload', {
       channelId: orderData.channelId,
       currencyCode: orderData.currencyCode,
       accountId: orderData.accountId,
@@ -876,7 +866,7 @@ class LiferayService {
       });
       return data;
     } catch (error) {
-      const errorReference = this._errRef();
+      const errorReference = errorReference();
       logger.error(`Error Reference: ${errorReference}`);
       const baseLog = {
         operation: op || 'post-multipart',
@@ -1379,7 +1369,7 @@ class LiferayService {
       idSelector,
       useTotalCount = true,
       maxPages = 10000,
-      sleepBetweenMs = 0,
+      delayBetweenMs = 0,
       fields,
       op,
       friendly,
@@ -1519,7 +1509,7 @@ class LiferayService {
         if (items.length === 0) break;
 
         nextPage = (curPage || nextPage) + 1;
-        if (sleepBetweenMs > 0) await this._sleep(sleepBetweenMs);
+        if (delayBetweenMs > 0) await delay(delayBetweenMs);
       }
     } catch (error) {
       console.error('_collectPagedIds', error);
@@ -1630,17 +1620,19 @@ class LiferayService {
           location: location || null,
           taskERC,
           taskId,
-          status: response.status || 'submitted',
+          status: res.status || 'submitted',
         });
 
         summary.submitted += 1;
       } catch (err) {
-        summary.failures.push({
+        const errInfo = {
           batchIndex: summary.submitted,
           status: err?.status ?? err?.response?.status,
           error: err?.response?.data ?? String(err?.message ?? err),
           ids: chunk,
-        });
+        };
+        logger.warn('Unable to record batch delete', errInfo);
+        summary.failures.push(errInfo);
       }
     }
 
@@ -1699,7 +1691,7 @@ class LiferayService {
             break;
           }
           attempts++;
-          await this._sleep(backoffMs * attempts);
+          await delay(backoffMs * attempts);
         }
       }
     };
@@ -1707,10 +1699,6 @@ class LiferayService {
     const n = Math.min(concurrency, Math.max(1, ids.length));
     await Promise.all(Array.from({ length: n }, () => worker()));
     return summary;
-  }
-
-  _sleep(ms) {
-    return new Promise((r) => setTimeout(r, ms));
   }
 
   async _drainCollection(
@@ -1738,7 +1726,7 @@ class LiferayService {
       const items = (data && data[itemsKey]) || [];
       if (items.length === 0) return true;
       attempt += 1;
-      await this._sleep(delayMs);
+      await delay(delayMs);
     }
     return false;
   }
@@ -1765,10 +1753,14 @@ class LiferayService {
     }
   }
 
-  async getImportTask(batchId) {
-    return _get(
+  async getImportTask(config, batchId) {
+    return await this._get(
+      config,
       `/o/headless-batch-engine/v1.0/import-task/${batchId}`,
-      (fullResponse = true)
+      {},
+      'import-task',
+      'Import Liferay task',
+      true
     );
   }
 }

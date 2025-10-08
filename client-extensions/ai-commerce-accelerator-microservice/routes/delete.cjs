@@ -1,8 +1,8 @@
-const { DEBUG } = require('../utils/constants.cjs');
 const { connectionSchema } = require('../utils/schemas.cjs');
 const {
   runDeleteAndMonitor,
 } = require('../services/deleteCoordinatorService.cjs');
+const { cacheService } = require('../services/cacheService.cjs');
 const {
   buildConfigAndOptions,
   sanitizedObject,
@@ -20,6 +20,7 @@ module.exports = function (app, liferayService, logger) {
 
       try {
         const summary = await runDeleteAndMonitor(
+          cacheService,
           liferayService,
           config,
           options

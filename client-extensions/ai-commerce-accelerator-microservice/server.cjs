@@ -1,5 +1,4 @@
 const { lookupConfig, lxcConfig } = require('@rotty3000/config-node');
-const { DEBUG } = require('./utils/constants.cjs');
 
 const express = require('express');
 const cors = require('cors');
@@ -9,7 +8,6 @@ const http = require('http');
 const { env } = require('./utils/constants.cjs');
 const { init: initWs } = require('./services/wsBus.cjs');
 const { logger } = require('./utils/logger.cjs');
-const { cacheService } = require('./services/cacheService.cjs');
 const { BatchPollingService } = require('./services/batchPollingService.cjs');
 const { connectionSchema } = require('./utils/schemas.cjs');
 const {
@@ -101,8 +99,13 @@ app.use(sqlInjectionProtectionMiddleware);
 app.use(xssProtectionMiddleware);
 app.use(requestSigningMiddleware);
 
-require('./routes/batch.cjs')(app, cacheService, batchPollingService, logger);
-require('./routes/cache.cjs')(app, cacheService, logger);
+require('./routes/batch.cjs')(
+  app,
+  liferayService,
+  batchPollingService,
+  logger
+);
+require('./routes/cache.cjs')(app, logger);
 require('./routes/config.cjs')(app, logger);
 require('./routes/get.cjs')(app, liferayService, logger);
 require('./routes/generate.cjs')(

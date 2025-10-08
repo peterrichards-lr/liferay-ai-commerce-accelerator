@@ -1,6 +1,7 @@
 const { v4: uuidv4 } = require('uuid');
 const { logger } = require('../utils/logger.cjs');
 const { cacheService } = require('./cacheService.cjs');
+const { delay, delayCall } = require('../utils/misc.cjs');
 
 class QueueService {
   constructor() {
@@ -142,14 +143,14 @@ class QueueService {
       try {
         // Check if we can process more jobs
         if (queue.processing >= queue.concurrency) {
-          await this.sleep(1000);
+          await delay(1000);
           continue;
         }
 
         // Find next job to process
         const job = this.getNextJob(queue);
         if (!job) {
-          await this.sleep(2000);
+          await delay(2000);
           continue;
         }
 
@@ -160,7 +161,7 @@ class QueueService {
           operation: 'queue-process-error',
           queueName,
         });
-        await this.sleep(5000);
+        await delay(5000);
       }
     }
   }
@@ -188,9 +189,14 @@ class QueueService {
       correlationId: job.correlationId,
     });
 
-    const timeout = setTimeout(() => {
-      this.failJob(job, new Error('Job timeout'), queue);
-    }, job.timeout);
+    const timeout = delayCall(
+      this.failJob,
+      job.timeout,
+      this,
+      job,
+      new Error('Job timeout'),
+      queue
+    );
 
     try {
       const processor = this.getJobProcessor(job.type);
@@ -338,10 +344,6 @@ class QueueService {
         cleanedJobs: cleaned,
       });
     }
-  }
-
-  sleep(ms) {
-    return new Promise((resolve) => setTimeout(resolve, ms));
   }
 }
 

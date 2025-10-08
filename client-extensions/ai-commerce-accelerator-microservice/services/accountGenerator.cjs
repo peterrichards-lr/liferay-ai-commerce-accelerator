@@ -3,16 +3,14 @@ const liferayService = require('./liferayService.cjs');
 const { MockDataGenerator } = require('./mockDataGenerator.cjs');
 const { logger } = require('../utils/logger.cjs');
 const { BatchPollingService } = require('./batchPollingService.cjs');
-const { cacheService } = require('./cacheService.cjs'); // Assuming cacheService is available here
+const { cacheService } = require('./cacheService.cjs');
 const { get: getWs } = require('../services/wsBus.cjs');
+const { delay } = require('../utils/misc.cjs');
 
 class AccountGenerator {
   constructor(batchPollingService = null) {
-    this.aiService = aiService; // Make aiService accessible within the class
-
-    this.ws = getWs();
-    this.batchPollingService =
-      batchPollingService ?? new BatchPollingService(this.ws); // Initialize the polling service with WebSocket server
+    this.aiService = aiService;
+    this.batchPollingService = batchPollingService;
   }
 
   async generateAccounts(config, options) {
@@ -51,7 +49,6 @@ class AccountGenerator {
         }
       }
 
-      
       logger.debug(`=== STARTING ACCOUNT GENERATION ===`);
       logger.debug(
         `Count: ${options.accountCount}, Batch mode: ${useBatch}, Demo mode: ${options.demoMode}, Batch size: ${config.batchSize}`
@@ -211,7 +208,7 @@ class AccountGenerator {
 
           // Add delay between batch submissions to avoid overwhelming the server
           if (batchIndex < accountBatches.length - 1) {
-            await new Promise((resolve) => setTimeout(resolve, 1000));
+            await delay(1000);
           }
         }
 

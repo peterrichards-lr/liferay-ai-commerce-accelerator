@@ -1,4 +1,3 @@
-const { cacheService } = require('./cacheService.cjs');
 const { logger } = require('../utils/logger.cjs');
 
 function extractIdFromLocation(location) {
@@ -13,7 +12,7 @@ function normalizeBatchId(ref) {
   );
 }
 
-function recordBatches(batchRefs, config, entityType) {
+function recordBatches(batchRefs, config, entityType, cacheService) {
   if (!Array.isArray(batchRefs) || batchRefs.length === 0) return;
 
   for (const ref of batchRefs) {
@@ -51,7 +50,12 @@ function recordBatches(batchRefs, config, entityType) {
   }
 }
 
-async function runDeleteAndMonitor(liferayService, config, options = {}) {
+async function runDeleteAndMonitor(
+  cacheService,
+  liferayService,
+  config,
+  options = {}
+) {
   const callbackUrl =
     config.microserviceUrl && config.microserviceUrl !== 'null'
       ? `${config.microserviceUrl}/api/batch/callback`
@@ -73,9 +77,9 @@ async function runDeleteAndMonitor(liferayService, config, options = {}) {
   });
 
   if (!options.dryRun && callbackUrl) {
-    recordBatches(orders.batchRefs, config, 'orders');
-    recordBatches(accounts.batchRefs, config, 'accounts');
-    recordBatches(products.batchRefs, config, 'products');
+    recordBatches(orders.batchRefs, config, 'orders', cacheService);
+    recordBatches(accounts.batchRefs, config, 'accounts', cacheService);
+    recordBatches(products.batchRefs, config, 'products', cacheService);
   }
 
   return { orders, accounts, products };

@@ -8,6 +8,7 @@ const { logger } = require('../utils/logger.cjs');
 const { BatchPollingService } = require('./batchPollingService.cjs');
 const { sanitizedObject } = require('../utils/normalize.cjs');
 const { get: getWs } = require('../services/wsBus.cjs');
+const { delay } = require('../utils/misc.cjs');
 
 const { ASSET_TYPE, VIEWABLE_BY } = require('../utils/liferayPermissions.cjs');
 
@@ -17,9 +18,7 @@ class ProductGenerator {
     this.liferayService = liferayService;
     this.mediaGenerator = new MediaGenerator();
     this.mockDataGenerator = new MockDataGenerator();
-    this.ws = getWs();
-    this.batchPollingService =
-      batchPollingService ?? new BatchPollingService(this.ws); // Initialize the polling service with WebSocket server
+    this.batchPollingService = batchPollingService;
   }
 
   async generateProducts(config, options) {
@@ -349,6 +348,7 @@ class ProductGenerator {
                     clientId: config.clientId,
                     clientSecret: config.clientSecret,
                     localeCode: config.localeCode,
+                    correlationId: config.correlationId,
                     entityType: 'products',
                     createdAt: new Date().toISOString(),
                   },
@@ -424,7 +424,7 @@ class ProductGenerator {
 
               // Add delay between batch submissions to avoid overwhelming the server
               if (batchIndex < productBatches.length - 1) {
-                await new Promise((resolve) => setTimeout(resolve, 1000));
+                await delay(1000);
               }
             }
 
@@ -500,7 +500,7 @@ class ProductGenerator {
                 let imagesApplied = 0,
                   pdfsApplied = 0;
                 if (originalProduct.images) {
-                  this.ws.emitPostProcessingStarted({ entityType: 'images' });
+                  getWs().emitPostProcessingStarted({ entityType: 'images' });
                   for (const image of originalProduct.images) {
                     if (options.imageMode === 'custom') {
                       const imgERC = `IMG_${productERC}_${Math.random()
@@ -549,7 +549,7 @@ class ProductGenerator {
                       `✓ Added image to product: ${createdProduct.externalReferenceCode}`
                     );
                     imagesApplied++;
-                    this.ws.emitPostProcessingProgress({
+                    getWs().emitPostProcessingProgress({
                       entityType: 'images',
                       processedCount: imagesApplied,
                       totalCount: productImagesPrepared,
@@ -558,7 +558,7 @@ class ProductGenerator {
                       ),
                     });
                   }
-                  this.ws.emitPostProcessingCompleted({
+                  getWs().emitPostProcessingCompleted({
                     entityType: 'images',
                     processedCount: imagesApplied,
                     totalCount: productImagesPrepared,
@@ -566,7 +566,7 @@ class ProductGenerator {
                 }
 
                 if (originalProduct.attachments) {
-                  this.ws.emitPostProcessingStarted({ entityType: 'pdfs' });
+                  getWs().emitPostProcessingStarted({ entityType: 'pdfs' });
                   for (const attachment of originalProduct.attachments) {
                     if (options.pdfMode === 'custom') {
                       const pdfERC = `PDF_${productERC}_${Math.random()
@@ -615,7 +615,7 @@ class ProductGenerator {
                       `✓ Added attachment to product: ${createdProduct.externalReferenceCode}`
                     );
                     pdfsApplied++;
-                    this.ws.emitPostProcessingProgress({
+                    getWs().emitPostProcessingProgress({
                       entityType: 'pdfs',
                       processedCount: pdfsApplied,
                       totalCount: productPdfsPrepared,
@@ -624,7 +624,7 @@ class ProductGenerator {
                       ),
                     });
                   }
-                  this.ws.emitPostProcessingCompleted({
+                  getWs().emitPostProcessingCompleted({
                     entityType: 'pdfs',
                     processedCount: pdfsApplied,
                     totalCount: productPdfsPrepared,
@@ -1684,10 +1684,7 @@ class ProductGenerator {
         `Added ${attachments.length} attachments to product ${productId}`
       );
     } catch (error) {
-      logger.error(
-        `Failed to add attachments to product ${productId}:`,
-        error
-      );
+      logger.error(`Failed to add attachments to product ${productId}:`, error);
     }
   }
 
@@ -2039,7 +2036,7 @@ class ProductGenerator {
     const pdfCount = productDataList.filter((p) => p.attachments).length;
 
     if (imageCount > 0) {
-      this.ws.emitBatchStarted({
+      getWs().emitBatchStarted({
         batchId: 'images-processing',
         entityType: 'images',
         totalItems: imageCount,
@@ -2047,7 +2044,7 @@ class ProductGenerator {
     }
 
     if (pdfCount > 0) {
-      this.ws.emitBatchStarted({
+      getWs().emitBatchStarted({
         batchId: 'pdfs-processing',
         entityType: 'pdfs',
         totalItems: pdfCount,
@@ -2116,7 +2113,7 @@ class ProductGenerator {
           }
 
           // Broadcast image progress
-          this.ws.emitBatchProgress({
+          getWs().emitBatchProgress({
             batchId: 'images-processing',
             entityType: 'images',
             completedCount: imageProcessedCount,
@@ -2174,7 +2171,7 @@ class ProductGenerator {
             pdfProcessedCount++;
           }
 
-          this.ws.emitBatchProgress({
+          getWs().emitBatchProgress({
             batchId: 'pdfs-processing',
             entityType: 'pdfs',
             completedCount: pdfProcessedCount,
@@ -2204,7 +2201,7 @@ class ProductGenerator {
 
     // Broadcast separate completion messages for images and PDFs
     if (imageCount > 0) {
-      this.ws.emitBatchCompleted({
+      getWs().emitBatchCompleted({
         type: 'batch_completed',
         entityType: 'images',
         batchId: 'images-processing',
@@ -2215,7 +2212,7 @@ class ProductGenerator {
     }
 
     if (pdfCount > 0) {
-      this.ws.emitBatchCompleted({
+      getWs().emitBatchCompleted({
         batchId: 'pdfs-processing',
         entityType: 'pdfs',
         successCount: pdfProcessedCount,
@@ -2274,7 +2271,7 @@ class ProductGenerator {
     }
 
     // Send WebSocket update
-    this.ws.emitBatchCompleted({
+    getWs().emitBatchCompleted({
       batchId: results.batchId,
       entityType: 'products',
       successCount,

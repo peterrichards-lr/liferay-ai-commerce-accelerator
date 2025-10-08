@@ -1,10 +1,10 @@
 const axios = require('axios');
-const WebSocket = require('ws');
 
 const { logger } = require('../utils/logger.cjs');
 const { cacheService } = require('./cacheService.cjs');
 const { OAuthService } = require('./oauthService.cjs');
 const { get: getWs } = require('../services/wsBus.cjs');
+const { delayCall } = require('../utils/misc.cjs');
 
 function extractIdFromLocation(location) {
   if (!location || typeof location !== 'string') return null;
@@ -17,11 +17,9 @@ class BatchPollingService {
     this.oauthService = new OAuthService();
     this.pollingIntervals = new Map();
     this.activePolls = new Map();
-    this.generationSessions = new Map(); // Track batches by generation session
-    this.ws = getWs();
+    this.generationSessions = new Map();
   }
 
-  // Track batches for a generation session
   registerGenerationSession(sessionId, batchIds, totalExpectedBatches) {
     this.generationSessions.set(sessionId, {
       batchIds: new Set(batchIds),
@@ -39,7 +37,6 @@ class BatchPollingService {
     });
   }
 
-  // Check if all batches in a session are complete
   checkSessionCompletion(sessionId) {
     const session = this.generationSessions.get(sessionId);
     if (!session) {
@@ -69,7 +66,6 @@ class BatchPollingService {
     return false;
   }
 
-  // Trigger post-processing when all batches are complete
   async triggerPostProcessing(sessionId, session) {
     try {
       logger.info('Triggering post-processing for session', {
@@ -78,7 +74,6 @@ class BatchPollingService {
         completedBatches: Array.from(session.completedBatches),
       });
 
-      // Broadcast session completion event
       const message = {
         type: 'generation_session_complete',
         sessionId,
@@ -86,27 +81,12 @@ class BatchPollingService {
         timestamp: new Date().toISOString(),
       };
 
-      if (this.ws.wss) {
-        this.ws.wss.clients.forEach((ws) => {
-          if (ws.readyState === 1) {
-            try {
-              ws.send(JSON.stringify(message));
-            } catch (error) {
-              logger.error('Failed to broadcast session completion', {
-                operation: 'websocket-session-broadcast-error',
-                error: error.message,
-                sessionId,
-              });
-            }
-          }
-        });
-      }
+      getWs().broadcase(message);
 
       logger.info(
         `🎉 Generation session ${sessionId} completed - ready for post-processing!`
       );
 
-      // Retrieve session context and trigger post-processing
       const { cacheService } = require('./cacheService.cjs');
       const sessionContext = cacheService.get(`session:${sessionId}:context`);
 
@@ -114,8 +94,6 @@ class BatchPollingService {
         const { config, productDataList, preparedProducts, options } =
           sessionContext;
 
-        // Check if post-processing is needed (images, PDFs, or attachments)
-        // In demo mode, check ratios instead of generate flags
         const demoMode = sessionContext.options?.demoMode;
         const hasImages = demoMode
           ? sessionContext.options?.imageRatio > 0
@@ -144,9 +122,8 @@ class BatchPollingService {
             ),
           });
 
-          // Import and call post-processing
           const ProductGeneratorClass = require('./productGenerator.cjs');
-          const productGenerator = new ProductGeneratorClass(this.ws);
+          const productGenerator = new ProductGeneratorClass();
           await productGenerator.processImageAndPDFAttachments(
             config,
             productDataList,
@@ -154,7 +131,6 @@ class BatchPollingService {
             options
           );
 
-          // Clean up session context
           cacheService.delete(`session:${sessionId}:context`);
         } else {
           logger.info('No post-processing needed for session', {
@@ -185,7 +161,7 @@ class BatchPollingService {
   startMonitors(jobs = [], globalOptions = {}) {
     for (const job of jobs) {
       const { entity, refs = [], meta = {} } = job;
-      const { mode = 'generate', affectsProgress = true } = meta;
+      const { mode = 'unknown', affectsProgress = true } = meta;
 
       for (const ref of refs) {
         const batchId = ref.taskId || extractIdFromLocation(ref.location);
@@ -197,16 +173,12 @@ class BatchPollingService {
           300000
         );
 
-        this.startPolling(
-          batchId,
-          meta.config || {},
-          {
-            ...globalOptions,
-            entityType: entity,
-            mode,
-            affectsProgress,
-          }
-        );
+        this.startPolling(batchId, meta.config || {}, {
+          ...globalOptions,
+          entityType: entity,
+          mode,
+          affectsProgress,
+        });
       }
     }
   }
@@ -219,8 +191,7 @@ class BatchPollingService {
       onComplete,
       onError,
       entityType,
-      // NEW:
-      mode = 'generate', // 'generate' | 'delete' | 'other'
+      mode = 'unknown',
       affectsProgress = true,
     } = options;
 
@@ -278,7 +249,6 @@ class BatchPollingService {
     try {
       pollData.attempts++;
 
-      // Create axios instance with OAuth token
       const accessToken =
         config.clientId === null
           ? await this.oauthService.getAccessTokenFromRoute()
@@ -298,7 +268,6 @@ class BatchPollingService {
         timeout: 30000,
       });
 
-      // Get batch status
       const statusResponse = await client.get(
         `/o/headless-batch-engine/v1.0/import-task/${batchId}`
       );
@@ -306,7 +275,6 @@ class BatchPollingService {
       const status = statusResponse.data;
       const batchStatus = status.executeStatus || status.status || 'UNKNOWN';
 
-      // Map Liferay field names to our expected field names
       const totalCount =
         status.itemsTotal ||
         status.totalItemsCount ||
@@ -336,7 +304,6 @@ class BatchPollingService {
         },
       });
 
-      // Update cache with current status
       cacheService.set(
         `batch:${batchId}:status`,
         {
@@ -350,7 +317,6 @@ class BatchPollingService {
         300000
       );
 
-      // Call status change callback
       if (pollData.onStatusChange) {
         pollData.onStatusChange({
           batchId,
@@ -362,18 +328,16 @@ class BatchPollingService {
         });
       }
 
-      // Check if batch is complete - stop polling immediately
       if (batchStatus === 'COMPLETED') {
-        this.stopPolling(batchId); // Stop polling FIRST to prevent duplicate calls
+        this.stopPolling(batchId);
         await this.handleBatchComplete(batchId, status, client);
-        return; // Stop polling completely
+        return;
       } else if (batchStatus === 'FAILED') {
-        this.stopPolling(batchId); // Stop polling FIRST to prevent duplicate calls
+        this.stopPolling(batchId);
         await this.handleBatchFailed(batchId, status, client);
-        return; // Stop polling completely
+        return;
       }
 
-      // Check if we've exceeded max attempts
       if (pollData.attempts > pollData.maxAttempts) {
         logger.error('Batch polling exceeded max attempts', {
           operation: 'batch-polling-timeout',
@@ -394,10 +358,12 @@ class BatchPollingService {
         return;
       }
 
-      // Schedule next poll
-      const timeoutId = setTimeout(() => {
-        this.pollBatchStatus(batchId);
-      }, pollData.pollInterval);
+      const timeoutId = delayCall(
+        this.pollBatchStatus,
+        pollData.pollInterval,
+        this,
+        batchId
+      );
 
       this.pollingIntervals.set(batchId, timeoutId);
     } catch (error) {
@@ -412,8 +378,6 @@ class BatchPollingService {
         pollData.onError(error);
       }
 
-      // Continue polling unless it's a critical error
-      // Stop polling on 401, 404, 406 (Not Acceptable) which indicates the batch endpoint is no longer valid
       const shouldStopPolling =
         error.message.includes('401') ||
         error.message.includes('404') ||
@@ -430,33 +394,34 @@ class BatchPollingService {
         });
         this.stopPolling(batchId);
       } else {
-        const timeoutId = setTimeout(() => {
-          this.pollBatchStatus(batchId);
-        }, pollData.pollInterval);
-
+        const timeoutId = delayCall(
+          this.pollBatchStatus,
+          pollData.pollInterval,
+          this,
+          batchId
+        );
         this.pollingIntervals.set(batchId, timeoutId);
       }
     }
   }
 
   async handleBatchComplete(batchId, status, client) {
-    const alreadyProcessed = cacheService.get(`batch:${batchId}:completed`);
-    if (alreadyProcessed) {
-      logger.warn('Batch completion already processed, skipping duplicate', {
-        operation: 'batch-complete-duplicate',
-        batchId,
-      });
-      return;
-    }
+    if (cacheService.get(`batch:${batchId}:completed`)) return;
+    cacheService.set(`batch:${batchId}:completed`, true, 300000);
 
-    // Mark as completed immediately to prevent race conditions
-    cacheService.set(`batch:${batchId}:completed`, true, 300000); // 5 minutes
-
-    // Map Liferay field names to our expected field names
     const totalCount = status.totalItemsCount || status.totalCount || 0;
     const processedCount =
       status.processedItemsCount || status.processedCount || 0;
     const errorCount = status.failedItems?.length || status.errorCount || 0;
+
+    cacheService.set(
+      `batch:${batchId}:completed`,
+      {
+        totalItemsCount: totalCount,
+        processedItemsCount: processedCount,
+      },
+      300000
+    );
 
     logger.info('Batch completed successfully', {
       operation: 'batch-complete',
@@ -471,7 +436,6 @@ class BatchPollingService {
       },
     });
 
-    // Stop polling immediately to prevent additional requests
     this.stopPolling(batchId);
 
     const results = {
@@ -483,14 +447,19 @@ class BatchPollingService {
       completedAt: new Date().toISOString(),
     };
 
-    // Get entity type from polling data or batch configuration
     const pollData = this.activePolls.get(batchId);
     const affectsProgress = pollData?.affectsProgress ?? true;
+    const batchConfig = cacheService.get(`batch:${batchId}:config`);
     const entityType =
-      pollData?.entityType ||
-      cacheService.get(`batch:${batchId}:config`)?.entityType ||
-      'products';
-    const mode = pollData?.mode || 'generate';
+      pollData?.entityType || batchConfig?.entityType || 'products';
+    const mode = pollData?.mode || 'unknown';
+
+    if (!pollData?.entityType && !batchConfig?.entityType) {
+      logger.warn('entityType missing for batch; defaulting to "products"', {
+        batchId,
+        operation: 'batch-entitytype-default',
+      });
+    }
 
     logger.info('Handling batch completion', {
       operation: 'batch-complete-handler',
@@ -501,121 +470,41 @@ class BatchPollingService {
       entityType,
     });
 
-    if (!this.ws) {
-      logger.error('No WebSocket server available', {
-        operation: 'websocket-broadcast-no-server',
-        batchId,
-      });
-      logger.info('❌ No WebSocket server available for broadcasting');
-    } else if (this.ws.wss.clients.size === 0) {
-      logger.warn('No WebSocket clients connected', {
-        operation: 'websocket-broadcast-no-clients',
-        batchId,
-      });
-      logger.info('⚠️ No WebSocket clients connected for broadcasting');
-    } else {
-      const message = {
-        type: 'batch_completed',
-        mode,
-        activityOnly: !affectsProgress,
-        batchId,
-        entityType,
-        successCount: results.processedCount,
-        failureCount: results.errorCount,
-        details: {
-          batchId: results.batchId,
-          status: results.status,
-          totalCount: results.totalCount,
-          processedCount: results.processedCount,
-          errorCount: results.errorCount,
-          completedAt: results.completedAt,
-        },
-        timestamp: new Date().toISOString(),
-      };
+    const message = {
+      type: 'batch_completed',
+      mode,
+      activityOnly: !affectsProgress,
+      batchId,
+      entityType,
+      successCount: results.processedCount,
+      failureCount: results.errorCount,
+      details: {
+        batchId: results.batchId,
+        status: results.status,
+        totalCount: results.totalCount,
+        processedCount: results.processedCount,
+        errorCount: results.errorCount,
+        completedAt: results.completedAt,
+      },
+      timestamp: new Date().toISOString(),
+    };
 
-      logger.info(
-        '🔥 Broadcasting batch completion message:',
-        JSON.stringify(message, null, 2)
-      );
-      logger.debug(
-        `📡 WebSocket clients available: ${this.ws.wss.clients.size}`
-      );
+    logger.info('🔥 Broadcasting batch completion message:', {
+      payload: message,
+    });
 
-      let broadcastCount = 0;
-      let failedCount = 0;
-      let clientsInfo = [];
+    const { ok, fail, total } = await getWs().broadcastWithRetry(message);
 
-      this.ws.wss.clients.forEach((ws) => {
-        const clientInfo = {
-          correlationId: ws.correlationId || 'unknown',
-          readyState: ws.readyState,
-          isOpen: ws.readyState === 1,
-          url: ws.url || 'unknown',
-        };
-        clientsInfo.push(clientInfo);
+    logger.trace('📊 WebSocket broadcast summary', {
+      operation: 'websocket-broadcast',
+      batchId,
+      entityType,
+      totalClients: total,
+      sent: ok,
+      failed: fail,
+    });
 
-        if (ws.readyState === WebSocket.OPEN) {
-          try {
-            ws.send(JSON.stringify(message));
-            broadcastCount++;
-            logger.debug(
-              `✅ Message sent to client ${ws.correlationId || 'unknown'}`
-            );
-          } catch (error) {
-            failedCount++;
-            logger.error(
-              `❌ Failed to send to client ${ws.correlationId || 'unknown'}:`,
-              error.message
-            );
-            logger.error('Failed to send WebSocket message', {
-              operation: 'websocket-send-error',
-              error: error.message,
-              batchId,
-              clientCorrelationId: ws.correlationId,
-            });
-          }
-        } else {
-          logger.info(
-            `⚠️ Skipping client ${
-              ws.correlationId || 'unknown'
-            } - readyState: ${ws.readyState} (expected: 1 for OPEN)`
-          );
-        }
-      });
-
-      logger.debug('📊 WebSocket broadcast summary:', {
-        totalClients: this.ws.wss.clients.size,
-        broadcastSuccessful: broadcastCount,
-        broadcastFailed: failedCount,
-        clientsInfo,
-      });
-
-      logger.info('Broadcasted batch completion via WebSocket', {
-        operation: 'websocket-broadcast',
-        batchId,
-        entityType,
-        successCount: results.processedCount,
-        clientCount: this.ws.wss.clients.size,
-        broadcastSuccessful: broadcastCount,
-        broadcastFailed: failedCount,
-      });
-
-      // If no messages were sent successfully, log as warning
-      if (broadcastCount === 0) {
-        logger.warn(
-          '⚠️ No WebSocket clients received the batch completion message!'
-        );
-        logger.warn('No WebSocket clients received message', {
-          operation: 'websocket-broadcast-no-recipients',
-          batchId,
-          totalClients: this.ws.wss.clients.size,
-          reason: failedCount > 0 ? 'send_failures' : 'no_open_connections',
-        });
-      }
-    }
-
-    // Store final results in cache
-    cacheService.set(`batch:${batchId}:final`, results, 1800000); // 30 minutes
+    cacheService.set(`batch:${batchId}:final`, results, 1800000);
 
     const pollDataForCompletion = this.activePolls.get(batchId);
     if (pollDataForCompletion && pollDataForCompletion.onComplete) {
@@ -628,24 +517,24 @@ class BatchPollingService {
   }
 
   async handleBatchFailed(batchId, status, client) {
-    // Check if we've already processed this batch failure to prevent duplicates
-    const alreadyProcessed = cacheService.get(`batch:${batchId}:failed`);
-    if (alreadyProcessed) {
-      logger.warn('Batch failure already processed, skipping duplicate', {
-        operation: 'batch-failed-duplicate',
-        batchId,
-      });
-      return;
-    }
+    if (cacheService.get(`batch:${batchId}:failed`)) return;
+    cacheService.set(`batch:${batchId}:failed`, true, 300000);
 
-    // Mark as failed immediately to prevent race conditions
-    cacheService.set(`batch:${batchId}:failed`, true, 300000); // 5 minutes
-
-    // Map Liferay field names to our expected field names
     const totalCount = status.totalItemsCount || status.totalCount || 0;
     const processedCount =
       status.processedItemsCount || status.processedCount || 0;
     const errorCount = status.failedItems?.length || status.errorCount || 0;
+
+    cacheService.set(
+      `batch:${batchId}:failed`,
+      {
+        totalItemsCount: totalCount,
+        processedItemsCount: processedCount,
+        failedItemsLength: status.failedItems?.length,
+        failedItems: status.failedItems,
+      },
+      300000
+    );
 
     logger.error('Batch failed', {
       operation: 'batch-failed',
@@ -660,7 +549,6 @@ class BatchPollingService {
       },
     });
 
-    // Stop polling immediately to prevent additional requests
     this.stopPolling(batchId);
 
     const results = {
@@ -674,11 +562,17 @@ class BatchPollingService {
 
     const pollData = this.activePolls.get(batchId);
     const affectsProgress = pollData?.affectsProgress ?? true;
+    const batchConfig = cacheService.get(`batch:${batchId}:config`);
     const entityType =
-      pollData?.entityType ||
-      cacheService.get(`batch:${batchId}:config`)?.entityType ||
-      'products';
-    const mode = pollData?.mode || 'generate';
+      pollData?.entityType || batchConfig?.entityType || 'products';
+    const mode = pollData?.mode || 'unknown';
+
+    if (!pollData?.entityType && !batchConfig?.entityType) {
+      logger.warn('entityType missing for batch; defaulting to "products"', {
+        batchId,
+        operation: 'batch-entitytype-default',
+      });
+    }
 
     logger.info('Handling batch failure', {
       operation: 'batch-failed-handler',
@@ -690,65 +584,37 @@ class BatchPollingService {
       entityType,
     });
 
-    if (!this.ws) {
-      logger.error('No WebSocket server available for failure broadcast', {
-        operation: 'websocket-broadcast-no-server',
-        batchId,
-      });
-      logger.info('❌ No WebSocket server available for broadcasting failure');
-    } else if (this.ws.wss.clients.size === 0) {
-      logger.warn('No WebSocket clients connected for failure broadcast', {
-        operation: 'websocket-broadcast-no-clients',
-        batchId,
-      });
-      logger.info('⚠️ No WebSocket clients connected for broadcasting failure');
-    } else {
-      const message = {
-        type: 'batch_failed',
-        batchId,
-        entityType,
-        error: `Batch failed with ${results.errorCount} errors`,
-        successCount: results.processedCount,
-        failureCount: results.errorCount,
-        details: {
-          totalCount: results.totalCount,
-          processedCount: results.processedCount,
-          errorCount: results.errorCount,
-          failedAt: results.failedAt,
-        },
-        timestamp: new Date().toISOString(),
-      };
-
-      let broadcastCount = 0;
-      this.ws.wss.clients.forEach((ws) => {
-        if (ws.readyState === WebSocket.OPEN) {
-          try {
-            ws.send(JSON.stringify(message));
-            broadcastCount++;
-          } catch (error) {
-            logger.error('Failed to send WebSocket message', {
-              operation: 'websocket-send-error',
-              error: error.message,
-              batchId,
-            });
-          }
-        }
-      });
-
-      logger.info('Broadcasted batch failure via WebSocket', {
-        operation: 'websocket-broadcast',
-        mode,
-        activityOnly: !affectsProgress,
-        batchId,
-        entityType,
+    const message = {
+      type: 'batch_failed',
+      batchId,
+      entityType,
+      error: `Batch failed with ${results.errorCount} errors`,
+      successCount: results.processedCount,
+      failureCount: results.errorCount,
+      details: {
+        totalCount: results.totalCount,
+        processedCount: results.processedCount,
         errorCount: results.errorCount,
-        clientCount: this.ws.wss.clients.size,
-        broadcastSuccessful: broadcastCount,
-      });
-    }
+        failedAt: results.failedAt,
+      },
+      timestamp: new Date().toISOString(),
+    };
 
-    // Store final results in cache
-    cacheService.set(`batch:${batchId}:final`, results, 1800000); // 30 minutes
+    const { ok, fail, total } = await getWs().broadcastWithRetry(message);
+
+    logger.debug('📊 WebSocket broadcast summary', {
+      operation: 'websocket-broadcast',
+      mode,
+      activityOnly: !affectsProgress,
+      batchId,
+      entityType,
+      errorCount: results.errorCount,
+      totalClients: total,
+      sent: ok,
+      failed: fail,
+    });
+
+    cacheService.set(`batch:${batchId}:final`, results, 1800000);
 
     const pollDataForFailure = this.activePolls.get(batchId);
     if (pollDataForFailure && pollDataForFailure.onError) {
