@@ -23,13 +23,13 @@ class ProductGenerator {
   }
 
   async generateProducts(config, options) {
-    console.log('=== STARTING PRODUCT GENERATION ===');
-    console.log('Demo mode:', !!options.demoMode);
-    console.log('Config:', sanitizedObject(config));
-    console.log('Generation Options:', sanitizedObject(options));
+    logger.trace('=== STARTING PRODUCT GENERATION ===');
+    logger.trace('Demo mode:', !!options.demoMode);
+    logger.trace('Config:', sanitizedObject(config));
+    logger.trace('Generation Options:', sanitizedObject(options));
 
     const useBatch = config.batchSize > 1 && options.productCount > 1;
-    console.log(
+    logger.trace(
       `Using ${useBatch ? 'batch' : 'individual'} operations (batch size: ${
         config.batchSize || 1
       })`
@@ -54,10 +54,10 @@ class ProductGenerator {
       this.validateConfig(config);
       await this.validateOptions(options);
 
-      console.log('=== VALIDATED CONFIG ===');
-      console.log('Selected categories:', options.productCategories);
-      console.log('Selected languages:', config.selectedLanguages);
-      console.log('Generate SKU variants:', options.generateSkuVariants);
+      logger.trace('=== VALIDATED CONFIG ===');
+      logger.trace('Selected categories:', options.productCategories);
+      logger.trace('Selected languages:', config.selectedLanguages);
+      logger.trace('Generate SKU variants:', options.generateSkuVariants);
 
       logger.info('Configuration validated', {
         correlationId: config.correlationId,
@@ -66,10 +66,10 @@ class ProductGenerator {
         languages: config.selectedLanguages,
       });
 
-      console.log(`Using catalog ID: ${config.catalogId}`);
-      console.log(`Demo mode: ${options.demoMode ? 'ENABLED' : 'DISABLED'}`);
-      console.log(`Target Liferay URL: ${config.liferayUrl}`);
-      console.log(
+      logger.trace(`Using catalog ID: ${config.catalogId}`);
+      logger.trace(`Demo mode: ${options.demoMode ? 'ENABLED' : 'DISABLED'}`);
+      logger.trace(`Target Liferay URL: ${config.liferayUrl}`);
+      logger.trace(
         `Selected languages: ${(config.selectedLanguages || ['en-US']).join(
           ', '
         )}`
@@ -90,12 +90,12 @@ class ProductGenerator {
 
       const productsPerCategory = options.productCount;
       for (const category of options.productCategories) {
-        console.log(`Generating products for category: ${category}`);
+        logger.trace(`Generating products for category: ${category}`);
 
         try {
           let productDataList;
           if (options.demoMode) {
-            console.log(
+            logger.trace(
               `Demo mode: Generating ${productsPerCategory} mock products`
             );
             productDataList = this.mockDataGenerator.generateProductData(
@@ -116,11 +116,11 @@ class ProductGenerator {
                 pdfRatio: options.pdfRatio || 0,
               }
             );
-            console.log(
+            logger.trace(
               `Demo: Generated ${productDataList.length} ${category} products`
             );
           } else {
-            console.log(
+            logger.trace(
               `AI mode: Generating ${productsPerCategory} products using ${config.aiModel}`
             );
             productDataList = await this.aiService.generateProductData(
@@ -130,7 +130,7 @@ class ProductGenerator {
               config.aiModel,
               config.selectedLanguages || ['en-US']
             );
-            console.log(
+            logger.trace(
               `AI: Generated ${productDataList.length} ${category} products`
             );
           }
@@ -143,7 +143,7 @@ class ProductGenerator {
                 productDataList,
                 options.imageRatio
               );
-              console.log(
+              logger.trace(
                 `Selected ${
                   productsForImages.length
                 } products for image assignment (${
@@ -177,7 +177,7 @@ class ProductGenerator {
                 productDataList,
                 options.pdfRatio
               );
-              console.log(
+              logger.trace(
                 `Selected ${
                   productsForPDFs.length
                 } products for PDF generation (${options.pdfRatio}% ratio) ${
@@ -203,7 +203,7 @@ class ProductGenerator {
             }
           }
 
-          console.log(
+          logger.trace(
             `Processing ${
               productDataList.length
             } products for category ${category} using ${
@@ -277,7 +277,7 @@ class ProductGenerator {
           });
 
           if (useBatch) {
-            console.log(
+            logger.trace(
               `Creating ${preparedProducts.length} products using batch endpoint with batch size ${config.batchSize}...`
             );
 
@@ -306,7 +306,7 @@ class ProductGenerator {
               );
             }
 
-            console.log(
+            logger.trace(
               `Split ${cleanedProducts.length} products into ${productBatches.length} batches of max size ${config.batchSize}`
             );
 
@@ -318,7 +318,7 @@ class ProductGenerator {
               batchIndex++
             ) {
               const batch = productBatches[batchIndex];
-              console.log(
+              logger.trace(
                 `Submitting batch ${batchIndex + 1}/${
                   productBatches.length
                 } with ${batch.length} products...`
@@ -468,13 +468,13 @@ class ProductGenerator {
               demoMode: options.demoMode,
             });
 
-            console.log(
+            logger.trace(
               `Session ${sessionId} registered - post-processing will trigger after all batches complete`
             );
 
             // Post-processing will be handled after all batches complete
           } else {
-            console.log(
+            logger.trace(
               `Creating ${preparedProducts.length} products individually...`
             );
 
@@ -489,7 +489,7 @@ class ProductGenerator {
                 );
                 results.products.push(createdProduct);
                 results.created++;
-                console.log(
+                logger.trace(
                   `✓ Created product: ${
                     createdProduct.name?.en_US || createdProduct.name
                   }`
@@ -545,7 +545,7 @@ class ProductGenerator {
                         image
                       );
                     }
-                    console.log(
+                    logger.trace(
                       `✓ Added image to product: ${createdProduct.externalReferenceCode}`
                     );
                     imagesApplied++;
@@ -611,7 +611,7 @@ class ProductGenerator {
                         { attachment }
                       );
                     }
-                    console.log(
+                    logger.trace(
                       `✓ Added attachment to product: ${createdProduct.externalReferenceCode}`
                     );
                     pdfsApplied++;
@@ -631,7 +631,7 @@ class ProductGenerator {
                   });
                 }
               } catch (error) {
-                console.error(
+                logger.error(
                   `Failed to create product ${
                     productData.name?.en_US || productData.name
                   }:`,
@@ -648,7 +648,7 @@ class ProductGenerator {
 
           // Only generate pricing if price lists option is enabled
           if (options.generatePriceLists && productDataList.length > 0) {
-            console.log(
+            logger.trace(
               `Generating pricing for ${productDataList.length} products...`
             );
             await this.generateProductPricing(
@@ -663,7 +663,7 @@ class ProductGenerator {
             );
           }
         } catch (error) {
-          console.error(
+          logger.error(
             `Failed to generate products for category ${category}:`,
             error
           );
@@ -674,7 +674,7 @@ class ProductGenerator {
         }
       }
 
-      console.log(
+      logger.trace(
         `Product generation completed: ${results.created} created, ${results.errors.length} errors`
       );
       return results;
@@ -690,11 +690,11 @@ class ProductGenerator {
 
   async createCatalogOptions(config, options) {
     const categories = options.productCategories;
-    console.log(
+    logger.trace(
       `Creating catalog-level options for SKU variants... (Demo mode: ${options.demoMode})`
     );
-    console.log(`Liferay URL: ${config.liferayUrl}`);
-    console.log(`Categories to process: ${categories.join(', ')}`);
+    logger.trace(`Liferay URL: ${config.liferayUrl}`);
+    logger.trace(`Categories to process: ${categories.join(', ')}`);
     const catalogOptions = {};
 
     const selectedLanguages = config.selectedLanguages || ['en-US'];
@@ -824,13 +824,13 @@ class ProductGenerator {
       const categoryOptions =
         categoryOptionsMap[category] || categoryOptionsMap['Electronics'];
       catalogOptions[category] = [];
-      console.log(
+      logger.trace(
         `Processing ${categoryOptions.length} options for category: ${category}`
       );
 
       for (const optionData of categoryOptions) {
         try {
-          console.log(
+          logger.trace(
             `Attempting to create option: ${optionData.name} for category ${category}`
           );
           const optionERC = `OPT-${category.toUpperCase()}-${optionData.name
@@ -855,7 +855,7 @@ class ProductGenerator {
 
           let option;
           try {
-            console.log(
+            logger.trace(
               `Calling liferayService.createOption for ${optionData.name}...`
             );
             option = await this.liferayService.createOption(config, {
@@ -871,7 +871,7 @@ class ProductGenerator {
               skuContributor: optionCharacteristics.skuContributor,
               externalReferenceCode: optionERC,
             });
-            console.log(
+            logger.trace(
               `✓ Successfully created option: ${option.name.en_US} (ID: ${option.id}, Type: ${optionCharacteristics.fieldType}, SKU: ${optionCharacteristics.skuContributor}, Required: ${optionCharacteristics.required}, Facetable: ${optionCharacteristics.facetable})`
             );
           } catch (createError) {
@@ -879,7 +879,7 @@ class ProductGenerator {
               createError.message.includes('409') ||
               createError.message.includes('conflict')
             ) {
-              console.log(
+              logger.trace(
                 `Option ${optionData.name} already exists, fetching existing option...`
               );
               option = await this.liferayService.getOptionByERC(
@@ -887,12 +887,12 @@ class ProductGenerator {
                 optionERC
               );
               if (!option) {
-                console.warn(
+                logger.warn(
                   `Could not find existing option with ERC: ${optionERC}, skipping...`
                 );
                 continue;
               }
-              console.log(
+              logger.trace(
                 `Using existing option: ${option.name.en_US} (ID: ${option.id})`
               );
             } else {
@@ -933,7 +933,7 @@ class ProductGenerator {
                 valueError.message.includes('409') ||
                 valueError.message.includes('conflict')
               ) {
-                console.log(
+                logger.trace(
                   `Option value ${value} already exists for option ${option.id}, fetching existing value...`
                 );
                 const existingValue =
@@ -944,19 +944,19 @@ class ProductGenerator {
                   );
                 if (existingValue) {
                   optionValues.push(existingValue);
-                  console.log(
+                  logger.trace(
                     `Using existing option value: ${existingValue.name.en_US}`
                   );
                 }
               } else {
-                console.warn(
+                logger.warn(
                   `Failed to create option value ${value}: ${valueError.message}`
                 );
               }
             }
           }
 
-          console.log(
+          logger.trace(
             `Processed ${optionValues.length} values for option: ${option.name.en_US}`
           );
 
@@ -965,7 +965,7 @@ class ProductGenerator {
             values: optionValues,
           });
         } catch (error) {
-          console.error(
+          logger.error(
             `Failed to process option ${optionData.name} for ${category}:`,
             error
           );
@@ -978,7 +978,7 @@ class ProductGenerator {
 
   async createCatalogSpecifications(config, options) {
     const categories = options.productCategories;
-    console.log(
+    logger.trace(
       'Creating catalog-level specifications with option categories...'
     );
     const catalogSpecifications = {};
@@ -1255,7 +1255,7 @@ class ProductGenerator {
                 externalReferenceCode: categoryERC,
               }
             );
-            console.log(
+            logger.trace(
               `Created option category: ${optionCategory.title.en_US} (ID: ${optionCategory.id}, Key: ${groupData.key})`
             );
           } catch (createError) {
@@ -1263,7 +1263,7 @@ class ProductGenerator {
               createError.message.includes('409') ||
               createError.message.includes('conflict')
             ) {
-              console.log(
+              logger.trace(
                 `Option category ${groupData.title} already exists, fetching existing category...`
               );
               optionCategory = await this.liferayService.getOptionCategoryByERC(
@@ -1271,12 +1271,12 @@ class ProductGenerator {
                 categoryERC
               );
               if (!optionCategory) {
-                console.warn(
+                logger.warn(
                   `Could not find existing option category with ERC: ${categoryERC}, skipping...`
                 );
                 continue;
               }
-              console.log(
+              logger.trace(
                 `Using existing option category: ${optionCategory.title.en_US} (ID: ${optionCategory.id})`
               );
             } else {
@@ -1286,7 +1286,7 @@ class ProductGenerator {
 
           optionCategories[groupData.key] = optionCategory;
         } catch (error) {
-          console.error(
+          logger.error(
             `Failed to process option category ${groupData.title} for ${category}:`,
             error
           );
@@ -1331,7 +1331,7 @@ class ProductGenerator {
               config,
               specificationPayload
             );
-            console.log(
+            logger.trace(
               `Created specification: ${specification.title.en_US} (ID: ${specification.id}, Key: ${specData.key}, Group: ${specData.group})`
             );
           } catch (createError) {
@@ -1339,7 +1339,7 @@ class ProductGenerator {
               createError.message.includes('409') ||
               createError.message.includes('conflict')
             ) {
-              console.log(
+              logger.trace(
                 `Specification ${specData.title} already exists, fetching existing specification...`
               );
               specification = await this.liferayService.getSpecificationByERC(
@@ -1347,12 +1347,12 @@ class ProductGenerator {
                 specERC
               );
               if (!specification) {
-                console.warn(
+                logger.warn(
                   `Could not find existing specification with ERC: ${specERC}, skipping...`
                 );
                 continue;
               }
-              console.log(
+              logger.trace(
                 `Using existing specification: ${specification.title.en_US} (ID: ${specification.id})`
               );
             } else {
@@ -1368,14 +1368,14 @@ class ProductGenerator {
 
           catalogSpecifications[category].push(specification);
         } catch (error) {
-          console.error(
+          logger.error(
             `Failed to process specification ${specData.title} for ${category}:`,
             error
           );
         }
       }
 
-      console.log(
+      logger.info(
         `Processed ${catalogSpecifications[category].length} specifications for category: ${category}`
       );
     }
@@ -1639,12 +1639,12 @@ class ProductGenerator {
           5
         );
 
-        console.log(
+        logger.trace(
           `Added ${specificationsToAdd.length} specifications to product ${productId}`
         );
       }
     } catch (error) {
-      console.error(
+      logger.error(
         `Failed to add specifications to product ${productId}:`,
         error
       );
@@ -1680,11 +1680,11 @@ class ProductGenerator {
           attachmentData
         );
       }
-      console.log(
+      logger.trace(
         `Added ${attachments.length} attachments to product ${productId}`
       );
     } catch (error) {
-      console.error(
+      logger.error(
         `Failed to add attachments to product ${productId}:`,
         error
       );
@@ -1693,7 +1693,7 @@ class ProductGenerator {
 
   async generateProductPricing(config, products, options) {
     try {
-      console.log(`Generating pricing for ${products.length} products`);
+      logger.trace(`Generating pricing for ${products.length} products`);
 
       const priceList = await this.liferayService.createPriceList(config, {
         name: {
@@ -1738,18 +1738,18 @@ class ProductGenerator {
             );
           }
         } catch (error) {
-          console.error(
+          logger.error(
             `Failed to create price entry for product ${product.sku}:`,
             error
           );
         }
       }
 
-      console.log(
+      logger.trace(
         `Created price list ${priceList.id} with entries for ${products.length} products`
       );
     } catch (error) {
-      console.error('Failed to generate product pricing:', error);
+      logger.error('Failed to generate product pricing:', error);
     }
   }
 
@@ -1781,9 +1781,9 @@ class ProductGenerator {
         );
       }
 
-      console.log(`Created bulk pricing tiers for product ${product.sku}`);
+      logger.trace(`Created bulk pricing tiers for product ${product.sku}`);
     } catch (error) {
-      console.error(
+      logger.error(
         `Failed to create bulk pricing for product ${product.sku}:`,
         error
       );
@@ -1807,14 +1807,14 @@ class ProductGenerator {
         try {
           await this.liferayService.createSpecificationCategory(category);
         } catch (error) {
-          console.error(
+          logger.error(
             `Failed to create specification category ${category.key}:`,
             error.message
           );
         }
       }
     } catch (error) {
-      console.error('Error creating specification categories:', error);
+      logger.error('Error creating specification categories:', error);
     }
   }
 
@@ -1839,12 +1839,12 @@ class ProductGenerator {
           productId,
           productOptionsToAdd
         );
-        console.log(
+        logger.trace(
           `Added ${productOptionsToAdd.length} options to product ${productId}`
         );
       }
     } catch (error) {
-      console.error(`Failed to add options to product ${productId}:`, error);
+      logger.error(`Failed to add options to product ${productId}:`, error);
     }
   }
 
@@ -1857,7 +1857,7 @@ class ProductGenerator {
       const option2 = catalogOptions[1] || null;
 
       if (!option1) {
-        console.log('No options available for SKU variants');
+        logger.trace('No options available for SKU variants');
         return [];
       }
 
@@ -1912,26 +1912,26 @@ class ProductGenerator {
         if (variantCount >= maxVariants) break;
       }
 
-      console.log(
+      logger.trace(
         `Created ${createdSkus.length} SKUs for product ${productId}`
       );
       return createdSkus;
     } catch (error) {
-      console.error(`Failed to create SKUs for product ${productId}:`, error);
+      logger.error(`Failed to create SKUs for product ${productId}:`, error);
       return [];
     }
   }
 
   async generateProductPDF(config, product, productData, category) {
     try {
-      console.log(`Generating AI content for PDF...`);
+      logger.trace(`Generating AI content for PDF...`);
       const pdfContent = await this.aiService.generatePDFContent(
         productData,
         category,
         config.aiModel
       );
 
-      console.log(`Creating PDF document...`);
+      logger.trace(`Creating PDF document...`);
       const pdfResult = await this.mediaGenerator.generateAndUploadProductPDF(
         pdfContent,
         productData.baseSku || product.sku
@@ -1962,9 +1962,9 @@ class ProductGenerator {
         product.id,
         attachmentData
       );
-      console.log(`✓ PDF successfully attached to product`);
+      logger.trace(`✓ PDF successfully attached to product`);
     } catch (error) {
-      console.error('Error generating product PDF:', error);
+      logger.error('Error generating product PDF:', error);
       throw error;
     }
   }
@@ -1981,11 +1981,11 @@ class ProductGenerator {
     if (!options.demoMode) {
       try {
         await this.aiService.getOpenAIClient();
-        console.log('✓ OpenAI API key validated successfully');
+        logger.trace('✓ OpenAI API key validated successfully');
       } catch (error) {
         const errorMessage =
           'OpenAI API key not configured. Please set it in the AI Configuration object or enable demo mode.';
-        console.error('✗ OpenAI key validation failed:', error.message);
+        logger.error('✗ OpenAI key validation failed:', error.message);
         throw new Error(errorMessage);
       }
     }
@@ -2109,7 +2109,7 @@ class ProductGenerator {
                 image
               );
             }
-            console.log(
+            logger.trace(
               `✓ Added image to product: ${preparedProduct.externalReferenceCode}`
             );
             imageProcessedCount++;
@@ -2168,7 +2168,7 @@ class ProductGenerator {
                 { attachment }
               );
             }
-            console.log(
+            logger.trace(
               `✓ Added attachment to product: ${preparedProduct.externalReferenceCode}`
             );
             pdfProcessedCount++;
@@ -2183,7 +2183,7 @@ class ProductGenerator {
           });
         }
       } catch (error) {
-        console.error(
+        logger.error(
           `Failed to add image/attachment to product ${preparedProduct.externalReferenceCode}:`,
           error.message
         );
@@ -2234,7 +2234,7 @@ class ProductGenerator {
       pdfErrorCount: pdfErrors.length,
     });
 
-    console.log(
+    logger.trace(
       `✅ Post-processing completed: Images ${imageProcessedCount}/${imageCount}, PDFs ${pdfProcessedCount}/${pdfCount}, Total errors: ${
         imageErrors.length + pdfErrors.length
       }`

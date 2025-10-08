@@ -96,7 +96,7 @@ class BatchPollingService {
         });
       }
 
-      console.log(
+      logger.info(
         `🎉 Generation session ${sessionId} completed - ready for post-processing!`
       );
 
@@ -486,13 +486,13 @@ class BatchPollingService {
         operation: 'websocket-broadcast-no-server',
         batchId,
       });
-      console.log('❌ No WebSocket server available for broadcasting');
+      logger.info('❌ No WebSocket server available for broadcasting');
     } else if (this.ws.wss.clients.size === 0) {
       logger.warn('No WebSocket clients connected', {
         operation: 'websocket-broadcast-no-clients',
         batchId,
       });
-      console.log('⚠️ No WebSocket clients connected for broadcasting');
+      logger.info('⚠️ No WebSocket clients connected for broadcasting');
     } else {
       const message = {
         type: 'batch_completed',
@@ -511,11 +511,11 @@ class BatchPollingService {
         timestamp: new Date().toISOString(),
       };
 
-      console.log(
+      logger.info(
         '🔥 Broadcasting batch completion message:',
         JSON.stringify(message, null, 2)
       );
-      console.log(
+      logger.debug(
         `📡 WebSocket clients available: ${this.ws.wss.clients.size}`
       );
 
@@ -536,12 +536,12 @@ class BatchPollingService {
           try {
             ws.send(JSON.stringify(message));
             broadcastCount++;
-            console.log(
+            logger.debug(
               `✅ Message sent to client ${ws.correlationId || 'unknown'}`
             );
           } catch (error) {
             failedCount++;
-            console.error(
+            logger.error(
               `❌ Failed to send to client ${ws.correlationId || 'unknown'}:`,
               error.message
             );
@@ -553,7 +553,7 @@ class BatchPollingService {
             });
           }
         } else {
-          console.log(
+          logger.info(
             `⚠️ Skipping client ${
               ws.correlationId || 'unknown'
             } - readyState: ${ws.readyState} (expected: 1 for OPEN)`
@@ -561,7 +561,7 @@ class BatchPollingService {
         }
       });
 
-      console.log('📊 WebSocket broadcast summary:', {
+      logger.debug('📊 WebSocket broadcast summary:', {
         totalClients: this.ws.wss.clients.size,
         broadcastSuccessful: broadcastCount,
         broadcastFailed: failedCount,
@@ -580,7 +580,7 @@ class BatchPollingService {
 
       // If no messages were sent successfully, log as warning
       if (broadcastCount === 0) {
-        console.warn(
+        logger.warn(
           '⚠️ No WebSocket clients received the batch completion message!'
         );
         logger.warn('No WebSocket clients received message', {
@@ -673,13 +673,13 @@ class BatchPollingService {
         operation: 'websocket-broadcast-no-server',
         batchId,
       });
-      console.log('❌ No WebSocket server available for broadcasting failure');
+      logger.info('❌ No WebSocket server available for broadcasting failure');
     } else if (this.ws.wss.clients.size === 0) {
       logger.warn('No WebSocket clients connected for failure broadcast', {
         operation: 'websocket-broadcast-no-clients',
         batchId,
       });
-      console.log('⚠️ No WebSocket clients connected for broadcasting failure');
+      logger.info('⚠️ No WebSocket clients connected for broadcasting failure');
     } else {
       const message = {
         type: 'batch_failed',

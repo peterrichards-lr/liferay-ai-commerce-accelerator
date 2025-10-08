@@ -1,6 +1,8 @@
 const fs = require('fs');
 const path = require('path');
 
+const { logger } = require('../utils/logger.cjs');
+
 class MockDataGenerator {
   constructor() {
     this.categoryData = null;
@@ -16,9 +18,9 @@ class MockDataGenerator {
       const categoriesPath = path.join(dataDir, 'categories.json');
       if (fs.existsSync(categoriesPath)) {
         this.categoryData = JSON.parse(fs.readFileSync(categoriesPath, 'utf8'));
-        console.log('Loaded category configuration from categories.json');
+        logger.trace('Loaded category configuration from categories.json');
       } else {
-        console.warn('categories.json not found, using fallback data');
+        logger.warn('categories.json not found, using fallback data');
         this.categoryData = this.getFallbackCategoryData();
       }
 
@@ -27,25 +29,25 @@ class MockDataGenerator {
         this.specificationValues = JSON.parse(
           fs.readFileSync(specificationsPath, 'utf8')
         );
-        console.log(
+        logger.trace(
           'Loaded specification configuration from specifications.json'
         );
       } else {
-        console.warn('specifications.json not found, using fallback data');
+        logger.warn('specifications.json not found, using fallback data');
         this.specificationValues = this.getFallbackSpecificationData();
       }
 
       const pricingPath = path.join(dataDir, 'pricing.json');
       if (fs.existsSync(pricingPath)) {
         this.pricingData = JSON.parse(fs.readFileSync(pricingPath, 'utf8'));
-        console.log('Loaded pricing configuration from pricing.json');
+        logger.trace('Loaded pricing configuration from pricing.json');
       } else {
-        console.warn('pricing.json not found, using fallback data');
+        logger.warn('pricing.json not found, using fallback data');
         this.pricingData = this.getFallbackPricingData();
       }
     } catch (error) {
-      console.error('Error loading configuration data:', error);
-      console.log('Using fallback configuration data');
+      logger.error('Error loading configuration data:', error);
+      logger.trace('Using fallback configuration data');
       this.categoryData = this.getFallbackCategoryData();
       this.specificationValues = this.getFallbackSpecificationData();
       this.pricingData = this.getFallbackPricingData();
@@ -194,7 +196,7 @@ class MockDataGenerator {
       });
 
       if (i === 0) {
-        console.log('Generated multilingual content for first product:', {
+        logger.trace('Generated multilingual content for first product:', {
           name,
           description: description,
           languageCodes,
@@ -544,7 +546,7 @@ class MockDataGenerator {
   }
 
   reloadConfiguration() {
-    console.log('Reloading configuration data...');
+    logger.trace('Reloading configuration data...');
     this.loadConfigurationData();
   }
 

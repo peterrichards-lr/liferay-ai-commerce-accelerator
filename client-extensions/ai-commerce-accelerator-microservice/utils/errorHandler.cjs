@@ -2,7 +2,7 @@ const liferayConfig = require('../config/liferayConfig.cjs');
 
 class ErrorHandler {
   static handleError(error, req, res, next) {
-    console.error('Error occurred:', error);
+    logger.error('Error occurred:', error);
 
     // Default error response
     let status = 500;
@@ -26,7 +26,7 @@ class ErrorHandler {
 
     // Log error details if configured
     if (liferayConfig.errorConfig.logErrors) {
-      console.error('Error details:', {
+      logger.error('Error details:', {
         status,
         message,
         details,
@@ -56,7 +56,7 @@ class ErrorHandler {
   }
 
   static handleLiferayError(error, operation = 'unknown', requestBody = null) {
-    console.error(`Liferay ${operation} error:`, error);
+    logger.error(`Liferay ${operation} error:`, error);
 
     if (error.response) {
       const { status, data } = error.response;
@@ -66,9 +66,9 @@ class ErrorHandler {
         case 400:
           // Log the request body for 400 BAD REQUEST errors
           if (requestBody) {
-            console.error(
+            logger.error(
               `Request body that caused 400 BAD REQUEST:`,
-              JSON.stringify(requestBody, null, 2)
+              { payload: requestBody }
             );
           }
           return this.createError(
@@ -164,7 +164,7 @@ class ErrorHandler {
       errorSummary.messages.push(error.message || error.toString());
     });
 
-    console.error(
+    logger.error(
       `Batch ${operation} completed with ${errors.length} errors:`,
       errorSummary
     );
@@ -219,7 +219,7 @@ ErrorHandler.handleError = (error, req, res, next) => {
 
   // Log full request details for Internal Server Errors (500)
   if (statusCode === 500) {
-    console.error('Internal Server Error - Request Details:', {
+    logger.error('Internal Server Error - Request Details:', {
       method: req.method,
       url: req.url,
       path: req.path,

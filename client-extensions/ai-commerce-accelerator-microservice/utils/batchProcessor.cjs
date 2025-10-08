@@ -8,7 +8,7 @@ class BatchProcessor {
     processingFunction,
     batchSize = liferayConfig.batchConfig.defaultBatchSize
   ) {
-    console.log(`Processing ${items.length} items in batches of ${batchSize}`);
+    logger.trace(`Processing ${items.length} items in batches of ${batchSize}`);
 
     const results = {
       successful: [],
@@ -26,7 +26,7 @@ class BatchProcessor {
     // Process items in batches
     for (let i = 0; i < items.length; i += actualBatchSize) {
       const batch = items.slice(i, i + actualBatchSize);
-      console.log(
+      logger.trace(
         `Processing batch ${Math.floor(i / actualBatchSize) + 1} (${
           batch.length
         } items)`
@@ -45,7 +45,7 @@ class BatchProcessor {
 
       // Check if we should stop due to too many errors
       if (ErrorHandler.shouldStopBatch(results.errors)) {
-        console.warn(
+        logger.warn(
           `Stopping batch processing due to ${results.errors.length} errors`
         );
         break;
@@ -57,7 +57,7 @@ class BatchProcessor {
       }
     }
 
-    console.log(
+    logger.trace(
       `Batch processing completed: ${results.successful.length} successful, ${results.errors.length} errors`
     );
     return results;
@@ -75,7 +75,7 @@ class BatchProcessor {
         const result = await this.processWithRetry(item, processingFunction);
         return { success: true, result, index };
       } catch (error) {
-        console.error(`Failed to process item ${index}:`, error);
+        logger.error(`Failed to process item ${index}:`, error);
         return {
           success: false,
           error: error.message || error.toString(),
@@ -127,7 +127,7 @@ class BatchProcessor {
         }
 
         const retryDelay = liferayConfig.requestConfig.retryDelay * attempt;
-        console.warn(
+        logger.warn(
           `Attempt ${attempt} failed, retrying in ${retryDelay}ms:`,
           error.message
         );
@@ -139,7 +139,7 @@ class BatchProcessor {
   }
 
   async processSequentially(items, processingFunction) {
-    console.log(`Processing ${items.length} items sequentially`);
+    logger.trace(`Processing ${items.length} items sequentially`);
 
     const results = {
       successful: [],
@@ -154,9 +154,9 @@ class BatchProcessor {
       try {
         const result = await this.processWithRetry(item, processingFunction);
         results.successful.push(result);
-        console.log(`Processed item ${i + 1}/${items.length} successfully`);
+        logger.trace(`Processed item ${i + 1}/${items.length} successfully`);
       } catch (error) {
-        console.error(
+        logger.error(
           `Failed to process item ${i + 1}/${items.length}:`,
           error
         );
@@ -168,7 +168,7 @@ class BatchProcessor {
 
         // Check if we should stop due to too many errors
         if (ErrorHandler.shouldStopBatch(results.errors)) {
-          console.warn(
+          logger.warn(
             `Stopping sequential processing due to ${results.errors.length} errors`
           );
           break;
@@ -183,7 +183,7 @@ class BatchProcessor {
       }
     }
 
-    console.log(
+    logger.trace(
       `Sequential processing completed: ${results.successful.length} successful, ${results.errors.length} errors`
     );
     return results;
@@ -209,7 +209,7 @@ class BatchProcessor {
     batchSize,
     progressCallback
   ) {
-    console.log(`Processing ${items.length} items with progress tracking`);
+    logger.trace(`Processing ${items.length} items with progress tracking`);
 
     const results = {
       successful: [],

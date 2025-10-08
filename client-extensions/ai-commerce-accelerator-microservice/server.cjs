@@ -1,11 +1,12 @@
 const { lookupConfig, lxcConfig } = require('@rotty3000/config-node');
+const { DEBUG } = require('./utils/constants.cjs');
 
 const express = require('express');
 const cors = require('cors');
 const path = require('path');
 const http = require('http');
 
-const {env} =require('./utils/constants.cjs');
+const { env } = require('./utils/constants.cjs');
 const { init: initWs } = require('./services/wsBus.cjs');
 const { logger } = require('./utils/logger.cjs');
 const { cacheService } = require('./services/cacheService.cjs');
@@ -40,7 +41,7 @@ const ws = initWs(server, logger);
 const PORT = lookupConfig('server.port') || 3000;
 
 // Initialize BatchPollingService with WebSocket server
-console.log(
+logger.debug(
   '🔌 Initializing BatchPollingService with WebSocket server:',
   !!ws.wss
 );
@@ -67,7 +68,7 @@ const allowList =
     .map((domain) => `${lxcDXPServerProtocol}://${domain}`)
     .concat(lookupConfig('allow.list') || []) || [];
 
-console.log('allowList', allowList);
+logger.info('allowList', allowList);
 
 app.use(
   cors({
@@ -115,7 +116,6 @@ require('./routes/generate.cjs')(
 require('./routes/get.cjs')(app, liferayService, logger);
 require('./routes/health.cjs')(app, logger);
 require('./routes/queue.cjs')(app, logger);
-require('./routes/delete.cjs')(app, liferayService, logger);
 
 app.post(
   '/api/test-connection',
@@ -268,16 +268,17 @@ server.listen(PORT, '0.0.0.0', () => {
     environment: env.NODE_ENV,
     websocketEnabled: true,
   });
-  console.log(
+  logger.info(
     `Liferay Commerce AI Data Generator server running on http://0.0.0.0:${PORT}`
   );
-  console.log(`Frontend available at: http://localhost:${PORT}`);
-  console.log(`WebSocket server listening on ws://localhost:${PORT}`);
+  logger.info(`Frontend available at: http://localhost:${PORT}`);
+  logger.info(`WebSocket server listening on ws://localhost:${PORT}`);
 
-  // Test WebSocket server is working
-  console.log('🔌 WebSocket server status:', {
-    clients: ws.wss.clients.size,
-  });
+  if (DEBUG) {
+    logger.debug('🔌 WebSocket server status:', {
+      clients: ws.wss.clients.size,
+    });
+  }
 });
 
 // Graceful shutdown

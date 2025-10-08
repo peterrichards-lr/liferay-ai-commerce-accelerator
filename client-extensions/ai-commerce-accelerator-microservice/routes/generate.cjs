@@ -327,7 +327,7 @@ module.exports = function (
           },
         });
 
-        console.log(
+        logger.info(
           `[${new Date().toLocaleTimeString()}] Successfully generated ${totalProductsCreated} products`
         );
 
@@ -367,15 +367,17 @@ module.exports = function (
           sanitizeOptions: sanitizedObject(options),
         });
 
-        console.error('=== PRODUCT GENERATION ERROR DEBUG ===');
-        console.error('Error Message:', errorMessage);
-        console.error('Error Name:', error.name);
-        console.error('Error Type:', typeof error);
-        const sanitizedBody = sanitizedObject(req.body);
-        console.error('Request Body:', JSON.stringify(sanitizedBody, null, 2));
-        console.error('Full Error Object:', JSON.stringify(error, null, 2));
-        console.error('Error Stack:', error.stack);
-        console.error('=== END ERROR DEBUG ===');
+        if (DEBUG) {
+          logger.debug('=== PRODUCT GENERATION ERROR DEBUG ===');
+          logger.debug('Error Message:', errorMessage);
+          logger.debug('Error Name:', error.name);
+          logger.debug('Error Type:', typeof error);
+          const sanitizedBody = sanitizedObject(req.body);
+          logger.debug('Request Body:', JSON.stringify(sanitizedBody, null, 2));
+          logger.debug('Full Error Object:', JSON.stringify(error, null, 2));
+          logger.debug('Error Stack:', error.stack);
+          logger.debug('=== END ERROR DEBUG ===');
+        }
 
         res.status(500).json({
           success: false,
@@ -512,7 +514,7 @@ module.exports = function (
           );
         }
 
-        console.log(`Starting order generation: ${options.orderCount} orders`);
+        logger.debug(`Starting order generation: ${options.orderCount} orders`);
 
         const results = await orderGenerator.generateOrders(config, options);
 

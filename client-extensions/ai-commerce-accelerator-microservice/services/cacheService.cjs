@@ -1,5 +1,5 @@
 const { logger } = require('../utils/logger.cjs');
-const {env} = require('../utils/constants.cjs');
+const { env } = require('../utils/constants.cjs');
 
 class CacheService {
   constructor() {

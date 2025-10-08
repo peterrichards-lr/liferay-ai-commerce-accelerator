@@ -1,7 +1,7 @@
 const fs = require('fs');
 const path = require('path');
 
-const {env} = require('./constants.cjs');
+const { env } = require('./constants.cjs');
 
 // Ensure logs directory exists
 const logsDir = path.join(__dirname, '../logs');
@@ -54,11 +54,12 @@ class Logger {
     }
   }
 
-  log(level, message, meta = {}) {
+  _log(level, message, meta = {}) {
     const formattedMessage = this.formatMessage(level, message, meta);
 
     // Write to console with color coding
     const colors = {
+      trace: '\x1b[30m', // Black
       info: '\x1b[36m', // Cyan
       warn: '\x1b[33m', // Yellow
       error: '\x1b[31m', // Red
@@ -73,29 +74,39 @@ class Logger {
     this.writeToFile(formattedMessage);
   }
 
+  // Same as trace
+  log(message, meta = {}) {
+    if (env.NODE_ENV === 'development' || env.DEBUG === true) {
+      this.trace(message, meta);
+    }
+  }
+
+  trace(message, meta = {}) {
+    if (env.NODE_ENV === 'development' || env.DEBUG === true) {
+      this._log('trace', message, meta);
+    }
+  }
+
   info(message, meta = {}) {
-    this.log('info', message, meta);
+    this._log('info', message, meta);
   }
 
   warn(message, meta = {}) {
-    this.log('warn', message, meta);
+    this._log('warn', message, meta);
   }
 
   error(message, meta = {}) {
-    this.log('error', message, meta);
+    this._log('error', message, meta);
   }
 
   debug(message, meta = {}) {
-    if (
-      env.NODE_ENV === 'development' ||
-      env.DEBUG === true
-    ) {
-      this.log('debug', message, meta);
+    if (env.NODE_ENV === 'development' || env.DEBUG === true) {
+      this._log('debug', message, meta);
     }
   }
 
   success(message, meta = {}) {
-    this.log('success', message, meta);
+    this._log('success', message, meta);
   }
 
   // HTTP request logging
@@ -113,7 +124,7 @@ class Logger {
     };
 
     const level = res.statusCode >= 400 ? 'warn' : 'info';
-    this.log(level, `HTTP Request completed`, meta);
+    this._log(level, `HTTP Request completed`, meta);
   }
 
   // AI operation logging

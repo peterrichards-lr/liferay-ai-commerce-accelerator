@@ -7,12 +7,10 @@ const {
 } = require('../utils/normalize.cjs');
 
 module.exports = function (app, cacheService, batchPollingService, logger) {
-  // Batch callback endpoint for Liferay to call when batch processing is submitted
   app.post('/api/batch/callback', async (req, res) => {
     const [{ batchId, status, correlationId }] = parseBatchStatuses(req.body);
 
     try {
-      // Log batch submission callback
       logger.info('Received batch submission callback from Liferay', {
         correlationId: correlationId,
         operation: 'batch-callback',
@@ -21,21 +19,19 @@ module.exports = function (app, cacheService, batchPollingService, logger) {
         bodyKeys: req.body ? Object.keys(req.body) : [],
       });
 
-      console.log('=== BATCH SUBMISSION CALLBACK ===');
-      console.log('Batch ID:', batchId || 'Not provided');
-      console.log('Status:', status || 'Not provided');
+      if (DEBUG) {
+        logger.debug('=== BATCH SUBMISSION CALLBACK ===');
+        logger.debug('Batch ID:', batchId || 'Not provided');
+        logger.debug('Status:', status || 'Not provided');
+        const sanitizedCallback = sanitizedObject({ ...req.body });
+        logger.debug(
+          'Full callback data:',
+          JSON.stringify(sanitizedCallback, null, 2)
+        );
+        logger.debug('=== END CALLBACK ===');
+      }
 
-      // Log callback data with sensitive fields redacted
-      const sanitizedCallback = sanitizedObject({ ...req.body });
-      console.log(
-        'Full callback data:',
-        JSON.stringify(sanitizedCallback, null, 2)
-      );
-      console.log('=== END CALLBACK ===');
-
-      // Store initial batch submission data
       if (batchId) {
-        // Cache the submission callback
         cacheService.set(
           `batch:${batchId}:submission`,
           {
@@ -43,13 +39,11 @@ module.exports = function (app, cacheService, batchPollingService, logger) {
             submittedAt: new Date().toISOString(),
             rawCallback: req.body,
           },
-          3600000 // 1 hour cache
+          3600000
         );
 
-        // Try to get the config from cache to start polling
         const batchConfig = cacheService.get(`batch:${batchId}:config`);
         if (batchConfig) {
-          // Get poll interval from config with defaults
           const pollInterval = Math.max(batchConfig.pollInterval || 5000, 2000); // Minimum 2 seconds
           const maxPollAttempts = batchConfig.maxPollAttempts || 120;
 
@@ -61,10 +55,8 @@ module.exports = function (app, cacheService, batchPollingService, logger) {
             correlationId,
           });
 
-          // Determine entity type from batch config or cache
-          const entityType = batchConfig.entityType || 'products'; // Default to products
+          const entityType = batchConfig.entityType || 'products';
 
-          // Start polling for batch completion
           batchPollingService.startPolling(batchId, batchConfig, {
             pollInterval,
             maxPollAttempts,
@@ -77,8 +69,6 @@ module.exports = function (app, cacheService, batchPollingService, logger) {
                 totalCount: statusUpdate.totalCount,
                 entityType: entityType,
               });
-
-              // Don't broadcast status changes, only final completion
             },
             onComplete: (results) => {
               logger.success('Batch processing completed', {
@@ -89,14 +79,13 @@ module.exports = function (app, cacheService, batchPollingService, logger) {
                 entityType: entityType,
               });
 
-              // Broadcast completion to WebSocket clients with proper message format
               broadcastBatchUpdate(batchId, {
                 status: 'completed',
                 entityType: entityType,
                 data: results,
               });
 
-              console.log(
+              logger.info(
                 `✅ Batch ${batchId} (${entityType}) completed - ${results.processedCount}/${results.totalCount} items processed`
               );
             },
@@ -108,7 +97,6 @@ module.exports = function (app, cacheService, batchPollingService, logger) {
                 entityType: entityType,
               });
 
-              // Broadcast error to WebSocket clients
               const errorMessage = JSON.stringify({
                 type: 'batch_failed',
                 batchId,
@@ -124,7 +112,7 @@ module.exports = function (app, cacheService, batchPollingService, logger) {
                 }
               });
 
-              console.log(
+              logger.warn(
                 `❌ Batch ${batchId} (${entityType}) error: ${error.message}`
               );
             },
@@ -165,7 +153,6 @@ module.exports = function (app, cacheService, batchPollingService, logger) {
     try {
       const { batchId } = req.params;
 
-      // Check for final results first
       const finalResults = cacheService.get(`batch:${batchId}:final`);
       if (finalResults) {
         return res.json({
@@ -176,7 +163,6 @@ module.exports = function (app, cacheService, batchPollingService, logger) {
         });
       }
 
-      // Check current polling status
       const currentStatus = cacheService.get(`batch:${batchId}:status`);
       if (currentStatus) {
         const pollingStatus = batchPollingService.getPollingStatus(batchId);
@@ -190,7 +176,6 @@ module.exports = function (app, cacheService, batchPollingService, logger) {
         });
       }
 
-      // Check submission data
       const submissionData = cacheService.get(`batch:${batchId}:submission`);
       if (submissionData) {
         return res.json({

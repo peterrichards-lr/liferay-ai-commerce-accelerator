@@ -58,7 +58,7 @@ class ConfigService {
         DEFAULT_IMAGE_CONFIG_HEY
       );
     } catch (error) {
-      console.error(
+      logger.error(
         'Failed to get the default image from Liferay Object:',
         error
       );
@@ -80,7 +80,7 @@ class ConfigService {
         OPENAI_CONFIG_KEY
       );
     } catch (error) {
-      console.error('Failed to get OpenAI key from Liferay Object:', error);
+      logger.error('Failed to get OpenAI key from Liferay Object:', error);
       throw new Error(
         'OpenAI API key not configured. Please set it in the AI Configuration object.'
       );
@@ -95,7 +95,7 @@ class ConfigService {
         DEFAULT_PDF_CONFIG_HEY
       );
     } catch (error) {
-      console.error(
+      logger.error(
         'Failed to get the default PDF from Liferay Object:',
         error
       );
@@ -117,7 +117,7 @@ class ConfigService {
         OPENAI_CONFIG_KEY
       );
     } catch (error) {
-      console.error('Failed to get OpenAI key from Liferay Object:', error);
+      logger.error('Failed to get OpenAI key from Liferay Object:', error);
       throw new Error(
         'OpenAI API key not configured. Please set it in the AI Configuration object.'
       );

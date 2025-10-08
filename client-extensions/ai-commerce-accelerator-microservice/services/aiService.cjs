@@ -88,7 +88,7 @@ class AIService {
 
       return JSON.parse(response.choices[0].message.content);
     } catch (error) {
-      console.error('Error generating PDF content:', error);
+      logger.error('Error generating PDF content:', error);
       throw error;
     }
   }
@@ -212,7 +212,7 @@ class AIService {
       const result = JSON.parse(response.choices[0].message.content);
       return result.products || [result];
     } catch (error) {
-      console.error('AI product generation failed:', error);
+      logger.error('AI product generation failed:', error);
       throw new Error(`AI service error: ${error.message}`);
     }
   }
@@ -259,7 +259,7 @@ class AIService {
       const result = JSON.parse(response.choices[0].message.content);
       return result.accounts || [result];
     } catch (error) {
-      console.error('AI account generation failed:', error);
+      logger.error('AI account generation failed:', error);
       throw new Error(`AI service error: ${error.message}`);
     }
   }
@@ -318,7 +318,7 @@ class AIService {
       const result = JSON.parse(response.choices[0].message.content);
       return result.orders || [result];
     } catch (error) {
-      console.error('AI order generation failed:', error);
+      logger.error('AI order generation failed:', error);
       throw new Error(`AI service error: ${error.message}`);
     }
   }
@@ -382,7 +382,7 @@ class AIService {
 
       return JSON.parse(response.choices[0].message.content);
     } catch (error) {
-      console.error('AI pricing generation failed:', error);
+      logger.error('AI pricing generation failed:', error);
       throw new Error(`AI service error: ${error.message}`);
     }
   }

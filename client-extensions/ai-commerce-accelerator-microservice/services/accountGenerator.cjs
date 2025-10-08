@@ -39,11 +39,11 @@ class AccountGenerator {
       if (!options.demoMode) {
         try {
           await this.aiService.getOpenAIClient();
-          console.log('✓ OpenAI API key validated for account generation');
+          logger.info('✓ OpenAI API key validated for account generation');
         } catch (error) {
           const errorMessage =
             'OpenAI API key not configured. Please set it in the AI Configuration object or enable demo mode.';
-          console.error(
+          logger.error(
             '✗ OpenAI key validation failed for accounts:',
             error.message
           );
@@ -51,37 +51,38 @@ class AccountGenerator {
         }
       }
 
-      console.log(`=== STARTING ACCOUNT GENERATION ===`);
-      console.log(
+      
+      logger.debug(`=== STARTING ACCOUNT GENERATION ===`);
+      logger.debug(
         `Count: ${options.accountCount}, Batch mode: ${useBatch}, Demo mode: ${options.demoMode}, Batch size: ${config.batchSize}`
       );
-      console.log(`Target Liferay URL: ${config.liferayUrl}`);
+      logger.debug(`Target Liferay URL: ${config.liferayUrl}`);
 
       let accountDataList;
       if (options.demoMode) {
-        console.log(
+        logger.info(
           `Demo mode: Generating ${options.accountCount} mock accounts`
         );
         const mockGen = new MockDataGenerator();
         accountDataList = mockGen.generateAccountData(options.accountCount);
-        console.log(
+        logger.debug(
           `Demo: Generated ${accountDataList.length} mock account data entries`
         );
       } else {
-        console.log(
+        logger.info(
           `AI mode: Generating ${options.accountCount} accounts using ${config.aiModel}`
         );
         accountDataList = await this.aiService.generateAccountData(
           options.accountCount,
           config.aiModel || 'gpt-4o'
         );
-        console.log(
+        logger.debug(
           `AI: Generated ${accountDataList.length} account data entries`
         );
       }
 
       if (useBatch) {
-        console.log(
+        logger.info(
           `Creating ${accountDataList.length} accounts using batch endpoint with batch size ${config.batchSize}...`
         );
 
@@ -96,7 +97,7 @@ class AccountGenerator {
           accountBatches.push(accountDataList.slice(i, i + config.batchSize));
         }
 
-        console.log(
+        logger.debug(
           `Split ${accountDataList.length} accounts into ${accountBatches.length} batches of max size ${config.batchSize}`
         );
 
@@ -108,7 +109,7 @@ class AccountGenerator {
           batchIndex++
         ) {
           const batch = accountBatches[batchIndex];
-          console.log(
+          logger.debug(
             `Submitting batch ${batchIndex + 1}/${accountBatches.length} with ${
               batch.length
             } accounts...`
@@ -216,7 +217,7 @@ class AccountGenerator {
 
         return results;
       } else {
-        console.log(
+        logger.info(
           `Using individual operations for ${accountDataList.length} accounts`
         );
         return await this.generateAccountsIndividually(
@@ -496,7 +497,7 @@ class AccountGenerator {
     try {
       return await liferayService.getAccounts(config);
     } catch (error) {
-      console.error('Failed to fetch existing accounts:', error);
+      logger.error('Failed to fetch existing accounts:', error);
       return [];
     }
   }

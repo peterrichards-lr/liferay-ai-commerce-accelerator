@@ -41,11 +41,11 @@ class OrderGenerator {
       if (!options.demoMode) {
         try {
           await this.aiService.getOpenAIClient();
-          console.log('✓ OpenAI API key validated for order generation');
+          logger.trace('✓ OpenAI API key validated for order generation');
         } catch (error) {
           const errorMessage =
             'OpenAI API key not configured. Please set it in the AI Configuration object or enable demo mode.';
-          console.error(
+          logger.error(
             '✗ OpenAI key validation failed for orders:',
             error.message
           );
@@ -53,15 +53,15 @@ class OrderGenerator {
         }
       }
 
-      console.log('=== STARTING ORDER GENERATION ===');
-      console.log(`Demo mode: ${options.demoMode}`);
-      console.log(
+      logger.trace('=== STARTING ORDER GENERATION ===');
+      logger.trace(`Demo mode: ${options.demoMode}`);
+      logger.trace(
         `Using ${useBatch ? 'batch' : 'individual'} operations (batch size: ${
           config.batchSize
         })`
       );
-      console.log(`Retry enabled: ${config.pollingRetries > 0}`);
-      console.log('Config:', {
+      logger.trace(`Retry enabled: ${config.pollingRetries > 0}`);
+      logger.trace('Config:', {
         liferayUrl: config.liferayUrl,
         catalogId: config.catalogId,
         channelId: config.channelId,
@@ -70,7 +70,7 @@ class OrderGenerator {
         clientId: config.clientId ? '[PROVIDED]' : '[MISSING]',
         clientSecret: config.clientSecret ? '[PROVIDED]' : '[MISSING]',
       });
-      console.log('Options:', options);
+      logger.trace('Options:', options);
 
       // Get available products and accounts with retry logic
       const { products, accounts } = await this.getProductsAndAccountsWithRetry(
@@ -78,21 +78,21 @@ class OrderGenerator {
         options
       );
 
-      console.log(
+      logger.trace(
         `Found ${products.length} products and ${accounts.length} accounts`
       );
 
       let orderDataList;
       if (options.demoMode) {
-        console.log(`Demo mode: Generating ${options.orderCount} mock orders`);
+        logger.trace(`Demo mode: Generating ${options.orderCount} mock orders`);
         orderDataList = this.mockDataGenerator.generateOrderData(
           options.orderCount
         );
-        console.log(
+        logger.trace(
           `Demo: Generated ${orderDataList.length} mock order data entries`
         );
       } else {
-        console.log(
+        logger.trace(
           `AI mode: Generating ${options.orderCount} orders using ${config.aiModel}`
         );
         orderDataList = await this.aiService.generateOrderData(
@@ -101,12 +101,12 @@ class OrderGenerator {
           accounts,
           config.aiModel || 'gpt-4o'
         );
-        console.log(`AI: Generated ${orderDataList.length} order data entries`);
+        logger.trace(`AI: Generated ${orderDataList.length} order data entries`);
       }
 
       // Create orders using appropriate method
       if (useBatch) {
-        console.log(
+        logger.trace(
           `Creating orders using batch processing with batch size: ${config.batchSize}`
         );
         await batchProcessor.processBatch(
@@ -121,12 +121,12 @@ class OrderGenerator {
               );
               results.orders.push(createdOrder);
               results.created++;
-              console.log(
+              logger.trace(
                 `✓ Created order: ${createdOrder.externalReferenceCode}`
               );
               return createdOrder;
             } catch (error) {
-              console.error(
+              logger.error(
                 `Failed to create order ${orderData.externalReferenceCode}:`,
                 error.message
               );
@@ -140,7 +140,7 @@ class OrderGenerator {
           config.batchSize
         );
       } else {
-        console.log(`Creating orders individually`);
+        logger.trace(`Creating orders individually`);
         // Process orders one by one when batch size is 1
         for (const orderData of orderDataList) {
           try {
@@ -152,11 +152,11 @@ class OrderGenerator {
             );
             results.orders.push(createdOrder);
             results.created++;
-            console.log(
+            logger.trace(
               `✓ Created order: ${createdOrder.externalReferenceCode}`
             );
           } catch (error) {
-            console.error(
+            logger.error(
               `Failed to create order ${orderData.externalReferenceCode}:`,
               error.message
             );
@@ -168,12 +168,12 @@ class OrderGenerator {
         }
       }
 
-      console.log(
+      logger.trace(
         `Order generation completed: ${results.created} created, ${results.errors.length} errors`
       );
       return results;
     } catch (error) {
-      console.error('Order generation failed:', error);
+      logger.error('Order generation failed:', error);
       throw error;
     }
   }
@@ -195,7 +195,7 @@ class OrderGenerator {
         accountId = randomAccount.id;
       }
 
-      console.log(
+      logger.trace(
         `Selected account ID: ${accountId} from ${availableAccounts.length} available accounts`
       );
 
@@ -237,7 +237,7 @@ class OrderGenerator {
         config,
         liferayOrder
       );
-      console.log(`Created order: ${createdOrder.externalReferenceCode}`);
+      logger.trace(`Created order: ${createdOrder.externalReferenceCode}`);
 
       // TODO: Add order items
       // This would require the order items API endpoint
@@ -245,7 +245,7 @@ class OrderGenerator {
 
       return createdOrder;
     } catch (error) {
-      console.error(
+      logger.error(
         `Failed to create order ${
           orderData.externalReferenceCode || 'unknown'
         }:`,
@@ -270,7 +270,7 @@ class OrderGenerator {
   async getProductsAndAccountsWithRetry(config, options) {
     for (let attempt = 0; attempt <= config.pollingRetries; attempt++) {
       try {
-        console.log(
+        logger.trace(
           `Fetching available products and accounts... (attempt ${
             attempt + 1
           }/${config.pollingRetries + 1})`
@@ -284,7 +284,7 @@ class OrderGenerator {
 
         if (products.length === 0) {
           if (attempt < config.pollingRetries) {
-            console.log(
+            logger.trace(
               `No products found, retrying in ${config.pollingDelay}ms...`
             );
             await new Promise((resolve) =>
@@ -300,7 +300,7 @@ class OrderGenerator {
 
         if (accounts.length === 0) {
           if (attempt < config.pollingRetries) {
-            console.log(
+            logger.trace(
               `No accounts found, retrying in ${config.pollingDelay}ms...`
             );
             await new Promise((resolve) =>
@@ -322,7 +322,7 @@ class OrderGenerator {
           (error.message.includes('No products available') ||
             error.message.includes('No accounts available'))
         ) {
-          console.log(
+          logger.trace(
             `Dependency check failed, retrying in ${config.pollingDelay}ms... (${error.message})`
           );
           await new Promise((resolve) =>
@@ -344,7 +344,7 @@ class OrderGenerator {
         );
 
         if (!product) {
-          console.warn(
+          logger.warn(
             `Product not found for order item: ${item.sku || item.productId}`
           );
           continue;
@@ -360,12 +360,12 @@ class OrderGenerator {
 
         // TODO: Create order item using Liferay API
         // This would require the order items API endpoint
-        console.log(
+        logger.trace(
           `Would create order item: ${orderItem.sku} x ${orderItem.quantity}`
         );
       }
     } catch (error) {
-      console.error(`Failed to add order items to order ${orderId}:`, error);
+      logger.error(`Failed to add order items to order ${orderId}:`, error);
     }
   }
 }

@@ -88,7 +88,7 @@ class OAuthService {
   _handleException(error, liferayUrl = null, clientId = null) {
     const errorRef = this._generateErrorReference();
 
-    console.error(`OAuth Error [${errorRef}]:`, {
+    logger.error(`OAuth Error [${errorRef}]:`, {
       status: error.response?.status,
       statusText: error.response?.statusText,
       data: error.response?.data,
@@ -132,7 +132,7 @@ class OAuthService {
 
     if (!this.liferayUrl || !clientId || !clientSecret) {
       const errorRef = this._generateErrorReference();
-      console.error(
+      logger.error(
         `OAuth Error [${errorRef}]: Unable to obtain LXC configuration`,
         {
           liferayUrl: this.liferayUrl || 'undefined',
@@ -162,7 +162,7 @@ class OAuthService {
   async getAccessTokenWithCredentials(liferayUrl, clientId, clientSecret) {
     if (!liferayUrl || !clientId || !clientSecret) {
       const errorRef = this._generateErrorReference();
-      console.error(`OAuth Error [${errorRef}]: Missing required parameters`, {
+      logger.error(`OAuth Error [${errorRef}]: Missing required parameters`, {
         liferayUrl: liferayUrl || 'undefined',
         clientId: clientId || 'undefined',
         clientSecret: clientSecret ? '[PROVIDED]' : 'undefined',
@@ -215,7 +215,7 @@ class OAuthService {
       return response.data;
     } catch (error) {
       const errorRef = this._generateErrorReference();
-      console.error(
+      logger.error(
         `OAuth code exchange failed [${errorRef}]:`,
         error.response?.data || error.message
       );

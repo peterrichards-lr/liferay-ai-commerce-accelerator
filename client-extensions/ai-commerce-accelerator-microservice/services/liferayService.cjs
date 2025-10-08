@@ -233,7 +233,7 @@ class LiferayService {
         message: 'Successfully connected to Liferay Commerce using OAuth 2',
       };
     } catch (error) {
-      console.error(
+      logger.error(
         'OAuth connection test failed:',
         error.response?.data || error.message
       );
@@ -292,7 +292,7 @@ class LiferayService {
       }
 
       const errorReference = structuredError.errorReference || this._errRef();
-      console.error(`Error Reference: ${errorReference}`);
+      logger.error(`Error Reference: ${errorReference}`);
       structuredError.errorReference = errorReference;
 
       const uiErrorResponse = {
@@ -360,7 +360,7 @@ class LiferayService {
       productData.catalogId = parseInt(config.catalogId, 10);
     }
 
-    console.log('Creating product with payload:', {
+    logger.debug('Creating product with payload:', {
       sku: productData.sku,
       name: productData.name?.en_US || 'N/A',
       catalogId: productData.catalogId,
@@ -469,7 +469,7 @@ class LiferayService {
 
     orderData.channelId = parseInt(orderData.channelId, 10);
 
-    console.log('Creating order with payload:', {
+    logger.debug('Creating order with payload:', {
       channelId: orderData.channelId,
       currencyCode: orderData.currencyCode,
       accountId: orderData.accountId,
@@ -536,7 +536,7 @@ class LiferayService {
   }
 
   async createOption(config, optionData) {
-    console.log(`LiferayService.createOption called with:`, {
+    logger.debug(`LiferayService.createOption called with:`, {
       optionKey: optionData.key,
       optionName: optionData.name?.en_US,
       fieldType: optionData.fieldType,
@@ -551,7 +551,7 @@ class LiferayService {
       'Failed to create option'
     );
 
-    console.log(`✓ Option created successfully:`, data);
+    logger.debug(`✓ Option created successfully:`, data);
     return data;
   }
 
@@ -662,7 +662,7 @@ class LiferayService {
       return data;
     } catch (error) {
       const errorReference = `LIFR-${Date.now()}-${uuidv4().slice(0, 8)}`;
-      console.error(`Error Reference: ${errorReference}`);
+      logger.error(`Error Reference: ${errorReference}`);
       logger.error('Failed to get configuration entry', {
         operation: 'get-config',
         error: error.message,
@@ -777,7 +777,7 @@ class LiferayService {
       return data;
     } catch (error) {
       const errorReference = this._errRef();
-      console.error(`Error Reference: ${errorReference}`);
+      logger.error(`Error Reference: ${errorReference}`);
       const baseLog = {
         operation: op || 'post-multipart',
         url,
@@ -943,12 +943,12 @@ class LiferayService {
       const pdfBuffer = Buffer.from(base64 || '', 'base64');
       const pdfHeader = pdfBuffer.slice(0, 4).toString();
       if (pdfHeader !== '%PDF') {
-        console.warn(
+        logger.warn(
           `Warning: PDF attachment for ${productERC} does not have valid PDF header, got: ${pdfHeader}`
         );
       }
     } catch (validationError) {
-      console.error(
+      logger.error(
         `PDF validation failed for ${productERC}:`,
         validationError.message
       );
@@ -1152,8 +1152,6 @@ class LiferayService {
 
     return this.patchDocumentPermissions(config, documentId, builderOrMutator);
   }
-
-  async createVocabulary(config, options) {}
 }
 
 module.exports = new LiferayService();

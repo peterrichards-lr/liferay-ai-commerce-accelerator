@@ -15,7 +15,7 @@ async function handleDemoProductGeneration(
   res
 ) {
   try {
-    console.log(
+    logger.trace(
       `Demo mode: Generating ${options.productCount} mock products using batch endpoint`
     );
 
@@ -31,7 +31,7 @@ async function handleDemoProductGeneration(
         ? Math.ceil((options.productCount * options.imageRatio) / 100)
         : 0;
 
-    console.log(
+    logger.trace(
       `Demo: Successfully initiated batch creation of ${
         result.created || 0
       } products`
@@ -63,7 +63,7 @@ async function handleDemoProductGeneration(
 
 async function handleDemoOrderGeneration(config, options, orderGenerator, res) {
   try {
-    console.log(
+    logger.trace(
       `Demo mode: Generating ${options.orderCount} mock orders using consistent service approach`
     );
 
@@ -130,7 +130,7 @@ async function handleDemoAccountGeneration(
       pollingDelay: config.pollingDelay,
     });
 
-    console.log(
+    logger.trace(
       `Demo mode: Generating ${config.accountCount} mock accounts using batch endpoint with batch size: ${config.batchSize}`
     );
 

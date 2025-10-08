@@ -35,7 +35,7 @@ class MediaGenerator {
       const dataUrl = await this.configService.getDefaultImage(config);
       return parseDataUrl(dataUrl);
     } catch (err) {
-      console.log(
+      logger.error(
         'Unexpected error while retrieving the default image. Using the mock image',
         err
       );
@@ -53,7 +53,7 @@ class MediaGenerator {
       const dataUrl = await this.configService.getDefaultPdf(config);
       return parseDataUrl(dataUrl);
     } catch (err) {
-      console.log(
+      logger.error(
         'Unexpected error while retrieving the default pdf. Using the mock pdf',
         err
       );
@@ -214,7 +214,7 @@ class MediaGenerator {
       const base64Data = pdfOutput.split(',')[1];
       return Buffer.from(base64Data, 'base64');
     } catch (error) {
-      console.error('Error generating PDF:', error);
+      logger.error('Error generating PDF:', error);
       throw error;
     }
   }
@@ -249,7 +249,7 @@ class MediaGenerator {
         filename,
       };
     } catch (error) {
-      console.error('Error uploading PDF:', error);
+      logger.error('Error uploading PDF:', error);
       // It's good practice to re-throw the error after logging if the caller needs to handle it
       throw error;
     }
@@ -257,7 +257,7 @@ class MediaGenerator {
 
   async generateAndUploadProductPDF(productData, productSku) {
     try {
-      console.log(`Generating PDF for product: ${productSku}`);
+      logger.trace(`Generating PDF for product: ${productSku}`);
 
       const pdfBuffer = await this.generateProductPDF(productData, productSku);
 
@@ -273,7 +273,7 @@ class MediaGenerator {
       }
 
       // Store in object storage
-      console.log(`Uploading PDF to object storage...`);
+      logger.trace(`Uploading PDF to object storage...`);
       const objectKey = `product-pdfs/${productSku}-${Date.now()}.pdf`;
       const uploadResult = await this.objectStorage.uploadFile(
         objectKey,
@@ -281,7 +281,7 @@ class MediaGenerator {
         'application/pdf'
       );
 
-      console.log(
+      logger.trace(
         `✓ PDF generated and uploaded successfully for ${productSku}`
       );
 
@@ -291,7 +291,7 @@ class MediaGenerator {
         buffer: pdfBuffer,
       };
     } catch (error) {
-      console.error(`Failed to generate PDF for ${productSku}:`, error);
+      logger.error(`Failed to generate PDF for ${productSku}:`, error);
       throw error;
     }
   }

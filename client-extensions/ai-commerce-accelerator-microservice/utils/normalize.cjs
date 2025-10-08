@@ -103,14 +103,14 @@ function buildConfigAndOptions(req) {
       req.headers.host ||
       `localhost:${PORT}`;
     constrictedMicroserviceUrl = `${protocol}://${host}`;
-    console.log(`Constructed microservice URL: ${constrictedMicroserviceUrl}`);
+    logger.debug(`Constructed microservice URL: ${constrictedMicroserviceUrl}`);
   }
 
   // Validate the constructed URL
   try {
     new URL(constrictedMicroserviceUrl);
   } catch (urlError) {
-    console.warn(
+    logger.warn(
       `Invalid microservice URL constructed: ${constrictedMicroserviceUrl}, falling back to null`
     );
     constrictedMicroserviceUrl = null;
