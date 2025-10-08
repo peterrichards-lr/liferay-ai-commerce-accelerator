@@ -27,7 +27,7 @@ class CacheService {
     });
     this.ttlMap.set(key, expiry);
 
-    logger.debug('Cache entry set', {
+    logger.trace('Cache entry set', {
       operation: 'cache-set',
       key,
       ttl,
@@ -41,7 +41,7 @@ class CacheService {
     // Check if expired
     if (!ttlEntry || Date.now() > ttlEntry) {
       this.delete(key);
-      logger.debug('Cache miss - expired', {
+      logger.trace('Cache miss - expired', {
         operation: 'cache-get',
         key,
         result: 'expired',
@@ -51,7 +51,7 @@ class CacheService {
 
     const entry = this.cache.get(key);
     if (!entry) {
-      logger.debug('Cache miss - not found', {
+      logger.trace('Cache miss - not found', {
         operation: 'cache-get',
         key,
         result: 'not-found',
@@ -63,7 +63,7 @@ class CacheService {
     entry.accessCount++;
     entry.lastAccess = Date.now();
 
-    logger.debug('Cache hit', {
+    logger.trace('Cache hit', {
       operation: 'cache-get',
       key,
       result: 'hit',
@@ -78,7 +78,7 @@ class CacheService {
     this.ttlMap.delete(key);
 
     if (deleted) {
-      logger.debug('Cache entry deleted', {
+      logger.trace('Cache entry deleted', {
         operation: 'cache-delete',
         key,
         cacheSize: this.cache.size,

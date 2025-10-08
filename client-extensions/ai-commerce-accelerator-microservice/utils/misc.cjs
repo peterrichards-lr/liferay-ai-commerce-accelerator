@@ -4,6 +4,10 @@ function getRandomInt(max) {
   return Math.floor(Math.random() * max);
 }
 
+function errorReference(prefix = 'LIFR') {
+  return `${prefix}-${Date.now()}-${uuidv4().slice(0, 8)}`;
+}
+
 function ratioTrigger(radio) {
   return radio > 0 && Math.random() * 100 < radio;
 }
@@ -274,10 +278,12 @@ function buildDataUrl({ contentType, base64 }) {
 }
 
 module.exports = {
+  buildDataUrl,
+  errorReference,
   getRandomInt,
-  handleDemoProductGeneration,
   handleDemoAccountGeneration,
   handleDemoOrderGeneration,
-  buildDataUrl,
+  handleDemoProductGeneration,
   parseDataUrl,
+  ratioTrigger,
 };

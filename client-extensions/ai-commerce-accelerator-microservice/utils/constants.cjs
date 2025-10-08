@@ -12,7 +12,7 @@ const applicationExternalReferenceCodes = {
 
 const env = {
   NODE_ENV: lookupConfig('node.env') || 'development',
-  DEBUG: lookupConfig('enable.debug') || true,
+  LOGGER_LEVEL: (lookupConfig('logger.level') || 'debug').toLowerCase(),
   CACHE_MAX_SIZE: lookupConfig('cache.max.size') || 1000,
   CACHE_DEFAULT_TTL: lookupConfig('cache.default.ttl') || 300000,
   PUBLIC_OBJECT_SEARCH_PATHS: lookupConfig('public.object.search.paths') || '',
