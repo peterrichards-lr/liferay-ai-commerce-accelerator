@@ -82,7 +82,6 @@ function buildConfigAndOptions(req) {
     siteGroupId,
   } = req.body || {};
 
-  // Common
   const config = Object.assign(
     {},
     { batchSize },
@@ -102,14 +101,12 @@ function buildConfigAndOptions(req) {
 
   config.correlationId = req.correlationId;
 
-  // Determine microservice URL - use environment variable or construct from request
   let constrictedMicroserviceUrl = microserviceUrl;
   if (
     !constrictedMicroserviceUrl ||
     constrictedMicroserviceUrl === 'null' ||
     constrictedMicroserviceUrl === 'undefined'
   ) {
-    // Try to construct from environment or request headers
     const protocol =
       req.headers['x-forwarded-proto'] || (req.secure ? 'https' : 'http');
     const host =
@@ -117,10 +114,9 @@ function buildConfigAndOptions(req) {
       req.headers.host ||
       `localhost:${PORT}`;
     constrictedMicroserviceUrl = `${protocol}://${host}`;
-    logger.debug(`Constructed microservice URL: ${constrictedMicroserviceUrl}`);
+    logger.trace(`Constructed microservice URL: ${constrictedMicroserviceUrl}`);
   }
 
-  // Validate the constructed URL
   try {
     new URL(constrictedMicroserviceUrl);
   } catch (urlError) {
@@ -134,7 +130,6 @@ function buildConfigAndOptions(req) {
 
   const options = Object.assign({}, { demoMode: !!demoMode });
 
-  // Operation specific
   switch (path) {
     case '/api/generate/products':
       config.aiModel = aiModel;
@@ -251,10 +246,8 @@ function keyPathHasSensitive(keys) {
 function redactByKey(keyPath, value) {
   const lastKey = keyPath[keyPath.length - 1] || '';
 
-  // If *any* ancestor (or self) looks sensitive, redact.
   if (keyPathHasSensitive(keyPath)) {
     if (typeof value === 'string') {
-      // Special handling for token-like strings
       if (/^Bearer\s+/i.test(value)) return 'Bearer [REDACTED]';
       if (isLikelyJWT(value)) return maskMiddle(value, 6, 6, 'JWT');
       return maskMiddle(value, 3, 3, 'REDACTED');
@@ -262,13 +255,10 @@ function redactByKey(keyPath, value) {
     return '[REDACTED]';
   }
 
-  // Special-case exact OPENAI_API_KEY anywhere on the path
   if (keyPath.some((k) => String(k).toUpperCase() === 'OPENAI_API_KEY')) {
-    // Entire value should be collapsed, even if nested object
     return '[REDACTED_OPENAI_API_KEY]';
   }
 
-  // If the *field* name itself is "token", treat as sensitive (even if no ancestor matched)
   if (String(lastKey).toLowerCase() === 'token') {
     if (typeof value === 'string') {
       if (isLikelyJWT(value)) return maskMiddle(value, 6, 6, 'JWT');
@@ -277,7 +267,7 @@ function redactByKey(keyPath, value) {
     return '[REDACTED]';
   }
 
-  return null; // no opinion
+  return null; 
 }
 
 function redactStringGeneric(str, keyPath) {

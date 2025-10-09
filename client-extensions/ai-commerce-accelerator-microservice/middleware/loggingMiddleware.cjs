@@ -18,7 +18,7 @@ function requestLoggingMiddleware(req, res, next) {
   const authHeader = req.get('Authorization');
   const sanitizedAuth = authHeader ? '[REDACTED]' : undefined;
 
-  logger.info('HTTP Request started', {
+  logger.trace('HTTP Request started', {
     correlationId: req.correlationId,
     operation: `${req.method} ${req.path}`,
     httpMethod: req.method,
@@ -28,23 +28,10 @@ function requestLoggingMiddleware(req, res, next) {
     httpAuthorization: sanitizedAuth,
   });
 
-  // Override res.json to log response
   const originalJson = res.json;
   res.json = function (data) {
     const duration = Date.now() - startTime;
-    const level = res.statusCode >= 400 ? 'warn' : 'info';
-
-    logger[level]('HTTP Request completed', {
-      correlationId: req.correlationId,
-      operation: `${req.method} ${req.path}`,
-      httpMethod: req.method,
-      httpPath: req.path,
-      httpStatusCode: res.statusCode,
-      httpDuration: duration,
-      httpUserAgent: req.get('User-Agent'),
-      httpRemoteAddr: req.ip || req.connection.remoteAddress,
-    });
-
+    logger.httpRequest(req, res, duration);
     return originalJson.call(this, data);
   };
 

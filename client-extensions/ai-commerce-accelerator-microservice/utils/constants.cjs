@@ -18,6 +18,9 @@ const env = {
   PUBLIC_OBJECT_SEARCH_PATHS: lookupConfig('public.object.search.paths') || '',
   PRIVATE_OBJECT_DIR: lookupConfig('private.object.dir') || '',
   TEST_CLIENT_SECRET: lookupConfig('test.client.secret') || 'test-secret-key',
+  LOG_PRETTY: lookupConfig('logger.pretty') || false,
+  SERVICE_NAME: lookupConfig('service.name') || 'liferay-ai-data-microservice',
+  SERVICE_VERSION: lookupConfig('service.version') || '1.0.0',
 };
 
 module.exports = {

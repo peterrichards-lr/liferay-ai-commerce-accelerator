@@ -107,7 +107,7 @@ class OrderGenerator {
 
       // Create orders using appropriate method
       if (useBatch) {
-        logger.trace(
+        logger.debug(
           `Creating orders using batch processing with batch size: ${config.batchSize}`
         );
         await batchProcessor.processBatch(
@@ -141,7 +141,7 @@ class OrderGenerator {
           config.batchSize
         );
       } else {
-        logger.trace(`Creating orders individually`);
+        logger.debug(`Creating orders individually`);
         // Process orders one by one when batch size is 1
         for (const orderData of orderDataList) {
           try {

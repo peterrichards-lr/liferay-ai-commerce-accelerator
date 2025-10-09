@@ -130,12 +130,12 @@ class AccountGenerator {
             cacheService.set(
               `batch:${result.batchId}:config`,
               {
-                liferayUrl: config.liferayUrl,
                 clientId: config.clientId,
                 clientSecret: config.clientSecret,
-                localeCode: config.localeCode,
-                entityType: 'accounts',
                 createdAt: new Date().toISOString(),
+                entityType: 'accounts',
+                liferayUrl: config.liferayUrl,
+                localeCode: config.localeCode,
               },
               3600000 // 1 hour cache
             );
@@ -147,7 +147,6 @@ class AccountGenerator {
               maxPollAttempts,
             });
 
-            // Start polling for this batch
             this.batchPollingService.startPolling(
               result.batchId,
               {
@@ -161,7 +160,7 @@ class AccountGenerator {
                 pollInterval: config.pollingDelay,
                 maxPollAttempts: config.pollingReties,
                 onStatusChange: (status) => {
-                  logger.log('debug', 'Batch status update', {
+                  logger.debug('Batch status update', {
                     operation: 'batch-status-update',
                     batchId: status.batchId,
                     status: status.status,
@@ -174,7 +173,7 @@ class AccountGenerator {
                   this.handleBatchComplete(results);
                 },
                 onError: (error) => {
-                  logger.log('error', 'Batch polling error', {
+                  logger.error('Batch polling error', {
                     operation: 'batch-polling-error',
                     batchId: result.batchId,
                     error: error.message,
@@ -337,12 +336,13 @@ class AccountGenerator {
       cacheService.set(
         `batch:${batchId}:config`,
         {
-          liferayUrl: config.liferayUrl,
           clientId: config.clientId,
           clientSecret: config.clientSecret,
-          localeCode: config.localeCode,
-          entityType: 'accounts',
           createdAt: new Date().toISOString(),
+          entityType: 'accounts',
+          liferayUrl: config.liferayUrl,
+          localeCode: config.localeCode,
+          mode: 'generate',
         },
         1800000 // 30 minutes
       );
@@ -351,7 +351,6 @@ class AccountGenerator {
       const pollInterval = pollingDelay;
       const maxPollAttempts = Math.ceil(600000 / pollInterval); // Max 10 minutes (600 seconds)
 
-      // Start polling for this batch
       this.batchPollingService.startPolling(batchId, {
         ...config,
         entityType: 'accounts', // Ensure entityType is passed to polling service

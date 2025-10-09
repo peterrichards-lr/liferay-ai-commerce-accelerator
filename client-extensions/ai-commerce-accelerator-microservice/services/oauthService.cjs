@@ -48,7 +48,7 @@ class OAuthService {
   }
 
   async _createAccessToken(tokenUrl, clientId, clientSecret) {
-    logger.info(`Creating new access token for ${clientId} using ${tokenUrl}`);
+    logger.debug(`Creating new access token for ${clientId} using ${tokenUrl}`);
     return await axios.post(
       tokenUrl,
       new URLSearchParams({

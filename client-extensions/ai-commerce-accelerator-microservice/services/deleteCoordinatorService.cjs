@@ -29,15 +29,15 @@ function recordBatches(batchRefs, config, entityType, cacheService) {
     cacheService.set(
       `batch:${batchId}:config`,
       {
-        liferayUrl: config.liferayUrl,
+        affectsProgress: false,
         clientId: config.clientId,
         clientSecret: config.clientSecret,
-        localeCode: config.localeCode,
-        entityType,
-        mode: 'delete',
-        affectsProgress: false,
         correlationId: config.correlationId || null,
         createdAt: new Date().toISOString(),
+        entityType,
+        liferayUrl: config.liferayUrl,
+        localeCode: config.localeCode,
+        mode: 'delete',
       },
       60 * 60 * 1000
     );

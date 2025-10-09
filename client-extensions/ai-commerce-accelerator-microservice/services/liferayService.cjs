@@ -135,7 +135,7 @@ class LiferayService {
     const qs = paramsSerializer(params);
     const finalUrl = qs ? `${url}${url.includes('?') ? '&' : '?'}${qs}` : url;
 
-    logger.debug('http:get', { url: finalUrl, params });
+    logger.trace('http:get', { url: finalUrl, params });
 
     return this._request(config, {
       method: 'GET',
@@ -736,7 +736,7 @@ class LiferayService {
         filter,
       });
 
-      logger.info('Getting configuration from Liferay', {
+      logger.debug('Getting configuration from Liferay', {
         operation: 'get-config',
         configKey,
         url,

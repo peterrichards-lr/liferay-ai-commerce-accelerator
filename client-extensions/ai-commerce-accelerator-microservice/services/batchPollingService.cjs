@@ -4,7 +4,10 @@ const { logger } = require('../utils/logger.cjs');
 const { cacheService } = require('./cacheService.cjs');
 const { OAuthService } = require('./oauthService.cjs');
 const { get: getWs } = require('../services/wsBus.cjs');
-const { delayCall } = require('../utils/misc.cjs');
+const {
+  delayCall,
+  inferEntityTypeFromClassName,
+} = require('../utils/misc.cjs');
 
 function extractIdFromLocation(location) {
   if (!location || typeof location !== 'string') return null;
@@ -169,7 +172,11 @@ class BatchPollingService {
 
         cacheService.set(
           `batch:${batchId}:config`,
-          { entityType: entity, mode, affectsProgress },
+          {
+            affectsProgress,
+            entityType: entity,
+            mode,
+          },
           300000
         );
 
@@ -220,7 +227,7 @@ class BatchPollingService {
 
     this.activePolls.set(batchId, pollData);
 
-    logger.info('Starting batch polling', {
+    logger.debug('Starting batch polling', {
       operation: 'batch-polling-start',
       batchId,
       pollInterval,
@@ -274,6 +281,7 @@ class BatchPollingService {
 
       const status = statusResponse.data;
       const batchStatus = status.executeStatus || status.status || 'UNKNOWN';
+      const entitytype = inferEntityTypeFromClassName(status.className);
 
       const totalCount =
         status.itemsTotal ||
@@ -289,9 +297,10 @@ class BatchPollingService {
         0;
       const errorCount = status.failedItems?.length || status.errorCount || 0;
 
-      logger.debug('Batch status polled', {
+      logger.trace('Batch status polled', {
         operation: 'batch-polling-check',
         batchId,
+        entitytype,
         status: batchStatus,
         attempt: pollData.attempts,
         totalCount,
@@ -313,6 +322,7 @@ class BatchPollingService {
           errorCount,
           lastChecked: new Date().toISOString(),
           attempt: pollData.attempts,
+          entitytype,
         },
         300000
       );
@@ -320,6 +330,7 @@ class BatchPollingService {
       if (pollData.onStatusChange) {
         pollData.onStatusChange({
           batchId,
+          entitytype,
           status: batchStatus,
           totalCount,
           processedCount,
@@ -342,6 +353,7 @@ class BatchPollingService {
         logger.error('Batch polling exceeded max attempts', {
           operation: 'batch-polling-timeout',
           batchId,
+          entitytype,
           attempts: pollData.attempts,
           maxAttempts: pollData.maxAttempts,
         });
@@ -414,11 +426,17 @@ class BatchPollingService {
       status.processedItemsCount || status.processedCount || 0;
     const errorCount = status.failedItems?.length || status.errorCount || 0;
 
+    const batchConfig = cacheService.get(`batch:${batchId}:config`);
+    const pollData = this.activePolls.get(batchId);
+    const entityType =
+      pollData?.entityType || batchConfig?.entityType || 'products';
+
     cacheService.set(
       `batch:${batchId}:completed`,
       {
         totalItemsCount: totalCount,
         processedItemsCount: processedCount,
+        entityType,
       },
       300000
     );
@@ -438,21 +456,18 @@ class BatchPollingService {
 
     this.stopPolling(batchId);
 
+    const affectsProgress = pollData?.affectsProgress ?? true;
+    const mode = pollData?.mode || 'unknown';
+
     const results = {
       batchId,
       status: 'COMPLETED',
       totalCount,
       processedCount,
       errorCount,
+      entityType,
       completedAt: new Date().toISOString(),
     };
-
-    const pollData = this.activePolls.get(batchId);
-    const affectsProgress = pollData?.affectsProgress ?? true;
-    const batchConfig = cacheService.get(`batch:${batchId}:config`);
-    const entityType =
-      pollData?.entityType || batchConfig?.entityType || 'products';
-    const mode = pollData?.mode || 'unknown';
 
     if (!pollData?.entityType && !batchConfig?.entityType) {
       logger.warn('entityType missing for batch; defaulting to "products"', {
@@ -525,6 +540,11 @@ class BatchPollingService {
       status.processedItemsCount || status.processedCount || 0;
     const errorCount = status.failedItems?.length || status.errorCount || 0;
 
+    const batchConfig = cacheService.get(`batch:${batchId}:config`);
+    const pollData = this.activePolls.get(batchId);
+    const entityType =
+      pollData?.entityType || batchConfig?.entityType || 'products';
+
     cacheService.set(
       `batch:${batchId}:failed`,
       {
@@ -532,6 +552,7 @@ class BatchPollingService {
         processedItemsCount: processedCount,
         failedItemsLength: status.failedItems?.length,
         failedItems: status.failedItems,
+        entityType,
       },
       300000
     );
@@ -546,6 +567,7 @@ class BatchPollingService {
         totalItemsCount: totalCount,
         processedItemsCount: processedCount,
         failedItemsLength: status.failedItems?.length,
+        entityType,
       },
     });
 
@@ -560,11 +582,7 @@ class BatchPollingService {
       failedAt: new Date().toISOString(),
     };
 
-    const pollData = this.activePolls.get(batchId);
     const affectsProgress = pollData?.affectsProgress ?? true;
-    const batchConfig = cacheService.get(`batch:${batchId}:config`);
-    const entityType =
-      pollData?.entityType || batchConfig?.entityType || 'products';
     const mode = pollData?.mode || 'unknown';
 
     if (!pollData?.entityType && !batchConfig?.entityType) {
@@ -633,7 +651,7 @@ class BatchPollingService {
 
     this.activePolls.delete(batchId);
 
-    logger.info('Stopped polling for batch', {
+    logger.debug('Stopped polling for batch', {
       operation: 'batch-polling-stop',
       batchId,
     });

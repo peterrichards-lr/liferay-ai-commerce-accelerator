@@ -344,13 +344,14 @@ class ProductGenerator {
                 cacheService.set(
                   `batch:${result.batchId}:config`,
                   {
-                    liferayUrl: config.liferayUrl,
                     clientId: config.clientId,
                     clientSecret: config.clientSecret,
-                    localeCode: config.localeCode,
                     correlationId: config.correlationId,
-                    entityType: 'products',
                     createdAt: new Date().toISOString(),
+                    entityType: 'products',
+                    liferayUrl: config.liferayUrl,
+                    localeCode: config.localeCode,
+                    mode: 'generate',
                   },
                   3600000 // 1 hour cache
                 );
@@ -362,7 +363,6 @@ class ProductGenerator {
                   maxPollAttempts,
                 });
 
-                // Start polling for this batch
                 this.batchPollingService.startPolling(
                   result.batchId,
                   {
@@ -376,7 +376,7 @@ class ProductGenerator {
                     pollInterval: config.pollingDelay,
                     maxPollAttempts: config.pollingRetries,
                     onStatusChange: (status) => {
-                      logger.log('debug', 'Batch status update', {
+                      logger.debug('Batch status update', {
                         operation: 'batch-status-update',
                         batchId: status.batchId,
                         status: status.status,
@@ -389,7 +389,7 @@ class ProductGenerator {
                       this.handleBatchComplete(results);
                     },
                     onError: (error) => {
-                      logger.log('error', 'Batch polling error', {
+                      logger.error('Batch polling error', {
                         operation: 'batch-polling-error',
                         batchId: result.batchId,
                         error: error.message,

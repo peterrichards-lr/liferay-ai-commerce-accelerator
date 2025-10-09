@@ -10,13 +10,13 @@ const { inferEntityTypeFromClassName, delay } = require('../utils/misc.cjs');
 
 function buildRecoveredConfig({ liferayUrl, task, correlationId }) {
   return {
+    correlationId,
+    entityType: inferEntityTypeFromClassName(task?.className),
     liferayUrl,
     localeCode: 'en-US',
-    entityType: inferEntityTypeFromClassName(task?.className),
-    mode: 'delete',
-    correlationId,
-    pollInterval: 5000,
     maxPollAttempts: 120,
+    mode: 'delete',
+    pollInterval: 5000,
   };
 }
 
@@ -44,13 +44,16 @@ module.exports = function (app, liferayService, batchPollingService, logger) {
         bodyKeys: req.body ? Object.keys(req.body) : [],
       });
 
-      if (logger.isDebugEnabled()) {
-        logger.debug('=== BATCH SUBMISSION CALLBACK ===');
-        logger.debug('Batch ID:', batchId || 'Not provided');
-        logger.debug('Status:', status || 'Not provided');
+      if (logger.isTraceEnabled()) {
         const sanitizedCallback = sanitizedObject({ ...req.body });
-        logger.debug('Full callback data:', { payload: sanitizedCallback });
-        logger.debug('=== END CALLBACK ===');
+        const trace = `
+        === BATCH SUBMISSION CALLBACK ===
+        Batch ID: ${batchId || 'Not provided'}
+        Status: ${status || 'Not provided'}
+        Full callback data: ${JSON.stringify(sanitizedCallback, null, 2)}
+        === END CALLBACK ===
+        `;
+        logger.trace(trace);
       }
 
       if (batchId) {
@@ -142,10 +145,10 @@ module.exports = function (app, liferayService, batchPollingService, logger) {
 
       const pollInterval = Math.max(batchConfig.pollInterval || 5000, 2000);
       const maxPollAttempts = batchConfig.maxPollAttempts || 120;
-      const entityType = batchConfig?.entityType || 'unkoen';
+      const entityType = batchConfig?.entityType || 'unknown';
 
-      logger.info('Starting batch status polling', {
-        operation: 'batch-polling-init',
+      logger.debug('Starting batch polling', {
+        operation: 'batch-polling-start',
         batchId,
         pollInterval,
         maxPollAttempts,
