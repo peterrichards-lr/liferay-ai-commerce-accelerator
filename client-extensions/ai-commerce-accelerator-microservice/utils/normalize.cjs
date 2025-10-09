@@ -1,5 +1,17 @@
 const { logger } = require('./logger.cjs');
 
+const SENSITIVE_KEY_RE =
+  /(api[_-]?key|authorization|auth|token|id[_-]?token|access[_-]?token)/i;
+const SENSITIVE_QS = new Set([
+  'token',
+  'access_token',
+  'id_token',
+  'api_key',
+  'key',
+  'auth',
+  'authorization',
+]);
+
 function toBoolean(v) {
   if (typeof v === 'boolean') return v;
   if (typeof v !== 'string') return false;
@@ -185,6 +197,154 @@ function getCustomFile(file, defaultMimeType, defaultFliename) {
   }
 }
 
+function maskMiddle(str, keepStart = 6, keepEnd = 6, label = 'REDACTED') {
+  if (typeof str !== 'string') return str;
+  if (str.length <= keepStart + keepEnd + 3) return str;
+  return `${str.slice(0, keepStart)}…[${label}]…${str.slice(-keepEnd)}`;
+}
+
+function isLikelyJWT(str) {
+  return (
+    typeof str === 'string' &&
+    str.split('.').length === 3 &&
+    /[A-Za-z0-9_\-]+=*/.test(str.split('.')[0]) &&
+    str.length > 60
+  );
+}
+
+function isDataUrlBase64(str) {
+  return typeof str === 'string' && /^data:[^;]+;base64,/.test(str);
+}
+
+function isLikelyBase64Blob(str) {
+  return (
+    typeof str === 'string' &&
+    str.length > 80 &&
+    /^[A-Za-z0-9+/_\-=.]+$/.test(str) &&
+    (/[=]{0,2}$/.test(str) || /[+/]/.test(str))
+  );
+}
+
+function redactUrl(str) {
+  if (typeof str !== 'string') return str;
+  if (!/^https?:\/\//i.test(str)) return str;
+  try {
+    const u = new URL(str);
+    for (const k of Array.from(u.searchParams.keys())) {
+      if (SENSITIVE_QS.has(k.toLowerCase())) {
+        const v = u.searchParams.get(k) || '';
+        const masked =
+          v.length > 0 ? maskMiddle(v, 3, 3, 'REDACTED') : 'REDACTED';
+        u.searchParams.set(k, masked);
+      }
+    }
+    return u.toString();
+  } catch {
+    return str;
+  }
+}
+
+function keyPathHasSensitive(keys) {
+  return keys.some((k) => SENSITIVE_KEY_RE.test(String(k)));
+}
+
+function redactByKey(keyPath, value) {
+  const lastKey = keyPath[keyPath.length - 1] || '';
+
+  // If *any* ancestor (or self) looks sensitive, redact.
+  if (keyPathHasSensitive(keyPath)) {
+    if (typeof value === 'string') {
+      // Special handling for token-like strings
+      if (/^Bearer\s+/i.test(value)) return 'Bearer [REDACTED]';
+      if (isLikelyJWT(value)) return maskMiddle(value, 6, 6, 'JWT');
+      return maskMiddle(value, 3, 3, 'REDACTED');
+    }
+    return '[REDACTED]';
+  }
+
+  // Special-case exact OPENAI_API_KEY anywhere on the path
+  if (keyPath.some((k) => String(k).toUpperCase() === 'OPENAI_API_KEY')) {
+    // Entire value should be collapsed, even if nested object
+    return '[REDACTED_OPENAI_API_KEY]';
+  }
+
+  // If the *field* name itself is "token", treat as sensitive (even if no ancestor matched)
+  if (String(lastKey).toLowerCase() === 'token') {
+    if (typeof value === 'string') {
+      if (isLikelyJWT(value)) return maskMiddle(value, 6, 6, 'JWT');
+      return maskMiddle(value, 3, 3, 'REDACTED');
+    }
+    return '[REDACTED]';
+  }
+
+  return null; // no opinion
+}
+
+function redactStringGeneric(str, keyPath) {
+  if (/^Bearer\s+[\w\-_.]+/i.test(str)) return 'Bearer [REDACTED]';
+
+  if (/^https?:\/\//i.test(str)) return redactUrl(str);
+
+  if (isDataUrlBase64(str)) {
+    const mime = str.slice(5, str.indexOf(';'));
+    return `data:${mime};base64,[REDACTED len=${str.length}]`;
+  }
+
+  if (isLikelyJWT(str)) return maskMiddle(str, 6, 6, 'JWT');
+
+  if (isLikelyBase64Blob(str)) return maskMiddle(str, 8, 8, 'BASE64');
+
+  if (
+    /(^|[?&#])(token|access_token|id_token|api_key|key)=([^&#]+)/i.test(str)
+  ) {
+    return str.replace(
+      /([?&#])(token|access_token|id_token|api_key|key)=([^&#]+)/gi,
+      (_, sep, name, val) =>
+        `${sep}${name}=${maskMiddle(val, 3, 3, 'REDACTED')}`
+    );
+  }
+
+  return str;
+}
+
+function sanitizeValue(val, keyPath = []) {
+  const keyed = redactByKey(keyPath, val);
+  if (keyed !== null) return keyed;
+
+  if (val == null) return val;
+
+  if (typeof val === 'string') {
+    return redactStringGeneric(val, keyPath);
+  }
+
+  if (Array.isArray(val)) {
+    return val.map((v, i) => sanitizeValue(v, keyPath.concat(String(i))));
+  }
+
+  if (typeof val === 'object') {
+    const out = Array.isArray(val) ? [] : {};
+    for (const [k, v] of Object.entries(val)) {
+      out[k] = sanitizeValue(v, keyPath.concat(k));
+    }
+    return out;
+  }
+  return val;
+}
+
+function sanitizeCacheDump(dump) {
+  return sanitizeValue(dump, []);
+}
+
+function sanitizeCacheEntry(entry) {
+  const safe = { ...entry };
+  safe.key = String(entry.key || '');
+  const pathRoot = [safe.key];
+  if (entry.hasOwnProperty('value')) {
+    safe.value = sanitizeValue(entry.value, pathRoot.concat('value'));
+  }
+  return safe;
+}
+
 function sanitizedObject(obj) {
   const sanitizedObj = { ...obj };
   if (sanitizedObj.clientSecret) sanitizedObj.clientSecret = '[REDACTED]';
@@ -215,11 +375,15 @@ function parseBatchStatuses(obj) {
 }
 
 module.exports = {
-  toBoolean,
-  toNumber,
-  parseMaybeJSON,
   bufferToDataUrl,
   buildConfigAndOptions,
-  sanitizedObject,
+  maskMiddle,
   parseBatchStatuses,
+  parseMaybeJSON,
+  redactUrl,
+  sanitizeCacheDump,
+  sanitizeCacheEntry,
+  sanitizedObject,
+  toBoolean,
+  toNumber,
 };

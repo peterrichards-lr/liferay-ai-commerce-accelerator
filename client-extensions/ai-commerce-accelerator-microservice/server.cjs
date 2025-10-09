@@ -275,11 +275,9 @@ server.listen(PORT, '0.0.0.0', () => {
   logger.info(`Frontend available at: http://localhost:${PORT}`);
   logger.info(`WebSocket server listening on ws://localhost:${PORT}`);
 
-  if (DEBUG) {
-    logger.debug('🔌 WebSocket server status:', {
-      clients: ws.wss.clients.size,
-    });
-  }
+  logger.debug('🔌 WebSocket server status:', {
+    clients: ws.clientCount(),
+  });
 });
 
 // Graceful shutdown

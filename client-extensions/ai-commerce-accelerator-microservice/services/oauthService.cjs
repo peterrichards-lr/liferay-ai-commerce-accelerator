@@ -2,7 +2,7 @@ const { lxcConfig } = require('@rotty3000/config-node');
 const axios = require('axios');
 const crypto = require('crypto');
 
-const { CacheService } = require('./cacheService.cjs');
+const { cacheService } = require('./cacheService.cjs');
 const { logger } = require('../utils/logger.cjs');
 const { applicationExternalReferenceCodes } = require('../utils/constants.cjs');
 
@@ -12,7 +12,7 @@ const serverOauthApp = lxcConfig.oauthApplication(
 
 class OAuthService {
   constructor() {
-    this.tokenCache = new CacheService();
+    this.tokenCache = cacheService;
 
     const lxcDXPMainDomain = lxcConfig.dxpMainDomain();
     const lxcDXPServerProtocol = lxcConfig.dxpProtocol();

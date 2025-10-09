@@ -1,5 +1,6 @@
 const { logger } = require('../utils/logger.cjs');
 const { env } = require('../utils/constants.cjs');
+const { sanitizeCacheEntry } = require('../utils/normalize.cjs');
 
 class CacheService {
   constructor() {
@@ -155,7 +156,7 @@ class CacheService {
     }
   }
 
-  getStats() {
+  getStats(includeEntryValue = false) {
     const stats = {
       size: this.cache.size,
       maxSize: this.maxSize,
@@ -165,13 +166,26 @@ class CacheService {
     let totalSize = 0;
     for (const [key, entry] of this.cache.entries()) {
       totalSize += entry.size;
-      stats.entries.push({
-        key,
-        size: entry.size,
-        accessCount: entry.accessCount,
-        age: Date.now() - entry.timestamp,
-        lastAccess: entry.lastAccess,
-      });
+      stats.entries.push(
+        includeEntryValue
+          ? sanitizeCacheEntry({
+              key,
+              size: entry.size,
+              accessCount: entry.accessCount,
+              age: Date.now() - entry.timestamp,
+              lastAccess: entry.lastAccess,
+              ttl: this.ttlMap.get(key) || 'Unknown',
+              value: entry.value,
+            })
+          : {
+              key,
+              size: entry.size,
+              accessCount: entry.accessCount,
+              age: Date.now() - entry.timestamp,
+              lastAccess: entry.lastAccess,
+              ttl: this.ttlMap.get(key) || 'Unknown',
+            }
+      );
     }
 
     stats.totalSize = totalSize;
