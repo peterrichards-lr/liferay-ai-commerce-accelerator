@@ -12,10 +12,6 @@ import { progressReducer, initialProgress } from './state/progressReducer';
 import useActivityLog from './hooks/useActivityLog';
 import useRealtimeWebSocket from './hooks/useRealtimeWebSocket';
 
-import ApplicationConfigPanel from './components/config/ApplicationConfigPanel';
-import DataGeneratorForm from './components/DataGeneratorForm';
-import ProgressMonitor from './components/dashboard/Dashboard.jsx';
-
 import {
   computeTotalsFromConfig,
   expectedImageTotal,
@@ -34,6 +30,10 @@ import {
 } from './utils/validation';
 
 import { buildFilename, exportJsonFile } from './utils/fileHelper.js';
+
+import ApplicationConfigPanel from './components/config/ApplicationConfigPanel';
+import DataGeneratorForm from './components/DataGeneratorForm';
+import ProgressMonitor from './components/dashboard/Dashboard.jsx';
 
 const toInt = (v) => (v == null || v === '' ? undefined : parseInt(v, 10));
 const toArray = (v) => (Array.isArray(v) ? v : v ? [v] : []);
@@ -155,7 +155,7 @@ export function AppUI() {
     });
   };
 
-  const { wsRef, wsConnected } = useRealtimeWebSocket({
+  const { wsRef, ping, wsConnected } = useRealtimeWebSocket({
     enabled: connectionEstablished && !!config.microserviceUrl,
     microserviceUrl: config.microserviceUrl,
     loggingLevel: config?.wsLoggingLevel ?? 'off',
@@ -1085,12 +1085,16 @@ export function AppUI() {
       throw new Error(res?.message || 'Failed to establish connection.');
     }
 
-    // Optional: log server message
     addLog(res.message || 'Connected.', 'success');
 
     setOpenAiKeyAvailable(Boolean(res.openAiKeyAvailable));
 
-    await loadRootLists(); // fetch catalogs + channels
+    const wsOk = ping();
+    if (!wsOk) {
+      addLog('Unable to ping web socket.', 'warning');
+    }
+
+    await loadRootLists();
     setConnectionEstablished(true);
 
     return res;

@@ -2,418 +2,264 @@ import { useEffect, useRef, useState } from 'react';
 import { useApp } from '../context/AppContext';
 import {
   BATCH_COMPLETED,
-  BATCH_PROGRESS,
-  BATCH_START,
+  BATCH_FAILED,
   GENERATION_SESSION_COMPLETE,
-  POSTPROC_COMPLETED,
-  POSTPROC_PROGRESS,
-  POSTPROC_STARTED,
-  SESSION_COMPLETE,
-  WebSocketConnection,
+  PROGRESS_UPDATE,
 } from '../utils/webSocket';
-
-const clampToTotal = (total, n) =>
-  Math.max(0, Math.min(Number.isFinite(total) ? total : n, n));
-
-const normalizeEntityType = (t) => {
-  const s = String(t || '').toLowerCase();
-  if (!s) return null;
-  if (['product', 'products'].includes(s)) return 'products';
-  if (['account', 'accounts', 'customer', 'customers', 'users'].includes(s))
-    return 'accounts';
-  if (['order', 'orders'].includes(s)) return 'orders';
-  if (['image', 'images', 'picture', 'pictures', 'media'].includes(s))
-    return 'images';
-  if (['pdf', 'pdfs', 'document', 'documents'].includes(s)) return 'pdfs';
-  return s; // fallback: let it flow if you’ve added custom buckets
-};
+import { normalizeEntityType } from '../utils/misc';
+import { CORRELATION_ID_HEADER } from '../utils/sharedConstants';
 
 export default function useRealtimeWebSocket({
-  enabled, // boolean: connectionEstablished && !!microserviceUrl
-  microserviceUrl, // string
-  loggingLevel = 'off', // 'off' | 'info' | 'verbose'
-  onLog, // function(message, type)
-  onProgress, // React setState for progress
+  enabled,
+  microserviceUrl,
+  loggingLevel = 'off', // 'off' | 'basic' | 'debug'
+  onLog, // (msg: string, level: 'info'|'success'|'warning'|'error') => void
+  onProgress, // (payload) => void
 }) {
-  const { getCorrelationId } = useApp();
+  const { getCorrelationId } = useApp?.() || {};
   const wsRef = useRef(null);
   const [wsConnected, setWsConnected] = useState(false);
-  const seenBatchIdsRef = useRef(new Set());
 
-  // unmount cleanup guard
-  useEffect(() => {
-    return () => {
-      if (
-        wsRef.current &&
-        wsRef.current.readyState === WebSocketConnection.OPEN
-      ) {
-        wsRef.current.close(1000, 'Component unmounting');
-        wsRef.current = null;
-      }
-    };
-  }, []);
+  const seenBatchIdsRef = useRef(new Set()); // duplicate suppression per-connection
+  const backoffRef = useRef(1000); // start 1s, double up to 10s
+  const reconnectTimerRef = useRef(null);
 
-  useEffect(() => {
-    const effectId =
-      loggingLevel !== 'off' ? Math.random().toString(36).substring(7) : null;
+  const log = (...args) => {
+    if (loggingLevel !== 'off') console.log(...args);
+  };
+  const debug = (...args) => {
+    if (loggingLevel === 'debug') console.debug(...args);
+  };
 
-    const log = (...args) => {
-      if (loggingLevel !== 'off') console.log(...args);
-    };
+  const cleanupSocket = () => {
+    if (reconnectTimerRef.current) {
+      clearTimeout(reconnectTimerRef.current);
+      reconnectTimerRef.current = null;
+    }
+    if (wsRef.current) {
+      try {
+        wsRef.current.onopen =
+          wsRef.current.onmessage =
+          wsRef.current.onerror =
+          wsRef.current.onclose =
+            null;
+      } catch {}
+      try {
+        wsRef.current.close();
+      } catch {}
+      wsRef.current = null;
+    }
+    setWsConnected(false);
+  };
 
+  const connect = () => {
     if (!enabled || !microserviceUrl) {
-      log(
-        'ℹ️ WebSocket connection skipped [' +
-          effectId +
-          '] - prerequisites not met'
-      );
+      debug('WS connect skipped — enabled/microserviceUrl not set');
       return;
     }
-
-    // If already healthy, skip
     if (
       wsRef.current &&
       (wsRef.current.readyState === WebSocket.OPEN ||
         wsRef.current.readyState === WebSocket.CONNECTING)
     ) {
-      log(
-        'ℹ️ WebSocket already healthy, skipping connection [' + effectId + ']'
-      );
+      debug('WS already OPEN/CONNECTING — skipping connect()');
       return;
     }
 
-    // Cleanup if not healthy
-    if (wsRef.current && wsRef.current.readyState !== WebSocket.OPEN) {
-      log(
-        '🔄 WebSocket effect cleanup [' +
-          effectId +
-          '] - dependency change or unmount'
-      );
-      try {
-        wsRef.current.close();
-      } catch {}
-      wsRef.current = null;
-      setWsConnected(false);
-    }
+    seenBatchIdsRef.current = new Set();
 
-    const trimmed = microserviceUrl?.replace(/\/$/, '');
+    const trimmed = microserviceUrl.replace(/\/$/, '');
     const wsUrl = trimmed.replace(/^http/, 'ws');
+    const cid = getCorrelationId?.();
 
-    log('🔗 Attempting WebSocket connection [' + effectId + ']:', {
-      wsUrl,
-      microserviceUrl: trimmed,
-    });
+    const url = new URL(wsUrl);
+    if (cid) url.searchParams.set(CORRELATION_ID_HEADER, cid);
 
-    try {
-      log('🔗 Creating new WebSocket [' + effectId + ']:', {
-        wsUrl,
-        microserviceUrl: trimmed,
-      });
-      const cid = getCorrelationId?.();
-      console.log('cid', cid);
-      const url = new URL(wsUrl);
-      if (cid) url.searchParams.set('x-correlation-id', cid);
-      const ws = new WebSocket(url.toString());
-      wsRef.current = ws;
+    log('🔗 Creating WebSocket:', url.toString());
+    const ws = new WebSocket(url.toString());
+    wsRef.current = ws;
 
-      // 10s connection timeout
-      const connectionTimeout = setTimeout(() => {
-        if (ws.readyState === WebSocket.CONNECTING) {
-          console.warn('⏰ WebSocket connection timeout [' + effectId + ']');
+    const connectionTimeout = setTimeout(() => {
+      if (ws.readyState === WebSocket.CONNECTING) {
+        console.warn('⏰ WebSocket connection timeout');
+        try {
           ws.close();
-          onLog?.(
-            `WebSocket connection timed out. Check if microservice is running on ${trimmed}`,
-            'warning'
-          );
-        }
-      }, 10000);
-
-      ws.onopen = () => {
-        clearTimeout(connectionTimeout);
-        log('✅ WebSocket connected [' + effectId + ']:', {
-          url: wsUrl,
-          readyState: ws.readyState,
-          protocol: ws.protocol,
-          extensions: ws.extensions,
-        });
-        setWsConnected(true);
-        onLog?.('WebSocket connection established successfully.', 'success');
-
-        // ping
-        try {
-          ws.send(
-            JSON.stringify({
-              type: 'ping',
-              timestamp: new Date().toISOString(),
-            })
-          );
-          if (loggingLevel === 'verbose')
-            log('📤 Sent ping to WebSocket server [' + effectId + ']');
-        } catch (e) {
-          console.warn('Failed to send ping:', e);
-        }
-      };
-
-      ws.onmessage = (event) => {
-        let data;
-        try {
-          data = JSON.parse(event.data);
-
-          if (loggingLevel === 'verbose') {
-            log('📨 WebSocket message received [' + effectId + ']:', {
-              messageType: data.type,
-              timestamp: data.timestamp || new Date().toISOString(),
-              batchId: data.batchId,
-              hasData: !!data,
-              dataKeys: Object.keys(data),
-              fullMessage: data,
-            });
-          } else if (loggingLevel === 'info') {
-            log(
-              '📨 WebSocket message [' + effectId + ']:',
-              data.type,
-              data.batchId ? `(Batch: ${data.batchId})` : ''
-            );
-          }
-
-          if (data.type === BATCH_COMPLETED && data.batchId) {
-            if (seenBatchIdsRef.current.has(data.batchId)) return; // drop duplicate
-            seenBatchIdsRef.current.add(data.batchId);
-          }
-
-          // control messages
-          if (data.type === 'pong') return;
-          if (data.type === 'connected') {
-            onLog?.('Connected to real-time updates', 'success');
-            return;
-          }
-          if (data.type === GENERATION_SESSION_COMPLETE) {
-            onLog?.(
-              '✓ All batches completed - starting image and PDF processing...',
-              'success'
-            );
-            return;
-          }
-
-          // helper to update counts (preserves original semantics)
-          const updateProgressCounts = (
-            entityType,
-            successCount,
-            failureCount
-          ) => {
-            onProgress?.((prev) => {
-              const bucket = entityType; // already normalized earlier
-              const current = prev[bucket] || { completed: 0, errors: [] };
-              const total = current.total ?? Infinity;
-
-              let nextCompleted;
-
-              switch (bucket) {
-                //case 'images':
-                //case 'pdfs':
-                case 'accounts':
-                  // Absolute (some services emit a final count or we may set it via HTTP fallback)
-                  nextCompleted = Math.max(
-                    current.completed || 0,
-                    successCount || 0
-                  );
-                  break;
-
-                default:
-                  // Incremental (products/orders batches usually come as deltas)
-                  nextCompleted =
-                    (current.completed || 0) + (successCount || 0);
-                  break;
-              }
-
-              nextCompleted = clampToTotal(total, nextCompleted);
-
-              return {
-                ...prev,
-                [bucket]: {
-                  ...current,
-                  completed: nextCompleted,
-                  errors: [
-                    ...(current.errors || []),
-                    ...(failureCount
-                      ? ['batch failures: ' + failureCount]
-                      : []),
-                    ...(data.errors || []),
-                  ],
-                },
-              };
-            });
-          };
-
-          const entityKey = normalizeEntityType(data.entityType);
-
-          // mirror your original switch
-          switch (data.type) {
-            case BATCH_START:
-              onLog?.(
-                `⏳ Batch started: ${data.batchId} (${entityKey}) - ${data.totalItems} items`,
-                'info'
-              );
-              onProgress?.((prev) => {
-                const current = prev[entityKey] || {
-                  total: 0,
-                  completed: 0,
-                  errors: [],
-                };
-                return {
-                  ...prev,
-                  [entityKey]: {
-                    ...current,
-                    total: (current.total || 0) + data.totalItems,
-                    errors: current.errors || [],
-                  },
-                };
-              });
-              break;
-
-            case BATCH_PROGRESS:
-              onLog?.(
-                `⏳ Batch progress: ${data.batchId} (${entityKey}) - ${data.completedCount}/${data.totalItems} (${data.progress}%)`,
-                'info'
-              );
-              onProgress?.((prev) => ({
-                ...prev,
-                [entityKey]: {
-                  ...prev[entityKey],
-                  completed: data.completedCount,
-                },
-              }));
-              break;
-
-            case BATCH_COMPLETED:
-              onLog?.(
-                `✅ Batch completed: ${data.batchId} (${entityKey}) - ${
-                  data.successCount || 0
-                } items processed`,
-                'success'
-              );
-              updateProgressCounts(
-                entityKey,
-                data.successCount || 0,
-                data.failureCount || 0
-              );
-              break;
-
-            case SESSION_COMPLETE:
-              onLog?.(
-                `🎉 All batches completed for ${entityKey} - starting post-processing...`,
-                'success'
-              );
-              break;
-
-            case POSTPROC_STARTED:
-              onLog?.(
-                `📎 Starting post-processing for ${entityKey}...`,
-                'info'
-              );
-              break;
-
-            case POSTPROC_PROGRESS:
-              onLog?.(
-                `📎 Post-processing progress: ${data.data.processedCount}/${data.data.totalCount} ${entityKey} (${data.data.progress}%)`,
-                'info'
-              );
-              break;
-
-            case POSTPROC_COMPLETED: {
-              const errorMsg =
-                data.data.errorCount > 0
-                  ? ` with ${data.data.errorCount} errors`
-                  : '';
-              onLog?.(
-                `✅ Post-processing for ${entityKey} completed: ${data.data.processedCount}/${data.data.totalCount} products${errorMsg}`,
-                data.data.errorCount > 0 ? 'warning' : 'success'
-              );
-              updateProgressCounts(
-                entityKey,
-                data.data.processedCount || 0,
-                data.data.errorCount || 0
-              );
-              break;
-            }
-
-            default:
-              if (loggingLevel !== 'off')
-                log(
-                  'ℹ️ Unhandled WebSocket message type [' + effectId + ']:',
-                  data.type,
-                  data
-                );
-          }
-        } catch (parseError) {
-          if (loggingLevel !== 'off')
-            console.error(
-              '❌ WebSocket message parse error [' + effectId + ']:',
-              parseError,
-              'Raw data:',
-              event.data
-            );
-          onLog?.('WebSocket received invalid message format.', 'error');
-        }
-      };
-
-      ws.onerror = (error) => {
-        clearTimeout(connectionTimeout);
-        if (loggingLevel !== 'off') {
-          console.error('❌ WebSocket error [' + effectId + ']:', {
-            error,
-            url: wsUrl,
-            readyState: ws.readyState,
-            timestamp: new Date().toISOString(),
-          });
-        }
-        setWsConnected(false);
+        } catch {}
         onLog?.(
-          `WebSocket connection error: Unable to connect to ${trimmed}. Please check if the microservice is running.`,
-          'error'
+          `WebSocket timed out. Is the microservice up at ${trimmed}?`,
+          'warning'
         );
-      };
+      }
+    }, 10000);
 
-      ws.onclose = (event) => {
-        clearTimeout(connectionTimeout);
-        if (loggingLevel !== 'off') {
-          console.log('🔌 WebSocket disconnected [' + effectId + ']:', {
-            code: event.code,
-            reason: event.reason || 'No reason provided',
-            wasClean: event.wasClean,
-            timestamp: new Date().toISOString(),
-          });
+    ws.onopen = () => {
+      clearTimeout(connectionTimeout);
+      backoffRef.current = 1000;
+      setWsConnected(true);
+      onLog?.('WebSocket connection established successfully.', 'success');
+      try {
+        ws.send(
+          JSON.stringify({ type: 'ping', timestamp: new Date().toISOString() })
+        );
+      } catch {}
+    };
+
+    ws.onmessage = (event) => {
+      let data;
+      try {
+        data = JSON.parse(event.data);
+      } catch {
+        onLog?.('WebSocket received invalid JSON message.', 'error');
+        return;
+      }
+
+      if (!data || typeof data !== 'object') return;
+      if (data.type === 'pong') return;
+
+      const entityType = normalizeEntityType(
+        data.entityType || data.details?.entityType
+      );
+
+      const bId = data.batchId || data.details?.batchId;
+      if (
+        bId &&
+        (data.type === BATCH_COMPLETED || data.type === BATCH_FAILED)
+      ) {
+        if (seenBatchIdsRef.current.has(bId)) {
+          debug(`🟡 Dropping duplicate ${data.type} for batchId=${bId}`);
+          return;
         }
-        setWsConnected(false);
-        if (event.code !== 1000) {
+        seenBatchIdsRef.current.add(bId);
+      }
+
+      switch (data.type) {
+        case BATCH_COMPLETED: {
           onLog?.(
-            'WebSocket connection lost. Updates may be delayed.',
-            'warning'
+            `Batch complete (${entityType}) — ${
+              data.successCount ?? data.details?.processedCount ?? 0
+            }/${data.details?.totalCount ?? 0}`,
+            'success'
           );
-        } else if (event.code === 1000 && loggingLevel !== 'off') {
-          console.log('ℹ️ WebSocket disconnected cleanly.');
+          onProgress?.({
+            kind: 'batch',
+            status: 'completed',
+            entityType,
+            data,
+          });
+          break;
         }
-      };
-    } catch (err) {
-      if (loggingLevel !== 'off')
-        console.error(
-          '❌ Failed to create WebSocket connection [' + effectId + ']:',
-          err
-        );
-      setWsConnected(false);
-      onLog?.('Failed to establish WebSocket connection.', 'error');
-      wsRef.current = null;
-    }
-
-    // cleanup
-    return () => {
-      if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
-        if (loggingLevel !== 'off')
-          console.log('🧹 Cleaning up WebSocket connection [' + effectId + ']');
-        wsRef.current.close(1000, 'Component unmounting');
+        case BATCH_FAILED: {
+          onLog?.(
+            `Batch failed (${entityType}) — errors: ${
+              data.failureCount ?? data.details?.errorCount ?? 0
+            }`,
+            'error'
+          );
+          onProgress?.({
+            kind: 'batch',
+            status: 'failed',
+            entityType,
+            data,
+          });
+          break;
+        }
+        case GENERATION_SESSION_COMPLETE: {
+          onLog?.(
+            'Generation session completed — triggering post processing.',
+            'info'
+          );
+          onProgress?.({
+            kind: 'session',
+            status: 'completed',
+            data,
+          });
+          break;
+        }
+        case PROGRESS_UPDATE: {
+          onProgress?.({
+            kind: 'progress',
+            entityType,
+            data,
+          });
+          break;
+        }
+        default: {
+          debug('WS message:', data);
+        }
       }
     };
-  }, [enabled, microserviceUrl, loggingLevel, onLog, onProgress, wsConnected]);
 
-  return { wsRef, wsConnected };
+    ws.onerror = (e) => {
+      clearTimeout(connectionTimeout);
+      setWsConnected(false);
+      onLog?.('WebSocket error. Check the microservice is reachable.', 'error');
+      debug('WS error:', e?.message || e);
+    };
+
+    ws.onclose = (event) => {
+      clearTimeout(connectionTimeout);
+      setWsConnected(false);
+      if (!enabled) return;
+
+      const delay = Math.min(backoffRef.current, 10000); // cap at 10s
+      debug(`🔌 WS closed (code ${event.code}). Retrying in ${delay}ms…`);
+      reconnectTimerRef.current = setTimeout(() => {
+        backoffRef.current = Math.min(backoffRef.current * 2, 10000);
+        connect();
+      }, delay);
+    };
+  };
+
+  const reconnect = () => {
+    log('🔄 Forcing WebSocket reconnect()');
+    cleanupSocket();
+    connect();
+  };
+
+  const ping = () => {
+    const ws = wsRef.current;
+    if (ws && ws.readyState === WebSocket.OPEN) {
+      try {
+        ws.send(
+          JSON.stringify({ type: 'ping', timestamp: new Date().toISOString() })
+        );
+        onLog?.('Ping sent to WebSocket server.', 'info');
+        return true;
+      } catch {
+        // fall through to reconnect
+      }
+    }
+    reconnect();
+    return false;
+  };
+
+  useEffect(() => {
+    cleanupSocket();
+    if (enabled && microserviceUrl) connect();
+    return () => cleanupSocket();
+  }, [enabled, microserviceUrl, loggingLevel]);
+
+  useEffect(() => {
+    const onVisibility = () => {
+      if (document.visibilityState === 'visible') {
+        if (
+          !wsConnected ||
+          !wsRef.current ||
+          wsRef.current.readyState !== WebSocket.OPEN
+        ) {
+          onLog?.(
+            'Tab visible — checking WebSocket and reconnecting if needed…',
+            'info'
+          );
+          reconnect();
+        } else {
+          ping();
+        }
+      }
+    };
+    document.addEventListener('visibilitychange', onVisibility);
+    return () => document.removeEventListener('visibilitychange', onVisibility);
+  }, [wsConnected]);
+
+  return { wsRef, wsConnected, reconnect, ping };
 }

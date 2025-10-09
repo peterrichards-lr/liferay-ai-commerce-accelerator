@@ -1,5 +1,4 @@
 const WebSocket = require('ws');
-const { v4: uuidv4 } = require('uuid');
 const { BATCH_START } = require('../utils/wsEvents.cjs');
 const { CORRELATION_ID_HEADER } = require('../utils/sharedConstants.cjs');
 const { delay } = require('../utils/misc.cjs');
