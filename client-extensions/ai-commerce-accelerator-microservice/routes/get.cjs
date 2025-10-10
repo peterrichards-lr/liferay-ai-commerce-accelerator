@@ -4,7 +4,7 @@ const {
 
 const { connectionSchema } = require('../utils/schemas.cjs');
 
-module.exports = function (app, liferayService, logger) {
+module.exports = (app, { liferayService, logger }) => {
   app.post(
     '/api/get-catalogs',
     inputValidationMiddleware(connectionSchema),
@@ -65,8 +65,7 @@ module.exports = function (app, liferayService, logger) {
     inputValidationMiddleware(connectionSchema),
     async (req, res) => {
       try {
-        const { liferayUrl, clientId, clientSecret, localeCode, languageId } =
-          req.body;
+        const { liferayUrl, clientId, clientSecret, localeCode, languageId } = req.body;
 
         const currencies = await liferayService.getCurrencies({
           liferayUrl,

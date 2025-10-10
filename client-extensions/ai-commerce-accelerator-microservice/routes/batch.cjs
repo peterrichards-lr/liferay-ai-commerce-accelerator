@@ -1,7 +1,5 @@
 const { lxcConfig, lookupConfig } = require('@rotty3000/config-node');
 const WebSocket = require('ws');
-const { get: getWs } = require('../services/wsBus.cjs');
-const { cacheService } = require('../services/cacheService.cjs');
 const {
   sanitizedObject,
   parseBatchStatuses,
@@ -20,7 +18,8 @@ function buildRecoveredConfig({ liferayUrl, task, correlationId }) {
   };
 }
 
-module.exports = function (app, liferayService, batchPollingService, logger) {
+module.exports = (app,
+  { cacheService, batchPollingService, liferayService, logger, getWs }) => {
   waitForConfig = async (batchId, { tries = 6, min = 40, max = 800 } = {}) => {
     for (let i = 0; i < tries; i++) {
       const cfg = cacheService.get(`batch:${batchId}:config`);
@@ -132,10 +131,8 @@ module.exports = function (app, liferayService, batchPollingService, logger) {
         }
       }
 
-      if (
-        cacheService.get(`batch:${batchId}:completed`) ||
-        batchPollingService.isPolling(batchId)
-      ) {
+      if (cacheService.get(`batch:${batchId}:completed`) ||
+        batchPollingService.isPolling(batchId)) {
         logger.info('Skipping polling start; already completed or active', {
           operation: 'batch-polling-skip',
           batchId,
@@ -193,7 +190,6 @@ module.exports = function (app, liferayService, batchPollingService, logger) {
             entityType,
             error: err.message,
           });
-          const ws = getWs();
           const msg = JSON.stringify({
             type: 'batch_failed',
             batchId,
@@ -201,7 +197,7 @@ module.exports = function (app, liferayService, batchPollingService, logger) {
             error: err.message,
             timestamp: new Date().toISOString(),
           });
-          ws?.wss?.clients?.forEach((client) => {
+          getWs().wss?.clients?.forEach((client) => {
             if (client.readyState === WebSocket.OPEN) client.send(msg);
           });
         },

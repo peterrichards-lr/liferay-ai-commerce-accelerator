@@ -1,10 +1,11 @@
 const { logger } = require('../utils/logger.cjs');
+const { v4: uuidv4 } = require('uuid');
 
 function getRandomInt(max) {
   return Math.floor(Math.random() * max);
 }
 
-function errorReference(prefix = 'LIFR') {
+function createErrorReference(prefix = 'LIFR') {
   return `${prefix}-${Date.now()}-${uuidv4().slice(0, 8)}`;
 }
 
@@ -303,10 +304,10 @@ function inferEntityTypeFromClassName(className = '') {
 
 module.exports = {
   buildDataUrl,
+  createErrorReference,
   debounce,
   delay,
   delayCall,
-  errorReference,
   getRandomInt,
   handleDemoAccountGeneration,
   handleDemoOrderGeneration,

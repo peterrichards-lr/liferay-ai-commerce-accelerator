@@ -1,22 +1,19 @@
 const OpenAI = require('openai');
-const { ConfigService } = require('./configService.cjs');
-
-// the newest OpenAI model is "gpt-4o" which was released May 13, 2024. do not change this unless explicitly requested by the user
-
 class AIService {
-  constructor() {
-    this.configService = new ConfigService();
+  constructor(ctx) {
+    this.ctx = ctx;
     this.openai = null;
   }
 
   async getOpenAIClient(requestConfig) {
+    const { configService } = this.ctx;
     if (!this.openai) {
       if (!requestConfig) {
         throw new Error(
           'OAuth configuration required to initialize OpenAI client'
         );
       }
-      const apiKey = await this.configService.getOpenAIKey(requestConfig);
+      const apiKey = await configService.getOpenAIKey(requestConfig);
       this.openai = new OpenAI({ apiKey });
     }
     return this.openai;
@@ -388,4 +385,4 @@ class AIService {
   }
 }
 
-module.exports = new AIService();
+module.exports = { AIService };

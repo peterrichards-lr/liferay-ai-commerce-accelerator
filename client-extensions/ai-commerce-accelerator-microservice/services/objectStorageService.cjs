@@ -1,12 +1,10 @@
 const { Storage, File } = require('@google-cloud/storage');
-const { Response } = require('express');
 const { randomUUID } = require('crypto');
 
 const { env } = require('../utils/constants.cjs');
 
 const REPLIT_SIDECAR_ENDPOINT = 'http://127.0.0.1:1106';
 
-// The object storage client is used to interact with the object storage service.
 const objectStorageClient = new Storage({
   credentials: {
     audience: 'replit',
@@ -32,12 +30,9 @@ class ObjectNotFoundError extends Error {
     Object.setPrototypeOf(this, ObjectNotFoundError.prototype);
   }
 }
-
-// The object storage service is used to interact with the object storage service.
 class ObjectStorageService {
   constructor() {}
 
-  // Gets the public object search paths.
   getPublicObjectSearchPaths() {
     const pathsStr = env.PUBLIC_OBJECT_SEARCH_PATHS;
     const paths = Array.from(
@@ -57,7 +52,6 @@ class ObjectStorageService {
     return paths;
   }
 
-  // Gets the private object directory.
   getPrivateObjectDir() {
     const dir = env.PRIVATE_OBJECT_DIR;
     if (!dir) {
@@ -69,7 +63,6 @@ class ObjectStorageService {
     return dir;
   }
 
-  // Gets the upload URL for an object entity.
   async getObjectEntityUploadURL() {
     const privateObjectDir = this.getPrivateObjectDir();
     if (!privateObjectDir) {
@@ -84,7 +77,6 @@ class ObjectStorageService {
 
     const { bucketName, objectName } = parseObjectPath(fullPath);
 
-    // Sign URL for PUT method with TTL
     return signObjectURL({
       bucketName,
       objectName,
@@ -98,7 +90,6 @@ class ObjectStorageService {
       return rawPath;
     }
 
-    // Extract the path from the URL by removing query parameters and domain
     const url = new URL(rawPath);
     const rawObjectPath = url.pathname;
 
@@ -111,7 +102,6 @@ class ObjectStorageService {
       return rawObjectPath;
     }
 
-    // Extract the entity ID from the path
     const entityId = rawObjectPath.slice(objectEntityDir.length);
     return `/objects/${entityId}`;
   }
@@ -163,4 +153,11 @@ async function signObjectURL({ bucketName, objectName, method, ttlSec }) {
   return signedURL;
 }
 
-module.exports = { ObjectStorageService, ObjectNotFoundError };
+// Create singleton instance
+const objectStorageService = new ObjectStorageService();
+
+module.exports = {
+  objectStorageService,
+  ObjectStorageService,
+  ObjectNotFoundError,
+};

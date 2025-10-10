@@ -1,6 +1,4 @@
-const {cacheService} = require('../services/cacheService.cjs');
-
-module.exports = function (app, logger) {
+module.exports = (app, { logger, cacheService }) => {
   app.get('/api/cache/stats', async (req, res) => {
     try {
       const stats = cacheService.getStats();

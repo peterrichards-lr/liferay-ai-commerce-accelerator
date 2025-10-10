@@ -1,20 +1,14 @@
-const aiService = require('./aiService.cjs');
-const liferayService = require('./liferayService.cjs');
-const { MockDataGenerator } = require('./mockDataGenerator.cjs');
-const { logger } = require('../utils/logger.cjs');
-const { BatchPollingService } = require('./batchPollingService.cjs');
-const { cacheService } = require('./cacheService.cjs');
-const { get: getWs } = require('../services/wsBus.cjs');
 const { delay } = require('../utils/misc.cjs');
+const batchProcessor = require('../services/batchProcessorService.cjs');
 
 class AccountGenerator {
-  constructor(batchPollingService = null) {
-    this.aiService = aiService;
-    this.batchPollingService = batchPollingService;
+  constructor(ctx) {
+    this.ctx = ctx;
   }
 
   async generateAccounts(config, options) {
-    const correlationId = config.correlationId || uuidv4();
+    const { logger, ai, mockData, cache, batchPolling } = this.ctx;
+    const correlationId = config.correlationId;
     const useBatch = config.batchSize > 1 && options.accountCount > 1;
 
     logger.info('Starting account generation', {
@@ -36,7 +30,7 @@ class AccountGenerator {
       // Early validation for OpenAI key if not in demo mode
       if (!options.demoMode) {
         try {
-          await this.aiService.getOpenAIClient();
+          await ai.getOpenAIClient();
           logger.info('✓ OpenAI API key validated for account generation');
         } catch (error) {
           const errorMessage =
@@ -60,8 +54,7 @@ class AccountGenerator {
         logger.info(
           `Demo mode: Generating ${options.accountCount} mock accounts`
         );
-        const mockGen = new MockDataGenerator();
-        accountDataList = mockGen.generateAccountData(options.accountCount);
+        accountDataList = mockData.generateAccountData(options.accountCount);
         logger.debug(
           `Demo: Generated ${accountDataList.length} mock account data entries`
         );
@@ -69,7 +62,7 @@ class AccountGenerator {
         logger.info(
           `AI mode: Generating ${options.accountCount} accounts using ${config.aiModel}`
         );
-        accountDataList = await this.aiService.generateAccountData(
+        accountDataList = await ai.generateAccountData(
           options.accountCount,
           config.aiModel || 'gpt-4o'
         );
@@ -136,8 +129,7 @@ class AccountGenerator {
               mode: 'generate',
             };
 
-            const { cacheService } = require('./cacheService.cjs');
-            cacheService.set(
+            cache.set(
               `batch:${result.batchId}:config`,
               batchConfig,
               3600000 // 1 hour cache
@@ -150,7 +142,7 @@ class AccountGenerator {
               maxPollAttempts,
             });
 
-            this.batchPollingService.startPolling(result.batchId, batchConfig, {
+            batchPolling.startPolling(result.batchId, batchConfig, {
               pollInterval: config.pollingDelay,
               maxPollAttempts: config.pollingReties,
               onStatusChange: (status) => {
@@ -198,7 +190,6 @@ class AccountGenerator {
           });
           results.created += batch.length;
 
-          // Add delay between batch submissions to avoid overwhelming the server
           if (batchIndex < accountBatches.length - 1) {
             await delay(1000);
           }
@@ -226,15 +217,14 @@ class AccountGenerator {
   }
 
   async generateAccountsIndividually(config, options, accountDataList) {
+    const { logger } = this.ctx;
     const generatedAccounts = [];
     const errors = [];
 
-    // Generate accounts using the same mechanism for both demo and live modes
     for (let i = 0; i < accountDataList.length; i++) {
       const accountData = accountDataList[i];
 
       try {
-        // Both modes use the same Liferay API mechanism
         const createdAccount = await this.createSingleAccount(
           config,
           accountData
@@ -283,6 +273,7 @@ class AccountGenerator {
   }
 
   async generateAccountsBatch(config, accountsData, callbackUrl) {
+    const { logger, liferay, cache, batchPolling } = this.ctx;
     try {
       logger.info('Starting batch account generation', {
         correlationId: config.correlationId,
@@ -317,16 +308,14 @@ class AccountGenerator {
         }),
       }));
 
-      const batchResult = await liferayService.createAccountsBatch(
+      const batchResult = await liferay.createAccountsBatch(
         config,
-        accountsData, // Ensure this is the correct data format for liferayService
+        accountsData,
         callbackUrl
       );
 
-      // Store batch config for polling
       const batchId = batchResult.batchId;
-      // Store configuration for polling callback
-      cacheService.set(
+      cache.set(
         `batch:${batchId}:config`,
         {
           clientId: config.clientId,
@@ -344,9 +333,9 @@ class AccountGenerator {
       const pollInterval = pollingDelay;
       const maxPollAttempts = Math.ceil(600000 / pollInterval); // Max 10 minutes (600 seconds)
 
-      this.batchPollingService.startPolling(batchId, {
+      batchPolling.startPolling(batchId, {
         ...config,
-        entityType: 'accounts', // Ensure entityType is passed to polling service
+        entityType: 'accounts',
         pollInterval,
         maxPollAttempts,
         onComplete: (results) => {
@@ -388,6 +377,7 @@ class AccountGenerator {
   }
 
   async createAccountsBatch(config, accountsData, callbackUrl) {
+    const { logger, liferay } = this.ctx;
     try {
       logger.info('Creating accounts batch with callback', {
         correlationId: config.correlationId,
@@ -396,7 +386,7 @@ class AccountGenerator {
         callbackUrl: callbackUrl,
       });
 
-      const batchResult = await liferayService.createAccountsBatch(
+      const batchResult = await liferay.createAccountsBatch(
         config,
         accountsData,
         callbackUrl
@@ -418,6 +408,7 @@ class AccountGenerator {
   }
 
   async createSingleAccount(config, accountData) {
+    const { logger, liferay } = this.ctx;
     try {
       const liferayAccount = {
         name: accountData.name || `Generated Company ${Date.now()}`,
@@ -452,7 +443,7 @@ class AccountGenerator {
         hasEmail: !!accountData.emailAddress,
       });
 
-      const createdAccount = await liferayService.createAccount(
+      const createdAccount = await liferay.createAccount(
         config,
         liferayAccount
       );
@@ -483,8 +474,9 @@ class AccountGenerator {
   }
 
   async getExistingAccounts(config) {
+    const { logger, liferay } = this.ctx;
     try {
-      return await liferayService.getAccounts(config);
+      return await liferay.getAccounts(config);
     } catch (error) {
       logger.error('Failed to fetch existing accounts:', error);
       return [];
@@ -492,6 +484,7 @@ class AccountGenerator {
   }
 
   handleBatchComplete(results) {
+    const { logger } = this.ctx;
     logger.info('Handling account batch completion', {
       operation: 'batch-complete-handler',
       batchId: results.batchId,

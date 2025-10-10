@@ -1,7 +1,7 @@
-const productGenerator = require('../services/productGenerator.cjs');
-const accountGenerator = require('../services/accountGenerator.cjs');
-const orderGenerator = require('../services/orderGenerator.cjs');
-const { MockDataGenerator } = require('../services/mockDataGenerator.cjs');
+const productGenerator = require('../generators/productGenerator.cjs');
+const accountGenerator = require('../generators/accountGenerator.cjs');
+const orderGenerator = require('../generators/orderGenerator.cjs');
+const { MockDataGenerator } = require('../generators/mockDataGenerator.cjs');
 const { logger } = require('../utils/logger.cjs');
 const { queueService } = require('../services/queueService.cjs');
 

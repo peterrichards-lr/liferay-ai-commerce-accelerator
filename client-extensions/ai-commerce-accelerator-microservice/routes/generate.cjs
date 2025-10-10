@@ -1,4 +1,3 @@
-const { DEBUG } = require('../utils/constants.cjs');
 const multer = require('multer');
 const {
   toBoolean,
@@ -27,14 +26,8 @@ const upload = multer({
   limits: { fileSize: 15 * 1024 * 1024 }, // 15MB per file (tune as needed)
 });
 
-module.exports = function (
-  app,
-  liferayService,
-  productGenerator,
-  accountGenerator,
-  orderGenerator,
-  logger
-) {
+module.exports = (app,
+  { liferayService, productGenerator, accountGenerator, orderGenerator, logger }) => {
   app.post(
     '/api/generate/accounts',
     inputValidationMiddleware(generateAccountsSchema),
@@ -241,7 +234,7 @@ module.exports = function (
         batchId: result.products[0]?.batchId,
       });
     }
-
+ 
     // Emit progress update via WebSocket for Image generation
     if (options.imageMode === 'generate' && result.imageProgress) {
       getWs().emitGenerationProgress({
@@ -253,11 +246,9 @@ module.exports = function (
       });
     }
       */
-
-        const actualCount =
-          options.productCount > 5
-            ? Math.max(config.batchSize, 5)
-            : options.productCount;
+        const actualCount = options.productCount > 5
+          ? Math.max(config.batchSize, 5)
+          : options.productCount;
 
         // Untested
         if (options.pdfMode === 'generate' && options.pdfRatio > 0) {
@@ -305,7 +296,7 @@ module.exports = function (
           getWs().emitGenerationProgress({
             percent: Math.round(
               (results.imageProgress.current / results.imageProgress.total) *
-                100
+              100
             ),
             entityType: 'images',
             batchId: results.batchId,
@@ -340,8 +331,7 @@ module.exports = function (
         });
       } catch (error) {
         // Ensure we always have a meaningful error message
-        const errorMessage =
-          error.message ||
+        const errorMessage = error.message ||
           error.toString() ||
           'Unknown error occurred during product generation';
 
@@ -533,12 +523,10 @@ module.exports = function (
         const errorMessage = error.message || 'Order generation failed';
         let statusCode = 500;
 
-        if (
-          errorMessage.includes('No products available') ||
+        if (errorMessage.includes('No products available') ||
           errorMessage.includes('No accounts available') ||
           errorMessage.includes('Not enough products available') ||
-          errorMessage.includes('Not enough accounts available')
-        ) {
+          errorMessage.includes('Not enough accounts available')) {
           statusCode = 400;
         }
 

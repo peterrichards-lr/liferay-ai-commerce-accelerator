@@ -1,4 +1,4 @@
-module.exports = function (app, logger) {
+module.exports = (app, { logger, liferayService }) => {
   app.get('/api/config/polling', async (req, res) => {
     try {
       const liferayConfig = (await liferayService.getConfig(
@@ -62,9 +62,6 @@ module.exports = function (app, logger) {
 
   app.get('/api/openai-status', async (req, res) => {
     try {
-      const { ConfigService } = require('./services/configService.cjs');
-      const configServiceInstance = new ConfigService();
-
       const keyAvailable = false;
 
       logger.info('OpenAI status check', {

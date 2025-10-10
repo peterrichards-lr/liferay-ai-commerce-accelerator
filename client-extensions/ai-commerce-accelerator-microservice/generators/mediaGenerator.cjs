@@ -1,6 +1,5 @@
 const { jsPDF } = require('jspdf');
-const { ObjectStorageService } = require('./objectStorage.cjs');
-const { ConfigService } = require('./configService.cjs');
+
 const { buildDataUrl, parseDataUrl } = require('../utils/misc.cjs');
 
 const MOCK_BASE64_IMAGE = {
@@ -16,9 +15,8 @@ const MOCK_BASE64_PDF = {
 };
 
 class MediaGenerator {
-  constructor() {
-    this.objectStorage = new ObjectStorageService();
-    this.configService = new ConfigService();
+  constructor(ctx) {
+    this.ctx = ctx;
   }
 
   getMockBase64Image = () => MOCK_BASE64_IMAGE;
@@ -31,8 +29,9 @@ class MediaGenerator {
   }
 
   async getDefaultBase64Image(config) {
+    const { configService, logger } = this.ctx;
     try {
-      const dataUrl = await this.configService.getDefaultImage(config);
+      const dataUrl = await configService.getDefaultImage(config);
       return parseDataUrl(dataUrl);
     } catch (err) {
       logger.error(
@@ -49,8 +48,9 @@ class MediaGenerator {
   }
 
   async getDefaultBase64Pdf(config) {
+    const { configService, logger } = this.ctx;
     try {
-      const dataUrl = await this.configService.getDefaultPdf(config);
+      const dataUrl = await configService.getDefaultPdf(config);
       return parseDataUrl(dataUrl);
     } catch (err) {
       logger.error(
@@ -189,7 +189,6 @@ class MediaGenerator {
         currentY += 20; // Space between sections
       }
 
-      // Add footer to all pages
       const pageCount = doc.internal.getNumberOfPages();
       for (let i = 1; i <= pageCount; i++) {
         doc.setPage(i);
@@ -207,10 +206,8 @@ class MediaGenerator {
         );
       }
 
-      // Use datauri string instead of arraybuffer for better compatibility
       const pdfOutput = doc.output('datauri');
 
-      // Convert datauri to buffer
       const base64Data = pdfOutput.split(',')[1];
       return Buffer.from(base64Data, 'base64');
     } catch (error) {
@@ -220,8 +217,8 @@ class MediaGenerator {
   }
 
   async uploadPDFToStorage(uploadURL, pdfBuffer, filename) {
+    const { logger, objectStorage } = this.ctx;
     try {
-      // Upload PDF to object storage
       const response = await fetch(uploadURL, {
         method: 'PUT',
         body: pdfBuffer,
@@ -229,8 +226,7 @@ class MediaGenerator {
           'Content-Type': 'application/pdf',
           Connection: 'keep-alive',
         },
-        // Set a timeout for the request
-        signal: AbortSignal.timeout(60000), // 60 second timeout
+        signal: AbortSignal.timeout(60000),
       });
 
       if (!response.ok) {
@@ -239,9 +235,7 @@ class MediaGenerator {
         );
       }
 
-      // Normalize the path for object entity access
-      const objectPath =
-        this.objectStorage.normalizeObjectEntityPath(uploadURL);
+      const objectPath = objectStorage.normalizeObjectEntityPath(uploadURL);
 
       return {
         objectPath,
@@ -250,32 +244,29 @@ class MediaGenerator {
       };
     } catch (error) {
       logger.error('Error uploading PDF:', error);
-      // It's good practice to re-throw the error after logging if the caller needs to handle it
       throw error;
     }
   }
 
   async generateAndUploadProductPDF(productData, productSku) {
+    const { logger, objectStorage } = this.ctx;
     try {
       logger.trace(`Generating PDF for product: ${productSku}`);
 
       const pdfBuffer = await this.generateProductPDF(productData, productSku);
 
-      // Validate PDF buffer
       if (!pdfBuffer || pdfBuffer.length === 0) {
         throw new Error('Generated PDF buffer is empty');
       }
 
-      // Check if PDF starts with proper PDF header
       const pdfHeader = pdfBuffer.slice(0, 4).toString();
       if (pdfHeader !== '%PDF') {
         throw new Error('Generated PDF does not have valid PDF header');
       }
 
-      // Store in object storage
       logger.trace(`Uploading PDF to object storage...`);
       const objectKey = `product-pdfs/${productSku}-${Date.now()}.pdf`;
-      const uploadResult = await this.objectStorage.uploadFile(
+      const uploadResult = await objectStorage.uploadFile(
         objectKey,
         pdfBuffer,
         'application/pdf'
@@ -296,13 +287,11 @@ class MediaGenerator {
     }
   }
 
-  // Determine which products should get PDFs based on ratio (deterministic selection)
   selectProductsForPDFs(products, ratio) {
     if (ratio <= 0 || ratio > 100) return [];
 
     const count = Math.ceil(products.length * (ratio / 100));
 
-    // Deterministic selection based on stable sort by externalReferenceCode
     const sortedProducts = [...products].sort((a, b) => {
       const aRef =
         a.externalReferenceCode || a.sku || `product-${products.indexOf(a)}`;
@@ -313,13 +302,11 @@ class MediaGenerator {
     return sortedProducts.slice(0, count);
   }
 
-  // Determine which products should get images based on ratio (deterministic selection)
   selectProductsForImages(products, ratio) {
     if (ratio <= 0 || ratio > 100) return [];
 
     const count = Math.ceil(products.length * (ratio / 100));
 
-    // Deterministic selection based on stable sort by externalReferenceCode
     const sortedProducts = [...products].sort((a, b) => {
       const aRef =
         a.externalReferenceCode || a.sku || `product-${products.indexOf(a)}`;
@@ -331,4 +318,4 @@ class MediaGenerator {
   }
 }
 
-module.exports = { MediaGenerator };
+module.exports = MediaGenerator;

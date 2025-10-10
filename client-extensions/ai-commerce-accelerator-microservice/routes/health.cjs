@@ -1,15 +1,10 @@
-const { HealthService } = require('../services/healthService.cjs');
-
-const healthService = new HealthService();
-
-module.exports = function (app, logger) {
+module.exports = (app, { logger, healthService }) => {
   app.get('/api/health', async (req, res) => {
     try {
       const health = await healthService.runAllHealthChecks();
-      const statusCode =
-        health.status === 'healthy'
-          ? 200
-          : health.status === 'degraded'
+      const statusCode = health.status === 'healthy'
+        ? 200
+        : health.status === 'degraded'
           ? 200
           : 503;
 

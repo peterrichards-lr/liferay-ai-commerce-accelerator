@@ -1,12 +1,9 @@
 const axios = require('axios');
 const FormData = require('form-data');
 const fs = require('fs');
-
-const { OAuthService } = require('./oauthService.cjs');
 const liferayConfig = require('../config/liferayConfig.cjs');
 const { logger } = require('../utils/logger.cjs');
 const { v4: uuidv4 } = require('uuid');
-const { ErrorHandler } = require('../utils/errorHandler.cjs');
 
 const { PATH } = require('../utils/liferayPaths.cjs');
 const {
@@ -17,12 +14,12 @@ const {
   buildPermissionsItems,
 } = require('../utils/liferayPermissions.cjs');
 const { DEBUG } = require('../utils/constants.cjs');
-const { delay } = require('../utils/misc.cjs');
+const { delay, createErrorReference } = require('../utils/misc.cjs');
 
 class LiferayService {
-  constructor() {
+  constructor(ctx) {
+    this.ctx = ctx;
     this.axiosInstance = null;
-    this.oauthService = new OAuthService();
     this.baseUrl = liferayConfig.liferayUrl;
   }
 
@@ -276,7 +273,8 @@ class LiferayService {
   }
 
   async createAxiosInstance(config) {
-    const accessToken = await this.oauthService.getAccessToken(
+    const { oauthService } = this.ctx;
+    const accessToken = await oauthService.getAccessToken(
       config.liferayUrl,
       config.clientId,
       config.clientSecret
@@ -294,6 +292,7 @@ class LiferayService {
   }
 
   async testConnection(config) {
+    const { logger, oauthService } = this.ctx;
     try {
       try {
         new URL(config.liferayUrl);
@@ -301,8 +300,8 @@ class LiferayService {
         throw new Error(`Invalid URL format: ${config.liferayUrl}`);
       }
 
-      if (!this.oauthService.isLiferayRouteAvailable)
-        this.oauthService.validateOAuthConfig(config);
+      if (!oauthService.isLiferayRouteAvailable)
+        oauthService.validateOAuthConfig(config);
 
       await this._get(config, PATH.ME, 'test-connection');
 
@@ -368,7 +367,7 @@ class LiferayService {
         structuredError.field = 'liferayUrl';
       }
 
-      const errorReference = structuredError.errorReference || errorReference();
+      const errorReference = structuredError.errorReference || createErrorReference();
       logger.error(`Error Reference: ${errorReference}`);
       structuredError.errorReference = errorReference;
 
@@ -446,6 +445,7 @@ class LiferayService {
   }
 
   async createProduct(config, productData) {
+    const { logger } = this.ctx;
     if (!productData.catalogId && config.catalogId) {
       productData.catalogId = parseInt(config.catalogId, 10);
     }
@@ -470,6 +470,7 @@ class LiferayService {
   }
 
   async createProductsBatch(config, productsData, callbackUrl) {
+    const { logger } = this.ctx;
     const batchPayload = { createStrategy: 'INSERT', items: productsData };
 
     const url = PATH.PRODUCTS_BATCH(callbackUrl);
@@ -502,6 +503,7 @@ class LiferayService {
   }
 
   async createAccount(config, accountData) {
+    const { logger } = this.ctx;
     const data = await this._post(
       config,
       PATH.ACCOUNTS,
@@ -521,6 +523,7 @@ class LiferayService {
   }
 
   async createAccountsBatch(config, accountsData, callbackUrl) {
+    const { logger } = this.ctx;
     const batchPayload = { createStrategy: 'INSERT', items: accountsData };
     const url = PATH.ACCOUNTS_BATCH(callbackUrl);
 
@@ -552,6 +555,7 @@ class LiferayService {
   }
 
   async createOrder(config, orderData) {
+    const { logger } = this.ctx;
     if (!orderData.channelId)
       throw new Error('channelId is required for order creation');
     if (!orderData.currencyCode)
@@ -626,6 +630,7 @@ class LiferayService {
   }
 
   async createOption(config, optionData) {
+    const { logger } = this.ctx;
     logger.debug(`LiferayService.createOption called with:`, {
       optionKey: optionData.key,
       optionName: optionData.name?.en_US,
@@ -728,6 +733,7 @@ class LiferayService {
   }
 
   async getConfig(config, configKey) {
+    const { logger } = this.ctx;
     try {
       const filter = `configKey eq '${configKey}' and configStatus eq 'Active'`;
 
@@ -751,7 +757,7 @@ class LiferayService {
       );
       return data;
     } catch (error) {
-      const errorReference = `LIFR-${Date.now()}-${uuidv4().slice(0, 8)}`;
+      const errorReference = createErrorReference();
       logger.error(`Error Reference: ${errorReference}`);
       logger.error('Failed to get configuration entry', {
         operation: 'get-config',
@@ -852,6 +858,7 @@ class LiferayService {
   }
 
   async _postMultipart(config, url, form, op, friendly) {
+    const { logger } = this.ctx;
     const client = await this._client(config);
     try {
       const { data } = await client.post(url, form, {
@@ -1244,12 +1251,7 @@ class LiferayService {
   }
 
   async deleteCommerceOrders(config, opts = {}) {
-    const {
-      pageSize = 200,
-      filter,
-      callbackUrl,
-      dryRun = false,
-    } = opts;
+    const { pageSize = 200, filter, callbackUrl, dryRun = false } = opts;
 
     const orderIds = await this._collectPagedIds(config, {
       listUrl: PATH.ORDERS,
@@ -1275,12 +1277,7 @@ class LiferayService {
 
   async deleteCommerceProducts(
     config,
-    {
-      pageSize = 200,
-      productFilter,
-      callbackUrl,
-      dryRun = false,
-    } = {}
+    { pageSize = 200, productFilter, callbackUrl, dryRun = false } = {}
   ) {
     const { catalogId } = config || {};
     if (catalogId === undefined || catalogId === null) {
@@ -1319,12 +1316,7 @@ class LiferayService {
   }
 
   async deleteCommerceAccounts(config, opts = {}) {
-    const {
-      pageSize = 200,
-      filter,
-      callbackUrl,
-      dryRun = false,
-    } = opts;
+    const { pageSize = 200, filter, callbackUrl, dryRun = false } = opts;
 
     const accountIds = await this._collectPagedIds(config, {
       listUrl: PATH.ACCOUNTS,
@@ -1372,6 +1364,7 @@ class LiferayService {
       friendly,
     }
   ) {
+    const { logger } = this.ctx;
     const ids = new Set();
 
     try {
@@ -1550,16 +1543,9 @@ class LiferayService {
 
   async _deleteByBatch(
     config,
-    {
-      batchUrl,
-      ids,
-      batchSize,
-      dryRun = false,
-      idProp = 'id',
-      op,
-      friendly,
-    }
+    { batchUrl, ids, batchSize, dryRun = false, idProp = 'id', op, friendly }
   ) {
+    const { logger } = this.ctx;
     const summary = {
       total: ids.length,
       batches: Math.ceil(ids.length / Math.max(1, batchSize)),
@@ -1764,4 +1750,4 @@ class LiferayService {
   }
 }
 
-module.exports = new LiferayService();
+module.exports = LiferayService;

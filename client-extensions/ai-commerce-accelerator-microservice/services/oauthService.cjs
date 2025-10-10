@@ -1,9 +1,7 @@
 const { lxcConfig } = require('@rotty3000/config-node');
 const axios = require('axios');
-const crypto = require('crypto');
+const { createErrorReference } = require('../utils/misc.cjs');
 
-const { cacheService } = require('./cacheService.cjs');
-const { logger } = require('../utils/logger.cjs');
 const { applicationExternalReferenceCodes } = require('../utils/constants.cjs');
 
 const serverOauthApp = lxcConfig.oauthApplication(
@@ -11,9 +9,8 @@ const serverOauthApp = lxcConfig.oauthApplication(
 );
 
 class OAuthService {
-  constructor() {
-    this.tokenCache = cacheService;
-
+  constructor(ctx) {
+    this.ctx = ctx;
     const lxcDXPMainDomain = lxcConfig.dxpMainDomain();
     const lxcDXPServerProtocol = lxcConfig.dxpProtocol();
     const uri = serverOauthApp.tokenUri();
@@ -25,14 +22,9 @@ class OAuthService {
     return `${liferayUrl}_${clientId}`;
   }
 
-  _generateErrorReference() {
-    const timestamp = Date.now();
-    const randomBytes = crypto.randomBytes(4).toString('hex');
-    return `LIFR_${timestamp}_${randomBytes}`;
-  }
-
   _getAccessTokenFromCache(cacheKey) {
-    const cached = this.tokenCache.get(cacheKey);
+    const { cacheService: tokenCache } = this.ctx;
+    const cached = tokenCache.get(cacheKey);
 
     if (cached && cached.expiresAt > Date.now()) {
       return cached.token;
@@ -41,13 +33,15 @@ class OAuthService {
   }
 
   _addAccessTokenToCache(cacheKey, token, expiresIn = 3600) {
-    this.tokenCache.set(cacheKey, {
+    const { cacheService: tokenCache } = this.ctx;
+    tokenCache.set(cacheKey, {
       token,
       expiresAt: Date.now() + (expiresIn - 60) * 1000,
     });
   }
 
   async _createAccessToken(tokenUrl, clientId, clientSecret) {
+    const { logger } = this.ctx;
     logger.debug(`Creating new access token for ${clientId} using ${tokenUrl}`);
     return await axios.post(
       tokenUrl,
@@ -90,7 +84,7 @@ class OAuthService {
   }
 
   _handleException(error, liferayUrl = null, clientId = null) {
-    const errorRef = this._generateErrorReference();
+    const errorRef = createErrorReference();
 
     logger.error(`OAuth Error [${errorRef}]:`, {
       status: error.response?.status,
@@ -131,11 +125,13 @@ class OAuthService {
   }
 
   async getAccessTokenFromRoute() {
+    const { logger } = this.ctx;
+
     const clientId = serverOauthApp.clientId();
     const clientSecret = serverOauthApp.clientSecret();
 
     if (!this.liferayUrl || !clientId || !clientSecret) {
-      const errorRef = this._generateErrorReference();
+      const errorRef = createErrorReference();
       logger.error(
         `OAuth Error [${errorRef}]: Unable to obtain LXC configuration`,
         {
@@ -159,13 +155,14 @@ class OAuthService {
         clientSecret
       );
     } catch (error) {
-      this.handleException(error, this.liferayUrl, clientId);
+      this._handleException(error, this.liferayUrl, clientId);
     }
   }
 
   async getAccessTokenWithCredentials(liferayUrl, clientId, clientSecret) {
+    const { logger } = this.ctx;
     if (!liferayUrl || !clientId || !clientSecret) {
-      const errorRef = this._generateErrorReference();
+      const errorRef = createErrorReference();
       logger.error(`OAuth Error [${errorRef}]: Missing required parameters`, {
         liferayUrl: liferayUrl || 'undefined',
         clientId: clientId || 'undefined',
@@ -199,6 +196,7 @@ class OAuthService {
     code,
     redirectUri
   ) {
+    const { logger } = this.ctx;
     try {
       const response = await axios.post(
         this._getTokenUrl(liferayUrl),
@@ -218,7 +216,7 @@ class OAuthService {
 
       return response.data;
     } catch (error) {
-      const errorRef = this._generateErrorReference();
+      const errorRef = createErrorReference();
       logger.error(
         `OAuth code exchange failed [${errorRef}]:`,
         error.response?.data || error.message
@@ -251,12 +249,13 @@ class OAuthService {
   }
 
   clearTokenCache() {
-    this.tokenCache.clear();
+    const { cacheService: tokenCache } = this.ctx;
+    tokenCache.clear();
   }
 
   isLiferayRouteAvailable() {
     return (
-      this.tokenEndpoint &&
+      tokenEndpoint &&
       serverOauthApp.clientId() &&
       serverOauthApp.clientSecret()
     );
@@ -272,4 +271,4 @@ class OAuthService {
   }
 }
 
-module.exports = { OAuthService };
+module.exports = OAuthService;

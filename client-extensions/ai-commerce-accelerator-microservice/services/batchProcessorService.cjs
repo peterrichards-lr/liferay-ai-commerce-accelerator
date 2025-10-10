@@ -1,14 +1,18 @@
 const liferayConfig = require('../config/liferayConfig.cjs');
-const { logger } = require('./logger.cjs');
-const { ErrorHandler } = require('./errorHandler.cjs');
+const { ErrorHandler } = require('../utils/errorHandler.cjs');
 const { delay } = require('../utils/misc.cjs');
 
-class BatchProcessor {
+class BatchProcessorService {
+  constructor(ctx) {
+    this.ctx = ctx;
+  }
+
   async processBatch(
     items,
     processingFunction,
     batchSize = liferayConfig.batchConfig.defaultBatchSize
   ) {
+    const { logger } = this.ctx;
     logger.trace(`Processing ${items.length} items in batches of ${batchSize}`);
 
     const results = {
@@ -115,6 +119,7 @@ class BatchProcessor {
     processingFunction,
     maxRetries = liferayConfig.requestConfig.maxRetries
   ) {
+    const { logger } = this.ctx;
     let lastError;
 
     for (let attempt = 1; attempt <= maxRetries; attempt++) {
@@ -140,6 +145,7 @@ class BatchProcessor {
   }
 
   async processSequentially(items, processingFunction) {
+    const { logger } = this.ctx;
     logger.trace(`Processing ${items.length} items sequentially`);
 
     const results = {
@@ -203,6 +209,7 @@ class BatchProcessor {
     batchSize,
     progressCallback
   ) {
+    const { logger } = this.ctx;
     logger.trace(`Processing ${items.length} items with progress tracking`);
 
     const results = {
@@ -253,4 +260,4 @@ class BatchProcessor {
   }
 }
 
-module.exports = new BatchProcessor();
+module.exports = BatchProcessorService;

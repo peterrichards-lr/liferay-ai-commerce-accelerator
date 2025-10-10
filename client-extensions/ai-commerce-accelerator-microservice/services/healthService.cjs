@@ -1,12 +1,8 @@
-const { logger } = require('../utils/logger.cjs');
-const { ConfigService } = require('./configService.cjs');
-const liferayService = require('./liferayService.cjs');
 const { env } = require('../utils/constants.cjs');
 
 class HealthService {
-  constructor() {
-    this.configService = new ConfigService();
-    this.liferayService = liferayService;
+  constructor(ctx) {
+    this.ctx = ctx;
     this.startTime = Date.now();
     this.healthChecks = new Map();
     this.lastHealthCheck = null;
@@ -58,9 +54,10 @@ class HealthService {
   }
 
   async checkOpenAI() {
+    const { configService } = this.ctx;
     const start = Date.now();
     try {
-      const apiKey = await this.configService.getOpenAIKeyCached;
+      const apiKey = await configService.getOpenAIKeyCached;
       const responseTime = Date.now() - start;
 
       if (!apiKey) {
@@ -146,6 +143,7 @@ class HealthService {
   }
 
   async runHealthCheck(name) {
+    const { logger } = this.ctx;
     const start = Date.now();
 
     try {
@@ -190,6 +188,7 @@ class HealthService {
   }
 
   async runAllHealthChecks() {
+    const { logger } = this.ctx;
     const start = Date.now();
     const checks = {};
 
@@ -270,4 +269,4 @@ class HealthService {
   }
 }
 
-module.exports = { HealthService };
+module.exports = HealthService;

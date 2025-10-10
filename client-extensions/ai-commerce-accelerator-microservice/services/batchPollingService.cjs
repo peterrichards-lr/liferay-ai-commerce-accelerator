@@ -1,9 +1,4 @@
 const axios = require('axios');
-
-const { logger } = require('../utils/logger.cjs');
-const { cacheService } = require('./cacheService.cjs');
-const { OAuthService } = require('./oauthService.cjs');
-const { get: getWs } = require('../services/wsBus.cjs');
 const {
   delayCall,
   inferEntityTypeFromClassName,
@@ -16,14 +11,15 @@ function extractIdFromLocation(location) {
 }
 
 class BatchPollingService {
-  constructor() {
-    this.oauthService = new OAuthService();
+  constructor(ctx) {
+    this.ctx = ctx;
     this.pollingIntervals = new Map();
     this.activePolls = new Map();
     this.generationSessions = new Map();
   }
 
   registerGenerationSession(sessionId, batchIds, totalExpectedBatches) {
+    const { logger } = this.ctx;
     this.generationSessions.set(sessionId, {
       batchIds: new Set(batchIds),
       completedBatches: new Set(),
@@ -41,6 +37,7 @@ class BatchPollingService {
   }
 
   checkSessionCompletion(sessionId) {
+    const { logger } = this.ctx;
     const session = this.generationSessions.get(sessionId);
     if (!session) {
       return false;
@@ -70,6 +67,7 @@ class BatchPollingService {
   }
 
   async triggerPostProcessing(sessionId, session) {
+    const { logger, cache } = this.ctx;
     try {
       logger.info('Triggering post-processing for session', {
         operation: 'post-processing-trigger',
@@ -90,8 +88,7 @@ class BatchPollingService {
         `🎉 Generation session ${sessionId} completed - ready for post-processing!`
       );
 
-      const { cacheService } = require('./cacheService.cjs');
-      const sessionContext = cacheService.get(`session:${sessionId}:context`);
+      const sessionContext = cache.get(`session:${sessionId}:context`);
 
       if (sessionContext) {
         const { config, productDataList, preparedProducts, options } =
@@ -134,7 +131,7 @@ class BatchPollingService {
             options
           );
 
-          cacheService.delete(`session:${sessionId}:context`);
+          cache.delete(`session:${sessionId}:context`);
         } else {
           logger.info('No post-processing needed for session', {
             operation: 'post-processing-skip',
@@ -162,6 +159,7 @@ class BatchPollingService {
   }
 
   startMonitors(jobs = [], globalOptions = {}) {
+    const { cache } = this.ctx;
     for (const job of jobs) {
       const { entity, refs = [], meta = {} } = job;
       const { mode = 'unknown', affectsProgress = true } = meta;
@@ -170,7 +168,7 @@ class BatchPollingService {
         const batchId = ref.taskId || extractIdFromLocation(ref.location);
         if (!batchId) continue;
 
-        cacheService.set(
+        cache.set(
           `batch:${batchId}:config`,
           {
             affectsProgress,
@@ -191,6 +189,7 @@ class BatchPollingService {
   }
 
   async startPolling(batchId, config, options = {}) {
+    const { logger } = this.ctx;
     const {
       pollInterval = 5000,
       maxPollAttempts = 120,
@@ -241,6 +240,7 @@ class BatchPollingService {
   }
 
   async pollBatchStatus(batchId) {
+    const { logger, liferay, cache } = this.ctx;
     const pollData = this.activePolls.get(batchId);
     if (!pollData) {
       logger.info(`Unable to find poll data - ${batchId}`);
@@ -256,29 +256,7 @@ class BatchPollingService {
     try {
       pollData.attempts++;
 
-      const accessToken =
-        config.clientId === null
-          ? await this.oauthService.getAccessTokenFromRoute()
-          : await this.oauthService.getAccessToken(
-              config.liferayUrl,
-              config.clientId,
-              config.clientSecret
-            );
-
-      const client = axios.create({
-        baseURL: config.liferayUrl,
-        headers: {
-          Authorization: `Bearer ${accessToken}`,
-          'Content-Type': 'application/json',
-          Accept: 'application/json',
-        },
-        timeout: 30000,
-      });
-
-      const statusResponse = await client.get(
-        `/o/headless-batch-engine/v1.0/import-task/${batchId}`
-      );
-
+      const statusResponse = await liferay.getImportTask(config, batchId);
       const status = statusResponse.data;
       const batchStatus = status.executeStatus || status.status || 'UNKNOWN';
       const entitytype = inferEntityTypeFromClassName(status.className);
@@ -313,7 +291,7 @@ class BatchPollingService {
         },
       });
 
-      cacheService.set(
+      cache.set(
         `batch:${batchId}:status`,
         {
           status: batchStatus,
@@ -341,11 +319,11 @@ class BatchPollingService {
 
       if (batchStatus === 'COMPLETED') {
         this.stopPolling(batchId);
-        await this.handleBatchComplete(batchId, status, client);
+        await this.handleBatchComplete(batchId, status);
         return;
       } else if (batchStatus === 'FAILED') {
         this.stopPolling(batchId);
-        await this.handleBatchFailed(batchId, status, client);
+        await this.handleBatchFailed(batchId, status);
         return;
       }
 
@@ -417,29 +395,30 @@ class BatchPollingService {
     }
   }
 
-  async handleBatchComplete(batchId, status, client) {
-    if (cacheService.get(`batch:${batchId}:completed`)) return;
-    cacheService.set(`batch:${batchId}:completed`, true, 300000);
+  async handleBatchComplete(batchId, status) {
+    const { logger, cache, getWs } = this.ctx;
+    if (cache.get(`batch:${batchId}:completed`)) return;
+    cache.set(`batch:${batchId}:completed`, true, 300000);
 
     const totalCount = status.totalItemsCount || status.totalCount || 0;
     const processedCount =
       status.processedItemsCount || status.processedCount || 0;
     const errorCount = status.failedItems?.length || status.errorCount || 0;
 
-    const batchConfig = cacheService.get(`batch:${batchId}:config`);
+    const batchConfig = cache.get(`batch:${batchId}:config`);
     const pollData = this.activePolls.get(batchId);
     const entityType =
       pollData?.entityType || batchConfig?.entityType || 'products';
     const affectsProgress = pollData?.affectsProgress ?? true;
     const mode = pollData?.mode || batchConfig?.mode || 'unknown';
 
-    cacheService.set(
+    cache.set(
       `batch:${batchId}:completed`,
       {
         totalItemsCount: totalCount,
         processedItemsCount: processedCount,
         entityType,
-        mode
+        mode,
       },
       300000
     );
@@ -520,7 +499,7 @@ class BatchPollingService {
       failed: fail,
     });
 
-    cacheService.set(`batch:${batchId}:final`, results, 1800000);
+    cache.set(`batch:${batchId}:final`, results, 1800000);
 
     const pollDataForCompletion = this.activePolls.get(batchId);
     if (pollDataForCompletion && pollDataForCompletion.onComplete) {
@@ -532,21 +511,24 @@ class BatchPollingService {
     }
   }
 
-  async handleBatchFailed(batchId, status, client) {
-    if (cacheService.get(`batch:${batchId}:failed`)) return;
-    cacheService.set(`batch:${batchId}:failed`, true, 300000);
+  async handleBatchFailed(batchId, status) {
+    const { logger, cache } = this.ctx;
+    if (cache.get(`batch:${batchId}:failed`)) return;
+    cache.set(`batch:${batchId}:failed`, true, 300000);
 
     const totalCount = status.totalItemsCount || status.totalCount || 0;
     const processedCount =
       status.processedItemsCount || status.processedCount || 0;
     const errorCount = status.failedItems?.length || status.errorCount || 0;
 
-    const batchConfig = cacheService.get(`batch:${batchId}:config`);
+    const batchConfig = cache.get(`batch:${batchId}:config`);
     const pollData = this.activePolls.get(batchId);
+    const affectsProgress = pollData?.affectsProgress ?? true;
+    const mode = pollData?.mode || 'unknown';
     const entityType =
       pollData?.entityType || batchConfig?.entityType || 'products';
 
-    cacheService.set(
+    cache.set(
       `batch:${batchId}:failed`,
       {
         totalItemsCount: totalCount,
@@ -584,9 +566,6 @@ class BatchPollingService {
       failedAt: new Date().toISOString(),
     };
 
-    const affectsProgress = pollData?.affectsProgress ?? true;
-    const mode = pollData?.mode || 'unknown';
-
     if (!pollData?.entityType && !batchConfig?.entityType) {
       logger.warn('entityType missing for batch; defaulting to "products"', {
         batchId,
@@ -602,7 +581,7 @@ class BatchPollingService {
       totalCount: results.totalCount,
       errorCount: results.errorCount,
       entityType,
-      mode
+      mode,
     });
 
     const message = {
@@ -635,7 +614,7 @@ class BatchPollingService {
       failed: fail,
     });
 
-    cacheService.set(`batch:${batchId}:final`, results, 1800000);
+    cache.set(`batch:${batchId}:final`, results, 1800000);
 
     const pollDataForFailure = this.activePolls.get(batchId);
     if (pollDataForFailure && pollDataForFailure.onError) {
@@ -646,6 +625,7 @@ class BatchPollingService {
   }
 
   stopPolling(batchId) {
+    const { logger } = this.ctx;
     const timeoutId = this.pollingIntervals.get(batchId);
     if (timeoutId) {
       clearTimeout(timeoutId);
@@ -696,6 +676,7 @@ class BatchPollingService {
   }
 
   stopAllPolling() {
+    const { logger } = this.ctx;
     for (const batchId of this.activePolls.keys()) {
       this.stopPolling(batchId);
     }
@@ -705,4 +686,4 @@ class BatchPollingService {
   }
 }
 
-module.exports = { BatchPollingService };
+module.exports = BatchPollingService;

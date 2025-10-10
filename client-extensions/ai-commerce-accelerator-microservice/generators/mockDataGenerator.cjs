@@ -1,10 +1,9 @@
 const fs = require('fs');
 const path = require('path');
 
-const { logger } = require('../utils/logger.cjs');
-
 class MockDataGenerator {
-  constructor() {
+  constructor(ctx) {
+    this.ctx = ctx;
     this.categoryData = null;
     this.specificationValues = null;
     this.pricingData = null;
@@ -12,6 +11,7 @@ class MockDataGenerator {
   }
 
   loadConfigurationData() {
+    const { logger } = this.ctx;
     try {
       const dataDir = path.join(__dirname, '..', 'data');
 
@@ -150,6 +150,7 @@ class MockDataGenerator {
     selectedLanguages = ['en-US'],
     options = {}
   ) {
+    const { logger } = this.ctx;
     const products = [];
     const languageCodes = selectedLanguages.map((lang) =>
       lang.replace('-', '_')
@@ -542,6 +543,7 @@ class MockDataGenerator {
   }
 
   reloadConfiguration() {
+    const { logger } = this.ctx;
     logger.trace('Reloading configuration data...');
     this.loadConfigurationData();
   }
@@ -555,4 +557,4 @@ class MockDataGenerator {
   }
 }
 
-module.exports = { MockDataGenerator };
+module.exports = MockDataGenerator;

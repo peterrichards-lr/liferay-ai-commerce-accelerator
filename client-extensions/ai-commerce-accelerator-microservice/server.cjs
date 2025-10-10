@@ -1,58 +1,58 @@
-const { lookupConfig, lxcConfig } = require('@rotty3000/config-node');
-
-const express = require('express');
-const cors = require('cors');
-const path = require('path');
-const http = require('http');
-
+const { connectionSchema } = require('./utils/schemas.cjs');
 const { env } = require('./utils/constants.cjs');
 const { init: initWs } = require('./services/wsBus.cjs');
+
 const { logger } = require('./utils/logger.cjs');
-const { BatchPollingService } = require('./services/batchPollingService.cjs');
-const { connectionSchema } = require('./utils/schemas.cjs');
+const { lookupConfig, lxcConfig } = require('@rotty3000/config-node');
+
+const {
+  basicRateLimitMiddleware,
+  correlationIdMiddleware,
+  errorLoggingMiddleware,
+  requestLoggingMiddleware,
+  securityHeadersMiddleware,
+  userContextMiddleware,
+} = require('./middleware/loggingMiddleware.cjs');
 const {
   inputValidationMiddleware,
   requestSigningMiddleware,
+  requestSizeLimitMiddleware,
   sqlInjectionProtectionMiddleware,
   xssProtectionMiddleware,
-  requestSizeLimitMiddleware,
 } = require('./middleware/securityMiddleware.cjs');
-const {
-  correlationIdMiddleware,
-  requestLoggingMiddleware,
-  errorLoggingMiddleware,
-  userContextMiddleware,
-  securityHeadersMiddleware,
-  basicRateLimitMiddleware,
-} = require('./middleware/loggingMiddleware.cjs');
-
 const {
   registerDataGenerationWorkers,
 } = require('./workers/dataGenerationWorkers.cjs');
 
-const liferayService = require('./services/liferayService.cjs');
+const express = require('express');
+const cors = require('cors');
+const http = require('http');
+const path = require('path');
 
 const app = express();
 const server = http.createServer(app);
 const ws = initWs(server, logger);
 
+const {
+  accountGenerator,
+  batchPollingService,
+  cacheService,
+  configService,
+  deleteCoordinatorService,
+  healthService,
+  liferayService,
+  orderGenerator,
+  productGenerator,
+  getWs,
+} = require('./bootstrap.cjs');
+
 const PORT = lookupConfig('server.port') || 3000;
 
-// Initialize BatchPollingService with WebSocket server
 logger.debug(
   '🔌 Initializing BatchPollingService with WebSocket server:',
   !!ws.wss
 );
-const batchPollingService = new BatchPollingService();
 
-const ProductGenerator = require('./services/productGenerator.cjs');
-const AccountGenerator = require('./services/accountGenerator.cjs');
-const OrderGenerator = require('./services/orderGenerator.cjs');
-const productGenerator = new ProductGenerator(batchPollingService);
-const accountGenerator = new AccountGenerator(batchPollingService);
-const orderGenerator = new OrderGenerator(batchPollingService);
-
-// Initialize workers
 registerDataGenerationWorkers();
 
 const lxcDXPServerProtocol = lookupConfig(
@@ -99,27 +99,34 @@ app.use(sqlInjectionProtectionMiddleware);
 app.use(xssProtectionMiddleware);
 app.use(requestSigningMiddleware);
 
-require('./routes/batch.cjs')(
-  app,
-  liferayService,
+const routeCtx = {
   batchPollingService,
-  logger
-);
-require('./routes/cache.cjs')(app, logger);
-require('./routes/config.cjs')(app, logger);
-require('./routes/get.cjs')(app, liferayService, logger);
-require('./routes/generate.cjs')(
-  app,
+  liferayService,
+  logger,
+};
+
+require('./routes/batch.cjs')(app, { ...routeCtx, cacheService, getWs });
+require('./routes/cache.cjs')(app, { ...routeCtx, cacheService });
+require('./routes/config.cjs')(app, { ...routeCtx });
+require('./routes/get.cjs')(app, routeCtx);
+require('./routes/get.cjs')(app, routeCtx);
+require('./routes/health.cjs')(app, { ...routeCtx, healthService });
+require('./routes/queue.cjs')(app, routeCtx);
+require('./routes/delete.cjs')(app, {
+  ...routeCtx,
+  deleteCoordinatorService,
+  cacheService,
+});
+
+const generateCtx = {
   liferayService,
   productGenerator,
   accountGenerator,
   orderGenerator,
-  logger
-);
-require('./routes/get.cjs')(app, liferayService, logger);
-require('./routes/health.cjs')(app, logger);
-require('./routes/queue.cjs')(app, logger);
-require('./routes/delete.cjs')(app, liferayService, logger);
+  logger,
+};
+
+require('./routes/generate.cjs')(app, generateCtx);
 
 app.post(
   '/api/test-connection',
@@ -136,13 +143,10 @@ app.post(
 
       const result = await liferayService.testConnection(req.body);
 
-      const { ConfigService } = require('./services/configService.cjs');
-      const configServiceInstance = new ConfigService();
-
       let openAiKeyAvailable = false;
       try {
         // Pass the request configuration for OAuth authentication
-        await configServiceInstance.getOpenAIKey(req.body);
+        await configService.getOpenAIKey(req.body);
         openAiKeyAvailable = true;
       } catch (error) {
         // Key not available or not configured

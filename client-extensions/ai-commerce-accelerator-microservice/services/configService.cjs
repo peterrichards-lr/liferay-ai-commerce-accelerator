@@ -1,6 +1,3 @@
-const liferayService = require('./liferayService.cjs');
-const { cacheService } = require('./cacheService.cjs');
-
 const OPENAPI_CACHE_KEY = 'OPENAI_API_KEY';
 const OPENAI_CONFIG_KEY = 'open-ai-key';
 
@@ -11,24 +8,29 @@ const DEFAULT_PDF_CACHE_KEY = 'DEFAULT_PDF_KEY';
 const DEFAULT_PDF_CONFIG_HEY = 'default-pdf';
 
 class ConfigService {
+  constructor(ctx) {
+    this.ctx = ctx;
+  }
+
   async getConfig(requestConfig, cacheKey, configKey) {
+    const { cache, liferay } = this.ctx;
     if (!requestConfig) {
       throw new Error(
         'OAuth configuration required: liferayUrl, clientId, and clientSecret must be provided'
       );
     }
 
-    const cached = cacheService.get(cacheKey);
+    const cached = cache.get(cacheKey);
     if (cached) {
       return cached.value;
     }
 
-    const response = await liferayService.getConfig(requestConfig, configKey);
+    const response = await liferay.getConfig(requestConfig, configKey);
     if (response.items && response.items.length > 0) {
       const apiKey = response.items[0].configValue;
 
       // Cache the result
-      cacheService.set(cacheKey, {
+      cache.set(cacheKey, {
         value: apiKey,
         timestamp: Date.now(),
       });
@@ -38,10 +40,12 @@ class ConfigService {
   }
 
   getConfigCached(cacheKey) {
-    return cacheService.get(cacheKey);
+    const { cache } = this.ctx;
+    return cache.get(cacheKey);
   }
 
   async getDefaultImage(requestConfig) {
+    const { logger } = this.ctx;
     try {
       return await this.getConfig(
         requestConfig,
@@ -64,6 +68,7 @@ class ConfigService {
   }
 
   async getOpenAIKey(requestConfig) {
+    const { logger } = this.ctx;
     try {
       return await this.getConfig(
         requestConfig,
@@ -79,6 +84,7 @@ class ConfigService {
   }
 
   async getDefaultPdf(requestConfig) {
+    const { logger } = this.ctx;
     try {
       return await this.getConfig(
         requestConfig,
@@ -98,6 +104,7 @@ class ConfigService {
   }
 
   async getOpenAIKey(requestConfig) {
+    const { logger } = this.ctx;
     try {
       return await this.getConfig(
         requestConfig,
@@ -117,8 +124,9 @@ class ConfigService {
   }
 
   clearCache() {
+    const { cacheService } = this.ctx;
     cacheService.clear();
   }
 }
 
-module.exports = { ConfigService };
+module.exports = ConfigService;

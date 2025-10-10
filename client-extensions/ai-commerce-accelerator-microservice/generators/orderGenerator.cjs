@@ -1,22 +1,13 @@
-const aiService = require('./aiService.cjs');
-const liferayService = require('./liferayService.cjs');
-const { logger } = require('../utils/logger.cjs');
-const { v4: uuidv4 } = require('uuid');
-const batchProcessor = require('../utils/batchProcessor.cjs');
-const { MockDataGenerator } = require('./mockDataGenerator.cjs');
-const { BatchPollingService } = require('./batchPollingService.cjs');
-const { get: getWs } = require('../services/wsBus.cjs');
 const { delay } = require('../utils/misc.cjs');
 
 class OrderGenerator {
-  constructor(batchPollingService = null) {
-    this.aiService = aiService; // Make aiService accessible within the class
-    this.mockDataGenerator = new MockDataGenerator();
-    this.batchPollingService = batchPollingService;
+  constructor(ctx) {
+    this.ctx = ctx;
   }
 
   async generateOrders(config, options) {
-    const correlationId = config.correlationId || uuidv4();
+    const { ai, logger, mockData, batchProcessor } = this.ctx;
+    const correlationId = config.correlationId;
     const useBatch = config.batchSize > 1 && options.orderCount > 1;
 
     logger.info('Starting order generation', {
@@ -39,7 +30,7 @@ class OrderGenerator {
       // Early validation for OpenAI key if not in demo mode
       if (!options.demoMode) {
         try {
-          await this.aiService.getOpenAIClient();
+          await ai.getOpenAIClient();
           logger.trace('✓ OpenAI API key validated for order generation');
         } catch (error) {
           const errorMessage =
@@ -84,9 +75,7 @@ class OrderGenerator {
       let orderDataList;
       if (options.demoMode) {
         logger.trace(`Demo mode: Generating ${options.orderCount} mock orders`);
-        orderDataList = this.mockDataGenerator.generateOrderData(
-          options.orderCount
-        );
+        orderDataList = mockData.generateOrderData(options.orderCount);
         logger.trace(
           `Demo: Generated ${orderDataList.length} mock order data entries`
         );
@@ -94,7 +83,7 @@ class OrderGenerator {
         logger.trace(
           `AI mode: Generating ${options.orderCount} orders using ${config.aiModel}`
         );
-        orderDataList = await this.aiService.generateOrderData(
+        orderDataList = await ai.generateOrderData(
           options.orderCount,
           products,
           accounts,
@@ -185,6 +174,7 @@ class OrderGenerator {
     availableProducts,
     availableAccounts
   ) {
+    const { logger, liferay } = this.ctx;
     try {
       // Select a random account if not specified or invalid
       let accountId = orderData.accountId;
@@ -234,10 +224,7 @@ class OrderGenerator {
       // They would be set via separate API calls after order creation
 
       // Create the order in Liferay
-      const createdOrder = await liferayService.createOrder(
-        config,
-        liferayOrder
-      );
+      const createdOrder = await liferay.createOrder(config, liferayOrder);
       logger.trace(`Created order: ${createdOrder.externalReferenceCode}`);
 
       // TODO: Add order items
@@ -269,6 +256,7 @@ class OrderGenerator {
   }
 
   async getProductsAndAccountsWithRetry(config, options) {
+    const { logger, liferay } = this.ctx;
     for (let attempt = 0; attempt <= config.pollingRetries; attempt++) {
       try {
         logger.trace(
@@ -277,11 +265,8 @@ class OrderGenerator {
           }/${config.pollingRetries + 1})`
         );
 
-        const products = await liferayService.getProducts(
-          config,
-          config.catalogId
-        );
-        const accounts = await liferayService.getAccounts(config);
+        const products = await liferay.getProducts(config, config.catalogId);
+        const accounts = await liferay.getAccounts(config);
 
         if (products.length === 0) {
           if (attempt < config.pollingRetries) {
@@ -331,6 +316,7 @@ class OrderGenerator {
   }
 
   async addOrderItems(config, orderId, orderItems, availableProducts) {
+    const { logger } = this.ctx;
     try {
       for (const item of orderItems) {
         // Find the product by SKU or ID

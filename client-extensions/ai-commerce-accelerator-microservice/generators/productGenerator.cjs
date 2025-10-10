@@ -1,27 +1,16 @@
-const aiService = require('./aiService.cjs');
-const liferayService = require('./liferayService.cjs');
-const { MediaGenerator } = require('./mediaGenerator.cjs');
-const { MockDataGenerator } = require('./mockDataGenerator.cjs');
-const batchProcessor = require('../utils/batchProcessor.cjs');
-const { v4: uuidv4 } = require('uuid');
-const { logger } = require('../utils/logger.cjs');
-const { BatchPollingService } = require('./batchPollingService.cjs');
-const { sanitizedObject } = require('../utils/normalize.cjs');
-const { get: getWs } = require('../services/wsBus.cjs');
 const { delay } = require('../utils/misc.cjs');
+const { sanitizedObject } = require('../utils/normalize.cjs');
+const { v4: uuidv4 } = require('uuid');
 
 const { ASSET_TYPE, VIEWABLE_BY } = require('../utils/liferayPermissions.cjs');
 
 class ProductGenerator {
-  constructor(batchPollingService = null) {
-    this.aiService = aiService;
-    this.liferayService = liferayService;
-    this.mediaGenerator = new MediaGenerator();
-    this.mockDataGenerator = new MockDataGenerator();
-    this.batchPollingService = batchPollingService;
+  constructor(ctx) {
+    this.ctx = ctx;
   }
 
   async generateProducts(config, options) {
+    const { logger, liferay, mockData, media, cache, batchPolling } = this.ctx;
     logger.trace('=== STARTING PRODUCT GENERATION ===');
     logger.trace('Demo mode:', !!options.demoMode);
     logger.trace('Config:', sanitizedObject(config));
@@ -97,7 +86,7 @@ class ProductGenerator {
             logger.trace(
               `Demo mode: Generating ${productsPerCategory} mock products`
             );
-            productDataList = this.mockDataGenerator.generateProductData(
+            productDataList = mockData.generateProductData(
               category,
               productsPerCategory,
               config.selectedLanguages || ['en-US'],
@@ -122,7 +111,7 @@ class ProductGenerator {
             logger.trace(
               `AI mode: Generating ${productsPerCategory} products using ${config.aiModel}`
             );
-            productDataList = await this.aiService.generateProductData(
+            productDataList = await ai.generateProductData(
               category,
               productsPerCategory,
               config,
@@ -138,7 +127,7 @@ class ProductGenerator {
           if (options.imageMode !== 'none') {
             let productsForImages = [];
             if (options.demoMode && options.imageRatio > 0) {
-              productsForImages = this.mediaGenerator.selectProductsForImages(
+              productsForImages = media.selectProductsForImages(
                 productDataList,
                 options.imageRatio
               );
@@ -156,9 +145,7 @@ class ProductGenerator {
             if (productImagesPrepared > 0) {
               let image;
               if (options.imageMode === 'default') {
-                image = await this.mediaGenerator.getDefaultBase64ImageDataUrl(
-                  config
-                );
+                image = await media.getDefaultBase64ImageDataUrl(config);
               } else if (options.imageMode === 'custom') {
                 image = options.customImageFile;
               }
@@ -172,7 +159,7 @@ class ProductGenerator {
           if (options.pdfMode !== 'none') {
             let productsForPDFs = [];
             if (options.demoMode && options.pdfRatio > 0) {
-              productsForPDFs = this.mediaGenerator.selectProductsForPDFs(
+              productsForPDFs = media.selectProductsForPDFs(
                 productDataList,
                 options.pdfRatio
               );
@@ -189,9 +176,7 @@ class ProductGenerator {
             if (productPdfsPrepared > 0) {
               let pdf;
               if (options.pdfMode === 'default') {
-                pdf = await this.mediaGenerator.getgetDefaultBase64PdfDataUrl(
-                  config
-                );
+                pdf = await media.getgetDefaultBase64PdfDataUrl(config);
               } else if (options.pdfMode === 'custom') {
                 pdf = options.customPdfFile;
               }
@@ -323,7 +308,7 @@ class ProductGenerator {
                 } with ${batch.length} products...`
               );
 
-              const result = await liferayService.createProductsBatch(
+              const result = await liferay.createProductsBatch(
                 config,
                 batch,
                 callbackUrl
@@ -340,8 +325,7 @@ class ProductGenerator {
                 ); // Minimum 2 seconds
                 const maxPollAttempts = config.maxPollAttempts || 120; // Default 10 minutes
 
-                const { cacheService } = require('./cacheService.cjs');
-                cacheService.set(
+                cache.set(
                   `batch:${result.batchId}:config`,
                   {
                     clientId: config.clientId,
@@ -363,7 +347,7 @@ class ProductGenerator {
                   maxPollAttempts,
                 });
 
-                this.batchPollingService.startPolling(
+                batchPolling.startPolling(
                   result.batchId,
                   {
                     liferayUrl: config.liferayUrl,
@@ -434,15 +418,14 @@ class ProductGenerator {
               .substr(2, 9)}`;
 
             // Register the generation session with the global batch polling service
-            this.batchPollingService.registerGenerationSession(
+            batchPolling.registerGenerationSession(
               sessionId,
               batchIds,
               batchIds.length
             );
 
             // Store session data for post-processing
-            const { cacheService } = require('./cacheService.cjs');
-            cacheService.set(
+            cache.set(
               `session:${sessionId}:context`,
               {
                 config,
@@ -483,7 +466,7 @@ class ProductGenerator {
               const originalProduct = productDataList[i];
 
               try {
-                const createdProduct = await this.liferayService.createProduct(
+                const createdProduct = await liferay.createProduct(
                   config,
                   productData
                 );
@@ -506,22 +489,21 @@ class ProductGenerator {
                       const imgERC = `IMG_${productERC}_${Math.random()
                         .toString(36)
                         .slice(2, 8)}`;
-                      const doc =
-                        await liferayService.uploadSiteDocumentMultipart(
-                          config,
-                          image,
-                          {
-                            title: `Product Image - ${productERC}`,
-                            externalReferenceCode: imgERC,
-                            documentFolderId: options.uploadFolderId,
-                            documentFolderExternalReferenceCode:
-                              options.uploadFolderERC,
-                            viewableBy: 'Anyone',
-                          }
-                        );
+                      const doc = await liferay.uploadSiteDocumentMultipart(
+                        config,
+                        image,
+                        {
+                          title: `Product Image - ${productERC}`,
+                          externalReferenceCode: imgERC,
+                          documentFolderId: options.uploadFolderId,
+                          documentFolderExternalReferenceCode:
+                            options.uploadFolderERC,
+                          viewableBy: 'Anyone',
+                        }
+                      );
 
                       if (doc) {
-                        await liferayService.patchPermissionsByAsset(config, {
+                        await liferay.patchPermissionsByAsset(config, {
                           assetType: ASSET_TYPE.DOCUMENT,
                           id: doc.id,
                           viewableBy: VIEWABLE_BY.ANYONE,
@@ -533,13 +515,13 @@ class ProductGenerator {
                         src: `${config.liferayUrl}${doc.contentUrl}`,
                       };
 
-                      await liferayService.addProductImageByUrl(
+                      await liferay.addProductImageByUrl(
                         config,
                         productERC,
                         imageUrlData
                       );
                     } else {
-                      await this.liferayService.addProductImageByBase64(
+                      await liferay.addProductImageByBase64(
                         config,
                         createdProduct.externalReferenceCode,
                         image
@@ -572,22 +554,21 @@ class ProductGenerator {
                       const pdfERC = `PDF_${productERC}_${Math.random()
                         .toString(36)
                         .slice(2, 8)}`;
-                      const doc =
-                        await liferayService.uploadSiteDocumentMultipart(
-                          config,
-                          attachment,
-                          {
-                            title: `Product Documentation - ${productERC}`,
-                            externalReferenceCode: pdfERC,
-                            documentFolderId: options.uploadFolderId,
-                            documentFolderExternalReferenceCode:
-                              options.uploadFolderERC,
-                            viewableBy: 'Anyone',
-                          }
-                        );
+                      const doc = await liferay.uploadSiteDocumentMultipart(
+                        config,
+                        attachment,
+                        {
+                          title: `Product Documentation - ${productERC}`,
+                          externalReferenceCode: pdfERC,
+                          documentFolderId: options.uploadFolderId,
+                          documentFolderExternalReferenceCode:
+                            options.uploadFolderERC,
+                          viewableBy: 'Anyone',
+                        }
+                      );
 
                       if (doc) {
-                        await liferayService.patchPermissionsByAsset(config, {
+                        await liferay.patchPermissionsByAsset(config, {
                           assetType: ASSET_TYPE.DOCUMENT,
                           id: doc.id,
                           viewableBy: VIEWABLE_BY.ANYONE,
@@ -599,13 +580,13 @@ class ProductGenerator {
                         },
                         src: `${config.liferayUrl}${doc.contentUrl}`,
                       };
-                      await liferayService.addProductAttachmentByUrl(
+                      await liferay.addProductAttachmentByUrl(
                         config,
                         productERC,
                         attachmentUrlData
                       );
                     } else {
-                      await this.liferayService.addProductAttachmentByBase64(
+                      await liferay.addProductAttachmentByBase64(
                         config,
                         createdProduct.externalReferenceCode,
                         { attachment }
@@ -689,6 +670,7 @@ class ProductGenerator {
   }
 
   async createCatalogOptions(config, options) {
+    const { logger } = this.ctx;
     const categories = options.productCategories;
     logger.trace(
       `Creating catalog-level options for SKU variants... (Demo mode: ${options.demoMode})`
@@ -856,9 +838,9 @@ class ProductGenerator {
           let option;
           try {
             logger.trace(
-              `Calling liferayService.createOption for ${optionData.name}...`
+              `Calling liferay.createOption for ${optionData.name}...`
             );
-            option = await this.liferayService.createOption(config, {
+            option = await liferay.createOption(config, {
               key: `${category.toLowerCase()}-${optionData.name
                 .toLowerCase()
                 .replace(/\s+/g, '-')
@@ -882,10 +864,7 @@ class ProductGenerator {
               logger.trace(
                 `Option ${optionData.name} already exists, fetching existing option...`
               );
-              option = await this.liferayService.getOptionByERC(
-                config,
-                optionERC
-              );
+              option = await liferay.getOptionByERC(config, optionERC);
               if (!option) {
                 logger.warn(
                   `Could not find existing option with ERC: ${optionERC}, skipping...`
@@ -914,7 +893,7 @@ class ProductGenerator {
             });
 
             try {
-              const optionValue = await this.liferayService.createOptionValue(
+              const optionValue = await liferay.createOptionValue(
                 config,
                 option.id,
                 {
@@ -936,12 +915,11 @@ class ProductGenerator {
                 logger.trace(
                   `Option value ${value} already exists for option ${option.id}, fetching existing value...`
                 );
-                const existingValue =
-                  await this.liferayService.getOptionValueByERC(
-                    config,
-                    option.id,
-                    valueERC
-                  );
+                const existingValue = await liferay.getOptionValueByERC(
+                  config,
+                  option.id,
+                  valueERC
+                );
                 if (existingValue) {
                   optionValues.push(existingValue);
                   logger.trace(
@@ -977,6 +955,7 @@ class ProductGenerator {
   }
 
   async createCatalogSpecifications(config, options) {
+    const { logger } = this.ctx;
     const categories = options.productCategories;
     logger.trace(
       'Creating catalog-level specifications with option categories...'
@@ -1245,16 +1224,13 @@ class ProductGenerator {
 
           let optionCategory;
           try {
-            optionCategory = await this.liferayService.createOptionCategory(
-              config,
-              {
-                key: `${category.toLowerCase()}-${groupData.key}`,
-                title: categoryTitle,
-                description: categoryDescription,
-                priority: groupData.priority,
-                externalReferenceCode: categoryERC,
-              }
-            );
+            optionCategory = await liferay.createOptionCategory(config, {
+              key: `${category.toLowerCase()}-${groupData.key}`,
+              title: categoryTitle,
+              description: categoryDescription,
+              priority: groupData.priority,
+              externalReferenceCode: categoryERC,
+            });
             logger.trace(
               `Created option category: ${optionCategory.title.en_US} (ID: ${optionCategory.id}, Key: ${groupData.key})`
             );
@@ -1266,7 +1242,7 @@ class ProductGenerator {
               logger.trace(
                 `Option category ${groupData.title} already exists, fetching existing category...`
               );
-              optionCategory = await this.liferayService.getOptionCategoryByERC(
+              optionCategory = await liferay.getOptionCategoryByERC(
                 config,
                 categoryERC
               );
@@ -1327,7 +1303,7 @@ class ProductGenerator {
 
           let specification;
           try {
-            specification = await this.liferayService.createSpecification(
+            specification = await liferay.createSpecification(
               config,
               specificationPayload
             );
@@ -1342,7 +1318,7 @@ class ProductGenerator {
               logger.trace(
                 `Specification ${specData.title} already exists, fetching existing specification...`
               );
-              specification = await this.liferayService.getSpecificationByERC(
+              specification = await liferay.getSpecificationByERC(
                 config,
                 specERC
               );
@@ -1384,6 +1360,7 @@ class ProductGenerator {
   }
 
   async createBasicProduct(config, productData, options = {}) {
+    const { logger } = this.ctx;
     try {
       // Start with minimum required properties as per the example
       const liferayProduct = {
@@ -1458,7 +1435,7 @@ class ProductGenerator {
         includeSpecifications: options.generateSpecifications,
       });
 
-      const createdProduct = await this.liferayService.createProduct(
+      const createdProduct = await liferay.createProduct(
         config,
         liferayProduct
       );
@@ -1481,6 +1458,7 @@ class ProductGenerator {
   }
 
   async createSingleProduct(config, productData, options) {
+    const { logger } = this.ctx;
     try {
       const createdProduct = await this.createBasicProduct(
         config,
@@ -1561,6 +1539,7 @@ class ProductGenerator {
     productSpecifications,
     catalogSpecifications
   ) {
+    const { logger } = this.ctx;
     try {
       const specificationsToAdd = [];
 
@@ -1630,7 +1609,7 @@ class ProductGenerator {
         await batchProcessor.processBatch(
           specificationsToAdd,
           async (specData) => {
-            return await this.liferayService.addProductSpecification(
+            return await liferay.addProductSpecification(
               config,
               productId,
               specData
@@ -1652,6 +1631,7 @@ class ProductGenerator {
   }
 
   async addProductAttachments(config, productId, attachments) {
+    const { logger } = this.ctx;
     try {
       for (const attachment of attachments) {
         const attachmentData = {
@@ -1674,11 +1654,7 @@ class ProductGenerator {
           attachmentData.src = attachment.src;
         }
 
-        await this.liferayService.addProductAttachment(
-          config,
-          productId,
-          attachmentData
-        );
+        await liferay.addProductAttachment(config, productId, attachmentData);
       }
       logger.trace(
         `Added ${attachments.length} attachments to product ${productId}`
@@ -1689,10 +1665,11 @@ class ProductGenerator {
   }
 
   async generateProductPricing(config, products, options) {
+    const { logger, ai, liferay } = this.ctx;
     try {
       logger.trace(`Generating pricing for ${products.length} products`);
 
-      const priceList = await this.liferayService.createPriceList(config, {
+      const priceList = await liferay.createPriceList(config, {
         name: {
           en_US: `Generated Price List - ${
             new Date().toISOString().split('T')[0]
@@ -1704,7 +1681,7 @@ class ProductGenerator {
         externalReferenceCode: `PL-${Date.now()}`,
       });
 
-      const pricingData = await this.aiService.generatePricingData(
+      const pricingData = await ai.generatePricingData(
         products,
         'standard',
         config.aiModel
@@ -1720,11 +1697,7 @@ class ProductGenerator {
             externalReferenceCode: `PE-${product.sku}-${Date.now()}`,
           };
 
-          await this.liferayService.createPriceEntry(
-            config,
-            priceList.id,
-            priceEntry
-          );
+          await liferay.createPriceEntry(config, priceList.id, priceEntry);
 
           if (options.generateBulkPricing) {
             await this.generateBulkPricing(
@@ -1751,6 +1724,7 @@ class ProductGenerator {
   }
 
   async generateBulkPricing(config, priceListId, product, basePrice) {
+    const { logger, liferay } = this.ctx;
     try {
       const bulkTiers = [
         { minQuantity: 10, discountPercent: 5 },
@@ -1771,11 +1745,7 @@ class ProductGenerator {
           }-${Date.now()}`,
         };
 
-        await this.liferayService.createPriceEntry(
-          config,
-          priceListId,
-          tierEntry
-        );
+        await liferay.createPriceEntry(config, priceListId, tierEntry);
       }
 
       logger.trace(`Created bulk pricing tiers for product ${product.sku}`);
@@ -1792,17 +1762,18 @@ class ProductGenerator {
     selectedLanguages = ['en_US'],
     mockSpecCategories = null
   ) {
+    const { logger } = this.ctx;
     try {
       const specCategories =
         mockSpecCategories ||
-        (await this.aiService.generateSpecificationCategories(
+        (await this.ai.generateSpecificationCategories(
           categories,
           selectedLanguages
         ));
 
       for (const category of specCategories) {
         try {
-          await this.liferayService.createSpecificationCategory(category);
+          await liferay.createSpecificationCategory(category);
         } catch (error) {
           logger.error(
             `Failed to create specification category ${category.key}:`,
@@ -1816,6 +1787,7 @@ class ProductGenerator {
   }
 
   async addProductOptions(config, productId, catalogOptions) {
+    const { logger } = this.ctx;
     try {
       const productOptionsToAdd = [];
 
@@ -1831,11 +1803,7 @@ class ProductGenerator {
       }
 
       if (productOptionsToAdd.length > 0) {
-        await this.liferayService.addProductOptions(
-          config,
-          productId,
-          productOptionsToAdd
-        );
+        await liferay.addProductOptions(config, productId, productOptionsToAdd);
         logger.trace(
           `Added ${productOptionsToAdd.length} options to product ${productId}`
         );
@@ -1846,6 +1814,7 @@ class ProductGenerator {
   }
 
   async createProductSkus(config, productId, catalogOptions, productData) {
+    const { logger } = this.ctx;
     try {
       const createdSkus = [];
       const maxVariants = 8;
@@ -1897,7 +1866,7 @@ class ProductGenerator {
             skuOptions: skuOptions,
           };
 
-          const createdSku = await this.liferayService.createProductSku(
+          const createdSku = await liferay.createProductSku(
             config,
             productId,
             skuData
@@ -1920,16 +1889,17 @@ class ProductGenerator {
   }
 
   async generateProductPDF(config, product, productData, category) {
+    const { ai, logger, media } = this.ctx;
     try {
       logger.trace(`Generating AI content for PDF...`);
-      const pdfContent = await this.aiService.generatePDFContent(
+      const pdfContent = await ai.generatePDFContent(
         productData,
         category,
         config.aiModel
       );
 
       logger.trace(`Creating PDF document...`);
-      const pdfResult = await this.mediaGenerator.generateAndUploadProductPDF(
+      const pdfResult = await media.generateAndUploadProductPDF(
         pdfContent,
         productData.baseSku || product.sku
       );
@@ -1954,11 +1924,7 @@ class ProductGenerator {
         },
       };
 
-      await this.liferayService.addProductAttachment(
-        config,
-        product.id,
-        attachmentData
-      );
+      await liferay.addProductAttachment(config, product.id, attachmentData);
       logger.trace(`✓ PDF successfully attached to product`);
     } catch (error) {
       logger.error('Error generating product PDF:', error);
@@ -1967,6 +1933,7 @@ class ProductGenerator {
   }
 
   async validateOptions(options) {
+    const { ai, logger } = this.ctx;
     if (
       !options.productCount ||
       typeof options.productCount !== 'number' ||
@@ -1977,7 +1944,7 @@ class ProductGenerator {
 
     if (!options.demoMode) {
       try {
-        await this.aiService.getOpenAIClient();
+        await ai.getOpenAIClient();
         logger.trace('✓ OpenAI API key validated successfully');
       } catch (error) {
         const errorMessage =
@@ -2024,6 +1991,7 @@ class ProductGenerator {
     preparedProducts,
     options
   ) {
+    const { logger, liferay, getWs } = this.ctx;
     logger.info('Starting post-processing for images and PDFs', {
       operation: 'process-attachments',
       productCount: productDataList.length,
@@ -2068,7 +2036,7 @@ class ProductGenerator {
               const imgERC = `IMG_${productERC}_${Math.random()
                 .toString(36)
                 .slice(2, 8)}`;
-              const doc = await liferayService.uploadSiteDocumentMultipart(
+              const doc = await liferay.uploadSiteDocumentMultipart(
                 config,
                 image,
                 {
@@ -2081,7 +2049,7 @@ class ProductGenerator {
               );
 
               if (doc) {
-                await liferayService.patchPermissionsByAsset(config, {
+                await liferay.patchPermissionsByAsset(config, {
                   assetType: ASSET_TYPE.DOCUMENT,
                   id: doc.id,
                   viewableBy: VIEWABLE_BY.ANYONE,
@@ -2094,13 +2062,13 @@ class ProductGenerator {
                 url: `${config.liferayUrl}${doc.contentUrl}`,
               };
 
-              await liferayService.addProductImageByUrl(
+              await liferay.addProductImageByUrl(
                 config,
                 productERC,
                 imageUrlData
               );
             } else {
-              await this.liferayService.addProductImageByBase64(
+              await liferay.addProductImageByBase64(
                 config,
                 preparedProduct.externalReferenceCode,
                 image
@@ -2129,7 +2097,7 @@ class ProductGenerator {
               const pdfERC = `PDF_${productERC}_${Math.random()
                 .toString(36)
                 .slice(2, 8)}`;
-              const doc = await liferayService.uploadSiteDocumentMultipart(
+              const doc = await liferay.uploadSiteDocumentMultipart(
                 config,
                 attachment,
                 {
@@ -2142,7 +2110,7 @@ class ProductGenerator {
               );
 
               if (doc) {
-                await liferayService.patchPermissionsByAsset(config, {
+                await liferay.patchPermissionsByAsset(config, {
                   assetType: ASSET_TYPE.DOCUMENT,
                   id: doc.id,
                   viewableBy: VIEWABLE_BY.ANYONE,
@@ -2153,13 +2121,13 @@ class ProductGenerator {
                 title: { en_US: `Product Documentation - ${productERC}` },
                 url: `${config.liferayUrl}${doc.contentUrl}`,
               };
-              await liferayService.addProductAttachmentByUrl(
+              await liferay.addProductAttachmentByUrl(
                 config,
                 productERC,
                 attachmentUrlData
               );
             } else {
-              await this.liferayService.addProductAttachmentByBase64(
+              await liferay.addProductAttachmentByBase64(
                 config,
                 preparedProduct.externalReferenceCode,
                 { attachment }
@@ -2239,6 +2207,7 @@ class ProductGenerator {
   }
 
   async handleBatchComplete(results) {
+    const { logger } = this.ctx;
     logger.info('Handling batch completion', {
       operation: 'batch-complete-handler',
       batchId: results.batchId,

@@ -1,6 +1,6 @@
 const { queueService } = require('../services/queueService.cjs');
 
-module.exports = function (app, logger) {
+module.exports = (app, { logger }) => {
   app.get('/api/queue/stats', async (req, res) => {
     try {
       const stats = await queueService.getAllStats();

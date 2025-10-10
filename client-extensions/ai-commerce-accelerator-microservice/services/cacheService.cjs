@@ -3,7 +3,8 @@ const { env } = require('../utils/constants.cjs');
 const { sanitizeCacheEntry } = require('../utils/normalize.cjs');
 
 class CacheService {
-  constructor() {
+  constructor(ctx) {
+    this.ctx = ctx;
     this.cache = new Map();
     this.ttlMap = new Map();
     this.maxSize = env.CACHE_MAX_SIZE;
@@ -14,6 +15,7 @@ class CacheService {
   }
 
   set(key, value, ttl = this.defaultTTL) {
+    const { logger } = this.ctx;
     // Remove oldest entries if cache is full
     if (this.cache.size >= this.maxSize) {
       this.evictOldest();
@@ -37,6 +39,7 @@ class CacheService {
   }
 
   get(key) {
+    const { logger } = this.ctx;
     const ttlEntry = this.ttlMap.get(key);
 
     // Check if expired
@@ -75,6 +78,7 @@ class CacheService {
   }
 
   delete(key) {
+    const { logger } = this.ctx;
     const deleted = this.cache.delete(key);
     this.ttlMap.delete(key);
 
@@ -99,6 +103,7 @@ class CacheService {
   }
 
   clear() {
+    const { logger } = this.ctx;
     const size = this.cache.size;
     this.cache.clear();
     this.ttlMap.clear();
@@ -110,6 +115,7 @@ class CacheService {
   }
 
   cleanup() {
+    const { logger } = this.ctx;
     const now = Date.now();
     const expiredKeys = [];
 
@@ -133,6 +139,7 @@ class CacheService {
   }
 
   evictOldest() {
+    const { logger } = this.ctx;
     if (this.cache.size === 0) return;
 
     // Find the oldest entry by timestamp
@@ -238,7 +245,4 @@ class CacheService {
   }
 }
 
-// Create singleton instance
-const cacheService = new CacheService();
-
-module.exports = { cacheService, CacheService };
+module.exports = CacheService;
