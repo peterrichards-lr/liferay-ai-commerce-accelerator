@@ -18,9 +18,18 @@ export function AppProvider({
   children,
 }) {
   const rootRef = useRef(null);
-  const [correlationId, setCorrelationId] = useState();
+  const cacheStore = useRef(new Map());
+  const inflight = useRef(new Map());
+
   const [config, setConfig] = useState(() => normalizeConfig(initialConfig));
-  const getCorrelationId = useCallback(() => correlationId, [correlationId]);
+  const [correlationId, setCorrelationId] = useState(
+    () => sessionStorage.getItem('correlationId') || null
+  );
+
+  const getCorrelationId = useCallback(
+    () => correlationId || sessionStorage.getItem('correlationId') || null,
+    [correlationId]
+  );
 
   const updateConfig = useCallback((patch) => {
     setConfig((prev) => {
@@ -39,14 +48,85 @@ export function AppProvider({
     if (initialConfig) updateConfig(initialConfig);
   }, [initialConfig, updateConfig]);
 
+  useEffect(() => {
+    for (const k of cacheStore.current.keys()) {
+      if (k.includes(`:${config.liferayUrl}`)) cacheStore.current.delete(k);
+    }
+  }, [config.liferayUrl]);
+
+  function fetchWithCache(
+    key,
+    fetcher,
+    { ttlMs = 5 * 60_000, force = false } = {}
+  ) {
+    const now = Date.now();
+
+    if (!force) {
+      const cached = cacheStore.current.get(key);
+      if (cached && cached.expiresAt > now) {
+        return Promise.resolve(cached.value);
+      }
+    }
+
+    const existing = inflight.current.get(key);
+    if (existing) return existing;
+
+    const p = Promise.resolve()
+      .then(fetcher)
+      .then((value) => {
+        cacheStore.current.set(key, { value, expiresAt: now + ttlMs });
+        inflight.current.delete(key);
+        return value;
+      })
+      .catch((err) => {
+        inflight.current.delete(key);
+        throw err;
+      });
+
+    inflight.current.set(key, p);
+    return p;
+  }
+
   const api = useMemo(
     () =>
       createApiClient({
         baseUrl: config.microserviceUrl,
         getCorrelationId,
-        setCorrelationId,
+        onCorrelationIdUpdate: (cid) => {
+          setCorrelationId(cid);
+          sessionStorage.setItem('correlationId', cid);
+        },
       }),
     [config.microserviceUrl, getCorrelationId]
+  );
+
+  const getCurrencies = useCallback(
+    (payload, { force = false } = {}) => {
+      const key = `currencies:${config.microserviceUrl || ''}:${
+        config.liferayUrl || ''
+      }`;
+      return fetchWithCache(
+        key,
+        () => api.post('/api/get-currencies', payload),
+        { ttlMs: 60 * 60_000, force }
+      );
+    },
+    [api, config.microserviceUrl, config.liferayUrl]
+  );
+
+  const getLanguages = useCallback(
+    (payload, { force = false } = {}) => {
+      if (!payload?.siteGroupId) return Promise.resolve([]);
+      const key = `languages:${config.microserviceUrl || ''}:${
+        config.liferayUrl || ''
+      }:${payload.siteGroupId}`;
+      return fetchWithCache(
+        key,
+        () => api.post('/api/get-languages', payload),
+        { ttlMs: 30 * 60_000, force }
+      );
+    },
+    [api, config.microserviceUrl, config.liferayUrl]
   );
 
   const value = useMemo(
@@ -57,6 +137,8 @@ export function AppProvider({
       rootRef,
       getRoot: () => rootRef.current,
       getCorrelationId,
+      getCurrencies,
+      getLanguages,
     }),
     [config, api, updateConfig]
   );

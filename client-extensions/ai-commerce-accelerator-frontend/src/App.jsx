@@ -93,7 +93,7 @@ export function AppUI() {
     []
   );
 
-  const { config, setConfig } = useApp();
+  const { config, setConfig, getCurrencies, getLanguages } = useApp();
   const [catalogs, setCatalogs] = useState([]);
   const [channels, setChannels] = useState([]);
   const [languages, setLanguages] = useState([]);
@@ -1032,8 +1032,8 @@ export function AppUI() {
     const payload = buildPayload({ channel: chObj });
 
     const [langsRes, currsRes] = await Promise.all([
-      api.post('/api/get-languages', payload),
-      api.post('/api/get-currencies', payload),
+      getLanguages(payload),
+      getCurrencies(payload),
     ]);
 
     const langs = Array.isArray(langsRes?.languages) ? langsRes.languages : [];

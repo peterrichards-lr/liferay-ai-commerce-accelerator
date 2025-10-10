@@ -20,29 +20,29 @@ const STORAGE_KEYS = {
 };
 
 function loadPersistedTimes() {
-  const start = Number(localStorage.getItem(STORAGE_KEYS.start)) || null;
-  const last = Number(localStorage.getItem(STORAGE_KEYS.last)) || null;
-  const endStr = localStorage.getItem(STORAGE_KEYS.end);
+  const start = Number(sessionStorage.getItem(STORAGE_KEYS.start)) || null;
+  const last = Number(sessionStorage.getItem(STORAGE_KEYS.last)) || null;
+  const endStr = sessionStorage.getItem(STORAGE_KEYS.end);
   const end = endStr != null ? Number(endStr) : null;
   return { start, last, end };
 }
 
 function persistTimes({ startTime, lastUpdateTime, endTime }) {
   startTime != null
-    ? localStorage.setItem(STORAGE_KEYS.start, String(startTime))
-    : localStorage.removeItem(STORAGE_KEYS.start);
+    ? sessionStorage.setItem(STORAGE_KEYS.start, String(startTime))
+    : sessionStorage.removeItem(STORAGE_KEYS.start);
   lastUpdateTime != null
-    ? localStorage.setItem(STORAGE_KEYS.last, String(lastUpdateTime))
-    : localStorage.removeItem(STORAGE_KEYS.last);
+    ? sessionStorage.setItem(STORAGE_KEYS.last, String(lastUpdateTime))
+    : sessionStorage.removeItem(STORAGE_KEYS.last);
   endTime != null
-    ? localStorage.setItem(STORAGE_KEYS.end, String(endTime))
-    : localStorage.removeItem(STORAGE_KEYS.end);
+    ? sessionStorage.setItem(STORAGE_KEYS.end, String(endTime))
+    : sessionStorage.removeItem(STORAGE_KEYS.end);
 }
 
 function clearPersistedTimes() {
-  localStorage.removeItem(STORAGE_KEYS.start);
-  localStorage.removeItem(STORAGE_KEYS.last);
-  localStorage.removeItem(STORAGE_KEYS.end);
+  sessionStorage.removeItem(STORAGE_KEYS.start);
+  sessionStorage.removeItem(STORAGE_KEYS.last);
+  sessionStorage.removeItem(STORAGE_KEYS.end);
 }
 
 function Dashboard({

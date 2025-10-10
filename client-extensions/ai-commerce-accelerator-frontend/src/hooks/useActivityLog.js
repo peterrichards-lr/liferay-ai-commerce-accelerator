@@ -24,23 +24,20 @@ export default function useActivityLog({
   );
   const lastRef = useRef({ msg: null, type: null, source: null, at: 0 });
 
-  // --- hydration ---
   useEffect(() => {
     if (!hydrateOnMount) return;
     try {
-      const raw = localStorage.getItem(storageKey);
+      const raw = sessionStorage.getItem(storageKey);
       if (raw) {
         const parsed = JSON.parse(raw);
         if (Array.isArray(parsed)) setLogs(parsed.slice(0, maxEntries));
       }
     } catch {}
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []); // only once
+  }, []);
 
-  // --- persistence ---
   useEffect(() => {
     try {
-      localStorage.setItem(
+      sessionStorage.setItem(
         storageKey,
         JSON.stringify(logs.slice(0, maxEntries))
       );

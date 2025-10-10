@@ -4,7 +4,7 @@ export function createApiClient({
   baseUrl,
   withCredentials = true,
   getCorrelationId,
-  setCorrelationId,
+  onCorrelationIdUpdate,
 }) {
   const base = (baseUrl || '').replace(/\/+$/, '');
 
@@ -22,9 +22,12 @@ export function createApiClient({
     const isFormData =
       typeof FormData !== 'undefined' && body instanceof FormData;
 
-    // read latest correlation id at request-time
     const cid =
-      typeof getCorrelationId === 'function' ? getCorrelationId() : undefined;
+      typeof getCorrelationId === 'function'
+        ? getCorrelationId()
+        : (typeof window !== 'undefined' &&
+            sessionStorage.getItem('correlationId')) ||
+          null;
 
     const res = await fetch(url, {
       method,
@@ -39,13 +42,9 @@ export function createApiClient({
       signal,
     });
 
-    try {
-      const newCid = res.headers.get(CORRELATION_ID_HEADER);
-      if (newCid && newCid !== cid && typeof setCorrelationId === 'function') {
-        setCorrelationId(newCid);
-      }
-    } catch {
-      console.warn('Unable to set new correlation id');
+    const serverCid = res.headers.get(CORRELATION_ID_HEADER);
+    if (!cid && serverCid && typeof onCorrelationIdUpdate === 'function') {
+      onCorrelationIdUpdate(serverCid);
     }
 
     if (!res.ok) {
