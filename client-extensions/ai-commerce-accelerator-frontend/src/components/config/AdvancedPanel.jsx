@@ -59,6 +59,7 @@ export default function AdvancedPanel({
             id="batchSize"
             type="number"
             min={1}
+            max={20}
             value={config.batchSize}
             onChange={(e) =>
               setConfig({ batchSize: Math.max(1, Number(e.target.value) || 1) })

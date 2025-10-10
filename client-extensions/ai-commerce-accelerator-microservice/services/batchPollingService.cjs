@@ -430,6 +430,8 @@ class BatchPollingService {
     const pollData = this.activePolls.get(batchId);
     const entityType =
       pollData?.entityType || batchConfig?.entityType || 'products';
+    const affectsProgress = pollData?.affectsProgress ?? true;
+    const mode = pollData?.mode || batchConfig?.mode || 'unknown';
 
     cacheService.set(
       `batch:${batchId}:completed`,
@@ -437,6 +439,7 @@ class BatchPollingService {
         totalItemsCount: totalCount,
         processedItemsCount: processedCount,
         entityType,
+        mode
       },
       300000
     );
@@ -456,9 +459,6 @@ class BatchPollingService {
 
     this.stopPolling(batchId);
 
-    const affectsProgress = pollData?.affectsProgress ?? true;
-    const mode = pollData?.mode || 'unknown';
-
     const results = {
       batchId,
       status: 'COMPLETED',
@@ -466,6 +466,7 @@ class BatchPollingService {
       processedCount,
       errorCount,
       entityType,
+      mode,
       completedAt: new Date().toISOString(),
     };
 
@@ -579,6 +580,7 @@ class BatchPollingService {
       totalCount,
       processedCount,
       errorCount,
+      mode,
       failedAt: new Date().toISOString(),
     };
 
@@ -600,6 +602,7 @@ class BatchPollingService {
       totalCount: results.totalCount,
       errorCount: results.errorCount,
       entityType,
+      mode
     });
 
     const message = {

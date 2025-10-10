@@ -1246,7 +1246,6 @@ class LiferayService {
   async deleteCommerceOrders(config, opts = {}) {
     const {
       pageSize = 200,
-      batchSize = 500,
       filter,
       callbackUrl,
       dryRun = false,
@@ -1267,7 +1266,7 @@ class LiferayService {
     return this._deleteByBatch(config, {
       batchUrl,
       ids: orderIds,
-      batchSize,
+      batchSize: config.batchSize,
       dryRun,
       op: 'orders:batch-delete',
       friendly: 'Delete orders (batch)',
@@ -1278,7 +1277,6 @@ class LiferayService {
     config,
     {
       pageSize = 200,
-      batchSize = 500,
       productFilter,
       callbackUrl,
       dryRun = false,
@@ -1312,7 +1310,7 @@ class LiferayService {
     return this._deleteByBatch(config, {
       batchUrl,
       ids: productIds,
-      batchSize,
+      batchSize: config.batchSize,
       dryRun,
       idProp: 'productId',
       op: 'products:batch-delete',
@@ -1323,7 +1321,6 @@ class LiferayService {
   async deleteCommerceAccounts(config, opts = {}) {
     const {
       pageSize = 200,
-      batchSize = 500,
       filter,
       callbackUrl,
       dryRun = false,
@@ -1344,7 +1341,7 @@ class LiferayService {
     return this._deleteByBatch(config, {
       batchUrl,
       ids: accountIds,
-      batchSize,
+      batchSize: config.batchSize,
       dryRun,
       op: 'accounts:batch-delete',
       friendly: 'Delete accounts (batch)',
@@ -1361,7 +1358,7 @@ class LiferayService {
     config,
     {
       listUrl,
-      pageSize = 100,
+      pageSize,
       filter,
       sort,
       itemsKey = 'items',
@@ -1556,7 +1553,7 @@ class LiferayService {
     {
       batchUrl,
       ids,
-      batchSize = 500,
+      batchSize,
       dryRun = false,
       idProp = 'id',
       op,
@@ -1607,7 +1604,7 @@ class LiferayService {
         );
 
         const location =
-          res?.headers?.location || res?.headers?.Location || undefined; // if _request surfaces headers
+          res?.headers?.location || res?.headers?.Location || undefined;
         const taskERC =
           res?.data?.externalReferenceCode || res?.data?.erc || null;
         const taskId =
@@ -1620,6 +1617,8 @@ class LiferayService {
           location: location || null,
           taskERC,
           taskId,
+          count: chunk.length,
+          batchSize,
           status: res.status || 'submitted',
         });
 

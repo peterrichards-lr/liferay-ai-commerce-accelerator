@@ -126,17 +126,20 @@ class AccountGenerator {
             const pollInterval = Math.max(config.pollInterval || 5000, 2000); // Minimum 2 seconds
             const maxPollAttempts = config.maxPollAttempts || 120; // Default 10 minutes
 
+            const batchConfig = {
+              clientId: config.clientId,
+              clientSecret: config.clientSecret,
+              createdAt: new Date().toISOString(),
+              entityType: 'accounts',
+              liferayUrl: config.liferayUrl,
+              localeCode: config.localeCode,
+              mode: 'generate',
+            };
+
             const { cacheService } = require('./cacheService.cjs');
             cacheService.set(
               `batch:${result.batchId}:config`,
-              {
-                clientId: config.clientId,
-                clientSecret: config.clientSecret,
-                createdAt: new Date().toISOString(),
-                entityType: 'accounts',
-                liferayUrl: config.liferayUrl,
-                localeCode: config.localeCode,
-              },
+              batchConfig,
               3600000 // 1 hour cache
             );
 
@@ -147,41 +150,31 @@ class AccountGenerator {
               maxPollAttempts,
             });
 
-            this.batchPollingService.startPolling(
-              result.batchId,
-              {
-                liferayUrl: config.liferayUrl,
-                clientId: config.clientId,
-                clientSecret: config.clientSecret,
-                localeCode: config.localeCode,
-                entityType: 'accounts',
+            this.batchPollingService.startPolling(result.batchId, batchConfig, {
+              pollInterval: config.pollingDelay,
+              maxPollAttempts: config.pollingReties,
+              onStatusChange: (status) => {
+                logger.debug('Batch status update', {
+                  operation: 'batch-status-update',
+                  batchId: status.batchId,
+                  status: status.status,
+                  processedCount: status.processedCount,
+                  totalCount: status.totalCount,
+                  entityType: 'accounts',
+                });
               },
-              {
-                pollInterval: config.pollingDelay,
-                maxPollAttempts: config.pollingReties,
-                onStatusChange: (status) => {
-                  logger.debug('Batch status update', {
-                    operation: 'batch-status-update',
-                    batchId: status.batchId,
-                    status: status.status,
-                    processedCount: status.processedCount,
-                    totalCount: status.totalCount,
-                    entityType: 'accounts',
-                  });
-                },
-                onComplete: (results) => {
-                  this.handleBatchComplete(results);
-                },
-                onError: (error) => {
-                  logger.error('Batch polling error', {
-                    operation: 'batch-polling-error',
-                    batchId: result.batchId,
-                    error: error.message,
-                    entityType: 'accounts',
-                  });
-                },
-              }
-            );
+              onComplete: (results) => {
+                this.handleBatchComplete(results);
+              },
+              onError: (error) => {
+                logger.error('Batch polling error', {
+                  operation: 'batch-polling-error',
+                  batchId: result.batchId,
+                  error: error.message,
+                  entityType: 'accounts',
+                });
+              },
+            });
           }
 
           logger.info('Batch submission completed', {
