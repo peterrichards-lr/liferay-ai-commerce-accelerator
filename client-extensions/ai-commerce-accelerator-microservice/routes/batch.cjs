@@ -5,6 +5,7 @@ const {
   parseBatchStatuses,
 } = require('../utils/normalize.cjs');
 const { inferEntityTypeFromClassName, delay } = require('../utils/misc.cjs');
+const { BATCH_FAILED } = require('../utils/wsEvents.cjs');
 
 function buildRecoveredConfig({ liferayUrl, task, correlationId }) {
   return {
@@ -18,8 +19,10 @@ function buildRecoveredConfig({ liferayUrl, task, correlationId }) {
   };
 }
 
-module.exports = (app,
-  { cacheService, batchPollingService, liferayService, logger, getWs }) => {
+module.exports = (
+  app,
+  { cacheService, batchPollingService, liferayService, logger, getWs }
+) => {
   waitForConfig = async (batchId, { tries = 6, min = 40, max = 800 } = {}) => {
     for (let i = 0; i < tries; i++) {
       const cfg = cacheService.get(`batch:${batchId}:config`);
@@ -31,42 +34,48 @@ module.exports = (app,
     return null;
   };
 
-  app.post('/api/batch/callback', async (req, res) => {
-    const [{ batchId, status, correlationId }] = parseBatchStatuses(req.body);
-
+  restoreConfig = async (batchId, correlationId) => {
     try {
-      logger.info('Received batch submission callback from Liferay', {
+      let liferayUrl;
+      try {
+        const liferayServerPorotocl = lookupConfig(
+          'com.liferay.lxc.dxp.server.protocol'
+        );
+        const liferayServerDomain = lxcConfig.dxpMainDomain();
+        liferayUrl = `${liferayServerPorotocl}://${liferayServerDomain}`;
+        new URL(liferayUrl);
+      } catch (e) {
+        throw new Error('Unable to determine liferay URL', e);
+      }
+
+      const task = await liferayService.getImportTask({ liferayUrl }, batchId);
+      batchConfig = buildRecoveredConfig({
+        liferayUrl,
+        task,
         correlationId,
-        operation: 'batch-callback',
-        batchId,
-        status,
-        bodyKeys: req.body ? Object.keys(req.body) : [],
       });
 
-      if (logger.isTraceEnabled()) {
-        const sanitizedCallback = sanitizedObject({ ...req.body });
-        const trace = `
-        === BATCH SUBMISSION CALLBACK ===
-        Batch ID: ${batchId || 'Not provided'}
-        Status: ${status || 'Not provided'}
-        Full callback data: ${JSON.stringify(sanitizedCallback, null, 2)}
-        === END CALLBACK ===
-        `;
-        logger.trace(trace);
-      }
+      cacheService.set(`batch:${batchId}:config`, batchConfig, 60 * 60 * 1000);
 
-      if (batchId) {
-        cacheService.set(
-          `batch:${batchId}:submission`,
-          {
-            status,
-            submittedAt: new Date().toISOString(),
-            rawCallback: req.body,
-          },
-          60 * 60 * 1000
-        );
-      }
+      logger.info('Recovered batch config from import task', {
+        operation: 'batch-config-recovered',
+        batchId,
+        entityType: batchConfig.entityType,
+      });
+    } catch (e) {
+      logger.error('Failed to recover batch config', {
+        operation: 'batch-config-recover-error',
+        batchId,
+        error: e.message,
+      });
+    }
+  };
 
+  app.post('/api/batch/callback', async (req, res) => {
+    const [{ batchId, status }] = parseBatchStatuses(req.body);
+    let correlationId;
+
+    try {
       res.status(200).json({
         success: true,
         message: 'Batch callback received',
@@ -88,51 +97,46 @@ module.exports = (app,
           batchId,
         });
 
-        try {
-          let liferayUrl;
-          try {
-            const liferayServerPorotocl = lookupConfig(
-              'com.liferay.lxc.dxp.server.protocol'
-            );
-            const liferayServerDomain = lxcConfig.dxpMainDomain();
-            liferayUrl = `${liferayServerPorotocl}://${liferayServerDomain}`;
-            new URL(liferayUrl);
-          } catch (e) {
-            throw new Error('Unable to determine liferay URL', e);
-          }
-
-          const task = await liferayService.getImportTask(
-            { liferayUrl },
-            batchId
-          );
-          batchConfig = buildRecoveredConfig({
-            liferayUrl,
-            task,
-            correlationId,
-          });
-
-          cacheService.set(
-            `batch:${batchId}:config`,
-            batchConfig,
-            60 * 60 * 1000
-          );
-
-          logger.info('Recovered batch config from import task', {
-            operation: 'batch-config-recovered',
-            batchId,
-            entityType: batchConfig.entityType,
-          });
-        } catch (e) {
-          logger.error('Failed to recover batch config', {
-            operation: 'batch-config-recover-error',
-            batchId,
-            error: e.message,
-          });
-        }
+        restoreConfig(batchId, uuidv4());
+      } else {
+        correlationId = batchConfig.correlationId;
       }
 
-      if (cacheService.get(`batch:${batchId}:completed`) ||
-        batchPollingService.isPolling(batchId)) {
+      logger.info('Received batch submission callback from Liferay', {
+        correlationId,
+        operation: 'batch-callback',
+        batchId,
+        status,
+        bodyKeys: req.body ? Object.keys(req.body) : [],
+      });
+
+      if (logger.isTraceEnabled()) {
+        const sanitizedCallback = sanitizedObject({ ...req.body });
+        const trace = `
+        === BATCH SUBMISSION CALLBACK ===
+        Batch ID: ${batchId || 'Not provided'}
+        Status: ${status || 'Not provided'}
+        Full callback data: ${JSON.stringify(sanitizedCallback, null, 2)}
+        === END CALLBACK ===
+        `;
+        logger.trace(trace);
+      }
+
+      cacheService.set(
+        `batch:${batchId}:submission`,
+        {
+          correlationId,
+          status,
+          submittedAt: new Date().toISOString(),
+          rawCallback: req.body,
+        },
+        60 * 60 * 1000
+      );
+
+      if (
+        cacheService.get(`batch:${batchId}:completed`) ||
+        batchPollingService.isPolling(batchId)
+      ) {
         logger.info('Skipping polling start; already completed or active', {
           operation: 'batch-polling-skip',
           batchId,
@@ -174,10 +178,14 @@ module.exports = (app,
             totalCount: r.totalCount,
           });
 
-          getWs().emitBatchCompleted(batchId, {
-            entityType,
-            successCount: r.processedCount,
-          });
+          getWs().emitBatchCompleted(
+            batchId,
+            {
+              entityType,
+              successCount: r.processedCount,
+            },
+            { correlationId: config.correlationId }
+          );
 
           logger.info(
             `✅ Batch ${batchId} (${entityType}) completed - ${r.processedCount}/${r.totalCount} items processed`
@@ -190,16 +198,13 @@ module.exports = (app,
             entityType,
             error: err.message,
           });
-          const msg = JSON.stringify({
-            type: 'batch_failed',
+          const msg = {
+            type: BATCH_FAILED,
             batchId,
             entityType,
             error: err.message,
-            timestamp: new Date().toISOString(),
-          });
-          getWs().wss?.clients?.forEach((client) => {
-            if (client.readyState === WebSocket.OPEN) client.send(msg);
-          });
+          };
+          getWs().emitBatchFailed(msg, { correlationId: config.correlationId });
         },
       });
     } catch (error) {

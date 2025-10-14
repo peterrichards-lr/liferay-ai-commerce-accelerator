@@ -26,8 +26,10 @@ const upload = multer({
   limits: { fileSize: 15 * 1024 * 1024 }, // 15MB per file (tune as needed)
 });
 
-module.exports = (app,
-  { liferayService, productGenerator, accountGenerator, orderGenerator, logger }) => {
+module.exports = (
+  app,
+  { liferayService, productGenerator, accountGenerator, orderGenerator, logger }
+) => {
   app.post(
     '/api/generate/accounts',
     inputValidationMiddleware(generateAccountsSchema),
@@ -223,32 +225,39 @@ module.exports = (app,
           );
         }
 
-        /*
-    // Emit progress update via WebSocket for PDF generation
-    if (options.pdfMode === 'generate' && result.pdfProgress) {
-      getWs().emitGenerationProgress({
-        percent: Math.round(
-          (result.pdfProgress.current / result.pdfProgress.total) * 100
-        ),
-        entityType: 'pdfs',
-        batchId: result.products[0]?.batchId,
-      });
-    }
- 
-    // Emit progress update via WebSocket for Image generation
-    if (options.imageMode === 'generate' && result.imageProgress) {
-      getWs().emitGenerationProgress({
-        percent: Math.round(
-          (result.imageProgress.current / result.imageProgress.total) * 100
-        ),
-        entityType: 'images',
-        batchId: result.products[0]?.batchId,
-      });
-    }
-      */
-        const actualCount = options.productCount > 5
-          ? Math.max(config.batchSize, 5)
-          : options.productCount;
+        // Emit progress update via WebSocket for PDF generation
+        if (options.pdfMode === 'generate' && result.pdfProgress) {
+          getWs().emitGenerationProgress(
+            {
+              percent: Math.round(
+                (result.pdfProgress.current / result.pdfProgress.total) * 100
+              ),
+              entityType: 'pdfs',
+              batchId: result.products[0]?.batchId,
+            },
+            { correlationId: config.correlationId }
+          );
+        }
+
+        // Emit progress update via WebSocket for Image generation
+        if (options.imageMode === 'generate' && result.imageProgress) {
+          getWs().emitGenerationProgress(
+            {
+              percent: Math.round(
+                (result.imageProgress.current / result.imageProgress.total) *
+                  100
+              ),
+              entityType: 'images',
+              batchId: result.products[0]?.batchId,
+            },
+            { correlationId: config.correlationId }
+          );
+        }
+
+        const actualCount =
+          options.productCount > 5
+            ? Math.max(config.batchSize, 5)
+            : options.productCount;
 
         // Untested
         if (options.pdfMode === 'generate' && options.pdfRatio > 0) {
@@ -293,14 +302,17 @@ module.exports = (app,
 
         // Emit progress update via WebSocket for Image generation
         if (imageMode === 'generate' && results.imageProgress) {
-          getWs().emitGenerationProgress({
-            percent: Math.round(
-              (results.imageProgress.current / results.imageProgress.total) *
-              100
-            ),
-            entityType: 'images',
-            batchId: results.batchId,
-          });
+          getWs().emitGenerationProgress(
+            {
+              percent: Math.round(
+                (results.imageProgress.current / results.imageProgress.total) *
+                  100
+              ),
+              entityType: 'images',
+              batchId: results.batchId,
+            },
+            { correlationId: config.correlationId }
+          );
         }
 
         logger.success('Product generation completed successfully', {
@@ -331,7 +343,8 @@ module.exports = (app,
         });
       } catch (error) {
         // Ensure we always have a meaningful error message
-        const errorMessage = error.message ||
+        const errorMessage =
+          error.message ||
           error.toString() ||
           'Unknown error occurred during product generation';
 
@@ -523,10 +536,12 @@ module.exports = (app,
         const errorMessage = error.message || 'Order generation failed';
         let statusCode = 500;
 
-        if (errorMessage.includes('No products available') ||
+        if (
+          errorMessage.includes('No products available') ||
           errorMessage.includes('No accounts available') ||
           errorMessage.includes('Not enough products available') ||
-          errorMessage.includes('Not enough accounts available')) {
+          errorMessage.includes('Not enough accounts available')
+        ) {
           statusCode = 400;
         }
 

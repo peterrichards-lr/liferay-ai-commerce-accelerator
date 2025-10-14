@@ -3,6 +3,7 @@ const { sanitizedObject } = require('../utils/normalize.cjs');
 const { v4: uuidv4 } = require('uuid');
 
 const { ASSET_TYPE, VIEWABLE_BY } = require('../utils/liferayPermissions.cjs');
+const { BATCH_COMPLETED } = require('../utils/wsEvents.cjs');
 
 class ProductGenerator {
   constructor(ctx) {
@@ -10,7 +11,7 @@ class ProductGenerator {
   }
 
   async generateProducts(config, options) {
-    const { logger, liferay, mockData, media, cache, batchPolling } = this.ctx;
+    const { logger, liferay, mockData, media, cache, batchPolling, getWs } = this.ctx;
     logger.trace('=== STARTING PRODUCT GENERATION ===');
     logger.trace('Demo mode:', !!options.demoMode);
     logger.trace('Config:', sanitizedObject(config));
@@ -31,7 +32,7 @@ class ProductGenerator {
       useBatch: useBatch,
       batchSize: config.batchSize || 1,
     });
-
+    
     const results = {
       products: [],
       created: 0,
@@ -314,6 +315,15 @@ class ProductGenerator {
                 callbackUrl
               );
 
+              getWs().emitBatchStarted(
+                {
+                  batchId: result.batchId,
+                  entityType: 'products',
+                  totalItems: batch.batchSize,
+                },
+                { correlationId: config.correlationId }
+              );
+
               batchIds.push(result.batchId); // Store batchId
 
               // Store batch config for polling (if callback URL is provided)
@@ -328,9 +338,9 @@ class ProductGenerator {
                 cache.set(
                   `batch:${result.batchId}:config`,
                   {
+                    correlationId: config.correlationId,
                     clientId: config.clientId,
                     clientSecret: config.clientSecret,
-                    correlationId: config.correlationId,
                     createdAt: new Date().toISOString(),
                     entityType: 'products',
                     liferayUrl: config.liferayUrl,
@@ -428,6 +438,7 @@ class ProductGenerator {
             cache.set(
               `session:${sessionId}:context`,
               {
+                correlationId: config.correlationId,
                 config,
                 productDataList,
                 preparedProducts,
@@ -483,7 +494,10 @@ class ProductGenerator {
                 let imagesApplied = 0,
                   pdfsApplied = 0;
                 if (originalProduct.images) {
-                  getWs().emitPostProcessingStarted({ entityType: 'images' });
+                  getWs().emitPostProcessingStarted(
+                    { entityType: 'images' },
+                    { correlationId: config.correlationId }
+                  );
                   for (const image of originalProduct.images) {
                     if (options.imageMode === 'custom') {
                       const imgERC = `IMG_${productERC}_${Math.random()
@@ -538,17 +552,22 @@ class ProductGenerator {
                       progress: Math.round(
                         (imagesApplied / productImagesPrepared) * 100
                       ),
+                      correlationId: config.correlationId,
                     });
                   }
                   getWs().emitPostProcessingCompleted({
                     entityType: 'images',
                     processedCount: imagesApplied,
                     totalCount: productImagesPrepared,
+                    correlationId: config.correlationId,
                   });
                 }
 
                 if (originalProduct.attachments) {
-                  getWs().emitPostProcessingStarted({ entityType: 'pdfs' });
+                  getWs().emitPostProcessingStarted(
+                    { entityType: 'pdfs' },
+                    { correlationId: config.correlationId }
+                  );
                   for (const attachment of originalProduct.attachments) {
                     if (options.pdfMode === 'custom') {
                       const pdfERC = `PDF_${productERC}_${Math.random()
@@ -596,20 +615,26 @@ class ProductGenerator {
                       `✓ Added attachment to product: ${createdProduct.externalReferenceCode}`
                     );
                     pdfsApplied++;
-                    getWs().emitPostProcessingProgress({
+                    getWs().emitPostProcessingProgress(
+                      {
+                        entityType: 'pdfs',
+                        processedCount: pdfsApplied,
+                        totalCount: productPdfsPrepared,
+                        progress: Math.round(
+                          (pdfsApplied / productPdfsPrepared) * 100
+                        ),
+                      },
+                      { correlationId: config.correlationId }
+                    );
+                  }
+                  getWs().emitPostProcessingCompleted(
+                    {
                       entityType: 'pdfs',
                       processedCount: pdfsApplied,
                       totalCount: productPdfsPrepared,
-                      progress: Math.round(
-                        (pdfsApplied / productPdfsPrepared) * 100
-                      ),
-                    });
-                  }
-                  getWs().emitPostProcessingCompleted({
-                    entityType: 'pdfs',
-                    processedCount: pdfsApplied,
-                    totalCount: productPdfsPrepared,
-                  });
+                    },
+                    { correlationId: config.correlationId }
+                  );
                 }
               } catch (error) {
                 logger.error(
@@ -670,7 +695,7 @@ class ProductGenerator {
   }
 
   async createCatalogOptions(config, options) {
-    const { logger } = this.ctx;
+    const { logger} = this.ctx;
     const categories = options.productCategories;
     logger.trace(
       `Creating catalog-level options for SKU variants... (Demo mode: ${options.demoMode})`
@@ -2004,19 +2029,25 @@ class ProductGenerator {
     const pdfCount = productDataList.filter((p) => p.attachments).length;
 
     if (imageCount > 0) {
-      getWs().emitBatchStarted({
-        batchId: 'images-processing',
-        entityType: 'images',
-        totalItems: imageCount,
-      });
+      getWs().emitBatchStarted(
+        {
+          batchId: 'images-processing',
+          entityType: 'images',
+          totalItems: imageCount,
+        },
+        { correlationId: config.correlationId }
+      );
     }
 
     if (pdfCount > 0) {
-      getWs().emitBatchStarted({
-        batchId: 'pdfs-processing',
-        entityType: 'pdfs',
-        totalItems: pdfCount,
-      });
+      getWs().emitBatchStarted(
+        {
+          batchId: 'pdfs-processing',
+          entityType: 'pdfs',
+          totalItems: pdfCount,
+        },
+        { correlationId: config.correlationId }
+      );
     }
 
     let imageProcessedCount = 0;
@@ -2081,13 +2112,16 @@ class ProductGenerator {
           }
 
           // Broadcast image progress
-          getWs().emitBatchProgress({
-            batchId: 'images-processing',
-            entityType: 'images',
-            completedCount: imageProcessedCount,
-            totalItems: imageCount,
-            progress: Math.round((imageProcessedCount / imageCount) * 100),
-          });
+          getWs().emitBatchProgress(
+            {
+              batchId: 'images-processing',
+              entityType: 'images',
+              completedCount: imageProcessedCount,
+              totalItems: imageCount,
+              progress: Math.round((imageProcessedCount / imageCount) * 100),
+            },
+            { correlationId: config.correlationId }
+          );
         }
 
         // Add PDFs/attachments
@@ -2139,13 +2173,16 @@ class ProductGenerator {
             pdfProcessedCount++;
           }
 
-          getWs().emitBatchProgress({
-            batchId: 'pdfs-processing',
-            entityType: 'pdfs',
-            completedCount: pdfProcessedCount,
-            totalItems: pdfCount,
-            progress: Math.round((pdfProcessedCount / pdfCount) * 100),
-          });
+          getWs().emitBatchProgress(
+            {
+              batchId: 'pdfs-processing',
+              entityType: 'pdfs',
+              completedCount: pdfProcessedCount,
+              totalItems: pdfCount,
+              progress: Math.round((pdfProcessedCount / pdfCount) * 100),
+            },
+            { correlationId: config.correlationId }
+          );
         }
       } catch (error) {
         logger.error(
@@ -2169,24 +2206,30 @@ class ProductGenerator {
 
     // Broadcast separate completion messages for images and PDFs
     if (imageCount > 0) {
-      getWs().emitBatchCompleted({
-        type: 'batch_completed',
-        entityType: 'images',
-        batchId: 'images-processing',
-        successCount: imageProcessedCount,
-        failureCount: imageErrors.length,
-        errors: imageErrors.slice(0, 5),
-      });
+      getWs().emitBatchCompleted(
+        {
+          type: BATCH_COMPLETED,
+          entityType: 'images',
+          batchId: 'images-processing',
+          successCount: imageProcessedCount,
+          failureCount: imageErrors.length,
+          errors: imageErrors.slice(0, 5),
+        },
+        { correlationId: config.correlationId }
+      );
     }
 
     if (pdfCount > 0) {
-      getWs().emitBatchCompleted({
-        batchId: 'pdfs-processing',
-        entityType: 'pdfs',
-        successCount: pdfProcessedCount,
-        failureCount: pdfErrors.length,
-        errors: pdfErrors.slice(0, 5),
-      });
+      getWs().emitBatchCompleted(
+        {
+          batchId: 'pdfs-processing',
+          entityType: 'pdfs',
+          successCount: pdfProcessedCount,
+          failureCount: pdfErrors.length,
+          errors: pdfErrors.slice(0, 5),
+        },
+        { correlationId: config.correlationId }
+      );
     }
 
     logger.info('Post-processing completed', {

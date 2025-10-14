@@ -48,11 +48,6 @@ const {
 
 const PORT = lookupConfig('server.port') || 3000;
 
-logger.debug(
-  '🔌 Initializing BatchPollingService with WebSocket server:',
-  !!ws.wss
-);
-
 registerDataGenerationWorkers();
 
 const lxcDXPServerProtocol = lookupConfig(

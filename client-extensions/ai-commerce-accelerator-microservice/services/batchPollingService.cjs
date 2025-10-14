@@ -3,6 +3,9 @@ const {
   delayCall,
   inferEntityTypeFromClassName,
 } = require('../utils/misc.cjs');
+const {
+  GENERATION_SESSION_COMPLETE,
+} = require('../utils/wsEvents.cjs');
 
 function extractIdFromLocation(location) {
   if (!location || typeof location !== 'string') return null;
@@ -76,7 +79,7 @@ class BatchPollingService {
       });
 
       const message = {
-        type: 'generation_session_complete',
+        type: GENERATION_SESSION_COMPLETE,
         sessionId,
         completedBatches: Array.from(session.completedBatches),
         timestamp: new Date().toISOString(),
@@ -171,6 +174,7 @@ class BatchPollingService {
         cache.set(
           `batch:${batchId}:config`,
           {
+            correlationId: config.correlationId,
             affectsProgress,
             entityType: entity,
             mode,
@@ -294,6 +298,7 @@ class BatchPollingService {
       cache.set(
         `batch:${batchId}:status`,
         {
+          correlationId: config?.correlationId ?? 'unknown',
           status: batchStatus,
           totalCount,
           processedCount,
@@ -411,10 +416,12 @@ class BatchPollingService {
       pollData?.entityType || batchConfig?.entityType || 'products';
     const affectsProgress = pollData?.affectsProgress ?? true;
     const mode = pollData?.mode || batchConfig?.mode || 'unknown';
+    const correlationId = batchConfig?.correlationId || 'unknown';
 
     cache.set(
       `batch:${batchId}:completed`,
       {
+        correlationId,
         totalItemsCount: totalCount,
         processedItemsCount: processedCount,
         entityType,
@@ -439,6 +446,7 @@ class BatchPollingService {
     this.stopPolling(batchId);
 
     const results = {
+      correlationId,
       batchId,
       status: 'COMPLETED',
       totalCount,
@@ -466,29 +474,27 @@ class BatchPollingService {
     });
 
     const message = {
-      type: 'batch_completed',
-      mode,
-      activityOnly: !affectsProgress,
       batchId,
       entityType,
       successCount: results.processedCount,
       failureCount: results.errorCount,
       details: {
-        batchId: results.batchId,
         status: results.status,
         totalCount: results.totalCount,
         processedCount: results.processedCount,
         errorCount: results.errorCount,
         completedAt: results.completedAt,
+        mode,
+        activityOnly: !affectsProgress,
       },
-      timestamp: new Date().toISOString(),
+      correlationId,
     };
 
     logger.info('🔥 Broadcasting batch completion message:', {
       payload: message,
     });
 
-    const { ok, fail, total } = await getWs().broadcastWithRetry(message);
+    const { ok, fail, total } = await getWs().emitBatchCompleted(message);
 
     logger.trace('📊 WebSocket broadcast summary', {
       operation: 'websocket-broadcast',
@@ -512,7 +518,7 @@ class BatchPollingService {
   }
 
   async handleBatchFailed(batchId, status) {
-    const { logger, cache } = this.ctx;
+    const { logger, cache, getWs } = this.ctx;
     if (cache.get(`batch:${batchId}:failed`)) return;
     cache.set(`batch:${batchId}:failed`, true, 300000);
 
@@ -531,6 +537,7 @@ class BatchPollingService {
     cache.set(
       `batch:${batchId}:failed`,
       {
+        correlationId: config.correlationId,
         totalItemsCount: totalCount,
         processedItemsCount: processedCount,
         failedItemsLength: status.failedItems?.length,
@@ -557,6 +564,7 @@ class BatchPollingService {
     this.stopPolling(batchId);
 
     const results = {
+      correlationId: config.correlationId,
       batchId,
       status: 'FAILED',
       totalCount,
@@ -582,10 +590,10 @@ class BatchPollingService {
       errorCount: results.errorCount,
       entityType,
       mode,
+      correlationId: results.correlationId,
     });
 
     const message = {
-      type: 'batch_failed',
       batchId,
       entityType,
       error: `Batch failed with ${results.errorCount} errors`,
@@ -597,10 +605,10 @@ class BatchPollingService {
         errorCount: results.errorCount,
         failedAt: results.failedAt,
       },
-      timestamp: new Date().toISOString(),
+      correlationId: results.correlationId,
     };
 
-    const { ok, fail, total } = await getWs().broadcastWithRetry(message);
+    const { ok, fail, total } = await getWs().emitBatchFailed(message);
 
     logger.debug('📊 WebSocket broadcast summary', {
       operation: 'websocket-broadcast',

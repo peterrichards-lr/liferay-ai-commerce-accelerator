@@ -28,7 +28,7 @@ const batchPollingService = new BatchPollingService({
   logger,
   liferay: liferayService,
   cache: cacheService,
-  getWs
+  getWs,
 });
 
 const batchProcessorService = new BatchProcessorService({ logger });
@@ -86,6 +86,7 @@ module.exports = {
   cacheService,
   configService,
   deleteCoordinatorService,
+  getWs,
   healthService,
   liferayService,
   mediaGenerator,

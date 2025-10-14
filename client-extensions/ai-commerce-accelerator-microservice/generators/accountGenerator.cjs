@@ -120,6 +120,7 @@ class AccountGenerator {
             const maxPollAttempts = config.maxPollAttempts || 120; // Default 10 minutes
 
             const batchConfig = {
+              correlationId,
               clientId: config.clientId,
               clientSecret: config.clientSecret,
               createdAt: new Date().toISOString(),
@@ -318,6 +319,7 @@ class AccountGenerator {
       cache.set(
         `batch:${batchId}:config`,
         {
+          correlationId,
           clientId: config.clientId,
           clientSecret: config.clientSecret,
           createdAt: new Date().toISOString(),

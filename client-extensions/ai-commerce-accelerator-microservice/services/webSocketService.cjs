@@ -1,7 +1,26 @@
 const WebSocket = require('ws');
-const { BATCH_START } = require('../utils/wsEvents.cjs');
+const {
+  BATCH_START,
+  BATCH_PROGRESS,
+  GENERATION_SESSION_COMPLETE,
+  POSTPROC_COMPLETED,
+  POSTPROC_PROGRESS,
+  POSTPROC_STARTED,
+  SESSION_COMPLETE,
+  BATCH_COMPLETED,
+  BATCH_FAILED,
+  BATCH_SUBSCRIPTION_CONFIRMED,
+  GENERATION_PROGRESS,
+} = require('../utils/wsEvents.cjs');
 const { CORRELATION_ID_HEADER } = require('../utils/sharedConstants.cjs');
-const { delay } = require('../utils/misc.cjs');
+const { delay, safeJSON, isoNow } = require('../utils/misc.cjs');
+
+function normalizeRetries(retries) {
+  if (!retries) return [];
+  if (Array.isArray(retries)) return retries;
+  const n = Math.max(0, Number(retries) || 0);
+  return Array.from({ length: n }, () => 500);
+}
 
 function createWebSocketService({
   server,
@@ -11,22 +30,91 @@ function createWebSocketService({
   if (!server) throw new Error('webSocketService requires an HTTP server');
 
   const wss = new WebSocket.Server({ server });
+  const clients = new Map();
+  const byBatch = new Map();
 
-  // Track subscribers (optionally by batch)
-  const clients = new Set(); // all sockets
-  const byBatch = new Map(); // batchId -> Set<ws>
+  function resolveTargets({ mode = 'auto', correlationId, batchId }, payload) {
+    // prefer explicit, otherwise infer from payload
+    const cid = correlationId ?? payload?.correlationId;
+    const bid = batchId ?? payload?.batchId;
 
-  // Basic helpers
-  const safeJSON = (o) => JSON.stringify(o);
-  const safeSend = (ws, payload) => {
-    try {
-      if (ws.readyState === WebSocket.OPEN) ws.send(safeJSON(payload));
-    } catch (err) {
-      logger?.warn?.('WS send failed:', err?.message || err);
+    if (mode === 'unicast' || (mode === 'auto' && cid)) {
+      const c = clients.get(cid);
+      return c ? [c] : [];
     }
-  };
 
-  // Connection handling
+    if (mode === 'batch' || (mode === 'auto' && bid && byBatch.has(bid))) {
+      return byBatch.get(bid) || [];
+    }
+
+    // broadcast (default)
+    return clients;
+  }
+
+  function sendOnce(packet, targets) {
+    let sent = 0,
+      open = 0,
+      errors = 0;
+    for (const ws of targets) {
+      if (!ws || ws.readyState !== WebSocket.OPEN) {
+        continue;
+      }
+      open++;
+      try {
+        ws.send(packet);
+        sent++;
+      } catch {
+        errors++;
+      }
+    }
+    return { sent, open, errors };
+  }
+
+  function deliver(message, opts = {}) {
+    const {
+      mode = 'auto', // 'auto' | 'unicast' | 'batch' | 'broadcast'
+      correlationId,
+      batchId,
+      retries = [300, 1500],
+      fireAndForget = false,
+      onAttempt, // (attemptIndex, result) => void
+    } = opts;
+
+    const packet = safeJSON(message);
+    const schedule = normalizeRetries(retries);
+
+    const run = async () => {
+      const targets = resolveTargets({ mode, correlationId, batchId }, message);
+      logger?.trace?.(
+        `ws:send -> mode=${mode} cid=${correlationId ?? '∅'} bid=${
+          batchId ?? '∅'
+        } targets=${targets.length}`
+      );
+
+      let last = sendOnce(packet, targets);
+      onAttempt?.(0, last);
+      for (let i = 0; i < schedule.length; i++) {
+        if (last.sent > 0) break;
+        await delay(schedule[i]);
+        const retryTargets = resolveTargets(
+          { mode, correlationId, batchId },
+          message
+        );
+        last = sendOnce(packet, retryTargets);
+        onAttempt?.(i + 1, last);
+      }
+      return { attempts: schedule.length + 1, last };
+    };
+
+    if (fireAndForget) {
+      run().catch((e) =>
+        logger?.warn?.('ws:fire-and-forget error', { error: e?.message })
+      );
+      return;
+    }
+    return run();
+  }
+
   wss.on('connection', (ws, req) => {
     try {
       const url = new URL(req.url, `http://${req.headers.host}`);
@@ -39,7 +127,7 @@ function createWebSocketService({
     ws.isAlive = true;
     ws.url = req.headers.origin;
     ws.ip = req.socket.remoteAddress;
-    clients.add(ws);
+    clients.set(ws.correlationId, ws);
 
     logger?.info?.('WebSocket connection', {
       operation: 'websocket-connect',
@@ -58,13 +146,13 @@ function createWebSocketService({
       try {
         msg = JSON.parse(buf.toString('utf8'));
       } catch {
-        safeSend(ws, { type: 'error', message: 'Invalid message format' });
+        deliver(ws, { type: 'error', message: 'Invalid message format' });
         return;
       }
 
       switch (msg?.type) {
         case 'ping':
-          safeSend(ws, { type: 'pong', seq: msg.seq, timestamp: now() });
+          deliver(ws, { type: 'pong', seq: msg.seq, timestamp: isoNow() });
           break;
 
         case 'subscribe-batch': {
@@ -74,10 +162,10 @@ function createWebSocketService({
           let set = byBatch.get(batchId);
           if (!set) byBatch.set(batchId, (set = new Set()));
           set.add(ws);
-          safeSend(ws, {
-            type: 'batch_subscription_confirmed',
+          deliver(ws, {
+            type: BATCH_SUBSCRIPTION_CONFIRMED,
             batchId,
-            timestamp: now(),
+            timestamp: isoNow(),
           });
           break;
         }
@@ -95,10 +183,10 @@ function createWebSocketService({
         }
 
         default:
-          safeSend(ws, {
+          deliver(ws, {
             type: 'error',
             message: `Unknown message type: ${msg?.type}`,
-            timestamp: now(),
+            timestamp: isoNow(),
           });
       }
     });
@@ -130,7 +218,7 @@ function createWebSocketService({
     });
 
     // greet
-    safeSend(ws, { type: 'connected', timestamp: now() });
+    deliver(ws, { type: 'connected', timestamp: isoNow() });
   });
 
   // Health check loop
@@ -153,155 +241,210 @@ function createWebSocketService({
     }
   }, heartbeatIntervalMs);
 
-  // Broadcast helpers
-  function broadcast(payload, { batchId } = {}) {
-    const packet = safeJSON(payload);
-    let targets;
-
-    if (batchId && byBatch.has(batchId)) {
-      targets = byBatch.get(batchId);
-    } else if (payload?.batchId && byBatch.has(payload.batchId)) {
-      targets = byBatch.get(payload.batchId);
-    } else {
-      targets = clients;
-    }
-
-    let sent = 0;
-    for (const ws of targets) {
-      if (ws.readyState === WebSocket.OPEN) {
-        try {
-          ws.send(packet);
-          sent++;
-        } catch {}
-      }
-    }
-    return sent;
+  async function emit(message, opts = {}) {
+    return deliver(message, opts);
   }
 
-  // Emitters that match your UI hook
-  const emitBatchStarted = ({ batchId, entityType, totalItems }) =>
-    broadcast({
+  const emitBatchStarted = (
+    { batchId, entityType, details = {}, correlationId },
+    opts = {}
+  ) => {
+    const payload = {
       type: BATCH_START,
-      batchId,
-      entityType,
-      totalItems,
-      timestamp: now(),
-    });
 
-  const emitBatchProgress = ({
-    batchId,
-    entityType,
-    completedCount,
-    totalItems,
-    progress,
-  }) =>
-    broadcast({
-      type: 'batch_progress',
+      entityType,
+      details: {
+        ...details,
+        batchId,
+      },
+      timestamp: isoNow(),
+    };
+
+    return emit(payload, { ...opts, batchId, correlationId });
+  };
+
+  const emitBatchProgress = (
+    {
       batchId,
       entityType,
       completedCount,
       totalItems,
+      correlationId,
       progress,
-      timestamp: now(),
-    });
+      details = {},
+    },
+    opts = {}
+  ) => {
+    const payload = {
+      type: BATCH_PROGRESS,
 
-  const emitBatchCompleted = ({
-    batchId,
-    entityType,
-    successCount,
-    failureCount = 0,
-    errors = [],
-  }) =>
-    broadcast({
-      type: 'batch_completed',
+      entityType,
+      details: {
+        ...details,
+        batchId,
+        completedCount,
+        totalItems,
+        progress,
+      },
+      timestamp: isoNow(),
+    };
+    return emit(payload, { ...opts, batchId, correlationId });
+  };
+
+  const emitBatchCompleted = (
+    {
       batchId,
       entityType,
       successCount,
-      failureCount,
-      errors,
-      timestamp: now(),
-    });
-
-  const emitSessionCompleted = ({ entityType }) =>
-    broadcast({ type: 'session_completed', entityType, timestamp: now() });
-
-  const emitPostProcessingStarted = ({ entityType }) =>
-    broadcast({
-      type: 'post_processing_started',
+      failureCount = 0,
+      correlationId,
+      errors = [],
+      details = {},
+    },
+    opts = {}
+  ) => {
+    const payload = {
+      type: BATCH_COMPLETED,
       entityType,
-      timestamp: now(),
-    });
-
-  const emitPostProcessingProgress = ({
-    entityType,
-    processedCount,
-    totalCount,
-    progress,
-  }) =>
-    broadcast({
-      type: 'post_processing_progress',
-      entityType,
-      data: { processedCount, totalCount, progress },
-      timestamp: now(),
-    });
-
-  const emitPostProcessingCompleted = ({
-    entityType,
-    processedCount,
-    totalCount,
-    errorCount = 0,
-    errors = [],
-  }) =>
-    broadcast({
-      type: 'post_processing_completed',
-      entityType,
-      data: { processedCount, totalCount, errorCount, errors },
-      timestamp: now(),
-    });
-
-  const emitGenerationSessionComplete = () =>
-    broadcast({ type: 'generation_session_complete', timestamp: now() });
-
-  const emitGenerationProgress = ({
-    percent,
-    message,
-    phase,
-    batchId,
-    entityType,
-  } = {}) =>
-    broadcast(
-      {
-        type: 'generation-progress',
-        percent,
-        message,
-        phase,
-        entityType,
-        ...(batchId ? { batchId } : {}),
-        timestamp: new Date().toISOString(),
+      details: {
+        ...details,
+        batchId,
+        successCount,
+        failureCount,
+        errors,
       },
-      { batchId }
-    );
+      timestamp: isoNow(),
+    };
+    return emit(payload, { ...opts, batchId, correlationId });
+  };
 
-  const emitBatchFailed = ({
-    batchId,
-    entityType,
-    error,
-    successCount = 0,
-    failureCount = 0,
-    details = {},
-  }) =>
-    broadcast({
-      type: 'batch_failed',
+  const emitSessionCompleted = (
+    { entityType, correlationId, details = {} },
+    opts = {}
+  ) => {
+    const payload = { type: SESSION_COMPLETE, entityType, details, timestamp };
+    return emit(payload, { ...opts, correlationId });
+  };
+
+  const emitPostProcessingStarted = (
+    { entityType, correlationId, details = {} },
+    opts = {}
+  ) => {
+    const payload = {
+      type: POSTPROC_STARTED,
+      entityType,
+      details,
+      timestamp: isoNow(),
+    };
+
+    return emit(payload, { ...opts, correlationId });
+  };
+
+  const emitPostProcessingProgress = (
+    {
+      entityType,
+      processedCount,
+      totalCount,
+      correlationId,
+      progress,
+      details = {},
+    },
+    opts = {}
+  ) => {
+    const payload = {
+      type: POSTPROC_PROGRESS,
+      entityType,
+      details: { ...details, processedCount, totalCount, progress },
+      timestamp: isoNow(),
+    };
+
+    return emit(payload, { ...opts, batchId, correlationId });
+  };
+
+  const emitPostProcessingCompleted = (
+    {
+      entityType,
+      processedCount,
+      totalCount,
+      errorCount = 0,
+      correlationId,
+      errors = [],
+      details = {},
+    },
+    opts = {}
+  ) => {
+    const payload = {
+      type: POSTPROC_COMPLETED,
+      entityType,
+      details: { ...details, processedCount, totalCount, errorCount, errors },
+      timestamp: isoNow(),
+    };
+
+    return emit(payload, { ...opts, batchId, correlationId });
+  };
+
+  const emitGenerationSessionComplete = (
+    { correlationId, details = {} },
+    opts = {}
+  ) => {
+    const payload = {
+      type: GENERATION_SESSION_COMPLETE,
+      details,
+      timestamp: isoNow(),
+    };
+    return emit(payload, { ...opts, batchId, correlationId });
+  };
+
+  const emitGenerationProgress = (
+    {
+      percent,
+      message,
+      phase,
+      batchId,
+      correlationId,
+      entityType,
+      details = {},
+    },
+    opts = {}
+  ) => {
+    const payload = {
+      type: GENERATION_PROGRESS,
+      entityType,
+      details: { ...details, percent, message, phase, batchId },
+      timestamp: isoNow(),
+    };
+
+    return emit(payload, { ...opts, batchId, correlationId });
+  };
+
+  const emitBatchFailed = (
+    {
       batchId,
       entityType,
       error,
-      successCount,
-      failureCount,
-      details,
-      timestamp: new Date().toISOString(),
-    });
+      successCount = 0,
+      failureCount = 0,
+      correlationId,
+      details = {},
+    },
+    opts = {}
+  ) => {
+    const payload = {
+      type: BATCH_FAILED,
+      entityType,
+      details: {
+        ...details,
+        error,
+        successCount,
+        failureCount,
+        batchId,
+      },
+      timestamp: isoNow(),
+    };
+    return emit(payload, { ...opts, batchId, correlationId });
+  };
 
-  function stop() {
+  const stop = () => {
     clearInterval(heartbeat);
     for (const ws of clients) {
       try {
@@ -312,29 +455,13 @@ function createWebSocketService({
     try {
       wss.close();
     } catch {}
-  }
-
-  const now = () => new Date().toISOString();
-
-  const broadcastWithRetry = async (message, retries = [300, 1500]) => {
-    let result = broadcast(message);
-    for (const retryDelay of retries) {
-      if (result.ok > 0) return result;
-      delay(retryDelay);
-      result = broadcast(message);
-    }
-    return result;
   };
 
   const clientCount = () => {
     return clients.size || 0;
   };
 
-  // Public API
   return {
-    wss, // keep for legacy constructors that expect the raw server
-    broadcast,
-    broadcastWithRetry,
     clientCount,
     emitBatchStarted,
     emitBatchProgress,

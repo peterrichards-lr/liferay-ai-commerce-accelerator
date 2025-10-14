@@ -5,6 +5,10 @@ function getRandomInt(max) {
   return Math.floor(Math.random() * max);
 }
 
+function isoNow() {
+  return new Date().toISOString();
+}
+
 function createErrorReference(prefix = 'LIFR') {
   return `${prefix}-${Date.now()}-${uuidv4().slice(0, 8)}`;
 }
@@ -302,6 +306,14 @@ function inferEntityTypeFromClassName(className = '') {
   return 'unknown';
 }
 
+const safeJSON = (obj) => {
+  try {
+    return JSON.stringify(obj);
+  } catch {
+    return '{}';
+  }
+};
+
 module.exports = {
   buildDataUrl,
   createErrorReference,
@@ -313,6 +325,8 @@ module.exports = {
   handleDemoOrderGeneration,
   handleDemoProductGeneration,
   inferEntityTypeFromClassName,
+  isoNow,
   parseDataUrl,
   ratioTrigger,
+  safeJSON,
 };

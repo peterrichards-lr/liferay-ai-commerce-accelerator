@@ -102,7 +102,7 @@ class LiferayService {
         errorReference: problem?.errorReference,
         problem,
         responseBody:
-          typeof body === 'string' ? body : this._stringifySafe(body),
+          typeof body === 'string' ? body : body ? this._stringifySafe(body) : null,
         headers,
         responseHeaders: resHeaders,
       });
