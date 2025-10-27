@@ -38,7 +38,7 @@ class BatchPollingService {
       operation: 'generation-session-register',
       sessionId,
       batchIds: Array.from(batchIds),
-      totalExpected: totalExpectedBatches,
+      totalExpected: totalExpected,
     });
   }
 
@@ -655,7 +655,7 @@ class BatchPollingService {
       });
 
       const allDone =
-        s.completedBatches.size >= s.totalExpected && s.totalExpected > 0;
+        session.completedBatches.size >= session.totalExpected && session.totalExpected > 0;
       if (allDone) {
         logger.info('Generation session completed - all batches finished', {
           operation: 'generation-session-complete',
@@ -665,8 +665,8 @@ class BatchPollingService {
           completedBatches: session.completedBatches.size,
         });
 
-        const hook = s.onSessionComplete;
-        const ctx = s.context;
+        const hook = session.onSessionComplete;
+        const ctx = session.context;
 
         this.generationSessions.delete(sessionId);
 

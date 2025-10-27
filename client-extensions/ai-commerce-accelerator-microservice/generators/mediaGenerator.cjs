@@ -42,7 +42,7 @@ class MediaGenerator {
     }
   }
 
-  async getgetDefaultBase64PdfDataUrl(config) {
+  async getDefaultBase64PdfDataUrl(config) {
     const pdf = await this.getDefaultBase64Pdf(config);
     return buildDataUrl(pdf);
   }

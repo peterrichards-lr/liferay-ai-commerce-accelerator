@@ -240,7 +240,7 @@ module.exports = (
           const msg = {
             type: BATCH_FAILED,
             batchId,
-            entityType,
+            entityType: batchConfig.entityType,
             error: batchStatus.errorMessage,
           };
           getWs().emitBatchFailed(msg, { correlationId });

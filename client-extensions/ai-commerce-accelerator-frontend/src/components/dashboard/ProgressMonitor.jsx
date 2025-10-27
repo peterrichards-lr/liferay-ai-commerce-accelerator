@@ -149,7 +149,7 @@ function ProgressMonitor({ generationConfig, progress }) {
               </h6>
               <span className="progress-count">
                 {progress.images?.completed || 0} /{' '}
-                {progress.images?.total || progress.images?.expected}
+                {progress.images?.total}
               </span>
             </div>
             <div className="progress-bar-container">
@@ -181,7 +181,7 @@ function ProgressMonitor({ generationConfig, progress }) {
                   Image generation disabled
                 </small>
               )}
-            {((progress.images?.expected > 0 && progress.images?.total === 0) ||
+            {((progress.images?.expected > 0) ||
               progress.images?.completed < progress.images?.total) && (
               <small className="info-text">
                 <i className="icon icon-info"></i>
@@ -199,7 +199,7 @@ function ProgressMonitor({ generationConfig, progress }) {
               </h6>
               <span className="progress-count">
                 {progress.pdfs.completed} /{' '}
-                {progress.pdfs.total || progress.pdfs.expected}
+                {progress.pdfs.total}
               </span>
             </div>
             <div className="progress-bar-container">
@@ -231,7 +231,7 @@ function ProgressMonitor({ generationConfig, progress }) {
                   PDF generation disabled
                 </small>
               )}
-            {((progress.pdf?.expected > 0 && progress.pdfs?.total === 0) ||
+            {((progress.pdfs?.expected > 0) ||
               progress.pdfs?.completed < progress.pdfs?.total) && (
               <small className="info-text">
                 <i className="icon icon-info"></i>

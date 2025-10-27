@@ -26,13 +26,8 @@ export const getTotalProgress = (progress) => {
   };
 };
 
-export const computeActualProductTotal = (generationConfig) => {
-  const productCount = Number.parseInt(generationConfig?.productCount, 10) || 0;
-  const categoryCount = Array.isArray(generationConfig?.categories)
-    ? generationConfig.categories.length
-    : 0;
-  return productCount * categoryCount;
-};
+export const computeProductTotal = (generationConfig) =>
+  Number.parseInt(generationConfig?.productCount, 10) || 0;
 
 export const computeAccountTotal = (generationConfig) =>
   Number.parseInt(generationConfig?.accountCount, 10) || 0;
@@ -41,31 +36,21 @@ export const computeOrderTotal = (generationConfig) =>
   Number.parseInt(generationConfig?.orderCount, 10) || 0;
 
 export const computeTotalsFromConfig = (generationConfig) => ({
-  products:
-    (Number.parseInt(generationConfig?.productCount, 10) || 0) *
-    (Array.isArray(generationConfig?.categories)
-      ? generationConfig.categories.length
-      : 0),
+  products: computeProductTotal(generationConfig),
   accounts: computeAccountTotal(generationConfig),
   orders: computeOrderTotal(generationConfig),
   images: expectedImageTotal(generationConfig),
-  pdf: expectedPdfTotal(generationConfig),
+  pdfs: expectedPdfTotal(generationConfig),
 });
 
 export const expectedImageTotal = (generationConfig) => {
-  const totalProducts =
-    generationConfig.imageMode !== 'none'
-      ? computeActualProductTotal(generationConfig)
-      : 0;
+  if (generationConfig.imageMode === 'none') return 0;
   const ratio = Number(generationConfig?.imageRatio) || 0;
-  return Math.round((totalProducts * ratio) / 100);
+  return Math.round((generationConfig.productCount * ratio) / 100);
 };
 
 export const expectedPdfTotal = (generationConfig) => {
-  const totalProducts =
-    generationConfig.pdfMode !== 'none'
-      ? computeActualProductTotal(generationConfig)
-      : 0;
+  if (generationConfig.pdfMode === 'none') return 0;
   const ratio = Number(generationConfig?.pdfRatio) || 0;
-  return Math.round((totalProducts * ratio) / 100);
+  return Math.round((generationConfig.productCount * ratio) / 100);
 };

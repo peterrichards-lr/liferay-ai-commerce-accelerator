@@ -9,7 +9,4 @@ function normalizeEntityType(t) {
   return s;
 }
 
-const clampToTotal = (total, n) =>
-  Math.max(0, Math.min(Number.isFinite(total) ? total : n, n));
-
-export { clampToTotal, normalizeEntityType };
+export { normalizeEntityType };

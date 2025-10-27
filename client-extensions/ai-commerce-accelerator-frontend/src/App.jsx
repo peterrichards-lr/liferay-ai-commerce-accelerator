@@ -16,7 +16,6 @@ import {
   computeTotalsFromConfig,
   expectedImageTotal,
   expectedPdfTotal,
-  clampCompleted,
 } from './state/progressSelectors';
 
 import notifyUser from './utils/notifications';
@@ -224,14 +223,12 @@ export function AppUI() {
       : 'connecting';
 
   useEffect(() => {
-    // Force demo mode when no OpenAI key is available
     if (!openAiKeyAvailable) {
       setGenerationConfig((prev) =>
         prev.demoMode ? prev : { ...prev, demoMode: true }
       );
       console.log('🔄 Demo mode enforced - OpenAI key not available');
     }
-    // When key becomes available, user has choice (no auto-disable)
   }, [openAiKeyAvailable]);
 
   useEffect(() => {
@@ -240,65 +237,24 @@ export function AppUI() {
     const { products, accounts, orders, images, pdfs } =
       computeTotalsFromConfig(generationConfig);
 
-    setProgress((prev) => {
-      let changed = false;
+    dispatch({
+      type: 'SET_EXPECTED_VALUES',
+      values: { images, pdfs },
+    });
 
-      const next = { ...prev };
-
-      if (prev.products?.total !== products) {
-        changed = true;
-        next.products = {
-          ...prev.products,
-          total: products,
-          completed: clampCompleted(prev.products.completed, products),
-        };
-      }
-
-      if (prev.accounts?.total !== accounts) {
-        changed = true;
-        next.accounts = {
-          ...prev.accounts,
-          total: accounts,
-          completed: clampCompleted(prev.accounts.completed, accounts),
-        };
-      }
-
-      if (prev.orders?.total !== orders) {
-        changed = true;
-        next.orders = {
-          ...prev.orders,
-          total: orders,
-          // completed: clampCompleted(prev.orders.completed, orders),
-        };
-      }
-
-      if (prev.images?.total !== images) {
-        changed = true;
-        next.images = {
-          ...prev.images,
-          total: images,
-          // completed: clampCompleted(prev.images.completed, images),
-        };
-      }
-
-      if (prev.pdfs?.total !== images) {
-        changed = true;
-        next.pdfs = {
-          ...prev.pdfs,
-          total: pdfs,
-          // completed: clampCompleted(prev.images.completed, images),
-        };
-      }
-
-      return changed ? next : prev;
+    dispatch({
+      type: 'SET_TOTALS',
+      totals: { products, accounts, orders, images, pdfs },
     });
   }, [
     isGenerating,
     generationConfig.productCount,
-    generationConfig.categories,
     generationConfig.accountCount,
     generationConfig.orderCount,
-    setProgress,
+    generationConfig.imageMode,
+    generationConfig.imageRatio,
+    generationConfig.pdfMode,
+    generationConfig.pdfRatio,
   ]);
 
   const exportConfiguration = () => {
@@ -332,7 +288,6 @@ export function AppUI() {
         try {
           const importedData = JSON.parse(e.target.result);
 
-          // Only validate fields that are actually present in the imported data
           const fieldsToValidate = ['liferayUrl', 'clientId', 'clientSecret'];
           const missingFields = [];
 
@@ -353,7 +308,6 @@ export function AppUI() {
             return;
           }
 
-          // Check if connection parameters will change
           const connectionParamsWillChange =
             (importedData.hasOwnProperty('liferayUrl') &&
               config.liferayUrl !== importedData.liferayUrl) ||
@@ -362,7 +316,6 @@ export function AppUI() {
             (importedData.hasOwnProperty('clientSecret') &&
               config.clientSecret !== importedData.clientSecret);
 
-          // Import general configuration fields
           const allowedConfigFields = [
             'liferayUrl',
             'microserviceUrl',
@@ -487,41 +440,37 @@ export function AppUI() {
       });
 
       if (mountedRef.current) setIsGenerating(true);
-      setProgress({
-        products: {
-          total:
-            (Number(generationConfig.productCount) || 0) *
-            (generationConfig.categories?.length || 0),
-          completed: 0,
-          errors: [],
+
+      const { products, accounts, orders, images, pdfs } =
+        computeTotalsFromConfig(generationConfig);
+
+      dispatch({
+        type: 'SET_TOTALS',
+        totals: {
+          products,
+          accounts,
+          orders,
+          images,
+          pdfs,
         },
-        accounts: {
-          total: generationConfig.accountCount,
-          completed: 0,
-          errors: [],
+      });
+
+      dispatch({
+        type: 'SET_EXPECTED_VALUES',
+        values: {
+          images,
+          pdfs,
         },
-        orders: {
-          total: generationConfig.orderCount,
-          completed: 0,
-          errors: [],
-        },
-        images: {
-          completed: 0,
-          total: Math.ceil(
-            (Number(generationConfig.productCount) || 0) *
-              (generationConfig.categories?.length || 0) *
-              ((Number(generationConfig.imageRatio) || 0) / 100)
-          ),
-          errors: [],
-        },
-        pdfs: {
-          completed: 0,
-          total: Math.ceil(
-            (Number(generationConfig.productCount) || 0) *
-              (generationConfig.categories?.length || 0) *
-              ((Number(generationConfig.pdfRatio) || 0) / 100)
-          ),
-          errors: [],
+      });
+
+      dispatch({
+        type: 'MERGE',
+        payload: {
+          products: { ...progress.products, completed: 0, errors: [] },
+          accounts: { ...progress.accounts, completed: 0, errors: [] },
+          orders: { ...progress.orders, completed: 0, errors: [] },
+          images: { ...progress.images, completed: 0, errors: [] },
+          pdfs: { ...progress.pdfs, completed: 0, errors: [] },
         },
       });
 
@@ -589,7 +538,6 @@ export function AppUI() {
               let response;
 
               if (imageFile || pdfFile) {
-                // Multipart: meta as fields, plus files
                 const form = toFormData(basePayload, {
                   customImageFile: imageFile,
                   customPDFFile: pdfFile,
@@ -734,7 +682,7 @@ export function AppUI() {
                       ...prev,
                       accounts: {
                         ...prev.accounts,
-                        completed: Math.min(nextCompleted, total), // clamp to total
+                        completed: Math.min(nextCompleted, total),
                       },
                     };
                   });
@@ -1107,7 +1055,6 @@ export function AppUI() {
     const chObj = await loadChannelDependent(channelObjOrId);
     if (!chObj) return;
 
-    // Re-apply selections AFTER options load
     setConfig((prev) => {
       const available = new Set(
         (languages || []).map((l) => l.code ?? l.locale ?? l.id)

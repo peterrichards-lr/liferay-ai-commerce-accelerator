@@ -41,10 +41,57 @@ export function progressReducer(state, action) {
       return { ...state, [entity]: { ...cur, expected } };
     }
 
+    case 'SET_EXPECTED_VALUES': {
+      const { values } = action;
+      return {
+        ...state,
+        images: {
+          ...state.images,
+          expected: values.images,
+        },
+        pdfs: {
+          ...state.pdfs,
+          expected: values.pdfs,
+        },
+      };
+    }
+
     case 'SET_TOTAL': {
       const { entity, total } = action;
       const cur = state[entity] || { total: 0, completed: 0, errors: [] };
       return { ...state, [entity]: { ...cur, total } };
+    }
+
+    case 'SET_TOTALS': {
+      const { totals } = action;
+      return {
+        ...state,
+        products: {
+          ...state.products,
+          total: totals.products,
+          completed: Math.min(state.products.completed, totals.products),
+        },
+        accounts: {
+          ...state.accounts,
+          total: totals.accounts,
+          completed: Math.min(state.accounts.completed, totals.accounts),
+        },
+        orders: {
+          ...state.orders,
+          total: totals.orders,
+          completed: Math.min(state.orders.completed, totals.orders),
+        },
+        images: {
+          ...state.images,
+          total: totals.images,
+          completed: Math.min(state.images.completed, totals.images),
+        },
+        pdfs: {
+          ...state.pdfs,
+          total: totals.pdfs,
+          completed: Math.min(state.pdfs.completed, totals.pdfs),
+        },
+      };
     }
 
     case 'SET_COMPLETED': {

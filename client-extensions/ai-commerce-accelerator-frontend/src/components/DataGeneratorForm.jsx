@@ -56,8 +56,7 @@ function DataGeneratorForm({
       total += baseCost;
     }
 
-    // NOTE: If you're fully on enums, switch these two to imageMode/pdfMode === 'generate'
-    if (generationConfig.generateImages && generationConfig.productCount > 0) {
+    if (generationConfig.imageMode === 'generate' && generationConfig.productCount > 0) {
       const imageCount = Math.ceil(
         generationConfig.productCount * (generationConfig.imageRatio / 100)
       );
@@ -68,7 +67,7 @@ function DataGeneratorForm({
       total += imageCost;
     }
 
-    if (generationConfig.generatePDFs && generationConfig.productCount > 0) {
+    if (generationConfig.pdfMode === 'generate' && generationConfig.productCount > 0) {
       const pdfCount = Math.ceil(
         generationConfig.productCount * (generationConfig.pdfRatio / 100)
       );
@@ -138,9 +137,6 @@ function DataGeneratorForm({
               <div className="form-group">
                 <label htmlFor="dataGeneration_productCount">
                   Products to Generate
-                  <small className="config-subtitle">
-                    (Number per selected category)
-                  </small>
                 </label>
                 <input
                   id="dataGeneration_productCount"
