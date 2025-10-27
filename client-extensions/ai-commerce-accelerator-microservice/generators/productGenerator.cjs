@@ -10,8 +10,104 @@ class ProductGenerator {
     this.ctx = ctx;
   }
 
+  createOnSessionComplete() {
+    const { logger, cache, getWs } = this.ctx;
+
+    // (optional) idempotency so duplicates do nothing
+    const markOnce = (sessionId) => {
+      const onceKey = `session:${sessionId}:postproc:done`;
+      if (cache.get(onceKey)) return false;
+      cache.set(onceKey, true, 30 * 60 * 1000);
+      return true;
+    };
+
+    return async ({ sessionId, session, correlationId }) => {
+      if (!markOnce(sessionId)) {
+        logger.warn('Post-processing already handled for session', {
+          operation: 'post-processing-idempotent-skip',
+          sessionId,
+          correlationId,
+        });
+        return;
+      }
+
+      logger.info('Generation session complete; triggering post-processing', {
+        operation: 'post-processing-trigger',
+        sessionId,
+        completedBatches: Array.from(session.completedBatches),
+        correlationId,
+      });
+
+      getWs().emitGenerationSessionComplete(
+        {
+          type: 'generation_session_complete',
+          sessionId,
+          completedBatches: Array.from(session.completedBatches),
+          timestamp: new Date().toISOString(),
+        },
+        { correlationId }
+      );
+
+      const ctxKey = `session:${sessionId}:context`;
+      const sessionContext = cache.get(ctxKey);
+
+      if (!sessionContext) {
+        logger.warn('No session context found for post-processing', {
+          operation: 'post-processing-no-context',
+          sessionId,
+          correlationId,
+        });
+        return;
+      }
+
+      const { config, productDataList, preparedProducts, options } =
+        sessionContext;
+
+      // decide whether there’s any work
+      const demoMode = !!options?.demoMode;
+      const hasImages = demoMode
+        ? (options?.imageRatio ?? 0) > 0
+        : !!(options?.generateImages && (options?.imageRatio ?? 0) > 0);
+
+      const hasPDFs = demoMode
+        ? (options?.pdfRatio ?? 0) > 0
+        : !!(options?.generatePDFs && (options?.pdfRatio ?? 0) > 0);
+
+      const hasAttachments =
+        Array.isArray(productDataList) &&
+        productDataList.some((p) => p.images?.length || p.attachments?.length);
+
+      if (!(hasImages || hasPDFs || hasAttachments)) {
+        logger.info('No post-processing work required', {
+          operation: 'post-processing-skip',
+          sessionId,
+          correlationId,
+          imageRatio: options?.imageRatio ?? 0,
+          pdfRatio: options?.pdfRatio ?? 0,
+        });
+        return;
+      }
+
+      // run attachments & then clean up
+      await this.processImageAndPDFAttachments(
+        config,
+        productDataList,
+        preparedProducts,
+        options
+      );
+
+      cache.delete(ctxKey);
+      logger.info('Post-processing complete; session context cleared', {
+        operation: 'post-processing-complete',
+        sessionId,
+        correlationId,
+      });
+    };
+  }
+
   async generateProducts(config, options) {
-    const { logger, liferay, mockData, media, cache, batchPolling, getWs } = this.ctx;
+    const { logger, liferay, mockData, media, cache, batchPolling, getWs, ai } =
+      this.ctx;
     logger.trace('=== STARTING PRODUCT GENERATION ===');
     logger.trace('Demo mode:', !!options.demoMode);
     logger.trace('Config:', sanitizedObject(config));
@@ -32,7 +128,7 @@ class ProductGenerator {
       useBatch: useBatch,
       batchSize: config.batchSize || 1,
     });
-    
+
     const results = {
       products: [],
       created: 0,
@@ -177,7 +273,7 @@ class ProductGenerator {
             if (productPdfsPrepared > 0) {
               let pdf;
               if (options.pdfMode === 'default') {
-                pdf = await media.getgetDefaultBase64PdfDataUrl(config);
+                pdf = await media.getDefaultBase64PdfDataUrl(config);
               } else if (options.pdfMode === 'custom') {
                 pdf = options.customPdfFile;
               }
@@ -319,7 +415,7 @@ class ProductGenerator {
                 {
                   batchId: result.batchId,
                   entityType: 'products',
-                  totalItems: batch.batchSize,
+                  totalItems: batch.length,
                 },
                 { correlationId: config.correlationId }
               );
@@ -330,10 +426,10 @@ class ProductGenerator {
               if (result.batchId && callbackUrl) {
                 // Get poll interval from config with validation
                 const pollInterval = Math.max(
-                  config.pollInterval || 5000,
+                  config.pollingDelay || 5000,
                   2000
                 ); // Minimum 2 seconds
-                const maxPollAttempts = config.maxPollAttempts || 120; // Default 10 minutes
+                const maxPollAttempts = config.pollingRetries || 120; // Default 10 minutes
 
                 cache.set(
                   `batch:${result.batchId}:config`,
@@ -367,8 +463,8 @@ class ProductGenerator {
                     entityType: 'products',
                   },
                   {
-                    pollInterval: config.pollingDelay,
-                    maxPollAttempts: config.pollingRetries,
+                    pollInterval,
+                    maxPollAttempts,
                     onStatusChange: (status) => {
                       logger.debug('Batch status update', {
                         operation: 'batch-status-update',
@@ -380,7 +476,7 @@ class ProductGenerator {
                       });
                     },
                     onComplete: (results) => {
-                      this.handleBatchComplete(results);
+                      this.handleBatchComplete(results, config);
                     },
                     onError: (error) => {
                       logger.error('Batch polling error', {
@@ -425,18 +521,13 @@ class ProductGenerator {
             // Store the session context for post-processing
             const sessionId = `products_${Date.now()}_${Math.random()
               .toString(36)
-              .substr(2, 9)}`;
+              .slice(2, 9)}`;
 
-            // Register the generation session with the global batch polling service
-            batchPolling.registerGenerationSession(
-              sessionId,
-              batchIds,
-              batchIds.length
-            );
+            const contextCacheKey = `session:${sessionId}:context`;
 
             // Store session data for post-processing
             cache.set(
-              `session:${sessionId}:context`,
+              contextCacheKey,
               {
                 correlationId: config.correlationId,
                 config,
@@ -445,8 +536,16 @@ class ProductGenerator {
                 options,
                 sessionId,
               },
-              1800000
-            ); // 30 minutes cache
+              30 * 60 * 1000
+            );
+
+            // Register the generation session with the global batch polling service
+            batchPolling.registerSession(sessionId, {
+              batchIds,
+              totalExpected: batchIds.length,
+              contextKey: contextCacheKey,
+              onSessionComplete: this.createOnSessionComplete(),
+            });
 
             const hasAttachments = productDataList.some(
               (p) => p.images || p.attachments
@@ -537,13 +636,11 @@ class ProductGenerator {
                     } else {
                       await liferay.addProductImageByBase64(
                         config,
-                        createdProduct.externalReferenceCode,
+                        productERC,
                         image
                       );
                     }
-                    logger.trace(
-                      `✓ Added image to product: ${createdProduct.externalReferenceCode}`
-                    );
+                    logger.trace(`✓ Added image to product: ${productERC}`);
                     imagesApplied++;
                     getWs().emitPostProcessingProgress({
                       entityType: 'images',
@@ -607,12 +704,12 @@ class ProductGenerator {
                     } else {
                       await liferay.addProductAttachmentByBase64(
                         config,
-                        createdProduct.externalReferenceCode,
+                        productERC,
                         { attachment }
                       );
                     }
                     logger.trace(
-                      `✓ Added attachment to product: ${createdProduct.externalReferenceCode}`
+                      `✓ Added attachment to product: ${productERC}`
                     );
                     pdfsApplied++;
                     getWs().emitPostProcessingProgress(
@@ -695,7 +792,7 @@ class ProductGenerator {
   }
 
   async createCatalogOptions(config, options) {
-    const { logger} = this.ctx;
+    const { logger } = this.ctx;
     const categories = options.productCategories;
     logger.trace(
       `Creating catalog-level options for SKU variants... (Demo mode: ${options.demoMode})`
@@ -1385,7 +1482,7 @@ class ProductGenerator {
   }
 
   async createBasicProduct(config, productData, options = {}) {
-    const { logger } = this.ctx;
+    const { logger, liferay } = this.ctx;
     try {
       // Start with minimum required properties as per the example
       const liferayProduct = {
@@ -1453,7 +1550,9 @@ class ProductGenerator {
 
       logger.info('Creating basic product', {
         operation: 'create-basic-product',
-        sku: liferayProduct.sku,
+        sku: Array.isArray(liferayProduct.skus)
+          ? liferayProduct.skus[0]?.sku
+          : undefined,
         name: liferayProduct.name?.en_US,
         catalogId: liferayProduct.catalogId,
         includeOptions: options.generateSkuVariants,
@@ -1564,7 +1663,7 @@ class ProductGenerator {
     productSpecifications,
     catalogSpecifications
   ) {
-    const { logger } = this.ctx;
+    const { logger, liferay, batchProcessor } = this.ctx;
     try {
       const specificationsToAdd = [];
 
@@ -1656,7 +1755,7 @@ class ProductGenerator {
   }
 
   async addProductAttachments(config, productId, attachments) {
-    const { logger } = this.ctx;
+    const { logger, liferay } = this.ctx;
     try {
       for (const attachment of attachments) {
         const attachmentData = {
@@ -1787,11 +1886,11 @@ class ProductGenerator {
     selectedLanguages = ['en_US'],
     mockSpecCategories = null
   ) {
-    const { logger } = this.ctx;
+    const { logger, ai, liferay } = this.ctx;
     try {
       const specCategories =
         mockSpecCategories ||
-        (await this.ai.generateSpecificationCategories(
+        (await ai.generateSpecificationCategories(
           categories,
           selectedLanguages
         ));
@@ -1812,7 +1911,7 @@ class ProductGenerator {
   }
 
   async addProductOptions(config, productId, catalogOptions) {
-    const { logger } = this.ctx;
+    const { logger, liferay } = this.ctx;
     try {
       const productOptionsToAdd = [];
 
@@ -1839,7 +1938,7 @@ class ProductGenerator {
   }
 
   async createProductSkus(config, productId, catalogOptions, productData) {
-    const { logger } = this.ctx;
+    const { logger, liferay } = this.ctx;
     try {
       const createdSkus = [];
       const maxVariants = 8;
@@ -1866,11 +1965,12 @@ class ProductGenerator {
           const priceModifier = (Math.random() - 0.5) * 0.4;
           const variantPrice = Math.round(basePrice * (1 + priceModifier));
 
-          const skuCode = `${productData.baseSku}-${value1.name.en_US
-            .substr(0, 2)
-            .toUpperCase()}${
-            option2 ? `-${value2.name.en_US.substr(0, 2).toUpperCase()}` : ''
-          }`;
+          const base = productData.baseSku || `SKU-${productId}`;
+          const v1 = (value1?.name?.en_US || 'V1').slice(0, 2).toUpperCase();
+          const v2 = option2
+            ? `-${(value2?.name?.en_US || 'V2').slice(0, 2).toUpperCase()}`
+            : '';
+          const skuCode = `${base}-${v1}${v2}`;
 
           const skuOptions = {
             [option1.id]: value1.id,
@@ -1914,7 +2014,7 @@ class ProductGenerator {
   }
 
   async generateProductPDF(config, product, productData, category) {
-    const { ai, logger, media } = this.ctx;
+    const { ai, logger, media, liferay } = this.ctx;
     try {
       logger.trace(`Generating AI content for PDF...`);
       const pdfContent = await ai.generatePDFContent(
@@ -1981,13 +2081,9 @@ class ProductGenerator {
   }
 
   validateConfig(config) {
-    if (
-      !config.catalogId ||
-      typeof config.catalogId !== 'number' ||
-      config.catalogId <= 0
-    ) {
+    const catalogIdNum = parseInt(config.catalogId, 10);
+    if (!Number.isFinite(catalogIdNum) || catalogIdNum <= 0)
       throw new Error('Catalog ID is required and must be a positive integer.');
-    }
 
     const pollingRetriesValue = config.pollingRetries;
     if (pollingRetriesValue === undefined || pollingRetriesValue === null) {
@@ -2058,6 +2154,7 @@ class ProductGenerator {
     for (let i = 0; i < productDataList.length; i++) {
       const originalProduct = productDataList[i];
       const preparedProduct = preparedProducts[i];
+      const productERC = preparedProduct.externalReferenceCode;
 
       try {
         // Add images
@@ -2075,7 +2172,7 @@ class ProductGenerator {
                   externalReferenceCode: imgERC,
                   documentFolderId: options.uploadFolderId,
                   documentFolderExternalReferenceCode: options.uploadFolderERC,
-                  viewableby: 'Anyone',
+                  viewableBy: 'Anyone',
                 }
               );
 
@@ -2090,7 +2187,7 @@ class ProductGenerator {
               // choose the right URL field from Liferay's response
               const imageUrlData = {
                 title: { en_US: `Product Image - ${productERC}` },
-                url: `${config.liferayUrl}${doc.contentUrl}`,
+                src: `${config.liferayUrl}${doc.contentUrl}`,
               };
 
               await liferay.addProductImageByUrl(
@@ -2099,15 +2196,9 @@ class ProductGenerator {
                 imageUrlData
               );
             } else {
-              await liferay.addProductImageByBase64(
-                config,
-                preparedProduct.externalReferenceCode,
-                image
-              );
+              await liferay.addProductImageByBase64(config, productERC, image);
             }
-            logger.trace(
-              `✓ Added image to product: ${preparedProduct.externalReferenceCode}`
-            );
+            logger.trace(`✓ Added image to product: ${productERC}`);
             imageProcessedCount++;
           }
 
@@ -2139,7 +2230,7 @@ class ProductGenerator {
                   externalReferenceCode: pdfERC,
                   documentFolderId: options.uploadFolderId,
                   documentFolderExternalReferenceCode: options.uploadFolderERC,
-                  viewableby: 'Anyone',
+                  viewableBy: 'Anyone',
                 }
               );
 
@@ -2153,7 +2244,7 @@ class ProductGenerator {
 
               const attachmentUrlData = {
                 title: { en_US: `Product Documentation - ${productERC}` },
-                url: `${config.liferayUrl}${doc.contentUrl}`,
+                src: `${config.liferayUrl}${doc.contentUrl}`,
               };
               await liferay.addProductAttachmentByUrl(
                 config,
@@ -2161,15 +2252,11 @@ class ProductGenerator {
                 attachmentUrlData
               );
             } else {
-              await liferay.addProductAttachmentByBase64(
-                config,
-                preparedProduct.externalReferenceCode,
-                { attachment }
-              );
+              await liferay.addProductAttachmentByBase64(config, productERC, {
+                attachment,
+              });
             }
-            logger.trace(
-              `✓ Added attachment to product: ${preparedProduct.externalReferenceCode}`
-            );
+            logger.trace(`✓ Added attachment to product: ${productERC}`);
             pdfProcessedCount++;
           }
 
@@ -2186,18 +2273,18 @@ class ProductGenerator {
         }
       } catch (error) {
         logger.error(
-          `Failed to add image/attachment to product ${preparedProduct.externalReferenceCode}:`,
+          `Failed to add image/attachment to product ${productERC}:`,
           error.message
         );
-        if (originalProduct.image) {
+        if (originalProduct.images) {
           imageErrors.push({
-            product: preparedProduct.externalReferenceCode,
+            product: productERC,
             error: `Image error: ${error.message}`,
           });
         }
-        if (originalProduct.attachment) {
+        if (originalProduct.attachments) {
           pdfErrors.push({
-            product: preparedProduct.externalReferenceCode,
+            product: productERC,
             error: `PDF error: ${error.message}`,
           });
         }
@@ -2249,8 +2336,8 @@ class ProductGenerator {
     );
   }
 
-  async handleBatchComplete(results) {
-    const { logger } = this.ctx;
+  async handleBatchComplete(results, config) {
+    const { logger, getWs } = this.ctx;
     logger.info('Handling batch completion', {
       operation: 'batch-complete-handler',
       batchId: results.batchId,
@@ -2283,13 +2370,16 @@ class ProductGenerator {
     }
 
     // Send WebSocket update
-    getWs().emitBatchCompleted({
-      batchId: results.batchId,
-      entityType: 'products',
-      successCount,
-      failureCount,
-      errors: failureCount > 0 ? { failures } : null,
-    });
+    getWs().emitBatchCompleted(
+      {
+        batchId: results.batchId,
+        entityType: 'products',
+        successCount,
+        failureCount,
+        errors: failureCount > 0 ? { failures } : null,
+      },
+      { correlationId: config.correlationId }
+    );
   }
 }
 

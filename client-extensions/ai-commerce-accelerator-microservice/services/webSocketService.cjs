@@ -251,7 +251,6 @@ function createWebSocketService({
   ) => {
     const payload = {
       type: BATCH_START,
-
       entityType,
       details: {
         ...details,
@@ -384,7 +383,7 @@ function createWebSocketService({
   };
 
   const emitGenerationSessionComplete = (
-    { correlationId, details = {} },
+    { correlationId, sessionId, details = {} },
     opts = {}
   ) => {
     const payload = {
@@ -392,7 +391,7 @@ function createWebSocketService({
       details,
       timestamp: isoNow(),
     };
-    return emit(payload, { ...opts, batchId, correlationId });
+    return emit(payload, { ...opts, sessionId, correlationId });
   };
 
   const emitGenerationProgress = (

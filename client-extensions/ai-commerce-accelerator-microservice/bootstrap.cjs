@@ -24,13 +24,6 @@ const oauthService = new OAuthService({ cacheService, logger });
 
 const liferayService = new LiferayService({ oauthService, logger });
 
-const batchPollingService = new BatchPollingService({
-  logger,
-  liferay: liferayService,
-  cache: cacheService,
-  getWs,
-});
-
 const batchProcessorService = new BatchProcessorService({ logger });
 
 const configService = new ConfigService({
@@ -55,6 +48,13 @@ const mediaGenerator = new MediaGenerator({
 
 const mockDataGenerator = new MockDataGenerator({
   logger,
+});
+
+const batchPollingService = new BatchPollingService({
+  logger,
+  liferay: liferayService,
+  cache: cacheService,
+  getWs,
 });
 
 const entityGeneratorCtx = {

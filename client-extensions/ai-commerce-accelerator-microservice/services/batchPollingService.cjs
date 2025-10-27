@@ -1,11 +1,9 @@
-const axios = require('axios');
 const {
   delayCall,
   inferEntityTypeFromClassName,
 } = require('../utils/misc.cjs');
-const {
-  GENERATION_SESSION_COMPLETE,
-} = require('../utils/wsEvents.cjs');
+const { GENERATION_SESSION_COMPLETE } = require('../utils/wsEvents.cjs');
+const { productGenerator } = require('../bootstrap.cjs');
 
 function extractIdFromLocation(location) {
   if (!location || typeof location !== 'string') return null;
@@ -21,12 +19,17 @@ class BatchPollingService {
     this.generationSessions = new Map();
   }
 
-  registerGenerationSession(sessionId, batchIds, totalExpectedBatches) {
+  registerSession(
+    sessionId,
+    { batchIds, totalExpected, onSessionComplete, context }
+  ) {
     const { logger } = this.ctx;
     this.generationSessions.set(sessionId, {
-      batchIds: new Set(batchIds),
+      batchIds: new Set(batchIds || []),
       completedBatches: new Set(),
-      totalExpected: totalExpectedBatches,
+      totalExpected: totalExpected ?? (batchIds ? batchIds.length : 0),
+      onSessionComplete,
+      context: context || {},
       startTime: new Date(),
       sessionId,
     });
@@ -39,38 +42,8 @@ class BatchPollingService {
     });
   }
 
-  checkSessionCompletion(sessionId) {
-    const { logger } = this.ctx;
-    const session = this.generationSessions.get(sessionId);
-    if (!session) {
-      return false;
-    }
-
-    const allBatchesCompleted =
-      session.batchIds.size === session.completedBatches.size;
-
-    if (allBatchesCompleted) {
-      logger.info('Generation session completed - all batches finished', {
-        operation: 'generation-session-complete',
-        sessionId,
-        totalBatches: session.batchIds.size,
-        completedBatches: session.completedBatches.size,
-      });
-
-      // Trigger post-processing for images and PDFs
-      this.triggerPostProcessing(sessionId, session);
-
-      // Clean up session tracking
-      this.generationSessions.delete(sessionId);
-
-      return true;
-    }
-
-    return false;
-  }
-
-  async triggerPostProcessing(sessionId, session) {
-    const { logger, cache } = this.ctx;
+  async triggerPostProcessing(sessionId, session, correlationId) {
+    const { logger, cache, getWs } = this.ctx;
     try {
       logger.info('Triggering post-processing for session', {
         operation: 'post-processing-trigger',
@@ -85,7 +58,7 @@ class BatchPollingService {
         timestamp: new Date().toISOString(),
       };
 
-      getWs().broadcase(message);
+      getWs().emitGenerationSessionComplete(message, { correlationId });
 
       logger.info(
         `🎉 Generation session ${sessionId} completed - ready for post-processing!`
@@ -125,8 +98,6 @@ class BatchPollingService {
             ),
           });
 
-          const ProductGeneratorClass = require('./productGenerator.cjs');
-          const productGenerator = new ProductGeneratorClass();
           await productGenerator.processImageAndPDFAttachments(
             config,
             productDataList,
@@ -512,8 +483,8 @@ class BatchPollingService {
       pollDataForCompletion.onComplete(results);
     }
 
-    if (affectsProgress && mode === 'generate') {
-      this.markBatchCompleteInSessions(batchId);
+    if (affectsProgress && mode === 'generate' && entityType === 'products') {
+      this.markBatchCompleteInSessions(batchId, correlationId);
     }
   }
 
@@ -533,11 +504,13 @@ class BatchPollingService {
     const mode = pollData?.mode || 'unknown';
     const entityType =
       pollData?.entityType || batchConfig?.entityType || 'products';
+    const correlationId =
+      pollData?.correlationId || batchConfig?.correlationId || 'unknown';
 
     cache.set(
       `batch:${batchId}:failed`,
       {
-        correlationId: config.correlationId,
+        correlationId: correlationId,
         totalItemsCount: totalCount,
         processedItemsCount: processedCount,
         failedItemsLength: status.failedItems?.length,
@@ -564,7 +537,7 @@ class BatchPollingService {
     this.stopPolling(batchId);
 
     const results = {
-      correlationId: config.correlationId,
+      correlationId: correlationId,
       batchId,
       status: 'FAILED',
       totalCount,
@@ -667,18 +640,47 @@ class BatchPollingService {
     };
   }
 
-  markBatchCompleteInSessions(batchId) {
+  markBatchCompleteInSessions(batchId, correlationId) {
+    const { logger } = this.ctx;
     for (const [sessionId, session] of this.generationSessions.entries()) {
-      if (session.batchIds.has(batchId)) {
-        session.completedBatches.add(batchId);
-        logger.debug('Marked batch complete in session', {
-          operation: 'batch-complete-session-mark',
-          batchId,
+      if (!session.batchIds.has(batchId)) continue;
+
+      session.completedBatches.add(batchId);
+      logger.debug('Marked batch complete in session', {
+        operation: 'batch-complete-session-mark',
+        batchId,
+        sessionId,
+        completedBatches: session.completedBatches.size,
+        totalBatches: session.batchIds.size,
+      });
+
+      const allDone =
+        s.completedBatches.size >= s.totalExpected && s.totalExpected > 0;
+      if (allDone) {
+        logger.info('Generation session completed - all batches finished', {
+          operation: 'generation-session-complete',
+          correlationId,
           sessionId,
-          completedBatches: session.completedBatches.size,
           totalBatches: session.batchIds.size,
+          completedBatches: session.completedBatches.size,
         });
-        this.checkSessionCompletion(sessionId);
+
+        const hook = s.onSessionComplete;
+        const ctx = s.context;
+
+        this.generationSessions.delete(sessionId);
+
+        if (typeof hook === 'function') {
+          Promise.resolve()
+            .then(() => hook({ sessionId, context: ctx }))
+            .catch((err) => {
+              logger?.error?.('onSessionComplete failed', {
+                operation: 'post-processing-hook-error',
+                sessionId,
+                error: err.message,
+              });
+            });
+        }
       }
     }
   }

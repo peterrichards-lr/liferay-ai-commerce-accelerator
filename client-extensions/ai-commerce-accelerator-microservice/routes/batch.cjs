@@ -34,21 +34,28 @@ module.exports = (
     return null;
   };
 
+  getImportTask = async (batchId) => {
+    let liferayUrl;
+    try {
+      const liferayServerPorotocl = lookupConfig(
+        'com.liferay.lxc.dxp.server.protocol'
+      );
+      const liferayServerDomain = lxcConfig.dxpMainDomain();
+      liferayUrl = `${liferayServerPorotocl}://${liferayServerDomain}`;
+      new URL(liferayUrl);
+    } catch (e) {
+      throw new Error('Unable to determine liferay URL', e);
+    }
+
+    return {
+      liferayUrl,
+      task: await liferayService.getImportTask({ liferayUrl }, batchId),
+    };
+  };
+
   restoreConfig = async (batchId, correlationId) => {
     try {
-      let liferayUrl;
-      try {
-        const liferayServerPorotocl = lookupConfig(
-          'com.liferay.lxc.dxp.server.protocol'
-        );
-        const liferayServerDomain = lxcConfig.dxpMainDomain();
-        liferayUrl = `${liferayServerPorotocl}://${liferayServerDomain}`;
-        new URL(liferayUrl);
-      } catch (e) {
-        throw new Error('Unable to determine liferay URL', e);
-      }
-
-      const task = await liferayService.getImportTask({ liferayUrl }, batchId);
+      const { liferayUrl, task } = await getImportTask(batchId);
       batchConfig = buildRecoveredConfig({
         liferayUrl,
         task,
@@ -106,6 +113,7 @@ module.exports = (
         correlationId,
         operation: 'batch-callback',
         batchId,
+        entityType: batchConfig.entityType,
         status,
         bodyKeys: req.body ? Object.keys(req.body) : [],
       });
@@ -127,86 +135,117 @@ module.exports = (
         {
           correlationId,
           status,
+          entityType: batchConfig.entityType,
           submittedAt: new Date().toISOString(),
           rawCallback: req.body,
         },
         60 * 60 * 1000
       );
 
-      if (
-        cacheService.get(`batch:${batchId}:completed`) ||
-        batchPollingService.isPolling(batchId)
-      ) {
-        logger.info('Skipping polling start; already completed or active', {
-          operation: 'batch-polling-skip',
+      if (status === 'INITIAL' || status === 'STARTED') {
+        if (
+          cacheService.get(`batch:${batchId}:completed`) ||
+          batchPollingService.isPolling(batchId)
+        ) {
+          logger.info('Skipping polling start; already completed or active', {
+            operation: 'batch-polling-skip',
+            batchId,
+            entityType: batchConfig.entityType,
+          });
+          return;
+        }
+
+        const pollInterval = Math.max(batchConfig.pollInterval || 5000, 2000);
+        const maxPollAttempts = batchConfig.maxPollAttempts || 120;
+        const entityType = batchConfig?.entityType || 'unknown';
+
+        logger.debug('Starting batch polling', {
+          operation: 'batch-polling-start',
           batchId,
+          pollInterval,
+          maxPollAttempts,
+          correlationId,
         });
-        return;
-      }
 
-      const pollInterval = Math.max(batchConfig.pollInterval || 5000, 2000);
-      const maxPollAttempts = batchConfig.maxPollAttempts || 120;
-      const entityType = batchConfig?.entityType || 'unknown';
+        batchPollingService.startPolling(batchId, batchConfig, {
+          pollInterval,
+          maxPollAttempts,
+          onStatusChange: (u) => {
+            logger.debug('Batch status update', {
+              operation: 'batch-status-update',
+              batchId,
+              status: u.status,
+              processedCount: u.processedCount,
+              totalCount: u.totalCount,
+              entityType,
+            });
+          },
+          onComplete: (r) => {
+            logger.info('Batch processing completed', {
+              operation: 'batch-complete',
+              batchId,
+              entityType,
+              processedCount: r.processedCount,
+              totalCount: r.totalCount,
+            });
 
-      logger.debug('Starting batch polling', {
-        operation: 'batch-polling-start',
-        batchId,
-        pollInterval,
-        maxPollAttempts,
-        correlationId,
-      });
+            getWs().emitBatchCompleted(
+              batchId,
+              {
+                entityType,
+                successCount: r.processedCount,
+              },
+              { correlationId: config.correlationId }
+            );
 
-      batchPollingService.startPolling(batchId, batchConfig, {
-        pollInterval,
-        maxPollAttempts,
-        onStatusChange: (u) => {
-          logger.debug('Batch status update', {
-            operation: 'batch-status-update',
-            batchId,
-            status: u.status,
-            processedCount: u.processedCount,
-            totalCount: u.totalCount,
-            entityType,
-          });
-        },
-        onComplete: (r) => {
-          logger.info('Batch processing completed', {
-            operation: 'batch-complete',
-            batchId,
-            entityType,
-            processedCount: r.processedCount,
-            totalCount: r.totalCount,
-          });
-
+            logger.info(
+              `✅ Batch ${batchId} (${entityType}) completed - ${r.processedCount}/${r.totalCount} items processed`
+            );
+          },
+          onError: (err) => {
+            logger.error('Batch processing error', {
+              operation: 'batch-error',
+              batchId,
+              entityType,
+              error: err.message,
+            });
+            const msg = {
+              type: BATCH_FAILED,
+              batchId,
+              entityType,
+              error: err.message,
+            };
+            getWs().emitBatchFailed(msg, { correlationId: correlationId });
+          },
+        });
+      } else {
+        const { task } = await getImportTask(batchId);
+        const batchStatus = task?.data;
+        if (status === 'COMPLETED') {
+          await batchPollingService.handleBatchComplete(batchId, batchStatus);
           getWs().emitBatchCompleted(
             batchId,
             {
-              entityType,
-              successCount: r.processedCount,
+              entityType: batchConfig.entityType,
+              successCount: batchStatus.processedCount,
             },
-            { correlationId: config.correlationId }
+            { correlationId }
           );
 
           logger.info(
-            `✅ Batch ${batchId} (${entityType}) completed - ${r.processedCount}/${r.totalCount} items processed`
+            `✅ Batch ${batchId} (${batchConfig.entityType}) completed - ${batchStatus.processedCount}/${batchStatus.totalCount} items processed`
           );
-        },
-        onError: (err) => {
-          logger.error('Batch processing error', {
-            operation: 'batch-error',
-            batchId,
-            entityType,
-            error: err.message,
-          });
+        } else if (status === 'FAILED') {
+          await batchPollingService.handleBatchFailed(batchId, batchStatus);
           const msg = {
             type: BATCH_FAILED,
             batchId,
             entityType,
-            error: err.message,
+            error: batchStatus.errorMessage,
           };
-          getWs().emitBatchFailed(msg, { correlationId: config.correlationId });
-        },
-      });
+          getWs().emitBatchFailed(msg, { correlationId });
+        }
+      }
     } catch (error) {
       logger.error('Error processing batch callback', {
         operation: 'batch-callback',
