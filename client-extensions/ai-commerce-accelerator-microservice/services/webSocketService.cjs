@@ -41,6 +41,12 @@ function withOperation(details = {}, operation) {
   return op ? { ...details, operation: op } : details;
 }
 
+function normalizeBid(b) {
+  if (b === undefined || b === null) return null;
+  const s = String(b);
+  return s.length ? s : null;
+}
+
 function createWebSocketService({
   server,
   logger = console,
@@ -51,10 +57,11 @@ function createWebSocketService({
   const wss = new WebSocket.Server({ server });
   const clients = new Map();
   const byBatch = new Map();
+  const lastCompletion = new Map(); // Map<batchIdStr, { success, failure, total }>
 
   function resolveTargets({ mode = 'auto', correlationId, batchId }, payload) {
-    const cid = correlationId ?? payload?.correlationId;
-    const bid = batchId ?? payload?.batchId;
+    const cid = correlationId ?? payload?.correlationId ?? null;
+    const bid = normalizeBid(batchId ?? payload?.batchId);
 
     if (mode === 'unicast' || (mode === 'auto' && cid)) {
       const c = clients.get(cid);
@@ -101,16 +108,17 @@ function createWebSocketService({
       return;
     }
 
-    const packet = safeJSON(message);
+    const bid = normalizeBid(batchId ?? message?.batchId);
+    const packet = safeJSON(bid ? { ...message, batchId: bid } : message);
     const schedule = normalizeRetries(retries);
 
     const run = async () => {
-      const targets = resolveTargets({ mode, correlationId, batchId }, message);
+      const targets = resolveTargets({ mode, correlationId, batchId: bid }, message);
       const targetCount = countIterable(targets);
       const msgType = message?.type ?? '(no-type)';
 
       logger?.trace?.(
-        `[ws:send] type=${msgType} mode=${mode} cid=${correlationId ?? '∅'} bid=${batchId ?? '∅'} → ${targetCount} target(s)`
+        `[ws:send] type=${msgType} mode=${mode} cid=${correlationId ?? '∅'} bid=${bid ?? '∅'} → ${targetCount} target(s)`
       );
 
       if (!message?.type) {
@@ -125,7 +133,7 @@ function createWebSocketService({
       for (let i = 0; i < schedule.length; i++) {
         if (last.sent > 0) break;
         await delay(schedule[i]);
-        const retryTargets = resolveTargets({ mode, correlationId, batchId }, message);
+        const retryTargets = resolveTargets({ mode, correlationId, batchId: bid }, message);
         last = sendOnce(packet, retryTargets);
         onAttempt?.(i + 1, last);
       }
@@ -140,7 +148,7 @@ function createWebSocketService({
     return run().then((res) => {
       const t = message?.type ?? '(unknown)';
       logger?.trace?.(
-        `[ws:sent] type=${t} cid=${correlationId ?? '∅'} bid=${batchId ?? '∅'} attempts=${res.attempts} sent=${res.last.sent}/${res.last.open} errors=${res.last.errors}`
+        `[ws:sent] type=${t} cid=${correlationId ?? '∅'} bid=${bid ?? '∅'} attempts=${res.attempts} sent=${res.last.sent}/${res.last.open} errors=${res.last.errors}`
       );
       return { sent: res.last.sent, failed: res.last.errors, totalClients: clientCount() };
     });
@@ -192,7 +200,7 @@ function createWebSocketService({
           break;
 
         case 'subscribe-batch': {
-          const batchId = msg?.payload?.batchId;
+          const batchId = normalizeBid(msg?.payload?.batchId);
           if (!batchId) break;
           ws.__batchId = batchId;
           let set = byBatch.get(batchId);
@@ -287,7 +295,6 @@ function createWebSocketService({
 
   async function emit(message, opts = {}) {
     const res = await deliver(message, opts);
-    // Map to a normalized stat object the wrapper can consume
     return res && typeof res === 'object'
       ? { sent: res.sent ?? 0, failed: res.failed ?? 0, totalClients: clientCount() }
       : { sent: 0, failed: 0, totalClients: clientCount() };
@@ -297,62 +304,97 @@ function createWebSocketService({
     { batchId, entityType, details = {}, correlationId, operation },
     opts = {}
   ) => {
+    const bid = normalizeBid(batchId);
     const totalCount = details.totalCount ?? details.totalItems ?? details.expectedTotal;
     const payload = {
       type: BATCH_START,
       operation,
       entityType,
-      batchId,
-      details: withOperation({ ...details, batchId, totalCount }, operation),
+      batchId: bid,
+      details: withOperation({ ...details, batchId: bid, totalCount }, operation),
       totalCount,
       timestamp: isoNow(),
     };
-    return emit(payload, { ...opts, batchId, correlationId });
+    return emit(payload, { ...opts, batchId: bid, correlationId });
   };
 
   const emitBatchProgress = (
     { batchId, entityType, completedCount, totalItems, correlationId, progress, details = {}, operation },
     opts = {}
   ) => {
+    const bid = normalizeBid(batchId);
     const processedCount = details.processedCount ?? details.completedCount ?? completedCount ?? 0;
     const totalCount = details.totalCount ?? totalItems ?? details.expectedTotal ?? undefined;
     const payload = {
       type: BATCH_PROGRESS,
       operation,
       entityType,
-      batchId,
+      batchId: bid,
       processedCount,
       totalCount,
       details: withOperation(
-        { ...details, batchId, processedCount, completedCount: processedCount, totalCount, totalItems: totalCount, progress },
+        {
+          ...details,
+          batchId: bid,
+          processedCount,
+          completedCount: processedCount,
+          totalCount,
+          totalItems: totalCount,
+          progress,
+        },
         operation
       ),
       timestamp: isoNow(),
     };
-    return emit(payload, { ...opts, batchId, correlationId });
+    return emit(payload, { ...opts, batchId: bid, correlationId });
   };
 
   const emitBatchCompleted = (
     { batchId, entityType, successCount = 0, failureCount = 0, totalCount, correlationId, errors = [], details = {}, operation },
     opts = {}
   ) => {
+    const bid = normalizeBid(batchId);
     const normalizedTotal =
       details.totalCount ??
       totalCount ??
       (Number.isFinite(successCount) && Number.isFinite(failureCount) ? successCount + failureCount : undefined);
 
+    const sumSF = (Number(successCount) || 0) + (Number(failureCount) || 0);
+    const isEmpty = sumSF === 0 && !Number.isFinite(normalizedTotal);
+    if (isEmpty) {
+      logger?.trace?.(`[ws:drop] empty batch_completed (no totals) for ${bid ?? '(null)'}`);
+      return Promise.resolve({ sent: 0, failed: 0, totalClients: clientCount() });
+    }
+
+    const prev = bid ? lastCompletion.get(bid) : null;
+    const prevTotal = prev ? ((Number(prev.success) || 0) + (Number(prev.failure) || 0)) : -1;
+    if (prev && prevTotal > sumSF) {
+      logger?.trace?.(`[ws:drop] worse duplicate batch_completed for ${bid}`);
+      return Promise.resolve({ sent: 0, failed: 0, totalClients: clientCount() });
+    }
+
     const payload = {
       type: BATCH_COMPLETED,
       operation,
       entityType,
-      batchId,
+      batchId: bid,
       successCount,
       failureCount,
       totalCount: normalizedTotal,
-      details: withOperation({ ...details, batchId, successCount, failureCount, totalCount: normalizedTotal, errors }, operation),
+      details: withOperation(
+        { ...details, batchId: bid, successCount, failureCount, totalCount: normalizedTotal, errors },
+        operation
+      ),
       timestamp: isoNow(),
     };
-    return emit(payload, { ...opts, batchId, correlationId });
+
+    lastCompletion.set(bid, {
+      success: Number(successCount) || 0,
+      failure: Number(failureCount) || 0,
+      total: Number(normalizedTotal) || sumSF,
+    });
+
+    return emit(payload, { ...opts, batchId: bid, correlationId });
   };
 
   const emitSessionCompleted = (
@@ -428,21 +470,23 @@ function createWebSocketService({
     { percent, message, phase, batchId, correlationId, entityType, details = {}, operation },
     opts = {}
   ) => {
+    const bid = normalizeBid(batchId);
     const payload = {
       type: GENERATION_PROGRESS,
       operation,
       entityType,
-      batchId,
-      details: withOperation({ ...details, percent, message, phase, batchId }, operation),
+      batchId: bid,
+      details: withOperation({ ...details, percent, message, phase, batchId: bid }, operation),
       timestamp: isoNow(),
     };
-    return emit(payload, { ...opts, batchId, correlationId });
+    return emit(payload, { ...opts, batchId: bid, correlationId });
   };
 
   const emitBatchFailed = (
     { batchId, entityType, error, successCount = 0, failureCount = 0, correlationId, details = {}, operation },
     opts = {}
   ) => {
+    const bid = normalizeBid(batchId);
     const totalCount =
       details.totalCount ??
       (Number.isFinite(successCount) && Number.isFinite(failureCount) ? successCount + failureCount : undefined);
@@ -451,14 +495,14 @@ function createWebSocketService({
       type: BATCH_FAILED,
       operation,
       entityType,
-      batchId,
+      batchId: bid,
       successCount,
       failureCount,
       totalCount,
-      details: withOperation({ ...details, error, successCount, failureCount, batchId, totalCount }, operation),
+      details: withOperation({ ...details, error, successCount, failureCount, batchId: bid, totalCount }, operation),
       timestamp: isoNow(),
     };
-    return emit(payload, { ...opts, batchId, correlationId });
+    return emit(payload, { ...opts, batchId: bid, correlationId });
   };
 
   const stop = () => {
