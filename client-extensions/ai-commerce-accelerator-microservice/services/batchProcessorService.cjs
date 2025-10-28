@@ -7,8 +7,19 @@ class BatchProcessorService {
     this.ctx = ctx;
   }
 
+  normalizeBroadcastMeta(meta) {
+    if (!meta || typeof meta !== 'object') return {};
+    return {
+      batchId: meta.batchId ?? 'unknown',
+      entityType: meta.entityType ?? 'unknown',
+      operation: meta.operation ?? 'unknown',
+      phase: meta.phase ?? 'unknown',
+      correlationId: meta.correlationId ?? 'none',
+    };
+  }
+
   getNormalizedMeta(meta, failureCount = 0) {
-    const base = BatchProcessorService.normalizeBroadcastMeta(meta, failureCount);
+    const base = this.normalizeBroadcastMeta(meta, failureCount);
     try {
       const ws = this.ctx?.getWs?.();
       const liveCount = Number(ws?.totalClients?.() || 0);

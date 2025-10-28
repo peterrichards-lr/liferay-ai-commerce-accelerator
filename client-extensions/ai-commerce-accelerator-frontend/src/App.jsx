@@ -111,6 +111,12 @@ export function AppUI() {
     initialGenerationConfig
   );
 
+  const [connectionEstablished, setConnectionEstablished] = useState(false);
+  const [openAiKeyAvailable, setOpenAiKeyAvailable] = useState(false);
+
+  const { logs, addLog, clearLogs } = useActivityLog(initialLoggingConfig);
+  const [progress, dispatch] = useReducer(progressReducer, initialProgress);
+
   const setProgress = useCallback((arg) => {
     if (typeof arg === 'function') {
       dispatch({ type: 'APPLY_UPDATER', updater: arg });
@@ -118,12 +124,6 @@ export function AppUI() {
       dispatch({ type: 'MERGE', payload: arg });
     }
   }, []);
-
-  const [connectionEstablished, setConnectionEstablished] = useState(false);
-  const [openAiKeyAvailable, setOpenAiKeyAvailable] = useState(false);
-
-  const { logs, addLog, clearLogs } = useActivityLog(initialLoggingConfig);
-  const [progress, dispatch] = useReducer(progressReducer, initialProgress);
 
   const logDeletionSummary = (summary) => {
     if (!summary || typeof summary !== 'object') return;

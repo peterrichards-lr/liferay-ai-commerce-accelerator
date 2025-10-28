@@ -3,10 +3,10 @@ import { useApp } from '../context/AppContext';
 import {
   BATCH_COMPLETED,
   BATCH_FAILED,
+  BATCH_PROGRESS,
   BATCH_START,
   CONNECTED,
   GENERATION_SESSION_COMPLETE,
-  PROGRESS_UPDATE,
 } from '../utils/webSocket';
 import { normalizeEntityType } from '../utils/misc';
 import { CORRELATION_ID_HEADER } from '../utils/sharedConstants';
@@ -14,7 +14,7 @@ import { CORRELATION_ID_HEADER } from '../utils/sharedConstants';
 export default function useRealtimeWebSocket({
   enabled,
   microserviceUrl,
-  loggingLevel = 'off', // 'off' | 'basic' | 'debug'
+  loggingLevel = 'off',
   onLog,
   onProgress,
 }) {
@@ -49,9 +49,7 @@ export default function useRealtimeWebSocket({
       if (typeof v.batchId === 'string') return v.batchId;
       try {
         return JSON.stringify(v);
-      } catch {
-        /* ignore */
-      }
+      } catch {}
     }
     return String(v);
   };
@@ -61,8 +59,20 @@ export default function useRealtimeWebSocket({
     return s ? s.slice(-6) : '∅';
   };
 
-  const tag = (entityType, batchId) =>
-    `${entityType ?? 'unknown'}#${shortId(batchId)}`;
+  const tag = (entityType, batchId, operation) => {
+    const et = entityType ?? 'unknown';
+    const op = operation ? `/${String(operation).toLowerCase()}` : '';
+    return `${et}${op}#${shortId(batchId)}`;
+  };
+
+  const extractOperation = (payload) =>
+    String(
+      payload.operation ||
+        payload.mode ||
+        payload.details?.operation ||
+        payload.details?.mode ||
+        ''
+    ).toLowerCase();
 
   const cleanupSocket = () => {
     if (reconnectTimerRef.current) {
@@ -168,7 +178,6 @@ export default function useRealtimeWebSocket({
       const entityType = normalizeEntityType(
         data.entityType || data.details?.entityType
       );
-
       const bId = data.batchId || data.details?.batchId;
 
       if (
@@ -183,8 +192,36 @@ export default function useRealtimeWebSocket({
         logDebug('Tracking new batch event', { type: data.type, batchId: bId });
       }
 
+      const coerceNum = (v) => (Number.isFinite(v) ? v : undefined);
+      const extractCounts = (payload) => {
+        const success =
+          coerceNum(payload.successCount) ??
+          coerceNum(payload.processedCount) ??
+          coerceNum(payload.details?.processedCount) ??
+          0;
+
+        const failures =
+          coerceNum(payload.failureCount) ??
+          coerceNum(payload.errorCount) ??
+          coerceNum(payload.details?.failureCount) ??
+          coerceNum(payload.details?.errorCount) ??
+          0;
+
+        let total =
+          coerceNum(payload.totalCount) ??
+          coerceNum(payload.details?.totalCount) ??
+          success + failures ??
+          0;
+
+        if (!Number.isFinite(total) || total < success) {
+          total = success + failures;
+        }
+        return { success, failures, total };
+      };
+
       switch (data.type) {
         case BATCH_START: {
+          const op = extractOperation(data);
           const total =
             data?.details?.totalItems ?? data?.details?.totalCount ?? undefined;
 
@@ -194,79 +231,126 @@ export default function useRealtimeWebSocket({
             total,
             raw: data,
           });
-
           onLog?.(
             total != null
-              ? `Batch started ${tag(entityType, bId)} — total ${total}`
-              : `Batch started ${tag(entityType, bId)}`,
+              ? `Batch started ${tag(entityType, bId, op)} — total ${total}`
+              : `Batch started ${tag(entityType, bId, op)}`,
             'info'
           );
+          break;
+        }
 
-          onProgress?.({
-            kind: 'batch',
-            status: 'started',
+        case BATCH_PROGRESS: {
+          const op = extractOperation(data);
+          logDebug('BATCH_PROGRESS received', {
             entityType,
-            data,
-            totals: total != null ? { totalItems: total } : undefined,
+            batchId: bId,
+            raw: data,
           });
+          onLog?.(`Batch progress ${tag(entityType, bId, op)}`, 'info');
           break;
         }
 
         case BATCH_COMPLETED: {
-          const success =
-            data.successCount ?? data.details?.processedCount ?? 0;
-          const total = data.details?.totalCount ?? 0;
+          const { success, total } = extractCounts(data);
+          const op = extractOperation(data);
+          const activityOnly = !!(data.details && data.details.activityOnly);
 
           logDebug('BATCH_COMPLETED received', {
             entityType,
             batchId: bId,
             successCount: success,
             totalCount: total,
+            operation: op || '(none)',
+            activityOnly,
             raw: data,
           });
 
           onLog?.(
-            `Batch completed ${tag(entityType, bId)} — ${success}/${total}`,
+            total != null
+              ? `Batch complete ${tag(entityType, bId, op)} — +${success}`
+              : `Batch complete ${tag(entityType, bId, op)}`,
             'success'
           );
 
-          onProgress?.({
-            kind: 'batch',
-            status: 'completed',
-            entityType,
-            data,
-          });
+          if (op === 'generate' && !activityOnly && onProgress) {
+            onProgress((prev) => {
+              const cur = prev?.[entityType] || {
+                total: 0,
+                completed: 0,
+                errors: [],
+              };
+              const nextCompleted = cur.completed + (success ?? 0);
+              return {
+                ...prev,
+                [entityType]: {
+                  ...cur,
+                  total: cur.total || total || 0,
+                  completed: Math.min(
+                    nextCompleted,
+                    cur.total || total || Infinity
+                  ),
+                },
+              };
+            });
+          }
+
           break;
         }
 
         case BATCH_FAILED: {
+          const op = extractOperation(data);
           const failures = data.failureCount ?? data.details?.errorCount ?? 0;
+          const total = data.details?.totalCount ?? undefined;
+
           logDebug('BATCH_FAILED received', {
             entityType,
             batchId: bId,
             failureCount: failures,
+            totalCount: total,
             raw: data,
           });
 
           onLog?.(
-            `Batch failed ${tag(entityType, bId)} — errors: ${failures}`,
+            `Batch failed ${tag(entityType, bId, op)} — errors: +${failures}`,
             'error'
           );
 
-          onProgress?.({
-            kind: 'batch',
-            status: 'failed',
-            entityType,
-            data,
-          });
+          if (op === 'generate' && onProgress) {
+            onProgress((prev) => {
+              const cur = prev?.[entityType] || {
+                total: 0,
+                completed: 0,
+                errors: [],
+              };
+              const nextCompleted = cur.completed + (failures ?? 0);
+              const addErrors =
+                failures > 0
+                  ? Array.from({ length: failures }, () => ({
+                      batchId: bId,
+                      op,
+                    }))
+                  : [];
+              return {
+                ...prev,
+                [entityType]: {
+                  ...cur,
+                  total: cur.total || total || 0,
+                  completed: Math.min(
+                    nextCompleted,
+                    cur.total || total || Infinity
+                  ),
+                  errors: [...cur.errors, ...addErrors],
+                },
+              };
+            });
+          }
+
           break;
         }
 
         case CONNECTED: {
-          logDebug('CONNECTED received', {
-            raw: data,
-          });
-
+          logDebug('CONNECTED received', { raw: data });
           onLog?.('Web socket Connected', 'info');
           break;
         }
@@ -277,38 +361,7 @@ export default function useRealtimeWebSocket({
             'Generation session completed — triggering post processing.',
             'info'
           );
-          onProgress?.({
-            kind: 'session',
-            status: 'completed',
-            data,
-          });
-          break;
-        }
-
-        case PROGRESS_UPDATE: {
-          const processed =
-            data.processedCount ??
-            data.details?.processedCount ??
-            data.progress?.processed ??
-            undefined;
-          const total =
-            data.totalCount ??
-            data.details?.totalCount ??
-            data.progress?.total ??
-            undefined;
-
-          logDebug('PROGRESS_UPDATE received', {
-            entityType,
-            processed,
-            total,
-            raw: data,
-          });
-
-          onProgress?.({
-            kind: 'progress',
-            entityType,
-            data,
-          });
+          onProgress?.({ kind: 'session', status: 'completed', data });
           break;
         }
 

@@ -42,26 +42,77 @@ function getBroadcastMeta(batchId, entityType) {
   };
 }
 
+function normalizeStats(result) {
+  const total = totalClients();
+
+  if (result && typeof result === 'object') {
+    const ok = Number.isFinite(result.ok)
+      ? result.ok
+      : Number.isFinite(result.sent)
+      ? result.sent
+      : 0;
+    const fail = Number.isFinite(result.fail)
+      ? result.fail
+      : Number.isFinite(result.failed)
+      ? result.failed
+      : 0;
+    const tot = Number.isFinite(result.total)
+      ? result.total
+      : Number.isFinite(result.totalClients)
+      ? result.totalClients
+      : total;
+
+    return {
+      ok,
+      fail,
+      total: tot,
+
+      sent: ok,
+      failed: fail,
+      totalClients: tot,
+    };
+  }
+
+  if (typeof result === 'number') {
+    const ok = result;
+    return {
+      ok,
+      fail: Math.max(0, total - ok),
+      total,
+      sent: ok,
+      failed: Math.max(0, total - ok),
+      totalClients: total,
+    };
+  }
+
+  return {
+    ok: total,
+    fail: 0,
+    total,
+    sent: total,
+    failed: 0,
+    totalClients: total,
+  };
+}
+
 function wrapEmitters(logger) {
   const names = [
     'emitBatchStarted',
     'emitBatchProgress',
     'emitBatchCompleted',
+    'emitBatchFailed',
     'emitGenerationSessionComplete',
     'emitPostProcessingStarted',
     'emitPostProcessingCompleted',
   ];
 
-  const accumulate = (result) => {
-    if (typeof result === 'number') {
-      metrics.sent += result;
-    } else if (result && typeof result === 'object') {
-      if (Number.isFinite(result.sent)) metrics.sent += result.sent;
-      else metrics.sent += totalClients();
-      if (Number.isFinite(result.failed)) metrics.failed += result.failed;
-    } else {
-      metrics.sent += totalClients();
-    }
+  const accumulate = (stats) => {
+    if (!stats) return;
+    if (Number.isFinite(stats.sent)) metrics.sent += stats.sent;
+    else if (Number.isFinite(stats.ok)) metrics.sent += stats.ok;
+
+    if (Number.isFinite(stats.failed)) metrics.failed += stats.failed;
+    else if (Number.isFinite(stats.fail)) metrics.failed += stats.fail;
   };
 
   names.forEach((name) => {
@@ -73,21 +124,24 @@ function wrapEmitters(logger) {
         const r = orig(payload, opts);
         if (r && typeof r.then === 'function') {
           return r
-            .then((stat) => {
-              accumulate(stat);
-              return stat;
+            .then((res) => {
+              const stats = normalizeStats(res);
+              accumulate(stats);
+              return stats;
             })
             .catch((err) => {
               metrics.failed += 1;
+              if (logger?.error) logger.error(`WS emit failed (${name})`, err);
               throw err;
             });
         }
-        accumulate(r);
-        return r;
+
+        const stats = normalizeStats(r);
+        accumulate(stats);
+        return stats;
       } catch (err) {
         metrics.failed += 1;
-        if (logger && logger.error)
-          logger.error(`WS emit failed (${name})`, err);
+        if (logger?.error) logger.error(`WS emit failed (${name})`, err);
         throw err;
       }
     };

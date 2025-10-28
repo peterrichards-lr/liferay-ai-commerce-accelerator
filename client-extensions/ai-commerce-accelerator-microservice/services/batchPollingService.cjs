@@ -101,7 +101,6 @@ class BatchPollingService {
           await productGenerator.processImageAndPDFAttachments(
             config,
             productDataList,
-            preparedProducts,
             options
           );
 
@@ -145,7 +144,10 @@ class BatchPollingService {
         cache.set(
           `batch:${batchId}:config`,
           {
-            correlationId: config.correlationId,
+            correlationId:
+              meta.config?.correlationId ||
+              globalOptions.correlationId ||
+              'unknown',
             affectsProgress,
             entityType: entity,
             mode,
@@ -168,6 +170,8 @@ class BatchPollingService {
     const {
       pollInterval = 5000,
       maxPollAttempts = 120,
+      timeoutMs,
+      onTimeout,
       onStatusChange,
       onComplete,
       onError,
@@ -193,11 +197,34 @@ class BatchPollingService {
       onStatusChange,
       onComplete,
       onError,
+      onTimeout,
+      timeoutMs,
       entityType,
       mode,
       affectsProgress,
       startTime: new Date(),
+      deadline: timeoutMs ? Date.now() + Number(timeoutMs) : null,
+      timeoutTimerId: null,
     };
+
+    if (pollData.deadline) {
+      pollData.timeoutTimerId = setTimeout(() => {
+        logger.error('Batch polling timed out by wall-clock', {
+          operation: 'batch-polling-wall-timeout',
+          batchId,
+          timeoutMs: pollData.timeoutMs,
+        });
+        try {
+          if (typeof pollData.onTimeout === 'function') {
+            pollData.onTimeout();
+          } else if (typeof pollData.onError === 'function') {
+            pollData.onError(new Error('Batch polling timed out'));
+          }
+        } finally {
+          this.stopPolling(batchId);
+        }
+      }, pollData.timeoutMs);
+    }
 
     this.activePolls.set(batchId, pollData);
 
@@ -209,6 +236,7 @@ class BatchPollingService {
       entityType,
       mode,
       affectsProgress,
+      timeoutMs,
     });
 
     await this.pollBatchStatus(batchId);
@@ -217,6 +245,7 @@ class BatchPollingService {
   async pollBatchStatus(batchId) {
     const { logger, liferay, cache } = this.ctx;
     const pollData = this.activePolls.get(batchId);
+
     if (!pollData) {
       logger.info(`Unable to find poll data - ${batchId}`);
       return;
@@ -228,27 +257,34 @@ class BatchPollingService {
       return;
     }
 
+    if (pollData.deadline && Date.now() > pollData.deadline) {
+      logger.error('Batch polling exceeded wall-clock deadline', {
+        operation: 'batch-polling-deadline',
+        batchId,
+      });
+      try {
+        if (typeof pollData.onTimeout === 'function') {
+          pollData.onTimeout();
+        } else if (typeof pollData.onError === 'function') {
+          pollData.onError(new Error('Batch polling timed out'));
+        }
+      } finally {
+        this.stopPolling(batchId);
+      }
+      return;
+    }
+
     try {
       pollData.attempts++;
 
       const statusResponse = await liferay.getImportTask(config, batchId);
       const status = statusResponse.data;
-      const batchStatus = status.executeStatus || status.status || 'UNKNOWN';
-      const entitytype = inferEntityTypeFromClassName(status.className);
 
-      const totalCount =
-        status.itemsTotal ||
-        status.totalItemsCount ||
-        status.taskItemTotalCount ||
-        status.totalCount ||
-        0;
-      const processedCount =
-        status.itemsProcessed ||
-        status.processedItemsCount ||
-        status.taskItemCompletedCount ||
-        status.processedCount ||
-        0;
-      const errorCount = status.failedItems?.length || status.errorCount || 0;
+      const batchStatus = status.executeStatus || 'UNKNOWN';
+      const entitytype = inferEntityTypeFromClassName(status.className);
+      const totalCount = status.totalItemsCount || 0;
+      const processedCount = status.processedItemsCount || 0;
+      const errorCount = status.failedItems?.length || 0;
 
       logger.trace('Batch status polled', {
         operation: 'batch-polling-check',
@@ -388,6 +424,8 @@ class BatchPollingService {
     const affectsProgress = pollData?.affectsProgress ?? true;
     const mode = pollData?.mode || batchConfig?.mode || 'unknown';
     const correlationId = batchConfig?.correlationId || 'unknown';
+    const operation =
+      pollData?.operation || batchConfig?.operation || 'unknown';
 
     cache.set(
       `batch:${batchId}:completed`,
@@ -397,6 +435,7 @@ class BatchPollingService {
         processedItemsCount: processedCount,
         entityType,
         mode,
+        operation,
       },
       300000
     );
@@ -407,6 +446,7 @@ class BatchPollingService {
       totalCount,
       processedCount,
       errorCount,
+      operation,
       rawStatus: {
         totalItemsCount: totalCount,
         processedItemsCount: processedCount,
@@ -425,6 +465,7 @@ class BatchPollingService {
       errorCount,
       entityType,
       mode,
+      operation,
       completedAt: new Date().toISOString(),
     };
 
@@ -441,6 +482,8 @@ class BatchPollingService {
       status: 'COMPLETED',
       processedCount: results.processedCount,
       totalCount: results.totalCount,
+      mode,
+      operation,
       entityType,
     });
 
@@ -456,6 +499,7 @@ class BatchPollingService {
         errorCount: results.errorCount,
         completedAt: results.completedAt,
         mode,
+        operation,
         activityOnly: !affectsProgress,
       },
       correlationId,
@@ -465,8 +509,8 @@ class BatchPollingService {
       payload: message,
     });
 
-    const { ok, fail, total } = await getWs().emitBatchCompleted(message);
-
+    const stats = (await getWs().emitBatchCompleted(message)) || {};
+    const { ok = 0, fail = 0, total = 0 } = stats;
     logger.trace('📊 WebSocket broadcast summary', {
       operation: 'websocket-broadcast',
       batchId,
@@ -502,6 +546,8 @@ class BatchPollingService {
     const pollData = this.activePolls.get(batchId);
     const affectsProgress = pollData?.affectsProgress ?? true;
     const mode = pollData?.mode || 'unknown';
+    const operation =
+      pollData?.operation || batchConfig?.operation || 'unknown';
     const entityType =
       pollData?.entityType || batchConfig?.entityType || 'products';
     const correlationId =
@@ -516,6 +562,7 @@ class BatchPollingService {
         failedItemsLength: status.failedItems?.length,
         failedItems: status.failedItems,
         entityType,
+        operation,
       },
       300000
     );
@@ -526,6 +573,7 @@ class BatchPollingService {
       totalCount,
       processedCount,
       errorCount,
+      operation,
       rawStatus: {
         totalItemsCount: totalCount,
         processedItemsCount: processedCount,
@@ -544,6 +592,7 @@ class BatchPollingService {
       processedCount,
       errorCount,
       mode,
+      operation,
       failedAt: new Date().toISOString(),
     };
 
@@ -577,12 +626,14 @@ class BatchPollingService {
         processedCount: results.processedCount,
         errorCount: results.errorCount,
         failedAt: results.failedAt,
+        mode,
+        operation,
       },
       correlationId: results.correlationId,
     };
 
-    const { ok, fail, total } = await getWs().emitBatchFailed(message);
-
+    const stats = (await getWs().emitBatchFailed(message)) || {};
+    const { ok = 0, fail = 0, total = 0 } = stats;
     logger.debug('📊 WebSocket broadcast summary', {
       operation: 'websocket-broadcast',
       mode,
@@ -611,6 +662,11 @@ class BatchPollingService {
     if (timeoutId) {
       clearTimeout(timeoutId);
       this.pollingIntervals.delete(batchId);
+    }
+
+    const pollData = this.activePolls.get(batchId);
+    if (pollData?.timeoutTimerId) {
+      clearTimeout(pollData.timeoutTimerId);
     }
 
     this.activePolls.delete(batchId);
@@ -655,7 +711,8 @@ class BatchPollingService {
       });
 
       const allDone =
-        session.completedBatches.size >= session.totalExpected && session.totalExpected > 0;
+        session.completedBatches.size >= session.totalExpected &&
+        session.totalExpected > 0;
       if (allDone) {
         logger.info('Generation session completed - all batches finished', {
           operation: 'generation-session-complete',
@@ -667,12 +724,15 @@ class BatchPollingService {
 
         const hook = session.onSessionComplete;
         const ctx = session.context;
+        const sessionSnapshot = { ...session };
 
         this.generationSessions.delete(sessionId);
 
         if (typeof hook === 'function') {
           Promise.resolve()
-            .then(() => hook({ sessionId, context: ctx }))
+            .then(() =>
+              hook({ sessionId, session: sessionSnapshot, correlationId })
+            )
             .catch((err) => {
               logger?.error?.('onSessionComplete failed', {
                 operation: 'post-processing-hook-error',

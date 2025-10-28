@@ -46,8 +46,6 @@ module.exports = (
       );
       const liferayServerDomain = lxcConfig.dxpMainDomain();
       liferayUrl = `${liferayServerProtocol}://${liferayServerDomain}`;
-      // validate
-      // eslint-disable-next-line no-new
       new URL(liferayUrl);
     } catch (e) {
       throw new Error(`Unable to determine Liferay URL: ${e?.message || e}`);
@@ -81,8 +79,11 @@ module.exports = (
   };
 
   app.post('/api/batch/callback', async (req, res) => {
-    const [{ batchId, status, processedCount, totalCount, errorMessage } = {}] =
-      parseBatchStatuses(req.body) || [{}];
+    const [
+      { batchId: bid, status, processedCount, totalCount, errorMessage } = {},
+    ] = parseBatchStatuses(req.body) || [{}];
+
+    const batchId = String(bid);
 
     let correlationId = undefined;
     let batchConfig = null;
@@ -108,7 +109,7 @@ module.exports = (
           operation: 'batch-callback-no-config',
           batchId,
         });
-        // Use a fresh correlation id if we can't recover the original
+
         const recovered = await restoreConfig(batchId, uuidv4());
         if (recovered) {
           batchConfig = recovered;
@@ -119,6 +120,8 @@ module.exports = (
       }
 
       const entityType = batchConfig?.entityType || 'unknown';
+      const operation = batchConfig?.operation || 'unknown';
+      const affectsProgress = batchConfig?.affectsProgress ?? true;
 
       logger.info('Received batch submission callback from Liferay', {
         correlationId,
@@ -153,7 +156,6 @@ Full callback data: ${JSON.stringify(sanitizedCallback, null, 2)}
         60 * 60 * 1000
       );
 
-      // If Liferay says it's starting/initializing, kick off polling (if not already active)
       if (status === 'INITIAL' || status === 'STARTED') {
         if (
           cacheService.get(`batch:${batchId}:completed`) ||
@@ -201,7 +203,6 @@ Full callback data: ${JSON.stringify(sanitizedCallback, null, 2)}
               totalCount: r.totalCount,
             });
 
-            // Emit here (polling-owned path)
             getWs().emitBatchCompleted(
               {
                 batchId,
@@ -212,6 +213,7 @@ Full callback data: ${JSON.stringify(sanitizedCallback, null, 2)}
                   0
                 ),
                 totalCount: r.totalCount,
+                operation: batchConfig.operation,
               },
               { correlationId }
             );
@@ -234,6 +236,7 @@ Full callback data: ${JSON.stringify(sanitizedCallback, null, 2)}
                 error: err.message,
                 successCount: 0,
                 failureCount: 1,
+                operation: batchConfig.operation,
               },
               { correlationId }
             );
@@ -243,8 +246,6 @@ Full callback data: ${JSON.stringify(sanitizedCallback, null, 2)}
         return;
       }
 
-      // Non-polling terminal states
-      // Attempt to enrich with latest task details if counts are missing
       let finalProcessed = processedCount;
       let finalTotal = totalCount;
 
@@ -253,9 +254,10 @@ Full callback data: ${JSON.stringify(sanitizedCallback, null, 2)}
           const { task } = await getImportTask(batchId);
           finalProcessed =
             finalProcessed ??
-            task?.processedCount ??
-            task?.data?.processedCount;
-          finalTotal = finalTotal ?? task?.totalCount ?? task?.data?.totalCount;
+            task?.processedItemsCount ??
+            task?.data?.processedItemsCount;
+          finalTotal =
+            finalTotal ?? task?.totalItemsCount ?? task?.data?.totalItemsCount;
         } catch (e) {
           logger.warn('Unable to enrich terminal batch counts from task', {
             operation: 'batch-enrich-miss',
@@ -266,7 +268,6 @@ Full callback data: ${JSON.stringify(sanitizedCallback, null, 2)}
       }
 
       if (status === 'COMPLETED') {
-        // Mark cache as completed
         cacheService.set(
           `batch:${batchId}:final`,
           {
@@ -279,7 +280,6 @@ Full callback data: ${JSON.stringify(sanitizedCallback, null, 2)}
           60 * 60 * 1000
         );
 
-        // Emit here because we didn't start polling
         getWs().emitBatchCompleted(
           {
             batchId,
@@ -290,9 +290,21 @@ Full callback data: ${JSON.stringify(sanitizedCallback, null, 2)}
               0
             ),
             totalCount: finalTotal ?? finalProcessed ?? 0,
+            operation: batchConfig.operation,
           },
           { correlationId }
         );
+
+        if (
+          affectsProgress &&
+          operation === 'generate' &&
+          entityType === 'products'
+        ) {
+          batchPollingService.markBatchCompleteInSessions(
+            batchId,
+            correlationId
+          );
+        }
 
         logger.info(
           `✅ Batch ${batchId} (${entityType}) completed - ${
@@ -327,9 +339,21 @@ Full callback data: ${JSON.stringify(sanitizedCallback, null, 2)}
               (finalTotal ?? 0) - (finalProcessed ?? 0),
               0
             ),
+            operation: batchConfig.operation,
           },
           { correlationId }
         );
+
+        if (
+          affectsProgress &&
+          operation === 'generate' &&
+          entityType === 'products'
+        ) {
+          batchPollingService.markBatchCompleteInSessions(
+            batchId,
+            correlationId
+          );
+        }
 
         logger.error(
           `❌ Batch ${batchId} (${entityType}) failed — processed=${

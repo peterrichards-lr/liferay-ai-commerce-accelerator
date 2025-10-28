@@ -1,35 +1,121 @@
 const { delay, resolvePhaseAndMode } = require('../utils/misc.cjs');
+const { PATH } = require('../utils/liferayPaths.cjs');
 
 class OrderGenerator {
   constructor(ctx) {
     this.ctx = ctx;
   }
 
+  validateConfig(config) {
+    const prVal = config.pollingRetries;
+    if (prVal === undefined || prVal === null)
+      throw new Error('pollingRetries is required');
+    const pr = parseInt(prVal);
+    if (isNaN(pr) || pr < 0 || pr > 20)
+      throw new Error('pollingRetries must be between 0 and 20');
+
+    const pdVal = config.pollingDelay;
+    if (pdVal === undefined || pdVal === null)
+      throw new Error('pollingDelay is required');
+    const pd = parseInt(pdVal);
+    if (isNaN(pd) || pd < 5000 || pd > 600000)
+      throw new Error('pollingDelay must be between 5 and 600 seconds');
+
+    const ch = parseInt(config.channelId);
+    if (!Number.isFinite(ch) || ch <= 0)
+      throw new Error('channelId must be a positive integer');
+    if (!config.currencyCode) throw new Error('currencyCode is required');
+  }
+
+  async validateOptions(options) {
+    const { ai } = this.ctx;
+    if (
+      !options.orderCount ||
+      typeof options.orderCount !== 'number' ||
+      options.orderCount <= 0
+    ) {
+      throw new Error('orderCount must be greater than 0');
+    }
+    if (!options.demoMode) {
+      await ai.getOpenAIClient();
+    }
+  }
+
+  async submitOrdersBatch(config, items, callbackUrl) {
+    const { logger, liferay } = this.ctx;
+    const payload = { createStrategy: 'INSERT', items };
+    const url = PATH.ORDERS_BATCH(callbackUrl);
+
+    logger.info('Sending batch order creation request', {
+      operation: 'create-orders-batch',
+      orderCount: items.length,
+      callbackUrl: callbackUrl || 'none',
+      url,
+    });
+
+    const data = await liferay._post(
+      config,
+      url,
+      payload,
+      'create-orders-batch',
+      'Failed to create orders batch'
+    );
+
+    const batchId = data.id || `batch-${Date.now()}`;
+    const status = data.status || 'submitted';
+
+    logger.info('Batch order creation initiated', {
+      operation: 'create-orders-batch',
+      batchId,
+      status,
+    });
+
+    return { batchId, status, orderCount: items.length };
+  }
+
+  buildOrderPayload(config, orderData, accounts) {
+    const accountId = this.pickAccountId(orderData.accountId, accounts);
+    const orderStatus = this.normalizeOrderStatus(orderData.orderStatus);
+    return {
+      accountId,
+      channelId: parseInt(config.channelId, 10),
+      currencyCode: config.currencyCode,
+      orderDate: orderData.orderDate || new Date().toISOString(),
+      orderStatus: parseInt(orderStatus, 10),
+      externalReferenceCode:
+        orderData.externalReferenceCode ||
+        `ORD-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`,
+    };
+  }
+
   async generateOrders(config, options) {
-    const { ai, logger, mockData, batchProcessor, getWs, cache } = this.ctx;
+    const { ai, logger, mockData, cache, batchPolling, getWs, liferay } =
+      this.ctx;
+
     const correlationId = config.correlationId;
-    const useConcurrent = config.batchSize > 1 && options.orderCount > 1;
+    const useBatch = config.batchSize > 1 && options.orderCount > 1;
     const { mode, phase } = resolvePhaseAndMode({
-      useBatch: useConcurrent,
+      useBatch,
       phase: 'generate',
     });
-    const startedAt = Date.now();
+
+    logger.info('Starting order generation', {
+      correlationId,
+      operation: 'orders/generate:start',
+      orderCount: options.orderCount,
+      mode,
+      phase,
+      demoMode: options.demoMode,
+      batchSize: config.batchSize,
+      pollingDelay: config.pollingDelay,
+      pollingRetries: config.pollingRetries,
+    });
+
     const results = { orders: [], created: 0, errors: [] };
 
     try {
       this.validateConfig(config);
       await this.validateOptions(options);
-
-      logger.info('Starting order generation', {
-        correlationId,
-        operation: 'orders/generate:start',
-        orderCount: options.orderCount,
-        mode,
-        useConcurrent,
-        batchSize: config.batchSize,
-        pollingDelay: config.pollingDelay,
-        pollingRetries: config.pollingRetries,
-      });
 
       const { products, accounts } = await this.getProductsAndAccountsWithRetry(
         config
@@ -47,141 +133,196 @@ class OrderGenerator {
         );
       }
 
-      const batchId = useConcurrent
-        ? `orders-concurrent-${Date.now()}`
-        : 'orders-individual';
+      if (useBatch) {
+        const callbackUrl =
+          config.microserviceUrl && config.microserviceUrl !== 'null'
+            ? `${config.microserviceUrl}/api/batch/callback`
+            : null;
 
-      cache.set(
-        `batch:${batchId}:meta`,
-        { totalCount: orderDataList.length, startedAt },
-        3600000
-      );
-
-      getWs().emitBatchStarted(
-        {
-          batchId,
-          entityType: 'orders',
-          totalItems: orderDataList.length,
-          operation: 'generate',
-          mode,
-          phase,
-        },
-        { correlationId }
-      );
-
-      if (useConcurrent) {
-        let completed = 0;
-        const failures = [];
-        await batchProcessor.processBatchWithProgress(
-          orderDataList,
-          async (orderData) => {
-            const createdOrder = await this.createSingleOrder(
-              config,
-              orderData,
-              products,
-              accounts
-            );
-            results.orders.push(createdOrder);
-            results.created++;
-            return createdOrder;
-          },
-          config.batchSize,
-          (progress) => {
-            getWs().emitBatchProgress(
-              {
-                batchId,
-                entityType: 'orders',
-                completedCount: progress.processed,
-                totalItems: progress.total,
-                progress: progress.percentage,
-                operation: 'generate',
-                meta: progress.meta, // ← normalized (totalClients/sent/failed)
-              },
-              { correlationId }
-            );
-          },
-          {
-            operation: 'generate-orders',
-            broadcastMeta: { batchId, entityType: 'orders' },
-          }
-        );
-      } else {
-        let completed = 0;
-        for (const orderData of orderDataList) {
-          try {
-            const createdOrder = await this.createSingleOrder(
-              config,
-              orderData,
-              products,
-              accounts
-            );
-            results.orders.push(createdOrder);
-            results.created++;
-          } catch (e) {
-            results.errors.push({
-              externalReferenceCode: orderData.externalReferenceCode,
-              error: e.message,
-            });
-          } finally {
-            completed++;
-            const meta = cache.get(`batch:${batchId}:meta`) || {
-              startedAt,
-              totalCount: orderDataList.length,
-            };
-            const total = meta.totalCount || orderDataList.length;
-            const progress = Math.round((completed / total) * 100);
-            const elapsedMs = Math.max(
-              1,
-              Date.now() - (meta.startedAt || startedAt)
-            );
-            const rate = completed / (elapsedMs / 1000);
-            const remaining = Math.max(0, total - completed);
-            const etaSeconds = rate > 0 ? Math.round(remaining / rate) : null;
-
-            getWs().emitBatchProgress(
-              {
-                batchId,
-                entityType: 'orders',
-                completedCount: completed,
-                totalItems: total,
-                progress,
-                etaSeconds,
-                operation: 'generate',
-                mode,
-                phase,
-              },
-              { correlationId }
-            );
-          }
+        const chunks = [];
+        for (let i = 0; i < orderDataList.length; i += config.batchSize) {
+          chunks.push(orderDataList.slice(i, i + config.batchSize));
         }
+
+        for (let batchIndex = 0; batchIndex < chunks.length; batchIndex++) {
+          const originalBatch = chunks[batchIndex];
+
+          const liferayOrders = originalBatch.map((od) =>
+            this.buildOrderPayload(config, od, accounts)
+          );
+
+          const submission = await this.submitOrdersBatch(
+            config,
+            liferayOrders,
+            callbackUrl
+          );
+
+          const startedAt = Date.now();
+          cache.set(
+            `batch:${submission.batchId}:meta`,
+            { totalCount: liferayOrders.length, startedAt },
+            3600000
+          );
+
+          getWs().emitBatchStarted(
+            {
+              batchId: submission.batchId,
+              entityType: 'orders',
+              totalItems: liferayOrders.length,
+              operation: 'generate',
+              mode,
+              phase,
+            },
+            { correlationId }
+          );
+
+          cache.set(
+            `batch:${submission.batchId}:config`,
+            {
+              correlationId,
+              clientId: config.clientId,
+              clientSecret: config.clientSecret,
+              createdAt: new Date().toISOString(),
+              entityType: 'orders',
+              liferayUrl: config.liferayUrl,
+              localeCode: config.localeCode,
+              operation: 'generate',
+              pollInterval: config.pollingDelay || 5000,
+              maxPollAttempts: config.pollingRetries || 120,
+              mode,
+            },
+            3600000
+          );
+
+          const pollInterval = Math.max(config.pollingDelay || 5000, 2000);
+          const maxPollAttempts = config.pollingRetries || 120;
+
+          batchPolling.startPolling(
+            submission.batchId,
+            {
+              liferayUrl: config.liferayUrl,
+              clientId: config.clientId,
+              clientSecret: config.clientSecret,
+              localeCode: config.localeCode,
+              entityType: 'orders',
+            },
+            {
+              pollInterval,
+              maxPollAttempts,
+              entityType: 'orders',
+              mode,
+              affectsProgress: true,
+              onStatusChange: (status) => {
+                const meta =
+                  cache.get(`batch:${submission.batchId}:meta`) || {};
+                const total =
+                  status.totalCount ||
+                  meta.totalCount ||
+                  liferayOrders.length ||
+                  0;
+                const processed = status.processedCount || 0;
+                const progress =
+                  total > 0 ? Math.round((processed / total) * 100) : 0;
+                const elapsedMs = Math.max(
+                  1,
+                  Date.now() - (meta.startedAt || Date.now())
+                );
+                const rate = processed / (elapsedMs / 1000);
+                const remaining = Math.max(0, total - processed);
+                const etaSeconds =
+                  rate > 0 ? Math.round(remaining / rate) : null;
+
+                getWs().emitBatchProgress(
+                  {
+                    batchId: status.batchId,
+                    entityType: 'orders',
+                    completedCount: processed,
+                    totalItems: total,
+                    progress,
+                    etaSeconds,
+                    operation: 'generate',
+                    mode,
+                    phase,
+                  },
+                  { correlationId }
+                );
+
+                logger.debug('Orders batch status update', {
+                  operation: 'orders/batch:progress',
+                  batchId: status.batchId,
+                  status: status.status,
+                  processedCount: processed,
+                  totalCount: total,
+                  progress,
+                  etaSeconds,
+                });
+              },
+              onComplete: (r) => this.handleBatchComplete(r, config),
+              onError: (error) => {
+                logger.error('Orders batch polling error', {
+                  operation: 'orders/batch:error',
+                  batchId: submission.batchId,
+                  error: error.message,
+                  entityType: 'orders',
+                });
+
+                getWs().emitBatchFailed(
+                  {
+                    batchId: submission.batchId,
+                    entityType: 'orders',
+                    error: error.message || 'Batch polling error',
+                    successCount: 0,
+                    failureCount: 1,
+                    operation: 'generate',
+                    mode,
+                    phase,
+                  },
+                  { correlationId }
+                );
+              },
+            }
+          );
+
+          logger.info('Orders batch submission completed', {
+            operation: 'orders/batch:submit',
+            batchId: submission.batchId,
+            orderCount: liferayOrders.length,
+            status: submission.status,
+            callbackUrl: callbackUrl || 'none',
+            mode,
+            phase,
+          });
+
+          results.orders.push({
+            batchIndex: batchIndex + 1,
+            totalBatches: chunks.length,
+            batchId: submission.batchId,
+            status: submission.status,
+            orderCount: liferayOrders.length,
+            orders: liferayOrders.map((o) => ({
+              accountId: o.accountId,
+              erc: o.externalReferenceCode,
+            })),
+          });
+          results.created += liferayOrders.length;
+
+          if (batchIndex < chunks.length - 1) await delay(1000);
+        }
+
+        return {
+          orders: results.orders,
+          created: results.created,
+          errors: results.errors,
+          success: results.errors.length === 0,
+        };
       }
 
-      const durationMs = Date.now() - startedAt;
-
-      getWs().emitBatchCompleted(
-        {
-          batchId,
-          entityType: 'orders',
-          successCount: results.created,
-          failureCount: results.errors.length,
-          errors: results.errors.slice(0, 5),
-          operation: 'generate',
-          mode,
-          phase,
-          meta: { durationMs, startedAt },
-        },
-        { correlationId }
+      return await this.generateOrdersIndividually(
+        config,
+        options,
+        orderDataList,
+        accounts
       );
-
-      logger.info('Order generation completed', {
-        correlationId,
-        operation: 'orders/generate:complete',
-        created: results.created,
-        errors: results.errors.length,
-        durationMs,
-      });
-
-      return { ...results, success: results.errors.length === 0 };
     } catch (error) {
       logger.error('Order generation failed', {
         correlationId,
@@ -194,43 +335,185 @@ class OrderGenerator {
     }
   }
 
-  async createSingleOrder(
-    config,
-    orderData,
-    availableProducts,
-    availableAccounts
-  ) {
-    const { liferay, logger } = this.ctx;
-    const accountId = this.pickAccountId(
-      orderData.accountId,
-      availableAccounts
+  async generateOrdersIndividually(config, options, orderDataList, accounts) {
+    const { logger, getWs } = this.ctx;
+    const { mode, phase } = resolvePhaseAndMode({
+      useBatch: false,
+      phase: 'generate',
+    });
+
+    const startedAt = Date.now();
+    const metaKey = 'orders-individual:meta';
+    this.ctx.cache.set(
+      metaKey,
+      { total: orderDataList.length, startedAt },
+      3600000
     );
-    const orderStatus = this.normalizeOrderStatus(orderData.orderStatus);
-    const liferayOrder = {
-      accountId,
-      channelId: parseInt(config.channelId),
-      currencyCode: config.currencyCode,
-      orderDate: orderData.orderDate || new Date().toISOString(),
-      orderStatus: parseInt(orderStatus),
-      externalReferenceCode:
-        orderData.externalReferenceCode ||
-        `ORD-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`,
+
+    getWs().emitBatchStarted(
+      {
+        batchId: 'orders-individual',
+        entityType: 'orders',
+        totalItems: orderDataList.length,
+        operation: 'generate',
+        mode,
+        phase,
+      },
+      { correlationId: config.correlationId }
+    );
+
+    const created = [];
+    const errors = [];
+
+    for (let i = 0; i < orderDataList.length; i++) {
+      try {
+        const payload = this.buildOrderPayload(
+          config,
+          orderDataList[i],
+          accounts
+        );
+        const createdOrder = await this.createSingleOrder(config, payload);
+        created.push(createdOrder);
+
+        const processed = i + 1;
+        const total = orderDataList.length;
+        const progress = Math.round((processed / total) * 100);
+        const meta = this.ctx.cache.get(metaKey) || { startedAt };
+        const elapsedMs = Math.max(
+          1,
+          Date.now() - (meta.startedAt || Date.now())
+        );
+        const rate = processed / (elapsedMs / 1000);
+        const remaining = Math.max(0, total - processed);
+        const etaSeconds = rate > 0 ? Math.round(remaining / rate) : null;
+
+        getWs().emitBatchProgress(
+          {
+            batchId: 'orders-individual',
+            entityType: 'orders',
+            completedCount: processed,
+            totalItems: total,
+            progress,
+            etaSeconds,
+            operation: 'generate',
+            mode,
+            phase,
+          },
+          { correlationId: config.correlationId }
+        );
+      } catch (e) {
+        errors.push({ index: i, error: e.message });
+        logger.error('Order creation failed', {
+          correlationId: config.correlationId,
+          operation: 'orders/create:error',
+          error: e.message,
+          orderIndex: i,
+          mode: options.demoMode ? 'demo' : 'live',
+        });
+      }
+    }
+
+    getWs().emitBatchCompleted(
+      {
+        batchId: 'orders-individual',
+        entityType: 'orders',
+        successCount: created.length,
+        failureCount: errors.length,
+        errors: errors.slice(0, 5),
+        operation: 'generate',
+        mode,
+        phase,
+      },
+      { correlationId: config.correlationId }
+    );
+
+    logger.info('Order generation completed', {
+      correlationId: config.correlationId,
+      operation: 'orders/generate:complete',
+      created: created.length,
+      errors: errors.length,
+      mode: options.demoMode ? 'demo' : 'live',
+    });
+
+    return {
+      orders: created,
+      created: created.length,
+      errors,
+      success: errors.length === 0,
     };
+  }
+
+  async createSingleOrder(config, liferayOrderPayload) {
+    const { liferay, logger } = this.ctx;
+
     const isRetryable = (e) => {
       const msg = String(e && e.message ? e.message : e);
       return /(429|5\d\d|ETIMEDOUT|ECONNRESET|EAI_AGAIN)/i.test(msg);
     };
+
     const createdOrder = await this.withRetry(
-      async () => liferay.createOrder(config, liferayOrder),
+      async () => liferay.createOrder(config, liferayOrderPayload),
       isRetryable,
       3,
       600
     );
+
     logger.trace('Created order', {
       operation: 'orders/create:success',
       erc: createdOrder.externalReferenceCode,
     });
     return createdOrder;
+  }
+
+  handleBatchComplete(results, config) {
+    const { logger, getWs } = this.ctx;
+    const { mode, phase } = resolvePhaseAndMode({
+      useBatch: true,
+      phase: 'complete',
+    });
+
+    logger.info('Handling orders batch completion', {
+      operation: 'orders/batch:complete',
+      batchId: results.batchId,
+      status: results.status,
+      processedCount: results.processedCount,
+      totalCount: results.totalCount,
+    });
+
+    const content = results.content;
+    let successCount = 0;
+    let failureCount = 0;
+    const failures = [];
+
+    if (Array.isArray(content)) {
+      content.forEach((item, index) => {
+        if (item.status === 'SUCCESS' || item.status === 'CREATED') {
+          successCount++;
+        } else {
+          failureCount++;
+          failures.push({
+            index,
+            error: item.error || item.message || 'Unknown error',
+          });
+        }
+      });
+    } else {
+      successCount = results.processedCount || results.totalCount || 0;
+    }
+
+    getWs().emitBatchCompleted(
+      {
+        batchId: results.batchId,
+        entityType: 'orders',
+        successCount,
+        failureCount,
+        errors: failures.slice(0, 5),
+        operation: 'generate',
+        mode,
+        phase,
+      },
+      { correlationId: config.correlationId }
+    );
   }
 
   pickAccountId(requestedId, accounts) {
@@ -314,50 +597,6 @@ class OrderGenerator {
         }
         throw error;
       }
-    }
-  }
-
-  async addOrderItems(config, orderId, orderItems, availableProducts) {
-    const { logger } = this.ctx;
-    for (const item of orderItems) {
-      const product = availableProducts.find(
-        (p) => p.sku === item.sku || p.id === item.productId
-      );
-      if (!product) {
-        logger.warn('Order item product not found', {
-          operation: 'orders/add-item:missing',
-          sku: item.sku,
-          productId: item.productId,
-        });
-        continue;
-      }
-    }
-  }
-
-  validateConfig(config) {
-    const pr = parseInt(config.pollingRetries);
-    if (!Number.isFinite(pr) || pr < 0 || pr > 20)
-      throw new Error('pollingRetries must be between 0 and 20');
-    const pd = parseInt(config.pollingDelay);
-    if (!Number.isFinite(pd) || pd < 5000 || pd > 600000)
-      throw new Error('pollingDelay must be between 5 and 600 seconds');
-    const ch = parseInt(config.channelId);
-    if (!Number.isFinite(ch) || ch <= 0)
-      throw new Error('channelId must be a positive integer');
-    if (!config.currencyCode) throw new Error('currencyCode is required');
-  }
-
-  async validateOptions(options) {
-    const { ai } = this.ctx;
-    if (
-      !options.orderCount ||
-      typeof options.orderCount !== 'number' ||
-      options.orderCount <= 0
-    ) {
-      throw new Error('orderCount must be greater than 0');
-    }
-    if (!options.demoMode) {
-      await ai.getOpenAIClient();
     }
   }
 }
