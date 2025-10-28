@@ -490,6 +490,7 @@ class ProductGenerator {
               batchId: result.batchId,
               entityType: 'products',
               totalItems: batch.length,
+              operation: 'generate',
             },
             { correlationId: config.correlationId }
           );
@@ -510,7 +511,7 @@ class ProductGenerator {
                 entityType: 'products',
                 liferayUrl: config.liferayUrl,
                 localeCode: config.localeCode,
-                mode: 'generate',
+                operation: 'generate',
               },
               3600000 // 1h
             );
@@ -652,7 +653,7 @@ class ProductGenerator {
 
             if (originalProduct.images) {
               getWs().emitPostProcessingStarted(
-                { entityType: 'images' },
+                { entityType: 'images', operation: 'process-images' },
                 { correlationId: config.correlationId }
               );
               for (const image of originalProduct.images) {
@@ -706,12 +707,13 @@ class ProductGenerator {
                 processedCount: imagesApplied,
                 totalCount: productImagesPrepared,
                 correlationId: config.correlationId,
+                operation: 'process-images',
               });
             }
 
             if (originalProduct.attachments) {
               getWs().emitPostProcessingStarted(
-                { entityType: 'pdfs' },
+                { entityType: 'pdfs', operation: 'process-attachments' },
                 { correlationId: config.correlationId }
               );
               for (const attachment of originalProduct.attachments) {
@@ -765,6 +767,7 @@ class ProductGenerator {
                   entityType: 'pdfs',
                   processedCount: pdfsApplied,
                   totalCount: productPdfsPrepared,
+                  operation: 'process-attachments',
                 },
                 { correlationId: config.correlationId }
               );
@@ -2123,6 +2126,7 @@ class ProductGenerator {
           batchId: 'images-processing',
           entityType: 'images',
           totalItems: imageCount,
+          operation: 'process-images',
         },
         { correlationId: config.correlationId }
       );
@@ -2134,6 +2138,7 @@ class ProductGenerator {
           batchId: 'pdfs-processing',
           entityType: 'pdfs',
           totalItems: pdfCount,
+          operation: 'process-attachments',
         },
         { correlationId: config.correlationId }
       );
@@ -2293,6 +2298,7 @@ class ProductGenerator {
           successCount: imageProcessedCount,
           failureCount: imageErrors.length,
           errors: imageErrors.slice(0, 5),
+          operation: 'process-images',
         },
         { correlationId: config.correlationId }
       );
@@ -2306,6 +2312,7 @@ class ProductGenerator {
           successCount: pdfProcessedCount,
           failureCount: pdfErrors.length,
           errors: pdfErrors.slice(0, 5),
+          operation: 'process-attachments',
         },
         { correlationId: config.correlationId }
       );
@@ -2369,6 +2376,7 @@ class ProductGenerator {
         successCount,
         failureCount,
         errors: failureCount > 0 ? { failures } : null,
+        operation: 'generate',
       },
       { correlationId: config.correlationId }
     );

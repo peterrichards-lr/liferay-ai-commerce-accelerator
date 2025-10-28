@@ -15,11 +15,35 @@ const {
 const { CORRELATION_ID_HEADER } = require('../utils/sharedConstants.cjs');
 const { delay, safeJSON, isoNow } = require('../utils/misc.cjs');
 
+function isWebSocketInstance(x) {
+  return (
+    x &&
+    typeof x === 'object' &&
+    typeof x.send === 'function' &&
+    typeof x.close === 'function'
+  );
+}
+
+function countIterable(iter) {
+  if (!iter) return 0;
+  if (Array.isArray(iter)) return iter.length;
+  if (iter instanceof Set) return iter.size;
+  if (iter instanceof Map) return iter.size;
+  let n = 0;
+  for (const _ of iter) n++;
+  return n;
+}
+
 function normalizeRetries(retries) {
   if (!retries) return [];
   if (Array.isArray(retries)) return retries;
   const n = Math.max(0, Number(retries) || 0);
   return Array.from({ length: n }, () => 500);
+}
+
+function withOperation(details = {}, operation) {
+  const op = operation ?? details.operation;
+  return op ? { ...details, operation: op } : details;
 }
 
 function createWebSocketService({
@@ -34,7 +58,6 @@ function createWebSocketService({
   const byBatch = new Map();
 
   function resolveTargets({ mode = 'auto', correlationId, batchId }, payload) {
-    // prefer explicit, otherwise infer from payload
     const cid = correlationId ?? payload?.correlationId;
     const bid = batchId ?? payload?.batchId;
 
@@ -47,8 +70,7 @@ function createWebSocketService({
       return byBatch.get(bid) || [];
     }
 
-    // broadcast (default)
-    return clients;
+    return clients.values();
   }
 
   function sendOnce(packet, targets) {
@@ -56,9 +78,7 @@ function createWebSocketService({
       open = 0,
       errors = 0;
     for (const ws of targets) {
-      if (!ws || ws.readyState !== WebSocket.OPEN) {
-        continue;
-      }
+      if (!ws || ws.readyState !== WebSocket.OPEN) continue;
       open++;
       try {
         ws.send(packet);
@@ -72,24 +92,43 @@ function createWebSocketService({
 
   function deliver(message, opts = {}) {
     const {
-      mode = 'auto', // 'auto' | 'unicast' | 'batch' | 'broadcast'
+      mode = 'auto',
       correlationId,
       batchId,
       retries = [300, 1500],
       fireAndForget = false,
-      onAttempt, // (attemptIndex, result) => void
+      onAttempt,
     } = opts;
+
+    if (isWebSocketInstance(message)) {
+      const stack = new Error().stack?.split('\n').slice(2, 4).join(' ← ');
+      logger?.warn?.('⚠️  Attempted to broadcast a WebSocket instance', {
+        operation: 'websocket-send-guard',
+        hint: 'First argument must be a plain message object, not a ws connection',
+        stackSnippet: stack,
+      });
+      return;
+    }
 
     const packet = safeJSON(message);
     const schedule = normalizeRetries(retries);
 
     const run = async () => {
       const targets = resolveTargets({ mode, correlationId, batchId }, message);
+      const targetCount = countIterable(targets);
+      const msgType = message?.type ?? '(no-type)';
       logger?.trace?.(
-        `ws:send -> mode=${mode} cid=${correlationId ?? '∅'} bid=${
-          batchId ?? '∅'
-        } targets=${targets.length}`
+        `[ws:send] type=${msgType} mode=${mode} cid=${
+          correlationId ?? '∅'
+        } bid=${batchId ?? '∅'} → ${targetCount} target(s)`
       );
+
+      if (!message?.type) {
+        logger?.warn?.('🟡 WebSocket message missing "type" property', {
+          operation: 'websocket-missing-type',
+          payloadKeys: Object.keys(message || {}),
+        });
+      }
 
       let last = sendOnce(packet, targets);
       onAttempt?.(0, last);
@@ -112,7 +151,17 @@ function createWebSocketService({
       );
       return;
     }
-    return run();
+    return run().then((res) => {
+      const t = message?.type ?? '(unknown)';
+      logger?.trace?.(
+        `[ws:sent] type=${t} cid=${correlationId ?? '∅'} bid=${
+          batchId ?? '∅'
+        } attempts=${res.attempts} sent=${res.last.sent}/${
+          res.last.open
+        } errors=${res.last.errors}`
+      );
+      return res;
+    });
   }
 
   wss.on('connection', (ws, req) => {
@@ -137,22 +186,38 @@ function createWebSocketService({
       correlationId: ws.correlationId,
     });
 
-    // Health
     ws.on('pong', () => (ws.isAlive = true));
 
-    // Messages from client
     ws.on('message', (buf) => {
       let msg;
       try {
         msg = JSON.parse(buf.toString('utf8'));
       } catch {
-        deliver(ws, { type: 'error', message: 'Invalid message format' });
+        deliver(
+          {
+            type: 'error',
+            message: 'Invalid message format',
+            timestamp: isoNow(),
+          },
+          {
+            mode: 'unicast',
+            correlationId: ws.correlationId,
+            fireAndForget: true,
+          }
+        );
         return;
       }
 
       switch (msg?.type) {
         case 'ping':
-          deliver(ws, { type: 'pong', seq: msg.seq, timestamp: isoNow() });
+          deliver(
+            { type: 'pong', seq: msg.seq, timestamp: isoNow() },
+            {
+              mode: 'unicast',
+              correlationId: ws.correlationId,
+              fireAndForget: true,
+            }
+          );
           break;
 
         case 'subscribe-batch': {
@@ -162,11 +227,18 @@ function createWebSocketService({
           let set = byBatch.get(batchId);
           if (!set) byBatch.set(batchId, (set = new Set()));
           set.add(ws);
-          deliver(ws, {
-            type: BATCH_SUBSCRIPTION_CONFIRMED,
-            batchId,
-            timestamp: isoNow(),
-          });
+          deliver(
+            {
+              type: BATCH_SUBSCRIPTION_CONFIRMED,
+              batchId,
+              timestamp: isoNow(),
+            },
+            {
+              mode: 'unicast',
+              correlationId: ws.correlationId,
+              fireAndForget: true,
+            }
+          );
           break;
         }
 
@@ -183,16 +255,23 @@ function createWebSocketService({
         }
 
         default:
-          deliver(ws, {
-            type: 'error',
-            message: `Unknown message type: ${msg?.type}`,
-            timestamp: isoNow(),
-          });
+          deliver(
+            {
+              type: 'error',
+              message: `Unknown message type: ${msg?.type}`,
+              timestamp: isoNow(),
+            },
+            {
+              mode: 'unicast',
+              correlationId: ws.correlationId,
+              fireAndForget: true,
+            }
+          );
       }
     });
 
     ws.on('close', (code, reason) => {
-      clients.delete(ws);
+      clients.delete(ws.correlationId);
       if (ws.__batchId) {
         const set = byBatch.get(ws.__batchId);
         if (set) {
@@ -207,6 +286,13 @@ function createWebSocketService({
         reason: reason ? reason.toString() : '',
         remainingClients: clients.size,
       });
+      if (code !== 1001 && code !== 1000) {
+        logger?.warn?.('⚠️  Abnormal WS closure', {
+          code,
+          reason: reason ? reason.toString() : '(no reason)',
+          correlationId: ws.correlationId,
+        });
+      }
     });
 
     ws.on('error', (error) => {
@@ -217,19 +303,26 @@ function createWebSocketService({
       });
     });
 
-    // greet
-    deliver(ws, { type: 'connected', timestamp: isoNow() });
+    deliver(
+      { type: 'connected', timestamp: isoNow() },
+      { mode: 'unicast', correlationId: ws.correlationId, fireAndForget: true }
+    );
   });
 
-  // Health check loop
   const heartbeat = setInterval(() => {
-    for (const ws of clients) {
+    let checked = 0,
+      terminated = 0;
+    for (const ws of clients.values()) {
+      checked++;
       if (ws.isAlive === false) {
-        logger?.warn?.('Terminating unresponsive WS', {
+        terminated++;
+        logger?.warn?.('🧹 Terminating unresponsive WS', {
           operation: 'websocket-health-check',
           id: ws.id,
         });
-        ws.terminate();
+        try {
+          ws.terminate();
+        } catch {}
         continue;
       }
       ws.isAlive = false;
@@ -239,6 +332,9 @@ function createWebSocketService({
         } catch {}
       }
     }
+    logger?.trace?.(
+      `[ws:heartbeat] checked=${checked} terminated=${terminated}`
+    );
   }, heartbeatIntervalMs);
 
   async function emit(message, opts = {}) {
@@ -246,19 +342,20 @@ function createWebSocketService({
   }
 
   const emitBatchStarted = (
-    { batchId, entityType, details = {}, correlationId },
+    { batchId, entityType, details = {}, correlationId, operation },
     opts = {}
   ) => {
+    const totalCount =
+      details.totalCount ?? details.totalItems ?? details.expectedTotal;
     const payload = {
       type: BATCH_START,
+      operation,
       entityType,
-      details: {
-        ...details,
-        batchId,
-      },
+      batchId,
+      details: withOperation({ ...details, batchId, totalCount }, operation),
+      totalCount,
       timestamp: isoNow(),
     };
-
     return emit(payload, { ...opts, batchId, correlationId });
   };
 
@@ -271,20 +368,34 @@ function createWebSocketService({
       correlationId,
       progress,
       details = {},
+      operation,
     },
     opts = {}
   ) => {
+    const processedCount =
+      details.processedCount ?? details.completedCount ?? completedCount ?? 0;
+    const totalCount =
+      details.totalCount ?? totalItems ?? details.expectedTotal ?? undefined;
+
     const payload = {
       type: BATCH_PROGRESS,
-
+      operation,
       entityType,
-      details: {
-        ...details,
-        batchId,
-        completedCount,
-        totalItems,
-        progress,
-      },
+      batchId,
+      processedCount,
+      totalCount,
+      details: withOperation(
+        {
+          ...details,
+          batchId,
+          processedCount,
+          completedCount: processedCount,
+          totalCount,
+          totalItems: totalCount,
+          progress,
+        },
+        operation
+      ),
       timestamp: isoNow(),
     };
     return emit(payload, { ...opts, batchId, correlationId });
@@ -294,48 +405,72 @@ function createWebSocketService({
     {
       batchId,
       entityType,
-      successCount,
+      successCount = 0,
       failureCount = 0,
+      totalCount,
       correlationId,
       errors = [],
       details = {},
+      operation,
     },
     opts = {}
   ) => {
+    const normalizedTotal =
+      details.totalCount ??
+      totalCount ??
+      (Number.isFinite(successCount) && Number.isFinite(failureCount)
+        ? successCount + failureCount
+        : undefined);
+
     const payload = {
       type: BATCH_COMPLETED,
+      operation,
       entityType,
-      details: {
-        ...details,
-        batchId,
-        successCount,
-        failureCount,
-        errors,
-      },
+      batchId,
+      successCount,
+      failureCount,
+      totalCount: normalizedTotal,
+      details: withOperation(
+        {
+          ...details,
+          batchId,
+          successCount,
+          failureCount,
+          totalCount: normalizedTotal,
+          errors,
+        },
+        operation
+      ),
       timestamp: isoNow(),
     };
     return emit(payload, { ...opts, batchId, correlationId });
   };
 
   const emitSessionCompleted = (
-    { entityType, correlationId, details = {} },
+    { entityType, correlationId, details = {}, operation },
     opts = {}
   ) => {
-    const payload = { type: SESSION_COMPLETE, entityType, details, timestamp };
+    const payload = {
+      type: SESSION_COMPLETE,
+      operation,
+      entityType,
+      details: withOperation(details, operation),
+      timestamp: isoNow(),
+    };
     return emit(payload, { ...opts, correlationId });
   };
 
   const emitPostProcessingStarted = (
-    { entityType, correlationId, details = {} },
+    { entityType, correlationId, details = {}, operation },
     opts = {}
   ) => {
     const payload = {
       type: POSTPROC_STARTED,
+      operation,
       entityType,
-      details,
+      details: withOperation(details, operation),
       timestamp: isoNow(),
     };
-
     return emit(payload, { ...opts, correlationId });
   };
 
@@ -347,17 +482,21 @@ function createWebSocketService({
       correlationId,
       progress,
       details = {},
+      operation,
     },
     opts = {}
   ) => {
     const payload = {
       type: POSTPROC_PROGRESS,
+      operation,
       entityType,
-      details: { ...details, processedCount, totalCount, progress },
+      details: withOperation(
+        { ...details, processedCount, totalCount, progress },
+        operation
+      ),
       timestamp: isoNow(),
     };
-
-    return emit(payload, { ...opts, batchId, correlationId });
+    return emit(payload, { ...opts, correlationId });
   };
 
   const emitPostProcessingCompleted = (
@@ -369,29 +508,34 @@ function createWebSocketService({
       correlationId,
       errors = [],
       details = {},
+      operation,
     },
     opts = {}
   ) => {
     const payload = {
       type: POSTPROC_COMPLETED,
+      operation,
       entityType,
-      details: { ...details, processedCount, totalCount, errorCount, errors },
+      details: withOperation(
+        { ...details, processedCount, totalCount, errorCount, errors },
+        operation
+      ),
       timestamp: isoNow(),
     };
-
-    return emit(payload, { ...opts, batchId, correlationId });
+    return emit(payload, { ...opts, correlationId });
   };
 
   const emitGenerationSessionComplete = (
-    { correlationId, sessionId, details = {} },
+    { correlationId, sessionId, details = {}, operation },
     opts = {}
   ) => {
     const payload = {
       type: GENERATION_SESSION_COMPLETE,
-      details,
+      operation,
+      details: withOperation({ ...details, sessionId }, operation),
       timestamp: isoNow(),
     };
-    return emit(payload, { ...opts, sessionId, correlationId });
+    return emit(payload, { ...opts, correlationId });
   };
 
   const emitGenerationProgress = (
@@ -403,16 +547,21 @@ function createWebSocketService({
       correlationId,
       entityType,
       details = {},
+      operation,
     },
     opts = {}
   ) => {
     const payload = {
       type: GENERATION_PROGRESS,
+      operation,
       entityType,
-      details: { ...details, percent, message, phase, batchId },
+      batchId,
+      details: withOperation(
+        { ...details, percent, message, phase, batchId },
+        operation
+      ),
       timestamp: isoNow(),
     };
-
     return emit(payload, { ...opts, batchId, correlationId });
   };
 
@@ -425,19 +574,28 @@ function createWebSocketService({
       failureCount = 0,
       correlationId,
       details = {},
+      operation,
     },
     opts = {}
   ) => {
+    const totalCount =
+      details.totalCount ??
+      (Number.isFinite(successCount) && Number.isFinite(failureCount)
+        ? successCount + failureCount
+        : undefined);
+
     const payload = {
       type: BATCH_FAILED,
+      operation,
       entityType,
-      details: {
-        ...details,
-        error,
-        successCount,
-        failureCount,
-        batchId,
-      },
+      batchId,
+      successCount,
+      failureCount,
+      totalCount,
+      details: withOperation(
+        { ...details, error, successCount, failureCount, batchId, totalCount },
+        operation
+      ),
       timestamp: isoNow(),
     };
     return emit(payload, { ...opts, batchId, correlationId });
@@ -445,7 +603,7 @@ function createWebSocketService({
 
   const stop = () => {
     clearInterval(heartbeat);
-    for (const ws of clients) {
+    for (const ws of clients.values()) {
       try {
         if (ws.readyState === WebSocket.OPEN)
           ws.close(1001, 'Server shutting down');
@@ -456,9 +614,7 @@ function createWebSocketService({
     } catch {}
   };
 
-  const clientCount = () => {
-    return clients.size || 0;
-  };
+  const clientCount = () => clients.size || 0;
 
   return {
     clientCount,

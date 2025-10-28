@@ -1,5 +1,6 @@
 const { lxcConfig, lookupConfig } = require('@rotty3000/config-node');
 const WebSocket = require('ws');
+const { v4: uuidv4 } = require('uuid');
 const {
   sanitizedObject,
   parseBatchStatuses,
@@ -10,7 +11,7 @@ const { BATCH_FAILED } = require('../utils/wsEvents.cjs');
 function buildRecoveredConfig({ liferayUrl, task, correlationId }) {
   return {
     correlationId,
-    entityType: inferEntityTypeFromClassName(task?.className),
+    entityType: inferEntityTypeFromClassName(task?.className) || 'unknown',
     liferayUrl,
     localeCode: 'en-US',
     maxPollAttempts: 120,
@@ -23,7 +24,10 @@ module.exports = (
   app,
   { cacheService, batchPollingService, liferayService, logger, getWs }
 ) => {
-  waitForConfig = async (batchId, { tries = 6, min = 40, max = 800 } = {}) => {
+  const waitForConfig = async (
+    batchId,
+    { tries = 6, min = 40, max = 800 } = {}
+  ) => {
     for (let i = 0; i < tries; i++) {
       const cfg = cacheService.get(`batch:${batchId}:config`);
       if (cfg) return cfg;
@@ -34,17 +38,19 @@ module.exports = (
     return null;
   };
 
-  getImportTask = async (batchId) => {
+  const getImportTask = async (batchId) => {
     let liferayUrl;
     try {
-      const liferayServerPorotocl = lookupConfig(
+      const liferayServerProtocol = lookupConfig(
         'com.liferay.lxc.dxp.server.protocol'
       );
       const liferayServerDomain = lxcConfig.dxpMainDomain();
-      liferayUrl = `${liferayServerPorotocl}://${liferayServerDomain}`;
+      liferayUrl = `${liferayServerProtocol}://${liferayServerDomain}`;
+      // validate
+      // eslint-disable-next-line no-new
       new URL(liferayUrl);
     } catch (e) {
-      throw new Error('Unable to determine liferay URL', e);
+      throw new Error(`Unable to determine Liferay URL: ${e?.message || e}`);
     }
 
     return {
@@ -53,34 +59,33 @@ module.exports = (
     };
   };
 
-  restoreConfig = async (batchId, correlationId) => {
+  const restoreConfig = async (batchId, correlationId) => {
     try {
       const { liferayUrl, task } = await getImportTask(batchId);
-      batchConfig = buildRecoveredConfig({
-        liferayUrl,
-        task,
-        correlationId,
-      });
-
-      cacheService.set(`batch:${batchId}:config`, batchConfig, 60 * 60 * 1000);
-
+      const cfg = buildRecoveredConfig({ liferayUrl, task, correlationId });
+      cacheService.set(`batch:${batchId}:config`, cfg, 60 * 60 * 1000);
       logger.info('Recovered batch config from import task', {
         operation: 'batch-config-recovered',
         batchId,
-        entityType: batchConfig.entityType,
+        entityType: cfg.entityType,
       });
+      return cfg;
     } catch (e) {
       logger.error('Failed to recover batch config', {
         operation: 'batch-config-recover-error',
         batchId,
         error: e.message,
       });
+      return null;
     }
   };
 
   app.post('/api/batch/callback', async (req, res) => {
-    const [{ batchId, status }] = parseBatchStatuses(req.body);
-    let correlationId;
+    const [{ batchId, status, processedCount, totalCount, errorMessage } = {}] =
+      parseBatchStatuses(req.body) || [{}];
+
+    let correlationId = undefined;
+    let batchConfig = null;
 
     try {
       res.status(200).json({
@@ -92,7 +97,7 @@ module.exports = (
 
       if (!batchId) return;
 
-      let batchConfig = await waitForConfig(batchId, {
+      batchConfig = await waitForConfig(batchId, {
         tries: 7,
         min: 35,
         max: 900,
@@ -103,30 +108,36 @@ module.exports = (
           operation: 'batch-callback-no-config',
           batchId,
         });
-
-        restoreConfig(batchId, uuidv4());
+        // Use a fresh correlation id if we can't recover the original
+        const recovered = await restoreConfig(batchId, uuidv4());
+        if (recovered) {
+          batchConfig = recovered;
+          correlationId = recovered.correlationId;
+        }
       } else {
         correlationId = batchConfig.correlationId;
       }
+
+      const entityType = batchConfig?.entityType || 'unknown';
 
       logger.info('Received batch submission callback from Liferay', {
         correlationId,
         operation: 'batch-callback',
         batchId,
-        entityType: batchConfig.entityType,
+        entityType,
         status,
         bodyKeys: req.body ? Object.keys(req.body) : [],
       });
 
-      if (logger.isTraceEnabled()) {
+      if (logger.isTraceEnabled?.()) {
         const sanitizedCallback = sanitizedObject({ ...req.body });
         const trace = `
-        === BATCH SUBMISSION CALLBACK ===
-        Batch ID: ${batchId || 'Not provided'}
-        Status: ${status || 'Not provided'}
-        Full callback data: ${JSON.stringify(sanitizedCallback, null, 2)}
-        === END CALLBACK ===
-        `;
+=== BATCH SUBMISSION CALLBACK ===
+Batch ID: ${batchId || 'Not provided'}
+Status: ${status || 'Not provided'}
+Full callback data: ${JSON.stringify(sanitizedCallback, null, 2)}
+=== END CALLBACK ===
+`;
         logger.trace(trace);
       }
 
@@ -135,13 +146,14 @@ module.exports = (
         {
           correlationId,
           status,
-          entityType: batchConfig.entityType,
+          entityType,
           submittedAt: new Date().toISOString(),
           rawCallback: req.body,
         },
         60 * 60 * 1000
       );
 
+      // If Liferay says it's starting/initializing, kick off polling (if not already active)
       if (status === 'INITIAL' || status === 'STARTED') {
         if (
           cacheService.get(`batch:${batchId}:completed`) ||
@@ -150,14 +162,13 @@ module.exports = (
           logger.info('Skipping polling start; already completed or active', {
             operation: 'batch-polling-skip',
             batchId,
-            entityType: batchConfig.entityType,
+            entityType,
           });
           return;
         }
 
-        const pollInterval = Math.max(batchConfig.pollInterval || 5000, 2000);
-        const maxPollAttempts = batchConfig.maxPollAttempts || 120;
-        const entityType = batchConfig?.entityType || 'unknown';
+        const pollInterval = Math.max(batchConfig?.pollInterval || 5000, 2000);
+        const maxPollAttempts = batchConfig?.maxPollAttempts || 120;
 
         logger.debug('Starting batch polling', {
           operation: 'batch-polling-start',
@@ -165,6 +176,7 @@ module.exports = (
           pollInterval,
           maxPollAttempts,
           correlationId,
+          entityType,
         });
 
         batchPollingService.startPolling(batchId, batchConfig, {
@@ -189,13 +201,19 @@ module.exports = (
               totalCount: r.totalCount,
             });
 
+            // Emit here (polling-owned path)
             getWs().emitBatchCompleted(
-              batchId,
               {
+                batchId,
                 entityType,
-                successCount: r.processedCount,
+                successCount: r.processedCount || 0,
+                failureCount: Math.max(
+                  (r.totalCount || 0) - (r.processedCount || 0),
+                  0
+                ),
+                totalCount: r.totalCount,
               },
-              { correlationId: config.correlationId }
+              { correlationId }
             );
 
             logger.info(
@@ -209,42 +227,116 @@ module.exports = (
               entityType,
               error: err.message,
             });
-            const msg = {
-              type: BATCH_FAILED,
-              batchId,
-              entityType,
-              error: err.message,
-            };
-            getWs().emitBatchFailed(msg, { correlationId: correlationId });
+            getWs().emitBatchFailed(
+              {
+                batchId,
+                entityType,
+                error: err.message,
+                successCount: 0,
+                failureCount: 1,
+              },
+              { correlationId }
+            );
           },
         });
-      } else {
-        const { task } = await getImportTask(batchId);
-        const batchStatus = task?.data;
-        if (status === 'COMPLETED') {
-          await batchPollingService.handleBatchComplete(batchId, batchStatus);
-          getWs().emitBatchCompleted(
-            batchId,
-            {
-              entityType: batchConfig.entityType,
-              successCount: batchStatus.processedCount,
-            },
-            { correlationId }
-          );
 
-          logger.info(
-            `✅ Batch ${batchId} (${batchConfig.entityType}) completed - ${batchStatus.processedCount}/${batchStatus.totalCount} items processed`
-          );
-        } else if (status === 'FAILED') {
-          await batchPollingService.handleBatchFailed(batchId, batchStatus);
-          const msg = {
-            type: BATCH_FAILED,
+        return;
+      }
+
+      // Non-polling terminal states
+      // Attempt to enrich with latest task details if counts are missing
+      let finalProcessed = processedCount;
+      let finalTotal = totalCount;
+
+      if (finalProcessed == null || finalTotal == null) {
+        try {
+          const { task } = await getImportTask(batchId);
+          finalProcessed =
+            finalProcessed ??
+            task?.processedCount ??
+            task?.data?.processedCount;
+          finalTotal = finalTotal ?? task?.totalCount ?? task?.data?.totalCount;
+        } catch (e) {
+          logger.warn('Unable to enrich terminal batch counts from task', {
+            operation: 'batch-enrich-miss',
             batchId,
-            entityType: batchConfig.entityType,
-            error: batchStatus.errorMessage,
-          };
-          getWs().emitBatchFailed(msg, { correlationId });
+            error: e.message,
+          });
         }
+      }
+
+      if (status === 'COMPLETED') {
+        // Mark cache as completed
+        cacheService.set(
+          `batch:${batchId}:final`,
+          {
+            status: 'COMPLETED',
+            entityType,
+            processedCount: finalProcessed ?? 0,
+            totalCount: finalTotal ?? finalProcessed ?? 0,
+            completedAt: new Date().toISOString(),
+          },
+          60 * 60 * 1000
+        );
+
+        // Emit here because we didn't start polling
+        getWs().emitBatchCompleted(
+          {
+            batchId,
+            entityType,
+            successCount: finalProcessed ?? 0,
+            failureCount: Math.max(
+              (finalTotal ?? 0) - (finalProcessed ?? 0),
+              0
+            ),
+            totalCount: finalTotal ?? finalProcessed ?? 0,
+          },
+          { correlationId }
+        );
+
+        logger.info(
+          `✅ Batch ${batchId} (${entityType}) completed - ${
+            finalProcessed ?? 0
+          }/${finalTotal ?? finalProcessed ?? 0} items processed`
+        );
+        return;
+      }
+
+      if (status === 'FAILED') {
+        const msg = errorMessage || 'Batch failed';
+        cacheService.set(
+          `batch:${batchId}:final`,
+          {
+            status: 'FAILED',
+            entityType,
+            processedCount: finalProcessed ?? 0,
+            totalCount: finalTotal ?? finalProcessed ?? 0,
+            errorMessage: msg,
+            completedAt: new Date().toISOString(),
+          },
+          60 * 60 * 1000
+        );
+
+        getWs().emitBatchFailed(
+          {
+            batchId,
+            entityType,
+            error: msg,
+            successCount: finalProcessed ?? 0,
+            failureCount: Math.max(
+              (finalTotal ?? 0) - (finalProcessed ?? 0),
+              0
+            ),
+          },
+          { correlationId }
+        );
+
+        logger.error(
+          `❌ Batch ${batchId} (${entityType}) failed — processed=${
+            finalProcessed ?? 0
+          }/${finalTotal ?? finalProcessed ?? 0} — ${msg}`
+        );
+        return;
       }
     } catch (error) {
       logger.error('Error processing batch callback', {
@@ -277,7 +369,6 @@ module.exports = (
       const currentStatus = cacheService.get(`batch:${batchId}:status`);
       if (currentStatus) {
         const pollingStatus = batchPollingService.getPollingStatus(batchId);
-
         return res.json({
           success: true,
           batchId,
@@ -298,20 +389,18 @@ module.exports = (
         });
       }
 
-      res.status(404).json({
-        success: false,
-        error: 'Batch not found or expired',
-      });
+      res
+        .status(404)
+        .json({ success: false, error: 'Batch not found or expired' });
     } catch (error) {
-      logger.errorWithStack(error, {
+      logger.errorWithStack?.(error, {
         correlationId: req.correlationId,
         operation: 'get-batch-status',
         batchId: req.params.batchId,
       });
-      res.status(500).json({
-        success: false,
-        error: 'Failed to get batch status',
-      });
+      res
+        .status(500)
+        .json({ success: false, error: 'Failed to get batch status' });
     }
   });
 };

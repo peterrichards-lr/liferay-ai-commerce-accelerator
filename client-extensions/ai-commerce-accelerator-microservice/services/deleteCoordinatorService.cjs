@@ -18,7 +18,27 @@ class DeleteCoordinatorService {
     );
   }
 
-  recordBatches(batchRefs, config, entityType) {
+  _deriveTotalFromResult(result) {
+    if (!result) return 0;
+    const candidates = [
+      result.totalCount,
+      result.count,
+      result.total,
+      Array.isArray(result.items) ? result.items.length : undefined,
+      Array.isArray(result.ids) ? result.ids.length : undefined,
+      Array.isArray(result.targets) ? result.targets.length : undefined,
+      Array.isArray(result.toDelete) ? result.toDelete.length : undefined,
+      Array.isArray(result.entities) ? result.entities.length : undefined,
+    ].filter((v) => Number.isFinite(v) && v >= 0);
+
+    if (candidates.length > 0) return candidates[0];
+    if (result.summary && Number.isFinite(result.summary.total)) {
+      return result.summary.total;
+    }
+    return 0;
+  }
+
+  recordBatches(batchRefs, config, entityType, totalCount) {
     const { logger, cache } = this.ctx;
     if (!Array.isArray(batchRefs) || batchRefs.length === 0) return;
 
@@ -36,7 +56,7 @@ class DeleteCoordinatorService {
       cache.set(
         `batch:${batchId}:config`,
         {
-          affectsProgress: false,
+          affectsProgress: true,
           clientId: config.clientId,
           clientSecret: config.clientSecret,
           correlationId: config.correlationId || null,
@@ -44,7 +64,10 @@ class DeleteCoordinatorService {
           entityType,
           liferayUrl: config.liferayUrl,
           localeCode: config.localeCode,
-          mode: 'delete',
+          operation: 'delete',
+          totalCount: Number.isFinite(totalCount) ? totalCount : 0,
+          pollInterval: config.pollInterval || 5000,
+          maxPollAttempts: config.maxPollAttempts || 120,
         },
         60 * 60 * 1000
       );
@@ -53,12 +76,13 @@ class DeleteCoordinatorService {
         operation: 'batch-config-store',
         batchId,
         entityType,
+        totalCount: Number.isFinite(totalCount) ? totalCount : 0,
       });
     }
   }
 
   async runDeleteAndMonitor(config, options = {}) {
-    const { liferay, cache } = this.ctx;
+    const { liferay } = this.ctx;
     const callbackUrl =
       config.microserviceUrl && config.microserviceUrl !== 'null'
         ? `${config.microserviceUrl}/api/batch/callback`
@@ -80,9 +104,13 @@ class DeleteCoordinatorService {
     });
 
     if (!options.dryRun && callbackUrl) {
-      this.recordBatches(orders.batchRefs, config, 'orders', cache);
-      this.recordBatches(accounts.batchRefs, config, 'accounts', cache);
-      this.recordBatches(products.batchRefs, config, 'products', cache);
+      const ordersTotal = this._deriveTotalFromResult(orders);
+      const accountsTotal = this._deriveTotalFromResult(accounts);
+      const productsTotal = this._deriveTotalFromResult(products);
+
+      this.recordBatches(orders.batchRefs, config, 'orders', ordersTotal);
+      this.recordBatches(accounts.batchRefs, config, 'accounts', accountsTotal);
+      this.recordBatches(products.batchRefs, config, 'products', productsTotal);
     }
 
     return { orders, accounts, products };

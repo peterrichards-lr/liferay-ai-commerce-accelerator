@@ -3,6 +3,8 @@ import { useApp } from '../context/AppContext';
 import {
   BATCH_COMPLETED,
   BATCH_FAILED,
+  BATCH_START,
+  CONNECTED,
   GENERATION_SESSION_COMPLETE,
   PROGRESS_UPDATE,
 } from '../utils/webSocket';
@@ -13,23 +15,54 @@ export default function useRealtimeWebSocket({
   enabled,
   microserviceUrl,
   loggingLevel = 'off', // 'off' | 'basic' | 'debug'
-  onLog, // (msg: string, level: 'info'|'success'|'warning'|'error') => void
-  onProgress, // (payload) => void
+  onLog,
+  onProgress,
 }) {
-  const { getCorrelationId } = useApp?.() || {};
+  const { getCorrelationId } = useApp();
   const wsRef = useRef(null);
   const [wsConnected, setWsConnected] = useState(false);
 
-  const seenBatchIdsRef = useRef(new Set()); // duplicate suppression per-connection
-  const backoffRef = useRef(1000); // start 1s, double up to 10s
+  const seenBatchIdsRef = useRef(new Set());
+  const backoffRef = useRef(1000);
   const reconnectTimerRef = useRef(null);
 
-  const log = (...args) => {
-    if (loggingLevel !== 'off') console.log(...args);
+  const logInfo = (...args) => {
+    if (loggingLevel === 'basic' || loggingLevel === 'debug')
+      console.info('🟦 WS:', ...args);
   };
-  const debug = (...args) => {
-    if (loggingLevel === 'debug') console.debug(...args);
+  const logDebug = (...args) => {
+    if (loggingLevel === 'debug') console.debug('⚙️ WS:', ...args);
   };
+  const logWarn = (...args) => {
+    if (loggingLevel !== 'off') console.warn('🟨 WS:', ...args);
+  };
+  const logError = (...args) => {
+    if (loggingLevel !== 'off') console.error('🟥 WS:', ...args);
+  };
+
+  const toStr = (v) => {
+    if (v == null) return '';
+    if (typeof v === 'string') return v;
+    if (typeof v === 'number' || typeof v === 'bigint') return String(v);
+    if (typeof v === 'object') {
+      if (typeof v.id === 'string') return v.id;
+      if (typeof v.batchId === 'string') return v.batchId;
+      try {
+        return JSON.stringify(v);
+      } catch {
+        /* ignore */
+      }
+    }
+    return String(v);
+  };
+
+  const shortId = (id) => {
+    const s = toStr(id);
+    return s ? s.slice(-6) : '∅';
+  };
+
+  const tag = (entityType, batchId) =>
+    `${entityType ?? 'unknown'}#${shortId(batchId)}`;
 
   const cleanupSocket = () => {
     if (reconnectTimerRef.current) {
@@ -54,7 +87,10 @@ export default function useRealtimeWebSocket({
 
   const connect = () => {
     if (!enabled || !microserviceUrl) {
-      debug('WS connect skipped — enabled/microserviceUrl not set');
+      logDebug('connect() skipped — enabled or microserviceUrl not set', {
+        enabled,
+        microserviceUrl,
+      });
       return;
     }
     if (
@@ -62,7 +98,9 @@ export default function useRealtimeWebSocket({
       (wsRef.current.readyState === WebSocket.OPEN ||
         wsRef.current.readyState === WebSocket.CONNECTING)
     ) {
-      debug('WS already OPEN/CONNECTING — skipping connect()');
+      logDebug('connect() aborted — socket already OPEN/CONNECTING', {
+        readyState: wsRef.current.readyState,
+      });
       return;
     }
 
@@ -75,13 +113,17 @@ export default function useRealtimeWebSocket({
     const url = new URL(wsUrl);
     if (cid) url.searchParams.set(CORRELATION_ID_HEADER, cid);
 
-    log('🔗 Creating WebSocket:', url.toString());
+    logDebug('🔗 Preparing WebSocket connection', {
+      url: url.toString(),
+      correlationId: cid,
+    });
+
     const ws = new WebSocket(url.toString());
     wsRef.current = ws;
 
     const connectionTimeout = setTimeout(() => {
       if (ws.readyState === WebSocket.CONNECTING) {
-        console.warn('⏰ WebSocket connection timeout');
+        logWarn('⏰ WebSocket connection timeout');
         try {
           ws.close();
         } catch {}
@@ -97,11 +139,14 @@ export default function useRealtimeWebSocket({
       backoffRef.current = 1000;
       setWsConnected(true);
       onLog?.('WebSocket connection established successfully.', 'success');
+      logInfo('✅ Connection established');
       try {
         ws.send(
           JSON.stringify({ type: 'ping', timestamp: new Date().toISOString() })
         );
-      } catch {}
+      } catch (e) {
+        logWarn('Ping on open failed', e);
+      }
     };
 
     ws.onmessage = (event) => {
@@ -110,36 +155,81 @@ export default function useRealtimeWebSocket({
         data = JSON.parse(event.data);
       } catch {
         onLog?.('WebSocket received invalid JSON message.', 'error');
+        logError('Invalid JSON message payload', event.data);
         return;
       }
 
       if (!data || typeof data !== 'object') return;
-      if (data.type === 'pong') return;
+      if (data.type === 'pong') {
+        logDebug('Received pong');
+        return;
+      }
 
       const entityType = normalizeEntityType(
         data.entityType || data.details?.entityType
       );
 
       const bId = data.batchId || data.details?.batchId;
+
       if (
         bId &&
         (data.type === BATCH_COMPLETED || data.type === BATCH_FAILED)
       ) {
         if (seenBatchIdsRef.current.has(bId)) {
-          debug(`🟡 Dropping duplicate ${data.type} for batchId=${bId}`);
+          logDebug(`Duplicate ${data.type} ignored`, { batchId: bId });
           return;
         }
         seenBatchIdsRef.current.add(bId);
+        logDebug('Tracking new batch event', { type: data.type, batchId: bId });
       }
 
       switch (data.type) {
-        case BATCH_COMPLETED: {
+        case BATCH_START: {
+          const total =
+            data?.details?.totalItems ?? data?.details?.totalCount ?? undefined;
+
+          logDebug('BATCH_START received', {
+            entityType,
+            batchId: bId,
+            total,
+            raw: data,
+          });
+
           onLog?.(
-            `Batch complete (${entityType}) — ${
-              data.successCount ?? data.details?.processedCount ?? 0
-            }/${data.details?.totalCount ?? 0}`,
+            total != null
+              ? `Batch started ${tag(entityType, bId)} — total ${total}`
+              : `Batch started ${tag(entityType, bId)}`,
+            'info'
+          );
+
+          onProgress?.({
+            kind: 'batch',
+            status: 'started',
+            entityType,
+            data,
+            totals: total != null ? { totalItems: total } : undefined,
+          });
+          break;
+        }
+
+        case BATCH_COMPLETED: {
+          const success =
+            data.successCount ?? data.details?.processedCount ?? 0;
+          const total = data.details?.totalCount ?? 0;
+
+          logDebug('BATCH_COMPLETED received', {
+            entityType,
+            batchId: bId,
+            successCount: success,
+            totalCount: total,
+            raw: data,
+          });
+
+          onLog?.(
+            `Batch completed ${tag(entityType, bId)} — ${success}/${total}`,
             'success'
           );
+
           onProgress?.({
             kind: 'batch',
             status: 'completed',
@@ -148,13 +238,21 @@ export default function useRealtimeWebSocket({
           });
           break;
         }
+
         case BATCH_FAILED: {
+          const failures = data.failureCount ?? data.details?.errorCount ?? 0;
+          logDebug('BATCH_FAILED received', {
+            entityType,
+            batchId: bId,
+            failureCount: failures,
+            raw: data,
+          });
+
           onLog?.(
-            `Batch failed (${entityType}) — errors: ${
-              data.failureCount ?? data.details?.errorCount ?? 0
-            }`,
+            `Batch failed ${tag(entityType, bId)} — errors: ${failures}`,
             'error'
           );
+
           onProgress?.({
             kind: 'batch',
             status: 'failed',
@@ -163,7 +261,18 @@ export default function useRealtimeWebSocket({
           });
           break;
         }
+
+        case CONNECTED: {
+          logDebug('CONNECTED received', {
+            raw: data,
+          });
+
+          onLog?.('Web socket Connected', 'info');
+          break;
+        }
+
         case GENERATION_SESSION_COMPLETE: {
+          logDebug('GENERATION_SESSION_COMPLETE received', { raw: data });
           onLog?.(
             'Generation session completed — triggering post processing.',
             'info'
@@ -175,7 +284,26 @@ export default function useRealtimeWebSocket({
           });
           break;
         }
+
         case PROGRESS_UPDATE: {
+          const processed =
+            data.processedCount ??
+            data.details?.processedCount ??
+            data.progress?.processed ??
+            undefined;
+          const total =
+            data.totalCount ??
+            data.details?.totalCount ??
+            data.progress?.total ??
+            undefined;
+
+          logDebug('PROGRESS_UPDATE received', {
+            entityType,
+            processed,
+            total,
+            raw: data,
+          });
+
           onProgress?.({
             kind: 'progress',
             entityType,
@@ -183,8 +311,12 @@ export default function useRealtimeWebSocket({
           });
           break;
         }
+
         default: {
-          debug('WS message:', data);
+          logWarn('Unrecognized WS message type', {
+            type: data.type,
+            raw: data,
+          });
         }
       }
     };
@@ -193,7 +325,7 @@ export default function useRealtimeWebSocket({
       clearTimeout(connectionTimeout);
       setWsConnected(false);
       onLog?.('WebSocket error. Check the microservice is reachable.', 'error');
-      debug('WS error:', e?.message || e);
+      logError('Socket error event', e?.message || e);
     };
 
     ws.onclose = (event) => {
@@ -201,17 +333,20 @@ export default function useRealtimeWebSocket({
       setWsConnected(false);
       if (!enabled) return;
 
-      const delay = Math.min(backoffRef.current, 10000); // cap at 10s
-      debug(`🔌 WS closed (code ${event.code}). Retrying in ${delay}ms…`);
+      const delay = Math.min(backoffRef.current, 10000);
+      logWarn(`🔌 WS closed (code ${event.code}) — retrying in ${delay}ms`);
       reconnectTimerRef.current = setTimeout(() => {
         backoffRef.current = Math.min(backoffRef.current * 2, 10000);
+        logDebug('Reconnecting with backoff', {
+          backoffMs: backoffRef.current,
+        });
         connect();
       }, delay);
     };
   };
 
   const reconnect = () => {
-    log('🔄 Forcing WebSocket reconnect()');
+    logInfo('🔄 Forcing WebSocket reconnect()');
     cleanupSocket();
     connect();
   };
@@ -224,9 +359,10 @@ export default function useRealtimeWebSocket({
           JSON.stringify({ type: 'ping', timestamp: new Date().toISOString() })
         );
         onLog?.('Ping sent to WebSocket server.', 'info');
+        logDebug('Ping sent');
         return true;
-      } catch {
-        // fall through to reconnect
+      } catch (err) {
+        logWarn('Ping failed; will reconnect', err);
       }
     }
     reconnect();
@@ -247,10 +383,7 @@ export default function useRealtimeWebSocket({
           !wsRef.current ||
           wsRef.current.readyState !== WebSocket.OPEN
         ) {
-          onLog?.(
-            'Tab visible — checking WebSocket and reconnecting if needed…',
-            'info'
-          );
+          onLog?.('Tab visible — reconnecting WebSocket if needed…', 'info');
           reconnect();
         } else {
           ping();
@@ -259,7 +392,7 @@ export default function useRealtimeWebSocket({
     };
     document.addEventListener('visibilitychange', onVisibility);
     return () => document.removeEventListener('visibilitychange', onVisibility);
-  }, [wsConnected]);
+  }, [wsConnected, reconnect, ping]);
 
   return { wsRef, wsConnected, reconnect, ping };
 }

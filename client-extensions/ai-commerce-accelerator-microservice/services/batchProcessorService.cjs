@@ -10,71 +10,76 @@ class BatchProcessorService {
   async processBatch(
     items,
     processingFunction,
-    batchSize = liferayConfig.batchConfig.defaultBatchSize
+    batchSize = liferayConfig.batchConfig.defaultBatchSize,
+    options = {}
   ) {
     const { logger } = this.ctx;
-    logger.trace(`Processing ${items.length} items in batches of ${batchSize}`);
+    const { operation } = options;
+    logger.trace(
+      `Processing ${items.length} items in batches of ${batchSize}${
+        operation ? ` [op=${operation}]` : ''
+      }`
+    );
 
     const results = {
+      operation: operation || undefined,
       successful: [],
       errors: [],
       total: items.length,
       processed: 0,
     };
 
-    // Validate batch size
     const actualBatchSize = Math.min(
       Math.max(1, batchSize),
       liferayConfig.batchConfig.maxBatchSize
     );
 
-    // Process items in batches
     for (let i = 0; i < items.length; i += actualBatchSize) {
       const batch = items.slice(i, i + actualBatchSize);
       logger.trace(
         `Processing batch ${Math.floor(i / actualBatchSize) + 1} (${
           batch.length
-        } items)`
+        } items)${operation ? ` [op=${operation}]` : ''}`
       );
 
-      // Process batch concurrently
       const batchResults = await this.processBatchConcurrently(
         batch,
         processingFunction
       );
 
-      // Accumulate results
       results.successful.push(...batchResults.successful);
       results.errors.push(...batchResults.errors);
       results.processed += batch.length;
 
-      // Check if we should stop due to too many errors
       if (ErrorHandler.shouldStopBatch(results.errors)) {
         logger.warn(
-          `Stopping batch processing due to ${results.errors.length} errors`
+          `Stopping batch processing due to ${results.errors.length} errors${
+            operation ? ` [op=${operation}]` : ''
+          }`
         );
         break;
       }
 
-      // Add delay between batches to avoid overwhelming the server
       if (i + actualBatchSize < items.length) {
         await delay(liferayConfig.batchConfig.batchDelay);
       }
     }
 
     logger.trace(
-      `Batch processing completed: ${results.successful.length} successful, ${results.errors.length} errors`
+      `Batch processing completed: ${results.successful.length} successful, ${
+        results.errors.length
+      } errors${operation ? ` [op=${operation}]` : ''}`
     );
     return results;
   }
 
   async processBatchConcurrently(batch, processingFunction) {
+    const { logger } = this.ctx;
     const results = {
       successful: [],
       errors: [],
     };
 
-    // Process all items in the batch concurrently
     const promises = batch.map(async (item, index) => {
       try {
         const result = await this.processWithRetry(item, processingFunction);
@@ -90,10 +95,8 @@ class BatchProcessorService {
       }
     });
 
-    // Wait for all items in the batch to complete
     const batchResults = await Promise.allSettled(promises);
 
-    // Separate successful and failed results
     batchResults.forEach((promiseResult) => {
       if (promiseResult.status === 'fulfilled') {
         const { success, result, error, index, item } = promiseResult.value;
@@ -144,11 +147,17 @@ class BatchProcessorService {
     throw lastError;
   }
 
-  async processSequentially(items, processingFunction) {
+  async processSequentially(items, processingFunction, options = {}) {
     const { logger } = this.ctx;
-    logger.trace(`Processing ${items.length} items sequentially`);
+    const { operation } = options;
+    logger.trace(
+      `Processing ${items.length} items sequentially${
+        operation ? ` [op=${operation}]` : ''
+      }`
+    );
 
     const results = {
+      operation: operation || undefined,
       successful: [],
       errors: [],
       total: items.length,
@@ -161,7 +170,11 @@ class BatchProcessorService {
       try {
         const result = await this.processWithRetry(item, processingFunction);
         results.successful.push(result);
-        logger.trace(`Processed item ${i + 1}/${items.length} successfully`);
+        logger.trace(
+          `Processed item ${i + 1}/${items.length} successfully${
+            operation ? ` [op=${operation}]` : ''
+          }`
+        );
       } catch (error) {
         logger.error(`Failed to process item ${i + 1}/${items.length}:`, error);
         results.errors.push({
@@ -170,10 +183,11 @@ class BatchProcessorService {
           item,
         });
 
-        // Check if we should stop due to too many errors
         if (ErrorHandler.shouldStopBatch(results.errors)) {
           logger.warn(
-            `Stopping sequential processing due to ${results.errors.length} errors`
+            `Stopping sequential processing due to ${
+              results.errors.length
+            } errors${operation ? ` [op=${operation}]` : ''}`
           );
           break;
         }
@@ -181,14 +195,17 @@ class BatchProcessorService {
 
       results.processed++;
 
-      // Add small delay between items to avoid overwhelming the server
       if (i < items.length - 1) {
         await delay(100);
       }
     }
 
     logger.trace(
-      `Sequential processing completed: ${results.successful.length} successful, ${results.errors.length} errors`
+      `Sequential processing completed: ${
+        results.successful.length
+      } successful, ${results.errors.length} errors${
+        operation ? ` [op=${operation}]` : ''
+      }`
     );
     return results;
   }
@@ -207,12 +224,19 @@ class BatchProcessorService {
     items,
     processingFunction,
     batchSize,
-    progressCallback
+    progressCallback,
+    options = {}
   ) {
     const { logger } = this.ctx;
-    logger.trace(`Processing ${items.length} items with progress tracking`);
+    const { operation } = options;
+    logger.trace(
+      `Processing ${items.length} items with progress tracking${
+        operation ? ` [op=${operation}]` : ''
+      }`
+    );
 
     const results = {
+      operation: operation || undefined,
       successful: [],
       errors: [],
       total: items.length,
@@ -236,9 +260,9 @@ class BatchProcessorService {
       results.errors.push(...batchResults.errors);
       results.processed += batch.length;
 
-      // Call progress callback if provided
       if (progressCallback && typeof progressCallback === 'function') {
         progressCallback({
+          operation: operation || undefined,
           processed: results.processed,
           total: results.total,
           successful: results.successful.length,
