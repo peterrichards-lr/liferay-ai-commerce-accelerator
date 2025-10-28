@@ -1,6 +1,5 @@
 const { jsPDF } = require('jspdf');
-
-const { buildDataUrl, parseDataUrl } = require('../utils/misc.cjs');
+const { buildDataUrl, parseDataUrl, delay } = require('../utils/misc.cjs');
 
 const MOCK_BASE64_IMAGE = {
   mimeType: 'image/webp',
@@ -19,9 +18,9 @@ class MediaGenerator {
     this.ctx = ctx;
   }
 
-  getMockBase64Image = () => MOCK_BASE64_IMAGE;
-
-  getMockBase64Pdf = () => MOCK_BASE64_PDF;
+  resolveOperation(config, explicit) {
+    return explicit || config?.operation || this.ctx?.operation || 'generate';
+  }
 
   async getDefaultBase64ImageDataUrl(config) {
     const image = await this.getDefaultBase64Image(config);
@@ -34,11 +33,12 @@ class MediaGenerator {
       const dataUrl = await configService.getDefaultImage(config);
       return parseDataUrl(dataUrl);
     } catch (err) {
-      logger.error(
-        'Unexpected error while retrieving the default image. Using the mock image',
-        err
-      );
-      return this.getMockBase64Image();
+      logger.error('Failed to retrieve default image; using fallback', {
+        operation: this.resolveOperation(config),
+        correlationId: config?.correlationId || '∅',
+        error: err.message
+      });
+      return this.ctx.fallbacks.getMockBase64Image();
     }
   }
 
@@ -53,268 +53,149 @@ class MediaGenerator {
       const dataUrl = await configService.getDefaultPdf(config);
       return parseDataUrl(dataUrl);
     } catch (err) {
-      logger.error(
-        'Unexpected error while retrieving the default pdf. Using the mock pdf',
-        err
-      );
-      return this.getMockBase64Pdf();
-    }
-  }
-
-  async generateImageData(
-    baseName,
-    width,
-    height = width,
-    format = undefined,
-    preventCache = true,
-    grayscale = false,
-    blur = undefined,
-    seed = undefined,
-    id = undefined
-  ) {
-    const actualWidth = width ? Math.floor(width) : 1;
-    const actualHeight = height ? Math.floor(height) : 1;
-    const isSquare = actualWidth === actualHeight;
-
-    let url = 'https://picsum.photos/';
-
-    if (seed && !id) {
-      url += `seed/${seed}/`;
-    }
-
-    url += isSquare ? `${actualWidth}` : `${actualWidth}/${actualHeight}`;
-
-    if (id && !seed) {
-      url += `/${id}`;
-    }
-
-    if (format === 'webp' || format === 'jpg') {
-      url += `.${format}`;
-    }
-
-    if (preventCache && !seed && !id) {
-      url += `?random=${new Date().getTime()}`;
-    }
-
-    if (grayscale) {
-      url += (url.indexOf('?') ? '&' : '?') + 'grayscale';
-    }
-
-    if (blur) {
-      if (isNaN(blur)) {
-        url += (url.indexOf('?') ? '&' : '?') + 'blur';
-      } else {
-        const blurIndex = parseInt(blur);
-        if (blurIndex >= 1 && blurIndex <= 10) {
-          url += (url.indexOf('?') ? '&' : '?') + `blur=${blurIndex}`;
-        } else {
-          url += (url.indexOf('?') ? '&' : '?') + 'blur';
-        }
-      }
-    }
-
-    return {
-      title: { en_US: `${baseName} Product Image` },
-      type: 'image',
-      src: url,
-      priority: 1,
-    };
-  }
-
-  async generateProductPDF(pdfContent, productSku) {
-    try {
-      // Create new PDF document with explicit options to ensure compatibility
-      const doc = new jsPDF({
-        orientation: 'portrait',
-        unit: 'pt',
-        format: 'a4',
-        hotfixes: ['px_scaling'],
+      logger.error('Failed to retrieve default PDF; using fallback', {
+        operation: this.resolveOperation(config),
+        correlationId: config?.correlationId || '∅',
+        error: err.message
       });
+      return this.ctx.fallbacks.getMockBase64Pdf();
+    }
+  }
 
+  async generateImageData(baseName, width, height = width, format, preventCache = true, grayscale = false, blur, seed, id) {
+    const actualWidth = Math.max(1, Math.floor(width || 1));
+    const actualHeight = Math.max(1, Math.floor(height || actualWidth));
+    const isSquare = actualWidth === actualHeight;
+    let url = 'https://picsum.photos/';
+    if (seed && !id) url += `seed/${seed}/`;
+    url += isSquare ? `${actualWidth}` : `${actualWidth}/${actualHeight}`;
+    if (id && !seed) url += `/${id}`;
+    if (format === 'webp' || format === 'jpg') url += `.${format}`;
+    const params = new URLSearchParams();
+    if (preventCache && !seed && !id) params.append('random', Date.now());
+    if (grayscale) params.append('grayscale', '');
+    if (blur) params.append('blur', isNaN(blur) ? '' : Math.min(Math.max(parseInt(blur), 1), 10));
+    const query = params.toString();
+    if (query) url += `?${query}`;
+    return { title: { en_US: `${baseName} Product Image` }, type: 'image', src: url, priority: 1 };
+  }
+
+  async generateProductPDF(pdfContent, productSku, config) {
+    const { logger, getWs } = this.ctx;
+    const correlationId = config?.correlationId || '∅';
+    const operation = this.resolveOperation(config, 'process-attachments');
+    const batchId = `pdf-gen-${productSku}`;
+    getWs().emitBatchStarted({ batchId, entityType: 'media', totalItems: 1, operation }, { correlationId });
+    const startedAt = Date.now();
+    try {
+      const doc = new jsPDF({ orientation: 'portrait', unit: 'pt', format: 'a4', hotfixes: ['px_scaling'] });
       const pageWidth = doc.internal.pageSize.getWidth();
       const pageHeight = doc.internal.pageSize.getHeight();
       const margin = 40;
       const maxWidth = pageWidth - margin * 2;
       let currentY = margin;
-
-      // Ensure we have valid content
-      const title =
-        pdfContent?.title || `Product Documentation - ${productSku}`;
-      const sections = pdfContent?.sections || [
-        {
-          title: 'Product Information',
-          content: `This is a sample product documentation for ${productSku}. This document contains basic product information and specifications.`,
-        },
-      ];
-
-      // Add title
+      const title = pdfContent?.title || `Product Documentation - ${productSku}`;
+      const sections = pdfContent?.sections || [{ title: 'Product Information', content: `Auto-generated documentation for ${productSku}.` }];
       doc.setFontSize(24);
       doc.setFont('helvetica', 'bold');
       const titleLines = doc.splitTextToSize(title, maxWidth);
-      titleLines.forEach((line) => {
-        doc.text(line, margin, currentY);
-        currentY += 30;
-      });
+      titleLines.forEach(line => { doc.text(line, margin, currentY); currentY += 30; });
       currentY += 20;
-
-      // Add each section
       for (const section of sections) {
-        // Check if we need a new page
-        if (currentY > pageHeight - 100) {
-          doc.addPage();
-          currentY = margin;
-        }
-
-        // Section title
+        if (currentY > pageHeight - 100) { doc.addPage(); currentY = margin; }
         doc.setFontSize(16);
         doc.setFont('helvetica', 'bold');
-        const sectionTitle = section.title || 'Section';
-        doc.text(sectionTitle, margin, currentY);
+        doc.text(section.title || 'Section', margin, currentY);
         currentY += 25;
-
-        // Section content
         doc.setFontSize(12);
         doc.setFont('helvetica', 'normal');
-
-        const content = section.content || 'Content not available.';
-        const lines = doc.splitTextToSize(content, maxWidth);
+        const lines = doc.splitTextToSize(section.content || 'Content not available.', maxWidth);
         for (const line of lines) {
-          if (currentY > pageHeight - 80) {
-            doc.addPage();
-            currentY = margin;
-          }
+          if (currentY > pageHeight - 80) { doc.addPage(); currentY = margin; }
           doc.text(line, margin, currentY);
           currentY += 15;
         }
-        currentY += 20; // Space between sections
+        currentY += 20;
       }
-
       const pageCount = doc.internal.getNumberOfPages();
       for (let i = 1; i <= pageCount; i++) {
         doc.setPage(i);
         doc.setFontSize(10);
         doc.setFont('helvetica', 'normal');
-        doc.text(
-          `Generated by Liferay AI Data Generator - Page ${i} of ${pageCount}`,
-          margin,
-          pageHeight - 30
-        );
-        doc.text(
-          `Product SKU: ${productSku}`,
-          pageWidth - margin - 120,
-          pageHeight - 30
-        );
+        doc.text(`Generated by AI Data Generator - Page ${i} of ${pageCount}`, margin, pageHeight - 30);
+        doc.text(`Product SKU: ${productSku}`, pageWidth - margin - 120, pageHeight - 30);
       }
-
-      const pdfOutput = doc.output('datauri');
-
+      const pdfOutput = doc.output('datauristring');
       const base64Data = pdfOutput.split(',')[1];
-      return Buffer.from(base64Data, 'base64');
+      const buffer = Buffer.from(base64Data, 'base64');
+      const durationMs = Date.now() - startedAt;
+      getWs().emitBatchCompleted({ batchId, entityType: 'media', successCount: 1, failureCount: 0, operation, meta: { durationMs } }, { correlationId });
+      return buffer;
     } catch (error) {
-      logger.error('Error generating PDF:', error);
+      getWs().emitBatchCompleted({ batchId, entityType: 'media', successCount: 0, failureCount: 1, errors: [{ message: error.message }], operation }, { correlationId });
+      logger.error('Error generating PDF', { operation, correlationId, productSku, error: error.message });
       throw error;
     }
   }
 
-  async uploadPDFToStorage(uploadURL, pdfBuffer, filename) {
-    const { logger, objectStorage } = this.ctx;
-    try {
-      const response = await fetch(uploadURL, {
-        method: 'PUT',
-        body: pdfBuffer,
-        headers: {
-          'Content-Type': 'application/pdf',
-          Connection: 'keep-alive',
-        },
-        signal: AbortSignal.timeout(60000),
-      });
-
-      if (!response.ok) {
-        throw new Error(
-          `Failed to upload PDF: ${response.statusText} (Status: ${response.status})`
-        );
+  async uploadPDFToStorage(uploadURL, pdfBuffer, filename, config) {
+    const { logger } = this.ctx;
+    const correlationId = config?.correlationId || '∅';
+    const operation = this.resolveOperation(config, 'process-attachments');
+    for (let attempt = 0; attempt < 3; attempt++) {
+      try {
+        const response = await fetch(uploadURL, { method: 'PUT', body: pdfBuffer, headers: { 'Content-Type': 'application/pdf', Connection: 'keep-alive' }, signal: AbortSignal.timeout(60000) });
+        if (!response.ok) throw new Error(`${response.status} ${response.statusText}`);
+        return { success: true, uploadURL, filename };
+      } catch (error) {
+        logger.warn('PDF upload attempt failed', { operation, attempt: attempt + 1, correlationId, error: error.message });
+        if (attempt === 2) throw error;
+        await delay(1000 * (attempt + 1));
       }
-
-      const objectPath = objectStorage.normalizeObjectEntityPath(uploadURL);
-
-      return {
-        objectPath,
-        uploadURL,
-        filename,
-      };
-    } catch (error) {
-      logger.error('Error uploading PDF:', error);
-      throw error;
     }
   }
 
-  async generateAndUploadProductPDF(productData, productSku) {
-    const { logger, objectStorage } = this.ctx;
+  async generateAndUploadProductPDF(productData, productSku, config) {
+    const { logger, objectStorage, getWs } = this.ctx;
+    const correlationId = config?.correlationId || '∅';
+    const operation = this.resolveOperation(config, 'process-attachments');
+    const startedAt = Date.now();
     try {
-      logger.trace(`Generating PDF for product: ${productSku}`);
-
-      const pdfBuffer = await this.generateProductPDF(productData, productSku);
-
-      if (!pdfBuffer || pdfBuffer.length === 0) {
-        throw new Error('Generated PDF buffer is empty');
-      }
-
-      const pdfHeader = pdfBuffer.slice(0, 4).toString();
-      if (pdfHeader !== '%PDF') {
-        throw new Error('Generated PDF does not have valid PDF header');
-      }
-
-      logger.trace(`Uploading PDF to object storage...`);
+      const pdfBuffer = await this.generateProductPDF(productData, productSku, config);
+      if (!pdfBuffer?.length || !pdfBuffer.slice(0, 4).toString().includes('%PDF')) throw new Error('Invalid PDF buffer');
       const objectKey = `product-pdfs/${productSku}-${Date.now()}.pdf`;
-      const uploadResult = await objectStorage.uploadFile(
-        objectKey,
-        pdfBuffer,
-        'application/pdf'
-      );
-
-      logger.trace(
-        `✓ PDF generated and uploaded successfully for ${productSku}`
-      );
-
-      return {
-        objectPath: uploadResult.objectPath,
-        fileName: `${productSku}_product_manual.pdf`,
-        buffer: pdfBuffer,
-      };
+      const uploadResult = await objectStorage.uploadFile(objectKey, pdfBuffer, 'application/pdf');
+      const durationMs = Date.now() - startedAt;
+      getWs().emitBatchCompleted({ batchId: `pdf-upload-${productSku}`, entityType: 'media', successCount: 1, failureCount: 0, operation, meta: { durationMs } }, { correlationId });
+      return { success: true, entityType: 'media', operation: 'generate-and-upload-pdf', objectPath: uploadResult.objectPath, fileName: `${productSku}_manual.pdf`, durationMs };
     } catch (error) {
-      logger.error(`Failed to generate PDF for ${productSku}:`, error);
+      logger.error('Failed to generate or upload PDF', { operation, correlationId, productSku, error: error.message });
+      getWs().emitBatchCompleted({ batchId: `pdf-upload-${productSku}`, entityType: 'media', successCount: 0, failureCount: 1, errors: [{ message: error.message }], operation }, { correlationId });
       throw error;
     }
   }
 
   selectProductsForPDFs(products, ratio) {
     if (ratio <= 0 || ratio > 100) return [];
-
     const count = Math.ceil(products.length * (ratio / 100));
-
-    const sortedProducts = [...products].sort((a, b) => {
-      const aRef =
-        a.externalReferenceCode || a.sku || `product-${products.indexOf(a)}`;
-      const bRef =
-        b.externalReferenceCode || b.sku || `product-${products.indexOf(b)}`;
-      return aRef.localeCompare(bRef);
-    });
-    return sortedProducts.slice(0, count);
+    const shuffled = [...products].sort(() => Math.random() - 0.5);
+    return shuffled.slice(0, count);
   }
 
   selectProductsForImages(products, ratio) {
     if (ratio <= 0 || ratio > 100) return [];
-
     const count = Math.ceil(products.length * (ratio / 100));
+    const shuffled = [...products].sort(() => Math.random() - 0.5);
+    return shuffled.slice(0, count);
+  }
 
-    const sortedProducts = [...products].sort((a, b) => {
-      const aRef =
-        a.externalReferenceCode || a.sku || `product-${products.indexOf(a)}`;
-      const bRef =
-        b.externalReferenceCode || b.sku || `product-${products.indexOf(b)}`;
-      return aRef.localeCompare(bRef);
-    });
-    return sortedProducts.slice(0, count);
+  generateProductImageSet(baseName, variants = ['main', 'thumb', 'alt']) {
+    return variants.map((variant, i) => ({
+      title: { en_US: `${baseName} ${variant}` },
+      type: 'image',
+      src: `https://picsum.photos/seed/${baseName}-${variant}/600/600.webp`,
+      priority: i + 1
+    }));
   }
 }
 

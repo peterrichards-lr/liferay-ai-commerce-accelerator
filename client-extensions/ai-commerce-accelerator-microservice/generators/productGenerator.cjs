@@ -1,9 +1,7 @@
-const { delay } = require('../utils/misc.cjs');
+const { delay, resolvePhaseAndMode } = require('../utils/misc.cjs');
 const { sanitizedObject } = require('../utils/normalize.cjs');
 const { v4: uuidv4 } = require('uuid');
-
 const { ASSET_TYPE, VIEWABLE_BY } = require('../utils/liferayPermissions.cjs');
-const { BATCH_COMPLETED } = require('../utils/wsEvents.cjs');
 
 class ProductGenerator {
   constructor(ctx) {
@@ -12,74 +10,74 @@ class ProductGenerator {
 
   createOnSessionComplete() {
     const { logger, cache, getWs } = this.ctx;
-
-    // (optional) idempotency so duplicates do nothing
     const markOnce = (sessionId) => {
       const onceKey = `session:${sessionId}:postproc:done`;
       if (cache.get(onceKey)) return false;
       cache.set(onceKey, true, 30 * 60 * 1000);
       return true;
     };
-
     return async ({ sessionId, session, correlationId }) => {
       if (!markOnce(sessionId)) {
         logger.warn('Post-processing already handled for session', {
-          operation: 'post-processing-idempotent-skip',
+          entityType: 'products',
+          operation: 'generate',
+          ...resolvePhaseAndMode({ useBatch: true, phase: 'postprocess' }),
           sessionId,
           correlationId,
         });
         return;
       }
-
       logger.info('Generation session complete; triggering post-processing', {
-        operation: 'post-processing-trigger',
+        entityType: 'products',
+        operation: 'generate',
+        ...resolvePhaseAndMode({ useBatch: true, phase: 'postprocess' }),
         sessionId,
         completedBatches: Array.from(session.completedBatches),
         correlationId,
       });
-
       getWs().emitGenerationSessionComplete(
         {
-          type: 'generation_session_complete',
+          entityType: 'products',
+          operation: 'generate',
+          ...resolvePhaseAndMode({ useBatch: true, phase: 'complete' }),
           sessionId,
           completedBatches: Array.from(session.completedBatches),
           timestamp: new Date().toISOString(),
         },
         { correlationId }
       );
-
       const ctxKey = `session:${sessionId}:context`;
       const sessionContext = cache.get(ctxKey);
-
       if (!sessionContext) {
         logger.warn('No session context found for post-processing', {
-          operation: 'post-processing-no-context',
+          entityType: 'products',
+          operation: 'generate',
+          ...resolvePhaseAndMode({ useBatch: true, phase: 'postprocess' }),
           sessionId,
           correlationId,
         });
         return;
       }
-
-      const { config, productDataList, preparedProducts, options } =
-        sessionContext;
-
-      // decide whether there’s any work
+      const { config, productDataList, options } = sessionContext;
       const demoMode = !!options?.demoMode;
       const hasImages = demoMode
         ? (options?.imageRatio ?? 0) > 0
         : !!(options?.generateImages && (options?.imageRatio ?? 0) > 0);
-
       const hasPDFs = demoMode
         ? (options?.pdfRatio ?? 0) > 0
         : !!(options?.generatePDFs && (options?.pdfRatio ?? 0) > 0);
-
       const hasAttachments =
         Array.isArray(productDataList) &&
-        productDataList.some((p) => p.images?.length || p.attachments?.length);
-
+        productDataList.some(
+          (p) =>
+            (Array.isArray(p.images) && p.images.length > 0) ||
+            (Array.isArray(p.attachments) && p.attachments.length > 0)
+        );
       if (!(hasImages || hasPDFs || hasAttachments)) {
         logger.info('No post-processing work required', {
-          operation: 'post-processing-skip',
+          entityType: 'products',
+          operation: 'generate',
+          ...resolvePhaseAndMode({ useBatch: true, phase: 'postprocess' }),
           sessionId,
           correlationId,
           imageRatio: options?.imageRatio ?? 0,
@@ -87,25 +85,22 @@ class ProductGenerator {
         });
         return;
       }
-
-      // run attachments & then clean up
       await this.processImageAndPDFAttachments(
         config,
         productDataList,
-        preparedProducts,
         options
       );
-
       cache.delete(ctxKey);
       logger.info('Post-processing complete; session context cleared', {
-        operation: 'post-processing-complete',
+        entityType: 'products',
+        operation: 'generate',
+        ...resolvePhaseAndMode({ useBatch: true, phase: 'complete' }),
         sessionId,
         correlationId,
       });
     };
   }
 
-  // Build a category -> count map from a single total count
   buildCategoryCounts(
     total,
     categories,
@@ -115,12 +110,10 @@ class ProductGenerator {
   ) {
     const counts = {};
     categories.forEach((c) => (counts[c] = 0));
-
     if (mode === 'even') {
       const base = Math.floor(total / categories.length);
       let remainder = total - base * categories.length;
       for (const c of categories) counts[c] = base;
-      // distribute the remainder round-robin
       let i = 0;
       while (remainder-- > 0) {
         counts[categories[i % categories.length]]++;
@@ -128,14 +121,11 @@ class ProductGenerator {
       }
       return counts;
     }
-
-    // random (optionally seeded)
     let rng = Math.random;
     let state = 0;
     if (typeof seed === 'number') {
       state = seed >>> 0;
       rng = () => {
-        // xorshift32
         state ^= state << 13;
         state >>>= 0;
         state ^= state >> 17;
@@ -145,7 +135,6 @@ class ProductGenerator {
         return (state >>> 0) / 0xffffffff;
       };
     }
-
     for (let i = 0; i < total; i++) {
       const idx = Math.floor(rng() * categories.length);
       counts[categories[idx]]++;
@@ -163,45 +152,33 @@ class ProductGenerator {
     logger.trace('Demo mode:', !!options.demoMode);
     logger.trace('Config:', sanitizedObject(config));
     logger.trace('Generation Options:', sanitizedObject(options));
-
     const useBatch = config.batchSize > 1 && options.productCount > 1;
     logger.trace(
       `Using ${useBatch ? 'batch' : 'individual'} operations (batch size: ${
         config.batchSize || 1
       })`
     );
-
     logger.info('Starting product generation', {
+      entityType: 'products',
+      operation: 'generate',
+      ...resolvePhaseAndMode({ useBatch, phase: 'init' }),
       correlationId: config.correlationId,
-      operation: 'generate-products',
       totalProducts: options.productCount,
       categories: options.productCategories?.length || 0,
-      useBatch: useBatch,
       batchSize: config.batchSize || 1,
     });
-
-    const results = {
-      products: [],
-      created: 0,
-      errors: [],
-    };
-
+    const results = { products: [], created: 0, errors: [] };
     try {
       this.validateConfig(config);
       await this.validateOptions(options);
-
       const selectedCategories =
         Array.isArray(options.productCategories) &&
         options.productCategories.length
           ? options.productCategories
           : [];
-
-      if (selectedCategories.length === 0) {
+      if (selectedCategories.length === 0)
         throw new Error('At least one category must be selected.');
-      }
-
-      // NEW: compute per-category counts from a single total
-      const distributionMode = options.distributionMode || 'random'; // 'random' | 'even'
+      const distributionMode = options.distributionMode || 'random';
       const randomSeed = options.randomSeed;
       const categoryCounts = this.buildCategoryCounts(
         options.productCount,
@@ -210,14 +187,14 @@ class ProductGenerator {
         randomSeed,
         logger
       );
-
       logger.info('Computed category distribution for this run', {
-        operation: 'category-distribution',
+        entityType: 'products',
+        operation: 'generate',
+        ...resolvePhaseAndMode({ useBatch, phase: 'prepare' }),
         categoryCounts,
         total: options.productCount,
         distributionMode,
       });
-
       logger.trace(`Using catalog ID: ${config.catalogId}`);
       logger.trace(`Demo mode: ${options.demoMode ? 'ENABLED' : 'DISABLED'}`);
       logger.trace(`Target Liferay URL: ${config.liferayUrl}`);
@@ -226,36 +203,26 @@ class ProductGenerator {
           ', '
         )}`
       );
-
       let catalogOptionsByCategory = {};
-      if (options.generateSkuVariants) {
+      if (options.generateSkuVariants)
         catalogOptionsByCategory = await this.createCatalogOptions(
           config,
           options
         );
-      }
-
       let catalogSpecificationsByCategory = {};
-      if (options.generateSpecifications) {
+      if (options.generateSpecifications)
         catalogSpecificationsByCategory =
           await this.createCatalogSpecifications(config, options);
-      }
-
-      // Accumulate across all categories
       const allProductData = [];
-
-      // 1) Generate product data per category according to computed counts
       for (const category of selectedCategories) {
         const countForCategory = categoryCounts[category] || 0;
         if (countForCategory <= 0) {
           logger.trace(`Skipping category ${category} (assigned 0)`);
           continue;
         }
-
         logger.trace(
           `Generating ${countForCategory} products for category: ${category}`
         );
-
         try {
           let productDataList;
           if (options.demoMode) {
@@ -286,8 +253,6 @@ class ProductGenerator {
               config.selectedLanguages || ['en-US']
             );
           }
-
-          // Attach category-level option/spec handles onto product objects (if needed later)
           if (options.generateSkuVariants || options.generateSpecifications) {
             const catOpts = catalogOptionsByCategory[category] || [];
             const catSpecs = catalogSpecificationsByCategory[category] || [];
@@ -296,32 +261,25 @@ class ProductGenerator {
               pd.__catalogSpecifications = catSpecs;
             }
           }
-
           allProductData.push(...productDataList);
         } catch (error) {
           logger.error(
             `Failed to generate products for category ${category}:`,
             error
           );
-          results.errors.push({
-            category,
-            error: error.message,
-          });
+          results.errors.push({ category, error: error.message });
         }
       }
-
-      // Guard: nothing to do
       if (allProductData.length === 0) {
         logger.info('No products generated after distribution', {
-          operation: 'no-products-after-distribution',
+          entityType: 'products',
+          operation: 'generate',
+          ...resolvePhaseAndMode({ useBatch, phase: 'prepare' }),
         });
         return results;
       }
-
-      // 2) (Demo mode) Decide which products get images/PDFs at GLOBAL level
       let productImagesPrepared = 0;
       let productPdfsPrepared = 0;
-
       if (
         options.imageMode !== 'none' &&
         options.demoMode &&
@@ -332,14 +290,12 @@ class ProductGenerator {
           options.imageRatio
         );
         productImagesPrepared = productsForImages.length;
-
         if (productImagesPrepared > 0) {
           let image;
-          if (options.imageMode === 'default') {
+          if (options.imageMode === 'default')
             image = await media.getDefaultBase64ImageDataUrl(config);
-          } else if (options.imageMode === 'custom') {
+          else if (options.imageMode === 'custom')
             image = options.customImageFile;
-          }
           productsForImages.forEach((product) => {
             product.images = [];
             product.images.push(image);
@@ -349,7 +305,6 @@ class ProductGenerator {
           `Selected ${productImagesPrepared} products (global) for image assignment (${options.imageRatio}% ratio)`
         );
       }
-
       if (
         options.pdfMode !== 'none' &&
         options.demoMode &&
@@ -360,14 +315,11 @@ class ProductGenerator {
           options.pdfRatio
         );
         productPdfsPrepared = productsForPDFs.length;
-
         if (productPdfsPrepared > 0) {
           let pdf;
-          if (options.pdfMode === 'default') {
+          if (options.pdfMode === 'default')
             pdf = await media.getDefaultBase64PdfDataUrl(config);
-          } else if (options.pdfMode === 'custom') {
-            pdf = options.customPdfFile;
-          }
+          else if (options.pdfMode === 'custom') pdf = options.customPdfFile;
           productsForPDFs.forEach((product) => {
             product.attachments = [];
             product.attachments.push(pdf);
@@ -377,8 +329,6 @@ class ProductGenerator {
           `Selected ${productPdfsPrepared} products (global) for PDF generation (${options.pdfRatio}% ratio)`
         );
       }
-
-      // 3) Prepare Liferay product payloads for ALL products
       const preparedProducts = allProductData.map((productData) => {
         const liferayProduct = {
           active: productData.active !== undefined ? productData.active : true,
@@ -388,7 +338,6 @@ class ProductGenerator {
           productType: productData.productType || 'simple',
           externalReferenceCode: productData.externalReferenceCode,
         };
-
         if (productData.shortDescription)
           liferayProduct.shortDescription = productData.shortDescription;
         if (productData.urls) liferayProduct.urls = productData.urls;
@@ -398,7 +347,6 @@ class ProductGenerator {
           liferayProduct.metaKeyword = productData.metaKeyword;
         if (productData.metaTitle)
           liferayProduct.metaTitle = productData.metaTitle;
-
         if (productData.skus && Array.isArray(productData.skus)) {
           liferayProduct.skus = productData.skus;
         } else if (productData.baseSku) {
@@ -418,7 +366,7 @@ class ProductGenerator {
         } else {
           const fallbackSku = `SKU-${Date.now()}-${Math.random()
             .toString(36)
-            .substr(2, 5)}`;
+            .slice(2, 7)}`;
           const basePrice = Math.floor(Math.random() * 500) + 50;
           liferayProduct.skus = [
             {
@@ -433,39 +381,28 @@ class ProductGenerator {
             },
           ];
         }
-
         return liferayProduct;
       });
-
-      // 4) Create products (batch or individual) for the WHOLE set
       if (useBatch) {
         logger.trace(
           `Creating ${preparedProducts.length} products using batch endpoint with batch size ${config.batchSize}...`
         );
-
         const callbackUrl =
           config.microserviceUrl && config.microserviceUrl !== 'null'
             ? `${config.microserviceUrl}/api/batch/callback`
             : null;
-
-        // Remove images/attachments for batch creation; add via post-processing later
         const cleanedProducts = preparedProducts.map((product) => {
           const cleanProduct = { ...product };
           delete cleanProduct.images;
           delete cleanProduct.attachments;
           return cleanProduct;
         });
-
-        // Split into batches
         const productBatches = [];
-        for (let i = 0; i < cleanedProducts.length; i += config.batchSize) {
+        for (let i = 0; i < cleanedProducts.length; i += config.batchSize)
           productBatches.push(cleanedProducts.slice(i, i + config.batchSize));
-        }
-
         logger.trace(
           `Split ${cleanedProducts.length} products into ${productBatches.length} batches of max size ${config.batchSize}`
         );
-
         const batchIds = [];
         for (
           let batchIndex = 0;
@@ -478,29 +415,31 @@ class ProductGenerator {
               batch.length
             } products...`
           );
-
           const result = await liferay.createProductsBatch(
             config,
             batch,
             callbackUrl
           );
-
+          const startedAt = Date.now();
+          cache.set(
+            `batch:${result.batchId}:meta`,
+            { startedAt, totalCount: batch.length },
+            3600000
+          );
           getWs().emitBatchStarted(
             {
-              batchId: result.batchId,
               entityType: 'products',
-              totalItems: batch.length,
               operation: 'generate',
+              ...resolvePhaseAndMode({ useBatch: true, phase: 'submit' }),
+              batchId: result.batchId,
+              totalItems: batch.length,
             },
             { correlationId: config.correlationId }
           );
-
           batchIds.push(result.batchId);
-
           if (result.batchId && callbackUrl) {
             const pollInterval = Math.max(config.pollingDelay || 5000, 2000);
             const maxPollAttempts = config.pollingRetries || 120;
-
             cache.set(
               `batch:${result.batchId}:config`,
               {
@@ -513,16 +452,16 @@ class ProductGenerator {
                 localeCode: config.localeCode,
                 operation: 'generate',
               },
-              3600000 // 1h
+              3600000
             );
-
             logger.info('Batch config stored for polling', {
-              operation: 'batch-config-store',
+              entityType: 'products',
+              operation: 'generate',
+              ...resolvePhaseAndMode({ useBatch: true, phase: 'poll' }),
               batchId: result.batchId,
               pollInterval,
               maxPollAttempts,
             });
-
             batchPolling.startPolling(
               result.batchId,
               {
@@ -536,36 +475,79 @@ class ProductGenerator {
                 pollInterval,
                 maxPollAttempts,
                 onStatusChange: (status) => {
+                  const meta = cache.get(`batch:${result.batchId}:meta`) || {};
+                  const processed = status.processedCount || 0;
+                  const total = status.totalCount || meta.totalCount || 0;
+                  const elapsedMs = Math.max(
+                    1,
+                    Date.now() - (meta.startedAt || Date.now())
+                  );
+                  const rate = processed / (elapsedMs / 1000);
+                  const remaining = Math.max(0, total - processed);
+                  const etaSeconds =
+                    rate > 0 ? Math.round(remaining / rate) : null;
+                  getWs().emitBatchProgress(
+                    {
+                      entityType: 'products',
+                      operation: 'generate',
+                      ...resolvePhaseAndMode({ useBatch: true, phase: 'poll' }),
+                      batchId: status.batchId || result.batchId,
+                      completedCount: processed,
+                      totalItems: total,
+                      progress: total
+                        ? Math.round((processed / total) * 100)
+                        : 0,
+                      etaSeconds,
+                    },
+                    { correlationId: config.correlationId }
+                  );
                   logger.debug('Batch status update', {
-                    operation: 'batch-status-update',
+                    entityType: 'products',
+                    operation: 'generate',
+                    ...resolvePhaseAndMode({ useBatch: true, phase: 'poll' }),
                     batchId: status.batchId,
                     status: status.status,
                     processedCount: status.processedCount,
                     totalCount: status.totalCount,
-                    entityType: 'products',
                   });
                 },
                 onComplete: (r) => this.handleBatchComplete(r, config),
                 onError: (error) => {
                   logger.error('Batch polling error', {
-                    operation: 'batch-polling-error',
+                    entityType: 'products',
+                    operation: 'generate',
+                    ...resolvePhaseAndMode({ useBatch: true, phase: 'poll' }),
                     batchId: result.batchId,
                     error: error.message,
-                    entityType: 'products',
                   });
+                  getWs().emitBatchCompleted(
+                    {
+                      entityType: 'products',
+                      operation: 'generate',
+                      ...resolvePhaseAndMode({
+                        useBatch: true,
+                        phase: 'complete',
+                      }),
+                      batchId: result.batchId,
+                      successCount: 0,
+                      failureCount: 1,
+                      errors: [{ message: error.message }],
+                    },
+                    { correlationId: config.correlationId }
+                  );
                 },
               }
             );
           }
-
           logger.info('Batch submission completed', {
-            operation: 'create-products-batch',
+            entityType: 'products',
+            operation: 'generate',
+            ...resolvePhaseAndMode({ useBatch: true, phase: 'submit' }),
             batchId: result.batchId,
             productCount: batch.length,
             status: result.status,
             callbackUrl: callbackUrl || 'none',
           });
-
           results.products.push({
             batchIndex: batchIndex + 1,
             totalBatches: productBatches.length,
@@ -578,44 +560,38 @@ class ProductGenerator {
             })),
           });
           results.created += batch.length;
-
-          if (batchIndex < productBatches.length - 1) {
-            await delay(1000);
-          }
+          if (batchIndex < productBatches.length - 1) await delay(1000);
         }
-
-        // Store session context for post-processing (GLOBAL lists)
         const sessionId = `products_${Date.now()}_${Math.random()
           .toString(36)
           .slice(2, 9)}`;
         const contextCacheKey = `session:${sessionId}:context`;
-
         cache.set(
           contextCacheKey,
           {
             correlationId: config.correlationId,
             config,
             productDataList: allProductData,
-            preparedProducts,
             options,
             sessionId,
           },
           30 * 60 * 1000
         );
-
         batchPolling.registerSession(sessionId, {
           batchIds,
           totalExpected: batchIds.length,
           contextKey: contextCacheKey,
           onSessionComplete: this.createOnSessionComplete(),
         });
-
         const hasAttachments = allProductData.some(
-          (p) => p.images || p.attachments
+          (p) =>
+            (Array.isArray(p.images) && p.images.length > 0) ||
+            (Array.isArray(p.attachments) && p.attachments.length > 0)
         );
-
         logger.info('Session registered for post-processing', {
-          operation: 'session-register',
+          entityType: 'products',
+          operation: 'generate',
+          ...resolvePhaseAndMode({ useBatch: true, phase: 'postprocess' }),
           sessionId,
           totalBatches: batchIds.length,
           hasImages: options.imageMode !== 'none',
@@ -624,15 +600,24 @@ class ProductGenerator {
           demoMode: options.demoMode,
         });
       } else {
-        // Individual creation path for ALL prepared products
         logger.trace(
           `Creating ${preparedProducts.length} products individually...`
         );
-
+        const indivBatchId = `products-individual-${Date.now()}`;
+        getWs().emitBatchStarted(
+          {
+            entityType: 'products',
+            operation: 'generate',
+            ...resolvePhaseAndMode({ useBatch: false, phase: 'submit' }),
+            batchId: indivBatchId,
+            totalItems: preparedProducts.length,
+          },
+          { correlationId: config.correlationId }
+        );
+        let processed = 0;
         for (let i = 0; i < preparedProducts.length; i++) {
           const productData = preparedProducts[i];
           const originalProduct = allProductData[i];
-
           try {
             const createdProduct = await liferay.createProduct(
               config,
@@ -640,20 +625,34 @@ class ProductGenerator {
             );
             results.products.push(createdProduct);
             results.created++;
-            logger.trace(
-              `✓ Created product: ${
-                createdProduct.name?.en_US || createdProduct.name
-              }`
+            processed++;
+            getWs().emitBatchProgress(
+              {
+                entityType: 'products',
+                operation: 'generate',
+                ...resolvePhaseAndMode({ useBatch: false, phase: 'submit' }),
+                batchId: indivBatchId,
+                completedCount: processed,
+                totalItems: preparedProducts.length,
+                progress: Math.round(
+                  (processed / preparedProducts.length) * 100
+                ),
+              },
+              { correlationId: config.correlationId }
             );
-
             const productERC = originalProduct.externalReferenceCode;
-
-            let imagesApplied = 0,
-              pdfsApplied = 0;
-
+            let imagesApplied = 0;
+            let pdfsApplied = 0;
             if (originalProduct.images) {
               getWs().emitPostProcessingStarted(
-                { entityType: 'images', operation: 'process-images' },
+                {
+                  entityType: 'images',
+                  operation: 'process-images',
+                  ...resolvePhaseAndMode({
+                    useBatch: false,
+                    phase: 'postprocess',
+                  }),
+                },
                 { correlationId: config.correlationId }
               );
               for (const image of originalProduct.images) {
@@ -673,7 +672,6 @@ class ProductGenerator {
                       viewableBy: 'Anyone',
                     }
                   );
-
                   if (doc) {
                     await liferay.patchPermissionsByAsset(config, {
                       assetType: ASSET_TYPE.DOCUMENT,
@@ -681,12 +679,10 @@ class ProductGenerator {
                       viewableBy: VIEWABLE_BY.ANYONE,
                     });
                   }
-
                   const imageUrlData = {
                     title: { en_US: `Product Image - ${productERC}` },
                     src: `${config.liferayUrl}${doc.contentUrl}`,
                   };
-
                   await liferay.addProductImageByUrl(
                     config,
                     productERC,
@@ -702,18 +698,30 @@ class ProductGenerator {
                 logger.trace(`✓ Added image to product: ${productERC}`);
                 imagesApplied++;
               }
-              getWs().emitPostProcessingCompleted({
-                entityType: 'images',
-                processedCount: imagesApplied,
-                totalCount: productImagesPrepared,
-                correlationId: config.correlationId,
-                operation: 'process-images',
-              });
+              getWs().emitPostProcessingCompleted(
+                {
+                  entityType: 'images',
+                  operation: 'process-images',
+                  ...resolvePhaseAndMode({
+                    useBatch: false,
+                    phase: 'postprocess',
+                  }),
+                  processedCount: imagesApplied,
+                  totalCount: (originalProduct.images || []).length,
+                },
+                { correlationId: config.correlationId }
+              );
             }
-
             if (originalProduct.attachments) {
               getWs().emitPostProcessingStarted(
-                { entityType: 'pdfs', operation: 'process-attachments' },
+                {
+                  entityType: 'pdfs',
+                  operation: 'process-attachments',
+                  ...resolvePhaseAndMode({
+                    useBatch: false,
+                    phase: 'postprocess',
+                  }),
+                },
                 { correlationId: config.correlationId }
               );
               for (const attachment of originalProduct.attachments) {
@@ -733,7 +741,6 @@ class ProductGenerator {
                       viewableBy: 'Anyone',
                     }
                   );
-
                   if (doc) {
                     await liferay.patchPermissionsByAsset(config, {
                       assetType: ASSET_TYPE.DOCUMENT,
@@ -742,9 +749,7 @@ class ProductGenerator {
                     });
                   }
                   const attachmentUrlData = {
-                    title: {
-                      en_US: `Product Documentation - ${productERC}`,
-                    },
+                    title: { en_US: `Product Documentation - ${productERC}` },
                     src: `${config.liferayUrl}${doc.contentUrl}`,
                   };
                   await liferay.addProductAttachmentByUrl(
@@ -765,9 +770,13 @@ class ProductGenerator {
               getWs().emitPostProcessingCompleted(
                 {
                   entityType: 'pdfs',
-                  processedCount: pdfsApplied,
-                  totalCount: productPdfsPrepared,
                   operation: 'process-attachments',
+                  ...resolvePhaseAndMode({
+                    useBatch: false,
+                    phase: 'postprocess',
+                  }),
+                  processedCount: pdfsApplied,
+                  totalCount: (originalProduct.attachments || []).length,
                 },
                 { correlationId: config.correlationId }
               );
@@ -785,9 +794,19 @@ class ProductGenerator {
             });
           }
         }
+        getWs().emitBatchCompleted(
+          {
+            entityType: 'products',
+            operation: 'generate',
+            ...resolvePhaseAndMode({ useBatch: false, phase: 'complete' }),
+            batchId: indivBatchId,
+            successCount: processed,
+            failureCount: results.errors.length,
+            errors: results.errors.slice(0, 5),
+          },
+          { correlationId: config.correlationId }
+        );
       }
-
-      // 5) Pricing pass ONCE for the whole run (if enabled)
       if (options.generatePriceLists && allProductData.length > 0) {
         logger.trace(
           `Generating pricing for ${allProductData.length} products (global pass)...`
@@ -803,23 +822,36 @@ class ProductGenerator {
           }
         );
       }
-
       logger.trace(
         `Product generation completed: ${results.created} created, ${results.errors.length} errors`
       );
       return results;
     } catch (error) {
+      const { getWs } = this.ctx;
       logger.error('Product generation failed', {
-        operation: 'generate-products',
+        entityType: 'products',
+        operation: 'generate',
+        ...resolvePhaseAndMode({ useBatch, phase: 'error' }),
         error: error.message,
         stack: error.stack,
       });
+      try {
+        getWs().emitBatchCompleted({
+          entityType: 'products',
+          operation: 'generate',
+          ...resolvePhaseAndMode({ useBatch, phase: 'error' }),
+          batchId: 'products-failed',
+          successCount: 0,
+          failureCount: 1,
+          errors: [{ message: error.message }],
+        });
+      } catch {}
       throw error;
     }
   }
 
   async createCatalogOptions(config, options) {
-    const { logger } = this.ctx;
+    const { logger, liferay } = this.ctx;
     const categories = options.productCategories;
     logger.trace(
       `Creating catalog-level options for SKU variants... (Demo mode: ${options.demoMode})`
@@ -827,22 +859,18 @@ class ProductGenerator {
     logger.trace(`Liferay URL: ${config.liferayUrl}`);
     logger.trace(`Categories to process: ${categories.join(', ')}`);
     const catalogOptions = {};
-
     const selectedLanguages = config.selectedLanguages || ['en-US'];
     const languageCodes = selectedLanguages.map((lang) =>
       lang.replace('-', '_')
     );
-
     const getOptionCharacteristics = (optionName, values) => {
       const name = optionName.toLowerCase();
-
       const characteristics = {
         fieldType: 'select',
         skuContributor: true,
         required: false,
         facetable: true,
       };
-
       if (
         values.length <= 4 &&
         (name.includes('type') ||
@@ -854,7 +882,6 @@ class ProductGenerator {
         characteristics.required = true;
         characteristics.skuContributor = true;
       }
-
       if (
         values.length === 2 &&
         (values.some(
@@ -871,7 +898,6 @@ class ProductGenerator {
         characteristics.skuContributor = false;
         characteristics.facetable = false;
       }
-
       if (
         name.includes('feature') ||
         name.includes('accessory') ||
@@ -880,7 +906,6 @@ class ProductGenerator {
         characteristics.fieldType = 'checkbox_multiple';
         characteristics.skuContributor = false;
       }
-
       if (
         name.includes('weight') ||
         name.includes('quantity') ||
@@ -889,7 +914,6 @@ class ProductGenerator {
         characteristics.fieldType = 'numeric';
         characteristics.skuContributor = false;
       }
-
       if (
         name.includes('custom') ||
         name.includes('personalization') ||
@@ -899,7 +923,6 @@ class ProductGenerator {
         characteristics.skuContributor = false;
         characteristics.facetable = false;
       }
-
       if (
         name.includes('warranty') ||
         name.includes('delivery') ||
@@ -908,13 +931,11 @@ class ProductGenerator {
         characteristics.fieldType = 'date';
         characteristics.skuContributor = false;
       }
-
       if (name.includes('schedule') || name.includes('appointment')) {
         characteristics.fieldType = 'select_date';
         characteristics.skuContributor = false;
         characteristics.facetable = false;
       }
-
       if (
         name.includes('color') ||
         name.includes('size') ||
@@ -923,10 +944,8 @@ class ProductGenerator {
         characteristics.required = true;
         characteristics.facetable = true;
       }
-
       return characteristics;
     };
-
     const categoryOptionsMap = {
       Electronics: [
         { name: 'Color', values: ['Black', 'White', 'Silver', 'Space Gray'] },
@@ -950,7 +969,6 @@ class ProductGenerator {
         { name: 'Assembly Required', values: ['Yes', 'No'] },
       ],
     };
-
     for (const category of categories) {
       const categoryOptions =
         categoryOptionsMap[category] || categoryOptionsMap['Electronics'];
@@ -958,21 +976,17 @@ class ProductGenerator {
       logger.trace(
         `Processing ${categoryOptions.length} options for category: ${category}`
       );
-
       for (const optionData of categoryOptions) {
         try {
           const optionERC = `OPT-${category.toUpperCase()}-${optionData.name
             .toUpperCase()
             .replace(/\s+/g, '_')}`;
-
           const optionCharacteristics = getOptionCharacteristics(
             optionData.name,
             optionData.values
           );
-
           const optionName = {};
           const optionDescription = {};
-
           languageCodes.forEach((langCode) => {
             const suffix = langCode === 'en_US' ? '' : ` (${langCode})`;
             optionName[langCode] = `${optionData.name}${suffix}`;
@@ -980,7 +994,6 @@ class ProductGenerator {
               langCode
             ] = `${optionData.name} option for ${category}${suffix}`;
           });
-
           let option;
           try {
             option = await liferay.createOption(config, {
@@ -1018,20 +1031,17 @@ class ProductGenerator {
               throw createError;
             }
           }
-
           const optionValues = [];
           for (let i = 0; i < optionData.values.length; i++) {
             const value = optionData.values[i];
             const valueERC = `VAL-${optionERC}-${value
               .toUpperCase()
               .replace(/\s+/g, '_')}`;
-
             const valueName = {};
             languageCodes.forEach((langCode) => {
               const suffix = langCode === 'en_US' ? '' : ` (${langCode})`;
               valueName[langCode] = `${value}${suffix}`;
             });
-
             try {
               const optionValue = await liferay.createOptionValue(
                 config,
@@ -1070,11 +1080,7 @@ class ProductGenerator {
               }
             }
           }
-
-          catalogOptions[category].push({
-            ...option,
-            values: optionValues,
-          });
+          catalogOptions[category].push({ ...option, values: optionValues });
         } catch (error) {
           logger.error(
             `Failed to process option ${optionData.name} for ${category}:`,
@@ -1083,23 +1089,20 @@ class ProductGenerator {
         }
       }
     }
-
     return catalogOptions;
   }
 
   async createCatalogSpecifications(config, options) {
-    const { logger } = this.ctx;
+    const { logger, liferay } = this.ctx;
     const categories = options.productCategories;
     logger.trace(
       'Creating catalog-level specifications with option categories...'
     );
     const catalogSpecifications = {};
-
     const selectedLanguages = config.selectedLanguages || ['en-US'];
     const languageCodes = selectedLanguages.map((lang) =>
       lang.replace('-', '_')
     );
-
     const categoryGroupsMap = {
       Electronics: [
         {
@@ -1181,7 +1184,6 @@ class ProductGenerator {
         },
       ],
     };
-
     const categorySpecificationsMap = {
       Electronics: [
         {
@@ -1330,7 +1332,6 @@ class ProductGenerator {
         },
       ],
     };
-
     for (const category of categories) {
       const categorySpecs =
         categorySpecificationsMap[category] ||
@@ -1338,23 +1339,19 @@ class ProductGenerator {
       const categoryGroups =
         categoryGroupsMap[category] || categoryGroupsMap['Electronics'];
       catalogSpecifications[category] = [];
-
       const optionCategories = {};
       for (const groupData of categoryGroups) {
         try {
           const categoryERC = `OPTCAT-${category.toUpperCase()}-${groupData.key
             .toUpperCase()
             .replace(/-/g, '_')}`;
-
           const categoryTitle = {};
           const categoryDescription = {};
-
           languageCodes.forEach((langCode) => {
             const suffix = langCode === 'en_US' ? '' : ` (${langCode})`;
             categoryTitle[langCode] = `${groupData.title}${suffix}`;
             categoryDescription[langCode] = `${groupData.description}${suffix}`;
           });
-
           let optionCategory;
           try {
             optionCategory = await liferay.createOptionCategory(config, {
@@ -1389,7 +1386,6 @@ class ProductGenerator {
               throw createError;
             }
           }
-
           optionCategories[groupData.key] = optionCategory;
         } catch (error) {
           logger.error(
@@ -1398,24 +1394,19 @@ class ProductGenerator {
           );
         }
       }
-
       for (const specData of categorySpecs) {
         try {
           const specERC = `SPEC-${category.toUpperCase()}-${specData.key
             .toUpperCase()
             .replace(/-/g, '_')}`;
-
           const specTitle = {};
           const specOptionCategory = {};
-
           languageCodes.forEach((langCode) => {
             const suffix = langCode === 'en_US' ? '' : ` (${langCode})`;
             specTitle[langCode] = `${specData.title}${suffix}`;
             specOptionCategory[langCode] = `${category}${suffix}`;
           });
-
           const linkedOptionCategory = optionCategories[specData.group];
-
           const specificationPayload = {
             key: specData.key,
             title: specTitle,
@@ -1424,13 +1415,11 @@ class ProductGenerator {
             priority: specData.priority,
             externalReferenceCode: specERC,
           };
-
           if (linkedOptionCategory) {
             specificationPayload.optionCategoryExternalReferenceCode =
               linkedOptionCategory.externalReferenceCode;
             specificationPayload.optionCategoryId = linkedOptionCategory.id;
           }
-
           let specification;
           try {
             specification = await liferay.createSpecification(
@@ -1462,13 +1451,11 @@ class ProductGenerator {
               throw createError;
             }
           }
-
           if (linkedOptionCategory) {
             specification.optionCategoryId = linkedOptionCategory.id;
             specification.optionCategoryExternalReferenceCode =
               linkedOptionCategory.externalReferenceCode;
           }
-
           catalogSpecifications[category].push(specification);
         } catch (error) {
           logger.error(
@@ -1477,19 +1464,16 @@ class ProductGenerator {
           );
         }
       }
-
       logger.info(
         `Processed ${catalogSpecifications[category].length} specifications for category: ${category}`
       );
     }
-
     return catalogSpecifications;
   }
 
   async createBasicProduct(config, productData, options = {}) {
     const { logger, liferay } = this.ctx;
     try {
-      // Start with minimum required properties as per the example
       const liferayProduct = {
         active: productData.active !== undefined ? productData.active : true,
         catalogId: parseInt(config.catalogId, 10),
@@ -1502,9 +1486,8 @@ class ProductGenerator {
         productType: productData.productType || 'simple',
         externalReferenceCode:
           productData.externalReferenceCode ||
-          `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+          `${Date.now()}-${Math.random().toString(36).slice(2, 11)}`,
       };
-
       if (productData.shortDescription)
         liferayProduct.shortDescription = productData.shortDescription;
       if (productData.urls) liferayProduct.urls = productData.urls;
@@ -1514,38 +1497,32 @@ class ProductGenerator {
         liferayProduct.metaKeyword = productData.metaKeyword;
       if (productData.metaTitle)
         liferayProduct.metaTitle = productData.metaTitle;
-
-      if (productData.skus && Array.isArray(productData.skus)) {
+      if (productData.skus && Array.isArray(productData.skus))
         liferayProduct.skus = productData.skus;
-      }
-
-      if (options.generateSkuVariants && productData.defaultSku) {
+      if (options.generateSkuVariants && productData.defaultSku)
         liferayProduct.defaultSku = productData.defaultSku;
-      }
       if (
         options.generateSkuVariants &&
         productData.options &&
         Array.isArray(productData.options)
-      ) {
+      )
         liferayProduct.productOptions = productData.options;
-      }
       if (
         options.generateSpecifications &&
         productData.specifications &&
         Array.isArray(productData.specifications)
-      ) {
+      )
         liferayProduct.productSpecifications = productData.specifications;
-      }
       if (
         options.generateSkuVariants &&
         productData.skuVariants &&
         Array.isArray(productData.skuVariants)
-      ) {
+      )
         liferayProduct.skus = productData.skuVariants;
-      }
-
       logger.info('Creating basic product', {
-        operation: 'create-basic-product',
+        entityType: 'products',
+        operation: 'generate',
+        ...resolvePhaseAndMode({ useBatch: false, phase: 'submit' }),
         sku: Array.isArray(liferayProduct.skus)
           ? liferayProduct.skus[0]?.sku
           : undefined,
@@ -1554,22 +1531,23 @@ class ProductGenerator {
         includeOptions: options.generateSkuVariants,
         includeSpecifications: options.generateSpecifications,
       });
-
       const createdProduct = await liferay.createProduct(
         config,
         liferayProduct
       );
-
       logger.info('Basic product created successfully', {
-        operation: 'create-basic-product',
+        entityType: 'products',
+        operation: 'generate',
+        ...resolvePhaseAndMode({ useBatch: false, phase: 'submit' }),
         productId: createdProduct.id,
-        sku: createdProduct.sku,
+        sku: createdProduct.defaultSku || createdProduct.skus?.[0]?.sku,
       });
-
       return createdProduct;
     } catch (error) {
       logger.error('Failed to create basic product', {
-        operation: 'create-basic-product',
+        entityType: 'products',
+        operation: 'generate',
+        ...resolvePhaseAndMode({ useBatch: false, phase: 'error' }),
         error: error.message,
         sku: productData.baseSku || productData.sku || 'unknown',
       });
@@ -1585,9 +1563,10 @@ class ProductGenerator {
         productData,
         options
       );
-
       logger.info('Adding optional product components', {
-        operation: 'create-single-product',
+        entityType: 'products',
+        operation: 'generate',
+        ...resolvePhaseAndMode({ useBatch: false, phase: 'submit' }),
         productId: createdProduct.id,
         options: {
           generateSkuVariants: options.generateSkuVariants,
@@ -1595,56 +1574,49 @@ class ProductGenerator {
           generateAttachments: options.generateAttachments,
         },
       });
-
       if (
         options.generateSkuVariants &&
         options.catalogOptions &&
         options.catalogOptions.length > 0
-      ) {
+      )
         await this.addProductOptions(
           config,
           createdProduct.id,
           options.catalogOptions
         );
-      }
-
       if (
         options.generateSpecifications &&
         (productData.specifications || options.catalogSpecifications)
-      ) {
+      )
         await this.addProductSpecifications(
           config,
           createdProduct.id,
           productData.specifications,
           options.catalogSpecifications
         );
-      }
-
-      if (options.generateAttachments && productData.attachments) {
+      if (options.generateAttachments && productData.attachments)
         await this.addProductAttachments(
           config,
           createdProduct.id,
           productData.attachments
         );
-      }
-
       if (
         options.generateSkuVariants &&
         options.catalogOptions &&
         options.catalogOptions.length > 0
-      ) {
+      )
         await this.createProductSkus(
           config,
           createdProduct.id,
           options.catalogOptions,
           productData
         );
-      }
-
       return createdProduct;
     } catch (error) {
       logger.error('Failed to create product with components', {
-        operation: 'create-single-product',
+        entityType: 'products',
+        operation: 'generate',
+        ...resolvePhaseAndMode({ useBatch: false, phase: 'error' }),
         error: error.message,
         sku: productData.baseSku || productData.sku || 'unknown',
       });
@@ -1661,14 +1633,12 @@ class ProductGenerator {
     const { logger, liferay, batchProcessor } = this.ctx;
     try {
       const specificationsToAdd = [];
-
       if (catalogSpecifications && catalogSpecifications.length > 0) {
         for (const catalogSpec of catalogSpecifications) {
           const productSpec = productSpecifications?.find(
             (ps) =>
               ps.key === catalogSpec.key || ps.name === catalogSpec.title?.en_US
           );
-
           const specificationPayload = {
             specificationExternalReferenceCode:
               catalogSpec.externalReferenceCode,
@@ -1685,20 +1655,15 @@ class ProductGenerator {
                   } Value`,
                 },
           };
-
-          if (catalogSpec.optionCategoryId) {
+          if (catalogSpec.optionCategoryId)
             specificationPayload.optionCategoryId =
               catalogSpec.optionCategoryId;
-          }
-          if (catalogSpec.optionCategoryExternalReferenceCode) {
+          if (catalogSpec.optionCategoryExternalReferenceCode)
             specificationPayload.optionCategoryExternalReferenceCode =
               catalogSpec.optionCategoryExternalReferenceCode;
-          }
-
           specificationsToAdd.push(specificationPayload);
         }
       }
-
       if (productSpecifications) {
         for (const spec of productSpecifications) {
           const alreadyAdded = specificationsToAdd.some(
@@ -1706,7 +1671,6 @@ class ProductGenerator {
               s.specificationKey === spec.key ||
               s.specificationKey === spec.name
           );
-
           if (!alreadyAdded) {
             specificationsToAdd.push({
               specificationExternalReferenceCode: `SPEC-${
@@ -1723,20 +1687,31 @@ class ProductGenerator {
           }
         }
       }
-
       if (specificationsToAdd.length > 0) {
-        await batchProcessor.processBatch(
+        await batchProcessor.processBatchWithProgress(
           specificationsToAdd,
-          async (specData) => {
-            return await liferay.addProductSpecification(
-              config,
-              productId,
-              specData
+          async (specData) =>
+            liferay.addProductSpecification(config, productId, specData),
+          5,
+          (progress) => {
+            getWs().emitBatchProgress(
+              {
+                batchId: 'product-specs',
+                entityType: 'products',
+                completedCount: progress.processed,
+                totalItems: progress.total,
+                progress: progress.percentage,
+                operation: 'process-specs',
+                meta: progress.meta,
+              },
+              { correlationId: config.correlationId }
             );
           },
-          5
+          {
+            operation: 'process-specs',
+            broadcastMeta: { batchId: 'product-specs', entityType: 'products' },
+          }
         );
-
         logger.trace(
           `Added ${specificationsToAdd.length} specifications to product ${productId}`
         );
@@ -1757,17 +1732,12 @@ class ProductGenerator {
           title: attachment.title || { en_US: 'Attachment' },
           priority: attachment.priority || 0,
         };
-
-        if (attachment.contentType) {
+        if (attachment.contentType)
           attachmentData.contentType = attachment.contentType;
-        }
-        if (attachment.attachment) {
+        if (attachment.attachment)
           attachmentData.attachment = attachment.attachment;
-        }
-        if (attachment.src && !attachment.attachment) {
+        if (attachment.src && !attachment.attachment)
           attachmentData.src = attachment.src;
-        }
-
         await liferay.addProductAttachment(config, productId, attachmentData);
       }
       logger.trace(
@@ -1782,7 +1752,6 @@ class ProductGenerator {
     const { logger, ai, liferay } = this.ctx;
     try {
       logger.trace(`Generating pricing for ${products.length} products`);
-
       const priceList = await liferay.createPriceList(config, {
         name: {
           en_US: `Generated Price List - ${
@@ -1794,33 +1763,35 @@ class ProductGenerator {
         active: true,
         externalReferenceCode: `PL-${Date.now()}`,
       });
-
       const pricingData = await ai.generatePricingData(
         products,
         'standard',
         config.aiModel
       );
-
+      const asMap = Array.isArray(pricingData)
+        ? Object.fromEntries(pricingData.map((p) => [p.sku, p]))
+        : typeof pricingData === 'object'
+        ? pricingData
+        : {};
       for (const product of products) {
         try {
-          const basePrice = pricingData.basePrice || Math.random() * 500 + 50;
-
+          const candidate = Number(asMap?.[product.sku]?.basePrice);
+          const basePrice = Number.isFinite(candidate)
+            ? candidate
+            : Math.random() * 500 + 50;
           const priceEntry = {
             price: basePrice,
             sku: product.sku,
             externalReferenceCode: `PE-${product.sku}-${Date.now()}`,
           };
-
           await liferay.createPriceEntry(config, priceList.id, priceEntry);
-
-          if (options.generateBulkPricing) {
+          if (options.generateBulkPricing)
             await this.generateBulkPricing(
               config,
               priceList.id,
               product,
               basePrice
             );
-          }
         } catch (error) {
           logger.error(
             `Failed to create price entry for product ${product.sku}:`,
@@ -1828,7 +1799,6 @@ class ProductGenerator {
           );
         }
       }
-
       logger.trace(
         `Created price list ${priceList.id} with entries for ${products.length} products`
       );
@@ -1846,10 +1816,8 @@ class ProductGenerator {
         { minQuantity: 50, discountPercent: 15 },
         { minQuantity: 100, discountPercent: 20 },
       ];
-
       for (const tier of bulkTiers) {
         const discountedPrice = basePrice * (1 - tier.discountPercent / 100);
-
         const tierEntry = {
           price: discountedPrice,
           sku: product.sku,
@@ -1858,10 +1826,8 @@ class ProductGenerator {
             tier.minQuantity
           }-${Date.now()}`,
         };
-
         await liferay.createPriceEntry(config, priceListId, tierEntry);
       }
-
       logger.trace(`Created bulk pricing tiers for product ${product.sku}`);
     } catch (error) {
       logger.error(
@@ -1884,7 +1850,6 @@ class ProductGenerator {
           categories,
           selectedLanguages
         ));
-
       for (const category of specCategories) {
         try {
           await liferay.createSpecificationCategory(category);
@@ -1904,7 +1869,6 @@ class ProductGenerator {
     const { logger, liferay } = this.ctx;
     try {
       const productOptionsToAdd = [];
-
       for (const catalogOption of catalogOptions.slice(0, 3)) {
         const productOption = {
           optionId: catalogOption.id,
@@ -1915,7 +1879,6 @@ class ProductGenerator {
         };
         productOptionsToAdd.push(productOption);
       }
-
       if (productOptionsToAdd.length > 0) {
         await liferay.addProductOptions(config, productId, productOptionsToAdd);
         logger.trace(
@@ -1932,44 +1895,30 @@ class ProductGenerator {
     try {
       const createdSkus = [];
       const maxVariants = 8;
-
       const option1 = catalogOptions[0];
       const option2 = catalogOptions[1] || null;
-
       if (!option1) {
         logger.trace('No options available for SKU variants');
         return [];
       }
-
       const basePrice = Math.floor(Math.random() * 500) + 50;
       let variantCount = 0;
-
       for (const value1 of option1.values.slice(0, 3)) {
         const option2Values = option2
           ? option2.values.slice(0, 3)
           : [{ id: null, name: { en_US: 'Standard' } }];
-
         for (const value2 of option2Values) {
           if (variantCount >= maxVariants) break;
-
           const priceModifier = (Math.random() - 0.5) * 0.4;
           const variantPrice = Math.round(basePrice * (1 + priceModifier));
-
           const base = productData.baseSku || `SKU-${productId}`;
           const v1 = (value1?.name?.en_US || 'V1').slice(0, 2).toUpperCase();
           const v2 = option2
             ? `-${(value2?.name?.en_US || 'V2').slice(0, 2).toUpperCase()}`
             : '';
           const skuCode = `${base}-${v1}${v2}`;
-
-          const skuOptions = {
-            [option1.id]: value1.id,
-          };
-
-          if (option2 && value2.id) {
-            skuOptions[option2.id] = value2.id;
-          }
-
+          const skuOptions = { [option1.id]: value1.id };
+          if (option2 && value2.id) skuOptions[option2.id] = value2.id;
           const skuData = {
             sku: skuCode,
             published: true,
@@ -1978,9 +1927,8 @@ class ProductGenerator {
             price: variantPrice,
             promoPrice: 0,
             externalReferenceCode: `SKU-${skuCode}-${Date.now()}`,
-            skuOptions: skuOptions,
+            skuOptions,
           };
-
           const createdSku = await liferay.createProductSku(
             config,
             productId,
@@ -1989,10 +1937,8 @@ class ProductGenerator {
           createdSkus.push(createdSku);
           variantCount++;
         }
-
         if (variantCount >= maxVariants) break;
       }
-
       logger.trace(
         `Created ${createdSkus.length} SKUs for product ${productId}`
       );
@@ -2012,13 +1958,11 @@ class ProductGenerator {
         category,
         config.aiModel
       );
-
       logger.trace(`Creating PDF document...`);
       const pdfResult = await media.generateAndUploadProductPDF(
         pdfContent,
         productData.baseSku || product.sku
       );
-
       const attachmentData = {
         displayDate: new Date().toISOString(),
         externalReferenceCode: uuidv4(),
@@ -2030,15 +1974,9 @@ class ProductGenerator {
         },
         type: 'other',
         options: {
-          fieldValues: [
-            {
-              name: 'fileEntryId',
-              value: pdfResult.objectPath,
-            },
-          ],
+          fieldValues: [{ name: 'fileEntryId', value: pdfResult.objectPath }],
         },
       };
-
       await liferay.addProductAttachment(config, product.id, attachmentData);
       logger.trace(`✓ PDF successfully attached to product`);
     } catch (error) {
@@ -2053,16 +1991,13 @@ class ProductGenerator {
       !options.productCount ||
       typeof options.productCount !== 'number' ||
       options.productCount <= 0
-    ) {
+    )
       throw new Error('Product count must be greater than 0');
-    }
     if (
       !Array.isArray(options.productCategories) ||
       options.productCategories.length === 0
-    ) {
+    )
       throw new Error('At least one product category must be provided.');
-    }
-
     if (!options.demoMode) {
       try {
         await ai.getOpenAIClient();
@@ -2080,53 +2015,47 @@ class ProductGenerator {
     const catalogIdNum = parseInt(config.catalogId, 10);
     if (!Number.isFinite(catalogIdNum) || catalogIdNum <= 0)
       throw new Error('Catalog ID is required and must be a positive integer.');
-
     const pollingRetriesValue = config.pollingRetries;
-    if (pollingRetriesValue === undefined || pollingRetriesValue === null) {
+    if (pollingRetriesValue === undefined || pollingRetriesValue === null)
       throw new Error('pollingRetries is required');
-    }
-
     const pollingRetries = parseInt(pollingRetriesValue);
-    if (isNaN(pollingRetries) || pollingRetries < 0 || pollingRetries > 20) {
+    if (isNaN(pollingRetries) || pollingRetries < 0 || pollingRetries > 20)
       throw new Error('pollingRetries must be between 0 and 20');
-    }
-
     const pollingDelayValue = config.pollingDelay;
-    if (pollingDelayValue === undefined || pollingDelayValue === null) {
+    if (pollingDelayValue === undefined || pollingDelayValue === null)
       throw new Error('pollingDelay is required');
-    }
-
     const pollingDelay = parseInt(pollingDelayValue);
-    if (isNaN(pollingDelay) || pollingDelay < 5000 || pollingDelay > 600000) {
+    if (isNaN(pollingDelay) || pollingDelay < 5000 || pollingDelay > 600000)
       throw new Error('pollingDelay must be between 5 and 600 seconds');
-    }
   }
 
-  async processImageAndPDFAttachments(
-    config,
-    productDataList,
-    preparedProducts,
-    options
-  ) {
+  async processImageAndPDFAttachments(config, productDataList, options) {
     const { logger, liferay, getWs } = this.ctx;
+
     logger.info('Starting post-processing for images and PDFs', {
-      operation: 'process-attachments',
+      entityType: 'products',
+      operation: 'generate',
+      ...resolvePhaseAndMode({ useBatch: true, phase: 'postprocess' }),
       productCount: productDataList.length,
       imageMode: options.imageMode,
       pdfMode: options.pdfMode,
     });
 
-    // Count images and PDFs to process
-    const imageCount = productDataList.filter((p) => p.images).length;
-    const pdfCount = productDataList.filter((p) => p.attachments).length;
+    const imageCount = productDataList.filter(
+      (p) => Array.isArray(p.images) && p.images.length > 0
+    ).length;
+    const pdfCount = productDataList.filter(
+      (p) => Array.isArray(p.attachments) && p.attachments.length > 0
+    ).length;
 
     if (imageCount > 0) {
       getWs().emitBatchStarted(
         {
-          batchId: 'images-processing',
           entityType: 'images',
-          totalItems: imageCount,
           operation: 'process-images',
+          ...resolvePhaseAndMode({ useBatch: true, phase: 'postprocess' }),
+          batchId: 'images-processing',
+          totalItems: imageCount,
         },
         { correlationId: config.correlationId }
       );
@@ -2135,10 +2064,11 @@ class ProductGenerator {
     if (pdfCount > 0) {
       getWs().emitBatchStarted(
         {
-          batchId: 'pdfs-processing',
           entityType: 'pdfs',
-          totalItems: pdfCount,
           operation: 'process-attachments',
+          ...resolvePhaseAndMode({ useBatch: true, phase: 'postprocess' }),
+          batchId: 'pdfs-processing',
+          totalItems: pdfCount,
         },
         { correlationId: config.correlationId }
       );
@@ -2151,17 +2081,27 @@ class ProductGenerator {
 
     for (let i = 0; i < productDataList.length; i++) {
       const originalProduct = productDataList[i];
-      const preparedProduct = preparedProducts[i];
-      const productERC = preparedProduct.externalReferenceCode;
+      const productERC = originalProduct.externalReferenceCode;
+
+      if (!productERC) {
+        logger.warn('Missing ERC on originalProduct; skipping post-proc item', {
+          entityType: 'products',
+          operation: 'generate',
+          ...resolvePhaseAndMode({ useBatch: true, phase: 'postprocess' }),
+          index: i,
+        });
+        continue;
+      }
 
       try {
-        // Add images
+        // Images
         if (originalProduct.images) {
           for (const image of originalProduct.images) {
             if (options.imageMode === 'custom') {
               const imgERC = `IMG_${productERC}_${Math.random()
                 .toString(36)
                 .slice(2, 8)}`;
+
               const doc = await liferay.uploadSiteDocumentMultipart(
                 config,
                 image,
@@ -2186,7 +2126,6 @@ class ProductGenerator {
                 title: { en_US: `Product Image - ${productERC}` },
                 src: `${config.liferayUrl}${doc.contentUrl}`,
               };
-
               await liferay.addProductImageByUrl(
                 config,
                 productERC,
@@ -2195,15 +2134,17 @@ class ProductGenerator {
             } else {
               await liferay.addProductImageByBase64(config, productERC, image);
             }
+
             logger.trace(`✓ Added image to product: ${productERC}`);
             imageProcessedCount++;
           }
 
-          // Broadcast image progress
           getWs().emitBatchProgress(
             {
-              batchId: 'images-processing',
               entityType: 'images',
+              operation: 'process-images',
+              ...resolvePhaseAndMode({ useBatch: true, phase: 'postprocess' }),
+              batchId: 'images-processing',
               completedCount: imageProcessedCount,
               totalItems: imageCount,
               progress: Math.round((imageProcessedCount / imageCount) * 100),
@@ -2212,13 +2153,14 @@ class ProductGenerator {
           );
         }
 
-        // Add PDFs/attachments
+        // Attachments (PDFs)
         if (originalProduct.attachments) {
           for (const attachment of originalProduct.attachments) {
             if (options.pdfMode === 'custom') {
               const pdfERC = `PDF_${productERC}_${Math.random()
                 .toString(36)
                 .slice(2, 8)}`;
+
               const doc = await liferay.uploadSiteDocumentMultipart(
                 config,
                 attachment,
@@ -2253,14 +2195,17 @@ class ProductGenerator {
                 attachment,
               });
             }
+
             logger.trace(`✓ Added attachment to product: ${productERC}`);
             pdfProcessedCount++;
           }
 
           getWs().emitBatchProgress(
             {
-              batchId: 'pdfs-processing',
               entityType: 'pdfs',
+              operation: 'process-attachments',
+              ...resolvePhaseAndMode({ useBatch: true, phase: 'postprocess' }),
+              batchId: 'pdfs-processing',
               completedCount: pdfProcessedCount,
               totalItems: pdfCount,
               progress: Math.round((pdfProcessedCount / pdfCount) * 100),
@@ -2273,32 +2218,29 @@ class ProductGenerator {
           `Failed to add image/attachment to product ${productERC}:`,
           error.message
         );
-        if (originalProduct.images) {
+        if (originalProduct.images)
           imageErrors.push({
             product: productERC,
             error: `Image error: ${error.message}`,
           });
-        }
-        if (originalProduct.attachments) {
+        if (originalProduct.attachments)
           pdfErrors.push({
             product: productERC,
             error: `PDF error: ${error.message}`,
           });
-        }
       }
     }
 
-    // Broadcast separate completion messages for images and PDFs
     if (imageCount > 0) {
       getWs().emitBatchCompleted(
         {
-          type: BATCH_COMPLETED,
           entityType: 'images',
+          operation: 'process-images',
+          ...resolvePhaseAndMode({ useBatch: true, phase: 'complete' }),
           batchId: 'images-processing',
           successCount: imageProcessedCount,
           failureCount: imageErrors.length,
           errors: imageErrors.slice(0, 5),
-          operation: 'process-images',
         },
         { correlationId: config.correlationId }
       );
@@ -2307,19 +2249,22 @@ class ProductGenerator {
     if (pdfCount > 0) {
       getWs().emitBatchCompleted(
         {
-          batchId: 'pdfs-processing',
           entityType: 'pdfs',
+          operation: 'process-attachments',
+          ...resolvePhaseAndMode({ useBatch: true, phase: 'complete' }),
+          batchId: 'pdfs-processing',
           successCount: pdfProcessedCount,
           failureCount: pdfErrors.length,
           errors: pdfErrors.slice(0, 5),
-          operation: 'process-attachments',
         },
         { correlationId: config.correlationId }
       );
     }
 
     logger.info('Post-processing completed', {
-      operation: 'process-attachments-complete',
+      entityType: 'products',
+      operation: 'generate',
+      ...resolvePhaseAndMode({ useBatch: true, phase: 'complete' }),
       imageProcessedCount,
       pdfProcessedCount,
       imageCount,
@@ -2337,15 +2282,17 @@ class ProductGenerator {
 
   async handleBatchComplete(results, config) {
     const { logger, getWs } = this.ctx;
+
     logger.info('Handling batch completion', {
-      operation: 'batch-complete-handler',
+      entityType: 'products',
+      operation: 'generate',
+      ...resolvePhaseAndMode({ useBatch: true, phase: 'complete' }),
       batchId: results.batchId,
       status: results.status,
       processedCount: results.processedCount,
       totalCount: results.totalCount,
     });
 
-    // Process batch results and determine success/failure counts
     const content = results.content;
     let successCount = 0;
     let failureCount = 0;
@@ -2364,19 +2311,18 @@ class ProductGenerator {
         }
       });
     } else {
-      // If content is not an array, assume all were successful if status is COMPLETED
       successCount = results.processedCount || results.totalCount || 0;
     }
 
-    // Send WebSocket update
     getWs().emitBatchCompleted(
       {
-        batchId: results.batchId,
         entityType: 'products',
+        operation: 'generate',
+        ...resolvePhaseAndMode({ useBatch: true, phase: 'complete' }),
+        batchId: results.batchId,
         successCount,
         failureCount,
         errors: failureCount > 0 ? { failures } : null,
-        operation: 'generate',
       },
       { correlationId: config.correlationId }
     );

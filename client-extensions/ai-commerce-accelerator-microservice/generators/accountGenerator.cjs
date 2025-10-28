@@ -1,188 +1,248 @@
-const { delay } = require('../utils/misc.cjs');
-const batchProcessor = require('../services/batchProcessorService.cjs');
+const { delay, resolvePhaseAndMode } = require('../utils/misc.cjs');
 
 class AccountGenerator {
   constructor(ctx) {
     this.ctx = ctx;
   }
 
+  validateConfig(config) {
+    const pollingRetriesValue = config.pollingRetries;
+    if (pollingRetriesValue === undefined || pollingRetriesValue === null) {
+      throw new Error('pollingRetries is required');
+    }
+    const pollingRetries = parseInt(pollingRetriesValue);
+    if (isNaN(pollingRetries) || pollingRetries < 0 || pollingRetries > 20) {
+      throw new Error('pollingRetries must be between 0 and 20');
+    }
+    const pollingDelayValue = config.pollingDelay;
+    if (pollingDelayValue === undefined || pollingDelayValue === null) {
+      throw new Error('pollingDelay is required');
+    }
+    const pollingDelay = parseInt(pollingDelayValue);
+    if (isNaN(pollingDelay) || pollingDelay < 5000 || pollingDelay > 600000) {
+      throw new Error('pollingDelay must be between 5 and 600 seconds');
+    }
+  }
+
+  async validateOptions(options) {
+    const { ai, logger } = this.ctx;
+    if (
+      !options.accountCount ||
+      typeof options.accountCount !== 'number' ||
+      options.accountCount <= 0
+    ) {
+      throw new Error('Account count must be greater than 0');
+    }
+    if (!options.demoMode) {
+      try {
+        await ai.getOpenAIClient();
+        logger.trace('✓ OpenAI API key validated successfully');
+      } catch (error) {
+        const msg =
+          'OpenAI API key not configured. Please set it in the AI Configuration object or enable demo mode.';
+        logger.error(
+          '✗ OpenAI key validation failed for accounts:',
+          error.message
+        );
+        throw new Error(msg);
+      }
+    }
+  }
+
   async generateAccounts(config, options) {
-    const { logger, ai, mockData, cache, batchPolling } = this.ctx;
+    const { logger, ai, mockData, cache, batchPolling, getWs, liferay } =
+      this.ctx;
     const correlationId = config.correlationId;
     const useBatch = config.batchSize > 1 && options.accountCount > 1;
+    const { mode, phase } = resolvePhaseAndMode({
+      useBatch,
+      phase: 'generate',
+    });
 
     logger.info('Starting account generation', {
-      correlationId: correlationId,
-      operation: 'generate-accounts',
+      correlationId,
+      operation: 'accounts/generate:start',
+      phase,
+      mode,
       accountCount: options.accountCount || 0,
-      useBatch,
       demoMode: options.demoMode,
       batchSize: config.batchSize,
     });
 
-    const results = {
-      accounts: [],
-      created: 0,
-      errors: [],
-    };
+    const results = { accounts: [], created: 0, errors: [] };
 
     try {
-      // Early validation for OpenAI key if not in demo mode
-      if (!options.demoMode) {
-        try {
-          await ai.getOpenAIClient();
-          logger.info('✓ OpenAI API key validated for account generation');
-        } catch (error) {
-          const errorMessage =
-            'OpenAI API key not configured. Please set it in the AI Configuration object or enable demo mode.';
-          logger.error(
-            '✗ OpenAI key validation failed for accounts:',
-            error.message
-          );
-          throw new Error(errorMessage);
-        }
-      }
-
-      logger.debug(`=== STARTING ACCOUNT GENERATION ===`);
-      logger.debug(
-        `Count: ${options.accountCount}, Batch mode: ${useBatch}, Demo mode: ${options.demoMode}, Batch size: ${config.batchSize}`
-      );
-      logger.debug(`Target Liferay URL: ${config.liferayUrl}`);
+      this.validateConfig(config);
+      await this.validateOptions(options);
 
       let accountDataList;
       if (options.demoMode) {
-        logger.info(
-          `Demo mode: Generating ${options.accountCount} mock accounts`
-        );
         accountDataList = mockData.generateAccountData(options.accountCount);
-        logger.debug(
-          `Demo: Generated ${accountDataList.length} mock account data entries`
-        );
       } else {
-        logger.info(
-          `AI mode: Generating ${options.accountCount} accounts using ${config.aiModel}`
-        );
         accountDataList = await ai.generateAccountData(
           options.accountCount,
-          config.aiModel || 'gpt-4o'
-        );
-        logger.debug(
-          `AI: Generated ${accountDataList.length} account data entries`
+          config.aiModel
         );
       }
 
       if (useBatch) {
-        logger.info(
-          `Creating ${accountDataList.length} accounts using batch endpoint with batch size ${config.batchSize}...`
-        );
-
         const callbackUrl =
           config.microserviceUrl && config.microserviceUrl !== 'null'
             ? `${config.microserviceUrl}/api/batch/callback`
             : null;
-
-        // Split account into batches based on batchSize
         const accountBatches = [];
-        for (let i = 0; i < accountDataList.length; i += config.batchSize) {
+        for (let i = 0; i < accountDataList.length; i += config.batchSize)
           accountBatches.push(accountDataList.slice(i, i + config.batchSize));
-        }
-
-        logger.debug(
-          `Split ${accountDataList.length} accounts into ${accountBatches.length} batches of max size ${config.batchSize}`
-        );
-
         const batchIds = [];
-        // Process each batch
+
         for (
           let batchIndex = 0;
           batchIndex < accountBatches.length;
           batchIndex++
         ) {
           const batch = accountBatches[batchIndex];
-          logger.debug(
-            `Submitting batch ${batchIndex + 1}/${accountBatches.length} with ${
-              batch.length
-            } accounts...`
-          );
 
-          const result = await this.createAccountsBatch(
+          const batchResult = await liferay.createAccountsBatch(
             config,
             batch,
             callbackUrl
           );
 
-          batchIds.push(result.batchId); // Store batchId
+          const startedAt = Date.now();
+          cache.set(
+            `batch:${batchResult.batchId}:meta`,
+            { totalCount: batch.length, startedAt },
+            3600000
+          );
 
-          // Store batch config for polling (if callback URL is provided)
-          if (result.batchId && callbackUrl) {
-            // Get poll interval from config with validation
-            const pollInterval = Math.max(config.pollInterval || 5000, 2000); // Minimum 2 seconds
-            const maxPollAttempts = config.maxPollAttempts || 120; // Default 10 minutes
-
-            const batchConfig = {
-              correlationId,
-              clientId: config.clientId,
-              clientSecret: config.clientSecret,
-              createdAt: new Date().toISOString(),
+          getWs().emitBatchStarted(
+            {
+              batchId: batchResult.batchId,
               entityType: 'accounts',
-              liferayUrl: config.liferayUrl,
-              localeCode: config.localeCode,
-              mode: 'generate',
-            };
+              totalItems: batch.length,
+              operation: 'generate',
+              mode,
+              phase,
+            },
+            { correlationId }
+          );
+
+          batchIds.push(batchResult.batchId);
+
+          if (batchResult.batchId && callbackUrl) {
+            const pollInterval = Math.max(config.pollingDelay || 5000, 2000);
+            const maxPollAttempts = config.pollingRetries || 120;
 
             cache.set(
-              `batch:${result.batchId}:config`,
-              batchConfig,
-              3600000 // 1 hour cache
+              `batch:${batchResult.batchId}:config`,
+              {
+                correlationId,
+                clientId: config.clientId,
+                clientSecret: config.clientSecret,
+                createdAt: new Date().toISOString(),
+                entityType: 'accounts',
+                liferayUrl: config.liferayUrl,
+                localeCode: config.localeCode,
+                operation: 'generate',
+              },
+              3600000
             );
 
-            logger.info('Batch config stored for polling', {
-              operation: 'batch-config-store',
-              batchId: result.batchId,
-              pollInterval,
-              maxPollAttempts,
-            });
+            batchPolling.startPolling(
+              batchResult.batchId,
+              {
+                liferayUrl: config.liferayUrl,
+                clientId: config.clientId,
+                clientSecret: config.clientSecret,
+                localeCode: config.localeCode,
+                entityType: 'accounts',
+              },
+              {
+                pollInterval,
+                maxPollAttempts,
+                onStatusChange: (status) => {
+                  const meta =
+                    cache.get(`batch:${batchResult.batchId}:meta`) || {};
+                  const total =
+                    status.totalCount || meta.totalCount || batch.length || 0;
+                  const processed = status.processedCount || 0;
+                  const progress =
+                    total > 0 ? Math.round((processed / total) * 100) : 0;
+                  const elapsedMs = Math.max(
+                    1,
+                    Date.now() - (meta.startedAt || Date.now())
+                  );
+                  const rate = processed / (elapsedMs / 1000);
+                  const remaining = Math.max(0, total - processed);
+                  const etaSeconds =
+                    rate > 0 ? Math.round(remaining / rate) : null;
 
-            batchPolling.startPolling(result.batchId, batchConfig, {
-              pollInterval: config.pollingDelay,
-              maxPollAttempts: config.pollingReties,
-              onStatusChange: (status) => {
-                logger.debug('Batch status update', {
-                  operation: 'batch-status-update',
-                  batchId: status.batchId,
-                  status: status.status,
-                  processedCount: status.processedCount,
-                  totalCount: status.totalCount,
-                  entityType: 'accounts',
-                });
-              },
-              onComplete: (results) => {
-                this.handleBatchComplete(results);
-              },
-              onError: (error) => {
-                logger.error('Batch polling error', {
-                  operation: 'batch-polling-error',
-                  batchId: result.batchId,
-                  error: error.message,
-                  entityType: 'accounts',
-                });
-              },
-            });
+                  getWs().emitBatchProgress(
+                    {
+                      batchId: status.batchId,
+                      entityType: 'accounts',
+                      completedCount: processed,
+                      totalItems: total,
+                      progress,
+                      etaSeconds,
+                      operation: 'generate',
+                      mode,
+                      phase,
+                    },
+                    { correlationId }
+                  );
+
+                  logger.debug('Batch status update', {
+                    operation: 'accounts/batch:progress',
+                    batchId: status.batchId,
+                    status: status.status,
+                    processedCount: processed,
+                    totalCount: total,
+                    progress,
+                    etaSeconds,
+                  });
+                },
+                onComplete: (r) => this.handleBatchComplete(r, config),
+                onError: (error) => {
+                  logger.error('Batch polling error', {
+                    operation: 'accounts/batch:error',
+                    batchId: batchResult.batchId,
+                    error: error.message,
+                    entityType: 'accounts',
+                  });
+                  getWs().emitBatchCompleted(
+                    {
+                      batchId: batchResult.batchId,
+                      entityType: 'accounts',
+                      successCount: 0,
+                      failureCount: 1,
+                      errors: [{ message: error.message }],
+                      operation: 'generate',
+                      mode,
+                      phase,
+                    },
+                    { correlationId }
+                  );
+                },
+              }
+            );
           }
 
           logger.info('Batch submission completed', {
-            operation: 'create-accounts-batch',
-            batchId: result.batchId,
+            operation: 'accounts/batch:submit',
+            batchId: batchResult.batchId,
             accountCount: batch.length,
-            status: result.status,
+            status: batchResult.status,
             callbackUrl: callbackUrl || 'none',
+            mode,
+            phase,
           });
 
           results.accounts.push({
             batchIndex: batchIndex + 1,
             totalBatches: accountBatches.length,
-            batchId: result.batchId,
-            status: result.status,
+            batchId: batchResult.batchId,
+            status: batchResult.status,
             accountCount: batch.length,
             accounts: batch.map((p) => ({
               name: p.name?.en_US || p.name,
@@ -191,16 +251,16 @@ class AccountGenerator {
           });
           results.created += batch.length;
 
-          if (batchIndex < accountBatches.length - 1) {
-            await delay(1000);
-          }
+          if (batchIndex < accountBatches.length - 1) await delay(1000);
         }
 
-        return results;
+        return {
+          accounts: results.accounts,
+          created: results.created,
+          errors: results.errors,
+          success: results.errors.length === 0,
+        };
       } else {
-        logger.info(
-          `Using individual operations for ${accountDataList.length} accounts`
-        );
         return await this.generateAccountsIndividually(
           config,
           options,
@@ -209,22 +269,47 @@ class AccountGenerator {
       }
     } catch (error) {
       logger.error('Account generation failed', {
-        correlationId: correlationId,
-        operation: 'generate-accounts',
+        correlationId,
+        operation: 'accounts/generate:error',
         error: error.message,
+        mode,
+        phase,
       });
       throw error;
     }
   }
 
   async generateAccountsIndividually(config, options, accountDataList) {
-    const { logger } = this.ctx;
+    const { logger, getWs } = this.ctx;
+    const { mode, phase } = resolvePhaseAndMode({
+      useBatch: false,
+      phase: 'generate',
+    });
     const generatedAccounts = [];
     const errors = [];
 
+    const metaKey = 'accounts-individual:meta';
+    const startedAt = Date.now();
+    this.ctx.cache.set(
+      metaKey,
+      { total: accountDataList.length, startedAt },
+      3600000
+    );
+
+    getWs().emitBatchStarted(
+      {
+        batchId: 'accounts-individual',
+        entityType: 'accounts',
+        totalItems: accountDataList.length,
+        operation: 'generate',
+        mode,
+        phase,
+      },
+      { correlationId: config.correlationId }
+    );
+
     for (let i = 0; i < accountDataList.length; i++) {
       const accountData = accountDataList[i];
-
       try {
         const createdAccount = await this.createSingleAccount(
           config,
@@ -232,181 +317,69 @@ class AccountGenerator {
         );
         generatedAccounts.push(createdAccount);
 
-        logger.info('Account created successfully', {
-          correlationId: config.correlationId,
-          operation: 'create-account',
-          accountId: createdAccount.id,
-          accountName: createdAccount.name,
-          mode: options.demoMode ? 'demo' : 'live',
-        });
+        const processed = i + 1;
+        const total = accountDataList.length;
+        const progress = Math.round((processed / total) * 100);
+        const meta = this.ctx.cache.get(metaKey) || { startedAt };
+        const elapsedMs = Math.max(
+          1,
+          Date.now() - (meta.startedAt || Date.now())
+        );
+        const rate = processed / (elapsedMs / 1000);
+        const remaining = Math.max(0, total - processed);
+        const etaSeconds = rate > 0 ? Math.round(remaining / rate) : null;
+
+        getWs().emitBatchProgress(
+          {
+            batchId: 'accounts-individual',
+            entityType: 'accounts',
+            completedCount: processed,
+            totalItems: total,
+            progress,
+            etaSeconds,
+            operation: 'generate',
+            mode,
+            phase,
+          },
+          { correlationId: config.correlationId }
+        );
+
+        logger.trace(`✓ Created account: ${createdAccount.name}`);
       } catch (error) {
+        errors.push({ index: i, error: error.message, accountData });
         logger.error('Account creation failed', {
           correlationId: config.correlationId,
-          operation: 'create-account',
+          operation: 'accounts/create:error',
           error: error.message,
           accountIndex: i,
           mode: options.demoMode ? 'demo' : 'live',
         });
-
-        errors.push({
-          index: i,
-          error: error.message,
-          accountData: accountData,
-        });
       }
     }
 
+    this.emitCompletion(
+      'accounts-individual',
+      generatedAccounts.length,
+      errors.length,
+      errors,
+      config,
+      { mode, phase }
+    );
+
     logger.info('Account generation completed', {
       correlationId: config.correlationId,
-      operation: 'generate-accounts',
+      operation: 'accounts/generate:complete',
       created: generatedAccounts.length,
       errors: errors.length,
       mode: options.demoMode ? 'demo' : 'live',
     });
 
     return {
-      success: true,
       accounts: generatedAccounts,
-      count: generatedAccounts.length,
       created: generatedAccounts.length,
-      errors: errors,
+      errors,
+      success: errors.length === 0,
     };
-  }
-
-  async generateAccountsBatch(config, accountsData, callbackUrl) {
-    const { logger, liferay, cache, batchPolling } = this.ctx;
-    try {
-      logger.info('Starting batch account generation', {
-        correlationId: config.correlationId,
-        operation: 'generate-accounts-batch',
-        count: accountsData.length,
-        aiModel: config.aiModel,
-      });
-
-      // Prepare accounts for batch creation
-      const accountsForBatch = accountsData.map((accountData) => ({
-        name: accountData.name || `Generated Company ${Date.now()}`,
-        description: accountData.description || 'AI generated business account',
-        type: accountData.type || 'business',
-        domains: accountData.domains || [`company${Date.now()}.com`],
-        externalReferenceCode:
-          accountData.externalReferenceCode ||
-          `ACC-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-        taxId: accountData.taxId || this.generateTaxId(),
-        ...(accountData.emailAddress && {
-          accountContactInformation: {
-            emailAddresses: [
-              {
-                emailAddress: accountData.emailAddress,
-                primary: true,
-                type: 'email-address',
-              },
-            ],
-            postalAddresses: [],
-            telephones: [],
-            webUrls: [],
-          },
-        }),
-      }));
-
-      const batchResult = await liferay.createAccountsBatch(
-        config,
-        accountsData,
-        callbackUrl
-      );
-
-      const batchId = batchResult.batchId;
-      cache.set(
-        `batch:${batchId}:config`,
-        {
-          correlationId,
-          clientId: config.clientId,
-          clientSecret: config.clientSecret,
-          createdAt: new Date().toISOString(),
-          entityType: 'accounts',
-          liferayUrl: config.liferayUrl,
-          localeCode: config.localeCode,
-          mode: 'generate',
-        },
-        1800000 // 30 minutes
-      );
-
-      const pollingDelay = parseInt(config.pollingDelay); // Assuming pollingDelay is already validated in generateAccounts
-      const pollInterval = pollingDelay;
-      const maxPollAttempts = Math.ceil(600000 / pollInterval); // Max 10 minutes (600 seconds)
-
-      batchPolling.startPolling(batchId, {
-        ...config,
-        entityType: 'accounts',
-        pollInterval,
-        maxPollAttempts,
-        onComplete: (results) => {
-          this.handleBatchComplete(results);
-        },
-        onError: (error) => {
-          logger.error('Account batch polling error', {
-            operation: 'batch-polling-error',
-            batchId,
-            error: error.message,
-          });
-        },
-      });
-
-      logger.info('Batch account creation initiated', {
-        correlationId: config.correlationId,
-        operation: 'generate-accounts-batch',
-        batchId: batchResult.batchId,
-        accountCount: accountsData.length,
-      });
-
-      return {
-        success: true,
-        batchId: batchResult.batchId,
-        count: accountsData.length,
-        status: 'processing',
-        message: `Batch creation initiated for ${accountsData.length} accounts`,
-      };
-    } catch (error) {
-      logger.error('Batch account generation failed', {
-        correlationId: config.correlationId,
-        operation: 'generate-accounts-batch',
-        error: error.message,
-        count: accountsData.length,
-      });
-
-      throw error;
-    }
-  }
-
-  async createAccountsBatch(config, accountsData, callbackUrl) {
-    const { logger, liferay } = this.ctx;
-    try {
-      logger.info('Creating accounts batch with callback', {
-        correlationId: config.correlationId,
-        operation: 'create-accounts-batch',
-        accountCount: accountsData.length,
-        callbackUrl: callbackUrl,
-      });
-
-      const batchResult = await liferay.createAccountsBatch(
-        config,
-        accountsData,
-        callbackUrl
-      );
-
-      return {
-        ...batchResult,
-        count: accountsData.length,
-      };
-    } catch (error) {
-      logger.error('Failed to create accounts batch', {
-        correlationId: config.correlationId,
-        operation: 'create-accounts-batch',
-        error: error.message,
-        accountCount: accountsData.length,
-      });
-      throw error;
-    }
   }
 
   async createSingleAccount(config, accountData) {
@@ -419,7 +392,7 @@ class AccountGenerator {
         domains: accountData.domains || [`company${Date.now()}.com`],
         externalReferenceCode:
           accountData.externalReferenceCode ||
-          `ACC-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+          `ACC-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`,
         taxId: accountData.taxId || this.generateTaxId(),
       };
 
@@ -438,13 +411,6 @@ class AccountGenerator {
         };
       }
 
-      logger.info('Creating account with Liferay API', {
-        correlationId: config.correlationId,
-        operation: 'create-account',
-        accountName: liferayAccount.name,
-        hasEmail: !!accountData.emailAddress,
-      });
-
       const createdAccount = await liferay.createAccount(
         config,
         liferayAccount
@@ -452,7 +418,7 @@ class AccountGenerator {
 
       logger.info('Account created successfully', {
         correlationId: config.correlationId,
-        operation: 'create-account',
+        operation: 'accounts/create:success',
         accountId: createdAccount.id,
         accountName: createdAccount.name,
       });
@@ -461,7 +427,7 @@ class AccountGenerator {
     } catch (error) {
       logger.error('Failed to create account', {
         correlationId: config.correlationId,
-        operation: 'create-account',
+        operation: 'accounts/create:error',
         error: error.message,
         accountName: accountData.name || 'unknown',
       });
@@ -469,33 +435,21 @@ class AccountGenerator {
     }
   }
 
-  generateTaxId() {
-    const firstTwo = Math.floor(Math.random() * 99) + 1;
-    const lastSeven = Math.floor(Math.random() * 9999999) + 1000000;
-    return `${firstTwo.toString().padStart(2, '0')}-${lastSeven}`;
-  }
+  handleBatchComplete(results, config) {
+    const { logger, getWs } = this.ctx;
+    const { mode, phase } = resolvePhaseAndMode({
+      useBatch: true,
+      phase: 'complete',
+    });
 
-  async getExistingAccounts(config) {
-    const { logger, liferay } = this.ctx;
-    try {
-      return await liferay.getAccounts(config);
-    } catch (error) {
-      logger.error('Failed to fetch existing accounts:', error);
-      return [];
-    }
-  }
-
-  handleBatchComplete(results) {
-    const { logger } = this.ctx;
     logger.info('Handling account batch completion', {
-      operation: 'batch-complete-handler',
+      operation: 'accounts/batch:complete',
       batchId: results.batchId,
       status: results.status,
       processedCount: results.processedCount,
       totalCount: results.totalCount,
     });
 
-    // Process batch results and determine success/failure counts
     const content = results.content;
     let successCount = 0;
     let failureCount = 0;
@@ -514,8 +468,61 @@ class AccountGenerator {
         }
       });
     } else {
-      // If content is not an array, assume all were successful if status is COMPLETED
       successCount = results.processedCount || results.totalCount || 0;
+    }
+
+    getWs().emitBatchCompleted(
+      {
+        batchId: results.batchId,
+        entityType: 'accounts',
+        successCount,
+        failureCount,
+        errors: failures.slice(0, 5),
+        operation: 'generate',
+        mode,
+        phase,
+      },
+      { correlationId: config.correlationId }
+    );
+  }
+
+  emitCompletion(
+    batchId,
+    successCount,
+    failureCount,
+    failures,
+    config,
+    ctx = {}
+  ) {
+    const { getWs } = this.ctx;
+    const extra = ctx.mode ? { mode: ctx.mode, phase: ctx.phase } : {};
+    getWs().emitBatchCompleted(
+      {
+        batchId,
+        entityType: 'accounts',
+        successCount,
+        failureCount,
+        errors: (failures || []).slice(0, 5),
+        operation: 'generate',
+        ...extra,
+      },
+      { correlationId: config.correlationId }
+    );
+  }
+
+  generateTaxId() {
+    const firstTwo = Math.floor(Math.random() * 99) + 1;
+    const lastSeven = Math.floor(Math.random() * 8999999) + 1000000;
+    return `${firstTwo.toString().padStart(2, '0')}-${lastSeven}`;
+  }
+
+  async getExistingAccounts(config) {
+    const { logger, liferay } = this.ctx;
+    try {
+      return await liferay.getAccounts(config);
+    } catch (error) {
+      logger.error('Failed to fetch existing accounts:', error);
+      return [];
     }
   }
 }

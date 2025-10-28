@@ -1,4 +1,4 @@
-const { delay } = require('../utils/misc.cjs');
+const { delay, resolvePhaseAndMode } = require('../utils/misc.cjs');
 
 class OrderGenerator {
   constructor(ctx) {
@@ -6,132 +6,107 @@ class OrderGenerator {
   }
 
   async generateOrders(config, options) {
-    const { ai, logger, mockData, batchProcessor } = this.ctx;
+    const { ai, logger, mockData, batchProcessor, getWs, cache } = this.ctx;
     const correlationId = config.correlationId;
-    const useBatch = config.batchSize > 1 && options.orderCount > 1;
-
-    logger.info('Starting order generation', {
-      correlationId: correlationId,
-      operation: 'generate-orders',
-      orderCount: options.orderCount,
-      useBatch: useBatch,
-      batchSize: config.batchSize,
-      pollingDelay: config.pollingDelay,
-      pollingRetries: config.pollingRetries,
+    const useConcurrent = config.batchSize > 1 && options.orderCount > 1;
+    const { mode, phase } = resolvePhaseAndMode({
+      useBatch: useConcurrent,
+      phase: 'generate',
     });
-
-    const results = {
-      orders: [],
-      created: 0,
-      errors: [],
-    };
+    const startedAt = Date.now();
+    const results = { orders: [], created: 0, errors: [] };
 
     try {
-      // Early validation for OpenAI key if not in demo mode
-      if (!options.demoMode) {
-        try {
-          await ai.getOpenAIClient();
-          logger.trace('✓ OpenAI API key validated for order generation');
-        } catch (error) {
-          const errorMessage =
-            'OpenAI API key not configured. Please set it in the AI Configuration object or enable demo mode.';
-          logger.error(
-            '✗ OpenAI key validation failed for orders:',
-            error.message
-          );
-          throw new Error(errorMessage);
-        }
-      }
+      this.validateConfig(config);
+      await this.validateOptions(options);
 
-      logger.trace('=== STARTING ORDER GENERATION ===');
-      logger.trace(`Demo mode: ${options.demoMode}`);
-      logger.trace(
-        `Using ${useBatch ? 'batch' : 'individual'} operations (batch size: ${
-          config.batchSize
-        })`
-      );
-      logger.trace(`Retry enabled: ${config.pollingRetries > 0}`);
-      logger.trace('Config:', {
-        liferayUrl: config.liferayUrl,
-        catalogId: config.catalogId,
-        channelId: config.channelId,
-        demoMode: options.demoMode,
-        aiModel: config.aiModel,
-        clientId: config.clientId ? '[PROVIDED]' : '[MISSING]',
-        clientSecret: config.clientSecret ? '[PROVIDED]' : '[MISSING]',
+      logger.info('Starting order generation', {
+        correlationId,
+        operation: 'orders/generate:start',
+        orderCount: options.orderCount,
+        mode,
+        useConcurrent,
+        batchSize: config.batchSize,
+        pollingDelay: config.pollingDelay,
+        pollingRetries: config.pollingRetries,
       });
-      logger.trace('Options:', options);
 
-      // Get available products and accounts with retry logic
       const { products, accounts } = await this.getProductsAndAccountsWithRetry(
-        config,
-        options
-      );
-
-      logger.trace(
-        `Found ${products.length} products and ${accounts.length} accounts`
+        config
       );
 
       let orderDataList;
       if (options.demoMode) {
-        logger.trace(`Demo mode: Generating ${options.orderCount} mock orders`);
         orderDataList = mockData.generateOrderData(options.orderCount);
-        logger.trace(
-          `Demo: Generated ${orderDataList.length} mock order data entries`
-        );
       } else {
-        logger.trace(
-          `AI mode: Generating ${options.orderCount} orders using ${config.aiModel}`
-        );
         orderDataList = await ai.generateOrderData(
           options.orderCount,
           products,
           accounts,
           config.aiModel || 'gpt-4o'
         );
-        logger.trace(
-          `AI: Generated ${orderDataList.length} order data entries`
-        );
       }
 
-      // Create orders using appropriate method
-      if (useBatch) {
-        logger.debug(
-          `Creating orders using batch processing with batch size: ${config.batchSize}`
-        );
-        await batchProcessor.processBatch(
+      const batchId = useConcurrent
+        ? `orders-concurrent-${Date.now()}`
+        : 'orders-individual';
+
+      cache.set(
+        `batch:${batchId}:meta`,
+        { totalCount: orderDataList.length, startedAt },
+        3600000
+      );
+
+      getWs().emitBatchStarted(
+        {
+          batchId,
+          entityType: 'orders',
+          totalItems: orderDataList.length,
+          operation: 'generate',
+          mode,
+          phase,
+        },
+        { correlationId }
+      );
+
+      if (useConcurrent) {
+        let completed = 0;
+        const failures = [];
+        await batchProcessor.processBatchWithProgress(
           orderDataList,
           async (orderData) => {
-            try {
-              const createdOrder = await this.createSingleOrder(
-                config,
-                orderData,
-                products,
-                accounts
-              );
-              results.orders.push(createdOrder);
-              results.created++;
-              logger.trace(
-                `✓ Created order: ${createdOrder.externalReferenceCode}`
-              );
-              return createdOrder;
-            } catch (error) {
-              logger.error(
-                `Failed to create order ${orderData.externalReferenceCode}:`,
-                error.message
-              );
-              results.errors.push({
-                externalReferenceCode: orderData.externalReferenceCode,
-                error: error.message,
-              });
-              throw error;
-            }
+            const createdOrder = await this.createSingleOrder(
+              config,
+              orderData,
+              products,
+              accounts
+            );
+            results.orders.push(createdOrder);
+            results.created++;
+            return createdOrder;
           },
-          config.batchSize
+          config.batchSize,
+          (progress) => {
+            getWs().emitBatchProgress(
+              {
+                batchId,
+                entityType: 'orders',
+                completedCount: progress.processed,
+                totalItems: progress.total,
+                progress: progress.percentage,
+                operation: 'generate',
+                meta: progress.meta, // ← normalized (totalClients/sent/failed)
+              },
+              { correlationId }
+            );
+          },
+          {
+            operation: 'generate-orders',
+            broadcastMeta: { batchId, entityType: 'orders' },
+          }
         );
       } else {
-        logger.debug(`Creating orders individually`);
-        // Process orders one by one when batch size is 1
+        let completed = 0;
         for (const orderData of orderDataList) {
           try {
             const createdOrder = await this.createSingleOrder(
@@ -142,28 +117,79 @@ class OrderGenerator {
             );
             results.orders.push(createdOrder);
             results.created++;
-            logger.trace(
-              `✓ Created order: ${createdOrder.externalReferenceCode}`
-            );
-          } catch (error) {
-            logger.error(
-              `Failed to create order ${orderData.externalReferenceCode}:`,
-              error.message
-            );
+          } catch (e) {
             results.errors.push({
               externalReferenceCode: orderData.externalReferenceCode,
-              error: error.message,
+              error: e.message,
             });
+          } finally {
+            completed++;
+            const meta = cache.get(`batch:${batchId}:meta`) || {
+              startedAt,
+              totalCount: orderDataList.length,
+            };
+            const total = meta.totalCount || orderDataList.length;
+            const progress = Math.round((completed / total) * 100);
+            const elapsedMs = Math.max(
+              1,
+              Date.now() - (meta.startedAt || startedAt)
+            );
+            const rate = completed / (elapsedMs / 1000);
+            const remaining = Math.max(0, total - completed);
+            const etaSeconds = rate > 0 ? Math.round(remaining / rate) : null;
+
+            getWs().emitBatchProgress(
+              {
+                batchId,
+                entityType: 'orders',
+                completedCount: completed,
+                totalItems: total,
+                progress,
+                etaSeconds,
+                operation: 'generate',
+                mode,
+                phase,
+              },
+              { correlationId }
+            );
           }
         }
       }
 
-      logger.trace(
-        `Order generation completed: ${results.created} created, ${results.errors.length} errors`
+      const durationMs = Date.now() - startedAt;
+
+      getWs().emitBatchCompleted(
+        {
+          batchId,
+          entityType: 'orders',
+          successCount: results.created,
+          failureCount: results.errors.length,
+          errors: results.errors.slice(0, 5),
+          operation: 'generate',
+          mode,
+          phase,
+          meta: { durationMs, startedAt },
+        },
+        { correlationId }
       );
-      return results;
+
+      logger.info('Order generation completed', {
+        correlationId,
+        operation: 'orders/generate:complete',
+        created: results.created,
+        errors: results.errors.length,
+        durationMs,
+      });
+
+      return { ...results, success: results.errors.length === 0 };
     } catch (error) {
-      logger.error('Order generation failed:', error);
+      logger.error('Order generation failed', {
+        correlationId,
+        operation: 'orders/generate:error',
+        error: error.message,
+        mode,
+        phase,
+      });
       throw error;
     }
   }
@@ -174,105 +200,85 @@ class OrderGenerator {
     availableProducts,
     availableAccounts
   ) {
-    const { logger, liferay } = this.ctx;
-    try {
-      // Select a random account if not specified or invalid
-      let accountId = orderData.accountId;
-      if (!accountId || !availableAccounts.find((a) => a.id === accountId)) {
-        const randomAccount =
-          availableAccounts[
-            Math.floor(Math.random() * availableAccounts.length)
-          ];
-        accountId = randomAccount.id;
+    const { liferay, logger } = this.ctx;
+    const accountId = this.pickAccountId(
+      orderData.accountId,
+      availableAccounts
+    );
+    const orderStatus = this.normalizeOrderStatus(orderData.orderStatus);
+    const liferayOrder = {
+      accountId,
+      channelId: parseInt(config.channelId),
+      currencyCode: config.currencyCode,
+      orderDate: orderData.orderDate || new Date().toISOString(),
+      orderStatus: parseInt(orderStatus),
+      externalReferenceCode:
+        orderData.externalReferenceCode ||
+        `ORD-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`,
+    };
+    const isRetryable = (e) => {
+      const msg = String(e && e.message ? e.message : e);
+      return /(429|5\d\d|ETIMEDOUT|ECONNRESET|EAI_AGAIN)/i.test(msg);
+    };
+    const createdOrder = await this.withRetry(
+      async () => liferay.createOrder(config, liferayOrder),
+      isRetryable,
+      3,
+      600
+    );
+    logger.trace('Created order', {
+      operation: 'orders/create:success',
+      erc: createdOrder.externalReferenceCode,
+    });
+    return createdOrder;
+  }
+
+  pickAccountId(requestedId, accounts) {
+    if (requestedId && accounts.find((a) => a.id === requestedId))
+      return requestedId;
+    const r = accounts[Math.floor(Math.random() * accounts.length)];
+    return r.id;
+  }
+
+  normalizeOrderStatus(s) {
+    if (typeof s === 'number') return s;
+    const m = {
+      open: 0,
+      pending: 0,
+      'in-progress': 1,
+      processing: 1,
+      shipped: 2,
+      delivered: 10,
+      completed: 10,
+      cancelled: 15,
+      canceled: 15,
+    };
+    return m[(s || '').toLowerCase()] ?? 0;
+  }
+
+  async withRetry(fn, isRetryable, attempts = 3, baseMs = 500) {
+    let lastErr;
+    for (let i = 0; i < attempts; i++) {
+      try {
+        return await fn();
+      } catch (e) {
+        lastErr = e;
+        if (!isRetryable(e) || i === attempts - 1) throw e;
+        const jitter = Math.floor(Math.random() * 150);
+        await delay(baseMs * Math.pow(2, i) + jitter);
       }
-
-      logger.trace(
-        `Selected account ID: ${accountId} from ${availableAccounts.length} available accounts`
-      );
-
-      // Ensure orderStatus is numeric (convert string to proper integer if needed)
-      let orderStatus = orderData.orderStatus || this.getRandomOrderStatus();
-      if (typeof orderStatus === 'string') {
-        // Convert string status to numeric
-        const statusMap = {
-          open: 0,
-          pending: 0,
-          'in-progress': 1,
-          processing: 1,
-          shipped: 2,
-          delivered: 10,
-          completed: 10,
-          cancelled: 15,
-          canceled: 15,
-        };
-        orderStatus = statusMap[orderStatus.toLowerCase()] || 0;
-      }
-
-      // Prepare order data for Liferay API - only include valid properties
-      const liferayOrder = {
-        accountId: accountId, // Use the properly selected accountId
-        channelId: parseInt(config.channelId), // Ensure numeric
-        currencyCode: config.currencyCode,
-        orderDate: orderData.orderDate || new Date().toISOString(),
-        orderStatus: parseInt(orderStatus), // Ensure numeric
-        externalReferenceCode:
-          orderData.externalReferenceCode ||
-          `ORD-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-      };
-
-      // Note: paymentStatus and addresses are not valid for order creation
-      // They would be set via separate API calls after order creation
-
-      // Create the order in Liferay
-      const createdOrder = await liferay.createOrder(config, liferayOrder);
-      logger.trace(`Created order: ${createdOrder.externalReferenceCode}`);
-
-      // TODO: Add order items
-      // This would require the order items API endpoint
-      // await this.addOrderItems(config, createdOrder.id, orderData.orderItems, availableProducts);
-
-      return createdOrder;
-    } catch (error) {
-      logger.error(
-        `Failed to create order ${
-          orderData.externalReferenceCode || 'unknown'
-        }:`,
-        error
-      );
-      throw error;
     }
+    throw lastErr;
   }
 
-  getRandomOrderStatus() {
-    // Use numeric order status codes that Liferay Commerce expects
-    const statuses = [0, 1, 2, 10, 15]; // open, in-progress, pending, completed, cancelled
-    return statuses[Math.floor(Math.random() * statuses.length)];
-  }
-
-  getRandomPaymentStatus() {
-    // Payment status is typically handled separately in Liferay Commerce
-    const statuses = [0, 1, 2, 3]; // pending, authorized, paid, failed
-    return statuses[Math.floor(Math.random() * statuses.length)];
-  }
-
-  async getProductsAndAccountsWithRetry(config, options) {
-    const { logger, liferay } = this.ctx;
+  async getProductsAndAccountsWithRetry(config) {
+    const { liferay, logger } = this.ctx;
     for (let attempt = 0; attempt <= config.pollingRetries; attempt++) {
       try {
-        logger.trace(
-          `Fetching available products and accounts... (attempt ${
-            attempt + 1
-          }/${config.pollingRetries + 1})`
-        );
-
         const products = await liferay.getProducts(config, config.catalogId);
         const accounts = await liferay.getAccounts(config);
-
         if (products.length === 0) {
           if (attempt < config.pollingRetries) {
-            logger.trace(
-              `No products found, retrying in ${config.pollingDelay}ms...`
-            );
             await delay(config.pollingDelay);
             continue;
           } else {
@@ -281,12 +287,8 @@ class OrderGenerator {
             );
           }
         }
-
         if (accounts.length === 0) {
           if (attempt < config.pollingRetries) {
-            logger.trace(
-              `No accounts found, retrying in ${config.pollingDelay}ms...`
-            );
             await delay(config.pollingDelay);
             continue;
           } else {
@@ -295,18 +297,18 @@ class OrderGenerator {
             );
           }
         }
-
-        // Both products and accounts found
+        logger.trace('Dependencies ready', {
+          operation: 'orders/dependencies:ready',
+          products: products.length,
+          accounts: accounts.length,
+        });
         return { products, accounts };
       } catch (error) {
-        if (
-          attempt < config.pollingRetries &&
-          (error.message.includes('No products available') ||
-            error.message.includes('No accounts available'))
-        ) {
-          logger.trace(
-            `Dependency check failed, retrying in ${config.pollingDelay}ms... (${error.message})`
-          );
+        const msg = String(error && error.message ? error.message : error);
+        const retryable = /No products available|No accounts available/.test(
+          msg
+        );
+        if (attempt < config.pollingRetries && retryable) {
           await delay(config.pollingDelay);
           continue;
         }
@@ -317,36 +319,45 @@ class OrderGenerator {
 
   async addOrderItems(config, orderId, orderItems, availableProducts) {
     const { logger } = this.ctx;
-    try {
-      for (const item of orderItems) {
-        // Find the product by SKU or ID
-        const product = availableProducts.find(
-          (p) => p.sku === item.sku || p.id === item.productId
-        );
-
-        if (!product) {
-          logger.warn(
-            `Product not found for order item: ${item.sku || item.productId}`
-          );
-          continue;
-        }
-
-        const orderItem = {
-          productId: product.id,
-          sku: product.sku,
-          quantity: item.quantity || 1,
-          unitPrice: item.unitPrice || 0,
-          externalReferenceCode: `OI-${orderId}-${product.sku}-${Date.now()}`,
-        };
-
-        // TODO: Create order item using Liferay API
-        // This would require the order items API endpoint
-        logger.trace(
-          `Would create order item: ${orderItem.sku} x ${orderItem.quantity}`
-        );
+    for (const item of orderItems) {
+      const product = availableProducts.find(
+        (p) => p.sku === item.sku || p.id === item.productId
+      );
+      if (!product) {
+        logger.warn('Order item product not found', {
+          operation: 'orders/add-item:missing',
+          sku: item.sku,
+          productId: item.productId,
+        });
+        continue;
       }
-    } catch (error) {
-      logger.error(`Failed to add order items to order ${orderId}:`, error);
+    }
+  }
+
+  validateConfig(config) {
+    const pr = parseInt(config.pollingRetries);
+    if (!Number.isFinite(pr) || pr < 0 || pr > 20)
+      throw new Error('pollingRetries must be between 0 and 20');
+    const pd = parseInt(config.pollingDelay);
+    if (!Number.isFinite(pd) || pd < 5000 || pd > 600000)
+      throw new Error('pollingDelay must be between 5 and 600 seconds');
+    const ch = parseInt(config.channelId);
+    if (!Number.isFinite(ch) || ch <= 0)
+      throw new Error('channelId must be a positive integer');
+    if (!config.currencyCode) throw new Error('currencyCode is required');
+  }
+
+  async validateOptions(options) {
+    const { ai } = this.ctx;
+    if (
+      !options.orderCount ||
+      typeof options.orderCount !== 'number' ||
+      options.orderCount <= 0
+    ) {
+      throw new Error('orderCount must be greater than 0');
+    }
+    if (!options.demoMode) {
+      await ai.getOpenAIClient();
     }
   }
 }
