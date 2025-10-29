@@ -532,7 +532,7 @@ class ProductGenerator {
               const progressCacheKey = `batch:${bid}:lastProgressPct`;
               cache.set(progressCacheKey, -5, 60 * 60 * 1000);
               cache.set(
-                `batch:${bid}:config`,
+                `erc:${bid}:config`,
                 {
                   correlationId: config.correlationId,
                   clientId: config.clientId,

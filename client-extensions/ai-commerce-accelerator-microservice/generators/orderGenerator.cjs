@@ -1,5 +1,11 @@
-const { delay, resolvePhaseAndMode } = require('../utils/misc.cjs');
-const { PATH } = require('../utils/liferayPaths.cjs');
+const {
+  delay,
+  resolvePhaseAndMode,
+  createERC,
+  isoNow,
+  now,
+} = require('../utils/misc.cjs');
+const { ERC_PREFIX } = require('../utils/constants.cjs');
 
 class OrderGenerator {
   constructor(ctx) {
@@ -41,38 +47,6 @@ class OrderGenerator {
     }
   }
 
-  async submitOrdersBatch(config, items, callbackUrl) {
-    const { logger, liferay } = this.ctx;
-    const payload = { createStrategy: 'INSERT', items };
-    const url = PATH.ORDERS_BATCH(callbackUrl);
-
-    logger.info('Sending batch order creation request', {
-      operation: 'create-orders-batch',
-      orderCount: items.length,
-      callbackUrl: callbackUrl || 'none',
-      url,
-    });
-
-    const data = await liferay._post(
-      config,
-      url,
-      payload,
-      'create-orders-batch',
-      'Failed to create orders batch'
-    );
-
-    const batchId = data.id || `batch-${Date.now()}`;
-    const status = data.status || 'submitted';
-
-    logger.info('Batch order creation initiated', {
-      operation: 'create-orders-batch',
-      batchId,
-      status,
-    });
-
-    return { batchId, status, orderCount: items.length };
-  }
-
   buildOrderPayload(config, orderData, accounts) {
     const accountId = this.pickAccountId(orderData.accountId, accounts);
     const orderStatus = this.normalizeOrderStatus(orderData.orderStatus);
@@ -80,11 +54,10 @@ class OrderGenerator {
       accountId,
       channelId: parseInt(config.channelId, 10),
       currencyCode: config.currencyCode,
-      orderDate: orderData.orderDate || new Date().toISOString(),
+      orderDate: orderData.orderDate || isoNow(),
       orderStatus: parseInt(orderStatus, 10),
       externalReferenceCode:
-        orderData.externalReferenceCode ||
-        `ORD-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`,
+        orderData.externalReferenceCode || createERC(ERC_PREFIX.ORDER),
     };
   }
 
@@ -147,20 +120,48 @@ class OrderGenerator {
         for (let batchIndex = 0; batchIndex < chunks.length; batchIndex++) {
           const originalBatch = chunks[batchIndex];
 
-          const liferayOrders = originalBatch.map((od) =>
+          const batch = originalBatch.map((od) =>
             this.buildOrderPayload(config, od, accounts)
           );
 
-          const submission = await this.submitOrdersBatch(
+          const batchERC = createERC(ERC_PREFIX.ORDER_BATCH);
+          const submission = await liferay.createOrdersBatch(
+            batch,
+            callbackUrl,
             config,
-            liferayOrders,
-            callbackUrl
+            {
+              externalReferenceCode: batchERC,
+            }
           );
 
-          const startedAt = Date.now();
+          const startedAt = now();
           cache.set(
             `batch:${submission.batchId}:meta`,
-            { totalCount: liferayOrders.length, startedAt },
+            {
+              externalReferenceCode: batchERC,
+              startedAt,
+              totalCount: batch.length,
+            },
+            3600000
+          );
+
+          cache.set(
+            `erc:${batchERC}:config`,
+            {
+              clientId: config.clientId,
+              clientSecret: config.clientSecret,
+              correlationId,
+              createdAt: isoNow(),
+              entityType: 'orders',
+              externalReferenceCode: batchERC,
+              liferayUrl: config.liferayUrl,
+              localeCode: config.localeCode,
+              maxPollAttempts: config.pollingRetries || 120,
+              mode,
+              operation: 'generate',
+              pollInterval: config.pollingDelay || 5000,
+              startedAt,
+            },
             3600000
           );
 
@@ -168,30 +169,12 @@ class OrderGenerator {
             {
               batchId: submission.batchId,
               entityType: 'orders',
-              totalItems: liferayOrders.length,
-              operation: 'generate',
               mode,
+              operation: 'generate',
               phase,
+              totalItems: batch.length,
             },
             { correlationId }
-          );
-
-          cache.set(
-            `batch:${submission.batchId}:config`,
-            {
-              correlationId,
-              clientId: config.clientId,
-              clientSecret: config.clientSecret,
-              createdAt: new Date().toISOString(),
-              entityType: 'orders',
-              liferayUrl: config.liferayUrl,
-              localeCode: config.localeCode,
-              operation: 'generate',
-              pollInterval: config.pollingDelay || 5000,
-              maxPollAttempts: config.pollingRetries || 120,
-              mode,
-            },
-            3600000
           );
 
           const pollInterval = Math.max(config.pollingDelay || 5000, 2000);
@@ -200,32 +183,30 @@ class OrderGenerator {
           batchPolling.startPolling(
             submission.batchId,
             {
-              liferayUrl: config.liferayUrl,
               clientId: config.clientId,
               clientSecret: config.clientSecret,
-              localeCode: config.localeCode,
               entityType: 'orders',
+              liferayUrl: config.liferayUrl,
+              localeCode: config.localeCode,
             },
             {
               pollInterval,
               maxPollAttempts,
               entityType: 'orders',
               mode,
+              externalReferenceCode: batchERC,
               affectsProgress: true,
               onStatusChange: (status) => {
                 const meta =
                   cache.get(`batch:${submission.batchId}:meta`) || {};
                 const total =
-                  status.totalCount ||
-                  meta.totalCount ||
-                  liferayOrders.length ||
-                  0;
+                  status.totalCount || meta.totalCount || batch.length || 0;
                 const processed = status.processedCount || 0;
                 const progress =
                   total > 0 ? Math.round((processed / total) * 100) : 0;
                 const elapsedMs = Math.max(
                   1,
-                  Date.now() - (meta.startedAt || Date.now())
+                  now() - (meta.startedAt || now())
                 );
                 const rate = processed / (elapsedMs / 1000);
                 const remaining = Math.max(0, total - processed);
@@ -286,7 +267,7 @@ class OrderGenerator {
           logger.info('Orders batch submission completed', {
             operation: 'orders/batch:submit',
             batchId: submission.batchId,
-            orderCount: liferayOrders.length,
+            orderCount: batch.length,
             status: submission.status,
             callbackUrl: callbackUrl || 'none',
             mode,
@@ -298,13 +279,13 @@ class OrderGenerator {
             totalBatches: chunks.length,
             batchId: submission.batchId,
             status: submission.status,
-            orderCount: liferayOrders.length,
-            orders: liferayOrders.map((o) => ({
+            orderCount: batch.length,
+            orders: batch.map((o) => ({
               accountId: o.accountId,
               erc: o.externalReferenceCode,
             })),
           });
-          results.created += liferayOrders.length;
+          results.created += batch.length;
 
           if (batchIndex < chunks.length - 1) await delay(1000);
         }
@@ -342,7 +323,7 @@ class OrderGenerator {
       phase: 'generate',
     });
 
-    const startedAt = Date.now();
+    const startedAt = now();
     const metaKey = 'orders-individual:meta';
     this.ctx.cache.set(
       metaKey,
@@ -379,10 +360,7 @@ class OrderGenerator {
         const total = orderDataList.length;
         const progress = Math.round((processed / total) * 100);
         const meta = this.ctx.cache.get(metaKey) || { startedAt };
-        const elapsedMs = Math.max(
-          1,
-          Date.now() - (meta.startedAt || Date.now())
-        );
+        const elapsedMs = Math.max(1, now() - (meta.startedAt || now()));
         const rate = processed / (elapsedMs / 1000);
         const remaining = Math.max(0, total - processed);
         const etaSeconds = rate > 0 ? Math.round(remaining / rate) : null;

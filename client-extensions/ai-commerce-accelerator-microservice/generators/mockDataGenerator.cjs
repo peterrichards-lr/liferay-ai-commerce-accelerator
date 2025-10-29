@@ -4,6 +4,9 @@ const {
   createERC,
   buildSpecCatERC,
   getRandomInt,
+  toERCPart,
+  randomString,
+  randomPastDate,
 } = require('../utils/misc.cjs');
 const { ERC_PREFIX } = require('../utils/constants.cjs');
 
@@ -280,7 +283,7 @@ class MockDataGenerator {
 
   calculatePrice(pricingConfig, options, productIndex) {
     const { min, max } = pricingConfig.basePrice;
-    let basePrice = Math.floor(Math.random() * (max - min) + min);
+    let basePrice = min + getRandomInt(Math.max(1, max - min + 1));
 
     if (pricingConfig.priceModifiers && options) {
       for (const option of options) {
@@ -306,29 +309,26 @@ class MockDataGenerator {
 
     const option1 = options[0];
     const option2 = options[1] || { values: ['Standard'] };
+    const toKey = (s) => String(s).toLowerCase().replace(/\s+/g, '-');
 
     for (const value1 of option1.values.slice(0, 3)) {
       for (const value2 of option2.values.slice(0, 3)) {
         if (variantCount >= maxVariants) break;
 
-        const priceModifier = (Math.random() - 0.5) * 0.4;
+        const priceModifier = (getRandomInt(401) - 200) / 1000;
         const variantPrice = Math.round(basePrice * (1 + priceModifier));
 
         const variant = {
-          sku: `${baseSku}-${value1.substr(0, 2).toUpperCase()}-${value2
-            .substr(0, 2)
+          sku: `${baseSku}-${value1.slice(0, 2).toUpperCase()}-${value2
+            .slice(0, 2)
             .toUpperCase()}`,
           options: {
-            [`${category.toLowerCase()}-${option1.name
-              .toLowerCase()
-              .replace(/\s+/g, '-')}`]: value1,
-            [`${category.toLowerCase()}-${option2.name
-              .toLowerCase()
-              .replace(/\s+/g, '-')}`]: value2,
+            [`${toKey(category)}-${toKey(option1.name)}`]: value1,
+            [`${toKey(category)}-${toKey(option2.name)}`]: value2,
           },
           priceModifier: Math.round(priceModifier * 100),
           price: variantPrice,
-          inStock: Math.random() > 0.1,
+          inStock: getRandomInt(10) > 1,
         };
 
         variants.push(variant);
@@ -360,10 +360,7 @@ class MockDataGenerator {
       const account = {
         name: `${companyName} ${i + 1}`,
         type: 'business',
-        taxId: `TAX-${String(Math.floor(Math.random() * 999999)).padStart(
-          6,
-          '0'
-        )}`,
+        taxId: `TAX-${String(getRandomInt(1_000_000)).padStart(6, '0')}`,
         externalReferenceCode: createERC(ERC_PREFIX.ACCOUNT),
         accountContactInformation: {
           emailAddresses: [
@@ -392,15 +389,14 @@ class MockDataGenerator {
     const paymentStatuses = [0, 1, 2, 3];
 
     for (let i = 0; i < count; i++) {
-      const orderTotal = Math.floor(Math.random() * 2000) + 100;
-      const itemCount = Math.floor(Math.random() * 5) + 1;
+      const orderTotal = 100 + getRandomInt(2000);
+      const itemCount = 1 + getRandomInt(5);
 
       const order = {
         orderDate: randomPastDate().toISOString(),
-        orderStatus:
-          orderStatuses[Math.floor(Math.random() * orderStatuses.length)],
+        orderStatus: orderStatuses[getRandomInt(orderStatuses.length)],
         total: orderTotal,
-        currency: 'USD',
+        currency: options.currencyCode || 'USD',
         itemCount,
         externalReferenceCode: `${createERC(ERC_PREFIX.ORDER)}-${i}`,
         customerName: `Customer ${i + 1}`,
@@ -410,6 +406,7 @@ class MockDataGenerator {
           zip: `${10000 + i}`,
           country: 'US',
         },
+        paymentStatuses: paymentStatuses[getRandomInt(paymentStatuses.length)],
       };
 
       orders.push(order);
@@ -456,7 +453,7 @@ class MockDataGenerator {
 
     const specsForCategory = Object.keys(categoryValues);
 
-    const numSpecs = Math.floor(Math.random() * 3) + 5;
+    const numSpecs = 5 + getRandomInt(3);
     const selectedSpecs = specsForCategory.slice(0, numSpecs);
 
     for (const specKey of selectedSpecs) {
@@ -481,10 +478,10 @@ class MockDataGenerator {
           key: specKey,
           label: label,
           value: value,
-          priority: Math.floor(Math.random() * 10) + 1,
+          priority: 1 + getRandomInt(10),
           externalReferenceCode: `${createERC(
             ERC_PREFIX.SPECIFICATION
-          )}}-${productIndex}`,
+          )}-${productIndex}`,
         });
       }
     }

@@ -1,3 +1,4 @@
+const { ERC_PREFIX } = require('../utils/constants.cjs');
 const {
   delay,
   resolvePhaseAndMode,
@@ -110,16 +111,47 @@ class AccountGenerator {
         ) {
           const batch = accountBatches[batchIndex];
 
+          const batchERC = createERC(ERC_PREFIX.ACCOUNT_BATCH);
+          const startedAt = now();
+          cache.set(
+            `erc:${batchERC}:config`,
+            {
+              correlationId,
+              clientId: config.clientId,
+              clientSecret: config.clientSecret,
+              createdAt: isoNow(),
+              startedAt,
+              entityType: 'accounts',
+              liferayUrl: config.liferayUrl,
+              localeCode: config.localeCode,
+              operation: 'generate',
+            },
+            3600000
+          );
+
           const batchResult = await liferay.createAccountsBatch(
             config,
             batch,
-            callbackUrl
+            callbackUrl,
+            {
+              externalReferenceCode: batchERC,
+            }
           );
 
-          const startedAt = now();
+          cache.set(`erc:${batchERC}:batchId`, batchResult.batchId, 3600000);
+          cache.set(
+            `batch:${batchResult.batchId}:erc`,
+            { externalReferenceCode: batchERC },
+            3600000
+          );
+
           cache.set(
             `batch:${batchResult.batchId}:meta`,
-            { totalCount: batch.length, startedAt },
+            {
+              totalCount: batch.length,
+              startedAt,
+              externalReferenceCode: batchERC,
+            },
             3600000
           );
 
@@ -131,6 +163,7 @@ class AccountGenerator {
               operation: 'generate',
               mode,
               phase,
+              externalReferenceCode: batchERC,
             },
             { correlationId }
           );
@@ -140,21 +173,6 @@ class AccountGenerator {
           if (batchResult.batchId && callbackUrl) {
             const pollInterval = Math.max(config.pollingDelay || 5000, 2000);
             const maxPollAttempts = config.pollingRetries || 120;
-
-            cache.set(
-              `batch:${batchResult.batchId}:config`,
-              {
-                correlationId,
-                clientId: config.clientId,
-                clientSecret: config.clientSecret,
-                createdAt: isoNow(),
-                entityType: 'accounts',
-                liferayUrl: config.liferayUrl,
-                localeCode: config.localeCode,
-                operation: 'generate',
-              },
-              3600000
-            );
 
             batchPolling.startPolling(
               batchResult.batchId,
@@ -176,7 +194,7 @@ class AccountGenerator {
                   const processed = status.processedCount || 0;
                   const progress =
                     total > 0 ? Math.round((processed / total) * 100) : 0;
-                  const elapsedMs = elapsed(meta.startedAt);
+                  const elapsedMs = elapsed(meta.startedAt || now());
                   const rate = processed / (elapsedMs / 1000);
                   const remaining = Math.max(0, total - processed);
                   const etaSeconds =
@@ -193,6 +211,7 @@ class AccountGenerator {
                       operation: 'generate',
                       mode,
                       phase,
+                      externalReferenceCode: batchERC,
                     },
                     { correlationId }
                   );
@@ -215,7 +234,7 @@ class AccountGenerator {
                     error: error.message,
                     entityType: 'accounts',
                   });
-                  getWs().emitBatchCompleted(
+                  getWs().emitBatchFailed(
                     {
                       batchId: batchResult.batchId,
                       entityType: 'accounts',
@@ -225,6 +244,7 @@ class AccountGenerator {
                       operation: 'generate',
                       mode,
                       phase,
+                      externalReferenceCode: batchERC,
                     },
                     { correlationId }
                   );
@@ -249,6 +269,7 @@ class AccountGenerator {
             batchId: batchResult.batchId,
             status: batchResult.status,
             accountCount: batch.length,
+            externalReferenceCode: batchERC,
             accounts: batch.map((p) => ({
               name: p.name?.en_US || p.name,
               externalReferenceCode: p.externalReferenceCode,
@@ -263,6 +284,7 @@ class AccountGenerator {
           accounts: results.accounts,
           created: results.created,
           errors: results.errors,
+          batchIds,
           success: results.errors.length === 0,
         };
       } else {
@@ -326,7 +348,7 @@ class AccountGenerator {
         const total = accountDataList.length;
         const progress = Math.round((processed / total) * 100);
         const meta = this.ctx.cache.get(metaKey) || { startedAt };
-        const elapsedMs = elapsed(meta.startedAt);
+        const elapsedMs = elapsed(meta.startedAt || now());
         const rate = processed / (elapsedMs / 1000);
         const remaining = Math.max(0, total - processed);
         const etaSeconds = rate > 0 ? Math.round(remaining / rate) : null;
@@ -393,8 +415,7 @@ class AccountGenerator {
         type: accountData.type || 'business',
         domains: accountData.domains || [`company${randomString()}.com`],
         externalReferenceCode:
-          accountData.externalReferenceCode ||
-          createERC(accountData.externalReferenceCode),
+          accountData.externalReferenceCode || createERC(ERC_PREFIX.ACCOUNT),
         taxId: accountData.taxId || this.generateTaxId(),
       };
 
@@ -483,6 +504,9 @@ class AccountGenerator {
         operation: 'generate',
         mode,
         phase,
+        externalReferenceCode: (
+          this.ctx.cache.get(`batch:${results.batchId}:erc`) || {}
+        ).externalReferenceCode,
       },
       { correlationId: config.correlationId }
     );

@@ -13,8 +13,12 @@ const {
   VIEWABLE_BY,
   buildPermissionsItems,
 } = require('../utils/liferayPermissions.cjs');
-const { DEBUG } = require('../utils/constants.cjs');
-const { delay, createExternalReferenceCode } = require('../utils/misc.cjs');
+const { DEBUG, ERC_PREFIX } = require('../utils/constants.cjs');
+const {
+  delay,
+  createExternalReferenceCode,
+  createERC,
+} = require('../utils/misc.cjs');
 
 class LiferayService {
   constructor(ctx) {
@@ -102,7 +106,11 @@ class LiferayService {
         errorReference: problem?.errorReference,
         problem,
         responseBody:
-          typeof body === 'string' ? body : body ? this._stringifySafe(body) : null,
+          typeof body === 'string'
+            ? body
+            : body
+            ? this._stringifySafe(body)
+            : null,
         headers,
         responseHeaders: resHeaders,
       });
@@ -367,7 +375,8 @@ class LiferayService {
         structuredError.field = 'liferayUrl';
       }
 
-      const errorReference = structuredError.errorReference || createExternalReferenceCode();
+      const errorReference =
+        structuredError.errorReference || createExternalReferenceCode();
       logger.error(`Error Reference: ${errorReference}`);
       structuredError.errorReference = errorReference;
 
@@ -522,9 +531,15 @@ class LiferayService {
     return data;
   }
 
-  async createAccountsBatch(config, accountsData, callbackUrl) {
+  async createAccountsBatch(config, accountsData, callbackUrl, opts = {}) {
     const { logger } = this.ctx;
-    const batchPayload = { createStrategy: 'INSERT', items: accountsData };
+    const erc =
+      opts.externalReferenceCode ?? createERC(ERC_PREFIX.ACCOUNT_BATCH);
+    const batchPayload = {
+      createStrategy: 'INSERT',
+      items: accountsData,
+      externalReferenceCode: erc,
+    };
     const url = PATH.ACCOUNTS_BATCH(callbackUrl);
 
     logger.info('Sending batch account creation request', {
@@ -551,6 +566,49 @@ class LiferayService {
       batchId: data.id || `batch-${Date.now()}`,
       status: data.status || 'submitted',
       accountCount: accountsData.length,
+      externalReferenceCode: erc,
+    };
+  }
+
+  async createOrdersBatch(config, ordersData, callbackUrl, opts = {}) {
+    const { logger } = this.ctx;
+    const erc = opts.externalReferenceCode ?? createERC(ERC_PREFIX.ORDER_BATCH);
+
+    const batchPayload = {
+      createStrategy: 'INSERT',
+      items: ordersData,
+      externalReferenceCode: erc,
+    };
+
+    const url = PATH.ORDERS_BATCH(callbackUrl);
+
+    logger.info('Sending batch order creation request', {
+      operation: 'create-orders-batch',
+      orderCount: ordersData.length,
+      callbackUrl,
+      externalReferenceCode: erc,
+    });
+
+    const data = await this._post(
+      config,
+      url,
+      batchPayload,
+      'create-orders-batch',
+      'Failed to create orders batch'
+    );
+
+    logger.info('Batch order creation initiated', {
+      operation: 'create-orders-batch',
+      batchId: data.id || 'unknown',
+      status: data.status || 'submitted',
+      externalReferenceCode: erc,
+    });
+
+    return {
+      batchId: data.id || `batch-${Date.now()}`,
+      status: data.status || 'submitted',
+      orderCount: ordersData.length,
+      externalReferenceCode: erc,
     };
   }
 
