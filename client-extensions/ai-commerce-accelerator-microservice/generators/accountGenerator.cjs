@@ -1,4 +1,12 @@
-const { delay, resolvePhaseAndMode } = require('../utils/misc.cjs');
+const {
+  delay,
+  resolvePhaseAndMode,
+  now,
+  isoNow,
+  elapsedMs: elapsed,
+  createERC,
+  randomString,
+} = require('../utils/misc.cjs');
 
 class AccountGenerator {
   constructor(ctx) {
@@ -108,7 +116,7 @@ class AccountGenerator {
             callbackUrl
           );
 
-          const startedAt = Date.now();
+          const startedAt = now();
           cache.set(
             `batch:${batchResult.batchId}:meta`,
             { totalCount: batch.length, startedAt },
@@ -139,7 +147,7 @@ class AccountGenerator {
                 correlationId,
                 clientId: config.clientId,
                 clientSecret: config.clientSecret,
-                createdAt: new Date().toISOString(),
+                createdAt: isoNow(),
                 entityType: 'accounts',
                 liferayUrl: config.liferayUrl,
                 localeCode: config.localeCode,
@@ -168,10 +176,7 @@ class AccountGenerator {
                   const processed = status.processedCount || 0;
                   const progress =
                     total > 0 ? Math.round((processed / total) * 100) : 0;
-                  const elapsedMs = Math.max(
-                    1,
-                    Date.now() - (meta.startedAt || Date.now())
-                  );
+                  const elapsedMs = elapsed(meta.startedAt);
                   const rate = processed / (elapsedMs / 1000);
                   const remaining = Math.max(0, total - processed);
                   const etaSeconds =
@@ -289,7 +294,7 @@ class AccountGenerator {
     const errors = [];
 
     const metaKey = 'accounts-individual:meta';
-    const startedAt = Date.now();
+    const startedAt = now();
     this.ctx.cache.set(
       metaKey,
       { total: accountDataList.length, startedAt },
@@ -321,10 +326,7 @@ class AccountGenerator {
         const total = accountDataList.length;
         const progress = Math.round((processed / total) * 100);
         const meta = this.ctx.cache.get(metaKey) || { startedAt };
-        const elapsedMs = Math.max(
-          1,
-          Date.now() - (meta.startedAt || Date.now())
-        );
+        const elapsedMs = elapsed(meta.startedAt);
         const rate = processed / (elapsedMs / 1000);
         const remaining = Math.max(0, total - processed);
         const etaSeconds = rate > 0 ? Math.round(remaining / rate) : null;
@@ -386,13 +388,13 @@ class AccountGenerator {
     const { logger, liferay } = this.ctx;
     try {
       const liferayAccount = {
-        name: accountData.name || `Generated Company ${Date.now()}`,
+        name: accountData.name || `Generated Company ${randomString()}`,
         description: accountData.description || 'AI generated business account',
         type: accountData.type || 'business',
-        domains: accountData.domains || [`company${Date.now()}.com`],
+        domains: accountData.domains || [`company${randomString()}.com`],
         externalReferenceCode:
           accountData.externalReferenceCode ||
-          `ACC-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`,
+          createERC(accountData.externalReferenceCode),
         taxId: accountData.taxId || this.generateTaxId(),
       };
 

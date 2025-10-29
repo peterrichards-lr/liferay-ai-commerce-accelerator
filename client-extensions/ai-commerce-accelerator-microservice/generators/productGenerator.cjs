@@ -1,7 +1,8 @@
-const { delay, resolvePhaseAndMode } = require('../utils/misc.cjs');
+const { ASSET_TYPE, VIEWABLE_BY } = require('../utils/liferayPermissions.cjs');
+const { delay, resolvePhaseAndMode, createERC } = require('../utils/misc.cjs');
+const { ERC_PREFIXES } = require('../utils/constants.cjs');
 const { sanitizedObject } = require('../utils/normalize.cjs');
 const { v4: uuidv4 } = require('uuid');
-const { ASSET_TYPE, VIEWABLE_BY } = require('../utils/liferayPermissions.cjs');
 
 class ProductGenerator {
   constructor(ctx) {
@@ -509,6 +510,11 @@ class ProductGenerator {
               { startedAt, totalCount: batch.length },
               3600000
             );
+            logger.debug('BATCH_START EMIT', {
+              batchId: String(batchResult.batchId),
+              entityType: 'products',
+              operation: 'generate',
+            });
             getWs().emitBatchStarted(
               {
                 entityType: 'products',
@@ -708,9 +714,7 @@ class ProductGenerator {
             results.created += batch.length;
             if (batchIndex < productBatches.length - 1) await delay(1000);
           }
-          const sessionId = `products_${Date.now()}_${Math.random()
-            .toString(36)
-            .slice(2, 9)}`;
+          const sessionId = createERC(ERC_PREFIXES.SESSSION);
           const contextCacheKey = `session:${sessionId}:context`;
           cache.set(
             contextCacheKey,

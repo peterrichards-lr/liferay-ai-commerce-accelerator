@@ -1,5 +1,11 @@
 const fs = require('fs');
 const path = require('path');
+const {
+  createERC,
+  buildSpecCatERC,
+  getRandomInt,
+} = require('../utils/misc.cjs');
+const { ERC_PREFIX } = require('../utils/constants.cjs');
 
 class MockDataGenerator {
   constructor(ctx) {
@@ -152,6 +158,7 @@ class MockDataGenerator {
   ) {
     const { logger } = this.ctx;
     const products = [];
+
     const languageCodes = selectedLanguages.map((lang) =>
       lang.replace('-', '_')
     );
@@ -161,18 +168,31 @@ class MockDataGenerator {
     const pricing =
       this.pricingData[category] || this.pricingData['Electronics'];
 
+    const { catalogId, generateSpecifications, generateSkuVariants } = options;
+
+    const categoryCode = toERCPart(category, 3);
+    const localeSuffixMap = Object.fromEntries(
+      languageCodes.map((lc) => [lc, lc === 'en_US' ? '' : ` (${lc})`])
+    );
+
     for (let i = 0; i < count; i++) {
       const baseName = data.names[i % data.names.length];
-      const basePrice = this.calculatePrice(pricing, data.options, i);
-      const baseSku = `${category.toUpperCase().substr(0, 3)}-${String(
-        i + 1
-      ).padStart(3, '0')}`;
-
+      const baseNameLower = baseName.toLowerCase();
       const productName = `${baseName} ${i + 1}`;
-      const baseDescription = `High-quality ${baseName.toLowerCase()} perfect for everyday use. Features premium materials and excellent craftsmanship.`;
-      const baseShortDescription = `Premium ${baseName.toLowerCase()} with great value.`;
+
+      const basePrice = this.calculatePrice(pricing, data.options, i);
+
+      const nameCode = toERCPart(baseName, 6);
+      const rand = randomString(3, true);
+      const skuRoot = `${ERC_PREFIX.PRODUCT}-${categoryCode}-${nameCode}-${rand}`;
+
+      const sku = `${skuRoot}-${String(i + 1).padStart(3, '0')}`;
+      const externalReferenceCode = createERC(ERC_PREFIX.PRODUCT);
+
+      const baseDescription = `High-quality ${baseNameLower} perfect for everyday use. Features premium materials and excellent craftsmanship.`;
+      const baseShortDescription = `Premium ${baseNameLower} with great value.`;
       const baseMetaDescription = `Shop ${baseName} - Premium quality at great prices`;
-      const baseMetaKeyword = `${baseName.toLowerCase()}, ${category.toLowerCase()}, premium, quality`;
+      const baseMetaKeyword = `${baseNameLower}, ${category.toLowerCase()}, premium, quality`;
       const baseMetaTitle = `${baseName} - Premium ${category}`;
 
       const name = {};
@@ -183,54 +203,54 @@ class MockDataGenerator {
       const metaKeyword = {};
       const metaTitle = {};
 
-      languageCodes.forEach((langCode) => {
-        const suffix = langCode === 'en_US' ? '' : ` (${langCode})`;
-        name[langCode] = `${productName}${suffix}`;
-        description[langCode] = `${baseDescription}${suffix}`;
-        shortDescription[langCode] = `${baseShortDescription}${suffix}`;
-        urls[langCode] = `${productName.toLowerCase().replace(/\s+/g, '-')}${
-          suffix ? `-${langCode.toLowerCase()}` : ''
-        }`;
-        metaDescription[langCode] = `${baseMetaDescription}${suffix}`;
-        metaKeyword[langCode] = `${baseMetaKeyword}${suffix}`;
-        metaTitle[langCode] = `${baseMetaTitle}${suffix}`;
-      });
+      const baseSlug = productName.toLowerCase().replace(/\s+/g, '-');
+
+      for (const lc of languageCodes) {
+        const suffix = localeSuffixMap[lc];
+        name[lc] = `${productName}${suffix}`;
+        description[lc] = `${baseDescription}${suffix}`;
+        shortDescription[lc] = `${baseShortDescription}${suffix}`;
+        urls[lc] = `${baseSlug}${suffix ? `-${lc.toLowerCase()}` : ''}`;
+        metaDescription[lc] = `${baseMetaDescription}${suffix}`;
+        metaKeyword[lc] = `${baseMetaKeyword}${suffix}`;
+        metaTitle[lc] = `${baseMetaTitle}${suffix}`;
+      }
 
       if (i === 0) {
         logger.trace('Generated multilingual content for first product:', {
           name,
-          description: description,
+          description,
           languageCodes,
         });
       }
 
       const productData = {
         active: true,
-        catalogId: options.catalogId,
+        catalogId,
         name,
         description,
         shortDescription,
         urls,
         productType: 'simple',
-        externalReferenceCode: `${baseSku}-${Date.now()}`,
+        externalReferenceCode,
         metaDescription,
         metaKeyword,
         metaTitle,
         skus: [
           {
             cost: Math.round(basePrice * 0.6),
-            externalReferenceCode: baseSku,
-            inventoryLevel: Math.floor(Math.random() * 50) + 10,
+            externalReferenceCode: sku,
+            inventoryLevel: 10 + getRandomInt(41),
             neverExpire: true,
             price: basePrice,
             published: true,
             purchasable: true,
-            sku: baseSku,
+            sku,
           },
         ],
       };
 
-      if (options.generateSpecifications) {
+      if (generateSpecifications) {
         productData.productSpecifications = this.generateSpecifications(
           category,
           i,
@@ -239,17 +259,17 @@ class MockDataGenerator {
       }
 
       if (
-        options.generateSkuVariants &&
-        data.options &&
+        generateSkuVariants &&
+        Array.isArray(data.options) &&
         data.options.length > 0
       ) {
         productData.skuVariants = this.generateSkuVariants(
-          baseSku,
+          sku,
           data.options,
           basePrice,
           category
         );
-        productData.defaultSku = baseSku;
+        productData.defaultSku = sku;
       }
 
       products.push(productData);
@@ -344,7 +364,7 @@ class MockDataGenerator {
           6,
           '0'
         )}`,
-        externalReferenceCode: `ACC-${Date.now()}-${i}`,
+        externalReferenceCode: createERC(ERC_PREFIX.ACCOUNT),
         accountContactInformation: {
           emailAddresses: [
             {
@@ -368,23 +388,21 @@ class MockDataGenerator {
 
   generateOrderData(count = 10) {
     const orders = [];
-    const orderStatuses = [0, 1, 2, 10, 15]; // numeric statuses: open, in-progress, shipped, completed, cancelled
-    const paymentStatuses = [0, 1, 2, 3]; // numeric statuses: pending, authorized, paid, failed
+    const orderStatuses = [0, 1, 2, 10, 15];
+    const paymentStatuses = [0, 1, 2, 3];
 
     for (let i = 0; i < count; i++) {
       const orderTotal = Math.floor(Math.random() * 2000) + 100;
       const itemCount = Math.floor(Math.random() * 5) + 1;
 
       const order = {
-        orderDate: new Date(
-          Date.now() - Math.random() * 30 * 24 * 60 * 60 * 1000
-        ).toISOString(),
+        orderDate: randomPastDate().toISOString(),
         orderStatus:
           orderStatuses[Math.floor(Math.random() * orderStatuses.length)],
         total: orderTotal,
         currency: 'USD',
         itemCount,
-        externalReferenceCode: `ORD-${Date.now()}-${i}`,
+        externalReferenceCode: `${createERC(ERC_PREFIX.ORDER)}-${i}`,
         customerName: `Customer ${i + 1}`,
         shippingAddress: {
           street: `${100 + i} Main Street`,
@@ -464,7 +482,9 @@ class MockDataGenerator {
           label: label,
           value: value,
           priority: Math.floor(Math.random() * 10) + 1,
-          externalReferenceCode: `SPEC-${specKey.toUpperCase()}-${Date.now()}-${productIndex}`,
+          externalReferenceCode: `${createERC(
+            ERC_PREFIX.SPECIFICATION
+          )}}-${productIndex}`,
         });
       }
     }
@@ -530,11 +550,7 @@ class MockDataGenerator {
           title: title,
           description: description,
           priority: i + 1,
-          externalReferenceCode: `SPEC-CAT-${category
-            .toUpperCase()
-            .replace(/\s+/g, '')}-${baseTitle
-            .toUpperCase()
-            .replace(/\s+/g, '')}-${Date.now()}`,
+          externalReferenceCode: buildSpecCatERC(category, baseTitle),
         });
       }
     }

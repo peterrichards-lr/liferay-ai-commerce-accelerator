@@ -699,6 +699,16 @@ class BatchPollingService {
   markBatchCompleteInSessions(batchId, correlationId) {
     const { logger } = this.ctx;
     for (const [sessionId, session] of this.generationSessions.entries()) {
+      const registered = Array.from(session.batchIds).map(String);
+      const incoming = String(batchId);
+      logger.debug('SESSION MATCH CHECK', {
+        sessionId,
+        incoming,
+        registered,
+        has: registered.includes(incoming),
+        types: { incoming: typeof batchId, sample: typeof registered[0] },
+      });
+
       if (!session.batchIds.has(batchId)) continue;
 
       session.completedBatches.add(batchId);

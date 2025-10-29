@@ -15,8 +15,10 @@ function buildRecoveredConfig({ liferayUrl, task, correlationId }) {
     liferayUrl,
     localeCode: 'en-US',
     maxPollAttempts: 120,
-    mode: 'delete',
+    mode: 'generate',
     pollInterval: 5000,
+    operation: 'generate',
+    affectsProgress: true,
   };
 }
 

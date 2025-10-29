@@ -1,11 +1,11 @@
 const { lxcConfig } = require('@rotty3000/config-node');
 const axios = require('axios');
-const { createErrorReference } = require('../utils/misc.cjs');
+const { createExternalReferenceCode } = require('../utils/misc.cjs');
 
-const { applicationExternalReferenceCodes } = require('../utils/constants.cjs');
+const { APP_ERCS } = require('../utils/constants.cjs');
 
 const serverOauthApp = lxcConfig.oauthApplication(
-  applicationExternalReferenceCodes.OAUTH_SERVER_EXTERNAL_REFERENCE_CODE
+  APP_ERCS.OAUTH_SERVER_EXTERNAL_REFERENCE_CODE
 );
 
 class OAuthService {
@@ -84,7 +84,7 @@ class OAuthService {
   }
 
   _handleException(error, liferayUrl = null, clientId = null) {
-    const errorRef = createErrorReference();
+    const errorRef = createExternalReferenceCode();
 
     logger.error(`OAuth Error [${errorRef}]:`, {
       status: error.response?.status,
@@ -131,7 +131,7 @@ class OAuthService {
     const clientSecret = serverOauthApp.clientSecret();
 
     if (!this.liferayUrl || !clientId || !clientSecret) {
-      const errorRef = createErrorReference();
+      const errorRef = createExternalReferenceCode();
       logger.error(
         `OAuth Error [${errorRef}]: Unable to obtain LXC configuration`,
         {
@@ -162,7 +162,7 @@ class OAuthService {
   async getAccessTokenWithCredentials(liferayUrl, clientId, clientSecret) {
     const { logger } = this.ctx;
     if (!liferayUrl || !clientId || !clientSecret) {
-      const errorRef = createErrorReference();
+      const errorRef = createExternalReferenceCode();
       logger.error(`OAuth Error [${errorRef}]: Missing required parameters`, {
         liferayUrl: liferayUrl || 'undefined',
         clientId: clientId || 'undefined',
@@ -216,7 +216,7 @@ class OAuthService {
 
       return response.data;
     } catch (error) {
-      const errorRef = createErrorReference();
+      const errorRef = createExternalReferenceCode();
       logger.error(
         `OAuth code exchange failed [${errorRef}]:`,
         error.response?.data || error.message

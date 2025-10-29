@@ -14,7 +14,7 @@ const {
   buildPermissionsItems,
 } = require('../utils/liferayPermissions.cjs');
 const { DEBUG } = require('../utils/constants.cjs');
-const { delay, createErrorReference } = require('../utils/misc.cjs');
+const { delay, createExternalReferenceCode } = require('../utils/misc.cjs');
 
 class LiferayService {
   constructor(ctx) {
@@ -367,7 +367,7 @@ class LiferayService {
         structuredError.field = 'liferayUrl';
       }
 
-      const errorReference = structuredError.errorReference || createErrorReference();
+      const errorReference = structuredError.errorReference || createExternalReferenceCode();
       logger.error(`Error Reference: ${errorReference}`);
       structuredError.errorReference = errorReference;
 
@@ -757,7 +757,7 @@ class LiferayService {
       );
       return data;
     } catch (error) {
-      const errorReference = createErrorReference();
+      const errorReference = createExternalReferenceCode();
       logger.error(`Error Reference: ${errorReference}`);
       logger.error('Failed to get configuration entry', {
         operation: 'get-config',

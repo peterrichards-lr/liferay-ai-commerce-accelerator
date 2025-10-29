@@ -1,12 +1,105 @@
 const { logger } = require('../utils/logger.cjs');
 const { v4: uuidv4 } = require('uuid');
+const { ERC_PREFIX } = require('./constants.cjs');
 
 function getRandomInt(max) {
   return Math.floor(Math.random() * max);
 }
 
+function now() {
+  return new Date();
+}
 function isoNow() {
-  return new Date().toISOString();
+  return now().toISOString();
+}
+
+function isoToday() {
+  return isoNow().split('T')[0];
+}
+
+function randomDateBetween(start, end) {
+  const s = start instanceof Date ? start.getTime() : new Date(start).getTime();
+  const e = end instanceof Date ? end.getTime() : new Date(end).getTime();
+  if (!Number.isFinite(s) || !Number.isFinite(e)) {
+    throw new TypeError('randomDateBetween: invalid start/end date');
+  }
+
+  const min = Math.min(s, e);
+  const max = Math.max(s, e);
+  const range = max - min;
+
+  if (range <= 0) return new Date(min);
+
+  const t = min + getRandomInt(range);
+  return new Date(t);
+}
+
+function randomPastDate(daysBack = 30, refNow = now()) {
+  const clamp = Math.max(0, Number(daysBack) || 0);
+  const start = new Date(refNow.getTime() - clamp * 24 * 60 * 60 * 1000);
+  return randomDateBetween(start, refNow);
+}
+
+function randomFutureDate(daysForward = 30, refNow = now()) {
+  const clamp = Math.max(0, Number(daysForward) || 0);
+  const end = new Date(refNow.getTime() + clamp * 24 * 60 * 60 * 1000);
+  return randomDateBetween(refNow, end);
+}
+
+function elapsedMs(startTime) {
+  return Math.max(1, now() - (startTime || now()));
+}
+
+function randomString(len = 5, uppercase = false) {
+  const chars = uppercase
+    ? 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'
+    : 'abcdefghijklmnopqrstuvwxyz';
+  const out = new Array(len);
+  for (let i = 0; i < len; i++)
+    out[i] = chars.charAt(getRandomInt(chars.length));
+  return out.join('');
+}
+
+function toERCPart(str, max = 12) {
+  if (!str) return 'NA';
+  const cleaned = String(str)
+    .toUpperCase()
+    .replace(/[^A-Z0-9]+/g, '');
+  return cleaned ? cleaned.slice(0, max) : 'NA';
+}
+
+function buildCategoryERC(category, index, { prefixLen = 3, pad = 3 } = {}) {
+  if (!category) throw new Error('buildCategoryCode: category is required');
+  if (index == null || isNaN(index)) throw new Error('buildCategoryCode: index must be a number');
+
+  const prefix = toERCPart(category, prefixLen);
+  const num = String(Number(index) + 1).padStart(pad, '0');
+  return `${prefix}-${num}`;
+}
+
+function buildSpecCatERC(category, baseTitle, opts = {}) {
+  const {
+    prefix = ERC_PREFIX.SPECIFICATION_CATEGORY,
+    includeDate = true,
+    randomSuffix = true,
+    randLen = 4,
+    maxPartLen = 12,
+  } = opts;
+
+  const cat = toERCPart(category, maxPartLen);
+  const base = toERCPart(baseTitle, maxPartLen);
+
+  const parts = [toERCPart(prefix, maxPartLen), cat, base];
+
+  if (includeDate) {
+    parts.push(isoToday().replace(/[^0-9]/g, ''));
+  }
+
+  if (randomSuffix) {
+    parts.push(randomString(randLen, true));
+  }
+
+  return parts.filter(Boolean).join('-');
 }
 
 const delay = (ms = 1000) => new Promise((r) => setTimeout(r, ms));
@@ -25,8 +118,16 @@ const debounce = (fn, ms = 300) => {
   };
 };
 
-function createErrorReference(prefix = 'LIFR') {
+function createERC(prefix) {
   return `${prefix}-${Date.now()}-${uuidv4().slice(0, 8)}`;
+}
+
+function buildProductSkuRoot(category, productBaseName, opts = {}) {
+  const { codeLen = 3, nameLen = 6, randLen = 3 } = opts;
+  const catCode = toERCPart(category, codeLen); 
+  const nameCode = toERCPart(productBaseName, nameLen);  
+  const rand = randomString(randLen, true);              
+  return `${ERC_PREFIX.PRODUCT}-${catCode}-${nameCode}-${rand}`;
 }
 
 function ratioTrigger(ratio) {
@@ -72,12 +173,16 @@ function parseDataUrl(
     if (acceptPlainBase64 && looksLikeBase64(payload)) {
       return { contentType, base64: normalizeBase64(payload) };
     }
-    throw new Error(`parseDataUrl: data URL is not base64 encoded (meta="${meta}")`);
+    throw new Error(
+      `parseDataUrl: data URL is not base64 encoded (meta="${meta}")`
+    );
   }
   if (acceptPlainBase64 && looksLikeBase64(data)) {
     return { contentType: defaultType, base64: normalizeBase64(data) };
   }
-  throw new Error('parseDataUrl: input is not a valid base64 string or data URL');
+  throw new Error(
+    'parseDataUrl: input is not a valid base64 string or data URL'
+  );
 }
 
 function buildDataUrl({ contentType, base64 }) {
@@ -122,7 +227,12 @@ function resolveOperation(entity, phase, subAction) {
   return subAction ? `${base}:${String(subAction).trim()}` : base || 'generate';
 }
 
-async function handleDemoProductGeneration(config, options, productGenerator, res) {
+async function handleDemoProductGeneration(
+  config,
+  options,
+  productGenerator,
+  res
+) {
   try {
     logger.trace(
       `Demo mode: Generating ${options.productCount} mock products using service`
@@ -197,7 +307,12 @@ async function handleDemoOrderGeneration(config, options, orderGenerator, res) {
   }
 }
 
-async function handleDemoAccountGeneration(config, options, accountGenerator, res) {
+async function handleDemoAccountGeneration(
+  config,
+  options,
+  accountGenerator,
+  res
+) {
   try {
     logger.info('Demo account generation started', {
       correlationId: config.correlationId,
@@ -234,20 +349,31 @@ async function handleDemoAccountGeneration(config, options, accountGenerator, re
 }
 
 module.exports = {
+  buildCategoryERC,
   buildDataUrl,
-  createErrorReference,
+  buildProductSkuRoot,
+  buildSpecCatERC,
+  createERC,
   debounce,
   delay,
   delayCall,
+  elapsedMs,
   getRandomInt,
   handleDemoAccountGeneration,
   handleDemoOrderGeneration,
   handleDemoProductGeneration,
   inferEntityTypeFromClassName,
   isoNow,
+  isoToday,
+  now,
   parseDataUrl,
+  randomDateBetween,
+  randomFutureDate,
+  randomPastDate,
+  randomString,
   ratioTrigger,
   resolveOperation,
   resolvePhaseAndMode,
   safeJSON,
+  toERCPart,
 };
