@@ -52,7 +52,7 @@ class ObjectNotFoundError extends Error {
 }
 
 class ObjectStorageService {
-  constructor({ configService, logger, ENV }) {
+  constructor({ configService, logger }) {
     this.configService = configService;
     this.logger = logger;
     this.applyConfig();

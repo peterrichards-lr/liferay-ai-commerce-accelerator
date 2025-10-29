@@ -14,9 +14,6 @@ const PDF_PLACEHOLDER_KEY = 'default-pdf';
 const IMAGE_PLACEHOLDER_KEY = 'default-image';
 
 export default function PlaceholdersPanel() {
-  // -----------------------------
-  // Local state
-  // -----------------------------
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
@@ -34,9 +31,6 @@ export default function PlaceholdersPanel() {
 
   const abortRef = useRef(null);
 
-  // -----------------------------
-  // Derived flags
-  // -----------------------------
   const hasIssues = pdfIssues.length > 0 || imgIssues.length > 0;
 
   const dirty = useMemo(
@@ -59,7 +53,7 @@ export default function PlaceholdersPanel() {
 
   const validateBase64 = useCallback((s) => {
     if (!s) return ['No data provided'];
-    // Validate base64 string and full data URL. base63 is typically A-Z, a-z, 0-9, +, /, = padding
+
     if (!/^[data]?.*[base64,]?[A-Za-z0-9+/=\n\r]+$/.test(s))
       return ['Invalid Base64 characters detected'];
     return [];
@@ -73,9 +67,6 @@ export default function PlaceholdersPanel() {
     setImgIssues(validateBase64(imgBase64));
   }, [imgBase64, validateBase64]);
 
-  // -----------------------------
-  // Initial load (with cancellation)
-  // -----------------------------
   useEffect(() => {
     const controller = new AbortController();
     abortRef.current = controller;
@@ -88,7 +79,6 @@ export default function PlaceholdersPanel() {
           getKeyValue(IMAGE_PLACEHOLDER_KEY),
         ]);
 
-        // PDF: fixed MIME
         try {
           const { base64 } = parsePlaceholderValue(
             rawPdf || '',
@@ -102,7 +92,6 @@ export default function PlaceholdersPanel() {
           setPdfIssues(['Failed to load PDF placeholder']);
         }
 
-        // Image: editable MIME
         try {
           const { base64, mimeType } = parsePlaceholderValue(
             rawImg || '',
@@ -116,7 +105,6 @@ export default function PlaceholdersPanel() {
           setImgIssues(['Failed to load image placeholder']);
         }
       } catch (e) {
-        // surface a generic toast if both fail at network level
         Liferay?.Util?.openToast?.({
           message: 'Failed to load placeholders.',
           type: 'danger',
@@ -129,7 +117,6 @@ export default function PlaceholdersPanel() {
     return () => controller.abort();
   }, []);
 
-  // Warn before unload if there are unsaved changes
   useEffect(() => {
     const handler = (e) => {
       if (!dirty) return;
@@ -140,7 +127,6 @@ export default function PlaceholdersPanel() {
     return () => window.removeEventListener('beforeunload', handler);
   }, [dirty]);
 
-  // Keyboard shortcut: Cmd/Ctrl+S to save
   useEffect(() => {
     const handler = (e) => {
       const key = e.key?.toLowerCase();
@@ -154,7 +140,7 @@ export default function PlaceholdersPanel() {
   });
 
   const onSave = useCallback(async () => {
-    if (saving) return; // drop double clicks
+    if (saving) return;
     setSaving(true);
     try {
       const pdfPayload = normalizeToJsonPayload(
@@ -183,8 +169,6 @@ export default function PlaceholdersPanel() {
         type: 'success',
       });
     } catch (error) {
-      // Log and toast
-      // eslint-disable-next-line no-console
       console.error(error);
       Liferay?.Util?.openToast?.({
         message: 'Failed to save placeholders.',
@@ -202,9 +186,6 @@ export default function PlaceholdersPanel() {
     setImgMime(lastImgMime);
   }, [lastPdfBase64, lastPdfMime, lastImgBase64, lastImgMime]);
 
-  // -----------------------------
-  // Render helpers
-  // -----------------------------
   const renderIssues = (issues) =>
     issues?.length ? (
       <ul className="alert alert-warning p-2 mt-2" role="alert">

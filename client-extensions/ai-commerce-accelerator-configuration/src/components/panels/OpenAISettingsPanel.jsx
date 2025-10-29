@@ -1,4 +1,3 @@
-// OpenAISettingsPanel.jsx (refactored)
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import ClayAlert from '@clayui/alert';
 import ClayButton from '@clayui/button';
@@ -40,9 +39,6 @@ export default function OpenAISettingsPanel() {
 
   const dirty = keyValue !== lastSaved;
 
-  // -----------------------------
-  // Load existing value
-  // -----------------------------
   useEffect(() => {
     let alive = true;
     (async () => {
@@ -67,9 +63,6 @@ export default function OpenAISettingsPanel() {
     };
   }, []);
 
-  // -----------------------------
-  // Unsaved-changes guard & shortcut
-  // -----------------------------
   useEffect(() => {
     const onBeforeUnload = (e) => {
       if (!dirty) return;
@@ -92,9 +85,6 @@ export default function OpenAISettingsPanel() {
     return () => window.removeEventListener('keydown', onKey);
   });
 
-  // -----------------------------
-  // Validation
-  // -----------------------------
   useEffect(() => {
     const errs = [];
     const v = keyValue.trim();
@@ -115,9 +105,6 @@ export default function OpenAISettingsPanel() {
     [keyValue]
   );
 
-  // -----------------------------
-  // Actions
-  // -----------------------------
   const onSave = useCallback(async () => {
     if (saving || issues.length) return;
     setSaving(true);
@@ -129,7 +116,6 @@ export default function OpenAISettingsPanel() {
         type: 'success',
       });
     } catch (e) {
-      // eslint-disable-next-line no-console
       console.error(e);
       Liferay?.Util?.openToast?.({
         message: 'Failed to save OpenAI key.',
@@ -143,9 +129,6 @@ export default function OpenAISettingsPanel() {
   const onCancel = useCallback(() => setKeyValue(lastSaved), [lastSaved]);
   const onClear = useCallback(() => setKeyValue(''), []);
 
-  // -----------------------------
-  // Render
-  // -----------------------------
   return (
     <ClayLayout.Sheet aria-busy={loading || saving} aria-live="polite">
       <div className="sheet-header">
@@ -182,7 +165,7 @@ export default function OpenAISettingsPanel() {
             {show ? (
               <ClayInput
                 id="openai-key"
-                component="textarea" // <-- multiline
+                component="textarea"
                 rows={6}
                 placeholder="Paste your key…"
                 value={keyValue}
@@ -196,7 +179,7 @@ export default function OpenAISettingsPanel() {
             ) : (
               <ClayInput
                 id="openai-key-masked"
-                component="textarea" // <-- multiline but masked
+                component="textarea"
                 rows={6}
                 value={maskedMultiline}
                 readOnly

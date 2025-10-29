@@ -73,6 +73,8 @@ const ABS_MIN = Object.freeze({
   OAUTH_RETRY_BACKOFF_MS: 100,
   OAUTH_TOKEN_SKEW_SEC: 0,
   OAUTH_TOKEN_CACHE_TTL: 60_000,
+
+  OBJECT_STORAGE_SIGNED_URL_TTL_SEC: 60, // lower bound for presigned URLs
 });
 
 const ABS_MIN_AI = Object.freeze({
@@ -86,6 +88,9 @@ const ABS_MIN_AI = Object.freeze({
 });
 
 const ENV = Object.freeze({
+  PROMPTS_DIR: str('ai.prompts.dir', 'prompts'),
+  PROMPT_CACHE_TTL: num('ai.prompts.cache.ttl', 600000, 60000),
+
   NODE_ENV: str('node.env', 'development'),
   LOGGER_LEVEL: str('logger.level', 'debug').toLowerCase(),
   LOG_PRETTY: bool('logger.pretty', false),
@@ -119,6 +124,19 @@ const ENV = Object.freeze({
 
   PUBLIC_OBJECT_SEARCH_PATHS: str('public.object.search.paths', ''),
   PRIVATE_OBJECT_DIR: str('private.object.dir', ''),
+
+  // Object Storage defaults (used if remote config missing)
+  OBJECT_STORAGE_SIDECAR_ENDPOINT: str(
+    'object.storage.sidecar.endpoint',
+    'http://127.0.0.1:1106'
+  ),
+  OBJECT_STORAGE_SIGNED_URL_TTL_SEC: num(
+    'object.storage.signed.url.ttl.sec',
+    900,
+    ABS_MIN.OBJECT_STORAGE_SIGNED_URL_TTL_SEC
+  ),
+  OBJECT_STORAGE_UPLOAD_PREFIX: str('object.storage.upload.prefix', 'uploads'),
+
   TEST_CLIENT_SECRET: str('test.client.secret', 'test-secret-key'),
 
   BATCH_MIN_POLL_INTERVAL: num(

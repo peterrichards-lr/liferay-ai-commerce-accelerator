@@ -1,4 +1,5 @@
 const { logger } = require('./utils/logger.cjs');
+const { ENV } = require('./utils/constants.cjs');
 
 const { AIService } = require('./services/aiService.cjs');
 const BatchPollingService = require('./services/batchPollingService.cjs');
@@ -11,6 +12,7 @@ const { ObjectStorageService } = require('./services/objectStorageService.cjs');
 const OAuthService = require('./services/oAuthService.cjs');
 const { get: getWs } = require('./services/wsBus.cjs');
 const HealthService = require('./services/healthService.cjs');
+const { PromptService } = require('./services/promptService.cjs');
 
 const AccountGenerator = require('./generators/accountGenerator.cjs');
 const MediaGenerator = require('./generators/mediaGenerator.cjs');
@@ -18,29 +20,38 @@ const MockDataGenerator = require('./generators/mockDataGenerator.cjs');
 const OrderGenerator = require('./generators/orderGenerator.cjs');
 const ProductGenerator = require('./generators/productGenerator.cjs');
 
-
 const ctx = { logger, getWs };
 
 const cacheService = new CacheService(ctx);
 ctx.cache = cacheService;
 
 const oauthService = new OAuthService({ cacheService, logger });
+ctx.oauthService = oauthService;
 
 const liferayService = new LiferayService({ oauthService, logger });
+ctx.liferay = liferayService;
 
 const batchProcessorService = new BatchProcessorService({ logger });
+ctx.batchProcessor = batchProcessorService;
 
 const configService = new ConfigService({
   cache: cacheService,
   logger,
   liferay: liferayService,
 });
+ctx.configService = configService;
+
+const promptService = new PromptService(ctx);
+ctx.promptService = promptService;
 
 const healthService = new HealthService({ configService });
 ctx.health = healthService;
 
 const aiService = new AIService({
   configService,
+  logger,
+  promptService,
+  ENV,
 });
 ctx.ai = aiService;
 
@@ -65,6 +76,7 @@ const batchPollingService = new BatchPollingService({
   liferay: liferayService,
   cache: cacheService,
   getWs,
+  configService,
 });
 ctx.batchPolling = batchPollingService;
 
@@ -106,4 +118,5 @@ module.exports = {
   orderGenerator,
   productGenerator,
   objectStorageService,
+  promptService,
 };

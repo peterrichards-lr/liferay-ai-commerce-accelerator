@@ -511,7 +511,7 @@ class ProductGenerator {
               3600000
             );
             logger.debug('BATCH_START EMIT', {
-              batchId: String(batchResult.batchId),
+              batchId: bid,
               entityType: 'products',
               operation: 'generate',
             });
@@ -714,7 +714,7 @@ class ProductGenerator {
             results.created += batch.length;
             if (batchIndex < productBatches.length - 1) await delay(1000);
           }
-          const sessionId = createERC(ERC_PREFIXES.SESSION);
+          const sessionId = createERC(ERC_PREFIXES.BATCH_SESSION);
           const contextCacheKey = `session:${sessionId}:context`;
           cache.set(
             contextCacheKey,
