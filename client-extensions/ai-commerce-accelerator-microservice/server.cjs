@@ -1,5 +1,5 @@
 const { connectionSchema } = require('./utils/schemas.cjs');
-const { env } = require('./utils/constants.cjs');
+const { ENV } = require('./utils/constants.cjs');
 const { init: initWs } = require('./services/wsBus.cjs');
 
 const { logger } = require('./utils/logger.cjs');
@@ -268,7 +268,7 @@ server.listen(PORT, '0.0.0.0', () => {
     operation: 'server-start',
     port: PORT,
     host: '0.0.0.0',
-    environment: env.NODE_ENV,
+    environment: ENV.NODE_ENV,
     websocketEnabled: true,
   });
   logger.info(

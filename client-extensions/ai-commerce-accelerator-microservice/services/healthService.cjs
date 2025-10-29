@@ -1,4 +1,4 @@
-const { env } = require('../utils/constants.cjs');
+const { ENV } = require('../utils/constants.cjs');
 
 class HealthService {
   constructor(ctx) {
@@ -26,7 +26,7 @@ class HealthService {
     return {
       service: 'liferay-ai-data-microservice',
       version: '1.0.0',
-      environment: env.NODE_ENV,
+      environment: ENV.NODE_ENV,
       uptime: Math.floor(uptime / 1000), // seconds
       timestamp: new Date().toISOString(),
       node: {

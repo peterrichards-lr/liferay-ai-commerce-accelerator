@@ -1,27 +1,114 @@
-const { logger } = require('../utils/logger.cjs');
-const { env } = require('../utils/constants.cjs');
+const { ENV } = require('../utils/constants.cjs');
 const { sanitizeCacheEntry } = require('../utils/normalize.cjs');
+const { normalizeNumber } = require('../utils/misc.cjs');
 
 class CacheService {
   constructor(ctx) {
     this.ctx = ctx;
     this.cache = new Map();
     this.ttlMap = new Map();
-    this.maxSize = env.CACHE_MAX_SIZE;
-    this.defaultTTL = env.CACHE_DEFAULT_TTL;
+    this.maxSize = normalizeNumber(ENV.CACHE_MAX_SIZE, {
+      min: 100,
+      defaultValue: 1000,
+    });
+    this.defaultTTL = normalizeNumber(ENV.CACHE_DEFAULT_TTL, {
+      min: 1000,
+      defaultValue: 3600000,
+    });
+    this.cleanupIntervalMs = normalizeNumber(ENV.CACHE_CLEANUP_INTERVAL, {
+      min: 5000,
+      defaultValue: 60000,
+    });
+    this._cleanupTimer = null;
 
-    // Cleanup expired entries every minute
-    setInterval(() => this.cleanup(), 60000);
+    const cfgSvc = this.ctx.configService;
+    if (cfgSvc && typeof cfgSvc.getCacheConfigCached === 'function') {
+      const cachedCfg = cfgSvc.getCacheConfigCached();
+      this.applyConfig(cachedCfg);
+    }
+
+    this._setCleanupTimer(this.cleanupIntervalMs);
+  }
+
+  applyConfig(config = {}) {
+    if (!config) return;
+    const { logger } = this.ctx;
+
+    let src = config;
+    if (typeof config === 'string') {
+      try {
+        src = JSON.parse(config);
+      } catch (_) {
+        return;
+      }
+    }
+    if (typeof src !== 'object') return;
+
+    const next = {
+      maxSize: normalizeNumber(src.maxSize, {
+        min: 100,
+        defaultValue: this.maxSize,
+      }),
+      defaultTTL: normalizeNumber(src.defaultTTL, {
+        min: 1000,
+        defaultValue: this.defaultTTL,
+      }),
+      cleanupIntervalMs: normalizeNumber(src.cleanupInterval, {
+        min: 5000,
+        defaultValue: this.cleanupIntervalMs,
+      }),
+    };
+
+    this.maxSize = Math.max(this.maxSize, next.maxSize);
+    this.defaultTTL = Math.max(this.defaultTTL, next.defaultTTL);
+    this.cleanupIntervalMs = Math.max(
+      this.cleanupIntervalMs,
+      next.cleanupIntervalMs
+    );
+
+    this._setCleanupTimer(this.cleanupIntervalMs);
+
+    logger?.debug?.('CacheService config applied', {
+      operation: 'cache-config-apply',
+      maxSize: this.maxSize,
+      defaultTTL: this.defaultTTL,
+      cleanupIntervalMs: this.cleanupIntervalMs,
+    });
+  }
+
+  async refreshConfigFromRemote(requestConfig) {
+    const { configService, logger } = this.ctx;
+    if (!configService?.getCacheConfig) return;
+
+    try {
+      const remoteCfg = await configService.getCacheConfig(requestConfig);
+      this.applyConfig(remoteCfg);
+    } catch (e) {
+      logger?.warn?.('CacheService: failed to refresh config from remote', {
+        operation: 'cache-config-refresh',
+        error: String(e?.message || e),
+      });
+    }
+  }
+
+  _setCleanupTimer(intervalMs) {
+    if (this._cleanupTimer) clearInterval(this._cleanupTimer);
+    this._cleanupTimer = setInterval(() => this.cleanup(), intervalMs);
   }
 
   set(key, value, ttl = this.defaultTTL) {
     const { logger } = this.ctx;
-    // Remove oldest entries if cache is full
+
     if (this.cache.size >= this.maxSize) {
       this.evictOldest();
     }
 
-    const expiry = Date.now() + ttl;
+    const effectiveTtl = Math.max(
+      this.defaultTTL,
+      Number(ttl) || this.defaultTTL
+    );
+    const expiry = Date.now() + effectiveTtl;
+
     this.cache.set(key, {
       value,
       timestamp: Date.now(),
@@ -30,10 +117,10 @@ class CacheService {
     });
     this.ttlMap.set(key, expiry);
 
-    logger.trace('Cache entry set', {
+    logger?.trace?.('Cache entry set', {
       operation: 'cache-set',
       key,
-      ttl,
+      ttl: effectiveTtl,
       cacheSize: this.cache.size,
     });
   }
@@ -42,10 +129,9 @@ class CacheService {
     const { logger } = this.ctx;
     const ttlEntry = this.ttlMap.get(key);
 
-    // Check if expired
     if (!ttlEntry || Date.now() > ttlEntry) {
       this.delete(key);
-      logger.trace('Cache miss - expired', {
+      logger?.trace?.('Cache miss - expired', {
         operation: 'cache-get',
         key,
         result: 'expired',
@@ -55,7 +141,7 @@ class CacheService {
 
     const entry = this.cache.get(key);
     if (!entry) {
-      logger.trace('Cache miss - not found', {
+      logger?.trace?.('Cache miss - not found', {
         operation: 'cache-get',
         key,
         result: 'not-found',
@@ -63,11 +149,10 @@ class CacheService {
       return null;
     }
 
-    // Update access statistics
     entry.accessCount++;
     entry.lastAccess = Date.now();
 
-    logger.trace('Cache hit', {
+    logger?.trace?.('Cache hit', {
       operation: 'cache-get',
       key,
       result: 'hit',
@@ -83,13 +168,12 @@ class CacheService {
     this.ttlMap.delete(key);
 
     if (deleted) {
-      logger.trace('Cache entry deleted', {
+      logger?.trace?.('Cache entry deleted', {
         operation: 'cache-delete',
         key,
         cacheSize: this.cache.size,
       });
     }
-
     return deleted;
   }
 
@@ -108,7 +192,7 @@ class CacheService {
     this.cache.clear();
     this.ttlMap.clear();
 
-    logger.info('Cache cleared', {
+    logger?.info?.('Cache cleared', {
       operation: 'cache-clear',
       clearedEntries: size,
     });
@@ -120,17 +204,13 @@ class CacheService {
     const expiredKeys = [];
 
     for (const [key, expiry] of this.ttlMap.entries()) {
-      if (now > expiry) {
-        expiredKeys.push(key);
-      }
+      if (now > expiry) expiredKeys.push(key);
     }
 
-    expiredKeys.forEach((key) => {
-      this.delete(key);
-    });
+    expiredKeys.forEach((key) => this.delete(key));
 
     if (expiredKeys.length > 0) {
-      logger.debug('Cache cleanup completed', {
+      logger?.debug?.('Cache cleanup completed', {
         operation: 'cache-cleanup',
         expiredEntries: expiredKeys.length,
         remainingEntries: this.cache.size,
@@ -142,7 +222,6 @@ class CacheService {
     const { logger } = this.ctx;
     if (this.cache.size === 0) return;
 
-    // Find the oldest entry by timestamp
     let oldestKey = null;
     let oldestTime = Date.now();
 
@@ -155,7 +234,7 @@ class CacheService {
 
     if (oldestKey) {
       this.delete(oldestKey);
-      logger.debug('Cache entry evicted', {
+      logger?.debug?.('Cache entry evicted', {
         operation: 'cache-evict',
         key: oldestKey,
         reason: 'size-limit',
@@ -203,18 +282,15 @@ class CacheService {
 
   calculateSize(value) {
     try {
-      return JSON.stringify(value).length * 2; // Rough estimate in bytes
-    } catch (error) {
-      return 1000; // Default size estimate
+      return JSON.stringify(value).length * 2;
+    } catch {
+      return 1000;
     }
   }
 
-  // Convenience methods for common caching patterns
   remember(key, asyncFunction, ttl = this.defaultTTL) {
     const cached = this.get(key);
-    if (cached !== null) {
-      return Promise.resolve(cached);
-    }
+    if (cached !== null) return Promise.resolve(cached);
 
     return asyncFunction().then((result) => {
       this.set(key, result, ttl);
@@ -222,9 +298,7 @@ class CacheService {
     });
   }
 
-  // Cache configuration data
-  cacheConfig(key, value, ttl = 3600000) {
-    // 1 hour default for config
+  cacheConfig(key, value, ttl = this.defaultTTL) {
     this.set(`config:${key}`, value, ttl);
   }
 
@@ -232,9 +306,7 @@ class CacheService {
     return this.get(`config:${key}`);
   }
 
-  // Cache API responses
   cacheApiResponse(url, method, body, response, ttl = 300000) {
-    // 5 minutes
     const cacheKey = `api:${method}:${url}:${JSON.stringify(body)}`;
     this.set(cacheKey, response, ttl);
   }

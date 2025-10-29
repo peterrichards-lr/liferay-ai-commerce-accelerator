@@ -7,7 +7,7 @@ const CacheService = require('./services/cacheService.cjs');
 const ConfigService = require('./services/configService.cjs');
 const DeleteCoordinatorService = require('./services/deleteCoordinatorService.cjs');
 const LiferayService = require('./services/liferayService.cjs');
-const { objectStorageService } = require('./services/objectStorageService.cjs');
+const { ObjectStorageService } = require('./services/objectStorageService.cjs');
 const OAuthService = require('./services/oAuthService.cjs');
 const { get: getWs } = require('./services/wsBus.cjs');
 const HealthService = require('./services/healthService.cjs');
@@ -18,7 +18,11 @@ const MockDataGenerator = require('./generators/mockDataGenerator.cjs');
 const OrderGenerator = require('./generators/orderGenerator.cjs');
 const ProductGenerator = require('./generators/productGenerator.cjs');
 
-const cacheService = new CacheService({ logger });
+
+const ctx = { logger, getWs };
+
+const cacheService = new CacheService(ctx);
+ctx.cache = cacheService;
 
 const oauthService = new OAuthService({ cacheService, logger });
 
@@ -32,23 +36,29 @@ const configService = new ConfigService({
   liferay: liferayService,
 });
 
-const healthService = new HealthService({
-  configService,
-});
+const healthService = new HealthService({ configService });
+ctx.health = healthService;
 
 const aiService = new AIService({
   configService,
 });
+ctx.ai = aiService;
+
+const objectStorageService = new ObjectStorageService({
+  configService,
+  logger,
+});
+ctx.objectStorage = objectStorageService;
 
 const mediaGenerator = new MediaGenerator({
   configService,
   objectStorage: objectStorageService,
   logger,
 });
+ctx.media = mediaGenerator;
 
-const mockDataGenerator = new MockDataGenerator({
-  logger,
-});
+const mockDataGenerator = new MockDataGenerator({ logger });
+ctx.mockData = mockDataGenerator;
 
 const batchPollingService = new BatchPollingService({
   logger,
@@ -56,6 +66,7 @@ const batchPollingService = new BatchPollingService({
   cache: cacheService,
   getWs,
 });
+ctx.batchPolling = batchPollingService;
 
 const entityGeneratorCtx = {
   ai: aiService,
@@ -94,4 +105,5 @@ module.exports = {
   oauthService,
   orderGenerator,
   productGenerator,
+  objectStorageService,
 };

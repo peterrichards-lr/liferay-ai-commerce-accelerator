@@ -1,7 +1,10 @@
-const BATCH_POLLING_CONFIG_CACHE_KEY = 'BATCH_POLLING_CONFIG';
+const AI_CONFIG_CACHE_KEY = 'AI_CONFIG_KEY';
+const AI_CONFIG_KEY = 'ai-config';
+
+const BATCH_POLLING_CONFIG_CACHE_KEY = 'BATCH_POLLING_CONFIG_KEY';
 const BATCH_POLLING_CONFIG_KEY = 'batch-polling-config';
 
-const CACHE_CONFIG_CACHE_KEY = 'CACHE_CONFIG';
+const CACHE_CONFIG_CACHE_KEY = 'CACHE_CONFIG_KEY';
 const CACHE_CONFIG_KEY = 'cache-config';
 
 const DEFAULT_IMAGE_CACHE_KEY = 'DEFAULT_IMAGE_KEY';
@@ -10,8 +13,20 @@ const DEFAULT_IMAGE_CONFIG_KEY = 'default-image';
 const DEFAULT_PDF_CACHE_KEY = 'DEFAULT_PDF_KEY';
 const DEFAULT_PDF_CONFIG_KEY = 'default-pdf';
 
-const OPENAI_CONFIG_KEY = 'open-ai-key';
+const OAUTH_CONFIG_CACHE_KEY = 'OAUTH_CONFIG_KEY';
+const OAUTH_CONFIG_KEY = 'oauth-config';
+
+const OBJECT_STORAGE_CONFIG_CACHE_KEY = 'OBJECT_STORAGE_CONFIG_KEY';
+const OBJECT_STORAGE_CONFIG_KEY = 'object-storage-config';
+
 const OPENAPI_CACHE_KEY = 'OPENAI_API_KEY';
+const OPENAI_CONFIG_KEY = 'open-ai-key';
+
+const QUEUE_CONFIG_CACHE_KEY = 'QUEUE_CONFIG_KEY';
+const QUEUE_CONFIG_KEY = 'queue-config';
+
+const WS_CONFIG_CACHE_KEY = 'WS_CONFIG_KEY';
+const WS_CONFIG_KEY = 'ws-config';
 
 class ConfigService {
   constructor(ctx) {
@@ -148,6 +163,112 @@ class ConfigService {
 
   getBatchPollingConfigCached() {
     return this.getConfigCached(BATCH_POLLING_CONFIG_CACHE_KEY) || {};
+  }
+
+  async getQueueConfig(requestConfig) {
+    return this.getConfig(
+      requestConfig,
+      QUEUE_CONFIG_CACHE_KEY,
+      QUEUE_CONFIG_KEY
+    );
+  }
+
+  getQueueConfigCached() {
+    return this.getConfigCached(QUEUE_CONFIG_CACHE_KEY);
+  }
+
+  async getAIConfig(requestConfig) {
+    const { cache, liferay } = this.ctx;
+    const cached = cache.get(AI_CONFIG_CACHE_KEY);
+    if (cached) return cached;
+
+    const resp = await liferay.getConfig(requestConfig, AI_CONFIG_KEY);
+    if (resp.items?.length) {
+      const raw = resp.items[0].configValue;
+      const parsed = typeof raw === 'string' ? JSON.parse(raw) : raw;
+      cache.set(AI_CONFIG_CACHE_KEY, parsed, this.getConfigTTL());
+      return parsed;
+    }
+    return null;
+  }
+
+  getAIConfigCached() {
+    const { cache } = this.ctx;
+    return cache.get(AI_CONFIG_CACHE_KEY);
+  }
+
+  async getOAuthConfig(requestConfig) {
+    const { cache, liferay, logger } = this.ctx;
+    try {
+      const cached = cache.get(OAUTH_CONFIG_CACHE_KEY);
+      if (cached) return cached;
+
+      const response = await liferay.getConfig(requestConfig, OAUTH_CONFIG_KEY);
+      if (response.items && response.items.length > 0) {
+        const configValue = JSON.parse(response.items[0].configValue || '{}');
+        cache.set(OAUTH_CONFIG_CACHE_KEY, configValue, this.getConfigTTL());
+        return configValue;
+      }
+      return {};
+    } catch (error) {
+      logger?.warn?.('Failed to load OAuth config:', error.message);
+      return {};
+    }
+  }
+
+  getOAuthConfigCached() {
+    const { cache } = this.ctx;
+    return cache.get('OAUTH-CONFIG');
+  }
+
+  async getObjectStorageConfig(requestConfig) {
+    const { cache, liferay, logger } = this.ctx;
+    try {
+      const cached = cache.get(OBJECT_STORAGE_CONFIG_CACHE_KEY);
+      if (cached) return cached;
+      const response = await liferay.getConfig(
+        requestConfig,
+        OBJECT_STORAGE_CONFIG_KEY
+      );
+      if (response.items && response.items.length > 0) {
+        const cfg = JSON.parse(response.items[0].configValue || '{}');
+        cache.set(OBJECT_STORAGE_CONFIG_CACHE_KEY, cfg, this.getConfigTTL());
+        return cfg;
+      }
+      return {};
+    } catch (e) {
+      logger?.warn?.('Failed to load Object Storage config:', e.message);
+      return {};
+    }
+  }
+
+  getObjectStorageConfigCached() {
+    const { cache } = this.ctx;
+    return cache.get(OBJECT_STORAGE_CONFIG_CACHE_KEY);
+  }
+
+  async getWsConfig(requestConfig) {
+    const { logger } = this.ctx;
+    try {
+      const config = await this.getConfig(
+        requestConfig,
+        WS_CONFIG_CACHE_KEY,
+        WS_CONFIG_KEY
+      );
+      return config || {};
+    } catch (error) {
+      logger.error('Failed to get WebSocket configuration:', error);
+      return {};
+    }
+  }
+
+  getWsConfigCached() {
+    return this.getConfigCached(WS_CONFIG_CACHE_KEY) || {};
+  }
+
+  getConfigTTL() {
+    const { ENV } = require('../utils/constants.cjs');
+    return ENV.CONFIG_CACHE_TTL;
   }
 
   clearCache() {

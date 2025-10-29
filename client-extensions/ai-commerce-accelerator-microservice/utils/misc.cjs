@@ -70,7 +70,8 @@ function toERCPart(str, max = 12) {
 
 function buildCategoryERC(category, index, { prefixLen = 3, pad = 3 } = {}) {
   if (!category) throw new Error('buildCategoryCode: category is required');
-  if (index == null || isNaN(index)) throw new Error('buildCategoryCode: index must be a number');
+  if (index == null || isNaN(index))
+    throw new Error('buildCategoryCode: index must be a number');
 
   const prefix = toERCPart(category, prefixLen);
   const num = String(Number(index) + 1).padStart(pad, '0');
@@ -124,9 +125,9 @@ function createERC(prefix) {
 
 function buildProductSkuRoot(category, productBaseName, opts = {}) {
   const { codeLen = 3, nameLen = 6, randLen = 3 } = opts;
-  const catCode = toERCPart(category, codeLen); 
-  const nameCode = toERCPart(productBaseName, nameLen);  
-  const rand = randomString(randLen, true);              
+  const catCode = toERCPart(category, codeLen);
+  const nameCode = toERCPart(productBaseName, nameLen);
+  const rand = randomString(randLen, true);
   return `${ERC_PREFIX.PRODUCT}-${catCode}-${nameCode}-${rand}`;
 }
 
@@ -348,6 +349,15 @@ async function handleDemoAccountGeneration(
   }
 }
 
+function normalizeNumber(value, { min, max, defaultValue = 0 } = {}) {
+  let n = Number(value);
+  if (!Number.isFinite(n)) n = Number(defaultValue);
+
+  if (Number.isFinite(min) && n < min) n = min;
+  if (Number.isFinite(max) && n > max) n = max;
+  return n;
+}
+
 module.exports = {
   buildCategoryERC,
   buildDataUrl,
@@ -365,6 +375,7 @@ module.exports = {
   inferEntityTypeFromClassName,
   isoNow,
   isoToday,
+  normalizeNumber,
   now,
   parseDataUrl,
   randomDateBetween,

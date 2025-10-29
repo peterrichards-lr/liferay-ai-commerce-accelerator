@@ -2,7 +2,7 @@ const crypto = require('crypto');
 const { logger } = require('../utils/logger.cjs');
 const { cacheService } = require('../services/cacheService.cjs');
 
-const { env } = require('../utils/constants.cjs');
+const { ENV } = require('../utils/constants.cjs');
 
 // Input validation middleware
 function inputValidationMiddleware(schema) {
@@ -197,7 +197,7 @@ function getClientSecret(clientId) {
 
   // In production, this would lookup from database or key store
   const secrets = {
-    'test-client': env.TEST_CLIENT_SECRET || 'test-secret-key',
+    'test-client': ENV.TEST_CLIENT_SECRET || 'test-secret-key',
   };
 
   const secret = secrets[clientId];

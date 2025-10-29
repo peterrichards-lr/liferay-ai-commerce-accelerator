@@ -13,7 +13,13 @@ const {
   GENERATION_PROGRESS,
 } = require('../utils/wsEvents.cjs');
 const { CORRELATION_ID_HEADER } = require('../utils/sharedConstants.cjs');
-const { delay, safeJSON, isoNow } = require('../utils/misc.cjs');
+const {
+  delay,
+  safeJSON,
+  isoNow,
+  normalizeNumber,
+} = require('../utils/misc.cjs');
+const { ENV } = require('../utils/constants.cjs');
 
 function isWebSocketInstance(x) {
   return (
@@ -23,7 +29,6 @@ function isWebSocketInstance(x) {
     typeof x.close === 'function'
   );
 }
-
 function countIterable(iter) {
   if (!iter) return 0;
   if (Array.isArray(iter)) return iter.length;
@@ -33,41 +38,113 @@ function countIterable(iter) {
   for (const _ of iter) n++;
   return n;
 }
-
-function normalizeRetries(retries) {
-  if (!retries) return [];
-  if (Array.isArray(retries)) return retries;
-  const n = Math.max(0, Number(retries) || 0);
-  return Array.from({ length: n }, () => 500);
-}
-
-function withOperation(details = {}, operation) {
-  const op = operation ?? details.operation;
-  return op ? { ...details, operation: op } : details;
-}
-
 function normalizeBid(b) {
   if (b === undefined || b === null) return null;
   const s = String(b);
   return s.length ? s : null;
 }
+function withOperation(details = {}, operation) {
+  const op = operation ?? details.operation;
+  return op ? { ...details, operation: op } : details;
+}
 
 function createWebSocketService({
   server,
   logger = console,
-  heartbeatIntervalMs = 30000,
+  heartbeatIntervalMs,
+  retryIntervalMs,
+  maxRetries,
+  configService,
 } = {}) {
   if (!server) throw new Error('webSocketService requires an HTTP server');
+
+  const defaults = {
+    heartbeatIntervalMs: normalizeNumber(
+      heartbeatIntervalMs ?? ENV.WS_HEARTBEAT_MS,
+      { min: 5000, defaultValue: 30000 }
+    ),
+    retryIntervalMs: normalizeNumber(
+      retryIntervalMs ?? ENV.WS_RETRY_INTERVAL_MS,
+      { min: 100, defaultValue: 500 }
+    ),
+    maxRetries: normalizeNumber(maxRetries ?? ENV.WS_MAX_RETRIES, {
+      min: 0,
+      defaultValue: 3,
+    }),
+  };
+
+  function applyWsConfig(cfg) {
+    if (!cfg || typeof cfg !== 'object') return;
+    const next = {
+      heartbeatIntervalMs: normalizeNumber(cfg.heartbeatIntervalMs, {
+        min: 5000,
+        defaultValue: defaults.heartbeatIntervalMs,
+      }),
+      retryIntervalMs: normalizeNumber(cfg.retryIntervalMs, {
+        min: 100,
+        defaultValue: defaults.retryIntervalMs,
+      }),
+      maxRetries: normalizeNumber(cfg.maxRetries, {
+        min: 0,
+        defaultValue: defaults.maxRetries,
+      }),
+    };
+    state.heartbeatIntervalMs = next.heartbeatIntervalMs = Math.max(
+      defaults.heartbeatIntervalMs,
+      next.heartbeatIntervalMs
+    );
+    state.retryIntervalMs = next.retryIntervalMs = Math.max(
+      defaults.retryIntervalMs,
+      next.retryIntervalMs
+    );
+    state.maxRetries = next.maxRetries = Math.max(
+      defaults.maxRetries,
+      next.maxRetries
+    );
+    if (heartbeatTimer) {
+      clearInterval(heartbeatTimer);
+      heartbeatTimer = setInterval(_heartbeatTick, state.heartbeatIntervalMs);
+    }
+    logger?.debug?.('WS config applied', {
+      operation: 'ws-config-apply',
+      heartbeatIntervalMs: state.heartbeatIntervalMs,
+      retryIntervalMs: state.retryIntervalMs,
+      maxRetries: state.maxRetries,
+    });
+  }
+
+  async function refreshWsConfigFromRemote(requestConfig) {
+    if (!configService?.getWsConfig) return;
+    try {
+      const remote = await configService.getWsConfig(requestConfig);
+      applyWsConfig(remote);
+    } catch (e) {
+      logger?.warn?.('WS: failed to refresh ws-config from remote', {
+        operation: 'ws-config-refresh',
+        error: String(e?.message || e),
+      });
+    }
+  }
+
+  const state = {
+    heartbeatIntervalMs: defaults.heartbeatIntervalMs,
+    retryIntervalMs: defaults.retryIntervalMs,
+    maxRetries: defaults.maxRetries,
+  };
+
+  if (configService?.getWsConfigCached) {
+    const cached = configService.getWsConfigCached();
+    applyWsConfig(cached);
+  }
 
   const wss = new WebSocket.Server({ server });
   const clients = new Map();
   const byBatch = new Map();
-  const lastCompletion = new Map(); // Map<batchIdStr, { success, failure, total }>
+  const lastCompletion = new Map();
 
   function resolveTargets({ mode = 'auto', correlationId, batchId }, payload) {
     const cid = correlationId ?? payload?.correlationId ?? null;
     const bid = normalizeBid(batchId ?? payload?.batchId);
-
     if (mode === 'unicast' || (mode === 'auto' && cid)) {
       const c = clients.get(cid);
       return c ? [c] : [];
@@ -95,19 +172,25 @@ function createWebSocketService({
     return { sent, open, errors };
   }
 
+  function retrySchedule() {
+    const n = Math.max(0, Number(state.maxRetries) || 0);
+    const step = Math.max(100, Number(state.retryIntervalMs) || 500);
+    return Array.from({ length: n }, () => step);
+  }
+
   function deliver(message, opts = {}) {
     const {
       mode = 'auto',
       correlationId,
       batchId,
-      retries = [300, 1500],
+      retries,
       fireAndForget = false,
       onAttempt,
     } = opts;
 
     if (isWebSocketInstance(message)) {
       const stack = new Error().stack?.split('\n').slice(2, 4).join(' ← ');
-      logger?.warn?.('⚠️  Attempted to broadcast a WebSocket instance', {
+      logger?.warn?.('Attempted to broadcast a WebSocket instance', {
         operation: 'websocket-send-guard',
         hint: 'First argument must be a plain message object, not a ws connection',
         stackSnippet: stack,
@@ -117,7 +200,7 @@ function createWebSocketService({
 
     const bid = normalizeBid(batchId ?? message?.batchId);
     const packet = safeJSON(bid ? { ...message, batchId: bid } : message);
-    const schedule = normalizeRetries(retries);
+    const schedule = Array.isArray(retries) ? retries : retrySchedule();
 
     const run = async () => {
       const targets = resolveTargets(
@@ -126,20 +209,17 @@ function createWebSocketService({
       );
       const targetCount = countIterable(targets);
       const msgType = message?.type ?? '(no-type)';
-
       logger?.trace?.(
         `[ws:send] type=${msgType} mode=${mode} cid=${
           correlationId ?? '∅'
         } bid=${bid ?? '∅'} → ${targetCount} target(s)`
       );
-
       if (!message?.type) {
-        logger?.warn?.('🟡 WebSocket message missing "type" property', {
+        logger?.warn?.('WebSocket message missing "type" property', {
           operation: 'websocket-missing-type',
           payloadKeys: Object.keys(message || {}),
         });
       }
-
       let last = sendOnce(packet, targets);
       onAttempt?.(0, last);
       for (let i = 0; i < schedule.length; i++) {
@@ -303,7 +383,7 @@ function createWebSocketService({
         remainingClients: clients.size,
       });
       if (code !== 1001 && code !== 1000) {
-        logger?.warn?.('⚠️  Abnormal WS closure', {
+        logger?.warn?.('Abnormal WS closure', {
           code,
           reason: reason ? reason.toString() : '(no reason)',
           correlationId: ws.correlationId,
@@ -325,14 +405,14 @@ function createWebSocketService({
     );
   });
 
-  const heartbeat = setInterval(() => {
+  function _heartbeatTick() {
     let checked = 0,
       terminated = 0;
     for (const ws of clients.values()) {
       checked++;
       if (ws.isAlive === false) {
         terminated++;
-        logger?.warn?.('🧹 Terminating unresponsive WS', {
+        logger?.warn?.('Terminating unresponsive WS', {
           operation: 'websocket-health-check',
           id: ws.id,
         });
@@ -351,7 +431,9 @@ function createWebSocketService({
     logger?.trace?.(
       `[ws:heartbeat] checked=${checked} terminated=${terminated}`
     );
-  }, heartbeatIntervalMs);
+  }
+
+  let heartbeatTimer = setInterval(_heartbeatTick, state.heartbeatIntervalMs);
 
   async function emit(message, opts = {}) {
     const res = await deliver(message, opts);
@@ -670,7 +752,7 @@ function createWebSocketService({
   };
 
   const stop = () => {
-    clearInterval(heartbeat);
+    clearInterval(heartbeatTimer);
     for (const ws of clients.values()) {
       try {
         if (ws.readyState === WebSocket.OPEN)
@@ -699,6 +781,8 @@ function createWebSocketService({
     emitGenerationProgress,
     emitBatchFailed,
     stop,
+    applyWsConfig,
+    refreshWsConfigFromRemote,
   };
 }
 

@@ -1,4 +1,4 @@
-const { env } = require('../utils/constants.cjs');
+const { ENV } = require('../utils/constants.cjs');
 
 module.exports = {
   // API endpoints
@@ -52,7 +52,7 @@ module.exports = {
   // Error handling configuration
   errorConfig: {
     logErrors: true,
-    includeStackTrace: env.NODE_ENV === 'development',
+    includeStackTrace: ENV.NODE_ENV === 'development',
     maxErrorsPerOperation: 10,
   },
 

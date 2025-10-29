@@ -2,7 +2,7 @@ const fs = require('fs');
 const path = require('path');
 const util = require('util');
 
-const { env } = require('./constants.cjs');
+const { ENV } = require('./constants.cjs');
 
 const logsDir = path.join(__dirname, '../logs');
 if (!fs.existsSync(logsDir)) {
@@ -25,7 +25,7 @@ class Logger {
       logsDir,
       `app-${new Date().toISOString().split('T')[0]}.log`
     );
-    this.loggingLevel = this.determineLoggingLevel(env.LOGGER_LEVEL);
+    this.loggingLevel = this.determineLoggingLevel(ENV.LOGGER_LEVEL);
   }
 
   determineLoggingLevel(loggingLevel) {
@@ -80,9 +80,9 @@ class Logger {
       correlationId,
       userId,
       operation,
-      environment: env.NODE_ENV,
-      service: env.SERVICE_NAME,
-      version: env.SERVICE_VERSION,
+      environment: ENV.NODE_ENV,
+      service: ENV.SERVICE_NAME,
+      version: ENV.SERVICE_VERSION,
       ...meta,
     };
 
@@ -132,7 +132,7 @@ class Logger {
 
     const out =
       level === 'ERROR' || level === 'WARN' ? process.stderr : process.stdout;
-    if (env.LOG_PRETTY) {
+    if (ENV.LOG_PRETTY) {
       out.write(this._asPretty(level, message, timestamp, meta) + '\n');
     } else {
       out.write(jsonLine + '\n');

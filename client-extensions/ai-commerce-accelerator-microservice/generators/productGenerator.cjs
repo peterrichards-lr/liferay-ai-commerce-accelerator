@@ -714,7 +714,7 @@ class ProductGenerator {
             results.created += batch.length;
             if (batchIndex < productBatches.length - 1) await delay(1000);
           }
-          const sessionId = createERC(ERC_PREFIXES.SESSSION);
+          const sessionId = createERC(ERC_PREFIXES.SESSION);
           const contextCacheKey = `session:${sessionId}:context`;
           cache.set(
             contextCacheKey,
