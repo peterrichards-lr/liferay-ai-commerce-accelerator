@@ -4,28 +4,52 @@ const {
   pricingHints,
   joinList,
 } = require('../utils/promptHelpers.cjs');
+const { createERC } = require('../utils/misc.cjs');
+const { ERC_PREFIX } = require('../utils/constants.cjs');
 
 class AIService {
   constructor(ctx) {
     this.ctx = ctx;
     this.openai = null;
+  }
 
-    this.defaultModel = 'gpt-4o';
-    this.defaultTemperature = 0.7;
-    this.maxTokens = 4000;
+  async getRuntimeAIConfig(requestConfig) {
+    const { configService } = this.ctx;
+    const aiCfg = (await configService.getAIConfig(requestConfig)) || {};
+
+    return {
+      model: aiCfg.defaultModel || 'gpt-4o',
+      temperature:
+        typeof aiCfg.temperature === 'number' ? aiCfg.temperature : 0.7,
+      maxTokens:
+        (aiCfg.maxTokens && aiCfg.maxTokens.default) || aiCfg.maxTokens || 4000,
+      responseFormat:
+        aiCfg.responseFormat === 'json_object' ? 'json_object' : 'json_object',
+      requestTimeoutMs:
+        typeof aiCfg.requestTimeoutMs === 'number'
+          ? aiCfg.requestTimeoutMs
+          : 60000,
+    };
   }
 
   async getOpenAIClient(requestConfig) {
     const { configService } = this.ctx;
+
     if (!this.openai) {
       if (!requestConfig) {
         throw new Error(
           'OAuth configuration required to initialize OpenAI client'
         );
       }
+
       const apiKey = await configService.getOpenAIKey(requestConfig);
+      if (!apiKey) {
+        throw new Error('OpenAI API key not configured');
+      }
+
       this.openai = new OpenAI({ apiKey });
     }
+
     return this.openai;
   }
 
@@ -51,33 +75,58 @@ class AIService {
       });
 
       const content = response.choices[0].message.content;
-      return JSON.parse(content);
+      const parsed = tryParseJSON(content, null);
+
+      if (parsed === null) {
+        const err = new Error(
+          `AIService._chatJson received non-JSON response for task "${task}"`
+        );
+        throw err;
+      }
+
+      return parsed;
     } catch (error) {
-      logger?.error?.(`AIService._chatJson failed for ${task}:`, error);
+      logger?.error?.(`AIService._chatJson failed for ${task}:`, {
+        message: error.message,
+        stack: error.stack,
+      });
       throw error;
     }
   }
-
-  async generatePDFContent(
-    product,
-    category,
-    requestConfig,
-    model = this.defaultModel
-  ) {
+  async generatePDFContent(product, category, requestConfig, model) {
     const { logger, promptService } = this.ctx;
+    const correlationId = requestConfig?.correlationId;
     try {
       const vars = {
         productName: product.name?.en_US || product.name,
         productDescription: product.description?.en_US || product.description,
         category,
-        specificationsJSON: JSON.stringify(product.specifications || {}),
+        specificationsJSON: JSON.stringify(
+          product.specifications || {},
+          null,
+          2
+        ),
       };
+
       const prompt = await promptService.render('pdf', vars);
-      const obj = await this._chatJson('pdf', prompt, requestConfig, model);
-      return obj;
+      return await this._chatJson('pdf', prompt, requestConfig, model);
     } catch (error) {
-      logger?.error?.('Error generating PDF content:', error);
-      throw error;
+      const errorReference =
+        error.errorReference || createERC(ERC_PREFIX.ERROR);
+
+      logger?.error?.('AIService.generatePDFContent failed', {
+        correlationId,
+        errorReference,
+        message: error?.message,
+        name: error?.name,
+        stack: error?.stack,
+      });
+
+      const wrapped = new Error(
+        `AI service error: ${error.message || 'Failed to generate PDF content'}`
+      );
+      wrapped.errorReference = errorReference;
+      throw wrapped;
     }
   }
 
@@ -85,15 +134,17 @@ class AIService {
     category,
     count = 1,
     requestConfig,
-    model = this.defaultModel,
+    model,
     selectedLanguages = ['en-US']
   ) {
     const { logger, promptService } = this.ctx;
+    const correlationId = requestConfig?.correlationId;
     try {
       const langs =
         Array.isArray(selectedLanguages) && selectedLanguages.length
           ? selectedLanguages
           : ['en-US'];
+
       const languageCodes = langs.map((l) => l.replace('-', '_'));
 
       const vars = {
@@ -123,38 +174,68 @@ class AIService {
 
       const prompt = await promptService.render('product', vars);
       const obj = await this._chatJson('product', prompt, requestConfig, model);
+
       return obj.products || [obj];
     } catch (error) {
-      logger?.error?.('AI product generation failed:', error);
-      throw new Error(`AI service error: ${error.message}`);
+      const errorReference =
+        error.errorReference || createERC(ERC_PREFIX.ERROR);
+
+      logger?.error?.('AIService.generateProductData failed', {
+        correlationId,
+        errorReference,
+        message: error?.message,
+        name: error?.name,
+        stack: error?.stack,
+      });
+
+      const wrapped = new Error(
+        `AI service error: ${
+          error.message || 'Failed to generate product data'
+        }`
+      );
+      wrapped.errorReference = errorReference;
+      throw wrapped;
     }
   }
 
-  async generateAccountData(
-    count = 1,
-    requestConfig,
-    model = this.defaultModel
-  ) {
+  async generateAccountData(count = 1, requestConfig, model) {
     const { logger, promptService } = this.ctx;
+    const correlationId = requestConfig?.correlationId;
     try {
-      const vars = { count, pluralSuffix: pluralize(count) };
+      const vars = {
+        count,
+        pluralSuffix: pluralize(count),
+      };
+
       const prompt = await promptService.render('account', vars);
       const obj = await this._chatJson('account', prompt, requestConfig, model);
+
       return obj.accounts || [obj];
     } catch (error) {
-      logger?.error?.('AI account generation failed:', error);
-      throw new Error(`AI service error: ${error.message}`);
+      const errorReference =
+        error.errorReference || createERC(ERC_PREFIX.ERROR);
+
+      logger?.error?.('AIService.generateAccountData failed', {
+        correlationId,
+        errorReference,
+        message: error?.message,
+        name: error?.name,
+        stack: error?.stack,
+      });
+
+      const wrapped = new Error(
+        `AI service error: ${
+          error.message || 'Failed to generate account data'
+        }`
+      );
+      wrapped.errorReference = errorReference;
+      throw wrapped;
     }
   }
 
-  async generateOrderData(
-    products,
-    accounts,
-    count = 1,
-    requestConfig,
-    model = this.defaultModel
-  ) {
+  async generateOrderData(products, accounts, count = 1, requestConfig, model) {
     const { logger, promptService } = this.ctx;
+    const correlationId = requestConfig?.correlationId;
     try {
       const productList = products
         .map((p) => ({
@@ -180,10 +261,25 @@ class AIService {
 
       const prompt = await promptService.render('order', vars);
       const obj = await this._chatJson('order', prompt, requestConfig, model);
+
       return obj.orders || [obj];
     } catch (error) {
-      logger?.error?.('AI order generation failed:', error);
-      throw new Error(`AI service error: ${error.message}`);
+      const errorReference =
+        error.errorReference || createERC(ERC_PREFIX.ERROR);
+
+      logger?.error?.('AIService.generateOrderData failed', {
+        correlationId,
+        errorReference,
+        message: error?.message,
+        name: error?.name,
+        stack: error?.stack,
+      });
+
+      const wrapped = new Error(
+        `AI service error: ${error.message || 'Failed to generate order data'}`
+      );
+      wrapped.errorReference = errorReference;
+      throw wrapped;
     }
   }
 
@@ -191,9 +287,10 @@ class AIService {
     products,
     pricingType = 'standard',
     requestConfig,
-    model = this.defaultModel
+    model
   ) {
     const { logger, promptService } = this.ctx;
+    const correlationId = requestConfig?.correlationId;
     try {
       const productList = products.map((p) => ({
         name: p.name?.en_US || p.name,
@@ -209,10 +306,27 @@ class AIService {
 
       const prompt = await promptService.render('pricing', vars);
       const obj = await this._chatJson('pricing', prompt, requestConfig, model);
+
       return obj;
     } catch (error) {
-      logger?.error?.('AI pricing generation failed:', error);
-      throw new Error(`AI service error: ${error.message}`);
+      const errorReference =
+        error.errorReference || createERC(ERC_PREFIX.ERROR);
+
+      logger?.error?.('AIService.generatePricingData failed', {
+        correlationId,
+        errorReference,
+        message: error?.message,
+        name: error?.name,
+        stack: error?.stack,
+      });
+
+      const wrapped = new Error(
+        `AI service error: ${
+          error.message || 'Failed to generate pricing data'
+        }`
+      );
+      wrapped.errorReference = errorReference;
+      throw wrapped;
     }
   }
 }

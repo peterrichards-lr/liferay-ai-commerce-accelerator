@@ -7,6 +7,8 @@ const {
   toERCPart,
   randomString,
   randomPastDate,
+  isJSON,
+  tryParseJSON,
 } = require('../utils/misc.cjs');
 const { ERC_PREFIX } = require('../utils/constants.cjs');
 
@@ -21,13 +23,22 @@ class MockDataGenerator {
 
   loadConfigurationData() {
     const { logger } = this.ctx;
+
     try {
       const dataDir = path.join(__dirname, '..', 'data');
 
       const categoriesPath = path.join(dataDir, 'categories.json');
       if (fs.existsSync(categoriesPath)) {
-        this.categoryData = JSON.parse(fs.readFileSync(categoriesPath, 'utf8'));
-        logger.trace('Loaded category configuration from categories.json');
+        const raw = fs.readFileSync(categoriesPath, 'utf8');
+        if (isJSON(raw)) {
+          this.categoryData = tryParseJSON(raw);
+          logger.trace('Loaded category configuration from categories.json');
+        } else {
+          logger.warn(
+            'categories.json is not valid JSON, using fallback data'
+          );
+          this.categoryData = this.getFallbackCategoryData();
+        }
       } else {
         logger.warn('categories.json not found, using fallback data');
         this.categoryData = this.getFallbackCategoryData();
@@ -35,12 +46,18 @@ class MockDataGenerator {
 
       const specificationsPath = path.join(dataDir, 'specifications.json');
       if (fs.existsSync(specificationsPath)) {
-        this.specificationValues = JSON.parse(
-          fs.readFileSync(specificationsPath, 'utf8')
-        );
-        logger.trace(
-          'Loaded specification configuration from specifications.json'
-        );
+        const raw = fs.readFileSync(specificationsPath, 'utf8');
+        if (isJSON(raw)) {
+          this.specificationValues = tryParseJSON(raw);
+          logger.trace(
+            'Loaded specification configuration from specifications.json'
+          );
+        } else {
+          logger.warn(
+            'specifications.json is not valid JSON, using fallback data'
+          );
+          this.specificationValues = this.getFallbackSpecificationData();
+        }
       } else {
         logger.warn('specifications.json not found, using fallback data');
         this.specificationValues = this.getFallbackSpecificationData();
@@ -48,8 +65,14 @@ class MockDataGenerator {
 
       const pricingPath = path.join(dataDir, 'pricing.json');
       if (fs.existsSync(pricingPath)) {
-        this.pricingData = JSON.parse(fs.readFileSync(pricingPath, 'utf8'));
-        logger.trace('Loaded pricing configuration from pricing.json');
+        const raw = fs.readFileSync(pricingPath, 'utf8');
+        if (isJSON(raw)) {
+          this.pricingData = tryParseJSON(raw);
+          logger.trace('Loaded pricing configuration from pricing.json');
+        } else {
+          logger.warn('pricing.json is not valid JSON, using fallback data');
+          this.pricingData = this.getFallbackPricingData();
+        }
       } else {
         logger.warn('pricing.json not found, using fallback data');
         this.pricingData = this.getFallbackPricingData();
@@ -149,7 +172,10 @@ class MockDataGenerator {
     return {
       Electronics: { basePrice: { min: 50, max: 2000 }, priceModifiers: {} },
       Clothing: { basePrice: { min: 15, max: 300 }, priceModifiers: {} },
-      'Home & Garden': { basePrice: { min: 20, max: 800 }, priceModifiers: {} },
+      'Home & Garden': {
+        basePrice: { min: 20, max: 800 },
+        priceModifiers: {},
+      },
     };
   }
 

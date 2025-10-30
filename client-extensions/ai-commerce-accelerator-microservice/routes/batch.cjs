@@ -5,18 +5,112 @@ const {
   sanitizedObject,
   parseBatchStatuses,
 } = require('../utils/normalize.cjs');
-const { inferEntityTypeFromClassName, delay } = require('../utils/misc.cjs');
-const { BATCH_FAILED } = require('../utils/wsEvents.cjs');
+const {
+  inferEntityTypeFromClassName,
+  delay,
+  createERC,
+} = require('../utils/misc.cjs');
+const { ERC_PREFIX } = require('../utils/constants.cjs');
 
-function buildRecoveredConfig({ liferayUrl, task, correlationId }) {
+function resolveErrorReference(err) {
+  if (!err || typeof err !== 'object') return null;
+  if (err.errorReference && typeof err.errorReference === 'string') {
+    return err.errorReference;
+  }
+  if (err.errorRef && typeof err.errorRef === 'string') {
+    return err.errorRef;
+  }
+  if (err.erc && typeof err.erc === 'string') {
+    return err.erc;
+  }
+  return null;
+}
+
+function safeErrorResponse({
+  res,
+  logger,
+  req,
+  error,
+  operation,
+  meta = {},
+  statusCode = 500,
+  fallbackMessage = 'Unexpected server error',
+}) {
+  const existingERC = resolveErrorReference(error);
+  const errorReference = existingERC || createERC(ERC_PREFIX.ERROR);
+
+  const message =
+    (error && error.message) ||
+    (typeof error === 'string' ? error : null) ||
+    fallbackMessage;
+
+  logger.errorWithStack?.(error, {
+    errorReference,
+    operation,
+    correlationId: req.correlationId,
+    errorMessage: message,
+    requestDetails: {
+      method: req.method,
+      url: req.url,
+      ip: req.ip,
+      userAgent: req.get('User-Agent'),
+    },
+    ...meta,
+  });
+
+  if (!res.headersSent) {
+    res.status(statusCode).json({
+      success: false,
+      error: message,
+      errorReference,
+      timestamp: new Date().toISOString(),
+    });
+  }
+}
+
+// pulls config with sane fallbacks and clamps
+function getBatchPollingDefaults(configService) {
+  const cfg = configService.getBatchPollingConfigCached() || {};
+  const pollInterval = Number.isFinite(cfg.pollInterval)
+    ? cfg.pollInterval
+    : 5000;
+  const maxPollAttempts = Number.isFinite(cfg.maxPollAttempts)
+    ? cfg.maxPollAttempts
+    : 120;
+  return { pollInterval, maxPollAttempts };
+}
+
+function getBatchCacheTTLms(configService) {
+  const cacheCfg = configService.getCacheConfigCached() || {};
+  // if we have a cleanupInterval or jobTTL-like value, prefer something >= 1h
+  // otherwise default to 1h
+  const oneHour = 60 * 60 * 1000;
+  const ttl =
+    (Number.isFinite(cacheCfg.apiResponseTTL) && cacheCfg.apiResponseTTL >= oneHour
+      ? cacheCfg.apiResponseTTL
+      : cacheCfg.configTTL && cacheCfg.configTTL >= oneHour
+      ? cacheCfg.configTTL
+      : oneHour);
+  return ttl;
+}
+
+function buildRecoveredConfig({
+  liferayUrl,
+  task,
+  correlationId,
+  configService,
+}) {
+  const { pollInterval, maxPollAttempts } =
+    getBatchPollingDefaults(configService);
+
   return {
     correlationId,
     entityType: inferEntityTypeFromClassName(task?.className) || 'unknown',
     liferayUrl,
     localeCode: 'en-US',
-    maxPollAttempts: 120,
+    maxPollAttempts,
     mode: 'generate',
-    pollInterval: 5000,
+    pollInterval,
     operation: 'generate',
     affectsProgress: true,
   };
@@ -24,7 +118,14 @@ function buildRecoveredConfig({ liferayUrl, task, correlationId }) {
 
 module.exports = (
   app,
-  { cacheService, batchPollingService, liferayService, logger, getWs }
+  {
+    cacheService,
+    batchPollingService,
+    liferayService,
+    logger,
+    getWs,
+    configService,
+  }
 ) => {
   const waitForConfig = async (
     batchId,
@@ -50,20 +151,31 @@ module.exports = (
       liferayUrl = `${liferayServerProtocol}://${liferayServerDomain}`;
       new URL(liferayUrl);
     } catch (e) {
-      throw new Error(`Unable to determine Liferay URL: ${e?.message || e}`);
+      const err = new Error(
+        `Unable to determine Liferay URL: ${e?.message || String(e)}`
+      );
+      err.errorReference = resolveErrorReference(e) || createERC(ERC_PREFIX.ERROR);
+      throw err;
     }
 
-    return {
-      liferayUrl,
-      task: await liferayService.getImportTask({ liferayUrl }, batchId),
-    };
+    const task = await liferayService.getImportTask({ liferayUrl }, batchId);
+    return { liferayUrl, task };
   };
 
   const restoreConfig = async (batchId, correlationId) => {
     try {
       const { liferayUrl, task } = await getImportTask(batchId);
-      const cfg = buildRecoveredConfig({ liferayUrl, task, correlationId });
-      cacheService.set(`batch:${batchId}:config`, cfg, 60 * 60 * 1000);
+      const cfg = buildRecoveredConfig({
+        liferayUrl,
+        task,
+        correlationId,
+        configService,
+      });
+      cacheService.set(
+        `batch:${batchId}:config`,
+        cfg,
+        getBatchCacheTTLms(configService)
+      );
       logger.info('Recovered batch config from import task', {
         operation: 'batch-config-recovered',
         batchId,
@@ -75,6 +187,7 @@ module.exports = (
         operation: 'batch-config-recover-error',
         batchId,
         error: e.message,
+        errorReference: resolveErrorReference(e),
       });
       return null;
     }
@@ -82,12 +195,18 @@ module.exports = (
 
   app.post('/api/batch/callback', async (req, res) => {
     const [
-      { batchId: bid, status, processedCount, totalCount, errorMessage } = {},
+      {
+        batchId: bid,
+        status,
+        processedCount,
+        totalCount,
+        errorMessage,
+      } = {},
     ] = parseBatchStatuses(req.body) || [{}];
 
     const batchId = String(bid);
 
-    let correlationId = undefined;
+    let correlationId;
     let batchConfig = null;
 
     try {
@@ -136,14 +255,19 @@ module.exports = (
 
       if (logger.isTraceEnabled?.()) {
         const sanitizedCallback = sanitizedObject({ ...req.body });
-        const trace = `
-=== BATCH SUBMISSION CALLBACK ===
-Batch ID: ${batchId || 'Not provided'}
-Status: ${status || 'Not provided'}
-Full callback data: ${JSON.stringify(sanitizedCallback, null, 2)}
-=== END CALLBACK ===
-`;
-        logger.trace(trace);
+        logger.trace(
+          [
+            '=== BATCH SUBMISSION CALLBACK ===',
+            `Batch ID: ${batchId || 'Not provided'}`,
+            `Status: ${status || 'Not provided'}`,
+            `Full callback data: ${JSON.stringify(
+              sanitizedCallback,
+              null,
+              2
+            )}`,
+            '=== END CALLBACK ===',
+          ].join('\n')
+        );
       }
 
       cacheService.set(
@@ -155,7 +279,7 @@ Full callback data: ${JSON.stringify(sanitizedCallback, null, 2)}
           submittedAt: new Date().toISOString(),
           rawCallback: req.body,
         },
-        60 * 60 * 1000
+        getBatchCacheTTLms(configService)
       );
 
       if (status === 'INITIAL' || status === 'STARTED') {
@@ -171,8 +295,8 @@ Full callback data: ${JSON.stringify(sanitizedCallback, null, 2)}
           return;
         }
 
-        const pollInterval = Math.max(batchConfig?.pollInterval || 5000, 2000);
-        const maxPollAttempts = batchConfig?.maxPollAttempts || 120;
+        const { pollInterval, maxPollAttempts } =
+          getBatchPollingDefaults(configService);
 
         logger.debug('Starting batch polling', {
           operation: 'batch-polling-start',
@@ -225,12 +349,16 @@ Full callback data: ${JSON.stringify(sanitizedCallback, null, 2)}
             );
           },
           onError: (err) => {
+            const ref = resolveErrorReference(err) || createERC(ERC_PREFIX.ERROR);
+
             logger.error('Batch processing error', {
               operation: 'batch-error',
               batchId,
               entityType,
               error: err.message,
+              errorReference: ref,
             });
+
             getWs().emitBatchFailed(
               {
                 batchId,
@@ -265,6 +393,7 @@ Full callback data: ${JSON.stringify(sanitizedCallback, null, 2)}
             operation: 'batch-enrich-miss',
             batchId,
             error: e.message,
+            errorReference: resolveErrorReference(e),
           });
         }
       }
@@ -279,7 +408,7 @@ Full callback data: ${JSON.stringify(sanitizedCallback, null, 2)}
             totalCount: finalTotal ?? finalProcessed ?? 0,
             completedAt: new Date().toISOString(),
           },
-          60 * 60 * 1000
+          getBatchCacheTTLms(configService)
         );
 
         getWs().emitBatchCompleted(
@@ -298,8 +427,8 @@ Full callback data: ${JSON.stringify(sanitizedCallback, null, 2)}
         );
 
         if (
-          affectsProgress &&
-          operation === 'generate' &&
+          (batchConfig.affectsProgress ?? true) &&
+          batchConfig.operation === 'generate' &&
           entityType === 'products'
         ) {
           batchPollingService.markBatchCompleteInSessions(
@@ -318,6 +447,7 @@ Full callback data: ${JSON.stringify(sanitizedCallback, null, 2)}
 
       if (status === 'FAILED') {
         const msg = errorMessage || 'Batch failed';
+
         cacheService.set(
           `batch:${batchId}:final`,
           {
@@ -328,7 +458,7 @@ Full callback data: ${JSON.stringify(sanitizedCallback, null, 2)}
             errorMessage: msg,
             completedAt: new Date().toISOString(),
           },
-          60 * 60 * 1000
+          getBatchCacheTTLms(configService)
         );
 
         getWs().emitBatchFailed(
@@ -347,8 +477,8 @@ Full callback data: ${JSON.stringify(sanitizedCallback, null, 2)}
         );
 
         if (
-          affectsProgress &&
-          operation === 'generate' &&
+          (batchConfig.affectsProgress ?? true) &&
+          batchConfig.operation === 'generate' &&
           entityType === 'products'
         ) {
           batchPollingService.markBatchCompleteInSessions(
@@ -365,23 +495,27 @@ Full callback data: ${JSON.stringify(sanitizedCallback, null, 2)}
         return;
       }
     } catch (error) {
-      logger.error('Error processing batch callback', {
+      safeErrorResponse({
+        res,
+        logger,
+        req,
+        error,
         operation: 'batch-callback',
-        error: error.message,
-        stack: error.stack,
+        meta: {
+          batchId,
+          correlationId,
+          requestBody: sanitizedObject(req.body),
+        },
+        statusCode: 500,
+        fallbackMessage: 'Failed to process batch callback',
       });
-      if (!res.headersSent) {
-        res
-          .status(500)
-          .json({ success: false, error: 'Failed to process batch callback' });
-      }
     }
   });
 
   app.get('/api/batch/:batchId/status', async (req, res) => {
-    try {
-      const { batchId } = req.params;
+    const { batchId } = req.params;
 
+    try {
       const finalResults = cacheService.get(`batch:${batchId}:final`);
       if (finalResults) {
         return res.json({
@@ -389,6 +523,7 @@ Full callback data: ${JSON.stringify(sanitizedCallback, null, 2)}
           batchId,
           ...finalResults,
           isFinal: true,
+          timestamp: new Date().toISOString(),
         });
       }
 
@@ -401,6 +536,7 @@ Full callback data: ${JSON.stringify(sanitizedCallback, null, 2)}
           ...currentStatus,
           polling: pollingStatus,
           isFinal: false,
+          timestamp: new Date().toISOString(),
         });
       }
 
@@ -412,21 +548,38 @@ Full callback data: ${JSON.stringify(sanitizedCallback, null, 2)}
           ...submissionData,
           status: 'SUBMITTED',
           isFinal: false,
+          timestamp: new Date().toISOString(),
         });
       }
 
-      res
-        .status(404)
-        .json({ success: false, error: 'Batch not found or expired' });
-    } catch (error) {
-      logger.errorWithStack?.(error, {
-        correlationId: req.correlationId,
+      const errorReference = createERC(ERC_PREFIX.ERROR);
+
+      logger.warn('Batch not found or expired', {
+        errorReference,
         operation: 'get-batch-status',
-        batchId: req.params.batchId,
+        correlationId: req.correlationId,
+        batchId,
       });
-      res
-        .status(500)
-        .json({ success: false, error: 'Failed to get batch status' });
+
+      res.status(404).json({
+        success: false,
+        error: 'Batch not found or expired',
+        errorReference,
+        timestamp: new Date().toISOString(),
+      });
+    } catch (error) {
+      safeErrorResponse({
+        res,
+        logger,
+        req,
+        error,
+        operation: 'get-batch-status',
+        meta: {
+          batchId,
+        },
+        statusCode: 500,
+        fallbackMessage: 'Failed to get batch status',
+      });
     }
   });
 };

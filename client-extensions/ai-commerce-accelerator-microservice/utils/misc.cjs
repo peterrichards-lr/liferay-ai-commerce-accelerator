@@ -358,6 +358,37 @@ function normalizeNumber(value, { min, max, defaultValue = 0 } = {}) {
   return n;
 }
 
+function isJSON(value) {
+  if (typeof value !== 'string') return false;
+
+  const trimmed = value.trim();
+
+  const looksLikeObjectOrArray =
+    (trimmed.startsWith('{') && trimmed.endsWith('}')) ||
+    (trimmed.startsWith('[') && trimmed.endsWith(']'));
+
+  if (!looksLikeObjectOrArray) return false;
+
+  try {
+    JSON.parse(trimmed);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function tryParseJSON(value) {
+  if (!isJSON(value)) {
+    return value;
+  }
+
+  try {
+    return JSON.parse(value.trim());
+  } catch {
+    return value;
+  }
+}
+
 module.exports = {
   buildCategoryERC,
   buildDataUrl,
@@ -373,6 +404,7 @@ module.exports = {
   handleDemoOrderGeneration,
   handleDemoProductGeneration,
   inferEntityTypeFromClassName,
+  isJSON,
   isoNow,
   isoToday,
   normalizeNumber,
@@ -387,4 +419,5 @@ module.exports = {
   resolvePhaseAndMode,
   safeJSON,
   toERCPart,
+  tryParseJSON,
 };

@@ -1,6 +1,12 @@
 const { ENV } = require('../utils/constants.cjs');
 const { sanitizeCacheEntry } = require('../utils/normalize.cjs');
-const { normalizeNumber } = require('../utils/misc.cjs');
+const {
+  normalizeNumber,
+  isJSON,
+  tryParseJSON,
+  createERC,
+} = require('../utils/misc.cjs');
+const { ERC_PREFIX } = require('../utils/constants.cjs');
 
 class CacheService {
   constructor(ctx) {
@@ -30,50 +36,78 @@ class CacheService {
     this._setCleanupTimer(this.cleanupIntervalMs);
   }
 
+  _normalizeRequestBodyForCache(body) {
+    if (body == null) return '';
+    if (typeof body === 'string') {
+      if (isJSON(body)) {
+        const parsed = tryParseJSON(body, body);
+        return JSON.stringify(parsed);
+      }
+      return body;
+    }
+    try {
+      return JSON.stringify(body);
+    } catch {
+      return String(body);
+    }
+  }
+
   applyConfig(config = {}) {
     if (!config) return;
     const { logger } = this.ctx;
 
-    let src = config;
-    if (typeof config === 'string') {
-      try {
-        src = JSON.parse(config);
-      } catch (_) {
-        return;
+    try {
+      let src = config;
+      if (typeof config === 'string') {
+        if (isJSON(config)) {
+          src = tryParseJSON(config, null);
+        } else {
+          return;
+        }
       }
+      if (!src || typeof src !== 'object') return;
+
+      const next = {
+        maxSize: normalizeNumber(src.maxSize, {
+          min: 100,
+          defaultValue: this.maxSize,
+        }),
+        defaultTTL: normalizeNumber(src.defaultTTL, {
+          min: 1000,
+          defaultValue: this.defaultTTL,
+        }),
+        cleanupIntervalMs: normalizeNumber(src.cleanupInterval, {
+          min: 5000,
+          defaultValue: this.cleanupIntervalMs,
+        }),
+      };
+
+      this.maxSize = Math.max(this.maxSize, next.maxSize);
+      this.defaultTTL = Math.max(this.defaultTTL, next.defaultTTL);
+      this.cleanupIntervalMs = Math.max(
+        this.cleanupIntervalMs,
+        next.cleanupIntervalMs
+      );
+
+      this._setCleanupTimer(this.cleanupIntervalMs);
+
+      logger?.debug?.('CacheService config applied', {
+        operation: 'cache-config-apply',
+        maxSize: this.maxSize,
+        defaultTTL: this.defaultTTL,
+        cleanupIntervalMs: this.cleanupIntervalMs,
+      });
+    } catch (error) {
+      const errorReference =
+        error.errorReference || createERC(ERC_PREFIX.ERROR);
+      logger?.error?.('Failed to apply cache config', {
+        operation: 'cache-config-apply',
+        errorReference,
+        message: error.message,
+        stack: error.stack,
+        incomingConfigType: typeof config,
+      });
     }
-    if (typeof src !== 'object') return;
-
-    const next = {
-      maxSize: normalizeNumber(src.maxSize, {
-        min: 100,
-        defaultValue: this.maxSize,
-      }),
-      defaultTTL: normalizeNumber(src.defaultTTL, {
-        min: 1000,
-        defaultValue: this.defaultTTL,
-      }),
-      cleanupIntervalMs: normalizeNumber(src.cleanupInterval, {
-        min: 5000,
-        defaultValue: this.cleanupIntervalMs,
-      }),
-    };
-
-    this.maxSize = Math.max(this.maxSize, next.maxSize);
-    this.defaultTTL = Math.max(this.defaultTTL, next.defaultTTL);
-    this.cleanupIntervalMs = Math.max(
-      this.cleanupIntervalMs,
-      next.cleanupIntervalMs
-    );
-
-    this._setCleanupTimer(this.cleanupIntervalMs);
-
-    logger?.debug?.('CacheService config applied', {
-      operation: 'cache-config-apply',
-      maxSize: this.maxSize,
-      defaultTTL: this.defaultTTL,
-      cleanupIntervalMs: this.cleanupIntervalMs,
-    });
   }
 
   async refreshConfigFromRemote(requestConfig) {
@@ -83,10 +117,14 @@ class CacheService {
     try {
       const remoteCfg = await configService.getCacheConfig(requestConfig);
       this.applyConfig(remoteCfg);
-    } catch (e) {
+    } catch (error) {
+      const errorReference =
+        error.errorReference || createERC(ERC_PREFIX.ERROR);
       logger?.warn?.('CacheService: failed to refresh config from remote', {
         operation: 'cache-config-refresh',
-        error: String(e?.message || e),
+        errorReference,
+        message: String(error?.message || error),
+        correlationId: requestConfig?.correlationId,
       });
     }
   }
@@ -99,185 +137,280 @@ class CacheService {
   set(key, value, ttl = this.defaultTTL) {
     const { logger } = this.ctx;
 
-    if (this.cache.size >= this.maxSize) {
-      this.evictOldest();
+    try {
+      if (this.cache.size >= this.maxSize) {
+        this.evictOldest();
+      }
+
+      const effectiveTtl = Math.max(
+        this.defaultTTL,
+        Number(ttl) || this.defaultTTL
+      );
+      const expiry = Date.now() + effectiveTtl;
+
+      this.cache.set(key, {
+        value,
+        timestamp: Date.now(),
+        accessCount: 0,
+        size: this.calculateSize(value),
+      });
+      this.ttlMap.set(key, expiry);
+
+      logger?.trace?.('Cache entry set', {
+        operation: 'cache-set',
+        key,
+        ttl: effectiveTtl,
+        cacheSize: this.cache.size,
+      });
+    } catch (error) {
+      const errorReference =
+        error.errorReference || createERC(ERC_PREFIX.ERROR);
+      logger?.error?.('Cache set failed', {
+        operation: 'cache-set',
+        errorReference,
+        key,
+        message: error.message,
+        stack: error.stack,
+      });
     }
-
-    const effectiveTtl = Math.max(
-      this.defaultTTL,
-      Number(ttl) || this.defaultTTL
-    );
-    const expiry = Date.now() + effectiveTtl;
-
-    this.cache.set(key, {
-      value,
-      timestamp: Date.now(),
-      accessCount: 0,
-      size: this.calculateSize(value),
-    });
-    this.ttlMap.set(key, expiry);
-
-    logger?.trace?.('Cache entry set', {
-      operation: 'cache-set',
-      key,
-      ttl: effectiveTtl,
-      cacheSize: this.cache.size,
-    });
   }
 
   get(key) {
     const { logger } = this.ctx;
-    const ttlEntry = this.ttlMap.get(key);
+    try {
+      const ttlEntry = this.ttlMap.get(key);
 
-    if (!ttlEntry || Date.now() > ttlEntry) {
-      this.delete(key);
-      logger?.trace?.('Cache miss - expired', {
+      if (!ttlEntry || Date.now() > ttlEntry) {
+        this.delete(key);
+        logger?.trace?.('Cache miss - expired', {
+          operation: 'cache-get',
+          key,
+          result: 'expired',
+        });
+        return null;
+      }
+
+      const entry = this.cache.get(key);
+      if (!entry) {
+        logger?.trace?.('Cache miss - not found', {
+          operation: 'cache-get',
+          key,
+          result: 'not-found',
+        });
+        return null;
+      }
+
+      entry.accessCount++;
+      entry.lastAccess = Date.now();
+
+      logger?.trace?.('Cache hit', {
         operation: 'cache-get',
         key,
-        result: 'expired',
+        result: 'hit',
+        accessCount: entry.accessCount,
+      });
+
+      return entry.value;
+    } catch (error) {
+      const errorReference =
+        error.errorReference || createERC(ERC_PREFIX.ERROR);
+      logger?.error?.('Cache get failed', {
+        operation: 'cache-get',
+        errorReference,
+        key,
+        message: error.message,
+        stack: error.stack,
       });
       return null;
     }
-
-    const entry = this.cache.get(key);
-    if (!entry) {
-      logger?.trace?.('Cache miss - not found', {
-        operation: 'cache-get',
-        key,
-        result: 'not-found',
-      });
-      return null;
-    }
-
-    entry.accessCount++;
-    entry.lastAccess = Date.now();
-
-    logger?.trace?.('Cache hit', {
-      operation: 'cache-get',
-      key,
-      result: 'hit',
-      accessCount: entry.accessCount,
-    });
-
-    return entry.value;
   }
 
   delete(key) {
     const { logger } = this.ctx;
-    const deleted = this.cache.delete(key);
-    this.ttlMap.delete(key);
+    try {
+      const deleted = this.cache.delete(key);
+      this.ttlMap.delete(key);
 
-    if (deleted) {
-      logger?.trace?.('Cache entry deleted', {
+      if (deleted) {
+        logger?.trace?.('Cache entry deleted', {
+          operation: 'cache-delete',
+          key,
+          cacheSize: this.cache.size,
+        });
+      }
+      return deleted;
+    } catch (error) {
+      const errorReference =
+        error.errorReference || createERC(ERC_PREFIX.ERROR);
+      logger?.error?.('Cache delete failed', {
         operation: 'cache-delete',
+        errorReference,
         key,
-        cacheSize: this.cache.size,
+        message: error.message,
+        stack: error.stack,
       });
+      return false;
     }
-    return deleted;
   }
 
   has(key) {
-    const ttlEntry = this.ttlMap.get(key);
-    if (!ttlEntry || Date.now() > ttlEntry) {
-      this.delete(key);
+    try {
+      const ttlEntry = this.ttlMap.get(key);
+      if (!ttlEntry || Date.now() > ttlEntry) {
+        this.delete(key);
+        return false;
+      }
+      return this.cache.has(key);
+    } catch {
       return false;
     }
-    return this.cache.has(key);
   }
 
   clear() {
     const { logger } = this.ctx;
-    const size = this.cache.size;
-    this.cache.clear();
-    this.ttlMap.clear();
+    try {
+      const size = this.cache.size;
+      this.cache.clear();
+      this.ttlMap.clear();
 
-    logger?.info?.('Cache cleared', {
-      operation: 'cache-clear',
-      clearedEntries: size,
-    });
+      logger?.info?.('Cache cleared', {
+        operation: 'cache-clear',
+        clearedEntries: size,
+      });
+    } catch (error) {
+      const errorReference =
+        error.errorReference || createERC(ERC_PREFIX.ERROR);
+      logger?.error?.('Cache clear failed', {
+        operation: 'cache-clear',
+        errorReference,
+        message: error.message,
+        stack: error.stack,
+      });
+    }
   }
 
   cleanup() {
     const { logger } = this.ctx;
-    const now = Date.now();
-    const expiredKeys = [];
+    try {
+      const now = Date.now();
+      const expiredKeys = [];
 
-    for (const [key, expiry] of this.ttlMap.entries()) {
-      if (now > expiry) expiredKeys.push(key);
-    }
+      for (const [key, expiry] of this.ttlMap.entries()) {
+        if (now > expiry) expiredKeys.push(key);
+      }
 
-    expiredKeys.forEach((key) => this.delete(key));
+      expiredKeys.forEach((key) => this.delete(key));
 
-    if (expiredKeys.length > 0) {
-      logger?.debug?.('Cache cleanup completed', {
+      if (expiredKeys.length > 0) {
+        logger?.debug?.('Cache cleanup completed', {
+          operation: 'cache-cleanup',
+          expiredEntries: expiredKeys.length,
+          remainingEntries: this.cache.size,
+        });
+      }
+    } catch (error) {
+      const errorReference =
+        error.errorReference || createERC(ERC_PREFIX.ERROR);
+      logger?.error?.('Cache cleanup failed', {
         operation: 'cache-cleanup',
-        expiredEntries: expiredKeys.length,
-        remainingEntries: this.cache.size,
+        errorReference,
+        message: error.message,
+        stack: error.stack,
       });
     }
   }
 
   evictOldest() {
     const { logger } = this.ctx;
-    if (this.cache.size === 0) return;
+    try {
+      if (this.cache.size === 0) return;
 
-    let oldestKey = null;
-    let oldestTime = Date.now();
+      let oldestKey = null;
+      let oldestTime = Date.now();
 
-    for (const [key, entry] of this.cache.entries()) {
-      if (entry.timestamp < oldestTime) {
-        oldestTime = entry.timestamp;
-        oldestKey = key;
+      for (const [key, entry] of this.cache.entries()) {
+        if (entry.timestamp < oldestTime) {
+          oldestTime = entry.timestamp;
+          oldestKey = key;
+        }
       }
-    }
 
-    if (oldestKey) {
-      this.delete(oldestKey);
-      logger?.debug?.('Cache entry evicted', {
+      if (oldestKey) {
+        this.delete(oldestKey);
+        logger?.debug?.('Cache entry evicted', {
+          operation: 'cache-evict',
+          key: oldestKey,
+          reason: 'size-limit',
+        });
+      }
+    } catch (error) {
+      const errorReference =
+        error.errorReference || createERC(ERC_PREFIX.ERROR);
+      logger?.error?.('Cache eviction failed', {
         operation: 'cache-evict',
-        key: oldestKey,
-        reason: 'size-limit',
+        errorReference,
+        message: error.message,
+        stack: error.stack,
       });
     }
   }
 
   getStats(includeEntryValue = false) {
-    const stats = {
-      size: this.cache.size,
-      maxSize: this.maxSize,
-      entries: [],
-    };
+    try {
+      const stats = {
+        size: this.cache.size,
+        maxSize: this.maxSize,
+        entries: [],
+      };
 
-    let totalSize = 0;
-    for (const [key, entry] of this.cache.entries()) {
-      totalSize += entry.size;
-      stats.entries.push(
-        includeEntryValue
-          ? sanitizeCacheEntry({
-              key,
-              size: entry.size,
-              accessCount: entry.accessCount,
-              age: Date.now() - entry.timestamp,
-              lastAccess: entry.lastAccess,
-              ttl: this.ttlMap.get(key) || 'Unknown',
-              value: entry.value,
-            })
-          : {
-              key,
-              size: entry.size,
-              accessCount: entry.accessCount,
-              age: Date.now() - entry.timestamp,
-              lastAccess: entry.lastAccess,
-              ttl: this.ttlMap.get(key) || 'Unknown',
-            }
-      );
+      let totalSize = 0;
+      for (const [key, entry] of this.cache.entries()) {
+        totalSize += entry.size;
+        stats.entries.push(
+          includeEntryValue
+            ? sanitizeCacheEntry({
+                key,
+                size: entry.size,
+                accessCount: entry.accessCount,
+                age: Date.now() - entry.timestamp,
+                lastAccess: entry.lastAccess,
+                ttl: this.ttlMap.get(key) || 'Unknown',
+                value: entry.value,
+              })
+            : {
+                key,
+                size: entry.size,
+                accessCount: entry.accessCount,
+                age: Date.now() - entry.timestamp,
+                lastAccess: entry.lastAccess,
+                ttl: this.ttlMap.get(key) || 'Unknown',
+              }
+        );
+      }
+
+      stats.totalSize = totalSize;
+      stats.averageSize = stats.size > 0 ? totalSize / stats.size : 0;
+
+      return stats;
+    } catch (error) {
+      const { logger } = this.ctx;
+      const errorReference =
+        error.errorReference || createERC(ERC_PREFIX.ERROR);
+      logger?.error?.('Cache stats failed', {
+        operation: 'cache-stats-get',
+        errorReference,
+        message: error.message,
+        stack: error.stack,
+      });
+      return {
+        size: 0,
+        maxSize: this.maxSize,
+        entries: [],
+        totalSize: 0,
+        averageSize: 0,
+        errorReference,
+      };
     }
-
-    stats.totalSize = totalSize;
-    stats.averageSize = stats.size > 0 ? totalSize / stats.size : 0;
-
-    return stats;
   }
 
   calculateSize(value) {
@@ -292,10 +425,24 @@ class CacheService {
     const cached = this.get(key);
     if (cached !== null) return Promise.resolve(cached);
 
-    return asyncFunction().then((result) => {
-      this.set(key, result, ttl);
-      return result;
-    });
+    return asyncFunction()
+      .then((result) => {
+        this.set(key, result, ttl);
+        return result;
+      })
+      .catch((error) => {
+        const { logger } = this.ctx;
+        const errorReference =
+          error.errorReference || createERC(ERC_PREFIX.ERROR);
+        logger?.error?.('Cache remember failed', {
+          operation: 'cache-remember',
+          errorReference,
+          key,
+          message: error.message,
+          stack: error.stack,
+        });
+        throw Object.assign(error, { errorReference });
+      });
   }
 
   cacheConfig(key, value, ttl = this.defaultTTL) {
@@ -307,12 +454,16 @@ class CacheService {
   }
 
   cacheApiResponse(url, method, body, response, ttl = 300000) {
-    const cacheKey = `api:${method}:${url}:${JSON.stringify(body)}`;
+    const cacheKey = `api:${method}:${url}:${_normalizeRequestBodyForCache(
+      body
+    )}`;
     this.set(cacheKey, response, ttl);
   }
 
   getApiResponse(url, method, body) {
-    const cacheKey = `api:${method}:${url}:${JSON.stringify(body)}`;
+    const cacheKey = `api:${method}:${url}:${_normalizeRequestBodyForCache(
+      body
+    )}`;
     return this.get(cacheKey);
   }
 }

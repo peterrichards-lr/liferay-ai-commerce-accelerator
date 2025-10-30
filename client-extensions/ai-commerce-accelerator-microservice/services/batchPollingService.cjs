@@ -3,7 +3,10 @@ const {
   delayCall,
   inferEntityTypeFromClassName,
   normalizeNumber,
+  delay,
+  createERC,
 } = require('../utils/misc.cjs');
+const { ERC_PREFIX } = require('../utils/constants.cjs');
 const { GENERATION_SESSION_COMPLETE } = require('../utils/wsEvents.cjs');
 const { productGenerator } = require('../bootstrap.cjs');
 
@@ -53,11 +56,15 @@ class BatchPollingService {
     const { logger } = this.ctx;
 
     let cfg = input;
+
     if (typeof input === 'string') {
-      try {
-        cfg = JSON.parse(input);
-      } catch {}
+      if (isJSON(input)) {
+        cfg = tryParseJSON(input, null);
+      } else {
+        return;
+      }
     }
+
     if (!cfg || typeof cfg !== 'object') return;
 
     const next = {
@@ -111,10 +118,14 @@ class BatchPollingService {
         requestConfig
       );
       this.applyPollingConfig(remoteCfg);
-    } catch (e) {
+    } catch (error) {
+      const errorReference =
+        error.errorReference || createERC(ERC_PREFIX.ERROR);
       logger?.warn?.('BatchPollingService: failed to refresh polling config', {
         operation: 'batch-polling-config-refresh',
-        error: String(e?.message || e),
+        errorReference,
+        error: String(error?.message || error),
+        correlationId: requestConfig?.correlationId,
       });
     }
   }
@@ -137,7 +148,7 @@ class BatchPollingService {
     logger.info('Registered generation session', {
       operation: 'generation-session-register',
       sessionId,
-      batchIds: Array.from(batchIds),
+      batchIds: Array.from(batchIds || []),
       totalExpected: totalExpected,
     });
   }
@@ -149,6 +160,7 @@ class BatchPollingService {
         operation: 'post-processing-trigger',
         sessionId,
         completedBatches: Array.from(session.completedBatches),
+        correlationId,
       });
 
       const message = {
@@ -186,10 +198,15 @@ class BatchPollingService {
         }
       }
     } catch (error) {
+      const errorReference =
+        error.errorReference || createERC(ERC_PREFIX.ERROR);
       logger.error('Error triggering post-processing', {
         operation: 'post-processing-trigger-error',
         sessionId,
-        error: error.message,
+        correlationId,
+        errorReference,
+        message: error.message,
+        stack: error.stack,
       });
     }
   }
@@ -251,6 +268,7 @@ class BatchPollingService {
       logger.warn('Polling already active for batch', {
         operation: 'batch-polling-start',
         batchId,
+        correlationId: config?.correlationId,
       });
       return;
     }
@@ -279,13 +297,16 @@ class BatchPollingService {
         logger.error('Batch polling timed out by wall-clock', {
           operation: 'batch-polling-wall-timeout',
           batchId,
+          correlationId: config?.correlationId,
           timeoutMs: pollData.timeoutMs,
         });
         try {
           if (typeof pollData.onTimeout === 'function') {
             pollData.onTimeout();
           } else if (typeof pollData.onError === 'function') {
-            pollData.onError(new Error('Batch polling timed out'));
+            const err = new Error('Batch polling timed out');
+            err.errorReference = createERC(ERC_PREFIX.ERROR);
+            pollData.onError(err);
           }
         } finally {
           this.stopPolling(batchId);
@@ -304,6 +325,7 @@ class BatchPollingService {
       mode,
       affectsProgress,
       timeoutMs,
+      correlationId: config?.correlationId,
     });
 
     await this.pollBatchStatus(batchId);
@@ -366,12 +388,15 @@ class BatchPollingService {
       logger.error('Batch polling exceeded wall-clock deadline', {
         operation: 'batch-polling-deadline',
         batchId,
+        correlationId: config?.correlationId,
       });
       try {
         if (typeof pollData.onTimeout === 'function') {
           pollData.onTimeout();
         } else if (typeof pollData.onError === 'function') {
-          pollData.onError(new Error('Batch polling timed out'));
+          const err = new Error('Batch polling timed out');
+          err.errorReference = createERC(ERC_PREFIX.ERROR);
+          pollData.onError(err);
         }
       } finally {
         this.stopPolling(batchId);
@@ -431,20 +456,24 @@ class BatchPollingService {
       }
 
       if (pollData.attempts > pollData.maxAttempts) {
+        const errMsg = `Batch polling timed out after ${pollData.maxAttempts} attempts`;
+        const errRef = createERC(ERC_PREFIX.ERROR);
+
         logger.error('Batch polling exceeded max attempts', {
           operation: 'batch-polling-timeout',
           batchId,
+          correlationId: config?.correlationId,
           entitytype,
           attempts: pollData.attempts,
           maxAttempts: pollData.maxAttempts,
+          errorReference: errRef,
+          message: errMsg,
         });
 
         if (pollData.onError) {
-          pollData.onError(
-            new Error(
-              `Batch polling timed out after ${pollData.maxAttempts} attempts`
-            )
-          );
+          const err = new Error(errMsg);
+          err.errorReference = errRef;
+          pollData.onError(err);
         }
 
         this.stopPolling(batchId);
@@ -461,16 +490,23 @@ class BatchPollingService {
     } catch (error) {
       const httpStatus = error?.response?.status;
       const message = String(error?.message || error);
+      const errorReference =
+        error.errorReference || createERC(ERC_PREFIX.ERROR);
 
       logger.error('Error polling batch status', {
         operation: 'batch-polling-error',
         batchId,
-        error: message,
+        correlationId: config?.correlationId,
+        errorReference,
+        message,
         httpStatus,
         attempt: pollData.attempts,
       });
 
       if (pollData.onError) {
+        if (!error.errorReference) {
+          error.errorReference = errorReference;
+        }
         pollData.onError(error);
       }
 
@@ -484,7 +520,9 @@ class BatchPollingService {
         logger.warn('Stopping polling due to error condition', {
           operation: 'batch-polling-stop-error',
           batchId,
-          error: message,
+          correlationId: config?.correlationId,
+          errorReference,
+          message,
           attempts: pollData.attempts,
           httpStatus,
         });
@@ -539,10 +577,11 @@ class BatchPollingService {
     logger.info('Batch completed successfully', {
       operation: 'batch-complete',
       batchId,
+      correlationId,
       totalCount,
       processedCount,
       errorCount,
-      operation,
+      mode,
     });
 
     this.stopPolling(batchId);
@@ -633,9 +672,11 @@ class BatchPollingService {
     logger.error('Batch failed', {
       operation: 'batch-failed',
       batchId,
+      correlationId,
       totalCount,
       processedCount,
       errorCount,
+      mode,
       operation,
     });
 
@@ -677,9 +718,11 @@ class BatchPollingService {
 
     const pollDataForFailure = this.activePolls.get(batchId);
     if (pollDataForFailure?.onError) {
-      pollDataForFailure.onError(
-        new Error(`Batch failed with ${status.errorCount || 0} errors`)
+      const err = new Error(
+        `Batch failed with ${status.errorCount || 0} errors`
       );
+      err.errorReference = createERC(ERC_PREFIX.ERROR);
+      pollDataForFailure.onError(err);
     }
   }
 
@@ -726,9 +769,6 @@ class BatchPollingService {
   markBatchCompleteInSessions(batchId, correlationId) {
     const { logger } = this.ctx;
     for (const [sessionId, session] of this.generationSessions.entries()) {
-      const registered = Array.from(session.batchIds).map(String);
-      const incoming = String(batchId);
-
       if (!session.batchIds.has(batchId)) continue;
 
       session.completedBatches.add(batchId);
@@ -758,10 +798,15 @@ class BatchPollingService {
               hook({ sessionId, session: sessionSnapshot, correlationId })
             )
             .catch((err) => {
+              const errorReference =
+                err.errorReference || createERC(ERC_PREFIX.ERROR);
               logger?.error?.('onSessionComplete failed', {
                 operation: 'post-processing-hook-error',
                 sessionId,
-                error: err.message,
+                correlationId,
+                errorReference,
+                message: err.message,
+                stack: err.stack,
               });
             });
         }
