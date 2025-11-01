@@ -2,18 +2,15 @@ const { v4: uuidv4 } = require('uuid');
 const { logger } = require('../utils/logger.cjs');
 const { CORRELATION_ID_HEADER } = require('../utils/sharedConstants.cjs');
 
-// Correlation ID middleware
 function correlationIdMiddleware(req, res, next) {
   req.correlationId = req.get(CORRELATION_ID_HEADER) || uuidv4();
   res.set(CORRELATION_ID_HEADER, req.correlationId);
   next();
 }
 
-// Request logging middleware with sensitive header redaction
 function requestLoggingMiddleware(req, res, next) {
   const startTime = Date.now();
 
-  // Redact sensitive headers
   const userAgent = req.get('User-Agent');
   const authHeader = req.get('Authorization');
   const sanitizedAuth = authHeader ? '[REDACTED]' : undefined;
@@ -38,7 +35,6 @@ function requestLoggingMiddleware(req, res, next) {
   next();
 }
 
-// Error logging middleware
 function errorLoggingMiddleware(error, req, res, next) {
   logger.errorWithStack(error, {
     correlationId: req.correlationId,
@@ -52,7 +48,6 @@ function errorLoggingMiddleware(error, req, res, next) {
   next(error);
 }
 
-// Security headers middleware
 function securityHeadersMiddleware(req, res, next) {
   res.set({
     'X-Content-Type-Options': 'nosniff',
@@ -70,13 +65,11 @@ function userContextMiddleware(req, res, next) {
     const token = authHeader.substring(7);
 
     try {
-      // In a real implementation, you'd verify and decode the JWT
-      // For now, just extract basic info
       req.user = {
         token,
         claims: {
-          sub: 'user-id-placeholder', // Would be extracted from JWT
-          email: 'user@example.com', // Would be extracted from JWT
+          sub: 'user-id-placeholder',
+          email: 'user@example.com',
         },
       };
     } catch (error) {
@@ -91,11 +84,9 @@ function userContextMiddleware(req, res, next) {
   next();
 }
 
-// Basic rate limiting middleware (in-memory)
 function basicRateLimitMiddleware(maxRequests = 100, windowMs = 60000) {
   const clients = new Map();
 
-  // Cleanup old entries every minute
   setInterval(() => {
     const cutoff = Date.now() - windowMs;
     for (const [key, data] of clients.entries()) {

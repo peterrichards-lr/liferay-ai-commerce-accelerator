@@ -13,12 +13,15 @@ const OAuthService = require('./services/oAuthService.cjs');
 const { get: getWs } = require('./services/wsBus.cjs');
 const HealthService = require('./services/healthService.cjs');
 const { PromptService } = require('./services/promptService.cjs');
+const { QueueService } = require('./services/queueService.cjs');
 
 const AccountGenerator = require('./generators/accountGenerator.cjs');
 const MediaGenerator = require('./generators/mediaGenerator.cjs');
 const MockDataGenerator = require('./generators/mockDataGenerator.cjs');
 const OrderGenerator = require('./generators/orderGenerator.cjs');
 const ProductGenerator = require('./generators/productGenerator.cjs');
+
+const registerDataGenerationWorkers = require('./workers/dataGenerationWorkers.cjs');
 
 const ctx = { logger, getWs };
 
@@ -28,18 +31,24 @@ ctx.cache = cacheService;
 const oauthService = new OAuthService({ cacheService, logger });
 ctx.oauthService = oauthService;
 
-const liferayService = new LiferayService({ oauthService, logger });
-ctx.liferay = liferayService;
-
-const batchProcessorService = new BatchProcessorService({ logger });
-ctx.batchProcessor = batchProcessorService;
-
 const configService = new ConfigService({
   cache: cacheService,
   logger,
-  liferay: liferayService,
 });
 ctx.configService = configService;
+
+const liferayService = new LiferayService({
+  oauthService,
+  logger,
+  cache: cacheService,
+  configService,
+});
+ctx.liferay = liferayService;
+
+configService.setLiferayService(liferayService);
+
+const batchProcessorService = new BatchProcessorService({ logger });
+ctx.batchProcessor = batchProcessorService;
 
 const promptService = new PromptService(ctx);
 ctx.promptService = promptService;
@@ -96,16 +105,37 @@ const accountGenerator = new AccountGenerator(entityGeneratorCtx);
 const orderGenerator = new OrderGenerator(entityGeneratorCtx);
 const productGenerator = new ProductGenerator(entityGeneratorCtx);
 
+batchPollingService.setProductGenerator(productGenerator);
+
 const deleteCoordinatorService = new DeleteCoordinatorService({
   cache: cacheService,
   liferay: liferayService,
+  batchPolling: batchPollingService,
   logger,
+});
+ctx.deleteCoordinator = deleteCoordinatorService;
+
+const queueService = new QueueService({
+  logger,
+  configService,
+  cacheService,
+});
+ctx.queueService = queueService;
+
+registerDataGenerationWorkers({
+  queueService,
+  logger,
+  productGenerator,
+  accountGenerator,
+  orderGenerator,
+  mockDataGenerator,
 });
 
 module.exports = {
   accountGenerator,
   aiService,
   batchPollingService,
+  batchProcessorService,
   cacheService,
   configService,
   deleteCoordinatorService,
@@ -119,4 +149,5 @@ module.exports = {
   productGenerator,
   objectStorageService,
   promptService,
+  queueService,
 };

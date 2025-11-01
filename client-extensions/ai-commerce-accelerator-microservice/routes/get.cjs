@@ -3,25 +3,8 @@ const {
 } = require('../middleware/securityMiddleware.cjs');
 const { connectionSchema } = require('../utils/schemas.cjs');
 const { sanitizedObject } = require('../utils/normalize.cjs');
-const { createERC } = require('../utils/misc.cjs');
+const { createERC, resolveErrorReference } = require('../utils/misc.cjs');
 const { ERC_PREFIX } = require('../utils/constants.cjs');
-
-function resolveErrorReference(err) {
-  if (!err || typeof err !== 'object') return null;
-  if (err.errorReference && typeof err.errorReference === 'string') {
-    return err.errorReference;
-  }
-  if (err.errorRef && typeof err.errorRef === 'string') {
-    return err.errorRef;
-  }
-  if (err.erc && typeof err.erc === 'string') {
-    return err.erc;
-  }
-  if (err.reference && typeof err.reference === 'string') {
-    return err.reference;
-  }
-  return null;
-}
 
 function handleError(res, logger, req, operation, error, opts = {}) {
   const baseMessage =
@@ -125,13 +108,8 @@ module.exports = (app, { liferayService, logger }) => {
     inputValidationMiddleware(connectionSchema),
     async (req, res) => {
       try {
-        const {
-          liferayUrl,
-          clientId,
-          clientSecret,
-          localeCode,
-          languageId,
-        } = req.body;
+        const { liferayUrl, clientId, clientSecret, localeCode, languageId } =
+          req.body;
 
         const currencies = await liferayService.getCurrencies({
           liferayUrl,

@@ -20,9 +20,6 @@ const {
   sqlInjectionProtectionMiddleware,
   xssProtectionMiddleware,
 } = require('./middleware/securityMiddleware.cjs');
-const {
-  registerDataGenerationWorkers,
-} = require('./workers/dataGenerationWorkers.cjs');
 
 const express = require('express');
 const cors = require('cors');
@@ -43,12 +40,11 @@ const {
   liferayService,
   orderGenerator,
   productGenerator,
+  oauthService,
   getWs,
 } = require('./bootstrap.cjs');
 
 const PORT = lookupConfig('server.port') || 3000;
-
-registerDataGenerationWorkers();
 
 const lxcDXPServerProtocol = lookupConfig(
   'com.liferay.lxc.dxp.server.protocol'
@@ -62,6 +58,9 @@ const allowList =
     .concat(lookupConfig('allow.list') || []) || [];
 
 logger.info('allowList', allowList);
+
+app.locals.oauthService = oauthService;
+app.locals.liferayService = liferayService;
 
 app.use(
   cors({
@@ -100,17 +99,16 @@ const routeCtx = {
   logger,
 };
 
-require('./routes/batch.cjs')(app, { ...routeCtx, cacheService, getWs });
+require('./routes/batch.cjs')(app, { ...routeCtx, cacheService, configService, getWs });
 require('./routes/cache.cjs')(app, { ...routeCtx, cacheService });
-require('./routes/config.cjs')(app, { ...routeCtx });
+require('./routes/config.cjs')(app, { ...routeCtx, configService });
 require('./routes/get.cjs')(app, routeCtx);
 require('./routes/get.cjs')(app, routeCtx);
 require('./routes/health.cjs')(app, { ...routeCtx, healthService });
 require('./routes/queue.cjs')(app, routeCtx);
 require('./routes/delete.cjs')(app, {
   ...routeCtx,
-  deleteCoordinatorService,
-  cacheService,
+  deleteCoordinatorService
 });
 
 const generateCtx = {
@@ -119,6 +117,7 @@ const generateCtx = {
   accountGenerator,
   orderGenerator,
   logger,
+  getWs,
 };
 
 require('./routes/generate.cjs')(app, generateCtx);

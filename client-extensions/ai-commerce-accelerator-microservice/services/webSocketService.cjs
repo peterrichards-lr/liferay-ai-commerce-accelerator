@@ -1,17 +1,4 @@
 const WebSocket = require('ws');
-const {
-  BATCH_START,
-  BATCH_PROGRESS,
-  GENERATION_SESSION_COMPLETE,
-  POSTPROC_COMPLETED,
-  POSTPROC_PROGRESS,
-  POSTPROC_STARTED,
-  SESSION_COMPLETE,
-  BATCH_COMPLETED,
-  BATCH_FAILED,
-  BATCH_SUBSCRIPTION_CONFIRMED,
-  GENERATION_PROGRESS,
-} = require('../utils/wsEvents.cjs');
 const { CORRELATION_ID_HEADER } = require('../utils/sharedConstants.cjs');
 const {
   delay,
@@ -21,7 +8,11 @@ const {
   tryParseJSON,
   createERC,
 } = require('../utils/misc.cjs');
-const { ENV, ERC_PREFIX } = require('../utils/constants.cjs');
+const {
+  ENV,
+  ERC_PREFIX,
+  WEB_SOCKET_EVENTS,
+} = require('../utils/constants.cjs');
 
 function withErrorRef(err, operation) {
   if (err && err.errorReference) return err;
@@ -367,7 +358,7 @@ function createWebSocketService({
       if (!msg) {
         deliver(
           {
-            type: 'error',
+            type: WEB_SOCKET_EVENTS.ERROR,
             message: 'Invalid message format',
             timestamp: isoNow(),
           },
@@ -383,7 +374,7 @@ function createWebSocketService({
       switch (msg?.type) {
         case 'ping':
           deliver(
-            { type: 'pong', seq: msg.seq, timestamp: isoNow() },
+            { type: WEB_SOCKET_EVENTS.PONG, seq: msg.seq, timestamp: isoNow() },
             {
               mode: 'unicast',
               correlationId: ws.correlationId,
@@ -406,7 +397,7 @@ function createWebSocketService({
 
           deliver(
             {
-              type: BATCH_SUBSCRIPTION_CONFIRMED,
+              type: WEB_SOCKET_EVENTS.BATCH_SUBSCRIPTION_CONFIRMED,
               batchId,
               timestamp: isoNow(),
             },
@@ -434,7 +425,7 @@ function createWebSocketService({
         default:
           deliver(
             {
-              type: 'error',
+              type: WEB_SOCKET_EVENTS.ERROR,
               message: `Unknown message type: ${msg?.type}`,
               timestamp: isoNow(),
             },
@@ -531,7 +522,7 @@ function createWebSocketService({
   let heartbeatTimer = setInterval(_heartbeatTick, state.heartbeatIntervalMs);
 
   const emitBatchStarted = (
-    { batchId, entityType, details = {}, correlationId, operation },
+    { batchId, correlationId, details = {}, entityType, operation },
     opts = {}
   ) => {
     const bid = normalizeBid(batchId);
@@ -539,7 +530,7 @@ function createWebSocketService({
       details.totalCount ?? details.totalItems ?? details.expectedTotal;
 
     const payload = {
-      type: BATCH_START,
+      type: WEB_SOCKET_EVENTS.BATCH_START,
       entityType,
       batchId: bid,
       details: withOperation(
@@ -548,6 +539,7 @@ function createWebSocketService({
       ),
       totalCount,
       timestamp: isoNow(),
+      correlationId: correlationId || opts.correlationId || 'unknown',
     };
 
     return emit(payload, { ...opts, batchId: bid, correlationId });
@@ -556,13 +548,13 @@ function createWebSocketService({
   const emitBatchProgress = (
     {
       batchId,
-      entityType,
       completedCount,
-      totalItems,
       correlationId,
-      progress,
       details = {},
+      entityType,
       operation,
+      progress,
+      totalItems,
     },
     opts = {}
   ) => {
@@ -574,7 +566,7 @@ function createWebSocketService({
       details.totalCount ?? totalItems ?? details.expectedTotal ?? undefined;
 
     const payload = {
-      type: BATCH_PROGRESS,
+      type: WEB_SOCKET_EVENTS.BATCH_PROGRESS,
       operation,
       entityType,
       batchId: bid,
@@ -593,22 +585,23 @@ function createWebSocketService({
         operation
       ),
       timestamp: isoNow(),
+      correlationId: correlationId || opts.correlationId || 'unknown',
     };
 
-    return emit(payload, { ...opts, batchId: bid, correlationId });
+    return emit(payload, { ...opts, batchId: bid });
   };
 
   const emitBatchCompleted = (
     {
       batchId,
-      entityType,
-      successCount = 0,
-      failureCount = 0,
-      totalCount,
       correlationId,
-      errors = [],
       details = {},
+      entityType,
+      errors = [],
+      failureCount = 0,
       operation,
+      successCount = 0,
+      totalCount,
     },
     opts = {}
   ) => {
@@ -649,7 +642,7 @@ function createWebSocketService({
     }
 
     const payload = {
-      type: BATCH_COMPLETED,
+      type: WEB_SOCKET_EVENTS.BATCH_COMPLETED,
       operation,
       entityType,
       batchId: bid,
@@ -668,6 +661,7 @@ function createWebSocketService({
         operation
       ),
       timestamp: isoNow(),
+      correlationId: correlationId || opts?.correlationId || 'unknown',
     };
 
     lastCompletion.set(bid, {
@@ -676,19 +670,19 @@ function createWebSocketService({
       total: Number(normalizedTotal) || sumSF,
     });
 
-    return emit(payload, { ...opts, batchId: bid, correlationId });
+    return emit(payload, { ...opts, batchId: bid });
   };
 
   const emitBatchFailed = (
     {
       batchId,
-      entityType,
-      error,
-      successCount = 0,
-      failureCount = 0,
       correlationId,
       details = {},
+      entityType,
+      error,
+      failureCount = 0,
       operation,
+      successCount = 0,
     },
     opts = {}
   ) => {
@@ -700,7 +694,7 @@ function createWebSocketService({
         : undefined);
 
     const payload = {
-      type: BATCH_FAILED,
+      type: WEB_SOCKET_EVENTS.BATCH_FAILED,
       operation,
       entityType,
       batchId: bid,
@@ -719,54 +713,57 @@ function createWebSocketService({
         operation
       ),
       timestamp: isoNow(),
+      correlationId: correlationId || opts.correlationId || 'unknown',
     };
 
-    return emit(payload, { ...opts, batchId: bid, correlationId });
+    return emit(payload, { ...opts, batchId: bid });
   };
 
   const emitSessionCompleted = (
-    { entityType, correlationId, details = {}, operation },
+    { correlationId, details = {}, entityType, operation },
     opts = {}
   ) => {
     const payload = {
-      type: SESSION_COMPLETE,
+      type: WEB_SOCKET_EVENTS.SESSION_COMPLETE,
       entityType,
       details: withOperation({ ...details }, operation),
       timestamp: isoNow(),
+      correlationId: correlationId || opts.correlationId || 'unknown',
     };
 
-    return emit(payload, { ...opts, correlationId });
+    return emit(payload, { ...opts });
   };
 
   const emitPostProcessingStarted = (
-    { entityType, correlationId, details = {}, operation },
+    { correlationId, details = {}, entityType, operation },
     opts = {}
   ) => {
     const payload = {
-      type: POSTPROC_STARTED,
+      type: WEB_SOCKET_EVENTS.POSTPROC_STARTED,
       operation,
       entityType,
       details: withOperation(details, operation),
       timestamp: isoNow(),
+      correlationId: correlationId || opts.correlationId || 'unknown',
     };
 
-    return emit(payload, { ...opts, correlationId });
+    return emit(payload, { ...opts });
   };
 
   const emitPostProcessingProgress = (
     {
-      entityType,
-      processedCount,
-      totalCount,
       correlationId,
-      progress,
       details = {},
+      entityType,
       operation,
+      processedCount,
+      progress,
+      totalCount,
     },
     opts = {}
   ) => {
     const payload = {
-      type: POSTPROC_PROGRESS,
+      type: WEB_SOCKET_EVENTS.POSTPROC_PROGRESS,
       operation,
       entityType,
       details: withOperation(
@@ -774,26 +771,27 @@ function createWebSocketService({
         operation
       ),
       timestamp: isoNow(),
+      correlationId: correlationId || opts.correlationId || 'unknown',
     };
 
-    return emit(payload, { ...opts, correlationId });
+    return emit(payload, { ...opts });
   };
 
   const emitPostProcessingCompleted = (
     {
+      correlationId,
+      details = {},
       entityType,
+      errorCount = 0,
+      errors = [],
+      operation,
       processedCount,
       totalCount,
-      errorCount = 0,
-      correlationId,
-      errors = [],
-      details = {},
-      operation,
     },
     opts = {}
   ) => {
     const payload = {
-      type: POSTPROC_COMPLETED,
+      type: WEB_SOCKET_EVENTS.POSTPROC_COMPLETED,
       operation,
       entityType,
       details: withOperation(
@@ -801,42 +799,44 @@ function createWebSocketService({
         operation
       ),
       timestamp: isoNow(),
+      correlationId: correlationId || opts.correlationId || 'unknown',
     };
 
-    return emit(payload, { ...opts, correlationId });
+    return emit(payload, { ...opts });
   };
 
   const emitGenerationSessionComplete = (
-    { correlationId, sessionId, details = {}, operation },
+    { correlationId, details = {}, operation, sessionId },
     opts = {}
   ) => {
     const payload = {
-      type: GENERATION_SESSION_COMPLETE,
+      type: WEB_SOCKET_EVENTS.GENERATION_SESSION_COMPLETE,
       operation,
       details: withOperation({ ...details, sessionId }, operation),
       timestamp: isoNow(),
+      correlationId: correlationId || opts.correlationId || 'unknown',
     };
 
-    return emit(payload, { ...opts, correlationId });
+    return emit(payload, { ...opts });
   };
 
   const emitGenerationProgress = (
     {
-      percent,
-      message,
-      phase,
       batchId,
       correlationId,
-      entityType,
       details = {},
+      entityType,
+      message,
       operation,
+      percent,
+      phase,
     },
     opts = {}
   ) => {
     const bid = normalizeBid(batchId);
 
     const payload = {
-      type: GENERATION_PROGRESS,
+      type: WEB_SOCKET_EVENTS.GENERATION_PROGRESS,
       operation,
       entityType,
       batchId: bid,
@@ -845,9 +845,51 @@ function createWebSocketService({
         operation
       ),
       timestamp: isoNow(),
+      correlationId: correlationId || opts.correlationId || 'unknown',
     };
 
-    return emit(payload, { ...opts, batchId: bid, correlationId });
+    return emit(payload, { ...opts, batchId: bid });
+  };
+
+  const emitError = (
+    {
+      batchId,
+      correlationId,
+      details = {},
+      entityType = 'system',
+      errorReference,
+      message,
+      operation = 'internal-error',
+      phase = 'internal',
+    },
+    opts = {}
+  ) => {
+    const bid = normalizeBid(batchId);
+
+    const payload = {
+      type: WEB_SOCKET_EVENTS.ERROR,
+      entityType,
+      batchId: bid,
+      details: {
+        ...details,
+        message: message || 'Internal server error',
+        phase,
+        errorReference:
+          errorReference ||
+          details.errorReference ||
+          createERC(ERC_PREFIX.ERROR),
+        internal: true,
+      },
+      operation,
+      timestamp: isoNow(),
+      correlationId: correlationId || opts.correlationId || 'unknown',
+    };
+
+    return emit(payload, {
+      ...opts,
+      batchId: bid,
+      fireAndForget: false,
+    });
   };
 
   const stop = () => {
@@ -882,6 +924,7 @@ function createWebSocketService({
     emitPostProcessingCompleted,
     emitGenerationSessionComplete,
     emitGenerationProgress,
+    emitError,
     stop,
     applyWsConfig,
     refreshWsConfigFromRemote,

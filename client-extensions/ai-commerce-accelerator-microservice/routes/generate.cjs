@@ -14,90 +14,52 @@ const {
   generateOrdersSchema,
   generateAccountsSchema,
 } = require('../utils/schemas.cjs');
-const {
-  handleDemoProductGeneration,
-  handleDemoAccountGeneration,
-  handleDemoOrderGeneration,
-  createERC,
-} = require('../utils/misc.cjs');
+const { handleError } = require('../utils/handleErrorHelper.cjs');
 const { ERC_PREFIX } = require('../utils/constants.cjs');
+const { resolveErrorReference, createERC } = require('../utils/misc.cjs');
 
 const upload = multer({
   storage: multer.memoryStorage(),
   limits: { fileSize: 15 * 1024 * 1024 },
 });
 
-function resolveErrorReference(err) {
-  if (!err || typeof err !== 'object') return null;
-  if (err.errorReference && typeof err.errorReference === 'string') {
-    return err.errorReference;
-  }
-  if (err.errorRef && typeof err.errorRef === 'string') {
-    return err.errorRef;
-  }
-  if (err.erc && typeof err.erc === 'string') {
-    return err.erc;
-  }
-  if (err.reference && typeof err.reference === 'string') {
-    return err.reference;
-  }
-  return null;
-}
-
-function handleError(res, logger, req, config, operation, error, extra = {}) {
-  const baseMessage =
-    (error && error.message) ||
-    (typeof error === 'string' ? error : null) ||
-    'An unexpected error occurred. Please try again.';
-
-  const isValidationError =
-    baseMessage.includes('Not enough') ||
-    baseMessage.includes('required') ||
-    baseMessage.includes('No ') ||
-    baseMessage.includes('missing') ||
-    baseMessage.includes('invalid');
-
-  const isAIKeyError = baseMessage.includes('OpenAI API key not configured');
-
-  let statusCode = isValidationError ? 400 : 500;
-  let userMessage = baseMessage;
-
-  if (isAIKeyError) {
-    userMessage =
-      'AI service error: OpenAI API key not configured. Please set it in the AI Configuration object.';
-  }
-
-  const errorRef =
-    resolveErrorReference(error) || createERC(ERC_PREFIX.ERROR);
-
-  logger.error('Operation failed', {
-    correlationId: config?.correlationId,
-    errorReference: errorRef,
+function emitRouteError(
+  getWs,
+  {
+    error,
+    fallbackMessage,
     operation,
-    message: baseMessage,
-    name: error?.name,
-    stack: error?.stack,
-    requestDetails: {
-      method: req.method,
-      url: req.url,
-      ip: req.ip,
-      userAgent: req.get('User-Agent'),
-    },
-    ...extra,
-  });
+    entityType,
+    correlationId,
+    errorReference,
+  }
+) {
+  const uiMessage =
+    error?.userMessage ||
+    error?.message ||
+    fallbackMessage ||
+    'An unexpected error occurred';
 
-  return res.status(statusCode).json({
-    success: false,
-    error: userMessage,
-    errorReference: errorRef,
-    demo: !!config?.demoMode,
+  getWs().emitError({
+    correlationId,
+    errorReference,
+    error: uiMessage,
+    operation,
+    entityType,
     timestamp: new Date().toISOString(),
   });
 }
 
 module.exports = (
   app,
-  { liferayService, productGenerator, accountGenerator, orderGenerator, logger }
+  {
+    liferayService,
+    productGenerator,
+    accountGenerator,
+    orderGenerator,
+    logger,
+    getWs,
+  }
 ) => {
   app.post(
     '/api/generate/accounts',
@@ -112,12 +74,61 @@ module.exports = (
         });
 
         if (config.demoMode) {
-          return handleDemoAccountGeneration(
-            config,
-            options,
-            accountGenerator,
-            res
-          );
+          try {
+            logger.info('Demo account generation started', {
+              correlationId: config.correlationId,
+              operation: 'demo-generate-accounts',
+              accountCount: options.accountCount,
+              batchSize: config.batchSize,
+              pollingDelay: config.pollingDelay,
+            });
+
+            const result = await accountGenerator.generateAccounts(
+              config,
+              options
+            );
+
+            const batchIds =
+              Array.isArray(result.accounts) && result.accounts.length > 0
+                ? result.accounts.map((b) => b.batchId).filter(Boolean)
+                : [];
+
+            return res.json({
+              success: true,
+              count: result.created || 0,
+              errors: result.errors || [],
+              data: result.accounts || [],
+              demo: true,
+              batch: batchIds.length > 0,
+              batchIds: batchIds.length > 0 ? batchIds : undefined,
+            });
+          } catch (error) {
+            const errorReference =
+              resolveErrorReference(error) || createERC(ERC_PREFIX.ERROR);
+
+            emitRouteError(getWs, {
+              error,
+              fallbackMessage: 'Demo account generation failed',
+              operation: 'demo-generate-accounts',
+              entityType: 'accounts',
+              correlationId: config.correlationId,
+              errorReference,
+            });
+
+            return handleError(
+              res,
+              logger,
+              req,
+              config,
+              'demo-generate-accounts',
+              Object.assign(error, { errorReference }),
+              {
+                entityType: 'accounts',
+                sanitizeConfig: sanitizedObject(config),
+                sanitizeOptions: sanitizedObject(options),
+              }
+            );
+          }
         }
 
         const results = await accountGenerator.generateAccounts(
@@ -125,7 +136,7 @@ module.exports = (
           options
         );
 
-        res.json({
+        return res.json({
           success: true,
           batch: !!results.batchId,
           count: results.count || results.created || 0,
@@ -135,10 +146,31 @@ module.exports = (
           timestamp: new Date().toISOString(),
         });
       } catch (error) {
-        handleError(res, logger, req, config, 'generate-accounts', error, {
-          sanitizeConfig: sanitizedObject(config),
-          sanitizeOptions: sanitizedObject(options),
+        const errorReference =
+          resolveErrorReference(error) || createERC(ERC_PREFIX.ERROR);
+
+        emitRouteError(getWs, {
+          error,
+          fallbackMessage: 'Account generation failed',
+          operation: 'generate-accounts',
+          entityType: 'accounts',
+          correlationId: config.correlationId,
+          errorReference,
         });
+
+        return handleError(
+          res,
+          logger,
+          req,
+          config,
+          'generate-accounts',
+          Object.assign(error, { errorReference }),
+          {
+            entityType: 'accounts',
+            sanitizeConfig: sanitizedObject(config),
+            sanitizeOptions: sanitizedObject(options),
+          }
+        );
       }
     }
   );
@@ -186,12 +218,72 @@ module.exports = (
 
       try {
         if (options.demoMode) {
-          return handleDemoProductGeneration(
-            config,
-            options,
-            productGenerator,
-            res
-          );
+          try {
+            logger.trace(
+              `Demo mode: Generating ${options.productCount} mock products using service`,
+              {
+                correlationId: config.correlationId,
+                operation: 'demo-generate-products',
+              }
+            );
+
+            const result = await productGenerator.generateProducts(
+              config,
+              options
+            );
+
+            const expectedPDFs =
+              options.pdfMode !== 'none' && options.pdfRatio > 0
+                ? Math.ceil((options.productCount * options.pdfRatio) / 100)
+                : 0;
+
+            const expectedImages =
+              options.imageMode !== 'none' && options.imageRatio > 0
+                ? Math.ceil((options.productCount * options.imageRatio) / 100)
+                : 0;
+
+            const firstBatchWithId = Array.isArray(result.products)
+              ? result.products.find((p) => p && p.batchId)
+              : null;
+
+            return res.json({
+              success: true,
+              batchId: firstBatchWithId ? firstBatchWithId.batchId : undefined,
+              count: result.created || 0,
+              pdfCount: expectedPDFs,
+              imageCount: expectedImages,
+              errors: result.errors || [],
+              status: firstBatchWithId ? firstBatchWithId.status : 'completed',
+              demo: true,
+              batch: Boolean(firstBatchWithId),
+            });
+          } catch (error) {
+            const errorReference =
+              resolveErrorReference(error) || createERC(ERC_PREFIX.ERROR);
+
+            emitRouteError(getWs, {
+              error,
+              fallbackMessage: 'Demo product generation failed',
+              operation: 'demo-generate-products',
+              entityType: 'products',
+              correlationId: config.correlationId,
+              errorReference,
+            });
+
+            return handleError(
+              res,
+              logger,
+              req,
+              config,
+              'demo-generate-products',
+              Object.assign(error, { errorReference }),
+              {
+                entityType: 'products',
+                sanitizeConfig: sanitizedObject(config),
+                sanitizeOptions: sanitizedObject(options),
+              }
+            );
+          }
         }
 
         logger.info('Starting product generation', {
@@ -204,7 +296,7 @@ module.exports = (
           options
         );
 
-        res.json({
+        return res.json({
           success: true,
           message: 'Products generated successfully',
           count: results.created || 0,
@@ -213,10 +305,31 @@ module.exports = (
           timestamp: new Date().toISOString(),
         });
       } catch (error) {
-        handleError(res, logger, req, config, 'generate-products', error, {
-          sanitizeConfig: sanitizedObject(config),
-          sanitizeOptions: sanitizedObject(options),
+        const errorReference =
+          resolveErrorReference(error) || createERC(ERC_PREFIX.ERROR);
+
+        emitRouteError(getWs, {
+          error,
+          fallbackMessage: 'Product generation failed',
+          operation: 'generate-products',
+          entityType: 'products',
+          correlationId: config.correlationId,
+          errorReference,
         });
+
+        return handleError(
+          res,
+          logger,
+          req,
+          config,
+          'generate-products',
+          Object.assign(error, { errorReference }),
+          {
+            entityType: 'products',
+            sanitizeConfig: sanitizedObject(config),
+            sanitizeOptions: sanitizedObject(options),
+          }
+        );
       }
     }
   );
@@ -227,7 +340,7 @@ module.exports = (
     try {
       const count = await liferayService.getProductCount(config);
 
-      res.json({
+      return res.json({
         available: count > 0,
         count,
         required: options.requiredCount || 1,
@@ -235,10 +348,31 @@ module.exports = (
         timestamp: new Date().toISOString(),
       });
     } catch (error) {
-      handleError(res, logger, req, config, 'validate-products', error, {
-        sanitizeConfig: sanitizedObject(config),
-        sanitizeOptions: sanitizedObject(options),
+      const errorReference =
+        resolveErrorReference(error) || createERC(ERC_PREFIX.ERROR);
+
+      emitRouteError(getWs, {
+        error,
+        fallbackMessage: 'Product validation failed',
+        operation: 'validate-products',
+        entityType: 'products',
+        correlationId: config.correlationId,
+        errorReference,
       });
+
+      return handleError(
+        res,
+        logger,
+        req,
+        config,
+        'validate-products',
+        Object.assign(error, { errorReference }),
+        {
+          entityType: 'products',
+          sanitizeConfig: sanitizedObject(config),
+          sanitizeOptions: sanitizedObject(options),
+        }
+      );
     }
   });
 
@@ -248,7 +382,7 @@ module.exports = (
     try {
       const count = await liferayService.getAccountCount(config);
 
-      res.json({
+      return res.json({
         available: count > 0,
         count,
         required: options.requiredCount || 1,
@@ -256,10 +390,31 @@ module.exports = (
         timestamp: new Date().toISOString(),
       });
     } catch (error) {
-      handleError(res, logger, req, config, 'validate-accounts', error, {
-        sanitizeConfig: sanitizedObject(config),
-        sanitizeOptions: sanitizedObject(options),
+      const errorReference =
+        resolveErrorReference(error) || createERC(ERC_PREFIX.ERROR);
+
+      emitRouteError(getWs, {
+        error,
+        fallbackMessage: 'Account validation failed',
+        operation: 'validate-accounts',
+        entityType: 'accounts',
+        correlationId: config.correlationId,
+        errorReference,
       });
+
+      return handleError(
+        res,
+        logger,
+        req,
+        config,
+        'validate-accounts',
+        Object.assign(error, { errorReference }),
+        {
+          entityType: 'accounts',
+          sanitizeConfig: sanitizedObject(config),
+          sanitizeOptions: sanitizedObject(options),
+        }
+      );
     }
   });
 
@@ -271,12 +426,51 @@ module.exports = (
 
       try {
         if (options.demoMode) {
-          return handleDemoOrderGeneration(
-            config,
-            options,
-            orderGenerator,
-            res
-          );
+          try {
+            logger.trace(
+              `Demo mode: Generating ${options.orderCount} mock orders via OrderGenerator`,
+              {
+                correlationId: config.correlationId,
+                operation: 'demo-generate-orders',
+              }
+            );
+
+            const result = await orderGenerator.generateOrders(config, options);
+
+            return res.json({
+              success: true,
+              count: result.created,
+              errors: result.errors || [],
+              data: result.orders || [],
+              demo: true,
+            });
+          } catch (error) {
+            const errorReference =
+              resolveErrorReference(error) || createERC(ERC_PREFIX.ERROR);
+
+            emitRouteError(getWs, {
+              error,
+              fallbackMessage: 'Demo order generation failed',
+              operation: 'demo-generate-orders',
+              entityType: 'orders',
+              correlationId: config.correlationId,
+              errorReference,
+            });
+
+            return handleError(
+              res,
+              logger,
+              req,
+              config,
+              'demo-generate-orders',
+              Object.assign(error, { errorReference }),
+              {
+                entityType: 'orders',
+                sanitizeConfig: sanitizedObject(config),
+                sanitizeOptions: sanitizedObject(options),
+              }
+            );
+          }
         }
 
         if (!config.channelId || !config.currencyCode || !config.batchSize) {
@@ -312,7 +506,7 @@ module.exports = (
 
         const results = await orderGenerator.generateOrders(config, options);
 
-        res.json({
+        return res.json({
           success: true,
           count: results.created || 0,
           data: results.orders,
@@ -321,10 +515,31 @@ module.exports = (
           timestamp: new Date().toISOString(),
         });
       } catch (error) {
-        handleError(res, logger, req, config, 'generate-orders', error, {
-          sanitizeConfig: sanitizedObject(config),
-          sanitizeOptions: sanitizedObject(options),
+        const errorReference =
+          resolveErrorReference(error) || createERC(ERC_PREFIX.ERROR);
+
+        emitRouteError(getWs, {
+          error,
+          fallbackMessage: 'Order generation failed',
+          operation: 'generate-orders',
+          entityType: 'orders',
+          correlationId: config.correlationId,
+          errorReference,
         });
+
+        return handleError(
+          res,
+          logger,
+          req,
+          config,
+          'generate-orders',
+          Object.assign(error, { errorReference }),
+          {
+            entityType: 'orders',
+            sanitizeConfig: sanitizedObject(config),
+            sanitizeOptions: sanitizedObject(options),
+          }
+        );
       }
     }
   );

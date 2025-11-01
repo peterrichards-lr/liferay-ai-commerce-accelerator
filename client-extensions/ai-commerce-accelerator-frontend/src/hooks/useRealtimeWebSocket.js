@@ -6,6 +6,7 @@ import {
   BATCH_PROGRESS,
   BATCH_START,
   CONNECTED,
+  ERROR,
   GENERATION_SESSION_COMPLETE,
 } from '../utils/webSocket';
 import { normalizeEntityType } from '../utils/misc';
@@ -62,7 +63,8 @@ export default function useRealtimeWebSocket({
   const tag = (entityType, batchId, operation) => {
     const et = entityType ?? 'unknown';
     const op = operation ? `/${String(operation).toLowerCase()}` : '';
-    return `${et}${op}#${shortId(batchId)}`;
+    const isNumeric = /^[0-9]+$/.test(batchId);
+    return `${et}${op}#${isNumeric ? shortId(batchId) : batchId}`;
   };
 
   const extractOperation = (payload) =>
@@ -248,6 +250,31 @@ export default function useRealtimeWebSocket({
             raw: data,
           });
           onLog?.(`Batch progress ${tag(entityType, bId, op)}`, 'info');
+
+          if (
+            (op === 'process-images' || op === 'process-attachments') &&
+            onProgress
+          ) {
+            onProgress((prev) => {
+              const cur = prev?.[entityType] || {
+                total: 0,
+                completed: 0,
+                errors: [],
+              };
+              const nextCompleted = cur.completed + (data.processedCount ?? 0);
+              return {
+                ...prev,
+                [entityType]: {
+                  ...cur,
+                  total: cur.total || total || 0,
+                  completed: Math.min(
+                    nextCompleted,
+                    cur.total || total || Infinity
+                  ),
+                },
+              };
+            });
+          }
           break;
         }
 
@@ -273,7 +300,13 @@ export default function useRealtimeWebSocket({
             'success'
           );
 
-          if (op === 'generate' && !activityOnly && onProgress) {
+          if (
+            (op === 'generate' ||
+              op === 'process-images' ||
+              op === 'process-attachments') &&
+            !activityOnly &&
+            onProgress
+          ) {
             onProgress((prev) => {
               const cur = prev?.[entityType] || {
                 total: 0,
@@ -316,7 +349,12 @@ export default function useRealtimeWebSocket({
             'error'
           );
 
-          if (op === 'generate' && onProgress) {
+          if (
+            (op === 'generate' ||
+              op === 'process-images' ||
+              op === 'process-attachments') &&
+            onProgress
+          ) {
             onProgress((prev) => {
               const cur = prev?.[entityType] || {
                 total: 0,
@@ -335,10 +373,10 @@ export default function useRealtimeWebSocket({
                 ...prev,
                 [entityType]: {
                   ...cur,
-                  total: cur.total || total || 0,
+                  total: cur.total || 0,
                   completed: Math.min(
                     nextCompleted,
-                    cur.total || total || Infinity
+                    cur.total || Infinity
                   ),
                   errors: [...cur.errors, ...addErrors],
                 },
@@ -362,6 +400,12 @@ export default function useRealtimeWebSocket({
             'info'
           );
           onProgress?.({ kind: 'session', status: 'completed', data });
+          break;
+        }
+
+        case ERROR: {
+          logError('ERROR received', { raw: data });
+          onLog?.(`Error reported - ${data?.details?.message}`, 'error');
           break;
         }
 

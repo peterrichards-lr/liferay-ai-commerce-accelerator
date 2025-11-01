@@ -1,20 +1,98 @@
 const { ASSET_TYPE, VIEWABLE_BY } = require('../utils/liferayPermissions.cjs');
-const { delay, resolvePhaseAndMode, createERC } = require('../utils/misc.cjs');
-const { ERC_PREFIXES } = require('../utils/constants.cjs');
+const {
+  delay,
+  resolvePhaseAndMode,
+  createERC,
+  toI18n,
+} = require('../utils/misc.cjs');
+const { ERC_PREFIX } = require('../utils/constants.cjs');
 const { sanitizedObject } = require('../utils/normalize.cjs');
 const { v4: uuidv4 } = require('uuid');
+const {
+  getBatchCacheTTLms,
+  getEphemeralTTLms,
+  getSessionTTLms,
+} = require('../utils/ttl.cjs');
+
+const RETRY = { maxAttempts: 3, baseMs: 500, factor: 2 };
 
 class ProductGenerator {
   constructor(ctx) {
     this.ctx = ctx;
+    this.handleBatchComplete = this.handleBatchComplete.bind(this);
+    this.processImageAndPDFAttachments =
+      this.processImageAndPDFAttachments.bind(this);
+    this.createOnSessionComplete = this.createOnSessionComplete.bind(this);
+  }
+
+  async linkPriceListContext(config, priceList) {
+    const { logger, liferay } = this.ctx;
+    try {
+      if (config.channelId || config.channelERC) {
+        try {
+          await liferay.assignPriceListToChannel(config, {
+            priceListId: priceList.id,
+            channelId: config.channelId,
+            channelERC: config.channelERC,
+          });
+          logger.trace(
+            `✓ Linked price list ${priceList.id} to channel ${
+              config.channelId || config.channelERC
+            }`
+          );
+        } catch (e) {
+          logger.warn(`Failed linking price list to channel: ${e.message}`);
+        }
+      }
+
+      if (
+        Array.isArray(config.accountGroupIds) ||
+        Array.isArray(config.accountGroupERCs)
+      ) {
+        const ids = config.accountGroupIds || [];
+        const ercs = config.accountGroupERCs || [];
+        for (const agId of ids) {
+          try {
+            await liferay.assignPriceListToAccountGroup(config, {
+              priceListId: priceList.id,
+              accountGroupId: agId,
+            });
+            logger.trace(
+              `✓ Linked price list ${priceList.id} to account group ${agId}`
+            );
+          } catch (e) {
+            logger.warn(
+              `Failed linking price list to account group ${agId}: ${e.message}`
+            );
+          }
+        }
+        for (const agERC of ercs) {
+          try {
+            await liferay.assignPriceListToAccountGroup(config, {
+              priceListId: priceList.id,
+              accountGroupERC: agERC,
+            });
+            logger.trace(
+              `✓ Linked price list ${priceList.id} to account group (ERC) ${agERC}`
+            );
+          } catch (e) {
+            logger.warn(
+              `Failed linking price list to account group ERC ${agERC}: ${e.message}`
+            );
+          }
+        }
+      }
+    } catch (err) {
+      logger.warn(`Price list context linking skipped: ${err.message}`);
+    }
   }
 
   createOnSessionComplete() {
-    const { logger, cache, getWs } = this.ctx;
+    const { logger, cache, getWs, configService } = this.ctx;
     const markOnce = (sessionId) => {
       const onceKey = `session:${sessionId}:postproc:done`;
       if (cache.get(onceKey)) return false;
-      cache.set(onceKey, true, 30 * 60 * 1000);
+      cache.set(onceKey, true, getEphemeralTTLms(configService));
       return true;
     };
     return async ({ sessionId, session, correlationId }) => {
@@ -94,11 +172,10 @@ class ProductGenerator {
         return;
       }
       try {
-        await this.processImageAndPDFAttachments(
-          config,
-          productDataList,
-          options
-        );
+        await this.processImageAndPDFAttachments(config, productDataList, {
+          ...options,
+          sessionId,
+        });
       } finally {
         cache.delete(ctxKey);
         logger.info('Post-processing complete; session context cleared', {
@@ -112,13 +189,7 @@ class ProductGenerator {
     };
   }
 
-  buildCategoryCounts(
-    total,
-    categories,
-    mode = 'random',
-    seed = null,
-    logger = null
-  ) {
+  buildCategoryCounts(total, categories, mode = 'random', logger = null) {
     const counts = {};
     categories.forEach((c) => (counts[c] = 0));
     if (mode === 'even') {
@@ -132,22 +203,8 @@ class ProductGenerator {
       }
       return counts;
     }
-    let rng = Math.random;
-    let state = 0;
-    if (typeof seed === 'number') {
-      state = seed >>> 0;
-      rng = () => {
-        state ^= state << 13;
-        state >>>= 0;
-        state ^= state >> 17;
-        state >>>= 0;
-        state ^= state << 5;
-        state >>>= 0;
-        return (state >>> 0) / 0xffffffff;
-      };
-    }
     for (let i = 0; i < total; i++) {
-      const idx = Math.floor(rng() * categories.length);
+      const idx = Math.floor(Math.random() * categories.length);
       counts[categories[idx]]++;
     }
     if (logger) {
@@ -157,9 +214,37 @@ class ProductGenerator {
   }
 
   async generateProducts(config, options) {
-    const { logger, liferay, mockData, media, cache, batchPolling, getWs, ai } =
-      this.ctx;
+    const {
+      logger,
+      liferay,
+      mockData,
+      media,
+      cache,
+      batchPolling,
+      getWs,
+      ai,
+      configService,
+    } = this.ctx;
+
+    const randomSeed = options.randomSeed;
+    let prngState = Number.isFinite(randomSeed) ? randomSeed >>> 0 : 0;
+
+    const prng = Number.isFinite(randomSeed)
+      ? () => {
+          prngState ^= prngState << 13;
+          prngState >>>= 0;
+          prngState ^= prngState >> 17;
+          prngState >>>= 0;
+          prngState ^= prngState << 5;
+          prngState >>>= 0;
+          return (prngState >>> 0) / 0xffffffff;
+        }
+      : Math.random;
+
+    const sessionId = createERC(ERC_PREFIX.BATCH_SESSION);
+
     logger.trace('=== STARTING PRODUCT GENERATION ===');
+    logger.trace('Session ID:', sessionId);
     logger.trace('Demo mode:', !!options.demoMode);
     logger.trace('Config:', sanitizedObject(config));
     logger.trace('Generation Options:', sanitizedObject(options));
@@ -200,12 +285,10 @@ class ProductGenerator {
       if (selectedCategories.length === 0)
         throw new Error('At least one category must be selected.');
       const distributionMode = options.distributionMode || 'random';
-      const randomSeed = options.randomSeed;
       const categoryCounts = this.buildCategoryCounts(
         options.productCount,
         selectedCategories,
         distributionMode,
-        randomSeed,
         logger
       );
       logger.info('Computed category distribution for this run', {
@@ -226,14 +309,17 @@ class ProductGenerator {
       );
       let catalogOptionsByCategory = {};
       if (options.generateSkuVariants)
-        catalogOptionsByCategory = await this.createCatalogOptions(
-          config,
-          options
-        );
+        catalogOptionsByCategory = await this.createCatalogOptions(config, {
+          ...options,
+          sessionId,
+        });
       let catalogSpecificationsByCategory = {};
       if (options.generateSpecifications)
         catalogSpecificationsByCategory =
-          await this.createCatalogSpecifications(config, options);
+          await this.createCatalogSpecifications(config, {
+            ...options,
+            sessionId,
+          });
       const allProductData = [];
       for (const category of selectedCategories) {
         const countForCategory = categoryCounts[category] || 0;
@@ -299,11 +385,87 @@ class ProductGenerator {
         });
         return results;
       }
+      const preparedProducts = allProductData.map((productData) => {
+        if (!productData.externalReferenceCode) {
+          productData.externalReferenceCode = createERC(ERC_PREFIX.PRODUCT);
+        }
+        const liferayProduct = {
+          active: productData.active !== undefined ? productData.active : true,
+          catalogId: parseInt(config.catalogId, 10),
+          name: toI18n(productData.name),
+          description: toI18n(productData.description),
+          productType: productData.productType || 'simple',
+          externalReferenceCode: productData.externalReferenceCode,
+        };
+        if (productData.shortDescription)
+          liferayProduct.shortDescription = toI18n(
+            productData.shortDescription
+          );
+        if (productData.urls) liferayProduct.urls = productData.urls;
+        if (productData.metaDescription)
+          liferayProduct.metaDescription = toI18n(productData.metaDescription);
+        if (productData.metaKeyword)
+          liferayProduct.metaKeyword = toI18n(productData.metaKeyword);
+        if (productData.metaTitle)
+          liferayProduct.metaTitle = toI18n(productData.metaTitle);
+        if (productData.skus && Array.isArray(productData.skus)) {
+          liferayProduct.skus = productData.skus;
+        } else if (productData.baseSku) {
+          const basePrice = Math.floor(prng() * 500) + 50;
+          liferayProduct.skus = [
+            {
+              cost: Math.round(basePrice * 0.6),
+              externalReferenceCode: productData.baseSku,
+              inventoryLevel: Math.floor(prng() * 50) + 10,
+              neverExpire: true,
+              price: basePrice,
+              published: true,
+              purchasable: true,
+              sku: productData.baseSku,
+            },
+          ];
+        } else {
+          const fallbackSku = `SKU-${Date.now()}-${prng()
+            .toString(36)
+            .slice(2, 7)}`;
+          const basePrice = Math.floor(prng() * 500) + 50;
+          liferayProduct.skus = [
+            {
+              cost: Math.round(basePrice * 0.6),
+              externalReferenceCode: fallbackSku,
+              inventoryLevel: Math.floor(prng() * 50) + 10,
+              neverExpire: true,
+              price: basePrice,
+              published: true,
+              purchasable: true,
+              sku: fallbackSku,
+            },
+          ];
+        }
+        return liferayProduct;
+      });
+      try {
+        const ercList = allProductData
+          .map(p => p && p.externalReferenceCode)
+          .filter(Boolean);
+        cache.set(
+          `session:${sessionId}:ercs`,
+          ercList,
+          getSessionTTLms(configService)
+        );
+        logger.debug('Persisted ERC list for post-processing', {
+          sessionId,
+          ercCount: ercList.length,
+          sample: ercList.slice(0, 3)
+        });
+      } catch (e) {
+        logger.warn('Failed to persist ERC list for session', { sessionId, error: e.message });
+      }
       let productImagesPrepared = 0;
       let productPdfsPrepared = 0;
       if (
+        options?.imageMode &&
         options.imageMode !== 'none' &&
-        options.demoMode &&
         (options.imageRatio || 0) > 0
       ) {
         const productsForImages = media.selectProductsForImages(
@@ -336,8 +498,8 @@ class ProductGenerator {
         }
       }
       if (
+        options?.pdfMode &&
         options.pdfMode !== 'none' &&
-        options.demoMode &&
         (options.pdfRatio || 0) > 0
       ) {
         const productsForPDFs = media.selectProductsForPDFs(
@@ -368,630 +530,636 @@ class ProductGenerator {
         logger.trace(
           `Selected ${productPdfsPrepared} products (global) for PDF generation (${options.pdfRatio}% ratio)`
         );
+      }
 
-        const preparedProducts = allProductData.map((productData) => {
-          const toI18n = (v) =>
-            typeof v === 'string' ? { en_US: v } : v || { en_US: '' };
-          const liferayProduct = {
-            active:
-              productData.active !== undefined ? productData.active : true,
-            catalogId: parseInt(config.catalogId, 10),
-            name: toI18n(productData.name),
-            description: toI18n(productData.description),
-            productType: productData.productType || 'simple',
-            externalReferenceCode: productData.externalReferenceCode,
-          };
-          if (productData.shortDescription)
-            liferayProduct.shortDescription = productData.shortDescription;
-          if (productData.urls) liferayProduct.urls = productData.urls;
-          if (productData.metaDescription)
-            liferayProduct.metaDescription = productData.metaDescription;
-          if (productData.metaKeyword)
-            liferayProduct.metaKeyword = productData.metaKeyword;
-          if (productData.metaTitle)
-            liferayProduct.metaTitle = productData.metaTitle;
-          if (productData.skus && Array.isArray(productData.skus)) {
-            liferayProduct.skus = productData.skus;
-          } else if (productData.baseSku) {
-            const basePrice = Math.floor(Math.random() * 500) + 50;
-            liferayProduct.skus = [
-              {
-                cost: Math.round(basePrice * 0.6),
-                externalReferenceCode: productData.baseSku,
-                inventoryLevel: Math.floor(Math.random() * 50) + 10,
-                neverExpire: true,
-                price: basePrice,
-                published: true,
-                purchasable: true,
-                sku: productData.baseSku,
-              },
-            ];
-          } else {
-            const fallbackSku = `SKU-${Date.now()}-${Math.random()
-              .toString(36)
-              .slice(2, 7)}`;
-            const basePrice = Math.floor(Math.random() * 500) + 50;
-            liferayProduct.skus = [
-              {
-                cost: Math.round(basePrice * 0.6),
-                externalReferenceCode: fallbackSku,
-                inventoryLevel: Math.floor(Math.random() * 50) + 10,
-                neverExpire: true,
-                price: basePrice,
-                published: true,
-                purchasable: true,
-                sku: fallbackSku,
-              },
-            ];
-          }
-          return liferayProduct;
+      if (useBatch) {
+        logger.trace(
+          `Creating ${preparedProducts.length} products using batch endpoint with batch size ${config.batchSize}...`
+        );
+        logger.debug(
+          `[products] Preparing batch submission: total=${preparedProducts.length}, batchSize=${config.batchSize}`
+        );
+        const callbackUrl =
+          config.microserviceUrl && config.microserviceUrl !== 'null'
+            ? `${config.microserviceUrl}/api/batch/callback`
+            : null;
+        const cleanedProducts = preparedProducts.map((product) => {
+          const cleanProduct = { ...product };
+          delete cleanProduct.images;
+          delete cleanProduct.attachments;
+          return cleanProduct;
         });
-        if (useBatch) {
+        const productBatches = [];
+        const safeBatchSize = Math.max(1, parseInt(config.batchSize, 10) || 1);
+        for (let i = 0; i < cleanedProducts.length; i += safeBatchSize)
+          productBatches.push(cleanedProducts.slice(i, i + safeBatchSize));
+        logger.trace(
+          `Split ${cleanedProducts.length} products into ${productBatches.length} batches of max size ${safeBatchSize}`
+        );
+        const batchIds = [];
+        for (
+          let batchIndex = 0;
+          batchIndex < productBatches.length;
+          batchIndex++
+        ) {
+          const batch = productBatches[batchIndex];
+          const batchERC = createERC(ERC_PREFIX.PRODUCT_BATCH);
           logger.trace(
-            `Creating ${preparedProducts.length} products using batch endpoint with batch size ${config.batchSize}...`
+            `Submitting product batch [${batchERC}] ${batchIndex + 1}/${
+              productBatches.length
+            } with ${batch.length} products...`
           );
-          logger.debug(
-            `[products] Preparing batch submission: total=${preparedProducts.length}, batchSize=${config.batchSize}`
-          );
-          const callbackUrl =
-            config.microserviceUrl && config.microserviceUrl !== 'null'
-              ? `${config.microserviceUrl}/api/batch/callback`
-              : null;
-          const cleanedProducts = preparedProducts.map((product) => {
-            const cleanProduct = { ...product };
-            delete cleanProduct.images;
-            delete cleanProduct.attachments;
-            return cleanProduct;
-          });
-          const productBatches = [];
-          const safeBatchSize = Math.max(
-            1,
-            parseInt(config.batchSize, 10) || 1
-          );
-          for (let i = 0; i < cleanedProducts.length; i += safeBatchSize)
-            productBatches.push(cleanedProducts.slice(i, i + safeBatchSize));
-          logger.trace(
-            `Split ${cleanedProducts.length} products into ${productBatches.length} batches of max size ${safeBatchSize}`
-          );
-          const batchIds = [];
-          for (
-            let batchIndex = 0;
-            batchIndex < productBatches.length;
-            batchIndex++
-          ) {
-            const batch = productBatches[batchIndex];
-            logger.trace(
-              `Submitting batch ${batchIndex + 1}/${
-                productBatches.length
-              } with ${batch.length} products...`
-            );
-            const result = await (async () => {
-              const maxAttempts = 3;
-              for (let attempt = 1; attempt <= maxAttempts; attempt++) {
-                try {
-                  return await liferay.createProductsBatch(
-                    config,
-                    batch,
-                    callbackUrl
-                  );
-                } catch (e) {
-                  const retryable = /(?:429|5\d{2})/.test(
-                    String(e?.message || '')
-                  );
-                  if (!retryable || attempt === maxAttempts) throw e;
-                  const wait = 500 * Math.pow(2, attempt - 1);
-                  logger.warn(`Batch submit retry ${attempt} after ${wait}ms`, {
-                    batchIndex,
-                    size: batch.length,
-                  });
-                  await delay(wait);
-                }
+          const cbUrl = callbackUrl
+            ? `${callbackUrl}?sessionId=${encodeURIComponent(
+                sessionId
+              )}&batchERC=${encodeURIComponent(batchERC)}`
+            : null;
+          const result = await (async () => {
+            const maxAttempts = 3;
+            for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+              try {
+                return await liferay.createProductsBatch(config, batch, cbUrl, {
+                  ...options,
+                  sessionId,
+                });
+              } catch (e) {
+                const retryable = /(?:429|5\d{2})/.test(
+                  String(e?.message || '')
+                );
+                if (!retryable || attempt === maxAttempts) throw e;
+                const wait = RETRY.baseMs * Math.pow(RETRY.factor, attempt - 1);
+                logger.warn(`Batch submit retry ${attempt} after ${wait}ms`, {
+                  batchIndex,
+                  size: batch.length,
+                  batchERC,
+                  sessionId,
+                });
+                await delay(wait);
               }
-            })();
-            const bid = result?.batchId != null ? String(result.batchId) : '';
-            if (!bid) {
-              logger.error('Batch API did not return a batchId', {
-                entityType: 'products',
-                operation: 'generate',
-                ...resolvePhaseAndMode({ useBatch: true, phase: 'submit' }),
-                batchIndex,
-                productCount: batch.length,
-                status: result?.status,
-              });
-              results.errors.push({
-                batchIndex,
-                error: 'Missing batchId from createProductsBatch response',
-              });
-              continue;
             }
-            const startedAt = Date.now();
-            cache.set(
-              `batch:${bid}:meta`,
-              { startedAt, totalCount: batch.length },
-              3600000
-            );
-            logger.debug('BATCH_START EMIT', {
-              batchId: bid,
-              entityType: 'products',
-              operation: 'generate',
-            });
-            getWs().emitBatchStarted(
-              {
-                entityType: 'products',
-                operation: 'generate',
-                ...resolvePhaseAndMode({ useBatch: true, phase: 'submit' }),
-                batchId: bid,
-                totalItems: batch.length,
-              },
-              { correlationId: config.correlationId }
-            );
-            batchIds.push(bid);
-            if (bid) {
-              const pollInterval = Math.max(config.pollingDelay || 5000, 2000);
-              const maxPollAttempts = config.pollingRetries || 120;
-              const progressCacheKey = `batch:${bid}:lastProgressPct`;
-              cache.set(progressCacheKey, -5, 60 * 60 * 1000);
-              cache.set(
-                `erc:${bid}:config`,
-                {
-                  correlationId: config.correlationId,
-                  clientId: config.clientId,
-                  clientSecret: config.clientSecret,
-                  createdAt: new Date().toISOString(),
-                  entityType: 'products',
-                  liferayUrl: config.liferayUrl,
-                  localeCode: config.localeCode,
-                  operation: 'generate',
-                },
-                3600000
-              );
-              logger.info('Batch config stored for polling', {
-                entityType: 'products',
-                operation: 'generate',
-                ...resolvePhaseAndMode({ useBatch: true, phase: 'poll' }),
-                batchId: bid,
-                pollInterval,
-                maxPollAttempts,
-              });
-              batchPolling.startPolling(
-                bid,
-                {
-                  liferayUrl: config.liferayUrl,
-                  clientId: config.clientId,
-                  clientSecret: config.clientSecret,
-                  localeCode: config.localeCode,
-                  entityType: 'products',
-                },
-                {
-                  pollInterval,
-                  maxPollAttempts,
-                  timeoutMs: maxPollAttempts * pollInterval * 1.5,
-                  onTimeout: () => {
-                    logger.error(`Polling timed out for batch ${bid}`);
-                    getWs().emitBatchCompleted(
-                      {
-                        entityType: 'products',
-                        operation: 'generate',
-                        ...resolvePhaseAndMode({
-                          useBatch: true,
-                          phase: 'timeout',
-                        }),
-                        batchId: bid,
-                        successCount: 0,
-                        failureCount: 1,
-                        errors: [
-                          {
-                            message: `Polling timed out before completion. Try increasing pollingRetries (${config.pollingRetries}) or pollingDelay (${config.pollingDelay}ms).`,
-                          },
-                        ],
-                      },
-                      { correlationId: config.correlationId }
-                    );
-                  },
-                  onStatusChange: (status) => {
-                    const meta = cache.get(`batch:${bid}:meta`) || {};
-                    const processed = status.processedCount || 0;
-                    const total = Math.max(
-                      0,
-                      Number(status.totalCount || meta.totalCount || 0)
-                    );
-                    const elapsedMs = Math.max(
-                      1,
-                      Date.now() - (meta.startedAt || Date.now())
-                    );
-                    const rate = processed / (elapsedMs / 1000);
-                    const remaining = Math.max(0, total - processed);
-                    const etaSeconds =
-                      rate > 0 ? Math.round(remaining / rate) : null;
-                    const sid = String(status.batchId || bid);
-                    if (total > 0) {
-                      const pct = total
-                        ? Math.max(
-                            0,
-                            Math.min(100, Math.round((processed / total) * 100))
-                          )
-                        : 0;
-                      const lastPct = cache.get(progressCacheKey) ?? -5;
-                      if (pct - lastPct >= 5 || pct === 100) {
-                        cache.set(progressCacheKey, pct, 60 * 60 * 1000);
-                        getWs().emitBatchProgress(
-                          {
-                            entityType: 'products',
-                            operation: 'generate',
-                            ...resolvePhaseAndMode({
-                              useBatch: true,
-                              phase: 'poll',
-                            }),
-                            batchId: sid,
-                            completedCount: processed,
-                            totalItems: total,
-                            progress: total
-                              ? Math.max(
-                                  0,
-                                  Math.min(
-                                    100,
-                                    Math.round((processed / total) * 100)
-                                  )
-                                )
-                              : 0,
-                            etaSeconds,
-                          },
-                          { correlationId: config.correlationId }
-                        );
-                      }
-                    }
-                    logger.debug('Batch status update', {
-                      entityType: 'products',
-                      operation: 'generate',
-                      ...resolvePhaseAndMode({ useBatch: true, phase: 'poll' }),
-                      batchId: status.batchId,
-                      status: status.status,
-                      processedCount: status.processedCount,
-                      totalCount: status.totalCount,
-                    });
-                  },
-                  onComplete: (r) => this.handleBatchComplete(r, config),
-                  onError: (error) => {
-                    if (cache.get(`batch:${bid}:completed`)) {
-                      logger.warn('Polling error after completion ignored', {
-                        entityType: 'products',
-                        operation: 'generate',
-                        ...resolvePhaseAndMode({
-                          useBatch: true,
-                          phase: 'poll',
-                        }),
-                        batchId: bid,
-                        error: error.message,
-                      });
-                      return;
-                    }
-                    logger.error('Batch polling error', {
-                      entityType: 'products',
-                      operation: 'generate',
-                      ...resolvePhaseAndMode({ useBatch: true, phase: 'poll' }),
-                      batchId: bid,
-                      error: error.message,
-                    });
-                    getWs().emitBatchCompleted(
-                      {
-                        entityType: 'products',
-                        operation: 'generate',
-                        ...resolvePhaseAndMode({
-                          useBatch: true,
-                          phase: 'complete',
-                        }),
-                        batchId: bid,
-                        successCount: 0,
-                        failureCount: 1,
-                        errors: [{ message: error.message }],
-                      },
-                      { correlationId: config.correlationId }
-                    );
-                  },
-                }
-              );
-            }
-            logger.info('Batch submission completed', {
+          })();
+          const bid = result?.batchId != null ? String(result.batchId) : '';
+          if (!bid) {
+            logger.error('Batch API did not return a batchId', {
               entityType: 'products',
               operation: 'generate',
               ...resolvePhaseAndMode({ useBatch: true, phase: 'submit' }),
-              batchId: bid,
+              batchIndex,
               productCount: batch.length,
-              status: result.status,
-              callbackUrl: callbackUrl || 'none',
+              status: result?.status,
             });
-            results.products.push({
-              batchIndex: batchIndex + 1,
-              totalBatches: productBatches.length,
-              batchId: bid,
-              status: result.status,
-              productCount: batch.length,
-              products: batch.map((p) => ({
-                name: p.name?.en_US || p.name,
-                externalReferenceCode: p.externalReferenceCode,
-              })),
+            results.errors.push({
+              batchIndex,
+              error: 'Missing batchId from createProductsBatch response',
             });
-            results.created += batch.length;
-            if (batchIndex < productBatches.length - 1) await delay(1000);
+            continue;
           }
-          const sessionId = createERC(ERC_PREFIXES.BATCH_SESSION);
-          const contextCacheKey = `session:${sessionId}:context`;
+          const startedAt = Date.now();
           cache.set(
-            contextCacheKey,
-            {
-              correlationId: config.correlationId,
-              config,
-              productDataList: allProductData,
-              options,
-              sessionId,
-            },
-            30 * 60 * 1000
+            `batch:${bid}:meta`,
+            { startedAt, totalCount: batch.length, batchERC, sessionId },
+            getBatchCacheTTLms(configService)
           );
-          batchPolling.registerSession(sessionId, {
-            batchIds,
-            totalExpected: batchIds.length,
-            contextKey: contextCacheKey,
-            onSessionComplete: this.createOnSessionComplete(),
-          });
-          logger.debug(
-            `[session ${sessionId}] Registered for post-proc: batches=${
-              batchIds.length
-            }, hasImages=${options.imageMode !== 'none'}, hasPDFs=${
-              options.pdfMode !== 'none'
-            }`
-          );
-          const hasAttachments = allProductData.some(
-            (p) =>
-              (Array.isArray(p.images) && p.images.length > 0) ||
-              (Array.isArray(p.attachments) && p.attachments.length > 0)
-          );
-          logger.info('Session registered for post-processing', {
+          logger.debug('BATCH_START EMIT', {
+            batchId: bid,
             entityType: 'products',
             operation: 'generate',
-            ...resolvePhaseAndMode({ useBatch: true, phase: 'postprocess' }),
-            sessionId,
-            totalBatches: batchIds.length,
-            hasImages: options.imageMode !== 'none',
-            hasPDFs: options.pdfMode !== 'none',
-            hasAttachments,
-            demoMode: options.demoMode,
-            imageRatio: options.imageRatio ?? 0,
-            pdfRatio: options.pdfRatio ?? 0,
           });
-        } else {
-          logger.trace(
-            `Creating ${preparedProducts.length} products individually...`
-          );
-          const indivBatchId = `products-individual-${Date.now()}`;
           getWs().emitBatchStarted(
             {
               entityType: 'products',
               operation: 'generate',
-              ...resolvePhaseAndMode({ useBatch: false, phase: 'submit' }),
-              batchId: indivBatchId,
-              totalItems: preparedProducts.length,
+              ...resolvePhaseAndMode({ useBatch: true, phase: 'submit' }),
+              batchId: bid,
+              batchERC,
+              totalItems: batch.length,
+              sessionId,
             },
             { correlationId: config.correlationId }
           );
-          let processed = 0;
-          for (let i = 0; i < preparedProducts.length; i++) {
-            const productData = preparedProducts[i];
-            const originalProduct = allProductData[i];
-            try {
-              const createdProduct = await liferay.createProduct(
-                config,
-                productData
-              );
-              results.products.push(createdProduct);
-              results.created++;
-              processed++;
-              getWs().emitBatchProgress(
+          batchIds.push(bid);
+          if (bid) {
+            const pollInterval = Math.max(config.pollingDelay || 5000, 5000);
+            const maxPollAttempts = config.pollingRetries || 120;
+            const progressCacheKey = `batch:${bid}:lastProgressPct`;
+            cache.set(progressCacheKey, -5, getBatchCacheTTLms(configService));
+            cache.set(
+              `batch:${bid}:config`,
+              {
+                correlationId: config.correlationId,
+                clientId: config.clientId,
+                clientSecret: config.clientSecret,
+                createdAt: new Date().toISOString(),
+                entityType: 'products',
+                liferayUrl: config.liferayUrl,
+                localeCode: config.localeCode,
+                operation: 'generate',
+                mode: 'generate',
+                affectsProgress: true,
+                sessionId,
+                batchERC,
+              },
+              getBatchCacheTTLms(configService)
+            );
+            logger.info('Batch config stored for polling', {
+              entityType: 'products',
+              operation: 'generate',
+              ...resolvePhaseAndMode({ useBatch: true, phase: 'poll' }),
+              batchId: bid,
+              pollInterval,
+              maxPollAttempts,
+            });
+            batchPolling.startPolling(
+              bid,
+              {
+                liferayUrl: config.liferayUrl,
+                clientId: config.clientId,
+                clientSecret: config.clientSecret,
+                localeCode: config.localeCode,
+                entityType: 'products',
+              },
+              {
+                pollInterval,
+                maxPollAttempts,
+                timeoutMs: maxPollAttempts * pollInterval * 1.5,
+                onTimeout: () => {
+                  const meta = cache.get(`batch:${bid}:meta`) || {};
+                  logger.error(`Polling timed out for batch ${bid}`);
+                  getWs().emitBatchCompleted(
+                    {
+                      entityType: 'products',
+                      operation: 'generate',
+                      ...resolvePhaseAndMode({
+                        useBatch: true,
+                        phase: 'timeout',
+                      }),
+                      batchId: bid,
+                      batchERC: meta.batchERC,
+                      sessionId: meta.sessionId,
+                      successCount: 0,
+                      failureCount: 1,
+                      errors: [
+                        {
+                          message: `Polling timed out before completion. Try increasing pollingRetries (${config.pollingRetries}) or pollingDelay (${config.pollingDelay}ms).`,
+                        },
+                      ],
+                    },
+                    { correlationId: config.correlationId }
+                  );
+                },
+                onStatusChange: (status) => {
+                  const meta = cache.get(`batch:${bid}:meta`) || {};
+                  const processed = status.processedCount || 0;
+                  const total = Math.max(
+                    0,
+                    Number(status.totalCount || meta.totalCount || 0)
+                  );
+                  const elapsedMs = Math.max(
+                    1,
+                    Date.now() - (meta.startedAt || Date.now())
+                  );
+                  const rate = processed / (elapsedMs / 1000);
+                  const remaining = Math.max(0, total - processed);
+                  const etaSeconds =
+                    rate > 0 ? Math.round(remaining / rate) : null;
+                  const sid = String(status.batchId || bid);
+                  if (total > 0) {
+                    const pct = total
+                      ? Math.max(
+                          0,
+                          Math.min(100, Math.round((processed / total) * 100))
+                        )
+                      : 0;
+                    const lastPct = cache.get(progressCacheKey) ?? -5;
+                    if (pct - lastPct >= 5 || pct === 100) {
+                      cache.set(
+                        progressCacheKey,
+                        pct,
+                        getBatchCacheTTLms(configService)
+                      );
+                      getWs().emitBatchProgress(
+                        {
+                          entityType: 'products',
+                          operation: 'generate',
+                          ...resolvePhaseAndMode({
+                            useBatch: true,
+                            phase: 'poll',
+                          }),
+                          batchId: sid,
+                          batchERC: meta.batchERC,
+                          sessionId: meta.sessionId,
+                          completedCount: processed,
+                          totalItems: total,
+                          progress: total
+                            ? Math.max(
+                                0,
+                                Math.min(
+                                  100,
+                                  Math.round((processed / total) * 100)
+                                )
+                              )
+                            : 0,
+                          etaSeconds,
+                        },
+                        { correlationId: config.correlationId }
+                      );
+                    }
+                  }
+                  logger.debug('Batch status update', {
+                    entityType: 'products',
+                    operation: 'generate',
+                    ...resolvePhaseAndMode({ useBatch: true, phase: 'poll' }),
+                    batchId: status.batchId,
+                    status: status.status,
+                    processedCount: status.processedCount,
+                    totalCount: status.totalCount,
+                  });
+                },
+                onComplete: (r) => this.handleBatchComplete(r, config),
+                onError: (error) => {
+                  if (cache.get(`batch:${bid}:completed`)) {
+                    logger.warn('Polling error after completion ignored', {
+                      entityType: 'products',
+                      operation: 'generate',
+                      ...resolvePhaseAndMode({
+                        useBatch: true,
+                        phase: 'poll',
+                      }),
+                      batchId: bid,
+                      error: error.message,
+                    });
+                    return;
+                  }
+                  logger.error('Batch polling error', {
+                    entityType: 'products',
+                    operation: 'generate',
+                    ...resolvePhaseAndMode({ useBatch: true, phase: 'poll' }),
+                    batchId: bid,
+                    error: error.message,
+                  });
+                  getWs().emitBatchCompleted(
+                    {
+                      entityType: 'products',
+                      operation: 'generate',
+                      ...resolvePhaseAndMode({
+                        useBatch: true,
+                        phase: 'complete',
+                      }),
+                      batchId: bid,
+                      successCount: 0,
+                      failureCount: 1,
+                      errors: [{ message: error.message }],
+                    },
+                    { correlationId: config.correlationId }
+                  );
+                },
+                entityType: 'products',
+                operation: 'generate',
+                mode: 'batch',
+                affectsProgress: true,
+              }
+            );
+          }
+          logger.info('Batch submission completed', {
+            entityType: 'products',
+            operation: 'generate',
+            ...resolvePhaseAndMode({ useBatch: true, phase: 'submit' }),
+            batchId: bid,
+            productCount: batch.length,
+            status: result.status,
+            callbackUrl: callbackUrl || 'none',
+          });
+          results.products.push({
+            batchIndex: batchIndex + 1,
+            totalBatches: productBatches.length,
+            batchId: bid,
+            batchERC,
+            status: result.status,
+            productCount: batch.length,
+            products: batch.map((p) => ({
+              name: p.name?.en_US || p.name,
+              externalReferenceCode: p.externalReferenceCode,
+            })),
+          });
+          results.created += batch.length;
+          if (batchIndex < productBatches.length - 1) await delay(1000);
+        }
+        const contextCacheKey = `session:${sessionId}:context`;
+        cache.set(
+          contextCacheKey,
+          {
+            correlationId: config.correlationId,
+            config,
+            productDataList: allProductData,
+            options,
+            sessionId,
+          },
+          getSessionTTLms(configService)
+        );
+        batchPolling.registerSession(sessionId, {
+          batchIds,
+          totalExpected: batchIds.length,
+          contextKey: contextCacheKey,
+          onSessionComplete: this.createOnSessionComplete(),
+        });
+        logger.debug(
+          `[session ${sessionId}] Registered for post-proc: batches=${
+            batchIds.length
+          }, hasImages=${
+            options?.imageMode && options.imageMode !== 'none'
+          }, hasPDFs=${options?.pdfMode && options.pdfMode !== 'none'}`
+        );
+        const hasAttachments = allProductData.some(
+          (p) =>
+            (Array.isArray(p.images) && p.images.length > 0) ||
+            (Array.isArray(p.attachments) && p.attachments.length > 0)
+        );
+        logger.info('Session registered for post-processing', {
+          entityType: 'products',
+          operation: 'generate',
+          ...resolvePhaseAndMode({ useBatch: true, phase: 'postprocess' }),
+          sessionId,
+          totalBatches: batchIds.length,
+          hasImages: !!(
+            options?.imageMode &&
+            options.imageMode !== 'none' &&
+            (options?.imageRatio ?? 0) > 0
+          ),
+          hasPDFs: !!(
+            options?.pdfMode &&
+            options.pdfMode !== 'none' &&
+            (options?.pdfRatio ?? 0) > 0
+          ),
+          hasAttachments,
+          demoMode: options.demoMode,
+          imageRatio: options.imageRatio ?? 0,
+          pdfRatio: options.pdfRatio ?? 0,
+        });
+      } else {
+        logger.trace(
+          `Creating ${preparedProducts.length} products individually...`
+        );
+
+        // Use the existing sessionId generated earlier to avoid drift
+        const batchERC = createERC(ERC_PREFIX.PRODUCT_BATCH);
+        const indivBatchId = `products-individual-${Date.now()}`;
+        getWs().emitBatchStarted(
+          {
+            entityType: 'products',
+            operation: 'generate',
+            ...resolvePhaseAndMode({ useBatch: false, phase: 'submit' }),
+            batchId: indivBatchId,
+            batchERC,
+            totalItems: preparedProducts.length,
+            sessionId,
+          },
+          { correlationId: config.correlationId }
+        );
+        logger.debug('Using persisted ERC list for individual-mode post-proc', {
+          sessionId,
+          ercCacheKey: `session:${sessionId}:ercs`
+        });
+        let processed = 0;
+        for (let i = 0; i < preparedProducts.length; i++) {
+          const productData = preparedProducts[i];
+          const originalProduct = allProductData[i];
+          try {
+            const createdProduct = await liferay.createProduct(
+              config,
+              productData
+            );
+            results.products.push(createdProduct);
+            results.created++;
+            processed++;
+            getWs().emitBatchProgress(
+              {
+                entityType: 'products',
+                operation: 'generate',
+                ...resolvePhaseAndMode({ useBatch: false, phase: 'submit' }),
+                batchId: indivBatchId,
+                batchERC,
+                sessionId,
+                completedCount: processed,
+                totalItems: preparedProducts.length,
+                progress: Math.round(
+                  (processed / preparedProducts.length) * 100
+                ),
+              },
+              { correlationId: config.correlationId }
+            );
+            const productERC = originalProduct.externalReferenceCode;
+            let imagesApplied = 0;
+            let pdfsApplied = 0;
+            if (originalProduct.images) {
+              const imgBatchId = `images-${productERC}`;
+              getWs().emitPostProcessingStarted(
                 {
-                  entityType: 'products',
-                  operation: 'generate',
-                  ...resolvePhaseAndMode({ useBatch: false, phase: 'submit' }),
-                  batchId: indivBatchId,
-                  completedCount: processed,
-                  totalItems: preparedProducts.length,
-                  progress: Math.round(
-                    (processed / preparedProducts.length) * 100
-                  ),
+                  entityType: 'images',
+                  batchId: imgBatchId,
+                  batchERC,
+                  operation: 'process-images',
+                  ...resolvePhaseAndMode({
+                    useBatch: false,
+                    phase: 'postprocess',
+                  }),
+                  sessionId,
                 },
                 { correlationId: config.correlationId }
               );
-              const productERC = originalProduct.externalReferenceCode;
-              let imagesApplied = 0;
-              let pdfsApplied = 0;
-              if (originalProduct.images) {
-                const imgBatchId = `images-${productERC}`;
-                getWs().emitPostProcessingStarted(
-                  {
-                    entityType: 'images',
-                    batchId: imgBatchId,
-                    operation: 'process-images',
-                    ...resolvePhaseAndMode({
-                      useBatch: false,
-                      phase: 'postprocess',
-                    }),
-                  },
-                  { correlationId: config.correlationId }
-                );
-                for (const image of originalProduct.images) {
-                  if (options.imageMode === 'custom') {
-                    const imgERC = `IMG_${productERC}_${Math.random()
-                      .toString(36)
-                      .slice(2, 8)}`;
-                    const doc = await liferay.uploadSiteDocumentMultipart(
-                      config,
-                      image,
-                      {
-                        title: `Product Image - ${productERC}`,
-                        externalReferenceCode: imgERC,
-                        documentFolderId: options.uploadFolderId,
-                        documentFolderExternalReferenceCode:
-                          options.uploadFolderERC,
-                        viewableBy: 'Anyone',
-                      }
-                    );
-                    if (doc) {
-                      await liferay.patchPermissionsByAsset(config, {
-                        assetType: ASSET_TYPE.DOCUMENT,
-                        id: doc.id,
-                        viewableBy: VIEWABLE_BY.ANYONE,
-                      });
+              for (const image of originalProduct.images) {
+                if (options.imageMode === 'custom') {
+                  const imgERC = `IMG_${productERC}_${prng()
+                    .toString(36)
+                    .slice(2, 8)}`;
+                  const doc = await liferay.uploadSiteDocumentMultipart(
+                    config,
+                    image,
+                    {
+                      title: `Product Image - ${productERC}`,
+                      externalReferenceCode: imgERC,
+                      documentFolderId: options.uploadFolderId,
+                      documentFolderExternalReferenceCode:
+                        options.uploadFolderERC,
+                      viewableBy: VIEWABLE_BY.ANYONE,
                     }
-                    const imageUrlData = {
-                      title: { en_US: `Product Image - ${productERC}` },
-                      src: `${config.liferayUrl}${doc.contentUrl}`,
-                    };
-                    await liferay.addProductImageByUrl(
-                      config,
-                      productERC,
-                      imageUrlData
-                    );
-                  } else {
-                    await liferay.addProductImageByBase64(
-                      config,
-                      productERC,
-                      image
-                    );
+                  );
+                  if (doc) {
+                    await liferay.patchPermissionsByAsset(config, {
+                      assetType: ASSET_TYPE.DOCUMENT,
+                      id: doc.id,
+                      viewableBy: VIEWABLE_BY.ANYONE,
+                    });
                   }
-                  logger.trace(`✓ Added image to product: ${productERC}`);
-                  imagesApplied++;
+                  const baseUrl = config.liferayUrl.endsWith('/')
+                    ? config.liferayUrl
+                    : `${config.liferayUrl}/`;
+                  const srcUrl = new URL(doc.contentUrl, baseUrl).toString();
+                  const imageUrlData = {
+                    title: { en_US: `Product Image - ${productERC}` },
+                    src: srcUrl,
+                  };
+                  await liferay.addProductImageByUrl(
+                    config,
+                    productERC,
+                    imageUrlData
+                  );
+                } else {
+                  await liferay.addProductImageByBase64(
+                    config,
+                    productERC,
+                    image
+                  );
                 }
-                getWs().emitPostProcessingCompleted(
-                  {
-                    entityType: 'images',
-                    batchId: imgBatchId,
-                    operation: 'process-images',
-                    ...resolvePhaseAndMode({
-                      useBatch: false,
-                      phase: 'postprocess',
-                    }),
-                    processedCount: imagesApplied,
-                    totalCount: (originalProduct.images || []).length,
-                  },
-                  { correlationId: config.correlationId }
-                );
+                logger.trace(`✓ Added image to product: ${productERC}`);
+                imagesApplied++;
               }
-              if (originalProduct.attachments) {
-                const pdfBatchId = `pdf-${productERC}`;
-                getWs().emitPostProcessingStarted(
-                  {
-                    entityType: 'pdfs',
-                    batchId: pdfBatchId,
-                    operation: 'process-attachments',
-                    ...resolvePhaseAndMode({
-                      useBatch: false,
-                      phase: 'postprocess',
-                    }),
-                  },
-                  { correlationId: config.correlationId }
-                );
-                for (const attachment of originalProduct.attachments) {
-                  if (options.pdfMode === 'custom') {
-                    const pdfERC = `PDF_${productERC}_${Math.random()
-                      .toString(36)
-                      .slice(2, 8)}`;
-                    const doc = await liferay.uploadSiteDocumentMultipart(
-                      config,
-                      attachment,
-                      {
-                        title: `Product Documentation - ${productERC}`,
-                        externalReferenceCode: pdfERC,
-                        documentFolderId: options.uploadFolderId,
-                        documentFolderExternalReferenceCode:
-                          options.uploadFolderERC,
-                        viewableBy: 'Anyone',
-                      }
-                    );
-                    if (doc) {
-                      await liferay.patchPermissionsByAsset(config, {
-                        assetType: ASSET_TYPE.DOCUMENT,
-                        id: doc.id,
-                        viewableBy: VIEWABLE_BY.ANYONE,
-                      });
-                    }
-                    const attachmentUrlData = {
-                      title: { en_US: `Product Documentation - ${productERC}` },
-                      src: `${config.liferayUrl}${doc.contentUrl}`,
-                    };
-                    await liferay.addProductAttachmentByUrl(
-                      config,
-                      productERC,
-                      attachmentUrlData
-                    );
-                  } else {
-                    await liferay.addProductAttachmentByBase64(
-                      config,
-                      productERC,
-                      { attachment }
-                    );
-                  }
-                  logger.trace(`✓ Added attachment to product: ${productERC}`);
-                  pdfsApplied++;
-                }
-                getWs().emitPostProcessingCompleted(
-                  {
-                    entityType: 'pdfs',
-                    batchId: pdfBatchId,
-                    operation: 'process-attachments',
-                    ...resolvePhaseAndMode({
-                      useBatch: false,
-                      phase: 'postprocess',
-                    }),
-                    processedCount: pdfsApplied,
-                    totalCount: (originalProduct.attachments || []).length,
-                  },
-                  { correlationId: config.correlationId }
-                );
-              }
-            } catch (error) {
-              logger.error(
-                `Failed to create product ${
-                  productData.name?.en_US || productData.name
-                }:`,
-                error.message
+              getWs().emitPostProcessingCompleted(
+                {
+                  entityType: 'images',
+                  batchId: imgBatchId,
+                  batchERC,
+                  operation: 'process-images',
+                  ...resolvePhaseAndMode({
+                    useBatch: false,
+                    phase: 'postprocess',
+                  }),
+                  processedCount: imagesApplied,
+                  totalCount: (originalProduct.images || []).length,
+                  sessionId,
+                },
+                { correlationId: config.correlationId }
               );
-              results.errors.push({
-                product: productData.name?.en_US || productData.name,
-                error: error.message,
-              });
             }
+            if (originalProduct.attachments) {
+              const pdfBatchId = `pdf-${productERC}`;
+              getWs().emitPostProcessingStarted(
+                {
+                  entityType: 'pdfs',
+                  batchId: pdfBatchId,
+                  batchERC,
+                  operation: 'process-attachments',
+                  ...resolvePhaseAndMode({
+                    useBatch: false,
+                    phase: 'postprocess',
+                  }),
+                  sessionId,
+                },
+                { correlationId: config.correlationId }
+              );
+              for (const attachment of originalProduct.attachments) {
+                if (options.pdfMode === 'custom') {
+                  const pdfERC = `PDF_${productERC}_${prng()
+                    .toString(36)
+                    .slice(2, 8)}`;
+                  const doc = await liferay.uploadSiteDocumentMultipart(
+                    config,
+                    attachment,
+                    {
+                      title: `Product Documentation - ${productERC}`,
+                      externalReferenceCode: pdfERC,
+                      documentFolderId: options.uploadFolderId,
+                      documentFolderExternalReferenceCode:
+                        options.uploadFolderERC,
+                      viewableBy: VIEWABLE_BY.ANYONE,
+                    }
+                  );
+                  if (doc) {
+                    await liferay.patchPermissionsByAsset(config, {
+                      assetType: ASSET_TYPE.DOCUMENT,
+                      id: doc.id,
+                      viewableBy: VIEWABLE_BY.ANYONE,
+                    });
+                  }
+                  const baseUrl = config.liferayUrl.endsWith('/')
+                    ? config.liferayUrl
+                    : `${config.liferayUrl}/`;
+                  const srcUrl = new URL(doc.contentUrl, baseUrl).toString();
+                  const attachmentUrlData = {
+                    title: { en_US: `Product Documentation - ${productERC}` },
+                    src: srcUrl,
+                  };
+                  await liferay.addProductAttachmentByUrl(
+                    config,
+                    productERC,
+                    attachmentUrlData
+                  );
+                } else {
+                  await liferay.addProductAttachmentByBase64(
+                    config,
+                    productERC,
+                    { attachment }
+                  );
+                }
+                logger.trace(`✓ Added attachment to product: ${productERC}`);
+                pdfsApplied++;
+              }
+              getWs().emitPostProcessingCompleted(
+                {
+                  entityType: 'pdfs',
+                  batchId: pdfBatchId,
+                  batchERC,
+                  operation: 'process-attachments',
+                  ...resolvePhaseAndMode({
+                    useBatch: false,
+                    phase: 'postprocess',
+                  }),
+                  processedCount: pdfsApplied,
+                  totalCount: (originalProduct.attachments || []).length,
+                  sessionId,
+                },
+                { correlationId: config.correlationId }
+              );
+            }
+          } catch (error) {
+            logger.error(
+              `Failed to create product ${
+                productData.name?.en_US || productData.name
+              }:`,
+              error.message
+            );
+            results.errors.push({
+              product: productData.name?.en_US || productData.name,
+              error: error.message,
+            });
           }
-          getWs().emitBatchCompleted(
-            {
-              entityType: 'products',
-              operation: 'generate',
-              ...resolvePhaseAndMode({ useBatch: false, phase: 'complete' }),
-              batchId: indivBatchId,
-              successCount: processed,
-              failureCount: results.errors.length,
-              errors: results.errors.slice(0, 5),
-            },
-            { correlationId: config.correlationId }
-          );
         }
-        if (options.generatePriceLists && allProductData.length > 0) {
-          logger.trace(
-            `Generating pricing for ${allProductData.length} products (global pass)...`
-          );
-          await this.generateProductPricing(
-            config,
-            allProductData.map((pd) => ({
-              sku: pd.baseSku || pd.externalReferenceCode,
-            })),
-            {
-              generateBulkPricing: options.generateBulkPricing,
-              generateTierPricing: options.generateTierPricing,
-            }
-          );
-        }
-        logger.trace(
-          `Product generation completed: ${results.created} created, ${results.errors.length} errors`
+        getWs().emitBatchCompleted(
+          {
+            entityType: 'products',
+            operation: 'generate',
+            ...resolvePhaseAndMode({ useBatch: false, phase: 'complete' }),
+            batchId: indivBatchId,
+            batchERC,
+            sessionId,
+            successCount: processed,
+            failureCount: results.errors.length,
+            errors: results.errors.slice(0, 5),
+          },
+          { correlationId: config.correlationId }
         );
-        return results;
       }
+      if (options.generatePriceLists && allProductData.length > 0) {
+        logger.trace(
+          `Generating pricing for ${allProductData.length} products (global pass)...`
+        );
+        await this.generateProductPricing(
+          config,
+          allProductData.map((pd) => ({
+            sku:
+              (Array.isArray(pd.skus) && pd.skus[0]?.sku) ||
+              pd.baseSku ||
+              pd.externalReferenceCode,
+          })),
+          {
+            generateBulkPricing: options.generateBulkPricing,
+            generateTierPricing: options.generateTierPricing,
+          }
+        );
+      }
+      logger.trace(
+        `Product generation completed: ${results.created} created, ${results.errors.length} errors`
+      );
+      return results;
     } catch (error) {
       const { getWs } = this.ctx;
       logger.error('Product generation failed', {
@@ -1002,17 +1170,29 @@ class ProductGenerator {
         stack: error.stack,
       });
       try {
-        if (!cache.get('products:failed:emitted')) {
-          cache.set('products:failed:emitted', true, 5 * 60 * 1000);
-          getWs().emitBatchCompleted({
-            entityType: 'products',
-            operation: 'generate',
-            ...resolvePhaseAndMode({ useBatch, phase: 'error' }),
-            batchId: 'products-failed',
-            successCount: 0,
-            failureCount: 1,
-            errors: [{ message: error.message }],
-          });
+        const failKey = `products:${
+          useBatch ? 'batch' : 'indiv'
+        }:failed:emitted:${config.correlationId || 'global'}`;
+        if (!cache.get(failKey)) {
+          cache.set(
+            failKey,
+            true,
+            useBatch
+              ? getBatchCacheTTLms(configService)
+              : getEphemeralTTLms(configService)
+          );
+          getWs().emitBatchCompleted(
+            {
+              entityType: 'products',
+              operation: 'generate',
+              ...resolvePhaseAndMode({ useBatch, phase: 'error' }),
+              batchId: 'products-failed',
+              successCount: 0,
+              failureCount: 1,
+              errors: [{ message: error.message }],
+            },
+            { correlationId: config.correlationId }
+          );
         }
       } catch {}
       throw error;
@@ -1202,7 +1382,10 @@ class ProductGenerator {
           }
           const optionValues = [];
           for (let i = 0; i < optionData.values.length; i++) {
-            const value = optionData.values[i];
+            const values = Array.isArray(optionData.values)
+              ? optionData.values
+              : [];
+            const value = values[i];
             const valueERC = `VAL-${optionERC}-${value
               .toUpperCase()
               .replace(/\s+/g, '_')}`;
@@ -1573,13 +1756,11 @@ class ProductGenerator {
           languageCodes.forEach((langCode) => {
             const suffix = langCode === 'en_US' ? '' : ` (${langCode})`;
             specTitle[langCode] = `${specData.title}${suffix}`;
-            specOptionCategory[langCode] = `${category}${suffix}`;
           });
           const linkedOptionCategory = optionCategories[specData.group];
           const specificationPayload = {
             key: specData.key,
             title: specTitle,
-            optionCategory: specOptionCategory,
             facetable: true,
             priority: specData.priority,
             externalReferenceCode: specERC,
@@ -1587,7 +1768,6 @@ class ProductGenerator {
           if (linkedOptionCategory) {
             specificationPayload.optionCategoryExternalReferenceCode =
               linkedOptionCategory.externalReferenceCode;
-            specificationPayload.optionCategoryId = linkedOptionCategory.id;
           }
           let specification;
           try {
@@ -1620,6 +1800,37 @@ class ProductGenerator {
               throw createError;
             }
           }
+          if (
+            linkedOptionCategory &&
+            specification.optionCategoryExternalReferenceCode !==
+              linkedOptionCategory.externalReferenceCode
+          ) {
+            try {
+              await liferay.updateSpecificationByERC(config, specERC, {
+                optionCategoryExternalReferenceCode:
+                  linkedOptionCategory.externalReferenceCode,
+              });
+              specification.optionCategoryExternalReferenceCode =
+                linkedOptionCategory.externalReferenceCode;
+              specification.optionCategoryId = linkedOptionCategory.id;
+              logger.trace(
+                `✓ Linked specification ${specERC} to option category ${linkedOptionCategory.externalReferenceCode}`
+              );
+            } catch (patchErr) {
+              logger.warn(
+                `Failed to patch option category link for ${specERC} by ERC: ${patchErr.message}`
+              );
+              try {
+                await liferay.updateSpecificationByERC(config, specERC, {
+                  optionCategoryId: linkedOptionCategory.id,
+                });
+              } catch (patchByIdErr) {
+                logger.warn(
+                  `Fallback by ID failed for ${specERC}: ${patchByIdErr.message}`
+                );
+              }
+            }
+          }
           if (linkedOptionCategory) {
             specification.optionCategoryId = linkedOptionCategory.id;
             specification.optionCategoryExternalReferenceCode =
@@ -1643,10 +1854,9 @@ class ProductGenerator {
   async createBasicProduct(config, productData, options = {}) {
     const { logger, liferay } = this.ctx;
     try {
-      const toI18n = (v) =>
-        typeof v === 'string'
-          ? { en_US: v }
-          : v || { en_US: 'Generated Product' };
+      const ensuredERC =
+        productData.externalReferenceCode || createERC(ERC_PREFIX.PRODUCT);
+
       const liferayProduct = {
         active: productData.active !== undefined ? productData.active : true,
         catalogId: parseInt(config.catalogId, 10),
@@ -1655,19 +1865,17 @@ class ProductGenerator {
           productData.description || 'AI generated product description'
         ),
         productType: productData.productType || 'simple',
-        externalReferenceCode:
-          productData.externalReferenceCode ||
-          `${Date.now()}-${Math.random().toString(36).slice(2, 11)}`,
+        externalReferenceCode: ensuredERC,
       };
       if (productData.shortDescription)
-        liferayProduct.shortDescription = productData.shortDescription;
+        liferayProduct.shortDescription = toI18n(productData.shortDescription);
       if (productData.urls) liferayProduct.urls = productData.urls;
       if (productData.metaDescription)
-        liferayProduct.metaDescription = productData.metaDescription;
+        liferayProduct.metaDescription = toI18n(productData.metaDescription);
       if (productData.metaKeyword)
-        liferayProduct.metaKeyword = productData.metaKeyword;
+        liferayProduct.metaKeyword = toI18n(productData.metaKeyword);
       if (productData.metaTitle)
-        liferayProduct.metaTitle = productData.metaTitle;
+        liferayProduct.metaTitle = toI18n(productData.metaTitle);
       if (productData.skus && Array.isArray(productData.skus))
         liferayProduct.skus = productData.skus;
       if (options.generateSkuVariants && productData.defaultSku)
@@ -1933,8 +2141,11 @@ class ProductGenerator {
         currencyCode: currency,
         priority: 1,
         active: true,
-        externalReferenceCode: `PL-${Date.now()}`,
+        externalReferenceCode: `PL-${Date.now()}-${Math.random()
+          .toString(36)
+          .slice(2, 6)}`,
       });
+      await this.linkPriceListContext(config, priceList);
       const pricingData = await ai.generatePricingData(
         products,
         'standard',
@@ -2195,8 +2406,8 @@ class ProductGenerator {
     if (pollingRetriesValue === undefined || pollingRetriesValue === null)
       throw new Error('pollingRetries is required');
     const pollingRetries = parseInt(pollingRetriesValue);
-    if (isNaN(pollingRetries) || pollingRetries < 0 || pollingRetries > 20)
-      throw new Error('pollingRetries must be between 0 and 20');
+    if (isNaN(pollingRetries) || pollingRetries < 0 || pollingRetries > 120)
+      throw new Error('pollingRetries must be between 0 and 120');
     const pollingDelayValue = config.pollingDelay;
     if (pollingDelayValue === undefined || pollingDelayValue === null)
       throw new Error('pollingDelay is required');
@@ -2206,7 +2417,8 @@ class ProductGenerator {
   }
 
   async processImageAndPDFAttachments(config, productDataList, options) {
-    const { logger, liferay, getWs } = this.ctx;
+    const { logger, liferay, getWs, cache, configService } = this.ctx;
+    const sessionId = options.sessionId;
 
     logger.info('Starting post-processing for images and PDFs', {
       entityType: 'products',
@@ -2215,6 +2427,7 @@ class ProductGenerator {
       productCount: productDataList.length,
       imageMode: options.imageMode,
       pdfMode: options.pdfMode,
+      correlationId: config.correlationId,
     });
     logger.debug(
       `[post-proc] Init: items=${productDataList.length}, imageMode=${options.imageMode}, pdfMode=${options.pdfMode}`
@@ -2230,6 +2443,11 @@ class ProductGenerator {
       0
     );
 
+    const imagesBatchERC =
+      imageCount > 0 ? createERC(ERC_PREFIX.PRODUCT_BATCH) : null;
+    const pdfsBatchERC =
+      pdfCount > 0 ? createERC(ERC_PREFIX.PRODUCT_BATCH) : null;
+
     if (imageCount > 0) {
       getWs().emitBatchStarted(
         {
@@ -2237,7 +2455,9 @@ class ProductGenerator {
           operation: 'process-images',
           ...resolvePhaseAndMode({ useBatch: true, phase: 'postprocess' }),
           batchId: 'images-processing',
+          batchERC: imagesBatchERC,
           totalItems: imageCount,
+          sessionId,
         },
         { correlationId: config.correlationId }
       );
@@ -2250,7 +2470,9 @@ class ProductGenerator {
           operation: 'process-attachments',
           ...resolvePhaseAndMode({ useBatch: true, phase: 'postprocess' }),
           batchId: 'pdfs-processing',
+          batchERC: pdfsBatchERC,
           totalItems: pdfCount,
+          sessionId,
         },
         { correlationId: config.correlationId }
       );
@@ -2282,6 +2504,7 @@ class ProductGenerator {
               completedCount: imageProcessedCount,
               totalItems: imageCount,
               progress: pct,
+              sessionId,
             },
             { correlationId: config.correlationId }
           );
@@ -2300,6 +2523,7 @@ class ProductGenerator {
               completedCount: pdfProcessedCount,
               totalItems: pdfCount,
               progress: pct,
+              sessionId,
             },
             { correlationId: config.correlationId }
           );
@@ -2323,6 +2547,9 @@ class ProductGenerator {
           );
           return;
         }
+
+        const pImageErrors = [];
+        const pPdfErrors = [];
 
         try {
           if (
@@ -2350,7 +2577,7 @@ class ProductGenerator {
                       documentFolderId: options.uploadFolderId,
                       documentFolderExternalReferenceCode:
                         options.uploadFolderERC,
-                      viewableBy: 'Anyone',
+                      viewableBy: VIEWABLE_BY.ANYONE,
                     }
                   );
                   if (!doc || !doc.contentUrl) {
@@ -2363,10 +2590,10 @@ class ProductGenerator {
                     id: doc.id,
                     viewableBy: VIEWABLE_BY.ANYONE,
                   });
-                  const srcUrl = new URL(
-                    doc.contentUrl,
-                    config.liferayUrl
-                  ).toString();
+                  const baseUrl = config.liferayUrl.endsWith('/')
+                    ? config.liferayUrl
+                    : `${config.liferayUrl}/`;
+                  const srcUrl = new URL(doc.contentUrl, baseUrl).toString();
                   const imageUrlData = {
                     title: { en_US: `Product Image - ${productERC}` },
                     src: srcUrl,
@@ -2390,7 +2617,9 @@ class ProductGenerator {
                 maybeEmitProgress('images');
               } catch (err) {
                 logger.warn(`Image failed for ${productERC}: ${err.message}`);
-                imageErrors.push({ product: productERC, error: err.message });
+                const rec = { product: productERC, error: err.message };
+                imageErrors.push(rec);
+                pImageErrors.push(rec);
               }
             }
           }
@@ -2420,7 +2649,7 @@ class ProductGenerator {
                       documentFolderId: options.uploadFolderId,
                       documentFolderExternalReferenceCode:
                         options.uploadFolderERC,
-                      viewableBy: 'Anyone',
+                      viewableBy: VIEWABLE_BY.ANYONE,
                     }
                   );
                   if (!doc || !doc.contentUrl) {
@@ -2433,10 +2662,10 @@ class ProductGenerator {
                     id: doc.id,
                     viewableBy: VIEWABLE_BY.ANYONE,
                   });
-                  const srcUrl = new URL(
-                    doc.contentUrl,
-                    config.liferayUrl
-                  ).toString();
+                  const baseUrl = config.liferayUrl.endsWith('/')
+                    ? config.liferayUrl
+                    : `${config.liferayUrl}/`;
+                  const srcUrl = new URL(doc.contentUrl, baseUrl).toString();
                   const attachmentUrlData = {
                     title: { en_US: `Product Documentation - ${productERC}` },
                     src: srcUrl,
@@ -2460,8 +2689,39 @@ class ProductGenerator {
                 maybeEmitProgress('pdfs');
               } catch (err) {
                 logger.warn(`PDF failed for ${productERC}: ${err.message}`);
-                pdfErrors.push({ product: productERC, error: err.message });
+                const rec = { product: productERC, error: err.message };
+                pdfErrors.push(rec);
+                pPdfErrors.push(rec);
               }
+            }
+          }
+
+          if (pImageErrors.length > 0 || pPdfErrors.length > 0) {
+            try {
+              cache.set(
+                `product:${productERC}:postproc:errors`,
+                {
+                  imageErrors: pImageErrors,
+                  pdfErrors: pPdfErrors,
+                  timestamp: Date.now(),
+                },
+                getBatchCacheTTLms(configService)
+              );
+
+              getWs().emitPostProcessingCompleted(
+                {
+                  entityType: 'product-postproc',
+                  operation: 'errors',
+                  batchId: `postproc-${productERC}`,
+                  sessionId,
+                  errors: { images: pImageErrors, pdfs: pPdfErrors },
+                },
+                { correlationId: config.correlationId }
+              );
+            } catch (cacheErr) {
+              logger.warn(
+                `Failed to cache post-proc errors for ${productERC}: ${cacheErr.message}`
+              );
             }
           }
         } catch (error) {
@@ -2470,16 +2730,20 @@ class ProductGenerator {
             error.message
           );
           if (originalProduct.images) {
-            imageErrors.push({
+            const rec = {
               product: productERC,
               error: `Image error: ${error.message}`,
-            });
+            };
+            imageErrors.push(rec);
+            pImageErrors.push(rec);
           }
           if (originalProduct.attachments) {
-            pdfErrors.push({
+            const rec = {
               product: productERC,
               error: `PDF error: ${error.message}`,
-            });
+            };
+            pdfErrors.push(rec);
+            pPdfErrors.push(rec);
           }
         }
       };
@@ -2497,7 +2761,7 @@ class ProductGenerator {
           }
         }
       );
-      await Promise.all(workers);
+      await Promise.allSettled(workers);
     };
 
     logger.debug(
@@ -2520,6 +2784,7 @@ class ProductGenerator {
           successCount: imageProcessedCount,
           failureCount: imageErrors.length,
           errors: imageErrors.slice(0, 5),
+          sessionId,
         },
         { correlationId: config.correlationId }
       );
@@ -2535,6 +2800,7 @@ class ProductGenerator {
           successCount: pdfProcessedCount,
           failureCount: pdfErrors.length,
           errors: pdfErrors.slice(0, 5),
+          sessionId,
         },
         { correlationId: config.correlationId }
       );
@@ -2563,16 +2829,25 @@ class ProductGenerator {
   }
 
   async handleBatchComplete(results, config) {
-    const { logger, getWs, cache } = this.ctx;
+    const { logger, getWs, cache, configService } = this.ctx;
 
     const bid = String(results.batchId || '');
-    cache.set(`batch:${bid}:completed`, true, 60 * 60 * 1000);
+    cache.set(
+      `batch:${bid}:completed`,
+      true,
+      getBatchCacheTTLms(configService)
+    );
+
+    const meta = cache.get(`batch:${bid}:meta`) || {};
+    const { batchERC, sessionId } = meta;
 
     logger.info('Handling batch completion', {
       entityType: 'products',
       operation: 'generate',
       ...resolvePhaseAndMode({ useBatch: true, phase: 'complete' }),
       batchId: bid,
+      batchERC,
+      sessionId,
       status: results.status,
       processedCount: results.processedCount,
       totalCount: results.totalCount,
@@ -2605,6 +2880,8 @@ class ProductGenerator {
         operation: 'generate',
         ...resolvePhaseAndMode({ useBatch: true, phase: 'complete' }),
         batchId: bid,
+        batchERC,
+        sessionId,
         successCount,
         failureCount,
         errors: failureCount > 0 ? failures.slice(0, 5) : [],

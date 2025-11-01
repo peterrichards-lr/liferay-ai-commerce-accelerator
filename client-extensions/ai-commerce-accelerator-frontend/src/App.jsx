@@ -1085,8 +1085,10 @@ export function AppUI() {
 
   const handleClearCommerceData = useCallback(async () => {
     const payload = buildPayload();
-    const summary = await api.post('/api/delete-commerce-data', payload);
-    logDeletionSummary(summary);
+    const res = await api.post('/api/delete-commerce-data', payload);
+    if (res?.summary) {
+      logDeletionSummary(res.summary);
+    }
   });
 
   const handleProgressReset = useCallback(() => {

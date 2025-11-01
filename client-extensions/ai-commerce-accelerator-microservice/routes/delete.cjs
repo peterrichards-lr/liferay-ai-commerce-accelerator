@@ -6,25 +6,8 @@ const {
 const {
   inputValidationMiddleware,
 } = require('../middleware/securityMiddleware.cjs');
-const { createERC } = require('../utils/misc.cjs');
+const { createERC, resolveErrorReference } = require('../utils/misc.cjs');
 const { ERC_PREFIX } = require('../utils/constants.cjs');
-
-function resolveErrorReference(err) {
-  if (!err || typeof err !== 'object') return null;
-  if (err.errorReference && typeof err.errorReference === 'string') {
-    return err.errorReference;
-  }
-  if (err.errorRef && typeof err.errorRef === 'string') {
-    return err.errorRef;
-  }
-  if (err.erc && typeof err.erc === 'string') {
-    return err.erc;
-  }
-  if (err.reference && typeof err.reference === 'string') {
-    return err.reference;
-  }
-  return null;
-}
 
 function handleError(res, logger, req, config, operation, error, extra = {}) {
   const errorRef = resolveErrorReference(error) || createERC(ERC_PREFIX.ERROR);

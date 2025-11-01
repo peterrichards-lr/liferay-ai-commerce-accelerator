@@ -24,6 +24,10 @@ class MediaGenerator {
     this.ctx = ctx;
   }
 
+  getMockBase64Image = () => MOCK_BASE64_IMAGE;
+
+  getMockBase64Pdf = () => MOCK_BASE64_PDF;
+
   resolveOperation(config, explicit) {
     return explicit || config?.operation || this.ctx?.operation || 'generate';
   }
@@ -44,7 +48,7 @@ class MediaGenerator {
         correlationId: config?.correlationId || '∅',
         error: err.message,
       });
-      return this.ctx.fallbacks.getMockBase64Image();
+      return this.getMockBase64Image();
     }
   }
 
@@ -64,7 +68,7 @@ class MediaGenerator {
         correlationId: config?.correlationId || '∅',
         error: err.message,
       });
-      return this.ctx.fallbacks.getMockBase64Pdf();
+      return this.getMockBase64Pdf();
     }
   }
 

@@ -1,7 +1,9 @@
 const { logger } = require('./logger.cjs');
+const { v4: uuidv4 } = require('uuid');
+const { resolveEffectiveLiferayConnection } = require('./liferayEnv.cjs');
 
 const SENSITIVE_KEY_RE =
-  /(api[_-]?key|authorization|auth|token|id[_-]?token|access[_-]?token)/i;
+  /(api[_-]?key|authorization|auth|token|id[_-]?token|secret|access[_-]?token)/i;
 const SENSITIVE_QS = new Set([
   'token',
   'access_token',
@@ -18,11 +20,15 @@ function toBoolean(v) {
   const s = v.trim().toLowerCase();
   return ['true', '1', 'yes', 'y', 'on'].includes(s);
 }
+
 function toNumber(v) {
-  if (typeof v === 'number') return v;
+  if (typeof v === 'number') {
+    return Number.isFinite(v) ? v : undefined;
+  }
   const n = Number(v);
   return Number.isFinite(n) ? n : undefined;
 }
+
 function parseMaybeJSON(v) {
   if (v == null) return undefined;
   if (typeof v !== 'string') return v;
@@ -34,17 +40,38 @@ function parseMaybeJSON(v) {
     return s;
   }
 }
+
 function bufferToDataUrl(buffer, mime, fallback = 'application/octet-stream') {
   const m = mime || fallback;
   const b64 = buffer.toString('base64');
   return `data:${m};base64,${b64}`;
 }
 
-function buildConfigAndOptions(req) {
-  const {
-    route: { path },
-  } = req;
+function getCustomImage(req, imageMode) {
+  if (imageMode === 'custom') {
+    const file = (req.files?.customImageFile || [])[0];
+    return getCustomFile(file, 'image/jpeg', 'product.jpg');
+  }
+}
 
+function getCustomPdf(req, pdfMode) {
+  if (pdfMode === 'custom') {
+    const file = (req.files?.customPDFFile || [])[0];
+    return getCustomFile(file, 'application/pdf', 'product.pdf');
+  }
+}
+
+function getCustomFile(file, defaultMimeType, defaultFilename) {
+  if (file?.buffer?.length) {
+    return {
+      buffer: file.buffer,
+      mime: file.mimetype || defaultMimeType,
+      filename: file.originalname || defaultFilename,
+    };
+  }
+}
+
+function buildConfigAndOptions(req) {
   const {
     accountCount,
     aiModel,
@@ -82,114 +109,125 @@ function buildConfigAndOptions(req) {
     siteGroupId,
   } = req.body || {};
 
-  const config = Object.assign(
-    {},
-    { batchSize },
-    { catalogId },
-    { channelId },
-    clientId === null ? null : { clientId },
-    clientSecret === null ? null : { clientSecret },
-    currencyCode === null ? 'USD' : { currencyCode },
-    languageId === null ? 'en_US' : { languageId },
-    liferayUrl === null ? null : { liferayUrl },
-    localeCode === null ? 'en-US' : { localeCode },
-    { pollingDelay },
-    { pollingRetries },
-    selectedLanguages === null ? ['en-US'] : { selectedLanguages },
-    { siteGroupId }
-  );
+  const correlationId =
+    req.correlationId || req.headers['x-correlation-id'] || uuidv4();
 
-  config.correlationId = req.correlationId;
-
-  let constrictedMicroserviceUrl = microserviceUrl;
+  let constructedMicroserviceUrl = microserviceUrl;
   if (
-    !constrictedMicroserviceUrl ||
-    constrictedMicroserviceUrl === 'null' ||
-    constrictedMicroserviceUrl === 'undefined'
+    !constructedMicroserviceUrl ||
+    constructedMicroserviceUrl === 'null' ||
+    constructedMicroserviceUrl === 'undefined'
   ) {
     const protocol =
       req.headers['x-forwarded-proto'] || (req.secure ? 'https' : 'http');
-    const host =
-      req.headers['x-forwarded-host'] ||
-      req.headers.host ||
-      `localhost:${PORT}`;
-    constrictedMicroserviceUrl = `${protocol}://${host}`;
-    logger.trace(`Constructed microservice URL: ${constrictedMicroserviceUrl}`);
+    const host = req.headers['x-forwarded-host'] || req.headers.host;
+    constructedMicroserviceUrl = host ? `${protocol}://${host}` : null;
+    if (constructedMicroserviceUrl) {
+      logger.trace(
+        `Constructed microservice URL: ${constructedMicroserviceUrl}`
+      );
+    }
   }
 
   try {
-    new URL(constrictedMicroserviceUrl);
-  } catch (urlError) {
+    if (constructedMicroserviceUrl) {
+      new URL(constructedMicroserviceUrl);
+    }
+  } catch {
     logger.warn(
-      `Invalid microservice URL constructed: ${constrictedMicroserviceUrl}, falling back to null`
+      `Invalid microservice URL constructed: ${constructedMicroserviceUrl}, falling back to null`
     );
-    constrictedMicroserviceUrl = null;
+    constructedMicroserviceUrl = null;
   }
 
-  config.microserviceUrl = constrictedMicroserviceUrl;
+  const rawConfig = {
+    batchSize: toNumber(batchSize),
+    catalogId: toNumber(catalogId),
+    channelId: toNumber(channelId),
+    clientId: clientId === null ? null : clientId,
+    clientSecret: clientSecret === null ? null : clientSecret,
+    currencyCode:
+      currencyCode === null || currencyCode === undefined
+        ? 'USD'
+        : currencyCode,
+    languageId:
+      languageId === null || languageId === undefined ? 'en_US' : languageId,
+    liferayUrl: liferayUrl === null ? null : liferayUrl,
+    localeCode:
+      localeCode === null || localeCode === undefined ? 'en-US' : localeCode,
+    pollingDelay: toNumber(pollingDelay),
+    pollingRetries: toNumber(pollingRetries),
+    selectedLanguages:
+      selectedLanguages === null || selectedLanguages === undefined
+        ? ['en-US']
+        : selectedLanguages,
+    siteGroupId: toNumber(siteGroupId),
+    microserviceUrl: constructedMicroserviceUrl || undefined,
+    correlationId,
+  };
 
-  const options = Object.assign({}, { demoMode: !!demoMode });
+  const {
+    liferayUrl: effectiveUrl,
+    clientId: effectiveClientId,
+    clientSecret: effectiveClientSecret,
+    isColocated,
+  } = resolveEffectiveLiferayConnection(
+    rawConfig,
+    req.app?.locals?.oauthService
+  );
 
-  switch (path) {
-    case '/api/generate/products':
-      config.aiModel = aiModel;
+  const config = {
+    ...rawConfig,
+    aiModel,
+    liferayUrl: effectiveUrl,
+    clientId: effectiveClientId,
+    clientSecret: effectiveClientSecret,
+    isColocated,
+  };
 
-      options.productCount = productCount;
+  const options = {
+    demoMode: toBoolean(demoMode),
+  };
+
+  const routePath = req?.route?.path;
+
+  switch (routePath) {
+    case '/api/generate/products': {
+      options.productCount = toNumber(productCount);
       options.productCategories = productCategories;
-      options.generateBulkPricing = !!generateBulkPricing;
-      options.generatePriceLists = !!generatePriceLists;
-      options.generateSkuVariants = !!generateSkuVariants;
-      options.generateSpecifications = !!generateSpecifications;
-      options.generateTierPricing = !!generateTierPricing;
-      options.imageHeight = imageHeight || 512;
+      options.generateBulkPricing = toBoolean(generateBulkPricing);
+      options.generatePriceLists = toBoolean(generatePriceLists);
+      options.generateSkuVariants = toBoolean(generateSkuVariants);
+      options.generateSpecifications = toBoolean(generateSpecifications);
+      options.generateTierPricing = toBoolean(generateTierPricing);
+      options.imageHeight = toNumber(imageHeight) || 512;
       options.imageMode = imageMode || 'none';
       options.imageQuality = imageQuality || 'standard';
-      options.imageRatio = imageRatio || 0;
+      options.imageRatio = toNumber(imageRatio) || 0;
       options.imageStyle = imageStyle || 'photographic';
-      options.imageWidth = imageWidth || 512;
+      options.imageWidth = toNumber(imageWidth) || 512;
       options.pdfMode = pdfMode || 'none';
-      options.pdfRatio = pdfRatio || 0;
-      options.customImageFile = getCustomImage(req, imageMode);
-      options.customPdfFile = getCustomPdf(req, pdfMode);
+      options.pdfRatio = toNumber(pdfRatio) || 0;
+      options.customImageFile = getCustomImage(req, options.imageMode);
+      options.customPdfFile = getCustomPdf(req, options.pdfMode);
       break;
-    case '/api/generate/orders':
-      options.orderCount = orderCount;
+    }
+    case '/api/generate/orders': {
+      options.orderCount = toNumber(orderCount);
       break;
-    case '/api/generate/accounts':
-      config.aiModel = aiModel;
-
-      options.accountCount = accountCount;
+    }
+    case '/api/generate/accounts': {
+      options.accountCount = toNumber(accountCount);
       break;
+    }
     case '/api/validate/products':
-    case '/api/validate/accounts':
-      options.requiredCount = requiredCount;
+    case '/api/validate/accounts': {
+      options.requiredCount = toNumber(requiredCount);
       break;
+    }
   }
+
   return { config, options };
-}
-
-function getCustomImage(req, imageMode) {
-  if (imageMode === 'custom') {
-    const file = (req.files?.customImageFile || [])[0];
-    return getCustomFile(file, 'image/jpeg', 'product.jpg');
-  }
-}
-
-function getCustomPdf(req, pdfMode) {
-  if (pdfMode === 'custom') {
-    const file = (req.files?.customPDFFile || [])[0];
-    return getCustomFile(file, 'application/pdf', 'product.pdf');
-  }
-}
-
-function getCustomFile(file, defaultMimeType, defaultFliename) {
-  if (file?.buffer?.length) {
-    return {
-      buffer: file.buffer,
-      mime: file.mimetype || defaultMimeType,
-      filename: file.originalname || defaultFliename,
-    };
-  }
 }
 
 function maskMiddle(str, keepStart = 6, keepEnd = 6, label = 'REDACTED') {
@@ -267,7 +305,7 @@ function redactByKey(keyPath, value) {
     return '[REDACTED]';
   }
 
-  return null; 
+  return null;
 }
 
 function redactStringGeneric(str, keyPath) {
@@ -318,6 +356,7 @@ function sanitizeValue(val, keyPath = []) {
     }
     return out;
   }
+
   return val;
 }
 
@@ -363,6 +402,13 @@ function parseBatchStatuses(obj) {
   }));
 }
 
+const sanitizedERC = (str) =>
+  str
+    .replace(/&/g, 'AND')
+    .replace(/[^A-Za-z0-9\-]/g, '_')
+    .replace(/_+/g, '_')
+    .replace(/^_|_$/g, '');
+
 module.exports = {
   bufferToDataUrl,
   buildConfigAndOptions,
@@ -372,6 +418,7 @@ module.exports = {
   redactUrl,
   sanitizeCacheDump,
   sanitizeCacheEntry,
+  sanitizedERC,
   sanitizedObject,
   toBoolean,
   toNumber,

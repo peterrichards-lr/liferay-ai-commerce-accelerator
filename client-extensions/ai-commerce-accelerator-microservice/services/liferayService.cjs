@@ -13,12 +13,21 @@ const {
   VIEWABLE_BY,
   buildPermissionsItems,
 } = require('../utils/liferayPermissions.cjs');
-const { DEBUG, ERC_PREFIX } = require('../utils/constants.cjs');
+const { DEBUG, ERC_PREFIX, OP_MAP } = require('../utils/constants.cjs');
 const {
   delay,
   createExternalReferenceCode,
   createERC,
 } = require('../utils/misc.cjs');
+const { sanitizedERC } = require('../utils/normalize.cjs');
+const { getBatchCacheTTLms } = require('../utils/ttl.cjs');
+
+const SOFT_STATUS_BY_OP = {
+  'accounts:list': [404],
+  'products:list': [404],
+  'orders:list': [404],
+  'import-task': [404],
+};
 
 class LiferayService {
   constructor(ctx) {
@@ -27,18 +36,36 @@ class LiferayService {
     this.baseUrl = liferayConfig.liferayUrl;
   }
 
-  _asCount(data) {
-    return data?.totalCount || data?.items?.totalCount || 0;
+  _buildCallbackURL(callbackUrl, meta = {}) {
+    if (!callbackUrl) return null;
+    try {
+      const u = new URL(callbackUrl);
+      if (meta.entity) u.searchParams.set('entity', String(meta.entity));
+      if (meta.op) {
+        const raw = String(meta.op).toLowerCase();
+        const opCode = OP_MAP[raw] || 'X';
+        u.searchParams.set('opCode', opCode);
+      }
+      if (meta.batchERC) u.searchParams.set('batchERC', String(meta.batchERC));
+      if (meta.sessionId)
+        u.searchParams.set('sessionId', String(meta.sessionId));
+      return u.toString();
+    } catch {
+      return callbackUrl;
+    }
   }
 
-  _asItems(data) {
-    if (Array.isArray(data)) return data;
-    if (Array.isArray(data?.items)) return data.items;
-    return [];
-  }
-
-  async _client(config) {
-    return this.createAxiosInstance(config);
+  _buildSoftFallback(op, status) {
+    return {
+      items: [],
+      page: 1,
+      pageSize: 0,
+      lastPage: 1,
+      totalCount: 0,
+      status,
+      softEmpty: true,
+      op,
+    };
   }
 
   async _request(
@@ -56,6 +83,7 @@ class LiferayService {
   ) {
     try {
       const client = await this._client(config);
+
       const res = await client.request({
         method,
         url,
@@ -75,16 +103,16 @@ class LiferayService {
 
       return res.data;
     } catch (err) {
+      const hasHTTPResponse = !!err?.response;
       const res = err.response;
-      const req = err.request;
 
-      const status = res?.status;
-      const statusText = res?.statusText;
-      const resHeaders = res?.headers || {};
-      const body = res?.data;
+      const status = hasHTTPResponse ? res.status : undefined;
+      const statusText = hasHTTPResponse ? res.statusText : undefined;
+      const resHeaders = hasHTTPResponse ? res.headers || {} : {};
+      const body = hasHTTPResponse ? res.data : undefined;
 
       const problem =
-        body && typeof body === 'object'
+        hasHTTPResponse && body && typeof body === 'object'
           ? {
               status: body.status,
               title: body.title,
@@ -95,39 +123,130 @@ class LiferayService {
             }
           : null;
 
-      logger?.error?.('Request failed', {
-        op,
-        friendly,
+      const existingRef =
+        problem?.errorReference ||
+        err?.errorReference ||
+        err?.response?.headers?.['x-liferay-error-reference'];
+
+      const errorReference = existingRef || createERC(ERC_PREFIX.ERROR);
+
+      const detailMsg =
+        (hasHTTPResponse && (problem?.detail || problem?.title)) ||
+        friendly ||
+        statusText ||
+        err?.message ||
+        'Request failed';
+
+      if (hasHTTPResponse && op && SOFT_STATUS_BY_OP[op]?.includes(status)) {
+        logger?.info?.('Soft HTTP status treated as empty result', {
+          op,
+          method,
+          url,
+          status,
+          errorReference,
+          problem,
+          responseBody:
+            typeof body === 'string'
+              ? body
+              : body
+              ? this._stringifySafe(body)
+              : null,
+        });
+
+        const softResult = this._buildSoftFallback(op, status);
+
+        if (fullResponse) {
+          return {
+            data: softResult,
+            headers: resHeaders,
+            status,
+            statusText,
+          };
+        }
+
+        return softResult;
+      }
+
+      if (hasHTTPResponse) {
+        logger?.error?.('Request failed (HTTP error)', {
+          op,
+          friendly,
+          method,
+          url,
+          params,
+          status,
+          statusText,
+          errorReference,
+          problem,
+          responseBody:
+            typeof body === 'string'
+              ? body
+              : body
+              ? this._stringifySafe(body)
+              : null,
+          headers,
+          responseHeaders: resHeaders,
+        });
+      } else {
+        logger?.error?.('Request failed (no response from server)', {
+          op,
+          friendly,
+          method,
+          url,
+          params,
+          errorReference,
+          errorName: err?.name,
+          errorCode: err?.code,
+          message: err?.message,
+          stack: err?.stack,
+        });
+      }
+
+      const e = new Error(friendly || op || 'Request failed');
+      e.name = 'LiferayRequestError';
+
+      if (hasHTTPResponse) {
+        e.status = status;
+        e.statusText = statusText;
+      }
+
+      e.errorReference = errorReference;
+      e.problem = problem || null;
+      e.operation = op || friendly || 'request';
+      e.userMessage = detailMsg;
+      e.response = hasHTTPResponse
+        ? { status, statusText, headers: resHeaders, data: body }
+        : null;
+      e.request = {
         method,
         url,
         params,
-        status,
-        statusText,
-        errorReference: problem?.errorReference,
-        problem,
-        responseBody:
-          typeof body === 'string'
-            ? body
-            : body
-            ? this._stringifySafe(body)
-            : null,
-        headers,
-        responseHeaders: resHeaders,
-      });
+        hasData: !!data,
+      };
 
-      const e = new Error(op || friendly || 'Request failed');
-      e.name = 'LiferayRequestError';
-      e.status = status;
-      e.statusText = statusText;
-      e.errorReference = problem?.errorReference;
-      e.problem = problem;
-      e.response = { status, statusText, headers: resHeaders, data: body };
-      e.request = { method, url, params, hasData: !!data };
+      if (!hasHTTPResponse && err?.code) {
+        e.networkCode = err.code;
+      }
+
       throw e;
     }
   }
 
-  async _get(config, url, opts = {}, op, friendly, fullResponse = false) {
+  _asCount(data) {
+    return data?.totalCount || data?.items?.totalCount || 0;
+  }
+
+  _asItems(data) {
+    if (Array.isArray(data)) return data;
+    if (Array.isArray(data?.items)) return data.items;
+    return [];
+  }
+
+  async _client(config) {
+    return this.createAxiosInstance(config);
+  }
+
+  async _get(config, url, op, friendly, opts = {}, fullResponse = false) {
     const { params, headers } = opts || {};
 
     const paramsSerializer = (p) =>
@@ -308,7 +427,7 @@ class LiferayService {
         throw new Error(`Invalid URL format: ${config.liferayUrl}`);
       }
 
-      if (!oauthService.isLiferayRouteAvailable)
+      if (!oauthService.isLiferayRouteAvailable())
         oauthService.validateOAuthConfig(config);
 
       await this._get(config, PATH.ME, 'test-connection');
@@ -461,7 +580,7 @@ class LiferayService {
 
     logger.debug('Creating product with payload:', {
       sku: productData.sku,
-      name: productData.name?.en_US || 'N/A',
+      name: productData.name?.[config.languageId || 'en_US'] || 'N/A',
       catalogId: productData.catalogId,
       productType: productData.productType,
       payloadKeys: Object.keys(productData),
@@ -478,18 +597,44 @@ class LiferayService {
     return data;
   }
 
-  async createProductsBatch(config, productsData, callbackUrl) {
-    const { logger } = this.ctx;
-    const batchPayload = { createStrategy: 'INSERT', items: productsData };
+  async createProductsBatch(config, productsData, callbackUrl, opts = {}) {
+    const { logger, cache, configService } = this.ctx;
+    const erc =
+      opts.externalReferenceCode ?? createERC(ERC_PREFIX.PRODUCT_BATCH);
 
-    const url = PATH.PRODUCTS_BATCH(callbackUrl);
-
-    logger.info('Sending batch product creation request', {
-      operation: 'create-products-batch',
-      productCount: productsData.length,
-      callbackUrl: callbackUrl || 'none',
-      url,
+    const items = (productsData || []).map((item) => {
+      const extERC = sanitizedERC(
+        item.externalReferenceCode || item.sku || item.name?.en_US || uuidv4()
+      );
+      return { ...item, externalReferenceCode: extERC };
     });
+    const itemERCs = items.map((i) => i.externalReferenceCode);
+    cache.set(
+      `erc:${erc}:itemERCs`,
+      itemERCs,
+      getBatchCacheTTLms(configService)
+    );
+    if (opts.sessionId) {
+      cache.set(
+        `session:${opts.sessionId}:itemERCsByBatch:${erc}`,
+        itemERCs,
+        getBatchCacheTTLms(configService)
+      );
+    }
+
+    const taggedCallback = this._buildCallbackURL(callbackUrl, {
+      entity: 'products',
+      op: 'create',
+      batchERC: erc,
+      sessionId: opts.sessionId,
+    });
+
+    const batchPayload = {
+      createStrategy: 'INSERT',
+      items,
+      externalReferenceCode: erc,
+    };
+    const url = PATH.PRODUCTS_BATCH(taggedCallback);
 
     const data = await this._post(
       config,
@@ -498,16 +643,34 @@ class LiferayService {
       'create-products-batch',
       'Failed to create products batch'
     );
-    logger.info('Batch product creation initiated', {
-      operation: 'create-products-batch',
-      batchId: data.id || 'unknown',
-      status: data.status || 'submitted',
+
+    this._cacheItemERCs(erc, data?.id, itemERCs, opts.sessionId);
+    if (cache && data?.id) {
+      cache.set(
+        `batch:${data.id}:submission`,
+        {
+          op: 'create-products-batch',
+          erc,
+          itemERCs,
+          count: items.length,
+          createdAt: new Date().toISOString(),
+        },
+        getBatchCacheTTLms(configService)
+      );
+    }
+    logger?.trace?.('cache:itemERCs:stored', {
+      scopeERC: erc,
+      sessionId: opts.sessionId || null,
+      batchId: data?.id || null,
+      count: itemERCs.length,
     });
 
     return {
       batchId: data.id || `batch-${Date.now()}`,
       status: data.status || 'submitted',
-      productCount: productsData.length,
+      productCount: items.length,
+      externalReferenceCode: erc,
+      batchRefs: [{ taskId: data.id, count: items.length, erc }],
     };
   }
 
@@ -532,22 +695,42 @@ class LiferayService {
   }
 
   async createAccountsBatch(config, accountsData, callbackUrl, opts = {}) {
-    const { logger } = this.ctx;
+    const { logger, cache, configService } = this.ctx;
     const erc =
       opts.externalReferenceCode ?? createERC(ERC_PREFIX.ACCOUNT_BATCH);
+    const itemERCs = (accountsData || []).map((i) =>
+      sanitizedERC(i.externalReferenceCode || i.id || i.name || uuidv4())
+    );
+    cache.set(
+      `erc:${erc}:itemERCs`,
+      itemERCs,
+      getBatchCacheTTLms(configService)
+    );
+    if (opts.sessionId) {
+      cache.set(
+        `session:${opts.sessionId}:itemERCsByBatch:${erc}`,
+        itemERCs,
+        getBatchCacheTTLms(configService)
+      );
+    }
+
+    const taggedCallback = this._buildCallbackURL(callbackUrl, {
+      entity: 'accounts',
+      op: 'create',
+      batchERC: erc,
+      sessionId: opts.sessionId,
+    });
     const batchPayload = {
       createStrategy: 'INSERT',
       items: accountsData,
       externalReferenceCode: erc,
     };
-    const url = PATH.ACCOUNTS_BATCH(callbackUrl);
-
+    const url = PATH.ACCOUNTS_BATCH(taggedCallback);
     logger.info('Sending batch account creation request', {
       operation: 'create-accounts-batch',
       accountCount: accountsData.length,
-      callbackUrl,
+      callbackUrl: taggedCallback,
     });
-
     const data = await this._post(
       config,
       url,
@@ -555,40 +738,78 @@ class LiferayService {
       'create-accounts-batch',
       'Failed to create accounts batch'
     );
+    this._cacheItemERCs(erc, data?.id, itemERCs, opts.sessionId);
+    if (cache && data?.id) {
+      cache.set(
+        `batch:${data.id}:submission`,
+        {
+          op: 'create-accounts-batch',
+          erc: erc,
+          itemERCs,
+          count: accountsData.length,
+          createdAt: new Date().toISOString(),
+        },
+        getBatchCacheTTLms(configService)
+      );
+    }
+    logger?.trace?.('cache:itemERCs:stored', {
+      scopeERC: erc,
+      sessionId: opts.sessionId || null,
+      batchId: data?.id || null,
+      count: itemERCs.length,
+    });
 
     logger.info('Batch account creation initiated', {
       operation: 'create-accounts-batch',
       batchId: data.id || 'unknown',
       status: data.status || 'submitted',
     });
-
     return {
       batchId: data.id || `batch-${Date.now()}`,
       status: data.status || 'submitted',
       accountCount: accountsData.length,
       externalReferenceCode: erc,
+      batchRefs: [{ taskId: data.id, count: accountsData.length, erc }],
     };
   }
 
   async createOrdersBatch(config, ordersData, callbackUrl, opts = {}) {
-    const { logger } = this.ctx;
+    const { logger, cache, configService } = this.ctx;
     const erc = opts.externalReferenceCode ?? createERC(ERC_PREFIX.ORDER_BATCH);
+    const itemERCs = (ordersData || []).map((i) =>
+      sanitizedERC(i.externalReferenceCode || i.orderNumber || uuidv4())
+    );
+    cache.set(
+      `erc:${erc}:itemERCs`,
+      itemERCs,
+      getBatchCacheTTLms(configService)
+    );
+    if (opts.sessionId) {
+      cache.set(
+        `session:${opts.sessionId}:itemERCsByBatch:${erc}`,
+        itemERCs,
+        getBatchCacheTTLms(configService)
+      );
+    }
 
+    const taggedCallback = this._buildCallbackURL(callbackUrl, {
+      entity: 'orders',
+      op: 'create',
+      batchERC: erc,
+      sessionId: opts.sessionId,
+    });
     const batchPayload = {
       createStrategy: 'INSERT',
       items: ordersData,
       externalReferenceCode: erc,
     };
-
-    const url = PATH.ORDERS_BATCH(callbackUrl);
-
+    const url = PATH.ORDERS_BATCH(taggedCallback);
     logger.info('Sending batch order creation request', {
       operation: 'create-orders-batch',
       orderCount: ordersData.length,
-      callbackUrl,
+      callbackUrl: taggedCallback,
       externalReferenceCode: erc,
     });
-
     const data = await this._post(
       config,
       url,
@@ -596,6 +817,26 @@ class LiferayService {
       'create-orders-batch',
       'Failed to create orders batch'
     );
+    this._cacheItemERCs(erc, data?.id, itemERCs, opts.sessionId);
+    if (cache && data?.id) {
+      cache.set(
+        `batch:${data.id}:submission`,
+        {
+          op: 'create-orders-batch',
+          erc: erc,
+          itemERCs,
+          count: ordersData.length,
+          createdAt: new Date().toISOString(),
+        },
+        getBatchCacheTTLms(configService)
+      );
+    }
+    logger?.trace?.('cache:itemERCs:stored', {
+      scopeERC: erc,
+      sessionId: opts.sessionId || null,
+      batchId: data?.id || null,
+      count: itemERCs.length,
+    });
 
     logger.info('Batch order creation initiated', {
       operation: 'create-orders-batch',
@@ -603,12 +844,12 @@ class LiferayService {
       status: data.status || 'submitted',
       externalReferenceCode: erc,
     });
-
     return {
       batchId: data.id || `batch-${Date.now()}`,
       status: data.status || 'submitted',
       orderCount: ordersData.length,
       externalReferenceCode: erc,
+      batchRefs: [{ taskId: data.id, count: ordersData.length, erc }],
     };
   }
 
@@ -858,7 +1099,7 @@ class LiferayService {
           new Date().toISOString().split('T')[0]
         } - ${externalReferenceCode.slice(-6)}`;
 
-      this._post(
+      const created = await this._post(
         config,
         PATH.DOCUMENT_FOLDERS(siteGroupId),
         {
@@ -869,6 +1110,8 @@ class LiferayService {
         'create-documents-folder',
         'Failed to create documents folder'
       );
+
+      return created;
     }
   }
 
@@ -924,38 +1167,57 @@ class LiferayService {
           ...form.getHeaders(),
           Accept: 'application/json',
         },
-        // keep FormData unmodified
         transformRequest: [(d) => d],
         maxBodyLength: Infinity,
         maxContentLength: Infinity,
       });
       return data;
-    } catch (error) {
-      const errorReference = errorReference();
-      logger.error(`Error Reference: ${errorReference}`);
-      const baseLog = {
+    } catch (err) {
+      const status = err?.response?.status;
+      const statusText = err?.response?.statusText;
+      const resHeaders = err?.response?.headers || {};
+      const body = err?.response?.data;
+      const existingRef =
+        (body && body.errorReference) ||
+        resHeaders['x-liferay-error-reference'] ||
+        err?.errorReference;
+      const errorReference = existingRef || createERC(ERC_PREFIX.ERROR);
+
+      logger?.error?.('Multipart request failed', {
         operation: op || 'post-multipart',
         url,
-        status: error.response?.status,
-        statusText: error.response?.statusText,
-        data: error.response?.data,
+        status,
+        statusText,
+        data: body,
         timestamp: new Date().toISOString(),
         errorReference,
-      };
-      if (logger?.error) logger.error('Multipart request failed', baseLog);
+      });
+
       const msg =
         friendly ||
-        error.response?.data?.title ||
-        error.response?.data?.detail ||
-        error.message;
+        (body && (body.title || body.detail)) ||
+        err.message ||
+        'Multipart request failed';
 
-      const wrapped = new Error(msg);
-      wrapped.response = {
-        status: error.response?.status,
-        data: error.response?.data,
-        errorReference,
-      };
-      throw wrapped;
+      const e = new Error(msg);
+      e.name = 'LiferayRequestError';
+      e.status = status;
+      e.statusText = statusText;
+      e.errorReference = errorReference;
+      e.problem =
+        body && typeof body === 'object'
+          ? {
+              status: body.status,
+              title: body.title,
+              type: body.type,
+              detail: body.detail,
+              errorReference:
+                body.errorReference || resHeaders['x-liferay-error-reference'],
+            }
+          : null;
+      e.response = { status, statusText, headers: resHeaders, data: body };
+      e.request = { method: 'POST', url, hasData: true };
+      throw e;
     }
   }
 
@@ -1135,11 +1397,18 @@ class LiferayService {
   }
 
   async addProductAttachment(config, productId, attachmentData) {
-    return this._postProductMediaByUrl(config, productERC, {
-      src: imageUrlData.src,
-      title: imageUrlData.title,
-      type: 'image',
-    });
+    return await this._post(
+      config,
+      PATH.PRODUCT_ATTACHMENTS(productId),
+      {
+        title: attachmentData.title,
+        src: attachmentData.src,
+        attachment: attachmentData.attachment,
+        priority: attachmentData.priority ?? 0,
+      },
+      'add-product-attachment',
+      'Failed to add product attachment'
+    );
   }
 
   async addProductImage(config, productId, imageData) {
@@ -1309,8 +1578,13 @@ class LiferayService {
   }
 
   async deleteCommerceOrders(config, opts = {}) {
-    const { pageSize = 200, filter, callbackUrl, dryRun = false } = opts;
-
+    const {
+      pageSize = 200,
+      filter,
+      callbackUrl,
+      dryRun = false,
+      sessionId,
+    } = opts;
     const orderIds = await this._collectPagedIds(config, {
       listUrl: PATH.ORDERS,
       pageSize,
@@ -1320,10 +1594,16 @@ class LiferayService {
       friendly: 'List orders',
       sort: 'orderId:asc',
     });
-
-    const batchUrl = PATH.ORDERS_BATCH?.(callbackUrl) || `${PATH.ORDERS}/batch`;
-
-    return this._deleteByBatch(config, {
+    const batchERC = createERC(ERC_PREFIX.ORDER_BATCH);
+    const taggedCallback = this._buildCallbackURL(callbackUrl, {
+      entity: 'orders',
+      op: 'delete',
+      batchERC,
+      sessionId,
+    });
+    const batchUrl =
+      PATH.ORDERS_BATCH?.(taggedCallback) || `${PATH.ORDERS}/batch`;
+    const res = await this._deleteByBatch(config, {
       batchUrl,
       ids: orderIds,
       batchSize: config.batchSize,
@@ -1331,24 +1611,29 @@ class LiferayService {
       op: 'orders:batch-delete',
       friendly: 'Delete orders (batch)',
     });
+    res.batchRefs = (res.batchRefs || []).map((r) => ({ ...r, erc: batchERC }));
+    return res;
   }
 
   async deleteCommerceProducts(
     config,
-    { pageSize = 200, productFilter, callbackUrl, dryRun = false } = {}
+    {
+      pageSize = 200,
+      productFilter,
+      callbackUrl,
+      dryRun = false,
+      sessionId,
+    } = {}
   ) {
     const { catalogId } = config || {};
     if (catalogId === undefined || catalogId === null) {
       throw new Error('deleteCommerceProducts: config.catalogId is required');
     }
-
     const catalogClause =
       typeof catalogId === 'number'
         ? `catalogId eq ${catalogId}`
         : `catalogId eq '${String(catalogId).replace(/'/g, "''")}'`;
-
     const filter = this._combineODataFilters(catalogClause, productFilter);
-
     const productIds = await this._collectPagedIds(config, {
       listUrl: PATH.PRODUCTS,
       pageSize,
@@ -1358,11 +1643,16 @@ class LiferayService {
       op: 'products:list',
       friendly: `List products in catalog ${catalogId}`,
     });
-
+    const batchERC = createERC(ERC_PREFIX.PRODUCT_BATCH);
+    const taggedCallback = this._buildCallbackURL(callbackUrl, {
+      entity: 'products',
+      op: 'delete',
+      batchERC,
+      sessionId,
+    });
     const batchUrl =
-      PATH.PRODUCTS_BATCH?.(callbackUrl) || `${PATH.PRODUCTS}/batch`;
-
-    return this._deleteByBatch(config, {
+      PATH.PRODUCTS_BATCH?.(taggedCallback) || `${PATH.PRODUCTS}/batch`;
+    const res = await this._deleteByBatch(config, {
       batchUrl,
       ids: productIds,
       batchSize: config.batchSize,
@@ -1371,11 +1661,18 @@ class LiferayService {
       op: 'products:batch-delete',
       friendly: `Delete products (batch) in catalog ${catalogId}`,
     });
+    res.batchRefs = (res.batchRefs || []).map((r) => ({ ...r, erc: batchERC }));
+    return res;
   }
 
   async deleteCommerceAccounts(config, opts = {}) {
-    const { pageSize = 200, filter, callbackUrl, dryRun = false } = opts;
-
+    const {
+      pageSize = 200,
+      filter,
+      callbackUrl,
+      dryRun = false,
+      sessionId,
+    } = opts;
     const accountIds = await this._collectPagedIds(config, {
       listUrl: PATH.ACCOUNTS,
       pageSize,
@@ -1384,11 +1681,16 @@ class LiferayService {
       op: 'accounts:list',
       friendly: 'List accounts',
     });
-
+    const batchERC = createERC(ERC_PREFIX.ACCOUNT_BATCH);
+    const taggedCallback = this._buildCallbackURL(callbackUrl, {
+      entity: 'accounts',
+      op: 'delete',
+      batchERC,
+      sessionId,
+    });
     const batchUrl =
-      PATH.ACCOUNTS_BATCH?.(callbackUrl) || `${PATH.ACCOUNTS}/batch`;
-
-    return this._deleteByBatch(config, {
+      PATH.ACCOUNTS_BATCH?.(taggedCallback) || `${PATH.ACCOUNTS}/batch`;
+    const res = await this._deleteByBatch(config, {
       batchUrl,
       ids: accountIds,
       batchSize: config.batchSize,
@@ -1396,6 +1698,8 @@ class LiferayService {
       op: 'accounts:batch-delete',
       friendly: 'Delete accounts (batch)',
     });
+    res.batchRefs = (res.batchRefs || []).map((r) => ({ ...r, erc: batchERC }));
+    return res;
   }
 
   _combineODataFilters(a, b) {
@@ -1435,13 +1739,9 @@ class LiferayService {
         ...(fields ? { fields } : {}),
       };
 
-      const first = await this._get(
-        config,
-        listUrl,
-        { params: baseParams },
-        op,
-        friendly
-      );
+      const first = await this._get(config, listUrl, op, friendly, {
+        params: baseParams,
+      });
 
       const serverPage = typeof first?.page === 'number' ? first.page : 1;
       const serverPageSize =
@@ -1502,19 +1802,14 @@ class LiferayService {
           ...(fields ? { fields } : {}),
         };
 
-        let data = await this._get(config, listUrl, { params }, op, friendly);
+        let data = await this._get(config, listUrl, op, friendly, { params });
         let curPage = typeof data?.page === 'number' ? data.page : nextPage;
 
-        // One-time retry with cache-buster if server sticks to page 1
         if (nextPage > 1 && curPage === 1 && stickyRetry > 0) {
           stickyRetry--;
-          data = await this._get(
-            config,
-            listUrl,
-            { params: { ...params, _t: Date.now() } },
-            op,
-            friendly
-          );
+          data = await this._get(config, listUrl, op, friendly, {
+            params: { ...params, _t: Date.now() },
+          });
           curPage = typeof data?.page === 'number' ? data.page : nextPage;
         }
 
@@ -1706,35 +2001,49 @@ class LiferayService {
     };
     if (!ids.length || dryRun) return summary;
 
+    const retryLimit = 2;
+    const backoffMs = 500;
+
     let idx = 0;
+
     const worker = async () => {
       while (true) {
         const i = idx++;
         if (i >= ids.length) return;
         const id = ids[i];
-        try {
-          await this._delete(
-            config,
-            `${baseDeletePath}/${encodeURIComponent(id)}`,
-            undefined,
-            op,
-            friendly
-          );
-          summary.deleted++;
-        } catch (err) {
-          const status = err?.response?.status;
-          const payload = err?.response?.data;
-          const retriable = retryOn.includes(status) && attempts < retryLimit;
-          if (!retriable) {
-            summary.failures.push({
-              id,
-              status,
-              error: payload ?? String(err?.message ?? err),
-            });
+
+        let attempts = 0;
+
+        while (true) {
+          try {
+            await this._delete(
+              config,
+              `${baseDeletePath}/${encodeURIComponent(id)}`,
+              undefined,
+              op,
+              friendly
+            );
+            summary.deleted++;
             break;
+          } catch (err) {
+            const status = err?.response?.status;
+            const payload = err?.response?.data;
+            const retriable = retryOn.includes(status) && attempts < retryLimit;
+            if (!retriable) {
+              if (status === 404) {
+                summary.notFound++;
+              } else {
+                summary.failures.push({
+                  id,
+                  status,
+                  error: payload ?? String(err?.message ?? err),
+                });
+              }
+              break;
+            }
+            attempts++;
+            await delay(backoffMs * attempts);
           }
-          attempts++;
-          await delay(backoffMs * attempts);
         }
       }
     };
@@ -1759,19 +2068,37 @@ class LiferayService {
   ) {
     let attempt = 0;
     while (attempt < maxChecks) {
-      const data = await this._get(
-        config,
-        listUrl,
-        { params: { page: 1, pageSize, ...(filter ? { filter } : {}) } },
-        op,
-        friendly
-      );
+      const data = await this._get(config, listUrl, op, friendly, {
+        params: { page: 1, pageSize, ...(filter ? { filter } : {}) },
+      });
       const items = (data && data[itemsKey]) || [];
       if (items.length === 0) return true;
       attempt += 1;
       await delay(delayMs);
     }
     return false;
+  }
+
+  _cacheItemERCs(batchERC, batchId, itemERCs, sessionId) {
+    const { cache, configService } = this.ctx || {};
+    if (!cache || !Array.isArray(itemERCs)) return;
+    cache.set(
+      `erc:${batchERC}:itemERCs`,
+      itemERCs,
+      getBatchCacheTTLms(configService)
+    );
+    if (batchId)
+      cache.set(
+        `batch:${batchId}:itemERCs`,
+        itemERCs,
+        getBatchCacheTTLms(configService)
+      );
+    if (sessionId)
+      cache.set(
+        `session:${sessionId}:itemERCsByBatch:${batchERC}`,
+        itemERCs,
+        getBatchCacheTTLms(configService)
+      );
   }
 
   _stringifySafe(obj, max = 20_000) {
@@ -1800,11 +2127,424 @@ class LiferayService {
     return await this._get(
       config,
       `/o/headless-batch-engine/v1.0/import-task/${batchId}`,
-      {},
       'import-task',
       'Import Liferay task',
+      {},
       true
     );
+  }
+
+  async createOptionsBatch(config, optionsData, callbackUrl, opts = {}) {
+    const { logger, cache, configService } = this.ctx;
+    const batchERC =
+      opts.externalReferenceCode ?? createERC(ERC_PREFIX.OPTION_BATCH);
+    const items = optionsData.map((item) => {
+      const erc = sanitizedERC(
+        item.externalReferenceCode || item.key || item.name?.en_US || uuidv4()
+      );
+      return { ...item, externalReferenceCode: erc };
+    });
+    const itemERCs = items.map((i) => i.externalReferenceCode);
+    cache.set(
+      `erc:${batchERC}:itemERCs`,
+      itemERCs,
+      getBatchCacheTTLms(configService)
+    );
+    if (opts.sessionId) {
+      cache.set(
+        `session:${opts.sessionId}:itemERCsByBatch:${batchERC}`,
+        itemERCs,
+        getBatchCacheTTLms(configService)
+      );
+    }
+
+    const taggedCallback = this._buildCallbackURL(callbackUrl, {
+      entity: 'options',
+      op: 'create',
+      batchERC,
+      sessionId: opts.sessionId,
+    });
+    const payload = {
+      createStrategy: 'INSERT',
+      items,
+      externalReferenceCode: batchERC,
+    };
+    const url = PATH.OPTIONS_BATCH(taggedCallback);
+    logger.info('Sending batch option creation request', {
+      operation: 'create-options-batch',
+      optionCount: items.length,
+      callbackUrl: taggedCallback || 'none',
+      externalReferenceCode: batchERC,
+    });
+    const data = await this._post(
+      config,
+      url,
+      payload,
+      'create-options-batch',
+      'Failed to create options batch'
+    );
+    this._cacheItemERCs(batchERC, data?.id, itemERCs, opts.sessionId);
+    if (cache && data?.id) {
+      cache.set(
+        `batch:${data.id}:submission`,
+        {
+          op: 'create-options-batch',
+          erc: batchERC,
+          itemERCs,
+          count: items.length,
+          createdAt: new Date().toISOString(),
+        },
+        getBatchCacheTTLms(configService)
+      );
+    }
+    logger?.trace?.('cache:itemERCs:stored', {
+      scopeERC: batchERC,
+      sessionId: opts.sessionId || null,
+      batchId: data?.id || null,
+      count: itemERCs.length,
+    });
+
+    return {
+      batchId: data.id || `batch-${Date.now()}`,
+      status: data.status || 'submitted',
+      optionCount: items.length,
+      externalReferenceCode: batchERC,
+      batchRefs: [{ taskId: data.id, count: items.length, erc: batchERC }],
+    };
+  }
+
+  async deleteOptionsBatch(
+    config,
+    { pageSize = 200, filter, callbackUrl, dryRun = false, sessionId } = {}
+  ) {
+    const { logger } = this.ctx;
+    const optionIds = await this._collectPagedIds(config, {
+      listUrl: PATH.OPTIONS,
+      pageSize,
+      filter,
+      fields: 'id',
+      op: 'options:list',
+      friendly: 'List options',
+    });
+    const batchERC = createERC(ERC_PREFIX.OPTION_BATCH);
+    const taggedCallback = this._buildCallbackURL(callbackUrl, {
+      entity: 'options',
+      op: 'delete',
+      batchERC,
+      sessionId,
+    });
+    const batchUrl =
+      PATH.OPTIONS_BATCH?.(taggedCallback) || `${PATH.OPTIONS}/batch`;
+    logger.info('Submitting batch delete for options', {
+      count: optionIds.length,
+      dryRun,
+      callbackUrl: taggedCallback || 'none',
+      externalReferenceCode: batchERC,
+    });
+    const res = await this._deleteByBatch(config, {
+      batchUrl,
+      ids: optionIds,
+      batchSize: config.batchSize,
+      dryRun,
+      op: 'options:batch-delete',
+      friendly: 'Delete options (batch)',
+    });
+    res.batchRefs = (res.batchRefs || []).map((r) => ({ ...r, erc: batchERC }));
+    return res;
+  }
+
+  async createSpecificationsBatch(
+    config,
+    specificationsData,
+    callbackUrl,
+    opts = {}
+  ) {
+    const { logger, cache, configService } = this.ctx;
+    const batchERC =
+      opts.externalReferenceCode ?? createERC(ERC_PREFIX.SPECIFICATION_BATCH);
+    const items = specificationsData.map((item) => {
+      const erc = sanitizedERC(
+        item.externalReferenceCode || item.key || item.name?.en_US || uuidv4()
+      );
+      return { ...item, externalReferenceCode: erc };
+    });
+    const itemERCs = items.map((i) => i.externalReferenceCode);
+    cache.set(
+      `erc:${batchERC}:itemERCs`,
+      itemERCs,
+      getBatchCacheTTLms(configService)
+    );
+    if (opts.sessionId) {
+      cache.set(
+        `session:${opts.sessionId}:itemERCsByBatch:${batchERC}`,
+        itemERCs,
+        getBatchCacheTTLms(configService)
+      );
+    }
+    const taggedCallback = this._buildCallbackURL(callbackUrl, {
+      entity: 'specifications',
+      op: 'create',
+      batchERC,
+      sessionId: opts.sessionId,
+    });
+    const payload = {
+      createStrategy: 'INSERT',
+      items,
+      externalReferenceCode: batchERC,
+    };
+    const url = PATH.SPECIFICATIONS_BATCH(taggedCallback);
+    logger.info('Sending batch specification creation request', {
+      operation: 'create-specifications-batch',
+      specificationCount: items.length,
+      callbackUrl: taggedCallback || 'none',
+      externalReferenceCode: batchERC,
+    });
+    const data = await this._post(
+      config,
+      url,
+      payload,
+      'create-specifications-batch',
+      'Failed to create specifications batch'
+    );
+    this._cacheItemERCs(batchERC, data?.id, itemERCs, opts.sessionId);
+    if (cache && data?.id) {
+      cache.set(
+        `batch:${data.id}:submission`,
+        {
+          op: 'create-specifications-batch',
+          erc: batchERC,
+          itemERCs,
+          count: items.length,
+          createdAt: new Date().toISOString(),
+        },
+        getBatchCacheTTLms(configService)
+      );
+    }
+
+    logger?.trace?.('cache:itemERCs:stored', {
+      scopeERC: batchERC,
+      sessionId: opts.sessionId || null,
+      batchId: data?.id || null,
+      count: itemERCs.length,
+    });
+    return {
+      batchId: data.id || `batch-${Date.now()}`,
+      status: data.status || 'submitted',
+      specificationCount: items.length,
+      externalReferenceCode: batchERC,
+      batchRefs: [{ taskId: data.id, count: items.length, erc: batchERC }],
+    };
+  }
+
+  async deleteSpecificationsBatch(
+    config,
+    { pageSize = 200, filter, callbackUrl, dryRun = false, sessionId } = {}
+  ) {
+    const { logger } = this.ctx;
+    const specIds = await this._collectPagedIds(config, {
+      listUrl: PATH.SPECIFICATIONS,
+      pageSize,
+      filter,
+      fields: 'id',
+      op: 'specifications:list',
+      friendly: 'List specifications',
+    });
+    const batchERC = createERC(ERC_PREFIX.SPECIFICATION_BATCH);
+    const taggedCallback = this._buildCallbackURL(callbackUrl, {
+      entity: 'specifications',
+      op: 'delete',
+      batchERC,
+      sessionId,
+    });
+    const batchUrl =
+      PATH.SPECIFICATIONS_BATCH?.(taggedCallback) ||
+      `${PATH.SPECIFICATIONS}/batch`;
+    logger.info('Submitting batch delete for specifications', {
+      count: specIds.length,
+      dryRun,
+      callbackUrl: taggedCallback || 'none',
+      externalReferenceCode: batchERC,
+    });
+    const res = await this._deleteByBatch(config, {
+      batchUrl,
+      ids: specIds,
+      batchSize: config.batchSize,
+      dryRun,
+      op: 'specifications:batch-delete',
+      friendly: 'Delete specifications (batch)',
+    });
+    res.batchRefs = (res.batchRefs || []).map((r) => ({ ...r, erc: batchERC }));
+    return res;
+  }
+
+  async createOptionCategoriesBatch(
+    config,
+    categories,
+    callbackUrl,
+    opts = {}
+  ) {
+    const { logger, cache, configService } = this.ctx;
+    const batchERC =
+      opts.externalReferenceCode ??
+      createERC(ERC_PREFIX.OPTION_CATEGORY_BATCH || 'OCATBATCH');
+    const items = (categories || []).map((item) => {
+      const erc = sanitizedERC(
+        item.externalReferenceCode || item.key || item.name?.en_US || uuidv4()
+      );
+      return { ...item, externalReferenceCode: erc };
+    });
+    const itemERCs = items.map((i) => i.externalReferenceCode);
+    cache.set(
+      `erc:${batchERC}:itemERCs`,
+      itemERCs,
+      getBatchCacheTTLms(configService)
+    );
+    if (opts.sessionId) {
+      cache.set(
+        `session:${opts.sessionId}:itemERCsByBatch:${batchERC}`,
+        itemERCs,
+        getBatchCacheTTLms(configService)
+      );
+    }
+    const taggedCallback = this._buildCallbackURL(callbackUrl, {
+      entity: 'optionCategories',
+      op: 'create',
+      batchERC,
+      sessionId: opts.sessionId,
+    });
+    const payload = {
+      createStrategy: 'INSERT',
+      items,
+      externalReferenceCode: batchERC,
+    };
+    const tryBatch = async () => {
+      const url = PATH.OPTION_CATEGORIES_BATCH(taggedCallback);
+      logger.info('Sending batch option category creation request', {
+        operation: 'create-option-categories-batch',
+        count: items.length,
+        callbackUrl: taggedCallback || 'none',
+        externalReferenceCode: batchERC,
+      });
+      const data = await this._post(
+        config,
+        url,
+        payload,
+        'create-option-categories-batch',
+        'Failed to create option categories batch'
+      );
+      this._cacheItemERCs(batchERC, data?.id, itemERCs, opts.sessionId);
+      if (cache && data?.id) {
+        cache.set(
+          `batch:${data.id}:submission`,
+          {
+            op: 'create-option-categories-batch',
+            erc: batchERC,
+            itemERCs,
+            count: items.length,
+            createdAt: new Date().toISOString(),
+          },
+          getBatchCacheTTLms(configService)
+        );
+      }
+
+      return {
+        batchId: data.id || `batch-${Date.now()}`,
+        status: data.status || 'submitted',
+        optionCategoryCount: items.length,
+        externalReferenceCode: batchERC,
+        batchRefs: [{ taskId: data.id, count: items.length, erc: batchERC }],
+      };
+    };
+    try {
+      return await tryBatch();
+    } catch (e) {
+      if (e?.status === 404) {
+        logger.warn(
+          'Option Categories /batch not found. Falling back to per-item create.'
+        );
+        const results = [];
+        for (const item of items) {
+          const res = await this.createOptionCategory(config, item);
+          results.push(res);
+        }
+        return {
+          batchId: null,
+          status: 'completed',
+          optionCategoryCount: results.length,
+          externalReferenceCode: batchERC,
+          items: results,
+          batchRefs: [],
+        };
+      }
+      throw e;
+    }
+  }
+
+  async deleteOptionCategoriesBatch(
+    config,
+    { pageSize = 200, filter, callbackUrl, dryRun = false, sessionId } = {}
+  ) {
+    const { logger } = this.ctx;
+    const categoryIds = await this._collectPagedIds(config, {
+      listUrl: PATH.OPTION_CATEGORIES,
+      pageSize,
+      filter,
+      fields: 'id',
+      op: 'optionCategories:list',
+      friendly: 'List option categories',
+    });
+    const batchERC = createERC(
+      ERC_PREFIX.OPTION_CATEGORY_BATCH || 'OCATBATCHDEL'
+    );
+    const taggedCallback = this._buildCallbackURL(callbackUrl, {
+      entity: 'optionCategories',
+      op: 'delete',
+      batchERC,
+      sessionId,
+    });
+    const tryBatch = async () => {
+      const batchUrl =
+        PATH.OPTION_CATEGORIES_BATCH?.(taggedCallback) ||
+        `${PATH.OPTION_CATEGORIES}/batch`;
+      logger.info('Submitting batch delete for option categories', {
+        count: categoryIds.length,
+        dryRun,
+        callbackUrl: taggedCallback || 'none',
+        externalReferenceCode: batchERC,
+      });
+      const res = await this._deleteByBatch(config, {
+        batchUrl,
+        ids: categoryIds,
+        batchSize: config.batchSize,
+        dryRun,
+        op: 'optionCategories:batch-delete',
+        friendly: 'Delete option categories (batch)',
+      });
+      res.batchRefs = (res.batchRefs || []).map((r) => ({
+        ...r,
+        erc: batchERC,
+      }));
+      return res;
+    };
+    try {
+      return await tryBatch();
+    } catch (e) {
+      if (e?.status === 404) {
+        logger.warn(
+          'Option Categories /batch not found. Falling back to per-id delete.'
+        );
+        return this._deleteByIds(config, {
+          baseDeletePath: PATH.OPTION_CATEGORIES,
+          ids: categoryIds,
+          concurrency: 6,
+          retryOn: [409, 429, 503],
+          dryRun,
+          op: 'optionCategories:ids-delete',
+          friendly: 'Delete option categories (by id)',
+        });
+      }
+      throw e;
+    }
   }
 }
 

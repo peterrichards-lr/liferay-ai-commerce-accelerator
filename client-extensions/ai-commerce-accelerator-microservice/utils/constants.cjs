@@ -34,26 +34,32 @@ const APP_ERCS = Object.freeze({
 
 const APP_PREFIX = 'AICA-';
 const ERC_PREFIX = Object.freeze({
-  ACCOUNT: `${APP_PREFIX}ACC`,
   ACCOUNT_BATCH: `${APP_PREFIX}ACC-BATCH`,
+  ACCOUNT: `${APP_PREFIX}ACC`,
   BATCH_SESSION: `${APP_PREFIX}SESSION`,
   ERROR: `${APP_PREFIX}ERR`,
   IMAGE: `${APP_PREFIX}IMG`,
-  ORDER: `${APP_PREFIX}ORD`,
+  OPTION_BATCH: `${APP_PREFIX}OPT-BATCH`,
+  OPTION_CATEGORY_BATCH: `${APP_PREFIX}OPT-CAT-BATCH`,
   ORDER_BATCH: `${APP_PREFIX}ORD-BATCH`,
+  ORDER: `${APP_PREFIX}ORD`,
   PDF: `${APP_PREFIX}PDF`,
-  PRODUCT: `${APP_PREFIX}PRD`,
   PRODUCT_BATCH: `${APP_PREFIX}PRD-BATCH`,
+  PRODUCT: `${APP_PREFIX}PRD`,
+  SPECIFICATION_BATCH: `${APP_PREFIX}SPEC-BATCH`,
   SPECIFICATION_CATEGORY: `${APP_PREFIX}SPEC-CAT`,
   SPECIFICATION: `${APP_PREFIX}SPEC`,
 });
+
+const IMAGE_BATCH_ID = 'image-processing';
+const PDF_BATCH_ID = 'pdf-processing';
 
 const ABS_MIN = Object.freeze({
   WS_HEARTBEAT_INTERVAL_MS: 10_000,
   WS_RETRY_INTERVAL_MS: 300,
   WS_MAX_RETRIES: 3,
 
-  CACHE_MAX_SIZE: 100,
+  CACHE_MAX_SIZE: 200,
   CACHE_DEFAULT_TTL: 60_000,
   CONFIG_DEFAULT_TTL: 60_000,
   BATCH_MIN_POLL_INTERVAL: 2_000,
@@ -236,10 +242,32 @@ const QUEUE_CONFIG = Object.freeze({
   ),
 });
 
+const WEB_SOCKET_EVENTS = Object.freeze({
+  BATCH_COMPLETED: 'batch_completed',
+  BATCH_PROGRESS: 'batch_progress',
+  BATCH_START: 'batch_start',
+  BATCH_FAILED: 'batch_failed',
+  BATCH_SUBSCRIPTION_CONFIRMED: 'batch_subscription_confirmed',
+  ERROR: 'error',
+  GENERATION_PROGRESS: 'generation_progress',
+  GENERATION_SESSION_COMPLETE: 'generation_session_complete',
+  POSTPROC_COMPLETED: 'post_processing_completed',
+  POSTPROC_PROGRESS: 'post_processing_progress',
+  POSTPROC_STARTED: 'post_processing_started',
+  SESSION_COMPLETE: 'session_completed',
+  PONG: 'pong',
+});
+
+const OP_MAP = { create: 'C', update: 'U', delete: 'D', list: 'L', read: 'R' };
+
 module.exports = {
   APP_ERCS,
   ENV,
   ERC_PREFIX,
   ABS_MIN,
   QUEUE_CONFIG,
+  IMAGE_BATCH_ID,
+  OP_MAP,
+  PDF_BATCH_ID,
+  WEB_SOCKET_EVENTS,
 };

@@ -31,7 +31,7 @@ const BASE = {
   CHANNELS: '/o/headless-commerce-admin-channel/v1.0/channels',
   ACCOUNTS: '/o/headless-admin-user/v1.0/accounts',
   ORDERS: '/o/headless-commerce-admin-order/v1.0/orders',
-  PRICE_LISTS: '/o/headless-commerce-admin-pricing/v1.0/price-lists',
+  PRICE_LISTS: '/o/headless-commerce-admin-pricing/v1.0/priceLists',
   ME: '/o/headless-admin-user/v1.0/my-user-account',
   CURRENCIES: '/o/headless-commerce-admin-catalog/v1.0/currencies',
 };
@@ -53,6 +53,7 @@ const PATH = {
   CUSTOM_OBJECTS,
 
   PRODUCTS: BASE.PRODUCTS,
+  PRICE_LISTS: BASE.PRICE_LISTS,
   PRODUCTS_BATCH: (callbackURL) =>
     `${BASE.PRODUCTS}/batch${
       callbackURL ? `?callbackURL=${enc(callbackURL)}` : ''
@@ -81,12 +82,27 @@ const PATH = {
     byERC(`${BASE.OPTIONS}/${optionId}/optionValues`, erc, VARIANT.options),
 
   OPTION_CATEGORIES: BASE.OPTION_CATEGORIES,
+  OPTION_CATEGORIES_BATCH: (callbackURL) =>
+    `${BASE.OPTION_CATEGORIES}/batch${
+      callbackURL ? `?callbackURL=${enc(callbackURL)}` : ''
+    }`,
+
   OPTION_CATEGORY_BY_ERC: (erc) =>
     byERC(BASE.OPTION_CATEGORIES, erc, VARIANT.optionCategories),
+
+  OPTIONS_BATCH: (callbackURL) =>
+    `${BASE.OPTIONS}/batch${
+      callbackURL ? `?callbackURL=${enc(callbackURL)}` : ''
+    }`,
 
   SPECIFICATIONS: BASE.SPECIFICATIONS,
   SPECIFICATION_BY_ERC: (erc) =>
     byERC(BASE.SPECIFICATIONS, erc, VARIANT.specifications),
+
+  SPECIFICATIONS_BATCH: (callbackURL) =>
+    `${BASE.SPECIFICATIONS}/batch${
+      callbackURL ? `?callbackURL=${enc(callbackURL)}` : ''
+    }`,
 
   ACCOUNTS: BASE.ACCOUNTS,
   ACCOUNTS_BATCH: (callbackURL) =>
@@ -139,6 +155,40 @@ const PATH = {
   CUSTOM_OBJECT: (plural) => `${BASE.C_OBJECT}/${plural}`,
   CUSTOM_OBJECT_QUERY: (plural, params) =>
     `${BASE.C_OBJECT}/${plural}${q(params)}`,
+
+  PRICE_LIST_BY_ERC: (erc) =>
+    byERC(`${BASE.PRICING_API}/priceLists`, erc, 'camel'),
+
+  PRICE_ENTRIES: (priceListId) =>
+    `${BASE.PRICING_API}/priceLists/${enc(priceListId)}/priceEntries`,
+  PRICE_ENTRIES_BY_ERC: (priceListERC) =>
+    `${byERC(
+      `${BASE.PRICING_API}/priceLists`,
+      priceListERC,
+      'camel'
+    )}/priceEntries`,
+  PRICE_ENTRY_BY_ERC: (priceEntryERC) =>
+    `${BASE.PRICING_API}/priceEntries/by-externalReferenceCode/${enc(
+      priceEntryERC
+    )}`,
+
+  TIER_PRICES: (priceEntryId) =>
+    `${BASE.PRICING_API}/priceEntries/${enc(priceEntryId)}/tierPrices`,
+  TIER_PRICES_BY_PRICE_ENTRY_ERC: (priceEntryERC) =>
+    `${BASE.PRICING_API}/priceEntries/by-externalReferenceCode/${enc(
+      priceEntryERC
+    )}/tierPrices`,
+
+  PRICE_LIST_ACCOUNT_GROUPS: (priceListId) =>
+    `${BASE.PRICING_API}/priceLists/${enc(priceListId)}/priceListAccountGroups`,
+  PRICE_LIST_ACCOUNT_GROUPS_BY_ERC: (priceListERC) =>
+    `${byERC(
+      `${BASE.PRICING_API}/priceLists`,
+      priceListERC,
+      'camel'
+    )}/priceListAccountGroups`,
+  PRICE_LIST_ACCOUNT_GROUP: (id) =>
+    `${BASE.PRICING_API}/priceListAccountGroups/${enc(id)}`,
 };
 
 module.exports = { PATH, byERC };

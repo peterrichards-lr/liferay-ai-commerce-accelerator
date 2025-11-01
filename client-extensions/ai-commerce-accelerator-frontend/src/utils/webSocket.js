@@ -3,6 +3,7 @@ const BATCH_FAILED = 'batch_failed';
 const BATCH_PROGRESS = 'batch_progress';
 const BATCH_START = 'batch_start';
 const CONNECTED = 'connected';
+const ERROR = 'ERROR';
 const GENERATION_PROGRESS = 'generation_progress';
 const GENERATION_SESSION_COMPLETE = 'generation_session_complete';
 const POSTPROC_COMPLETED = 'post_processing_completed';
@@ -17,6 +18,7 @@ export {
   BATCH_PROGRESS,
   BATCH_START,
   CONNECTED,
+  ERROR,
   GENERATION_PROGRESS,
   GENERATION_SESSION_COMPLETE,
   POSTPROC_COMPLETED,

@@ -1,13 +1,11 @@
-const productGenerator = require('../generators/productGenerator.cjs');
-const accountGenerator = require('../generators/accountGenerator.cjs');
-const orderGenerator = require('../generators/orderGenerator.cjs');
-const { MockDataGenerator } = require('../generators/mockDataGenerator.cjs');
-const { logger } = require('../utils/logger.cjs');
-const { queueService } = require('../services/queueService.cjs');
-
-// Register data generation workers
-function registerDataGenerationWorkers() {
-  // Product generation worker
+module.exports = function registerDataGenerationWorkers({
+  queueService,
+  logger,
+  productGenerator,
+  accountGenerator,
+  orderGenerator,
+  mockDataGenerator,
+}) {
   queueService.registerWorker(
     'generate-products',
     async (data, { job, updateProgress }) => {
@@ -24,8 +22,7 @@ function registerDataGenerationWorkers() {
 
       let result;
       if (options.demoMode) {
-        const mockGenerator = new MockDataGenerator();
-        result = await mockGenerator.generateProducts(config, {
+        result = await mockDataGenerator.generateProducts(config, {
           ...options,
           onProgress: (progress) => updateProgress(5 + progress * 0.9),
         });
@@ -55,7 +52,6 @@ function registerDataGenerationWorkers() {
     }
   );
 
-  // Account generation worker
   queueService.registerWorker(
     'generate-accounts',
     async (data, { job, updateProgress }) => {
@@ -72,11 +68,7 @@ function registerDataGenerationWorkers() {
 
       let result;
       if (options.demoMode) {
-        const mockGenerator = new MockDataGenerator();
-        result = mockGenerator.generateAccountData(config, {
-          ...options,
-          onProgress: (progress) => updateProgress(5 + progress * 0.9),
-        });
+        result = mockDataGenerator.generateAccountData(options.count);
       } else {
         result = await accountGenerator.generateAccounts(config, {
           ...options,
@@ -103,7 +95,6 @@ function registerDataGenerationWorkers() {
     }
   );
 
-  // Order generation worker
   queueService.registerWorker(
     'generate-orders',
     async (data, { job, updateProgress }) => {
@@ -120,8 +111,7 @@ function registerDataGenerationWorkers() {
 
       let result;
       if (options.demoMode) {
-        const mockGenerator = new MockDataGenerator();
-        result = await mockGenerator.generateOrders(config, {
+        result = await mockDataGenerator.generateOrders(config, {
           ...options,
           onProgress: (progress) => updateProgress(5 + progress * 0.9),
         });
@@ -151,7 +141,6 @@ function registerDataGenerationWorkers() {
     }
   );
 
-  // Comprehensive data generation worker (combines all types)
   queueService.registerWorker(
     'generate-comprehensive-data',
     async (data, { job, updateProgress }) => {
@@ -212,12 +201,11 @@ function registerDataGenerationWorkers() {
         (productCount > 0 ? 1 : 0) +
         (accountCount > 0 ? 1 : 0) +
         (orderCount > 0 ? 1 : 0);
-      const stepProgress = 90 / totalSteps;
+      const stepProgress = totalSteps > 0 ? 90 / totalSteps : 90;
 
       updateProgress(5);
 
       try {
-        // Generate products
         if (productCount > 0) {
           const productOptions = {
             count: productCount,
@@ -239,8 +227,7 @@ function registerDataGenerationWorkers() {
           };
 
           if (demoMode) {
-            const mockGenerator = new MockDataGenerator();
-            results.products = await mockGenerator.generateProducts(
+            results.products = await mockDataGenerator.generateProducts(
               config,
               productOptions
             );
@@ -255,7 +242,6 @@ function registerDataGenerationWorkers() {
           updateProgress(5 + currentProgress);
         }
 
-        // Generate accounts
         if (accountCount > 0) {
           const accountOptions = {
             count: accountCount,
@@ -268,11 +254,11 @@ function registerDataGenerationWorkers() {
           };
 
           if (demoMode) {
-            const mockGenerator = new MockDataGenerator();
-            results.accounts = await mockGenerator.generateAccounts(
-              config,
-              accountOptions
-            );
+            results.accounts = {
+              created: accountCount,
+              accounts: mockDataGenerator.generateAccountData(accountCount),
+              errors: [],
+            };
           } else {
             results.accounts = await accountGenerator.generateAccounts(
               config,
@@ -284,7 +270,6 @@ function registerDataGenerationWorkers() {
           updateProgress(5 + currentProgress);
         }
 
-        // Generate orders
         if (orderCount > 0) {
           const orderOptions = {
             count: orderCount,
@@ -297,8 +282,7 @@ function registerDataGenerationWorkers() {
           };
 
           if (demoMode) {
-            const mockGenerator = new MockDataGenerator();
-            results.orders = await mockGenerator.generateOrders(
+            results.orders = await mockDataGenerator.generateOrders(
               config,
               orderOptions
             );
@@ -324,9 +308,9 @@ function registerDataGenerationWorkers() {
       updateProgress(100);
 
       const totalCreated =
-        results.products.created +
-        results.accounts.created +
-        results.orders.created;
+        (results.products.created || 0) +
+        (results.accounts.created || 0) +
+        (results.orders.created || 0);
       const totalErrors =
         (results.products.errors?.length || 0) +
         (results.accounts.errors?.length || 0) +
@@ -369,6 +353,4 @@ function registerDataGenerationWorkers() {
       'generate-comprehensive-data',
     ],
   });
-}
-
-module.exports = { registerDataGenerationWorkers };
+};

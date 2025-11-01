@@ -7,14 +7,13 @@ const {
   toERCPart,
   randomString,
   randomPastDate,
-  isJSON,
-  tryParseJSON,
 } = require('../utils/misc.cjs');
 const { ERC_PREFIX } = require('../utils/constants.cjs');
 
 class MockDataGenerator {
   constructor(ctx) {
-    this.ctx = ctx;
+    this.ctx = ctx || {};
+    this.logger = this.ctx.logger;
     this.categoryData = null;
     this.specificationValues = null;
     this.pricingData = null;
@@ -22,64 +21,45 @@ class MockDataGenerator {
   }
 
   loadConfigurationData() {
-    const { logger } = this.ctx;
-
+    const logger = this.logger;
     try {
       const dataDir = path.join(__dirname, '..', 'data');
 
       const categoriesPath = path.join(dataDir, 'categories.json');
       if (fs.existsSync(categoriesPath)) {
-        const raw = fs.readFileSync(categoriesPath, 'utf8');
-        if (isJSON(raw)) {
-          this.categoryData = tryParseJSON(raw);
-          logger.trace('Loaded category configuration from categories.json');
-        } else {
-          logger.warn(
-            'categories.json is not valid JSON, using fallback data'
-          );
-          this.categoryData = this.getFallbackCategoryData();
-        }
+        this.categoryData = JSON.parse(fs.readFileSync(categoriesPath, 'utf8'));
+        logger?.trace?.('Loaded category configuration from categories.json');
       } else {
-        logger.warn('categories.json not found, using fallback data');
+        logger?.warn?.('categories.json not found, using fallback data');
         this.categoryData = this.getFallbackCategoryData();
       }
 
       const specificationsPath = path.join(dataDir, 'specifications.json');
       if (fs.existsSync(specificationsPath)) {
-        const raw = fs.readFileSync(specificationsPath, 'utf8');
-        if (isJSON(raw)) {
-          this.specificationValues = tryParseJSON(raw);
-          logger.trace(
-            'Loaded specification configuration from specifications.json'
-          );
-        } else {
-          logger.warn(
-            'specifications.json is not valid JSON, using fallback data'
-          );
-          this.specificationValues = this.getFallbackSpecificationData();
-        }
+        this.specificationValues = JSON.parse(
+          fs.readFileSync(specificationsPath, 'utf8')
+        );
+        logger?.trace?.(
+          'Loaded specification configuration from specifications.json'
+        );
       } else {
-        logger.warn('specifications.json not found, using fallback data');
+        logger?.warn?.(
+          'specifications.json not found, using fallback data'
+        );
         this.specificationValues = this.getFallbackSpecificationData();
       }
 
       const pricingPath = path.join(dataDir, 'pricing.json');
       if (fs.existsSync(pricingPath)) {
-        const raw = fs.readFileSync(pricingPath, 'utf8');
-        if (isJSON(raw)) {
-          this.pricingData = tryParseJSON(raw);
-          logger.trace('Loaded pricing configuration from pricing.json');
-        } else {
-          logger.warn('pricing.json is not valid JSON, using fallback data');
-          this.pricingData = this.getFallbackPricingData();
-        }
+        this.pricingData = JSON.parse(fs.readFileSync(pricingPath, 'utf8'));
+        logger?.trace?.('Loaded pricing configuration from pricing.json');
       } else {
-        logger.warn('pricing.json not found, using fallback data');
+        logger?.warn?.('pricing.json not found, using fallback data');
         this.pricingData = this.getFallbackPricingData();
       }
     } catch (error) {
-      logger.error('Error loading configuration data:', error);
-      logger.trace('Using fallback configuration data');
+      logger?.error?.('Error loading configuration data:', error);
+      logger?.trace?.('Using fallback configuration data');
       this.categoryData = this.getFallbackCategoryData();
       this.specificationValues = this.getFallbackSpecificationData();
       this.pricingData = this.getFallbackPricingData();
@@ -172,10 +152,54 @@ class MockDataGenerator {
     return {
       Electronics: { basePrice: { min: 50, max: 2000 }, priceModifiers: {} },
       Clothing: { basePrice: { min: 15, max: 300 }, priceModifiers: {} },
-      'Home & Garden': {
-        basePrice: { min: 20, max: 800 },
-        priceModifiers: {},
-      },
+      'Home & Garden': { basePrice: { min: 20, max: 800 }, priceModifiers: {} },
+    };
+  }
+
+  generateProducts(config, options = {}) {
+    const count = options.count || options.productCount || 1;
+    const category =
+      Array.isArray(options.categories) && options.categories.length
+        ? options.categories[0]
+        : 'Electronics';
+    const selectedLanguages =
+      options.selectedLanguages && options.selectedLanguages.length
+        ? options.selectedLanguages
+        : ['en-US'];
+
+    const products = this.generateProductData(
+      category,
+      count,
+      selectedLanguages,
+      options
+    );
+
+    return {
+      created: products.length,
+      products,
+      errors: [],
+      batchId: null,
+    };
+  }
+
+  generateAccounts(config, options = {}) {
+    const count = options.count || options.accountCount || 1;
+    const accounts = this.generateAccountData(count);
+    return {
+      created: accounts.length,
+      accounts,
+      errors: [],
+    };
+  }
+
+  generateOrders(config, options = {}) {
+    const count = options.count || options.orderCount || 1;
+    const currencyCode = options.currencyCode || config?.currencyCode || 'USD';
+    const orders = this.generateOrderData(count, { currencyCode });
+    return {
+      created: orders.length,
+      orders,
+      errors: [],
     };
   }
 
@@ -185,7 +209,7 @@ class MockDataGenerator {
     selectedLanguages = ['en-US'],
     options = {}
   ) {
-    const { logger } = this.ctx;
+    const logger = this.logger;
     const products = [];
 
     const languageCodes = selectedLanguages.map((lang) =>
@@ -246,11 +270,14 @@ class MockDataGenerator {
       }
 
       if (i === 0) {
-        logger.trace('Generated multilingual content for first product:', {
-          name,
-          description,
-          languageCodes,
-        });
+        logger?.trace?.(
+          'Generated multilingual content for first product:',
+          {
+            name,
+            description,
+            languageCodes,
+          }
+        );
       }
 
       const productData = {
@@ -409,10 +436,11 @@ class MockDataGenerator {
     return accounts;
   }
 
-  generateOrderData(count = 10) {
+  generateOrderData(count = 10, opts = {}) {
     const orders = [];
     const orderStatuses = [0, 1, 2, 10, 15];
     const paymentStatuses = [0, 1, 2, 3];
+    const currencyCode = opts.currencyCode || 'USD';
 
     for (let i = 0; i < count; i++) {
       const orderTotal = 100 + getRandomInt(2000);
@@ -422,7 +450,7 @@ class MockDataGenerator {
         orderDate: randomPastDate().toISOString(),
         orderStatus: orderStatuses[getRandomInt(orderStatuses.length)],
         total: orderTotal,
-        currency: options.currencyCode || 'USD',
+        currency: currencyCode,
         itemCount,
         externalReferenceCode: `${createERC(ERC_PREFIX.ORDER)}-${i}`,
         customerName: `Customer ${i + 1}`,
@@ -582,8 +610,8 @@ class MockDataGenerator {
   }
 
   reloadConfiguration() {
-    const { logger } = this.ctx;
-    logger.trace('Reloading configuration data...');
+    const logger = this.logger;
+    logger?.trace?.('Reloading configuration data...');
     this.loadConfigurationData();
   }
 

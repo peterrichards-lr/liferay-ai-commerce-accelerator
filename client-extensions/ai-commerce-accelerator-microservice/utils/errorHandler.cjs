@@ -4,27 +4,22 @@ class ErrorHandler {
   static handleError(error, req, res, next) {
     logger.error('Error occurred:', error);
 
-    // Default error response
     let status = 500;
     let message = 'Internal server error';
     let details = null;
 
-    // Handle different types of errors
     if (error.response) {
-      // Axios/HTTP errors
       status = error.response.status || 500;
       message =
         error.response.data?.title || error.response.statusText || message;
       details = error.response.data;
     } else if (error.message) {
-      // Custom errors with messages
       message = error.message;
       if (error.status) {
         status = error.status;
       }
     }
 
-    // Log error details if configured
     if (liferayConfig.errorConfig.logErrors) {
       logger.error('Error details:', {
         status,
@@ -39,7 +34,6 @@ class ErrorHandler {
       });
     }
 
-    // Send error response
     res.status(status).json({
       success: false,
       error: message,
@@ -61,15 +55,12 @@ class ErrorHandler {
     if (error.response) {
       const { status, data } = error.response;
 
-      // Handle specific Liferay error patterns
       switch (status) {
         case 400:
-          // Log the request body for 400 BAD REQUEST errors
           if (requestBody) {
-            logger.error(
-              `Request body that caused 400 BAD REQUEST:`,
-              { payload: requestBody }
-            );
+            logger.error(`Request body that caused 400 BAD REQUEST:`, {
+              payload: requestBody,
+            });
           }
           return this.createError(
             `Bad request: ${data?.title || 'Invalid data provided'}`,
@@ -132,7 +123,6 @@ class ErrorHandler {
       }
     }
 
-    // Handle network or other errors
     if (error.code === 'ECONNREFUSED') {
       return this.createError(
         'Connection refused. Please check if Liferay is running and accessible.',
@@ -147,7 +137,6 @@ class ErrorHandler {
       );
     }
 
-    // Generic error fallback
     return this.createError(`${operation} failed: ${error.message}`, 500);
   }
 
@@ -173,11 +162,10 @@ class ErrorHandler {
   }
 
   static isRetryableError(error) {
-    if (!error.response) return true; // Network errors are retryable
+    if (!error.response) return true;
 
     const status = error.response.status;
 
-    // Retry on server errors and rate limiting
     return status >= 500 || status === 429;
   }
 
@@ -189,14 +177,11 @@ class ErrorHandler {
   }
 }
 
-// Express error handling middleware
 const errorMiddleware = (error, req, res, next) => {
   ErrorHandler.handleError(error, req, res, next);
 };
 
-// Enhanced error handling with request logging for 500 errors
 ErrorHandler.handleError = (error, req, res, next) => {
-  // Determine status code
   let statusCode = 500;
   if (error.statusCode) {
     statusCode = error.statusCode;
@@ -217,7 +202,6 @@ ErrorHandler.handleError = (error, req, res, next) => {
     statusCode = 403;
   }
 
-  // Log full request details for Internal Server Errors (500)
   if (statusCode === 500) {
     logger.error('Internal Server Error - Request Details:', {
       method: req.method,

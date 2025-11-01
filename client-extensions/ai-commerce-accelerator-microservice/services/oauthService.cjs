@@ -1,6 +1,10 @@
 const { lxcConfig } = require('@rotty3000/config-node');
 const axios = require('axios');
-const { createExternalReferenceCode, normalizeNumber, delay } = require('../utils/misc.cjs');
+const {
+  createExternalReferenceCode,
+  normalizeNumber,
+  delay,
+} = require('../utils/misc.cjs');
 const { APP_ERCS, ENV } = require('../utils/constants.cjs');
 
 const serverOauthApp = lxcConfig.oauthApplication(
@@ -15,13 +19,29 @@ class OAuthService {
     const uri = serverOauthApp.tokenUri();
     this.liferayUrl = `${lxcDXPServerProtocol}://${lxcDXPMainDomain}`;
     this.tokenEndpoint = `${this.liferayUrl}${uri}`;
+    this.pendingTokenPromises = new Map();
 
     this.settings = {
-      httpTimeoutMs: normalizeNumber(ENV.OAUTH_HTTP_TIMEOUT_MS, { min: 3000, defaultValue: 15000 }),
-      maxRetries: normalizeNumber(ENV.OAUTH_MAX_RETRIES, { min: 0, defaultValue: 2 }),
-      backoffBaseMs: normalizeNumber(ENV.OAUTH_RETRY_BACKOFF_MS, { min: 100, defaultValue: 500 }),
-      tokenSkewSec: normalizeNumber(ENV.OAUTH_TOKEN_SKEW_SEC, { min: 0, defaultValue: 60 }),
-      tokenCacheTtlMs: normalizeNumber(ENV.OAUTH_TOKEN_CACHE_TTL, { min: 60000, defaultValue: 3600000 })
+      httpTimeoutMs: normalizeNumber(ENV.OAUTH_HTTP_TIMEOUT_MS, {
+        min: 3000,
+        defaultValue: 15000,
+      }),
+      maxRetries: normalizeNumber(ENV.OAUTH_MAX_RETRIES, {
+        min: 0,
+        defaultValue: 2,
+      }),
+      backoffBaseMs: normalizeNumber(ENV.OAUTH_RETRY_BACKOFF_MS, {
+        min: 100,
+        defaultValue: 500,
+      }),
+      tokenSkewSec: normalizeNumber(ENV.OAUTH_TOKEN_SKEW_SEC, {
+        min: 0,
+        defaultValue: 60,
+      }),
+      tokenCacheTtlMs: normalizeNumber(ENV.OAUTH_TOKEN_CACHE_TTL, {
+        min: 60000,
+        defaultValue: 3600000,
+      }),
     };
 
     const cfgSvc = this.ctx.configService;
@@ -32,22 +52,40 @@ class OAuthService {
   applyConfig(cfg = {}) {
     const { logger } = this.ctx;
     const next = {
-      httpTimeoutMs: normalizeNumber(cfg.httpTimeoutMs, { min: 3000, defaultValue: this.settings.httpTimeoutMs }),
-      maxRetries: normalizeNumber(cfg.maxRetries, { min: 0, defaultValue: this.settings.maxRetries }),
-      backoffBaseMs: normalizeNumber(cfg.backoffBaseMs, { min: 100, defaultValue: this.settings.backoffBaseMs }),
-      tokenSkewSec: normalizeNumber(cfg.tokenSkewSec, { min: 0, defaultValue: this.settings.tokenSkewSec }),
-      tokenCacheTtlMs: normalizeNumber(cfg.tokenCacheTtlMs, { min: 60000, defaultValue: this.settings.tokenCacheTtlMs })
+      httpTimeoutMs: normalizeNumber(cfg.httpTimeoutMs, {
+        min: 3000,
+        defaultValue: this.settings.httpTimeoutMs,
+      }),
+      maxRetries: normalizeNumber(cfg.maxRetries, {
+        min: 0,
+        defaultValue: this.settings.maxRetries,
+      }),
+      backoffBaseMs: normalizeNumber(cfg.backoffBaseMs, {
+        min: 100,
+        defaultValue: this.settings.backoffBaseMs,
+      }),
+      tokenSkewSec: normalizeNumber(cfg.tokenSkewSec, {
+        min: 0,
+        defaultValue: this.settings.tokenSkewSec,
+      }),
+      tokenCacheTtlMs: normalizeNumber(cfg.tokenCacheTtlMs, {
+        min: 60000,
+        defaultValue: this.settings.tokenCacheTtlMs,
+      }),
     };
     this.settings = {
       httpTimeoutMs: Math.max(this.settings.httpTimeoutMs, next.httpTimeoutMs),
       maxRetries: Math.max(this.settings.maxRetries, next.maxRetries),
       backoffBaseMs: Math.max(this.settings.backoffBaseMs, next.backoffBaseMs),
       tokenSkewSec: Math.max(this.settings.tokenSkewSec, next.tokenSkewSec),
-      tokenCacheTtlMs: Math.max(this.settings.tokenCacheTtlMs, next.tokenCacheTtlMs)
+      tokenCacheTtlMs: Math.max(
+        this.settings.tokenCacheTtlMs,
+        next.tokenCacheTtlMs
+      ),
     };
     logger?.debug?.('OAuthService config applied', {
       operation: 'oauth-config-apply',
-      settings: this.settings
+      settings: this.settings,
     });
   }
 
@@ -60,7 +98,7 @@ class OAuthService {
     } catch (e) {
       logger?.warn?.('OAuthService: failed to refresh config from remote', {
         operation: 'oauth-config-refresh',
-        error: String(e?.message || e)
+        error: String(e?.message || e),
       });
     }
   }
@@ -81,26 +119,35 @@ class OAuthService {
   _addAccessTokenToCache(cacheKey, token, expiresInSec = 3600) {
     const tokenCache = this.ctx.cacheService;
     const skewMs = this.settings.tokenSkewSec * 1000;
-    const ttlMs = Math.max(0, (expiresInSec * 1000) - skewMs);
+    const ttlMs = Math.max(0, expiresInSec * 1000 - skewMs);
     const hardCap = this.settings.tokenCacheTtlMs;
     const finalTtl = Math.min(ttlMs || hardCap, hardCap);
-    tokenCache.set(cacheKey, {
-      token,
-      expiresAt: Date.now() + finalTtl
-    }, finalTtl);
+    tokenCache.set(
+      cacheKey,
+      {
+        token,
+        expiresAt: Date.now() + finalTtl,
+      },
+      finalTtl
+    );
   }
 
   async _createAccessTokenOnce(tokenUrl, clientId, clientSecret) {
     const { logger } = this.ctx;
-    logger?.debug?.(`Creating new access token for ${clientId} using ${tokenUrl}`);
+    logger?.debug?.(
+      `Creating new access token for ${clientId} using ${tokenUrl}`
+    );
     const res = await axios.post(
       tokenUrl,
       new URLSearchParams({
         grant_type: 'client_credentials',
         client_id: clientId,
-        client_secret: clientSecret
+        client_secret: clientSecret,
       }),
-      { headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, timeout: this.settings.httpTimeoutMs }
+      {
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        timeout: this.settings.httpTimeoutMs,
+      }
     );
     return res;
   }
@@ -111,16 +158,21 @@ class OAuthService {
     const maxA = this.settings.maxRetries + 1;
     while (attempt < maxA) {
       try {
-        return await this._createAccessTokenOnce(tokenUrl, clientId, clientSecret);
+        return await this._createAccessTokenOnce(
+          tokenUrl,
+          clientId,
+          clientSecret
+        );
       } catch (err) {
         attempt++;
-        const retriable = ![401, 403].includes(err?.response?.status) && attempt < maxA;
+        const retriable =
+          ![401, 403].includes(err?.response?.status) && attempt < maxA;
         logger?.warn?.('OAuth token request failed', {
           operation: 'oauth-token-request',
           attempt,
           maxAttempts: maxA,
           status: err?.response?.status,
-          message: String(err?.message || err)
+          message: String(err?.message || err),
         });
         if (!retriable) throw err;
         const backoff = this.settings.backoffBaseMs * Math.pow(2, attempt - 1);
@@ -138,12 +190,29 @@ class OAuthService {
     const cached = this._getAccessTokenFromCache(cacheKey);
     if (cached) return cached;
 
+    if (this.pendingTokenPromises.has(cacheKey)) {
+      return this.pendingTokenPromises.get(cacheKey);
+    }
+
     const tokenUrl = this.tokenEndpoint ?? this._getTokenUrl(liferayUrl);
-    const response = await this._createAccessTokenWithRetry(tokenUrl, clientId, clientSecret);
-    const token = response.data.access_token;
-    const expiresIn = response.data.expires_in || 3600;
-    this._addAccessTokenToCache(cacheKey, token, expiresIn);
-    return token;
+    const promise = (async () => {
+      try {
+        const response = await this._createAccessTokenWithRetry(
+          tokenUrl,
+          clientId,
+          clientSecret
+        );
+        const token = response.data.access_token;
+        const expiresIn = response.data.expires_in || 3600;
+        this._addAccessTokenToCache(cacheKey, token, expiresIn);
+        return token;
+      } finally {
+        this.pendingTokenPromises.delete(cacheKey);
+      }
+    })();
+
+    this.pendingTokenPromises.set(cacheKey, promise);
+    return promise;
   }
 
   _handleException(error, liferayUrl = null, clientId = null) {
@@ -157,14 +226,17 @@ class OAuthService {
       stack: error?.stack,
       url: liferayUrl,
       clientId,
-      timestamp: new Date().toISOString()
+      timestamp: new Date().toISOString(),
     });
 
     let customError;
     if (['ENOTFOUND', 'ECONNREFUSED', 'ETIMEDOUT'].includes(error?.code)) {
       customError = new Error(`Network connection failed: ${error.code}`);
       customError.statusCode = 0;
-    } else if (error?.response?.status === 401 || error?.response?.status === 403) {
+    } else if (
+      error?.response?.status === 401 ||
+      error?.response?.status === 403
+    ) {
       customError = new Error('OAuth authentication failed');
       customError.statusCode = error.response.status;
       customError.errorType = 'auth_error';
@@ -185,12 +257,15 @@ class OAuthService {
 
     if (!this.liferayUrl || !clientId || !clientSecret) {
       const errorRef = createExternalReferenceCode();
-      logger?.error?.(`OAuth Error [${errorRef}]: Unable to obtain LXC configuration`, {
-        liferayUrl: this.liferayUrl || 'undefined',
-        clientId: clientId || 'undefined',
-        clientSecret: clientSecret ? '[PROVIDED]' : 'undefined',
-        timestamp: new Date().toISOString()
-      });
+      logger?.error?.(
+        `OAuth Error [${errorRef}]: Unable to obtain LXC configuration`,
+        {
+          liferayUrl: this.liferayUrl || 'undefined',
+          clientId: clientId || 'undefined',
+          clientSecret: clientSecret ? '[PROVIDED]' : 'undefined',
+          timestamp: new Date().toISOString(),
+        }
+      );
       const customError = new Error('OAuth configuration not found');
       customError.statusCode = 500;
       customError.errorReference = errorRef;
@@ -198,7 +273,11 @@ class OAuthService {
     }
 
     try {
-      return await this._createOrGetAccessToken(this.liferayUrl, clientId, clientSecret);
+      return await this._createOrGetAccessToken(
+        this.liferayUrl,
+        clientId,
+        clientSecret
+      );
     } catch (error) {
       this._handleException(error, this.liferayUrl, clientId);
     }
@@ -208,12 +287,15 @@ class OAuthService {
     const { logger } = this.ctx;
     if (!liferayUrl || !clientId || !clientSecret) {
       const errorRef = createExternalReferenceCode();
-      logger?.error?.(`OAuth Error [${errorRef}]: Missing required parameters`, {
-        liferayUrl: liferayUrl || 'undefined',
-        clientId: clientId || 'undefined',
-        clientSecret: clientSecret ? '[PROVIDED]' : 'undefined',
-        timestamp: new Date().toISOString()
-      });
+      logger?.error?.(
+        `OAuth Error [${errorRef}]: Missing required parameters`,
+        {
+          liferayUrl: liferayUrl || 'undefined',
+          clientId: clientId || 'undefined',
+          clientSecret: clientSecret ? '[PROVIDED]' : 'undefined',
+          timestamp: new Date().toISOString(),
+        }
+      );
       const customError = new Error('OAuth configuration missing');
       customError.statusCode = 400;
       customError.errorReference = errorRef;
@@ -221,7 +303,11 @@ class OAuthService {
     }
 
     try {
-      return await this._createOrGetAccessToken(liferayUrl, clientId, clientSecret);
+      return await this._createOrGetAccessToken(
+        liferayUrl,
+        clientId,
+        clientSecret
+      );
     } catch (error) {
       this._handleException(error, liferayUrl, clientId);
     }
@@ -233,7 +319,13 @@ class OAuthService {
       : this.getAccessTokenWithCredentials(liferayUrl, clientId, clientSecret);
   }
 
-  async getAccessTokenWithCode(liferayUrl, clientId, clientSecret, code, redirectUri) {
+  async getAccessTokenWithCode(
+    liferayUrl,
+    clientId,
+    clientSecret,
+    code,
+    redirectUri
+  ) {
     const { logger } = this.ctx;
     try {
       const response = await axios.post(
@@ -243,16 +335,24 @@ class OAuthService {
           client_id: clientId,
           client_secret: clientSecret,
           code,
-          redirect_uri: redirectUri
+          redirect_uri: redirectUri,
         }),
-        { headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, timeout: this.settings.httpTimeoutMs }
+        {
+          headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+          timeout: this.settings.httpTimeoutMs,
+        }
       );
       return response.data;
     } catch (error) {
       const errorRef = createExternalReferenceCode();
-      logger?.error?.(`OAuth code exchange failed [${errorRef}]:`, error?.response?.data || error?.message);
+      logger?.error?.(
+        `OAuth code exchange failed [${errorRef}]:`,
+        error?.response?.data || error?.message
+      );
       const customError = new Error(
-        `OAuth code exchange failed: ${error?.response?.data?.error_description || error?.message}`
+        `OAuth code exchange failed: ${
+          error?.response?.data?.error_description || error?.message
+        }`
       );
       customError.statusCode = error?.response?.status || 500;
       customError.errorReference = errorRef;
@@ -266,7 +366,7 @@ class OAuthService {
       client_id: clientId,
       redirect_uri: redirectUri,
       scope:
-        'Liferay.Headless.Commerce.Admin.Catalog.everything Liferay.Headless.Commerce.Admin.Channel.everything Liferay.Headless.Commerce.Admin.Order.everything Liferay.Headless.Commerce.Admin.Pricing.everything Liferay.Headless.Commerce.Admin.Account.everything'
+        'Liferay.Headless.Commerce.Admin.Catalog.everything Liferay.Headless.Commerce.Admin.Channel.everything Liferay.Headless.Commerce.Admin.Order.everything Liferay.Headless.Commerce.Admin.Pricing.everything Liferay.Headless.Commerce.Admin.Account.everything',
     });
     if (state) params.append('state', state);
     return `${liferayUrl}/o/oauth2/authorize?${params.toString()}`;
@@ -291,6 +391,16 @@ class OAuthService {
     if (missing.length > 0) {
       throw new Error(`Missing OAuth configuration: ${missing.join(', ')}`);
     }
+  }
+
+  getDefaultClientId() {
+    return serverOauthApp.clientId();
+  }
+  getDefaultClientSecret() {
+    return serverOauthApp.clientSecret();
+  }
+  getDefaultLiferayUrl() {
+    return this.liferayUrl;
   }
 }
 

@@ -1,14 +1,18 @@
-const { ENV } = require('../utils/constants.cjs');
 const {
   delayCall,
   inferEntityTypeFromClassName,
   normalizeNumber,
   delay,
   createERC,
+  isJSON,
+  tryParseJSON,
 } = require('../utils/misc.cjs');
-const { ERC_PREFIX } = require('../utils/constants.cjs');
-const { GENERATION_SESSION_COMPLETE } = require('../utils/wsEvents.cjs');
-const { productGenerator } = require('../bootstrap.cjs');
+const { getBatchCacheTTLms } = require('../utils/ttl.cjs');
+const {
+  ENV,
+  ERC_PREFIX,
+  WEB_SOCKET_EVENTS,
+} = require('../utils/constants.cjs');
 
 function extractIdFromLocation(location) {
   if (!location || typeof location !== 'string') return null;
@@ -22,13 +26,14 @@ class BatchPollingService {
     this.pollingIntervals = new Map();
     this.activePolls = new Map();
     this.generationSessions = new Map();
+    this.productGenerator = null;
 
     const envDefaults = {
       pollInterval: normalizeNumber(ENV.BATCH_POLL_INTERVAL, {
         min: 2000,
         defaultValue: 5000,
       }),
-      minPollInterval: normalizeNumber(ENV.BATCH_POLL_MIN_INTERVAL, {
+      minPollInterval: normalizeNumber(ENV.BATCH_MIN_POLL_INTERVAL, {
         min: 500,
         defaultValue: 2000,
       }),
@@ -49,6 +54,10 @@ class BatchPollingService {
       const cached = cfgSvc.getBatchPollingConfigCached();
       this.applyPollingConfig(cached);
     }
+  }
+
+  setProductGenerator(generatorInstance) {
+    this.productGenerator = generatorInstance;
   }
 
   applyPollingConfig(input) {
@@ -145,6 +154,12 @@ class BatchPollingService {
       sessionId,
     });
 
+    logger.debug('REGISTERED SESSION', {
+      sessionId,
+      batchIds,
+      totalExpected: totalExpected ?? (batchIds ? batchIds.length : 0),
+    });
+
     logger.info('Registered generation session', {
       operation: 'generation-session-register',
       sessionId,
@@ -164,7 +179,6 @@ class BatchPollingService {
       });
 
       const message = {
-        type: GENERATION_SESSION_COMPLETE,
         sessionId,
         completedBatches: Array.from(session.completedBatches),
         timestamp: new Date().toISOString(),
@@ -177,19 +191,27 @@ class BatchPollingService {
       if (sessionContext) {
         const { config, productDataList, options } = sessionContext;
 
-        const demoMode = sessionContext.options?.demoMode;
+        const demoMode = !!options?.demoMode;
         const hasImages = demoMode
-          ? options?.imageRatio > 0
-          : options?.generateImages && options?.imageRatio > 0;
+          ? (options?.imageRatio ?? 0) > 0
+          : options?.imageMode &&
+            options.imageMode !== 'none' &&
+            (options?.imageRatio ?? 0) > 0;
         const hasPDFs = demoMode
-          ? options?.pdfRatio > 0
-          : options?.generatePDFs && options?.pdfRatio > 0;
-        const hasAttachments = sessionContext.productDataList?.some(
-          (p) => p.defaultImage || p.defaultAttachment
-        );
+          ? (options?.pdfRatio ?? 0) > 0
+          : options?.pdfMode &&
+            options.pdfMode !== 'none' &&
+            (options?.pdfRatio ?? 0) > 0;
+        const hasAttachments =
+          Array.isArray(productDataList) &&
+          productDataList.some(
+            (p) =>
+              (Array.isArray(p.images) && p.images.length > 0) ||
+              (Array.isArray(p.attachments) && p.attachments.length > 0)
+          );
 
         if (hasImages || hasPDFs || hasAttachments) {
-          await productGenerator.processImageAndPDFAttachments(
+          await this.productGenerator.processImageAndPDFAttachments(
             config,
             productDataList,
             options
@@ -212,8 +234,7 @@ class BatchPollingService {
   }
 
   startMonitors(jobs = [], globalOptions = {}) {
-    const { cache } = this.ctx;
-    const defaultTTL = this.ctx.cache?.defaultTTL ?? 300000;
+    const { cache, configService } = this.ctx;
 
     for (const job of jobs) {
       const { entity, refs = [], meta = {} } = job;
@@ -234,7 +255,7 @@ class BatchPollingService {
             entityType: entity,
             mode,
           },
-          defaultTTL
+          getBatchCacheTTLms(configService)
         );
 
         this.startPolling(batchId, meta.config || {}, {
@@ -260,6 +281,7 @@ class BatchPollingService {
       onComplete,
       onError,
       entityType,
+      operation = 'unknown',
       mode = 'unknown',
       affectsProgress = true,
     } = ef;
@@ -285,6 +307,7 @@ class BatchPollingService {
       onTimeout,
       timeoutMs,
       entityType,
+      operation,
       mode,
       affectsProgress,
       startTime: new Date(),
@@ -323,6 +346,7 @@ class BatchPollingService {
       maxAttempts: maxPollAttempts,
       entityType,
       mode,
+      batchOperation: operation,
       affectsProgress,
       timeoutMs,
       correlationId: config?.correlationId,
@@ -364,13 +388,14 @@ class BatchPollingService {
       onComplete: overrides.onComplete,
       onError: overrides.onError,
       entityType: overrides.entityType,
+      operation: overrides.operation || 'unknown',
       mode: overrides.mode,
       affectsProgress: overrides.affectsProgress,
     };
   }
 
   async pollBatchStatus(batchId) {
-    const { logger, liferay, cache } = this.ctx;
+    const { logger, liferay, cache, configService } = this.ctx;
     const pollData = this.activePolls.get(batchId);
 
     if (!pollData) {
@@ -416,8 +441,6 @@ class BatchPollingService {
       const processedCount = status.processedItemsCount || 0;
       const errorCount = status.failedItems?.length || 0;
 
-      const defaultTTL = this.ctx.cache?.defaultTTL ?? 300000;
-
       cache.set(
         `batch:${batchId}:status`,
         {
@@ -430,7 +453,7 @@ class BatchPollingService {
           attempt: pollData.attempts,
           entitytype,
         },
-        defaultTTL
+        getBatchCacheTTLms(configService)
       );
 
       if (pollData.onStatusChange) {
@@ -540,11 +563,28 @@ class BatchPollingService {
   }
 
   async handleBatchComplete(batchId, status) {
-    const { logger, cache, getWs } = this.ctx;
+    const { logger, cache, getWs, configService } = this.ctx;
     if (cache.get(`batch:${batchId}:completed`)) return;
 
-    const defaultTTL = this.ctx.cache?.defaultTTL ?? 300000;
-    cache.set(`batch:${batchId}:completed`, true, defaultTTL);
+    cache.set(
+      `batch:${batchId}:completed`,
+      true,
+      getBatchCacheTTLms(configService)
+    );
+
+    const sessionDump = Array.from(this.generationSessions.entries()).map(
+      ([id, s]) => ({
+        sessionId: id,
+        batchIds: Array.from(s.batchIds),
+        completedBatches: Array.from(s.completedBatches),
+        totalExpected: s.totalExpected,
+      })
+    );
+
+    logger.debug('BATCH COMPLETE CALLED', {
+      batchId,
+      knownSessions: JSON.stringify(sessionDump, null, 2),
+    });
 
     const totalCount = status.totalItemsCount || status.totalCount || 0;
     const processedCount =
@@ -571,7 +611,7 @@ class BatchPollingService {
         mode,
         operation,
       },
-      defaultTTL
+      getBatchCacheTTLms(configService)
     );
 
     logger.info('Batch completed successfully', {
@@ -620,24 +660,42 @@ class BatchPollingService {
     const stats = (await getWs().emitBatchCompleted(message)) || {};
     const { ok = 0, fail = 0, total = 0 } = stats;
 
-    cache.set(`batch:${batchId}:final`, results, 1800000);
+    cache.set(
+      `batch:${batchId}:final`,
+      results,
+      getBatchCacheTTLms(configService)
+    );
 
     const pollDataForCompletion = this.activePolls.get(batchId);
     if (pollDataForCompletion?.onComplete) {
       pollDataForCompletion.onComplete(results);
     }
 
-    if (affectsProgress && mode === 'generate' && entityType === 'products') {
+    logger.debug('SHOULD COUNT TOWARD SESSION?', {
+      batchId,
+      entityType,
+      operation,
+      affectsProgress,
+    });
+
+    if (
+      affectsProgress &&
+      operation === 'generate' &&
+      entityType === 'products'
+    ) {
       this.markBatchCompleteInSessions(batchId, correlationId);
     }
   }
 
   async handleBatchFailed(batchId, status) {
-    const { logger, cache, getWs } = this.ctx;
+    const { logger, cache, getWs, configService } = this.ctx;
     if (cache.get(`batch:${batchId}:failed`)) return;
 
-    const defaultTTL = this.ctx.cache?.defaultTTL ?? 300000;
-    cache.set(`batch:${batchId}:failed`, true, defaultTTL);
+    cache.set(
+      `batch:${batchId}:failed`,
+      true,
+      getBatchCacheTTLms(configService)
+    );
 
     const totalCount = status.totalItemsCount || status.totalCount || 0;
     const processedCount =
@@ -666,7 +724,7 @@ class BatchPollingService {
         entityType,
         operation,
       },
-      defaultTTL
+      getBatchCacheTTLms(configService)
     );
 
     logger.error('Batch failed', {
@@ -714,7 +772,11 @@ class BatchPollingService {
     const stats = (await getWs().emitBatchFailed(message)) || {};
     const { ok = 0, fail = 0, total = 0 } = stats;
 
-    cache.set(`batch:${batchId}:final`, results, 1800000);
+    cache.set(
+      `batch:${batchId}:final`,
+      results,
+      getBatchCacheTTLms(configService)
+    );
 
     const pollDataForFailure = this.activePolls.get(batchId);
     if (pollDataForFailure?.onError) {
@@ -772,6 +834,17 @@ class BatchPollingService {
       if (!session.batchIds.has(batchId)) continue;
 
       session.completedBatches.add(batchId);
+
+      logger.debug('SESSION PROGRESS', {
+        batchId,
+        correlationId,
+        sessionId,
+        completedCount: session.completedBatches.size,
+        completedBatches: Array.from(session.completedBatches),
+        totalExpected: session.totalExpected,
+        totalBatchIds: session.batchIds.size,
+        batchIds: Array.from(session.batchIds),
+      });
 
       const allDone =
         session.completedBatches.size >= session.totalExpected &&

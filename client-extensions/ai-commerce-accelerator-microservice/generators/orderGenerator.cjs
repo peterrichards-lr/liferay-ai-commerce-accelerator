@@ -6,6 +6,12 @@ const {
   now,
 } = require('../utils/misc.cjs');
 const { ERC_PREFIX } = require('../utils/constants.cjs');
+const {
+  getBatchCacheTTLms,
+  getEphemeralTTLms,
+  getLongLivedTTLms,
+} = require('../utils/ttl.cjs');
+const { getBatchPollingDefaults } = require('../services/batchPollingService.cjs');
 
 class OrderGenerator {
   constructor(ctx) {
@@ -17,8 +23,8 @@ class OrderGenerator {
     if (prVal === undefined || prVal === null)
       throw new Error('pollingRetries is required');
     const pr = parseInt(prVal);
-    if (isNaN(pr) || pr < 0 || pr > 20)
-      throw new Error('pollingRetries must be between 0 and 20');
+    if (isNaN(pr) || pr < 0 || pr > 120)
+      throw new Error('pollingRetries must be between 0 and 120');
 
     const pdVal = config.pollingDelay;
     if (pdVal === undefined || pdVal === null)
@@ -62,11 +68,20 @@ class OrderGenerator {
   }
 
   async generateOrders(config, options) {
-    const { ai, logger, mockData, cache, batchPolling, getWs, liferay } =
-      this.ctx;
+    const {
+      ai,
+      logger,
+      mockData,
+      cache,
+      batchPolling,
+      getWs,
+      liferay,
+      configService,
+    } = this.ctx;
 
     const correlationId = config.correlationId;
-    const useBatch = config.batchSize > 1 && options.orderCount > 1;
+    const batchSize = Math.max(1, parseInt(config.batchSize, 10) || 1);
+    const useBatch = batchSize > 1 && options.orderCount > 1;
     const { mode, phase } = resolvePhaseAndMode({
       useBatch,
       phase: 'generate',
@@ -79,7 +94,7 @@ class OrderGenerator {
       mode,
       phase,
       demoMode: options.demoMode,
-      batchSize: config.batchSize,
+      batchSize,
       pollingDelay: config.pollingDelay,
       pollingRetries: config.pollingRetries,
     });
@@ -107,14 +122,16 @@ class OrderGenerator {
       }
 
       if (useBatch) {
-        const callbackUrl =
-          config.microserviceUrl && config.microserviceUrl !== 'null'
-            ? `${config.microserviceUrl}/api/batch/callback`
-            : null;
+        const msUrl = (config.microserviceUrl || '')
+          .toString()
+          .trim()
+          .replace(/\/+$/, '');
+        const hasMs = msUrl && msUrl.toLowerCase() !== 'null';
+        const callbackUrl = hasMs ? `${msUrl}/api/batch/callback` : null;
 
         const chunks = [];
-        for (let i = 0; i < orderDataList.length; i += config.batchSize) {
-          chunks.push(orderDataList.slice(i, i + config.batchSize));
+        for (let i = 0; i < orderDataList.length; i += batchSize) {
+          chunks.push(orderDataList.slice(i, i + batchSize));
         }
 
         for (let batchIndex = 0; batchIndex < chunks.length; batchIndex++) {
@@ -125,16 +142,49 @@ class OrderGenerator {
           );
 
           const batchERC = createERC(ERC_PREFIX.ORDER_BATCH);
-          const submission = await liferay.createOrdersBatch(
-            batch,
-            callbackUrl,
-            config,
-            {
+          const cbUrl = callbackUrl
+            ? `${callbackUrl}?batchERC=${encodeURIComponent(batchERC)}`
+            : null;
+
+          let submission;
+          try {
+            submission = await liferay.createOrdersBatch(config, batch, cbUrl, {
               externalReferenceCode: batchERC,
-            }
-          );
+            });
+          } catch (e) {
+            logger.error('Orders batch submission failed', {
+              operation: 'orders/batch:submit-error',
+              error: e.message,
+              externalReferenceCode: batchERC,
+            });
+            getWs().emitBatchFailed(
+              {
+                batchId: 'orders-submit-failed',
+                entityType: 'orders',
+                error: e.message || 'Batch submission failed',
+                successCount: 0,
+                failureCount: batch.length,
+                operation: 'generate',
+                mode,
+                phase,
+                externalReferenceCode: batchERC,
+              },
+              { correlationId }
+            );
+            throw e;
+          }
 
           const startedAt = now();
+          cache.set(
+            `erc:${batchERC}:batchId`,
+            submission.batchId,
+            getLongLivedTTLms(configService)
+          );
+          cache.set(
+            `batch:${submission.batchId}:erc`,
+            { externalReferenceCode: batchERC },
+            getLongLivedTTLms(configService)
+          );
           cache.set(
             `batch:${submission.batchId}:meta`,
             {
@@ -142,7 +192,7 @@ class OrderGenerator {
               startedAt,
               totalCount: batch.length,
             },
-            3600000
+            getBatchCacheTTLms(configService)
           );
 
           cache.set(
@@ -162,7 +212,7 @@ class OrderGenerator {
               pollInterval: config.pollingDelay || 5000,
               startedAt,
             },
-            3600000
+            getLongLivedTTLms(configService)
           );
 
           getWs().emitBatchStarted(
@@ -173,12 +223,19 @@ class OrderGenerator {
               operation: 'generate',
               phase,
               totalItems: batch.length,
+              externalReferenceCode: batchERC,
             },
             { correlationId }
           );
 
-          const pollInterval = Math.max(config.pollingDelay || 5000, 2000);
-          const maxPollAttempts = config.pollingRetries || 120;
+          const pollInterval = Math.max(
+            config.pollingDelay ??
+              getBatchPollingDefaults(configService).pollInterval,
+            2000
+          );
+          const maxPollAttempts =
+            config.pollingRetries ??
+            getBatchPollingDefaults(configService).maxPollAttempts;
 
           batchPolling.startPolling(
             submission.batchId,
@@ -192,10 +249,7 @@ class OrderGenerator {
             {
               pollInterval,
               maxPollAttempts,
-              entityType: 'orders',
-              mode,
               externalReferenceCode: batchERC,
-              affectsProgress: true,
               onStatusChange: (status) => {
                 const meta =
                   cache.get(`batch:${submission.batchId}:meta`) || {};
@@ -224,6 +278,7 @@ class OrderGenerator {
                     operation: 'generate',
                     mode,
                     phase,
+                    externalReferenceCode: batchERC,
                   },
                   { correlationId }
                 );
@@ -261,6 +316,10 @@ class OrderGenerator {
                   { correlationId }
                 );
               },
+              entityType: 'orders',
+              operation: 'generate',
+              mode: 'batch',
+              affectsProgress: false,
             }
           );
 
@@ -269,7 +328,7 @@ class OrderGenerator {
             batchId: submission.batchId,
             orderCount: batch.length,
             status: submission.status,
-            callbackUrl: callbackUrl || 'none',
+            callbackUrl: cbUrl || 'none',
             mode,
             phase,
           });
@@ -317,7 +376,7 @@ class OrderGenerator {
   }
 
   async generateOrdersIndividually(config, options, orderDataList, accounts) {
-    const { logger, getWs } = this.ctx;
+    const { logger, getWs, configService, cache } = this.ctx;
     const { mode, phase } = resolvePhaseAndMode({
       useBatch: false,
       phase: 'generate',
@@ -325,10 +384,10 @@ class OrderGenerator {
 
     const startedAt = now();
     const metaKey = 'orders-individual:meta';
-    this.ctx.cache.set(
+    cache.set(
       metaKey,
       { total: orderDataList.length, startedAt },
-      3600000
+      getEphemeralTTLms(configService)
     );
 
     getWs().emitBatchStarted(
@@ -359,7 +418,7 @@ class OrderGenerator {
         const processed = i + 1;
         const total = orderDataList.length;
         const progress = Math.round((processed / total) * 100);
-        const meta = this.ctx.cache.get(metaKey) || { startedAt };
+        const meta = cache.get(metaKey) || { startedAt };
         const elapsedMs = Math.max(1, now() - (meta.startedAt || now()));
         const rate = processed / (elapsedMs / 1000);
         const remaining = Math.max(0, total - processed);
@@ -479,6 +538,7 @@ class OrderGenerator {
       successCount = results.processedCount || results.totalCount || 0;
     }
 
+    const ercMap = this.ctx.cache.get(`batch:${results.batchId}:erc`) || {};
     getWs().emitBatchCompleted(
       {
         batchId: results.batchId,
@@ -489,6 +549,7 @@ class OrderGenerator {
         operation: 'generate',
         mode,
         phase,
+        externalReferenceCode: ercMap.externalReferenceCode,
       },
       { correlationId: config.correlationId }
     );

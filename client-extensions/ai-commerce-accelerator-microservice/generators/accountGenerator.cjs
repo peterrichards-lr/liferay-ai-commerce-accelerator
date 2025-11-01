@@ -8,6 +8,11 @@ const {
   createERC,
   randomString,
 } = require('../utils/misc.cjs');
+const {
+  getBatchCacheTTLms,
+  getLongLivedTTLms,
+  getEphemeralTTLms,
+} = require('../utils/ttl.cjs');
 
 class AccountGenerator {
   constructor(ctx) {
@@ -59,8 +64,16 @@ class AccountGenerator {
   }
 
   async generateAccounts(config, options) {
-    const { logger, ai, mockData, cache, batchPolling, getWs, liferay } =
-      this.ctx;
+    const {
+      logger,
+      ai,
+      mockData,
+      cache,
+      batchPolling,
+      getWs,
+      liferay,
+      configService,
+    } = this.ctx;
     const correlationId = config.correlationId;
     const useBatch = config.batchSize > 1 && options.accountCount > 1;
     const { mode, phase } = resolvePhaseAndMode({
@@ -126,23 +139,30 @@ class AccountGenerator {
               localeCode: config.localeCode,
               operation: 'generate',
             },
-            3600000
+            getLongLivedTTLms(configService)
           );
 
+          const cbUrl = callbackUrl
+            ? `${callbackUrl}?batchERC=${encodeURIComponent(batchERC)}`
+            : null;
           const batchResult = await liferay.createAccountsBatch(
             config,
             batch,
-            callbackUrl,
+            cbUrl,
             {
               externalReferenceCode: batchERC,
             }
           );
 
-          cache.set(`erc:${batchERC}:batchId`, batchResult.batchId, 3600000);
+          cache.set(
+            `erc:${batchERC}:batchId`,
+            batchResult.batchId,
+            getLongLivedTTLms(configService)
+          );
           cache.set(
             `batch:${batchResult.batchId}:erc`,
             { externalReferenceCode: batchERC },
-            3600000
+            getLongLivedTTLms(configService)
           );
 
           cache.set(
@@ -152,7 +172,7 @@ class AccountGenerator {
               startedAt,
               externalReferenceCode: batchERC,
             },
-            3600000
+            getBatchCacheTTLms(configService)
           );
 
           getWs().emitBatchStarted(
@@ -186,6 +206,7 @@ class AccountGenerator {
               {
                 pollInterval,
                 maxPollAttempts,
+                externalReferenceCode: batchERC,
                 onStatusChange: (status) => {
                   const meta =
                     cache.get(`batch:${batchResult.batchId}:meta`) || {};
@@ -249,6 +270,10 @@ class AccountGenerator {
                     { correlationId }
                   );
                 },
+                entityType: 'accounts',
+                operation: 'generate',
+                mode: 'batch',
+                affectsProgress: false,
               }
             );
           }
@@ -258,7 +283,7 @@ class AccountGenerator {
             batchId: batchResult.batchId,
             accountCount: batch.length,
             status: batchResult.status,
-            callbackUrl: callbackUrl || 'none',
+            callbackUrl: cbUrl || 'none',
             mode,
             phase,
           });
@@ -307,7 +332,7 @@ class AccountGenerator {
   }
 
   async generateAccountsIndividually(config, options, accountDataList) {
-    const { logger, getWs } = this.ctx;
+    const { logger, getWs, configService, cache } = this.ctx;
     const { mode, phase } = resolvePhaseAndMode({
       useBatch: false,
       phase: 'generate',
@@ -317,10 +342,10 @@ class AccountGenerator {
 
     const metaKey = 'accounts-individual:meta';
     const startedAt = now();
-    this.ctx.cache.set(
+    cache.set(
       metaKey,
       { total: accountDataList.length, startedAt },
-      3600000
+      getEphemeralTTLms(configService)
     );
 
     getWs().emitBatchStarted(
@@ -347,7 +372,7 @@ class AccountGenerator {
         const processed = i + 1;
         const total = accountDataList.length;
         const progress = Math.round((processed / total) * 100);
-        const meta = this.ctx.cache.get(metaKey) || { startedAt };
+        const meta = cache.get(metaKey) || { startedAt };
         const elapsedMs = elapsed(meta.startedAt || now());
         const rate = processed / (elapsedMs / 1000);
         const remaining = Math.max(0, total - processed);
@@ -459,7 +484,7 @@ class AccountGenerator {
   }
 
   handleBatchComplete(results, config) {
-    const { logger, getWs } = this.ctx;
+    const { logger, getWs, cache } = this.ctx;
     const { mode, phase } = resolvePhaseAndMode({
       useBatch: true,
       phase: 'complete',
@@ -504,9 +529,8 @@ class AccountGenerator {
         operation: 'generate',
         mode,
         phase,
-        externalReferenceCode: (
-          this.ctx.cache.get(`batch:${results.batchId}:erc`) || {}
-        ).externalReferenceCode,
+        externalReferenceCode: (cache.get(`batch:${results.batchId}:erc`) || {})
+          .externalReferenceCode,
       },
       { correlationId: config.correlationId }
     );

@@ -43,7 +43,7 @@
          "configStatus": {
             "key": "Active"
          },
-         "configValue": "{\"maxSize\":1000,\"defaultTTL\":3600000,\"cleanupInterval\":60000,\"configTTL\":3600000,\"apiResponseTTL\":300000}",
+         "configValue": "{\"maxSize\":2000,\"defaultTTL\":3600000,\"cleanupInterval\":60000,\"configTTL\":900000,\"apiResponseTTL\":300000,\"defaultBatchTTL\":3600000,\"sessionTTL\":1800000,\"ephemeralTTL\":300000,\"uploadTTL\":900000,\"ercConfigTTL\":3600000}",
          "description": "Global cache configuration (sizes & TTLs in ms)",
          "externalReferenceCode": "CACHE-CONFIG"
       },
