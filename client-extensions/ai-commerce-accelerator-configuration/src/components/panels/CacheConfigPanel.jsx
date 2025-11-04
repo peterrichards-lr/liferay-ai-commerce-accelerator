@@ -4,6 +4,9 @@ import ClayAlert from '@clayui/alert';
 import ClayButton from '@clayui/button';
 import ClayIcon from '@clayui/icon';
 import ClayLayout from '@clayui/layout';
+import MillisecondsInput from '../common/MillisecondsInput';
+import { msToHHMMSS } from '../../utils/helper';
+
 import { getKeyValue, persistConfigKey } from '../../utils/api';
 
 const CACHE_CONFIG_KEY = 'cache-config';
@@ -14,20 +17,16 @@ const DEFAULTS = {
   cleanupInterval: 60000,   // 1 min
   configTTL: 3600000,       // 60 min
   apiResponseTTL: 300000,   // 5 min
+  defaultBatchTTL: 3600000,
+  sessionTTL: 1800000,
+  ephemeralTTL: 300000,
+  uploadTTL: 900000,
+  ercConfigTTL: 3600000,
 };
 
 function toInt(v, fallback) {
   const n = typeof v === 'string' ? parseInt(v, 10) : v;
   return Number.isFinite(n) ? n : fallback;
-}
-
-function msToHHMMSS(ms) {
-  if (!Number.isFinite(ms) || ms <= 0) return '—';
-  const s = Math.floor(ms / 1000);
-  const hh = String(Math.floor(s / 3600)).padStart(2, '0');
-  const mm = String(Math.floor((s % 3600) / 60)).padStart(2, '0');
-  const ss = String(s % 60).padStart(2, '0');
-  return `${hh}:${mm}:${ss}`;
 }
 
 export default function CacheConfigPanel() {
@@ -60,6 +59,11 @@ export default function CacheConfigPanel() {
           cleanupInterval: toInt(parsed.cleanupInterval, DEFAULTS.cleanupInterval),
           configTTL: toInt(parsed.configTTL, DEFAULTS.configTTL),
           apiResponseTTL: toInt(parsed.apiResponseTTL, DEFAULTS.apiResponseTTL),
+          defaultBatchTTL: toInt(parsed.defaultBatchTTL, DEFAULTS.defaultBatchTTL),
+          sessionTTL: toInt(parsed.sessionTTL, DEFAULTS.sessionTTL),
+          ephemeralTTL: toInt(parsed.ephemeralTTL, DEFAULTS.ephemeralTTL),
+          uploadTTL: toInt(parsed.uploadTTL, DEFAULTS.uploadTTL),
+          ercConfigTTL: toInt(parsed.ercConfigTTL, DEFAULTS.ercConfigTTL),
         };
         if (!alive) return;
         setValues(merged);
@@ -108,7 +112,7 @@ export default function CacheConfigPanel() {
 
   useEffect(() => {
     const found = [];
-    const { maxSize, defaultTTL, cleanupInterval, configTTL, apiResponseTTL } =
+    const { maxSize, defaultTTL, cleanupInterval, configTTL, apiResponseTTL, defaultBatchTTL, sessionTTL, ephemeralTTL, uploadTTL, ercConfigTTL } =
       values;
 
     if (!Number.isFinite(maxSize) || maxSize < 100)
@@ -133,6 +137,21 @@ export default function CacheConfigPanel() {
     ) {
       found.push('Cleanup interval should not exceed the default TTL.');
     }
+
+    if (!Number.isFinite(defaultBatchTTL) || defaultBatchTTL < 60000)
+      found.push('Default batch TTL must be ≥ 60000 ms (1 minute).');
+
+    if (!Number.isFinite(sessionTTL) || sessionTTL < 60000)
+      found.push('Session TTL must be ≥ 60000 ms (1 minute).');
+
+    if (!Number.isFinite(ephemeralTTL) || ephemeralTTL < 1000)
+      found.push('Ephemeral TTL must be ≥ 1000 ms (1 second).');
+
+    if (!Number.isFinite(uploadTTL) || uploadTTL < 60000)
+      found.push('Upload TTL must be ≥ 60000 ms (1 minute).');
+
+    if (!Number.isFinite(ercConfigTTL) || ercConfigTTL < 60000)
+      found.push('ERC config TTL must be ≥ 60000 ms (1 minute).');
 
     setIssues(found);
   }, [values]);
@@ -174,7 +193,7 @@ export default function CacheConfigPanel() {
         <div className="sheet-text">
           Stored under <code>{CACHE_CONFIG_KEY}</code> as JSON:{' '}
           <code>
-            {'{ maxSize, defaultTTL, cleanupInterval, configTTL, apiResponseTTL }'}
+            {'{ maxSize, defaultTTL, cleanupInterval, configTTL, apiResponseTTL, defaultBatchTTL, sessionTTL, ephemeralTTL, uploadTTL, ercConfigTTL }'}
           </code>
           .
           <div className="mt-1">
@@ -220,73 +239,95 @@ export default function CacheConfigPanel() {
           </small>
         </ClayForm.Group>
 
-        <ClayForm.Group>
-          <label htmlFor="default-ttl" className="font-weight-semi-bold">
-            Default TTL (ms)
-          </label>
-          <ClayInput
-            id="default-ttl"
-            type="number"
-            min={60000}
-            step={1000}
-            value={values.defaultTTL}
-            onChange={onNumberChange('defaultTTL')}
-          />
-          <small className="form-text text-secondary">
-            Time-to-live for entries when no specific TTL is provided.
-          </small>
-        </ClayForm.Group>
+        <MillisecondsInput
+          id="default-ttl"
+          label="Default TTL (ms)"
+          value={values.defaultTTL}
+          min={60000}
+          step={1000}
+          onChange={onNumberChange('defaultTTL')}
+          helper="Time-to-live for entries when no specific TTL is provided."
+        />
 
-        <ClayForm.Group>
-          <label htmlFor="cleanup-interval" className="font-weight-semi-bold">
-            Cleanup interval (ms)
-          </label>
-          <ClayInput
-            id="cleanup-interval"
-            type="number"
-            min={5000}
-            step={1000}
-            value={values.cleanupInterval}
-            onChange={onNumberChange('cleanupInterval')}
-          />
-          <small className="form-text text-secondary">
-            How often to purge expired entries.
-          </small>
-        </ClayForm.Group>
+        <MillisecondsInput
+          id="cleanup-interval"
+          label="Cleanup interval (ms)"
+          value={values.cleanupInterval}
+          min={5000}
+          step={1000}
+          onChange={onNumberChange('cleanupInterval')}
+          helper="How often to purge expired entries."
+        />
 
-        <ClayForm.Group>
-          <label htmlFor="config-ttl" className="font-weight-semi-bold">
-            Config cache TTL (ms)
-          </label>
-          <ClayInput
-            id="config-ttl"
-            type="number"
-            min={60000}
-            step={1000}
-            value={values.configTTL}
-            onChange={onNumberChange('configTTL')}
-          />
-          <small className="form-text text-secondary">
-            TTL for configuration entries cached in the service.
-          </small>
-        </ClayForm.Group>
+        <MillisecondsInput
+          id="config-ttl"
+          label="Config cache TTL (ms)"
+          value={values.configTTL}
+          min={60000}
+          step={1000}
+          onChange={onNumberChange('configTTL')}
+          helper="TTL for configuration entries cached in the service."
+        />
 
-        <ClayForm.Group>
-          <label htmlFor="api-ttl" className="font-weight-semi-bold">
-            API response TTL (ms)
-          </label>
-          <ClayInput
-            id="api-ttl"
-            type="number"
-            min={1000}
-            step={1000}
-            value={values.apiResponseTTL}
-            onChange={onNumberChange('apiResponseTTL')}
-          />
-          <small className="form-text text-secondary">
-            TTL for cached HTTP responses.
-          </small>
-        </ClayForm.Group>
+        <MillisecondsInput
+          id="api-ttl"
+          label="API response TTL (ms)"
+          value={values.apiResponseTTL}
+          min={1000}
+          step={1000}
+          onChange={onNumberChange('apiResponseTTL')}
+          helper="TTL for cached HTTP responses."
+        />
+
+        <MillisecondsInput
+          id="default-batch-ttl"
+          label="Default batch TTL (ms)"
+          value={values.defaultBatchTTL}
+          min={60000}
+          step={1000}
+          onChange={onNumberChange('defaultBatchTTL')}
+          helper="TTL for batch operations when no specific TTL is provided."
+        />
+
+        <MillisecondsInput
+          id="session-ttl"
+          label="Session TTL (ms)"
+          value={values.sessionTTL}
+          min={60000}
+          step={1000}
+          onChange={onNumberChange('sessionTTL')}
+          helper="TTL for cached session data."
+        />
+
+        <MillisecondsInput
+          id="ephemeral-ttl"
+          label="Ephemeral TTL (ms)"
+          value={values.ephemeralTTL}
+          min={1000}
+          step={1000}
+          onChange={onNumberChange('ephemeralTTL')}
+          helper="TTL for short-lived ephemeral entries."
+        />
+
+        <MillisecondsInput
+          id="upload-ttl"
+          label="Upload TTL (ms)"
+          value={values.uploadTTL}
+          min={60000}
+          step={1000}
+          onChange={onNumberChange('uploadTTL')}
+          helper="TTL for cached upload-related entries."
+        />
+
+        <MillisecondsInput
+          id="erc-config-ttl"
+          label="ERC config TTL (ms)"
+          value={values.ercConfigTTL}
+          min={60000}
+          step={1000}
+          onChange={onNumberChange('ercConfigTTL')}
+          helper="TTL for external reference code configuration entries."
+        />
       </div>
 
       <div className="sheet-footer">

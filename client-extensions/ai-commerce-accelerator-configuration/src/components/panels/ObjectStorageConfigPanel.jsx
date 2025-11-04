@@ -5,6 +5,7 @@ import ClayButton from '@clayui/button';
 import ClayIcon from '@clayui/icon';
 import ClayLayout from '@clayui/layout';
 import { getKeyValue, persistConfigKey } from '../../utils/api';
+import MillisecondsInput from '../common/MillisecondsInput';
 
 const OBJ_KEY = 'object-storage-config';
 
@@ -156,19 +157,19 @@ export default function ObjectStorageConfigPanel() {
       )}
 
       <div className="sheet-section">
-        <ClayForm.Group>
-          <label htmlFor="signed-ttl" className="font-weight-semi-bold">
-            Signed URL TTL (seconds)
-          </label>
-          <ClayInput
-            id="signed-ttl"
-            type="number"
-            min={60}
-            step={30}
-            value={values.signedUrlTtlSec}
-            onChange={onNumberChange('signedUrlTtlSec', 60)}
-          />
-        </ClayForm.Group>
+        <MillisecondsInput
+          id="signed-ttl"
+          label="Signed URL TTL (ms)"
+          value={values.signedUrlTtlSec * 1000}
+          min={60000}
+          step={1000}
+          onChange={(e) => {
+            const ms = toInt(e.target.value, values.signedUrlTtlSec * 1000);
+            const sec = Math.floor(ms / 1000);
+            setValues((v) => ({ ...v, signedUrlTtlSec: Math.max(60, sec) }));
+          }}
+          helper="Time-to-live for generated signed URLs."
+        />
 
         <ClayForm.Group>
           <label htmlFor="upload-prefix" className="font-weight-semi-bold">

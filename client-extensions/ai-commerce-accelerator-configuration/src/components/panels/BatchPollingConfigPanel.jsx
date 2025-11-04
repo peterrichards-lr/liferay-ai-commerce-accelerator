@@ -5,6 +5,7 @@ import ClayButton from '@clayui/button';
 import ClayIcon from '@clayui/icon';
 import ClayLayout from '@clayui/layout';
 import { getKeyValue, persistConfigKey } from '../../utils/api';
+import MillisecondsInput from '../common/MillisecondsInput';
 
 const BATCH_POLLING_KEY = 'batch-polling-config';
 
@@ -215,40 +216,25 @@ export default function BatchPollingConfigPanel() {
       )}
 
       <div className="sheet-section">
-        <ClayForm.Group>
-          <label htmlFor="poll-interval" className="font-weight-semi-bold">
-            Poll interval (ms)
-          </label>
-          <ClayInput
-            id="poll-interval"
-            type="number"
-            min={1}
-            step={100}
-            value={values.pollInterval}
-            onChange={onNumberChange('pollInterval')}
-          />
-          <small className="form-text text-secondary">
-            How long to wait between each poll attempt.
-          </small>
-        </ClayForm.Group>
+        <MillisecondsInput
+          id="poll-interval"
+          label="Poll interval (ms)"
+          value={values.pollInterval}
+          min={1}
+          step={100}
+          onChange={onNumberChange('pollInterval')}
+          helper="How long to wait between each poll attempt."
+        />
 
-        <ClayForm.Group>
-          <label htmlFor="min-poll-interval" className="font-weight-semi-bold">
-            Minimum poll interval (ms)
-          </label>
-          <ClayInput
-            id="min-poll-interval"
-            type="number"
-            min={1}
-            step={100}
-            value={values.minPollInterval}
-            onChange={onNumberChange('minPollInterval')}
-          />
-          <small className="form-text text-secondary">
-            Lower bound for adaptive backoff—actual interval should never dip
-            below this.
-          </small>
-        </ClayForm.Group>
+        <MillisecondsInput
+          id="min-poll-interval"
+          label="Minimum poll interval (ms)"
+          value={values.minPollInterval}
+          min={1}
+          step={100}
+          onChange={onNumberChange('minPollInterval')}
+          helper="Lower bound for adaptive backoff—actual interval should never dip below this."
+        />
 
         <ClayForm.Group>
           <label htmlFor="max-poll-attempts" className="font-weight-semi-bold">

@@ -5,6 +5,7 @@ import ClayButton from '@clayui/button';
 import ClayIcon from '@clayui/icon';
 import ClayLayout from '@clayui/layout';
 import { getKeyValue, persistConfigKey } from '../../utils/api';
+import MillisecondsInput from '../common/MillisecondsInput';
 
 const WS_CONFIG_KEY = 'ws-config';
 
@@ -173,42 +174,25 @@ export default function WsConfigPanel() {
       )}
 
       <div className="sheet-section">
-        <ClayForm.Group>
-          <label
-            htmlFor="heartbeat-interval"
-            className="font-weight-semi-bold"
-          >
-            Heartbeat interval (ms)
-          </label>
-          <ClayInput
-            id="heartbeat-interval"
-            type="number"
-            min={1000}
-            step={500}
-            value={values.heartbeatIntervalMs}
-            onChange={onNumberChange('heartbeatIntervalMs')}
-          />
-          <small className="form-text text-secondary">
-            Frequency of health checks between client and server.
-          </small>
-        </ClayForm.Group>
+        <MillisecondsInput
+          id="heartbeat-interval"
+          label="Heartbeat interval (ms)"
+          value={values.heartbeatIntervalMs}
+          min={1000}
+          step={500}
+          onChange={onNumberChange('heartbeatIntervalMs')}
+          helper="Frequency of health checks between client and server."
+        />
 
-        <ClayForm.Group>
-          <label htmlFor="retry-interval" className="font-weight-semi-bold">
-            Retry interval (ms)
-          </label>
-          <ClayInput
-            id="retry-interval"
-            type="number"
-            min={100}
-            step={100}
-            value={values.retryIntervalMs}
-            onChange={onNumberChange('retryIntervalMs')}
-          />
-          <small className="form-text text-secondary">
-            Delay before retrying a failed message delivery.
-          </small>
-        </ClayForm.Group>
+        <MillisecondsInput
+          id="retry-interval"
+          label="Retry interval (ms)"
+          value={values.retryIntervalMs}
+          min={100}
+          step={100}
+          onChange={onNumberChange('retryIntervalMs')}
+          helper="Delay before retrying a failed message delivery."
+        />
 
         <ClayForm.Group>
           <label htmlFor="max-retries" className="font-weight-semi-bold">

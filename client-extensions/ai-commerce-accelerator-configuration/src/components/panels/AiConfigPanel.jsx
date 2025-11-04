@@ -6,6 +6,7 @@ import ClayIcon from '@clayui/icon';
 import ClayLayout from '@clayui/layout';
 import ClayTable from '@clayui/table';
 import { getKeyValue, persistConfigKey } from '../../utils/api';
+import MillisecondsInput from '../common/MillisecondsInput';
 import PromptManager from './PromptManager';
 import SystemPromptsEditor from './SystemPromptsEditor';
 
@@ -205,19 +206,15 @@ export default function AiConfigPanel() {
           </small>
         </ClayForm.Group>
 
-        <ClayForm.Group>
-          <label htmlFor="request-timeout">Request timeout (ms)</label>
-          <ClayInput
-            id="request-timeout"
-            type="number"
-            min={1000}
-            step={500}
-            value={aiConfig.requestTimeoutMs}
-            onChange={(e) =>
-              updateAi('requestTimeoutMs', toInt(e.target.value, 60000))
-            }
-          />
-        </ClayForm.Group>
+        <MillisecondsInput
+          id="request-timeout"
+          label="Request timeout (ms)"
+          value={aiConfig.requestTimeoutMs}
+          min={1000}
+          step={500}
+          onChange={(e) => updateAi('requestTimeoutMs', toInt(e.target.value, 60000))}
+          helper="Maximum time to wait for an AI request before aborting."
+        />
 
         <ClayForm.Group>
           <label>Retry settings</label>
@@ -227,32 +224,30 @@ export default function AiConfigPanel() {
               type="number"
               min={0}
               value={aiConfig.retry.maxRetries}
-              onChange={(e) =>
-                updateRetry('maxRetries', toInt(e.target.value, 2))
-              }
+              onChange={(e) => updateRetry('maxRetries', toInt(e.target.value, 2))}
               className="mr-2"
-            />
-            <ClayInput
-              placeholder="baseDelayMs"
-              type="number"
-              min={100}
-              value={aiConfig.retry.baseDelayMs}
-              onChange={(e) =>
-                updateRetry('baseDelayMs', toInt(e.target.value, 1000))
-              }
-              className="mr-2"
-            />
-            <ClayInput
-              placeholder="maxDelayMs"
-              type="number"
-              min={500}
-              value={aiConfig.retry.maxDelayMs}
-              onChange={(e) =>
-                updateRetry('maxDelayMs', toInt(e.target.value, 8000))
-              }
             />
           </div>
+          <small className="form-text text-secondary">Number of retry attempts for transient failures.</small>
         </ClayForm.Group>
+        <MillisecondsInput
+          id="retry-base-delay"
+          label="Retry base delay (ms)"
+          value={aiConfig.retry.baseDelayMs}
+          min={100}
+          step={100}
+          onChange={(e) => updateRetry('baseDelayMs', toInt(e.target.value, 1000))}
+          helper="Initial backoff delay before the first retry."
+        />
+        <MillisecondsInput
+          id="retry-max-delay"
+          label="Retry max delay (ms)"
+          value={aiConfig.retry.maxDelayMs}
+          min={500}
+          step={100}
+          onChange={(e) => updateRetry('maxDelayMs', toInt(e.target.value, 8000))}
+          helper="Maximum backoff delay between retries."
+        />
 
         <ClayForm.Group>
           <label htmlFor="prompts-dir">Prompts directory</label>
@@ -264,22 +259,15 @@ export default function AiConfigPanel() {
           />
         </ClayForm.Group>
 
-        <ClayForm.Group>
-          <label htmlFor="prompt-ttl">Prompt cache TTL (ms)</label>
-          <ClayInput
-            id="prompt-ttl"
-            type="number"
-            min={1000}
-            step={1000}
-            value={promptConfig.promptCacheTTL}
-            onChange={(e) =>
-              updatePromptConfig(
-                'promptCacheTTL',
-                toInt(e.target.value, promptConfig.promptCacheTTL)
-              )
-            }
-          />
-        </ClayForm.Group>
+        <MillisecondsInput
+          id="prompt-ttl"
+          label="Prompt cache TTL (ms)"
+          value={promptConfig.promptCacheTTL}
+          min={1000}
+          step={1000}
+          onChange={(e) => updatePromptConfig('promptCacheTTL', toInt(e.target.value, promptConfig.promptCacheTTL))}
+          helper="Time-to-live for prompt template cache entries."
+        />
 
         <ClayForm.Group>
           <label>Per-Model Configuration</label>

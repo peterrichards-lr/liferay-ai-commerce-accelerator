@@ -5,6 +5,8 @@ import ClayButton from '@clayui/button';
 import ClayIcon from '@clayui/icon';
 import ClayLayout from '@clayui/layout';
 import { getKeyValue, persistConfigKey } from '../../utils/api';
+import MillisecondsInput from '../common/MillisecondsInput';
+// Note: msToHHMMSS and msToHuman were moved to '../../utils/helper' and are used by MillisecondsInput internally.
 
 const OAUTH_KEY = 'oauth-config';
 
@@ -156,19 +158,15 @@ export default function OAuthConfigPanel() {
       )}
 
       <div className="sheet-section">
-        <ClayForm.Group>
-          <label htmlFor="http-timeout" className="font-weight-semi-bold">
-            HTTP timeout (ms)
-          </label>
-          <ClayInput
-            id="http-timeout"
-            type="number"
-            min={1000}
-            step={500}
-            value={values.httpTimeoutMs}
-            onChange={onNumberChange('httpTimeoutMs', 1000)}
-          />
-        </ClayForm.Group>
+        <MillisecondsInput
+          id="http-timeout"
+          label="HTTP timeout (ms)"
+          value={values.httpTimeoutMs}
+          min={1000}
+          step={500}
+          onChange={onNumberChange('httpTimeoutMs', 1000)}
+          helper="Maximum time to wait for an OAuth HTTP call before aborting."
+        />
 
         <ClayForm.Group>
           <label htmlFor="max-retries" className="font-weight-semi-bold">
@@ -184,19 +182,15 @@ export default function OAuthConfigPanel() {
           />
         </ClayForm.Group>
 
-        <ClayForm.Group>
-          <label htmlFor="backoff-base" className="font-weight-semi-bold">
-            Backoff base (ms)
-          </label>
-          <ClayInput
-            id="backoff-base"
-            type="number"
-            min={100}
-            step={50}
-            value={values.backoffBaseMs}
-            onChange={onNumberChange('backoffBaseMs', 100)}
-          />
-        </ClayForm.Group>
+        <MillisecondsInput
+          id="backoff-base"
+          label="Backoff base (ms)"
+          value={values.backoffBaseMs}
+          min={100}
+          step={50}
+          onChange={onNumberChange('backoffBaseMs', 100)}
+          helper="Initial delay used for exponential backoff."
+        />
 
         <ClayForm.Group>
           <label htmlFor="token-skew" className="font-weight-semi-bold">
@@ -215,19 +209,15 @@ export default function OAuthConfigPanel() {
           </small>
         </ClayForm.Group>
 
-        <ClayForm.Group>
-          <label htmlFor="token-cache-ttl" className="font-weight-semi-bold">
-            Token cache TTL (ms)
-          </label>
-          <ClayInput
-            id="token-cache-ttl"
-            type="number"
-            min={60000}
-            step={60000}
-            value={values.tokenCacheTtlMs}
-            onChange={onNumberChange('tokenCacheTtlMs', 60000)}
-          />
-        </ClayForm.Group>
+        <MillisecondsInput
+          id="token-cache-ttl"
+          label="Token cache TTL (ms)"
+          value={values.tokenCacheTtlMs}
+          min={60000}
+          step={60000}
+          onChange={onNumberChange('tokenCacheTtlMs', 60000)}
+          helper="How long an OAuth token is cached before forced refresh."
+        />
       </div>
 
       <div className="sheet-footer">

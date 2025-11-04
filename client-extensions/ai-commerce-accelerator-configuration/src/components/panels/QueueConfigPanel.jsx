@@ -5,6 +5,7 @@ import ClayButton from '@clayui/button';
 import ClayIcon from '@clayui/icon';
 import ClayLayout from '@clayui/layout';
 import { getKeyValue, persistConfigKey } from '../../utils/api';
+import MillisecondsInput from '../common/MillisecondsInput';
 
 const QUEUE_KEY = 'queue-config';
 
@@ -164,23 +165,59 @@ export default function QueueConfigPanel() {
           <ClayIcon symbol="trash" />
         </ClayButton>
       </div>
-      {['concurrency', 'maxRetries', 'retryDelay', 'jobTimeout', 'jobTTL'].map(
-        (field) => (
-          <ClayForm.Group key={field}>
-            <label htmlFor={`${q.name}-${field}`} className="font-weight-semi-bold">
-              {field}
-            </label>
-            <ClayInput
-              id={`${q.name}-${field}`}
-              type="number"
-              value={q[field]}
-              onChange={(e) =>
-                updateQueue(i, field, toInt(e.target.value, q[field]))
-              }
-            />
-          </ClayForm.Group>
-        )
-      )}
+      <ClayForm.Group>
+        <label htmlFor={`${q.name}-concurrency`} className="font-weight-semi-bold">concurrency</label>
+        <ClayInput
+          id={`${q.name}-concurrency`}
+          type="number"
+          min={1}
+          step={1}
+          value={q.concurrency}
+          onChange={(e) => updateQueue(i, 'concurrency', toInt(e.target.value, q.concurrency))}
+        />
+      </ClayForm.Group>
+
+      <ClayForm.Group>
+        <label htmlFor={`${q.name}-maxRetries`} className="font-weight-semi-bold">maxRetries</label>
+        <ClayInput
+          id={`${q.name}-maxRetries`}
+          type="number"
+          min={0}
+          step={1}
+          value={q.maxRetries}
+          onChange={(e) => updateQueue(i, 'maxRetries', toInt(e.target.value, q.maxRetries))}
+        />
+      </ClayForm.Group>
+
+      <MillisecondsInput
+        id={`${q.name}-retryDelay`}
+        label="retryDelay (ms)"
+        value={q.retryDelay}
+        min={0}
+        step={100}
+        onChange={(e) => updateQueue(i, 'retryDelay', toInt(e.target.value, q.retryDelay))}
+        helper="Delay before retrying a failed job."
+      />
+
+      <MillisecondsInput
+        id={`${q.name}-jobTimeout`}
+        label="jobTimeout (ms)"
+        value={q.jobTimeout}
+        min={1000}
+        step={1000}
+        onChange={(e) => updateQueue(i, 'jobTimeout', toInt(e.target.value, q.jobTimeout))}
+        helper="Maximum runtime before the job is aborted."
+      />
+
+      <MillisecondsInput
+        id={`${q.name}-jobTTL`}
+        label="jobTTL (ms)"
+        value={q.jobTTL}
+        min={60000}
+        step={1000}
+        onChange={(e) => updateQueue(i, 'jobTTL', toInt(e.target.value, q.jobTTL))}
+        helper="Retention time for completed jobs."
+      />
     </div>
   );
 
@@ -205,19 +242,69 @@ export default function QueueConfigPanel() {
 
       <div className="sheet-section">
         <h4>Default Settings</h4>
-        {Object.entries(values.defaults).map(([k, v]) => (
-          <ClayForm.Group key={k}>
-            <label htmlFor={k} className="font-weight-semi-bold">
-              {k}
-            </label>
-            <ClayInput
-              id={k}
-              type="number"
-              value={v}
-              onChange={updateDefault(k)}
-            />
-          </ClayForm.Group>
-        ))}
+        <ClayForm.Group>
+          <label htmlFor="defaults-concurrency" className="font-weight-semi-bold">concurrency</label>
+          <ClayInput
+            id="defaults-concurrency"
+            type="number"
+            min={1}
+            step={1}
+            value={values.defaults.concurrency}
+            onChange={updateDefault('concurrency')}
+          />
+        </ClayForm.Group>
+
+        <ClayForm.Group>
+          <label htmlFor="defaults-max-retries" className="font-weight-semi-bold">maxRetries</label>
+          <ClayInput
+            id="defaults-max-retries"
+            type="number"
+            min={0}
+            step={1}
+            value={values.defaults.maxRetries}
+            onChange={updateDefault('maxRetries')}
+          />
+        </ClayForm.Group>
+
+        <MillisecondsInput
+          id="defaults-retry-delay"
+          label="retryDelay (ms)"
+          value={values.defaults.retryDelay}
+          min={0}
+          step={100}
+          onChange={updateDefault('retryDelay')}
+          helper="Delay before retrying a failed job."
+        />
+
+        <MillisecondsInput
+          id="defaults-job-timeout"
+          label="jobTimeout (ms)"
+          value={values.defaults.jobTimeout}
+          min={1000}
+          step={1000}
+          onChange={updateDefault('jobTimeout')}
+          helper="Maximum time a job is allowed to run before it is aborted."
+        />
+
+        <MillisecondsInput
+          id="defaults-cleanup-interval"
+          label="cleanupInterval (ms)"
+          value={values.defaults.cleanupInterval}
+          min={5000}
+          step={1000}
+          onChange={updateDefault('cleanupInterval')}
+          helper="How often to purge completed/expired jobs."
+        />
+
+        <MillisecondsInput
+          id="defaults-job-ttl"
+          label="jobTTL (ms)"
+          value={values.defaults.jobTTL}
+          min={60000}
+          step={1000}
+          onChange={updateDefault('jobTTL')}
+          helper="How long a completed job remains in storage before removal."
+        />
 
         <h4 className="mt-4">Queues</h4>
         {values.queues.map(renderQueueFields)}
