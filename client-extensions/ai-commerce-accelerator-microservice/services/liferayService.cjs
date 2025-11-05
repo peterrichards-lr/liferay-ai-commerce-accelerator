@@ -419,7 +419,7 @@ class LiferayService {
   }
 
   async testConnection(config) {
-    const { logger, oauthService } = this.ctx;
+    const { logger, oauthService, configService } = this.ctx;
     try {
       try {
         new URL(config.liferayUrl);
@@ -431,6 +431,15 @@ class LiferayService {
         oauthService.validateOAuthConfig(config);
 
       await this._get(config, PATH.ME, 'test-connection');
+
+      await configService.getCacheConfig(config);
+      await configService.getBatchPollingConfig(config);
+      await configService.getQueueConfig(config);
+      await configService.getAIConfig(config);
+      await configService.getAIPromptsConfig(config);
+      await configService.getOAuthConfig(config);
+      await configService.getObjectStorageConfig(config);
+      await configService.getWSConfig(config)
 
       return {
         status: 'connected',
@@ -949,6 +958,49 @@ class LiferayService {
     return data;
   }
 
+  async createOptionWithReuse(config, optionData) {
+    try {
+      return await this.createOption(config, optionData);
+    } catch (e) {
+      const msg = String(e?.message || '').toLowerCase();
+      const isConflict =
+        e?.status === 409 ||
+        e?.problem?.status === 'CONFLICT' ||
+        msg.includes('409') ||
+        msg.includes('conflict');
+      if (!isConflict) throw e;
+
+      let existing = null;
+      const erc = optionData?.externalReferenceCode;
+      const key = optionData?.key;
+
+      if (erc) {
+        try {
+          existing = await this.getOptionByERC(config, erc);
+        } catch {}
+      }
+      if (!existing && key) {
+        try {
+          existing = await this.getOptionByKey(config, key);
+        } catch {}
+      }
+      if (!existing) throw e;
+
+      if (
+        erc &&
+        existing.externalReferenceCode !== erc &&
+        typeof this.updateOptionById === 'function'
+      ) {
+        try {
+          await this.updateOptionById(config, existing.id, {
+            externalReferenceCode: erc,
+          });
+        } catch {}
+      }
+      return existing;
+    }
+  }
+
   async createOptionValue(config, optionId, optionValueData) {
     return await this._post(
       config,
@@ -972,6 +1024,29 @@ class LiferayService {
     }
   }
 
+  async getOptionByKey(config, key) {
+    try {
+      const res = await this._get(
+        config,
+        PATH.OPTIONS,
+        'options:list',
+        'Find option by key',
+        {
+          params: {
+            page: 1,
+            pageSize: 1,
+            search: key,
+            fields: 'id,key,externalReferenceCode',
+          },
+        }
+      );
+      const items = Array.isArray(res?.items) ? res.items : [];
+      return items.find((it) => it.key === key) || null;
+    } catch (error) {
+      throw new Error(`Failed to get option by key: ${error.message}`);
+    }
+  }
+
   async getOptionValueByERC(config, optionId, externalReferenceCode) {
     try {
       return await this._get(
@@ -985,6 +1060,107 @@ class LiferayService {
     }
   }
 
+  async getOptionValueByKey(config, optionId, key) {
+    const listUrl = `${PATH.OPTIONS}/${encodeURIComponent(
+      optionId
+    )}/productOptionValues`;
+    const res = await this._get(
+      config,
+      listUrl,
+      'optionValues:list',
+      'Find option value by key',
+      {
+        params: {
+          page: 1,
+          pageSize: 1,
+          search: key,
+          fields: 'id,key,externalReferenceCode',
+        },
+      }
+    );
+    const items = Array.isArray(res?.items) ? res.items : [];
+    return items.find((it) => it.key === key) || null;
+  }
+
+  async updateOptionValueById(config, optionId, valueId, payload) {
+    const url = `${PATH.OPTIONS}/${encodeURIComponent(
+      optionId
+    )}/productOptionValues/${encodeURIComponent(valueId)}`;
+    return this._put(
+      config,
+      url,
+      payload,
+      'update-option-value-by-id',
+      'Failed to update option value by ID'
+    );
+  }
+
+  async updateOptionValueByERC(
+    config,
+    optionId,
+    externalReferenceCode,
+    payload
+  ) {
+    const url = PATH.OPTION_VALUE_BY_ERC(optionId, externalReferenceCode);
+    return this._put(
+      config,
+      url,
+      payload,
+      'update-option-value-by-erc',
+      'Failed to update option value by ERC'
+    );
+  }
+
+  async createOptionValueWithReuse(config, optionId, payload) {
+    try {
+      return await this.createOptionValue(config, optionId, payload);
+    } catch (e) {
+      const msg = String(e?.message || '').toLowerCase();
+      const isConflict =
+        e?.status === 409 ||
+        e?.problem?.status === 'CONFLICT' ||
+        msg.includes('409') ||
+        msg.includes('conflict');
+      if (!isConflict) throw e;
+
+      let existing = null;
+      const erc = payload?.externalReferenceCode;
+      const key = payload?.key;
+
+      if (erc && typeof this.getOptionValueByERC === 'function') {
+        try {
+          existing = await this.getOptionValueByERC(config, optionId, erc);
+        } catch {}
+      }
+      if (!existing && key && typeof this.getOptionValueByKey === 'function') {
+        try {
+          existing = await this.getOptionValueByKey(config, optionId, key);
+        } catch {}
+      }
+      if (!existing) throw e;
+
+      if (erc && existing.externalReferenceCode !== erc) {
+        if (typeof this.updateOptionValueById === 'function') {
+          try {
+            await this.updateOptionValueById(config, optionId, existing.id, {
+              externalReferenceCode: erc,
+            });
+          } catch {}
+        } else if (typeof this.updateOptionValueByERC === 'function') {
+          try {
+            await this.updateOptionValueByERC(
+              config,
+              optionId,
+              existing.externalReferenceCode,
+              { externalReferenceCode: erc }
+            );
+          } catch {}
+        }
+      }
+      return existing;
+    }
+  }
+
   async createOptionCategory(config, optionCategoryData) {
     return await this._post(
       config,
@@ -993,6 +1169,79 @@ class LiferayService {
       'create-option-category',
       'Failed to create option category'
     );
+  }
+
+  async getOptionCategoryByKey(config, key) {
+    try {
+      const res = await this._get(
+        config,
+        PATH.OPTION_CATEGORIES,
+        'optionCategories:list',
+        'Find option category by key',
+        {
+          params: {
+            page: 1,
+            pageSize: 1,
+            search: key,
+            fields: 'id,key,externalReferenceCode,title,description,priority',
+          },
+        }
+      );
+      const items = Array.isArray(res?.items) ? res.items : [];
+      return items.find((it) => it.key === key) || null;
+    } catch (error) {
+      throw new Error(`Failed to get option category by key: ${error.message}`);
+    }
+  }
+
+  async updateOptionCategoryById(config, id, payload) {
+    const url = `${PATH.OPTION_CATEGORIES}/${encodeURIComponent(id)}`;
+    return this._put(
+      config,
+      url,
+      payload,
+      'update-option-category-by-id',
+      'Failed to update option category by ID'
+    );
+  }
+
+  async createOptionCategoryWithReuse(config, payload) {
+    try {
+      return await this.createOptionCategory(config, payload);
+    } catch (e) {
+      const msg = String(e?.message || '').toLowerCase();
+      const isConflict =
+        e?.status === 409 ||
+        e?.problem?.status === 'CONFLICT' ||
+        msg.includes('409') ||
+        msg.includes('conflict');
+      if (!isConflict) throw e;
+
+      const erc = payload?.externalReferenceCode;
+      const key = payload?.key;
+      let existing = null;
+
+      if (erc) {
+        try {
+          existing = await this.getOptionCategoryByERC(config, erc);
+        } catch {}
+      }
+      if (!existing && key) {
+        try {
+          existing = await this.getOptionCategoryByKey(config, key);
+        } catch {}
+      }
+      if (!existing) throw e;
+
+      if (erc && existing.externalReferenceCode !== erc) {
+        try {
+          await this.updateOptionCategoryById(config, existing.id, {
+            externalReferenceCode: erc,
+          });
+        } catch {}
+      }
+      return existing;
+    }
   }
 
   async getOptionCategoryByERC(config, externalReferenceCode) {
@@ -1008,14 +1257,130 @@ class LiferayService {
     }
   }
 
+  _normalizeSpecificationPayload(specData = {}) {
+    const payload = { ...specData };
+
+    // If nested optionCategory object is present, rebuild it ID-first
+    if (
+      payload &&
+      typeof payload.optionCategory === 'object' &&
+      payload.optionCategory !== null
+    ) {
+      const erc = payload.optionCategory.externalReferenceCode;
+      const id = payload.optionCategory.id;
+      if (erc || id) {
+        payload.optionCategory = id ? { id } : { externalReferenceCode: erc };
+      } else {
+        // remove empty object to avoid backend validating key/title
+        delete payload.optionCategory;
+      }
+      delete payload.optionCategoryExternalReferenceCode;
+      delete payload.optionCategoryId;
+      return payload;
+    }
+
+    // If flat fields are provided, convert to nested; prefer ID when both exist
+    const erc = payload.optionCategoryExternalReferenceCode;
+    const id = payload.optionCategoryId;
+    if (erc || id) {
+      payload.optionCategory = id ? { id } : { externalReferenceCode: erc };
+      delete payload.optionCategoryExternalReferenceCode;
+      delete payload.optionCategoryId;
+    }
+
+    return payload;
+  }
+
   async createSpecification(config, specificationData) {
+    const normalized = this._normalizeSpecificationPayload(specificationData);
     return await this._post(
       config,
       PATH.SPECIFICATIONS,
-      specificationData,
+      normalized,
       'create-specification',
       'Failed to create specification'
     );
+  }
+
+  async createSpecificationWithReuse(config, specificationData) {
+    try {
+      return await this.createSpecification(config, specificationData);
+    } catch (e) {
+      const msg = String(e?.message || '').toLowerCase();
+      const isConflict =
+        e?.status === 409 ||
+        e?.problem?.status === 'CONFLICT' ||
+        msg.includes('409') ||
+        msg.includes('conflict');
+      if (!isConflict) throw e;
+
+      let existing = null;
+      const erc = specificationData?.externalReferenceCode;
+      const key = specificationData?.key;
+
+      if (erc) {
+        try {
+          existing = await this.getSpecificationByERC(config, erc);
+        } catch {}
+      }
+      if (!existing && key) {
+        try {
+          existing = await this.getSpecificationByKey(config, key);
+        } catch {}
+      }
+      if (!existing) throw e;
+
+      if (
+        erc &&
+        existing.externalReferenceCode !== erc &&
+        typeof this.updateSpecificationById === 'function'
+      ) {
+        try {
+          await this.updateSpecificationById(config, existing.id, {
+            externalReferenceCode: erc,
+          });
+        } catch {}
+      }
+      const desired = this._normalizeSpecificationPayload(specificationData);
+      const desiredId = desired?.optionCategory?.id;
+      const desiredErc = desired?.optionCategory?.externalReferenceCode;
+      const currentId =
+        existing?.optionCategory?.id || existing?.optionCategoryId;
+      const currentErc =
+        existing?.optionCategory?.externalReferenceCode ||
+        existing?.optionCategoryExternalReferenceCode;
+
+      if (typeof this.updateSpecificationByERC === 'function') {
+        try {
+          if (desiredId && desiredId !== currentId) {
+            await this.updateSpecificationByERC(
+              config,
+              erc || existing.externalReferenceCode,
+              {
+                optionCategory: { id: desiredId },
+              }
+            );
+            existing.optionCategory = {
+              ...(existing.optionCategory || {}),
+              id: desiredId,
+            };
+          } else if (!desiredId && desiredErc && desiredErc !== currentErc) {
+            await this.updateSpecificationByERC(
+              config,
+              erc || existing.externalReferenceCode,
+              {
+                optionCategory: { externalReferenceCode: desiredErc },
+              }
+            );
+            existing.optionCategory = {
+              ...(existing.optionCategory || {}),
+              externalReferenceCode: desiredErc,
+            };
+          }
+        } catch {}
+      }
+      return existing;
+    }
   }
 
   async getSpecificationByERC(config, externalReferenceCode) {
@@ -1028,6 +1393,67 @@ class LiferayService {
     } catch (error) {
       if (error.response?.status === 404) return null;
       throw new Error(`Failed to get specification by ERC: ${error.message}`);
+    }
+  }
+
+  async updateSpecificationById(config, id, payload) {
+    const url = `${PATH.SPECIFICATIONS}/${encodeURIComponent(id)}`;
+    const normalized = this._normalizeSpecificationPayload(payload);
+    return this._put(
+      config,
+      url,
+      normalized,
+      'update-specification-by-id',
+      'Failed to update specification by ID'
+    );
+  }
+
+  async updateSpecificationByERC(config, externalReferenceCode, payload) {
+    const url = PATH.SPECIFICATION_BY_ERC(externalReferenceCode);
+    const normalized = this._normalizeSpecificationPayload(payload);
+    return this._put(
+      config,
+      url,
+      normalized,
+      'update-specification-by-erc',
+      'Failed to update specification by ERC'
+    );
+  }
+
+  async getSpecifications(
+    config,
+    { search, pageSize = 200, fields = 'id,key,externalReferenceCode' } = {}
+  ) {
+    return this._get(
+      config,
+      PATH.SPECIFICATIONS,
+      'specifications:list',
+      'List specifications',
+      { params: { page: 1, pageSize, fields, ...(search ? { search } : {}) } }
+    );
+  }
+
+  async getSpecificationByKey(config, key) {
+    try {
+      const res = await this._get(
+        config,
+        PATH.SPECIFICATIONS,
+        'specifications:list',
+        'Find specification by key',
+        {
+          params: {
+            page: 1,
+            pageSize: 1,
+            search: key,
+            fields:
+              'id,key,externalReferenceCode,optionCategory,optionCategoryExternalReferenceCode',
+          },
+        }
+      );
+      const items = Array.isArray(res?.items) ? res.items : [];
+      return items.find((it) => it.key === key) || null;
+    } catch (error) {
+      throw new Error(`Failed to get specification by key: ${error.message}`);
     }
   }
 
@@ -1714,6 +2140,7 @@ class LiferayService {
       listUrl,
       pageSize,
       filter,
+      search,
       sort,
       itemsKey = 'items',
       idKey = 'id',
@@ -1735,6 +2162,7 @@ class LiferayService {
         page: 1,
         pageSize,
         ...(filter ? { filter } : {}),
+        ...(search ? { search } : {}),
         ...(askedSort ? { sort: askedSort } : {}),
         ...(fields ? { fields } : {}),
       };
@@ -1798,6 +2226,7 @@ class LiferayService {
           page: nextPage,
           pageSize: serverPageSize,
           ...(filter ? { filter } : {}),
+          ...(search ? { search } : {}),
           ...(askedSort ? { sort: askedSort } : {}),
           ...(fields ? { fields } : {}),
         };
@@ -2338,17 +2767,42 @@ class LiferayService {
 
   async deleteSpecificationsBatch(
     config,
-    { pageSize = 200, filter, callbackUrl, dryRun = false, sessionId } = {}
+    {
+      pageSize = 200,
+      filter,
+      search,
+      searchPrefixes,
+      callbackUrl,
+      dryRun = false,
+      sessionId,
+    } = {}
   ) {
     const { logger } = this.ctx;
-    const specIds = await this._collectPagedIds(config, {
-      listUrl: PATH.SPECIFICATIONS,
-      pageSize,
-      filter,
-      fields: 'id',
-      op: 'specifications:list',
-      friendly: 'List specifications',
-    });
+    const idSet = new Set();
+
+    const collect = async (args) => {
+      const ids = await this._collectPagedIds(config, {
+        listUrl: PATH.SPECIFICATIONS,
+        pageSize,
+        filter: args.filter,
+        search: args.search,
+        fields: 'id',
+        op: 'specifications:list',
+        friendly: 'List specifications',
+      });
+      ids.forEach((id) => idSet.add(id));
+    };
+
+    if (Array.isArray(searchPrefixes) && searchPrefixes.length) {
+      for (const s of searchPrefixes) await collect({ search: s });
+    } else if (search) {
+      await collect({ search });
+    } else {
+      await collect({ filter });
+    }
+
+    const specIds = Array.from(idSet);
+
     const batchERC = createERC(ERC_PREFIX.SPECIFICATION_BATCH);
     const taggedCallback = this._buildCallbackURL(callbackUrl, {
       entity: 'specifications',
@@ -2372,6 +2826,116 @@ class LiferayService {
       dryRun,
       op: 'specifications:batch-delete',
       friendly: 'Delete specifications (batch)',
+    });
+    res.batchRefs = (res.batchRefs || []).map((r) => ({ ...r, erc: batchERC }));
+    return res;
+  }
+
+  async deleteOptionCategoriesBatch(
+    config,
+    {
+      pageSize = 200,
+      filter,
+      search,
+      searchPrefixes,
+      all = false,
+      callbackUrl,
+      dryRun = false,
+      sessionId,
+    } = {}
+  ) {
+    const { logger } = this.ctx || { logger: console };
+    const idSet = new Set();
+
+    let _collectedTotal = 0;
+    const _logCollect = (label, count) => {
+      (this.ctx?.logger || logger)?.trace?.('optionCategories:collect', {
+        label,
+        count,
+        collectedTotal: _collectedTotal,
+      });
+    };
+
+    const collect = async ({ search, filter, all } = {}) => {
+      const res = await this._collectPagedIds(config, {
+        listUrl: PATH.OPTION_CATEGORIES,
+        pageSize,
+        fields: 'id',
+        search: all ? undefined : search,
+        filter: all ? undefined : filter,
+        op: 'optionCategories:list',
+        friendly: 'List option categories',
+      });
+      const ids = Array.isArray(res) ? res : res?.ids || [];
+      _collectedTotal += ids.length;
+      _logCollect(
+        search
+          ? `search:${search}`
+          : filter
+          ? `filter:${filter}`
+          : all
+          ? 'all'
+          : 'unknown',
+        ids.length
+      );
+      for (const id of ids) idSet.add(id);
+      return ids.length;
+    };
+
+    let collected = 0;
+    if (all) {
+      collected += await collect({ all: true });
+    } else if (Array.isArray(searchPrefixes) && searchPrefixes.length) {
+      for (const prefix of searchPrefixes) {
+        collected += await collect({ search: prefix });
+      }
+    } else if (search) {
+      collected += await collect({ search });
+    } else {
+      collected += await collect({ filter });
+    }
+
+    const ids = Array.from(idSet);
+    (this.ctx?.logger || logger)?.info?.(
+      'optionCategories:collected-for-delete',
+      {
+        uniqueIds: ids.length,
+        mode: all ? 'all' : search || searchPrefixes ? 'search' : 'filter',
+      }
+    );
+
+    if (ids.length === 0) {
+      logger?.info?.('No option category IDs found for batch delete');
+      return { count: 0, batchRefs: [] };
+    }
+
+    const batchERC = createERC(ERC_PREFIX.OPTION_CATEGORY_BATCH || 'OCATBATCH');
+    const taggedCallback = this._buildCallbackURL(callbackUrl, {
+      entity: 'optionCategories',
+      op: 'delete',
+      batchERC,
+      sessionId,
+    });
+    const batchUrl =
+      PATH.OPTION_CATEGORIES_BATCH?.(taggedCallback) ||
+      `${PATH.OPTION_CATEGORIES}/batch`;
+
+    logger?.info?.('Submitting batch delete for option categories', {
+      count: ids.length,
+      uniqueIds: ids.length,
+      mode: all ? 'all' : search || searchPrefixes ? 'search' : 'filter',
+      dryRun,
+      callbackUrl: taggedCallback || 'none',
+      externalReferenceCode: batchERC,
+    });
+
+    const res = await this._deleteByBatch(config, {
+      batchUrl,
+      ids,
+      batchSize: config.batchSize,
+      dryRun,
+      op: 'optionCategories:batch-delete',
+      friendly: 'Delete option categories (batch)',
     });
     res.batchRefs = (res.batchRefs || []).map((r) => ({ ...r, erc: batchERC }));
     return res;
@@ -2482,17 +3046,44 @@ class LiferayService {
 
   async deleteOptionCategoriesBatch(
     config,
-    { pageSize = 200, filter, callbackUrl, dryRun = false, sessionId } = {}
+    {
+      pageSize = 200,
+      filter,
+      search,
+      searchPrefixes,
+      callbackUrl,
+      dryRun = false,
+      sessionId,
+    } = {}
   ) {
     const { logger } = this.ctx;
-    const categoryIds = await this._collectPagedIds(config, {
-      listUrl: PATH.OPTION_CATEGORIES,
-      pageSize,
-      filter,
-      fields: 'id',
-      op: 'optionCategories:list',
-      friendly: 'List option categories',
-    });
+    const idSet = new Set();
+
+    const collect = async (args) => {
+      const ids = await this._collectPagedIds(config, {
+        listUrl: PATH.OPTION_CATEGORIES,
+        pageSize,
+        filter: args.filter,
+        search: args.search,
+        fields: 'id',
+        op: 'optionCategories:list',
+        friendly: 'List option categories',
+      });
+      ids.forEach((id) => idSet.add(id));
+    };
+
+    if (Array.isArray(searchPrefixes) && searchPrefixes.length) {
+      for (const s of searchPrefixes) {
+        await collect({ search: s });
+      }
+    } else if (search) {
+      await collect({ search });
+    } else {
+      await collect({ filter });
+    }
+
+    const categoryIds = Array.from(idSet);
+
     const batchERC = createERC(
       ERC_PREFIX.OPTION_CATEGORY_BATCH || 'OCATBATCHDEL'
     );

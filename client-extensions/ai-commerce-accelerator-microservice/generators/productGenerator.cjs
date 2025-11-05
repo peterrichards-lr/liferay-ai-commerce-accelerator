@@ -1,9 +1,12 @@
 const { ASSET_TYPE, VIEWABLE_BY } = require('../utils/liferayPermissions.cjs');
+const specificationCatalog = require('../data/specifications.json');
 const {
   delay,
   resolvePhaseAndMode,
   createERC,
   toI18n,
+  buildOptionCategoryERC,
+  buildSpecificationERC,
 } = require('../utils/misc.cjs');
 const { ERC_PREFIX } = require('../utils/constants.cjs');
 const { sanitizedObject } = require('../utils/normalize.cjs');
@@ -442,11 +445,52 @@ class ProductGenerator {
             },
           ];
         }
+        // Insert specification logic here
+        if (options.generateSpecifications) {
+          const catSpecs = Array.isArray(productData.__catalogSpecifications)
+            ? productData.__catalogSpecifications
+            : [];
+          const provided = Array.isArray(productData.specifications)
+            ? productData.specifications
+            : [];
+          const providedMap = new Map();
+          for (const p of provided) {
+            const k = (p.key || p.name || '').toString();
+            if (!k) continue;
+            providedMap.set(k, p);
+          }
+          const productSpecifications = [];
+          for (const cs of catSpecs) {
+            const p =
+              providedMap.get(cs.key) || providedMap.get(cs.title?.en_US);
+            const valueObj = p?.value
+              ? typeof p.value === 'string'
+                ? { en_US: p.value }
+                : p.value
+              : { en_US: `Mock ${cs.title?.en_US || cs.key} Value` };
+            const specPayload = {
+              specificationExternalReferenceCode: cs.externalReferenceCode,
+              specificationKey: cs.key,
+              specificationPriority: cs.priority || 0,
+              label: cs.title,
+              value: valueObj,
+            };
+            if (cs.optionCategoryId)
+              specPayload.optionCategoryId = cs.optionCategoryId;
+            if (cs.optionCategoryExternalReferenceCode)
+              specPayload.optionCategoryExternalReferenceCode =
+                cs.optionCategoryExternalReferenceCode;
+            productSpecifications.push(specPayload);
+          }
+          if (productSpecifications.length > 0) {
+            liferayProduct.productSpecifications = productSpecifications;
+          }
+        }
         return liferayProduct;
       });
       try {
         const ercList = allProductData
-          .map(p => p && p.externalReferenceCode)
+          .map((p) => p && p.externalReferenceCode)
           .filter(Boolean);
         cache.set(
           `session:${sessionId}:ercs`,
@@ -456,10 +500,13 @@ class ProductGenerator {
         logger.debug('Persisted ERC list for post-processing', {
           sessionId,
           ercCount: ercList.length,
-          sample: ercList.slice(0, 3)
+          sample: ercList.slice(0, 3),
         });
       } catch (e) {
-        logger.warn('Failed to persist ERC list for session', { sessionId, error: e.message });
+        logger.warn('Failed to persist ERC list for session', {
+          sessionId,
+          error: e.message,
+        });
       }
       let productImagesPrepared = 0;
       let productPdfsPrepared = 0;
@@ -917,7 +964,7 @@ class ProductGenerator {
         );
         logger.debug('Using persisted ERC list for individual-mode post-proc', {
           sessionId,
-          ercCacheKey: `session:${sessionId}:ercs`
+          ercCacheKey: `session:${sessionId}:ercs`,
         });
         let processed = 0;
         for (let i = 0; i < preparedProducts.length; i++) {
@@ -947,6 +994,21 @@ class ProductGenerator {
               },
               { correlationId: config.correlationId }
             );
+            // Insert product specifications after creation, before images/PDFs
+            if (options.generateSpecifications) {
+              try {
+                await this.addProductSpecifications(
+                  config,
+                  createdProduct.id,
+                  originalProduct.specifications,
+                  originalProduct.__catalogSpecifications
+                );
+              } catch (specErr) {
+                logger.warn(
+                  `Failed to add specifications for product ${createdProduct.id}: ${specErr.message}`
+                );
+              }
+            }
             const productERC = originalProduct.externalReferenceCode;
             let imagesApplied = 0;
             let pdfsApplied = 0;
@@ -1326,119 +1388,64 @@ class ProductGenerator {
         `Processing ${categoryOptions.length} options for category: ${category}`
       );
       for (const optionData of categoryOptions) {
-        try {
-          const optionERC = `OPT-${category.toUpperCase()}-${optionData.name
-            .toUpperCase()
-            .replace(/\s+/g, '_')}`;
-          const optionCharacteristics = getOptionCharacteristics(
-            optionData.name,
-            optionData.values
-          );
-          const optionName = {};
-          const optionDescription = {};
+        // Replaced try/catch block with conflict-aware service helper
+        const optionERC = `OPT-${category.toUpperCase()}-${optionData.name
+          .toUpperCase()
+          .replace(/\s+/g, '_')}`;
+        const optionCharacteristics = getOptionCharacteristics(
+          optionData.name,
+          optionData.values
+        );
+        const optionName = {};
+        const optionDescription = {};
+        languageCodes.forEach((langCode) => {
+          const suffix = langCode === 'en_US' ? '' : ` (${langCode})`;
+          optionName[langCode] = `${optionData.name}${suffix}`;
+          optionDescription[langCode] = `${optionData.name} option for ${category}${suffix}`;
+        });
+        const option = await liferay.createOptionWithReuse(config, {
+          key: `${category.toLowerCase()}-${optionData.name
+            .toLowerCase()
+            .replace(/\s+/g, '-')
+            .replace(/&/g, 'and')}`,
+          name: optionName,
+          description: optionDescription,
+          fieldType: optionCharacteristics.fieldType,
+          facetable: optionCharacteristics.facetable,
+          required: optionCharacteristics.required,
+          skuContributor: optionCharacteristics.skuContributor,
+          externalReferenceCode: optionERC,
+        });
+        logger.trace(
+          `Created or reused option: ${option.name.en_US} (ID: ${option.id})`
+        );
+        const optionValues = [];
+        for (let i = 0; i < optionData.values.length; i++) {
+          const values = Array.isArray(optionData.values) ? optionData.values : [];
+          const value = values[i];
+          const valueERC = `VAL-${optionERC}-${value.toUpperCase().replace(/\s+/g, '_')}`;
+          const valueName = {};
           languageCodes.forEach((langCode) => {
             const suffix = langCode === 'en_US' ? '' : ` (${langCode})`;
-            optionName[langCode] = `${optionData.name}${suffix}`;
-            optionDescription[
-              langCode
-            ] = `${optionData.name} option for ${category}${suffix}`;
+            valueName[langCode] = `${value}${suffix}`;
           });
-          let option;
-          try {
-            option = await liferay.createOption(config, {
-              key: `${category.toLowerCase()}-${optionData.name
+          const optionValue = await liferay.createOptionValueWithReuse(
+            config,
+            option.id,
+            {
+              name: valueName,
+              key: `${category.toLowerCase()}-${value
                 .toLowerCase()
                 .replace(/\s+/g, '-')
                 .replace(/&/g, 'and')}`,
-              name: optionName,
-              description: optionDescription,
-              fieldType: optionCharacteristics.fieldType,
-              facetable: optionCharacteristics.facetable,
-              required: optionCharacteristics.required,
-              skuContributor: optionCharacteristics.skuContributor,
-              externalReferenceCode: optionERC,
-            });
-            logger.trace(
-              `✓ Created option: ${option.name.en_US} (ID: ${option.id})`
-            );
-          } catch (createError) {
-            if (
-              createError.message.includes('409') ||
-              createError.message.includes('conflict')
-            ) {
-              option = await liferay.getOptionByERC(config, optionERC);
-              if (!option) {
-                logger.warn(
-                  `Could not find existing option with ERC: ${optionERC}, skipping...`
-                );
-                continue;
-              }
-              logger.trace(
-                `Using existing option: ${option.name.en_US} (ID: ${option.id})`
-              );
-            } else {
-              throw createError;
+              priority: i + 1,
+              externalReferenceCode: valueERC,
             }
-          }
-          const optionValues = [];
-          for (let i = 0; i < optionData.values.length; i++) {
-            const values = Array.isArray(optionData.values)
-              ? optionData.values
-              : [];
-            const value = values[i];
-            const valueERC = `VAL-${optionERC}-${value
-              .toUpperCase()
-              .replace(/\s+/g, '_')}`;
-            const valueName = {};
-            languageCodes.forEach((langCode) => {
-              const suffix = langCode === 'en_US' ? '' : ` (${langCode})`;
-              valueName[langCode] = `${value}${suffix}`;
-            });
-            try {
-              const optionValue = await liferay.createOptionValue(
-                config,
-                option.id,
-                {
-                  name: valueName,
-                  key: `${category.toLowerCase()}-${value
-                    .toLowerCase()
-                    .replace(/\s+/g, '-')
-                    .replace(/&/g, 'and')}`,
-                  priority: i + 1,
-                  externalReferenceCode: valueERC,
-                }
-              );
-              optionValues.push(optionValue);
-            } catch (valueError) {
-              if (
-                valueError.message.includes('409') ||
-                valueError.message.includes('conflict')
-              ) {
-                const existingValue = await liferay.getOptionValueByERC(
-                  config,
-                  option.id,
-                  valueERC
-                );
-                if (existingValue) {
-                  optionValues.push(existingValue);
-                  logger.trace(
-                    `Using existing option value: ${existingValue.name.en_US}`
-                  );
-                }
-              } else {
-                logger.warn(
-                  `Failed to create option value ${value}: ${valueError.message}`
-                );
-              }
-            }
-          }
-          catalogOptions[category].push({ ...option, values: optionValues });
-        } catch (error) {
-          logger.error(
-            `Failed to process option ${optionData.name} for ${category}:`,
-            error
           );
+          optionValues.push(optionValue);
+          logger.trace(`Created or reused option value: ${optionValue.name.en_US}`);
         }
+        catalogOptions[category].push({ ...option, values: optionValues });
       }
     }
     return catalogOptions;
@@ -1455,6 +1462,7 @@ class ProductGenerator {
     const languageCodes = selectedLanguages.map((lang) =>
       lang.replace('-', '_')
     );
+
     const categoryGroupsMap = {
       Electronics: [
         {
@@ -1536,6 +1544,7 @@ class ProductGenerator {
         },
       ],
     };
+
     const categorySpecificationsMap = {
       Electronics: [
         {
@@ -1684,19 +1693,51 @@ class ProductGenerator {
         },
       ],
     };
+
     for (const category of categories) {
-      const categorySpecs =
-        categorySpecificationsMap[category] ||
-        categorySpecificationsMap['Electronics'];
       const categoryGroups =
         categoryGroupsMap[category] || categoryGroupsMap['Electronics'];
+
+      const resolveGroup = (proposedKey) => {
+        if (!proposedKey) return (categoryGroups[0] && categoryGroups[0].key) || 'features';
+        const exists = categoryGroups.find((g) => g.key === proposedKey);
+        if (exists) return proposedKey;
+        return (categoryGroups[0] && categoryGroups[0].key) || 'features';
+      };
+
+      let categorySpecs =
+        categorySpecificationsMap[category] ||
+        categorySpecificationsMap['Electronics'];
+
+      const jsonDefs = specificationCatalog?.[category];
+      if (jsonDefs && typeof jsonDefs === 'object') {
+        const keys = Object.keys(jsonDefs);
+        if (keys.length) {
+          const lookup = new Map(
+            (categorySpecificationsMap[category] || []).map((s) => [s.key, s])
+          );
+          const toTitle = (k) => String(k)
+            .split('-')
+            .map((p) => p.charAt(0).toUpperCase() + p.slice(1))
+            .join(' ');
+          categorySpecs = keys.map((key, idx) => {
+            const known = lookup.get(key);
+            return {
+              key,
+              title: known?.title || toTitle(key),
+              priority: known?.priority || idx + 1,
+              group: resolveGroup(known?.group || 'features'),
+            };
+          });
+        }
+      }
       catalogSpecifications[category] = [];
       const optionCategories = {};
+      let createdSpecCount = 0;
+
       for (const groupData of categoryGroups) {
         try {
-          const categoryERC = `OPTCAT-${category.toUpperCase()}-${groupData.key
-            .toUpperCase()
-            .replace(/-/g, '_')}`;
+          const categoryERC = buildOptionCategoryERC(category, groupData.key);
           const categoryTitle = {};
           const categoryDescription = {};
           languageCodes.forEach((langCode) => {
@@ -1704,6 +1745,7 @@ class ProductGenerator {
             categoryTitle[langCode] = `${groupData.title}${suffix}`;
             categoryDescription[langCode] = `${groupData.description}${suffix}`;
           });
+
           let optionCategory;
           try {
             optionCategory = await liferay.createOptionCategory(config, {
@@ -1717,17 +1759,30 @@ class ProductGenerator {
               `Created option category: ${optionCategory.title.en_US} (ID: ${optionCategory.id}, Key: ${groupData.key})`
             );
           } catch (createError) {
-            if (
-              createError.message.includes('409') ||
-              createError.message.includes('conflict')
-            ) {
+            const isConflict =
+              createError?.status === 409 ||
+              createError?.problem?.status === 'CONFLICT' ||
+              String(createError?.message || '')
+                .toLowerCase()
+                .includes('409') ||
+              String(createError?.message || '')
+                .toLowerCase()
+                .includes('conflict');
+
+            if (isConflict) {
               optionCategory = await liferay.getOptionCategoryByERC(
                 config,
                 categoryERC
               );
+              if (!optionCategory && liferay.getOptionCategoryByKey) {
+                optionCategory = await liferay.getOptionCategoryByKey(
+                  config,
+                  `${category.toLowerCase()}-${groupData.key}`
+                );
+              }
               if (!optionCategory) {
                 logger.warn(
-                  `Could not find existing option category with ERC: ${categoryERC}, skipping...`
+                  `Conflict creating option category but could not resolve by ERC or key: ${categoryERC}`
                 );
                 continue;
               }
@@ -1738,6 +1793,7 @@ class ProductGenerator {
               throw createError;
             }
           }
+
           optionCategories[groupData.key] = optionCategory;
         } catch (error) {
           logger.error(
@@ -1746,97 +1802,73 @@ class ProductGenerator {
           );
         }
       }
+
       for (const specData of categorySpecs) {
         try {
-          const specERC = `SPEC-${category.toUpperCase()}-${specData.key
-            .toUpperCase()
-            .replace(/-/g, '_')}`;
+          const specERC = buildSpecificationERC(category, specData.key);
           const specTitle = {};
-          const specOptionCategory = {};
           languageCodes.forEach((langCode) => {
             const suffix = langCode === 'en_US' ? '' : ` (${langCode})`;
             specTitle[langCode] = `${specData.title}${suffix}`;
           });
-          const linkedOptionCategory = optionCategories[specData.group];
+
+          const linkedOptionCategory = optionCategories[resolveGroup(specData.group)];
           const specificationPayload = {
-            key: specData.key,
+            key: `${category.toLowerCase()}-${specData.key}`,
             title: specTitle,
             facetable: true,
             priority: specData.priority,
             externalReferenceCode: specERC,
           };
           if (linkedOptionCategory) {
-            specificationPayload.optionCategoryExternalReferenceCode =
-              linkedOptionCategory.externalReferenceCode;
-          }
-          let specification;
-          try {
-            specification = await liferay.createSpecification(
-              config,
-              specificationPayload
-            );
-            logger.trace(
-              `Created specification: ${specification.title.en_US} (ID: ${specification.id}, Key: ${specData.key}, Group: ${specData.group})`
-            );
-          } catch (createError) {
-            if (
-              createError.message.includes('409') ||
-              createError.message.includes('conflict')
-            ) {
-              specification = await liferay.getSpecificationByERC(
-                config,
-                specERC
-              );
-              if (!specification) {
-                logger.warn(
-                  `Could not find existing specification with ERC: ${specERC}, skipping...`
-                );
-                continue;
-              }
-              logger.trace(
-                `Using existing specification: ${specification.title.en_US} (ID: ${specification.id})`
-              );
-            } else {
-              throw createError;
-            }
-          }
-          if (
-            linkedOptionCategory &&
-            specification.optionCategoryExternalReferenceCode !==
-              linkedOptionCategory.externalReferenceCode
-          ) {
-            try {
-              await liferay.updateSpecificationByERC(config, specERC, {
-                optionCategoryExternalReferenceCode:
-                  linkedOptionCategory.externalReferenceCode,
-              });
-              specification.optionCategoryExternalReferenceCode =
+            specificationPayload.optionCategoryId = linkedOptionCategory.id;
+            if (linkedOptionCategory.externalReferenceCode) {
+              specificationPayload.optionCategoryExternalReferenceCode =
                 linkedOptionCategory.externalReferenceCode;
-              specification.optionCategoryId = linkedOptionCategory.id;
-              logger.trace(
-                `✓ Linked specification ${specERC} to option category ${linkedOptionCategory.externalReferenceCode}`
-              );
-            } catch (patchErr) {
-              logger.warn(
-                `Failed to patch option category link for ${specERC} by ERC: ${patchErr.message}`
-              );
+            }
+          }
+
+          // Replaced try/catch block with conflict-aware service helper
+          const specification = await liferay.createSpecificationWithReuse(
+            config,
+            specificationPayload
+          );
+          logger.trace(
+            `Created or reused specification: ${specification.title?.en_US || specification.key} (ID: ${specification.id})`
+          );
+
+          if (linkedOptionCategory) {
+            const desiredId = linkedOptionCategory.id;
+            const desiredERC = linkedOptionCategory.externalReferenceCode;
+            const currentId = specification.optionCategoryId || specification.optionCategory?.id;
+            const currentERC = specification.optionCategoryExternalReferenceCode || specification.optionCategory?.externalReferenceCode;
+
+            if ((desiredId && desiredId !== currentId) || (!desiredId && desiredERC && desiredERC !== currentERC)) {
               try {
-                await liferay.updateSpecificationByERC(config, specERC, {
-                  optionCategoryId: linkedOptionCategory.id,
-                });
-              } catch (patchByIdErr) {
+                if (desiredId) {
+                  await liferay.updateSpecificationByERC(config, specERC, {
+                    optionCategory: { id: desiredId },
+                  });
+                } else if (desiredERC) {
+                  await liferay.updateSpecificationByERC(config, specERC, {
+                    optionCategory: { externalReferenceCode: desiredERC },
+                  });
+                }
+                specification.optionCategoryId = desiredId || specification.optionCategoryId;
+                if (desiredERC) specification.optionCategoryExternalReferenceCode = desiredERC;
+                logger.trace(
+                  `Linked specification ${specERC} to option category ${desiredId ? `ID ${desiredId}` : desiredERC}`
+                );
+              } catch (patchErr) {
                 logger.warn(
-                  `Fallback by ID failed for ${specERC}: ${patchByIdErr.message}`
+                  `Failed to patch option category link for ${specERC}: ${patchErr.message}`
                 );
               }
             }
           }
-          if (linkedOptionCategory) {
-            specification.optionCategoryId = linkedOptionCategory.id;
-            specification.optionCategoryExternalReferenceCode =
-              linkedOptionCategory.externalReferenceCode;
-          }
+
           catalogSpecifications[category].push(specification);
+          createdSpecCount++;
         } catch (error) {
           logger.error(
             `Failed to process specification ${specData.title} for ${category}:`,
@@ -1844,10 +1876,32 @@ class ProductGenerator {
           );
         }
       }
+
+      logger.info(
+        `Option categories ready for ${category}: ${Object.keys(optionCategories).length}`
+      );
+
+      logger.info(`Created/reused ${createdSpecCount} specifications for category: ${category}`);
+
+      // Insert verification log after processing all specs for the category
+      try {
+        const prefix = `${String(category).toLowerCase()}-`;
+        const listed = await liferay.getSpecifications(config, {
+          search: prefix,
+          pageSize: 200,
+          fields: 'id,key,externalReferenceCode'
+        });
+        const items = Array.isArray(listed?.items) ? listed.items : [];
+        logger.info(`Verification: ${items.length} specifications found matching prefix '${prefix}'`);
+      } catch (verifyErr) {
+        logger.warn(`Verification list for specifications failed: ${verifyErr.message}`);
+      }
+
       logger.info(
         `Processed ${catalogSpecifications[category].length} specifications for category: ${category}`
       );
     }
+
     return catalogSpecifications;
   }
 
@@ -2011,6 +2065,17 @@ class ProductGenerator {
   ) {
     const { logger, liferay, batchProcessor, getWs } = this.ctx;
     try {
+      // Helper to pick a value from the JSON catalog if available
+      const pickFromJson = (category, specKey) => {
+        try {
+          const defs = specificationCatalog?.[category];
+          if (!defs) return null;
+          const values = defs[specKey];
+          if (!Array.isArray(values) || values.length === 0) return null;
+          const choice = values[Math.floor(Math.random() * values.length)];
+          return typeof choice === 'string' ? { en_US: choice } : choice;
+        } catch { return null; }
+      };
       const specificationsToAdd = [];
       if (catalogSpecifications && catalogSpecifications.length > 0) {
         for (const catalogSpec of catalogSpecifications) {
@@ -2025,14 +2090,9 @@ class ProductGenerator {
             specificationPriority: catalogSpec.priority || 0,
             label: catalogSpec.title,
             value: productSpec?.value
-              ? typeof productSpec.value === 'string'
-                ? { en_US: productSpec.value }
-                : productSpec.value
-              : {
-                  en_US: `Mock ${
-                    catalogSpec.title?.en_US || catalogSpec.key
-                  } Value`,
-                },
+              ? (typeof productSpec.value === 'string' ? { en_US: productSpec.value } : productSpec.value)
+              : pickFromJson(productSpec?.category || catalogSpec?.category || 'Electronics', catalogSpec.key) ||
+                { en_US: `Mock ${catalogSpec.title?.en_US || catalogSpec.key} Value` },
           };
           if (catalogSpec.optionCategoryId)
             specificationPayload.optionCategoryId =
@@ -2051,18 +2111,23 @@ class ProductGenerator {
               s.specificationKey === spec.name
           );
           if (!alreadyAdded) {
-            specificationsToAdd.push({
-              specificationExternalReferenceCode: `SPEC-${
-                spec.key || spec.name
-              }-${Date.now()}`,
+            const payload = {
+              specificationExternalReferenceCode: `SPEC-${spec.key || spec.name}-${Date.now()}`,
               specificationKey: spec.key || spec.name,
               specificationPriority: spec.priority || 0,
               label: { en_US: spec.name || spec.key },
               value:
                 typeof spec.value === 'string'
                   ? { en_US: spec.value }
-                  : spec.value,
-            });
+                  : spec.value || pickFromJson(spec.category || 'Electronics', spec.key || spec.name) || { en_US: 'Unknown' },
+            };
+            if (spec.optionCategoryId)
+              payload.optionCategoryId = spec.optionCategoryId; // prefer ID
+            if (spec.optionCategoryExternalReferenceCode)
+              payload.optionCategoryExternalReferenceCode =
+                spec.optionCategoryExternalReferenceCode; // fallback for service normalization
+
+            specificationsToAdd.push(payload);
           }
         }
       }

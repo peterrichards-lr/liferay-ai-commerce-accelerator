@@ -157,6 +157,142 @@ class DeleteCoordinatorService {
     }
   }
 
+  _expectedOptionCategoryKeys(options) {
+    const categories = options?.productCategories || [];
+    const categoryGroupsMap = options?.categoryGroupsMap || null;
+    const result = new Set();
+    const fallbackGroups = {
+      Electronics: ['performance','connectivity','physical','support'],
+      Clothing: ['material-care','fit-style','details','origin'],
+      'Home & Garden': ['dimensions-weight','material-build','features','care-warranty']
+    };
+    for (const category of categories) {
+      const groups = (categoryGroupsMap && categoryGroupsMap[category])
+        ? categoryGroupsMap[category].map(g => g.key)
+        : (fallbackGroups[category] || fallbackGroups['Electronics']);
+      for (const g of groups) result.add(`${String(category).toLowerCase()}-${g}`);
+    }
+    return Array.from(result);
+  }
+
+  async _listOptionCategories(config, { search, pageSize = 200 } = {}) {
+    const { logger, liferay } = this.ctx;
+    try {
+      if (liferay.getOptionCategories) {
+        return await liferay.getOptionCategories(config, { search, pageSize, fields: 'id,key' });
+      }
+    } catch (e) {
+      logger.debug('getOptionCategories via client failed; falling back to HTTP', { error: e.message });
+    }
+    if (!liferay.httpGet) {
+      logger.debug('No httpGet on liferay client; cannot list option categories');
+      return { items: [] };
+    }
+    const params = new URLSearchParams();
+    if (search) params.set('search', search);
+    params.set('page', '1');
+    params.set('pageSize', String(pageSize));
+    params.set('fields', 'id,key');
+    const url = `/o/headless-commerce-admin-catalog/v1.0/optionCategories?${params.toString()}`;
+    const res = await liferay.httpGet(config, url);
+    return res || { items: [] };
+  }
+
+  async _deleteOptionCategoriesDirect(config, options) {
+    const { logger, liferay } = this.ctx;
+    if (!liferay.getOptionCategoryByKey || !liferay.deleteOptionCategoryById) {
+      logger.debug('Direct delete for option categories not supported by liferay client; skipping fallback');
+      return { deleted: 0 };
+    }
+    const keys = this._expectedOptionCategoryKeys(options);
+    let deleted = 0;
+    for (const key of keys) {
+      try {
+        const cat = await liferay.getOptionCategoryByKey(config, key);
+        if (cat && cat.id) {
+          await liferay.deleteOptionCategoryById(config, cat.id);
+          deleted++;
+          logger.info('Deleted option category by key (direct)', { key, id: cat.id });
+        }
+      } catch (e) {
+        // Not found or delete failed; continue to next
+        logger.debug('Direct delete option category skipped', { key, error: e.message });
+      }
+    }
+    return { deleted };
+  }
+
+  async _deleteOptionCategoriesBySearch(config, options) {
+    const { logger, liferay } = this.ctx;
+    const prefixes = new Set();
+    for (const cat of options?.productCategories || []) {
+      prefixes.add(`${String(cat).toLowerCase()}-`);
+    }
+    let totalDeleted = 0;
+    for (const prefix of prefixes) {
+      try {
+        const res = await this._listOptionCategories(config, { search: prefix });
+        const items = Array.isArray(res?.items) ? res.items : [];
+        for (const oc of items) {
+          try {
+            if (!oc?.id) continue;
+            if (typeof liferay.deleteOptionCategoryById === 'function') {
+              await liferay.deleteOptionCategoryById(config, oc.id);
+            } else if (typeof liferay.httpDelete === 'function') {
+              await liferay.httpDelete(config, `/o/headless-commerce-admin-catalog/v1.0/optionCategories/${oc.id}`);
+            } else {
+              logger.debug('No delete method available for option categories');
+              break;
+            }
+            totalDeleted++;
+            logger.info('Deleted option category (search fallback)', { id: oc.id, key: oc.key });
+          } catch (e) {
+            logger.debug('Failed to delete option category (search fallback)', { id: oc.id, error: e.message });
+          }
+        }
+      } catch (e) {
+        logger.debug('Option category search failed', { prefix, error: e.message });
+      }
+    }
+    return { deleted: totalDeleted };
+  }
+
+  async _deleteSpecificationsBySearch(config, options) {
+    const { logger, liferay } = this.ctx;
+    const prefixes = new Set();
+    for (const cat of options?.productCategories || []) prefixes.add(`${String(cat).toLowerCase()}-`);
+    let totalDeleted = 0;
+    for (const prefix of prefixes) {
+      try {
+        let res;
+        if (typeof liferay.getSpecifications === 'function') {
+          res = await liferay.getSpecifications(config, { search: prefix, pageSize: 200, fields: 'id,key' });
+        } else if (typeof liferay.httpGet === 'function') {
+          const params = new URLSearchParams({ search: prefix, page: '1', pageSize: '200', fields: 'id,key' });
+          res = await liferay.httpGet(config, `/o/headless-commerce-admin-catalog/v1.0/specifications?${params.toString()}`);
+        }
+        const items = Array.isArray(res?.items) ? res.items : [];
+        for (const sp of items) {
+          try {
+            if (!sp?.id) continue;
+            if (typeof liferay.deleteSpecificationById === 'function') {
+              await liferay.deleteSpecificationById(config, sp.id);
+            } else if (typeof liferay.httpDelete === 'function') {
+              await liferay.httpDelete(config, `/o/headless-commerce-admin-catalog/v1.0/specifications/${sp.id}`);
+            }
+            totalDeleted++;
+            logger.info('Deleted specification (search fallback)', { id: sp.id, key: sp.key });
+          } catch (e) {
+            logger.debug('Failed to delete specification (search fallback)', { id: sp.id, error: e.message });
+          }
+        }
+      } catch (e) {
+        logger.debug('Specification search failed', { prefix, error: e.message });
+      }
+    }
+    return { deleted: totalDeleted };
+  }
+
   async runDeleteAndMonitor(config, options = {}) {
     const { liferay } = this.ctx;
 
@@ -209,9 +345,12 @@ class DeleteCoordinatorService {
       );
     await this._waitForBatches(products?.batchRefs, config, 'products');
 
+    await new Promise((r) => setTimeout(r, 1500));
+
+    const specSearchPrefixes = (options?.productCategories || []).map((c) => `${String(c).toLowerCase()}-`);
     const specifications = await liferay.deleteSpecificationsBatch(
       config,
-      baseOpts,
+      { ...baseOpts, searchPrefixes: specSearchPrefixes },
       callbackUrl
     );
     if (specifications?.batchRefs)
@@ -227,6 +366,12 @@ class DeleteCoordinatorService {
       'specifications'
     );
 
+    if (!specifications?.batchRefs || specifications?.batchRefs?.length === 0) {
+      if (this._deleteSpecificationsBySearch) {
+        await this._deleteSpecificationsBySearch(config, options).catch(() => {});
+      }
+    }
+
     const optionsRes = await liferay.deleteOptionsBatch(
       config,
       baseOpts,
@@ -241,31 +386,60 @@ class DeleteCoordinatorService {
       );
     await this._waitForBatches(optionsRes?.batchRefs, config, 'options');
 
-    const optionCategories = await liferay.deleteOptionCategoriesBatch(
-      config,
-      baseOpts,
-      callbackUrl
-    );
-    if (optionCategories?.batchRefs)
-      this.recordBatches(
-        optionCategories.batchRefs,
+    try {
+      this.ctx.logger.info('Preparing option category deletion');
+
+      try {
+        const res = await this._listOptionCategories(config, { pageSize: 200 });
+        const count = Array.isArray(res?.items) ? res.items.length : 0;
+        this.ctx.logger.info('Pre-delete: total option categories', { count });
+      } catch (e) {
+        this.ctx.logger.debug('Pre-delete list failed for option categories', { error: e.message });
+      }
+
+      await new Promise((r) => setTimeout(r, 1500));
+
+      this.ctx.logger.info('Submitting batch delete for option categories');
+      const optionCategories = await liferay.deleteOptionCategoriesBatch(
         config,
-        'optionCategories',
-        this._deriveTotalFromResult(optionCategories)
+        { ...baseOpts, all: true },
+        callbackUrl
       );
-    await this._waitForBatches(
-      optionCategories?.batchRefs,
-      config,
-      'optionCategories'
-    );
+      if (optionCategories?.batchRefs)
+        this.recordBatches(
+          optionCategories.batchRefs,
+          config,
+          'optionCategories',
+          this._deriveTotalFromResult(optionCategories)
+        );
+      await this._waitForBatches(
+        optionCategories?.batchRefs,
+        config,
+        'optionCategories'
+      );
+
+      if (!optionCategories?.batchRefs || optionCategories?.batchRefs?.length === 0) {
+        await this._deleteOptionCategoriesDirect(config, options).catch(() => {});
+        await this._deleteOptionCategoriesBySearch(config, options).catch(() => {});
+      }
+
+      try {
+        const res = await this._listOptionCategories(config, { pageSize: 200 });
+        const count = Array.isArray(res?.items) ? res.items.length : 0;
+        this.ctx.logger.info('Post-delete: total option categories', { count });
+      } catch (e) {
+        this.ctx.logger.debug('Post-delete list failed for option categories', { error: e.message });
+      }
+    } catch (e) {
+      this.ctx.logger.error('Option category delete stage failed', { error: e.message });
+    }
 
     return {
       orders,
       accounts,
       products,
       specifications,
-      options: optionsRes,
-      optionCategories,
+      options: optionsRes
     };
   }
 }

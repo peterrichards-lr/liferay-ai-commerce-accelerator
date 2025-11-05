@@ -53,7 +53,8 @@ function randomString(len = 5, uppercase = false) {
     ? 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'
     : 'abcdefghijklmnopqrstuvwxyz';
   const out = new Array(len);
-  for (let i = 0; i < len; i++) out[i] = chars.charAt(getRandomInt(chars.length));
+  for (let i = 0; i < len; i++)
+    out[i] = chars.charAt(getRandomInt(chars.length));
   return out.join('');
 }
 
@@ -63,6 +64,40 @@ function toERCPart(str, max = 12) {
     .toUpperCase()
     .replace(/[^A-Z0-9]+/g, '');
   return cleaned ? cleaned.slice(0, max) : 'NA';
+}
+
+function sanitizeForERC(str, { max = 12, preserveUnderscore = false } = {}) {
+  if (!str) return 'NA';
+  const s = String(str).toUpperCase();
+  const pattern = preserveUnderscore ? /[^A-Z0-9_]+/g : /[^A-Z0-9]+/g;
+  const cleaned = s.replace(pattern, '');
+  return cleaned ? cleaned.slice(0, max) : 'NA';
+}
+
+function buildKeyedERC({
+  prefix,
+  category,
+  key,
+  categoryLen = 3,
+  keyLen = 6,
+  randLen = 3,
+  includeRandom = true,
+  preserveUnderscore = false,
+  prefixIsCompound = false,
+} = {}) {
+  const pfxParts = prefixIsCompound
+    ? String(prefix || '')
+        .split('-')
+        .map((p) => toERCPart(p, 12))
+        .filter(Boolean)
+    : [toERCPart(prefix, 12)];
+  const cat = toERCPart(category, categoryLen);
+  let transformedKey = String(key || '');
+  if (preserveUnderscore) transformedKey = transformedKey.replace(/-/g, '_');
+  const k = sanitizeForERC(transformedKey, { max: keyLen, preserveUnderscore });
+  const parts = [...pfxParts, cat, k];
+  if (includeRandom) parts.push(randomString(randLen, true));
+  return parts.join('-');
 }
 
 function buildCategoryERC(category, index, { prefixLen = 3, pad = 3 } = {}) {
@@ -134,6 +169,36 @@ function buildProductSkuRoot(category, productBaseName, opts = {}) {
   const nameCode = toERCPart(productBaseName, nameLen);
   const rand = randomString(randLen, true);
   return `${ERC_PREFIX.PRODUCT}-${catCode}-${nameCode}-${rand}`;
+}
+
+function buildOptionCategoryERC(category, groupKey, opts = {}) {
+  const { codeLen = 3, groupKeyCodeLen = 6, randLen = 3 } = opts;
+  return buildKeyedERC({
+    prefix: ERC_PREFIX.OPTION_CATEGORY,
+    category,
+    key: groupKey,
+    categoryLen: codeLen,
+    keyLen: groupKeyCodeLen,
+    randLen,
+    includeRandom: true,
+    preserveUnderscore: false,
+    prefixIsCompound: true,
+  });
+}
+
+function buildSpecificationERC(category, specKey, opts = {}) {
+  const { codeLen = 3, specKeyCodeLen = 12, includeRandom = false, randLen = 3 } = opts;
+  return buildKeyedERC({
+    prefix: ERC_PREFIX.SPECIFICATION,
+    category,
+    key: specKey,
+    categoryLen: codeLen,
+    keyLen: specKeyCodeLen,
+    includeRandom,
+    randLen,
+    preserveUnderscore: true,
+    prefixIsCompound: true,
+  });
 }
 
 function ratioTrigger(ratio) {
@@ -272,7 +337,7 @@ const toI18n = (v, fallback) => {
     throw new Error('Both arguments cannot be empty');
   }
   return typeof v === 'string' ? { en_US: v } : v || { en_US: fallback };
-}
+};
 
 function getByValue(collection, searchValue) {
   const iterable =
@@ -286,6 +351,8 @@ module.exports = {
   buildCategoryERC,
   buildDataUrl,
   buildProductSkuRoot,
+  buildOptionCategoryERC,
+  buildSpecificationERC,
   buildSpecCatERC,
   createERC,
   debounce,

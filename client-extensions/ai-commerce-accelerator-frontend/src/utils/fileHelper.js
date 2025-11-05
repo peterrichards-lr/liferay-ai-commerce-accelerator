@@ -17,7 +17,7 @@ const exportJsonFile = (data, filename, root = document) => {
     link.click();
   } finally {
     if (link.isConnected && link.parentNode) link.parentNode.removeChild(link);
-    setTimeout(() => URL.revokeObjectURL(url), 0);
+    setTimeout(() => URL.revokeObjectURL(link), 0);
   }
 };
 
