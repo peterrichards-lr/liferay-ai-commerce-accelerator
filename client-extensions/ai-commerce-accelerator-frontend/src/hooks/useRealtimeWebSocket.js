@@ -266,10 +266,10 @@ export default function useRealtimeWebSocket({
                 ...prev,
                 [entityType]: {
                   ...cur,
-                  total: cur.total || total || 0,
+                  total: cur.total || 0,
                   completed: Math.min(
                     nextCompleted,
-                    cur.total || total || Infinity
+                    cur.total || Infinity
                   ),
                 },
               };

@@ -31,7 +31,7 @@ import {
 import { buildFilename, exportJsonFile } from './utils/fileHelper.js';
 
 import ApplicationConfigPanel from './components/config/ApplicationConfigPanel';
-import DataGeneratorForm from './components/DataGeneratorForm';
+import DataGeneratorForm from './components/data-generator/DataGeneratorForm';
 import ProgressMonitor from './components/dashboard/Dashboard.jsx';
 
 const toInt = (v) => (v == null || v === '' ? undefined : parseInt(v, 10));
@@ -57,6 +57,14 @@ const initialGenerationConfig = {
   pdfMode: 'default',
   pdfRatio: 10,
   demoMode: true,
+  inventoryMin: 0,
+  inventoryMax: 1000,
+  inventoryAssignmentRatio: 100,
+  enableBackorders: false,
+  backorderAssignmentRatio: 50,
+  createWarehouses: true,
+  reuseExistingWarehouses: true,
+  customPDFFile: null,
 };
 
 function toFormData(obj, files = {}) {
@@ -91,6 +99,8 @@ export function AppUI() {
     },
     []
   );
+
+  const appTopRef = useRef(null);
 
   const { config, setConfig, getCurrencies, getLanguages } = useApp();
   const [catalogs, setCatalogs] = useState([]);
@@ -524,6 +534,27 @@ export function AppUI() {
                 customPdfFile: generationConfig.customPdfFile,
 
                 demoMode: generationConfig.demoMode,
+
+                createWarehouses: !!generationConfig.createWarehouses,
+                reuseExistingWarehouses: !!generationConfig.reuseExistingWarehouses,
+
+                inventoryMin: Number.isFinite(generationConfig.inventoryMin)
+                  ? generationConfig.inventoryMin
+                  : 0,
+                inventoryMax: Number.isFinite(generationConfig.inventoryMax)
+                  ? generationConfig.inventoryMax
+                  : 0,
+                inventoryAssignmentRatio: Number.isFinite(
+                  generationConfig.inventoryAssignmentRatio
+                )
+                  ? generationConfig.inventoryAssignmentRatio
+                  : 0,
+                enableBackorders: !!generationConfig.enableBackorders,
+                backorderAssignmentRatio: Number.isFinite(
+                  generationConfig.backorderAssignmentRatio
+                )
+                  ? generationConfig.backorderAssignmentRatio
+                  : 0,
               };
 
               const imageFile =
@@ -1120,7 +1151,7 @@ export function AppUI() {
     <div className="container-fluid py-4">
       <div className="row">
         <div className="col-12">
-          <div className="card shadow-sm">
+          <div className="card shadow-sm" ref={appTopRef}>
             <div className="card-header bg-primary text-white">
               <h1 className="h3 mb-0">
                 <i className="fas fa-robot me-2"></i>
@@ -1201,6 +1232,7 @@ export function AppUI() {
                     forceDemoMode={forceDemoMode}
                     openAiKeyAvailable={openAiKeyAvailable}
                     validationErrors={generationErrors}
+                    scrollTargetRef={appTopRef}
                   />
                   <ProgressMonitor
                     progress={progress}

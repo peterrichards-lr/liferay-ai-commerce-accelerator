@@ -866,7 +866,8 @@ liferay-ai-commerce-accelerator-frontend {
     margin-bottom: 1.5rem;
   }
 
-  .product-config-section {
+  .product-config-section,
+  .warehouse-config-section {
     background: #f8f9fa;
     padding: 1.5rem;
     border-radius: 6px;
@@ -874,7 +875,8 @@ liferay-ai-commerce-accelerator-frontend {
     margin-bottom: 1.5rem;
   }
 
-  .product-config-section.hidden {
+  .product-config-section.hidden,
+  .warehouse-config-section.hidden {
     display: none;
   }
 

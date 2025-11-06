@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import ClayCard from '@clayui/card';
 import ClayForm, { ClayInput } from '@clayui/form';
 import { useApp } from '../../context/AppContext';
-import FieldError from '../FieldError';
+import FieldError from '../ui/FieldError';
 import { getConnectionErrorsMap } from '../../utils/validation';
 
 export default function ConnectionAuthCard({

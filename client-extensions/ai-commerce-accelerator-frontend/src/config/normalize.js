@@ -22,22 +22,18 @@ const arr = (v, fb = []) =>
 export function normalizeConfig(incoming = {}) {
   const cfg = { ...DEFAULTS, ...(incoming || {}) };
 
-  // Locale can arrive as en_US; normalize to en-US
   const normLanguageId = str(cfg.languageId || DEFAULTS.languageId);
   const normLocale = str(cfg.localeCode || DEFAULTS.localeCode).replace(
     '_',
     '-'
   );
   return {
-    // Hosting
     liferayHosted: bool(cfg.liferayHosted, DEFAULTS.liferayHosted),
     microserviceUrl: str(cfg.microserviceUrl, DEFAULTS.microserviceUrl),
 
-    // Display
     title: str(cfg.title, DEFAULTS.title),
     subtitle: str(cfg.subtitle, DEFAULTS.subtitle),
 
-    // Context
     localeCode: normLocale,
     languageId: normLanguageId,
     currencyCode: str(cfg.currencyCode, DEFAULTS.currencyCode),
@@ -46,17 +42,14 @@ export function normalizeConfig(incoming = {}) {
     siteGroupId: num(cfg.siteGroupId, DEFAULTS.siteGroupId),
     selectedLanguages: arr(cfg.selectedLanguages, DEFAULTS.selectedLanguages),
 
-    // AI / runtime
     aiModel: str(cfg.aiModel, DEFAULTS.aiModel),
     batchSize: num(cfg.batchSize, DEFAULTS.batchSize),
     pollingDelay: num(cfg.pollingDelay, DEFAULTS.pollingDelay),
     pollingRetries: num(cfg.pollingRetries, DEFAULTS.pollingRetries),
 
-    // Misc
     demoMode: bool(cfg.demoMode, DEFAULTS.demoMode),
     wsLoggingLevel: str(cfg.wsLoggingLevel, DEFAULTS.wsLoggingLevel),
 
-    // Only used outside Liferay
     liferayUrl: str(cfg.liferayUrl, DEFAULTS.liferayUrl),
     clientId: str(cfg.clientId, DEFAULTS.clientId),
     clientSecret: str(cfg.clientSecret, DEFAULTS.clientSecret),

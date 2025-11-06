@@ -2,7 +2,7 @@ import React, { useEffect } from 'react';
 import ClayCard from '@clayui/card';
 import ClayForm, { ClaySelect } from '@clayui/form';
 import { useApp } from '../../context/AppContext';
-import FieldError from '../FieldError';
+import FieldError from '../ui/FieldError';
 
 export default function CommerceCard({
   disabled,
