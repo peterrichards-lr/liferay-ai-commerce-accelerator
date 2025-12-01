@@ -9,7 +9,9 @@ import { getKeyValue, persistConfigKey } from '../../utils/api';
 import MillisecondsInput from '../common/MillisecondsInput';
 import PromptManager from './PromptManager';
 import SystemPromptsEditor from './SystemPromptsEditor';
+import OpenAISettingsPanel from './OpenAISettingsPanel';
 
+const OPEN_AI_KEY_KEY = 'open-ai-key';
 const AI_CONFIG_KEY = 'ai-config';
 const AI_PROMPTS_KEY = 'ai-prompts-config';
 
@@ -55,17 +57,20 @@ export default function AiConfigPanel() {
   const [issues, setIssues] = useState([]);
 
   const [aiConfig, setAiConfig] = useState(DEFAULT_AI);
+  const [openAiKeyValue, setOpenAiKeyValue] = useState('');
   const [promptConfig, setPromptConfig] = useState(DEFAULT_PROMPTS);
   const [lastSaved, setLastSaved] = useState({
+    openAiKeyValue: '',
     ai: DEFAULT_AI,
     prompts: DEFAULT_PROMPTS,
   });
 
   const dirty = useMemo(
     () =>
+      openAiKeyValue !== lastSaved.openAiKeyValue ||
       JSON.stringify(aiConfig) !== JSON.stringify(lastSaved.ai) ||
       JSON.stringify(promptConfig) !== JSON.stringify(lastSaved.prompts),
-    [aiConfig, promptConfig, lastSaved]
+    [openAiKeyValue, aiConfig, promptConfig, lastSaved]
   );
 
   useEffect(() => {
@@ -73,7 +78,8 @@ export default function AiConfigPanel() {
     (async () => {
       setLoading(true);
       try {
-        const [rawAI, rawPrompts] = await Promise.all([
+        const [rawOpenAIKey, rawAI, rawPrompts] = await Promise.all([
+          getKeyValue(OPEN_AI_KEY_KEY),
           getKeyValue(AI_CONFIG_KEY),
           getKeyValue(AI_PROMPTS_KEY),
         ]);
@@ -85,10 +91,16 @@ export default function AiConfigPanel() {
         const mergedPrompts = { ...DEFAULT_PROMPTS, ...parsedPrompts };
 
         if (!alive) return;
+        setOpenAiKeyValue(rawOpenAIKey);
         setAiConfig(mergedAI);
         setPromptConfig(mergedPrompts);
-        setLastSaved({ ai: mergedAI, prompts: mergedPrompts });
+        setLastSaved({
+          openAiKeyValue: rawOpenAIKey,
+          ai: mergedAI,
+          prompts: mergedPrompts,
+        });
       } catch (e) {
+        console.error('Failed to load AI configuration.', e);
         Liferay?.Util?.openToast?.({
           message: 'Failed to load AI configuration.',
           type: 'danger',
@@ -127,10 +139,15 @@ export default function AiConfigPanel() {
     setSaving(true);
     try {
       await Promise.all([
+        persistConfigKey(OPEN_AI_KEY_KEY, openAiKeyValue.trim()),
         persistConfigKey(AI_CONFIG_KEY, JSON.stringify(aiConfig)),
         persistConfigKey(AI_PROMPTS_KEY, JSON.stringify(promptConfig)),
       ]);
-      setLastSaved({ ai: aiConfig, prompts: promptConfig });
+      setLastSaved({
+        openAiKeyValue: openAiKeyValue.trim(),
+        ai: aiConfig,
+        prompts: promptConfig,
+      });
       Liferay?.Util?.openToast?.({
         message: 'AI configuration saved.',
         type: 'success',
@@ -145,9 +162,10 @@ export default function AiConfigPanel() {
     } finally {
       setSaving(false);
     }
-  }, [saving, aiConfig, promptConfig]);
+  }, [saving, openAiKeyValue, aiConfig, promptConfig]);
 
   const onCancel = useCallback(() => {
+    setOpenAiKeyValue(lastSaved.openAiKeyValue);
     setAiConfig(lastSaved.ai);
     setPromptConfig(lastSaved.prompts);
   }, [lastSaved]);
@@ -163,9 +181,15 @@ export default function AiConfigPanel() {
       <div className="sheet-header">
         <h2 className="sheet-title">AI Configuration</h2>
         <div className="sheet-text">
-          Manages <code>ai-config</code> and <code>ai-prompts-config</code>.
+          Manages <code>{OPEN_AI_KEY_KEY}</code>, <code>{AI_CONFIG_KEY}</code>{' '}
+          and <code>{AI_PROMPTS_KEY}</code>.
         </div>
       </div>
+
+      <OpenAISettingsPanel
+        keyValue={openAiKeyValue || ''}
+        setKeyValue={(value) => setOpenAiKeyValue(value)}
+      />
 
       {!!issues.length && (
         <ClayAlert displayType="warning" title="Please review" role="alert">
@@ -212,7 +236,9 @@ export default function AiConfigPanel() {
           value={aiConfig.requestTimeoutMs}
           min={1000}
           step={500}
-          onChange={(e) => updateAi('requestTimeoutMs', toInt(e.target.value, 60000))}
+          onChange={(e) =>
+            updateAi('requestTimeoutMs', toInt(e.target.value, 60000))
+          }
           helper="Maximum time to wait for an AI request before aborting."
         />
 
@@ -224,11 +250,15 @@ export default function AiConfigPanel() {
               type="number"
               min={0}
               value={aiConfig.retry.maxRetries}
-              onChange={(e) => updateRetry('maxRetries', toInt(e.target.value, 2))}
+              onChange={(e) =>
+                updateRetry('maxRetries', toInt(e.target.value, 2))
+              }
               className="mr-2"
             />
           </div>
-          <small className="form-text text-secondary">Number of retry attempts for transient failures.</small>
+          <small className="form-text text-secondary">
+            Number of retry attempts for transient failures.
+          </small>
         </ClayForm.Group>
         <MillisecondsInput
           id="retry-base-delay"
@@ -236,7 +266,9 @@ export default function AiConfigPanel() {
           value={aiConfig.retry.baseDelayMs}
           min={100}
           step={100}
-          onChange={(e) => updateRetry('baseDelayMs', toInt(e.target.value, 1000))}
+          onChange={(e) =>
+            updateRetry('baseDelayMs', toInt(e.target.value, 1000))
+          }
           helper="Initial backoff delay before the first retry."
         />
         <MillisecondsInput
@@ -245,7 +277,9 @@ export default function AiConfigPanel() {
           value={aiConfig.retry.maxDelayMs}
           min={500}
           step={100}
-          onChange={(e) => updateRetry('maxDelayMs', toInt(e.target.value, 8000))}
+          onChange={(e) =>
+            updateRetry('maxDelayMs', toInt(e.target.value, 8000))
+          }
           helper="Maximum backoff delay between retries."
         />
 
@@ -265,7 +299,12 @@ export default function AiConfigPanel() {
           value={promptConfig.promptCacheTTL}
           min={1000}
           step={1000}
-          onChange={(e) => updatePromptConfig('promptCacheTTL', toInt(e.target.value, promptConfig.promptCacheTTL))}
+          onChange={(e) =>
+            updatePromptConfig(
+              'promptCacheTTL',
+              toInt(e.target.value, promptConfig.promptCacheTTL)
+            )
+          }
           helper="Time-to-live for prompt template cache entries."
         />
 
@@ -318,7 +357,6 @@ export default function AiConfigPanel() {
           </ClayTable>
         </ClayForm.Group>
 
-        {/* Inline, per-task "system" messages in ai-config */}
         <SystemPromptsEditor
           value={aiConfig.systemPrompts || {}}
           onChange={(next) =>
@@ -326,7 +364,6 @@ export default function AiConfigPanel() {
           }
         />
 
-        {/* File-based prompt templates from ai-prompts-config */}
         <PromptManager
           promptsDir={promptConfig.promptsDir}
           promptCacheTTL={promptConfig.promptCacheTTL}

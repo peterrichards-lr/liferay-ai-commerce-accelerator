@@ -6,14 +6,15 @@ import ClayIcon from '@clayui/icon';
 import ClayLayout from '@clayui/layout';
 import { getKeyValue, persistConfigKey } from '../../utils/api';
 
-const OPEN_AI_KEY_KEY = 'open-ai-key';
-
-export default function OpenAISettingsPanel() {
+export default function OpenAISettingsPanel({
+  keyValue,
+  setKeyValue,
+  title = 'OpenAI Settings',
+  helpText = 'The Open AI key os stored as plain text. In production, prefer using environment variables or a secrets vault rather than storing keys in the database.',
+}) {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
-  const [keyValue, setKeyValue] = useState('');
-  const [lastSaved, setLastSaved] = useState('');
   const [show, setShow] = useState(false);
   const [issues, setIssues] = useState([]);
 
@@ -37,108 +38,19 @@ export default function OpenAISettingsPanel() {
     }
   }, [keyValue]);
 
-  const dirty = keyValue !== lastSaved;
-
-  useEffect(() => {
-    let alive = true;
-    (async () => {
-      setLoading(true);
-      try {
-        const raw = await getKeyValue(OPEN_AI_KEY_KEY);
-        const initial = typeof raw === 'string' ? raw : '';
-        if (!alive) return;
-        setKeyValue(initial);
-        setLastSaved(initial);
-      } catch (e) {
-        Liferay?.Util?.openToast?.({
-          message: 'Failed to load OpenAI key.',
-          type: 'danger',
-        });
-      } finally {
-        if (alive) setLoading(false);
-      }
-    })();
-    return () => {
-      alive = false;
-    };
-  }, []);
-
-  useEffect(() => {
-    const onBeforeUnload = (e) => {
-      if (!dirty) return;
-      e.preventDefault();
-      e.returnValue = '';
-    };
-    window.addEventListener('beforeunload', onBeforeUnload);
-    return () => window.removeEventListener('beforeunload', onBeforeUnload);
-  }, [dirty]);
-
-  useEffect(() => {
-    const onKey = (e) => {
-      const key = e.key?.toLowerCase();
-      if ((e.metaKey || e.ctrlKey) && key === 's') {
-        e.preventDefault();
-        onSave();
-      }
-    };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  });
-
-  useEffect(() => {
-    const errs = [];
-    const v = keyValue.trim();
-    if (v.length === 0) {
-      errs.push('API key is required.');
-    }
-    if (/\s/.test(v)) {
-      errs.push('Key must not contain spaces or newlines.');
-    }
-    if (v.length > 0 && v.length < 12) {
-      errs.push('Key looks too short. Please check you pasted the full value.');
-    }
-    setIssues(errs);
-  }, [keyValue]);
-
   const masked = useMemo(
     () => (keyValue ? keyValue.replace(/.(?=.{4})/g, '•') : ''),
     [keyValue]
   );
 
-  const onSave = useCallback(async () => {
-    if (saving || issues.length) return;
-    setSaving(true);
-    try {
-      await persistConfigKey(OPEN_AI_KEY_KEY, keyValue.trim());
-      setLastSaved(keyValue.trim());
-      Liferay?.Util?.openToast?.({
-        message: 'OpenAI key saved.',
-        type: 'success',
-      });
-    } catch (e) {
-      console.error(e);
-      Liferay?.Util?.openToast?.({
-        message: 'Failed to save OpenAI key.',
-        type: 'danger',
-      });
-    } finally {
-      setSaving(false);
-    }
-  }, [saving, keyValue, issues.length]);
-
-  const onCancel = useCallback(() => setKeyValue(lastSaved), [lastSaved]);
   const onClear = useCallback(() => setKeyValue(''), []);
 
   return (
-    <ClayLayout.Sheet aria-busy={loading || saving} aria-live="polite">
-      <div className="sheet-header">
-        <h2 className="sheet-title">OpenAI Settings</h2>
-        <div className="sheet-text">
-          Stored under <code>{OPEN_AI_KEY_KEY}</code> as plain text. In
-          production, prefer using environment variables or a secrets vault
-          rather than storing keys in the database.
-        </div>
+    <ClayLayout.SheetSection className="mt-4">
+      <div className="d-flex align-items-center mb-2">
+        <h3 className="sheet-subtitle m-0">{title}</h3>
       </div>
+      {helpText && <p className="text-secondary">{helpText}</p>}
 
       {!!issues.length && (
         <ClayAlert
@@ -217,7 +129,7 @@ export default function OpenAISettingsPanel() {
               <ClayButton
                 type="button"
                 displayType="secondary"
-                onClick={() => setKeyValue('')}
+                onClick={onClear}
                 aria-label="Clear key"
                 title="Clear key"
               >
@@ -236,32 +148,6 @@ export default function OpenAISettingsPanel() {
           )}
         </ClayForm.Group>
       </div>
-
-      <div className="sheet-footer">
-        <div className="btn-group-item">
-          <ClayButton
-            onClick={onSave}
-            className="mr-2"
-            disabled={!dirty || saving || issues.length > 0}
-            aria-disabled={!dirty || saving || issues.length > 0}
-            aria-label={saving ? 'Saving OpenAI key…' : 'Save OpenAI key'}
-          >
-            <ClayIcon symbol={saving ? 'time' : 'disk'} />
-            <span className="ml-2">{saving ? 'Saving…' : 'Save'}</span>
-          </ClayButton>
-
-          <ClayButton
-            displayType="secondary"
-            onClick={onCancel}
-            disabled={!dirty || saving}
-            aria-disabled={!dirty || saving}
-            aria-label="Cancel changes"
-          >
-            <ClayIcon symbol="restore" />
-            <span className="ml-2">Cancel</span>
-          </ClayButton>
-        </div>
-      </div>
-    </ClayLayout.Sheet>
+    </ClayLayout.SheetSection>
   );
 }
