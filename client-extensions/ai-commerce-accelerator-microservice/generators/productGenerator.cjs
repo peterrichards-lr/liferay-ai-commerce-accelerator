@@ -109,9 +109,11 @@ class ProductGenerator {
         });
         return;
       }
+
       const completed = Array.isArray(session?.completedBatches)
         ? Array.from(session.completedBatches)
         : [];
+
       logger.info('Generation session complete; triggering post-processing', {
         entityType: 'products',
         operation: 'generate',
@@ -120,6 +122,7 @@ class ProductGenerator {
         completedBatches: completed,
         correlationId,
       });
+
       getWs().emitGenerationSessionComplete(
         {
           entityType: 'products',
@@ -131,8 +134,10 @@ class ProductGenerator {
         },
         { correlationId }
       );
+
       const ctxKey = `session:${sessionId}:context`;
       const sessionContext = cache.get(ctxKey);
+
       if (!sessionContext) {
         logger.warn('No session context found for post-processing', {
           entityType: 'products',
@@ -143,37 +148,40 @@ class ProductGenerator {
         });
         return;
       }
+
       const { config, productDataList, options } = sessionContext;
       const demoMode = !!options?.demoMode;
-      const hasImages = demoMode
-        ? (options?.imageRatio ?? 0) > 0
-        : options?.imageMode &&
+
+      const shouldProcessDemo =
+        demoMode &&
+        ((options?.imageRatio ?? 0) > 0 || (options?.pdfRatio ?? 0) > 0);
+
+      const shouldProcessNonDemo =
+        !demoMode &&
+        ((options?.imageMode &&
           options.imageMode !== 'none' &&
-          (options?.imageRatio ?? 0) > 0;
-      const hasPDFs = demoMode
-        ? (options?.pdfRatio ?? 0) > 0
-        : options?.pdfMode &&
-          options.pdfMode !== 'none' &&
-          (options?.pdfRatio ?? 0) > 0;
-      const hasAttachments =
-        Array.isArray(productDataList) &&
-        productDataList.some(
-          (p) =>
-            (Array.isArray(p.images) && p.images.length > 0) ||
-            (Array.isArray(p.attachments) && p.attachments.length > 0)
-        );
-      if (!(hasImages || hasPDFs || hasAttachments)) {
+          (options?.imageRatio ?? 0) > 0) ||
+          (options?.pdfMode &&
+            options.pdfMode !== 'none' &&
+            (options?.pdfRatio ?? 0) > 0));
+
+      const shouldProcess = shouldProcessDemo || shouldProcessNonDemo;
+
+      if (!shouldProcess) {
         logger.info('No post-processing work required', {
           entityType: 'products',
           operation: 'generate',
           ...resolvePhaseAndMode({ useBatch: true, phase: 'postprocess' }),
           sessionId,
           correlationId,
+          imageMode: options?.imageMode || 'none',
+          pdfMode: options?.pdfMode || 'none',
           imageRatio: options?.imageRatio ?? 0,
           pdfRatio: options?.pdfRatio ?? 0,
         });
         return;
       }
+
       try {
         await this.processImageAndPDFAttachments(config, productDataList, {
           ...options,
@@ -270,7 +278,7 @@ class ProductGenerator {
     try {
       this.validateConfig(config);
       config.catalogId = parseInt(config.catalogId, 10);
-      await this.validateOptions(options);
+      await this.validateOptions(config, options);
       if (options.imageRatio != null) {
         options.imageRatio = Math.max(
           0,
@@ -1401,7 +1409,9 @@ class ProductGenerator {
         languageCodes.forEach((langCode) => {
           const suffix = langCode === 'en_US' ? '' : ` (${langCode})`;
           optionName[langCode] = `${optionData.name}${suffix}`;
-          optionDescription[langCode] = `${optionData.name} option for ${category}${suffix}`;
+          optionDescription[
+            langCode
+          ] = `${optionData.name} option for ${category}${suffix}`;
         });
         const option = await liferay.createOptionWithReuse(config, {
           key: `${category.toLowerCase()}-${optionData.name
@@ -1421,9 +1431,13 @@ class ProductGenerator {
         );
         const optionValues = [];
         for (let i = 0; i < optionData.values.length; i++) {
-          const values = Array.isArray(optionData.values) ? optionData.values : [];
+          const values = Array.isArray(optionData.values)
+            ? optionData.values
+            : [];
           const value = values[i];
-          const valueERC = `VAL-${optionERC}-${value.toUpperCase().replace(/\s+/g, '_')}`;
+          const valueERC = `VAL-${optionERC}-${value
+            .toUpperCase()
+            .replace(/\s+/g, '_')}`;
           const valueName = {};
           languageCodes.forEach((langCode) => {
             const suffix = langCode === 'en_US' ? '' : ` (${langCode})`;
@@ -1443,7 +1457,9 @@ class ProductGenerator {
             }
           );
           optionValues.push(optionValue);
-          logger.trace(`Created or reused option value: ${optionValue.name.en_US}`);
+          logger.trace(
+            `Created or reused option value: ${optionValue.name.en_US}`
+          );
         }
         catalogOptions[category].push({ ...option, values: optionValues });
       }
@@ -1699,7 +1715,8 @@ class ProductGenerator {
         categoryGroupsMap[category] || categoryGroupsMap['Electronics'];
 
       const resolveGroup = (proposedKey) => {
-        if (!proposedKey) return (categoryGroups[0] && categoryGroups[0].key) || 'features';
+        if (!proposedKey)
+          return (categoryGroups[0] && categoryGroups[0].key) || 'features';
         const exists = categoryGroups.find((g) => g.key === proposedKey);
         if (exists) return proposedKey;
         return (categoryGroups[0] && categoryGroups[0].key) || 'features';
@@ -1716,10 +1733,11 @@ class ProductGenerator {
           const lookup = new Map(
             (categorySpecificationsMap[category] || []).map((s) => [s.key, s])
           );
-          const toTitle = (k) => String(k)
-            .split('-')
-            .map((p) => p.charAt(0).toUpperCase() + p.slice(1))
-            .join(' ');
+          const toTitle = (k) =>
+            String(k)
+              .split('-')
+              .map((p) => p.charAt(0).toUpperCase() + p.slice(1))
+              .join(' ');
           categorySpecs = keys.map((key, idx) => {
             const known = lookup.get(key);
             return {
@@ -1812,7 +1830,8 @@ class ProductGenerator {
             specTitle[langCode] = `${specData.title}${suffix}`;
           });
 
-          const linkedOptionCategory = optionCategories[resolveGroup(specData.group)];
+          const linkedOptionCategory =
+            optionCategories[resolveGroup(specData.group)];
           const specificationPayload = {
             key: `${category.toLowerCase()}-${specData.key}`,
             title: specTitle,
@@ -1834,16 +1853,25 @@ class ProductGenerator {
             specificationPayload
           );
           logger.trace(
-            `Created or reused specification: ${specification.title?.en_US || specification.key} (ID: ${specification.id})`
+            `Created or reused specification: ${
+              specification.title?.en_US || specification.key
+            } (ID: ${specification.id})`
           );
 
           if (linkedOptionCategory) {
             const desiredId = linkedOptionCategory.id;
             const desiredERC = linkedOptionCategory.externalReferenceCode;
-            const currentId = specification.optionCategoryId || specification.optionCategory?.id;
-            const currentERC = specification.optionCategoryExternalReferenceCode || specification.optionCategory?.externalReferenceCode;
+            const currentId =
+              specification.optionCategoryId ||
+              specification.optionCategory?.id;
+            const currentERC =
+              specification.optionCategoryExternalReferenceCode ||
+              specification.optionCategory?.externalReferenceCode;
 
-            if ((desiredId && desiredId !== currentId) || (!desiredId && desiredERC && desiredERC !== currentERC)) {
+            if (
+              (desiredId && desiredId !== currentId) ||
+              (!desiredId && desiredERC && desiredERC !== currentERC)
+            ) {
               try {
                 if (desiredId) {
                   await liferay.updateSpecificationByERC(config, specERC, {
@@ -1854,10 +1882,15 @@ class ProductGenerator {
                     optionCategory: { externalReferenceCode: desiredERC },
                   });
                 }
-                specification.optionCategoryId = desiredId || specification.optionCategoryId;
-                if (desiredERC) specification.optionCategoryExternalReferenceCode = desiredERC;
+                specification.optionCategoryId =
+                  desiredId || specification.optionCategoryId;
+                if (desiredERC)
+                  specification.optionCategoryExternalReferenceCode =
+                    desiredERC;
                 logger.trace(
-                  `Linked specification ${specERC} to option category ${desiredId ? `ID ${desiredId}` : desiredERC}`
+                  `Linked specification ${specERC} to option category ${
+                    desiredId ? `ID ${desiredId}` : desiredERC
+                  }`
                 );
               } catch (patchErr) {
                 logger.warn(
@@ -1878,10 +1911,14 @@ class ProductGenerator {
       }
 
       logger.info(
-        `Option categories ready for ${category}: ${Object.keys(optionCategories).length}`
+        `Option categories ready for ${category}: ${
+          Object.keys(optionCategories).length
+        }`
       );
 
-      logger.info(`Created/reused ${createdSpecCount} specifications for category: ${category}`);
+      logger.info(
+        `Created/reused ${createdSpecCount} specifications for category: ${category}`
+      );
 
       // Insert verification log after processing all specs for the category
       try {
@@ -1889,12 +1926,16 @@ class ProductGenerator {
         const listed = await liferay.getSpecifications(config, {
           search: prefix,
           pageSize: 200,
-          fields: 'id,key,externalReferenceCode'
+          fields: 'id,key,externalReferenceCode',
         });
         const items = Array.isArray(listed?.items) ? listed.items : [];
-        logger.info(`Verification: ${items.length} specifications found matching prefix '${prefix}'`);
+        logger.info(
+          `Verification: ${items.length} specifications found matching prefix '${prefix}'`
+        );
       } catch (verifyErr) {
-        logger.warn(`Verification list for specifications failed: ${verifyErr.message}`);
+        logger.warn(
+          `Verification list for specifications failed: ${verifyErr.message}`
+        );
       }
 
       logger.info(
@@ -2074,7 +2115,9 @@ class ProductGenerator {
           if (!Array.isArray(values) || values.length === 0) return null;
           const choice = values[Math.floor(Math.random() * values.length)];
           return typeof choice === 'string' ? { en_US: choice } : choice;
-        } catch { return null; }
+        } catch {
+          return null;
+        }
       };
       const specificationsToAdd = [];
       if (catalogSpecifications && catalogSpecifications.length > 0) {
@@ -2090,9 +2133,19 @@ class ProductGenerator {
             specificationPriority: catalogSpec.priority || 0,
             label: catalogSpec.title,
             value: productSpec?.value
-              ? (typeof productSpec.value === 'string' ? { en_US: productSpec.value } : productSpec.value)
-              : pickFromJson(productSpec?.category || catalogSpec?.category || 'Electronics', catalogSpec.key) ||
-                { en_US: `Mock ${catalogSpec.title?.en_US || catalogSpec.key} Value` },
+              ? typeof productSpec.value === 'string'
+                ? { en_US: productSpec.value }
+                : productSpec.value
+              : pickFromJson(
+                  productSpec?.category ||
+                    catalogSpec?.category ||
+                    'Electronics',
+                  catalogSpec.key
+                ) || {
+                  en_US: `Mock ${
+                    catalogSpec.title?.en_US || catalogSpec.key
+                  } Value`,
+                },
           };
           if (catalogSpec.optionCategoryId)
             specificationPayload.optionCategoryId =
@@ -2112,14 +2165,20 @@ class ProductGenerator {
           );
           if (!alreadyAdded) {
             const payload = {
-              specificationExternalReferenceCode: `SPEC-${spec.key || spec.name}-${Date.now()}`,
+              specificationExternalReferenceCode: `SPEC-${
+                spec.key || spec.name
+              }-${Date.now()}`,
               specificationKey: spec.key || spec.name,
               specificationPriority: spec.priority || 0,
               label: { en_US: spec.name || spec.key },
               value:
                 typeof spec.value === 'string'
                   ? { en_US: spec.value }
-                  : spec.value || pickFromJson(spec.category || 'Electronics', spec.key || spec.name) || { en_US: 'Unknown' },
+                  : spec.value ||
+                    pickFromJson(
+                      spec.category || 'Electronics',
+                      spec.key || spec.name
+                    ) || { en_US: 'Unknown' },
             };
             if (spec.optionCategoryId)
               payload.optionCategoryId = spec.optionCategoryId; // prefer ID
@@ -2437,7 +2496,7 @@ class ProductGenerator {
     }
   }
 
-  async validateOptions(options) {
+  async validateOptions(config, options) {
     const { ai, logger } = this.ctx;
     if (
       !options.productCount ||
@@ -2451,14 +2510,28 @@ class ProductGenerator {
     )
       throw new Error('At least one product category must be provided.');
     if (!options.demoMode) {
+      if (!config.aiModel) {
+        const err = new Error(
+          'AI model not configured. Please select an AI model in the AI Configuration object.'
+        );
+        err.statusCode = 400;
+        logger?.error?.(
+          '✗ AI model validation failed for products: missing aiModel'
+        );
+        throw err;
+      }
+
       try {
-        await ai.getOpenAIClient();
-        logger.trace('✓ OpenAI API key validated successfully');
+        await ai.getOpenAIClient(config);
+        logger.trace('✓ OpenAI API key validated successfully for products');
       } catch (error) {
-        const errorMessage =
+        const msg =
           'OpenAI API key not configured. Please set it in the AI Configuration object or enable demo mode.';
-        logger.error('✗ OpenAI key validation failed:', error.message);
-        throw new Error(errorMessage);
+        logger.error(
+          '✗ OpenAI key validation failed for products:',
+          error.message
+        );
+        throw new Error(msg);
       }
     }
   }

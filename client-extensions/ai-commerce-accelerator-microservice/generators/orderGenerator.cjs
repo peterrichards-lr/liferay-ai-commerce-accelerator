@@ -11,7 +11,9 @@ const {
   getEphemeralTTLms,
   getLongLivedTTLms,
 } = require('../utils/ttl.cjs');
-const { getBatchPollingDefaults } = require('../services/batchPollingService.cjs');
+const {
+  getBatchPollingDefaults,
+} = require('../services/batchPollingService.cjs');
 
 class OrderGenerator {
   constructor(ctx) {
@@ -39,8 +41,9 @@ class OrderGenerator {
     if (!config.currencyCode) throw new Error('currencyCode is required');
   }
 
-  async validateOptions(options) {
-    const { ai } = this.ctx;
+  async validateOptions(config, options) {
+    const { ai, logger } = this.ctx;
+
     if (
       !options.orderCount ||
       typeof options.orderCount !== 'number' ||
@@ -48,8 +51,20 @@ class OrderGenerator {
     ) {
       throw new Error('orderCount must be greater than 0');
     }
+
     if (!options.demoMode) {
-      await ai.getOpenAIClient();
+      if (!config.aiModel) {
+        const err = new Error(
+          'AI model not configured. Please select an AI model in the AI Configuration object.'
+        );
+        err.statusCode = 400;
+        logger?.error?.(
+          '✗ AI model validation failed for orders: missing aiModel'
+        );
+        throw err;
+      }
+
+      await ai.getOpenAIClient(config);
     }
   }
 
@@ -103,7 +118,7 @@ class OrderGenerator {
 
     try {
       this.validateConfig(config);
-      await this.validateOptions(options);
+      await this.validateOptions(config, options);
 
       const { products, accounts } = await this.getProductsAndAccountsWithRetry(
         config
@@ -114,10 +129,11 @@ class OrderGenerator {
         orderDataList = mockData.generateOrderData(options.orderCount);
       } else {
         orderDataList = await ai.generateOrderData(
-          options.orderCount,
           products,
           accounts,
-          config.aiModel || 'gpt-4o'
+          options.orderCount,
+          config,
+          config.aiModel
         );
       }
 

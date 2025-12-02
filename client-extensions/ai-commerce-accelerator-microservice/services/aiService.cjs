@@ -4,31 +4,54 @@ const {
   pricingHints,
   joinList,
 } = require('../utils/promptHelpers.cjs');
-const { createERC } = require('../utils/misc.cjs');
+const { createERC, tryParseJSON } = require('../utils/misc.cjs');
 const { ERC_PREFIX } = require('../utils/constants.cjs');
-
 class AIService {
   constructor(ctx) {
     this.ctx = ctx;
     this.openai = null;
+
+    this.defaultModel = null;
+    this.defaultTemperature = 0.7;
+    this.maxTokens = 4000;
+    this.requestTimeoutMs = 60000;
   }
 
   async getRuntimeAIConfig(requestConfig) {
     const { configService } = this.ctx;
     const aiCfg = (await configService.getAIConfig(requestConfig)) || {};
 
+    if (!aiCfg.defaultModel) {
+      const err = new Error(
+        'AI model not configured. Please select an AI model in the AI Configuration object.'
+      );
+      err.statusCode = 400;
+      throw err;
+    }
+
+    const model = aiCfg.defaultModel;
+    const temperature =
+      typeof aiCfg.temperature === 'number' ? aiCfg.temperature : 0.7;
+    const maxTokens =
+      (aiCfg.maxTokens && aiCfg.maxTokens.default) || aiCfg.maxTokens || 4000;
+    const responseFormat =
+      aiCfg.responseFormat === 'json_object' ? 'json_object' : 'json_object';
+    const requestTimeoutMs =
+      typeof aiCfg.requestTimeoutMs === 'number'
+        ? aiCfg.requestTimeoutMs
+        : 60000;
+
+    this.defaultModel = model;
+    this.defaultTemperature = temperature;
+    this.maxTokens = maxTokens;
+    this.requestTimeoutMs = requestTimeoutMs;
+
     return {
-      model: aiCfg.defaultModel || 'gpt-4o',
-      temperature:
-        typeof aiCfg.temperature === 'number' ? aiCfg.temperature : 0.7,
-      maxTokens:
-        (aiCfg.maxTokens && aiCfg.maxTokens.default) || aiCfg.maxTokens || 4000,
-      responseFormat:
-        aiCfg.responseFormat === 'json_object' ? 'json_object' : 'json_object',
-      requestTimeoutMs:
-        typeof aiCfg.requestTimeoutMs === 'number'
-          ? aiCfg.requestTimeoutMs
-          : 60000,
+      model,
+      temperature,
+      maxTokens,
+      responseFormat,
+      requestTimeoutMs,
     };
   }
 
@@ -57,8 +80,10 @@ class AIService {
     const { logger } = this.ctx;
     try {
       const openai = await this.getOpenAIClient(requestConfig);
+      const runtime = await this.getRuntimeAIConfig(requestConfig);
+
       const response = await openai.chat.completions.create({
-        model: model || this.defaultModel,
+        model: model || runtime.model,
         messages: [
           {
             role: 'system',
@@ -70,8 +95,8 @@ class AIService {
           },
         ],
         response_format: { type: 'json_object' },
-        temperature: this.defaultTemperature,
-        max_tokens: this.maxTokens,
+        temperature: runtime.temperature,
+        max_tokens: runtime.maxTokens,
       });
 
       const content = response.choices[0].message.content;
@@ -93,6 +118,7 @@ class AIService {
       throw error;
     }
   }
+
   async generatePDFContent(product, category, requestConfig, model) {
     const { logger, promptService } = this.ctx;
     const correlationId = requestConfig?.correlationId;

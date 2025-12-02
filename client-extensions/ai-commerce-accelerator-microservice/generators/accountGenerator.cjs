@@ -38,8 +38,9 @@ class AccountGenerator {
     }
   }
 
-  async validateOptions(options) {
+  async validateOptions(config, options) {
     const { ai, logger } = this.ctx;
+
     if (
       !options.accountCount ||
       typeof options.accountCount !== 'number' ||
@@ -47,9 +48,21 @@ class AccountGenerator {
     ) {
       throw new Error('Account count must be greater than 0');
     }
+
     if (!options.demoMode) {
+      if (!config.aiModel) {
+        const err = new Error(
+          'AI model not configured. Please select an AI model in the AI Configuration object.'
+        );
+        err.statusCode = 400;
+        logger.error(
+          '✗ AI model validation failed for accounts: missing aiModel'
+        );
+        throw err;
+      }
+
       try {
-        await ai.getOpenAIClient();
+        await ai.getOpenAIClient(config);
         logger.trace('✓ OpenAI API key validated successfully');
       } catch (error) {
         const msg =
@@ -95,7 +108,7 @@ class AccountGenerator {
 
     try {
       this.validateConfig(config);
-      await this.validateOptions(options);
+      await this.validateOptions(config, options);
 
       let accountDataList;
       if (options.demoMode) {
@@ -103,9 +116,17 @@ class AccountGenerator {
       } else {
         accountDataList = await ai.generateAccountData(
           options.accountCount,
+          config,
           config.aiModel
         );
       }
+
+      accountDataList = accountDataList.map((raw) => {
+        const account = { ...raw };
+        delete account.businessAccounts;
+        delete account.businessAccountsERC;
+        return account;
+      });
 
       if (useBatch) {
         const callbackUrl =
