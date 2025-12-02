@@ -123,6 +123,7 @@ module.exports = (
     logger,
     getWs,
     configService,
+    batchCallbackService,
   }
 ) => {
   function readSafeQuery(req) {
@@ -576,6 +577,31 @@ module.exports = (
             finalProcessed ?? 0
           }/${finalTotal ?? finalProcessed ?? 0} items processed`
         );
+        // Chained delete callback for delete batches
+        if (
+          batchOp === 'delete' ||
+          batchOp === 'D' ||
+          qsOpCode === 'D'
+        ) {
+          const chainedBatchERC = batchERC || qsBatchERC;
+          const chainedEntity = qsEntity || entityType;
+          if (chainedBatchERC && chainedEntity && batchCallbackService?.processCallback) {
+            try {
+              await batchCallbackService.processCallback(chainedBatchERC, {
+                entity: chainedEntity,
+                status,
+              });
+            } catch (e) {
+              logger.error('Failed to process chained deletion callback', {
+                operation: 'batch-callback-chained-delete-error',
+                batchId,
+                batchERC: chainedBatchERC,
+                entity: chainedEntity,
+                error: e.message,
+              });
+            }
+          }
+        }
         return;
       }
 
@@ -640,6 +666,31 @@ module.exports = (
             finalProcessed ?? 0
           }/${finalTotal ?? finalProcessed ?? 0} — ${msg}`
         );
+        // Chained delete callback for delete batches on failure
+        if (
+          batchOp === 'delete' ||
+          batchOp === 'D' ||
+          qsOpCode === 'D'
+        ) {
+          const chainedBatchERC = batchERC || qsBatchERC;
+          const chainedEntity = qsEntity || entityType;
+          if (chainedBatchERC && chainedEntity && batchCallbackService?.processCallback) {
+            try {
+              await batchCallbackService.processCallback(chainedBatchERC, {
+                entity: chainedEntity,
+                status,
+              });
+            } catch (e) {
+              logger.error('Failed to process chained deletion callback on failure', {
+                operation: 'batch-callback-chained-delete-failure',
+                batchId,
+                batchERC: chainedBatchERC,
+                entity: chainedEntity,
+                error: e.message,
+              });
+            }
+          }
+        }
         return;
       }
     } catch (error) {

@@ -1114,9 +1114,17 @@ export function AppUI() {
     [config?.subtitle]
   );
 
-  const handleClearCommerceData = useCallback(async () => {
+  const handleDeleteAllCommerceData = useCallback(async () => {
     const payload = buildPayload();
-    const res = await api.post('/api/delete-commerce-data', payload);
+    const res = await api.post('/api/v2/delete-commerce-data', payload);
+    if (res?.summary) {
+      logDeletionSummary(res.summary);
+    }
+  });
+
+  const handleDeleteSelectedCommerceData = useCallback(async () => {
+    const payload = buildPayload();
+    const res = await api.post('/api/v2/delete-channel-commerce-data', payload);
     if (res?.summary) {
       logDeletionSummary(res.summary);
     }
@@ -1179,7 +1187,8 @@ export function AppUI() {
                     connectionErrors={connectionErrors}
                     commerceErrors={commerceErrors}
                     onErrorsChange={setConnectionErrors}
-                    onClearCommerceData={handleClearCommerceData}
+                    onDeleteAllCommerceData={handleDeleteAllCommerceData}
+                    onDeleteSelectedCommerceData={handleDeleteSelectedCommerceData}
                   />
                 </div>
                 <div className="col-lg-8">

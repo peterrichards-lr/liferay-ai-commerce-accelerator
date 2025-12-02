@@ -8,7 +8,8 @@ export default function AdvancedPanel({
   disabled = false,
   connected = false,
   generationConfig,
-  onClearCommerceData,
+  onDeleteAllCommerceData,
+  onDeleteSelectedCommerceData,
 }) {
   const { config, setConfig } = useApp();
 
@@ -19,17 +20,17 @@ export default function AdvancedPanel({
 
     const onClick = async () => {
       const ok = await confirm({
-        title: 'Clear Commerce Data',
+        title: 'Delete All Commerce Data',
         message:
-          'This cannot be undone. All selected Commerce Data will be removed.',
+          'This will delete ALL commerce data, including orders, accounts, and products across ALL channels and catalogs. This action cannot be undone.',
         confirmText: 'Delete',
         cancelText: 'Cancel',
         destructive: true,
       });
       if (ok) {
-        onClearCommerceData &&
-          typeof onClearCommerceData === 'function' &&
-          (await onClearCommerceData());
+        onDeleteAllCommerceData &&
+          typeof onDeleteAllCommerceData === 'function' &&
+          (await onDeleteAllCommerceData());
       }
     };
     return (
@@ -40,7 +41,38 @@ export default function AdvancedPanel({
         disabled={disabled}
       >
         <i className={`icon icon-warning`}></i>
-        Clear Commerce Data
+        Delete All Commerce Data
+      </button>
+    );
+  }
+
+  function ClearChannelCommerceDataButton({ disabled = false }) {
+    const confirm = useConfirm();
+
+    const onClick = async () => {
+      const ok = await confirm({
+        title: 'Delete Selected Commerce Data',
+        message:
+          'This will delete orders for the selected channel and products for the selected catalog. This action cannot be undone.',
+        confirmText: 'Delete',
+        cancelText: 'Cancel',
+        destructive: true,
+      });
+      if (ok) {
+        onDeleteSelectedCommerceData &&
+          typeof onDeleteSelectedCommerceData === 'function' &&
+          (await onDeleteSelectedCommerceData());
+      }
+    };
+    return (
+      <button
+        type="button"
+        className={`btn w-100 btn-secondary my-2 py-2`}
+        onClick={onClick}
+        disabled={disabled}
+      >
+        <i className={`icon icon-warning`}></i>
+        Delete Selected Commerce Data
       </button>
     );
   }
@@ -108,6 +140,9 @@ export default function AdvancedPanel({
       <div className="divider"></div>
       <ClayForm.Group>
         <ConfirmProvider>
+          <ClearChannelCommerceDataButton
+            disabled={!connected || !config.channelId}
+          />
           <ClearCommerceDataButton disabled={!connected} />
         </ConfirmProvider>
         <div className="form-text">

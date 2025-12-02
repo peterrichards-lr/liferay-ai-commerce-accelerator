@@ -2,6 +2,7 @@ const { logger } = require('./utils/logger.cjs');
 const { ENV } = require('./utils/constants.cjs');
 
 const { AIService } = require('./services/aiService.cjs');
+const BatchCallbackService = require('./services/batchCallbackService.cjs');
 const BatchPollingService = require('./services/batchPollingService.cjs');
 const BatchProcessorService = require('./services/batchProcessorService.cjs');
 const CacheService = require('./services/cacheService.cjs');
@@ -107,13 +108,20 @@ const productGenerator = new ProductGenerator(entityGeneratorCtx);
 
 batchPollingService.setProductGenerator(productGenerator);
 
+const batchCallbackService = new BatchCallbackService(ctx);
+ctx.batchCallbackService = batchCallbackService;
+
 const deleteCoordinatorService = new DeleteCoordinatorService({
   cache: cacheService,
   liferay: liferayService,
   batchPolling: batchPollingService,
   logger,
+  batchCallbackService,
 });
 ctx.deleteCoordinator = deleteCoordinatorService;
+ctx.deleteCoordinatorService = deleteCoordinatorService;
+
+batchCallbackService.setDeleteCoordinatorService(deleteCoordinatorService);
 
 const queueService = new QueueService({
   logger,
@@ -134,6 +142,7 @@ registerDataGenerationWorkers({
 module.exports = {
   accountGenerator,
   aiService,
+  batchCallbackService,
   batchPollingService,
   batchProcessorService,
   cacheService,

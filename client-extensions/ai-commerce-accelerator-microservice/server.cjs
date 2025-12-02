@@ -108,7 +108,8 @@ require('./routes/health.cjs')(app, { ...routeCtx, healthService });
 require('./routes/queue.cjs')(app, routeCtx);
 require('./routes/delete.cjs')(app, {
   ...routeCtx,
-  deleteCoordinatorService
+  deleteCoordinatorService,
+  configService,
 });
 
 const generateCtx = {
@@ -116,6 +117,7 @@ const generateCtx = {
   productGenerator,
   accountGenerator,
   orderGenerator,
+  configService,
   logger,
   getWs,
 };

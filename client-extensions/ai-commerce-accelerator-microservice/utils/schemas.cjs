@@ -4,6 +4,11 @@ const connectionSchema = {
   clientSecret: { type: 'string', required: false, minLength: 1 },
 };
 
+const channelConnectionSchema = {
+  ...connectionSchema,
+  channelId: { type: 'number', required: true, integer: true },
+};
+
 const aiModelSchema = {
   aiModel: {
     type: 'string',
@@ -67,6 +72,7 @@ const generateAccountsSchema = {
 
 module.exports = {
   connectionSchema,
+  channelConnectionSchema,
   aiModelSchema,
   modeSchema,
   commerceSchema,
@@ -74,3 +80,4 @@ module.exports = {
   generateOrdersSchema,
   generateAccountsSchema,
 };
+

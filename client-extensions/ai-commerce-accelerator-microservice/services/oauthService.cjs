@@ -1,11 +1,11 @@
 const { lxcConfig } = require('@rotty3000/config-node');
 const axios = require('axios');
 const {
-  createExternalReferenceCode,
+  createERC,
   normalizeNumber,
   delay,
 } = require('../utils/misc.cjs');
-const { APP_ERCS, ENV } = require('../utils/constants.cjs');
+const { APP_ERCS, ENV, ERC_PREFIX } = require('../utils/constants.cjs');
 
 const serverOauthApp = lxcConfig.oauthApplication(
   APP_ERCS.OAUTH_SERVER_EXTERNAL_REFERENCE_CODE
@@ -217,7 +217,7 @@ class OAuthService {
 
   _handleException(error, liferayUrl = null, clientId = null) {
     const { logger } = this.ctx;
-    const errorRef = createExternalReferenceCode();
+    const errorRef = createERC(ERC_PREFIX.ERROR);
     logger?.error?.(`OAuth Error [${errorRef}]:`, {
       status: error?.response?.status,
       statusText: error?.response?.statusText,
@@ -256,7 +256,7 @@ class OAuthService {
     const clientSecret = serverOauthApp.clientSecret();
 
     if (!this.liferayUrl || !clientId || !clientSecret) {
-      const errorRef = createExternalReferenceCode();
+      const errorRef = createERC(ERC_PREFIX.ERROR);
       logger?.error?.(
         `OAuth Error [${errorRef}]: Unable to obtain LXC configuration`,
         {
@@ -286,7 +286,7 @@ class OAuthService {
   async getAccessTokenWithCredentials(liferayUrl, clientId, clientSecret) {
     const { logger } = this.ctx;
     if (!liferayUrl || !clientId || !clientSecret) {
-      const errorRef = createExternalReferenceCode();
+      const errorRef = createERC(ERC_PREFIX.ERROR);
       logger?.error?.(
         `OAuth Error [${errorRef}]: Missing required parameters`,
         {
@@ -344,7 +344,7 @@ class OAuthService {
       );
       return response.data;
     } catch (error) {
-      const errorRef = createExternalReferenceCode();
+      const errorRef = createERC(ERC_PREFIX.ERROR);
       logger?.error?.(
         `OAuth code exchange failed [${errorRef}]:`,
         error?.response?.data || error?.message

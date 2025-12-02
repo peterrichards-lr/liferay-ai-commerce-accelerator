@@ -1,4 +1,7 @@
-const { connectionSchema } = require('../utils/schemas.cjs');
+const {
+  connectionSchema,
+  channelConnectionSchema,
+} = require('../utils/schemas.cjs');
 const {
   buildConfigAndOptions,
   sanitizedObject,
@@ -13,7 +16,7 @@ function handleError(res, logger, req, config, operation, error, extra = {}) {
   const errorRef = resolveErrorReference(error) || createERC(ERC_PREFIX.ERROR);
 
   const errorMessage =
-    (error && error.message) ||
+    (error?.message) ||
     (typeof error === 'string' ? error : null) ||
     'An unexpected error occurred. Please try again.';
 
@@ -42,18 +45,41 @@ function handleError(res, logger, req, config, operation, error, extra = {}) {
   });
 }
 
-module.exports = (app, { deleteCoordinatorService, logger }) => {
+function createLoadAppConfigMiddleware(configService, logger) {
+  return async function loadAppConfigMiddleware(req, res, next) {
+    const { config } = req;
+
+    try {
+      await Promise.all([
+        configService.getCacheConfig(config),
+        configService.getBatchPollingConfig(config),
+        configService.getQueueConfig(config),
+        configService.getAIConfig(config),
+        configService.getAIPromptsConfig(config),
+        configService.getOAuthConfig(config),
+        configService.getObjectStorageConfig(config),
+        configService.getWSConfig(config),
+      ]);
+      next();
+    } catch (error) {
+      return handleError(res, logger, req, config, 'load-app-config', error);
+    }
+  };
+}
+
+module.exports = (app, { deleteCoordinatorService, logger, configService }) => {
+  const loadAppConfigMiddleware = createLoadAppConfigMiddleware(configService, logger);
+
   app.post(
     '/api/delete-commerce-data',
     inputValidationMiddleware(connectionSchema),
     async (req, res) => {
       const { config, options } = buildConfigAndOptions(req);
+      // Extract useV2 from the request body for API versioning
+      req.config = config; // Attach config to request for middleware
 
       try {
-        const summary = await deleteCoordinatorService.runDeleteAndMonitor(
-          config,
-          options
-        );
+        const summary = await deleteCoordinatorService.runDeleteAndMonitor(config, options);
 
         res.status(200).json({
           success: true,
@@ -69,6 +95,132 @@ module.exports = (app, { deleteCoordinatorService, logger }) => {
           req,
           config,
           'delete-commerce-data',
+          error,
+          {
+            sanitizeConfig: sanitizedObject(config),
+            sanitizeOptions: sanitizedObject(options),
+          }
+        );
+      }
+    }
+  );
+
+  app.post(
+    '/api/v2/delete-commerce-data',
+    inputValidationMiddleware(connectionSchema),
+    (req, res, next) => {
+      req.config = buildConfigAndOptions(req).config;
+      next();
+    },
+    loadAppConfigMiddleware,
+    async (req, res) => {
+      const { config, options } = buildConfigAndOptions(req);
+
+      try {
+        const summary = await deleteCoordinatorService.runDeleteAndMonitorV2(config, options);
+
+        res.status(200).json({
+          success: true,
+          operation: 'delete-commerce-data-v2',
+          correlationId: config.correlationId,
+          summary,
+          timestamp: new Date().toISOString(),
+        });
+      } catch (error) {
+        return handleError(
+          res,
+          logger,
+          req,
+          config,
+          'delete-commerce-data-v2',
+          error,
+          {
+            sanitizeConfig: sanitizedObject(config),
+            sanitizeOptions: sanitizedObject(options),
+          }
+        );
+      }
+    }
+  );
+
+  app.post(
+    '/api/v2/delete-channel-commerce-data',
+    inputValidationMiddleware(channelConnectionSchema),
+    (req, res, next) => {
+      req.config = buildConfigAndOptions(req).config;
+      next();
+    },
+    loadAppConfigMiddleware,
+    async (req, res) => {
+      const { config, options } = buildConfigAndOptions(req);
+      const { channelId, catalogId } = req.body;
+
+      try {
+        const summary = await deleteCoordinatorService.runDeleteSelectedAndMonitorV2(
+          config,
+          options,
+          { channelId, catalogId }
+        );
+
+        res.status(200).json({
+          success: true,
+          operation: 'delete-channel-commerce-data-v2',
+          correlationId: config.correlationId,
+          summary,
+          timestamp: new Date().toISOString(),
+        });
+      } catch (error) {
+        return handleError(
+          res,
+          logger,
+          req,
+          config,
+          'delete-channel-commerce-data-v2',
+          error,
+          {
+            sanitizeConfig: sanitizedObject(config),
+            sanitizeOptions: sanitizedObject(options),
+          }
+        );
+      }
+    }
+  );
+
+  app.post(
+    '/api/delete-channel-commerce-data',
+    inputValidationMiddleware(channelConnectionSchema),
+    (req, res, next) => {
+      req.config = buildConfigAndOptions(req).config;
+      next();
+    },
+    loadAppConfigMiddleware,
+    async (req, res) => {
+      const { config, options } = buildConfigAndOptions(req);
+      // Extract both channelId and catalogId from the request body
+      const { channelId, catalogId } = req.body;
+
+      try {
+        // Call the renamed runDeleteSelectedAndMonitor and pass both channelId and catalogId
+        const summary = await deleteCoordinatorService.runDeleteSelectedAndMonitor(
+            config,
+            options,
+            { channelId, catalogId }
+          );
+
+        res.status(200).json({
+          success: true,
+          operation: 'delete-channel-commerce-data',
+          correlationId: config.correlationId,
+          summary,
+          timestamp: new Date().toISOString(),
+        });
+      } catch (error) {
+        return handleError(
+          res,
+          logger,
+          req,
+          config,
+          'delete-channel-commerce-data',
           error,
           {
             sanitizeConfig: sanitizedObject(config),

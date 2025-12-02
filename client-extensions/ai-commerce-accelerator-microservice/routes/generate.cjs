@@ -57,6 +57,7 @@ module.exports = (
     productGenerator,
     accountGenerator,
     orderGenerator,
+    configService,
     logger,
     getWs,
   }
@@ -72,6 +73,17 @@ module.exports = (
           correlationId: config.correlationId,
           operation: 'generate-accounts',
         });
+
+        await Promise.all([
+          configService.getCacheConfig(config),
+          configService.getBatchPollingConfig(config),
+          configService.getQueueConfig(config),
+          configService.getAIConfig(config),
+          configService.getAIPromptsConfig(config),
+          configService.getOAuthConfig(config),
+          configService.getObjectStorageConfig(config),
+          configService.getWSConfig(config),
+        ]);
 
         if (config.demoMode) {
           try {
@@ -217,6 +229,17 @@ module.exports = (
       const { config, options } = buildConfigAndOptions(req);
 
       try {
+        await Promise.all([
+          configService.getCacheConfig(config),
+          configService.getBatchPollingConfig(config),
+          configService.getQueueConfig(config),
+          configService.getAIConfig(config),
+          configService.getAIPromptsConfig(config),
+          configService.getOAuthConfig(config),
+          configService.getObjectStorageConfig(config),
+          configService.getWSConfig(config),
+        ]);
+
         if (options.demoMode) {
           try {
             logger.trace(
@@ -338,6 +361,17 @@ module.exports = (
     const { config, options } = buildConfigAndOptions(req);
 
     try {
+      await Promise.all([
+        configService.getCacheConfig(config),
+        configService.getBatchPollingConfig(config),
+        configService.getQueueConfig(config),
+        configService.getAIConfig(config),
+        configService.getAIPromptsConfig(config),
+        configService.getOAuthConfig(config),
+        configService.getObjectStorageConfig(config),
+        configService.getWSConfig(config),
+      ]);
+
       const count = await liferayService.getProductCount(config);
 
       return res.json({
@@ -380,6 +414,17 @@ module.exports = (
     const { config, options } = buildConfigAndOptions(req);
 
     try {
+      await Promise.all([
+        configService.getCacheConfig(config),
+        configService.getBatchPollingConfig(config),
+        configService.getQueueConfig(config),
+        configService.getAIConfig(config),
+        configService.getAIPromptsConfig(config),
+        configService.getOAuthConfig(config),
+        configService.getObjectStorageConfig(config),
+        configService.getWSConfig(config),
+      ]);
+
       const count = await liferayService.getAccountCount(config);
 
       return res.json({
@@ -425,6 +470,17 @@ module.exports = (
       const { config, options } = buildConfigAndOptions(req);
 
       try {
+        await Promise.all([
+          configService.getCacheConfig(config),
+          configService.getBatchPollingConfig(config),
+          configService.getQueueConfig(config),
+          configService.getAIConfig(config),
+          configService.getAIPromptsConfig(config),
+          configService.getOAuthConfig(config),
+          configService.getObjectStorageConfig(config),
+          configService.getWSConfig(config),
+        ]);
+
         if (options.demoMode) {
           try {
             logger.trace(

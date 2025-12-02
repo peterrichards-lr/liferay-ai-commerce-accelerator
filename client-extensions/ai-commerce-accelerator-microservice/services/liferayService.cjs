@@ -14,11 +14,7 @@ const {
   buildPermissionsItems,
 } = require('../utils/liferayPermissions.cjs');
 const { DEBUG, ERC_PREFIX, OP_MAP } = require('../utils/constants.cjs');
-const {
-  delay,
-  createExternalReferenceCode,
-  createERC,
-} = require('../utils/misc.cjs');
+const { delay, createERC } = require('../utils/misc.cjs');
 const { sanitizedERC } = require('../utils/normalize.cjs');
 const { getBatchCacheTTLms } = require('../utils/ttl.cjs');
 
@@ -432,15 +428,6 @@ class LiferayService {
 
       await this._get(config, PATH.ME, 'test-connection');
 
-      await configService.getCacheConfig(config);
-      await configService.getBatchPollingConfig(config);
-      await configService.getQueueConfig(config);
-      await configService.getAIConfig(config);
-      await configService.getAIPromptsConfig(config);
-      await configService.getOAuthConfig(config);
-      await configService.getObjectStorageConfig(config);
-      await configService.getWSConfig(config)
-
       return {
         status: 'connected',
         message: 'Successfully connected to Liferay Commerce using OAuth 2',
@@ -504,7 +491,7 @@ class LiferayService {
       }
 
       const errorReference =
-        structuredError.errorReference || createExternalReferenceCode();
+        structuredError.errorReference || createERC(ERC_PREFIX.ERROR);
       logger.error(`Error Reference: ${errorReference}`);
       structuredError.errorReference = errorReference;
 
@@ -551,6 +538,89 @@ class LiferayService {
       (config.catalogId ? `?filter=catalogId eq ${config.catalogId}` : '');
     const data = await this._get(config, url, 'get-products');
     return this._asCount(data);
+  }
+
+  async getCommerceOrders(
+    config,
+    { channelId, pageSize = 200, fields = 'id' } = {}
+  ) {
+    const filters = [];
+    if (channelId) filters.push(`channelId eq ${channelId}`);
+    const filter = filters.join(' and ');
+
+    return this._get(config, PATH.ORDERS, 'orders:list', 'List orders', {
+      params: { page: 1, pageSize, fields, ...(filter ? { filter } : {}) },
+    });
+  }
+
+  async getCommerceProducts(
+    config,
+    { catalogId, pageSize = 200, fields = 'productId' } = {}
+  ) {
+    const filters = [];
+    if (catalogId) filters.push(`catalogId eq ${catalogId}`);
+    const filter = filters.join(' and ');
+
+    return this._get(config, PATH.PRODUCTS, 'products:list', 'List products', {
+      params: { page: 1, pageSize, fields, ...(filter ? { filter } : {}) },
+    });
+  }
+
+  async getCommerceAccounts(
+    config,
+    { channelId, pageSize = 200, fields = 'id' } = {}
+  ) {
+    const filters = [];
+
+    if (channelId) {
+      const orderAccountIds = await this._collectPagedIds(config, {
+        op: 'orders:list',
+        friendly: 'List account IDs from orders for channel',
+        listUrl: PATH.ORDERS,
+        pageSize,
+        filter: `channelId eq ${channelId}`,
+        fields: 'accountId',
+        idKey: 'accountId',
+      });
+
+      const uniqueIds = [...new Set(orderAccountIds)].filter(Boolean);
+
+      if (!uniqueIds.length) {
+        return {
+          items: [],
+          page: 1,
+          pageSize: 0,
+          lastPage: 1,
+          totalCount: 0,
+        };
+      }
+
+      filters.push(`id in (${uniqueIds.join(',')})`);
+    }
+
+    const filter = filters.join(' and ');
+
+    return this._get(config, PATH.ACCOUNTS, 'accounts:list', 'List accounts', {
+      params: { page: 1, pageSize, fields, ...(filter ? { filter } : {}) },
+    });
+  }
+
+  async getPrimaryAccountId(config) {
+    try {
+      const me = await this._get(config, PATH.ME, 'get-primary-account-id');
+      if (me && typeof me.defaultAccountId === 'number') {
+        return me.defaultAccountId;
+      }
+      if (Array.isArray(me?.accountBriefs) && me.accountBriefs.length > 0) {
+        const first = me.accountBriefs[0];
+        if (first && typeof first.id === 'number') {
+          return first.id;
+        }
+      }
+      return null;
+    } catch {
+      return null;
+    }
   }
 
   async getAccounts(config) {
@@ -958,6 +1028,15 @@ class LiferayService {
     return data;
   }
 
+  async getOptions(
+    config,
+    { search, pageSize = 200, fields = 'id,key,externalReferenceCode' } = {}
+  ) {
+    return this._get(config, PATH.OPTIONS, 'options:list', 'List options', {
+      params: { page: 1, pageSize, fields, ...(search ? { search } : {}) },
+    });
+  }
+
   async createOptionWithReuse(config, optionData) {
     try {
       return await this.createOption(config, optionData);
@@ -1192,6 +1271,26 @@ class LiferayService {
     } catch (error) {
       throw new Error(`Failed to get option category by key: ${error.message}`);
     }
+  }
+
+  async _listOptionCategories(
+    config,
+    { search, pageSize = 200, fields = 'id,key,externalReferenceCode' } = {}
+  ) {
+    return this._get(
+      config,
+      PATH.OPTION_CATEGORIES,
+      'optionCategories:list',
+      'List option categories',
+      {
+        params: {
+          page: 1,
+          pageSize,
+          fields,
+          ...(search ? { search } : {}),
+        },
+      }
+    );
   }
 
   async updateOptionCategoryById(config, id, payload) {
@@ -1482,7 +1581,7 @@ class LiferayService {
       );
       return data;
     } catch (error) {
-      const errorReference = createExternalReferenceCode();
+      const errorReference = createERC(ERC_PREFIX.ERROR);
       logger.error(`Error Reference: ${errorReference}`);
       logger.error('Failed to get configuration entry', {
         operation: 'get-config',
@@ -2003,32 +2102,54 @@ class LiferayService {
     return this.patchDocumentPermissions(config, documentId, builderOrMutator);
   }
 
-  async deleteCommerceOrders(config, opts = {}) {
-    const {
+  async deleteCommerceOrders(
+    config,
+    {
       pageSize = 200,
       filter,
-      callbackUrl,
+      callbackUrl: optionsCallbackUrl,
+      callbackBatchERC,
       dryRun = false,
       sessionId,
-    } = opts;
+      channelId,
+    } = {},
+    callbackUrl
+  ) {
+    const filters = [];
+    if (filter) filters.push(filter);
+    if (channelId) filters.push(`channelId eq ${channelId}`);
+    const finalFilter = filters.join(' and ');
+
     const orderIds = await this._collectPagedIds(config, {
       listUrl: PATH.ORDERS,
       pageSize,
-      filter,
+      filter: finalFilter,
       fields: 'id',
       op: 'orders:list',
       friendly: 'List orders',
       sort: 'orderId:asc',
     });
-    const batchERC = createERC(ERC_PREFIX.ORDER_BATCH);
-    const taggedCallback = this._buildCallbackURL(callbackUrl, {
-      entity: 'orders',
-      op: 'delete',
-      batchERC,
-      sessionId,
-    });
+
+    const effectiveCallbackUrl = optionsCallbackUrl || callbackUrl || null;
+    const batchERC =
+      callbackBatchERC && String(callbackBatchERC).trim()
+        ? String(callbackBatchERC)
+        : createERC(ERC_PREFIX.ORDER_BATCH);
+
+    const taggedCallback = effectiveCallbackUrl
+      ? this._buildCallbackURL(effectiveCallbackUrl, {
+          entity: 'orders',
+          op: 'delete',
+          batchERC,
+          sessionId,
+        })
+      : null;
+
     const batchUrl =
-      PATH.ORDERS_BATCH?.(taggedCallback) || `${PATH.ORDERS}/batch`;
+      taggedCallback && PATH.ORDERS_BATCH
+        ? PATH.ORDERS_BATCH(taggedCallback)
+        : PATH.ORDERS_BATCH?.(taggedCallback) || `${PATH.ORDERS}/batch`;
+
     const res = await this._deleteByBatch(config, {
       batchUrl,
       ids: orderIds,
@@ -2041,25 +2162,47 @@ class LiferayService {
     return res;
   }
 
+  async getChannel(config, channelId) {
+    const data = await this._get(
+      config,
+      PATH.CHANNEL(channelId),
+      'get-channel'
+    );
+    return data;
+  }
+
   async deleteCommerceProducts(
     config,
     {
       pageSize = 200,
       productFilter,
-      callbackUrl,
+      callbackUrl: optionsCallbackUrl,
+      callbackBatchERC,
       dryRun = false,
       sessionId,
-    } = {}
+      channelId,
+    } = {},
+    callbackUrl
   ) {
-    const { catalogId } = config || {};
+    let { catalogId } = config || {};
+
+    if (channelId) {
+      const channel = await this.getChannel(config, channelId);
+      if (channel && channel.id) {
+        catalogId = channel.catalogId;
+      }
+    }
+
     if (catalogId === undefined || catalogId === null) {
       throw new Error('deleteCommerceProducts: config.catalogId is required');
     }
+
     const catalogClause =
       typeof catalogId === 'number'
         ? `catalogId eq ${catalogId}`
         : `catalogId eq '${String(catalogId).replace(/'/g, "''")}'`;
     const filter = this._combineODataFilters(catalogClause, productFilter);
+
     const productIds = await this._collectPagedIds(config, {
       listUrl: PATH.PRODUCTS,
       pageSize,
@@ -2069,15 +2212,27 @@ class LiferayService {
       op: 'products:list',
       friendly: `List products in catalog ${catalogId}`,
     });
-    const batchERC = createERC(ERC_PREFIX.PRODUCT_BATCH);
-    const taggedCallback = this._buildCallbackURL(callbackUrl, {
-      entity: 'products',
-      op: 'delete',
-      batchERC,
-      sessionId,
-    });
+
+    const effectiveCallbackUrl = optionsCallbackUrl || callbackUrl || null;
+    const batchERC =
+      callbackBatchERC && String(callbackBatchERC).trim()
+        ? String(callbackBatchERC)
+        : createERC(ERC_PREFIX.PRODUCT_BATCH);
+
+    const taggedCallback = effectiveCallbackUrl
+      ? this._buildCallbackURL(effectiveCallbackUrl, {
+          entity: 'products',
+          op: 'delete',
+          batchERC,
+          sessionId,
+        })
+      : null;
+
     const batchUrl =
-      PATH.PRODUCTS_BATCH?.(taggedCallback) || `${PATH.PRODUCTS}/batch`;
+      taggedCallback && PATH.PRODUCTS_BATCH
+        ? PATH.PRODUCTS_BATCH(taggedCallback)
+        : PATH.PRODUCTS_BATCH?.(taggedCallback) || `${PATH.PRODUCTS}/batch`;
+
     const res = await this._deleteByBatch(config, {
       batchUrl,
       ids: productIds,
@@ -2091,31 +2246,118 @@ class LiferayService {
     return res;
   }
 
-  async deleteCommerceAccounts(config, opts = {}) {
+  async deleteAllCommerceProducts(config, options = {}, callbackUrl) {
+    const {
+      pageSize = 200,
+      productFilter,
+      callbackUrl: optionsCallbackUrl,
+      callbackBatchERC,
+      dryRun = false,
+      sessionId,
+    } = options || {};
+
+    const filter = productFilter;
+    const productIds = await this._collectPagedIds(config, {
+      listUrl: PATH.PRODUCTS,
+      pageSize,
+      filter,
+      fields: 'productId',
+      idKey: 'productId',
+      op: 'products:list',
+      friendly: 'List products',
+    });
+
+    const effectiveCallbackUrl = optionsCallbackUrl || callbackUrl || null;
+    const batchERC =
+      callbackBatchERC && String(callbackBatchERC).trim()
+        ? String(callbackBatchERC)
+        : createERC(ERC_PREFIX.PRODUCT_BATCH);
+
+    const taggedCallback = effectiveCallbackUrl
+      ? this._buildCallbackURL(effectiveCallbackUrl, {
+          entity: 'products',
+          op: 'delete',
+          batchERC,
+          sessionId,
+        })
+      : null;
+
+    const batchUrl =
+      taggedCallback && PATH.PRODUCTS_BATCH
+        ? PATH.PRODUCTS_BATCH(taggedCallback)
+        : PATH.PRODUCTS_BATCH?.(taggedCallback) || `${PATH.PRODUCTS}/batch`;
+
+    const res = await this._deleteByBatch(config, {
+      batchUrl,
+      ids: productIds,
+      batchSize: config.batchSize,
+      dryRun,
+      idProp: 'productId',
+      op: 'products:batch-delete',
+      friendly: 'Delete products (batch)',
+    });
+    res.batchRefs = (res.batchRefs || []).map((r) => ({
+      ...r,
+      erc: batchERC,
+    }));
+    return res;
+  }
+
+  async deleteCommerceAccounts(config, opts = {}, callbackUrl) {
     const {
       pageSize = 200,
       filter,
-      callbackUrl,
+      callbackUrl: optionsCallbackUrl,
+      callbackBatchERC,
       dryRun = false,
       sessionId,
-    } = opts;
-    const accountIds = await this._collectPagedIds(config, {
-      listUrl: PATH.ACCOUNTS,
-      pageSize,
-      filter,
-      fields: 'id',
-      op: 'accounts:list',
-      friendly: 'List accounts',
-    });
-    const batchERC = createERC(ERC_PREFIX.ACCOUNT_BATCH);
-    const taggedCallback = this._buildCallbackURL(callbackUrl, {
-      entity: 'accounts',
-      op: 'delete',
-      batchERC,
-      sessionId,
-    });
+      channelId,
+    } = opts || {};
+
+    let accountIds;
+
+    if (channelId) {
+      const orderAccountIds = await this._collectPagedIds(config, {
+        listUrl: PATH.ORDERS,
+        pageSize,
+        filter: `channelId eq ${channelId}`,
+        fields: 'accountId',
+        idKey: 'accountId',
+        op: 'orders:list',
+        friendly: 'List orders to get accounts for channel',
+      });
+      accountIds = [...new Set(orderAccountIds)].filter(Boolean);
+    } else {
+      accountIds = await this._collectPagedIds(config, {
+        listUrl: PATH.ACCOUNTS,
+        pageSize,
+        filter,
+        fields: 'id',
+        op: 'accounts:list',
+        friendly: 'List accounts',
+      });
+    }
+
+    const effectiveCallbackUrl = optionsCallbackUrl || callbackUrl || null;
+    const batchERC =
+      callbackBatchERC && String(callbackBatchERC).trim()
+        ? String(callbackBatchERC)
+        : createERC(ERC_PREFIX.ACCOUNT_BATCH);
+
+    const taggedCallback = effectiveCallbackUrl
+      ? this._buildCallbackURL(effectiveCallbackUrl, {
+          entity: 'accounts',
+          op: 'delete',
+          batchERC,
+          sessionId,
+        })
+      : null;
+
     const batchUrl =
-      PATH.ACCOUNTS_BATCH?.(taggedCallback) || `${PATH.ACCOUNTS}/batch`;
+      taggedCallback && PATH.ACCOUNTS_BATCH
+        ? PATH.ACCOUNTS_BATCH(taggedCallback)
+        : PATH.ACCOUNTS_BATCH?.(taggedCallback) || `${PATH.ACCOUNTS}/batch`;
+
     const res = await this._deleteByBatch(config, {
       batchUrl,
       ids: accountIds,
@@ -2127,7 +2369,6 @@ class LiferayService {
     res.batchRefs = (res.batchRefs || []).map((r) => ({ ...r, erc: batchERC }));
     return res;
   }
-
   _combineODataFilters(a, b) {
     if (!a) return b || '';
     if (!b) return a || '';
@@ -2169,6 +2410,12 @@ class LiferayService {
 
       const first = await this._get(config, listUrl, op, friendly, {
         params: baseParams,
+      });
+
+      logger.debug('pager:collect-paged-ids', {
+        listUrl,
+        params: baseParams,
+        firstResponse: first,
       });
 
       const serverPage = typeof first?.page === 'number' ? first.page : 1;
@@ -2644,7 +2891,15 @@ class LiferayService {
 
   async deleteOptionsBatch(
     config,
-    { pageSize = 200, filter, callbackUrl, dryRun = false, sessionId } = {}
+    {
+      pageSize = 200,
+      filter,
+      callbackUrl: optionsCallbackUrl,
+      callbackBatchERC,
+      dryRun = false,
+      sessionId,
+    } = {},
+    callbackUrl
   ) {
     const { logger } = this.ctx;
     const optionIds = await this._collectPagedIds(config, {
@@ -2655,21 +2910,34 @@ class LiferayService {
       op: 'options:list',
       friendly: 'List options',
     });
-    const batchERC = createERC(ERC_PREFIX.OPTION_BATCH);
-    const taggedCallback = this._buildCallbackURL(callbackUrl, {
-      entity: 'options',
-      op: 'delete',
-      batchERC,
-      sessionId,
-    });
+
+    const effectiveCallbackUrl = optionsCallbackUrl || callbackUrl || null;
+    const batchERC =
+      callbackBatchERC && String(callbackBatchERC).trim()
+        ? String(callbackBatchERC)
+        : createERC(ERC_PREFIX.OPTION_BATCH);
+
+    const taggedCallback = effectiveCallbackUrl
+      ? this._buildCallbackURL(effectiveCallbackUrl, {
+          entity: 'options',
+          op: 'delete',
+          batchERC,
+          sessionId,
+        })
+      : null;
+
     const batchUrl =
-      PATH.OPTIONS_BATCH?.(taggedCallback) || `${PATH.OPTIONS}/batch`;
+      taggedCallback && PATH.OPTIONS_BATCH
+        ? PATH.OPTIONS_BATCH(taggedCallback)
+        : PATH.OPTIONS_BATCH?.(taggedCallback) || `${PATH.OPTIONS}/batch`;
+
     logger.info('Submitting batch delete for options', {
       count: optionIds.length,
       dryRun,
       callbackUrl: taggedCallback || 'none',
       externalReferenceCode: batchERC,
     });
+
     const res = await this._deleteByBatch(config, {
       batchUrl,
       ids: optionIds,
@@ -2772,56 +3040,78 @@ class LiferayService {
       filter,
       search,
       searchPrefixes,
-      callbackUrl,
+      callbackUrl: optionsCallbackUrl,
+      callbackBatchERC,
       dryRun = false,
       sessionId,
-    } = {}
+    } = {},
+    callbackUrl
   ) {
     const { logger } = this.ctx;
+
     const idSet = new Set();
 
-    const collect = async (args) => {
+    if (filter || search) {
+      const baseFilter = filter || '';
       const ids = await this._collectPagedIds(config, {
         listUrl: PATH.SPECIFICATIONS,
         pageSize,
-        filter: args.filter,
-        search: args.search,
+        filter: baseFilter,
+        search,
         fields: 'id',
         op: 'specifications:list',
         friendly: 'List specifications',
       });
       ids.forEach((id) => idSet.add(id));
-    };
-
-    if (Array.isArray(searchPrefixes) && searchPrefixes.length) {
-      for (const s of searchPrefixes) await collect({ search: s });
-    } else if (search) {
-      await collect({ search });
-    } else {
-      await collect({ filter });
     }
 
-    const specIds = Array.from(idSet);
+    if (Array.isArray(searchPrefixes) && searchPrefixes.length) {
+      for (const prefix of searchPrefixes) {
+        const ids = await this._collectPagedIds(config, {
+          listUrl: PATH.SPECIFICATIONS,
+          pageSize,
+          search: prefix,
+          fields: 'id',
+          op: 'specifications:list',
+          friendly: `List specifications with prefix ${prefix}`,
+        });
+        ids.forEach((id) => idSet.add(id));
+      }
+    }
 
-    const batchERC = createERC(ERC_PREFIX.SPECIFICATION_BATCH);
-    const taggedCallback = this._buildCallbackURL(callbackUrl, {
-      entity: 'specifications',
-      op: 'delete',
-      batchERC,
-      sessionId,
-    });
+    const ids = Array.from(idSet);
+
+    const effectiveCallbackUrl = optionsCallbackUrl || callbackUrl || null;
+    const batchERC =
+      callbackBatchERC && String(callbackBatchERC).trim()
+        ? String(callbackBatchERC)
+        : createERC(ERC_PREFIX.SPECIFICATION_BATCH);
+
+    const taggedCallback = effectiveCallbackUrl
+      ? this._buildCallbackURL(effectiveCallbackUrl, {
+          entity: 'specifications',
+          op: 'delete',
+          batchERC,
+          sessionId,
+        })
+      : null;
+
     const batchUrl =
-      PATH.SPECIFICATIONS_BATCH?.(taggedCallback) ||
-      `${PATH.SPECIFICATIONS}/batch`;
+      taggedCallback && PATH.SPECIFICATIONS_BATCH
+        ? PATH.SPECIFICATIONS_BATCH(taggedCallback)
+        : PATH.SPECIFICATIONS_BATCH?.(taggedCallback) ||
+          `${PATH.SPECIFICATIONS}/batch`;
+
     logger.info('Submitting batch delete for specifications', {
-      count: specIds.length,
+      count: ids.length,
       dryRun,
       callbackUrl: taggedCallback || 'none',
       externalReferenceCode: batchERC,
     });
+
     const res = await this._deleteByBatch(config, {
       batchUrl,
-      ids: specIds,
+      ids,
       batchSize: config.batchSize,
       dryRun,
       op: 'specifications:batch-delete',
@@ -2839,91 +3129,70 @@ class LiferayService {
       search,
       searchPrefixes,
       all = false,
-      callbackUrl,
+      callbackUrl: optionsCallbackUrl,
+      callbackBatchERC,
       dryRun = false,
       sessionId,
-    } = {}
+    } = {},
+    callbackUrl
   ) {
-    const { logger } = this.ctx || { logger: console };
+    const { logger } = this.ctx;
+
     const idSet = new Set();
 
-    let _collectedTotal = 0;
-    const _logCollect = (label, count) => {
-      (this.ctx?.logger || logger)?.trace?.('optionCategories:collect', {
-        label,
-        count,
-        collectedTotal: _collectedTotal,
-      });
-    };
-
-    const collect = async ({ search, filter, all } = {}) => {
-      const res = await this._collectPagedIds(config, {
+    if (all || filter || search) {
+      const baseFilter = all ? undefined : filter;
+      const ids = await this._collectPagedIds(config, {
         listUrl: PATH.OPTION_CATEGORIES,
         pageSize,
+        filter: baseFilter,
+        search,
         fields: 'id',
-        search: all ? undefined : search,
-        filter: all ? undefined : filter,
         op: 'optionCategories:list',
         friendly: 'List option categories',
       });
-      const ids = Array.isArray(res) ? res : res?.ids || [];
-      _collectedTotal += ids.length;
-      _logCollect(
-        search
-          ? `search:${search}`
-          : filter
-          ? `filter:${filter}`
-          : all
-          ? 'all'
-          : 'unknown',
-        ids.length
-      );
-      for (const id of ids) idSet.add(id);
-      return ids.length;
-    };
+      ids.forEach((id) => idSet.add(id));
+    }
 
-    let collected = 0;
-    if (all) {
-      collected += await collect({ all: true });
-    } else if (Array.isArray(searchPrefixes) && searchPrefixes.length) {
+    if (Array.isArray(searchPrefixes) && searchPrefixes.length) {
       for (const prefix of searchPrefixes) {
-        collected += await collect({ search: prefix });
+        const ids = await this._collectPagedIds(config, {
+          listUrl: PATH.OPTION_CATEGORIES,
+          pageSize,
+          search: prefix,
+          fields: 'id',
+          op: 'optionCategories:list',
+          friendly: `List option categories with prefix ${prefix}`,
+        });
+        ids.forEach((id) => idSet.add(id));
       }
-    } else if (search) {
-      collected += await collect({ search });
-    } else {
-      collected += await collect({ filter });
     }
 
     const ids = Array.from(idSet);
-    (this.ctx?.logger || logger)?.info?.(
-      'optionCategories:collected-for-delete',
-      {
-        uniqueIds: ids.length,
-        mode: all ? 'all' : search || searchPrefixes ? 'search' : 'filter',
-      }
-    );
 
-    if (ids.length === 0) {
-      logger?.info?.('No option category IDs found for batch delete');
-      return { count: 0, batchRefs: [] };
-    }
+    const effectiveCallbackUrl = optionsCallbackUrl || callbackUrl || null;
+    const batchERC =
+      callbackBatchERC && String(callbackBatchERC).trim()
+        ? String(callbackBatchERC)
+        : createERC(ERC_PREFIX.OPTION_CATEGORY_BATCH || 'OCATBATCH');
 
-    const batchERC = createERC(ERC_PREFIX.OPTION_CATEGORY_BATCH || 'OCATBATCH');
-    const taggedCallback = this._buildCallbackURL(callbackUrl, {
-      entity: 'optionCategories',
-      op: 'delete',
-      batchERC,
-      sessionId,
-    });
+    const taggedCallback = effectiveCallbackUrl
+      ? this._buildCallbackURL(effectiveCallbackUrl, {
+          entity: 'optionCategories',
+          op: 'delete',
+          batchERC,
+          sessionId,
+        })
+      : null;
+
     const batchUrl =
-      PATH.OPTION_CATEGORIES_BATCH?.(taggedCallback) ||
-      `${PATH.OPTION_CATEGORIES}/batch`;
+      taggedCallback && PATH.OPTION_CATEGORIES_BATCH
+        ? PATH.OPTION_CATEGORIES_BATCH(taggedCallback)
+        : PATH.OPTION_CATEGORIES_BATCH?.(taggedCallback) ||
+          `${PATH.OPTION_CATEGORIES}/batch`;
 
-    logger?.info?.('Submitting batch delete for option categories', {
+    logger.info('Submitting batch delete for option categories', {
       count: ids.length,
-      uniqueIds: ids.length,
-      mode: all ? 'all' : search || searchPrefixes ? 'search' : 'filter',
       dryRun,
       callbackUrl: taggedCallback || 'none',
       externalReferenceCode: batchERC,

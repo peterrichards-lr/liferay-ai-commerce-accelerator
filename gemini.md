@@ -65,3 +65,29 @@ The frontend client extension is hosted in Liferay as a custom element. The UI c
 *   `openai`
 *   `uuid`
 *   `ws`
+
+## Deletion Order for Commerce Data
+
+The microservice provides multiple endpoints for deleting commerce data:
+
+1.  `/api/v2/delete-commerce-data`: This is the recommended endpoint for deleting **ALL** commerce data. It uses a modern, callback-driven approach that is more reliable and avoids server timeouts.
+2.  `/api/delete-commerce-data`: This is a legacy endpoint that also deletes **ALL** commerce data. It uses an older, long-polling mechanism and is kept for backward compatibility.
+3.  `/api/delete-channel-commerce-data`: This operation deletes commerce data associated with a specific channel and catalog.
+    *   It requires a `channelId` to delete associated orders and accounts.
+    *   It requires a `catalogId` to delete associated products.
+
+When deleting commerce data, the following dependencies must be respected, and entities should be deleted in this order:
+
+1.  **Orders**: Must be deleted first.
+2.  **Accounts**: Can be deleted after Orders.
+3.  **Products**: Can be deleted after Orders.
+4.  **Specifications (Specification Labels)**: Can be deleted after Products.
+5.  **Options and Option Categories**: Can be deleted after Specifications.
+
+The deletion process for `/api/v2/delete-commerce-data` uses a robust, callback-driven approach to prevent server timeouts and improve reliability.
+
+*   The process is initiated by `runDeleteAndMonitorV2` in `deleteCoordinatorService.cjs`.
+*   It starts by deleting the first entity type (Orders) and provides a `/api/batch/callback` URL to Liferay.
+*   Upon completion of a batch, Liferay calls this endpoint, which then triggers the deletion of the next entity type in the sequence (Accounts, then Products, etc.).
+*   This creates a reliable chain of operations that continues in the background without requiring a long-running request from the client.
+*   The old polling-based implementation (`runDeleteAndMonitor`) is available via the legacy `/api/delete-commerce-data` endpoint.

@@ -1840,11 +1840,10 @@ class ProductGenerator {
             externalReferenceCode: specERC,
           };
           if (linkedOptionCategory) {
-            specificationPayload.optionCategoryId = linkedOptionCategory.id;
-            if (linkedOptionCategory.externalReferenceCode) {
-              specificationPayload.optionCategoryExternalReferenceCode =
-                linkedOptionCategory.externalReferenceCode;
-            }
+            specificationPayload.optionCategory = {
+              id: linkedOptionCategory.id,
+              externalReferenceCode: linkedOptionCategory.externalReferenceCode,
+            };
           }
 
           // Replaced try/catch block with conflict-aware service helper
