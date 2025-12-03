@@ -1,3 +1,4 @@
+const Ajv = require('ajv');
 const OpenAI = require('openai');
 const {
   pluralize,
@@ -6,6 +7,9 @@ const {
 } = require('../utils/promptHelpers.cjs');
 const { createERC, tryParseJSON } = require('../utils/misc.cjs');
 const { ERC_PREFIX } = require('../utils/constants.cjs');
+
+const ajv = new Ajv();
+
 class AIService {
   constructor(ctx) {
     this.ctx = ctx;
@@ -76,24 +80,36 @@ class AIService {
     return this.openai;
   }
 
-  async _chatJson(task, prompt, requestConfig, model) {
-    const { logger } = this.ctx;
+  async _chatJson(task, prompt, requestConfig, model, schemaName) {
+    const { logger, configService } = this.ctx;
     try {
       const openai = await this.getOpenAIClient(requestConfig);
       const runtime = await this.getRuntimeAIConfig(requestConfig);
 
+      const schema = schemaName
+        ? await configService.getAISchema(requestConfig, schemaName)
+        : null;
+
+      const messages = [
+        {
+          role: 'system',
+          content: `You are an expert AI generator for ${task} data. Return only valid JSON.`,
+        },
+        {
+          role: 'user',
+          content: prompt,
+        },
+      ];
+
+      if (schema) {
+        messages[0].content += `\n\nThe JSON output must conform to the following schema:\n\n${JSON.stringify(
+          schema
+        )}`;
+      }
+
       const response = await openai.chat.completions.create({
         model: model || runtime.model,
-        messages: [
-          {
-            role: 'system',
-            content: `You are an expert AI generator for ${task} data. Return only valid JSON.`,
-          },
-          {
-            role: 'user',
-            content: prompt,
-          },
-        ],
+        messages,
         response_format: { type: 'json_object' },
         temperature: runtime.temperature,
         max_tokens: runtime.maxTokens,
@@ -109,11 +125,24 @@ class AIService {
         throw err;
       }
 
+      if (schema) {
+        const validate = ajv.compile(schema);
+        const valid = validate(parsed);
+        if (!valid) {
+          const err = new Error(
+            `AI output for task "${task}" failed schema validation.`
+          );
+          err.errors = validate.errors;
+          throw err;
+        }
+      }
+
       return parsed;
     } catch (error) {
       logger?.error?.(`AIService._chatJson failed for ${task}:`, {
         message: error.message,
         stack: error.stack,
+        errors: error.errors,
       });
       throw error;
     }
@@ -199,7 +228,13 @@ class AIService {
       };
 
       const prompt = await promptService.render('product', vars);
-      const obj = await this._chatJson('product', prompt, requestConfig, model);
+      const obj = await this._chatJson(
+        'product',
+        prompt,
+        requestConfig,
+        model,
+        'product'
+      );
 
       return obj.products || [obj];
     } catch (error) {
@@ -234,7 +269,13 @@ class AIService {
       };
 
       const prompt = await promptService.render('account', vars);
-      const obj = await this._chatJson('account', prompt, requestConfig, model);
+      const obj = await this._chatJson(
+        'account',
+        prompt,
+        requestConfig,
+        model,
+        'account'
+      );
 
       return obj.accounts || [obj];
     } catch (error) {
@@ -286,7 +327,13 @@ class AIService {
       };
 
       const prompt = await promptService.render('order', vars);
-      const obj = await this._chatJson('order', prompt, requestConfig, model);
+      const obj = await this._chatJson(
+        'order',
+        prompt,
+        requestConfig,
+        model,
+        'order'
+      );
 
       return obj.orders || [obj];
     } catch (error) {

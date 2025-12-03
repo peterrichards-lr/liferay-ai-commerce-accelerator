@@ -1,11 +1,16 @@
 const { tryParseJSON, createERC } = require('../utils/misc.cjs');
 const { ERC_PREFIX } = require('../utils/constants.cjs');
+const fs = require('fs');
+const path = require('path');
 
 const AI_CONFIG_CACHE_KEY = 'AI_CONFIG_KEY';
 const AI_CONFIG_KEY = 'ai-config';
 
 const AI_PROMPTS_CONFIG_CACHE_KEY = 'AI_PROMPTS_CONFIG_KEY';
 const AI_PROMPTS_CONFIG_KEY = 'ai-prompts-config';
+
+const AI_SCHEMA_CACHE_KEY_PREFIX = 'AI_SCHEMA_';
+const AI_SCHEMA_CONFIG_KEY_PREFIX = 'ai-schema-';
 
 const BATCH_POLLING_CONFIG_CACHE_KEY = 'BATCH_POLLING_CONFIG_KEY';
 const BATCH_POLLING_CONFIG_KEY = 'batch-polling-config';
@@ -105,6 +110,44 @@ class ConfigService {
     return null;
   }
 
+  async getAISchema(requestConfig, schemaName) {
+    const cacheKey = `${AI_SCHEMA_CACHE_KEY_PREFIX}${schemaName}`;
+    const configKey = `${AI_SCHEMA_CONFIG_KEY_PREFIX}${schemaName}`;
+
+    const cached = this.getConfigCached(cacheKey);
+    if (cached) {
+      return cached;
+    }
+
+    const remoteSchema = await this.getConfig(
+      requestConfig,
+      cacheKey,
+      configKey
+    );
+
+    if (remoteSchema) {
+      return remoteSchema;
+    }
+
+    const defaultSchemaPath = path.join(
+      __dirname,
+      '../api-schemas/ai-schemas',
+      `${schemaName}.json`
+    );
+
+    try {
+      const defaultSchema = fs.readFileSync(defaultSchemaPath, 'utf8');
+      const parsedSchema = JSON.parse(defaultSchema);
+      this.cache.set(cacheKey, parsedSchema, this.getConfigTTL());
+      return parsedSchema;
+    } catch (error) {
+      this.logger.error(`Failed to read default AI schema: ${schemaName}`, {
+        error,
+      });
+      return null;
+    }
+  }
+  
   async getDefaultImage(requestConfig) {
     const logger = this.logger;
 
@@ -175,24 +218,36 @@ class ConfigService {
     return this.getConfigCached(OPENAPI_CACHE_KEY);
   }
 
-  async getCacheConfig(requestConfig) {
+  async _getConfigWithFallback(
+    requestConfig,
+    cacheKey,
+    configKey,
+    operation,
+    errorMessage
+  ) {
     const logger = this.logger;
     try {
-      const cfg = await this.getConfig(
-        requestConfig,
-        CACHE_CONFIG_CACHE_KEY,
-        CACHE_CONFIG_KEY
-      );
+      const cfg = await this.getConfig(requestConfig, cacheKey, configKey);
       return cfg || {};
     } catch (error) {
       const erc = error?.errorReference || createERC(ERC_PREFIX.ERROR);
       logger?.errorWithStack?.(error, {
-        operation: 'get-cache-config',
+        operation: operation,
         errorReference: erc,
-        message: 'Failed to get cache configuration',
+        message: errorMessage,
       });
       return {};
     }
+  }
+
+  async getCacheConfig(requestConfig) {
+    return this._getConfigWithFallback(
+      requestConfig,
+      CACHE_CONFIG_CACHE_KEY,
+      CACHE_CONFIG_KEY,
+      'get-cache-config',
+      'Failed to get cache configuration'
+    );
   }
 
   getCacheConfigCached() {
@@ -200,23 +255,13 @@ class ConfigService {
   }
 
   async getBatchPollingConfig(requestConfig) {
-    const logger = this.logger;
-    try {
-      const cfg = await this.getConfig(
-        requestConfig,
-        BATCH_POLLING_CONFIG_CACHE_KEY,
-        BATCH_POLLING_CONFIG_KEY
-      );
-      return cfg || {};
-    } catch (error) {
-      const erc = error?.errorReference || createERC(ERC_PREFIX.ERROR);
-      logger?.errorWithStack?.(error, {
-        operation: 'get-batch-polling-config',
-        errorReference: erc,
-        message: 'Failed to get batch polling configuration',
-      });
-      return {};
-    }
+    return this._getConfigWithFallback(
+      requestConfig,
+      BATCH_POLLING_CONFIG_CACHE_KEY,
+      BATCH_POLLING_CONFIG_KEY,
+      'get-batch-polling-config',
+      'Failed to get batch polling configuration'
+    );
   }
 
   getBatchPollingConfigCached() {
@@ -224,28 +269,19 @@ class ConfigService {
   }
 
   async getQueueConfig(requestConfig) {
-    const logger = this.logger;
-    try {
-      const cfg = await this.getConfig(
-        requestConfig,
-        QUEUE_CONFIG_CACHE_KEY,
-        QUEUE_CONFIG_KEY
-      );
-      return cfg || {};
-    } catch (error) {
-      const erc = error?.errorReference || createERC(ERC_PREFIX.ERROR);
-      logger?.errorWithStack?.(error, {
-        operation: 'get-queue-config',
-        errorReference: erc,
-        message: 'Failed to get queue configuration',
-      });
-      return {};
-    }
+    return this._getConfigWithFallback(
+      requestConfig,
+      QUEUE_CONFIG_CACHE_KEY,
+      QUEUE_CONFIG_KEY,
+      'get-queue-config',
+      'Failed to get queue configuration'
+    );
   }
 
   getQueueConfigCached() {
     return this.getConfigCached(QUEUE_CONFIG_CACHE_KEY) || {};
   }
+
 
   async getAIConfig(requestConfig) {
     const cache = this.cache;
@@ -315,31 +351,13 @@ class ConfigService {
   }
 
   async getOAuthConfig(requestConfig) {
-    const cache = this.cache;
-    const logger = this.logger;
-    const liferay = this._requireLiferay();
-    try {
-      const cached = cache.get(OAUTH_CONFIG_CACHE_KEY);
-      if (cached) return cached;
-
-      const response = await liferay.getConfig(requestConfig, OAUTH_CONFIG_KEY);
-
-      if (response?.items && response.items.length > 0) {
-        const cfg = tryParseJSON(response.items[0].configValue, {});
-        cache.set(OAUTH_CONFIG_CACHE_KEY, cfg, this.getConfigTTL());
-        return cfg;
-      }
-
-      return {};
-    } catch (error) {
-      const erc = error?.errorReference || createERC(ERC_PREFIX.ERROR);
-      logger?.warn?.('Failed to load OAuth config:', {
-        operation: 'get-oauth-config',
-        errorReference: erc,
-        message: error?.message,
-      });
-      return {};
-    }
+    return this._getConfigWithFallback(
+      requestConfig,
+      OAUTH_CONFIG_CACHE_KEY,
+      OAUTH_CONFIG_KEY,
+      'get-oauth-config',
+      'Failed to load OAuth config:'
+    );
   }
 
   getOAuthConfigCached() {
@@ -348,34 +366,13 @@ class ConfigService {
   }
 
   async getObjectStorageConfig(requestConfig) {
-    const cache = this.cache;
-    const logger = this.logger;
-    const liferay = this._requireLiferay();
-    try {
-      const cached = cache.get(OBJECT_STORAGE_CONFIG_CACHE_KEY);
-      if (cached) return cached;
-
-      const response = await liferay.getConfig(
-        requestConfig,
-        OBJECT_STORAGE_CONFIG_KEY
-      );
-
-      if (response?.items && response.items.length > 0) {
-        const cfg = tryParseJSON(response.items[0].configValue, {});
-        cache.set(OBJECT_STORAGE_CONFIG_CACHE_KEY, cfg, this.getConfigTTL());
-        return cfg;
-      }
-
-      return {};
-    } catch (error) {
-      const erc = error?.errorReference || createERC(ERC_PREFIX.ERROR);
-      logger?.warn?.('Failed to load Object Storage config:', {
-        operation: 'get-object-storage-config',
-        errorReference: erc,
-        message: error?.message,
-      });
-      return {};
-    }
+    return this._getConfigWithFallback(
+      requestConfig,
+      OBJECT_STORAGE_CONFIG_CACHE_KEY,
+      OBJECT_STORAGE_CONFIG_KEY,
+      'get-object-storage-config',
+      'Failed to load Object Storage config:'
+    );
   }
 
   getObjectStorageConfigCached() {
@@ -384,23 +381,13 @@ class ConfigService {
   }
 
   async getWSConfig(requestConfig) {
-    const logger = this.logger;
-    try {
-      const cfg = await this.getConfig(
-        requestConfig,
-        WS_CONFIG_CACHE_KEY,
-        WS_CONFIG_KEY
-      );
-      return cfg || {};
-    } catch (error) {
-      const erc = error?.errorReference || createERC(ERC_PREFIX.ERROR);
-      logger?.errorWithStack?.(error, {
-        operation: 'get-ws-config',
-        errorReference: erc,
-        message: 'Failed to get WebSocket configuration',
-      });
-      return {};
-    }
+    return this._getConfigWithFallback(
+      requestConfig,
+      WS_CONFIG_CACHE_KEY,
+      WS_CONFIG_KEY,
+      'get-ws-config',
+      'Failed to get WebSocket configuration'
+    );
   }
 
   getWSConfigCached() {

@@ -4,6 +4,7 @@ import ClayAlert from '@clayui/alert';
 import ClayButton from '@clayui/button';
 import ClayIcon from '@clayui/icon';
 import ClayLayout from '@clayui/layout';
+import { useForm } from '../../hooks';
 import { getKeyValue, persistConfigKey } from '../../utils/api';
 import MillisecondsInput from '../common/MillisecondsInput';
 
@@ -85,29 +86,38 @@ export default function BatchPollingConfigPanel() {
     };
   }, []);
 
-  // Before unload warning
-  useEffect(() => {
-    const onBeforeUnload = (e) => {
-      if (!dirty) return;
-      e.preventDefault();
-      e.returnValue = '';
-    };
-    window.addEventListener('beforeunload', onBeforeUnload);
-    return () => window.removeEventListener('beforeunload', onBeforeUnload);
-  }, [dirty]);
 
-  // Cmd/Ctrl+S to save
-  useEffect(() => {
-    const onKey = (e) => {
-      const key = e.key?.toLowerCase();
-      if ((e.metaKey || e.ctrlKey) && key === 's') {
-        e.preventDefault();
-        onSave();
-      }
-    };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  });
+  const onSave = useCallback(async () => {
+    if (saving) return;
+    setSaving(true);
+    try {
+      const payload = JSON.stringify(values);
+      await persistConfigKey(BATCH_POLLING_KEY, payload);
+      setLastSaved(values);
+      Liferay?.Util?.openToast?.({
+        message: 'Batch polling configuration saved.',
+        type: 'success',
+      });
+    } catch (e) {
+      // eslint-disable-next-line no-console
+      console.error(e);
+      Liferay?.Util?.openToast?.({
+        message: 'Failed to save batch polling configuration.',
+        type: 'danger',
+      });
+    } finally {
+      setSaving(false);
+    }
+  }, [saving, values]);
+
+  useForm({ dirty, onSave });
+
+  const onCancel = useCallback(() => setValues(lastSaved), [lastSaved]);
+
+  const onNumberChange = (key) => (e) => {
+    const next = toInt(e.target.value, values[key]);
+    setValues((v) => ({ ...v, [key]: next }));
+  };
 
   const estimatedDurationMs = useMemo(() => {
     const { pollInterval, maxPollAttempts } = values;
@@ -151,36 +161,6 @@ export default function BatchPollingConfigPanel() {
 
     setIssues(found);
   }, [values, estimatedDurationMs]);
-
-  const onSave = useCallback(async () => {
-    if (saving) return;
-    setSaving(true);
-    try {
-      const payload = JSON.stringify(values);
-      await persistConfigKey(BATCH_POLLING_KEY, payload);
-      setLastSaved(values);
-      Liferay?.Util?.openToast?.({
-        message: 'Batch polling configuration saved.',
-        type: 'success',
-      });
-    } catch (e) {
-      // eslint-disable-next-line no-console
-      console.error(e);
-      Liferay?.Util?.openToast?.({
-        message: 'Failed to save batch polling configuration.',
-        type: 'danger',
-      });
-    } finally {
-      setSaving(false);
-    }
-  }, [saving, values]);
-
-  const onCancel = useCallback(() => setValues(lastSaved), [lastSaved]);
-
-  const onNumberChange = (key) => (e) => {
-    const next = toInt(e.target.value, values[key]);
-    setValues((v) => ({ ...v, [key]: next }));
-  };
 
   return (
     <ClayLayout.Sheet aria-busy={loading || saving} aria-live="polite">

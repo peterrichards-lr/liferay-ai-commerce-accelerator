@@ -5,6 +5,7 @@ import ClayButton from '@clayui/button';
 import ClayIcon from '@clayui/icon';
 import ClayLayout from '@clayui/layout';
 import MillisecondsInput from '../common/MillisecondsInput';
+import { useForm } from '../../hooks';
 import { msToHHMMSS } from '../../utils/helper';
 
 import { getKeyValue, persistConfigKey } from '../../utils/api';
@@ -82,27 +83,37 @@ export default function CacheConfigPanel() {
     };
   }, []);
 
-  useEffect(() => {
-    const onBeforeUnload = (e) => {
-      if (!dirty) return;
-      e.preventDefault();
-      e.returnValue = '';
-    };
-    window.addEventListener('beforeunload', onBeforeUnload);
-    return () => window.removeEventListener('beforeunload', onBeforeUnload);
-  }, [dirty]);
+  const onSave = useCallback(async () => {
+    if (saving) return;
+    setSaving(true);
+    try {
+      const payload = JSON.stringify(values);
+      await persistConfigKey(CACHE_CONFIG_KEY, payload);
+      setLastSaved(values);
+      Liferay?.Util?.openToast?.({
+        message: 'Cache configuration saved.',
+        type: 'success',
+      });
+    } catch (e) {
+      // eslint-disable-next-line no-console
+      console.error(e);
+      Liferay?.Util?.openToast?.({
+        message: 'Failed to save cache configuration.',
+        type: 'danger',
+      });
+    } finally {
+      setSaving(false);
+    }
+  }, [saving, values]);
 
-  useEffect(() => {
-    const onKey = (e) => {
-      const key = e.key?.toLowerCase();
-      if ((e.metaKey || e.ctrlKey) && key === 's') {
-        e.preventDefault();
-        onSave();
-      }
-    };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  });
+  useForm({ dirty, onSave });
+
+  const onCancel = useCallback(() => setValues(lastSaved), [lastSaved]);
+
+  const onNumberChange = (key) => (e) => {
+    const next = toInt(e.target.value, values[key]);
+    setValues((v) => ({ ...v, [key]: next }));
+  };
 
   const approxCapacityKB = useMemo(() => {
     // very rough viz: average entry ~ 1KB -> show max entries as KB
@@ -112,8 +123,18 @@ export default function CacheConfigPanel() {
 
   useEffect(() => {
     const found = [];
-    const { maxSize, defaultTTL, cleanupInterval, configTTL, apiResponseTTL, defaultBatchTTL, sessionTTL, ephemeralTTL, uploadTTL, ercConfigTTL } =
-      values;
+    const {
+      maxSize,
+      defaultTTL,
+      cleanupInterval,
+      configTTL,
+      apiResponseTTL,
+      defaultBatchTTL,
+      sessionTTL,
+      ephemeralTTL,
+      uploadTTL,
+      ercConfigTTL,
+    } = values;
 
     if (!Number.isFinite(maxSize) || maxSize < 100)
       found.push('Max size must be at least 100 entries.');
@@ -155,36 +176,6 @@ export default function CacheConfigPanel() {
 
     setIssues(found);
   }, [values]);
-
-  const onSave = useCallback(async () => {
-    if (saving) return;
-    setSaving(true);
-    try {
-      const payload = JSON.stringify(values);
-      await persistConfigKey(CACHE_CONFIG_KEY, payload);
-      setLastSaved(values);
-      Liferay?.Util?.openToast?.({
-        message: 'Cache configuration saved.',
-        type: 'success',
-      });
-    } catch (e) {
-      // eslint-disable-next-line no-console
-      console.error(e);
-      Liferay?.Util?.openToast?.({
-        message: 'Failed to save cache configuration.',
-        type: 'danger',
-      });
-    } finally {
-      setSaving(false);
-    }
-  }, [saving, values]);
-
-  const onCancel = useCallback(() => setValues(lastSaved), [lastSaved]);
-
-  const onNumberChange = (key) => (e) => {
-    const next = toInt(e.target.value, values[key]);
-    setValues((v) => ({ ...v, [key]: next }));
-  };
 
   return (
     <ClayLayout.Sheet aria-busy={loading || saving} aria-live="polite">

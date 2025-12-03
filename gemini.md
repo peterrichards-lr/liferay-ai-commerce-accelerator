@@ -25,16 +25,20 @@ This is a Liferay workspace project for the Liferay AI Commerce Accelerator. It 
 *   `gradle/`: Gradle wrapper files.
 *   `resources/`: Static resources like PDF and image files.
 
+### Client Extensions
+
+While the client extensions work together to create the overall application in Liferay, they are distinct independent parts.
+
+*   **Configuration UI (`ai-commerce-accelerator-configuration`)**: Creates a configuration screen within Liferay's application menu. This is a friendly UI which allows the administrator manage the various configuration options used by the microservice.
+*   **Microservice (`ai-commerce-accelerator-microservice`)**: The microservice is the application logic. It is really quite bloated so does not really follow a true microservice architecture but breaking it down into additional microservices would increase the complexitiy.
+*   **Frontend (`ai-commerce-accelerator-frontend`)**: The frontend can be hosted within Liferay or standalone. The UI adapts based on its hosting, so users can benefit from Liferay's context and not have to provide additional configuration parameters that the UI can obtain from Liferay when hosted as such. The UI interacts with the microservice, it does not interact with the configuration UI at all. The frontend allows the user to control the configuration of the accelerator and trigger the microservice to create the commerce data within Liferay. The frontend client extension is hosted in Liferay as a custom element.
+
 ### Development
 
 *   **Frontend (Standalone)**: Run `(cd ./client-extensions/ai-commerce-accelerator-frontend && npm run dev)` for local development. When running standalone, the UI will show additional input fields for values that are normally retrieved from the Liferay environment.
 *   **Deploy Client Extensions**: `blade gw clean deploy`
 *   **Microservice**: Use Gradle tasks for deployment and debugging: `(rm -f client-extensions/ai-commerce-accelerator-microservice/logs/*.log || true) && blade gw :client-extensions:ai-commerce-accelerator-microservice:clean :client-extensions:ai-commerce-accelerator-microservice:deploy :client-extensions:ai-commerce-accelerator-microservice:packageRunDebug`
 *   **Liferay**: Use `blade gw initBundle`, `blade gw deploy`, and `blade server run` to run Liferay locally.
-
-### Frontend Notes
-
-The frontend client extension is hosted in Liferay as a custom element. The UI code determines whether it's running within Liferay and adjusts the displayed input fields accordingly.
 
 ### Dependencies
 

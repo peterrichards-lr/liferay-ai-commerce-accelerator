@@ -134,36 +134,42 @@ export default function AiConfigPanel() {
     setIssues(found);
   }, [aiConfig, promptConfig]);
 
-  const onSave = useCallback(async () => {
-    if (saving) return;
-    setSaving(true);
-    try {
-      await Promise.all([
-        persistConfigKey(OPEN_AI_KEY_KEY, openAiKeyValue.trim()),
-        persistConfigKey(AI_CONFIG_KEY, JSON.stringify(aiConfig)),
-        persistConfigKey(AI_PROMPTS_KEY, JSON.stringify(promptConfig)),
-      ]);
-      setLastSaved({
-        openAiKeyValue: openAiKeyValue.trim(),
-        ai: aiConfig,
-        prompts: promptConfig,
-      });
-      Liferay?.Util?.openToast?.({
-        message: 'AI configuration saved.',
-        type: 'success',
-      });
-    } catch (e) {
-      // eslint-disable-next-line no-console
-      console.error(e);
-      Liferay?.Util?.openToast?.({
-        message: 'Failed to save AI configuration.',
-        type: 'danger',
-      });
-    } finally {
-      setSaving(false);
-    }
-  }, [saving, openAiKeyValue, aiConfig, promptConfig]);
-
+      const onSave = useCallback(async () => {
+      if (saving) return;
+      setSaving(true);
+      try {
+        const results = await Promise.allSettled([
+          persistConfigKey(OPEN_AI_KEY_KEY, openAiKeyValue.trim()),
+          persistConfigKey(AI_CONFIG_KEY, JSON.stringify(aiConfig)),
+          persistConfigKey(AI_PROMPTS_KEY, JSON.stringify(promptConfig)),
+        ]);
+  
+        const failed = results.filter((r) => r.status === 'rejected');
+  
+        if (failed.length) {
+          throw new Error(`${failed.length} save operations failed.`);
+        }
+  
+        setLastSaved({
+          openAiKeyValue: openAiKeyValue.trim(),
+          ai: aiConfig,
+          prompts: promptConfig,
+        });
+        Liferay?.Util?.openToast?.({
+          message: 'AI configuration saved.',
+          type: 'success',
+        });
+      } catch (e) {
+        // eslint-disable-next-line no-console
+        console.error(e);
+        Liferay?.Util?.openToast?.({
+          message: 'Failed to save AI configuration.',
+          type: 'danger',
+        });
+      } finally {
+        setSaving(false);
+      }
+    }, [saving, openAiKeyValue, aiConfig, promptConfig]);
   const onCancel = useCallback(() => {
     setOpenAiKeyValue(lastSaved.openAiKeyValue);
     setAiConfig(lastSaved.ai);

@@ -1,0 +1,36 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Order",
+  "description": "A commerce order.",
+  "type": "object",
+  "properties": {
+    "orderId": {
+      "description": "The unique identifier for the order.",
+      "type": "string"
+    },
+    "accountId": {
+      "description": "The ID of the account that placed the order.",
+      "type": "string"
+    },
+    "items": {
+      "description": "The items included in the order.",
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "sku": {
+            "description": "The SKU of the product.",
+            "type": "string"
+          },
+          "quantity": {
+            "description": "The quantity of the product.",
+            "type": "integer",
+            "minimum": 1
+          }
+        },
+        "required": ["sku", "quantity"]
+      }
+    }
+  },
+  "required": ["orderId", "accountId", "items"]
+}

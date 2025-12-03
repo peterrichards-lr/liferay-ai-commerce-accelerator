@@ -1,0 +1,24 @@
+{
+   "configuration": {
+      "className": "com.liferay.object.rest.dto.v1_0.ObjectEntry",
+      "parameters": {
+         "containsHeaders": "true",
+         "createStrategy": "UPSERT",
+         "onErrorFail": "false",
+         "taskItemDelegateName": "C_AICommerceAcceleratorConfiguration",
+         "updateStrategy": "UPDATE"
+      },
+      "taskItemDelegateName": "C_AICommerceAcceleratorConfiguration"
+   },
+   "items": [
+      {
+         "configKey": "ai-schema-account",
+         "configStatus": {
+            "key": "Active"
+         },
+         "configValue": "{\n  \"$schema\": \"http://json-schema.org/draft-07/schema#\",\n  \"title\": \"Account\",\n  \"description\": \"A commerce account.\",\n  \"type\": \"object\",\n  \"properties\": {\n    \"name\": {\n      \"description\": \"The name of the account.\",\n      \"type\": \"string\"\n    },\n    \"email\": {\n      \"description\": \"The email address for the account.\",\n      \"type\": \"string\",\n      \"format\": \"email\"\n    },\n    \"companyName\": {\n      \"description\": \"The company name for the account.\",\n      \"type\": \"string\"\n    }\n  },\n  \"required\": [\"name\", \"email\"]\n}",
+         "description": "AI Schema for Accounts",
+         "externalReferenceCode": "AI-SCHEMA-ACCOUNT"
+      }
+   ]
+}

@@ -1,0 +1,22 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Account",
+  "description": "A commerce account.",
+  "type": "object",
+  "properties": {
+    "name": {
+      "description": "The name of the account.",
+      "type": "string"
+    },
+    "email": {
+      "description": "The email address for the account.",
+      "type": "string",
+      "format": "email"
+    },
+    "companyName": {
+      "description": "The company name for the account.",
+      "type": "string"
+    }
+  },
+  "required": ["name", "email"]
+}

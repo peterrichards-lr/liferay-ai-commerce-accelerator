@@ -1,0 +1,2942 @@
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+	
+		
+			<!DOCTYPE html>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<html class="ltr" dir="ltr" lang="en-US">
+
+<head>
+	<title>Edit Workflow Definition - Liferay DXP</title>
+
+	<meta content="initial-scale=1.0, width=device-width" name="viewport" />
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<meta content="text/html; charset=UTF-8" http-equiv="content-type" />
+
+
+
+
+
+
+
+
+
+
+
+
+<script type="importmap">{"imports":{"@clayui/breadcrumb":"/o/frontend-taglib-clay/__liferay__/exports/@clayui$breadcrumb.js","react-dom":"/o/frontend-js-react-web/__liferay__/exports/react-dom.js","@clayui/charts":"/o/frontend-taglib-clay/__liferay__/exports/@clayui$charts.js","@clayui/empty-state":"/o/frontend-taglib-clay/__liferay__/exports/@clayui$empty-state.js","@clayui/navigation-bar":"/o/frontend-taglib-clay/__liferay__/exports/@clayui$navigation-bar.js","react":"/o/frontend-js-react-web/__liferay__/exports/react.js","react-dom-16":"/o/frontend-js-react-web/__liferay__/exports/react-dom-16.js","@clayui/icon":"/o/frontend-taglib-clay/__liferay__/exports/@clayui$icon.js","@clayui/table":"/o/frontend-taglib-clay/__liferay__/exports/@clayui$table.js","@clayui/slider":"/o/frontend-taglib-clay/__liferay__/exports/@clayui$slider.js","@clayui/multi-select":"/o/frontend-taglib-clay/__liferay__/exports/@clayui$multi-select.js","@clayui/nav":"/o/frontend-taglib-clay/__liferay__/exports/@clayui$nav.js","@clayui/provider":"/o/frontend-taglib-clay/__liferay__/exports/@clayui$provider.js","@clayui/panel":"/o/frontend-taglib-clay/__liferay__/exports/@clayui$panel.js","@liferay/dynamic-data-mapping-form-field-type":"/o/dynamic-data-mapping-form-field-type/__liferay__/index.js","@clayui/list":"/o/frontend-taglib-clay/__liferay__/exports/@clayui$list.js","@clayui/date-picker":"/o/frontend-taglib-clay/__liferay__/exports/@clayui$date-picker.js","@clayui/label":"/o/frontend-taglib-clay/__liferay__/exports/@clayui$label.js","@liferay/frontend-js-api/data-set":"/o/frontend-js-dependencies-web/__liferay__/exports/@liferay$js-api$data-set.js","@clayui/core":"/o/frontend-taglib-clay/__liferay__/exports/@clayui$core.js","@clayui/pagination-bar":"/o/frontend-taglib-clay/__liferay__/exports/@clayui$pagination-bar.js","@clayui/layout":"/o/frontend-taglib-clay/__liferay__/exports/@clayui$layout.js","@clayui/multi-step-nav":"/o/frontend-taglib-clay/__liferay__/exports/@clayui$multi-step-nav.js","@liferay/frontend-js-api":"/o/frontend-js-dependencies-web/__liferay__/exports/@liferay$js-api.js","@clayui/toolbar":"/o/frontend-taglib-clay/__liferay__/exports/@clayui$toolbar.js","@clayui/badge":"/o/frontend-taglib-clay/__liferay__/exports/@clayui$badge.js","react-dom-18":"/o/frontend-js-react-web/__liferay__/exports/react-dom-18.js","@clayui/link":"/o/frontend-taglib-clay/__liferay__/exports/@clayui$link.js","@clayui/card":"/o/frontend-taglib-clay/__liferay__/exports/@clayui$card.js","@clayui/tooltip":"/o/frontend-taglib-clay/__liferay__/exports/@clayui$tooltip.js","@clayui/button":"/o/frontend-taglib-clay/__liferay__/exports/@clayui$button.js","@clayui/tabs":"/o/frontend-taglib-clay/__liferay__/exports/@clayui$tabs.js","@clayui/sticker":"/o/frontend-taglib-clay/__liferay__/exports/@clayui$sticker.js","@clayui/form":"/o/frontend-taglib-clay/__liferay__/exports/@clayui$form.js","@clayui/popover":"/o/frontend-taglib-clay/__liferay__/exports/@clayui$popover.js","@clayui/shared":"/o/frontend-taglib-clay/__liferay__/exports/@clayui$shared.js","@clayui/localized-input":"/o/frontend-taglib-clay/__liferay__/exports/@clayui$localized-input.js","@clayui/modal":"/o/frontend-taglib-clay/__liferay__/exports/@clayui$modal.js","@clayui/color-picker":"/o/frontend-taglib-clay/__liferay__/exports/@clayui$color-picker.js","@clayui/pagination":"/o/frontend-taglib-clay/__liferay__/exports/@clayui$pagination.js","@clayui/autocomplete":"/o/frontend-taglib-clay/__liferay__/exports/@clayui$autocomplete.js","@clayui/management-toolbar":"/o/frontend-taglib-clay/__liferay__/exports/@clayui$management-toolbar.js","@clayui/time-picker":"/o/frontend-taglib-clay/__liferay__/exports/@clayui$time-picker.js","@clayui/upper-toolbar":"/o/frontend-taglib-clay/__liferay__/exports/@clayui$upper-toolbar.js","@clayui/loading-indicator":"/o/frontend-taglib-clay/__liferay__/exports/@clayui$loading-indicator.js","@clayui/drop-down":"/o/frontend-taglib-clay/__liferay__/exports/@clayui$drop-down.js","liferay-ai-commerce-accelerator-frontend":"/o/ai-commerce-accelerator-frontend/liferay-ai-commerce-accelerator-frontend.DvUuoDfF.esm.js","@clayui/data-provider":"/o/frontend-taglib-clay/__liferay__/exports/@clayui$data-provider.js","@liferay/language/":"/o/js/language/","@clayui/css":"/o/frontend-taglib-clay/__liferay__/exports/@clayui$css.js","@clayui/alert":"/o/frontend-taglib-clay/__liferay__/exports/@clayui$alert.js","@clayui/progress-bar":"/o/frontend-taglib-clay/__liferay__/exports/@clayui$progress-bar.js","react-16":"/o/frontend-js-react-web/__liferay__/exports/react-16.js","react-18":"/o/frontend-js-react-web/__liferay__/exports/react-18.js"},"scopes":{}}</script><script data-senna-track="temporary">var Liferay = window.Liferay || {};Liferay.Icons = Liferay.Icons || {};Liferay.Icons.controlPanelSpritemap = 'http://localhost:8080/o/admin-theme/images/clay/icons.svg'; Liferay.Icons.spritemap = 'http://localhost:8080/o/admin-theme/images/clay/icons.svg';</script>
+<script data-senna-track="permanent" type="text/javascript">window.Liferay = window.Liferay || {}; window.Liferay.CSP = {nonce: ''};</script>
+<link data-senna-track="temporary" href="/o/frontend-css-cadmin-web/clay_admin.css?&mac=00RoSWlHcxcc8mRGNjZoFGTtLqQ=&browserId=chrome&languageId=en_US&minifierType=css&themeId=admin_WAR_admintheme" id="liferayCadminCSS"
+ rel="stylesheet" type="text/css" />
+
+
+<link href="http://localhost:8080/o/admin-theme/images/favicon.ico" rel="apple-touch-icon" />
+<link href="http://localhost:8080/o/admin-theme/images/favicon.ico" rel="icon" />
+
+
+
+<link class="lfr-css-file" data-senna-track="temporary" href="http://localhost:8080/o/admin-theme/css/clay.css?browserId=chrome&amp;themeId=admin_WAR_admintheme&amp;minifierType=css&amp;languageId=en_US&amp;t=1762421376000" id="liferayAUICSS" rel="stylesheet" type="text/css" />
+
+
+
+
+
+
+
+
+
+	<link href="/combo?browserId=chrome&amp;minifierType=css&amp;themeId=admin_WAR_admintheme&amp;languageId=en_US&amp;com_liferay_portal_workflow_kaleo_designer_web_portlet_KaleoDesignerPortlet:%2Fo%2Fportal-workflow-kaleo-designer-web%2Fdesigner%2Fcss%2Fmain.css&amp;t=1762421376000" rel="stylesheet" type="text/css"
+ data-senna-track="temporary" id="96773789" />
+
+
+
+
+
+
+
+
+<script type="text/javascript" data-senna-track="temporary">
+	// <![CDATA[
+		var Liferay = Liferay || {};
+
+		Liferay.Browser = {
+			acceptsGzip: function () {
+				return true;
+			},
+
+			
+
+			getMajorVersion: function () {
+				return 142.0;
+			},
+
+			getRevision: function () {
+				return '537.36';
+			},
+			getVersion: function () {
+				return '142.0';
+			},
+
+			
+
+			isAir: function () {
+				return false;
+			},
+			isChrome: function () {
+				return true;
+			},
+			isEdge: function () {
+				return false;
+			},
+			isFirefox: function () {
+				return false;
+			},
+			isGecko: function () {
+				return true;
+			},
+			isIe: function () {
+				return false;
+			},
+			isIphone: function () {
+				return false;
+			},
+			isLinux: function () {
+				return false;
+			},
+			isMac: function () {
+				return true;
+			},
+			isMobile: function () {
+				return false;
+			},
+			isMozilla: function () {
+				return false;
+			},
+			isOpera: function () {
+				return false;
+			},
+			isRtf: function () {
+				return true;
+			},
+			isSafari: function () {
+				return true;
+			},
+			isSun: function () {
+				return false;
+			},
+			isWebKit: function () {
+				return true;
+			},
+			isWindows: function () {
+				return false;
+			}
+		};
+
+		Liferay.Data = Liferay.Data || {};
+
+		Liferay.Data.ICONS_INLINE_SVG = true;
+
+		Liferay.Data.NAV_SELECTOR = '#navigation';
+
+		Liferay.Data.NAV_SELECTOR_MOBILE = '#navigationCollapse';
+
+		Liferay.Data.isCustomizationView = function () {
+			return false;
+		};
+
+		Liferay.Data.notices = [
+			
+		];
+
+		(function () {
+			var available = {};
+
+			var direction = {};
+
+			
+
+				available['en_US'] = 'English\x20\x28United\x20States\x29';
+				direction['en_US'] = 'ltr';
+
+			
+
+				available['ar_SA'] = 'Arabic\x20\x28Saudi\x20Arabia\x29';
+				direction['ar_SA'] = 'rtl';
+
+			
+
+				available['ca_ES'] = 'Catalan\x20\x28Spain\x29';
+				direction['ca_ES'] = 'ltr';
+
+			
+
+				available['zh_CN'] = 'Chinese\x20\x28China\x29';
+				direction['zh_CN'] = 'ltr';
+
+			
+
+				available['nl_NL'] = 'Dutch\x20\x28Netherlands\x29';
+				direction['nl_NL'] = 'ltr';
+
+			
+
+				available['fi_FI'] = 'Finnish\x20\x28Finland\x29';
+				direction['fi_FI'] = 'ltr';
+
+			
+
+				available['fr_FR'] = 'French\x20\x28France\x29';
+				direction['fr_FR'] = 'ltr';
+
+			
+
+				available['de_DE'] = 'German\x20\x28Germany\x29';
+				direction['de_DE'] = 'ltr';
+
+			
+
+				available['hu_HU'] = 'Hungarian\x20\x28Hungary\x29';
+				direction['hu_HU'] = 'ltr';
+
+			
+
+				available['ja_JP'] = 'Japanese\x20\x28Japan\x29';
+				direction['ja_JP'] = 'ltr';
+
+			
+
+				available['pt_BR'] = 'Portuguese\x20\x28Brazil\x29';
+				direction['pt_BR'] = 'ltr';
+
+			
+
+				available['es_ES'] = 'Spanish\x20\x28Spain\x29';
+				direction['es_ES'] = 'ltr';
+
+			
+
+				available['sv_SE'] = 'Swedish\x20\x28Sweden\x29';
+				direction['sv_SE'] = 'ltr';
+
+			
+
+			let _cache = {};
+
+			if (Liferay && Liferay.Language && Liferay.Language._cache) {
+				_cache = Liferay.Language._cache;
+			}
+
+			Liferay.Language = {
+				_cache,
+				available,
+				direction,
+				get: function(key) {
+					let value = Liferay.Language._cache[key];
+
+					if (value === undefined) {
+						value = key;
+					}
+
+					return value;
+				}
+			};
+		})();
+
+		var featureFlags = {"LPD-10964":false,"LPD-37927":false,"LPD-10889":false,"LPS-193884":false,"LPD-30371":false,"LPD-11131":false,"LPS-178642":false,"LPS-193005":false,"LPD-31789":false,"LPD-10562":false,"LPD-11212":false,"COMMERCE-8087":false,"LPD-39304":false,"LPD-13311":false,"LRAC-10757":false,"LPD-35941":false,"LPS-180090":false,"LPS-178052":false,"LPD-21414":false,"LPS-185892":false,"LPS-186620":false,"LPD-40533":false,"LPD-40534":false,"LPS-184404":false,"LPD-40530":false,"LPD-20640":false,"LPS-198183":false,"LPD-38869":false,"LPD-35678":false,"LPD-6378":false,"LPS-153714":false,"LPD-11848":false,"LPS-170670":false,"LPD-7822":false,"LPS-169981":false,"LPD-21926":false,"LPS-177027":false,"LPD-37531":false,"LPD-11003":false,"LPD-36446":false,"LPD-39437":false,"LPS-135430":false,"LPD-20556":false,"LPD-45276":false,"LPS-134060":false,"LPS-164563":false,"LPD-32050":false,"LPS-122920":false,"LPS-199086":false,"LPD-35128":false,"LPD-10588":false,"LPD-13778":false,"LPD-11313":false,"LPD-6368":false,"LPD-34594":false,"LPS-202104":false,"LPD-19955":false,"LPD-35443":false,"LPD-39967":false,"LPD-11235":false,"LPD-11232":false,"LPS-196935":false,"LPD-43542":false,"LPS-176691":false,"LPS-197909":false,"LPD-29516":false,"COMMERCE-8949":false,"LPD-11228":false,"LPS-153813":false,"LPD-17809":false,"COMMERCE-13024":false,"LPS-165482":false,"LPS-193551":false,"LPS-197477":false,"LPS-174816":false,"LPS-186360":false,"LPD-30204":false,"LPD-32867":false,"LPS-153332":false,"LPD-35013":false,"LPS-179669":false,"LPS-174417":false,"LPD-44091":false,"LPD-31212":false,"LPD-18221":false,"LPS-155284":false,"LRAC-15017":false,"LPD-19870":false,"LPS-200108":false,"LPD-20131":false,"LPS-159643":false,"LPS-129412":false,"LPS-169837":false,"LPD-20379":false};
+
+		Liferay.FeatureFlags = Object.keys(featureFlags).reduce(
+			(acc, key) => ({
+				...acc, [key]: featureFlags[key] === 'true' || featureFlags[key] === true
+			}), {}
+		);
+
+		Liferay.PortletKeys = {
+			DOCUMENT_LIBRARY: 'com_liferay_document_library_web_portlet_DLPortlet',
+			DYNAMIC_DATA_MAPPING: 'com_liferay_dynamic_data_mapping_web_portlet_DDMPortlet',
+			ITEM_SELECTOR: 'com_liferay_item_selector_web_portlet_ItemSelectorPortlet'
+		};
+
+		Liferay.PropsValues = {
+			JAVASCRIPT_SINGLE_PAGE_APPLICATION_TIMEOUT: 0,
+			UPLOAD_SERVLET_REQUEST_IMPL_MAX_SIZE: 104857600
+		};
+
+		Liferay.ThemeDisplay = {
+
+			
+
+			
+				getLayoutId: function () {
+					return '1';
+				},
+
+				
+
+				getLayoutRelativeControlPanelURL: function () {
+					return '/group/control_panel/~/control_panel/manage?p_p_id=com_liferay_portal_workflow_kaleo_designer_web_portlet_KaleoDesignerPortlet';
+				},
+
+				getLayoutRelativeURL: function () {
+					return '/group/control_panel/manage?p_p_id=com_liferay_portal_workflow_kaleo_designer_web_portlet_KaleoDesignerPortlet';
+				},
+				getLayoutURL: function () {
+					return 'http://localhost:8080/group/control_panel/manage?p_p_id=com_liferay_portal_workflow_kaleo_designer_web_portlet_KaleoDesignerPortlet';
+				},
+				getParentLayoutId: function () {
+					return '0';
+				},
+				isControlPanel: function () {
+					return true;
+				},
+				isPrivateLayout: function () {
+					return 'true';
+				},
+				isVirtualLayout: function () {
+					return false;
+				},
+			
+
+			getBCP47LanguageId: function () {
+				return 'en-US';
+			},
+			getCanonicalURL: function () {
+
+				
+
+				return 'http\x3a\x2f\x2flocalhost\x3a8080\x2fgroup\x2fcontrol_panel\x2fmanage';
+			},
+			getCDNBaseURL: function () {
+				return 'http://localhost:8080';
+			},
+			getCDNDynamicResourcesHost: function () {
+				return '';
+			},
+			getCDNHost: function () {
+				return '';
+			},
+			getCompanyGroupId: function () {
+				return '20121';
+			},
+			getCompanyId: function () {
+				return '30394841094851';
+			},
+			getDefaultLanguageId: function () {
+				return 'en_US';
+			},
+			getDoAsUserIdEncoded: function () {
+				return '';
+			},
+			getLanguageId: function () {
+				return 'en_US';
+			},
+			getParentGroupId: function () {
+				return '20114';
+			},
+			getPathContext: function () {
+				return '';
+			},
+			getPathImage: function () {
+				return '/image';
+			},
+			getPathJavaScript: function () {
+				return '/o/frontend-js-web';
+			},
+			getPathMain: function () {
+				return '/c';
+			},
+			getPathThemeImages: function () {
+				return 'http://localhost:8080/o/admin-theme/images';
+			},
+			getPathThemeRoot: function () {
+				return '/o/admin-theme';
+			},
+			getPlid: function () {
+				return '1';
+			},
+			getPortalURL: function () {
+				return 'http://localhost:8080';
+			},
+			getRealUserId: function () {
+				return '20124';
+			},
+			getRemoteAddr: function () {
+				return '127.0.0.1';
+			},
+			getRemoteHost: function () {
+				return '127.0.0.1';
+			},
+			getScopeGroupId: function () {
+				return '20114';
+			},
+			getScopeGroupIdOrLiveGroupId: function () {
+				return '20114';
+			},
+			getSessionId: function () {
+				return '';
+			},
+			getSiteAdminURL: function () {
+				return 'http://localhost:8080/group/control_panel/manage?p_p_lifecycle=0&p_p_state=maximized&p_p_mode=view';
+			},
+			getSiteGroupId: function () {
+				return '20114';
+			},
+			getTimeZone: function() {
+				return 'UTC';
+			},
+			getURLControlPanel: function() {
+				return '/group/control_panel?refererPlid=1';
+			},
+			getURLHome: function () {
+				return 'http\x3a\x2f\x2flocalhost\x3a8080\x2fweb\x2fguest';
+			},
+			getUserEmailAddress: function () {
+				return 'test\x40liferay\x2ecom';
+			},
+			getUserId: function () {
+				return '20124';
+			},
+			getUserName: function () {
+				return '\u0054\u0065\u0073\u0074\u0020\u0054\u0065\u0073\u0074';
+			},
+			isAddSessionIdToURL: function () {
+				return false;
+			},
+			isImpersonated: function () {
+				return false;
+			},
+			isSignedIn: function () {
+				return true;
+			},
+
+			isStagedPortlet: function () {
+				
+					
+						return true;
+					
+					
+			},
+
+			isStateExclusive: function () {
+				return false;
+			},
+			isStateMaximized: function () {
+				return true;
+			},
+			isStatePopUp: function () {
+				return false;
+			}
+		};
+
+		var themeDisplay = Liferay.ThemeDisplay;
+
+		Liferay.AUI = {
+
+			
+
+			getCombine: function () {
+				return true;
+			},
+			getComboPath: function () {
+				return '/combo/?browserId=chrome&minifierType=&languageId=en_US&t=1762421318467&';
+			},
+			getDateFormat: function () {
+				return '%m/%d/%Y';
+			},
+			getEditorCKEditorPath: function () {
+				return '/o/frontend-editor-ckeditor-web';
+			},
+			getFilter: function () {
+				var filter = 'raw';
+
+				
+					
+						filter = 'min';
+					
+					
+
+				return filter;
+			},
+			getFilterConfig: function () {
+				var instance = this;
+
+				var filterConfig = null;
+
+				if (!instance.getCombine()) {
+					filterConfig = {
+						replaceStr: '.js' + instance.getStaticResourceURLParams(),
+						searchExp: '\\.js$'
+					};
+				}
+
+				return filterConfig;
+			},
+			getJavaScriptRootPath: function () {
+				return '/o/frontend-js-web';
+			},
+			getPortletRootPath: function () {
+				return '/html/portlet';
+			},
+			getStaticResourceURLParams: function () {
+				return '?browserId=chrome&minifierType=&languageId=en_US&t=1762421318467';
+			}
+		};
+
+		Liferay.authToken = '5YZAbtKs';
+
+		
+
+		Liferay.currentURL = '\x2fgroup\x2fcontrol_panel\x2fmanage\x3fp_p_id\x3dcom_liferay_portal_workflow_kaleo_designer_web_portlet_KaleoDesignerPortlet\x26p_p_lifecycle\x3d0\x26p_p_state\x3dmaximized\x26p_p_mode\x3dview\x26_com_liferay_portal_workflow_kaleo_designer_web_portlet_KaleoDesignerPortlet_redirect\x3dhttp\x253A\x252F\x252Flocalhost\x253A8080\x252Fgroup\x252Fcontrol_panel\x252Fmanage\x253Fp_p_id\x253Dcom_liferay_portal_workflow_web_portlet_ControlPanelWorkflowPortlet\x2526p_p_lifecycle\x253D0\x2526p_p_state\x253Dmaximized\x2526p_p_mode\x253Dview\x26_com_liferay_portal_workflow_kaleo_designer_web_portlet_KaleoDesignerPortlet_mvcPath\x3d\x252Fdesigner\x252Fedit_workflow_definition\x2ejsp\x26_com_liferay_portal_workflow_kaleo_designer_web_portlet_KaleoDesignerPortlet_name\x3dSingle\x2bApprover\x26_com_liferay_portal_workflow_kaleo_designer_web_portlet_KaleoDesignerPortlet_clearSessionMessage\x3dtrue\x26_com_liferay_portal_workflow_kaleo_designer_web_portlet_KaleoDesignerPortlet_draftVersion\x3d1\x2e0\x26p_p_auth\x3do3uGWMYu';
+		Liferay.currentURLEncoded = '\x252Fgroup\x252Fcontrol_panel\x252Fmanage\x253Fp_p_id\x253Dcom_liferay_portal_workflow_kaleo_designer_web_portlet_KaleoDesignerPortlet\x2526p_p_lifecycle\x253D0\x2526p_p_state\x253Dmaximized\x2526p_p_mode\x253Dview\x2526_com_liferay_portal_workflow_kaleo_designer_web_portlet_KaleoDesignerPortlet_redirect\x253Dhttp\x25253A\x25252F\x25252Flocalhost\x25253A8080\x25252Fgroup\x25252Fcontrol_panel\x25252Fmanage\x25253Fp_p_id\x25253Dcom_liferay_portal_workflow_web_portlet_ControlPanelWorkflowPortlet\x252526p_p_lifecycle\x25253D0\x252526p_p_state\x25253Dmaximized\x252526p_p_mode\x25253Dview\x2526_com_liferay_portal_workflow_kaleo_designer_web_portlet_KaleoDesignerPortlet_mvcPath\x253D\x25252Fdesigner\x25252Fedit_workflow_definition\x2ejsp\x2526_com_liferay_portal_workflow_kaleo_designer_web_portlet_KaleoDesignerPortlet_name\x253DSingle\x252BApprover\x2526_com_liferay_portal_workflow_kaleo_designer_web_portlet_KaleoDesignerPortlet_clearSessionMessage\x253Dtrue\x2526_com_liferay_portal_workflow_kaleo_designer_web_portlet_KaleoDesignerPortlet_draftVersion\x253D1\x2e0\x2526p_p_auth\x253Do3uGWMYu';
+	// ]]>
+</script>
+
+<script data-senna-track="temporary" type="text/javascript">window.__CONFIG__= {basePath: '',combine: true, defaultURLParams: null, explainResolutions: false, exposeGlobal: false, logLevel: 'warn', moduleType: 'module', namespace:'Liferay', nonce: '', reportMismatchedAnonymousModules: 'warn', resolvePath: '/o/js_resolve_modules', url: '/combo/?browserId=chrome&minifierType=js&languageId=en_US&t=1762421318467&', waitTimeout: 60000};</script><script data-senna-track="permanent" src="/o/frontend-js-loader-modules-extender/loader.js?&mac=9WaMmhziBCkScHZwrrVcOR7VZF4=&browserId=chrome&languageId=en_US&minifierType=js" type="text/javascript"></script><script data-senna-track="permanent" src="/combo?browserId=chrome&minifierType=js&languageId=en_US&t=1762421318467&/o/frontend-js-aui-web/aui/aui/aui-min.js&/o/frontend-js-aui-web/liferay/modules.js&/o/frontend-js-aui-web/liferay/aui_sandbox.js&/o/frontend-js-aui-web/aui/attribute-base/attribute-base-min.js&/o/frontend-js-aui-web/aui/attribute-complex/attribute-complex-min.js&/o/frontend-js-aui-web/aui/attribute-core/attribute-core-min.js&/o/frontend-js-aui-web/aui/attribute-observable/attribute-observable-min.js&/o/frontend-js-aui-web/aui/attribute-extras/attribute-extras-min.js&/o/frontend-js-aui-web/aui/event-custom-base/event-custom-base-min.js&/o/frontend-js-aui-web/aui/event-custom-complex/event-custom-complex-min.js&/o/frontend-js-aui-web/aui/oop/oop-min.js&/o/frontend-js-aui-web/aui/aui-base-lang/aui-base-lang-min.js&/o/frontend-js-aui-web/liferay/dependency.js&/o/frontend-js-aui-web/liferay/util.js&/o/frontend-js-web/liferay/dom_task_runner.js&/o/frontend-js-web/liferay/events.js&/o/frontend-js-web/liferay/lazy_load.js&/o/frontend-js-web/liferay/liferay.js&/o/frontend-js-web/liferay/global.bundle.js&/o/frontend-js-web/liferay/portlet.js&/o/frontend-js-web/liferay/workflow.js&/o/oauth2-provider-web/js/liferay.js" type="text/javascript"></script>
+<script data-senna-track="temporary" type="text/javascript">window.Liferay = Liferay || {}; window.Liferay.OAuth2 = {getAuthorizeURL: function() {return 'http://localhost:8080/o/oauth2/authorize';}, getBuiltInRedirectURL: function() {return 'http://localhost:8080/o/oauth2/redirect';}, getIntrospectURL: function() { return 'http://localhost:8080/o/oauth2/introspect';}, getTokenURL: function() {return 'http://localhost:8080/o/oauth2/token';}, getUserAgentApplication: function(externalReferenceCode) {return Liferay.OAuth2._userAgentApplications[externalReferenceCode];}, _userAgentApplications: {}}</script><script data-senna-track="temporary" type="text/javascript">try {var MODULE_MAIN='frontend-js-components-web@2.0.80/index';var MODULE_PATH='/o/frontend-js-components-web';/**
+ * SPDX-FileCopyrightText: (c) 2000 Liferay, Inc. https://liferay.com
+ * SPDX-License-Identifier: LGPL-2.1-or-later OR LicenseRef-Liferay-DXP-EULA-2.0.0-2023-06
+ */
+
+(function () {
+	AUI().applyConfig({
+		groups: {
+			components: {
+
+				// eslint-disable-next-line
+				mainModule: MODULE_MAIN,
+			},
+		},
+	});
+})();
+} catch(error) {console.error(error);}try {var MODULE_MAIN='staging-processes-web@5.0.65/index';var MODULE_PATH='/o/staging-processes-web';/**
+ * SPDX-FileCopyrightText: (c) 2000 Liferay, Inc. https://liferay.com
+ * SPDX-License-Identifier: LGPL-2.1-or-later OR LicenseRef-Liferay-DXP-EULA-2.0.0-2023-06
+ */
+
+(function () {
+	AUI().applyConfig({
+		groups: {
+			stagingprocessesweb: {
+				base: MODULE_PATH + '/js/legacy/',
+				combine: Liferay.AUI.getCombine(),
+				filter: Liferay.AUI.getFilterConfig(),
+				modules: {
+					'liferay-staging-processes-export-import': {
+						path: 'main.js',
+						requires: [
+							'aui-datatype',
+							'aui-dialog-iframe-deprecated',
+							'aui-modal',
+							'aui-parse-content',
+							'aui-toggler',
+							'liferay-portlet-base',
+							'liferay-util-window',
+						],
+					},
+				},
+				root: MODULE_PATH + '/js/legacy/',
+			},
+		},
+	});
+})();
+} catch(error) {console.error(error);}try {var MODULE_MAIN='@liferay/frontend-js-react-web@5.0.54/index';var MODULE_PATH='/o/frontend-js-react-web';/**
+ * SPDX-FileCopyrightText: (c) 2000 Liferay, Inc. https://liferay.com
+ * SPDX-License-Identifier: LGPL-2.1-or-later OR LicenseRef-Liferay-DXP-EULA-2.0.0-2023-06
+ */
+
+(function () {
+	AUI().applyConfig({
+		groups: {
+			react: {
+
+				// eslint-disable-next-line
+				mainModule: MODULE_MAIN,
+			},
+		},
+	});
+})();
+} catch(error) {console.error(error);}try {var MODULE_MAIN='portal-search-web@6.0.148/index';var MODULE_PATH='/o/portal-search-web';/**
+ * SPDX-FileCopyrightText: (c) 2000 Liferay, Inc. https://liferay.com
+ * SPDX-License-Identifier: LGPL-2.1-or-later OR LicenseRef-Liferay-DXP-EULA-2.0.0-2023-06
+ */
+
+(function () {
+	AUI().applyConfig({
+		groups: {
+			search: {
+				base: MODULE_PATH + '/js/',
+				combine: Liferay.AUI.getCombine(),
+				filter: Liferay.AUI.getFilterConfig(),
+				modules: {
+					'liferay-search-custom-range-facet': {
+						path: 'custom_range_facet.js',
+						requires: ['aui-form-validator'],
+					},
+				},
+				root: MODULE_PATH + '/js/',
+			},
+		},
+	});
+})();
+} catch(error) {console.error(error);}try {var MODULE_MAIN='contacts-web@5.0.65/index';var MODULE_PATH='/o/contacts-web';/**
+ * SPDX-FileCopyrightText: (c) 2000 Liferay, Inc. https://liferay.com
+ * SPDX-License-Identifier: LGPL-2.1-or-later OR LicenseRef-Liferay-DXP-EULA-2.0.0-2023-06
+ */
+
+(function () {
+	AUI().applyConfig({
+		groups: {
+			contactscenter: {
+				base: MODULE_PATH + '/js/legacy/',
+				combine: Liferay.AUI.getCombine(),
+				filter: Liferay.AUI.getFilterConfig(),
+				modules: {
+					'liferay-contacts-center': {
+						path: 'main.js',
+						requires: [
+							'aui-io-plugin-deprecated',
+							'aui-toolbar',
+							'autocomplete-base',
+							'datasource-io',
+							'json-parse',
+							'liferay-portlet-base',
+							'liferay-util-window',
+						],
+					},
+				},
+				root: MODULE_PATH + '/js/legacy/',
+			},
+		},
+	});
+})();
+} catch(error) {console.error(error);}try {var MODULE_MAIN='dynamic-data-mapping-web@5.0.115/index';var MODULE_PATH='/o/dynamic-data-mapping-web';/**
+ * SPDX-FileCopyrightText: (c) 2000 Liferay, Inc. https://liferay.com
+ * SPDX-License-Identifier: LGPL-2.1-or-later OR LicenseRef-Liferay-DXP-EULA-2.0.0-2023-06
+ */
+
+(function () {
+	const LiferayAUI = Liferay.AUI;
+
+	AUI().applyConfig({
+		groups: {
+			ddm: {
+				base: MODULE_PATH + '/js/legacy/',
+				combine: Liferay.AUI.getCombine(),
+				filter: LiferayAUI.getFilterConfig(),
+				modules: {
+					'liferay-ddm-form': {
+						path: 'ddm_form.js',
+						requires: [
+							'aui-base',
+							'aui-datatable',
+							'aui-datatype',
+							'aui-image-viewer',
+							'aui-parse-content',
+							'aui-set',
+							'aui-sortable-list',
+							'json',
+							'liferay-form',
+							'liferay-map-base',
+							'liferay-translation-manager',
+							'liferay-util-window',
+						],
+					},
+					'liferay-portlet-dynamic-data-mapping': {
+						condition: {
+							trigger: 'liferay-document-library',
+						},
+						path: 'main.js',
+						requires: [
+							'arraysort',
+							'aui-form-builder-deprecated',
+							'aui-form-validator',
+							'aui-map',
+							'aui-text-unicode',
+							'json',
+							'liferay-menu',
+							'liferay-translation-manager',
+							'liferay-util-window',
+							'text',
+						],
+					},
+					'liferay-portlet-dynamic-data-mapping-custom-fields': {
+						condition: {
+							trigger: 'liferay-document-library',
+						},
+						path: 'custom_fields.js',
+						requires: ['liferay-portlet-dynamic-data-mapping'],
+					},
+				},
+				root: MODULE_PATH + '/js/legacy/',
+			},
+		},
+	});
+})();
+} catch(error) {console.error(error);}try {var MODULE_MAIN='calendar-web@5.0.105/index';var MODULE_PATH='/o/calendar-web';/**
+ * SPDX-FileCopyrightText: (c) 2000 Liferay, Inc. https://liferay.com
+ * SPDX-License-Identifier: LGPL-2.1-or-later OR LicenseRef-Liferay-DXP-EULA-2.0.0-2023-06
+ */
+
+(function () {
+	AUI().applyConfig({
+		groups: {
+			calendar: {
+				base: MODULE_PATH + '/js/legacy/',
+				combine: Liferay.AUI.getCombine(),
+				filter: Liferay.AUI.getFilterConfig(),
+				modules: {
+					'liferay-calendar-a11y': {
+						path: 'calendar_a11y.js',
+						requires: ['calendar'],
+					},
+					'liferay-calendar-container': {
+						path: 'calendar_container.js',
+						requires: [
+							'aui-alert',
+							'aui-base',
+							'aui-component',
+							'liferay-portlet-base',
+						],
+					},
+					'liferay-calendar-date-picker-sanitizer': {
+						path: 'date_picker_sanitizer.js',
+						requires: ['aui-base'],
+					},
+					'liferay-calendar-interval-selector': {
+						path: 'interval_selector.js',
+						requires: ['aui-base', 'liferay-portlet-base'],
+					},
+					'liferay-calendar-interval-selector-scheduler-event-link': {
+						path: 'interval_selector_scheduler_event_link.js',
+						requires: ['aui-base', 'liferay-portlet-base'],
+					},
+					'liferay-calendar-list': {
+						path: 'calendar_list.js',
+						requires: [
+							'aui-template-deprecated',
+							'liferay-scheduler',
+						],
+					},
+					'liferay-calendar-message-util': {
+						path: 'message_util.js',
+						requires: ['liferay-util-window'],
+					},
+					'liferay-calendar-recurrence-converter': {
+						path: 'recurrence_converter.js',
+						requires: [],
+					},
+					'liferay-calendar-recurrence-dialog': {
+						path: 'recurrence.js',
+						requires: [
+							'aui-base',
+							'liferay-calendar-recurrence-util',
+						],
+					},
+					'liferay-calendar-recurrence-util': {
+						path: 'recurrence_util.js',
+						requires: ['aui-base', 'liferay-util-window'],
+					},
+					'liferay-calendar-reminders': {
+						path: 'calendar_reminders.js',
+						requires: ['aui-base'],
+					},
+					'liferay-calendar-remote-services': {
+						path: 'remote_services.js',
+						requires: [
+							'aui-base',
+							'aui-component',
+							'liferay-calendar-util',
+							'liferay-portlet-base',
+						],
+					},
+					'liferay-calendar-session-listener': {
+						path: 'session_listener.js',
+						requires: ['aui-base', 'liferay-scheduler'],
+					},
+					'liferay-calendar-simple-color-picker': {
+						path: 'simple_color_picker.js',
+						requires: ['aui-base', 'aui-template-deprecated'],
+					},
+					'liferay-calendar-simple-menu': {
+						path: 'simple_menu.js',
+						requires: [
+							'aui-base',
+							'aui-template-deprecated',
+							'event-outside',
+							'event-touch',
+							'widget-modality',
+							'widget-position',
+							'widget-position-align',
+							'widget-position-constrain',
+							'widget-stack',
+							'widget-stdmod',
+						],
+					},
+					'liferay-calendar-util': {
+						path: 'calendar_util.js',
+						requires: [
+							'aui-datatype',
+							'aui-io',
+							'aui-scheduler',
+							'aui-toolbar',
+							'autocomplete',
+							'autocomplete-highlighters',
+						],
+					},
+					'liferay-scheduler': {
+						path: 'scheduler.js',
+						requires: [
+							'async-queue',
+							'aui-datatype',
+							'aui-scheduler',
+							'dd-plugin',
+							'liferay-calendar-a11y',
+							'liferay-calendar-message-util',
+							'liferay-calendar-recurrence-converter',
+							'liferay-calendar-recurrence-util',
+							'liferay-calendar-util',
+							'liferay-scheduler-event-recorder',
+							'liferay-scheduler-models',
+							'promise',
+							'resize-plugin',
+						],
+					},
+					'liferay-scheduler-event-recorder': {
+						path: 'scheduler_event_recorder.js',
+						requires: [
+							'dd-plugin',
+							'liferay-calendar-util',
+							'resize-plugin',
+						],
+					},
+					'liferay-scheduler-models': {
+						path: 'scheduler_models.js',
+						requires: [
+							'aui-datatype',
+							'dd-plugin',
+							'liferay-calendar-util',
+						],
+					},
+				},
+				root: MODULE_PATH + '/js/legacy/',
+			},
+		},
+	});
+})();
+} catch(error) {console.error(error);}try {var MODULE_MAIN='exportimport-web@5.0.100/index';var MODULE_PATH='/o/exportimport-web';/**
+ * SPDX-FileCopyrightText: (c) 2000 Liferay, Inc. https://liferay.com
+ * SPDX-License-Identifier: LGPL-2.1-or-later OR LicenseRef-Liferay-DXP-EULA-2.0.0-2023-06
+ */
+
+(function () {
+	AUI().applyConfig({
+		groups: {
+			exportimportweb: {
+				base: MODULE_PATH + '/js/legacy/',
+				combine: Liferay.AUI.getCombine(),
+				filter: Liferay.AUI.getFilterConfig(),
+				modules: {
+					'liferay-export-import-export-import': {
+						path: 'main.js',
+						requires: [
+							'aui-datatype',
+							'aui-dialog-iframe-deprecated',
+							'aui-modal',
+							'aui-parse-content',
+							'aui-toggler',
+							'liferay-portlet-base',
+							'liferay-util-window',
+						],
+					},
+				},
+				root: MODULE_PATH + '/js/legacy/',
+			},
+		},
+	});
+})();
+} catch(error) {console.error(error);}try {var MODULE_MAIN='@liferay/frontend-js-state-web@1.0.30/index';var MODULE_PATH='/o/frontend-js-state-web';/**
+ * SPDX-FileCopyrightText: (c) 2000 Liferay, Inc. https://liferay.com
+ * SPDX-License-Identifier: LGPL-2.1-or-later OR LicenseRef-Liferay-DXP-EULA-2.0.0-2023-06
+ */
+
+(function () {
+	AUI().applyConfig({
+		groups: {
+			state: {
+
+				// eslint-disable-next-line
+				mainModule: MODULE_MAIN,
+			},
+		},
+	});
+})();
+} catch(error) {console.error(error);}try {var MODULE_MAIN='@liferay/document-library-web@6.0.198/index';var MODULE_PATH='/o/document-library-web';/**
+ * SPDX-FileCopyrightText: (c) 2000 Liferay, Inc. https://liferay.com
+ * SPDX-License-Identifier: LGPL-2.1-or-later OR LicenseRef-Liferay-DXP-EULA-2.0.0-2023-06
+ */
+
+(function () {
+	AUI().applyConfig({
+		groups: {
+			dl: {
+				base: MODULE_PATH + '/js/legacy/',
+				combine: Liferay.AUI.getCombine(),
+				filter: Liferay.AUI.getFilterConfig(),
+				modules: {
+					'document-library-upload-component': {
+						path: 'DocumentLibraryUpload.js',
+						requires: [
+							'aui-component',
+							'aui-data-set-deprecated',
+							'aui-overlay-manager-deprecated',
+							'aui-overlay-mask-deprecated',
+							'aui-parse-content',
+							'aui-progressbar',
+							'aui-template-deprecated',
+							'liferay-search-container',
+							'querystring-parse-simple',
+							'uploader',
+						],
+					},
+				},
+				root: MODULE_PATH + '/js/legacy/',
+			},
+		},
+	});
+})();
+} catch(error) {console.error(error);}try {var MODULE_MAIN='frontend-editor-alloyeditor-web@5.0.56/index';var MODULE_PATH='/o/frontend-editor-alloyeditor-web';/**
+ * SPDX-FileCopyrightText: (c) 2000 Liferay, Inc. https://liferay.com
+ * SPDX-License-Identifier: LGPL-2.1-or-later OR LicenseRef-Liferay-DXP-EULA-2.0.0-2023-06
+ */
+
+(function () {
+	AUI().applyConfig({
+		groups: {
+			alloyeditor: {
+				base: MODULE_PATH + '/js/legacy/',
+				combine: Liferay.AUI.getCombine(),
+				filter: Liferay.AUI.getFilterConfig(),
+				modules: {
+					'liferay-alloy-editor': {
+						path: 'alloyeditor.js',
+						requires: [
+							'aui-component',
+							'liferay-portlet-base',
+							'timers',
+						],
+					},
+					'liferay-alloy-editor-source': {
+						path: 'alloyeditor_source.js',
+						requires: [
+							'aui-debounce',
+							'liferay-fullscreen-source-editor',
+							'liferay-source-editor',
+							'plugin',
+						],
+					},
+				},
+				root: MODULE_PATH + '/js/legacy/',
+			},
+		},
+	});
+})();
+} catch(error) {console.error(error);}try {var MODULE_MAIN='portal-workflow-kaleo-designer-web@5.0.146/index';var MODULE_PATH='/o/portal-workflow-kaleo-designer-web';/**
+ * SPDX-FileCopyrightText: (c) 2000 Liferay, Inc. https://liferay.com
+ * SPDX-License-Identifier: LGPL-2.1-or-later OR LicenseRef-Liferay-DXP-EULA-2.0.0-2023-06
+ */
+
+(function () {
+	AUI().applyConfig({
+		groups: {
+			'kaleo-designer': {
+				base: MODULE_PATH + '/designer/js/legacy/',
+				combine: Liferay.AUI.getCombine(),
+				filter: Liferay.AUI.getFilterConfig(),
+				modules: {
+					'liferay-kaleo-designer-autocomplete-util': {
+						path: 'autocomplete_util.js',
+						requires: ['autocomplete', 'autocomplete-highlighters'],
+					},
+					'liferay-kaleo-designer-definition-diagram-controller': {
+						path: 'definition_diagram_controller.js',
+						requires: [
+							'liferay-kaleo-designer-field-normalizer',
+							'liferay-kaleo-designer-utils',
+						],
+					},
+					'liferay-kaleo-designer-dialogs': {
+						path: 'dialogs.js',
+						requires: ['liferay-util-window'],
+					},
+					'liferay-kaleo-designer-editors': {
+						path: 'editors.js',
+						requires: [
+							'aui-ace-editor',
+							'aui-ace-editor-mode-xml',
+							'aui-base',
+							'aui-datatype',
+							'aui-node',
+							'liferay-kaleo-designer-autocomplete-util',
+							'liferay-kaleo-designer-utils',
+						],
+					},
+					'liferay-kaleo-designer-field-normalizer': {
+						path: 'field_normalizer.js',
+						requires: ['liferay-kaleo-designer-remote-services'],
+					},
+					'liferay-kaleo-designer-nodes': {
+						path: 'nodes.js',
+						requires: [
+							'aui-datatable',
+							'aui-datatype',
+							'aui-diagram-builder',
+							'liferay-kaleo-designer-editors',
+							'liferay-kaleo-designer-utils',
+						],
+					},
+					'liferay-kaleo-designer-remote-services': {
+						path: 'remote_services.js',
+						requires: ['aui-io'],
+					},
+					'liferay-kaleo-designer-templates': {
+						path: 'templates.js',
+						requires: ['aui-tpl-snippets-deprecated'],
+					},
+					'liferay-kaleo-designer-utils': {
+						path: 'utils.js',
+						requires: [],
+					},
+					'liferay-kaleo-designer-xml-definition': {
+						path: 'xml_definition.js',
+						requires: [
+							'aui-base',
+							'aui-component',
+							'dataschema-xml',
+							'datatype-xml',
+						],
+					},
+					'liferay-kaleo-designer-xml-definition-serializer': {
+						path: 'xml_definition_serializer.js',
+						requires: ['escape', 'liferay-kaleo-designer-xml-util'],
+					},
+					'liferay-kaleo-designer-xml-util': {
+						path: 'xml_util.js',
+						requires: ['aui-base'],
+					},
+					'liferay-portlet-kaleo-designer': {
+						path: 'main.js',
+						requires: [
+							'aui-ace-editor',
+							'aui-ace-editor-mode-xml',
+							'aui-tpl-snippets-deprecated',
+							'dataschema-xml',
+							'datasource',
+							'datatype-xml',
+							'event-valuechange',
+							'io-form',
+							'liferay-kaleo-designer-autocomplete-util',
+							'liferay-kaleo-designer-editors',
+							'liferay-kaleo-designer-nodes',
+							'liferay-kaleo-designer-remote-services',
+							'liferay-kaleo-designer-utils',
+							'liferay-kaleo-designer-xml-util',
+							'liferay-util-window',
+						],
+					},
+				},
+				root: MODULE_PATH + '/designer/js/legacy/',
+			},
+		},
+	});
+})();
+} catch(error) {console.error(error);}</script>
+
+
+
+
+<script type="text/javascript" data-senna-track="temporary">
+	// <![CDATA[
+		
+			
+				
+					Liferay.Portlet.register('com_liferay_portal_workflow_kaleo_designer_web_portlet_KaleoDesignerPortlet');
+				
+				
+		
+
+		
+			
+				
+					Liferay._editControlsState = 'visible';
+				
+				
+		
+	// ]]>
+</script>
+
+
+
+
+
+	
+		
+
+			
+
+			
+		
+		
+
+
+
+	
+		
+
+			
+
+			
+		
+		
+
+
+
+	
+		
+
+			
+
+			
+		
+	
+
+
+
+
+
+
+
+
+
+
+
+
+	
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<link class="lfr-css-file" data-senna-track="temporary" href="http://localhost:8080/o/admin-theme/css/main.css?browserId=chrome&amp;themeId=admin_WAR_admintheme&amp;minifierType=css&amp;languageId=en_US&amp;t=1762421376000" id="liferayThemeCSS" rel="stylesheet" type="text/css" />
+
+
+
+
+
+
+
+
+	<style data-senna-track="temporary" type="text/css">
+
+		
+
+			
+
+		
+
+	</style>
+
+
+<style data-senna-track="temporary" type="text/css">
+	:root {
+		--container-max-sm: 540px;
+		--h4-font-size: 1rem;
+		--font-weight-bold: 700;
+		--rounded-pill: 50rem;
+		--display4-weight: 300;
+		--danger: #da1414;
+		--display2-size: 5.5rem;
+		--body-bg: #fff;
+		--display2-weight: 300;
+		--display1-weight: 300;
+		--display3-weight: 300;
+		--box-shadow-sm: 0 .125rem .25rem rgba(0, 0, 0, .075);
+		--font-weight-lighter: lighter;
+		--h3-font-size: 1.1875rem;
+		--btn-outline-primary-hover-border-color: #0b5fff;
+		--transition-collapse: height .35s ease;
+		--blockquote-small-color: #6b6c7e;
+		--gray-200: #f1f2f5;
+		--btn-secondary-hover-background-color: #f7f8f9;
+		--gray-600: #6b6c7e;
+		--secondary: #6b6c7e;
+		--btn-outline-primary-color: #0b5fff;
+		--btn-link-hover-color: #004ad7;
+		--hr-border-color: rgba(0, 0, 0, .1);
+		--hr-border-margin-y: 1rem;
+		--light: #f1f2f5;
+		--btn-outline-primary-hover-color: #0b5fff;
+		--btn-secondary-background-color: #fff;
+		--btn-outline-secondary-hover-border-color: transparent;
+		--display3-size: 4.5rem;
+		--primary: #0b5fff;
+		--container-max-md: 720px;
+		--border-radius-sm: 0.1875rem;
+		--display-line-height: 1.2;
+		--h6-font-size: 0.8125rem;
+		--h2-font-size: 1.375rem;
+		--aspect-ratio-4-to-3: 75%;
+		--spacer-10: 10rem;
+		--font-weight-semi-bold: 600;
+		--font-weight-normal: 400;
+		--dark: #272833;
+		--blockquote-small-font-size: 80%;
+		--h5-font-size: 0.875rem;
+		--blockquote-font-size: 1.25rem;
+		--brand-color-3: #2e5aac;
+		--brand-color-2: #6b6c7e;
+		--brand-color-1: #0b5fff;
+		--transition-fade: opacity .15s linear;
+		--display4-size: 3.5rem;
+		--border-radius-lg: 0.375rem;
+		--btn-primary-hover-color: #fff;
+		--display1-size: 6rem;
+		--brand-color-4: #30313f;
+		--black: #000;
+		--lighter: #f7f8f9;
+		--gray-300: #e7e7ed;
+		--gray-700: #495057;
+		--btn-secondary-border-color: #cdced9;
+		--btn-outline-secondary-hover-color: #272833;
+		--body-color: #1c1c24;
+		--btn-outline-secondary-hover-background-color: rgba(39, 40, 51, 0.03);
+		--btn-primary-color: #fff;
+		--btn-secondary-color: #6b6c7e;
+		--btn-secondary-hover-border-color: #cdced9;
+		--box-shadow-lg: 0 1rem 3rem rgba(0, 0, 0, .175);
+		--container-max-lg: 960px;
+		--btn-outline-primary-border-color: #0b5fff;
+		--aspect-ratio: 100%;
+		--gray-dark: #393a4a;
+		--aspect-ratio-16-to-9: 56.25%;
+		--box-shadow: 0 .5rem 1rem rgba(0, 0, 0, .15);
+		--white: #fff;
+		--warning: #b95000;
+		--info: #2e5aac;
+		--hr-border-width: 1px;
+		--btn-link-color: #0b5fff;
+		--gray-400: #cdced9;
+		--gray-800: #393a4a;
+		--btn-outline-primary-hover-background-color: #f0f5ff;
+		--btn-primary-hover-background-color: #0053f0;
+		--btn-primary-background-color: #0b5fff;
+		--success: #287d3c;
+		--font-size-sm: 0.875rem;
+		--btn-primary-border-color: #0b5fff;
+		--font-family-base: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen-Sans, Ubuntu, Cantarell, 'Helvetica Neue', Arial, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol';
+		--spacer-0: 0;
+		--font-family-monospace: SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace;
+		--lead-font-size: 1.25rem;
+		--border-radius: 0.25rem;
+		--spacer-9: 9rem;
+		--font-weight-light: 300;
+		--btn-secondary-hover-color: #272833;
+		--spacer-2: 0.5rem;
+		--spacer-1: 0.25rem;
+		--spacer-4: 1.5rem;
+		--spacer-3: 1rem;
+		--spacer-6: 4.5rem;
+		--spacer-5: 3rem;
+		--spacer-8: 7.5rem;
+		--border-radius-circle: 50%;
+		--spacer-7: 6rem;
+		--font-size-lg: 1.125rem;
+		--aspect-ratio-8-to-3: 37.5%;
+		--font-family-sans-serif: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen-Sans, Ubuntu, Cantarell, 'Helvetica Neue', Arial, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol';
+		--gray-100: #f7f8f9;
+		--font-weight-bolder: 900;
+		--container-max-xl: 1248px;
+		--btn-outline-secondary-color: #6b6c7e;
+		--gray-500: #a7a9bc;
+		--h1-font-size: 1.625rem;
+		--gray-900: #272833;
+		--text-muted: #a7a9bc;
+		--btn-primary-hover-border-color: transparent;
+		--btn-outline-secondary-border-color: #cdced9;
+		--lead-font-weight: 300;
+		--font-size-base: 0.875rem;
+	}
+</style>
+<link data-senna-track="permanent" href="/o/frontend-js-aui-web/alloy_ui.css?&mac=favIEq7hPo8AEd6k+N5OVADEEls=&browserId=chrome&languageId=en_US&minifierType=css&themeId=admin_WAR_admintheme" rel="stylesheet"></link>
+<link data-senna-track="permanent" href="/o/product-navigation-control-menu-theme-contributor/product_navigation_control_menu.css?&mac=xxy1Nd+6PX779of7ucFUV3er3kQ=&browserId=chrome&languageId=en_US&minifierType=css&themeId=admin_WAR_admintheme" rel="stylesheet" type = "text/css" />
+
+<link data-senna-track="permanent" href="/o/product-navigation-product-menu-theme-contributor/product_navigation_product_menu.css?&mac=FxBN7LhYBfhIvvj9u5havWfBGAM=&browserId=chrome&languageId=en_US&minifierType=css&themeId=admin_WAR_admintheme" rel="stylesheet" type = "text/css" />
+
+<script type="module">
+import {init} from '/o/frontend-js-spa-web/__liferay__/index.js';
+{
+init({"navigationExceptionSelectors":":not([target=\"_blank\"]):not([data-senna-off]):not([data-resource-href]):not([data-cke-saved-href]):not([data-cke-saved-href])","cacheExpirationTime":-1,"clearScreensCache":false,"portletsBlacklist":["com_liferay_login_web_portlet_CreateAccountPortlet","com_liferay_site_navigation_directory_web_portlet_SitesDirectoryPortlet","com_liferay_nested_portlets_web_portlet_NestedPortletsPortlet","com_liferay_questions_web_internal_portlet_QuestionsPortlet","com_liferay_account_admin_web_internal_portlet_AccountUsersRegistrationPortlet","com_liferay_login_web_portlet_ForgotPasswordPortlet","com_liferay_portal_language_override_web_internal_portlet_PLOPortlet","com_liferay_login_web_portlet_LoginPortlet","com_liferay_login_web_portlet_FastLoginPortlet"],"excludedTargetPortlets":["com_liferay_users_admin_web_portlet_UsersAdminPortlet","com_liferay_server_admin_web_portlet_ServerAdminPortlet"],"validStatusCodes":[221,490,494,499,491,496,492,493,495,220],"debugEnabled":false,"loginRedirect":"","excludedPaths":["/c/document_library","/documents","/image"],"preloadCSS":false,"userNotification":{"message":"It looks like this is taking longer than expected.","title":"Oops","timeout":30000},"requestTimeout":0});
+}
+
+</script>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<script type="text/javascript" data-senna-track="temporary">
+	if (window.Analytics) {
+		window._com_liferay_document_library_analytics_isViewFileEntry = false;
+	}
+</script>
+
+<script type="text/javascript">
+Liferay.on(
+	'ddmFieldBlur', function(event) {
+		if (window.Analytics) {
+			Analytics.send(
+				'fieldBlurred',
+				'Form',
+				{
+					fieldName: event.fieldName,
+					focusDuration: event.focusDuration,
+					formId: event.formId,
+					formPageTitle: event.formPageTitle,
+					page: event.page,
+					title: event.title
+				}
+			);
+		}
+	}
+);
+
+Liferay.on(
+	'ddmFieldFocus', function(event) {
+		if (window.Analytics) {
+			Analytics.send(
+				'fieldFocused',
+				'Form',
+				{
+					fieldName: event.fieldName,
+					formId: event.formId,
+					formPageTitle: event.formPageTitle,
+					page: event.page,
+					title:event.title
+				}
+			);
+		}
+	}
+);
+
+Liferay.on(
+	'ddmFormPageShow', function(event) {
+		if (window.Analytics) {
+			Analytics.send(
+				'pageViewed',
+				'Form',
+				{
+					formId: event.formId,
+					formPageTitle: event.formPageTitle,
+					page: event.page,
+					title: event.title
+				}
+			);
+		}
+	}
+);
+
+Liferay.on(
+	'ddmFormSubmit', function(event) {
+		if (window.Analytics) {
+			Analytics.send(
+				'formSubmitted',
+				'Form',
+				{
+					formId: event.formId,
+					title: event.title
+				}
+			);
+		}
+	}
+);
+
+Liferay.on(
+	'ddmFormView', function(event) {
+		if (window.Analytics) {
+			Analytics.send(
+				'formViewed',
+				'Form',
+				{
+					formId: event.formId,
+					title: event.title
+				}
+			);
+		}
+	}
+);
+
+</script><script>
+
+</script>
+
+
+
+
+
+
+
+
+
+
+
+
+
+</head>
+
+<body class="chrome has-control-menu controls-visible  yui3-skin-sam page-maximized signed-in private-page site display-panel-columns">
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+	<nav aria-label="Quick Links" class="bg-dark cadmin quick-access-nav text-center text-white" id="hdfq_quickAccessNav">
+		
+			
+				<a class="d-block p-2 sr-only sr-only-focusable text-reset" href="#main-content">
+		Skip to Main Content
+	</a>
+			
+			
+	</nav>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<div class="position-relative" id="wrapper">
+	<div id="content-wrapper">
+		<div id="content">
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+	
+
+		
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+	
+
+		<div class="columns-max" >
+	<div class="portlet-layout row">
+		<div class="col-md-12 portlet-column portlet-column-only" id="column-1">
+			
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+	
+
+	<div class="portlet-boundary portlet-boundary_com_liferay_portal_workflow_kaleo_designer_web_portlet_KaleoDesignerPortlet_  portlet-static portlet-static-end decorate kaleo-designer-portlet " id="p_p_id_com_liferay_portal_workflow_kaleo_designer_web_portlet_KaleoDesignerPortlet_">
+		<span id="p_com_liferay_portal_workflow_kaleo_designer_web_portlet_KaleoDesignerPortlet"></span>
+
+
+
+
+	
+
+	
+		
+			
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+	
+		
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+	<nav aria-label="Control Menu" class="cadmin control-menu-container">
+		
+
+		<div class="control-menu control-menu-level-1 control-menu-level-1-light d-print-none" data-qa-id="controlMenu" id="_com_liferay_portal_workflow_kaleo_designer_web_portlet_KaleoDesignerPortlet_ControlMenu">
+			<div class="container-fluid container-fluid-max-xl">
+				<div class="control-menu-level-1-nav control-menu-nav" data-namespace="_com_liferay_portal_workflow_kaleo_designer_web_portlet_KaleoDesignerPortlet_" data-qa-id="header" id="_com_liferay_portal_workflow_kaleo_designer_web_portlet_KaleoDesignerPortlet_controlMenu">
+
+					<div class="control-menu-nav-category sites-control-group"><ul class="control-menu-nav"><li class="control-menu-nav-item">
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+	
+		<span
+			class=" lfr-portal-tooltip"
+
+			
+
+			
+				title="Back"
+			
+		>
+			
+				
+					<a href="http://localhost:8080/group/control_panel/manage?p_p_id=com_liferay_portal_workflow_web_portlet_ControlPanelWorkflowPortlet&amp;p_p_lifecycle=0&amp;p_p_state=maximized&amp;_com_liferay_portal_workflow_web_portlet_ControlPanelWorkflowPortlet_mvcPath=%2Fview.jsp" target="_self" class="btn btn-monospaced btn-sm control-menu-nav-link lfr-icon-item taglib-icon" id="_com_liferay_portal_workflow_kaleo_designer_web_portlet_KaleoDesignerPortlet_rjus____" >
+						
+
+
+	
+		<span class="icon-monospaced"  id="qfkd____"><svg aria-hidden="true" class="lexicon-icon lexicon-icon-angle-left" focusable="false" ><use href="http://localhost:8080/o/admin-theme/images/clay/icons.svg#angle-left"></use></svg></span>
+	
+	
+
+
+	
+		
+			<span class="taglib-text hide-accessible sr-only">Back</span>
+		
+	
+
+					</a>
+				
+				
+		</span>
+	
+
+
+</li></ul></div><div class="control-menu-nav-category tools-control-group"><div class="control-menu-nav">
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<div class="control-menu-nav-item control-menu-nav-item-content">
+	<h1 class="control-menu-level-1-heading mb-0 text-truncate" data-qa-id="headerTitle">Edit Workflow Definition</h1>
+
+	
+</div>
+
+</div></div><div class="control-menu-nav-category exp-control-group"><ul class="control-menu-nav"></ul></div><div class="control-menu-nav-category user-control-group"><ul class="control-menu-nav">
+
+
+
+
+
+
+
+
+
+<li class="control-menu-nav-item control-menu-nav-item-separator">
+	<button class="btn btn-monospaced btn-sm btn-unstyled control-menu-nav-link lfr-portal-tooltip" aria-haspopup="dialog" title="Applications Menu" type="button" ><span class="inline-item"><svg class="lexicon-icon lexicon-icon-grid" role="presentation"><use xlink:href="http://localhost:8080/o/admin-theme/images/clay/icons.svg#grid" /></svg></span></button>
+
+	<div id="sqoc"></div>
+</li>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<style type="text/css">
+	#impersonate-user-icon {
+		color: #272833;
+	}
+
+	#impersonate-user-icon .lexicon-icon {
+		margin-top: -.125rem;
+	}
+
+	#impersonate-user-sticker {
+		bottom: -.4rem;
+		color: #000;
+		font-size: .6rem;
+		height: 1.2rem;
+		right: -0.4rem;
+		width: 1.2rem;
+	}
+
+	#personal-menu-icon-wrapper .lexicon-icon {
+		margin-top: -.25rem;
+	}
+</style>
+
+<li class="control-menu-nav-item">
+	<span class="user-avatar-link">
+		
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<style type="text/css">
+	.dropdown-menu-personal-menu {
+		max-height: none;
+		z-index: 1021;
+	}
+
+	.dropdown-menu-personal-menu .dropdown-item-indicator {
+		padding-right: 0.5rem;
+	}
+
+	div.personal-menu-dropdown .btn {
+		border-radius: 5000px;
+	}
+
+	div.personal-menu-dropdown .btn > span.sticker-user-icon {
+		pointer-events: none;
+	}
+
+	div.personal-menu-dropdown .dropdown-item {
+		color: #6B6C7E;
+	}
+</style>
+
+<div class="personal-menu-dropdown" id="exlg_personal_menu_dropdown">
+	
+		
+		
+			<button class="btn btn-unstyled dropdown-toggle" id="exlg_personal_menu_dropdown_toggle" type="button" >
+				<span class="sticker">
+					<span class="sticker sticker-circle sticker-light user-icon-color-4"><span class="inline-item"><svg class="lexicon-icon"><use href="http://localhost:8080/o/admin-theme/images/clay/icons.svg#user" /></svg></span></span>
+
+					
+				</span>
+			</button>
+		
+	
+
+	
+
+	<div id="xxyd"></div>
+</div>
+
+		
+
+		
+	</span>
+</li></ul></div>
+
+				</div>
+			</div>
+
+			<div class="control-menu-body">
+
+				
+
+			</div>
+
+			<div id="controlMenuAlertsContainer"></div>
+		</div>
+
+		
+	</nav>
+
+	
+
+	<div id="main-content" role="main">
+	<section class="portlet" id="portlet_com_liferay_portal_workflow_kaleo_designer_web_portlet_KaleoDesignerPortlet">
+		
+			<div class=" portlet-content-container">
+				
+
+
+	<div class="portlet-body">
+
+
+
+	
+		
+			
+				
+					
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+	
+
+				
+
+				
+					
+						
+
+
+	
+
+		
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<div id="hmwr"></div>
+
+	
+	
+					
+				
+			
+		
+	
+	
+
+
+	</div>
+
+			</div>
+		
+	</section>
+	</div>
+
+
+	
+
+		
+		
+
+
+
+
+
+
+
+	</div>
+
+
+
+
+
+
+
+		</div>
+	</div>
+</div>
+
+	
+	
+
+
+<form action="#" aria-hidden="true" class="hide" id="hrefFm" method="post" name="hrefFm"><span></span><button hidden type="submit">Hidden</button></form>
+
+	
+
+			<div class="clear"></div>
+		</div>
+	</div>
+</div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+	
+
+		
+
+		
+	
+
+	
+
+		
+
+		
+
+	
+
+	
+
+
+
+
+
+
+
+
+
+
+
+
+	
+
+
+
+
+
+
+
+
+
+	
+
+
+
+
+
+
+
+
+
+<script type="text/javascript">
+
+	
+		
+
+			
+
+			
+		
+	
+
+
+</script><script>
+
+</script>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+	
+
+
+<script type="text/javascript">
+(function() {var $ = AUI.$;var _ = AUI._;
+	var onShare = function (data) {
+		if (window.Analytics) {
+			Analytics.send('shared', 'SocialBookmarks', {
+				className: data.className,
+				classPK: data.classPK,
+				type: data.type,
+				url: data.url,
+			});
+		}
+	};
+
+	var onDestroyPortlet = function () {
+		Liferay.detach('socialBookmarks:share', onShare);
+		Liferay.detach('destroyPortlet', onDestroyPortlet);
+	};
+
+	Liferay.on('socialBookmarks:share', onShare);
+	Liferay.on('destroyPortlet', onDestroyPortlet);
+})();
+(function() {var $ = AUI.$;var _ = AUI._;
+	var onVote = function (event) {
+		if (window.Analytics) {
+			let title = event.contentTitle;
+
+			if (!title) {
+				const dmNode = document.querySelector(
+					'[data-analytics-file-entry-id="' + event.classPK + '"]'
+				);
+
+				if (dmNode) {
+					title = dmNode.dataset.analyticsFileEntryTitle;
+				}
+			}
+
+			Analytics.send('VOTE', 'Ratings', {
+				className: event.className,
+				classPK: event.classPK,
+				ratingType: event.ratingType,
+				score: event.score,
+				title,
+			});
+		}
+	};
+
+	var onDestroyPortlet = function () {
+		Liferay.detach('ratings:vote', onVote);
+		Liferay.detach('destroyPortlet', onDestroyPortlet);
+	};
+
+	Liferay.on('ratings:vote', onVote);
+	Liferay.on('destroyPortlet', onDestroyPortlet);
+})();
+
+	function getValueByAttribute(node, attr) {
+		return (
+			node.dataset[attr] ||
+			(node.parentElement && node.parentElement.dataset[attr])
+		);
+	}
+
+	function sendDocumentDownloadedAnalyticsEvent(anchor) {
+		var fileEntryId = getValueByAttribute(
+			anchor,
+			'analyticsFileEntryId'
+		);
+		var title = getValueByAttribute(
+			anchor,
+			'analyticsFileEntryTitle'
+		);
+		var version = getValueByAttribute(
+			anchor,
+			'analyticsFileEntryVersion'
+		);
+
+		if (fileEntryId) {
+			Analytics.send('documentDownloaded', 'Document', {
+				groupId: themeDisplay.getScopeGroupId(),
+				fileEntryId,
+				preview:
+					!!window._com_liferay_document_library_analytics_isViewFileEntry,
+				title,
+				version,
+			});
+		}
+	}
+
+	function handleDownloadClick(event) {
+		if (window.Analytics) {
+			if (event.target.nodeName.toLowerCase() === 'a') {
+				sendDocumentDownloadedAnalyticsEvent(
+					event.target
+				);
+			}
+			else if (
+				event.target.parentNode &&
+				event.target.parentNode.nodeName.toLowerCase() === 'a'
+			) {
+				sendDocumentDownloadedAnalyticsEvent(
+					event.target.parentNode
+				);
+			}
+			else {
+				var target = event.target;
+				var matchTextContent =
+					target.textContent &&
+					target.textContent.toLowerCase() ===
+						'download';
+				var matchTitle =
+					target.title && target.title.toLowerCase() === 'download';
+				var matchAction = target.action === 'download';
+				var matchLexiconIcon = !!target.querySelector(
+					'.lexicon-icon-download'
+				);
+				var matchLexiconClassName = target.classList.contains(
+					'lexicon-icon-download'
+				);
+				var matchParentTitle =
+					target.parentNode &&
+					target.parentNode.title &&
+					target.parentNode.title.toLowerCase() === 'download';
+				var matchParentLexiconClassName =
+					target.parentNode &&
+					target.parentNode.classList.contains('lexicon-icon-download');
+
+				if (
+					matchTextContent ||
+					matchTitle ||
+					matchParentTitle ||
+					matchAction ||
+					matchLexiconIcon ||
+					matchLexiconClassName ||
+					matchParentLexiconClassName
+				) {
+					var selectedFiles = document.querySelectorAll(
+						'.form .custom-control-input:checked'
+					);
+
+					selectedFiles.forEach(({value}) => {
+						var selectedFile = document.querySelector(
+							'[data-analytics-file-entry-id="' + value + '"]'
+						);
+
+						sendDocumentDownloadedAnalyticsEvent(
+							selectedFile
+						);
+					});
+				}
+			}
+		}
+	}
+
+	Liferay.once('destroyPortlet', () => {
+		document.body.removeEventListener(
+			'click',
+			handleDownloadClick
+		);
+	});
+
+	Liferay.once('portletReady', () => {
+		document.body.addEventListener(
+			'click',
+			handleDownloadClick
+		);
+	});
+
+(function() {var $ = AUI.$;var _ = AUI._;
+	var onDestroyPortlet = function () {
+		Liferay.detach('messagePosted', onMessagePosted);
+		Liferay.detach('destroyPortlet', onDestroyPortlet);
+	};
+
+	Liferay.on('destroyPortlet', onDestroyPortlet);
+
+	var onMessagePosted = function (event) {
+		if (window.Analytics) {
+			const eventProperties = {
+				className: event.className,
+				classPK: event.classPK,
+				commentId: event.commentId,
+				text: event.text,
+			};
+
+			const blogNode = document.querySelector(
+				'[data-analytics-asset-id="' + event.classPK + '"]'
+			);
+
+			const dmNode = document.querySelector(
+				'[data-analytics-file-entry-id="' + event.classPK + '"]'
+			);
+
+			if (blogNode) {
+				eventProperties.title = blogNode.dataset.analyticsAssetTitle;
+			}
+			else if (dmNode) {
+				eventProperties.title = dmNode.dataset.analyticsFileEntryTitle;
+			}
+
+			Analytics.send('posted', 'Comment', eventProperties);
+		}
+	};
+
+	Liferay.on('messagePosted', onMessagePosted);
+})();
+
+	if (window.svg4everybody && Liferay.Data.ICONS_INLINE_SVG) {
+		svg4everybody(
+			{
+				polyfill: true,
+				validate: function (src, svg, use) {
+					return !src || !src.startsWith('#');
+				}
+			}
+		);
+	}
+
+(function() {var $ = AUI.$;var _ = AUI._;
+	Liferay.Util.delegate(
+		document,
+		'focusin',
+		'.portlet',
+		function(event) {
+			event.delegateTarget.closest('.portlet').classList.add('open');
+		}
+	);
+
+	Liferay.Util.delegate(
+		document,
+		'focusout',
+		'.portlet',
+		function(event) {
+			event.delegateTarget.closest('.portlet').classList.remove('open');
+		}
+	);
+})();
+
+	// <![CDATA[
+
+		
+
+		Liferay.currentURL = '\x2fgroup\x2fcontrol_panel\x2fmanage\x3fp_p_id\x3dcom_liferay_portal_workflow_kaleo_designer_web_portlet_KaleoDesignerPortlet\x26p_p_lifecycle\x3d0\x26p_p_state\x3dmaximized\x26p_p_mode\x3dview\x26_com_liferay_portal_workflow_kaleo_designer_web_portlet_KaleoDesignerPortlet_redirect\x3dhttp\x253A\x252F\x252Flocalhost\x253A8080\x252Fgroup\x252Fcontrol_panel\x252Fmanage\x253Fp_p_id\x253Dcom_liferay_portal_workflow_web_portlet_ControlPanelWorkflowPortlet\x2526p_p_lifecycle\x253D0\x2526p_p_state\x253Dmaximized\x2526p_p_mode\x253Dview\x26_com_liferay_portal_workflow_kaleo_designer_web_portlet_KaleoDesignerPortlet_mvcPath\x3d\x252Fdesigner\x252Fedit_workflow_definition\x2ejsp\x26_com_liferay_portal_workflow_kaleo_designer_web_portlet_KaleoDesignerPortlet_name\x3dSingle\x2bApprover\x26_com_liferay_portal_workflow_kaleo_designer_web_portlet_KaleoDesignerPortlet_clearSessionMessage\x3dtrue\x26_com_liferay_portal_workflow_kaleo_designer_web_portlet_KaleoDesignerPortlet_draftVersion\x3d1\x2e0\x26p_p_auth\x3do3uGWMYu';
+		Liferay.currentURLEncoded = '\x252Fgroup\x252Fcontrol_panel\x252Fmanage\x253Fp_p_id\x253Dcom_liferay_portal_workflow_kaleo_designer_web_portlet_KaleoDesignerPortlet\x2526p_p_lifecycle\x253D0\x2526p_p_state\x253Dmaximized\x2526p_p_mode\x253Dview\x2526_com_liferay_portal_workflow_kaleo_designer_web_portlet_KaleoDesignerPortlet_redirect\x253Dhttp\x25253A\x25252F\x25252Flocalhost\x25253A8080\x25252Fgroup\x25252Fcontrol_panel\x25252Fmanage\x25253Fp_p_id\x25253Dcom_liferay_portal_workflow_web_portlet_ControlPanelWorkflowPortlet\x252526p_p_lifecycle\x25253D0\x252526p_p_state\x25253Dmaximized\x252526p_p_mode\x25253Dview\x2526_com_liferay_portal_workflow_kaleo_designer_web_portlet_KaleoDesignerPortlet_mvcPath\x253D\x25252Fdesigner\x25252Fedit_workflow_definition\x2ejsp\x2526_com_liferay_portal_workflow_kaleo_designer_web_portlet_KaleoDesignerPortlet_name\x253DSingle\x252BApprover\x2526_com_liferay_portal_workflow_kaleo_designer_web_portlet_KaleoDesignerPortlet_clearSessionMessage\x253Dtrue\x2526_com_liferay_portal_workflow_kaleo_designer_web_portlet_KaleoDesignerPortlet_draftVersion\x253D1\x2e0\x2526p_p_auth\x253Do3uGWMYu';
+
+	// ]]>
+
+(function() {var $ = AUI.$;var _ = AUI._;
+		import(Liferay.ThemeDisplay.getPathContext() + '/o/frontend-js-web/__liferay__/index.js').then(
+			({openToast}) => {
+				AUI().use(
+					'liferay-session',
+					function () {
+						Liferay.Session = new Liferay.SessionBase(
+							{
+								autoExtend: true,
+								redirectOnExpire: false,
+								redirectUrl: 'http\x3a\x2f\x2flocalhost\x3a8080\x2fweb\x2fguest',
+								sessionLength: 900,
+								sessionTimeoutOffset: 70,
+								warningLength: 60
+							}
+						);
+
+						
+							Liferay.Session.plug(
+								Liferay.SessionDisplay,
+								{
+									openToast,
+								}
+							);
+						
+					}
+				);
+			}
+		)
+	})();
+
+	
+
+	Liferay.Portlet.onLoad(
+		{
+			canEditTitle: true,
+			columnPos: 0,
+			isStatic: 'end',
+			namespacedId: 'p_p_id_com_liferay_portal_workflow_kaleo_designer_web_portlet_KaleoDesignerPortlet_',
+			portletId: 'com_liferay_portal_workflow_kaleo_designer_web_portlet_KaleoDesignerPortlet',
+			refreshURL: '\x2fc\x2fportal\x2frender_portlet\x3fp_l_id\x3d1\x26p_p_id\x3dcom_liferay_portal_workflow_kaleo_designer_web_portlet_KaleoDesignerPortlet\x26p_p_lifecycle\x3d0\x26p_t_lifecycle\x3d0\x26p_p_state\x3dmaximized\x26p_p_mode\x3dview\x26p_p_col_id\x3dnull\x26p_p_col_pos\x3dnull\x26p_p_col_count\x3dnull\x26p_p_isolated\x3d1\x26currentURL\x3d\x252Fgroup\x252Fcontrol_panel\x252Fmanage\x253Fp_p_id\x253Dcom_liferay_portal_workflow_kaleo_designer_web_portlet_KaleoDesignerPortlet\x2526p_p_lifecycle\x253D0\x2526p_p_state\x253Dmaximized\x2526p_p_mode\x253Dview\x2526_com_liferay_portal_workflow_kaleo_designer_web_portlet_KaleoDesignerPortlet_redirect\x253Dhttp\x25253A\x25252F\x25252Flocalhost\x25253A8080\x25252Fgroup\x25252Fcontrol_panel\x25252Fmanage\x25253Fp_p_id\x25253Dcom_liferay_portal_workflow_web_portlet_ControlPanelWorkflowPortlet\x252526p_p_lifecycle\x25253D0\x252526p_p_state\x25253Dmaximized\x252526p_p_mode\x25253Dview\x2526_com_liferay_portal_workflow_kaleo_designer_web_portlet_KaleoDesignerPortlet_mvcPath\x253D\x25252Fdesigner\x25252Fedit_workflow_definition\x2ejsp\x2526_com_liferay_portal_workflow_kaleo_designer_web_portlet_KaleoDesignerPortlet_name\x253DSingle\x252BApprover\x2526_com_liferay_portal_workflow_kaleo_designer_web_portlet_KaleoDesignerPortlet_clearSessionMessage\x253Dtrue\x2526_com_liferay_portal_workflow_kaleo_designer_web_portlet_KaleoDesignerPortlet_draftVersion\x253D1\x2e0\x2526p_p_auth\x253Do3uGWMYu\x26p_p_auth\x3do3uGWMYu',
+			refreshURLData: {"_com_liferay_portal_workflow_kaleo_designer_web_portlet_KaleoDesignerPortlet_clearSessionMessage":["true"],"_com_liferay_portal_workflow_kaleo_designer_web_portlet_KaleoDesignerPortlet_mvcPath":["\/designer\/edit_workflow_definition.jsp"],"_com_liferay_portal_workflow_kaleo_designer_web_portlet_KaleoDesignerPortlet_redirect":["http:\/\/localhost:8080\/group\/control_panel\/manage?p_p_id=com_liferay_portal_workflow_web_portlet_ControlPanelWorkflowPortlet&p_p_lifecycle=0&p_p_state=maximized&p_p_mode=view"],"_com_liferay_portal_workflow_kaleo_designer_web_portlet_KaleoDesignerPortlet_name":["Single Approver"],"_com_liferay_portal_workflow_kaleo_designer_web_portlet_KaleoDesignerPortlet_draftVersion":["1.0"]}
+		}
+	);
+
+
+</script><script type="module">
+import {DefinitionBuilder as componentModule} from '/o/portal-workflow-kaleo-designer-web/__liferay__/index.js';
+import {PersonalMenu as componentModule1} from '/o/product-navigation-taglib/__liferay__/index.js';
+import {ApplicationsMenu as componentModule0} from '/o/product-navigation-applications-menu-web/__liferay__/index.js';
+import {ProductNavigationControlMenu as ComponentModule} from '/o/product-navigation-taglib/__liferay__/index.js';
+import {render} from '/o/portal-template-react-renderer-impl/__liferay__/index.js';
+AUI().use(
+  'liferay-kaleo-designer-dialogs',
+  'liferay-menu',
+function(A) {
+(function() {
+var $ = AUI.$;var _ = AUI._;
+	new Liferay.Menu();
+
+	var liferayNotices = Liferay.Data.notices;
+
+	for (var i = 0; i < liferayNotices.length; i++) {
+		Liferay.Util.openToast(liferayNotices[i]);
+	}
+
+})();
+(function() {
+var $ = AUI.$;var _ = AUI._;
+	window._com_liferay_portal_workflow_kaleo_designer_web_portlet_KaleoDesignerPortlet_confirmDeleteDefinition = function (deleteURL) {
+		var message =
+			'A deleted workflow cannot be recovered.';
+		var title = 'Delete workflow?';
+
+		Liferay.KaleoDesignerDialogs.openConfirmDeleteDialog(
+			title,
+			message,
+			deleteURL
+		);
+
+		return false;
+	};
+})();
+{
+render(componentModule, {"definitionName":"Single Approver","componentId":null,"allowScriptContentToBeExecutedOrIncluded":false,"isView":false,"timeZoneId":"UTC","displayNames":["English (United States)","Arabic (Saudi Arabia)","Catalan (Spain)","Chinese (China)","Dutch (Netherlands)","Finnish (Finland)","French (France)","German (Germany)","Hungarian (Hungary)","Japanese (Japan)","Portuguese (Brazil)","Spanish (Spain)","Swedish (Sweden)"],"languageIds":["en_US","ar_SA","ca_ES","zh_CN","nl_NL","fi_FI","fr_FR","de_DE","hu_HU","ja_JP","pt_BR","es_ES","sv_SE"],"title":"Single Approver","locale":{"unicodeLocaleKeys":[],"country":"US","ISO3Language":"eng","displayName":"English (United States)","displayVariant":"","language":"en","displayLanguage":"English","script":"","unicodeLocaleAttributes":[],"displayCountry":"United States","ISO3Country":"USA","variant":"","extensionKeys":[],"displayScript":""},"accountEntryId":"0","version":"1.0","definitionVersions":[{"dateCreated":"2025-09-05T20:52:59.528Z","creatorName":"","version":"1.0"}],"translations":{"zh_CN":"单个审批者","es_ES":"Aprobador único","sv_SE":"Enskild godkännare","ja_JP":"唯一の承認者","nl_NL":"Enkele goedkeurder","hu_HU":"Egyetlen jóváhagyó","ar_SA":"مسؤول موافقة واحد","pt_BR":"Aprovador Único","de_DE":"Einzelne genehmigende Person","ca_ES":"Aprovador únic","fi_FI":"Yksittäinen Hyväksyjä","fr_FR":"Valideur unique","en_US":"Single Approver"},"portletId":"com_liferay_portal_workflow_kaleo_designer_web_portlet_KaleoDesignerPortlet","scriptManagementConfigurationPortletURL":"http:\/\/localhost:8080\/group\/control_panel\/manage?p_p_id=com_liferay_configuration_admin_web_portlet_SystemSettingsPortlet&p_p_lifecycle=0&p_p_state=maximized&p_p_mode=view&_com_liferay_configuration_admin_web_portlet_SystemSettingsPortlet_configurationScreenKey=script-management&_com_liferay_configuration_admin_web_portlet_SystemSettingsPortlet_mvcRenderCommandName=%2Fconfiguration_admin%2Fview_configuration_screen","statuses":[{"label":"Approved","value":0},{"label":"Denied","value":4},{"label":"Draft","value":2},{"label":"Expired","value":3},{"label":"In Recycle Bin","value":8},{"label":"Inactive","value":5},{"label":"Incomplete","value":6},{"label":"Pending","value":1},{"label":"Scheduled","value":7}],"functionActionExecutors":[],"portletNamespace":"_com_liferay_portal_workflow_kaleo_designer_web_portlet_KaleoDesignerPortlet_"}, 'hmwr');
+}
+{
+const componentModule = componentModule0;
+render(componentModule, {"liferayLogoURL":"http:\/\/localhost:8080\/group\/control_panel\/manage?p_p_id=com_liferay_product_navigation_applications_menu_web_internal_portlet_ProductNavigationApplicationsMenuPortlet&p_p_lifecycle=2&p_p_resource_id=%2Fapplications_menu%2Fliferay_logo&p_p_cacheability=cacheLevelPage&p_p_auth=oJXsyeKZ","componentId":null,"panelAppsURL":"http:\/\/localhost:8080\/group\/control_panel\/manage?p_p_id=com_liferay_product_navigation_applications_menu_web_internal_portlet_ProductNavigationApplicationsMenuPortlet&p_p_lifecycle=2&p_p_resource_id=%2Fapplications_menu%2Fpanel_apps&p_p_cacheability=cacheLevelPage&_com_liferay_product_navigation_applications_menu_web_internal_portlet_ProductNavigationApplicationsMenuPortlet_selectedPortletId=com_liferay_portal_workflow_kaleo_designer_web_portlet_KaleoDesignerPortlet&p_p_auth=oJXsyeKZ","portletId":"com_liferay_portal_workflow_kaleo_designer_web_portlet_KaleoDesignerPortlet","liferayName":"Liferay DXP","selectedPortletId":"com_liferay_portal_workflow_kaleo_designer_web_portlet_KaleoDesignerPortlet","virtualInstance":{"label":"Liferay DXP","logoURL":"\/image\/company_logo?img_id=0&t=1764771849897","url":"http:\/\/localhost:8080"},"locale":{"unicodeLocaleKeys":[],"country":"US","ISO3Language":"eng","displayName":"English (United States)","displayVariant":"","language":"en","displayLanguage":"English","script":"","unicodeLocaleAttributes":[],"displayCountry":"United States","ISO3Country":"USA","variant":"","extensionKeys":[],"displayScript":""},"portletNamespace":"_com_liferay_portal_workflow_kaleo_designer_web_portlet_KaleoDesignerPortlet_"}, 'sqoc');
+}
+{
+const componentModule = componentModule1;
+render(componentModule, {"isImpersonated":false,"itemsURL":"http:\/\/localhost:8080\/group\/control_panel\/manage?p_p_id=com_liferay_product_navigation_personal_menu_web_internal_portlet_PersonalMenuPortlet&p_p_lifecycle=2&p_p_state=exclusive&p_p_cacheability=cacheLevelPage&_com_liferay_product_navigation_personal_menu_web_internal_portlet_PersonalMenuPortlet_currentURL=%2Fgroup%2Fcontrol_panel%2Fmanage%3Fp_p_id%3Dcom_liferay_portal_workflow_kaleo_designer_web_portlet_KaleoDesignerPortlet%26p_p_lifecycle%3D0%26p_p_state%3Dmaximized%26p_p_mode%3Dview%26_com_liferay_portal_workflow_kaleo_designer_web_portlet_KaleoDesignerPortlet_redirect%3Dhttp%253A%252F%252Flocalhost%253A8080%252Fgroup%252Fcontrol_panel%252Fmanage%253Fp_p_id%253Dcom_liferay_portal_workflow_web_portlet_ControlPanelWorkflowPortlet%2526p_p_lifecycle%253D0%2526p_p_state%253Dmaximized%2526p_p_mode%253Dview%26_com_liferay_portal_workflow_kaleo_designer_web_portlet_KaleoDesignerPortlet_mvcPath%3D%252Fdesigner%252Fedit_workflow_definition.jsp%26_com_liferay_portal_workflow_kaleo_designer_web_portlet_KaleoDesignerPortlet_name%3DSingle%2BApprover%26_com_liferay_portal_workflow_kaleo_designer_web_portlet_KaleoDesignerPortlet_clearSessionMessage%3Dtrue%26_com_liferay_portal_workflow_kaleo_designer_web_portlet_KaleoDesignerPortlet_draftVersion%3D1.0%26p_p_auth%3Do3uGWMYu&p_p_resource_id=%2Fproduct_navigation_personal_menu%2Fget_personal_menu_items&_com_liferay_product_navigation_personal_menu_web_internal_portlet_PersonalMenuPortlet_portletId=com_liferay_portal_workflow_kaleo_designer_web_portlet_KaleoDesignerPortlet&p_p_auth=zI25vSXA","componentId":null,"color":"4","size":null,"portletId":"com_liferay_portal_workflow_kaleo_designer_web_portlet_KaleoDesignerPortlet","label":null,"userName":"Test Test","locale":{"unicodeLocaleKeys":[],"country":"US","ISO3Language":"eng","displayName":"English (United States)","displayVariant":"","language":"en","displayLanguage":"English","script":"","unicodeLocaleAttributes":[],"displayCountry":"United States","ISO3Country":"USA","variant":"","extensionKeys":[],"displayScript":""},"portletNamespace":"_com_liferay_portal_workflow_kaleo_designer_web_portlet_KaleoDesignerPortlet_"}, 'xxyd');
+}
+{
+Liferay.component('__UNNAMED_COMPONENT__07a194b7-748e-415f-c9bd-66da9765ee46', new ComponentModule({"spritemap":"http:\/\/localhost:8080\/o\/admin-theme\/images\/clay\/icons.svg","namespace":"_com_liferay_portal_workflow_kaleo_designer_web_portlet_KaleoDesignerPortlet_"}), { destroyOnNavigate: true, portletId: 'com_liferay_portal_workflow_kaleo_designer_web_portlet_KaleoDesignerPortlet'});
+}
+});
+
+</script>
+
+
+
+
+
+
+
+
+
+<script src="http://localhost:8080/o/admin-theme/js/main.js?browserId=chrome&amp;minifierType=js&amp;languageId=en_US&amp;t=1762421376000" type="text/javascript"></script>
+
+
+
+
+<script type="module">
+import {main} from '/o/frontend-js-alert-support-web/__liferay__/index.js';
+{
+main();
+}
+
+</script><script type="module">
+import {main} from '/o/frontend-js-collapse-support-web/__liferay__/index.js';
+{
+main();
+}
+
+</script><script type="module">
+import {main} from '/o/frontend-js-dropdown-support-web/__liferay__/index.js';
+{
+main();
+}
+
+</script><script type="module">
+import {main} from '/o/frontend-js-tooltip-support-web/__liferay__/index.js';
+{
+main();
+}
+
+</script><script type="module">
+import {main} from '/o/frontend-js-tabs-support-web/__liferay__/index.js';
+{
+main();
+}
+
+</script><script type="module">
+import {runThirdPartyCookiesInterval} from '/o/cookies-banner-web/__liferay__/index.js';
+{
+runThirdPartyCookiesInterval();
+}
+
+</script><script type="text/javascript">
+Liferay.CustomDialogs = {enabled: false};
+
+</script><script>
+
+</script>
+</body>
+
+</html>
+		
+	
+
