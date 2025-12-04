@@ -377,6 +377,7 @@ class ProductGenerator {
             for (const pd of productDataList) {
               pd.__catalogOptions = catOpts;
               pd.__catalogSpecifications = catSpecs;
+              pd.category = category;
             }
           }
           allProductData.push(...productDataList);
@@ -419,6 +420,42 @@ class ProductGenerator {
           liferayProduct.metaKeyword = toI18n(productData.metaKeyword);
         if (productData.metaTitle)
           liferayProduct.metaTitle = toI18n(productData.metaTitle);
+        if (
+          options.generateSkuVariants &&
+          productData.options &&
+          Array.isArray(productData.options)
+        ) {
+          const catalogOptions =
+            catalogOptionsByCategory[productData.category] || [];
+          const catalogOptionsMap = new Map();
+          for (const co of catalogOptions) {
+            catalogOptionsMap.set(co.name.en_US, co);
+          }
+          liferayProduct.productOptions = productData.options
+            .map((option) => {
+              const catalogOption = catalogOptionsMap.get(option.name);
+              if (catalogOption) {
+                return {
+                  optionId: catalogOption.id,
+                  optionExternalReferenceCode:
+                    catalogOption.externalReferenceCode,
+                  facetable: catalogOption.facetable,
+                  required: catalogOption.required,
+                  skuContributor: catalogOption.skuContributor,
+                };
+              }
+              return null;
+            })
+            .filter(Boolean);
+        }
+        if (
+          options.generateSkuVariants &&
+          productData.skuVariants &&
+          Array.isArray(productData.skuVariants)
+        ) {
+          liferayProduct.skus = productData.skuVariants;
+        }
+
         if (productData.skus && Array.isArray(productData.skus)) {
           liferayProduct.skus = productData.skus;
         } else if (productData.baseSku) {
@@ -2400,6 +2437,53 @@ class ProductGenerator {
     const { logger, liferay } = this.ctx;
     try {
       const createdSkus = [];
+      if (productData.skuVariants && Array.isArray(productData.skuVariants)) {
+        const catalogOptionsMap = new Map();
+        for (const co of catalogOptions) {
+          catalogOptionsMap.set(co.name.en_US, co);
+        }
+
+        for (const skuVariant of productData.skuVariants) {
+          const skuOptions = {};
+          if (skuVariant.options) {
+            for (const [optionName, optionValue] of Object.entries(
+              skuVariant.options
+            )) {
+              const catalogOption = catalogOptionsMap.get(optionName);
+              if (catalogOption) {
+                const catalogOptionValue = catalogOption.values.find(
+                  (v) => v.name.en_US === optionValue
+                );
+                if (catalogOptionValue) {
+                  skuOptions[catalogOption.id] = catalogOptionValue.id;
+                }
+              }
+            }
+          }
+
+          const skuData = {
+            ...skuVariant,
+            externalReferenceCode:
+              skuVariant.externalReferenceCode ||
+              `SKU-${skuVariant.sku}-${Date.now()}`,
+            skuOptions,
+          };
+          delete skuData.options;
+
+          const createdSku = await liferay.createProductSku(
+            config,
+            productId,
+            skuData
+          );
+          createdSkus.push(createdSku);
+        }
+        logger.trace(
+          `Created ${createdSkus.length} SKUs for product ${productId} from AI data`
+        );
+        return createdSkus;
+      }
+
+      // Fallback to original logic if skuVariants are not provided
       const maxVariants = 8;
       const option1 = catalogOptions[0];
       const option2 = catalogOptions[1] || null;

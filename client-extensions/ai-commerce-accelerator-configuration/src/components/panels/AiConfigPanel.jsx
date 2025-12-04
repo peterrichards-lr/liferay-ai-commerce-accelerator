@@ -8,19 +8,9 @@ import ClayTable from '@clayui/table';
 import { getKeyValue, persistConfigKey } from '../../utils/api';
 import MillisecondsInput from '../common/MillisecondsInput';
 import OpenAISettingsPanel from './OpenAISettingsPanel';
-import PromptEditor from './PromptEditor';
 
 const OPEN_AI_KEY_KEY = 'open-ai-key';
 const AI_CONFIG_KEY = 'ai-config';
-const AI_PROMPTS_KEY = 'ai-prompts-config';
-
-const PROMPT_CONFIGS = [
-  { id: 'product', title: 'Product Prompt' },
-  { id: 'account', title: 'Account Prompt' },
-  { id: 'order', title: 'Order Prompt' },
-  { id: 'pricing', title: 'Pricing Prompt' },
-  { id: 'pdf', title: 'PDF Content Prompt' },
-];
 
 const DEFAULT_AI = {
   defaultModel: 'gpt-4o',
@@ -48,11 +38,6 @@ const DEFAULT_AI = {
   strictJson: true,
 };
 
-const DEFAULT_PROMPTS = {
-  promptsDir: './prompts',
-  promptCacheTTL: 600000,
-};
-
 function toInt(v, fallback) {
   const n = typeof v === 'string' ? parseInt(v, 10) : v;
   return Number.isFinite(n) ? n : fallback;
@@ -65,19 +50,16 @@ export default function AiConfigPanel() {
 
   const [aiConfig, setAiConfig] = useState(DEFAULT_AI);
   const [openAiKeyValue, setOpenAiKeyValue] = useState('');
-  const [promptConfig, setPromptConfig] = useState(DEFAULT_PROMPTS);
   const [lastSaved, setLastSaved] = useState({
     openAiKeyValue: '',
     ai: DEFAULT_AI,
-    prompts: DEFAULT_PROMPTS,
   });
 
   const dirty = useMemo(
     () =>
       openAiKeyValue !== lastSaved.openAiKeyValue ||
-      JSON.stringify(aiConfig) !== JSON.stringify(lastSaved.ai) ||
-      JSON.stringify(promptConfig) !== JSON.stringify(lastSaved.prompts),
-    [openAiKeyValue, aiConfig, promptConfig, lastSaved]
+      JSON.stringify(aiConfig) !== JSON.stringify(lastSaved.ai),
+    [openAiKeyValue, aiConfig, lastSaved]
   );
 
   useEffect(() => {
@@ -85,26 +67,21 @@ export default function AiConfigPanel() {
     (async () => {
       setLoading(true);
       try {
-        const [rawOpenAIKey, rawAI, rawPrompts] = await Promise.all([
+        const [rawOpenAIKey, rawAI] = await Promise.all([
           getKeyValue(OPEN_AI_KEY_KEY),
           getKeyValue(AI_CONFIG_KEY),
-          getKeyValue(AI_PROMPTS_KEY),
         ]);
 
         const parsedAI = rawAI ? JSON.parse(rawAI) : {};
-        const parsedPrompts = rawPrompts ? JSON.parse(rawPrompts) : {};
 
         const mergedAI = { ...DEFAULT_AI, ...parsedAI };
-        const mergedPrompts = { ...DEFAULT_PROMPTS, ...parsedPrompts };
 
         if (!alive) return;
         setOpenAiKeyValue(rawOpenAIKey);
         setAiConfig(mergedAI);
-        setPromptConfig(mergedPrompts);
         setLastSaved({
           openAiKeyValue: rawOpenAIKey,
           ai: mergedAI,
-          prompts: mergedPrompts,
         });
       } catch (e) {
         console.error('Failed to load AI configuration.', e);
@@ -131,15 +108,8 @@ export default function AiConfigPanel() {
       aiConfig.requestTimeoutMs < 1000
     )
       found.push('Request timeout must be at least 1000 ms.');
-    if (!promptConfig.promptsDir)
-      found.push('Prompt directory must be specified.');
-    if (
-      !Number.isFinite(promptConfig.promptCacheTTL) ||
-      promptConfig.promptCacheTTL < 1000
-    )
-      found.push('Prompt cache TTL must be at least 1000 ms.');
     setIssues(found);
-  }, [aiConfig, promptConfig]);
+  }, [aiConfig]);
 
       const onSave = useCallback(async () => {
       if (saving) return;
@@ -148,7 +118,6 @@ export default function AiConfigPanel() {
         const results = await Promise.allSettled([
           persistConfigKey(OPEN_AI_KEY_KEY, openAiKeyValue.trim()),
           persistConfigKey(AI_CONFIG_KEY, JSON.stringify(aiConfig)),
-          persistConfigKey(AI_PROMPTS_KEY, JSON.stringify(promptConfig)),
         ]);
   
         const failed = results.filter((r) => r.status === 'rejected');
@@ -160,7 +129,6 @@ export default function AiConfigPanel() {
         setLastSaved({
           openAiKeyValue: openAiKeyValue.trim(),
           ai: aiConfig,
-          prompts: promptConfig,
         });
         Liferay?.Util?.openToast?.({
           message: 'AI configuration saved.',
@@ -176,37 +144,23 @@ export default function AiConfigPanel() {
       } finally {
         setSaving(false);
       }
-    }, [saving, openAiKeyValue, aiConfig, promptConfig]);
+    }, [saving, openAiKeyValue, aiConfig]);
   const onCancel = useCallback(() => {
     setOpenAiKeyValue(lastSaved.openAiKeyValue);
     setAiConfig(lastSaved.ai);
-    setPromptConfig(lastSaved.prompts);
   }, [lastSaved]);
 
   const updateAi = (key, value) => setAiConfig((v) => ({ ...v, [key]: value }));
 
-  const updateSystemPrompt = (id, value) => {
-    setAiConfig((current) => ({
-      ...current,
-      systemPrompts: {
-        ...current.systemPrompts,
-        [id]: value,
-      },
-    }));
-  };
-
   const updateRetry = (k, val) =>
     setAiConfig((v) => ({ ...v, retry: { ...v.retry, [k]: val } }));
-  const updatePromptConfig = (k, val) =>
-    setPromptConfig((v) => ({ ...v, [k]: val }));
 
   return (
     <ClayLayout.Sheet aria-busy={loading || saving} aria-live="polite">
       <div className="sheet-header">
         <h2 className="sheet-title">AI Configuration</h2>
         <div className="sheet-text">
-          Manages <code>{OPEN_AI_KEY_KEY}</code>, <code>{AI_CONFIG_KEY}</code>{' '}
-          and <code>{AI_PROMPTS_KEY}</code>.
+          Manages <code>{OPEN_AI_KEY_KEY}</code> and <code>{AI_CONFIG_KEY}</code>.
         </div>
       </div>
 
@@ -307,30 +261,7 @@ export default function AiConfigPanel() {
           helper="Maximum backoff delay between retries."
         />
 
-        <ClayForm.Group>
-          <label htmlFor="prompts-dir">Prompts directory</label>
-          <ClayInput
-            id="prompts-dir"
-            type="text"
-            value={promptConfig.promptsDir}
-            onChange={(e) => updatePromptConfig('promptsDir', e.target.value)}
-          />
-        </ClayForm.Group>
 
-        <MillisecondsInput
-          id="prompt-ttl"
-          label="Prompt cache TTL (ms)"
-          value={promptConfig.promptCacheTTL}
-          min={1000}
-          step={1000}
-          onChange={(e) =>
-            updatePromptConfig(
-              'promptCacheTTL',
-              toInt(e.target.value, promptConfig.promptCacheTTL)
-            )
-          }
-          helper="Time-to-live for prompt template cache entries."
-        />
 
         <ClayForm.Group>
           <label>Per-Model Configuration</label>
@@ -382,23 +313,7 @@ export default function AiConfigPanel() {
         </ClayForm.Group>
       </div>
 
-      <div className="sheet-section">
-        <h3 className="sheet-subtitle">Inline System Prompts</h3>
-        <p className="text-secondary">
-          These are per-task “system” messages stored inside ai-config. They act
-          as the primary source of truth for prompts, with files in the prompts
-          directory serving as a fallback.
-        </p>
 
-        {PROMPT_CONFIGS.map(({ id, title }) => (
-          <PromptEditor
-            key={id}
-            title={title}
-            value={aiConfig.systemPrompts[id] || ''}
-            onChange={(value) => updateSystemPrompt(id, value)}
-          />
-        ))}
-      </div>
 
       <div className="sheet-footer">
         <div className="btn-group-item">

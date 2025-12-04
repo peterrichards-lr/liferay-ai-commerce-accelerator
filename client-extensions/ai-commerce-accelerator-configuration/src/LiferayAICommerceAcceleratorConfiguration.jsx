@@ -26,12 +26,16 @@ const PlaceholdersPanel = lazy(() =>
 const AiSchemasPanel = lazy(() =>
   import('./components/panels/AiSchemasPanel')
 );
+const AiPromptsPanel = lazy(() =>
+  import('./components/panels/AiPromptsPanel')
+);
 
 const APP_NAME = 'Liferay Commerce AI Generator';
 const STORAGE_KEY = 'ai-config-active-tab';
 
 const TABS = [
-  { id: 'ai', label: 'AI & Prompts', icon: 'cog' },
+  { id: 'ai-config', label: 'AI Config', icon: 'cog' },
+  { id: 'ai-prompts', label: 'AI Prompts', icon: 'chatbot' },
   { id: 'ai-schemas', label: 'AI Schemas', icon: 'diagram' },
   { id: 'queues', label: 'Queues', icon: 'list' },
   { id: 'batchpolling', label: 'Batch Polling', icon: 'change' },
@@ -43,7 +47,8 @@ const TABS = [
 ];
 
 const PANEL_MAP = {
-  ai: AiConfigPanel,
+  'ai-config': AiConfigPanel,
+  'ai-prompts': AiPromptsPanel,
   'ai-schemas': AiSchemasPanel,
   queues: QueueConfigPanel,
   batchpolling: BatchPollingConfigPanel,

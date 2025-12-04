@@ -6,8 +6,8 @@ const path = require('path');
 const AI_CONFIG_CACHE_KEY = 'AI_CONFIG_KEY';
 const AI_CONFIG_KEY = 'ai-config';
 
-const AI_PROMPTS_CONFIG_CACHE_KEY = 'AI_PROMPTS_CONFIG_KEY';
-const AI_PROMPTS_CONFIG_KEY = 'ai-prompts-config';
+const AI_PROMPT_CACHE_KEY_PREFIX = 'AI_PROMPT_';
+const AI_PROMPT_CONFIG_KEY_PREFIX = 'ai-prompt-';
 
 const AI_SCHEMA_CACHE_KEY_PREFIX = 'AI_SCHEMA_';
 const AI_SCHEMA_CONFIG_KEY_PREFIX = 'ai-schema-';
@@ -146,6 +146,24 @@ class ConfigService {
       });
       return null;
     }
+  }
+
+  async getAIPrompt(requestConfig, promptName) {
+    const cacheKey = `${AI_PROMPT_CACHE_KEY_PREFIX}${promptName}`;
+    const configKey = `${AI_PROMPT_CONFIG_KEY_PREFIX}${promptName}`;
+
+    const cached = this.getConfigCached(cacheKey);
+    if (cached) {
+      return cached;
+    }
+
+    const remotePrompt = await this.getConfig(
+      requestConfig,
+      cacheKey,
+      configKey
+    );
+
+    return remotePrompt || null;
   }
   
   async getDefaultImage(requestConfig) {
@@ -315,40 +333,7 @@ class ConfigService {
     return cache.get(AI_CONFIG_CACHE_KEY) || null;
   }
 
-  async getAIPromptsConfig(requestConfig) {
-    const cache = this.cache;
-    const logger = this.logger;
-    const liferay = this._requireLiferay();
-    const cached = cache.get(AI_PROMPTS_CONFIG_CACHE_KEY);
-    if (cached) return cached;
 
-    try {
-      const resp = await liferay.getConfig(
-        requestConfig,
-        AI_PROMPTS_CONFIG_KEY
-      );
-      if (resp?.items?.length) {
-        const raw = resp.items[0].configValue;
-        const parsed = typeof raw === 'string' ? tryParseJSON(raw, {}) : raw;
-        cache.set(AI_PROMPTS_CONFIG_CACHE_KEY, parsed, this.getConfigTTL());
-        return parsed;
-      }
-      return null;
-    } catch (error) {
-      const erc = error?.errorReference || createERC(ERC_PREFIX.ERROR);
-      logger?.errorWithStack?.(error, {
-        operation: 'get-ai-prompts-config',
-        errorReference: erc,
-        message: 'Failed to get AI prompts configuration',
-      });
-      return null;
-    }
-  }
-
-  getAIPromptsConfigCached() {
-    const cache = this.cache;
-    return cache.get(AI_PROMPTS_CONFIG_CACHE_KEY) || null;
-  }
 
   async getOAuthConfig(requestConfig) {
     return this._getConfigWithFallback(

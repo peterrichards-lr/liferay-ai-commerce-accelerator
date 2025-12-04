@@ -1,0 +1,24 @@
+{
+   "configuration": {
+      "className": "com.liferay.object.rest.dto.v1_0.ObjectEntry",
+      "parameters": {
+         "containsHeaders": "true",
+         "createStrategy": "UPSERT",
+         "onErrorFail": "false",
+         "taskItemDelegateName": "C_AICommerceAcceleratorConfiguration",
+         "updateStrategy": "UPDATE"
+      },
+      "taskItemDelegateName": "C_AICommerceAcceleratorConfiguration"
+   },
+   "items": [
+      {
+         "configKey": "ai-prompt-order",
+         "configStatus": {
+            "key": "Active"
+         },
+         "configValue": "Generate realistic order data for {{count}} orders using the provided products and accounts.\n\nAvailable Products: {{=json:productListJSON}}\nAvailable Accounts: {{=json:accountListJSON}}\n\nEach order should have:\n- accountId (from available accounts)\n- orderItems (2-5 items from available products with realistic quantities)\n- orderStatus (pending, processing, or completed)\n- paymentStatus (pending, authorized, or paid)\n- billingAddress (realistic address)\n- shippingAddress (realistic address, can be same as billing)\n- externalReferenceCode (unique order identifier)\n\nEnsure realistic purchasing patterns (related products, reasonable quantities).\nReturn as JSON array with proper structure for Liferay Commerce API.",
+         "description": "AI Prompt for Orders",
+         "externalReferenceCode": "AI-PROMPT-ORDER"
+      }
+   ]
+}

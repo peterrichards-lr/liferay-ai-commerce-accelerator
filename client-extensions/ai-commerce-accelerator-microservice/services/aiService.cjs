@@ -116,19 +116,64 @@ class AIService {
       });
 
       const content = response.choices[0].message.content;
+
+      if (logger && logger.trace) {
+        const truncatedContent =
+          content && content.length > 4000
+            ? content.slice(0, 4000) + '…'
+            : content;
+        logger.trace('AIService._chatJson raw response', {
+          task,
+          truncatedContent,
+        });
+      }
+
       const parsed = tryParseJSON(content, null);
 
+      if (logger && logger.trace && parsed !== null) {
+        logger.trace('AIService._chatJson parsed response preview', {
+          task,
+          parsedPreview: Array.isArray(parsed) ? parsed.slice(0, 3) : parsed,
+        });
+      }
+
       if (parsed === null) {
-        const err = new Error(
+        throw new Error(
           `AIService._chatJson received non-JSON response for task "${task}"`
         );
-        throw err;
+      }
+
+      let candidate = parsed;
+
+      if (schema && schema.type === 'array' && !Array.isArray(candidate)) {
+        if (Array.isArray(candidate.products)) {
+          candidate = candidate.products;
+        } else {
+          candidate = [candidate];
+        }
+
+        if (logger && logger.trace) {
+          logger.trace('AIService._chatJson coerced root value for array schema', {
+            task,
+            rootType: Array.isArray(candidate) ? 'array' : typeof candidate,
+          });
+        }
       }
 
       if (schema) {
         const validate = ajv.compile(schema);
-        const valid = validate(parsed);
+        const valid = validate(candidate);
         if (!valid) {
+          if (logger && logger.trace) {
+            logger.trace('AIService._chatJson schema validation failed', {
+              task,
+              errors: validate.errors,
+              parsedPreview: Array.isArray(candidate)
+                ? candidate.slice(0, 3)
+                : candidate,
+            });
+          }
+
           const err = new Error(
             `AI output for task "${task}" failed schema validation.`
           );
@@ -137,7 +182,7 @@ class AIService {
         }
       }
 
-      return parsed;
+      return candidate;
     } catch (error) {
       logger?.error?.(`AIService._chatJson failed for ${task}:`, {
         message: error.message,
@@ -163,7 +208,7 @@ class AIService {
         ),
       };
 
-      const prompt = await promptService.render('pdf', vars);
+      const prompt = await promptService.render('pdf', vars, requestConfig);
       return await this._chatJson('pdf', prompt, requestConfig, model);
     } catch (error) {
       const errorReference =
@@ -227,8 +272,8 @@ class AIService {
           .join(',\n    '),
       };
 
-      const prompt = await promptService.render('product', vars);
-      const obj = await this._chatJson(
+      const prompt = await promptService.render('product', vars, requestConfig);
+      const result = await this._chatJson(
         'product',
         prompt,
         requestConfig,
@@ -236,7 +281,11 @@ class AIService {
         'product'
       );
 
-      return obj.products || [obj];
+      const products = Array.isArray(result)
+        ? result
+        : result.products || [result];
+
+      return products;
     } catch (error) {
       const errorReference =
         error.errorReference || createERC(ERC_PREFIX.ERROR);
@@ -268,8 +317,8 @@ class AIService {
         pluralSuffix: pluralize(count),
       };
 
-      const prompt = await promptService.render('account', vars);
-      const obj = await this._chatJson(
+      const prompt = await promptService.render('account', vars, requestConfig);
+      const result = await this._chatJson(
         'account',
         prompt,
         requestConfig,
@@ -277,7 +326,11 @@ class AIService {
         'account'
       );
 
-      return obj.accounts || [obj];
+      const accounts = Array.isArray(result)
+        ? result
+        : result.accounts || [result];
+
+      return accounts;
     } catch (error) {
       const errorReference =
         error.errorReference || createERC(ERC_PREFIX.ERROR);
@@ -326,8 +379,8 @@ class AIService {
         accountListJSON: JSON.stringify(accountList, null, 2),
       };
 
-      const prompt = await promptService.render('order', vars);
-      const obj = await this._chatJson(
+      const prompt = await promptService.render('order', vars, requestConfig);
+      const result = await this._chatJson(
         'order',
         prompt,
         requestConfig,
@@ -335,7 +388,11 @@ class AIService {
         'order'
       );
 
-      return obj.orders || [obj];
+      const orders = Array.isArray(result)
+        ? result
+        : result.orders || [result];
+
+      return orders;
     } catch (error) {
       const errorReference =
         error.errorReference || createERC(ERC_PREFIX.ERROR);
@@ -377,7 +434,7 @@ class AIService {
         ...pricingHints(pricingType),
       };
 
-      const prompt = await promptService.render('pricing', vars);
+      const prompt = await promptService.render('pricing', vars, requestConfig);
       const obj = await this._chatJson('pricing', prompt, requestConfig, model);
 
       return obj;

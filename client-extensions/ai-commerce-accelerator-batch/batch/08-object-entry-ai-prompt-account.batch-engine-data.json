@@ -1,0 +1,24 @@
+{
+   "configuration": {
+      "className": "com.liferay.object.rest.dto.v1_0.ObjectEntry",
+      "parameters": {
+         "containsHeaders": "true",
+         "createStrategy": "UPSERT",
+         "onErrorFail": "false",
+         "taskItemDelegateName": "C_AICommerceAcceleratorConfiguration",
+         "updateStrategy": "UPDATE"
+      },
+      "taskItemDelegateName": "C_AICommerceAcceleratorConfiguration"
+   },
+   "items": [
+      {
+         "configKey": "ai-prompt-account",
+         "configStatus": {
+            "key": "Active"
+         },
+         "configValue": "Generate {{count}} realistic business account{{pluralSuffix}} with the following properties:\n- name: Company name (string, required)\n- description: Business description (string, optional)\n- type: Account type, always \"business\" (string, required)\n- domains: Array of domain names (array of strings, optional)\n- emailAddress: Company email (string, optional)\n- taxId: Realistic tax ID format (string, optional)\n- externalReferenceCode: Unique identifier (string, required)\n- addresses: Billing and shipping addresses with realistic data (array of objects, optional)\n- organizations: Department/subsidiary info (array of objects, optional)\n- users: 2-3 business users with roles like Admin, Buyer, etc. (array of objects, optional)\n\nIMPORTANT: Do NOT include an 'active' property as it's not supported by the API schema.\n\nReturn as JSON array with proper structure for Liferay Commerce API.",
+         "description": "AI Prompt for Accounts",
+         "externalReferenceCode": "AI-PROMPT-ACCOUNT"
+      }
+   ]
+}

@@ -61,14 +61,18 @@ class PromptService {
     }
   }
 
-  async loadRaw(name) {
+  async loadRaw(name, requestConfig) {
     const safe = this._safeName(name);
 
-    const aiConfig = this.ctx?.configService?.getAIConfigCached?.();
-    const inlinePrompt = aiConfig?.systemPrompts?.[safe];
+    if (requestConfig) {
+      const remotePrompt = await this.ctx?.configService?.getAIPrompt?.(
+        requestConfig,
+        safe
+      );
 
-    if (typeof inlinePrompt === 'string' && inlinePrompt.trim()) {
-      return inlinePrompt;
+      if (typeof remotePrompt === 'string' && remotePrompt.trim()) {
+        return remotePrompt;
+      }
     }
 
     const filePath = path.join(this.baseDir, `${safe}.md`);
@@ -101,8 +105,8 @@ class PromptService {
       .replace(/\{\{([\w.[\]]+)\}\}/g, (_, p) => String(get(p)));
   }
 
-  async render(name, vars = {}) {
-    const raw = await this.loadRaw(name);
+  async render(name, vars = {}, requestConfig) {
+    const raw = await this.loadRaw(name, requestConfig);
     return this.renderFromString(raw, vars);
   }
 }
