@@ -7,13 +7,20 @@ import ClayLayout from '@clayui/layout';
 import ClayTable from '@clayui/table';
 import { getKeyValue, persistConfigKey } from '../../utils/api';
 import MillisecondsInput from '../common/MillisecondsInput';
-import PromptManager from './PromptManager';
-import SystemPromptsEditor from './SystemPromptsEditor';
 import OpenAISettingsPanel from './OpenAISettingsPanel';
+import PromptEditor from './PromptEditor';
 
 const OPEN_AI_KEY_KEY = 'open-ai-key';
 const AI_CONFIG_KEY = 'ai-config';
 const AI_PROMPTS_KEY = 'ai-prompts-config';
+
+const PROMPT_CONFIGS = [
+  { id: 'product', title: 'Product Prompt' },
+  { id: 'account', title: 'Account Prompt' },
+  { id: 'order', title: 'Order Prompt' },
+  { id: 'pricing', title: 'Pricing Prompt' },
+  { id: 'pdf', title: 'PDF Content Prompt' },
+];
 
 const DEFAULT_AI = {
   defaultModel: 'gpt-4o',
@@ -177,6 +184,17 @@ export default function AiConfigPanel() {
   }, [lastSaved]);
 
   const updateAi = (key, value) => setAiConfig((v) => ({ ...v, [key]: value }));
+
+  const updateSystemPrompt = (id, value) => {
+    setAiConfig((current) => ({
+      ...current,
+      systemPrompts: {
+        ...current.systemPrompts,
+        [id]: value,
+      },
+    }));
+  };
+
   const updateRetry = (k, val) =>
     setAiConfig((v) => ({ ...v, retry: { ...v.retry, [k]: val } }));
   const updatePromptConfig = (k, val) =>
@@ -362,23 +380,24 @@ export default function AiConfigPanel() {
             </ClayTable.Body>
           </ClayTable>
         </ClayForm.Group>
+      </div>
 
-        <SystemPromptsEditor
-          value={aiConfig.systemPrompts || {}}
-          onChange={(next) =>
-            setAiConfig((v) => ({ ...v, systemPrompts: next }))
-          }
-        />
+      <div className="sheet-section">
+        <h3 className="sheet-subtitle">Inline System Prompts</h3>
+        <p className="text-secondary">
+          These are per-task “system” messages stored inside ai-config. They act
+          as the primary source of truth for prompts, with files in the prompts
+          directory serving as a fallback.
+        </p>
 
-        <PromptManager
-          promptsDir={promptConfig.promptsDir}
-          promptCacheTTL={promptConfig.promptCacheTTL}
-          onPromptsDirChange={(dir) => updatePromptConfig('promptsDir', dir)}
-          onPromptCacheTTLChange={(ttl) =>
-            updatePromptConfig('promptCacheTTL', toInt(ttl, 600000))
-          }
-          inlineFallbackPrompts={aiConfig.systemPrompts || {}}
-        />
+        {PROMPT_CONFIGS.map(({ id, title }) => (
+          <PromptEditor
+            key={id}
+            title={title}
+            value={aiConfig.systemPrompts[id] || ''}
+            onChange={(value) => updateSystemPrompt(id, value)}
+          />
+        ))}
       </div>
 
       <div className="sheet-footer">

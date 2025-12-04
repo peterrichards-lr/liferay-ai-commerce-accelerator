@@ -8,7 +8,7 @@ const {
 const { createERC, tryParseJSON } = require('../utils/misc.cjs');
 const { ERC_PREFIX } = require('../utils/constants.cjs');
 
-const ajv = new Ajv();
+const ajv = new Ajv({ removeAdditional: true });
 
 class AIService {
   constructor(ctx) {
