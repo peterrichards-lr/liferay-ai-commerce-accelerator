@@ -18,7 +18,7 @@ export default function SystemPromptsEditor({
   value,
   onChange,
   title = 'Inline System Prompts',
-  helpText = 'These are per-task “system” messages stored inside ai-config. They act as defaults even if file-based prompts are missing.',
+  helpText = 'These are per-task “system” messages stored inside ai-config. The file-based prompts will be used if these are not configured.',
 }) {
   const initial = useMemo(() => normalizeMap(value), [value]);
 

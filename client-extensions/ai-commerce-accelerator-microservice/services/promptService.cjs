@@ -63,6 +63,14 @@ class PromptService {
 
   async loadRaw(name) {
     const safe = this._safeName(name);
+
+    const aiConfig = this.ctx?.configService?.getAIConfigCached?.();
+    const inlinePrompt = aiConfig?.systemPrompts?.[safe];
+
+    if (typeof inlinePrompt === 'string' && inlinePrompt.trim()) {
+      return inlinePrompt;
+    }
+
     const filePath = path.join(this.baseDir, `${safe}.md`);
     const { mtimeMs } = await this._getFileMeta(filePath);
     const key = `prompt:${safe}:raw`;
