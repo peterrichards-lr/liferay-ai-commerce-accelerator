@@ -69,6 +69,24 @@ tasks.register('buildFrontendCX') {
     }
 }
 
+tasks.register('buildConfigurationCX') {
+    group = 'build'
+    description = "Install deps and build the Configuration CX."
+    def CONFIG_CX_DIR = file("$rootDir/client-extensions/ai-commerce-accelerator-configuration")
+    onlyIf { CONFIG_CX_DIR.exists() }
+    doLast {
+        def useYarnConfig = new File(CONFIG_CX_DIR, "yarn.lock").exists()
+        def useNpmCiConfig = new File(CONFIG_CX_DIR, "package-lock.json").exists()
+        if (useYarnConfig) {
+            exec { workingDir CONFIG_CX_DIR; commandLine 'yarn', 'install' }
+            exec { workingDir CONFIG_CX_DIR; commandLine 'yarn', 'build' }
+        } else {
+            exec { workingDir CONFIG_CX_DIR; commandLine 'npm', (useNpmCiConfig ? 'ci' : 'install') }
+            exec { workingDir CONFIG_CX_DIR; commandLine 'npm', 'run', 'build' }
+        }
+    }
+}
+
 // --- Generate liferay-deploy-fragments.json if not present ---
 tasks.register('generateDeployDescriptor') {
     group = 'build'
@@ -173,6 +191,7 @@ tasks.register('autoDeployFragments', Copy) {
 // ===================== LIFECYCLE WIRING =====================
 tasks.named('assemble') {
     dependsOn tasks.named('zipFragments')
+    dependsOn tasks.named('buildConfigurationCX')
 }
 tasks.matching { it.name == 'deploy' }.configureEach {
     dependsOn tasks.named('zipFragments')
