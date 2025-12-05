@@ -5,6 +5,7 @@ import React, {
   useRef,
   useMemo,
 } from 'react';
+import ClayIcon from '@clayui/icon';
 
 import ActivityLog from './ActivityLog';
 import StatusMonitor from './StatusMonitor';
@@ -278,7 +279,9 @@ function Dashboard({
                     : 'Download the current progress summary (JSON)'
                 }
               >
-                <span className="icon icon-export"></span>
+                <span className="icon-left">
+                  <ClayIcon symbol="download" />
+                </span>
                 Export Summary
               </button>
               <button
@@ -295,7 +298,9 @@ function Dashboard({
                     : 'Download the activity log entries (JSON)'
                 }
               >
-                <span className="icon icon-export"></span>
+                <span className="icon-left">
+                  <ClayIcon symbol="download" />
+                </span>
                 Export Log
               </button>
               <button
@@ -312,7 +317,9 @@ function Dashboard({
                     : 'Download both summary and activity log (JSON)'
                 }
               >
-                <span className="icon icon-export"></span>
+                <span className="icon-left">
+                  <ClayIcon symbol="download" />
+                </span>
                 Export All
               </button>
             </div>

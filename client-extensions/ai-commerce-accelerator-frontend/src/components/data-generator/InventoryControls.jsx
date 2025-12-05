@@ -1,4 +1,5 @@
 import React from 'react';
+import ClayIcon from '@clayui/icon';
 import FieldError from '../ui/FieldError';
 
 function InventoryControls({
@@ -17,7 +18,7 @@ function InventoryControls({
   return (
     <div className="form-group">
       <h6 className={`config-section-title ${productCount === 0 ? 'muted' : ''}`}>
-        <i className="icon icon-box" />
+        <ClayIcon symbol="box-container" />
         Inventory & Backorders
       </h6>
 

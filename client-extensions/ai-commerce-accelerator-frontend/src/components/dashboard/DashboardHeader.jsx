@@ -1,16 +1,17 @@
 import React from 'react';
+import ClayIcon from '@clayui/icon';
 
 function DashboardHeader({ handleReset, isGenerating }) {
   return (
     <div className="dashboard-header">
       <h5>
-        <i className="icon icon-chart"></i>
+        <ClayIcon symbol="analytics" />
         Progress Monitor
       </h5>
       <div className="header-actions">
         {isGenerating && (
           <div className="connection-status">
-            <i className="icon icon-restore"></i>
+            <ClayIcon symbol="redo" />
             <small className="text-success">Active</small>
           </div>
         )}
@@ -22,7 +23,7 @@ function DashboardHeader({ handleReset, isGenerating }) {
           title="Reset progress counters and clear the activity log"
           aria-label="Reset progress and clear log"
         >
-          <span className="icon icon-restore"></span>
+          <ClayIcon symbol="redo" />
           Reset
         </button>
       </div>

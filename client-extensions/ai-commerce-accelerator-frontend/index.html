@@ -24,18 +24,6 @@
           window.Liferay.Icons = {};
         }
 
-        window.Liferay.Util.fetch = function (url, options = {}) {
-          const basicAuth = 'Basic ' + btoa('test@liferay.com:test1234');
-
-          const headers = new Headers(options.headers || {});
-          headers.set('Authorization', basicAuth);
-
-          return fetch(url, {
-            ...options,
-            headers,
-          });
-        };
-
         if (!window.Liferay.ThemeDisplay) {
           window.Liferay.ThemeDisplay = {};
           window.Liferay.ThemeDisplay.getLanguageId = () => {

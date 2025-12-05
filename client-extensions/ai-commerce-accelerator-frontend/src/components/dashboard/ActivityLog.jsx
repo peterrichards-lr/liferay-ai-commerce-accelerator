@@ -1,4 +1,5 @@
 import React from 'react';
+import ClayIcon from '@clayui/icon';
 
 function ActivityLog({ logs, onClearLogs, isGenerating }) {
   return (
@@ -12,7 +13,7 @@ function ActivityLog({ logs, onClearLogs, isGenerating }) {
             disabled={isGenerating}
             title="Clear activity log"
           >
-            <i className="icon icon-trash"></i>
+            <ClayIcon symbol="trash" />
             Clear
           </button>
         )}
@@ -21,28 +22,28 @@ function ActivityLog({ logs, onClearLogs, isGenerating }) {
       <div className="activity-log-content">
         {logs.length === 0 ? (
           <div className="empty-state">
-            <i className="icon icon-clock"></i>
+            <ClayIcon symbol="time" />
             No activity yet. Configure settings and start generation.
           </div>
         ) : (
           logs.map((log, index) => {
-            const getLogIcon = (type) => {
+            const getLogIconSymbol = (type) => {
               switch (type) {
                 case 'error':
-                  return 'icon icon-warning';
+                  return 'warning-full';
                 case 'success':
-                  return 'icon icon-check';
+                  return 'check';
                 case 'warning':
-                  return 'icon icon-alert';
+                  return 'warning-full';
                 default:
-                  return 'icon icon-info';
+                  return 'info-circle';
               }
             };
 
             return (
               <div key={index} className={`log-entry ${log.type}`}>
                 <div className="log-content">
-                  <i className={getLogIcon(log.type)}></i>
+                  <ClayIcon symbol={getLogIconSymbol(log.type)} />
                   <div className="log-details">
                     <small className="log-timestamp">{log.timestamp}</small>
                     <span className="log-message">{log.message}</span>

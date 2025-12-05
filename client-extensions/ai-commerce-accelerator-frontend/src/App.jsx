@@ -6,11 +6,14 @@ import React, {
   useRef,
   useMemo,
 } from 'react';
-import { AppProvider, useApi, useApp } from './context/AppContext.jsx';
+import { AppProvider, useApp } from './context/AppContext.jsx';
 import { progressReducer, initialProgress } from './state/progressReducer';
 
 import useActivityLog from './hooks/useActivityLog';
 import useRealtimeWebSocket from './hooks/useRealtimeWebSocket';
+import useValidation from './hooks/useValidation';
+import useCommerceData from './hooks/useCommerceData';
+import useGeneration from './hooks/useGeneration';
 
 import {
   computeTotalsFromConfig,
@@ -20,18 +23,11 @@ import {
 
 import notifyUser from './utils/notifications';
 
-import {
-  getConnectionErrorsMap,
-  getCommerceErrorsMap,
-  getGenerationErrorsMap,
-  flattenErrorsMap,
-  hasAnyErrors,
-} from './utils/validation';
+import { flattenErrorsMap } from './utils/validation';
 
 import { buildFilename, exportJsonFile } from './utils/fileHelper.js';
 
-import { toFormData } from './utils/formData.js';
-import ApplicationConfigPanel from './components/config/ApplicationConfigPanel';
+import ConfigurationPanel from './components/config/ConfigurationPanel.jsx';
 import DataGeneratorForm from './components/data-generator/DataGeneratorForm';
 import ProgressMonitor from './components/dashboard/Dashboard.jsx';
 
@@ -79,12 +75,14 @@ export function AppUI() {
 
   const appTopRef = useRef(null);
 
-  const { config, setConfig, getCurrencies, getLanguages } = useApp();
-  const [catalogs, setCatalogs] = useState([]);
-  const [channels, setChannels] = useState([]);
-  const [languages, setLanguages] = useState([]);
-  const [currencies, setCurrencies] = useState([]);
-  const [isGenerating, setIsGenerating] = useState(false);
+  const { config, setConfig } = useApp();
+
+  const [generationConfig, setGenerationConfig] = useState(
+    initialGenerationConfig
+  );
+
+  const [connectionEstablished, setConnectionEstablished] = useState(false);
+  const [openAiKeyAvailable, setOpenAiKeyAvailable] = useState(false);
 
   const initialLoggingConfig = {
     level: config?.wsLoggingLevel || 'info',
@@ -94,14 +92,15 @@ export function AppUI() {
     storageKey: 'activityLog:v1',
   };
 
-  const [generationConfig, setGenerationConfig] = useState(
-    initialGenerationConfig
-  );
-
-  const [connectionEstablished, setConnectionEstablished] = useState(false);
-  const [openAiKeyAvailable, setOpenAiKeyAvailable] = useState(false);
-
   const { logs, addLog, clearLogs } = useActivityLog(initialLoggingConfig);
+
+  const {
+    connectionErrors,
+    setConnectionErrors,
+    commerceErrors,
+    generationErrors,
+  } = useValidation(config, generationConfig);
+
   const [progress, dispatch] = useReducer(progressReducer, initialProgress);
 
   const setProgress = useCallback((arg) => {
@@ -112,41 +111,43 @@ export function AppUI() {
     }
   }, []);
 
-  const logDeletionSummary = (summary) => {
-    if (!summary || typeof summary !== 'object') return;
-
-    const plural = (n, s, p = s + 'es') => `${n} ${n === 1 ? s : p}`;
-
-    Object.entries(summary).forEach(([entity, s]) => {
-      if (!s) return;
-      const total = s.total ?? 0;
-      const batches = s.batches ?? 0;
-      const batchesText = plural(batches, 'batch', 'batches');
-      const dryTag = s.dryRun ? ' (dry run)' : '';
-
-      addLog(
-        `Submitted ${entity} for deletion: ${total} over ${batchesText}${dryTag}`,
-        'info'
-      );
-
-      const failures = Array.isArray(s.failures) ? s.failures : [];
-      if (failures.length > 0) {
-        addLog(
-          `${entity}: ${failures.length} failure${
-            failures.length === 1 ? '' : 's'
-          }`,
-          'error'
-        );
-      }
-    });
-  };
-
   const { wsRef, ping, wsConnected } = useRealtimeWebSocket({
     enabled: connectionEstablished && !!config.microserviceUrl,
     microserviceUrl: config.microserviceUrl,
     loggingLevel: config?.wsLoggingLevel ?? 'off',
     onLog: addLog,
     onProgress: setProgress,
+  });
+
+  const {
+    catalogs,
+    channels,
+    languages,
+    currencies,
+    buildPayload,
+    selectChannel,
+    testConnection,
+    handleDeleteAllCommerceData,
+    handleDeleteSelectedCommerceData,
+  } = useCommerceData({
+    addLog,
+    setConnectionEstablished,
+    setOpenAiKeyAvailable,
+    setConnectionErrors,
+    ping,
+  });
+
+  const { isGenerating, generateData } = useGeneration({
+    addLog,
+    buildPayload,
+    config,
+    dispatch,
+    forceDemoMode: connectionEstablished && !openAiKeyAvailable,
+    generationConfig,
+    mountedRef,
+    progress,
+    setProgress,
+    connectionEstablished,
   });
 
   const forceDemoMode = connectionEstablished && !openAiKeyAvailable;
@@ -157,11 +158,6 @@ export function AppUI() {
     !!config.currencyCode &&
     Array.isArray(config.selectedLanguages) &&
     config.selectedLanguages.length > 0;
-
-  const [connectionErrors, setConnectionErrors] = useState({});
-
-  const commerceErrors = getCommerceErrorsMap(config);
-  const generationErrors = getGenerationErrorsMap(generationConfig);
 
   const firstConnectionError = flattenErrorsMap(connectionErrors)[0];
   const firstCommerceError = flattenErrorsMap(commerceErrors)[0];
@@ -199,8 +195,6 @@ export function AppUI() {
       return next;
     });
   }, [forceDemoMode, setGenerationConfig]);
-
-  const api = useApi();
 
   const wsStatus =
     !connectionEstablished || !config?.microserviceUrl
@@ -367,745 +361,12 @@ export function AppUI() {
     [config, setConfig, connectionEstablished, notifyUser, setGenerationConfig]
   );
 
-  const buildPayload = useCallback(
-    (overrides = {}) => {
-      const {
-        includeCredentials = !config.liferayHosted,
-        channel,
-        siteGroupId,
-        ...rest
-      } = overrides;
-
-      const base = {
-        liferayUrl: config.liferayUrl,
-        microserviceUrl: config.microserviceUrl,
-        localeCode: config.localeCode,
-        languageId: config.languageId,
-        pollingDelay: config.pollingDelay,
-        pollingRetries: config.pollingRetries,
-
-        catalogId: toInt(config.catalogId),
-        channelId:
-          channel?.id != null ? toInt(channel.id) : toInt(config.channelId),
-        siteGroupId:
-          channel?.siteGroupId ?? siteGroupId ?? toInt(config.siteGroupId),
-        currencyCode: config.currencyCode,
-
-        aiModel: config.aiModel,
-        batchSize: config.batchSize,
-        selectedLanguages: toArray(config.selectedLanguages),
-
-        ...rest,
-      };
-
-      if (includeCredentials && config.clientId && config.clientSecret) {
-        base.clientId = config.clientId;
-        base.clientSecret = config.clientSecret;
-      }
-
-      return base;
-    },
-    [config]
-  );
-
-  const generateData = async (currentGenerationConfig) => {
-    const handleGenerate = async (generationConfig) => {
-      if (!connectionEstablished) {
-        if (mountedRef.current)
-          addLog(
-            'Please test the connection first before generating data.',
-            'error'
-          );
-        return;
-      }
-
-      console.log('🚀 Starting generation process:', {
-        wsConnected,
-        connectionEstablished,
-        hasWebSocket: !!wsRef.current,
-        wsState: wsRef.current ? wsRef.current.readyState : 'null',
-      });
-
-      if (mountedRef.current) setIsGenerating(true);
-
-      const { products, accounts, orders, images, pdfs } =
-        computeTotalsFromConfig(generationConfig);
-
-      dispatch({
-        type: 'SET_TOTALS',
-        totals: {
-          products,
-          accounts,
-          orders,
-          images,
-          pdfs,
-        },
-      });
-
-      dispatch({
-        type: 'SET_EXPECTED_VALUES',
-        values: {
-          images,
-          pdfs,
-        },
-      });
-
-      dispatch({
-        type: 'MERGE',
-        payload: {
-          products: { ...progress.products, completed: 0, errors: [] },
-          accounts: { ...progress.accounts, completed: 0, errors: [] },
-          orders: { ...progress.orders, completed: 0, errors: [] },
-          images: { ...progress.images, completed: 0, errors: [] },
-          pdfs: { ...progress.pdfs, completed: 0, errors: [] },
-        },
-      });
-
-      if (mountedRef.current)
-        addLog(
-          `Starting data generation: ${generationConfig.productCount} products, ${generationConfig.accountCount} accounts, ${generationConfig.orderCount} orders`,
-          'info'
-        );
-
-      try {
-        let totalProductsCreated = 0;
-        let totalAccountsCreated = 0;
-        let totalOrdersCreated = 0;
-        let totalImagesCreated = 0;
-        let totalPDFsCreated = 0;
-
-        const parallelTasks = [];
-
-        if (generationConfig.productCount > 0) {
-          const productTask = async () => {
-            try {
-              if (mountedRef.current)
-                addLog(
-                  `Generating ${generationConfig.productCount} products...`,
-                  'info'
-                );
-
-              const basePayload = {
-                ...buildPayload(),
-                productCount: generationConfig.productCount,
-                productCategories: generationConfig.categories,
-
-                generatePriceLists: generationConfig.generatePriceLists,
-                generateBulkPricing: generationConfig.generateBulkPricing,
-                generateTierPricing: generationConfig.generateTierPricing,
-
-                imageMode: generationConfig.imageMode,
-                imageRatio: generationConfig.imageRatio,
-                customImageFile: generationConfig.customImageFile,
-
-                imageWidth: generationConfig.imageWidth,
-                imageHeight: generationConfig.imageHeight,
-                imageQuality: generationConfig.imageQuality,
-                imageStyle: generationConfig.imageStyle,
-
-                generateSpecifications: generationConfig.generateSpecifications,
-                generateSkuVariants: generationConfig.generateSkuVariants,
-
-                pdfMode: generationConfig.pdfMode,
-                pdfRatio: generationConfig.pdfRatio,
-                customPdfFile: generationConfig.customPdfFile,
-
-                demoMode: generationConfig.demoMode,
-
-                createWarehouses: !!generationConfig.createWarehouses,
-                reuseExistingWarehouses: !!generationConfig.reuseExistingWarehouses,
-
-                inventoryMin: Number.isFinite(generationConfig.inventoryMin)
-                  ? generationConfig.inventoryMin
-                  : 0,
-                inventoryMax: Number.isFinite(generationConfig.inventoryMax)
-                  ? generationConfig.inventoryMax
-                  : 0,
-                inventoryAssignmentRatio: Number.isFinite(
-                  generationConfig.inventoryAssignmentRatio
-                )
-                  ? generationConfig.inventoryAssignmentRatio
-                  : 0,
-                enableBackorders: !!generationConfig.enableBackorders,
-                backorderAssignmentRatio: Number.isFinite(
-                  generationConfig.backorderAssignmentRatio
-                )
-                  ? generationConfig.backorderAssignmentRatio
-                  : 0,
-              };
-
-              const imageFile =
-                generationConfig.imageMode === 'custom'
-                  ? generationConfig.customImageFile
-                  : null;
-              const pdfFile =
-                generationConfig.pdfMode === 'custom'
-                  ? generationConfig.customPDFFile
-                  : null;
-
-              let response;
-
-              if (imageFile || pdfFile) {
-                const form = toFormData(basePayload, {
-                  customImageFile: imageFile,
-                  customPDFFile: pdfFile,
-                });
-
-                if (forceDemoMode) {
-                  body.demoMode = true;
-                  if (body.imageMode === 'generate') body.imageMode = 'default';
-                  if (body.pdfMode === 'generate') body.pdfMode = 'default';
-                }
-
-                response = await api.post('/api/generate/products', form);
-              } else {
-                response = await api.post(
-                  '/api/generate/products',
-                  basePayload
-                );
-              }
-
-              if (response.success) {
-                totalProductsCreated = response.count || 0;
-                totalImagesCreated = response.imageCount || 0;
-                totalPDFsCreated = response.pdfCount || 0;
-
-                if (response.batchId) {
-                  const batchMessage = generationConfig.demoMode
-                    ? `✓ Successfully submitted ${totalProductsCreated} demo products for batch creation (Batch ID: ${response.batchId})`
-                    : `✓ Successfully submitted ${totalProductsCreated} products for batch creation (Batch ID: ${response.batchId})`;
-                  if (mountedRef.current) addLog(batchMessage, 'success');
-                } else {
-                  const productMessage = generationConfig.demoMode
-                    ? `✓ Successfully generated ${totalProductsCreated} demo products`
-                    : `✓ Successfully generated ${totalProductsCreated} products`;
-                  if (mountedRef.current) addLog(productMessage, 'success');
-
-                  setProgress((prev) => ({
-                    ...prev,
-                    products: {
-                      ...prev.products,
-                      completed: totalProductsCreated,
-                    },
-                  }));
-                }
-
-                if (
-                  generationConfig.imageMode === 'generate' &&
-                  totalImagesCreated > 0
-                ) {
-                  const imageMessage = `✓ Generated ${totalImagesCreated} product images`;
-                  if (mountedRef.current) addLog(imageMessage, 'success');
-
-                  setProgress((prev) => ({
-                    ...prev,
-                    images: { ...prev.images, completed: totalImagesCreated },
-                  }));
-                }
-
-                if (
-                  generationConfig.pdfMode === 'generate' &&
-                  totalPDFsCreated > 0
-                ) {
-                  const pdfMessage = `✓ Generated ${totalPDFsCreated} product PDFs`;
-                  if (mountedRef.current) addLog(pdfMessage, 'success');
-
-                  setProgress((prev) => ({
-                    ...prev,
-                    pdfs: { ...prev.pdfs, completed: totalPDFsCreated },
-                  }));
-                }
-              } else {
-                if (mountedRef.current)
-                  addLog(
-                    `✗ Product generation failed: ${response.error}`,
-                    'error'
-                  );
-
-                setProgress((prev) => ({
-                  ...prev,
-                  products: {
-                    ...prev.products,
-                    errors: [...prev.products.errors, response.error],
-                  },
-                }));
-              }
-            } catch (error) {
-              if (mountedRef.current)
-                addLog(
-                  `✗ Product generation failed: ${
-                    error.response?.data?.error || error.message
-                  }`,
-                  'error'
-                );
-              setProgress((prev) => ({
-                ...prev,
-                products: {
-                  ...prev.products,
-                  errors: [...prev.products.errors, error.message],
-                },
-              }));
-            }
-          };
-
-          parallelTasks.push(productTask);
-        }
-
-        if (generationConfig.accountCount > 0) {
-          const accountTask = async () => {
-            try {
-              if (mountedRef.current)
-                addLog(
-                  `Generating ${generationConfig.accountCount} accounts...`,
-                  'info'
-                );
-
-              const response = await api.post('/api/generate/accounts', {
-                ...buildPayload(),
-                accountCount: generationConfig.accountCount,
-                demoMode: generationConfig.demoMode,
-              });
-
-              if (response.success) {
-                totalAccountsCreated = response.count || 0;
-
-                if (response.batchId) {
-                  const batchMessage = generationConfig.demoMode
-                    ? `✓ Successfully submitted ${totalAccountsCreated} demo accounts for batch creation (Batch ID: ${response.batchId})`
-                    : `✓ Successfully submitted ${totalAccountsCreated} accounts for batch creation (Batch ID: ${response.batchId})`;
-                  if (mountedRef.current) addLog(batchMessage, 'success');
-                } else {
-                  const accountMessage = generationConfig.demoMode
-                    ? `✓ Successfully generated ${totalAccountsCreated} demo accounts`
-                    : `✓ Successfully generated ${totalAccountsCreated} accounts`;
-                  if (mountedRef.current) addLog(accountMessage, 'success');
-
-                  setProgress((prev) => {
-                    const total = prev.accounts?.total ?? Infinity;
-                    const nextCompleted = Math.max(
-                      prev.accounts?.completed || 0,
-                      totalAccountsCreated || 0
-                    );
-                    return {
-                      ...prev,
-                      accounts: {
-                        ...prev.accounts,
-                        completed: Math.min(nextCompleted, total),
-                      },
-                    };
-                  });
-                }
-              } else {
-                if (mountedRef.current)
-                  addLog(
-                    `✗ Account generation failed: ${response.error}`,
-                    'error'
-                  );
-                setProgress((prev) => ({
-                  ...prev,
-                  accounts: {
-                    ...prev.accounts,
-                    errors: [...prev.accounts.errors, response.error],
-                  },
-                }));
-              }
-            } catch (error) {
-              if (mountedRef.current)
-                addLog(
-                  `✗ Account generation failed: ${
-                    error.response?.data?.error || error.message
-                  }`,
-                  'error'
-                );
-              setProgress((prev) => ({
-                ...prev,
-                accounts: {
-                  ...prev.accounts,
-                  errors: [...prev.accounts.errors, error.message],
-                },
-              }));
-            }
-          };
-
-          parallelTasks.push(accountTask);
-        }
-
-        if (parallelTasks.length > 0) {
-          if (mountedRef.current)
-            addLog(
-              `Executing ${parallelTasks.length} generation tasks in parallel...`,
-              'info'
-            );
-          await Promise.all(parallelTasks.map((task) => task()));
-          if (mountedRef.current)
-            addLog(`✓ Parallel generation tasks completed`, 'success');
-        }
-
-        if (generationConfig.orderCount > 0) {
-          try {
-            const hasProducts = generationConfig.productCount > 0;
-            const hasAccounts = generationConfig.accountCount > 0;
-
-            if (mountedRef.current)
-              addLog(
-                `Generating ${generationConfig.orderCount} orders...`,
-                'info'
-              );
-
-            if (hasProducts || hasAccounts) {
-              if (mountedRef.current)
-                addLog(
-                  '⏳ Verifying products and accounts are available in Liferay...',
-                  'info'
-                );
-
-              let retries = 0;
-              let productsAvailable = !hasProducts;
-              let accountsAvailable = !hasAccounts;
-
-              while (
-                (!productsAvailable || !accountsAvailable) &&
-                retries < config.pollingRetries
-              ) {
-                retries++;
-                if (mountedRef.current)
-                  addLog(
-                    `⏳ Checking data availability (attempt ${retries}/${config.pollingRetries})...`,
-                    'info'
-                  );
-
-                try {
-                  if (hasProducts && !productsAvailable) {
-                    const productsCheck = await api.post(
-                      '/api/validate/products',
-                      {
-                        liferayUrl: config.liferayUrl,
-                        clientId: config.clientId,
-                        clientSecret: config.clientSecret,
-                        requiredCount: totalProductsCreated,
-                      }
-                    );
-                    productsAvailable = productsCheck.sufficient;
-                    if (productsAvailable) {
-                      if (mountedRef.current)
-                        addLog(
-                          `✓ Found ${productsCheck.count} products available (${productsCheck.required} required)`,
-                          'success'
-                        );
-                    } else {
-                      if (mountedRef.current)
-                        addLog(
-                          `⚠ Only ${productsCheck.count} products found, ${productsCheck.required} required`,
-                          'info'
-                        );
-                    }
-                  }
-
-                  if (hasAccounts && !accountsAvailable) {
-                    const accountsCheck = await api.post(
-                      '/api/validate/accounts',
-                      {
-                        liferayUrl: config.liferayUrl,
-                        clientId: config.clientId,
-                        clientSecret: config.clientSecret,
-                        requiredCount: totalAccountsCreated,
-                      }
-                    );
-
-                    accountsAvailable = accountsCheck.sufficient;
-                    if (accountsAvailable) {
-                      if (mountedRef.current)
-                        addLog(
-                          `✓ Found ${accountsCheck.count} accounts available (${accountsCheck.required} required)`,
-                          'success'
-                        );
-                    } else {
-                      if (mountedRef.current)
-                        addLog(
-                          `⚠ Only ${accountsCheck.count} accounts found, ${accountsCheck.required} required`,
-                          'info'
-                        );
-                    }
-                  }
-
-                  if (productsAvailable && accountsAvailable) {
-                    if (mountedRef.current)
-                      addLog(
-                        '✓ All required data is now available in Liferay',
-                        'success'
-                      );
-                    break;
-                  }
-                } catch (checkError) {
-                  console.log(
-                    `Data availability check failed (attempt ${retries}):`,
-                    checkError.message
-                  );
-                }
-
-                await new Promise((resolve) =>
-                  setTimeout(resolve, config.pollingDelay)
-                );
-              }
-
-              if (!productsAvailable) {
-                throw new Error(
-                  'Products are still not available after waiting. Please try again in a few minutes or check Liferay logs.'
-                );
-              }
-              if (!accountsAvailable) {
-                throw new Error(
-                  'Accounts are still not available after waiting. Please try again in a few minutes or check Liferay logs.'
-                );
-              }
-            }
-
-            const enableRetry =
-              totalProductsCreated > 0 || totalAccountsCreated > 0;
-
-            if (enableRetry) {
-              if (mountedRef.current)
-                addLog(
-                  `Retry enabled: Dependencies were created in this session`,
-                  'info'
-                );
-            }
-
-            const response = await api.post('/api/generate/orders', {
-              ...buildPayload(),
-              orderCount: generationConfig.orderCount,
-              demoMode: generationConfig.demoMode,
-              enableRetry: enableRetry,
-            });
-
-            if (response.success) {
-              totalOrdersCreated = response.count || 0;
-              const orderMessage = generationConfig.demoMode
-                ? `✓ Successfully generated ${totalOrdersCreated} demo orders`
-                : `✓ Successfully generated ${totalOrdersCreated} orders`;
-              if (mountedRef.current) addLog(orderMessage, 'success');
-            } else {
-              if (mountedRef.current)
-                addLog(`✗ Order generation failed: ${response.error}`, 'error');
-              setProgress((prev) => ({
-                ...prev,
-                orders: {
-                  ...prev.orders,
-                  errors: [...prev.orders.errors, response.error],
-                },
-              }));
-            }
-          } catch (error) {
-            const errorMessage = error.response?.error || error.message;
-
-            if (errorMessage.includes('No products available')) {
-              if (mountedRef.current)
-                addLog(
-                  '⚠️ Cannot generate orders: No products found. Orders require existing products.',
-                  'warning'
-                );
-            } else if (errorMessage.includes('No accounts available')) {
-              if (mountedRef.current)
-                addLog(
-                  '⚠️ Cannot generate orders: No accounts found. Orders require existing accounts.',
-                  'warning'
-                );
-            } else {
-              if (mountedRef.current)
-                addLog(`✗ Order generation failed: ${errorMessage}`, 'error');
-            }
-
-            setProgress((prev) => ({
-              ...prev,
-              orders: {
-                ...prev.orders,
-                errors: [...prev.orders.errors, errorMessage],
-              },
-            }));
-          }
-        }
-
-        if (totalOrdersCreated > 0) {
-          setProgress((prev) => ({
-            ...prev,
-            orders: { ...prev.orders, completed: totalOrdersCreated },
-          }));
-        }
-
-        const completionMessage = generationConfig.demoMode
-          ? 'Demo data generation completed! (No AI credits used)'
-          : 'Data generation process completed!';
-        if (mountedRef.current) addLog(completionMessage, 'success');
-      } catch (error) {
-        if (mountedRef.current)
-          addLog(
-            `Generation failed: ${error.response?.error || error.message}`,
-            'error'
-          );
-      } finally {
-        if (mountedRef.current) setIsGenerating(false);
-      }
-    };
-
-    handleGenerate(currentGenerationConfig);
-  };
-
-  const loadRootLists = async () => {
-    const payload = buildPayload();
-
-    const [cat, ch] = await Promise.all([
-      api.post('/api/get-catalogs', payload),
-      api.post('/api/get-channels', payload),
-    ]);
-
-    const cats = Array.isArray(cat?.catalogs) ? cat.catalogs : [];
-    const chs = Array.isArray(ch?.channels) ? ch.channels : [];
-
-    setCatalogs(cats);
-    setChannels(chs);
-
-    return { catalogs: cats, channels: chs };
-  };
-
-  const loadChannelDependent = async (channelOrId) => {
-    let chObj =
-      channelOrId && typeof channelOrId === 'object'
-        ? channelOrId
-        : (channels || []).find((c) => String(c.id) === String(channelOrId));
-
-    if (!chObj) {
-      const fresh = (await loadRootLists()).channels;
-      chObj = fresh.find((c) => String(c.id) === String(channelOrId));
-      if (!chObj) {
-        notifyUser(
-          'Selected channel not found. Please test the connection again.',
-          'warning'
-        );
-        return null;
-      }
-    }
-
-    const payload = buildPayload({ channel: chObj });
-
-    const [langsRes, currsRes] = await Promise.all([
-      getLanguages(payload),
-      getCurrencies(payload),
-    ]);
-
-    const langs = Array.isArray(langsRes?.languages) ? langsRes.languages : [];
-    const currs = Array.isArray(currsRes?.currencies)
-      ? currsRes.currencies
-      : [];
-
-    setLanguages(langs);
-    setCurrencies(currs);
-
-    const selectLangs = langs
-      .filter((lang) => lang.markedAsDefault)
-      .map((lang) => lang.id);
-
-    setConfig((prev) => ({
-      ...prev,
-      channelId: chObj.id,
-      siteGroupId: chObj.siteGroupId,
-      selectedLanguages: selectLangs,
-      ...(prev.currencyCode
-        ? {}
-        : chObj.currencyCode
-        ? { currencyCode: chObj.currencyCode }
-        : {}),
-    }));
-
-    return chObj;
-  };
-
-  const testConnection = async () => {
-    const errs = getConnectionErrorsMap(config);
-    setConnectionErrors(errs);
-
-    if (hasAnyErrors(errs)) {
-      const firstKey = Object.keys(errs)[0];
-      requestAnimationFrame(() => {
-        const el = document.getElementById(`conn_${firstKey}`);
-        if (el) el.focus();
-      });
-      throw new Error('Fix the highlighted issues to continue.');
-    }
-
-    const payload = buildPayload();
-    const res = await api.post('/api/test-connection', payload);
-
-    if (!res?.success) {
-      setConnectionEstablished(false);
-      setOpenAiKeyAvailable(false);
-      throw new Error(res?.message || 'Failed to establish connection.');
-    }
-
-    addLog(res.message || 'Connected.', 'success');
-
-    setOpenAiKeyAvailable(Boolean(res.openAiKeyAvailable));
-
-    const wsOk = ping();
-    if (!wsOk) {
-      addLog('Unable to ping web socket.', 'warning');
-    }
-
-    await loadRootLists();
-    setConnectionEstablished(true);
-
-    return res;
-  };
-
-  const selectChannel = async (
-    channelObjOrId,
-    { selectedLanguages, currencyCode } = {}
-  ) => {
-    const chObj = await loadChannelDependent(channelObjOrId);
-    if (!chObj) return;
-
-    setConfig((prev) => {
-      const available = new Set(
-        (languages || []).map((l) => l.code ?? l.locale ?? l.id)
-      );
-      const nextLangs = Array.isArray(selectedLanguages)
-        ? selectedLanguages.filter((code) => available.has(code))
-        : prev.selectedLanguages;
-
-      const nextCurr =
-        currencyCode ?? prev.currencyCode ?? chObj.currencyCode ?? '';
-
-      return {
-        ...prev,
-        channelId: chObj.id,
-        siteGroupId: chObj.siteGroupId,
-        selectedLanguages: nextLangs,
-        currencyCode: nextCurr,
-      };
-    });
-  };
-
   const subtitle = useMemo(
     () =>
       config?.subtitle ||
       'Generate comprehensive Commerce data using AI and Liferay Headless APIs',
     [config?.subtitle]
   );
-
-  const handleDeleteAllCommerceData = useCallback(async () => {
-    const payload = buildPayload();
-    const res = await api.post('/api/v2/delete-commerce-data', payload);
-    if (res?.summary) {
-      logDeletionSummary(res.summary);
-    }
-  });
-
-  const handleDeleteSelectedCommerceData = useCallback(async () => {
-    const payload = buildPayload();
-    const res = await api.post('/api/v2/delete-channel-commerce-data', payload);
-    if (res?.summary) {
-      logDeletionSummary(res.summary);
-    }
-  });
 
   const handleProgressReset = useCallback(() => {
     clearLogs();
@@ -1147,7 +408,7 @@ export function AppUI() {
             <div className="card-body">
               <div className="row">
                 <div className="col-lg-4">
-                  <ApplicationConfigPanel
+                  <ConfigurationPanel
                     disabled={isGenerating}
                     generationConfig={generationConfig}
                     onTestConnection={testConnection}
@@ -1165,7 +426,9 @@ export function AppUI() {
                     commerceErrors={commerceErrors}
                     onErrorsChange={setConnectionErrors}
                     onDeleteAllCommerceData={handleDeleteAllCommerceData}
-                    onDeleteSelectedCommerceData={handleDeleteSelectedCommerceData}
+                    onDeleteSelectedCommerceData={
+                      handleDeleteSelectedCommerceData
+                    }
                   />
                 </div>
                 <div className="col-lg-8">

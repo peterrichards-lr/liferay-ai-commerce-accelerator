@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import ClayIcon from '@clayui/icon';
 import FieldError from '../ui/FieldError';
 import CheckboxField from '../ui/CheckboxField';
 import CheckboxGroup from '../ui/CheckboxGroup';
@@ -127,7 +128,7 @@ function DataGeneratorForm({
       id="data-generator"
       title={
         <>
-          <i className="icon icon-magic me-2" />
+          <ClayIcon symbol="magic" className="me-2" />
           Data Generation
         </>
       }
@@ -154,7 +155,7 @@ function DataGeneratorForm({
             disabled={isGenerating}
             title="Reset generator settings to defaults"
           >
-            <span className="icon icon-restore"></span>
+            <ClayIcon symbol="redo" />
             Reset Settings
           </button>
         </>
@@ -251,7 +252,7 @@ function DataGeneratorForm({
             disabled={lockFields || forceDemoMode}
             label={
               <>
-                <i className="icon icon-warning demo-mode-icon"></i>
+                <ClayIcon symbol="warning-full" className="demo-mode-icon" />
                 <strong>Demo Mode</strong> - Generate mock data without AI costs
                 (for testing)
               </>
@@ -278,7 +279,7 @@ function DataGeneratorForm({
               generationConfig.productCount === 0 ? 'muted' : ''
             }`}
           >
-            <i className="icon icon-settings"></i>
+            <ClayIcon symbol="cog" />
             Product Configuration Options
           </h5>
           <small className="section-subtitle">
@@ -339,7 +340,7 @@ function DataGeneratorForm({
                       generationConfig.productCount === 0 ? 'muted' : ''
                     }`}
                   >
-                    <i className="icon icon-warning demo-mode-icon"></i>
+                    <ClayIcon symbol="warning-full" className="demo-mode-icon" />
                     Demo Mode Media Options
                     <small className="config-subtitle">
                       (Uses existing assets, no AI costs)
@@ -349,7 +350,7 @@ function DataGeneratorForm({
                   <div className="content-options-grid">
                     <div className="content-option">
                       <h6 className="content-option-title">
-                        <i className="icon icon-image"></i>
+                        <ClayIcon symbol="picture" />
                         Product Images
                       </h6>
 
@@ -496,7 +497,7 @@ function DataGeneratorForm({
 
                     <div className="content-option">
                       <h6 className="content-option-title">
-                        <i className="icon icon-pdf"></i>
+                        <ClayIcon symbol="document" />
                         Product PDFs
                       </h6>
 
@@ -649,7 +650,7 @@ function DataGeneratorForm({
                       generationConfig.productCount === 0 ? 'muted' : ''
                     }`}
                   >
-                    <i className="icon icon-magic ai-icon"></i>
+                    <ClayIcon symbol="magic" className="ai-icon" />
                     AI-Powered Content Generation
                     <small className="config-subtitle">
                       (Additional API costs apply)
@@ -659,7 +660,7 @@ function DataGeneratorForm({
                   <div className="content-options-grid">
                     <div className="content-option">
                       <h6 className="content-option-title">
-                        <i className="icon icon-image"></i>
+                        <ClayIcon symbol="picture" />
                         Product Images
                       </h6>
 
@@ -708,7 +709,7 @@ function DataGeneratorForm({
                             }`}
                             htmlFor="dataGeneration_generateImages"
                           >
-                            <i className="icon icon-magic ai-icon"></i>
+                            <ClayIcon symbol="magic" className="ai-icon" />
                             Generate with AI
                           </label>
                         </div>
@@ -914,7 +915,7 @@ function DataGeneratorForm({
 
                     <div className="content-option">
                       <h6 className="content-option-title">
-                        <i className="icon icon-pdf"></i>
+                        <ClayIcon symbol="document" />
                         Product PDFs
                       </h6>
 
@@ -963,7 +964,7 @@ function DataGeneratorForm({
                             }`}
                             htmlFor="dataGeneration_generatePDFs"
                           >
-                            <i className="icon icon-magic ai-icon"></i>
+                            <ClayIcon symbol="magic" className="ai-icon" />
                             Generate with AI
                           </label>
                         </div>
@@ -1139,7 +1140,7 @@ function DataGeneratorForm({
           <div className="cost-estimation">
             <div className="cost-card">
               <h5 className="cost-title">
-                <i className="icon icon-dollar"></i>
+                <ClayIcon symbol="coin" />
                 Cost Estimation
               </h5>
               <div className="cost-summary">
@@ -1181,7 +1182,7 @@ function DataGeneratorForm({
                 </div>
               ) : disabled ? (
                 <>
-                  <i className="icon icon-warning error-icon"></i>
+                  <ClayIcon symbol="warning-full" className="error-icon" />
                   {disabledReason || 'Not ready to generate yet'}
                 </>
               ) : (
