@@ -4,17 +4,19 @@ import ClayAlert from '@clayui/alert';
 import ClayButton from '@clayui/button';
 import ClayIcon from '@clayui/icon';
 import ClayLayout from '@clayui/layout';
-import { useForm } from '../../hooks';
+import { useForm, useObjectStorage } from '../../hooks';
 import { getKeyValue, persistConfigKey } from '../../utils/api';
 import MillisecondsInput from '../common/MillisecondsInput';
 
 const BATCH_POLLING_KEY = 'batch-polling-config';
 
 const DEFAULTS = {
-  pollInterval: 5000, // ms
-  minPollInterval: 2000, // ms
-  maxPollAttempts: 120,
-  maxRetries: 3,
+  [BATCH_POLLING_KEY]: {
+    pollInterval: 5000,
+    minPollInterval: 2000,
+    maxPollAttempts: 120,
+    maxRetries: 3,
+  },
 };
 
 function toInt(v, fallback) {
@@ -32,91 +34,26 @@ function msToHHMMSS(ms) {
 }
 
 export default function BatchPollingConfigPanel() {
-  const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
   const [issues, setIssues] = useState([]);
 
-  const [values, setValues] = useState(DEFAULTS);
-  const [lastSaved, setLastSaved] = useState(DEFAULTS);
-
-  const dirty = useMemo(
-    () => JSON.stringify(values) !== JSON.stringify(lastSaved),
-    [values, lastSaved]
-  );
-
-  // Load config
-  useEffect(() => {
-    let alive = true;
-    (async () => {
-      setLoading(true);
-      try {
-        const raw = await getKeyValue(BATCH_POLLING_KEY);
-        let parsed = {};
-        try {
-          parsed = raw ? JSON.parse(raw) : {};
-        } catch {
-          parsed = {};
-        }
-        const merged = {
-          pollInterval: toInt(parsed.pollInterval, DEFAULTS.pollInterval),
-          minPollInterval: toInt(
-            parsed.minPollInterval,
-            DEFAULTS.minPollInterval
-          ),
-          maxPollAttempts: toInt(
-            parsed.maxPollAttempts,
-            DEFAULTS.maxPollAttempts
-          ),
-          maxRetries: toInt(parsed.maxRetries, DEFAULTS.maxRetries),
-        };
-        if (!alive) return;
-        setValues(merged);
-        setLastSaved(merged);
-      } catch (e) {
-        Liferay?.Util?.openToast?.({
-          message: 'Failed to load batch polling config.',
-          type: 'danger',
-        });
-      } finally {
-        if (alive) setLoading(false);
-      }
-    })();
-    return () => {
-      alive = false;
-    };
-  }, []);
-
-
-  const onSave = useCallback(async () => {
-    if (saving) return;
-    setSaving(true);
-    try {
-      const payload = JSON.stringify(values);
-      await persistConfigKey(BATCH_POLLING_KEY, payload);
-      setLastSaved(values);
-      Liferay?.Util?.openToast?.({
-        message: 'Batch polling configuration saved.',
-        type: 'success',
-      });
-    } catch (e) {
-      // eslint-disable-next-line no-console
-      console.error(e);
-      Liferay?.Util?.openToast?.({
-        message: 'Failed to save batch polling configuration.',
-        type: 'danger',
-      });
-    } finally {
-      setSaving(false);
-    }
-  }, [saving, values]);
+  const {
+    loading,
+    saving,
+    values: { [BATCH_POLLING_KEY]: values },
+    dirty,
+    onSave,
+    onCancel,
+    setValue,
+  } = useObjectStorage({
+    keys: [BATCH_POLLING_KEY],
+    defaults: DEFAULTS,
+  });
 
   useForm({ dirty, onSave });
 
-  const onCancel = useCallback(() => setValues(lastSaved), [lastSaved]);
-
   const onNumberChange = (key) => (e) => {
     const next = toInt(e.target.value, values[key]);
-    setValues((v) => ({ ...v, [key]: next }));
+    setValue(BATCH_POLLING_KEY, { ...values, [key]: next });
   };
 
   const estimatedDurationMs = useMemo(() => {

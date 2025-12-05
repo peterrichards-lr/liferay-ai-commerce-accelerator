@@ -1,63 +1,11 @@
-import React, { lazy, Suspense, useEffect, useMemo, useState } from 'react';
+import React, { Suspense, useEffect, useMemo, useState } from 'react';
 import ClayLayout from '@clayui/layout';
 import LeftNav from './components/LeftNav';
 import GlobalDisclaimer from './components/common/GlobalDisclaimer';
-
-const AiConfigPanel = lazy(() => import('./components/panels/AiConfigPanel'));
-const QueueConfigPanel = lazy(() =>
-  import('./components/panels/QueueConfigPanel')
-);
-const BatchPollingConfigPanel = lazy(() =>
-  import('./components/panels/BatchPollingConfigPanel')
-);
-const WsConfigPanel = lazy(() => import('./components/panels/WsConfigPanel'));
-const CacheConfigPanel = lazy(() =>
-  import('./components/panels/CacheConfigPanel')
-);
-const OAuthConfigPanel = lazy(() =>
-  import('./components/panels/OAuthConfigPanel')
-);
-const ObjectStorageConfigPanel = lazy(() =>
-  import('./components/panels/ObjectStorageConfigPanel')
-);
-const PlaceholdersPanel = lazy(() =>
-  import('./components/panels/PlaceholdersPanel')
-);
-const AiSchemasPanel = lazy(() =>
-  import('./components/panels/AiSchemasPanel')
-);
-const AiPromptsPanel = lazy(() =>
-  import('./components/panels/AiPromptsPanel')
-);
+import { PANELS } from './panels';
 
 const APP_NAME = 'Liferay Commerce AI Generator';
 const STORAGE_KEY = 'ai-config-active-tab';
-
-const TABS = [
-  { id: 'ai-config', label: 'AI Config', icon: 'cog' },
-  { id: 'ai-prompts', label: 'AI Prompts', icon: 'chatbot' },
-  { id: 'ai-schemas', label: 'AI Schemas', icon: 'diagram' },
-  { id: 'queues', label: 'Queues', icon: 'list' },
-  { id: 'batchpolling', label: 'Batch Polling', icon: 'change' },
-  { id: 'websocket', label: 'WebSocket', icon: 'bolt' },
-  { id: 'cache', label: 'Cache', icon: 'repository' },
-  { id: 'oauth', label: 'OAuth', icon: 'lock' },
-  { id: 'objectstorage', label: 'Object Storage', icon: 'cloud' },
-  { id: 'placeholders', label: 'Placeholders', icon: 'document-image' },
-];
-
-const PANEL_MAP = {
-  'ai-config': AiConfigPanel,
-  'ai-prompts': AiPromptsPanel,
-  'ai-schemas': AiSchemasPanel,
-  queues: QueueConfigPanel,
-  batchpolling: BatchPollingConfigPanel,
-  websocket: WsConfigPanel,
-  cache: CacheConfigPanel,
-  oauth: OAuthConfigPanel,
-  objectstorage: ObjectStorageConfigPanel,
-  placeholders: PlaceholdersPanel,
-};
 
 export default function LiferayAICommerceAcceleratorConfiguration() {
   const initialFromHash =
@@ -67,14 +15,14 @@ export default function LiferayAICommerceAcceleratorConfiguration() {
       ? localStorage.getItem(STORAGE_KEY) || ''
       : '';
 
-  const validIds = useMemo(() => new Set(TABS.map((t) => t.id)), []);
-  const defaultId = TABS[0].id;
+  const validIds = useMemo(() => new Set(PANELS.map((p) => p.id)), []);
+  const defaultId = PANELS[0].id;
 
   const initial = useMemo(() => {
     if (validIds.has(initialFromHash)) return initialFromHash;
     if (validIds.has(initialFromStorage)) return initialFromStorage;
     return defaultId;
-  }, [initialFromHash, initialFromStorage, validIds]);
+  }, [initialFromHash, initialFromStorage, validIds, defaultId]);
 
   const [activeId, setActiveId] = useState(initial);
 
@@ -101,15 +49,20 @@ export default function LiferayAICommerceAcceleratorConfiguration() {
     return () => window.removeEventListener('hashchange', onHash);
   }, [defaultId, validIds]);
 
-  const ActivePanel = PANEL_MAP[activeId] || (() => null);
-  const activeLabel = TABS.find((t) => t.id === activeId)?.label || 'Panel';
+  const activePanelInfo = useMemo(
+    () => PANELS.find((p) => p.id === activeId) || PANELS[0],
+    [activeId]
+  );
+
+  const ActivePanel = activePanelInfo.component;
+  const activeLabel = activePanelInfo.label;
 
   return (
     <ClayLayout.ContainerFluid className="container-view">
       <div className="row">
         <LeftNav
           header="Configuration"
-          items={TABS}
+          items={PANELS}
           activeId={activeId}
           onSelect={setActiveId}
         />

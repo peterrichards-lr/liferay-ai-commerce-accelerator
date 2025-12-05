@@ -9,19 +9,17 @@ const SPRITEMAP_FALLBACK = '/o/admin-theme/images/clay/icons.svg';
 class BaseComponent extends HTMLElement {
   constructor() {
     super();
-    this.root = null;   // React root
-    this.mount = null;  // mount <div>
+    this.root = null;
+    this.mount = null;
   }
 
   connectedCallback() {
-    // Create or reuse a single mount node inside the host element (no shadow DOM)
     if (!this.mount || !this.contains(this.mount)) {
       this.mount = document.createElement('div');
       this.mount.id = 'liferay-ai-commerce-accelerator-configuration__mount';
       this.appendChild(this.mount);
     }
 
-    // Create React root once
     if (!this.root) {
       this.root = createRoot(this.mount);
     }
@@ -30,7 +28,6 @@ class BaseComponent extends HTMLElement {
   }
 
   disconnectedCallback() {
-    // Unmount React when Liferay SPA removes the element
     try { this.root?.unmount?.(); } catch {}
     this.root = null;
   }
@@ -38,7 +35,6 @@ class BaseComponent extends HTMLElement {
 
 class LiferayAICommerceAcceleratorConfigurationComponent extends BaseComponent {
   static get observedAttributes() {
-    // Allow <liferay-ai-commerce-accelerator-configuration spritemap="/o/.../icons.svg">
     return ['spritemap'];
   }
 

@@ -1,28 +1,28 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo } from 'react';
 import ClayForm, { ClayInput } from '@clayui/form';
 import ClayAlert from '@clayui/alert';
 import ClayButton from '@clayui/button';
 import ClayIcon from '@clayui/icon';
 import ClayLayout from '@clayui/layout';
 import MillisecondsInput from '../common/MillisecondsInput';
-import { useForm } from '../../hooks';
+import { useForm, useObjectStorage } from '../../hooks';
 import { msToHHMMSS } from '../../utils/helper';
-
-import { getKeyValue, persistConfigKey } from '../../utils/api';
 
 const CACHE_CONFIG_KEY = 'cache-config';
 
 const DEFAULTS = {
-  maxSize: 1000,
-  defaultTTL: 3600000,      // 60 min
-  cleanupInterval: 60000,   // 1 min
-  configTTL: 3600000,       // 60 min
-  apiResponseTTL: 300000,   // 5 min
-  defaultBatchTTL: 3600000,
-  sessionTTL: 1800000,
-  ephemeralTTL: 300000,
-  uploadTTL: 900000,
-  ercConfigTTL: 3600000,
+  [CACHE_CONFIG_KEY]: {
+    maxSize: 1000,
+    defaultTTL: 3600000,
+    cleanupInterval: 60000,
+    configTTL: 3600000,
+    apiResponseTTL: 300000,
+    defaultBatchTTL: 3600000,
+    sessionTTL: 1800000,
+    ephemeralTTL: 300000,
+    uploadTTL: 900000,
+    ercConfigTTL: 3600000,
+  },
 };
 
 function toInt(v, fallback) {
@@ -31,92 +31,29 @@ function toInt(v, fallback) {
 }
 
 export default function CacheConfigPanel() {
-  const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
   const [issues, setIssues] = useState([]);
-  const [values, setValues] = useState(DEFAULTS);
-  const [lastSaved, setLastSaved] = useState(DEFAULTS);
 
-  const dirty = useMemo(
-    () => JSON.stringify(values) !== JSON.stringify(lastSaved),
-    [values, lastSaved]
-  );
-
-  useEffect(() => {
-    let alive = true;
-    (async () => {
-      setLoading(true);
-      try {
-        const raw = await getKeyValue(CACHE_CONFIG_KEY);
-        let parsed = {};
-        try {
-          parsed = raw ? JSON.parse(raw) : {};
-        } catch {
-          parsed = {};
-        }
-        const merged = {
-          maxSize: toInt(parsed.maxSize, DEFAULTS.maxSize),
-          defaultTTL: toInt(parsed.defaultTTL, DEFAULTS.defaultTTL),
-          cleanupInterval: toInt(parsed.cleanupInterval, DEFAULTS.cleanupInterval),
-          configTTL: toInt(parsed.configTTL, DEFAULTS.configTTL),
-          apiResponseTTL: toInt(parsed.apiResponseTTL, DEFAULTS.apiResponseTTL),
-          defaultBatchTTL: toInt(parsed.defaultBatchTTL, DEFAULTS.defaultBatchTTL),
-          sessionTTL: toInt(parsed.sessionTTL, DEFAULTS.sessionTTL),
-          ephemeralTTL: toInt(parsed.ephemeralTTL, DEFAULTS.ephemeralTTL),
-          uploadTTL: toInt(parsed.uploadTTL, DEFAULTS.uploadTTL),
-          ercConfigTTL: toInt(parsed.ercConfigTTL, DEFAULTS.ercConfigTTL),
-        };
-        if (!alive) return;
-        setValues(merged);
-        setLastSaved(merged);
-      } catch (e) {
-        Liferay?.Util?.openToast?.({
-          message: 'Failed to load cache configuration.',
-          type: 'danger',
-        });
-      } finally {
-        if (alive) setLoading(false);
-      }
-    })();
-    return () => {
-      alive = false;
-    };
-  }, []);
-
-  const onSave = useCallback(async () => {
-    if (saving) return;
-    setSaving(true);
-    try {
-      const payload = JSON.stringify(values);
-      await persistConfigKey(CACHE_CONFIG_KEY, payload);
-      setLastSaved(values);
-      Liferay?.Util?.openToast?.({
-        message: 'Cache configuration saved.',
-        type: 'success',
-      });
-    } catch (e) {
-      // eslint-disable-next-line no-console
-      console.error(e);
-      Liferay?.Util?.openToast?.({
-        message: 'Failed to save cache configuration.',
-        type: 'danger',
-      });
-    } finally {
-      setSaving(false);
-    }
-  }, [saving, values]);
+  const {
+    loading,
+    saving,
+    values: { [CACHE_CONFIG_KEY]: values },
+    dirty,
+    onSave,
+    onCancel,
+    setValue,
+  } = useObjectStorage({
+    keys: [CACHE_CONFIG_KEY],
+    defaults: DEFAULTS,
+  });
 
   useForm({ dirty, onSave });
 
-  const onCancel = useCallback(() => setValues(lastSaved), [lastSaved]);
-
   const onNumberChange = (key) => (e) => {
     const next = toInt(e.target.value, values[key]);
-    setValues((v) => ({ ...v, [key]: next }));
+    setValue(CACHE_CONFIG_KEY, { ...values, [key]: next });
   };
 
   const approxCapacityKB = useMemo(() => {
-    // very rough viz: average entry ~ 1KB -> show max entries as KB
     const avgEntryBytes = 1024;
     return Math.round((values.maxSize * avgEntryBytes) / 1024);
   }, [values.maxSize]);

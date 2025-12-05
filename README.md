@@ -59,7 +59,7 @@ You only need to modify the source `.json` (schema) and `.md` (prompt) files in 
 1.  **Configure the Application:**
     -   Once deployed, navigate to your Liferay instance.
     -   Go to the **Global Menu** → **Applications** → **AI Commerce Accelerator Configuration**.
-    -   In this screen, configure your AI provider (e.g., OpenAI API Key), review the AI prompts and schemas, and save your settings.
+    -   In this screen, configure your AI provider (e.g., OpenAI API Key), review the AI prompts and schemas, and save your settings. All panels now feature a consistent user experience, including "warn on unsaved changes" and "save with Ctrl/Cmd+S" functionality.
 
 2.  **Generate Data:**
     -   Add the **AI Commerce Accelerator** widget to a page from the Page Editor.

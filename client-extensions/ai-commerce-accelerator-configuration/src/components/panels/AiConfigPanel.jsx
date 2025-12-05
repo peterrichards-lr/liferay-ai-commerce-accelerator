@@ -5,37 +5,40 @@ import ClayButton from '@clayui/button';
 import ClayIcon from '@clayui/icon';
 import ClayLayout from '@clayui/layout';
 import ClayTable from '@clayui/table';
-import { getKeyValue, persistConfigKey } from '../../utils/api';
+import { useForm, useObjectStorage } from '../../hooks';
 import MillisecondsInput from '../common/MillisecondsInput';
 import OpenAISettingsPanel from './OpenAISettingsPanel';
 
 const OPEN_AI_KEY_KEY = 'open-ai-key';
 const AI_CONFIG_KEY = 'ai-config';
 
-const DEFAULT_AI = {
-  defaultModel: 'gpt-4o',
-  temperature: 0.7,
-  responseFormat: 'json_object',
-  requestTimeoutMs: 60000,
-  retry: { maxRetries: 2, baseDelayMs: 1000, maxDelayMs: 8000 },
-  parallelLimit: 4,
-  models: {
-    pdf: 'gpt-4o',
-    product: 'gpt-4o',
-    account: 'gpt-4o',
-    order: 'gpt-4o',
-    pricing: 'gpt-4o-mini',
+const DEFAULTS = {
+  [AI_CONFIG_KEY]: {
+    defaultModel: 'gpt-4o',
+    temperature: 0.7,
+    responseFormat: 'json_object',
+    requestTimeoutMs: 60000,
+    retry: { maxRetries: 2, baseDelayMs: 1000, maxDelayMs: 8000 },
+    parallelLimit: 4,
+    models: {
+      pdf: 'gpt-4o',
+      product: 'gpt-4o',
+      account: 'gpt-4o',
+      order: 'gpt-4o',
+      pricing: 'gpt-4o-mini',
+    },
+    maxTokens: {
+      default: 4000,
+      pdf: 4000,
+      product: 4000,
+      account: 4000,
+      order: 4000,
+      pricing: 2000,
+    },
+    systemPrompts: {},
+    strictJson: true,
   },
-  maxTokens: {
-    default: 4000,
-    pdf: 4000,
-    product: 4000,
-    account: 4000,
-    order: 4000,
-    pricing: 2000,
-  },
-  systemPrompts: {},
-  strictJson: true,
+  [OPEN_AI_KEY_KEY]: '',
 };
 
 function toInt(v, fallback) {
@@ -44,59 +47,49 @@ function toInt(v, fallback) {
 }
 
 export default function AiConfigPanel() {
-  const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
   const [issues, setIssues] = useState([]);
 
-  const [aiConfig, setAiConfig] = useState(DEFAULT_AI);
-  const [openAiKeyValue, setOpenAiKeyValue] = useState('');
-  const [lastSaved, setLastSaved] = useState({
-    openAiKeyValue: '',
-    ai: DEFAULT_AI,
+  const {
+    loading: loadingAi,
+    saving: savingAi,
+    values: { [AI_CONFIG_KEY]: aiConfig },
+    dirty: dirtyAi,
+    onSave: onSaveAi,
+    onCancel: onCancelAi,
+    setValue: setAiValue,
+  } = useObjectStorage({
+    keys: [AI_CONFIG_KEY],
+    defaults: { [AI_CONFIG_KEY]: DEFAULTS[AI_CONFIG_KEY] },
   });
 
-  const dirty = useMemo(
-    () =>
-      openAiKeyValue !== lastSaved.openAiKeyValue ||
-      JSON.stringify(aiConfig) !== JSON.stringify(lastSaved.ai),
-    [openAiKeyValue, aiConfig, lastSaved]
-  );
+  const {
+    loading: loadingKey,
+    saving: savingKey,
+    values: { [OPEN_AI_KEY_KEY]: openAiKeyValue },
+    dirty: dirtyKey,
+    onSave: onSaveKey,
+    onCancel: onCancelKey,
+    setValue: setOpenAiKeyValue,
+  } = useObjectStorage({
+    keys: [OPEN_AI_KEY_KEY],
+    defaults: { [OPEN_AI_KEY_KEY]: DEFAULTS[OPEN_AI_KEY_KEY] },
+    json: false,
+  });
 
-  useEffect(() => {
-    let alive = true;
-    (async () => {
-      setLoading(true);
-      try {
-        const [rawOpenAIKey, rawAI] = await Promise.all([
-          getKeyValue(OPEN_AI_KEY_KEY),
-          getKeyValue(AI_CONFIG_KEY),
-        ]);
+  const loading = loadingAi || loadingKey;
+  const saving = savingAi || savingKey;
+  const dirty = dirtyAi || dirtyKey;
 
-        const parsedAI = rawAI ? JSON.parse(rawAI) : {};
+  const onSave = useCallback(async () => {
+    await Promise.all([onSaveAi(), onSaveKey()]);
+  }, [onSaveAi, onSaveKey]);
 
-        const mergedAI = { ...DEFAULT_AI, ...parsedAI };
+  const onCancel = useCallback(() => {
+    onCancelAi();
+    onCancelKey();
+  }, [onCancelAi, onCancelKey]);
 
-        if (!alive) return;
-        setOpenAiKeyValue(rawOpenAIKey);
-        setAiConfig(mergedAI);
-        setLastSaved({
-          openAiKeyValue: rawOpenAIKey,
-          ai: mergedAI,
-        });
-      } catch (e) {
-        console.error('Failed to load AI configuration.', e);
-        Liferay?.Util?.openToast?.({
-          message: 'Failed to load AI configuration.',
-          type: 'danger',
-        });
-      } finally {
-        if (alive) setLoading(false);
-      }
-    })();
-    return () => {
-      alive = false;
-    };
-  }, []);
+  useForm({ dirty, onSave });
 
   useEffect(() => {
     const found = [];
@@ -111,49 +104,14 @@ export default function AiConfigPanel() {
     setIssues(found);
   }, [aiConfig]);
 
-      const onSave = useCallback(async () => {
-      if (saving) return;
-      setSaving(true);
-      try {
-        const results = await Promise.allSettled([
-          persistConfigKey(OPEN_AI_KEY_KEY, openAiKeyValue.trim()),
-          persistConfigKey(AI_CONFIG_KEY, JSON.stringify(aiConfig)),
-        ]);
-  
-        const failed = results.filter((r) => r.status === 'rejected');
-  
-        if (failed.length) {
-          throw new Error(`${failed.length} save operations failed.`);
-        }
-  
-        setLastSaved({
-          openAiKeyValue: openAiKeyValue.trim(),
-          ai: aiConfig,
-        });
-        Liferay?.Util?.openToast?.({
-          message: 'AI configuration saved.',
-          type: 'success',
-        });
-      } catch (e) {
-        // eslint-disable-next-line no-console
-        console.error(e);
-        Liferay?.Util?.openToast?.({
-          message: 'Failed to save AI configuration.',
-          type: 'danger',
-        });
-      } finally {
-        setSaving(false);
-      }
-    }, [saving, openAiKeyValue, aiConfig]);
-  const onCancel = useCallback(() => {
-    setOpenAiKeyValue(lastSaved.openAiKeyValue);
-    setAiConfig(lastSaved.ai);
-  }, [lastSaved]);
-
-  const updateAi = (key, value) => setAiConfig((v) => ({ ...v, [key]: value }));
+  const updateAi = (key, value) =>
+    setAiValue(AI_CONFIG_KEY, { ...aiConfig, [key]: value });
 
   const updateRetry = (k, val) =>
-    setAiConfig((v) => ({ ...v, retry: { ...v.retry, [k]: val } }));
+    setAiValue(AI_CONFIG_KEY, {
+      ...aiConfig,
+      retry: { ...aiConfig.retry, [k]: val },
+    });
 
   return (
     <ClayLayout.Sheet aria-busy={loading || saving} aria-live="polite">
@@ -166,7 +124,7 @@ export default function AiConfigPanel() {
 
       <OpenAISettingsPanel
         keyValue={openAiKeyValue || ''}
-        setKeyValue={(value) => setOpenAiKeyValue(value)}
+        setKeyValue={(value) => setOpenAiKeyValue(OPEN_AI_KEY_KEY, value)}
       />
 
       {!!issues.length && (
@@ -261,8 +219,6 @@ export default function AiConfigPanel() {
           helper="Maximum backoff delay between retries."
         />
 
-
-
         <ClayForm.Group>
           <label>Per-Model Configuration</label>
           <ClayTable>
@@ -282,10 +238,10 @@ export default function AiConfigPanel() {
                       type="text"
                       value={aiConfig.models[key]}
                       onChange={(e) =>
-                        setAiConfig((v) => ({
-                          ...v,
-                          models: { ...v.models, [key]: e.target.value },
-                        }))
+                        setAiValue(AI_CONFIG_KEY, {
+                          ...aiConfig,
+                          models: { ...aiConfig.models, [key]: e.target.value },
+                        })
                       }
                     />
                   </ClayTable.Cell>
@@ -296,13 +252,13 @@ export default function AiConfigPanel() {
                       step={100}
                       value={aiConfig.maxTokens[key] ?? 4000}
                       onChange={(e) =>
-                        setAiConfig((v) => ({
-                          ...v,
+                        setAiValue(AI_CONFIG_KEY, {
+                          ...aiConfig,
                           maxTokens: {
-                            ...v.maxTokens,
+                            ...aiConfig.maxTokens,
                             [key]: toInt(e.target.value, 4000),
                           },
-                        }))
+                        })
                       }
                     />
                   </ClayTable.Cell>
@@ -312,8 +268,6 @@ export default function AiConfigPanel() {
           </ClayTable>
         </ClayForm.Group>
       </div>
-
-
 
       <div className="sheet-footer">
         <div className="btn-group-item">
