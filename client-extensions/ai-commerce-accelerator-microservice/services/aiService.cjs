@@ -413,6 +413,55 @@ class AIService {
     }
   }
 
+  async generateImageDataForProduct(product, options) {
+    const { logger } = this.ctx;
+    const correlationId = options?.correlationId;
+
+    try {
+      const openai = await this.getOpenAIClient(options);
+
+      const prompt = `A high-quality, professional product photograph of a ${
+        product.name?.en_US || product.name
+      }, which is a ${
+        product.description?.en_US || product.description
+      }. The product belongs to the category: ${
+        product.category
+      }. The image should be in a ${
+        options.imageStyle || 'photographic'
+      } style on a clean background.`;
+
+      const response = await openai.images.generate({
+        model: 'dall-e-3',
+        prompt: prompt,
+        n: 1,
+        size: `${options.imageWidth || 1024}x${options.imageHeight || 1024}`,
+        quality: options.imageQuality || 'standard',
+        response_format: 'b64_json',
+      });
+
+      return response.data[0].b64_json;
+    } catch (error) {
+      const errorReference =
+        error.errorReference || createERC(ERC_PREFIX.ERROR);
+
+      logger?.error?.('AIService.generateImageDataForProduct failed', {
+        correlationId,
+        errorReference,
+        message: error?.message,
+        name: error?.name,
+        stack: error?.stack,
+      });
+
+      const wrapped = new Error(
+        `AI service error: ${
+          error.message || 'Failed to generate image data'
+        }`
+      );
+      wrapped.errorReference = errorReference;
+      throw wrapped;
+    }
+  }
+
   async generatePricingData(
     products,
     pricingType = 'standard',

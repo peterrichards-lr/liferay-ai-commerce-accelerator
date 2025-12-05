@@ -103,7 +103,6 @@ require('./routes/batch.cjs')(app, { ...routeCtx, cacheService, configService, g
 require('./routes/cache.cjs')(app, { ...routeCtx, cacheService });
 require('./routes/config.cjs')(app, { ...routeCtx, configService });
 require('./routes/get.cjs')(app, routeCtx);
-require('./routes/get.cjs')(app, routeCtx);
 require('./routes/health.cjs')(app, { ...routeCtx, healthService });
 require('./routes/queue.cjs')(app, routeCtx);
 require('./routes/delete.cjs')(app, {
@@ -194,34 +193,8 @@ app.post(
 );
 
 // Error handling middleware
-app.use((error, req, res, next) => {
-  logger.errorWithStack(error, {
-    operation: 'global-error-handler',
-  });
-
-  let status = 500;
-  let message = 'Internal server error';
-
-  if (error.response) {
-    status = error.response.status || 500;
-    message =
-      error.response.data?.title || error.response.statusText || message;
-  } else if (error.message) {
-    message = error.message;
-    if (error.status) {
-      status = error.status;
-    }
-  }
-
-  res.status(status).json({
-    success: false,
-    error: message,
-    timestamp: new Date().toISOString(),
-  });
-});
-
-// Error handling middleware (must be last)
 app.use(errorLoggingMiddleware);
+
 app.use((error, req, res, next) => {
   logger.errorWithStack(error, {
     correlationId: req.correlationId,

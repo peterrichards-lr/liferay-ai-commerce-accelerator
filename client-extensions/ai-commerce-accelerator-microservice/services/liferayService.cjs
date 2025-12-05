@@ -32,6 +32,14 @@ class LiferayService {
     this.baseUrl = liferayConfig.liferayUrl;
   }
 
+  _stringifySafe(obj) {
+    try {
+      return JSON.stringify(obj, null, 2);
+    } catch {
+      return '[Unserializable object]';
+    }
+  }
+
   _buildCallbackURL(callbackUrl, meta = {}) {
     if (!callbackUrl) return null;
     try {

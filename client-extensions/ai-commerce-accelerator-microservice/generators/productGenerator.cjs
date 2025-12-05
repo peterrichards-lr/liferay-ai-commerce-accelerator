@@ -566,24 +566,29 @@ class ProductGenerator {
         );
         productImagesPrepared = productsForImages.length;
         if (productImagesPrepared > 0) {
-          let image;
-          if (options.imageMode === 'default')
-            image = await media.getDefaultBase64ImageDataUrl(config);
-          else if (options.imageMode === 'custom') {
-            if (!options.customImageFile) {
-              logger.warn(
-                'imageMode=custom but no customImageFile provided — skipping image assignment'
-              );
-            } else {
-              image = options.customImageFile;
+          if (options.imageMode === 'generate') {
+            productsForImages.forEach((product) => {
+              product.generateAIImage = true;
+            });
+          } else {
+            let image;
+            if (options.imageMode === 'default')
+              image = await media.getDefaultBase64ImageDataUrl(config);
+            else if (options.imageMode === 'custom') {
+              if (!options.customImageFile) {
+                logger.warn(
+                  'imageMode=custom but no customImageFile provided — skipping image assignment'
+                );
+              } else {
+                image = options.customImageFile;
+              }
             }
+            productsForImages.forEach((product) => {
+              if (image) {
+                product.images = [image];
+              }
+            });
           }
-          productsForImages.forEach((product) => {
-            if (image) {
-              product.images = [];
-              product.images.push(image);
-            }
-          });
           logger.trace(
             `Selected ${productImagesPrepared} products (global) for image assignment (${options.imageRatio}% ratio)`
           );
@@ -600,24 +605,29 @@ class ProductGenerator {
         );
         productPdfsPrepared = productsForPDFs.length;
         if (productPdfsPrepared > 0) {
-          let pdf;
-          if (options.pdfMode === 'default')
-            pdf = await media.getDefaultBase64PdfDataUrl(config);
-          else if (options.pdfMode === 'custom') {
-            if (!options.customPdfFile) {
-              logger.warn(
-                'pdfMode=custom but no customPdfFile provided — skipping PDF assignment'
-              );
-            } else {
-              pdf = options.customPdfFile;
+          if (options.pdfMode === 'generate') {
+            productsForPDFs.forEach((product) => {
+              product.generateAIPdf = true;
+            });
+          } else {
+            let pdf;
+            if (options.pdfMode === 'default')
+              pdf = await media.getDefaultBase64PdfDataUrl(config);
+            else if (options.pdfMode === 'custom') {
+              if (!options.customPdfFile) {
+                logger.warn(
+                  'pdfMode=custom but no customPdfFile provided — skipping PDF assignment'
+                );
+              } else {
+                pdf = options.customPdfFile;
+              }
             }
+            productsForPDFs.forEach((product) => {
+              if (pdf) {
+                product.attachments = [pdf];
+              }
+            });
           }
-          productsForPDFs.forEach((product) => {
-            if (pdf) {
-              product.attachments = [];
-              product.attachments.push(pdf);
-            }
-          });
         }
         logger.trace(
           `Selected ${productPdfsPrepared} products (global) for PDF generation (${options.pdfRatio}% ratio)`
@@ -2773,7 +2783,15 @@ class ProductGenerator {
         const pPdfErrors = [];
 
         try {
-          if (
+          if (originalProduct.generateAIImage) {
+            await this.generateAndAttachAiImage(
+              config,
+              originalProduct,
+              options
+            );
+            imageProcessedCount++;
+            maybeEmitProgress('images');
+          } else if (
             Array.isArray(originalProduct.images) &&
             originalProduct.images.length > 0
           ) {
@@ -2845,7 +2863,11 @@ class ProductGenerator {
             }
           }
 
-          if (
+          if (originalProduct.generateAIPdf) {
+            await this.generateAndAttachAiPdf(config, originalProduct);
+            pdfProcessedCount++;
+            maybeEmitProgress('pdfs');
+          } else if (
             Array.isArray(originalProduct.attachments) &&
             originalProduct.attachments.length > 0
           ) {
@@ -2916,41 +2938,12 @@ class ProductGenerator {
               }
             }
           }
-
-          if (pImageErrors.length > 0 || pPdfErrors.length > 0) {
-            try {
-              cache.set(
-                `product:${productERC}:postproc:errors`,
-                {
-                  imageErrors: pImageErrors,
-                  pdfErrors: pPdfErrors,
-                  timestamp: Date.now(),
-                },
-                getBatchCacheTTLms(configService)
-              );
-
-              getWs().emitPostProcessingCompleted(
-                {
-                  entityType: 'product-postproc',
-                  operation: 'errors',
-                  batchId: `postproc-${productERC}`,
-                  sessionId,
-                  errors: { images: pImageErrors, pdfs: pPdfErrors },
-                },
-                { correlationId: config.correlationId }
-              );
-            } catch (cacheErr) {
-              logger.warn(
-                `Failed to cache post-proc errors for ${productERC}: ${cacheErr.message}`
-              );
-            }
-          }
         } catch (error) {
           logger.error(
             `Failed to add image/attachment to product ${productERC}:`,
             error.message
           );
-          if (originalProduct.images) {
+          if (originalProduct.generateAIImage || (Array.isArray(originalProduct.images) && originalProduct.images.length > 0)) {
             const rec = {
               product: productERC,
               error: `Image error: ${error.message}`,
@@ -2958,7 +2951,7 @@ class ProductGenerator {
             imageErrors.push(rec);
             pImageErrors.push(rec);
           }
-          if (originalProduct.attachments) {
+          if (originalProduct.generateAIPdf || (Array.isArray(originalProduct.attachments) && originalProduct.attachments.length > 0)) {
             const rec = {
               product: productERC,
               error: `PDF error: ${error.message}`,
@@ -3047,6 +3040,61 @@ class ProductGenerator {
         imageErrors.length + pdfErrors.length
       }`
     );
+  }
+
+
+  async generateAndAttachAiImage(config, productData, options) {
+    const { ai, logger, liferay } = this.ctx;
+    const productERC = productData.externalReferenceCode;
+    try {
+      logger.trace(`Generating AI image for product: ${productERC}`);
+      const imageB64 = await ai.generateImageDataForProduct(
+        productData,
+        options
+      );
+      await liferay.addProductImageByBase64(config, productERC, imageB64);
+      logger.trace(`✓ AI Image successfully attached to product ${productERC}`);
+    } catch (error) {
+      logger.error(
+        `Failed to generate and attach AI image for product ${productERC}:`,
+        error
+      );
+      throw error;
+    }
+  }
+
+  async generateAndAttachAiPdf(config, productData) {
+    const { ai, logger, media, liferay } = this.ctx;
+    const productERC = productData.externalReferenceCode;
+    try {
+      logger.trace(`Generating AI content for PDF for product: ${productERC}`);
+      const pdfContent = await ai.generatePDFContent(
+        productData,
+        productData.category,
+        config
+      );
+
+      logger.trace(`Creating PDF document for product: ${productERC}`);
+      const pdfBuffer = await media.generateProductPDF(
+        pdfContent,
+        productData.baseSku || productERC,
+        config
+      );
+
+      await liferay.addProductAttachmentByBase64(config, productERC, {
+        attachment: pdfBuffer.toString('base64'),
+        contentType: 'application/pdf',
+        title: { en_US: `${productData.name?.en_US || productData.name} - Document` },
+      });
+
+      logger.trace(`✓ AI PDF successfully attached to product ${productERC}`);
+    } catch (error) {
+      logger.error(
+        `Failed to generate and attach AI PDF for product ${productERC}:`,
+        error
+      );
+      throw error;
+    }
   }
 
   async handleBatchComplete(results, config) {
