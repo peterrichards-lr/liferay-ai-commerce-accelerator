@@ -1,0 +1,24 @@
+{
+    "configuration": {
+        "className": "com.liferay.object.rest.dto.v1_0.ObjectEntry",
+        "parameters": {
+            "containsHeaders": "true",
+            "createStrategy": "UPSERT",
+            "onErrorFail": "false",
+            "taskItemDelegateName": "C_AICommerceAcceleratorConfiguration",
+            "updateStrategy": "UPDATE"
+        },
+        "taskItemDelegateName": "C_AICommerceAcceleratorConfiguration"
+    },
+    "items": [
+        {
+            "configKey": "ai-schema-account",
+            "configStatus": {
+                "key": "Active"
+            },
+            "configValue": "{\n  \"$schema\": \"http://json-schema.org/draft-07/schema#\",\n  \"title\": \"Account\",\n  \"description\": \"A commerce account.\",\n  \"type\": \"object\",\n  \"properties\": {\n    \"name\": {\n      \"description\": \"The name of the account.\",\n      \"type\": \"string\"\n    },\n    \"description\": {\n      \"description\": \"A description for the account.\",\n      \"type\": \"string\"\n    },\n    \"type\": {\n      \"description\": \"The type of account, e.g., 'business'.\",\n      \"type\": \"string\"\n    },\n    \"domains\": {\n      \"description\": \"A list of domains associated with the account.\",\n      \"type\": \"array\",\n      \"items\": {\n        \"type\": \"string\",\n        \"format\": \"hostname\"\n      }\n    },\n    \"emailAddress\": {\n      \"description\": \"The email address for the account.\",\n      \"type\": \"string\",\n      \"format\": \"email\"\n    },\n    \"taxId\": {\n      \"description\": \"The tax ID for the account.\",\n      \"type\": \"string\"\n    },\n    \"externalReferenceCode\": {\n      \"description\": \"A unique identifier for the account.\",\n      \"type\": \"string\"\n    }\n  },\n  \"required\": [\n    \"name\",\n    \"type\",\n    \"externalReferenceCode\"\n  ]\n}",
+            "description": "AI Schema for Account",
+            "externalReferenceCode": "AI-SCHEMA-ACCOUNT"
+        }
+    ]
+}

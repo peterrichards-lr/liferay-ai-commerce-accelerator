@@ -1,6 +1,123 @@
 import groovy.json.JsonOutput
 import org.gradle.api.file.DuplicatesStrategy
 
+// ===================== AI BATCH FILE GENERATION =====================
+
+task generateBatchFiles(type: DefaultTask) {
+    group = 'build'
+    description = 'Generates Liferay batch engine files from AI schemas and prompts.'
+
+    doFirst {
+        def batchDir = file("$rootDir/client-extensions/ai-commerce-accelerator-batch/batch")
+        logger.lifecycle("Deleting old generated batch files in ${batchDir}")
+        if (batchDir.exists()) {
+            batchDir.eachFile { file ->
+                if (file.name.contains("-object-entry-ai-schema-") || file.name.contains("-object-entry-ai-prompt-")) {
+                    logger.debug("Deleting ${file.name}")
+                    file.delete()
+                }
+            }
+        }
+    }
+
+doLast {
+        def microserviceDir = file("$rootDir/client-extensions/ai-commerce-accelerator-microservice")
+        def batchDir = file("$rootDir/client-extensions/ai-commerce-accelerator-batch/batch")
+
+        def entities = ['account', 'order', 'pdf', 'pricing', 'product'].sort()
+        int fileIndex = 4
+
+        // --- Schemas ---
+        def schemaDir = file("$microserviceDir/ai-schemas")
+        if (schemaDir.exists()) {
+            entities.each { entity ->
+                def inputFile = file("$schemaDir/${entity}.json")
+                
+                if (inputFile.exists()) {
+                    def entityName = entity.capitalize()
+                    def content = inputFile.text
+                    
+                    def batchJson = [
+                        configuration: [
+                            className: "com.liferay.object.rest.dto.v1_0.ObjectEntry",
+                            parameters: [
+                                containsHeaders: "true",
+                                createStrategy: "UPSERT",
+                                onErrorFail: "false",
+                                taskItemDelegateName: "C_AICommerceAcceleratorConfiguration",
+                                updateStrategy: "UPDATE"
+                            ],
+                            taskItemDelegateName: "C_AICommerceAcceleratorConfiguration"
+                        ],
+                        items: [
+                            [
+                                configKey: "ai-schema-${entity}",
+                                configStatus: [ key: "Active" ],
+                                configValue: content,
+                                description: "AI Schema for ${entityName}",
+                                externalReferenceCode: "AI-SCHEMA-${entity.toUpperCase()}"
+                            ]
+                        ]
+                    ]
+
+                    def fileName = String.format("%02d-object-entry-ai-schema-%s.batch-engine-data.json", fileIndex++, entity)
+                    def outputFile = new File(batchDir, fileName)
+                    outputFile.withWriter('UTF-8') { writer ->
+                        writer.write(JsonOutput.prettyPrint(JsonOutput.toJson(batchJson)))
+                    }
+                    logger.lifecycle("Generated batch file: ${outputFile.name}")
+                }
+            }
+        }
+
+        // --- Prompts ---
+        def promptDir = file("$microserviceDir/prompts")
+        if (promptDir.exists()) {
+            entities.each { entity ->
+                def inputFile = file("$promptDir/${entity}.md")
+
+                if (inputFile.exists()) {
+                    def entityName = entity.capitalize()
+                    def content = inputFile.text
+
+                    def batchJson = [
+                        configuration: [
+                            className: "com.liferay.object.rest.dto.v1_0.ObjectEntry",
+                            parameters: [
+                                containsHeaders: "true",
+                                createStrategy: "UPSERT",
+                                onErrorFail: "false",
+                                taskItemDelegateName: "C_AICommerceAcceleratorConfiguration",
+                                updateStrategy: "UPDATE"
+                            ],
+                            taskItemDelegateName: "C_AICommerceAcceleratorConfiguration"
+                        ],
+                        items: [
+                            [
+                                configKey: "ai-prompt-${entity}",
+                                configStatus: [ key: "Active" ],
+                                configValue: content,
+                                description: "AI Prompt for ${entityName}",
+                                externalReferenceCode: "AI-PROMPT-${entity.toUpperCase()}"
+                            ]
+                        ]
+                    ]
+                    
+                    def fileName = String.format("%02d-object-entry-ai-prompt-%s.batch-engine-data.json", fileIndex++, entity)
+                    def outputFile = new File(batchDir, fileName)
+                    outputFile.withWriter('UTF-8') { writer ->
+                        writer.write(JsonOutput.prettyPrint(JsonOutput.toJson(batchJson)))
+                    }
+                    logger.lifecycle("Generated batch file: ${outputFile.name}")
+                }
+            }
+        }
+    }
+}
+
+// ======================================================================
+
+
 def CX_DIR        = file(findProperty('cx.dir') ?: "$rootDir/client-extensions/ai-commerce-accelerator-frontend")
 def FRAGMENTS_DIR = file(findProperty('fragments.dir') ?: "$rootDir/fragments")
 def FRAGMENT_DIR  = file(findProperty('fragment.dir') ?: "$rootDir/fragments/ai-commerce-accelerator")
@@ -190,10 +307,12 @@ tasks.register('autoDeployFragments', Copy) {
 
 // ===================== LIFECYCLE WIRING =====================
 tasks.named('assemble') {
+    dependsOn tasks.named('generateBatchFiles')
     dependsOn tasks.named('zipFragments')
     dependsOn tasks.named('buildConfigurationCX')
 }
 tasks.matching { it.name == 'deploy' }.configureEach {
-    dependsOn tasks.named('zipFragments')
+    dependsOn tasks.named('generateBatchFiles')
+    dependsOn tasks.named('buildConfigurationCX')
     dependsOn tasks.named('autoDeployFragments')
 }

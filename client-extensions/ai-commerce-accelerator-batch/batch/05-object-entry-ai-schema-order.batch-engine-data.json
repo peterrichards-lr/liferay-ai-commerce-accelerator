@@ -1,0 +1,24 @@
+{
+    "configuration": {
+        "className": "com.liferay.object.rest.dto.v1_0.ObjectEntry",
+        "parameters": {
+            "containsHeaders": "true",
+            "createStrategy": "UPSERT",
+            "onErrorFail": "false",
+            "taskItemDelegateName": "C_AICommerceAcceleratorConfiguration",
+            "updateStrategy": "UPDATE"
+        },
+        "taskItemDelegateName": "C_AICommerceAcceleratorConfiguration"
+    },
+    "items": [
+        {
+            "configKey": "ai-schema-order",
+            "configStatus": {
+                "key": "Active"
+            },
+            "configValue": "{\n  \"$schema\": \"http://json-schema.org/draft-07/schema#\",\n  \"title\": \"Order\",\n  \"description\": \"A commerce order.\",\n  \"type\": \"object\",\n  \"properties\": {\n    \"accountId\": {\n      \"description\": \"The ID of the account that placed the order.\",\n      \"type\": \"string\"\n    },\n    \"orderStatus\": {\n      \"description\": \"The numeric status of the order (e.g., 0 for pending, 1 for processing).\",\n      \"type\": \"number\"\n    },\n    \"externalReferenceCode\": {\n      \"description\": \"A unique identifier for the order.\",\n      \"type\": \"string\"\n    },\n    \"items\": {\n      \"description\": \"The items included in the order.\",\n      \"type\": \"array\",\n      \"items\": {\n        \"type\": \"object\",\n        \"properties\": {\n          \"sku\": {\n            \"description\": \"The SKU of the product.\",\n            \"type\": \"string\"\n          },\n          \"quantity\": {\n            \"description\": \"The quantity of the product.\",\n            \"type\": \"integer\",\n            \"minimum\": 1\n          }\n        },\n        \"required\": [\n          \"sku\",\n          \"quantity\"\n        ]\n      }\n    }\n  },\n  \"required\": [\n    \"accountId\",\n    \"items\",\n    \"externalReferenceCode\"\n  ]\n}",
+            "description": "AI Schema for Order",
+            "externalReferenceCode": "AI-SCHEMA-ORDER"
+        }
+    ]
+}

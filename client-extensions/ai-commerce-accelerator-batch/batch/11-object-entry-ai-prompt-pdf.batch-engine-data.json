@@ -1,0 +1,24 @@
+{
+    "configuration": {
+        "className": "com.liferay.object.rest.dto.v1_0.ObjectEntry",
+        "parameters": {
+            "containsHeaders": "true",
+            "createStrategy": "UPSERT",
+            "onErrorFail": "false",
+            "taskItemDelegateName": "C_AICommerceAcceleratorConfiguration",
+            "updateStrategy": "UPDATE"
+        },
+        "taskItemDelegateName": "C_AICommerceAcceleratorConfiguration"
+    },
+    "items": [
+        {
+            "configKey": "ai-prompt-pdf",
+            "configStatus": {
+                "key": "Active"
+            },
+            "configValue": "Generate comprehensive PDF content for a {{category}} product named \"{{productName}}\".\n\nCreate realistic content for:\n1. Technical Specifications (detailed specs in table format)\n2. Warranty Information (coverage, terms, contact info)\n3. Marketing Brochure (features, benefits, selling points)\n4. User Manual Excerpt (key usage instructions)\n5. Safety Information (warnings, certifications)\n\nProduct Context:\n- Name: {{productName}}\n- Category: {{category}}\n- Description: {{productDescription}}\n- Specifications: {{=json:specificationsJSON}}\n\nReturn as JSON with sections:\n{\n  \"title\": \"Product Documentation - [Product Name]\",\n  \"sections\": [\n    { \"title\": \"Technical Specifications\", \"content\": \"[detailed specs in readable format]\" },\n    { \"title\": \"Warranty Information\", \"content\": \"[warranty details, coverage, terms]\" },\n    { \"title\": \"Marketing Highlights\", \"content\": \"[key features and benefits]\" },\n    { \"title\": \"Usage Guidelines\", \"content\": \"[basic usage instructions]\" },\n    { \"title\": \"Safety & Compliance\", \"content\": \"[safety warnings, certifications]\" }\n  ]\n}\n\nMake content realistic and category-appropriate for {{category}} products.\n\nThe response must be a single JSON object that conforms to the provided JSON schema.",
+            "description": "AI Prompt for Pdf",
+            "externalReferenceCode": "AI-PROMPT-PDF"
+        }
+    ]
+}
