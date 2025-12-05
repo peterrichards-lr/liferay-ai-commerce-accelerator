@@ -1,6 +1,20 @@
 import groovy.json.JsonOutput
 import org.gradle.api.file.DuplicatesStrategy
 
+def findNpmExecutable() {
+    if (System.properties['os.name'].toLowerCase().contains('windows')) {
+        return 'npm.cmd'
+    }
+    return 'npm'
+}
+
+def findYarnExecutable() {
+    if (System.properties['os.name'].toLowerCase().contains('windows')) {
+        return 'yarn.cmd'
+    }
+    return 'yarn'
+}
+
 // ===================== AI BATCH FILE GENERATION =====================
 
 task generateBatchFiles(type: DefaultTask) {
@@ -217,11 +231,11 @@ tasks.register('buildFrontendCX') {
     onlyIf { CX_DIR.exists() }
     doLast {
         if (useYarn) {
-            exec { workingDir CX_DIR; commandLine 'yarn', 'install' }
-            exec { workingDir CX_DIR; commandLine 'yarn', 'build' }
+            exec { workingDir CX_DIR; commandLine findYarnExecutable(), 'install' }
+            exec { workingDir CX_DIR; commandLine findYarnExecutable(), 'build' }
         } else {
-            exec { workingDir CX_DIR; commandLine 'npm', (useNpmCi ? 'ci' : 'install') }
-            exec { workingDir CX_DIR; commandLine 'npm', 'run', 'build' }
+            exec { workingDir CX_DIR; commandLine findNpmExecutable(), (useNpmCi ? 'ci' : 'install') }
+            exec { workingDir CX_DIR; commandLine findNpmExecutable(), 'run', 'build' }
         }
     }
 }
@@ -235,11 +249,11 @@ tasks.register('buildConfigurationCX') {
         def useYarnConfig = new File(CONFIG_CX_DIR, "yarn.lock").exists()
         def useNpmCiConfig = new File(CONFIG_CX_DIR, "package-lock.json").exists()
         if (useYarnConfig) {
-            exec { workingDir CONFIG_CX_DIR; commandLine 'yarn', 'install' }
-            exec { workingDir CONFIG_CX_DIR; commandLine 'yarn', 'build' }
+            exec { workingDir CONFIG_CX_DIR; commandLine findYarnExecutable(), 'install' }
+            exec { workingDir CONFIG_CX_DIR; commandLine findYarnExecutable(), 'build' }
         } else {
-            exec { workingDir CONFIG_CX_DIR; commandLine 'npm', (useNpmCiConfig ? 'ci' : 'install') }
-            exec { workingDir CONFIG_CX_DIR; commandLine 'npm', 'run', 'build' }
+            exec { workingDir CONFIG_CX_DIR; commandLine findNpmExecutable(), (useNpmCiConfig ? 'ci' : 'install') }
+            exec { workingDir CONFIG_CX_DIR; commandLine findNpmExecutable(), 'run', 'build' }
         }
     }
 }
