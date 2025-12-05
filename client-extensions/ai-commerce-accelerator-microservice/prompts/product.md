@@ -1,11 +1,11 @@
-Generate realistic product data for {{count}} {{category}} products with multilingual content for these languages: {{languageList}}.
+Generate realistic product data for {{count}} {{category}} products with multilingual content for these languages: {{languageList}}. 
 
-You must return a JSON array. Each element in the array must be one product object with exactly the following properties:
+You must return a JSON array that conforms to the provided JSON schema. Each element in the array must be one product object with exactly the following properties:
 
 - name: object of multilingual product names keyed by language code ({{languageCodesCSV}}). Example structure: {{languageCodesNamePairs}}. Values are human-friendly product names.
 - description: object of multilingual, detailed marketing descriptions keyed by language code.
 - shortDescription: object of multilingual short summaries keyed by language code.
-- urls: object of multilingual URL slugs keyed by language code (lowercase, spaces replaced with hyphens) for each language code in {{languageCodesCSV}}.
+- urls: object of multilingual URL slugs keyed by language code (lowercase, spaces replaced with hyphens) for each language code in {{languageCodesCSV}}. 
 - baseSku: string base SKU without variant codes, used as the root for all SKUs (for example "PRODUCT-001").
 - productType: string, always "simple".
 - skus: array of one or more base SKU objects. Each SKU object must have:

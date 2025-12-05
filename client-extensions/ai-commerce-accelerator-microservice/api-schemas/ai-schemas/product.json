@@ -86,7 +86,12 @@
           },
           "required": [
             "sku",
+            "cost",
             "price",
+            "inventoryLevel",
+            "published",
+            "purchasable",
+            "neverExpire",
             "externalReferenceCode"
           ],
           "additionalProperties": false
@@ -212,6 +217,8 @@
     },
     "required": [
       "name",
+      "description",
+      "shortDescription",
       "urls",
       "baseSku",
       "productType",

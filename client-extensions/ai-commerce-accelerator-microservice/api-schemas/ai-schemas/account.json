@@ -8,15 +8,39 @@
       "description": "The name of the account.",
       "type": "string"
     },
-    "email": {
+    "description": {
+      "description": "A description for the account.",
+      "type": "string"
+    },
+    "type": {
+      "description": "The type of account, e.g., 'business'.",
+      "type": "string"
+    },
+    "domains": {
+      "description": "A list of domains associated with the account.",
+      "type": "array",
+      "items": {
+        "type": "string",
+        "format": "hostname"
+      }
+    },
+    "emailAddress": {
       "description": "The email address for the account.",
       "type": "string",
       "format": "email"
     },
-    "companyName": {
-      "description": "The company name for the account.",
+    "taxId": {
+      "description": "The tax ID for the account.",
+      "type": "string"
+    },
+    "externalReferenceCode": {
+      "description": "A unique identifier for the account.",
       "type": "string"
     }
   },
-  "required": ["name", "email"]
+  "required": [
+    "name",
+    "type",
+    "externalReferenceCode"
+  ]
 }

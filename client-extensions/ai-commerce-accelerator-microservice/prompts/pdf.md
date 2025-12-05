@@ -26,3 +26,5 @@ Return as JSON with sections:
 }
 
 Make content realistic and category-appropriate for {{category}} products.
+
+The response must be a single JSON object that conforms to the provided JSON schema.

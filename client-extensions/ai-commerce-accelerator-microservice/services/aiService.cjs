@@ -209,7 +209,7 @@ class AIService {
       };
 
       const prompt = await promptService.render('pdf', vars, requestConfig);
-      return await this._chatJson('pdf', prompt, requestConfig, model);
+      return await this._chatJson('pdf', prompt, requestConfig, model, 'pdf');
     } catch (error) {
       const errorReference =
         error.errorReference || createERC(ERC_PREFIX.ERROR);

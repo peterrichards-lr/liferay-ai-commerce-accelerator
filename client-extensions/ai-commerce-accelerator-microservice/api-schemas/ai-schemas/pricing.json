@@ -1,0 +1,63 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Pricing",
+  "description": "A schema for pricing data, including price list name and price entries.",
+  "type": "object",
+  "properties": {
+    "priceListName": {
+      "description": "The name of the price list.",
+      "type": "string"
+    },
+    "priceEntries": {
+      "description": "An array of price entries for different SKUs.",
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "sku": {
+            "description": "The SKU of the product.",
+            "type": "string"
+          },
+          "price": {
+            "description": "The base price of the product.",
+            "type": "number",
+            "minimum": 0
+          },
+          "cost": {
+            "description": "The cost of the product.",
+            "type": "number",
+            "minimum": 0
+          },
+          "discount": {
+            "description": "An optional discount percentage.",
+            "type": "number",
+            "minimum": 0,
+            "maximum": 100
+          },
+          "tierPrices": {
+            "description": "An array of tier prices for bulk purchasing.",
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "minQuantity": {
+                  "description": "The minimum quantity for this tier.",
+                  "type": "integer",
+                  "minimum": 1
+                },
+                "price": {
+                  "description": "The price for this tier.",
+                  "type": "number",
+                  "minimum": 0
+                }
+              },
+              "required": ["minQuantity", "price"]
+            }
+          }
+        },
+        "required": ["sku", "price"]
+      }
+    }
+  },
+  "required": ["priceListName", "priceEntries"]
+}

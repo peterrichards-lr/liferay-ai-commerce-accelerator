@@ -5,12 +5,9 @@ Available Accounts: {{=json:accountListJSON}}
 
 Each order should have:
 - accountId (from available accounts)
-- orderItems (2-5 items from available products with realistic quantities)
-- orderStatus (pending, processing, or completed)
-- paymentStatus (pending, authorized, or paid)
-- billingAddress (realistic address)
-- shippingAddress (realistic address, can be same as billing)
+- items (2-5 items from available products with realistic quantities)
+- orderStatus (numeric status: 0 for pending, 1 for processing, 10 for completed)
 - externalReferenceCode (unique order identifier)
 
 Ensure realistic purchasing patterns (related products, reasonable quantities).
-Return as JSON array with proper structure for Liferay Commerce API.
+Return as a JSON array that conforms to the provided JSON schema.
