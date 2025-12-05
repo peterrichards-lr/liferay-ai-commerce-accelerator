@@ -5,13 +5,13 @@ function DashboardHeader({ handleReset, isGenerating }) {
   return (
     <div className="dashboard-header">
       <h5>
-        <ClayIcon symbol="analytics" />
+        <ClayIcon symbol="analytics" className="me-2" />
         Progress Monitor
       </h5>
       <div className="header-actions">
         {isGenerating && (
           <div className="connection-status">
-            <ClayIcon symbol="redo" />
+            <ClayIcon symbol="redo" className="me-2" />
             <small className="text-success">Active</small>
           </div>
         )}
@@ -23,7 +23,7 @@ function DashboardHeader({ handleReset, isGenerating }) {
           title="Reset progress counters and clear the activity log"
           aria-label="Reset progress and clear log"
         >
-          <ClayIcon symbol="redo" />
+          <ClayIcon symbol="redo" className="me-2" />
           Reset
         </button>
       </div>

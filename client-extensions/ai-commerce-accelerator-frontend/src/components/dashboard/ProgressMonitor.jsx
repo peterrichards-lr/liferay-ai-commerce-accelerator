@@ -26,7 +26,7 @@ function ProgressMonitor({ generationConfig, progress }) {
     <div className="progress-sections">
       <div className="progress-section">
         <h6 className="section-title">
-          <ClayIcon symbol="table" />
+          <ClayIcon symbol="table" className="me-2" />
           Core Data Generation
         </h6>
 
@@ -34,7 +34,7 @@ function ProgressMonitor({ generationConfig, progress }) {
           <div className="progress-item">
             <div className="progress-item-header">
               <h6 className="progress-item-title">
-                <ClayIcon symbol="box-container" className="products-icon" />
+                <ClayIcon symbol="box-container" className="products-icon me-2" />
                 Products
               </h6>
               <span className="progress-count">
@@ -59,7 +59,7 @@ function ProgressMonitor({ generationConfig, progress }) {
             </div>
             {progress.products.errors.length > 0 && (
               <small className="error-text">
-                <ClayIcon symbol="warning-full" />
+                <ClayIcon symbol="warning-full" className="me-2" />
                 {progress.products.errors.length} errors
               </small>
             )}
@@ -68,7 +68,7 @@ function ProgressMonitor({ generationConfig, progress }) {
           <div className="progress-item">
             <div className="progress-item-header">
               <h6 className="progress-item-title">
-                <ClayIcon symbol="users" className="accounts-icon" />
+                <ClayIcon symbol="users" className="accounts-icon me-2" />
                 Accounts
               </h6>
               <span className="progress-count">
@@ -93,7 +93,7 @@ function ProgressMonitor({ generationConfig, progress }) {
             </div>
             {progress.accounts.errors.length > 0 && (
               <small className="error-text">
-                <ClayIcon symbol="warning-full" />
+                <ClayIcon symbol="warning-full" className="me-2" />
                 {progress.accounts.errors.length} errors
               </small>
             )}
@@ -102,7 +102,7 @@ function ProgressMonitor({ generationConfig, progress }) {
           <div className="progress-item">
             <div className="progress-item-header">
               <h6 className="progress-item-title">
-                <ClayIcon symbol="shopping-cart" className="orders-icon" />
+                <ClayIcon symbol="shopping-cart" className="orders-icon me-2" />
                 Orders
               </h6>
               <span className="progress-count">
@@ -127,7 +127,7 @@ function ProgressMonitor({ generationConfig, progress }) {
             </div>
             {progress.orders.errors.length > 0 && (
               <small className="error-text">
-                <ClayIcon symbol="warning-full" />
+                <ClayIcon symbol="warning-full" className="me-2" />
                 {progress.orders.errors.length} errors
               </small>
             )}
@@ -137,7 +137,7 @@ function ProgressMonitor({ generationConfig, progress }) {
 
       <div className="progress-section">
         <h6 className="section-title">
-          <ClayIcon symbol="document" />
+          <ClayIcon symbol="document" className="me-2" />
           Content Generation
         </h6>
 
@@ -145,7 +145,7 @@ function ProgressMonitor({ generationConfig, progress }) {
           <div className="progress-item">
             <div className="progress-item-header">
               <h6 className="progress-item-title">
-                <ClayIcon symbol="picture" className="images-icon" />
+                <ClayIcon symbol="picture" className="images-icon me-2" />
                 Images
               </h6>
               <span className="progress-count">
@@ -171,21 +171,21 @@ function ProgressMonitor({ generationConfig, progress }) {
             </div>
             {progress.images?.errors?.length > 0 && (
               <small className="error-text">
-                <ClayIcon symbol="warning-full" />
+                <ClayIcon symbol="warning-full" className="me-2" />
                 {progress.images.errors.length} errors
               </small>
             )}
             {(progress.images?.total || 0) === 0 &&
               (generationConfig?.imageRatio || 0) === 0 && (
                 <small className="disabled-text">
-                  <ClayIcon symbol="block" />
+                  <ClayIcon symbol="block" className="me-2" />
                   Image generation disabled
                 </small>
               )}
             {((progress.images?.expected > 0) ||
               progress.images?.completed < progress.images?.total) && (
               <small className="info-text">
-                <ClayIcon symbol="info-circle" />
+                <ClayIcon symbol="info-circle" className="me-2" />
                 Expected {progress.images.expected} products with{' '}
                 {getImageContentType().toLowerCase()}
               </small>
@@ -195,7 +195,7 @@ function ProgressMonitor({ generationConfig, progress }) {
           <div className="progress-item">
             <div className="progress-item-header">
               <h6 className="progress-item-title">
-                <ClayIcon symbol="document" className="pdfs-icon" />
+                <ClayIcon symbol="document" className="pdfs-icon me-2" />
                 PDFs
               </h6>
               <span className="progress-count">
@@ -221,21 +221,21 @@ function ProgressMonitor({ generationConfig, progress }) {
             </div>
             {progress.pdfs.errors.length > 0 && (
               <small className="error-text">
-                <ClayIcon symbol="warning-full" />
+                <ClayIcon symbol="warning-full" className="me-2" />
                 {progress.pdfs.errors.length} errors
               </small>
             )}
             {progress.pdfs.total === 0 &&
               (generationConfig?.pdfRatio || 0) === 0 && (
                 <small className="disabled-text">
-                  <ClayIcon symbol="block" />
+                  <ClayIcon symbol="block" className="me-2" />
                   PDF generation disabled
                 </small>
               )}
             {((progress.pdfs?.expected > 0) ||
               progress.pdfs?.completed < progress.pdfs?.total) && (
               <small className="info-text">
-                <ClayIcon symbol="info-circle" />
+                <ClayIcon symbol="info-circle" className="me-2" />
                 Expected {progress.pdfs.expected} products with{' '}
                 {getPdfContentType().toLowerCase()}
               </small>
