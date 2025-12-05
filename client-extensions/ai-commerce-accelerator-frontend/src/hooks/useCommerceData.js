@@ -243,11 +243,23 @@ export default function useCommerceData({
     });
   };
 
+  const getCategories = useCallback(
+    (payload, { force = false } = {}) => {
+      const key = `categories:${config.microserviceUrl || ''}:${config.liferayUrl || ''}`;
+      return api.get('/api/config/categories', { force }).then((res) => {
+        if (Array.isArray(res?.categories)) return res.categories;
+        return [];
+      });
+    },
+    [api, config.microserviceUrl, config.liferayUrl]
+  );
+
   return {
     catalogs,
     channels,
     languages,
     currencies,
+    categories: getCategories,
     buildPayload,
     loadRootLists,
     selectChannel,

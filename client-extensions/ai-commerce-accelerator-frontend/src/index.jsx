@@ -9,13 +9,11 @@ const toCamel = (k) => k.replace(/-([a-z])/g, (_, c) => c.toUpperCase());
 const coerce = (v) => (v === '' ? true : v); // bare attribute => true
 
 function parsePropsFrom(el) {
-  // Attributes → config
   const configFromAttrs = {};
   for (const { name, value } of Array.from(el.attributes)) {
     configFromAttrs[toCamel(name)] = coerce(value);
   }
 
-  // Optional <script type="application/json"> payload
   let cfg = {};
   let runtime = {};
   const script = el.querySelector('script[type="application/json"]');
@@ -27,7 +25,6 @@ function parsePropsFrom(el) {
     } catch {}
   }
 
-  // Final
   return { config: { ...cfg, ...configFromAttrs }, runtime };
 }
 

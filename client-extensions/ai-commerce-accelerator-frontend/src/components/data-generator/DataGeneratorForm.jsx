@@ -9,6 +9,7 @@ import ProductToggleSet from './ProductToggleSet';
 import WarehousesToggle from './WarehousesToggle';
 import InventoryControls from './InventoryControls';
 
+
 function hasErr(map, key, msgStartsWith) {
   const list = map?.[key] || [];
   return msgStartsWith
@@ -28,6 +29,7 @@ function DataGeneratorForm({
   openAiKeyAvailable,
   validationErrors,
   scrollTargetRef,
+  availableCategories,
 }) {
   const [panelOpen, setPanelOpen] = useState(true);
   useEffect(() => {
@@ -105,20 +107,6 @@ function DataGeneratorForm({
 
   const estimatedCost = costEstimate();
 
-  const availableCategories = [
-    'Electronics',
-    'Clothing',
-    'Home & Garden',
-    'Sports',
-    'Books',
-    'Automotive',
-    'Health & Beauty',
-    'Toys & Games',
-    'Food & Beverage',
-    'Office Supplies',
-  ];
-
-  // Only lock fields when globally disabled AND there are no validation errors
   const shouldDisableFields =
     disabled && Object.keys(validationErrors || {}).length === 0;
   const lockFields = shouldDisableFields;
@@ -155,7 +143,7 @@ function DataGeneratorForm({
             disabled={isGenerating}
             title="Reset generator settings to defaults"
           >
-            <ClayIcon symbol="redo" className="me-2" />
+            <ClayIcon symbol="redo" />
             Reset Settings
           </button>
         </>
@@ -252,7 +240,7 @@ function DataGeneratorForm({
             disabled={lockFields || forceDemoMode}
             label={
               <>
-                <ClayIcon symbol="warning-full" className="demo-mode-icon me-2" />
+                <ClayIcon symbol="warning-full" className="demo-mode-icon" />
                 <strong>Demo Mode</strong> - Generate mock data without AI costs
                 (for testing)
               </>
@@ -279,7 +267,7 @@ function DataGeneratorForm({
               generationConfig.productCount === 0 ? 'muted' : ''
             }`}
           >
-            <ClayIcon symbol="cog" className="me-2" />
+            <ClayIcon symbol="cog" />
             Product Configuration Options
           </h5>
           <small className="section-subtitle">
@@ -288,25 +276,30 @@ function DataGeneratorForm({
         </div>
 
         <div className="form-group">
-          <CategoriesSelector
-            availableCategories={availableCategories}
-            selectedCategories={generationConfig.categories}
-            onToggleCategory={handleCategoryChange}
-            disabled={
-              lockFields ||
-              (generationConfig.productCount === 0 &&
-                generationConfig.accountCount === 0)
-            }
-            invalid={
-              hasErr(validationErrors, 'categories')
-                ? validationErrors.categories
-                : null
-            }
-            showNote={
-              generationConfig.productCount === 0 &&
-              generationConfig.accountCount === 0
-            }
-          />
+          {availableCategories.length === 0 ? (
+            <small className="text-secondary">Loading categories...</small>
+          ) : (
+            <CategoriesSelector
+              availableCategories={availableCategories}
+              selectedCategories={generationConfig.categories}
+              onToggleCategory={handleCategoryChange}
+              disabled={
+                lockFields ||
+                availableCategories.length === 0 ||
+                (generationConfig.productCount === 0 &&
+                  generationConfig.accountCount === 0)
+              }
+              invalid={
+                hasErr(validationErrors, 'categories')
+                  ? validationErrors.categories
+                  : null
+              }
+              showNote={
+                generationConfig.productCount === 0 &&
+                generationConfig.accountCount === 0
+              }
+            />
+          )}
         </div>
 
         <div
@@ -340,7 +333,7 @@ function DataGeneratorForm({
                       generationConfig.productCount === 0 ? 'muted' : ''
                     }`}
                   >
-                    <ClayIcon symbol="warning-full" className="demo-mode-icon me-2" />
+                    <ClayIcon symbol="warning-full" className="demo-mode-icon" />
                     Demo Mode Media Options
                     <small className="config-subtitle">
                       (Uses existing assets, no AI costs)
@@ -350,7 +343,7 @@ function DataGeneratorForm({
                   <div className="content-options-grid">
                     <div className="content-option">
                       <h6 className="content-option-title">
-                        <ClayIcon symbol="picture" className="me-2" />
+                        <ClayIcon symbol="picture" />
                         Product Images
                       </h6>
 
@@ -497,7 +490,7 @@ function DataGeneratorForm({
 
                     <div className="content-option">
                       <h6 className="content-option-title">
-                        <ClayIcon symbol="document" className="me-2" />
+                        <ClayIcon symbol="document" />
                         Product PDFs
                       </h6>
 
@@ -650,7 +643,7 @@ function DataGeneratorForm({
                       generationConfig.productCount === 0 ? 'muted' : ''
                     }`}
                   >
-                    <ClayIcon symbol="magic" className="ai-icon me-2" />
+                    <ClayIcon symbol="magic" className="ai-icon" />
                     AI-Powered Content Generation
                     <small className="config-subtitle">
                       (Additional API costs apply)
@@ -660,7 +653,7 @@ function DataGeneratorForm({
                   <div className="content-options-grid">
                     <div className="content-option">
                       <h6 className="content-option-title">
-                        <ClayIcon symbol="picture" className="me-2" />
+                        <ClayIcon symbol="picture" />
                         Product Images
                       </h6>
 
@@ -709,7 +702,7 @@ function DataGeneratorForm({
                             }`}
                             htmlFor="dataGeneration_generateImages"
                           >
-                            <ClayIcon symbol="magic" className="ai-icon me-2" />
+                            <ClayIcon symbol="magic" className="ai-icon" />
                             Generate with AI
                           </label>
                         </div>
@@ -915,7 +908,7 @@ function DataGeneratorForm({
 
                     <div className="content-option">
                       <h6 className="content-option-title">
-                        <ClayIcon symbol="document" className="me-2" />
+                        <ClayIcon symbol="document" />
                         Product PDFs
                       </h6>
 
@@ -964,7 +957,7 @@ function DataGeneratorForm({
                             }`}
                             htmlFor="dataGeneration_generatePDFs"
                           >
-                            <ClayIcon symbol="magic" className="ai-icon me-2" />
+                            <ClayIcon symbol="magic" className="ai-icon" />
                             Generate with AI
                           </label>
                         </div>
@@ -1140,7 +1133,7 @@ function DataGeneratorForm({
           <div className="cost-estimation">
             <div className="cost-card">
               <h5 className="cost-title">
-                <ClayIcon symbol="coin" className="me-2" />
+                <ClayIcon symbol="coin" />
                 Cost Estimation
               </h5>
               <div className="cost-summary">
@@ -1182,7 +1175,7 @@ function DataGeneratorForm({
                 </div>
               ) : disabled ? (
                 <>
-                  <ClayIcon symbol="warning-full" className="error-icon me-2" />
+                  <ClayIcon symbol="warning-full" className="error-icon" />
                   {disabledReason || 'Not ready to generate yet'}
                 </>
               ) : (

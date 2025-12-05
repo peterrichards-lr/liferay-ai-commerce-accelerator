@@ -38,7 +38,7 @@ const initialGenerationConfig = {
   productCount: 2,
   accountCount: 5,
   orderCount: 20,
-  categories: ['Electronics', 'Clothing', 'Home & Garden', 'Sports', 'Books'],
+  categories: [],
   generatePriceLists: false,
   generateBulkPricing: false,
   generateTierPricing: false,
@@ -81,6 +81,15 @@ export function AppUI() {
     initialGenerationConfig
   );
 
+  const {
+    connectionErrors,
+    setConnectionErrors,
+    commerceErrors,
+    generationErrors,
+  } = useValidation(config, generationConfig);
+
+
+
   const [connectionEstablished, setConnectionEstablished] = useState(false);
   const [openAiKeyAvailable, setOpenAiKeyAvailable] = useState(false);
 
@@ -94,13 +103,6 @@ export function AppUI() {
 
   const { logs, addLog, clearLogs } = useActivityLog(initialLoggingConfig);
 
-  const {
-    connectionErrors,
-    setConnectionErrors,
-    commerceErrors,
-    generationErrors,
-  } = useValidation(config, generationConfig);
-
   const [progress, dispatch] = useReducer(progressReducer, initialProgress);
 
   const setProgress = useCallback((arg) => {
@@ -110,6 +112,8 @@ export function AppUI() {
       dispatch({ type: 'MERGE', payload: arg });
     }
   }, []);
+
+
 
   const { wsRef, ping, wsConnected } = useRealtimeWebSocket({
     enabled: connectionEstablished && !!config.microserviceUrl,
@@ -124,6 +128,7 @@ export function AppUI() {
     channels,
     languages,
     currencies,
+    categories,
     buildPayload,
     selectChannel,
     testConnection,
@@ -149,6 +154,16 @@ export function AppUI() {
     setProgress,
     connectionEstablished,
   });
+
+
+
+
+
+
+
+
+
+
 
   const forceDemoMode = connectionEstablished && !openAiKeyAvailable;
 
@@ -393,6 +408,20 @@ export function AppUI() {
     notifyUser('Generator settings restored to defaults.');
   }, []);
 
+  const [availableCategories, setAvailableCategories] = useState([]);
+
+  useEffect(() => {
+    if (!connectionEstablished) return;
+    (async () => {
+      try {
+        const fetched = await categories();
+        if (mountedRef.current) setAvailableCategories(fetched);
+      } catch (err) {
+        addLog('Failed to load categories: ' + err.message, 'error');
+      }
+    })();
+  }, [connectionEstablished, categories, mountedRef, addLog]);
+
   return (
     <div className="container-fluid py-4">
       <div className="row">
@@ -482,6 +511,7 @@ export function AppUI() {
                     openAiKeyAvailable={openAiKeyAvailable}
                     validationErrors={generationErrors}
                     scrollTargetRef={appTopRef}
+                    availableCategories={availableCategories}
                   />
                   <ProgressMonitor
                     progress={progress}

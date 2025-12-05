@@ -490,7 +490,7 @@ class ProductGenerator {
             },
           ];
         }
-        // Insert specification logic here
+
         if (options.generateSpecifications) {
           const catSpecs = Array.isArray(productData.__catalogSpecifications)
             ? productData.__catalogSpecifications
@@ -1049,7 +1049,7 @@ class ProductGenerator {
               },
               { correlationId: config.correlationId }
             );
-            // Insert product specifications after creation, before images/PDFs
+
             if (options.generateSpecifications) {
               try {
                 await this.addProductSpecifications(
@@ -1443,7 +1443,6 @@ class ProductGenerator {
         `Processing ${categoryOptions.length} options for category: ${category}`
       );
       for (const optionData of categoryOptions) {
-        // Replaced try/catch block with conflict-aware service helper
         const optionERC = `OPT-${category.toUpperCase()}-${optionData.name
           .toUpperCase()
           .replace(/\s+/g, '_')}`;
@@ -1510,6 +1509,7 @@ class ProductGenerator {
         }
         catalogOptions[category].push({ ...option, values: optionValues });
       }
+    }
     }
     return catalogOptions;
   }
@@ -1893,7 +1893,7 @@ class ProductGenerator {
             };
           }
 
-          // Replaced try/catch block with conflict-aware service helper
+
           const specification = await liferay.createSpecificationWithReuse(
             config,
             specificationPayload
@@ -1966,7 +1966,7 @@ class ProductGenerator {
         `Created/reused ${createdSpecCount} specifications for category: ${category}`
       );
 
-      // Insert verification log after processing all specs for the category
+
       try {
         const prefix = `${String(category).toLowerCase()}-`;
         const listed = await liferay.getSpecifications(config, {
@@ -2152,7 +2152,7 @@ class ProductGenerator {
   ) {
     const { logger, liferay, batchProcessor, getWs } = this.ctx;
     try {
-      // Helper to pick a value from the JSON catalog if available
+
       const pickFromJson = (category, specKey) => {
         try {
           const defs = specificationCatalog?.[category];
@@ -2226,11 +2226,8 @@ class ProductGenerator {
                       spec.key || spec.name
                     ) || { en_US: 'Unknown' },
             };
-            if (spec.optionCategoryId)
-              payload.optionCategoryId = spec.optionCategoryId; // prefer ID
-            if (spec.optionCategoryExternalReferenceCode)
-              payload.optionCategoryExternalReferenceCode =
-                spec.optionCategoryExternalReferenceCode; // fallback for service normalization
+
+
 
             specificationsToAdd.push(payload);
           }
@@ -2493,7 +2490,7 @@ class ProductGenerator {
         return createdSkus;
       }
 
-      // Fallback to original logic if skuVariants are not provided
+
       const maxVariants = 8;
       const option1 = catalogOptions[0];
       const option2 = catalogOptions[1] || null;

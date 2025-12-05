@@ -14,6 +14,10 @@ The accelerator is composed of four main parts that work together:
 
 4.  **Batch Loader (`ai-commerce-accelerator-batch`)**: This client extension contains the initial, default data for the AI prompts and schemas. It uses Liferay's Batch Engine to load this configuration into Liferay's object storage.
 
+### Configurable Categories
+
+The available product categories are now dynamically configurable via the "AI Commerce Accelerator Configuration" UI. The categories are stored as a Liferay Object and can be managed through a dedicated panel, allowing administrators to easily update the product catalog without code changes.
+
 ### Data Flow & Dependencies
 
 -   The **Frontend** talks exclusively to the **Microservice**.
@@ -24,7 +28,7 @@ The accelerator is composed of four main parts that work together:
 
 To simplify development and ensure consistency, the batch files for the default AI prompts and schemas are **automatically generated** by the Gradle build.
 
--   **Single Source of Truth:** The files located in `client-extensions/ai-commerce-accelerator-microservice/ai-schemas/` and `client-extensions/ai-commerce-accelerator-microservice/prompts/` are the canonical source for this configuration.
+-   **Single Source of Truth:** The `*.json` files in `client-extensions/ai-commerce-accelerator-microservice/ai-schemas/` for schemas, the `*.md` files in `client-extensions/ai-commerce-accelerator-microservice/prompts/` for prompts, and `client-extensions/ai-commerce-accelerator-frontend/src/config/categories.json` for product categories are the canonical sources for this configuration.
 -   **How it Works:** When you run the build, a Gradle task (`generateBatchFiles`) reads the contents of these directories, wraps them in the required Liferay Batch Engine JSON format, and places the generated files into the `client-extensions/ai-commerce-accelerator-batch/batch/` directory. The generated files are given a numeric prefix to control the import order, which is determined by an alphabetical sort of the source filenames to ensure consistency between builds.
 
 You only need to modify the source `.json` (schema) and `.md` (prompt) files in the microservice directory; the build process will handle the rest.
@@ -59,7 +63,7 @@ You only need to modify the source `.json` (schema) and `.md` (prompt) files in 
 1.  **Configure the Application:**
     -   Once deployed, navigate to your Liferay instance.
     -   Go to the **Global Menu** → **Applications** → **AI Commerce Accelerator Configuration**.
-    -   In this screen, configure your AI provider (e.g., OpenAI API Key), review the AI prompts and schemas, and save your settings. All panels now feature a consistent user experience, including "warn on unsaved changes" and "save with Ctrl/Cmd+S" functionality.
+    -   In this screen, configure your AI provider (e.g., OpenAI API Key), review the AI prompts and schemas, and save your settings. All panels now feature a consistent user experience, including "warn on unsaved changes" and "save with Ctrl/Cmd+S" functionality. Frontend components throughout the UI now display icons with correct spacing and alignment.
 
 2.  **Generate Data:**
     -   Add the **AI Commerce Accelerator** widget to a page from the Page Editor.

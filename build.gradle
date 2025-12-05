@@ -112,6 +112,46 @@ doLast {
                 }
             }
         }
+
+        // --- Categories ---
+        def frontendConfigDir = file("$rootDir/client-extensions/ai-commerce-accelerator-frontend/src/config")
+        if (frontendConfigDir.exists()) {
+            def categoryFile = file("$frontendConfigDir/categories.json")
+            if (categoryFile.exists()) {
+                def content = categoryFile.text
+                def configKey = "ai-categories" // New config key
+
+                def batchJson = [
+                    configuration: [
+                        className: "com.liferay.object.rest.dto.v1_0.ObjectEntry",
+                        parameters: [
+                            containsHeaders: "true",
+                            createStrategy: "UPSERT",
+                            onErrorFail: "false",
+                            taskItemDelegateName: "C_AICommerceAcceleratorConfiguration",
+                            updateStrategy: "UPDATE"
+                        ],
+                        taskItemDelegateName: "C_AICommerceAcceleratorConfiguration"
+                    ],
+                    items: [
+                        [
+                            configKey: configKey,
+                            configStatus: [ key: "Active" ],
+                            configValue: content,
+                            description: "AI Product Categories",
+                            externalReferenceCode: "AI-CATEGORIES"
+                        ]
+                    ]
+                ]
+                
+                def fileName = String.format("%02d-object-entry-%s.batch-engine-data.json", fileIndex++, configKey)
+                def outputFile = new File(batchDir, fileName)
+                outputFile.withWriter('UTF-8') { writer ->
+                    writer.write(JsonOutput.prettyPrint(JsonOutput.toJson(batchJson)))
+                }
+                logger.lifecycle("Generated batch file: ${outputFile.name}")
+            }
+        }
     }
 }
 

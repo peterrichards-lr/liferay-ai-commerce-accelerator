@@ -222,4 +222,22 @@ module.exports = (app, { logger, configService }) => {
       });
     }
   });
+
+  app.get('/api/config/categories', async (req, res) => {
+    const { config } = buildConfigAndOptions(req);
+
+    try {
+      const categories = await configService.getCategories(config);
+
+      res.json({
+        success: true,
+        categories: categories || [],
+        timestamp: new Date().toISOString(),
+      });
+    } catch (error) {
+      sendSafeError(res, logger, req, error, 'get-categories-config', {
+        sanitizeConfig: sanitizedObject(config),
+      });
+    }
+  });
 };

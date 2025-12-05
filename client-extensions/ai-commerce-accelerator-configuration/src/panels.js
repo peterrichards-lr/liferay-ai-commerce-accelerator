@@ -61,4 +61,10 @@ export const PANELS = [
     icon: 'document-image',
     component: lazy(() => import('./components/panels/PlaceholdersPanel')),
   },
+  {
+    id: 'categories',
+    label: 'Categories',
+    icon: 'folder-open',
+    component: lazy(() => import('./components/panels/CategoriesConfigPanel')),
+  },
 ];

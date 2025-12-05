@@ -9,6 +9,9 @@ const AI_CONFIG_KEY = 'ai-config';
 const AI_PROMPT_CACHE_KEY_PREFIX = 'AI_PROMPT_';
 const AI_PROMPT_CONFIG_KEY_PREFIX = 'ai-prompt-';
 
+const AI_CATEGORIES_CACHE_KEY = 'AI_CATEGORIES_KEY';
+const AI_CATEGORIES_CONFIG_KEY = 'ai-categories';
+
 const AI_SCHEMA_CACHE_KEY_PREFIX = 'AI_SCHEMA_';
 const AI_SCHEMA_CONFIG_KEY_PREFIX = 'ai-schema-';
 
@@ -164,6 +167,47 @@ class ConfigService {
     );
 
     return remotePrompt || null;
+  }
+
+  async getCategories(requestConfig) {
+    const cacheKey = AI_CATEGORIES_CACHE_KEY;
+    const configKey = AI_CATEGORIES_CONFIG_KEY;
+
+    const cached = this.getConfigCached(cacheKey);
+    if (cached) {
+      return cached;
+    }
+
+    const remoteCategories = await this.getConfig(
+      requestConfig,
+      cacheKey,
+      configKey
+    );
+
+    if (remoteCategories) {
+      return remoteCategories;
+    }
+
+
+    const defaultCategoriesPath = path.join(
+      __dirname,
+      '../../ai-commerce-accelerator-frontend/src/config',
+      'categories.json'
+    );
+
+    try {
+      const defaultCategories = fs.readFileSync(defaultCategoriesPath, 'utf8');
+      const parsedCategories = JSON.parse(defaultCategories);
+      this.cache.set(cacheKey, parsedCategories, this.getConfigTTL());
+      return parsedCategories;
+    } catch (error) {
+      this.logger.warn(`Failed to read default categories from frontend config: ${error.message}`);
+      return []; // Return empty array on error
+    }
+  }
+
+  getCategoriesCached() {
+    return this.getConfigCached(AI_CATEGORIES_CACHE_KEY);
   }
   
   async getDefaultImage(requestConfig) {

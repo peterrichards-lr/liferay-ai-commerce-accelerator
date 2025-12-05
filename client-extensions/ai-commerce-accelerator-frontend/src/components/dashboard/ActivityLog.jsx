@@ -13,7 +13,7 @@ function ActivityLog({ logs, onClearLogs, isGenerating }) {
             disabled={isGenerating}
             title="Clear activity log"
           >
-            <ClayIcon symbol="trash" className="me-2" />
+            <ClayIcon symbol="trash" />
             Clear
           </button>
         )}
@@ -22,7 +22,7 @@ function ActivityLog({ logs, onClearLogs, isGenerating }) {
       <div className="activity-log-content">
         {logs.length === 0 ? (
           <div className="empty-state">
-            <ClayIcon symbol="time" className="me-2" />
+            <ClayIcon symbol="time" />
             No activity yet. Configure settings and start generation.
           </div>
         ) : (
