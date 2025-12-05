@@ -6,7 +6,7 @@ import './styles/app.scss';
 const TAG = 'liferay-ai-commerce-accelerator-frontend';
 
 const toCamel = (k) => k.replace(/-([a-z])/g, (_, c) => c.toUpperCase());
-const coerce = (v) => (v === '' ? true : v); // bare attribute => true
+const coerce = (v) => (v === '' ? true : v);
 
 function parsePropsFrom(el) {
   const configFromAttrs = {};
@@ -23,6 +23,10 @@ function parsePropsFrom(el) {
       cfg = json.config || {};
       runtime = json.runtime || {};
     } catch {}
+  }
+
+  if (el.hasAttribute('spritemap')) {
+    configFromAttrs.spritemap = el.getAttribute('spritemap');
   }
 
   return { config: { ...cfg, ...configFromAttrs }, runtime };
@@ -59,6 +63,7 @@ class LiferayAiCommerceAcceleratorElement extends HTMLElement {
       'ws-logging-level',
       'polling-delay',
       'polling-retries',
+      'spritemap',
     ];
   }
 

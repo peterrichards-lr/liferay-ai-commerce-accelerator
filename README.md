@@ -6,7 +6,7 @@ The Liferay AI Commerce Accelerator is a workspace project designed to rapidly g
 
 The accelerator is composed of four main parts that work together:
 
-1.  **Configuration UI (`ai-commerce-accelerator-configuration`)**: A React-based client extension that provides a user interface within the Liferay application menu. Administrators use this UI to configure AI provider settings, API keys, and the content of AI prompts and schemas.
+1.  **Configuration UI (`ai-commerce-accelerator-configuration`)**: A React-based client extension that provides a user interface within the Liferay application menu. Administrators use this UI to configure AI provider settings, API keys, and the content of AI prompts and schemas. All panels now feature a consistent user experience, including "warn on unsaved changes" and "save with Ctrl/Cmd+S" functionality. Frontend components throughout the UI now display icons with correct spacing and alignment.
 
 2.  **Frontend (`ai-commerce-accelerator-frontend`)**: The main user-facing client extension, also based on React. This application allows users to specify the quantity and type of commerce data to generate, monitor the generation process in real-time, and manage the generated data.
 
@@ -29,7 +29,7 @@ The available product categories are now dynamically configurable via the "AI Co
 To simplify development and ensure consistency, the batch files for the default AI prompts and schemas are **automatically generated** by the Gradle build.
 
 -   **Single Source of Truth:** The `*.json` files in `client-extensions/ai-commerce-accelerator-microservice/ai-schemas/` for schemas, the `*.md` files in `client-extensions/ai-commerce-accelerator-microservice/prompts/` for prompts, and `client-extensions/ai-commerce-accelerator-frontend/src/config/categories.json` for product categories are the canonical sources for this configuration.
--   **How it Works:** When you run the build, a Gradle task (`generateBatchFiles`) reads the contents of these directories, wraps them in the required Liferay Batch Engine JSON format, and places the generated files into the `client-extensions/ai-commerce-accelerator-batch/batch/` directory. The generated files are given a numeric prefix to control the import order, which is determined by an alphabetical sort of the source filenames to ensure consistency between builds.
+-   **How it Works:** When you run the build, a Gradle task (`generateBatchFiles`) reads the contents of these directories, wraps them in the required Liferay Batch Engine JSON format, and places the generated files into the `client-extensions/ai-commerce-accelerator-batch/batch/` directory. The generated files are given a numeric prefix to control the import order, which is determined by an alphabetical sort of the source filenames to ensure consistent sequencing of generated batch files.
 
 You only need to modify the source `.json` (schema) and `.md` (prompt) files in the microservice directory; the build process will handle the rest.
 
@@ -63,7 +63,7 @@ You only need to modify the source `.json` (schema) and `.md` (prompt) files in 
 1.  **Configure the Application:**
     -   Once deployed, navigate to your Liferay instance.
     -   Go to the **Global Menu** → **Applications** → **AI Commerce Accelerator Configuration**.
-    -   In this screen, configure your AI provider (e.g., OpenAI API Key), review the AI prompts and schemas, and save your settings. All panels now feature a consistent user experience, including "warn on unsaved changes" and "save with Ctrl/Cmd+S" functionality. Frontend components throughout the UI now display icons with correct spacing and alignment.
+    -   In this screen, configure your AI provider (e.g., OpenAI API Key), review the AI prompts and schemas, and save your settings. All panels now feature a consistent user experience, including "warn on unsaved changes" and "save with Ctrl/Cmd+S" functionality. Frontend components throughout the UI now display icons with correct spacing and alignment. All panels now feature a consistent user experience, including "warn on unsaved changes" and "save with Ctrl/Cmd+S" functionality. Frontend components throughout the UI now display icons with correct spacing and alignment.
 
 2.  **Generate Data:**
     -   Add the **AI Commerce Accelerator** widget to a page from the Page Editor.

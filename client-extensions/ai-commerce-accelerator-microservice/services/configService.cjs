@@ -169,6 +169,16 @@ class ConfigService {
     return remotePrompt || null;
   }
 
+  async getAIPromptsConfig(requestConfig) {
+    const promptNames = ['account', 'order', 'pdf', 'pricing', 'product'];
+    const prompts = {};
+
+    for (const name of promptNames) {
+      prompts[name] = await this.getAIPrompt(requestConfig, name);
+    }
+    return prompts;
+  }
+
   async getCategories(requestConfig) {
     const cacheKey = AI_CATEGORIES_CACHE_KEY;
     const configKey = AI_CATEGORIES_CONFIG_KEY;

@@ -88,8 +88,6 @@ export function AppUI() {
     generationErrors,
   } = useValidation(config, generationConfig);
 
-
-
   const [connectionEstablished, setConnectionEstablished] = useState(false);
   const [openAiKeyAvailable, setOpenAiKeyAvailable] = useState(false);
 
@@ -112,8 +110,6 @@ export function AppUI() {
       dispatch({ type: 'MERGE', payload: arg });
     }
   }, []);
-
-
 
   const { wsRef, ping, wsConnected } = useRealtimeWebSocket({
     enabled: connectionEstablished && !!config.microserviceUrl,
@@ -154,16 +150,6 @@ export function AppUI() {
     setProgress,
     connectionEstablished,
   });
-
-
-
-
-
-
-
-
-
-
 
   const forceDemoMode = connectionEstablished && !openAiKeyAvailable;
 
@@ -223,7 +209,6 @@ export function AppUI() {
       setGenerationConfig((prev) =>
         prev.demoMode ? prev : { ...prev, demoMode: true }
       );
-      console.log('🔄 Demo mode enforced - OpenAI key not available');
     }
   }, [openAiKeyAvailable]);
 
@@ -344,7 +329,47 @@ export function AppUI() {
           setConfig(newConfig);
 
           if (importedData.generationConfig) {
-            setGenerationConfig(importedData.generationConfig);
+            setGenerationConfig((prevConfig) => {
+              const importedGenConfig = importedData.generationConfig;
+              let newCategories = importedGenConfig.categories || [];
+              const availableCategoryNames = new Set(
+                availableCategories.map((c) => c.key)
+              );
+
+              // Filter out categories that are not available
+              const validImportedCategories = newCategories.filter((cat) =>
+                availableCategoryNames.has(cat)
+              );
+
+              // Identify unavailable categories
+              const unavailableCategories = newCategories.filter(
+                (cat) => !availableCategoryNames.has(cat)
+              );
+
+              if (unavailableCategories.length > 0) {
+                notifyUser(
+                  `Some imported categories are not available in the current Liferay instance: ${unavailableCategories.join(
+                    ', '
+                  )}. These categories have been removed from the configuration.`,
+                  'warning'
+                );
+              }
+
+              // If no valid categories remain, default to the first available
+              if (validImportedCategories.length === 0 && availableCategories.length > 0) {
+                validImportedCategories.push(availableCategories[0].key);
+                notifyUser(
+                  `No valid categories were imported, defaulting to '${availableCategories[0].key}'.`,
+                  'info'
+                );
+              }
+
+              return {
+                ...prevConfig,
+                ...importedGenConfig,
+                categories: validImportedCategories,
+              };
+            });
           }
 
           if (connectionParamsWillChange) {
@@ -415,7 +440,19 @@ export function AppUI() {
     (async () => {
       try {
         const fetched = await categories();
-        if (mountedRef.current) setAvailableCategories(fetched);
+        if (mountedRef.current) {
+          setAvailableCategories(fetched);
+          // Set first category as default if none selected
+          setGenerationConfig((prevConfig) => {
+            if (
+              fetched.length > 0 &&
+              (prevConfig.categories == null || prevConfig.categories.length === 0)
+            ) {
+              return { ...prevConfig, categories: [fetched[0]] };
+            }
+            return prevConfig;
+          });
+        }
       } catch (err) {
         addLog('Failed to load categories: ' + err.message, 'error');
       }
@@ -532,10 +569,24 @@ export function AppUI() {
   );
 }
 
+import { ClayIconSpriteContext } from '@clayui/icon';
+
+const SPRITEMAP_FALLBACK = '/icons.svg';
+
 export default function AppRoot({ config: initialConfig }) {
+  const spritemap = useMemo(
+    () =>
+      initialConfig?.spritemap ||
+      globalThis?.Liferay?.Icons?.spritemap ||
+      SPRITEMAP_FALLBACK,
+    [initialConfig?.spritemap]
+  );
+
   return (
     <AppProvider initialConfig={initialConfig}>
-      <AppUI />
+      <ClayIconSpriteContext.Provider value={spritemap}>
+        <AppUI />
+      </ClayIconSpriteContext.Provider>
     </AppProvider>
   );
 }

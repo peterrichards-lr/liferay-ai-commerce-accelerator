@@ -16,7 +16,8 @@
     "node-fetch": "^3.3.2",
     "openai": "^5.13.1",
     "uuid": "^11.0.3",
-    "ws": "^8.18.0"
+    "ws": "^8.18.0",
+    "ajv-formats": "^2.1.1"
   },
   "license": "GPL-3.0",
   "main": "server.cjs",

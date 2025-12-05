@@ -64,7 +64,7 @@ export const PANELS = [
   {
     id: 'categories',
     label: 'Categories',
-    icon: 'folder-open',
+    icon: 'categories',
     component: lazy(() => import('./components/panels/CategoriesConfigPanel')),
   },
 ];

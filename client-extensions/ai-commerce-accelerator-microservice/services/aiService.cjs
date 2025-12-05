@@ -1,4 +1,5 @@
 const Ajv = require('ajv');
+const addFormats = require('ajv-formats');
 const OpenAI = require('openai');
 const {
   pluralize,
@@ -9,6 +10,7 @@ const { createERC, tryParseJSON } = require('../utils/misc.cjs');
 const { ERC_PREFIX } = require('../utils/constants.cjs');
 
 const ajv = new Ajv({ removeAdditional: true });
+addFormats(ajv);
 
 class AIService {
   constructor(ctx) {

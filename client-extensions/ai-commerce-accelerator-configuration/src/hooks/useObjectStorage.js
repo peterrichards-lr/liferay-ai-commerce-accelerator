@@ -35,8 +35,18 @@ export const useObjectStorage = ({
           const raw = fetchedValues[index];
           if (json) {
             try {
-              const parsed = raw ? JSON.parse(raw) : {};
-              newValues[key] = { ...defaults[key], ...parsed };
+              if (raw) {
+                const parsed = JSON.parse(raw);
+                if (Array.isArray(parsed)) {
+                  newValues[key] = parsed;
+                } else if (typeof parsed === 'object' && parsed !== null) {
+                  newValues[key] = { ...defaults[key], ...parsed };
+                } else {
+                  newValues[key] = parsed;
+                }
+              } else {
+                newValues[key] = defaults[key];
+              }
             } catch {
               newValues[key] = defaults[key];
             }

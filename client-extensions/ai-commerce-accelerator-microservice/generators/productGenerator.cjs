@@ -1002,7 +1002,7 @@ class ProductGenerator {
           `Creating ${preparedProducts.length} products individually...`
         );
 
-        // Use the existing sessionId generated earlier to avoid drift
+
         const batchERC = createERC(ERC_PREFIX.PRODUCT_BATCH);
         const indivBatchId = `products-individual-${Date.now()}`;
         getWs().emitBatchStarted(
@@ -1435,8 +1435,9 @@ class ProductGenerator {
         { name: 'Assembly Required', values: ['Yes', 'No'] },
       ],
     };
+    let categoryOptions;
     for (const category of categories) {
-      const categoryOptions =
+      categoryOptions =
         categoryOptionsMap[category] || categoryOptionsMap['Electronics'];
       catalogOptions[category] = [];
       logger.trace(
@@ -1509,7 +1510,6 @@ class ProductGenerator {
         }
         catalogOptions[category].push({ ...option, values: optionValues });
       }
-    }
     }
     return catalogOptions;
   }
@@ -1893,7 +1893,6 @@ class ProductGenerator {
             };
           }
 
-
           const specification = await liferay.createSpecificationWithReuse(
             config,
             specificationPayload
@@ -1965,7 +1964,6 @@ class ProductGenerator {
       logger.info(
         `Created/reused ${createdSpecCount} specifications for category: ${category}`
       );
-
 
       try {
         const prefix = `${String(category).toLowerCase()}-`;
@@ -2152,7 +2150,6 @@ class ProductGenerator {
   ) {
     const { logger, liferay, batchProcessor, getWs } = this.ctx;
     try {
-
       const pickFromJson = (category, specKey) => {
         try {
           const defs = specificationCatalog?.[category];
@@ -2226,8 +2223,6 @@ class ProductGenerator {
                       spec.key || spec.name
                     ) || { en_US: 'Unknown' },
             };
-
-
 
             specificationsToAdd.push(payload);
           }
@@ -2489,7 +2484,6 @@ class ProductGenerator {
         );
         return createdSkus;
       }
-
 
       const maxVariants = 8;
       const option1 = catalogOptions[0];
@@ -2940,7 +2934,11 @@ class ProductGenerator {
             `Failed to add image/attachment to product ${productERC}:`,
             error.message
           );
-          if (originalProduct.generateAIImage || (Array.isArray(originalProduct.images) && originalProduct.images.length > 0)) {
+          if (
+            originalProduct.generateAIImage ||
+            (Array.isArray(originalProduct.images) &&
+              originalProduct.images.length > 0)
+          ) {
             const rec = {
               product: productERC,
               error: `Image error: ${error.message}`,
@@ -2948,7 +2946,11 @@ class ProductGenerator {
             imageErrors.push(rec);
             pImageErrors.push(rec);
           }
-          if (originalProduct.generateAIPdf || (Array.isArray(originalProduct.attachments) && originalProduct.attachments.length > 0)) {
+          if (
+            originalProduct.generateAIPdf ||
+            (Array.isArray(originalProduct.attachments) &&
+              originalProduct.attachments.length > 0)
+          ) {
             const rec = {
               product: productERC,
               error: `PDF error: ${error.message}`,
@@ -3039,7 +3041,6 @@ class ProductGenerator {
     );
   }
 
-
   async generateAndAttachAiImage(config, productData, options) {
     const { ai, logger, liferay } = this.ctx;
     const productERC = productData.externalReferenceCode;
@@ -3081,7 +3082,9 @@ class ProductGenerator {
       await liferay.addProductAttachmentByBase64(config, productERC, {
         attachment: pdfBuffer.toString('base64'),
         contentType: 'application/pdf',
-        title: { en_US: `${productData.name?.en_US || productData.name} - Document` },
+        title: {
+          en_US: `${productData.name?.en_US || productData.name} - Document`,
+        },
       });
 
       logger.trace(`✓ AI PDF successfully attached to product ${productERC}`);
