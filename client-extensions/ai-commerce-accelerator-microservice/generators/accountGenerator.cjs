@@ -123,6 +123,26 @@ class AccountGenerator {
 
       accountDataList = accountDataList.map((raw) => {
         const account = { ...raw };
+
+        // Ensure accountContactInformation structure
+        if (account.emailAddress || account.domains) {
+          account.accountContactInformation = account.accountContactInformation || {};
+          if (account.emailAddress) {
+            account.accountContactInformation.emailAddresses = [
+              {
+                emailAddress: account.emailAddress,
+                primary: true,
+                type: 'email-address',
+              },
+            ];
+            delete account.emailAddress; // Remove direct emailAddress
+          }
+          if (account.domains) {
+            account.accountContactInformation.domains = account.domains;
+            delete account.domains; // Remove direct domains
+          }
+        }
+
         delete account.businessAccounts;
         delete account.businessAccountsERC;
         return account;
@@ -459,25 +479,14 @@ class AccountGenerator {
         name: accountData.name || `Generated Company ${randomString()}`,
         description: accountData.description || 'AI generated business account',
         type: accountData.type || 'business',
-        domains: accountData.domains || [`company${randomString()}.com`],
         externalReferenceCode:
           accountData.externalReferenceCode || createERC(ERC_PREFIX.ACCOUNT),
         taxId: accountData.taxId || this.generateTaxId(),
       };
 
-      if (accountData.emailAddress) {
-        liferayAccount.accountContactInformation = {
-          emailAddresses: [
-            {
-              emailAddress: accountData.emailAddress,
-              primary: true,
-              type: 'email-address',
-            },
-          ],
-          postalAddresses: [],
-          telephones: [],
-          webUrls: [],
-        };
+      // Now directly include accountContactInformation from accountData
+      if (accountData.accountContactInformation) {
+          liferayAccount.accountContactInformation = accountData.accountContactInformation;
       }
 
       const createdAccount = await liferay.createAccount(

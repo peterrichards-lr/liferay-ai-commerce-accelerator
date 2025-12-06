@@ -772,14 +772,10 @@ class LiferayService {
       'handle'
     );
 
-    logger.info('Account created successfully', {
-      operation: 'create-account',
-      accountId: data.id,
-      accountName: data.name,
-    });
-
     return data;
   }
+
+
 
   async createAccountsBatch(config, accountsData, callbackUrl, opts = {}) {
     const { logger, cache, configService } = this.ctx;

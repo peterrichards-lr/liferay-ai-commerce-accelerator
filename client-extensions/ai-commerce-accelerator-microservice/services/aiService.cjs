@@ -23,6 +23,34 @@ class AIService {
     this.requestTimeoutMs = 60000;
   }
 
+  _getActualDataFromAIResponse(parsedResponse, schemaName) {
+    if (!parsedResponse || typeof parsedResponse !== 'object' || parsedResponse === null) {
+      return parsedResponse;
+    }
+
+    const mainPropertyName = schemaName + 's'; // e.g., 'accounts', 'products', 'orders'
+
+    // Scenario 1: AI returned full schema definition (AI-generated $schema, properties, required)
+    if (parsedResponse.$schema && parsedResponse.properties && parsedResponse.properties[mainPropertyName]) {
+      return { [mainPropertyName]: parsedResponse.properties[mainPropertyName] };
+    }
+
+    // Scenario 2: AI returned a simple wrapper object (e.g., {"accounts": [...]})
+    if (parsedResponse[mainPropertyName] && Array.isArray(parsedResponse[mainPropertyName])) {
+      return { [mainPropertyName]: parsedResponse[mainPropertyName] };
+    }
+
+    // Scenario 3: AI returned an array directly (e.g., [{"name": ...}, ...])
+    // This is for schemas that were defined as type: "array" at the root.
+    if (Array.isArray(parsedResponse)) {
+      return parsedResponse;
+    }
+
+    // Default: Return the parsed response as is if no specific unwrapping is needed
+    return parsedResponse;
+  }
+
+
   async getRuntimeAIConfig(requestConfig) {
     const { configService } = this.ctx;
     const aiCfg = (await configService.getAIConfig(requestConfig)) || {};
@@ -145,34 +173,25 @@ class AIService {
         );
       }
 
-      let candidate = parsed;
+      const processedCandidate = this._getActualDataFromAIResponse(parsed, schemaName);
 
-      if (schema && schema.type === 'array' && !Array.isArray(candidate)) {
-        if (Array.isArray(candidate.products)) {
-          candidate = candidate.products;
-        } else {
-          candidate = [candidate];
-        }
-
-        if (logger && logger.trace) {
-          logger.trace('AIService._chatJson coerced root value for array schema', {
-            task,
-            rootType: Array.isArray(candidate) ? 'array' : typeof candidate,
-          });
-        }
+      if (logger && logger.trace && processedCandidate !== null) {
+        logger.trace('AIService._chatJson parsed response preview', {
+          task,
+          parsedPreview: Array.isArray(processedCandidate) ? processedCandidate.slice(0, 3) : processedCandidate,
+        });
       }
 
       if (schema) {
         const validate = ajv.compile(schema);
-        const valid = validate(candidate);
+        const valid = validate(processedCandidate);
+
         if (!valid) {
           if (logger && logger.trace) {
             logger.trace('AIService._chatJson schema validation failed', {
               task,
               errors: validate.errors,
-              parsedPreview: Array.isArray(candidate)
-                ? candidate.slice(0, 3)
-                : candidate,
+              validatedCandidate: JSON.stringify(processedCandidate, null, 2), // Log the candidate that failed
             });
           }
 
@@ -182,9 +201,19 @@ class AIService {
           err.errors = validate.errors;
           throw err;
         }
+
+        const mainPropertyName = schemaName + 's';
+        if (schema.properties && schema.properties[mainPropertyName] && Array.isArray(processedCandidate[mainPropertyName])) {
+          return processedCandidate[mainPropertyName];
+        }
+        // If the schema itself is an array at the root (e.g., old product.json style), return candidate directly
+        if (schema.type === 'array' && Array.isArray(processedCandidate)) {
+            return processedCandidate;
+        }
+        return processedCandidate; // Fallback to return the validated wrapper object if not an array inside
       }
 
-      return candidate;
+      return processedCandidate;
     } catch (error) {
       logger?.error?.(`AIService._chatJson failed for ${task}:`, {
         message: error.message,

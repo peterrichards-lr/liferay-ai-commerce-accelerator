@@ -1,5 +1,7 @@
 const fs = require('fs');
 const path = require('path');
+const Ajv = require('ajv');
+const addFormats = require('ajv-formats');
 const {
   createERC,
   buildSpecCatERC,
@@ -10,6 +12,9 @@ const {
 } = require('../utils/misc.cjs');
 const { ERC_PREFIX } = require('../utils/constants.cjs');
 
+const ajv = new Ajv({ removeAdditional: true });
+addFormats(ajv);
+
 class MockDataGenerator {
   constructor(ctx) {
     this.ctx = ctx || {};
@@ -17,8 +22,45 @@ class MockDataGenerator {
     this.categoryData = null;
     this.specificationValues = null;
     this.pricingData = null;
+    this.schemas = {}; // To store compiled schemas
+    this._loadAndCompileSchemas(); // New method to load and compile schemas
     this.loadConfigurationData();
   }
+
+  _loadSchema(schemaName) {
+    try {
+      const schemaPath = path.join(__dirname, '..', 'ai-schemas', `${schemaName}.json`);
+      if (fs.existsSync(schemaPath)) {
+        return JSON.parse(fs.readFileSync(schemaPath, 'utf8'));
+      }
+      this.logger?.warn?.(`Schema ${schemaName}.json not found at ${schemaPath}`);
+      return null;
+    } catch (error) {
+      this.logger?.error?.(`Error loading schema ${schemaName}.json:`, error);
+      return null;
+    }
+  }
+
+  _compileSchema(schemaName) {
+    const schemaDef = this._loadSchema(schemaName);
+    if (schemaDef) {
+      try {
+        this.schemas[schemaName] = ajv.compile(schemaDef);
+        this.logger?.trace?.(`Compiled schema for ${schemaName}`);
+      } catch (error) {
+        this.logger?.error?.(`Error compiling schema ${schemaName}:`, error);
+      }
+    }
+  }
+
+  _loadAndCompileSchemas() {
+    this._compileSchema('account');
+    this._compileSchema('product');
+    this._compileSchema('order');
+    // Add other schemas if needed
+  }
+
+
 
   loadConfigurationData() {
     const logger = this.logger;
@@ -287,6 +329,7 @@ class MockDataGenerator {
         description,
         shortDescription,
         urls,
+        baseSku: sku,
         productType: 'simple',
         externalReferenceCode,
         metaDescription,
@@ -329,6 +372,23 @@ class MockDataGenerator {
       }
 
       products.push(productData);
+    }
+
+    // Validate generated mock data against schema
+    const validate = this.schemas.product;
+    if (validate) {
+      const payload = { products: products }; // Wrap in expected wrapper object
+      const isValid = validate(payload);
+      if (!isValid) {
+        logger?.error?.('Mock product data failed schema validation:', {
+          errors: validate.errors,
+          payload: JSON.stringify(payload, null, 2),
+        });
+        throw new Error('Mock product data failed schema validation.');
+      }
+      logger?.trace?.('Mock product data validated successfully against schema.');
+    } else {
+      logger?.warn?.('Product schema not compiled, skipping mock data validation.');
     }
 
     return products;
@@ -410,27 +470,44 @@ class MockDataGenerator {
 
     for (let i = 0; i < count; i++) {
       const companyName = companies[i % companies.length];
+      const accountEmail = `contact@${companyName.toLowerCase().replace(/\s+/g, '')}.com`;
+      const accountDomain = `${companyName.toLowerCase().replace(/\s+/g, '')}.com`;
+
       const account = {
         name: `${companyName} ${i + 1}`,
         type: 'business',
         taxId: `TAX-${String(getRandomInt(1_000_000)).padStart(6, '0')}`,
         externalReferenceCode: createERC(ERC_PREFIX.ACCOUNT),
+        description: `Professional ${companyName.toLowerCase()} providing quality services since 2020.`,
         accountContactInformation: {
           emailAddresses: [
             {
-              emailAddress: `contact@${companyName
-                .toLowerCase()
-                .replace(/\s+/g, '')}.com`,
+              emailAddress: accountEmail,
               primary: true,
               type: 'email-address',
             },
           ],
-          postalAddresses: [],
-          telephones: [],
+          domains: [accountDomain]
         },
-        description: `Professional ${companyName.toLowerCase()} providing quality services since 2020.`,
       };
       accounts.push(account);
+    }
+
+    // Validate generated mock data against schema
+    const validate = this.schemas.account;
+    if (validate) {
+      const payload = { accounts: accounts }; // Wrap in expected wrapper object
+      const isValid = validate(payload);
+      if (!isValid) {
+        this.logger?.error?.('Mock account data failed schema validation:', {
+          errors: validate.errors,
+          payload: JSON.stringify(payload, null, 2),
+        });
+        throw new Error('Mock account data failed schema validation.');
+      }
+      this.logger?.trace?.('Mock account data validated successfully against schema.');
+    } else {
+      this.logger?.warn?.('Account schema not compiled, skipping mock data validation.');
     }
 
     return accounts;
@@ -464,6 +541,23 @@ class MockDataGenerator {
       };
 
       orders.push(order);
+    }
+
+    // Validate generated mock data against schema
+    const validate = this.schemas.order;
+    if (validate) {
+      const payload = { orders: orders }; // Wrap in expected wrapper object
+      const isValid = validate(payload);
+      if (!isValid) {
+        this.logger?.error?.('Mock order data failed schema validation:', {
+          errors: validate.errors,
+          payload: JSON.stringify(payload, null, 2),
+        });
+        throw new Error('Mock order data failed schema validation.');
+      }
+      this.logger?.trace?.('Mock order data validated successfully against schema.');
+    } else {
+      this.logger?.warn?.('Order schema not compiled, skipping mock data validation.');
     }
 
     return orders;
