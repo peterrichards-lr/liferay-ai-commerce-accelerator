@@ -87,6 +87,7 @@ You only need to modify the source `.json` (schema) and `.md` (prompt) files in 
     -   Use the interface to test your connection to the Liferay and microservice endpoints.
     -   Select the quantity and type of data (products, accounts, orders) you wish to generate.
     -   Click "Start Generation" and monitor the progress in the dashboard.
+    -   If a batch process fails, detailed error information will now be displayed in the dashboard to help diagnose the issue.
     -   Once generation is complete, you can use the "Export Data" button to save the generated data.
     -   At any time, you can use the "Import Data" button to upload a previously exported data file.
 

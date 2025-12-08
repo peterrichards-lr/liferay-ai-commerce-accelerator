@@ -11,6 +11,7 @@ import ActivityLog from './ActivityLog';
 import StatusMonitor from './StatusMonitor';
 import DashboardHeader from './DashboardHeader';
 import ProgressMonitor from './ProgressMonitor';
+import BatchErrors from './BatchErrors';
 
 import { buildFilename, exportJsonFile } from '../../utils/fileHelper';
 
@@ -54,6 +55,7 @@ function Dashboard({
   onReset,
   generationConfig,
   wsStatus = 'disabled',
+  batchErrors,
 }) {
   const frozenRef = useRef(false);
 
@@ -251,6 +253,8 @@ function Dashboard({
             logs={logs}
             isGenerating={isGenerating}
           />
+
+          <BatchErrors batchErrors={batchErrors} />
 
           <StatusMonitor
             lastUpdated={lastUpdateTime}

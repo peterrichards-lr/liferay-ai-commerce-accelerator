@@ -35,6 +35,7 @@ const BASE = {
   ME: '/o/headless-admin-user/v1.0/my-user-account',
   CURRENCIES: '/o/headless-commerce-admin-catalog/v1.0/currencies',
   INVENTORY_API: '/o/headless-commerce-admin-inventory/v1.0',
+  BATCH_ENGINE_API: '/o/headless-batch-engine/v1.0',
 };
 
 const VARIANT = {
@@ -193,6 +194,11 @@ const PATH = {
     )}/priceListAccountGroups`,
   PRICE_LIST_ACCOUNT_GROUP: (id) =>
     `${BASE.PRICING_API}/priceListAccountGroups/${enc(id)}`,
+
+  IMPORT_TASK: (batchId) =>
+    `${BASE.BATCH_ENGINE_API}/import-task/${enc(batchId)}`,
+  IMPORT_TASK_CONTENT: (batchId) =>
+    `${BASE.BATCH_ENGINE_API}/import-task/${enc(batchId)}/content`,
 };
 
 module.exports = { PATH, byERC };

@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useApp } from '../context/AppContext';
 import {
   BATCH_COMPLETED,
+  BATCH_ERROR_DETAILS,
   BATCH_FAILED,
   BATCH_PROGRESS,
   BATCH_START,
@@ -18,6 +19,7 @@ export default function useRealtimeWebSocket({
   loggingLevel = 'off',
   onLog,
   onProgress,
+  onBatchErrorDetails,
 }) {
   const { getCorrelationId } = useApp();
   const wsRef = useRef(null);
@@ -384,6 +386,12 @@ export default function useRealtimeWebSocket({
             });
           }
 
+          break;
+        }
+
+        case BATCH_ERROR_DETAILS: {
+          logDebug('BATCH_ERROR_DETAILS received', { raw: data });
+          onBatchErrorDetails?.(data);
           break;
         }
 

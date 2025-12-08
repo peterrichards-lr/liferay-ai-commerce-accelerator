@@ -641,6 +641,66 @@ class LiferayService {
     return this._asCount(data);
   }
 
+  async getImportTask(config, batchId) {
+    if (config.demoMode) {
+      const { logger } = this.ctx;
+      logger.warn('********************************************************************************');
+      logger.warn('LiferayService.getImportTask is using a mock implementation for demo mode.');
+      logger.warn('********************************************************************************');
+
+      return Promise.resolve({
+        data: {
+          className: 'com.liferay.headless.admin.user.dto.v1_0.Account',
+          contentType: 'JSON',
+          endTime: new Date().toISOString(),
+          errorMessage: 'java.lang.IllegalArgumentException: Unrecognized field "domains" (class com.liferay.headless.admin.user.dto.v1_0.AccountContactInformation), not marked as ignorable',
+          executeStatus: 'FAILED',
+          externalReferenceCode: '504d9fc4-d4fa-4960-c350-df7014cff5f4',
+          failedItems: [
+            {
+              item: 'Unable to read item at index 1',
+              itemIndex: 1,
+              message: 'java.lang.IllegalArgumentException: Unrecognized field "domains" (class com.liferay.headless.admin.user.dto.v1_0.AccountContactInformation), not marked as ignorable',
+            },
+          ],
+          id: batchId,
+          importStrategy: 'ON_ERROR_FAIL',
+          operation: 'CREATE',
+          processedItemsCount: 0,
+          startTime: new Date().toISOString(),
+          totalItemsCount: 5,
+        }
+      });
+    }
+
+    return await this._get(
+      config,
+      PATH.IMPORT_TASK(batchId),
+      'import-task',
+      'Failed to get import task'
+    );
+  }
+
+  async getImportTaskContent(config, batchId) {
+    if (config.demoMode) {
+      const { logger } = this.ctx;
+      logger.warn('********************************************************************************');
+      logger.warn('LiferayService.getImportTaskContent is using a mock implementation for demo mode.');
+      logger.warn('********************************************************************************');
+
+      return Promise.resolve({
+        data: []
+      });
+    }
+
+    return await this._get(
+      config,
+      PATH.IMPORT_TASK_CONTENT(batchId),
+      'import-task-content',
+      'Failed to get import task content'
+    );
+  }
+
   async createWarehouse(config, warehouseData) {
     const { logger } = this.ctx;
 

@@ -138,8 +138,12 @@ class AccountGenerator {
             delete account.emailAddress; // Remove direct emailAddress
           }
           if (account.domains) {
-            account.accountContactInformation.domains = account.domains;
-            delete account.domains; // Remove direct domains
+            account.accountContactInformation.webUrls = account.domains.map(domain => ({
+              url: `http://${domain}`,
+              urlType: 'Website',
+              primary: false,
+            }));
+            delete account.domains;
           }
         }
 

@@ -93,6 +93,7 @@ export function AppUI() {
   const [connectionEstablished, setConnectionEstablished] = useState(false);
   const [openAiKeyAvailable, setOpenAiKeyAvailable] = useState(false);
   const [generationCompleted, setGenerationCompleted] = useState(false);
+  const [batchErrors, setBatchErrors] = useState([]);
 
   const initialLoggingConfig = {
     level: config?.wsLoggingLevel || 'info',
@@ -120,6 +121,9 @@ export function AppUI() {
     loggingLevel: config?.wsLoggingLevel ?? 'off',
     onLog: addLog,
     onProgress: setProgress,
+    onBatchErrorDetails: (errorDetails) => {
+      setBatchErrors((prevErrors) => [...prevErrors, errorDetails]);
+    },
   });
 
   const {
@@ -592,6 +596,7 @@ export function AppUI() {
                     onReset={handleProgressReset}
                     generationConfig={generationConfig}
                     wsStatus={wsStatus}
+                    batchErrors={batchErrors}
                   />
                 </div>
               </div>

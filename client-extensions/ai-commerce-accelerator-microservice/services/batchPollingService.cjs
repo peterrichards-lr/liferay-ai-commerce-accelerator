@@ -474,7 +474,7 @@ class BatchPollingService {
         return;
       } else if (batchStatus === 'FAILED') {
         this.stopPolling(batchId);
-        await this.handleBatchFailed(batchId, status);
+        await this.handleBatchFailed(batchId, status, config);
         return;
       }
 
@@ -687,7 +687,7 @@ class BatchPollingService {
     }
   }
 
-  async handleBatchFailed(batchId, status) {
+  async handleBatchFailed(batchId, status, config) {
     const { logger, cache, getWs, configService } = this.ctx;
     if (cache.get(`batch:${batchId}:failed`)) return;
 
@@ -737,6 +737,39 @@ class BatchPollingService {
       mode,
       operation,
     });
+
+    try {
+      const importTask = await this.ctx.liferay.getImportTask(config, batchId);
+      logger.error('Batch failure details', {
+        operation: 'batch-failed-details',
+        batchId,
+        correlationId,
+        importTask,
+      });
+
+      const importTaskContent = await this.ctx.liferay.getImportTaskContent(config, batchId);
+      logger.error('Batch failure content', {
+        operation: 'batch-failed-content',
+        batchId,
+        correlationId,
+        importTaskContent,
+      });
+
+      getWs().emit('batchErrorDetails', {
+        batchId,
+        correlationId,
+        importTask,
+        importTaskContent,
+      });
+
+    } catch (e) {
+      logger.error('Failed to get batch failure details', {
+        operation: 'batch-failed-details-error',
+        batchId,
+        correlationId,
+        error: e.message,
+      });
+    }
 
     this.stopPolling(batchId);
 

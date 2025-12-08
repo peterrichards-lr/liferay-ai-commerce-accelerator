@@ -1,4 +1,5 @@
 const BATCH_COMPLETED = 'batch_completed';
+const BATCH_ERROR_DETAILS = 'batch_error_details';
 const BATCH_FAILED = 'batch_failed';
 const BATCH_PROGRESS = 'batch_progress';
 const BATCH_START = 'batch_start';
@@ -14,6 +15,7 @@ const SESSION_COMPLETE = 'session_completed';
 
 export {
   BATCH_COMPLETED,
+  BATCH_ERROR_DETAILS,
   BATCH_FAILED,
   BATCH_PROGRESS,
   BATCH_START,

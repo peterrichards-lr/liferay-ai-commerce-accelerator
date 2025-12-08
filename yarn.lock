@@ -310,6 +310,22 @@
   dependencies:
     classnames "^2.2.6"
 
+"@clayui/list@^3.155.0":
+  version "3.155.0"
+  resolved "https://registry.npmjs.org/@clayui/list/-/list-3.155.0.tgz"
+  integrity sha512-ktKsR56FWpBa2Vbtk6yseNCcN3BjGhPn+NMmcpWbMjFKdzc/6qaRZu7idmGNSaeYKTsJ6V73aMbDtHbkJ+K12w==
+  dependencies:
+    "@clayui/drop-down" "^3.155.0"
+    "@clayui/form" "^3.151.0"
+    "@clayui/icon" "^3.144.1"
+    "@clayui/label" "^3.144.1"
+    "@clayui/layout" "^3.144.1"
+    "@clayui/link" "^3.144.1"
+    "@clayui/shared" "^3.151.0"
+    "@clayui/sticker" "^3.147.0"
+    classnames "^2.2.6"
+    warning "^4.0.3"
+
 "@clayui/loading-indicator@^3.144.1":
   version "3.144.1"
   resolved "https://registry.npmjs.org/@clayui/loading-indicator/-/loading-indicator-3.144.1.tgz"
@@ -465,6 +481,7 @@
     "@clayui/card" "^3.148.0"
     "@clayui/form" "^3.148.0"
     "@clayui/icon" "^3.144.1"
+    "@clayui/list" "^3.155.0"
     "@clayui/panel" "^3.148.0"
     "@vitejs/plugin-react" "^5.0.3"
     react "^18.3.1"

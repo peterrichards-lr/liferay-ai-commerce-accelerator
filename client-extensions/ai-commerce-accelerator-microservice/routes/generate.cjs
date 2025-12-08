@@ -75,16 +75,21 @@ module.exports = (
           operation: 'generate-accounts',
         });
 
-        await Promise.all([
+        const configPromises = [
           configService.getCacheConfig(config),
           configService.getBatchPollingConfig(config),
           configService.getQueueConfig(config),
-          configService.getAIConfig(config),
-          configService.getAIPromptsConfig(config),
           configService.getOAuthConfig(config),
           configService.getObjectStorageConfig(config),
           configService.getWSConfig(config),
-        ]);
+        ];
+
+        if (!options.demoMode) {
+          configPromises.push(configService.getAIConfig(config));
+          configPromises.push(configService.getAIPromptsConfig(config));
+        }
+
+        await Promise.all(configPromises);
 
         if (config.demoMode) {
           try {
@@ -232,16 +237,21 @@ module.exports = (
       const { config, options } = buildConfigAndOptions(req);
 
       try {
-        await Promise.all([
+        const configPromises = [
           configService.getCacheConfig(config),
           configService.getBatchPollingConfig(config),
           configService.getQueueConfig(config),
-          configService.getAIConfig(config),
-          configService.getAIPromptsConfig(config),
           configService.getOAuthConfig(config),
           configService.getObjectStorageConfig(config),
           configService.getWSConfig(config),
-        ]);
+        ];
+
+        if (!options.demoMode) {
+          configPromises.push(configService.getAIConfig(config));
+          configPromises.push(configService.getAIPromptsConfig(config));
+        }
+
+        await Promise.all(configPromises);
 
         if (options.createWarehouses) {
           let warehouses = [];
@@ -262,7 +272,6 @@ module.exports = (
           options.warehouses = warehouses;
           cacheService.set('generated-warehouses', warehouses);
         }
-
 
         if (options.demoMode) {
           try {
@@ -494,16 +503,21 @@ module.exports = (
       const { config, options } = buildConfigAndOptions(req);
 
       try {
-        await Promise.all([
+        const configPromises = [
           configService.getCacheConfig(config),
           configService.getBatchPollingConfig(config),
           configService.getQueueConfig(config),
-          configService.getAIConfig(config),
-          configService.getAIPromptsConfig(config),
           configService.getOAuthConfig(config),
           configService.getObjectStorageConfig(config),
           configService.getWSConfig(config),
-        ]);
+        ];
+
+        if (!options.demoMode) {
+          configPromises.push(configService.getAIConfig(config));
+          configPromises.push(configService.getAIPromptsConfig(config));
+        }
+
+        await Promise.all(configPromises);
 
         if (options.demoMode) {
           try {
