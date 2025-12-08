@@ -437,10 +437,14 @@ export function AppUI() {
     notifyUser('Progress and activity log have been reset.');
   }, [clearLogs, setProgress, generationConfig, notifyUser]);
 
-  const handleSettingsReset = useCallback(() => {
-    setGenerationConfig(initialGenerationConfig);
+  const handleSettingsReset = () => {
+    const newConfig = { ...initialGenerationConfig };
+    if (availableCategories.length > 0) {
+      newConfig.categories = [availableCategories[0].key];
+    }
+    setGenerationConfig(newConfig);
     notifyUser('Generator settings restored to defaults.');
-  }, []);
+  };
 
   const handleExport = useCallback(async () => {
     try {
@@ -492,6 +496,10 @@ export function AppUI() {
       }
     })();
   }, [connectionEstablished, categories, mountedRef, addLog]);
+
+  useEffect(() => {
+    console.log('Batch Errors:', batchErrors);
+  }, [batchErrors]);
 
   return (
     <div className="container-fluid py-4">

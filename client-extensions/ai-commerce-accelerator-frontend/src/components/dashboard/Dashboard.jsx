@@ -6,6 +6,7 @@ import React, {
   useMemo,
 } from 'react';
 import ClayIcon from '@clayui/icon';
+import ClayTabs from '@clayui/tabs';
 
 import ActivityLog from './ActivityLog';
 import StatusMonitor from './StatusMonitor';
@@ -84,6 +85,11 @@ function Dashboard({
     const effectiveEnd = end ?? last ?? Date.now();
     return Math.max(0, effectiveEnd - start);
   });
+  const [activeTab, setActiveTab] = useState(0);
+
+  const onErrorsClick = useCallback(() => {
+    setActiveTab(1); // Index of the Batch Errors tab
+  }, []);
 
   const handleExportSummary = () => {
     const filename = buildFilename('progress-summary');
@@ -92,6 +98,7 @@ function Dashboard({
         {
           timestamp: new Date().toISOString(),
           summary: progress,
+          batchErrors,
           webSocketStatus: wsStatus,
           lastRun: {
             lastUpdateTime,
@@ -134,6 +141,7 @@ function Dashboard({
         {
           timestamp: new Date().toISOString(),
           summary: progress,
+          batchErrors,
           activityLog: logs,
           webSocketStatus: wsStatus,
           lastRun: {
@@ -246,15 +254,39 @@ function Dashboard({
           <ProgressMonitor
             generationConfig={generationConfig}
             progress={progress}
+            onErrorsClick={onErrorsClick}
           />
 
-          <ActivityLog
-            onClearLogs={onClearLogs}
-            logs={logs}
-            isGenerating={isGenerating}
-          />
-
-          <BatchErrors batchErrors={batchErrors} />
+          <ClayTabs active={activeTab} onActiveChange={setActiveTab}>
+            <ClayTabs.Item
+              key="activity-log"
+              aria-controls="activity-log-panel"
+            >
+              Activity Log
+            </ClayTabs.Item>
+            {batchErrors && batchErrors.length > 0 && (
+              <ClayTabs.Item
+                key="batch-errors"
+                aria-controls="batch-errors-panel"
+              >
+                Batch Errors
+              </ClayTabs.Item>
+            )}
+          </ClayTabs>
+          <ClayTabs.Content activeIndex={activeTab}>
+            <ClayTabs.TabPane aria-labelledby="activity-log-tab">
+              <ActivityLog
+                onClearLogs={onClearLogs}
+                logs={logs}
+                isGenerating={isGenerating}
+              />
+            </ClayTabs.TabPane>
+            {batchErrors && batchErrors.length > 0 && (
+              <ClayTabs.TabPane aria-labelledby="batch-errors-tab">
+                <BatchErrors batchErrors={batchErrors} />
+              </ClayTabs.TabPane>
+            )}
+          </ClayTabs.Content>
 
           <StatusMonitor
             lastUpdated={lastUpdateTime}

@@ -747,19 +747,22 @@ class BatchPollingService {
         importTask,
       });
 
-      const importTaskContent = await this.ctx.liferay.getImportTaskContent(config, batchId);
-      logger.error('Batch failure content', {
-        operation: 'batch-failed-content',
+      const errorReport = await this.ctx.liferay.getImportTaskErrorReport(config, batchId);
+      logger.error('Batch failure error report', {
+        operation: 'batch-failed-error-report',
         batchId,
         correlationId,
-        importTaskContent,
+        errorReport,
       });
 
-      getWs().emit('batchErrorDetails', {
+      getWs().emitError({
         batchId,
         correlationId,
-        importTask,
-        importTaskContent,
+        message: 'Batch failed with detailed report',
+        details: {
+          importTask,
+          errorReport,
+        },
       });
 
     } catch (e) {

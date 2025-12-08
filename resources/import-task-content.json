@@ -1,0 +1,97 @@
+[
+   {
+      "name": "Tech Innovations Inc.",
+      "description": "A company specializing in innovative tech solutions.",
+      "type": "business",
+      "taxId": "12-3456789",
+      "externalReferenceCode": "TI-001",
+      "accountContactInformation": {
+         "emailAddresses": [
+            {
+               "emailAddress": "contact@techinnovations.com",
+               "primary": true,
+               "type": "email-address"
+            }
+         ],
+         "domains": [
+            "techinnovations.com"
+         ]
+      }
+   },
+   {
+      "name": "Green Earth Logistics",
+      "description": "Sustainable logistics and transportation solutions.",
+      "type": "business",
+      "taxId": "98-7654321",
+      "externalReferenceCode": "GEL-002",
+      "accountContactInformation": {
+         "emailAddresses": [
+            {
+               "emailAddress": "info@greenearthlogistics.com",
+               "primary": true,
+               "type": "email-address"
+            }
+         ],
+         "domains": [
+            "greenearthlogistics.com"
+         ]
+      }
+   },
+   {
+      "name": "Creative Media Agency",
+      "description": "A full-service media and marketing agency.",
+      "type": "business",
+      "taxId": "56-1234567",
+      "externalReferenceCode": "CMA-003",
+      "accountContactInformation": {
+         "emailAddresses": [
+            {
+               "emailAddress": "hello@creativemediaagency.com",
+               "primary": true,
+               "type": "email-address"
+            }
+         ],
+         "domains": [
+            "creativemediaagency.com"
+         ]
+      }
+   },
+   {
+      "name": "HealthTech Solutions LLC",
+      "description": "Providing technology solutions for healthcare providers.",
+      "type": "business",
+      "taxId": "23-4567890",
+      "externalReferenceCode": "HTS-004",
+      "accountContactInformation": {
+         "emailAddresses": [
+            {
+               "emailAddress": "support@healthtechsolutions.com",
+               "primary": true,
+               "type": "email-address"
+            }
+         ],
+         "domains": [
+            "healthtechsolutions.com"
+         ]
+      }
+   },
+   {
+      "name": "Smart Home Innovations",
+      "description": "Integrating smart technology into home solutions.",
+      "type": "business",
+      "taxId": "34-5678901",
+      "externalReferenceCode": "SHI-005",
+      "accountContactInformation": {
+         "emailAddresses": [
+            {
+               "emailAddress": "contact@smarthomeinnovations.com",
+               "primary": true,
+               "type": "email-address"
+            }
+         ],
+         "domains": [
+            "smarthomeinnovations.com"
+         ]
+      }
+   }
+]

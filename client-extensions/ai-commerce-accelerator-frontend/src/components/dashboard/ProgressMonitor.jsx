@@ -3,7 +3,7 @@ import ClayIcon from '@clayui/icon';
 
 import { getProgressPercentage } from '../../state/progressSelectors';
 
-function ProgressMonitor({ generationConfig, progress }) {
+function ProgressMonitor({ generationConfig, progress, onErrorsClick }) {
   const getProgressBarClass = (percentage) => {
     if (percentage === 100) return 'complete';
     if (percentage > 0) return 'active';
@@ -58,7 +58,7 @@ function ProgressMonitor({ generationConfig, progress }) {
               ></div>
             </div>
             {progress.products.errors.length > 0 && (
-              <small className="error-text">
+              <small className="error-text" onClick={() => onErrorsClick(0)}>
                 <ClayIcon symbol="warning-full" />
                 {progress.products.errors.length} errors
               </small>
@@ -92,7 +92,7 @@ function ProgressMonitor({ generationConfig, progress }) {
               ></div>
             </div>
             {progress.accounts.errors.length > 0 && (
-              <small className="error-text">
+              <small className="error-text" onClick={() => onErrorsClick(1)}>
                 <ClayIcon symbol="warning-full" />
                 {progress.accounts.errors.length} errors
               </small>
@@ -126,7 +126,7 @@ function ProgressMonitor({ generationConfig, progress }) {
               ></div>
             </div>
             {progress.orders.errors.length > 0 && (
-              <small className="error-text">
+              <small className="error-text" onClick={() => onErrorsClick(2)}>
                 <ClayIcon symbol="warning-full" />
                 {progress.orders.errors.length} errors
               </small>

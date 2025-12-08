@@ -197,8 +197,10 @@ const PATH = {
 
   IMPORT_TASK: (batchId) =>
     `${BASE.BATCH_ENGINE_API}/import-task/${enc(batchId)}`,
-  IMPORT_TASK_CONTENT: (batchId) =>
+  IMPORT_TASK_SUBMITTED_CONTENT: (batchId) =>
     `${BASE.BATCH_ENGINE_API}/import-task/${enc(batchId)}/content`,
+  IMPORT_TASK_ERROR_REPORT: (batchId) =>
+    `${BASE.BATCH_ENGINE_API}/import-task/${enc(batchId)}/failed-items/report`,
 };
 
 module.exports = { PATH, byERC };

@@ -68,6 +68,7 @@ module.exports = (
     inputValidationMiddleware(generateAccountsSchema),
     async (req, res) => {
       const { config, options } = buildConfigAndOptions(req);
+      config.demoMode = options.demoMode;
 
       try {
         logger.info('Account generation request received', {
@@ -235,6 +236,7 @@ module.exports = (
     inputValidationMiddleware(generateDataSchema),
     async (req, res) => {
       const { config, options } = buildConfigAndOptions(req);
+      config.demoMode = options.demoMode;
 
       try {
         const configPromises = [
@@ -501,6 +503,7 @@ module.exports = (
     inputValidationMiddleware(generateOrdersSchema),
     async (req, res) => {
       const { config, options } = buildConfigAndOptions(req);
+      config.demoMode = options.demoMode;
 
       try {
         const configPromises = [

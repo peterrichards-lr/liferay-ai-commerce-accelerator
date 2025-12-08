@@ -1,6 +1,5 @@
 import React from 'react';
-import ClayCard from '@clayui/card';
-import ClayList from '@clayui/list';
+import ClayTable from '@clayui/table';
 
 function BatchErrors({ batchErrors }) {
   if (!batchErrors || batchErrors.length === 0) {
@@ -10,27 +9,29 @@ function BatchErrors({ batchErrors }) {
   return (
     <div className="mt-4">
       <h4>Batch Errors</h4>
-      <ClayList>
-        {batchErrors.map((error, index) => (
-          <ClayList.Item key={index}>
-            <ClayCard>
-              <ClayCard.Body>
-                <p><strong>Batch ID:</strong> {error.batchId}</p>
-                <p><strong>Error Message:</strong> {error.importTask.errorMessage}</p>
-                <h5>Failed Items:</h5>
-                <ClayList>
-                  {error.importTask.failedItems.map((item, i) => (
-                    <ClayList.Item key={i}>
-                      <p><strong>Item Index:</strong> {item.itemIndex}</p>
-                      <p><strong>Message:</strong> {item.message}</p>
-                    </ClayList.Item>
-                  ))}
-                </ClayList>
-              </ClayCard.Body>
-            </ClayCard>
-          </ClayList.Item>
-        ))}
-      </ClayList>
+      {batchErrors.map((error, index) => (
+        <div key={index} className="mb-3">
+          <h5>Batch ID: {error.batchId}</h5>
+          <p><strong>Error Message:</strong> {error.importTask.errorMessage}</p>
+          <h6>Failed Items Report:</h6>
+          <ClayTable>
+            <ClayTable.Head>
+              <ClayTable.Row>
+                <ClayTable.Cell headingCell>Item Index</ClayTable.Cell>
+                <ClayTable.Cell headingCell>Error Message</ClayTable.Cell>
+              </ClayTable.Row>
+            </ClayTable.Head>
+            <ClayTable.Body>
+              {error.errorReport.map((item, i) => (
+                <ClayTable.Row key={i}>
+                  <ClayTable.Cell>{item.itemIndex}</ClayTable.Cell>
+                  <ClayTable.Cell>{item.errorMessage}</ClayTable.Cell>
+                </ClayTable.Row>
+              ))}
+            </ClayTable.Body>
+          </ClayTable>
+        </div>
+      ))}
     </div>
   );
 }

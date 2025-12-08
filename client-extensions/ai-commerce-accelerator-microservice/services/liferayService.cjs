@@ -1,6 +1,9 @@
 const axios = require('axios');
 const FormData = require('form-data');
 const fs = require('fs');
+const { tmpdir } = require('os');
+const path = require('path');
+const StreamZip = require('node-stream-zip');
 const liferayConfig = require('../config/liferayConfig.cjs');
 const { logger } = require('../utils/logger.cjs');
 const { v4: uuidv4 } = require('uuid');
@@ -16,6 +19,7 @@ const {
 const { DEBUG, ERC_PREFIX, OP_MAP } = require('../utils/constants.cjs');
 const { delay, createERC } = require('../utils/misc.cjs');
 const { sanitizedERC } = require('../utils/normalize.cjs');
+const { parse } = require('csv-parse/sync');
 const { getBatchCacheTTLms } = require('../utils/ttl.cjs');
 
 const SOFT_STATUS_BY_OP = {
@@ -83,6 +87,7 @@ class LiferayService {
       op,
       friendly,
       fullResponse = false,
+      responseType = 'json',
     } = {}
   ) {
     try {
@@ -94,6 +99,7 @@ class LiferayService {
         data,
         params,
         headers,
+        responseType,
       });
 
       if (fullResponse) {
@@ -246,12 +252,32 @@ class LiferayService {
     return [];
   }
 
+  async _downloadFile(config, url, destination) {
+    const writer = fs.createWriteStream(destination);
+
+    const response = await this._get(
+      config,
+      url,
+      'download-file',
+      'Failed to download file',
+      { responseType: 'stream' },
+      true
+    );
+
+    response.data.pipe(writer);
+
+    return new Promise((resolve, reject) => {
+      writer.on('finish', resolve);
+      writer.on('error', reject);
+    });
+  }
+
   async _client(config) {
     return this.createAxiosInstance(config);
   }
 
   async _get(config, url, op, friendly, opts = {}, fullResponse = false) {
-    const { params, headers } = opts || {};
+    const { params, headers, responseType } = opts || {};
 
     const paramsSerializer = (p) =>
       new URLSearchParams(
@@ -272,6 +298,7 @@ class LiferayService {
       op,
       friendly,
       fullResponse,
+      responseType,
     });
   }
 
@@ -681,31 +708,121 @@ class LiferayService {
     );
   }
 
-  async getImportTaskContent(config, batchId) {
+  async getImportTaskSubmittedContent(config, batchId) {
     if (config.demoMode) {
       const { logger } = this.ctx;
       logger.warn('********************************************************************************');
-      logger.warn('LiferayService.getImportTaskContent is using a mock implementation for demo mode.');
+      logger.warn('LiferayService.getImportTaskSubmittedContent is using a mock implementation for demo mode.');
       logger.warn('********************************************************************************');
 
-      return Promise.resolve({
-        data: []
-      });
+      return Promise.resolve([]);
     }
 
-    return await this._get(
+    const urlResponse = await this._get(
       config,
-      PATH.IMPORT_TASK_CONTENT(batchId),
-      'import-task-content',
-      'Failed to get import task content'
+      PATH.IMPORT_TASK_SUBMITTED_CONTENT(batchId),
+      'import-task-submitted-content',
+      'Failed to get import task submitted content'
     );
-  }
 
-  async createWarehouse(config, warehouseData) {
-    const { logger } = this.ctx;
+    if (urlResponse && urlResponse.url) {
+      const tempFilePath = path.join(tmpdir(), `${uuidv4()}.zip`);
+      
+      try {
+        await this._downloadFile(config, urlResponse.url, tempFilePath);
 
-    logger.warn('********************************************************************************');
-    logger.warn('LiferayService.createWarehouse is using a mock implementation.');
+        const zip = new StreamZip.async({ file: tempFilePath });
+        const entries = await zip.entries();
+        const jsonEntry = Object.values(entries).find(entry => entry.name.endsWith('.json'));
+
+        if (jsonEntry) {
+          const jsonContent = await zip.entryData(jsonEntry);
+          return JSON.parse(jsonContent.toString('utf8'));
+        }
+      } finally {
+        if (fs.existsSync(tempFilePath)) {
+          fs.unlinkSync(tempFilePath);
+        }
+      }
+    }
+
+        return [];
+
+      }
+
+    
+
+      async getImportTaskErrorReport(config, batchId) {
+
+        if (config.demoMode) {
+
+          const { logger } = this.ctx;
+
+          logger.warn('********************************************************************************');
+
+          logger.warn('LiferayService.getImportTaskErrorReport is using a mock implementation for demo mode.');
+
+          logger.warn('********************************************************************************');
+
+    
+
+          return Promise.resolve([]);
+
+        }
+
+    
+
+                const csvContent = await this._get(
+
+    
+
+                  config,
+
+    
+
+                  PATH.IMPORT_TASK_ERROR_REPORT(batchId),
+
+    
+
+                  'import-task-error-report',
+
+    
+
+                  'Failed to get import task error report',
+
+    
+
+                  { headers: { Accept: 'application/octet-stream' } }
+
+    
+
+                );
+
+    
+
+        const records = parse(csvContent, {
+
+          columns: true,
+
+          skip_empty_lines: true
+
+        });
+
+    
+
+        return records;
+
+      }
+
+      
+
+      async createWarehouse(config, warehouseData) {
+
+        const { logger } = this.ctx;
+
+        logger.warn('********************************************************************************');
+
+        logger.warn('LiferayService.createWarehouse is using a mock implementation.');
     logger.warn('This method will return a static response instead of calling a real API.');
     logger.warn('********************************************************************************');
 
