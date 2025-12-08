@@ -22,6 +22,8 @@ export default function ApplicationConfigPanel({
   onErrorsChange,
   onDeleteAllCommerceData,
   onDeleteSelectedCommerceData,
+  batchSizes,
+  aiModelOptions,
 }) {
   const { config } = useApp();
 
@@ -58,11 +60,13 @@ export default function ApplicationConfigPanel({
       />
 
       <AdvancedPanel
-        disabled={disabled}
+        disabled={disabled || !connected}
         connected={!!connected}
         generationConfig={generationConfig}
         onDeleteAllCommerceData={onDeleteAllCommerceData}
         onDeleteSelectedCommerceData={onDeleteSelectedCommerceData}
+        batchSizes={batchSizes}
+        aiModelOptions={aiModelOptions}
       />
     </div>
   );

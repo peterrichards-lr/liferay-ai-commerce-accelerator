@@ -94,6 +94,12 @@ export function AppUI() {
   const [openAiKeyAvailable, setOpenAiKeyAvailable] = useState(false);
   const [generationCompleted, setGenerationCompleted] = useState(false);
   const [batchErrors, setBatchErrors] = useState([]);
+  const [batchSizes, setBatchSizes] = useState([1, 10, 25, 50]); // Default values
+  const [aiModelOptions, setAiModelOptions] = useState([
+    { label: 'GPT-4o Mini', value: 'gpt-4o-mini' },
+    { label: 'GPT-4o', value: 'gpt-4o' },
+    { label: 'GPT-4.1 Mini', value: 'gpt-4.1-mini' },
+  ]);
 
   const initialLoggingConfig = {
     level: config?.wsLoggingLevel || 'info',
@@ -494,12 +500,37 @@ export function AppUI() {
       } catch (err) {
         addLog('Failed to load categories: ' + err.message, 'error');
       }
-    })();
-  }, [connectionEstablished, categories, mountedRef, addLog]);
 
-  useEffect(() => {
-    console.log('Batch Errors:', batchErrors);
-  }, [batchErrors]);
+      try {
+        const fetchedBatchSizes = await api.get('/api/config/batch-sizes');
+        if (mountedRef.current && Array.isArray(fetchedBatchSizes)) {
+          setBatchSizes(fetchedBatchSizes);
+        }
+      } catch (err) {
+        addLog('Failed to load batch sizes: ' + err.message, 'error');
+      }
+
+      try {
+        const fetchedAIModelOptions = await api.get('/api/config/ai-model-options');
+        if (mountedRef.current && Array.isArray(fetchedAIModelOptions)) {
+          setAiModelOptions(fetchedAIModelOptions);
+
+          setConfig((prevConfig) => {
+            const newConfig = { ...prevConfig };
+            if (!newConfig.aiModel && fetchedAIModelOptions.length > 0) {
+              newConfig.aiModel = fetchedAIModelOptions[0].value;
+            }
+            if (!newConfig.batchSize && fetchedBatchSizes.length > 0) {
+              newConfig.batchSize = fetchedBatchSizes[0];
+            }
+            return newConfig;
+          });
+        }
+      } catch (err) {
+        addLog('Failed to load AI model options: ' + err.message, 'error');
+      }
+    })();
+  }, [connectionEstablished, categories, mountedRef, addLog, api, setConfig]);
 
   return (
     <div className="container-fluid py-4">
@@ -537,6 +568,8 @@ export function AppUI() {
                     onDeleteSelectedCommerceData={
                       handleDeleteSelectedCommerceData
                     }
+                    batchSizes={batchSizes}
+                    aiModelOptions={aiModelOptions}
                   />
                 </div>
                 <div className="col-lg-8">

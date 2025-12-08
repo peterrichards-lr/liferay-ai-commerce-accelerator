@@ -65,7 +65,14 @@ module.exports = (
 ) => {
   app.post(
     '/api/generate/accounts',
-    inputValidationMiddleware(generateAccountsSchema),
+    async (req, res, next) => {
+      const { config } = buildConfigAndOptions(req);
+      const { aiModelOptions } = await configService.getAIModelOptions(config);
+      const batchSizes = await configService.getBatchSizes(config);
+      req.aiModelOptions = aiModelOptions;
+      req.batchSizes = batchSizes;
+      inputValidationMiddleware(generateAccountsSchema(aiModelOptions, batchSizes))(req, res, next);
+    },
     async (req, res) => {
       const { config, options } = buildConfigAndOptions(req);
       config.demoMode = options.demoMode;
@@ -197,7 +204,7 @@ module.exports = (
   app.post(
     '/api/generate/products',
     upload.fields([{ name: 'customImageFile' }, { name: 'customPDFFile' }]),
-    (req, _res, next) => {
+    async (req, res, next) => {
       const b = req.body || {};
 
       if (b.categories) b.categories = parseMaybeJSON(b.categories) || [];
@@ -231,9 +238,14 @@ module.exports = (
         'reuseExistingWarehouses',
       ].forEach((k) => (b[k] = toBoolean(b[k])));
 
-      next();
+      const { config } = buildConfigAndOptions(req);
+      const { aiModelOptions } = await configService.getAIModelOptions(config);
+      const batchSizes = await configService.getBatchSizes(config);
+      req.aiModelOptions = aiModelOptions;
+      req.batchSizes = batchSizes;
+
+      inputValidationMiddleware(generateDataSchema(aiModelOptions, batchSizes))(req, res, next);
     },
-    inputValidationMiddleware(generateDataSchema),
     async (req, res) => {
       const { config, options } = buildConfigAndOptions(req);
       config.demoMode = options.demoMode;
@@ -500,7 +512,14 @@ module.exports = (
 
   app.post(
     '/api/generate/orders',
-    inputValidationMiddleware(generateOrdersSchema),
+    async (req, res, next) => {
+      const { config } = buildConfigAndOptions(req);
+      const { aiModelOptions } = await configService.getAIModelOptions(config);
+      const batchSizes = await configService.getBatchSizes(config);
+      req.aiModelOptions = aiModelOptions;
+      req.batchSizes = batchSizes;
+      inputValidationMiddleware(generateOrdersSchema(aiModelOptions, batchSizes))(req, res, next);
+    },
     async (req, res) => {
       const { config, options } = buildConfigAndOptions(req);
       config.demoMode = options.demoMode;

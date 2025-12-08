@@ -1,0 +1,24 @@
+{
+    "configuration": {
+        "className": "com.liferay.object.rest.dto.v1_0.ObjectEntry",
+        "parameters": {
+            "containsHeaders": "true",
+            "createStrategy": "UPSERT",
+            "onErrorFail": "false",
+            "taskItemDelegateName": "C_AICommerceAcceleratorConfiguration",
+            "updateStrategy": "UPDATE"
+        },
+        "taskItemDelegateName": "C_AICommerceAcceleratorConfiguration"
+    },
+    "items": [
+        {
+            "configKey": "ai-model-options",
+            "configStatus": {
+                "key": "Active"
+            },
+            "configValue": "[\n  { \"label\": \"GPT-4o Mini\", \"value\": \"gpt-4o-mini\" },\n  { \"label\": \"GPT-4o\", \"value\": \"gpt-4o\" },\n  { \"label\": \"GPT-4.1 Mini\", \"value\": \"gpt-4.1-mini\" }\n]",
+            "description": "AI Model Options",
+            "externalReferenceCode": "AI-MODEL-OPTIONS"
+        }
+    ]
+}

@@ -42,6 +42,12 @@ const QUEUE_CONFIG_KEY = 'queue-config';
 const WS_CONFIG_CACHE_KEY = 'WS_CONFIG_KEY';
 const WS_CONFIG_KEY = 'ws-config';
 
+const BATCH_SIZES_CONFIG_KEY = 'batch-sizes';
+const BATCH_SIZES_CACHE_KEY = 'BATCH_SIZES_KEY';
+
+const AI_MODEL_OPTIONS_CONFIG_KEY = 'ai-model-options';
+const AI_MODEL_OPTIONS_CACHE_KEY = 'AI_MODEL_OPTIONS_KEY';
+
 class ConfigService {
   constructor(ctx) {
     this.cache = ctx.cache;
@@ -431,6 +437,100 @@ class ConfigService {
 
   getWSConfigCached() {
     return this.getConfigCached(WS_CONFIG_CACHE_KEY) || {};
+  }
+
+  async getBatchSizes(requestConfig) {
+    const logger = this.logger;
+    try {
+      const sizes = await this.getConfig(
+        requestConfig,
+        BATCH_SIZES_CACHE_KEY,
+        BATCH_SIZES_CONFIG_KEY
+      );
+      return Array.isArray(sizes) && sizes.length > 0 ? sizes : [10, 25, 50];
+    } catch (error) {
+      const erc = error?.errorReference || createERC(ERC_PREFIX.ERROR);
+      logger?.warn?.('Failed to get batch sizes from Liferay Object, using defaults', {
+        operation: 'get-batch-sizes',
+        errorReference: erc,
+        message: error.message,
+      });
+      return [10, 25, 50];
+    }
+  }
+
+  getBatchSizesCached() {
+    const cached = this.getConfigCached(BATCH_SIZES_CACHE_KEY);
+    return Array.isArray(cached) && cached.length > 0 ? cached : [10, 25, 50];
+  }
+
+  async getAIModelOptions(requestConfig) {
+    const logger = this.logger;
+    try {
+      const options = await this.getConfig(
+        requestConfig,
+        AI_MODEL_OPTIONS_CACHE_KEY,
+        AI_MODEL_OPTIONS_CONFIG_KEY
+      );
+      const aiConfig = await this.getAIConfig(requestConfig);
+
+      const resolvedOptions = Array.isArray(options) && options.length > 0
+        ? options
+        : [
+            { label: 'GPT-4o Mini', value: 'gpt-4o-mini' },
+            { label: 'GPT-4o', value: 'gpt-4o' },
+            { label: 'GPT-4.1 Mini', value: 'gpt-4.1-mini' },
+          ];
+      
+      let defaultModel = aiConfig?.defaultModel || null;
+      const defaultModelExists = resolvedOptions.some(opt => opt.value === defaultModel);
+
+      if (!defaultModel || !defaultModelExists) {
+        defaultModel = resolvedOptions.length > 0 ? resolvedOptions[0].value : null;
+        logger?.warn?.(`Default AI model '${aiConfig?.defaultModel}' not found in available options. Setting default to '${defaultModel}'.`, {
+          operation: 'get-ai-model-options-fallback',
+        });
+      }
+
+      return { aiModelOptions: resolvedOptions, defaultModel };
+    } catch (error) {
+      const erc = error?.errorReference || createERC(ERC_PREFIX.ERROR);
+      logger?.warn?.('Failed to get AI model options from Liferay Object, using defaults', {
+        operation: 'get-ai-model-options',
+        errorReference: erc,
+        message: error.message,
+      });
+      return {
+        aiModelOptions: [
+          { label: 'GPT-4o Mini', value: 'gpt-4o-mini' },
+          { label: 'GPT-4o', value: 'gpt-4o' },
+          { label: 'GPT-4.1 Mini', value: 'gpt-4.1-mini' },
+        ],
+        defaultModel: 'gpt-4o-mini',
+      };
+    }
+  }
+
+  getAIModelOptionsCached() {
+    const cached = this.getConfigCached(AI_MODEL_OPTIONS_CACHE_KEY);
+    const cachedAIConfig = this.getAIConfigCached();
+
+    const resolvedOptions = Array.isArray(cached) && cached.length > 0
+      ? cached
+      : [
+          { label: 'GPT-4o Mini', value: 'gpt-4o-mini' },
+          { label: 'GPT-4o', value: 'gpt-4o' },
+          { label: 'GPT-4.1 Mini', value: 'gpt-4.1-mini' },
+        ];
+    
+    let defaultModel = cachedAIConfig?.defaultModel || null;
+    const defaultModelExists = resolvedOptions.some(opt => opt.value === defaultModel);
+
+    if (!defaultModel || !defaultModelExists) {
+      defaultModel = resolvedOptions.length > 0 ? resolvedOptions[0].value : null;
+    }
+
+    return { aiModelOptions: resolvedOptions, defaultModel };
   }
 
   clearCache() {

@@ -67,4 +67,10 @@ export const PANELS = [
     icon: 'categories',
     component: lazy(() => import('./components/panels/CategoriesConfigPanel')),
   },
+  {
+    id: 'batch-sizes',
+    label: 'Batch Sizes',
+    icon: 'code',
+    component: lazy(() => import('./components/panels/BatchSizesPanel')),
+  },
 ];

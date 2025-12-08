@@ -9,14 +9,6 @@ const channelConnectionSchema = {
   channelId: { type: 'number', required: true, integer: true },
 };
 
-const aiModelSchema = {
-  aiModel: {
-    type: 'string',
-    enum: ['gpt-4o', 'gpt-4o-mini', 'gpt-4-turbo', 'gpt-3.5-turbo'],
-    required: true,
-  },
-};
-
 const modeSchema = {
   imageMode: {
     type: 'string',
@@ -36,48 +28,70 @@ const commerceSchema = {
   currencyCode: { type: 'string', required: false },
   localeCode: { type: 'string', required: false },
   selectedLanguages: { type: 'array', required: false },
-  batchSize: { type: 'number', min: 1, max: 20, integer: true },
   demoMode: { type: 'boolean', required: false },
 };
 
-const generateDataSchema = {
-  //...connectionSchema,
-  ...aiModelSchema,
+const generateDataSchema = (aiModelOptions = [], batchSizes = []) => ({
   ...modeSchema,
   ...commerceSchema,
-
+  batchSize: {
+    type: 'number',
+    enum: batchSizes,
+    required: true,
+  },
+  aiModel: {
+    type: 'string',
+    enum: aiModelOptions.map(opt => opt.value),
+    required: true,
+  },
   categories: { type: 'array', required: false },
-  productCount: { type: 'number', min: 1, max: 100, integer: true },
-  accountCount: { type: 'number', min: 1, max: 50, integer: true },
-  orderCount: { type: 'number', min: 1, max: 100, integer: true },
-};
+  productCount: { type: 'number', min: 0, max: 100, integer: true },
+  accountCount: { type: 'number', min: 0, max: 50, integer: true },
+  orderCount: { type: 'number', min: 0, max: 100, integer: true },
+});
 
-const generateOrdersSchema = {
+const generateOrdersSchema = (aiModelOptions = [], batchSizes = []) => ({
   ...connectionSchema,
-  ...aiModelSchema,
   ...commerceSchema,
-
+  batchSize: {
+    type: 'number',
+    enum: batchSizes,
+    required: true,
+  },
+  aiModel: {
+    type: 'string',
+    enum: aiModelOptions.map(opt => opt.value),
+    required: true,
+  },
   channelId: { type: 'number', required: true, integer: true }, // override required=true
   currencyCode: { type: 'string', required: true }, // override required=true
-  orderCount: { type: 'number', min: 1, max: 100, integer: true },
-};
+  orderCount: { type: 'number', min: 0, max: 100, integer: true },
+});
 
-const generateAccountsSchema = {
+const generateAccountsSchema = (aiModelOptions = [], batchSizes = []) => ({
   ...connectionSchema,
-  ...aiModelSchema,
   ...commerceSchema,
-
-  accountCount: { type: 'number', min: 1, max: 100, integer: true },
-};
+  batchSize: {
+    type: 'number',
+    enum: batchSizes,
+    required: true,
+  },
+  aiModel: {
+    type: 'string',
+    enum: aiModelOptions.map(opt => opt.value),
+    required: true,
+  },
+  accountCount: { type: 'number', min: 0, max: 100, integer: true },
+});
 
 module.exports = {
   connectionSchema,
   channelConnectionSchema,
-  aiModelSchema,
   modeSchema,
   commerceSchema,
   generateDataSchema,
   generateOrdersSchema,
   generateAccountsSchema,
 };
+
 

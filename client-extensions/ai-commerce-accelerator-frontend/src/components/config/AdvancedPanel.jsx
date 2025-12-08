@@ -10,6 +10,8 @@ export default function AdvancedPanel({
   generationConfig,
   onDeleteAllCommerceData,
   onDeleteSelectedCommerceData,
+  batchSizes,
+  aiModelOptions,
 }) {
   const { config, setConfig } = useApp();
 
@@ -90,17 +92,17 @@ export default function AdvancedPanel({
         <label htmlFor="batchSize" className="form-label">
           Batch Size
         </label>
-        <ClayInput
+        <ClaySelect
           id="batchSize"
-          type="number"
-          min={1}
-          max={20}
+          aria-label="Batch Size"
           value={config.batchSize}
-          onChange={(e) =>
-            setConfig({ batchSize: Math.max(1, Number(e.target.value) || 1) })
-          }
+          onChange={(e) => setConfig({ batchSize: Number(e.target.value) })}
           disabled={disabled}
-        />
+        >
+          {batchSizes.map((size) => (
+            <ClaySelect.Option key={size} value={size} label={size.toString()} />
+          ))}
+        </ClaySelect>
         <div className="form-text">How many items per batch.</div>
       </ClayForm.Group>
       <ClayForm.Group className="mb-3">
@@ -114,9 +116,9 @@ export default function AdvancedPanel({
           onChange={(e) => setConfig({ aiModel: e.target.value })}
           disabled={disabled}
         >
-          <ClaySelect.Option value="gpt-4o-mini" label="GPT-4o-Mini" />
-          <ClaySelect.Option value="gpt-4o" label="GPT-4o" />
-          <ClaySelect.Option value="gpt-4.1-mini" label="GPT-4.1-Mini" />
+          {aiModelOptions.map((option) => (
+            <ClaySelect.Option key={option.value} value={option.value} label={option.label} />
+          ))}
         </ClaySelect>
         <div className="form-text">Choose based on speed/cost needs.</div>
       </ClayForm.Group>

@@ -240,4 +240,40 @@ module.exports = (app, { logger, configService }) => {
       });
     }
   });
+
+      app.get('/api/config/ai-model-options', async (req, res) => {
+      const { config } = buildConfigAndOptions(req);
+  
+      try {
+        const { aiModelOptions, defaultModel } = await configService.getAIModelOptions(config);
+  
+        res.json({
+          success: true,
+          aiModelOptions: aiModelOptions || [],
+          defaultModel,
+          timestamp: new Date().toISOString(),
+        });
+      } catch (error) {
+        sendSafeError(res, logger, req, error, 'get-ai-model-options', {
+          sanitizeConfig: sanitizedObject(config),
+        });
+      }
+    });
+  app.get('/api/config/batch-sizes', async (req, res) => {
+    const { config } = buildConfigAndOptions(req);
+
+    try {
+      const batchSizes = await configService.getBatchSizes(config);
+
+      res.json({
+        success: true,
+        batchSizes: batchSizes || [],
+        timestamp: new Date().toISOString(),
+      });
+    } catch (error) {
+      sendSafeError(res, logger, req, error, 'get-batch-sizes', {
+        sanitizeConfig: sanitizedObject(config),
+      });
+    }
+  });
 };
