@@ -57,6 +57,7 @@ module.exports = (
     productGenerator,
     accountGenerator,
     orderGenerator,
+    warehouseGenerator,
     configService,
     logger,
     getWs,
@@ -220,6 +221,8 @@ module.exports = (
         'generateSpecifications',
         'generateSkuVariants',
         'demoMode',
+        'createWarehouses',
+        'reuseExistingWarehouses',
       ].forEach((k) => (b[k] = toBoolean(b[k])));
 
       next();
@@ -239,6 +242,27 @@ module.exports = (
           configService.getObjectStorageConfig(config),
           configService.getWSConfig(config),
         ]);
+
+        if (options.createWarehouses) {
+          let warehouses = [];
+          if (options.reuseExistingWarehouses) {
+            const existingWarehouses = await liferayService.getWarehouses(config);
+            warehouses = (existingWarehouses && existingWarehouses.items) || [];
+          }
+
+          const warehouseCount = options.warehouseCount || 1;
+          if (warehouses.length < warehouseCount) {
+            const newWarehouseCount = warehouseCount - warehouses.length;
+            const newWarehouses = await warehouseGenerator.createWarehouses(
+              config,
+              { ...options, warehouseCount: newWarehouseCount }
+            );
+            warehouses.push(...newWarehouses);
+          }
+          options.warehouses = warehouses;
+          cacheService.set('generated-warehouses', warehouses);
+        }
+
 
         if (options.demoMode) {
           try {
@@ -558,6 +582,11 @@ module.exports = (
           throw new Error(
             `Not enough accounts available. Required: ${accountValidation.required}, Available: ${accountValidation.count}.`
           );
+        }
+
+        const warehouses = cacheService.get('generated-warehouses');
+        if (warehouses) {
+          options.warehouses = warehouses;
         }
 
         const results = await orderGenerator.generateOrders(config, options);

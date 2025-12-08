@@ -196,6 +196,26 @@ class ProductGenerator {
           sessionId,
           correlationId,
         });
+
+        if (options.createWarehouses) {
+          try {
+            logger.info('Updating inventory for all products', { sessionId });
+            const createdProducts = await liferay.getProducts(config);
+            const ercToProductMap = new Map();
+            for (const product of createdProducts) {
+              ercToProductMap.set(product.externalReferenceCode, product);
+            }
+    
+            for (const originalProduct of productDataList) {
+              const createdProduct = ercToProductMap.get(originalProduct.externalReferenceCode);
+              if (createdProduct) {
+                await this.updateInventory(config, createdProduct, originalProduct, options);
+              }
+            }
+          } catch (error) {
+            logger.error('Failed to update inventory', { sessionId, error: error.message });
+          }
+        }
       }
     };
   }
@@ -1033,6 +1053,7 @@ class ProductGenerator {
             results.products.push(createdProduct);
             results.created++;
             processed++;
+
             getWs().emitBatchProgress(
               {
                 entityType: 'products',
@@ -1276,6 +1297,9 @@ class ProductGenerator {
       logger.trace(
         `Product generation completed: ${results.created} created, ${results.errors.length} errors`
       );
+
+      this.ctx.cache.set('generated-data:products', allProductData);
+
       return results;
     } catch (error) {
       const { getWs } = this.ctx;
@@ -2070,6 +2094,41 @@ class ProductGenerator {
         sku: productData.baseSku || productData.sku || 'unknown',
       });
       throw error;
+    }
+  }
+
+  async updateInventory(config, createdProduct, originalProduct, options) {
+    const { logger, liferay } = this.ctx;
+    if (!options.warehouses || options.warehouses.length === 0) {
+      return;
+    }
+
+    logger.trace(`Updating inventory for product ${createdProduct.id}`);
+
+    const skus = createdProduct.skus || [];
+    for (const sku of skus) {
+      const inventoryLevel = sku.inventoryLevel || 0;
+      const inventoryPerWarehouse = Math.floor(
+        inventoryLevel / options.warehouses.length
+      );
+
+      for (const warehouse of options.warehouses) {
+        try {
+          await liferay.updateProductInventory(config, createdProduct.id, {
+            sku: sku.sku,
+            warehouseId: warehouse.id,
+            inventoryLevel: inventoryPerWarehouse,
+          });
+          logger.trace(
+            `Updated inventory for SKU ${sku.sku} in warehouse ${warehouse.name}`
+          );
+        } catch (error) {
+          logger.error(
+            `Failed to update inventory for SKU ${sku.sku} in warehouse ${warehouse.name}`,
+            error
+          );
+        }
+      }
     }
   }
 

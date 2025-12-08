@@ -6,7 +6,7 @@ import React, {
   useRef,
   useMemo,
 } from 'react';
-import { AppProvider, useApp } from './context/AppContext.jsx';
+import { AppProvider, useApp, useApi } from './context/AppContext.jsx';
 import { progressReducer, initialProgress } from './state/progressReducer';
 
 import useActivityLog from './hooks/useActivityLog';
@@ -61,6 +61,7 @@ const initialGenerationConfig = {
   backorderAssignmentRatio: 50,
   createWarehouses: true,
   reuseExistingWarehouses: true,
+  warehouseCount: 1,
   customPDFFile: null,
 };
 
@@ -76,6 +77,7 @@ export function AppUI() {
   const appTopRef = useRef(null);
 
   const { config, setConfig } = useApp();
+  const api = useApi();
 
   const [generationConfig, setGenerationConfig] = useState(
     initialGenerationConfig
@@ -90,6 +92,7 @@ export function AppUI() {
 
   const [connectionEstablished, setConnectionEstablished] = useState(false);
   const [openAiKeyAvailable, setOpenAiKeyAvailable] = useState(false);
+  const [generationCompleted, setGenerationCompleted] = useState(false);
 
   const initialLoggingConfig = {
     level: config?.wsLoggingLevel || 'info',
@@ -141,6 +144,7 @@ export function AppUI() {
   const { isGenerating, generateData } = useGeneration({
     addLog,
     buildPayload,
+    api,
     config,
     dispatch,
     forceDemoMode: connectionEstablished && !openAiKeyAvailable,
@@ -148,6 +152,7 @@ export function AppUI() {
     mountedRef,
     progress,
     setProgress,
+    setGenerationCompleted,
     connectionEstablished,
   });
 
@@ -433,6 +438,31 @@ export function AppUI() {
     notifyUser('Generator settings restored to defaults.');
   }, []);
 
+  const handleExport = useCallback(async () => {
+    try {
+      const response = await api.get('/api/export-commerce-data');
+      const filename = buildFilename('ai-commerce-accelerator-data');
+      exportJsonFile(response, filename);
+      notifyUser('Commerce data exported successfully');
+    } catch (error) {
+      notifyUser('Failed to export commerce data', 'danger', error);
+    }
+  }, [api]);
+
+  const handleImport = useCallback(async (event) => {
+    const file = event.target.files[0];
+    if (!file) return;
+
+    try {
+      const formData = new FormData();
+      formData.append('importFile', file);
+      await api.post('/api/import-commerce-data', formData);
+      notifyUser('Commerce data import started');
+    } catch (error) {
+      notifyUser('Failed to import commerce data', 'danger', error);
+    }
+  }, [api]);
+
   const [availableCategories, setAvailableCategories] = useState([]);
 
   useEffect(() => {
@@ -549,6 +579,10 @@ export function AppUI() {
                     validationErrors={generationErrors}
                     scrollTargetRef={appTopRef}
                     availableCategories={availableCategories}
+                    generationCompleted={generationCompleted}
+                    onExport={handleExport}
+                    onImport={handleImport}
+                    liferayConnected={connectionEstablished}
                   />
                   <ProgressMonitor
                     progress={progress}

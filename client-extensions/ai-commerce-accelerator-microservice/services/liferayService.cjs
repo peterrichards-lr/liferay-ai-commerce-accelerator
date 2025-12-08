@@ -641,6 +641,55 @@ class LiferayService {
     return this._asCount(data);
   }
 
+  async createWarehouse(config, warehouseData) {
+    const { logger } = this.ctx;
+
+    logger.warn('********************************************************************************');
+    logger.warn('LiferayService.createWarehouse is using a mock implementation.');
+    logger.warn('This method will return a static response instead of calling a real API.');
+    logger.warn('********************************************************************************');
+
+    return Promise.resolve({
+      ...warehouseData,
+      id: Math.floor(Math.random() * 10000),
+    });
+  }
+
+  async getWarehouses(config) {
+    const { logger } = this.ctx;
+
+    logger.warn('********************************************************************************');
+    logger.warn('LiferayService.getWarehouses is using a mock implementation.');
+    logger.warn('This method will return a static response instead of calling a real API.');
+    logger.warn('********************************************************************************');
+
+    return Promise.resolve({
+      items: [
+        {
+          id: Math.floor(Math.random() * 10000),
+          name: 'Default Warehouse',
+          externalReferenceCode: 'DEFAULT-WAREHOUSE',
+          country: 'USA',
+          region: 'CA',
+        }
+      ],
+      totalCount: 1
+    });
+  }
+
+  async updateProductInventory(config, productId, inventoryData) {
+    const { logger } = this.ctx;
+
+    logger.warn('********************************************************************************');
+    logger.warn('LiferayService.updateProductInventory is using a mock implementation.');
+    logger.warn('This method will return a static response instead of calling a real API.');
+    logger.warn('********************************************************************************');
+    
+    return Promise.resolve({
+      ...inventoryData,
+    });
+  }
+
   async getCurrencies(config) {
     const data = await this._get(config, PATH.CURRENCIES, 'get-currencies');
     const items = this._asItems(data);

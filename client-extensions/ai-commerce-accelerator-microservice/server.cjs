@@ -110,6 +110,8 @@ require('./routes/delete.cjs')(app, {
   deleteCoordinatorService,
   configService,
 });
+require('./routes/export.cjs')(app, { ...routeCtx, cacheService });
+require('./routes/import.cjs')(app, { ...routeCtx, batchPollingService, getWs, configService });
 
 const generateCtx = {
   liferayService,

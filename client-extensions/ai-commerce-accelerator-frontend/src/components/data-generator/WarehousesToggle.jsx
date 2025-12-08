@@ -15,6 +15,22 @@ function WarehousesToggle({ productCount, values, onChange, disabled }) {
         muted={isMuted}
       />
 
+      {values.createWarehouses && (
+        <div className="form-group">
+          <label htmlFor="dataGeneration_warehouseCount">Number of Warehouses</label>
+          <input
+            id="dataGeneration_warehouseCount"
+            type="number"
+            className="form-input"
+            min="1"
+            max="10"
+            value={values.warehouseCount}
+            onChange={(e) => onChange('warehouseCount', parseInt(e.target.value))}
+            disabled={disabled || isMuted}
+          />
+        </div>
+      )}
+
       <CheckboxField
         id="dataGeneration_reuseExistingWarehouses"
         checked={values.reuseExistingWarehouses}

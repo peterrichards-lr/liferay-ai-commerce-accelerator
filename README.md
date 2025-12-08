@@ -18,6 +18,23 @@ The accelerator is composed of four main parts that work together:
 
 The available product categories are now dynamically configurable via the "AI Commerce Accelerator Configuration" UI. The categories are stored as a Liferay Object and can be managed through a dedicated panel, allowing administrators to easily update the product catalog without code changes.
 
+## Features
+
+### Warehouse & Inventory Generation
+
+The accelerator now supports the creation of warehouses and the distribution of inventory across them.
+
+- **Automated Warehouse Creation**: When generating products, you can now opt to create a specified number of warehouses.
+- **Inventory Distribution**: The inventory for each generated product SKU is automatically distributed among the available warehouses.
+- **Reuse Existing Warehouses**: To avoid creating duplicate warehouses, you can choose to reuse existing warehouses if they are found in the Liferay instance.
+
+### Export/Import Commerce Data
+
+You can now export the generated commerce data to a JSON file and import it back into the accelerator at a later time. This is useful for saving a set of generated data to be reused without needing to regenerate it from scratch.
+
+- **Export Data**: After a data generation process is complete, you can export all generated products, accounts, and orders to a single JSON file.
+- **Import Data**: You can upload a previously exported JSON file to recreate the commerce data in your Liferay instance. This uses the same batch processing engine as the regular data generation, ensuring a reliable import process.
+
 ### Data Flow & Dependencies
 
 -   The **Frontend** talks exclusively to the **Microservice**.
@@ -70,6 +87,8 @@ You only need to modify the source `.json` (schema) and `.md` (prompt) files in 
     -   Use the interface to test your connection to the Liferay and microservice endpoints.
     -   Select the quantity and type of data (products, accounts, orders) you wish to generate.
     -   Click "Start Generation" and monitor the progress in the dashboard.
+    -   Once generation is complete, you can use the "Export Data" button to save the generated data.
+    -   At any time, you can use the "Import Data" button to upload a previously exported data file.
 
 ## Local Development
 

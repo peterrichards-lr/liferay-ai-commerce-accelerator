@@ -148,6 +148,8 @@ class AccountGenerator {
         return account;
       });
 
+      this.ctx.cache.set('generated-data:accounts', accountDataList);
+
       if (useBatch) {
         const callbackUrl =
           config.microserviceUrl && config.microserviceUrl !== 'null'

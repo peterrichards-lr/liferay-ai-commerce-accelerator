@@ -1,11 +1,11 @@
 import { useState, useCallback } from 'react';
-import { useApi } from '../context/AppContext';
 import { toFormData } from '../utils/formData';
 import { computeTotalsFromConfig } from '../state/progressSelectors';
 
 export default function useGeneration({
   addLog,
   buildPayload,
+  api,
   config,
   dispatch,
   forceDemoMode,
@@ -13,10 +13,10 @@ export default function useGeneration({
   mountedRef,
   progress,
   setProgress,
+  setGenerationCompleted,
   connectionEstablished,
 }) {
   const [isGenerating, setIsGenerating] = useState(false);
-  const api = useApi();
 
   const generateData = useCallback(async () => {
     if (!connectionEstablished) {
@@ -119,6 +119,7 @@ export default function useGeneration({
               )
                 ? generationConfig.inventoryAssignmentRatio
                 : 0,
+              warehouseCount: Number.isFinite(generationConfig.warehouseCount) ? generationConfig.warehouseCount : 0,
               enableBackorders: !!generationConfig.enableBackorders,
               backorderAssignmentRatio: Number.isFinite(
                 generationConfig.backorderAssignmentRatio
@@ -500,7 +501,10 @@ export default function useGeneration({
           'error'
         );
     } finally {
-      if (mountedRef.current) setIsGenerating(false);
+      if (mountedRef.current) {
+        setIsGenerating(false);
+        setGenerationCompleted(true);
+      }
     }
   }, [
     addLog,

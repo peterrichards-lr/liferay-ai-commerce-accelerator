@@ -30,6 +30,10 @@ function DataGeneratorForm({
   validationErrors,
   scrollTargetRef,
   availableCategories,
+  generationCompleted,
+  onExport,
+  onImport,
+  liferayConnected,
 }) {
   const [panelOpen, setPanelOpen] = useState(true);
   useEffect(() => {
@@ -107,9 +111,7 @@ function DataGeneratorForm({
 
   const estimatedCost = costEstimate();
 
-  const shouldDisableFields =
-    disabled && Object.keys(validationErrors || {}).length === 0;
-  const lockFields = shouldDisableFields;
+  const lockFields = disabled;
 
   return (
     <CollapsiblePanel
@@ -146,6 +148,36 @@ function DataGeneratorForm({
             <ClayIcon symbol="redo" />
             Reset Settings
           </button>
+          <div className="btn-group">
+            <input
+              type="file"
+              id="dataImport"
+              accept=".json"
+              onChange={onImport}
+              style={{ display: 'none' }}
+              disabled={isGenerating || !liferayConnected}
+            />
+            <button
+              type="button"
+              className="btn btn-outline-secondary btn-sm"
+              onClick={() => document.getElementById('dataImport').click()}
+              disabled={isGenerating || !liferayConnected}
+              title="Import generated data from a JSON file"
+            >
+              <ClayIcon symbol="upload" />
+              Import Data
+            </button>
+            <button
+              type="button"
+              className="btn btn-outline-secondary btn-sm"
+              onClick={onExport}
+              disabled={isGenerating || !generationCompleted}
+              title="Export generated data to a JSON file"
+            >
+              <ClayIcon symbol="download" />
+              Export Data
+            </button>
+          </div>
         </>
       }
       startOpen={!isGenerating}
@@ -1085,6 +1117,7 @@ function DataGeneratorForm({
                   createWarehouses: generationConfig.createWarehouses,
                   reuseExistingWarehouses:
                     generationConfig.reuseExistingWarehouses,
+                  warehouseCount: generationConfig.warehouseCount,
                 }}
                 onChange={handleConfigChange}
                 disabled={lockFields || generationConfig.productCount === 0}

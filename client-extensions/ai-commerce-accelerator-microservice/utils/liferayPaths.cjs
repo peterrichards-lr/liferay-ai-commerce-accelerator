@@ -34,6 +34,7 @@ const BASE = {
   PRICE_LISTS: '/o/headless-commerce-admin-pricing/v1.0/priceLists',
   ME: '/o/headless-admin-user/v1.0/my-user-account',
   CURRENCIES: '/o/headless-commerce-admin-catalog/v1.0/currencies',
+  INVENTORY_API: '/o/headless-commerce-admin-inventory/v1.0',
 };
 
 const VARIANT = {
@@ -51,6 +52,8 @@ const PATH = {
   BASE,
   VARIANT,
   CUSTOM_OBJECTS,
+
+  WAREHOUSES: `${BASE.INVENTORY_API}/warehouses`,
 
   PRODUCTS: BASE.PRODUCTS,
   PRICE_LISTS: BASE.PRICE_LISTS,

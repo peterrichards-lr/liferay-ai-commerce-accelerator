@@ -68,9 +68,24 @@ class OrderGenerator {
     }
   }
 
-  buildOrderPayload(config, orderData, accounts) {
+  buildOrderPayload(config, orderData, accounts, products, warehouses) {
     const accountId = this.pickAccountId(orderData.accountId, accounts);
     const orderStatus = this.normalizeOrderStatus(orderData.orderStatus);
+
+    const orderItems = [];
+    const itemCount = Math.floor(Math.random() * 3) + 1;
+    for (let i = 0; i < itemCount; i++) {
+      const product = products[Math.floor(Math.random() * products.length)];
+      const sku = product.skus[0];
+      const warehouse = warehouses && warehouses.length > 0 ? warehouses[Math.floor(Math.random() * warehouses.length)] : null;
+      
+      orderItems.push({
+        sku: sku.sku,
+        quantity: Math.floor(Math.random() * 3) + 1,
+        warehouseId: warehouse ? warehouse.id : undefined,
+      });
+    }
+
     return {
       accountId,
       channelId: parseInt(config.channelId, 10),
@@ -79,6 +94,7 @@ class OrderGenerator {
       orderStatus: parseInt(orderStatus, 10),
       externalReferenceCode:
         orderData.externalReferenceCode || createERC(ERC_PREFIX.ORDER),
+      orderItems,
     };
   }
 
@@ -137,6 +153,8 @@ class OrderGenerator {
         );
       }
 
+      this.ctx.cache.set('generated-data:orders', orderDataList);
+
       if (useBatch) {
         const msUrl = (config.microserviceUrl || '')
           .toString()
@@ -154,7 +172,7 @@ class OrderGenerator {
           const originalBatch = chunks[batchIndex];
 
           const batch = originalBatch.map((od) =>
-            this.buildOrderPayload(config, od, accounts)
+            this.buildOrderPayload(config, od, accounts, products, options.warehouses)
           );
 
           const batchERC = createERC(ERC_PREFIX.ORDER_BATCH);
@@ -377,7 +395,8 @@ class OrderGenerator {
         config,
         options,
         orderDataList,
-        accounts
+        accounts,
+        products
       );
     } catch (error) {
       logger.error('Order generation failed', {
@@ -391,7 +410,7 @@ class OrderGenerator {
     }
   }
 
-  async generateOrdersIndividually(config, options, orderDataList, accounts) {
+  async generateOrdersIndividually(config, options, orderDataList, accounts, products) {
     const { logger, getWs, configService, cache } = this.ctx;
     const { mode, phase } = resolvePhaseAndMode({
       useBatch: false,
@@ -426,7 +445,9 @@ class OrderGenerator {
         const payload = this.buildOrderPayload(
           config,
           orderDataList[i],
-          accounts
+          accounts,
+          products,
+          options.warehouses
         );
         const createdOrder = await this.createSingleOrder(config, payload);
         created.push(createdOrder);
