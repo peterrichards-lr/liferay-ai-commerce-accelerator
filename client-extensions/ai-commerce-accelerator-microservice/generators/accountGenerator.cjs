@@ -124,9 +124,16 @@ class AccountGenerator {
       accountDataList = accountDataList.map((raw) => {
         const account = { ...raw };
 
-        // Ensure accountContactInformation structure
-        if (account.emailAddress || account.domains) {
-          account.accountContactInformation = account.accountContactInformation || {};
+        // Ensure accountContactInformation structure and handle domains
+        if (
+          account.emailAddress ||
+          account.domains ||
+          (account.accountContactInformation &&
+            account.accountContactInformation.domains)
+        ) {
+          account.accountContactInformation =
+            account.accountContactInformation || {};
+
           if (account.emailAddress) {
             account.accountContactInformation.emailAddresses = [
               {
@@ -135,15 +142,29 @@ class AccountGenerator {
                 type: 'email-address',
               },
             ];
-            delete account.emailAddress; // Remove direct emailAddress
+            delete account.emailAddress;
           }
+
+          const allDomains = [
+            ...(account.domains || []),
+            ...(account.accountContactInformation?.domains || []),
+          ];
+
+          if (allDomains.length > 0) {
+            account.accountContactInformation.webUrls = allDomains.map(
+              (domain) => ({
+                url: `http://${domain}`,
+                urlType: 'Website',
+                primary: false,
+              })
+            );
+          }
+
           if (account.domains) {
-            account.accountContactInformation.webUrls = account.domains.map(domain => ({
-              url: `http://${domain}`,
-              urlType: 'Website',
-              primary: false,
-            }));
             delete account.domains;
+          }
+          if (account.accountContactInformation?.domains) {
+            delete account.accountContactInformation.domains;
           }
         }
 

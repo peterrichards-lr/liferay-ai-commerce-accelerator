@@ -130,7 +130,7 @@ const generateCtx = {
   orderGenerator,
   configService,
   logger,
-  getWs: ws,
+  getWs: getWsFromBootstrap,
 };
 
 require('./routes/generate.cjs')(app, generateCtx);

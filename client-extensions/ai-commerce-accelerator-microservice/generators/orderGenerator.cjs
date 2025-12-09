@@ -69,20 +69,61 @@ class OrderGenerator {
   }
 
   buildOrderPayload(config, orderData, accounts, products, warehouses) {
+    const { logger } = this.ctx;
     const accountId = this.pickAccountId(orderData.accountId, accounts);
     const orderStatus = this.normalizeOrderStatus(orderData.orderStatus);
 
     const orderItems = [];
     const itemCount = Math.floor(Math.random() * 3) + 1;
+
+    const allPurchasableSkus = products.flatMap((p) =>
+      (p.skus || []).filter(
+        (s) => s.purchasable && s.sku && p.productStatus === 0
+      )
+    );
+
+    if (allPurchasableSkus.length === 0) {
+      logger.error('No purchasable SKUs found across all products.', {
+        totalProducts: products.length,
+        productsWithSkus: products.filter((p) => p.skus && p.skus.length > 0)
+          .length,
+      });
+      products.forEach((p) => {
+        logger.debug('Product details for non-purchasable', {
+          id: p.id,
+          name: p.name,
+          productStatus: p.productStatus,
+          published: p.published,
+          skus: p.skus,
+        });
+      });
+      throw new Error('No products with purchasable SKUs found.');
+    }
+
+    logger.debug('All purchasable SKUs', {
+      skus: allPurchasableSkus.map((s) => s.sku),
+    });
+
     for (let i = 0; i < itemCount; i++) {
-      const product = products[Math.floor(Math.random() * products.length)];
-      const sku = product.skus[0];
-      const warehouse = warehouses && warehouses.length > 0 ? warehouses[Math.floor(Math.random() * warehouses.length)] : null;
-      
+      const sku = allPurchasableSkus[i % allPurchasableSkus.length];
+
+      const warehouse =
+        warehouses && warehouses.length > 0
+          ? warehouses[Math.floor(Math.random() * warehouses.length)]
+          : null;
+
       orderItems.push({
         sku: sku.sku,
+        skuExternalReferenceCode: sku.sku,
         quantity: Math.floor(Math.random() * 3) + 1,
         warehouseId: warehouse ? warehouse.id : undefined,
+      });
+      logger.debug('Added order item', {
+        sku: sku.sku,
+        quantity: orderItems[orderItems.length - 1].quantity,
+        purchasable: sku.purchasable,
+        productStatus: sku.productStatus,
+        published: sku.published,
       });
     }
 
@@ -142,7 +183,11 @@ class OrderGenerator {
 
       let orderDataList;
       if (options.demoMode) {
-        orderDataList = mockData.generateOrderData(options.orderCount);
+        orderDataList = mockData.generateOrderData(
+          options.orderCount,
+          {},
+          accounts
+        );
       } else {
         orderDataList = await ai.generateOrderData(
           products,

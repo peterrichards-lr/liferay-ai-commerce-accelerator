@@ -560,9 +560,14 @@ class LiferayService {
   }
 
   async getProducts(config) {
-    let url =
-      PATH.PRODUCTS +
-      (config.catalogId ? `?filter=catalogId eq ${config.catalogId}` : '');
+    const params = new URLSearchParams();
+    if (config.catalogId) {
+      params.append('filter', `catalogId eq ${config.catalogId}`);
+    }
+    params.append('nestedFields', 'skus');
+    params.append('fields', 'id,name,skus,productStatus,published');
+
+    const url = `${PATH.PRODUCTS}?${params.toString()}`;
     const data = await this._get(config, url, 'get-products');
     return this._asItems(data);
   }

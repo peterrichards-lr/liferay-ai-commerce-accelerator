@@ -441,6 +441,9 @@ class MockDataGenerator {
           },
           priceModifier: Math.round(priceModifier * 100),
           price: variantPrice,
+          published: true,
+          purchasable: true,
+          neverExpire: true,
           inStock: getRandomInt(10) > 1,
         };
 
@@ -513,7 +516,7 @@ class MockDataGenerator {
     return accounts;
   }
 
-  generateOrderData(count = 10, opts = {}) {
+  generateOrderData(count = 10, opts = {}, accounts = []) {
     const orders = [];
     const orderStatuses = [0, 1, 2, 10, 15];
     const paymentStatuses = [0, 1, 2, 3];
@@ -538,7 +541,12 @@ class MockDataGenerator {
           country: 'US',
         },
         paymentStatuses: paymentStatuses[getRandomInt(paymentStatuses.length)],
+        items: [],
       };
+      
+      if (accounts.length > 0) {
+        order.accountId = String(accounts[i % accounts.length].id);
+      }
 
       orders.push(order);
     }
