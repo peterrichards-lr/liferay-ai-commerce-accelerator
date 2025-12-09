@@ -727,6 +727,17 @@ class BatchPollingService {
       (batchConfig?.externalReferenceCode && cache.get(`erc:${batchConfig.externalReferenceCode}:config`)?.correlationId) ||
       'unknown';
 
+    const totalCount = status.totalItemsCount || status.totalCount || 0;
+    const processedCount =
+      status.processedItemsCount || status.processedCount || 0;
+    const errorCount = status.failedItems?.length || status.errorCount || 0;
+
+    const entityType =
+      pollData?.entityType || batchConfig?.entityType || 'products';
+    const mode = pollData?.mode || batchConfig?.mode || 'unknown';
+    const operation =
+      pollData?.operation || batchConfig?.operation || 'unknown';
+
     cache.set(
       `batch:${batchId}:failed`,
       {
@@ -769,10 +780,10 @@ class BatchPollingService {
         errorReport,
       });
 
-      logger.debug('Emitting BATCH_ERROR_DETAILS with correlationId', { batchId, correlationId });
+      logger.debug('Emitting BATCH_ERROR_DETAILS with correlationId', { batchId, correlationId: resolvedCorrelationId });
       this.ctx.getWs().emitBatchErrorDetails({
         batchId,
-        correlationId,
+        correlationId: resolvedCorrelationId,
         importTask,
         errorReport,
       });

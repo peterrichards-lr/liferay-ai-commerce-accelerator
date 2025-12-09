@@ -414,7 +414,12 @@ export default function useRealtimeWebSocket({
 
         case ERROR: {
           logError('ERROR received', { raw: data });
-          onLog?.(`Error reported - ${data?.details?.message}`, 'error');
+          const errorMessage = data?.details?.message || 'Unknown error';
+          const errorRef = data?.errorReference || data?.details?.errorReference;
+          const message = errorRef
+            ? `Error: ${errorMessage} (Ref: ${errorRef})`
+            : `Error: ${errorMessage}`;
+          onLog?.(message, 'error');
           break;
         }
 

@@ -57,12 +57,17 @@
                   "required": ["emailAddress", "primary", "type"]
                 }
               },
-              "domains": {
-                "description": "A list of domains associated with the account.",
+              "webUrls": {
+                "description": "A list of web URLs associated with the account.",
                 "type": "array",
                 "items": {
-                  "type": "string",
-                  "format": "hostname"
+                  "type": "object",
+                  "properties": {
+                    "url": { "type": "string", "format": "uri" },
+                    "urlType": { "type": "string" },
+                    "primary": { "type": "boolean" }
+                  },
+                  "required": ["url"]
                 }
               }
             },

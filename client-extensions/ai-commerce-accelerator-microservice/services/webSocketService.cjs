@@ -865,6 +865,7 @@ function createWebSocketService({
       correlationId,
       details = {},
       entityType = 'system',
+      error,
       errorReference,
       message,
       operation = 'internal-error',
@@ -873,6 +874,8 @@ function createWebSocketService({
     opts = {}
   ) => {
     const bid = normalizeBid(batchId);
+    const erc =
+      errorReference || details.errorReference || createERC(ERC_PREFIX.ERROR);
 
     const payload = {
       type: WEB_SOCKET_EVENTS.ERROR,
@@ -880,17 +883,15 @@ function createWebSocketService({
       batchId: bid,
       details: {
         ...details,
-        message: message || 'Internal server error',
+        message: message || error || 'Internal server error',
         phase,
-        errorReference:
-          errorReference ||
-          details.errorReference ||
-          createERC(ERC_PREFIX.ERROR),
+        errorReference: erc,
         internal: true,
       },
       operation,
       timestamp: isoNow(),
       correlationId: correlationId || opts.correlationId || 'unknown',
+      errorReference: erc,
     };
 
     return emit(payload, {
