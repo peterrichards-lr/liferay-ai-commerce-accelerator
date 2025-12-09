@@ -84,6 +84,47 @@ function createWebSocketService({
     maxRetries: defaults.maxRetries,
   };
 
+  const wss = new WebSocket.Server({ server });
+
+  const clients = new Map();
+  const byBatch = new Map();
+  const lastCompletion = new Map();
+
+  let heartbeatTimer;
+
+  function _heartbeatTick() {
+    let checked = 0;
+    let terminated = 0;
+
+    for (const ws of clients.values()) {
+      checked++;
+
+      if (ws.isAlive === false) {
+        terminated++;
+        logger?.warn?.('Terminating unresponsive WS', {
+          operation: 'websocket-health-check',
+          id: ws.id,
+          correlationId: ws.correlationId,
+        });
+        try {
+          ws.terminate();
+        } catch (_) {}
+        continue;
+      }
+
+      ws.isAlive = false;
+      if (ws.readyState === WebSocket.OPEN) {
+        try {
+          ws.ping();
+        } catch (_) {}
+      }
+    }
+
+    logger?.trace?.(
+      `[ws:heartbeat] checked=${checked} terminated=${terminated}`
+    );
+  }
+
   function applyWsConfig(cfg) {
     if (!cfg || typeof cfg !== 'object') return;
 
@@ -155,11 +196,7 @@ function createWebSocketService({
     }
   }
 
-  const wss = new WebSocket.Server({ server });
-
-  const clients = new Map();
-  const byBatch = new Map();
-  const lastCompletion = new Map();
+  heartbeatTimer = setInterval(_heartbeatTick, state.heartbeatIntervalMs);
 
   function resolveTargets({ mode = 'auto', correlationId, batchId }, payload) {
     const cid = correlationId ?? payload?.correlationId ?? null;
@@ -320,6 +357,10 @@ function createWebSocketService({
   }
 
   wss.on('connection', (ws, req) => {
+    logger?.debug?.('WS connection attempt', {
+      operation: 'websocket-connection-attempt',
+      clientIP: req?.socket?.remoteAddress,
+    });
     try {
       const url = new URL(req.url, `http://${req.headers.host}`);
       const correlationId = url.searchParams.get(CORRELATION_ID_HEADER) || null;
@@ -439,6 +480,13 @@ function createWebSocketService({
     });
 
     ws.on('close', (code, reason) => {
+      logger?.debug?.('WS connection close event', {
+        operation: 'websocket-close-event',
+        id: ws.id,
+        correlationId: ws.correlationId,
+        code,
+        reason: reason ? reason.toString() : '(no reason)',
+      });
       clients.delete(ws.correlationId);
 
       if (ws.__batchId) {
@@ -470,8 +518,8 @@ function createWebSocketService({
 
     ws.on('error', (err) => {
       const error = withErrorRef(err, 'websocket-error');
-      logger?.error?.('WebSocket error', {
-        operation: 'websocket-error',
+      logger?.error?.('WebSocket error event', {
+        operation: 'websocket-error-event',
         id: ws.id,
         correlationId: ws.correlationId,
         errorReference: error.errorReference,
@@ -479,47 +527,7 @@ function createWebSocketService({
         stack: error.stack,
       });
     });
-
-    deliver(
-      { type: 'connected', timestamp: isoNow() },
-      { mode: 'unicast', correlationId: ws.correlationId, fireAndForget: true }
-    );
   });
-
-  function _heartbeatTick() {
-    let checked = 0;
-    let terminated = 0;
-
-    for (const ws of clients.values()) {
-      checked++;
-
-      if (ws.isAlive === false) {
-        terminated++;
-        logger?.warn?.('Terminating unresponsive WS', {
-          operation: 'websocket-health-check',
-          id: ws.id,
-          correlationId: ws.correlationId,
-        });
-        try {
-          ws.terminate();
-        } catch (_) {}
-        continue;
-      }
-
-      ws.isAlive = false;
-      if (ws.readyState === WebSocket.OPEN) {
-        try {
-          ws.ping();
-        } catch (_) {}
-      }
-    }
-
-    logger?.trace?.(
-      `[ws:heartbeat] checked=${checked} terminated=${terminated}`
-    );
-  }
-
-  let heartbeatTimer = setInterval(_heartbeatTick, state.heartbeatIntervalMs);
 
   const emitBatchStarted = (
     { batchId, correlationId, details = {}, entityType, operation },
@@ -892,8 +900,32 @@ function createWebSocketService({
     });
   };
 
+  const emitBatchErrorDetails = (
+    { batchId, correlationId, importTask, errorReport },
+    opts = {}
+  ) => {
+    const bid = normalizeBid(batchId);
+
+    const payload = {
+      type: WEB_SOCKET_EVENTS.BATCH_ERROR_DETAILS,
+      batchId: bid,
+      correlationId,
+      importTask,
+      errorReport,
+      timestamp: isoNow(),
+    };
+
+    return emit(payload, {
+      ...opts,
+      batchId: bid,
+      fireAndForget: true,
+    });
+  };
+
   const stop = () => {
-    clearInterval(heartbeatTimer);
+    if (heartbeatTimer) {
+      clearInterval(heartbeatTimer);
+    }
 
     for (const ws of clients.values()) {
       try {
@@ -925,6 +957,7 @@ function createWebSocketService({
     emitGenerationSessionComplete,
     emitGenerationProgress,
     emitError,
+    emitBatchErrorDetails,
     stop,
     applyWsConfig,
     refreshWsConfigFromRemote,

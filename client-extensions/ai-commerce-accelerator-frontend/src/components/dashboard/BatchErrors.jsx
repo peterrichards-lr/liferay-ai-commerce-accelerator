@@ -12,7 +12,7 @@ function BatchErrors({ batchErrors }) {
       {batchErrors.map((error, index) => (
         <div key={index} className="mb-3">
           <h5>Batch ID: {error.batchId}</h5>
-          <p><strong>Error Message:</strong> {error.importTask.errorMessage}</p>
+          <p><strong>Error Message:</strong> {error.importTask?.data?.errorMessage}</p>
           <h6>Failed Items Report:</h6>
           <ClayTable>
             <ClayTable.Head>
@@ -25,7 +25,7 @@ function BatchErrors({ batchErrors }) {
               {error.errorReport.map((item, i) => (
                 <ClayTable.Row key={i}>
                   <ClayTable.Cell>{item.itemIndex}</ClayTable.Cell>
-                  <ClayTable.Cell>{item.errorMessage}</ClayTable.Cell>
+                  <ClayTable.Cell>{item.message}</ClayTable.Cell>
                 </ClayTable.Row>
               ))}
             </ClayTable.Body>

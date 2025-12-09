@@ -10,8 +10,8 @@ const ConfigService = require('./services/configService.cjs');
 const DeleteCoordinatorService = require('./services/deleteCoordinatorService.cjs');
 const LiferayService = require('./services/liferayService.cjs');
 const { ObjectStorageService } = require('./services/objectStorageService.cjs');
+const wsBus = require('./services/wsBus.cjs');
 const OAuthService = require('./services/oAuthService.cjs');
-const { get: getWs } = require('./services/wsBus.cjs');
 const HealthService = require('./services/healthService.cjs');
 const { PromptService } = require('./services/promptService.cjs');
 const { QueueService } = require('./services/queueService.cjs');
@@ -21,10 +21,11 @@ const MediaGenerator = require('./generators/mediaGenerator.cjs');
 const MockDataGenerator = require('./generators/mockDataGenerator.cjs');
 const OrderGenerator = require('./generators/orderGenerator.cjs');
 const ProductGenerator = require('./generators/productGenerator.cjs');
+const WarehouseGenerator = require('./generators/warehouseGenerator.cjs');
 
 const registerDataGenerationWorkers = require('./workers/dataGenerationWorkers.cjs');
 
-const ctx = { logger, getWs };
+const ctx = { logger, getWs: wsBus.get };
 
 const cacheService = new CacheService(ctx);
 ctx.cache = cacheService;
@@ -85,8 +86,8 @@ const batchPollingService = new BatchPollingService({
   logger,
   liferay: liferayService,
   cache: cacheService,
-  getWs,
   configService,
+  getWs: wsBus.get,
 });
 ctx.batchPolling = batchPollingService;
 
@@ -99,12 +100,13 @@ const entityGeneratorCtx = {
   logger,
   media: mediaGenerator,
   mockData: mockDataGenerator,
-  getWs,
+  getWs: wsBus.get,
 };
 
 const accountGenerator = new AccountGenerator(entityGeneratorCtx);
 const orderGenerator = new OrderGenerator(entityGeneratorCtx);
 const productGenerator = new ProductGenerator(entityGeneratorCtx);
+const warehouseGenerator = new WarehouseGenerator(entityGeneratorCtx);
 
 batchPollingService.setProductGenerator(productGenerator);
 
@@ -139,24 +141,27 @@ registerDataGenerationWorkers({
   mockDataGenerator,
 });
 
-module.exports = {
-  accountGenerator,
-  aiService,
-  batchCallbackService,
-  batchPollingService,
-  batchProcessorService,
-  cacheService,
-  configService,
-  deleteCoordinatorService,
-  getWs,
-  healthService,
-  liferayService,
-  mediaGenerator,
-  mockDataGenerator,
-  oauthService,
-  orderGenerator,
-  productGenerator,
-  objectStorageService,
-  promptService,
-  queueService,
+module.exports = (ws) => {
+  return {
+    accountGenerator,
+    aiService,
+    batchCallbackService,
+    batchPollingService,
+    batchProcessorService,
+    cacheService,
+    configService,
+    deleteCoordinatorService,
+    healthService,
+    liferayService,
+    mediaGenerator,
+    mockDataGenerator,
+    oauthService,
+    orderGenerator,
+    productGenerator,
+    objectStorageService,
+    promptService,
+    queueService,
+    warehouseGenerator,
+    getWs: wsBus.get,
+  };
 };

@@ -20,6 +20,102 @@ The available product categories are now dynamically configurable via the "AI Co
 
 ## Features
 
+### AI Model Options Configuration
+
+The AI Model Options (which define the available AI models for generation) have been integrated directly into the "AI Configuration" screen within the `ai-commerce-accelerator-configuration` client extension.
+
+-   **Consolidated UI:** The separate "AI Model Options" panel has been removed and its functionality merged into `AiConfigPanel.jsx`. This provides a single, centralized location for managing AI-related settings.
+-   **Dynamic Validation:** The validation logic for AI model selection in the microservice's generation operations (`/api/generate/accounts`, `/api/generate/products`, `/api/generate/orders`) is now dynamic. Instead of hardcoded model lists, validation rules are generated at runtime based on the AI model options configured in Liferay.
+-   **Default Model Pre-selection:** The microservice's `/api/config/ai-model-options` endpoint now returns the `defaultModel` from the `ai-config` settings, ensuring the frontend UI can correctly pre-select the appropriate AI model in dropdowns. A fallback mechanism ensures that if the configured default model is not found in the available options, the first available model is used as the default.
+-   **Frontend UI Fix:** The AI Model dropdown in the frontend (`AdvancedPanel.jsx`) now correctly populates its values from the list returned by the microservice and pre-selects the default model. It also remains disabled until a connection to the microservice is established.
+
+### WebSocket Initialization Refactor
+
+The singleton pattern implemented via `wsBus.cjs` for managing the WebSocket instance proved problematic due to subtle timing and module loading issues in the Node.js environment, leading to persistent "WS not initialized" errors. To resolve this, the singleton pattern has been rolled back, and the WebSocket instance (`ws`) is now explicitly passed between relevant modules.
+
+-   **`wsBus.cjs` Removed:** The `client-extensions/ai-commerce-accelerator-microservice/services/wsBus.cjs` file has been deleted.
+-   **Explicit `ws` Instantiation:** In `server.cjs`, the WebSocket instance is now directly created using `createWebSocketService` from `webSocketService.cjs` and assigned to a local `ws` variable.
+-   **Explicit `ws` Passing:** The `ws` instance is now explicitly passed as an argument:
+    *   From `server.cjs` to `bootstrap.cjs`.
+    *   From `bootstrap.cjs` to relevant services and contexts (e.g., `BatchPollingService`, `entityGeneratorCtx`).
+    *   From `server.cjs` (via local `ws` or passed down) to route handlers (e.g., `routes/generate.cjs`, `routes/batch.cjs`).
+-   **Direct `emit` Calls:** Route handlers and service functions now directly use the passed `ws` instance (e.g., `getWs().emitError(...)`) instead of relying on a singleton `get()` method.
+
+This ensures the WebSocket instance is always explicitly available and correctly initialized throughout its lifecycle, resolving the "WS not initialized" errors and restoring real-time communication functionality.
+
+### AI Model Options Configuration
+
+The AI Model Options (which define the available AI models for generation) have been integrated directly into the "AI Configuration" screen within the `ai-commerce-accelerator-configuration` client extension.
+
+-   **Consolidated UI:** The separate "AI Model Options" panel has been removed and its functionality merged into `AiConfigPanel.jsx`. This provides a single, centralized location for managing AI-related settings.
+-   **Dynamic Validation:** The validation logic for AI model selection in the microservice's generation operations (`/api/generate/accounts`, `/api/generate/products`, `/api/generate/orders`) is now dynamic. Instead of hardcoded model lists, validation rules are generated at runtime based on the AI model options configured in Liferay.
+-   **Default Model Pre-selection:** The microservice's `/api/config/ai-model-options` endpoint now returns the `defaultModel` from the `ai-config` settings, ensuring the frontend UI can correctly pre-select the appropriate AI model in dropdowns. A fallback mechanism ensures that if the configured default model is not found in the available options, the first available model is used as the default.
+-   **Frontend UI Fix:** The AI Model dropdown in the frontend (`AdvancedPanel.jsx`) now correctly populates its values from the list returned by the microservice and pre-selects the default model. It also remains disabled until a connection to the microservice is established.
+
+### WebSocket Initialization Refactor
+
+The singleton pattern implemented via `wsBus.cjs` for managing the WebSocket instance proved problematic due to subtle timing and module loading issues in the Node.js environment, leading to persistent "WS not initialized" errors. To resolve this, the singleton pattern has been rolled back, and the WebSocket instance (`ws`) is now explicitly passed between relevant modules.
+
+-   **`wsBus.cjs` Removed:** The `client-extensions/ai-commerce-accelerator-microservice/services/wsBus.cjs` file has been deleted.
+-   **Explicit `ws` Instantiation:** In `server.cjs`, the WebSocket instance is now directly created using `createWebSocketService` from `webSocketService.cjs` and assigned to a local `ws` variable.
+-   **Explicit `ws` Passing:** The `ws` instance is now explicitly passed as an argument:
+    *   From `server.cjs` to `bootstrap.cjs` (which is now a function that accepts `ws`).
+    *   From `bootstrap.cjs` to relevant services and contexts (e.g., `BatchPollingService`, `entityGeneratorCtx`) via their constructors or context objects.
+    *   From `server.cjs` to route handlers (e.g., `routes/generate.cjs`, `routes/batch.cjs`) via their `module.exports` arguments.
+-   **Direct `emit` Calls:** Route handlers and service functions now directly use the passed `ws` instance (e.g., `getWs().emitError(...)`) instead of relying on a singleton `get()` method.
+
+This ensures the WebSocket instance is always explicitly available and correctly initialized throughout its lifecycle, resolving the "WS not initialized" errors and restoring real-time communication functionality.
+
+### WebSocket Initialization Refactor
+
+The previous singleton pattern implemented via `wsBus.cjs` for managing the WebSocket instance proved problematic due to subtle timing and module loading issues in the Node.js environment, leading to persistent "WS not initialized" errors. To resolve this, the singleton pattern has been rolled back, and the WebSocket instance (`ws`) is now explicitly passed between relevant modules.
+
+-   **`wsBus.cjs` Removed:** The `client-extensions/ai-commerce-accelerator-microservice/services/wsBus.cjs` file has been deleted.
+-   **Explicit `ws` Instantiation:** In `server.cjs`, the WebSocket instance is now directly created using `createWebSocketService` from `webSocketService.cjs` and assigned to a local `ws` variable.
+-   **Explicit `ws` Passing:** The `ws` instance is now explicitly passed as an argument:
+    *   From `server.cjs` to `bootstrap.cjs` (which is now a function that accepts `ws`).
+    *   From `bootstrap.cjs` to relevant services and contexts (e.g., `BatchPollingService`, `entityGeneratorCtx`) via their constructors or context objects.
+    *   From `server.cjs` to route handlers (e.g., `routes/generate.cjs`, `routes/batch.cjs`) via their `module.exports` arguments.
+-   **Direct `emit` Calls:** Route handlers and service functions now directly use the passed `ws` instance (e.g., `getWs().emitError(...)`) instead of relying on a singleton `get()` method.
+
+This ensures the WebSocket instance is always explicitly available and correctly initialized throughout its lifecycle, resolving the "WS not initialized" errors and restoring real-time communication functionality.
+
+### AI Model Options Configuration
+
+The AI Model Options (which define the available AI models for generation) have been integrated directly into the "AI Configuration" screen within the `ai-commerce-accelerator-configuration` client extension.
+
+-   **Consolidated UI:** The separate "AI Model Options" panel has been removed and its functionality merged into `AiConfigPanel.jsx`. This provides a single, centralized location for managing AI-related settings.
+-   **Dynamic Validation:** The validation logic for AI model selection in the microservice's generation operations (`/api/generate/accounts`, `/api/generate/products`, `/api/generate/orders`) is now dynamic. Instead of hardcoded model lists, validation rules are generated at runtime based on the AI model options configured in Liferay.
+-   **Default Model Pre-selection:** The microservice's `/api/config/ai-model-options` endpoint now returns the `defaultModel` from the `ai-config` settings, ensuring the frontend UI can correctly pre-select the appropriate AI model in dropdowns. A fallback mechanism ensures that if the configured default model is not found in the available options, the first available model is used as the default.
+-   **Frontend UI Fix:** The AI Model dropdown in the frontend (`AdvancedPanel.jsx`) now correctly populates its values from the list returned by the microservice and pre-selects the default model. It also remains disabled until a connection to the microservice is established.
+
+### WebSocket Initialization Refactor
+
+The previous singleton pattern implemented via `wsBus.cjs` for managing the WebSocket instance proved problematic due to subtle timing and module loading issues in the Node.js environment, leading to persistent "WS not initialized" errors. To resolve this, the singleton pattern has been rolled back, and the WebSocket instance (`ws`) is now explicitly passed between relevant modules.
+
+-   **`wsBus.cjs` Removed:** The `client-extensions/ai-commerce-accelerator-microservice/services/wsBus.cjs` file has been deleted.
+-   **Explicit `ws` Instantiation:** In `server.cjs`, the WebSocket instance is now directly created using `createWebSocketService` from `webSocketService.cjs` and assigned to a local `ws` variable.
+-   **Explicit `ws` Passing:** The `ws` instance is now explicitly passed as an argument:
+    *   From `server.cjs` to `bootstrap.cjs` (which is now a function that accepts `ws`).
+    *   From `bootstrap.cjs` to relevant services and contexts (e.g., `BatchPollingService`, `entityGeneratorCtx`) via their constructors or context objects.
+    *   From `server.cjs` to route handlers (e.g., `routes/generate.cjs`, `routes/batch.cjs`) via their `module.exports` arguments.
+-   **Direct `emit` Calls:** Route handlers and service functions now directly use the passed `ws` instance (e.g., `getWs().emitError(...)`) instead of relying on a singleton `get()` method.
+
+This ensures the WebSocket instance is always explicitly available and correctly initialized throughout its lifecycle, resolving the "WS not initialized" errors and restoring real-time communication functionality.
+
+### Batch Error `correlationId` Retrieval Fix
+
+Previously, `BATCH_ERROR_DETAILS` WebSocket events were sometimes emitted with an `unknown` or `undefined` `correlationId`, causing the frontend to miss these important error notifications. The `correlationId` is crucial for the frontend to associate an error with a specific generation session.
+
+-   **Robust `correlationId` Retrieval:** The `batchPollingService.cjs` has been updated to more robustly determine the `correlationId` when emitting `BATCH_ERROR_DETAILS` events. The logic now prioritizes retrieving the `correlationId` from:
+    1.  The `batch:${batchId}:submission` data in the cache (which stores the original submission details).
+    2.  The `pollData` associated with the active polling session.
+    3.  The `batchConfig` retrieved for the batch.
+    4.  The `batch:${batchId}:config` entry in the cache.
+    5.  The ERC-based config (e.g., `erc:${batchConfig.externalReferenceCode}:config`) if available.
+
+This ensures that `BATCH_ERROR_DETAILS` events are always emitted with the correct `correlationId`, allowing the frontend to properly filter and display errors relevant to the current user session.
+
 ### Warehouse & Inventory Generation
 
 The accelerator now supports the creation of warehouses and the distribution of inventory across them.

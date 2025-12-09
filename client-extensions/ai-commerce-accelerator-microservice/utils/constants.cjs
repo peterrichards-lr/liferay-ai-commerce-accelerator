@@ -249,6 +249,7 @@ const WEB_SOCKET_EVENTS = Object.freeze({
   BATCH_START: 'batch_start',
   BATCH_FAILED: 'batch_failed',
   BATCH_SUBSCRIPTION_CONFIRMED: 'batch_subscription_confirmed',
+  BATCH_ERROR_DETAILS: 'batch_error_details',
   ERROR: 'error',
   GENERATION_PROGRESS: 'generation_progress',
   GENERATION_SESSION_COMPLETE: 'generation_session_complete',

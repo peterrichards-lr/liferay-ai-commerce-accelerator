@@ -1,6 +1,6 @@
 const { connectionSchema } = require('./utils/schemas.cjs');
 const { ENV } = require('./utils/constants.cjs');
-const { init: initWs } = require('./services/wsBus.cjs');
+const wsBus = require('./services/wsBus.cjs');
 
 const { logger } = require('./utils/logger.cjs');
 const { lookupConfig, lxcConfig } = require('@rotty3000/config-node');
@@ -28,7 +28,17 @@ const path = require('path');
 
 const app = express();
 const server = http.createServer(app);
-const ws = initWs(server, logger);
+
+let ws;
+try {
+  ws = wsBus.init(server, logger);
+} catch (error) {
+  logger.errorWithStack(error, {
+    operation: 'websocket-init',
+    message: 'Failed to initialize WebSocket service',
+  });
+  return;
+}
 
 const {
   accountGenerator,
@@ -41,8 +51,8 @@ const {
   orderGenerator,
   productGenerator,
   oauthService,
-  getWs,
-} = require('./bootstrap.cjs');
+  getWs: getWsFromBootstrap,
+} = require('./bootstrap.cjs')(ws);
 
 const PORT = lookupConfig('server.port') || 3000;
 
@@ -99,7 +109,7 @@ const routeCtx = {
   logger,
 };
 
-require('./routes/batch.cjs')(app, { ...routeCtx, cacheService, configService, getWs });
+require('./routes/batch.cjs')(app, { ...routeCtx, cacheService, configService, getWs: getWsFromBootstrap });
 require('./routes/cache.cjs')(app, { ...routeCtx, cacheService });
 require('./routes/config.cjs')(app, { ...routeCtx, configService });
 require('./routes/get.cjs')(app, routeCtx);
@@ -111,7 +121,7 @@ require('./routes/delete.cjs')(app, {
   configService,
 });
 require('./routes/export.cjs')(app, { ...routeCtx, cacheService });
-require('./routes/import.cjs')(app, { ...routeCtx, batchPollingService, getWs, configService });
+require('./routes/import.cjs')(app, { ...routeCtx, batchPollingService, getWs: getWsFromBootstrap, configService });
 
 const generateCtx = {
   liferayService,
@@ -120,7 +130,7 @@ const generateCtx = {
   orderGenerator,
   configService,
   logger,
-  getWs,
+  getWs: ws,
 };
 
 require('./routes/generate.cjs')(app, generateCtx);
@@ -254,7 +264,7 @@ server.listen(PORT, '0.0.0.0', () => {
   logger.info(`WebSocket server listening on ws://localhost:${PORT}`);
 
   logger.debug('🔌 WebSocket server status:', {
-    clients: ws.clientCount(),
+    clients: ws.totalClients(),
   });
 });
 

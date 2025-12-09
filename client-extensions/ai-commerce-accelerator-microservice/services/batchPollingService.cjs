@@ -409,11 +409,20 @@ class BatchPollingService {
       return;
     }
 
+    const submissionData = cache.get(`batch:${batchId}:submission`);
+    const resolvedCorrelationId =
+      submissionData?.correlationId ||
+      pollData?.correlationId ||
+      config?.correlationId ||
+      cache.get(`batch:${batchId}:config`)?.correlationId ||
+      (config?.externalReferenceCode && cache.get(`erc:${config.externalReferenceCode}:config`)?.correlationId) ||
+      'unknown';
+
     if (pollData.deadline && Date.now() > pollData.deadline) {
       logger.error('Batch polling exceeded wall-clock deadline', {
         operation: 'batch-polling-deadline',
         batchId,
-        correlationId: config?.correlationId,
+        correlationId: resolvedCorrelationId,
       });
       try {
         if (typeof pollData.onTimeout === 'function') {
@@ -444,7 +453,7 @@ class BatchPollingService {
       cache.set(
         `batch:${batchId}:status`,
         {
-          correlationId: config?.correlationId ?? 'unknown',
+          correlationId: resolvedCorrelationId,
           status: batchStatus,
           totalCount,
           processedCount,
@@ -485,7 +494,7 @@ class BatchPollingService {
         logger.error('Batch polling exceeded max attempts', {
           operation: 'batch-polling-timeout',
           batchId,
-          correlationId: config?.correlationId,
+          correlationId: resolvedCorrelationId,
           entitytype,
           attempts: pollData.attempts,
           maxAttempts: pollData.maxAttempts,
@@ -519,7 +528,7 @@ class BatchPollingService {
       logger.error('Error polling batch status', {
         operation: 'batch-polling-error',
         batchId,
-        correlationId: config?.correlationId,
+        correlationId: resolvedCorrelationId,
         errorReference,
         message,
         httpStatus,
@@ -543,7 +552,7 @@ class BatchPollingService {
         logger.warn('Stopping polling due to error condition', {
           operation: 'batch-polling-stop-error',
           batchId,
-          correlationId: config?.correlationId,
+          correlationId: resolvedCorrelationId,
           errorReference,
           message,
           attempts: pollData.attempts,
@@ -572,6 +581,18 @@ class BatchPollingService {
       getBatchCacheTTLms(configService)
     );
 
+    const submissionData = cache.get(`batch:${batchId}:submission`);
+    const pollData = this.activePolls.get(batchId);
+    const batchConfig = cache.get(`batch:${batchId}:config`);
+
+    const resolvedCorrelationId =
+      submissionData?.correlationId ||
+      pollData?.correlationId ||
+      batchConfig?.correlationId ||
+      cache.get(`batch:${batchId}:config`)?.correlationId ||
+      (batchConfig?.externalReferenceCode && cache.get(`erc:${batchConfig.externalReferenceCode}:config`)?.correlationId) ||
+      'unknown';
+
     const sessionDump = Array.from(this.generationSessions.entries()).map(
       ([id, s]) => ({
         sessionId: id,
@@ -591,20 +612,17 @@ class BatchPollingService {
       status.processedItemsCount || status.processedCount || 0;
     const errorCount = status.failedItems?.length || status.errorCount || 0;
 
-    const batchConfig = cache.get(`batch:${batchId}:config`);
-    const pollData = this.activePolls.get(batchId);
     const entityType =
       pollData?.entityType || batchConfig?.entityType || 'products';
     const affectsProgress = pollData?.affectsProgress ?? true;
     const mode = pollData?.mode || batchConfig?.mode || 'unknown';
-    const correlationId = batchConfig?.correlationId || 'unknown';
     const operation =
       pollData?.operation || batchConfig?.operation || 'unknown';
 
     cache.set(
       `batch:${batchId}:completed`,
       {
-        correlationId,
+        correlationId: resolvedCorrelationId,
         totalItemsCount: totalCount,
         processedItemsCount: processedCount,
         entityType,
@@ -617,7 +635,7 @@ class BatchPollingService {
     logger.info('Batch completed successfully', {
       operation: 'batch-complete',
       batchId,
-      correlationId,
+      correlationId: resolvedCorrelationId,
       totalCount,
       processedCount,
       errorCount,
@@ -627,7 +645,7 @@ class BatchPollingService {
     this.stopPolling(batchId);
 
     const results = {
-      correlationId,
+      correlationId: resolvedCorrelationId,
       batchId,
       status: 'COMPLETED',
       totalCount,
@@ -654,7 +672,7 @@ class BatchPollingService {
         operation,
         activityOnly: !affectsProgress,
       },
-      correlationId,
+      correlationId: resolvedCorrelationId,
     };
 
     const stats = (await getWs().emitBatchCompleted(message)) || {};
@@ -683,7 +701,7 @@ class BatchPollingService {
       operation === 'generate' &&
       entityType === 'products'
     ) {
-      this.markBatchCompleteInSessions(batchId, correlationId);
+      this.markBatchCompleteInSessions(batchId, resolvedCorrelationId);
     }
   }
 
@@ -697,26 +715,22 @@ class BatchPollingService {
       getBatchCacheTTLms(configService)
     );
 
-    const totalCount = status.totalItemsCount || status.totalCount || 0;
-    const processedCount =
-      status.processedItemsCount || status.processedCount || 0;
-    const errorCount = status.failedItems?.length || status.errorCount || 0;
-
-    const batchConfig = cache.get(`batch:${batchId}:config`);
+    const submissionData = cache.get(`batch:${batchId}:submission`);
     const pollData = this.activePolls.get(batchId);
-    const affectsProgress = pollData?.affectsProgress ?? true;
-    const mode = pollData?.mode || 'unknown';
-    const operation =
-      pollData?.operation || batchConfig?.operation || 'unknown';
-    const entityType =
-      pollData?.entityType || batchConfig?.entityType || 'products';
-    const correlationId =
-      pollData?.correlationId || batchConfig?.correlationId || 'unknown';
+    const batchConfig = cache.get(`batch:${batchId}:config`);
+
+    const resolvedCorrelationId =
+      submissionData?.correlationId ||
+      pollData?.correlationId ||
+      batchConfig?.correlationId ||
+      cache.get(`batch:${batchId}:config`)?.correlationId ||
+      (batchConfig?.externalReferenceCode && cache.get(`erc:${batchConfig.externalReferenceCode}:config`)?.correlationId) ||
+      'unknown';
 
     cache.set(
       `batch:${batchId}:failed`,
       {
-        correlationId,
+        correlationId: resolvedCorrelationId,
         totalItemsCount: totalCount,
         processedItemsCount: processedCount,
         failedItemsLength: status.failedItems?.length,
@@ -730,7 +744,7 @@ class BatchPollingService {
     logger.error('Batch failed', {
       operation: 'batch-failed',
       batchId,
-      correlationId,
+      correlationId: resolvedCorrelationId,
       totalCount,
       processedCount,
       errorCount,
@@ -743,7 +757,7 @@ class BatchPollingService {
       logger.error('Batch failure details', {
         operation: 'batch-failed-details',
         batchId,
-        correlationId,
+        correlationId: resolvedCorrelationId,
         importTask,
       });
 
@@ -751,25 +765,23 @@ class BatchPollingService {
       logger.error('Batch failure error report', {
         operation: 'batch-failed-error-report',
         batchId,
-        correlationId,
+        correlationId: resolvedCorrelationId,
         errorReport,
       });
 
-      getWs().emitError({
+      logger.debug('Emitting BATCH_ERROR_DETAILS with correlationId', { batchId, correlationId });
+      this.ctx.getWs().emitBatchErrorDetails({
         batchId,
         correlationId,
-        message: 'Batch failed with detailed report',
-        details: {
-          importTask,
-          errorReport,
-        },
+        importTask,
+        errorReport,
       });
 
     } catch (e) {
       logger.error('Failed to get batch failure details', {
         operation: 'batch-failed-details-error',
         batchId,
-        correlationId,
+        correlationId: resolvedCorrelationId,
         error: e.message,
       });
     }
@@ -777,7 +789,7 @@ class BatchPollingService {
     this.stopPolling(batchId);
 
     const results = {
-      correlationId,
+      correlationId: resolvedCorrelationId,
       batchId,
       status: 'FAILED',
       totalCount,
@@ -802,7 +814,7 @@ class BatchPollingService {
         mode,
         operation,
       },
-      correlationId: results.correlationId,
+      correlationId: resolvedCorrelationId,
     };
 
     const stats = (await getWs().emitBatchFailed(message)) || {};
@@ -810,7 +822,7 @@ class BatchPollingService {
 
     cache.set(
       `batch:${batchId}:final`,
-      results,
+      { ...results, correlationId: resolvedCorrelationId },
       getBatchCacheTTLms(configService)
     );
 

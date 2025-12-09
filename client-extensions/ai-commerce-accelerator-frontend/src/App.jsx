@@ -128,6 +128,7 @@ export function AppUI() {
     onLog: addLog,
     onProgress: setProgress,
     onBatchErrorDetails: (errorDetails) => {
+      console.log('Received BATCH_ERROR_DETAILS:', errorDetails);
       setBatchErrors((prevErrors) => [...prevErrors, errorDetails]);
     },
   });
@@ -512,6 +513,7 @@ export function AppUI() {
 
       try {
         const fetchedAIModelOptions = await api.get('/api/config/ai-model-options');
+        console.log('Fetched AI Model Options:', fetchedAIModelOptions);
         if (mountedRef.current && Array.isArray(fetchedAIModelOptions)) {
           setAiModelOptions(fetchedAIModelOptions);
 
@@ -531,6 +533,10 @@ export function AppUI() {
       }
     })();
   }, [connectionEstablished, categories, mountedRef, addLog, api, setConfig]);
+
+  useEffect(() => {
+    console.log('Batch Errors:', batchErrors);
+  }, [batchErrors]);
 
   return (
     <div className="container-fluid py-4">

@@ -391,6 +391,7 @@ export default function useRealtimeWebSocket({
 
         case BATCH_ERROR_DETAILS: {
           logDebug('BATCH_ERROR_DETAILS received', { raw: data });
+          console.log('BATCH_ERROR_DETAILS received by useRealtimeWebSocket:', data);
           onBatchErrorDetails?.(data);
           break;
         }

@@ -17,6 +17,15 @@ export default function AdvancedPanel({
 
   const [open, setOpen] = useState(true);
 
+  console.log('AdvancedPanel Props:', {
+    disabled,
+    connected,
+    batchSizes,
+    aiModelOptions,
+    currentAiModel: config.aiModel,
+    currentBatchSize: config.batchSize,
+  });
+
   function ClearCommerceDataButton({ disabled = false }) {
     const confirm = useConfirm();
 

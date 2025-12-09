@@ -1,24 +1,28 @@
 const { createWebSocketService } = require('./webSocketService.cjs');
 
-let ws;
+let _wsInstance;
 const metrics = { sent: 0, failed: 0 };
 
 function init(server, logger) {
-  ws = createWebSocketService({ server, logger });
+  _wsInstance = createWebSocketService({ server, logger });
   wrapEmitters(logger);
-  return ws;
+  return _wsInstance;
 }
 
 function get() {
-  if (!ws) throw new Error('WS not initialized');
-  return ws;
+  if (!_wsInstance) throw new Error('WS not initialized');
+  return _wsInstance;
 }
 
 function totalClients() {
   try {
-    if (ws && typeof ws.totalClients === 'function') return ws.totalClients();
-    if (ws && ws.clients && typeof ws.clients.size === 'number')
-      return ws.clients.size;
+    if (!_wsInstance) {
+      logger?.warn?.('totalClients called before WS initialized');
+      return 0;
+    }
+    if (_wsInstance && typeof _wsInstance.totalClients === 'function') return _wsInstance.totalClients();
+    if (_wsInstance && _wsInstance.clients && typeof _wsInstance.clients.size === 'number')
+      return _wsInstance.clients.size;
   } catch {}
   return 0;
 }
@@ -116,10 +120,10 @@ function wrapEmitters(logger) {
   };
 
   names.forEach((name) => {
-    if (!ws || typeof ws[name] !== 'function') return;
-    const orig = ws[name].bind(ws);
+    if (!_wsInstance || typeof _wsInstance[name] !== 'function') return;
+    const orig = _wsInstance[name].bind(_wsInstance);
 
-    ws[name] = (payload, opts) => {
+    _wsInstance[name] = (payload, opts) => {
       try {
         const r = orig(payload, opts);
         if (r && typeof r.then === 'function') {
