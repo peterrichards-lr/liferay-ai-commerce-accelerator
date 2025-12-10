@@ -1,4 +1,4 @@
-const { createERC } = require('../utils/misc.cjs');
+const { createERC, toI18n } = require('../utils/misc.cjs');
 const { ERC_PREFIX } = require('../utils/constants.cjs');
 
 class WarehouseGenerator {
@@ -6,32 +6,51 @@ class WarehouseGenerator {
     this.ctx = ctx;
   }
 
+  _normalizeWarehouseData(warehouseData, config) {
+    const name = toI18n(warehouseData.name, config.localeCode);
+    const description = toI18n(warehouseData.description, config.localeCode);
+    
+    return {
+      ...warehouseData,
+      name,
+      description,
+      externalReferenceCode: warehouseData.externalReferenceCode || createERC(ERC_PREFIX.WAREHOUSE),
+    };
+  }
+
   async createWarehouses(config, options) {
-    const { logger } = this.ctx;
-    const { productCount } = options;
+    const { logger, ai, mockData } = this.ctx;
+    const { productCount, demoMode } = options;
 
-    logger.warn('********************************************************************************');
-    logger.warn('Warehouse creation is using a mock implementation.');
-    logger.warn('The Liferay API for creating warehouses could not be found in the provided OpenAPI schemas.');
-    logger.warn('This generator will create in-memory warehouse objects instead of calling a real API.');
-    logger.warn('********************************************************************************');
+    logger.info('Entered createWarehouses', { options });
 
-    const warehouseCount = options.warehouseCount || Math.max(1, Math.floor(productCount / 200));
-    const warehouses = [];
+    let warehouses;
 
-    for (let i = 0; i < warehouseCount; i++) {
-      const warehouse = {
-        id: Math.floor(Math.random() * 10000),
-        name: `Warehouse ${i + 1}`,
-        externalReferenceCode: createERC(ERC_PREFIX.WAREHOUSE),
-        country: 'USA',
-        region: 'CA',
-      };
-      warehouses.push(warehouse);
-      logger.info(`Created mock warehouse: ${warehouse.name}`);
+    if (demoMode) {
+      const warehouseCount = options.warehouseCount || Math.max(1, Math.floor(productCount / 200));
+      logger.info(`Generating ${warehouseCount} mock warehouses.`);
+      warehouses = mockData.generateWarehouseData(warehouseCount);
+    } else {
+      const warehouseCount = options.warehouseCount || Math.max(1, Math.floor(productCount / 200));
+      logger.info(`Generating ${warehouseCount} AI warehouses.`);
+      warehouses = await ai.generateWarehouseData(warehouseCount, config, config.aiModel);
     }
 
-    return warehouses;
+    logger.info('Generated warehouse data:', warehouses);
+    
+    const liferay = this.ctx.liferay;
+
+    const createdWarehouses = [];
+
+    for(const warehouse of warehouses) {
+        const normalizedWarehouse = this._normalizeWarehouseData(warehouse, config);
+        logger.info('Normalized warehouse for Liferay:', normalizedWarehouse);
+        const createdWarehouse = await liferay.createWarehouse(config, normalizedWarehouse);
+        createdWarehouses.push(createdWarehouse);
+        logger.info(`Created warehouse: ${createdWarehouse.name}`);
+    }
+
+    return createdWarehouses;
   }
 }
 

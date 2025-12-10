@@ -48,6 +48,9 @@ const BATCH_SIZES_CACHE_KEY = 'BATCH_SIZES_KEY';
 const AI_MODEL_OPTIONS_CONFIG_KEY = 'ai-model-options';
 const AI_MODEL_OPTIONS_CACHE_KEY = 'AI_MODEL_OPTIONS_KEY';
 
+const EXCLUDE_LISTS_CONFIG_KEY = 'ai-exclude-lists';
+const EXCLUDE_LISTS_CACHE_KEY = 'EXCLUDE_LISTS_KEY';
+
 class ConfigService {
   constructor(ctx) {
     this.cache = ctx.cache;
@@ -226,6 +229,39 @@ class ConfigService {
     return this.getConfigCached(AI_CATEGORIES_CACHE_KEY);
   }
   
+  async getExcludeLists(requestConfig) {
+    const cacheKey = EXCLUDE_LISTS_CACHE_KEY;
+    const configKey = EXCLUDE_LISTS_CONFIG_KEY;
+
+    const cached = this.getConfigCached(cacheKey);
+    if (cached) {
+      return cached;
+    }
+
+    const remoteExcludeLists = await this.getConfig(
+      requestConfig,
+      cacheKey,
+      configKey
+    );
+
+    if (remoteExcludeLists) {
+      return remoteExcludeLists;
+    }
+
+    const defaultExcludeLists = {
+      excludedAccounts: [{ name: 'Test Test' }],
+      excludedProducts: [],
+      excludedWarehouses: [],
+    };
+
+    this.cache.set(cacheKey, defaultExcludeLists, this.getConfigTTL());
+    return defaultExcludeLists;
+  }
+
+  getExcludeListsCached() {
+    return this.getConfigCached(EXCLUDE_LISTS_CACHE_KEY);
+  }
+
   async getDefaultImage(requestConfig) {
     const logger = this.logger;
 

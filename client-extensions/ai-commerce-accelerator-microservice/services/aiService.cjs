@@ -444,6 +444,51 @@ class AIService {
     }
   }
 
+  async generateWarehouseData(count = 1, requestConfig, model) {
+    const { logger, promptService } = this.ctx;
+    const correlationId = requestConfig?.correlationId;
+    try {
+      const vars = {
+        count,
+        pluralSuffix: pluralize(count),
+      };
+
+      const prompt = await promptService.render('warehouse', vars, requestConfig);
+      const result = await this._chatJson(
+        'warehouse',
+        prompt,
+        requestConfig,
+        model,
+        'warehouse'
+      );
+
+      const warehouses = Array.isArray(result)
+        ? result
+        : result.warehouses || [result];
+
+      return warehouses;
+    } catch (error) {
+      const errorReference =
+        error.errorReference || createERC(ERC_PREFIX.ERROR);
+
+      logger?.error?.('AIService.generateWarehouseData failed', {
+        correlationId,
+        errorReference,
+        message: error?.message,
+        name: error?.name,
+        stack: error?.stack,
+      });
+
+      const wrapped = new Error(
+        `AI service error: ${
+          error.message || 'Failed to generate warehouse data'
+        }`
+      );
+      wrapped.errorReference = errorReference;
+      throw wrapped;
+    }
+  }
+
   async generateImageDataForProduct(product, options) {
     const { logger } = this.ctx;
     const correlationId = options?.correlationId;

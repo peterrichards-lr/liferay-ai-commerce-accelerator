@@ -16,6 +16,7 @@ class BatchCallbackService {
     const deleteCoordinatorService = this.deleteCoordinatorService;
     try {
       let context = cache.get(`batch:${batchERC}:context`);
+      logger.debug('Processing batch callback', { batchERC, payload, context });
       if (logger?.isTraceEnabled?.()) {
         logger.trace('Batch callback loaded context', {
           batchERC,
@@ -111,31 +112,7 @@ class BatchCallbackService {
   }
 
   _buildStepGroups(steps = []) {
-    const groups = [];
-    const used = new Set();
-    if (steps.includes('orders')) {
-      groups.push(['orders']);
-      used.add('orders');
-    }
-    const ap = ['accounts', 'products'].filter((x) => steps.includes(x));
-    if (ap.length) {
-      groups.push(ap);
-      ap.forEach((x) => used.add(x));
-    }
-    const sooc = ['specifications', 'options', 'optionCategories'].filter((x) =>
-      steps.includes(x)
-    );
-    if (sooc.length) {
-      groups.push(sooc);
-      sooc.forEach((x) => used.add(x));
-    }
-    for (const s of steps) {
-      if (!used.has(s)) {
-        groups.push([s]);
-        used.add(s);
-      }
-    }
-    return groups;
+    return steps.map((step) => [step]);
   }
 
   _isGroupComplete(group, completedSteps) {
@@ -155,39 +132,67 @@ class BatchCallbackService {
     deleteCoordinatorService,
   }) {
     const { logger, cache } = this.ctx;
-    let startedAny = false;
     for (
-      let groupIndex = fromGroupIndex + 1;
+      let groupIndex = 0;
       groupIndex < context.stepGroups.length;
       groupIndex++
     ) {
       const group = context.stepGroups[groupIndex];
-      const started = [];
+
+      // If this group is already completed, skip to the next one
+      if (this._isGroupComplete(group, context.completedSteps)) {
+        logger.debug(`Group ${groupIndex} already completed. Skipping.`, {
+          batchERC,
+          group,
+          completedSteps: context.completedSteps,
+        });
+        context.currentGroupIndex = groupIndex + 1; // Explicitly advance currentGroupIndex
+        cache.set(`batch:${batchERC}:context`, context);
+        continue;
+      }
+
+      let batchesSubmittedInGroup = 0;
+
       for (const step of group) {
         if (context.completedSteps.includes(step)) {
+          logger.debug(`Step '${step}' already completed. Skipping.`, {
+            batchERC,
+            step,
+          });
           continue;
         }
+
         const hasEntities = await this._checkIfEntitiesExist(
           liferay,
           config,
           step,
           { channelId, catalogId }
         );
+
         if (!hasEntities) {
           context.completedSteps.push(step);
           logger.info(
             `Skipping ${step} deletion: No entities found. Marking as completed.`,
             { batchERC, step }
           );
+          // Persist the updated context for skipped steps
+          cache.set(`batch:${batchERC}:context`, context);
           continue;
         }
+
         let result;
         const nextCallbackUrl = `${callbackUrl}&entity=${step}`;
+        logger.debug(`Attempting deletion for step: ${step}`, {
+          batchERC,
+          step,
+          hasEntities,
+        });
+
         switch (step) {
           case 'accounts':
             result = await liferay.deleteCommerceAccounts(
               config,
-              { ...options, channelId },
+              { ...options, channelId, callbackBatchERC: batchERC },
               nextCallbackUrl
             );
             break;
@@ -196,13 +201,13 @@ class BatchCallbackService {
               const productConfig = { ...config, catalogId };
               result = await liferay.deleteCommerceProducts(
                 productConfig,
-                { ...options, catalogId },
+                { ...options, catalogId, callbackBatchERC: batchERC },
                 nextCallbackUrl
               );
             } else {
               result = await liferay.deleteAllCommerceProducts(
                 config,
-                options,
+                { ...options, callbackBatchERC: batchERC },
                 nextCallbackUrl
               );
             }
@@ -211,91 +216,103 @@ class BatchCallbackService {
           case 'specifications':
             result = await liferay.deleteSpecificationsBatch(
               config,
-              { ...options, all: true },
+              { ...options, all: true, callbackBatchERC: batchERC },
               nextCallbackUrl
             );
             break;
           case 'options':
             result = await liferay.deleteOptionsBatch(
               config,
-              options,
+              { ...options, callbackBatchERC: batchERC },
               nextCallbackUrl
             );
             break;
           case 'optionCategories':
             result = await liferay.deleteOptionCategoriesBatch(
               config,
-              { ...options, all: true },
+              { ...options, all: true, callbackBatchERC: batchERC },
               nextCallbackUrl
             );
             break;
           case 'orders':
-            result = await liferay.deleteCommerceOrders(
-              config,
-              { ...options, channelId },
-              nextCallbackUrl
+            logger.warn(
+              `Orders step encountered in _startNextGroups loop. This should not happen.`,
+              { batchERC }
             );
-            break;
+            // This step should be handled by the initial call to runDeleteAndMonitorV2
+            // Mark as complete and continue to avoid re-processing
+            if (!context.completedSteps.includes('orders')) {
+              context.completedSteps.push('orders');
+              cache.set(`batch:${batchERC}:context`, context);
+            }
+            continue;
           default:
             logger.warn(`Unknown step in chained deletion: ${step}`, {
               batchERC,
             });
+            // Mark unknown steps as complete to avoid infinite loops if they can't be processed
+            if (!context.completedSteps.includes(step)) {
+              context.completedSteps.push(step);
+              cache.set(`batch:${batchERC}:context`, context);
+            }
             continue;
         }
+
         if (result?.batchRefs && result.batchRefs.length > 0) {
           logger.info('Batch tasks started for chained deletion', {
             batchERC,
             step,
             batchRefs: result.batchRefs,
           });
-        }
-        if (result?.batchRefs && deleteCoordinatorService?.recordBatches) {
-          deleteCoordinatorService.recordBatches(
-            result.batchRefs,
-            config,
-            step,
-            deleteCoordinatorService._deriveTotalFromResult(result)
+          batchesSubmittedInGroup++;
+          // Important: after submitting a batch, we MUST wait for its callback
+          // So we update the current group index and break from the inner loop
+          // The next processCallback call will then resume from this group
+          context.currentGroupIndex = groupIndex;
+          cache.set(`batch:${batchERC}:context`, context);
+          logger.info(
+            `Submitted batch for step '${step}'. Waiting for its completion.`,
+            { batchERC, step }
           );
-        } else if (
-          result?.batchRefs &&
-          !deleteCoordinatorService?.recordBatches
-        ) {
-          logger.warn(
-            'deleteCoordinatorService is not available; skipping batch recording',
-            {
-              batchERC,
-              step,
-              operation: 'batch-callback-missing-delete-coordinator-service',
-            }
-          );
+          return; // Exit here and wait for callback to re-trigger processCallback
         }
-        started.push(step);
-      }
-      context.completedSteps = Array.from(new Set(context.completedSteps));
-      context.currentGroupIndex = groupIndex;
-      cache.set(`batch:${batchERC}:context`, context);
-      if (started.length > 0) {
+        // If entities existed but no batches were submitted, it means they were handled
+        // (e.g., deleted individually, or no actual deletion needed but existence confirmed)
+        context.completedSteps.push(step);
         logger.info(
-          `Started next group of chained deletion: group ${groupIndex} [${started.join(
-            ', '
-          )}]`,
+          `Step '${step}' deletion initiated or marked complete (no batches needed).`,
+          { batchERC, step }
+        );
+        // Persist context after marking step complete, even if no batch was submitted
+        cache.set(`batch:${batchERC}:context`, context);
+      } // End of inner loop (for step of group)
+
+      context.completedSteps = Array.from(new Set(context.completedSteps)); // Ensure uniqueness
+
+      // After trying all steps in the current group, if it's not fully complete,
+      // it means some deletion was initiated and we are waiting for its callback (handled by the 'return' above)
+      // or something went wrong. But if it is complete, we can move to the next group.
+      if (this._isGroupComplete(group, context.completedSteps)) {
+        logger.info(
+          `Group ${groupIndex} completed. Proceeding to next group.`,
+          { batchERC, group }
+        );
+        context.currentGroupIndex = groupIndex + 1; // Advance to the next group
+        cache.set(`batch:${batchERC}:context`, context);
+        // Continue to the next groupIndex in the outer loop
+      } else {
+        logger.warn(
+          `Group ${groupIndex} not fully complete after processing. This might indicate an issue.`,
           {
             batchERC,
-            started,
             group,
+            completedSteps: context.completedSteps,
           }
         );
-        return;
+        return; // Stop processing to avoid infinite loops or unexpected behavior
       }
-      if (!this._isGroupComplete(group, context.completedSteps)) {
-        logger.warn(`Group ${groupIndex} not fully complete after skip logic`, {
-          batchERC,
-          group,
-          completedSteps: context.completedSteps,
-        });
-        return;
-      }
-    }
+    } // End of outer loop (for groupIndex)
+
     logger.info('Chained deletion process complete.', {
       batchERC,
       operation: 'batch-callback-complete',
@@ -310,20 +327,33 @@ class BatchCallbackService {
     { channelId, catalogId }
   ) {
     const { logger } = this.ctx;
+    logger.debug('Checking for existence of entities', {
+      entityType,
+      channelId,
+      catalogId,
+    });
     const checkMap = {
       accounts: () =>
-        liferay.getCommerceAccounts(config, { channelId, pageSize: 1 }),
+        liferay.getCommerceAccounts(config, { channelId, pageSize: 200 }),
       products: () =>
         liferay.getCommerceProducts(config, { catalogId, pageSize: 1 }),
       specifications: () => liferay.getSpecifications(config, { pageSize: 1 }),
       options: () => liferay.getOptions(config, { pageSize: 1 }),
       optionCategories: () =>
         liferay._listOptionCategories(config, { pageSize: 1 }),
+      orders: () =>
+        liferay.getCommerceOrders(config, { channelId, pageSize: 1 }),
     };
 
     if (!checkMap[entityType]) return true; // Assume existence if no check is defined
 
     const result = await checkMap[entityType]();
+    const hasItems = result?.items?.length > 0;
+    logger.debug('Entity existence check result', {
+      entityType,
+      hasItems,
+      result,
+    });
     if (entityType === 'accounts') {
       const totalCount =
         typeof result?.totalCount === 'number'

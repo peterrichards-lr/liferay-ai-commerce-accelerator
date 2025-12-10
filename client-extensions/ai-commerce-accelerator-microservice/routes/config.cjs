@@ -276,4 +276,22 @@ module.exports = (app, { logger, configService }) => {
       });
     }
   });
+
+  app.get('/api/config/exclude-lists', async (req, res) => {
+    const { config } = buildConfigAndOptions(req);
+
+    try {
+      const excludeLists = await configService.getExcludeLists(config);
+
+      res.json({
+        success: true,
+        excludeLists: excludeLists || {},
+        timestamp: new Date().toISOString(),
+      });
+    } catch (error) {
+      sendSafeError(res, logger, req, error, 'get-exclude-lists', {
+        sanitizeConfig: sanitizedObject(config),
+      });
+    }
+  });
 };

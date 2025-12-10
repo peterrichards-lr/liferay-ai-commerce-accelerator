@@ -1,11 +1,18 @@
 import React, { useCallback, useMemo, useState } from 'react';
-import ClayForm, { ClayInput } from '@clayui/form';
+import ClayForm from '@clayui/form';
 import ClayAlert from '@clayui/alert';
 import ClayButton from '@clayui/button';
 import ClayIcon from '@clayui/icon';
 import ClayLayout from '@clayui/layout';
 import { useForm, useObjectStorage } from '../../hooks';
 import Ajv from 'ajv';
+import { Controlled as CodeMirror } from 'react-codemirror2';
+import 'codemirror/mode/javascript/javascript';
+import 'codemirror/addon/fold/foldgutter.css';
+import 'codemirror/addon/fold/foldgutter';
+import 'codemirror/addon/fold/brace-fold';
+import 'codemirror/theme/material.css';
+import { defaultEditorOptions } from '../../utils/editor';
 
 const CATEGORIES_CONFIG_KEY = 'ai-categories';
 const DEFAULTS = {
@@ -58,8 +65,7 @@ export default function CategoriesConfigPanel() {
 
   useForm({ dirty, onSave });
 
-  const onCategoriesChange = useCallback((e) => {
-    const rawValue = e.target.value;
+  const onCategoriesChange = useCallback((rawValue) => {
     try {
       const parsed = JSON.parse(rawValue);
       if (!validate(parsed)) {
@@ -103,14 +109,15 @@ export default function CategoriesConfigPanel() {
           <label htmlFor="categories-list" className="font-weight-semi-bold">
             Product Categories (JSON Array of Strings)
           </label>
-          <ClayInput
-            id="categories-list"
-            component="textarea"
-            rows={10}
+          <CodeMirror
             value={typeof categories === 'string' ? categories : JSON.stringify(categories, null, 2)}
-            onChange={onCategoriesChange}
-            aria-invalid={hasErrors}
-            style={{ fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace' }}
+            options={{
+              ...defaultEditorOptions,
+              mode: { name: 'javascript', json: true },
+            }}
+            onBeforeChange={(editor, data, newValue) => {
+              onCategoriesChange(newValue);
+            }}
           />
           <small className="form-text text-secondary">
             Enter an array of strings, where each string is a product category.

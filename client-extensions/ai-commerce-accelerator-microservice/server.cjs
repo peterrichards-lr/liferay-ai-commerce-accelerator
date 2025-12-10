@@ -1,8 +1,10 @@
+const { logger } = require('./utils/logger.cjs');
+logger.success('<<<<<<<<<< MICROSERVICE SERVER.CJS LOADED >>>>>>>>>>');
+
 const { connectionSchema } = require('./utils/schemas.cjs');
 const { ENV } = require('./utils/constants.cjs');
 const wsBus = require('./services/wsBus.cjs');
 
-const { logger } = require('./utils/logger.cjs');
 const { lookupConfig, lxcConfig } = require('@rotty3000/config-node');
 
 const {

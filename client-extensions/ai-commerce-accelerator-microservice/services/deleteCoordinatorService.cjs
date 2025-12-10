@@ -1,4 +1,4 @@
-const { getBatchCacheTTLms } = require('../utils/ttl.cjs');
+const { getBatchCacheTTLms, MIN } = require('../utils/ttl.cjs');
 
 class DeleteCoordinatorService {
   constructor(ctx) {
@@ -84,7 +84,7 @@ class DeleteCoordinatorService {
           maxPollAttempts: config.maxPollAttempts || 120,
           mode: 'delete',
         },
-        getBatchCacheTTLms(configService)
+        MIN(90)
       );
 
       logger.info('Batch config stored', {
@@ -217,7 +217,7 @@ class DeleteCoordinatorService {
     if (existingOrders?.items?.length > 0) {
       const orders = await liferay.deleteCommerceOrders(
         config,
-        baseOpts,
+        { ...baseOpts, callbackBatchERC: batchERC },
         `${callbackUrl}&entity=orders`
       );
 
@@ -236,7 +236,7 @@ class DeleteCoordinatorService {
         'Skipping order deletion: No orders found. Triggering next step directly.',
         { operation: 'runDeleteAndMonitorV2' }
       );
-      this.ctx.batchCallbackService.processCallback(batchERC, {
+      await this.ctx.batchCallbackService.processCallback(batchERC, {
         entity: 'orders',
         status: 'completed',
       });
@@ -319,7 +319,7 @@ class DeleteCoordinatorService {
     if (existingOrders?.items?.length > 0) {
       const orders = await liferay.deleteCommerceOrders(
         config,
-        { ...baseOpts, channelId },
+        { ...baseOpts, channelId, callbackBatchERC: batchERC },
         `${callbackUrl}&entity=orders`
       );
 
@@ -338,7 +338,7 @@ class DeleteCoordinatorService {
         'Skipping order deletion: No orders found for channel. Triggering next step directly.',
         { operation: 'runDeleteSelectedAndMonitorV2', channelId }
       );
-      this.ctx.batchCallbackService.processCallback(batchERC, {
+      await this.ctx.batchCallbackService.processCallback(batchERC, {
         entity: 'orders',
         status: 'completed',
       });

@@ -80,6 +80,7 @@ function buildConfigAndOptions(req) {
     channelId,
     clientId,
     clientSecret,
+    createWarehouses,
     currencyCode,
     demoMode,
     generateBulkPricing,
@@ -105,9 +106,12 @@ function buildConfigAndOptions(req) {
     productCategories,
     productCount,
     requiredCount,
+    reuseExistingWarehouses,
     selectedLanguages,
     siteGroupId,
   } = req.body || {};
+
+  logger.info('req.body in buildConfigAndOptions:', req.body);
 
   const correlationId =
     req.correlationId || req.headers['x-correlation-id'] || uuidv4();
@@ -189,6 +193,8 @@ function buildConfigAndOptions(req) {
     demoMode: toBoolean(demoMode),
   };
 
+  logger.info('options before switch in buildConfigAndOptions:', options);
+
   const routePath = req?.route?.path;
 
   switch (routePath) {
@@ -208,6 +214,8 @@ function buildConfigAndOptions(req) {
       options.imageWidth = toNumber(imageWidth) || 512;
       options.pdfMode = pdfMode || 'none';
       options.pdfRatio = toNumber(pdfRatio) || 0;
+      options.createWarehouses = toBoolean(createWarehouses);
+      options.reuseExistingWarehouses = toBoolean(reuseExistingWarehouses);
       options.customImageFile = getCustomImage(req, options.imageMode);
       options.customPdfFile = getCustomPdf(req, options.pdfMode);
       break;
@@ -226,6 +234,8 @@ function buildConfigAndOptions(req) {
       break;
     }
   }
+
+  logger.info('options after switch in buildConfigAndOptions:', options);
 
   return { config, options };
 }

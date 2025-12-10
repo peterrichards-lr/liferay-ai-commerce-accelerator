@@ -1,13 +1,17 @@
-import ClayForm from '@clayui/form';
 import ClayLayout from '@clayui/layout';
 import React from 'react';
+import { Controlled as CodeMirror } from 'react-codemirror2';
+import 'codemirror/mode/markdown/markdown';
+import 'codemirror/addon/fold/foldgutter.css';
+import 'codemirror/addon/fold/foldgutter';
+import 'codemirror/addon/fold/brace-fold';
+import { defaultEditorOptions } from '../../utils/editor';
 
 export default function PromptEditor({
   title,
   configKey,
   value,
   onChange,
-  placeholder,
 }) {
   return (
     <ClayLayout.Sheet>
@@ -17,23 +21,18 @@ export default function PromptEditor({
           Configuration Key: <code>{configKey}</code>
         </div>
       </div>
-      <ClayForm.Group className="mb-4">
-        <label
-          htmlFor={`prompt-text-${title}`}
-          className="font-weight-semi-bold"
-        >
-          {title}
-        </label>
-        <textarea
-          id={`prompt-text-${title}`}
+      <div className="sheet-section">
+        <CodeMirror
           value={value}
-          onChange={(e) => onChange(e.target.value)}
-          placeholder={placeholder || `Enter the system prompt for ${title}.`}
-          rows={8}
-          className="form-control"
-          aria-label={`${title} prompt text`}
+          options={{
+            ...defaultEditorOptions,
+            mode: 'markdown',
+          }}
+          onBeforeChange={(editor, data, newValue) => {
+            onChange(newValue);
+          }}
         />
-      </ClayForm.Group>
+      </div>
     </ClayLayout.Sheet>
   );
 }

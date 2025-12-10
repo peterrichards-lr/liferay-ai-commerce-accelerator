@@ -1,0 +1,24 @@
+{
+    "configuration": {
+        "className": "com.liferay.object.rest.dto.v1_0.ObjectEntry",
+        "parameters": {
+            "containsHeaders": "true",
+            "createStrategy": "UPSERT",
+            "onErrorFail": "false",
+            "taskItemDelegateName": "C_AICommerceAcceleratorConfiguration",
+            "updateStrategy": "UPDATE"
+        },
+        "taskItemDelegateName": "C_AICommerceAcceleratorConfiguration"
+    },
+    "items": [
+        {
+            "configKey": "ai-exclude-lists",
+            "configStatus": {
+                "key": "Active"
+            },
+            "configValue": "{\n    \"excludedAccounts\": [{\"name\": \"Test Test\"}],\n    \"excludedProducts\": [],\n    \"excludedWarehouses\": []\n}",
+            "description": "AI Exclude Lists (by entityId, erc, or name)",
+            "externalReferenceCode": "AI-EXCLUDE-LISTS"
+        }
+    ]
+}

@@ -55,6 +55,8 @@ const PATH = {
   CUSTOM_OBJECTS,
 
   WAREHOUSES: `${BASE.INVENTORY_API}/warehouses`,
+  WAREHOUSE_INVENTORIES: (warehouseId) =>
+    `${BASE.INVENTORY_API}/warehouses/${warehouseId}/inventories`,
 
   PRODUCTS: BASE.PRODUCTS,
   PRICE_LISTS: BASE.PRICE_LISTS,
@@ -110,9 +112,7 @@ const PATH = {
 
   ACCOUNTS: BASE.ACCOUNTS,
   ACCOUNTS_BATCH: (callbackURL) =>
-    `${BASE.ACCOUNTS}/batch${
-      callbackURL ? `?callbackURL=${enc(callbackURL)}` : ''
-    }`,
+    `/o/headless-admin-user/v1.0/accounts/batch?callbackURL=${callbackURL}`,
 
   ORDERS: BASE.ORDERS,
   ORDERS_BATCH: (callbackURL) =>

@@ -57,6 +57,7 @@ class MockDataGenerator {
     this._compileSchema('account');
     this._compileSchema('product');
     this._compileSchema('order');
+    this._compileSchema('warehouse');
     // Add other schemas if needed
   }
 
@@ -569,6 +570,23 @@ class MockDataGenerator {
     }
 
     return orders;
+  }
+
+  generateWarehouseData(count = 1) {
+    const warehouses = [];
+
+    for (let i = 0; i < count; i++) {
+      const warehouse = {
+        id: Math.floor(Math.random() * 10000),
+        name: `Warehouse ${i + 1}`,
+        externalReferenceCode: createERC(ERC_PREFIX.WAREHOUSE),
+        country: 'US',
+        region: 'CA',
+      };
+      warehouses.push(warehouse);
+    }
+
+    return warehouses;
   }
 
   generatePDFContent(product, category) {

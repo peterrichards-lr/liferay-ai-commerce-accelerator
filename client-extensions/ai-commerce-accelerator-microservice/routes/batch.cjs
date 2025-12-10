@@ -34,15 +34,18 @@ function buildRecoveredConfig({
   const { pollInterval, maxPollAttempts } =
     getBatchPollingDefaults(configService);
 
+  const operation = (task?.operation || 'generate').toLowerCase();
+  const isDelete = operation === 'delete';
+
   return {
     correlationId,
     entityType: inferEntityTypeFromClassName(task?.className) || 'unknown',
     liferayUrl,
     localeCode: 'en-US',
     maxPollAttempts,
-    mode: 'generate',
+    mode: isDelete ? 'delete' : 'generate',
     pollInterval,
-    operation: 'generate',
+    operation: isDelete ? 'delete' : 'generate',
     affectsProgress: true,
   };
 }
@@ -243,7 +246,23 @@ module.exports = (
 
     let correlationId;
     let batchConfig;
+    let entityTypeFromCache; // New variable to hold entityType from direct cache access
+    let finalEntityType;
+
     try {
+      // Prioritize getting batchConfig directly from cache for its entityType
+      const directBatchConfig = cacheService.get(`batch:${batchId}:config`);
+      if (directBatchConfig) {
+        batchConfig = directBatchConfig;
+        correlationId = batchConfig.correlationId;
+        entityTypeFromCache = batchConfig.entityType;
+        logger.debug('Batch config found directly in cache', {
+          batchId,
+          entityTypeFromCache,
+          correlationId,
+        });
+      }
+
       const ttlLong = getLongLivedTTLms(configService);
       const ttlBatch = getBatchCacheTTLms(configService);
 
@@ -257,8 +276,17 @@ module.exports = (
       if (batchERC) {
         const ercCfg = cacheService.get(`erc:${batchERC}:config`);
         if (ercCfg) {
-          batchConfig = ercCfg;
-          correlationId = ercCfg.correlationId;
+          // If we recovered from ercCfg, use its entityType as a secondary fallback
+          if (!batchConfig) {
+             batchConfig = ercCfg;
+             correlationId = ercCfg.correlationId;
+             entityTypeFromCache = ercCfg.entityType; // Also update here
+             logger.debug('Batch config recovered via ERC key', {
+                batchId,
+                entityTypeFromCache,
+                correlationId,
+             });
+          }
         }
 
         if (!cacheService.get(`erc:${batchERC}:batchId`)) {
@@ -378,7 +406,7 @@ module.exports = (
         );
       }
 
-      const entityType = batchConfig?.entityType || 'unknown';
+      finalEntityType = entityTypeFromCache || batchConfig?.entityType || qsEntity || 'unknown';
       const operation = batchConfig?.operation || 'unknown';
       const affectsProgress = batchConfig?.affectsProgress ?? true;
 
@@ -386,7 +414,7 @@ module.exports = (
         correlationId,
         operation: 'batch-callback',
         batchId,
-        entityType,
+        entityType: finalEntityType,
         status,
         rawQuerySessionId: qsSessionId,
         rawQueryBatchERC: qsBatchERC,
@@ -418,7 +446,7 @@ module.exports = (
           logger.info('Skipping polling start; already completed or active', {
             operation: 'batch-polling-skip',
             batchId,
-            entityType,
+            entityType: finalEntityType,
           });
           return;
         }
@@ -431,7 +459,7 @@ module.exports = (
           pollInterval,
           maxPollAttempts,
           correlationId,
-          entityType,
+          entityType: finalEntityType,
         });
 
         batchPollingService.startPolling(batchId, batchConfig, {
@@ -444,14 +472,14 @@ module.exports = (
               status: u.status,
               processedCount: u.processedCount,
               totalCount: u.totalCount,
-              entityType,
+              entityType: finalEntityType,
             });
           },
           onComplete: (r) => {
             logger.info('Batch processing completed', {
               operation: 'batch-complete',
               batchId,
-              entityType,
+              entityType: finalEntityType,
               processedCount: r.processedCount,
               totalCount: r.totalCount,
             });
@@ -459,7 +487,7 @@ module.exports = (
             getWs().emitBatchCompleted(
               {
                 batchId,
-                entityType,
+                entityType: finalEntityType,
                 successCount: r.processedCount || 0,
                 failureCount: Math.max(
                   (r.totalCount || 0) - (r.processedCount || 0),
@@ -472,7 +500,7 @@ module.exports = (
             );
 
             logger.info(
-              `✅ Batch ${batchId} (${entityType}) completed - ${r.processedCount}/${r.totalCount} items processed`
+              `✅ Batch ${batchId} (${finalEntityType}) completed - ${r.processedCount}/${r.totalCount} items processed`
             );
           },
           onError: (err) => {
@@ -481,7 +509,7 @@ module.exports = (
             logger.error('Batch processing error', {
               operation: 'batch-error',
               batchId,
-              entityType,
+              entityType: finalEntityType,
               error: err.message,
               errorReference: ref,
             });
@@ -489,7 +517,7 @@ module.exports = (
             getWs().emitBatchFailed(
               {
                 batchId,
-                entityType,
+                entityType: finalEntityType,
                 error: err.message,
                 successCount: 0,
                 failureCount: 1,
@@ -501,7 +529,7 @@ module.exports = (
             getWs().emitError({
               correlationId,
               batchId,
-              entityType,
+              entityType: finalEntityType,
               message: err.message || 'Batch processing error',
               phase: 'batch-polling',
               errorReference: ref,
@@ -537,7 +565,7 @@ module.exports = (
           `batch:${batchId}:final`,
           {
             status: 'COMPLETED',
-            entityType,
+            entityType: finalEntityType,
             processedCount: finalProcessed ?? 0,
             totalCount: finalTotal ?? finalProcessed ?? 0,
             completedAt: new Date().toISOString(),
@@ -549,7 +577,7 @@ module.exports = (
         getWs().emitBatchCompleted(
           {
             batchId,
-            entityType,
+            entityType: finalEntityType,
             successCount: finalProcessed ?? 0,
             failureCount: Math.max(
               (finalTotal ?? 0) - (finalProcessed ?? 0),
@@ -564,7 +592,7 @@ module.exports = (
         if (
           (batchConfig.affectsProgress ?? true) &&
           batchConfig.operation === 'generate' &&
-          entityType === 'products'
+          finalEntityType === 'products'
         ) {
           batchPollingService.markBatchCompleteInSessions(
             batchId,
@@ -573,7 +601,7 @@ module.exports = (
         }
 
         logger.info(
-          `✅ Batch ${batchId} (${entityType}) completed - ${
+          `✅ Batch ${batchId} (${finalEntityType}) completed - ${
             finalProcessed ?? 0
           }/${finalTotal ?? finalProcessed ?? 0} items processed`
         );
@@ -584,11 +612,10 @@ module.exports = (
           qsOpCode === 'D'
         ) {
           const chainedBatchERC = batchERC || qsBatchERC;
-          const chainedEntity = qsEntity || entityType;
-          if (chainedBatchERC && chainedEntity && batchCallbackService?.processCallback) {
+          if (chainedBatchERC && (qsEntity || batchConfig?.entityType) && batchCallbackService?.processCallback) {
             try {
               await batchCallbackService.processCallback(chainedBatchERC, {
-                entity: chainedEntity,
+                entity: finalEntityType,
                 status,
               });
             } catch (e) {
@@ -596,7 +623,7 @@ module.exports = (
                 operation: 'batch-callback-chained-delete-error',
                 batchId,
                 batchERC: chainedBatchERC,
-                entity: chainedEntity,
+                entity: finalEntityType,
                 error: e.message,
               });
             }
@@ -611,7 +638,7 @@ module.exports = (
           `batch:${batchId}:final`,
           {
             status: 'FAILED',
-            entityType,
+            entityType: finalEntityType,
             processedCount: finalProcessed ?? 0,
             totalCount: finalTotal ?? finalProcessed ?? 0,
             errorMessage: msg,
@@ -623,7 +650,7 @@ module.exports = (
         getWs().emitBatchFailed(
           {
             batchId,
-            entityType,
+            entityType: finalEntityType,
             error: msg,
             successCount: finalProcessed ?? 0,
             failureCount: Math.max(
@@ -638,7 +665,7 @@ module.exports = (
         getWs().emitError({
           correlationId,
           batchId,
-          entityType,
+          entityType: finalEntityType,
           message: msg,
           phase: 'batch-final',
           errorReference: createERC(ERC_PREFIX.ERROR),
@@ -653,7 +680,7 @@ module.exports = (
         if (
           (batchConfig.affectsProgress ?? true) &&
           batchConfig.operation === 'generate' &&
-          entityType === 'products'
+          finalEntityType === 'products'
         ) {
           batchPollingService.markBatchCompleteInSessions(
             batchId,
@@ -662,7 +689,7 @@ module.exports = (
         }
 
         logger.error(
-          `❌ Batch ${batchId} (${entityType}) failed — processed=${
+          `❌ Batch ${batchId} (${finalEntityType}) failed — processed=${
             finalProcessed ?? 0
           }/${finalTotal ?? finalProcessed ?? 0} — ${msg}`
         );
@@ -673,11 +700,10 @@ module.exports = (
           qsOpCode === 'D'
         ) {
           const chainedBatchERC = batchERC || qsBatchERC;
-          const chainedEntity = qsEntity || entityType;
-          if (chainedBatchERC && chainedEntity && batchCallbackService?.processCallback) {
+          if (chainedBatchERC && (qsEntity || batchConfig?.entityType) && batchCallbackService?.processCallback) {
             try {
               await batchCallbackService.processCallback(chainedBatchERC, {
-                entity: chainedEntity,
+                entity: finalEntityType,
                 status,
               });
             } catch (e) {
@@ -685,7 +711,7 @@ module.exports = (
                 operation: 'batch-callback-chained-delete-failure',
                 batchId,
                 batchERC: chainedBatchERC,
-                entity: chainedEntity,
+                entity: finalEntityType,
                 error: e.message,
               });
             }
@@ -703,7 +729,7 @@ module.exports = (
         meta: {
           batchId,
           correlationId,
-          entityType: (batchConfig && batchConfig.entityType) || 'unknown',
+          entityType: finalEntityType, // Use finalEntityType here
           requestBody: sanitizedObject(req.body),
         },
         statusCode: 500,

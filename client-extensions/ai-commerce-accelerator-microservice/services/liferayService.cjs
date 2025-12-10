@@ -560,10 +560,35 @@ class LiferayService {
   }
 
   async getProducts(config) {
+    const { configService } = this.ctx;
+    const excludeLists = await configService.getExcludeLists(config);
+    const excludedProducts = excludeLists?.excludedProducts || [];
+
     const params = new URLSearchParams();
+    const filters = [];
+
     if (config.catalogId) {
-      params.append('filter', `catalogId eq ${config.catalogId}`);
+      filters.push(`catalogId eq ${config.catalogId}`);
     }
+
+    if (excludedProducts.length > 0) {
+      excludedProducts.forEach(exclusion => {
+        if (exclusion.entityId) {
+          filters.push(`id ne ${exclusion.entityId}`);
+        }
+        if (exclusion.erc) {
+          filters.push(`externalReferenceCode ne '${exclusion.erc}'`);
+        }
+        if (exclusion.name) {
+          filters.push(`name ne '${exclusion.name}'`);
+        }
+      });
+    }
+    
+    if (filters.length > 0) {
+      params.append('filter', filters.join(' and '));
+    }
+
     params.append('nestedFields', 'skus');
     params.append('fields', 'id,name,skus,productStatus,published');
 
@@ -597,8 +622,27 @@ class LiferayService {
     config,
     { catalogId, pageSize = 200, fields = 'productId' } = {}
   ) {
+    const { configService } = this.ctx;
+    const excludeLists = await configService.getExcludeLists(config);
+    const excludedProducts = excludeLists?.excludedProducts || [];
+
     const filters = [];
     if (catalogId) filters.push(`catalogId eq ${catalogId}`);
+    
+    if (excludedProducts.length > 0) {
+      excludedProducts.forEach(exclusion => {
+        if (exclusion.entityId) {
+          filters.push(`id ne ${exclusion.entityId}`);
+        }
+        if (exclusion.erc) {
+          filters.push(`externalReferenceCode ne '${exclusion.erc}'`);
+        }
+        if (exclusion.name) {
+          filters.push(`name ne '${exclusion.name}'`);
+        }
+      });
+    }
+    
     const filter = filters.join(' and ');
 
     return this._get(config, PATH.PRODUCTS, 'products:list', 'List products', {
@@ -610,6 +654,10 @@ class LiferayService {
     config,
     { channelId, pageSize = 200, fields = 'id' } = {}
   ) {
+    const { configService } = this.ctx;
+    const excludeLists = await configService.getExcludeLists(config);
+    const excludedAccounts = excludeLists?.excludedAccounts || [];
+
     const filters = [];
 
     if (channelId) {
@@ -638,6 +686,20 @@ class LiferayService {
       filters.push(`id in (${uniqueIds.join(',')})`);
     }
 
+    if (excludedAccounts.length > 0) {
+      excludedAccounts.forEach(exclusion => {
+        if (exclusion.entityId) {
+          filters.push(`id ne ${exclusion.entityId}`);
+        }
+        if (exclusion.erc) {
+          filters.push(`externalReferenceCode ne '${exclusion.erc}'`);
+        }
+        if (exclusion.name) {
+          filters.push(`name ne '${exclusion.name}'`);
+        }
+      });
+    }
+
     const filter = filters.join(' and ');
 
     return this._get(config, PATH.ACCOUNTS, 'accounts:list', 'List accounts', {
@@ -664,7 +726,33 @@ class LiferayService {
   }
 
   async getAccounts(config) {
-    const data = await this._get(config, PATH.ACCOUNTS, 'get-accounts');
+    const { configService } = this.ctx;
+    const excludeLists = await configService.getExcludeLists(config);
+    const excludedAccounts = excludeLists?.excludedAccounts || [];
+
+    const params = new URLSearchParams();
+    const filters = [];
+
+    if (excludedAccounts.length > 0) {
+      excludedAccounts.forEach(exclusion => {
+        if (exclusion.entityId) {
+          filters.push(`id ne ${exclusion.entityId}`);
+        }
+        if (exclusion.erc) {
+          filters.push(`externalReferenceCode ne '${exclusion.erc}'`);
+        }
+        if (exclusion.name) {
+          filters.push(`name ne '${exclusion.name}'`);
+        }
+      });
+    }
+
+    if (filters.length > 0) {
+      params.append('filter', filters.join(' and '));
+    }
+
+    const url = `${PATH.ACCOUNTS}?${params.toString()}`;
+    const data = await this._get(config, url, 'get-accounts');
     return this._asItems(data);
   }
 
@@ -821,55 +909,53 @@ class LiferayService {
 
       
 
-      async createWarehouse(config, warehouseData) {
+        async createWarehouse(config, warehouseData) {
 
-        const { logger } = this.ctx;
+      
 
-        logger.warn('********************************************************************************');
+          return await this._post(
 
-        logger.warn('LiferayService.createWarehouse is using a mock implementation.');
-    logger.warn('This method will return a static response instead of calling a real API.');
-    logger.warn('********************************************************************************');
+      
 
-    return Promise.resolve({
-      ...warehouseData,
-      id: Math.floor(Math.random() * 10000),
-    });
-  }
+            config,
+
+      
+
+            PATH.WAREHOUSES,
+
+      
+
+            warehouseData,
+
+      
+
+            'create-warehouse',
+
+      
+
+            'Failed to create warehouse'
+
+      
+
+          );
+
+      
+
+        }
 
   async getWarehouses(config) {
-    const { logger } = this.ctx;
-
-    logger.warn('********************************************************************************');
-    logger.warn('LiferayService.getWarehouses is using a mock implementation.');
-    logger.warn('This method will return a static response instead of calling a real API.');
-    logger.warn('********************************************************************************');
-
-    return Promise.resolve({
-      items: [
-        {
-          id: Math.floor(Math.random() * 10000),
-          name: 'Default Warehouse',
-          externalReferenceCode: 'DEFAULT-WAREHOUSE',
-          country: 'USA',
-          region: 'CA',
-        }
-      ],
-      totalCount: 1
-    });
+    const data = await this._get(config, PATH.WAREHOUSES, 'get-warehouses');
+    return this._asItems(data);
   }
 
-  async updateProductInventory(config, productId, inventoryData) {
-    const { logger } = this.ctx;
-
-    logger.warn('********************************************************************************');
-    logger.warn('LiferayService.updateProductInventory is using a mock implementation.');
-    logger.warn('This method will return a static response instead of calling a real API.');
-    logger.warn('********************************************************************************');
-    
-    return Promise.resolve({
-      ...inventoryData,
-    });
+  async updateProductInventory(config, warehouseId, sku, inventoryData) {
+    return await this._post(
+      config,
+      PATH.WAREHOUSE_INVENTORIES(warehouseId),
+      { ...inventoryData, sku },
+      'update-product-inventory',
+      'Failed to update product inventory'
+    );
   }
 
   async getCurrencies(config) {
@@ -1600,14 +1686,20 @@ class LiferayService {
       typeof payload.optionCategory === 'object' &&
       payload.optionCategory !== null
     ) {
-      const erc = payload.optionCategory.externalReferenceCode;
-      const id = payload.optionCategory.id;
-      if (erc || id) {
-        payload.optionCategory = id ? { id } : { externalReferenceCode: erc };
+      const { id, key, externalReferenceCode } = payload.optionCategory;
+
+      if (id || key || externalReferenceCode) {
+        const newOptionCategory = {};
+        if (id) newOptionCategory.id = id;
+        if (key) newOptionCategory.key = key;
+        if (externalReferenceCode)
+          newOptionCategory.externalReferenceCode = externalReferenceCode;
+        payload.optionCategory = newOptionCategory;
       } else {
         // remove empty object to avoid backend validating key/title
         delete payload.optionCategory;
       }
+
       delete payload.optionCategoryExternalReferenceCode;
       delete payload.optionCategoryId;
       return payload;
@@ -2502,6 +2594,11 @@ class LiferayService {
       friendly: 'List products',
     });
 
+    logger.debug('Found products to delete', {
+      count: productIds.length,
+      productIds,
+    });
+
     const effectiveCallbackUrl = optionsCallbackUrl || callbackUrl || null;
     const batchERC =
       callbackBatchERC && String(callbackBatchERC).trim()
@@ -2572,6 +2669,18 @@ class LiferayService {
         friendly: 'List accounts',
       });
     }
+
+    const primaryAccountId = await this.getPrimaryAccountId(config);
+    if (primaryAccountId != null) {
+      accountIds = accountIds.filter(
+        (id) => String(id) !== String(primaryAccountId)
+      );
+    }
+
+    logger.debug('Found accounts to delete', {
+      count: accountIds.length,
+      accountIds,
+    });
 
     const effectiveCallbackUrl = optionsCallbackUrl || callbackUrl || null;
     const batchERC =
@@ -2842,6 +2951,12 @@ class LiferayService {
     for (let i = 0; i < ids.length; i += batchSize) {
       const chunk = ids.slice(i, i + batchSize);
       const body = toBatchObjects(chunk);
+
+      logger.debug('Submitting batch for deletion', {
+        op,
+        friendly,
+        batchSize: chunk.length,
+      });
 
       try {
         const res = await this._delete(

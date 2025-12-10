@@ -2,7 +2,11 @@ import React from 'react';
 import ClayLayout from '@clayui/layout';
 import { Controlled as CodeMirror } from 'react-codemirror2';
 import 'codemirror/mode/javascript/javascript';
+import 'codemirror/addon/fold/foldgutter.css';
+import 'codemirror/addon/fold/foldgutter';
+import 'codemirror/addon/fold/brace-fold';
 import ClayAlert from '@clayui/alert';
+import { defaultEditorOptions } from '../../utils/editor';
 
 export default function SchemaEditor({
   title,
@@ -34,8 +38,8 @@ export default function SchemaEditor({
           editorDidMount={editorDidMount}
           value={value}
           options={{
+            ...defaultEditorOptions,
             mode: { name: 'javascript', json: true },
-            lineNumbers: true,
           }}
           onBeforeChange={(editor, data, newValue) => {
             onChange(newValue);

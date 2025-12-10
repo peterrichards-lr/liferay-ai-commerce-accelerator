@@ -59,6 +59,7 @@ module.exports = (
     orderGenerator,
     warehouseGenerator,
     configService,
+    cacheService,
     logger,
     getWs,
   }
@@ -247,6 +248,7 @@ module.exports = (
       inputValidationMiddleware(generateDataSchema(aiModelOptions, batchSizes))(req, res, next);
     },
     async (req, res) => {
+      logger.info('ENTERED /api/generate/products');
       const { config, options } = buildConfigAndOptions(req);
       config.demoMode = options.demoMode;
 
@@ -267,24 +269,32 @@ module.exports = (
 
         await Promise.all(configPromises);
 
+        logger.info('Warehouse Generation Options:', { createWarehouses: options.createWarehouses, reuseExistingWarehouses: options.reuseExistingWarehouses });
+        
         if (options.createWarehouses) {
+          logger.info('Creating warehouses...');
           let warehouses = [];
           if (options.reuseExistingWarehouses) {
+            logger.info('Checking for existing warehouses...');
             const existingWarehouses = await liferayService.getWarehouses(config);
             warehouses = (existingWarehouses && existingWarehouses.items) || [];
+            logger.info('Found warehouses:', warehouses);
           }
 
           const warehouseCount = options.warehouseCount || 1;
           if (warehouses.length < warehouseCount) {
             const newWarehouseCount = warehouseCount - warehouses.length;
+            logger.info('Calling createWarehouses', { warehouseCount: newWarehouseCount });
             const newWarehouses = await warehouseGenerator.createWarehouses(
               config,
               { ...options, warehouseCount: newWarehouseCount }
             );
+            logger.info('Created new warehouses:', newWarehouses);
             warehouses.push(...newWarehouses);
           }
           options.warehouses = warehouses;
           cacheService.set('generated-warehouses', warehouses);
+          logger.info('Warehouses set in options and cache.');
         }
 
         if (options.demoMode) {

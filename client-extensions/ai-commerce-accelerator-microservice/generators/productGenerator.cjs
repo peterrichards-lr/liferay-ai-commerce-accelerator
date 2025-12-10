@@ -1914,6 +1914,7 @@ class ProductGenerator {
             specificationPayload.optionCategory = {
               id: linkedOptionCategory.id,
               externalReferenceCode: linkedOptionCategory.externalReferenceCode,
+              key: linkedOptionCategory.key,
             };
           }
 
@@ -2114,10 +2115,8 @@ class ProductGenerator {
 
       for (const warehouse of options.warehouses) {
         try {
-          await liferay.updateProductInventory(config, createdProduct.id, {
-            sku: sku.sku,
-            warehouseId: warehouse.id,
-            inventoryLevel: inventoryPerWarehouse,
+          await liferay.updateProductInventory(config, warehouse.id, sku.sku, {
+            quantity: inventoryPerWarehouse,
           });
           logger.trace(
             `Updated inventory for SKU ${sku.sku} in warehouse ${warehouse.name}`
@@ -2354,11 +2353,7 @@ class ProductGenerator {
       logger.trace(`Generating pricing for ${products.length} products`);
       const currency = (config.currencyCode || 'USD').toUpperCase();
       const priceList = await liferay.createPriceList(config, {
-        name: {
-          en_US: `Generated Price List - ${
-            new Date().toISOString().split('T')[0]
-          }`,
-        },
+        name: `Generated Price List - ${new Date().toISOString()}`,
         currencyCode: currency,
         priority: 1,
         active: true,

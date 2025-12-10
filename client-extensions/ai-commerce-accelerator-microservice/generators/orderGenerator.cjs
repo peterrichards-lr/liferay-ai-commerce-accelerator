@@ -77,9 +77,17 @@ class OrderGenerator {
     const itemCount = Math.floor(Math.random() * 3) + 1;
 
     const allPurchasableSkus = products.flatMap((p) =>
-      (p.skus || []).filter(
-        (s) => s.purchasable && s.sku && p.productStatus === 0
-      )
+      (p.skus || []).filter((s) => {
+        const result = s.purchasable && s.sku && p.productStatus === 0;
+        if (!result) {
+          logger.debug('SKU not purchasable', {
+            sku: s.sku,
+            s_purchasable: s.purchasable,
+            p_productStatus: p.productStatus,
+          });
+        }
+        return result;
+      })
     );
 
     if (allPurchasableSkus.length === 0) {
