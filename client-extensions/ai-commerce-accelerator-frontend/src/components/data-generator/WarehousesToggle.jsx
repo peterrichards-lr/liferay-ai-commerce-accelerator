@@ -25,7 +25,7 @@ function WarehousesToggle({ productCount, values, onChange, disabled }) {
             min="1"
             max="10"
             value={values.warehouseCount}
-            onChange={(e) => onChange('warehouseCount', parseInt(e.target.value))}
+            onChange={(e) => onChange('warehouseCount', parseInt(e.target.value) || 1)}
             disabled={disabled || isMuted}
           />
         </div>

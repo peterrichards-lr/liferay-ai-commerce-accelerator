@@ -13,14 +13,16 @@ class PromptService {
         ? Number(ENV.PROMPT_CACHE_TTL)
         : 10 * 60 * 1000;
     this.disableCache =
-      String(ENV.PROMPT_CACHE_DISABLED || '').toLowerCase() ===
-      'true';
+      String(ENV.PROMPT_CACHE_DISABLED || '').toLowerCase() === 'true';
     this.cache = this.ctx?.cache || new Map();
   }
 
   _safeName(name) {
     const n = String(name || '').trim();
-    const clean = path.basename(n).replace(/\.\.+/g, '').replace(/[^\w.-]/g, '_');
+    const clean = path
+      .basename(n)
+      .replace(/\.\.+/g, '')
+      .replace(/[^\w.-]/g, '_');
     if (!clean) throw new Error('Invalid prompt name');
     return clean;
   }
@@ -84,7 +86,8 @@ class PromptService {
     }
     const buf = await fs.readFile(filePath);
     const txt = buf.toString('utf8');
-    if (!this.disableCache) this._setCache(key, { txt, mtimeMs }, this.cacheTTL);
+    if (!this.disableCache)
+      this._setCache(key, { txt, mtimeMs }, this.cacheTTL);
     return txt;
   }
 

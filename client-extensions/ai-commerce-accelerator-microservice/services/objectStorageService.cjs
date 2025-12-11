@@ -10,7 +10,8 @@ const { ERC_PREFIX } = require('../utils/constants.cjs');
 
 function withErrorRef(err, operation) {
   if (err && err.errorReference) return err;
-  const wrapped = err instanceof Error ? err : new Error(String(err || 'Error'));
+  const wrapped =
+    err instanceof Error ? err : new Error(String(err || 'Error'));
   wrapped.errorReference = createERC(ERC_PREFIX.ERROR);
   wrapped.operation = operation;
   return wrapped;
@@ -97,8 +98,7 @@ class ObjectStorageService {
     this.configService = configService;
     this.logger = logger;
 
-    this.sidecarEndpoint =
-      ENV.OBJECT_STORAGE_SIDECAR_ENDPOINT || 'http://';
+    this.sidecarEndpoint = ENV.OBJECT_STORAGE_SIDECAR_ENDPOINT || 'http://';
 
     this.signedUrlTtlSec = normalizeNumber(
       ENV.OBJECT_STORAGE_SIGNED_URL_TTL_SEC,
@@ -215,9 +215,7 @@ class ObjectStorageService {
       const privateObjectDir = this.getPrivateObjectDir();
       const objectId = randomUUID();
 
-      const prefix = this.uploadPrefix
-        ? `/${this.uploadPrefix}`
-        : '/uploads';
+      const prefix = this.uploadPrefix ? `/${this.uploadPrefix}` : '/uploads';
       const fullPath = `${privateObjectDir}${prefix}/${objectId}`;
 
       const { bucketName, objectName } = parseObjectPath(fullPath);

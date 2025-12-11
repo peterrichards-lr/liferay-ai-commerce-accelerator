@@ -29,11 +29,18 @@ class MockDataGenerator {
 
   _loadSchema(schemaName) {
     try {
-      const schemaPath = path.join(__dirname, '..', 'ai-schemas', `${schemaName}.json`);
+      const schemaPath = path.join(
+        __dirname,
+        '..',
+        'ai-schemas',
+        `${schemaName}.json`
+      );
       if (fs.existsSync(schemaPath)) {
         return JSON.parse(fs.readFileSync(schemaPath, 'utf8'));
       }
-      this.logger?.warn?.(`Schema ${schemaName}.json not found at ${schemaPath}`);
+      this.logger?.warn?.(
+        `Schema ${schemaName}.json not found at ${schemaPath}`
+      );
       return null;
     } catch (error) {
       this.logger?.error?.(`Error loading schema ${schemaName}.json:`, error);
@@ -61,8 +68,6 @@ class MockDataGenerator {
     // Add other schemas if needed
   }
 
-
-
   loadConfigurationData() {
     const logger = this.logger;
     try {
@@ -86,9 +91,7 @@ class MockDataGenerator {
           'Loaded specification configuration from specifications.json'
         );
       } else {
-        logger?.warn?.(
-          'specifications.json not found, using fallback data'
-        );
+        logger?.warn?.('specifications.json not found, using fallback data');
         this.specificationValues = this.getFallbackSpecificationData();
       }
 
@@ -313,14 +316,11 @@ class MockDataGenerator {
       }
 
       if (i === 0) {
-        logger?.trace?.(
-          'Generated multilingual content for first product:',
-          {
-            name,
-            description,
-            languageCodes,
-          }
-        );
+        logger?.trace?.('Generated multilingual content for first product:', {
+          name,
+          description,
+          languageCodes,
+        });
       }
 
       const productData = {
@@ -387,9 +387,13 @@ class MockDataGenerator {
         });
         throw new Error('Mock product data failed schema validation.');
       }
-      logger?.trace?.('Mock product data validated successfully against schema.');
+      logger?.trace?.(
+        'Mock product data validated successfully against schema.'
+      );
     } else {
-      logger?.warn?.('Product schema not compiled, skipping mock data validation.');
+      logger?.warn?.(
+        'Product schema not compiled, skipping mock data validation.'
+      );
     }
 
     return products;
@@ -474,8 +478,12 @@ class MockDataGenerator {
 
     for (let i = 0; i < count; i++) {
       const companyName = companies[i % companies.length];
-      const accountEmail = `contact@${companyName.toLowerCase().replace(/\s+/g, '')}.com`;
-      const accountDomain = `${companyName.toLowerCase().replace(/\s+/g, '')}.com`;
+      const accountEmail = `contact@${companyName
+        .toLowerCase()
+        .replace(/\s+/g, '')}.com`;
+      const accountDomain = `${companyName
+        .toLowerCase()
+        .replace(/\s+/g, '')}.com`;
 
       const account = {
         name: `${companyName} ${i + 1}`,
@@ -491,7 +499,7 @@ class MockDataGenerator {
               type: 'email-address',
             },
           ],
-          domains: [accountDomain]
+          domains: [accountDomain],
         },
       };
       accounts.push(account);
@@ -509,9 +517,13 @@ class MockDataGenerator {
         });
         throw new Error('Mock account data failed schema validation.');
       }
-      this.logger?.trace?.('Mock account data validated successfully against schema.');
+      this.logger?.trace?.(
+        'Mock account data validated successfully against schema.'
+      );
     } else {
-      this.logger?.warn?.('Account schema not compiled, skipping mock data validation.');
+      this.logger?.warn?.(
+        'Account schema not compiled, skipping mock data validation.'
+      );
     }
 
     return accounts;
@@ -544,7 +556,7 @@ class MockDataGenerator {
         paymentStatuses: paymentStatuses[getRandomInt(paymentStatuses.length)],
         items: [],
       };
-      
+
       if (accounts.length > 0) {
         order.accountId = String(accounts[i % accounts.length].id);
       }
@@ -564,9 +576,13 @@ class MockDataGenerator {
         });
         throw new Error('Mock order data failed schema validation.');
       }
-      this.logger?.trace?.('Mock order data validated successfully against schema.');
+      this.logger?.trace?.(
+        'Mock order data validated successfully against schema.'
+      );
     } else {
-      this.logger?.warn?.('Order schema not compiled, skipping mock data validation.');
+      this.logger?.warn?.(
+        'Order schema not compiled, skipping mock data validation.'
+      );
     }
 
     return orders;

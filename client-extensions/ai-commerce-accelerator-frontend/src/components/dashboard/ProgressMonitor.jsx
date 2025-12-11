@@ -1,15 +1,10 @@
 import React from 'react';
+import { useEffect } from 'react';
 import ClayIcon from '@clayui/icon';
 
-import { getProgressPercentage } from '../../state/progressSelectors';
+import ProgressItem from './ProgressItem.jsx';
 
 function ProgressMonitor({ generationConfig, progress, onErrorsClick }) {
-  const getProgressBarClass = (percentage) => {
-    if (percentage === 100) return 'complete';
-    if (percentage > 0) return 'active';
-    return 'pending';
-  };
-
   const getImageContentType = () => {
     if (generationConfig?.useCustomImage) return 'Custom image file';
     if (generationConfig?.demoMode) return 'Default placeholder images';
@@ -22,6 +17,10 @@ function ProgressMonitor({ generationConfig, progress, onErrorsClick }) {
     return 'AI-generated PDFs';
   };
 
+  useEffect(() => {
+    console.log('Progress updated:', progress);
+  }, [progress]);
+
   return (
     <div className="progress-sections">
       <div className="progress-section">
@@ -31,107 +30,35 @@ function ProgressMonitor({ generationConfig, progress, onErrorsClick }) {
         </h6>
 
         <div className="progress-grid core-data">
-          <div className="progress-item">
-            <div className="progress-item-header">
-              <h6 className="progress-item-title">
-                <ClayIcon symbol="box-container" className="products-icon" />
-                Products
-              </h6>
-              <span className="progress-count">
-                {progress.products.completed} / {progress.products.total}
-              </span>
-            </div>
-            <div className="progress-bar-container">
-              <div
-                className={`progress-bar ${getProgressBarClass(
-                  getProgressPercentage(
-                    progress.products.completed,
-                    progress.products.total
-                  )
-                )}`}
-                style={{
-                  width: `${getProgressPercentage(
-                    progress.products.completed,
-                    progress.products.total
-                  )}%`,
-                }}
-              ></div>
-            </div>
-            {progress.products.errors.length > 0 && (
-              <small className="error-text" onClick={() => onErrorsClick(0)}>
-                <ClayIcon symbol="warning-full" />
-                {progress.products.errors.length} errors
-              </small>
-            )}
-          </div>
+          <ProgressItem
+            title="Products"
+            iconSymbol="box-container"
+            iconClassName="products-icon"
+            completed={progress.products.completed}
+            total={progress.products.total}
+            errors={progress.products.errors}
+            onErrorsClick={() => onErrorsClick(0)}
+          />
 
-          <div className="progress-item">
-            <div className="progress-item-header">
-              <h6 className="progress-item-title">
-                <ClayIcon symbol="users" className="accounts-icon" />
-                Accounts
-              </h6>
-              <span className="progress-count">
-                {progress.accounts.completed} / {progress.accounts.total}
-              </span>
-            </div>
-            <div className="progress-bar-container">
-              <div
-                className={`progress-bar ${getProgressBarClass(
-                  getProgressPercentage(
-                    progress.accounts.completed,
-                    progress.accounts.total
-                  )
-                )}`}
-                style={{
-                  width: `${getProgressPercentage(
-                    progress.accounts.completed,
-                    progress.accounts.total
-                  )}%`,
-                }}
-              ></div>
-            </div>
-            {progress.accounts.errors.length > 0 && (
-              <small className="error-text" onClick={() => onErrorsClick(1)}>
-                <ClayIcon symbol="warning-full" />
-                {progress.accounts.errors.length} errors
-              </small>
-            )}
-          </div>
+          <ProgressItem
+            title="Accounts"
+            iconSymbol="users"
+            iconClassName="accounts-icon"
+            completed={progress.accounts.completed}
+            total={progress.accounts.total}
+            errors={progress.accounts.errors}
+            onErrorsClick={() => onErrorsClick(1)}
+          />
 
-          <div className="progress-item">
-            <div className="progress-item-header">
-              <h6 className="progress-item-title">
-                <ClayIcon symbol="shopping-cart" className="orders-icon" />
-                Orders
-              </h6>
-              <span className="progress-count">
-                {progress.orders.completed} / {progress.orders.total}
-              </span>
-            </div>
-            <div className="progress-bar-container">
-              <div
-                className={`progress-bar ${getProgressBarClass(
-                  getProgressPercentage(
-                    progress.orders.completed,
-                    progress.orders.total
-                  )
-                )}`}
-                style={{
-                  width: `${getProgressPercentage(
-                    progress.orders.completed,
-                    progress.orders.total
-                  )}%`,
-                }}
-              ></div>
-            </div>
-            {progress.orders.errors.length > 0 && (
-              <small className="error-text" onClick={() => onErrorsClick(2)}>
-                <ClayIcon symbol="warning-full" />
-                {progress.orders.errors.length} errors
-              </small>
-            )}
-          </div>
+          <ProgressItem
+            title="Orders"
+            iconSymbol="shopping-cart"
+            iconClassName="orders-icon"
+            completed={progress.orders.completed}
+            total={progress.orders.total}
+            errors={progress.orders.errors}
+            onErrorsClick={() => onErrorsClick(2)}
+          />
         </div>
       </div>
 
@@ -142,39 +69,14 @@ function ProgressMonitor({ generationConfig, progress, onErrorsClick }) {
         </h6>
 
         <div className="progress-grid content-generation">
-          <div className="progress-item">
-            <div className="progress-item-header">
-              <h6 className="progress-item-title">
-                <ClayIcon symbol="picture" className="images-icon" />
-                Images
-              </h6>
-              <span className="progress-count">
-                {progress.images?.completed || 0} /{' '}
-                {progress.images?.total}
-              </span>
-            </div>
-            <div className="progress-bar-container">
-              <div
-                className={`progress-bar ${getProgressBarClass(
-                  getProgressPercentage(
-                    progress.images?.completed || 0,
-                    progress.images?.total || 0
-                  )
-                )}`}
-                style={{
-                  width: `${getProgressPercentage(
-                    progress.images?.completed || 0,
-                    progress.images?.total || 0
-                  )}%`,
-                }}
-              ></div>
-            </div>
-            {progress.images?.errors?.length > 0 && (
-              <small className="error-text">
-                <ClayIcon symbol="warning-full" />
-                {progress.images.errors.length} errors
-              </small>
-            )}
+          <ProgressItem
+            title="Images"
+            iconSymbol="picture"
+            iconClassName="images-icon"
+            completed={progress.images?.completed || 0}
+            total={progress.images?.total || 0}
+            errors={progress.images?.errors || []}
+          >
             {(progress.images?.total || 0) === 0 &&
               (generationConfig?.imageRatio || 0) === 0 && (
                 <small className="disabled-text">
@@ -190,41 +92,16 @@ function ProgressMonitor({ generationConfig, progress, onErrorsClick }) {
                 {getImageContentType().toLowerCase()}
               </small>
             )}
-          </div>
+          </ProgressItem>
 
-          <div className="progress-item">
-            <div className="progress-item-header">
-              <h6 className="progress-item-title">
-                <ClayIcon symbol="document" className="pdfs-icon" />
-                PDFs
-              </h6>
-              <span className="progress-count">
-                {progress.pdfs.completed} /{' '}
-                {progress.pdfs.total}
-              </span>
-            </div>
-            <div className="progress-bar-container">
-              <div
-                className={`progress-bar ${getProgressBarClass(
-                  getProgressPercentage(
-                    progress.pdfs.completed,
-                    progress.pdfs.total
-                  )
-                )}`}
-                style={{
-                  width: `${getProgressPercentage(
-                    progress.pdfs.completed,
-                    progress.pdfs.total
-                  )}%`,
-                }}
-              ></div>
-            </div>
-            {progress.pdfs.errors.length > 0 && (
-              <small className="error-text">
-                <ClayIcon symbol="warning-full" />
-                {progress.pdfs.errors.length} errors
-              </small>
-            )}
+          <ProgressItem
+            title="PDFs"
+            iconSymbol="document"
+            iconClassName="pdfs-icon"
+            completed={progress.pdfs.completed}
+            total={progress.pdfs.total}
+            errors={progress.pdfs.errors}
+          >
             {progress.pdfs.total === 0 &&
               (generationConfig?.pdfRatio || 0) === 0 && (
                 <small className="disabled-text">
@@ -240,41 +117,15 @@ function ProgressMonitor({ generationConfig, progress, onErrorsClick }) {
                 {getPdfContentType().toLowerCase()}
               </small>
             )}
-          </div>
-          <div className="progress-item">
-            <div className="progress-item-header">
-              <h6 className="progress-item-title">
-                <ClayIcon symbol="warehouse" className="warehouses-icon" />
-                Warehouses
-              </h6>
-              <span className="progress-count">
-                {progress.warehouses.completed} /{' '}
-                {progress.warehouses.total}
-              </span>
-            </div>
-            <div className="progress-bar-container">
-              <div
-                className={`progress-bar ${getProgressBarClass(
-                  getProgressPercentage(
-                    progress.warehouses.completed,
-                    progress.warehouses.total
-                  )
-                )}`}
-                style={{
-                  width: `${getProgressPercentage(
-                    progress.warehouses.completed,
-                    progress.warehouses.total
-                  )}%`,
-                }}
-              ></div>
-            </div>
-            {progress.warehouses.errors.length > 0 && (
-              <small className="error-text">
-                <ClayIcon symbol="warning-full" />
-                {progress.warehouses.errors.length} errors
-              </small>
-            )}
-          </div>
+          </ProgressItem>
+          <ProgressItem
+            title="Warehouses"
+            iconSymbol="warehouse"
+            iconClassName="warehouses-icon"
+            completed={progress.warehouses.completed}
+            total={progress.warehouses.total}
+            errors={progress.warehouses.errors}
+          />
         </div>
       </div>
     </div>

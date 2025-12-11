@@ -572,7 +572,7 @@ class LiferayService {
     }
 
     if (excludedProducts.length > 0) {
-      excludedProducts.forEach(exclusion => {
+      excludedProducts.forEach((exclusion) => {
         if (exclusion.entityId) {
           filters.push(`id ne ${exclusion.entityId}`);
         }
@@ -584,7 +584,7 @@ class LiferayService {
         }
       });
     }
-    
+
     if (filters.length > 0) {
       params.append('filter', filters.join(' and '));
     }
@@ -628,9 +628,9 @@ class LiferayService {
 
     const filters = [];
     if (catalogId) filters.push(`catalogId eq ${catalogId}`);
-    
+
     if (excludedProducts.length > 0) {
-      excludedProducts.forEach(exclusion => {
+      excludedProducts.forEach((exclusion) => {
         if (exclusion.entityId) {
           filters.push(`id ne ${exclusion.entityId}`);
         }
@@ -642,7 +642,7 @@ class LiferayService {
         }
       });
     }
-    
+
     const filter = filters.join(' and ');
 
     return this._get(config, PATH.PRODUCTS, 'products:list', 'List products', {
@@ -687,7 +687,7 @@ class LiferayService {
     }
 
     if (excludedAccounts.length > 0) {
-      excludedAccounts.forEach(exclusion => {
+      excludedAccounts.forEach((exclusion) => {
         if (exclusion.entityId) {
           filters.push(`id ne ${exclusion.entityId}`);
         }
@@ -734,7 +734,7 @@ class LiferayService {
     const filters = [];
 
     if (excludedAccounts.length > 0) {
-      excludedAccounts.forEach(exclusion => {
+      excludedAccounts.forEach((exclusion) => {
         if (exclusion.entityId) {
           filters.push(`id ne ${exclusion.entityId}`);
         }
@@ -764,23 +764,31 @@ class LiferayService {
   async getImportTask(config, batchId) {
     if (config.demoMode) {
       const { logger } = this.ctx;
-      logger.warn('********************************************************************************');
-      logger.warn('LiferayService.getImportTask is using a mock implementation for demo mode.');
-      logger.warn('********************************************************************************');
+      logger.warn(
+        '********************************************************************************'
+      );
+      logger.warn(
+        'LiferayService.getImportTask is using a mock implementation for demo mode.'
+      );
+      logger.warn(
+        '********************************************************************************'
+      );
 
       return Promise.resolve({
         data: {
           className: 'com.liferay.headless.admin.user.dto.v1_0.Account',
           contentType: 'JSON',
           endTime: new Date().toISOString(),
-          errorMessage: 'java.lang.IllegalArgumentException: Unrecognized field "domains" (class com.liferay.headless.admin.user.dto.v1_0.AccountContactInformation), not marked as ignorable',
+          errorMessage:
+            'java.lang.IllegalArgumentException: Unrecognized field "domains" (class com.liferay.headless.admin.user.dto.v1_0.AccountContactInformation), not marked as ignorable',
           executeStatus: 'FAILED',
           externalReferenceCode: '504d9fc4-d4fa-4960-c350-df7014cff5f4',
           failedItems: [
             {
               item: 'Unable to read item at index 1',
               itemIndex: 1,
-              message: 'java.lang.IllegalArgumentException: Unrecognized field "domains" (class com.liferay.headless.admin.user.dto.v1_0.AccountContactInformation), not marked as ignorable',
+              message:
+                'java.lang.IllegalArgumentException: Unrecognized field "domains" (class com.liferay.headless.admin.user.dto.v1_0.AccountContactInformation), not marked as ignorable',
             },
           ],
           id: batchId,
@@ -789,7 +797,7 @@ class LiferayService {
           processedItemsCount: 0,
           startTime: new Date().toISOString(),
           totalItemsCount: 5,
-        }
+        },
       });
     }
 
@@ -804,9 +812,15 @@ class LiferayService {
   async getImportTaskSubmittedContent(config, batchId) {
     if (config.demoMode) {
       const { logger } = this.ctx;
-      logger.warn('********************************************************************************');
-      logger.warn('LiferayService.getImportTaskSubmittedContent is using a mock implementation for demo mode.');
-      logger.warn('********************************************************************************');
+      logger.warn(
+        '********************************************************************************'
+      );
+      logger.warn(
+        'LiferayService.getImportTaskSubmittedContent is using a mock implementation for demo mode.'
+      );
+      logger.warn(
+        '********************************************************************************'
+      );
 
       return Promise.resolve([]);
     }
@@ -820,13 +834,15 @@ class LiferayService {
 
     if (urlResponse && urlResponse.url) {
       const tempFilePath = path.join(tmpdir(), `${uuidv4()}.zip`);
-      
+
       try {
         await this._downloadFile(config, urlResponse.url, tempFilePath);
 
         const zip = new StreamZip.async({ file: tempFilePath });
         const entries = await zip.entries();
-        const jsonEntry = Object.values(entries).find(entry => entry.name.endsWith('.json'));
+        const jsonEntry = Object.values(entries).find((entry) =>
+          entry.name.endsWith('.json')
+        );
 
         if (jsonEntry) {
           const jsonContent = await zip.entryData(jsonEntry);
@@ -838,418 +854,147 @@ class LiferayService {
         }
       }
     }
-
-        return [];
-
-      }
-
-    
-
-      async getImportTaskErrorReport(config, batchId) {
-
-        if (config.demoMode) {
-
-          const { logger } = this.ctx;
-
-          logger.warn('********************************************************************************');
-
-          logger.warn('LiferayService.getImportTaskErrorReport is using a mock implementation for demo mode.');
-
-          logger.warn('********************************************************************************');
-
-    
-
-          return Promise.resolve([]);
-
-        }
-
-    
-
-                const csvContent = await this._get(
-
-    
-
-                  config,
-
-    
-
-                  PATH.IMPORT_TASK_ERROR_REPORT(batchId),
-
-    
-
-                  'import-task-error-report',
-
-    
-
-                  'Failed to get import task error report',
-
-    
-
-                  { headers: { Accept: 'application/octet-stream' } }
-
-    
-
-                );
-
-    
-
-        const records = parse(csvContent, {
-
-          columns: true,
-
-          skip_empty_lines: true
-
-        });
-
-    
-
-        return records;
-
-      }
-
-      
-
-                        async createWarehouse(config, warehouseData) {
-
-      
-
-                          return await this._post(
-
-      
-
-                            config,
-
-      
-
-                            PATH.WAREHOUSES,
-
-      
-
-                            warehouseData,
-
-      
-
-                            'create-warehouse',
-
-      
-
-                            'Failed to create warehouse'
-
-      
-
-                          );
-
-      
-
-                        }
-
-      
-
-                
-
-      
-
-                  async createWarehousesBatch(config, warehousesData, callbackUrl, opts = {}) {
-
-      
-
-                    const { logger, cache, configService } = this.ctx;
-
-      
-
-                    const erc =
-
-      
-
-                      opts.externalReferenceCode ?? createERC(ERC_PREFIX.WAREHOUSE_BATCH);
-
-      
-
-                
-
-      
-
-                    const items = (warehousesData || []).map((item) => {
-
-      
-
-                      const extERC = sanitizedERC(
-
-      
-
-                        item.externalReferenceCode || item.name?.en_US || uuidv4()
-
-      
-
-                      );
-
-      
-
-                      return { ...item, externalReferenceCode: extERC };
-
-      
-
-                    });
-
-      
-
-                    const itemERCs = items.map((i) => i.externalReferenceCode);
-
-      
-
-                    this._cacheItemERCs(erc, null, itemERCs, opts.sessionId);
-
-      
-
-                
-
-      
-
-                    const taggedCallback = this._buildCallbackURL(callbackUrl, {
-
-      
-
-                      entity: 'warehouses',
-
-      
-
-                      op: 'create',
-
-      
-
-                      batchERC: erc,
-
-      
-
-                      sessionId: opts.sessionId,
-
-      
-
-                    });
-
-      
-
-                    const batchPayload = {
-
-      
-
-                      createStrategy: 'INSERT',
-
-      
-
-                      items: items,
-
-      
-
-                      externalReferenceCode: erc,
-
-      
-
-                    };
-
-      
-
-                    const url = PATH.WAREHOUSES_BATCH(taggedCallback);
-
-      
-
-                    logger.info('Sending batch warehouse creation request', {
-
-      
-
-                      operation: 'create-warehouses-batch',
-
-      
-
-                      warehouseCount: warehousesData.length,
-
-      
-
-                      callbackUrl: taggedCallback,
-
-      
-
-                      externalReferenceCode: erc,
-
-      
-
-                    });
-
-      
-
-                    const data = await this._post(
-
-      
-
-                      config,
-
-      
-
-                      url,
-
-      
-
-                      batchPayload,
-
-      
-
-                      'create-warehouses-batch',
-
-      
-
-                      'Failed to create warehouses batch'
-
-      
-
-                    );
-
-      
-
-                    this._cacheItemERCs(erc, data?.id, itemERCs, opts.sessionId);
-
-      
-
-                    if (cache && data?.id) {
-
-      
-
-                      cache.set(
-
-      
-
-                        `batch:${data.id}:submission`,
-
-      
-
-                        {
-
-      
-
-                          op: 'create-warehouses-batch',
-
-      
-
-                          erc: erc,
-
-      
-
-                          itemERCs,
-
-      
-
-                          count: items.length,
-
-      
-
-                          createdAt: new Date().toISOString(),
-
-      
-
-                        },
-
-      
-
-                        getBatchCacheTTLms(configService)
-
-      
-
-                      );
-
-      
-
-                    }
-
-      
-
-                    logger?.trace?.('cache:itemERCs:stored', {
-
-      
-
-                      scopeERC: erc,
-
-      
-
-                      sessionId: opts.sessionId || null,
-
-      
-
-                      batchId: data?.id || null,
-
-      
-
-                      count: itemERCs.length,
-
-      
-
-                    });
-
-      
-
-                
-
-      
-
-                    logger.info('Batch warehouse creation initiated', {
-
-      
-
-                      operation: 'create-warehouses-batch',
-
-      
-
-                      batchId: data.id || 'unknown',
-
-      
-
-                      status: data.status || 'submitted',
-
-      
-
-                      externalReferenceCode: erc,
-
-      
-
-                    });
-
-      
-
-                    return {
-
-      
-
-                      batchId: data.id || `batch-${Date.now()}`,
-
-      
-
-                      status: data.status || 'submitted',
-
-      
-
-                      warehouseCount: items.length,
-
-      
-
-                      externalReferenceCode: erc,
-
-      
-
-                      batchRefs: [{ taskId: data.id, count: items.length, erc }],
-
-      
-
-                    };
-
-      
-
-                  }
-
-      
-
-                
-
-      
-
-                  async getWarehouses(config) {
+    return [];
+  }
+
+  async getImportTaskErrorReport(config, batchId) {
+    if (config.demoMode) {
+      const { logger } = this.ctx;
+      logger.warn(
+        '********************************************************************************'
+      );
+      logger.warn(
+        'LiferayService.getImportTaskErrorReport is using a mock implementation for demo mode.'
+      );
+      logger.warn(
+        '********************************************************************************'
+      );
+      return Promise.resolve([]);
+    }
+
+    const csvContent = await this._get(
+      config,
+      PATH.IMPORT_TASK_ERROR_REPORT(batchId),
+      'import-task-error-report',
+      'Failed to get import task error report',
+      { headers: { Accept: 'application/octet-stream' } }
+    );
+
+    const records = parse(csvContent, {
+      columns: true,
+      skip_empty_lines: true,
+    });
+
+    return records;
+  }
+
+  async createWarehouse(config, warehouseData) {
+    return await this._post(
+      config,
+      PATH.WAREHOUSES,
+      warehouseData,
+      'create-warehouse',
+      'Failed to create warehouse'
+    );
+  }
+
+  async createWarehousesBatch(config, warehousesData, callbackUrl, opts = {}) {
+    const { logger, cache, configService } = this.ctx;
+
+    const erc =
+      opts.externalReferenceCode ?? createERC(ERC_PREFIX.WAREHOUSE_BATCH);
+
+    const items = (warehousesData || []).map((item) => {
+      const extERC = sanitizedERC(
+        item.externalReferenceCode || item.name?.en_US || uuidv4()
+      );
+      return { ...item, externalReferenceCode: extERC };
+    });
+
+    const itemERCs = items.map((i) => i.externalReferenceCode);
+
+    this._cacheItemERCs(erc, null, itemERCs, opts.sessionId);
+
+    const taggedCallback = this._buildCallbackURL(callbackUrl, {
+      entity: 'warehouses',
+      op: 'create',
+      batchERC: erc,
+      sessionId: opts.sessionId,
+    });
+
+    const batchPayload = {
+      createStrategy: 'INSERT',
+      items: items,
+      externalReferenceCode: erc,
+    };
+
+    const url = PATH.WAREHOUSES_BATCH(taggedCallback);
+
+    logger.info('Sending batch warehouse creation request', {
+      operation: 'create-warehouses-batch',
+      warehouseCount: warehousesData.length,
+      callbackUrl: taggedCallback,
+      externalReferenceCode: erc,
+    });
+
+    const data = await this._post(
+      config,
+      url,
+      batchPayload,
+      'create-warehouses-batch',
+      'Failed to create warehouses batch'
+    );
+
+    this._cacheItemERCs(erc, data?.id, itemERCs, opts.sessionId);
+
+    if (cache && data?.id) {
+      cache.set(
+        `batch:${data.id}:submission`,
+        {
+          op: 'create-warehouses-batch',
+          erc: erc,
+          itemERCs,
+          count: items.length,
+          createdAt: new Date().toISOString(),
+        },
+        getBatchCacheTTLms(configService)
+      );
+    }
+
+    logger?.trace?.('cache:itemERCs:stored', {
+      scopeERC: erc,
+      sessionId: opts.sessionId || null,
+      batchId: data?.id || null,
+      count: itemERCs.length,
+    });
+
+    logger.info('Batch warehouse creation initiated', {
+      operation: 'create-warehouses-batch',
+      batchId: data.id || 'unknown',
+      status: data.status || 'submitted',
+      externalReferenceCode: erc,
+    });
+
+    return {
+      batchId: data.id || `batch-${Date.now()}`,
+      status: data.status || 'submitted',
+      warehouseCount: items.length,
+      externalReferenceCode: erc,
+      batchRefs: [{ taskId: data.id, count: items.length, erc }],
+    };
+  }
+
+  async deleteWarehouse(config, warehouseId) {
+    return await this._delete(
+      config,
+      `${PATH.WAREHOUSES}/${warehouseId}`,
+      null, // No data needed for DELETE by ID
+      'delete-warehouse',
+      'Failed to delete warehouse'
+    );
+  }
+
+  async getWarehouses(config) {
     const data = await this._get(config, PATH.WAREHOUSES, 'get-warehouses');
     return this._asItems(data);
   }
@@ -1398,8 +1143,6 @@ class LiferayService {
     return data;
   }
 
-
-
   async createAccountsBatch(config, accountsData, callbackUrl, opts = {}) {
     const { logger, cache, configService } = this.ctx;
     const erc =
@@ -1491,7 +1234,11 @@ class LiferayService {
         cache.set(`batch:${batchId}:itemERCs`, itemERCs, ttl);
       }
       if (sessionId && batchERC) {
-        cache.set(`session:${sessionId}:itemERCsByBatch:${batchERC}`, itemERCs, ttl);
+        cache.set(
+          `session:${sessionId}:itemERCsByBatch:${batchERC}`,
+          itemERCs,
+          ttl
+        );
       }
       this.ctx.logger?.trace?.('cache:itemERCs:stored', {
         scopeERC: batchERC,

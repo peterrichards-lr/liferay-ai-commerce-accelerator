@@ -207,7 +207,6 @@ class ConfigService {
       return remoteCategories;
     }
 
-
     const defaultCategoriesPath = path.join(
       __dirname,
       '../../ai-commerce-accelerator-frontend/src/config',
@@ -220,7 +219,9 @@ class ConfigService {
       this.cache.set(cacheKey, parsedCategories, this.getConfigTTL());
       return parsedCategories;
     } catch (error) {
-      this.logger.warn(`Failed to read default categories from frontend config: ${error.message}`);
+      this.logger.warn(
+        `Failed to read default categories from frontend config: ${error.message}`
+      );
       return []; // Return empty array on error
     }
   }
@@ -228,7 +229,7 @@ class ConfigService {
   getCategoriesCached() {
     return this.getConfigCached(AI_CATEGORIES_CACHE_KEY);
   }
-  
+
   async getExcludeLists(requestConfig) {
     const cacheKey = EXCLUDE_LISTS_CACHE_KEY;
     const configKey = EXCLUDE_LISTS_CONFIG_KEY;
@@ -396,7 +397,6 @@ class ConfigService {
     return this.getConfigCached(QUEUE_CONFIG_CACHE_KEY) || {};
   }
 
-
   async getAIConfig(requestConfig) {
     const cache = this.cache;
     const logger = this.logger;
@@ -428,8 +428,6 @@ class ConfigService {
     const cache = this.cache;
     return cache.get(AI_CONFIG_CACHE_KEY) || null;
   }
-
-
 
   async getOAuthConfig(requestConfig) {
     return this._getConfigWithFallback(
@@ -486,11 +484,14 @@ class ConfigService {
       return Array.isArray(sizes) && sizes.length > 0 ? sizes : [10, 25, 50];
     } catch (error) {
       const erc = error?.errorReference || createERC(ERC_PREFIX.ERROR);
-      logger?.warn?.('Failed to get batch sizes from Liferay Object, using defaults', {
-        operation: 'get-batch-sizes',
-        errorReference: erc,
-        message: error.message,
-      });
+      logger?.warn?.(
+        'Failed to get batch sizes from Liferay Object, using defaults',
+        {
+          operation: 'get-batch-sizes',
+          errorReference: erc,
+          message: error.message,
+        }
+      );
       return [10, 25, 50];
     }
   }
@@ -510,32 +511,42 @@ class ConfigService {
       );
       const aiConfig = await this.getAIConfig(requestConfig);
 
-      const resolvedOptions = Array.isArray(options) && options.length > 0
-        ? options
-        : [
-            { label: 'GPT-4o Mini', value: 'gpt-4o-mini' },
-            { label: 'GPT-4o', value: 'gpt-4o' },
-            { label: 'GPT-4.1 Mini', value: 'gpt-4.1-mini' },
-          ];
-      
+      const resolvedOptions =
+        Array.isArray(options) && options.length > 0
+          ? options
+          : [
+              { label: 'GPT-4o Mini', value: 'gpt-4o-mini' },
+              { label: 'GPT-4o', value: 'gpt-4o' },
+              { label: 'GPT-4.1 Mini', value: 'gpt-4.1-mini' },
+            ];
+
       let defaultModel = aiConfig?.defaultModel || null;
-      const defaultModelExists = resolvedOptions.some(opt => opt.value === defaultModel);
+      const defaultModelExists = resolvedOptions.some(
+        (opt) => opt.value === defaultModel
+      );
 
       if (!defaultModel || !defaultModelExists) {
-        defaultModel = resolvedOptions.length > 0 ? resolvedOptions[0].value : null;
-        logger?.warn?.(`Default AI model '${aiConfig?.defaultModel}' not found in available options. Setting default to '${defaultModel}'.`, {
-          operation: 'get-ai-model-options-fallback',
-        });
+        defaultModel =
+          resolvedOptions.length > 0 ? resolvedOptions[0].value : null;
+        logger?.warn?.(
+          `Default AI model '${aiConfig?.defaultModel}' not found in available options. Setting default to '${defaultModel}'.`,
+          {
+            operation: 'get-ai-model-options-fallback',
+          }
+        );
       }
 
       return { aiModelOptions: resolvedOptions, defaultModel };
     } catch (error) {
       const erc = error?.errorReference || createERC(ERC_PREFIX.ERROR);
-      logger?.warn?.('Failed to get AI model options from Liferay Object, using defaults', {
-        operation: 'get-ai-model-options',
-        errorReference: erc,
-        message: error.message,
-      });
+      logger?.warn?.(
+        'Failed to get AI model options from Liferay Object, using defaults',
+        {
+          operation: 'get-ai-model-options',
+          errorReference: erc,
+          message: error.message,
+        }
+      );
       return {
         aiModelOptions: [
           { label: 'GPT-4o Mini', value: 'gpt-4o-mini' },
@@ -551,19 +562,23 @@ class ConfigService {
     const cached = this.getConfigCached(AI_MODEL_OPTIONS_CACHE_KEY);
     const cachedAIConfig = this.getAIConfigCached();
 
-    const resolvedOptions = Array.isArray(cached) && cached.length > 0
-      ? cached
-      : [
-          { label: 'GPT-4o Mini', value: 'gpt-4o-mini' },
-          { label: 'GPT-4o', value: 'gpt-4o' },
-          { label: 'GPT-4.1 Mini', value: 'gpt-4.1-mini' },
-        ];
-    
+    const resolvedOptions =
+      Array.isArray(cached) && cached.length > 0
+        ? cached
+        : [
+            { label: 'GPT-4o Mini', value: 'gpt-4o-mini' },
+            { label: 'GPT-4o', value: 'gpt-4o' },
+            { label: 'GPT-4.1 Mini', value: 'gpt-4.1-mini' },
+          ];
+
     let defaultModel = cachedAIConfig?.defaultModel || null;
-    const defaultModelExists = resolvedOptions.some(opt => opt.value === defaultModel);
+    const defaultModelExists = resolvedOptions.some(
+      (opt) => opt.value === defaultModel
+    );
 
     if (!defaultModel || !defaultModelExists) {
-      defaultModel = resolvedOptions.length > 0 ? resolvedOptions[0].value : null;
+      defaultModel =
+        resolvedOptions.length > 0 ? resolvedOptions[0].value : null;
     }
 
     return { aiModelOptions: resolvedOptions, defaultModel };

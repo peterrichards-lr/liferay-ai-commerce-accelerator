@@ -38,7 +38,7 @@ doLast {
         def microserviceDir = file("$rootDir/client-extensions/ai-commerce-accelerator-microservice")
         def batchDir = file("$rootDir/client-extensions/ai-commerce-accelerator-batch/batch")
 
-        def entities = ['account', 'order', 'pdf', 'pricing', 'product'].sort()
+        def entities = ['account', 'order', 'pdf', 'pricing', 'product', 'warehouse'].sort()
         int fileIndex = 4
 
         // --- Schemas ---

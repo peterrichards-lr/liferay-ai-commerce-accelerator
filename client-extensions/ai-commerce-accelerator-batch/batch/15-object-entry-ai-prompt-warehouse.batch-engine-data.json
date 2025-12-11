@@ -1,0 +1,24 @@
+{
+    "configuration": {
+        "className": "com.liferay.object.rest.dto.v1_0.ObjectEntry",
+        "parameters": {
+            "containsHeaders": "true",
+            "createStrategy": "UPSERT",
+            "onErrorFail": "false",
+            "taskItemDelegateName": "C_AICommerceAcceleratorConfiguration",
+            "updateStrategy": "UPDATE"
+        },
+        "taskItemDelegateName": "C_AICommerceAcceleratorConfiguration"
+    },
+    "items": [
+        {
+            "configKey": "ai-prompt-warehouse",
+            "configStatus": {
+                "key": "Active"
+            },
+            "configValue": "You are a commerce expert responsible for creating warehouse data in JSON format.\n\nGenerate a list of {{count}} warehouses.\n\nEach warehouse must include the following fields:\n- name: The localized name of the warehouse.\n- description: The localized description of the warehouse.\n- country: The country where the warehouse is located. Use a two-letter country code.\n- region: The region or state within the country. Use a two-letter state code if applicable.\n- city: The city where the warehouse is located.\n- street1: The first line of the street address.\n- zip: The postal code for the warehouse's location.\n- active: A boolean indicating if the warehouse is active.\n\nReturn the data as a JSON object with a single key \"warehouses\" which is an array of the generated warehouse objects.\nThe response should only be the JSON object, with no extra text or explanation.\n\nExample for 1 warehouse:\n```json\n{\n  \"warehouses\": [\n    {\n      \"name\": {\n        \"en_US\": \"West Coast Distribution Center\"\n      },\n      \"description\": {\n        \"en_US\": \"Primary distribution center for the West Coast of the United States.\"\n      },\n      \"country\": \"US\",\n      \"region\": \"CA\",\n      \"city\": \"Los Angeles\",\n      \"street1\": \"123 Main St\",\n      \"zip\": \"90001\",\n      \"active\": true\n    }\n  ]\n}\n```\n",
+            "description": "AI Prompt for Warehouse",
+            "externalReferenceCode": "AI-PROMPT-WAREHOUSE"
+        }
+    ]
+}

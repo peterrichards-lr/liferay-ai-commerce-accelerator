@@ -20,8 +20,13 @@ function totalClients() {
       logger?.warn?.('totalClients called before WS initialized');
       return 0;
     }
-    if (_wsInstance && typeof _wsInstance.totalClients === 'function') return _wsInstance.totalClients();
-    if (_wsInstance && _wsInstance.clients && typeof _wsInstance.clients.size === 'number')
+    if (_wsInstance && typeof _wsInstance.totalClients === 'function')
+      return _wsInstance.totalClients();
+    if (
+      _wsInstance &&
+      _wsInstance.clients &&
+      typeof _wsInstance.clients.size === 'number'
+    )
       return _wsInstance.clients.size;
   } catch {}
   return 0;

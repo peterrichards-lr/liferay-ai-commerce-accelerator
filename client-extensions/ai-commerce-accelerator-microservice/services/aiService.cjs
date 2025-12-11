@@ -24,19 +24,32 @@ class AIService {
   }
 
   _getActualDataFromAIResponse(parsedResponse, schemaName) {
-    if (!parsedResponse || typeof parsedResponse !== 'object' || parsedResponse === null) {
+    if (
+      !parsedResponse ||
+      typeof parsedResponse !== 'object' ||
+      parsedResponse === null
+    ) {
       return parsedResponse;
     }
 
     const mainPropertyName = schemaName + 's'; // e.g., 'accounts', 'products', 'orders'
 
     // Scenario 1: AI returned full schema definition (AI-generated $schema, properties, required)
-    if (parsedResponse.$schema && parsedResponse.properties && parsedResponse.properties[mainPropertyName]) {
-      return { [mainPropertyName]: parsedResponse.properties[mainPropertyName] };
+    if (
+      parsedResponse.$schema &&
+      parsedResponse.properties &&
+      parsedResponse.properties[mainPropertyName]
+    ) {
+      return {
+        [mainPropertyName]: parsedResponse.properties[mainPropertyName],
+      };
     }
 
     // Scenario 2: AI returned a simple wrapper object (e.g., {"accounts": [...]})
-    if (parsedResponse[mainPropertyName] && Array.isArray(parsedResponse[mainPropertyName])) {
+    if (
+      parsedResponse[mainPropertyName] &&
+      Array.isArray(parsedResponse[mainPropertyName])
+    ) {
       return { [mainPropertyName]: parsedResponse[mainPropertyName] };
     }
 
@@ -49,7 +62,6 @@ class AIService {
     // Default: Return the parsed response as is if no specific unwrapping is needed
     return parsedResponse;
   }
-
 
   async getRuntimeAIConfig(requestConfig) {
     const { configService } = this.ctx;
@@ -173,12 +185,17 @@ class AIService {
         );
       }
 
-      const processedCandidate = this._getActualDataFromAIResponse(parsed, schemaName);
+      const processedCandidate = this._getActualDataFromAIResponse(
+        parsed,
+        schemaName
+      );
 
       if (logger && logger.trace && processedCandidate !== null) {
         logger.trace('AIService._chatJson parsed response preview', {
           task,
-          parsedPreview: Array.isArray(processedCandidate) ? processedCandidate.slice(0, 3) : processedCandidate,
+          parsedPreview: Array.isArray(processedCandidate)
+            ? processedCandidate.slice(0, 3)
+            : processedCandidate,
         });
       }
 
@@ -203,12 +220,16 @@ class AIService {
         }
 
         const mainPropertyName = schemaName + 's';
-        if (schema.properties && schema.properties[mainPropertyName] && Array.isArray(processedCandidate[mainPropertyName])) {
+        if (
+          schema.properties &&
+          schema.properties[mainPropertyName] &&
+          Array.isArray(processedCandidate[mainPropertyName])
+        ) {
           return processedCandidate[mainPropertyName];
         }
         // If the schema itself is an array at the root (e.g., old product.json style), return candidate directly
         if (schema.type === 'array' && Array.isArray(processedCandidate)) {
-            return processedCandidate;
+          return processedCandidate;
         }
         return processedCandidate; // Fallback to return the validated wrapper object if not an array inside
       }
@@ -419,9 +440,7 @@ class AIService {
         'order'
       );
 
-      const orders = Array.isArray(result)
-        ? result
-        : result.orders || [result];
+      const orders = Array.isArray(result) ? result : result.orders || [result];
 
       return orders;
     } catch (error) {
@@ -453,7 +472,11 @@ class AIService {
         pluralSuffix: pluralize(count),
       };
 
-      const prompt = await promptService.render('warehouse', vars, requestConfig);
+      const prompt = await promptService.render(
+        'warehouse',
+        vars,
+        requestConfig
+      );
       const result = await this._chatJson(
         'warehouse',
         prompt,
@@ -529,9 +552,7 @@ class AIService {
       });
 
       const wrapped = new Error(
-        `AI service error: ${
-          error.message || 'Failed to generate image data'
-        }`
+        `AI service error: ${error.message || 'Failed to generate image data'}`
       );
       wrapped.errorReference = errorReference;
       throw wrapped;

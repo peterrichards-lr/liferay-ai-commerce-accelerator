@@ -513,7 +513,8 @@ class AccountGenerator {
 
       // Now directly include accountContactInformation from accountData
       if (accountData.accountContactInformation) {
-          liferayAccount.accountContactInformation = accountData.accountContactInformation;
+        liferayAccount.accountContactInformation =
+          accountData.accountContactInformation;
       }
 
       const createdAccount = await liferay.createAccount(

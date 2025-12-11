@@ -160,4 +160,31 @@ module.exports = (app, { liferayService, logger }) => {
       }
     }
   );
+
+  app.post(
+    '/api/get-warehouses',
+    inputValidationMiddleware(connectionSchema),
+    async (req, res) => {
+      try {
+        const { liferayUrl, clientId, clientSecret, localeCode } = req.body;
+
+        const warehouses = await liferayService.getWarehouses({
+          liferayUrl,
+          clientId,
+          clientSecret,
+          localeCode,
+        });
+
+        res.json({
+          success: true,
+          warehouses,
+          timestamp: new Date().toISOString(),
+        });
+      } catch (error) {
+        handleError(res, logger, req, 'get-warehouses', error, {
+          requestBody: sanitizedObject(req.body),
+        });
+      }
+    }
+  );
 };

@@ -14,7 +14,7 @@ class WarehouseGenerator {
     const regionISOCode = warehouseData.region?.substring(0, 2).toUpperCase();
 
     const { country, region, ...rest } = warehouseData;
-    
+
     return {
       ...rest,
       name,
@@ -23,16 +23,15 @@ class WarehouseGenerator {
       regionISOCode,
       latitude: Math.random() * 180 - 90,
       longitude: Math.random() * 360 - 180,
-      externalReferenceCode: rest.externalReferenceCode || createERC(ERC_PREFIX.WAREHOUSE),
+      externalReferenceCode:
+        rest.externalReferenceCode || createERC(ERC_PREFIX.WAREHOUSE),
     };
   }
 
   async createWarehouses(config, options) {
     const { logger, ai, mockData, ws, liferay, batchPolling, configService } = this.ctx;
-    const { productCount, demoMode } = options;
+    const { warehouseCount, demoMode } = options;
     const correlationId = config?.correlationId || '∅';
-    const warehouseCount =
-      options.warehouseCount || Math.max(1, Math.floor((productCount || 0) / 200)) || 1;
 
     let warehouseDataList;
     if (demoMode) {
@@ -108,6 +107,21 @@ class WarehouseGenerator {
             );
           },
           onComplete: (r) => {
+            ws.emitBatchProgress( // <-- Add this
+              {
+                entityType,
+                operation: 'generate',
+                mode: 'batch',
+                phase: 'poll',
+                batchId: batchId,
+                batchERC,
+                completedCount: r.processedCount,
+                totalItems: totalItems,
+                progress: 100,
+                etaSeconds: 0,
+              },
+              { correlationId }
+            );
             ws.emitBatchCompleted(
               {
                 batchId,

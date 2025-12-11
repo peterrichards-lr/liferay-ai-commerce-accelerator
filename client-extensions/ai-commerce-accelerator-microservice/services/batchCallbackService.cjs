@@ -131,7 +131,7 @@ class BatchCallbackService {
     liferay,
     deleteCoordinatorService,
   }) {
-    const { logger, cache } = this.ctx;
+    const { logger, cache, ws } = this.ctx; // Add ws to destructuring
     for (
       let groupIndex = 0;
       groupIndex < context.stepGroups.length;
@@ -162,14 +162,16 @@ class BatchCallbackService {
           continue;
         }
 
-        const hasEntities = await this._checkIfEntitiesExist(
+        const { hasItems, ids } = await this._checkIfEntitiesExist(
+          // Get IDs here
           liferay,
           config,
           step,
           { channelId, catalogId }
         );
 
-        if (!hasEntities) {
+        if (!hasItems) {
+          // Use hasItems
           context.completedSteps.push(step);
           logger.info(
             `Skipping ${step} deletion: No entities found. Marking as completed.`,
@@ -185,10 +187,27 @@ class BatchCallbackService {
         logger.debug(`Attempting deletion for step: ${step}`, {
           batchERC,
           step,
-          hasEntities,
+          hasItems, // Use hasItems
+          ids: (ids || []).slice(0, 5), // Log first few IDs
         });
 
         switch (step) {
+          case 'orders':
+            result = await liferay.deleteCommerceOrders(
+              config,
+              { ...options, channelId, callbackBatchERC: batchERC },
+              nextCallbackUrl
+            );
+            break;
+          case 'warehouses':
+            // Call the individual warehouse deletion helper
+            result = await deleteCoordinatorService._deleteWarehouses(
+              config,
+              ids, // Pass the retrieved IDs
+              config.correlationId,
+              ws // Pass ws for emitting events
+            );
+            break;
           case 'accounts':
             result = await liferay.deleteCommerceAccounts(
               config,
@@ -234,13 +253,11 @@ class BatchCallbackService {
               nextCallbackUrl
             );
             break;
-          case 'orders':
+          case 'orders': // This case already handled, but keep for robustness if order is re-queued unexpectedly
             logger.warn(
               `Orders step encountered in _startNextGroups loop. This should not happen.`,
               { batchERC }
             );
-            // This step should be handled by the initial call to runDeleteAndMonitorV2
-            // Mark as complete and continue to avoid re-processing
             if (!context.completedSteps.includes('orders')) {
               context.completedSteps.push('orders');
               cache.set(`batch:${batchERC}:context`, context);
@@ -250,7 +267,6 @@ class BatchCallbackService {
             logger.warn(`Unknown step in chained deletion: ${step}`, {
               batchERC,
             });
-            // Mark unknown steps as complete to avoid infinite loops if they can't be processed
             if (!context.completedSteps.includes(step)) {
               context.completedSteps.push(step);
               cache.set(`batch:${batchERC}:context`, context);
@@ -265,33 +281,26 @@ class BatchCallbackService {
             batchRefs: result.batchRefs,
           });
           batchesSubmittedInGroup++;
-          // Important: after submitting a batch, we MUST wait for its callback
-          // So we update the current group index and break from the inner loop
-          // The next processCallback call will then resume from this group
           context.currentGroupIndex = groupIndex;
           cache.set(`batch:${batchERC}:context`, context);
           logger.info(
             `Submitted batch for step '${step}'. Waiting for its completion.`,
             { batchERC, step }
           );
-          return; // Exit here and wait for callback to re-trigger processCallback
+          return;
         }
-        // If entities existed but no batches were submitted, it means they were handled
-        // (e.g., deleted individually, or no actual deletion needed but existence confirmed)
+        // For individual deletions or if no batches were submitted (e.g., already deleted),
+        // we mark the step as complete and continue processing the group.
         context.completedSteps.push(step);
         logger.info(
           `Step '${step}' deletion initiated or marked complete (no batches needed).`,
           { batchERC, step }
         );
-        // Persist context after marking step complete, even if no batch was submitted
         cache.set(`batch:${batchERC}:context`, context);
       } // End of inner loop (for step of group)
 
       context.completedSteps = Array.from(new Set(context.completedSteps)); // Ensure uniqueness
 
-      // After trying all steps in the current group, if it's not fully complete,
-      // it means some deletion was initiated and we are waiting for its callback (handled by the 'return' above)
-      // or something went wrong. But if it is complete, we can move to the next group.
       if (this._isGroupComplete(group, context.completedSteps)) {
         logger.info(
           `Group ${groupIndex} completed. Proceeding to next group.`,
@@ -299,7 +308,6 @@ class BatchCallbackService {
         );
         context.currentGroupIndex = groupIndex + 1; // Advance to the next group
         cache.set(`batch:${batchERC}:context`, context);
-        // Continue to the next groupIndex in the outer loop
       } else {
         logger.warn(
           `Group ${groupIndex} not fully complete after processing. This might indicate an issue.`,
@@ -309,7 +317,7 @@ class BatchCallbackService {
             completedSteps: context.completedSteps,
           }
         );
-        return; // Stop processing to avoid infinite loops or unexpected behavior
+        return;
       }
     } // End of outer loop (for groupIndex)
 
@@ -333,82 +341,106 @@ class BatchCallbackService {
       catalogId,
     });
     const checkMap = {
-      accounts: () =>
-        liferay.getCommerceAccounts(config, { channelId, pageSize: 200 }),
-      products: () =>
-        liferay.getCommerceProducts(config, { catalogId, pageSize: 1 }),
-      specifications: () => liferay.getSpecifications(config, { pageSize: 1 }),
-      options: () => liferay.getOptions(config, { pageSize: 1 }),
-      optionCategories: () =>
-        liferay._listOptionCategories(config, { pageSize: 1 }),
-      orders: () =>
-        liferay.getCommerceOrders(config, { channelId, pageSize: 1 }),
+      accounts: async () => {
+        const res = await liferay.getCommerceAccounts(config, {
+          channelId,
+          pageSize: 200, // Fetch all for ID collection
+        });
+        return {
+          items: liferay._asItems(res),
+          totalCount: liferay._asCount(res),
+          ids: liferay._asItems(res).map((it) => it.id),
+        };
+      },
+      products: async () => {
+        const res = await liferay.getCommerceProducts(config, {
+          catalogId,
+          pageSize: 200, // Fetch all for ID collection
+        });
+        return {
+          items: liferay._asItems(res),
+          totalCount: liferay._asCount(res),
+          ids: liferay._asItems(res).map((it) => it.productId),
+        };
+      },
+      specifications: async () => {
+        const res = await liferay.getSpecifications(config, { pageSize: 200 }); // Fetch all for ID collection
+        return {
+          items: liferay._asItems(res),
+          totalCount: liferay._asCount(res),
+          ids: liferay._asItems(res).map((it) => it.id),
+        };
+      },
+      options: async () => {
+        const res = await liferay.getOptions(config, { pageSize: 200 }); // Fetch all for ID collection
+        return {
+          items: liferay._asItems(res),
+          totalCount: liferay._asCount(res),
+          ids: liferay._asItems(res).map((it) => it.id),
+        };
+      },
+      optionCategories: async () => {
+        const res = await liferay._listOptionCategories(config, {
+          pageSize: 200,
+        }); // Fetch all for ID collection
+        return {
+          items: liferay._asItems(res),
+          totalCount: liferay._asCount(res),
+          ids: liferay._asItems(res).map((it) => it.id),
+        };
+      },
+      orders: async () => {
+        const res = await liferay.getCommerceOrders(config, {
+          channelId,
+          pageSize: 200, // Fetch all for ID collection
+        });
+        return {
+          items: liferay._asItems(res),
+          totalCount: liferay._asCount(res),
+          ids: liferay._asItems(res).map((it) => it.id),
+        };
+      },
+      warehouses: async () => {
+        const res = await liferay.getWarehouses(config, { pageSize: 200 }); // Fetch all for ID collection
+        return {
+          items: liferay._asItems(res),
+          totalCount: liferay._asCount(res),
+          ids: liferay._asItems(res).map((it) => it.id),
+        };
+      },
     };
 
-    if (!checkMap[entityType]) return true; // Assume existence if no check is defined
+    if (!checkMap[entityType]) return { hasItems: true, ids: [] }; // Assume existence and no IDs if no check is defined
 
-    const result = await checkMap[entityType]();
-    const hasItems = result?.items?.length > 0;
+    const { items, totalCount, ids } = await checkMap[entityType]();
+    const hasItems = totalCount > 0;
+
     logger.debug('Entity existence check result', {
       entityType,
       hasItems,
-      result,
+      totalCount,
+      resultItemsPreview: (ids || []).slice(0, 5),
     });
+
+    // Special handling for accounts to exclude primary account
     if (entityType === 'accounts') {
-      const totalCount =
-        typeof result?.totalCount === 'number'
-          ? result.totalCount
-          : Array.isArray(result?.items)
-          ? result.items.length
-          : 0;
-
       if (totalCount <= 1) {
-        if (logger?.isTraceEnabled?.()) {
-          logger.trace(
-            'Account existence check: skipping accounts step because at most one account exists',
-            {
-              entityType,
-              totalCount,
-              itemsPreview: JSON.stringify(
-                (result?.items || []).slice(0, 5),
-                null,
-                2
-              ),
-            }
-          );
-        }
-        return false;
-      }
-
-      const primaryAccountId = await liferay.getPrimaryAccountId(config);
-      if (primaryAccountId != null && Array.isArray(result?.items)) {
-        const deletable = result.items.filter(
-          (it) => String(it.id) !== String(primaryAccountId)
+        // If only 0 or 1 account, might be primary, so check further
+        const primaryAccountId = await liferay.getPrimaryAccountId(config);
+        const deletableIds = (ids || []).filter(
+          (id) => String(id) !== String(primaryAccountId)
         );
-        if (logger?.isTraceEnabled?.()) {
-          logger.trace('Account existence check excluding primary account', {
-            entityType,
-            primaryAccountId,
-            totalCount,
-            deletableCount: deletable.length,
-          });
-        }
-        return deletable.length > 0;
+        logger.trace('Account existence check excluding primary account', {
+          entityType,
+          primaryAccountId,
+          totalCount,
+          deletableCount: deletableIds.length,
+        });
+        return { hasItems: deletableIds.length > 0, ids: deletableIds };
       }
     }
-    if (logger?.isTraceEnabled?.()) {
-      logger.trace('Entity existence check result', {
-        entityType,
-        hasItems: !!result?.items?.length,
-        itemsPreview: JSON.stringify(
-          (result?.items || []).slice(0, 5),
-          null,
-          2
-        ),
-        rawResultKeys: result ? Object.keys(result) : [],
-      });
-    }
-    return result?.items?.length > 0;
+
+    return { hasItems: hasItems, ids: ids };
   }
 }
 

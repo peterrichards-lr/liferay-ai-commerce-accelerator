@@ -157,6 +157,94 @@ class DeleteCoordinatorService {
     }
   }
 
+  async _deleteWarehouses(config, warehouseIds, correlationId, ws) {
+    const { liferay, logger } = this.ctx;
+    const entityType = 'warehouses';
+    const operation = 'delete';
+    const mode = 'individual';
+    const phase = 'delete';
+    const batchId = `warehouses-delete-${Date.now()}`;
+
+    ws.emitBatchStarted(
+      {
+        batchId,
+        entityType,
+        totalItems: warehouseIds.length,
+        operation,
+        mode,
+        phase,
+      },
+      { correlationId }
+    );
+
+    const deletedWarehouses = [];
+    const errors = [];
+
+    for (let index = 0; index < warehouseIds.length; index++) {
+      const warehouseId = warehouseIds[index];
+      try {
+        await liferay.deleteWarehouse(config, warehouseId);
+        deletedWarehouses.push(warehouseId);
+      } catch (error) {
+        errors.push({ id: warehouseId, error: error.message });
+        logger.error('Warehouse deletion failed', {
+          correlationId,
+          operation: 'warehouses/delete:error',
+          error: error.message,
+          warehouseId,
+        });
+      }
+
+      const processed = index + 1;
+      const totalItems = warehouseIds.length;
+      const progress =
+        totalItems > 0 ? Math.round((processed / totalItems) * 100) : 0;
+
+      ws.emitBatchProgress(
+        {
+          batchId,
+          entityType,
+          completedCount: processed,
+          totalItems,
+          progress,
+          operation,
+          mode,
+          phase,
+        },
+        { correlationId }
+      );
+    }
+
+    ws.emitBatchCompleted(
+      {
+        batchId,
+        entityType,
+        successCount: deletedWarehouses.length,
+        failureCount: errors.length,
+        errors,
+        operation,
+        mode,
+        phase,
+      },
+      { correlationId }
+    );
+
+    logger.info('Warehouse deletion completed', {
+      correlationId,
+      operation: 'warehouses/delete:complete',
+      deleted: deletedWarehouses.length,
+      errors: errors.length,
+      mode,
+      phase,
+    });
+
+    return {
+      deleted: deletedWarehouses.length,
+      errors: errors.length,
+      batchRefs: [], // No batchRefs for individual deletion
+    };
+  }
+
   async runDeleteAndMonitorV2(config, options = {}) {
     const { liferay, logger, cache, configService } = this.ctx;
 
@@ -190,6 +278,7 @@ class DeleteCoordinatorService {
       batchERC,
       steps: [
         'orders',
+        'warehouses', // Add warehouses back
         'accounts',
         'products',
         'specifications',
@@ -210,6 +299,14 @@ class DeleteCoordinatorService {
       step: 'orders',
     });
 
+    let ordersResult = {
+      total: 0,
+      batches: 0,
+      submitted: 0,
+      dryRun: false,
+      batchRefs: [],
+    };
+
     const existingOrders = await liferay.getCommerceOrders(config, {
       pageSize: 1,
     });
@@ -228,9 +325,8 @@ class DeleteCoordinatorService {
           'orders',
           this._deriveTotalFromResult(orders)
         );
+        ordersResult = orders;
       }
-
-      return { orders };
     } else {
       logger.info(
         'Skipping order deletion: No orders found. Triggering next step directly.',
@@ -240,18 +336,262 @@ class DeleteCoordinatorService {
         entity: 'orders',
         status: 'completed',
       });
-      return {
-        orders: {
-          total: 0,
-          batches: 0,
-          submitted: 0,
-          dryRun: false,
-          batchRefs: [],
-        },
-      };
     }
-  }
 
+    let warehousesResult = {
+      total: 0,
+      batches: 0,
+      submitted: 0,
+      dryRun: false,
+      batchRefs: [],
+    };
+
+    const existingWarehouses = await liferay.getWarehouses(config, {
+      pageSize: 1,
+    });
+
+    if (existingWarehouses?.items?.length > 0) {
+      const warehouseIds = (await liferay.getWarehouses(config)).map(
+        (w) => w.id
+      ); // Get all warehouse IDs
+      const warehouses = await this._deleteWarehouses(
+        config,
+        warehouseIds,
+        config.correlationId,
+        this.ctx.ws
+      );
+
+      // _deleteWarehouses returns { deleted, errors, batchRefs: [] }
+      // So map it to the expected result structure
+      warehousesResult = {
+        total: warehouses.deleted + warehouses.errors.length,
+        completed: warehouses.deleted,
+        errors: warehouses.errors,
+        submitted: warehouses.deleted,
+        dryRun: false,
+        batchRefs: warehouses.batchRefs,
+      };
+
+      // Since individual deletion doesn't use batch polling for chained deletion,
+      // we manually trigger the next step.
+      await this.ctx.batchCallbackService.processCallback(batchERC, {
+        entity: 'warehouses',
+        status: 'completed',
+      });
+    } else {
+      logger.info(
+        'Skipping warehouse deletion: No warehouses found. Triggering next step directly.',
+        { operation: 'runDeleteAndMonitorV2' }
+      );
+      await this.ctx.batchCallbackService.processCallback(batchERC, {
+        entity: 'warehouses',
+        status: 'completed',
+      });
+    }
+
+    let accountsResult = {
+      total: 0,
+      batches: 0,
+      submitted: 0,
+      dryRun: false,
+      batchRefs: [],
+    };
+
+    const existingAccounts = await liferay.getCommerceAccounts(config, {
+      pageSize: 1,
+    });
+
+    if (existingAccounts?.items?.length > 0) {
+      const accounts = await liferay.deleteCommerceAccounts(
+        config,
+        { ...baseOpts, callbackBatchERC: batchERC },
+        `${callbackUrl}&entity=accounts`
+      );
+
+      if (accounts?.batchRefs) {
+        this.recordBatches(
+          accounts.batchRefs,
+          config,
+          'accounts',
+          this._deriveTotalFromResult(accounts)
+        );
+        accountsResult = accounts;
+      }
+    } else {
+      logger.info(
+        'Skipping account deletion: No accounts found. Triggering next step directly.',
+        { operation: 'runDeleteAndMonitorV2' }
+      );
+      await this.ctx.batchCallbackService.processCallback(batchERC, {
+        entity: 'accounts',
+        status: 'completed',
+      });
+    }
+
+    let productsResult = {
+      total: 0,
+      batches: 0,
+      submitted: 0,
+      dryRun: false,
+      batchRefs: [],
+    };
+
+    const existingProducts = await liferay.getCommerceProducts(config, {
+      pageSize: 1,
+    });
+
+    if (existingProducts?.items?.length > 0) {
+      const products = await liferay.deleteCommerceProducts(
+        config,
+        { ...baseOpts, callbackBatchERC: batchERC },
+        `${callbackUrl}&entity=products`
+      );
+
+      if (products?.batchRefs) {
+        this.recordBatches(
+          products.batchRefs,
+          config,
+          'products',
+          this._deriveTotalFromResult(products)
+        );
+        productsResult = products;
+      }
+    } else {
+      logger.info(
+        'Skipping product deletion: No products found. Triggering next step directly.',
+        { operation: 'runDeleteAndMonitorV2' }
+      );
+      await this.ctx.batchCallbackService.processCallback(batchERC, {
+        entity: 'products',
+        status: 'completed',
+      });
+    }
+
+    let specificationsResult = {
+      total: 0,
+      batches: 0,
+      submitted: 0,
+      dryRun: false,
+      batchRefs: [],
+    };
+
+    const existingSpecifications = await liferay.getSpecifications(config, {
+      pageSize: 1,
+    });
+
+    if (existingSpecifications?.items?.length > 0) {
+      const specifications = await liferay.deleteSpecificationsBatch(
+        config,
+        { ...baseOpts, all: true, callbackBatchERC: batchERC },
+        `${callbackUrl}&entity=specifications`
+      );
+
+      if (specifications?.batchRefs) {
+        this.recordBatches(
+          specifications.batchRefs,
+          config,
+          'specifications',
+          this._deriveTotalFromResult(specifications)
+        );
+        specificationsResult = specifications;
+      }
+    } else {
+      logger.info(
+        'Skipping specification deletion: No specifications found. Triggering next step directly.',
+        { operation: 'runDeleteAndMonitorV2' }
+      );
+      await this.ctx.batchCallbackService.processCallback(batchERC, {
+        entity: 'specifications',
+        status: 'completed',
+      });
+    }
+
+    let optionsResult = {
+      total: 0,
+      batches: 0,
+      submitted: 0,
+      dryRun: false,
+      batchRefs: [],
+    };
+
+    const existingOptions = await liferay.getOptions(config, { pageSize: 1 });
+
+    if (existingOptions?.items?.length > 0) {
+      const optionsRes = await liferay.deleteOptionsBatch(
+        config,
+        { ...baseOpts, callbackBatchERC: batchERC },
+        `${callbackUrl}&entity=options`
+      );
+
+      if (optionsRes?.batchRefs) {
+        this.recordBatches(
+          optionsRes.batchRefs,
+          config,
+          'options',
+          this._deriveTotalFromResult(optionsRes)
+        );
+        optionsResult = optionsRes;
+      }
+    } else {
+      logger.info(
+        'Skipping option deletion: No options found. Triggering next step directly.',
+        { operation: 'runDeleteAndMonitorV2' }
+      );
+      await this.ctx.batchCallbackService.processCallback(batchERC, {
+        entity: 'options',
+        status: 'completed',
+      });
+    }
+
+    let optionCategoriesResult = {
+      total: 0,
+      batches: 0,
+      submitted: 0,
+      dryRun: false,
+      batchRefs: [],
+    };
+
+    const existingOptionCategories = await liferay.getOptionCategories(config, {
+      pageSize: 1,
+    });
+
+    if (existingOptionCategories?.items?.length > 0) {
+      const optionCategories = await liferay.deleteOptionCategoriesBatch(
+        config,
+        { ...baseOpts, all: true, callbackBatchERC: batchERC },
+        `${callbackUrl}&entity=optionCategories`
+      );
+
+      if (optionCategories?.batchRefs) {
+        this.recordBatches(
+          optionCategories.batchRefs,
+          config,
+          'optionCategories',
+          this._deriveTotalFromResult(optionCategories)
+        );
+        optionCategoriesResult = optionCategories;
+      }
+    } else {
+      logger.info(
+        'Skipping option category deletion: No option categories found. Triggering next step directly.',
+        { operation: 'runDeleteAndMonitorV2' }
+      );
+      await this.ctx.batchCallbackService.processCallback(batchERC, {
+        entity: 'optionCategories',
+        status: 'completed',
+      });
+    }
+
+    return {
+      orders: ordersResult,
+      warehouses: warehousesResult,
+      accounts: accountsResult,
+      products: productsResult,
+      specifications: specificationsResult,
+      options: optionsResult,
+      optionCategories: optionCategoriesResult,
+    };
+  }
   async runDeleteSelectedAndMonitorV2(
     config,
     options = {},
@@ -288,6 +628,7 @@ class DeleteCoordinatorService {
       batchERC,
       steps: [
         'orders',
+        'warehouses', // Add warehouses back
         'accounts',
         'products',
         'specifications',
@@ -311,6 +652,14 @@ class DeleteCoordinatorService {
       channelId,
     });
 
+    let ordersResult = {
+      total: 0,
+      batches: 0,
+      submitted: 0,
+      dryRun: false,
+      batchRefs: [],
+    };
+
     const existingOrders = await liferay.getCommerceOrders(config, {
       channelId,
       pageSize: 1,
@@ -330,9 +679,8 @@ class DeleteCoordinatorService {
           'orders',
           this._deriveTotalFromResult(orders)
         );
+        ordersResult = orders;
       }
-
-      return { orders };
     } else {
       logger.info(
         'Skipping order deletion: No orders found for channel. Triggering next step directly.',
@@ -342,16 +690,263 @@ class DeleteCoordinatorService {
         entity: 'orders',
         status: 'completed',
       });
-      return {
-        orders: {
-          total: 0,
-          batches: 0,
-          submitted: 0,
-          dryRun: false,
-          batchRefs: [],
-        },
-      };
     }
+
+    let warehousesResult = {
+      total: 0,
+      batches: 0,
+      submitted: 0,
+      dryRun: false,
+      batchRefs: [],
+    };
+
+    const existingWarehouses = await liferay.getWarehouses(config, {
+      pageSize: 1,
+    });
+
+    if (existingWarehouses?.items?.length > 0) {
+      const warehouseIds = (await liferay.getWarehouses(config)).map(
+        (w) => w.id
+      ); // Get all warehouse IDs
+      const warehouses = await this._deleteWarehouses(
+        config,
+        warehouseIds,
+        config.correlationId,
+        this.ctx.ws
+      );
+
+      // _deleteWarehouses returns { deleted, errors, batchRefs: [] }
+      // So map it to the expected result structure
+      warehousesResult = {
+        total: warehouses.deleted + warehouses.errors.length,
+        completed: warehouses.deleted,
+        errors: warehouses.errors,
+        submitted: warehouses.deleted,
+        dryRun: false,
+        batchRefs: warehouses.batchRefs,
+      };
+
+      // Since individual deletion doesn't use batch polling for chained deletion,
+      // we manually trigger the next step.
+      await this.ctx.batchCallbackService.processCallback(batchERC, {
+        entity: 'warehouses',
+        status: 'completed',
+      });
+    } else {
+      logger.info(
+        'Skipping warehouse deletion: No warehouses found. Triggering next step directly.',
+        { operation: 'runDeleteSelectedAndMonitorV2' }
+      );
+      await this.ctx.batchCallbackService.processCallback(batchERC, {
+        entity: 'warehouses',
+        status: 'completed',
+      });
+    }
+
+    let accountsResult = {
+      total: 0,
+      batches: 0,
+      submitted: 0,
+      dryRun: false,
+      batchRefs: [],
+    };
+
+    const existingAccounts = await liferay.getCommerceAccounts(config, {
+      channelId,
+      pageSize: 1,
+    });
+
+    if (existingAccounts?.items?.length > 0) {
+      const accounts = await liferay.deleteCommerceAccounts(
+        config,
+        { ...baseOpts, channelId, callbackBatchERC: batchERC },
+        `${callbackUrl}&entity=accounts`
+      );
+
+      if (accounts?.batchRefs) {
+        this.recordBatches(
+          accounts.batchRefs,
+          config,
+          'accounts',
+          this._deriveTotalFromResult(accounts)
+        );
+        accountsResult = accounts;
+      }
+    } else {
+      logger.info(
+        'Skipping account deletion: No accounts found for channel. Triggering next step directly.',
+        { operation: 'runDeleteSelectedAndMonitorV2', channelId }
+      );
+      await this.ctx.batchCallbackService.processCallback(batchERC, {
+        entity: 'accounts',
+        status: 'completed',
+      });
+    }
+
+    let productsResult = {
+      total: 0,
+      batches: 0,
+      submitted: 0,
+      dryRun: false,
+      batchRefs: [],
+    };
+
+    const existingProducts = await liferay.getCommerceProducts(config, {
+      catalogId,
+      pageSize: 1,
+    });
+
+    if (existingProducts?.items?.length > 0) {
+      const products = await liferay.deleteCommerceProducts(
+        config,
+        { ...baseOpts, catalogId, callbackBatchERC: batchERC },
+        `${callbackUrl}&entity=products`
+      );
+
+      if (products?.batchRefs) {
+        this.recordBatches(
+          products.batchRefs,
+          config,
+          'products',
+          this._deriveTotalFromResult(products)
+        );
+        productsResult = products;
+      }
+    } else {
+      logger.info(
+        'Skipping product deletion: No products found for catalog. Triggering next step directly.',
+        { operation: 'runDeleteSelectedAndMonitorV2', catalogId }
+      );
+      await this.ctx.batchCallbackService.processCallback(batchERC, {
+        entity: 'products',
+        status: 'completed',
+      });
+    }
+
+    let specificationsResult = {
+      total: 0,
+      batches: 0,
+      submitted: 0,
+      dryRun: false,
+      batchRefs: [],
+    };
+
+    const existingSpecifications = await liferay.getSpecifications(config, {
+      pageSize: 1,
+    });
+
+    if (existingSpecifications?.items?.length > 0) {
+      const specifications = await liferay.deleteSpecificationsBatch(
+        config,
+        { ...baseOpts, all: true, callbackBatchERC: batchERC },
+        `${callbackUrl}&entity=specifications`
+      );
+
+      if (specifications?.batchRefs) {
+        this.recordBatches(
+          specifications.batchRefs,
+          config,
+          'specifications',
+          this._deriveTotalFromResult(specifications)
+        );
+        specificationsResult = specifications;
+      }
+    } else {
+      logger.info(
+        'Skipping specification deletion: No specifications found. Triggering next step directly.',
+        { operation: 'runDeleteSelectedAndMonitorV2' }
+      );
+      await this.ctx.batchCallbackService.processCallback(batchERC, {
+        entity: 'specifications',
+        status: 'completed',
+      });
+    }
+
+    let optionsResult = {
+      total: 0,
+      batches: 0,
+      submitted: 0,
+      dryRun: false,
+      batchRefs: [],
+    };
+
+    const existingOptions = await liferay.getOptions(config, { pageSize: 1 });
+
+    if (existingOptions?.items?.length > 0) {
+      const optionsRes = await liferay.deleteOptionsBatch(
+        config,
+        { ...baseOpts, callbackBatchERC: batchERC },
+        `${callbackUrl}&entity=options`
+      );
+
+      if (optionsRes?.batchRefs) {
+        this.recordBatches(
+          optionsRes.batchRefs,
+          config,
+          'options',
+          this._deriveTotalFromResult(optionsRes)
+        );
+        optionsResult = optionsRes;
+      }
+    } else {
+      logger.info(
+        'Skipping option deletion: No options found. Triggering next step directly.',
+        { operation: 'runDeleteSelectedAndMonitorV2' }
+      );
+      await this.ctx.batchCallbackService.processCallback(batchERC, {
+        entity: 'options',
+        status: 'completed',
+      });
+    }
+
+    let optionCategoriesResult = {
+      total: 0,
+      batches: 0,
+      submitted: 0,
+      dryRun: false,
+      batchRefs: [],
+    };
+
+    const existingOptionCategories = await liferay.getOptionCategories(config, {
+      pageSize: 1,
+    });
+
+    if (existingOptionCategories?.items?.length > 0) {
+      const optionCategories = await liferay.deleteOptionCategoriesBatch(
+        config,
+        { ...baseOpts, all: true, callbackBatchERC: batchERC },
+        `${callbackUrl}&entity=optionCategories`
+      );
+
+      if (optionCategories?.batchRefs) {
+        this.recordBatches(
+          optionCategories.batchRefs,
+          config,
+          'optionCategories',
+          this._deriveTotalFromResult(optionCategories)
+        );
+        optionCategoriesResult = optionCategories;
+      }
+    } else {
+      logger.info(
+        'Skipping option category deletion: No option categories found. Triggering next step directly.',
+        { operation: 'runDeleteSelectedAndMonitorV2' }
+      );
+      await this.ctx.batchCallbackService.processCallback(batchERC, {
+        entity: 'optionCategories',
+        status: 'completed',
+      });
+    }
+
+    return {
+      orders: ordersResult,
+      warehouses: warehousesResult,
+      accounts: accountsResult,
+      products: productsResult,
+      specifications: specificationsResult,
+      options: optionsResult,
+      optionCategories: optionCategoriesResult,
+    };
   }
 
   async _listOptionCategories(config, { search, pageSize = 200 } = {}) {

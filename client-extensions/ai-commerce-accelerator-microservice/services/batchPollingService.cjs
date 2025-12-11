@@ -415,7 +415,9 @@ class BatchPollingService {
       pollData?.correlationId ||
       config?.correlationId ||
       cache.get(`batch:${batchId}:config`)?.correlationId ||
-      (config?.externalReferenceCode && cache.get(`erc:${config.externalReferenceCode}:config`)?.correlationId) ||
+      (config?.externalReferenceCode &&
+        cache.get(`erc:${config.externalReferenceCode}:config`)
+          ?.correlationId) ||
       'unknown';
 
     if (pollData.deadline && Date.now() > pollData.deadline) {
@@ -590,9 +592,39 @@ class BatchPollingService {
       pollData?.correlationId ||
       batchConfig?.correlationId ||
       cache.get(`batch:${batchId}:config`)?.correlationId ||
-      (batchConfig?.externalReferenceCode && cache.get(`erc:${batchConfig.externalReferenceCode}:config`)?.correlationId) ||
+      (batchConfig?.externalReferenceCode &&
+        cache.get(`erc:${batchConfig.externalReferenceCode}:config`)
+          ?.correlationId) ||
       'unknown';
 
+    const totalCount = status.totalItemsCount || status.totalCount || 0;
+    const processedCount =
+      status.processedItemsCount || status.processedCount || 0;
+    const errorCount = status.failedItems?.length || status.errorCount || 0;
+
+    const entityType =
+      pollData?.entityType || batchConfig?.entityType || 'products';
+    const affectsProgress = pollData?.affectsProgress ?? true;
+    const mode = pollData?.mode || batchConfig?.mode || 'unknown';
+    const operation =
+      pollData?.operation || batchConfig?.operation || 'unknown';
+      
+    if (ws && typeof ws.emitBatchProgress === 'function') {
+        ws.emitBatchProgress(
+          {
+            batchId,
+            entityType,
+            completedCount: processedCount,
+            totalItems: totalCount,
+            progress: 100,
+            operation,
+            mode,
+            phase: 'complete',
+          },
+          { correlationId: resolvedCorrelationId }
+        );
+      }
+    
     const sessionDump = Array.from(this.generationSessions.entries()).map(
       ([id, s]) => ({
         sessionId: id,
@@ -606,18 +638,6 @@ class BatchPollingService {
       batchId,
       knownSessions: JSON.stringify(sessionDump, null, 2),
     });
-
-    const totalCount = status.totalItemsCount || status.totalCount || 0;
-    const processedCount =
-      status.processedItemsCount || status.processedCount || 0;
-    const errorCount = status.failedItems?.length || status.errorCount || 0;
-
-    const entityType =
-      pollData?.entityType || batchConfig?.entityType || 'products';
-    const affectsProgress = pollData?.affectsProgress ?? true;
-    const mode = pollData?.mode || batchConfig?.mode || 'unknown';
-    const operation =
-      pollData?.operation || batchConfig?.operation || 'unknown';
 
     cache.set(
       `batch:${batchId}:completed`,
@@ -724,7 +744,9 @@ class BatchPollingService {
       pollData?.correlationId ||
       batchConfig?.correlationId ||
       cache.get(`batch:${batchId}:config`)?.correlationId ||
-      (batchConfig?.externalReferenceCode && cache.get(`erc:${batchConfig.externalReferenceCode}:config`)?.correlationId) ||
+      (batchConfig?.externalReferenceCode &&
+        cache.get(`erc:${batchConfig.externalReferenceCode}:config`)
+          ?.correlationId) ||
       'unknown';
 
     const totalCount = status.totalItemsCount || status.totalCount || 0;
@@ -772,7 +794,10 @@ class BatchPollingService {
         importTask,
       });
 
-      const errorReport = await this.ctx.liferay.getImportTaskErrorReport(config, batchId);
+      const errorReport = await this.ctx.liferay.getImportTaskErrorReport(
+        config,
+        batchId
+      );
       logger.error('Batch failure error report', {
         operation: 'batch-failed-error-report',
         batchId,
@@ -780,14 +805,16 @@ class BatchPollingService {
         errorReport,
       });
 
-      logger.debug('Emitting BATCH_ERROR_DETAILS with correlationId', { batchId, correlationId: resolvedCorrelationId });
+      logger.debug('Emitting BATCH_ERROR_DETAILS with correlationId', {
+        batchId,
+        correlationId: resolvedCorrelationId,
+      });
       this.ctx.ws.emitBatchErrorDetails({
         batchId,
         correlationId: resolvedCorrelationId,
         importTask,
         errorReport,
       });
-
     } catch (e) {
       logger.error('Failed to get batch failure details', {
         operation: 'batch-failed-details-error',
