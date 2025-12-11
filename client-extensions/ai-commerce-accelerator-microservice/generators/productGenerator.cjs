@@ -91,7 +91,9 @@ class ProductGenerator {
   }
 
   createOnSessionComplete() {
-    const { logger, cache, getWs, configService } = this.ctx;
+    const { logger, cache, getWs: rawGetWs, configService } = this.ctx;
+    const getWs =
+      typeof rawGetWs === 'function' ? rawGetWs : () => rawGetWs;
     const markOnce = (sessionId) => {
       const onceKey = `session:${sessionId}:postproc:done`;
       if (cache.get(onceKey)) return false;
@@ -252,10 +254,12 @@ class ProductGenerator {
       media,
       cache,
       batchPolling,
-      getWs,
+      getWs: rawGetWs,
       ai,
       configService,
     } = this.ctx;
+    const getWs =
+      typeof rawGetWs === 'function' ? rawGetWs : () => rawGetWs;
 
     const randomSeed = options.randomSeed;
     let prngState = Number.isFinite(randomSeed) ? randomSeed >>> 0 : 0;

@@ -138,7 +138,7 @@ function ProgressMonitor({ generationConfig, progress, onErrorsClick }) {
       <div className="progress-section">
         <h6 className="section-title">
           <ClayIcon symbol="document" />
-          Content Generation
+          Product Enrichment
         </h6>
 
         <div className="progress-grid content-generation">
@@ -238,6 +238,40 @@ function ProgressMonitor({ generationConfig, progress, onErrorsClick }) {
                 <ClayIcon symbol="info-circle" />
                 Expected {progress.pdfs.expected} products with{' '}
                 {getPdfContentType().toLowerCase()}
+              </small>
+            )}
+          </div>
+          <div className="progress-item">
+            <div className="progress-item-header">
+              <h6 className="progress-item-title">
+                <ClayIcon symbol="warehouse" className="warehouses-icon" />
+                Warehouses
+              </h6>
+              <span className="progress-count">
+                {progress.warehouses.completed} /{' '}
+                {progress.warehouses.total}
+              </span>
+            </div>
+            <div className="progress-bar-container">
+              <div
+                className={`progress-bar ${getProgressBarClass(
+                  getProgressPercentage(
+                    progress.warehouses.completed,
+                    progress.warehouses.total
+                  )
+                )}`}
+                style={{
+                  width: `${getProgressPercentage(
+                    progress.warehouses.completed,
+                    progress.warehouses.total
+                  )}%`,
+                }}
+              ></div>
+            </div>
+            {progress.warehouses.errors.length > 0 && (
+              <small className="error-text">
+                <ClayIcon symbol="warning-full" />
+                {progress.warehouses.errors.length} errors
               </small>
             )}
           </div>

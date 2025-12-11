@@ -40,14 +40,18 @@ function emitRouteError(
     fallbackMessage ||
     'An unexpected error occurred';
 
-  getWs().emitError({
-    correlationId,
-    errorReference,
-    error: uiMessage,
-    operation,
-    entityType,
-    timestamp: new Date().toISOString(),
-  });
+  const ws = typeof getWs === 'function' ? getWs() : getWs;
+
+  if (ws && typeof ws.emitError === 'function') {
+    ws.emitError({
+      correlationId,
+      errorReference,
+      error: uiMessage,
+      operation,
+      entityType,
+      timestamp: new Date().toISOString(),
+    });
+  }
 }
 
 module.exports = (

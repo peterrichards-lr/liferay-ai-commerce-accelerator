@@ -47,6 +47,18 @@
             "description": "The postal code for the warehouse's location.",
             "type": "string"
           },
+          "latitude": {
+            "description": "The latitude of the warehouse's location.",
+            "type": "number",
+            "minimum": -90,
+            "maximum": 90
+          },
+          "longitude": {
+            "description": "The longitude of the warehouse's location.",
+            "type": "number",
+            "minimum": -180,
+            "maximum": 180
+          },
           "active": {
             "description": "Whether the warehouse is active.",
             "type": "boolean"
@@ -59,6 +71,8 @@
           "city",
           "street1",
           "zip",
+          "latitude",
+          "longitude",
           "active"
         ]
       }

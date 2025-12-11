@@ -110,7 +110,9 @@ class MediaGenerator {
   }
 
   async generateProductPDF(pdfContent, productSku, config) {
-    const { logger, getWs } = this.ctx;
+    const { logger, getWs: rawGetWs } = this.ctx;
+    const getWs =
+      typeof rawGetWs === 'function' ? rawGetWs : () => rawGetWs;
     const correlationId = config?.correlationId || '∅';
     const operation = this.resolveOperation(config, 'process-attachments');
     const batchId = `pdf-gen-${productSku}`;
@@ -258,7 +260,9 @@ class MediaGenerator {
   }
 
   async generateAndUploadProductPDF(productData, productSku, config) {
-    const { logger, objectStorage, getWs } = this.ctx;
+    const { logger, objectStorage, getWs: rawGetWs } = this.ctx;
+    const getWs =
+      typeof rawGetWs === 'function' ? rawGetWs : () => rawGetWs;
     const correlationId = config?.correlationId || '∅';
     const operation = this.resolveOperation(config, 'process-attachments');
     const startedAt = now();

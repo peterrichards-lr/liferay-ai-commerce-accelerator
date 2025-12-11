@@ -29,7 +29,7 @@ import { buildFilename, exportJsonFile } from './utils/fileHelper.js';
 
 import ConfigurationPanel from './components/config/ConfigurationPanel.jsx';
 import DataGeneratorForm from './components/data-generator/DataGeneratorForm';
-import ProgressMonitor from './components/dashboard/Dashboard.jsx';
+import Dashboard from './components/dashboard/Dashboard.jsx';
 
 const toInt = (v) => (v == null || v === '' ? undefined : parseInt(v, 10));
 const toArray = (v) => (Array.isArray(v) ? v : v ? [v] : []);
@@ -231,7 +231,7 @@ export function AppUI() {
   useEffect(() => {
     if (isGenerating) return;
 
-    const { products, accounts, orders, images, pdfs } =
+    const { products, accounts, orders, images, pdfs, warehouses } =
       computeTotalsFromConfig(generationConfig);
 
     dispatch({
@@ -241,7 +241,7 @@ export function AppUI() {
 
     dispatch({
       type: 'SET_TOTALS',
-      totals: { products, accounts, orders, images, pdfs },
+      totals: { products, accounts, orders, images, pdfs, warehouses },
     });
   }, [
     isGenerating,
@@ -252,6 +252,9 @@ export function AppUI() {
     generationConfig.imageRatio,
     generationConfig.pdfMode,
     generationConfig.pdfRatio,
+    generationConfig.createWarehouses,
+    generationConfig.warehouseCount,
+    generationConfig.reuseExistingWarehouses,
   ]);
 
   const exportConfiguration = () => {
@@ -427,7 +430,7 @@ export function AppUI() {
   const handleProgressReset = useCallback(() => {
     clearLogs();
 
-    const { products, accounts, orders } =
+    const { products, accounts, orders, warehouses } =
       computeTotalsFromConfig(generationConfig);
     const images = expectedImageTotal(generationConfig);
     const pdfs = expectedPdfTotal(generationConfig);
@@ -439,6 +442,7 @@ export function AppUI() {
       orders: { ...initialProgress.orders, total: orders },
       images: { ...initialProgress.images, total: images, expected: images },
       pdfs: { ...initialProgress.pdfs, total: pdfs, expected: pdfs },
+      warehouses: { ...initialProgress.warehouses, total: warehouses },
     }));
 
     notifyUser('Progress and activity log have been reset.');
@@ -635,7 +639,7 @@ export function AppUI() {
                     onImport={handleImport}
                     liferayConnected={connectionEstablished}
                   />
-                  <ProgressMonitor
+                  <Dashboard
                     progress={progress}
                     logs={logs}
                     isGenerating={isGenerating}

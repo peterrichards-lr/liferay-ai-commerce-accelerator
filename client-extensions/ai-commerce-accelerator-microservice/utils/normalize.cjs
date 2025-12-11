@@ -109,6 +109,7 @@ function buildConfigAndOptions(req) {
     reuseExistingWarehouses,
     selectedLanguages,
     siteGroupId,
+    warehouseCount,
   } = req.body || {};
 
   logger.info('req.body in buildConfigAndOptions:', req.body);
@@ -216,6 +217,7 @@ function buildConfigAndOptions(req) {
       options.pdfRatio = toNumber(pdfRatio) || 0;
       options.createWarehouses = toBoolean(createWarehouses);
       options.reuseExistingWarehouses = toBoolean(reuseExistingWarehouses);
+      options.warehouseCount = toNumber(warehouseCount);
       options.customImageFile = getCustomImage(req, options.imageMode);
       options.customPdfFile = getCustomPdf(req, options.pdfMode);
       break;

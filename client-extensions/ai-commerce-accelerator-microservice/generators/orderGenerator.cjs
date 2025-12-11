@@ -154,10 +154,12 @@ class OrderGenerator {
       mockData,
       cache,
       batchPolling,
-      getWs,
+      getWs: rawGetWs,
       liferay,
       configService,
     } = this.ctx;
+    const getWs =
+      typeof rawGetWs === 'function' ? rawGetWs : () => rawGetWs;
 
     const correlationId = config.correlationId;
     const batchSize = Math.max(1, parseInt(config.batchSize, 10) || 1);
@@ -464,7 +466,9 @@ class OrderGenerator {
   }
 
   async generateOrdersIndividually(config, options, orderDataList, accounts, products) {
-    const { logger, getWs, configService, cache } = this.ctx;
+    const { logger, getWs: rawGetWs, configService, cache } = this.ctx;
+    const getWs =
+      typeof rawGetWs === 'function' ? rawGetWs : () => rawGetWs;
     const { mode, phase } = resolvePhaseAndMode({
       useBatch: false,
       phase: 'generate',

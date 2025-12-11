@@ -10,7 +10,7 @@ const ConfigService = require('./services/configService.cjs');
 const DeleteCoordinatorService = require('./services/deleteCoordinatorService.cjs');
 const LiferayService = require('./services/liferayService.cjs');
 const { ObjectStorageService } = require('./services/objectStorageService.cjs');
-const wsBus = require('./services/wsBus.cjs');
+
 const OAuthService = require('./services/oAuthService.cjs');
 const HealthService = require('./services/healthService.cjs');
 const { PromptService } = require('./services/promptService.cjs');
@@ -25,123 +25,123 @@ const WarehouseGenerator = require('./generators/warehouseGenerator.cjs');
 
 const registerDataGenerationWorkers = require('./workers/dataGenerationWorkers.cjs');
 
-const ctx = { logger, getWs: wsBus.get };
-
-const cacheService = new CacheService(ctx);
-ctx.cache = cacheService;
-
-const oauthService = new OAuthService({ cacheService, logger });
-ctx.oauthService = oauthService;
-
-const configService = new ConfigService({
-  cache: cacheService,
-  logger,
-});
-ctx.configService = configService;
-
-const liferayService = new LiferayService({
-  oauthService,
-  logger,
-  cache: cacheService,
-  configService,
-});
-ctx.liferay = liferayService;
-
-configService.setLiferayService(liferayService);
-
-const batchProcessorService = new BatchProcessorService({ logger });
-ctx.batchProcessor = batchProcessorService;
-
-const promptService = new PromptService(ctx);
-ctx.promptService = promptService;
-
-const healthService = new HealthService({ configService });
-ctx.health = healthService;
-
-const aiService = new AIService({
-  configService,
-  logger,
-  promptService,
-  ENV,
-});
-ctx.ai = aiService;
-
-const objectStorageService = new ObjectStorageService({
-  configService,
-  logger,
-});
-ctx.objectStorage = objectStorageService;
-
-const mediaGenerator = new MediaGenerator({
-  configService,
-  objectStorage: objectStorageService,
-  logger,
-});
-ctx.media = mediaGenerator;
-
-const mockDataGenerator = new MockDataGenerator({ logger });
-ctx.mockData = mockDataGenerator;
-
-const batchPollingService = new BatchPollingService({
-  logger,
-  liferay: liferayService,
-  cache: cacheService,
-  configService,
-  getWs: wsBus.get,
-});
-ctx.batchPolling = batchPollingService;
-
-const entityGeneratorCtx = {
-  ai: aiService,
-  batchPolling: batchPollingService,
-  batchProcessor: batchProcessorService,
-  cache: cacheService,
-  liferay: liferayService,
-  logger,
-  media: mediaGenerator,
-  mockData: mockDataGenerator,
-  getWs: wsBus.get,
-};
-
-const accountGenerator = new AccountGenerator(entityGeneratorCtx);
-const orderGenerator = new OrderGenerator(entityGeneratorCtx);
-const productGenerator = new ProductGenerator(entityGeneratorCtx);
-const warehouseGenerator = new WarehouseGenerator(entityGeneratorCtx);
-
-batchPollingService.setProductGenerator(productGenerator);
-
-const batchCallbackService = new BatchCallbackService(ctx);
-ctx.batchCallbackService = batchCallbackService;
-
-const deleteCoordinatorService = new DeleteCoordinatorService({
-  cache: cacheService,
-  liferay: liferayService,
-  batchPolling: batchPollingService,
-  logger,
-  batchCallbackService,
-});
-ctx.deleteCoordinator = deleteCoordinatorService;
-ctx.deleteCoordinatorService = deleteCoordinatorService;
-
-batchCallbackService.setDeleteCoordinatorService(deleteCoordinatorService);
-
-const queueService = new QueueService({
-  logger,
-  configService,
-  cacheService,
-});
-ctx.queueService = queueService;
-
-registerDataGenerationWorkers({
-  queueService,
-  logger,
-  productGenerator,
-  accountGenerator,
-  orderGenerator,
-  mockDataGenerator,
-});
-
 module.exports = (ws) => {
+  const ctx = { logger, getWs: ws };
+
+  const cacheService = new CacheService(ctx);
+  ctx.cache = cacheService;
+
+  const oauthService = new OAuthService({ cacheService, logger });
+  ctx.oauthService = oauthService;
+
+  const configService = new ConfigService({
+    cache: cacheService,
+    logger,
+  });
+  ctx.configService = configService;
+
+  const liferayService = new LiferayService({
+    oauthService,
+    logger,
+    cache: cacheService,
+    configService,
+  });
+  ctx.liferay = liferayService;
+
+  configService.setLiferayService(liferayService);
+
+  const batchProcessorService = new BatchProcessorService({ logger });
+  ctx.batchProcessor = batchProcessorService;
+
+  const promptService = new PromptService(ctx);
+  ctx.promptService = promptService;
+
+  const healthService = new HealthService({ configService });
+  ctx.health = healthService;
+
+  const aiService = new AIService({
+    configService,
+    logger,
+    promptService,
+    ENV,
+  });
+  ctx.ai = aiService;
+
+  const objectStorageService = new ObjectStorageService({
+    configService,
+    logger,
+  });
+  ctx.objectStorage = objectStorageService;
+
+  const mediaGenerator = new MediaGenerator({
+    configService,
+    objectStorage: objectStorageService,
+    logger,
+  });
+  ctx.media = mediaGenerator;
+
+  const mockDataGenerator = new MockDataGenerator({ logger });
+  ctx.mockData = mockDataGenerator;
+
+  const batchPollingService = new BatchPollingService({
+    logger,
+    liferay: liferayService,
+    cache: cacheService,
+    configService,
+    getWs: ws,
+  });
+  ctx.batchPolling = batchPollingService;
+
+  const entityGeneratorCtx = {
+    ai: aiService,
+    batchPolling: batchPollingService,
+    batchProcessor: batchProcessorService,
+    cache: cacheService,
+    liferay: liferayService,
+    logger,
+    media: mediaGenerator,
+    mockData: mockDataGenerator,
+    getWs: ws,
+  };
+
+  const accountGenerator = new AccountGenerator(entityGeneratorCtx);
+  const orderGenerator = new OrderGenerator(entityGeneratorCtx);
+  const productGenerator = new ProductGenerator(entityGeneratorCtx);
+  const warehouseGenerator = new WarehouseGenerator(entityGeneratorCtx);
+
+  batchPollingService.setProductGenerator(productGenerator);
+
+  const batchCallbackService = new BatchCallbackService(ctx);
+  ctx.batchCallbackService = batchCallbackService;
+
+  const deleteCoordinatorService = new DeleteCoordinatorService({
+    cache: cacheService,
+    liferay: liferayService,
+    batchPolling: batchPollingService,
+    logger,
+    batchCallbackService,
+  });
+  ctx.deleteCoordinator = deleteCoordinatorService;
+  ctx.deleteCoordinatorService = deleteCoordinatorService;
+
+  batchCallbackService.setDeleteCoordinatorService(deleteCoordinatorService);
+
+  const queueService = new QueueService({
+    logger,
+    configService,
+    cacheService,
+  });
+  ctx.queueService = queueService;
+
+  registerDataGenerationWorkers({
+    queueService,
+    logger,
+    productGenerator,
+    accountGenerator,
+    orderGenerator,
+    mockDataGenerator,
+  });
+
   return {
     accountGenerator,
     aiService,
@@ -162,6 +162,5 @@ module.exports = (ws) => {
     promptService,
     queueService,
     warehouseGenerator,
-    getWs: wsBus.get,
   };
 };

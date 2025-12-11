@@ -6,6 +6,7 @@ export const initialProgress = {
   orders: { total: 0, completed: 0, errors: [] },
   images: { expected: 0, total: 0, completed: 0, errors: [] },
   pdfs: { expected: 0, total: 0, completed: 0, errors: [] },
+  warehouses: { total: 0, completed: 0, errors: [] },
 };
 
 export function progressReducer(state, action) {
@@ -90,6 +91,11 @@ export function progressReducer(state, action) {
           ...state.pdfs,
           total: totals.pdfs,
           completed: Math.min(state.pdfs.completed, totals.pdfs),
+        },
+        warehouses: {
+          ...state.warehouses,
+          total: totals.warehouses,
+          completed: Math.min(state.warehouses.completed, totals.warehouses),
         },
       };
     }

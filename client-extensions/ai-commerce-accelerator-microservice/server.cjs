@@ -1,5 +1,4 @@
 const { logger } = require('./utils/logger.cjs');
-logger.success('<<<<<<<<<< MICROSERVICE SERVER.CJS LOADED >>>>>>>>>>');
 
 const { connectionSchema } = require('./utils/schemas.cjs');
 const { ENV } = require('./utils/constants.cjs');
@@ -52,8 +51,8 @@ const {
   liferayService,
   orderGenerator,
   productGenerator,
-  oauthService,
-  getWs: getWsFromBootstrap,
+  warehouseGenerator,
+  oauthService
 } = require('./bootstrap.cjs')(ws);
 
 const PORT = lookupConfig('server.port') || 3000;
@@ -111,7 +110,7 @@ const routeCtx = {
   logger,
 };
 
-require('./routes/batch.cjs')(app, { ...routeCtx, cacheService, configService, getWs: getWsFromBootstrap });
+require('./routes/batch.cjs')(app, { ...routeCtx, cacheService, configService, getWs: () => ws });
 require('./routes/cache.cjs')(app, { ...routeCtx, cacheService });
 require('./routes/config.cjs')(app, { ...routeCtx, configService });
 require('./routes/get.cjs')(app, routeCtx);
@@ -123,16 +122,18 @@ require('./routes/delete.cjs')(app, {
   configService,
 });
 require('./routes/export.cjs')(app, { ...routeCtx, cacheService });
-require('./routes/import.cjs')(app, { ...routeCtx, batchPollingService, getWs: getWsFromBootstrap, configService });
+require('./routes/import.cjs')(app, { ...routeCtx, batchPollingService, getWs: () => ws, configService });
 
 const generateCtx = {
   liferayService,
   productGenerator,
   accountGenerator,
   orderGenerator,
+  warehouseGenerator,
   configService,
+  cacheService,
   logger,
-  getWs: getWsFromBootstrap,
+  getWs: () => ws,
 };
 
 require('./routes/generate.cjs')(app, generateCtx);

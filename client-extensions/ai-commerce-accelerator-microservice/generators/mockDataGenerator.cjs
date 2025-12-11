@@ -582,6 +582,11 @@ class MockDataGenerator {
         externalReferenceCode: createERC(ERC_PREFIX.WAREHOUSE),
         country: 'US',
         region: 'CA',
+        city: 'Los Angeles',
+        street1: `${100 + i} Main Street`,
+        zip: `${90000 + i}`,
+        latitude: Math.random() * 180 - 90,
+        longitude: Math.random() * 360 - 180,
       };
       warehouses.push(warehouse);
     }

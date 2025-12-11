@@ -12,6 +12,7 @@ export const getTotalProgress = (progress) => {
     progress.orders?.total || 0,
     progress.images?.total || 0,
     progress.pdfs?.total || 0,
+    progress.warehouses?.total || 0,
   ];
   const completeds = [
     progress.products?.completed || 0,
@@ -19,6 +20,7 @@ export const getTotalProgress = (progress) => {
     progress.orders?.completed || 0,
     progress.images?.completed || 0,
     progress.pdfs?.completed || 0,
+    progress.warehouses?.completed || 0,
   ];
   return {
     total: totals.reduce((a, b) => a + b, 0),
@@ -35,12 +37,19 @@ export const computeAccountTotal = (generationConfig) =>
 export const computeOrderTotal = (generationConfig) =>
   Number.parseInt(generationConfig?.orderCount, 10) || 0;
 
+export const computeWarehouseTotal = (generationConfig) => {
+  if (!generationConfig?.createWarehouses) return 0;
+  const totalWarehouses = Number.parseInt(generationConfig?.warehouseCount, 10);
+  return Number.isNaN(totalWarehouses) ? 0 : totalWarehouses;
+};
+
 export const computeTotalsFromConfig = (generationConfig) => ({
   products: computeProductTotal(generationConfig),
   accounts: computeAccountTotal(generationConfig),
   orders: computeOrderTotal(generationConfig),
   images: expectedImageTotal(generationConfig),
   pdfs: expectedPdfTotal(generationConfig),
+  warehouses: computeWarehouseTotal(generationConfig),
 });
 
 export const expectedImageTotal = (generationConfig) => {
