@@ -28,7 +28,7 @@ class WarehouseGenerator {
   }
 
   async createWarehouses(config, options) {
-    const { logger, ai, mockData, getWs, liferay } = this.ctx;
+    const { logger, ai, mockData, ws, liferay, batchPolling, configService } = this.ctx;
     const { productCount, demoMode } = options;
     const correlationId = config?.correlationId || '∅';
     const warehouseCount =
@@ -45,68 +45,140 @@ class WarehouseGenerator {
       );
     }
 
+    const useBatch = warehouseCount > 1; // Assuming batch for more than 1 warehouse
     const entityType = 'warehouses';
     const operation = 'generate';
     const { mode, phase } = resolvePhaseAndMode({
-      useBatch: false,
+      useBatch: useBatch,
       phase: 'generate',
     });
-    const batchId = 'warehouses-individual';
 
-    const ws = typeof getWs === 'function' ? getWs() : getWs;
+    if (useBatch) {
+      const batchERC = createERC(ERC_PREFIX.WAREHOUSE_BATCH);
+      logger.info('Starting batch warehouse creation', {
+        correlationId,
+        operation: 'warehouses/generate:start',
+        mode: 'batch',
+        phase: 'generate',
+        warehouseCount,
+        batchSize: config.batchSize,
+      });
 
-    if (ws && typeof ws.emitBatchStarted === 'function') {
-      ws.emitBatchStarted(
-        {
-          batchId,
-          entityType,
-          totalItems: warehouseDataList.length,
-          operation,
-          mode,
-          phase,
-        },
-        { correlationId }
+      const normalizedWarehouseDataList = warehouseDataList.map((data) =>
+        this._normalizeWarehouseData(data, config)
       );
-    }
 
-    const createdWarehouses = [];
-    const errors = [];
+      const submission = await liferay.createWarehousesBatch(config, normalizedWarehouseDataList, null, {
+        externalReferenceCode: batchERC,
+      });
 
-    for (let index = 0; index < warehouseDataList.length; index++) {
-      const warehouse = warehouseDataList[index];
-      try {
-        const normalizedWarehouse = this._normalizeWarehouseData(
-          warehouse,
-          config
-        );
-        const createdWarehouse = await liferay.createWarehouse(
-          config,
-          normalizedWarehouse
-        );
-        createdWarehouses.push(createdWarehouse);
-      } catch (error) {
-        errors.push({ index, error: error.message });
-        logger.error('Warehouse creation failed', {
-          correlationId,
-          operation: 'warehouses/create:error',
-          error: error.message,
-          index,
-        });
-      }
+      const batchId = submission.batchId;
+      const totalItems = normalizedWarehouseDataList.length;
 
-      const processed = index + 1;
-      if (ws && typeof ws.emitBatchProgress === 'function') {
-        const totalItems = warehouseDataList.length;
-        const progress =
-          totalItems > 0 ? Math.round((processed / totalItems) * 100) : 0;
+      batchPolling.startPolling(
+        batchId,
+        {
+          liferayUrl: config.liferayUrl,
+          clientId: config.clientId,
+          clientSecret: config.clientSecret,
+          localeCode: config.localeCode,
+          entityType: entityType,
+        },
+        {
+          pollInterval: config.pollingDelay,
+          maxPollAttempts: config.pollingRetries,
+          externalReferenceCode: batchERC,
+          onStatusChange: (status) => {
+            const processed = status.processedCount || 0;
+            const progress = totalItems > 0 ? Math.round((processed / totalItems) * 100) : 0;
+            ws.emitBatchProgress(
+              {
+                entityType,
+                operation: 'generate',
+                mode: 'batch',
+                phase: 'poll',
+                batchId: status.batchId,
+                batchERC,
+                completedCount: processed,
+                totalItems: totalItems,
+                progress: progress,
+                etaSeconds: 0, // Liferay batch engine should provide this
+              },
+              { correlationId }
+            );
+          },
+          onComplete: (r) => {
+            ws.emitBatchCompleted(
+              {
+                batchId,
+                entityType,
+                successCount: r.processedCount,
+                failureCount: r.errorCount,
+                errors: [],
+                operation,
+                mode: 'batch',
+                phase: 'complete',
+                externalReferenceCode: batchERC,
+              },
+              { correlationId }
+            );
+            logger.info('Batch warehouse creation completed via polling', {
+              correlationId,
+              operation: 'warehouses/generate:complete',
+              created: r.processedCount,
+              errors: r.errorCount,
+              mode: 'batch',
+            });
+          },
+          onError: (err) => {
+            ws.emitBatchFailed(
+              {
+                batchId,
+                entityType,
+                error: err.message,
+                successCount: 0,
+                failureCount: 1,
+                operation,
+                mode: 'batch',
+                phase: 'error',
+                externalReferenceCode: batchERC,
+              },
+              { correlationId }
+            );
+            ws.emitError({
+              correlationId,
+              batchId,
+              entityType,
+              message: err.message || 'Batch warehouse creation error',
+              phase: 'batch-polling',
+              errorReference: err.errorReference,
+              operation,
+              details: { status: 'FAILED' },
+            });
+            logger.error('Batch warehouse creation failed via polling', {
+              correlationId,
+              operation: 'warehouses/generate:error',
+              error: err.message,
+              mode: 'batch',
+            });
+          },
+          entityType: entityType,
+          operation: 'generate',
+          mode: 'batch',
+          affectsProgress: true,
+        }
+      );
 
-        ws.emitBatchProgress(
+      return submission.batchRefs;
+    } else {
+      const batchId = 'warehouses-individual';
+
+      if (ws && typeof ws.emitBatchStarted === 'function') {
+        ws.emitBatchStarted(
           {
             batchId,
             entityType,
-            completedCount: processed,
-            totalItems,
-            progress,
+            totalItems: warehouseDataList.length,
             operation,
             mode,
             phase,
@@ -114,34 +186,81 @@ class WarehouseGenerator {
           { correlationId }
         );
       }
+
+      const createdWarehouses = [];
+      const errors = [];
+
+      for (let index = 0; index < warehouseDataList.length; index++) {
+        const warehouse = warehouseDataList[index];
+        try {
+          const normalizedWarehouse = this._normalizeWarehouseData(
+            warehouse,
+            config
+          );
+          const createdWarehouse = await liferay.createWarehouse(
+            config,
+            normalizedWarehouse
+          );
+          createdWarehouses.push(createdWarehouse);
+        } catch (error) {
+          errors.push({ index, error: error.message });
+          logger.error('Warehouse creation failed', {
+            correlationId,
+            operation: 'warehouses/create:error',
+            error: error.message,
+            index,
+          });
+        }
+
+        const processed = index + 1;
+        if (ws && typeof ws.emitBatchProgress === 'function') {
+          const totalItems = warehouseDataList.length;
+          const progress =
+            totalItems > 0 ? Math.round((processed / totalItems) * 100) : 0;
+
+          ws.emitBatchProgress(
+            {
+              batchId,
+              entityType,
+              completedCount: processed,
+              totalItems,
+              progress,
+              operation,
+              mode,
+              phase,
+            },
+            { correlationId }
+          );
+        }
+      }
+
+      if (ws && typeof ws.emitBatchCompleted === 'function') {
+        ws.emitBatchCompleted(
+          {
+            batchId,
+            entityType,
+            successCount: createdWarehouses.length,
+            failureCount: errors.length,
+            errors,
+            operation,
+            mode,
+            phase,
+          },
+          { correlationId }
+        );
+      }
+
+      logger.info('Warehouse creation completed', {
+        correlationId,
+        operation: 'warehouses/generate:complete',
+        created: createdWarehouses.length,
+        errors: errors.length,
+        mode,
+        phase,
+      });
+
+      return createdWarehouses;
     }
-
-    if (ws && typeof ws.emitBatchCompleted === 'function') {
-      ws.emitBatchCompleted(
-        {
-          batchId,
-          entityType,
-          successCount: createdWarehouses.length,
-          failureCount: errors.length,
-          errors,
-          operation,
-          mode,
-          phase,
-        },
-        { correlationId }
-      );
-    }
-
-    logger.info('Warehouse creation completed', {
-      correlationId,
-      operation: 'warehouses/generate:complete',
-      created: createdWarehouses.length,
-      errors: errors.length,
-      mode,
-      phase,
-    });
-
-    return createdWarehouses;
   }
 }
 

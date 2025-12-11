@@ -110,13 +110,11 @@ class MediaGenerator {
   }
 
   async generateProductPDF(pdfContent, productSku, config) {
-    const { logger, getWs: rawGetWs } = this.ctx;
-    const getWs =
-      typeof rawGetWs === 'function' ? rawGetWs : () => rawGetWs;
+    const { logger, ws } = this.ctx;
     const correlationId = config?.correlationId || '∅';
     const operation = this.resolveOperation(config, 'process-attachments');
     const batchId = `pdf-gen-${productSku}`;
-    getWs().emitBatchStarted(
+    ws.emitBatchStarted(
       { batchId, entityType: 'media', totalItems: 1, operation },
       { correlationId }
     );
@@ -194,7 +192,7 @@ class MediaGenerator {
       const base64Data = pdfOutput.split(',')[1];
       const buffer = Buffer.from(base64Data, 'base64');
       const durationMs = elapsedMs(startedAt);
-      getWs().emitBatchCompleted(
+      ws.emitBatchCompleted(
         {
           batchId,
           entityType: 'media',
@@ -207,7 +205,7 @@ class MediaGenerator {
       );
       return buffer;
     } catch (error) {
-      getWs().emitBatchCompleted(
+      ws.emitBatchCompleted(
         {
           batchId,
           entityType: 'media',
@@ -260,9 +258,7 @@ class MediaGenerator {
   }
 
   async generateAndUploadProductPDF(productData, productSku, config) {
-    const { logger, objectStorage, getWs: rawGetWs } = this.ctx;
-    const getWs =
-      typeof rawGetWs === 'function' ? rawGetWs : () => rawGetWs;
+    const { logger, objectStorage, ws } = this.ctx;
     const correlationId = config?.correlationId || '∅';
     const operation = this.resolveOperation(config, 'process-attachments');
     const startedAt = now();
@@ -284,7 +280,7 @@ class MediaGenerator {
         'application/pdf'
       );
       const durationMs = elapsedMs(startedAt);
-      getWs().emitBatchCompleted(
+      ws.emitBatchCompleted(
         {
           batchId: `pdf-upload-${productSku}`,
           entityType: 'media',
@@ -310,7 +306,7 @@ class MediaGenerator {
         productSku,
         error: error.message,
       });
-      getWs().emitBatchCompleted(
+      ws.emitBatchCompleted(
         {
           batchId: `pdf-upload-${productSku}`,
           entityType: 'media',

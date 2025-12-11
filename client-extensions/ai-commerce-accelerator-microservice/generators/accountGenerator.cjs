@@ -83,12 +83,10 @@ class AccountGenerator {
       mockData,
       cache,
       batchPolling,
-      getWs: rawGetWs,
+      ws,
       liferay,
       configService,
     } = this.ctx;
-    const getWs =
-      typeof rawGetWs === 'function' ? rawGetWs : () => rawGetWs;
     const correlationId = config.correlationId;
     const useBatch = config.batchSize > 1 && options.accountCount > 1;
     const { mode, phase } = resolvePhaseAndMode({
@@ -245,7 +243,7 @@ class AccountGenerator {
             getBatchCacheTTLms(configService)
           );
 
-          getWs().emitBatchStarted(
+          ws.emitBatchStarted(
             {
               batchId: batchResult.batchId,
               entityType: 'accounts',
@@ -291,7 +289,7 @@ class AccountGenerator {
                   const etaSeconds =
                     rate > 0 ? Math.round(remaining / rate) : null;
 
-                  getWs().emitBatchProgress(
+                  ws.emitBatchProgress(
                     {
                       batchId: status.batchId,
                       entityType: 'accounts',
@@ -325,7 +323,7 @@ class AccountGenerator {
                     error: error.message,
                     entityType: 'accounts',
                   });
-                  getWs().emitBatchFailed(
+                  ws.emitBatchFailed(
                     {
                       batchId: batchResult.batchId,
                       entityType: 'accounts',
@@ -402,9 +400,7 @@ class AccountGenerator {
   }
 
   async generateAccountsIndividually(config, options, accountDataList) {
-    const { logger, getWs: rawGetWs, configService, cache } = this.ctx;
-    const getWs =
-      typeof rawGetWs === 'function' ? rawGetWs : () => rawGetWs;
+    const { logger, ws, configService, cache } = this.ctx;
     const { mode, phase } = resolvePhaseAndMode({
       useBatch: false,
       phase: 'generate',
@@ -420,7 +416,7 @@ class AccountGenerator {
       getEphemeralTTLms(configService)
     );
 
-    getWs().emitBatchStarted(
+    ws.emitBatchStarted(
       {
         batchId: 'accounts-individual',
         entityType: 'accounts',
@@ -450,7 +446,7 @@ class AccountGenerator {
         const remaining = Math.max(0, total - processed);
         const etaSeconds = rate > 0 ? Math.round(remaining / rate) : null;
 
-        getWs().emitBatchProgress(
+        ws.emitBatchProgress(
           {
             batchId: 'accounts-individual',
             entityType: 'accounts',
@@ -545,7 +541,7 @@ class AccountGenerator {
   }
 
   handleBatchComplete(results, config) {
-    const { logger, getWs, cache } = this.ctx;
+    const { logger, ws, cache } = this.ctx;
     const { mode, phase } = resolvePhaseAndMode({
       useBatch: true,
       phase: 'complete',
@@ -580,7 +576,7 @@ class AccountGenerator {
       successCount = results.processedCount || results.totalCount || 0;
     }
 
-    getWs().emitBatchCompleted(
+    ws.emitBatchCompleted(
       {
         batchId: results.batchId,
         entityType: 'accounts',
@@ -605,9 +601,9 @@ class AccountGenerator {
     config,
     ctx = {}
   ) {
-    const { getWs } = this.ctx;
+    const { ws } = this.ctx;
     const extra = ctx.mode ? { mode: ctx.mode, phase: ctx.phase } : {};
-    getWs().emitBatchCompleted(
+    ws.emitBatchCompleted(
       {
         batchId,
         entityType: 'accounts',

@@ -24,7 +24,7 @@ const upload = multer({
 });
 
 function emitRouteError(
-  getWs,
+  ws,
   {
     error,
     fallbackMessage,
@@ -40,7 +40,7 @@ function emitRouteError(
     fallbackMessage ||
     'An unexpected error occurred';
 
-  const ws = typeof getWs === 'function' ? getWs() : getWs;
+
 
   if (ws && typeof ws.emitError === 'function') {
     ws.emitError({
@@ -65,7 +65,7 @@ module.exports = (
     configService,
     cacheService,
     logger,
-    getWs,
+    ws,
   }
 ) => {
   app.post(
@@ -137,9 +137,7 @@ module.exports = (
             const errorReference =
               resolveErrorReference(error) || createERC(ERC_PREFIX.ERROR);
 
-            emitRouteError(getWs, {
-              error,
-              fallbackMessage: 'Demo account generation failed',
+            emitRouteError(ws, {
               operation: 'demo-generate-accounts',
               entityType: 'accounts',
               correlationId: config.correlationId,
@@ -180,7 +178,7 @@ module.exports = (
         const errorReference =
           resolveErrorReference(error) || createERC(ERC_PREFIX.ERROR);
 
-        emitRouteError(getWs, {
+        emitRouteError(ws, {
           error,
           fallbackMessage: 'Account generation failed',
           operation: 'generate-accounts',
@@ -345,7 +343,7 @@ module.exports = (
             const errorReference =
               resolveErrorReference(error) || createERC(ERC_PREFIX.ERROR);
 
-            emitRouteError(getWs, {
+            emitRouteError(ws, {
               error,
               fallbackMessage: 'Demo product generation failed',
               operation: 'demo-generate-products',
@@ -392,7 +390,7 @@ module.exports = (
         const errorReference =
           resolveErrorReference(error) || createERC(ERC_PREFIX.ERROR);
 
-        emitRouteError(getWs, {
+        emitRouteError(ws, {
           error,
           fallbackMessage: 'Product generation failed',
           operation: 'generate-products',
@@ -446,7 +444,7 @@ module.exports = (
       const errorReference =
         resolveErrorReference(error) || createERC(ERC_PREFIX.ERROR);
 
-      emitRouteError(getWs, {
+      emitRouteError(ws, {
         error,
         fallbackMessage: 'Product validation failed',
         operation: 'validate-products',
@@ -499,7 +497,7 @@ module.exports = (
       const errorReference =
         resolveErrorReference(error) || createERC(ERC_PREFIX.ERROR);
 
-      emitRouteError(getWs, {
+      emitRouteError(ws, {
         error,
         fallbackMessage: 'Account validation failed',
         operation: 'validate-accounts',
@@ -578,7 +576,7 @@ module.exports = (
             const errorReference =
               resolveErrorReference(error) || createERC(ERC_PREFIX.ERROR);
 
-            emitRouteError(getWs, {
+            emitRouteError(ws, {
               error,
               fallbackMessage: 'Demo order generation failed',
               operation: 'demo-generate-orders',
@@ -653,7 +651,7 @@ module.exports = (
         const errorReference =
           resolveErrorReference(error) || createERC(ERC_PREFIX.ERROR);
 
-        emitRouteError(getWs, {
+        emitRouteError(ws, {
           error,
           fallbackMessage: 'Order generation failed',
           operation: 'generate-orders',

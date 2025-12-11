@@ -169,7 +169,7 @@ class BatchPollingService {
   }
 
   async triggerPostProcessing(sessionId, session, correlationId) {
-    const { logger, cache, getWs } = this.ctx;
+    const { logger, cache, ws } = this.ctx;
     try {
       logger.info('Triggering post-processing for session', {
         operation: 'post-processing-trigger',
@@ -184,7 +184,7 @@ class BatchPollingService {
         timestamp: new Date().toISOString(),
       };
 
-      getWs().emitGenerationSessionComplete(message, { correlationId });
+      ws.emitGenerationSessionComplete(message, { correlationId });
 
       const sessionContext = cache.get(`session:${sessionId}:context`);
 
@@ -572,7 +572,7 @@ class BatchPollingService {
   }
 
   async handleBatchComplete(batchId, status) {
-    const { logger, cache, getWs, configService } = this.ctx;
+    const { logger, cache, ws, configService } = this.ctx;
     if (cache.get(`batch:${batchId}:completed`)) return;
 
     cache.set(
@@ -675,7 +675,7 @@ class BatchPollingService {
       correlationId: resolvedCorrelationId,
     };
 
-    const stats = (await getWs().emitBatchCompleted(message)) || {};
+    const stats = (await ws.emitBatchCompleted(message)) || {};
     const { ok = 0, fail = 0, total = 0 } = stats;
 
     cache.set(
@@ -706,7 +706,7 @@ class BatchPollingService {
   }
 
   async handleBatchFailed(batchId, status, config) {
-    const { logger, cache, getWs, configService } = this.ctx;
+    const { logger, cache, ws, configService } = this.ctx;
     if (cache.get(`batch:${batchId}:failed`)) return;
 
     cache.set(
@@ -781,7 +781,7 @@ class BatchPollingService {
       });
 
       logger.debug('Emitting BATCH_ERROR_DETAILS with correlationId', { batchId, correlationId: resolvedCorrelationId });
-      this.ctx.getWs().emitBatchErrorDetails({
+      this.ctx.ws.emitBatchErrorDetails({
         batchId,
         correlationId: resolvedCorrelationId,
         importTask,
@@ -828,7 +828,7 @@ class BatchPollingService {
       correlationId: resolvedCorrelationId,
     };
 
-    const stats = (await getWs().emitBatchFailed(message)) || {};
+    const stats = (await ws.emitBatchFailed(message)) || {};
     const { ok = 0, fail = 0, total = 0 } = stats;
 
     cache.set(

@@ -154,12 +154,10 @@ class OrderGenerator {
       mockData,
       cache,
       batchPolling,
-      getWs: rawGetWs,
+      ws,
       liferay,
       configService,
     } = this.ctx;
-    const getWs =
-      typeof rawGetWs === 'function' ? rawGetWs : () => rawGetWs;
 
     const correlationId = config.correlationId;
     const batchSize = Math.max(1, parseInt(config.batchSize, 10) || 1);
@@ -227,7 +225,13 @@ class OrderGenerator {
           const originalBatch = chunks[batchIndex];
 
           const batch = originalBatch.map((od) =>
-            this.buildOrderPayload(config, od, accounts, products, options.warehouses)
+            this.buildOrderPayload(
+              config,
+              od,
+              accounts,
+              products,
+              options.warehouses
+            )
           );
 
           const batchERC = createERC(ERC_PREFIX.ORDER_BATCH);
@@ -241,12 +245,7 @@ class OrderGenerator {
               externalReferenceCode: batchERC,
             });
           } catch (e) {
-            logger.error('Orders batch submission failed', {
-              operation: 'orders/batch:submit-error',
-              error: e.message,
-              externalReferenceCode: batchERC,
-            });
-            getWs().emitBatchFailed(
+            ws.emitBatchFailed(
               {
                 batchId: 'orders-submit-failed',
                 entityType: 'orders',
@@ -304,7 +303,7 @@ class OrderGenerator {
             getLongLivedTTLms(configService)
           );
 
-          getWs().emitBatchStarted(
+          ws.emitBatchStarted(
             {
               batchId: submission.batchId,
               entityType: 'orders',
@@ -356,7 +355,7 @@ class OrderGenerator {
                 const etaSeconds =
                   rate > 0 ? Math.round(remaining / rate) : null;
 
-                getWs().emitBatchProgress(
+                ws.emitBatchProgress(
                   {
                     batchId: status.batchId,
                     entityType: 'orders',
@@ -391,7 +390,7 @@ class OrderGenerator {
                   entityType: 'orders',
                 });
 
-                getWs().emitBatchFailed(
+                ws.emitBatchFailed(
                   {
                     batchId: submission.batchId,
                     entityType: 'orders',
@@ -465,10 +464,14 @@ class OrderGenerator {
     }
   }
 
-  async generateOrdersIndividually(config, options, orderDataList, accounts, products) {
-    const { logger, getWs: rawGetWs, configService, cache } = this.ctx;
-    const getWs =
-      typeof rawGetWs === 'function' ? rawGetWs : () => rawGetWs;
+  async generateOrdersIndividually(
+    config,
+    options,
+    orderDataList,
+    accounts,
+    products
+  ) {
+    const { logger, ws, configService, cache } = this.ctx;
     const { mode, phase } = resolvePhaseAndMode({
       useBatch: false,
       phase: 'generate',
@@ -482,7 +485,7 @@ class OrderGenerator {
       getEphemeralTTLms(configService)
     );
 
-    getWs().emitBatchStarted(
+    ws.emitBatchStarted(
       {
         batchId: 'orders-individual',
         entityType: 'orders',
@@ -518,7 +521,7 @@ class OrderGenerator {
         const remaining = Math.max(0, total - processed);
         const etaSeconds = rate > 0 ? Math.round(remaining / rate) : null;
 
-        getWs().emitBatchProgress(
+        ws.emitBatchProgress(
           {
             batchId: 'orders-individual',
             entityType: 'orders',
@@ -544,9 +547,8 @@ class OrderGenerator {
       }
     }
 
-    getWs().emitBatchCompleted(
+    ws.emitBatchCompleted(
       {
-        batchId: 'orders-individual',
         entityType: 'orders',
         successCount: created.length,
         failureCount: errors.length,
@@ -597,7 +599,7 @@ class OrderGenerator {
   }
 
   handleBatchComplete(results, config) {
-    const { logger, getWs } = this.ctx;
+    const { logger, ws } = this.ctx;
     const { mode, phase } = resolvePhaseAndMode({
       useBatch: true,
       phase: 'complete',
@@ -633,7 +635,7 @@ class OrderGenerator {
     }
 
     const ercMap = this.ctx.cache.get(`batch:${results.batchId}:erc`) || {};
-    getWs().emitBatchCompleted(
+    ws.emitBatchCompleted(
       {
         batchId: results.batchId,
         entityType: 'orders',

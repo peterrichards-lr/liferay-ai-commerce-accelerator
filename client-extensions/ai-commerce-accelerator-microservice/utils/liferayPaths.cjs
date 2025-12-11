@@ -64,6 +64,10 @@ const PATH = {
     `${BASE.PRODUCTS}/batch${
       callbackURL ? `?callbackURL=${enc(callbackURL)}` : ''
     }`,
+  WAREHOUSES_BATCH: (callbackURL) =>
+    `${BASE.INVENTORY_API}/warehouses/batch${
+      callbackURL ? `?callbackURL=${enc(callbackURL)}` : ''
+    }`,
   PRODUCT_SKUS: (productId) => `${BASE.PRODUCTS}/${productId}/skus`,
   PRODUCT_OPTIONS: (productId) =>
     `${BASE.PRODUCTS}/${productId}/productOptions`,

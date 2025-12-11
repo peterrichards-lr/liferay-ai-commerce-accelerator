@@ -21,7 +21,7 @@ class BatchProcessorService {
   getNormalizedMeta(meta, failureCount = 0) {
     const base = this.normalizeBroadcastMeta(meta, failureCount);
     try {
-      const ws = this.ctx?.getWs?.();
+      const ws = this.ctx?.ws;
       const liveCount = Number(ws?.totalClients?.() || 0);
       return { ...base, totalClients: liveCount || base.totalClients || 0 };
     } catch {

@@ -26,7 +26,7 @@ const WarehouseGenerator = require('./generators/warehouseGenerator.cjs');
 const registerDataGenerationWorkers = require('./workers/dataGenerationWorkers.cjs');
 
 module.exports = (ws) => {
-  const ctx = { logger, getWs: ws };
+  const ctx = { logger, ws };
 
   const cacheService = new CacheService(ctx);
   ctx.cache = cacheService;
@@ -88,7 +88,7 @@ module.exports = (ws) => {
     liferay: liferayService,
     cache: cacheService,
     configService,
-    getWs: ws,
+    ws,
   });
   ctx.batchPolling = batchPollingService;
 
@@ -101,7 +101,7 @@ module.exports = (ws) => {
     logger,
     media: mediaGenerator,
     mockData: mockDataGenerator,
-    getWs: ws,
+    ws,
   };
 
   const accountGenerator = new AccountGenerator(entityGeneratorCtx);

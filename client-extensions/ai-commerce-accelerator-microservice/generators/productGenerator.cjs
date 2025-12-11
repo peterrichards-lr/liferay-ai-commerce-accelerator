@@ -91,9 +91,7 @@ class ProductGenerator {
   }
 
   createOnSessionComplete() {
-    const { logger, cache, getWs: rawGetWs, configService } = this.ctx;
-    const getWs =
-      typeof rawGetWs === 'function' ? rawGetWs : () => rawGetWs;
+    const { logger, cache, ws, configService } = this.ctx;
     const markOnce = (sessionId) => {
       const onceKey = `session:${sessionId}:postproc:done`;
       if (cache.get(onceKey)) return false;
@@ -125,7 +123,7 @@ class ProductGenerator {
         correlationId,
       });
 
-      getWs().emitGenerationSessionComplete(
+      ws.emitGenerationSessionComplete(
         {
           entityType: 'products',
           operation: 'generate',
@@ -207,15 +205,25 @@ class ProductGenerator {
             for (const product of createdProducts) {
               ercToProductMap.set(product.externalReferenceCode, product);
             }
-    
+
             for (const originalProduct of productDataList) {
-              const createdProduct = ercToProductMap.get(originalProduct.externalReferenceCode);
+              const createdProduct = ercToProductMap.get(
+                originalProduct.externalReferenceCode
+              );
               if (createdProduct) {
-                await this.updateInventory(config, createdProduct, originalProduct, options);
+                await this.updateInventory(
+                  config,
+                  createdProduct,
+                  originalProduct,
+                  options
+                );
               }
             }
           } catch (error) {
-            logger.error('Failed to update inventory', { sessionId, error: error.message });
+            logger.error('Failed to update inventory', {
+              sessionId,
+              error: error.message,
+            });
           }
         }
       }
@@ -254,12 +262,10 @@ class ProductGenerator {
       media,
       cache,
       batchPolling,
-      getWs: rawGetWs,
+      ws,
       ai,
       configService,
     } = this.ctx;
-    const getWs =
-      typeof rawGetWs === 'function' ? rawGetWs : () => rawGetWs;
 
     const randomSeed = options.randomSeed;
     let prngState = Number.isFinite(randomSeed) ? randomSeed >>> 0 : 0;
@@ -751,7 +757,7 @@ class ProductGenerator {
             entityType: 'products',
             operation: 'generate',
           });
-          getWs().emitBatchStarted(
+          ws.emitBatchStarted(
             {
               entityType: 'products',
               operation: 'generate',
@@ -811,7 +817,7 @@ class ProductGenerator {
                 onTimeout: () => {
                   const meta = cache.get(`batch:${bid}:meta`) || {};
                   logger.error(`Polling timed out for batch ${bid}`);
-                  getWs().emitBatchCompleted(
+                  ws.emitBatchCompleted(
                     {
                       entityType: 'products',
                       operation: 'generate',
@@ -863,7 +869,7 @@ class ProductGenerator {
                         pct,
                         getBatchCacheTTLms(configService)
                       );
-                      getWs().emitBatchProgress(
+                      ws.emitBatchProgress(
                         {
                           entityType: 'products',
                           operation: 'generate',
@@ -923,7 +929,7 @@ class ProductGenerator {
                     batchId: bid,
                     error: error.message,
                   });
-                  getWs().emitBatchCompleted(
+                  ws.emitBatchCompleted(
                     {
                       entityType: 'products',
                       operation: 'generate',
@@ -1026,10 +1032,9 @@ class ProductGenerator {
           `Creating ${preparedProducts.length} products individually...`
         );
 
-
         const batchERC = createERC(ERC_PREFIX.PRODUCT_BATCH);
         const indivBatchId = `products-individual-${Date.now()}`;
-        getWs().emitBatchStarted(
+        ws.emitBatchStarted(
           {
             entityType: 'products',
             operation: 'generate',
@@ -1058,7 +1063,7 @@ class ProductGenerator {
             results.created++;
             processed++;
 
-            getWs().emitBatchProgress(
+            ws.emitBatchProgress(
               {
                 entityType: 'products',
                 operation: 'generate',
@@ -1094,7 +1099,7 @@ class ProductGenerator {
             let pdfsApplied = 0;
             if (originalProduct.images) {
               const imgBatchId = `images-${productERC}`;
-              getWs().emitPostProcessingStarted(
+              ws.emitPostProcessingStarted(
                 {
                   entityType: 'images',
                   batchId: imgBatchId,
@@ -1155,7 +1160,7 @@ class ProductGenerator {
                 logger.trace(`✓ Added image to product: ${productERC}`);
                 imagesApplied++;
               }
-              getWs().emitPostProcessingCompleted(
+              ws.emitPostProcessingCompleted(
                 {
                   entityType: 'images',
                   batchId: imgBatchId,
@@ -1174,7 +1179,7 @@ class ProductGenerator {
             }
             if (originalProduct.attachments) {
               const pdfBatchId = `pdf-${productERC}`;
-              getWs().emitPostProcessingStarted(
+              ws.emitPostProcessingStarted(
                 {
                   entityType: 'pdfs',
                   batchId: pdfBatchId,
@@ -1235,7 +1240,7 @@ class ProductGenerator {
                 logger.trace(`✓ Added attachment to product: ${productERC}`);
                 pdfsApplied++;
               }
-              getWs().emitPostProcessingCompleted(
+              ws.emitPostProcessingCompleted(
                 {
                   entityType: 'pdfs',
                   batchId: pdfBatchId,
@@ -1265,9 +1270,8 @@ class ProductGenerator {
             });
           }
         }
-        getWs().emitBatchCompleted(
+        ws.emitBatchCompleted(
           {
-            entityType: 'products',
             operation: 'generate',
             ...resolvePhaseAndMode({ useBatch: false, phase: 'complete' }),
             batchId: indivBatchId,
@@ -1306,7 +1310,7 @@ class ProductGenerator {
 
       return results;
     } catch (error) {
-      const { getWs } = this.ctx;
+      const { ws } = this.ctx;
       logger.error('Product generation failed', {
         entityType: 'products',
         operation: 'generate',
@@ -1326,7 +1330,7 @@ class ProductGenerator {
               ? getBatchCacheTTLms(configService)
               : getEphemeralTTLms(configService)
           );
-          getWs().emitBatchCompleted(
+          ws.emitBatchCompleted(
             {
               entityType: 'products',
               operation: 'generate',
@@ -2210,7 +2214,7 @@ class ProductGenerator {
     productSpecifications,
     catalogSpecifications
   ) {
-    const { logger, liferay, batchProcessor, getWs } = this.ctx;
+    const { logger, liferay, batchProcessor, ws } = this.ctx;
     try {
       const pickFromJson = (category, specKey) => {
         try {
@@ -2297,7 +2301,7 @@ class ProductGenerator {
             liferay.addProductSpecification(config, productId, specData),
           5,
           (progress) => {
-            getWs().emitBatchProgress(
+            ws.emitBatchProgress(
               {
                 batchId: 'product-specs',
                 entityType: 'products',
@@ -2697,7 +2701,7 @@ class ProductGenerator {
   }
 
   async processImageAndPDFAttachments(config, productDataList, options) {
-    const { logger, liferay, getWs, cache, configService } = this.ctx;
+    const { logger, liferay, ws, cache, configService } = this.ctx;
     const sessionId = options.sessionId;
 
     logger.info('Starting post-processing for images and PDFs', {
@@ -2729,7 +2733,7 @@ class ProductGenerator {
       pdfCount > 0 ? createERC(ERC_PREFIX.PRODUCT_BATCH) : null;
 
     if (imageCount > 0) {
-      getWs().emitBatchStarted(
+      ws.emitBatchStarted(
         {
           entityType: 'images',
           operation: 'process-images',
@@ -2744,7 +2748,7 @@ class ProductGenerator {
     }
 
     if (pdfCount > 0) {
-      getWs().emitBatchStarted(
+      ws.emitBatchStarted(
         {
           entityType: 'pdfs',
           operation: 'process-attachments',
@@ -2775,7 +2779,7 @@ class ProductGenerator {
         const pct = Math.round((imageProcessedCount / imageCount) * 100);
         if (pct - lastImagePct >= 5 || pct === 100) {
           lastImagePct = pct;
-          getWs().emitBatchProgress(
+          ws.emitBatchProgress(
             {
               entityType: 'images',
               operation: 'process-images',
@@ -2794,7 +2798,7 @@ class ProductGenerator {
         const pct = Math.round((pdfProcessedCount / pdfCount) * 100);
         if (pct - lastPdfPct >= 5 || pct === 100) {
           lastPdfPct = pct;
-          getWs().emitBatchProgress(
+          ws.emitBatchProgress(
             {
               entityType: 'pdfs',
               operation: 'process-attachments',
@@ -3045,24 +3049,22 @@ class ProductGenerator {
       `[post-proc] Pool complete: imagesDone=${imageProcessedCount}/${imageCount}, pdfsDone=${pdfProcessedCount}/${pdfCount}`
     );
 
-    if (imageCount > 0) {
-      getWs().emitBatchCompleted(
-        {
-          entityType: 'images',
-          operation: 'process-images',
-          ...resolvePhaseAndMode({ useBatch: true, phase: 'complete' }),
-          batchId: 'images-processing',
-          successCount: imageProcessedCount,
-          failureCount: imageErrors.length,
-          errors: imageErrors.slice(0, 5),
-          sessionId,
-        },
-        { correlationId: config.correlationId }
-      );
-    }
+    ws.emitBatchCompleted(
+      {
+        entityType: 'images',
+        operation: 'process-images',
+        ...resolvePhaseAndMode({ useBatch: true, phase: 'complete' }),
+        batchId: 'images-processing',
+        successCount: imageProcessedCount,
+        failureCount: imageErrors.length,
+        errors: imageErrors.slice(0, 5),
+        sessionId,
+      },
+      { correlationId: config.correlationId }
+    );
 
     if (pdfCount > 0) {
-      getWs().emitBatchCompleted(
+      ws.emitBatchCompleted(
         {
           entityType: 'pdfs',
           operation: 'process-attachments',
@@ -3155,8 +3157,8 @@ class ProductGenerator {
     }
   }
 
-  async handleBatchComplete(results, config) {
-    const { logger, getWs, cache, configService } = this.ctx;
+  handleBatchComplete(results, config) {
+    const { logger, ws, cache, configService } = this.ctx;
 
     const bid = String(results.batchId || '');
     cache.set(
@@ -3201,7 +3203,7 @@ class ProductGenerator {
       successCount = results.processedCount || results.totalCount || 0;
     }
 
-    getWs().emitBatchCompleted(
+    ws.emitBatchCompleted(
       {
         entityType: 'products',
         operation: 'generate',

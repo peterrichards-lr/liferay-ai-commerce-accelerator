@@ -110,7 +110,7 @@ const routeCtx = {
   logger,
 };
 
-require('./routes/batch.cjs')(app, { ...routeCtx, cacheService, configService, getWs: () => ws });
+require('./routes/batch.cjs')(app, { ...routeCtx, cacheService, configService, ws: ws });
 require('./routes/cache.cjs')(app, { ...routeCtx, cacheService });
 require('./routes/config.cjs')(app, { ...routeCtx, configService });
 require('./routes/get.cjs')(app, routeCtx);
@@ -122,7 +122,7 @@ require('./routes/delete.cjs')(app, {
   configService,
 });
 require('./routes/export.cjs')(app, { ...routeCtx, cacheService });
-require('./routes/import.cjs')(app, { ...routeCtx, batchPollingService, getWs: () => ws, configService });
+require('./routes/import.cjs')(app, { ...routeCtx, batchPollingService, ws: ws, configService });
 
 const generateCtx = {
   liferayService,
@@ -133,7 +133,7 @@ const generateCtx = {
   configService,
   cacheService,
   logger,
-  getWs: () => ws,
+  ws: ws,
 };
 
 require('./routes/generate.cjs')(app, generateCtx);

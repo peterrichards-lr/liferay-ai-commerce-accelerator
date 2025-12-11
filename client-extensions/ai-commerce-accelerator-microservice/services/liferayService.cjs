@@ -909,41 +909,347 @@ class LiferayService {
 
       
 
-        async createWarehouse(config, warehouseData) {
+                        async createWarehouse(config, warehouseData) {
 
       
 
-          return await this._post(
+                          return await this._post(
 
       
 
-            config,
+                            config,
 
       
 
-            PATH.WAREHOUSES,
+                            PATH.WAREHOUSES,
 
       
 
-            warehouseData,
+                            warehouseData,
 
       
 
-            'create-warehouse',
+                            'create-warehouse',
 
       
 
-            'Failed to create warehouse'
+                            'Failed to create warehouse'
 
       
 
-          );
+                          );
 
       
 
-        }
+                        }
 
-  async getWarehouses(config) {
+      
+
+                
+
+      
+
+                  async createWarehousesBatch(config, warehousesData, callbackUrl, opts = {}) {
+
+      
+
+                    const { logger, cache, configService } = this.ctx;
+
+      
+
+                    const erc =
+
+      
+
+                      opts.externalReferenceCode ?? createERC(ERC_PREFIX.WAREHOUSE_BATCH);
+
+      
+
+                
+
+      
+
+                    const items = (warehousesData || []).map((item) => {
+
+      
+
+                      const extERC = sanitizedERC(
+
+      
+
+                        item.externalReferenceCode || item.name?.en_US || uuidv4()
+
+      
+
+                      );
+
+      
+
+                      return { ...item, externalReferenceCode: extERC };
+
+      
+
+                    });
+
+      
+
+                    const itemERCs = items.map((i) => i.externalReferenceCode);
+
+      
+
+                    this._cacheItemERCs(erc, null, itemERCs, opts.sessionId);
+
+      
+
+                
+
+      
+
+                    const taggedCallback = this._buildCallbackURL(callbackUrl, {
+
+      
+
+                      entity: 'warehouses',
+
+      
+
+                      op: 'create',
+
+      
+
+                      batchERC: erc,
+
+      
+
+                      sessionId: opts.sessionId,
+
+      
+
+                    });
+
+      
+
+                    const batchPayload = {
+
+      
+
+                      createStrategy: 'INSERT',
+
+      
+
+                      items: items,
+
+      
+
+                      externalReferenceCode: erc,
+
+      
+
+                    };
+
+      
+
+                    const url = PATH.WAREHOUSES_BATCH(taggedCallback);
+
+      
+
+                    logger.info('Sending batch warehouse creation request', {
+
+      
+
+                      operation: 'create-warehouses-batch',
+
+      
+
+                      warehouseCount: warehousesData.length,
+
+      
+
+                      callbackUrl: taggedCallback,
+
+      
+
+                      externalReferenceCode: erc,
+
+      
+
+                    });
+
+      
+
+                    const data = await this._post(
+
+      
+
+                      config,
+
+      
+
+                      url,
+
+      
+
+                      batchPayload,
+
+      
+
+                      'create-warehouses-batch',
+
+      
+
+                      'Failed to create warehouses batch'
+
+      
+
+                    );
+
+      
+
+                    this._cacheItemERCs(erc, data?.id, itemERCs, opts.sessionId);
+
+      
+
+                    if (cache && data?.id) {
+
+      
+
+                      cache.set(
+
+      
+
+                        `batch:${data.id}:submission`,
+
+      
+
+                        {
+
+      
+
+                          op: 'create-warehouses-batch',
+
+      
+
+                          erc: erc,
+
+      
+
+                          itemERCs,
+
+      
+
+                          count: items.length,
+
+      
+
+                          createdAt: new Date().toISOString(),
+
+      
+
+                        },
+
+      
+
+                        getBatchCacheTTLms(configService)
+
+      
+
+                      );
+
+      
+
+                    }
+
+      
+
+                    logger?.trace?.('cache:itemERCs:stored', {
+
+      
+
+                      scopeERC: erc,
+
+      
+
+                      sessionId: opts.sessionId || null,
+
+      
+
+                      batchId: data?.id || null,
+
+      
+
+                      count: itemERCs.length,
+
+      
+
+                    });
+
+      
+
+                
+
+      
+
+                    logger.info('Batch warehouse creation initiated', {
+
+      
+
+                      operation: 'create-warehouses-batch',
+
+      
+
+                      batchId: data.id || 'unknown',
+
+      
+
+                      status: data.status || 'submitted',
+
+      
+
+                      externalReferenceCode: erc,
+
+      
+
+                    });
+
+      
+
+                    return {
+
+      
+
+                      batchId: data.id || `batch-${Date.now()}`,
+
+      
+
+                      status: data.status || 'submitted',
+
+      
+
+                      warehouseCount: items.length,
+
+      
+
+                      externalReferenceCode: erc,
+
+      
+
+                      batchRefs: [{ taskId: data.id, count: items.length, erc }],
+
+      
+
+                    };
+
+      
+
+                  }
+
+      
+
+                
+
+      
+
+                  async getWarehouses(config) {
     const data = await this._get(config, PATH.WAREHOUSES, 'get-warehouses');
     return this._asItems(data);
   }
@@ -1171,6 +1477,29 @@ class LiferayService {
       externalReferenceCode: erc,
       batchRefs: [{ taskId: data.id, count: accountsData.length, erc }],
     };
+  }
+
+  _cacheItemERCs(batchERC, batchId, itemERCs, sessionId = null) {
+    const { cache, configService } = this.ctx;
+    const ttl = getBatchCacheTTLms(configService);
+
+    if (itemERCs && itemERCs.length > 0) {
+      if (batchERC) {
+        cache.set(`erc:${batchERC}:itemERCs`, itemERCs, ttl);
+      }
+      if (batchId) {
+        cache.set(`batch:${batchId}:itemERCs`, itemERCs, ttl);
+      }
+      if (sessionId && batchERC) {
+        cache.set(`session:${sessionId}:itemERCsByBatch:${batchERC}`, itemERCs, ttl);
+      }
+      this.ctx.logger?.trace?.('cache:itemERCs:stored', {
+        scopeERC: batchERC,
+        sessionId,
+        batchId,
+        count: itemERCs.length,
+      });
+    }
   }
 
   async createOrdersBatch(config, ordersData, callbackUrl, opts = {}) {

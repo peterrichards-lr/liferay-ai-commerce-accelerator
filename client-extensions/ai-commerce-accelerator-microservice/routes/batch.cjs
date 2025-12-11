@@ -59,7 +59,7 @@ function safeErrorResponse({
   meta = {},
   statusCode = 500,
   fallbackMessage = 'Unexpected server error',
-  getWs,
+  ws,
 }) {
   const existingERC = resolveErrorReference(error);
   const errorReference = existingERC || createERC(ERC_PREFIX.ERROR);
@@ -84,8 +84,8 @@ function safeErrorResponse({
   });
 
   try {
-    if (getWs) {
-      getWs().emitError({
+    if (ws) {
+      ws.emitError({
         correlationId: req.correlationId,
         batchId: meta?.batchId,
         entityType: meta?.entityType || 'system',
@@ -124,7 +124,7 @@ module.exports = (
     batchPollingService,
     liferayService,
     logger,
-    getWs,
+    ws,
     configService,
     batchCallbackService,
   }
@@ -484,7 +484,7 @@ module.exports = (
               totalCount: r.totalCount,
             });
 
-            getWs().emitBatchCompleted(
+            ws.emitBatchCompleted(
               {
                 batchId,
                 entityType: finalEntityType,
@@ -514,7 +514,7 @@ module.exports = (
               errorReference: ref,
             });
 
-            getWs().emitBatchFailed(
+            ws.emitBatchFailed(
               {
                 batchId,
                 entityType: finalEntityType,
@@ -526,7 +526,7 @@ module.exports = (
               { correlationId }
             );
 
-            getWs().emitError({
+            ws.emitError({
               correlationId,
               batchId,
               entityType: finalEntityType,
@@ -574,7 +574,7 @@ module.exports = (
           ttlBatch
         );
 
-        getWs().emitBatchCompleted(
+        ws.emitBatchCompleted(
           {
             batchId,
             entityType: finalEntityType,
@@ -647,7 +647,7 @@ module.exports = (
           ttlBatch
         );
 
-        getWs().emitBatchFailed(
+        ws.emitBatchFailed(
           {
             batchId,
             entityType: finalEntityType,
@@ -662,7 +662,7 @@ module.exports = (
           { correlationId }
         );
 
-        getWs().emitError({
+        ws.emitError({
           correlationId,
           batchId,
           entityType: finalEntityType,
@@ -734,7 +734,7 @@ module.exports = (
         },
         statusCode: 500,
         fallbackMessage: 'Failed to process batch callback',
-        getWs,
+        ws,
       });
     }
   });
@@ -807,7 +807,7 @@ module.exports = (
         },
         statusCode: 500,
         fallbackMessage: 'Failed to get batch status',
-        getWs,
+        ws,
       });
     }
   });
