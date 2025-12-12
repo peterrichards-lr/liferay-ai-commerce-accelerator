@@ -47,7 +47,15 @@ function getBatchCacheTTLms(configService, runtime = {}) {
   const cacheCfg = getCacheJson(configService);
   const override = Number(cacheCfg.defaultBatchTTL);
   const raw = Number.isFinite(override) ? override : base * 3;
-  return clamp(raw, { min: MIN(10), max: MIN(60) });
+  const finalTTL = Math.max(MIN(30), raw);
+  const { logger } = require('./logger.cjs');
+  logger.debug('Calculated Batch Cache TTL', {
+    baseMs: base,
+    overrideMs: override,
+    rawMs: raw,
+    finalTTLMs: finalTTL,
+  });
+  return finalTTL;
 }
 
 function getSessionTTLms(configService, runtime = {}) {

@@ -22,8 +22,8 @@ class MockDataGenerator {
     this.categoryData = null;
     this.specificationValues = null;
     this.pricingData = null;
-    this.schemas = {}; // To store compiled schemas
-    this._loadAndCompileSchemas(); // New method to load and compile schemas
+    this.schemas = {};
+    this._loadAndCompileSchemas();
     this.loadConfigurationData();
   }
 
@@ -65,7 +65,6 @@ class MockDataGenerator {
     this._compileSchema('product');
     this._compileSchema('order');
     this._compileSchema('warehouse');
-    // Add other schemas if needed
   }
 
   loadConfigurationData() {
@@ -375,10 +374,9 @@ class MockDataGenerator {
       products.push(productData);
     }
 
-    // Validate generated mock data against schema
     const validate = this.schemas.product;
     if (validate) {
-      const payload = { products: products }; // Wrap in expected wrapper object
+      const payload = { products: products };
       const isValid = validate(payload);
       if (!isValid) {
         logger?.error?.('Mock product data failed schema validation:', {
@@ -505,10 +503,9 @@ class MockDataGenerator {
       accounts.push(account);
     }
 
-    // Validate generated mock data against schema
     const validate = this.schemas.account;
     if (validate) {
-      const payload = { accounts: accounts }; // Wrap in expected wrapper object
+      const payload = { accounts: accounts };
       const isValid = validate(payload);
       if (!isValid) {
         this.logger?.error?.('Mock account data failed schema validation:', {
@@ -564,10 +561,9 @@ class MockDataGenerator {
       orders.push(order);
     }
 
-    // Validate generated mock data against schema
     const validate = this.schemas.order;
     if (validate) {
-      const payload = { orders: orders }; // Wrap in expected wrapper object
+      const payload = { orders: orders };
       const isValid = validate(payload);
       if (!isValid) {
         this.logger?.error?.('Mock order data failed schema validation:', {

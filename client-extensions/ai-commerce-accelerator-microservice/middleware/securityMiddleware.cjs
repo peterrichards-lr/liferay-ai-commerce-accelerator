@@ -4,7 +4,6 @@ const { cacheService } = require('../services/cacheService.cjs');
 
 const { ENV } = require('../utils/constants.cjs');
 
-// Input validation middleware
 function inputValidationMiddleware(schema) {
   return (req, res, next) => {
     const errors = validateInput(req.body, schema);
@@ -35,7 +34,6 @@ function validateInput(data, schema) {
   for (const [field, rules] of Object.entries(schema)) {
     const value = data[field];
 
-    // Required field check
     if (
       rules.required &&
       (value === undefined || value === null || value === '')
@@ -44,10 +42,8 @@ function validateInput(data, schema) {
       continue;
     }
 
-    // Skip further validation if field is not present and not required
     if (value === undefined || value === null) continue;
 
-    // Type validations
     if (rules.type === 'string' && typeof value !== 'string') {
       errors.push(`${field} must be of type string`);
     } else if (rules.type === 'number' && typeof value !== 'number') {
@@ -63,7 +59,6 @@ function validateInput(data, schema) {
       errors.push(`${field} must be of type object`);
     }
 
-    // String validations
     if (rules.type === 'string') {
       if (rules.minLength && value.length < rules.minLength) {
         errors.push(`${field} must be at least ${rules.minLength} characters`);
@@ -79,7 +74,6 @@ function validateInput(data, schema) {
       }
     }
 
-    // Number validations
     if (rules.type === 'number') {
       if (rules.min && value < rules.min) {
         errors.push(`${field} must be at least ${rules.min}`);
@@ -92,7 +86,6 @@ function validateInput(data, schema) {
       }
     }
 
-    // Array validations
     if (rules.type === 'array' && Array.isArray(value)) {
       if (rules.minItems && value.length < rules.minItems) {
         errors.push(`${field} must have at least ${rules.minItems} items`);
@@ -102,7 +95,6 @@ function validateInput(data, schema) {
       }
     }
 
-    // Custom validation
     if (rules.custom && typeof rules.custom === 'function') {
       const customError = rules.custom(value, data);
       if (customError) {
@@ -114,13 +106,11 @@ function validateInput(data, schema) {
   return errors;
 }
 
-// Request signing middleware for API authentication
 function requestSigningMiddleware(req, res, next) {
   const signature = req.get('X-Request-Signature');
   const timestamp = req.get('X-Request-Timestamp');
   const clientId = req.get('X-Client-ID');
 
-  // Skip if no signature headers
   if (!signature || !timestamp || !clientId) {
     return next();
   }
@@ -128,7 +118,6 @@ function requestSigningMiddleware(req, res, next) {
   const now = Date.now();
   const requestTime = parseInt(timestamp);
 
-  // Check timestamp (5 minutes tolerance)
   if (Math.abs(now - requestTime) > 300000) {
     logger.warn('Request signature expired', {
       correlationId: req.correlationId,
@@ -145,7 +134,6 @@ function requestSigningMiddleware(req, res, next) {
     });
   }
 
-  // Verify signature (would need client secret lookup)
   const isValid = verifyRequestSignature(req, signature, clientId);
 
   if (!isValid) {
@@ -191,24 +179,21 @@ function verifyRequestSignature(req, signature, clientId) {
 }
 
 function getClientSecret(clientId) {
-  // Cache client secrets
   const cached = cacheService.getConfig(`client_secret:${clientId}`);
   if (cached) return cached;
 
-  // In production, this would lookup from database or key store
   const secrets = {
     'test-client': ENV.TEST_CLIENT_SECRET || 'test-secret-key',
   };
 
   const secret = secrets[clientId];
   if (secret) {
-    cacheService.cacheConfig(`client_secret:${clientId}`, secret, 3600000); // 1 hour
+    cacheService.cacheConfig(`client_secret:${clientId}`, secret, 3600000);
   }
 
   return secret;
 }
 
-// SQL injection prevention middleware
 function sqlInjectionProtectionMiddleware(req, res, next) {
   const suspiciousPatterns = [
     /(\b(SELECT|INSERT|UPDATE|DELETE|DROP|CREATE|ALTER|EXEC|EXECUTE|UNION|TRUNCATE)\b)/i,
@@ -240,7 +225,6 @@ function sqlInjectionProtectionMiddleware(req, res, next) {
     return false;
   };
 
-  // Check query parameters
   if (checkValue(req.query, 'query')) {
     return res.status(400).json({
       success: false,
@@ -249,7 +233,6 @@ function sqlInjectionProtectionMiddleware(req, res, next) {
     });
   }
 
-  // Check body
   if (checkValue(req.body, 'body')) {
     return res.status(400).json({
       success: false,
@@ -261,7 +244,6 @@ function sqlInjectionProtectionMiddleware(req, res, next) {
   next();
 }
 
-// XSS protection middleware
 function xssProtectionMiddleware(req, res, next) {
   const xssPatterns = [
     /<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi,
@@ -285,7 +267,7 @@ function xssProtectionMiddleware(req, res, next) {
           return value.replace(pattern, '');
         }
       }
-      // Basic HTML entity encoding for critical characters
+
       return value
         .replace(/</g, '&lt;')
         .replace(/>/g, '&gt;')
@@ -308,7 +290,6 @@ function xssProtectionMiddleware(req, res, next) {
     return obj;
   };
 
-  // Sanitize request body
   if (req.body) {
     req.body = sanitizeObject({ ...req.body });
   }
@@ -316,7 +297,6 @@ function xssProtectionMiddleware(req, res, next) {
   next();
 }
 
-// IP allowlist middleware
 function ipAllowlistMiddleware(allowedIPs) {
   const allowed = new Set(allowedIPs);
 
@@ -325,7 +305,6 @@ function ipAllowlistMiddleware(allowedIPs) {
     const forwardedFor = req.get('X-Forwarded-For');
     const realIP = forwardedFor ? forwardedFor.split(',')[0].trim() : clientIP;
 
-    // Allow localhost for development
     if (
       realIP === '127.0.0.1' ||
       realIP === '::1' ||
@@ -353,9 +332,7 @@ function ipAllowlistMiddleware(allowedIPs) {
   };
 }
 
-// Request size limitation
 function requestSizeLimitMiddleware(maxSize = 10485760) {
-  // 10MB default
   return (req, res, next) => {
     const contentLength = parseInt(req.get('Content-Length') || '0');
 

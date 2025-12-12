@@ -82,7 +82,7 @@ const ABS_MIN = Object.freeze({
   OAUTH_TOKEN_SKEW_SEC: 0,
   OAUTH_TOKEN_CACHE_TTL: 360_000,
 
-  OBJECT_STORAGE_SIGNED_URL_TTL_SEC: 60, // lower bound for presigned URLs
+  OBJECT_STORAGE_SIGNED_URL_TTL_SEC: 60,
 });
 
 const ABS_MIN_AI = Object.freeze({
@@ -133,7 +133,6 @@ const ENV = Object.freeze({
   PUBLIC_OBJECT_SEARCH_PATHS: str('public.object.search.paths', ''),
   PRIVATE_OBJECT_DIR: str('private.object.dir', ''),
 
-  // Object Storage defaults (used if remote config missing)
   OBJECT_STORAGE_SIDECAR_ENDPOINT: str(
     'object.storage.sidecar.endpoint',
     'http://127.0.0.1:1106'

@@ -435,7 +435,7 @@ export default function useRealtimeWebSocket({
     ws.onerror = (e) => {
       clearTimeout(connectionTimeout);
       setWsConnected(false);
-      onLog?.('WebSocket error. Check the microservice is reachable.', 'error');
+      onLog?.('WebSocket error. Check the microservice is reachable. Will continue to retry.', 'error');
       logError('Socket error event', e?.message || e);
     };
 

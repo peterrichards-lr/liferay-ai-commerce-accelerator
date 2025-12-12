@@ -52,7 +52,7 @@ const {
   orderGenerator,
   productGenerator,
   warehouseGenerator,
-  oauthService
+  oauthService,
 } = require('./bootstrap.cjs')(ws);
 
 const PORT = lookupConfig('server.port') || 3000;
@@ -82,24 +82,21 @@ app.use(
   })
 );
 
-// Trust proxy for proper IP handling behind load balancers/proxies
 app.set('trust proxy', true);
 
 app.use(express.json({ limit: '25mb' }));
 app.use(express.static(path.join(__dirname, '..')));
 
-// Serve the frontend
 app.get('/', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
-// Custom middleware
 app.use(correlationIdMiddleware);
 app.use(userContextMiddleware);
 app.use(securityHeadersMiddleware);
 app.use(requestLoggingMiddleware);
-app.use(basicRateLimitMiddleware(200, 60000)); // 200 requests per minute
-app.use(requestSizeLimitMiddleware(10485760)); // 10MB limit
+app.use(basicRateLimitMiddleware(200, 60000));
+app.use(requestSizeLimitMiddleware(10485760));
 app.use(sqlInjectionProtectionMiddleware);
 app.use(xssProtectionMiddleware);
 app.use(requestSigningMiddleware);
@@ -110,7 +107,12 @@ const routeCtx = {
   logger,
 };
 
-require('./routes/batch.cjs')(app, { ...routeCtx, cacheService, configService, ws: ws });
+require('./routes/batch.cjs')(app, {
+  ...routeCtx,
+  cacheService,
+  configService,
+  ws: ws,
+});
 require('./routes/cache.cjs')(app, { ...routeCtx, cacheService });
 require('./routes/config.cjs')(app, { ...routeCtx, configService });
 require('./routes/get.cjs')(app, routeCtx);
@@ -122,7 +124,12 @@ require('./routes/delete.cjs')(app, {
   configService,
 });
 require('./routes/export.cjs')(app, { ...routeCtx, cacheService });
-require('./routes/import.cjs')(app, { ...routeCtx, batchPollingService, ws: ws, configService });
+require('./routes/import.cjs')(app, {
+  ...routeCtx,
+  batchPollingService,
+  ws: ws,
+  configService,
+});
 
 const generateCtx = {
   liferayService,
@@ -155,11 +162,9 @@ app.post(
 
       let openAiKeyAvailable = false;
       try {
-        // Pass the request configuration for OAuth authentication
         await configService.getOpenAIKey(req.body);
         openAiKeyAvailable = true;
       } catch (error) {
-        // Key not available or not configured
         openAiKeyAvailable = false;
         logger.debug('OpenAI key check failed', {
           correlationId,
@@ -192,7 +197,6 @@ app.post(
         error: error.message,
       });
 
-      // Use structured error response from liferayService if available
       if (error.response && error.response.data) {
         return res
           .status(error.response.status || 400)
@@ -207,7 +211,6 @@ app.post(
   }
 );
 
-// Error handling middleware
 app.use(errorLoggingMiddleware);
 
 app.use((error, req, res, next) => {
@@ -237,7 +240,6 @@ app.use((error, req, res, next) => {
   });
 });
 
-// Global error handlers
 process.on('uncaughtException', (error) => {
   logger.errorWithStack(error, { operation: 'uncaught-exception' });
   process.exit(1);
@@ -271,7 +273,6 @@ server.listen(PORT, '0.0.0.0', () => {
   });
 });
 
-// Graceful shutdown
 process.on('SIGTERM', () => {
   logger.info('SIGTERM received, shutting down gracefully', {
     operation: 'server-shutdown',

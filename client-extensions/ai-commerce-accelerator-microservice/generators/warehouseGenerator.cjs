@@ -29,7 +29,8 @@ class WarehouseGenerator {
   }
 
   async createWarehouses(config, options) {
-    const { logger, ai, mockData, ws, liferay, batchPolling, configService } = this.ctx;
+    const { logger, ai, mockData, ws, liferay, batchPolling, configService } =
+      this.ctx;
     const { warehouseCount, demoMode } = options;
     const correlationId = config?.correlationId || '∅';
 
@@ -44,7 +45,7 @@ class WarehouseGenerator {
       );
     }
 
-    const useBatch = warehouseCount > 1; // Assuming batch for more than 1 warehouse
+    const useBatch = warehouseCount > 1;
     const entityType = 'warehouses';
     const operation = 'generate';
     const { mode, phase } = resolvePhaseAndMode({
@@ -67,9 +68,14 @@ class WarehouseGenerator {
         this._normalizeWarehouseData(data, config)
       );
 
-      const submission = await liferay.createWarehousesBatch(config, normalizedWarehouseDataList, null, {
-        externalReferenceCode: batchERC,
-      });
+      const submission = await liferay.createWarehousesBatch(
+        config,
+        normalizedWarehouseDataList,
+        null,
+        {
+          externalReferenceCode: batchERC,
+        }
+      );
 
       const batchId = submission.batchId;
       const totalItems = normalizedWarehouseDataList.length;
@@ -89,7 +95,8 @@ class WarehouseGenerator {
           externalReferenceCode: batchERC,
           onStatusChange: (status) => {
             const processed = status.processedCount || 0;
-            const progress = totalItems > 0 ? Math.round((processed / totalItems) * 100) : 0;
+            const progress =
+              totalItems > 0 ? Math.round((processed / totalItems) * 100) : 0;
             ws.emitBatchProgress(
               {
                 entityType,
@@ -101,13 +108,13 @@ class WarehouseGenerator {
                 completedCount: processed,
                 totalItems: totalItems,
                 progress: progress,
-                etaSeconds: 0, // Liferay batch engine should provide this
+                etaSeconds: 0,
               },
               { correlationId }
             );
           },
           onComplete: (r) => {
-            ws.emitBatchProgress( // <-- Add this
+            ws.emitBatchProgress(
               {
                 entityType,
                 operation: 'generate',

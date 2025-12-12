@@ -41,7 +41,7 @@ const generateDataSchema = (aiModelOptions = [], batchSizes = []) => ({
   },
   aiModel: {
     type: 'string',
-    enum: aiModelOptions.map(opt => opt.value),
+    enum: aiModelOptions.map((opt) => opt.value),
     required: true,
   },
   categories: { type: 'array', required: false },
@@ -60,11 +60,11 @@ const generateOrdersSchema = (aiModelOptions = [], batchSizes = []) => ({
   },
   aiModel: {
     type: 'string',
-    enum: aiModelOptions.map(opt => opt.value),
+    enum: aiModelOptions.map((opt) => opt.value),
     required: true,
   },
-  channelId: { type: 'number', required: true, integer: true }, // override required=true
-  currencyCode: { type: 'string', required: true }, // override required=true
+  channelId: { type: 'number', required: true, integer: true },
+  currencyCode: { type: 'string', required: true },
   orderCount: { type: 'number', min: 0, max: 100, integer: true },
 });
 
@@ -78,7 +78,7 @@ const generateAccountsSchema = (aiModelOptions = [], batchSizes = []) => ({
   },
   aiModel: {
     type: 'string',
-    enum: aiModelOptions.map(opt => opt.value),
+    enum: aiModelOptions.map((opt) => opt.value),
     required: true,
   },
   accountCount: { type: 'number', min: 0, max: 100, integer: true },
@@ -93,5 +93,3 @@ module.exports = {
   generateOrdersSchema,
   generateAccountsSchema,
 };
-
-

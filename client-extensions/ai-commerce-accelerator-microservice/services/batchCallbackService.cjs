@@ -131,7 +131,7 @@ class BatchCallbackService {
     liferay,
     deleteCoordinatorService,
   }) {
-    const { logger, cache, ws } = this.ctx; // Add ws to destructuring
+    const { logger, cache, ws } = this.ctx;
     for (
       let groupIndex = 0;
       groupIndex < context.stepGroups.length;
@@ -139,14 +139,13 @@ class BatchCallbackService {
     ) {
       const group = context.stepGroups[groupIndex];
 
-      // If this group is already completed, skip to the next one
       if (this._isGroupComplete(group, context.completedSteps)) {
         logger.debug(`Group ${groupIndex} already completed. Skipping.`, {
           batchERC,
           group,
           completedSteps: context.completedSteps,
         });
-        context.currentGroupIndex = groupIndex + 1; // Explicitly advance currentGroupIndex
+        context.currentGroupIndex = groupIndex + 1;
         cache.set(`batch:${batchERC}:context`, context);
         continue;
       }
@@ -163,7 +162,6 @@ class BatchCallbackService {
         }
 
         const { hasItems, ids } = await this._checkIfEntitiesExist(
-          // Get IDs here
           liferay,
           config,
           step,
@@ -171,13 +169,12 @@ class BatchCallbackService {
         );
 
         if (!hasItems) {
-          // Use hasItems
           context.completedSteps.push(step);
           logger.info(
             `Skipping ${step} deletion: No entities found. Marking as completed.`,
             { batchERC, step }
           );
-          // Persist the updated context for skipped steps
+
           cache.set(`batch:${batchERC}:context`, context);
           continue;
         }
@@ -187,8 +184,8 @@ class BatchCallbackService {
         logger.debug(`Attempting deletion for step: ${step}`, {
           batchERC,
           step,
-          hasItems, // Use hasItems
-          ids: (ids || []).slice(0, 5), // Log first few IDs
+          hasItems,
+          ids: (ids || []).slice(0, 5),
         });
 
         switch (step) {
@@ -200,12 +197,11 @@ class BatchCallbackService {
             );
             break;
           case 'warehouses':
-            // Call the individual warehouse deletion helper
             result = await deleteCoordinatorService._deleteWarehouses(
               config,
-              ids, // Pass the retrieved IDs
+              ids,
               config.correlationId,
-              ws // Pass ws for emitting events
+              ws
             );
             break;
           case 'accounts':
@@ -253,7 +249,7 @@ class BatchCallbackService {
               nextCallbackUrl
             );
             break;
-          case 'orders': // This case already handled, but keep for robustness if order is re-queued unexpectedly
+          case 'orders':
             logger.warn(
               `Orders step encountered in _startNextGroups loop. This should not happen.`,
               { batchERC }
@@ -289,24 +285,23 @@ class BatchCallbackService {
           );
           return;
         }
-        // For individual deletions or if no batches were submitted (e.g., already deleted),
-        // we mark the step as complete and continue processing the group.
+
         context.completedSteps.push(step);
         logger.info(
           `Step '${step}' deletion initiated or marked complete (no batches needed).`,
           { batchERC, step }
         );
         cache.set(`batch:${batchERC}:context`, context);
-      } // End of inner loop (for step of group)
+      }
 
-      context.completedSteps = Array.from(new Set(context.completedSteps)); // Ensure uniqueness
+      context.completedSteps = Array.from(new Set(context.completedSteps));
 
       if (this._isGroupComplete(group, context.completedSteps)) {
         logger.info(
           `Group ${groupIndex} completed. Proceeding to next group.`,
           { batchERC, group }
         );
-        context.currentGroupIndex = groupIndex + 1; // Advance to the next group
+        context.currentGroupIndex = groupIndex + 1;
         cache.set(`batch:${batchERC}:context`, context);
       } else {
         logger.warn(
@@ -319,7 +314,7 @@ class BatchCallbackService {
         );
         return;
       }
-    } // End of outer loop (for groupIndex)
+    }
 
     logger.info('Chained deletion process complete.', {
       batchERC,
@@ -344,7 +339,7 @@ class BatchCallbackService {
       accounts: async () => {
         const res = await liferay.getCommerceAccounts(config, {
           channelId,
-          pageSize: 200, // Fetch all for ID collection
+          pageSize: 200,
         });
         return {
           items: liferay._asItems(res),
@@ -355,7 +350,7 @@ class BatchCallbackService {
       products: async () => {
         const res = await liferay.getCommerceProducts(config, {
           catalogId,
-          pageSize: 200, // Fetch all for ID collection
+          pageSize: 200,
         });
         return {
           items: liferay._asItems(res),
@@ -364,7 +359,7 @@ class BatchCallbackService {
         };
       },
       specifications: async () => {
-        const res = await liferay.getSpecifications(config, { pageSize: 200 }); // Fetch all for ID collection
+        const res = await liferay.getSpecifications(config, { pageSize: 200 });
         return {
           items: liferay._asItems(res),
           totalCount: liferay._asCount(res),
@@ -372,7 +367,7 @@ class BatchCallbackService {
         };
       },
       options: async () => {
-        const res = await liferay.getOptions(config, { pageSize: 200 }); // Fetch all for ID collection
+        const res = await liferay.getOptions(config, { pageSize: 200 });
         return {
           items: liferay._asItems(res),
           totalCount: liferay._asCount(res),
@@ -382,7 +377,7 @@ class BatchCallbackService {
       optionCategories: async () => {
         const res = await liferay._listOptionCategories(config, {
           pageSize: 200,
-        }); // Fetch all for ID collection
+        });
         return {
           items: liferay._asItems(res),
           totalCount: liferay._asCount(res),
@@ -392,7 +387,7 @@ class BatchCallbackService {
       orders: async () => {
         const res = await liferay.getCommerceOrders(config, {
           channelId,
-          pageSize: 200, // Fetch all for ID collection
+          pageSize: 200,
         });
         return {
           items: liferay._asItems(res),
@@ -401,7 +396,7 @@ class BatchCallbackService {
         };
       },
       warehouses: async () => {
-        const res = await liferay.getWarehouses(config, { pageSize: 200 }); // Fetch all for ID collection
+        const res = await liferay.getWarehouses(config, { pageSize: 200 });
         return {
           items: liferay._asItems(res),
           totalCount: liferay._asCount(res),
@@ -410,7 +405,7 @@ class BatchCallbackService {
       },
     };
 
-    if (!checkMap[entityType]) return { hasItems: true, ids: [] }; // Assume existence and no IDs if no check is defined
+    if (!checkMap[entityType]) return { hasItems: true, ids: [] };
 
     const { items, totalCount, ids } = await checkMap[entityType]();
     const hasItems = totalCount > 0;
@@ -422,10 +417,8 @@ class BatchCallbackService {
       resultItemsPreview: (ids || []).slice(0, 5),
     });
 
-    // Special handling for accounts to exclude primary account
     if (entityType === 'accounts') {
       if (totalCount <= 1) {
-        // If only 0 or 1 account, might be primary, so check further
         const primaryAccountId = await liferay.getPrimaryAccountId(config);
         const deletableIds = (ids || []).filter(
           (id) => String(id) !== String(primaryAccountId)

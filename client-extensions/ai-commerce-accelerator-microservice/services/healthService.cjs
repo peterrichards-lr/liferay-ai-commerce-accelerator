@@ -7,7 +7,6 @@ class HealthService {
     this.healthChecks = new Map();
     this.lastHealthCheck = null;
 
-    // Register health checks
     this.registerHealthCheck('database', this.checkDatabase.bind(this));
     this.registerHealthCheck('openai', this.checkOpenAI.bind(this));
     this.registerHealthCheck('liferay', this.checkLiferay.bind(this));
@@ -27,7 +26,7 @@ class HealthService {
       service: 'liferay-ai-data-microservice',
       version: '1.0.0',
       environment: ENV.NODE_ENV,
-      uptime: Math.floor(uptime / 1000), // seconds
+      uptime: Math.floor(uptime / 1000),
       timestamp: new Date().toISOString(),
       node: {
         version: process.version,
@@ -35,17 +34,15 @@ class HealthService {
         arch: process.arch,
       },
       memory: {
-        used: Math.round(memUsage.heapUsed / 1024 / 1024), // MB
-        total: Math.round(memUsage.heapTotal / 1024 / 1024), // MB
-        external: Math.round(memUsage.external / 1024 / 1024), // MB
-        rss: Math.round(memUsage.rss / 1024 / 1024), // MB
+        used: Math.round(memUsage.heapUsed / 1024 / 1024),
+        total: Math.round(memUsage.heapTotal / 1024 / 1024),
+        external: Math.round(memUsage.external / 1024 / 1024),
+        rss: Math.round(memUsage.rss / 1024 / 1024),
       },
     };
   }
 
   async checkDatabase() {
-    // For now, we don't have a direct database connection
-    // This would check the Liferay database connectivity through APIs
     return {
       status: 'healthy',
       message: 'No direct database connection required',
@@ -91,7 +88,6 @@ class HealthService {
   async checkLiferay() {
     const start = Date.now();
     try {
-      // This would need sample config - for now just check if service exists
       const responseTime = Date.now() - start;
 
       return {
@@ -134,7 +130,6 @@ class HealthService {
   }
 
   checkDiskSpace() {
-    // Simplified disk check - in production you'd use actual disk space monitoring
     return Promise.resolve({
       status: 'healthy',
       message: 'Disk space sufficient',
@@ -192,7 +187,6 @@ class HealthService {
     const start = Date.now();
     const checks = {};
 
-    // Run all health checks in parallel
     const promises = Array.from(this.healthChecks.keys()).map(async (name) => {
       const result = await this.runHealthCheck(name);
       checks[name] = result;
@@ -200,7 +194,6 @@ class HealthService {
 
     await Promise.all(promises);
 
-    // Determine overall status
     const allStatuses = Object.values(checks).map((check) => check.status);
     const overallStatus = allStatuses.includes('unhealthy')
       ? 'unhealthy'
@@ -238,7 +231,6 @@ class HealthService {
   }
 
   async getReadinessProbe() {
-    // Readiness checks - is the service ready to handle requests?
     const criticalChecks = ['openai', 'memory'];
 
     for (const checkName of criticalChecks) {
@@ -259,7 +251,6 @@ class HealthService {
   }
 
   async getLivenessProbe() {
-    // Liveness checks - is the service alive?
     const memCheck = await this.runHealthCheck('memory');
 
     return {

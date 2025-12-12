@@ -120,6 +120,7 @@ module.exports = (ws) => {
     batchPolling: batchPollingService,
     logger,
     batchCallbackService,
+    ws
   });
   ctx.deleteCoordinator = deleteCoordinatorService;
   ctx.deleteCoordinatorService = deleteCoordinatorService;

@@ -988,10 +988,96 @@ class LiferayService {
     return await this._delete(
       config,
       `${PATH.WAREHOUSES}/${warehouseId}`,
-      null, // No data needed for DELETE by ID
+      null,
       'delete-warehouse',
       'Failed to delete warehouse'
     );
+  }
+
+  async createWarehousesBatch(config, warehousesData, callbackUrl, opts = {}) {
+    const { logger, cache, configService } = this.ctx;
+
+    const erc =
+      opts.externalReferenceCode ?? createERC(ERC_PREFIX.WAREHOUSE_BATCH);
+
+    const items = (warehousesData || []).map((item) => {
+      const extERC = sanitizedERC(
+        item.externalReferenceCode || item.name?.en_US || uuidv4()
+      );
+      return { ...item, externalReferenceCode: extERC };
+    });
+
+    const itemERCs = items.map((i) => i.externalReferenceCode);
+
+    this._cacheItemERCs(erc, null, itemERCs, opts.sessionId);
+
+    const taggedCallback = this._buildCallbackURL(callbackUrl, {
+      entity: 'warehouses',
+      op: 'create',
+      batchERC: erc,
+      sessionId: opts.sessionId,
+    });
+
+    const batchPayload = {
+      createStrategy: 'INSERT',
+      items: items,
+      externalReferenceCode: erc,
+    };
+
+    const url = PATH.WAREHOUSES_BATCH(taggedCallback);
+
+    logger.info('Sending batch warehouse creation request', {
+      operation: 'create-warehouses-batch',
+      warehouseCount: warehousesData.length,
+      callbackUrl: taggedCallback,
+      externalReferenceCode: erc,
+    });
+
+    const data = await this._post(
+      config,
+      url,
+      batchPayload,
+      'create-warehouses-batch',
+      'Failed to create warehouses batch'
+    );
+
+    this._cacheItemERCs(erc, data?.id, itemERCs, opts.sessionId);
+
+    if (cache && data?.id) {
+      cache.set(
+        `batch:${data.id}:submission`,
+        {
+          op: 'create-warehouses-batch',
+          erc: erc,
+          itemERCs,
+          count: items.length,
+          createdAt: new Date().toISOString(),
+        },
+        getBatchCacheTTLms(configService)
+      );
+    }
+
+    logger?.trace?.('cache:itemERCs:stored', {
+      scopeERC: erc,
+      sessionId: opts.sessionId || null,
+      batchId: data?.id || null,
+      count: itemERCs.length,
+    });
+
+    logger.info('Batch warehouse creation initiated', {
+      operation: 'create-warehouses-batch',
+      batchId: data.id || 'unknown',
+      status: data.status || 'submitted',
+      externalReferenceCode: erc,
+    });
+
+    return {
+      batchId: data.id || `batch-${Date.now()}`,
+      status: data.status || 'submitted',
+      warehouseCount: items.length,
+      externalReferenceCode: erc,
+      batchRefs: [{ taskId: data.id, count: items.length, erc }],
+    };
   }
 
   async getWarehouses(config) {
@@ -1434,6 +1520,21 @@ class LiferayService {
     });
   }
 
+  async getOptionCategories(
+    config,
+    { search, pageSize = 200, fields = 'id,key,externalReferenceCode' } = {}
+  ) {
+    return this._get(
+      config,
+      PATH.OPTION_CATEGORIES,
+      'optionCategories:list',
+      'List option categories',
+      {
+        params: { page: 1, pageSize, fields, ...(search ? { search } : {}) },
+      }
+    );
+  }
+
   async createOptionWithReuse(config, optionData) {
     try {
       return await this.createOption(config, optionData);
@@ -1756,7 +1857,6 @@ class LiferayService {
   _normalizeSpecificationPayload(specData = {}) {
     const payload = { ...specData };
 
-    // If nested optionCategory object is present, rebuild it ID-first
     if (
       payload &&
       typeof payload.optionCategory === 'object' &&
@@ -1772,7 +1872,6 @@ class LiferayService {
           newOptionCategory.externalReferenceCode = externalReferenceCode;
         payload.optionCategory = newOptionCategory;
       } else {
-        // remove empty object to avoid backend validating key/title
         delete payload.optionCategory;
       }
 
@@ -1781,7 +1880,6 @@ class LiferayService {
       return payload;
     }
 
-    // If flat fields are provided, convert to nested; prefer ID when both exist
     const erc = payload.optionCategoryExternalReferenceCode;
     const id = payload.optionCategoryId;
     if (erc || id) {

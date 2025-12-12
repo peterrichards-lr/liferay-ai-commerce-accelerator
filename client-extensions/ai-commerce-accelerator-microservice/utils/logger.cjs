@@ -39,7 +39,7 @@ class Logger {
       case 'warn':
         return 1;
       default:
-        return 0; // Success and error will continue to be loggedd
+        return 0;
     }
   }
 
@@ -53,7 +53,7 @@ class Logger {
       .replace(/\r\n/g, '\n')
       .replace(/\n\s*/g, spacer)
       .trim();
-      
+
     return spacer === '\n' ? spacer + normalized : normalized;
   }
 
@@ -62,7 +62,6 @@ class Logger {
     const userId = meta.userId || null;
     const operation = meta.operation || null;
 
-    // Remove special items
     Object.keys(meta).forEach((key) => {
       if (
         key.toLowerCase() === 'correlationId' ||
@@ -86,7 +85,6 @@ class Logger {
       ...meta,
     };
 
-    // Remove null/undefined values for cleaner logs
     Object.keys(logEntry).forEach((key) => {
       if (logEntry[key] === null || logEntry[key] === undefined) {
         delete logEntry[key];
@@ -153,7 +151,6 @@ class Logger {
 
   isSuccessEnabled = () => true;
 
-  // Same as trace
   log(message, meta = {}) {
     this.trace(message, meta);
   }
@@ -231,7 +228,6 @@ class Logger {
   }
 }
 
-// Create singleton instance
 const logger = new Logger();
 
 module.exports = { logger };

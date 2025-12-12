@@ -31,9 +31,9 @@ const ASSET_TYPE = {
 };
 
 const VIEWABLE_BY = {
-  OWNER: 'owner', // Only owner can view (others: no VIEW/DOWNLOAD unless overridden)
-  SITE_MEMBERS: 'members', // Site Members can view (cascades to include members; guests: no)
-  ANYONE: 'anyone', // Guests can view (cascades: guests + members get VIEW)
+  OWNER: 'owner',
+  SITE_MEMBERS: 'members',
+  ANYONE: 'anyone',
 };
 
 /** ---------------------------------------------
@@ -41,7 +41,7 @@ const VIEWABLE_BY = {
  *  (Based on your observed payloads and Liferay defaults)
  * ----------------------------------------------*/
 
-// Owner is fixed & “full” for each asset type.
+
 const OWNER_ACTIONS = {
   [ASSET_TYPE.DOCUMENT_FOLDER]: new Set([
     ACTION_IDS.DELETE,
@@ -68,8 +68,8 @@ const OWNER_ACTIONS = {
   ]),
 };
 
-// Baseline Non-Owner actions that are *not* controlled by Viewable By.
-// (Everything else below is granted/removed via VIEWABLE_BY.)
+
+
 const BASE_NON_OWNER = {
   [ASSET_TYPE.DOCUMENT_FOLDER]: {
     [ROLE.SITE_MEMBER]: new Set([
@@ -77,15 +77,15 @@ const BASE_NON_OWNER = {
       ACTION_IDS.ADD_SHORTCUT,
       ACTION_IDS.ADD_DOCUMENT,
       ACTION_IDS.SUBSCRIBE,
-      // VIEW is conditional via Viewable By
+     
     ]),
     [ROLE.GUEST]: new Set([
-      // VIEW is conditional via Viewable By; folders typically don't expose other guest actions by default
+     
     ]),
   },
 
   [ASSET_TYPE.DOCUMENT]: {
-    // Per your observation: all roles always have ADD_DISCUSSION
+   
     [ROLE.SITE_MEMBER]: new Set([ACTION_IDS.ADD_DISCUSSION]),
     [ROLE.GUEST]: new Set([ACTION_IDS.ADD_DISCUSSION]),
   },
@@ -104,7 +104,7 @@ const BASE_NON_OWNER = {
 function viewableByGrants(assetType, viewableBy, roleName) {
   const grants = new Set();
 
-  // Determine if this role should receive VIEW (and possibly DOWNLOAD).
+ 
   const grantSiteMembers =
     viewableBy === VIEWABLE_BY.SITE_MEMBERS ||
     viewableBy === VIEWABLE_BY.ANYONE;
@@ -136,17 +136,17 @@ function viewableByGrants(assetType, viewableBy, roleName) {
  */
 function computeRoleActions(assetType, viewableBy, roleName) {
   if (roleName === ROLE.OWNER) {
-    return new Set(OWNER_ACTIONS[assetType]); // copy
+    return new Set(OWNER_ACTIONS[assetType]);
   }
 
-  // Start with baseline non-owner actions (if defined)
+ 
   const base = new Set(BASE_NON_OWNER[assetType]?.[roleName] || []);
 
-  // Grant VIEW/DOWNLOAD per Viewable By rules
+ 
   const grants = viewableByGrants(assetType, viewableBy, roleName);
   for (const a of grants) base.add(a);
 
-  // (Optional) You can encode other per-asset invariants here if you discover them later.
+ 
 
   return base;
 }
@@ -200,10 +200,10 @@ function buildPermissionsItems({
     const base = computeRoleActions(assetType, viewableBy, roleName);
     const finalSet = mergeOverrides(base, overrides[roleName]);
 
-    // Liferay expects a stable array; sort for determinism.
+   
     const actionIds = Array.from(finalSet).sort();
 
-    // Skip empty (some users prefer to send all roles regardless; keep or remove based on your API behavior)
+   
     items.push({ actionIds, roleName });
   }
 

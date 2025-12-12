@@ -76,20 +76,17 @@ The accelerator has been updated to support the generation of warehouses and the
 *   **Inventory Distribution**: The `productGenerator.cjs` has been updated to distribute the inventory of newly created products across the available warehouses. This is handled in the `createOnSessionComplete` method to ensure it runs after all products in a batch have been created.
 ### Batch Warehouse Creation
 
-The microservice now supports batch creation of warehouses, enabling more efficient generation and real-time progress updates in the UI. Since the Liferay Headless Commerce Admin Inventory API (v1.0) does not offer a direct batch endpoint for warehouses, this feature is implemented as a "simulated batch" on the microservice side.
-
--   **`liferayService.cjs` Enhancement:** A new method, `createWarehousesBatch`, has been added. This method iterates through an array of warehouse data, making individual `createWarehouse` calls for each item. It also manages internal batch metadata, such as generating a unique batch ERC (External Reference Code) and storing submission details in the cache, similar to how Liferay's native batch operations are tracked. This method returns a structured response containing a microservice-generated `batchId` and status, which is then used by the `warehouseGenerator.cjs` to monitor progress.
--   **`warehouseGenerator.cjs` Logic Update:** The `createWarehouses` function now conditionally uses individual or batch creation. If more than one warehouse is requested and the `batchSize` is greater than 1, batch creation is used. In batch mode, `liferay.createWarehousesBatch` is called, and `batchPollingService.startPolling` actively monitors the simulated batch. This allows for real-time WebSocket feedback (`batch_progress`, `batch_completed`, `batch_failed`, `error`) to the frontend.
--   **Real-time UI Updates:** The frontend can now display progress for multiple warehouse creations, improving the user experience, even though the underlying Liferay API processes them one by one.
-
-### Batch Warehouse Creation
-
 The microservice now supports batch creation of warehouses, enabling more efficient generation and real-time progress updates in the UI by leveraging a native Liferay batch endpoint.
 
 -   **`utils/liferayPaths.cjs` Update:** A new path, `PATH.WAREHOUSES_BATCH`, has been added, pointing to `/o/headless-commerce-admin-inventory/v1.0/warehouses/batch`.
 -   **`liferayService.cjs` Enhancement:** A new method, `createWarehousesBatch`, has been implemented. This method takes an array of warehouse data, generates a unique batch ERC (External Reference Code) for the batch, and caches the ERCs of individual items within the batch. It constructs a callback URL that includes batch and session information. It then makes a single `_post` request to the Liferay batch endpoint (`PATH.WAREHOUSES_BATCH`), sending the entire array of warehouse data. Submission details are cached, and a structured response containing the Liferay-provided `batchId` and status is returned.
 -   **`warehouseGenerator.cjs` Logic Update:** The `createWarehouses` function now conditionally uses individual or batch creation. If more than one warehouse is requested (`warehouseCount > 1`), batch creation is utilized. In batch mode, `liferay.createWarehousesBatch` is invoked. The `batchPollingService.startPolling` mechanism has been integrated to actively monitor the progress of the native Liferay batch. Custom `onStatusChange`, `onComplete`, and `onError` callbacks are provided, which then emit WebSocket events (`batch_progress`, `batch_completed`, `batch_failed`, `error`) to the frontend, ensuring real-time feedback. The existing individual WebSocket emissions for warehouse creation have been made conditional, so they only trigger during individual creation, avoiding redundancy when native batch processing is active.
 -   **Real-time UI Updates:** This implementation allows the UI to display accurate, real-time progress for multiple warehouse creations leveraging Liferay's native batch processing capabilities.
+
+### Recent Reliability Improvements
+
+-   **Chained Deletion Process Fixes:** The "Delete All Commerce Data" operation has been made more reliable by addressing issues in the chained deletion process, ensuring that products, product options, and product specifications are deleted correctly.
+-   **Specification and Price List Creation:** Fixed bugs that caused errors when generating products with specifications and price lists.
 
 ### Export/Import Commerce Data
 

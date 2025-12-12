@@ -130,10 +130,8 @@ module.exports = (
   }
 ) => {
   function readSafeQuery(req) {
-    // Only allow known keys and restrict characters to be SIEM/IDS friendly
-    // This route never uses these values in SQL, but we keep them strict to avoid WAF false-positives.
     const ALLOWED = new Set(['sessionId', 'batchERC', 'opCode', 'entity']);
-    const SAFE_RE = /^[a-zA-Z0-9._:-]+$/; // no spaces or SQL keywords to trip naive WAFs
+    const SAFE_RE = /^[a-zA-Z0-9._:-]+$/;
     const out = {};
     for (const [k, v] of Object.entries(req.query || {})) {
       if (!ALLOWED.has(k)) continue;
@@ -210,10 +208,17 @@ module.exports = (
   };
 
   app.post('/api/batch/callback', async (req, res) => {
-    const { sessionId: qsSessionId, batchERC: qsBatchERC, opCode: qsOpCode, entity: qsEntity } = readSafeQuery(req);
+    const {
+      sessionId: qsSessionId,
+      batchERC: qsBatchERC,
+      opCode: qsOpCode,
+      entity: qsEntity,
+    } = readSafeQuery(req);
     const batchOp = qsOpCode ? getByValue(OP_MAP, qsOpCode) : undefined;
 
-    const [{ batchId: bid, status } = {}] = parseBatchStatuses(req.body) || [{}];
+    const [{ batchId: bid, status } = {}] = parseBatchStatuses(req.body) || [
+      {},
+    ];
     const batchId = bid != null ? String(bid) : undefined;
 
     res.status(200).json({
@@ -246,11 +251,10 @@ module.exports = (
 
     let correlationId;
     let batchConfig;
-    let entityTypeFromCache; // New variable to hold entityType from direct cache access
+    let entityTypeFromCache;
     let finalEntityType;
 
     try {
-      // Prioritize getting batchConfig directly from cache for its entityType
       const directBatchConfig = cacheService.get(`batch:${batchId}:config`);
       if (directBatchConfig) {
         batchConfig = directBatchConfig;
@@ -276,16 +280,15 @@ module.exports = (
       if (batchERC) {
         const ercCfg = cacheService.get(`erc:${batchERC}:config`);
         if (ercCfg) {
-          // If we recovered from ercCfg, use its entityType as a secondary fallback
           if (!batchConfig) {
-             batchConfig = ercCfg;
-             correlationId = ercCfg.correlationId;
-             entityTypeFromCache = ercCfg.entityType; // Also update here
-             logger.debug('Batch config recovered via ERC key', {
-                batchId,
-                entityTypeFromCache,
-                correlationId,
-             });
+            batchConfig = ercCfg;
+            correlationId = ercCfg.correlationId;
+            entityTypeFromCache = ercCfg.entityType;
+            logger.debug('Batch config recovered via ERC key', {
+              batchId,
+              entityTypeFromCache,
+              correlationId,
+            });
           }
         }
 
@@ -301,7 +304,6 @@ module.exports = (
         }
       }
 
-      // Rehydrate and resolve item ERCs from cache, and persist them under both keys for future callbacks
       let itemERCs;
       if (batchERC) {
         itemERCs = cacheService.get(`erc:${batchERC}:itemERCs`);
@@ -331,12 +333,15 @@ module.exports = (
           cacheService.set(`erc:${batchERC}:itemERCs`, itemERCs, ttlLong);
         }
       } else {
-        logger.warn('No item ERCs found for batch; will rely on later rehydration', {
-          operation: 'batch-itemercs-miss',
-          batchId,
-          batchERC: batchERC || 'n/a',
-          sessionId: qsSessionId || 'n/a',
-        });
+        logger.warn(
+          'No item ERCs found for batch; will rely on later rehydration',
+          {
+            operation: 'batch-itemercs-miss',
+            batchId,
+            batchERC: batchERC || 'n/a',
+            sessionId: qsSessionId || 'n/a',
+          }
+        );
       }
 
       if (!batchConfig) {
@@ -400,13 +405,14 @@ module.exports = (
             rawCallback: req.body,
             sessionId: qsSessionId,
             batchERC: batchERC || qsBatchERC,
-            itemERCs: Array.isArray(itemERCs) ? itemERCs : undefined
+            itemERCs: Array.isArray(itemERCs) ? itemERCs : undefined,
           },
           ttlBatch
         );
       }
 
-      finalEntityType = entityTypeFromCache || batchConfig?.entityType || qsEntity || 'unknown';
+      finalEntityType =
+        entityTypeFromCache || batchConfig?.entityType || qsEntity || 'unknown';
       const operation = batchConfig?.operation || 'unknown';
       const affectsProgress = batchConfig?.affectsProgress ?? true;
 
@@ -605,14 +611,14 @@ module.exports = (
             finalProcessed ?? 0
           }/${finalTotal ?? finalProcessed ?? 0} items processed`
         );
-        // Chained delete callback for delete batches
-        if (
-          batchOp === 'delete' ||
-          batchOp === 'D' ||
-          qsOpCode === 'D'
-        ) {
+
+        if (batchOp === 'delete' || batchOp === 'D' || qsOpCode === 'D') {
           const chainedBatchERC = batchERC || qsBatchERC;
-          if (chainedBatchERC && (qsEntity || batchConfig?.entityType) && batchCallbackService?.processCallback) {
+          if (
+            chainedBatchERC &&
+            (qsEntity || batchConfig?.entityType) &&
+            batchCallbackService?.processCallback
+          ) {
             try {
               await batchCallbackService.processCallback(chainedBatchERC, {
                 entity: finalEntityType,
@@ -693,27 +699,30 @@ module.exports = (
             finalProcessed ?? 0
           }/${finalTotal ?? finalProcessed ?? 0} — ${msg}`
         );
-        // Chained delete callback for delete batches on failure
-        if (
-          batchOp === 'delete' ||
-          batchOp === 'D' ||
-          qsOpCode === 'D'
-        ) {
+
+        if (batchOp === 'delete' || batchOp === 'D' || qsOpCode === 'D') {
           const chainedBatchERC = batchERC || qsBatchERC;
-          if (chainedBatchERC && (qsEntity || batchConfig?.entityType) && batchCallbackService?.processCallback) {
+          if (
+            chainedBatchERC &&
+            (qsEntity || batchConfig?.entityType) &&
+            batchCallbackService?.processCallback
+          ) {
             try {
               await batchCallbackService.processCallback(chainedBatchERC, {
                 entity: finalEntityType,
                 status,
               });
             } catch (e) {
-              logger.error('Failed to process chained deletion callback on failure', {
-                operation: 'batch-callback-chained-delete-failure',
-                batchId,
-                batchERC: chainedBatchERC,
-                entity: finalEntityType,
-                error: e.message,
-              });
+              logger.error(
+                'Failed to process chained deletion callback on failure',
+                {
+                  operation: 'batch-callback-chained-delete-failure',
+                  batchId,
+                  batchERC: chainedBatchERC,
+                  entity: finalEntityType,
+                  error: e.message,
+                }
+              );
             }
           }
         }
@@ -729,7 +738,7 @@ module.exports = (
         meta: {
           batchId,
           correlationId,
-          entityType: finalEntityType, // Use finalEntityType here
+          entityType: finalEntityType,
           requestBody: sanitizedObject(req.body),
         },
         statusCode: 500,

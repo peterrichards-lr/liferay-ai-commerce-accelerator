@@ -222,7 +222,7 @@ class ConfigService {
       this.logger.warn(
         `Failed to read default categories from frontend config: ${error.message}`
       );
-      return []; // Return empty array on error
+      return [];
     }
   }
 

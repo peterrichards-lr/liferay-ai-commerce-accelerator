@@ -91,7 +91,7 @@ class ProductGenerator {
   }
 
   createOnSessionComplete() {
-    const { logger, cache, ws, configService } = this.ctx;
+    const { logger, cache, ws, configService, liferay } = this.ctx;
     const markOnce = (sessionId) => {
       const onceKey = `session:${sessionId}:postproc:done`;
       if (cache.get(onceKey)) return false;
@@ -1923,6 +1923,7 @@ class ProductGenerator {
               id: linkedOptionCategory.id,
               externalReferenceCode: linkedOptionCategory.externalReferenceCode,
               key: linkedOptionCategory.key,
+              title: linkedOptionCategory.title, // Add the title here
             };
           }
 
@@ -2361,6 +2362,7 @@ class ProductGenerator {
       logger.trace(`Generating pricing for ${products.length} products`);
       const currency = (config.currencyCode || 'USD').toUpperCase();
       const priceList = await liferay.createPriceList(config, {
+        catalogId: config.catalogId, // Add catalogId here
         name: `Generated Price List - ${new Date().toISOString()}`,
         currencyCode: currency,
         priority: 1,

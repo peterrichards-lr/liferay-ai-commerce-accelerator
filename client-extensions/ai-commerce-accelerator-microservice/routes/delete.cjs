@@ -16,7 +16,7 @@ function handleError(res, logger, req, config, operation, error, extra = {}) {
   const errorRef = resolveErrorReference(error) || createERC(ERC_PREFIX.ERROR);
 
   const errorMessage =
-    (error?.message) ||
+    error?.message ||
     (typeof error === 'string' ? error : null) ||
     'An unexpected error occurred. Please try again.';
 
@@ -68,18 +68,24 @@ function createLoadAppConfigMiddleware(configService, logger) {
 }
 
 module.exports = (app, { deleteCoordinatorService, logger, configService }) => {
-  const loadAppConfigMiddleware = createLoadAppConfigMiddleware(configService, logger);
+  const loadAppConfigMiddleware = createLoadAppConfigMiddleware(
+    configService,
+    logger
+  );
 
   app.post(
     '/api/delete-commerce-data',
     inputValidationMiddleware(connectionSchema),
     async (req, res) => {
       const { config, options } = buildConfigAndOptions(req);
-      // Extract useV2 from the request body for API versioning
-      req.config = config; // Attach config to request for middleware
+
+      req.config = config;
 
       try {
-        const summary = await deleteCoordinatorService.runDeleteAndMonitor(config, options);
+        const summary = await deleteCoordinatorService.runDeleteAndMonitor(
+          config,
+          options
+        );
 
         res.status(200).json({
           success: true,
@@ -117,7 +123,10 @@ module.exports = (app, { deleteCoordinatorService, logger, configService }) => {
       const { config, options } = buildConfigAndOptions(req);
 
       try {
-        const summary = await deleteCoordinatorService.runDeleteAndMonitorV2(config, options);
+        const summary = await deleteCoordinatorService.runDeleteAndMonitorV2(
+          config,
+          options
+        );
 
         res.status(200).json({
           success: true,
@@ -156,11 +165,12 @@ module.exports = (app, { deleteCoordinatorService, logger, configService }) => {
       const { channelId, catalogId } = req.body;
 
       try {
-        const summary = await deleteCoordinatorService.runDeleteSelectedAndMonitorV2(
-          config,
-          options,
-          { channelId, catalogId }
-        );
+        const summary =
+          await deleteCoordinatorService.runDeleteSelectedAndMonitorV2(
+            config,
+            options,
+            { channelId, catalogId }
+          );
 
         res.status(200).json({
           success: true,
@@ -196,12 +206,12 @@ module.exports = (app, { deleteCoordinatorService, logger, configService }) => {
     loadAppConfigMiddleware,
     async (req, res) => {
       const { config, options } = buildConfigAndOptions(req);
-      // Extract both channelId and catalogId from the request body
+
       const { channelId, catalogId } = req.body;
 
       try {
-        // Call the renamed runDeleteSelectedAndMonitor and pass both channelId and catalogId
-        const summary = await deleteCoordinatorService.runDeleteSelectedAndMonitor(
+        const summary =
+          await deleteCoordinatorService.runDeleteSelectedAndMonitor(
             config,
             options,
             { channelId, catalogId }

@@ -173,6 +173,7 @@ class DeleteCoordinatorService {
         operation,
         mode,
         phase,
+        message: `Starting individual deletion of ${warehouseIds.length} warehouses`,
       },
       { correlationId }
     );
@@ -241,12 +242,12 @@ class DeleteCoordinatorService {
     return {
       deleted: deletedWarehouses.length,
       errors: errors.length,
-      batchRefs: [], // No batchRefs for individual deletion
+      batchRefs: [],
     };
   }
 
   async runDeleteAndMonitorV2(config, options = {}) {
-    const { liferay, logger, cache, configService } = this.ctx;
+    const { liferay, logger, cache, configService, ws } = this.ctx;
 
     const baseOpts = {
       ...options,
@@ -278,7 +279,7 @@ class DeleteCoordinatorService {
       batchERC,
       steps: [
         'orders',
-        'warehouses', // Add warehouses back
+        'warehouses',
         'accounts',
         'products',
         'specifications',
@@ -337,7 +338,6 @@ class DeleteCoordinatorService {
         status: 'completed',
       });
     }
-
     let warehousesResult = {
       total: 0,
       batches: 0,
@@ -349,20 +349,23 @@ class DeleteCoordinatorService {
     const existingWarehouses = await liferay.getWarehouses(config, {
       pageSize: 1,
     });
+    logger.debug('Existing warehouses check result', {
+      operation: 'runDeleteAndMonitorV2',
+      warehousesCount: existingWarehouses?.items?.length,
+      firstWarehouse: existingWarehouses?.items?.[0]?.id,
+    });
 
-    if (existingWarehouses?.items?.length > 0) {
+    if (existingWarehouses?.length > 0) {
       const warehouseIds = (await liferay.getWarehouses(config)).map(
         (w) => w.id
-      ); // Get all warehouse IDs
+      );
       const warehouses = await this._deleteWarehouses(
         config,
         warehouseIds,
         config.correlationId,
-        this.ctx.ws
+        ws
       );
 
-      // _deleteWarehouses returns { deleted, errors, batchRefs: [] }
-      // So map it to the expected result structure
       warehousesResult = {
         total: warehouses.deleted + warehouses.errors.length,
         completed: warehouses.deleted,
@@ -372,8 +375,6 @@ class DeleteCoordinatorService {
         batchRefs: warehouses.batchRefs,
       };
 
-      // Since individual deletion doesn't use batch polling for chained deletion,
-      // we manually trigger the next step.
       await this.ctx.batchCallbackService.processCallback(batchERC, {
         entity: 'warehouses',
         status: 'completed',
@@ -428,16 +429,13 @@ class DeleteCoordinatorService {
       });
     }
 
-    let productsResult = {
-      total: 0,
-      batches: 0,
-      submitted: 0,
-      dryRun: false,
-      batchRefs: [],
-    };
-
     const existingProducts = await liferay.getCommerceProducts(config, {
       pageSize: 1,
+    });
+    logger.debug('Existing products check result', {
+      operation: 'runDeleteAndMonitorV2',
+      productsCount: existingProducts?.items?.length,
+      firstProduct: existingProducts?.items?.[0]?.id,
     });
 
     if (existingProducts?.items?.length > 0) {
@@ -628,7 +626,7 @@ class DeleteCoordinatorService {
       batchERC,
       steps: [
         'orders',
-        'warehouses', // Add warehouses back
+        'warehouses',
         'accounts',
         'products',
         'specifications',
@@ -675,19 +673,26 @@ class DeleteCoordinatorService {
       if (orders?.batchRefs) {
         this.recordBatches(
           orders.batchRefs,
+
           config,
+
           'orders',
+
           this._deriveTotalFromResult(orders)
         );
+
         ordersResult = orders;
       }
     } else {
       logger.info(
         'Skipping order deletion: No orders found for channel. Triggering next step directly.',
+
         { operation: 'runDeleteSelectedAndMonitorV2', channelId }
       );
+
       await this.ctx.batchCallbackService.processCallback(batchERC, {
         entity: 'orders',
+
         status: 'completed',
       });
     }
@@ -703,11 +708,16 @@ class DeleteCoordinatorService {
     const existingWarehouses = await liferay.getWarehouses(config, {
       pageSize: 1,
     });
+    logger.debug('Existing warehouses check result', {
+      operation: 'runDeleteAndMonitorV2',
+      warehousesCount: existingWarehouses?.items?.length,
+      firstWarehouse: existingWarehouses?.items?.[0]?.id,
+    });
 
-    if (existingWarehouses?.items?.length > 0) {
+    if (existingWarehouses?.length > 0) {
       const warehouseIds = (await liferay.getWarehouses(config)).map(
         (w) => w.id
-      ); // Get all warehouse IDs
+      );
       const warehouses = await this._deleteWarehouses(
         config,
         warehouseIds,
@@ -715,8 +725,6 @@ class DeleteCoordinatorService {
         this.ctx.ws
       );
 
-      // _deleteWarehouses returns { deleted, errors, batchRefs: [] }
-      // So map it to the expected result structure
       warehousesResult = {
         total: warehouses.deleted + warehouses.errors.length,
         completed: warehouses.deleted,
@@ -726,8 +734,6 @@ class DeleteCoordinatorService {
         batchRefs: warehouses.batchRefs,
       };
 
-      // Since individual deletion doesn't use batch polling for chained deletion,
-      // we manually trigger the next step.
       await this.ctx.batchCallbackService.processCallback(batchERC, {
         entity: 'warehouses',
         status: 'completed',
@@ -783,17 +789,14 @@ class DeleteCoordinatorService {
       });
     }
 
-    let productsResult = {
-      total: 0,
-      batches: 0,
-      submitted: 0,
-      dryRun: false,
-      batchRefs: [],
-    };
-
     const existingProducts = await liferay.getCommerceProducts(config, {
       catalogId,
       pageSize: 1,
+    });
+    logger.debug('Existing products check result', {
+      operation: 'runDeleteSelectedAndMonitorV2',
+      productsCount: existingProducts?.items?.length,
+      firstProduct: existingProducts?.items?.[0]?.id,
     });
 
     if (existingProducts?.items?.length > 0) {

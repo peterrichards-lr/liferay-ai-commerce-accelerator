@@ -32,9 +32,8 @@ class AIService {
       return parsedResponse;
     }
 
-    const mainPropertyName = schemaName + 's'; // e.g., 'accounts', 'products', 'orders'
+    const mainPropertyName = schemaName + 's';
 
-    // Scenario 1: AI returned full schema definition (AI-generated $schema, properties, required)
     if (
       parsedResponse.$schema &&
       parsedResponse.properties &&
@@ -45,7 +44,6 @@ class AIService {
       };
     }
 
-    // Scenario 2: AI returned a simple wrapper object (e.g., {"accounts": [...]})
     if (
       parsedResponse[mainPropertyName] &&
       Array.isArray(parsedResponse[mainPropertyName])
@@ -53,13 +51,10 @@ class AIService {
       return { [mainPropertyName]: parsedResponse[mainPropertyName] };
     }
 
-    // Scenario 3: AI returned an array directly (e.g., [{"name": ...}, ...])
-    // This is for schemas that were defined as type: "array" at the root.
     if (Array.isArray(parsedResponse)) {
       return parsedResponse;
     }
 
-    // Default: Return the parsed response as is if no specific unwrapping is needed
     return parsedResponse;
   }
 
@@ -208,7 +203,7 @@ class AIService {
             logger.trace('AIService._chatJson schema validation failed', {
               task,
               errors: validate.errors,
-              validatedCandidate: JSON.stringify(processedCandidate, null, 2), // Log the candidate that failed
+              validatedCandidate: JSON.stringify(processedCandidate, null, 2),
             });
           }
 
@@ -227,11 +222,11 @@ class AIService {
         ) {
           return processedCandidate[mainPropertyName];
         }
-        // If the schema itself is an array at the root (e.g., old product.json style), return candidate directly
+
         if (schema.type === 'array' && Array.isArray(processedCandidate)) {
           return processedCandidate;
         }
-        return processedCandidate; // Fallback to return the validated wrapper object if not an array inside
+        return processedCandidate;
       }
 
       return processedCandidate;

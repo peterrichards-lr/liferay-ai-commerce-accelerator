@@ -15,7 +15,7 @@ class CacheService {
     this.ttlMap = new Map();
     this.maxSize = normalizeNumber(ENV.CACHE_MAX_SIZE, {
       min: 100,
-      defaultValue: 1000,
+      defaultValue: 10000,
     });
     this.defaultTTL = normalizeNumber(ENV.CACHE_DEFAULT_TTL, {
       min: 1000,

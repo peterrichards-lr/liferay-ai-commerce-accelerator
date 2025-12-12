@@ -124,7 +124,6 @@ class AccountGenerator {
       accountDataList = accountDataList.map((raw) => {
         const account = { ...raw };
 
-        // Ensure accountContactInformation structure and handle domains
         if (
           account.emailAddress ||
           account.domains ||
@@ -511,7 +510,6 @@ class AccountGenerator {
         taxId: accountData.taxId || this.generateTaxId(),
       };
 
-      // Now directly include accountContactInformation from accountData
       if (accountData.accountContactInformation) {
         liferayAccount.accountContactInformation =
           accountData.accountContactInformation;
