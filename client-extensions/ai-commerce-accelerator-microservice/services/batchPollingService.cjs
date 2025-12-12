@@ -468,6 +468,16 @@ class BatchPollingService {
       );
 
       if (pollData.onStatusChange) {
+        const batchConfig = cache.get(`batch:${batchId}:config`);
+        logger.debug('Emitting onStatusChange', {
+          batchId,
+          batchConfig,
+          pollData: {
+            entityType: pollData.entityType,
+            operation: pollData.operation,
+            mode: pollData.mode,
+          },
+        });
         pollData.onStatusChange({
           batchId,
           entitytype,
@@ -794,11 +804,12 @@ class BatchPollingService {
         importTask,
       });
 
-      const errorReport = await this.ctx.liferay.getImportTaskErrorReport(
+      const errorReport = await this.ctx.liferay.getImportTaskFailedItemReport(
         config,
         batchId
       );
-      logger.error('Batch failure error report', {
+
+      logger.error('Batch failure content', {
         operation: 'batch-failed-error-report',
         batchId,
         correlationId: resolvedCorrelationId,
@@ -809,10 +820,11 @@ class BatchPollingService {
         batchId,
         correlationId: resolvedCorrelationId,
       });
+
       this.ctx.ws.emitBatchErrorDetails({
         batchId,
         correlationId: resolvedCorrelationId,
-        importTask,
+        importTask: importTask.data,
         errorReport,
       });
     } catch (e) {

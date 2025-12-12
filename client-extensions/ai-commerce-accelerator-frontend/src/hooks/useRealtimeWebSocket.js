@@ -241,6 +241,17 @@ export default function useRealtimeWebSocket({
               : `Batch started ${tag(entityType, bId, op)}`,
             'info'
           );
+
+          if (entityType === 'warehouses' && onProgress) {
+            onProgress((prev) => ({
+              ...prev,
+              warehouses: {
+                ...prev.warehouses,
+                total: total,
+                completed: 0,
+              },
+            }));
+          }
           break;
         }
 

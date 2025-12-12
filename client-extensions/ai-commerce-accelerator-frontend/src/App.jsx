@@ -35,33 +35,33 @@ const toInt = (v) => (v == null || v === '' ? undefined : parseInt(v, 10));
 const toArray = (v) => (Array.isArray(v) ? v : v ? [v] : []);
 
 const initialGenerationConfig = {
-  productCount: 2,
-  accountCount: 5,
-  orderCount: 20,
+  productCount: 10,
+  accountCount: 10,
+  orderCount: 50,
   categories: [],
-  generatePriceLists: false,
-  generateBulkPricing: false,
-  generateTierPricing: false,
+  generatePriceLists: true,
+  generateBulkPricing: true,
+  generateTierPricing: true,
   imageMode: 'default',
   imageWidth: 1024,
   imageHeight: 1024,
   imageQuality: 'standard',
   imageStyle: 'photographic',
-  imageRatio: 25,
+  imageRatio: 100,
   customImageFile: null,
-  generateSpecifications: false,
-  generateSkuVariants: false,
+  generateSpecifications: true,
+  generateSkuVariants: true,
   pdfMode: 'default',
-  pdfRatio: 10,
+  pdfRatio: 100,
   demoMode: true,
   inventoryMin: 0,
   inventoryMax: 1000,
   inventoryAssignmentRatio: 100,
-  enableBackorders: false,
+  enableBackorders: true,
   backorderAssignmentRatio: 50,
   createWarehouses: true,
   reuseExistingWarehouses: true,
-  warehouseCount: 1,
+  warehouseCount: 5,
   customPDFFile: null,
 };
 
@@ -180,23 +180,23 @@ export function AppUI() {
   const firstCommerceError = flattenErrorsMap(commerceErrors)[0];
   const firstGenerationError = flattenErrorsMap(generationErrors)[0];
 
-  let disabled = isGenerating;
+  const isFormLocked = isGenerating;
+  let isSubmitDisabled = isGenerating;
   let disabledReason = '';
 
   if (firstConnectionError) {
-    disabled = true;
+    isSubmitDisabled = true;
     disabledReason = firstConnectionError;
   } else if (!connectionEstablished) {
-    disabled = true;
+    isSubmitDisabled = true;
     disabledReason = 'Please test the connection first.';
   } else if (firstCommerceError) {
-    disabled = true;
+    isSubmitDisabled = true;
     disabledReason = firstCommerceError;
   } else if (firstGenerationError) {
-    disabled = true;
+    isSubmitDisabled = true;
     disabledReason = 'Fix the highlighted issues to continue.';
   } else if (isGenerating) {
-    disabled = true;
     disabledReason = generationConfig.demoMode
       ? 'Generating demo data…'
       : 'Generating data…';
@@ -626,7 +626,8 @@ export function AppUI() {
                     setGenerationConfig={setGenerationConfig}
                     onGenerate={generateData}
                     onResetSettings={handleSettingsReset}
-                    disabled={disabled}
+                    disabled={isFormLocked}
+                    isSubmitDisabled={isSubmitDisabled}
                     disabledReason={disabledReason}
                     isGenerating={isGenerating}
                     forceDemoMode={forceDemoMode}

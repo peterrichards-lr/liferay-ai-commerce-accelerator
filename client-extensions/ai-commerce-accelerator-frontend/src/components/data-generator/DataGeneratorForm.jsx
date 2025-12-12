@@ -23,6 +23,7 @@ function DataGeneratorForm({
   onGenerate,
   onResetSettings,
   disabled,
+  isSubmitDisabled,
   disabledReason,
   isGenerating,
   forceDemoMode,
@@ -307,31 +308,39 @@ function DataGeneratorForm({
           </small>
         </div>
 
-        <div className="form-group">
-          {availableCategories.length === 0 ? (
-            <small className="text-secondary">Loading categories...</small>
-          ) : (
-            <CategoriesSelector
-              availableCategories={availableCategories}
-              selectedCategories={generationConfig.categories}
-              onToggleCategory={handleCategoryChange}
-              disabled={
-                lockFields ||
-                availableCategories.length === 0 ||
-                (generationConfig.productCount === 0 &&
-                  generationConfig.accountCount === 0)
-              }
-              invalid={
-                hasErr(validationErrors, 'categories')
-                  ? validationErrors.categories
-                  : null
-              }
-              showNote={
-                generationConfig.productCount === 0 &&
-                generationConfig.accountCount === 0
-              }
-            />
-          )}
+        <div
+          className={
+            generationConfig.productCount > 0
+              ? 'product-config-section'
+              : 'product-config-section hidden'
+          }
+        >
+          <div className="form-group">
+            {availableCategories.length === 0 ? (
+              <small className="text-secondary">Loading categories...</small>
+            ) : (
+              <CategoriesSelector
+                availableCategories={availableCategories}
+                selectedCategories={generationConfig.categories}
+                onToggleCategory={handleCategoryChange}
+                disabled={
+                  lockFields ||
+                  availableCategories.length === 0 ||
+                  (generationConfig.productCount === 0 &&
+                    generationConfig.accountCount === 0)
+                }
+                invalid={
+                  hasErr(validationErrors, 'categories')
+                    ? validationErrors.categories
+                    : null
+                }
+                showNote={
+                  generationConfig.productCount === 0 &&
+                  generationConfig.accountCount === 0
+                }
+              />
+            )}
+          </div>
         </div>
 
         <div
@@ -1196,8 +1205,8 @@ function DataGeneratorForm({
               className={`submit-button w-100 btn my-2 py-2 ${
                 generationConfig.demoMode ? 'demo-mode' : 'generate-mode'
               }`}
-              disabled={disabled}
-              aria-disabled={disabled ? 'true' : 'false'}
+              disabled={isSubmitDisabled}
+              aria-disabled={isSubmitDisabled ? 'true' : 'false'}
             >
               {isGenerating ? (
                 <div className="processing-indicator">

@@ -282,7 +282,8 @@ class ProductGenerator {
         }
       : Math.random;
 
-    const sessionId = createERC(ERC_PREFIX.BATCH_SESSION);
+    const sessionId =
+      options.sessionId || createERC(ERC_PREFIX.BATCH_SESSION);
 
     logger.trace('=== STARTING PRODUCT GENERATION ===');
     logger.trace('Session ID:', sessionId);
@@ -1514,7 +1515,7 @@ class ProductGenerator {
             ? optionData.values
             : [];
           const value = values[i];
-          const valueERC = `VAL-${optionERC}-${value
+          const valueERC = `VAL-${option.id}-${value
             .toUpperCase()
             .replace(/\s+/g, '_')}`;
           const valueName = {};
@@ -1527,7 +1528,7 @@ class ProductGenerator {
             option.id,
             {
               name: valueName,
-              key: `${category.toLowerCase()}-${value
+              key: `${option.id}-${value
                 .toLowerCase()
                 .replace(/\s+/g, '-')
                 .replace(/&/g, 'and')}`,
@@ -1843,55 +1844,29 @@ class ProductGenerator {
             categoryDescription[langCode] = `${groupData.description}${suffix}`;
           });
 
-          let optionCategory;
-          try {
-            optionCategory = await liferay.createOptionCategory(config, {
+          const optionCategory = await liferay.createOptionCategoryWithReuse(
+            config,
+            {
               key: `${category.toLowerCase()}-${groupData.key}`,
               title: categoryTitle,
               description: categoryDescription,
               priority: groupData.priority,
               externalReferenceCode: categoryERC,
-            });
-            logger.trace(
-              `Created option category: ${optionCategory.title.en_US} (ID: ${optionCategory.id}, Key: ${groupData.key})`
-            );
-          } catch (createError) {
-            const isConflict =
-              createError?.status === 409 ||
-              createError?.problem?.status === 'CONFLICT' ||
-              String(createError?.message || '')
-                .toLowerCase()
-                .includes('409') ||
-              String(createError?.message || '')
-                .toLowerCase()
-                .includes('conflict');
-
-            if (isConflict) {
-              optionCategory = await liferay.getOptionCategoryByERC(
-                config,
-                categoryERC
-              );
-              if (!optionCategory && liferay.getOptionCategoryByKey) {
-                optionCategory = await liferay.getOptionCategoryByKey(
-                  config,
-                  `${category.toLowerCase()}-${groupData.key}`
-                );
-              }
-              if (!optionCategory) {
-                logger.warn(
-                  `Conflict creating option category but could not resolve by ERC or key: ${categoryERC}`
-                );
-                continue;
-              }
-              logger.trace(
-                `Using existing option category: ${optionCategory.title.en_US} (ID: ${optionCategory.id})`
-              );
-            } else {
-              throw createError;
             }
-          }
+          );
 
-          optionCategories[groupData.key] = optionCategory;
+          if (optionCategory) {
+            logger.trace(
+              `Using option category: ${
+                optionCategory.title.en_US || optionCategory.key
+              } (ID: ${optionCategory.id})`
+            );
+            optionCategories[groupData.key] = optionCategory;
+          } else {
+            logger.warn(
+              `Could not create or retrieve option category for key: ${groupData.key}`
+            );
+          }
         } catch (error) {
           logger.error(
             `Failed to process option category ${groupData.title} for ${category}:`,
@@ -1923,7 +1898,7 @@ class ProductGenerator {
               id: linkedOptionCategory.id,
               externalReferenceCode: linkedOptionCategory.externalReferenceCode,
               key: linkedOptionCategory.key,
-              title: linkedOptionCategory.title, // Add the title here
+              title: linkedOptionCategory.title,
             };
           }
 
@@ -1954,11 +1929,17 @@ class ProductGenerator {
               try {
                 if (desiredId) {
                   await liferay.updateSpecificationByERC(config, specERC, {
-                    optionCategory: { id: desiredId },
+                    optionCategory: {
+                      id: desiredId,
+                      title: linkedOptionCategory.title,
+                    },
                   });
                 } else if (desiredERC) {
                   await liferay.updateSpecificationByERC(config, specERC, {
-                    optionCategory: { externalReferenceCode: desiredERC },
+                    optionCategory: {
+                      externalReferenceCode: desiredERC,
+                      title: linkedOptionCategory.title,
+                    },
                   });
                 }
                 specification.optionCategoryId =
@@ -2375,6 +2356,7 @@ class ProductGenerator {
       const pricingData = await ai.generatePricingData(
         products,
         'standard',
+        config,
         config.aiModel
       );
       const asMap = Array.isArray(pricingData)

@@ -246,8 +246,18 @@ class DeleteCoordinatorService {
     };
   }
 
+
+
   async runDeleteAndMonitorV2(config, options = {}) {
     const { liferay, logger, cache, configService, ws } = this.ctx;
+
+    let ordersResult = { total: 0, batches: 0, submitted: 0, dryRun: false, batchRefs: [] };
+    let warehousesResult = { total: 0, batches: 0, submitted: 0, dryRun: false, batchRefs: [] };
+    let accountsResult = { total: 0, batches: 0, submitted: 0, dryRun: false, batchRefs: [] };
+    let productsResult = { total: 0, batches: 0, submitted: 0, dryRun: false, batchRefs: [] };
+    let specificationsResult = { total: 0, batches: 0, submitted: 0, dryRun: false, batchRefs: [] };
+    let optionsResult = { total: 0, batches: 0, submitted: 0, dryRun: false, batchRefs: [] };
+    let optionCategoriesResult = { total: 0, batches: 0, submitted: 0, dryRun: false, batchRefs: [] };
 
     const baseOpts = {
       ...options,
@@ -300,17 +310,19 @@ class DeleteCoordinatorService {
       step: 'orders',
     });
 
-    let ordersResult = {
-      total: 0,
-      batches: 0,
-      submitted: 0,
-      dryRun: false,
-      batchRefs: [],
-    };
-
-    const existingOrders = await liferay.getCommerceOrders(config, {
-      pageSize: 1,
-    });
+    let existingOrders;
+    try {
+      existingOrders = await liferay.getCommerceOrders(config, {
+        pageSize: 1,
+      });
+    } catch (e) {
+      if (e.status === 404) {
+        logger.trace('No orders found to delete (404 received).');
+        existingOrders = { items: [] };
+      } else {
+        throw e;
+      }
+    }
 
     if (existingOrders?.items?.length > 0) {
       const orders = await liferay.deleteCommerceOrders(
@@ -338,21 +350,25 @@ class DeleteCoordinatorService {
         status: 'completed',
       });
     }
-    let warehousesResult = {
-      total: 0,
-      batches: 0,
-      submitted: 0,
-      dryRun: false,
-      batchRefs: [],
-    };
 
-    const existingWarehouses = await liferay.getWarehouses(config, {
-      pageSize: 1,
-    });
+    let existingWarehouses;
+    try {
+      existingWarehouses = await liferay.getWarehouses(config, {
+        pageSize: 1,
+      });
+    } catch (e) {
+      if (e.status === 404) {
+        logger.trace('No warehouses found to delete (404 received).');
+        existingWarehouses = { items: [] };
+      } else {
+        throw e;
+      }
+    }
+
     logger.debug('Existing warehouses check result', {
       operation: 'runDeleteAndMonitorV2',
-      warehousesCount: existingWarehouses?.items?.length,
-      firstWarehouse: existingWarehouses?.items?.[0]?.id,
+      warehousesCount: existingWarehouses?.length,
+      firstWarehouse: existingWarehouses?.[0]?.id,
     });
 
     if (existingWarehouses?.length > 0) {
@@ -390,17 +406,19 @@ class DeleteCoordinatorService {
       });
     }
 
-    let accountsResult = {
-      total: 0,
-      batches: 0,
-      submitted: 0,
-      dryRun: false,
-      batchRefs: [],
-    };
-
-    const existingAccounts = await liferay.getCommerceAccounts(config, {
-      pageSize: 1,
-    });
+    let existingAccounts;
+    try {
+      existingAccounts = await liferay.getCommerceAccounts(config, {
+        pageSize: 1,
+      });
+    } catch (e) {
+      if (e.status === 404) {
+        logger.trace('No accounts found to delete (404 received).');
+        existingAccounts = { items: [] };
+      } else {
+        throw e;
+      }
+    }
 
     if (existingAccounts?.items?.length > 0) {
       const accounts = await liferay.deleteCommerceAccounts(
@@ -429,9 +447,20 @@ class DeleteCoordinatorService {
       });
     }
 
-    const existingProducts = await liferay.getCommerceProducts(config, {
-      pageSize: 1,
-    });
+    let existingProducts;
+    try {
+      existingProducts = await liferay.getCommerceProducts(config, {
+        pageSize: 1,
+      });
+    } catch (e) {
+      if (e.status === 404) {
+        logger.trace('No products found to delete (404 received).');
+        existingProducts = { items: [] };
+      } else {
+        throw e;
+      }
+    }
+
     logger.debug('Existing products check result', {
       operation: 'runDeleteAndMonitorV2',
       productsCount: existingProducts?.items?.length,
@@ -465,17 +494,19 @@ class DeleteCoordinatorService {
       });
     }
 
-    let specificationsResult = {
-      total: 0,
-      batches: 0,
-      submitted: 0,
-      dryRun: false,
-      batchRefs: [],
-    };
-
-    const existingSpecifications = await liferay.getSpecifications(config, {
-      pageSize: 1,
-    });
+    let existingSpecifications;
+    try {
+      existingSpecifications = await liferay.getSpecifications(config, {
+        pageSize: 1,
+      });
+    } catch (e) {
+      if (e.status === 404) {
+        logger.trace('No specifications found to delete (404 received).');
+        existingSpecifications = { items: [] };
+      } else {
+        throw e;
+      }
+    }
 
     if (existingSpecifications?.items?.length > 0) {
       const specifications = await liferay.deleteSpecificationsBatch(
@@ -504,15 +535,17 @@ class DeleteCoordinatorService {
       });
     }
 
-    let optionsResult = {
-      total: 0,
-      batches: 0,
-      submitted: 0,
-      dryRun: false,
-      batchRefs: [],
-    };
-
-    const existingOptions = await liferay.getOptions(config, { pageSize: 1 });
+    let existingOptions;
+    try {
+      existingOptions = await liferay.getOptions(config, { pageSize: 1 });
+    } catch (e) {
+      if (e.status === 404) {
+        logger.trace('No options found to delete (404 received).');
+        existingOptions = { items: [] };
+      } else {
+        throw e;
+      }
+    }
 
     if (existingOptions?.items?.length > 0) {
       const optionsRes = await liferay.deleteOptionsBatch(
@@ -541,17 +574,19 @@ class DeleteCoordinatorService {
       });
     }
 
-    let optionCategoriesResult = {
-      total: 0,
-      batches: 0,
-      submitted: 0,
-      dryRun: false,
-      batchRefs: [],
-    };
-
-    const existingOptionCategories = await liferay.getOptionCategories(config, {
-      pageSize: 1,
-    });
+    let existingOptionCategories;
+    try {
+      existingOptionCategories = await liferay.getOptionCategories(config, {
+        pageSize: 1,
+      });
+    } catch (e) {
+      if (e.status === 404) {
+        logger.trace('No option categories found to delete (404 received).');
+        existingOptionCategories = { items: [] };
+      } else {
+        throw e;
+      }
+    }
 
     if (existingOptionCategories?.items?.length > 0) {
       const optionCategories = await liferay.deleteOptionCategoriesBatch(
@@ -597,6 +632,14 @@ class DeleteCoordinatorService {
   ) {
     const { liferay, logger, cache, configService } = this.ctx;
 
+    let ordersResult = { total: 0, batches: 0, submitted: 0, dryRun: false, batchRefs: [] };
+    let warehousesResult = { total: 0, batches: 0, submitted: 0, dryRun: false, batchRefs: [] };
+    let accountsResult = { total: 0, batches: 0, submitted: 0, dryRun: false, batchRefs: [] };
+    let productsResult = { total: 0, batches: 0, submitted: 0, dryRun: false, batchRefs: [] };
+    let specificationsResult = { total: 0, batches: 0, submitted: 0, dryRun: false, batchRefs: [] };
+    let optionsResult = { total: 0, batches: 0, submitted: 0, dryRun: false, batchRefs: [] };
+    let optionCategoriesResult = { total: 0, batches: 0, submitted: 0, dryRun: false, batchRefs: [] };
+
     const baseOpts = {
       ...options,
       importStrategy: options.importStrategy || 'ON_ERROR_CONTINUE',
@@ -629,9 +672,7 @@ class DeleteCoordinatorService {
         'warehouses',
         'accounts',
         'products',
-        'specifications',
-        'options',
-        'optionCategories',
+        'delete-product-related-entities',
       ],
       currentStep: 'orders',
       channelId,
@@ -650,18 +691,22 @@ class DeleteCoordinatorService {
       channelId,
     });
 
-    let ordersResult = {
-      total: 0,
-      batches: 0,
-      submitted: 0,
-      dryRun: false,
-      batchRefs: [],
-    };
-
-    const existingOrders = await liferay.getCommerceOrders(config, {
-      channelId,
-      pageSize: 1,
-    });
+    let existingOrders;
+    try {
+      existingOrders = await liferay.getCommerceOrders(config, {
+        channelId,
+        pageSize: 1,
+      });
+    } catch (e) {
+      if (e.status === 404) {
+        logger.trace(
+          'No orders for this channel found to delete (404 received).'
+        );
+        existingOrders = { items: [] };
+      } else {
+        throw e;
+      }
+    }
 
     if (existingOrders?.items?.length > 0) {
       const orders = await liferay.deleteCommerceOrders(
@@ -697,21 +742,24 @@ class DeleteCoordinatorService {
       });
     }
 
-    let warehousesResult = {
-      total: 0,
-      batches: 0,
-      submitted: 0,
-      dryRun: false,
-      batchRefs: [],
-    };
+    let existingWarehouses;
+    try {
+      existingWarehouses = await liferay.getWarehouses(config, {
+        pageSize: 1,
+      });
+    } catch (e) {
+      if (e.status === 404) {
+        logger.trace('No warehouses found to delete (404 received).');
+        existingWarehouses = { items: [] };
+      } else {
+        throw e;
+      }
+    }
 
-    const existingWarehouses = await liferay.getWarehouses(config, {
-      pageSize: 1,
-    });
     logger.debug('Existing warehouses check result', {
-      operation: 'runDeleteAndMonitorV2',
-      warehousesCount: existingWarehouses?.items?.length,
-      firstWarehouse: existingWarehouses?.items?.[0]?.id,
+      operation: 'runDeleteSelectedAndMonitorV2',
+      warehousesCount: existingWarehouses?.length,
+      firstWarehouse: existingWarehouses?.[0]?.id,
     });
 
     if (existingWarehouses?.length > 0) {
@@ -749,18 +797,22 @@ class DeleteCoordinatorService {
       });
     }
 
-    let accountsResult = {
-      total: 0,
-      batches: 0,
-      submitted: 0,
-      dryRun: false,
-      batchRefs: [],
-    };
-
-    const existingAccounts = await liferay.getCommerceAccounts(config, {
-      channelId,
-      pageSize: 1,
-    });
+    let existingAccounts;
+    try {
+      existingAccounts = await liferay.getCommerceAccounts(config, {
+        channelId,
+        pageSize: 1,
+      });
+    } catch (e) {
+      if (e.status === 404) {
+        logger.trace(
+          'No accounts for this channel found to delete (404 received).'
+        );
+        existingAccounts = { items: [] };
+      } else {
+        throw e;
+      }
+    }
 
     if (existingAccounts?.items?.length > 0) {
       const accounts = await liferay.deleteCommerceAccounts(
@@ -789,10 +841,23 @@ class DeleteCoordinatorService {
       });
     }
 
-    const existingProducts = await liferay.getCommerceProducts(config, {
-      catalogId,
-      pageSize: 1,
-    });
+    let existingProducts;
+    try {
+      existingProducts = await liferay.getCommerceProducts(config, {
+        catalogId,
+        pageSize: 1,
+      });
+    } catch (e) {
+      if (e.status === 404) {
+        logger.trace(
+          'No products for this catalog found to delete (404 received).'
+        );
+        existingProducts = { items: [] };
+      } else {
+        throw e;
+      }
+    }
+
     logger.debug('Existing products check result', {
       operation: 'runDeleteSelectedAndMonitorV2',
       productsCount: existingProducts?.items?.length,
@@ -826,7 +891,7 @@ class DeleteCoordinatorService {
       });
     }
 
-    let specificationsResult = {
+    specificationsResult = {
       total: 0,
       batches: 0,
       submitted: 0,
@@ -834,9 +899,19 @@ class DeleteCoordinatorService {
       batchRefs: [],
     };
 
-    const existingSpecifications = await liferay.getSpecifications(config, {
-      pageSize: 1,
-    });
+    let existingSpecifications;
+    try {
+      existingSpecifications = await liferay.getSpecifications(config, {
+        pageSize: 1,
+      });
+    } catch (e) {
+      if (e.status === 404) {
+        logger.trace('No specifications found to delete (404 received).');
+        existingSpecifications = { items: [] };
+      } else {
+        throw e;
+      }
+    }
 
     if (existingSpecifications?.items?.length > 0) {
       const specifications = await liferay.deleteSpecificationsBatch(
@@ -865,7 +940,7 @@ class DeleteCoordinatorService {
       });
     }
 
-    let optionsResult = {
+    optionsResult = {
       total: 0,
       batches: 0,
       submitted: 0,
@@ -873,7 +948,17 @@ class DeleteCoordinatorService {
       batchRefs: [],
     };
 
-    const existingOptions = await liferay.getOptions(config, { pageSize: 1 });
+    let existingOptions;
+    try {
+      existingOptions = await liferay.getOptions(config, { pageSize: 1 });
+    } catch (e) {
+      if (e.status === 404) {
+        logger.trace('No options found to delete (404 received).');
+        existingOptions = { items: [] };
+      } else {
+        throw e;
+      }
+    }
 
     if (existingOptions?.items?.length > 0) {
       const optionsRes = await liferay.deleteOptionsBatch(
@@ -902,7 +987,7 @@ class DeleteCoordinatorService {
       });
     }
 
-    let optionCategoriesResult = {
+    optionCategoriesResult = {
       total: 0,
       batches: 0,
       submitted: 0,
@@ -910,9 +995,19 @@ class DeleteCoordinatorService {
       batchRefs: [],
     };
 
-    const existingOptionCategories = await liferay.getOptionCategories(config, {
-      pageSize: 1,
-    });
+    let existingOptionCategories;
+    try {
+      existingOptionCategories = await liferay.getOptionCategories(config, {
+        pageSize: 1,
+      });
+    } catch (e) {
+      if (e.status === 404) {
+        logger.trace('No option categories found to delete (404 received).');
+        existingOptionCategories = { items: [] };
+      } else {
+        throw e;
+      }
+    }
 
     if (existingOptionCategories?.items?.length > 0) {
       const optionCategories = await liferay.deleteOptionCategoriesBatch(

@@ -132,11 +132,13 @@ class BatchCallbackService {
     deleteCoordinatorService,
   }) {
     const { logger, cache, ws } = this.ctx;
+    logger.info('Starting _startNextGroups', { batchERC, fromGroupIndex });
     for (
       let groupIndex = 0;
       groupIndex < context.stepGroups.length;
       groupIndex++
     ) {
+      logger.debug(`Processing group ${groupIndex}`, { batchERC });
       const group = context.stepGroups[groupIndex];
 
       if (this._isGroupComplete(group, context.completedSteps)) {
@@ -165,8 +167,13 @@ class BatchCallbackService {
           liferay,
           config,
           step,
-          { channelId, catalogId }
+          { channelId, catalogId, productIds: context.productIds }
         );
+
+        if (step === 'products' && ids) {
+          context.productIds = ids;
+          cache.set(`batch:${batchERC}:context`, context);
+        }
 
         if (!hasItems) {
           context.completedSteps.push(step);
@@ -174,6 +181,10 @@ class BatchCallbackService {
             `Skipping ${step} deletion: No entities found. Marking as completed.`,
             { batchERC, step }
           );
+          logger.debug('Completed steps after skipping', {
+            batchERC,
+            completedSteps: context.completedSteps,
+          });
 
           cache.set(`batch:${batchERC}:context`, context);
           continue;
@@ -213,6 +224,9 @@ class BatchCallbackService {
             break;
           case 'products': {
             if (catalogId) {
+              context.productIds = ids;
+              cache.set(`batch:${batchERC}:context`, context);
+
               const productConfig = { ...config, catalogId };
               result = await liferay.deleteCommerceProducts(
                 productConfig,
@@ -228,10 +242,50 @@ class BatchCallbackService {
             }
             break;
           }
+          case 'delete-product-related-entities': {
+            const productIds = context.productIds || [];
+            if (productIds.length > 0) {
+              const specifications =
+                await liferay.getSpecificationsByProductIds(
+                  config,
+                  productIds
+                );
+              const specificationIds = specifications.map((s) => s.id);
+              const optionIds = specifications
+                .map((s) => s.optionId)
+                .filter(Boolean);
+              const optionCategoryIds = specifications
+                .map((s) => s.optionCategoryId)
+                .filter(Boolean);
+
+              if (specificationIds.length > 0) {
+                await liferay.deleteSpecificationsBatch(
+                  config,
+                  { ...options, ids: specificationIds },
+                  null
+                );
+              }
+              if (optionIds.length > 0) {
+                await liferay.deleteOptionsBatch(
+                  config,
+                  { ...options, ids: optionIds },
+                  null
+                );
+              }
+              if (optionCategoryIds.length > 0) {
+                await liferay.deleteOptionCategoriesBatch(
+                  config,
+                  { ...options, ids: optionCategoryIds },
+                  null
+                );
+              }
+            }
+            break;
+          }
           case 'specifications':
             result = await liferay.deleteSpecificationsBatch(
               config,
-              { ...options, all: true, callbackBatchERC: batchERC },
+              { ...options, callbackBatchERC: batchERC },
               nextCallbackUrl
             );
             break;
@@ -245,7 +299,7 @@ class BatchCallbackService {
           case 'optionCategories':
             result = await liferay.deleteOptionCategoriesBatch(
               config,
-              { ...options, all: true, callbackBatchERC: batchERC },
+              { ...options, callbackBatchERC: batchERC },
               nextCallbackUrl
             );
             break;
@@ -327,7 +381,7 @@ class BatchCallbackService {
     liferay,
     config,
     entityType,
-    { channelId, catalogId }
+    { channelId, catalogId, productIds }
   ) {
     const { logger } = this.ctx;
     logger.debug('Checking for existence of entities', {
@@ -382,6 +436,19 @@ class BatchCallbackService {
           items: liferay._asItems(res),
           totalCount: liferay._asCount(res),
           ids: liferay._asItems(res).map((it) => it.id),
+        };
+      },
+      'delete-product-related-entities': async () => {
+        if (!productIds || productIds.length === 0) {
+          return { hasItems: false, ids: [] };
+        }
+        const specifications = await liferay.getSpecificationsByProductIds(
+          config,
+          productIds
+        );
+        return {
+          hasItems: specifications.length > 0,
+          ids: specifications.map((s) => s.id),
         };
       },
       orders: async () => {

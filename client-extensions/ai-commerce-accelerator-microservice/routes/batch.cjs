@@ -154,6 +154,31 @@ module.exports = (
     return null;
   };
 
+  const getImportTaskFailedItemReport = async (batchId) => {
+    let liferayUrl;
+    try {
+      const liferayServerProtocol = lookupConfig(
+        'com.liferay.lxc.dxp.server.protocol'
+      );
+      const liferayServerDomain = lxcConfig.dxpMainDomain();
+      liferayUrl = `${liferayServerProtocol}://${liferayServerDomain}`;
+      new URL(liferayUrl);
+    } catch (e) {
+      const err = new Error(
+        `Unable to determine Liferay URL: ${e?.message || String(e)}`
+      );
+      err.errorReference =
+        resolveErrorReference(e) || createERC(ERC_PREFIX.ERROR);
+      throw err;
+    }
+
+    const records = await liferayService.getImportTaskFailedItemReport(
+      { liferayUrl },
+      batchId
+    );
+    return { liferayUrl, records };
+  };
+
   const getImportTask = async (batchId) => {
     let liferayUrl;
     try {
@@ -699,6 +724,17 @@ module.exports = (
             finalProcessed ?? 0
           }/${finalTotal ?? finalProcessed ?? 0} — ${msg}`
         );
+
+        const { task } = await getImportTask(batchId);
+        const { records: errorReport } = await getImportTaskFailedItemReport(
+          batchId
+        );
+        ws.emitBatchErrorDetails({
+          batchId,
+          correlationId,
+          importTask: task,
+          errorReport,
+        });
 
         if (batchOp === 'delete' || batchOp === 'D' || qsOpCode === 'D') {
           const chainedBatchERC = batchERC || qsBatchERC;

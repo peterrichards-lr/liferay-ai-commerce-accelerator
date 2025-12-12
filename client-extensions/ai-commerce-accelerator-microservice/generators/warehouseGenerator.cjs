@@ -1,9 +1,11 @@
 const { createERC, toI18n, resolvePhaseAndMode } = require('../utils/misc.cjs');
 const { ERC_PREFIX } = require('../utils/constants.cjs');
+const { getBatchCacheTTLms } = require('../utils/ttl.cjs');
 
 class WarehouseGenerator {
   constructor(ctx) {
     this.ctx = ctx;
+    this.handleBatchComplete = this.handleBatchComplete.bind(this);
   }
 
   _normalizeWarehouseData(warehouseData, config) {
@@ -29,9 +31,9 @@ class WarehouseGenerator {
   }
 
   async createWarehouses(config, options) {
-    const { logger, ai, mockData, ws, liferay, batchPolling, configService } =
+    const { logger, ai, mockData, ws, liferay, batchPolling, cache } =
       this.ctx;
-    const { warehouseCount, demoMode } = options;
+    const { warehouseCount, demoMode, sessionId } = options;
     const correlationId = config?.correlationId || '∅';
 
     let warehouseDataList;
@@ -62,6 +64,7 @@ class WarehouseGenerator {
         phase: 'generate',
         warehouseCount,
         batchSize: config.batchSize,
+        sessionId,
       });
 
       const normalizedWarehouseDataList = warehouseDataList.map((data) =>
@@ -79,6 +82,13 @@ class WarehouseGenerator {
 
       const batchId = submission.batchId;
       const totalItems = normalizedWarehouseDataList.length;
+
+      if (sessionId) {
+        batchPolling.registerSession(sessionId, {
+          batchIds: [batchId],
+          totalExpected: 1,
+        });
+      }
 
       batchPolling.startPolling(
         batchId,
@@ -109,48 +119,12 @@ class WarehouseGenerator {
                 totalItems: totalItems,
                 progress: progress,
                 etaSeconds: 0,
+                sessionId,
               },
               { correlationId }
             );
           },
-          onComplete: (r) => {
-            ws.emitBatchProgress(
-              {
-                entityType,
-                operation: 'generate',
-                mode: 'batch',
-                phase: 'poll',
-                batchId: batchId,
-                batchERC,
-                completedCount: r.processedCount,
-                totalItems: totalItems,
-                progress: 100,
-                etaSeconds: 0,
-              },
-              { correlationId }
-            );
-            ws.emitBatchCompleted(
-              {
-                batchId,
-                entityType,
-                successCount: r.processedCount,
-                failureCount: r.errorCount,
-                errors: [],
-                operation,
-                mode: 'batch',
-                phase: 'complete',
-                externalReferenceCode: batchERC,
-              },
-              { correlationId }
-            );
-            logger.info('Batch warehouse creation completed via polling', {
-              correlationId,
-              operation: 'warehouses/generate:complete',
-              created: r.processedCount,
-              errors: r.errorCount,
-              mode: 'batch',
-            });
-          },
+          onComplete: (r) => this.handleBatchComplete(r, config),
           onError: (err) => {
             ws.emitBatchFailed(
               {
@@ -163,6 +137,7 @@ class WarehouseGenerator {
                 mode: 'batch',
                 phase: 'error',
                 externalReferenceCode: batchERC,
+                sessionId,
               },
               { correlationId }
             );
@@ -203,6 +178,7 @@ class WarehouseGenerator {
             operation,
             mode,
             phase,
+            sessionId,
           },
           { correlationId }
         );
@@ -249,6 +225,7 @@ class WarehouseGenerator {
               operation,
               mode,
               phase,
+              sessionId,
             },
             { correlationId }
           );
@@ -266,6 +243,7 @@ class WarehouseGenerator {
             operation,
             mode,
             phase,
+            sessionId,
           },
           { correlationId }
         );
@@ -282,6 +260,68 @@ class WarehouseGenerator {
 
       return createdWarehouses;
     }
+  }
+
+  handleBatchComplete(results, config) {
+    const { logger, ws, cache, configService } = this.ctx;
+
+    const bid = String(results.batchId || '');
+    cache.set(
+      `batch:${bid}:completed`,
+      true,
+      getBatchCacheTTLms(configService)
+    );
+
+    const meta = cache.get(`batch:${bid}:meta`) || {};
+    const { batchERC, sessionId } = meta;
+
+    logger.info('Handling batch completion for warehouses', {
+      entityType: 'warehouses',
+      operation: 'generate',
+      ...resolvePhaseAndMode({ useBatch: true, phase: 'complete' }),
+      batchId: bid,
+      batchERC,
+      sessionId,
+      status: results.status,
+      processedCount: results.processedCount,
+      totalCount: results.totalCount,
+    });
+
+    const content = results.content;
+    let successCount = 0;
+    let failureCount = 0;
+    const failures = [];
+
+    if (Array.isArray(content)) {
+      content.forEach((item, index) => {
+        if (item.status === 'SUCCESS' || item.status === 'CREATED') {
+          successCount++;
+        } else {
+          failureCount++;
+          failures.push({
+            index,
+            error: item.error || item.message || 'Unknown error',
+          });
+        }
+      });
+    } else {
+      successCount = results.processedCount || results.totalCount || 0;
+    }
+
+    ws.emitBatchCompleted(
+      {
+        entityType: 'warehouses',
+        operation: 'generate',
+        ...resolvePhaseAndMode({ useBatch: true, phase: 'complete' }),
+        batchId: bid,
+        batchERC,
+        sessionId,
+        successCount,
+        failureCount,
+        errors: failureCount > 0 ? failures.slice(0, 5) : [],
+      },
+      { correlationId: config.correlationId }
+    );
   }
 }
 

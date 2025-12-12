@@ -857,21 +857,7 @@ class LiferayService {
     return [];
   }
 
-  async getImportTaskErrorReport(config, batchId) {
-    if (config.demoMode) {
-      const { logger } = this.ctx;
-      logger.warn(
-        '********************************************************************************'
-      );
-      logger.warn(
-        'LiferayService.getImportTaskErrorReport is using a mock implementation for demo mode.'
-      );
-      logger.warn(
-        '********************************************************************************'
-      );
-      return Promise.resolve([]);
-    }
-
+  async getImportTaskFailedItemReport(config, batchId) {
     const csvContent = await this._get(
       config,
       PATH.IMPORT_TASK_ERROR_REPORT(batchId),
@@ -993,6 +979,8 @@ class LiferayService {
       'Failed to delete warehouse'
     );
   }
+
+
 
   async createWarehousesBatch(config, warehousesData, callbackUrl, opts = {}) {
     const { logger, cache, configService } = this.ctx;
@@ -1803,6 +1791,7 @@ class LiferayService {
   }
 
   async createOptionCategoryWithReuse(config, payload) {
+    const { logger } = this.ctx;
     try {
       return await this.createOptionCategory(config, payload);
     } catch (e) {
@@ -1812,30 +1801,40 @@ class LiferayService {
         e?.problem?.status === 'CONFLICT' ||
         msg.includes('409') ||
         msg.includes('conflict');
+
       if (!isConflict) throw e;
 
-      const erc = payload?.externalReferenceCode;
+      logger.trace(
+        `Conflict creating option category, attempting to fetch by key: ${payload.key}`
+      );
+
       const key = payload?.key;
-      let existing = null;
-
-      if (erc) {
-        try {
-          existing = await this.getOptionCategoryByERC(config, erc);
-        } catch {}
+      if (!key) {
+        throw new Error(
+          'Conflict on createOptionCategory, but no key was provided to find existing.'
+        );
       }
-      if (!existing && key) {
-        try {
-          existing = await this.getOptionCategoryByKey(config, key);
-        } catch {}
-      }
-      if (!existing) throw e;
 
+      const existing = await this.getOptionCategoryByKey(config, key);
+
+      if (!existing) {
+        throw new Error(
+          `Conflict creating option category '${key}', but could not retrieve the existing one.`
+        );
+      }
+
+      const erc = payload?.externalReferenceCode;
       if (erc && existing.externalReferenceCode !== erc) {
         try {
           await this.updateOptionCategoryById(config, existing.id, {
             externalReferenceCode: erc,
           });
-        } catch {}
+          existing.externalReferenceCode = erc;
+        } catch (updateError) {
+          logger.warn(
+            `Failed to update ERC for existing option category '${key}'`
+          );
+        }
       }
       return existing;
     }
@@ -1864,12 +1863,13 @@ class LiferayService {
     ) {
       const { id, key, externalReferenceCode } = payload.optionCategory;
 
-      if (id || key || externalReferenceCode) {
+      if (id || key || externalReferenceCode || title) {
         const newOptionCategory = {};
         if (id) newOptionCategory.id = id;
         if (key) newOptionCategory.key = key;
         if (externalReferenceCode)
           newOptionCategory.externalReferenceCode = externalReferenceCode;
+        if (title) newOptionCategory.title = title;
         payload.optionCategory = newOptionCategory;
       } else {
         delete payload.optionCategory;
@@ -2031,6 +2031,26 @@ class LiferayService {
       'List specifications',
       { params: { page: 1, pageSize, fields, ...(search ? { search } : {}) } }
     );
+  }
+
+  async getSpecificationsByProductIds(config, productIds) {
+    const allSpecifications = [];
+    for (const productId of productIds) {
+      try {
+        const specifications = await this._get(
+          config,
+          PATH.PRODUCT_SPECIFICATIONS(productId),
+          'get-product-specifications',
+          `Failed to get specifications for product ${productId}`
+        );
+        allSpecifications.push(...this._asItems(specifications));
+      } catch (error) {
+        if (error.response?.status !== 404) {
+          throw error;
+        }
+      }
+    }
+    return allSpecifications;
   }
 
   async getSpecificationByKey(config, key) {
@@ -3564,6 +3584,7 @@ class LiferayService {
       filter,
       search,
       searchPrefixes,
+      all = false,
       callbackUrl: optionsCallbackUrl,
       callbackBatchERC,
       dryRun = false,
@@ -3575,8 +3596,8 @@ class LiferayService {
 
     const idSet = new Set();
 
-    if (filter || search) {
-      const baseFilter = filter || '';
+    if (all || filter || search) {
+      const baseFilter = all ? undefined : filter;
       const ids = await this._collectPagedIds(config, {
         listUrl: PATH.SPECIFICATIONS,
         pageSize,

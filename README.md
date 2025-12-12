@@ -69,7 +69,7 @@ Previously, `BATCH_ERROR_DETAILS` WebSocket events were sometimes emitted with a
 The accelerator has been updated to support the generation of warehouses and the management of inventory using the new Commerce Admin Inventory API. This feature now works in both "demo" (mock) and "live" (AI) modes, and is now fully functional.
 
 **Key Fixes:**
-*   **Correct Warehouse Creation:** The `warehouseGenerator.cjs` has been updated to correctly normalize AI-generated warehouse data (which includes localized names and descriptions) into the format expected by the Liferay Commerce Admin Inventory API before calling `liferayService.createWarehouse`. This resolves the issue where warehouses were not being created at all.
+*   **Correct Warehouse Creation:** The `warehouseGenerator.cjs` has been updated to correctly normalize AI-generated warehouse data (which includes localized names and descriptions) into the format expected by the Liferay Commerce Admin Inventory API before calling `liferayService.createWarehouse` (for individual creation) or `liferayService.createWarehousesBatch` (for batch creation). This resolves the issue where warehouses were not being created at all.
 *   **Real API Integration**: The previous mock implementation has been replaced with real API calls to the Commerce Admin Inventory API. The `liferayService.cjs` has been updated to use the new endpoints for creating warehouses, getting warehouses, and updating product inventory.
 *   **AI-Powered Generation**: When not in demo mode, the accelerator will use generative AI to create warehouse data. This is handled by the `warehouseGenerator.cjs`, which calls a new `generateWarehouseData` function in the `aiService.cjs`. A new prompt (`warehouse.md`) and schema (`warehouse.json`) have been created for this purpose.
 *   **Frontend Integration**: The frontend `DataGeneratorForm.jsx` already included UI elements for enabling warehouse creation and setting inventory levels. These are now wired up to the new backend functionality.
@@ -80,13 +80,28 @@ The microservice now supports batch creation of warehouses, enabling more effici
 
 -   **`utils/liferayPaths.cjs` Update:** A new path, `PATH.WAREHOUSES_BATCH`, has been added, pointing to `/o/headless-commerce-admin-inventory/v1.0/warehouses/batch`.
 -   **`liferayService.cjs` Enhancement:** A new method, `createWarehousesBatch`, has been implemented. This method takes an array of warehouse data, generates a unique batch ERC (External Reference Code) for the batch, and caches the ERCs of individual items within the batch. It constructs a callback URL that includes batch and session information. It then makes a single `_post` request to the Liferay batch endpoint (`PATH.WAREHOUSES_BATCH`), sending the entire array of warehouse data. Submission details are cached, and a structured response containing the Liferay-provided `batchId` and status is returned.
--   **`warehouseGenerator.cjs` Logic Update:** The `createWarehouses` function now conditionally uses individual or batch creation. If more than one warehouse is requested (`warehouseCount > 1`), batch creation is utilized. In batch mode, `liferay.createWarehousesBatch` is invoked. The `batchPollingService.startPolling` mechanism has been integrated to actively monitor the progress of the native Liferay batch. Custom `onStatusChange`, `onComplete`, and `onError` callbacks are provided, which then emit WebSocket events (`batch_progress`, `batch_completed`, `batch_failed`, `error`) to the frontend, ensuring real-time feedback. The existing individual WebSocket emissions for warehouse creation have been made conditional, so they only trigger during individual creation, avoiding redundancy when native batch processing is active.
+-   **`warehouseGenerator.cjs` Logic Update:**
+    *   The `createWarehouses` function now includes a conditional check to determine whether to use individual or batch creation. If more than one warehouse is requested (`warehouseCount > 1`), batch creation is utilized.
+    *   In batch mode, `liferay.createWarehousesBatch` is invoked.
+    *   The existing individual WebSocket emissions for warehouse creation have been made conditional, so they only trigger during individual creation, avoiding redundancy when native batch processing is active.
 -   **Real-time UI Updates:** This implementation allows the UI to display accurate, real-time progress for multiple warehouse creations leveraging Liferay's native batch processing capabilities.
 
 ### Recent Reliability Improvements
 
--   **Chained Deletion Process Fixes:** The "Delete All Commerce Data" operation has been made more reliable by addressing issues in the chained deletion process, ensuring that products, product options, and product specifications are deleted correctly.
--   **Specification and Price List Creation:** Fixed bugs that caused errors when generating products with specifications and price lists.
+-   **Data Generation Fixes:**
+    *   **Robust Option Category Creation:** The logic for creating and reusing option categories has been centralized and made more robust, preventing cascading API errors that could previously halt product specification generation.
+    *   Fixed a bug that caused a `400 BAD_REQUEST` error (`optionCategory.title must not be null`) when creating product specifications.
+    *   Resolved an error that occurred when creating price lists due to a missing `catalogId`.
+-   **Deletion Process Enhancements:**
+    *   **Resilience:** The "Delete All Commerce Data" operation is now more resilient. It no longer halts if it encounters an entity type that has already been deleted; it now logs the event and continues the process.
+    *   **Error Reporting:** When a deletion batch fails, the system now retrieves a detailed error report from Liferay and sends it to the user through a WebSocket message, allowing for better debugging and visibility into the failure.
+
+-   **Warehouse Generation Session Fix:**
+    *   The warehouse generation process has been updated to be part of the main generation session. This ensures that its completion is properly tracked and reflected in the UI.
+
+-   **Delete Process Improvements:**
+    *   **Warehouse Deletion:** Warehouses are now deleted individually by iterating through their IDs. This is because there is no batch delete endpoint available for warehouses in the Liferay API.
+    *   **Corrected Selective Deletion:** The "Selective Delete" functionality has been fixed to prevent the accidental deletion of all specifications, options, and option categories. The process now correctly identifies and deletes only the entities related to the deleted products.
 
 ### Export/Import Commerce Data
 

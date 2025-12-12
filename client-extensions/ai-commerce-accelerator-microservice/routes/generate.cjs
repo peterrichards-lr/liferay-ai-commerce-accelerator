@@ -254,9 +254,9 @@ module.exports = (
       );
     },
     async (req, res) => {
-      logger.info('ENTERED /api/generate/products');
       const { config, options } = buildConfigAndOptions(req);
       config.demoMode = options.demoMode;
+      const sessionId = createERC(ERC_PREFIX.BATCH_SESSION);
 
       try {
         const configPromises = [
@@ -300,7 +300,7 @@ module.exports = (
             });
             const newWarehouses = await warehouseGenerator.createWarehouses(
               config,
-              { ...options, warehouseCount: newWarehouseCount }
+              { ...options, warehouseCount: newWarehouseCount, sessionId }
             );
             logger.info('Created new warehouses:', newWarehouses);
             warehouses.push(...newWarehouses);
@@ -320,10 +320,10 @@ module.exports = (
               }
             );
 
-            const result = await productGenerator.generateProducts(
-              config,
-              options
-            );
+            const result = await productGenerator.generateProducts(config, {
+              ...options,
+              sessionId,
+            });
 
             const expectedPDFs =
               options.pdfMode !== 'none' && options.pdfRatio > 0
