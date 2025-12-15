@@ -27,6 +27,10 @@ const SOFT_STATUS_BY_OP = {
   'products:list': [404],
   'orders:list': [404],
   'import-task': [404],
+  'options:list': [404],
+  'pricelists:list': [404],
+  'specifications:list': [404],
+  'optionCategories:list': [404],
 };
 
 class LiferayService {
@@ -1438,6 +1442,80 @@ class LiferayService {
     );
   }
 
+  async getPriceLists(config, { search, pageSize = 200, fields = 'id' } = {}) {
+    return this._get(
+      config,
+      PATH.PRICE_LISTS,
+      'pricelists:list',
+      'List price lists',
+      {
+        params: { page: 1, pageSize, fields, ...(search ? { search } : {}) },
+      }
+    );
+  }
+
+  async deletePriceListsBatch(
+    config,
+    {
+      pageSize = 200,
+      filter,
+      callbackUrl: optionsCallbackUrl,
+      callbackBatchERC,
+      dryRun = false,
+      sessionId,
+    } = {},
+    callbackUrl
+  ) {
+    const { logger } = this.ctx;
+    const priceListIds = await this._collectPagedIds(config, {
+      listUrl: PATH.PRICE_LISTS,
+      pageSize,
+      filter,
+      fields: 'id',
+      op: 'pricelists:list',
+      friendly: 'List price lists',
+    });
+
+    const effectiveCallbackUrl = optionsCallbackUrl || callbackUrl || null;
+    const batchERC =
+      callbackBatchERC && String(callbackBatchERC).trim()
+        ? String(callbackBatchERC)
+        : createERC(ERC_PREFIX.PRICE_LIST_BATCH);
+
+    const taggedCallback = effectiveCallbackUrl
+      ? this._buildCallbackURL(effectiveCallbackUrl, {
+          entity: 'priceLists',
+          op: 'delete',
+          batchERC,
+          sessionId,
+        })
+      : null;
+
+    const batchUrl =
+      taggedCallback && PATH.PRICE_LISTS_BATCH
+        ? PATH.PRICE_LISTS_BATCH(taggedCallback)
+        : PATH.PRICE_LISTS_BATCH?.(taggedCallback) ||
+          `${PATH.PRICE_LISTS}/batch`;
+
+    logger.info('Submitting batch delete for price lists', {
+      count: priceListIds.length,
+      dryRun,
+      callbackUrl: taggedCallback || 'none',
+      externalReferenceCode: batchERC,
+    });
+
+    const res = await this._deleteByBatch(config, {
+      batchUrl,
+      ids: priceListIds,
+      batchSize: config.batchSize,
+      dryRun,
+      op: 'pricelists:batch-delete',
+      friendly: 'Delete price lists (batch)',
+    });
+    res.batchRefs = (res.batchRefs || []).map((r) => ({ ...r, erc: batchERC }));
+    return res;
+  }
+
   async createPriceEntry(config, priceListId, priceEntryData) {
     return await this._post(
       config,
@@ -2690,6 +2768,16 @@ class LiferayService {
       'get-channel'
     );
     return data;
+  }
+
+  async assignPriceListToChannel(config, { priceListId, channelId }) {
+    return this._patch(
+      config,
+      PATH.CHANNEL(channelId),
+      { priceListId },
+      'assign-price-list-to-channel',
+      'Failed to assign price list to channel'
+    );
   }
 
   async deleteCommerceProducts(

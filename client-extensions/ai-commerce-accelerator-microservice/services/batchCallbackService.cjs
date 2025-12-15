@@ -303,6 +303,13 @@ class BatchCallbackService {
               nextCallbackUrl
             );
             break;
+          case 'priceLists':
+            result = await liferay.deletePriceListsBatch(
+              config,
+              { ...options, callbackBatchERC: batchERC },
+              nextCallbackUrl
+            );
+            break;
           case 'orders':
             logger.warn(
               `Orders step encountered in _startNextGroups loop. This should not happen.`,
@@ -464,6 +471,14 @@ class BatchCallbackService {
       },
       warehouses: async () => {
         const res = await liferay.getWarehouses(config, { pageSize: 200 });
+        return {
+          items: liferay._asItems(res),
+          totalCount: liferay._asCount(res),
+          ids: liferay._asItems(res).map((it) => it.id),
+        };
+      },
+      priceLists: async () => {
+        const res = await liferay.getPriceLists(config, { pageSize: 200 });
         return {
           items: liferay._asItems(res),
           totalCount: liferay._asCount(res),

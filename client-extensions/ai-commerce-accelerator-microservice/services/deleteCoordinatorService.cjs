@@ -255,6 +255,7 @@ class DeleteCoordinatorService {
     let warehousesResult = { total: 0, batches: 0, submitted: 0, dryRun: false, batchRefs: [] };
     let accountsResult = { total: 0, batches: 0, submitted: 0, dryRun: false, batchRefs: [] };
     let productsResult = { total: 0, batches: 0, submitted: 0, dryRun: false, batchRefs: [] };
+    let priceListsResult = { total: 0, batches: 0, submitted: 0, dryRun: false, batchRefs: [] };
     let specificationsResult = { total: 0, batches: 0, submitted: 0, dryRun: false, batchRefs: [] };
     let optionsResult = { total: 0, batches: 0, submitted: 0, dryRun: false, batchRefs: [] };
     let optionCategoriesResult = { total: 0, batches: 0, submitted: 0, dryRun: false, batchRefs: [] };
@@ -292,6 +293,7 @@ class DeleteCoordinatorService {
         'warehouses',
         'accounts',
         'products',
+        'priceLists',
         'specifications',
         'options',
         'optionCategories',
@@ -494,6 +496,47 @@ class DeleteCoordinatorService {
       });
     }
 
+    let existingPriceLists;
+    try {
+      existingPriceLists = await liferay.getPriceLists(config, {
+        pageSize: 1,
+      });
+    } catch (e) {
+      if (e.status === 404) {
+        logger.trace('No price lists found to delete (404 received).');
+        existingPriceLists = { items: [] };
+      } else {
+        throw e;
+      }
+    }
+
+    if (existingPriceLists?.items?.length > 0) {
+      const priceLists = await liferay.deletePriceListsBatch(
+        config,
+        { ...baseOpts, all: true, callbackBatchERC: batchERC },
+        `${callbackUrl}&entity=priceLists`
+      );
+
+      if (priceLists?.batchRefs) {
+        this.recordBatches(
+          priceLists.batchRefs,
+          config,
+          'priceLists',
+          this._deriveTotalFromResult(priceLists)
+        );
+        priceListsResult = priceLists;
+      }
+    } else {
+      logger.info(
+        'Skipping price list deletion: No price lists found. Triggering next step directly.',
+        { operation: 'runDeleteAndMonitorV2' }
+      );
+      await this.ctx.batchCallbackService.processCallback(batchERC, {
+        entity: 'priceLists',
+        status: 'completed',
+      });
+    }
+
     let existingSpecifications;
     try {
       existingSpecifications = await liferay.getSpecifications(config, {
@@ -605,26 +648,26 @@ class DeleteCoordinatorService {
         optionCategoriesResult = optionCategories;
       }
     } else {
-      logger.info(
-        'Skipping option category deletion: No option categories found. Triggering next step directly.',
-        { operation: 'runDeleteAndMonitorV2' }
-      );
-      await this.ctx.batchCallbackService.processCallback(batchERC, {
-        entity: 'optionCategories',
-        status: 'completed',
-      });
-    }
-
-    return {
-      orders: ordersResult,
-      warehouses: warehousesResult,
-      accounts: accountsResult,
-      products: productsResult,
-      specifications: specificationsResult,
-      options: optionsResult,
-      optionCategories: optionCategoriesResult,
-    };
-  }
+          logger.info(
+            'Skipping option category deletion: No option categories found. Triggering next step directly.',
+            { operation: 'runDeleteAndMonitorV2' }
+          );
+          await this.ctx.batchCallbackService.processCallback(batchERC, {
+            entity: 'optionCategories',
+            status: 'completed',
+          });
+        }
+      
+        return {
+          orders: ordersResult,
+          warehouses: warehousesResult,
+          accounts: accountsResult,
+          products: productsResult,
+          priceLists: priceListsResult,
+          specifications: specificationsResult,
+          options: optionsResult,
+          optionCategories: optionCategoriesResult,
+        };  }
   async runDeleteSelectedAndMonitorV2(
     config,
     options = {},
@@ -636,6 +679,7 @@ class DeleteCoordinatorService {
     let warehousesResult = { total: 0, batches: 0, submitted: 0, dryRun: false, batchRefs: [] };
     let accountsResult = { total: 0, batches: 0, submitted: 0, dryRun: false, batchRefs: [] };
     let productsResult = { total: 0, batches: 0, submitted: 0, dryRun: false, batchRefs: [] };
+    let priceListsResult = { total: 0, batches: 0, submitted: 0, dryRun: false, batchRefs: [] };
     let specificationsResult = { total: 0, batches: 0, submitted: 0, dryRun: false, batchRefs: [] };
     let optionsResult = { total: 0, batches: 0, submitted: 0, dryRun: false, batchRefs: [] };
     let optionCategoriesResult = { total: 0, batches: 0, submitted: 0, dryRun: false, batchRefs: [] };
@@ -672,6 +716,7 @@ class DeleteCoordinatorService {
         'warehouses',
         'accounts',
         'products',
+        'priceLists',
         'delete-product-related-entities',
       ],
       currentStep: 'orders',
@@ -891,6 +936,47 @@ class DeleteCoordinatorService {
       });
     }
 
+    let existingPriceLists;
+    try {
+      existingPriceLists = await liferay.getPriceLists(config, {
+        pageSize: 1,
+      });
+    } catch (e) {
+      if (e.status === 404) {
+        logger.trace('No price lists found to delete (404 received).');
+        existingPriceLists = { items: [] };
+      } else {
+        throw e;
+      }
+    }
+
+    if (existingPriceLists?.items?.length > 0) {
+      const priceLists = await liferay.deletePriceListsBatch(
+        config,
+        { ...baseOpts, all: true, callbackBatchERC: batchERC },
+        `${callbackUrl}&entity=priceLists`
+      );
+
+      if (priceLists?.batchRefs) {
+        this.recordBatches(
+          priceLists.batchRefs,
+          config,
+          'priceLists',
+          this._deriveTotalFromResult(priceLists)
+        );
+        priceListsResult = priceLists;
+      }
+    } else {
+      logger.info(
+        'Skipping price list deletion: No price lists found. Triggering next step directly.',
+        { operation: 'runDeleteSelectedAndMonitorV2' }
+      );
+      await this.ctx.batchCallbackService.processCallback(batchERC, {
+        entity: 'priceLists',
+        status: 'completed',
+      });
+    }
+
     specificationsResult = {
       total: 0,
       batches: 0,
@@ -1041,6 +1127,7 @@ class DeleteCoordinatorService {
       warehouses: warehousesResult,
       accounts: accountsResult,
       products: productsResult,
+      priceLists: priceListsResult,
       specifications: specificationsResult,
       options: optionsResult,
       optionCategories: optionCategoriesResult,
