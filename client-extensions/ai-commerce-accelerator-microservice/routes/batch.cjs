@@ -665,6 +665,8 @@ module.exports = (
 
       if (status === 'FAILED') {
         const msg = 'Batch failed';
+        const errorReference = createERC(ERC_PREFIX.ERROR);
+
         cacheService.set(
           `batch:${batchId}:final`,
           {
@@ -674,6 +676,7 @@ module.exports = (
             totalCount: finalTotal ?? finalProcessed ?? 0,
             errorMessage: msg,
             completedAt: new Date().toISOString(),
+            errorReference,
           },
           ttlBatch
         );
@@ -699,7 +702,7 @@ module.exports = (
           entityType: finalEntityType,
           message: msg,
           phase: 'batch-final',
-          errorReference: createERC(ERC_PREFIX.ERROR),
+          errorReference,
           operation: batchConfig.operation || 'batch-failed',
           details: {
             status: 'FAILED',
@@ -722,7 +725,8 @@ module.exports = (
         logger.error(
           `❌ Batch ${batchId} (${finalEntityType}) failed — processed=${
             finalProcessed ?? 0
-          }/${finalTotal ?? finalProcessed ?? 0} — ${msg}`
+          }/${finalTotal ?? finalProcessed ?? 0} — ${msg}`,
+          { errorReference }
         );
 
         const { task } = await getImportTask(batchId);

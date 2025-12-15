@@ -16,7 +16,7 @@
             "configStatus": {
                 "key": "Active"
             },
-            "configValue": "{\n    \"excludedAccounts\": [{\"name\": \"Test Test\"}],\n    \"excludedProducts\": [],\n    \"excludedWarehouses\": []\n}",
+            "configValue": "{\n    \"excludedAccounts\": [{\"name\": \"Test Test\"}],\n    \"excludedProducts\": [],\n    \"excludedWarehouses\": [],\n    \"excludedPriceLists\": [{\"name\": \"Master Base Price List\"}]\n}",
             "description": "AI Exclude Lists (by entityId, erc, or name)",
             "externalReferenceCode": "AI-EXCLUDE-LISTS"
         }

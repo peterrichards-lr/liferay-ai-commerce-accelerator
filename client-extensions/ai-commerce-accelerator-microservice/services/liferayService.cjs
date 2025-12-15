@@ -1442,15 +1442,46 @@ class LiferayService {
     );
   }
 
-  async getPriceLists(config, { search, pageSize = 200, fields = 'id' } = {}) {
+  async getPriceLists(config, { search, pageSize = 200, fields = 'id,name' } = {}) {
+    const { configService } = this.ctx;
+    const excludeLists = await configService.getExcludeLists(config);
+    const excludedPriceLists = excludeLists?.excludedPriceLists || [];
+
+    const params = new URLSearchParams();
+    const filters = [];
+
+    if (search) {
+      filters.push(`name like '%${search}%'`);
+    }
+
+    if (excludedPriceLists.length > 0) {
+      excludedPriceLists.forEach((exclusion) => {
+        if (exclusion.entityId) {
+          filters.push(`id ne ${exclusion.entityId}`);
+        }
+        if (exclusion.erc) {
+          filters.push(`externalReferenceCode ne '${exclusion.erc}'`);
+        }
+        if (exclusion.name) {
+          filters.push(`name ne '${exclusion.name}'`);
+        }
+      });
+    }
+
+    if (filters.length > 0) {
+      params.append('filter', filters.join(' and '));
+    }
+
+    params.append('pageSize', pageSize);
+    params.append('fields', fields);
+    
+    const url = `${PATH.PRICE_LISTS}?${params.toString()}`;
+
     return this._get(
       config,
-      PATH.PRICE_LISTS,
+      url,
       'pricelists:list',
-      'List price lists',
-      {
-        params: { page: 1, pageSize, fields, ...(search ? { search } : {}) },
-      }
+      'List price lists'
     );
   }
 
@@ -1466,11 +1497,33 @@ class LiferayService {
     } = {},
     callbackUrl
   ) {
-    const { logger } = this.ctx;
+    const { logger, configService } = this.ctx;
+    const excludeLists = await configService.getExcludeLists(config);
+    const excludedPriceLists = excludeLists?.excludedPriceLists || [];
+
+    const filters = [];
+    if(filter) filters.push(filter);
+
+    if (excludedPriceLists.length > 0) {
+      excludedPriceLists.forEach((exclusion) => {
+        if (exclusion.entityId) {
+          filters.push(`id ne ${exclusion.entityId}`);
+        }
+        if (exclusion.erc) {
+          filters.push(`externalReferenceCode ne '${exclusion.erc}'`);
+        }
+        if (exclusion.name) {
+          filters.push(`name ne '${exclusion.name}'`);
+        }
+      });
+    }
+
+    const finalFilter = filters.join(' and ');
+
     const priceListIds = await this._collectPagedIds(config, {
       listUrl: PATH.PRICE_LISTS,
       pageSize,
-      filter,
+      filter: finalFilter,
       fields: 'id',
       op: 'pricelists:list',
       friendly: 'List price lists',

@@ -253,6 +253,7 @@ class ConfigService {
       excludedAccounts: [{ name: 'Test Test' }],
       excludedProducts: [],
       excludedWarehouses: [],
+      excludedPriceLists: [],
     };
 
     this.cache.set(cacheKey, defaultExcludeLists, this.getConfigTTL());
