@@ -57,6 +57,7 @@ function Dashboard({
   generationConfig,
   wsStatus = 'disabled',
   batchErrors,
+  clearBatchErrors,
 }) {
   const frozenRef = useRef(false);
 
@@ -283,7 +284,10 @@ function Dashboard({
             </ClayTabs.TabPane>
             {batchErrors && batchErrors.length > 0 && (
               <ClayTabs.TabPane aria-labelledby="batch-errors-tab">
-                <BatchErrors batchErrors={batchErrors} />
+                <BatchErrors
+                  batchErrors={batchErrors}
+                  clearBatchErrors={clearBatchErrors}
+                />
               </ClayTabs.TabPane>
             )}
           </ClayTabs.Content>

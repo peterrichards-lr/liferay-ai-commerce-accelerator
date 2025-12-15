@@ -733,6 +733,11 @@ module.exports = (
         const { records: errorReport } = await getImportTaskFailedItemReport(
           batchId
         );
+
+        logger.info('Emitting batchErrorDetails with errorReport:', {
+          errorReport,
+        });
+
         ws.emitBatchErrorDetails({
           batchId,
           correlationId,

@@ -1442,10 +1442,15 @@ class LiferayService {
     );
   }
 
-  async getPriceLists(config, { search, pageSize = 200, fields = 'id,name' } = {}) {
-    const { configService } = this.ctx;
+  async getPriceLists(
+    config,
+    { search, pageSize = 200, fields = 'id,name,externalReferenceCode' } = {}
+  ) {
+    const { configService, logger } = this.ctx;
     const excludeLists = await configService.getExcludeLists(config);
     const excludedPriceLists = excludeLists?.excludedPriceLists || [];
+
+    logger.info('Excluded price lists', { excludedPriceLists });
 
     const params = new URLSearchParams();
     const filters = [];
@@ -1454,10 +1459,11 @@ class LiferayService {
       filters.push(`name like '%${search}%'`);
     }
 
+    const excludedIds = [];
     if (excludedPriceLists.length > 0) {
       excludedPriceLists.forEach((exclusion) => {
         if (exclusion.entityId) {
-          filters.push(`id ne ${exclusion.entityId}`);
+          excludedIds.push(exclusion.entityId);
         }
         if (exclusion.erc) {
           filters.push(`externalReferenceCode ne '${exclusion.erc}'`);
@@ -1474,15 +1480,31 @@ class LiferayService {
 
     params.append('pageSize', pageSize);
     params.append('fields', fields);
-    
+
     const url = `${PATH.PRICE_LISTS}?${params.toString()}`;
 
-    return this._get(
+    const allPriceLists = await this._get(
       config,
       url,
       'pricelists:list',
       'List price lists'
     );
+
+    const allPriceListsItems = this._asItems(allPriceLists);
+
+    if (excludedIds.length === 0) {
+      return allPriceLists;
+    }
+
+    const filteredPriceLists = allPriceListsItems.filter(
+      (pl) => !excludedIds.includes(pl.id)
+    );
+
+    return {
+      ...allPriceLists,
+      items: filteredPriceLists,
+      totalCount: filteredPriceLists.length,
+    };
   }
 
   async deletePriceListsBatch(
@@ -1497,37 +1519,11 @@ class LiferayService {
     } = {},
     callbackUrl
   ) {
-    const { logger, configService } = this.ctx;
-    const excludeLists = await configService.getExcludeLists(config);
-    const excludedPriceLists = excludeLists?.excludedPriceLists || [];
+    const { logger } = this.ctx;
+    const priceLists = await this.getPriceLists(config, { pageSize });
+    const priceListIds = this._asItems(priceLists).map((pl) => pl.id);
 
-    const filters = [];
-    if(filter) filters.push(filter);
-
-    if (excludedPriceLists.length > 0) {
-      excludedPriceLists.forEach((exclusion) => {
-        if (exclusion.entityId) {
-          filters.push(`id ne ${exclusion.entityId}`);
-        }
-        if (exclusion.erc) {
-          filters.push(`externalReferenceCode ne '${exclusion.erc}'`);
-        }
-        if (exclusion.name) {
-          filters.push(`name ne '${exclusion.name}'`);
-        }
-      });
-    }
-
-    const finalFilter = filters.join(' and ');
-
-    const priceListIds = await this._collectPagedIds(config, {
-      listUrl: PATH.PRICE_LISTS,
-      pageSize,
-      filter: finalFilter,
-      fields: 'id',
-      op: 'pricelists:list',
-      friendly: 'List price lists',
-    });
+    logger.info('Price lists to be deleted', { priceListIds });
 
     const effectiveCallbackUrl = optionsCallbackUrl || callbackUrl || null;
     const batchERC =

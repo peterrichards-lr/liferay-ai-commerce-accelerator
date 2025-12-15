@@ -129,7 +129,22 @@ export function AppUI() {
     onProgress: setProgress,
     onBatchErrorDetails: (errorDetails) => {
       console.log('Received BATCH_ERROR_DETAILS:', errorDetails);
-      setBatchErrors((prevErrors) => [...prevErrors, errorDetails]);
+      setBatchErrors((prevErrors) => {
+        const existingErrorIndex = prevErrors.findIndex(
+          (e) => e.batchId === errorDetails.batchId
+        );
+
+        if (existingErrorIndex > -1) {
+          const newErrors = [...prevErrors];
+          newErrors[existingErrorIndex] = {
+            ...newErrors[existingErrorIndex],
+            ...errorDetails,
+          };
+          return newErrors;
+        }
+
+        return [...prevErrors, errorDetails];
+      });
     },
   });
 
@@ -427,8 +442,13 @@ export function AppUI() {
     [config?.subtitle]
   );
 
+  const clearBatchErrors = useCallback(() => {
+    setBatchErrors([]);
+  }, []);
+
   const handleProgressReset = useCallback(() => {
     clearLogs();
+    setBatchErrors([]);
 
     const { products, accounts, orders, warehouses } =
       computeTotalsFromConfig(generationConfig);
@@ -649,6 +669,7 @@ export function AppUI() {
                     generationConfig={generationConfig}
                     wsStatus={wsStatus}
                     batchErrors={batchErrors}
+                    clearBatchErrors={clearBatchErrors}
                   />
                 </div>
               </div>

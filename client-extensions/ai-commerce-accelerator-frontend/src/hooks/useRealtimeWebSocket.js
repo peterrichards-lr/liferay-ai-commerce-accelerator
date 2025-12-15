@@ -167,6 +167,7 @@ export default function useRealtimeWebSocket({
       let data;
       try {
         data = JSON.parse(event.data);
+        console.log('Raw WebSocket data received:', data);
       } catch {
         onLog?.('WebSocket received invalid JSON message.', 'error');
         logError('Invalid JSON message payload', event.data);
@@ -265,24 +266,26 @@ export default function useRealtimeWebSocket({
           onLog?.(`Batch progress ${tag(entityType, bId, op)}`, 'info');
 
           if (
-            (op === 'process-images' || op === 'process-attachments') &&
+            (op === 'process-images' ||
+              op === 'process-attachments' ||
+              entityType === 'warehouses') &&
             onProgress
           ) {
             onProgress((prev) => {
               const cur = prev?.[entityType] || {
-                total: 0,
+                total: data.totalItems || 0,
                 completed: 0,
                 errors: [],
               };
-              const nextCompleted = cur.completed + (data.processedCount ?? 0);
+              const nextCompleted = data.completedCount ?? cur.completed;
               return {
                 ...prev,
                 [entityType]: {
                   ...cur,
-                  total: cur.total || 0,
+                  total: data.totalItems || cur.total,
                   completed: Math.min(
                     nextCompleted,
-                    cur.total || Infinity
+                    data.totalItems || cur.total || Infinity
                   ),
                 },
               };
@@ -362,6 +365,14 @@ export default function useRealtimeWebSocket({
             'error'
           );
 
+          if (onBatchErrorDetails) {
+            onBatchErrorDetails({
+              batchId: bId,
+              importTask: { errorMessage: data.details?.error },
+              errorReport: data.details?.errors,
+            });
+          }
+
           if (
             (op === 'generate' ||
               op === 'process-images' ||
@@ -431,6 +442,14 @@ export default function useRealtimeWebSocket({
             ? `Error: ${errorMessage} (Ref: ${errorRef})`
             : `Error: ${errorMessage}`;
           onLog?.(message, 'error');
+
+          if (data.batchId && onBatchErrorDetails) {
+            onBatchErrorDetails({
+              batchId: data.batchId,
+              importTask: { errorMessage: data?.details?.message },
+              errorReport: data?.details?.errors,
+            });
+          }
           break;
         }
 
