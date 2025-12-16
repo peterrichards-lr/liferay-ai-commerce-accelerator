@@ -10,7 +10,7 @@ liferay-ai-commerce-accelerator-microservice-oauth-application-headless-server:
         - Liferay.Headless.Admin.User.everything
         - Liferay.Headless.Batch.Engine.everything.read
         - Liferay.Headless.Commerce.Admin.Catalog.everything
-        - Liferay.Headless.Commerce.Admin.Channel.everything.read
+        - Liferay.Headless.Commerce.Admin.Channel.everything
         - Liferay.Headless.Commerce.Admin.Inventory.everything
         - Liferay.Headless.Commerce.Admin.Order.everything
         - Liferay.Headless.Commerce.Admin.Pricing.everything

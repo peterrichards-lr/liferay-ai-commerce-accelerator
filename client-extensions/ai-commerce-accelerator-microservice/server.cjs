@@ -2,7 +2,7 @@ const { logger } = require('./utils/logger.cjs');
 
 const { connectionSchema } = require('./utils/schemas.cjs');
 const { ENV } = require('./utils/constants.cjs');
-const wsBus = require('./services/wsBus.cjs');
+const { createWebSocketService } = require('./services/webSocketService.cjs');
 
 const { lookupConfig, lxcConfig } = require('@rotty3000/config-node');
 
@@ -32,7 +32,7 @@ const server = http.createServer(app);
 
 let ws;
 try {
-  ws = wsBus.init(server, logger);
+  ws = createWebSocketService({ server, logger });
 } catch (error) {
   logger.errorWithStack(error, {
     operation: 'websocket-init',

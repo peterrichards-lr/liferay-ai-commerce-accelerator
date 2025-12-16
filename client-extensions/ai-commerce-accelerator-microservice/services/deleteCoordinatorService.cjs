@@ -470,7 +470,7 @@ class DeleteCoordinatorService {
     });
 
     if (existingProducts?.items?.length > 0) {
-      const products = await liferay.deleteCommerceProducts(
+      const products = await liferay.deleteAllCommerceProducts(
         config,
         { ...baseOpts, callbackBatchERC: batchERC },
         `${callbackUrl}&entity=products`

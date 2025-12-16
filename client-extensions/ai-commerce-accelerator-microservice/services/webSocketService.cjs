@@ -944,7 +944,70 @@ function createWebSocketService({
   const clientCount = () => clients.size || 0;
   const totalClients = () => clientCount();
 
-  return {
+  const metrics = { sent: 0, failed: 0 };
+
+  function getMetrics() {
+    return { ...metrics };
+  }
+
+  function resetMetrics() {
+    metrics.sent = 0;
+    metrics.failed = 0;
+  }
+
+  function wrapEmitters(service, logger) {
+    const names = [
+      'emitBatchStarted',
+      'emitBatchProgress',
+      'emitBatchCompleted',
+      'emitBatchFailed',
+      'emitSessionCompleted',
+      'emitPostProcessingStarted',
+      'emitPostProcessingCompleted',
+    ];
+
+    const accumulate = (stats) => {
+      if (!stats) return;
+      if (Number.isFinite(stats.sent)) metrics.sent += stats.sent;
+      else if (Number.isFinite(stats.ok)) metrics.sent += stats.ok;
+
+      if (Number.isFinite(stats.failed)) metrics.failed += stats.failed;
+      else if (Number.isFinite(stats.fail)) metrics.failed += stats.fail;
+    };
+
+    names.forEach((name) => {
+      if (!service || typeof service[name] !== 'function') return;
+      const orig = service[name].bind(service);
+
+      service[name] = (payload, opts) => {
+        try {
+          const r = orig(payload, opts);
+          if (r && typeof r.then === 'function') {
+            return r
+              .then((res) => {
+                accumulate(res);
+                return res;
+              })
+              .catch((err) => {
+                metrics.failed += 1;
+                if (logger?.error)
+                  logger.error(`WS emit failed (${name})`, err);
+                throw err;
+              });
+          }
+
+          accumulate(r);
+          return r;
+        } catch (err) {
+          metrics.failed += 1;
+          if (logger?.error) logger.error(`WS emit failed (${name})`, err);
+          throw err;
+        }
+      };
+    });
+  }
+
+  const service = {
     clientCount,
     totalClients,
     emitBatchStarted,
@@ -962,7 +1025,13 @@ function createWebSocketService({
     stop,
     applyWsConfig,
     refreshWsConfigFromRemote,
+    getMetrics,
+    resetMetrics,
   };
+
+  wrapEmitters(service, logger);
+
+  return service;
 }
 
 module.exports = { createWebSocketService };

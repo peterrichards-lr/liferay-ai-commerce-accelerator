@@ -25,6 +25,34 @@ The application now supports configurable exclude lists for products, accounts, 
 -   **New Configuration Panel:** A new **Exclude Lists** panel is available in the **AI Commerce Accelerator Configuration** screen.
 -   **How it Works:** In this panel, you can provide a JSON object containing arrays for `excludedProducts`, `excludedAccounts`, and `excludedWarehouses`. Each item in the arrays is an object that can specify an exclusion by `entityId`, `erc` (External Reference Code), or `name`. The microservice will use these lists to filter out the specified items from any queries.
 
+## Deployment
+
+To ensure that the application functions correctly, it is critical to deploy all client extensions to your Liferay instance. This is especially important for the `ai-commerce-accelerator-batch` extension, which contains the necessary data definitions for the Liferay Objects used by the accelerator.
+
+### Full Deployment
+
+To perform a full, clean deployment of all client extensions, run the following command from the root of the project:
+
+```bash
+blade gw clean deploy
+```
+
+This command will build all the client extensions and deploy them to your Liferay instance.
+
+### `generateBatchFiles` Task
+
+This project includes a Gradle task called `generateBatchFiles` that automatically creates batch files for AI schemas and prompts. These generated files are placed in the `client-extensions/ai-commerce-accelerator-batch/batch/` directory and are then deployed to Liferay as part of the `ai-commerce-accelerator-batch` client extension.
+
+**Important:** The `ai-schemas` and `prompts` located in the `ai-commerce-accelerator-microservice` project are the single source of truth. If you need to make changes to the schemas or prompts, you should edit the files in these directories. The `generateBatchFiles` task will automatically update the batch files in the `ai-commerce-accelerator-batch` project when you build and deploy the project. You should not edit the batch files in `ai-commerce-accelerator-batch/batch/` directly, as your changes will be overwritten.
+
+### Microservice-Only Deployment
+
+For development purposes, you can deploy and run the microservice independently. However, be aware that this will not deploy the other client extensions, and you may encounter errors if the object definitions in your Liferay instance are not up-to-date.
+
+```bash
+(rm -f client-extensions/ai-commerce-accelerator-microservice/logs/*.log || true) && blade gw :client-extensions:ai-commerce-accelerator-microservice:clean :client-extensions:ai-commerce-accelerator-microservice:deploy :client-extensions:ai-commerce-accelerator-microservice:packageRunDebug
+```
+
 ## Features
 
 ### AI Model Options Configuration
@@ -104,5 +132,20 @@ The microservice now supports batch creation of warehouses, enabling more effici
     *   **Corrected Selective Deletion:** The "Selective Delete" functionality has been fixed to prevent the accidental deletion of all specifications, options, and option categories. The process now correctly identifies and deletes only the entities related to the deleted products.
 
 ### Export/Import Commerce Data
+
+### Recent Improvements
+
+This version includes several critical reliability improvements and bug fixes:
+
+*   **Product Deletion Reliability:** The "Delete All" operation has been fixed to ensure products are reliably deleted on the first attempt, resolving an issue where the underlying function was not fully implemented.
+*   **Demo Data Generation:** Addressed bugs in demo mode to ensure that:
+    *   Product options (e.g., color, size) are now correctly linked to newly created products.
+    *   Newly created accounts now include a mock postal address.
+*   **Robust Price List Handling:**
+    *   **Deletion Reliability:** Fixed an issue where system-required price lists (e.g., "Master Base Price List") were unintentionally targeted for deletion, causing failures in the chained deletion process. The system now correctly identifies and excludes these protected lists.
+    *   **Catalog Association:** Corrected the process of associating price lists with catalogs. Previously, attempts to link a price list resulted in an error due to an incorrect API call targeting channels instead of catalogs. Price lists are now correctly linked to their respective catalogs via the Price List API.
+    *   **Race Condition Mitigation:** Introduced a short delay during price list creation to prevent race conditions that led to `404 NOT_FOUND` errors when immediately adding price entries. This ensures price lists are fully persisted before subsequent operations.
+*   **Enhanced Deletion Process:**
+    *   **Accurate Error Reporting:** Improved the batch deletion callback mechanism to ensure the correct entity type is identified even during recovery from failures. This prevents "unknown" entity type errors in logs and provides more accurate error reporting to the frontend.
 
 A new feature has been added to allow users to export generated commerce data to a JSON file and import it back into the application.

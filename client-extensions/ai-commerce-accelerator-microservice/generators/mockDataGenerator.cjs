@@ -25,6 +25,24 @@ class MockDataGenerator {
     this.schemas = {};
     this._loadAndCompileSchemas();
     this.loadConfigurationData();
+
+    this._countriesAndRegions = [
+      { country: 'US', region: 'CA', city: 'Los Angeles', zip: '90001' },
+      { country: 'US', region: 'NY', city: 'New York', zip: '10001' },
+      { country: 'US', region: 'TX', city: 'Houston', zip: '77001' },
+      { country: 'GB', region: 'ENG', city: 'London', zip: 'SW1A 0AA' },
+      { country: 'FR', region: 'IDF', city: 'Paris', zip: '75001' },
+      { country: 'DE', region: 'BY', city: 'Munich', zip: '80331' },
+      { country: 'AU', region: 'NSW', city: 'Sydney', zip: '2000' },
+      { country: 'JP', region: 'Kanto', city: 'Tokyo', zip: '100-0001' },
+      { country: 'BR', region: 'SP', city: 'Sao Paulo', zip: '01000-000' },
+      { country: 'IN', region: 'MH', city: 'Mumbai', zip: '400001' },
+      { country: 'CA', region: 'ON', city: 'Toronto', zip: 'M5A 1A1' },
+      { country: 'MX', region: 'CMX', city: 'Mexico City', zip: '01000' },
+      { country: 'ZA', region: 'GT', city: 'Johannesburg', zip: '2000' },
+      { country: 'AE', region: 'DU', city: 'Dubai', zip: '00000' },
+      { country: 'SG', region: 'SG', city: 'Singapore', zip: '018956' },
+    ];
   }
 
   _loadSchema(schemaName) {
@@ -362,6 +380,7 @@ class MockDataGenerator {
         Array.isArray(data.options) &&
         data.options.length > 0
       ) {
+        productData.options = data.options;
         productData.skuVariants = this.generateSkuVariants(
           sku,
           data.options,
@@ -497,8 +516,26 @@ class MockDataGenerator {
               type: 'email-address',
             },
           ],
-          domains: [accountDomain],
+          postalAddresses: [
+            {
+              addressCountry: location.country,
+              addressRegion: location.region,
+              addressLocality: location.city,
+              postalCode: location.zip,
+              streetAddressLine1: `${100 + i} Main St`,
+              primary: true,
+              addressType: 'billing',
+            },
+          ],
+          webUrls: [
+            {
+              url: `http://${accountDomain}`,
+              urlType: 'Website',
+              primary: false,
+            },
+          ],
         },
+        domains: [accountDomain],
       };
       accounts.push(account);
     }
@@ -588,15 +625,16 @@ class MockDataGenerator {
     const warehouses = [];
 
     for (let i = 0; i < count; i++) {
+      const selectedLocation = this._countriesAndRegions[i % this._countriesAndRegions.length];
       const warehouse = {
         id: Math.floor(Math.random() * 10000),
         name: `Warehouse ${i + 1}`,
         externalReferenceCode: createERC(ERC_PREFIX.WAREHOUSE),
-        country: 'US',
-        region: 'CA',
-        city: 'Los Angeles',
+        country: selectedLocation.country,
+        region: selectedLocation.region,
+        city: selectedLocation.city,
         street1: `${100 + i} Main Street`,
-        zip: `${90000 + i}`,
+        zip: selectedLocation.zip,
         latitude: Math.random() * 180 - 90,
         longitude: Math.random() * 360 - 180,
       };

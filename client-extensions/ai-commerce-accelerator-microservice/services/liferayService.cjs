@@ -558,6 +558,15 @@ class LiferayService {
     return this._asItems(data);
   }
 
+  async getCatalog(config, catalogId) {
+    const data = await this._get(
+      config,
+      PATH.CATALOG(catalogId),
+      'get-catalog'
+    );
+    return data;
+  }
+
   async getChannels(config) {
     const data = await this._get(config, PATH.CHANNELS, 'get-channels');
     return this._asItems(data);
@@ -1221,8 +1230,36 @@ class LiferayService {
     return data;
   }
 
+
+
+  async getAccountByERC(config, externalReferenceCode) {
+    try {
+      return await this._get(
+        config,
+        PATH.ACCOUNT_BY_ERC(externalReferenceCode),
+        'get-account-by-erc'
+      );
+    } catch (error) {
+      if (error.response?.status === 404) return null;
+      throw new Error(`Failed to get account by ERC: ${error.message}`);
+    }
+  }
+
+  async createAccountAddress(config, accountId, addressData) {
+    return await this._post(
+      config,
+      PATH.ACCOUNT_ADDRESSES(accountId),
+      addressData,
+      'create-account-address',
+      'Failed to create account address'
+    );
+  }
+
   async createAccountsBatch(config, accountsData, callbackUrl, opts = {}) {
     const { logger, cache, configService } = this.ctx;
+
+    logger.debug('accountsData in createAccountsBatch', { accountsData });
+
     const erc =
       opts.externalReferenceCode ?? createERC(ERC_PREFIX.ACCOUNT_BATCH);
     const itemERCs = (accountsData || []).map((i) =>
@@ -1444,7 +1481,7 @@ class LiferayService {
 
   async getPriceLists(
     config,
-    { search, pageSize = 200, fields = 'id,name,externalReferenceCode' } = {}
+    { search, pageSize = 200, fields = 'id,name,externalReferenceCode', filter } = {}
   ) {
     const { configService, logger } = this.ctx;
     const excludeLists = await configService.getExcludeLists(config);
@@ -1455,23 +1492,12 @@ class LiferayService {
     const params = new URLSearchParams();
     const filters = [];
 
-    if (search) {
-      filters.push(`name like '%${search}%'`);
+    if (filter) {
+      filters.push(filter);
     }
 
-    const excludedIds = [];
-    if (excludedPriceLists.length > 0) {
-      excludedPriceLists.forEach((exclusion) => {
-        if (exclusion.entityId) {
-          excludedIds.push(exclusion.entityId);
-        }
-        if (exclusion.erc) {
-          filters.push(`externalReferenceCode ne '${exclusion.erc}'`);
-        }
-        if (exclusion.name) {
-          filters.push(`name ne '${exclusion.name}'`);
-        }
-      });
+    if (search) {
+      filters.push(`name like '%${search}%'`);
     }
 
     if (filters.length > 0) {
@@ -1490,20 +1516,32 @@ class LiferayService {
       'List price lists'
     );
 
-    const allPriceListsItems = this._asItems(allPriceLists);
+    let allPriceListsItems = this._asItems(allPriceLists);
 
-    if (excludedIds.length === 0) {
-      return allPriceLists;
+    if (excludedPriceLists.length > 0) {
+      allPriceListsItems = allPriceListsItems.filter((priceList) => {
+        return !excludedPriceLists.some((exclusion) => {
+          if (exclusion.entityId && priceList.id === exclusion.entityId) {
+            return true;
+          }
+          if (
+            exclusion.erc &&
+            priceList.externalReferenceCode === exclusion.erc
+          ) {
+            return true;
+          }
+          if (exclusion.name && priceList.name === exclusion.name) {
+            return true;
+          }
+          return false;
+        });
+      });
     }
-
-    const filteredPriceLists = allPriceListsItems.filter(
-      (pl) => !excludedIds.includes(pl.id)
-    );
 
     return {
       ...allPriceLists,
-      items: filteredPriceLists,
-      totalCount: filteredPriceLists.length,
+      items: allPriceListsItems,
+      totalCount: allPriceListsItems.length,
     };
   }
 
@@ -1520,7 +1558,7 @@ class LiferayService {
     callbackUrl
   ) {
     const { logger } = this.ctx;
-    const priceLists = await this.getPriceLists(config, { pageSize });
+    const priceLists = await this.getPriceLists(config, { pageSize, filter });
     const priceListIds = this._asItems(priceLists).map((pl) => pl.id);
 
     logger.info('Price lists to be deleted', { priceListIds });
@@ -1808,11 +1846,15 @@ class LiferayService {
       return await this.createOptionValue(config, optionId, payload);
     } catch (e) {
       const msg = String(e?.message || '').toLowerCase();
+      const problemTitle = String(e?.problem?.title || '').toLowerCase();
+
       const isConflict =
         e?.status === 409 ||
         e?.problem?.status === 'CONFLICT' ||
         msg.includes('409') ||
-        msg.includes('conflict');
+        msg.includes('conflict') ||
+        problemTitle.includes('duplicate key');
+
       if (!isConflict) throw e;
 
       let existing = null;
@@ -1988,7 +2030,8 @@ class LiferayService {
       typeof payload.optionCategory === 'object' &&
       payload.optionCategory !== null
     ) {
-      const { id, key, externalReferenceCode } = payload.optionCategory;
+      const { id, key, externalReferenceCode, title } =
+        payload.optionCategory;
 
       if (id || key || externalReferenceCode || title) {
         const newOptionCategory = {};
@@ -2080,31 +2123,36 @@ class LiferayService {
       if (typeof this.updateSpecificationByERC === 'function') {
         try {
           if (desiredId && desiredId !== currentId) {
-            await this.updateSpecificationByERC(
-              config,
-              erc || existing.externalReferenceCode,
-              {
-                optionCategory: { id: desiredId },
-              }
-            );
-            existing.optionCategory = {
-              ...(existing.optionCategory || {}),
-              id: desiredId,
-            };
-          } else if (!desiredId && desiredErc && desiredErc !== currentErc) {
-            await this.updateSpecificationByERC(
-              config,
-              erc || existing.externalReferenceCode,
-              {
-                optionCategory: { externalReferenceCode: desiredErc },
-              }
-            );
-            existing.optionCategory = {
-              ...(existing.optionCategory || {}),
-              externalReferenceCode: desiredErc,
-            };
-          }
-        } catch {}
+                          await this.updateSpecificationByERC(
+                            config,
+                            erc || existing.externalReferenceCode,
+                            {
+                              optionCategory: {
+                                id: desiredId,
+                                title: desired.optionCategory.title,
+                              },
+                            }
+                          );
+                          existing.optionCategory = {
+                            ...(existing.optionCategory || {}),
+                            id: desiredId,
+                          };
+                        } else if (!desiredId && desiredErc && desiredErc !== currentErc) {
+                          await this.updateSpecificationByERC(
+                            config,
+                            erc || existing.externalReferenceCode,
+                            {
+                              optionCategory: {
+                                externalReferenceCode: desiredErc,
+                                title: desired.optionCategory.title,
+                              },
+                            }
+                          );
+                          existing.optionCategory = {
+                            ...(existing.optionCategory || {}),
+                            externalReferenceCode: desiredErc,
+                          };
+                        }        } catch {}
       }
       return existing;
     }
@@ -2819,15 +2867,17 @@ class LiferayService {
     return data;
   }
 
-  async assignPriceListToChannel(config, { priceListId, channelId }) {
-    return this._patch(
+  async updatePriceListCatalog(config, priceListId, catalogId) {
+    return await this._patch(
       config,
-      PATH.CHANNEL(channelId),
-      { priceListId },
-      'assign-price-list-to-channel',
-      'Failed to assign price list to channel'
+      PATH.PRICE_LIST(priceListId),
+      { catalogId: catalogId },
+      'update-price-list-catalog',
+      'Failed to update price list catalog'
     );
   }
+
+
 
   async deleteCommerceProducts(
     config,
@@ -2922,8 +2972,45 @@ class LiferayService {
       fields: 'productId',
       idKey: 'productId',
       op: 'products:list',
-      friendly: 'List products',
+      friendly: 'List all products for deletion',
     });
+
+    if (productIds.length === 0) {
+      return { total: 0, batches: 0, submitted: 0, batchRefs: [] };
+    }
+
+    const effectiveCallbackUrl = optionsCallbackUrl || callbackUrl || null;
+    const batchERC =
+      callbackBatchERC && String(callbackBatchERC).trim()
+        ? String(callbackBatchERC)
+        : createERC(ERC_PREFIX.PRODUCT_BATCH);
+
+    const taggedCallback = effectiveCallbackUrl
+      ? this._buildCallbackURL(effectiveCallbackUrl, {
+          entity: 'products',
+          op: 'delete',
+          batchERC,
+          sessionId,
+        })
+      : null;
+
+    const batchUrl =
+      taggedCallback && PATH.PRODUCTS_BATCH
+        ? PATH.PRODUCTS_BATCH(taggedCallback)
+        : PATH.PRODUCTS_BATCH?.(taggedCallback) || `${PATH.PRODUCTS}/batch`;
+
+    const res = await this._deleteByBatch(config, {
+      batchUrl,
+      ids: productIds,
+      idProp: 'productId',
+      batchSize: config.batchSize,
+      dryRun,
+      op: 'products:batch-delete',
+      friendly: 'Delete all products (batch)',
+    });
+    res.batchRefs = (res.batchRefs || []).map((r) => ({ ...r, erc: batchERC }));
+    return res;
+  }
 
     logger.debug('Found products to delete', {
       count: productIds.length,

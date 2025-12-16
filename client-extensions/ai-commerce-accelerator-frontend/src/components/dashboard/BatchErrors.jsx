@@ -49,7 +49,16 @@ function BatchErrors({ batchErrors, clearBatchErrors }) {
                   {error.errorReport.map((item, itemIndex) => (
                     <tr key={item?.itemIndex ?? itemIndex}>
                       <td>{item?.itemIndex}</td>
-                      <td>{item?.item && JSON.parse(item.item)?.id}</td>
+                      <td>
+                        {item?.item &&
+                          (() => {
+                            try {
+                              return JSON.parse(item.item)?.id;
+                            } catch (e) {
+                              return item.item;
+                            }
+                          })()}
+                      </td>
                       <td>{item?.message}</td>
                     </tr>
                   ))}

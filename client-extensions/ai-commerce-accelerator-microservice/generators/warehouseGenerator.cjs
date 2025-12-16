@@ -1,6 +1,12 @@
-const { createERC, toI18n, resolvePhaseAndMode } = require('../utils/misc.cjs');
+const {
+  createERC,
+  toI18n,
+  resolvePhaseAndMode,
+  now,
+  isoNow,
+} = require('../utils/misc.cjs');
 const { ERC_PREFIX } = require('../utils/constants.cjs');
-const { getBatchCacheTTLms } = require('../utils/ttl.cjs');
+const { getBatchCacheTTLms, getLongLivedTTLms } = require('../utils/ttl.cjs');
 
 class WarehouseGenerator {
   constructor(ctx) {
@@ -57,6 +63,26 @@ class WarehouseGenerator {
 
     if (useBatch) {
       const batchERC = createERC(ERC_PREFIX.WAREHOUSE_BATCH);
+
+      const startedAt = now();
+      cache.set(
+        `erc:${batchERC}:config`,
+        {
+          correlationId,
+          clientId: config.clientId,
+          clientSecret: config.clientSecret,
+          createdAt: isoNow(),
+          startedAt,
+          entityType,
+          liferayUrl: config.liferayUrl,
+          localeCode: config.localeCode,
+          operation,
+          mode,
+          sessionId,
+        },
+        getLongLivedTTLms(this.ctx.configService)
+      );
+
       logger.info('Starting batch warehouse creation', {
         correlationId,
         operation: 'warehouses/generate:start',

@@ -121,7 +121,7 @@ class AccountGenerator {
         );
       }
 
-      accountDataList = accountDataList.map((raw) => {
+      const accountsWithAddresses = accountDataList.map((raw) => {
         const account = { ...raw };
 
         if (
@@ -169,19 +169,37 @@ class AccountGenerator {
 
         delete account.businessAccounts;
         delete account.businessAccountsERC;
+
+        account.billingAddress =
+          account.billingAddress || this._generateAddress('billing');
+        account.shippingAddress =
+          account.shippingAddress || this._generateAddress('shipping');
+
         return account;
       });
 
-      this.ctx.cache.set('generated-data:accounts', accountDataList);
+      this.ctx.cache.set(
+        'generated-data:accounts',
+        accountsWithAddresses,
+        getLongLivedTTLms(configService)
+      );
 
       if (useBatch) {
+
+        const accountsForBatch = accountsWithAddresses.map(account => {
+          const { billingAddress, shippingAddress, ...rest } = account;
+          return rest;
+        });
+
+        logger.debug('accountsForBatch', { accountsForBatch });
+
         const callbackUrl =
           config.microserviceUrl && config.microserviceUrl !== 'null'
             ? `${config.microserviceUrl}/api/batch/callback`
             : null;
         const accountBatches = [];
-        for (let i = 0; i < accountDataList.length; i += config.batchSize)
-          accountBatches.push(accountDataList.slice(i, i + config.batchSize));
+        for (let i = 0; i < accountsForBatch.length; i += config.batchSize)
+          accountBatches.push(accountsForBatch.slice(i, i + config.batchSize));
         const batchIds = [];
 
         for (
@@ -399,7 +417,7 @@ class AccountGenerator {
   }
 
   async generateAccountsIndividually(config, options, accountDataList) {
-    const { logger, ws, configService, cache } = this.ctx;
+    const { logger, ws, configService, cache, liferay } = this.ctx;
     const { mode, phase } = resolvePhaseAndMode({
       useBatch: false,
       phase: 'generate',
@@ -430,10 +448,30 @@ class AccountGenerator {
     for (let i = 0; i < accountDataList.length; i++) {
       const accountData = accountDataList[i];
       try {
-        const createdAccount = await this.createSingleAccount(
+        
+        const { billingAddress, shippingAddress, ...account } = accountData;
+
+        const createdAccount = await liferay.createAccount(
           config,
-          accountData
+          account
         );
+        
+        if (billingAddress) {
+          await liferay.createAccountAddress(
+            config,
+            createdAccount.id,
+            { ...billingAddress, primary: true, addressType: 'billing' }
+          );
+        }
+
+        if (shippingAddress) {
+          await liferay.createAccountAddress(
+            config,
+            createdAccount.id,
+            { ...shippingAddress, primary: true, addressType: 'shipping' }
+          );
+        }
+        
         generatedAccounts.push(createdAccount);
 
         const processed = i + 1;
@@ -498,53 +536,18 @@ class AccountGenerator {
     };
   }
 
-  async createSingleAccount(config, accountData) {
-    const { logger, liferay } = this.ctx;
-    try {
-      const liferayAccount = {
-        name: accountData.name || `Generated Company ${randomString()}`,
-        description: accountData.description || 'AI generated business account',
-        type: accountData.type || 'business',
-        externalReferenceCode:
-          accountData.externalReferenceCode || createERC(ERC_PREFIX.ACCOUNT),
-        taxId: accountData.taxId || this.generateTaxId(),
-      };
 
-      if (accountData.accountContactInformation) {
-        liferayAccount.accountContactInformation =
-          accountData.accountContactInformation;
-      }
 
-      const createdAccount = await liferay.createAccount(
-        config,
-        liferayAccount
-      );
-
-      logger.info('Account created successfully', {
-        correlationId: config.correlationId,
-        operation: 'accounts/create:success',
-        accountId: createdAccount.id,
-        accountName: createdAccount.name,
-      });
-
-      return createdAccount;
-    } catch (error) {
-      logger.error('Failed to create account', {
-        correlationId: config.correlationId,
-        operation: 'accounts/create:error',
-        error: error.message,
-        accountName: accountData.name || 'unknown',
-      });
-      throw error;
-    }
-  }
-
-  handleBatchComplete(results, config) {
-    const { logger, ws, cache } = this.ctx;
+  async handleBatchComplete(results, pollConfig) {
+    const { logger, ws, cache, liferay } = this.ctx;
     const { mode, phase } = resolvePhaseAndMode({
       useBatch: true,
       phase: 'complete',
     });
+
+    const batchERC = (cache.get(`batch:${results.batchId}:erc`) || {})
+      .externalReferenceCode;
+    const config = cache.get(`erc:${batchERC}:config`) || pollConfig;
 
     logger.info('Handling account batch completion', {
       operation: 'accounts/batch:complete',
@@ -553,6 +556,43 @@ class AccountGenerator {
       processedCount: results.processedCount,
       totalCount: results.totalCount,
     });
+
+    const accountsWithAddresses = cache.get('generated-data:accounts');
+    const itemERCs = cache.get(`erc:${batchERC}:itemERCs`);
+
+    if (accountsWithAddresses && itemERCs) {
+      for (const erc of itemERCs) {
+        try {
+          const accountData = accountsWithAddresses.find(
+            (acc) => acc.externalReferenceCode === erc
+          );
+          if (accountData) {
+            const account = await liferay.getAccountByERC(config, erc);
+            if (account) {
+              if (accountData.billingAddress) {
+                await liferay.createAccountAddress(config, account.id, {
+                  ...accountData.billingAddress,
+                  primary: true,
+                  addressType: 'billing',
+                });
+              }
+              if (accountData.shippingAddress) {
+                await liferay.createAccountAddress(config, account.id, {
+                  ...accountData.shippingAddress,
+                  primary: true,
+                  addressType: 'shipping',
+                });
+              }
+            }
+          }
+        } catch (error) {
+          logger.error('Failed to create address for account', {
+            erc,
+            error: error.message,
+          });
+        }
+      }
+    }
 
     const content = results.content;
     let successCount = 0;
@@ -585,8 +625,7 @@ class AccountGenerator {
         operation: 'generate',
         mode,
         phase,
-        externalReferenceCode: (cache.get(`batch:${results.batchId}:erc`) || {})
-          .externalReferenceCode,
+        externalReferenceCode: batchERC,
       },
       { correlationId: config.correlationId }
     );
@@ -620,6 +659,29 @@ class AccountGenerator {
     const firstTwo = Math.floor(Math.random() * 99) + 1;
     const lastSeven = Math.floor(Math.random() * 8999999) + 1000000;
     return `${firstTwo.toString().padStart(2, '0')}-${lastSeven}`;
+  }
+
+  _generateAddress(addressType) {
+    const streetNumber = Math.floor(Math.random() * 999) + 1;
+    const streetName = randomString(8);
+    const streetType = ['Street', 'Avenue', 'Road', 'Lane'][
+      Math.floor(Math.random() * 4)
+    ];
+    const city = randomString(6);
+    const state = randomString(2).toUpperCase();
+    const postalCode = `${Math.floor(Math.random() * 99999) + 10000}`;
+    const country = randomString(2).toUpperCase();
+
+    return {
+      streetAddressLine1: `${streetNumber} ${streetName} ${streetType}`,
+      city,
+      addressRegion: state,
+      postalCode,
+      addressCountry: country,
+      addressType,
+      primary: true,
+      externalReferenceCode: createERC(ERC_PREFIX.ADDRESS),
+    };
   }
 
   async getExistingAccounts(config) {

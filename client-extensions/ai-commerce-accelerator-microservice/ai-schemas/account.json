@@ -72,7 +72,46 @@
               }
             },
             "required": ["emailAddresses"]
+          },
+          "billingAddress": {
+            "description": "The billing address for the account.",
+            "type": "object",
+            "properties": {
+              "additionalAddressInformation": { "type": "string" },
+              "city": { "type": "string" },
+              "country": { "type": "string" },
+              "externalReferenceCode": { "type": "string" },
+              "latitude": { "type": "number", "format": "double" },
+              "longitude": { "type": "number", "format": "double" },
+              "postalCode": { "type": "string" },
+              "primary": { "type": "boolean" },
+              "state": { "type": "string" },
+              "street1": { "type": "string" },
+              "street2": { "type": "string" },
+              "type": { "type": "string" }
+            },
+            "required": ["street1", "city", "state", "postalCode", "country", "type"]
+          },
+          "shippingAddress": {
+            "description": "The shipping address for the account.",
+            "type": "object",
+            "properties": {
+              "additionalAddressInformation": { "type": "string" },
+              "city": { "type": "string" },
+              "country": { "type": "string" },
+              "externalReferenceCode": { "type": "string" },
+              "latitude": { "type": "number", "format": "double" },
+              "longitude": { "type": "number", "format": "double" },
+              "postalCode": { "type": "string" },
+              "primary": { "type": "boolean" },
+              "state": { "type": "string" },
+              "street1": { "type": "string" },
+              "street2": { "type": "string" },
+              "type": { "type": "string" }
+            },
+            "required": ["street1", "city", "state", "postalCode", "country", "type"]
           }
+
         },
         "required": [
           "name",

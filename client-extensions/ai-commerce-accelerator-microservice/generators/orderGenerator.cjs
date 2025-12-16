@@ -125,10 +125,12 @@ class OrderGenerator {
         skuExternalReferenceCode: sku.sku,
         quantity: Math.floor(Math.random() * 3) + 1,
         warehouseId: warehouse ? warehouse.id : undefined,
+        unitPrice: sku.price,
       });
       logger.debug('Added order item', {
         sku: sku.sku,
         quantity: orderItems[orderItems.length - 1].quantity,
+        unitPrice: sku.price,
         purchasable: sku.purchasable,
         productStatus: sku.productStatus,
         published: sku.published,
@@ -235,8 +237,28 @@ class OrderGenerator {
           );
 
           const batchERC = createERC(ERC_PREFIX.ORDER_BATCH);
+
+          const startedAt = now();
+          cache.set(
+            `erc:${batchERC}:config`,
+            {
+              correlationId,
+              clientId: config.clientId,
+              clientSecret: config.clientSecret,
+              createdAt: isoNow(),
+              startedAt,
+              entityType: 'orders',
+              liferayUrl: config.liferayUrl,
+              localeCode: config.localeCode,
+              operation: 'generate',
+              mode,
+              phase,
+            },
+            getLongLivedTTLms(configService)
+          );
+
           const cbUrl = callbackUrl
-            ? `${callbackUrl}?batchERC=${encodeURIComponent(batchERC)}`
+            ? `${callbackUrl}?erc=${encodeURIComponent(batchERC)}`
             : null;
 
           let submission;
@@ -262,7 +284,6 @@ class OrderGenerator {
             throw e;
           }
 
-          const startedAt = now();
           cache.set(
             `erc:${batchERC}:batchId`,
             submission.batchId,
@@ -719,6 +740,7 @@ class OrderGenerator {
           operation: 'orders/dependencies:ready',
           products: products.length,
           accounts: accounts.length,
+          sampleProducts: products.slice(0, 3).map(p => ({ id: p.id, name: p.name, skus: p.skus?.length, sampleSku: p.skus?.[0] })),
         });
         return { products, accounts };
       } catch (error) {

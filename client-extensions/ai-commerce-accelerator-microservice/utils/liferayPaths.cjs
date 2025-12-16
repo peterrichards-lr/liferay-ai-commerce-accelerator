@@ -60,6 +60,7 @@ const PATH = {
 
   PRODUCTS: BASE.PRODUCTS,
   PRICE_LISTS: BASE.PRICE_LISTS,
+  PRICE_LIST: (priceListId) => `${BASE.PRICE_LISTS}/${priceListId}`,
   PRICE_LISTS_BATCH: (callbackURL) =>
     `${BASE.PRICE_LISTS}/batch${
       callbackURL ? `?callbackURL=${enc(callbackURL)}` : ''
@@ -119,8 +120,13 @@ const PATH = {
     }`,
 
   ACCOUNTS: BASE.ACCOUNTS,
+  ACCOUNT_BY_ERC: (externalReferenceCode) =>
+    `/o/headless-admin-user/v1.0/accounts/by-external-reference-code/${externalReferenceCode}`,
+  ACCOUNT_ADDRESSES: (accountId) =>
+    `/o/headless-admin-user/v1.0/accounts/${accountId}/postal-addresses`,
   ACCOUNTS_BATCH: (callbackURL) =>
     `/o/headless-admin-user/v1.0/accounts/batch?callbackURL=${callbackURL}`,
+
 
   ORDERS: BASE.ORDERS,
   ORDERS_BATCH: (callbackURL) =>
@@ -129,6 +135,7 @@ const PATH = {
     }`,
 
   CATALOGS: BASE.CATALOGS,
+  CATALOG: (catalogId) => `${BASE.CATALOGS}/${catalogId}`,
   CHANNELS: BASE.CHANNELS,
   CHANNEL: (channelId) => `${BASE.CHANNELS}/${channelId}`,
   CURRENCIES: BASE.CURRENCIES,

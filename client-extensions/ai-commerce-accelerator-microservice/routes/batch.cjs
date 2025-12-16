@@ -30,6 +30,7 @@ function buildRecoveredConfig({
   task,
   correlationId,
   configService,
+  qsEntity,
 }) {
   const { pollInterval, maxPollAttempts } =
     getBatchPollingDefaults(configService);
@@ -39,7 +40,7 @@ function buildRecoveredConfig({
 
   return {
     correlationId,
-    entityType: inferEntityTypeFromClassName(task?.className) || 'unknown',
+    entityType: qsEntity || inferEntityTypeFromClassName(task?.className) || 'unknown',
     liferayUrl,
     localeCode: 'en-US',
     maxPollAttempts,
@@ -201,7 +202,7 @@ module.exports = (
     return { liferayUrl, task };
   };
 
-  const restoreConfig = async (batchId, correlationId) => {
+  const restoreConfig = async (batchId, correlationId, qsEntity) => {
     try {
       const { liferayUrl, task } = await getImportTask(batchId);
       const cfg = buildRecoveredConfig({
@@ -209,6 +210,7 @@ module.exports = (
         task,
         correlationId,
         configService,
+        qsEntity,
       });
       cacheService.set(
         `batch:${batchId}:config`,
@@ -383,7 +385,7 @@ module.exports = (
             batchERC: batchERC || 'n/a',
           });
 
-          let recovered = await restoreConfig(batchId, uuidv4());
+          let recovered = await restoreConfig(batchId, uuidv4(), qsEntity);
 
           if (!recovered && (batchERC || qsBatchERC)) {
             const ercKey = `erc:${batchERC || qsBatchERC}:config`;

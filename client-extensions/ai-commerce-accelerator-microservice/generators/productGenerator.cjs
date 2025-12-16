@@ -7,6 +7,8 @@ const {
   toI18n,
   buildOptionCategoryERC,
   buildSpecificationERC,
+  now,
+  isoNow,
 } = require('../utils/misc.cjs');
 const { ERC_PREFIX } = require('../utils/constants.cjs');
 const { sanitizedObject } = require('../utils/normalize.cjs');
@@ -15,6 +17,7 @@ const {
   getBatchCacheTTLms,
   getEphemeralTTLms,
   getSessionTTLms,
+  getLongLivedTTLms,
 } = require('../utils/ttl.cjs');
 
 const RETRY = { maxAttempts: 3, baseMs: 500, factor: 2 };
@@ -31,20 +34,20 @@ class ProductGenerator {
   async linkPriceListContext(config, priceList) {
     const { logger, liferay } = this.ctx;
     try {
-      if (config.channelId || config.channelERC) {
+      if (config.catalogId) {
         try {
-          await liferay.assignPriceListToChannel(config, {
-            priceListId: priceList.id,
-            channelId: config.channelId,
-            channelERC: config.channelERC,
-          });
+          await liferay.updatePriceListCatalog(
+            config,
+            priceList.id,
+            config.catalogId
+          );
           logger.trace(
-            `✓ Linked price list ${priceList.id} to channel ${
-              config.channelId || config.channelERC
+            `✓ Linked price list ${priceList.id} to catalog ${
+              config.catalogId
             }`
           );
         } catch (e) {
-          logger.warn(`Failed linking price list to channel: ${e.message}`);
+          logger.warn(`Failed linking price list to catalog: ${e.message}`);
         }
       }
 
@@ -462,10 +465,23 @@ class ProductGenerator {
           for (const co of catalogOptions) {
             catalogOptionsMap.set(co.name.en_US, co);
           }
+          logger.debug('Linking product options', {
+            productName: productData.name,
+            productCategory: productData.category,
+            productOptionsCount: productData.options?.length,
+            catalogOptionsCount: catalogOptions.length,
+            catalogOptionsMapKeys: Array.from(catalogOptionsMap.keys()),
+            productOptions: productData.options,
+          });
+
           liferayProduct.productOptions = productData.options
             .map((option) => {
               const catalogOption = catalogOptionsMap.get(option.name);
               if (catalogOption) {
+                logger.debug('Found matching catalog option', {
+                  productOptionName: option.name,
+                  catalogOptionId: catalogOption.id,
+                });
                 return {
                   optionId: catalogOption.id,
                   optionExternalReferenceCode:
@@ -475,6 +491,10 @@ class ProductGenerator {
                   skuContributor: catalogOption.skuContributor,
                 };
               }
+              logger.warn('No matching catalog option found', {
+                productOptionName: option.name,
+                catalogOptionsMapKeys: Array.from(catalogOptionsMap.keys()),
+              });
               return null;
             })
             .filter(Boolean);
@@ -697,6 +717,26 @@ class ProductGenerator {
         ) {
           const batch = productBatches[batchIndex];
           const batchERC = createERC(ERC_PREFIX.PRODUCT_BATCH);
+
+          const startedAt = now();
+          cache.set(
+            `erc:${batchERC}:config`,
+            {
+              correlationId: config.correlationId,
+              clientId: config.clientId,
+              clientSecret: config.clientSecret,
+              createdAt: isoNow(),
+              startedAt,
+              entityType: 'products',
+              liferayUrl: config.liferayUrl,
+              localeCode: config.localeCode,
+              operation: 'generate',
+              mode: 'batch',
+              sessionId,
+            },
+            getLongLivedTTLms(configService)
+          );
+
           logger.trace(
             `Submitting product batch [${batchERC}] ${batchIndex + 1}/${
               productBatches.length
@@ -731,7 +771,7 @@ class ProductGenerator {
               }
             }
           })();
-          const bid = result?.batchId != null ? String(result.batchId) : '';
+          const { batchId: bid, externalReferenceCode } = result || {};
           if (!bid) {
             logger.error('Batch API did not return a batchId', {
               entityType: 'products',
@@ -747,7 +787,6 @@ class ProductGenerator {
             });
             continue;
           }
-          const startedAt = Date.now();
           cache.set(
             `batch:${bid}:meta`,
             { startedAt, totalCount: batch.length, batchERC, sessionId },
@@ -950,6 +989,7 @@ class ProductGenerator {
                 operation: 'generate',
                 mode: 'batch',
                 affectsProgress: true,
+                externalReferenceCode,
               }
             );
           }
@@ -1509,6 +1549,16 @@ class ProductGenerator {
         logger.trace(
           `Created or reused option: ${option.name.en_US} (ID: ${option.id})`
         );
+        logger.debug('Created/Reused Option', {
+          category,
+          optionData,
+          option: {
+            id: option.id,
+            key: option.key,
+            name: option.name,
+            externalReferenceCode: option.externalReferenceCode,
+          },
+        });
         const optionValues = [];
         for (let i = 0; i < optionData.values.length; i++) {
           const values = Array.isArray(optionData.values)
@@ -1861,6 +1911,16 @@ class ProductGenerator {
                 optionCategory.title.en_US || optionCategory.key
               } (ID: ${optionCategory.id})`
             );
+            logger.debug('Created/Reused Option Category', {
+              category: category,
+              groupData: groupData,
+              optionCategory: {
+                id: optionCategory.id,
+                key: optionCategory.key,
+                title: optionCategory.title,
+                externalReferenceCode: optionCategory.externalReferenceCode,
+              },
+            });
             optionCategories[groupData.key] = optionCategory;
           } else {
             logger.warn(
@@ -1886,6 +1946,20 @@ class ProductGenerator {
 
           const linkedOptionCategory =
             optionCategories[resolveGroup(specData.group)];
+
+          logger.debug('Preparing Specification Payload', {
+            category,
+            specData,
+            linkedOptionCategory: linkedOptionCategory
+              ? {
+                  id: linkedOptionCategory.id,
+                  key: linkedOptionCategory.key,
+                  title: linkedOptionCategory.title,
+                  externalReferenceCode: linkedOptionCategory.externalReferenceCode,
+                }
+              : null,
+          });
+
           const specificationPayload = {
             key: `${category.toLowerCase()}-${specData.key}`,
             title: specTitle,
@@ -1911,6 +1985,17 @@ class ProductGenerator {
               specification.title?.en_US || specification.key
             } (ID: ${specification.id})`
           );
+          logger.debug('Created/Reused Specification', {
+            category,
+            specData,
+            specification: {
+              id: specification.id,
+              key: specification.key,
+              title: specification.title,
+              externalReferenceCode: specification.externalReferenceCode,
+              optionCategoryId: specification.optionCategoryId,
+            },
+          });
 
           if (linkedOptionCategory) {
             const desiredId = linkedOptionCategory.id;
@@ -1965,7 +2050,11 @@ class ProductGenerator {
         } catch (error) {
           logger.error(
             `Failed to process specification ${specData.title} for ${category}:`,
-            error
+            {
+              message: error.message,
+              stack: error.stack,
+              errors: error.errors,
+            }
           );
         }
       }
@@ -2352,6 +2441,12 @@ class ProductGenerator {
           .toString(36)
           .slice(2, 6)}`,
       });
+
+      // Add a short delay to allow Liferay to persist the new price list
+      await delay(1000); // 1 second delay
+
+      logger.info('Created price list object', { priceList });
+
       await this.linkPriceListContext(config, priceList);
       const pricingData = await ai.generatePricingData(
         products,
