@@ -137,6 +137,7 @@ The microservice now supports batch creation of warehouses, enabling more effici
 
 This version includes several critical reliability improvements and bug fixes:
 
+*   **Account Address Generation:** The generation of accounts in demo mode has been improved to correctly create and associate multiple address types. Accounts will now have a "Head Office" contact address, as well as separate, default billing and shipping addresses.
 *   **Product Deletion Reliability:** The "Delete All" operation has been fixed to ensure products are reliably deleted on the first attempt, resolving an issue where the underlying function was not fully implemented.
 *   **Demo Data Generation:** Addressed bugs in demo mode to ensure that:
     *   Product options (e.g., color, size) are now correctly linked to newly created products.

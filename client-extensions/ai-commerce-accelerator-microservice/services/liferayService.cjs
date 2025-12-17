@@ -1251,6 +1251,12 @@ class LiferayService {
     }
   }
 
+  async getCountries(config) {
+    const { logger } = this.ctx;
+    logger.warn('getCountries is not implemented');
+    return [];
+  }
+
   async createAccountAddress(config, accountId, addressData) {
     return await this._post(
       config,

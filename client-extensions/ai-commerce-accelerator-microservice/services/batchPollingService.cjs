@@ -269,7 +269,20 @@ class BatchPollingService {
   }
 
   async startPolling(batchId, config, options = {}) {
-    const { logger } = this.ctx;
+    const { logger, cache, configService } = this.ctx;
+
+    const { entityType, mode, affectsProgress, correlationId } = options;
+
+    cache.set(
+      `batch:${batchId}:config`,
+      {
+        correlationId: correlationId || config?.correlationId || 'unknown',
+        affectsProgress,
+        entityType,
+        mode,
+      },
+      getBatchCacheTTLms(configService)
+    );
 
     const ef = this._effectiveOptions(options);
     const {
@@ -280,10 +293,7 @@ class BatchPollingService {
       onStatusChange,
       onComplete,
       onError,
-      entityType,
       operation = 'unknown',
-      mode = 'unknown',
-      affectsProgress = true,
     } = ef;
 
     if (this.activePolls.has(batchId)) {
@@ -593,18 +603,14 @@ class BatchPollingService {
       getBatchCacheTTLms(configService)
     );
 
-    const submissionData = cache.get(`batch:${batchId}:submission`);
     const pollData = this.activePolls.get(batchId);
     const batchConfig = cache.get(`batch:${batchId}:config`);
+    const submissionData = cache.get(`batch:${batchId}:submission`);
 
     const resolvedCorrelationId =
       submissionData?.correlationId ||
       pollData?.correlationId ||
       batchConfig?.correlationId ||
-      cache.get(`batch:${batchId}:config`)?.correlationId ||
-      (batchConfig?.externalReferenceCode &&
-        cache.get(`erc:${batchConfig.externalReferenceCode}:config`)
-          ?.correlationId) ||
       'unknown';
 
     const totalCount = status.totalItemsCount || status.totalCount || 0;
@@ -612,12 +618,11 @@ class BatchPollingService {
       status.processedItemsCount || status.processedCount || 0;
     const errorCount = status.failedItems?.length || status.errorCount || 0;
 
-    const entityType =
-      pollData?.entityType || batchConfig?.entityType || 'products';
+    const entityType = pollData?.entityType || batchConfig?.entityType || 'products';
     const affectsProgress = pollData?.affectsProgress ?? true;
     const mode = pollData?.mode || batchConfig?.mode || 'unknown';
-    const operation =
-      pollData?.operation || batchConfig?.operation || 'unknown';
+    const operation = pollData?.operation || batchConfig?.operation || 'unknown';
+      
       
     if (ws && typeof ws.emitBatchProgress === 'function') {
         ws.emitBatchProgress(
@@ -714,11 +719,6 @@ class BatchPollingService {
       getBatchCacheTTLms(configService)
     );
 
-    const pollDataForCompletion = this.activePolls.get(batchId);
-    if (pollDataForCompletion?.onComplete) {
-      pollDataForCompletion.onComplete(results);
-    }
-
     logger.debug('SHOULD COUNT TOWARD SESSION?', {
       batchId,
       entityType,
@@ -732,6 +732,70 @@ class BatchPollingService {
       entityType === 'products'
     ) {
       this.markBatchCompleteInSessions(batchId, resolvedCorrelationId);
+    }
+
+    logger.info('Checking if post-processing should be triggered for accounts', {
+      entityType,
+      operation,
+    });
+    if (entityType === 'accounts' && operation === 'generate') {
+        const { logger, ws, cache, liferay } = this.ctx;
+        const accountsWithAddresses = cache.get('generated-data:accounts');
+        const itemERCs = cache.get(`batch:${batchId}:itemERCs`);
+
+        if (accountsWithAddresses && itemERCs) {
+          for (const erc of itemERCs) {
+            try {
+              const accountData = accountsWithAddresses.find(
+                (acc) => acc.externalReferenceCode === erc
+              );
+              if (accountData) {
+                const account = await liferay.getAccountByERC(config, erc);
+                if (account) {
+                  let billingAddressRes, shippingAddressRes;
+                  if (accountData.billingAddress) {
+                    const { name, ...billingAddressData } =
+                      accountData.billingAddress;
+                    billingAddressRes = await liferay.createAccountAddress(
+                      config,
+                      account.id,
+                      {
+                        ...billingAddressData,
+                        primary: true,
+                        addressType: 'billing',
+                      }
+                    );
+                  }
+                  if (accountData.shippingAddress) {
+                    const { name, ...shippingAddressData } =
+                      accountData.shippingAddress;
+                    shippingAddressRes = await liferay.createAccountAddress(
+                      config,
+                      account.id,
+                      {
+                        ...shippingAddressData,
+                        primary: false,
+                        addressType: 'shipping',
+                      }
+                    );
+                  }
+    
+                  if (billingAddressRes || shippingAddressRes) {
+                    await liferay.patchAccount(config, account.id, {
+                      defaultBillingAddressId: billingAddressRes?.id,
+                      defaultShippingAddressId: shippingAddressRes?.id,
+                    });
+                  }
+                }
+              }
+            } catch (error) {
+              logger.error('Failed to create address for account', {
+                erc,
+                error: error.message,
+              });
+            }
+          }
+        }
     }
   }
 
@@ -753,10 +817,6 @@ class BatchPollingService {
       submissionData?.correlationId ||
       pollData?.correlationId ||
       batchConfig?.correlationId ||
-      cache.get(`batch:${batchId}:config`)?.correlationId ||
-      (batchConfig?.externalReferenceCode &&
-        cache.get(`erc:${batchConfig.externalReferenceCode}:config`)
-          ?.correlationId) ||
       'unknown';
 
     const totalCount = status.totalItemsCount || status.totalCount || 0;
@@ -764,11 +824,9 @@ class BatchPollingService {
       status.processedItemsCount || status.processedCount || 0;
     const errorCount = status.failedItems?.length || status.errorCount || 0;
 
-    const entityType =
-      pollData?.entityType || batchConfig?.entityType || 'products';
+    const entityType = pollData?.entityType || batchConfig?.entityType || 'products';
     const mode = pollData?.mode || batchConfig?.mode || 'unknown';
-    const operation =
-      pollData?.operation || batchConfig?.operation || 'unknown';
+    const operation = pollData?.operation || batchConfig?.operation || 'unknown';
 
     cache.set(
       `batch:${batchId}:failed`,
@@ -983,6 +1041,43 @@ class BatchPollingService {
         }
       }
     }
+  }
+
+  async processCallback(query, body) {
+    const { batchERC, opCode, entity } = query;
+    const batchId = body?.[Object.keys(body)[0]]?.batchId;
+    const status = body?.[Object.keys(body)[0]]?.status;
+
+    const pollData = this.activePolls.get(batchId);
+    const batchConfig = this.ctx.cache.get(`batch:${batchId}:config`);
+
+    if (!pollData && !batchConfig) {
+      this.ctx.logger.warn('No poll data or batch config found for callback', {
+        batchId,
+        batchERC,
+        opCode,
+        entity,
+      });
+      return { batchId, entityType: entity, status };
+    }
+
+    if (pollData) {
+      pollData.entityType = entity;
+      pollData.operation = opCode === 'C' ? 'generate' : 'unknown';
+    }
+    if (batchConfig) {
+      batchConfig.entityType = entity;
+      batchConfig.operation = opCode === 'C' ? 'generate' : 'unknown';
+      this.ctx.cache.set(`batch:${batchId}:config`, batchConfig);
+    }
+
+    if (status === 'COMPLETED') {
+      await this.handleBatchComplete(batchId, { ...body, executeStatus: 'COMPLETED' });
+    } else if (status === 'FAILED') {
+      await this.handleBatchFailed(batchId, { ...body, executeStatus: 'FAILED' }, batchConfig);
+    }
+
+    return { batchId, entityType: entity, status };
   }
 
   stopAllPolling() {

@@ -180,6 +180,11 @@ class AccountGenerator {
         delete account.businessAccounts;
         delete account.businessAccountsERC;
 
+        account.billingAddress =
+          account.billingAddress || this._generateAddress('billing');
+        account.shippingAddress =
+          account.shippingAddress || this._generateAddress('shipping');
+
         return account;
       });
 
@@ -237,7 +242,7 @@ class AccountGenerator {
           );
 
           const cbUrl = callbackUrl
-            ? `${callbackUrl}?batchERC=${encodeURIComponent(batchERC)}`
+            ? `${callbackUrl}?batchERC=${encodeURIComponent(batchERC)}&entity=accounts&opCode=C`
             : null;
           const batchResult = await liferay.createAccountsBatch(
             config,
@@ -301,70 +306,68 @@ class AccountGenerator {
                 pollInterval,
                 maxPollAttempts,
                 externalReferenceCode: batchERC,
-                onStatusChange: (status) => {
-                  const meta =
-                    cache.get(`batch:${batchResult.batchId}:meta`) || {};
-                  const total =
-                    status.totalCount || meta.totalCount || batch.length || 0;
-                  const processed = status.processedCount || 0;
-                  const progress =
-                    total > 0 ? Math.round((processed / total) * 100) : 0;
-                  const elapsedMs = elapsed(meta.startedAt || now());
-                  const rate = processed / (elapsedMs / 1000);
-                  const remaining = Math.max(0, total - processed);
-                  const etaSeconds =
-                    rate > 0 ? Math.round(remaining / rate) : null;
-
-                  ws.emitBatchProgress(
-                    {
-                      batchId: status.batchId,
-                      entityType: 'accounts',
-                      completedCount: processed,
-                      totalItems: total,
-                      progress,
-                      etaSeconds,
-                      operation: 'generate',
-                      mode,
-                      phase,
-                      externalReferenceCode: batchERC,
-                    },
-                    { correlationId }
-                  );
-
-                  logger.debug('Batch status update', {
-                    operation: 'accounts/batch:progress',
-                    batchId: status.batchId,
-                    status: status.status,
-                    processedCount: processed,
-                    totalCount: total,
-                    progress,
-                    etaSeconds,
-                  });
-                },
-                onComplete: (r) => this.handleBatchComplete(r, config),
-                onError: (error) => {
-                  logger.error('Batch polling error', {
-                    operation: 'accounts/batch:error',
-                    batchId: batchResult.batchId,
-                    error: error.message,
-                    entityType: 'accounts',
-                  });
-                  ws.emitBatchFailed(
-                    {
-                      batchId: batchResult.batchId,
-                      entityType: 'accounts',
-                      successCount: 0,
-                      failureCount: 1,
-                      errors: [{ message: error.message }],
-                      operation: 'generate',
-                      mode,
-                      phase,
-                      externalReferenceCode: batchERC,
-                    },
-                    { correlationId }
-                  );
-                },
-                entityType: 'accounts',
+                                  onStatusChange: (status) => {
+                                    const meta =
+                                      cache.get(`batch:${batchResult.batchId}:meta`) || {};
+                                    const total =
+                                      status.totalCount || meta.totalCount || batch.length || 0;
+                                    const processed = status.processedCount || 0;
+                                    const progress =
+                                      total > 0 ? Math.round((processed / total) * 100) : 0;
+                                    const elapsedMs = elapsed(meta.startedAt || now());
+                                    const rate = processed / (elapsedMs / 1000);
+                                    const remaining = Math.max(0, total - processed);
+                                    const etaSeconds =
+                                      rate > 0 ? Math.round(remaining / rate) : null;
+                
+                                    ws.emitBatchProgress(
+                                      {
+                                        batchId: status.batchId,
+                                        entityType: 'accounts',
+                                        completedCount: processed,
+                                        totalItems: total,
+                                        progress,
+                                        etaSeconds,
+                                        operation: 'generate',
+                                        mode,
+                                        phase,
+                                        externalReferenceCode: batchERC,
+                                      },
+                                      { correlationId }
+                                    );
+                
+                                    logger.debug('Batch status update', {
+                                      operation: 'accounts/batch:progress',
+                                      batchId: status.batchId,
+                                      status: status.status,
+                                      processedCount: processed,
+                                      totalCount: total,
+                                      progress,
+                                      etaSeconds,
+                                    });
+                                  },
+                                  onError: (error) => {
+                                    logger.error('Batch polling error', {
+                                      operation: 'accounts/batch:error',
+                                      batchId: batchResult.batchId,
+                                      error: error.message,
+                                      entityType: 'accounts',
+                                    });
+                                    ws.emitBatchFailed(
+                                      {
+                                        batchId: batchResult.batchId,
+                                        entityType: 'accounts',
+                                        successCount: 0,
+                                        failureCount: 1,
+                                        errors: [{ message: error.message }],
+                                        operation: 'generate',
+                                        mode,
+                                        phase,
+                                        externalReferenceCode: batchERC,
+                                      },
+                                      { correlationId }
+                                    );
+                                  },                entityType: 'accounts',
                 operation: 'generate',
                 mode: 'batch',
                 affectsProgress: false,
@@ -410,7 +413,7 @@ class AccountGenerator {
         return await this.generateAccountsIndividually(
           config,
           options,
-          accountDataList
+          accountsWithAddresses
         );
       }
     } catch (error) {
@@ -469,18 +472,20 @@ class AccountGenerator {
         let billingAddressRes, shippingAddressRes;
 
         if (billingAddress) {
+          const { name, ...billingAddressData } = billingAddress;
           billingAddressRes = await liferay.createAccountAddress(
             config,
             createdAccount.id,
-            { ...billingAddress, primary: true, addressType: 'billing' }
+            { ...billingAddressData, primary: true, addressType: 'billing' }
           );
         }
 
         if (shippingAddress) {
+          const { name, ...shippingAddressData } = shippingAddress;
           shippingAddressRes = await liferay.createAccountAddress(
             config,
             createdAccount.id,
-            { ...shippingAddress, primary: false, addressType: 'shipping' }
+            { ...shippingAddressData, primary: false, addressType: 'shipping' }
           );
         }
 
@@ -557,116 +562,7 @@ class AccountGenerator {
 
 
 
-  async handleBatchComplete(results, pollConfig) {
-    const { logger, ws, cache, liferay } = this.ctx;
-    const { mode, phase } = resolvePhaseAndMode({
-      useBatch: true,
-      phase: 'complete',
-    });
-
-    const batchERC = (cache.get(`batch:${results.batchId}:erc`) || {})
-      .externalReferenceCode;
-    const config = cache.get(`erc:${batchERC}:config`) || pollConfig;
-
-    logger.info('Handling account batch completion', {
-      operation: 'accounts/batch:complete',
-      batchId: results.batchId,
-      status: results.status,
-      processedCount: results.processedCount,
-      totalCount: results.totalCount,
-    });
-
-    const accountsWithAddresses = cache.get('generated-data:accounts');
-    const itemERCs = cache.get(`erc:${batchERC}:itemERCs`);
-
-    if (accountsWithAddresses && itemERCs) {
-      for (const erc of itemERCs) {
-        try {
-          const accountData = accountsWithAddresses.find(
-            (acc) => acc.externalReferenceCode === erc
-          );
-          if (accountData) {
-            const account = await liferay.getAccountByERC(config, erc);
-            if (account) {
-              let billingAddressRes, shippingAddressRes;
-              if (accountData.billingAddress) {
-                billingAddressRes = await liferay.createAccountAddress(
-                  config,
-                  account.id,
-                  {
-                    ...accountData.billingAddress,
-                    primary: true,
-                    addressType: 'billing',
-                  }
-                );
-              }
-              if (accountData.shippingAddress) {
-                shippingAddressRes = await liferay.createAccountAddress(
-                  config,
-                  account.id,
-                  {
-                    ...accountData.shippingAddress,
-                    primary: false,
-                    addressType: 'shipping',
-                  }
-                );
-              }
-
-              if (billingAddressRes || shippingAddressRes) {
-                await liferay.patchAccount(config, account.id, {
-                  defaultBillingAddressId: billingAddressRes?.id,
-                  defaultShippingAddressId: shippingAddressRes?.id,
-                });
-              }
-            }
-          }
-        } catch (error) {
-          logger.error('Failed to create address for account', {
-            erc,
-            error: error.message,
-          });
-        }
-      }
-    }
-
-    const content = results.content;
-    let successCount = 0;
-    let failureCount = 0;
-    const failures = [];
-
-    if (Array.isArray(content)) {
-      content.forEach((item, index) => {
-        if (item.status === 'SUCCESS' || item.status === 'CREATED') {
-          successCount++;
-        } else {
-          failureCount++;
-          failures.push({
-            index,
-            error: item.error || item.message || 'Unknown error',
-          });
-        }
-      });
-    } else {
-      successCount = results.processedCount || results.totalCount || 0;
-    }
-
-    ws.emitBatchCompleted(
-      {
-        batchId: results.batchId,
-        entityType: 'accounts',
-        successCount,
-        failureCount,
-        errors: failures.slice(0, 5),
-        operation: 'generate',
-        mode,
-        phase,
-        externalReferenceCode: batchERC,
-      },
-      { correlationId: config.correlationId }
-    );
-  }
-
-  emitCompletion(
+      emitCompletion(
     batchId,
     successCount,
     failureCount,

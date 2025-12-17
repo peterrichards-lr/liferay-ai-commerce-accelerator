@@ -31,3 +31,4 @@ fragments/**/*.css
 /client-extensions/ai-commerce-accelerator-microservice/logs
 /client-extensions/ai-commerce-accelerator-frontend/logs
 /.gemini
+.gemini

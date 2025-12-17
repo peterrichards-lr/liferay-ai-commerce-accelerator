@@ -23,26 +23,32 @@ class MockDataGenerator {
     this.specificationValues = null;
     this.pricingData = null;
     this.schemas = {};
+    this.countries = [];
+    this.regions = [];
     this._loadAndCompileSchemas();
     this.loadConfigurationData();
 
     this._countriesAndRegions = [
-      { country: 'US', region: 'CA', city: 'Los Angeles', zip: '90001' },
-      { country: 'US', region: 'NY', city: 'New York', zip: '10001' },
-      { country: 'US', region: 'TX', city: 'Houston', zip: '77001' },
-      { country: 'GB', region: 'ENG', city: 'London', zip: 'SW1A 0AA' },
-      { country: 'FR', region: 'IDF', city: 'Paris', zip: '75001' },
-      { country: 'DE', region: 'BY', city: 'Munich', zip: '80331' },
-      { country: 'AU', region: 'NSW', city: 'Sydney', zip: '2000' },
-      { country: 'JP', region: 'Kanto', city: 'Tokyo', zip: '100-0001' },
-      { country: 'BR', region: 'SP', city: 'Sao Paulo', zip: '01000-000' },
-      { country: 'IN', region: 'MH', city: 'Mumbai', zip: '400001' },
-      { country: 'CA', region: 'ON', city: 'Toronto', zip: 'M5A 1A1' },
-      { country: 'MX', region: 'CMX', city: 'Mexico City', zip: '01000' },
-      { country: 'ZA', region: 'GT', city: 'Johannesburg', zip: '2000' },
-      { country: 'AE', region: 'DU', city: 'Dubai', zip: '00000' },
-      { country: 'SG', region: 'SG', city: 'Singapore', zip: '018956' },
+      { country: 'United States', region: 'CA', city: 'Los Angeles', zip: '90001' },
+      { country: 'United States', region: 'NY', city: 'New York', zip: '10001' },
+      { country: 'United States', region: 'TX', city: 'Houston', zip: '77001' },
+      { country: 'United Kingdom', region: 'ENG', city: 'London', zip: 'SW1A 0AA' },
+      { country: 'France', region: 'IDF', city: 'Paris', zip: '75001' },
+      { country: 'Germany', region: 'BY', city: 'Munich', zip: '80331' },
+      { country: 'Australia', region: 'NSW', city: 'Sydney', zip: '2000' },
+      { country: 'Japan', region: 'Kanto', city: 'Tokyo', zip: '100-0001' },
+      { country: 'Brazil', region: 'SP', city: 'Sao Paulo', zip: '01000-000' },
+      { country: 'India', region: 'MH', city: 'Mumbai', zip: '400001' },
+      { country: 'Canada', region: 'ON', city: 'Toronto', zip: 'M5A 1A1' },
+      { country: 'Mexico', region: 'CMX', city: 'Mexico City', zip: '01000' },
+      { country: 'South Africa', region: 'GT', city: 'Johannesburg', zip: '2000' },
+      { country: 'United Arab Emirates', region: 'DU', city: 'Dubai', zip: '00000' },
+      { country: 'Singapore', region: 'SG', city: 'Singapore', zip: '018956' },
     ];
+  }
+
+  async loadCountries(config) {
+    // This function is no longer needed, but is kept to avoid breaking other parts of the code.
   }
 
   _loadSchema(schemaName) {
@@ -542,6 +548,14 @@ class MockDataGenerator {
           postalCode: location.zip,
           streetAddressLine1: `${200 + i} Second St`,
           name: 'Shipping Address',
+        },
+        headOfficeAddress: {
+          addressCountry: location.country,
+          addressRegion: location.region,
+          addressLocality: location.city,
+          postalCode: location.zip,
+          streetAddressLine1: `${500 + i} Corporate Ave`,
+          name: 'Head Office',
         },
       };
       accounts.push(account);
