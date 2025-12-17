@@ -165,15 +165,20 @@ class AccountGenerator {
           if (account.accountContactInformation?.domains) {
             delete account.accountContactInformation.domains;
           }
+
+          if (account.headOfficeAddress) {
+            account.accountContactInformation.postalAddresses = [
+              {
+                ...account.headOfficeAddress,
+                primary: true,
+                addressType: 'head-office',
+              },
+            ];
+          }
         }
 
         delete account.businessAccounts;
         delete account.businessAccountsERC;
-
-        account.billingAddress =
-          account.billingAddress || this._generateAddress('billing');
-        account.shippingAddress =
-          account.shippingAddress || this._generateAddress('shipping');
 
         return account;
       });
@@ -185,9 +190,13 @@ class AccountGenerator {
       );
 
       if (useBatch) {
-
-        const accountsForBatch = accountsWithAddresses.map(account => {
-          const { billingAddress, shippingAddress, ...rest } = account;
+        const accountsForBatch = accountsWithAddresses.map((account) => {
+          const {
+            billingAddress,
+            shippingAddress,
+            headOfficeAddress,
+            ...rest
+          } = account;
           return rest;
         });
 
@@ -448,16 +457,19 @@ class AccountGenerator {
     for (let i = 0; i < accountDataList.length; i++) {
       const accountData = accountDataList[i];
       try {
-        
-        const { billingAddress, shippingAddress, ...account } = accountData;
+        const {
+          billingAddress,
+          shippingAddress,
+          headOfficeAddress,
+          ...account
+        } = accountData;
 
-        const createdAccount = await liferay.createAccount(
-          config,
-          account
-        );
-        
+        const createdAccount = await liferay.createAccount(config, account);
+
+        let billingAddressRes, shippingAddressRes;
+
         if (billingAddress) {
-          await liferay.createAccountAddress(
+          billingAddressRes = await liferay.createAccountAddress(
             config,
             createdAccount.id,
             { ...billingAddress, primary: true, addressType: 'billing' }
@@ -465,13 +477,20 @@ class AccountGenerator {
         }
 
         if (shippingAddress) {
-          await liferay.createAccountAddress(
+          shippingAddressRes = await liferay.createAccountAddress(
             config,
             createdAccount.id,
-            { ...shippingAddress, primary: true, addressType: 'shipping' }
+            { ...shippingAddress, primary: false, addressType: 'shipping' }
           );
         }
-        
+
+        if (billingAddressRes || shippingAddressRes) {
+          await liferay.patchAccount(config, createdAccount.id, {
+            defaultBillingAddressId: billingAddressRes?.id,
+            defaultShippingAddressId: shippingAddressRes?.id,
+          });
+        }
+
         generatedAccounts.push(createdAccount);
 
         const processed = i + 1;
@@ -569,18 +588,34 @@ class AccountGenerator {
           if (accountData) {
             const account = await liferay.getAccountByERC(config, erc);
             if (account) {
+              let billingAddressRes, shippingAddressRes;
               if (accountData.billingAddress) {
-                await liferay.createAccountAddress(config, account.id, {
-                  ...accountData.billingAddress,
-                  primary: true,
-                  addressType: 'billing',
-                });
+                billingAddressRes = await liferay.createAccountAddress(
+                  config,
+                  account.id,
+                  {
+                    ...accountData.billingAddress,
+                    primary: true,
+                    addressType: 'billing',
+                  }
+                );
               }
               if (accountData.shippingAddress) {
-                await liferay.createAccountAddress(config, account.id, {
-                  ...accountData.shippingAddress,
-                  primary: true,
-                  addressType: 'shipping',
+                shippingAddressRes = await liferay.createAccountAddress(
+                  config,
+                  account.id,
+                  {
+                    ...accountData.shippingAddress,
+                    primary: false,
+                    addressType: 'shipping',
+                  }
+                );
+              }
+
+              if (billingAddressRes || shippingAddressRes) {
+                await liferay.patchAccount(config, account.id, {
+                  defaultBillingAddressId: billingAddressRes?.id,
+                  defaultShippingAddressId: shippingAddressRes?.id,
                 });
               }
             }

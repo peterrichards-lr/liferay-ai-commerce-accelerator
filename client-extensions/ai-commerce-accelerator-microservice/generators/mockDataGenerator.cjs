@@ -502,6 +502,8 @@ class MockDataGenerator {
         .toLowerCase()
         .replace(/\s+/g, '')}.com`;
 
+      const location = this._countriesAndRegions[i % this._countriesAndRegions.length];
+
       const account = {
         name: `${companyName} ${i + 1}`,
         type: 'business',
@@ -516,17 +518,6 @@ class MockDataGenerator {
               type: 'email-address',
             },
           ],
-          postalAddresses: [
-            {
-              addressCountry: location.country,
-              addressRegion: location.region,
-              addressLocality: location.city,
-              postalCode: location.zip,
-              streetAddressLine1: `${100 + i} Main St`,
-              primary: true,
-              addressType: 'billing',
-            },
-          ],
           webUrls: [
             {
               url: `http://${accountDomain}`,
@@ -536,6 +527,22 @@ class MockDataGenerator {
           ],
         },
         domains: [accountDomain],
+        billingAddress: {
+          addressCountry: location.country,
+          addressRegion: location.region,
+          addressLocality: location.city,
+          postalCode: location.zip,
+          streetAddressLine1: `${100 + i} Main St`,
+          name: 'Billing Address',
+        },
+        shippingAddress: {
+          addressCountry: location.country,
+          addressRegion: location.region,
+          addressLocality: location.city,
+          postalCode: location.zip,
+          streetAddressLine1: `${200 + i} Second St`,
+          name: 'Shipping Address',
+        },
       };
       accounts.push(account);
     }

@@ -77,41 +77,38 @@
             "description": "The billing address for the account.",
             "type": "object",
             "properties": {
-              "additionalAddressInformation": { "type": "string" },
-              "city": { "type": "string" },
-              "country": { "type": "string" },
-              "externalReferenceCode": { "type": "string" },
-              "latitude": { "type": "number", "format": "double" },
-              "longitude": { "type": "number", "format": "double" },
+              "name": { "type": "string" },
+              "addressCountry": { "type": "string" },
+              "addressLocality": { "type": "string" },
+              "addressRegion": { "type": "string" },
               "postalCode": { "type": "string" },
-              "primary": { "type": "boolean" },
-              "state": { "type": "string" },
-              "street1": { "type": "string" },
-              "street2": { "type": "string" },
-              "type": { "type": "string" }
-            },
-            "required": ["street1", "city", "state", "postalCode", "country", "type"]
+              "streetAddressLine1": { "type": "string" }
+            }
           },
           "shippingAddress": {
             "description": "The shipping address for the account.",
             "type": "object",
             "properties": {
-              "additionalAddressInformation": { "type": "string" },
-              "city": { "type": "string" },
-              "country": { "type": "string" },
-              "externalReferenceCode": { "type": "string" },
-              "latitude": { "type": "number", "format": "double" },
-              "longitude": { "type": "number", "format": "double" },
+              "name": { "type": "string" },
+              "addressCountry": { "type": "string" },
+              "addressLocality": { "type": "string" },
+              "addressRegion": { "type": "string" },
               "postalCode": { "type": "string" },
-              "primary": { "type": "boolean" },
-              "state": { "type": "string" },
-              "street1": { "type": "string" },
-              "street2": { "type": "string" },
-              "type": { "type": "string" }
-            },
-            "required": ["street1", "city", "state", "postalCode", "country", "type"]
+              "streetAddressLine1": { "type": "string" }
+            }
+          },
+          "headOfficeAddress": {
+            "description": "The head office address for the account.",
+            "type": "object",
+            "properties": {
+              "name": { "type": "string" },
+              "addressCountry": { "type": "string" },
+              "addressLocality": { "type": "string" },
+              "addressRegion": { "type": "string" },
+              "postalCode": { "type": "string" },
+              "streetAddressLine1": { "type": "string" }
+            }
           }
-
         },
         "required": [
           "name",

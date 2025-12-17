@@ -993,8 +993,6 @@ class LiferayService {
     );
   }
 
-
-
   async createWarehousesBatch(config, warehousesData, callbackUrl, opts = {}) {
     const { logger, cache, configService } = this.ctx;
 
@@ -1230,7 +1228,15 @@ class LiferayService {
     return data;
   }
 
-
+  async patchAccount(config, accountId, accountData) {
+    return await this._patch(
+      config,
+      PATH.ACCOUNT(accountId),
+      accountData,
+      'patch-account',
+      'Failed to patch account'
+    );
+  }
 
   async getAccountByERC(config, externalReferenceCode) {
     try {
@@ -1481,7 +1487,12 @@ class LiferayService {
 
   async getPriceLists(
     config,
-    { search, pageSize = 200, fields = 'id,name,externalReferenceCode', filter } = {}
+    {
+      search,
+      pageSize = 200,
+      fields = 'id,name,externalReferenceCode',
+      filter,
+    } = {}
   ) {
     const { configService, logger } = this.ctx;
     const excludeLists = await configService.getExcludeLists(config);
@@ -2030,8 +2041,7 @@ class LiferayService {
       typeof payload.optionCategory === 'object' &&
       payload.optionCategory !== null
     ) {
-      const { id, key, externalReferenceCode, title } =
-        payload.optionCategory;
+      const { id, key, externalReferenceCode, title } = payload.optionCategory;
 
       if (id || key || externalReferenceCode || title) {
         const newOptionCategory = {};
@@ -2123,36 +2133,37 @@ class LiferayService {
       if (typeof this.updateSpecificationByERC === 'function') {
         try {
           if (desiredId && desiredId !== currentId) {
-                          await this.updateSpecificationByERC(
-                            config,
-                            erc || existing.externalReferenceCode,
-                            {
-                              optionCategory: {
-                                id: desiredId,
-                                title: desired.optionCategory.title,
-                              },
-                            }
-                          );
-                          existing.optionCategory = {
-                            ...(existing.optionCategory || {}),
-                            id: desiredId,
-                          };
-                        } else if (!desiredId && desiredErc && desiredErc !== currentErc) {
-                          await this.updateSpecificationByERC(
-                            config,
-                            erc || existing.externalReferenceCode,
-                            {
-                              optionCategory: {
-                                externalReferenceCode: desiredErc,
-                                title: desired.optionCategory.title,
-                              },
-                            }
-                          );
-                          existing.optionCategory = {
-                            ...(existing.optionCategory || {}),
-                            externalReferenceCode: desiredErc,
-                          };
-                        }        } catch {}
+            await this.updateSpecificationByERC(
+              config,
+              erc || existing.externalReferenceCode,
+              {
+                optionCategory: {
+                  id: desiredId,
+                  title: desired.optionCategory.title,
+                },
+              }
+            );
+            existing.optionCategory = {
+              ...(existing.optionCategory || {}),
+              id: desiredId,
+            };
+          } else if (!desiredId && desiredErc && desiredErc !== currentErc) {
+            await this.updateSpecificationByERC(
+              config,
+              erc || existing.externalReferenceCode,
+              {
+                optionCategory: {
+                  externalReferenceCode: desiredErc,
+                  title: desired.optionCategory.title,
+                },
+              }
+            );
+            existing.optionCategory = {
+              ...(existing.optionCategory || {}),
+              externalReferenceCode: desiredErc,
+            };
+          }
+        } catch {}
       }
       return existing;
     }
@@ -2877,8 +2888,6 @@ class LiferayService {
     );
   }
 
-
-
   async deleteCommerceProducts(
     config,
     {
@@ -3012,47 +3021,6 @@ class LiferayService {
     return res;
   }
 
-    logger.debug('Found products to delete', {
-      count: productIds.length,
-      productIds,
-    });
-
-    const effectiveCallbackUrl = optionsCallbackUrl || callbackUrl || null;
-    const batchERC =
-      callbackBatchERC && String(callbackBatchERC).trim()
-        ? String(callbackBatchERC)
-        : createERC(ERC_PREFIX.PRODUCT_BATCH);
-
-    const taggedCallback = effectiveCallbackUrl
-      ? this._buildCallbackURL(effectiveCallbackUrl, {
-          entity: 'products',
-          op: 'delete',
-          batchERC,
-          sessionId,
-        })
-      : null;
-
-    const batchUrl =
-      taggedCallback && PATH.PRODUCTS_BATCH
-        ? PATH.PRODUCTS_BATCH(taggedCallback)
-        : PATH.PRODUCTS_BATCH?.(taggedCallback) || `${PATH.PRODUCTS}/batch`;
-
-    const res = await this._deleteByBatch(config, {
-      batchUrl,
-      ids: productIds,
-      batchSize: config.batchSize,
-      dryRun,
-      idProp: 'productId',
-      op: 'products:batch-delete',
-      friendly: 'Delete products (batch)',
-    });
-    res.batchRefs = (res.batchRefs || []).map((r) => ({
-      ...r,
-      erc: batchERC,
-    }));
-    return res;
-  }
-
   async deleteCommerceAccounts(config, opts = {}, callbackUrl) {
     const {
       pageSize = 200,
@@ -3064,29 +3032,14 @@ class LiferayService {
       channelId,
     } = opts || {};
 
-    let accountIds;
+    const accounts = await this.getCommerceAccounts(config, {
+      channelId,
+      pageSize,
+      filter,
+      fields: 'id',
+    });
 
-    if (channelId) {
-      const orderAccountIds = await this._collectPagedIds(config, {
-        listUrl: PATH.ORDERS,
-        pageSize,
-        filter: `channelId eq ${channelId}`,
-        fields: 'accountId',
-        idKey: 'accountId',
-        op: 'orders:list',
-        friendly: 'List orders to get accounts for channel',
-      });
-      accountIds = [...new Set(orderAccountIds)].filter(Boolean);
-    } else {
-      accountIds = await this._collectPagedIds(config, {
-        listUrl: PATH.ACCOUNTS,
-        pageSize,
-        filter,
-        fields: 'id',
-        op: 'accounts:list',
-        friendly: 'List accounts',
-      });
-    }
+    let accountIds = this._asItems(accounts).map((a) => a.id);
 
     const primaryAccountId = await this.getPrimaryAccountId(config);
     if (primaryAccountId != null) {

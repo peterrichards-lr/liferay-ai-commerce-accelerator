@@ -120,6 +120,7 @@ const PATH = {
     }`,
 
   ACCOUNTS: BASE.ACCOUNTS,
+  ACCOUNT: (accountId) => `${BASE.ACCOUNTS}/${accountId}`,
   ACCOUNT_BY_ERC: (externalReferenceCode) =>
     `/o/headless-admin-user/v1.0/accounts/by-external-reference-code/${externalReferenceCode}`,
   ACCOUNT_ADDRESSES: (accountId) =>
