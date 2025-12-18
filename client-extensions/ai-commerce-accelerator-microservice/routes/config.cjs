@@ -77,24 +77,6 @@ module.exports = (app, { logger, configService }) => {
     }
   });
 
-  app.get('/api/config/batch-polling', async (req, res) => {
-    const { config } = buildConfigAndOptions(req);
-
-    try {
-      const pollingCfg = await configService.getBatchPollingConfig(config);
-
-      res.json({
-        success: true,
-        config: pollingCfg || {},
-        timestamp: new Date().toISOString(),
-      });
-    } catch (error) {
-      sendSafeError(res, logger, req, error, 'get-batch-polling-config', {
-        sanitizeConfig: sanitizedObject(config),
-      });
-    }
-  });
-
   app.get('/api/config/cache', async (req, res) => {
     const { config } = buildConfigAndOptions(req);
 

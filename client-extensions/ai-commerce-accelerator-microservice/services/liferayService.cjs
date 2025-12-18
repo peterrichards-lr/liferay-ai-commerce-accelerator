@@ -97,6 +97,13 @@ class LiferayService {
     try {
       const client = await this._client(config);
 
+      logger.debug('Liferay API Request', {
+        operation: op,
+        method,
+        url,
+        data: this._stringifySafe(data),
+      });
+
       const res = await client.request({
         method,
         url,
@@ -104,6 +111,12 @@ class LiferayService {
         params,
         headers,
         responseType,
+      });
+
+      logger.debug('Liferay API Response', {
+        operation: op,
+        status: res.status,
+        data: this._stringifySafe(res.data),
       });
 
       if (fullResponse) {
@@ -823,27 +836,18 @@ class LiferayService {
   }
 
   async getImportTaskSubmittedContent(config, batchId) {
-    if (config.demoMode) {
-      const { logger } = this.ctx;
-      logger.warn(
-        '********************************************************************************'
-      );
-      logger.warn(
-        'LiferayService.getImportTaskSubmittedContent is using a mock implementation for demo mode.'
-      );
-      logger.warn(
-        '********************************************************************************'
-      );
-
-      return Promise.resolve([]);
-    }
-
     const urlResponse = await this._get(
       config,
       PATH.IMPORT_TASK_SUBMITTED_CONTENT(batchId),
       'import-task-submitted-content',
-      'Failed to get import task submitted content'
+      'Failed to get import task submitted content',
+      { headers: { Accept: '*/*' } }
     );
+
+    logger.info('Received urlResponse from getImportTaskSubmittedContent', {
+      batchId,
+      urlResponse: JSON.stringify(urlResponse, null, 2)
+    });
 
     if (urlResponse && urlResponse.url) {
       const tempFilePath = path.join(tmpdir(), `${uuidv4()}.zip`);
@@ -914,25 +918,18 @@ class LiferayService {
 
     this._cacheItemERCs(erc, null, itemERCs, opts.sessionId);
 
-    const taggedCallback = this._buildCallbackURL(callbackUrl, {
-      entity: 'warehouses',
-      op: 'create',
-      batchERC: erc,
-      sessionId: opts.sessionId,
-    });
-
     const batchPayload = {
       createStrategy: 'INSERT',
       items: items,
       externalReferenceCode: erc,
     };
 
-    const url = PATH.WAREHOUSES_BATCH(taggedCallback);
+    const url = PATH.WAREHOUSES_BATCH(this._buildCallbackURL(callbackUrl, { batchERC: erc, sessionId: opts.sessionId, op: 'create' }));
 
     logger.info('Sending batch warehouse creation request', {
       operation: 'create-warehouses-batch',
       warehouseCount: warehousesData.length,
-      callbackUrl: taggedCallback,
+      callbackUrl: url,
       externalReferenceCode: erc,
     });
 
@@ -1010,25 +1007,18 @@ class LiferayService {
 
     this._cacheItemERCs(erc, null, itemERCs, opts.sessionId);
 
-    const taggedCallback = this._buildCallbackURL(callbackUrl, {
-      entity: 'warehouses',
-      op: 'create',
-      batchERC: erc,
-      sessionId: opts.sessionId,
-    });
-
     const batchPayload = {
       createStrategy: 'INSERT',
       items: items,
       externalReferenceCode: erc,
     };
 
-    const url = PATH.WAREHOUSES_BATCH(taggedCallback);
+    const url = PATH.WAREHOUSES_BATCH(this._buildCallbackURL(callbackUrl, { batchERC: erc, sessionId: opts.sessionId, op: 'create' }));
 
     logger.info('Sending batch warehouse creation request', {
       operation: 'create-warehouses-batch',
       warehouseCount: warehousesData.length,
-      callbackUrl: taggedCallback,
+      callbackUrl: url,
       externalReferenceCode: erc,
     });
 
@@ -1162,19 +1152,12 @@ class LiferayService {
       );
     }
 
-    const taggedCallback = this._buildCallbackURL(callbackUrl, {
-      entity: 'products',
-      op: 'create',
-      batchERC: erc,
-      sessionId: opts.sessionId,
-    });
-
     const batchPayload = {
       createStrategy: 'INSERT',
       items,
       externalReferenceCode: erc,
     };
-    const url = PATH.PRODUCTS_BATCH(taggedCallback);
+    const url = PATH.PRODUCTS_BATCH(callbackUrl);
 
     const data = await this._post(
       config,
@@ -1267,15 +1250,12 @@ class LiferayService {
     );
   }
 
-  async createAccountsBatch(config, accountsData, callbackUrl, opts = {}) {
+  async createAccountAddressBatch(config, accountId, addressesData, callbackUrl, opts = {}) {
     const { logger, cache, configService } = this.ctx;
 
-    logger.debug('accountsData in createAccountsBatch', { accountsData });
-
-    const erc =
-      opts.externalReferenceCode ?? createERC(ERC_PREFIX.ACCOUNT_BATCH);
-    const itemERCs = (accountsData || []).map((i) =>
-      sanitizedERC(i.externalReferenceCode || i.id || i.name || uuidv4())
+    const erc = opts.externalReferenceCode ?? createERC(ERC_PREFIX.ADDRESS_BATCH);
+    const itemERCs = (addressesData || []).map((i) =>
+      sanitizedERC(i.externalReferenceCode || i.id || uuidv4())
     );
     cache.set(
       `erc:${erc}:itemERCs`,
@@ -1290,23 +1270,85 @@ class LiferayService {
       );
     }
 
-    const taggedCallback = this._buildCallbackURL(callbackUrl, {
-      entity: 'accounts',
-      op: 'create',
-      batchERC: erc,
-      sessionId: opts.sessionId,
+    const batchPayload = {
+      createStrategy: 'INSERT',
+      items: addressesData,
+      externalReferenceCode: erc,
+    };
+    const url = PATH.ACCOUNT_ADDRESSES_BATCH(accountId, this._buildCallbackURL(callbackUrl, { batchERC: erc, sessionId: opts.sessionId, op: 'create' }));
+    logger.info('Sending batch account address creation request', {
+      operation: 'create-account-addresses-batch',
+      addressCount: addressesData.length,
+      callbackUrl: callbackUrl,
     });
+    const data = await this._post(
+      config,
+      url,
+      batchPayload,
+      'create-account-addresses-batch',
+      'Failed to create account addresses batch'
+    );
+    this._cacheItemERCs(erc, data?.id, itemERCs, opts.sessionId);
+    if (cache && data?.id) {
+      cache.set(
+        `batch:${data.id}:submission`,
+        {
+          op: 'create-account-addresses-batch',
+          erc: erc,
+          itemERCs,
+          count: addressesData.length,
+          createdAt: new Date().toISOString(),
+        },
+        getBatchCacheTTLms(configService)
+      );
+    }
+    logger?.trace?.('cache:itemERCs:stored', {
+      scopeERC: erc,
+      sessionId: opts.sessionId || null,
+      batchId: data?.id || null,
+      count: itemERCs.length,
+    });
+
+    logger.info('Batch account address creation initiated', {
+      operation: 'create-account-addresses-batch',
+      batchId: data.id || 'unknown',
+      status: data.status || 'submitted',
+    });
+    return {
+      batchId: data.id || `batch-${Date.now()}`,
+      status: data.status || 'submitted',
+      addressCount: addressesData.length,
+      externalReferenceCode: erc,
+      batchRefs: [{ taskId: data.id, count: addressesData.length, erc }],
+    };
+  }
+
+  async createAccountsBatch(config, accountsData, callbackUrl, opts = {}) {
+    const { logger, cache, configService } = this.ctx;
+
+    logger.debug('accountsData in createAccountsBatch', { accountsData: this._stringifySafe(accountsData) });
+
+    const erc =
+      opts.externalReferenceCode ?? createERC(ERC_PREFIX.ACCOUNT_BATCH);
+    const itemERCs = (accountsData || []).map((i) =>
+      sanitizedERC(i.externalReferenceCode || i.id || i.name || uuidv4())
+    );
+    this._cacheItemERCs(erc, null, itemERCs, opts.sessionId);
+
     const batchPayload = {
       createStrategy: 'INSERT',
       items: accountsData,
       externalReferenceCode: erc,
     };
-    const url = PATH.ACCOUNTS_BATCH(taggedCallback);
+    
+    const url = PATH.ACCOUNTS_BATCH(this._buildCallbackURL(callbackUrl, { batchERC: erc, sessionId: opts.sessionId, op: 'create' }));
+    
     logger.info('Sending batch account creation request', {
       operation: 'create-accounts-batch',
       accountCount: accountsData.length,
-      callbackUrl: taggedCallback,
+      callbackUrl: url,
     });
+    
     const data = await this._post(
       config,
       url,
@@ -1314,7 +1356,9 @@ class LiferayService {
       'create-accounts-batch',
       'Failed to create accounts batch'
     );
+    
     this._cacheItemERCs(erc, data?.id, itemERCs, opts.sessionId);
+    
     if (cache && data?.id) {
       cache.set(
         `batch:${data.id}:submission`,
@@ -1328,6 +1372,7 @@ class LiferayService {
         getBatchCacheTTLms(configService)
       );
     }
+    
     logger?.trace?.('cache:itemERCs:stored', {
       scopeERC: erc,
       sessionId: opts.sessionId || null,
@@ -1340,6 +1385,7 @@ class LiferayService {
       batchId: data.id || 'unknown',
       status: data.status || 'submitted',
     });
+    
     return {
       batchId: data.id || `batch-${Date.now()}`,
       status: data.status || 'submitted',
@@ -1382,37 +1428,23 @@ class LiferayService {
     const itemERCs = (ordersData || []).map((i) =>
       sanitizedERC(i.externalReferenceCode || i.orderNumber || uuidv4())
     );
-    cache.set(
-      `erc:${erc}:itemERCs`,
-      itemERCs,
-      getBatchCacheTTLms(configService)
-    );
-    if (opts.sessionId) {
-      cache.set(
-        `session:${opts.sessionId}:itemERCsByBatch:${erc}`,
-        itemERCs,
-        getBatchCacheTTLms(configService)
-      );
-    }
+    this._cacheItemERCs(erc, null, itemERCs, opts.sessionId);
 
-    const taggedCallback = this._buildCallbackURL(callbackUrl, {
-      entity: 'orders',
-      op: 'create',
-      batchERC: erc,
-      sessionId: opts.sessionId,
-    });
     const batchPayload = {
       createStrategy: 'INSERT',
       items: ordersData,
       externalReferenceCode: erc,
     };
-    const url = PATH.ORDERS_BATCH(taggedCallback);
+    
+    const url = PATH.ORDERS_BATCH(this._buildCallbackURL(callbackUrl, { batchERC: erc, sessionId: opts.sessionId, op: 'create' }));
+
     logger.info('Sending batch order creation request', {
       operation: 'create-orders-batch',
       orderCount: ordersData.length,
-      callbackUrl: taggedCallback,
+      callbackUrl: url,
       externalReferenceCode: erc,
     });
+    
     const data = await this._post(
       config,
       url,
@@ -1420,7 +1452,9 @@ class LiferayService {
       'create-orders-batch',
       'Failed to create orders batch'
     );
+    
     this._cacheItemERCs(erc, data?.id, itemERCs, opts.sessionId);
+    
     if (cache && data?.id) {
       cache.set(
         `batch:${data.id}:submission`,
@@ -1434,6 +1468,7 @@ class LiferayService {
         getBatchCacheTTLms(configService)
       );
     }
+    
     logger?.trace?.('cache:itemERCs:stored', {
       scopeERC: erc,
       sessionId: opts.sessionId || null,
@@ -1447,6 +1482,7 @@ class LiferayService {
       status: data.status || 'submitted',
       externalReferenceCode: erc,
     });
+    
     return {
       batchId: data.id || `batch-${Date.now()}`,
       status: data.status || 'submitted',

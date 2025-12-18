@@ -46,7 +46,7 @@ function handleError(res, logger, req, operation, error, extra = {}) {
   });
 }
 
-module.exports = (app, { logger }) => {
+module.exports = (app, { logger, queueService }) => {
   app.get('/api/queue/stats', async (req, res) => {
     try {
       const stats = await queueService.getAllStats();

@@ -3,18 +3,19 @@ const { ENV } = require('./utils/constants.cjs');
 
 const { AIService } = require('./services/aiService.cjs');
 const BatchCallbackService = require('./services/batchCallbackService.cjs');
-const BatchPollingService = require('./services/batchPollingService.cjs');
 const BatchProcessorService = require('./services/batchProcessorService.cjs');
 const CacheService = require('./services/cacheService.cjs');
 const ConfigService = require('./services/configService.cjs');
 const DeleteCoordinatorService = require('./services/deleteCoordinatorService.cjs');
 const LiferayService = require('./services/liferayService.cjs');
 const { ObjectStorageService } = require('./services/objectStorageService.cjs');
+const PersistenceService = require('./services/persistenceService.cjs');
 
 const OAuthService = require('./services/oAuthService.cjs');
 const HealthService = require('./services/healthService.cjs');
 const { PromptService } = require('./services/promptService.cjs');
 const { QueueService } = require('./services/queueService.cjs');
+const ProgressService = require('./services/progressService.cjs');
 
 const AccountGenerator = require('./generators/accountGenerator.cjs');
 const MediaGenerator = require('./generators/mediaGenerator.cjs');
@@ -30,6 +31,16 @@ module.exports = (ws) => {
 
   const cacheService = new CacheService(ctx);
   ctx.cache = cacheService;
+
+  const persistenceService = new PersistenceService();
+  ctx.persistenceService = persistenceService;
+
+  const progressService = new ProgressService({
+    ws,
+    logger,
+    persistenceService,
+  });
+  ctx.progressService = progressService;
 
   const oauthService = new OAuthService({ cacheService, logger });
   ctx.oauthService = oauthService;
@@ -83,49 +94,46 @@ module.exports = (ws) => {
   const mockDataGenerator = new MockDataGenerator({ logger });
   ctx.mockData = mockDataGenerator;
 
-  const batchPollingService = new BatchPollingService({
-    logger,
-    liferay: liferayService,
-    cache: cacheService,
-    configService,
-    ws,
-  });
-  ctx.batchPolling = batchPollingService;
-
   const entityGeneratorCtx = {
     ai: aiService,
-    batchPolling: batchPollingService,
+    persistenceService,
     batchProcessor: batchProcessorService,
     cache: cacheService,
+    configService: configService,
     liferay: liferayService,
     logger,
     media: mediaGenerator,
     mockData: mockDataGenerator,
-    ws,
+    progressService,
   };
+
+  const warehouseGenerator = new WarehouseGenerator(entityGeneratorCtx);
+  entityGeneratorCtx.warehouseGenerator = warehouseGenerator;
 
   const accountGenerator = new AccountGenerator(entityGeneratorCtx);
   const orderGenerator = new OrderGenerator(entityGeneratorCtx);
   const productGenerator = new ProductGenerator(entityGeneratorCtx);
-  const warehouseGenerator = new WarehouseGenerator(entityGeneratorCtx);
 
-  batchPollingService.setProductGenerator(productGenerator);
-
-  const batchCallbackService = new BatchCallbackService(ctx);
+  const batchCallbackService = new BatchCallbackService({
+    ...ctx,
+    persistenceService,
+    accountGenerator,
+    productGenerator,
+  });
   ctx.batchCallbackService = batchCallbackService;
 
   const deleteCoordinatorService = new DeleteCoordinatorService({
+    ...ctx,
     cache: cacheService,
     liferay: liferayService,
-    batchPolling: batchPollingService,
-    logger,
     batchCallbackService,
-    ws
+    persistenceService,
   });
   ctx.deleteCoordinator = deleteCoordinatorService;
   ctx.deleteCoordinatorService = deleteCoordinatorService;
 
-  batchCallbackService.setDeleteCoordinatorService(deleteCoordinatorService);
+  entityGeneratorCtx.batchCallbackService = batchCallbackService;
+  entityGeneratorCtx.deleteCoordinatorService = deleteCoordinatorService;
 
   const queueService = new QueueService({
     logger,
@@ -147,8 +155,6 @@ module.exports = (ws) => {
     accountGenerator,
     aiService,
     batchCallbackService,
-    batchPollingService,
-    batchProcessorService,
     cacheService,
     configService,
     deleteCoordinatorService,
@@ -160,6 +166,8 @@ module.exports = (ws) => {
     orderGenerator,
     productGenerator,
     objectStorageService,
+    persistenceService,
+    progressService,
     promptService,
     queueService,
     warehouseGenerator,

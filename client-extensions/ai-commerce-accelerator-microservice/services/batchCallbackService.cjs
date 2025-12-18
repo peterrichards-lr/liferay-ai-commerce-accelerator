@@ -1,403 +1,307 @@
 const { createERC } = require('../utils/misc.cjs');
 const { ERC_PREFIX } = require('../utils/constants.cjs');
 
+const BATCH_STEP_HANDLERS = require('./batch-steps/index.cjs');
+
 class BatchCallbackService {
   constructor(ctx) {
     this.ctx = ctx;
-    this.deleteCoordinatorService = null;
   }
 
-  setDeleteCoordinatorService(deleteCoordinatorService) {
-    this.deleteCoordinatorService = deleteCoordinatorService;
-  }
+  async _checkSessionCompletion(sessionId, correlationId) {
+    const { logger, persistenceService, ws } = this.ctx;
+    
+    const session = await persistenceService.getSession(sessionId);
+    if (!session || session.status === 'COMPLETED' || session.status === 'FAILED') {
+      return;
+    }
 
-  async processCallback(batchERC, payload) {
-    const { cache, logger, liferay } = this.ctx;
-    const deleteCoordinatorService = this.deleteCoordinatorService;
-    try {
-      let context = cache.get(`batch:${batchERC}:context`);
-      logger.debug('Processing batch callback', { batchERC, payload, context });
-      if (logger?.isTraceEnabled?.()) {
-        logger.trace('Batch callback loaded context', {
-          batchERC,
-          hasContext: !!context,
-          contextKeys: context ? Object.keys(context) : [],
-          steps: context?.steps,
-          currentStep: payload?.entity,
-          payload: JSON.stringify(payload, null, 2),
-        });
-      }
-      if (!context) {
-        logger.warn('No context found for batchERC in callback', {
-          batchERC,
-          payload,
-          operation: 'batch-callback-no-context',
-        });
+    const { config, steps: workflowSteps } = session.context;
+    let { currentSteps } = session; // This now holds the array of currently active steps (objects or strings)
+
+    const allBatchesForSession = await persistenceService.getBatchesForSession(sessionId);
+
+    let newActiveSteps = [];
+    let sessionAdvanced = false;
+
+    // Process all currently active steps
+    for (const stepDefinition of currentSteps) {
+      const stepName = typeof stepDefinition === 'string' ? stepDefinition : stepDefinition.name;
+      const stepType = typeof stepDefinition === 'object' ? stepDefinition.type : 'sync'; // Default to sync
+
+      const batchesForCurrentStep = allBatchesForSession.filter(b => b.step_key === stepName);
+      const isStepCompleted = batchesForCurrentStep.every(b => b.status === 'COMPLETED' || b.status === 'FAILED');
+      const isStepFailed = batchesForCurrentStep.some(b => b.status === 'FAILED');
+
+      if (isStepFailed) {
+        logger.error(`Step '${stepName}' failed. Marking session as failed.`, { sessionId, stepName });
+        await persistenceService.updateSession(sessionId, { status: 'FAILED' });
         return;
       }
-      const { config, options, steps, callbackUrl, channelId, catalogId } =
-        context;
-      if (!context.stepGroups) {
-        context.stepGroups = this._buildStepGroups(steps);
-      }
-      if (!Array.isArray(context.completedSteps)) {
-        context.completedSteps = [];
-      }
-      const completedStep = payload.entity;
-      if (
-        steps.includes(completedStep) &&
-        !context.completedSteps.includes(completedStep)
-      ) {
-        context.completedSteps.push(completedStep);
-      }
-      let groupIndex = -1;
-      for (let i = 0; i < context.stepGroups.length; i++) {
-        if (context.stepGroups[i].includes(completedStep)) {
-          groupIndex = i;
-          break;
+
+      if (isStepCompleted) {
+        logger.info(`Step '${stepName}' completed.`, { sessionId, stepName, stepType });
+        sessionAdvanced = true;
+        // Do not add to newActiveSteps, effectively removing it
+        if (stepType === 'async') {
+          logger.info(`Asynchronous step '${stepName}' finished, not blocking workflow.`, { sessionId, stepName });
         }
+      } else {
+        // If not completed, keep it in the list of active steps
+        newActiveSteps.push(stepDefinition);
       }
-      if (groupIndex === -1) {
-        logger.warn(
-          `Completed step '${completedStep}' not found in stepGroups for batchERC`,
-          {
-            batchERC,
-            stepGroups: context.stepGroups,
-            operation: 'batch-callback-unknown-step-group',
+    }
+
+    // Update currentSteps in DB after processing completions
+    currentSteps = newActiveSteps;
+    await persistenceService.updateSessionCurrentSteps(sessionId, currentSteps);
+
+
+    // If no steps are currently active, try to advance the workflow
+    if (currentSteps.length === 0) {
+      const lastCompletedStepIndex = workflowSteps.findLastIndex(s => {
+        const sName = typeof s === 'string' ? s : s.name;
+        return allBatchesForSession.some(b => b.step_key === sName && (b.status === 'COMPLETED' || b.status === 'FAILED'));
+      });
+
+      let nextWorkflowStepIndex = (lastCompletedStepIndex !== -1) ? lastCompletedStepIndex + 1 : 0;
+      let nextWorkflowStep = workflowSteps[nextWorkflowStepIndex];
+
+      while (nextWorkflowStep) {
+        const nextStepName = typeof nextWorkflowStep === 'string' ? nextWorkflowStep : nextWorkflowStep.name;
+        const nextStepType = typeof nextWorkflowStep === 'object' ? nextWorkflowStep.type : 'sync';
+
+        if (nextStepType === 'sync') {
+          logger.info(`Starting synchronous step '${nextStepName}'`, { sessionId, nextStepName });
+          currentSteps.push(nextWorkflowStep);
+          await persistenceService.updateSessionCurrentSteps(sessionId, currentSteps);
+          await this._startStep(nextWorkflowStep, sessionId, config, correlationId);
+          break; // Wait for this sync step to complete
+        } else if (nextStepType === 'async') {
+          logger.info(`Starting asynchronous step '${nextStepName}'`, { sessionId, nextStepName });
+          // Async steps are added to currentSteps but don't block progress
+          currentSteps.push(nextWorkflowStep);
+          await persistenceService.updateSessionCurrentSteps(sessionId, currentSteps);
+          await this._startStep(nextWorkflowStep, sessionId, config, correlationId);
+          // Immediately move to the next step
+          nextWorkflowStepIndex++;
+          nextWorkflowStep = workflowSteps[nextWorkflowStepIndex];
+        } else if (nextStepType === 'parallel') {
+          logger.info(`Starting parallel step block`, { sessionId, nextStepName: nextWorkflowStep.name });
+          for (const subStep of nextWorkflowStep.steps) {
+            logger.info(`Starting parallel sub-step '${subStep.name}'`, { sessionId, subStepName: subStep.name });
+            currentSteps.push(subStep);
+            await this._startStep(subStep, sessionId, config, correlationId);
           }
-        );
-        return;
+          await persistenceService.updateSessionCurrentSteps(sessionId, currentSteps);
+          // After starting all parallel sub-steps, this parallel block is now active, so we break and wait.
+          break;
+        } else {
+          logger.warn(`Unknown step type '${nextStepType}' for step '${nextStepName}'`, { sessionId, nextStepName });
+        }
+        // This is for async steps and iterating through a parallel block's setup
+        nextWorkflowStepIndex++;
+        nextWorkflowStep = workflowSteps[nextWorkflowStepIndex];
       }
-      context.currentGroupIndex = Math.max(
-        context.currentGroupIndex || 0,
-        groupIndex
-      );
-      cache.set(`batch:${batchERC}:context`, context);
-      const group = context.stepGroups[groupIndex];
-      if (!this._isGroupComplete(group, context.completedSteps)) {
-        logger.info(
-          `Step '${completedStep}' completed in group ${groupIndex}, waiting for other steps in group`,
-          {
-            batchERC,
-            completedStep,
-            group,
-            completedSteps: context.completedSteps,
-          }
-        );
-        return;
+    }
+
+    // Final check for session completion if no current steps are active and no more workflow steps
+    if (currentSteps.length === 0 && !workflowSteps[nextWorkflowStepIndex]) {
+      logger.info('Workflow session completed - all steps finished', {
+        operation: 'session-complete',
+        correlationId,
+        sessionId,
+        flowType: session.flow_type,
+        totalBatches: allBatchesForSession.length,
+      });
+
+      await persistenceService.updateSession(sessionId, { status: 'COMPLETED', currentSteps: [] });
+
+      const onSessionComplete = this._getOnSessionComplete(session.flow_type);
+
+      if (typeof onSessionComplete === 'function') {
+        Promise.resolve()
+          .then(() =>
+            onSessionComplete({
+              sessionId,
+              session: {
+                ...session.context,
+                completedBatches: allBatchesForSession.map((b) => b.downstream_batch_id),
+              },
+              correlationId,
+            })
+          )
+          .catch((err) => {
+            const errorReference = err.errorReference || createERC(ERC_PREFIX.ERROR);
+            logger?.error?.('onSessionComplete failed', {
+              operation: 'post-processing-hook-error',
+              sessionId,
+              correlationId,
+              errorReference,
+              message: err.message,
+              stack: err.stack,
+            });
+          });
       }
-      await this._startNextGroups({
+    } else if (sessionAdvanced) {
+        // If the session advanced, ensure the DB is updated with the latest currentSteps
+        // (This was already done inside the loop, but this ensures final state for this iteration)
+        await persistenceService.updateSessionCurrentSteps(sessionId, currentSteps);
+    }
+  }
+
+  async _startStep(stepDefinition, sessionId, config, correlationId) {
+    const { logger, productGenerator, accountGenerator, deleteCoordinatorService, persistenceService } = this.ctx;
+    const session = await persistenceService.getSession(sessionId);
+
+    const stepName = typeof stepDefinition === 'string' ? stepDefinition : stepDefinition.name;
+
+    // Ensure session.context is available and contains necessary data
+    if (!session || !session.context) {
+        logger.error(`Cannot start step '${stepName}': Session or session context missing.`, { sessionId, stepName });
+        await persistenceService.updateSession(sessionId, { status: 'FAILED' });
+        return;
+    }
+
+    const { flow_type: flowType } = session; 
+    const sessionContext = session.context; 
+
+    logger.info(`Attempting to start step handler for '${stepName}' (Flow: ${flowType})`, { sessionId, stepName, flowType });
+
+    try {
+        if (stepName === 'accounts') {
+            await accountGenerator.generateAccounts(config, sessionContext.options);
+        } else if (stepName === 'postal-addresses') {
+            await accountGenerator.startPostalAddressesBatch({ sessionId, session: sessionContext, correlationId });
+        } else if (stepName === 'product-data-generation') {
+            // This is the initial data generation part of the product flow, might involve AI calls
+            // The result of this data generation should be stored in session context
+            const allProductData = await productGenerator._generateProductData(config, sessionContext.options, sessionId);
+            // Update the session context with the generated data for the next step
+            await persistenceService.updateSessionContext(sessionId, { ...sessionContext, productDataList: allProductData });
+            logger.info('Product data generation complete and context updated.', { sessionId, count: allProductData.length });
+        } else if (stepName === 'products') {
+            // This step assumes productDataList is already in session.context
+            if (!sessionContext.productDataList || sessionContext.productDataList.length === 0) {
+                logger.warn(`Step 'products' called without productDataList in session context.`, { sessionId });
+                await persistenceService.updateSession(sessionId, { status: 'FAILED' });
+                return;
+            }
+            await productGenerator.startProductsBatch({ sessionId, session: sessionContext, correlationId });
+        } else if (stepName.startsWith('delete')) { 
+            const { channelId, catalogId } = sessionContext;
+
+            await this._runStep(stepName, { 
+                sessionId, 
+                config, 
+                options: sessionContext.options, 
+                channelId, 
+                catalogId 
+            });
+        } else {
+            logger.warn(`No specific handler found or step type not fully implemented for '${stepName}'`, { sessionId, stepName, flowType });
+            // For unhandled steps, mark batch as completed to avoid stalling, or failed if critical
+            // Here, we assume a step handler *should* exist or be explicitly handled
+            await persistenceService.createBatch({
+              erc: createERC(ERC_PREFIX.BATCH), // Use a generic ERC
+              sessionId,
+              step_key: stepName,
+              status: 'COMPLETED', // Or 'FAILED' based on desired strictness
+            });
+             // Then trigger check completion again, as this "batch" is now done
+            await this._checkSessionCompletion(sessionId, correlationId);
+        }
+    } catch (error) {
+        logger.error(`Error executing step '${stepName}': ${error.message}`, {
+            sessionId,
+            stepName,
+            flowType,
+            error: error.message,
+            stack: error.stack,
+        });
+        await persistenceService.updateSession(sessionId, { status: 'FAILED' });
+    }
+}
+
+
+  async _runStep(step, { sessionId, config, options, channelId, catalogId }) {
+    const { logger, liferay, persistenceService } = this.ctx;
+
+    const batchERC = createERC(ERC_PREFIX.BATCH_DELETION);
+
+    await persistenceService.createBatch({
+      erc: batchERC,
+      sessionId,
+      stepKey: step,
+      status: 'PREPARED',
+    });
+
+    const { hasItems, ids } = await this._checkIfEntitiesExist(
+      liferay,
+      config,
+      step,
+      { channelId, catalogId }
+    );
+
+    if (!hasItems) {
+      logger.info(`Skipping ${step}: No entities found. Marking as complete.`, {
         batchERC,
-        context,
-        fromGroupIndex: groupIndex,
+        step,
+      });
+
+      await persistenceService.updateBatch(batchERC, { status: 'COMPLETED' });
+
+      await this._checkSessionCompletion(
+        sessionId,
+        config.correlationId
+      );
+
+      return;
+    }
+
+    const handler = BATCH_STEP_HANDLERS[step];
+
+    if (handler) {
+      const callbackUrl = `${config.microserviceUrl}/api/batch/callback`;
+      const handlerContext = {
         config,
         options,
         callbackUrl,
-        channelId,
-        catalogId,
-        liferay,
-        deleteCoordinatorService,
-      });
-    } catch (error) {
-      const errorReference =
-        error.errorReference || createERC(ERC_PREFIX.ERROR);
-      this.ctx.logger.error('Error processing batch callback', {
-        operation: 'batch-callback-error',
-        errorReference,
+        ids,
         batchERC,
-        message: error.message,
-        stack: error.stack,
+        sessionId,
+      };
+
+      await handler(this.ctx, handlerContext);
+
+      await persistenceService.updateBatch(batchERC, { status: 'SUBMITTED' });
+    } else {
+      logger.warn(`Unknown step in deletion process: ${step}`, {
+        batchERC,
       });
+
+      await persistenceService.updateBatch(batchERC, { status: 'FAILED' });
+      
+      await this._checkSessionCompletion(
+        sessionId,
+        config.correlationId
+      );
     }
   }
 
-  _buildStepGroups(steps = []) {
-    return steps.map((step) => [step]);
-  }
-
-  _isGroupComplete(group, completedSteps) {
-    return group.every((step) => completedSteps.includes(step));
-  }
-
-  async _startNextGroups({
-    batchERC,
-    context,
-    fromGroupIndex,
-    config,
-    options,
-    callbackUrl,
-    channelId,
-    catalogId,
-    liferay,
-    deleteCoordinatorService,
-  }) {
-    const { logger, cache, ws } = this.ctx;
-    logger.info('Starting _startNextGroups', { batchERC, fromGroupIndex });
-    for (
-      let groupIndex = 0;
-      groupIndex < context.stepGroups.length;
-      groupIndex++
-    ) {
-      logger.debug(`Processing group ${groupIndex}`, { batchERC });
-      const group = context.stepGroups[groupIndex];
-
-      if (this._isGroupComplete(group, context.completedSteps)) {
-        logger.debug(`Group ${groupIndex} already completed. Skipping.`, {
-          batchERC,
-          group,
-          completedSteps: context.completedSteps,
-        });
-        context.currentGroupIndex = groupIndex + 1;
-        cache.set(`batch:${batchERC}:context`, context);
-        continue;
-      }
-
-      let batchesSubmittedInGroup = 0;
-
-      for (const step of group) {
-        if (context.completedSteps.includes(step)) {
-          logger.debug(`Step '${step}' already completed. Skipping.`, {
-            batchERC,
-            step,
-          });
-          continue;
-        }
-
-        const { hasItems, ids } = await this._checkIfEntitiesExist(
-          liferay,
-          config,
-          step,
-          { channelId, catalogId, productIds: context.productIds }
-        );
-
-        if (step === 'products' && ids) {
-          context.productIds = ids;
-          cache.set(`batch:${batchERC}:context`, context);
-        }
-
-        if (!hasItems) {
-          context.completedSteps.push(step);
-          logger.info(
-            `Skipping ${step} deletion: No entities found. Marking as completed.`,
-            { batchERC, step }
-          );
-          logger.debug('Completed steps after skipping', {
-            batchERC,
-            completedSteps: context.completedSteps,
-          });
-
-          cache.set(`batch:${batchERC}:context`, context);
-          continue;
-        }
-
-        let result;
-        const nextCallbackUrl = `${callbackUrl}&entity=${step}`;
-        logger.debug(`Attempting deletion for step: ${step}`, {
-          batchERC,
-          step,
-          hasItems,
-          ids: (ids || []).slice(0, 5),
-        });
-
-        switch (step) {
-          case 'orders':
-            result = await liferay.deleteCommerceOrders(
-              config,
-              { ...options, channelId, callbackBatchERC: batchERC },
-              nextCallbackUrl
-            );
-            break;
-          case 'warehouses':
-            result = await deleteCoordinatorService._deleteWarehouses(
-              config,
-              ids,
-              config.correlationId,
-              ws
-            );
-            break;
-          case 'accounts':
-            result = await liferay.deleteCommerceAccounts(
-              config,
-              { ...options, channelId, callbackBatchERC: batchERC },
-              nextCallbackUrl
-            );
-            break;
-          case 'products': {
-            if (catalogId) {
-              context.productIds = ids;
-              cache.set(`batch:${batchERC}:context`, context);
-
-              const productConfig = { ...config, catalogId };
-              result = await liferay.deleteCommerceProducts(
-                productConfig,
-                { ...options, catalogId, callbackBatchERC: batchERC },
-                nextCallbackUrl
-              );
-            } else {
-              result = await liferay.deleteAllCommerceProducts(
-                config,
-                { ...options, callbackBatchERC: batchERC },
-                nextCallbackUrl
-              );
-            }
-            break;
-          }
-          case 'delete-product-related-entities': {
-            const productIds = context.productIds || [];
-            if (productIds.length > 0) {
-              const specifications =
-                await liferay.getSpecificationsByProductIds(
-                  config,
-                  productIds
-                );
-              const specificationIds = specifications.map((s) => s.id);
-              const optionIds = specifications
-                .map((s) => s.optionId)
-                .filter(Boolean);
-              const optionCategoryIds = specifications
-                .map((s) => s.optionCategoryId)
-                .filter(Boolean);
-
-              if (specificationIds.length > 0) {
-                await liferay.deleteSpecificationsBatch(
-                  config,
-                  { ...options, ids: specificationIds },
-                  null
-                );
-              }
-              if (optionIds.length > 0) {
-                await liferay.deleteOptionsBatch(
-                  config,
-                  { ...options, ids: optionIds },
-                  null
-                );
-              }
-              if (optionCategoryIds.length > 0) {
-                await liferay.deleteOptionCategoriesBatch(
-                  config,
-                  { ...options, ids: optionCategoryIds },
-                  null
-                );
-              }
-            }
-            break;
-          }
-          case 'specifications':
-            result = await liferay.deleteSpecificationsBatch(
-              config,
-              { ...options, callbackBatchERC: batchERC },
-              nextCallbackUrl
-            );
-            break;
-          case 'options':
-            result = await liferay.deleteOptionsBatch(
-              config,
-              { ...options, callbackBatchERC: batchERC },
-              nextCallbackUrl
-            );
-            break;
-          case 'optionCategories':
-            result = await liferay.deleteOptionCategoriesBatch(
-              config,
-              { ...options, callbackBatchERC: batchERC },
-              nextCallbackUrl
-            );
-            break;
-          case 'priceLists':
-            result = await liferay.deletePriceListsBatch(
-              config,
-              { ...options, callbackBatchERC: batchERC },
-              nextCallbackUrl
-            );
-            break;
-          case 'orders':
-            logger.warn(
-              `Orders step encountered in _startNextGroups loop. This should not happen.`,
-              { batchERC }
-            );
-            if (!context.completedSteps.includes('orders')) {
-              context.completedSteps.push('orders');
-              cache.set(`batch:${batchERC}:context`, context);
-            }
-            continue;
-          default:
-            logger.warn(`Unknown step in chained deletion: ${step}`, {
-              batchERC,
-            });
-            if (!context.completedSteps.includes(step)) {
-              context.completedSteps.push(step);
-              cache.set(`batch:${batchERC}:context`, context);
-            }
-            continue;
-        }
-
-        if (result?.batchRefs && result.batchRefs.length > 0) {
-          logger.info('Batch tasks started for chained deletion', {
-            batchERC,
-            step,
-            batchRefs: result.batchRefs,
-          });
-          batchesSubmittedInGroup++;
-          context.currentGroupIndex = groupIndex;
-          cache.set(`batch:${batchERC}:context`, context);
-          logger.info(
-            `Submitted batch for step '${step}'. Waiting for its completion.`,
-            { batchERC, step }
-          );
-          return;
-        }
-
-        context.completedSteps.push(step);
-        logger.info(
-          `Step '${step}' deletion initiated or marked complete (no batches needed).`,
-          { batchERC, step }
-        );
-        cache.set(`batch:${batchERC}:context`, context);
-      }
-
-      context.completedSteps = Array.from(new Set(context.completedSteps));
-
-      if (this._isGroupComplete(group, context.completedSteps)) {
-        logger.info(
-          `Group ${groupIndex} completed. Proceeding to next group.`,
-          { batchERC, group }
-        );
-        context.currentGroupIndex = groupIndex + 1;
-        cache.set(`batch:${batchERC}:context`, context);
-      } else {
-        logger.warn(
-          `Group ${groupIndex} not fully complete after processing. This might indicate an issue.`,
-          {
-            batchERC,
-            group,
-            completedSteps: context.completedSteps,
-          }
-        );
-        return;
-      }
-    }
-
-    logger.info('Chained deletion process complete.', {
-      batchERC,
-      operation: 'batch-callback-complete',
-    });
-    this.ctx.cache.delete(`batch:${batchERC}:context`);
-  }
-
-  async _checkIfEntitiesExist(
-    liferay,
-    config,
-    entityType,
-    { channelId, catalogId, productIds }
-  ) {
+  async _checkIfEntitiesExist(liferay, config, entityType, context) {
     const { logger } = this.ctx;
+    const { channelId, catalogId, productIds } = context;
+
     logger.debug('Checking for existence of entities', {
       entityType,
       channelId,
       catalogId,
+      operation: context.options?.operation,
     });
+
     const checkMap = {
-      accounts: async () => {
+      deleteAccounts: async () => {
         const res = await liferay.getCommerceAccounts(config, {
           channelId,
           pageSize: 200,
@@ -408,7 +312,7 @@ class BatchCallbackService {
           ids: liferay._asItems(res).map((it) => it.id),
         };
       },
-      products: async () => {
+      deleteProducts: async () => {
         const res = await liferay.getCommerceProducts(config, {
           catalogId,
           pageSize: 200,
@@ -419,7 +323,7 @@ class BatchCallbackService {
           ids: liferay._asItems(res).map((it) => it.productId),
         };
       },
-      specifications: async () => {
+      deleteSpecifications: async () => {
         const res = await liferay.getSpecifications(config, { pageSize: 200 });
         return {
           items: liferay._asItems(res),
@@ -427,7 +331,7 @@ class BatchCallbackService {
           ids: liferay._asItems(res).map((it) => it.id),
         };
       },
-      options: async () => {
+      deleteOptions: async () => {
         const res = await liferay.getOptions(config, { pageSize: 200 });
         return {
           items: liferay._asItems(res),
@@ -435,8 +339,8 @@ class BatchCallbackService {
           ids: liferay._asItems(res).map((it) => it.id),
         };
       },
-      optionCategories: async () => {
-        const res = await liferay._listOptionCategories(config, {
+      deleteOptionCategories: async () => {
+        const res = await liferay.getOptionCategories(config, {
           pageSize: 200,
         });
         return {
@@ -458,7 +362,7 @@ class BatchCallbackService {
           ids: specifications.map((s) => s.id),
         };
       },
-      orders: async () => {
+      deleteOrders: async () => {
         const res = await liferay.getCommerceOrders(config, {
           channelId,
           pageSize: 200,
@@ -469,7 +373,7 @@ class BatchCallbackService {
           ids: liferay._asItems(res).map((it) => it.id),
         };
       },
-      warehouses: async () => {
+      deleteWarehouses: async () => {
         const res = await liferay.getWarehouses(config, { pageSize: 200 });
         return {
           items: liferay._asItems(res),
@@ -477,7 +381,7 @@ class BatchCallbackService {
           ids: liferay._asItems(res).map((it) => it.id),
         };
       },
-      priceLists: async () => {
+      deletePriceLists: async () => {
         const res = await liferay.getPriceLists(config, { pageSize: 200 });
         return {
           items: liferay._asItems(res),
@@ -487,7 +391,7 @@ class BatchCallbackService {
       },
     };
 
-    if (!checkMap[entityType]) return { hasItems: true, ids: [] };
+    if (!checkMap[entityType]) return { hasItems: false, ids: [] }; 
 
     const { items, totalCount, ids } = await checkMap[entityType]();
     const hasItems = totalCount > 0;
@@ -499,23 +403,84 @@ class BatchCallbackService {
       resultItemsPreview: (ids || []).slice(0, 5),
     });
 
-    if (entityType === 'accounts') {
-      if (totalCount <= 1) {
-        const primaryAccountId = await liferay.getPrimaryAccountId(config);
-        const deletableIds = (ids || []).filter(
-          (id) => String(id) !== String(primaryAccountId)
-        );
-        logger.trace('Account existence check excluding primary account', {
-          entityType,
-          primaryAccountId,
-          totalCount,
-          deletableCount: deletableIds.length,
-        });
-        return { hasItems: deletableIds.length > 0, ids: deletableIds };
-      }
+    return { hasItems: hasItems, ids: ids };
+  }
+
+  _getOnSessionComplete(flowType) {
+    const { productGenerator } = this.ctx;
+    if (flowType === 'generate') {
+      return productGenerator.createOnSessionComplete();
+    }
+    return null;
+  }
+
+  async processCallback(batchERC, payload) {
+    const { logger, liferay, persistenceService, ws } = this.ctx;
+
+    const dbBatch = await persistenceService.getBatch(batchERC);
+
+    if (!dbBatch) {
+      logger.warn('No batch record found for batchERC in callback', {
+        batchERC,
+        payload,
+        operation: 'batch-callback-no-record',
+      });
+      return;
     }
 
-    return { hasItems: hasItems, ids: ids };
+    const session = await persistenceService.getSession(dbBatch.session_id);
+    if (!session) {
+      logger.error('Orphaned batch detected - no session found for batch', {
+        operation: 'batch-callback-no-session',
+        batchERC,
+        sessionId: dbBatch.session_id,
+      });
+      await persistenceService.updateBatch(batchERC, { status: 'FAILED' });
+      return;
+    }
+
+    const { config } = session.context;
+    const correlationId = config.correlationId;
+
+    try {
+      const importTask = await liferay.getImportTask(config, payload.batchId);
+      const { processedItemsCount, totalItemsCount, failedItems } =
+        importTask.data;
+      const errorCount = failedItems?.length || 0;
+
+      await persistenceService.updateBatch(batchERC, {
+        status: payload.status.toUpperCase(),
+        processedCount: processedItemsCount,
+        totalCount: totalItemsCount,
+        errorCount: errorCount,
+        downstreamBatchId: payload.batchId,
+      });
+
+      ws.emitBatchCompleted(
+        {
+          entityType: dbBatch.step_key,
+          operation: session.flow_type,
+          batchId: payload.batchId,
+          batchERC: batchERC,
+          sessionId: dbBatch.session_id,
+          successCount: processedItemsCount,
+          failureCount: errorCount,
+          errors: failedItems?.slice(0, 5) || [],
+        },
+        { correlationId }
+      );
+
+      await this._checkSessionCompletion(dbBatch.session_id, correlationId);
+    } catch (error) {
+      logger.error('Error processing batch callback', {
+        operation: 'batch-callback-error',
+        batchERC,
+        correlationId,
+        message: error.message,
+      });
+
+      await persistenceService.updateBatch(batchERC, { status: 'FAILED' });
+    }
   }
 }
 

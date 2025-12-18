@@ -2,16 +2,12 @@ const {
   createERC,
   toI18n,
   resolvePhaseAndMode,
-  now,
-  isoNow,
 } = require('../utils/misc.cjs');
 const { ERC_PREFIX } = require('../utils/constants.cjs');
-const { getBatchCacheTTLms, getLongLivedTTLms } = require('../utils/ttl.cjs');
 
 class WarehouseGenerator {
   constructor(ctx) {
     this.ctx = ctx;
-    this.handleBatchComplete = this.handleBatchComplete.bind(this);
   }
 
   _normalizeWarehouseData(warehouseData, config) {
@@ -37,7 +33,7 @@ class WarehouseGenerator {
   }
 
   async createWarehouses(config, options) {
-    const { logger, ai, mockData, ws, liferay, batchPolling, cache } =
+    const { logger, ai, mockData, progressService, liferay } =
       this.ctx;
     const { warehouseCount, demoMode, sessionId } = options;
     const correlationId = config?.correlationId || '∅';
@@ -63,25 +59,6 @@ class WarehouseGenerator {
 
     if (useBatch) {
       const batchERC = createERC(ERC_PREFIX.WAREHOUSE_BATCH);
-
-      const startedAt = now();
-      cache.set(
-        `erc:${batchERC}:config`,
-        {
-          correlationId,
-          clientId: config.clientId,
-          clientSecret: config.clientSecret,
-          createdAt: isoNow(),
-          startedAt,
-          entityType,
-          liferayUrl: config.liferayUrl,
-          localeCode: config.localeCode,
-          operation,
-          mode,
-          sessionId,
-        },
-        getLongLivedTTLms(this.ctx.configService)
-      );
 
       logger.info('Starting batch warehouse creation', {
         correlationId,
@@ -109,106 +86,28 @@ class WarehouseGenerator {
       const batchId = submission.batchId;
       const totalItems = normalizedWarehouseDataList.length;
 
-      if (sessionId) {
-        batchPolling.registerSession(sessionId, {
-          batchIds: [batchId],
-          totalExpected: 1,
-        });
-      }
-
-      batchPolling.startPolling(
+      progressService.batchStarted({
         batchId,
-        {
-          liferayUrl: config.liferayUrl,
-          clientId: config.clientId,
-          clientSecret: config.clientSecret,
-          localeCode: config.localeCode,
-          entityType: entityType,
-        },
-        {
-          pollInterval: config.pollingDelay,
-          maxPollAttempts: config.pollingRetries,
-          externalReferenceCode: batchERC,
-          onStatusChange: (status) => {
-            const processed = status.processedCount || 0;
-            const progress =
-              totalItems > 0 ? Math.round((processed / totalItems) * 100) : 0;
-            ws.emitBatchProgress(
-              {
-                entityType,
-                operation: 'generate',
-                mode: 'batch',
-                phase: 'poll',
-                batchId: status.batchId,
-                batchERC,
-                completedCount: processed,
-                totalItems: totalItems,
-                progress: progress,
-                etaSeconds: 0,
-                sessionId,
-              },
-              { correlationId }
-            );
-          },
-          onComplete: (r) => this.handleBatchComplete(r, config),
-          onError: (err) => {
-            ws.emitBatchFailed(
-              {
-                batchId,
-                entityType,
-                error: err.message,
-                successCount: 0,
-                failureCount: 1,
-                operation,
-                mode: 'batch',
-                phase: 'error',
-                externalReferenceCode: batchERC,
-                sessionId,
-              },
-              { correlationId }
-            );
-            ws.emitError({
-              correlationId,
-              batchId,
-              entityType,
-              message: err.message || 'Batch warehouse creation error',
-              phase: 'batch-polling',
-              errorReference: err.errorReference,
-              operation,
-              details: { status: 'FAILED' },
-            });
-            logger.error('Batch warehouse creation failed via polling', {
-              correlationId,
-              operation: 'warehouses/generate:error',
-              error: err.message,
-              mode: 'batch',
-            });
-          },
-          entityType: entityType,
-          operation: 'generate',
-          mode: 'batch',
-          affectsProgress: true,
-        }
-      );
+        batchERC,
+        sessionId,
+        entityType,
+        operation,
+        totalItems,
+        correlationId
+      });
 
       return submission.batchRefs;
     } else {
       const batchId = 'warehouses-individual';
 
-      if (ws && typeof ws.emitBatchStarted === 'function') {
-        ws.emitBatchStarted(
-          {
-            batchId,
-            entityType,
-            totalItems: warehouseDataList.length,
-            operation,
-            mode,
-            phase,
-            sessionId,
-          },
-          { correlationId }
-        );
-      }
+      progressService.batchStarted({
+        batchId,
+        entityType,
+        totalItems: warehouseDataList.length,
+        operation,
+        sessionId,
+        correlationId
+      });
 
       const createdWarehouses = [];
       const errors = [];
@@ -235,46 +134,27 @@ class WarehouseGenerator {
           });
         }
 
-        const processed = index + 1;
-        if (ws && typeof ws.emitBatchProgress === 'function') {
-          const totalItems = warehouseDataList.length;
-          const progress =
-            totalItems > 0 ? Math.round((processed / totalItems) * 100) : 0;
-
-          ws.emitBatchProgress(
-            {
-              batchId,
-              entityType,
-              completedCount: processed,
-              totalItems,
-              progress,
-              operation,
-              mode,
-              phase,
-              sessionId,
-            },
-            { correlationId }
-          );
-        }
+        progressService.batchProgress({
+          batchId,
+          entityType,
+          completedCount: index + 1,
+          totalItems: warehouseDataList.length,
+          sessionId,
+          correlationId,
+        });
       }
 
-      if (ws && typeof ws.emitBatchCompleted === 'function') {
-        ws.emitBatchCompleted(
-          {
-            batchId,
-            entityType,
-            successCount: createdWarehouses.length,
-            failureCount: errors.length,
-            errors,
-            operation,
-            mode,
-            phase,
-            sessionId,
-          },
-          { correlationId }
-        );
-      }
-
+      progressService.batchCompleted({
+        batchId,
+        entityType,
+        successCount: createdWarehouses.length,
+        failureCount: errors.length,
+        errors,
+        operation,
+        sessionId,
+        correlationId,
+      });
+      
       logger.info('Warehouse creation completed', {
         correlationId,
         operation: 'warehouses/generate:complete',
@@ -286,68 +166,6 @@ class WarehouseGenerator {
 
       return createdWarehouses;
     }
-  }
-
-  handleBatchComplete(results, config) {
-    const { logger, ws, cache, configService } = this.ctx;
-
-    const bid = String(results.batchId || '');
-    cache.set(
-      `batch:${bid}:completed`,
-      true,
-      getBatchCacheTTLms(configService)
-    );
-
-    const meta = cache.get(`batch:${bid}:meta`) || {};
-    const { batchERC, sessionId } = meta;
-
-    logger.info('Handling batch completion for warehouses', {
-      entityType: 'warehouses',
-      operation: 'generate',
-      ...resolvePhaseAndMode({ useBatch: true, phase: 'complete' }),
-      batchId: bid,
-      batchERC,
-      sessionId,
-      status: results.status,
-      processedCount: results.processedCount,
-      totalCount: results.totalCount,
-    });
-
-    const content = results.content;
-    let successCount = 0;
-    let failureCount = 0;
-    const failures = [];
-
-    if (Array.isArray(content)) {
-      content.forEach((item, index) => {
-        if (item.status === 'SUCCESS' || item.status === 'CREATED') {
-          successCount++;
-        } else {
-          failureCount++;
-          failures.push({
-            index,
-            error: item.error || item.message || 'Unknown error',
-          });
-        }
-      });
-    } else {
-      successCount = results.processedCount || results.totalCount || 0;
-    }
-
-    ws.emitBatchCompleted(
-      {
-        entityType: 'warehouses',
-        operation: 'generate',
-        ...resolvePhaseAndMode({ useBatch: true, phase: 'complete' }),
-        batchId: bid,
-        batchERC,
-        sessionId,
-        successCount,
-        failureCount,
-        errors: failureCount > 0 ? failures.slice(0, 5) : [],
-      },
-      { correlationId: config.correlationId }
-    );
   }
 }
 

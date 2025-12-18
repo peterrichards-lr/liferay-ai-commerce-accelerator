@@ -52,7 +52,6 @@ function createLoadAppConfigMiddleware(configService, logger) {
     try {
       await Promise.all([
         configService.getCacheConfig(config),
-        configService.getBatchPollingConfig(config),
         configService.getQueueConfig(config),
         configService.getAIConfig(config),
         configService.getAIPromptsConfig(config),
@@ -76,10 +75,13 @@ module.exports = (app, { deleteCoordinatorService, logger, configService }) => {
   app.post(
     '/api/delete-commerce-data',
     inputValidationMiddleware(connectionSchema),
+    (req, res, next) => {
+      req.config = buildConfigAndOptions(req).config;
+      next();
+    },
+    loadAppConfigMiddleware,
     async (req, res) => {
       const { config, options } = buildConfigAndOptions(req);
-
-      req.config = config;
 
       try {
         const summary = await deleteCoordinatorService.runDeleteAndMonitor(
@@ -112,91 +114,6 @@ module.exports = (app, { deleteCoordinatorService, logger, configService }) => {
   );
 
   app.post(
-    '/api/v2/delete-commerce-data',
-    inputValidationMiddleware(connectionSchema),
-    (req, res, next) => {
-      req.config = buildConfigAndOptions(req).config;
-      next();
-    },
-    loadAppConfigMiddleware,
-    async (req, res) => {
-      const { config, options } = buildConfigAndOptions(req);
-
-      try {
-        const summary = await deleteCoordinatorService.runDeleteAndMonitorV2(
-          config,
-          options
-        );
-
-        res.status(200).json({
-          success: true,
-          operation: 'delete-commerce-data-v2',
-          correlationId: config.correlationId,
-          summary,
-          timestamp: new Date().toISOString(),
-        });
-      } catch (error) {
-        return handleError(
-          res,
-          logger,
-          req,
-          config,
-          'delete-commerce-data-v2',
-          error,
-          {
-            sanitizeConfig: sanitizedObject(config),
-            sanitizeOptions: sanitizedObject(options),
-          }
-        );
-      }
-    }
-  );
-
-  app.post(
-    '/api/v2/delete-channel-commerce-data',
-    inputValidationMiddleware(channelConnectionSchema),
-    (req, res, next) => {
-      req.config = buildConfigAndOptions(req).config;
-      next();
-    },
-    loadAppConfigMiddleware,
-    async (req, res) => {
-      const { config, options } = buildConfigAndOptions(req);
-      const { channelId, catalogId } = req.body;
-
-      try {
-        const summary =
-          await deleteCoordinatorService.runDeleteSelectedAndMonitorV2(
-            config,
-            options,
-            { channelId, catalogId }
-          );
-
-        res.status(200).json({
-          success: true,
-          operation: 'delete-channel-commerce-data-v2',
-          correlationId: config.correlationId,
-          summary,
-          timestamp: new Date().toISOString(),
-        });
-      } catch (error) {
-        return handleError(
-          res,
-          logger,
-          req,
-          config,
-          'delete-channel-commerce-data-v2',
-          error,
-          {
-            sanitizeConfig: sanitizedObject(config),
-            sanitizeOptions: sanitizedObject(options),
-          }
-        );
-      }
-    }
-  );
-
-  app.post(
     '/api/delete-channel-commerce-data',
     inputValidationMiddleware(channelConnectionSchema),
     (req, res, next) => {
@@ -206,15 +123,14 @@ module.exports = (app, { deleteCoordinatorService, logger, configService }) => {
     loadAppConfigMiddleware,
     async (req, res) => {
       const { config, options } = buildConfigAndOptions(req);
-
-      const { channelId, catalogId } = req.body;
+      const { channelId, catalogId, deleteScope } = req.body;
 
       try {
         const summary =
           await deleteCoordinatorService.runDeleteSelectedAndMonitor(
             config,
             options,
-            { channelId, catalogId }
+            { channelId, catalogId, deleteScope }
           );
 
         res.status(200).json({
@@ -241,3 +157,4 @@ module.exports = (app, { deleteCoordinatorService, logger, configService }) => {
     }
   );
 };
+

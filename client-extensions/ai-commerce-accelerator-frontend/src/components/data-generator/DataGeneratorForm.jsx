@@ -9,7 +9,6 @@ import ProductToggleSet from './ProductToggleSet';
 import WarehousesToggle from './WarehousesToggle';
 import InventoryControls from './InventoryControls';
 
-
 function hasErr(map, key, msgStartsWith) {
   const list = map?.[key] || [];
   return msgStartsWith
@@ -292,22 +291,6 @@ function DataGeneratorForm({
           </small>
         </div>
 
-        <div className="divider"></div>
-
-        <div className="form-group">
-          <h5
-            className={`section-title ${
-              generationConfig.productCount === 0 ? 'muted' : ''
-            }`}
-          >
-            <ClayIcon symbol="cog" />
-            Product Configuration Options
-          </h5>
-          <small className="section-subtitle">
-            The following options are only applicable when generating products
-          </small>
-        </div>
-
         <div
           className={
             generationConfig.productCount > 0
@@ -315,6 +298,22 @@ function DataGeneratorForm({
               : 'product-config-section hidden'
           }
         >
+          <div className="divider"></div>
+
+          <div className="form-group">
+            <h5
+              className={`section-title ${
+                generationConfig.productCount === 0 ? 'muted' : ''
+              }`}
+            >
+              <ClayIcon symbol="cog" />
+              Product Configuration Options
+            </h5>
+            <small className="section-subtitle">
+              The following options are only applicable when generating products
+            </small>
+          </div>
+
           <div className="form-group">
             {availableCategories.length === 0 ? (
               <small className="text-secondary">Loading categories...</small>
@@ -341,15 +340,7 @@ function DataGeneratorForm({
               />
             )}
           </div>
-        </div>
 
-        <div
-          className={
-            generationConfig.productCount > 0
-              ? 'product-config-section'
-              : 'product-config-section hidden'
-          }
-        >
           <div className="config-row">
             <div className="config-col-narrow">
               <ProductToggleSet
@@ -374,7 +365,10 @@ function DataGeneratorForm({
                       generationConfig.productCount === 0 ? 'muted' : ''
                     }`}
                   >
-                    <ClayIcon symbol="warning-full" className="demo-mode-icon" />
+                    <ClayIcon
+                      symbol="warning-full"
+                      className="demo-mode-icon"
+                    />
                     Demo Mode Media Options
                     <small className="config-subtitle">
                       (Uses existing assets, no AI costs)
@@ -1100,16 +1094,9 @@ function DataGeneratorForm({
               )}
             </div>
           </div>
-        </div>
-        <div className="divider"></div>
 
-        <div
-          className={
-            generationConfig.productCount > 0
-              ? 'warehouse-config-section'
-              : 'warehouse-config-section hidden'
-          }
-        >
+          <div className="divider"></div>
+
           <div className="config-row">
             <div className="config-col-narrow">
               <h6
@@ -1167,9 +1154,9 @@ function DataGeneratorForm({
               )}
             </div>
           </div>
-        </div>
 
-        <div className="divider"></div>
+          <div className="divider"></div>
+        </div>
 
         {!generationConfig.demoMode && (
           <div className="cost-estimation">

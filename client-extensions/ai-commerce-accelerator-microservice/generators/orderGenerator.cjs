@@ -11,9 +11,6 @@ const {
   getEphemeralTTLms,
   getLongLivedTTLms,
 } = require('../utils/ttl.cjs');
-const {
-  getBatchPollingDefaults,
-} = require('../services/batchPollingService.cjs');
 
 class OrderGenerator {
   constructor(ctx) {
@@ -58,7 +55,7 @@ class OrderGenerator {
           'AI model not configured. Please select an AI model in the AI Configuration object.'
         );
         err.statusCode = 400;
-        logger?.error?.(
+        logger.error(
           '✗ AI model validation failed for orders: missing aiModel'
         );
         throw err;
@@ -154,14 +151,12 @@ class OrderGenerator {
       ai,
       logger,
       mockData,
-      cache,
-      batchPolling,
-      ws,
       liferay,
-      configService,
+      progressService,
+      batchCallbackService
     } = this.ctx;
-
     const correlationId = config.correlationId;
+
     const batchSize = Math.max(1, parseInt(config.batchSize, 10) || 1);
     const useBatch = batchSize > 1 && options.orderCount > 1;
     const { mode, phase } = resolvePhaseAndMode({
@@ -208,8 +203,6 @@ class OrderGenerator {
         );
       }
 
-      this.ctx.cache.set('generated-data:orders', orderDataList);
-
       if (useBatch) {
         const msUrl = (config.microserviceUrl || '')
           .toString()
@@ -237,26 +230,7 @@ class OrderGenerator {
           );
 
           const batchERC = createERC(ERC_PREFIX.ORDER_BATCH);
-
-          const startedAt = now();
-          cache.set(
-            `erc:${batchERC}:config`,
-            {
-              correlationId,
-              clientId: config.clientId,
-              clientSecret: config.clientSecret,
-              createdAt: isoNow(),
-              startedAt,
-              entityType: 'orders',
-              liferayUrl: config.liferayUrl,
-              localeCode: config.localeCode,
-              operation: 'generate',
-              mode,
-              phase,
-            },
-            getLongLivedTTLms(configService)
-          );
-
+          
           const cbUrl = callbackUrl
             ? `${callbackUrl}?erc=${encodeURIComponent(batchERC)}`
             : null;
@@ -267,169 +241,28 @@ class OrderGenerator {
               externalReferenceCode: batchERC,
             });
           } catch (e) {
-            ws.emitBatchFailed(
+            progressService.batchFailed(
               {
                 batchId: 'orders-submit-failed',
                 entityType: 'orders',
-                error: e.message || 'Batch submission failed',
-                successCount: 0,
+                error: e,
                 failureCount: batch.length,
                 operation: 'generate',
-                mode,
-                phase,
-                externalReferenceCode: batchERC,
+                batchERC: batchERC,
               },
               { correlationId }
             );
             throw e;
           }
 
-          cache.set(
-            `erc:${batchERC}:batchId`,
-            submission.batchId,
-            getLongLivedTTLms(configService)
-          );
-          cache.set(
-            `batch:${submission.batchId}:erc`,
-            { externalReferenceCode: batchERC },
-            getLongLivedTTLms(configService)
-          );
-          cache.set(
-            `batch:${submission.batchId}:meta`,
-            {
-              externalReferenceCode: batchERC,
-              startedAt,
-              totalCount: batch.length,
-            },
-            getBatchCacheTTLms(configService)
-          );
-
-          cache.set(
-            `erc:${batchERC}:config`,
-            {
-              clientId: config.clientId,
-              clientSecret: config.clientSecret,
-              correlationId,
-              createdAt: isoNow(),
-              entityType: 'orders',
-              externalReferenceCode: batchERC,
-              liferayUrl: config.liferayUrl,
-              localeCode: config.localeCode,
-              maxPollAttempts: config.pollingRetries || 120,
-              mode,
-              operation: 'generate',
-              pollInterval: config.pollingDelay || 5000,
-              startedAt,
-            },
-            getLongLivedTTLms(configService)
-          );
-
-          ws.emitBatchStarted(
+          progressService.batchStarted(
             {
               batchId: submission.batchId,
               entityType: 'orders',
-              mode,
-              operation: 'generate',
-              phase,
               totalItems: batch.length,
-              externalReferenceCode: batchERC,
+              batchERC: batchERC,
             },
             { correlationId }
-          );
-
-          const pollInterval = Math.max(
-            config.pollingDelay ??
-              getBatchPollingDefaults(configService).pollInterval,
-            2000
-          );
-          const maxPollAttempts =
-            config.pollingRetries ??
-            getBatchPollingDefaults(configService).maxPollAttempts;
-
-          batchPolling.startPolling(
-            submission.batchId,
-            {
-              clientId: config.clientId,
-              clientSecret: config.clientSecret,
-              entityType: 'orders',
-              liferayUrl: config.liferayUrl,
-              localeCode: config.localeCode,
-            },
-            {
-              pollInterval,
-              maxPollAttempts,
-              externalReferenceCode: batchERC,
-              onStatusChange: (status) => {
-                const meta =
-                  cache.get(`batch:${submission.batchId}:meta`) || {};
-                const total =
-                  status.totalCount || meta.totalCount || batch.length || 0;
-                const processed = status.processedCount || 0;
-                const progress =
-                  total > 0 ? Math.round((processed / total) * 100) : 0;
-                const elapsedMs = Math.max(
-                  1,
-                  now() - (meta.startedAt || now())
-                );
-                const rate = processed / (elapsedMs / 1000);
-                const remaining = Math.max(0, total - processed);
-                const etaSeconds =
-                  rate > 0 ? Math.round(remaining / rate) : null;
-
-                ws.emitBatchProgress(
-                  {
-                    batchId: status.batchId,
-                    entityType: 'orders',
-                    completedCount: processed,
-                    totalItems: total,
-                    progress,
-                    etaSeconds,
-                    operation: 'generate',
-                    mode,
-                    phase,
-                    externalReferenceCode: batchERC,
-                  },
-                  { correlationId }
-                );
-
-                logger.debug('Orders batch status update', {
-                  operation: 'orders/batch:progress',
-                  batchId: status.batchId,
-                  status: status.status,
-                  processedCount: processed,
-                  totalCount: total,
-                  progress,
-                  etaSeconds,
-                });
-              },
-              onComplete: (r) => this.handleBatchComplete(r, config),
-              onError: (error) => {
-                logger.error('Orders batch polling error', {
-                  operation: 'orders/batch:error',
-                  batchId: submission.batchId,
-                  error: error.message,
-                  entityType: 'orders',
-                });
-
-                ws.emitBatchFailed(
-                  {
-                    batchId: submission.batchId,
-                    entityType: 'orders',
-                    error: error.message || 'Batch polling error',
-                    successCount: 0,
-                    failureCount: 1,
-                    operation: 'generate',
-                    mode,
-                    phase,
-                  },
-                  { correlationId }
-                );
-              },
-              entityType: 'orders',
-              operation: 'generate',
-              mode: 'batch',
-              affectsProgress: false,
-            }
           );
 
           logger.info('Orders batch submission completed', {
@@ -438,8 +271,6 @@ class OrderGenerator {
             orderCount: batch.length,
             status: submission.status,
             callbackUrl: cbUrl || 'none',
-            mode,
-            phase,
           });
 
           results.orders.push({
@@ -492,31 +323,23 @@ class OrderGenerator {
     accounts,
     products
   ) {
-    const { logger, ws, configService, cache } = this.ctx;
+    const { logger, progressService } = this.ctx;
     const { mode, phase } = resolvePhaseAndMode({
       useBatch: false,
       phase: 'generate',
     });
 
-    const startedAt = now();
-    const metaKey = 'orders-individual:meta';
-    cache.set(
-      metaKey,
-      { total: orderDataList.length, startedAt },
-      getEphemeralTTLms(configService)
-    );
+    const batchId = `orders-individual-${Date.now()}`;
+    const batchERC = createERC(ERC_PREFIX.ORDER_BATCH);
 
-    ws.emitBatchStarted(
-      {
-        batchId: 'orders-individual',
-        entityType: 'orders',
-        totalItems: orderDataList.length,
-        operation: 'generate',
-        mode,
-        phase,
-      },
-      { correlationId: config.correlationId }
-    );
+    progressService.batchStarted({
+      batchId,
+      batchERC,
+      entityType: 'orders',
+      totalItems: orderDataList.length,
+      operation: 'generate',
+      correlationId: config.correlationId
+    });
 
     const created = [];
     const errors = [];
@@ -533,26 +356,14 @@ class OrderGenerator {
         const createdOrder = await this.createSingleOrder(config, payload);
         created.push(createdOrder);
 
-        const processed = i + 1;
-        const total = orderDataList.length;
-        const progress = Math.round((processed / total) * 100);
-        const meta = cache.get(metaKey) || { startedAt };
-        const elapsedMs = Math.max(1, now() - (meta.startedAt || now()));
-        const rate = processed / (elapsedMs / 1000);
-        const remaining = Math.max(0, total - processed);
-        const etaSeconds = rate > 0 ? Math.round(remaining / rate) : null;
-
-        ws.emitBatchProgress(
+        progressService.batchProgress(
           {
-            batchId: 'orders-individual',
+            batchId,
+            batchERC,
             entityType: 'orders',
-            completedCount: processed,
-            totalItems: total,
-            progress,
-            etaSeconds,
+            completedCount: i + 1,
+            totalItems: orderDataList.length,
             operation: 'generate',
-            mode,
-            phase,
           },
           { correlationId: config.correlationId }
         );
@@ -568,15 +379,15 @@ class OrderGenerator {
       }
     }
 
-    ws.emitBatchCompleted(
+    progressService.batchCompleted(
       {
+        batchId,
+        batchERC,
         entityType: 'orders',
         successCount: created.length,
         failureCount: errors.length,
-        errors: errors.slice(0, 5),
+        errors: errors,
         operation: 'generate',
-        mode,
-        phase,
       },
       { correlationId: config.correlationId }
     );
@@ -595,81 +406,6 @@ class OrderGenerator {
       errors,
       success: errors.length === 0,
     };
-  }
-
-  async createSingleOrder(config, liferayOrderPayload) {
-    const { liferay, logger } = this.ctx;
-
-    const isRetryable = (e) => {
-      const msg = String(e && e.message ? e.message : e);
-      return /(429|5\d\d|ETIMEDOUT|ECONNRESET|EAI_AGAIN)/i.test(msg);
-    };
-
-    const createdOrder = await this.withRetry(
-      async () => liferay.createOrder(config, liferayOrderPayload),
-      isRetryable,
-      3,
-      600
-    );
-
-    logger.trace('Created order', {
-      operation: 'orders/create:success',
-      erc: createdOrder.externalReferenceCode,
-    });
-    return createdOrder;
-  }
-
-  handleBatchComplete(results, config) {
-    const { logger, ws } = this.ctx;
-    const { mode, phase } = resolvePhaseAndMode({
-      useBatch: true,
-      phase: 'complete',
-    });
-
-    logger.info('Handling orders batch completion', {
-      operation: 'orders/batch:complete',
-      batchId: results.batchId,
-      status: results.status,
-      processedCount: results.processedCount,
-      totalCount: results.totalCount,
-    });
-
-    const content = results.content;
-    let successCount = 0;
-    let failureCount = 0;
-    const failures = [];
-
-    if (Array.isArray(content)) {
-      content.forEach((item, index) => {
-        if (item.status === 'SUCCESS' || item.status === 'CREATED') {
-          successCount++;
-        } else {
-          failureCount++;
-          failures.push({
-            index,
-            error: item.error || item.message || 'Unknown error',
-          });
-        }
-      });
-    } else {
-      successCount = results.processedCount || results.totalCount || 0;
-    }
-
-    const ercMap = this.ctx.cache.get(`batch:${results.batchId}:erc`) || {};
-    ws.emitBatchCompleted(
-      {
-        batchId: results.batchId,
-        entityType: 'orders',
-        successCount,
-        failureCount,
-        errors: failures.slice(0, 5),
-        operation: 'generate',
-        mode,
-        phase,
-        externalReferenceCode: ercMap.externalReferenceCode,
-      },
-      { correlationId: config.correlationId }
-    );
   }
 
   pickAccountId(requestedId, accounts) {

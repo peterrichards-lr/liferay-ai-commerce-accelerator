@@ -43,6 +43,7 @@ try {
 
 const {
   accountGenerator,
+  batchCallbackService,
   batchPollingService,
   cacheService,
   configService,
@@ -50,6 +51,7 @@ const {
   healthService,
   liferayService,
   orderGenerator,
+  persistenceService,
   productGenerator,
   warehouseGenerator,
   oauthService,
@@ -61,7 +63,17 @@ const lxcDXPServerProtocol = lookupConfig(
   'com.liferay.lxc.dxp.server.protocol'
 );
 
-const domains = lxcConfig.dxpDomains();
+const domains = (() => {
+  try {
+    return lxcConfig.dxpDomains();
+  } catch (e) {
+    logger.warn('Could not determine Liferay Cloud domains, defaulting to empty list.', {
+      error: e.message,
+      operation: 'lxc-config-load',
+    });
+    return [];
+  }
+})();
 
 const allowList =
   domains
@@ -105,10 +117,12 @@ const routeCtx = {
   batchPollingService,
   liferayService,
   logger,
+  persistenceService,
 };
 
 require('./routes/batch.cjs')(app, {
   ...routeCtx,
+  batchCallbackService,
   cacheService,
   configService,
   ws: ws,
@@ -118,6 +132,7 @@ require('./routes/config.cjs')(app, { ...routeCtx, configService });
 require('./routes/get.cjs')(app, routeCtx);
 require('./routes/health.cjs')(app, { ...routeCtx, healthService });
 require('./routes/queue.cjs')(app, routeCtx);
+require('./routes/workflow.cjs')(app, routeCtx);
 require('./routes/delete.cjs')(app, {
   ...routeCtx,
   deleteCoordinatorService,
@@ -279,8 +294,6 @@ process.on('SIGTERM', () => {
   });
 
   ws.stop();
-
-  batchPollingService.stopAllPolling();
 
   server.close(() => {
     logger.info('Server closed successfully', {

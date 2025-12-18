@@ -5,7 +5,7 @@ const { buildConfigAndOptions } = require('../utils/normalize.cjs');
 
 const upload = multer({ storage: multer.memoryStorage() });
 
-module.exports = (app, { liferayService, batchPollingService, logger, ws, configService }) => {
+module.exports = (app, { liferayService, logger, configService }) => {
   app.post(
     '/api/import-commerce-data',
     upload.single('importFile'),

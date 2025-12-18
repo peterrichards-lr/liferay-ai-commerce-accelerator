@@ -1,22 +1,86 @@
 const { ERC_PREFIX } = require('../utils/constants.cjs');
-const {
-  delay,
-  resolvePhaseAndMode,
-  now,
-  isoNow,
-  elapsedMs: elapsed,
-  createERC,
-  randomString,
-} = require('../utils/misc.cjs');
-const {
-  getBatchCacheTTLms,
-  getLongLivedTTLms,
-  getEphemeralTTLms,
-} = require('../utils/ttl.cjs');
+const { createERC, randomString } = require('../utils/misc.cjs');
+const BATCH_STEP_HANDLERS = require('../services/batch-steps/index.cjs');
 
 class AccountGenerator {
   constructor(ctx) {
     this.ctx = ctx;
+  }
+
+  createOnSessionComplete() {
+    // This hook is for final session completion logic, not for starting next steps
+    return null;
+  }
+
+  async startPostalAddressesBatch({ sessionId, session, correlationId }) {
+    const { logger, persistenceService, liferay } = this.ctx;
+    const { config, addressesToCreate } = session;
+
+    try {
+      logger.info('Starting postal addresses batch processing', {
+        sessionId,
+        correlationId,
+        nextStep: 'postal-addresses',
+      });
+
+      const resolvedAccounts = await BATCH_STEP_HANDLERS.resolveEntities(this.ctx, {
+        ...session,
+        entityTypeToResolve: 'accounts',
+      });
+      
+      const addressesWithAccountIds = addressesToCreate.map(address => {
+        const account = resolvedAccounts.find(acc => acc.externalReferenceCode === address.accountERC);
+        if (account) {
+          return { ...address, accountId: account.id };
+        }
+        return null;
+      }).filter(Boolean);
+
+      if (addressesWithAccountIds.length > 0) {
+        const batchERC = createERC(ERC_PREFIX.BATCH_GENERATION);
+        const callbackUrl = `${config.microserviceUrl}/api/batch/callback`;
+
+        await persistenceService.createBatch({
+          erc: batchERC,
+          sessionId,
+          stepKey: 'postal-addresses',
+          status: 'PREPARED',
+        });
+
+        const firstAccountId = addressesWithAccountIds[0].accountId;
+        await liferay.createAccountAddressBatch(
+          config,
+          firstAccountId,
+          addressesWithAccountIds.map(addr => {
+            const { accountId, ...rest } = addr;
+            return rest;
+          }),
+          callbackUrl,
+          { externalReferenceCode: batchERC, sessionId }
+        );
+
+        await persistenceService.updateBatch(batchERC, { status: 'SUBMITTED' });
+        logger.info('Postal addresses batch submitted', { batchERC, sessionId, count: addressesWithAccountIds.length });
+      } else {
+        logger.info('No postal addresses to create for this session.', { sessionId, correlationId });
+        // Manually complete the step if no addresses were to be created
+        await persistenceService.createBatch({
+          erc: createERC(ERC_PREFIX.BATCH), // Generic ERC for an empty step
+          sessionId,
+          step_key: 'postal-addresses',
+          status: 'COMPLETED',
+        });
+        logger.info('Manually marked postal-addresses step as COMPLETED due to no addresses to create.', { sessionId });
+      }
+    } catch (error) {
+      logger.error('Error in startPostalAddressesBatch', {
+        sessionId,
+        correlationId,
+        error: error.message,
+        stack: error.stack,
+      });
+      await persistenceService.updateSession(sessionId, { status: 'FAILED' });
+    }
   }
 
   validateConfig(config) {
@@ -81,30 +145,17 @@ class AccountGenerator {
       logger,
       ai,
       mockData,
-      cache,
-      batchPolling,
-      ws,
+      persistenceService,
       liferay,
-      configService,
     } = this.ctx;
     const correlationId = config.correlationId;
-    const useBatch = config.batchSize > 1 && options.accountCount > 1;
-    const { mode, phase } = resolvePhaseAndMode({
-      useBatch,
-      phase: 'generate',
-    });
 
-    logger.info('Starting account generation', {
+    logger.info('Starting account generation process', {
       correlationId,
       operation: 'accounts/generate:start',
-      phase,
-      mode,
       accountCount: options.accountCount || 0,
       demoMode: options.demoMode,
-      batchSize: config.batchSize,
     });
-
-    const results = { accounts: [], created: 0, errors: [] };
 
     try {
       this.validateConfig(config);
@@ -121,469 +172,119 @@ class AccountGenerator {
         );
       }
 
-      const accountsWithAddresses = accountDataList.map((raw) => {
+      const accountsToCreate = [];
+      const addressesToCreate = [];
+
+      for (const raw of accountDataList) {
         const account = { ...raw };
 
-        if (
-          account.emailAddress ||
-          account.domains ||
-          (account.accountContactInformation &&
-            account.accountContactInformation.domains)
-        ) {
-          account.accountContactInformation =
-            account.accountContactInformation || {};
+        account.accountContactInformation = account.accountContactInformation || {};
 
-          if (account.emailAddress) {
-            account.accountContactInformation.emailAddresses = [
-              {
-                emailAddress: account.emailAddress,
-                primary: true,
-                type: 'email-address',
-              },
-            ];
-            delete account.emailAddress;
-          }
-
-          const allDomains = [
-            ...(account.domains || []),
-            ...(account.accountContactInformation?.domains || []),
+        if (account.emailAddress) {
+          account.accountContactInformation.emailAddresses = [
+            {
+              emailAddress: account.emailAddress,
+              primary: true,
+              type: 'email-address',
+            },
           ];
-
-          if (allDomains.length > 0) {
-            account.accountContactInformation.webUrls = allDomains.map(
-              (domain) => ({
-                url: `http://${domain}`,
-                urlType: 'Website',
-                primary: false,
-              })
-            );
-          }
-
-          if (account.domains) {
-            delete account.domains;
-          }
-          if (account.accountContactInformation?.domains) {
-            delete account.accountContactInformation.domains;
-          }
-
-          if (account.headOfficeAddress) {
-            account.accountContactInformation.postalAddresses = [
-              {
-                ...account.headOfficeAddress,
-                primary: true,
-                addressType: 'head-office',
-              },
-            ];
-          }
+          delete account.emailAddress;
         }
 
-        delete account.businessAccounts;
-        delete account.businessAccountsERC;
+        const allDomains = [
+          ...(account.domains || []),
+          ...(account.accountContactInformation?.domains || []),
+        ];
 
-        account.billingAddress =
-          account.billingAddress || this._generateAddress('billing');
-        account.shippingAddress =
-          account.shippingAddress || this._generateAddress('shipping');
+        if (allDomains.length > 0) {
+          account.accountContactInformation.webUrls = allDomains.map(
+            (domain) => ({
+              url: `http://${domain}`,
+              urlType: 'Website',
+              primary: false,
+            })
+          );
+        }
 
-        return account;
-      });
+        if (account.domains) {
+          delete account.domains;
+        }
+        if (account.accountContactInformation?.domains) {
+          delete account.accountContactInformation.domains;
+        }
+        
+        account.accountContactInformation.postalAddresses = account.accountContactInformation.postalAddresses || [];
+        if(account.headOfficeAddress) {
+            account.accountContactInformation.postalAddresses.push(account.headOfficeAddress);
+            delete account.headOfficeAddress;
+        }
 
-      this.ctx.cache.set(
-        'generated-data:accounts',
-        accountsWithAddresses,
-        getLongLivedTTLms(configService)
-      );
+        const billingAddress = account.billingAddress || this._generateAddress('billing');
+        const shippingAddress = account.shippingAddress || this._generateAddress('shipping');
 
-      if (useBatch) {
-        const accountsForBatch = accountsWithAddresses.map((account) => {
-          const {
-            billingAddress,
-            shippingAddress,
-            headOfficeAddress,
-            ...rest
-          } = account;
-          return rest;
+        addressesToCreate.push({
+          ...billingAddress,
+          accountERC: account.externalReferenceCode,
         });
 
-        logger.debug('accountsForBatch', { accountsForBatch });
+        addressesToCreate.push({
+          ...shippingAddress,
+          accountERC: account.externalReferenceCode,
+        });
 
-        const callbackUrl =
-          config.microserviceUrl && config.microserviceUrl !== 'null'
-            ? `${config.microserviceUrl}/api/batch/callback`
-            : null;
-        const accountBatches = [];
-        for (let i = 0; i < accountsForBatch.length; i += config.batchSize)
-          accountBatches.push(accountsForBatch.slice(i, i + config.batchSize));
-        const batchIds = [];
+        delete account.billingAddress;
+        delete account.shippingAddress;
+        
+        accountsToCreate.push(account);
+      }
 
-        for (
-          let batchIndex = 0;
-          batchIndex < accountBatches.length;
-          batchIndex++
-        ) {
-          const batch = accountBatches[batchIndex];
+      const sessionId = createERC(ERC_PREFIX.BATCH_SESSION);
+      const steps = [
+        { name: 'accounts', type: 'sync' },
+        { name: 'postal-addresses', type: 'sync' }
+      ];
 
-          const batchERC = createERC(ERC_PREFIX.ACCOUNT_BATCH);
-          const startedAt = now();
-          cache.set(
-            `erc:${batchERC}:config`,
-            {
-              correlationId,
-              clientId: config.clientId,
-              clientSecret: config.clientSecret,
-              createdAt: isoNow(),
-              startedAt,
-              entityType: 'accounts',
-              liferayUrl: config.liferayUrl,
-              localeCode: config.localeCode,
-              operation: 'generate',
-            },
-            getLongLivedTTLms(configService)
-          );
-
-          const cbUrl = callbackUrl
-            ? `${callbackUrl}?batchERC=${encodeURIComponent(batchERC)}&entity=accounts&opCode=C`
-            : null;
-          const batchResult = await liferay.createAccountsBatch(
-            config,
-            batch,
-            cbUrl,
-            {
-              externalReferenceCode: batchERC,
-            }
-          );
-
-          cache.set(
-            `erc:${batchERC}:batchId`,
-            batchResult.batchId,
-            getLongLivedTTLms(configService)
-          );
-          cache.set(
-            `batch:${batchResult.batchId}:erc`,
-            { externalReferenceCode: batchERC },
-            getLongLivedTTLms(configService)
-          );
-
-          cache.set(
-            `batch:${batchResult.batchId}:meta`,
-            {
-              totalCount: batch.length,
-              startedAt,
-              externalReferenceCode: batchERC,
-            },
-            getBatchCacheTTLms(configService)
-          );
-
-          ws.emitBatchStarted(
-            {
-              batchId: batchResult.batchId,
-              entityType: 'accounts',
-              totalItems: batch.length,
-              operation: 'generate',
-              mode,
-              phase,
-              externalReferenceCode: batchERC,
-            },
-            { correlationId }
-          );
-
-          batchIds.push(batchResult.batchId);
-
-          if (batchResult.batchId && callbackUrl) {
-            const pollInterval = Math.max(config.pollingDelay || 5000, 2000);
-            const maxPollAttempts = config.pollingRetries || 120;
-
-            batchPolling.startPolling(
-              batchResult.batchId,
-              {
-                liferayUrl: config.liferayUrl,
-                clientId: config.clientId,
-                clientSecret: config.clientSecret,
-                localeCode: config.localeCode,
-                entityType: 'accounts',
-              },
-              {
-                pollInterval,
-                maxPollAttempts,
-                externalReferenceCode: batchERC,
-                                  onStatusChange: (status) => {
-                                    const meta =
-                                      cache.get(`batch:${batchResult.batchId}:meta`) || {};
-                                    const total =
-                                      status.totalCount || meta.totalCount || batch.length || 0;
-                                    const processed = status.processedCount || 0;
-                                    const progress =
-                                      total > 0 ? Math.round((processed / total) * 100) : 0;
-                                    const elapsedMs = elapsed(meta.startedAt || now());
-                                    const rate = processed / (elapsedMs / 1000);
-                                    const remaining = Math.max(0, total - processed);
-                                    const etaSeconds =
-                                      rate > 0 ? Math.round(remaining / rate) : null;
-                
-                                    ws.emitBatchProgress(
-                                      {
-                                        batchId: status.batchId,
-                                        entityType: 'accounts',
-                                        completedCount: processed,
-                                        totalItems: total,
-                                        progress,
-                                        etaSeconds,
-                                        operation: 'generate',
-                                        mode,
-                                        phase,
-                                        externalReferenceCode: batchERC,
-                                      },
-                                      { correlationId }
-                                    );
-                
-                                    logger.debug('Batch status update', {
-                                      operation: 'accounts/batch:progress',
-                                      batchId: status.batchId,
-                                      status: status.status,
-                                      processedCount: processed,
-                                      totalCount: total,
-                                      progress,
-                                      etaSeconds,
-                                    });
-                                  },
-                                  onError: (error) => {
-                                    logger.error('Batch polling error', {
-                                      operation: 'accounts/batch:error',
-                                      batchId: batchResult.batchId,
-                                      error: error.message,
-                                      entityType: 'accounts',
-                                    });
-                                    ws.emitBatchFailed(
-                                      {
-                                        batchId: batchResult.batchId,
-                                        entityType: 'accounts',
-                                        successCount: 0,
-                                        failureCount: 1,
-                                        errors: [{ message: error.message }],
-                                        operation: 'generate',
-                                        mode,
-                                        phase,
-                                        externalReferenceCode: batchERC,
-                                      },
-                                      { correlationId }
-                                    );
-                                  },                entityType: 'accounts',
-                operation: 'generate',
-                mode: 'batch',
-                affectsProgress: false,
-              }
-            );
-          }
-
-          logger.info('Batch submission completed', {
-            operation: 'accounts/batch:submit',
-            batchId: batchResult.batchId,
-            accountCount: batch.length,
-            status: batchResult.status,
-            callbackUrl: cbUrl || 'none',
-            mode,
-            phase,
-          });
-
-          results.accounts.push({
-            batchIndex: batchIndex + 1,
-            totalBatches: accountBatches.length,
-            batchId: batchResult.batchId,
-            status: batchResult.status,
-            accountCount: batch.length,
-            externalReferenceCode: batchERC,
-            accounts: batch.map((p) => ({
-              name: p.name?.en_US || p.name,
-              externalReferenceCode: p.externalReferenceCode,
-            })),
-          });
-          results.created += batch.length;
-
-          if (batchIndex < accountBatches.length - 1) await delay(1000);
-        }
-
-        return {
-          accounts: results.accounts,
-          created: results.created,
-          errors: results.errors,
-          batchIds,
-          success: results.errors.length === 0,
-        };
-      } else {
-        return await this.generateAccountsIndividually(
+      await persistenceService.createSession({
+        sessionId,
+        flowType: 'accounts',
+        status: 'STARTED',
+        context: {
           config,
           options,
-          accountsWithAddresses
-        );
-      }
+          accounts: accountsToCreate,
+          addressesToCreate,
+          steps,
+        },
+        currentSteps: [{ name: 'accounts', type: 'sync' }],
+      });
+
+      const batchERC = createERC(ERC_PREFIX.BATCH_GENERATION);
+      const callbackUrl = `${config.microserviceUrl}/api/batch/callback?batchERC=${batchERC}&opCode=G&sessionId=${sessionId}`;
+      
+      persistenceService.createBatch({
+        erc: batchERC,
+        sessionId,
+        stepKey: 'accounts',
+        status: 'PREPARED',
+      });
+      
+      await liferay.createAccountsBatch(config, accountsToCreate, callbackUrl, { externalReferenceCode: batchERC, sessionId });
+      
+      persistenceService.updateBatch(batchERC, { status: 'SUBMITTED' });
+
+      return {
+        sessionId,
+        message: 'Account generation process started.',
+      };
+
     } catch (error) {
       logger.error('Account generation failed', {
         correlationId,
         operation: 'accounts/generate:error',
         error: error.message,
-        mode,
-        phase,
       });
       throw error;
     }
-  }
-
-  async generateAccountsIndividually(config, options, accountDataList) {
-    const { logger, ws, configService, cache, liferay } = this.ctx;
-    const { mode, phase } = resolvePhaseAndMode({
-      useBatch: false,
-      phase: 'generate',
-    });
-    const generatedAccounts = [];
-    const errors = [];
-
-    const metaKey = 'accounts-individual:meta';
-    const startedAt = now();
-    cache.set(
-      metaKey,
-      { total: accountDataList.length, startedAt },
-      getEphemeralTTLms(configService)
-    );
-
-    ws.emitBatchStarted(
-      {
-        batchId: 'accounts-individual',
-        entityType: 'accounts',
-        totalItems: accountDataList.length,
-        operation: 'generate',
-        mode,
-        phase,
-      },
-      { correlationId: config.correlationId }
-    );
-
-    for (let i = 0; i < accountDataList.length; i++) {
-      const accountData = accountDataList[i];
-      try {
-        const {
-          billingAddress,
-          shippingAddress,
-          headOfficeAddress,
-          ...account
-        } = accountData;
-
-        const createdAccount = await liferay.createAccount(config, account);
-
-        let billingAddressRes, shippingAddressRes;
-
-        if (billingAddress) {
-          const { name, ...billingAddressData } = billingAddress;
-          billingAddressRes = await liferay.createAccountAddress(
-            config,
-            createdAccount.id,
-            { ...billingAddressData, primary: true, addressType: 'billing' }
-          );
-        }
-
-        if (shippingAddress) {
-          const { name, ...shippingAddressData } = shippingAddress;
-          shippingAddressRes = await liferay.createAccountAddress(
-            config,
-            createdAccount.id,
-            { ...shippingAddressData, primary: false, addressType: 'shipping' }
-          );
-        }
-
-        if (billingAddressRes || shippingAddressRes) {
-          await liferay.patchAccount(config, createdAccount.id, {
-            defaultBillingAddressId: billingAddressRes?.id,
-            defaultShippingAddressId: shippingAddressRes?.id,
-          });
-        }
-
-        generatedAccounts.push(createdAccount);
-
-        const processed = i + 1;
-        const total = accountDataList.length;
-        const progress = Math.round((processed / total) * 100);
-        const meta = cache.get(metaKey) || { startedAt };
-        const elapsedMs = elapsed(meta.startedAt || now());
-        const rate = processed / (elapsedMs / 1000);
-        const remaining = Math.max(0, total - processed);
-        const etaSeconds = rate > 0 ? Math.round(remaining / rate) : null;
-
-        ws.emitBatchProgress(
-          {
-            batchId: 'accounts-individual',
-            entityType: 'accounts',
-            completedCount: processed,
-            totalItems: total,
-            progress,
-            etaSeconds,
-            operation: 'generate',
-            mode,
-            phase,
-          },
-          { correlationId: config.correlationId }
-        );
-
-        logger.trace(`✓ Created account: ${createdAccount.name}`);
-      } catch (error) {
-        errors.push({ index: i, error: error.message, accountData });
-        logger.error('Account creation failed', {
-          correlationId: config.correlationId,
-          operation: 'accounts/create:error',
-          error: error.message,
-          accountIndex: i,
-          mode: options.demoMode ? 'demo' : 'live',
-        });
-      }
-    }
-
-    this.emitCompletion(
-      'accounts-individual',
-      generatedAccounts.length,
-      errors.length,
-      errors,
-      config,
-      { mode, phase }
-    );
-
-    logger.info('Account generation completed', {
-      correlationId: config.correlationId,
-      operation: 'accounts/generate:complete',
-      created: generatedAccounts.length,
-      errors: errors.length,
-      mode: options.demoMode ? 'demo' : 'live',
-    });
-
-    return {
-      accounts: generatedAccounts,
-      created: generatedAccounts.length,
-      errors,
-      success: errors.length === 0,
-    };
-  }
-
-
-
-      emitCompletion(
-    batchId,
-    successCount,
-    failureCount,
-    failures,
-    config,
-    ctx = {}
-  ) {
-    const { ws } = this.ctx;
-    const extra = ctx.mode ? { mode: ctx.mode, phase: ctx.phase } : {};
-    ws.emitBatchCompleted(
-      {
-        batchId,
-        entityType: 'accounts',
-        successCount,
-        failureCount,
-        errors: (failures || []).slice(0, 5),
-        operation: 'generate',
-        ...extra,
-      },
-      { correlationId: config.correlationId }
-    );
   }
 
   generateTaxId() {

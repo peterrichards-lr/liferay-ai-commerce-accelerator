@@ -62,84 +62,86 @@ const PATH = {
 
   PRODUCTS: BASE.PRODUCTS,
   PRICE_LISTS: BASE.PRICE_LISTS,
-  PRICE_LIST: (priceListId) => `${BASE.PRICE_LISTS}/${priceListId}`,
-  PRICE_LISTS_BATCH: (callbackURL) =>
-    `${BASE.PRICE_LISTS}/batch${
-      callbackURL ? `?callbackURL=${enc(callbackURL)}` : ''
-    }`,
-  PRODUCTS_BATCH: (callbackURL) =>
-    `${BASE.PRODUCTS}/batch${
-      callbackURL ? `?callbackURL=${enc(callbackURL)}` : ''
-    }`,
-  WAREHOUSES_BATCH: (callbackURL) =>
-    `${BASE.INVENTORY_API}/warehouses/batch${
-      callbackURL ? `?callbackURL=${enc(callbackURL)}` : ''
-    }`,
-  PRODUCT_SKUS: (productId) => `${BASE.PRODUCTS}/${productId}/skus`,
-  PRODUCT_OPTIONS: (productId) =>
-    `${BASE.PRODUCTS}/${productId}/productOptions`,
-  PRODUCT_SPECIFICATIONS: (productId) =>
-    `${BASE.PRODUCTS}/${productId}/product-specifications`,
-  PRODUCT_IMAGES: (productId) => `${BASE.PRODUCTS}/${productId}/images`,
-  PRODUCT_ATTACHMENTS: (productId) =>
-    `${BASE.PRODUCTS}/${productId}/attachments`,
-  PRODUCT_IMAGES_BY_URL: (erc) =>
-    `${byERC(BASE.PRODUCTS, erc, VARIANT.products)}/images/by-url`,
-  PRODUCT_ATTACHMENTS_BY_URL: (erc) =>
-    `${byERC(BASE.PRODUCTS, erc, VARIANT.products)}/attachments/by-url`,
-  PRODUCT_IMAGES_BY_BASE64: (erc) =>
-    `${byERC(BASE.PRODUCTS, erc, VARIANT.products)}/images/by-base64`,
-  PRODUCT_ATTACHMENTS_BY_BASE64: (erc) =>
-    `${byERC(BASE.PRODUCTS, erc, VARIANT.products)}/attachments/by-base64`,
-
-  OPTIONS: BASE.OPTIONS,
-  OPTION_BY_ERC: (erc) => byERC(BASE.OPTIONS, erc, VARIANT.options),
-  OPTION_VALUES: (optionId) => `${BASE.OPTIONS}/${optionId}/optionValues`,
-  OPTION_VALUE_BY_ERC: (optionId, erc) =>
-    byERC(`${BASE.OPTIONS}/${optionId}/optionValues`, erc, VARIANT.options),
-
-  OPTION_CATEGORIES: BASE.OPTION_CATEGORIES,
-  OPTION_CATEGORIES_BATCH: (callbackURL) =>
-    `${BASE.OPTION_CATEGORIES}/batch${
-      callbackURL ? `?callbackURL=${enc(callbackURL)}` : ''
-    }`,
-
-  OPTION_CATEGORY_BY_ERC: (erc) =>
-    byERC(BASE.OPTION_CATEGORIES, erc, VARIANT.optionCategories),
-
-  OPTIONS_BATCH: (callbackURL) =>
-    `${BASE.OPTIONS}/batch${
-      callbackURL ? `?callbackURL=${enc(callbackURL)}` : ''
-    }`,
-
-  SPECIFICATIONS: BASE.SPECIFICATIONS,
-  SPECIFICATION_BY_ERC: (erc) =>
-    byERC(BASE.SPECIFICATIONS, erc, VARIANT.specifications),
-
-  SPECIFICATIONS_BATCH: (callbackURL) =>
-    `${BASE.SPECIFICATIONS}/batch${
-      callbackURL ? `?callbackURL=${enc(callbackURL)}` : ''
-    }`,
-
-  ACCOUNTS: BASE.ACCOUNTS,
-  ACCOUNT: (accountId) => `${BASE.ACCOUNTS}/${accountId}`,
-  ACCOUNT_BY_ERC: (externalReferenceCode) =>
-    `/o/headless-admin-user/v1.0/accounts/by-external-reference-code/${externalReferenceCode}`,
-  ACCOUNT_ADDRESSES: (accountId) =>
-    `/o/headless-admin-user/v1.0/accounts/${accountId}/postal-addresses`,
-  ACCOUNTS_BATCH: (callbackURL) =>
-    `/o/headless-admin-user/v1.0/accounts/batch?callbackURL=${callbackURL}`,
-
-
-  ORDERS: BASE.ORDERS,
-  ORDERS_BATCH: (callbackURL) =>
-    `${BASE.ORDERS}/batch${
-      callbackURL ? `?callbackURL=${enc(callbackURL)}` : ''
-    }`,
-
-  CATALOGS: BASE.CATALOGS,
-  CATALOG: (catalogId) => `${BASE.CATALOGS}/${catalogId}`,
-  CHANNELS: BASE.CHANNELS,
+    PRICE_LIST: (priceListId) => `${BASE.PRICE_LISTS}/${priceListId}`,
+    PRICE_LISTS_BATCH: (callbackURL) =>
+      `${BASE.PRICE_LISTS}/batch${
+        callbackURL ? `?callbackURL=${enc(callbackURL)}` : ''
+      }`,
+    PRODUCTS_BATCH: (callbackURL) =>
+      `${BASE.PRODUCTS}/batch${
+        callbackURL ? `?callbackURL=${enc(callbackURL)}` : ''
+      }`,
+    WAREHOUSES_BATCH: (callbackURL) =>
+      `${BASE.INVENTORY_API}/warehouses/batch${
+        callbackURL ? `?callbackURL=${enc(callbackURL)}` : ''
+      }`,
+    PRODUCT_SKUS: (productId) => `${BASE.PRODUCTS}/${productId}/skus`,
+    PRODUCT_OPTIONS: (productId) =>
+      `${BASE.PRODUCTS}/${productId}/productOptions`,
+    PRODUCT_SPECIFICATIONS: (productId) =>
+      `${BASE.PRODUCTS}/${productId}/product-specifications`,
+    PRODUCT_IMAGES: (productId) => `${BASE.PRODUCTS}/${productId}/images`,
+    PRODUCT_ATTACHMENTS: (productId) =>
+      `${BASE.PRODUCTS}/${productId}/attachments`,
+    PRODUCT_IMAGES_BY_URL: (erc) =>
+      `${byERC(BASE.PRODUCTS, erc, VARIANT.products)}/images/by-url`,
+    PRODUCT_ATTACHMENTS_BY_URL: (erc) =>
+      `${byERC(BASE.PRODUCTS, erc, VARIANT.products)}/attachments/by-url`,
+    PRODUCT_IMAGES_BY_BASE64: (erc) =>
+      `${byERC(BASE.PRODUCTS, erc, VARIANT.products)}/images/by-base64`,
+    PRODUCT_ATTACHMENTS_BY_BASE64: (erc) =>
+      `${byERC(BASE.PRODUCTS, erc, VARIANT.products)}/attachments/by-base64`,
+  
+    OPTIONS: BASE.OPTIONS,
+    OPTION_BY_ERC: (erc) => byERC(BASE.OPTIONS, erc, VARIANT.options),
+    OPTION_VALUES: (optionId) => `${BASE.OPTIONS}/${optionId}/optionValues`,
+    OPTION_VALUE_BY_ERC: (optionId, erc) =>
+      byERC(`${BASE.OPTIONS}/${optionId}/optionValues`, erc, VARIANT.options),
+  
+    OPTION_CATEGORIES: BASE.OPTION_CATEGORIES,
+    OPTION_CATEGORIES_BATCH: (callbackURL) =>
+      `${BASE.OPTION_CATEGORIES}/batch${
+        callbackURL ? `?callbackURL=${enc(callbackURL)}` : ''
+      }`,
+  
+    OPTION_CATEGORY_BY_ERC: (erc) =>
+      byERC(BASE.OPTION_CATEGORIES, erc, VARIANT.optionCategories),
+  
+    OPTIONS_BATCH: (callbackURL) =>
+      `${BASE.OPTIONS}/batch${
+        callbackURL ? `?callbackURL=${enc(callbackURL)}` : ''
+      }`,
+  
+    SPECIFICATIONS: BASE.SPECIFICATIONS,
+    SPECIFICATION_BY_ERC: (erc) =>
+      byERC(BASE.SPECIFICATIONS, erc, VARIANT.specifications),
+  
+    SPECIFICATIONS_BATCH: (callbackURL) =>
+      `${BASE.SPECIFICATIONS}/batch${
+        callbackURL ? `?callbackURL=${enc(callbackURL)}` : ''
+      }`,
+  
+    ACCOUNTS: BASE.ACCOUNTS,
+    ACCOUNT: (accountId) => `${BASE.ACCOUNTS}/${accountId}`,
+    ACCOUNT_BY_ERC: (externalReferenceCode) =>
+      `/o/headless-admin-user/v1.0/accounts/by-external-reference-code/${externalReferenceCode}`,
+    ACCOUNT_ADDRESSES: (accountId) =>
+      `/o/headless-admin-user/v1.0/accounts/${accountId}/postal-addresses`,
+    ACCOUNT_ADDRESSES_BATCH: (accountId, callbackURL) =>
+      `/o/headless-admin-user/v1.0/accounts/${accountId}/postal-addresses/batch?callbackURL=${enc(callbackURL)}`,
+    ACCOUNTS_BATCH: (callbackURL) =>
+      `/o/headless-admin-user/v1.0/accounts/batch?callbackURL=${enc(callbackURL)}`,
+  
+  
+    ORDERS: BASE.ORDERS,
+    ORDERS_BATCH: (callbackURL) =>
+      `${BASE.ORDERS}/batch${
+        callbackURL ? `?callbackURL=${enc(callbackURL)}` : ''
+      }`,
+  
+    CATALOGS: BASE.CATALOGS,
+    CATALOG: (catalogId) => `${BASE.CATALOGS}/${catalogId}`,
+    CHANNELS: BASE.CHANNELS,
   CHANNEL: (channelId) => `${BASE.CHANNELS}/${channelId}`,
   CURRENCIES: BASE.CURRENCIES,
   ME: BASE.ME,
