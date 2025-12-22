@@ -1,3 +1,4 @@
+const { INTERNAL_API_PATHS } = require('../utils/internalApiPaths.cjs');
 const {
   buildConfigAndOptions,
   sanitizedObject,
@@ -43,7 +44,7 @@ function maskOpenAIKey(rawKey) {
 }
 
 module.exports = (app, { logger, configService }) => {
-  app.get('/api/config/ai', async (req, res) => {
+  app.get(INTERNAL_API_PATHS.CONFIG_AI, async (req, res) => {
     const { config } = buildConfigAndOptions(req);
 
     try {
@@ -77,7 +78,7 @@ module.exports = (app, { logger, configService }) => {
     }
   });
 
-  app.get('/api/config/cache', async (req, res) => {
+  app.get(INTERNAL_API_PATHS.CONFIG_CACHE, async (req, res) => {
     const { config } = buildConfigAndOptions(req);
 
     try {
@@ -95,7 +96,7 @@ module.exports = (app, { logger, configService }) => {
     }
   });
 
-  app.get('/api/config/queues', async (req, res) => {
+  app.get(INTERNAL_API_PATHS.CONFIG_QUEUES, async (req, res) => {
     const { config } = buildConfigAndOptions(req);
 
     try {
@@ -113,7 +114,7 @@ module.exports = (app, { logger, configService }) => {
     }
   });
 
-  app.get('/api/config/oauth', async (req, res) => {
+  app.get(INTERNAL_API_PATHS.CONFIG_OAUTH, async (req, res) => {
     const { config } = buildConfigAndOptions(req);
 
     try {
@@ -139,7 +140,7 @@ module.exports = (app, { logger, configService }) => {
     }
   });
 
-  app.get('/api/config/object-storage', async (req, res) => {
+  app.get(INTERNAL_API_PATHS.CONFIG_OBJECT_STORAGE, async (req, res) => {
     const { config } = buildConfigAndOptions(req);
 
     try {
@@ -163,7 +164,7 @@ module.exports = (app, { logger, configService }) => {
     }
   });
 
-  app.get('/api/config/ws', async (req, res) => {
+  app.get(INTERNAL_API_PATHS.CONFIG_WS, async (req, res) => {
     const { config } = buildConfigAndOptions(req);
 
     try {
@@ -181,7 +182,7 @@ module.exports = (app, { logger, configService }) => {
     }
   });
 
-  app.get('/api/status/openai', async (req, res) => {
+  app.get(INTERNAL_API_PATHS.STATUS_OPENAI, async (req, res) => {
     const { config } = buildConfigAndOptions(req);
 
     try {
@@ -205,7 +206,7 @@ module.exports = (app, { logger, configService }) => {
     }
   });
 
-  app.get('/api/config/categories', async (req, res) => {
+  app.get(INTERNAL_API_PATHS.CONFIG_CATEGORIES, async (req, res) => {
     const { config } = buildConfigAndOptions(req);
 
     try {
@@ -223,7 +224,7 @@ module.exports = (app, { logger, configService }) => {
     }
   });
 
-      app.get('/api/config/ai-model-options', async (req, res) => {
+      app.get(INTERNAL_API_PATHS.CONFIG_AI_MODEL_OPTIONS, async (req, res) => {
       const { config } = buildConfigAndOptions(req);
   
       try {
@@ -241,7 +242,7 @@ module.exports = (app, { logger, configService }) => {
         });
       }
     });
-  app.get('/api/config/batch-sizes', async (req, res) => {
+  app.get(INTERNAL_API_PATHS.CONFIG_BATCH_SIZES, async (req, res) => {
     const { config } = buildConfigAndOptions(req);
 
     try {
@@ -259,7 +260,7 @@ module.exports = (app, { logger, configService }) => {
     }
   });
 
-  app.get('/api/config/exclude-lists', async (req, res) => {
+  app.get(INTERNAL_API_PATHS.CONFIG_EXCLUDE_LISTS, async (req, res) => {
     const { config } = buildConfigAndOptions(req);
 
     try {

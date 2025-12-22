@@ -1,3 +1,4 @@
+const { INTERNAL_API_PATHS } = require('../utils/internalApiPaths.cjs');
 const { createERC } = require('../utils/misc.cjs');
 const { ERC_PREFIX } = require('../utils/constants.cjs');
 
@@ -48,7 +49,7 @@ function handleError(res, logger, req, operation, error, statusCodeOverride) {
 }
 
 module.exports = (app, { logger, healthService }) => {
-  app.get('/api/health', async (req, res) => {
+  app.get(INTERNAL_API_PATHS.HEALTH, async (req, res) => {
     try {
       const health = await healthService.runAllHealthChecks();
 
@@ -68,7 +69,7 @@ module.exports = (app, { logger, healthService }) => {
     }
   });
 
-  app.get('/api/health/detailed', async (req, res) => {
+  app.get(INTERNAL_API_PATHS.HEALTH_DETAILED, async (req, res) => {
     try {
       const detailedHealth = await healthService.getDetailedHealth();
 
@@ -81,7 +82,7 @@ module.exports = (app, { logger, healthService }) => {
     }
   });
 
-  app.get('/api/health/ready', async (req, res) => {
+  app.get(INTERNAL_API_PATHS.HEALTH_READY, async (req, res) => {
     try {
       const readiness = await healthService.getReadinessProbe();
 
@@ -94,7 +95,7 @@ module.exports = (app, { logger, healthService }) => {
     }
   });
 
-  app.get('/api/health/live', async (req, res) => {
+  app.get(INTERNAL_API_PATHS.HEALTH_LIVE, async (req, res) => {
     try {
       const liveness = await healthService.getLivenessProbe();
 

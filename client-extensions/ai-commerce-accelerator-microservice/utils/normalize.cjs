@@ -1,3 +1,4 @@
+const { INTERNAL_API_PATHS } = require('./internalApiPaths.cjs');
 const { logger } = require('./logger.cjs');
 const { v4: uuidv4 } = require('uuid');
 const { resolveEffectiveLiferayConnection } = require('./liferayEnv.cjs');
@@ -199,7 +200,7 @@ function buildConfigAndOptions(req) {
   const routePath = req?.route?.path;
 
   switch (routePath) {
-    case '/api/generate/products': {
+    case INTERNAL_API_PATHS.GENERATE_PRODUCTS: {
       options.productCount = toNumber(productCount);
       options.productCategories = productCategories;
       options.generateBulkPricing = toBoolean(generateBulkPricing);
@@ -222,16 +223,16 @@ function buildConfigAndOptions(req) {
       options.customPdfFile = getCustomPdf(req, options.pdfMode);
       break;
     }
-    case '/api/generate/orders': {
+    case INTERNAL_API_PATHS.GENERATE_ORDERS: {
       options.orderCount = toNumber(orderCount);
       break;
     }
-    case '/api/generate/accounts': {
+    case INTERNAL_API_PATHS.GENERATE_ACCOUNTS: {
       options.accountCount = toNumber(accountCount);
       break;
     }
-    case '/api/validate/products':
-    case '/api/validate/accounts': {
+    case INTERNAL_API_PATHS.VALIDATE_PRODUCTS:
+    case INTERNAL_API_PATHS.VALIDATE_ACCOUNTS: {
       options.requiredCount = toNumber(requiredCount);
       break;
     }

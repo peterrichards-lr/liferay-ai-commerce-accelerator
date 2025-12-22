@@ -1,3 +1,4 @@
+const { INTERNAL_API_PATHS } = require('../utils/internalApiPaths.cjs');
 const {
   connectionSchema,
   channelConnectionSchema,
@@ -73,7 +74,7 @@ module.exports = (app, { deleteCoordinatorService, logger, configService }) => {
   );
 
   app.post(
-    '/api/delete-commerce-data',
+    INTERNAL_API_PATHS.DELETE_COMMERCE_DATA,
     inputValidationMiddleware(connectionSchema),
     (req, res, next) => {
       req.config = buildConfigAndOptions(req).config;
@@ -114,7 +115,7 @@ module.exports = (app, { deleteCoordinatorService, logger, configService }) => {
   );
 
   app.post(
-    '/api/delete-channel-commerce-data',
+    INTERNAL_API_PATHS.DELETE_CHANNEL_COMMERCE_DATA,
     inputValidationMiddleware(channelConnectionSchema),
     (req, res, next) => {
       req.config = buildConfigAndOptions(req).config;

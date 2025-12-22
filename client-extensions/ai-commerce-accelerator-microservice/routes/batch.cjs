@@ -1,3 +1,4 @@
+const { INTERNAL_API_PATHS } = require('../utils/internalApiPaths.cjs');
 const { parseBatchStatuses } = require('../utils/normalize.cjs');
 const { createERC, resolveErrorReference } = require('../utils/misc.cjs');
 const { ERC_PREFIX } = require('../utils/constants.cjs');
@@ -82,7 +83,7 @@ function safeErrorResponse({
 }
 
 module.exports = (app, { batchCallbackService }) => {
-  app.post('/batch/callback', async (req, res) => {
+  app.post(INTERNAL_API_PATHS.BATCH_CALLBACK, async (req, res) => {
     // No-op for now to keep Liferay happy
     res.status(200).send();
 
@@ -93,7 +94,7 @@ module.exports = (app, { batchCallbackService }) => {
     }
   });
 
-  app.get('/batch/status/:batchId', async (req, res) => {
+  app.get(INTERNAL_API_PATHS.BATCH_STATUS, async (req, res) => {
     const { batchId } = req.params;
     const status = await batchCallbackService.getBatchStatus(batchId);
     res.json({ batchId, ...status });

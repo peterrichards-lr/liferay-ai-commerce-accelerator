@@ -1,3 +1,4 @@
+const { INTERNAL_API_PATHS } = require('../utils/internalApiPaths.cjs');
 const multer = require('multer');
 const { createERC } = require('../utils/misc.cjs');
 const { ERC_PREFIX } = require('../utils/constants.cjs');
@@ -7,7 +8,7 @@ const upload = multer({ storage: multer.memoryStorage() });
 
 module.exports = (app, { liferayService, logger, configService }) => {
   app.post(
-    '/api/import-commerce-data',
+    INTERNAL_API_PATHS.IMPORT_COMMERCE_DATA,
     upload.single('importFile'),
     async (req, res) => {
       const { config } = buildConfigAndOptions(req);

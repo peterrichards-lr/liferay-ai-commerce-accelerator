@@ -1,3 +1,4 @@
+const { INTERNAL_API_PATHS } = require('../utils/internalApiPaths.cjs');
 const {
   inputValidationMiddleware,
 } = require('../middleware/securityMiddleware.cjs');
@@ -50,7 +51,7 @@ function handleError(res, logger, req, operation, error, opts = {}) {
 
 module.exports = (app, { liferayService, logger }) => {
   app.post(
-    '/api/get-catalogs',
+    INTERNAL_API_PATHS.GET_CATALOGS,
     inputValidationMiddleware(connectionSchema),
     async (req, res) => {
       try {
@@ -77,7 +78,7 @@ module.exports = (app, { liferayService, logger }) => {
   );
 
   app.post(
-    '/api/get-channels',
+    INTERNAL_API_PATHS.GET_CHANNELS,
     inputValidationMiddleware(connectionSchema),
     async (req, res) => {
       try {
@@ -104,7 +105,7 @@ module.exports = (app, { liferayService, logger }) => {
   );
 
   app.post(
-    '/api/get-currencies',
+    INTERNAL_API_PATHS.GET_CURRENCIES,
     inputValidationMiddleware(connectionSchema),
     async (req, res) => {
       try {
@@ -133,7 +134,7 @@ module.exports = (app, { liferayService, logger }) => {
   );
 
   app.post(
-    '/api/get-languages',
+    INTERNAL_API_PATHS.GET_LANGUAGES,
     inputValidationMiddleware(connectionSchema),
     async (req, res) => {
       try {
@@ -162,7 +163,7 @@ module.exports = (app, { liferayService, logger }) => {
   );
 
   app.post(
-    '/api/get-warehouses',
+    INTERNAL_API_PATHS.GET_WAREHOUSES,
     inputValidationMiddleware(connectionSchema),
     async (req, res) => {
       try {

@@ -7,8 +7,9 @@ import React, {
   useContext,
   useRef,
 } from 'react';
-import { normalizeConfig } from '../config/normalize.js';
-import { createApiClient } from '../services/apiClient.js';
+import { normalizeConfig } from '../config/normalize';
+import { createApiClient } from '../services/apiClient';
+import { GET_CURRENCIES, GET_LANGUAGES } from '../utils/microservicePaths';
 
 const AppContext = createContext(null);
 
@@ -105,11 +106,10 @@ export function AppProvider({
       const key = `currencies:${config.microserviceUrl || ''}:${
         config.liferayUrl || ''
       }`;
-      return fetchWithCache(
-        key,
-        () => api.post('/api/get-currencies', payload),
-        { ttlMs: 60 * 60_000, force }
-      );
+      return fetchWithCache(key, () => api.post(GET_CURRENCIES, payload), {
+        ttlMs: 60 * 60_000,
+        force,
+      });
     },
     [api, config.microserviceUrl, config.liferayUrl]
   );
@@ -120,11 +120,10 @@ export function AppProvider({
       const key = `languages:${config.microserviceUrl || ''}:${
         config.liferayUrl || ''
       }:${payload.siteGroupId}`;
-      return fetchWithCache(
-        key,
-        () => api.post('/api/get-languages', payload),
-        { ttlMs: 30 * 60_000, force }
-      );
+      return fetchWithCache(key, () => api.post(GET_LANGUAGES, payload), {
+        ttlMs: 30 * 60_000,
+        force,
+      });
     },
     [api, config.microserviceUrl, config.liferayUrl]
   );

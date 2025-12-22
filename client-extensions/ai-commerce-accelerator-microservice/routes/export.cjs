@@ -1,8 +1,9 @@
+const { INTERNAL_API_PATHS } = require('../utils/internalApiPaths.cjs');
 const { createERC } = require('../utils/misc.cjs');
 const { ERC_PREFIX } = require('../utils/constants.cjs');
 
 module.exports = (app, { cacheService, logger }) => {
-  app.get('/api/export-commerce-data', (req, res) => {
+  app.get(INTERNAL_API_PATHS.EXPORT_COMMERCE_DATA, (req, res) => {
     try {
       const products = cacheService.get('generated-data:products') || [];
       const accounts = cacheService.get('generated-data:accounts') || [];

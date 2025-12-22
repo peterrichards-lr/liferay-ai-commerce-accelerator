@@ -6,7 +6,7 @@ import React, {
   useRef,
   useMemo,
 } from 'react';
-import { AppProvider, useApp, useApi } from './context/AppContext.jsx';
+import { AppProvider, useApp, useApi } from './context/AppContext';
 import { progressReducer, initialProgress } from './state/progressReducer';
 
 import useActivityLog from './hooks/useActivityLog';
@@ -25,11 +25,18 @@ import notifyUser from './utils/notifications';
 
 import { flattenErrorsMap } from './utils/validation';
 
-import { buildFilename, exportJsonFile } from './utils/fileHelper.js';
+import { buildFilename, exportJsonFile } from './utils/fileHelper';
 
-import ConfigurationPanel from './components/config/ConfigurationPanel.jsx';
+import ConfigurationPanel from './components/config/ConfigurationPanel';
 import DataGeneratorForm from './components/data-generator/DataGeneratorForm';
-import Dashboard from './components/dashboard/Dashboard.jsx';
+import Dashboard from './components/dashboard/Dashboard';
+
+import {
+  EXPORT_COMMERCE_DATA,
+  IMPORT_COMMERCE_DATA,
+  AI_MODEL_OPTIONS,
+  BATCH_SIZES,
+} from './utils/microservicePaths';
 
 const toInt = (v) => (v == null || v === '' ? undefined : parseInt(v, 10));
 const toArray = (v) => (Array.isArray(v) ? v : v ? [v] : []);
@@ -390,7 +397,10 @@ export function AppUI() {
               }
 
               // If no valid categories remain, default to the first available
-              if (validImportedCategories.length === 0 && availableCategories.length > 0) {
+              if (
+                validImportedCategories.length === 0 &&
+                availableCategories.length > 0
+              ) {
                 validImportedCategories.push(availableCategories[0].key);
                 notifyUser(
                   `No valid categories were imported, defaulting to '${availableCategories[0].key}'.`,
@@ -479,7 +489,7 @@ export function AppUI() {
 
   const handleExport = useCallback(async () => {
     try {
-      const response = await api.get('/api/export-commerce-data');
+      const response = await api.get(EXPORT_COMMERCE_DATA);
       const filename = buildFilename('ai-commerce-accelerator-data');
       exportJsonFile(response, filename);
       notifyUser('Commerce data exported successfully');
@@ -488,19 +498,22 @@ export function AppUI() {
     }
   }, [api]);
 
-  const handleImport = useCallback(async (event) => {
-    const file = event.target.files[0];
-    if (!file) return;
+  const handleImport = useCallback(
+    async (event) => {
+      const file = event.target.files[0];
+      if (!file) return;
 
-    try {
-      const formData = new FormData();
-      formData.append('importFile', file);
-      await api.post('/api/import-commerce-data', formData);
-      notifyUser('Commerce data import started');
-    } catch (error) {
-      notifyUser('Failed to import commerce data', 'danger', error);
-    }
-  }, [api]);
+      try {
+        const formData = new FormData();
+        formData.append('importFile', file);
+        await api.post(IMPORT_COMMERCE_DATA, formData);
+        notifyUser('Commerce data import started');
+      } catch (error) {
+        notifyUser('Failed to import commerce data', 'danger', error);
+      }
+    },
+    [api]
+  );
 
   const [availableCategories, setAvailableCategories] = useState([]);
 
@@ -515,7 +528,8 @@ export function AppUI() {
           setGenerationConfig((prevConfig) => {
             if (
               fetched.length > 0 &&
-              (prevConfig.categories == null || prevConfig.categories.length === 0)
+              (prevConfig.categories == null ||
+                prevConfig.categories.length === 0)
             ) {
               return { ...prevConfig, categories: [fetched[0]] };
             }
@@ -527,7 +541,7 @@ export function AppUI() {
       }
 
       try {
-        const fetchedBatchSizes = await api.get('/api/config/batch-sizes');
+        const fetchedBatchSizes = await api.get(BATCH_SIZES);
         if (mountedRef.current && Array.isArray(fetchedBatchSizes)) {
           setBatchSizes(fetchedBatchSizes);
         }
@@ -536,7 +550,7 @@ export function AppUI() {
       }
 
       try {
-        const fetchedAIModelOptions = await api.get('/api/config/ai-model-options');
+        const fetchedAIModelOptions = await api.get(AI_MODEL_OPTIONS);
         console.log('Fetched AI Model Options:', fetchedAIModelOptions);
         if (mountedRef.current && Array.isArray(fetchedAIModelOptions)) {
           setAiModelOptions(fetchedAIModelOptions);

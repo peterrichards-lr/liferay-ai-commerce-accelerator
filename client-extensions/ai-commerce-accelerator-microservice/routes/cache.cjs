@@ -1,3 +1,4 @@
+const { INTERNAL_API_PATHS } = require('../utils/internalApiPaths.cjs');
 const { createERC, resolveErrorReference } = require('../utils/misc.cjs');
 const { ERC_PREFIX } = require('../utils/constants.cjs');
 
@@ -44,7 +45,7 @@ function safeErrorResponse({
 }
 
 module.exports = (app, { logger, cacheService }) => {
-  app.get('/api/cache/stats', async (req, res) => {
+  app.get(INTERNAL_API_PATHS.CACHE_STATS, async (req, res) => {
     try {
       const stats = cacheService.getStats();
       res.json({
@@ -66,7 +67,7 @@ module.exports = (app, { logger, cacheService }) => {
     }
   });
 
-  app.get('/api/cache/entries', async (req, res) => {
+  app.get(INTERNAL_API_PATHS.CACHE_ENTRIES, async (req, res) => {
     try {
       const stats = cacheService.getStats(true);
       res.json({

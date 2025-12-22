@@ -381,17 +381,41 @@ submitted → failed
 
 ------------------------------------------------------------------------
 
+## API Path Constants
+
+To ensure consistency and prevent errors from outdated or mismatched path strings, the microservice uses two sets of constants for API paths.
+
+### Internal API Paths
+
+These paths are for the endpoints exposed by the microservice itself. They are defined in `client-extensions/ai-commerce-accelerator-microservice/utils/internalApiPaths.cjs`. All paths are prefixed with `/api/v1`.
+
+-   **`INTERNAL_API_PATHS.WORKFLOW_SESSIONS`**: `/workflows/sessions`
+-   **`INTERNAL_API_PATHS.WORKFLOW_BATCHES`**: `/workflows/batches/:sessionId`
+
+*(and all other internal paths...)*
+
+### Liferay API Paths
+
+These paths are for the Liferay Headless APIs that the microservice calls. They are defined in `client-extensions/ai-commerce-accelerator-microservice/utils/liferayPaths.cjs`.
+
+-   **`PATH.PRODUCTS`**: `/o/headless-commerce-admin-catalog/v1.0/products`
+-   **`PATH.ACCOUNTS`**: `/o/headless-admin-user/v1.0/accounts`
+
+*(and all other Liferay paths...)*
+
+------------------------------------------------------------------------
+
 ## Workflow Audit Trail
 
 For observability and debugging, the microservice exposes endpoints to view the workflow audit trail directly from the database.
 
 ### Endpoints
 
--   **`GET /api/workflows/sessions`**
+-   **`GET /api/v1/workflows/sessions`**
     -   Returns a list of all workflow sessions, ordered by most recent first.
     -   This provides a high-level overview of all workflows that have been run.
 
--   **`GET /api/workflows/batches/:sessionId`**
+-   **`GET /api/v1/workflows/batches/:sessionId`**
     -   Returns a list of all batches associated with a specific `sessionId`.
     -   This allows for detailed tracing of a single workflow run.
 

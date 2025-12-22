@@ -103,45 +103,47 @@ app.get('/', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
-app.use(correlationIdMiddleware);
-app.use(userContextMiddleware);
-app.use(securityHeadersMiddleware);
-app.use(requestLoggingMiddleware);
-app.use(basicRateLimitMiddleware(200, 60000));
-app.use(requestSizeLimitMiddleware(10485760));
-app.use(sqlInjectionProtectionMiddleware);
-app.use(xssProtectionMiddleware);
-app.use(requestSigningMiddleware);
+const apiV1Router = express.Router();
+
+apiV1Router.use(correlationIdMiddleware);
+apiV1Router.use(userContextMiddleware);
+apiV1Router.use(securityHeadersMiddleware);
+apiV1Router.use(requestLoggingMiddleware);
+apiV1Router.use(basicRateLimitMiddleware(200, 60000));
+apiV1Router.use(requestSizeLimitMiddleware(10485760));
+apiV1Router.use(sqlInjectionProtectionMiddleware);
+apiV1Router.use(xssProtectionMiddleware);
+apiV1Router.use(requestSigningMiddleware);
 
 const routeCtx = {
-  batchPollingService,
+  batchCallbackService,
   liferayService,
   logger,
   persistenceService,
 };
 
-require('./routes/batch.cjs')(app, {
+require('./routes/batch.cjs')(apiV1Router, {
   ...routeCtx,
   batchCallbackService,
   cacheService,
   configService,
   ws: ws,
 });
-require('./routes/cache.cjs')(app, { ...routeCtx, cacheService });
-require('./routes/config.cjs')(app, { ...routeCtx, configService });
-require('./routes/get.cjs')(app, routeCtx);
-require('./routes/health.cjs')(app, { ...routeCtx, healthService });
-require('./routes/queue.cjs')(app, routeCtx);
-require('./routes/workflow.cjs')(app, routeCtx);
-require('./routes/delete.cjs')(app, {
+require('./routes/cache.cjs')(apiV1Router, { ...routeCtx, cacheService });
+require('./routes/config.cjs')(apiV1Router, { ...routeCtx, configService });
+require('./routes/get.cjs')(apiV1Router, routeCtx);
+require('./routes/health.cjs')(apiV1Router, { ...routeCtx, healthService });
+require('./routes/queue.cjs')(apiV1Router, routeCtx);
+require('./routes/workflow.cjs')(apiV1Router, routeCtx);
+require('./routes/delete.cjs')(apiV1Router, {
   ...routeCtx,
   deleteCoordinatorService,
   configService,
 });
-require('./routes/export.cjs')(app, { ...routeCtx, cacheService });
-require('./routes/import.cjs')(app, {
+require('./routes/export.cjs')(apiV1Router, { ...routeCtx, cacheService });
+require('./routes/import.cjs')(apiV1Router, {
   ...routeCtx,
-  batchPollingService,
+  batchCallbackService,
   ws: ws,
   configService,
 });
@@ -158,10 +160,10 @@ const generateCtx = {
   ws: ws,
 };
 
-require('./routes/generate.cjs')(app, generateCtx);
+require('./routes/generate.cjs')(apiV1Router, generateCtx);
 
-app.post(
-  '/api/test-connection',
+apiV1Router.post(
+  '/test-connection',
   inputValidationMiddleware(connectionSchema),
   async (req, res) => {
     const correlationId = req.correlationId;
@@ -225,6 +227,8 @@ app.post(
     }
   }
 );
+
+app.use('/api/v1', apiV1Router);
 
 app.use(errorLoggingMiddleware);
 

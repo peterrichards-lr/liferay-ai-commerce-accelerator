@@ -1,3 +1,4 @@
+const { INTERNAL_API_PATHS } = require('../utils/internalApiPaths.cjs');
 const multer = require('multer');
 const {
   toBoolean,
@@ -65,7 +66,7 @@ module.exports = (
   }
 ) => {
   app.post(
-    '/api/generate/accounts',
+    INTERNAL_API_PATHS.GENERATE_ACCOUNTS,
     async (req, res, next) => {
       const { config } = buildConfigAndOptions(req);
       const { aiModelOptions } = await configService.getAIModelOptions(config);
@@ -146,7 +147,7 @@ module.exports = (
   );
 
   app.post(
-    '/api/generate/products',
+    INTERNAL_API_PATHS.GENERATE_PRODUCTS,
     upload.fields([{ name: 'customImageFile' }, { name: 'customPDFFile' }]),
     async (req, res, next) => {
       const b = req.body || {};
@@ -263,7 +264,7 @@ module.exports = (
     }
   );
 
-  app.post('/api/validate/products', async (req, res) => {
+  app.post(INTERNAL_API_PATHS.VALIDATE_PRODUCTS, async (req, res) => {
     const { config, options } = buildConfigAndOptions(req);
 
     try {
@@ -315,7 +316,7 @@ module.exports = (
     }
   });
 
-  app.post('/api/validate/accounts', async (req, res) => {
+  app.post(INTERNAL_API_PATHS.VALIDATE_ACCOUNTS, async (req, res) => {
     const { config, options } = buildConfigAndOptions(req);
 
     try {
@@ -368,7 +369,7 @@ module.exports = (
   });
 
   app.post(
-    '/api/generate/orders',
+    INTERNAL_API_PATHS.GENERATE_ORDERS,
     async (req, res, next) => {
       const { config } = buildConfigAndOptions(req);
       const { aiModelOptions } = await configService.getAIModelOptions(config);

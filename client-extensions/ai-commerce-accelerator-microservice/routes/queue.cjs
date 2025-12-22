@@ -1,3 +1,4 @@
+const { INTERNAL_API_PATHS } = require('../utils/internalApiPaths.cjs');
 const { queueService } = require('../services/queueService.cjs');
 const { createERC } = require('../utils/misc.cjs');
 const { ERC_PREFIX } = require('../utils/constants.cjs');
@@ -47,7 +48,7 @@ function handleError(res, logger, req, operation, error, extra = {}) {
 }
 
 module.exports = (app, { logger, queueService }) => {
-  app.get('/api/queue/stats', async (req, res) => {
+  app.get(INTERNAL_API_PATHS.QUEUE_STATS, async (req, res) => {
     try {
       const stats = await queueService.getAllStats();
 
@@ -61,7 +62,7 @@ module.exports = (app, { logger, queueService }) => {
     }
   });
 
-  app.get('/api/jobs/:jobId', async (req, res) => {
+  app.get(INTERNAL_API_PATHS.JOBS, async (req, res) => {
     try {
       const job = await queueService.getJob(req.params.jobId);
 

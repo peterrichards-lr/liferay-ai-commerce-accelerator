@@ -1,3 +1,4 @@
+const { INTERNAL_API_PATHS } = require('../utils/internalApiPaths.cjs');
 const { createERC, resolveErrorReference } = require('../utils/misc.cjs');
 const { ERC_PREFIX } = require('../utils/constants.cjs');
 
@@ -44,7 +45,7 @@ function safeErrorResponse({
 }
 
 module.exports = (app, { logger, persistenceService }) => {
-  app.get('/api/workflows/sessions', async (req, res) => {
+  app.get(INTERNAL_API_PATHS.WORKFLOW_SESSIONS, async (req, res) => {
     try {
       const sessions = await persistenceService.getAllSessions();
       res.json({
@@ -66,7 +67,7 @@ module.exports = (app, { logger, persistenceService }) => {
     }
   });
 
-  app.get('/api/workflows/batches/:sessionId', async (req, res) => {
+  app.get(INTERNAL_API_PATHS.WORKFLOW_BATCHES, async (req, res) => {
     try {
       const { sessionId } = req.params;
       const batches = await persistenceService.getBatchesForSession(sessionId);

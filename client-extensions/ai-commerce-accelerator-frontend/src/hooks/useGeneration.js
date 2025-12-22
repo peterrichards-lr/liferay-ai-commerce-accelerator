@@ -1,6 +1,13 @@
 import { useState, useCallback } from 'react';
 import { toFormData } from '../utils/formData';
 import { computeTotalsFromConfig } from '../state/progressSelectors';
+import {
+  GENERATE_PRODUCTS,
+  GENERATE_ACCOUNTS,
+  GENERATE_ORDERS,
+  VALIDATE_PRODUCTS,
+  VALIDATE_ACCOUNTS,
+} from '../utils/microservicePaths';
 
 export default function useGeneration({
   addLog,
@@ -119,7 +126,9 @@ export default function useGeneration({
               )
                 ? generationConfig.inventoryAssignmentRatio
                 : 0,
-              warehouseCount: Number.isFinite(generationConfig.warehouseCount) ? generationConfig.warehouseCount : 0,
+              warehouseCount: Number.isFinite(generationConfig.warehouseCount)
+                ? generationConfig.warehouseCount
+                : 0,
               enableBackorders: !!generationConfig.enableBackorders,
               backorderAssignmentRatio: Number.isFinite(
                 generationConfig.backorderAssignmentRatio
@@ -148,9 +157,9 @@ export default function useGeneration({
                 customImageFile: imageFile,
                 customPDFFile: pdfFile,
               });
-              response = await api.post('/api/generate/products', form);
+              response = await api.post(GENERATE_PRODUCTS, form);
             } else {
-              response = await api.post('/api/generate/products', basePayload);
+              response = await api.post(GENERATE_PRODUCTS, basePayload);
             }
             if (response.success) {
               totalProductsCreated = response.count || 0;
@@ -238,7 +247,7 @@ export default function useGeneration({
                 `Generating ${generationConfig.accountCount} accounts...`,
                 'info'
               );
-            const response = await api.post('/api/generate/accounts', {
+            const response = await api.post(GENERATE_ACCOUNTS, {
               ...buildPayload(),
               accountCount: generationConfig.accountCount,
               demoMode: generationConfig.demoMode,
@@ -345,15 +354,12 @@ export default function useGeneration({
                 );
               try {
                 if (hasProducts && !productsAvailable) {
-                  const productsCheck = await api.post(
-                    '/api/validate/products',
-                    {
-                      liferayUrl: config.liferayUrl,
-                      clientId: config.clientId,
-                      clientSecret: config.clientSecret,
-                      requiredCount: totalProductsCreated,
-                    }
-                  );
+                  const productsCheck = await api.post(VALIDATE_PRODUCTS, {
+                    liferayUrl: config.liferayUrl,
+                    clientId: config.clientId,
+                    clientSecret: config.clientSecret,
+                    requiredCount: totalProductsCreated,
+                  });
                   productsAvailable = productsCheck.sufficient;
                   if (productsAvailable) {
                     if (mountedRef.current)
@@ -370,15 +376,12 @@ export default function useGeneration({
                   }
                 }
                 if (hasAccounts && !accountsAvailable) {
-                  const accountsCheck = await api.post(
-                    '/api/validate/accounts',
-                    {
-                      liferayUrl: config.liferayUrl,
-                      clientId: config.clientId,
-                      clientSecret: config.clientSecret,
-                      requiredCount: totalAccountsCreated,
-                    }
-                  );
+                  const accountsCheck = await api.post(VALIDATE_ACCOUNTS, {
+                    liferayUrl: config.liferayUrl,
+                    clientId: config.clientId,
+                    clientSecret: config.clientSecret,
+                    requiredCount: totalAccountsCreated,
+                  });
                   accountsAvailable = accountsCheck.sufficient;
                   if (accountsAvailable) {
                     if (mountedRef.current)
@@ -432,7 +435,7 @@ export default function useGeneration({
                 'info'
               );
           }
-          const response = await api.post('/api/generate/orders', {
+          const response = await api.post(GENERATE_ORDERS, {
             ...buildPayload(),
             orderCount: generationConfig.orderCount,
             demoMode: generationConfig.demoMode,

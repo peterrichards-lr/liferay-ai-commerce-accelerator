@@ -2,6 +2,14 @@ import { useState, useCallback } from 'react';
 import { useApp, useApi } from '../context/AppContext';
 import notifyUser from '../utils/notifications';
 import { getConnectionErrorsMap, hasAnyErrors } from '../utils/validation';
+import {
+  GET_CATALOGS,
+  GET_CHANNELS,
+  GET_CATEGORIES,
+  TEST_CONNECTION,
+  DELETE_COMMERCE_DATA,
+  DELETE_SELECTED_COMMERCE_DATA,
+} from '../utils/microservicePaths';
 
 const toInt = (v) => (v == null || v === '' ? undefined : parseInt(v, 10));
 
@@ -68,8 +76,8 @@ export default function useCommerceData({
     const payload = buildPayload();
 
     const [cat, ch] = await Promise.all([
-      api.post('/api/get-catalogs', payload),
-      api.post('/api/get-channels', payload),
+      api.post(GET_CATALOGS, payload),
+      api.post(GET_CHANNELS, payload),
     ]);
 
     const cats = Array.isArray(cat?.catalogs) ? cat.catalogs : [];
@@ -95,7 +103,7 @@ export default function useCommerceData({
     }
 
     const payload = buildPayload();
-    const res = await api.post('/api/test-connection', payload);
+    const res = await api.post(TEST_CONNECTION, payload);
 
     if (!res?.success) {
       setConnectionEstablished(false);
@@ -149,7 +157,7 @@ export default function useCommerceData({
 
   const handleDeleteAllCommerceData = useCallback(async () => {
     const payload = buildPayload();
-    const res = await api.post('/api/v2/delete-commerce-data', payload);
+    const res = await api.post(DELETE_COMMERCE_DATA, payload);
     if (res?.summary) {
       logDeletionSummary(res.summary);
     }
@@ -157,7 +165,7 @@ export default function useCommerceData({
 
   const handleDeleteSelectedCommerceData = useCallback(async () => {
     const payload = buildPayload();
-    const res = await api.post('/api/v2/delete-channel-commerce-data', payload);
+    const res = await api.post(DELETE_SELECTED_COMMERCE_DATA, payload);
     if (res?.summary) {
       logDeletionSummary(res.summary);
     }
@@ -245,8 +253,10 @@ export default function useCommerceData({
 
   const getCategories = useCallback(
     (payload, { force = false } = {}) => {
-      const key = `categories:${config.microserviceUrl || ''}:${config.liferayUrl || ''}`;
-      return api.get('/api/config/categories', { force }).then((res) => {
+      const key = `categories:${config.microserviceUrl || ''}:${
+        config.liferayUrl || ''
+      }`;
+      return api.get(GET_CATEGORIES, { force }).then((res) => {
         if (Array.isArray(res?.categories)) return res.categories;
         return [];
       });
