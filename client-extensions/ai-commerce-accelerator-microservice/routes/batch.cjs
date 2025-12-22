@@ -82,15 +82,22 @@ function safeErrorResponse({
   }
 }
 
-module.exports = (app, { batchCallbackService }) => {
+module.exports = (app, { batchCallbackService, logger, ws }) => {
   app.post(INTERNAL_API_PATHS.BATCH_CALLBACK, async (req, res) => {
     // No-op for now to keep Liferay happy
     res.status(200).send();
 
     try {
-      await batchCallbackService.processCallback(req.body, req.query);
+      await batchCallbackService.processCallback(req.query.batchERC, req.body);
     } catch (error) {
-      batchCallbackService.handleCallbackError(req, error);
+      safeErrorResponse({
+        res,
+        logger,
+        req,
+        error,
+        operation: 'batch-callback',
+        ws,
+      });
     }
   });
 

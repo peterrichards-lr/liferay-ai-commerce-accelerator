@@ -40,7 +40,7 @@ class OAuthService {
       }),
     };
 
-    const cfgSvc = this.ctx.configService;
+    const cfgSvc = this.ctx.config;
     const cached = cfgSvc?.getOAuthConfigCached?.();
     if (cached) this.applyConfig(cached);
   }
@@ -85,11 +85,11 @@ class OAuthService {
     });
   }
 
-  async refreshConfigFromRemote(requestConfig) {
-    const { configService, logger } = this.ctx;
+  async refreshConfigFromRemote(config) {
+    const { config: configService, logger } = this.ctx;
     if (!configService?.getOAuthConfig) return;
     try {
-      const remote = await configService.getOAuthConfig(requestConfig);
+      const remote = await configService.getOAuthConfig(config);
       this.applyConfig(remote);
     } catch (e) {
       logger?.warn?.('OAuthService: failed to refresh config from remote', {
@@ -104,7 +104,7 @@ class OAuthService {
   }
 
   _getAccessTokenFromCache(cacheKey) {
-    const tokenCache = this.ctx.cacheService;
+    const tokenCache = this.ctx.cache;
     const cached = tokenCache.get(cacheKey);
     if (cached && cached.expiresAt > Date.now()) {
       return cached.token;
@@ -113,7 +113,7 @@ class OAuthService {
   }
 
   _addAccessTokenToCache(cacheKey, token, expiresInSec = 3600) {
-    const tokenCache = this.ctx.cacheService;
+    const tokenCache = this.ctx.cache;
     const skewMs = this.settings.tokenSkewSec * 1000;
     const ttlMs = Math.max(0, expiresInSec * 1000 - skewMs);
     const hardCap = this.settings.tokenCacheTtlMs;
@@ -369,7 +369,7 @@ class OAuthService {
   }
 
   clearTokenCache() {
-    const tokenCache = this.ctx.cacheService;
+    const tokenCache = this.ctx.cache;
     tokenCache.clear();
   }
 

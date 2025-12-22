@@ -33,7 +33,7 @@ class WarehouseGenerator {
   }
 
   async createWarehouses(config, options) {
-    const { logger, ai, mockData, progressService, liferay } =
+    const { logger, ai, mockData, progress, liferay } =
       this.ctx;
     const { warehouseCount, demoMode, sessionId } = options;
     const correlationId = config?.correlationId || '∅';
@@ -86,7 +86,7 @@ class WarehouseGenerator {
       const batchId = submission.batchId;
       const totalItems = normalizedWarehouseDataList.length;
 
-      progressService.batchStarted({
+      progress.batchStarted({
         batchId,
         batchERC,
         sessionId,
@@ -100,7 +100,7 @@ class WarehouseGenerator {
     } else {
       const batchId = 'warehouses-individual';
 
-      progressService.batchStarted({
+      progress.batchStarted({
         batchId,
         entityType,
         totalItems: warehouseDataList.length,
@@ -134,7 +134,7 @@ class WarehouseGenerator {
           });
         }
 
-        progressService.batchProgress({
+        progress.batchProgress({
           batchId,
           entityType,
           completedCount: index + 1,
@@ -144,7 +144,7 @@ class WarehouseGenerator {
         });
       }
 
-      progressService.batchCompleted({
+      progress.batchCompleted({
         batchId,
         entityType,
         successCount: createdWarehouses.length,

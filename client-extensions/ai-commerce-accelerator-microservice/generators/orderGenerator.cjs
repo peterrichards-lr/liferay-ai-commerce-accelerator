@@ -18,20 +18,6 @@ class OrderGenerator {
   }
 
   validateConfig(config) {
-    const prVal = config.pollingRetries;
-    if (prVal === undefined || prVal === null)
-      throw new Error('pollingRetries is required');
-    const pr = parseInt(prVal);
-    if (isNaN(pr) || pr < 0 || pr > 120)
-      throw new Error('pollingRetries must be between 0 and 120');
-
-    const pdVal = config.pollingDelay;
-    if (pdVal === undefined || pdVal === null)
-      throw new Error('pollingDelay is required');
-    const pd = parseInt(pdVal);
-    if (isNaN(pd) || pd < 5000 || pd > 600000)
-      throw new Error('pollingDelay must be between 5 and 600 seconds');
-
     const ch = parseInt(config.channelId);
     if (!Number.isFinite(ch) || ch <= 0)
       throw new Error('channelId must be a positive integer');
@@ -152,8 +138,8 @@ class OrderGenerator {
       logger,
       mockData,
       liferay,
-      progressService,
-      batchCallbackService
+      progress,
+      batchCallback
     } = this.ctx;
     const correlationId = config.correlationId;
 
@@ -172,8 +158,6 @@ class OrderGenerator {
       phase,
       demoMode: options.demoMode,
       batchSize,
-      pollingDelay: config.pollingDelay,
-      pollingRetries: config.pollingRetries,
     });
 
     const results = { orders: [], created: 0, errors: [] };
@@ -182,7 +166,7 @@ class OrderGenerator {
       this.validateConfig(config);
       await this.validateOptions(config, options);
 
-      const { products, accounts } = await this.getProductsAndAccountsWithRetry(
+      const { products, accounts } = await this.getProductsAndAccounts(
         config
       );
 
@@ -204,13 +188,6 @@ class OrderGenerator {
       }
 
       if (useBatch) {
-        const msUrl = (config.microserviceUrl || '')
-          .toString()
-          .trim()
-          .replace(/\/+$/, '');
-        const hasMs = msUrl && msUrl.toLowerCase() !== 'null';
-        const callbackUrl = hasMs ? `${msUrl}/api/batch/callback` : null;
-
         const chunks = [];
         for (let i = 0; i < orderDataList.length; i += batchSize) {
           chunks.push(orderDataList.slice(i, i + batchSize));
@@ -231,17 +208,13 @@ class OrderGenerator {
 
           const batchERC = createERC(ERC_PREFIX.ORDER_BATCH);
           
-          const cbUrl = callbackUrl
-            ? `${callbackUrl}?erc=${encodeURIComponent(batchERC)}`
-            : null;
-
           let submission;
           try {
-            submission = await liferay.createOrdersBatch(config, batch, cbUrl, {
+            submission = await liferay.createOrdersBatch(config, batch, {
               externalReferenceCode: batchERC,
             });
           } catch (e) {
-            progressService.batchFailed(
+            progress.batchFailed(
               {
                 batchId: 'orders-submit-failed',
                 entityType: 'orders',
@@ -255,7 +228,7 @@ class OrderGenerator {
             throw e;
           }
 
-          progressService.batchStarted(
+          progress.batchStarted(
             {
               batchId: submission.batchId,
               entityType: 'orders',
@@ -323,7 +296,7 @@ class OrderGenerator {
     accounts,
     products
   ) {
-    const { logger, progressService } = this.ctx;
+    const { logger, progress } = this.ctx;
     const { mode, phase } = resolvePhaseAndMode({
       useBatch: false,
       phase: 'generate',
@@ -332,7 +305,7 @@ class OrderGenerator {
     const batchId = `orders-individual-${Date.now()}`;
     const batchERC = createERC(ERC_PREFIX.ORDER_BATCH);
 
-    progressService.batchStarted({
+    progress.batchStarted({
       batchId,
       batchERC,
       entityType: 'orders',
@@ -356,7 +329,7 @@ class OrderGenerator {
         const createdOrder = await this.createSingleOrder(config, payload);
         created.push(createdOrder);
 
-        progressService.batchProgress(
+        progress.batchProgress(
           {
             batchId,
             batchERC,
@@ -379,7 +352,7 @@ class OrderGenerator {
       }
     }
 
-    progressService.batchCompleted(
+    progress.batchCompleted(
       {
         batchId,
         batchERC,
@@ -431,66 +404,32 @@ class OrderGenerator {
     return m[(s || '').toLowerCase()] ?? 0;
   }
 
-  async withRetry(fn, isRetryable, attempts = 3, baseMs = 500) {
-    let lastErr;
-    for (let i = 0; i < attempts; i++) {
-      try {
-        return await fn();
-      } catch (e) {
-        lastErr = e;
-        if (!isRetryable(e) || i === attempts - 1) throw e;
-        const jitter = Math.floor(Math.random() * 150);
-        await delay(baseMs * Math.pow(2, i) + jitter);
-      }
-    }
-    throw lastErr;
-  }
 
-  async getProductsAndAccountsWithRetry(config) {
+
+  async getProductsAndAccounts(config) {
     const { liferay, logger } = this.ctx;
-    for (let attempt = 0; attempt <= config.pollingRetries; attempt++) {
-      try {
-        const products = await liferay.getProducts(config, config.catalogId);
-        const accounts = await liferay.getAccounts(config);
-        if (products.length === 0) {
-          if (attempt < config.pollingRetries) {
-            await delay(config.pollingDelay);
-            continue;
-          } else {
-            throw new Error(
-              'No products available. Please generate products first.'
-            );
-          }
-        }
-        if (accounts.length === 0) {
-          if (attempt < config.pollingRetries) {
-            await delay(config.pollingDelay);
-            continue;
-          } else {
-            throw new Error(
-              'No accounts available. Please generate accounts first.'
-            );
-          }
-        }
-        logger.trace('Dependencies ready', {
-          operation: 'orders/dependencies:ready',
-          products: products.length,
-          accounts: accounts.length,
-          sampleProducts: products.slice(0, 3).map(p => ({ id: p.id, name: p.name, skus: p.skus?.length, sampleSku: p.skus?.[0] })),
-        });
-        return { products, accounts };
-      } catch (error) {
-        const msg = String(error && error.message ? error.message : error);
-        const retryable = /No products available|No accounts available/.test(
-          msg
-        );
-        if (attempt < config.pollingRetries && retryable) {
-          await delay(config.pollingDelay);
-          continue;
-        }
-        throw error;
-      }
+
+    const products = await liferay.getProducts(config, config.catalogId);
+    const accounts = await liferay.getAccounts(config);
+
+    if (products.length === 0) {
+      throw new Error('No products available. Please generate products first.');
     }
+    
+    if (accounts.length === 0) {
+      throw new Error('No accounts available. Please generate accounts first.');
+    }
+
+    logger.trace('Dependencies ready', {
+      operation: 'orders/dependencies:ready',
+      products: products.length,
+      accounts: accounts.length,
+      sampleProducts: products
+        .slice(0, 3)
+        .map((p) => ({ id: p.id, name: p.name, skus: p.skus?.length, sampleSku: p.skus?.[0] })),
+    });
+    
+    return { products, accounts };
   }
 }
 

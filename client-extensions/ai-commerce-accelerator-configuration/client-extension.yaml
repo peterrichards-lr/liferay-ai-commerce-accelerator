@@ -1,14 +1,14 @@
 assemble:
-  - from: build/static
-    into: static
+    -   from: build/static
+        into: static
 liferay-ai-commerce-accelerator-configuration:
-  friendlyURLMapping: liferay-ai-commerce-accelerator-configuration
-  htmlElementName: liferay-ai-commerce-accelerator-configuration
-  instanceable: false
-  name: Liferay AI Commerce Accelerator Configuration
-  panelAppOrder: 700
-  panelCategoryKey: control_panel.configuration
-  type: customElement
-  urls:
-    - liferay-ai-commerce-accelerator-configuration.min.*.js
-  useESM: true
+    friendlyURLMapping: liferay-ai-commerce-accelerator-configuration
+    htmlElementName: liferay-ai-commerce-accelerator-configuration
+    instanceable: false
+    name: Liferay AI Commerce Accelerator Configuration
+    panelAppOrder: 700
+    panelCategoryKey: control_panel.configuration
+    type: customElement
+    urls:
+        -   liferay-ai-commerce-accelerator-configuration.min.*.js
+    useESM: true

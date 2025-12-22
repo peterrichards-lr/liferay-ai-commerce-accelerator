@@ -1,12 +1,10 @@
 module.exports = async function deleteOptionCategories(
   { liferay },
-  { config, options, callbackUrl, batchERC }
+  { config, options, batchERC }
 ) {
-  const nextCallbackUrl = `${callbackUrl}&entity=optionCategories`;
   const result = await liferay.deleteOptionCategoriesBatch(
     config,
-    { ...options, callbackBatchERC: batchERC },
-    nextCallbackUrl
+    { ...options, callbackBatchERC: batchERC }
   );
   return result;
 };

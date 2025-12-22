@@ -21,8 +21,8 @@ class QueueService {
   constructor(ctx = {}) {
     this.ctx = ctx;
     this.logger = ctx.logger;
-    this.cacheService = ctx.cacheService;
-    this.configService = ctx.configService;
+    this.cache = ctx.cache;
+    this.config = ctx.config;
 
     this.queues = new Map();
     this.jobs = new Map();
@@ -59,8 +59,8 @@ class QueueService {
       byQueue: {},
     };
 
-    if (this.configService?.getQueueConfigCached) {
-      const cached = this.configService.getQueueConfigCached();
+    if (this.config?.getQueueConfigCached) {
+      const cached = this.config.getQueueConfigCached();
       this.applyConfig(cached);
     }
 
@@ -166,9 +166,9 @@ class QueueService {
   }
 
   async refreshConfigFromRemote(requestConfig) {
-    if (!this.configService?.getQueueConfig) return;
+    if (!this.config?.getQueueConfig) return;
     try {
-      const remote = await this.configService.getQueueConfig(requestConfig);
+      const remote = await this.config.getQueueConfig(requestConfig);
       this.applyConfig(remote);
     } catch (e) {
       const err = withErrorRef(e, 'queue-config-refresh');
@@ -302,13 +302,13 @@ class QueueService {
       correlationId: job.correlationId,
     });
 
-    this.cacheService?.set(`job:${jobId}`, job, this.config.defaults.jobTTL);
+    this.cache?.set(`job:${jobId}`, job, this.config.defaults.jobTTL);
 
     return job;
   }
 
   async getJob(jobId) {
-    const cached = this.cacheService?.get(`job:${jobId}`);
+    const cached = this.cache?.get(`job:${jobId}`);
     if (cached) return cached;
     return this.jobs.get(jobId) || null;
   }
@@ -451,7 +451,7 @@ class QueueService {
       correlationId: job.correlationId,
     });
 
-    this.cacheService?.set(`job:${job.id}`, job, this.config.defaults.jobTTL);
+    this.cache?.set(`job:${job.id}`, job, this.config.defaults.jobTTL);
   }
 
   failJob(job, err, queue) {
@@ -503,7 +503,7 @@ class QueueService {
       });
     }
 
-    this.cacheService?.set(`job:${job.id}`, job, this.config.defaults.jobTTL);
+    this.cache?.set(`job:${job.id}`, job, this.config.defaults.jobTTL);
   }
 
   updateJobProgress(job, progress) {
@@ -517,7 +517,7 @@ class QueueService {
       correlationId: job.correlationId,
     });
 
-    this.cacheService?.set(`job:${job.id}`, job, this.config.defaults.jobTTL);
+    this.cache?.set(`job:${job.id}`, job, this.config.defaults.jobTTL);
   }
 
   getJobProcessor(jobType) {

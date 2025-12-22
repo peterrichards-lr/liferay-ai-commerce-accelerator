@@ -13,7 +13,7 @@ class AccountGenerator {
   }
 
   async startPostalAddressesBatch({ sessionId, session, correlationId }) {
-    const { logger, persistenceService, liferay } = this.ctx;
+    const { logger, persistence, liferay } = this.ctx;
     const { config, addressesToCreate } = session;
 
     try {
@@ -38,9 +38,8 @@ class AccountGenerator {
 
       if (addressesWithAccountIds.length > 0) {
         const batchERC = createERC(ERC_PREFIX.BATCH_GENERATION);
-        const callbackUrl = `${config.microserviceUrl}/api/batch/callback`;
 
-        await persistenceService.createBatch({
+        await persistence.createBatch({
           erc: batchERC,
           sessionId,
           stepKey: 'postal-addresses',
@@ -52,19 +51,18 @@ class AccountGenerator {
           config,
           firstAccountId,
           addressesWithAccountIds.map(addr => {
-            const { accountId, ...rest } = addr;
+            const { accountId, accountERC, ...rest } = addr;
             return rest;
           }),
-          callbackUrl,
           { externalReferenceCode: batchERC, sessionId }
         );
 
-        await persistenceService.updateBatch(batchERC, { status: 'SUBMITTED' });
+        await persistence.updateBatch(batchERC, { status: 'SUBMITTED' });
         logger.info('Postal addresses batch submitted', { batchERC, sessionId, count: addressesWithAccountIds.length });
       } else {
         logger.info('No postal addresses to create for this session.', { sessionId, correlationId });
         // Manually complete the step if no addresses were to be created
-        await persistenceService.createBatch({
+        await persistence.createBatch({
           erc: createERC(ERC_PREFIX.BATCH), // Generic ERC for an empty step
           sessionId,
           step_key: 'postal-addresses',
@@ -79,7 +77,7 @@ class AccountGenerator {
         error: error.message,
         stack: error.stack,
       });
-      await persistenceService.updateSession(sessionId, { status: 'FAILED' });
+      await persistence.updateSession(sessionId, { status: 'FAILED' });
     }
   }
 
@@ -145,7 +143,7 @@ class AccountGenerator {
       logger,
       ai,
       mockData,
-      persistenceService,
+      persistence,
       liferay,
     } = this.ctx;
     const correlationId = config.correlationId;
@@ -244,7 +242,7 @@ class AccountGenerator {
         { name: 'postal-addresses', type: 'sync' }
       ];
 
-      await persistenceService.createSession({
+      await persistence.createSession({
         sessionId,
         flowType: 'accounts',
         status: 'STARTED',
@@ -259,18 +257,17 @@ class AccountGenerator {
       });
 
       const batchERC = createERC(ERC_PREFIX.BATCH_GENERATION);
-      const callbackUrl = `${config.microserviceUrl}/api/batch/callback?batchERC=${batchERC}&opCode=G&sessionId=${sessionId}`;
       
-      persistenceService.createBatch({
+      persistence.createBatch({
         erc: batchERC,
         sessionId,
         stepKey: 'accounts',
         status: 'PREPARED',
       });
       
-      await liferay.createAccountsBatch(config, accountsToCreate, callbackUrl, { externalReferenceCode: batchERC, sessionId });
+      await liferay.createAccountsBatch(config, accountsToCreate, { externalReferenceCode: batchERC, sessionId });
       
-      persistenceService.updateBatch(batchERC, { status: 'SUBMITTED' });
+      persistence.updateBatch(batchERC, { status: 'SUBMITTED' });
 
       return {
         sessionId,

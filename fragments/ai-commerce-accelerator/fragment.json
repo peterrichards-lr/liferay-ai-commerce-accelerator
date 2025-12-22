@@ -1,9 +1,9 @@
 {
-   "configurationPath": "configuration.json",
-   "cssPath": "fragment.css",
-   "htmlPath": "fragment.html",
-   "icon": "magic",
-   "jsPath": "fragment.js",
-   "name": "AI Comment Accelerator",
-   "type": "component"
+	"configurationPath": "configuration.json",
+	"cssPath": "fragment.css",
+	"htmlPath": "fragment.html",
+	"icon": "magic",
+	"jsPath": "fragment.js",
+	"name": "AI Comment Accelerator",
+	"type": "component"
 }

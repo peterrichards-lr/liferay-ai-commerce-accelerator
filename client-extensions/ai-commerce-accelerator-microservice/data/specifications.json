@@ -1,63 +1,363 @@
-
 {
-  "Electronics": {
-    "screen-size": ["5.4\"", "6.1\"", "6.7\"", "12.9\"", "13.3\"", "15.6\"", "17\"", "21\"", "24\"", "27\""],
-    "battery-life": ["8 hours", "12 hours", "16 hours", "24 hours", "48 hours", "72 hours"],
-    "processor": ["A15 Bionic", "Snapdragon 888", "Intel i7", "M1 Pro", "AMD Ryzen 7", "M2 Max", "Intel i9"],
-    "ram": ["4GB", "8GB", "16GB", "32GB", "64GB", "128GB"],
-    "storage-capacity": ["64GB", "128GB", "256GB", "512GB", "1TB", "2TB"],
-    "operating-system": ["iOS 17", "Android 14", "Windows 11", "macOS Sonoma", "Linux Ubuntu"],
-    "connectivity": ["WiFi 6", "Bluetooth 5.3", "5G", "USB-C", "Thunderbolt 4", "Ethernet"],
-    "camera-resolution": ["12MP", "48MP", "64MP", "108MP", "200MP"],
-    "warranty": ["1 Year", "2 Years", "3 Years", "Extended Warranty Available"],
-    "weight": ["150g", "200g", "500g", "1.2kg", "1.8kg", "2.5kg"]
-  },
-  "Clothing": {
-    "material": ["100% Cotton", "65% Polyester 35% Cotton", "100% Wool", "95% Cotton 5% Elastane", "100% Silk", "Polyester Blend"],
-    "care-instructions": ["Machine wash cold", "Hand wash only", "Dry clean only", "Machine wash warm", "Gentle cycle"],
-    "fit-type": ["Regular Fit", "Slim Fit", "Relaxed Fit", "Athletic Fit", "Oversized"],
-    "season": ["Spring/Summer", "Fall/Winter", "All Season", "Summer Only", "Winter Only"],
-    "brand": ["Premium Brand", "Eco-Friendly Brand", "Designer Label", "Sport Brand", "Classic Brand"],
-    "country-of-origin": ["Made in USA", "Made in Italy", "Made in India", "Made in Bangladesh", "Made in Turkey"],
-    "closure-type": ["Button", "Zipper", "Pullover", "Snap", "Velcro"],
-    "sleeve-length": ["Short Sleeve", "Long Sleeve", "3/4 Sleeve", "Sleeveless", "Cap Sleeve"],
-    "pattern": ["Solid", "Striped", "Checkered", "Floral", "Abstract"],
-    "collar-type": ["Crew Neck", "V-Neck", "Polo", "Turtleneck", "Scoop Neck"]
-  },
-  "Home & Garden": {
-    "dimensions": ["Small (12\" x 8\")", "Medium (18\" x 12\")", "Large (24\" x 18\")", "Extra Large (36\" x 24\")", "Custom Size"],
-    "weight": ["1-5 lbs", "5-10 lbs", "10-25 lbs", "25-50 lbs", "50+ lbs"],
-    "material": ["Solid Wood", "Engineered Wood", "Metal", "Plastic", "Glass", "Ceramic", "Stone"],
-    "weather-resistance": ["Indoor Use Only", "Weather Resistant", "Waterproof", "UV Protected", "All Weather"],
-    "assembly-required": ["No Assembly", "Minimal Assembly", "Some Assembly", "Full Assembly", "Professional Installation"],
-    "maintenance": ["Low Maintenance", "Regular Cleaning", "Monthly Care", "Seasonal Care", "Professional Service"],
-    "capacity": ["1-2 People", "3-4 People", "5-6 People", "7+ People", "Commercial Use"],
-    "power-source": ["Manual", "Battery Powered", "Electric (110V)", "Electric (220V)", "Solar Powered"],
-    "warranty": ["1 Year Limited", "2 Years Full", "5 Years Structural", "10 Years Limited", "Lifetime Warranty"],
-    "safety-features": ["Child Safe", "Non-Toxic", "Fire Resistant", "Slip Resistant", "Safety Certified"]
-  },
-  "Sports": {
-    "dimensions": ["Compact", "Standard", "Large", "Professional Size"],
-    "weight": ["Ultra Light", "Light", "Medium", "Heavy", "Extra Heavy"],
-    "material": ["Synthetic", "Natural Leather", "Carbon Fiber", "Aluminum", "Steel", "Composite"],
-    "skill-level": ["Beginner", "Intermediate", "Advanced", "Professional"],
-    "sport-type": ["Indoor", "Outdoor", "Water Sports", "Team Sports", "Individual"],
-    "brand": ["Pro Brand", "Recreational", "Competition Grade", "Training Equipment"],
-    "durability": ["Light Use", "Regular Use", "Heavy Use", "Professional Grade"],
-    "warranty": ["6 Months", "1 Year", "2 Years", "Lifetime"],
-    "care-instructions": ["Wipe Clean", "Hand Wash", "Machine Washable", "Air Dry Only"],
-    "age-group": ["Youth", "Adult", "Senior", "All Ages"]
-  },
-  "Books": {
-    "pages": ["50-100", "100-200", "200-300", "300-500", "500+"],
-    "publisher": ["Academic Press", "Popular Publisher", "Independent Press", "University Press"],
-    "publication-date": ["2024", "2023", "2022", "2021", "Classic"],
-    "isbn": ["978-0-123456-78-9", "978-1-234567-89-0", "978-2-345678-90-1"],
-    "language": ["English", "Spanish", "French", "German", "Italian"],
-    "format": ["Hardcover", "Paperback", "Digital", "Audiobook"],
-    "genre": ["Fiction", "Non-Fiction", "Educational", "Reference", "Self-Help"],
-    "author": ["Bestselling Author", "Expert Author", "New Author", "Award Winner"],
-    "edition": ["First Edition", "Second Edition", "Revised Edition", "Anniversary Edition"],
-    "age-rating": ["All Ages", "Young Adult", "Adult", "Children"]
-  }
+	"Books": {
+		"age-rating": [
+			"All Ages",
+			"Young Adult",
+			"Adult",
+			"Children"
+		],
+		"author": [
+			"Bestselling Author",
+			"Expert Author",
+			"New Author",
+			"Award Winner"
+		],
+		"edition": [
+			"First Edition",
+			"Second Edition",
+			"Revised Edition",
+			"Anniversary Edition"
+		],
+		"format": [
+			"Hardcover",
+			"Paperback",
+			"Digital",
+			"Audiobook"
+		],
+		"genre": [
+			"Fiction",
+			"Non-Fiction",
+			"Educational",
+			"Reference",
+			"Self-Help"
+		],
+		"isbn": [
+			"978-0-123456-78-9",
+			"978-1-234567-89-0",
+			"978-2-345678-90-1"
+		],
+		"language": [
+			"English",
+			"Spanish",
+			"French",
+			"German",
+			"Italian"
+		],
+		"pages": [
+			"50-100",
+			"100-200",
+			"200-300",
+			"300-500",
+			"500+"
+		],
+		"publication-date": [
+			"2024",
+			"2023",
+			"2022",
+			"2021",
+			"Classic"
+		],
+		"publisher": [
+			"Academic Press",
+			"Popular Publisher",
+			"Independent Press",
+			"University Press"
+		]
+	},
+	"Clothing": {
+		"brand": [
+			"Premium Brand",
+			"Eco-Friendly Brand",
+			"Designer Label",
+			"Sport Brand",
+			"Classic Brand"
+		],
+		"care-instructions": [
+			"Machine wash cold",
+			"Hand wash only",
+			"Dry clean only",
+			"Machine wash warm",
+			"Gentle cycle"
+		],
+		"closure-type": [
+			"Button",
+			"Zipper",
+			"Pullover",
+			"Snap",
+			"Velcro"
+		],
+		"collar-type": [
+			"Crew Neck",
+			"V-Neck",
+			"Polo",
+			"Turtleneck",
+			"Scoop Neck"
+		],
+		"country-of-origin": [
+			"Made in USA",
+			"Made in Italy",
+			"Made in India",
+			"Made in Bangladesh",
+			"Made in Turkey"
+		],
+		"fit-type": [
+			"Regular Fit",
+			"Slim Fit",
+			"Relaxed Fit",
+			"Athletic Fit",
+			"Oversized"
+		],
+		"material": [
+			"100% Cotton",
+			"65% Polyester 35% Cotton",
+			"100% Wool",
+			"95% Cotton 5% Elastane",
+			"100% Silk",
+			"Polyester Blend"
+		],
+		"pattern": [
+			"Solid",
+			"Striped",
+			"Checkered",
+			"Floral",
+			"Abstract"
+		],
+		"season": [
+			"Spring/Summer",
+			"Fall/Winter",
+			"All Season",
+			"Summer Only",
+			"Winter Only"
+		],
+		"sleeve-length": [
+			"Short Sleeve",
+			"Long Sleeve",
+			"3/4 Sleeve",
+			"Sleeveless",
+			"Cap Sleeve"
+		]
+	},
+	"Electronics": {
+		"battery-life": [
+			"8 hours",
+			"12 hours",
+			"16 hours",
+			"24 hours",
+			"48 hours",
+			"72 hours"
+		],
+		"camera-resolution": [
+			"12MP",
+			"48MP",
+			"64MP",
+			"108MP",
+			"200MP"
+		],
+		"connectivity": [
+			"WiFi 6",
+			"Bluetooth 5.3",
+			"5G",
+			"USB-C",
+			"Thunderbolt 4",
+			"Ethernet"
+		],
+		"operating-system": [
+			"iOS 17",
+			"Android 14",
+			"Windows 11",
+			"macOS Sonoma",
+			"Linux Ubuntu"
+		],
+		"processor": [
+			"A15 Bionic",
+			"Snapdragon 888",
+			"Intel i7",
+			"M1 Pro",
+			"AMD Ryzen 7",
+			"M2 Max",
+			"Intel i9"
+		],
+		"ram": [
+			"4GB",
+			"8GB",
+			"16GB",
+			"32GB",
+			"64GB",
+			"128GB"
+		],
+		"screen-size": [
+			"5.4\"",
+			"6.1\"",
+			"6.7\"",
+			"12.9\"",
+			"13.3\"",
+			"15.6\"",
+			"17\"",
+			"21\"",
+			"24\"",
+			"27\""
+		],
+		"storage-capacity": [
+			"64GB",
+			"128GB",
+			"256GB",
+			"512GB",
+			"1TB",
+			"2TB"
+		],
+		"warranty": [
+			"1 Year",
+			"2 Years",
+			"3 Years",
+			"Extended Warranty Available"
+		],
+		"weight": [
+			"150g",
+			"200g",
+			"500g",
+			"1.2kg",
+			"1.8kg",
+			"2.5kg"
+		]
+	},
+	"Home & Garden": {
+		"assembly-required": [
+			"No Assembly",
+			"Minimal Assembly",
+			"Some Assembly",
+			"Full Assembly",
+			"Professional Installation"
+		],
+		"capacity": [
+			"1-2 People",
+			"3-4 People",
+			"5-6 People",
+			"7+ People",
+			"Commercial Use"
+		],
+		"dimensions": [
+			"Small (12\" x 8\")",
+			"Medium (18\" x 12\")",
+			"Large (24\" x 18\")",
+			"Extra Large (36\" x 24\")",
+			"Custom Size"
+		],
+		"maintenance": [
+			"Low Maintenance",
+			"Regular Cleaning",
+			"Monthly Care",
+			"Seasonal Care",
+			"Professional Service"
+		],
+		"material": [
+			"Solid Wood",
+			"Engineered Wood",
+			"Metal",
+			"Plastic",
+			"Glass",
+			"Ceramic",
+			"Stone"
+		],
+		"power-source": [
+			"Manual",
+			"Battery Powered",
+			"Electric (110V)",
+			"Electric (220V)",
+			"Solar Powered"
+		],
+		"safety-features": [
+			"Child Safe",
+			"Non-Toxic",
+			"Fire Resistant",
+			"Slip Resistant",
+			"Safety Certified"
+		],
+		"warranty": [
+			"1 Year Limited",
+			"2 Years Full",
+			"5 Years Structural",
+			"10 Years Limited",
+			"Lifetime Warranty"
+		],
+		"weather-resistance": [
+			"Indoor Use Only",
+			"Weather Resistant",
+			"Waterproof",
+			"UV Protected",
+			"All Weather"
+		],
+		"weight": [
+			"1-5 lbs",
+			"5-10 lbs",
+			"10-25 lbs",
+			"25-50 lbs",
+			"50+ lbs"
+		]
+	},
+	"Sports": {
+		"age-group": [
+			"Youth",
+			"Adult",
+			"Senior",
+			"All Ages"
+		],
+		"brand": [
+			"Pro Brand",
+			"Recreational",
+			"Competition Grade",
+			"Training Equipment"
+		],
+		"care-instructions": [
+			"Wipe Clean",
+			"Hand Wash",
+			"Machine Washable",
+			"Air Dry Only"
+		],
+		"dimensions": [
+			"Compact",
+			"Standard",
+			"Large",
+			"Professional Size"
+		],
+		"durability": [
+			"Light Use",
+			"Regular Use",
+			"Heavy Use",
+			"Professional Grade"
+		],
+		"material": [
+			"Synthetic",
+			"Natural Leather",
+			"Carbon Fiber",
+			"Aluminum",
+			"Steel",
+			"Composite"
+		],
+		"skill-level": [
+			"Beginner",
+			"Intermediate",
+			"Advanced",
+			"Professional"
+		],
+		"sport-type": [
+			"Indoor",
+			"Outdoor",
+			"Water Sports",
+			"Team Sports",
+			"Individual"
+		],
+		"warranty": [
+			"6 Months",
+			"1 Year",
+			"2 Years",
+			"Lifetime"
+		],
+		"weight": [
+			"Ultra Light",
+			"Light",
+			"Medium",
+			"Heavy",
+			"Extra Heavy"
+		]
+	}
 }

@@ -1,3464 +1,3857 @@
 {
-  "openapi" : "3.0.1",
-  "info" : {
-    "title" : "Liferay Commerce Admin Inventory API",
-    "description" : "Liferay Commerce Admin Inventory API. A Java client JAR is available for use with the group ID 'com.liferay', artifact ID 'com.liferay.headless.commerce.admin.inventory.client', and version '4.0.38'.",
-    "license" : {
-      "name" : "Apache 2.0",
-      "url" : "http://www.apache.org/licenses/LICENSE-2.0.html"
-    },
-    "version" : "v1.0"
-  },
-  "servers" : [ {
-    "url" : "http://localhost:8080/o/headless-commerce-admin-inventory/"
-  } ],
-  "paths" : {
-    "/v1.0/warehouse-account-groups/{warehouseAccountGroupId}/account-group" : {
-      "get" : {
-        "tags" : [ "AccountGroup" ],
-        "operationId" : "getWarehouseAccountGroupAccountGroup",
-        "parameters" : [ {
-          "name" : "warehouseAccountGroupId",
-          "in" : "path",
-          "required" : true,
-          "schema" : {
-            "type" : "string"
-          }
-        } ],
-        "responses" : {
-          "default" : {
-            "description" : "default response",
-            "content" : {
-              "application/json" : {
-                "schema" : {
-                  "$ref" : "#/components/schemas/AccountGroup"
-                }
-              },
-              "application/xml" : {
-                "schema" : {
-                  "$ref" : "#/components/schemas/AccountGroup"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/v1.0/warehouse-accounts/{warehouseAccountId}/account" : {
-      "get" : {
-        "tags" : [ "Account" ],
-        "operationId" : "getWarehouseAccountAccount",
-        "parameters" : [ {
-          "name" : "warehouseAccountId",
-          "in" : "path",
-          "required" : true,
-          "schema" : {
-            "type" : "string"
-          }
-        } ],
-        "responses" : {
-          "default" : {
-            "description" : "default response",
-            "content" : {
-              "application/json" : {
-                "schema" : {
-                  "$ref" : "#/components/schemas/Account"
-                }
-              },
-              "application/xml" : {
-                "schema" : {
-                  "$ref" : "#/components/schemas/Account"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/v1.0/warehouse-channels/{warehouseChannelId}/channel" : {
-      "get" : {
-        "tags" : [ "Channel" ],
-        "operationId" : "getWarehouseChannelChannel",
-        "parameters" : [ {
-          "name" : "warehouseChannelId",
-          "in" : "path",
-          "required" : true,
-          "schema" : {
-            "type" : "string"
-          }
-        } ],
-        "responses" : {
-          "default" : {
-            "description" : "default response",
-            "content" : {
-              "application/json" : {
-                "schema" : {
-                  "$ref" : "#/components/schemas/Channel"
-                }
-              },
-              "application/xml" : {
-                "schema" : {
-                  "$ref" : "#/components/schemas/Channel"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/v1.0/openapi.{type}" : {
-      "get" : {
-        "operationId" : "getOpenAPI",
-        "parameters" : [ {
-          "name" : "type",
-          "in" : "path",
-          "required" : true,
-          "schema" : {
-            "type" : "string"
-          }
-        } ],
-        "responses" : {
-          "default" : {
-            "description" : "default response",
-            "content" : {
-              "application/json" : { },
-              "application/yaml" : { }
-            }
-          }
-        }
-      }
-    },
-    "/v1.0/warehouse-order-types/{warehouseOrderTypeId}/order-type" : {
-      "get" : {
-        "tags" : [ "OrderType" ],
-        "operationId" : "getWarehouseOrderTypeOrderType",
-        "parameters" : [ {
-          "name" : "warehouseOrderTypeId",
-          "in" : "path",
-          "required" : true,
-          "schema" : {
-            "type" : "string"
-          }
-        } ],
-        "responses" : {
-          "default" : {
-            "description" : "default response",
-            "content" : {
-              "application/json" : {
-                "schema" : {
-                  "$ref" : "#/components/schemas/OrderType"
-                }
-              },
-              "application/xml" : {
-                "schema" : {
-                  "$ref" : "#/components/schemas/OrderType"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/v1.0/replenishment-items/{replenishmentItemId}" : {
-      "get" : {
-        "tags" : [ "ReplenishmentItem" ],
-        "operationId" : "getReplenishmentItem",
-        "parameters" : [ {
-          "name" : "replenishmentItemId",
-          "in" : "path",
-          "required" : true,
-          "schema" : {
-            "type" : "string"
-          }
-        } ],
-        "responses" : {
-          "default" : {
-            "description" : "default response",
-            "content" : {
-              "application/json" : {
-                "schema" : {
-                  "$ref" : "#/components/schemas/ReplenishmentItem"
-                }
-              },
-              "application/xml" : {
-                "schema" : {
-                  "$ref" : "#/components/schemas/ReplenishmentItem"
-                }
-              }
-            }
-          }
-        }
-      },
-      "delete" : {
-        "tags" : [ "ReplenishmentItem" ],
-        "operationId" : "deleteReplenishmentItem",
-        "parameters" : [ {
-          "name" : "replenishmentItemId",
-          "in" : "path",
-          "required" : true,
-          "schema" : {
-            "type" : "string"
-          }
-        } ],
-        "responses" : {
-          "default" : {
-            "description" : "default response",
-            "content" : {
-              "application/json" : { },
-              "application/xml" : { }
-            }
-          }
-        }
-      },
-      "patch" : {
-        "tags" : [ "ReplenishmentItem" ],
-        "operationId" : "patchReplenishmentItem",
-        "parameters" : [ {
-          "name" : "replenishmentItemId",
-          "in" : "path",
-          "required" : true,
-          "schema" : {
-            "type" : "string"
-          }
-        } ],
-        "requestBody" : {
-          "content" : {
-            "application/json" : {
-              "schema" : {
-                "$ref" : "#/components/schemas/ReplenishmentItem"
-              }
-            },
-            "application/xml" : {
-              "schema" : {
-                "$ref" : "#/components/schemas/ReplenishmentItem"
-              }
-            }
-          }
-        },
-        "responses" : {
-          "default" : {
-            "description" : "default response",
-            "content" : {
-              "application/json" : {
-                "schema" : {
-                  "$ref" : "#/components/schemas/ReplenishmentItem"
-                }
-              },
-              "application/xml" : {
-                "schema" : {
-                  "$ref" : "#/components/schemas/ReplenishmentItem"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/v1.0/warehouses/{warehouseId}/skus/by-sku/{sku}/replenishment-items" : {
-      "post" : {
-        "tags" : [ "ReplenishmentItem" ],
-        "operationId" : "postReplenishmentItem",
-        "parameters" : [ {
-          "name" : "warehouseId",
-          "in" : "path",
-          "required" : true,
-          "schema" : {
-            "type" : "string"
-          }
-        }, {
-          "name" : "sku",
-          "in" : "path",
-          "required" : true,
-          "schema" : {
-            "type" : "string"
-          }
-        } ],
-        "requestBody" : {
-          "content" : {
-            "application/json" : {
-              "schema" : {
-                "$ref" : "#/components/schemas/ReplenishmentItem"
-              }
-            },
-            "application/xml" : {
-              "schema" : {
-                "$ref" : "#/components/schemas/ReplenishmentItem"
-              }
-            }
-          }
-        },
-        "responses" : {
-          "default" : {
-            "description" : "default response",
-            "content" : {
-              "application/json" : {
-                "schema" : {
-                  "$ref" : "#/components/schemas/ReplenishmentItem"
-                }
-              },
-              "application/xml" : {
-                "schema" : {
-                  "$ref" : "#/components/schemas/ReplenishmentItem"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/v1.0/warehouses/{warehouseId}/replenishment-items" : {
-      "get" : {
-        "tags" : [ "ReplenishmentItem" ],
-        "operationId" : "getWarehouseIdReplenishmentItemsPage",
-        "parameters" : [ {
-          "name" : "warehouseId",
-          "in" : "path",
-          "required" : true,
-          "schema" : {
-            "type" : "string"
-          }
-        }, {
-          "name" : "page",
-          "in" : "query",
-          "schema" : {
-            "type" : "string"
-          }
-        }, {
-          "name" : "pageSize",
-          "in" : "query",
-          "schema" : {
-            "type" : "string"
-          }
-        } ],
-        "responses" : {
-          "default" : {
-            "description" : "default response",
-            "content" : {
-              "application/json" : {
-                "schema" : {
-                  "$ref" : "#/components/schemas/PageReplenishmentItem"
-                }
-              },
-              "application/xml" : {
-                "schema" : {
-                  "$ref" : "#/components/schemas/PageReplenishmentItem"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/v1.0/skus/by-sku/{sku}/replenishment-items" : {
-      "get" : {
-        "tags" : [ "ReplenishmentItem" ],
-        "operationId" : "getReplenishmentItemsPage",
-        "parameters" : [ {
-          "name" : "sku",
-          "in" : "path",
-          "required" : true,
-          "schema" : {
-            "type" : "string"
-          }
-        }, {
-          "name" : "page",
-          "in" : "query",
-          "schema" : {
-            "type" : "string"
-          }
-        }, {
-          "name" : "pageSize",
-          "in" : "query",
-          "schema" : {
-            "type" : "string"
-          }
-        } ],
-        "responses" : {
-          "default" : {
-            "description" : "default response",
-            "content" : {
-              "application/json" : {
-                "schema" : {
-                  "$ref" : "#/components/schemas/PageReplenishmentItem"
-                }
-              },
-              "application/xml" : {
-                "schema" : {
-                  "$ref" : "#/components/schemas/PageReplenishmentItem"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/v1.0/replenishment-items/by-externalReferenceCode/{externalReferenceCode}" : {
-      "get" : {
-        "tags" : [ "ReplenishmentItem" ],
-        "operationId" : "getReplenishmentItemByExternalReferenceCode",
-        "parameters" : [ {
-          "name" : "externalReferenceCode",
-          "in" : "path",
-          "required" : true,
-          "schema" : {
-            "type" : "string"
-          }
-        } ],
-        "responses" : {
-          "default" : {
-            "description" : "default response",
-            "content" : {
-              "application/json" : {
-                "schema" : {
-                  "$ref" : "#/components/schemas/ReplenishmentItem"
-                }
-              },
-              "application/xml" : {
-                "schema" : {
-                  "$ref" : "#/components/schemas/ReplenishmentItem"
-                }
-              }
-            }
-          }
-        }
-      },
-      "put" : {
-        "tags" : [ "ReplenishmentItem" ],
-        "operationId" : "putReplenishmentItemByExternalReferenceCode",
-        "parameters" : [ {
-          "name" : "externalReferenceCode",
-          "in" : "path",
-          "required" : true,
-          "schema" : {
-            "type" : "string"
-          }
-        } ],
-        "requestBody" : {
-          "content" : {
-            "application/json" : {
-              "schema" : {
-                "$ref" : "#/components/schemas/ReplenishmentItem"
-              }
-            },
-            "application/xml" : {
-              "schema" : {
-                "$ref" : "#/components/schemas/ReplenishmentItem"
-              }
-            }
-          }
-        },
-        "responses" : {
-          "default" : {
-            "description" : "default response",
-            "content" : {
-              "application/json" : {
-                "schema" : {
-                  "$ref" : "#/components/schemas/ReplenishmentItem"
-                }
-              },
-              "application/xml" : {
-                "schema" : {
-                  "$ref" : "#/components/schemas/ReplenishmentItem"
-                }
-              }
-            }
-          }
-        }
-      },
-      "delete" : {
-        "tags" : [ "ReplenishmentItem" ],
-        "operationId" : "deleteReplenishmentItemByExternalReferenceCode",
-        "parameters" : [ {
-          "name" : "externalReferenceCode",
-          "in" : "path",
-          "required" : true,
-          "schema" : {
-            "type" : "string"
-          }
-        } ],
-        "responses" : {
-          "default" : {
-            "description" : "default response",
-            "content" : {
-              "application/json" : { },
-              "application/xml" : { }
-            }
-          }
-        }
-      },
-      "patch" : {
-        "tags" : [ "ReplenishmentItem" ],
-        "operationId" : "patchReplenishmentItemByExternalReferenceCode",
-        "parameters" : [ {
-          "name" : "externalReferenceCode",
-          "in" : "path",
-          "required" : true,
-          "schema" : {
-            "type" : "string"
-          }
-        } ],
-        "requestBody" : {
-          "content" : {
-            "application/json" : {
-              "schema" : {
-                "$ref" : "#/components/schemas/ReplenishmentItem"
-              }
-            },
-            "application/xml" : {
-              "schema" : {
-                "$ref" : "#/components/schemas/ReplenishmentItem"
-              }
-            }
-          }
-        },
-        "responses" : {
-          "default" : {
-            "description" : "default response",
-            "content" : {
-              "application/json" : {
-                "schema" : {
-                  "$ref" : "#/components/schemas/ReplenishmentItem"
-                }
-              },
-              "application/xml" : {
-                "schema" : {
-                  "$ref" : "#/components/schemas/ReplenishmentItem"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/v1.0/skus/by-sku/{sku}/replenishment-items/export-batch" : {
-      "post" : {
-        "tags" : [ "ReplenishmentItem" ],
-        "operationId" : "postReplenishmentItemsPageExportBatch",
-        "parameters" : [ {
-          "name" : "sku",
-          "in" : "path",
-          "required" : true,
-          "schema" : {
-            "type" : "string"
-          }
-        }, {
-          "name" : "callbackURL",
-          "in" : "query",
-          "schema" : {
-            "type" : "string"
-          }
-        }, {
-          "name" : "contentType",
-          "in" : "query",
-          "schema" : {
-            "type" : "string"
-          }
-        }, {
-          "name" : "fieldNames",
-          "in" : "query",
-          "schema" : {
-            "type" : "string"
-          }
-        } ],
-        "responses" : {
-          "default" : {
-            "description" : "default response",
-            "content" : {
-              "application/json" : { }
-            }
-          }
-        }
-      }
-    },
-    "/v1.0/replenishment-items/batch" : {
-      "delete" : {
-        "tags" : [ "ReplenishmentItem" ],
-        "operationId" : "deleteReplenishmentItemBatch",
-        "parameters" : [ {
-          "name" : "callbackURL",
-          "in" : "query",
-          "schema" : {
-            "type" : "string"
-          }
-        } ],
-        "requestBody" : {
-          "content" : {
-            "application/json" : {
-              "schema" : {
-                "type" : "object"
-              }
-            }
-          }
-        },
-        "responses" : {
-          "default" : {
-            "description" : "default response",
-            "content" : {
-              "application/json" : { }
-            }
-          }
-        }
-      }
-    },
-    "/v1.0/warehouses/{warehouseId}/skus/by-sku/{sku}/replenishment-items/batch" : {
-      "post" : {
-        "tags" : [ "ReplenishmentItem" ],
-        "operationId" : "postReplenishmentItemBatch",
-        "parameters" : [ {
-          "name" : "warehouseId",
-          "in" : "path",
-          "required" : true,
-          "schema" : {
-            "type" : "string"
-          }
-        }, {
-          "name" : "sku",
-          "in" : "path",
-          "required" : true,
-          "schema" : {
-            "type" : "string"
-          }
-        }, {
-          "name" : "callbackURL",
-          "in" : "query",
-          "schema" : {
-            "type" : "string"
-          }
-        } ],
-        "requestBody" : {
-          "content" : {
-            "application/json" : {
-              "schema" : {
-                "type" : "object"
-              }
-            }
-          }
-        },
-        "responses" : {
-          "default" : {
-            "description" : "default response",
-            "content" : {
-              "application/json" : { }
-            }
-          }
-        }
-      }
-    },
-    "/v1.0/warehouses/{id}/warehouse-account-groups" : {
-      "get" : {
-        "tags" : [ "WarehouseAccountGroup" ],
-        "operationId" : "getWarehouseIdWarehouseAccountGroupsPage",
-        "parameters" : [ {
-          "name" : "id",
-          "in" : "path",
-          "required" : true,
-          "schema" : {
-            "type" : "string"
-          }
-        }, {
-          "name" : "filter",
-          "in" : "query",
-          "schema" : {
-            "type" : "string"
-          }
-        }, {
-          "name" : "page",
-          "in" : "query",
-          "schema" : {
-            "type" : "string"
-          }
-        }, {
-          "name" : "pageSize",
-          "in" : "query",
-          "schema" : {
-            "type" : "string"
-          }
-        }, {
-          "name" : "search",
-          "in" : "query",
-          "schema" : {
-            "type" : "string"
-          }
-        }, {
-          "name" : "sort",
-          "in" : "query",
-          "schema" : {
-            "type" : "string"
-          }
-        } ],
-        "responses" : {
-          "default" : {
-            "description" : "default response",
-            "content" : {
-              "application/json" : {
-                "schema" : {
-                  "$ref" : "#/components/schemas/PageWarehouseAccountGroup"
-                }
-              },
-              "application/xml" : {
-                "schema" : {
-                  "$ref" : "#/components/schemas/PageWarehouseAccountGroup"
-                }
-              }
-            }
-          }
-        }
-      },
-      "post" : {
-        "tags" : [ "WarehouseAccountGroup" ],
-        "operationId" : "postWarehouseIdWarehouseAccountGroup",
-        "parameters" : [ {
-          "name" : "id",
-          "in" : "path",
-          "required" : true,
-          "schema" : {
-            "type" : "string"
-          }
-        } ],
-        "requestBody" : {
-          "content" : {
-            "application/json" : {
-              "schema" : {
-                "$ref" : "#/components/schemas/WarehouseAccountGroup"
-              }
-            },
-            "application/xml" : {
-              "schema" : {
-                "$ref" : "#/components/schemas/WarehouseAccountGroup"
-              }
-            }
-          }
-        },
-        "responses" : {
-          "default" : {
-            "description" : "default response",
-            "content" : {
-              "application/json" : {
-                "schema" : {
-                  "$ref" : "#/components/schemas/WarehouseAccountGroup"
-                }
-              },
-              "application/xml" : {
-                "schema" : {
-                  "$ref" : "#/components/schemas/WarehouseAccountGroup"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/v1.0/warehouse-account-groups/{warehouseAccountGroupId}" : {
-      "delete" : {
-        "tags" : [ "WarehouseAccountGroup" ],
-        "operationId" : "deleteWarehouseAccountGroup",
-        "parameters" : [ {
-          "name" : "warehouseAccountGroupId",
-          "in" : "path",
-          "required" : true,
-          "schema" : {
-            "type" : "string"
-          }
-        } ],
-        "responses" : {
-          "default" : {
-            "description" : "default response",
-            "content" : {
-              "application/json" : { },
-              "application/xml" : { }
-            }
-          }
-        }
-      }
-    },
-    "/v1.0/warehouses/by-externalReferenceCode/{externalReferenceCode}/warehouse-account-groups" : {
-      "get" : {
-        "tags" : [ "WarehouseAccountGroup" ],
-        "operationId" : "getWarehouseByExternalReferenceCodeWarehouseAccountGroupsPage",
-        "parameters" : [ {
-          "name" : "externalReferenceCode",
-          "in" : "path",
-          "required" : true,
-          "schema" : {
-            "type" : "string"
-          }
-        }, {
-          "name" : "page",
-          "in" : "query",
-          "schema" : {
-            "type" : "string"
-          }
-        }, {
-          "name" : "pageSize",
-          "in" : "query",
-          "schema" : {
-            "type" : "string"
-          }
-        } ],
-        "responses" : {
-          "default" : {
-            "description" : "default response",
-            "content" : {
-              "application/json" : {
-                "schema" : {
-                  "$ref" : "#/components/schemas/PageWarehouseAccountGroup"
-                }
-              },
-              "application/xml" : {
-                "schema" : {
-                  "$ref" : "#/components/schemas/PageWarehouseAccountGroup"
-                }
-              }
-            }
-          }
-        }
-      },
-      "post" : {
-        "tags" : [ "WarehouseAccountGroup" ],
-        "operationId" : "postWarehouseByExternalReferenceCodeWarehouseAccountGroup",
-        "parameters" : [ {
-          "name" : "externalReferenceCode",
-          "in" : "path",
-          "required" : true,
-          "schema" : {
-            "type" : "string"
-          }
-        } ],
-        "requestBody" : {
-          "content" : {
-            "application/json" : {
-              "schema" : {
-                "$ref" : "#/components/schemas/WarehouseAccountGroup"
-              }
-            },
-            "application/xml" : {
-              "schema" : {
-                "$ref" : "#/components/schemas/WarehouseAccountGroup"
-              }
-            }
-          }
-        },
-        "responses" : {
-          "default" : {
-            "description" : "default response",
-            "content" : {
-              "application/json" : {
-                "schema" : {
-                  "$ref" : "#/components/schemas/WarehouseAccountGroup"
-                }
-              },
-              "application/xml" : {
-                "schema" : {
-                  "$ref" : "#/components/schemas/WarehouseAccountGroup"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/v1.0/warehouse-account-groups/batch" : {
-      "delete" : {
-        "tags" : [ "WarehouseAccountGroup" ],
-        "operationId" : "deleteWarehouseAccountGroupBatch",
-        "parameters" : [ {
-          "name" : "callbackURL",
-          "in" : "query",
-          "schema" : {
-            "type" : "string"
-          }
-        } ],
-        "requestBody" : {
-          "content" : {
-            "application/json" : {
-              "schema" : {
-                "type" : "object"
-              }
-            }
-          }
-        },
-        "responses" : {
-          "default" : {
-            "description" : "default response",
-            "content" : {
-              "application/json" : { }
-            }
-          }
-        }
-      }
-    },
-    "/v1.0/warehouses/warehouse-account-groups/batch" : {
-      "post" : {
-        "tags" : [ "WarehouseAccountGroup" ],
-        "operationId" : "postWarehouseIdWarehouseAccountGroupBatch",
-        "parameters" : [ {
-          "name" : "callbackURL",
-          "in" : "query",
-          "schema" : {
-            "type" : "string"
-          }
-        } ],
-        "requestBody" : {
-          "content" : {
-            "application/json" : {
-              "schema" : {
-                "type" : "object"
-              }
-            }
-          }
-        },
-        "responses" : {
-          "default" : {
-            "description" : "default response",
-            "content" : {
-              "application/json" : { }
-            }
-          }
-        }
-      }
-    },
-    "/v1.0/warehouse-accounts/{warehouseAccountId}" : {
-      "delete" : {
-        "tags" : [ "WarehouseAccount" ],
-        "operationId" : "deleteWarehouseAccount",
-        "parameters" : [ {
-          "name" : "warehouseAccountId",
-          "in" : "path",
-          "required" : true,
-          "schema" : {
-            "type" : "string"
-          }
-        } ],
-        "responses" : {
-          "default" : {
-            "description" : "default response",
-            "content" : {
-              "application/json" : { },
-              "application/xml" : { }
-            }
-          }
-        }
-      }
-    },
-    "/v1.0/warehouses/by-externalReferenceCode/{externalReferenceCode}/warehouse-accounts" : {
-      "get" : {
-        "tags" : [ "WarehouseAccount" ],
-        "operationId" : "getWarehouseByExternalReferenceCodeWarehouseAccountsPage",
-        "parameters" : [ {
-          "name" : "externalReferenceCode",
-          "in" : "path",
-          "required" : true,
-          "schema" : {
-            "type" : "string"
-          }
-        }, {
-          "name" : "page",
-          "in" : "query",
-          "schema" : {
-            "type" : "string"
-          }
-        }, {
-          "name" : "pageSize",
-          "in" : "query",
-          "schema" : {
-            "type" : "string"
-          }
-        } ],
-        "responses" : {
-          "default" : {
-            "description" : "default response",
-            "content" : {
-              "application/json" : {
-                "schema" : {
-                  "$ref" : "#/components/schemas/PageWarehouseAccount"
-                }
-              },
-              "application/xml" : {
-                "schema" : {
-                  "$ref" : "#/components/schemas/PageWarehouseAccount"
-                }
-              }
-            }
-          }
-        }
-      },
-      "post" : {
-        "tags" : [ "WarehouseAccount" ],
-        "operationId" : "postWarehouseByExternalReferenceCodeWarehouseAccount",
-        "parameters" : [ {
-          "name" : "externalReferenceCode",
-          "in" : "path",
-          "required" : true,
-          "schema" : {
-            "type" : "string"
-          }
-        } ],
-        "requestBody" : {
-          "content" : {
-            "application/json" : {
-              "schema" : {
-                "$ref" : "#/components/schemas/WarehouseAccount"
-              }
-            },
-            "application/xml" : {
-              "schema" : {
-                "$ref" : "#/components/schemas/WarehouseAccount"
-              }
-            }
-          }
-        },
-        "responses" : {
-          "default" : {
-            "description" : "default response",
-            "content" : {
-              "application/json" : {
-                "schema" : {
-                  "$ref" : "#/components/schemas/WarehouseAccount"
-                }
-              },
-              "application/xml" : {
-                "schema" : {
-                  "$ref" : "#/components/schemas/WarehouseAccount"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/v1.0/warehouses/{id}/warehouse-accounts" : {
-      "get" : {
-        "tags" : [ "WarehouseAccount" ],
-        "operationId" : "getWarehouseIdWarehouseAccountsPage",
-        "parameters" : [ {
-          "name" : "id",
-          "in" : "path",
-          "required" : true,
-          "schema" : {
-            "type" : "string"
-          }
-        }, {
-          "name" : "filter",
-          "in" : "query",
-          "schema" : {
-            "type" : "string"
-          }
-        }, {
-          "name" : "page",
-          "in" : "query",
-          "schema" : {
-            "type" : "string"
-          }
-        }, {
-          "name" : "pageSize",
-          "in" : "query",
-          "schema" : {
-            "type" : "string"
-          }
-        }, {
-          "name" : "search",
-          "in" : "query",
-          "schema" : {
-            "type" : "string"
-          }
-        }, {
-          "name" : "sort",
-          "in" : "query",
-          "schema" : {
-            "type" : "string"
-          }
-        } ],
-        "responses" : {
-          "default" : {
-            "description" : "default response",
-            "content" : {
-              "application/json" : {
-                "schema" : {
-                  "$ref" : "#/components/schemas/PageWarehouseAccount"
-                }
-              },
-              "application/xml" : {
-                "schema" : {
-                  "$ref" : "#/components/schemas/PageWarehouseAccount"
-                }
-              }
-            }
-          }
-        }
-      },
-      "post" : {
-        "tags" : [ "WarehouseAccount" ],
-        "operationId" : "postWarehouseIdWarehouseAccount",
-        "parameters" : [ {
-          "name" : "id",
-          "in" : "path",
-          "required" : true,
-          "schema" : {
-            "type" : "string"
-          }
-        } ],
-        "requestBody" : {
-          "content" : {
-            "application/json" : {
-              "schema" : {
-                "$ref" : "#/components/schemas/WarehouseAccount"
-              }
-            },
-            "application/xml" : {
-              "schema" : {
-                "$ref" : "#/components/schemas/WarehouseAccount"
-              }
-            }
-          }
-        },
-        "responses" : {
-          "default" : {
-            "description" : "default response",
-            "content" : {
-              "application/json" : {
-                "schema" : {
-                  "$ref" : "#/components/schemas/WarehouseAccount"
-                }
-              },
-              "application/xml" : {
-                "schema" : {
-                  "$ref" : "#/components/schemas/WarehouseAccount"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/v1.0/warehouses/warehouse-accounts/batch" : {
-      "post" : {
-        "tags" : [ "WarehouseAccount" ],
-        "operationId" : "postWarehouseIdWarehouseAccountBatch",
-        "parameters" : [ {
-          "name" : "callbackURL",
-          "in" : "query",
-          "schema" : {
-            "type" : "string"
-          }
-        } ],
-        "requestBody" : {
-          "content" : {
-            "application/json" : {
-              "schema" : {
-                "type" : "object"
-              }
-            }
-          }
-        },
-        "responses" : {
-          "default" : {
-            "description" : "default response",
-            "content" : {
-              "application/json" : { }
-            }
-          }
-        }
-      }
-    },
-    "/v1.0/warehouse-accounts/batch" : {
-      "delete" : {
-        "tags" : [ "WarehouseAccount" ],
-        "operationId" : "deleteWarehouseAccountBatch",
-        "parameters" : [ {
-          "name" : "callbackURL",
-          "in" : "query",
-          "schema" : {
-            "type" : "string"
-          }
-        } ],
-        "requestBody" : {
-          "content" : {
-            "application/json" : {
-              "schema" : {
-                "type" : "object"
-              }
-            }
-          }
-        },
-        "responses" : {
-          "default" : {
-            "description" : "default response",
-            "content" : {
-              "application/json" : { }
-            }
-          }
-        }
-      }
-    },
-    "/v1.0/warehouse-channels/{warehouseChannelId}" : {
-      "delete" : {
-        "tags" : [ "WarehouseChannel" ],
-        "operationId" : "deleteWarehouseChannel",
-        "parameters" : [ {
-          "name" : "warehouseChannelId",
-          "in" : "path",
-          "required" : true,
-          "schema" : {
-            "type" : "string"
-          }
-        } ],
-        "responses" : {
-          "default" : {
-            "description" : "default response",
-            "content" : {
-              "application/json" : { },
-              "application/xml" : { }
-            }
-          }
-        }
-      }
-    },
-    "/v1.0/warehouses/by-externalReferenceCode/{externalReferenceCode}/warehouse-channels" : {
-      "get" : {
-        "tags" : [ "WarehouseChannel" ],
-        "operationId" : "getWarehouseByExternalReferenceCodeWarehouseChannelsPage",
-        "parameters" : [ {
-          "name" : "externalReferenceCode",
-          "in" : "path",
-          "required" : true,
-          "schema" : {
-            "type" : "string"
-          }
-        }, {
-          "name" : "page",
-          "in" : "query",
-          "schema" : {
-            "type" : "string"
-          }
-        }, {
-          "name" : "pageSize",
-          "in" : "query",
-          "schema" : {
-            "type" : "string"
-          }
-        } ],
-        "responses" : {
-          "default" : {
-            "description" : "default response",
-            "content" : {
-              "application/json" : {
-                "schema" : {
-                  "$ref" : "#/components/schemas/PageWarehouseChannel"
-                }
-              },
-              "application/xml" : {
-                "schema" : {
-                  "$ref" : "#/components/schemas/PageWarehouseChannel"
-                }
-              }
-            }
-          }
-        }
-      },
-      "post" : {
-        "tags" : [ "WarehouseChannel" ],
-        "operationId" : "postWarehouseByExternalReferenceCodeWarehouseChannel",
-        "parameters" : [ {
-          "name" : "externalReferenceCode",
-          "in" : "path",
-          "required" : true,
-          "schema" : {
-            "type" : "string"
-          }
-        } ],
-        "requestBody" : {
-          "content" : {
-            "application/json" : {
-              "schema" : {
-                "$ref" : "#/components/schemas/WarehouseChannel"
-              }
-            },
-            "application/xml" : {
-              "schema" : {
-                "$ref" : "#/components/schemas/WarehouseChannel"
-              }
-            }
-          }
-        },
-        "responses" : {
-          "default" : {
-            "description" : "default response",
-            "content" : {
-              "application/json" : {
-                "schema" : {
-                  "$ref" : "#/components/schemas/WarehouseChannel"
-                }
-              },
-              "application/xml" : {
-                "schema" : {
-                  "$ref" : "#/components/schemas/WarehouseChannel"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/v1.0/warehouses/{id}/warehouse-channels" : {
-      "get" : {
-        "tags" : [ "WarehouseChannel" ],
-        "operationId" : "getWarehouseIdWarehouseChannelsPage",
-        "parameters" : [ {
-          "name" : "id",
-          "in" : "path",
-          "required" : true,
-          "schema" : {
-            "type" : "string"
-          }
-        }, {
-          "name" : "filter",
-          "in" : "query",
-          "schema" : {
-            "type" : "string"
-          }
-        }, {
-          "name" : "page",
-          "in" : "query",
-          "schema" : {
-            "type" : "string"
-          }
-        }, {
-          "name" : "pageSize",
-          "in" : "query",
-          "schema" : {
-            "type" : "string"
-          }
-        }, {
-          "name" : "search",
-          "in" : "query",
-          "schema" : {
-            "type" : "string"
-          }
-        }, {
-          "name" : "sort",
-          "in" : "query",
-          "schema" : {
-            "type" : "string"
-          }
-        } ],
-        "responses" : {
-          "default" : {
-            "description" : "default response",
-            "content" : {
-              "application/json" : {
-                "schema" : {
-                  "$ref" : "#/components/schemas/PageWarehouseChannel"
-                }
-              },
-              "application/xml" : {
-                "schema" : {
-                  "$ref" : "#/components/schemas/PageWarehouseChannel"
-                }
-              }
-            }
-          }
-        }
-      },
-      "post" : {
-        "tags" : [ "WarehouseChannel" ],
-        "operationId" : "postWarehouseIdWarehouseChannel",
-        "parameters" : [ {
-          "name" : "id",
-          "in" : "path",
-          "required" : true,
-          "schema" : {
-            "type" : "string"
-          }
-        } ],
-        "requestBody" : {
-          "content" : {
-            "application/json" : {
-              "schema" : {
-                "$ref" : "#/components/schemas/WarehouseChannel"
-              }
-            },
-            "application/xml" : {
-              "schema" : {
-                "$ref" : "#/components/schemas/WarehouseChannel"
-              }
-            }
-          }
-        },
-        "responses" : {
-          "default" : {
-            "description" : "default response",
-            "content" : {
-              "application/json" : {
-                "schema" : {
-                  "$ref" : "#/components/schemas/WarehouseChannel"
-                }
-              },
-              "application/xml" : {
-                "schema" : {
-                  "$ref" : "#/components/schemas/WarehouseChannel"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/v1.0/warehouses/warehouse-channels/batch" : {
-      "post" : {
-        "tags" : [ "WarehouseChannel" ],
-        "operationId" : "postWarehouseIdWarehouseChannelBatch",
-        "parameters" : [ {
-          "name" : "callbackURL",
-          "in" : "query",
-          "schema" : {
-            "type" : "string"
-          }
-        } ],
-        "requestBody" : {
-          "content" : {
-            "application/json" : {
-              "schema" : {
-                "type" : "object"
-              }
-            }
-          }
-        },
-        "responses" : {
-          "default" : {
-            "description" : "default response",
-            "content" : {
-              "application/json" : { }
-            }
-          }
-        }
-      }
-    },
-    "/v1.0/warehouse-channels/batch" : {
-      "delete" : {
-        "tags" : [ "WarehouseChannel" ],
-        "operationId" : "deleteWarehouseChannelBatch",
-        "parameters" : [ {
-          "name" : "callbackURL",
-          "in" : "query",
-          "schema" : {
-            "type" : "string"
-          }
-        } ],
-        "requestBody" : {
-          "content" : {
-            "application/json" : {
-              "schema" : {
-                "type" : "object"
-              }
-            }
-          }
-        },
-        "responses" : {
-          "default" : {
-            "description" : "default response",
-            "content" : {
-              "application/json" : { }
-            }
-          }
-        }
-      }
-    },
-    "/v1.0/warehouseItems/{id}" : {
-      "get" : {
-        "tags" : [ "WarehouseItem" ],
-        "operationId" : "getWarehouseItem",
-        "parameters" : [ {
-          "name" : "id",
-          "in" : "path",
-          "required" : true,
-          "schema" : {
-            "type" : "string"
-          }
-        } ],
-        "responses" : {
-          "default" : {
-            "description" : "default response",
-            "content" : {
-              "application/json" : {
-                "schema" : {
-                  "$ref" : "#/components/schemas/WarehouseItem"
-                }
-              },
-              "application/xml" : {
-                "schema" : {
-                  "$ref" : "#/components/schemas/WarehouseItem"
-                }
-              }
-            }
-          }
-        }
-      },
-      "delete" : {
-        "tags" : [ "WarehouseItem" ],
-        "operationId" : "deleteWarehouseItem",
-        "parameters" : [ {
-          "name" : "id",
-          "in" : "path",
-          "required" : true,
-          "schema" : {
-            "type" : "string"
-          }
-        } ],
-        "responses" : {
-          "default" : {
-            "description" : "default response",
-            "content" : {
-              "application/json" : { },
-              "application/xml" : { }
-            }
-          }
-        }
-      },
-      "patch" : {
-        "tags" : [ "WarehouseItem" ],
-        "operationId" : "patchWarehouseItem",
-        "parameters" : [ {
-          "name" : "id",
-          "in" : "path",
-          "required" : true,
-          "schema" : {
-            "type" : "string"
-          }
-        } ],
-        "requestBody" : {
-          "content" : {
-            "application/json" : {
-              "schema" : {
-                "$ref" : "#/components/schemas/WarehouseItem"
-              }
-            },
-            "application/xml" : {
-              "schema" : {
-                "$ref" : "#/components/schemas/WarehouseItem"
-              }
-            }
-          }
-        },
-        "responses" : {
-          "default" : {
-            "description" : "default response",
-            "content" : {
-              "application/json" : { },
-              "application/xml" : { }
-            }
-          }
-        }
-      }
-    },
-    "/v1.0/warehouses/by-externalReferenceCode/{externalReferenceCode}/warehouseItems" : {
-      "get" : {
-        "tags" : [ "WarehouseItem" ],
-        "operationId" : "getWarehouseByExternalReferenceCodeWarehouseItemsPage",
-        "parameters" : [ {
-          "name" : "externalReferenceCode",
-          "in" : "path",
-          "required" : true,
-          "schema" : {
-            "type" : "string"
-          }
-        }, {
-          "name" : "page",
-          "in" : "query",
-          "schema" : {
-            "type" : "string"
-          }
-        }, {
-          "name" : "pageSize",
-          "in" : "query",
-          "schema" : {
-            "type" : "string"
-          }
-        } ],
-        "responses" : {
-          "default" : {
-            "description" : "default response",
-            "content" : {
-              "application/json" : {
-                "schema" : {
-                  "$ref" : "#/components/schemas/PageWarehouseItem"
-                }
-              },
-              "application/xml" : {
-                "schema" : {
-                  "$ref" : "#/components/schemas/PageWarehouseItem"
-                }
-              }
-            }
-          }
-        }
-      },
-      "post" : {
-        "tags" : [ "WarehouseItem" ],
-        "operationId" : "postWarehouseByExternalReferenceCodeWarehouseItem",
-        "parameters" : [ {
-          "name" : "externalReferenceCode",
-          "in" : "path",
-          "required" : true,
-          "schema" : {
-            "type" : "string"
-          }
-        } ],
-        "requestBody" : {
-          "content" : {
-            "application/json" : {
-              "schema" : {
-                "$ref" : "#/components/schemas/WarehouseItem"
-              }
-            },
-            "application/xml" : {
-              "schema" : {
-                "$ref" : "#/components/schemas/WarehouseItem"
-              }
-            }
-          }
-        },
-        "responses" : {
-          "default" : {
-            "description" : "default response",
-            "content" : {
-              "application/json" : {
-                "schema" : {
-                  "$ref" : "#/components/schemas/WarehouseItem"
-                }
-              },
-              "application/xml" : {
-                "schema" : {
-                  "$ref" : "#/components/schemas/WarehouseItem"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/v1.0/warehouses/{id}/warehouseItems" : {
-      "get" : {
-        "tags" : [ "WarehouseItem" ],
-        "operationId" : "getWarehouseIdWarehouseItemsPage",
-        "parameters" : [ {
-          "name" : "id",
-          "in" : "path",
-          "required" : true,
-          "schema" : {
-            "type" : "string"
-          }
-        }, {
-          "name" : "page",
-          "in" : "query",
-          "schema" : {
-            "type" : "string"
-          }
-        }, {
-          "name" : "pageSize",
-          "in" : "query",
-          "schema" : {
-            "type" : "string"
-          }
-        } ],
-        "responses" : {
-          "default" : {
-            "description" : "default response",
-            "content" : {
-              "application/json" : {
-                "schema" : {
-                  "$ref" : "#/components/schemas/PageWarehouseItem"
-                }
-              },
-              "application/xml" : {
-                "schema" : {
-                  "$ref" : "#/components/schemas/PageWarehouseItem"
-                }
-              }
-            }
-          }
-        }
-      },
-      "post" : {
-        "tags" : [ "WarehouseItem" ],
-        "operationId" : "postWarehouseIdWarehouseItem",
-        "parameters" : [ {
-          "name" : "id",
-          "in" : "path",
-          "required" : true,
-          "schema" : {
-            "type" : "string"
-          }
-        } ],
-        "requestBody" : {
-          "content" : {
-            "application/json" : {
-              "schema" : {
-                "$ref" : "#/components/schemas/WarehouseItem"
-              }
-            },
-            "application/xml" : {
-              "schema" : {
-                "$ref" : "#/components/schemas/WarehouseItem"
-              }
-            }
-          }
-        },
-        "responses" : {
-          "default" : {
-            "description" : "default response",
-            "content" : {
-              "application/json" : {
-                "schema" : {
-                  "$ref" : "#/components/schemas/WarehouseItem"
-                }
-              },
-              "application/xml" : {
-                "schema" : {
-                  "$ref" : "#/components/schemas/WarehouseItem"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/v1.0/warehouseItems/updated" : {
-      "get" : {
-        "tags" : [ "WarehouseItem" ],
-        "operationId" : "getWarehouseItemsUpdatedPage",
-        "parameters" : [ {
-          "name" : "end",
-          "in" : "query",
-          "schema" : {
-            "type" : "string"
-          }
-        }, {
-          "name" : "page",
-          "in" : "query",
-          "schema" : {
-            "type" : "string"
-          }
-        }, {
-          "name" : "pageSize",
-          "in" : "query",
-          "schema" : {
-            "type" : "string"
-          }
-        }, {
-          "name" : "start",
-          "in" : "query",
-          "schema" : {
-            "type" : "string"
-          }
-        } ],
-        "responses" : {
-          "default" : {
-            "description" : "default response",
-            "content" : {
-              "application/json" : {
-                "schema" : {
-                  "$ref" : "#/components/schemas/PageWarehouseItem"
-                }
-              },
-              "application/xml" : {
-                "schema" : {
-                  "$ref" : "#/components/schemas/PageWarehouseItem"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/v1.0/warehouseItems/by-externalReferenceCode/{externalReferenceCode}" : {
-      "get" : {
-        "tags" : [ "WarehouseItem" ],
-        "operationId" : "getWarehouseItemByExternalReferenceCode",
-        "parameters" : [ {
-          "name" : "externalReferenceCode",
-          "in" : "path",
-          "required" : true,
-          "schema" : {
-            "type" : "string"
-          }
-        } ],
-        "responses" : {
-          "default" : {
-            "description" : "default response",
-            "content" : {
-              "application/json" : {
-                "schema" : {
-                  "$ref" : "#/components/schemas/WarehouseItem"
-                }
-              },
-              "application/xml" : {
-                "schema" : {
-                  "$ref" : "#/components/schemas/WarehouseItem"
-                }
-              }
-            }
-          }
-        }
-      },
-      "post" : {
-        "tags" : [ "WarehouseItem" ],
-        "operationId" : "postWarehouseItemByExternalReferenceCode",
-        "parameters" : [ {
-          "name" : "externalReferenceCode",
-          "in" : "path",
-          "required" : true,
-          "schema" : {
-            "type" : "string"
-          }
-        } ],
-        "requestBody" : {
-          "content" : {
-            "application/json" : {
-              "schema" : {
-                "$ref" : "#/components/schemas/WarehouseItem"
-              }
-            },
-            "application/xml" : {
-              "schema" : {
-                "$ref" : "#/components/schemas/WarehouseItem"
-              }
-            }
-          }
-        },
-        "responses" : {
-          "default" : {
-            "description" : "default response",
-            "content" : {
-              "application/json" : {
-                "schema" : {
-                  "$ref" : "#/components/schemas/WarehouseItem"
-                }
-              },
-              "application/xml" : {
-                "schema" : {
-                  "$ref" : "#/components/schemas/WarehouseItem"
-                }
-              }
-            }
-          }
-        }
-      },
-      "delete" : {
-        "tags" : [ "WarehouseItem" ],
-        "operationId" : "deleteWarehouseItemByExternalReferenceCode",
-        "parameters" : [ {
-          "name" : "externalReferenceCode",
-          "in" : "path",
-          "required" : true,
-          "schema" : {
-            "type" : "string"
-          }
-        } ],
-        "responses" : {
-          "default" : {
-            "description" : "default response",
-            "content" : {
-              "application/json" : { },
-              "application/xml" : { }
-            }
-          }
-        }
-      },
-      "patch" : {
-        "tags" : [ "WarehouseItem" ],
-        "operationId" : "patchWarehouseItemByExternalReferenceCode",
-        "parameters" : [ {
-          "name" : "externalReferenceCode",
-          "in" : "path",
-          "required" : true,
-          "schema" : {
-            "type" : "string"
-          }
-        } ],
-        "requestBody" : {
-          "content" : {
-            "application/json" : {
-              "schema" : {
-                "$ref" : "#/components/schemas/WarehouseItem"
-              }
-            },
-            "application/xml" : {
-              "schema" : {
-                "$ref" : "#/components/schemas/WarehouseItem"
-              }
-            }
-          }
-        },
-        "responses" : {
-          "default" : {
-            "description" : "default response",
-            "content" : {
-              "application/json" : { },
-              "application/xml" : { }
-            }
-          }
-        }
-      }
-    },
-    "/v1.0/warehouses/warehouseItems/batch" : {
-      "post" : {
-        "tags" : [ "WarehouseItem" ],
-        "operationId" : "postWarehouseIdWarehouseItemBatch",
-        "parameters" : [ {
-          "name" : "callbackURL",
-          "in" : "query",
-          "schema" : {
-            "type" : "string"
-          }
-        } ],
-        "requestBody" : {
-          "content" : {
-            "application/json" : {
-              "schema" : {
-                "type" : "object"
-              }
-            }
-          }
-        },
-        "responses" : {
-          "default" : {
-            "description" : "default response",
-            "content" : {
-              "application/json" : { }
-            }
-          }
-        }
-      }
-    },
-    "/v1.0/warehouseItems/batch" : {
-      "delete" : {
-        "tags" : [ "WarehouseItem" ],
-        "operationId" : "deleteWarehouseItemBatch",
-        "parameters" : [ {
-          "name" : "callbackURL",
-          "in" : "query",
-          "schema" : {
-            "type" : "string"
-          }
-        } ],
-        "requestBody" : {
-          "content" : {
-            "application/json" : {
-              "schema" : {
-                "type" : "object"
-              }
-            }
-          }
-        },
-        "responses" : {
-          "default" : {
-            "description" : "default response",
-            "content" : {
-              "application/json" : { }
-            }
-          }
-        }
-      }
-    },
-    "/v1.0/warehouses/by-externalReferenceCode/{externalReferenceCode}/warehouse-order-types" : {
-      "get" : {
-        "tags" : [ "WarehouseOrderType" ],
-        "operationId" : "getWarehouseByExternalReferenceCodeWarehouseOrderTypesPage",
-        "parameters" : [ {
-          "name" : "externalReferenceCode",
-          "in" : "path",
-          "required" : true,
-          "schema" : {
-            "type" : "string"
-          }
-        }, {
-          "name" : "page",
-          "in" : "query",
-          "schema" : {
-            "type" : "string"
-          }
-        }, {
-          "name" : "pageSize",
-          "in" : "query",
-          "schema" : {
-            "type" : "string"
-          }
-        } ],
-        "responses" : {
-          "default" : {
-            "description" : "default response",
-            "content" : {
-              "application/json" : {
-                "schema" : {
-                  "$ref" : "#/components/schemas/PageWarehouseOrderType"
-                }
-              },
-              "application/xml" : {
-                "schema" : {
-                  "$ref" : "#/components/schemas/PageWarehouseOrderType"
-                }
-              }
-            }
-          }
-        }
-      },
-      "post" : {
-        "tags" : [ "WarehouseOrderType" ],
-        "operationId" : "postWarehouseByExternalReferenceCodeWarehouseOrderType",
-        "parameters" : [ {
-          "name" : "externalReferenceCode",
-          "in" : "path",
-          "required" : true,
-          "schema" : {
-            "type" : "string"
-          }
-        } ],
-        "requestBody" : {
-          "content" : {
-            "application/json" : {
-              "schema" : {
-                "$ref" : "#/components/schemas/WarehouseOrderType"
-              }
-            },
-            "application/xml" : {
-              "schema" : {
-                "$ref" : "#/components/schemas/WarehouseOrderType"
-              }
-            }
-          }
-        },
-        "responses" : {
-          "default" : {
-            "description" : "default response",
-            "content" : {
-              "application/json" : {
-                "schema" : {
-                  "$ref" : "#/components/schemas/WarehouseOrderType"
-                }
-              },
-              "application/xml" : {
-                "schema" : {
-                  "$ref" : "#/components/schemas/WarehouseOrderType"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/v1.0/warehouses/{id}/warehouse-order-types" : {
-      "get" : {
-        "tags" : [ "WarehouseOrderType" ],
-        "operationId" : "getWarehouseIdWarehouseOrderTypesPage",
-        "parameters" : [ {
-          "name" : "id",
-          "in" : "path",
-          "required" : true,
-          "schema" : {
-            "type" : "string"
-          }
-        }, {
-          "name" : "filter",
-          "in" : "query",
-          "schema" : {
-            "type" : "string"
-          }
-        }, {
-          "name" : "page",
-          "in" : "query",
-          "schema" : {
-            "type" : "string"
-          }
-        }, {
-          "name" : "pageSize",
-          "in" : "query",
-          "schema" : {
-            "type" : "string"
-          }
-        }, {
-          "name" : "search",
-          "in" : "query",
-          "schema" : {
-            "type" : "string"
-          }
-        }, {
-          "name" : "sort",
-          "in" : "query",
-          "schema" : {
-            "type" : "string"
-          }
-        } ],
-        "responses" : {
-          "default" : {
-            "description" : "default response",
-            "content" : {
-              "application/json" : {
-                "schema" : {
-                  "$ref" : "#/components/schemas/PageWarehouseOrderType"
-                }
-              },
-              "application/xml" : {
-                "schema" : {
-                  "$ref" : "#/components/schemas/PageWarehouseOrderType"
-                }
-              }
-            }
-          }
-        }
-      },
-      "post" : {
-        "tags" : [ "WarehouseOrderType" ],
-        "operationId" : "postWarehouseIdWarehouseOrderType",
-        "parameters" : [ {
-          "name" : "id",
-          "in" : "path",
-          "required" : true,
-          "schema" : {
-            "type" : "string"
-          }
-        } ],
-        "requestBody" : {
-          "content" : {
-            "application/json" : {
-              "schema" : {
-                "$ref" : "#/components/schemas/WarehouseOrderType"
-              }
-            },
-            "application/xml" : {
-              "schema" : {
-                "$ref" : "#/components/schemas/WarehouseOrderType"
-              }
-            }
-          }
-        },
-        "responses" : {
-          "default" : {
-            "description" : "default response",
-            "content" : {
-              "application/json" : {
-                "schema" : {
-                  "$ref" : "#/components/schemas/WarehouseOrderType"
-                }
-              },
-              "application/xml" : {
-                "schema" : {
-                  "$ref" : "#/components/schemas/WarehouseOrderType"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/v1.0/warehouse-order-types/{warehouseOrderTypeId}" : {
-      "delete" : {
-        "tags" : [ "WarehouseOrderType" ],
-        "operationId" : "deleteWarehouseOrderType",
-        "parameters" : [ {
-          "name" : "warehouseOrderTypeId",
-          "in" : "path",
-          "required" : true,
-          "schema" : {
-            "type" : "string"
-          }
-        } ],
-        "responses" : {
-          "default" : {
-            "description" : "default response",
-            "content" : {
-              "application/json" : { },
-              "application/xml" : { }
-            }
-          }
-        }
-      }
-    },
-    "/v1.0/warehouses/warehouse-order-types/batch" : {
-      "post" : {
-        "tags" : [ "WarehouseOrderType" ],
-        "operationId" : "postWarehouseIdWarehouseOrderTypeBatch",
-        "parameters" : [ {
-          "name" : "callbackURL",
-          "in" : "query",
-          "schema" : {
-            "type" : "string"
-          }
-        } ],
-        "requestBody" : {
-          "content" : {
-            "application/json" : {
-              "schema" : {
-                "type" : "object"
-              }
-            }
-          }
-        },
-        "responses" : {
-          "default" : {
-            "description" : "default response",
-            "content" : {
-              "application/json" : { }
-            }
-          }
-        }
-      }
-    },
-    "/v1.0/warehouse-order-types/batch" : {
-      "delete" : {
-        "tags" : [ "WarehouseOrderType" ],
-        "operationId" : "deleteWarehouseOrderTypeBatch",
-        "parameters" : [ {
-          "name" : "callbackURL",
-          "in" : "query",
-          "schema" : {
-            "type" : "string"
-          }
-        } ],
-        "requestBody" : {
-          "content" : {
-            "application/json" : {
-              "schema" : {
-                "type" : "object"
-              }
-            }
-          }
-        },
-        "responses" : {
-          "default" : {
-            "description" : "default response",
-            "content" : {
-              "application/json" : { }
-            }
-          }
-        }
-      }
-    },
-    "/v1.0/warehouses/{id}" : {
-      "get" : {
-        "tags" : [ "Warehouse" ],
-        "operationId" : "getWarehouseId",
-        "parameters" : [ {
-          "name" : "id",
-          "in" : "path",
-          "required" : true,
-          "schema" : {
-            "type" : "string"
-          }
-        } ],
-        "responses" : {
-          "default" : {
-            "description" : "default response",
-            "content" : {
-              "application/json" : {
-                "schema" : {
-                  "$ref" : "#/components/schemas/Warehouse"
-                }
-              },
-              "application/xml" : {
-                "schema" : {
-                  "$ref" : "#/components/schemas/Warehouse"
-                }
-              }
-            }
-          }
-        }
-      },
-      "delete" : {
-        "tags" : [ "Warehouse" ],
-        "operationId" : "deleteWarehouseId",
-        "parameters" : [ {
-          "name" : "id",
-          "in" : "path",
-          "required" : true,
-          "schema" : {
-            "type" : "string"
-          }
-        } ],
-        "responses" : {
-          "default" : {
-            "description" : "default response",
-            "content" : {
-              "application/json" : { },
-              "application/xml" : { }
-            }
-          }
-        }
-      },
-      "patch" : {
-        "tags" : [ "Warehouse" ],
-        "operationId" : "patchWarehouseId",
-        "parameters" : [ {
-          "name" : "id",
-          "in" : "path",
-          "required" : true,
-          "schema" : {
-            "type" : "string"
-          }
-        } ],
-        "requestBody" : {
-          "content" : {
-            "application/json" : {
-              "schema" : {
-                "$ref" : "#/components/schemas/Warehouse"
-              }
-            },
-            "application/xml" : {
-              "schema" : {
-                "$ref" : "#/components/schemas/Warehouse"
-              }
-            }
-          }
-        },
-        "responses" : {
-          "default" : {
-            "description" : "default response",
-            "content" : {
-              "application/json" : { },
-              "application/xml" : { }
-            }
-          }
-        }
-      }
-    },
-    "/v1.0/warehouses" : {
-      "get" : {
-        "tags" : [ "Warehouse" ],
-        "operationId" : "getWarehousesPage",
-        "parameters" : [ {
-          "name" : "filter",
-          "in" : "query",
-          "schema" : {
-            "type" : "string"
-          }
-        }, {
-          "name" : "page",
-          "in" : "query",
-          "schema" : {
-            "type" : "string"
-          }
-        }, {
-          "name" : "pageSize",
-          "in" : "query",
-          "schema" : {
-            "type" : "string"
-          }
-        }, {
-          "name" : "search",
-          "in" : "query",
-          "schema" : {
-            "type" : "string"
-          }
-        }, {
-          "name" : "sort",
-          "in" : "query",
-          "schema" : {
-            "type" : "string"
-          }
-        } ],
-        "responses" : {
-          "default" : {
-            "description" : "default response",
-            "content" : {
-              "application/json" : {
-                "schema" : {
-                  "$ref" : "#/components/schemas/PageWarehouse"
-                }
-              },
-              "application/xml" : {
-                "schema" : {
-                  "$ref" : "#/components/schemas/PageWarehouse"
-                }
-              }
-            }
-          }
-        }
-      },
-      "post" : {
-        "tags" : [ "Warehouse" ],
-        "operationId" : "postWarehouse",
-        "requestBody" : {
-          "content" : {
-            "application/json" : {
-              "schema" : {
-                "$ref" : "#/components/schemas/Warehouse"
-              }
-            },
-            "application/xml" : {
-              "schema" : {
-                "$ref" : "#/components/schemas/Warehouse"
-              }
-            }
-          }
-        },
-        "responses" : {
-          "default" : {
-            "description" : "default response",
-            "content" : {
-              "application/json" : {
-                "schema" : {
-                  "$ref" : "#/components/schemas/Warehouse"
-                }
-              },
-              "application/xml" : {
-                "schema" : {
-                  "$ref" : "#/components/schemas/Warehouse"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/v1.0/warehouses/by-externalReferenceCode/{externalReferenceCode}" : {
-      "get" : {
-        "tags" : [ "Warehouse" ],
-        "operationId" : "getWarehouseByExternalReferenceCode",
-        "parameters" : [ {
-          "name" : "externalReferenceCode",
-          "in" : "path",
-          "required" : true,
-          "schema" : {
-            "type" : "string"
-          }
-        } ],
-        "responses" : {
-          "default" : {
-            "description" : "default response",
-            "content" : {
-              "application/json" : {
-                "schema" : {
-                  "$ref" : "#/components/schemas/Warehouse"
-                }
-              },
-              "application/xml" : {
-                "schema" : {
-                  "$ref" : "#/components/schemas/Warehouse"
-                }
-              }
-            }
-          }
-        }
-      },
-      "put" : {
-        "tags" : [ "Warehouse" ],
-        "operationId" : "putWarehouseByExternalReferenceCode",
-        "parameters" : [ {
-          "name" : "externalReferenceCode",
-          "in" : "path",
-          "required" : true,
-          "schema" : {
-            "type" : "string"
-          }
-        } ],
-        "requestBody" : {
-          "content" : {
-            "application/json" : {
-              "schema" : {
-                "$ref" : "#/components/schemas/Warehouse"
-              }
-            },
-            "application/xml" : {
-              "schema" : {
-                "$ref" : "#/components/schemas/Warehouse"
-              }
-            }
-          }
-        },
-        "responses" : {
-          "default" : {
-            "description" : "default response",
-            "content" : {
-              "application/json" : {
-                "schema" : {
-                  "$ref" : "#/components/schemas/Warehouse"
-                }
-              },
-              "application/xml" : {
-                "schema" : {
-                  "$ref" : "#/components/schemas/Warehouse"
-                }
-              }
-            }
-          }
-        }
-      },
-      "delete" : {
-        "tags" : [ "Warehouse" ],
-        "operationId" : "deleteWarehouseByExternalReferenceCode",
-        "parameters" : [ {
-          "name" : "externalReferenceCode",
-          "in" : "path",
-          "required" : true,
-          "schema" : {
-            "type" : "string"
-          }
-        } ],
-        "responses" : {
-          "default" : {
-            "description" : "default response",
-            "content" : {
-              "application/json" : { },
-              "application/xml" : { }
-            }
-          }
-        }
-      },
-      "patch" : {
-        "tags" : [ "Warehouse" ],
-        "operationId" : "patchWarehouseByExternalReferenceCode",
-        "parameters" : [ {
-          "name" : "externalReferenceCode",
-          "in" : "path",
-          "required" : true,
-          "schema" : {
-            "type" : "string"
-          }
-        } ],
-        "requestBody" : {
-          "content" : {
-            "application/json" : {
-              "schema" : {
-                "$ref" : "#/components/schemas/Warehouse"
-              }
-            },
-            "application/xml" : {
-              "schema" : {
-                "$ref" : "#/components/schemas/Warehouse"
-              }
-            }
-          }
-        },
-        "responses" : {
-          "default" : {
-            "description" : "default response",
-            "content" : {
-              "application/json" : { },
-              "application/xml" : { }
-            }
-          }
-        }
-      }
-    },
-    "/v1.0/warehouses/batch" : {
-      "post" : {
-        "tags" : [ "Warehouse" ],
-        "operationId" : "postWarehouseBatch",
-        "parameters" : [ {
-          "name" : "callbackURL",
-          "in" : "query",
-          "schema" : {
-            "type" : "string"
-          }
-        } ],
-        "requestBody" : {
-          "content" : {
-            "application/json" : {
-              "schema" : {
-                "type" : "object"
-              }
-            }
-          }
-        },
-        "responses" : {
-          "default" : {
-            "description" : "default response",
-            "content" : {
-              "application/json" : { }
-            }
-          }
-        }
-      }
-    },
-    "/v1.0/warehouses/export-batch" : {
-      "post" : {
-        "tags" : [ "Warehouse" ],
-        "operationId" : "postWarehousesPageExportBatch",
-        "parameters" : [ {
-          "name" : "filter",
-          "in" : "query",
-          "schema" : {
-            "type" : "string"
-          }
-        }, {
-          "name" : "search",
-          "in" : "query",
-          "schema" : {
-            "type" : "string"
-          }
-        }, {
-          "name" : "sort",
-          "in" : "query",
-          "schema" : {
-            "type" : "string"
-          }
-        }, {
-          "name" : "callbackURL",
-          "in" : "query",
-          "schema" : {
-            "type" : "string"
-          }
-        }, {
-          "name" : "contentType",
-          "in" : "query",
-          "schema" : {
-            "type" : "string"
-          }
-        }, {
-          "name" : "fieldNames",
-          "in" : "query",
-          "schema" : {
-            "type" : "string"
-          }
-        } ],
-        "responses" : {
-          "default" : {
-            "description" : "default response",
-            "content" : {
-              "application/json" : { }
-            }
-          }
-        }
-      }
-    }
-  },
-  "components" : {
-    "schemas" : {
-      "AccountGroup" : {
-        "type" : "object",
-        "properties" : {
-          "id" : {
-            "type" : "integer",
-            "format" : "int64",
-            "readOnly" : true,
-            "example" : 30130
-          },
-          "name" : {
-            "type" : "string",
-            "example" : "AccountGroup Name"
-          },
-          "x-class-name" : {
-            "type" : "string",
-            "readOnly" : true,
-            "default" : "com.liferay.headless.commerce.admin.inventory.dto.v1_0.AccountGroup"
-          }
-        },
-        "xml" : {
-          "name" : "AccountGroup"
-        }
-      },
-      "Account" : {
-        "type" : "object",
-        "properties" : {
-          "id" : {
-            "type" : "integer",
-            "format" : "int64",
-            "example" : 30130
-          },
-          "logoId" : {
-            "type" : "integer",
-            "format" : "int64",
-            "example" : 20078
-          },
-          "name" : {
-            "type" : "string",
-            "example" : "Account Name"
-          },
-          "x-class-name" : {
-            "type" : "string",
-            "readOnly" : true,
-            "default" : "com.liferay.headless.commerce.admin.inventory.dto.v1_0.Account"
-          }
-        },
-        "xml" : {
-          "name" : "Account"
-        }
-      },
-      "Channel" : {
-        "type" : "object",
-        "properties" : {
-          "currencyCode" : {
-            "type" : "string"
-          },
-          "externalReferenceCode" : {
-            "type" : "string"
-          },
-          "id" : {
-            "type" : "integer",
-            "format" : "int64"
-          },
-          "name" : {
-            "type" : "string"
-          },
-          "siteGroupId" : {
-            "type" : "integer",
-            "format" : "int64"
-          },
-          "type" : {
-            "type" : "string"
-          },
-          "x-class-name" : {
-            "type" : "string",
-            "readOnly" : true,
-            "default" : "com.liferay.headless.commerce.admin.inventory.dto.v1_0.Channel"
-          }
-        },
-        "xml" : {
-          "name" : "Channel"
-        }
-      },
-      "OrderType" : {
-        "type" : "object",
-        "properties" : {
-          "id" : {
-            "type" : "integer",
-            "format" : "int64",
-            "readOnly" : true,
-            "example" : 30130
-          },
-          "name" : {
-            "type" : "object",
-            "additionalProperties" : {
-              "type" : "string",
-              "example" : "{en_US=Hand Saw, hr_HR=Product Name HR, hu_HU=Product Name HU}"
-            },
-            "example" : "{en_US=Hand Saw, hr_HR=Product Name HR, hu_HU=Product Name HU}"
-          },
-          "x-class-name" : {
-            "type" : "string",
-            "readOnly" : true,
-            "default" : "com.liferay.headless.commerce.admin.inventory.dto.v1_0.OrderType"
-          }
-        },
-        "xml" : {
-          "name" : "OrderType"
-        }
-      },
-      "ReplenishmentItem" : {
-        "type" : "object",
-        "properties" : {
-          "availabilityDate" : {
-            "type" : "string",
-            "format" : "date-time"
-          },
-          "externalReferenceCode" : {
-            "type" : "string",
-            "example" : "AB-34098-789-N"
-          },
-          "id" : {
-            "type" : "integer",
-            "format" : "int64",
-            "example" : 30130
-          },
-          "quantity" : {
-            "type" : "number",
-            "example" : 10.1
-          },
-          "sku" : {
-            "type" : "string",
-            "example" : "SKU"
-          },
-          "unitOfMeasureKey" : {
-            "type" : "string",
-            "example" : "lt"
-          },
-          "warehouseId" : {
-            "type" : "integer",
-            "format" : "int64",
-            "example" : 30130
-          },
-          "x-class-name" : {
-            "type" : "string",
-            "readOnly" : true,
-            "default" : "com.liferay.headless.commerce.admin.inventory.dto.v1_0.ReplenishmentItem"
-          }
-        },
-        "xml" : {
-          "name" : "ReplenishmentItem"
-        }
-      },
-      "Facet" : {
-        "type" : "object",
-        "properties" : {
-          "facetCriteria" : {
-            "type" : "string"
-          },
-          "facetValues" : {
-            "type" : "array",
-            "items" : {
-              "$ref" : "#/components/schemas/FacetValue"
-            }
-          }
-        }
-      },
-      "FacetValue" : {
-        "type" : "object",
-        "properties" : {
-          "numberOfOccurrences" : {
-            "type" : "integer",
-            "format" : "int32"
-          },
-          "term" : {
-            "type" : "string"
-          }
-        }
-      },
-      "PageReplenishmentItem" : {
-        "type" : "object",
-        "properties" : {
-          "lastPage" : {
-            "type" : "integer",
-            "format" : "int64"
-          },
-          "totalCount" : {
-            "type" : "integer",
-            "format" : "int64"
-          },
-          "items" : {
-            "type" : "array",
-            "items" : {
-              "$ref" : "#/components/schemas/ReplenishmentItem"
-            }
-          },
-          "pageSize" : {
-            "type" : "integer",
-            "format" : "int64"
-          },
-          "page" : {
-            "type" : "integer",
-            "format" : "int64"
-          },
-          "facets" : {
-            "type" : "array",
-            "items" : {
-              "$ref" : "#/components/schemas/Facet"
-            }
-          },
-          "actions" : {
-            "type" : "object",
-            "additionalProperties" : {
-              "type" : "object",
-              "additionalProperties" : {
-                "type" : "string"
-              }
-            }
-          }
-        }
-      },
-      "WarehouseAccountGroup" : {
-        "required" : [ "accountGroupId", "warehouseId" ],
-        "type" : "object",
-        "properties" : {
-          "accountGroup" : {
-            "$ref" : "#/components/schemas/AccountGroup"
-          },
-          "accountGroupExternalReferenceCode" : {
-            "type" : "string",
-            "example" : "DAB-34098-789-N"
-          },
-          "accountGroupId" : {
-            "type" : "integer",
-            "format" : "int64",
-            "example" : 30324
-          },
-          "actions" : {
-            "type" : "object",
-            "additionalProperties" : {
-              "type" : "object",
-              "additionalProperties" : {
-                "type" : "string"
-              }
-            },
-            "readOnly" : true
-          },
-          "warehouseAccountGroupId" : {
-            "type" : "integer",
-            "format" : "int64",
-            "readOnly" : true,
-            "example" : 30643
-          },
-          "warehouseExternalReferenceCode" : {
-            "type" : "string",
-            "example" : "PAB-34098-789-N"
-          },
-          "warehouseId" : {
-            "type" : "integer",
-            "format" : "int64",
-            "example" : 30130
-          },
-          "x-class-name" : {
-            "type" : "string",
-            "readOnly" : true,
-            "default" : "com.liferay.headless.commerce.admin.inventory.dto.v1_0.WarehouseAccountGroup"
-          }
-        },
-        "xml" : {
-          "name" : "WarehouseAccountGroup"
-        }
-      },
-      "PageWarehouseAccountGroup" : {
-        "type" : "object",
-        "properties" : {
-          "lastPage" : {
-            "type" : "integer",
-            "format" : "int64"
-          },
-          "totalCount" : {
-            "type" : "integer",
-            "format" : "int64"
-          },
-          "items" : {
-            "type" : "array",
-            "items" : {
-              "$ref" : "#/components/schemas/WarehouseAccountGroup"
-            }
-          },
-          "pageSize" : {
-            "type" : "integer",
-            "format" : "int64"
-          },
-          "page" : {
-            "type" : "integer",
-            "format" : "int64"
-          },
-          "facets" : {
-            "type" : "array",
-            "items" : {
-              "$ref" : "#/components/schemas/Facet"
-            }
-          },
-          "actions" : {
-            "type" : "object",
-            "additionalProperties" : {
-              "type" : "object",
-              "additionalProperties" : {
-                "type" : "string"
-              }
-            }
-          }
-        }
-      },
-      "WarehouseAccount" : {
-        "required" : [ "accountId", "warehouseId" ],
-        "type" : "object",
-        "properties" : {
-          "account" : {
-            "$ref" : "#/components/schemas/Account"
-          },
-          "accountExternalReferenceCode" : {
-            "type" : "string",
-            "example" : "DAB-34098-789-N"
-          },
-          "accountId" : {
-            "type" : "integer",
-            "format" : "int64",
-            "example" : 30324
-          },
-          "actions" : {
-            "type" : "object",
-            "additionalProperties" : {
-              "type" : "object",
-              "additionalProperties" : {
-                "type" : "string"
-              }
-            },
-            "readOnly" : true
-          },
-          "warehouseAccountId" : {
-            "type" : "integer",
-            "format" : "int64",
-            "readOnly" : true,
-            "example" : 30643
-          },
-          "warehouseExternalReferenceCode" : {
-            "type" : "string",
-            "example" : "PAB-34098-789-N"
-          },
-          "warehouseId" : {
-            "type" : "integer",
-            "format" : "int64",
-            "example" : 30130
-          },
-          "x-class-name" : {
-            "type" : "string",
-            "readOnly" : true,
-            "default" : "com.liferay.headless.commerce.admin.inventory.dto.v1_0.WarehouseAccount"
-          }
-        },
-        "xml" : {
-          "name" : "WarehouseAccount"
-        }
-      },
-      "PageWarehouseAccount" : {
-        "type" : "object",
-        "properties" : {
-          "lastPage" : {
-            "type" : "integer",
-            "format" : "int64"
-          },
-          "totalCount" : {
-            "type" : "integer",
-            "format" : "int64"
-          },
-          "items" : {
-            "type" : "array",
-            "items" : {
-              "$ref" : "#/components/schemas/WarehouseAccount"
-            }
-          },
-          "pageSize" : {
-            "type" : "integer",
-            "format" : "int64"
-          },
-          "page" : {
-            "type" : "integer",
-            "format" : "int64"
-          },
-          "facets" : {
-            "type" : "array",
-            "items" : {
-              "$ref" : "#/components/schemas/Facet"
-            }
-          },
-          "actions" : {
-            "type" : "object",
-            "additionalProperties" : {
-              "type" : "object",
-              "additionalProperties" : {
-                "type" : "string"
-              }
-            }
-          }
-        }
-      },
-      "WarehouseChannel" : {
-        "required" : [ "channelId", "warehouseId" ],
-        "type" : "object",
-        "properties" : {
-          "actions" : {
-            "type" : "object",
-            "additionalProperties" : {
-              "type" : "object",
-              "additionalProperties" : {
-                "type" : "string"
-              }
-            },
-            "readOnly" : true
-          },
-          "channel" : {
-            "$ref" : "#/components/schemas/Channel"
-          },
-          "channelExternalReferenceCode" : {
-            "type" : "string",
-            "example" : "PAB-34098-789-N"
-          },
-          "channelId" : {
-            "type" : "integer",
-            "format" : "int64",
-            "example" : 30130
-          },
-          "warehouseChannelId" : {
-            "type" : "integer",
-            "format" : "int64",
-            "readOnly" : true,
-            "example" : 30643
-          },
-          "warehouseExternalReferenceCode" : {
-            "type" : "string",
-            "example" : "DAB-34098-789-N"
-          },
-          "warehouseId" : {
-            "type" : "integer",
-            "format" : "int64",
-            "example" : 30324
-          },
-          "x-class-name" : {
-            "type" : "string",
-            "readOnly" : true,
-            "default" : "com.liferay.headless.commerce.admin.inventory.dto.v1_0.WarehouseChannel"
-          }
-        },
-        "xml" : {
-          "name" : "WarehouseChannel"
-        }
-      },
-      "PageWarehouseChannel" : {
-        "type" : "object",
-        "properties" : {
-          "lastPage" : {
-            "type" : "integer",
-            "format" : "int64"
-          },
-          "totalCount" : {
-            "type" : "integer",
-            "format" : "int64"
-          },
-          "items" : {
-            "type" : "array",
-            "items" : {
-              "$ref" : "#/components/schemas/WarehouseChannel"
-            }
-          },
-          "pageSize" : {
-            "type" : "integer",
-            "format" : "int64"
-          },
-          "page" : {
-            "type" : "integer",
-            "format" : "int64"
-          },
-          "facets" : {
-            "type" : "array",
-            "items" : {
-              "$ref" : "#/components/schemas/Facet"
-            }
-          },
-          "actions" : {
-            "type" : "object",
-            "additionalProperties" : {
-              "type" : "object",
-              "additionalProperties" : {
-                "type" : "string"
-              }
-            }
-          }
-        }
-      },
-      "WarehouseItem" : {
-        "type" : "object",
-        "properties" : {
-          "externalReferenceCode" : {
-            "type" : "string",
-            "example" : "AB-34098-789-N"
-          },
-          "id" : {
-            "type" : "integer",
-            "format" : "int64",
-            "example" : 30130
-          },
-          "modifiedDate" : {
-            "type" : "string",
-            "format" : "date-time"
-          },
-          "quantity" : {
-            "minimum" : 0,
-            "exclusiveMinimum" : false,
-            "type" : "number",
-            "example" : 1.1
-          },
-          "reservedQuantity" : {
-            "minimum" : 0,
-            "exclusiveMinimum" : false,
-            "type" : "number",
-            "example" : 2.1
-          },
-          "sku" : {
-            "type" : "string",
-            "example" : "SKU"
-          },
-          "unitOfMeasureKey" : {
-            "type" : "string",
-            "example" : "lt"
-          },
-          "warehouseExternalReferenceCode" : {
-            "type" : "string",
-            "example" : "AB-34098-789-N"
-          },
-          "warehouseId" : {
-            "type" : "integer",
-            "format" : "int64",
-            "example" : 30030
-          },
-          "x-class-name" : {
-            "type" : "string",
-            "readOnly" : true,
-            "default" : "com.liferay.headless.commerce.admin.inventory.dto.v1_0.WarehouseItem"
-          }
-        },
-        "xml" : {
-          "name" : "WarehouseItem"
-        }
-      },
-      "PageWarehouseItem" : {
-        "type" : "object",
-        "properties" : {
-          "lastPage" : {
-            "type" : "integer",
-            "format" : "int64"
-          },
-          "totalCount" : {
-            "type" : "integer",
-            "format" : "int64"
-          },
-          "items" : {
-            "type" : "array",
-            "items" : {
-              "$ref" : "#/components/schemas/WarehouseItem"
-            }
-          },
-          "pageSize" : {
-            "type" : "integer",
-            "format" : "int64"
-          },
-          "page" : {
-            "type" : "integer",
-            "format" : "int64"
-          },
-          "facets" : {
-            "type" : "array",
-            "items" : {
-              "$ref" : "#/components/schemas/Facet"
-            }
-          },
-          "actions" : {
-            "type" : "object",
-            "additionalProperties" : {
-              "type" : "object",
-              "additionalProperties" : {
-                "type" : "string"
-              }
-            }
-          }
-        }
-      },
-      "WarehouseOrderType" : {
-        "required" : [ "orderTypeId", "warehouseId" ],
-        "type" : "object",
-        "properties" : {
-          "actions" : {
-            "type" : "object",
-            "additionalProperties" : {
-              "type" : "object",
-              "additionalProperties" : {
-                "type" : "string"
-              }
-            },
-            "readOnly" : true
-          },
-          "orderType" : {
-            "$ref" : "#/components/schemas/OrderType"
-          },
-          "orderTypeExternalReferenceCode" : {
-            "type" : "string",
-            "example" : "DAB-34098-789-N"
-          },
-          "orderTypeId" : {
-            "type" : "integer",
-            "format" : "int64",
-            "example" : 30324
-          },
-          "priority" : {
-            "type" : "integer",
-            "format" : "int32",
-            "example" : 1
-          },
-          "warehouseExternalReferenceCode" : {
-            "type" : "string",
-            "example" : "PAB-34098-789-N"
-          },
-          "warehouseId" : {
-            "type" : "integer",
-            "format" : "int64",
-            "example" : 30130
-          },
-          "warehouseOrderTypeId" : {
-            "type" : "integer",
-            "format" : "int64",
-            "readOnly" : true,
-            "example" : 30643
-          },
-          "x-class-name" : {
-            "type" : "string",
-            "readOnly" : true,
-            "default" : "com.liferay.headless.commerce.admin.inventory.dto.v1_0.WarehouseOrderType"
-          }
-        },
-        "xml" : {
-          "name" : "WarehouseOrderType"
-        }
-      },
-      "PageWarehouseOrderType" : {
-        "type" : "object",
-        "properties" : {
-          "lastPage" : {
-            "type" : "integer",
-            "format" : "int64"
-          },
-          "totalCount" : {
-            "type" : "integer",
-            "format" : "int64"
-          },
-          "items" : {
-            "type" : "array",
-            "items" : {
-              "$ref" : "#/components/schemas/WarehouseOrderType"
-            }
-          },
-          "pageSize" : {
-            "type" : "integer",
-            "format" : "int64"
-          },
-          "page" : {
-            "type" : "integer",
-            "format" : "int64"
-          },
-          "facets" : {
-            "type" : "array",
-            "items" : {
-              "$ref" : "#/components/schemas/Facet"
-            }
-          },
-          "actions" : {
-            "type" : "object",
-            "additionalProperties" : {
-              "type" : "object",
-              "additionalProperties" : {
-                "type" : "string"
-              }
-            }
-          }
-        }
-      },
-      "Warehouse" : {
-        "type" : "object",
-        "properties" : {
-          "actions" : {
-            "type" : "object",
-            "additionalProperties" : {
-              "type" : "object",
-              "additionalProperties" : {
-                "type" : "string"
-              }
-            },
-            "readOnly" : true
-          },
-          "active" : {
-            "type" : "boolean",
-            "example" : true
-          },
-          "city" : {
-            "type" : "string",
-            "example" : "Diamond Bar"
-          },
-          "countryISOCode" : {
-            "type" : "string",
-            "example" : "US"
-          },
-          "description" : {
-            "type" : "object",
-            "additionalProperties" : {
-              "type" : "string",
-              "example" : "{en_US=Warehouse Description US, hr_HR=Warehouse Description HR, hu_HU=Warehouse Description HU}"
-            },
-            "example" : "{en_US=Warehouse Description US, hr_HR=Warehouse Description HR, hu_HU=Warehouse Description HU}"
-          },
-          "externalReferenceCode" : {
-            "type" : "string",
-            "example" : "AB-34098-789-N"
-          },
-          "id" : {
-            "type" : "integer",
-            "format" : "int64",
-            "example" : 30130
-          },
-          "latitude" : {
-            "type" : "number",
-            "format" : "double",
-            "example" : 33.9976884
-          },
-          "longitude" : {
-            "type" : "number",
-            "format" : "double",
-            "example" : -117.8144595
-          },
-          "name" : {
-            "type" : "object",
-            "additionalProperties" : {
-              "type" : "string",
-              "example" : "{en_US=Warehouse Name US, hr_HR=Warehouse Name HR, hu_HU=Warehouse Name HU}"
-            },
-            "example" : "{en_US=Warehouse Name US, hr_HR=Warehouse Name HR, hu_HU=Warehouse Name HU}"
-          },
-          "regionISOCode" : {
-            "type" : "string",
-            "example" : "CA"
-          },
-          "street1" : {
-            "type" : "string",
-            "example" : "1400"
-          },
-          "street2" : {
-            "type" : "string",
-            "example" : "1st floor"
-          },
-          "street3" : {
-            "type" : "string",
-            "example" : "suite 200"
-          },
-          "type" : {
-            "type" : "string"
-          },
-          "warehouseItems" : {
-            "type" : "array",
-            "items" : {
-              "$ref" : "#/components/schemas/WarehouseItem"
-            }
-          },
-          "zip" : {
-            "type" : "string",
-            "example" : "91765"
-          },
-          "x-class-name" : {
-            "type" : "string",
-            "readOnly" : true,
-            "default" : "com.liferay.headless.commerce.admin.inventory.dto.v1_0.Warehouse"
-          }
-        },
-        "xml" : {
-          "name" : "Warehouse"
-        }
-      },
-      "PageWarehouse" : {
-        "type" : "object",
-        "properties" : {
-          "lastPage" : {
-            "type" : "integer",
-            "format" : "int64"
-          },
-          "totalCount" : {
-            "type" : "integer",
-            "format" : "int64"
-          },
-          "items" : {
-            "type" : "array",
-            "items" : {
-              "$ref" : "#/components/schemas/Warehouse"
-            }
-          },
-          "pageSize" : {
-            "type" : "integer",
-            "format" : "int64"
-          },
-          "page" : {
-            "type" : "integer",
-            "format" : "int64"
-          },
-          "facets" : {
-            "type" : "array",
-            "items" : {
-              "$ref" : "#/components/schemas/Facet"
-            }
-          },
-          "actions" : {
-            "type" : "object",
-            "additionalProperties" : {
-              "type" : "object",
-              "additionalProperties" : {
-                "type" : "string"
-              }
-            }
-          }
-        }
-      }
-    }
-  }
+	"components": {
+		"schemas": {
+			"Account": {
+				"properties": {
+					"id": {
+						"example": 30130,
+						"format": "int64",
+						"type": "integer"
+					},
+					"logoId": {
+						"example": 20078,
+						"format": "int64",
+						"type": "integer"
+					},
+					"name": {
+						"example": "Account Name",
+						"type": "string"
+					},
+					"x-class-name": {
+						"default": "com.liferay.headless.commerce.admin.inventory.dto.v1_0.Account",
+						"readOnly": true,
+						"type": "string"
+					}
+				},
+				"type": "object",
+				"xml": {
+					"name": "Account"
+				}
+			},
+			"AccountGroup": {
+				"properties": {
+					"id": {
+						"example": 30130,
+						"format": "int64",
+						"readOnly": true,
+						"type": "integer"
+					},
+					"name": {
+						"example": "AccountGroup Name",
+						"type": "string"
+					},
+					"x-class-name": {
+						"default": "com.liferay.headless.commerce.admin.inventory.dto.v1_0.AccountGroup",
+						"readOnly": true,
+						"type": "string"
+					}
+				},
+				"type": "object",
+				"xml": {
+					"name": "AccountGroup"
+				}
+			},
+			"Channel": {
+				"properties": {
+					"currencyCode": {
+						"type": "string"
+					},
+					"externalReferenceCode": {
+						"type": "string"
+					},
+					"id": {
+						"format": "int64",
+						"type": "integer"
+					},
+					"name": {
+						"type": "string"
+					},
+					"siteGroupId": {
+						"format": "int64",
+						"type": "integer"
+					},
+					"type": {
+						"type": "string"
+					},
+					"x-class-name": {
+						"default": "com.liferay.headless.commerce.admin.inventory.dto.v1_0.Channel",
+						"readOnly": true,
+						"type": "string"
+					}
+				},
+				"type": "object",
+				"xml": {
+					"name": "Channel"
+				}
+			},
+			"Facet": {
+				"properties": {
+					"facetCriteria": {
+						"type": "string"
+					},
+					"facetValues": {
+						"items": {
+							"$ref": "#/components/schemas/FacetValue"
+						},
+						"type": "array"
+					}
+				},
+				"type": "object"
+			},
+			"FacetValue": {
+				"properties": {
+					"numberOfOccurrences": {
+						"format": "int32",
+						"type": "integer"
+					},
+					"term": {
+						"type": "string"
+					}
+				},
+				"type": "object"
+			},
+			"OrderType": {
+				"properties": {
+					"id": {
+						"example": 30130,
+						"format": "int64",
+						"readOnly": true,
+						"type": "integer"
+					},
+					"name": {
+						"additionalProperties": {
+							"example": "{en_US=Hand Saw, hr_HR=Product Name HR, hu_HU=Product Name HU}",
+							"type": "string"
+						},
+						"example": "{en_US=Hand Saw, hr_HR=Product Name HR, hu_HU=Product Name HU}",
+						"type": "object"
+					},
+					"x-class-name": {
+						"default": "com.liferay.headless.commerce.admin.inventory.dto.v1_0.OrderType",
+						"readOnly": true,
+						"type": "string"
+					}
+				},
+				"type": "object",
+				"xml": {
+					"name": "OrderType"
+				}
+			},
+			"PageReplenishmentItem": {
+				"properties": {
+					"actions": {
+						"additionalProperties": {
+							"additionalProperties": {
+								"type": "string"
+							},
+							"type": "object"
+						},
+						"type": "object"
+					},
+					"facets": {
+						"items": {
+							"$ref": "#/components/schemas/Facet"
+						},
+						"type": "array"
+					},
+					"items": {
+						"items": {
+							"$ref": "#/components/schemas/ReplenishmentItem"
+						},
+						"type": "array"
+					},
+					"lastPage": {
+						"format": "int64",
+						"type": "integer"
+					},
+					"page": {
+						"format": "int64",
+						"type": "integer"
+					},
+					"pageSize": {
+						"format": "int64",
+						"type": "integer"
+					},
+					"totalCount": {
+						"format": "int64",
+						"type": "integer"
+					}
+				},
+				"type": "object"
+			},
+			"PageWarehouse": {
+				"properties": {
+					"actions": {
+						"additionalProperties": {
+							"additionalProperties": {
+								"type": "string"
+							},
+							"type": "object"
+						},
+						"type": "object"
+					},
+					"facets": {
+						"items": {
+							"$ref": "#/components/schemas/Facet"
+						},
+						"type": "array"
+					},
+					"items": {
+						"items": {
+							"$ref": "#/components/schemas/Warehouse"
+						},
+						"type": "array"
+					},
+					"lastPage": {
+						"format": "int64",
+						"type": "integer"
+					},
+					"page": {
+						"format": "int64",
+						"type": "integer"
+					},
+					"pageSize": {
+						"format": "int64",
+						"type": "integer"
+					},
+					"totalCount": {
+						"format": "int64",
+						"type": "integer"
+					}
+				},
+				"type": "object"
+			},
+			"PageWarehouseAccount": {
+				"properties": {
+					"actions": {
+						"additionalProperties": {
+							"additionalProperties": {
+								"type": "string"
+							},
+							"type": "object"
+						},
+						"type": "object"
+					},
+					"facets": {
+						"items": {
+							"$ref": "#/components/schemas/Facet"
+						},
+						"type": "array"
+					},
+					"items": {
+						"items": {
+							"$ref": "#/components/schemas/WarehouseAccount"
+						},
+						"type": "array"
+					},
+					"lastPage": {
+						"format": "int64",
+						"type": "integer"
+					},
+					"page": {
+						"format": "int64",
+						"type": "integer"
+					},
+					"pageSize": {
+						"format": "int64",
+						"type": "integer"
+					},
+					"totalCount": {
+						"format": "int64",
+						"type": "integer"
+					}
+				},
+				"type": "object"
+			},
+			"PageWarehouseAccountGroup": {
+				"properties": {
+					"actions": {
+						"additionalProperties": {
+							"additionalProperties": {
+								"type": "string"
+							},
+							"type": "object"
+						},
+						"type": "object"
+					},
+					"facets": {
+						"items": {
+							"$ref": "#/components/schemas/Facet"
+						},
+						"type": "array"
+					},
+					"items": {
+						"items": {
+							"$ref": "#/components/schemas/WarehouseAccountGroup"
+						},
+						"type": "array"
+					},
+					"lastPage": {
+						"format": "int64",
+						"type": "integer"
+					},
+					"page": {
+						"format": "int64",
+						"type": "integer"
+					},
+					"pageSize": {
+						"format": "int64",
+						"type": "integer"
+					},
+					"totalCount": {
+						"format": "int64",
+						"type": "integer"
+					}
+				},
+				"type": "object"
+			},
+			"PageWarehouseChannel": {
+				"properties": {
+					"actions": {
+						"additionalProperties": {
+							"additionalProperties": {
+								"type": "string"
+							},
+							"type": "object"
+						},
+						"type": "object"
+					},
+					"facets": {
+						"items": {
+							"$ref": "#/components/schemas/Facet"
+						},
+						"type": "array"
+					},
+					"items": {
+						"items": {
+							"$ref": "#/components/schemas/WarehouseChannel"
+						},
+						"type": "array"
+					},
+					"lastPage": {
+						"format": "int64",
+						"type": "integer"
+					},
+					"page": {
+						"format": "int64",
+						"type": "integer"
+					},
+					"pageSize": {
+						"format": "int64",
+						"type": "integer"
+					},
+					"totalCount": {
+						"format": "int64",
+						"type": "integer"
+					}
+				},
+				"type": "object"
+			},
+			"PageWarehouseItem": {
+				"properties": {
+					"actions": {
+						"additionalProperties": {
+							"additionalProperties": {
+								"type": "string"
+							},
+							"type": "object"
+						},
+						"type": "object"
+					},
+					"facets": {
+						"items": {
+							"$ref": "#/components/schemas/Facet"
+						},
+						"type": "array"
+					},
+					"items": {
+						"items": {
+							"$ref": "#/components/schemas/WarehouseItem"
+						},
+						"type": "array"
+					},
+					"lastPage": {
+						"format": "int64",
+						"type": "integer"
+					},
+					"page": {
+						"format": "int64",
+						"type": "integer"
+					},
+					"pageSize": {
+						"format": "int64",
+						"type": "integer"
+					},
+					"totalCount": {
+						"format": "int64",
+						"type": "integer"
+					}
+				},
+				"type": "object"
+			},
+			"PageWarehouseOrderType": {
+				"properties": {
+					"actions": {
+						"additionalProperties": {
+							"additionalProperties": {
+								"type": "string"
+							},
+							"type": "object"
+						},
+						"type": "object"
+					},
+					"facets": {
+						"items": {
+							"$ref": "#/components/schemas/Facet"
+						},
+						"type": "array"
+					},
+					"items": {
+						"items": {
+							"$ref": "#/components/schemas/WarehouseOrderType"
+						},
+						"type": "array"
+					},
+					"lastPage": {
+						"format": "int64",
+						"type": "integer"
+					},
+					"page": {
+						"format": "int64",
+						"type": "integer"
+					},
+					"pageSize": {
+						"format": "int64",
+						"type": "integer"
+					},
+					"totalCount": {
+						"format": "int64",
+						"type": "integer"
+					}
+				},
+				"type": "object"
+			},
+			"ReplenishmentItem": {
+				"properties": {
+					"availabilityDate": {
+						"format": "date-time",
+						"type": "string"
+					},
+					"externalReferenceCode": {
+						"example": "AB-34098-789-N",
+						"type": "string"
+					},
+					"id": {
+						"example": 30130,
+						"format": "int64",
+						"type": "integer"
+					},
+					"quantity": {
+						"example": 10.1,
+						"type": "number"
+					},
+					"sku": {
+						"example": "SKU",
+						"type": "string"
+					},
+					"unitOfMeasureKey": {
+						"example": "lt",
+						"type": "string"
+					},
+					"warehouseId": {
+						"example": 30130,
+						"format": "int64",
+						"type": "integer"
+					},
+					"x-class-name": {
+						"default": "com.liferay.headless.commerce.admin.inventory.dto.v1_0.ReplenishmentItem",
+						"readOnly": true,
+						"type": "string"
+					}
+				},
+				"type": "object",
+				"xml": {
+					"name": "ReplenishmentItem"
+				}
+			},
+			"Warehouse": {
+				"properties": {
+					"actions": {
+						"additionalProperties": {
+							"additionalProperties": {
+								"type": "string"
+							},
+							"type": "object"
+						},
+						"readOnly": true,
+						"type": "object"
+					},
+					"active": {
+						"example": true,
+						"type": "boolean"
+					},
+					"city": {
+						"example": "Diamond Bar",
+						"type": "string"
+					},
+					"countryISOCode": {
+						"example": "US",
+						"type": "string"
+					},
+					"description": {
+						"additionalProperties": {
+							"example": "{en_US=Warehouse Description US, hr_HR=Warehouse Description HR, hu_HU=Warehouse Description HU}",
+							"type": "string"
+						},
+						"example": "{en_US=Warehouse Description US, hr_HR=Warehouse Description HR, hu_HU=Warehouse Description HU}",
+						"type": "object"
+					},
+					"externalReferenceCode": {
+						"example": "AB-34098-789-N",
+						"type": "string"
+					},
+					"id": {
+						"example": 30130,
+						"format": "int64",
+						"type": "integer"
+					},
+					"latitude": {
+						"example": 33.9976884,
+						"format": "double",
+						"type": "number"
+					},
+					"longitude": {
+						"example": -117.8144595,
+						"format": "double",
+						"type": "number"
+					},
+					"name": {
+						"additionalProperties": {
+							"example": "{en_US=Warehouse Name US, hr_HR=Warehouse Name HR, hu_HU=Warehouse Name HU}",
+							"type": "string"
+						},
+						"example": "{en_US=Warehouse Name US, hr_HR=Warehouse Name HR, hu_HU=Warehouse Name HU}",
+						"type": "object"
+					},
+					"regionISOCode": {
+						"example": "CA",
+						"type": "string"
+					},
+					"street1": {
+						"example": "1400",
+						"type": "string"
+					},
+					"street2": {
+						"example": "1st floor",
+						"type": "string"
+					},
+					"street3": {
+						"example": "suite 200",
+						"type": "string"
+					},
+					"type": {
+						"type": "string"
+					},
+					"warehouseItems": {
+						"items": {
+							"$ref": "#/components/schemas/WarehouseItem"
+						},
+						"type": "array"
+					},
+					"x-class-name": {
+						"default": "com.liferay.headless.commerce.admin.inventory.dto.v1_0.Warehouse",
+						"readOnly": true,
+						"type": "string"
+					},
+					"zip": {
+						"example": "91765",
+						"type": "string"
+					}
+				},
+				"type": "object",
+				"xml": {
+					"name": "Warehouse"
+				}
+			},
+			"WarehouseAccount": {
+				"properties": {
+					"account": {
+						"$ref": "#/components/schemas/Account"
+					},
+					"accountExternalReferenceCode": {
+						"example": "DAB-34098-789-N",
+						"type": "string"
+					},
+					"accountId": {
+						"example": 30324,
+						"format": "int64",
+						"type": "integer"
+					},
+					"actions": {
+						"additionalProperties": {
+							"additionalProperties": {
+								"type": "string"
+							},
+							"type": "object"
+						},
+						"readOnly": true,
+						"type": "object"
+					},
+					"warehouseAccountId": {
+						"example": 30643,
+						"format": "int64",
+						"readOnly": true,
+						"type": "integer"
+					},
+					"warehouseExternalReferenceCode": {
+						"example": "PAB-34098-789-N",
+						"type": "string"
+					},
+					"warehouseId": {
+						"example": 30130,
+						"format": "int64",
+						"type": "integer"
+					},
+					"x-class-name": {
+						"default": "com.liferay.headless.commerce.admin.inventory.dto.v1_0.WarehouseAccount",
+						"readOnly": true,
+						"type": "string"
+					}
+				},
+				"required": [
+					"accountId",
+					"warehouseId"
+				],
+				"type": "object",
+				"xml": {
+					"name": "WarehouseAccount"
+				}
+			},
+			"WarehouseAccountGroup": {
+				"properties": {
+					"accountGroup": {
+						"$ref": "#/components/schemas/AccountGroup"
+					},
+					"accountGroupExternalReferenceCode": {
+						"example": "DAB-34098-789-N",
+						"type": "string"
+					},
+					"accountGroupId": {
+						"example": 30324,
+						"format": "int64",
+						"type": "integer"
+					},
+					"actions": {
+						"additionalProperties": {
+							"additionalProperties": {
+								"type": "string"
+							},
+							"type": "object"
+						},
+						"readOnly": true,
+						"type": "object"
+					},
+					"warehouseAccountGroupId": {
+						"example": 30643,
+						"format": "int64",
+						"readOnly": true,
+						"type": "integer"
+					},
+					"warehouseExternalReferenceCode": {
+						"example": "PAB-34098-789-N",
+						"type": "string"
+					},
+					"warehouseId": {
+						"example": 30130,
+						"format": "int64",
+						"type": "integer"
+					},
+					"x-class-name": {
+						"default": "com.liferay.headless.commerce.admin.inventory.dto.v1_0.WarehouseAccountGroup",
+						"readOnly": true,
+						"type": "string"
+					}
+				},
+				"required": [
+					"accountGroupId",
+					"warehouseId"
+				],
+				"type": "object",
+				"xml": {
+					"name": "WarehouseAccountGroup"
+				}
+			},
+			"WarehouseChannel": {
+				"properties": {
+					"actions": {
+						"additionalProperties": {
+							"additionalProperties": {
+								"type": "string"
+							},
+							"type": "object"
+						},
+						"readOnly": true,
+						"type": "object"
+					},
+					"channel": {
+						"$ref": "#/components/schemas/Channel"
+					},
+					"channelExternalReferenceCode": {
+						"example": "PAB-34098-789-N",
+						"type": "string"
+					},
+					"channelId": {
+						"example": 30130,
+						"format": "int64",
+						"type": "integer"
+					},
+					"warehouseChannelId": {
+						"example": 30643,
+						"format": "int64",
+						"readOnly": true,
+						"type": "integer"
+					},
+					"warehouseExternalReferenceCode": {
+						"example": "DAB-34098-789-N",
+						"type": "string"
+					},
+					"warehouseId": {
+						"example": 30324,
+						"format": "int64",
+						"type": "integer"
+					},
+					"x-class-name": {
+						"default": "com.liferay.headless.commerce.admin.inventory.dto.v1_0.WarehouseChannel",
+						"readOnly": true,
+						"type": "string"
+					}
+				},
+				"required": [
+					"channelId",
+					"warehouseId"
+				],
+				"type": "object",
+				"xml": {
+					"name": "WarehouseChannel"
+				}
+			},
+			"WarehouseItem": {
+				"properties": {
+					"externalReferenceCode": {
+						"example": "AB-34098-789-N",
+						"type": "string"
+					},
+					"id": {
+						"example": 30130,
+						"format": "int64",
+						"type": "integer"
+					},
+					"modifiedDate": {
+						"format": "date-time",
+						"type": "string"
+					},
+					"quantity": {
+						"example": 1.1,
+						"exclusiveMinimum": false,
+						"minimum": 0,
+						"type": "number"
+					},
+					"reservedQuantity": {
+						"example": 2.1,
+						"exclusiveMinimum": false,
+						"minimum": 0,
+						"type": "number"
+					},
+					"sku": {
+						"example": "SKU",
+						"type": "string"
+					},
+					"unitOfMeasureKey": {
+						"example": "lt",
+						"type": "string"
+					},
+					"warehouseExternalReferenceCode": {
+						"example": "AB-34098-789-N",
+						"type": "string"
+					},
+					"warehouseId": {
+						"example": 30030,
+						"format": "int64",
+						"type": "integer"
+					},
+					"x-class-name": {
+						"default": "com.liferay.headless.commerce.admin.inventory.dto.v1_0.WarehouseItem",
+						"readOnly": true,
+						"type": "string"
+					}
+				},
+				"type": "object",
+				"xml": {
+					"name": "WarehouseItem"
+				}
+			},
+			"WarehouseOrderType": {
+				"properties": {
+					"actions": {
+						"additionalProperties": {
+							"additionalProperties": {
+								"type": "string"
+							},
+							"type": "object"
+						},
+						"readOnly": true,
+						"type": "object"
+					},
+					"orderType": {
+						"$ref": "#/components/schemas/OrderType"
+					},
+					"orderTypeExternalReferenceCode": {
+						"example": "DAB-34098-789-N",
+						"type": "string"
+					},
+					"orderTypeId": {
+						"example": 30324,
+						"format": "int64",
+						"type": "integer"
+					},
+					"priority": {
+						"example": 1,
+						"format": "int32",
+						"type": "integer"
+					},
+					"warehouseExternalReferenceCode": {
+						"example": "PAB-34098-789-N",
+						"type": "string"
+					},
+					"warehouseId": {
+						"example": 30130,
+						"format": "int64",
+						"type": "integer"
+					},
+					"warehouseOrderTypeId": {
+						"example": 30643,
+						"format": "int64",
+						"readOnly": true,
+						"type": "integer"
+					},
+					"x-class-name": {
+						"default": "com.liferay.headless.commerce.admin.inventory.dto.v1_0.WarehouseOrderType",
+						"readOnly": true,
+						"type": "string"
+					}
+				},
+				"required": [
+					"orderTypeId",
+					"warehouseId"
+				],
+				"type": "object",
+				"xml": {
+					"name": "WarehouseOrderType"
+				}
+			}
+		}
+	},
+	"info": {
+		"description": "Liferay Commerce Admin Inventory API. A Java client JAR is available for use with the group ID 'com.liferay', artifact ID 'com.liferay.headless.commerce.admin.inventory.client', and version '4.0.38'.",
+		"license": {
+			"name": "Apache 2.0",
+			"url": "http://www.apache.org/licenses/LICENSE-2.0.html"
+		},
+		"title": "Liferay Commerce Admin Inventory API",
+		"version": "v1.0"
+	},
+	"openapi": "3.0.1",
+	"paths": {
+		"/v1.0/openapi.{type}": {
+			"get": {
+				"operationId": "getOpenAPI",
+				"parameters": [
+					{
+						"in": "path",
+						"name": "type",
+						"required": true,
+						"schema": {
+							"type": "string"
+						}
+					}
+				],
+				"responses": {
+					"default": {
+						"content": {
+							"application/json": {
+							},
+							"application/yaml": {
+							}
+						},
+						"description": "default response"
+					}
+				}
+			}
+		},
+		"/v1.0/replenishment-items/batch": {
+			"delete": {
+				"operationId": "deleteReplenishmentItemBatch",
+				"parameters": [
+					{
+						"in": "query",
+						"name": "callbackURL",
+						"schema": {
+							"type": "string"
+						}
+					}
+				],
+				"requestBody": {
+					"content": {
+						"application/json": {
+							"schema": {
+								"type": "object"
+							}
+						}
+					}
+				},
+				"responses": {
+					"default": {
+						"content": {
+							"application/json": {
+							}
+						},
+						"description": "default response"
+					}
+				},
+				"tags": [
+					"ReplenishmentItem"
+				]
+			}
+		},
+		"/v1.0/replenishment-items/by-externalReferenceCode/{externalReferenceCode}": {
+			"delete": {
+				"operationId": "deleteReplenishmentItemByExternalReferenceCode",
+				"parameters": [
+					{
+						"in": "path",
+						"name": "externalReferenceCode",
+						"required": true,
+						"schema": {
+							"type": "string"
+						}
+					}
+				],
+				"responses": {
+					"default": {
+						"content": {
+							"application/json": {
+							},
+							"application/xml": {
+							}
+						},
+						"description": "default response"
+					}
+				},
+				"tags": [
+					"ReplenishmentItem"
+				]
+			},
+			"get": {
+				"operationId": "getReplenishmentItemByExternalReferenceCode",
+				"parameters": [
+					{
+						"in": "path",
+						"name": "externalReferenceCode",
+						"required": true,
+						"schema": {
+							"type": "string"
+						}
+					}
+				],
+				"responses": {
+					"default": {
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/ReplenishmentItem"
+								}
+							},
+							"application/xml": {
+								"schema": {
+									"$ref": "#/components/schemas/ReplenishmentItem"
+								}
+							}
+						},
+						"description": "default response"
+					}
+				},
+				"tags": [
+					"ReplenishmentItem"
+				]
+			},
+			"patch": {
+				"operationId": "patchReplenishmentItemByExternalReferenceCode",
+				"parameters": [
+					{
+						"in": "path",
+						"name": "externalReferenceCode",
+						"required": true,
+						"schema": {
+							"type": "string"
+						}
+					}
+				],
+				"requestBody": {
+					"content": {
+						"application/json": {
+							"schema": {
+								"$ref": "#/components/schemas/ReplenishmentItem"
+							}
+						},
+						"application/xml": {
+							"schema": {
+								"$ref": "#/components/schemas/ReplenishmentItem"
+							}
+						}
+					}
+				},
+				"responses": {
+					"default": {
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/ReplenishmentItem"
+								}
+							},
+							"application/xml": {
+								"schema": {
+									"$ref": "#/components/schemas/ReplenishmentItem"
+								}
+							}
+						},
+						"description": "default response"
+					}
+				},
+				"tags": [
+					"ReplenishmentItem"
+				]
+			},
+			"put": {
+				"operationId": "putReplenishmentItemByExternalReferenceCode",
+				"parameters": [
+					{
+						"in": "path",
+						"name": "externalReferenceCode",
+						"required": true,
+						"schema": {
+							"type": "string"
+						}
+					}
+				],
+				"requestBody": {
+					"content": {
+						"application/json": {
+							"schema": {
+								"$ref": "#/components/schemas/ReplenishmentItem"
+							}
+						},
+						"application/xml": {
+							"schema": {
+								"$ref": "#/components/schemas/ReplenishmentItem"
+							}
+						}
+					}
+				},
+				"responses": {
+					"default": {
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/ReplenishmentItem"
+								}
+							},
+							"application/xml": {
+								"schema": {
+									"$ref": "#/components/schemas/ReplenishmentItem"
+								}
+							}
+						},
+						"description": "default response"
+					}
+				},
+				"tags": [
+					"ReplenishmentItem"
+				]
+			}
+		},
+		"/v1.0/replenishment-items/{replenishmentItemId}": {
+			"delete": {
+				"operationId": "deleteReplenishmentItem",
+				"parameters": [
+					{
+						"in": "path",
+						"name": "replenishmentItemId",
+						"required": true,
+						"schema": {
+							"type": "string"
+						}
+					}
+				],
+				"responses": {
+					"default": {
+						"content": {
+							"application/json": {
+							},
+							"application/xml": {
+							}
+						},
+						"description": "default response"
+					}
+				},
+				"tags": [
+					"ReplenishmentItem"
+				]
+			},
+			"get": {
+				"operationId": "getReplenishmentItem",
+				"parameters": [
+					{
+						"in": "path",
+						"name": "replenishmentItemId",
+						"required": true,
+						"schema": {
+							"type": "string"
+						}
+					}
+				],
+				"responses": {
+					"default": {
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/ReplenishmentItem"
+								}
+							},
+							"application/xml": {
+								"schema": {
+									"$ref": "#/components/schemas/ReplenishmentItem"
+								}
+							}
+						},
+						"description": "default response"
+					}
+				},
+				"tags": [
+					"ReplenishmentItem"
+				]
+			},
+			"patch": {
+				"operationId": "patchReplenishmentItem",
+				"parameters": [
+					{
+						"in": "path",
+						"name": "replenishmentItemId",
+						"required": true,
+						"schema": {
+							"type": "string"
+						}
+					}
+				],
+				"requestBody": {
+					"content": {
+						"application/json": {
+							"schema": {
+								"$ref": "#/components/schemas/ReplenishmentItem"
+							}
+						},
+						"application/xml": {
+							"schema": {
+								"$ref": "#/components/schemas/ReplenishmentItem"
+							}
+						}
+					}
+				},
+				"responses": {
+					"default": {
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/ReplenishmentItem"
+								}
+							},
+							"application/xml": {
+								"schema": {
+									"$ref": "#/components/schemas/ReplenishmentItem"
+								}
+							}
+						},
+						"description": "default response"
+					}
+				},
+				"tags": [
+					"ReplenishmentItem"
+				]
+			}
+		},
+		"/v1.0/skus/by-sku/{sku}/replenishment-items": {
+			"get": {
+				"operationId": "getReplenishmentItemsPage",
+				"parameters": [
+					{
+						"in": "path",
+						"name": "sku",
+						"required": true,
+						"schema": {
+							"type": "string"
+						}
+					},
+					{
+						"in": "query",
+						"name": "page",
+						"schema": {
+							"type": "string"
+						}
+					},
+					{
+						"in": "query",
+						"name": "pageSize",
+						"schema": {
+							"type": "string"
+						}
+					}
+				],
+				"responses": {
+					"default": {
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/PageReplenishmentItem"
+								}
+							},
+							"application/xml": {
+								"schema": {
+									"$ref": "#/components/schemas/PageReplenishmentItem"
+								}
+							}
+						},
+						"description": "default response"
+					}
+				},
+				"tags": [
+					"ReplenishmentItem"
+				]
+			}
+		},
+		"/v1.0/skus/by-sku/{sku}/replenishment-items/export-batch": {
+			"post": {
+				"operationId": "postReplenishmentItemsPageExportBatch",
+				"parameters": [
+					{
+						"in": "path",
+						"name": "sku",
+						"required": true,
+						"schema": {
+							"type": "string"
+						}
+					},
+					{
+						"in": "query",
+						"name": "callbackURL",
+						"schema": {
+							"type": "string"
+						}
+					},
+					{
+						"in": "query",
+						"name": "contentType",
+						"schema": {
+							"type": "string"
+						}
+					},
+					{
+						"in": "query",
+						"name": "fieldNames",
+						"schema": {
+							"type": "string"
+						}
+					}
+				],
+				"responses": {
+					"default": {
+						"content": {
+							"application/json": {
+							}
+						},
+						"description": "default response"
+					}
+				},
+				"tags": [
+					"ReplenishmentItem"
+				]
+			}
+		},
+		"/v1.0/warehouse-account-groups/batch": {
+			"delete": {
+				"operationId": "deleteWarehouseAccountGroupBatch",
+				"parameters": [
+					{
+						"in": "query",
+						"name": "callbackURL",
+						"schema": {
+							"type": "string"
+						}
+					}
+				],
+				"requestBody": {
+					"content": {
+						"application/json": {
+							"schema": {
+								"type": "object"
+							}
+						}
+					}
+				},
+				"responses": {
+					"default": {
+						"content": {
+							"application/json": {
+							}
+						},
+						"description": "default response"
+					}
+				},
+				"tags": [
+					"WarehouseAccountGroup"
+				]
+			}
+		},
+		"/v1.0/warehouse-account-groups/{warehouseAccountGroupId}": {
+			"delete": {
+				"operationId": "deleteWarehouseAccountGroup",
+				"parameters": [
+					{
+						"in": "path",
+						"name": "warehouseAccountGroupId",
+						"required": true,
+						"schema": {
+							"type": "string"
+						}
+					}
+				],
+				"responses": {
+					"default": {
+						"content": {
+							"application/json": {
+							},
+							"application/xml": {
+							}
+						},
+						"description": "default response"
+					}
+				},
+				"tags": [
+					"WarehouseAccountGroup"
+				]
+			}
+		},
+		"/v1.0/warehouse-account-groups/{warehouseAccountGroupId}/account-group": {
+			"get": {
+				"operationId": "getWarehouseAccountGroupAccountGroup",
+				"parameters": [
+					{
+						"in": "path",
+						"name": "warehouseAccountGroupId",
+						"required": true,
+						"schema": {
+							"type": "string"
+						}
+					}
+				],
+				"responses": {
+					"default": {
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/AccountGroup"
+								}
+							},
+							"application/xml": {
+								"schema": {
+									"$ref": "#/components/schemas/AccountGroup"
+								}
+							}
+						},
+						"description": "default response"
+					}
+				},
+				"tags": [
+					"AccountGroup"
+				]
+			}
+		},
+		"/v1.0/warehouse-accounts/batch": {
+			"delete": {
+				"operationId": "deleteWarehouseAccountBatch",
+				"parameters": [
+					{
+						"in": "query",
+						"name": "callbackURL",
+						"schema": {
+							"type": "string"
+						}
+					}
+				],
+				"requestBody": {
+					"content": {
+						"application/json": {
+							"schema": {
+								"type": "object"
+							}
+						}
+					}
+				},
+				"responses": {
+					"default": {
+						"content": {
+							"application/json": {
+							}
+						},
+						"description": "default response"
+					}
+				},
+				"tags": [
+					"WarehouseAccount"
+				]
+			}
+		},
+		"/v1.0/warehouse-accounts/{warehouseAccountId}": {
+			"delete": {
+				"operationId": "deleteWarehouseAccount",
+				"parameters": [
+					{
+						"in": "path",
+						"name": "warehouseAccountId",
+						"required": true,
+						"schema": {
+							"type": "string"
+						}
+					}
+				],
+				"responses": {
+					"default": {
+						"content": {
+							"application/json": {
+							},
+							"application/xml": {
+							}
+						},
+						"description": "default response"
+					}
+				},
+				"tags": [
+					"WarehouseAccount"
+				]
+			}
+		},
+		"/v1.0/warehouse-accounts/{warehouseAccountId}/account": {
+			"get": {
+				"operationId": "getWarehouseAccountAccount",
+				"parameters": [
+					{
+						"in": "path",
+						"name": "warehouseAccountId",
+						"required": true,
+						"schema": {
+							"type": "string"
+						}
+					}
+				],
+				"responses": {
+					"default": {
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/Account"
+								}
+							},
+							"application/xml": {
+								"schema": {
+									"$ref": "#/components/schemas/Account"
+								}
+							}
+						},
+						"description": "default response"
+					}
+				},
+				"tags": [
+					"Account"
+				]
+			}
+		},
+		"/v1.0/warehouse-channels/batch": {
+			"delete": {
+				"operationId": "deleteWarehouseChannelBatch",
+				"parameters": [
+					{
+						"in": "query",
+						"name": "callbackURL",
+						"schema": {
+							"type": "string"
+						}
+					}
+				],
+				"requestBody": {
+					"content": {
+						"application/json": {
+							"schema": {
+								"type": "object"
+							}
+						}
+					}
+				},
+				"responses": {
+					"default": {
+						"content": {
+							"application/json": {
+							}
+						},
+						"description": "default response"
+					}
+				},
+				"tags": [
+					"WarehouseChannel"
+				]
+			}
+		},
+		"/v1.0/warehouse-channels/{warehouseChannelId}": {
+			"delete": {
+				"operationId": "deleteWarehouseChannel",
+				"parameters": [
+					{
+						"in": "path",
+						"name": "warehouseChannelId",
+						"required": true,
+						"schema": {
+							"type": "string"
+						}
+					}
+				],
+				"responses": {
+					"default": {
+						"content": {
+							"application/json": {
+							},
+							"application/xml": {
+							}
+						},
+						"description": "default response"
+					}
+				},
+				"tags": [
+					"WarehouseChannel"
+				]
+			}
+		},
+		"/v1.0/warehouse-channels/{warehouseChannelId}/channel": {
+			"get": {
+				"operationId": "getWarehouseChannelChannel",
+				"parameters": [
+					{
+						"in": "path",
+						"name": "warehouseChannelId",
+						"required": true,
+						"schema": {
+							"type": "string"
+						}
+					}
+				],
+				"responses": {
+					"default": {
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/Channel"
+								}
+							},
+							"application/xml": {
+								"schema": {
+									"$ref": "#/components/schemas/Channel"
+								}
+							}
+						},
+						"description": "default response"
+					}
+				},
+				"tags": [
+					"Channel"
+				]
+			}
+		},
+		"/v1.0/warehouse-order-types/batch": {
+			"delete": {
+				"operationId": "deleteWarehouseOrderTypeBatch",
+				"parameters": [
+					{
+						"in": "query",
+						"name": "callbackURL",
+						"schema": {
+							"type": "string"
+						}
+					}
+				],
+				"requestBody": {
+					"content": {
+						"application/json": {
+							"schema": {
+								"type": "object"
+							}
+						}
+					}
+				},
+				"responses": {
+					"default": {
+						"content": {
+							"application/json": {
+							}
+						},
+						"description": "default response"
+					}
+				},
+				"tags": [
+					"WarehouseOrderType"
+				]
+			}
+		},
+		"/v1.0/warehouse-order-types/{warehouseOrderTypeId}": {
+			"delete": {
+				"operationId": "deleteWarehouseOrderType",
+				"parameters": [
+					{
+						"in": "path",
+						"name": "warehouseOrderTypeId",
+						"required": true,
+						"schema": {
+							"type": "string"
+						}
+					}
+				],
+				"responses": {
+					"default": {
+						"content": {
+							"application/json": {
+							},
+							"application/xml": {
+							}
+						},
+						"description": "default response"
+					}
+				},
+				"tags": [
+					"WarehouseOrderType"
+				]
+			}
+		},
+		"/v1.0/warehouse-order-types/{warehouseOrderTypeId}/order-type": {
+			"get": {
+				"operationId": "getWarehouseOrderTypeOrderType",
+				"parameters": [
+					{
+						"in": "path",
+						"name": "warehouseOrderTypeId",
+						"required": true,
+						"schema": {
+							"type": "string"
+						}
+					}
+				],
+				"responses": {
+					"default": {
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/OrderType"
+								}
+							},
+							"application/xml": {
+								"schema": {
+									"$ref": "#/components/schemas/OrderType"
+								}
+							}
+						},
+						"description": "default response"
+					}
+				},
+				"tags": [
+					"OrderType"
+				]
+			}
+		},
+		"/v1.0/warehouseItems/batch": {
+			"delete": {
+				"operationId": "deleteWarehouseItemBatch",
+				"parameters": [
+					{
+						"in": "query",
+						"name": "callbackURL",
+						"schema": {
+							"type": "string"
+						}
+					}
+				],
+				"requestBody": {
+					"content": {
+						"application/json": {
+							"schema": {
+								"type": "object"
+							}
+						}
+					}
+				},
+				"responses": {
+					"default": {
+						"content": {
+							"application/json": {
+							}
+						},
+						"description": "default response"
+					}
+				},
+				"tags": [
+					"WarehouseItem"
+				]
+			}
+		},
+		"/v1.0/warehouseItems/by-externalReferenceCode/{externalReferenceCode}": {
+			"delete": {
+				"operationId": "deleteWarehouseItemByExternalReferenceCode",
+				"parameters": [
+					{
+						"in": "path",
+						"name": "externalReferenceCode",
+						"required": true,
+						"schema": {
+							"type": "string"
+						}
+					}
+				],
+				"responses": {
+					"default": {
+						"content": {
+							"application/json": {
+							},
+							"application/xml": {
+							}
+						},
+						"description": "default response"
+					}
+				},
+				"tags": [
+					"WarehouseItem"
+				]
+			},
+			"get": {
+				"operationId": "getWarehouseItemByExternalReferenceCode",
+				"parameters": [
+					{
+						"in": "path",
+						"name": "externalReferenceCode",
+						"required": true,
+						"schema": {
+							"type": "string"
+						}
+					}
+				],
+				"responses": {
+					"default": {
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/WarehouseItem"
+								}
+							},
+							"application/xml": {
+								"schema": {
+									"$ref": "#/components/schemas/WarehouseItem"
+								}
+							}
+						},
+						"description": "default response"
+					}
+				},
+				"tags": [
+					"WarehouseItem"
+				]
+			},
+			"patch": {
+				"operationId": "patchWarehouseItemByExternalReferenceCode",
+				"parameters": [
+					{
+						"in": "path",
+						"name": "externalReferenceCode",
+						"required": true,
+						"schema": {
+							"type": "string"
+						}
+					}
+				],
+				"requestBody": {
+					"content": {
+						"application/json": {
+							"schema": {
+								"$ref": "#/components/schemas/WarehouseItem"
+							}
+						},
+						"application/xml": {
+							"schema": {
+								"$ref": "#/components/schemas/WarehouseItem"
+							}
+						}
+					}
+				},
+				"responses": {
+					"default": {
+						"content": {
+							"application/json": {
+							},
+							"application/xml": {
+							}
+						},
+						"description": "default response"
+					}
+				},
+				"tags": [
+					"WarehouseItem"
+				]
+			},
+			"post": {
+				"operationId": "postWarehouseItemByExternalReferenceCode",
+				"parameters": [
+					{
+						"in": "path",
+						"name": "externalReferenceCode",
+						"required": true,
+						"schema": {
+							"type": "string"
+						}
+					}
+				],
+				"requestBody": {
+					"content": {
+						"application/json": {
+							"schema": {
+								"$ref": "#/components/schemas/WarehouseItem"
+							}
+						},
+						"application/xml": {
+							"schema": {
+								"$ref": "#/components/schemas/WarehouseItem"
+							}
+						}
+					}
+				},
+				"responses": {
+					"default": {
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/WarehouseItem"
+								}
+							},
+							"application/xml": {
+								"schema": {
+									"$ref": "#/components/schemas/WarehouseItem"
+								}
+							}
+						},
+						"description": "default response"
+					}
+				},
+				"tags": [
+					"WarehouseItem"
+				]
+			}
+		},
+		"/v1.0/warehouseItems/updated": {
+			"get": {
+				"operationId": "getWarehouseItemsUpdatedPage",
+				"parameters": [
+					{
+						"in": "query",
+						"name": "end",
+						"schema": {
+							"type": "string"
+						}
+					},
+					{
+						"in": "query",
+						"name": "page",
+						"schema": {
+							"type": "string"
+						}
+					},
+					{
+						"in": "query",
+						"name": "pageSize",
+						"schema": {
+							"type": "string"
+						}
+					},
+					{
+						"in": "query",
+						"name": "start",
+						"schema": {
+							"type": "string"
+						}
+					}
+				],
+				"responses": {
+					"default": {
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/PageWarehouseItem"
+								}
+							},
+							"application/xml": {
+								"schema": {
+									"$ref": "#/components/schemas/PageWarehouseItem"
+								}
+							}
+						},
+						"description": "default response"
+					}
+				},
+				"tags": [
+					"WarehouseItem"
+				]
+			}
+		},
+		"/v1.0/warehouseItems/{id}": {
+			"delete": {
+				"operationId": "deleteWarehouseItem",
+				"parameters": [
+					{
+						"in": "path",
+						"name": "id",
+						"required": true,
+						"schema": {
+							"type": "string"
+						}
+					}
+				],
+				"responses": {
+					"default": {
+						"content": {
+							"application/json": {
+							},
+							"application/xml": {
+							}
+						},
+						"description": "default response"
+					}
+				},
+				"tags": [
+					"WarehouseItem"
+				]
+			},
+			"get": {
+				"operationId": "getWarehouseItem",
+				"parameters": [
+					{
+						"in": "path",
+						"name": "id",
+						"required": true,
+						"schema": {
+							"type": "string"
+						}
+					}
+				],
+				"responses": {
+					"default": {
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/WarehouseItem"
+								}
+							},
+							"application/xml": {
+								"schema": {
+									"$ref": "#/components/schemas/WarehouseItem"
+								}
+							}
+						},
+						"description": "default response"
+					}
+				},
+				"tags": [
+					"WarehouseItem"
+				]
+			},
+			"patch": {
+				"operationId": "patchWarehouseItem",
+				"parameters": [
+					{
+						"in": "path",
+						"name": "id",
+						"required": true,
+						"schema": {
+							"type": "string"
+						}
+					}
+				],
+				"requestBody": {
+					"content": {
+						"application/json": {
+							"schema": {
+								"$ref": "#/components/schemas/WarehouseItem"
+							}
+						},
+						"application/xml": {
+							"schema": {
+								"$ref": "#/components/schemas/WarehouseItem"
+							}
+						}
+					}
+				},
+				"responses": {
+					"default": {
+						"content": {
+							"application/json": {
+							},
+							"application/xml": {
+							}
+						},
+						"description": "default response"
+					}
+				},
+				"tags": [
+					"WarehouseItem"
+				]
+			}
+		},
+		"/v1.0/warehouses": {
+			"get": {
+				"operationId": "getWarehousesPage",
+				"parameters": [
+					{
+						"in": "query",
+						"name": "filter",
+						"schema": {
+							"type": "string"
+						}
+					},
+					{
+						"in": "query",
+						"name": "page",
+						"schema": {
+							"type": "string"
+						}
+					},
+					{
+						"in": "query",
+						"name": "pageSize",
+						"schema": {
+							"type": "string"
+						}
+					},
+					{
+						"in": "query",
+						"name": "search",
+						"schema": {
+							"type": "string"
+						}
+					},
+					{
+						"in": "query",
+						"name": "sort",
+						"schema": {
+							"type": "string"
+						}
+					}
+				],
+				"responses": {
+					"default": {
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/PageWarehouse"
+								}
+							},
+							"application/xml": {
+								"schema": {
+									"$ref": "#/components/schemas/PageWarehouse"
+								}
+							}
+						},
+						"description": "default response"
+					}
+				},
+				"tags": [
+					"Warehouse"
+				]
+			},
+			"post": {
+				"operationId": "postWarehouse",
+				"requestBody": {
+					"content": {
+						"application/json": {
+							"schema": {
+								"$ref": "#/components/schemas/Warehouse"
+							}
+						},
+						"application/xml": {
+							"schema": {
+								"$ref": "#/components/schemas/Warehouse"
+							}
+						}
+					}
+				},
+				"responses": {
+					"default": {
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/Warehouse"
+								}
+							},
+							"application/xml": {
+								"schema": {
+									"$ref": "#/components/schemas/Warehouse"
+								}
+							}
+						},
+						"description": "default response"
+					}
+				},
+				"tags": [
+					"Warehouse"
+				]
+			}
+		},
+		"/v1.0/warehouses/batch": {
+			"post": {
+				"operationId": "postWarehouseBatch",
+				"parameters": [
+					{
+						"in": "query",
+						"name": "callbackURL",
+						"schema": {
+							"type": "string"
+						}
+					}
+				],
+				"requestBody": {
+					"content": {
+						"application/json": {
+							"schema": {
+								"type": "object"
+							}
+						}
+					}
+				},
+				"responses": {
+					"default": {
+						"content": {
+							"application/json": {
+							}
+						},
+						"description": "default response"
+					}
+				},
+				"tags": [
+					"Warehouse"
+				]
+			}
+		},
+		"/v1.0/warehouses/by-externalReferenceCode/{externalReferenceCode}": {
+			"delete": {
+				"operationId": "deleteWarehouseByExternalReferenceCode",
+				"parameters": [
+					{
+						"in": "path",
+						"name": "externalReferenceCode",
+						"required": true,
+						"schema": {
+							"type": "string"
+						}
+					}
+				],
+				"responses": {
+					"default": {
+						"content": {
+							"application/json": {
+							},
+							"application/xml": {
+							}
+						},
+						"description": "default response"
+					}
+				},
+				"tags": [
+					"Warehouse"
+				]
+			},
+			"get": {
+				"operationId": "getWarehouseByExternalReferenceCode",
+				"parameters": [
+					{
+						"in": "path",
+						"name": "externalReferenceCode",
+						"required": true,
+						"schema": {
+							"type": "string"
+						}
+					}
+				],
+				"responses": {
+					"default": {
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/Warehouse"
+								}
+							},
+							"application/xml": {
+								"schema": {
+									"$ref": "#/components/schemas/Warehouse"
+								}
+							}
+						},
+						"description": "default response"
+					}
+				},
+				"tags": [
+					"Warehouse"
+				]
+			},
+			"patch": {
+				"operationId": "patchWarehouseByExternalReferenceCode",
+				"parameters": [
+					{
+						"in": "path",
+						"name": "externalReferenceCode",
+						"required": true,
+						"schema": {
+							"type": "string"
+						}
+					}
+				],
+				"requestBody": {
+					"content": {
+						"application/json": {
+							"schema": {
+								"$ref": "#/components/schemas/Warehouse"
+							}
+						},
+						"application/xml": {
+							"schema": {
+								"$ref": "#/components/schemas/Warehouse"
+							}
+						}
+					}
+				},
+				"responses": {
+					"default": {
+						"content": {
+							"application/json": {
+							},
+							"application/xml": {
+							}
+						},
+						"description": "default response"
+					}
+				},
+				"tags": [
+					"Warehouse"
+				]
+			},
+			"put": {
+				"operationId": "putWarehouseByExternalReferenceCode",
+				"parameters": [
+					{
+						"in": "path",
+						"name": "externalReferenceCode",
+						"required": true,
+						"schema": {
+							"type": "string"
+						}
+					}
+				],
+				"requestBody": {
+					"content": {
+						"application/json": {
+							"schema": {
+								"$ref": "#/components/schemas/Warehouse"
+							}
+						},
+						"application/xml": {
+							"schema": {
+								"$ref": "#/components/schemas/Warehouse"
+							}
+						}
+					}
+				},
+				"responses": {
+					"default": {
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/Warehouse"
+								}
+							},
+							"application/xml": {
+								"schema": {
+									"$ref": "#/components/schemas/Warehouse"
+								}
+							}
+						},
+						"description": "default response"
+					}
+				},
+				"tags": [
+					"Warehouse"
+				]
+			}
+		},
+		"/v1.0/warehouses/by-externalReferenceCode/{externalReferenceCode}/warehouse-account-groups": {
+			"get": {
+				"operationId": "getWarehouseByExternalReferenceCodeWarehouseAccountGroupsPage",
+				"parameters": [
+					{
+						"in": "path",
+						"name": "externalReferenceCode",
+						"required": true,
+						"schema": {
+							"type": "string"
+						}
+					},
+					{
+						"in": "query",
+						"name": "page",
+						"schema": {
+							"type": "string"
+						}
+					},
+					{
+						"in": "query",
+						"name": "pageSize",
+						"schema": {
+							"type": "string"
+						}
+					}
+				],
+				"responses": {
+					"default": {
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/PageWarehouseAccountGroup"
+								}
+							},
+							"application/xml": {
+								"schema": {
+									"$ref": "#/components/schemas/PageWarehouseAccountGroup"
+								}
+							}
+						},
+						"description": "default response"
+					}
+				},
+				"tags": [
+					"WarehouseAccountGroup"
+				]
+			},
+			"post": {
+				"operationId": "postWarehouseByExternalReferenceCodeWarehouseAccountGroup",
+				"parameters": [
+					{
+						"in": "path",
+						"name": "externalReferenceCode",
+						"required": true,
+						"schema": {
+							"type": "string"
+						}
+					}
+				],
+				"requestBody": {
+					"content": {
+						"application/json": {
+							"schema": {
+								"$ref": "#/components/schemas/WarehouseAccountGroup"
+							}
+						},
+						"application/xml": {
+							"schema": {
+								"$ref": "#/components/schemas/WarehouseAccountGroup"
+							}
+						}
+					}
+				},
+				"responses": {
+					"default": {
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/WarehouseAccountGroup"
+								}
+							},
+							"application/xml": {
+								"schema": {
+									"$ref": "#/components/schemas/WarehouseAccountGroup"
+								}
+							}
+						},
+						"description": "default response"
+					}
+				},
+				"tags": [
+					"WarehouseAccountGroup"
+				]
+			}
+		},
+		"/v1.0/warehouses/by-externalReferenceCode/{externalReferenceCode}/warehouse-accounts": {
+			"get": {
+				"operationId": "getWarehouseByExternalReferenceCodeWarehouseAccountsPage",
+				"parameters": [
+					{
+						"in": "path",
+						"name": "externalReferenceCode",
+						"required": true,
+						"schema": {
+							"type": "string"
+						}
+					},
+					{
+						"in": "query",
+						"name": "page",
+						"schema": {
+							"type": "string"
+						}
+					},
+					{
+						"in": "query",
+						"name": "pageSize",
+						"schema": {
+							"type": "string"
+						}
+					}
+				],
+				"responses": {
+					"default": {
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/PageWarehouseAccount"
+								}
+							},
+							"application/xml": {
+								"schema": {
+									"$ref": "#/components/schemas/PageWarehouseAccount"
+								}
+							}
+						},
+						"description": "default response"
+					}
+				},
+				"tags": [
+					"WarehouseAccount"
+				]
+			},
+			"post": {
+				"operationId": "postWarehouseByExternalReferenceCodeWarehouseAccount",
+				"parameters": [
+					{
+						"in": "path",
+						"name": "externalReferenceCode",
+						"required": true,
+						"schema": {
+							"type": "string"
+						}
+					}
+				],
+				"requestBody": {
+					"content": {
+						"application/json": {
+							"schema": {
+								"$ref": "#/components/schemas/WarehouseAccount"
+							}
+						},
+						"application/xml": {
+							"schema": {
+								"$ref": "#/components/schemas/WarehouseAccount"
+							}
+						}
+					}
+				},
+				"responses": {
+					"default": {
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/WarehouseAccount"
+								}
+							},
+							"application/xml": {
+								"schema": {
+									"$ref": "#/components/schemas/WarehouseAccount"
+								}
+							}
+						},
+						"description": "default response"
+					}
+				},
+				"tags": [
+					"WarehouseAccount"
+				]
+			}
+		},
+		"/v1.0/warehouses/by-externalReferenceCode/{externalReferenceCode}/warehouse-channels": {
+			"get": {
+				"operationId": "getWarehouseByExternalReferenceCodeWarehouseChannelsPage",
+				"parameters": [
+					{
+						"in": "path",
+						"name": "externalReferenceCode",
+						"required": true,
+						"schema": {
+							"type": "string"
+						}
+					},
+					{
+						"in": "query",
+						"name": "page",
+						"schema": {
+							"type": "string"
+						}
+					},
+					{
+						"in": "query",
+						"name": "pageSize",
+						"schema": {
+							"type": "string"
+						}
+					}
+				],
+				"responses": {
+					"default": {
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/PageWarehouseChannel"
+								}
+							},
+							"application/xml": {
+								"schema": {
+									"$ref": "#/components/schemas/PageWarehouseChannel"
+								}
+							}
+						},
+						"description": "default response"
+					}
+				},
+				"tags": [
+					"WarehouseChannel"
+				]
+			},
+			"post": {
+				"operationId": "postWarehouseByExternalReferenceCodeWarehouseChannel",
+				"parameters": [
+					{
+						"in": "path",
+						"name": "externalReferenceCode",
+						"required": true,
+						"schema": {
+							"type": "string"
+						}
+					}
+				],
+				"requestBody": {
+					"content": {
+						"application/json": {
+							"schema": {
+								"$ref": "#/components/schemas/WarehouseChannel"
+							}
+						},
+						"application/xml": {
+							"schema": {
+								"$ref": "#/components/schemas/WarehouseChannel"
+							}
+						}
+					}
+				},
+				"responses": {
+					"default": {
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/WarehouseChannel"
+								}
+							},
+							"application/xml": {
+								"schema": {
+									"$ref": "#/components/schemas/WarehouseChannel"
+								}
+							}
+						},
+						"description": "default response"
+					}
+				},
+				"tags": [
+					"WarehouseChannel"
+				]
+			}
+		},
+		"/v1.0/warehouses/by-externalReferenceCode/{externalReferenceCode}/warehouse-order-types": {
+			"get": {
+				"operationId": "getWarehouseByExternalReferenceCodeWarehouseOrderTypesPage",
+				"parameters": [
+					{
+						"in": "path",
+						"name": "externalReferenceCode",
+						"required": true,
+						"schema": {
+							"type": "string"
+						}
+					},
+					{
+						"in": "query",
+						"name": "page",
+						"schema": {
+							"type": "string"
+						}
+					},
+					{
+						"in": "query",
+						"name": "pageSize",
+						"schema": {
+							"type": "string"
+						}
+					}
+				],
+				"responses": {
+					"default": {
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/PageWarehouseOrderType"
+								}
+							},
+							"application/xml": {
+								"schema": {
+									"$ref": "#/components/schemas/PageWarehouseOrderType"
+								}
+							}
+						},
+						"description": "default response"
+					}
+				},
+				"tags": [
+					"WarehouseOrderType"
+				]
+			},
+			"post": {
+				"operationId": "postWarehouseByExternalReferenceCodeWarehouseOrderType",
+				"parameters": [
+					{
+						"in": "path",
+						"name": "externalReferenceCode",
+						"required": true,
+						"schema": {
+							"type": "string"
+						}
+					}
+				],
+				"requestBody": {
+					"content": {
+						"application/json": {
+							"schema": {
+								"$ref": "#/components/schemas/WarehouseOrderType"
+							}
+						},
+						"application/xml": {
+							"schema": {
+								"$ref": "#/components/schemas/WarehouseOrderType"
+							}
+						}
+					}
+				},
+				"responses": {
+					"default": {
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/WarehouseOrderType"
+								}
+							},
+							"application/xml": {
+								"schema": {
+									"$ref": "#/components/schemas/WarehouseOrderType"
+								}
+							}
+						},
+						"description": "default response"
+					}
+				},
+				"tags": [
+					"WarehouseOrderType"
+				]
+			}
+		},
+		"/v1.0/warehouses/by-externalReferenceCode/{externalReferenceCode}/warehouseItems": {
+			"get": {
+				"operationId": "getWarehouseByExternalReferenceCodeWarehouseItemsPage",
+				"parameters": [
+					{
+						"in": "path",
+						"name": "externalReferenceCode",
+						"required": true,
+						"schema": {
+							"type": "string"
+						}
+					},
+					{
+						"in": "query",
+						"name": "page",
+						"schema": {
+							"type": "string"
+						}
+					},
+					{
+						"in": "query",
+						"name": "pageSize",
+						"schema": {
+							"type": "string"
+						}
+					}
+				],
+				"responses": {
+					"default": {
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/PageWarehouseItem"
+								}
+							},
+							"application/xml": {
+								"schema": {
+									"$ref": "#/components/schemas/PageWarehouseItem"
+								}
+							}
+						},
+						"description": "default response"
+					}
+				},
+				"tags": [
+					"WarehouseItem"
+				]
+			},
+			"post": {
+				"operationId": "postWarehouseByExternalReferenceCodeWarehouseItem",
+				"parameters": [
+					{
+						"in": "path",
+						"name": "externalReferenceCode",
+						"required": true,
+						"schema": {
+							"type": "string"
+						}
+					}
+				],
+				"requestBody": {
+					"content": {
+						"application/json": {
+							"schema": {
+								"$ref": "#/components/schemas/WarehouseItem"
+							}
+						},
+						"application/xml": {
+							"schema": {
+								"$ref": "#/components/schemas/WarehouseItem"
+							}
+						}
+					}
+				},
+				"responses": {
+					"default": {
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/WarehouseItem"
+								}
+							},
+							"application/xml": {
+								"schema": {
+									"$ref": "#/components/schemas/WarehouseItem"
+								}
+							}
+						},
+						"description": "default response"
+					}
+				},
+				"tags": [
+					"WarehouseItem"
+				]
+			}
+		},
+		"/v1.0/warehouses/export-batch": {
+			"post": {
+				"operationId": "postWarehousesPageExportBatch",
+				"parameters": [
+					{
+						"in": "query",
+						"name": "filter",
+						"schema": {
+							"type": "string"
+						}
+					},
+					{
+						"in": "query",
+						"name": "search",
+						"schema": {
+							"type": "string"
+						}
+					},
+					{
+						"in": "query",
+						"name": "sort",
+						"schema": {
+							"type": "string"
+						}
+					},
+					{
+						"in": "query",
+						"name": "callbackURL",
+						"schema": {
+							"type": "string"
+						}
+					},
+					{
+						"in": "query",
+						"name": "contentType",
+						"schema": {
+							"type": "string"
+						}
+					},
+					{
+						"in": "query",
+						"name": "fieldNames",
+						"schema": {
+							"type": "string"
+						}
+					}
+				],
+				"responses": {
+					"default": {
+						"content": {
+							"application/json": {
+							}
+						},
+						"description": "default response"
+					}
+				},
+				"tags": [
+					"Warehouse"
+				]
+			}
+		},
+		"/v1.0/warehouses/warehouse-account-groups/batch": {
+			"post": {
+				"operationId": "postWarehouseIdWarehouseAccountGroupBatch",
+				"parameters": [
+					{
+						"in": "query",
+						"name": "callbackURL",
+						"schema": {
+							"type": "string"
+						}
+					}
+				],
+				"requestBody": {
+					"content": {
+						"application/json": {
+							"schema": {
+								"type": "object"
+							}
+						}
+					}
+				},
+				"responses": {
+					"default": {
+						"content": {
+							"application/json": {
+							}
+						},
+						"description": "default response"
+					}
+				},
+				"tags": [
+					"WarehouseAccountGroup"
+				]
+			}
+		},
+		"/v1.0/warehouses/warehouse-accounts/batch": {
+			"post": {
+				"operationId": "postWarehouseIdWarehouseAccountBatch",
+				"parameters": [
+					{
+						"in": "query",
+						"name": "callbackURL",
+						"schema": {
+							"type": "string"
+						}
+					}
+				],
+				"requestBody": {
+					"content": {
+						"application/json": {
+							"schema": {
+								"type": "object"
+							}
+						}
+					}
+				},
+				"responses": {
+					"default": {
+						"content": {
+							"application/json": {
+							}
+						},
+						"description": "default response"
+					}
+				},
+				"tags": [
+					"WarehouseAccount"
+				]
+			}
+		},
+		"/v1.0/warehouses/warehouse-channels/batch": {
+			"post": {
+				"operationId": "postWarehouseIdWarehouseChannelBatch",
+				"parameters": [
+					{
+						"in": "query",
+						"name": "callbackURL",
+						"schema": {
+							"type": "string"
+						}
+					}
+				],
+				"requestBody": {
+					"content": {
+						"application/json": {
+							"schema": {
+								"type": "object"
+							}
+						}
+					}
+				},
+				"responses": {
+					"default": {
+						"content": {
+							"application/json": {
+							}
+						},
+						"description": "default response"
+					}
+				},
+				"tags": [
+					"WarehouseChannel"
+				]
+			}
+		},
+		"/v1.0/warehouses/warehouse-order-types/batch": {
+			"post": {
+				"operationId": "postWarehouseIdWarehouseOrderTypeBatch",
+				"parameters": [
+					{
+						"in": "query",
+						"name": "callbackURL",
+						"schema": {
+							"type": "string"
+						}
+					}
+				],
+				"requestBody": {
+					"content": {
+						"application/json": {
+							"schema": {
+								"type": "object"
+							}
+						}
+					}
+				},
+				"responses": {
+					"default": {
+						"content": {
+							"application/json": {
+							}
+						},
+						"description": "default response"
+					}
+				},
+				"tags": [
+					"WarehouseOrderType"
+				]
+			}
+		},
+		"/v1.0/warehouses/warehouseItems/batch": {
+			"post": {
+				"operationId": "postWarehouseIdWarehouseItemBatch",
+				"parameters": [
+					{
+						"in": "query",
+						"name": "callbackURL",
+						"schema": {
+							"type": "string"
+						}
+					}
+				],
+				"requestBody": {
+					"content": {
+						"application/json": {
+							"schema": {
+								"type": "object"
+							}
+						}
+					}
+				},
+				"responses": {
+					"default": {
+						"content": {
+							"application/json": {
+							}
+						},
+						"description": "default response"
+					}
+				},
+				"tags": [
+					"WarehouseItem"
+				]
+			}
+		},
+		"/v1.0/warehouses/{id}": {
+			"delete": {
+				"operationId": "deleteWarehouseId",
+				"parameters": [
+					{
+						"in": "path",
+						"name": "id",
+						"required": true,
+						"schema": {
+							"type": "string"
+						}
+					}
+				],
+				"responses": {
+					"default": {
+						"content": {
+							"application/json": {
+							},
+							"application/xml": {
+							}
+						},
+						"description": "default response"
+					}
+				},
+				"tags": [
+					"Warehouse"
+				]
+			},
+			"get": {
+				"operationId": "getWarehouseId",
+				"parameters": [
+					{
+						"in": "path",
+						"name": "id",
+						"required": true,
+						"schema": {
+							"type": "string"
+						}
+					}
+				],
+				"responses": {
+					"default": {
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/Warehouse"
+								}
+							},
+							"application/xml": {
+								"schema": {
+									"$ref": "#/components/schemas/Warehouse"
+								}
+							}
+						},
+						"description": "default response"
+					}
+				},
+				"tags": [
+					"Warehouse"
+				]
+			},
+			"patch": {
+				"operationId": "patchWarehouseId",
+				"parameters": [
+					{
+						"in": "path",
+						"name": "id",
+						"required": true,
+						"schema": {
+							"type": "string"
+						}
+					}
+				],
+				"requestBody": {
+					"content": {
+						"application/json": {
+							"schema": {
+								"$ref": "#/components/schemas/Warehouse"
+							}
+						},
+						"application/xml": {
+							"schema": {
+								"$ref": "#/components/schemas/Warehouse"
+							}
+						}
+					}
+				},
+				"responses": {
+					"default": {
+						"content": {
+							"application/json": {
+							},
+							"application/xml": {
+							}
+						},
+						"description": "default response"
+					}
+				},
+				"tags": [
+					"Warehouse"
+				]
+			}
+		},
+		"/v1.0/warehouses/{id}/warehouse-account-groups": {
+			"get": {
+				"operationId": "getWarehouseIdWarehouseAccountGroupsPage",
+				"parameters": [
+					{
+						"in": "path",
+						"name": "id",
+						"required": true,
+						"schema": {
+							"type": "string"
+						}
+					},
+					{
+						"in": "query",
+						"name": "filter",
+						"schema": {
+							"type": "string"
+						}
+					},
+					{
+						"in": "query",
+						"name": "page",
+						"schema": {
+							"type": "string"
+						}
+					},
+					{
+						"in": "query",
+						"name": "pageSize",
+						"schema": {
+							"type": "string"
+						}
+					},
+					{
+						"in": "query",
+						"name": "search",
+						"schema": {
+							"type": "string"
+						}
+					},
+					{
+						"in": "query",
+						"name": "sort",
+						"schema": {
+							"type": "string"
+						}
+					}
+				],
+				"responses": {
+					"default": {
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/PageWarehouseAccountGroup"
+								}
+							},
+							"application/xml": {
+								"schema": {
+									"$ref": "#/components/schemas/PageWarehouseAccountGroup"
+								}
+							}
+						},
+						"description": "default response"
+					}
+				},
+				"tags": [
+					"WarehouseAccountGroup"
+				]
+			},
+			"post": {
+				"operationId": "postWarehouseIdWarehouseAccountGroup",
+				"parameters": [
+					{
+						"in": "path",
+						"name": "id",
+						"required": true,
+						"schema": {
+							"type": "string"
+						}
+					}
+				],
+				"requestBody": {
+					"content": {
+						"application/json": {
+							"schema": {
+								"$ref": "#/components/schemas/WarehouseAccountGroup"
+							}
+						},
+						"application/xml": {
+							"schema": {
+								"$ref": "#/components/schemas/WarehouseAccountGroup"
+							}
+						}
+					}
+				},
+				"responses": {
+					"default": {
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/WarehouseAccountGroup"
+								}
+							},
+							"application/xml": {
+								"schema": {
+									"$ref": "#/components/schemas/WarehouseAccountGroup"
+								}
+							}
+						},
+						"description": "default response"
+					}
+				},
+				"tags": [
+					"WarehouseAccountGroup"
+				]
+			}
+		},
+		"/v1.0/warehouses/{id}/warehouse-accounts": {
+			"get": {
+				"operationId": "getWarehouseIdWarehouseAccountsPage",
+				"parameters": [
+					{
+						"in": "path",
+						"name": "id",
+						"required": true,
+						"schema": {
+							"type": "string"
+						}
+					},
+					{
+						"in": "query",
+						"name": "filter",
+						"schema": {
+							"type": "string"
+						}
+					},
+					{
+						"in": "query",
+						"name": "page",
+						"schema": {
+							"type": "string"
+						}
+					},
+					{
+						"in": "query",
+						"name": "pageSize",
+						"schema": {
+							"type": "string"
+						}
+					},
+					{
+						"in": "query",
+						"name": "search",
+						"schema": {
+							"type": "string"
+						}
+					},
+					{
+						"in": "query",
+						"name": "sort",
+						"schema": {
+							"type": "string"
+						}
+					}
+				],
+				"responses": {
+					"default": {
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/PageWarehouseAccount"
+								}
+							},
+							"application/xml": {
+								"schema": {
+									"$ref": "#/components/schemas/PageWarehouseAccount"
+								}
+							}
+						},
+						"description": "default response"
+					}
+				},
+				"tags": [
+					"WarehouseAccount"
+				]
+			},
+			"post": {
+				"operationId": "postWarehouseIdWarehouseAccount",
+				"parameters": [
+					{
+						"in": "path",
+						"name": "id",
+						"required": true,
+						"schema": {
+							"type": "string"
+						}
+					}
+				],
+				"requestBody": {
+					"content": {
+						"application/json": {
+							"schema": {
+								"$ref": "#/components/schemas/WarehouseAccount"
+							}
+						},
+						"application/xml": {
+							"schema": {
+								"$ref": "#/components/schemas/WarehouseAccount"
+							}
+						}
+					}
+				},
+				"responses": {
+					"default": {
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/WarehouseAccount"
+								}
+							},
+							"application/xml": {
+								"schema": {
+									"$ref": "#/components/schemas/WarehouseAccount"
+								}
+							}
+						},
+						"description": "default response"
+					}
+				},
+				"tags": [
+					"WarehouseAccount"
+				]
+			}
+		},
+		"/v1.0/warehouses/{id}/warehouse-channels": {
+			"get": {
+				"operationId": "getWarehouseIdWarehouseChannelsPage",
+				"parameters": [
+					{
+						"in": "path",
+						"name": "id",
+						"required": true,
+						"schema": {
+							"type": "string"
+						}
+					},
+					{
+						"in": "query",
+						"name": "filter",
+						"schema": {
+							"type": "string"
+						}
+					},
+					{
+						"in": "query",
+						"name": "page",
+						"schema": {
+							"type": "string"
+						}
+					},
+					{
+						"in": "query",
+						"name": "pageSize",
+						"schema": {
+							"type": "string"
+						}
+					},
+					{
+						"in": "query",
+						"name": "search",
+						"schema": {
+							"type": "string"
+						}
+					},
+					{
+						"in": "query",
+						"name": "sort",
+						"schema": {
+							"type": "string"
+						}
+					}
+				],
+				"responses": {
+					"default": {
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/PageWarehouseChannel"
+								}
+							},
+							"application/xml": {
+								"schema": {
+									"$ref": "#/components/schemas/PageWarehouseChannel"
+								}
+							}
+						},
+						"description": "default response"
+					}
+				},
+				"tags": [
+					"WarehouseChannel"
+				]
+			},
+			"post": {
+				"operationId": "postWarehouseIdWarehouseChannel",
+				"parameters": [
+					{
+						"in": "path",
+						"name": "id",
+						"required": true,
+						"schema": {
+							"type": "string"
+						}
+					}
+				],
+				"requestBody": {
+					"content": {
+						"application/json": {
+							"schema": {
+								"$ref": "#/components/schemas/WarehouseChannel"
+							}
+						},
+						"application/xml": {
+							"schema": {
+								"$ref": "#/components/schemas/WarehouseChannel"
+							}
+						}
+					}
+				},
+				"responses": {
+					"default": {
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/WarehouseChannel"
+								}
+							},
+							"application/xml": {
+								"schema": {
+									"$ref": "#/components/schemas/WarehouseChannel"
+								}
+							}
+						},
+						"description": "default response"
+					}
+				},
+				"tags": [
+					"WarehouseChannel"
+				]
+			}
+		},
+		"/v1.0/warehouses/{id}/warehouse-order-types": {
+			"get": {
+				"operationId": "getWarehouseIdWarehouseOrderTypesPage",
+				"parameters": [
+					{
+						"in": "path",
+						"name": "id",
+						"required": true,
+						"schema": {
+							"type": "string"
+						}
+					},
+					{
+						"in": "query",
+						"name": "filter",
+						"schema": {
+							"type": "string"
+						}
+					},
+					{
+						"in": "query",
+						"name": "page",
+						"schema": {
+							"type": "string"
+						}
+					},
+					{
+						"in": "query",
+						"name": "pageSize",
+						"schema": {
+							"type": "string"
+						}
+					},
+					{
+						"in": "query",
+						"name": "search",
+						"schema": {
+							"type": "string"
+						}
+					},
+					{
+						"in": "query",
+						"name": "sort",
+						"schema": {
+							"type": "string"
+						}
+					}
+				],
+				"responses": {
+					"default": {
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/PageWarehouseOrderType"
+								}
+							},
+							"application/xml": {
+								"schema": {
+									"$ref": "#/components/schemas/PageWarehouseOrderType"
+								}
+							}
+						},
+						"description": "default response"
+					}
+				},
+				"tags": [
+					"WarehouseOrderType"
+				]
+			},
+			"post": {
+				"operationId": "postWarehouseIdWarehouseOrderType",
+				"parameters": [
+					{
+						"in": "path",
+						"name": "id",
+						"required": true,
+						"schema": {
+							"type": "string"
+						}
+					}
+				],
+				"requestBody": {
+					"content": {
+						"application/json": {
+							"schema": {
+								"$ref": "#/components/schemas/WarehouseOrderType"
+							}
+						},
+						"application/xml": {
+							"schema": {
+								"$ref": "#/components/schemas/WarehouseOrderType"
+							}
+						}
+					}
+				},
+				"responses": {
+					"default": {
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/WarehouseOrderType"
+								}
+							},
+							"application/xml": {
+								"schema": {
+									"$ref": "#/components/schemas/WarehouseOrderType"
+								}
+							}
+						},
+						"description": "default response"
+					}
+				},
+				"tags": [
+					"WarehouseOrderType"
+				]
+			}
+		},
+		"/v1.0/warehouses/{id}/warehouseItems": {
+			"get": {
+				"operationId": "getWarehouseIdWarehouseItemsPage",
+				"parameters": [
+					{
+						"in": "path",
+						"name": "id",
+						"required": true,
+						"schema": {
+							"type": "string"
+						}
+					},
+					{
+						"in": "query",
+						"name": "page",
+						"schema": {
+							"type": "string"
+						}
+					},
+					{
+						"in": "query",
+						"name": "pageSize",
+						"schema": {
+							"type": "string"
+						}
+					}
+				],
+				"responses": {
+					"default": {
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/PageWarehouseItem"
+								}
+							},
+							"application/xml": {
+								"schema": {
+									"$ref": "#/components/schemas/PageWarehouseItem"
+								}
+							}
+						},
+						"description": "default response"
+					}
+				},
+				"tags": [
+					"WarehouseItem"
+				]
+			},
+			"post": {
+				"operationId": "postWarehouseIdWarehouseItem",
+				"parameters": [
+					{
+						"in": "path",
+						"name": "id",
+						"required": true,
+						"schema": {
+							"type": "string"
+						}
+					}
+				],
+				"requestBody": {
+					"content": {
+						"application/json": {
+							"schema": {
+								"$ref": "#/components/schemas/WarehouseItem"
+							}
+						},
+						"application/xml": {
+							"schema": {
+								"$ref": "#/components/schemas/WarehouseItem"
+							}
+						}
+					}
+				},
+				"responses": {
+					"default": {
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/WarehouseItem"
+								}
+							},
+							"application/xml": {
+								"schema": {
+									"$ref": "#/components/schemas/WarehouseItem"
+								}
+							}
+						},
+						"description": "default response"
+					}
+				},
+				"tags": [
+					"WarehouseItem"
+				]
+			}
+		},
+		"/v1.0/warehouses/{warehouseId}/replenishment-items": {
+			"get": {
+				"operationId": "getWarehouseIdReplenishmentItemsPage",
+				"parameters": [
+					{
+						"in": "path",
+						"name": "warehouseId",
+						"required": true,
+						"schema": {
+							"type": "string"
+						}
+					},
+					{
+						"in": "query",
+						"name": "page",
+						"schema": {
+							"type": "string"
+						}
+					},
+					{
+						"in": "query",
+						"name": "pageSize",
+						"schema": {
+							"type": "string"
+						}
+					}
+				],
+				"responses": {
+					"default": {
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/PageReplenishmentItem"
+								}
+							},
+							"application/xml": {
+								"schema": {
+									"$ref": "#/components/schemas/PageReplenishmentItem"
+								}
+							}
+						},
+						"description": "default response"
+					}
+				},
+				"tags": [
+					"ReplenishmentItem"
+				]
+			}
+		},
+		"/v1.0/warehouses/{warehouseId}/skus/by-sku/{sku}/replenishment-items": {
+			"post": {
+				"operationId": "postReplenishmentItem",
+				"parameters": [
+					{
+						"in": "path",
+						"name": "warehouseId",
+						"required": true,
+						"schema": {
+							"type": "string"
+						}
+					},
+					{
+						"in": "path",
+						"name": "sku",
+						"required": true,
+						"schema": {
+							"type": "string"
+						}
+					}
+				],
+				"requestBody": {
+					"content": {
+						"application/json": {
+							"schema": {
+								"$ref": "#/components/schemas/ReplenishmentItem"
+							}
+						},
+						"application/xml": {
+							"schema": {
+								"$ref": "#/components/schemas/ReplenishmentItem"
+							}
+						}
+					}
+				},
+				"responses": {
+					"default": {
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/ReplenishmentItem"
+								}
+							},
+							"application/xml": {
+								"schema": {
+									"$ref": "#/components/schemas/ReplenishmentItem"
+								}
+							}
+						},
+						"description": "default response"
+					}
+				},
+				"tags": [
+					"ReplenishmentItem"
+				]
+			}
+		},
+		"/v1.0/warehouses/{warehouseId}/skus/by-sku/{sku}/replenishment-items/batch": {
+			"post": {
+				"operationId": "postReplenishmentItemBatch",
+				"parameters": [
+					{
+						"in": "path",
+						"name": "warehouseId",
+						"required": true,
+						"schema": {
+							"type": "string"
+						}
+					},
+					{
+						"in": "path",
+						"name": "sku",
+						"required": true,
+						"schema": {
+							"type": "string"
+						}
+					},
+					{
+						"in": "query",
+						"name": "callbackURL",
+						"schema": {
+							"type": "string"
+						}
+					}
+				],
+				"requestBody": {
+					"content": {
+						"application/json": {
+							"schema": {
+								"type": "object"
+							}
+						}
+					}
+				},
+				"responses": {
+					"default": {
+						"content": {
+							"application/json": {
+							}
+						},
+						"description": "default response"
+					}
+				},
+				"tags": [
+					"ReplenishmentItem"
+				]
+			}
+		}
+	},
+	"servers": [
+		{
+			"url": "http://localhost:8080/o/headless-commerce-admin-inventory/"
+		}
+	]
 }

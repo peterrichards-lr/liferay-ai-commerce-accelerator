@@ -1,12 +1,12 @@
 module.exports = function registerDataGenerationWorkers({
-  queueService,
+  queue,
   logger,
   productGenerator,
   accountGenerator,
   orderGenerator,
   mockDataGenerator,
 }) {
-  queueService.registerWorker(
+  queue.registerWorker(
     'generate-products',
     async (data, { job, updateProgress }) => {
       const { config, options, correlationId } = data;
@@ -52,7 +52,7 @@ module.exports = function registerDataGenerationWorkers({
     }
   );
 
-  queueService.registerWorker(
+  queue.registerWorker(
     'generate-accounts',
     async (data, { job, updateProgress }) => {
       const { config, options, correlationId } = data;
@@ -95,7 +95,7 @@ module.exports = function registerDataGenerationWorkers({
     }
   );
 
-  queueService.registerWorker(
+  queue.registerWorker(
     'generate-orders',
     async (data, { job, updateProgress }) => {
       const { config, options, correlationId } = data;
@@ -141,7 +141,7 @@ module.exports = function registerDataGenerationWorkers({
     }
   );
 
-  queueService.registerWorker(
+  queue.registerWorker(
     'generate-comprehensive-data',
     async (data, { job, updateProgress }) => {
       const {

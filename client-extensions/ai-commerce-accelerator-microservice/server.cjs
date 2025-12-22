@@ -67,10 +67,13 @@ const domains = (() => {
   try {
     return lxcConfig.dxpDomains();
   } catch (e) {
-    logger.warn('Could not determine Liferay Cloud domains, defaulting to empty list.', {
-      error: e.message,
-      operation: 'lxc-config-load',
-    });
+    logger.warn(
+      'Could not determine Liferay Cloud domains, defaulting to empty list.',
+      {
+        error: e.message,
+        operation: 'lxc-config-load',
+      }
+    );
     return [];
   }
 })();
@@ -157,7 +160,9 @@ const generateCtx = {
   configService,
   cacheService,
   logger,
-  ws: ws,
+  progressService: ws,
+  persistenceService,
+  batchCallbackService,
 };
 
 require('./routes/generate.cjs')(apiV1Router, generateCtx);

@@ -16,6 +16,7 @@ Return the data as a JSON object with a single key "warehouses" which is an arra
 The response should only be the JSON object, with no extra text or explanation.
 
 Example for 1 warehouse:
+
 ```json
 {
   "warehouses": [

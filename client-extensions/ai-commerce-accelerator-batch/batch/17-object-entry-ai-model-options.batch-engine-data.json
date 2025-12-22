@@ -16,7 +16,7 @@
             "configStatus": {
                 "key": "Active"
             },
-            "configValue": "[\n  { \"label\": \"GPT-4o Mini\", \"value\": \"gpt-4o-mini\" },\n  { \"label\": \"GPT-4o\", \"value\": \"gpt-4o\" },\n  { \"label\": \"GPT-4.1 Mini\", \"value\": \"gpt-4.1-mini\" }\n]",
+            "configValue": "[{\"label\":\"GPT-4o Mini\",\"value\":\"gpt-4o-mini\"},{\"label\":\"GPT-4o\",\"value\":\"gpt-4o\"},{\"label\":\"GPT-4.1 Mini\",\"value\":\"gpt-4.1-mini\"}]",
             "description": "AI Model Options",
             "externalReferenceCode": "AI-MODEL-OPTIONS"
         }

@@ -38,7 +38,7 @@ class MediaGenerator {
   }
 
   async getDefaultBase64Image(config) {
-    const { configService, logger } = this.ctx;
+    const { config: configService, logger } = this.ctx;
     try {
       const dataUrl = await configService.getDefaultImage(config);
       return parseDataUrl(dataUrl);
@@ -58,7 +58,7 @@ class MediaGenerator {
   }
 
   async getDefaultBase64Pdf(config) {
-    const { configService, logger } = this.ctx;
+    const { config: configService, logger } = this.ctx;
     try {
       const dataUrl = await configService.getDefaultPdf(config);
       return parseDataUrl(dataUrl);

@@ -9,9 +9,9 @@ class BatchCallbackService {
   }
 
   async _checkSessionCompletion(sessionId, correlationId) {
-    const { logger, persistenceService, ws } = this.ctx;
+    const { logger, persistence, ws } = this.ctx;
     
-    const session = await persistenceService.getSession(sessionId);
+    const session = await persistence.getSession(sessionId);
     if (!session || session.status === 'COMPLETED' || session.status === 'FAILED') {
       return;
     }
@@ -19,7 +19,7 @@ class BatchCallbackService {
     const { config, steps: workflowSteps } = session.context;
     let { currentSteps } = session; // This now holds the array of currently active steps (objects or strings)
 
-    const allBatchesForSession = await persistenceService.getBatchesForSession(sessionId);
+    const allBatchesForSession = await persistence.getBatchesForSession(sessionId);
 
     let newActiveSteps = [];
     let sessionAdvanced = false;
@@ -35,7 +35,7 @@ class BatchCallbackService {
 
       if (isStepFailed) {
         logger.error(`Step '${stepName}' failed. Marking session as failed.`, { sessionId, stepName });
-        await persistenceService.updateSession(sessionId, { status: 'FAILED' });
+        await persistence.updateSession(sessionId, { status: 'FAILED' });
         return;
       }
 
@@ -54,8 +54,10 @@ class BatchCallbackService {
 
     // Update currentSteps in DB after processing completions
     currentSteps = newActiveSteps;
-    await persistenceService.updateSessionCurrentSteps(sessionId, currentSteps);
+    await persistence.updateSessionCurrentSteps(sessionId, currentSteps);
 
+
+    let nextWorkflowStepIndex;
 
     // If no steps are currently active, try to advance the workflow
     if (currentSteps.length === 0) {
@@ -64,7 +66,7 @@ class BatchCallbackService {
         return allBatchesForSession.some(b => b.step_key === sName && (b.status === 'COMPLETED' || b.status === 'FAILED'));
       });
 
-      let nextWorkflowStepIndex = (lastCompletedStepIndex !== -1) ? lastCompletedStepIndex + 1 : 0;
+      nextWorkflowStepIndex = (lastCompletedStepIndex !== -1) ? lastCompletedStepIndex + 1 : 0;
       let nextWorkflowStep = workflowSteps[nextWorkflowStepIndex];
 
       while (nextWorkflowStep) {
@@ -74,14 +76,14 @@ class BatchCallbackService {
         if (nextStepType === 'sync') {
           logger.info(`Starting synchronous step '${nextStepName}'`, { sessionId, nextStepName });
           currentSteps.push(nextWorkflowStep);
-          await persistenceService.updateSessionCurrentSteps(sessionId, currentSteps);
+          await persistence.updateSessionCurrentSteps(sessionId, currentSteps);
           await this._startStep(nextWorkflowStep, sessionId, config, correlationId);
           break; // Wait for this sync step to complete
         } else if (nextStepType === 'async') {
           logger.info(`Starting asynchronous step '${nextStepName}'`, { sessionId, nextStepName });
           // Async steps are added to currentSteps but don't block progress
           currentSteps.push(nextWorkflowStep);
-          await persistenceService.updateSessionCurrentSteps(sessionId, currentSteps);
+          await persistence.updateSessionCurrentSteps(sessionId, currentSteps);
           await this._startStep(nextWorkflowStep, sessionId, config, correlationId);
           // Immediately move to the next step
           nextWorkflowStepIndex++;
@@ -93,7 +95,7 @@ class BatchCallbackService {
             currentSteps.push(subStep);
             await this._startStep(subStep, sessionId, config, correlationId);
           }
-          await persistenceService.updateSessionCurrentSteps(sessionId, currentSteps);
+          await persistence.updateSessionCurrentSteps(sessionId, currentSteps);
           // After starting all parallel sub-steps, this parallel block is now active, so we break and wait.
           break;
         } else {
@@ -115,7 +117,7 @@ class BatchCallbackService {
         totalBatches: allBatchesForSession.length,
       });
 
-      await persistenceService.updateSession(sessionId, { status: 'COMPLETED', currentSteps: [] });
+      await persistence.updateSession(sessionId, { status: 'COMPLETED', currentSteps: [] });
 
       const onSessionComplete = this._getOnSessionComplete(session.flow_type);
 
@@ -146,20 +148,20 @@ class BatchCallbackService {
     } else if (sessionAdvanced) {
         // If the session advanced, ensure the DB is updated with the latest currentSteps
         // (This was already done inside the loop, but this ensures final state for this iteration)
-        await persistenceService.updateSessionCurrentSteps(sessionId, currentSteps);
+        await persistence.updateSessionCurrentSteps(sessionId, currentSteps);
     }
   }
 
   async _startStep(stepDefinition, sessionId, config, correlationId) {
-    const { logger, productGenerator, accountGenerator, deleteCoordinatorService, persistenceService } = this.ctx;
-    const session = await persistenceService.getSession(sessionId);
+    const { logger, productGenerator, accountGenerator, deleteCoordinator, persistence } = this.ctx;
+    const session = await persistence.getSession(sessionId);
 
     const stepName = typeof stepDefinition === 'string' ? stepDefinition : stepDefinition.name;
 
     // Ensure session.context is available and contains necessary data
     if (!session || !session.context) {
         logger.error(`Cannot start step '${stepName}': Session or session context missing.`, { sessionId, stepName });
-        await persistenceService.updateSession(sessionId, { status: 'FAILED' });
+        await persistence.updateSession(sessionId, { status: 'FAILED' });
         return;
     }
 
@@ -169,7 +171,7 @@ class BatchCallbackService {
     logger.info(`Attempting to start step handler for '${stepName}' (Flow: ${flowType})`, { sessionId, stepName, flowType });
 
     try {
-        if (stepName === 'accounts') {
+        if (stepName === 'generate_accounts') {
             await accountGenerator.generateAccounts(config, sessionContext.options);
         } else if (stepName === 'postal-addresses') {
             await accountGenerator.startPostalAddressesBatch({ sessionId, session: sessionContext, correlationId });
@@ -178,13 +180,13 @@ class BatchCallbackService {
             // The result of this data generation should be stored in session context
             const allProductData = await productGenerator._generateProductData(config, sessionContext.options, sessionId);
             // Update the session context with the generated data for the next step
-            await persistenceService.updateSessionContext(sessionId, { ...sessionContext, productDataList: allProductData });
+            await persistence.updateSessionContext(sessionId, { ...sessionContext, productDataList: allProductData });
             logger.info('Product data generation complete and context updated.', { sessionId, count: allProductData.length });
-        } else if (stepName === 'products') {
+        } else if (stepName === 'generate_products') {
             // This step assumes productDataList is already in session.context
             if (!sessionContext.productDataList || sessionContext.productDataList.length === 0) {
                 logger.warn(`Step 'products' called without productDataList in session context.`, { sessionId });
-                await persistenceService.updateSession(sessionId, { status: 'FAILED' });
+                await persistence.updateSession(sessionId, { status: 'FAILED' });
                 return;
             }
             await productGenerator.startProductsBatch({ sessionId, session: sessionContext, correlationId });
@@ -202,7 +204,7 @@ class BatchCallbackService {
             logger.warn(`No specific handler found or step type not fully implemented for '${stepName}'`, { sessionId, stepName, flowType });
             // For unhandled steps, mark batch as completed to avoid stalling, or failed if critical
             // Here, we assume a step handler *should* exist or be explicitly handled
-            await persistenceService.createBatch({
+            await persistence.createBatch({
               erc: createERC(ERC_PREFIX.BATCH), // Use a generic ERC
               sessionId,
               step_key: stepName,
@@ -219,20 +221,20 @@ class BatchCallbackService {
             error: error.message,
             stack: error.stack,
         });
-        await persistenceService.updateSession(sessionId, { status: 'FAILED' });
+        await persistence.updateSession(sessionId, { status: 'FAILED' });
     }
 }
 
 
   async _runStep(step, { sessionId, config, options, channelId, catalogId }) {
-    const { logger, liferay, persistenceService } = this.ctx;
+    const { logger, liferay, persistence } = this.ctx;
 
     const batchERC = createERC(ERC_PREFIX.BATCH_DELETION);
 
-    await persistenceService.createBatch({
+    await persistence.createBatch({
       erc: batchERC,
       sessionId,
-      stepKey: step,
+      step_key: step,
       status: 'PREPARED',
     });
 
@@ -249,7 +251,7 @@ class BatchCallbackService {
         step,
       });
 
-      await persistenceService.updateBatch(batchERC, { status: 'COMPLETED' });
+      await persistence.updateBatch(batchERC, { status: 'COMPLETED' });
 
       await this._checkSessionCompletion(
         sessionId,
@@ -262,25 +264,21 @@ class BatchCallbackService {
     const handler = BATCH_STEP_HANDLERS[step];
 
     if (handler) {
-      const callbackUrl = `${config.microserviceUrl}/api/batch/callback`;
       const handlerContext = {
         config,
         options,
-        callbackUrl,
         ids,
         batchERC,
         sessionId,
       };
 
       await handler(this.ctx, handlerContext);
-
-      await persistenceService.updateBatch(batchERC, { status: 'SUBMITTED' });
     } else {
       logger.warn(`Unknown step in deletion process: ${step}`, {
         batchERC,
       });
 
-      await persistenceService.updateBatch(batchERC, { status: 'FAILED' });
+      await persistence.updateBatch(batchERC, { status: 'FAILED' });
       
       await this._checkSessionCompletion(
         sessionId,
@@ -374,7 +372,7 @@ class BatchCallbackService {
         };
       },
       deleteWarehouses: async () => {
-        const res = await liferay.getWarehouses(config, { pageSize: 200 });
+        const res = await liferay.getWarehousesPage(config, { pageSize: 200 });
         return {
           items: liferay._asItems(res),
           totalCount: liferay._asCount(res),
@@ -415,9 +413,9 @@ class BatchCallbackService {
   }
 
   async processCallback(batchERC, payload) {
-    const { logger, liferay, persistenceService, ws } = this.ctx;
+    const { logger, liferay, persistence, ws } = this.ctx;
 
-    const dbBatch = await persistenceService.getBatch(batchERC);
+    const dbBatch = await persistence.getBatch(batchERC);
 
     if (!dbBatch) {
       logger.warn('No batch record found for batchERC in callback', {
@@ -428,39 +426,50 @@ class BatchCallbackService {
       return;
     }
 
-    const session = await persistenceService.getSession(dbBatch.session_id);
+    const session = await persistence.getSession(dbBatch.session_id);
     if (!session) {
       logger.error('Orphaned batch detected - no session found for batch', {
         operation: 'batch-callback-no-session',
         batchERC,
         sessionId: dbBatch.session_id,
       });
-      await persistenceService.updateBatch(batchERC, { status: 'FAILED' });
+      await persistence.updateBatch(batchERC, { status: 'FAILED' });
       return;
     }
 
     const { config } = session.context;
     const correlationId = config.correlationId;
 
+    const batchId = Object.keys(payload)[0];
+    const status = payload[batchId];
+
+    if (!batchId) {
+      logger.error('Could not extract batchId from callback payload', {
+        payload,
+        operation: 'batch-callback-bad-payload',
+      });
+      return;
+    }
+
     try {
-      const importTask = await liferay.getImportTask(config, payload.batchId);
+      const importTask = await liferay.getImportTask(config, batchId);
       const { processedItemsCount, totalItemsCount, failedItems } =
         importTask.data;
       const errorCount = failedItems?.length || 0;
 
-      await persistenceService.updateBatch(batchERC, {
-        status: payload.status.toUpperCase(),
+      await persistence.updateBatch(batchERC, {
+        status: status.toUpperCase(),
         processedCount: processedItemsCount,
         totalCount: totalItemsCount,
         errorCount: errorCount,
-        downstreamBatchId: payload.batchId,
+        downstreamBatchId: batchId,
       });
 
       ws.emitBatchCompleted(
         {
           entityType: dbBatch.step_key,
           operation: session.flow_type,
-          batchId: payload.batchId,
+          batchId: batchId,
           batchERC: batchERC,
           sessionId: dbBatch.session_id,
           successCount: processedItemsCount,
@@ -479,7 +488,7 @@ class BatchCallbackService {
         message: error.message,
       });
 
-      await persistenceService.updateBatch(batchERC, { status: 'FAILED' });
+      await persistence.updateBatch(batchERC, { status: 'FAILED' });
     }
   }
 }

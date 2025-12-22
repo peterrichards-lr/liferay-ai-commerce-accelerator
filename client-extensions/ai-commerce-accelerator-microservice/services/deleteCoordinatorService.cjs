@@ -7,7 +7,7 @@ class DeleteCoordinatorService {
   }
 
   runDeleteAndMonitor(config, options = {}) {
-    const { logger, persistenceService, batchCallbackService } = this.ctx;
+    const { logger, persistence, batchCallback } = this.ctx;
 
     const sessionId = createERC(ERC_PREFIX.BATCH_SESSION);
 
@@ -22,7 +22,7 @@ class DeleteCoordinatorService {
       { name: 'deleteOptionCategories', type: 'sync' },
     ];
 
-    persistenceService.createSession({
+    persistence.createSession({
       sessionId,
       flowType: 'delete',
       status: 'STARTED',
@@ -34,8 +34,8 @@ class DeleteCoordinatorService {
       },
     });
 
-    // Directly start the first step; batchCallbackService will handle subsequent steps
-    batchCallbackService._checkSessionCompletion(sessionId, config.correlationId);
+    // Directly start the first step; batchCallback will handle subsequent steps
+    batchCallback._checkSessionCompletion(sessionId, config.correlationId);
 
     logger.info('Started full environment deletion process', {
       sessionId,
@@ -54,7 +54,7 @@ class DeleteCoordinatorService {
     options = {},
     { channelId, catalogId, deleteScope }
   ) {
-    const { logger, persistenceService, batchCallbackService } = this.ctx;
+    const { logger, persistence, batchCallback } = this.ctx;
 
     const sessionId = createERC(ERC_PREFIX.BATCH_SESSION);
 
@@ -69,7 +69,7 @@ class DeleteCoordinatorService {
       };
     }
 
-    await persistenceService.createSession({
+    await persistence.createSession({
       sessionId,
       flowType: 'delete',
       status: 'STARTED',
@@ -84,7 +84,7 @@ class DeleteCoordinatorService {
     });
 
     // Kick off the workflow.
-    batchCallbackService._checkSessionCompletion(sessionId, config.correlationId);
+    batchCallback._checkSessionCompletion(sessionId, config.correlationId);
 
     logger.info('Started sequential deletion process for selected data', {
       sessionId,

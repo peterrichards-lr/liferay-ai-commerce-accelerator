@@ -8,11 +8,11 @@ The accelerator is composed of four main parts that work together:
 
 1.  **Configuration UI (`ai-commerce-accelerator-configuration`)**: A React-based client extension that provides a user interface within the Liferay application menu. Administrators use this UI to configure AI provider settings, API keys, and the content of AI prompts and schemas. The panels have been reordered for a more user-friendly flow, and all JSON/Markdown input fields now feature a standardized CodeMirror editor with enhanced features like line numbers, code folding, and bracket matching.
 
-2.  **Frontend (`ai-commerce-accelerator-frontend`)**: The main user-facing client extension, also based on React. This application allows users to specify the quantity and type of commerce data to generate, monitor the generation process in real-time, and manage the generated data.
+1.  **Frontend (`ai-commerce-accelerator-frontend`)**: The main user-facing client extension, also based on React. This application allows users to specify the quantity and type of commerce data to generate, monitor the generation process in real-time, and manage the generated data.
 
-3.  **Microservice (`ai-commerce-accelerator-microservice`)**: A Node.js Express server that acts as the brain of the accelerator. It receives requests from the frontend, communicates with the AI service to generate data, and then uses Liferay's Headless APIs to create the commerce data in DXP.
+1.  **Microservice (`ai-commerce-accelerator-microservice`)**: A Node.js Express server that acts as the brain of the accelerator. It receives requests from the frontend, communicates with the AI service to generate data, and then uses Liferay's Headless APIs to create the commerce data in DXP.
 
-4.  **Batch Loader (`ai-commerce-accelerator-batch`)**: This client extension contains the initial, default data for the AI prompts and schemas. It uses Liferay's Batch Engine to load this configuration into Liferay's object storage.
+1.  **Batch Loader (`ai-commerce-accelerator-batch`)**: This client extension contains the initial, default data for the AI prompts and schemas. It uses Liferay's Batch Engine to load this configuration into Liferay's object storage.
 
 ### Configurable Categories
 
@@ -22,8 +22,8 @@ The available product categories are now dynamically configurable via the "AI Co
 
 The application now supports configurable exclude lists for products, accounts, and warehouses. This allows administrators to prevent specific items from being displayed in lists or being deleted during cleanup operations.
 
--   **New Configuration Panel:** A new **Exclude Lists** panel is available in the **AI Commerce Accelerator Configuration** screen.
--   **How it Works:** In this panel, you can provide a JSON object containing arrays for `excludedProducts`, `excludedAccounts`, and `excludedWarehouses`. Each item in the arrays is an object that can specify an exclusion by `entityId`, `erc` (External Reference Code), or `name`. The microservice will use these lists to filter out the specified items from any queries.
+- **New Configuration Panel:** A new **Exclude Lists** panel is available in the **AI Commerce Accelerator Configuration** screen.
+- **How it Works:** In this panel, you can provide a JSON object containing arrays for `excludedProducts`, `excludedAccounts`, and `excludedWarehouses`. Each item in the arrays is an object that can specify an exclusion by `entityId`, `erc` (External Reference Code), or `name`. The microservice will use these lists to filter out the specified items from any queries.
 
 ## Deployment
 
@@ -59,22 +59,22 @@ For development purposes, you can deploy and run the microservice independently.
 
 The AI Model Options (which define the available AI models for generation) have been integrated directly into the "AI Configuration" screen within the `ai-commerce-accelerator-configuration` client extension.
 
--   **Consolidated UI:** The separate "AI Model Options" panel has been removed and its functionality merged into `AiConfigPanel.jsx`. This provides a single, centralized location for managing AI-related settings.
--   **Dynamic Validation:** The validation logic for AI model selection in the microservice's generation operations (`/api/generate/accounts`, `/api/generate/products`, `/api/generate/orders`) is now dynamic. Instead of hardcoded model lists, validation rules are generated at runtime based on the AI model options configured in Liferay.
--   **Default Model Pre-selection:** The microservice's `/api/config/ai-model-options` endpoint now returns the `defaultModel` from the `ai-config` settings, ensuring the frontend UI can correctly pre-select the appropriate AI model in dropdowns. A fallback mechanism ensures that if the configured default model is not found in the available options, the first available model is used as the default.
--   **Frontend UI Fix:** The AI Model dropdown in the frontend (`AdvancedPanel.jsx`) now correctly populates its values from the list returned by the microservice and pre-selects the default model. It also remains disabled until a connection to the microservice is established.
+- **Consolidated UI:** The separate "AI Model Options" panel has been removed and its functionality merged into `AiConfigPanel.jsx`. This provides a single, centralized location for managing AI-related settings.
+- **Dynamic Validation:** The validation logic for AI model selection in the microservice's generation operations (`/api/generate/accounts`, `/api/generate/products`, `/api/generate/orders`) is now dynamic. Instead of hardcoded model lists, validation rules are generated at runtime based on the AI model options configured in Liferay.
+- **Default Model Pre-selection:** The microservice's `/api/config/ai-model-options` endpoint now returns the `defaultModel` from the `ai-config` settings, ensuring the frontend UI can correctly pre-select the appropriate AI model in dropdowns. A fallback mechanism ensures that if the configured default model is not found in the available options, the first available model is used as the default.
+- **Frontend UI Fix:** The AI Model dropdown in the frontend (`AdvancedPanel.jsx`) now correctly populates its values from the list returned by the microservice and pre-selects the default model. It also remains disabled until a connection to the microservice is established.
 
 ### WebSocket Initialization Refactor
 
 The singleton pattern implemented via `wsBus.cjs` for managing the WebSocket instance proved problematic due to subtle timing and module loading issues in the Node.js environment, leading to persistent "WS not initialized" errors. To resolve this, the singleton pattern has been rolled back, and the WebSocket instance (`ws`) is now explicitly passed between relevant modules.
 
--   **`wsBus.cjs` Removed:** The `client-extensions/ai-commerce-accelerator-microservice/services/wsBus.cjs` file has been deleted.
--   **Explicit `ws` Instantiation:** In `server.cjs`, the WebSocket instance is now directly created using `createWebSocketService` from `webSocketService.cjs` and assigned to a local `ws` variable.
--   **Explicit `ws` Passing:** The `ws` instance is now explicitly passed as an argument:
+- **`wsBus.cjs` Removed:** The `client-extensions/ai-commerce-accelerator-microservice/services/wsBus.cjs` file has been deleted.
+- **Explicit `ws` Instantiation:** In `server.cjs`, the WebSocket instance is now directly created using `createWebSocketService` from `webSocketService.cjs` and assigned to a local `ws` variable.
+- **Explicit `ws` Passing:** The `ws` instance is now explicitly passed as an argument:
     *   From `server.cjs` to `bootstrap.cjs`.
     *   From `bootstrap.cjs` to relevant services and contexts (e.g., `BatchPollingService`, `entityGeneratorCtx`).
     *   From `server.cjs` (via local `ws` or passed down) to route handlers (e.g., `routes/generate.cjs`, `routes/batch.cjs`).
--   **Direct `emit` Calls:** Route handlers and service functions now directly use the passed `ws` instance (e.g., `getWs().emitError(...)`) instead of relying on a singleton `get()` method.
+- **Direct `emit` Calls:** Route handlers and service functions now directly use the passed `ws` instance (e.g., `getWs().emitError(...)`) instead of relying on a singleton `get()` method.
 
 This ensures the WebSocket instance is always explicitly available and correctly initialized throughout its lifecycle, resolving the "WS not initialized" errors and restoring real-time communication functionality.
 
@@ -82,7 +82,7 @@ This ensures the WebSocket instance is always explicitly available and correctly
 
 The "Delete All Commerce Data" operation has been made more reliable.
 
--   **Improved Group Advancement Logic:** The `_startNextGroups` function in `batchCallbackService.cjs` was refactored to remove a premature `break` condition in its outer loop. Previously, the function would halt processing subsequent deletion groups if an earlier group was found to be incomplete and was not the initial `fromGroupIndex`. The updated logic now ensures that `_startNextGroups` correctly iterates through all groups, skipping already completed ones and attempting to process incomplete ones, thus preventing the deletion chain from hanging.
+- **Improved Group Advancement Logic:** The `_startNextGroups` function in `batchCallbackService.cjs` was refactored to remove a premature `break` condition in its outer loop. Previously, the function would halt processing subsequent deletion groups if an earlier group was found to be incomplete and was not the initial `fromGroupIndex`. The updated logic now ensures that `_startNextGroups` correctly iterates through all groups, skipping already completed ones and attempting to process incomplete ones, thus preventing the deletion chain from hanging.
 
 #### Batch Callback Mechanism
 
@@ -102,32 +102,33 @@ The accelerator has been updated to support the generation of warehouses and the
 *   **AI-Powered Generation**: When not in demo mode, the accelerator will use generative AI to create warehouse data. This is handled by the `warehouseGenerator.cjs`, which calls a new `generateWarehouseData` function in the `aiService.cjs`. A new prompt (`warehouse.md`) and schema (`warehouse.json`) have been created for this purpose.
 *   **Frontend Integration**: The frontend `DataGeneratorForm.jsx` already included UI elements for enabling warehouse creation and setting inventory levels. These are now wired up to the new backend functionality.
 *   **Inventory Distribution**: The `productGenerator.cjs` has been updated to distribute the inventory of newly created products across the available warehouses. This is handled in the `createOnSessionComplete` method to ensure it runs after all products in a batch have been created.
+
 ### Batch Warehouse Creation
 
 The microservice now supports batch creation of warehouses, enabling more efficient generation and real-time progress updates in the UI by leveraging a native Liferay batch endpoint.
 
--   **`utils/liferayPaths.cjs` Update:** A new path, `PATH.WAREHOUSES_BATCH`, has been added, pointing to `/o/headless-commerce-admin-inventory/v1.0/warehouses/batch`.
--   **`liferayService.cjs` Enhancement:** A new method, `createWarehousesBatch`, has been implemented. This method takes an array of warehouse data, generates a unique batch ERC (External Reference Code) for the batch, and caches the ERCs of individual items within the batch. It constructs a callback URL that includes batch and session information. It then makes a single `_post` request to the Liferay batch endpoint (`PATH.WAREHOUSES_BATCH`), sending the entire array of warehouse data. Submission details are cached, and a structured response containing the Liferay-provided `batchId` and status is returned.
--   **`warehouseGenerator.cjs` Logic Update:**
+- **`utils/liferayPaths.cjs` Update:** A new path, `PATH.WAREHOUSES_BATCH`, has been added, pointing to `/o/headless-commerce-admin-inventory/v1.0/warehouses/batch`.
+- **`liferayService.cjs` Enhancement:** A new method, `createWarehousesBatch`, has been implemented. This method takes an array of warehouse data, generates a unique batch ERC (External Reference Code) for the batch, and caches the ERCs of individual items within the batch. It constructs a callback URL that includes batch and session information. It then makes a single `_post` request to the Liferay batch endpoint (`PATH.WAREHOUSES_BATCH`), sending the entire array of warehouse data. Submission details are cached, and a structured response containing the Liferay-provided `batchId` and status is returned.
+- **`warehouseGenerator.cjs` Logic Update:**
     *   The `createWarehouses` function now includes a conditional check to determine whether to use individual or batch creation. If more than one warehouse is requested (`warehouseCount > 1`), batch creation is utilized.
     *   In batch mode, `liferay.createWarehousesBatch` is invoked.
     *   The existing individual WebSocket emissions for warehouse creation have been made conditional, so they only trigger during individual creation, avoiding redundancy when native batch processing is active.
--   **Real-time UI Updates:** This implementation allows the UI to display accurate, real-time progress for multiple warehouse creations leveraging Liferay's native batch processing capabilities.
+- **Real-time UI Updates:** This implementation allows the UI to display accurate, real-time progress for multiple warehouse creations leveraging Liferay's native batch processing capabilities.
 
 ### Recent Reliability Improvements
 
--   **Data Generation Fixes:**
+- **Data Generation Fixes:**
     *   **Robust Option Category Creation:** The logic for creating and reusing option categories has been centralized and made more robust, preventing cascading API errors that could previously halt product specification generation.
     *   Fixed a bug that caused a `400 BAD_REQUEST` error (`optionCategory.title must not be null`) when creating product specifications.
     *   Resolved an error that occurred when creating price lists due to a missing `catalogId`.
--   **Deletion Process Enhancements:**
+- **Deletion Process Enhancements:**
     *   **Resilience:** The "Delete All Commerce Data" operation is now more resilient. It no longer halts if it encounters an entity type that has already been deleted; it now logs the event and continues the process.
     *   **Error Reporting:** When a deletion batch fails, the system now retrieves a detailed error report from Liferay and sends it to the user through a WebSocket message, allowing for better debugging and visibility into the failure.
 
--   **Warehouse Generation Session Fix:**
+- **Warehouse Generation Session Fix:**
     *   The warehouse generation process has been updated to be part of the main generation session. This ensures that its completion is properly tracked and reflected in the UI.
 
--   **Delete Process Improvements:**
+- **Delete Process Improvements:**
     *   **Warehouse Deletion:** Warehouses are now deleted individually by iterating through their IDs. This is because there is no batch delete endpoint available for warehouses in the Liferay API.
     *   **Corrected Selective Deletion:** The "Selective Delete" functionality has been fixed to prevent the accidental deletion of all specifications, options, and option categories. The process now correctly identifies and deletes only the entities related to the deleted products.
 

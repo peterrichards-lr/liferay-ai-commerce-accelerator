@@ -1,283 +1,323 @@
 import groovy.json.JsonOutput
+import groovy.json.JsonSlurper
+
 import org.gradle.api.file.DuplicatesStrategy
 
 def findNpmExecutable() {
-    if (System.properties['os.name'].toLowerCase().contains('windows')) {
-        return 'npm.cmd'
-    }
-    return 'npm'
+	if (System.properties['os.name'].toLowerCase().contains('windows')) {
+		return 'npm.cmd'
+
+	}
+	return 'npm'
 }
 
 def findYarnExecutable() {
-    if (System.properties['os.name'].toLowerCase().contains('windows')) {
-        return 'yarn.cmd'
-    }
-    return 'yarn'
+	if (System.properties['os.name'].toLowerCase().contains('windows')) {
+		return 'yarn.cmd'
+
+	}
+	return 'yarn'
 }
 
-// ===================== AI BATCH FILE GENERATION =====================
+task generateBatchFiles (type: DefaultTask)
 
-task generateBatchFiles(type: DefaultTask) {
-    group = 'build'
-    description = 'Generates Liferay batch engine files from AI schemas and prompts.'
+generateBatchFiles {
+	group = 'build'
+	description = 'Generates Liferay batch engine files from AI schemas and prompts.'
 
-    doFirst {
-        def batchDir = file("$rootDir/client-extensions/ai-commerce-accelerator-batch/batch")
-        logger.lifecycle("Deleting old generated batch files in ${batchDir}")
-        if (batchDir.exists()) {
-            batchDir.eachFile { file ->
-                if (file.name.contains("-object-entry-ai-schema-") || file.name.contains("-object-entry-ai-prompt-")) {
-                    logger.debug("Deleting ${file.name}")
-                    file.delete()
-                }
-            }
-        }
-    }
+	doFirst {
+		def batchDir = file("$rootDir/client-extensions/ai-commerce-accelerator-batch/batch")
+		logger.lifecycle("Deleting old generated batch files in ${batchDir}")
+		if (batchDir.exists()) {
+			batchDir.eachFile {
+				file ->
+				if (file.name.contains("-object-entry-ai-schema-") || file.name.contains("-object-entry-ai-prompt-")) {
+					logger.debug("Deleting ${file.name}")
+					file.delete()
 
-doLast {
-        def microserviceDir = file("$rootDir/client-extensions/ai-commerce-accelerator-microservice")
-        def batchDir = file("$rootDir/client-extensions/ai-commerce-accelerator-batch/batch")
+				}
 
-        def entities = ['account', 'order', 'pdf', 'pricing', 'product', 'warehouse'].sort()
-        int fileIndex = 4
+			}
 
-        // --- Schemas ---
-        def schemaDir = file("$microserviceDir/ai-schemas")
-        if (schemaDir.exists()) {
-            entities.each { entity ->
-                def inputFile = file("$schemaDir/${entity}.json")
-                
-                if (inputFile.exists()) {
-                    def entityName = entity.capitalize()
-                    def content = inputFile.text
-                    
-                    def batchJson = [
-                        configuration: [
-                            className: "com.liferay.object.rest.dto.v1_0.ObjectEntry",
-                            parameters: [
-                                containsHeaders: "true",
-                                createStrategy: "UPSERT",
-                                onErrorFail: "false",
-                                taskItemDelegateName: "C_AICommerceAcceleratorConfiguration",
-                                updateStrategy: "UPDATE"
-                            ],
-                            taskItemDelegateName: "C_AICommerceAcceleratorConfiguration"
-                        ],
-                        items: [
-                            [
-                                configKey: "ai-schema-${entity}",
-                                configStatus: [ key: "Active" ],
-                                configValue: content,
-                                description: "AI Schema for ${entityName}",
-                                externalReferenceCode: "AI-SCHEMA-${entity.toUpperCase()}"
-                            ]
-                        ]
-                    ]
+		}
 
-                    def fileName = String.format("%02d-object-entry-ai-schema-%s.batch-engine-data.json", fileIndex++, entity)
-                    def outputFile = new File(batchDir, fileName)
-                    outputFile.withWriter('UTF-8') { writer ->
-                        writer.write(JsonOutput.prettyPrint(JsonOutput.toJson(batchJson)))
-                    }
-                    logger.lifecycle("Generated batch file: ${outputFile.name}")
-                }
-            }
-        }
+	}
 
-        // --- Prompts ---
-        def promptDir = file("$microserviceDir/prompts")
-        if (promptDir.exists()) {
-            entities.each { entity ->
-                def inputFile = file("$promptDir/${entity}.md")
+	doLast {
+		def minifyJsonString = {
+			jsonString ->
+			def jsonObject = new groovy.json.JsonSlurper().parseText(jsonString)
+			return groovy.json.JsonOutput.toJson(jsonObject)
 
-                if (inputFile.exists()) {
-                    def entityName = entity.capitalize()
-                    def content = inputFile.text
+		}
 
-                    def batchJson = [
-                        configuration: [
-                            className: "com.liferay.object.rest.dto.v1_0.ObjectEntry",
-                            parameters: [
-                                containsHeaders: "true",
-                                createStrategy: "UPSERT",
-                                onErrorFail: "false",
-                                taskItemDelegateName: "C_AICommerceAcceleratorConfiguration",
-                                updateStrategy: "UPDATE"
-                            ],
-                            taskItemDelegateName: "C_AICommerceAcceleratorConfiguration"
-                        ],
-                        items: [
-                            [
-                                configKey: "ai-prompt-${entity}",
-                                configStatus: [ key: "Active" ],
-                                configValue: content,
-                                description: "AI Prompt for ${entityName}",
-                                externalReferenceCode: "AI-PROMPT-${entity.toUpperCase()}"
-                            ]
-                        ]
-                    ]
-                    
-                    def fileName = String.format("%02d-object-entry-ai-prompt-%s.batch-engine-data.json", fileIndex++, entity)
-                    def outputFile = new File(batchDir, fileName)
-                    outputFile.withWriter('UTF-8') { writer ->
-                        writer.write(JsonOutput.prettyPrint(JsonOutput.toJson(batchJson)))
-                    }
-                    logger.lifecycle("Generated batch file: ${outputFile.name}")
-                }
-            }
-        }
+		def microserviceDir = file("$rootDir/client-extensions/ai-commerce-accelerator-microservice")
+		def batchDir = file("$rootDir/client-extensions/ai-commerce-accelerator-batch/batch")
 
-        // --- Categories ---
-        def frontendConfigDir = file("$rootDir/client-extensions/ai-commerce-accelerator-frontend/src/config")
-        if (frontendConfigDir.exists()) {
-            def categoryFile = file("$frontendConfigDir/categories.json")
-            if (categoryFile.exists()) {
-                def content = categoryFile.text
-                def configKey = "ai-categories" // New config key
+		def entities = ['account', 'order', 'pdf', 'pricing', 'product', 'warehouse'].sort()
+		int fileIndex = 4
 
-                def batchJson = [
-                    configuration: [
-                        className: "com.liferay.object.rest.dto.v1_0.ObjectEntry",
-                        parameters: [
-                            containsHeaders: "true",
-                            createStrategy: "UPSERT",
-                            onErrorFail: "false",
-                            taskItemDelegateName: "C_AICommerceAcceleratorConfiguration",
-                            updateStrategy: "UPDATE"
-                        ],
-                        taskItemDelegateName: "C_AICommerceAcceleratorConfiguration"
-                    ],
-                    items: [
-                        [
-                            configKey: configKey,
-                            configStatus: [ key: "Active" ],
-                            configValue: content,
-                            description: "AI Product Categories",
-                            externalReferenceCode: "AI-CATEGORIES"
-                        ]
-                    ]
-                ]
-                
-                def fileName = String.format("%02d-object-entry-%s.batch-engine-data.json", fileIndex++, configKey)
-                def outputFile = new File(batchDir, fileName)
-                outputFile.withWriter('UTF-8') { writer ->
-                    writer.write(JsonOutput.prettyPrint(JsonOutput.toJson(batchJson)))
-                }
-                logger.lifecycle("Generated batch file: ${outputFile.name}")
-            }
-        }
+		// --- Schemas ---
+		def schemaDir = file("$microserviceDir/ai-schemas")
+		if (schemaDir.exists()) {
+			entities.each {
+				entity ->
+				def inputFile = file("$schemaDir/${entity}.json")
 
-        // --- AI Model Options ---
-        def aiModelOptionsFile = file("$frontendConfigDir/ai-models.json")
-        if (aiModelOptionsFile.exists()) {
-            def content = aiModelOptionsFile.text
-            def configKey = "ai-model-options"
+				if (inputFile.exists()) {
+					def entityName = entity.capitalize()
+					def content = inputFile.text
 
-            def batchJson = [
-                configuration: [
-                    className: "com.liferay.object.rest.dto.v1_0.ObjectEntry",
-                    parameters: [
-                        containsHeaders: "true",
-                        createStrategy: "UPSERT",
-                        onErrorFail: "false",
-                        taskItemDelegateName: "C_AICommerceAcceleratorConfiguration",
-                        updateStrategy: "UPDATE"
-                    ],
-                    taskItemDelegateName: "C_AICommerceAcceleratorConfiguration"
-                ],
-                items: [
-                    [
-                        configKey: configKey,
-                        configStatus: [ key: "Active" ],
-                        configValue: content,
-                        description: "AI Model Options",
-                        externalReferenceCode: "AI-MODEL-OPTIONS"
-                    ]
-                ]
-            ]
-            
-            def fileName = String.format("%02d-object-entry-%s.batch-engine-data.json", fileIndex++, configKey)
-            def outputFile = new File(batchDir, fileName)
-            outputFile.withWriter('UTF-8') { writer ->
-                writer.write(JsonOutput.prettyPrint(JsonOutput.toJson(batchJson)))
-            }
-            logger.lifecycle("Generated batch file: ${outputFile.name}")
-        }
+					def batchJson = [
+						configuration: [
+							className: "com.liferay.object.rest.dto.v1_0.ObjectEntry",
+							parameters: [
+								containsHeaders: "true",
+								createStrategy: "UPSERT",
+								onErrorFail: "false",
+								taskItemDelegateName: "C_AICommerceAcceleratorConfiguration",
+								updateStrategy: "UPDATE"
+							],
+							taskItemDelegateName: "C_AICommerceAcceleratorConfiguration"
+						],
+						items: [
+							[
+								configKey: "ai-schema-${entity}",
+								configStatus: [ key: "Active" ],
+								configValue: minifyJsonString(content),
+								description: "AI Schema for ${entityName}",
+								externalReferenceCode: "AI-SCHEMA-${entity.toUpperCase()}"
+							]
+						]
+					]
 
-        // --- Batch Sizes ---
-        def batchSizesFile = file("$frontendConfigDir/batch-sizes.json")
-        if (batchSizesFile.exists()) {
-            def content = batchSizesFile.text
-            def configKey = "batch-sizes"
+					def fileName = String.format("%02d-object-entry-ai-schema-%s.batch-engine-data.json", fileIndex++, entity)
+					def outputFile = new File(batchDir, fileName)
+					outputFile.withWriter('UTF-8') {
+						writer ->
+						writer.write(JsonOutput.prettyPrint(JsonOutput.toJson(batchJson)))
 
-            def batchJson = [
-                configuration: [
-                    className: "com.liferay.object.rest.dto.v1_0.ObjectEntry",
-                    parameters: [
-                        containsHeaders: "true",
-                        createStrategy: "UPSERT",
-                        onErrorFail: "false",
-                        taskItemDelegateName: "C_AICommerceAcceleratorConfiguration",
-                        updateStrategy: "UPDATE"
-                    ],
-                    taskItemDelegateName: "C_AICommerceAcceleratorConfiguration"
-                ],
-                items: [
-                    [
-                        configKey: configKey,
-                        configStatus: [ key: "Active" ],
-                        configValue: content,
-                        description: "Batch Sizes",
-                        externalReferenceCode: "BATCH-SIZES"
-                    ]
-                ]
-            ]
-            
-            def fileName = String.format("%02d-object-entry-%s.batch-engine-data.json", fileIndex++, configKey)
-            def outputFile = new File(batchDir, fileName)
-            outputFile.withWriter('UTF-8') { writer ->
-                writer.write(JsonOutput.prettyPrint(JsonOutput.toJson(batchJson)))
-            }
-            logger.lifecycle("Generated batch file: ${outputFile.name}")
-        }
-    }
+					}
+					logger.lifecycle("Generated batch file: ${outputFile.name}")
+
+				}
+
+			}
+
+		}
+
+		// --- Prompts ---
+		def promptDir = file("$microserviceDir/prompts")
+		if (promptDir.exists()) {
+			entities.each {
+				entity ->
+				def inputFile = file("$promptDir/${entity}.md")
+
+				if (inputFile.exists()) {
+					def entityName = entity.capitalize()
+					def content = inputFile.text
+
+					def batchJson = [
+						configuration: [
+							className: "com.liferay.object.rest.dto.v1_0.ObjectEntry",
+							parameters: [
+								containsHeaders: "true",
+								createStrategy: "UPSERT",
+								onErrorFail: "false",
+								taskItemDelegateName: "C_AICommerceAcceleratorConfiguration",
+								updateStrategy: "UPDATE"
+							],
+							taskItemDelegateName: "C_AICommerceAcceleratorConfiguration"
+						],
+						items: [
+							[
+								configKey: "ai-prompt-${entity}",
+								configStatus: [ key: "Active" ],
+								configValue: content,
+								description: "AI Prompt for ${entityName}",
+								externalReferenceCode: "AI-PROMPT-${entity.toUpperCase()}"
+							]
+						]
+					]
+
+					def fileName = String.format("%02d-object-entry-ai-prompt-%s.batch-engine-data.json", fileIndex++, entity)
+					def outputFile = new File(batchDir, fileName)
+					outputFile.withWriter('UTF-8') {
+						writer ->
+						writer.write(JsonOutput.prettyPrint(JsonOutput.toJson(batchJson)))
+
+					}
+					logger.lifecycle("Generated batch file: ${outputFile.name}")
+
+				}
+
+			}
+
+		}
+
+		// --- Categories ---
+		def frontendConfigDir = file("$rootDir/client-extensions/ai-commerce-accelerator-frontend/src/config")
+		if (frontendConfigDir.exists()) {
+			def categoryFile = file("$frontendConfigDir/categories.json")
+			if (categoryFile.exists()) {
+				def content = categoryFile.text
+				def configKey = "ai-categories" // New config key
+
+				def batchJson = [
+					configuration: [
+						className: "com.liferay.object.rest.dto.v1_0.ObjectEntry",
+						parameters: [
+							containsHeaders: "true",
+							createStrategy: "UPSERT",
+							onErrorFail: "false",
+							taskItemDelegateName: "C_AICommerceAcceleratorConfiguration",
+							updateStrategy: "UPDATE"
+						],
+						taskItemDelegateName: "C_AICommerceAcceleratorConfiguration"
+					],
+					items: [
+						[
+							configKey: configKey,
+							configStatus: [ key: "Active" ],
+							configValue: minifyJsonString(content),
+							description: "AI Product Categories",
+							externalReferenceCode: "AI-CATEGORIES"
+						]
+					]
+				]
+
+				def fileName = String.format("%02d-object-entry-%s.batch-engine-data.json", fileIndex++, configKey)
+				def outputFile = new File(batchDir, fileName)
+				outputFile.withWriter('UTF-8') {
+					writer ->
+					writer.write(JsonOutput.prettyPrint(JsonOutput.toJson(batchJson)))
+
+				}
+				logger.lifecycle("Generated batch file: ${outputFile.name}")
+
+			}
+
+		}
+
+		// --- AI Model Options ---
+		def aiModelOptionsFile = file("$frontendConfigDir/ai-models.json")
+		if (aiModelOptionsFile.exists()) {
+			def content = aiModelOptionsFile.text
+			def configKey = "ai-model-options"
+
+			def batchJson = [
+				configuration: [
+					className: "com.liferay.object.rest.dto.v1_0.ObjectEntry",
+					parameters: [
+						containsHeaders: "true",
+						createStrategy: "UPSERT",
+						onErrorFail: "false",
+						taskItemDelegateName: "C_AICommerceAcceleratorConfiguration",
+						updateStrategy: "UPDATE"
+					],
+					taskItemDelegateName: "C_AICommerceAcceleratorConfiguration"
+				],
+				items: [
+					[
+						configKey: configKey,
+						configStatus: [ key: "Active" ],
+						configValue: minifyJsonString(content),
+						description: "AI Model Options",
+						externalReferenceCode: "AI-MODEL-OPTIONS"
+					]
+				]
+			]
+
+			def fileName = String.format("%02d-object-entry-%s.batch-engine-data.json", fileIndex++, configKey)
+			def outputFile = new File(batchDir, fileName)
+			outputFile.withWriter('UTF-8') {
+				writer ->
+				writer.write(JsonOutput.prettyPrint(JsonOutput.toJson(batchJson)))
+
+			}
+			logger.lifecycle("Generated batch file: ${outputFile.name}")
+
+		}
+
+		// --- Batch Sizes ---
+		def batchSizesFile = file("$frontendConfigDir/batch-sizes.json")
+		if (batchSizesFile.exists()) {
+			def content = batchSizesFile.text
+			def configKey = "batch-sizes"
+
+			def batchJson = [
+				configuration: [
+					className: "com.liferay.object.rest.dto.v1_0.ObjectEntry",
+					parameters: [
+						containsHeaders: "true",
+						createStrategy: "UPSERT",
+						onErrorFail: "false",
+						taskItemDelegateName: "C_AICommerceAcceleratorConfiguration",
+						updateStrategy: "UPDATE"
+					],
+					taskItemDelegateName: "C_AICommerceAcceleratorConfiguration"
+				],
+				items: [
+					[
+						configKey: configKey,
+						configStatus: [ key: "Active" ],
+						configValue: minifyJsonString(content),
+						description: "Batch Sizes",
+						externalReferenceCode: "BATCH-SIZES"
+					]
+				]
+			]
+
+			def fileName = String.format("%02d-object-entry-%s.batch-engine-data.json", fileIndex++, configKey)
+			def outputFile = new File(batchDir, fileName)
+			outputFile.withWriter('UTF-8') {
+				writer ->
+				writer.write(JsonOutput.prettyPrint(JsonOutput.toJson(batchJson)))
+
+			}
+			logger.lifecycle("Generated batch file: ${outputFile.name}")
+
+		}
+
+	}
 }
 
 // ======================================================================
 
-
-def CX_DIR        = file(findProperty('cx.dir') ?: "$rootDir/client-extensions/ai-commerce-accelerator-frontend")
+def CX_DIR = file(findProperty('cx.dir') ?: "$rootDir/client-extensions/ai-commerce-accelerator-frontend")
 def FRAGMENTS_DIR = file(findProperty('fragments.dir') ?: "$rootDir/fragments")
-def FRAGMENT_DIR  = file(findProperty('fragment.dir') ?: "$rootDir/fragments/ai-commerce-accelerator")
+def FRAGMENT_DIR = file(findProperty('fragment.dir') ?: "$rootDir/fragments/ai-commerce-accelerator")
 
 def FRAGMENTS_ZIP_NAME = "ai-accelerator-fragments.zip"
-def FRAGMENTS_ZIP_OUT  = layout.buildDirectory.dir("fragments")
+def FRAGMENTS_ZIP_OUT = layout.buildDirectory.dir("fragments")
 
 // Import scope (GLOBAL by default)
 def COMPANY_WEB_ID = (findProperty('companyWebId') ?: '*')
-def GROUP_KEY      = (findProperty('groupKey') ?: null)
+def GROUP_KEY = (findProperty('groupKey') ?: null)
 
 // liferay.home (defaults to ./bundles)
-def liferayHome    = providers.gradleProperty('liferay.home').orElse("$rootDir/bundles")
+def liferayHome = providers.gradleProperty('liferay.home').orElse("$rootDir/bundles")
 
 // Detect package manager
-def useYarn        = new File(CX_DIR, "yarn.lock").exists()
-def useNpmCi       = new File(CX_DIR, "package-lock.json").exists()
+def useYarn = new File(CX_DIR, "yarn.lock").exists()
+def useNpmCi = new File(CX_DIR, "package-lock.json").exists()
 
 // Generated files
 def GENERATED_FRAGMENT_CSS = layout.buildDirectory.file('tmp/fragment.css')
-def GENERATED_DESCRIPTOR   = layout.buildDirectory.file('tmp/liferay-deploy-fragments.json')
+def GENERATED_DESCRIPTOR = layout.buildDirectory.file('tmp/liferay-deploy-fragments.json')
 
 // Prefer an existing descriptor next to the set if present; fall back to generated
 def existingDescriptorCandidates = [
-    new File(FRAGMENTS_DIR.parentFile ?: rootDir, 'liferay-deploy-fragments.json'), // sibling to the set
-    new File(FRAGMENTS_DIR, 'liferay-deploy-fragments.json')
+	new File(FRAGMENTS_DIR.parentFile ?: rootDir, 'liferay-deploy-fragments.json'), // sibling to the set
+	new File(FRAGMENTS_DIR, 'liferay-deploy-fragments.json')
 ]
-def existingDescriptor = existingDescriptorCandidates.find { it.exists() }
+def existingDescriptor = existingDescriptorCandidates.find {
+	it.exists()
+}
 
 // The source dir that holds the descriptor we will add at ZIP root
 def descriptorSourceDirProvider = providers.provider {
-    (existingDescriptor ?: GENERATED_DESCRIPTOR.get().asFile).parentFile
+	(existingDescriptor ?: GENERATED_DESCRIPTOR.get().asFile).parentFile
 }
 
 // Handy: the name of your fragment-set folder inside the ZIP
@@ -287,160 +327,210 @@ def FRAGMENT_SET_NAME = FRAGMENTS_DIR.name
 
 // Helper
 tasks.register('printArtifacts') {
-    group = 'help'
-    doLast {
-        println "Fragments ZIP: ${tasks.named('zipFragments').get().archiveFile.get().asFile}"
-        println "Deploy dir:    ${liferayHome.get()}/deploy"
-        println "Fragment set:  ${FRAGMENT_SET_NAME} (from ${FRAGMENTS_DIR})"
-        println "Fragment dir:  ${FRAGMENT_DIR}"
-        println "CX dir:        ${CX_DIR}"
-        println "Package mgr:   ${useYarn ? 'yarn' : 'npm'}"
-    }
+	group = 'help'
+	doLast {
+		println "Fragments ZIP: ${tasks.named('zipFragments').get().archiveFile.get().asFile}"
+		println "Deploy dir:    ${liferayHome.get()}/deploy"
+		println "Fragment set:  ${FRAGMENT_SET_NAME} (from ${FRAGMENTS_DIR})"
+		println "Fragment dir:  ${FRAGMENT_DIR}"
+		println "CX dir:        ${CX_DIR}"
+		println "Package mgr:   ${useYarn ? 'yarn' : 'npm'}"
+
+	}
 }
 
 // --- Install + Build CX with Vite (auto yarn/npm) ---
 tasks.register('buildFrontendCX') {
-    group = 'build'
-    description = "Install deps and build the Import Map CX (${useYarn ? 'yarn' : 'npm'})."
-    onlyIf { CX_DIR.exists() }
-    doLast {
-        if (useYarn) {
-            exec { workingDir CX_DIR; commandLine findYarnExecutable(), 'install' }
-            exec { workingDir CX_DIR; commandLine findYarnExecutable(), 'build' }
-        } else {
-            exec { workingDir CX_DIR; commandLine findNpmExecutable(), (useNpmCi ? 'ci' : 'install') }
-            exec { workingDir CX_DIR; commandLine findNpmExecutable(), 'run', 'build' }
-        }
-    }
+	group = 'build'
+	description = "Install deps and build the Import Map CX (${useYarn ? 'yarn' : 'npm'})."
+	onlyIf {
+		CX_DIR.exists()
+
+	}
+	doLast {
+		if (useYarn) {
+			exec {
+				workingDir CX_DIR; commandLine findYarnExecutable(), 'install'
+
+			}
+			exec {
+				workingDir CX_DIR; commandLine findYarnExecutable(), 'build'
+
+			}
+
+		} else {
+			exec {
+				workingDir CX_DIR; commandLine findNpmExecutable(), (useNpmCi ? 'ci' : 'install')
+
+			}
+			exec {
+				workingDir CX_DIR; commandLine findNpmExecutable(), 'run', 'build'
+
+			}
+
+		}
+
+	}
 }
 
 tasks.register('buildConfigurationCX') {
-    group = 'build'
-    description = "Install deps and build the Configuration CX."
-    def CONFIG_CX_DIR = file("$rootDir/client-extensions/ai-commerce-accelerator-configuration")
-    onlyIf { CONFIG_CX_DIR.exists() }
-    doLast {
-        def useYarnConfig = new File(CONFIG_CX_DIR, "yarn.lock").exists()
-        def useNpmCiConfig = new File(CONFIG_CX_DIR, "package-lock.json").exists()
-        if (useYarnConfig) {
-            exec { workingDir CONFIG_CX_DIR; commandLine findYarnExecutable(), 'install' }
-            exec { workingDir CONFIG_CX_DIR; commandLine findYarnExecutable(), 'build' }
-        } else {
-            exec { workingDir CONFIG_CX_DIR; commandLine findNpmExecutable(), (useNpmCiConfig ? 'ci' : 'install') }
-            exec { workingDir CONFIG_CX_DIR; commandLine findNpmExecutable(), 'run', 'build' }
-        }
-    }
+	group = 'build'
+	description = "Install deps and build the Configuration CX."
+	def CONFIG_CX_DIR = file("$rootDir/client-extensions/ai-commerce-accelerator-configuration")
+	onlyIf {
+		CONFIG_CX_DIR.exists()
+
+	}
+	doLast {
+		def useYarnConfig = new File(CONFIG_CX_DIR, "yarn.lock").exists()
+		def useNpmCiConfig = new File(CONFIG_CX_DIR, "package-lock.json").exists()
+		if (useYarnConfig) {
+			exec {
+				workingDir CONFIG_CX_DIR; commandLine findYarnExecutable(), 'install'
+
+			}
+			exec {
+				workingDir CONFIG_CX_DIR; commandLine findYarnExecutable(), 'build'
+
+			}
+
+		} else {
+			exec {
+				workingDir CONFIG_CX_DIR; commandLine findNpmExecutable(), (useNpmCiConfig ? 'ci' : 'install')
+
+			}
+			exec {
+				workingDir CONFIG_CX_DIR; commandLine findNpmExecutable(), 'run', 'build'
+
+			}
+
+		}
+
+	}
 }
 
 // --- Generate liferay-deploy-fragments.json if not present ---
 tasks.register('generateDeployDescriptor') {
-    group = 'build'
-    description = 'Create liferay-deploy-fragments.json (if one is not already provided).'
-    inputs.property('companyWebId', COMPANY_WEB_ID)
-    if (GROUP_KEY != null) inputs.property('groupKey', GROUP_KEY)
-    outputs.file(GENERATED_DESCRIPTOR)
-    onlyIf { existingDescriptor == null }
+	group = 'build'
+	description = 'Create liferay-deploy-fragments.json (if one is not already provided).'
+	inputs.property('companyWebId', COMPANY_WEB_ID)
+	if (GROUP_KEY != null) inputs.property('groupKey', GROUP_KEY)
+	outputs.file(GENERATED_DESCRIPTOR)
+	onlyIf {
+		(existingDescriptor == null)
 
-    doLast {
-        def json = [:]
-        if (COMPANY_WEB_ID == '*') {
-            json.companyWebId = '*'
-        } else {
-            json.companyWebId = COMPANY_WEB_ID
-            if (GROUP_KEY) json.groupKey = GROUP_KEY
-        }
-        def outFile = GENERATED_DESCRIPTOR.get().asFile
-        outFile.parentFile.mkdirs()
-        outFile.text = JsonOutput.prettyPrint(JsonOutput.toJson(json))
-        logger.lifecycle("Generated descriptor at ${outFile}")
-    }
+	}
+
+	doLast {
+		def json = [:]
+		if (COMPANY_WEB_ID == '*') {
+			json.companyWebId = '*'
+
+		} else {
+			json.companyWebId = COMPANY_WEB_ID
+			if (GROUP_KEY) json.groupKey = GROUP_KEY
+
+}
+		def outFile = GENERATED_DESCRIPTOR.get().asFile
+		outFile.parentFile.mkdirs()
+		outFile.text = JsonOutput.prettyPrint(JsonOutput.toJson(json))
+		logger.lifecycle("Generated descriptor at ${outFile}")
+
+}
 }
 
 // --- Produce a stable fragment.css from the built CX CSS (or stub if none) ---
 tasks.register('generateFragmentCss') {
-    group = 'build'
-    description = 'Create build/tmp/fragment.css from the latest CX-built CSS (or a stub).'
-    dependsOn tasks.named('printArtifacts')
-    dependsOn tasks.named('buildFrontendCX')
-    outputs.file(GENERATED_FRAGMENT_CSS)
-    doLast {
-        def cssDir = new File(CX_DIR, 'build/static')
-        def files = cssDir.exists() ? fileTree(cssDir).matching { include '**/*.css' }.files : [] as Set<File>
+				group = 'build'
+				description = 'Create build/tmp/fragment.css from the latest CX-built CSS (or a stub).'
+				dependsOn tasks.named('printArtifacts')
+				dependsOn tasks.named('buildFrontendCX')
+				outputs.file(GENERATED_FRAGMENT_CSS)
+				doLast {
+					def cssDir = new File(CX_DIR, 'build/static')
+					def files = cssDir.exists() ? fileTree(cssDir).matching { include '**/*.css' }.files : [] as Set<File>
 
-        def outFile = GENERATED_FRAGMENT_CSS.get().asFile
-        outFile.parentFile.mkdirs()
+					def outFile = GENERATED_FRAGMENT_CSS.get().asFile
+					outFile.parentFile.mkdirs()
 
-        if (!files || files.isEmpty()) {
-            outFile.text = '/* No built CSS found; ensure src/app.scss is imported by src/index.jsx */'
-            logger.lifecycle("No CSS emitted by Vite under ${cssDir}; wrote stub fragment.css.")
-        } else {
-            def latest = files.sort { -it.lastModified() }.first()
-            ant.copy(file: latest, tofile: outFile)
-            logger.lifecycle("Selected CSS: ${latest.name} -> fragment.css")
-        }
-    }
+					if (!files || files.isEmpty()) {
+						outFile.text = '/* No built CSS found; ensure src/app.scss is imported by src/index.jsx */'
+						logger.lifecycle("No CSS emitted by Vite under ${cssDir}; wrote stub fragment.css.")
+
+					} else {
+						def latest = files.sort { -it.lastModified() }.first()
+						ant.copy(file: latest, tofile: outFile)
+						logger.lifecycle("Selected CSS: ${latest.name} -> fragment.css")
+
+					}
+
+				}
+			}
+
+			tasks.register('syncFragmentCssToFragment', Copy) {
+				group = 'build'
+				description = 'Copy build/tmp/fragment.css into the fragment as fragment.css.'
+				dependsOn tasks.named('generateFragmentCss')
+
+				from(GENERATED_FRAGMENT_CSS.map { it.asFile })
+				into(FRAGMENT_DIR)
+				rename {
+					'fragment.css'
+
+				}
+			}
+
+			tasks.register('zipFragments', Zip) {
+				group = 'build'
+				description = 'Zip the fragment set with the descriptor at ZIP root.'
+				archiveFileName.set(FRAGMENTS_ZIP_NAME)
+				destinationDirectory.set(FRAGMENTS_ZIP_OUT)
+
+				dependsOn tasks.named('generateDeployDescriptor')
+				dependsOn tasks.named('syncFragmentCssToFragment')
+
+				duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+
+				// Include the entire fragment-set directory AS a top-level folder inside the ZIP:
+				// [zip]/[fragment-set-name]/(collection.json + fragment folders)
+				from(FRAGMENTS_DIR) {
+					include '**/*'
+					exclude 'liferay-deploy-fragments.json' // ensure descriptor is only at ZIP root
+					into(FRAGMENT_SET_NAME)
+
+				}
+
+				// Include exactly one liferay-deploy-fragments.json at ZIP root
+				from(descriptorSourceDirProvider) {
+					include 'liferay-deploy-fragments.json'
+					// no into() here => placed at ZIP root
+
+				}
+			}
+
+			// --- Auto-deploy the ZIP to <liferay.home or ./bundles>/deploy ---
+			tasks.register('autoDeployFragments', Copy) {
+				group = 'build'
+				description = 'Copy the fragments ZIP to the bundle deploy/ folder.'
+				dependsOn tasks.named('zipFragments')
+				from(tasks.named('zipFragments').flatMap { it.archiveFile })
+
+				doFirst {
+					def deployDir = new File(liferayHome.get() + '/deploy')
+					if (!deployDir.exists()) deployDir.mkdirs()
+
 }
-
-// --- Copy fragment.css into the fragment folder (overwrites previous copy) ---
-tasks.register('syncFragmentCssToFragment', Copy) {
-    group = 'build'
-    description = 'Copy build/tmp/fragment.css into the fragment as fragment.css.'
-    dependsOn tasks.named('generateFragmentCss')
-
-    from(GENERATED_FRAGMENT_CSS.map { it.asFile })
-    into(FRAGMENT_DIR)
-    rename { 'fragment.css' }
-}
-
-// --- Zip with correct Liferay structure ---
-tasks.register('zipFragments', Zip) {
-    group = 'build'
-    description = 'Zip the fragment set with the descriptor at ZIP root.'
-    archiveFileName.set(FRAGMENTS_ZIP_NAME)
-    destinationDirectory.set(FRAGMENTS_ZIP_OUT)
-
-    dependsOn tasks.named('generateDeployDescriptor')
-    dependsOn tasks.named('syncFragmentCssToFragment')
-
-    duplicatesStrategy = DuplicatesStrategy.EXCLUDE
-
-    // Include the entire fragment-set directory AS a top-level folder inside the ZIP:
-    // [zip]/[fragment-set-name]/(collection.json + fragment folders)
-    from(FRAGMENTS_DIR) {
-        include '**/*'
-        exclude 'liferay-deploy-fragments.json'  // ensure descriptor is only at ZIP root
-        into(FRAGMENT_SET_NAME)
-    }
-
-    // Include exactly one liferay-deploy-fragments.json at ZIP root
-    from(descriptorSourceDirProvider) {
-        include 'liferay-deploy-fragments.json'
-        // no into() here => placed at ZIP root
-    }
-}
-
-// --- Auto-deploy the ZIP to <liferay.home or ./bundles>/deploy ---
-tasks.register('autoDeployFragments', Copy) {
-    group = 'build'
-    description = 'Copy the fragments ZIP to the bundle deploy/ folder.'
-    dependsOn tasks.named('zipFragments')
-    from(tasks.named('zipFragments').flatMap { it.archiveFile })
-
-    doFirst {
-        def deployDir = new File(liferayHome.get() + '/deploy')
-        if (!deployDir.exists()) deployDir.mkdirs()
-    }
-    into(liferayHome.map { it + '/deploy' })
+	into(liferayHome.map { it + '/deploy' })
 }
 
 // ===================== LIFECYCLE WIRING =====================
 tasks.named('assemble') {
-    dependsOn tasks.named('generateBatchFiles')
-    dependsOn tasks.named('zipFragments')
-    dependsOn tasks.named('buildConfigurationCX')
-}
-tasks.matching { it.name == 'deploy' }.configureEach {
-    dependsOn tasks.named('generateBatchFiles')
-    dependsOn tasks.named('buildConfigurationCX')
-    dependsOn tasks.named('autoDeployFragments')
-}
+						dependsOn tasks.named('generateBatchFiles')
+						dependsOn tasks.named('zipFragments')
+						dependsOn tasks.named('buildConfigurationCX')
+					}
+					tasks.matching { it.name == 'deploy' }.configureEach {
+						dependsOn tasks.named('generateBatchFiles')
+						dependsOn tasks.named('buildConfigurationCX')
+						dependsOn tasks.named('autoDeployFragments')
+					}

@@ -1,11 +1,16 @@
 Generate comprehensive PDF content for a {{category}} product named "{{productName}}".
 
 Create realistic content for:
+
 1. Technical Specifications (detailed specs in table format)
-2. Warranty Information (coverage, terms, contact info)
-3. Marketing Brochure (features, benefits, selling points)
-4. User Manual Excerpt (key usage instructions)
-5. Safety Information (warnings, certifications)
+
+1. Warranty Information (coverage, terms, contact info)
+
+1. Marketing Brochure (features, benefits, selling points)
+
+1. User Manual Excerpt (key usage instructions)
+
+1. Safety Information (warnings, certifications)
 
 Product Context:
 - Name: {{productName}}

@@ -1,10 +1,10 @@
 const { resolvePhaseAndMode } = require('../utils/misc.cjs');
 
 class ProgressService {
-  constructor({ ws, logger, persistenceService }) {
+  constructor({ ws, logger, persistence }) {
     this.ws = ws;
     this.logger = logger;
-    this.persistenceService = persistenceService;
+    this.persistence = persistence;
   }
 
   sessionStarted({ sessionId, flowType, correlationId }) {
@@ -16,7 +16,7 @@ class ProgressService {
       },
       { correlationId }
     );
-    this.persistenceService.logWorkflowEvent({
+    this.persistence.logWorkflowEvent({
       sessionId,
       status: 'SESSION_STARTED',
       message: `Session ${sessionId} of type ${flowType} started.`,
@@ -32,7 +32,7 @@ class ProgressService {
       },
       { correlationId }
     );
-    this.persistenceService.logWorkflowEvent({
+    this.persistence.logWorkflowEvent({
       sessionId,
       status: 'SESSION_COMPLETED',
       message: `Session ${sessionId} completed successfully.`,
@@ -50,7 +50,7 @@ class ProgressService {
       },
       { correlationId }
     );
-    this.persistenceService.logWorkflowEvent({
+    this.persistence.logWorkflowEvent({
       sessionId,
       status: 'SESSION_FAILED',
       message: `Session ${sessionId} failed: ${error.message}`,
@@ -67,7 +67,7 @@ class ProgressService {
         },
         { correlationId }
     );
-    this.persistenceService.logWorkflowEvent({
+    this.persistence.logWorkflowEvent({
       sessionId,
       status: 'STEP_STARTED',
       message: `Step '${step}' started.`,
@@ -84,7 +84,7 @@ class ProgressService {
         },
         { correlationId }
     );
-    this.persistenceService.logWorkflowEvent({
+    this.persistence.logWorkflowEvent({
       sessionId,
       status: 'STEP_COMPLETED',
       message: `Step '${step}' completed.`,
@@ -104,7 +104,7 @@ class ProgressService {
       };
 
     this.ws.emitBatchStarted(payload, { correlationId });
-    this.persistenceService.logWorkflowEvent({
+    this.persistence.logWorkflowEvent({
         sessionId,
         batchId,
         status: 'BATCH_STARTED',
@@ -127,7 +127,7 @@ class ProgressService {
         };
 
         this.ws.emitBatchProgress(payload, { correlationId });
-        this.persistenceService.logWorkflowEvent({
+        this.persistence.logWorkflowEvent({
             sessionId,
             batchId,
             status: 'BATCH_PROGRESS',
@@ -150,7 +150,7 @@ class ProgressService {
         errors: failureCount > 0 ? errors.slice(0, 5) : [],
       };
     this.ws.emitBatchCompleted(payload, { correlationId });
-    this.persistenceService.logWorkflowEvent({
+    this.persistence.logWorkflowEvent({
         sessionId,
         batchId,
         status: 'BATCH_COMPLETED',
@@ -172,7 +172,7 @@ class ProgressService {
         errors: [{ message: error.message }],
       };
     this.ws.emitBatchCompleted(payload, { correlationId });
-    this.persistenceService.logWorkflowEvent({
+    this.persistence.logWorkflowEvent({
         sessionId,
         batchId,
         status: 'BATCH_FAILED',
@@ -190,7 +190,7 @@ class ProgressService {
         sessionId,
       };
     this.ws.emitPostProcessingStarted(payload, { correlationId });
-    this.persistenceService.logWorkflowEvent({
+    this.persistence.logWorkflowEvent({
         sessionId,
         batchId,
         status: 'POST_PROCESSING_STARTED',
@@ -210,7 +210,7 @@ class ProgressService {
         sessionId,
       };
     this.ws.emitPostProcessingCompleted(payload, { correlationId });
-    this.persistenceService.logWorkflowEvent({
+    this.persistence.logWorkflowEvent({
         sessionId,
         batchId,
         status: 'POST_PROCESSING_COMPLETED',
@@ -227,7 +227,7 @@ class ProgressService {
         ...rest
     };
     this.ws.emitError(payload);
-    this.persistenceService.logWorkflowEvent({
+    this.persistence.logWorkflowEvent({
         sessionId: rest.sessionId,
         batchId: rest.batchId,
         status: 'ERROR',

@@ -1,75 +1,75 @@
 {
-    "fieldSets": [
-        {
-            "fields": [
-                {
-                    "defaultValue": "http://localhost:3001",
-                    "label": "microservice-url",
-                    "name": "microserviceUrl",
-                    "type": "text"
-                },
-                {
-                    "dataType": "int",
-                    "defaultValue": "12",
-                    "label": "polling-retries",
-                    "name": "polliingRetries",
-                    "type": "text"
-                },
-                {
-                    "dataType": "int",
-                    "defaultValue": "5000",
-                    "label": "polling-delay",
-                    "name": "pollingDelay",
-                    "type": "text"
-                }
-            ],
-            "label": "connection"
-        },
-        {
-            "configurationRole": "style",
-            "fields": [
-                {
-                    "defaultValue": "Liferay AI Commerce Accelerator",
-                    "label": "title",
-                    "name": "title",
-                    "type": "text"
-                },
-                {
-                    "defaultValue": "Generate comprehensive Commerce data using AI and Liferay Headless APIs",
-                    "label": "subtitle",
-                    "name": "subtitle",
-                    "type": "text"
-                }
-            ],
-            "label": "headings"
-        },
-        {
-            "configurationRole": "advanced",
-            "fields": [
-                {
-                    "defaultValue": "off",
-                    "label": "websocket-logging-level",
-                    "name": "wsLoggingLevel",
-                    "type": "select",
-                    "typeOptions": {
-                        "validValues": [
-                            {
-                                "label": "off",
-                                "value": "off"
-                            },
-                            {
-                                "label": "info",
-                                "value": "info"
-                            },
-                            {
-                                "label": "verbose",
-                                "value": "verbose"
-                            }
-                        ]
-                    }
-                }
-            ],
-            "label": "headings"
-        }
-    ]
+	"fieldSets": [
+		{
+			"fields": [
+				{
+					"defaultValue": "http://localhost:3001",
+					"label": "microservice-url",
+					"name": "microserviceUrl",
+					"type": "text"
+				},
+				{
+					"dataType": "int",
+					"defaultValue": "12",
+					"label": "polling-retries",
+					"name": "polliingRetries",
+					"type": "text"
+				},
+				{
+					"dataType": "int",
+					"defaultValue": "5000",
+					"label": "polling-delay",
+					"name": "pollingDelay",
+					"type": "text"
+				}
+			],
+			"label": "connection"
+		},
+		{
+			"configurationRole": "style",
+			"fields": [
+				{
+					"defaultValue": "Liferay AI Commerce Accelerator",
+					"label": "title",
+					"name": "title",
+					"type": "text"
+				},
+				{
+					"defaultValue": "Generate comprehensive Commerce data using AI and Liferay Headless APIs",
+					"label": "subtitle",
+					"name": "subtitle",
+					"type": "text"
+				}
+			],
+			"label": "headings"
+		},
+		{
+			"configurationRole": "advanced",
+			"fields": [
+				{
+					"defaultValue": "off",
+					"label": "websocket-logging-level",
+					"name": "wsLoggingLevel",
+					"type": "select",
+					"typeOptions": {
+						"validValues": [
+							{
+								"label": "off",
+								"value": "off"
+							},
+							{
+								"label": "info",
+								"value": "info"
+							},
+							{
+								"label": "verbose",
+								"value": "verbose"
+							}
+						]
+					}
+				}
+			],
+			"label": "headings"
+		}
+	]
 }

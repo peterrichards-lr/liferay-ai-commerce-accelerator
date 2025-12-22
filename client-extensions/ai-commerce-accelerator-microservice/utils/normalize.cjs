@@ -84,6 +84,8 @@ function buildConfigAndOptions(req) {
     createWarehouses,
     currencyCode,
     demoMode,
+    enableBackorders,
+    backorderAssignmentRatio,
     generateBulkPricing,
     generatePriceLists,
     generateSkuVariants,
@@ -95,6 +97,9 @@ function buildConfigAndOptions(req) {
     imageRatio,
     imageStyle,
     imageWidth,
+    inventoryAssignmentRatio,
+    inventoryMax,
+    inventoryMin,
     languageId,
     liferayUrl,
     localeCode,
@@ -197,46 +202,34 @@ function buildConfigAndOptions(req) {
 
   logger.info('options before switch in buildConfigAndOptions:', options);
 
-  const routePath = req?.route?.path;
-
-  switch (routePath) {
-    case INTERNAL_API_PATHS.GENERATE_PRODUCTS: {
-      options.productCount = toNumber(productCount);
-      options.productCategories = productCategories;
-      options.generateBulkPricing = toBoolean(generateBulkPricing);
-      options.generatePriceLists = toBoolean(generatePriceLists);
-      options.generateSkuVariants = toBoolean(generateSkuVariants);
-      options.generateSpecifications = toBoolean(generateSpecifications);
-      options.generateTierPricing = toBoolean(generateTierPricing);
-      options.imageHeight = toNumber(imageHeight) || 512;
-      options.imageMode = imageMode || 'none';
-      options.imageQuality = imageQuality || 'standard';
-      options.imageRatio = toNumber(imageRatio) || 0;
-      options.imageStyle = imageStyle || 'photographic';
-      options.imageWidth = toNumber(imageWidth) || 512;
-      options.pdfMode = pdfMode || 'none';
-      options.pdfRatio = toNumber(pdfRatio) || 0;
-      options.createWarehouses = toBoolean(createWarehouses);
-      options.reuseExistingWarehouses = toBoolean(reuseExistingWarehouses);
-      options.warehouseCount = toNumber(warehouseCount);
-      options.customImageFile = getCustomImage(req, options.imageMode);
-      options.customPdfFile = getCustomPdf(req, options.pdfMode);
-      break;
-    }
-    case INTERNAL_API_PATHS.GENERATE_ORDERS: {
-      options.orderCount = toNumber(orderCount);
-      break;
-    }
-    case INTERNAL_API_PATHS.GENERATE_ACCOUNTS: {
-      options.accountCount = toNumber(accountCount);
-      break;
-    }
-    case INTERNAL_API_PATHS.VALIDATE_PRODUCTS:
-    case INTERNAL_API_PATHS.VALIDATE_ACCOUNTS: {
-      options.requiredCount = toNumber(requiredCount);
-      break;
-    }
-  }
+  options.productCount = toNumber(productCount);
+  options.productCategories = productCategories;
+  options.generateBulkPricing = toBoolean(generateBulkPricing);
+  options.generatePriceLists = toBoolean(generatePriceLists);
+  options.generateSkuVariants = toBoolean(generateSkuVariants);
+  options.generateSpecifications = toBoolean(generateSpecifications);
+  options.generateTierPricing = toBoolean(generateTierPricing);
+  options.imageHeight = toNumber(imageHeight) || 512;
+  options.imageMode = imageMode || 'none';
+  options.imageQuality = imageQuality || 'standard';
+  options.imageRatio = toNumber(imageRatio) || 0;
+  options.imageStyle = imageStyle || 'photographic';
+  options.imageWidth = toNumber(imageWidth) || 512;
+  options.pdfMode = pdfMode || 'none';
+  options.pdfRatio = toNumber(pdfRatio) || 0;
+  options.createWarehouses = toBoolean(createWarehouses);
+  options.reuseExistingWarehouses = toBoolean(reuseExistingWarehouses);
+  options.warehouseCount = toNumber(warehouseCount);
+  options.customImageFile = getCustomImage(req, options.imageMode);
+  options.customPdfFile = getCustomPdf(req, options.pdfMode);
+  options.orderCount = toNumber(orderCount);
+  options.accountCount = toNumber(accountCount);
+  options.requiredCount = toNumber(requiredCount);
+  options.inventoryMin = toNumber(inventoryMin);
+  options.inventoryMax = toNumber(inventoryMax);
+  options.inventoryAssignmentRatio = toNumber(inventoryAssignmentRatio);
+  options.enableBackorders = toBoolean(enableBackorders);
+  options.backorderAssignmentRatio = toNumber(backorderAssignmentRatio);
 
   logger.info('options after switch in buildConfigAndOptions:', options);
 

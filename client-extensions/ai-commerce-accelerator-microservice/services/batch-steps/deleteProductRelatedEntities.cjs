@@ -16,22 +16,19 @@ module.exports = async function deleteProductRelatedEntities(
     if (specificationIds.length > 0) {
       await liferay.deleteSpecificationsBatch(
         config,
-        { ...options, ids: specificationIds },
-        null
+        { ...options, ids: specificationIds }
       );
     }
     if (optionIds.length > 0) {
       await liferay.deleteOptionsBatch(
         config,
-        { ...options, ids: optionIds },
-        null
+        { ...options, ids: optionIds }
       );
     }
     if (optionCategoryIds.length > 0) {
       await liferay.deleteOptionCategoriesBatch(
         config,
-        { ...options, ids: optionCategoryIds },
-        null
+        { ...options, ids: optionCategoryIds }
       );
     }
   }

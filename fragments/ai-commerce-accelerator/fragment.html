@@ -1,17 +1,17 @@
 [#assign liferayUrl = '']
 [#assign languageId = '']
 [#if themeDisplay??]
-   [#assign liferayUrl = themeDisplay.portalURL]
-   [#assign languageId = themeDisplay.languageId?replace('_','-')]
+[#assign liferayUrl = themeDisplay.portalURL]
+[#assign languageId = themeDisplay.languageId?replace('_','-')]
 [/#if]
 <liferay-ai-commerce-accelerator-frontend
-  liferay-hosted="true"
-  liferay-url="${liferayUrl}"
-  locale-code="${languageId}"
-  microservice-url="${configuration.microserviceUrl}"
-  title="${configuration.title}"
-  subtitle="${configuration.subtitle}"
-  ws-logging-level="${configuration.wsLoggingLevel}"
-  polling-delay="${configuration.pollingDelay}"
-  polling-retries="${configuration.polliingRetries}"
+	liferay-hosted="true"
+	liferay-url="${liferayUrl}"
+	locale-code="${languageId}"
+	microservice-url="${configuration.microserviceUrl}"
+	polling-delay="${configuration.pollingDelay}"
+	polling-retries="${configuration.polliingRetries}"
+	subtitle="${configuration.subtitle}"
+	title="${configuration.title}"
+	ws-logging-level="${configuration.wsLoggingLevel}"
 />

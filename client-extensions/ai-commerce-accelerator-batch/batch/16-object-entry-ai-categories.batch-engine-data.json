@@ -16,7 +16,7 @@
             "configStatus": {
                 "key": "Active"
             },
-            "configValue": "[\n    \"Electronics\",\n    \"Clothing\",\n    \"Home & Garden\",\n    \"Sports\",\n    \"Books\",\n    \"Automotive\",\n    \"Health & Beauty\",\n    \"Toys & Games\",\n    \"Food & Beverage\",\n    \"Office Supplies\"\n]",
+            "configValue": "[\"Electronics\",\"Clothing\",\"Home & Garden\",\"Sports\",\"Books\",\"Automotive\",\"Health & Beauty\",\"Toys & Games\",\"Food & Beverage\",\"Office Supplies\"]",
             "description": "AI Product Categories",
             "externalReferenceCode": "AI-CATEGORIES"
         }

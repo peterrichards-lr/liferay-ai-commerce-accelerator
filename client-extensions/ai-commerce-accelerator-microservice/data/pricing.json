@@ -1,38 +1,108 @@
-
 {
-  "Electronics": {
-    "basePrice": { "min": 50, "max": 2000 },
-    "priceModifiers": {
-      "Color": { "Black": 0, "White": 5, "Silver": 10, "Space Gray": 15, "Blue": 0 },
-      "Storage": { "64GB": 0, "128GB": 50, "256GB": 100, "512GB": 200, "1TB": 400 }
-    }
-  },
-  "Clothing": {
-    "basePrice": { "min": 15, "max": 300 },
-    "priceModifiers": {
-      "Size": { "XS": 0, "S": 0, "M": 0, "L": 0, "XL": 5, "XXL": 10 },
-      "Material": { "Cotton": 0, "Polyester": -5, "Wool": 25, "Silk": 50, "Denim": 10 }
-    }
-  },
-  "Home & Garden": {
-    "basePrice": { "min": 20, "max": 800 },
-    "priceModifiers": {
-      "Size": { "Small": 0, "Medium": 25, "Large": 50, "Extra Large": 100 },
-      "Material": { "Wood": 20, "Metal": 15, "Plastic": 0, "Glass": 30, "Ceramic": 25 }
-    }
-  },
-  "Sports": {
-    "basePrice": { "min": 25, "max": 500 },
-    "priceModifiers": {
-      "Skill Level": { "Beginner": 0, "Intermediate": 50, "Advanced": 100, "Professional": 200 },
-      "Weight": { "Light": 0, "Medium": 10, "Heavy": 20 }
-    }
-  },
-  "Books": {
-    "basePrice": { "min": 10, "max": 80 },
-    "priceModifiers": {
-      "Format": { "Hardcover": 15, "Paperback": 0, "Digital": -5, "Audiobook": 10 },
-      "Edition": { "First": 0, "Second": 5, "Third": 10, "Revised": 5, "Anniversary": 20 }
-    }
-  }
+	"Books": {
+		"basePrice": {
+			"max": 80,
+			"min": 10
+		},
+		"priceModifiers": {
+			"Edition": {
+				"Anniversary": 20,
+				"First": 0,
+				"Revised": 5,
+				"Second": 5,
+				"Third": 10
+			},
+			"Format": {
+				"Audiobook": 10,
+				"Digital": -5,
+				"Hardcover": 15,
+				"Paperback": 0
+			}
+		}
+	},
+	"Clothing": {
+		"basePrice": {
+			"max": 300,
+			"min": 15
+		},
+		"priceModifiers": {
+			"Material": {
+				"Cotton": 0,
+				"Denim": 10,
+				"Polyester": -5,
+				"Silk": 50,
+				"Wool": 25
+			},
+			"Size": {
+				"L": 0,
+				"M": 0,
+				"S": 0,
+				"XL": 5,
+				"XS": 0,
+				"XXL": 10
+			}
+		}
+	},
+	"Electronics": {
+		"basePrice": {
+			"max": 2000,
+			"min": 50
+		},
+		"priceModifiers": {
+			"Color": {
+				"Black": 0,
+				"Blue": 0,
+				"Silver": 10,
+				"Space Gray": 15,
+				"White": 5
+			},
+			"Storage": {
+				"128GB": 50,
+				"1TB": 400,
+				"256GB": 100,
+				"512GB": 200,
+				"64GB": 0
+			}
+		}
+	},
+	"Home & Garden": {
+		"basePrice": {
+			"max": 800,
+			"min": 20
+		},
+		"priceModifiers": {
+			"Material": {
+				"Ceramic": 25,
+				"Glass": 30,
+				"Metal": 15,
+				"Plastic": 0,
+				"Wood": 20
+			},
+			"Size": {
+				"Extra Large": 100,
+				"Large": 50,
+				"Medium": 25,
+				"Small": 0
+			}
+		}
+	},
+	"Sports": {
+		"basePrice": {
+			"max": 500,
+			"min": 25
+		},
+		"priceModifiers": {
+			"Skill Level": {
+				"Advanced": 100,
+				"Beginner": 0,
+				"Intermediate": 50,
+				"Professional": 200
+			},
+			"Weight": {
+				"Heavy": 20,
+				"Light": 0,
+				"Medium": 10
+			}
+		}
+	}
 }

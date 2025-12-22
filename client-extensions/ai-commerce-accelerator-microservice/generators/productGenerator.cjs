@@ -27,14 +27,80 @@ class ProductGenerator {
     this.ctx = ctx;
   }
 
+  validateConfig(config) {
+    const pollingRetriesValue = config.pollingRetries;
+    if (pollingRetriesValue === undefined || pollingRetriesValue === null) {
+      throw new Error('pollingRetries is required');
+    }
+    const pollingRetries = parseInt(pollingRetriesValue);
+    if (isNaN(pollingRetries) || pollingRetries < 0 || pollingRetries > 20) {
+      throw new Error('pollingRetries must be between 0 and 20');
+    }
+    const pollingDelayValue = config.pollingDelay;
+    if (pollingDelayValue === undefined || pollingDelayValue === null) {
+      throw new Error('pollingDelay is required');
+    }
+    const pollingDelay = parseInt(pollingDelayValue);
+    if (isNaN(pollingDelay) || pollingDelay < 5000 || pollingDelay > 600000) {
+      throw new Error('pollingDelay must be between 5 and 600 seconds');
+    }
+    const catalogIdValue = config.catalogId;
+    if (catalogIdValue === undefined || catalogIdValue === null) {
+      throw new Error('catalogId is required');
+    }
+    const catalogId = parseInt(catalogIdValue);
+    if (isNaN(catalogId) || catalogId <= 0) {
+      throw new Error('catalogId must be a positive integer');
+    }
+  }
+
+  async validateOptions(config, options) {
+    const { ai, logger } = this.ctx;
+
+    if (
+      !options.productCount ||
+      typeof options.productCount !== 'number' ||
+      options.productCount <= 0
+    ) {
+      throw new Error('Product count must be greater than 0');
+    }
+
+    if (!options.demoMode) {
+      if (!config.aiModel) {
+        const err = new Error(
+          'AI model not configured. Please select an AI model in the AI Configuration object.'
+        );
+        err.statusCode = 400;
+        logger.error(
+          '✗ AI model validation failed for products: missing aiModel'
+        );
+        throw err;
+      }
+
+      await ai.getOpenAIClient(config);
+    }
+
+    if (
+      (options.imageRatio ?? 0) > 0 &&
+      options.imageMode !== 'none' &&
+      !options.demoMode
+    ) {
+      if (!config.imageGenerationKey) {
+        throw new Error(
+          'Image generation API key not configured. Please set it in the AI Configuration object or disable image generation.'
+        );
+      }
+    }
+  }
+
   createOnSessionComplete() {
     return this.onSessionComplete.bind(this);
   }
 
   async onSessionComplete({ sessionId, session, correlationId }) {
-    const { logger, ws, configService, liferay, persistenceService, progressService } = this.ctx;
-    
-    const dbSession = await persistenceService.getSession(sessionId);
+    const { logger, ws, liferay, persistence, progress } = this.ctx;
+
+    const dbSession = await persistence.getSession(sessionId);
 
     if (dbSession.status === 'postprocessing_done') {
       logger.warn('Post-processing already handled for session', {
@@ -47,7 +113,7 @@ class ProductGenerator {
       return;
     }
 
-    await persistenceService.updateSessionStatus(sessionId, 'postprocessing');
+    await persistence.updateSessionStatus(sessionId, 'postprocessing');
 
     const completed = Array.isArray(session?.completedBatches)
       ? Array.from(session.completedBatches)
@@ -62,7 +128,7 @@ class ProductGenerator {
       correlationId,
     });
 
-    progressService.sessionCompleted({
+    progress.sessionCompleted({
       sessionId,
       correlationId,
     });
@@ -77,11 +143,11 @@ class ProductGenerator {
         sessionId,
         correlationId,
       });
-      await persistenceService.updateSessionStatus(sessionId, 'failed');
+      await persistence.updateSessionStatus(sessionId, 'failed');
       return;
     }
 
-    const { config, productDataList, options } = sessionContext;
+    const { config: sessionConfig, productDataList, options } = sessionContext;
     const demoMode = !!options?.demoMode;
 
     const shouldProcessDemo =
@@ -111,18 +177,18 @@ class ProductGenerator {
         imageRatio: options?.imageRatio ?? 0,
         pdfRatio: options?.pdfRatio ?? 0,
       });
-      await persistenceService.updateSessionStatus(sessionId, 'completed');
+      await persistence.updateSessionStatus(sessionId, 'completed');
       return;
     }
 
     try {
-      await this.processImageAndPDFAttachments(config, productDataList, {
+      await this.processImageAndPDFAttachments(sessionConfig, productDataList, {
         ...options,
         sessionId,
       });
     } finally {
-      await persistenceService.updateSessionStatus(sessionId, 'completed');
-      
+      await persistence.updateSessionStatus(sessionId, 'completed');
+
       logger.info('Post-processing complete; session context cleared', {
         entityType: 'products',
         operation: 'generate',
@@ -134,7 +200,7 @@ class ProductGenerator {
       if (options.createWarehouses) {
         try {
           logger.info('Updating inventory for all products', { sessionId });
-          const createdProducts = await liferay.getProducts(config);
+          const createdProducts = await liferay.getProducts(sessionConfig);
           const ercToProductMap = new Map();
           for (const product of createdProducts) {
             ercToProductMap.set(product.externalReferenceCode, product);
@@ -146,7 +212,7 @@ class ProductGenerator {
             );
             if (createdProduct) {
               await this.updateInventory(
-                config,
+                sessionConfig,
                 createdProduct,
                 originalProduct,
                 options
@@ -171,14 +237,18 @@ class ProductGenerator {
     await this.validateOptions(config, options);
 
     if (options.imageRatio != null) {
-      options.imageRatio = Math.max(0, Math.min(100, Number(options.imageRatio)));
+      options.imageRatio = Math.max(
+        0,
+        Math.min(100, Number(options.imageRatio))
+      );
     }
     if (options.pdfRatio != null) {
       options.pdfRatio = Math.max(0, Math.min(100, Number(options.pdfRatio)));
     }
 
     const selectedCategories =
-      Array.isArray(options.productCategories) && options.productCategories.length
+      Array.isArray(options.productCategories) &&
+      options.productCategories.length
         ? options.productCategories
         : [];
     if (selectedCategories.length === 0)
@@ -205,16 +275,19 @@ class ProductGenerator {
     let catalogSpecificationsByCategory = {};
 
     if (options.generateSkuVariants) {
-        catalogOptionsByCategory = await this.createCatalogOptions(config, {
-            ...options,
-            sessionId,
-        });
+      catalogOptionsByCategory = await this.createCatalogOptions(config, {
+        ...options,
+        sessionId,
+      });
     }
     if (options.generateSpecifications) {
-        catalogSpecificationsByCategory = await this.createCatalogSpecifications(config, {
-            ...options,
-            sessionId,
-        });
+      catalogSpecificationsByCategory = await this.createCatalogSpecifications(
+        config,
+        {
+          ...options,
+          sessionId,
+        }
+      );
     }
 
     for (const category of selectedCategories) {
@@ -223,7 +296,9 @@ class ProductGenerator {
         logger.trace(`Skipping category ${category} (assigned 0)`);
         continue;
       }
-      logger.trace(`Generating ${countForCategory} products for category: ${category}`);
+      logger.trace(
+        `Generating ${countForCategory} products for category: ${category}`
+      );
       try {
         let productDataList;
         if (options.demoMode) {
@@ -262,7 +337,11 @@ class ProductGenerator {
             pd.__catalogSpecifications = catSpecs;
             pd.category = category;
             // Add productOptions and productSpecifications to productData
-            if (options.generateSkuVariants && pd.options && Array.isArray(pd.options)) {
+            if (
+              options.generateSkuVariants &&
+              pd.options &&
+              Array.isArray(pd.options)
+            ) {
               const catalogOptions = catOpts;
               const catalogOptionsMap = new Map();
               for (const co of catalogOptions) {
@@ -274,7 +353,8 @@ class ProductGenerator {
                   if (catalogOption) {
                     return {
                       optionId: catalogOption.id,
-                      optionExternalReferenceCode: catalogOption.externalReferenceCode,
+                      optionExternalReferenceCode:
+                        catalogOption.externalReferenceCode,
                       facetable: catalogOption.facetable,
                       required: catalogOption.required,
                       skuContributor: catalogOption.skuContributor,
@@ -285,7 +365,9 @@ class ProductGenerator {
                 .filter(Boolean);
             }
             if (options.generateSpecifications) {
-              const provided = Array.isArray(pd.specifications) ? pd.specifications : [];
+              const provided = Array.isArray(pd.specifications)
+                ? pd.specifications
+                : [];
               const providedMap = new Map();
               for (const p of provided) {
                 const k = (p.key || p.name || '').toString();
@@ -294,7 +376,8 @@ class ProductGenerator {
               }
               const productSpecifications = [];
               for (const cs of catSpecs) {
-                const p = providedMap.get(cs.key) || providedMap.get(cs.title?.en_US);
+                const p =
+                  providedMap.get(cs.key) || providedMap.get(cs.title?.en_US);
                 const valueObj = p?.value
                   ? typeof p.value === 'string'
                     ? { en_US: p.value }
@@ -307,8 +390,11 @@ class ProductGenerator {
                   label: cs.title,
                   value: valueObj,
                 };
-                if (cs.optionCategoryId) specPayload.optionCategoryId = cs.optionCategoryId;
-                if (cs.optionCategoryExternalReferenceCode) specPayload.optionCategoryExternalReferenceCode = cs.optionCategoryExternalReferenceCode;
+                if (cs.optionCategoryId)
+                  specPayload.optionCategoryId = cs.optionCategoryId;
+                if (cs.optionCategoryExternalReferenceCode)
+                  specPayload.optionCategoryExternalReferenceCode =
+                    cs.optionCategoryExternalReferenceCode;
                 productSpecifications.push(specPayload);
               }
               if (productSpecifications.length > 0) {
@@ -338,8 +424,12 @@ class ProductGenerator {
   }
 
   async startProductsBatch({ sessionId, session, correlationId }) {
-    const { logger, persistenceService, liferay, progressService } = this.ctx;
-    const { config, options, productDataList: allProductData } = session.context;
+    const { logger, persistence, liferay, progress } = this.ctx;
+    const {
+      config,
+      options,
+      productDataList: allProductData,
+    } = session.context;
 
     logger.info('Starting product batch processing', {
       sessionId,
@@ -348,8 +438,11 @@ class ProductGenerator {
     });
 
     if (!allProductData || allProductData.length === 0) {
-      logger.info('No products to create for this session. Marking step as COMPLETED.', { sessionId, correlationId });
-      await persistenceService.createBatch({
+      logger.info(
+        'No products to create for this session. Marking step as COMPLETED.',
+        { sessionId, correlationId }
+      );
+      await persistence.createBatch({
         erc: createERC(ERC_PREFIX.BATCH), // Generic ERC for an empty step
         sessionId,
         step_key: 'products',
@@ -361,97 +454,114 @@ class ProductGenerator {
     const useBatch = config.batchSize > 1 && options.productCount > 1;
 
     if (useBatch) {
-        const preparedProducts = allProductData.map((productData) => {
-            if (!productData.externalReferenceCode) {
-                productData.externalReferenceCode = createERC(ERC_PREFIX.PRODUCT);
-            }
-            const liferayProduct = {
-                active: productData.active !== undefined ? productData.active : true,
-                catalogId: parseInt(config.catalogId, 10),
-                name: toI18n(productData.name),
-                description: toI18n(productData.description),
-                productType: productData.productType || 'simple',
-                externalReferenceCode: productData.externalReferenceCode,
-            };
-            // Ensure product options and specifications are included if generated
-            if (options.generateSkuVariants && productData.productOptions) {
-              liferayProduct.productOptions = productData.productOptions;
-            }
-            if (options.generateSpecifications && productData.productSpecifications) {
-              liferayProduct.productSpecifications = productData.productSpecifications;
-            }
-            if (productData.skus && Array.isArray(productData.skus)) {
-              liferayProduct.skus = productData.skus;
-            }
-
-            return liferayProduct;
-        });
-
-        const callbackUrl = `${config.microserviceUrl}/api/batch/callback`;
-        const cleanedProducts = preparedProducts.map((product) => {
-            const cleanProduct = { ...product };
-            delete cleanProduct.images;
-            delete cleanProduct.attachments;
-            return cleanProduct;
-        });
-
-        const productBatches = [];
-        const safeBatchSize = Math.max(1, parseInt(config.batchSize, 10) || 1);
-        for (let i = 0; i < cleanedProducts.length; i += safeBatchSize) {
-            productBatches.push(cleanedProducts.slice(i, i + safeBatchSize));
+      const preparedProducts = allProductData.map((productData) => {
+        if (!productData.externalReferenceCode) {
+          productData.externalReferenceCode = createERC(ERC_PREFIX.PRODUCT);
+        }
+        const liferayProduct = {
+          active: productData.active !== undefined ? productData.active : true,
+          catalogId: parseInt(config.catalogId, 10),
+          name: toI18n(productData.name),
+          description: toI18n(productData.description),
+          productType: productData.productType || 'simple',
+          externalReferenceCode: productData.externalReferenceCode,
+        };
+        // Ensure product options and specifications are included if generated
+        if (options.generateSkuVariants && productData.productOptions) {
+          liferayProduct.productOptions = productData.productOptions;
+        }
+        if (
+          options.generateSpecifications &&
+          productData.productSpecifications
+        ) {
+          liferayProduct.productSpecifications =
+            productData.productSpecifications;
+        }
+        if (productData.skus && Array.isArray(productData.skus)) {
+          liferayProduct.skus = productData.skus;
         }
 
-        const batchIds = [];
-        for (let batchIndex = 0; batchIndex < productBatches.length; batchIndex++) {
-            const batch = productBatches[batchIndex];
-            const batchERC = createERC(ERC_PREFIX.PRODUCT_BATCH);
+        return liferayProduct;
+      });
 
-            await persistenceService.createBatch({
-                erc: batchERC,
-                sessionId,
-                stepKey: 'products', // Mark this batch as part of the 'products' step
-                status: 'prepared',
-            });
+      const cleanedProducts = preparedProducts.map((product) => {
+        const cleanProduct = { ...product };
+        delete cleanProduct.images;
+        delete cleanProduct.attachments;
+        return cleanProduct;
+      });
 
-            const cbUrl = callbackUrl
-                ? `${callbackUrl}?sessionId=${encodeURIComponent(sessionId)}&batchERC=${encodeURIComponent(batchERC)}`
-                : null;
+      const productBatches = [];
+      const safeBatchSize = Math.max(1, parseInt(config.batchSize, 10) || 1);
+      for (let i = 0; i < cleanedProducts.length; i += safeBatchSize) {
+        productBatches.push(cleanedProducts.slice(i, i + safeBatchSize));
+      }
 
-            const result = await liferay.createProductsBatch(config, batch, cbUrl, { externalReferenceCode: batchERC, sessionId });
-            const { batchId: bid } = result || {};
+      const batchIds = [];
+      for (
+        let batchIndex = 0;
+        batchIndex < productBatches.length;
+        batchIndex++
+      ) {
+        const batch = productBatches[batchIndex];
+        const batchERC = createERC(ERC_PREFIX.PRODUCT_BATCH);
 
-            if (!bid) {
-                logger.error('Batch API did not return a batchId', {
-                    entityType: 'products',
-                    operation: 'generate',
-                    batchIndex,
-                    productCount: batch.length,
-                    status: result?.status,
-                });
-                await persistenceService.updateBatch(batchERC, { status: 'FAILED' });
-                continue;
-            }
+        await persistence.createBatch({
+          erc: batchERC,
+          sessionId,
+          stepKey: 'products', // Mark this batch as part of the 'products' step
+          status: 'prepared',
+        });
 
-            await persistenceService.updateBatch(batchERC, { status: 'SUBMITTED', downstreamBatchId: bid });
-            batchIds.push(bid);
+        const result = await liferay.createProductsBatch(config, batch, {
+          externalReferenceCode: batchERC,
+          sessionId,
+        });
+        const { batchId: bid } = result || {};
 
-            progressService.batchStarted(
-                {
-                    sessionId,
-                    batchERC,
-                    batchId: bid,
-                    totalItems: batch.length,
-                    entityType: 'products',
-                    operation: 'generate',
-                    correlationId: correlationId,
-                }
-            );
-            logger.info('Product batch submitted', { batchERC, batchId: bid, productCount: batch.length });
+        if (!bid) {
+          logger.error('Batch API did not return a batchId', {
+            entityType: 'products',
+            operation: 'generate',
+            batchIndex,
+            productCount: batch.length,
+            status: result?.status,
+          });
+          await persistence.updateBatch(batchERC, { status: 'FAILED' });
+          continue;
         }
-        logger.info('All product batches submitted for processing', { sessionId, totalBatches: batchIds.length });
+
+        await persistence.updateBatch(batchERC, {
+          status: 'SUBMITTED',
+          downstreamBatchId: bid,
+        });
+        batchIds.push(bid);
+
+        progress.batchStarted({
+          sessionId,
+          batchERC,
+          batchId: bid,
+          totalItems: batch.length,
+          entityType: 'products',
+          operation: 'generate',
+          correlationId: correlationId,
+        });
+        logger.info('Product batch submitted', {
+          batchERC,
+          batchId: bid,
+          productCount: batch.length,
+        });
+      }
+      logger.info('All product batches submitted for processing', {
+        sessionId,
+        totalBatches: batchIds.length,
+      });
     } else {
-        logger.warn('Individual product creation is not yet fully implemented in the new workflow. Skipping product creation.', { sessionId });
-        await persistenceService.updateSession(sessionId, { status: 'FAILED' });
+      logger.warn(
+        'Individual product creation is not yet fully implemented in the new workflow. Skipping product creation.',
+        { sessionId }
+      );
+      await persistence.updateSession(sessionId, { status: 'FAILED' });
     }
   }
 
@@ -478,23 +588,21 @@ class ProductGenerator {
     }
     return counts;
   }
-  
+
   async generateProducts(config, options) {
     const {
       logger,
       liferay,
       mockData,
       media,
-      persistenceService,
-      progressService,
+      persistence,
+      progress,
       ai,
-      configService,
       warehouseGenerator,
-      cacheService,
+      cache,
     } = this.ctx;
 
-    const sessionId =
-      options.sessionId || createERC(ERC_PREFIX.BATCH_SESSION);
+    const sessionId = options.sessionId || createERC(ERC_PREFIX.BATCH_SESSION);
     const correlationId = config.correlationId;
 
     if (options.createWarehouses) {
@@ -502,9 +610,7 @@ class ProductGenerator {
       let warehouses = [];
       if (options.reuseExistingWarehouses) {
         logger.info('Checking for existing warehouses...');
-        const existingWarehouses = await liferay.getWarehouses(
-          config
-        );
+        const existingWarehouses = await liferay.getWarehouses(config);
         warehouses = existingWarehouses || [];
         logger.info('Found warehouses:', warehouses);
       }
@@ -523,10 +629,9 @@ class ProductGenerator {
         warehouses.push(...newWarehouses);
       }
       options.warehouses = warehouses;
-      cacheService.set('generated-warehouses', warehouses);
+      cache.set('generated-warehouses', warehouses);
       logger.info('Warehouses set in options and cache.');
     }
-
 
     const randomSeed = options.randomSeed;
     let prngState = Number.isFinite(randomSeed) ? randomSeed >>> 0 : 0;
@@ -543,20 +648,20 @@ class ProductGenerator {
         }
       : Math.random;
 
-    await persistenceService.createSession({
+    await persistence.createSession({
       sessionId,
       flowType: 'generate', // Renamed from 'products' for clarity. 'generate' implies a multi-step generation process.
       status: 'STARTED',
       currentSteps: [{ name: 'product-data-generation', type: 'sync' }], // Initial step
-      context: { 
-        config, 
+      context: {
+        config,
         options,
         // The list of steps for product generation workflow
         steps: [
           { name: 'product-data-generation', type: 'sync' },
           { name: 'products', type: 'sync' },
-          { name: 'post-processing', type: 'sync' } // This step will handle images, pdfs, and inventory
-        ], 
+          { name: 'post-processing', type: 'sync' }, // This step will handle images, pdfs, and inventory
+        ],
       },
     });
 
@@ -685,7 +790,11 @@ class ProductGenerator {
               pd.__catalogSpecifications = catSpecs;
               pd.category = category;
               // Add productOptions and productSpecifications to productData
-              if (options.generateSkuVariants && pd.options && Array.isArray(pd.options)) {
+              if (
+                options.generateSkuVariants &&
+                pd.options &&
+                Array.isArray(pd.options)
+              ) {
                 const catalogOptions = catOpts;
                 const catalogOptionsMap = new Map();
                 for (const co of catalogOptions) {
@@ -697,7 +806,8 @@ class ProductGenerator {
                     if (catalogOption) {
                       return {
                         optionId: catalogOption.id,
-                        optionExternalReferenceCode: catalogOption.externalReferenceCode,
+                        optionExternalReferenceCode:
+                          catalogOption.externalReferenceCode,
                         facetable: catalogOption.facetable,
                         required: catalogOption.required,
                         skuContributor: catalogOption.skuContributor,
@@ -708,7 +818,9 @@ class ProductGenerator {
                   .filter(Boolean);
               }
               if (options.generateSpecifications) {
-                const provided = Array.isArray(pd.specifications) ? pd.specifications : [];
+                const provided = Array.isArray(pd.specifications)
+                  ? pd.specifications
+                  : [];
                 const providedMap = new Map();
                 for (const p of provided) {
                   const k = (p.key || p.name || '').toString();
@@ -717,21 +829,26 @@ class ProductGenerator {
                 }
                 const productSpecifications = [];
                 for (const cs of catSpecs) {
-                  const p = providedMap.get(cs.key) || providedMap.get(cs.title?.en_US);
+                  const p =
+                    providedMap.get(cs.key) || providedMap.get(cs.title?.en_US);
                   const valueObj = p?.value
                     ? typeof p.value === 'string'
                       ? { en_US: p.value }
                       : p.value
                     : { en_US: `Mock ${cs.title?.en_US || cs.key} Value` };
                   const specPayload = {
-                    specificationExternalReferenceCode: cs.externalReferenceCode,
+                    specificationExternalReferenceCode:
+                      cs.externalReferenceCode,
                     specificationKey: cs.key,
                     specificationPriority: cs.priority || 0,
                     label: cs.title,
                     value: valueObj,
                   };
-                  if (cs.optionCategoryId) specPayload.optionCategoryId = cs.optionCategoryId;
-                  if (cs.optionCategoryExternalReferenceCode) specPayload.optionCategoryExternalReferenceCode = cs.optionCategoryExternalReferenceCode;
+                  if (cs.optionCategoryId)
+                    specPayload.optionCategoryId = cs.optionCategoryId;
+                  if (cs.optionCategoryExternalReferenceCode)
+                    specPayload.optionCategoryExternalReferenceCode =
+                      cs.optionCategoryExternalReferenceCode;
                   productSpecifications.push(specPayload);
                 }
                 if (productSpecifications.length > 0) {
@@ -757,9 +874,9 @@ class ProductGenerator {
         });
         return results;
       }
-      
+
       // Update session context with all generated product data
-      await persistenceService.updateSessionContext(sessionId, {
+      await persistence.updateSessionContext(sessionId, {
         config,
         productDataList: allProductData,
         options,
@@ -767,21 +884,29 @@ class ProductGenerator {
       });
 
       // Advance to the 'products' step where startProductsBatch will be called
-      await persistenceService.updateSession(sessionId, {
+      await persistence.updateSession(sessionId, {
         currentStep: 'products',
       });
       // Directly call startProductsBatch to begin processing the products
-      await this.startProductsBatch({ sessionId, session: { context: { config, options, productDataList: allProductData } }, correlationId });
-
-      logger.info('Product generation process initiated for batch processing.', {
+      await this.startProductsBatch({
         sessionId,
+        session: {
+          context: { config, options, productDataList: allProductData },
+        },
         correlationId,
       });
+
+      logger.info(
+        'Product generation process initiated for batch processing.',
+        {
+          sessionId,
+          correlationId,
+        }
+      );
       return {
         sessionId,
         message: 'Product generation process started.',
       };
-
     } catch (error) {
       logger.error('Product generation failed', {
         entityType: 'products',
@@ -793,12 +918,12 @@ class ProductGenerator {
       });
 
       try {
-        const session = await persistenceService.getSession(sessionId);
+        const session = await persistence.getSession(sessionId);
 
         if (session && session.status !== 'failed') {
-          await persistenceService.updateSessionStatus(sessionId, 'failed');
+          await persistence.updateSessionStatus(sessionId, 'failed');
 
-          progressService.sessionFailed({
+          progress.sessionFailed({
             sessionId: sessionId,
             error: error,
             correlationId: config.correlationId,
@@ -813,7 +938,6 @@ class ProductGenerator {
       throw error;
     }
   }
-
   async createCatalogOptions(config, options) {
     const { logger, liferay } = this.ctx;
     const categories = options.productCategories;
@@ -1116,6 +1240,30 @@ class ProductGenerator {
       ],
     };
 
+    let categorySpecificationsMap = {
+      Electronics: [
+        { key: 'screen-size', title: 'Screen Size', priority: 1, group: 'physical' },
+        { key: 'battery-life', title: 'Battery Life', priority: 2, group: 'performance' },
+        { key: 'processor', title: 'Processor', priority: 3, group: 'performance' },
+        { key: 'ram', title: 'RAM', priority: 4, group: 'performance' },
+        { key: 'warranty', title: 'Warranty', priority: 5, group: 'support' },
+      ],
+      Clothing: [
+        { key: 'material', title: 'Material', priority: 1, group: 'material-care' },
+        { key: 'care-instructions', title: 'Care Instructions', priority: 2, group: 'material-care' },
+        { key: 'fit', title: 'Fit', priority: 3, group: 'fit-style' },
+        { key: 'season', title: 'Season', priority: 4, group: 'fit-style' },
+        { key: 'brand', title: 'Brand', priority: 5, group: 'origin' },
+      ],
+      'Home & Garden': [
+        { key: 'dimensions', title: 'Dimensions', priority: 1, group: 'dimensions-weight' },
+        { key: 'weight', title: 'Weight', priority: 2, group: 'dimensions-weight' },
+        { key: 'material', title: 'Material', priority: 3, group: 'material-build' },
+        { key: 'weather-resistance', title: 'Weather Resistance', priority: 4, group: 'features' },
+        { key: 'assembly-required', title: 'Assembly Required', priority: 5, group: 'features' },
+      ],
+    };
+
     for (const category of categories) {
       const categoryGroups =
         categoryGroupsMap[category] || categoryGroupsMap['Electronics'];
@@ -1167,9 +1315,7 @@ class ProductGenerator {
           languageCodes.forEach((langCode) => {
             const suffix = langCode === 'en_US' ? '' : ` (${langCode})`;
             categoryTitle[langCode] = `${groupData.title}${suffix}`;
-            categoryDescription[
-              langCode
-            ] = `${groupData.description}${suffix}`;
+            categoryDescription[langCode] = `${groupData.description}${suffix}`;
           });
 
           const optionCategory = await liferay.createOptionCategoryWithReuse(
@@ -1233,7 +1379,8 @@ class ProductGenerator {
                   id: linkedOptionCategory.id,
                   key: linkedOptionCategory.key,
                   title: linkedOptionCategory.title,
-                  externalReferenceCode: linkedOptionCategory.externalReferenceCode,
+                  externalReferenceCode:
+                    linkedOptionCategory.externalReferenceCode,
                 }
               : null,
           });

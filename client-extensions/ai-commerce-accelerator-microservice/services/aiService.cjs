@@ -59,8 +59,8 @@ class AIService {
   }
 
   async getRuntimeAIConfig(requestConfig) {
-    const { configService } = this.ctx;
-    const aiCfg = (await configService.getAIConfig(requestConfig)) || {};
+    const { config } = this.ctx;
+    const aiCfg = (await config.getAIConfig(requestConfig)) || {};
 
     if (!aiCfg.defaultModel) {
       const err = new Error(
@@ -97,7 +97,7 @@ class AIService {
   }
 
   async getOpenAIClient(requestConfig) {
-    const { configService } = this.ctx;
+    const { config } = this.ctx;
 
     if (!this.openai) {
       if (!requestConfig) {
@@ -106,7 +106,7 @@ class AIService {
         );
       }
 
-      const apiKey = await configService.getOpenAIKey(requestConfig);
+      const apiKey = await config.getOpenAIKey(requestConfig);
       if (!apiKey) {
         throw new Error('OpenAI API key not configured');
       }
@@ -118,13 +118,13 @@ class AIService {
   }
 
   async _chatJson(task, prompt, requestConfig, model, schemaName) {
-    const { logger, configService } = this.ctx;
+    const { logger, config } = this.ctx;
     try {
       const openai = await this.getOpenAIClient(requestConfig);
       const runtime = await this.getRuntimeAIConfig(requestConfig);
 
       const schema = schemaName
-        ? await configService.getAISchema(requestConfig, schemaName)
+        ? await config.getAISchema(requestConfig, schemaName)
         : null;
 
       const messages = [
@@ -241,7 +241,7 @@ class AIService {
   }
 
   async generatePDFContent(product, category, requestConfig, model) {
-    const { logger, promptService } = this.ctx;
+    const { logger, prompt } = this.ctx;
     const correlationId = requestConfig?.correlationId;
     try {
       const vars = {
@@ -255,8 +255,8 @@ class AIService {
         ),
       };
 
-      const prompt = await promptService.render('pdf', vars, requestConfig);
-      return await this._chatJson('pdf', prompt, requestConfig, model, 'pdf');
+      const promptContent = await prompt.render('pdf', vars, requestConfig);
+      return await this._chatJson('pdf', promptContent, requestConfig, model, 'pdf');
     } catch (error) {
       const errorReference =
         error.errorReference || createERC(ERC_PREFIX.ERROR);
@@ -284,7 +284,7 @@ class AIService {
     model,
     selectedLanguages = ['en-US']
   ) {
-    const { logger, promptService } = this.ctx;
+    const { logger, prompt } = this.ctx;
     const correlationId = requestConfig?.correlationId;
     try {
       const langs =
@@ -319,10 +319,10 @@ class AIService {
           .join(',\n    '),
       };
 
-      const prompt = await promptService.render('product', vars, requestConfig);
+      const promptContent = await prompt.render('product', vars, requestConfig);
       const result = await this._chatJson(
         'product',
-        prompt,
+        promptContent,
         requestConfig,
         model,
         'product'
@@ -356,7 +356,7 @@ class AIService {
   }
 
   async generateAccountData(count = 1, requestConfig, model) {
-    const { logger, promptService } = this.ctx;
+    const { logger, prompt } = this.ctx;
     const correlationId = requestConfig?.correlationId;
     try {
       const vars = {
@@ -364,10 +364,10 @@ class AIService {
         pluralSuffix: pluralize(count),
       };
 
-      const prompt = await promptService.render('account', vars, requestConfig);
+      const promptContent = await prompt.render('account', vars, requestConfig);
       const result = await this._chatJson(
         'account',
-        prompt,
+        promptContent,
         requestConfig,
         model,
         'account'
@@ -401,7 +401,7 @@ class AIService {
   }
 
   async generateOrderData(products, accounts, count = 1, requestConfig, model) {
-    const { logger, promptService } = this.ctx;
+    const { logger, prompt } = this.ctx;
     const correlationId = requestConfig?.correlationId;
     try {
       const productList = products
@@ -426,10 +426,10 @@ class AIService {
         accountListJSON: JSON.stringify(accountList, null, 2),
       };
 
-      const prompt = await promptService.render('order', vars, requestConfig);
+      const promptContent = await prompt.render('order', vars, requestConfig);
       const result = await this._chatJson(
         'order',
-        prompt,
+        promptContent,
         requestConfig,
         model,
         'order'
@@ -459,7 +459,7 @@ class AIService {
   }
 
   async generateWarehouseData(count = 1, requestConfig, model) {
-    const { logger, promptService } = this.ctx;
+    const { logger, prompt } = this.ctx;
     const correlationId = requestConfig?.correlationId;
     try {
       const vars = {
@@ -467,14 +467,14 @@ class AIService {
         pluralSuffix: pluralize(count),
       };
 
-      const prompt = await promptService.render(
+      const promptContent = await prompt.render(
         'warehouse',
         vars,
         requestConfig
       );
       const result = await this._chatJson(
         'warehouse',
-        prompt,
+        promptContent,
         requestConfig,
         model,
         'warehouse'
@@ -560,7 +560,7 @@ class AIService {
     requestConfig,
     model
   ) {
-    const { logger, promptService } = this.ctx;
+    const { logger, prompt } = this.ctx;
     const correlationId = requestConfig?.correlationId;
     try {
       const productList = products.map((p) => ({
@@ -575,8 +575,8 @@ class AIService {
         ...pricingHints(pricingType),
       };
 
-      const prompt = await promptService.render('pricing', vars, requestConfig);
-      const obj = await this._chatJson('pricing', prompt, requestConfig, model);
+      const promptContent = await prompt.render('pricing', vars, requestConfig);
+      const obj = await this._chatJson('pricing', promptContent, requestConfig, model);
 
       return obj;
     } catch (error) {

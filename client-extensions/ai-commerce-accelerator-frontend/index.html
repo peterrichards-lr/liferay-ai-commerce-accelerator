@@ -1,45 +1,47 @@
 <!DOCTYPE html>
+
 <html lang="en">
-  <head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <meta name="theme-color" content="#000000" />
-    <link
-      rel="stylesheet"
-      href="https://cdn.jsdelivr.net/npm/@clayui/css@3.0.0/lib/css/atlas.css"
-    />
-    <title>Liferay AI Commerce Accelerator</title>
+<head>
+<meta charset="utf-8" />
+<meta content="width=device-width, initial-scale=1" name="viewport" />
+<meta content="#000000" name="theme-color" />
 
-    <script type="text/javascript">
-      (function () {
-        if (!window.Liferay) {
-          window.Liferay = {};
-        }
+<link
+	href="https://cdn.jsdelivr.net/npm/@clayui/css@3.0.0/lib/css/atlas.css"
+	rel="stylesheet"
+/>
+	<title>Liferay AI Commerce Accelerator</title>
 
-        if (!window.Liferay.Util) {
-          window.Liferay.Util = {};
-        }
+<script type="text/javascript">
+	  (function () {
+		if (!window.Liferay) {
+		  window.Liferay = {};
+		}
 
-        if (!window.Liferay.Icons) {
-          window.Liferay.Icons = {};
-        }
+		if (!window.Liferay.Util) {
+		  window.Liferay.Util = {};
+		}
 
-        if (!window.Liferay.ThemeDisplay) {
-          window.Liferay.ThemeDisplay = {};
-          window.Liferay.ThemeDisplay.getLanguageId = () => {
-            return 'fr_FR';
-          };
-        }
+		if (!window.Liferay.Icons) {
+		  window.Liferay.Icons = {};
+		}
 
-        window.Liferay.Icons.spritemap = '/icons.svg';
-      })();
-    </script>
-  </head>
-  <body>
-    <script type="module" src="/src/index.jsx"></script>
+		if (!window.Liferay.ThemeDisplay) {
+		  window.Liferay.ThemeDisplay = {};
+		  window.Liferay.ThemeDisplay.getLanguageId = () => {
+			return 'fr_FR';
+		  };
+		}
 
-    <noscript>You need to enable JavaScript to run this app.</noscript>
+		window.Liferay.Icons.spritemap = '/icons.svg';
+	  })();
+	</script>
+</head>
 
-    <liferay-ai-commerce-accelerator-frontend></liferay-ai-commerce-accelerator-frontend>
-  </body>
+<body>
+<script src="/src/index.jsx" type="module"></script>
+	<noscript>You need to enable JavaScript to run this app.</noscript>
+
+	<liferay-ai-commerce-accelerator-frontend></liferay-ai-commerce-accelerator-frontend>
+</body>
 </html>

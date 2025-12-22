@@ -51,10 +51,10 @@ class HealthService {
   }
 
   async checkOpenAI() {
-    const { configService } = this.ctx;
+    const { config } = this.ctx;
     const start = Date.now();
     try {
-      const apiKey = await configService.getOpenAIKeyCached;
+      const apiKey = await config.getOpenAIKeyCached();
       const responseTime = Date.now() - start;
 
       if (!apiKey) {

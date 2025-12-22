@@ -16,7 +16,7 @@
             "configStatus": {
                 "key": "Active"
             },
-            "configValue": "[1, 10, 25, 50]",
+            "configValue": "[1,10,25,50]",
             "description": "Batch Sizes",
             "externalReferenceCode": "BATCH-SIZES"
         }

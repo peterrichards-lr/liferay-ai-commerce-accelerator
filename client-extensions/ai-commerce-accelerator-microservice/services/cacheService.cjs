@@ -27,7 +27,7 @@ class CacheService {
     });
     this._cleanupTimer = null;
 
-    const cfgSvc = this.ctx.configService;
+    const cfgSvc = this.ctx.config;
     if (cfgSvc && typeof cfgSvc.getCacheConfigCached === 'function') {
       const cachedCfg = cfgSvc.getCacheConfigCached();
       this.applyConfig(cachedCfg);
@@ -111,11 +111,11 @@ class CacheService {
   }
 
   async refreshConfigFromRemote(requestConfig) {
-    const { configService, logger } = this.ctx;
-    if (!configService?.getCacheConfig) return;
+    const { config, logger } = this.ctx;
+    if (!config?.getCacheConfig) return;
 
     try {
-      const remoteCfg = await configService.getCacheConfig(requestConfig);
+      const remoteCfg = await config.getCacheConfig(requestConfig);
       this.applyConfig(remoteCfg);
     } catch (error) {
       const errorReference =

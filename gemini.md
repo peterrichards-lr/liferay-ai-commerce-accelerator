@@ -16,15 +16,15 @@ building or refactoring the system.
 
 ## Non-negotiable constraints
 
--   All code must be **self-documenting** and contain **no comments**
--   The AI agent must **not**:
-    -   build, deploy, or test the project
-    -   make source control changes (commits, reverts, rebases, etc.)
--   The AI agent **should**:
-    -   perform dry code analysis
-    -   reason about control flow, concurrency, idempotency, and failure
+- All code must be **self-documenting** and contain **no comments**
+- The AI agent must **not**:
+    - build, deploy, or test the project
+    - make source control changes (commits, reverts, rebases, etc.)
+- The AI agent **should**:
+    - perform dry code analysis
+    - reason about control flow, concurrency, idempotency, and failure
         paths
-    -   surface likely bugs or race conditions early
+    - surface likely bugs or race conditions early
 
 ------------------------------------------------------------------------
 
@@ -36,20 +36,20 @@ framework**.
 
 ### Components
 
--   **Frontend UI client extension**
-    -   Subscribes to WebSocket events
-    -   Displays workflow progress and errors
--   **Configuration UI client extension**
-    -   Exposed in the Liferay application menu
-    -   Stores long-lived configuration via Liferay Objects
--   **Batch client extension**
-    -   Defines and populates configuration and structural data models
+- **Frontend UI client extension**
+    - Subscribes to WebSocket events
+    - Displays workflow progress and errors
+- **Configuration UI client extension**
+    - Exposed in the Liferay application menu
+    - Stores long-lived configuration via Liferay Objects
+- **Batch client extension**
+    - Defines and populates configuration and structural data models
         in Liferay
--   **Microservice**
-    -   Central orchestrator
-    -   Owns workflow execution, batching, callbacks, and WebSocket
+- **Microservice**
+    - Central orchestrator
+    - Owns workflow execution, batching, callbacks, and WebSocket
         messaging
-    -   Communicates with Liferay via Headless APIs
+    - Communicates with Liferay via Headless APIs
 
 The microservice is the authority for workflow execution and
 correctness.
@@ -80,12 +80,10 @@ Implementation expectations:
 - The fragment must remain minimal and act only as a host/container for the UI.
 - The microservice remains the runtime orchestrator; the fragment is presentation-only.
 
-
-
 OpenAPI specifications for all Liferay Headless APIs used by the
 microservice are stored locally within the microservice project:
 
--   `api-schemas/`
+- `api-schemas/`
 
 These specifications are the authoritative reference for request and
 response shapes and should be used for: - client generation - request
@@ -108,19 +106,19 @@ Headless API latency.**
 A hybrid persistence model will be used to balance performance and durability.
 
 1.  **Primary Store (Source of Truth):**
-    -   A lightweight, file-based SQLite database (lifetime scoped to the process).
-    -   It stores the canonical record of:
-        -   active workflow session context
-        -   batch correlation and callback state
-        -   idempotency and concurrency control
+    - A lightweight, file-based SQLite database (lifetime scoped to the process).
+    - It stores the canonical record of:
+        - active workflow session context
+        - batch correlation and callback state
+        - idempotency and concurrency control
 
-2.  **Secondary Store (Read-Through Cache):**
-    -   An in-memory cache sits in front of the database to reduce disk I/O.
-    -   **Pattern:** All database operations are wrapped by the cache.
-        -   **Reads:** Attempt to read from the cache first. On a cache miss, read from the database, populate the cache, and then return the data.
-        -   **Writes/Updates:** Write directly to the database and then immediately update or invalidate the corresponding entry in the cache.
-    -   **Abstraction:** This caching logic is an internal implementation detail of the persistence service and is not exposed to the rest of the application.
-    -   **Correctness:** Correctness must never depend on the cache. The database is always the source of truth.
+1.  **Secondary Store (Read-Through Cache):**
+    - An in-memory cache sits in front of the database to reduce disk I/O.
+    - **Pattern:** All database operations are wrapped by the cache.
+        - **Reads:** Attempt to read from the cache first. On a cache miss, read from the database, populate the cache, and then return the data.
+        - **Writes/Updates:** Write directly to the database and then immediately update or invalidate the corresponding entry in the cache.
+    - **Abstraction:** This caching logic is an internal implementation detail of the persistence service and is not exposed to the rest of the application.
+    - **Correctness:** Correctness must never depend on the cache. The database is always the source of truth.
 
 #### Liferay Objects (slow path, visibility and configuration)
 
@@ -135,18 +133,18 @@ store.
 ## Client Extension responsibilities
 
   -----------------------------------------------------------------------------------
-  Component              Read            Write             Notes
+  Component Read Write Notes
   ---------------------- --------------- ----------------- --------------------------
-  Frontend UI CX         WebSocket       None              Read-only
+  Frontend UI CX WebSocket None Read-only
                          events                            
 
-  Configuration UI CX    Liferay Objects Liferay Objects   Admin configuration
+  Configuration UI CX Liferay Objects Liferay Objects Admin configuration
 
-  Batch CX               Liferay Objects Liferay Objects   Structural/configuration
+  Batch CX Liferay Objects Liferay Objects Structural/configuration
                                                            data
 
-  Microservice           Liferay         SQLite            Single writer for workflow
-                         Objects, SQLite                   state
+  Microservice Liferay SQLite Single writer for workflow
+                         Objects, SQLite state
   -----------------------------------------------------------------------------------
 
 ------------------------------------------------------------------------
@@ -175,27 +173,27 @@ Identifier for correlating user-visible errors and server logs.
 
 ### workflow_sessions
 
--   session_id
--   flow_type
--   status
--   current_steps (updated to TEXT to store JSON array of active steps)
--   context_json
--   version
--   created_at
--   updated_at
+- session_id
+- flow_type
+- status
+- current_steps (updated to TEXT to store JSON array of active steps)
+- context_json
+- version
+- created_at
+- updated_at
 
 ### workflow_batches
 
--   erc
--   session_id
--   step_key
--   status
--   downstream_batch_id
--   processed_count
--   total_count
--   error_count
--   created_at
--   updated_at
+- erc
+- session_id
+- step_key
+- status
+- downstream_batch_id
+- processed_count
+- total_count
+- error_count
+- created_at
+- updated_at
 
 ------------------------------------------------------------------------
 
@@ -205,13 +203,13 @@ Steps are pure, self-contained units.
 
 ### Input
 
--   context
+- context
 
 ### Output
 
--   patch
--   commands
--   transition
+- patch
+- commands
+- transition
 
 Steps must not perform I/O.
 
@@ -246,12 +244,12 @@ Failed batches trigger a follow-up step that fetches failure details.
 
 ### Restart behavior
 
--   If SQLite is preserved, sessions may resume
--   Otherwise sessions are failed with an errorRef
+- If SQLite is preserved, sessions may resume
+- Otherwise sessions are failed with an errorRef
 
 ### Late callbacks
 
--   Callbacks referencing unknown erc values are ignored
+- Callbacks referencing unknown erc values are ignored
 
 ------------------------------------------------------------------------
 
@@ -298,21 +296,21 @@ Logs must be structured and machine-readable.
 
 ### Session states
 
--   initialized
--   running
--   waiting
--   completed
--   failed
+- initialized
+- running
+- waiting
+- completed
+- failed
 
 Valid transitions: - initialized → running - running → waiting - waiting
 → running - running → completed - running → failed - waiting → failed
 
 ### Batch states
 
--   prepared
--   submitted
--   completed
--   failed
+- prepared
+- submitted
+- completed
+- failed
 
 Valid transitions: - prepared → submitted - submitted → completed -
 submitted → failed
@@ -323,61 +321,61 @@ submitted → failed
 
 ### SubmitBatch
 
--   at-least-once
--   idempotent via erc
+- at-least-once
+- idempotent via erc
 
 ### FetchBatchFailureDetails
 
--   at-least-once
--   deterministic overwrite
+- at-least-once
+- deterministic overwrite
 
 ### EmitWebSocketEvent
 
--   best-effort
+- best-effort
 
 ### ResumeSession
 
--   at-least-once
--   no-op safe
+- at-least-once
+- no-op safe
 
 ------------------------------------------------------------------------
 
 ## Known failure scenarios and expected behaviour
 
   -----------------------------------------------------------------------
-  Scenario             Expected behaviour
+  Scenario Expected behaviour
   -------------------- --------------------------------------------------
-  Callback arrives     erc already persisted; callback processed safely
+  Callback arrives erc already persisted; callback processed safely
   before submit        
   completes            
 
-  Duplicate callback   Detected via terminal batch state; ignored
+  Duplicate callback Detected via terminal batch state; ignored
 
-  Callback with        Logged and ignored
+  Callback with Logged and ignored
   unknown erc          
 
-  Partial batch        Failed items recorded; workflow continues or fails
-  failure              based on policy
+  Partial batch Failed items recorded; workflow continues or fails
+  failure based on policy
 
-  Downstream timeout   Batch marked failed; errorRef generated
+  Downstream timeout Batch marked failed; errorRef generated
 
   WebSocket disconnect Workflow continues; UI may reconnect
 
   Microservice restart Session resumed if SQLite preserved, otherwise
-  mid-run              failed
+  mid-run failed
 
   Liferay Headless API Workflow execution continues; Liferay writes
-  unavailable          deferred or skipped
+  unavailable deferred or skipped
   -----------------------------------------------------------------------
 
 ------------------------------------------------------------------------
 
 ## Key invariants
 
--   Only the microservice mutates workflow execution state
--   Callbacks are correlated using erc
--   Persistence always precedes external side effects
--   WebSocket messages reflect persisted state only
+- Only the microservice mutates workflow execution state
+- Callbacks are correlated using erc
+- Persistence always precedes external side effects
+- WebSocket messages reflect persisted state only
 
 ------------------------------------------------------------------------
 
@@ -389,8 +387,8 @@ To ensure consistency and prevent errors from outdated or mismatched path string
 
 These paths are for the endpoints exposed by the microservice itself. They are defined in `client-extensions/ai-commerce-accelerator-microservice/utils/internalApiPaths.cjs`. All paths are prefixed with `/api/v1`.
 
--   **`INTERNAL_API_PATHS.WORKFLOW_SESSIONS`**: `/workflows/sessions`
--   **`INTERNAL_API_PATHS.WORKFLOW_BATCHES`**: `/workflows/batches/:sessionId`
+- **`INTERNAL_API_PATHS.WORKFLOW_SESSIONS`**: `/workflows/sessions`
+- **`INTERNAL_API_PATHS.WORKFLOW_BATCHES`**: `/workflows/batches/:sessionId`
 
 *(and all other internal paths...)*
 
@@ -398,8 +396,8 @@ These paths are for the endpoints exposed by the microservice itself. They are d
 
 These paths are for the Liferay Headless APIs that the microservice calls. They are defined in `client-extensions/ai-commerce-accelerator-microservice/utils/liferayPaths.cjs`.
 
--   **`PATH.PRODUCTS`**: `/o/headless-commerce-admin-catalog/v1.0/products`
--   **`PATH.ACCOUNTS`**: `/o/headless-admin-user/v1.0/accounts`
+- **`PATH.PRODUCTS`**: `/o/headless-commerce-admin-catalog/v1.0/products`
+- **`PATH.ACCOUNTS`**: `/o/headless-admin-user/v1.0/accounts`
 
 *(and all other Liferay paths...)*
 
@@ -411,13 +409,13 @@ For observability and debugging, the microservice exposes endpoints to view the 
 
 ### Endpoints
 
--   **`GET /api/v1/workflows/sessions`**
-    -   Returns a list of all workflow sessions, ordered by most recent first.
-    -   This provides a high-level overview of all workflows that have been run.
+- **`GET /api/v1/workflows/sessions`**
+    - Returns a list of all workflow sessions, ordered by most recent first.
+    - This provides a high-level overview of all workflows that have been run.
 
--   **`GET /api/v1/workflows/batches/:sessionId`**
-    -   Returns a list of all batches associated with a specific `sessionId`.
-    -   This allows for detailed tracing of a single workflow run.
+- **`GET /api/v1/workflows/batches/:sessionId`**
+    - Returns a list of all batches associated with a specific `sessionId`.
+    - This allows for detailed tracing of a single workflow run.
 
 ------------------------------------------------------------------------
 
@@ -445,9 +443,9 @@ The `steps` array within the session context will evolve from a simple array of 
 ```
 
 **Step Types:**
--   **`sync`**: A step that must complete fully before the workflow proceeds to the next step. This is the default and current behavior for individual steps.
--   **`parallel`**: A container step that holds an array of sub-steps. All sub-steps within a `parallel` block are initiated concurrently. The `parallel` step itself is considered complete only when *all* its sub-steps have completed.
--   **`async`**: A step that is initiated, and the workflow immediately proceeds to the next step without waiting for the `async` step's completion. The `async` step runs independently in the background.
+- **`sync`**: A step that must complete fully before the workflow proceeds to the next step. This is the default and current behavior for individual steps.
+- **`parallel`**: A container step that holds an array of sub-steps. All sub-steps within a `parallel` block are initiated concurrently. The `parallel` step itself is considered complete only when *all* its sub-steps have completed.
+- **`async`**: A step that is initiated, and the workflow immediately proceeds to the next step without waiting for the `async` step's completion. The `async` step runs independently in the background.
 
 ### Required Refactoring Steps
 
@@ -455,42 +453,42 @@ The `steps` array within the session context will evolve from a simple array of 
 
 **Objective**: Modify the database schema and data access methods to accommodate the new workflow definition.
 
--   **`workflow_sessions` table**:
-    -   Rename the `current_step` column to `current_steps`.
-    -   Change the data type of `current_steps` to `TEXT` to store a JSON array representing all currently active steps (especially for parallel execution).
--   **`_initSchema` method**: Update the `CREATE TABLE` statement to reflect the `current_steps` column change.
--   **`createSession` method**: Modify to accept a `currentSteps` array. This array will be serialized to JSON before storage.
--   **`getSession` method**: Update to parse the `current_steps` JSON array into an object when retrieving a session.
--   **`updateSession` method**: Enhance to correctly handle updates to the `current_steps` array.
--   **New `updateSessionCurrentSteps` method**: Add a dedicated method for atomic updates to the `current_steps` array.
+- **`workflow_sessions` table**:
+    - Rename the `current_step` column to `current_steps`.
+    - Change the data type of `current_steps` to `TEXT` to store a JSON array representing all currently active steps (especially for parallel execution).
+- **`_initSchema` method**: Update the `CREATE TABLE` statement to reflect the `current_steps` column change.
+- **`createSession` method**: Modify to accept a `currentSteps` array. This array will be serialized to JSON before storage.
+- **`getSession` method**: Update to parse the `current_steps` JSON array into an object when retrieving a session.
+- **`updateSession` method**: Enhance to correctly handle updates to the `current_steps` array.
+- **New `updateSessionCurrentSteps` method**: Add a dedicated method for atomic updates to the `current_steps` array.
 
 #### 2. Refactor `batchCallbackService.cjs`
 
 **Objective**: Rewrite the core workflow orchestration logic to interpret and execute the new step types.
 
--   **`_checkSessionCompletion` method**:
-    -   This method will be significantly re-architected.
-    -   It will interpret the new `steps` array structure from `session.context`.
-    -   **Synchronous Steps**: Maintain similar logic to the current implementation, ensuring the current step completes before moving to the next.
-    -   **Parallel Steps**:
-        -   Identify all sub-steps within a `parallel` block.
-        -   Initiate all sub-steps concurrently (e.g., by calling their respective generator methods).
-        -   The `parallel` step itself will remain active until all its sub-steps are marked as complete by incoming batch callbacks.
-    -   **Asynchronous Steps**:
-        -   Initiate the `async` step (e.g., call its generator method).
-        -   Immediately advance the workflow to the *next* top-level step without waiting for the `async` step's completion.
-    -   The `current_steps` column in `workflow_sessions` will be actively managed to reflect which steps are currently in progress.
+- **`_checkSessionCompletion` method**:
+    - This method will be significantly re-architected.
+    - It will interpret the new `steps` array structure from `session.context`.
+    - **Synchronous Steps**: Maintain similar logic to the current implementation, ensuring the current step completes before moving to the next.
+    - **Parallel Steps**:
+        - Identify all sub-steps within a `parallel` block.
+        - Initiate all sub-steps concurrently (e.g., by calling their respective generator methods).
+        - The `parallel` step itself will remain active until all its sub-steps are marked as complete by incoming batch callbacks.
+    - **Asynchronous Steps**:
+        - Initiate the `async` step (e.g., call its generator method).
+        - Immediately advance the workflow to the *next* top-level step without waiting for the `async` step's completion.
+    - The `current_steps` column in `workflow_sessions` will be actively managed to reflect which steps are currently in progress.
 
 #### 3. Update Generator Services (`accountGenerator.cjs`, `productGenerator.cjs`, etc.)
 
 **Objective**: Adapt generator logic to create sessions using the new workflow definition.
 
--   Modify the `generateAccounts`, `generateProducts`, and similar methods to define their workflows using the new object-based `steps` array.
--   Ensure that calls to `persistenceService.createSession` correctly pass the initial `currentSteps` based on the new structure.
+- Modify the `generateAccounts`, `generateProducts`, and similar methods to define their workflows using the new object-based `steps` array.
+- Ensure that calls to `persistenceService.createSession` correctly pass the initial `currentSteps` based on the new structure.
 
 #### 4. Update Delete Workflow (`deleteCoordinatorService.cjs`)
 
 **Objective**: Adapt the delete workflow to use the new step definition.
 
--   Modify `runDeleteSelectedAndMonitor` and `runDeleteAndMonitor` to define their deletion sequences using the new object-based `steps` array.
--   Ensure that calls to `persistenceService.createSession` correctly pass the initial `currentSteps` based on the new structure.
+- Modify `runDeleteSelectedAndMonitor` and `runDeleteAndMonitor` to define their deletion sequences using the new object-based `steps` array.
+- Ensure that calls to `persistenceService.createSession` correctly pass the initial `currentSteps` based on the new structure.

@@ -167,12 +167,13 @@ class PersistenceService {
     return this.getSession(sessionId);
   }
 
-  createBatch({ erc, sessionId, stepKey, status }) {
+  createBatch({ erc, sessionId, stepKey, step_key, status }) {
+    const key = stepKey || step_key;
     const stmt = this.db.prepare(
       'INSERT INTO workflow_batches (erc, session_id, step_key, status) VALUES (?, ?, ?, ?)'
     );
 
-    stmt.run(erc, sessionId, stepKey, status);
+    stmt.run(erc, sessionId, key, status);
     return this.getBatch(erc);
   }
 
