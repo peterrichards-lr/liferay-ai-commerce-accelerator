@@ -40,7 +40,10 @@ class WarehouseGenerator {
 
     let warehouseDataList;
     if (demoMode) {
-      warehouseDataList = mockData.generateWarehouseData(warehouseCount);
+      warehouseDataList = await mockData.generateWarehouseData(
+        warehouseCount,
+        config
+      );
     } else {
       warehouseDataList = await ai.generateWarehouseData(
         warehouseCount,
@@ -77,7 +80,6 @@ class WarehouseGenerator {
       const submission = await liferay.createWarehousesBatch(
         config,
         normalizedWarehouseDataList,
-        null,
         {
           externalReferenceCode: batchERC,
         }

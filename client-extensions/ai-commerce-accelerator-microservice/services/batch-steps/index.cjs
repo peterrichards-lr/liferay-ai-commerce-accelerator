@@ -8,7 +8,7 @@ module.exports = {
   deleteSpecifications: require('./deleteSpecifications.cjs'),
   deleteOptions: require('./deleteOptions.cjs'),
   deleteOptionCategories: require('./deleteOptionCategories.cjs'),
-  'delete-product-related-entities': require('./deleteProductRelatedEntities.cjs'),
+  deleteProductRelatedEntities: require('./deleteProductRelatedEntities.cjs'),
 
   // Generation
   createAccounts: require('./createAccounts.cjs'),

@@ -21,6 +21,12 @@ class BatchCallbackService {
 
     const allBatchesForSession = await persistence.getBatchesForSession(sessionId);
 
+    logger.info('_checkSessionCompletion: details', {
+      sessionId,
+      currentSteps,
+      allBatchesForSession,
+    });
+
     let newActiveSteps = [];
     let sessionAdvanced = false;
 
@@ -55,7 +61,6 @@ class BatchCallbackService {
     // Update currentSteps in DB after processing completions
     currentSteps = newActiveSteps;
     await persistence.updateSessionCurrentSteps(sessionId, currentSteps);
-
 
     let nextWorkflowStepIndex;
 
@@ -153,77 +158,125 @@ class BatchCallbackService {
   }
 
   async _startStep(stepDefinition, sessionId, config, correlationId) {
-    const { logger, productGenerator, accountGenerator, deleteCoordinator, persistence } = this.ctx;
+    const {
+      logger,
+      productGenerator,
+      accountGenerator,
+      orderGenerator,
+      persistence,
+    } = this.ctx;
     const session = await persistence.getSession(sessionId);
 
-    const stepName = typeof stepDefinition === 'string' ? stepDefinition : stepDefinition.name;
+    const stepName =
+      typeof stepDefinition === 'string'
+        ? stepDefinition
+        : stepDefinition.name;
 
-    // Ensure session.context is available and contains necessary data
     if (!session || !session.context) {
-        logger.error(`Cannot start step '${stepName}': Session or session context missing.`, { sessionId, stepName });
-        await persistence.updateSession(sessionId, { status: 'FAILED' });
-        return;
+      logger.error(
+        `Cannot start step '${stepName}': Session or session context missing.`,
+        { sessionId, stepName }
+      );
+      await persistence.updateSession(sessionId, { status: 'FAILED' });
+      return;
     }
 
-    const { flow_type: flowType } = session; 
-    const sessionContext = session.context; 
+    const { flow_type: flowType } = session;
 
-    logger.info(`Attempting to start step handler for '${stepName}' (Flow: ${flowType})`, { sessionId, stepName, flowType });
+    logger.info(
+      `Attempting to start step handler for '${stepName}' (Flow: ${flowType})`,
+      { sessionId, stepName, flowType }
+    );
 
     try {
-        if (stepName === 'generate_accounts') {
-            await accountGenerator.generateAccounts(config, sessionContext.options);
-        } else if (stepName === 'postal-addresses') {
-            await accountGenerator.startPostalAddressesBatch({ sessionId, session: sessionContext, correlationId });
-        } else if (stepName === 'product-data-generation') {
-            // This is the initial data generation part of the product flow, might involve AI calls
-            // The result of this data generation should be stored in session context
-            const allProductData = await productGenerator._generateProductData(config, sessionContext.options, sessionId);
-            // Update the session context with the generated data for the next step
-            await persistence.updateSessionContext(sessionId, { ...sessionContext, productDataList: allProductData });
-            logger.info('Product data generation complete and context updated.', { sessionId, count: allProductData.length });
-        } else if (stepName === 'generate_products') {
-            // This step assumes productDataList is already in session.context
-            if (!sessionContext.productDataList || sessionContext.productDataList.length === 0) {
-                logger.warn(`Step 'products' called without productDataList in session context.`, { sessionId });
-                await persistence.updateSession(sessionId, { status: 'FAILED' });
-                return;
-            }
-            await productGenerator.startProductsBatch({ sessionId, session: sessionContext, correlationId });
-        } else if (stepName.startsWith('delete')) { 
-            const { channelId, catalogId } = sessionContext;
+      const {
+        productGenerator,
+        accountGenerator,
+        orderGenerator,
+      } = this.ctx;
 
-            await this._runStep(stepName, { 
-                sessionId, 
-                config, 
-                options: sessionContext.options, 
-                channelId, 
-                catalogId 
-            });
+      const generatorMap = {
+        generate: productGenerator,
+        accounts: accountGenerator,
+        orders: orderGenerator,
+      };
+
+      if (flowType === 'generate') {
+        const allGenerationSteps = {
+          ...productGenerator.steps,
+          ...accountGenerator.steps,
+          ...orderGenerator.steps,
+        };
+
+        const stepHandler = allGenerationSteps[stepName];
+
+        if (typeof stepHandler === 'function') {
+          await stepHandler(sessionId, session);
         } else {
-            logger.warn(`No specific handler found or step type not fully implemented for '${stepName}'`, { sessionId, stepName, flowType });
-            // For unhandled steps, mark batch as completed to avoid stalling, or failed if critical
-            // Here, we assume a step handler *should* exist or be explicitly handled
-            await persistence.createBatch({
-              erc: createERC(ERC_PREFIX.BATCH), // Use a generic ERC
-              sessionId,
-              step_key: stepName,
-              status: 'COMPLETED', // Or 'FAILED' based on desired strictness
-            });
-             // Then trigger check completion again, as this "batch" is now done
-            await this._checkSessionCompletion(sessionId, correlationId);
-        }
-    } catch (error) {
-        logger.error(`Error executing step '${stepName}': ${error.message}`, {
+          logger.warn(
+            `No generation handler found for step '${stepName}'`,
+            { sessionId, stepName, flowType }
+          );
+          await persistence.createBatch({
+            erc: createERC(ERC_PREFIX.BATCH),
             sessionId,
-            stepName,
-            flowType,
-            error: error.message,
-            stack: error.stack,
+            step_key: stepName,
+            status: 'COMPLETED',
+          });
+          await this._checkSessionCompletion(sessionId, correlationId);
+        }
+      } else if (generatorMap[flowType]) {
+        const generator = generatorMap[flowType];
+        const stepHandler = generator.steps[stepName];
+
+        if (typeof stepHandler === 'function') {
+          await stepHandler(sessionId, session);
+        } else {
+          logger.warn(
+            `No handler found for step '${stepName}' in flow '${flowType}'`,
+            { sessionId }
+          );
+          await persistence.createBatch({
+            erc: createERC(ERC_PREFIX.BATCH),
+            sessionId,
+            step_key: stepName,
+            status: 'COMPLETED',
+          });
+          await this._checkSessionCompletion(sessionId, correlationId);
+        }
+      } else if (flowType === 'delete') {
+        const { channelId, catalogId } = session.context;
+        await this._runStep(stepName, {
+          sessionId,
+          config,
+          options: session.context.options,
+          channelId,
+          catalogId,
         });
-        await persistence.updateSession(sessionId, { status: 'FAILED' });
+      } else {
+        logger.warn(
+          `No handler found for step '${stepName}' in flow '${flowType}'`,
+          { sessionId }
+        );
+        await persistence.createBatch({
+          erc: createERC(ERC_PREFIX.BATCH),
+          sessionId,
+          step_key: stepName,
+          status: 'COMPLETED',
+        });
+        await this._checkSessionCompletion(sessionId, correlationId);
+      }
+    } catch (error) {
+      logger.error(`Error executing step '${stepName}': ${error.message}`, {
+        sessionId,
+        stepName,
+        flowType,
+        error: error.message,
+        stack: error.stack,
+      });
+      await persistence.updateSession(sessionId, { status: 'FAILED' });
     }
-}
+  }
 
 
   async _runStep(step, { sessionId, config, options, channelId, catalogId }) {
@@ -347,7 +400,7 @@ class BatchCallbackService {
           ids: liferay._asItems(res).map((it) => it.id),
         };
       },
-      'delete-product-related-entities': async () => {
+      deleteProductRelatedEntities: async () => {
         if (!productIds || productIds.length === 0) {
           return { hasItems: false, ids: [] };
         }
@@ -405,10 +458,6 @@ class BatchCallbackService {
   }
 
   _getOnSessionComplete(flowType) {
-    const { productGenerator } = this.ctx;
-    if (flowType === 'generate') {
-      return productGenerator.createOnSessionComplete();
-    }
     return null;
   }
 

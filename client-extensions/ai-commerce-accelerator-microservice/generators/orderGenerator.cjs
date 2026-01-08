@@ -15,6 +15,159 @@ const {
 class OrderGenerator {
   constructor(ctx) {
     this.ctx = ctx;
+
+    this.steps = {
+      'order-data-generation': this._runOrderDataGenerationStep.bind(this),
+      orders: this._runOrderCreationStep.bind(this),
+    };
+  }
+
+  async generate(config, options) {
+    const { logger, persistence, batchCallback } = this.ctx;
+    const sessionId = createERC(ERC_PREFIX.BATCH_SESSION);
+
+    const steps = [
+      { name: 'order-data-generation', type: 'sync' },
+      { name: 'orders', type: 'sync' },
+    ];
+
+    await persistence.createSession({
+      sessionId,
+      flowType: 'orders',
+      status: 'STARTED',
+      currentSteps: [],
+      context: {
+        config,
+        options,
+        steps,
+      },
+    });
+
+    batchCallback._checkSessionCompletion(sessionId, config.correlationId);
+
+    logger.info('Order generation workflow started', {
+      sessionId,
+      steps: steps.map((s) => s.name),
+    });
+
+    return {
+      sessionId,
+      message: 'Order generation workflow started.',
+    };
+  }
+
+  async _runOrderDataGenerationStep(sessionId, session) {
+    const { logger, ai, mockData, persistence, liferay } = this.ctx;
+    const { config, options } = session.context;
+
+    logger.info('Starting order data generation step', { sessionId });
+
+    this.validateConfig(config);
+    await this.validateOptions(config, options);
+
+    const { products, accounts } = await this.getProductsAndAccounts(config);
+
+    let orderDataList;
+    if (options.demoMode) {
+      orderDataList = mockData.generateOrderData(
+        options.orderCount,
+        {},
+        accounts
+      );
+    } else {
+      orderDataList = await ai.generateOrderData(
+        products,
+        accounts,
+        options.orderCount,
+        config,
+        config.aiModel
+      );
+    }
+
+    await persistence.updateSessionContext(sessionId, {
+      ...session.context,
+      orderDataList,
+      products,
+      accounts,
+    });
+
+    logger.info('Order data generation step complete', {
+      sessionId,
+      orderCount: orderDataList.length,
+    });
+  }
+
+  async _runOrderCreationStep(sessionId, session) {
+    const { logger, liferay, persistence, progress } = this.ctx;
+    const { config, options, orderDataList, accounts, products, warehouses } =
+      session.context;
+
+    logger.info('Starting order creation step', { sessionId });
+
+    const batchSize = Math.max(1, parseInt(config.batchSize, 10) || 1);
+    const useBatch = batchSize > 1 && options.orderCount > 1;
+
+    if (useBatch) {
+      const chunks = [];
+      for (let i = 0; i < orderDataList.length; i += batchSize) {
+        chunks.push(orderDataList.slice(i, i + batchSize));
+      }
+
+      for (let batchIndex = 0; batchIndex < chunks.length; batchIndex++) {
+        const originalBatch = chunks[batchIndex];
+
+        const batch = originalBatch.map((od) =>
+          this.buildOrderPayload(
+            config,
+            od,
+            accounts,
+            products,
+            warehouses
+          )
+        );
+
+        const batchERC = createERC(ERC_PREFIX.ORDER_BATCH);
+
+        await persistence.createBatch({
+          erc: batchERC,
+          sessionId,
+          stepKey: 'orders',
+          status: 'PREPARED',
+        });
+
+        const submission = await liferay.createOrdersBatch(config, batch, {
+          externalReferenceCode: batchERC,
+        });
+
+        await persistence.updateBatch(batchERC, {
+          status: 'SUBMITTED',
+          downstreamBatchId: submission.batchId,
+        });
+
+        progress.batchStarted(
+          {
+            batchId: submission.batchId,
+            entityType: 'orders',
+            totalItems: batch.length,
+            batchERC: batchERC,
+          },
+          { correlationId: config.correlationId }
+        );
+
+        logger.info('Orders batch submission completed', {
+          batchId: submission.batchId,
+          orderCount: batch.length,
+        });
+      }
+    } else {
+      await this.generateOrdersIndividually(
+        config,
+        options,
+        orderDataList,
+        accounts,
+        products
+      );
+    }
   }
 
   validateConfig(config) {
@@ -48,6 +201,25 @@ class OrderGenerator {
       }
 
       await ai.getOpenAIClient(config);
+    }
+  }
+
+
+  async createSingleOrder(config, payload) {
+    const { logger, liferay } = this.ctx;
+    try {
+      const createdOrder = await liferay.createOrder(config, payload);
+      logger.info('Order created successfully', {
+        orderId: createdOrder.id,
+        externalReferenceCode: createdOrder.externalReferenceCode,
+      });
+      return createdOrder;
+    } catch (error) {
+      logger.error('Failed to create single order', {
+        error: error.message,
+        payload,
+      });
+      throw error;
     }
   }
 
@@ -132,162 +304,12 @@ class OrderGenerator {
     };
   }
 
-  async generateOrders(config, options) {
-    const {
-      ai,
-      logger,
-      mockData,
-      liferay,
-      progress,
-      batchCallback
-    } = this.ctx;
-    const correlationId = config.correlationId;
 
-    const batchSize = Math.max(1, parseInt(config.batchSize, 10) || 1);
-    const useBatch = batchSize > 1 && options.orderCount > 1;
-    const { mode, phase } = resolvePhaseAndMode({
-      useBatch,
-      phase: 'generate',
-    });
 
-    logger.info('Starting order generation', {
-      correlationId,
-      operation: 'orders/generate:start',
-      orderCount: options.orderCount,
-      mode,
-      phase,
-      demoMode: options.demoMode,
-      batchSize,
-    });
 
-    const results = { orders: [], created: 0, errors: [] };
 
-    try {
-      this.validateConfig(config);
-      await this.validateOptions(config, options);
 
-      const { products, accounts } = await this.getProductsAndAccounts(
-        config
-      );
 
-      let orderDataList;
-      if (options.demoMode) {
-        orderDataList = mockData.generateOrderData(
-          options.orderCount,
-          {},
-          accounts
-        );
-      } else {
-        orderDataList = await ai.generateOrderData(
-          products,
-          accounts,
-          options.orderCount,
-          config,
-          config.aiModel
-        );
-      }
-
-      if (useBatch) {
-        const chunks = [];
-        for (let i = 0; i < orderDataList.length; i += batchSize) {
-          chunks.push(orderDataList.slice(i, i + batchSize));
-        }
-
-        for (let batchIndex = 0; batchIndex < chunks.length; batchIndex++) {
-          const originalBatch = chunks[batchIndex];
-
-          const batch = originalBatch.map((od) =>
-            this.buildOrderPayload(
-              config,
-              od,
-              accounts,
-              products,
-              options.warehouses
-            )
-          );
-
-          const batchERC = createERC(ERC_PREFIX.ORDER_BATCH);
-          
-          let submission;
-          try {
-            submission = await liferay.createOrdersBatch(config, batch, {
-              externalReferenceCode: batchERC,
-            });
-          } catch (e) {
-            progress.batchFailed(
-              {
-                batchId: 'orders-submit-failed',
-                entityType: 'orders',
-                error: e,
-                failureCount: batch.length,
-                operation: 'generate',
-                batchERC: batchERC,
-              },
-              { correlationId }
-            );
-            throw e;
-          }
-
-          progress.batchStarted(
-            {
-              batchId: submission.batchId,
-              entityType: 'orders',
-              totalItems: batch.length,
-              batchERC: batchERC,
-            },
-            { correlationId }
-          );
-
-          logger.info('Orders batch submission completed', {
-            operation: 'orders/batch:submit',
-            batchId: submission.batchId,
-            orderCount: batch.length,
-            status: submission.status,
-            callbackUrl: cbUrl || 'none',
-          });
-
-          results.orders.push({
-            batchIndex: batchIndex + 1,
-            totalBatches: chunks.length,
-            batchId: submission.batchId,
-            status: submission.status,
-            orderCount: batch.length,
-            orders: batch.map((o) => ({
-              accountId: o.accountId,
-              erc: o.externalReferenceCode,
-            })),
-          });
-          results.created += batch.length;
-
-          if (batchIndex < chunks.length - 1) await delay(1000);
-        }
-
-        return {
-          orders: results.orders,
-          created: results.created,
-          errors: results.errors,
-          success: results.errors.length === 0,
-        };
-      }
-
-      return await this.generateOrdersIndividually(
-        config,
-        options,
-        orderDataList,
-        accounts,
-        products
-      );
-    } catch (error) {
-      logger.error('Order generation failed', {
-        correlationId,
-        operation: 'orders/generate:error',
-        error: error.message,
-        mode,
-        phase,
-      });
-      throw error;
-    }
-  }
 
   async generateOrdersIndividually(
     config,
@@ -379,6 +401,25 @@ class OrderGenerator {
       errors,
       success: errors.length === 0,
     };
+  }
+
+
+  async createSingleOrder(config, payload) {
+    const { logger, liferay } = this.ctx;
+    try {
+      const createdOrder = await liferay.createOrder(config, payload);
+      logger.info('Order created successfully', {
+        orderId: createdOrder.id,
+        externalReferenceCode: createdOrder.externalReferenceCode,
+      });
+      return createdOrder;
+    } catch (error) {
+      logger.error('Failed to create single order', {
+        error: error.message,
+        payload,
+      });
+      throw error;
+    }
   }
 
   pickAccountId(requestedId, accounts) {

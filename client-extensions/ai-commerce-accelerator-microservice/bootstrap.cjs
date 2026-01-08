@@ -24,6 +24,7 @@ const OrderGenerator = require('./generators/orderGenerator.cjs');
 const ProductGenerator = require('./generators/productGenerator.cjs');
 const WarehouseGenerator = require('./generators/warehouseGenerator.cjs');
 
+
 const registerDataGenerationWorkers = require('./workers/dataGenerationWorkers.cjs');
 
 module.exports = (ws) => {
@@ -48,7 +49,6 @@ module.exports = (ws) => {
     config: ctx.config,
   });
   ctx.config.setLiferayService(ctx.liferay);
-  ctx.batchProcessor = new BatchProcessorService({ logger });
   ctx.prompt = new PromptService(ctx);
   ctx.health = new HealthService({ config: ctx.config });
   ctx.ai = new AIService({
@@ -57,6 +57,9 @@ module.exports = (ws) => {
     prompt: ctx.prompt,
     ENV,
   });
+  ctx.batchProcessor = new BatchProcessorService({ logger });
+  ctx.batchCallback = new BatchCallbackService(ctx);
+  ctx.mockData = new MockDataGenerator({ logger, liferay: ctx.liferay });
   ctx.objectStorage = new ObjectStorageService({
     config: ctx.config,
     logger,
@@ -66,28 +69,21 @@ module.exports = (ws) => {
     objectStorage: ctx.objectStorage,
     logger,
   });
-  ctx.mockData = new MockDataGenerator({ logger });
+
+  // Instantiate individual generators first
+  ctx.warehouseGenerator = new WarehouseGenerator(ctx);
+  ctx.accountGenerator = new AccountGenerator(ctx);
+  ctx.orderGenerator = new OrderGenerator(ctx);
+  ctx.productGenerator = new ProductGenerator(ctx);
 
   const entityGeneratorCtx = {
-    ai: ctx.ai,
-    persistence: ctx.persistence,
-    batchProcessor: ctx.batchProcessor,
-    cache: ctx.cache,
-    config: ctx.config,
-    liferay: ctx.liferay,
-    logger: ctx.logger,
-    media: ctx.media,
-    mockData: ctx.mockData,
-    progress: ctx.progress,
+    ...ctx,
+    warehouseGenerator: ctx.warehouseGenerator,
+    accountGenerator: ctx.accountGenerator,
+    orderGenerator: ctx.orderGenerator,
+    productGenerator: ctx.productGenerator,
   };
 
-  ctx.warehouseGenerator = new WarehouseGenerator(entityGeneratorCtx);
-  ctx.accountGenerator = new AccountGenerator(entityGeneratorCtx);
-  ctx.orderGenerator = new OrderGenerator(entityGeneratorCtx);
-  entityGeneratorCtx.warehouseGenerator = ctx.warehouseGenerator;
-  ctx.productGenerator = new ProductGenerator(entityGeneratorCtx);
-
-  ctx.batchCallback = new BatchCallbackService(ctx);
   ctx.deleteCoordinator = new DeleteCoordinatorService(ctx);
 
   ctx.queue = new QueueService({

@@ -63,13 +63,6 @@ module.exports = (
   }
 ) => {
 
-
-
-
-
-
-
-
   app.post(
     INTERNAL_API_PATHS.GENERATE_WORKFLOW,
     upload.fields([{ name: 'customImageFile' }, { name: 'customPDFFile' }]),
@@ -79,18 +72,50 @@ module.exports = (
 
       try {
         const steps = [];
-        if (options.productCount > 0 || options.accountCount > 0) {
-          const parallelSteps = [];
-          if (options.productCount > 0) {
-            parallelSteps.push({ name: 'generate_products', type: 'sync' });
-          }
-          if (options.accountCount > 0) {
-            parallelSteps.push({ name: 'generate_accounts', type: 'sync' });
-          }
-          steps.push({ type: 'parallel', steps: parallelSteps });
+        let flowType = 'generate';
+
+        if (options.productCount > 0) {
+          steps.push({ name: 'generate-warehouses', type: 'sync' });
+          steps.push({ name: 'product-data-generation', type: 'sync' });
+          steps.push({ name: 'products', type: 'sync' });
+          steps.push({
+            type: 'parallel',
+            steps: [
+              { name: 'attach-images', type: 'sync' },
+              { name: 'attach-pdfs', type: 'sync' },
+              { name: 'update-inventory', type: 'sync' },
+            ],
+          });
         }
+
+        if (options.accountCount > 0) {
+          steps.push({ name: 'load-countries', type: 'sync' });
+          steps.push({ name: 'account-data-generation', type: 'sync' });
+          steps.push({ name: 'accounts', type: 'sync' });
+          steps.push({ name: 'postal-addresses', type: 'sync' });
+          steps.push({
+            name: 'set-billing-and-shipping-addresses',
+            type: 'sync',
+          });
+        }
+
         if (options.orderCount > 0) {
-          steps.push({ name: 'generate_orders', type: 'sync' });
+          steps.push({ name: 'order-data-generation', type: 'sync' });
+          steps.push({ name: 'orders', type: 'sync' });
+        }
+
+        if (
+          options.accountCount > 0 &&
+          !options.productCount &&
+          !options.orderCount
+        ) {
+          flowType = 'accounts';
+        } else if (
+          options.orderCount > 0 &&
+          !options.productCount &&
+          !options.accountCount
+        ) {
+          flowType = 'orders';
         }
 
         if (steps.length === 0) {
@@ -101,9 +126,10 @@ module.exports = (
         }
 
         const sessionId = createERC(ERC_PREFIX.BATCH_SESSION);
+
         await persistenceService.createSession({
           sessionId,
-          flowType: 'generate',
+          flowType: flowType,
           status: 'STARTED',
           currentSteps: [],
           context: {
@@ -121,7 +147,6 @@ module.exports = (
         logger.info('Generation workflow started', {
           correlationId: config.correlationId,
           sessionId,
-          steps,
         });
 
         return res.json({

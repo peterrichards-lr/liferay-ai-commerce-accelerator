@@ -75,7 +75,7 @@ class Logger {
     const logEntry = {
       timestamp,
       level: level.toUpperCase(),
-      message: message ? this._normalizeMessage(message) : '',
+      message: message ? message : '',
       correlationId,
       userId,
       operation,
@@ -91,7 +91,7 @@ class Logger {
       }
     });
 
-    return JSON.stringify(logEntry);
+    return JSON.stringify(logEntry, null, 2);
   }
 
   _asPretty(level, message, timestamp, meta = {}) {
@@ -107,7 +107,7 @@ class Logger {
     const tailMeta =
       meta && Object.keys(meta).length
         ? `\n${color}meta:${reset} ${util.inspect(meta, {
-            depth: 2,
+            depth: null,
             colors: true,
           })}`
         : '';

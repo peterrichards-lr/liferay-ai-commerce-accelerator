@@ -187,7 +187,12 @@ function buildOptionCategoryERC(category, groupKey, opts = {}) {
 }
 
 function buildSpecificationERC(category, specKey, opts = {}) {
-  const { codeLen = 3, specKeyCodeLen = 12, includeRandom = false, randLen = 3 } = opts;
+  const {
+    codeLen = 3,
+    specKeyCodeLen = 12,
+    includeRandom = false,
+    randLen = 3,
+  } = opts;
   return buildKeyedERC({
     prefix: ERC_PREFIX.SPECIFICATION,
     category,
@@ -347,6 +352,13 @@ function getByValue(collection, searchValue) {
   }
 }
 
+function toTitleCase(str) {
+  return str.replace(
+    /\w\S*/g,
+    (text) => text.charAt(0).toUpperCase() + text.substring(1).toLowerCase()
+  );
+}
+
 module.exports = {
   buildCategoryERC,
   buildDataUrl,
@@ -380,4 +392,5 @@ module.exports = {
   toERCPart,
   toI18n,
   tryParseJSON,
+  toTitleCase,
 };

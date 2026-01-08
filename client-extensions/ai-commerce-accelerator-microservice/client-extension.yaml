@@ -9,6 +9,7 @@ liferay-ai-commerce-accelerator-microservice-oauth-application-headless-server:
     scopes:
         -   Liferay.Headless.Admin.User.everything
         -   Liferay.Headless.Batch.Engine.everything.read
+        -   Liferay.Headless.Admin.Address.everything
         -   Liferay.Headless.Commerce.Admin.Catalog.everything
         -   Liferay.Headless.Commerce.Admin.Channel.everything
         -   Liferay.Headless.Commerce.Admin.Inventory.everything

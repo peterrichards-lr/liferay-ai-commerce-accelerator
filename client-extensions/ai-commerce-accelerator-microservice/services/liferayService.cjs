@@ -50,7 +50,9 @@ class LiferayService {
 
   _getBaseCallbackUrl(config) {
     if (!config.microserviceUrl) {
-      logger.warn('microserviceUrl is not configured. Callbacks will likely fail.');
+      logger.warn(
+        'microserviceUrl is not configured. Callbacks will likely fail.',
+      );
       return null;
     }
     return `${config.microserviceUrl}/api/v1/batch/callback`;
@@ -100,7 +102,7 @@ class LiferayService {
       friendly,
       fullResponse = false,
       responseType = 'json',
-    } = {}
+    } = {},
   ) {
     try {
       const client = await this._client(config);
@@ -124,7 +126,7 @@ class LiferayService {
       logger.debug('Liferay API Response', {
         operation: op,
         status: res.status,
-        data: this._stringifySafe(res.data),
+        data: res.data,
       });
 
       if (fullResponse) {
@@ -184,8 +186,8 @@ class LiferayService {
             typeof body === 'string'
               ? body
               : body
-              ? this._stringifySafe(body)
-              : null,
+                ? this._stringifySafe(body)
+                : null,
         });
 
         const softResult = this._buildSoftFallback(op, status);
@@ -217,8 +219,8 @@ class LiferayService {
             typeof body === 'string'
               ? body
               : body
-              ? this._stringifySafe(body)
-              : null,
+                ? this._stringifySafe(body)
+                : null,
           headers,
           responseHeaders: resHeaders,
         });
@@ -286,7 +288,7 @@ class LiferayService {
       'download-file',
       'Failed to download file',
       { responseType: 'stream' },
-      true
+      true,
     );
 
     response.data.pipe(writer);
@@ -307,8 +309,8 @@ class LiferayService {
     const paramsSerializer = (p) =>
       new URLSearchParams(
         Object.entries(p || {}).filter(
-          ([, v]) => v !== undefined && v !== null && v !== ''
-        )
+          ([, v]) => v !== undefined && v !== null && v !== '',
+        ),
       ).toString();
 
     const qs = paramsSerializer(params);
@@ -334,7 +336,7 @@ class LiferayService {
     op,
     friendly,
     onError = 'throw',
-    fullResponse = false
+    fullResponse = false,
   ) {
     return this._request(config, {
       method: 'POST',
@@ -350,6 +352,17 @@ class LiferayService {
   async _put(config, url, data, op, friendly, fullResponse = false) {
     return this._request(config, {
       method: 'PUT',
+      url,
+      data,
+      op,
+      friendly,
+      fullResponse,
+    });
+  }
+
+  async _patch(config, url, data, op, friendly, fullResponse = false) {
+    return this._request(config, {
+      method: 'PATCH',
       url,
       data,
       op,
@@ -433,7 +446,7 @@ class LiferayService {
     const data = await this._get(
       config,
       ops.getPath(id),
-      `get-permissions:${assetType}`
+      `get-permissions:${assetType}`,
     );
     return this._asItems(data);
   }
@@ -451,7 +464,7 @@ class LiferayService {
       config,
       ops.putPath(id),
       payload,
-      `put-permissions:${assetType}`
+      `put-permissions:${assetType}`,
     );
   }
 
@@ -460,7 +473,7 @@ class LiferayService {
     const accessToken = await oauth.getAccessToken(
       config.liferayUrl,
       config.clientId,
-      config.clientSecret
+      config.clientSecret,
     );
 
     return axios.create({
@@ -574,7 +587,11 @@ class LiferayService {
   }
 
   async getConfig(config, configKey) {
-    return await this._get(config, PATH.CONFIG(configKey), `get-config:${configKey}`);
+    return await this._get(
+      config,
+      PATH.CONFIG(configKey),
+      `get-config:${configKey}`,
+    );
   }
 
   async getCatalogs(config) {
@@ -586,7 +603,7 @@ class LiferayService {
     const data = await this._get(
       config,
       PATH.CATALOG(catalogId),
-      'get-catalog'
+      'get-catalog',
     );
     return data;
   }
@@ -644,7 +661,7 @@ class LiferayService {
 
   async getCommerceOrders(
     config,
-    { channelId, pageSize = 200, fields = 'id' } = {}
+    { channelId, pageSize = 200, fields = 'id' } = {},
   ) {
     const filters = [];
     if (channelId) filters.push(`channelId eq ${channelId}`);
@@ -657,7 +674,7 @@ class LiferayService {
 
   async getCommerceProducts(
     config,
-    { catalogId, pageSize = 200, fields = 'productId' } = {}
+    { catalogId, pageSize = 200, fields = 'productId' } = {},
   ) {
     const { config: configService } = this.ctx;
     const excludeLists = await configService.getExcludeLists(config);
@@ -689,7 +706,7 @@ class LiferayService {
 
   async getCommerceAccounts(
     config,
-    { channelId, pageSize = 200, fields = 'id' } = {}
+    { channelId, pageSize = 200, fields = 'id' } = {},
   ) {
     const { config: configService } = this.ctx;
     const excludeLists = await configService.getExcludeLists(config);
@@ -802,13 +819,13 @@ class LiferayService {
     if (config.demoMode) {
       const { logger } = this.ctx;
       logger.warn(
-        '********************************************************************************'
+        '********************************************************************************',
       );
       logger.warn(
-        'LiferayService.getImportTask is using a mock implementation for demo mode.'
+        'LiferayService.getImportTask is using a mock implementation for demo mode.',
       );
       logger.warn(
-        '********************************************************************************'
+        '********************************************************************************',
       );
 
       return Promise.resolve({
@@ -842,7 +859,7 @@ class LiferayService {
       config,
       PATH.IMPORT_TASK(batchId),
       'import-task',
-      'Failed to get import task'
+      'Failed to get import task',
     );
   }
 
@@ -852,7 +869,7 @@ class LiferayService {
       PATH.IMPORT_TASK_SUBMITTED_CONTENT(batchId),
       'import-task-submitted-content',
       'Failed to get import task submitted content',
-      { headers: { Accept: '*/*' } }
+      { headers: { Accept: '*/*' } },
     );
 
     logger.info('Received urlResponse from getImportTaskSubmittedContent', {
@@ -869,7 +886,7 @@ class LiferayService {
         const zip = new StreamZip.async({ file: tempFilePath });
         const entries = await zip.entries();
         const jsonEntry = Object.values(entries).find((entry) =>
-          entry.name.endsWith('.json')
+          entry.name.endsWith('.json'),
         );
 
         if (jsonEntry) {
@@ -891,7 +908,7 @@ class LiferayService {
       PATH.IMPORT_TASK_ERROR_REPORT(batchId),
       'import-task-error-report',
       'Failed to get import task error report',
-      { headers: { Accept: 'application/octet-stream' } }
+      { headers: { Accept: 'application/octet-stream' } },
     );
 
     const records = parse(csvContent, {
@@ -913,16 +930,17 @@ class LiferayService {
       friendly,
       path,
       sessionId,
-    }
+    },
   ) {
     const { logger, cache, config: configService } = this.ctx;
 
     const erc =
-      externalReferenceCode ?? createERC(ERC_PREFIX[`${entityName.toUpperCase()}_BATCH`]);
+      externalReferenceCode ??
+      createERC(ERC_PREFIX[`${entityName.toUpperCase()}_BATCH`]);
 
     const processedItems = (items || []).map((item) => {
       const extERC = sanitizedERC(
-        item.externalReferenceCode || item[itemERCKey] || uuidv4()
+        item.externalReferenceCode || item[itemERCKey] || uuidv4(),
       );
       return { ...item, externalReferenceCode: extERC };
     });
@@ -937,11 +955,14 @@ class LiferayService {
       externalReferenceCode: erc,
     };
 
-    const callbackUrl = this._buildCallbackURL(this._getBaseCallbackUrl(config), {
+    const callbackUrl = this._buildCallbackURL(
+      this._getBaseCallbackUrl(config),
+      {
         batchERC: erc,
         sessionId: sessionId,
         op: 'create',
-      })
+      },
+    );
 
     const url = path(callbackUrl);
 
@@ -952,13 +973,7 @@ class LiferayService {
       externalReferenceCode: erc,
     });
 
-    const data = await this._post(
-      config,
-      url,
-      batchPayload,
-      op,
-      friendly
-    );
+    const data = await this._post(config, url, batchPayload, op, friendly);
 
     this._cacheItemERCs(erc, data?.id, itemERCs, sessionId);
 
@@ -972,7 +987,7 @@ class LiferayService {
           count: processedItems.length,
           createdAt: new Date().toISOString(),
         },
-        getBatchCacheTTLms(configService)
+        getBatchCacheTTLms(configService),
       );
     }
 
@@ -1010,19 +1025,23 @@ class LiferayService {
       path,
       op,
       friendly,
-    }
+    },
   ) {
     const { logger } = this.ctx;
 
     const batchERC =
-      externalReferenceCode ?? createERC(ERC_PREFIX[`${entityName.toUpperCase()}_BATCH`]);
+      externalReferenceCode ??
+      createERC(ERC_PREFIX[`${entityName.toUpperCase()}_BATCH`]);
 
-    const taggedCallback = this._buildCallbackURL(this._getBaseCallbackUrl(config), {
-          entity: entityName,
-          op: 'delete',
-          batchERC,
-          sessionId,
-        });
+    const taggedCallback = this._buildCallbackURL(
+      this._getBaseCallbackUrl(config),
+      {
+        entity: entityName,
+        op: 'delete',
+        batchERC,
+        sessionId,
+      },
+    );
 
     const batchUrl = path(taggedCallback);
 
@@ -1047,16 +1066,7 @@ class LiferayService {
 
   async _deleteBatchSimulated(
     config,
-    {
-      entityName,
-      ids,
-      dryRun,
-      basePath,
-      op,
-      friendly,
-      concurrency,
-      retryOn,
-    }
+    { entityName, ids, dryRun, basePath, op, friendly, concurrency, retryOn },
   ) {
     const { logger } = this.ctx;
 
@@ -1078,14 +1088,7 @@ class LiferayService {
 
   async deleteByFilter(
     config,
-    {
-      entityName,
-      filter,
-      search,
-      searchPrefixes,
-      nativeBatch,
-      ...rest
-    }
+    { entityName, filter, search, searchPrefixes, nativeBatch, ...rest },
   ) {
     const { logger } = this.ctx;
 
@@ -1139,7 +1142,6 @@ class LiferayService {
     });
   }
 
-
   async createWarehousesBatch(config, warehousesData, opts = {}) {
     const results = await this._postBatch(config, {
       entityName: 'warehouse',
@@ -1164,7 +1166,7 @@ class LiferayService {
       `${PATH.WAREHOUSES}/${warehouseId}`,
       null,
       'delete-warehouse',
-      'Failed to delete warehouse'
+      'Failed to delete warehouse',
     );
   }
 
@@ -1181,7 +1183,7 @@ class LiferayService {
       'List warehouses page',
       {
         params: { page: 1, pageSize, fields },
-      }
+      },
     );
   }
 
@@ -1191,7 +1193,7 @@ class LiferayService {
       PATH.WAREHOUSE_INVENTORIES(warehouseId),
       { ...inventoryData, sku },
       'update-product-inventory',
-      'Failed to update product inventory'
+      'Failed to update product inventory',
     );
   }
 
@@ -1208,7 +1210,7 @@ class LiferayService {
     const data = await this._get(
       config,
       PATH.SITE_LANGUAGES(siteGroupId),
-      'get-site-languages'
+      'get-site-languages',
     );
     return this._asItems(data);
   }
@@ -1233,7 +1235,7 @@ class LiferayService {
       productData,
       'create-product',
       null,
-      'handle'
+      'handle',
     );
     return data;
   }
@@ -1264,7 +1266,7 @@ class LiferayService {
       accountData,
       'create-account',
       null,
-      'handle'
+      'handle',
     );
 
     return data;
@@ -1276,7 +1278,7 @@ class LiferayService {
       PATH.ACCOUNT(accountId),
       accountData,
       'patch-account',
-      'Failed to patch account'
+      'Failed to patch account',
     );
   }
 
@@ -1285,7 +1287,7 @@ class LiferayService {
       return await this._get(
         config,
         PATH.ACCOUNT_BY_ERC(externalReferenceCode),
-        'get-account-by-erc'
+        'get-account-by-erc',
       );
     } catch (error) {
       if (error.response?.status === 404) return null;
@@ -1294,9 +1296,92 @@ class LiferayService {
   }
 
   async getCountries(config) {
-    const { logger } = this.ctx;
-    logger.warn('getCountries is not implemented');
-    return [];
+    const { cache, logger } = this.ctx;
+    const correlationId = config.correlationId;
+    const cacheKey = 'LIFERAY_COUNTRIES';
+
+    logger.debug('[getCountries] - Start', { correlationId, cacheKey });
+
+    let countries = cache.get(cacheKey);
+    if (countries) {
+      logger.debug('[getCountries] - Cache hit', {
+        correlationId,
+        cacheKey,
+        countriesCount: countries.length,
+      });
+      return countries;
+    }
+    logger.debug('[getCountries] - Cache miss', { correlationId, cacheKey });
+
+    const data = await this._get(
+      config,
+      PATH.COUNTRIES,
+      'get-countries',
+      null,
+      { params: { pageSize: 1000, active: true } },
+    );
+
+    countries = this._asItems(data);
+
+    logger.debug('[getCountries] - API call completed', {
+      correlationId,
+      cacheKey,
+      countriesCount: countries.length,
+    });
+
+    cache.set(cacheKey, countries, 900000);
+
+    logger.debug('[getCountries] - Cache set', {
+      correlationId,
+      cacheKey,
+      countriesCount: countries.length,
+    });
+    return countries;
+  }
+
+  async getCountryRegions(config, countryId) {
+    const { cache, logger } = this.ctx;
+    const correlationId = config.correlationId;
+    const cacheKey = `LIFERAY_REGIONS_${countryId}`;
+
+    logger.debug('[getCountryRegions] - Start', { correlationId, cacheKey });
+
+    let regions = cache.get(cacheKey);
+    if (regions) {
+      logger.debug('[getCountryRegions] - Cache hit', {
+        correlationId,
+        cacheKey,
+        regionsCount: regions.length,
+      });
+      return regions;
+    }
+    logger.debug('[getCountryRegions] - Cache miss', {
+      correlationId,
+      cacheKey,
+    });
+
+    const data = await this._get(
+      config,
+      PATH.COUNTRY_REGIONS(countryId),
+      'get-country-regions',
+      null,
+      { params: { pageSize: 1000, active: true } },
+    );
+    regions = this._asItems(data);
+
+    logger.debug('[getCountryRegions] - API call completed', {
+      correlationId,
+      cacheKey,
+      regionsCount: regions.length,
+    });
+
+    cache.set(cacheKey, regions, 900000);
+    logger.debug('[getCountryRegions] - Cache set', {
+      correlationId,
+      cacheKey,
+      regionsCount: regions.length,
+    });
+    return regions;
   }
 
   async createAccountAddress(config, accountId, addressData) {
@@ -1305,16 +1390,11 @@ class LiferayService {
       PATH.ACCOUNT_ADDRESSES(accountId),
       addressData,
       'create-account-address',
-      'Failed to create account address'
+      'Failed to create account address',
     );
   }
 
-  async createAccountAddressBatch(
-    config,
-    accountId,
-    addressesData,
-    opts = {}
-  ) {
+  async createAccountAddressBatch(config, accountId, addressesData, opts = {}) {
     const results = await this._postBatch(config, {
       entityName: 'address',
       items: addressesData,
@@ -1365,7 +1445,7 @@ class LiferayService {
         cache.set(
           `session:${sessionId}:itemERCsByBatch:${batchERC}`,
           itemERCs,
-          ttl
+          ttl,
         );
       }
       logger?.trace?.('cache:itemERCs:stored', {
@@ -1416,7 +1496,7 @@ class LiferayService {
       PATH.ORDERS,
       orderData,
       'create-order',
-      'Failed to create order'
+      'Failed to create order',
     );
   }
 
@@ -1426,7 +1506,7 @@ class LiferayService {
       PATH.PRICE_LISTS,
       priceListData,
       'create-price-list',
-      'Failed to create price list'
+      'Failed to create price list',
     );
   }
 
@@ -1437,7 +1517,7 @@ class LiferayService {
       pageSize = 200,
       fields = 'id,name,externalReferenceCode',
       filter,
-    } = {}
+    } = {},
   ) {
     const { config: configService, logger } = this.ctx;
     const excludeLists = await configService.getExcludeLists(config);
@@ -1469,7 +1549,7 @@ class LiferayService {
       config,
       url,
       'pricelists:list',
-      'List price lists'
+      'List price lists',
     );
 
     let allPriceListsItems = this._asItems(allPriceLists);
@@ -1509,7 +1589,7 @@ class LiferayService {
       callbackBatchERC,
       dryRun = false,
       sessionId,
-    } = {}
+    } = {},
   ) {
     return this.deleteByFilter(config, {
       entityName: 'priceList',
@@ -1532,7 +1612,7 @@ class LiferayService {
       PATH.PRICE_ENTRIES(priceListId),
       priceEntryData,
       'create-price-entry',
-      'Failed to create price entry'
+      'Failed to create price entry',
     );
   }
 
@@ -1542,7 +1622,7 @@ class LiferayService {
       PATH.PRICE_ENTRIES(priceListId),
       { ...priceEntryData, skuId },
       'create-sku-price-entry',
-      'Failed to create SKU price entry'
+      'Failed to create SKU price entry',
     );
   }
 
@@ -1552,7 +1632,7 @@ class LiferayService {
       PATH.PRODUCT_SKUS(productId),
       skuData,
       'create-sku',
-      'Failed to create SKU'
+      'Failed to create SKU',
     );
   }
 
@@ -1562,7 +1642,7 @@ class LiferayService {
       PATH.PRODUCT_OPTIONS(productId),
       productOptions,
       'add-product-options',
-      'Failed to add product options'
+      'Failed to add product options',
     );
   }
 
@@ -1580,7 +1660,7 @@ class LiferayService {
       PATH.OPTIONS,
       optionData,
       'create-option',
-      'Failed to create option'
+      'Failed to create option',
     );
 
     logger.debug(`✓ Option created successfully:`, data);
@@ -1589,7 +1669,7 @@ class LiferayService {
 
   async getOptions(
     config,
-    { search, pageSize = 200, fields = 'id,key,externalReferenceCode' } = {}
+    { search, pageSize = 200, fields = 'id,key,externalReferenceCode' } = {},
   ) {
     const { logger } = this.ctx;
 
@@ -1604,7 +1684,7 @@ class LiferayService {
 
   async getOptionCategories(
     config,
-    { search, pageSize = 200, fields = 'id,key,externalReferenceCode' } = {}
+    { search, pageSize = 200, fields = 'id,key,externalReferenceCode' } = {},
   ) {
     return this._get(
       config,
@@ -1613,7 +1693,7 @@ class LiferayService {
       'List option categories',
       {
         params: { page: 1, pageSize, fields, ...(search ? { search } : {}) },
-      }
+      },
     );
   }
 
@@ -1666,7 +1746,7 @@ class LiferayService {
       PATH.OPTION_VALUES(optionId),
       optionValueData,
       'create-option-value',
-      'Failed to create option value'
+      'Failed to create option value',
     );
   }
 
@@ -1675,7 +1755,7 @@ class LiferayService {
       return await this._get(
         config,
         PATH.OPTION_BY_ERC(externalReferenceCode),
-        'get-option-by-erc'
+        'get-option-by-erc',
       );
     } catch (error) {
       if (error.response?.status === 404) return null;
@@ -1697,7 +1777,7 @@ class LiferayService {
             search: key,
             fields: 'id,key,externalReferenceCode',
           },
-        }
+        },
       );
       const items = Array.isArray(res?.items) ? res.items : [];
       return items.find((it) => it.key === key) || null;
@@ -1711,7 +1791,7 @@ class LiferayService {
       return await this._get(
         config,
         PATH.OPTION_VALUE_BY_ERC(optionId, externalReferenceCode),
-        'get-option-value-by-erc'
+        'get-option-value-by-erc',
       );
     } catch (error) {
       if (error.response?.status === 404) return null;
@@ -1721,7 +1801,7 @@ class LiferayService {
 
   async getOptionValueByKey(config, optionId, key) {
     const listUrl = `${PATH.OPTIONS}/${encodeURIComponent(
-      optionId
+      optionId,
     )}/productOptionValues`;
     const res = await this._get(
       config,
@@ -1735,7 +1815,7 @@ class LiferayService {
           search: key,
           fields: 'id,key,externalReferenceCode',
         },
-      }
+      },
     );
     const items = Array.isArray(res?.items) ? res.items : [];
     return items.find((it) => it.key === key) || null;
@@ -1743,14 +1823,14 @@ class LiferayService {
 
   async updateOptionValueById(config, optionId, valueId, payload) {
     const url = `${PATH.OPTIONS}/${encodeURIComponent(
-      optionId
+      optionId,
     )}/productOptionValues/${encodeURIComponent(valueId)}`;
     return this._put(
       config,
       url,
       payload,
       'update-option-value-by-id',
-      'Failed to update option value by ID'
+      'Failed to update option value by ID',
     );
   }
 
@@ -1758,7 +1838,7 @@ class LiferayService {
     config,
     optionId,
     externalReferenceCode,
-    payload
+    payload,
   ) {
     const url = PATH.OPTION_VALUE_BY_ERC(optionId, externalReferenceCode);
     return this._put(
@@ -1766,7 +1846,7 @@ class LiferayService {
       url,
       payload,
       'update-option-value-by-erc',
-      'Failed to update option value by ERC'
+      'Failed to update option value by ERC',
     );
   }
 
@@ -1815,7 +1895,7 @@ class LiferayService {
               config,
               optionId,
               existing.externalReferenceCode,
-              { externalReferenceCode: erc }
+              { externalReferenceCode: erc },
             );
           } catch {}
         }
@@ -1830,7 +1910,7 @@ class LiferayService {
       PATH.OPTION_CATEGORIES,
       optionCategoryData,
       'create-option-category',
-      'Failed to create option category'
+      'Failed to create option category',
     );
   }
 
@@ -1848,7 +1928,7 @@ class LiferayService {
             search: key,
             fields: 'id,key,externalReferenceCode,title,description,priority',
           },
-        }
+        },
       );
       const items = Array.isArray(res?.items) ? res.items : [];
       return items.find((it) => it.key === key) || null;
@@ -1856,10 +1936,10 @@ class LiferayService {
       throw new Error(`Failed to get option category by key: ${error.message}`);
     }
   }
-  
+
   async _listOptionCategories(
     config,
-    { search, pageSize = 200, fields = 'id,key,externalReferenceCode' } = {}
+    { search, pageSize = 200, fields = 'id,key,externalReferenceCode' } = {},
   ) {
     return this._get(
       config,
@@ -1873,7 +1953,7 @@ class LiferayService {
           fields,
           ...(search ? { search } : {}),
         },
-      }
+      },
     );
   }
 
@@ -1884,7 +1964,7 @@ class LiferayService {
       url,
       payload,
       'update-option-category-by-id',
-      'Failed to update option category by ID'
+      'Failed to update option category by ID',
     );
   }
 
@@ -1903,13 +1983,13 @@ class LiferayService {
       if (!isConflict) throw e;
 
       logger.trace(
-        `Conflict creating option category, attempting to fetch by key: ${payload.key}`
+        `Conflict creating option category, attempting to fetch by key: ${payload.key}`,
       );
 
       const key = payload?.key;
       if (!key) {
         throw new Error(
-          'Conflict on createOptionCategory, but no key was provided to find existing.'
+          'Conflict on createOptionCategory, but no key was provided to find existing.',
         );
       }
 
@@ -1917,7 +1997,7 @@ class LiferayService {
 
       if (!existing) {
         throw new Error(
-          `Conflict creating option category '${key}', but could not retrieve the existing one.`
+          `Conflict creating option category '${key}', but could not retrieve the existing one.`,
         );
       }
 
@@ -1930,7 +2010,7 @@ class LiferayService {
           existing.externalReferenceCode = erc;
         } catch (updateError) {
           logger.warn(
-            `Failed to update ERC for existing option category '${key}'`
+            `Failed to update ERC for existing option category '${key}'`,
           );
         }
       }
@@ -1943,7 +2023,7 @@ class LiferayService {
       return await this._get(
         config,
         PATH.OPTION_CATEGORY_BY_ERC(externalReferenceCode),
-        'get-option-category-by-erc'
+        'get-option-category-by-erc',
       );
     } catch (error) {
       if (error.response?.status === 404) return null;
@@ -1996,7 +2076,7 @@ class LiferayService {
       PATH.SPECIFICATIONS,
       normalized,
       'create-specification',
-      'Failed to create specification'
+      'Failed to create specification',
     );
   }
 
@@ -2059,7 +2139,7 @@ class LiferayService {
                   id: desiredId,
                   title: desired.optionCategory.title,
                 },
-              }
+              },
             );
             existing.optionCategory = {
               ...(existing.optionCategory || {}),
@@ -2074,7 +2154,7 @@ class LiferayService {
                   externalReferenceCode: desiredErc,
                   title: desired.optionCategory.title,
                 },
-              }
+              },
             );
             existing.optionCategory = {
               ...(existing.optionCategory || {}),
@@ -2092,7 +2172,7 @@ class LiferayService {
       return await this._get(
         config,
         PATH.SPECIFICATION_BY_ERC(externalReferenceCode),
-        'get-specification-by-erc'
+        'get-specification-by-erc',
       );
     } catch (error) {
       if (error.response?.status === 404) return null;
@@ -2108,7 +2188,7 @@ class LiferayService {
       url,
       normalized,
       'update-specification-by-id',
-      'Failed to update specification by ID'
+      'Failed to update specification by ID',
     );
   }
 
@@ -2120,20 +2200,20 @@ class LiferayService {
       url,
       normalized,
       'update-specification-by-erc',
-      'Failed to update specification by ERC'
+      'Failed to update specification by ERC',
     );
   }
 
   async getSpecifications(
     config,
-    { search, pageSize = 200, fields = 'id,key,externalReferenceCode' } = {}
+    { search, pageSize = 200, fields = 'id,key,externalReferenceCode' } = {},
   ) {
     return this._get(
       config,
       PATH.SPECIFICATIONS,
       'specifications:list',
       'List specifications',
-      { params: { page: 1, pageSize, fields, ...(search ? { search } : {}) } }
+      { params: { page: 1, pageSize, fields, ...(search ? { search } : {}) } },
     );
   }
 
@@ -2145,7 +2225,7 @@ class LiferayService {
           config,
           PATH.PRODUCT_SPECIFICATIONS(productId),
           'get-product-specifications',
-          `Failed to get specifications for product ${productId}`
+          `Failed to get specifications for product ${productId}`,
         );
         allSpecifications.push(...this._asItems(specifications));
       } catch (error) {
@@ -2172,7 +2252,7 @@ class LiferayService {
             fields:
               'id,key,externalReferenceCode,optionCategory,optionCategoryExternalReferenceCode',
           },
-        }
+        },
       );
       const items = Array.isArray(res?.items) ? res.items : [];
       return items.find((it) => it.key === key) || null;
@@ -2202,7 +2282,7 @@ class LiferayService {
         config,
         url,
         'get-config',
-        'Failed to get configuration entry'
+        'Failed to get configuration entry',
       );
       return data;
     } catch (error) {
@@ -2222,7 +2302,7 @@ class LiferayService {
           error.response?.data?.title ||
           error.response?.data?.detail ||
           error.message
-        }`
+        }`,
       );
     }
   }
@@ -2231,13 +2311,13 @@ class LiferayService {
     config,
     siteGroupId,
     externalReferenceCode,
-    nameOverride
+    nameOverride,
   ) {
     try {
       const folder = await this.getDocumentsFolderByERC(
         config,
         siteGroupId,
-        externalReferenceCode
+        externalReferenceCode,
       );
       return folder;
     } catch (err) {
@@ -2258,7 +2338,7 @@ class LiferayService {
           description: 'Uploads from AI Commerce Accelerator',
         },
         'create-documents-folder',
-        'Failed to create documents folder'
+        'Failed to create documents folder',
       );
 
       return created;
@@ -2269,7 +2349,7 @@ class LiferayService {
     return this._get(
       config,
       PATH.DOCUMENT_FOLDER_BY_ERC(siteId, externalReferenceCode),
-      'get-documents-folder-by-erc'
+      'get-documents-folder-by-erc',
     );
   }
 
@@ -2302,7 +2382,7 @@ class LiferayService {
       PATH.DOCUMENT_FOLDERS(siteId),
       payload,
       'create-site-documents-folder',
-      'Failed to create site documents folder'
+      'Failed to create site documents folder',
     );
 
     return { folder, folderName, folderERC };
@@ -2406,7 +2486,7 @@ class LiferayService {
       });
     } else {
       throw new Error(
-        'uploadSiteDocumentMultipart: provide a Buffer, a Multer file with .buffer, or an object with .path'
+        'uploadSiteDocumentMultipart: provide a Buffer, a Multer file with .buffer, or an object with .path',
       );
     }
 
@@ -2416,7 +2496,7 @@ class LiferayService {
       url,
       form,
       'upload-site-document-multipart',
-      'Failed to upload site document'
+      'Failed to upload site document',
     );
   }
 
@@ -2434,7 +2514,7 @@ class LiferayService {
   async _postProductMediaByBase64(
     config,
     productERC,
-    { base64, contentType, title, priority, type }
+    { base64, contentType, title, priority, type },
   ) {
     const url =
       type === 'image'
@@ -2456,7 +2536,7 @@ class LiferayService {
       url,
       payload,
       `add-product-${type}-by-base64`,
-      `Failed to add product ${type}`
+      `Failed to add product ${type}`,
     );
   }
 
@@ -2479,7 +2559,7 @@ class LiferayService {
       url,
       payload,
       `add-product-${type}-by-url`,
-      `Failed to add product ${type}`
+      `Failed to add product ${type}`,
     );
   }
 
@@ -2498,12 +2578,12 @@ class LiferayService {
     config,
     productERC,
     attachmentMetaData,
-    priority = 1.0
+    priority = 1.0,
   ) {
     if (!config || !productERC || !attachmentMetaData?.attachment) return;
 
     const { base64 } = this._extractDataUrlBase64(
-      attachmentMetaData.attachment
+      attachmentMetaData.attachment,
     );
 
     try {
@@ -2511,13 +2591,13 @@ class LiferayService {
       const pdfHeader = pdfBuffer.slice(0, 4).toString();
       if (pdfHeader !== '%PDF') {
         logger.warn(
-          `Warning: PDF attachment for ${productERC} does not have valid PDF header, got: ${pdfHeader}`
+          `Warning: PDF attachment for ${productERC} does not have valid PDF header, got: ${pdfHeader}`,
         );
       }
     } catch (validationError) {
       logger.error(
         `PDF validation failed for ${productERC}:`,
-        validationError.message
+        validationError.message,
       );
     }
 
@@ -2557,7 +2637,7 @@ class LiferayService {
         priority: attachmentData.priority ?? 0,
       },
       'add-product-attachment',
-      'Failed to add product attachment'
+      'Failed to add product attachment',
     );
   }
 
@@ -2572,7 +2652,7 @@ class LiferayService {
         priority: 0,
       },
       'add-product-image',
-      'Failed to add product image'
+      'Failed to add product image',
     );
   }
 
@@ -2616,7 +2696,7 @@ class LiferayService {
       config,
       ASSET_TYPE.DOCUMENT_FOLDER,
       folderId,
-      items
+      items,
     );
   }
 
@@ -2700,7 +2780,7 @@ class LiferayService {
     return this.patchDocumentFolderPermissions(
       config,
       folderId,
-      builderOrMutator
+      builderOrMutator,
     );
   }
 
@@ -2736,7 +2816,7 @@ class LiferayService {
       dryRun = false,
       sessionId,
       channelId,
-    } = {}
+    } = {},
   ) {
     const filters = [];
     if (filter) filters.push(filter);
@@ -2762,7 +2842,7 @@ class LiferayService {
     const data = await this._get(
       config,
       PATH.CHANNEL(channelId),
-      'get-channel'
+      'get-channel',
     );
     return data;
   }
@@ -2773,7 +2853,7 @@ class LiferayService {
       PATH.PRICE_LIST(priceListId),
       { catalogId: catalogId },
       'update-price-list-catalog',
-      'Failed to update price list catalog'
+      'Failed to update price list catalog',
     );
   }
 
@@ -2786,7 +2866,7 @@ class LiferayService {
       dryRun = false,
       sessionId,
       channelId,
-    } = {}
+    } = {},
   ) {
     let { catalogId } = config || {};
 
@@ -2845,7 +2925,7 @@ class LiferayService {
     const primaryAccountId = await this.getPrimaryAccountId(config);
     if (primaryAccountId != null) {
       accountIds = accountIds.filter(
-        (id) => String(id) !== String(primaryAccountId)
+        (id) => String(id) !== String(primaryAccountId),
       );
     }
 
@@ -2887,7 +2967,7 @@ class LiferayService {
       fields,
       op,
       friendly,
-    }
+    },
   ) {
     const { logger } = this.ctx;
     const ids = new Set();
@@ -3067,7 +3147,7 @@ class LiferayService {
 
   async _deleteByBatch(
     config,
-    { batchUrl, ids, batchSize, dryRun = false, idProp = 'id', op, friendly }
+    { batchUrl, ids, batchSize, dryRun = false, idProp = 'id', op, friendly },
   ) {
     const { logger } = this.ctx;
     const summary = {
@@ -3116,7 +3196,7 @@ class LiferayService {
           body,
           op,
           friendly,
-          true
+          true,
         );
 
         const location =
@@ -3164,7 +3244,7 @@ class LiferayService {
       dryRun = false,
       op,
       friendly,
-    }
+    },
   ) {
     const summary = {
       total: ids.length,
@@ -3198,7 +3278,7 @@ class LiferayService {
               `${baseDeletePath}/${encodeURIComponent(id)}`,
               undefined,
               op,
-              friendly
+              friendly,
             );
             summary.deleted++;
             break;
@@ -3241,7 +3321,7 @@ class LiferayService {
       itemsKey = 'items',
       op = 'drain:check',
       friendly = 'Check drain',
-    }
+    },
   ) {
     let attempt = 0;
     while (attempt < maxChecks) {
@@ -3262,19 +3342,19 @@ class LiferayService {
     cache.set(
       `erc:${batchERC}:itemERCs`,
       itemERCs,
-      getBatchCacheTTLms(configService)
+      getBatchCacheTTLms(configService),
     );
     if (batchId)
       cache.set(
         `batch:${batchId}:itemERCs`,
         itemERCs,
-        getBatchCacheTTLms(configService)
+        getBatchCacheTTLms(configService),
       );
     if (sessionId)
       cache.set(
         `session:${sessionId}:itemERCsByBatch:${batchERC}`,
         itemERCs,
-        getBatchCacheTTLms(configService)
+        getBatchCacheTTLms(configService),
       );
   }
 
@@ -3292,7 +3372,7 @@ class LiferayService {
             return v.slice(0, 2000) + '…';
           return v;
         },
-        2
+        2,
       );
       return s.length > max ? s.slice(0, max) + '…' : s;
     } catch {
@@ -3307,7 +3387,7 @@ class LiferayService {
       'import-task',
       'Import Liferay task',
       {},
-      true
+      true,
     );
   }
 
@@ -3337,7 +3417,7 @@ class LiferayService {
       callbackBatchERC,
       dryRun = false,
       sessionId,
-    } = {}
+    } = {},
   ) {
     return this.deleteByFilter(config, {
       entityName: 'option',
@@ -3354,11 +3434,7 @@ class LiferayService {
     });
   }
 
-  async createSpecificationsBatch(
-    config,
-    specificationsData,
-    opts = {}
-  ) {
+  async createSpecificationsBatch(config, specificationsData, opts = {}) {
     const results = await this._postBatch(config, {
       entityName: 'specification',
       items: specificationsData,
@@ -3387,7 +3463,7 @@ class LiferayService {
       callbackBatchERC,
       dryRun = false,
       sessionId,
-    } = {}
+    } = {},
   ) {
     return this.deleteByFilter(config, {
       entityName: 'specification',
@@ -3406,11 +3482,7 @@ class LiferayService {
     });
   }
 
-  async createOptionCategoriesBatch(
-    config,
-    categories,
-    opts = {}
-  ) {
+  async createOptionCategoriesBatch(config, categories, opts = {}) {
     try {
       const results = await this._postBatch(config, {
         entityName: 'optionCategory',
@@ -3430,7 +3502,7 @@ class LiferayService {
     } catch (e) {
       if (e?.status === 404) {
         logger.warn(
-          'Option Categories /batch not found. Falling back to per-item create.'
+          'Option Categories /batch not found. Falling back to per-item create.',
         );
         const results = [];
         for (const item of items) {
@@ -3450,6 +3522,33 @@ class LiferayService {
     }
   }
 
+  async getPostalAddressByERC(config, erc) {
+    return await this._get(
+      config,
+      PATH.POSTAL_ADDRESS_BY_ERC(erc),
+      'get-postal-address-by-erc',
+      'Failed to get postal address',
+    );
+  }
+
+  async setBillingAndShippingAddresses(
+    config,
+    accountId,
+    defaultShippingAddressId,
+    defaultBillingAddressId,
+  ) {
+    return await this._patch(
+      config,
+      PATH.ACCOUNT(accountId),
+      {
+        defaultBillingAddressId,
+        defaultShippingAddressId,
+      },
+      'set-billing-and-shipping-addresses',
+      'Failed to set billing and shipping addresses',
+    );
+  }
+
   async deleteOptionCategoriesBatch(
     config,
     {
@@ -3459,7 +3558,7 @@ class LiferayService {
       searchPrefixes,
       dryRun = false,
       sessionId,
-    } = {}
+    } = {},
   ) {
     try {
       return await this.deleteByFilter(config, {
@@ -3479,7 +3578,7 @@ class LiferayService {
     } catch (e) {
       if (e?.status === 404) {
         this.ctx.logger.warn(
-          'Option Categories /batch not found. Falling back to per-id delete.'
+          'Option Categories /batch not found. Falling back to per-id delete.',
         );
         return this.deleteByFilter(config, {
           entityName: 'optionCategory',

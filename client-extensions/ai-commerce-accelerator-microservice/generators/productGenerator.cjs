@@ -25,209 +25,142 @@ const RETRY = { maxAttempts: 3, baseMs: 500, factor: 2 };
 class ProductGenerator {
   constructor(ctx) {
     this.ctx = ctx;
+
+    this.steps = {
+      'generate-warehouses': this._runWarehouseGenerationStep.bind(this),
+      'product-data-generation': this._runProductDataGenerationStep.bind(this),
+      products: this._runProductCreationStep.bind(this),
+      'attach-images': this._runAttachImagesStep.bind(this),
+      'attach-pdfs': this._runAttachPdfsStep.bind(this),
+      'update-inventory': this._runUpdateInventoryStep.bind(this),
+    };
   }
 
-  validateConfig(config) {
-    const pollingRetriesValue = config.pollingRetries;
-    if (pollingRetriesValue === undefined || pollingRetriesValue === null) {
-      throw new Error('pollingRetries is required');
-    }
-    const pollingRetries = parseInt(pollingRetriesValue);
-    if (isNaN(pollingRetries) || pollingRetries < 0 || pollingRetries > 20) {
-      throw new Error('pollingRetries must be between 0 and 20');
-    }
-    const pollingDelayValue = config.pollingDelay;
-    if (pollingDelayValue === undefined || pollingDelayValue === null) {
-      throw new Error('pollingDelay is required');
-    }
-    const pollingDelay = parseInt(pollingDelayValue);
-    if (isNaN(pollingDelay) || pollingDelay < 5000 || pollingDelay > 600000) {
-      throw new Error('pollingDelay must be between 5 and 600 seconds');
-    }
-    const catalogIdValue = config.catalogId;
-    if (catalogIdValue === undefined || catalogIdValue === null) {
-      throw new Error('catalogId is required');
-    }
-    const catalogId = parseInt(catalogIdValue);
-    if (isNaN(catalogId) || catalogId <= 0) {
-      throw new Error('catalogId must be a positive integer');
-    }
-  }
+  async generate(config, options) {
+    const { logger, persistence, batchCallback } = this.ctx;
+    const sessionId = options.sessionId || createERC(ERC_PREFIX.BATCH_SESSION);
 
-  async validateOptions(config, options) {
-    const { ai, logger } = this.ctx;
+    const steps = [
+      { name: 'generate-warehouses', type: 'sync' },
+      { name: 'product-data-generation', type: 'sync' },
+      { name: 'products', type: 'sync' },
+      {
+        type: 'parallel',
+        steps: [
+          { name: 'attach-images', type: 'sync' },
+          { name: 'attach-pdfs', type: 'sync' },
+          { name: 'update-inventory', type: 'sync' },
+        ],
+      },
+    ];
 
-    if (
-      !options.productCount ||
-      typeof options.productCount !== 'number' ||
-      options.productCount <= 0
-    ) {
-      throw new Error('Product count must be greater than 0');
-    }
-
-    if (!options.demoMode) {
-      if (!config.aiModel) {
-        const err = new Error(
-          'AI model not configured. Please select an AI model in the AI Configuration object.'
-        );
-        err.statusCode = 400;
-        logger.error(
-          '✗ AI model validation failed for products: missing aiModel'
-        );
-        throw err;
-      }
-
-      await ai.getOpenAIClient(config);
-    }
-
-    if (
-      (options.imageRatio ?? 0) > 0 &&
-      options.imageMode !== 'none' &&
-      !options.demoMode
-    ) {
-      if (!config.imageGenerationKey) {
-        throw new Error(
-          'Image generation API key not configured. Please set it in the AI Configuration object or disable image generation.'
-        );
-      }
-    }
-  }
-
-  createOnSessionComplete() {
-    return this.onSessionComplete.bind(this);
-  }
-
-  async onSessionComplete({ sessionId, session, correlationId }) {
-    const { logger, ws, liferay, persistence, progress } = this.ctx;
-
-    const dbSession = await persistence.getSession(sessionId);
-
-    if (dbSession.status === 'postprocessing_done') {
-      logger.warn('Post-processing already handled for session', {
-        entityType: 'products',
-        operation: 'generate',
-        ...resolvePhaseAndMode({ useBatch: true, phase: 'postprocess' }),
-        sessionId,
-        correlationId,
-      });
-      return;
-    }
-
-    await persistence.updateSessionStatus(sessionId, 'postprocessing');
-
-    const completed = Array.isArray(session?.completedBatches)
-      ? Array.from(session.completedBatches)
-      : [];
-
-    logger.info('Generation session complete; triggering post-processing', {
-      entityType: 'products',
-      operation: 'generate',
-      ...resolvePhaseAndMode({ useBatch: true, phase: 'postprocess' }),
+    await persistence.createSession({
       sessionId,
-      completedBatches: completed,
-      correlationId,
+      flowType: 'generate',
+      status: 'STARTED',
+      currentSteps: [],
+      context: {
+        config,
+        options,
+        steps,
+      },
     });
 
-    progress.sessionCompleted({
+    batchCallback._checkSessionCompletion(sessionId, config.correlationId);
+
+    logger.info('Product generation workflow started', {
       sessionId,
-      correlationId,
+      steps: steps.map((s) => s.name),
     });
 
-    const sessionContext = dbSession.context;
+    return {
+      sessionId,
+      message: 'Product generation workflow started.',
+    };
+  }
 
-    if (!sessionContext) {
-      logger.warn('No session context found for post-processing', {
-        entityType: 'products',
-        operation: 'generate',
-        ...resolvePhaseAndMode({ useBatch: true, phase: 'postprocess' }),
-        sessionId,
-        correlationId,
-      });
-      await persistence.updateSessionStatus(sessionId, 'failed');
+  async _runWarehouseGenerationStep(sessionId, session) {
+    const { logger, liferay, warehouseGenerator, cache, persistence } =
+      this.ctx;
+    const { config, options } = session.context;
+
+    if (!options.createWarehouses) {
+      logger.info('Skipping warehouse generation step.', { sessionId });
       return;
     }
 
-    const { config: sessionConfig, productDataList, options } = sessionContext;
-    const demoMode = !!options?.demoMode;
-
-    const shouldProcessDemo =
-      demoMode &&
-      ((options?.imageRatio ?? 0) > 0 || (options?.pdfRatio ?? 0) > 0);
-
-    const shouldProcessNonDemo =
-      !demoMode &&
-      ((options?.imageMode &&
-        options.imageMode !== 'none' &&
-        (options?.imageRatio ?? 0) > 0) ||
-        (options?.pdfMode &&
-          options.pdfMode !== 'none' &&
-          (options?.pdfRatio ?? 0) > 0));
-
-    const shouldProcess = shouldProcessDemo || shouldProcessNonDemo;
-
-    if (!shouldProcess) {
-      logger.info('No post-processing work required', {
-        entityType: 'products',
-        operation: 'generate',
-        ...resolvePhaseAndMode({ useBatch: true, phase: 'postprocess' }),
-        sessionId,
-        correlationId,
-        imageMode: options?.imageMode || 'none',
-        pdfMode: options?.pdfMode || 'none',
-        imageRatio: options?.imageRatio ?? 0,
-        pdfRatio: options?.pdfRatio ?? 0,
-      });
-      await persistence.updateSessionStatus(sessionId, 'completed');
-      return;
+    logger.info('Creating warehouses...', { sessionId });
+    let warehouses = [];
+    if (options.reuseExistingWarehouses) {
+      logger.info('Checking for existing warehouses...', { sessionId });
+      const existingWarehouses = await liferay.getWarehouses(config);
+      warehouses = existingWarehouses || [];
+      logger.info('Found warehouses:', { warehouses, sessionId });
     }
 
-    try {
-      await this.processImageAndPDFAttachments(sessionConfig, productDataList, {
+    const warehouseCount = options.warehouseCount || 1;
+    if (warehouses.length < warehouseCount) {
+      const newWarehouseCount = warehouseCount - warehouses.length;
+      logger.info('Calling createWarehouses', {
+        warehouseCount: newWarehouseCount,
+        sessionId,
+      });
+      const newWarehouses = await warehouseGenerator.createWarehouses(config, {
         ...options,
+        warehouseCount: newWarehouseCount,
         sessionId,
       });
-    } finally {
-      await persistence.updateSessionStatus(sessionId, 'completed');
-
-      logger.info('Post-processing complete; session context cleared', {
-        entityType: 'products',
-        operation: 'generate',
-        ...resolvePhaseAndMode({ useBatch: true, phase: 'complete' }),
-        sessionId,
-        correlationId,
-      });
-
-      if (options.createWarehouses) {
-        try {
-          logger.info('Updating inventory for all products', { sessionId });
-          const createdProducts = await liferay.getProducts(sessionConfig);
-          const ercToProductMap = new Map();
-          for (const product of createdProducts) {
-            ercToProductMap.set(product.externalReferenceCode, product);
-          }
-
-          for (const originalProduct of productDataList) {
-            const createdProduct = ercToProductMap.get(
-              originalProduct.externalReferenceCode
-            );
-            if (createdProduct) {
-              await this.updateInventory(
-                sessionConfig,
-                createdProduct,
-                originalProduct,
-                options
-              );
-            }
-          }
-        } catch (error) {
-          logger.error('Failed to update inventory', {
-            sessionId,
-            error: error.message,
-          });
-        }
-      }
+      logger.info('Created new warehouses:', { newWarehouses, sessionId });
+      warehouses.push(...newWarehouses);
     }
+
+    const updatedOptions = { ...options, warehouses };
+    await persistence.updateSessionContext(sessionId, {
+      ...session.context,
+      options: updatedOptions,
+    });
+
+    cache.set('generated-warehouses', warehouses);
+    logger.info('Warehouses set in options and cache.', { sessionId });
   }
+
+  async _runProductDataGenerationStep(sessionId, session) {
+    const { logger, persistence } = this.ctx;
+    const { config, options } = session.context;
+
+    logger.info('Starting product data generation step', { sessionId });
+
+    const allProductData = await this._generateProductData(
+      config,
+      options,
+      sessionId
+    );
+
+    if (!allProductData || allProductData.length === 0) {
+      logger.info('No product data generated. Skipping product creation.', {
+        sessionId,
+      });
+      // Potentially end the workflow here if no data is generated
+      return;
+    }
+
+    await persistence.updateSessionContext(sessionId, {
+      ...session.context,
+      productDataList: allProductData,
+    });
+
+    logger.info('Product data generation step complete', {
+      sessionId,
+      productCount: allProductData.length,
+    });
+  }
+
+  async _runProductCreationStep(sessionId, session) {
+    const { logger } = this.ctx;
+    logger.info('Starting product creation step', { sessionId });
+    await this.startProductsBatch({ sessionId, session });
+  }
+
 
   async _generateProductData(config, options, sessionId) {
     const { logger, ai, mockData } = this.ctx;
@@ -565,6 +498,379 @@ class ProductGenerator {
     }
   }
 
+  async _runAttachImagesStep(sessionId, session) {
+    const { logger, media } = this.ctx;
+    const { config, options, productDataList } = session.context;
+
+    logger.info('Starting attach images step', { sessionId });
+
+    const withImages = (productDataList || []).filter(
+      (p) => p.images?.length > 0
+    );
+
+    if (withImages.length > 0) {
+      logger.info(
+        `Processing ${withImages.length} products with image attachments`,
+        { sessionId }
+      );
+      try {
+        await media.createImages(config, withImages, options);
+      } catch (error) {
+        logger.error('Failed to process image attachments', {
+          sessionId,
+          error: error.message,
+        });
+      }
+    } else {
+      logger.info('No images to attach for this session.', { sessionId });
+    }
+  }
+
+  async _runAttachPdfsStep(sessionId, session) {
+    const { logger, media } = this.ctx;
+    const { config, options, productDataList } = session.context;
+
+    logger.info('Starting attach PDFs step', { sessionId });
+
+    const withPdfs = (productDataList || []).filter(
+      (p) => p.attachments?.length > 0
+    );
+
+    if (withPdfs.length > 0) {
+      logger.info(
+        `Processing ${withPdfs.length} products with PDF attachments`,
+        { sessionId }
+      );
+      try {
+        await media.createPdfs(config, withPdfs, options);
+      } catch (error) {
+        logger.error('Failed to process PDF attachments', {
+          sessionId,
+          error: error.message,
+        });
+      }
+    } else {
+      logger.info('No PDFs to attach for this session.', { sessionId });
+    }
+  }
+
+  async _runUpdateInventoryStep(sessionId, session) {
+    const { logger, liferay } = this.ctx;
+    const { config, options, productDataList } = session.context;
+
+    logger.info('Starting update inventory step', { sessionId });
+
+    if (options.createWarehouses) {
+      try {
+        logger.info('Updating inventory for all products', { sessionId });
+        const createdProducts = await liferay.getProducts(config);
+        const ercToProductMap = new Map();
+        for (const product of createdProducts) {
+          ercToProductMap.set(product.externalReferenceCode, product);
+        }
+
+        for (const originalProduct of productDataList) {
+          const createdProduct = ercToProductMap.get(
+            originalProduct.externalReferenceCode
+          );
+          if (createdProduct) {
+            await this.updateInventory(
+              config,
+              createdProduct,
+              originalProduct,
+              options
+            );
+          }
+        }
+      } catch (error) {
+        logger.error('Failed to update inventory', {
+          sessionId,
+          error: error.message,
+        });
+      }
+    } else {
+      logger.info('Skipping inventory update.', { sessionId });
+    }
+  }
+
+  async onSessionComplete({ sessionId, session, correlationId }) {
+    const { logger, ws, liferay, persistence, progress } = this.ctx;
+
+    const dbSession = await persistence.getSession(sessionId);
+
+    if (dbSession.status === 'postprocessing_done') {
+      logger.warn('Post-processing already handled for session', {
+        entityType: 'products',
+        operation: 'generate',
+        ...resolvePhaseAndMode({ useBatch: true, phase: 'postprocess' }),
+        sessionId,
+        correlationId,
+      });
+      return;
+    }
+
+    await persistence.updateSessionStatus(sessionId, 'postprocessing');
+
+    const completed = Array.isArray(session?.completedBatches)
+      ? Array.from(session.completedBatches)
+      : [];
+
+    logger.info('Generation session complete; triggering post-processing', {
+      entityType: 'products',
+      operation: 'generate',
+      ...resolvePhaseAndMode({ useBatch: true, phase: 'postprocess' }),
+      sessionId,
+      completedBatches: completed,
+      correlationId,
+    });
+
+    progress.sessionCompleted({
+      sessionId,
+      correlationId,
+    });
+
+    const sessionContext = dbSession.context;
+
+    if (!sessionContext) {
+      logger.warn('No session context found for post-processing', {
+        entityType: 'products',
+        operation: 'generate',
+        ...resolvePhaseAndMode({ useBatch: true, phase: 'postprocess' }),
+        sessionId,
+        correlationId,
+      });
+      await persistence.updateSessionStatus(sessionId, 'failed');
+      return;
+    }
+
+    const { config: sessionConfig, productDataList, options } = sessionContext;
+    const demoMode = !!options?.demoMode;
+
+    const shouldProcessDemo =
+      demoMode &&
+      ((options?.imageRatio ?? 0) > 0 || (options?.pdfRatio ?? 0) > 0);
+
+    const shouldProcessNonDemo =
+      !demoMode &&
+      ((options?.imageMode &&
+        options.imageMode !== 'none' &&
+        (options?.imageRatio ?? 0) > 0) ||
+        (options?.pdfMode &&
+          options.pdfMode !== 'none' &&
+          (options?.pdfRatio ?? 0) > 0));
+
+    const shouldProcess = shouldProcessDemo || shouldProcessNonDemo;
+
+    if (!shouldProcess) {
+      logger.info('No post-processing work required', {
+        entityType: 'products',
+        operation: 'generate',
+        ...resolvePhaseAndMode({ useBatch: true, phase: 'postprocess' }),
+        sessionId,
+        correlationId,
+        imageMode: options?.imageMode || 'none',
+        pdfMode: options?.pdfMode || 'none',
+        imageRatio: options?.imageRatio ?? 0,
+        pdfRatio: options?.pdfRatio ?? 0,
+      });
+      await persistence.updateSessionStatus(sessionId, 'completed');
+      return;
+    }
+
+    try {
+      await this.processImageAndPDFAttachments(sessionConfig, productDataList, {
+        ...options,
+        sessionId,
+      });
+    } finally {
+      await persistence.updateSessionStatus(sessionId, 'completed');
+
+      logger.info('Post-processing complete; session context cleared', {
+        entityType: 'products',
+        operation: 'generate',
+        ...resolvePhaseAndMode({ useBatch: true, phase: 'complete' }),
+        sessionId,
+        correlationId,
+      });
+
+      if (options.createWarehouses) {
+        try {
+          logger.info('Updating inventory for all products', { sessionId });
+          const createdProducts = await liferay.getProducts(sessionConfig);
+          const ercToProductMap = new Map();
+          for (const product of createdProducts) {
+            ercToProductMap.set(product.externalReferenceCode, product);
+          }
+
+          for (const originalProduct of productDataList) {
+            const createdProduct = ercToProductMap.get(
+              originalProduct.externalReferenceCode
+            );
+            if (createdProduct) {
+              await this.updateInventory(
+                sessionConfig,
+                createdProduct,
+                originalProduct,
+                options
+              );
+            }
+          }
+        } catch (error) {
+          logger.error('Failed to update inventory', {
+            sessionId,
+            error: error.message,
+          });
+        }
+      }
+    }
+  }
+
+  async processImageAndPDFAttachments(
+    config,
+    productDataList,
+    options = {}
+  ) {
+    const { logger, liferay, media } = this.ctx;
+    const { sessionId } = options;
+    logger.info('Starting image and PDF attachment processing', {
+      sessionId,
+      productCount: productDataList.length,
+    });
+    const createdProducts = await liferay.getProducts(config);
+    if (!createdProducts || createdProducts.length === 0) {
+      logger.warn('No products found to process for attachments', {
+        sessionId,
+      });
+      return;
+    }
+    const ercToProductMap = new Map();
+    for (const product of createdProducts) {
+      ercToProductMap.set(product.externalReferenceCode, product);
+    }
+    const productsToProcess = productDataList
+      .map((originalProduct) => {
+        const createdProduct = ercToProductMap.get(
+          originalProduct.externalReferenceCode
+        );
+        if (createdProduct) {
+          return {
+            ...originalProduct,
+            id: createdProduct.id,
+          };
+        }
+        return null;
+      })
+      .filter(Boolean);
+    const withImages = productsToProcess.filter((p) => p.images?.length > 0);
+    const withPdfs = productsToProcess.filter((p) => p.attachments?.length > 0);
+    if (withImages.length > 0) {
+      logger.info(
+        `Processing ${withImages.length} products with image attachments`,
+        { sessionId }
+      );
+      try {
+        await media.createImages(config, withImages, options);
+      } catch (error) {
+        logger.error('Failed to process image attachments', {
+          sessionId,
+          error: error.message,
+        });
+      }
+    }
+    if (withPdfs.length > 0) {
+      logger.info(
+        `Processing ${withPdfs.length} products with PDF attachments`,
+        { sessionId }
+      );
+      try {
+        await media.createPdfs(config, withPdfs, options);
+      } catch (error) {
+        logger.error('Failed to process PDF attachments', {
+          sessionId,
+          error: error.message,
+        });
+      }
+    }
+  }
+
+  validateConfig(config) {
+    const pollingRetriesValue = config.pollingRetries;
+    if (pollingRetriesValue === undefined || pollingRetriesValue === null) {
+      throw new Error('pollingRetries is required');
+    }
+    const pollingRetries = parseInt(pollingRetriesValue);
+    if (isNaN(pollingRetries) || pollingRetries < 0 || pollingRetries > 20) {
+      throw new Error('pollingRetries must be between 0 and 20');
+    }
+    const pollingDelayValue = config.pollingDelay;
+    if (pollingDelayValue === undefined || pollingDelayValue === null) {
+      throw new Error('pollingDelay is required');
+    }
+    const pollingDelay = parseInt(pollingDelayValue);
+    if (isNaN(pollingDelay) || pollingDelay < 5000 || pollingDelay > 600000) {
+      throw new Error('pollingDelay must be between 5 and 600 seconds');
+    }
+    const catalogIdValue = config.catalogId;
+    if (catalogIdValue === undefined || catalogIdValue === null) {
+      throw new Error('catalogId is required');
+    }
+    const catalogId = parseInt(catalogIdValue);
+    if (isNaN(catalogId) || catalogId <= 0) {
+      throw new Error('catalogId must be a positive integer');
+    }
+  }
+
+  async validateOptions(config, options) {
+    const { ai, logger } = this.ctx;
+
+    if (
+      !options.productCount ||
+      typeof options.productCount !== 'number' ||
+      options.productCount <= 0
+    ) {
+      throw new Error('Product count must be greater than 0');
+    }
+
+    if (!options.demoMode) {
+      if (!config.aiModel) {
+        const err = new Error(
+          'AI model not configured. Please select an AI model in the AI Configuration object.'
+        );
+        err.statusCode = 400;
+        logger.error(
+          '✗ AI model validation failed for products: missing aiModel'
+        );
+        throw err;
+      }
+
+      await ai.getOpenAIClient(config);
+    }
+
+    if (
+      (options.imageRatio ?? 0) > 0 &&
+      options.imageMode !== 'none' &&
+      !options.demoMode
+    ) {
+      if (!config.imageGenerationKey) {
+        throw new Error(
+          'Image generation API key not configured. Please set it in the AI Configuration object or disable image generation.'
+        );
+      }
+    }
+  }
+
+
+
+
+
+
+
+
+
+
+
+
+
   buildCategoryCounts(total, categories, mode = 'random', logger = null) {
     const counts = {};
     categories.forEach((c) => (counts[c] = 0));
@@ -589,355 +895,6 @@ class ProductGenerator {
     return counts;
   }
 
-  async generateProducts(config, options) {
-    const {
-      logger,
-      liferay,
-      mockData,
-      media,
-      persistence,
-      progress,
-      ai,
-      warehouseGenerator,
-      cache,
-    } = this.ctx;
-
-    const sessionId = options.sessionId || createERC(ERC_PREFIX.BATCH_SESSION);
-    const correlationId = config.correlationId;
-
-    if (options.createWarehouses) {
-      logger.info('Creating warehouses...');
-      let warehouses = [];
-      if (options.reuseExistingWarehouses) {
-        logger.info('Checking for existing warehouses...');
-        const existingWarehouses = await liferay.getWarehouses(config);
-        warehouses = existingWarehouses || [];
-        logger.info('Found warehouses:', warehouses);
-      }
-
-      const warehouseCount = options.warehouseCount || 1;
-      if (warehouses.length < warehouseCount) {
-        const newWarehouseCount = warehouseCount - warehouses.length;
-        logger.info('Calling createWarehouses', {
-          warehouseCount: newWarehouseCount,
-        });
-        const newWarehouses = await warehouseGenerator.createWarehouses(
-          config,
-          { ...options, warehouseCount: newWarehouseCount, sessionId }
-        );
-        logger.info('Created new warehouses:', newWarehouses);
-        warehouses.push(...newWarehouses);
-      }
-      options.warehouses = warehouses;
-      cache.set('generated-warehouses', warehouses);
-      logger.info('Warehouses set in options and cache.');
-    }
-
-    const randomSeed = options.randomSeed;
-    let prngState = Number.isFinite(randomSeed) ? randomSeed >>> 0 : 0;
-
-    const prng = Number.isFinite(randomSeed)
-      ? () => {
-          prngState ^= prngState << 13;
-          prngState >>>= 0;
-          prngState ^= prngState >> 17;
-          prngState >>>= 0;
-          prngState ^= prngState << 5;
-          prngState >>>= 0;
-          return (prngState >>> 0) / 0xffffffff;
-        }
-      : Math.random;
-
-    await persistence.createSession({
-      sessionId,
-      flowType: 'generate', // Renamed from 'products' for clarity. 'generate' implies a multi-step generation process.
-      status: 'STARTED',
-      currentSteps: [{ name: 'product-data-generation', type: 'sync' }], // Initial step
-      context: {
-        config,
-        options,
-        // The list of steps for product generation workflow
-        steps: [
-          { name: 'product-data-generation', type: 'sync' },
-          { name: 'products', type: 'sync' },
-          { name: 'post-processing', type: 'sync' }, // This step will handle images, pdfs, and inventory
-        ],
-      },
-    });
-
-    logger.trace('=== STARTING PRODUCT GENERATION ===');
-    logger.trace('Session ID:', sessionId);
-    logger.trace('Demo mode:', !!options.demoMode);
-    logger.trace('Config:', sanitizedObject(config));
-    logger.trace('Generation Options:', sanitizedObject(options));
-    const useBatch = config.batchSize > 1 && options.productCount > 1;
-    logger.trace(
-      `Using ${useBatch ? 'batch' : 'individual'} operations (batch size: ${
-        config.batchSize || 1
-      })`
-    );
-    logger.info('Starting product generation', {
-      entityType: 'products',
-      operation: 'generate',
-      ...resolvePhaseAndMode({ useBatch, phase: 'init' }),
-      correlationId: config.correlationId,
-      totalProducts: options.productCount,
-      categories: options.productCategories?.length || 0,
-      batchSize: config.batchSize || 1,
-    });
-    const results = { products: [], created: 0, errors: [] };
-    try {
-      this.validateConfig(config);
-      config.catalogId = parseInt(config.catalogId, 10);
-      await this.validateOptions(config, options);
-      if (options.imageRatio != null) {
-        options.imageRatio = Math.max(
-          0,
-          Math.min(100, Number(options.imageRatio))
-        );
-      }
-      if (options.pdfRatio != null) {
-        options.pdfRatio = Math.max(0, Math.min(100, Number(options.pdfRatio)));
-      }
-      const selectedCategories =
-        Array.isArray(options.productCategories) &&
-        options.productCategories.length
-          ? options.productCategories
-          : [];
-      if (selectedCategories.length === 0)
-        throw new Error('At least one category must be selected.');
-      const distributionMode = options.distributionMode || 'random';
-      const categoryCounts = this.buildCategoryCounts(
-        options.productCount,
-        selectedCategories,
-        distributionMode,
-        logger
-      );
-      logger.info('Computed category distribution for this run', {
-        entityType: 'products',
-        operation: 'generate',
-        ...resolvePhaseAndMode({ useBatch, phase: 'prepare' }),
-        categoryCounts,
-        total: options.productCount,
-        distributionMode,
-      });
-      logger.trace(`Using catalog ID: ${config.catalogId}`);
-      logger.trace(`Demo mode: ${options.demoMode ? 'ENABLED' : 'DISABLED'}`);
-      logger.trace(`Target Liferay URL: ${config.liferayUrl}`);
-      logger.trace(
-        `Selected languages: ${(config.selectedLanguages || ['en-US']).join(
-          ', '
-        )}`
-      );
-      let catalogOptionsByCategory = {};
-      if (options.generateSkuVariants)
-        catalogOptionsByCategory = await this.createCatalogOptions(config, {
-          ...options,
-          sessionId,
-        });
-      let catalogSpecificationsByCategory = {};
-      if (options.generateSpecifications)
-        catalogSpecificationsByCategory =
-          await this.createCatalogSpecifications(config, {
-            ...options,
-            sessionId,
-          });
-      const allProductData = [];
-      for (const category of selectedCategories) {
-        const countForCategory = categoryCounts[category] || 0;
-        if (countForCategory <= 0) {
-          logger.trace(`Skipping category ${category} (assigned 0)`);
-          continue;
-        }
-        logger.trace(
-          `Generating ${countForCategory} products for category: ${category}`
-        );
-        try {
-          let productDataList;
-          if (options.demoMode) {
-            productDataList = mockData.generateProductData(
-              category,
-              countForCategory,
-              config.selectedLanguages || ['en-US'],
-              {
-                catalogId: config.catalogId,
-                generateSpecifications: options.generateSpecifications,
-                generateAttachments: options.generateAttachments,
-                generateSkuVariants: options.generateSkuVariants,
-                generatePriceLists: options.generatePriceLists,
-                generateBulkPricing: options.generateBulkPricing,
-                generateTierPricing: options.generateTierPricing,
-                imageMode: options.imageMode,
-                imageRatio: options.imageRatio || 0,
-                pdfMode: options.pdfMode,
-                pdfRatio: options.pdfRatio || 0,
-              }
-            );
-          } else {
-            productDataList = await ai.generateProductData(
-              category,
-              countForCategory,
-              config,
-              config.aiModel,
-              config.selectedLanguages || ['en-US']
-            );
-          }
-          if (options.generateSkuVariants || options.generateSpecifications) {
-            const catOpts = catalogOptionsByCategory[category] || [];
-            const catSpecs = catalogSpecificationsByCategory[category] || [];
-            for (const pd of productDataList) {
-              pd.__catalogOptions = catOpts;
-              pd.__catalogSpecifications = catSpecs;
-              pd.category = category;
-              // Add productOptions and productSpecifications to productData
-              if (
-                options.generateSkuVariants &&
-                pd.options &&
-                Array.isArray(pd.options)
-              ) {
-                const catalogOptions = catOpts;
-                const catalogOptionsMap = new Map();
-                for (const co of catalogOptions) {
-                  catalogOptionsMap.set(co.name.en_US, co);
-                }
-                pd.productOptions = pd.options
-                  .map((option) => {
-                    const catalogOption = catalogOptionsMap.get(option.name);
-                    if (catalogOption) {
-                      return {
-                        optionId: catalogOption.id,
-                        optionExternalReferenceCode:
-                          catalogOption.externalReferenceCode,
-                        facetable: catalogOption.facetable,
-                        required: catalogOption.required,
-                        skuContributor: catalogOption.skuContributor,
-                      };
-                    }
-                    return null;
-                  })
-                  .filter(Boolean);
-              }
-              if (options.generateSpecifications) {
-                const provided = Array.isArray(pd.specifications)
-                  ? pd.specifications
-                  : [];
-                const providedMap = new Map();
-                for (const p of provided) {
-                  const k = (p.key || p.name || '').toString();
-                  if (!k) continue;
-                  providedMap.set(k, p);
-                }
-                const productSpecifications = [];
-                for (const cs of catSpecs) {
-                  const p =
-                    providedMap.get(cs.key) || providedMap.get(cs.title?.en_US);
-                  const valueObj = p?.value
-                    ? typeof p.value === 'string'
-                      ? { en_US: p.value }
-                      : p.value
-                    : { en_US: `Mock ${cs.title?.en_US || cs.key} Value` };
-                  const specPayload = {
-                    specificationExternalReferenceCode:
-                      cs.externalReferenceCode,
-                    specificationKey: cs.key,
-                    specificationPriority: cs.priority || 0,
-                    label: cs.title,
-                    value: valueObj,
-                  };
-                  if (cs.optionCategoryId)
-                    specPayload.optionCategoryId = cs.optionCategoryId;
-                  if (cs.optionCategoryExternalReferenceCode)
-                    specPayload.optionCategoryExternalReferenceCode =
-                      cs.optionCategoryExternalReferenceCode;
-                  productSpecifications.push(specPayload);
-                }
-                if (productSpecifications.length > 0) {
-                  pd.productSpecifications = productSpecifications;
-                }
-              }
-            }
-          }
-          allProductData.push(...productDataList);
-        } catch (error) {
-          logger.error(
-            `Failed to generate products for category ${category}:`,
-            error
-          );
-          results.errors.push({ category, error: error.message });
-        }
-      }
-      if (allProductData.length === 0) {
-        logger.info('No products generated after distribution', {
-          entityType: 'products',
-          operation: 'generate',
-          ...resolvePhaseAndMode({ useBatch: true, phase: 'prepare' }),
-        });
-        return results;
-      }
-
-      // Update session context with all generated product data
-      await persistence.updateSessionContext(sessionId, {
-        config,
-        productDataList: allProductData,
-        options,
-        sessionId,
-      });
-
-      // Advance to the 'products' step where startProductsBatch will be called
-      await persistence.updateSession(sessionId, {
-        currentStep: 'products',
-      });
-      // Directly call startProductsBatch to begin processing the products
-      await this.startProductsBatch({
-        sessionId,
-        session: {
-          context: { config, options, productDataList: allProductData },
-        },
-        correlationId,
-      });
-
-      logger.info(
-        'Product generation process initiated for batch processing.',
-        {
-          sessionId,
-          correlationId,
-        }
-      );
-      return {
-        sessionId,
-        message: 'Product generation process started.',
-      };
-    } catch (error) {
-      logger.error('Product generation failed', {
-        entityType: 'products',
-        operation: 'generate',
-        ...resolvePhaseAndMode({ useBatch, phase: 'error' }),
-        error: error.message,
-        stack: error.stack,
-        sessionId: sessionId,
-      });
-
-      try {
-        const session = await persistence.getSession(sessionId);
-
-        if (session && session.status !== 'failed') {
-          await persistence.updateSessionStatus(sessionId, 'failed');
-
-          progress.sessionFailed({
-            sessionId: sessionId,
-            error: error,
-            correlationId: config.correlationId,
-          });
-        }
-      } catch (e) {
-        logger.error('Failed to update session status on error', {
-          error: e.message,
-          sessionId,
-        });
-      }
-      throw error;
-    }
-  }
   async createCatalogOptions(config, options) {
     const { logger, liferay } = this.ctx;
     const categories = options.productCategories;

@@ -25,30 +25,9 @@ class MockDataGenerator {
     this.schemas = {};
     this.countries = [];
     this.regions = [];
+    this._countriesAndRegions = [];
     this._loadAndCompileSchemas();
     this.loadConfigurationData();
-
-    this._countriesAndRegions = [
-      { country: 'United States', region: 'CA', city: 'Los Angeles', zip: '90001' },
-      { country: 'United States', region: 'NY', city: 'New York', zip: '10001' },
-      { country: 'United States', region: 'TX', city: 'Houston', zip: '77001' },
-      { country: 'United Kingdom', region: 'ENG', city: 'London', zip: 'SW1A 0AA' },
-      { country: 'France', region: 'IDF', city: 'Paris', zip: '75001' },
-      { country: 'Germany', region: 'BY', city: 'Munich', zip: '80331' },
-      { country: 'Australia', region: 'NSW', city: 'Sydney', zip: '2000' },
-      { country: 'Japan', region: 'Kanto', city: 'Tokyo', zip: '100-0001' },
-      { country: 'Brazil', region: 'SP', city: 'Sao Paulo', zip: '01000-000' },
-      { country: 'India', region: 'MH', city: 'Mumbai', zip: '400001' },
-      { country: 'Canada', region: 'ON', city: 'Toronto', zip: 'M5A 1A1' },
-      { country: 'Mexico', region: 'CMX', city: 'Mexico City', zip: '01000' },
-      { country: 'South Africa', region: 'GT', city: 'Johannesburg', zip: '2000' },
-      { country: 'United Arab Emirates', region: 'DU', city: 'Dubai', zip: '00000' },
-      { country: 'Singapore', region: 'SG', city: 'Singapore', zip: '018956' },
-    ];
-  }
-
-  async loadCountries(config) {
-    // This function is no longer needed, but is kept to avoid breaking other parts of the code.
   }
 
   _loadSchema(schemaName) {
@@ -251,9 +230,9 @@ class MockDataGenerator {
     };
   }
 
-  generateAccounts(config, options = {}) {
+  async generateAccounts(config, options = {}) {
     const count = options.count || options.accountCount || 1;
-    const accounts = this.generateAccountData(count);
+    const accounts = await this.generateAccountData(count, config);
     return {
       created: accounts.length,
       accounts,
@@ -325,7 +304,7 @@ class MockDataGenerator {
       const metaKeyword = {};
       const metaTitle = {};
 
-      const baseSlug = productName.toLowerCase().replace(/\s+/g, '-');
+      const baseSlug = productName.toLowerCase().replace(/\s+/g, '-') ;
 
       for (const lc of languageCodes) {
         const suffix = localeSuffixMap[lc];
@@ -484,7 +463,8 @@ class MockDataGenerator {
     return variants;
   }
 
-  generateAccountData(count = 1) {
+  async generateAccountData(count = 1, config) {
+    const { liferay } = this.ctx;
     const accounts = [];
     const companies = [
       'Tech Solutions Inc',
@@ -499,6 +479,8 @@ class MockDataGenerator {
       'Education First',
     ];
 
+    const countries = await liferay.getCountries(config);
+
     for (let i = 0; i < count; i++) {
       const companyName = companies[i % companies.length];
       const accountEmail = `contact@${companyName
@@ -508,14 +490,27 @@ class MockDataGenerator {
         .toLowerCase()
         .replace(/\s+/g, '')}.com`;
 
-      const location = this._countriesAndRegions[i % this._countriesAndRegions.length];
+      let country;
+      let regions = [];
+      while (regions.length === 0) {
+        country = countries[Math.floor(Math.random() * countries.length)];
+        regions = await liferay.getCountryRegions(config, country.id);
+      }
+      const region = regions[Math.floor(Math.random() * regions.length)];
+      
+      const location = {
+        country: country.name,
+        region: region.name,
+        city: randomString(6),
+        zip: `${Math.floor(Math.random() * 99999) + 10000}`,
+      }
 
       const account = {
         name: `${companyName} ${i + 1}`,
         type: 'business',
         taxId: `TAX-${String(getRandomInt(1_000_000)).padStart(6, '0')}`,
         externalReferenceCode: createERC(ERC_PREFIX.ACCOUNT),
-        description: `Professional ${companyName.toLowerCase()} providing quality services since 2020.`,
+        description: `Professional ${companyName.toLowerCase()} providing quality services since 2020.`, 
         accountContactInformation: {
           emailAddresses: [
             {
@@ -642,20 +637,38 @@ class MockDataGenerator {
     return orders;
   }
 
-  generateWarehouseData(count = 1) {
+  async generateWarehouseData(count = 1, config) {
+    const { liferay } = this.ctx;
     const warehouses = [];
 
+    const countries = await liferay.getCountries(config);
+
     for (let i = 0; i < count; i++) {
-      const selectedLocation = this._countriesAndRegions[i % this._countriesAndRegions.length];
+
+      let country;
+      let regions = [];
+      while (regions.length === 0) {
+        country = countries[Math.floor(Math.random() * countries.length)];
+        regions = await liferay.getCountryRegions(config, country.id);
+      }
+      const region = regions[Math.floor(Math.random() * regions.length)];
+      
+      const location = {
+        country: country.name,
+        region: region.name,
+        city: randomString(6),
+        zip: `${Math.floor(Math.random() * 99999) + 10000}`,
+      }
+
       const warehouse = {
         id: Math.floor(Math.random() * 10000),
         name: `Warehouse ${i + 1}`,
         externalReferenceCode: createERC(ERC_PREFIX.WAREHOUSE),
-        country: selectedLocation.country,
-        region: selectedLocation.region,
-        city: selectedLocation.city,
+        country: location.country,
+        region: location.region,
+        city: location.city,
         street1: `${100 + i} Main Street`,
-        zip: selectedLocation.zip,
+        zip: location.zip,
         latitude: Math.random() * 180 - 90,
         longitude: Math.random() * 360 - 180,
       };
@@ -681,7 +694,9 @@ class MockDataGenerator {
         },
         {
           title: 'Marketing Highlights',
-          content: `Why Choose ${productName}?\n\n✓ Premium Quality: Built with the finest materials\n✓ Innovative Design: Modern styling meets functionality  \n✓ Great Value: Competitive pricing without compromise\n✓ Customer Satisfaction: Backed by thousands of reviews\n✓ Trusted Brand: Years of excellence in ${category.toLowerCase()}\n\nPerfect for both personal and professional use. Ideal gift for anyone who appreciates quality and performance.`,
+          content: `Why Choose ${productName}?\n\n✓ Premium Quality: Built with the finest materials\n✓ Innovative Design: Modern styling meets functionality  \n✓ Great Value: Competitive pricing without compromise\n✓ Customer Satisfaction: Backed by thousands of reviews\n✓ Trusted Brand: Years of excellence in ${category.toLowerCase()}
+
+Perfect for both personal and professional use. Ideal gift for anyone who appreciates quality and performance.`,
         },
         {
           title: 'Usage Guidelines',
@@ -710,10 +725,11 @@ class MockDataGenerator {
       const possibleValues = categoryValues[specKey];
       if (possibleValues) {
         const baseValue = possibleValues[productIndex % possibleValues.length];
-        const baseName = specKey
-          .split('-')
-          .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
-          .join(' ');
+        const baseName =
+          specKey
+            .split('-')
+            .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+            .join(' ');
 
         const label = {};
         const value = {};

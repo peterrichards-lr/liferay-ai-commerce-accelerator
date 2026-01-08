@@ -492,3 +492,5 @@ The `steps` array within the session context will evolve from a simple array of 
 
 - Modify `runDeleteSelectedAndMonitor` and `runDeleteAndMonitor` to define their deletion sequences using the new object-based `steps` array.
 - Ensure that calls to `persistenceService.createSession` correctly pass the initial `currentSteps` based on the new structure.
+
+Rule: Zero-Silent-Failures — Every asynchronous operation in the Microservice CX must be wrapped in a NestJS Exception Filter that emits a WebSocket errorRef to the Frontend UI CX if it fails. Any logic over 10 lines requires a unit test using MSW to mock Liferay's response.
