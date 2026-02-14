@@ -1,5 +1,7 @@
 const { logger } = require('../utils/logger.cjs');
 const { v4: uuidv4 } = require('uuid');
+const liferayConfig = require('../config/liferayConfig.cjs');
+const { ErrorHandler } = require('./errorHandler.cjs');
 const { ERC_PREFIX } = require('./constants.cjs');
 
 function getRandomInt(max) {
@@ -144,6 +146,34 @@ const debounce = (fn, ms = 300) => {
     t = setTimeout(() => fn(...args), ms);
   };
 };
+
+async function processWithRetry(
+  ctx,
+  item,
+  processingFunction,
+  maxRetries = liferayConfig.requestConfig.maxRetries
+) {
+  const { logger } = ctx;
+  let lastError;
+
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    try {
+      return await processingFunction(item);
+    } catch (error) {
+      lastError = error;
+      if (!ErrorHandler.isRetryableError(error) || attempt === maxRetries) {
+        throw error;
+      }
+      const retryDelay = liferayConfig.requestConfig.retryDelay * attempt;
+      logger.warn(
+        `Attempt ${attempt} failed, retrying in ${retryDelay}ms:`,
+        error.message
+      );
+      await delay(retryDelay);
+    }
+  }
+  throw lastError;
+}
 
 function createERC(prefix) {
   return `${prefix}-${Date.now()}-${uuidv4().slice(0, 8)}`;
@@ -381,6 +411,7 @@ module.exports = {
   now,
   parseDataUrl,
   randomDateBetween,
+  processWithRetry,
   randomFutureDate,
   randomPastDate,
   randomString,

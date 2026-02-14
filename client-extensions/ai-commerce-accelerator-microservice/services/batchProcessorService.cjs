@@ -1,6 +1,6 @@
 const liferayConfig = require('../config/liferayConfig.cjs');
 const { ErrorHandler } = require('../utils/errorHandler.cjs');
-const { delay } = require('../utils/misc.cjs');
+const { delay, processWithRetry } = require('../utils/misc.cjs');
 
 class BatchProcessorService {
   constructor(ctx) {
@@ -109,7 +109,11 @@ class BatchProcessorService {
 
     const promises = batch.map(async (item, index) => {
       try {
-        const result = await this.processWithRetry(item, processingFunction);
+        const result = await processWithRetry(
+          this.ctx,
+          item,
+          processingFunction
+        );
         return { success: true, result, index };
       } catch (error) {
         logger.error(`Failed to process item ${index}:`, error);
@@ -141,33 +145,6 @@ class BatchProcessorService {
     return results;
   }
 
-  async processWithRetry(
-    item,
-    processingFunction,
-    maxRetries = liferayConfig.requestConfig.maxRetries
-  ) {
-    const { logger } = this.ctx;
-    let lastError;
-
-    for (let attempt = 1; attempt <= maxRetries; attempt++) {
-      try {
-        return await processingFunction(item);
-      } catch (error) {
-        lastError = error;
-        if (!ErrorHandler.isRetryableError(error) || attempt === maxRetries) {
-          throw error;
-        }
-        const retryDelay = liferayConfig.requestConfig.retryDelay * attempt;
-        logger.warn(
-          `Attempt ${attempt} failed, retrying in ${retryDelay}ms:`,
-          error.message
-        );
-        await delay(retryDelay);
-      }
-    }
-    throw lastError;
-  }
-
   async processSequentially(items, processingFunction, options = {}) {
     const { logger } = this.ctx;
     const { operation, broadcastMeta } = options;
@@ -191,7 +168,11 @@ class BatchProcessorService {
       const item = items[i];
 
       try {
-        const result = await this.processWithRetry(item, processingFunction);
+        const result = await processWithRetry(
+          this.ctx,
+          item,
+          processingFunction
+        );
         results.successful.push(result);
         logger.trace(
           `Processed item ${i + 1}/${items.length} successfully${

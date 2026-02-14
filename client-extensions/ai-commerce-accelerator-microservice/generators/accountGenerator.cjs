@@ -1,5 +1,10 @@
 const { ERC_PREFIX } = require('../utils/constants.cjs');
-const { createERC, randomString, toTitleCase } = require('../utils/misc.cjs');
+const {
+  createERC,
+  processWithRetry,
+  randomString,
+  toTitleCase,
+} = require('../utils/misc.cjs');
 const BATCH_STEP_HANDLERS = require('../services/batch-steps/index.cjs');
 
 class AccountGenerator {
@@ -424,28 +429,45 @@ class AccountGenerator {
     }
 
     for (const account of accountsToCreate) {
-      const shippingAddress = addressesToCreate.find((address) => address.accountERC === account.externalReferenceCode && address.addressType === 'shipping');
-      let shippingAddressId;
-      if (shippingAddress) {
-        shippingAddressId = await liferay.getPostalAddressByERC(config, shippingAddress.externalReferenceCode);
-      }
+      try {
+        const liferayAccount = await processWithRetry(this.ctx, account.externalReferenceCode, (erc) =>
+          liferay.getAccountByERC(config, erc)
+        );
 
-      const billingAddress = addressesToCreate.find((address) => address.accountERC === account.externalReferenceCode && address.addressType === 'billing');
-      let billingAddressId;
-      if (billingAddress) {
-        billingAddressId = await liferay.getPostalAddressByERC(config, billingAddress.externalReferenceCode)
-      }
+        const shippingAddress = addressesToCreate.find(
+          (address) =>
+            address.accountERC === account.externalReferenceCode &&
+            address.addressType === 'shipping'
+        );
+        let liferayShippingAddress;
+        if (shippingAddress) {
+          liferayShippingAddress = await processWithRetry(this.ctx, shippingAddress.externalReferenceCode, (erc) =>
+            liferay.getPostalAddressByERC(config, erc)
+          );
+        }
 
-      if (shippingAddressId || billingAddressId) {
-        await liferay.setBillingAndShippingAddresses(config, account.id, shippingAddressId, billingAddressId);
-        logger.info('Billing and shipping addresses set.', {
-          sessionId,
-          accountId: account.id,
-          shippingAddressId,
-          billingAddressId,
-        });
-      } else { 
-        logger.debug(`No shipping or billing addresses found for account ${account.externalReferenceCode}`)
+        const billingAddress = addressesToCreate.find(
+          (address) =>
+            address.accountERC === account.externalReferenceCode &&
+            address.addressType === 'billing'
+        );
+        let liferayBillingAddress;
+        if (billingAddress) {
+          liferayBillingAddress = await processWithRetry(this.ctx, billingAddress.externalReferenceCode, (erc) =>
+            liferay.getPostalAddressByERC(config, erc)
+          );
+        }
+
+        if (liferayShippingAddress || liferayBillingAddress) {
+          await liferay.setBillingAndShippingAddresses(
+            config,
+            liferayAccount.id,
+            liferayShippingAddress.id,
+            liferayBillingAddress.id
+          );
+        }
+      } catch (error) {
+        logger.error(`Failed to set addresses for account ${account.externalReferenceCode}`, { error: error.message });
       }
     }
 
