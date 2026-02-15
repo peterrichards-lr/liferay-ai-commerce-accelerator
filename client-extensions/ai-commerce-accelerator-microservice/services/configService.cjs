@@ -57,7 +57,7 @@ class ConfigService {
     this.logger = ctx.logger;
   }
 
-  setLiferayService(liferay) {
+  setLiferayRestService(liferay) {
     this.liferay = liferay;
   }
 

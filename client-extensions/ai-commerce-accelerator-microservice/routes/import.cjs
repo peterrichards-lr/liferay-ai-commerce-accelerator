@@ -6,7 +6,7 @@ const { buildConfigAndOptions } = require('../utils/normalize.cjs');
 
 const upload = multer({ storage: multer.memoryStorage() });
 
-module.exports = (app, { liferayService, logger, configService }) => {
+module.exports = (app, { liferayRestService, logger, configService }) => {
   app.post(
     INTERNAL_API_PATHS.IMPORT_COMMERCE_DATA,
     upload.single('importFile'),
@@ -33,19 +33,19 @@ module.exports = (app, { liferayService, logger, configService }) => {
         const batchIds = [];
 
         if (products && products.length > 0) {
-          const result = await liferayService.createProductsBatch(config, products);
+          const result = await liferayRestService.createProductsBatch(config, products);
           batchIds.push(result.batchId);
           logger.info(`Products import batch created: ${result.batchId}`);
         }
 
         if (accounts && accounts.length > 0) {
-          const result = await liferayService.createAccountsBatch(config, accounts);
+          const result = await liferayRestService.createAccountsBatch(config, accounts);
           batchIds.push(result.batchId);
           logger.info(`Accounts import batch created: ${result.batchId}`);
         }
 
         if (orders && orders.length > 0) {
-          const result = await liferayService.createOrdersBatch(config, orders);
+          const result = await liferayRestService.createOrdersBatch(config, orders);
           batchIds.push(result.batchId);
           logger.info(`Orders import batch created: ${result.batchId}`);
         }

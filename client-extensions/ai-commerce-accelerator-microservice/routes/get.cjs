@@ -49,7 +49,7 @@ function handleError(res, logger, req, operation, error, opts = {}) {
   });
 }
 
-module.exports = (app, { liferayService, logger }) => {
+module.exports = (app, { liferayRestService, logger }) => {
   app.post(
     INTERNAL_API_PATHS.GET_CATALOGS,
     inputValidationMiddleware(connectionSchema),
@@ -57,7 +57,7 @@ module.exports = (app, { liferayService, logger }) => {
       try {
         const { liferayUrl, clientId, clientSecret, localeCode } = req.body;
 
-        const catalogs = await liferayService.getCatalogs({
+        const catalogs = await liferayRestService.getCatalogs({
           liferayUrl,
           clientId,
           clientSecret,
@@ -84,7 +84,7 @@ module.exports = (app, { liferayService, logger }) => {
       try {
         const { liferayUrl, clientId, clientSecret, localeCode } = req.body;
 
-        const channels = await liferayService.getChannels({
+        const channels = await liferayRestService.getChannels({
           liferayUrl,
           clientId,
           clientSecret,
@@ -112,7 +112,7 @@ module.exports = (app, { liferayService, logger }) => {
         const { liferayUrl, clientId, clientSecret, localeCode, languageId } =
           req.body;
 
-        const currencies = await liferayService.getCurrencies({
+        const currencies = await liferayRestService.getCurrencies({
           liferayUrl,
           clientId,
           clientSecret,
@@ -144,7 +144,7 @@ module.exports = (app, { liferayService, logger }) => {
           throw new Error('siteGroupId is required');
         }
 
-        const languages = await liferayService.getSiteLanguages(
+        const languages = await liferayRestService.getSiteLanguages(
           config,
           siteGroupId
         );
@@ -169,7 +169,7 @@ module.exports = (app, { liferayService, logger }) => {
       try {
         const { liferayUrl, clientId, clientSecret, localeCode } = req.body;
 
-        const warehouses = await liferayService.getWarehouses({
+        const warehouses = await liferayRestService.getWarehouses({
           liferayUrl,
           clientId,
           clientSecret,

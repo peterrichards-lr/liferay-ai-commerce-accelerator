@@ -7,7 +7,7 @@ const BatchProcessorService = require('./services/batchProcessorService.cjs');
 const CacheService = require('./services/cacheService.cjs');
 const ConfigService = require('./services/configService.cjs');
 const DeleteCoordinatorService = require('./services/deleteCoordinatorService.cjs');
-const LiferayService = require('./services/liferayService.cjs');
+const LiferayRestService = require('./services/liferayRestService.cjs');
 const { ObjectStorageService } = require('./services/objectStorageService.cjs');
 const PersistenceService = require('./services/persistenceService.cjs');
 
@@ -42,13 +42,13 @@ module.exports = (ws) => {
     cache: ctx.cache,
     logger,
   });
-  ctx.liferay = new LiferayService({
+  ctx.liferay = new LiferayRestService({
     oauth: ctx.oauth,
     logger,
     cache: ctx.cache,
     config: ctx.config,
   });
-  ctx.config.setLiferayService(ctx.liferay);
+  ctx.config.setLiferayRestService(ctx.liferay);
   ctx.prompt = new PromptService(ctx);
   ctx.health = new HealthService({ config: ctx.config });
   ctx.ai = new AIService({
@@ -109,7 +109,7 @@ module.exports = (ws) => {
     configService: ctx.config,
     deleteCoordinatorService: ctx.deleteCoordinator,
     healthService: ctx.health,
-    liferayService: ctx.liferay,
+    liferayRestService: ctx.liferay,
     mediaGenerator: ctx.media,
     mockDataGenerator: ctx.mockData,
     oauthService: ctx.oauth,

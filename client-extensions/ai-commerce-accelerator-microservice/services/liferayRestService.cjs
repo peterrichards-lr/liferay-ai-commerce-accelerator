@@ -33,7 +33,7 @@ const SOFT_STATUS_BY_OP = {
   'optionCategories:list': [404],
 };
 
-class LiferayService {
+class LiferayRestService {
   constructor(ctx) {
     this.ctx = ctx;
     this.axiosInstance = null;
@@ -822,7 +822,7 @@ class LiferayService {
         '********************************************************************************',
       );
       logger.warn(
-        'LiferayService.getImportTask is using a mock implementation for demo mode.',
+        'LiferayRestService.getImportTask is using a mock implementation for demo mode.',
       );
       logger.warn(
         '********************************************************************************',
@@ -1648,7 +1648,7 @@ class LiferayService {
 
   async createOption(config, optionData) {
     const { logger } = this.ctx;
-    logger.debug(`LiferayService.createOption called with:`, {
+    logger.debug(`LiferayRestService.createOption called with:`, {
       optionKey: optionData.key,
       optionName: optionData.name?.en_US,
       fieldType: optionData.fieldType,
@@ -3601,4 +3601,4 @@ class LiferayService {
   }
 }
 
-module.exports = LiferayService;
+module.exports = LiferayRestService;
