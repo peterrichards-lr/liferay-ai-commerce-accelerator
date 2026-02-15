@@ -49,7 +49,7 @@ const server = http.createServer(app);
     configService,
     deleteCoordinatorService,
     healthService,
-    liferayRestService,
+    liferayService,
     orderGenerator,
     persistenceService,
     productGenerator,
@@ -86,7 +86,7 @@ const server = http.createServer(app);
   logger.info('allowList', allowList);
 
   app.locals.oauthService = oauthService;
-  app.locals.liferayRestService = liferayRestService;
+  app.locals.liferayService = liferayService;
 
   app.use(
     cors({
@@ -120,7 +120,7 @@ const server = http.createServer(app);
 
   const routeCtx = {
     batchCallbackService,
-    liferayRestService,
+    liferayService,
     logger,
     persistenceService,
   };
@@ -152,7 +152,7 @@ const server = http.createServer(app);
   });
 
   const generateCtx = {
-    liferayRestService,
+    liferayService,
     productGenerator,
     accountGenerator,
     orderGenerator,
@@ -180,7 +180,7 @@ const server = http.createServer(app);
           clientId: req.body.clientId ? 'provided' : 'missing',
         });
 
-        const result = await liferayRestService.testConnection(req.body);
+        const result = await liferayService.testConnection(req.body);
 
         let openAiKeyAvailable = false;
         try {

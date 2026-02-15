@@ -49,7 +49,7 @@ function handleError(res, logger, req, operation, error, opts = {}) {
   });
 }
 
-module.exports = (app, { liferayRestService, logger }) => {
+module.exports = (app, { liferayService, logger }) => {
   app.post(
     INTERNAL_API_PATHS.GET_CATALOGS,
     inputValidationMiddleware(connectionSchema),
@@ -57,7 +57,7 @@ module.exports = (app, { liferayRestService, logger }) => {
       try {
         const { liferayUrl, clientId, clientSecret, localeCode } = req.body;
 
-        const catalogs = await liferayRestService.getCatalogs({
+        const catalogs = await liferayService.getCatalogs({
           liferayUrl,
           clientId,
           clientSecret,
@@ -84,7 +84,7 @@ module.exports = (app, { liferayRestService, logger }) => {
       try {
         const { liferayUrl, clientId, clientSecret, localeCode } = req.body;
 
-        const channels = await liferayRestService.getChannels({
+        const channels = await liferayService.getChannels({
           liferayUrl,
           clientId,
           clientSecret,
@@ -112,7 +112,7 @@ module.exports = (app, { liferayRestService, logger }) => {
         const { liferayUrl, clientId, clientSecret, localeCode, languageId } =
           req.body;
 
-        const currencies = await liferayRestService.getCurrencies({
+        const currencies = await liferayService.getCurrencies({
           liferayUrl,
           clientId,
           clientSecret,
@@ -144,7 +144,7 @@ module.exports = (app, { liferayRestService, logger }) => {
           throw new Error('siteGroupId is required');
         }
 
-        const languages = await liferayRestService.getSiteLanguages(
+        const languages = await liferayService.getSiteLanguages(
           config,
           siteGroupId
         );
@@ -169,7 +169,7 @@ module.exports = (app, { liferayRestService, logger }) => {
       try {
         const { liferayUrl, clientId, clientSecret, localeCode } = req.body;
 
-        const warehouses = await liferayRestService.getWarehouses({
+        const warehouses = await liferayService.getWarehouses({
           liferayUrl,
           clientId,
           clientSecret,

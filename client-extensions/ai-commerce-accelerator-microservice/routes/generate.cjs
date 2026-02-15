@@ -49,7 +49,7 @@ function emitRouteError(
 module.exports = (
   app,
   {
-    liferayRestService,
+    liferayService,
     productGenerator,
     accountGenerator,
     orderGenerator,

@@ -1,7 +1,7 @@
 const { lxcConfig } = require('@rotty3000/config-node');
 const axios = require('axios');
-const { createERC, normalizeNumber, delay } = require('../utils/misc.cjs');
-const { APP_ERCS, ENV, ERC_PREFIX } = require('../utils/constants.cjs');
+const { createERC, normalizeNumber, delay } = require('../../utils/misc.cjs');
+const { APP_ERCS, ENV, ERC_PREFIX } = require('../../utils/constants.cjs');
 
 const serverOauthApp = lxcConfig.oauthApplication(
   APP_ERCS.OAUTH_SERVER_EXTERNAL_REFERENCE_CODE

@@ -45,7 +45,7 @@ const VARIANT = {
   options: 'kebab',
   optionCategories: 'kebab',
   specifications: 'kebab',
-  postalAdddresses: 'kebab',
+  postalAddresses: 'kebab',
   pricing: 'camel'
 };
 
@@ -138,7 +138,7 @@ const PATH = {
   POSTAL_ADDRESS: (postalAddressId) =>
     `${BASE.POSTAL_ADDRESSES}/${postalAddressId}`,
   POSTAL_ADDRESS_BY_ERC: (erc) =>
-    `${byERC(BASE.POSTAL_ADDRESSES, erc, VARIANT.postalAdddresses)}`,
+    `${byERC(BASE.POSTAL_ADDRESSES, erc, VARIANT.postalAddresses)}`,
 
   ORDERS: BASE.ORDERS,
   ORDERS_BATCH: (callbackURL) =>
@@ -237,4 +237,4 @@ const PATH = {
     `${BASE.BATCH_ENGINE_API}/import-task/${enc(batchId)}/failed-items/report`,
 };
 
-module.exports = { PATH, byERC };
+module.exports = { PATH, byERC, CUSTOM_OBJECTS };

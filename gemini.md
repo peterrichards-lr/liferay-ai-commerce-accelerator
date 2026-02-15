@@ -54,8 +54,6 @@ framework**.
 The microservice is the authority for workflow execution and
 correctness.
 
-### Liferay Headless API specifications
-
 ### Gradle build customisations
 
 The Liferay workspace includes Gradle customisations that support building Client Extension artefacts from shared JSON sources.
@@ -80,15 +78,19 @@ Implementation expectations:
 - The fragment must remain minimal and act only as a host/container for the UI.
 - The microservice remains the runtime orchestrator; the fragment is presentation-only.
 
-OpenAPI specifications for all Liferay Headless APIs used by the
-microservice are stored locally within the microservice project:
+### Liferay API Specifications
 
-- `api-schemas/`
+The microservice communicates with Liferay using both REST and GraphQL APIs. The schemas for these APIs are stored locally and serve as the authoritative reference for all interactions.
 
-These specifications are the authoritative reference for request and
-response shapes and should be used for: - client generation - request
-validation - dry analysis of API usage - avoiding reliance on
-undocumented behaviour
+#### REST APIs (OpenAPI)
+- **Location**: `client-extensions/ai-commerce-accelerator-microservice/api-schemas/`
+- **Format**: OpenAPI (JSON)
+- **Purpose**: These specifications define the request and response shapes for all Liferay Headless REST APIs used by the microservice. They are the source of truth for REST client generation, request validation, and API usage analysis.
+
+#### GraphQL API
+- **Location**: `client-extensions/ai-commerce-accelerator-microservice/api-schemas/liferay_schema.graphql`
+- **Format**: GraphQL Schema Definition Language (SDL)
+- **Purpose**: This schema defines the types, queries, and mutations available through Liferay's Headless GraphQL API. It is used for crafting GraphQL queries and understanding the available data graph.
 
 ------------------------------------------------------------------------
 

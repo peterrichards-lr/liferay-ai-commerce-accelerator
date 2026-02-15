@@ -329,7 +329,8 @@ class AccountGenerator {
       return;
     }
 
-    const accounts = await liferay.getAccounts(config);
+    const accountsResult = await liferay.getAccounts(config);
+    const accounts = accountsResult?.items || [];
 
     logger.debug(`Found ${accounts.length} accounts`);
     logger.trace(`Accounts: ${JSON.stringify(accounts, null, 2)}`);
@@ -419,7 +420,7 @@ class AccountGenerator {
   }
 
   async _runSetBillingAndShippingAddressesStep(sessionId, session) {
-    const { logger, persistence, liferay } = this.ctx;
+    const { logger, liferay } = this.ctx;
     const { config, accountsToCreate, addressesToCreate } = session.context;
 
     logger.info('Starting set billing and shipping addresses step', { sessionId });
@@ -428,42 +429,49 @@ class AccountGenerator {
       return;
     }
 
+    const addressErcs = addressesToCreate.map(address => address.externalReferenceCode);
+    let addressMap = new Map();
+
+    if (addressErcs.length > 0) {
+      try {
+        const liferayAddresses = await liferay.getPostalAddressesByERC(config, addressErcs);
+        liferayAddresses.forEach(address => {
+          addressMap.set(address.externalReferenceCode, address);
+        });
+      } catch (error) {
+        logger.error(`Failed to fetch postal addresses in batch`, { error: error.message });
+        return;
+      }
+    }
+
     for (const account of accountsToCreate) {
       try {
         const liferayAccount = await processWithRetry(this.ctx, account.externalReferenceCode, (erc) =>
           liferay.getAccountByERC(config, erc)
         );
 
-        const shippingAddress = addressesToCreate.find(
+        const shippingAddressErc = addressesToCreate.find(
           (address) =>
             address.accountERC === account.externalReferenceCode &&
             address.addressType === 'shipping'
-        );
-        let liferayShippingAddress;
-        if (shippingAddress) {
-          liferayShippingAddress = await processWithRetry(this.ctx, shippingAddress.externalReferenceCode, (erc) =>
-            liferay.getPostalAddressByERC(config, erc)
-          );
-        }
+        )?.externalReferenceCode;
 
-        const billingAddress = addressesToCreate.find(
+        const liferayShippingAddress = shippingAddressErc ? addressMap.get(shippingAddressErc) : undefined;
+
+        const billingAddressErc = addressesToCreate.find(
           (address) =>
             address.accountERC === account.externalReferenceCode &&
             address.addressType === 'billing'
-        );
-        let liferayBillingAddress;
-        if (billingAddress) {
-          liferayBillingAddress = await processWithRetry(this.ctx, billingAddress.externalReferenceCode, (erc) =>
-            liferay.getPostalAddressByERC(config, erc)
-          );
-        }
+        )?.externalReferenceCode;
+        
+        const liferayBillingAddress = billingAddressErc ? addressMap.get(billingAddressErc) : undefined;
 
         if (liferayShippingAddress || liferayBillingAddress) {
           await liferay.setBillingAndShippingAddresses(
             config,
             liferayAccount.id,
-            liferayShippingAddress.id,
-            liferayBillingAddress.id
+            liferayShippingAddress?.id,
+            liferayBillingAddress?.id
           );
         }
       } catch (error) {
