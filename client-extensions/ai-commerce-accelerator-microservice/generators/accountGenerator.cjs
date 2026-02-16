@@ -430,25 +430,43 @@ class AccountGenerator {
     }
 
     const addressErcs = addressesToCreate.map(address => address.externalReferenceCode);
+    const accountErcs = accountsToCreate.map(account => account.externalReferenceCode);
+    
     let addressMap = new Map();
+    let accountMap = new Map();
 
-    if (addressErcs.length > 0) {
-      try {
-        const liferayAddresses = await liferay.getPostalAddressesByERC(config, addressErcs);
-        liferayAddresses.forEach(address => {
-          addressMap.set(address.externalReferenceCode, address);
+    try {
+        const [liferayAddresses, liferayAccounts] = await Promise.all([
+            liferay.getPostalAddressesByERC(config, addressErcs),
+            liferay.getAccountsByERC(config, accountErcs, ['id', 'externalReferenceCode'])
+        ]);
+
+        (liferayAddresses || []).forEach(address => {
+            if (address && address.externalReferenceCode) {
+                addressMap.set(address.externalReferenceCode, address);
+            }
         });
-      } catch (error) {
-        logger.error(`Failed to fetch postal addresses in batch`, { error: error.message });
+
+        (liferayAccounts || []).forEach(account => {
+            if (account && account.externalReferenceCode) {
+                accountMap.set(account.externalReferenceCode, account);
+            }
+        });
+
+    } catch (error) {
+        logger.error(`Failed to fetch accounts or postal addresses in batch`, { error: error.message, sessionId });
+        // We can optionally decide to fail the whole step here
         return;
-      }
     }
 
     for (const account of accountsToCreate) {
       try {
-        const liferayAccount = await processWithRetry(this.ctx, account.externalReferenceCode, (erc) =>
-          liferay.getAccountByERC(config, erc)
-        );
+        const liferayAccount = accountMap.get(account.externalReferenceCode);
+
+        if (!liferayAccount) {
+            logger.warn(`Could not find created account for ERC ${account.externalReferenceCode}. Skipping address association.`, { sessionId });
+            continue;
+        }
 
         const shippingAddressErc = addressesToCreate.find(
           (address) =>
@@ -475,7 +493,7 @@ class AccountGenerator {
           );
         }
       } catch (error) {
-        logger.error(`Failed to set addresses for account ${account.externalReferenceCode}`, { error: error.message });
+        logger.error(`Failed to set addresses for account ${account.externalReferenceCode}`, { error: error.message, sessionId });
       }
     }
 
