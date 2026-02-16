@@ -45,7 +45,7 @@ class AccountGenerator {
       erc: createERC(ERC_PREFIX.BATCH),
       sessionId,
       stepKey: 'load-countries',
-      status: 'COMPLETED',
+      status: 'SYNCHRONOUS',
     });
 
     logger.info('Load countries step complete', {
@@ -94,7 +94,7 @@ class AccountGenerator {
   }
 
   async _runAccountDataGenerationStep(sessionId, session) {
-    const { logger, ai, mockData, persistence } = this.ctx;
+    const { logger, ai, mockData, persistence, batchCallback } = this.ctx;
     const { config, options, countries } = session.context;
 
     logger.info('Starting account data generation step', { sessionId });
@@ -206,7 +206,7 @@ class AccountGenerator {
       erc: createERC(ERC_PREFIX.BATCH),
       sessionId,
       stepKey: 'account-data-generation',
-      status: 'COMPLETED',
+      status: 'SYNCHRONOUS',
     });
 
     logger.info('Account data generation step complete', {
@@ -247,7 +247,7 @@ class AccountGenerator {
             erc: batchERC,
             sessionId,
             stepKey: 'accounts',
-            status: 'COMPLETED',
+            status: 'SYNCHRONOUS',
         });
         await this.ctx.batchCallback._checkSessionCompletion(sessionId, config.correlationId);
         return; 
@@ -316,6 +316,7 @@ class AccountGenerator {
       if (!config.aiModel) {
         const err = new Error(
           'AI model not configured. Please select an AI model in the AI Configuration object.'
+
         );
         err.statusCode = 400;
         logger.error(
@@ -388,7 +389,7 @@ class AccountGenerator {
                 erc: batchERC,
                 sessionId,
                 stepKey: 'postal-addresses',
-                status: 'COMPLETED',
+                status: 'SYNCHRONOUS',
             });
             continue;
         }
@@ -464,12 +465,19 @@ class AccountGenerator {
   }
 
   async _runSetBillingAndShippingAddressesStep(sessionId, session) {
-    const { logger, liferay } = this.ctx;
+    const { logger, liferay, persistence, batchCallback } = this.ctx;
     const { config, options, accountsToCreate, addressesToCreate } = session.context;
 
     logger.info('Starting set billing and shipping addresses step', { sessionId });
     if ((!accountsToCreate || accountsToCreate.length === 0) && (!addressesToCreate || addressesToCreate.length === 0)) {
       logger.info('No accounts or addresses to set. Skipping step.', { sessionId });
+      await persistence.createBatch({
+        erc: createERC(ERC_PREFIX.BATCH),
+        sessionId,
+        stepKey: 'set-billing-and-shipping-addresses',
+        status: 'BYPASSED',
+      });
+      await batchCallback._checkSessionCompletion(sessionId, config.correlationId);
       return;
     }
 
@@ -479,9 +487,9 @@ class AccountGenerator {
             erc: createERC(ERC_PREFIX.BATCH),
             sessionId,
             stepKey: 'set-billing-and-shipping-addresses',
-            status: 'COMPLETED',
+            status: 'BYPASSED',
         });
-        await this.ctx.batchCallback._checkSessionCompletion(sessionId, config.correlationId);
+        await batchCallback._checkSessionCompletion(sessionId, config.correlationId);
         return;
     }
 
@@ -511,6 +519,13 @@ class AccountGenerator {
 
     } catch (error) {
         logger.error(`Failed to fetch accounts or postal addresses in batch`, { error: error.message, sessionId });
+        await persistence.createBatch({
+          erc: createERC(ERC_PREFIX.BATCH),
+          sessionId,
+          stepKey: 'set-billing-and-shipping-addresses',
+          status: 'FAILED',
+        });
+        await batchCallback._checkSessionCompletion(sessionId, config.correlationId);
         return;
     }
 
@@ -553,6 +568,18 @@ class AccountGenerator {
     }
 
     logger.info('Set billing and shipping addresses step complete', { sessionId });
+
+    await persistence.createBatch({
+      erc: createERC(ERC_PREFIX.BATCH),
+      sessionId,
+      stepKey: 'set-billing-and-shipping-addresses',
+      status: 'SYNCHRONOUS',
+    });
+
+    await batchCallback._checkSessionCompletion(
+      sessionId,
+      config.correlationId
+    );
   }
 
   async getExistingAccounts(config) {

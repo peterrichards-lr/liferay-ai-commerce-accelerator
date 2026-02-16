@@ -57,7 +57,7 @@ class OrderGenerator {
   }
 
   async _runOrderDataGenerationStep(sessionId, session) {
-    const { logger, ai, mockData, persistence, liferay } = this.ctx;
+    const { logger, ai, mockData, persistence, liferay, batchCallback } = this.ctx;
     const { config, options } = session.context;
 
     logger.info('Starting order data generation step', { sessionId });
@@ -95,6 +95,18 @@ class OrderGenerator {
       sessionId,
       orderCount: orderDataList.length,
     });
+
+    await persistence.createBatch({
+      erc: createERC(ERC_PREFIX.BATCH),
+      sessionId,
+      stepKey: 'order-data-generation',
+      status: 'SYNCHRONOUS',
+    });
+
+    await batchCallback._checkSessionCompletion(
+      sessionId,
+      config.correlationId
+    );
   }
 
   async _runOrderCreationStep(sessionId, session) {
@@ -129,7 +141,7 @@ class OrderGenerator {
               erc: batchERC,
               sessionId,
               stepKey: 'orders',
-              status: 'COMPLETED',
+              status: 'SYNCHRONOUS',
           });
         }
         await this.ctx.batchCallback._checkSessionCompletion(sessionId, config.correlationId);
@@ -197,7 +209,7 @@ class OrderGenerator {
             erc: batchERC,
             sessionId,
             stepKey: 'orders',
-            status: 'COMPLETED',
+            status: 'SYNCHRONOUS',
         });
         await this.ctx.batchCallback._checkSessionCompletion(sessionId, config.correlationId);
         return;

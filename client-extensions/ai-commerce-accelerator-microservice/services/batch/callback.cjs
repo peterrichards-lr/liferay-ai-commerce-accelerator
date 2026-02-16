@@ -8,6 +8,15 @@ class BatchCallbackService {
     this.ctx = ctx;
   }
 
+  _isBatchTerminal(batch) {
+    return (
+      batch.status === 'COMPLETED' ||
+      batch.status === 'FAILED' ||
+      batch.status === 'BYPASSED' ||
+      batch.status === 'SYNCHRONOUS'
+    );
+  }
+
   async _checkSessionCompletion(sessionId, correlationId) {
     const { logger, persistence } = this.ctx;
     
@@ -53,7 +62,7 @@ class BatchCallbackService {
       const stepType = typeof stepDefinition === 'object' ? stepDefinition.type : 'sync';
 
       const batchesForStep = allBatchesForSession.filter(b => b.step_key === stepName);
-      const isStepCompleted = batchesForStep.every(b => b.status === 'COMPLETED' || b.status === 'FAILED');
+      const isStepCompleted = batchesForStep.length > 0 && batchesForStep.every(b => this._isBatchTerminal(b));
       const isStepFailed = batchesForStep.some(b => b.status === 'FAILED');
 
       if (isStepFailed) {
@@ -75,45 +84,41 @@ class BatchCallbackService {
     return { activeSteps: nextActiveSteps, hasFailures };
   }
 
+  _areAllStepsComplete(steps, completedStepNames) {
+    return steps.every(s => completedStepNames.has(s.name));
+  }
+
   async _advanceWorkflow(session, allBatchesForSession, correlationId) {
     const { logger, persistence } = this.ctx;
     const { session_id: sessionId, context: { config, steps: workflowSteps } } = session;
     
     const newActiveSteps = [];
 
-    const lastCompletedStepIndex = workflowSteps.findLastIndex(s => {
-      const sName = typeof s === 'string' ? s : s.name;
-      return allBatchesForSession.some(b => b.step_key === sName && (b.status === 'COMPLETED' || b.status === 'FAILED'));
-    });
+    const completedStepNames = new Set(allBatchesForSession.filter(b => this._isBatchTerminal(b)).map(b => b.step_key));
 
-    let nextWorkflowStepIndex = (lastCompletedStepIndex !== -1) ? lastCompletedStepIndex + 1 : 0;
-
-    while (workflowSteps[nextWorkflowStepIndex]) {
-      const nextWorkflowStep = workflowSteps[nextWorkflowStepIndex];
-      const nextStepName = typeof nextWorkflowStep === 'string' ? nextWorkflowStep : nextWorkflowStep.name;
-      const nextStepType = typeof nextWorkflowStep === 'object' ? nextWorkflowStep.type : 'sync';
-
-      if (nextStepType === 'sync') {
-        logger.info(`Starting synchronous step '${nextStepName}'`, { sessionId, nextStepName });
-        newActiveSteps.push(nextWorkflowStep);
-        await this._startStep(nextWorkflowStep, sessionId, config, correlationId);
-        break; 
-      } else if (nextStepType === 'async') {
-        logger.info(`Starting asynchronous step '${nextStepName}'`, { sessionId, nextStepName });
-        newActiveSteps.push(nextWorkflowStep);
-        await this._startStep(nextWorkflowStep, sessionId, config, correlationId);
-        nextWorkflowStepIndex++;
-      } else if (nextStepType === 'parallel') {
-        logger.info(`Starting parallel step block`, { sessionId });
-        for (const subStep of nextWorkflowStep.steps) {
-          logger.info(`Starting parallel sub-step '${subStep.name}'`, { sessionId, subStepName: subStep.name });
-          newActiveSteps.push(subStep);
-          await this._startStep(subStep, sessionId, config, correlationId);
+    for (const step of workflowSteps) {
+      if (step.type === 'parallel') {
+        if (this._areAllStepsComplete(step.steps, completedStepNames)) {
+          continue;
         }
-        break;
-      } else {
-        logger.warn(`Unknown step type '${nextStepType}' for step '${nextStepName}'`, { sessionId, nextStepName });
-        nextWorkflowStepIndex++;
+
+        for (const subStep of step.steps) {
+          if (!completedStepNames.has(subStep.name)) {
+            logger.info(`Starting parallel sub-step '${subStep.name}'`, { sessionId, subStepName: subStep.name });
+            newActiveSteps.push(subStep);
+            await this._startStep(subStep, sessionId, config, correlationId);
+          }
+        }
+        return newActiveSteps;
+      }
+      else {
+        const stepName = typeof step === 'string' ? step : step.name;
+        if (!completedStepNames.has(stepName)) {
+          logger.info(`Starting synchronous step '${stepName}'`, { sessionId, nextStepName: stepName });
+          newActiveSteps.push(step);
+          await this._startStep(step, sessionId, config, correlationId);
+          return newActiveSteps;
+        }
       }
     }
 
@@ -121,16 +126,28 @@ class BatchCallbackService {
   }
   
   async _isWorkflowFinished(session, currentSteps, allBatchesForSession) {
-      const { steps: workflowSteps } = session.context;
-
-      if (currentSteps.length > 0) {
+    const { steps: workflowSteps } = session.context;
+  
+    if (currentSteps.length > 0) {
+      return false;
+    }
+  
+    const completedStepNames = new Set(allBatchesForSession.filter(b => this._isBatchTerminal(b)).map(b => b.step_key));
+  
+    for (const step of workflowSteps) {
+      if (step.type === 'parallel') {
+        if (!this._areAllStepsComplete(step.steps, completedStepNames)) {
           return false;
+        }
+      } else {
+        const stepName = typeof step === 'string' ? step : step.name;
+        if (!completedStepNames.has(stepName)) {
+          return false;
+        }
       }
-
-      const allStepNames = workflowSteps.map(s => typeof s === 'string' ? s : s.name);
-      const completedStepNames = new Set(allBatchesForSession.filter(b => b.status === 'COMPLETED' || b.status === 'FAILED').map(b => b.step_key));
-      
-      return allStepNames.every(name => completedStepNames.has(name));
+    }
+  
+    return true;
   }
   
   async _finalizeSession(session, allBatchesForSession, correlationId) {
@@ -236,7 +253,7 @@ class BatchCallbackService {
             erc: createERC(ERC_PREFIX.BATCH),
             sessionId,
             step_key: stepName,
-            status: 'COMPLETED',
+            status: 'SYNCHRONOUS',
           });
           await this._checkSessionCompletion(sessionId, correlationId);
         }
@@ -255,7 +272,7 @@ class BatchCallbackService {
             erc: createERC(ERC_PREFIX.BATCH),
             sessionId,
             step_key: stepName,
-            status: 'COMPLETED',
+            status: 'SYNCHRONOUS',
           });
           await this._checkSessionCompletion(sessionId, correlationId);
         }
@@ -277,7 +294,7 @@ class BatchCallbackService {
           erc: createERC(ERC_PREFIX.BATCH),
           sessionId,
           step_key: stepName,
-          status: 'COMPLETED',
+          status: 'SYNCHRONOUS',
         });
         await this._checkSessionCompletion(sessionId, correlationId);
       }
@@ -319,7 +336,7 @@ class BatchCallbackService {
         step,
       });
 
-      await persistence.updateBatch(batchERC, { status: 'COMPLETED' });
+      await persistence.updateBatch(batchERC, { status: 'BYPASSED' });
 
       await this._checkSessionCompletion(
         sessionId,

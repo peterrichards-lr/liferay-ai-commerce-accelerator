@@ -232,7 +232,7 @@ class MockDataGenerator {
 
   async generateAccounts(config, options = {}) {
     const count = options.count || options.accountCount || 1;
-    const accounts = await this.generateAccountData(count, config);
+    const accounts = await this.generateAccountData(count, config, options.categories);
     return {
       created: accounts.length,
       accounts,
@@ -513,7 +513,7 @@ class MockDataGenerator {
         country = countries[Math.floor(Math.random() * countries.length)];
         regions = await liferay.getCountryRegions(config, country.id);
       }
-      const region = regions[Math.floor(Math.random() * regions.length)];
+      const region = regions.length > 0 ? regions[Math.floor(Math.random() * regions.length)] : { name: 'N/A' };
       
       const location = {
         country: country.name,
@@ -661,14 +661,48 @@ class MockDataGenerator {
     const countries = await liferay.getCountries(config);
 
     for (let i = 0; i < count; i++) {
+      let countryToUse = null;
+      let regionsToUse = [];
+      let attempts = 0;
+      const maxAttempts = 10;
 
-      let country;
-      let regions = [];
-      while (regions.length === 0) {
-        country = countries[Math.floor(Math.random() * countries.length)];
-        regions = await liferay.getCountryRegions(config, country.id);
+      // Attempt to find a country with regions
+      while (attempts < maxAttempts) {
+          const potentialCountry = countries[Math.floor(Math.random() * countries.length)];
+          if (potentialCountry) {
+              const fetchedRegions = await liferay.getCountryRegions(config, potentialCountry.id);
+              if (fetchedRegions && fetchedRegions.length > 0) {
+                  countryToUse = potentialCountry;
+                  regionsToUse = fetchedRegions;
+                  break; // Found a country with regions, exit loop
+              }
+          }
+          attempts++;
       }
-      const region = regions[Math.floor(Math.random() * regions.length)];
+
+      // Fallback: If no country with regions was found after attempts,
+      // try 'United States' or the first available country, and get its regions.
+      if (!countryToUse && countries.length > 0) {
+          countryToUse = countries.find(c => (c.name === 'United States' || c.title_i18n?.['en_US'] === 'United States')) || countries[0];
+          if (countryToUse) {
+              regionsToUse = await liferay.getCountryRegions(config, countryToUse.id);
+          }
+      } else if (countries.length === 0) {
+          // No countries available at all, log and skip this warehouse
+          this.logger?.warn?.("No countries available to generate warehouse data. Skipping warehouse.");
+          continue; 
+      }
+      
+      // Ensure countryToUse and regionsToUse are defined before proceeding
+      if (!countryToUse) {
+          this.logger?.warn?.("Could not determine a country for warehouse generation. Skipping warehouse.");
+          continue;
+      }
+
+      const country = countryToUse;
+      const regions = regionsToUse;
+      
+      const region = regions.length > 0 ? regions[Math.floor(Math.random() * regions.length)] : { name: 'N/A' };
       
       const location = {
         country: country.name,
@@ -727,7 +761,7 @@ Perfect for both personal and professional use. Ideal gift for anyone who apprec
     };
   }
 
-  generateSpecifications(category, productIndex, languageCodes = ['en_US']) {
+  generateSpecifications(category, productIndex, languageCodes = ['en-US']) {
     const categoryValues =
       this.specificationValues[category] ||
       this.specificationValues['Electronics'];
@@ -772,7 +806,7 @@ Perfect for both personal and professional use. Ideal gift for anyone who apprec
     return specifications;
   }
 
-  generateSpecificationCategories(categories, selectedLanguages = ['en_US']) {
+  generateSpecificationCategories(categories, selectedLanguages = ['en-US']) {
     const languageCodes = selectedLanguages.map((lang) =>
       lang.replace('-', '_')
     );

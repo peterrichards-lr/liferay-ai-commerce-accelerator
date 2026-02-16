@@ -33,6 +33,17 @@ The microservice employs a sophisticated, stateful, and asynchronous architectur
 
 This pattern, while adding steps, is a necessary consequence of the API design and ensures data integrity.
 
+### Batch Statuses
+
+The `status` column in the `workflow_batches` table is critical for orchestrating the workflow and signaling the UI. The possible statuses are:
+
+*   **`PREPARED`**: A batch has been created in the microservice's local database but has not yet been submitted to the Liferay Batch Engine.
+*   **`SUBMITTED`**: The batch has been successfully sent to the Liferay Batch Engine and is either queued or is actively being processed.
+*   **`COMPLETED`**: Liferay's Batch Engine has finished processing the batch with no errors. This status is critical for the UI's progress bars.
+*   **`FAILED`**: Liferay's Batch Engine encountered an error and could not process the batch.
+*   **`BYPASSED`**: A step that could have involved a Liferay batch was intentionally skipped due to user configuration, conditional logic, or because the data set was empty. This indicates a "null-op" where a batch was a possibility but wasn't necessary this time.
+*   **`SYNCHRONOUS`**: This step in the workflow never involves the Liferay Batch Engine by design. It represents internal microservice logic, data enrichment, or synchronous API calls.
+
 ### Configurable Categories
 
 The available product categories are now dynamically configurable via the "AI Commerce Accelerator Configuration" UI. The categories are stored as a Liferay Object and can be managed through a dedicated panel, allowing administrators to easily update the product catalog without code changes.
@@ -101,7 +112,7 @@ This ensures the WebSocket instance is always explicitly available and correctly
 
 The "Delete All Commerce Data" operation has been made more reliable.
 
-- **Improved Group Advancement Logic:** The `_startNextGroups` function in `batchCallbackService.cjs` was refactored to remove a premature `break` condition in its outer loop. Previously, the function would halt processing subsequent deletion groups if an earlier group was found to be incomplete and was not the initial `fromGroupIndex`. The updated logic now ensures that `_startNextGroups` correctly iterates through all groups, skipping already completed ones and attempting to process incomplete ones, thus preventing the deletion chain from hanging.
+- **Improved Group Advancement Logic:** The `_startNextGroups` function in `batchCallbackService.cjs` was refactored to remove a premature `break` condition in its outer loop. Previously, the function would halt processing subsequent deletion groups if an earlier group was found to be incomplete and not the initial `fromGroupIndex`. The updated logic now ensures that `_startNextGroups` correctly iterates through all groups, skipping already completed ones and attempting to process incomplete ones, thus preventing the deletion chain from hanging.
 
 #### Batch Callback Mechanism
 
@@ -117,7 +128,7 @@ The accelerator has been updated to support the generation of warehouses and the
 
 **Key Fixes:**
 *   **Correct Warehouse Creation:** The `warehouseGenerator.cjs` has been updated to correctly normalize AI-generated warehouse data (which includes localized names and descriptions) into the format expected by the Liferay Commerce Admin Inventory API before calling `liferayRestService.createWarehouse` (for individual creation) or `liferayRestService.createWarehousesBatch` (for batch creation). This resolves the issue where warehouses were not being created at all.
-*   **Real API Integration**: The previous mock implementation has been replaced with real API calls to the Commerce Admin Inventory API. The `liferayRestService.cjs` has been updated to use the new endpoints for creating warehouses, getting warehouses, and updating product inventory.
+*   **Real API Integration**: The previous mock implementation has been replaced with real API calls to the Commerce Admin Inventory API. The `liferayRestService.cjs` has to use the new endpoints for creating warehouses, getting warehouses, and updating product inventory.
 *   **AI-Powered Generation**: When not in demo mode, the accelerator will use generative AI to create warehouse data. This is handled by the `warehouseGenerator.cjs`, which calls a new `generateWarehouseData` function in the `aiService.cjs`. A new prompt (`warehouse.md`) and schema (`warehouse.json`) have been created for this purpose.
 *   **Frontend Integration**: The frontend `DataGeneratorForm.jsx` already included UI elements for enabling warehouse creation and setting inventory levels. These are now wired up to the new backend functionality.
 *   **Inventory Distribution**: The `productGenerator.cjs` has been updated to distribute the inventory of newly created products across the available warehouses. This is handled in the `createOnSessionComplete` method to ensure it runs after all products in a batch have been created.

@@ -1488,6 +1488,123 @@ class LiferayRestService {
     );
   }
 
+  async createSpecification(config, specificationData) {
+    const { logger } = this.ctx;
+    logger.debug(`LiferayRestService.createSpecification called with:`, {
+      specificationKey: specificationData.key,
+      specificationName: specificationData.title?.en_US,
+      liferayUrl: config.liferayUrl,
+    });
+
+    const data = await this._post(
+      config,
+      PATH.SPECIFICATIONS,
+      specificationData,
+      'create-specification',
+      'Failed to create specification',
+    );
+
+    logger.debug(`✓ Specification created successfully:`, data);
+    return data;
+  }
+
+  async getSpecificationByERC(config, externalReferenceCode) {
+    try {
+      return await this._get(
+        config,
+        PATH.SPECIFICATION_BY_ERC(externalReferenceCode),
+        'get-specification-by-erc'
+      );
+    } catch (error) {
+      if (error.response?.status === 404) return null;
+      throw new Error(`Failed to get specification by ERC: ${error.message}`);
+    }
+  }
+
+  async getSpecificationByKey(config, key) {
+    try {
+      const res = await this._get(
+        config,
+        PATH.SPECIFICATIONS,
+        'specifications:list',
+        'Find specification by key',
+        {
+          params: {
+            page: 1,
+            pageSize: 1,
+            search: key,
+            fields: 'id,key,externalReferenceCode',
+          },
+        }
+      );
+      const items = Array.isArray(res?.items) ? res.items : [];
+      return items.find((it) => it.key === key) || null;
+    } catch (error) {
+      throw new Error(`Failed to get specification by key: ${error.message}`);
+    }
+  }
+
+  async updateSpecificationById(config, id, payload) {
+    const url = `${PATH.SPECIFICATIONS}/${encodeURIComponent(id)}`;
+    return this._put(
+      config,
+      url,
+      payload,
+      'update-specification-by-id',
+      'Failed to update specification by ID'
+    );
+  }
+
+  async createSpecificationWithReuse(config, payload) {
+    const { logger } = this.ctx;
+    try {
+      return await this.createSpecification(config, payload);
+    } catch (e) {
+      const msg = String(e?.message || '').toLowerCase();
+      const isConflict =
+        e?.status === 409 ||
+        e?.problem?.status === 'CONFLICT' ||
+        msg.includes('409') ||
+        msg.includes('conflict');
+
+      if (!isConflict) throw e;
+
+      logger.trace(
+        `Conflict creating specification, attempting to fetch by key: ${payload.key}`
+      );
+
+      const key = payload?.key;
+      if (!key) {
+        throw new Error(
+          'Conflict on createSpecification, but no key was provided to find existing.'
+        );
+      }
+
+      const existing = await this.getSpecificationByKey(config, key);
+
+      if (!existing) {
+        throw new Error(
+          `Conflict creating specification '${key}', but could not retrieve the existing one.`
+        );
+      }
+
+      const erc = payload?.externalReferenceCode;
+      if (erc && existing.externalReferenceCode !== erc) {
+        try {
+          await this.updateSpecificationById(config, existing.id, {
+            externalReferenceCode: erc,
+          });
+          existing.externalReferenceCode = erc;
+        } catch (updateError) {
+          logger.warn(
+            `Failed to update ERC for existing specification '${key}'`
+          );
+        }
+      }
+      return existing;
+    }
+  }
+
   async createOption(config, optionData) {
     const { logger } = this.ctx;
     logger.debug(`LiferayRestService.createOption called with:`, {

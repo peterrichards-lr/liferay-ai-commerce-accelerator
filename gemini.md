@@ -294,6 +294,19 @@ Logs must be structured and machine-readable.
 
 ------------------------------------------------------------------------
 
+## Workflow & Batch Statuses
+
+The `status` column in the `workflow_batches` table is critical for orchestrating the workflow and signaling the UI. The possible statuses are:
+
+*   **`PREPARED`**: A batch has been created in the microservice's local database but has not yet been submitted to the Liferay Batch Engine.
+*   **`SUBMITTED`**: The batch has been successfully sent to the Liferay Batch Engine and is either queued or is actively being processed.
+*   **`COMPLETED`**: Liferay's Batch Engine has finished processing the batch with no errors. This status is critical for the UI's progress bars.
+*   **`FAILED`**: Liferay's Batch Engine encountered an error and could not process the batch.
+*   **`BYPASSED`**: A step that could have involved a Liferay batch was intentionally skipped due to user configuration, conditional logic, or because the data set was empty. This indicates a "null-op" where a batch was a possibility but wasn't necessary this time.
+*   **`SYNCHRONOUS`**: This step in the workflow never involves the Liferay Batch Engine by design. It represents internal microservice logic, data enrichment, or synchronous API calls.
+
+------------------------------------------------------------------------
+
 ## Workflow state machine summary
 
 ### Session states

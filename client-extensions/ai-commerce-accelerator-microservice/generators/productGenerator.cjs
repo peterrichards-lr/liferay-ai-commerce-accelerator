@@ -9,6 +9,7 @@ const {
   buildSpecificationERC,
   now,
   isoNow,
+  sanitizeForERC,
 } = require('../utils/misc.cjs');
 const { ERC_PREFIX } = require('../utils/constants.cjs');
 const { sanitizedObject } = require('../utils/normalize.cjs');
@@ -80,12 +81,25 @@ class ProductGenerator {
   }
 
   async _runWarehouseGenerationStep(sessionId, session) {
-    const { logger, liferay, warehouseGenerator, cache, persistence } =
+    const { logger, liferay, warehouseGenerator, cache, persistence, batchCallback } =
       this.ctx;
     const { config, options } = session.context;
 
     if (!options.createWarehouses) {
       logger.info('Skipping warehouse generation step.', { sessionId });
+      
+      await persistence.createBatch({
+        erc: createERC(ERC_PREFIX.BATCH),
+        sessionId,
+        stepKey: 'generate-warehouses',
+        status: 'BYPASSED',
+      });
+      
+      await batchCallback._checkSessionCompletion(
+        sessionId,
+        config.correlationId
+      );
+
       return;
     }
 
@@ -122,10 +136,22 @@ class ProductGenerator {
 
     cache.set('generated-warehouses', warehouses);
     logger.info('Warehouses set in options and cache.', { sessionId });
+
+    await persistence.createBatch({
+      erc: createERC(ERC_PREFIX.BATCH),
+      sessionId,
+      stepKey: 'generate-warehouses',
+      status: 'SYNCHRONOUS',
+    });
+
+    await batchCallback._checkSessionCompletion(
+      sessionId,
+      config.correlationId
+    );
   }
 
   async _runProductDataGenerationStep(sessionId, session) {
-    const { logger, persistence } = this.ctx;
+    const { logger, persistence, batchCallback } = this.ctx;
     const { config, options } = session.context;
 
     logger.info('Starting product data generation step', { sessionId });
@@ -153,6 +179,18 @@ class ProductGenerator {
       sessionId,
       productCount: allProductData.length,
     });
+
+    await persistence.createBatch({
+      erc: createERC(ERC_PREFIX.BATCH),
+      sessionId,
+      stepKey: 'product-data-generation',
+      status: 'SYNCHRONOUS',
+    });
+
+    await batchCallback._checkSessionCompletion(
+      sessionId,
+      config.correlationId
+    );
   }
 
   async _runProductCreationStep(sessionId, session) {
@@ -372,21 +410,34 @@ class ProductGenerator {
 
     if (!allProductData || allProductData.length === 0) {
       logger.info(
-        'No products to create for this session. Marking step as COMPLETED.',
+        'No products to create for this session. Marking step as BYPASSED.',
         { sessionId, correlationId }
       );
       await persistence.createBatch({
         erc: createERC(ERC_PREFIX.BATCH), // Generic ERC for an empty step
         sessionId,
         step_key: 'products',
-        status: 'COMPLETED',
+        status: 'BYPASSED',
       });
       return;
     }
 
-    const useBatch = config.batchSize > 1 && options.productCount > 1;
+    const useIndividualProductCreation = config.batchSize === 1 || allProductData.length === 1;
 
-    if (useBatch) {
+    if (useIndividualProductCreation) {
+      for (const productData of allProductData) {
+        const createdProduct = await this.createSingleProduct(config, productData, options);
+        await persistence.createBatch({
+          erc: createdProduct.externalReferenceCode || createERC(ERC_PREFIX.PRODUCT), // Use actual ERC if available
+          sessionId,
+          stepKey: 'products',
+          status: 'SYNCHRONOUS',
+          // Optional: Store product ID for future reference
+          downstreamBatchId: createdProduct.id, 
+        });
+      }
+      await this.ctx.batchCallback._checkSessionCompletion(sessionId, correlationId);
+    } else {
       const preparedProducts = allProductData.map((productData) => {
         if (!productData.externalReferenceCode) {
           productData.externalReferenceCode = createERC(ERC_PREFIX.PRODUCT);
@@ -445,7 +496,7 @@ class ProductGenerator {
                 erc: batchERC,
                 sessionId,
                 stepKey: 'products',
-                status: 'COMPLETED',
+                status: 'SYNCHRONOUS',
             });
         }
         await this.ctx.batchCallback._checkSessionCompletion(sessionId, correlationId);
@@ -511,17 +562,12 @@ class ProductGenerator {
         sessionId,
         totalBatches: batchIds.length,
       });
-    } else {
-      logger.warn(
-        'Individual product creation is not yet fully implemented in the new workflow. Skipping product creation.',
-        { sessionId }
-      );
-      await persistence.updateSession(sessionId, { status: 'FAILED' });
+      await this.ctx.batchCallback._checkSessionCompletion(sessionId, correlationId); // Added this line
     }
   }
 
   async _runAttachImagesStep(sessionId, session) {
-    const { logger, media } = this.ctx;
+    const { logger, media, persistence, batchCallback } = this.ctx;
     const { config, options, productDataList } = session.context;
 
     logger.info('Starting attach images step', { sessionId });
@@ -546,10 +592,22 @@ class ProductGenerator {
     } else {
       logger.info('No images to attach for this session.', { sessionId });
     }
+
+    await persistence.createBatch({
+      erc: createERC(ERC_PREFIX.BATCH),
+      sessionId,
+      stepKey: 'attach-images',
+      status: 'SYNCHRONOUS',
+    });
+
+    await batchCallback._checkSessionCompletion(
+      sessionId,
+      config.correlationId
+    );
   }
 
   async _runAttachPdfsStep(sessionId, session) {
-    const { logger, media } = this.ctx;
+    const { logger, media, persistence, batchCallback } = this.ctx;
     const { config, options, productDataList } = session.context;
 
     logger.info('Starting attach PDFs step', { sessionId });
@@ -574,10 +632,22 @@ class ProductGenerator {
     } else {
       logger.info('No PDFs to attach for this session.', { sessionId });
     }
+
+    await persistence.createBatch({
+      erc: createERC(ERC_PREFIX.BATCH),
+      sessionId,
+      stepKey: 'attach-pdfs',
+      status: 'SYNCHRONOUS',
+    });
+
+    await batchCallback._checkSessionCompletion(
+      sessionId,
+      config.correlationId
+    );
   }
 
   async _runUpdateInventoryStep(sessionId, session) {
-    const { logger, liferay } = this.ctx;
+    const { logger, liferay, persistence, batchCallback } = this.ctx;
     const { config, options, productDataList } = session.context;
 
     logger.info('Starting update inventory step', { sessionId });
@@ -587,22 +657,27 @@ class ProductGenerator {
         logger.info('Updating inventory for all products', { sessionId });
         const createdProducts = await liferay.getProducts(config);
         const ercToProductMap = new Map();
-        for (const product of createdProducts) {
-          ercToProductMap.set(product.externalReferenceCode, product);
-        }
+        
+        if (createdProducts && Symbol.iterator in Object(createdProducts)) {
+            for (const product of createdProducts) {
+                ercToProductMap.set(product.externalReferenceCode, product);
+            }
 
-        for (const originalProduct of productDataList) {
-          const createdProduct = ercToProductMap.get(
-            originalProduct.externalReferenceCode
-          );
-          if (createdProduct) {
-            await this.updateInventory(
-              config,
-              createdProduct,
-              originalProduct,
-              options
-            );
-          }
+            for (const originalProduct of productDataList) {
+                const createdProduct = ercToProductMap.get(
+                    originalProduct.externalReferenceCode
+                );
+                if (createdProduct) {
+                    await this.updateInventory(
+                        config,
+                        createdProduct,
+                        originalProduct,
+                        options
+                    );
+                }
+            }
+        } else {
+            logger.warn('createdProducts is not iterable. Skipping inventory update.', { sessionId });
         }
       } catch (error) {
         logger.error('Failed to update inventory', {
@@ -613,6 +688,18 @@ class ProductGenerator {
     } else {
       logger.info('Skipping inventory update.', { sessionId });
     }
+
+    await persistence.createBatch({
+      erc: createERC(ERC_PREFIX.BATCH),
+      sessionId,
+      stepKey: 'update-inventory',
+      status: 'SYNCHRONOUS',
+    });
+
+    await batchCallback._checkSessionCompletion(
+      sessionId,
+      config.correlationId
+    );
   }
 
   async onSessionComplete({ sessionId, session, correlationId }) {
@@ -1093,7 +1180,8 @@ class ProductGenerator {
             ? optionData.values
             : [];
           const value = values[i];
-          const valueERC = `VAL-${option.id}-${value
+          const sanitizedValueForId = sanitizeForERC(value, { max: 20, preserveUnderscore: false });
+          const valueERC = `VAL-${option.id}-${sanitizedValueForId
             .toUpperCase()
             .replace(/\s+/g, '_')}`;
           const valueName = {};
@@ -1106,7 +1194,7 @@ class ProductGenerator {
             option.id,
             {
               name: valueName,
-              key: `${option.id}-${value
+              key: `${option.id}-${sanitizedValueForId
                 .toLowerCase()
                 .replace(/\s+/g, '-')
                 .replace(/&/g, 'and')}`,
@@ -1356,10 +1444,9 @@ class ProductGenerator {
             linkedOptionCategory: linkedOptionCategory
               ? {
                   id: linkedOptionCategory.id,
+                  externalReferenceCode: linkedOptionCategory.externalReferenceCode,
                   key: linkedOptionCategory.key,
                   title: linkedOptionCategory.title,
-                  externalReferenceCode:
-                    linkedOptionCategory.externalReferenceCode,
                 }
               : null,
           });

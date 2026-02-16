@@ -420,6 +420,7 @@ module.exports = {
   resolveOperation,
   resolvePhaseAndMode,
   safeJSON,
+  sanitizeForERC,
   toERCPart,
   toI18n,
   tryParseJSON,
