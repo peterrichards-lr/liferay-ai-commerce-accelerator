@@ -1,5 +1,5 @@
 Generate {{count}} realistic business account{{pluralSuffix}} with the following properties:
-- name: Company name (string, required)
+- name: Company name (string, required). The company names should be relevant to the following business categories: {{categories}}.
 - type: Account type, always "business" (string, required)
 - emailAddress: Company email (string, optional)
 - taxId: Realistic tax ID format (string, optional)

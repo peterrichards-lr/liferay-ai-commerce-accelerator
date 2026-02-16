@@ -355,13 +355,14 @@ class AIService {
     }
   }
 
-  async generateAccountData(count = 1, requestConfig, model) {
+  async generateAccountData(count = 1, requestConfig, model, categories = []) {
     const { logger, prompt } = this.ctx;
     const correlationId = requestConfig?.correlationId;
     try {
       const vars = {
         count,
         pluralSuffix: pluralize(count),
+        categories: categories.join(', '),
       };
 
       const promptContent = await prompt.render('account', vars, requestConfig);

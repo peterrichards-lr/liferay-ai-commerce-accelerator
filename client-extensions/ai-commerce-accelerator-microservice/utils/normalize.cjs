@@ -78,6 +78,7 @@ function buildConfigAndOptions(req) {
     aiModel,
     batchSize,
     catalogId,
+    categories,
     channelId,
     clientId,
     clientSecret,
@@ -109,7 +110,6 @@ function buildConfigAndOptions(req) {
     pdfRatio,
     pollingDelay,
     pollingRetries,
-    productCategories,
     productCount,
     requiredCount,
     reuseExistingWarehouses,
@@ -203,7 +203,7 @@ function buildConfigAndOptions(req) {
   logger.info('options before switch in buildConfigAndOptions:', options);
 
   options.productCount = toNumber(productCount);
-  options.productCategories = productCategories;
+  options.categories = categories;
   options.generateBulkPricing = toBoolean(generateBulkPricing);
   options.generatePriceLists = toBoolean(generatePriceLists);
   options.generateSkuVariants = toBoolean(generateSkuVariants);

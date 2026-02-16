@@ -180,9 +180,9 @@ class ProductGenerator {
     }
 
     const selectedCategories =
-      Array.isArray(options.productCategories) &&
-      options.productCategories.length
-        ? options.productCategories
+      Array.isArray(options.categories) &&
+      options.categories.length
+        ? options.categories
         : [];
     if (selectedCategories.length === 0)
       throw new Error('At least one category must be selected.');
@@ -919,7 +919,7 @@ class ProductGenerator {
 
   async createCatalogOptions(config, options) {
     const { logger, liferay } = this.ctx;
-    const categories = options.productCategories;
+    const categories = options.categories;
     logger.trace(
       `Creating catalog-level options for SKU variants... (Demo mode: ${options.demoMode})`
     );
@@ -1127,7 +1127,7 @@ class ProductGenerator {
 
   async createCatalogSpecifications(config, options) {
     const { logger, liferay } = this.ctx;
-    const categories = options.productCategories;
+    const categories = options.categories;
     logger.trace(
       'Creating catalog-level specifications with option categories...'
     );

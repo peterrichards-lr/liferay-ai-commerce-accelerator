@@ -463,11 +463,11 @@ class MockDataGenerator {
     return variants;
   }
 
-  async generateAccountData(count = 1, config) {
+  async generateAccountData(count = 1, config, categories = []) {
     const { liferay } = this.ctx;
     const accounts = [];
-    const companies = [
-      'Tech Solutions Inc',
+    let companies = [
+      'Solutions Inc',
       'Global Manufacturing',
       'Creative Design Studio',
       'Green Energy Corp',
@@ -478,6 +478,23 @@ class MockDataGenerator {
       'Financial Advisors',
       'Education First',
     ];
+
+    if (categories && categories.length > 0) {
+      const companySuffixes = [
+        'Solutions Inc',
+        'Manufacturing',
+        'Design Studio',
+        'Energy Corp',
+        'Marketing Pro',
+        'Partners',
+        'Plus',
+        'Experts',
+        'Advisors',
+        'First',
+      ];
+      
+      companies = companySuffixes.map(suffix => `${categories[0]} ${suffix}`);
+    }
 
     const countries = await liferay.getCountries(config);
 

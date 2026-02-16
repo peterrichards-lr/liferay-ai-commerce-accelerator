@@ -106,13 +106,15 @@ class AccountGenerator {
     if (options.demoMode) {
       accountDataList = await mockData.generateAccountData(
         options.accountCount,
-        config
+        config,
+        options.categories
       );
     } else {
       accountDataList = await ai.generateAccountData(
         options.accountCount,
         config,
-        config.aiModel
+        config.aiModel,
+        options.categories
       );
     }
 
