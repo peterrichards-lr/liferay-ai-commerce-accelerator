@@ -1,5 +1,5 @@
-const { createERC } = require('../../utils/misc.cjs');
-const { ERC_PREFIX } = require('../../utils/constants.cjs');
+const { createERC } = require('../../../utils/misc.cjs');
+const { ERC_PREFIX } = require('../../../utils/constants.cjs');
 
 module.exports = async function createAccounts(
   { liferay },

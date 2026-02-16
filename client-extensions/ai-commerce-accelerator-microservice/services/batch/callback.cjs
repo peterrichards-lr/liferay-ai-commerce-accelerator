@@ -1,5 +1,5 @@
-const { createERC } = require('../utils/misc.cjs');
-const { ERC_PREFIX } = require('../utils/constants.cjs');
+const { createERC } = require('../../utils/misc.cjs');
+const { ERC_PREFIX } = require('../../utils/constants.cjs');
 
 const BATCH_STEP_HANDLERS = require('./batch-steps/index.cjs');
 
@@ -9,152 +9,167 @@ class BatchCallbackService {
   }
 
   async _checkSessionCompletion(sessionId, correlationId) {
-    const { logger, persistence, ws } = this.ctx;
+    const { logger, persistence } = this.ctx;
     
     const session = await persistence.getSession(sessionId);
     if (!session || session.status === 'COMPLETED' || session.status === 'FAILED') {
       return;
     }
 
-    const { config, steps: workflowSteps } = session.context;
-    let { currentSteps } = session; // This now holds the array of currently active steps (objects or strings)
-
     const allBatchesForSession = await persistence.getBatchesForSession(sessionId);
 
-    logger.info('_checkSessionCompletion: details', {
-      sessionId,
-      currentSteps,
-      allBatchesForSession,
-    });
+    const { activeSteps, hasFailures } = await this._updateActiveSteps(session, allBatchesForSession);
 
-    let newActiveSteps = [];
-    let sessionAdvanced = false;
+    if (hasFailures) {
+      await persistence.updateSession(sessionId, { status: 'FAILED' });
+      return;
+    }
+    
+    let currentSteps = activeSteps;
+    await persistence.updateSessionCurrentSteps(sessionId, currentSteps);
 
-    // Process all currently active steps
+    if (currentSteps.length === 0) {
+      const advancedSteps = await this._advanceWorkflow(session, allBatchesForSession, correlationId);
+      currentSteps = advancedSteps;
+      await persistence.updateSessionCurrentSteps(sessionId, currentSteps);
+    }
+    
+    const workflowFinished = await this._isWorkflowFinished(session, currentSteps, allBatchesForSession);
+
+    if (workflowFinished) {
+      await this._finalizeSession(session, allBatchesForSession, correlationId);
+    }
+  }
+
+  async _updateActiveSteps(session, allBatchesForSession) {
+    const { logger } = this.ctx;
+    const { session_id: sessionId, currentSteps } = session;
+
+    let hasFailures = false;
+    const nextActiveSteps = [];
+
     for (const stepDefinition of currentSteps) {
       const stepName = typeof stepDefinition === 'string' ? stepDefinition : stepDefinition.name;
-      const stepType = typeof stepDefinition === 'object' ? stepDefinition.type : 'sync'; // Default to sync
+      const stepType = typeof stepDefinition === 'object' ? stepDefinition.type : 'sync';
 
-      const batchesForCurrentStep = allBatchesForSession.filter(b => b.step_key === stepName);
-      const isStepCompleted = batchesForCurrentStep.every(b => b.status === 'COMPLETED' || b.status === 'FAILED');
-      const isStepFailed = batchesForCurrentStep.some(b => b.status === 'FAILED');
+      const batchesForStep = allBatchesForSession.filter(b => b.step_key === stepName);
+      const isStepCompleted = batchesForStep.every(b => b.status === 'COMPLETED' || b.status === 'FAILED');
+      const isStepFailed = batchesForStep.some(b => b.status === 'FAILED');
 
       if (isStepFailed) {
-        logger.error(`Step '${stepName}' failed. Marking session as failed.`, { sessionId, stepName });
-        await persistence.updateSession(sessionId, { status: 'FAILED' });
-        return;
+        logger.error(`Step '${stepName}' failed.`, { sessionId, stepName });
+        hasFailures = true;
+        break; 
       }
 
       if (isStepCompleted) {
         logger.info(`Step '${stepName}' completed.`, { sessionId, stepName, stepType });
-        sessionAdvanced = true;
-        // Do not add to newActiveSteps, effectively removing it
         if (stepType === 'async') {
           logger.info(`Asynchronous step '${stepName}' finished, not blocking workflow.`, { sessionId, stepName });
         }
       } else {
-        // If not completed, keep it in the list of active steps
-        newActiveSteps.push(stepDefinition);
+        nextActiveSteps.push(stepDefinition);
       }
     }
 
-    // Update currentSteps in DB after processing completions
-    currentSteps = newActiveSteps;
-    await persistence.updateSessionCurrentSteps(sessionId, currentSteps);
+    return { activeSteps: nextActiveSteps, hasFailures };
+  }
 
-    let nextWorkflowStepIndex;
+  async _advanceWorkflow(session, allBatchesForSession, correlationId) {
+    const { logger, persistence } = this.ctx;
+    const { session_id: sessionId, context: { config, steps: workflowSteps } } = session;
+    
+    const newActiveSteps = [];
 
-    // If no steps are currently active, try to advance the workflow
-    if (currentSteps.length === 0) {
-      const lastCompletedStepIndex = workflowSteps.findLastIndex(s => {
-        const sName = typeof s === 'string' ? s : s.name;
-        return allBatchesForSession.some(b => b.step_key === sName && (b.status === 'COMPLETED' || b.status === 'FAILED'));
-      });
+    const lastCompletedStepIndex = workflowSteps.findLastIndex(s => {
+      const sName = typeof s === 'string' ? s : s.name;
+      return allBatchesForSession.some(b => b.step_key === sName && (b.status === 'COMPLETED' || b.status === 'FAILED'));
+    });
 
-      nextWorkflowStepIndex = (lastCompletedStepIndex !== -1) ? lastCompletedStepIndex + 1 : 0;
-      let nextWorkflowStep = workflowSteps[nextWorkflowStepIndex];
+    let nextWorkflowStepIndex = (lastCompletedStepIndex !== -1) ? lastCompletedStepIndex + 1 : 0;
 
-      while (nextWorkflowStep) {
-        const nextStepName = typeof nextWorkflowStep === 'string' ? nextWorkflowStep : nextWorkflowStep.name;
-        const nextStepType = typeof nextWorkflowStep === 'object' ? nextWorkflowStep.type : 'sync';
+    while (workflowSteps[nextWorkflowStepIndex]) {
+      const nextWorkflowStep = workflowSteps[nextWorkflowStepIndex];
+      const nextStepName = typeof nextWorkflowStep === 'string' ? nextWorkflowStep : nextWorkflowStep.name;
+      const nextStepType = typeof nextWorkflowStep === 'object' ? nextWorkflowStep.type : 'sync';
 
-        if (nextStepType === 'sync') {
-          logger.info(`Starting synchronous step '${nextStepName}'`, { sessionId, nextStepName });
-          currentSteps.push(nextWorkflowStep);
-          await persistence.updateSessionCurrentSteps(sessionId, currentSteps);
-          await this._startStep(nextWorkflowStep, sessionId, config, correlationId);
-          break; // Wait for this sync step to complete
-        } else if (nextStepType === 'async') {
-          logger.info(`Starting asynchronous step '${nextStepName}'`, { sessionId, nextStepName });
-          // Async steps are added to currentSteps but don't block progress
-          currentSteps.push(nextWorkflowStep);
-          await persistence.updateSessionCurrentSteps(sessionId, currentSteps);
-          await this._startStep(nextWorkflowStep, sessionId, config, correlationId);
-          // Immediately move to the next step
-          nextWorkflowStepIndex++;
-          nextWorkflowStep = workflowSteps[nextWorkflowStepIndex];
-        } else if (nextStepType === 'parallel') {
-          logger.info(`Starting parallel step block`, { sessionId, nextStepName: nextWorkflowStep.name });
-          for (const subStep of nextWorkflowStep.steps) {
-            logger.info(`Starting parallel sub-step '${subStep.name}'`, { sessionId, subStepName: subStep.name });
-            currentSteps.push(subStep);
-            await this._startStep(subStep, sessionId, config, correlationId);
-          }
-          await persistence.updateSessionCurrentSteps(sessionId, currentSteps);
-          // After starting all parallel sub-steps, this parallel block is now active, so we break and wait.
-          break;
-        } else {
-          logger.warn(`Unknown step type '${nextStepType}' for step '${nextStepName}'`, { sessionId, nextStepName });
-        }
-        // This is for async steps and iterating through a parallel block's setup
+      if (nextStepType === 'sync') {
+        logger.info(`Starting synchronous step '${nextStepName}'`, { sessionId, nextStepName });
+        newActiveSteps.push(nextWorkflowStep);
+        await this._startStep(nextWorkflowStep, sessionId, config, correlationId);
+        break; 
+      } else if (nextStepType === 'async') {
+        logger.info(`Starting asynchronous step '${nextStepName}'`, { sessionId, nextStepName });
+        newActiveSteps.push(nextWorkflowStep);
+        await this._startStep(nextWorkflowStep, sessionId, config, correlationId);
         nextWorkflowStepIndex++;
-        nextWorkflowStep = workflowSteps[nextWorkflowStepIndex];
+      } else if (nextStepType === 'parallel') {
+        logger.info(`Starting parallel step block`, { sessionId });
+        for (const subStep of nextWorkflowStep.steps) {
+          logger.info(`Starting parallel sub-step '${subStep.name}'`, { sessionId, subStepName: subStep.name });
+          newActiveSteps.push(subStep);
+          await this._startStep(subStep, sessionId, config, correlationId);
+        }
+        break;
+      } else {
+        logger.warn(`Unknown step type '${nextStepType}' for step '${nextStepName}'`, { sessionId, nextStepName });
+        nextWorkflowStepIndex++;
       }
     }
 
-    // Final check for session completion if no current steps are active and no more workflow steps
-    if (currentSteps.length === 0 && !workflowSteps[nextWorkflowStepIndex]) {
+    return newActiveSteps;
+  }
+  
+  async _isWorkflowFinished(session, currentSteps, allBatchesForSession) {
+      const { steps: workflowSteps } = session.context;
+
+      if (currentSteps.length > 0) {
+          return false;
+      }
+
+      const allStepNames = workflowSteps.map(s => typeof s === 'string' ? s : s.name);
+      const completedStepNames = new Set(allBatchesForSession.filter(b => b.status === 'COMPLETED' || b.status === 'FAILED').map(b => b.step_key));
+      
+      return allStepNames.every(name => completedStepNames.has(name));
+  }
+  
+  async _finalizeSession(session, allBatchesForSession, correlationId) {
+      const { logger, persistence } = this.ctx;
+      const { session_id:sessionId, flow_type, context } = session;
+
       logger.info('Workflow session completed - all steps finished', {
         operation: 'session-complete',
         correlationId,
         sessionId,
-        flowType: session.flow_type,
+        flowType: flow_type,
         totalBatches: allBatchesForSession.length,
       });
 
       await persistence.updateSession(sessionId, { status: 'COMPLETED', currentSteps: [] });
 
-      const onSessionComplete = this._getOnSessionComplete(session.flow_type);
-
+      const onSessionComplete = this._getOnSessionComplete(flow_type);
       if (typeof onSessionComplete === 'function') {
         Promise.resolve()
           .then(() =>
             onSessionComplete({
               sessionId,
               session: {
-                ...session.context,
+                ...context,
                 completedBatches: allBatchesForSession.map((b) => b.downstream_batch_id),
               },
               correlationId,
             })
           )
           .catch((err) => {
-            const errorReference = err.errorReference || createERC(ERC_PREFIX.ERROR);
-            logger?.error?.('onSessionComplete failed', {
+            logger.error('onSessionComplete hook failed', {
               operation: 'post-processing-hook-error',
               sessionId,
               correlationId,
-              errorReference,
-              message: err.message,
+              error: err.message,
               stack: err.stack,
             });
           });
       }
-    } else if (sessionAdvanced) {
-        // If the session advanced, ensure the DB is updated with the latest currentSteps
-        // (This was already done inside the loop, but this ensures final state for this iteration)
-        await persistence.updateSessionCurrentSteps(sessionId, currentSteps);
-    }
   }
 
   async _startStep(stepDefinition, sessionId, config, correlationId) {

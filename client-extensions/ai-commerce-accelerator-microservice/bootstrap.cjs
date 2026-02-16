@@ -2,8 +2,8 @@ const { logger } = require('./utils/logger.cjs');
 const { ENV } = require('./utils/constants.cjs');
 
 const { AIService } = require('./services/aiService.cjs');
-const BatchCallbackService = require('./services/batchCallbackService.cjs');
-const BatchProcessorService = require('./services/batchProcessorService.cjs');
+const BatchCallbackService = require('./services/batch/callback.cjs');
+const BatchProcessorService = require('./services/batch/processor.cjs');
 const CacheService = require('./services/cacheService.cjs');
 const ConfigService = require('./services/configService.cjs');
 const DeleteCoordinatorService = require('./services/deleteCoordinatorService.cjs');

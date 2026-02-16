@@ -5,7 +5,7 @@ const {
   randomString,
   toTitleCase,
 } = require('../utils/misc.cjs');
-const BATCH_STEP_HANDLERS = require('../services/batch-steps/index.cjs');
+const BATCH_STEP_HANDLERS = require('../services/batch/index.cjs');
 
 class AccountGenerator {
   constructor(ctx) {

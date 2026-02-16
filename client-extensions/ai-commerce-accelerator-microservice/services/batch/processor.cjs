@@ -1,6 +1,6 @@
-const liferayConfig = require('../config/liferayConfig.cjs');
-const { ErrorHandler } = require('../utils/errorHandler.cjs');
-const { delay, processWithRetry } = require('../utils/misc.cjs');
+const liferayConfig = require('../../config/liferayConfig.cjs');
+const { ErrorHandler } = require('../../utils/errorHandler.cjs');
+const { delay, processWithRetry } = require('../../utils/misc.cjs');
 
 class BatchProcessorService {
   constructor(ctx) {

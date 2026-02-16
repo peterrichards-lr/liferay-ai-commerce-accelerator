@@ -1,4 +1,4 @@
-const { createERC } = require('../../utils/misc.cjs');
+const { createERC } = require('../../../utils/misc.cjs');
 
 module.exports = async function createPostalAddresses(
   { liferay, logger },
