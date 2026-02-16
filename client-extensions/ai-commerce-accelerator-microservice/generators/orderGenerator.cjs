@@ -113,6 +113,29 @@ class OrderGenerator {
         chunks.push(orderDataList.slice(i, i + batchSize));
       }
 
+      if (options.dryRun) {
+        logger.info('DRY RUN: Skipping order creation batch submission.');
+        for (const originalBatch of chunks) {
+          const batch = originalBatch.map((od) => this.buildOrderPayload(config, od, accounts, products, warehouses));
+          const batchERC = createERC(ERC_PREFIX.ORDER_BATCH);
+          logger.info({
+              dryRunData: {
+                  step: 'orders',
+                  count: batch.length,
+                  payload: batch,
+              },
+          });
+          await persistence.createBatch({
+              erc: batchERC,
+              sessionId,
+              stepKey: 'orders',
+              status: 'COMPLETED',
+          });
+        }
+        await this.ctx.batchCallback._checkSessionCompletion(sessionId, config.correlationId);
+        return;
+      }
+
       for (let batchIndex = 0; batchIndex < chunks.length; batchIndex++) {
         const originalBatch = chunks[batchIndex];
 
@@ -160,6 +183,25 @@ class OrderGenerator {
         });
       }
     } else {
+      if (options.dryRun) {
+        logger.info('DRY RUN: Skipping individual order creation.');
+        const batchERC = createERC(ERC_PREFIX.ORDER_BATCH);
+        logger.info({
+            dryRunData: {
+                step: 'orders',
+                count: orderDataList.length,
+                payload: orderDataList.map((od) => this.buildOrderPayload(config, od, accounts, products, warehouses)),
+            },
+        });
+        await persistence.createBatch({
+            erc: batchERC,
+            sessionId,
+            stepKey: 'orders',
+            status: 'COMPLETED',
+        });
+        await this.ctx.batchCallback._checkSessionCompletion(sessionId, config.correlationId);
+        return;
+      }
       await this.generateOrdersIndividually(
         config,
         options,

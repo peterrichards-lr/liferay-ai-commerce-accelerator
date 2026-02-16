@@ -35,7 +35,7 @@ class WarehouseGenerator {
   async createWarehouses(config, options) {
     const { logger, ai, mockData, progress, liferay } =
       this.ctx;
-    const { warehouseCount, demoMode, sessionId } = options;
+    const { warehouseCount, demoMode, sessionId, dryRun } = options;
     const correlationId = config?.correlationId || '∅';
 
     this.validateConfig(config);
@@ -79,6 +79,18 @@ class WarehouseGenerator {
       const normalizedWarehouseDataList = warehouseDataList.map((data) =>
         this._normalizeWarehouseData(data, config)
       );
+
+      if (dryRun) {
+        logger.info('DRY RUN: Skipping warehouse batch creation.');
+        logger.info({
+            dryRunData: {
+                step: 'warehouses',
+                count: normalizedWarehouseDataList.length,
+                payload: normalizedWarehouseDataList,
+            },
+        });
+        return normalizedWarehouseDataList.map(w => ({ externalReferenceCode: w.externalReferenceCode }));
+      }
 
       const submission = await liferay.createWarehousesBatch(
         config,
@@ -124,6 +136,14 @@ class WarehouseGenerator {
             warehouse,
             config
           );
+
+          if (dryRun) {
+            logger.info(`DRY RUN: Skipping individual warehouse creation for ${normalizedWarehouse.name.en_US}`);
+            logger.info({ dryRunData: { step: 'warehouses', payload: normalizedWarehouse }});
+            createdWarehouses.push(normalizedWarehouse);
+            continue;
+          }
+
           const createdWarehouse = await liferay.createWarehouse(
             config,
             normalizedWarehouse

@@ -5,7 +5,7 @@ const {
   randomString,
   toTitleCase,
 } = require('../utils/misc.cjs');
-const BATCH_STEP_HANDLERS = require('../services/batch/index.cjs');
+const BATCH_STEP_HANDLERS = require('../services/batch/batch-steps/index.cjs');
 
 class AccountGenerator {
   constructor(ctx) {
@@ -221,7 +221,7 @@ class AccountGenerator {
 
   async _runAccountCreationStep(sessionId, session) {
     const { logger, persistence, liferay } = this.ctx;
-    const { config, accountsToCreate } = session.context;
+    const { config, options, accountsToCreate } = session.context;
 
     logger.info('Starting account creation step', { sessionId });
 
@@ -231,6 +231,25 @@ class AccountGenerator {
     }
 
     const batchERC = createERC(ERC_PREFIX.BATCH_GENERATION);
+
+    if (options.dryRun) {
+        logger.info('DRY RUN: Skipping account creation batch submission.');
+        logger.info({
+            dryRunData: {
+                step: 'accounts',
+                count: accountsToCreate.length,
+                payload: accountsToCreate,
+            },
+        });
+        await persistence.createBatch({
+            erc: batchERC,
+            sessionId,
+            stepKey: 'accounts',
+            status: 'COMPLETED',
+        });
+        await this.ctx.batchCallback._checkSessionCompletion(sessionId, config.correlationId);
+        return; 
+    }
 
     await persistence.createBatch({
       erc: batchERC,
@@ -320,7 +339,7 @@ class AccountGenerator {
 
   async startPostalAddressesBatch({ sessionId, session, correlationId }) {
     const { logger, persistence, liferay } = this.ctx;
-    const { config, addressesToCreate } = session;
+    const { config, options, addressesToCreate } = session;
 
     logger.info('Starting postal address creation step', { sessionId });
 
@@ -353,6 +372,25 @@ class AccountGenerator {
       if (addressesForAccount.length > 0) {
         const batchERC = createERC(ERC_PREFIX.BATCH_GENERATION);
 
+        if (options.dryRun) {
+            logger.info(`DRY RUN: Skipping address creation for account ${account.externalReferenceCode}.`);
+            logger.info({
+                dryRunData: {
+                    step: 'postal-addresses',
+                    accountId: account.id,
+                    count: addressesForAccount.length,
+                    payload: addressesForAccount,
+                },
+            });
+            await persistence.createBatch({
+                erc: batchERC,
+                sessionId,
+                stepKey: 'postal-addresses',
+                status: 'COMPLETED',
+            });
+            continue;
+        }
+
         await persistence.createBatch({
           erc: batchERC,
           sessionId,
@@ -381,6 +419,10 @@ class AccountGenerator {
       } else{
         logger.debug(`Unable to find addresses for ${account.externalReferenceCode}`)
       }
+    }
+    
+    if (options.dryRun) {
+        await this.ctx.batchCallback._checkSessionCompletion(sessionId, correlationId);
     }
   }
 
@@ -421,12 +463,24 @@ class AccountGenerator {
 
   async _runSetBillingAndShippingAddressesStep(sessionId, session) {
     const { logger, liferay } = this.ctx;
-    const { config, accountsToCreate, addressesToCreate } = session.context;
+    const { config, options, accountsToCreate, addressesToCreate } = session.context;
 
     logger.info('Starting set billing and shipping addresses step', { sessionId });
     if ((!accountsToCreate || accountsToCreate.length === 0) && (!addressesToCreate || addressesToCreate.length === 0)) {
       logger.info('No accounts or addresses to set. Skipping step.', { sessionId });
       return;
+    }
+
+    if (options.dryRun) {
+        logger.info('DRY RUN: Skipping set billing and shipping addresses step.');
+        await persistence.createBatch({
+            erc: createERC(ERC_PREFIX.BATCH),
+            sessionId,
+            stepKey: 'set-billing-and-shipping-addresses',
+            status: 'COMPLETED',
+        });
+        await this.ctx.batchCallback._checkSessionCompletion(sessionId, config.correlationId);
+        return;
     }
 
     const addressErcs = addressesToCreate.map(address => address.externalReferenceCode);
@@ -455,7 +509,6 @@ class AccountGenerator {
 
     } catch (error) {
         logger.error(`Failed to fetch accounts or postal addresses in batch`, { error: error.message, sessionId });
-        // We can optionally decide to fail the whole step here
         return;
     }
 

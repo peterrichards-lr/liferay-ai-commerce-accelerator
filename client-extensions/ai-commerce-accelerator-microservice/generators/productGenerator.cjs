@@ -430,6 +430,28 @@ class ProductGenerator {
         productBatches.push(cleanedProducts.slice(i, i + safeBatchSize));
       }
 
+      if (options.dryRun) {
+        logger.info('DRY RUN: Skipping product creation batch submission.');
+        for (const batch of productBatches) {
+            const batchERC = createERC(ERC_PREFIX.PRODUCT_BATCH);
+            logger.info({
+                dryRunData: {
+                    step: 'products',
+                    count: batch.length,
+                    payload: batch,
+                },
+            });
+            await persistence.createBatch({
+                erc: batchERC,
+                sessionId,
+                stepKey: 'products',
+                status: 'COMPLETED',
+            });
+        }
+        await this.ctx.batchCallback._checkSessionCompletion(sessionId, correlationId);
+        return;
+      }
+
       const batchIds = [];
       for (
         let batchIndex = 0;
@@ -1576,9 +1598,13 @@ class ProductGenerator {
 
       for (const warehouse of options.warehouses) {
         try {
-          await liferay.updateProductInventory(config, warehouse.id, sku.sku, {
-            quantity: inventoryPerWarehouse,
-          });
+          if (options.dryRun) {
+            logger.info(`DRY RUN: Skipping inventory update for SKU ${sku.sku} in warehouse ${warehouse.name}`);
+          } else {
+            await liferay.updateProductInventory(config, warehouse.id, sku.sku, {
+                quantity: inventoryPerWarehouse,
+            });
+          }
           logger.trace(
             `Updated inventory for SKU ${sku.sku} in warehouse ${warehouse.name}`
           );
