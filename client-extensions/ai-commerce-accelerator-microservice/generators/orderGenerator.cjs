@@ -171,9 +171,37 @@ class OrderGenerator {
   }
 
   validateConfig(config) {
+    const pollingRetriesValue = config.pollingRetries;
+    if (pollingRetriesValue === undefined || pollingRetriesValue === null) {
+      throw new Error('pollingRetries is required');
+    }
+    const pollingRetries = parseInt(pollingRetriesValue);
+    if (isNaN(pollingRetries) || pollingRetries < 0 || pollingRetries > 20) {
+      throw new Error('pollingRetries must be between 0 and 20');
+    }
+
+    const pollingDelayValue = config.pollingDelay;
+    if (pollingDelayValue === undefined || pollingDelayValue === null) {
+      throw new Error('pollingDelay is required');
+    }
+    const pollingDelay = parseInt(pollingDelayValue);
+    if (isNaN(pollingDelay) || pollingDelay < 5000 || pollingDelay > 600000) {
+      throw new Error('pollingDelay must be between 5 and 600 seconds');
+    }
+
+    const catalogIdValue = config.catalogId;
+    if (catalogIdValue === undefined || catalogIdValue === null) {
+      throw new Error('catalogId is required for fetching products');
+    }
+    const catalogId = parseInt(catalogIdValue);
+    if (isNaN(catalogId) || catalogId <= 0) {
+      throw new Error('catalogId must be a positive integer');
+    }
+
     const ch = parseInt(config.channelId);
     if (!Number.isFinite(ch) || ch <= 0)
       throw new Error('channelId must be a positive integer');
+      
     if (!config.currencyCode) throw new Error('currencyCode is required');
   }
 

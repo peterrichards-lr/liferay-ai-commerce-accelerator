@@ -38,6 +38,9 @@ class WarehouseGenerator {
     const { warehouseCount, demoMode, sessionId } = options;
     const correlationId = config?.correlationId || '∅';
 
+    this.validateConfig(config);
+    await this.validateOptions(config, options);
+
     let warehouseDataList;
     if (demoMode) {
       warehouseDataList = await mockData.generateWarehouseData(
@@ -167,6 +170,52 @@ class WarehouseGenerator {
       });
 
       return createdWarehouses;
+    }
+  }
+
+  validateConfig(config) {
+    const pollingRetriesValue = config.pollingRetries;
+    if (pollingRetriesValue === undefined || pollingRetriesValue === null) {
+      throw new Error('pollingRetries is required');
+    }
+    const pollingRetries = parseInt(pollingRetriesValue);
+    if (isNaN(pollingRetries) || pollingRetries < 0 || pollingRetries > 20) {
+      throw new Error('pollingRetries must be between 0 and 20');
+    }
+    const pollingDelayValue = config.pollingDelay;
+    if (pollingDelayValue === undefined || pollingDelayValue === null) {
+      throw new Error('pollingDelay is required');
+    }
+    const pollingDelay = parseInt(pollingDelayValue);
+    if (isNaN(pollingDelay) || pollingDelay < 5000 || pollingDelay > 600000) {
+      throw new Error('pollingDelay must be between 5 and 600 seconds');
+    }
+  }
+
+  async validateOptions(config, options) {
+    const { ai, logger } = this.ctx;
+
+    if (
+      !options.warehouseCount ||
+      typeof options.warehouseCount !== 'number' ||
+      options.warehouseCount <= 0
+    ) {
+      throw new Error('warehouseCount must be greater than 0');
+    }
+
+    if (!options.demoMode) {
+      if (!config.aiModel) {
+        const err = new Error(
+          'AI model not configured. Please select an AI model in the AI Configuration object.'
+        );
+        err.statusCode = 400;
+        logger.error(
+          '✗ AI model validation failed for warehouses: missing aiModel'
+        );
+        throw err;
+      }
+
+      await ai.getOpenAIClient(config);
     }
   }
 }

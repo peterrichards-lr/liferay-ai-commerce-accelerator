@@ -5,7 +5,9 @@ const {
   delay,
   now,
   elapsedMs,
+  createERC,
 } = require('../utils/misc.cjs');
+const { ERC_PREFIX } = require('../utils/constants.cjs');
 
 const MOCK_BASE64_IMAGE = {
   mimeType: 'image/webp',
@@ -342,6 +344,161 @@ class MediaGenerator {
       src: `https://picsum.photos/seed/${baseName}-${variant}/600/600.webp`,
       priority: i + 1,
     }));
+  }
+
+  async createImages(config, products, options) {
+    const { logger, liferay, progress } = this.ctx;
+    const { sessionId } = options;
+    const correlationId = config?.correlationId || '∅';
+
+    this.validateConfig(config, options);
+    await this.validateOptions(config, options);
+
+    const entityType = 'media-images';
+    const operation = 'generate';
+    const batchId = `images-individual-${Date.now()}`;
+    const batchERC = createERC(ERC_PREFIX.MEDIA_BATCH);
+
+    const productsWithImages = this.selectProductsForImages(products, options.imageRatio || 0);
+    
+    if (productsWithImages.length === 0) {
+      logger.info('No products selected for image generation.', { sessionId });
+      return;
+    }
+
+    progress.batchStarted({
+      batchId,
+      batchERC,
+      entityType,
+      totalItems: productsWithImages.length,
+      operation,
+      sessionId,
+      correlationId
+    });
+
+    let completedCount = 0;
+    for (const product of productsWithImages) {
+      try {
+        const images = this.generateProductImageSet(product.name.en_US);
+        for (const image of images) {
+          await liferay.addProductImage(config, product.id, image);
+        }
+        completedCount++;
+      } catch (error) {
+        logger.error(`Failed to create images for product ${product.id}`, { sessionId, error: error.message });
+      }
+      progress.batchProgress({
+        batchId,
+        batchERC,
+        entityType,
+        completedCount: completedCount,
+        totalItems: productsWithImages.length,
+        operation,
+        sessionId,
+        correlationId,
+      });
+    }
+    
+    progress.batchCompleted({
+      batchId,
+      batchERC,
+      entityType,
+      successCount: completedCount,
+      failureCount: productsWithImages.length - completedCount,
+      operation,
+      sessionId,
+      correlationId,
+    });
+  }
+
+  async createPdfs(config, products, options) {
+    const { logger, liferay, progress } = this.ctx;
+    const { sessionId } = options;
+    const correlationId = config?.correlationId || '∅';
+
+    this.validateConfig(config, options);
+    await this.validateOptions(config, options);
+
+    const entityType = 'media-pdfs';
+    const operation = 'generate';
+    const batchId = `pdfs-individual-${Date.now()}`;
+    const batchERC = createERC(ERC_PREFIX.MEDIA_BATCH);
+
+    const productsWithPdfs = this.selectProductsForPDFs(products, options.pdfRatio || 0);
+
+    if (productsWithPdfs.length === 0) {
+      logger.info('No products selected for PDF generation.', { sessionId });
+      return;
+    }
+
+    progress.batchStarted({
+      batchId,
+      batchERC,
+      entityType,
+      totalItems: productsWithPdfs.length,
+      operation,
+      sessionId,
+      correlationId
+    });
+
+    let completedCount = 0;
+    for (const product of productsWithPdfs) {
+        try {
+            const pdfData = { title: `${product.name.en_US} Manual`, sections: [{ title: 'Overview', content: product.description.en_US }] };
+            const sku = product.skus[0]?.sku || product.externalReferenceCode;
+            const uploadResult = await this.generateAndUploadProductPDF(pdfData, sku, config);
+
+            await liferay.addProductDocumentAttachment(config, product.id, {
+                title: { en_US: uploadResult.fileName },
+                src: uploadResult.objectPath,
+                type: 'document'
+            });
+
+            completedCount++;
+        } catch (error) {
+            logger.error(`Failed to create PDF for product ${product.id}`, { sessionId, error: error.message });
+        }
+        progress.batchProgress({
+            batchId,
+            batchERC,
+            entityType,
+            completedCount,
+            totalItems: productsWithPdfs.length,
+            operation,
+            sessionId,
+            correlationId,
+        });
+    }
+
+    progress.batchCompleted({
+      batchId,
+      batchERC,
+      entityType,
+      successCount: completedCount,
+      failureCount: productsWithPdfs.length - completedCount,
+      operation,
+      sessionId,
+      correlationId,
+    });
+  }
+
+  validateConfig(config, options) {
+    if (!options.demoMode && (options.imageRatio ?? 0) > 0) {
+        if (!config.imageGenerationKey) {
+            // This is a soft warning for now as picsum is used as a fallback
+            // In a real scenario, this might throw an error.
+            console.warn('Image generation API key not configured. Using placeholder images.');
+        }
+    }
+  }
+
+  async validateOptions(config, options) {
+    if (options.imageRatio && (typeof options.imageRatio !== 'number' || options.imageRatio < 0 || options.imageRatio > 100)) {
+        throw new Error('imageRatio must be a number between 0 and 100');
+    }
+    if (options.pdfRatio && (typeof options.pdfRatio !== 'number' || options.pdfRatio < 0 || options.pdfRatio > 100)) {
+        throw new Error('pdfRatio must be a number between 0 and 100');
+    }
   }
 }
 
