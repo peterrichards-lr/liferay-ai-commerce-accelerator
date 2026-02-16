@@ -14,6 +14,25 @@ The accelerator is composed of four main parts that work together:
 
 1.  **Batch Loader (`ai-commerce-accelerator-batch`)**: This client extension contains the initial, default data for the AI prompts and schemas. It uses Liferay's Batch Engine to load this configuration into Liferay's object storage.
 
+## Architectural Overview: Data Generation Workflow
+
+The microservice employs a sophisticated, stateful, and asynchronous architecture to manage the creation of large amounts of commerce data. Understanding this workflow is key to extending or debugging the service.
+
+*   **Stateful Workflow Engine**: At its core, the system is a state machine orchestrated by `batchCallbackService.cjs`. It uses a local SQLite database (`persistenceService.cjs`) to track the state of every generation job, including the sequence of steps and the status of each batch submitted to Liferay. This makes the process resilient to server restarts.
+
+*   **Asynchronous Batch Processing**: The architecture is designed around the limitations of Liferay's Headless Batch APIs.
+    1.  **Stateless Callbacks**: Liferay's batch engine callback does not contain context about the original request.
+    2.  **`batchERC` for Correlation**: To work around this, the microservice generates a unique identifier (`batchERC`) for each batch it submits. This ERC is appended as a query parameter to the callback URL.
+    3.  **State Lookup**: When Liferay calls the microservice's callback endpoint, the service uses the `batchERC` from the URL to look up the original context from its database, allowing it to resume the correct workflow.
+
+*   **Handling Entity Dependencies**: When creating entities with parent-child relationships (like Accounts and their Postal Addresses), the APIs often require the parent's numeric ID. Because of this constraint, the workflow must follow a multi-step process:
+    1.  Submit a batch to create the parent entities (e.g., Accounts).
+    2.  Wait for the batch to complete.
+    3.  Fetch the newly created parent entities to retrieve their system-generated IDs.
+    4.  Submit a new batch to create the child entities (e.g., Postal Addresses), now with the necessary parent IDs.
+
+This pattern, while adding steps, is a necessary consequence of the API design and ensures data integrity.
+
 ### Configurable Categories
 
 The available product categories are now dynamically configurable via the "AI Commerce Accelerator Configuration" UI. The categories are stored as a Liferay Object and can be managed through a dedicated panel, allowing administrators to easily update the product catalog without code changes.

@@ -496,3 +496,31 @@ The `steps` array within the session context will evolve from a simple array of 
 - Ensure that calls to `persistenceService.createSession` correctly pass the initial `currentSteps` based on the new structure.
 
 Rule: Zero-Silent-Failures — Every asynchronous operation in the Microservice CX must be wrapped in a NestJS Exception Filter that emits a WebSocket errorRef to the Frontend UI CX if it fails. Any logic over 10 lines requires a unit test using MSW to mock Liferay's response.
+
+---
+
+## Agent Analysis (Self-Correction & Findings)
+
+### Data Generation Architecture Review
+
+An analysis of the data generation workflow within the `ai-commerce-accelerator-microservice` component has been completed. The following points summarize the architecture and its constraints, serving as context for future modifications.
+
+1.  **Core Architecture is Sound**: The system uses a stateful, asynchronous, step-based workflow engine.
+    *   **Orchestrator**: `services/batchCallbackService.cjs` manages the state machine.
+    *   **State Persistence**: `services/persistenceService.cjs` uses a local SQLite database (`workflow_sessions`, `workflow_batches`) to track job state, which is crucial for resilience and debugging.
+    *   **Generators**: Files in `generators/*.cjs` define the sequence of steps for creating specific entities. `productGenerator.cjs` is the most complete implementation and should be considered the "best practice" template.
+
+2.  **Critical API Constraint**: Liferay's batch API callbacks are **stateless**. They do not return any context identifying the original request.
+    *   **Necessary Workaround**: The current implementation correctly works around this by generating a unique `batchERC` for each outbound batch request and appending it as a query parameter to the callback URL. This `batchERC` is the sole mechanism for correlating a callback with a persisted workflow step. **This pattern must be preserved.**
+
+3.  **Entity Dependency Pattern**: The creation of dependent entities (e.g., Account Addresses) requires the parent entity's numeric ID.
+    *   **Analysis**: The headless APIs (e.g., `/v1.0/accounts/{accountId}/postal-addresses/batch`) confirm this requirement. It is not possible to associate children using the parent's `externalReferenceCode` at creation time.
+    *   **Conclusion**: The observed pattern of **(1) Create Parents -> (2) Wait for Completion -> (3) Fetch Parent IDs -> (4) Create Children** is a necessary and correct implementation due to this API limitation. Suggestions to "optimize" this by removing the fetch step are not feasible.
+
+### Actionable Recommendations (Internal Improvements)
+
+The following recommendations are for internal code quality and maintainability, and they respect the external API constraints:
+
+*   **Standardize Validation**: All generators should implement `validateConfig` and `validateOptions` methods to fail fast.
+*   **Refactor `batchCallbackService`**: The `_checkSessionCompletion` method should be broken into smaller private helpers to improve readability.
+*   **Implement "Dry Run" Mode**: A `dryRun: true` flag would be highly beneficial for debugging. It would execute data generation but stop before making API calls, logging the final payload instead.
