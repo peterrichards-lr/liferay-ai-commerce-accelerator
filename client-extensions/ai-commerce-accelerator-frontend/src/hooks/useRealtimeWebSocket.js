@@ -257,34 +257,25 @@ export default function useRealtimeWebSocket({
         }
 
         case BATCH_PROGRESS: {
-          const {
+          const { entityType, operation: op, processedCount, totalItems } =
+            data;
+
+          logDebug('BATCH_PROGRESS received', {
             entityType,
             operation: op,
             processedCount,
-            completedCount,
             totalItems,
-          } = data;
+            raw: data,
+          });
 
-          const et = entityType ?? 'unknown';
-          const total = totalItems || 0;
-
-          if (et && onProgress) {
-            onProgress((prev) => {
-              const cur = prev?.[et] || { total, completed: 0, errors: [] };
-
-              const nextCompleted =
-                completedCount ?? (cur.completed || 0) + (processedCount || 0);
-
-              return {
-                ...prev,
-                [et]: {
-                  ...cur,
-                  total,
-                  completed: Math.min(nextCompleted, total || Infinity),
-                },
-              };
-            });
-          }
+          onLog?.(
+            `Batch progress ${tag(
+              entityType,
+              data.batchId,
+              op
+            )} — ${processedCount}/${totalItems}`,
+            'info'
+          );
 
           break;
         }
@@ -329,10 +320,10 @@ export default function useRealtimeWebSocket({
                 ...prev,
                 [entityType]: {
                   ...cur,
-                  total: cur.total || total || 0,
+                  total: cur.total || 0,
                   completed: Math.min(
                     nextCompleted,
-                    cur.total || total || Infinity
+                    cur.total || Infinity
                   ),
                 },
               };
