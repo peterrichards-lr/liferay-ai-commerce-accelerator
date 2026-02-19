@@ -14,39 +14,52 @@ const q = (params = {}) => {
   return parts.length ? `?${parts.join('&')}` : '';
 };
 
-const BASE = {
-  ADDRESS_ADMIN_API: '/o/headless-admin-address/v1.0',
-  CATALOG_API: '/o/headless-commerce-admin-catalog/v1.0',
-  PRICING_API: '/o/headless-commerce-admin-pricing/v1.0',
-  CHANNEL_API: '/o/headless-commerce-admin-channel/v1.0',
-  ORDER_API: '/o/headless-commerce-admin-order/v1.0',
-  USER_ADMIN_API: '/o/headless-admin-user/v1.0',
+const API_ROOT = {
+  ADDRESS: '/o/headless-admin-address/v1.0',
+  BATCH: '/o/headless-batch-engine/v1.0',
+  CATALOG: '/o/headless-commerce-admin-catalog/v1.0',
+  CHANNEL: '/o/headless-commerce-admin-channel/v1.0',
   DELIVERY: '/o/headless-delivery/v1.0',
-  C_OBJECT: '/o/c',
+  INVENTORY: '/o/headless-commerce-admin-inventory/v1.0',
+  OBJECT: '/o/c',
+  ORDER: '/o/headless-commerce-admin-order/v1.0',
+  PRICING: '/o/headless-commerce-admin-pricing/v1.0',
+  USER: '/o/headless-admin-user/v1.0',
+};
 
-  PRODUCTS: '/o/headless-commerce-admin-catalog/v1.0/products',
-  OPTIONS: '/o/headless-commerce-admin-catalog/v1.0/options',
-  OPTION_CATEGORIES: '/o/headless-commerce-admin-catalog/v1.0/optionCategories',
-  SPECIFICATIONS: '/o/headless-commerce-admin-catalog/v1.0/specifications',
-  CATALOGS: '/o/headless-commerce-admin-catalog/v1.0/catalogs',
-  CHANNELS: '/o/headless-commerce-admin-channel/v1.0/channels',
-  ACCOUNTS: '/o/headless-admin-user/v1.0/accounts',
-  ORDERS: '/o/headless-commerce-admin-order/v1.0/orders',
-  PRICE_LISTS: '/o/headless-commerce-admin-pricing/v1.0/priceLists',
-  ME: '/o/headless-admin-user/v1.0/my-user-account',
-  CURRENCIES: '/o/headless-commerce-admin-catalog/v1.0/currencies',
-  INVENTORY_API: '/o/headless-commerce-admin-inventory/v1.0',
-  BATCH_ENGINE_API: '/o/headless-batch-engine/v1.0',
-  POSTAL_ADDRESSES: '/o/headless-admin-user/v1.0/postal-addresses',
+const BASE = {
+  ADDRESS_ADMIN_API: API_ROOT.ADDRESS,
+  BATCH_ENGINE_API: API_ROOT.BATCH,
+  CATALOG_API: API_ROOT.CATALOG,
+  CHANNEL_API: API_ROOT.CHANNEL,
+  DELIVERY: API_ROOT.DELIVERY,
+  INVENTORY_API: API_ROOT.INVENTORY,
+  C_OBJECT: API_ROOT.OBJECT,
+  ORDER_API: API_ROOT.ORDER,
+  PRICING_API: API_ROOT.PRICING,
+  USER_ADMIN_API: API_ROOT.USER,
+
+  ACCOUNTS: `${API_ROOT.USER}/accounts`,
+  CATALOGS: `${API_ROOT.CATALOG}/catalogs`,
+  CHANNELS: `${API_ROOT.CHANNEL}/channels`,
+  CURRENCIES: `${API_ROOT.CATALOG}/currencies`,
+  ME: `${API_ROOT.USER}/my-user-account`,
+  OPTION_CATEGORIES: `${API_ROOT.CATALOG}/optionCategories`,
+  OPTIONS: `${API_ROOT.CATALOG}/options`,
+  ORDERS: `${API_ROOT.ORDER}/orders`,
+  POSTAL_ADDRESSES: `${API_ROOT.USER}/postal-addresses`,
+  PRICE_LISTS: `${API_ROOT.PRICING}/priceLists`,
+  PRODUCTS: `${API_ROOT.CATALOG}/products`,
+  SPECIFICATIONS: `${API_ROOT.CATALOG}/specifications`,
 };
 
 const VARIANT = {
-  products: 'camel',
-  options: 'kebab',
   optionCategories: 'kebab',
-  specifications: 'kebab',
+  options: 'kebab',
   postalAddresses: 'kebab',
-  pricing: 'camel'
+  pricing: 'camel',
+  products: 'camel',
+  specifications: 'kebab',
 };
 
 const CUSTOM_OBJECTS = {
@@ -57,6 +70,8 @@ const PATH = {
   BASE,
   VARIANT,
   CUSTOM_OBJECTS,
+
+  API_EXPLORER: '/o/api',
 
   WAREHOUSES: `${BASE.INVENTORY_API}/warehouses`,
   WAREHOUSE_INVENTORIES: (warehouseId) =>
@@ -80,8 +95,11 @@ const PATH = {
   PRODUCT_SKUS: (productId) => `${BASE.PRODUCTS}/${productId}/skus`,
   PRODUCT_OPTIONS: (productId) =>
     `${BASE.PRODUCTS}/${productId}/productOptions`,
+  PRODUCT_OPTION: (id) => `${BASE.CATALOG_API}/productOptions/${id}`,
   PRODUCT_SPECIFICATIONS: (productId) =>
-    `${BASE.PRODUCTS}/${productId}/product-specifications`,
+    `${BASE.PRODUCTS}/${productId}/productSpecifications`,
+  PRODUCT_SPECIFICATION: (id) =>
+    `${BASE.CATALOG_API}/productSpecifications/${id}`,
   PRODUCT_IMAGES: (productId) => `${BASE.PRODUCTS}/${productId}/images`,
   PRODUCT_ATTACHMENTS: (productId) =>
     `${BASE.PRODUCTS}/${productId}/attachments`,
@@ -94,10 +112,12 @@ const PATH = {
   PRODUCT_ATTACHMENTS_BY_BASE64: (erc) =>
     `${byERC(BASE.PRODUCTS, erc, VARIANT.products)}/attachments/by-base64`,
 
+  ATTACHMENT: (id) => `${BASE.CATALOG_API}/attachment/${id}`,
+
   OPTIONS: BASE.OPTIONS,
   OPTION_BY_ERC: (erc) => byERC(BASE.OPTIONS, erc, VARIANT.options),
   OPTION_VALUE: (optionValueId) =>
-    `/o/headless-commerce-admin-catalog/v1.0/optionValues/${optionValueId}`,
+    `${BASE.CATALOG_API}/optionValues/${optionValueId}`,
   OPTION_VALUES: (optionId) => `${BASE.OPTIONS}/${optionId}/optionValues`,
   OPTION_VALUE_BY_ERC: (optionId, erc) =>
     byERC(`${BASE.OPTIONS}/${optionId}/optionValues`, erc, VARIANT.options),
@@ -129,15 +149,16 @@ const PATH = {
 
   ACCOUNTS: BASE.ACCOUNTS,
   ACCOUNT: (accountId) => `${BASE.ACCOUNTS}/${accountId}`,
-  ACCOUNT_BY_ERC: (externalReferenceCode) =>
-    `/o/headless-admin-user/v1.0/accounts/by-external-reference-code/${externalReferenceCode}`,
+  ACCOUNT_BY_ERC: (erc) => byERC(BASE.ACCOUNTS, erc, 'kebab'),
   ACCOUNT_ADDRESSES: (accountId) =>
-    `/o/headless-admin-user/v1.0/accounts/${accountId}/postal-addresses`,
+    `${BASE.ACCOUNTS}/${accountId}/postal-addresses`,
   ACCOUNT_ADDRESSES_BATCH: (accountId, callbackURL) =>
-    `/o/headless-admin-user/v1.0/accounts/${accountId}/postal-addresses/batch?callbackURL=${enc(callbackURL)}`,
+    `${BASE.ACCOUNTS}/${accountId}/postal-addresses/batch?callbackURL=${enc(callbackURL)}`,
+  ACCOUNT_USERS: (accountId) =>
+    `${BASE.ACCOUNTS}/${accountId}/user-accounts`,
   ACCOUNTS_BATCH: (callbackURL) =>
-    `/o/headless-admin-user/v1.0/accounts/batch?callbackURL=${enc(callbackURL)}`,
-  
+    `${BASE.ACCOUNTS}/batch?callbackURL=${enc(callbackURL)}`,
+
   POSTAL_ADDRESSES: BASE.POSTAL_ADDRESSES,
   POSTAL_ADDRESS: (postalAddressId) =>
     `${BASE.POSTAL_ADDRESSES}/${postalAddressId}`,
@@ -145,6 +166,10 @@ const PATH = {
     `${byERC(BASE.POSTAL_ADDRESSES, erc, VARIANT.postalAddresses)}`,
 
   ORDERS: BASE.ORDERS,
+  ORDER: (orderId) => `${BASE.ORDERS}/${orderId}`,
+  ORDER_ITEMS: (orderId) => `${BASE.ORDERS}/${orderId}/orderItems`,
+  ORDER_ITEM: (orderItemId) =>
+    `${BASE.ORDER_API}/orderItems/${orderItemId}`,
   ORDERS_BATCH: (callbackURL) =>
     `${BASE.ORDERS}/batch${
       callbackURL ? `?callbackURL=${enc(callbackURL)}` : ''
@@ -197,21 +222,19 @@ const PATH = {
     `${BASE.C_OBJECT}/${plural}${q(params)}`,
 
   PRICE_LIST_BY_ERC: (erc) =>
-    byERC(`${BASE.PRICING_API}/priceLists`, erc, VARIANT.pricing),
+    byERC(BASE.PRICE_LISTS, erc, VARIANT.pricing),
 
   PRICE_ENTRIES: (priceListId) =>
-    `${BASE.PRICING_API}/priceLists/${enc(priceListId)}/priceEntries`,
+    `${BASE.PRICE_LISTS}/${enc(priceListId)}/priceEntries`,
   PRICE_ENTRIES_BY_ERC: (priceListERC) =>
     `${byERC(
-      `${BASE.PRICING_API}/priceLists`,
+      BASE.PRICE_LISTS,
       priceListERC,
       VARIANT.pricing,
     )}/priceEntries`,
-  PRICE_ENTRY_BY_ERC: (priceEntryERC) =>
-    `${byERC(`${BASE.PRICING_API}/priceEntries`,
-      priceEntryERC,
-      VARIANT.pricing,
-    )}`,
+  PRICE_ENTRY: (id) => `${BASE.PRICING_API}/priceEntries/${id}`,
+  PRICE_ENTRY_BY_ERC: (erc) =>
+    byERC(`${BASE.PRICING_API}/priceEntries`, erc, VARIANT.pricing),
 
   TIER_PRICES: (priceEntryId) =>
     `${BASE.PRICING_API}/priceEntries/${enc(priceEntryId)}/tierPrices`,
@@ -223,10 +246,10 @@ const PATH = {
     )}/tierPrices`,
 
   PRICE_LIST_ACCOUNT_GROUPS: (priceListId) =>
-    `${BASE.PRICING_API}/priceLists/${enc(priceListId)}/priceListAccountGroups`,
+    `${BASE.PRICE_LISTS}/${enc(priceListId)}/priceListAccountGroups`,
   PRICE_LIST_ACCOUNT_GROUPS_BY_ERC: (priceListERC) =>
     `${byERC(
-      `${BASE.PRICING_API}/priceLists`,
+      BASE.PRICE_LISTS,
       priceListERC,
       'camel',
     )}/priceListAccountGroups`,

@@ -1286,6 +1286,7 @@ class LiferayRestService {
         result = await this._deleteBatchNative(config, {
           entityName,
           ids,
+          idField: entityName === 'product' ? 'productId' : 'id',
           ...rest,
         });
       } else {
@@ -1902,7 +1903,7 @@ class LiferayRestService {
   async deleteProductOption(config, productId, productOptionId) {
     return await this._delete(
       config,
-      `${PATH.PRODUCT_OPTIONS(productId)}/${productOptionId}`,
+      PATH.PRODUCT_OPTION(productOptionId),
       null,
       'delete-product-option',
       'Failed to delete product option',
@@ -1921,7 +1922,7 @@ class LiferayRestService {
   async deleteProductSpecification(config, productId, productSpecificationId) {
     return await this._delete(
       config,
-      `${PATH.PRODUCT_SPECIFICATIONS(productId)}/${productSpecificationId}`,
+      PATH.PRODUCT_SPECIFICATION(productSpecificationId),
       null,
       'delete-product-specification',
       'Failed to delete product specification',

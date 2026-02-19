@@ -86,6 +86,7 @@ The microservice communicates with Liferay using both REST and GraphQL APIs. The
 - **Location**: `client-extensions/ai-commerce-accelerator-microservice/api-schemas/`
 - **Format**: OpenAPI (JSON)
 - **Purpose**: These specifications define the request and response shapes for all Liferay Headless REST APIs used by the microservice. They are the source of truth for REST client generation, request validation, and API usage analysis.
+- **Validation Mandate**: All REST API endpoints and path parameters MUST be validated against these schema files. A task is NOT considered complete until all implemented or modified API calls have been verified to match the paths and methods defined in the authoritative OpenAPI reference.
 
 #### GraphQL API
 - **Location**: `client-extensions/ai-commerce-accelerator-microservice/api-schemas/liferay_schema.graphql`

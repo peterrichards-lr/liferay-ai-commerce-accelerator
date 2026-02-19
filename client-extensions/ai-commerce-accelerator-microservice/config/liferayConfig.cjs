@@ -1,31 +1,26 @@
 const { ENV } = require('../utils/constants.cjs');
+const { PATH } = require('../utils/liferayPaths.cjs');
 
 module.exports = {
   endpoints: {
-    catalogs: '/o/headless-commerce-admin-catalog/v1.0/catalogs',
-    products: '/o/headless-commerce-admin-catalog/v1.0/products',
-    productSpecifications:
-      '/o/headless-commerce-admin-catalog/v1.0/products/{productId}/product-specifications',
-    productAttachments:
-      '/o/headless-commerce-admin-catalog/v1.0/products/{productId}/product-attachments',
+    catalogs: PATH.CATALOGS,
+    products: PATH.PRODUCTS,
+    productSpecifications: PATH.PRODUCT_SPECIFICATIONS('{productId}'),
+    productAttachments: PATH.PRODUCT_ATTACHMENTS('{productId}'),
 
-    accounts: '/o/headless-commerce-admin-account/v1.0/accounts',
-    accountAddresses:
-      '/o/headless-commerce-admin-account/v1.0/accounts/{accountId}/account-addresses',
-    accountUsers:
-      '/o/headless-commerce-admin-account/v1.0/accounts/{accountId}/account-users',
+    accounts: PATH.ACCOUNTS,
+    accountAddresses: PATH.ACCOUNT_ADDRESSES('{accountId}'),
+    accountUsers: PATH.ACCOUNT_USERS('{accountId}'),
 
-    orders: '/o/headless-commerce-admin-order/v1.0/orders',
-    orderItems:
-      '/o/headless-commerce-admin-order/v1.0/orders/{orderId}/order-items',
+    orders: PATH.ORDERS,
+    orderItems: PATH.ORDER_ITEMS('{orderId}'),
 
-    channels: '/o/headless-commerce-admin-channel/v1.0/channels',
+    channels: PATH.CHANNELS,
 
-    priceLists: '/o/headless-commerce-admin-pricing/v1.0/price-lists',
-    priceEntries:
-      '/o/headless-commerce-admin-pricing/v1.0/price-lists/{priceListId}/price-entries',
+    priceLists: PATH.PRICE_LISTS,
+    priceEntries: PATH.PRICE_ENTRIES('{priceListId}'),
 
-    apiExplorer: '/o/api',
+    apiExplorer: PATH.API_EXPLORER,
   },
 
   requestConfig: {
