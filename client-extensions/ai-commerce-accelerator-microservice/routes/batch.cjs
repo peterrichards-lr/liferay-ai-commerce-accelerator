@@ -94,7 +94,7 @@ module.exports = (app, { batchCallbackService, logger, ws }) => {
     res.status(200).send();
 
     try {
-      const batchERC = req.query.batchExternalReferenceCode || req.query.batchERC;
+      const batchERC = req.query.batchExternalReferenceCode;
       await batchCallbackService.processCallback(batchERC, req.body);
     } catch (error) {
       safeErrorResponse({

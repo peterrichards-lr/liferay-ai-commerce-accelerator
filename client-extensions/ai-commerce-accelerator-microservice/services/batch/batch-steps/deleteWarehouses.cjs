@@ -1,36 +1,21 @@
-const { asItems } = require('../../../utils/liferayUtils.cjs');
+const { PATH } = require('../../../utils/liferayPaths.cjs');
 
 module.exports = async function deleteWarehouses(
-  { liferay, persistence, batchCallback, logger },
-  { config, options, callbackUrl, batchERC, sessionId }
+  { liferay },
+  { config, options, ids, batchERC, sessionId }
 ) {
-  const warehouses = await liferay.getWarehouses(config, null, ['id'], {
-    page: 1,
+  const result = await liferay.deleteByFilter(config, {
+    entityName: 'warehouse',
+    ids,
     pageSize: 200,
+    externalReferenceCode: batchERC,
+    dryRun: options.dryRun,
+    sessionId,
+    nativeBatch: true,
+    path: PATH.WAREHOUSES_BATCH,
+    listUrl: PATH.WAREHOUSES,
+    op: 'warehouses:batch-delete',
+    friendly: 'Delete warehouses (batch)',
   });
-  const warehouseIds = asItems(warehouses).map((w) => w.id);
-
-  logger.info(`Found ${warehouseIds.length} warehouses to delete.`, {
-    warehouseIds,
-  });
-
-  for (const warehouseId of warehouseIds) {
-    try {
-      logger.info(`Attempting to delete warehouse ${warehouseId}`);
-      await liferay.deleteWarehouse(config, warehouseId);
-      logger.debug(`Deleted warehouse ${warehouseId}`);
-    } catch (error) {
-      logger.error(`Failed to delete warehouse ${warehouseId}`, {
-        error: error.message,
-        stack: error.stack,
-      });
-    }
-  }
-
-  await persistence.updateBatch(batchERC, { status: 'COMPLETED' });
-
-  // Manually trigger the session completion check to advance the workflow
-  await batchCallback._checkSessionCompletion(sessionId, config.correlationId);
-
-  return { success: true, count: warehouseIds.length };
+  return result;
 };

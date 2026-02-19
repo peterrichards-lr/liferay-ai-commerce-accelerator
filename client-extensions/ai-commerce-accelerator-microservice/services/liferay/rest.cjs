@@ -73,7 +73,6 @@ class LiferayRestService {
       
       const batchERC = meta.batchExternalReferenceCode || meta.batchERC;
       if (batchERC) {
-        u.searchParams.set('batchERC', String(batchERC));
         u.searchParams.set('batchExternalReferenceCode', String(batchERC));
       }
 
@@ -971,6 +970,87 @@ class LiferayRestService {
     return res;
   }
 
+  async _deleteByBatch(
+    config,
+    { batchUrl, ids, batchSize = 100, dryRun = false, op, friendly }
+  ) {
+    if (!ids || ids.length === 0) return { success: true, count: 0 };
+
+    const chunks = this._chunkArray(ids, batchSize);
+    const batchRefs = [];
+
+    for (const chunk of chunks) {
+      const payload = chunk.map((id) => ({ id }));
+
+      if (dryRun) {
+        logger.info(`[DRY RUN] Would delete batch of ${chunk.length} items`, {
+          url: batchUrl,
+        });
+        batchRefs.push({ taskId: `dry-run-${uuidv4()}`, count: chunk.length });
+        continue;
+      }
+
+      const res = await this._delete(config, batchUrl, payload, op, friendly);
+      batchRefs.push({ taskId: res.id, count: chunk.length });
+    }
+
+    return {
+      success: true,
+      count: ids.length,
+      batchRefs,
+    };
+  }
+
+  async _deleteByIds(
+    config,
+    { baseDeletePath, ids, concurrency = 5, retryOn = [404], dryRun = false, op, friendly }
+  ) {
+    if (!ids || ids.length === 0) return { success: true, count: 0 };
+
+    let deletedCount = 0;
+    const errors = [];
+
+    const chunks = this._chunkArray(ids, concurrency);
+
+    for (const chunk of chunks) {
+      await Promise.all(
+        chunk.map(async (id) => {
+          const url = `${baseDeletePath}/${id}`;
+          if (dryRun) {
+            logger.info(`[DRY RUN] Would delete entity at ${url}`);
+            deletedCount++;
+            return;
+          }
+
+          try {
+            await this._delete(config, url, null, op, friendly);
+            deletedCount++;
+          } catch (err) {
+            if (retryOn && retryOn.includes(err.status)) {
+              logger.debug(`Ignored error ${err.status} deleting ${url}`);
+              deletedCount++; // Count as "processed"
+              return;
+            }
+            errors.push({ id, error: err.message });
+          }
+        })
+      );
+    }
+
+    return {
+      success: errors.length === 0,
+      count: deletedCount,
+      errors: errors.length > 0 ? errors : undefined,
+    };
+  }
+
+  _chunkArray(arr, size) {
+    if (!size || size <= 0) size = 100;
+    return Array.from({ length: Math.ceil(arr.length / size) }, (v, i) =>
+      arr.slice(i * size, i * size + size)
+    );
+  }
+
   async _deleteBatchSimulated(
     config,
     { entityName, ids, dryRun, basePath, op, friendly, concurrency, retryOn },
@@ -993,44 +1073,120 @@ class LiferayRestService {
     });
   }
 
+  async _collectPagedItems(config, { listUrl, pageSize, filter, search, fields, op, friendly }) {
+    let allItems = [];
+    let page = 1;
+    let hasMore = true;
+
+    while (hasMore) {
+      const res = await this._get(config, listUrl, op, friendly, {
+        params: {
+          page,
+          pageSize,
+          filter,
+          search,
+          fields,
+        },
+      });
+
+      const items = asItems(res);
+      allItems = allItems.concat(items);
+
+      const totalCount = asCount(res);
+      hasMore = allItems.length < totalCount && items.length > 0;
+      page++;
+    }
+
+    return allItems;
+  }
+
+  async _getExclusions(config, entityName) {
+    const { config: configService } = this.ctx;
+    const excludeLists = await configService.getExcludeLists(config);
+    
+    const keyMap = {
+      account: 'excludedAccounts',
+      product: 'excludedProducts',
+      warehouse: 'excludedWarehouses',
+      priceList: 'excludedPriceLists',
+      order: 'excludedOrders',
+      specification: 'excludedSpecifications',
+      option: 'excludedOptions',
+      optionCategory: 'excludedOptionCategories',
+    };
+
+    const configKey = keyMap[entityName];
+    return excludeLists?.[configKey] || [];
+  }
+
+  _shouldExclude(item, exclusions) {
+    if (!exclusions || exclusions.length === 0) return false;
+
+    return exclusions.some((ex) => {
+      const idMatch = ex.entityId && (String(item.id) === String(ex.entityId) || String(item.productId) === String(ex.entityId));
+      const ercMatch = ex.erc && item.externalReferenceCode === ex.erc;
+      const nameMatch = ex.name && (item.name === ex.name || item.title === ex.name || (typeof item.name === 'object' && Object.values(item.name).includes(ex.name)));
+      
+      return idMatch || ercMatch || nameMatch;
+    });
+  }
+
   async deleteByFilter(
     config,
     { entityName, filter, search, searchPrefixes, nativeBatch, ids: providedIds, ...rest },
   ) {
     const { logger } = this.ctx;
 
-    const idSet = new Set(providedIds || []);
+    const exclusions = await this._getExclusions(config, entityName);
+    let itemsToDelete = [];
 
-    if (idSet.size === 0) {
+    if (providedIds && providedIds.length > 0) {
+      const fields = ['id', 'externalReferenceCode', 'name', 'title'];
+      const allItems = await this._collectPagedItems(config, {
+        listUrl: rest.listUrl,
+        pageSize: 200,
+        filter: providedIds.length < 50 ? `id in (${providedIds.join(',')})` : undefined,
+        fields: fields.join(','),
+        op: `${entityName}:list-for-exclusion`,
+        friendly: `Fetch ${entityName} for exclusion check`,
+      });
+      
+      itemsToDelete = allItems.filter(it => providedIds.includes(it.id || it.productId));
+    } else {
       const collect = async (args) => {
-        const ids = await this._collectPagedIds(config, {
+        const items = await this._collectPagedItems(config, {
           listUrl: rest.listUrl,
           pageSize: rest.pageSize,
           filter: args.filter,
           search: args.search,
-          fields: 'id',
+          fields: 'id,productId,externalReferenceCode,name,title',
           op: `${entityName}:list`,
           friendly: `List ${entityName}`,
         });
-        ids.forEach((id) => idSet.add(id));
+        return items;
       };
 
       if (Array.isArray(searchPrefixes) && searchPrefixes.length) {
         for (const s of searchPrefixes) {
-          await collect({ search: s });
+          itemsToDelete = itemsToDelete.concat(await collect({ search: s }));
         }
       } else if (search) {
-        await collect({ search });
+        itemsToDelete = await collect({ search });
       } else {
-        await collect({ filter });
+        itemsToDelete = await collect({ filter });
       }
     }
 
-    const ids = Array.from(idSet);
+    const filteredItems = itemsToDelete.filter(it => !this._shouldExclude(it, exclusions));
+    const ids = filteredItems.map(it => it.id || it.productId).filter(Boolean);
 
     if (ids.length === 0) {
-      logger.info(`No ${entityName} found to delete.`);
+      logger.info(`No ${entityName} found to delete after applying exclusions.`);
       return { success: true, count: 0 };
+    }
+
+    if (itemsToDelete.length > filteredItems.length) {
+      logger.info(`Excluded ${itemsToDelete.length - filteredItems.length} ${entityName} entries based on configuration.`);
     }
 
     if (nativeBatch) {
@@ -1607,12 +1763,12 @@ class LiferayRestService {
           params: {
             page: 1,
             pageSize: 1,
-            search: key,
+            filter: `key eq '${key}'`,
             fields: 'id,key,externalReferenceCode',
           },
         }
       );
-      const items = Array.isArray(res?.items) ? res.items : [];
+      const items = asItems(res);
       return items.find((it) => it.key === key) || null;
     } catch (error) {
       throw new Error(`Failed to get specification by key: ${error.message}`);
@@ -1818,6 +1974,17 @@ class LiferayRestService {
     }
   }
 
+  async updateOptionById(config, id, payload) {
+    const url = `${PATH.OPTIONS}/${encodeURIComponent(id)}`;
+    return this._put(
+      config,
+      url,
+      payload,
+      'update-option-by-id',
+      'Failed to update option by ID'
+    );
+  }
+
   async getOptionValueByERC(config, optionId, externalReferenceCode) {
     try {
       return await this._get(
@@ -1854,10 +2021,8 @@ class LiferayRestService {
   }
 
   async updateOptionValueById(config, optionId, valueId, payload) {
-    const url = `${PATH.OPTIONS}/${encodeURIComponent(
-      optionId,
-    )}/productOptionValues/${encodeURIComponent(valueId)}`;
-    return this._put(
+    const url = PATH.OPTION_VALUE(valueId);
+    return this._patch(
       config,
       url,
       payload,
@@ -1873,7 +2038,7 @@ class LiferayRestService {
     payload,
   ) {
     const url = PATH.OPTION_VALUE_BY_ERC(optionId, externalReferenceCode);
-    return this._put(
+    return this._patch(
       config,
       url,
       payload,
@@ -1902,12 +2067,12 @@ class LiferayRestService {
       const erc = payload?.externalReferenceCode;
       const key = payload?.key;
 
-      if (erc && typeof this.getOptionValueByERC === 'function') {
+      if (erc) {
         try {
           existing = await this.getOptionValueByERC(config, optionId, erc);
         } catch {}
       }
-      if (!existing && key && typeof this.getOptionValueByKey === 'function') {
+      if (!existing && key) {
         try {
           existing = await this.getOptionValueByKey(config, optionId, key);
         } catch {}
@@ -1915,22 +2080,12 @@ class LiferayRestService {
       if (!existing) throw e;
 
       if (erc && existing.externalReferenceCode !== erc) {
-        if (typeof this.updateOptionValueById === 'function') {
-          try {
-            await this.updateOptionValueById(config, optionId, existing.id, {
-              externalReferenceCode: erc,
-            });
-          } catch {}
-        } else if (typeof this.updateOptionValueByERC === 'function') {
-          try {
-            await this.updateOptionValueByERC(
-              config,
-              optionId,
-              existing.externalReferenceCode,
-              { externalReferenceCode: erc },
-            );
-          } catch {}
-        }
+        try {
+          await this.updateOptionValueById(config, optionId, existing.id, {
+            externalReferenceCode: erc,
+          });
+          existing.externalReferenceCode = erc;
+        } catch {}
       }
       return existing;
     }
@@ -1957,12 +2112,12 @@ class LiferayRestService {
           params: {
             page: 1,
             pageSize: 1,
-            search: key,
+            filter: `key eq '${key}'`,
             fields: 'id,key,externalReferenceCode,title,description,priority',
           },
         },
       );
-      const items = Array.isArray(res?.items) ? res.items : [];
+      const items = asItems(res);
       return items.find((it) => it.key === key) || null;
     } catch (error) {
       throw new Error(`Failed to get option category by key: ${error.message}`);
@@ -1990,8 +2145,8 @@ class LiferayRestService {
   }
 
   async updateOptionCategoryById(config, id, payload) {
-    const url = `${PATH.OPTION_CATEGORIES}/${encodeURIComponent(id)}`;
-    return this._put(
+    const url = PATH.OPTION_CATEGORY(id);
+    return this._patch(
       config,
       url,
       payload,

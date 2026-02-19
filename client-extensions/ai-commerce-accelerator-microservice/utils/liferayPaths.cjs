@@ -96,11 +96,15 @@ const PATH = {
 
   OPTIONS: BASE.OPTIONS,
   OPTION_BY_ERC: (erc) => byERC(BASE.OPTIONS, erc, VARIANT.options),
+  OPTION_VALUE: (optionValueId) =>
+    `/o/headless-commerce-admin-catalog/v1.0/optionValues/${optionValueId}`,
   OPTION_VALUES: (optionId) => `${BASE.OPTIONS}/${optionId}/optionValues`,
   OPTION_VALUE_BY_ERC: (optionId, erc) =>
     byERC(`${BASE.OPTIONS}/${optionId}/optionValues`, erc, VARIANT.options),
 
   OPTION_CATEGORIES: BASE.OPTION_CATEGORIES,
+  OPTION_CATEGORY: (optionCategoryId) =>
+    `${BASE.OPTION_CATEGORIES}/${optionCategoryId}`,
   OPTION_CATEGORIES_BATCH: (callbackURL) =>
     `${BASE.OPTION_CATEGORIES}/batch${
       callbackURL ? `?callbackURL=${enc(callbackURL)}` : ''

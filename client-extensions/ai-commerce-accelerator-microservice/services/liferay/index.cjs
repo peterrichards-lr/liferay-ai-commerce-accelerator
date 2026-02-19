@@ -203,6 +203,10 @@ class LiferayService {
     return this.rest.createOptionWithReuse(config, optionData);
   }
 
+  updateOptionById(config, id, payload) {
+    return this.rest.updateOptionById(config, id, payload);
+  }
+
   createOptionValue(config, optionId, optionValueData) {
     return this.rest.createOptionValue(config, optionId, optionValueData);
   }
@@ -253,6 +257,14 @@ class LiferayService {
   
   getOptionCategoryByERC(config, externalReferenceCode) {
     return this.rest.getOptionCategoryByERC(config, externalReferenceCode);
+  }
+
+  updateSpecificationById(config, id, payload) {
+    return this.rest.updateSpecificationById(config, id, payload);
+  }
+
+  getSpecificationByKey(config, key) {
+    return this.rest.getSpecificationByKey(config, key);
   }
 
   createSpecificationWithReuse(config, payload) {
