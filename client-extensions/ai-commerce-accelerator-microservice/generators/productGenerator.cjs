@@ -12,6 +12,7 @@ const {
   sanitizeForERC,
 } = require('../utils/misc.cjs');
 const { ERC_PREFIX } = require('../utils/constants.cjs');
+const { COMMERCE_CONSTRAINTS } = require('../utils/commerceConstants.cjs');
 const { sanitizedObject } = require('../utils/normalize.cjs');
 const { v4: uuidv4 } = require('uuid');
 const {
@@ -108,7 +109,7 @@ class ProductGenerator {
     if (options.reuseExistingWarehouses) {
       logger.info('Checking for existing warehouses...', { sessionId });
       const existingWarehouses = await liferay.getWarehouses(config);
-      warehouses = existingWarehouses || [];
+      warehouses = existingWarehouses?.items || [];
       logger.info('Found warehouses:', { warehouses, sessionId });
     }
 
@@ -416,7 +417,7 @@ class ProductGenerator {
       await persistence.createBatch({
         erc: createERC(ERC_PREFIX.BATCH), // Generic ERC for an empty step
         sessionId,
-        step_key: 'products',
+        stepKey: 'products',
         status: 'BYPASSED',
       });
       return;
@@ -655,7 +656,8 @@ class ProductGenerator {
     if (options.createWarehouses) {
       try {
         logger.info('Updating inventory for all products', { sessionId });
-        const createdProducts = await liferay.getProducts(config);
+        const productResponse = await liferay.getProducts(config);
+        const createdProducts = productResponse?.items;
         const ercToProductMap = new Map();
         
         if (createdProducts && Symbol.iterator in Object(createdProducts)) {
@@ -701,7 +703,7 @@ class ProductGenerator {
       config.correlationId
     );
   }
-
+  
   async onSessionComplete({ sessionId, session, correlationId }) {
     const { logger, ws, liferay, persistence, progress } = this.ctx;
 
@@ -805,7 +807,8 @@ class ProductGenerator {
       if (options.createWarehouses) {
         try {
           logger.info('Updating inventory for all products', { sessionId });
-          const createdProducts = await liferay.getProducts(sessionConfig);
+          const productResponse = await liferay.getProducts(sessionConfig);
+          const createdProducts = productResponse?.items;
           const ercToProductMap = new Map();
           for (const product of createdProducts) {
             ercToProductMap.set(product.externalReferenceCode, product);
@@ -968,18 +971,6 @@ class ProductGenerator {
     }
   }
 
-
-
-
-
-
-
-
-
-
-
-
-
   buildCategoryCounts(total, categories, mode = 'random', logger = null) {
     const counts = {};
     categories.forEach((c) => (counts[c] = 0));
@@ -1003,7 +994,7 @@ class ProductGenerator {
     }
     return counts;
   }
-
+  
   async createCatalogOptions(config, options) {
     const { logger, liferay } = this.ctx;
     const categories = options.categories;
@@ -1021,10 +1012,12 @@ class ProductGenerator {
       const name = optionName.toLowerCase();
       const characteristics = {
         fieldType: 'select',
-        skuContributor: true,
+        skuContributor: false,
         required: false,
         facetable: true,
       };
+
+      // Determine initial characteristics based on name and values
       if (
         values.length <= 4 &&
         (name.includes('type') ||
@@ -1036,6 +1029,7 @@ class ProductGenerator {
         characteristics.required = true;
         characteristics.skuContributor = true;
       }
+
       if (
         values.length === 2 &&
         (values.some(
@@ -1049,47 +1043,46 @@ class ProductGenerator {
           ))
       ) {
         characteristics.fieldType = 'checkbox';
-        characteristics.skuContributor = false;
-        characteristics.facetable = false;
       }
+
       if (
         name.includes('feature') ||
         name.includes('accessory') ||
         name.includes('addon')
       ) {
         characteristics.fieldType = 'checkbox_multiple';
-        characteristics.skuContributor = false;
       }
+
       if (
         name.includes('weight') ||
         name.includes('quantity') ||
         (name.includes('size') && values.some((v) => /\d/.test(v)))
       ) {
         characteristics.fieldType = 'numeric';
-        characteristics.skuContributor = false;
       }
+
       if (
         name.includes('custom') ||
         name.includes('personalization') ||
         name.includes('engraving')
       ) {
         characteristics.fieldType = 'text';
-        characteristics.skuContributor = false;
         characteristics.facetable = false;
       }
+
       if (
         name.includes('warranty') ||
         name.includes('delivery') ||
         name.includes('expiration')
       ) {
         characteristics.fieldType = 'date';
-        characteristics.skuContributor = false;
       }
+
       if (name.includes('schedule') || name.includes('appointment')) {
         characteristics.fieldType = 'select_date';
-        characteristics.skuContributor = false;
         characteristics.facetable = false;
       }
+
       if (
         name.includes('color') ||
         name.includes('size') ||
@@ -1097,13 +1090,37 @@ class ProductGenerator {
       ) {
         characteristics.required = true;
         characteristics.facetable = true;
+        characteristics.skuContributor = true;
       }
+
+      // FINAL VALIDATION: Enforce Liferay Commerce Constraints
+      
+      // 1. If it's a SKU contributor, it must have an allowed field type.
+      // If not, we disable SKU contribution to respect the detected field type.
+      if (
+        characteristics.skuContributor &&
+        !COMMERCE_CONSTRAINTS.SKU_CONTRIBUTOR_FIELD_TYPES.includes(
+          characteristics.fieldType,
+        )
+      ) {
+        characteristics.skuContributor = false;
+      }
+
+      // 2. Ensure fieldType is in the valid list (sanity check)
+      if (
+        !COMMERCE_CONSTRAINTS.VALID_FIELD_TYPES.includes(
+          characteristics.fieldType,
+        )
+      ) {
+        characteristics.fieldType = 'select';
+      }
+
       return characteristics;
     };
     const categoryOptionsMap = {
       Electronics: [
         { name: 'Color', values: ['Black', 'White', 'Silver', 'Space Gray'] },
-        { name: 'Storage', values: ['64GB', '128GB', '256GB', '512GB', '1TB'] },
+        { name: 'Storage', values: ['64GB', '18GB', '256GB', '512GB', '1TB'] },
         { name: 'Screen Size', values: ['5.4"', '6.1"', '6.7"', '12.9"'] },
         {
           name: 'Connectivity',
@@ -1212,7 +1229,7 @@ class ProductGenerator {
     }
     return catalogOptions;
   }
-
+  
   async createCatalogSpecifications(config, options) {
     const { logger, liferay } = this.ctx;
     const categories = options.categories;
@@ -1467,7 +1484,7 @@ class ProductGenerator {
             };
           }
 
-          const specification = await liferay.createSpecificationWithReuse(
+          const specification = await liferay.rest.createSpecificationWithReuse(
             config,
             specificationPayload
           );
@@ -1584,183 +1601,96 @@ class ProductGenerator {
 
     return catalogSpecifications;
   }
-
-  async createBasicProduct(config, productData, options = {}) {
+  async createBasicProduct(config, productData, options) {
     const { logger, liferay } = this.ctx;
-    try {
-      const ensuredERC =
-        productData.externalReferenceCode || createERC(ERC_PREFIX.PRODUCT);
+    const {
+      name,
+      description,
+      productType,
+      externalReferenceCode,
+      catalogId,
+      category,
+    } = productData;
 
-      const liferayProduct = {
-        active: productData.active !== undefined ? productData.active : true,
-        catalogId: parseInt(config.catalogId, 10),
-        name: toI18n(productData.name),
-        description: toI18n(
-          productData.description || 'AI generated product description'
-        ),
-        productType: productData.productType || 'simple',
-        externalReferenceCode: ensuredERC,
-      };
-      if (productData.shortDescription)
-        liferayProduct.shortDescription = toI18n(productData.shortDescription);
-      if (productData.urls) liferayProduct.urls = productData.urls;
-      if (productData.metaDescription)
-        liferayProduct.metaDescription = toI18n(productData.metaDescription);
-      if (productData.metaKeyword)
-        liferayProduct.metaKeyword = toI18n(productData.metaKeyword);
-      if (productData.metaTitle)
-        liferayProduct.metaTitle = toI18n(productData.metaTitle);
-      if (productData.skus && Array.isArray(productData.skus))
-        liferayProduct.skus = productData.skus;
-      if (options.generateSkuVariants && productData.defaultSku)
-        liferayProduct.defaultSku = productData.defaultSku;
-      if (
-        options.generateSkuVariants &&
-        productData.options &&
-        Array.isArray(productData.options)
-      )
-        liferayProduct.productOptions = productData.options;
-      if (
-        options.generateSpecifications &&
-        productData.specifications &&
-        Array.isArray(productData.specifications)
-      )
-        liferayProduct.productSpecifications = productData.specifications;
-      if (
-        options.generateSkuVariants &&
-        productData.skuVariants &&
-        Array.isArray(productData.skuVariants)
-      )
-        liferayProduct.skus = productData.skuVariants;
-      logger.info('Creating basic product', {
-        entityType: 'products',
-        operation: 'generate',
-        ...resolvePhaseAndMode({ useBatch: false, phase: 'submit' }),
-        sku: Array.isArray(liferayProduct.skus)
-          ? liferayProduct.skus[0]?.sku
-          : undefined,
-        name: liferayProduct.name?.en_US,
-        catalogId: liferayProduct.catalogId,
-        includeOptions: options.generateSkuVariants,
-        includeSpecifications: options.generateSpecifications,
-      });
-      const createdProduct = await liferay.createProduct(
-        config,
-        liferayProduct
-      );
-      logger.info('Basic product created successfully', {
-        entityType: 'products',
-        operation: 'generate',
-        ...resolvePhaseAndMode({ useBatch: false, phase: 'submit' }),
-        productId: createdProduct.id,
-        sku: createdProduct.defaultSku || createdProduct.skus?.[0]?.sku,
-      });
-      return createdProduct;
-    } catch (error) {
-      logger.error('Failed to create basic product', {
-        entityType: 'products',
-        operation: 'generate',
-        ...resolvePhaseAndMode({ useBatch: false, phase: 'error' }),
-        error: error.message,
-        sku: productData.baseSku || productData.sku || 'unknown',
-      });
-      throw error;
-    }
+    const payload = {
+      active: true,
+      catalogId: parseInt(config.catalogId, 10),
+      name: toI18n(name),
+      description: toI18n(description),
+      productType: productType || 'simple',
+      externalReferenceCode:
+        externalReferenceCode || createERC(ERC_PREFIX.PRODUCT),
+    };
+
+    const createdProduct = await liferay.createProduct(config, payload);
+    logger.info(`Created product: ${createdProduct.name.en_US}`, {
+      productId: createdProduct.id,
+    });
+    return createdProduct;
   }
+  async createSingleProduct(config, productData, options) {
+    const { logger, liferay } = this.ctx;
+    const {
+      name,
+      description,
+      productType,
+      externalReferenceCode,
+      catalogId,
+      category,
+      productOptions,
+      productSpecifications,
+    } = productData;
 
+    const payload = {
+      active: true,
+      catalogId: parseInt(config.catalogId, 10),
+      name: toI18n(name),
+      description: toI18n(description),
+      productType: productType || 'simple',
+      externalReferenceCode:
+        externalReferenceCode || createERC(ERC_PREFIX.PRODUCT),
+      productOptions: productOptions || [],
+      productSpecifications: productSpecifications || [],
+    };
+
+    const createdProduct = await liferay.createProduct(config, payload);
+    logger.info(`Created product: ${createdProduct.name.en_US}`, {
+      productId: createdProduct.id,
+    });
+    return createdProduct;
+  }
   async updateInventory(config, createdProduct, originalProduct, options) {
     const { logger, liferay } = this.ctx;
-    if (!options.warehouses || options.warehouses.length === 0) {
+    const { warehouses } = options;
+
+    if (!warehouses || warehouses.length === 0) {
+      logger.warn('No warehouses available to update inventory for', {
+        productId: createdProduct.id,
+      });
       return;
     }
 
-    logger.trace(`Updating inventory for product ${createdProduct.id}`);
-
-    const skus = createdProduct.skus || [];
-    for (const sku of skus) {
-      const inventoryLevel = sku.inventoryLevel || 0;
-      const inventoryPerWarehouse = Math.floor(
-        inventoryLevel / options.warehouses.length
-      );
-
-      for (const warehouse of options.warehouses) {
-        try {
-          if (options.dryRun) {
-            logger.info(`DRY RUN: Skipping inventory update for SKU ${sku.sku} in warehouse ${warehouse.name}`);
-          } else {
-            await liferay.updateProductInventory(config, warehouse.id, sku.sku, {
-                quantity: inventoryPerWarehouse,
-            });
+    for (const warehouse of warehouses) {
+      try {
+        await liferay.updateInventory(
+          config,
+          warehouse.id,
+          createdProduct.id,
+          {
+            sku: originalProduct.sku,
+            quantity: originalProduct.quantity,
+            neverExpire: true,
           }
-          logger.trace(
-            `Updated inventory for SKU ${sku.sku} in warehouse ${warehouse.name}`
-          );
-        } catch (error) {
-          logger.error(
-            `Failed to update inventory for SKU ${sku.sku} in warehouse ${warehouse.name}`,
-            error
-          );
-        }
+        );
+        logger.info(
+          `Updated inventory for product ${createdProduct.id} in warehouse ${warehouse.id}`
+        );
+      } catch (error) {
+        logger.error(
+          `Failed to update inventory for product ${createdProduct.id} in warehouse ${warehouse.id}`,
+          { error: error.message }
+        );
       }
-    }
-  }
-
-  async createSingleProduct(config, productData, options) {
-    const { logger } = this.ctx;
-    try {
-      const createdProduct = await this.createBasicProduct(
-        config,
-        productData,
-        options
-      );
-      logger.info('Adding optional product components', {
-        entityType: 'products',
-        operation: 'generate',
-        ...resolvePhaseAndMode({ useBatch: false, phase: 'submit' }),
-        productId: createdProduct.id,
-        options: {
-          generateSkuVariants: options.generateSkuVariants,
-          generateSpecifications: options.generateSpecifications,
-          generateAttachments: options.generateAttachments,
-        },
-      });
-      if (
-        options.generateSkuVariants &&
-        options.catalogOptions &&
-        options.catalogOptions.length > 0
-      )
-        await this.addProductOptions(
-          config,
-          createdProduct.id,
-          options.catalogOptions
-        );
-      if (
-        options.generateSpecifications &&
-        (productData.specifications || options.catalogSpecifications)
-      )
-        await this.addProductSpecifications(
-          config,
-          createdProduct.id,
-          productData.specifications,
-          options.catalogSpecifications
-        );
-      if (options.generateAttachments && productData.attachments)
-        await this.addProductAttachments(
-          config,
-          createdProduct.id,
-          productData.attachments,
-          options
-        );
-      return createdProduct;
-    } catch (error) {
-      logger.error('Failed to create single product with all components', {
-        entityType: 'products',
-        operation: 'generate',
-        ...resolvePhaseAndMode({ useBatch: false, phase: 'error' }),
-        error: error.message,
-        sku: productData.baseSku || productData.sku || 'unknown',
-      });
-      throw error;
     }
   }
 }

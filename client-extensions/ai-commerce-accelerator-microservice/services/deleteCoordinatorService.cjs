@@ -30,6 +30,7 @@ class DeleteCoordinatorService {
       context: {
         config,
         options,
+        sessionId, // Pass it explicitly in context
         steps, // Store the full workflow definition
       },
     });

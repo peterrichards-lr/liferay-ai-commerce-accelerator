@@ -91,6 +91,14 @@ The microservice communicates with Liferay using both REST and GraphQL APIs. The
 - **Location**: `client-extensions/ai-commerce-accelerator-microservice/api-schemas/liferay_schema.graphql`
 - **Format**: GraphQL Schema Definition Language (SDL)
 - **Purpose**: This schema defines the types, queries, and mutations available through Liferay's Headless GraphQL API. It is used for crafting GraphQL queries and understanding the available data graph.
+- **Validation Mandate**: All GraphQL queries MUST be validated against this schema file. A task is NOT considered complete until all implemented or modified queries have been verified to match the available types and fields in this authoritative reference.
+
+### GraphQL Query Validation
+To ensure reliability and prevent runtime errors (e.g., requesting non-existent fields), every developer and AI agent must perform a manual or automated check of every GraphQL query against the local `liferay_schema.graphql` file. Specifically:
+1.  **Field Existence**: Verify that every field requested in a selection set exists on the corresponding type in the schema.
+2.  **Namespace Verification**: Ensure the top-level query namespace (e.g., `headlessCommerceAdminOrder_v1_0`) is present and correctly spelled.
+3.  **Argument Validation**: Confirm that all arguments passed to query methods match the schema's definitions.
+4.  **Definition of Done**: Verification against the local schema is a mandatory step in the "Definition of Done" for any task involving GraphQL.
 
 ------------------------------------------------------------------------
 

@@ -43,6 +43,10 @@ class LiferayService {
     return this.rest.getCommerceAccounts(config, args);
   }
   
+  getOptionCategories(config, args) {
+    return this.rest.getOptionCategories(config, args);
+  }
+  
   getPrimaryAccountId(config) {
     return this.rest.getPrimaryAccountId(config);
   }
@@ -155,6 +159,18 @@ class LiferayService {
     return this.rest.deletePriceListsBatch(config, args);
   }
 
+  deleteSpecificationsBatch(config, args) {
+    return this.rest.deleteSpecificationsBatch(config, args);
+  }
+
+  deleteOptionsBatch(config, args) {
+    return this.rest.deleteOptionsBatch(config, args);
+  }
+
+  deleteOptionCategoriesBatch(config, args) {
+    return this.rest.deleteOptionCategoriesBatch(config, args);
+  }
+
   createPriceEntry(config, priceListId, priceEntryData) {
     return this.rest.createPriceEntry(config, priceListId, priceEntryData);
   }
@@ -165,6 +181,14 @@ class LiferayService {
 
   createProductSku(config, productId, skuData) {
     return this.rest.createProductSku(config, productId, skuData);
+  }
+
+  addProductImage(config, productId, image) {
+    return this.rest.addProductImage(config, productId, image);
+  }
+
+  addProductDocumentAttachment(config, productId, attachment) {
+    return this.rest.addProductDocumentAttachment(config, productId, attachment);
   }
 
   addProductOptions(config, productId, productOptions) {
@@ -231,6 +255,10 @@ class LiferayService {
     return this.rest.getOptionCategoryByERC(config, externalReferenceCode);
   }
 
+  createSpecificationWithReuse(config, payload) {
+    return this.rest.createSpecificationWithReuse(config, payload);
+  }
+
   setBillingAndShippingAddresses(config, accountId, shippingAddressId, billingAddressId) {
     return this.rest.setBillingAndShippingAddresses(config, accountId, shippingAddressId, billingAddressId);
   }
@@ -262,6 +290,14 @@ class LiferayService {
 
   getSpecifications(config, filter, fields, pagination) {
     return this.graphql.getSpecifications(config, filter, fields, pagination);
+  }
+
+  getSpecificationsByProductIds(config, productIds, fields) {
+    return this.graphql.getSpecificationsByProductIds(config, productIds, fields);
+  }
+
+  getOptionsByProductIds(config, productIds, fields) {
+    return this.graphql.getOptionsByProductIds(config, productIds, fields);
   }
 
   getAccountsByERC(config, ercs, fields) {

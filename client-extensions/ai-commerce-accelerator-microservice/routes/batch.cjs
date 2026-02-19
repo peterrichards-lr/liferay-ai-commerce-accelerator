@@ -4,7 +4,13 @@ const { createERC, resolveErrorReference } = require('../utils/misc.cjs');
 const { ERC_PREFIX } = require('../utils/constants.cjs');
 
 function readSafeQuery(req) {
-  const ALLOWED = new Set(['sessionId', 'batchERC', 'opCode', 'entity']);
+  const ALLOWED = new Set([
+    'sessionId',
+    'batchERC',
+    'batchExternalReferenceCode',
+    'opCode',
+    'entity',
+  ]);
   const SAFE_RE = /^[a-zA-Z0-9._:-]+$/;
   const out = {};
   for (const [k, v] of Object.entries(req.query || {})) {
@@ -88,7 +94,8 @@ module.exports = (app, { batchCallbackService, logger, ws }) => {
     res.status(200).send();
 
     try {
-      await batchCallbackService.processCallback(req.query.batchERC, req.body);
+      const batchERC = req.query.batchExternalReferenceCode || req.query.batchERC;
+      await batchCallbackService.processCallback(batchERC, req.body);
     } catch (error) {
       safeErrorResponse({
         res,

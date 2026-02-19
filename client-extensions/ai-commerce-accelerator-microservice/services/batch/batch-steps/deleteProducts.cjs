@@ -1,19 +1,22 @@
+const { PATH } = require('../../../utils/liferayPaths.cjs');
+
 module.exports = async function deleteProducts(
   { liferay },
-  { config, options, catalogId, batchERC, ids }
+  { config, options, ids, catalogId, batchERC, sessionId }
 ) {
-  let result;
-  if (catalogId) {
-    const productConfig = { ...config, catalogId };
-    result = await liferay.deleteCommerceProducts(
-      productConfig,
-      { ...options, catalogId, callbackBatchERC: batchERC }
-    );
-  } else {
-    result = await liferay.deleteAllCommerceProducts(
-      config,
-      { ...options, callbackBatchERC: batchERC }
-    );
-  }
+  const result = await liferay.deleteByFilter(config, {
+    entityName: 'product',
+    ids,
+    filter: catalogId ? `catalogId eq ${catalogId}` : undefined,
+    pageSize: 200,
+    externalReferenceCode: batchERC,
+    dryRun: options.dryRun,
+    sessionId,
+    nativeBatch: true,
+    path: PATH.PRODUCTS_BATCH,
+    listUrl: PATH.PRODUCTS,
+    op: 'products:batch-delete',
+    friendly: 'Delete products (batch)',
+  });
   return result;
 };

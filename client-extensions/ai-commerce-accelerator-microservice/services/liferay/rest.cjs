@@ -21,6 +21,8 @@ const { delay, createERC } = require('../../utils/misc.cjs');
 const { sanitizedERC } = require('../../utils/normalize.cjs');
 const { parse } = require('csv-parse/sync');
 const { getBatchCacheTTLms } = require('../../utils/ttl.cjs');
+const { COMMERCE_CONSTRAINTS } = require('../../utils/commerceConstants.cjs');
+const { asItems, asCount } = require('../../utils/liferayUtils.cjs');
 
 const SOFT_STATUS_BY_OP = {
   'accounts:list': [404],
@@ -68,7 +70,13 @@ class LiferayRestService {
         const opCode = OP_MAP[raw] || 'X';
         u.searchParams.set('opCode', opCode);
       }
-      if (meta.batchERC) u.searchParams.set('batchERC', String(meta.batchERC));
+      
+      const batchERC = meta.batchExternalReferenceCode || meta.batchERC;
+      if (batchERC) {
+        u.searchParams.set('batchERC', String(batchERC));
+        u.searchParams.set('batchExternalReferenceCode', String(batchERC));
+      }
+
       if (meta.sessionId)
         u.searchParams.set('sessionId', String(meta.sessionId));
       return u.toString();
@@ -269,16 +277,6 @@ class LiferayRestService {
     }
   }
 
-  _asCount(data) {
-    return data?.totalCount || data?.items?.totalCount || 0;
-  }
-
-  _asItems(data) {
-    if (Array.isArray(data)) return data;
-    if (Array.isArray(data?.items)) return data.items;
-    return [];
-  }
-
   async _downloadFile(config, url, destination) {
     const writer = fs.createWriteStream(destination);
 
@@ -382,6 +380,34 @@ class LiferayRestService {
     });
   }
 
+  async _collectPagedIds(config, { listUrl, pageSize, filter, search, fields, op, friendly, idKey = 'id' }) {
+    let allIds = [];
+    let page = 1;
+    let hasMore = true;
+
+    while (hasMore) {
+      const res = await this._get(config, listUrl, op, friendly, {
+        params: {
+          page,
+          pageSize,
+          filter,
+          search,
+          fields,
+        },
+      });
+
+      const items = asItems(res);
+      const ids = items.map((it) => it[idKey]).filter((id) => id !== undefined && id !== null);
+      allIds = allIds.concat(ids);
+
+      const totalCount = asCount(res);
+      hasMore = allIds.length < totalCount && items.length > 0;
+      page++;
+    }
+
+    return allIds;
+  }
+
   _normalizePermissionItems(items = []) {
     const map = new Map();
     for (const { roleName, actionIds } of items) {
@@ -448,7 +474,7 @@ class LiferayRestService {
       ops.getPath(id),
       `get-permissions:${assetType}`,
     );
-    return this._asItems(data);
+    return asItems(data);
   }
 
   async _putPermissions(config, assetType, id, items) {
@@ -596,7 +622,7 @@ class LiferayRestService {
 
   async getCatalogs(config) {
     const data = await this._get(config, PATH.CATALOGS, 'get-catalogs');
-    return this._asItems(data);
+    return asItems(data);
   }
 
   async getCatalog(config, catalogId) {
@@ -610,7 +636,7 @@ class LiferayRestService {
 
   async getChannels(config) {
     const data = await this._get(config, PATH.CHANNELS, 'get-channels');
-    return this._asItems(data);
+    return asItems(data);
   }
 
   async getProductCount(config) {
@@ -618,7 +644,7 @@ class LiferayRestService {
       PATH.PRODUCTS +
       (config.catalogId ? `?filter=catalogId eq ${config.catalogId}` : '');
     const data = await this._get(config, url, 'get-products');
-    return this._asCount(data);
+    return asCount(data);
   }
 
   async getCommerceProducts(
@@ -732,49 +758,10 @@ class LiferayRestService {
 
   async getAccountCount(config) {
     const data = await this._get(config, PATH.ACCOUNTS, 'get-accounts');
-    return this._asCount(data);
+    return asCount(data);
   }
 
   async getImportTask(config, batchId) {
-    if (config.demoMode) {
-      const { logger } = this.ctx;
-      logger.warn(
-        '********************************************************************************',
-      );
-      logger.warn(
-        'LiferayRestService.getImportTask is using a mock implementation for demo mode.',
-      );
-      logger.warn(
-        '********************************************************************************',
-      );
-
-      return Promise.resolve({
-        data: {
-          className: 'com.liferay.headless.admin.user.dto.v1_0.Account',
-          contentType: 'JSON',
-          endTime: new Date().toISOString(),
-          errorMessage:
-            'java.lang.IllegalArgumentException: Unrecognized field "domains" (class com.liferay.headless.admin.user.dto.v1_0.AccountContactInformation), not marked as ignorable',
-          executeStatus: 'FAILED',
-          externalReferenceCode: '504d9fc4-d4fa-4960-c350-df7014cff5f4',
-          failedItems: [
-            {
-              item: 'Unable to read item at index 1',
-              itemIndex: 1,
-              message:
-                'java.lang.IllegalArgumentException: Unrecognized field "domains" (class com.liferay.headless.admin.user.dto.v1_0.AccountContactInformation), not marked as ignorable',
-            },
-          ],
-          id: batchId,
-          importStrategy: 'ON_ERROR_FAIL',
-          operation: 'CREATE',
-          processedItemsCount: 0,
-          startTime: new Date().toISOString(),
-          totalItemsCount: 5,
-        },
-      });
-    }
-
     return await this._get(
       config,
       PATH.IMPORT_TASK(batchId),
@@ -1008,36 +995,43 @@ class LiferayRestService {
 
   async deleteByFilter(
     config,
-    { entityName, filter, search, searchPrefixes, nativeBatch, ...rest },
+    { entityName, filter, search, searchPrefixes, nativeBatch, ids: providedIds, ...rest },
   ) {
     const { logger } = this.ctx;
 
-    const idSet = new Set();
+    const idSet = new Set(providedIds || []);
 
-    const collect = async (args) => {
-      const ids = await this._collectPagedIds(config, {
-        listUrl: rest.listUrl,
-        pageSize: rest.pageSize,
-        filter: args.filter,
-        search: args.search,
-        fields: 'id',
-        op: `${entityName}:list`,
-        friendly: `List ${entityName}`,
-      });
-      ids.forEach((id) => idSet.add(id));
-    };
+    if (idSet.size === 0) {
+      const collect = async (args) => {
+        const ids = await this._collectPagedIds(config, {
+          listUrl: rest.listUrl,
+          pageSize: rest.pageSize,
+          filter: args.filter,
+          search: args.search,
+          fields: 'id',
+          op: `${entityName}:list`,
+          friendly: `List ${entityName}`,
+        });
+        ids.forEach((id) => idSet.add(id));
+      };
 
-    if (Array.isArray(searchPrefixes) && searchPrefixes.length) {
-      for (const s of searchPrefixes) {
-        await collect({ search: s });
+      if (Array.isArray(searchPrefixes) && searchPrefixes.length) {
+        for (const s of searchPrefixes) {
+          await collect({ search: s });
+        }
+      } else if (search) {
+        await collect({ search });
+      } else {
+        await collect({ filter });
       }
-    } else if (search) {
-      await collect({ search });
-    } else {
-      await collect({ filter });
     }
 
     const ids = Array.from(idSet);
+
+    if (ids.length === 0) {
+      logger.info(`No ${entityName} found to delete.`);
+      return { success: true, count: 0 };
+    }
 
     if (nativeBatch) {
       return await this._deleteBatchNative(config, {
@@ -1112,7 +1106,7 @@ class LiferayRestService {
 
   async getCurrencies(config) {
     const data = await this._get(config, PATH.CURRENCIES, 'get-currencies');
-    const items = this._asItems(data);
+    const items = asItems(data);
     return items.map((currency) => ({
       code: currency.code,
       name: currency.name?.[config.languageId],
@@ -1125,7 +1119,7 @@ class LiferayRestService {
       PATH.SITE_LANGUAGES(siteGroupId),
       'get-site-languages',
     );
-    return this._asItems(data);
+    return asItems(data);
   }
 
   async createProduct(config, productData) {
@@ -1234,7 +1228,7 @@ class LiferayRestService {
       { params: { pageSize: 1000, active: true } },
     );
 
-    countries = this._asItems(data);
+    countries = asItems(data);
 
     logger.debug('[getCountries] - API call completed', {
       correlationId,
@@ -1280,7 +1274,7 @@ class LiferayRestService {
       null,
       { params: { pageSize: 1000, active: true } },
     );
-    regions = this._asItems(data);
+    regions = asItems(data);
 
     logger.debug('[getCountryRegions] - API call completed', {
       correlationId,
@@ -1375,7 +1369,7 @@ class LiferayRestService {
       entityName: 'order',
       items: ordersData,
       externalReferenceCode: opts.externalReferenceCode,
-      itemERCKey: 'orderNumber',
+      itemERCKey: 'externalReferenceCode',
       op: 'create-orders-batch',
       friendly: 'Failed to create orders batch',
       path: PATH.ORDERS_BATCH,
@@ -1445,6 +1439,87 @@ class LiferayRestService {
       listUrl: PATH.PRICE_LISTS,
       op: 'pricelists:batch-delete',
       friendly: 'Delete price lists (batch)',
+    });
+  }
+
+  async deleteSpecificationsBatch(
+    config,
+    {
+      pageSize = 200,
+      filter,
+      ids,
+      callbackBatchERC,
+      dryRun = false,
+      sessionId,
+    } = {},
+  ) {
+    return this.deleteByFilter(config, {
+      entityName: 'specification',
+      filter,
+      ids,
+      pageSize,
+      externalReferenceCode: callbackBatchERC,
+      dryRun,
+      sessionId,
+      nativeBatch: true,
+      path: PATH.SPECIFICATIONS_BATCH,
+      listUrl: PATH.SPECIFICATIONS,
+      op: 'specifications:batch-delete',
+      friendly: 'Delete specifications (batch)',
+    });
+  }
+
+  async deleteOptionsBatch(
+    config,
+    {
+      pageSize = 200,
+      filter,
+      ids,
+      callbackBatchERC,
+      dryRun = false,
+      sessionId,
+    } = {},
+  ) {
+    return this.deleteByFilter(config, {
+      entityName: 'option',
+      filter,
+      ids,
+      pageSize,
+      externalReferenceCode: callbackBatchERC,
+      dryRun,
+      sessionId,
+      nativeBatch: true,
+      path: PATH.OPTIONS_BATCH,
+      listUrl: PATH.OPTIONS,
+      op: 'options:batch-delete',
+      friendly: 'Delete options (batch)',
+    });
+  }
+
+  async deleteOptionCategoriesBatch(
+    config,
+    {
+      pageSize = 200,
+      filter,
+      ids,
+      callbackBatchERC,
+      dryRun = false,
+      sessionId,
+    } = {},
+  ) {
+    return this.deleteByFilter(config, {
+      entityName: 'optionCategory',
+      filter,
+      ids,
+      pageSize,
+      externalReferenceCode: callbackBatchERC,
+      dryRun,
+      sessionId,
+      nativeBatch: true,
+      path: PATH.OPTION_CATEGORIES_BATCH,
+      listUrl: PATH.OPTION_CATEGORIES,
+      op: 'optionCategories:batch-delete',
+      friendly: 'Delete option categories (batch)',
     });
   }
 
@@ -1607,6 +1682,34 @@ class LiferayRestService {
 
   async createOption(config, optionData) {
     const { logger } = this.ctx;
+
+    // Last-line-of-defense validation for Commerce constraints
+    if (
+      optionData.skuContributor &&
+      !COMMERCE_CONSTRAINTS.SKU_CONTRIBUTOR_FIELD_TYPES.includes(
+        optionData.fieldType,
+      )
+    ) {
+      logger.warn(
+        `REST: fieldType '${optionData.fieldType}' is incompatible with skuContributor. Disabling skuContributor.`,
+        { optionKey: optionData.key },
+      );
+      optionData.skuContributor = false;
+    }
+
+    if (
+      optionData.priceContributor &&
+      !COMMERCE_CONSTRAINTS.PRICE_CONTRIBUTOR_FIELD_TYPES.includes(
+        optionData.fieldType,
+      )
+    ) {
+      logger.warn(
+        `REST: fieldType '${optionData.fieldType}' is incompatible with priceContributor. Disabling priceContributor.`,
+        { optionKey: optionData.key },
+      );
+      optionData.priceContributor = false;
+    }
+
     logger.debug(`LiferayRestService.createOption called with:`, {
       optionKey: optionData.key,
       optionName: optionData.name?.en_US,
@@ -1960,6 +2063,10 @@ class LiferayRestService {
     }
   }
 
+  async getOptionCategories(config, { search, pageSize = 200, fields = 'id,key,externalReferenceCode' } = {}) {
+    return this._listOptionCategories(config, { search, pageSize, fields });
+  }
+
   async getPostalAddressByERC(config, externalReferenceCode) {
     try {
       return await this._get(
@@ -1971,6 +2078,26 @@ class LiferayRestService {
       if (error.response?.status === 404) return null;
       throw new Error(`Failed to get postal address by ERC: ${error.message}`);
     }
+  }
+
+  async addProductImage(config, productId, image) {
+    return await this._post(
+      config,
+      PATH.PRODUCT_IMAGES_BY_URL(productId),
+      image,
+      'add-product-image',
+      'Failed to add product image',
+    );
+  }
+
+  async addProductDocumentAttachment(config, productId, attachment) {
+    return await this._post(
+      config,
+      PATH.PRODUCT_ATTACHMENTS_BY_URL(productId),
+      attachment,
+      'add-product-document-attachment',
+      'Failed to add product document attachment',
+    );
   }
 
   async setBillingAndShippingAddresses(config, accountId, shippingAddressId, billingAddressId) {

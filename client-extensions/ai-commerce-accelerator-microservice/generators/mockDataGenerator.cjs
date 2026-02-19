@@ -11,6 +11,7 @@ const {
   randomPastDate,
 } = require('../utils/misc.cjs');
 const { ERC_PREFIX } = require('../utils/constants.cjs');
+const { COMMERCE_CONSTRAINTS } = require('../utils/commerceConstants.cjs');
 
 const ajv = new Ajv({ removeAdditional: true });
 addFormats(ajv);
@@ -269,7 +270,7 @@ class MockDataGenerator {
     const pricing =
       this.pricingData[category] || this.pricingData['Electronics'];
 
-    const { catalogId, generateSpecifications, generateSkuVariants } = options;
+    const { catalogId, generateSpecifications, generateSkuVariants, imageMode } = options;
 
     const categoryCode = toERCPart(category, 3);
     const localeSuffixMap = Object.fromEntries(
@@ -340,6 +341,7 @@ class MockDataGenerator {
         metaTitle,
         skus: [
           {
+            active: true,
             cost: Math.round(basePrice * 0.6),
             externalReferenceCode: sku,
             inventoryLevel: 10 + getRandomInt(41),
@@ -351,6 +353,15 @@ class MockDataGenerator {
           },
         ],
       };
+
+      if (imageMode && imageMode !== 'none') {
+        productData.images = [
+          {
+            src: 'default.webp',
+            type: 'image',
+          },
+        ];
+      }
 
       if (generateSpecifications) {
         productData.productSpecifications = this.generateSpecifications(
@@ -439,6 +450,7 @@ class MockDataGenerator {
         const variantPrice = Math.round(basePrice * (1 + priceModifier));
 
         const variant = {
+          active: true,
           sku: `${baseSku}-${value1.slice(0, 2).toUpperCase()}-${value2
             .slice(0, 2)
             .toUpperCase()}`,

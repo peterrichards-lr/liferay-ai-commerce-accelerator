@@ -1,11 +1,14 @@
+const { asItems } = require('../../../utils/liferayUtils.cjs');
+
 module.exports = async function deleteWarehouses(
   { liferay, persistence, batchCallback, logger },
   { config, options, callbackUrl, batchERC, sessionId }
 ) {
-  const warehouses = await liferay.getWarehousesPage(config, {
+  const warehouses = await liferay.getWarehouses(config, null, ['id'], {
+    page: 1,
     pageSize: 200,
   });
-  const warehouseIds = liferay._asItems(warehouses).map((w) => w.id);
+  const warehouseIds = asItems(warehouses).map((w) => w.id);
 
   logger.info(`Found ${warehouseIds.length} warehouses to delete.`, {
     warehouseIds,

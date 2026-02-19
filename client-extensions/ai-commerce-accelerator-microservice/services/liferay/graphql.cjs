@@ -2,8 +2,10 @@ const axios = require('axios');
 
 class LiferayGraphQLService {
   constructor(ctx) {
+    this.ctx = ctx;
     this.liferayUrl = ctx.liferayUrl;
     this.oauth = ctx.oauth;
+    this.logger = ctx.logger;
     this.maxBatchSize = 50;
     // Retry Settings
     this.maxRetries = 3;
@@ -31,8 +33,7 @@ class LiferayGraphQLService {
     const fieldSelection = fields.join(' ');
     const { page, pageSize } = pagination;
 
-    const gqlBody = {
-      query: `
+    const query = `
         query($filter: String, $page: Int, $pageSize: Int) {
           ${namespace} {
             ${queryMethod}(filter: $filter, page: $page, pageSize: $pageSize) {
@@ -45,15 +46,56 @@ class LiferayGraphQLService {
             }
           }
         }
-      `,
-      variables: {
-        filter,
-        page,
-        pageSize,
-      },
+      `;
+
+    const variables = {
+      filter,
+      page,
+      pageSize,
     };
 
+    const gqlBody = {
+      query,
+      variables,
+    };
+
+    this.logger.trace('Liferay GraphQL Request', {
+      operation: 'graphql:fetchByFilter',
+      namespace,
+      queryMethod,
+      gqlBody,
+      queryForGraphiQL: `QUERY:\n${query}\n\nVARIABLES:\n${JSON.stringify(variables, null, 2)}`,
+    });
+
     const response = await client.post('', gqlBody);
+
+    this.logger.trace('Liferay GraphQL Response', {
+      operation: 'graphql:fetchByFilter',
+      namespace,
+      queryMethod,
+      status: response.status,
+      data: response.data,
+    });
+
+    if (response.data.errors) {
+      this.logger.error('GraphQL errors detected in _fetchByFilter:', {
+        errors: response.data.errors,
+        namespace,
+        queryMethod,
+        filter
+      });
+      throw new Error(`GraphQL query failed: ${response.data.errors[0].message}`);
+    }
+
+    if (!response.data.data || !response.data.data[namespace]) {
+      this.logger.error('GraphQL response missing data for namespace:', {
+        namespace,
+        queryMethod,
+        data: response.data.data
+      });
+      throw new Error(`GraphQL response missing data for ${namespace}.${queryMethod}`);
+    }
+
     return response.data.data[namespace][queryMethod];
   }
 
@@ -76,8 +118,27 @@ class LiferayGraphQLService {
           a${index}: ${queryMethod}(externalReferenceCode: "${erc}") { ${fieldSelection} }
         `).join('\n');
 
-        const gqlBody = { query: `query { ${namespace} { ${aliasedQueries} } }` };
+        const query = `query { ${namespace} { ${aliasedQueries} } }`;
+        const gqlBody = { query };
+
+        this.logger.trace('Liferay GraphQL Request (by ERCs)', {
+          operation: 'graphql:fetchByERCs',
+          namespace,
+          queryMethod,
+          ercCount: batch.length,
+          gqlBody,
+          queryForGraphiQL: `QUERY:\n${query}`,
+        });
+
         const response = await client.post('', gqlBody);
+
+        this.logger.trace('Liferay GraphQL Response (by ERCs)', {
+          operation: 'graphql:fetchByERCs',
+          namespace,
+          queryMethod,
+          status: response.status,
+          data: response.data,
+        });
         
         const data = response.data.data[namespace];
         const results = Object.values(data);
@@ -92,6 +153,47 @@ class LiferayGraphQLService {
       });
 
       allResults = allResults.concat(result);
+    }
+    return allResults;
+  }
+
+  async _fetchByProductIds(config, namespace, queryMethod, productIds, fields) {
+    if (!Array.isArray(productIds) || productIds.length === 0) return [];
+
+    const client = await this._getClient(config);
+    const chunks = this._chunkArray(productIds, this.maxBatchSize);
+    let allResults = [];
+
+    for (const batch of chunks) {
+      const fieldSelection = fields.join(' ');
+      const aliasedQueries = batch.map((id, index) => `
+        a${index}: ${queryMethod}(id: ${id}, pageSize: 100) { items { ${fieldSelection} } }
+      `).join('\n');
+
+      const query = `query { ${namespace} { ${aliasedQueries} } }`;
+      const gqlBody = { query };
+
+      this.logger.trace(`Liferay GraphQL Request (${queryMethod})`, {
+        operation: `graphql:${queryMethod}`,
+        productCount: batch.length,
+        gqlBody,
+        queryForGraphiQL: `QUERY:\n${query}`,
+      });
+
+      const response = await client.post('', gqlBody);
+
+      this.logger.trace(`Liferay GraphQL Response (${queryMethod})`, {
+        operation: `graphql:${queryMethod}`,
+        status: response.status,
+        data: response.data,
+      });
+
+      if (response.data.data && response.data.data[namespace]) {
+        const results = Object.values(response.data.data[namespace]);
+        results.forEach(r => {
+          if (r?.items) allResults = allResults.concat(r.items);
+        });
+      }
     }
     return allResults;
   }
@@ -123,7 +225,7 @@ class LiferayGraphQLService {
     return this._fetchByFilter(config, 'headlessAdminUser_v1_0', 'accounts', filter, fields, pagination);
   }
 
-  async getOrders(config, filter, fields = ['id', 'externalReferenceCode', 'orderNumber'], pagination = { page: 1, pageSize: 200 }) {
+  async getOrders(config, filter, fields = ['id', 'externalReferenceCode'], pagination = { page: 1, pageSize: 200 }) {
     return this._fetchByFilter(config, 'headlessCommerceAdminOrder_v1_0', 'orders', filter, fields, pagination);
   }
 
@@ -141,6 +243,26 @@ class LiferayGraphQLService {
 
   async getSpecifications(config, filter, fields = ['id', 'key', 'externalReferenceCode'], pagination = { page: 1, pageSize: 200 }) {
     return this._fetchByFilter(config, 'headlessCommerceAdminCatalog_v1_0', 'specifications', filter, fields, pagination);
+  }
+
+  async getSpecificationsByProductIds(config, productIds) {
+    return this._fetchByProductIds(
+      config, 
+      'headlessCommerceAdminCatalog_v1_0', 
+      'productIdProductSpecifications', 
+      productIds, 
+      ['specificationId', 'optionCategoryId']
+    );
+  }
+
+  async getOptionsByProductIds(config, productIds) {
+    return this._fetchByProductIds(
+      config, 
+      'headlessCommerceAdminCatalog_v1_0', 
+      'productIdProductOptions', 
+      productIds, 
+      ['optionId']
+    );
   }
 
   async getAccountsByERC(config, ercs, fields = ['id', 'externalReferenceCode', 'name']) {

@@ -1,5 +1,6 @@
 const { createERC } = require('../../utils/misc.cjs');
 const { ERC_PREFIX } = require('../../utils/constants.cjs');
+const { asItems, asCount } = require('../../utils/liferayUtils.cjs');
 
 const BATCH_STEP_HANDLERS = require('./batch-steps/index.cjs');
 
@@ -95,6 +96,7 @@ class BatchCallbackService {
     const newActiveSteps = [];
 
     const completedStepNames = new Set(allBatchesForSession.filter(b => this._isBatchTerminal(b)).map(b => b.step_key));
+    const runningStepNames = new Set(allBatchesForSession.filter(b => !this._isBatchTerminal(b)).map(b => b.step_key));
 
     for (const step of workflowSteps) {
       if (step.type === 'parallel') {
@@ -103,7 +105,7 @@ class BatchCallbackService {
         }
 
         for (const subStep of step.steps) {
-          if (!completedStepNames.has(subStep.name)) {
+          if (!completedStepNames.has(subStep.name) && !runningStepNames.has(subStep.name)) {
             logger.info(`Starting parallel sub-step '${subStep.name}'`, { sessionId, subStepName: subStep.name });
             newActiveSteps.push(subStep);
             await this._startStep(subStep, sessionId, config, correlationId);
@@ -113,7 +115,7 @@ class BatchCallbackService {
       }
       else {
         const stepName = typeof step === 'string' ? step : step.name;
-        if (!completedStepNames.has(stepName)) {
+        if (!completedStepNames.has(stepName) && !runningStepNames.has(stepName)) {
           logger.info(`Starting synchronous step '${stepName}'`, { sessionId, nextStepName: stepName });
           newActiveSteps.push(step);
           await this._startStep(step, sessionId, config, correlationId);
@@ -295,6 +297,8 @@ class BatchCallbackService {
           sessionId,
           step_key: stepName,
           status: 'SYNCHRONOUS',
+          totalCount: 0,
+          processedCount: 0,
         });
         await this._checkSessionCompletion(sessionId, correlationId);
       }
@@ -336,7 +340,7 @@ class BatchCallbackService {
         step,
       });
 
-      await persistence.updateBatch(batchERC, { status: 'BYPASSED' });
+      await persistence.updateBatch(batchERC, { status: 'BYPASSED', totalCount: 0, processedCount: 0 });
 
       await this._checkSessionCompletion(
         sessionId,
@@ -355,6 +359,8 @@ class BatchCallbackService {
         ids,
         batchERC,
         sessionId,
+        channelId,
+        catalogId,
       };
 
       await handler(this.ctx, handlerContext);
@@ -390,9 +396,9 @@ class BatchCallbackService {
           pageSize: 200,
         });
         return {
-          items: liferay._asItems(res),
-          totalCount: liferay._asCount(res),
-          ids: liferay._asItems(res).map((it) => it.id),
+          items: asItems(res),
+          totalCount: asCount(res),
+          ids: asItems(res).map((it) => it.id),
         };
       },
       deleteProducts: async () => {
@@ -401,25 +407,25 @@ class BatchCallbackService {
           pageSize: 200,
         });
         return {
-          items: liferay._asItems(res),
-          totalCount: liferay._asCount(res),
-          ids: liferay._asItems(res).map((it) => it.productId),
+          items: asItems(res),
+          totalCount: asCount(res),
+          ids: asItems(res).map((it) => it.productId),
         };
       },
       deleteSpecifications: async () => {
-        const res = await liferay.getSpecifications(config, { pageSize: 200 });
+        const res = await liferay.getSpecifications(config, null, ['id', 'key', 'externalReferenceCode'], { page: 1, pageSize: 200 });
         return {
-          items: liferay._asItems(res),
-          totalCount: liferay._asCount(res),
-          ids: liferay._asItems(res).map((it) => it.id),
+          items: asItems(res),
+          totalCount: asCount(res),
+          ids: asItems(res).map((it) => it.id),
         };
       },
       deleteOptions: async () => {
-        const res = await liferay.getOptions(config, { pageSize: 200 });
+        const res = await liferay.getOptions(config, null, ['id', 'key', 'externalReferenceCode'], { page: 1, pageSize: 200 });
         return {
-          items: liferay._asItems(res),
-          totalCount: liferay._asCount(res),
-          ids: liferay._asItems(res).map((it) => it.id),
+          items: asItems(res),
+          totalCount: asCount(res),
+          ids: asItems(res).map((it) => it.id),
         };
       },
       deleteOptionCategories: async () => {
@@ -427,9 +433,9 @@ class BatchCallbackService {
           pageSize: 200,
         });
         return {
-          items: liferay._asItems(res),
-          totalCount: liferay._asCount(res),
-          ids: liferay._asItems(res).map((it) => it.id),
+          items: asItems(res),
+          totalCount: asCount(res),
+          ids: asItems(res).map((it) => it.id),
         };
       },
       deleteProductRelatedEntities: async () => {
@@ -446,30 +452,30 @@ class BatchCallbackService {
         };
       },
       deleteOrders: async () => {
-        const res = await liferay.getCommerceOrders(config, {
-          channelId,
+        const res = await liferay.getOrders(config, null, ['id', 'externalReferenceCode'], {
+          page: 1,
           pageSize: 200,
         });
         return {
-          items: liferay._asItems(res),
-          totalCount: liferay._asCount(res),
-          ids: liferay._asItems(res).map((it) => it.id),
+          items: asItems(res),
+          totalCount: asCount(res),
+          ids: asItems(res).map((it) => it.id),
         };
       },
       deleteWarehouses: async () => {
-        const res = await liferay.getWarehousesPage(config, { pageSize: 200 });
+        const res = await liferay.getWarehouses(config, null, ['id', 'externalReferenceCode', 'name'], { page: 1, pageSize: 200 });
         return {
-          items: liferay._asItems(res),
-          totalCount: liferay._asCount(res),
-          ids: liferay._asItems(res).map((it) => it.id),
+          items: asItems(res),
+          totalCount: asCount(res),
+          ids: asItems(res).map((it) => it.id),
         };
       },
       deletePriceLists: async () => {
-        const res = await liferay.getPriceLists(config, { pageSize: 200 });
+        const res = await liferay.getPriceLists(config, null, ['id', 'externalReferenceCode', 'name'], { page: 1, pageSize: 200 });
         return {
-          items: liferay._asItems(res),
-          totalCount: liferay._asCount(res),
-          ids: liferay._asItems(res).map((it) => it.id),
+          items: asItems(res),
+          totalCount: asCount(res),
+          ids: asItems(res).map((it) => it.id),
         };
       },
     };
@@ -534,8 +540,11 @@ class BatchCallbackService {
 
     try {
       const importTask = await liferay.getImportTask(config, batchId);
-      const { processedItemsCount, totalItemsCount, failedItems } =
-        importTask.data;
+      const { 
+        processedItemsCount = 0, 
+        totalItemsCount = 0, 
+        failedItems = [] 
+      } = importTask?.data || {}; 
       const errorCount = failedItems?.length || 0;
 
       await persistence.updateBatch(batchERC, {

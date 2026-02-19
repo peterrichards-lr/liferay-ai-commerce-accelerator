@@ -85,10 +85,10 @@ const PATH = {
   PRODUCT_IMAGES: (productId) => `${BASE.PRODUCTS}/${productId}/images`,
   PRODUCT_ATTACHMENTS: (productId) =>
     `${BASE.PRODUCTS}/${productId}/attachments`,
-  PRODUCT_IMAGES_BY_URL: (erc) =>
-    `${byERC(BASE.PRODUCTS, erc, VARIANT.products)}/images/by-url`,
-  PRODUCT_ATTACHMENTS_BY_URL: (erc) =>
-    `${byERC(BASE.PRODUCTS, erc, VARIANT.products)}/attachments/by-url`,
+  PRODUCT_IMAGES_BY_URL: (productId) =>
+    `${BASE.PRODUCTS}/${productId}/images/by-url`,
+  PRODUCT_ATTACHMENTS_BY_URL: (productId) =>
+    `${BASE.PRODUCTS}/${productId}/attachments/by-url`,
   PRODUCT_IMAGES_BY_BASE64: (erc) =>
     `${byERC(BASE.PRODUCTS, erc, VARIANT.products)}/images/by-base64`,
   PRODUCT_ATTACHMENTS_BY_BASE64: (erc) =>

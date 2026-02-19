@@ -91,7 +91,18 @@ class Logger {
       }
     });
 
-    return JSON.stringify(logEntry, null, 2);
+    let json = JSON.stringify(logEntry, null, 2);
+
+    // If we have a queryForGraphiQL field, we want to make it literal in the logs
+    // so it can be copy-pasted without escaped newlines or quotes around internal strings
+    if (logEntry.queryForGraphiQL) {
+      const escaped = JSON.stringify(logEntry.queryForGraphiQL);
+      // Remove surrounding quotes and replace escaped newlines with actual newlines
+      const literal = logEntry.queryForGraphiQL;
+      json = json.replace(escaped, "`" + literal.replace(/\`/g, "'") + "`");
+    }
+
+    return json;
   }
 
   _asPretty(level, message, timestamp, meta = {}) {
@@ -104,15 +115,22 @@ class Logger {
         ? this._normalizeMessage(message, '\n')
         : util.inspect(message, { depth: 4, colors: true });
 
+    // Extract queryForGraphiQL to print it raw instead of letting util.inspect escape it
+    const { queryForGraphiQL, ...otherMeta } = meta;
+
     const tailMeta =
-      meta && Object.keys(meta).length
-        ? `\n${color}meta:${reset} ${util.inspect(meta, {
+      otherMeta && Object.keys(otherMeta).length
+        ? `\n${color}meta:${reset} ${util.inspect(otherMeta, {
             depth: null,
             colors: true,
           })}`
         : '';
 
-    return `${head} ${core}${tailMeta}`;
+    const graphiQL = queryForGraphiQL 
+      ? `\n${color}queryForGraphiQL:${reset}\n${queryForGraphiQL}`
+      : '';
+
+    return `${head} ${core}${tailMeta}${graphiQL}`;
   }
 
   _writeToFile(logEntry) {
