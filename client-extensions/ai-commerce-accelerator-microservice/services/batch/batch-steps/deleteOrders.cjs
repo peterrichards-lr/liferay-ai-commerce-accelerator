@@ -2,11 +2,12 @@ const { PATH } = require('../../../utils/liferayPaths.cjs');
 
 module.exports = async function deleteOrders(
   { liferay },
-  { config, options, ids, channelId, batchERC, sessionId }
+  { config, options, ids, items, channelId, batchERC, sessionId }
 ) {
   const result = await liferay.deleteByFilter(config, {
     entityName: 'order',
     ids,
+    items,
     filter: channelId ? `channelId eq ${channelId}` : undefined,
     pageSize: 200,
     externalReferenceCode: batchERC,

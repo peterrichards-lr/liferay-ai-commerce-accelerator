@@ -230,7 +230,7 @@ class LiferayGraphQLService {
   }
 
   async getPriceLists(config, filter, fields = ['id', 'externalReferenceCode', 'name'], pagination = { page: 1, pageSize: 200 }) {
-    return this._fetchByFilter(config, 'headlessCommerceAdminPricing_v1_0', 'priceLists', filter, fields, pagination);
+    return this._fetchByFilter(config, 'headlessCommerceAdminPricing_v2_0', 'priceLists', filter, fields, pagination);
   }
 
   async getWarehouses(config, filter, fields = ['id', 'externalReferenceCode', 'name'], pagination = { page: 1, pageSize: 200 }) {

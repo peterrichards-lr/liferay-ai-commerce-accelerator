@@ -43,6 +43,30 @@ class LiferayService {
     return this.rest.getCommerceAccounts(config, args);
   }
   
+  getCommerceOptionCategories(config, args) {
+    return this.rest.getCommerceOptionCategories(config, args);
+  }
+
+  getCommerceSpecifications(config, args) {
+    return this.rest.getCommerceSpecifications(config, args);
+  }
+
+  getCommerceOptions(config, args) {
+    return this.rest.getCommerceOptions(config, args);
+  }
+
+  getCommerceOrders(config, args) {
+    return this.rest.getCommerceOrders(config, args);
+  }
+
+  getCommerceWarehouses(config, args) {
+    return this.rest.getCommerceWarehouses(config, args);
+  }
+
+  getCommercePriceLists(config, args) {
+    return this.rest.getCommercePriceLists(config, args);
+  }
+  
   getOptionCategories(config, args) {
     return this.rest.getOptionCategories(config, args);
   }

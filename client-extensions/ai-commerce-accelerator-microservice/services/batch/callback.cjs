@@ -327,7 +327,7 @@ class BatchCallbackService {
       status: 'PREPARED',
     });
 
-    const { hasItems, ids } = await this._checkIfEntitiesExist(
+    const { hasItems, ids, items } = await this._checkIfEntitiesExist(
       liferay,
       config,
       step,
@@ -357,6 +357,7 @@ class BatchCallbackService {
         config,
         options,
         ids,
+        items,
         batchERC,
         sessionId,
         channelId,
@@ -413,7 +414,7 @@ class BatchCallbackService {
         };
       },
       deleteSpecifications: async () => {
-        const res = await liferay.getSpecifications(config, null, ['id', 'key', 'externalReferenceCode'], { page: 1, pageSize: 200 });
+        const res = await liferay.getCommerceSpecifications(config, { pageSize: 200 });
         return {
           items: asItems(res),
           totalCount: asCount(res),
@@ -421,7 +422,7 @@ class BatchCallbackService {
         };
       },
       deleteOptions: async () => {
-        const res = await liferay.getOptions(config, null, ['id', 'key', 'externalReferenceCode'], { page: 1, pageSize: 200 });
+        const res = await liferay.getCommerceOptions(config, { pageSize: 200 });
         return {
           items: asItems(res),
           totalCount: asCount(res),
@@ -429,7 +430,7 @@ class BatchCallbackService {
         };
       },
       deleteOptionCategories: async () => {
-        const res = await liferay.getOptionCategories(config, {
+        const res = await liferay.getCommerceOptionCategories(config, {
           pageSize: 200,
         });
         return {
@@ -452,8 +453,7 @@ class BatchCallbackService {
         };
       },
       deleteOrders: async () => {
-        const res = await liferay.getOrders(config, null, ['id', 'externalReferenceCode'], {
-          page: 1,
+        const res = await liferay.getCommerceOrders(config, {
           pageSize: 200,
         });
         return {
@@ -463,7 +463,7 @@ class BatchCallbackService {
         };
       },
       deleteWarehouses: async () => {
-        const res = await liferay.getWarehouses(config, null, ['id', 'externalReferenceCode', 'name'], { page: 1, pageSize: 200 });
+        const res = await liferay.getCommerceWarehouses(config, { pageSize: 200 });
         return {
           items: asItems(res),
           totalCount: asCount(res),
@@ -471,7 +471,7 @@ class BatchCallbackService {
         };
       },
       deletePriceLists: async () => {
-        const res = await liferay.getPriceLists(config, null, ['id', 'externalReferenceCode', 'name'], { page: 1, pageSize: 200 });
+        const res = await liferay.getCommercePriceLists(config, { pageSize: 200 });
         return {
           items: asItems(res),
           totalCount: asCount(res),
@@ -492,7 +492,7 @@ class BatchCallbackService {
       resultItemsPreview: (ids || []).slice(0, 5),
     });
 
-    return { hasItems: hasItems, ids: ids };
+    return { hasItems, ids, items };
   }
 
   _getOnSessionComplete(flowType) {

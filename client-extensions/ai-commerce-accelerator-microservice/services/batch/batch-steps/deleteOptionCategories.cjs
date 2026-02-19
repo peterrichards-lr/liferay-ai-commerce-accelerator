@@ -2,11 +2,12 @@ const { PATH } = require('../../../utils/liferayPaths.cjs');
 
 module.exports = async function deleteOptionCategories(
   { liferay },
-  { config, options, ids, batchERC, sessionId }
+  { config, options, ids, items, batchERC, sessionId }
 ) {
   const result = await liferay.deleteByFilter(config, {
     entityName: 'optionCategory',
     ids,
+    items,
     pageSize: 200,
     externalReferenceCode: batchERC,
     dryRun: options.dryRun,

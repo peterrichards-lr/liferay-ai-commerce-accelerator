@@ -1,10 +1,10 @@
 module.exports = async function deletePriceLists(
   { liferay },
-  { config, options, batchERC }
+  { config, options, items, batchERC }
 ) {
   const result = await liferay.deletePriceListsBatch(
     config,
-    { ...options, callbackBatchERC: batchERC }
+    { ...options, items, callbackBatchERC: batchERC }
   );
   return result;
 };
