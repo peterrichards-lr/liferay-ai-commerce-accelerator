@@ -1,16 +1,530 @@
 const LiferayRestService = require('./rest.cjs');
 const LiferayGraphQLService = require('./graphql.cjs');
+const { asItems, asCount } = require('../../utils/liferayUtils.cjs');
+const { PATH } = require('../../utils/liferayPaths.cjs');
 
 class LiferayService {
   constructor(ctx) {
+    this.ctx = ctx;
     this.rest = new LiferayRestService(ctx);
     this.graphql = new LiferayGraphQLService(ctx);
-    
-    // Pass the graphql service to the rest service for existing integrations
-    this.rest.liferayGraphQL = this.graphql;
   }
 
-  // Delegated methods from LiferayRestService
+  // --- Discovery Methods (Coordinating GraphQL & REST) ---
+
+  async getCommerceProducts(
+    config,
+    { catalogId, pageSize = 200, fields = 'productId' } = {},
+  ) {
+    const exclusions = await this._getExclusions(config, 'product');
+
+    const filters = [];
+    if (catalogId) filters.push(`catalogId eq ${catalogId}`);
+    
+    const nameFilter = this._buildNameExclusionFilter(exclusions);
+    if (nameFilter) filters.push(nameFilter);
+
+    const filter = filters.join(' and ');
+
+    const requestedFields = new Set(fields.split(','));
+    ['productId', 'externalReferenceCode', 'name'].forEach(f => requestedFields.add(f));
+
+    const res = await this.graphql.getProducts(config, filter, Array.from(requestedFields), {
+      page: 1,
+      pageSize,
+    });
+
+    const items = asItems(res);
+    const filteredItems = items.filter(it => !this._shouldExclude(it, exclusions));
+    
+    return {
+      ...res,
+      items: filteredItems,
+      totalCount: res.totalCount,
+    };
+  }
+
+  async getCommerceAccounts(
+    config,
+    { channelId, pageSize = 200, fields = 'id' } = {},
+  ) {
+    const exclusions = await this._getExclusions(config, 'account');
+
+    const filters = [];
+
+    if (channelId) {
+      const orderAccountIds = await this.rest._collectPagedIds(config, {
+        op: 'orders:list',
+        friendly: 'List account IDs from orders for channel',
+        listUrl: PATH.ORDERS,
+        pageSize,
+        filter: `channelId eq ${channelId}`,
+        fields: 'accountId',
+        idKey: 'accountId',
+      });
+
+      const uniqueIds = [...new Set(orderAccountIds)].filter(Boolean);
+
+      if (!uniqueIds.length) {
+        return {
+          items: [],
+          page: 1,
+          pageSize: 0,
+          lastPage: 1,
+          totalCount: 0,
+        };
+      }
+
+      filters.push(`id in (${uniqueIds.join(',')})`);
+    }
+
+    const nameFilter = this._buildNameExclusionFilter(exclusions);
+    if (nameFilter) filters.push(nameFilter);
+
+    const filter = filters.join(' and ');
+
+    const requestedFields = new Set(fields.split(','));
+    ['id', 'externalReferenceCode', 'name'].forEach(f => requestedFields.add(f));
+
+    const res = await this.graphql.getAccounts(config, filter, Array.from(requestedFields), {
+      page: 1,
+      pageSize,
+    });
+
+    const items = asItems(res);
+    const filteredItems = items.filter(it => !this._shouldExclude(it, exclusions));
+
+    return {
+      ...res,
+      items: filteredItems,
+      totalCount: res.totalCount,
+    };
+  }
+
+  async getCommerceOptionCategories(config, { pageSize = 200, fields = 'id' } = {}) {
+    const exclusions = await this._getExclusions(config, 'optionCategory');
+
+    const requestedFields = new Set(fields.split(','));
+    ['id', 'externalReferenceCode', 'title'].forEach(f => requestedFields.add(f));
+
+    const res = await this.rest._listOptionCategories(config, { pageSize, fields: Array.from(requestedFields).join(',') });
+    const items = asItems(res);
+    const filteredItems = items.filter(it => !this._shouldExclude(it, exclusions));
+
+    return {
+      ...res,
+      items: filteredItems,
+      totalCount: res.totalCount || filteredItems.length,
+    };
+  }
+
+  async getCommerceSpecifications(config, { pageSize = 200, fields = 'id' } = {}) {
+    const exclusions = await this._getExclusions(config, 'specification');
+
+    const requestedFields = new Set(fields.split(','));
+    ['id', 'key', 'externalReferenceCode', 'title'].forEach(f => requestedFields.add(f));
+
+    const res = await this.graphql.getSpecifications(config, null, Array.from(requestedFields), { page: 1, pageSize });
+    const items = asItems(res);
+    const filteredItems = items.filter(it => !this._shouldExclude(it, exclusions));
+
+    return {
+      ...res,
+      items: filteredItems,
+      totalCount: res.totalCount,
+    };
+  }
+
+  async getCommerceOptions(config, { pageSize = 200, fields = 'id' } = {}) {
+    const exclusions = await this._getExclusions(config, 'option');
+
+    const requestedFields = new Set(fields.split(','));
+    ['id', 'key', 'externalReferenceCode', 'name'].forEach(f => requestedFields.add(f));
+
+    const res = await this.graphql.getOptions(config, null, Array.from(requestedFields), { page: 1, pageSize });
+    const items = asItems(res);
+    const filteredItems = items.filter(it => !this._shouldExclude(it, exclusions));
+
+    return {
+      ...res,
+      items: filteredItems,
+      totalCount: res.totalCount,
+    };
+  }
+
+  async getCommerceOrders(config, { pageSize = 200, fields = 'id' } = {}) {
+    const exclusions = await this._getExclusions(config, 'order');
+
+    const requestedFields = new Set(fields.split(','));
+    ['id', 'externalReferenceCode'].forEach(f => requestedFields.add(f));
+
+    const res = await this.graphql.getOrders(config, null, Array.from(requestedFields), { page: 1, pageSize });
+    const items = asItems(res);
+    const filteredItems = items.filter(it => !this._shouldExclude(it, exclusions));
+
+    return {
+      ...res,
+      items: filteredItems,
+      totalCount: res.totalCount,
+    };
+  }
+
+  async getCommerceWarehouses(config, { pageSize = 200, fields = 'id' } = {}) {
+    const exclusions = await this._getExclusions(config, 'warehouse');
+
+    const requestedFields = new Set(fields.split(','));
+    ['id', 'externalReferenceCode', 'name'].forEach(f => requestedFields.add(f));
+
+    const res = await this.graphql.getWarehouses(config, null, Array.from(requestedFields), { page: 1, pageSize });
+    const items = asItems(res);
+    const filteredItems = items.filter(it => !this._shouldExclude(it, exclusions));
+
+    return {
+      ...res,
+      items: filteredItems,
+      totalCount: res.totalCount,
+    };
+  }
+
+  async getCommercePriceLists(
+    config,
+    { pageSize = 200, fields = 'id', type = 'PRICE_LIST' } = {},
+  ) {
+    const exclusions = await this._getExclusions(config, 'priceList');
+
+    const requestedFields = new Set(fields.split(','));
+    ['id', 'externalReferenceCode', 'name', 'catalogBasePriceList', 'type'].forEach(f => requestedFields.add(f));
+
+    const filters = [`type eq '${type}'`, `catalogBasePriceList eq false` ];
+    
+    const nameFilter = this._buildNameExclusionFilter(exclusions);
+    if (nameFilter) filters.push(nameFilter);
+
+    const filter = filters.join(' and ');
+
+    const res = await this.graphql.getPriceLists(config, filter, Array.from(requestedFields), { page: 1, pageSize });
+    const items = asItems(res);
+    const filteredItems = items.filter(it => !this._shouldExclude(it, exclusions));
+
+    return {
+      ...res,
+      items: filteredItems,
+      totalCount: res.totalCount,
+    };
+  }
+
+  async getCommercePromotions(config, args = {}) {
+    return this.getCommercePriceLists(config, { ...args, type: 'PROMOTION' });
+  }
+
+  // --- Filtered Deletion Loop ---
+
+  async deleteByFilter(
+    config,
+    { entityName, filter, search, searchPrefixes, nativeBatch, ids: providedIds, items: providedItems, channelId, ...rest },
+  ) {
+    const { logger } = this.ctx;
+
+    const exclusions = await this._getExclusions(config, entityName);
+    
+    const discoveryFields = new Set(['id', 'productId', 'externalReferenceCode', 'name', 'title']);
+    if (entityName === 'priceList' || entityName === 'promotion') discoveryFields.add('catalogBasePriceList');
+    const fieldsParam = Array.from(discoveryFields).join(',');
+
+    let totalDeleted = 0;
+    const batchRefs = [];
+
+    const processBatch = async (items) => {
+      const filteredItems = items.filter(it => !this._shouldExclude(it, exclusions));
+      
+      const ids = filteredItems
+        .map(it => entityName === 'product' ? (it.productId || it.id) : (it.id || it.productId))
+        .filter(Boolean);
+
+      if (ids.length === 0) return;
+
+      let result;
+      if (nativeBatch) {
+        result = await this.rest._deleteBatchNative(config, {
+          entityName,
+          ids,
+          idField: entityName === 'product' ? 'productId' : 'id',
+          ...rest,
+        });
+      } else {
+        result = await this.rest._deleteBatchSimulated(config, {
+          entityName,
+          ids,
+          ...rest,
+        });
+      }
+
+      totalDeleted += (result.count || 0);
+      if (result.batchRefs) batchRefs.push(...result.batchRefs);
+    };
+
+    if (providedItems && providedItems.length > 0) {
+      const chunks = this.rest._chunkArray(providedItems, 500);
+      for (const chunk of chunks) {
+        await processBatch(chunk);
+      }
+    } else if (providedIds && providedIds.length > 0) {
+      const idChunks = this.rest._chunkArray(providedIds, 200);
+      for (const idChunk of idChunks) {
+        const idFilter = entityName === 'product' 
+          ? `productId in (${idChunk.join(',')})`
+          : `id in (${idChunk.join(',')})`;
+        
+        const items = await this.rest._collectPagedItems(config, {
+          listUrl: rest.listUrl,
+          pageSize: 200,
+          filter: idFilter,
+          fields: fieldsParam,
+          op: `${entityName}:list-for-exclusion`,
+          friendly: `Fetch ${entityName} for metadata check`,
+        });
+        await processBatch(items);
+      }
+    } else {
+      let page = 1;
+      let hasMore = true;
+      const pageSize = 200;
+
+      while (hasMore) {
+        let res;
+        if (entityName === 'account') {
+          res = await this.getCommerceAccounts(config, { channelId, pageSize, fields: fieldsParam });
+        } else if (entityName === 'priceList') {
+          res = await this.getCommercePriceLists(config, { pageSize, fields: fieldsParam });
+        } else if (entityName === 'promotion') {
+          res = await this.getCommercePromotions(config, { pageSize, fields: fieldsParam });
+        } else if (entityName === 'product') {
+          res = await this.getCommerceProducts(config, { catalogId: rest.catalogId, pageSize, fields: fieldsParam });
+        } else {
+          res = await this.rest._get(config, rest.listUrl, `${entityName}:list`, `List ${entityName}`, {
+            params: {
+              page,
+              pageSize,
+              filter,
+              search,
+              fields: fieldsParam,
+            },
+          });
+        }
+
+        const items = asItems(res);
+        if (items.length === 0) {
+          hasMore = false;
+          break;
+        }
+
+        await processBatch(items);
+
+        if (items.length < pageSize) {
+          hasMore = false;
+        } else {
+          page++;
+        }
+
+        if (page > 1000) {
+           logger.warn('Safety break hit in deleteByFilter pagination', { entityName, sessionId: rest.sessionId });
+           break;
+        }
+      }
+    }
+
+    return { success: true, count: totalDeleted, batchRefs };
+  }
+
+  async deletePriceListsBatch(
+    config,
+    {
+      pageSize = 200,
+      filter,
+      callbackBatchERC,
+      dryRun = false,
+      sessionId,
+      items,
+    } = {},
+  ) {
+    return this.deleteByFilter(config, {
+      entityName: 'priceList',
+      filter,
+      pageSize,
+      externalReferenceCode: callbackBatchERC,
+      dryRun,
+      sessionId,
+      nativeBatch: true,
+      path: PATH.PRICE_LISTS_BATCH,
+      listUrl: PATH.PRICE_LISTS,
+      op: 'pricelists:batch-delete',
+      friendly: 'Delete price lists (batch)',
+      items,
+    });
+  }
+
+  async deletePromotionsBatch(
+    config,
+    {
+      pageSize = 200,
+      filter,
+      callbackBatchERC,
+      dryRun = false,
+      sessionId,
+      items,
+    } = {},
+  ) {
+    return this.deleteByFilter(config, {
+      entityName: 'promotion',
+      filter,
+      pageSize,
+      externalReferenceCode: callbackBatchERC,
+      dryRun,
+      sessionId,
+      nativeBatch: true,
+      path: PATH.PRICE_LISTS_BATCH,
+      listUrl: PATH.PRICE_LISTS,
+      op: 'promotions:batch-delete',
+      friendly: 'Delete promotions (batch)',
+      items,
+    });
+  }
+
+  async deleteSpecificationsBatch(
+    config,
+    {
+      pageSize = 200,
+      filter,
+      ids,
+      callbackBatchERC,
+      dryRun = false,
+      sessionId,
+      items,
+    } = {},
+  ) {
+    return this.deleteByFilter(config, {
+      entityName: 'specification',
+      filter,
+      ids,
+      pageSize,
+      externalReferenceCode: callbackBatchERC,
+      dryRun,
+      sessionId,
+      nativeBatch: true,
+      path: PATH.SPECIFICATIONS_BATCH,
+      listUrl: PATH.SPECIFICATIONS,
+      op: 'specifications:batch-delete',
+      friendly: 'Delete specifications (batch)',
+      items,
+    });
+  }
+
+  async deleteOptionsBatch(
+    config,
+    {
+      pageSize = 200,
+      filter,
+      ids,
+      callbackBatchERC,
+      dryRun = false,
+      sessionId,
+      items,
+    } = {},
+  ) {
+    return this.deleteByFilter(config, {
+      entityName: 'option',
+      filter,
+      ids,
+      pageSize,
+      externalReferenceCode: callbackBatchERC,
+      dryRun,
+      sessionId,
+      nativeBatch: true,
+      path: PATH.OPTIONS_BATCH,
+      listUrl: PATH.OPTIONS,
+      op: 'options:batch-delete',
+      friendly: 'Delete options (batch)',
+      items,
+    });
+  }
+
+  async deleteOptionCategoriesBatch(
+    config,
+    {
+      pageSize = 200,
+      filter,
+      ids,
+      callbackBatchERC,
+      dryRun = false,
+      sessionId,
+      items,
+    } = {},
+  ) {
+    return this.deleteByFilter(config, {
+      entityName: 'optionCategory',
+      filter,
+      ids,
+      pageSize,
+      externalReferenceCode: callbackBatchERC,
+      dryRun,
+      sessionId,
+      nativeBatch: true,
+      path: PATH.OPTION_CATEGORIES_BATCH,
+      listUrl: PATH.OPTION_CATEGORIES,
+      op: 'optionCategories:batch-delete',
+      friendly: 'Delete option categories (batch)',
+      items,
+    });
+  }
+
+  // --- Exclusion Helpers ---
+
+  _buildNameExclusionFilter(exclusions, fieldName = 'name') {
+    if (!exclusions || exclusions.length === 0) return null;
+    const names = exclusions
+      .map((ex) => ex.name)
+      .filter((n) => n && typeof n === 'string');
+    if (names.length === 0) return null;
+    return names.map((name) => `${fieldName} ne '${name}'`).join(' and ');
+  }
+
+  async _getExclusions(config, entityName) {
+    const { config: configService } = this.ctx;
+    const excludeLists = await configService.getExcludeLists(config);
+    
+    const keyMap = {
+      account: 'excludedAccounts',
+      product: 'excludedProducts',
+      warehouse: 'excludedWarehouses',
+      priceList: 'excludedPriceLists',
+      promotion: 'excludedPriceLists', // Promotions are in the PriceLists exclude list
+      order: 'excludedOrders',
+      specification: 'excludedSpecifications',
+      option: 'excludedOptions',
+      optionCategory: 'excludedOptionCategories',
+    };
+
+    const configKey = keyMap[entityName];
+    return excludeLists?.[configKey] || [];
+  }
+
+  _shouldExclude(item, exclusions) {
+    if (item.system === true || item.system === 'true') return true;
+    if (item.catalogBasePriceList === true || item.catalogBasePriceList === 'true') return true;
+    
+    if (!exclusions || exclusions.length === 0) return false;
+
+    return exclusions.some((ex) => {
+      const idMatch = ex.entityId && (String(item.id) === String(ex.entityId) || String(item.productId) === String(ex.entityId));
+      const ercMatch = ex.erc && item.externalReferenceCode === ex.erc;
+      const nameMatch = ex.name && (item.name === ex.name || item.title === ex.name || (typeof item.name === 'object' && Object.values(item.name).includes(ex.name)));
+      
+      return idMatch || ercMatch || nameMatch;
+    });
+  }
+
+  // --- Delegated REST Methods ---
+
   testConnection(config) {
     return this.rest.testConnection(config);
   }
@@ -35,42 +549,6 @@ class LiferayService {
     return this.rest.getProductCount(config);
   }
 
-  getCommerceProducts(config, args) {
-    return this.rest.getCommerceProducts(config, args);
-  }
-
-  getCommerceAccounts(config, args) {
-    return this.rest.getCommerceAccounts(config, args);
-  }
-  
-  getCommerceOptionCategories(config, args) {
-    return this.rest.getCommerceOptionCategories(config, args);
-  }
-
-  getCommerceSpecifications(config, args) {
-    return this.rest.getCommerceSpecifications(config, args);
-  }
-
-  getCommerceOptions(config, args) {
-    return this.rest.getCommerceOptions(config, args);
-  }
-
-  getCommerceOrders(config, args) {
-    return this.rest.getCommerceOrders(config, args);
-  }
-
-  getCommerceWarehouses(config, args) {
-    return this.rest.getCommerceWarehouses(config, args);
-  }
-
-  getCommercePriceLists(config, args) {
-    return this.rest.getCommercePriceLists(config, args);
-  }
-  
-  getOptionCategories(config, args) {
-    return this.rest.getOptionCategories(config, args);
-  }
-  
   getPrimaryAccountId(config) {
     return this.rest.getPrimaryAccountId(config);
   }
@@ -91,12 +569,8 @@ class LiferayService {
     return this.rest.getImportTaskFailedItemReport(config, batchId);
   }
 
-  deleteByFilter(config, args) {
-    return this.rest.deleteByFilter(config, args);
-  }
-
   deleteAll(config, args) {
-    return this.rest.deleteAll(config, args);
+    return this.deleteByFilter(config, { ...args, filter: undefined });
   }
 
   createWarehouse(config, warehouseData) {
@@ -177,22 +651,6 @@ class LiferayService {
 
   createPriceList(config, priceListData) {
     return this.rest.createPriceList(config, priceListData);
-  }
-
-  deletePriceListsBatch(config, args) {
-    return this.rest.deletePriceListsBatch(config, args);
-  }
-
-  deleteSpecificationsBatch(config, args) {
-    return this.rest.deleteSpecificationsBatch(config, args);
-  }
-
-  deleteOptionsBatch(config, args) {
-    return this.rest.deleteOptionsBatch(config, args);
-  }
-
-  deleteOptionCategoriesBatch(config, args) {
-    return this.rest.deleteOptionCategoriesBatch(config, args);
   }
 
   createPriceEntry(config, priceListId, priceEntryData) {
@@ -315,7 +773,7 @@ class LiferayService {
     return this.rest.setBillingAndShippingAddresses(config, accountId, shippingAddressId, billingAddressId);
   }
 
-  // Delegated methods from LiferayGraphQLService
+  // Delegated GraphQL Methods
   getProducts(config, filter, fields, pagination) {
     return this.graphql.getProducts(config, filter, fields, pagination);
   }

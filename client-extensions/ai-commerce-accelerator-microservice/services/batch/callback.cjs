@@ -501,6 +501,12 @@ class BatchCallbackService {
           totalCount: res.totalCount,
         };
       },
+      deletePromotions: async () => {
+        const res = await liferay.getCommercePromotions(config, { pageSize: 1 });
+        return {
+          totalCount: res.totalCount,
+        };
+      },
     };
 
     if (!checkMap[entityType]) return { hasItems: false }; 
