@@ -130,11 +130,21 @@ class LiferayRestService {
         responseType,
       });
 
-      logger.debug('Liferay API Response', {
+      const logData = {
         operation: op,
         status: res.status,
-        data: res.data,
-      });
+      };
+
+      if (res.data) {
+        if (Array.isArray(res.data.items)) {
+          logData.itemCount = res.data.items.length;
+          logData.totalCount = res.data.totalCount;
+        } else if (typeof res.data === 'object') {
+          logData.dataKeys = Object.keys(res.data);
+        }
+      }
+
+      logger.debug('Liferay API Response', logData);
 
       if (fullResponse) {
         return {
@@ -672,7 +682,7 @@ class LiferayRestService {
     return {
       ...res,
       items: filteredItems,
-      totalCount: filteredItems.length, // Simplified since we are only looking at the first page for existence check
+      totalCount: res.totalCount,
     };
   }
 
@@ -728,7 +738,7 @@ class LiferayRestService {
     return {
       ...res,
       items: filteredItems,
-      totalCount: filteredItems.length,
+      totalCount: res.totalCount,
     };
   }
 
@@ -738,7 +748,7 @@ class LiferayRestService {
     const exclusions = excludeLists?.excludedOptionCategories || [];
 
     const requestedFields = new Set(fields.split(','));
-    ['id', 'externalReferenceCode', 'title'].forEach(f => requestedFields.add(f));
+    ['id', 'externalReferenceCode', title].forEach(f => requestedFields.add(f));
 
     const res = await this._listOptionCategories(config, { pageSize, fields: Array.from(requestedFields).join(',') });
     const items = asItems(res);
@@ -747,7 +757,7 @@ class LiferayRestService {
     return {
       ...res,
       items: filteredItems,
-      totalCount: filteredItems.length,
+      totalCount: res.totalCount || filteredItems.length,
     };
   }
 
@@ -766,7 +776,7 @@ class LiferayRestService {
     return {
       ...res,
       items: filteredItems,
-      totalCount: filteredItems.length,
+      totalCount: res.totalCount,
     };
   }
 
@@ -785,7 +795,7 @@ class LiferayRestService {
     return {
       ...res,
       items: filteredItems,
-      totalCount: filteredItems.length,
+      totalCount: res.totalCount,
     };
   }
 
@@ -804,7 +814,7 @@ class LiferayRestService {
     return {
       ...res,
       items: filteredItems,
-      totalCount: filteredItems.length,
+      totalCount: res.totalCount,
     };
   }
 
@@ -823,7 +833,7 @@ class LiferayRestService {
     return {
       ...res,
       items: filteredItems,
-      totalCount: filteredItems.length,
+      totalCount: res.totalCount,
     };
   }
 
@@ -842,7 +852,7 @@ class LiferayRestService {
     return {
       ...res,
       items: filteredItems,
-      totalCount: filteredItems.length,
+      totalCount: res.totalCount,
     };
   }
 
@@ -1040,13 +1050,15 @@ class LiferayRestService {
       path,
       op,
       friendly,
+      idField = 'id',
     },
   ) {
     const { logger } = this.ctx;
 
+    const prefixKey = `${entityName.toUpperCase()}_BATCH`;
     const batchERC =
       externalReferenceCode ??
-      createERC(ERC_PREFIX[`${entityName.toUpperCase()}_BATCH`]);
+      createERC(ERC_PREFIX[prefixKey] || ERC_PREFIX.BATCH);
 
     const taggedCallback = this._buildCallbackURL(
       this._getBaseCallbackUrl(config),
@@ -1074,6 +1086,7 @@ class LiferayRestService {
       dryRun,
       op: op,
       friendly: friendly,
+      idField,
     });
     res.batchRefs = (res.batchRefs || []).map((r) => ({ ...r, erc: batchERC }));
     return res;
@@ -1081,7 +1094,7 @@ class LiferayRestService {
 
   async _deleteByBatch(
     config,
-    { batchUrl, ids, batchSize = 100, dryRun = false, op, friendly }
+    { batchUrl, ids, batchSize = 100, dryRun = false, op, friendly, idField = 'id' }
   ) {
     if (!ids || ids.length === 0) return { success: true, count: 0 };
 
@@ -1089,7 +1102,7 @@ class LiferayRestService {
     const batchRefs = [];
 
     for (const chunk of chunks) {
-      const payload = chunk.map((id) => ({ id }));
+      const payload = chunk.map((id) => ({ [idField]: id }));
 
       if (dryRun) {
         logger.info(`[DRY RUN] Would delete batch of ${chunk.length} items`, {
@@ -1250,84 +1263,117 @@ class LiferayRestService {
     const { logger } = this.ctx;
 
     const exclusions = await this._getExclusions(config, entityName);
-    let itemsToDelete = providedItems || [];
-
+    
+    // Discovery phase - using a streaming-like approach to avoid loading everything at once
     const discoveryFields = new Set(['id', 'productId', 'externalReferenceCode', 'name', 'title']);
     if (entityName === 'priceList') discoveryFields.add('catalogBasePriceList');
-
     const fieldsParam = Array.from(discoveryFields).join(',');
 
-    if (itemsToDelete.length === 0 && providedIds && providedIds.length > 0) {
-      const allItems = await this._collectPagedItems(config, {
-        listUrl: rest.listUrl,
-        pageSize: 200,
-        filter: rest.filter, 
-        fields: fieldsParam,
-        op: `${entityName}:list-for-exclusion`,
-        friendly: `Fetch ${entityName} for metadata check`,
-      });
-      itemsToDelete = allItems.filter(it => providedIds.includes(it.id || it.productId));
-      
-      if (itemsToDelete.length === 0 && providedIds.length > 0) {
-          itemsToDelete = providedIds.map(id => ({ id }));
-      }
-    } else if (itemsToDelete.length === 0) {
-      // Logic for Account discovery by Channel
-      if (entityName === 'account' && channelId) {
-        const res = await this.getCommerceAccounts(config, { channelId, pageSize: 200, fields: fieldsParam });
-        // getCommerceAccounts returns { items, totalCount, ... }
-        itemsToDelete = res.items || [];
-      } else {
-        const collect = async (args) => {
-          const items = await this._collectPagedItems(config, {
-            listUrl: rest.listUrl,
-            pageSize: rest.pageSize || 200,
-            filter: args.filter,
-            search: args.search,
-            fields: fieldsParam,
-            op: `${entityName}:list`,
-            friendly: `List ${entityName}`,
-          });
-          return items;
-        };
+    let totalDeleted = 0;
+    const batchRefs = [];
 
-        if (Array.isArray(searchPrefixes) && searchPrefixes.length) {
-          for (const s of searchPrefixes) {
-            itemsToDelete = itemsToDelete.concat(await collect({ search: s }));
-          }
-        } else if (search) {
-          itemsToDelete = await collect({ search });
+    const processBatch = async (items) => {
+      const filteredItems = items.filter(it => !this._shouldExclude(it, exclusions));
+      
+      const ids = filteredItems
+        .map(it => entityName === 'product' ? (it.productId || it.id) : (it.id || it.productId))
+        .filter(Boolean);
+
+      if (ids.length === 0) return;
+
+      let result;
+      if (nativeBatch) {
+        result = await this._deleteBatchNative(config, {
+          entityName,
+          ids,
+          ...rest,
+        });
+      } else {
+        result = await this._deleteBatchSimulated(config, {
+          entityName,
+          ids,
+          ...rest,
+        });
+      }
+
+      totalDeleted += (result.count || 0);
+      if (result.batchRefs) batchRefs.push(...result.batchRefs);
+    };
+
+    if (providedItems && providedItems.length > 0) {
+      const chunks = this._chunkArray(providedItems, 500);
+      for (const chunk of chunks) {
+        await processBatch(chunk);
+      }
+    } else if (providedIds && providedIds.length > 0) {
+      // If IDs are provided, we still fetch them in pages to check exclusions
+      const idChunks = this._chunkArray(providedIds, 200);
+      for (const idChunk of idChunks) {
+        const idFilter = entityName === 'product' 
+          ? `productId in (${idChunk.join(',')})`
+          : `id in (${idChunk.join(',')})`;
+        
+        const items = await this._collectPagedItems(config, {
+          listUrl: rest.listUrl,
+          pageSize: 200,
+          filter: idFilter,
+          fields: fieldsParam,
+          op: `${entityName}:list-for-exclusion`,
+          friendly: `Fetch ${entityName} for metadata check`,
+        });
+        await processBatch(items);
+      }
+    } else {
+      // General discovery by filter/search
+      let page = 1;
+      let hasMore = true;
+      const pageSize = 200;
+
+      while (hasMore) {
+        let res;
+        if (entityName === 'account' && channelId) {
+          res = await this.getCommerceAccounts(config, { channelId, pageSize, fields: fieldsParam });
         } else {
-          itemsToDelete = await collect({ filter });
+          res = await this._get(config, rest.listUrl, `${entityName}:list`, `List ${entityName}`, {
+            params: {
+              page,
+              pageSize,
+              filter,
+              search,
+              fields: fieldsParam,
+            },
+          });
+        }
+
+        const items = asItems(res);
+        if (items.length === 0) {
+          hasMore = false;
+          break;
+        }
+
+        await processBatch(items);
+
+        const totalCount = asCount(res);
+        // Note: totalCount might change as we delete, but since we are paginating forwards 
+        // and items are being removed, we need to be careful.
+        // If we always fetch page 1, we will eventually clear everything.
+        // However, Liferay Batch Engine is async, so items don't disappear immediately.
+        
+        if (items.length < pageSize) {
+          hasMore = false;
+        } else {
+          page++;
+        }
+
+        // Safety break to prevent infinite loops if something goes wrong with pagination
+        if (page > 1000) {
+           logger.warn('Safety break hit in deleteByFilter pagination', { entityName, sessionId: rest.sessionId });
+           break;
         }
       }
     }
 
-    const filteredItems = itemsToDelete.filter(it => !this._shouldExclude(it, exclusions));
-    const ids = filteredItems.map(it => it.id || it.productId).filter(Boolean);
-
-    if (ids.length === 0) {
-      logger.info(`No ${entityName} found to delete after applying exclusions.`);
-      return { success: true, count: 0 };
-    }
-
-    if (itemsToDelete.length > filteredItems.length) {
-      logger.info(`Excluded ${itemsToDelete.length - filteredItems.length} ${entityName} entries based on configuration.`);
-    }
-
-    if (nativeBatch) {
-      return await this._deleteBatchNative(config, {
-        entityName,
-        ids,
-        ...rest,
-      });
-    } else {
-      return await this._deleteBatchSimulated(config, {
-        entityName,
-        ids,
-        ...rest,
-      });
-    }
+    return { success: true, count: totalDeleted, batchRefs };
   }
 
   async deleteAll(config, { entityName, ...rest }) {

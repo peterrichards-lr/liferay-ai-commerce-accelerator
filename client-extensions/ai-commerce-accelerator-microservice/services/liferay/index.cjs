@@ -356,6 +356,10 @@ class LiferayService {
     return this.graphql.getAccountsByERC(config, ercs, fields);
   }
 
+  getProductsByERC(config, ercs, fields) {
+    return this.graphql.getProductsByERC(config, ercs, fields);
+  }
+
   getPostalAddressesByERC(config, ercs, fields) {
     return this.graphql.getPostalAddressesByERC(config, ercs, fields);
   }

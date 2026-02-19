@@ -21,33 +21,56 @@ class BatchCallbackService {
   async _checkSessionCompletion(sessionId, correlationId) {
     const { logger, persistence } = this.ctx;
     
-    const session = await persistence.getSession(sessionId);
+    let session = await persistence.getSession(sessionId);
     if (!session || session.status === 'COMPLETED' || session.status === 'FAILED') {
       return;
     }
 
-    const allBatchesForSession = await persistence.getBatchesForSession(sessionId);
+    let continueLoop = true;
+    while (continueLoop) {
+      const allBatchesForSession = await persistence.getBatchesForSession(sessionId);
+      const { activeSteps, hasFailures } = await this._updateActiveSteps(session, allBatchesForSession);
 
-    const { activeSteps, hasFailures } = await this._updateActiveSteps(session, allBatchesForSession);
+      if (hasFailures) {
+        await persistence.updateSession(sessionId, { status: 'FAILED' });
+        return;
+      }
+      
+      let currentSteps = activeSteps;
+      
+      if (currentSteps.length === 0) {
+        const { newActiveSteps, startedAny } = await this._advanceWorkflow(session, allBatchesForSession, correlationId);
+        currentSteps = newActiveSteps;
+        
+        await persistence.updateSessionCurrentSteps(sessionId, currentSteps);
+        
+        if (!startedAny || currentSteps.length === 0) {
+          continueLoop = false;
+        } else {
+          // Check if all newly started steps are already terminal (synchronous/bypassed)
+          // If so, we can loop again immediately to move to next step
+          const latestBatches = await persistence.getBatchesForSession(sessionId);
+          const { activeSteps: stillActive } = await this._updateActiveSteps(session, latestBatches);
+          if (stillActive.length === 0) {
+            // All finished immediately, loop again
+            session = await persistence.getSession(sessionId);
+            continue;
+          } else {
+            continueLoop = false;
+          }
+        }
+      } else {
+        await persistence.updateSessionCurrentSteps(sessionId, currentSteps);
+        continueLoop = false;
+      }
+      
+      const latestBatches = await persistence.getBatchesForSession(sessionId);
+      const workflowFinished = await this._isWorkflowFinished(session, currentSteps, latestBatches);
 
-    if (hasFailures) {
-      await persistence.updateSession(sessionId, { status: 'FAILED' });
-      return;
-    }
-    
-    let currentSteps = activeSteps;
-    await persistence.updateSessionCurrentSteps(sessionId, currentSteps);
-
-    if (currentSteps.length === 0) {
-      const advancedSteps = await this._advanceWorkflow(session, allBatchesForSession, correlationId);
-      currentSteps = advancedSteps;
-      await persistence.updateSessionCurrentSteps(sessionId, currentSteps);
-    }
-    
-    const workflowFinished = await this._isWorkflowFinished(session, currentSteps, allBatchesForSession);
-
-    if (workflowFinished) {
-      await this._finalizeSession(session, allBatchesForSession, correlationId);
+      if (workflowFinished) {
+        await this._finalizeSession(session, latestBatches, correlationId);
+        continueLoop = false;
+      }
     }
   }
 
@@ -57,6 +80,8 @@ class BatchCallbackService {
 
     let hasFailures = false;
     const nextActiveSteps = [];
+
+    if (!currentSteps || !Array.isArray(currentSteps)) return { activeSteps: [], hasFailures: false };
 
     for (const stepDefinition of currentSteps) {
       const stepName = typeof stepDefinition === 'string' ? stepDefinition : stepDefinition.name;
@@ -74,9 +99,6 @@ class BatchCallbackService {
 
       if (isStepCompleted) {
         logger.info(`Step '${stepName}' completed.`, { sessionId, stepName, stepType });
-        if (stepType === 'async') {
-          logger.info(`Asynchronous step '${stepName}' finished, not blocking workflow.`, { sessionId, stepName });
-        }
       } else {
         nextActiveSteps.push(stepDefinition);
       }
@@ -86,7 +108,10 @@ class BatchCallbackService {
   }
 
   _areAllStepsComplete(steps, completedStepNames) {
-    return steps.every(s => completedStepNames.has(s.name));
+    return steps.every(s => {
+      const name = typeof s === 'string' ? s : s.name;
+      return completedStepNames.has(name);
+    });
   }
 
   async _advanceWorkflow(session, allBatchesForSession, correlationId) {
@@ -94,37 +119,48 @@ class BatchCallbackService {
     const { session_id: sessionId, context: { config, steps: workflowSteps } } = session;
     
     const newActiveSteps = [];
+    let startedAny = false;
 
     const completedStepNames = new Set(allBatchesForSession.filter(b => this._isBatchTerminal(b)).map(b => b.step_key));
     const runningStepNames = new Set(allBatchesForSession.filter(b => !this._isBatchTerminal(b)).map(b => b.step_key));
 
     for (const step of workflowSteps) {
+      const stepName = typeof step === 'string' ? step : step.name;
+      
       if (step.type === 'parallel') {
         if (this._areAllStepsComplete(step.steps, completedStepNames)) {
           continue;
         }
 
         for (const subStep of step.steps) {
-          if (!completedStepNames.has(subStep.name) && !runningStepNames.has(subStep.name)) {
-            logger.info(`Starting parallel sub-step '${subStep.name}'`, { sessionId, subStepName: subStep.name });
+          const subStepName = typeof subStep === 'string' ? subStep : subStep.name;
+          if (!completedStepNames.has(subStepName) && !runningStepNames.has(subStepName)) {
+            logger.info(`Starting parallel sub-step '${subStepName}'`, { sessionId, subStepName });
             newActiveSteps.push(subStep);
+            // Don't await here to allow true parallel start if they were async, 
+            // but for sync steps they will still run sequentially here
             await this._startStep(subStep, sessionId, config, correlationId);
+            startedAny = true;
+          } else if (runningStepNames.has(subStepName)) {
+            newActiveSteps.push(subStep);
           }
         }
-        return newActiveSteps;
+        return { newActiveSteps, startedAny };
       }
       else {
-        const stepName = typeof step === 'string' ? step : step.name;
         if (!completedStepNames.has(stepName) && !runningStepNames.has(stepName)) {
-          logger.info(`Starting synchronous step '${stepName}'`, { sessionId, nextStepName: stepName });
+          logger.info(`Starting step '${stepName}'`, { sessionId, nextStepName: stepName });
           newActiveSteps.push(step);
           await this._startStep(step, sessionId, config, correlationId);
-          return newActiveSteps;
+          return { newActiveSteps, startedAny: true };
+        } else if (runningStepNames.has(stepName)) {
+          newActiveSteps.push(step);
+          return { newActiveSteps, startedAny: false };
         }
       }
     }
 
-    return newActiveSteps;
+    return { newActiveSteps, startedAny };
   }
   
   async _isWorkflowFinished(session, currentSteps, allBatchesForSession) {
@@ -257,7 +293,6 @@ class BatchCallbackService {
             step_key: stepName,
             status: 'SYNCHRONOUS',
           });
-          await this._checkSessionCompletion(sessionId, correlationId);
         }
       } else if (generatorMap[flowType]) {
         const generator = generatorMap[flowType];
@@ -276,7 +311,6 @@ class BatchCallbackService {
             step_key: stepName,
             status: 'SYNCHRONOUS',
           });
-          await this._checkSessionCompletion(sessionId, correlationId);
         }
       } else if (flowType === 'delete') {
         const { channelId, catalogId } = session.context;
@@ -300,7 +334,6 @@ class BatchCallbackService {
           totalCount: 0,
           processedCount: 0,
         });
-        await this._checkSessionCompletion(sessionId, correlationId);
       }
     } catch (error) {
       logger.error(`Error executing step '${stepName}': ${error.message}`, {
@@ -327,7 +360,7 @@ class BatchCallbackService {
       status: 'PREPARED',
     });
 
-    const { hasItems, ids, items } = await this._checkIfEntitiesExist(
+    const { hasItems, totalCount } = await this._checkIfEntitiesExist(
       liferay,
       config,
       step,
@@ -341,12 +374,6 @@ class BatchCallbackService {
       });
 
       await persistence.updateBatch(batchERC, { status: 'BYPASSED', totalCount: 0, processedCount: 0 });
-
-      await this._checkSessionCompletion(
-        sessionId,
-        config.correlationId
-      );
-
       return;
     }
 
@@ -356,12 +383,11 @@ class BatchCallbackService {
       const handlerContext = {
         config,
         options,
-        ids,
-        items,
         batchERC,
         sessionId,
         channelId,
         catalogId,
+        totalCount,
       };
 
       await handler(this.ctx, handlerContext);
@@ -371,11 +397,6 @@ class BatchCallbackService {
       });
 
       await persistence.updateBatch(batchERC, { status: 'FAILED' });
-      
-      await this._checkSessionCompletion(
-        sessionId,
-        config.correlationId
-      );
     }
   }
 
@@ -397,7 +418,7 @@ class BatchCallbackService {
           pageSize: 1,
         });
         return {
-          totalCount: asCount(res),
+          totalCount: res.totalCount,
         };
       },
       deleteProducts: async () => {
@@ -406,7 +427,7 @@ class BatchCallbackService {
           pageSize: 1,
         });
         return {
-          totalCount: asCount(res),
+          totalCount: res.totalCount,
         };
       },
       deleteProductOptions: async () => {
@@ -415,7 +436,7 @@ class BatchCallbackService {
           pageSize: 1,
         });
         return {
-          totalCount: asCount(res),
+          totalCount: res.totalCount,
         };
       },
       deleteProductSpecifications: async () => {
@@ -424,19 +445,19 @@ class BatchCallbackService {
           pageSize: 1,
         });
         return {
-          totalCount: asCount(res),
+          totalCount: res.totalCount,
         };
       },
       deleteSpecifications: async () => {
         const res = await liferay.getCommerceSpecifications(config, { pageSize: 1 });
         return {
-          totalCount: asCount(res),
+          totalCount: res.totalCount,
         };
       },
       deleteOptions: async () => {
         const res = await liferay.getCommerceOptions(config, { pageSize: 1 });
         return {
-          totalCount: asCount(res),
+          totalCount: res.totalCount,
         };
       },
       deleteOptionCategories: async () => {
@@ -444,7 +465,7 @@ class BatchCallbackService {
           pageSize: 1,
         });
         return {
-          totalCount: asCount(res),
+          totalCount: res.totalCount,
         };
       },
       deleteProductRelatedEntities: async () => {
@@ -465,27 +486,27 @@ class BatchCallbackService {
           pageSize: 1,
         });
         return {
-          totalCount: asCount(res),
+          totalCount: res.totalCount,
         };
       },
       deleteWarehouses: async () => {
         const res = await liferay.getCommerceWarehouses(config, { pageSize: 1 });
         return {
-          totalCount: asCount(res),
+          totalCount: res.totalCount,
         };
       },
       deletePriceLists: async () => {
         const res = await liferay.getCommercePriceLists(config, { pageSize: 1 });
         return {
-          totalCount: asCount(res),
+          totalCount: res.totalCount,
         };
       },
     };
 
-    if (!checkMap[entityType]) return { hasItems: false, ids: [] }; 
+    if (!checkMap[entityType]) return { hasItems: false }; 
 
     const result = await checkMap[entityType]();
-    const totalCount = result.totalCount !== undefined ? result.totalCount : (result.ids?.length || 0);
+    const totalCount = result.totalCount || 0;
     const hasItems = totalCount > 0 || !!result.hasItems;
 
     logger.debug('Entity existence check result', {
@@ -494,7 +515,7 @@ class BatchCallbackService {
       totalCount,
     });
 
-    return { hasItems, ids: result.ids, items: result.items };
+    return { hasItems, totalCount };
   }
 
   _getOnSessionComplete(flowType) {
@@ -549,6 +570,25 @@ class BatchCallbackService {
       } = importTask?.data || {}; 
       const errorCount = failedItems?.length || 0;
 
+      let failureDetails = [];
+      if (errorCount > 0) {
+        try {
+          failureDetails = await liferay.getImportTaskFailedItemReport(config, batchId);
+          logger.error('Batch processing errors detected', {
+            batchId,
+            batchERC,
+            sessionId: dbBatch.session_id,
+            errorCount,
+            failureDetails: failureDetails.slice(0, 10), // Log first 10 for visibility
+          });
+        } catch (reportError) {
+          logger.warn('Failed to retrieve detailed batch failure report', {
+            batchId,
+            error: reportError.message,
+          });
+        }
+      }
+
       await persistence.updateBatch(batchERC, {
         status: status.toUpperCase(),
         processedCount: processedItemsCount,
@@ -566,14 +606,13 @@ class BatchCallbackService {
           sessionId: dbBatch.session_id,
           successCount: processedItemsCount,
           failureCount: errorCount,
-          errors: failedItems?.slice(0, 5) || [],
+          errors: failureDetails.length > 0 ? failureDetails.slice(0, 5) : (failedItems?.slice(0, 5) || []),
         },
         { correlationId }
       );
 
       await this._checkSessionCompletion(dbBatch.session_id, correlationId);
-    } catch (error) {
-      logger.error('Error processing batch callback', {
+    } catch (error) {      logger.error('Error processing batch callback', {
         operation: 'batch-callback-error',
         batchERC,
         correlationId,

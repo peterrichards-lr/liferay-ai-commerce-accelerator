@@ -1,8 +1,8 @@
 const { asItems } = require('../../../utils/liferayUtils.cjs');
 
 module.exports = async function deleteProductSpecifications(
-  { liferay, logger },
-  { config, options, sessionId }
+  { liferay, logger, persistence },
+  { config, options, sessionId, batchERC }
 ) {
   logger.info('Starting explicit removal of product-specification associations');
 
@@ -14,6 +14,13 @@ module.exports = async function deleteProductSpecifications(
 
   if (products.length === 0) {
     logger.info('No products found to clear specifications from.');
+    if (batchERC) {
+      await persistence.updateBatch(batchERC, {
+        status: 'COMPLETED',
+        processedCount: 0,
+        totalCount: 0,
+      });
+    }
     return { success: true, count: 0 };
   }
 
@@ -40,5 +47,14 @@ module.exports = async function deleteProductSpecifications(
   }
 
   logger.info(`Successfully cleared ${clearedCount} product-specification associations.`);
+
+  if (batchERC) {
+    await persistence.updateBatch(batchERC, {
+      status: 'COMPLETED',
+      processedCount: clearedCount,
+      totalCount: clearedCount,
+    });
+  }
+
   return { success: true, count: clearedCount };
 };

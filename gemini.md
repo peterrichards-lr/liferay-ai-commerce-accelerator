@@ -100,6 +100,11 @@ To ensure reliability and prevent runtime errors (e.g., requesting non-existent 
 3.  **Argument Validation**: Confirm that all arguments passed to query methods match the schema's definitions.
 4.  **Definition of Done**: Verification against the local schema is a mandatory step in the "Definition of Done" for any task involving GraphQL.
 
+### Batch Engine Verb Support (Unusual Behavior)
+- **Constraint**: Not all Liferay Batch Engine endpoints support the HTTP `DELETE` verb.
+- **Example**: The `/warehouses/batch` endpoint only supports `POST` (for creation/update). Attempting a `DELETE` request will result in a `404 Not Found` error.
+- **Resolution**: For entity types that lack native batch deletion support, use **Simulated Batching** (sequential individual `DELETE` requests) instead of relying on the Batch Engine. Always verify the supported verbs in the OpenAPI schema (`api-schemas/*.json`) before implementing a deletion step.
+
 ------------------------------------------------------------------------
 
 ## Storage strategy

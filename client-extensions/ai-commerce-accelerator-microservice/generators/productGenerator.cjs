@@ -32,6 +32,7 @@ class ProductGenerator {
       'generate-warehouses': this._runWarehouseGenerationStep.bind(this),
       'product-data-generation': this._runProductDataGenerationStep.bind(this),
       products: this._runProductCreationStep.bind(this),
+      'resolve-product-ids': this._runResolveProductIdsStep.bind(this),
       'attach-images': this._runAttachImagesStep.bind(this),
       'attach-pdfs': this._runAttachPdfsStep.bind(this),
       'update-inventory': this._runUpdateInventoryStep.bind(this),
@@ -46,6 +47,7 @@ class ProductGenerator {
       { name: 'generate-warehouses', type: 'sync' },
       { name: 'product-data-generation', type: 'sync' },
       { name: 'products', type: 'sync' },
+      { name: 'resolve-product-ids', type: 'sync' },
       {
         type: 'parallel',
         steps: [
@@ -79,6 +81,70 @@ class ProductGenerator {
       sessionId,
       message: 'Product generation workflow started.',
     };
+  }
+
+  async _runResolveProductIdsStep(sessionId, session) {
+    const { logger, liferay, persistence, batchCallback } = this.ctx;
+    const { config, productDataList } = session.context;
+
+    if (!productDataList || productDataList.length === 0) {
+      logger.info('No products to resolve IDs for.', { sessionId });
+      await persistence.createBatch({
+        erc: createERC(ERC_PREFIX.BATCH),
+        sessionId,
+        stepKey: 'resolve-product-ids',
+        status: 'BYPASSED',
+      });
+      await batchCallback._checkSessionCompletion(sessionId, config.correlationId);
+      return;
+    }
+
+    logger.info(`Resolving real numeric IDs for ${productDataList.length} products via GraphQL/ERC...`, { sessionId });
+
+    const ercs = productDataList.map(p => p.externalReferenceCode).filter(Boolean);
+    
+    try {
+      // getProductsByERC uses _fetchByERCs which has built-in exponential backoff/retries for STALE_INDEX
+      const resolvedItems = await liferay.getProductsByERC(config, ercs, ['id', 'externalReferenceCode', 'productId']);
+      
+      const ercToIdMap = new Map();
+      resolvedItems.forEach(item => {
+        if (item) {
+          ercToIdMap.set(item.externalReferenceCode, item.productId || item.id);
+        }
+      });
+
+      const updatedProductDataList = productDataList.map(p => ({
+        ...p,
+        id: ercToIdMap.get(p.externalReferenceCode)
+      }));
+
+      await persistence.updateSessionContext(sessionId, {
+        ...session.context,
+        productDataList: updatedProductDataList,
+      });
+
+      logger.info('Successfully resolved product IDs.', { sessionId, resolvedCount: ercToIdMap.size });
+
+      await persistence.createBatch({
+        erc: createERC(ERC_PREFIX.BATCH),
+        sessionId,
+        stepKey: 'resolve-product-ids',
+        status: 'SYNCHRONOUS',
+      });
+
+    } catch (error) {
+      logger.error('Failed to resolve product IDs', { sessionId, error: error.message });
+      // If we can't resolve IDs, subsequent steps will fail anyway, so we fail the step.
+      await persistence.createBatch({
+        erc: createERC(ERC_PREFIX.BATCH),
+        sessionId,
+        stepKey: 'resolve-product-ids',
+        status: 'FAILED',
+      });
+    }
+
+    await batchCallback._checkSessionCompletion(sessionId, config.correlationId);
   }
 
   async _runWarehouseGenerationStep(sessionId, session) {

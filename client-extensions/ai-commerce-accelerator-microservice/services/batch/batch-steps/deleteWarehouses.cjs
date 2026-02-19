@@ -12,11 +12,11 @@ module.exports = async function deleteWarehouses(
     externalReferenceCode: batchERC,
     dryRun: options.dryRun,
     sessionId,
-    nativeBatch: true,
-    path: PATH.WAREHOUSES_BATCH,
+    nativeBatch: false, // Warehouses API does not support batch DELETE
+    basePath: PATH.WAREHOUSES,
     listUrl: PATH.WAREHOUSES,
     op: 'warehouses:batch-delete',
-    friendly: 'Delete warehouses (batch)',
+    friendly: 'Delete warehouses (simulated batch)',
   });
   return result;
 };

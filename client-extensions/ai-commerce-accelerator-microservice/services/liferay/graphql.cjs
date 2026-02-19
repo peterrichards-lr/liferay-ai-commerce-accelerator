@@ -74,7 +74,8 @@ class LiferayGraphQLService {
       namespace,
       queryMethod,
       status: response.status,
-      data: response.data,
+      itemCount: response.data?.data?.[namespace]?.[queryMethod]?.items?.length,
+      totalCount: response.data?.data?.[namespace]?.[queryMethod]?.totalCount,
     });
 
     if (response.data.errors) {
@@ -267,6 +268,10 @@ class LiferayGraphQLService {
 
   async getAccountsByERC(config, ercs, fields = ['id', 'externalReferenceCode', 'name']) {
     return this._fetchByERCs(config, 'headlessAdminUser_v1_0', 'accountByExternalReferenceCode', ercs, fields);
+  }
+
+  async getProductsByERC(config, ercs, fields = ['id', 'externalReferenceCode', 'productId']) {
+    return this._fetchByERCs(config, 'headlessCommerceAdminCatalog_v1_0', 'productByExternalReferenceCode', ercs, fields);
   }
 
   async getPostalAddressesByERC(config, ercs, fields = ['id', 'externalReferenceCode']) {
