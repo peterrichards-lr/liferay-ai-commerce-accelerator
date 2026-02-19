@@ -4,6 +4,8 @@ module.exports = {
   deleteWarehouses: require('./deleteWarehouses.cjs'),
   deleteAccounts: require('./deleteAccounts.cjs'),
   deleteProducts: require('./deleteProducts.cjs'),
+  deleteProductOptions: require('./deleteProductOptions.cjs'),
+  deleteProductSpecifications: require('./deleteProductSpecifications.cjs'),
   deletePriceLists: require('./deletePriceLists.cjs'),
   deleteSpecifications: require('./deleteSpecifications.cjs'),
   deleteOptions: require('./deleteOptions.cjs'),

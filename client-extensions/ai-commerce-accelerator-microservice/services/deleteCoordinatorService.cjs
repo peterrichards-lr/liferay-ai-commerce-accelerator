@@ -15,6 +15,8 @@ class DeleteCoordinatorService {
       { name: 'deleteOrders', type: 'sync' },
       { name: 'deleteWarehouses', type: 'sync' },
       { name: 'deleteAccounts', type: 'sync' },
+      { name: 'deleteProductOptions', type: 'sync' },
+      { name: 'deleteProductSpecifications', type: 'sync' },
       { name: 'deleteProducts', type: 'sync' },
       { name: 'deletePriceLists', type: 'sync' },
       { name: 'deleteSpecifications', type: 'sync' },

@@ -394,49 +394,57 @@ class BatchCallbackService {
       deleteAccounts: async () => {
         const res = await liferay.getCommerceAccounts(config, {
           channelId,
-          pageSize: 200,
+          pageSize: 1,
         });
         return {
-          items: asItems(res),
           totalCount: asCount(res),
-          ids: asItems(res).map((it) => it.id),
         };
       },
       deleteProducts: async () => {
         const res = await liferay.getCommerceProducts(config, {
           catalogId,
-          pageSize: 200,
+          pageSize: 1,
         });
         return {
-          items: asItems(res),
           totalCount: asCount(res),
-          ids: asItems(res).map((it) => it.productId),
+        };
+      },
+      deleteProductOptions: async () => {
+        const res = await liferay.getCommerceProducts(config, {
+          catalogId,
+          pageSize: 1,
+        });
+        return {
+          totalCount: asCount(res),
+        };
+      },
+      deleteProductSpecifications: async () => {
+        const res = await liferay.getCommerceProducts(config, {
+          catalogId,
+          pageSize: 1,
+        });
+        return {
+          totalCount: asCount(res),
         };
       },
       deleteSpecifications: async () => {
-        const res = await liferay.getCommerceSpecifications(config, { pageSize: 200 });
+        const res = await liferay.getCommerceSpecifications(config, { pageSize: 1 });
         return {
-          items: asItems(res),
           totalCount: asCount(res),
-          ids: asItems(res).map((it) => it.id),
         };
       },
       deleteOptions: async () => {
-        const res = await liferay.getCommerceOptions(config, { pageSize: 200 });
+        const res = await liferay.getCommerceOptions(config, { pageSize: 1 });
         return {
-          items: asItems(res),
           totalCount: asCount(res),
-          ids: asItems(res).map((it) => it.id),
         };
       },
       deleteOptionCategories: async () => {
         const res = await liferay.getCommerceOptionCategories(config, {
-          pageSize: 200,
+          pageSize: 1,
         });
         return {
-          items: asItems(res),
           totalCount: asCount(res),
-          ids: asItems(res).map((it) => it.id),
         };
       },
       deleteProductRelatedEntities: async () => {
@@ -454,45 +462,39 @@ class BatchCallbackService {
       },
       deleteOrders: async () => {
         const res = await liferay.getCommerceOrders(config, {
-          pageSize: 200,
+          pageSize: 1,
         });
         return {
-          items: asItems(res),
           totalCount: asCount(res),
-          ids: asItems(res).map((it) => it.id),
         };
       },
       deleteWarehouses: async () => {
-        const res = await liferay.getCommerceWarehouses(config, { pageSize: 200 });
+        const res = await liferay.getCommerceWarehouses(config, { pageSize: 1 });
         return {
-          items: asItems(res),
           totalCount: asCount(res),
-          ids: asItems(res).map((it) => it.id),
         };
       },
       deletePriceLists: async () => {
-        const res = await liferay.getCommercePriceLists(config, { pageSize: 200 });
+        const res = await liferay.getCommercePriceLists(config, { pageSize: 1 });
         return {
-          items: asItems(res),
           totalCount: asCount(res),
-          ids: asItems(res).map((it) => it.id),
         };
       },
     };
 
     if (!checkMap[entityType]) return { hasItems: false, ids: [] }; 
 
-    const { items, totalCount, ids } = await checkMap[entityType]();
-    const hasItems = totalCount > 0;
+    const result = await checkMap[entityType]();
+    const totalCount = result.totalCount !== undefined ? result.totalCount : (result.ids?.length || 0);
+    const hasItems = totalCount > 0 || !!result.hasItems;
 
     logger.debug('Entity existence check result', {
       entityType,
       hasItems,
       totalCount,
-      resultItemsPreview: (ids || []).slice(0, 5),
     });
 
-    return { hasItems, ids, items };
+    return { hasItems, ids: result.ids, items: result.items };
   }
 
   _getOnSessionComplete(flowType) {

@@ -219,6 +219,22 @@ class LiferayService {
     return this.rest.addProductOptions(config, productId, productOptions);
   }
 
+  deleteProductOption(config, productId, productOptionId) {
+    return this.rest.deleteProductOption(config, productId, productOptionId);
+  }
+
+  getCommerceProductOptions(config, productId) {
+    return this.rest.getCommerceProductOptions(config, productId);
+  }
+
+  deleteProductSpecification(config, productId, productSpecificationId) {
+    return this.rest.deleteProductSpecification(config, productId, productSpecificationId);
+  }
+
+  getCommerceProductSpecifications(config, productId) {
+    return this.rest.getCommerceProductSpecifications(config, productId);
+  }
+
   createOption(config, optionData) {
     return this.rest.createOption(config, optionData);
   }

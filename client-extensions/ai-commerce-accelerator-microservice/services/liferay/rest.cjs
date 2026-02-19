@@ -1245,7 +1245,7 @@ class LiferayRestService {
 
   async deleteByFilter(
     config,
-    { entityName, filter, search, searchPrefixes, nativeBatch, ids: providedIds, items: providedItems, ...rest },
+    { entityName, filter, search, searchPrefixes, nativeBatch, ids: providedIds, items: providedItems, channelId, ...rest },
   ) {
     const { logger } = this.ctx;
 
@@ -1254,10 +1254,6 @@ class LiferayRestService {
 
     const discoveryFields = new Set(['id', 'productId', 'externalReferenceCode', 'name', 'title']);
     if (entityName === 'priceList') discoveryFields.add('catalogBasePriceList');
-    if (['account', 'product', 'optionCategory', 'specification', 'option'].includes(entityName)) {
-        // We know these don't actually have 'system' in the current Liferay version schemas we checked, 
-        // but some might in later ones. For now, let's stick to what we know.
-    }
 
     const fieldsParam = Array.from(discoveryFields).join(',');
 
@@ -1276,27 +1272,34 @@ class LiferayRestService {
           itemsToDelete = providedIds.map(id => ({ id }));
       }
     } else if (itemsToDelete.length === 0) {
-      const collect = async (args) => {
-        const items = await this._collectPagedItems(config, {
-          listUrl: rest.listUrl,
-          pageSize: rest.pageSize,
-          filter: args.filter,
-          search: args.search,
-          fields: fieldsParam,
-          op: `${entityName}:list`,
-          friendly: `List ${entityName}`,
-        });
-        return items;
-      };
-
-      if (Array.isArray(searchPrefixes) && searchPrefixes.length) {
-        for (const s of searchPrefixes) {
-          itemsToDelete = itemsToDelete.concat(await collect({ search: s }));
-        }
-      } else if (search) {
-        itemsToDelete = await collect({ search });
+      // Logic for Account discovery by Channel
+      if (entityName === 'account' && channelId) {
+        const res = await this.getCommerceAccounts(config, { channelId, pageSize: 200, fields: fieldsParam });
+        // getCommerceAccounts returns { items, totalCount, ... }
+        itemsToDelete = res.items || [];
       } else {
-        itemsToDelete = await collect({ filter });
+        const collect = async (args) => {
+          const items = await this._collectPagedItems(config, {
+            listUrl: rest.listUrl,
+            pageSize: rest.pageSize || 200,
+            filter: args.filter,
+            search: args.search,
+            fields: fieldsParam,
+            op: `${entityName}:list`,
+            friendly: `List ${entityName}`,
+          });
+          return items;
+        };
+
+        if (Array.isArray(searchPrefixes) && searchPrefixes.length) {
+          for (const s of searchPrefixes) {
+            itemsToDelete = itemsToDelete.concat(await collect({ search: s }));
+          }
+        } else if (search) {
+          itemsToDelete = await collect({ search });
+        } else {
+          itemsToDelete = await collect({ filter });
+        }
       }
     }
 
@@ -1848,6 +1851,44 @@ class LiferayRestService {
       'add-product-options',
       'Failed to add product options',
     );
+  }
+
+  async deleteProductOption(config, productId, productOptionId) {
+    return await this._delete(
+      config,
+      `${PATH.PRODUCT_OPTIONS(productId)}/${productOptionId}`,
+      null,
+      'delete-product-option',
+      'Failed to delete product option',
+    );
+  }
+
+  async getCommerceProductOptions(config, productId) {
+    const data = await this._get(
+      config,
+      PATH.PRODUCT_OPTIONS(productId),
+      'get-product-options',
+    );
+    return asItems(data);
+  }
+
+  async deleteProductSpecification(config, productId, productSpecificationId) {
+    return await this._delete(
+      config,
+      `${PATH.PRODUCT_SPECIFICATIONS(productId)}/${productSpecificationId}`,
+      null,
+      'delete-product-specification',
+      'Failed to delete product specification',
+    );
+  }
+
+  async getCommerceProductSpecifications(config, productId) {
+    const data = await this._get(
+      config,
+      PATH.PRODUCT_SPECIFICATIONS(productId),
+      'get-product-specifications',
+    );
+    return asItems(data);
   }
 
   async createSpecification(config, specificationData) {
