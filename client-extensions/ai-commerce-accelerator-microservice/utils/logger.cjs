@@ -244,6 +244,12 @@ class Logger {
       errorCode: error.code,
     });
   }
+
+  async close() {
+    // Current implementation is synchronous, but we provide this for graceful shutdown
+    // and potential future async transitions.
+    return Promise.resolve();
+  }
 }
 
 const logger = new Logger();

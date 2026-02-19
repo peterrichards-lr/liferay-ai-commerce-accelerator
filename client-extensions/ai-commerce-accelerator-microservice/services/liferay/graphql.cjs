@@ -278,6 +278,10 @@ class LiferayGraphQLService {
     return this._fetchByERCs(config, 'headlessCommerceAdminCatalog_v1_0', 'productByExternalReferenceCode', ercs, fields);
   }
 
+  async getWarehousesByERC(config, ercs, fields = ['id', 'externalReferenceCode', 'name']) {
+    return this._fetchByERCs(config, 'headlessCommerceAdminInventory_v1_0', 'warehouseByExternalReferenceCode', ercs, fields);
+  }
+
   async getPostalAddressesByERC(config, ercs, fields = ['id', 'externalReferenceCode']) {
     return this._fetchByERCs(config, 'headlessAdminUser_v1_0', 'postalAddressByExternalReferenceCode', ercs, fields);
   }

@@ -297,20 +297,50 @@ const server = http.createServer(app);
     });
   });
 
-  process.on('SIGTERM', () => {
-    logger.info('SIGTERM received, shutting down gracefully', {
+  const gracefulShutdown = async (signal) => {
+    logger.info(`${signal} received, shutting down gracefully`, {
       operation: 'server-shutdown',
+      signal,
     });
 
-    ws.stop();
+    try {
+      if (ws) {
+        ws.stop();
+        logger.debug('WebSocket server stopped', { operation: 'server-shutdown' });
+      }
 
-    server.close(() => {
-      logger.info('Server closed successfully', {
-        operation: 'server-closed',
+      await new Promise((resolve) => {
+        server.close((err) => {
+          if (err) {
+            logger.error('Error during server close', {
+              operation: 'server-shutdown',
+              error: err.message,
+            });
+          } else {
+            logger.info('HTTP server closed successfully', {
+              operation: 'server-shutdown',
+            });
+          }
+          resolve();
+        });
       });
+
+      if (logger.close) {
+        await logger.close();
+      }
+      
       process.exit(0);
-    });
-  });
+    } catch (error) {
+      logger.error('Error during graceful shutdown', {
+        operation: 'server-shutdown',
+        error: error.message,
+      });
+      process.exit(1);
+    }
+  };
+
+  process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
+  process.on('SIGINT', () => gracefulShutdown('SIGINT'));
 })();
 
 module.exports = app;

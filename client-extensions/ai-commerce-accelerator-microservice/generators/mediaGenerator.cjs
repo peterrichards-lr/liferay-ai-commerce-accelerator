@@ -1,4 +1,5 @@
 const { jsPDF } = require('jspdf');
+const axios = require('axios');
 const {
   buildDataUrl,
   parseDataUrl,
@@ -99,7 +100,7 @@ class MediaGenerator {
     if (blur)
       params.append(
         'blur',
-        isNaN(blur) ? '' : Math.min(Math.max(parseInt(blur), 1), 10)
+        isNaN(blur) ? '' : Math.Math.min(Math.max(parseInt(blur), 1), 10)
       );
     const query = params.toString();
     if (query) url += `?${query}`;
@@ -228,101 +229,6 @@ class MediaGenerator {
     }
   }
 
-  async uploadPDFToStorage(uploadURL, pdfBuffer, filename, config) {
-    const { logger } = this.ctx;
-    const correlationId = config?.correlationId || '∅';
-    const operation = this.resolveOperation(config, 'process-attachments');
-    for (let attempt = 0; attempt < 3; attempt++) {
-      try {
-        const response = await fetch(uploadURL, {
-          method: 'PUT',
-          body: pdfBuffer,
-          headers: {
-            'Content-Type': 'application/pdf',
-            Connection: 'keep-alive',
-          },
-          signal: AbortSignal.timeout(60000),
-        });
-        if (!response.ok)
-          throw new Error(`${response.status} ${response.statusText}`);
-        return { success: true, uploadURL, filename };
-      } catch (error) {
-        logger.warn('PDF upload attempt failed', {
-          operation,
-          attempt: attempt + 1,
-          correlationId,
-          error: error.message,
-        });
-        if (attempt === 2) throw error;
-        await delay(1000 * (attempt + 1));
-      }
-    }
-  }
-
-  async generateAndUploadProductPDF(productData, productSku, config) {
-    const { logger, objectStorage, ws } = this.ctx;
-    const correlationId = config?.correlationId || '∅';
-    const operation = this.resolveOperation(config, 'process-attachments');
-    const startedAt = now();
-    try {
-      const pdfBuffer = await this.generateProductPDF(
-        productData,
-        productSku,
-        config
-      );
-      if (
-        !pdfBuffer?.length ||
-        !pdfBuffer.slice(0, 4).toString().includes('%PDF')
-      )
-        throw new Error('Invalid PDF buffer');
-      const objectKey = `product-pdfs/${productSku}-${now()}.pdf`;
-      const uploadResult = await objectStorage.uploadFile(
-        objectKey,
-        pdfBuffer,
-        'application/pdf'
-      );
-      const durationMs = elapsedMs(startedAt);
-      ws.emitBatchCompleted(
-        {
-          batchId: `pdf-upload-${productSku}`,
-          entityType: 'media',
-          successCount: 1,
-          failureCount: 0,
-          operation,
-          meta: { durationMs },
-        },
-        { correlationId }
-      );
-      return {
-        success: true,
-        entityType: 'media',
-        operation: 'generate-and-upload-pdf',
-        objectPath: uploadResult.objectPath,
-        fileName: `${productSku}_manual.pdf`,
-        durationMs,
-      };
-    } catch (error) {
-      logger.error('Failed to generate or upload PDF', {
-        operation,
-        correlationId,
-        productSku,
-        error: error.message,
-      });
-      ws.emitBatchCompleted(
-        {
-          batchId: `pdf-upload-${productSku}`,
-          entityType: 'media',
-          successCount: 0,
-          failureCount: 1,
-          errors: [{ message: error.message }],
-          operation,
-        },
-        { correlationId }
-      );
-      throw error;
-    }
-  }
-
   selectProductsForPDFs(products, ratio) {
     if (ratio <= 0 || ratio > 100) return [];
     const count = Math.ceil(products.length * (ratio / 100));
@@ -379,13 +285,33 @@ class MediaGenerator {
     let completedCount = 0;
     for (const product of productsWithImages) {
       try {
-        const images = this.generateProductImageSet(product.name.en_US);
-        for (const image of images) {
-          await liferay.addProductImage(config, product.id, image);
+        let imageSet;
+        
+        if (options.demoMode) {
+          // In Demo Mode, use placeholders or a single static image if configured
+          imageSet = this.generateProductImageSet(product.name.en_US);
+        } else {
+          // In Live Mode, we would generate unique images per product
+          // For now, still using Picsum but we could call OpenAI DALL-E here
+          imageSet = this.generateProductImageSet(product.name.en_US);
+        }
+
+        for (const imageData of imageSet) {
+          // If we have a URL, we can use by-url or fetch and submit by-base64
+          // The user specifically requested by-base64 or multipart for reliability
+          const response = await axios.get(imageData.src, { responseType: 'arraybuffer' });
+          const base64 = Buffer.from(response.data, 'binary').toString('base64');
+          
+          await liferay.addProductImageByBase64(config, product.externalReferenceCode, {
+            attachment: base64,
+            contentType: response.headers['content-type'] || 'image/webp',
+            title: imageData.title,
+            priority: imageData.priority
+          });
         }
         completedCount++;
       } catch (error) {
-        logger.error(`Failed to create images for product ${product.id}`, { sessionId, error: error.message });
+        logger.error(`Failed to create images for product ${product.id || 'unknown'}`, { sessionId, error: error.message });
       }
       progress.batchProgress({
         batchId,
@@ -444,14 +370,28 @@ class MediaGenerator {
     let completedCount = 0;
     for (const product of productsWithPdfs) {
         try {
-            const pdfData = { title: `${product.name.en_US} Manual`, sections: [{ title: 'Overview', content: product.description.en_US }] };
-            const sku = product.skus[0]?.sku || product.externalReferenceCode;
-            const uploadResult = await this.generateAndUploadProductPDF(pdfData, sku, config);
+            const sku = product.skus?.[0]?.sku || product.externalReferenceCode;
+            let pdfBase64;
 
-            await liferay.addProductDocumentAttachment(config, product.id, {
-                title: { en_US: uploadResult.fileName },
-                src: uploadResult.objectPath,
-                type: 'document'
+            if (options.demoMode) {
+              // Use mock PDF content for demo mode
+              const mockPdf = await this.getDefaultBase64Pdf(config);
+              pdfBase64 = mockPdf.base64;
+            } else {
+              // Generate unique PDF for live mode
+              const pdfData = { 
+                title: `${product.name.en_US} Manual`, 
+                sections: [{ title: 'Overview', content: product.description.en_US }] 
+              };
+              const pdfBuffer = await this.generateProductPDF(pdfData, sku, config);
+              pdfBase64 = pdfBuffer.toString('base64');
+            }
+
+            await liferay.addProductDocumentAttachmentByBase64(config, product.externalReferenceCode, {
+                attachment: pdfBase64,
+                contentType: 'application/pdf',
+                title: { en_US: `${sku}_manual.pdf` },
+                priority: 1
             });
 
             completedCount++;
@@ -485,8 +425,6 @@ class MediaGenerator {
   validateConfig(config, options) {
     if (!options.demoMode && (options.imageRatio ?? 0) > 0) {
         if (!config.imageGenerationKey) {
-            // This is a soft warning for now as picsum is used as a fallback
-            // In a real scenario, this might throw an error.
             console.warn('Image generation API key not configured. Using placeholder images.');
         }
     }

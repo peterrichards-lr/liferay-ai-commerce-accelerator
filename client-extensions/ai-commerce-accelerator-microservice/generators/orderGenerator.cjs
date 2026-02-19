@@ -56,8 +56,9 @@ class OrderGenerator {
     };
   }
 
-  async _runOrderDataGenerationStep(sessionId, session) {
+  async _runOrderDataGenerationStep(sessionId) {
     const { logger, ai, mockData, persistence, liferay, batchCallback } = this.ctx;
+    const session = await persistence.getSession(sessionId);
     const { config, options } = session.context;
 
     logger.info('Starting order data generation step', { sessionId });
@@ -109,8 +110,9 @@ class OrderGenerator {
     );
   }
 
-  async _runOrderCreationStep(sessionId, session) {
-    const { logger, liferay, persistence, progress } = this.ctx;
+  async _runOrderCreationStep(sessionId) {
+    const { logger, liferay, persistence, progress, batchCallback } = this.ctx;
+    const session = await persistence.getSession(sessionId);
     const { config, options, orderDataList, accounts, products, warehouses } =
       session.context;
 
@@ -144,7 +146,7 @@ class OrderGenerator {
               status: 'SYNCHRONOUS',
           });
         }
-        await this.ctx.batchCallback._checkSessionCompletion(sessionId, config.correlationId);
+        await batchCallback._checkSessionCompletion(sessionId, config.correlationId);
         return;
       }
 
@@ -211,7 +213,7 @@ class OrderGenerator {
             stepKey: 'orders',
             status: 'SYNCHRONOUS',
         });
-        await this.ctx.batchCallback._checkSessionCompletion(sessionId, config.correlationId);
+        await batchCallback._checkSessionCompletion(sessionId, config.correlationId);
         return;
       }
       await this.generateOrdersIndividually(
@@ -299,7 +301,8 @@ class OrderGenerator {
     } catch (error) {
       logger.error('Failed to create single order', {
         error: error.message,
-        payload,
+        accountId: payload.accountId,
+        erc: payload.externalReferenceCode,
       });
       throw error;
     }
@@ -386,13 +389,6 @@ class OrderGenerator {
     };
   }
 
-
-
-
-
-
-
-
   async generateOrdersIndividually(
     config,
     options,
@@ -474,7 +470,8 @@ class OrderGenerator {
       operation: 'orders/generate:complete',
       created: created.length,
       errors: errors.length,
-      mode: options.demoMode ? 'demo' : 'live',
+      mode,
+      phase,
     });
 
     return {
@@ -483,25 +480,6 @@ class OrderGenerator {
       errors,
       success: errors.length === 0,
     };
-  }
-
-
-  async createSingleOrder(config, payload) {
-    const { logger, liferay } = this.ctx;
-    try {
-      const createdOrder = await liferay.createOrder(config, payload);
-      logger.info('Order created successfully', {
-        orderId: createdOrder.id,
-        externalReferenceCode: createdOrder.externalReferenceCode,
-      });
-      return createdOrder;
-    } catch (error) {
-      logger.error('Failed to create single order', {
-        error: error.message,
-        payload,
-      });
-      throw error;
-    }
   }
 
   pickAccountId(requestedId, accounts) {
@@ -527,8 +505,6 @@ class OrderGenerator {
     return m[(s || '').toLowerCase()] ?? 0;
   }
 
-
-
   async getProductsAndAccounts(config) {
     const { liferay, logger } = this.ctx;
 
@@ -545,11 +521,8 @@ class OrderGenerator {
 
     logger.trace('Dependencies ready', {
       operation: 'orders/dependencies:ready',
-      products: products.length,
-      accounts: accounts.length,
-      sampleProducts: products
-        .slice(0, 3)
-        .map((p) => ({ id: p.id, name: p.name, skus: p.skus?.length, sampleSku: p.skus?.[0] })),
+      productsCount: products.length,
+      accountsCount: accounts.length,
     });
     
     return { products, accounts };

@@ -20,8 +20,9 @@ class AccountGenerator {
     };
   }
 
-  async _runLoadCountriesStep(sessionId, session) {
-    const { logger, liferay, persistence } = this.ctx;
+  async _runLoadCountriesStep(sessionId) {
+    const { logger, liferay, persistence, batchCallback } = this.ctx;
+    const session = await persistence.getSession(sessionId);
     const { config } = session.context;
 
     logger.info('Starting load countries step', { sessionId });
@@ -31,7 +32,10 @@ class AccountGenerator {
       countries = await liferay.getCountries(config);
       logger.info('Fetched countries', { sessionId, count: countries.length });
     } catch (error) {
-      logger.error('Failed to fetch countries in load-countries step', { sessionId, error: error.message, stack: error.stack });
+      logger.error('Failed to fetch countries in load-countries step', { 
+        sessionId, 
+        error: error.message 
+      });
       await persistence.updateSession(sessionId, { status: 'FAILED' });
       return;
     }
@@ -53,7 +57,7 @@ class AccountGenerator {
       countriesCount: countries.length,
     });
 
-    await this.ctx.batchCallback._checkSessionCompletion(
+    await batchCallback._checkSessionCompletion(
       sessionId,
       config.correlationId
     );
@@ -93,8 +97,9 @@ class AccountGenerator {
     };
   }
 
-  async _runAccountDataGenerationStep(sessionId, session) {
+  async _runAccountDataGenerationStep(sessionId) {
     const { logger, ai, mockData, persistence, batchCallback } = this.ctx;
+    const session = await persistence.getSession(sessionId);
     const { config, options, countries } = session.context;
 
     logger.info('Starting account data generation step', { sessionId });
@@ -215,14 +220,15 @@ class AccountGenerator {
       addressCount: addressesToCreate.length,
     });
 
-    await this.ctx.batchCallback._checkSessionCompletion(
+    await batchCallback._checkSessionCompletion(
       sessionId,
       config.correlationId
     );
   }
 
-  async _runAccountCreationStep(sessionId, session) {
-    const { logger, persistence, liferay } = this.ctx;
+  async _runAccountCreationStep(sessionId) {
+    const { logger, persistence, liferay, batchCallback } = this.ctx;
+    const session = await persistence.getSession(sessionId);
     const { config, options, accountsToCreate } = session.context;
 
     logger.info('Starting account creation step', { sessionId });
@@ -249,7 +255,7 @@ class AccountGenerator {
             stepKey: 'accounts',
             status: 'SYNCHRONOUS',
         });
-        await this.ctx.batchCallback._checkSessionCompletion(sessionId, config.correlationId);
+        await batchCallback._checkSessionCompletion(sessionId, config.correlationId);
         return; 
     }
 
@@ -274,7 +280,9 @@ class AccountGenerator {
     });
   }
 
-  async _runAddressCreationStep(sessionId, session) {
+  async _runAddressCreationStep(sessionId) {
+    const { persistence } = this.ctx;
+    const session = await persistence.getSession(sessionId);
     await this.startPostalAddressesBatch({
       sessionId,
       session: session.context,
@@ -341,7 +349,7 @@ class AccountGenerator {
   }
 
   async startPostalAddressesBatch({ sessionId, session, correlationId }) {
-    const { logger, persistence, liferay } = this.ctx;
+    const { logger, persistence, liferay, batchCallback } = this.ctx;
     const { config, options, addressesToCreate } = session;
 
     logger.info('Starting postal address creation step', { sessionId });
@@ -355,12 +363,6 @@ class AccountGenerator {
     const accounts = accountsResult?.items || [];
 
     logger.debug(`Found ${accounts.length} accounts`);
-    logger.trace(`Accounts: ${JSON.stringify(accounts, null, 2)}`);
-
-    logger.debug(`Found ${addressesToCreate.length} addresses to create`);
-    logger.trace(
-      `Addresses to create: ${JSON.stringify(addressesToCreate, null, 2)}`
-    );
 
     for (const account of accounts) {
       const addressesForAccount = addressesToCreate
@@ -376,7 +378,9 @@ class AccountGenerator {
         const batchERC = createERC(ERC_PREFIX.BATCH_GENERATION);
 
         if (options.dryRun) {
-            logger.info(`DRY RUN: Skipping address creation for account ${account.externalReferenceCode}.`);
+            logger.info('DRY RUN: Skipping address creation', {
+              accountERC: account.externalReferenceCode,
+            });
             logger.info({
                 dryRunData: {
                     step: 'postal-addresses',
@@ -420,12 +424,14 @@ class AccountGenerator {
           count: addressesForAccount.length,
         });
       } else{
-        logger.debug(`Unable to find addresses for ${account.externalReferenceCode}`)
+        logger.debug('No addresses to create for account', {
+          accountERC: account.externalReferenceCode
+        });
       }
     }
     
     if (options.dryRun) {
-        await this.ctx.batchCallback._checkSessionCompletion(sessionId, correlationId);
+        await batchCallback._checkSessionCompletion(sessionId, correlationId);
     }
   }
 
@@ -464,8 +470,9 @@ class AccountGenerator {
     };
   }
 
-  async _runSetBillingAndShippingAddressesStep(sessionId, session) {
+  async _runSetBillingAndShippingAddressesStep(sessionId) {
     const { logger, liferay, persistence, batchCallback } = this.ctx;
+    const session = await persistence.getSession(sessionId);
     const { config, options, accountsToCreate, addressesToCreate } = session.context;
 
     logger.info('Starting set billing and shipping addresses step', { sessionId });
@@ -534,7 +541,7 @@ class AccountGenerator {
         const liferayAccount = accountMap.get(account.externalReferenceCode);
 
         if (!liferayAccount) {
-            logger.warn(`Could not find created account for ERC ${account.externalReferenceCode}. Skipping address association.`, { sessionId });
+            logger.warn(`Could not find created account for ERC ${account.externalReferenceCode || 'N/A'}. Skipping address association.`, { sessionId });
             continue;
         }
 

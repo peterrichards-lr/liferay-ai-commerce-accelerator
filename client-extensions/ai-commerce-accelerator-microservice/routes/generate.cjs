@@ -76,8 +76,11 @@ module.exports = (
 
         if (options.productCount > 0) {
           steps.push({ name: 'generate-warehouses', type: 'sync' });
+          steps.push({ name: 'resolve-warehouse-ids', type: 'sync' });
           steps.push({ name: 'product-data-generation', type: 'sync' });
           steps.push({ name: 'products', type: 'sync' });
+          steps.push({ name: 'resolve-product-ids', type: 'sync' });
+          steps.push({ name: 'link-product-options', type: 'sync' });
           steps.push({
             type: 'parallel',
             steps: [

@@ -30,9 +30,11 @@ class ProductGenerator {
 
     this.steps = {
       'generate-warehouses': this._runWarehouseGenerationStep.bind(this),
+      'resolve-warehouse-ids': this._runResolveWarehouseIdsStep.bind(this),
       'product-data-generation': this._runProductDataGenerationStep.bind(this),
       products: this._runProductCreationStep.bind(this),
       'resolve-product-ids': this._runResolveProductIdsStep.bind(this),
+      'link-product-options': this._runLinkProductOptionsStep.bind(this),
       'attach-images': this._runAttachImagesStep.bind(this),
       'attach-pdfs': this._runAttachPdfsStep.bind(this),
       'update-inventory': this._runUpdateInventoryStep.bind(this),
@@ -45,9 +47,11 @@ class ProductGenerator {
 
     const steps = [
       { name: 'generate-warehouses', type: 'sync' },
+      { name: 'resolve-warehouse-ids', type: 'sync' },
       { name: 'product-data-generation', type: 'sync' },
       { name: 'products', type: 'sync' },
       { name: 'resolve-product-ids', type: 'sync' },
+      { name: 'link-product-options', type: 'sync' },
       {
         type: 'parallel',
         steps: [
@@ -83,8 +87,9 @@ class ProductGenerator {
     };
   }
 
-  async _runResolveProductIdsStep(sessionId, session) {
+  async _runResolveProductIdsStep(sessionId) {
     const { logger, liferay, persistence, batchCallback } = this.ctx;
+    const session = await persistence.getSession(sessionId);
     const { config, productDataList } = session.context;
 
     if (!productDataList || productDataList.length === 0) {
@@ -104,8 +109,24 @@ class ProductGenerator {
     const ercs = productDataList.map(p => p.externalReferenceCode).filter(Boolean);
     
     try {
-      // getProductsByERC uses _fetchByERCs which has built-in exponential backoff/retries for STALE_INDEX
-      const resolvedItems = await liferay.getProductsByERC(config, ercs, ['id', 'externalReferenceCode', 'productId']);
+      const maxRetries = parseInt(config.pollingRetries, 10) || 10;
+      const delayMs = parseInt(config.pollingDelay, 10) || 5000;
+      
+      let resolvedItems = [];
+      let success = false;
+
+      for (let attempt = 1; attempt <= maxRetries; attempt++) {
+        try {
+          // getProductsByERC uses _fetchByERCs which has built-in exponential backoff/retries for STALE_INDEX
+          resolvedItems = await liferay.getProductsByERC(config, ercs, ['id', 'externalReferenceCode', 'productId']);
+          success = true;
+          break;
+        } catch (error) {
+          if (attempt === maxRetries) throw error;
+          logger.warn(`Retrying product ID resolution (attempt ${attempt}/${maxRetries}) as search index may be stale...`, { sessionId });
+          await delay(delayMs);
+        }
+      }
       
       const ercToIdMap = new Map();
       resolvedItems.forEach(item => {
@@ -147,9 +168,140 @@ class ProductGenerator {
     await batchCallback._checkSessionCompletion(sessionId, config.correlationId);
   }
 
-  async _runWarehouseGenerationStep(sessionId, session) {
+  async _runResolveWarehouseIdsStep(sessionId) {
+    const { logger, liferay, persistence, batchCallback } = this.ctx;
+    const session = await persistence.getSession(sessionId);
+    const { config, options } = session.context;
+    const warehouses = options?.warehouses || [];
+
+    if (!warehouses || warehouses.length === 0) {
+      logger.info('No warehouses to resolve IDs for.', { sessionId });
+      await persistence.createBatch({
+        erc: createERC(ERC_PREFIX.BATCH),
+        sessionId,
+        stepKey: 'resolve-warehouse-ids',
+        status: 'BYPASSED',
+      });
+      await batchCallback._checkSessionCompletion(sessionId, config.correlationId);
+      return;
+    }
+
+    logger.info(`Resolving real numeric IDs for ${warehouses.length} warehouses via GraphQL/ERC...`, { sessionId });
+
+    const ercs = warehouses.map(w => w.externalReferenceCode || w.erc).filter(Boolean);
+    
+    try {
+      const maxRetries = parseInt(config.pollingRetries, 10) || 10;
+      const delayMs = parseInt(config.pollingDelay, 10) || 5000;
+      
+      let resolvedItems = [];
+      let success = false;
+
+      for (let attempt = 1; attempt <= maxRetries; attempt++) {
+        try {
+          resolvedItems = await liferay.getWarehousesByERC(config, ercs, ['id', 'externalReferenceCode', 'name']);
+          success = true;
+          break;
+        } catch (error) {
+          if (attempt === maxRetries) throw error;
+          logger.warn(`Retrying warehouse ID resolution (attempt ${attempt}/${maxRetries}) as search index may be stale...`, { sessionId });
+          await delay(delayMs);
+        }
+      }
+      
+      const ercToIdMap = new Map();
+      resolvedItems.forEach(item => {
+        if (item) {
+          ercToIdMap.set(item.externalReferenceCode, item.id);
+        }
+      });
+
+      const updatedWarehouses = warehouses.map(w => ({
+        ...w,
+        id: ercToIdMap.get(w.externalReferenceCode || w.erc) || w.id
+      }));
+
+      await persistence.updateSessionContext(sessionId, {
+        ...session.context,
+        options: {
+          ...options,
+          warehouses: updatedWarehouses
+        }
+      });
+
+      logger.info('Successfully resolved warehouse IDs.', { sessionId, resolvedCount: ercToIdMap.size });
+
+      await persistence.createBatch({
+        erc: createERC(ERC_PREFIX.BATCH),
+        sessionId,
+        stepKey: 'resolve-warehouse-ids',
+        status: 'SYNCHRONOUS',
+      });
+
+    } catch (error) {
+      logger.error('Failed to resolve warehouse IDs', { sessionId, error: error.message });
+      await persistence.createBatch({
+        erc: createERC(ERC_PREFIX.BATCH),
+        sessionId,
+        stepKey: 'resolve-warehouse-ids',
+        status: 'FAILED',
+      });
+    }
+
+    await batchCallback._checkSessionCompletion(sessionId, config.correlationId);
+  }
+
+  async _runLinkProductOptionsStep(sessionId) {
+    const { logger, liferay, persistence, batchCallback } = this.ctx;
+    const session = await persistence.getSession(sessionId);
+    const { config, productDataList, options } = session.context;
+
+    logger.info('Starting product options linking step', { sessionId });
+
+    const productsWithMissingOptions = (productDataList || []).filter(
+      (p) => p.id && p.productOptions?.length > 0
+    );
+
+    if (productsWithMissingOptions.length > 0) {
+      logger.info(
+        `Linking options for ${productsWithMissingOptions.length} products`,
+        { sessionId }
+      );
+      
+      for (const product of productsWithMissingOptions) {
+        try {
+          // Link all options for this product
+          // The productOptions were already built in _generateProductData
+          await liferay.addProductOptions(config, product.id, product.productOptions);
+          logger.trace(`Linked ${product.productOptions.length} options to product ${product.id}`, { sessionId });
+        } catch (error) {
+          logger.error(`Failed to link options for product ${product.id}`, {
+            sessionId,
+            error: error.message,
+          });
+        }
+      }
+    } else {
+      logger.info('No products require option linking.', { sessionId });
+    }
+
+    await persistence.createBatch({
+      erc: createERC(ERC_PREFIX.BATCH),
+      sessionId,
+      stepKey: 'link-product-options',
+      status: 'SYNCHRONOUS',
+    });
+
+    await batchCallback._checkSessionCompletion(
+      sessionId,
+      config.correlationId
+    );
+  }
+
+  async _runWarehouseGenerationStep(sessionId) {
     const { logger, liferay, warehouseGenerator, cache, persistence, batchCallback } =
       this.ctx;
+    const session = await persistence.getSession(sessionId);
     const { config, options } = session.context;
 
     if (!options.createWarehouses) {
@@ -217,8 +369,9 @@ class ProductGenerator {
     );
   }
 
-  async _runProductDataGenerationStep(sessionId, session) {
+  async _runProductDataGenerationStep(sessionId) {
     const { logger, persistence, batchCallback } = this.ctx;
+    const session = await persistence.getSession(sessionId);
     const { config, options } = session.context;
 
     logger.info('Starting product data generation step', { sessionId });
@@ -260,8 +413,9 @@ class ProductGenerator {
     );
   }
 
-  async _runProductCreationStep(sessionId, session) {
-    const { logger } = this.ctx;
+  async _runProductCreationStep(sessionId) {
+    const { logger, persistence } = this.ctx;
+    const session = await persistence.getSession(sessionId);
     logger.info('Starting product creation step', { sessionId });
     await this.startProductsBatch({ sessionId, session });
   }
@@ -633,8 +787,9 @@ class ProductGenerator {
     }
   }
 
-  async _runAttachImagesStep(sessionId, session) {
+  async _runAttachImagesStep(sessionId) {
     const { logger, media, persistence, batchCallback } = this.ctx;
+    const session = await persistence.getSession(sessionId);
     const { config, options, productDataList } = session.context;
 
     logger.info('Starting attach images step', { sessionId });
@@ -673,8 +828,9 @@ class ProductGenerator {
     );
   }
 
-  async _runAttachPdfsStep(sessionId, session) {
+  async _runAttachPdfsStep(sessionId) {
     const { logger, media, persistence, batchCallback } = this.ctx;
+    const session = await persistence.getSession(sessionId);
     const { config, options, productDataList } = session.context;
 
     logger.info('Starting attach PDFs step', { sessionId });
@@ -713,8 +869,9 @@ class ProductGenerator {
     );
   }
 
-  async _runUpdateInventoryStep(sessionId, session) {
+  async _runUpdateInventoryStep(sessionId) {
     const { logger, liferay, persistence, batchCallback } = this.ctx;
+    const session = await persistence.getSession(sessionId);
     const { config, options, productDataList } = session.context;
 
     logger.info('Starting update inventory step', { sessionId });
@@ -722,30 +879,41 @@ class ProductGenerator {
     if (options.createWarehouses) {
       try {
         logger.info('Updating inventory for all products', { sessionId });
-        const productResponse = await liferay.getProducts(config);
-        const createdProducts = productResponse?.items;
-        const ercToProductMap = new Map();
         
-        if (createdProducts && Symbol.iterator in Object(createdProducts)) {
-            for (const product of createdProducts) {
-                ercToProductMap.set(product.externalReferenceCode, product);
+        // Use resolved numeric IDs for warehouses if available
+        const warehouses = options.warehouses || [];
+        
+        for (const product of productDataList) {
+          if (!product.id) {
+            logger.warn(`Skipping inventory update for product ${product.externalReferenceCode} as ID is missing.`, { sessionId });
+            continue;
+          }
+
+          for (const warehouse of warehouses) {
+            if (!warehouse.id) {
+              logger.warn(`Skipping inventory update for warehouse ${warehouse.externalReferenceCode || warehouse.erc} as ID is missing.`, { sessionId });
+              continue;
             }
 
-            for (const originalProduct of productDataList) {
-                const createdProduct = ercToProductMap.get(
-                    originalProduct.externalReferenceCode
-                );
-                if (createdProduct) {
-                    await this.updateInventory(
-                        config,
-                        createdProduct,
-                        originalProduct,
-                        options
-                    );
+            try {
+              await liferay.updateInventory(
+                config,
+                warehouse.id,
+                product.id,
+                {
+                  sku: product.sku || product.externalReferenceCode,
+                  quantity: product.quantity || 100,
+                  neverExpire: true,
                 }
+              );
+              logger.trace(`Updated inventory for product ${product.id} in warehouse ${warehouse.id}`, { sessionId });
+            } catch (error) {
+              logger.error(`Failed to update inventory for product ${product.id} in warehouse ${warehouse.id}`, {
+                sessionId,
+                error: error.message,
+              });
             }
-        } else {
-            logger.warn('createdProducts is not iterable. Skipping inventory update.', { sessionId });
+          }
         }
       } catch (error) {
         logger.error('Failed to update inventory', {
@@ -771,33 +939,18 @@ class ProductGenerator {
   }
   
   async onSessionComplete({ sessionId, session, correlationId }) {
-    const { logger, ws, liferay, persistence, progress } = this.ctx;
+    const { logger, persistence, progress } = this.ctx;
 
     const dbSession = await persistence.getSession(sessionId);
 
-    if (dbSession.status === 'postprocessing_done') {
-      logger.warn('Post-processing already handled for session', {
-        entityType: 'products',
-        operation: 'generate',
-        ...resolvePhaseAndMode({ useBatch: true, phase: 'postprocess' }),
-        sessionId,
-        correlationId,
-      });
+    if (dbSession.status === 'completed' || dbSession.status === 'failed') {
       return;
     }
 
-    await persistence.updateSessionStatus(sessionId, 'postprocessing');
-
-    const completed = Array.isArray(session?.completedBatches)
-      ? Array.from(session.completedBatches)
-      : [];
-
-    logger.info('Generation session complete; triggering post-processing', {
+    logger.info('Generation session complete', {
       entityType: 'products',
       operation: 'generate',
-      ...resolvePhaseAndMode({ useBatch: true, phase: 'postprocess' }),
       sessionId,
-      completedBatches: completed,
       correlationId,
     });
 
@@ -806,101 +959,7 @@ class ProductGenerator {
       correlationId,
     });
 
-    const sessionContext = dbSession.context;
-
-    if (!sessionContext) {
-      logger.warn('No session context found for post-processing', {
-        entityType: 'products',
-        operation: 'generate',
-        ...resolvePhaseAndMode({ useBatch: true, phase: 'postprocess' }),
-        sessionId,
-        correlationId,
-      });
-      await persistence.updateSessionStatus(sessionId, 'failed');
-      return;
-    }
-
-    const { config: sessionConfig, productDataList, options } = sessionContext;
-    const demoMode = !!options?.demoMode;
-
-    const shouldProcessDemo =
-      demoMode &&
-      ((options?.imageRatio ?? 0) > 0 || (options?.pdfRatio ?? 0) > 0);
-
-    const shouldProcessNonDemo =
-      !demoMode &&
-      ((options?.imageMode &&
-        options.imageMode !== 'none' &&
-        (options?.imageRatio ?? 0) > 0) ||
-        (options?.pdfMode &&
-          options.pdfMode !== 'none' &&
-          (options?.pdfRatio ?? 0) > 0));
-
-    const shouldProcess = shouldProcessDemo || shouldProcessNonDemo;
-
-    if (!shouldProcess) {
-      logger.info('No post-processing work required', {
-        entityType: 'products',
-        operation: 'generate',
-        ...resolvePhaseAndMode({ useBatch: true, phase: 'postprocess' }),
-        sessionId,
-        correlationId,
-        imageMode: options?.imageMode || 'none',
-        pdfMode: options?.pdfMode || 'none',
-        imageRatio: options?.imageRatio ?? 0,
-        pdfRatio: options?.pdfRatio ?? 0,
-      });
-      await persistence.updateSessionStatus(sessionId, 'completed');
-      return;
-    }
-
-    try {
-      await this.processImageAndPDFAttachments(sessionConfig, productDataList, {
-        ...options,
-        sessionId,
-      });
-    } finally {
-      await persistence.updateSessionStatus(sessionId, 'completed');
-
-      logger.info('Post-processing complete; session context cleared', {
-        entityType: 'products',
-        operation: 'generate',
-        ...resolvePhaseAndMode({ useBatch: true, phase: 'complete' }),
-        sessionId,
-        correlationId,
-      });
-
-      if (options.createWarehouses) {
-        try {
-          logger.info('Updating inventory for all products', { sessionId });
-          const productResponse = await liferay.getProducts(sessionConfig);
-          const createdProducts = productResponse?.items;
-          const ercToProductMap = new Map();
-          for (const product of createdProducts) {
-            ercToProductMap.set(product.externalReferenceCode, product);
-          }
-
-          for (const originalProduct of productDataList) {
-            const createdProduct = ercToProductMap.get(
-              originalProduct.externalReferenceCode
-            );
-            if (createdProduct) {
-              await this.updateInventory(
-                sessionConfig,
-                createdProduct,
-                originalProduct,
-                options
-              );
-            }
-          }
-        } catch (error) {
-          logger.error('Failed to update inventory', {
-            sessionId,
-            error: error.message,
-          });
-        }
-      }
-    }
+    await persistence.updateSessionStatus(sessionId, 'completed');
   }
 
   async processImageAndPDFAttachments(
@@ -1689,7 +1748,7 @@ class ProductGenerator {
     };
 
     const createdProduct = await liferay.createProduct(config, payload);
-    logger.info(`Created product: ${createdProduct.name.en_US}`, {
+    logger.info(`Created product: ${createdProduct.name?.en_US || 'N/A'}`, {
       productId: createdProduct.id,
     });
     return createdProduct;
@@ -1720,7 +1779,7 @@ class ProductGenerator {
     };
 
     const createdProduct = await liferay.createProduct(config, payload);
-    logger.info(`Created product: ${createdProduct.name.en_US}`, {
+    logger.info(`Created product: ${createdProduct.name?.en_US || 'N/A'}`, {
       productId: createdProduct.id,
     });
     return createdProduct;

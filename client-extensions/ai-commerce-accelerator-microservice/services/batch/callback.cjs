@@ -28,6 +28,10 @@ class BatchCallbackService {
 
     let continueLoop = true;
     while (continueLoop) {
+      // Refresh session data at the start of each iteration to avoid stale state
+      session = await persistence.getSession(sessionId);
+      if (!session) break;
+
       const allBatchesForSession = await persistence.getBatchesForSession(sessionId);
       const { activeSteps, hasFailures } = await this._updateActiveSteps(session, allBatchesForSession);
 
@@ -48,13 +52,10 @@ class BatchCallbackService {
           continueLoop = false;
         } else {
           // Check if all newly started steps are already terminal (synchronous/bypassed)
-          // If so, we can loop again immediately to move to next step
           const latestBatches = await persistence.getBatchesForSession(sessionId);
           const { activeSteps: stillActive } = await this._updateActiveSteps(session, latestBatches);
           if (stillActive.length === 0) {
-            // All finished immediately, loop again
-            session = await persistence.getSession(sessionId);
-            continue;
+            continue; // Loop again to move to the next step
           } else {
             continueLoop = false;
           }
@@ -88,6 +89,8 @@ class BatchCallbackService {
       const stepType = typeof stepDefinition === 'object' ? stepDefinition.type : 'sync';
 
       const batchesForStep = allBatchesForSession.filter(b => b.step_key === stepName);
+      
+      // A step is active if it has no terminal batches or if it's still running
       const isStepCompleted = batchesForStep.length > 0 && batchesForStep.every(b => this._isBatchTerminal(b));
       const isStepFailed = batchesForStep.some(b => b.status === 'FAILED');
 
@@ -98,6 +101,7 @@ class BatchCallbackService {
       }
 
       if (isStepCompleted) {
+        // Only log completion if it's actually finishing now (this avoids redundant logs from refreshed session)
         logger.info(`Step '${stepName}' completed.`, { sessionId, stepName, stepType });
       } else {
         nextActiveSteps.push(stepDefinition);
@@ -115,7 +119,7 @@ class BatchCallbackService {
   }
 
   async _advanceWorkflow(session, allBatchesForSession, correlationId) {
-    const { logger, persistence } = this.ctx;
+    const { logger } = this.ctx;
     const { session_id: sessionId, context: { config, steps: workflowSteps } } = session;
     
     const newActiveSteps = [];
@@ -126,28 +130,48 @@ class BatchCallbackService {
 
     for (const step of workflowSteps) {
       const stepName = typeof step === 'string' ? step : step.name;
+      const stepType = typeof step === 'object' ? step.type : 'sync';
       
-      if (step.type === 'parallel') {
+      if (stepType === 'parallel') {
         if (this._areAllStepsComplete(step.steps, completedStepNames)) {
           continue;
         }
 
+        let allSubStepsStartedOrRunning = true;
         for (const subStep of step.steps) {
           const subStepName = typeof subStep === 'string' ? subStep : subStep.name;
           if (!completedStepNames.has(subStepName) && !runningStepNames.has(subStepName)) {
             logger.info(`Starting parallel sub-step '${subStepName}'`, { sessionId, subStepName });
             newActiveSteps.push(subStep);
-            // Don't await here to allow true parallel start if they were async, 
-            // but for sync steps they will still run sequentially here
             await this._startStep(subStep, sessionId, config, correlationId);
             startedAny = true;
           } else if (runningStepNames.has(subStepName)) {
             newActiveSteps.push(subStep);
+          } else {
+            // This sub-step is completed
           }
         }
+        
+        // A parallel step blocks the main loop until all its sub-steps are terminal
         return { newActiveSteps, startedAny };
       }
-      else {
+      else if (stepType === 'async') {
+        if (!completedStepNames.has(stepName) && !runningStepNames.has(stepName)) {
+          logger.info(`Starting async step '${stepName}'`, { sessionId, stepName });
+          // Async steps don't block, so we start them and continue the loop
+          await this._startStep(step, sessionId, config, correlationId);
+          startedAny = true;
+          continue; 
+        } else if (runningStepNames.has(stepName)) {
+          // If it's still running, we don't add it to newActiveSteps (it's background)
+          // and we continue to the next step
+          continue;
+        } else {
+          // Already completed
+          continue;
+        }
+      }
+      else { // sync
         if (!completedStepNames.has(stepName) && !runningStepNames.has(stepName)) {
           logger.info(`Starting step '${stepName}'`, { sessionId, nextStepName: stepName });
           newActiveSteps.push(step);
@@ -390,7 +414,30 @@ class BatchCallbackService {
         totalCount,
       };
 
-      await handler(this.ctx, handlerContext);
+      const result = await handler(this.ctx, handlerContext);
+
+      if (result && result.batchRefs && result.batchRefs.length > 0) {
+        // Native batches were triggered
+        await persistence.updateBatch(batchERC, {
+          status: 'SUBMITTED',
+          downstreamBatchId: result.batchRefs[0].taskId,
+          totalCount: totalCount,
+        });
+      } else if (result && result.success) {
+        // Simulated or empty step completed
+        await persistence.updateBatch(batchERC, {
+          status: 'COMPLETED',
+          totalCount: totalCount,
+          processedCount: totalCount,
+        });
+      } else {
+        // Fallback for handlers that don't return standardized results
+        await persistence.updateBatch(batchERC, {
+          status: 'COMPLETED',
+          totalCount: totalCount,
+          processedCount: totalCount,
+        });
+      }
     } else {
       logger.warn(`Unknown step in deletion process: ${step}`, {
         batchERC,

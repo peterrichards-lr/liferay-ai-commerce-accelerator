@@ -138,7 +138,9 @@ class WarehouseGenerator {
           );
 
           if (dryRun) {
-            logger.info(`DRY RUN: Skipping individual warehouse creation for ${normalizedWarehouse.name.en_US}`);
+            logger.info('DRY RUN: Skipping individual warehouse creation', {
+              friendlyName: normalizedWarehouse.name?.en_US || normalizedWarehouse.externalReferenceCode,
+            });
             logger.info({ dryRunData: { step: 'warehouses', payload: normalizedWarehouse }});
             createdWarehouses.push(normalizedWarehouse);
             continue;
@@ -156,6 +158,7 @@ class WarehouseGenerator {
             operation: 'warehouses/create:error',
             error: error.message,
             index,
+            externalReferenceCode: warehouse.externalReferenceCode,
           });
         }
 

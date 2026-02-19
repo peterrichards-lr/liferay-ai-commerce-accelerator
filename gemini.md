@@ -1,5 +1,20 @@
 # Workflow State, Batch Correlation, and WebSocket Progress Specification
 
+## Media Attachment Strategy
+
+Media assets (Images and PDFs) must be submitted to Liferay via its Headless APIs using one of the following patterns:
+- **URL-based**: Provide a publicly reachable URL (e.g., from a CDN or external provider like Picsum) to the `/by-url` endpoints.
+- **Base64-based**: Submit file content as a Base64 string to the `/by-base64` endpoints.
+- **Multipart**: Upload files using standard `multipart/form-data`.
+
+**Live Mode**: Triggers real-time generation of images (e.g., via DALL-E) or PDFs (via jsPDF) and submits them to Liferay.
+**Demo Mode**: Uses static placeholders, user-supplied assets, or skips attachment based on configuration.
+
+### Object Storage Service Role
+The `ObjectStorageService` is **not** used for hosting assets for Liferay consumption. Its purpose is restricted to:
+1.  **Data Preservation**: Storing generated AI payloads, images, and documents for offline analysis.
+2.  **Export/Import Support**: Enabling the "Replay" feature where a full generation run can be reconstructed without re-invoking AI models.
+
 ## Purpose
 
 Define a clear, race-safe, event-driven architecture for multi-step
@@ -41,7 +56,7 @@ framework**.
     - Displays workflow progress and errors
 - **Configuration UI client extension**
     - Exposed in the Liferay application menu
-    - Stores long-lived configuration via Liferay Objects
+    - Stores longlived configuration via Liferay Objects
 - **Batch client extension**
     - Defines and populates configuration and structural data models
         in Liferay
@@ -122,7 +137,7 @@ Headless API latency.**
 A hybrid persistence model will be used to balance performance and durability.
 
 1.  **Primary Store (Source of Truth):**
-    - A lightweight, file-based SQLite database (lifetime scoped to the process).
+    - A lightweight, filebased SQLite database (lifetime scoped to the process).
     - It stores the canonical record of:
         - active workflow session context
         - batch correlation and callback state
@@ -506,6 +521,7 @@ The `steps` array within the session context will evolve from a simple array of 
     - **Asynchronous Steps**:
         - Initiate the `async` step (e.g., call its generator method).
         - Immediately advance the workflow to the *next* top-level step without waiting for the `async` step's completion.
+        - **Status**: [DONE] Implemented in `BatchCallbackService._advanceWorkflow`.
     - The `current_steps` column in `workflow_sessions` will be actively managed to reflect which steps are currently in progress.
 
 #### 3. Update Generator Services (`accountGenerator.cjs`, `productGenerator.cjs`, etc.)
@@ -532,7 +548,7 @@ Rule: Zero-Silent-Failures — Every asynchronous operation in the Microservice 
 
 An analysis of the data generation workflow within the `ai-commerce-accelerator-microservice` component has been completed. The following points summarize the architecture and its constraints, serving as context for future modifications.
 
-1.  **Core Architecture is Sound**: The system uses a stateful, asynchronous, step-based workflow engine.
+1.  **Core Architecture is Sound**: The system uses a stateful, asynchronous, stepbased workflow engine.
     *   **Orchestrator**: `services/batchCallbackService.cjs` manages the state machine.
     *   **State Persistence**: `services/persistenceService.cjs` uses a local SQLite database (`workflow_sessions`, `workflow_batches`) to track job state, which is crucial for resilience and debugging.
     *   **Generators**: Files in `generators/*.cjs` define the sequence of steps for creating specific entities. `productGenerator.cjs` is the most complete implementation and should be considered the "best practice" template.

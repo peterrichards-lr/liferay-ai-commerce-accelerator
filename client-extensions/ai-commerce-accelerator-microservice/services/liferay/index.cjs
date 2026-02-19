@@ -109,7 +109,17 @@ class LiferayService {
     const requestedFields = new Set(typeof fields === 'string' ? fields.split(',') : fields || []);
     ['id', 'externalReferenceCode', 'title'].forEach(f => requestedFields.add(f));
 
-    const res = await this.rest._listOptionCategories(config, { pageSize, search, fields: Array.from(requestedFields).join(',') });
+    const filters = [];
+    const nameFilter = this._buildNameExclusionFilter(exclusions, 'title');
+    if (nameFilter) filters.push(nameFilter);
+    const filter = filters.length > 0 ? filters.join(' and ') : null;
+
+    const res = await this.rest._listOptionCategories(config, { 
+      pageSize, 
+      search, 
+      filter,
+      fields: Array.from(requestedFields).join(',') 
+    });
     const items = asItems(res);
     const filteredItems = items.filter(it => !this._shouldExclude(it, exclusions));
 
@@ -126,11 +136,12 @@ class LiferayService {
     const requestedFields = new Set(typeof fields === 'string' ? fields.split(',') : fields || []);
     ['id', 'key', 'externalReferenceCode', 'title'].forEach(f => requestedFields.add(f));
 
-    // Handle search prefix for verification if needed
-    let filter = providedFilter;
-    if (search && !filter) {
-        filter = `key sw '${search}' or title sw '${search}'`;
-    }
+    const filters = [];
+    if (providedFilter) filters.push(providedFilter);
+    if (search) filters.push(`(key sw '${search}' or title sw '${search}')`);
+    const nameFilter = this._buildNameExclusionFilter(exclusions, 'title');
+    if (nameFilter) filters.push(nameFilter);
+    const filter = filters.length > 0 ? filters.join(' and ') : null;
 
     const res = await this.graphql.getSpecifications(config, filter, Array.from(requestedFields), { page: 1, pageSize });
     const items = asItems(res);
@@ -143,11 +154,17 @@ class LiferayService {
     };
   }
 
-  async getOptions(config, { pageSize = 200, fields = 'id', filter } = {}) {
+  async getOptions(config, { pageSize = 200, fields = 'id', filter: providedFilter } = {}) {
     const exclusions = await this._getExclusions(config, 'option');
 
     const requestedFields = new Set(typeof fields === 'string' ? fields.split(',') : fields || []);
     ['id', 'key', 'externalReferenceCode', 'name'].forEach(f => requestedFields.add(f));
+
+    const filters = [];
+    if (providedFilter) filters.push(providedFilter);
+    const nameFilter = this._buildNameExclusionFilter(exclusions);
+    if (nameFilter) filters.push(nameFilter);
+    const filter = filters.length > 0 ? filters.join(' and ') : null;
 
     const res = await this.graphql.getOptions(config, filter, Array.from(requestedFields), { page: 1, pageSize });
     const items = asItems(res);
@@ -177,11 +194,17 @@ class LiferayService {
     };
   }
 
-  async getWarehouses(config, { pageSize = 200, fields = 'id', filter } = {}) {
+  async getWarehouses(config, { pageSize = 200, fields = 'id', filter: providedFilter } = {}) {
     const exclusions = await this._getExclusions(config, 'warehouse');
 
     const requestedFields = new Set(typeof fields === 'string' ? fields.split(',') : fields || []);
     ['id', 'externalReferenceCode', 'name'].forEach(f => requestedFields.add(f));
+
+    const filters = [];
+    if (providedFilter) filters.push(providedFilter);
+    const nameFilter = this._buildNameExclusionFilter(exclusions);
+    if (nameFilter) filters.push(nameFilter);
+    const filter = filters.length > 0 ? filters.join(' and ') : null;
 
     const res = await this.graphql.getWarehouses(config, filter, Array.from(requestedFields), { page: 1, pageSize });
     const items = asItems(res);
@@ -710,6 +733,10 @@ class LiferayService {
     return this.rest.updateProductInventory(config, warehouseId, sku, inventoryData);
   }
 
+  updateInventory(config, warehouseId, sku, inventoryData) {
+    return this.updateProductInventory(config, warehouseId, sku, inventoryData);
+  }
+
   getCurrencies(config) {
     return this.rest.getCurrencies(config);
   }
@@ -792,6 +819,30 @@ class LiferayService {
 
   addProductDocumentAttachment(config, productId, attachment) {
     return this.rest.addProductDocumentAttachment(config, productId, attachment);
+  }
+
+  addProductImageByBase64(config, productERC, image) {
+    return this.rest.addProductImageByBase64(config, productERC, image);
+  }
+
+  addProductDocumentAttachmentByBase64(config, productERC, attachment) {
+    return this.rest.addProductDocumentAttachmentByBase64(config, productERC, attachment);
+  }
+
+  addProductImageMultipart(config, productId, data) {
+    return this.rest.addProductImageMultipart(config, productId, data);
+  }
+
+  addProductDocumentAttachmentMultipart(config, productId, data) {
+    return this.rest.addProductDocumentAttachmentMultipart(config, productId, data);
+  }
+
+  addProductImageDocumentLibrary(config, productId, data) {
+    return this.rest.addProductImageDocumentLibrary(config, productId, data);
+  }
+
+  addProductDocumentAttachmentDocumentLibrary(config, productId, data) {
+    return this.rest.addProductDocumentAttachmentDocumentLibrary(config, productId, data);
   }
 
   addProductOptions(config, productId, productOptions) {
@@ -909,6 +960,10 @@ class LiferayService {
 
   getProductsByERC(config, ercs, fields) {
     return this.graphql.getProductsByERC(config, ercs, fields);
+  }
+
+  getWarehousesByERC(config, ercs, fields) {
+    return this.graphql.getWarehousesByERC(config, ercs, fields);
   }
 
   getPostalAddressesByERC(config, ercs, fields) {
