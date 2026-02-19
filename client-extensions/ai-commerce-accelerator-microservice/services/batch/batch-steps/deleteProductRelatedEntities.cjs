@@ -1,5 +1,3 @@
-const { PATH } = require('../../../utils/liferayPaths.cjs');
-
 module.exports = async function deleteProductRelatedEntities(
   { liferay },
   { config, options, productIds, sessionId }
@@ -30,47 +28,26 @@ module.exports = async function deleteProductRelatedEntities(
 
     // 3. Perform deletions
     if (specificationIds.length > 0) {
-      await liferay.deleteByFilter(config, {
-        entityName: 'specification',
+      await liferay.deleteSpecificationsBatch(config, {
         ids: specificationIds,
-        pageSize: 200,
         dryRun: options.dryRun,
         sessionId,
-        nativeBatch: true,
-        path: PATH.SPECIFICATIONS_BATCH,
-        listUrl: PATH.SPECIFICATIONS,
-        op: 'specifications:batch-delete',
-        friendly: 'Delete specifications (batch)',
       });
     }
     
     if (optionIds.length > 0) {
-      await liferay.deleteByFilter(config, {
-        entityName: 'option',
+      await liferay.deleteOptionsBatch(config, {
         ids: optionIds,
-        pageSize: 200,
         dryRun: options.dryRun,
         sessionId,
-        nativeBatch: true,
-        path: PATH.OPTIONS_BATCH,
-        listUrl: PATH.OPTIONS,
-        op: 'options:batch-delete',
-        friendly: 'Delete options (batch)',
       });
     }
     
     if (optionCategoryIds.length > 0) {
-      await liferay.deleteByFilter(config, {
-        entityName: 'optionCategory',
+      await liferay.deleteOptionCategoriesBatch(config, {
         ids: optionCategoryIds,
-        pageSize: 200,
         dryRun: options.dryRun,
         sessionId,
-        nativeBatch: true,
-        path: PATH.OPTION_CATEGORIES_BATCH,
-        listUrl: PATH.OPTION_CATEGORIES,
-        op: 'optionCategories:batch-delete',
-        friendly: 'Delete option categories (batch)',
       });
     }
   }

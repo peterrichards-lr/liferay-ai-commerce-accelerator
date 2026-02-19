@@ -7,7 +7,7 @@ module.exports = async function deleteProductOptions(
 ) {
   logger.info('Starting explicit removal of product-option associations');
 
-  const productsRes = await liferay.getCommerceProducts(config, {
+  const productsRes = await liferay.getProducts(config, {
     pageSize: 200,
   });
 
@@ -32,7 +32,7 @@ module.exports = async function deleteProductOptions(
     if (!productId) continue;
 
     try {
-      const productOptions = await liferay.getCommerceProductOptions(config, productId);
+      const productOptions = await liferay.getProductOptions(config, productId);
       
       if (productOptions && productOptions.length > 0) {
         logger.debug(`Clearing ${productOptions.length} options from product ${productId}`);

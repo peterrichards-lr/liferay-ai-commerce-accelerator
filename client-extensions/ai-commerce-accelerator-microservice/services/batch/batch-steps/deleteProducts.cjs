@@ -1,4 +1,3 @@
-const { PATH } = require('../../../utils/liferayPaths.cjs');
 const { asItems } = require('../../../utils/liferayUtils.cjs');
 
 module.exports = async function deleteProducts(
@@ -7,7 +6,7 @@ module.exports = async function deleteProducts(
 ) {
   // Discovery phase to clear associations if not already provided
   if (!items || items.length === 0) {
-    const productsRes = await liferay.getCommerceProducts(config, {
+    const productsRes = await liferay.getProducts(config, {
       catalogId,
       pageSize: 200,
     });
@@ -22,13 +21,13 @@ module.exports = async function deleteProducts(
 
       try {
         // Clear options
-        const productOptions = await liferay.getCommerceProductOptions(config, productId);
+        const productOptions = await liferay.getProductOptions(config, productId);
         for (const po of productOptions) {
           await liferay.deleteProductOption(config, productId, po.id);
         }
 
         // Clear specifications
-        const productSpecs = await liferay.getCommerceProductSpecifications(config, productId);
+        const productSpecs = await liferay.getProductSpecifications(config, productId);
         for (const ps of productSpecs) {
           await liferay.deleteProductSpecification(config, productId, ps.id);
         }
@@ -38,20 +37,13 @@ module.exports = async function deleteProducts(
     }
   }
 
-  const result = await liferay.deleteByFilter(config, {
-    entityName: 'product',
+  const result = await liferay.deleteProductsBatch(config, {
     ids,
     items,
-    filter: catalogId ? `catalogId eq ${catalogId}` : undefined,
-    pageSize: 200,
-    externalReferenceCode: batchERC,
+    catalogId,
+    callbackBatchERC: batchERC,
     dryRun: options.dryRun,
     sessionId,
-    nativeBatch: true,
-    path: PATH.PRODUCTS_BATCH,
-    listUrl: PATH.PRODUCTS,
-    op: 'products:batch-delete',
-    friendly: 'Delete products (batch)',
   });
   return result;
 };

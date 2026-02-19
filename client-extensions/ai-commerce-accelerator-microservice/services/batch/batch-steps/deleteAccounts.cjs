@@ -1,23 +1,14 @@
-const { PATH } = require('../../../utils/liferayPaths.cjs');
-
 module.exports = async function deleteAccounts(
   { liferay },
   { config, options, ids, items, channelId, batchERC, sessionId }
 ) {
-  const result = await liferay.deleteByFilter(config, {
-    entityName: 'account',
+  const result = await liferay.deleteAccountsBatch(config, {
     ids,
     items,
-    pageSize: 200,
-    externalReferenceCode: batchERC,
+    channelId,
+    callbackBatchERC: batchERC,
     dryRun: options.dryRun,
     sessionId,
-    nativeBatch: true,
-    path: PATH.ACCOUNTS_BATCH,
-    listUrl: PATH.ACCOUNTS,
-    op: 'accounts:batch-delete',
-    friendly: 'Delete accounts (batch)',
-    channelId, 
   });
   return result;
 };

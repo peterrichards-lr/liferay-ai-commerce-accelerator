@@ -413,7 +413,7 @@ class BatchCallbackService {
 
     const checkMap = {
       deleteAccounts: async () => {
-        const res = await liferay.getCommerceAccounts(config, {
+        const res = await liferay.getAccounts(config, {
           channelId,
           pageSize: 1,
         });
@@ -422,7 +422,7 @@ class BatchCallbackService {
         };
       },
       deleteProducts: async () => {
-        const res = await liferay.getCommerceProducts(config, {
+        const res = await liferay.getProducts(config, {
           catalogId,
           pageSize: 1,
         });
@@ -431,7 +431,7 @@ class BatchCallbackService {
         };
       },
       deleteProductOptions: async () => {
-        const res = await liferay.getCommerceProducts(config, {
+        const res = await liferay.getProducts(config, {
           catalogId,
           pageSize: 1,
         });
@@ -440,7 +440,7 @@ class BatchCallbackService {
         };
       },
       deleteProductSpecifications: async () => {
-        const res = await liferay.getCommerceProducts(config, {
+        const res = await liferay.getProducts(config, {
           catalogId,
           pageSize: 1,
         });
@@ -449,19 +449,19 @@ class BatchCallbackService {
         };
       },
       deleteSpecifications: async () => {
-        const res = await liferay.getCommerceSpecifications(config, { pageSize: 1 });
+        const res = await liferay.getSpecifications(config, { pageSize: 1 });
         return {
           totalCount: res.totalCount,
         };
       },
       deleteOptions: async () => {
-        const res = await liferay.getCommerceOptions(config, { pageSize: 1 });
+        const res = await liferay.getOptions(config, { pageSize: 1 });
         return {
           totalCount: res.totalCount,
         };
       },
       deleteOptionCategories: async () => {
-        const res = await liferay.getCommerceOptionCategories(config, {
+        const res = await liferay.getOptionCategories(config, {
           pageSize: 1,
         });
         return {
@@ -482,7 +482,7 @@ class BatchCallbackService {
         };
       },
       deleteOrders: async () => {
-        const res = await liferay.getCommerceOrders(config, {
+        const res = await liferay.getOrders(config, {
           pageSize: 1,
         });
         return {
@@ -490,19 +490,19 @@ class BatchCallbackService {
         };
       },
       deleteWarehouses: async () => {
-        const res = await liferay.getCommerceWarehouses(config, { pageSize: 1 });
+        const res = await liferay.getWarehouses(config, { pageSize: 1 });
         return {
           totalCount: res.totalCount,
         };
       },
       deletePriceLists: async () => {
-        const res = await liferay.getCommercePriceLists(config, { pageSize: 1 });
+        const res = await liferay.getPriceLists(config, { pageSize: 1 });
         return {
           totalCount: res.totalCount,
         };
       },
       deletePromotions: async () => {
-        const res = await liferay.getCommercePromotions(config, { pageSize: 1 });
+        const res = await liferay.getPromotions(config, { pageSize: 1 });
         return {
           totalCount: res.totalCount,
         };

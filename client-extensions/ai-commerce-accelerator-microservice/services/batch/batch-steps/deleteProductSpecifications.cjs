@@ -6,7 +6,7 @@ module.exports = async function deleteProductSpecifications(
 ) {
   logger.info('Starting explicit removal of product-specification associations');
 
-  const productsRes = await liferay.getCommerceProducts(config, {
+  const productsRes = await liferay.getProducts(config, {
     pageSize: 200,
   });
 
@@ -31,7 +31,7 @@ module.exports = async function deleteProductSpecifications(
     if (!productId) continue;
 
     try {
-      const productSpecifications = await liferay.getCommerceProductSpecifications(config, productId);
+      const productSpecifications = await liferay.getProductSpecifications(config, productId);
       
       if (productSpecifications && productSpecifications.length > 0) {
         logger.debug(`Clearing ${productSpecifications.length} specifications from product ${productId}`);
