@@ -113,7 +113,7 @@ class WarehouseGenerator {
         correlationId
       });
 
-      return submission.batchRefs;
+      return normalizedWarehouseDataList;
     } else {
       const batchId = 'warehouses-individual';
 

@@ -90,11 +90,11 @@
 - **Affected Code**: `client-extensions/ai-commerce-accelerator-microservice/services/liferay/index.cjs` (lines 133-154).
 **Result**: **FIXED**. Modified `getSpecifications` to filter solely on `key` and updated `_buildNameExclusionFilter` to use `key` for specifications.
 
-### [ ] Persistent Warehouse Resolution Failure (STALE_INDEX)
-**Analysis**: Despite a 12-attempt retry loop, `resolve-warehouse-ids` is still timing out with `STALE_INDEX`.
-- **Root Cause**: A structural mismatch in the data flow. `WarehouseGenerator.createWarehouses` returns a batch reference (containing the **Batch ERC**) instead of individual warehouse data when using batch mode. `ProductGenerator` then incorrectly uses this batch ERC to attempt warehouse-level ID resolution. Since the batch ERC never matches an individual warehouse, Liferay returns `null`, triggering the `STALE_INDEX` retry logic until timeout.
+### [x] Persistent Warehouse Resolution Failure (STALE_INDEX)
+**Analysis**: Despite a 12-attempt retry loop, `resolve-warehouse-ids` was still timing out with `STALE_INDEX`.
+- **Root Cause**: A structural mismatch in the data flow. `WarehouseGenerator.createWarehouses` returned a batch reference (containing the **Batch ERC**) instead of individual warehouse data when using batch mode. `ProductGenerator` then incorrectly used this batch ERC to attempt warehouse-level ID resolution. Since the batch ERC never matches an individual warehouse, Liferay returned `null`, triggering the `STALE_INDEX` retry logic until timeout.
 - **Affected Code**: `WarehouseGenerator.cjs` (return value of `createWarehouses`) and `productGenerator.cjs` (`_runResolveWarehouseIdsStep`).
-**Proposed Steps**:
-1. Refactor `WarehouseGenerator.createWarehouses` to return the `normalizedWarehouseDataList` (which contains individual ERCs) even in batch mode.
-2. Update `ProductGenerator._runWarehouseGenerationStep` to correctly preserve these individual ERCs in the session context.
-3. (Optional) Enhance `liferay.getWarehousesByERC` logs to differentiate between batch ERCs and individual entity ERCs.
+**Result**: **FIXED**.
+1. Refactored `WarehouseGenerator.createWarehouses` to return the `normalizedWarehouseDataList` (containing individual ERCs).
+2. Updated `ProductGenerator._runResolveWarehouseIdsStep` to filter out any remaining batch ERCs and added more robust verification of resolved IDs.
+

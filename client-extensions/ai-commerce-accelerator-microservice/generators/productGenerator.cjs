@@ -188,23 +188,50 @@ class ProductGenerator {
 
     logger.info(`Resolving real numeric IDs for ${warehouses.length} warehouses via GraphQL/ERC...`, { sessionId });
 
-    const ercs = warehouses.map(w => w.externalReferenceCode || w.erc).filter(Boolean);
+    // Ensure we are using individual warehouse ERCs, not batch ERCs
+    const ercs = warehouses
+      .map(w => w.externalReferenceCode || w.erc)
+      .filter(erc => erc && !erc.includes('-BATCH-'));
     
+    if (ercs.length === 0) {
+      logger.warn('No individual warehouse ERCs found for resolution. All warehouses may already have IDs or ERCs are missing.', { sessionId });
+      await persistence.createBatch({
+        erc: createERC(ERC_PREFIX.BATCH),
+        sessionId,
+        stepKey: 'resolve-warehouse-ids',
+        status: 'SYNCHRONOUS',
+      });
+      await batchCallback._checkSessionCompletion(sessionId, config.correlationId);
+      return;
+    }
+
     try {
       const maxRetries = parseInt(config.pollingRetries, 10) || 10;
       const delayMs = parseInt(config.pollingDelay, 10) || 5000;
       
       let resolvedItems = [];
-      let success = false;
-
+      
       for (let attempt = 1; attempt <= maxRetries; attempt++) {
         try {
           resolvedItems = await liferay.getWarehousesByERC(config, ercs, ['id', 'externalReferenceCode', 'name']);
-          success = true;
-          break;
+          
+          // Verify we have all requested IDs
+          const resolvedErcs = new Set(resolvedItems.filter(Boolean).map(it => it.externalReferenceCode));
+          const missingCount = ercs.filter(erc => !resolvedErcs.has(erc)).length;
+
+          if (missingCount === 0) {
+            break;
+          }
+
+          if (attempt === maxRetries) {
+            throw new Error(`Failed to resolve all warehouse IDs after ${maxRetries} attempts. Missing ${missingCount} IDs.`);
+          }
+
+          logger.warn(`Retrying warehouse ID resolution (attempt ${attempt}/${maxRetries}). Missing ${missingCount} of ${ercs.length} IDs.`, { sessionId });
+          await delay(delayMs);
         } catch (error) {
           if (attempt === maxRetries) throw error;
-          logger.warn(`Retrying warehouse ID resolution (attempt ${attempt}/${maxRetries}) as search index may be stale...`, { sessionId });
+          logger.warn(`Retrying warehouse ID resolution (attempt ${attempt}/${maxRetries}) due to error: ${error.message}`, { sessionId });
           await delay(delayMs);
         }
       }
@@ -343,7 +370,7 @@ class ProductGenerator {
         warehouseCount: newWarehouseCount,
         sessionId,
       });
-      logger.info('Created new warehouses:', { newWarehouses, sessionId });
+      logger.info('Created new warehouses:', { count: newWarehouses.length, sessionId });
       warehouses.push(...newWarehouses);
     }
 
