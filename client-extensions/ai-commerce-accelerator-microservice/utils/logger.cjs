@@ -9,6 +9,17 @@ if (!fs.existsSync(logsDir)) {
   fs.mkdirSync(logsDir, { recursive: true });
 }
 
+// Handle EPIPE errors on stdout/stderr to avoid uncaught exceptions during shutdown
+process.stdout.on('error', (err) => {
+  if (err.code === 'EPIPE') return;
+  console.error('stdout error:', err);
+});
+
+process.stderr.on('error', (err) => {
+  if (err.code === 'EPIPE') return;
+  console.error('stderr error:', err);
+});
+
 const COLORS = {
   TRACE: '\x1b[30m', // Black
   DEBUG: '\x1b[35m', // Magenta
@@ -148,10 +159,19 @@ class Logger {
 
     const out =
       level === 'ERROR' || level === 'WARN' ? process.stderr : process.stdout;
-    if (ENV.LOG_PRETTY) {
-      out.write(this._asPretty(level, message, timestamp, meta) + '\n');
-    } else {
-      out.write(jsonLine + '\n');
+    
+    if (out.writable) {
+      try {
+        if (ENV.LOG_PRETTY) {
+          out.write(this._asPretty(level, message, timestamp, meta) + '\n');
+        } else {
+          out.write(jsonLine + '\n');
+        }
+      } catch (err) {
+        if (err.code !== 'EPIPE') {
+          console.error('Logger write error:', err.message);
+        }
+      }
     }
   }
 

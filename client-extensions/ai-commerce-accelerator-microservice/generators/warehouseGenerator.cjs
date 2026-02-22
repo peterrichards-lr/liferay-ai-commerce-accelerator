@@ -33,9 +33,9 @@ class WarehouseGenerator {
   }
 
   async createWarehouses(config, options) {
-    const { logger, ai, mockData, progress, liferay } =
+    const { logger, ai, mockData, progress, liferay, persistence } =
       this.ctx;
-    const { warehouseCount, demoMode, sessionId, dryRun } = options;
+    const { warehouseCount, demoMode, sessionId, dryRun, stepKey = 'warehouses' } = options;
     const correlationId = config?.correlationId || '∅';
 
     this.validateConfig(config);
@@ -102,6 +102,15 @@ class WarehouseGenerator {
 
       const batchId = submission.batchId;
       const totalItems = normalizedWarehouseDataList.length;
+
+      await persistence.createBatch({
+        erc: batchERC,
+        sessionId,
+        stepKey,
+        status: 'SUBMITTED',
+        downstreamBatchId: batchId,
+        totalCount: totalItems,
+      });
 
       progress.batchStarted({
         batchId,

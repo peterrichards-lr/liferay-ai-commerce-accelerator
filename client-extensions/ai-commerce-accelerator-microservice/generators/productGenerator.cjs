@@ -369,6 +369,7 @@ class ProductGenerator {
         ...options,
         warehouseCount: newWarehouseCount,
         sessionId,
+        stepKey: 'generate-warehouses',
       });
       logger.info('Created new warehouses:', { count: newWarehouses.length, sessionId });
       warehouses.push(...newWarehouses);
@@ -383,12 +384,19 @@ class ProductGenerator {
     cache.set('generated-warehouses', warehouses);
     logger.info('Warehouses set in options and cache.', { sessionId });
 
-    await persistence.createBatch({
-      erc: createERC(ERC_PREFIX.BATCH),
-      sessionId,
-      stepKey: 'generate-warehouses',
-      status: 'SYNCHRONOUS',
-    });
+    // Only create a synchronous batch marker if NO other batches were created for this step.
+    // This allows the callback service to correctly track real asynchronous batches.
+    const stepBatches = await persistence.getBatchesForSession(sessionId);
+    const hasRealBatches = stepBatches.some(b => b.step_key === 'generate-warehouses');
+
+    if (!hasRealBatches) {
+      await persistence.createBatch({
+        erc: createERC(ERC_PREFIX.BATCH),
+        sessionId,
+        stepKey: 'generate-warehouses',
+        status: 'SYNCHRONOUS',
+      });
+    }
 
     await batchCallback._checkSessionCompletion(
       sessionId,
