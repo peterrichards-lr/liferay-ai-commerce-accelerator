@@ -138,8 +138,8 @@ class LiferayService {
 
     const filters = [];
     if (providedFilter) filters.push(providedFilter);
-    if (search) filters.push(`(key sw '${search}' or title sw '${search}')`);
-    const nameFilter = this._buildNameExclusionFilter(exclusions, 'title');
+    if (search) filters.push(`key sw '${search}'`);
+    const nameFilter = this._buildNameExclusionFilter(exclusions, 'key');
     if (nameFilter) filters.push(nameFilter);
     const filter = filters.length > 0 ? filters.join(' and ') : null;
 
