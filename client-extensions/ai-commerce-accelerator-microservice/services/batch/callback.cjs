@@ -33,7 +33,13 @@ class BatchCallbackService {
       if (!session) break;
 
       const allBatchesForSession = await persistence.getBatchesForSession(sessionId);
-      const { activeSteps, hasFailures } = await this._updateActiveSteps(session, allBatchesForSession);
+      
+      // Use the steps currently tracked in the session object
+      const { activeSteps, hasFailures } = await this._updateActiveSteps(
+        sessionId,
+        session.currentSteps, 
+        allBatchesForSession
+      );
 
       if (hasFailures) {
         await persistence.updateSession(sessionId, { status: 'FAILED' });
@@ -53,10 +59,13 @@ class BatchCallbackService {
         } else {
           // Check if all newly started steps are already terminal (synchronous/bypassed)
           const latestBatches = await persistence.getBatchesForSession(sessionId);
-          const { activeSteps: stillActive } = await this._updateActiveSteps(session, latestBatches);
+          const { activeSteps: stillActive } = await this._updateActiveSteps(sessionId, currentSteps, latestBatches);
+          
           if (stillActive.length === 0) {
-            continue; // Loop again to move to the next step
+            // All new steps are terminal, continue loop to advance again
+            continue; 
           } else {
+            // Some steps are still running, wait for callbacks
             continueLoop = false;
           }
         }
@@ -75,16 +84,15 @@ class BatchCallbackService {
     }
   }
 
-  async _updateActiveSteps(session, allBatchesForSession) {
+  async _updateActiveSteps(sessionId, stepsToCheck, allBatchesForSession) {
     const { logger } = this.ctx;
-    const { session_id: sessionId, currentSteps } = session;
 
     let hasFailures = false;
     const nextActiveSteps = [];
 
-    if (!currentSteps || !Array.isArray(currentSteps)) return { activeSteps: [], hasFailures: false };
+    if (!stepsToCheck || !Array.isArray(stepsToCheck)) return { activeSteps: [], hasFailures: false };
 
-    for (const stepDefinition of currentSteps) {
+    for (const stepDefinition of stepsToCheck) {
       const stepName = typeof stepDefinition === 'string' ? stepDefinition : stepDefinition.name;
       const stepType = typeof stepDefinition === 'object' ? stepDefinition.type : 'sync';
 
@@ -101,7 +109,6 @@ class BatchCallbackService {
       }
 
       if (isStepCompleted) {
-        // Only log completion if it's actually finishing now (this avoids redundant logs from refreshed session)
         logger.info(`Step '${stepName}' completed.`, { sessionId, stepName, stepType });
       } else {
         nextActiveSteps.push(stepDefinition);
