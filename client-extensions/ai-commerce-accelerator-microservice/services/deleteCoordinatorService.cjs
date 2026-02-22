@@ -10,6 +10,7 @@ class DeleteCoordinatorService {
     const { logger, persistence, batchCallback } = this.ctx;
 
     const sessionId = createERC(ERC_PREFIX.BATCH_SESSION);
+    const { channelId, catalogId } = config;
 
     const steps = [
       { name: 'deleteOrders', type: 'sync' },
@@ -33,8 +34,10 @@ class DeleteCoordinatorService {
       context: {
         config,
         options,
-        sessionId, // Pass it explicitly in context
-        steps, // Store the full workflow definition
+        sessionId,
+        channelId,
+        catalogId,
+        steps,
       },
     });
 
