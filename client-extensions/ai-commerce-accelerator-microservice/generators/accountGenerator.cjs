@@ -56,11 +56,6 @@ class AccountGenerator {
       sessionId,
       countriesCount: countries.length,
     });
-
-    await batchCallback._checkSessionCompletion(
-      sessionId,
-      config.correlationId
-    );
   }
 
   async generate(config, options) {
@@ -219,11 +214,6 @@ class AccountGenerator {
       accountCount: accountsToCreate.length,
       addressCount: addressesToCreate.length,
     });
-
-    await batchCallback._checkSessionCompletion(
-      sessionId,
-      config.correlationId
-    );
   }
 
   async _runAccountCreationStep(sessionId) {
@@ -255,7 +245,6 @@ class AccountGenerator {
             stepKey: 'accounts',
             status: 'SYNCHRONOUS',
         });
-        await batchCallback._checkSessionCompletion(sessionId, config.correlationId);
         return; 
     }
 
@@ -429,10 +418,6 @@ class AccountGenerator {
         });
       }
     }
-    
-    if (options.dryRun) {
-        await batchCallback._checkSessionCompletion(sessionId, correlationId);
-    }
   }
 
   generateTaxId() {
@@ -484,7 +469,6 @@ class AccountGenerator {
         stepKey: 'set-billing-and-shipping-addresses',
         status: 'BYPASSED',
       });
-      await batchCallback._checkSessionCompletion(sessionId, config.correlationId);
       return;
     }
 
@@ -496,7 +480,6 @@ class AccountGenerator {
             stepKey: 'set-billing-and-shipping-addresses',
             status: 'BYPASSED',
         });
-        await batchCallback._checkSessionCompletion(sessionId, config.correlationId);
         return;
     }
 
@@ -532,7 +515,6 @@ class AccountGenerator {
           stepKey: 'set-billing-and-shipping-addresses',
           status: 'FAILED',
         });
-        await batchCallback._checkSessionCompletion(sessionId, config.correlationId);
         return;
     }
 
@@ -582,11 +564,6 @@ class AccountGenerator {
       stepKey: 'set-billing-and-shipping-addresses',
       status: 'SYNCHRONOUS',
     });
-
-    await batchCallback._checkSessionCompletion(
-      sessionId,
-      config.correlationId
-    );
   }
 
   async getExistingAccounts(config) {

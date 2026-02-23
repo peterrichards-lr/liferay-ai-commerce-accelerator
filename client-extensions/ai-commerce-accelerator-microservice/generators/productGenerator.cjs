@@ -100,7 +100,6 @@ class ProductGenerator {
         stepKey: 'resolve-product-ids',
         status: 'BYPASSED',
       });
-      await batchCallback._checkSessionCompletion(sessionId, config.correlationId);
       return;
     }
 
@@ -117,7 +116,7 @@ class ProductGenerator {
 
       for (let attempt = 1; attempt <= maxRetries; attempt++) {
         try {
-          // getProductsByERC uses _fetchByERCs which has built-in exponential backoff/retries for STALE_INDEX
+          // getProductsByERC uses _fetchByERCs middle-layer which has built-in exponential backoff/retries for STALE_INDEX
           resolvedItems = await liferay.getProductsByERC(config, ercs, ['id', 'externalReferenceCode', 'productId']);
           success = true;
           break;
@@ -164,8 +163,6 @@ class ProductGenerator {
         status: 'FAILED',
       });
     }
-
-    await batchCallback._checkSessionCompletion(sessionId, config.correlationId);
   }
 
   async _runResolveWarehouseIdsStep(sessionId) {
@@ -182,7 +179,6 @@ class ProductGenerator {
         stepKey: 'resolve-warehouse-ids',
         status: 'BYPASSED',
       });
-      await batchCallback._checkSessionCompletion(sessionId, config.correlationId);
       return;
     }
 
@@ -201,7 +197,6 @@ class ProductGenerator {
         stepKey: 'resolve-warehouse-ids',
         status: 'SYNCHRONOUS',
       });
-      await batchCallback._checkSessionCompletion(sessionId, config.correlationId);
       return;
     }
 
@@ -274,8 +269,6 @@ class ProductGenerator {
         status: 'FAILED',
       });
     }
-
-    await batchCallback._checkSessionCompletion(sessionId, config.correlationId);
   }
 
   async _runLinkProductOptionsStep(sessionId) {
@@ -318,11 +311,6 @@ class ProductGenerator {
       stepKey: 'link-product-options',
       status: 'SYNCHRONOUS',
     });
-
-    await batchCallback._checkSessionCompletion(
-      sessionId,
-      config.correlationId
-    );
   }
 
   async _runWarehouseGenerationStep(sessionId) {
@@ -341,11 +329,6 @@ class ProductGenerator {
         status: 'BYPASSED',
       });
       
-      await batchCallback._checkSessionCompletion(
-        sessionId,
-        config.correlationId
-      );
-
       return;
     }
 
@@ -397,11 +380,6 @@ class ProductGenerator {
         status: 'SYNCHRONOUS',
       });
     }
-
-    await batchCallback._checkSessionCompletion(
-      sessionId,
-      config.correlationId
-    );
   }
 
   async _runProductDataGenerationStep(sessionId) {
@@ -441,11 +419,6 @@ class ProductGenerator {
       stepKey: 'product-data-generation',
       status: 'SYNCHRONOUS',
     });
-
-    await batchCallback._checkSessionCompletion(
-      sessionId,
-      config.correlationId
-    );
   }
 
   async _runProductCreationStep(sessionId) {
@@ -692,7 +665,6 @@ class ProductGenerator {
           downstreamBatchId: createdProduct.id, 
         });
       }
-      await this.ctx.batchCallback._checkSessionCompletion(sessionId, correlationId);
     } else {
       const preparedProducts = allProductData.map((productData) => {
         if (!productData.externalReferenceCode) {
@@ -755,7 +727,6 @@ class ProductGenerator {
                 status: 'SYNCHRONOUS',
             });
         }
-        await this.ctx.batchCallback._checkSessionCompletion(sessionId, correlationId);
         return;
       }
 
@@ -818,7 +789,6 @@ class ProductGenerator {
         sessionId,
         totalBatches: batchIds.length,
       });
-      await this.ctx.batchCallback._checkSessionCompletion(sessionId, correlationId); // Added this line
     }
   }
 
@@ -856,11 +826,6 @@ class ProductGenerator {
       stepKey: 'attach-images',
       status: 'SYNCHRONOUS',
     });
-
-    await batchCallback._checkSessionCompletion(
-      sessionId,
-      config.correlationId
-    );
   }
 
   async _runAttachPdfsStep(sessionId) {
@@ -897,11 +862,6 @@ class ProductGenerator {
       stepKey: 'attach-pdfs',
       status: 'SYNCHRONOUS',
     });
-
-    await batchCallback._checkSessionCompletion(
-      sessionId,
-      config.correlationId
-    );
   }
 
   async _runUpdateInventoryStep(sessionId) {
@@ -1008,11 +968,6 @@ class ProductGenerator {
       stepKey: 'update-inventory',
       status: 'SYNCHRONOUS',
     });
-
-    await batchCallback._checkSessionCompletion(
-      sessionId,
-      config.correlationId
-    );
   }
   
   async onSessionComplete({ sessionId, session, correlationId }) {

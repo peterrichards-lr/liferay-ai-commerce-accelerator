@@ -103,11 +103,6 @@ class OrderGenerator {
       stepKey: 'order-data-generation',
       status: 'SYNCHRONOUS',
     });
-
-    await batchCallback._checkSessionCompletion(
-      sessionId,
-      config.correlationId
-    );
   }
 
   async _runOrderCreationStep(sessionId) {
@@ -146,7 +141,6 @@ class OrderGenerator {
               status: 'SYNCHRONOUS',
           });
         }
-        await batchCallback._checkSessionCompletion(sessionId, config.correlationId);
         return;
       }
 
@@ -213,7 +207,6 @@ class OrderGenerator {
             stepKey: 'orders',
             status: 'SYNCHRONOUS',
         });
-        await batchCallback._checkSessionCompletion(sessionId, config.correlationId);
         return;
       }
       await this.generateOrdersIndividually(
