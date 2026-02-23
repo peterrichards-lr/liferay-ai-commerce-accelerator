@@ -612,6 +612,12 @@ Rule: Zero-Silent-Failures — Every asynchronous operation in the Microservice 
 
 ## Agent Analysis (Self-Correction & Findings)
 
+### Attachment Generation Lifecycle
+
+- **Ownership**: Generators (`MockDataGenerator`, `AIService`) are responsible for deciding which products should receive attachments based on user-supplied `imageRatio` and `pdfRatio`. They must populate the `images` (array of objects/strings) and `attachments` (array of filenames) properties on the product objects.
+- **Processing**: The `attach-images` and `attach-pdfs` steps in `ProductGenerator` filter the product list for these properties and delegate to `MediaGenerator` for binary creation and Liferay submission.
+- **Persistence**: Any normalization of `options` (e.g., converting string ratios to numbers) performed during a step must be saved back to the `workflow_sessions` table using `persistence.updateSessionContext` to ensure subsequent parallel or sequential steps have access to the corrected types.
+
 ### Data Generation Architecture Review
 
 An analysis of the data generation workflow within the `ai-commerce-accelerator-microservice` component has been completed. The following points summarize the architecture and its constraints, serving as context for future modifications.

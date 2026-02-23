@@ -126,13 +126,16 @@
 
 ### [ ] Analyse Missing Product Images and PDFs
 **Objective**: Understand why product images and PDFs are not being generated and attached to products.
-**Analysis Findings (Initial)**:
-- Logs show `attach-images` failing with `Failed to process image attachments`.
-- Logs show `attach-pdfs` skipping with `No PDFs to attach for this session.`.
+**Analysis Findings**:
+- **Type Mismatch (Validation Error)**: `options.imageRatio` and `options.pdfRatio` are received as strings from the UI. `ProductGenerator._generateProductData` converts them to Numbers on the `options` object but fails to persist these mutated options back to the session context. Subsequent steps (like `_runAttachImagesStep`) re-fetch the session from the DB, get the original strings, and pass them to `MediaGenerator.validateOptions`, which throws a `TypeError` because it expects a `number`. This explains the `Failed to process image attachments` log message.
+- **MockDataGenerator Bug (Demo Mode)**: `MockDataGenerator.generateProductData` does not populate the `attachments` property for products and ignores the `pdfRatio` option entirely. This causes the `attach-pdfs` step to skip because `withPdfs` is empty.
+- **AIService/Prompt/Schema Bug (Live Mode)**: The `product.json` schema and `product.md` prompt do not include an `images` property. Consequently, AI-generated products never have the `images` property, causing the `attach-images` step to skip.
+- **Logic Redundancy**: There is a disconnect between Generators and MediaGenerator regarding who owns the "ratio" logic. Generators should decide which products get attachments and populate the properties; MediaGenerator should then process those properties without re-applying a random ratio.
 **Proposed Steps**:
-1. Investigate `MediaGenerator.cjs` and `ProductGenerator.cjs` to understand how image/PDF generation is triggered.
-2. Check if the `imageMode` and `pdfMode` in the configuration are correctly handled.
-3. Determine if the failure is in the AI generation phase or the Liferay submission phase.
+1. Fix `ProductGenerator.cjs` to persist normalized `options` (specifically numeric ratios) back to the session context during the data generation step.
+2. Update `MockDataGenerator.cjs` to populate the `attachments` property for a subset of products based on `pdfRatio`.
+3. Update `AIService.cjs`, `product.json`, and `product.md` to include `images` in the generated product data.
+4. Refactor `MediaGenerator.cjs` to remove redundant ratio filtering if the input products already have `images`/`attachments` populated.
 
 ### [ ] Analyse Account Deletion Failure in Delete Workflow
 **Objective**: Understand why accounts are not being deleted as part of the delete workflow.
