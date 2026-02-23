@@ -391,6 +391,7 @@ class MockDataGenerator {
           category
         );
         productData.defaultSku = sku;
+        productData.productType = 'simple';
       }
 
       products.push(productData);

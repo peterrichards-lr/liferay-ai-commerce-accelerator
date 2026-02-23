@@ -646,6 +646,9 @@ class ProductGenerator {
                       optionId: catalogOption.id,
                       optionExternalReferenceCode:
                         catalogOption.externalReferenceCode,
+                      key: catalogOption.key,
+                      name: catalogOption.name,
+                      fieldType: catalogOption.fieldType,
                       facetable: catalogOption.facetable,
                       required: catalogOption.required,
                       skuContributor: catalogOption.skuContributor,
@@ -654,6 +657,13 @@ class ProductGenerator {
                   return null;
                 })
                 .filter(Boolean);
+
+              // Infer product type: Liferay Commerce Headless API usually expects 'simple' even for products with variants.
+              // We ensure it defaults to 'simple' to avoid CPDefinitionProductTypeNameException.
+              const hasSkuContributor = pd.productOptions.some(opt => opt.skuContributor);
+              if (hasSkuContributor) {
+                pd.productType = 'simple';
+              }
 
               if (pd.skuVariants && Array.isArray(pd.skuVariants)) {
                 const variantSkus = pd.skuVariants
@@ -834,10 +844,17 @@ class ProductGenerator {
           liferayProduct.productSpecifications =
             productData.productSpecifications;
         }
-        if (productData.skus && Array.isArray(productData.skus)) {
-          // Only include the base SKU (first one) in the initial product creation.
-          // Variants will be handled in the separate 'product-skus' step.
+        if (
+          productData.skus &&
+          Array.isArray(productData.skus) &&
+          productData.skus.length > 1
+        ) {
+          // Only include the base SKU (first one) in the initial product creation for products with variants.
+          // All SKUs (variants) must be created in the 'product-skus' step
+          // AFTER options have been linked.
           liferayProduct.skus = productData.skus.slice(0, 1);
+        } else if (productData.skus) {
+          liferayProduct.skus = productData.skus;
         }
 
         return liferayProduct;
@@ -1080,6 +1097,14 @@ class ProductGenerator {
           for (const [warehouseERC, items] of inventoryByWarehouse.entries()) {
             const batchERC = createERC(ERC_PREFIX.INVENTORY_BATCH);
             
+            // Find the warehouse object to get its ID
+            const warehouse = warehouses.find(w => (w.externalReferenceCode || w.erc) === warehouseERC);
+            
+            if (!warehouse) {
+              logger.error(`Could not find warehouse with ERC ${warehouseERC} for inventory update`, { sessionId });
+              continue;
+            }
+
             await persistence.createBatch({
               erc: batchERC,
               sessionId,
@@ -1942,6 +1967,7 @@ class ProductGenerator {
       externalReferenceCode,
       catalogId,
       category,
+      skus,
     } = productData;
 
     const payload = {
@@ -1953,6 +1979,10 @@ class ProductGenerator {
       externalReferenceCode:
         externalReferenceCode || createERC(ERC_PREFIX.PRODUCT),
     };
+
+    if (skus && Array.isArray(skus)) {
+      payload.skus = skus.slice(0, 1);
+    }
 
     const createdProduct = await liferay.createProduct(config, payload);
     logger.info(`Created product: ${createdProduct.name?.en_US || 'N/A'}`, {
@@ -1971,6 +2001,7 @@ class ProductGenerator {
       category,
       productOptions,
       productSpecifications,
+      skus,
     } = productData;
 
     const payload = {
@@ -1984,6 +2015,10 @@ class ProductGenerator {
       productOptions: productOptions || [],
       productSpecifications: productSpecifications || [],
     };
+
+    if (skus && Array.isArray(skus)) {
+      payload.skus = skus.slice(0, 1);
+    }
 
     const createdProduct = await liferay.createProduct(config, payload);
     logger.info(`Created product: ${createdProduct.name?.en_US || 'N/A'}`, {

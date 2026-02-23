@@ -733,6 +733,13 @@ class BatchCallbackService {
 
     try {
       const importTask = await liferay.getImportTask(config, batchId);
+      
+      logger.debug('Import task details retrieved', {
+        batchId,
+        sessionId: dbBatch.session_id,
+        importTask: importTask?.data || importTask
+      });
+
       const { 
         processedItemsCount = 0, 
         totalItemsCount = 0, 

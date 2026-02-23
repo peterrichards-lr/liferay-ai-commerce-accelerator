@@ -649,3 +649,12 @@ Analysis of the account deletion failure revealed a critical conflict between wo
 1.  **Sequencing Dependency**: `deleteOrders` must precede `deleteAccounts` due to Liferay referential integrity.
 2.  **Discovery Flaw**: `LiferayService.getAccounts` relies on querying existing orders when a `channelId` is provided. If orders are already deleted, discovery returns zero results, causing account deletion to be silently skipped.
 3.  **Corrective Pattern**: Deletion discovery for entities with complex or volatile relationships (like Accounts) MUST prioritize stable identifiers like `externalReferenceCode` prefixes (e.g., `AICA-ACC-*`) over relational discovery (orders). Specialized discovery methods in `LiferayService` must be updated to combine relational filters with prefix-based filters and ensure parameters like `filter` and `search` are correctly propagated from `deleteByFilter`.
+
+### Product Type Constraint (API Finding)
+
+Investigation of product creation failures (`CPDefinitionProductTypeNameException`) revealed a critical API constraint:
+
+1.  **Mandatory Type**: The Liferay Headless Commerce API (v1.0) requires the `productType` field to be `simple` for all products, even those intended to have variants or SKU contributors.
+2.  **Invalid Values**: Values like `variable` or `grouped` are rejected by the API validation layer during creation.
+3.  **Variant Handling**: Conceptual "variable" products are created as `simple` products first. Variants are then established by linking `productOptions` and creating additional `skus` in subsequent update steps.
+4.  **Actionable Pattern**: All generator logic, AI prompts, and schemas must strictly use `productType: 'simple'` to ensure successful initial creation.

@@ -285,3 +285,16 @@
 **Result**: **FIXED**.
 1.  Updated `MockDataGenerator.cjs` to include a default localized `title` for mock images.
 2.  Updated `MediaGenerator.cjs` to provide a fallback localized `title` (based on the product name) if `imageData.title` is missing during image creation.
+
+### [x] Fix Product Options Linking and Variant Creation
+**Analysis**: Options were not appearing on products, and variants were not being created despite being generated in the context. Additionally, a ReferenceError was crashing the inventory update.
+- **Root Cause 1 (Product Type)**: Previous attempts wrongly assumed Liferay requires `variable` for products with variants. However, the Headless API expects `simple` (variants are handled by linking options/SKUs). Sending `variable` results in a `CPDefinitionProductTypeNameException`. Logic has been updated to consistently use `simple`.
+- **Root Cause 2 (Missing Fields)**: `link-product-options` omitted `key`, `name`, and `fieldType`, violating the API contract for linking.
+- **Root Cause 3 (Scoping Bug)**: `_runUpdateInventoryStep` crashed with `warehouse is not defined` because it tried to access a loop variable from an outer scope.
+- **Root Cause 4 (Step Skipping)**: The `product-skus` step was bypassed because the product type was incompatible with variants.
+**Result**: **FIXED**.
+1.  Updated `ProductGenerator.cjs`: In `_generateProductData`, inferred `productType: 'variable'` if variants/sku-contributors are present.
+2.  Updated `ProductGenerator.cjs`: In `_generateProductData`, included mandatory `key`, `name`, and `fieldType` in the `productOptions` mapping.
+3.  Updated `ProductGenerator.cjs`: Fixed the `ReferenceError` in `_runUpdateInventoryStep` by correctly finding the warehouse in the loop scope.
+4.  Updated `MockDataGenerator.cjs`: Set `productType` to `variable` when variants are generated.
+5.  Updated `product.json` and `product.md`: Updated AI schema and prompt to support `variable` products.
