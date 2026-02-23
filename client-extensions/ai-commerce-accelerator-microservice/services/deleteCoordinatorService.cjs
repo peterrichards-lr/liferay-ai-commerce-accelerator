@@ -13,6 +13,7 @@ class DeleteCoordinatorService {
     const { channelId, catalogId } = config;
 
     const steps = [
+      { name: 'deleteWarehouseItems', type: 'sync' },
       { name: 'deleteOrders', type: 'sync' },
       { name: 'deleteWarehouses', type: 'sync' },
       { name: 'deleteAccounts', type: 'sync' },

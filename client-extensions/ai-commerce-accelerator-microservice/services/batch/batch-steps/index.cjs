@@ -2,6 +2,7 @@ module.exports = {
   // Deletion
   deleteOrders: require('./deleteOrders.cjs'),
   deleteWarehouses: require('./deleteWarehouses.cjs'),
+  deleteWarehouseItems: require('./deleteWarehouseItems.cjs'),
   deleteAccounts: require('./deleteAccounts.cjs'),
   deleteProducts: require('./deleteProducts.cjs'),
   deleteProductOptions: require('./deleteProductOptions.cjs'),

@@ -173,6 +173,14 @@
 4. Refactored `useRealtimeWebSocket.js` to route updates based on `scope` and `entityType`, ensuring granular progress updates the UI.
 5. Fixed `ProgressService` bugs and aligned legacy emitters with the new protocol.
 
+### [x] Account Deletion Failure (OData Filter Compatibility)
+**Analysis**: The `deleteAccounts` workflow step was failing with `InvalidFilterException: Filter expressions must be boolean`.
+- **Root Cause**: The filter built for account discovery used `externalReferenceCode sw 'AICA-ACC'`. The Liferay Headless Admin User (Accounts) REST API does not support the `sw` operator (unlike Commerce APIs). Additionally, standard OData functions like `startswith()` are often unsupported or behave inconsistently for core Account entities in some Liferay versions.
+- **Result**: **FIXED**.
+    1. Updated `LiferayService.getAccounts` to utilize the native `search` parameter of the Headless REST API instead of building an OData filter for prefix matching. This provides a reliable, built-in way to find accounts by ERC or Name prefix.
+    2. Updated `BatchCallbackService._checkIfEntitiesExist` and the `deleteAccounts` step handler to pass the prefix as a `search` parameter.
+    3. Implemented a global `_normalizeFilter` transformation in the `LiferayService` facade to convert any remaining `sw` operators to the compliant `startswith()` function for entities that support standard OData functions.
+
 ---
 
 ## 6. Verification Tasks

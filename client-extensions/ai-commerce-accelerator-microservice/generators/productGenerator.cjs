@@ -35,6 +35,7 @@ class ProductGenerator {
       products: this._runProductCreationStep.bind(this),
       'resolve-product-ids': this._runResolveProductIdsStep.bind(this),
       'link-product-options': this._runLinkProductOptionsStep.bind(this),
+      'product-skus': this._runProductSkusStep.bind(this),
       'attach-images': this._runAttachImagesStep.bind(this),
       'attach-pdfs': this._runAttachPdfsStep.bind(this),
       'update-inventory': this._runUpdateInventoryStep.bind(this),
@@ -52,6 +53,7 @@ class ProductGenerator {
       { name: 'products', type: 'sync' },
       { name: 'resolve-product-ids', type: 'sync' },
       { name: 'link-product-options', type: 'sync' },
+      { name: 'product-skus', type: 'sync' },
       {
         type: 'parallel',
         steps: [
@@ -313,6 +315,91 @@ class ProductGenerator {
     });
   }
 
+  async _runProductSkusStep(sessionId) {
+    const { logger, liferay, persistence, progress } = this.ctx;
+    const session = await persistence.getSession(sessionId);
+    const { config, productDataList, options } = session.context;
+
+    logger.info('Starting product SKUs creation step (via product update batch)', { sessionId });
+
+    const productsWithVariants = (productDataList || []).filter(
+      (p) => p.skus?.length > 1
+    );
+
+    if (productsWithVariants.length > 0) {
+      logger.info(
+        `Submitting update batch for ${productsWithVariants.length} products to create variant SKUs`,
+        { sessionId }
+      );
+
+      const preparedProducts = productsWithVariants.map((productData) => {
+        const liferayProduct = {
+          active: productData.active !== undefined ? productData.active : true,
+          catalogId: parseInt(config.catalogId, 10),
+          name: toI18n(productData.name),
+          description: toI18n(productData.description),
+          productType: productData.productType || 'simple',
+          externalReferenceCode: productData.externalReferenceCode,
+          productOptions: productData.productOptions,
+          skus: productData.skus, // Include ALL SKUs this time
+        };
+
+        if (productData.productSpecifications) {
+          liferayProduct.productSpecifications = productData.productSpecifications;
+        }
+
+        return liferayProduct;
+      });
+
+      const batchERC = createERC(ERC_PREFIX.PRODUCT_BATCH);
+      
+      await persistence.createBatch({
+        erc: batchERC,
+        sessionId,
+        stepKey: 'product-skus',
+        status: 'prepared',
+      });
+
+      const result = await liferay.createProductsBatch(config, preparedProducts, {
+        externalReferenceCode: batchERC,
+        sessionId,
+      });
+
+      if (result?.batchId) {
+        await persistence.updateBatch(batchERC, {
+          status: 'SUBMITTED',
+          downstreamBatchId: result.batchId,
+        });
+
+        progress.batchStarted({
+          sessionId,
+          batchERC,
+          batchId: result.batchId,
+          totalItems: preparedProducts.length,
+          entityType: 'products',
+          operation: 'generate',
+        });
+      } else {
+        await persistence.updateBatch(batchERC, { status: 'FAILED' });
+      }
+    } else {
+      logger.info('No products require variant SKU creation.', { sessionId });
+    }
+
+    // Only create a synchronous batch marker if NO other batches were created for this step.
+    const stepBatches = await persistence.getBatchesForSession(sessionId);
+    const hasRealBatches = stepBatches.some(b => b.step_key === 'product-skus');
+
+    if (!hasRealBatches) {
+      await persistence.createBatch({
+        erc: createERC(ERC_PREFIX.BATCH),
+        sessionId,
+        stepKey: 'product-skus',
+        status: 'SYNCHRONOUS',
+      });
+    }
+  }
+
   async _runWarehouseGenerationStep(sessionId) {
     const { logger, liferay, warehouseGenerator, cache, persistence, batchCallback } =
       this.ctx;
@@ -545,8 +632,10 @@ class ProductGenerator {
             ) {
               const catalogOptions = catOpts;
               const catalogOptionsMap = new Map();
+              const catalogOptionsByKey = new Map();
               for (const co of catalogOptions) {
                 catalogOptionsMap.set(co.name.en_US, co);
+                catalogOptionsByKey.set(co.key, co);
               }
               pd.productOptions = pd.options
                 .map((option) => {
@@ -564,6 +653,60 @@ class ProductGenerator {
                   return null;
                 })
                 .filter(Boolean);
+
+              if (pd.skuVariants && Array.isArray(pd.skuVariants)) {
+                const variantSkus = pd.skuVariants
+                  .map((variant) => {
+                    const skuOptions = [];
+                    for (const [optKey, valName] of Object.entries(
+                      variant.options || {}
+                    )) {
+                      const catalogOption = catalogOptionsByKey.get(optKey);
+                      if (catalogOption) {
+                        const catalogValue = (catalogOption.values || []).find(
+                          (v) => v.name.en_US === valName || v.name === valName
+                        );
+                        if (catalogValue) {
+                          skuOptions.push({
+                            optionId: catalogOption.id,
+                            optionValueId: catalogValue.id,
+                          });
+                        }
+                      }
+                    }
+
+                    return {
+                      active:
+                        variant.active !== undefined ? variant.active : true,
+                      sku: variant.sku,
+                      externalReferenceCode: createERC(ERC_PREFIX.SKU),
+                      price: variant.price,
+                      published:
+                        variant.published !== undefined
+                          ? variant.published
+                          : true,
+                      purchasable:
+                        variant.purchasable !== undefined
+                          ? variant.purchasable
+                          : true,
+                      neverExpire:
+                        variant.neverExpire !== undefined
+                          ? variant.neverExpire
+                          : true,
+                      inventoryLevel: variant.inStock ? 50 : 0,
+                      skuOptions,
+                    };
+                  })
+                  .filter((v) => v.skuOptions.length > 0);
+
+                if (variantSkus.length > 0) {
+                  pd.skus = (pd.skus || []).concat(variantSkus);
+                  logger.trace(
+                    `Added ${variantSkus.length} variant SKUs to product ${pd.externalReferenceCode}`,
+                    { sessionId }
+                  );
+                }
+              }
             }
             if (options.generateSpecifications) {
               const provided = Array.isArray(pd.specifications)
@@ -691,7 +834,9 @@ class ProductGenerator {
             productData.productSpecifications;
         }
         if (productData.skus && Array.isArray(productData.skus)) {
-          liferayProduct.skus = productData.skus;
+          // Only include the base SKU (first one) in the initial product creation.
+          // Variants will be handled in the separate 'product-skus' step.
+          liferayProduct.skus = productData.skus.slice(0, 1);
         }
 
         return liferayProduct;
@@ -866,29 +1011,18 @@ class ProductGenerator {
   }
 
   async _runUpdateInventoryStep(sessionId) {
-    const { logger, liferay, persistence, batchCallback } = this.ctx;
+    const { logger, liferay, persistence, progress } = this.ctx;
     const session = await persistence.getSession(sessionId);
     const { config, options, productDataList } = session.context;
 
-    logger.info('Starting update inventory step', { sessionId });
+    logger.info('Starting update inventory step (via batch UPSERT)', { sessionId });
 
-    if (options.createWarehouses) {
+    if (options.createWarehouses || (options.warehouses && options.warehouses.length > 0)) {
       try {
-        logger.info('Updating inventory for all products', { sessionId });
-
-        // Use resolved numeric IDs for warehouses if available
         const warehouses = options.warehouses || [];
+        const inventoryItems = [];
 
         for (const product of productDataList) {
-          if (!product.id) {
-            logger.warn(
-              `Skipping inventory update for product ${product.externalReferenceCode} as ID is missing.`,
-              { sessionId }
-            );
-            continue;
-          }
-
-          // Collect all SKUs for this product (base SKUs and variants)
           const skusToUpdate = [];
 
           if (product.skus && Array.isArray(product.skus)) {
@@ -908,53 +1042,75 @@ class ProductGenerator {
             });
           }
 
-          if (skusToUpdate.length === 0) {
-            logger.warn(
-              `No SKUs found to update inventory for product ${product.id}`,
-              { sessionId }
-            );
-            continue;
-          }
+          if (skusToUpdate.length === 0) continue;
 
           for (const warehouse of warehouses) {
-            if (!warehouse.id) {
-              logger.warn(
-                `Skipping inventory update for warehouse ${
-                  warehouse.externalReferenceCode || warehouse.erc
-                } as ID is missing.`,
-                { sessionId }
-              );
+            const warehouseERC = warehouse.externalReferenceCode || warehouse.erc;
+            if (!warehouseERC) {
+              logger.warn('Skipping warehouse with missing ERC', { warehouseId: warehouse.id });
               continue;
             }
 
             for (const skuItem of skusToUpdate) {
-              try {
-                await liferay.updateInventory(
-                  config,
-                  warehouse.id,
-                  skuItem.sku,
-                  {
-                    quantity: skuItem.quantity || skuItem.inventoryLevel || 100,
-                  }
-                );
-                logger.trace(
-                  `Updated inventory for SKU ${skuItem.sku} in warehouse ${warehouse.id}`,
-                  { sessionId }
-                );
-              } catch (error) {
-                logger.error(
-                  `Failed to update inventory for SKU ${skuItem.sku} in warehouse ${warehouse.id}`,
-                  {
-                    sessionId,
-                    error: error.message,
-                  }
-                );
-              }
+              const qty = skuItem.quantity || skuItem.inventoryLevel || 100;
+              // Generate a stable ERC for the inventory record to enable UPSERT
+              const inventoryERC = `AICA-INV-${sanitizeForERC(warehouseERC)}-${sanitizeForERC(skuItem.sku)}`;
+              
+              inventoryItems.push({
+                externalReferenceCode: inventoryERC,
+                sku: skuItem.sku,
+                warehouseExternalReferenceCode: warehouseERC,
+                quantity: qty,
+              });
             }
           }
         }
+
+        if (inventoryItems.length > 0) {
+          logger.info(`Submitting batch inventory update for ${inventoryItems.length} items`, { sessionId });
+
+          const batchERC = createERC(ERC_PREFIX.INVENTORY_BATCH);
+          
+          await persistence.createBatch({
+            erc: batchERC,
+            sessionId,
+            stepKey: 'update-inventory',
+            status: 'prepared',
+          });
+
+          if (options.dryRun) {
+            logger.info('DRY RUN: Skipping inventory batch submission.');
+            await persistence.updateBatch(batchERC, { status: 'SYNCHRONOUS' });
+            return;
+          }
+
+          const result = await liferay.createWarehouseItemsBatch(config, inventoryItems, {
+            externalReferenceCode: batchERC,
+            sessionId,
+          });
+
+          if (result?.batchId) {
+            await persistence.updateBatch(batchERC, {
+              status: 'SUBMITTED',
+              downstreamBatchId: result.batchId,
+            });
+
+            progress.batchStarted({
+              sessionId,
+              batchERC,
+              batchId: result.batchId,
+              totalItems: inventoryItems.length,
+              entityType: 'inventory',
+              operation: 'generate',
+            });
+          } else {
+            await persistence.updateBatch(batchERC, { status: 'FAILED' });
+          }
+        } else {
+          logger.info('No inventory items to update.', { sessionId });
+        }
       } catch (error) {
-        logger.error('Failed to update inventory', {
+        logger.error('Failed to update inventory batch', {
           sessionId,
           error: error.message,
         });
@@ -963,12 +1119,18 @@ class ProductGenerator {
       logger.info('Skipping inventory update.', { sessionId });
     }
 
-    await persistence.createBatch({
-      erc: createERC(ERC_PREFIX.BATCH),
-      sessionId,
-      stepKey: 'update-inventory',
-      status: 'SYNCHRONOUS',
-    });
+    // Only create a synchronous batch marker if NO other batches were created for this step.
+    const stepBatches = await persistence.getBatchesForSession(sessionId);
+    const hasRealBatches = stepBatches.some(b => b.step_key === 'update-inventory');
+
+    if (!hasRealBatches) {
+      await persistence.createBatch({
+        erc: createERC(ERC_PREFIX.BATCH),
+        sessionId,
+        stepKey: 'update-inventory',
+        status: 'SYNCHRONOUS',
+      });
+    }
   }
   
   async onSessionComplete({ sessionId, session, correlationId }) {

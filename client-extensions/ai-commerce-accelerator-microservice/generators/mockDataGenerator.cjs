@@ -446,7 +446,11 @@ class MockDataGenerator {
 
     const option1 = options[0];
     const option2 = options[1] || { values: ['Standard'] };
-    const toKey = (s) => String(s).toLowerCase().replace(/\s+/g, '-');
+    const toKey = (s) => 
+      String(s)
+        .toLowerCase()
+        .replace(/\s+/g, '-')
+        .replace(/&/g, 'and');
 
     for (const value1 of option1.values.slice(0, 3)) {
       for (const value2 of option2.values.slice(0, 3)) {

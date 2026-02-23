@@ -66,11 +66,7 @@ module.exports = (ws) => {
     config: ctx.config,
     logger,
   });
-  ctx.media = new MediaGenerator({
-    config: ctx.config,
-    objectStorage: ctx.objectStorage,
-    logger,
-  });
+  ctx.media = new MediaGenerator(ctx);
 
   // Instantiate individual generators first
   ctx.warehouseGenerator = new WarehouseGenerator(ctx);

@@ -1,9 +1,9 @@
 module.exports = async function deleteAccounts(
   { liferay },
-  { config, options, ids, items, channelId, batchERC, sessionId, filter }
+  { config, options, ids, items, channelId, batchERC, sessionId, filter, search }
 ) {
-  // Use provided filter or fallback to accelerator prefix
-  const finalFilter = filter || `externalReferenceCode sw 'AICA-ACC'`;
+  // Use provided search/filter or fallback to accelerator prefix
+  const finalSearch = search || (!filter ? 'AICA-ACC' : undefined);
 
   const result = await liferay.deleteAccountsBatch(config, {
     ids,
@@ -12,7 +12,8 @@ module.exports = async function deleteAccounts(
     callbackBatchERC: batchERC,
     dryRun: options.dryRun,
     sessionId,
-    filter: finalFilter,
+    filter,
+    search: finalSearch,
   });
   return result;
 };

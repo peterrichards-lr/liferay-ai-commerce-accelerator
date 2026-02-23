@@ -54,8 +54,8 @@ const BASE = {
 };
 
 const VARIANT = {
-  optionCategories: 'kebab',
-  options: 'kebab',
+  optionCategories: 'camel',
+  options: 'camel',
   postalAddresses: 'kebab',
   pricing: 'camel',
   products: 'camel',
@@ -76,6 +76,10 @@ const PATH = {
   WAREHOUSES: `${BASE.INVENTORY_API}/warehouses`,
   WAREHOUSE_INVENTORIES: (warehouseId) =>
     `${BASE.INVENTORY_API}/warehouses/${warehouseId}/warehouseItems`,
+  WAREHOUSE_INVENTORIES_BATCH: (callbackURL) =>
+    `${BASE.INVENTORY_API}/warehouseItems/batch${
+      callbackURL ? `?callbackURL=${enc(callbackURL)}` : ''
+    }`,
 
   PRODUCTS: BASE.PRODUCTS,
   PRICE_LISTS: BASE.PRICE_LISTS,
@@ -86,6 +90,10 @@ const PATH = {
     }`,
   PRODUCTS_BATCH: (callbackURL) =>
     `${BASE.PRODUCTS}/batch${
+      callbackURL ? `?callbackURL=${enc(callbackURL)}` : ''
+    }`,
+  PRODUCTS_SKUS_BATCH: (callbackURL) =>
+    `${BASE.PRODUCTS}/skus/batch${
       callbackURL ? `?callbackURL=${enc(callbackURL)}` : ''
     }`,
   WAREHOUSES_BATCH: (callbackURL) =>

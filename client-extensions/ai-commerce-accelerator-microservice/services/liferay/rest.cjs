@@ -755,6 +755,7 @@ class LiferayRestService {
       friendly,
       path,
       sessionId,
+      createStrategy = 'UPSERT',
     },
   ) {
     const { logger, cache, config: configService } = this.ctx;
@@ -775,7 +776,7 @@ class LiferayRestService {
     this._cacheItemERCs(erc, null, itemERCs, sessionId);
 
     const batchPayload = {
-      createStrategy: 'INSERT',
+      createStrategy,
       items: processedItems,
       externalReferenceCode: erc,
     };
@@ -1040,6 +1041,22 @@ class LiferayRestService {
     };
   }
 
+  async createWarehouseItemsBatch(config, itemsData, opts = {}) {
+    const results = await this._postBatch(config, {
+      entityName: 'inventory',
+      items: itemsData,
+      externalReferenceCode: opts.externalReferenceCode,
+      itemERCKey: 'externalReferenceCode',
+      op: 'create-inventory-batch',
+      friendly: 'Failed to create inventory batch',
+      path: PATH.WAREHOUSE_INVENTORIES_BATCH,
+      sessionId: opts.sessionId,
+      createStrategy: 'UPSERT',
+    });
+
+    return results;
+  }
+
   async createWarehouse(config, warehouseData) {
     return await this._post(
       config,
@@ -1282,6 +1299,24 @@ class LiferayRestService {
     return {
       ...results,
       addressCount: results.count,
+    };
+  }
+
+  async createProductSkusBatch(config, skusData, opts = {}) {
+    const results = await this._postBatch(config, {
+      entityName: 'sku',
+      items: skusData,
+      externalReferenceCode: opts.externalReferenceCode,
+      itemERCKey: 'sku',
+      op: 'create-skus-batch',
+      friendly: 'Failed to create SKUs batch',
+      path: PATH.PRODUCTS_SKUS_BATCH,
+      sessionId: opts.sessionId,
+    });
+
+    return {
+      ...results,
+      skuCount: results.count,
     };
   }
 

@@ -29,7 +29,7 @@ class LiferayService {
       filters.push(nameFilter);
     }
 
-    const filter = filters.length > 0 ? filters.join(' and ') : null;
+    const filter = filters.length > 0 ? this._normalizeFilter(filters.join(' and ')) : null;
 
     const requestedFields = new Set(['productId', 'externalReferenceCode', 'name']);
     if (fields) {
@@ -60,7 +60,6 @@ class LiferayService {
 
     const filters = [];
     if (providedFilter) filters.push(providedFilter);
-    if (search) filters.push(`externalReferenceCode sw '${search}'`);
 
     if (channelId) {
       try {
@@ -93,7 +92,10 @@ class LiferayService {
       filters.push(nameFilter);
     }
 
-    const filter = filters.length > 0 ? filters.join(' and ') : null;
+    let filter = filters.length > 0 ? filters.join(' and ') : null;
+    if (filter) {
+      filter = this._normalizeFilter(filter);
+    }
 
     const requestedFields = new Set(['id', 'externalReferenceCode', 'name']);
     if (fields) {
@@ -107,6 +109,7 @@ class LiferayService {
         page: 1,
         pageSize,
         filter,
+        search,
         fields: Array.from(requestedFields).join(','),
       }
     });
@@ -138,7 +141,7 @@ class LiferayService {
     if (nameFilter && !hasERCFilter) {
       filters.push(nameFilter);
     }
-    const filter = filters.length > 0 ? filters.join(' and ') : null;
+    const filter = filters.length > 0 ? this._normalizeFilter(filters.join(' and ')) : null;
 
     const res = await this.rest._listOptionCategories(config, { 
       pageSize, 
@@ -174,7 +177,7 @@ class LiferayService {
     if (nameFilter && !hasERCFilter) {
       filters.push(nameFilter);
     }
-    const filter = filters.length > 0 ? filters.join(' and ') : null;
+    const filter = filters.length > 0 ? this._normalizeFilter(filters.join(' and ')) : null;
 
     const res = await this.graphql.getSpecifications(config, filter, Array.from(requestedFields), { page: 1, pageSize });
     const items = asItems(res);
@@ -261,7 +264,7 @@ class LiferayService {
     if (nameFilter && !hasERCFilter) {
       filters.push(nameFilter);
     }
-    const filter = filters.length > 0 ? filters.join(' and ') : null;
+    const filter = filters.length > 0 ? this._normalizeFilter(filters.join(' and ')) : null;
 
     const res = await this.graphql.getWarehouses(config, filter, Array.from(requestedFields), { page: 1, pageSize });
     const items = asItems(res);
@@ -272,6 +275,31 @@ class LiferayService {
       items: filteredItems,
       totalCount: res.totalCount,
     };
+  }
+
+  async getWarehouseItems(config, { pageSize = 200, fields = 'id', filter, search } = {}) {
+    const warehouses = await this.getWarehouses(config, { pageSize: 1000 });
+    const allItems = [];
+    let totalCount = 0;
+
+    for (const warehouse of warehouses.items) {
+      const res = await this.rest._get(config, PATH.WAREHOUSE_INVENTORIES(warehouse.id), 'warehouseItems:list', `List warehouse items for ${warehouse.name?.en_US}`, {
+        params: {
+          page: 1,
+          pageSize,
+          filter: this._normalizeFilter(filter),
+          search,
+          fields,
+        }
+      });
+      const items = asItems(res);
+      allItems.push(...items);
+      totalCount += (res.totalCount || items.length);
+      
+      if (allItems.length >= pageSize) break;
+    }
+
+    return { items: allItems, totalCount };
   }
 
   async getPriceLists(
@@ -328,6 +356,7 @@ class LiferayService {
       product: 'productId,externalReferenceCode,name',
       account: 'id,externalReferenceCode,name',
       warehouse: 'id,externalReferenceCode,name',
+      warehouseItem: 'id,externalReferenceCode,sku',
       priceList: 'id,externalReferenceCode,name,catalogBasePriceList',
       promotion: 'id,externalReferenceCode,name,catalogBasePriceList',
       order: 'id,externalReferenceCode',
@@ -407,12 +436,14 @@ class LiferayService {
           res = await this.getPromotions(config, { pageSize, fields: fieldsParam, filter, search });
         } else if (entityName === 'product') {
           res = await this.getProducts(config, { catalogId: rest.catalogId, pageSize, fields: fieldsParam, filter, search });
+        } else if (entityName === 'warehouseItem') {
+          res = await this.getWarehouseItems(config, { pageSize, fields: fieldsParam, filter, search });
         } else {
           res = await this.rest._get(config, rest.listUrl, `${entityName}:list`, `List ${entityName}`, {
             params: {
               page,
               pageSize,
-              filter,
+              filter: this._normalizeFilter(filter),
               search,
               fields: fieldsParam,
             },
@@ -531,6 +562,7 @@ class LiferayService {
     {
       pageSize = 200,
       filter,
+      search,
       callbackBatchERC,
       dryRun = false,
       sessionId,
@@ -541,6 +573,7 @@ class LiferayService {
     return this.deleteByFilter(config, {
       entityName: 'account',
       filter,
+      search,
       pageSize,
       externalReferenceCode: callbackBatchERC,
       dryRun,
@@ -605,6 +638,33 @@ class LiferayService {
       listUrl: PATH.WAREHOUSES,
       op: 'warehouses:batch-delete',
       friendly: 'Delete warehouses (batch)',
+      items,
+    });
+  }
+
+  async deleteWarehouseItemsBatch(
+    config,
+    {
+      pageSize = 200,
+      filter,
+      callbackBatchERC,
+      dryRun = false,
+      sessionId,
+      items,
+    } = {},
+  ) {
+    return this.deleteByFilter(config, {
+      entityName: 'warehouseItem',
+      filter,
+      pageSize,
+      externalReferenceCode: callbackBatchERC,
+      dryRun,
+      sessionId,
+      nativeBatch: true,
+      path: PATH.WAREHOUSE_INVENTORIES_BATCH,
+      listUrl: PATH.WAREHOUSE_INVENTORIES_BATCH('').split('?')[0].replace('/batch', ''),
+      op: 'inventory:batch-delete',
+      friendly: 'Delete inventory items (batch)',
       items,
     });
   }
@@ -1043,6 +1103,11 @@ class LiferayService {
 
   getPostalAddressesByERC(config, ercs, fields) {
     return this.graphql.getPostalAddressesByERC(config, ercs, fields);
+  }
+
+  _normalizeFilter(filter) {
+    if (!filter) return filter;
+    return filter.replace(/(\w+)\s+sw\s+'([^']+)'/g, "startswith($1,'$2')");
   }
 }
 

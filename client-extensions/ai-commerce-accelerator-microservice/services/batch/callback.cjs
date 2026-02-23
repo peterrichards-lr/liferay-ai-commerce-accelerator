@@ -23,12 +23,14 @@ class BatchCallbackService {
       'product-data-generation': 'products',
       products: 'products',
       'resolve-product-ids': 'products',
+      'product-skus': 'products',
       'link-product-options': 'options',
       'attach-images': 'images',
       'process-images': 'images',
       'attach-pdfs': 'pdfs',
       'process-pdfs': 'pdfs',
       'update-inventory': 'products',
+      inventory: 'products',
       'generate-warehouses': 'warehouses',
       'resolve-warehouse-ids': 'warehouses',
       accounts: 'accounts',
@@ -38,6 +40,7 @@ class BatchCallbackService {
       deleteAccounts: 'accounts',
       deleteOrders: 'orders',
       deleteWarehouses: 'warehouses',
+      deleteWarehouseItems: 'warehouses',
       deleteSpecifications: 'specifications',
       deleteProductSpecifications: 'specifications',
       deleteOptions: 'options',
@@ -559,12 +562,11 @@ class BatchCallbackService {
 
     const checkMap = {
       deleteAccounts: async () => {
-        // Fallback filter if channelId discovery returns nothing
-        const filter = `externalReferenceCode sw 'AICA-ACC'`;
+        // Use search instead of invalid sw filter for Accounts
         const res = await liferay.getAccounts(config, {
           channelId,
           pageSize: 1,
-          filter,
+          search: 'AICA-ACC',
         });
         return {
           totalCount: res.totalCount,
@@ -644,6 +646,12 @@ class BatchCallbackService {
           totalCount: res.totalCount,
         };
       },
+      deleteWarehouseItems: async () => {
+        const res = await liferay.getWarehouseItems(config, { pageSize: 1, search: 'AICA-INV' });
+        return {
+          totalCount: res.totalCount,
+        };
+      },
       deletePriceLists: async () => {
         const res = await liferay.getPriceLists(config, { pageSize: 1 });
         return {
@@ -674,7 +682,14 @@ class BatchCallbackService {
   }
 
   _getOnSessionComplete(flowType) {
-    return null;
+    const { productGenerator, accountGenerator, orderGenerator } = this.ctx;
+    const generatorMap = {
+      generate: productGenerator,
+      accounts: accountGenerator,
+      orders: orderGenerator,
+    };
+    const generator = generatorMap[flowType];
+    return generator?.onSessionComplete?.bind(generator);
   }
 
   async processCallback(batchERC, payload) {
