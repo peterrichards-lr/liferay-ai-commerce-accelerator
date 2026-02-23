@@ -29,6 +29,35 @@
 						"description": "Unique external reference for the product.",
 						"type": "string"
 					},
+					"images": {
+						"description": "Product image metadata.",
+						"items": {
+							"additionalProperties": true,
+							"properties": {
+								"priority": {
+									"type": "integer"
+								},
+								"src": {
+									"type": "string"
+								},
+								"title": {
+									"additionalProperties": {
+										"type": "string"
+									},
+									"description": "Multilingual title for the image.",
+									"type": "object"
+								},
+								"type": {
+									"type": "string"
+								}
+							},
+							"required": [
+								"src"
+							],
+							"type": "object"
+						},
+						"type": "array"
+					},
 					"metaDescription": {
 						"additionalProperties": {
 							"type": "string"

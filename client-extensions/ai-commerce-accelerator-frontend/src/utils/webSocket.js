@@ -1,3 +1,8 @@
+const STARTED = 'STARTED';
+const PROGRESS = 'PROGRESS';
+const COMPLETED = 'COMPLETED';
+const FAILED = 'FAILED';
+
 const BATCH_COMPLETED = 'batch_completed';
 const BATCH_ERROR_DETAILS = 'batch_error_details';
 const BATCH_FAILED = 'batch_failed';
@@ -14,6 +19,10 @@ const PROGRESS_UPDATE = 'progress_update';
 const SESSION_COMPLETE = 'session_completed';
 
 export {
+  STARTED,
+  PROGRESS,
+  COMPLETED,
+  FAILED,
   BATCH_COMPLETED,
   BATCH_ERROR_DETAILS,
   BATCH_FAILED,

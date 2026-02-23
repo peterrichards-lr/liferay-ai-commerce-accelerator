@@ -252,6 +252,13 @@ const QUEUE_CONFIG = Object.freeze({
 });
 
 const WEB_SOCKET_EVENTS = Object.freeze({
+  // New Unified Event Types
+  STARTED: 'STARTED',
+  PROGRESS: 'PROGRESS',
+  COMPLETED: 'COMPLETED',
+  FAILED: 'FAILED',
+
+  // Legacy Event Types (keeping for transition)
   BATCH_COMPLETED: 'batch_completed',
   BATCH_PROGRESS: 'batch_progress',
   BATCH_START: 'batch_start',
@@ -268,6 +275,19 @@ const WEB_SOCKET_EVENTS = Object.freeze({
   PONG: 'pong',
 });
 
+const WS_SCOPE = Object.freeze({
+  BATCH: 'batch',
+  SESSION: 'session',
+  STEP: 'step',
+});
+
+const WS_OPERATION = Object.freeze({
+  GENERATE: 'generate',
+  DELETE: 'delete',
+  PROCESS_IMAGES: 'process-images',
+  PROCESS_ATTACHMENTS: 'process-attachments',
+});
+
 const OP_MAP = { create: 'C', update: 'U', delete: 'D', list: 'L', read: 'R' };
 
 module.exports = {
@@ -280,4 +300,6 @@ module.exports = {
   OP_MAP,
   PDF_BATCH_ID,
   WEB_SOCKET_EVENTS,
+  WS_SCOPE,
+  WS_OPERATION,
 };

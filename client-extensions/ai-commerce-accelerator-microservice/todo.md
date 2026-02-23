@@ -98,11 +98,19 @@
 1. Refactored `WarehouseGenerator.createWarehouses` to return the `normalizedWarehouseDataList` (containing individual ERCs).
 2. Updated `ProductGenerator._runWarehouseGenerationStep` to filter out any remaining batch ERCs and added more robust verification of resolved IDs.
 
-### [x] Redundant "Step completed" Logging
-**Analysis**: The workflow orchestrator logs step completion multiple times, especially when synchronous steps are skipped or finish very quickly. This makes the logs noisy and harder to trace.
-- **Root Cause**: In `BatchCallbackService._checkSessionCompletion`, the `while` loop re-evaluated step completion using a stale `session` object within the `if (currentSteps.length === 0)` block. When a step advanced, the orchestrator called `_updateActiveSteps` using the `session` fetched at the start of the iteration. This session still contains the *previously* completed steps in its `currentSteps` property. Since the batches for those steps are now terminal in the database, `_updateActiveSteps` sees them as "just completed" and logs the completion message again.
-- **Affected Code**: `client-extensions/ai-commerce-accelerator-microservice/services/batch/callback.cjs` (lines 60-70).
-**Result**: **FIXED**. Refactored `_checkSessionCompletion` and `_updateActiveSteps` to explicitly pass the steps list and ensure the most current state is used for completion checks and logging.
+### [x] GraphQL DataFetchingException (Accounts Discovery)
+**Analysis**: The `deleteAccounts` step was consistently failing with `DataFetchingException: null` in Liferay's GraphQL layer.
+- **Root Cause**: The orchestrator was "standardizing" discovery fields in `deleteByFilter` to include both Commerce and User fields (e.g., `productId`, `title`). When these were passed to the `headlessAdminUser_v1_0/accounts` GraphQL query, Liferay crashed because those fields don't exist on the core Account DTO. Additionally, mixing `sw` filters on ERCs with `ne` filters on localized names was problematic in some environments.
+- **Result**: **FIXED**.
+    1. Refactored `deleteByFilter` to define entity-specific discovery fields.
+    2. Standardized all discovery methods (`getProducts`, `getAccounts`, etc.) to explicitly validate and filter requested fields against a whitelist of supported fields per entity.
+    3. Switched `getAccounts` to use the REST API for discovery, as it is more stable than GraphQL for core User/Account entities with complex filters.
+    4. Improved filter logic to automatically skip redundant name-based exclusions when a specific AI-generated prefix filter is provided.
+
+### [x] Redundant "Step completed" Logging (Loop Atomicity)
+**Analysis**: Step completion was being logged and emitted multiple times for fast synchronous steps.
+- **Root Cause**: The orchestrator loop in `BatchCallbackService._checkSessionCompletion` re-evaluated state without persisting the updated `current_steps` to the database before continuing. This caused subsequent iterations to re-detect the same completion events.
+- **Result**: **FIXED**. Ensured that `persistence.updateSessionCurrentSteps` is called with the latest filtered state immediately after detection and before any loop `continue`.
 
 ### [x] Graceful Shutdown Logger Failure (write EPIPE)
 **Analysis**: During process termination (SIGTERM/SIGINT), the logger throws an uncaught `EPIPE` error when trying to write to `process.stdout` or `process.stderr`.
@@ -124,30 +132,31 @@
     2. Corrected the `liferay.updateInventory` call to pass the actual alphanumeric SKU.
     3. Added support for iterating over and updating inventory for all SKUs and variants associated with a product.
 
-### [ ] Analyse Missing Product Images and PDFs
+### [x] Analyse Missing Product Images and PDFs
 **Objective**: Understand why product images and PDFs are not being generated and attached to products.
 **Analysis Findings**:
 - **Type Mismatch (Validation Error)**: `options.imageRatio` and `options.pdfRatio` are received as strings from the UI. `ProductGenerator._generateProductData` converts them to Numbers on the `options` object but fails to persist these mutated options back to the session context. Subsequent steps (like `_runAttachImagesStep`) re-fetch the session from the DB, get the original strings, and pass them to `MediaGenerator.validateOptions`, which throws a `TypeError` because it expects a `number`. This explains the `Failed to process image attachments` log message.
 - **MockDataGenerator Bug (Demo Mode)**: `MockDataGenerator.generateProductData` does not populate the `attachments` property for products and ignores the `pdfRatio` option entirely. This causes the `attach-pdfs` step to skip because `withPdfs` is empty.
 - **AIService/Prompt/Schema Bug (Live Mode)**: The `product.json` schema and `product.md` prompt do not include an `images` property. Consequently, AI-generated products never have the `images` property, causing the `attach-images` step to skip.
 - **Logic Redundancy**: There is a disconnect between Generators and MediaGenerator regarding who owns the "ratio" logic. Generators should decide which products get attachments and populate the properties; MediaGenerator should then process those properties without re-applying a random ratio.
-**Proposed Steps**:
-1. Fix `ProductGenerator.cjs` to persist normalized `options` (specifically numeric ratios) back to the session context during the data generation step.
-2. Update `MockDataGenerator.cjs` to populate the `attachments` property for a subset of products based on `pdfRatio`.
-3. Update `AIService.cjs`, `product.json`, and `product.md` to include `images` in the generated product data.
-4. Refactor `MediaGenerator.cjs` to remove redundant ratio filtering if the input products already have `images`/`attachments` populated.
+**Result**: **FIXED**.
+1. Fixed `ProductGenerator.cjs` to persist normalized `options` (specifically numeric ratios) back to the session context.
+2. Updated `MockDataGenerator.cjs` to populate `images` and `attachments` based on ratios.
+3. Updated `AIService.cjs`, `product.json`, and `product.md` to include `images` in AI-generated data and fix `specifications` multilingual structure.
+4. Refactor `MediaGenerator.cjs` to use populated properties and remove redundant ratio filtering.
 
-### [ ] Analyse Account Deletion Failure in Delete Workflow
+### [x] Analyse Account Deletion Failure in Delete Workflow
 **Objective**: Understand why accounts are not being deleted as part of the delete workflow.
-**Analysis Findings (Initial)**:
-- Initial log review shows no evidence of `DELETE` requests for accounts during recent workflow runs.
-- Possible stall or silent skip in the `DeleteCoordinatorService`.
-**Proposed Steps**:
-1. Review `DeleteCoordinatorService.cjs` to identify the sequence of steps for account deletion.
-2. Trace the workflow execution logs for a session that includes account deletion to see if it reaches the `delete-accounts` step.
-3. Verify if `Simulated Batching` or `Batch Engine` is being used for account deletion and if there's a protocol mismatch.
+**Analysis Findings**:
+- **Protocol Mismatch (Step Order)**: The delete workflow executes `deleteOrders` before `deleteAccounts`. `LiferayService.getAccounts` (used for discovery) has logic that, if `channelId` is provided, attempts to find accounts by querying orders in that channel. Since orders have already been deleted, this query returns zero results, causing the account deletion step to be skipped.
+- **Discovery Logic Bug**: `LiferayService.deleteByFilter` fails to pass the `filter` and `search` parameters to specialized discovery methods like `getAccounts`, `getProducts`, and `getPriceLists`. This prevents any caller-supplied filters (like ERC prefix filters) from being applied during these steps.
+- **Overly Restrictive Discovery**: `getAccounts` returns an empty result set immediately if `channelId` is present but no orders are found, even if other filters (like an ERC prefix) are provided.
+**Result**: **FIXED**.
+1. Fixed `LiferayService.deleteByFilter` to pass `filter` and `search` parameters to all specialized discovery methods.
+2. Refactored `LiferayService.getAccounts` to combine `channelId` discovery with other filters, preventing early exit.
+3. Updated `BatchCallbackService._checkIfEntitiesExist` and `deleteAccounts` step handler to use a default ERC prefix filter (`AICA-ACC-*`) for account discovery.
 
-### [ ] Analyse WebSocket Progress Communication Mismatch
+### [x] Analyse WebSocket Progress Communication Mismatch
 **Objective**: Understand why batch updates are not being reflected in the UI progress bars.
 **Analysis Findings**:
 - **Redundant Event Prefixes**: Current event types like `BATCH_START` and `SESSION_COMPLETE` duplicate the information that should be in a `scope` field. 
@@ -157,13 +166,12 @@
 - **Granular Progress Ignored**: `BATCH_PROGRESS` (soon to be `PROGRESS` with scope `batch`) events are logged but never update the UI state.
 - **Missing Entity Support**: Support for `warehouses`, `price-lists`, and `specifications` is inconsistent across emitters and handlers.
 - **ProgressService Bug**: `batchFailed` incorrectly calls `emitBatchCompleted`.
-**Proposed Steps**:
-1. **Unify Event Types**: Move to a generic `STARTED`, `PROGRESS`, `COMPLETED`, `FAILED` event set, differentiated by a mandatory `scope` field (`session`, `step`, or `batch`).
-2. **Standardize Operations**: Align on a shared set of `operation` constants (e.g., `'generate'`, `'delete'`).
-3. **Comprehensive Entity Support**: Ensure all entity types (products, accounts, orders, warehouses, images, pdfs, specifications, options, price-lists, promotions) are supported in both microservice emitters and frontend normalization logic.
-4. **Implement Step Hierarchy**: Update the orchestrator and generators to emit `step` scope events for logical progress (e.g., "50/100 products created").
-5. **Update Frontend Hook**: Refactor `useRealtimeWebSocket.js` to route updates based on `scope` and `entityType`, and ensure `PROGRESS` events actually update the state.
-6. **Fix normalizeEntityType**: Add missing mappings for all microservice step keys.
+**Result**: **FIXED**.
+1. Unified events into `STARTED`, `PROGRESS`, `COMPLETED`, `FAILED` with mandatory `scope` field.
+2. Implemented hierarchical emission in `BatchCallbackService` (STEP level) and Generators (BATCH level).
+3. Enhanced `normalizeEntityType` in both microservice and frontend to ensure consistent category mapping.
+4. Refactored `useRealtimeWebSocket.js` to route updates based on `scope` and `entityType`, ensuring granular progress updates the UI.
+5. Fixed `ProgressService` bugs and aligned legacy emitters with the new protocol.
 
 ---
 
@@ -173,3 +181,16 @@
 **Analysis**: Commit `a437fd98f22c64bb2d9f6a015c911ed28661224f` removed manual calls to `batchCallback._checkSessionCompletion` from all generator step handlers (Accounts, Orders, Products). 
 - **Reason**: These manual calls were redundant because the `BatchCallbackService` orchestrator centrally manages session completion checks. Triggering them from within handlers caused duplicate execution threads, race conditions in state updates, and noisy logs.
 **Result**: **VERIFIED**. Code review confirms that the `while` loop in `BatchCallbackService` correctly handles synchronous advancement. Logs confirm smooth transitions without recursion.
+
+---
+
+## 7. Strategic Roadmap (Implementation Priority)
+
+### [x] 1. WebSocket Progress Communication Mismatch
+**Rationale**: This is the highest priority infrastructure fix. It aligns the Microservice's reporting with the Frontend's expectations. Establishing a reliable hierarchical event protocol (`session` > `step` > `batch`) ensures accurate visual feedback for all subsequent feature development and debugging.
+
+### [x] 2. Account Deletion Failure in Delete Workflow
+**Rationale**: Reliable environment cleanup is essential for deterministic testing. Fixing the discovery logic and step ordering in the deletion workflow allows for a "clean slate" between test runs of the product and order generators, preventing data duplication and skewed results.
+
+### [x] 3. Missing Product Images and PDFs
+**Rationale**: This is a high-value feature with complex data dependencies. It requires coordinated changes across the AI Service (prompts/schema), Mock Data Generator, and Media Generator. Addressing this after securing observability (Priority 1) and environment stability (Priority 2) ensures a more efficient implementation cycle.

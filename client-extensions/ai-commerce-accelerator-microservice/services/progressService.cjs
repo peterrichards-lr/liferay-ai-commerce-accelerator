@@ -1,4 +1,9 @@
 const { resolvePhaseAndMode } = require('../utils/misc.cjs');
+const {
+  WEB_SOCKET_EVENTS,
+  WS_SCOPE,
+  WS_OPERATION,
+} = require('../utils/constants.cjs');
 
 class ProgressService {
   constructor({ ws, logger, persistence }) {
@@ -8,11 +13,12 @@ class ProgressService {
   }
 
   sessionStarted({ sessionId, flowType, correlationId }) {
-    this.ws.emitGenerationSessionStart(
+    this.ws.emitProgress(
       {
         sessionId,
-        flowType,
-        timestamp: new Date().toISOString(),
+        status: WEB_SOCKET_EVENTS.STARTED,
+        scope: WS_SCOPE.SESSION,
+        details: { flowType },
       },
       { correlationId }
     );
@@ -25,6 +31,15 @@ class ProgressService {
   }
 
   sessionCompleted({ sessionId, correlationId }) {
+    this.ws.emitProgress(
+      {
+        sessionId,
+        status: WEB_SOCKET_EVENTS.COMPLETED,
+        scope: WS_SCOPE.SESSION,
+      },
+      { correlationId }
+    );
+    // Legacy support for top-level completion signal
     this.ws.emitGenerationSessionComplete(
       {
         sessionId,
@@ -41,12 +56,13 @@ class ProgressService {
   }
 
   sessionFailed({ sessionId, error, correlationId }) {
-    this.ws.emitError(
+    this.ws.emitProgress(
       {
         sessionId,
-        message: error.message,
+        status: WEB_SOCKET_EVENTS.FAILED,
+        scope: WS_SCOPE.SESSION,
+        error: error.message,
         errorReference: error.errorReference,
-        timestamp: new Date().toISOString(),
       },
       { correlationId }
     );
@@ -58,14 +74,18 @@ class ProgressService {
     });
   }
 
-  stepStarted({ sessionId, step, correlationId }) {
-    this.ws.emitStepStarted(
-        {
-            sessionId,
-            step,
-            timestamp: new Date().toISOString(),
-        },
-        { correlationId }
+  stepStarted({ sessionId, step, totalCount, entityType, operation, correlationId }) {
+    this.ws.emitProgress(
+      {
+        sessionId,
+        status: WEB_SOCKET_EVENTS.STARTED,
+        scope: WS_SCOPE.STEP,
+        entityType,
+        operation,
+        totalCount,
+        message: `Step '${step}' started.`,
+      },
+      { correlationId }
     );
     this.persistence.logWorkflowEvent({
       sessionId,
@@ -75,14 +95,34 @@ class ProgressService {
     });
   }
 
-  stepCompleted({ sessionId, step, correlationId }) {
-    this.ws.emitStepCompleted(
-        {
-            sessionId,
-            step,
-            timestamp: new Date().toISOString(),
-        },
-        { correlationId }
+  stepProgress({ sessionId, entityType, operation, processedCount, totalCount, correlationId }) {
+    this.ws.emitProgress(
+      {
+        sessionId,
+        status: WEB_SOCKET_EVENTS.PROGRESS,
+        scope: WS_SCOPE.STEP,
+        entityType,
+        operation,
+        processedCount,
+        totalCount,
+      },
+      { correlationId }
+    );
+  }
+
+  stepCompleted({ sessionId, step, entityType, operation, totalCount, correlationId }) {
+    this.ws.emitProgress(
+      {
+        sessionId,
+        status: WEB_SOCKET_EVENTS.COMPLETED,
+        scope: WS_SCOPE.STEP,
+        entityType,
+        operation,
+        totalCount,
+        processedCount: totalCount,
+        message: `Step '${step}' completed.`,
+      },
+      { correlationId }
     );
     this.persistence.logWorkflowEvent({
       sessionId,
@@ -99,11 +139,13 @@ class ProgressService {
         ...resolvePhaseAndMode({ useBatch: true, phase: 'submit' }),
         batchId,
         batchERC,
-        totalItems,
+        totalCount: totalItems,
         sessionId,
+        status: WEB_SOCKET_EVENTS.STARTED,
+        scope: WS_SCOPE.BATCH,
       };
 
-    this.ws.emitBatchStarted(payload, { correlationId });
+    this.ws.emitProgress(payload, { correlationId });
     this.persistence.logWorkflowEvent({
         sessionId,
         batchId,
@@ -114,24 +156,23 @@ class ProgressService {
   }
 
   batchProgress({ sessionId, batchERC, batchId, completedCount, totalItems, correlationId }) {
-    if (totalItems > 0) {
-        const progress = Math.max(0, Math.min(100, Math.round((completedCount / totalItems) * 100)));
-        
+    if (totalItems >= 0) {
         const payload = {
             batchId,
             batchERC,
             sessionId,
-            completedCount,
-            totalItems,
-            progress,
+            processedCount: completedCount,
+            totalCount: totalItems,
+            status: WEB_SOCKET_EVENTS.PROGRESS,
+            scope: WS_SCOPE.BATCH,
         };
 
-        this.ws.emitBatchProgress(payload, { correlationId });
+        this.ws.emitProgress(payload, { correlationId });
         this.persistence.logWorkflowEvent({
             sessionId,
             batchId,
             status: 'BATCH_PROGRESS',
-            message: `Batch ${batchId} progress: ${completedCount}/${totalItems} (${progress}%).`,
+            message: `Batch ${batchId} progress: ${completedCount}/${totalItems}.`,
             details: payload,
           });
     }
@@ -145,11 +186,15 @@ class ProgressService {
         batchId,
         batchERC,
         sessionId,
-        successCount,
-        failureCount,
-        errors: failureCount > 0 ? errors.slice(0, 5) : [],
+        status: WEB_SOCKET_EVENTS.COMPLETED,
+        scope: WS_SCOPE.BATCH,
+        details: {
+          successCount,
+          failureCount,
+          errors: failureCount > 0 ? errors.slice(0, 5) : [],
+        }
       };
-    this.ws.emitBatchCompleted(payload, { correlationId });
+    this.ws.emitProgress(payload, { correlationId });
     this.persistence.logWorkflowEvent({
         sessionId,
         batchId,
@@ -167,11 +212,16 @@ class ProgressService {
         batchId,
         batchERC,
         sessionId,
-        successCount: 0,
-        failureCount: 1,
-        errors: [{ message: error.message }],
+        status: WEB_SOCKET_EVENTS.FAILED,
+        scope: WS_SCOPE.BATCH,
+        error: error.message,
+        details: {
+          successCount: 0,
+          failureCount: 1,
+          errors: [{ message: error.message }],
+        }
       };
-    this.ws.emitBatchCompleted(payload, { correlationId });
+    this.ws.emitProgress(payload, { correlationId });
     this.persistence.logWorkflowEvent({
         sessionId,
         batchId,
@@ -182,14 +232,17 @@ class ProgressService {
   }
 
   postProcessingStarted({ sessionId, entityType, batchId, correlationId }) {
+    const operation = `process-${entityType}`;
     const payload = {
         entityType,
         batchId,
-        operation: `process-${entityType}`,
+        operation,
         ...resolvePhaseAndMode({ useBatch: false, phase: 'postprocess' }),
         sessionId,
+        status: WEB_SOCKET_EVENTS.STARTED,
+        scope: WS_SCOPE.STEP, // Post-processing is treated as a STEP in the new model
       };
-    this.ws.emitPostProcessingStarted(payload, { correlationId });
+    this.ws.emitProgress(payload, { correlationId });
     this.persistence.logWorkflowEvent({
         sessionId,
         batchId,
@@ -200,16 +253,19 @@ class ProgressService {
   }
 
   postProcessingCompleted({ sessionId, entityType, batchId, processedCount, totalCount, correlationId }) {
+    const operation = `process-${entityType}`;
     const payload = {
         entityType,
         batchId,
-        operation: `process-${entityType}`,
+        operation,
         ...resolvePhaseAndMode({ useBatch: false, phase: 'postprocess' }),
         processedCount,
         totalCount,
         sessionId,
+        status: WEB_SOCKET_EVENTS.COMPLETED,
+        scope: WS_SCOPE.STEP,
       };
-    this.ws.emitPostProcessingCompleted(payload, { correlationId });
+    this.ws.emitProgress(payload, { correlationId });
     this.persistence.logWorkflowEvent({
         sessionId,
         batchId,
@@ -221,9 +277,12 @@ class ProgressService {
 
   emitError({ message, errorReference, correlationId, ...rest }) {
     const payload = {
+        sessionId: rest.sessionId,
+        batchId: rest.batchId,
         message,
         errorReference,
-        correlationId,
+        status: WEB_SOCKET_EVENTS.FAILED,
+        scope: rest.scope || WS_SCOPE.SESSION,
         ...rest
     };
     this.ws.emitError(payload);

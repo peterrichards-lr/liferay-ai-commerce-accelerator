@@ -641,3 +641,11 @@ The following recommendations are for internal code quality and maintainability,
 *   **Standardize Validation**: All generators should implement `validateConfig` and `validateOptions` methods to fail fast.
 *   **Refactor `batchCallbackService`**: The `_checkSessionCompletion` method should be broken into smaller private helpers to improve readability.
 *   **Implement "Dry Run" Mode**: A `dryRun: true` flag would be highly beneficial for debugging. It would execute data generation but stop before making API calls, logging the final payload instead.
+
+### Deletion Discovery & Sequencing (Analysis Finding)
+
+Analysis of the account deletion failure revealed a critical conflict between workflow sequencing and entity discovery logic:
+
+1.  **Sequencing Dependency**: `deleteOrders` must precede `deleteAccounts` due to Liferay referential integrity.
+2.  **Discovery Flaw**: `LiferayService.getAccounts` relies on querying existing orders when a `channelId` is provided. If orders are already deleted, discovery returns zero results, causing account deletion to be silently skipped.
+3.  **Corrective Pattern**: Deletion discovery for entities with complex or volatile relationships (like Accounts) MUST prioritize stable identifiers like `externalReferenceCode` prefixes (e.g., `AICA-ACC-*`) over relational discovery (orders). Specialized discovery methods in `LiferayService` must be updated to combine relational filters with prefix-based filters and ensure parameters like `filter` and `search` are correctly propagated from `deleteByFilter`.

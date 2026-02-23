@@ -217,7 +217,7 @@ class AccountGenerator {
   }
 
   async _runAccountCreationStep(sessionId) {
-    const { logger, persistence, liferay, batchCallback } = this.ctx;
+    const { logger, persistence, liferay, progress } = this.ctx;
     const session = await persistence.getSession(sessionId);
     const { config, options, accountsToCreate } = session.context;
 
@@ -255,12 +255,26 @@ class AccountGenerator {
       status: 'PREPARED',
     });
 
-    await liferay.createAccountsBatch(config, accountsToCreate, {
+    const submission = await liferay.createAccountsBatch(config, accountsToCreate, {
       externalReferenceCode: batchERC,
       sessionId,
     });
 
-    await persistence.updateBatch(batchERC, { status: 'SUBMITTED' });
+    await persistence.updateBatch(batchERC, { 
+      status: 'SUBMITTED',
+      downstreamBatchId: submission.batchId,
+      totalCount: accountsToCreate.length
+    });
+
+    progress.batchStarted({
+      sessionId,
+      batchERC,
+      batchId: submission.batchId,
+      totalItems: accountsToCreate.length,
+      entityType: 'accounts',
+      operation: 'generate',
+      correlationId: config.correlationId,
+    });
 
     logger.info('Account creation batch submitted.', {
       sessionId,
@@ -338,7 +352,7 @@ class AccountGenerator {
   }
 
   async startPostalAddressesBatch({ sessionId, session, correlationId }) {
-    const { logger, persistence, liferay, batchCallback } = this.ctx;
+    const { logger, persistence, liferay, progress } = this.ctx;
     const { config, options, addressesToCreate } = session;
 
     logger.info('Starting postal address creation step', { sessionId });
@@ -394,7 +408,7 @@ class AccountGenerator {
           status: 'PREPARED',
         });
 
-        await liferay.createAccountAddressBatch(
+        const submission = await liferay.createAccountAddressBatch(
           config,
           account.id,
           addressesForAccount,
@@ -404,7 +418,21 @@ class AccountGenerator {
           }
         );
 
-        await persistence.updateBatch(batchERC, { status: 'SUBMITTED' });
+        await persistence.updateBatch(batchERC, { 
+          status: 'SUBMITTED',
+          downstreamBatchId: submission.batchId,
+          totalCount: addressesForAccount.length
+        });
+
+        progress.batchStarted({
+          sessionId,
+          batchERC,
+          batchId: submission.batchId,
+          totalItems: addressesForAccount.length,
+          entityType: 'accounts',
+          operation: 'generate',
+          correlationId: correlationId,
+        });
 
         logger.info('Address creation batch submitted.', {
           sessionId,

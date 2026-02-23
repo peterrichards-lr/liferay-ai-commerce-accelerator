@@ -923,6 +923,56 @@ function createWebSocketService({
     });
   };
 
+  /**
+   * Unified progress emission method (Hierarchical Scope/Status model)
+   */
+  const emitProgress = (
+    {
+      batchId,
+      correlationId,
+      details = {},
+      entityType,
+      error,
+      errorReference,
+      message,
+      operation,
+      percent,
+      processedCount,
+      scope,
+      sessionId,
+      status,
+      totalCount,
+    },
+    opts = {}
+  ) => {
+    const bid = normalizeBid(batchId);
+    const type = status || WEB_SOCKET_EVENTS.PROGRESS;
+
+    const payload = {
+      type,
+      scope,
+      entityType,
+      operation,
+      sessionId,
+      batchId: bid,
+      processedCount,
+      totalCount,
+      percent:
+        percent ??
+        (processedCount !== undefined && totalCount > 0
+          ? Math.round((processedCount / totalCount) * 100)
+          : undefined),
+      message,
+      error,
+      errorReference,
+      timestamp: isoNow(),
+      correlationId: correlationId || opts.correlationId || 'unknown',
+      details: withOperation({ ...details, sessionId, scope }, operation),
+    };
+
+    return emit(payload, { ...opts, batchId: bid, correlationId });
+  };
+
   const stop = () => {
     if (heartbeatTimer) {
       clearInterval(heartbeatTimer);
@@ -1020,6 +1070,7 @@ function createWebSocketService({
     emitPostProcessingCompleted,
     emitGenerationSessionComplete,
     emitGenerationProgress,
+    emitProgress,
     emitError,
     emitBatchErrorDetails,
     stop,

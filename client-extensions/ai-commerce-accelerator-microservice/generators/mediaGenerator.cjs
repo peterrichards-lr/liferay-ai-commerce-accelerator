@@ -112,13 +112,14 @@ class MediaGenerator {
     };
   }
 
-  async generateProductPDF(pdfContent, productSku, config) {
-    const { logger, ws } = this.ctx;
+  async generateProductPDF(pdfContent, productSku, config, sessionId) {
+    const { logger, progress } = this.ctx;
     const correlationId = config?.correlationId || '∅';
     const operation = this.resolveOperation(config, 'process-attachments');
     const batchId = `pdf-gen-${productSku}`;
-    ws.emitBatchStarted(
-      { batchId, entityType: 'media', totalItems: 1, operation },
+    
+    progress.batchStarted(
+      { sessionId, batchId, entityType: 'pdfs', totalItems: 1, operation },
       { correlationId }
     );
     const startedAt = now();
@@ -195,10 +196,12 @@ class MediaGenerator {
       const base64Data = pdfOutput.split(',')[1];
       const buffer = Buffer.from(base64Data, 'base64');
       const durationMs = elapsedMs(startedAt);
-      ws.emitBatchCompleted(
+      
+      progress.batchCompleted(
         {
+          sessionId,
           batchId,
-          entityType: 'media',
+          entityType: 'pdfs',
           successCount: 1,
           failureCount: 0,
           operation,
@@ -208,13 +211,12 @@ class MediaGenerator {
       );
       return buffer;
     } catch (error) {
-      ws.emitBatchCompleted(
+      progress.batchFailed(
         {
+          sessionId,
           batchId,
-          entityType: 'media',
-          successCount: 0,
-          failureCount: 1,
-          errors: [{ message: error.message }],
+          entityType: 'pdfs',
+          error,
           operation,
         },
         { correlationId }
@@ -260,12 +262,18 @@ class MediaGenerator {
     this.validateConfig(config, options);
     await this.validateOptions(config, options);
 
-    const entityType = 'media-images';
+    const entityType = 'images';
     const operation = 'generate';
     const batchId = `images-individual-${Date.now()}`;
     const batchERC = createERC(ERC_PREFIX.MEDIA_BATCH);
 
-    const productsWithImages = this.selectProductsForImages(products, options.imageRatio || 0);
+    // If products already have images populated, use them directly.
+    // Otherwise, apply the ratio filtering (legacy/fallback).
+    let productsWithImages = products.filter(p => p.images?.length > 0);
+    
+    if (productsWithImages.length === 0) {
+      productsWithImages = this.selectProductsForImages(products, options.imageRatio || 0);
+    }
     
     if (productsWithImages.length === 0) {
       logger.info('No products selected for image generation.', { sessionId });
@@ -285,20 +293,17 @@ class MediaGenerator {
     let completedCount = 0;
     for (const product of productsWithImages) {
       try {
-        let imageSet;
+        let imageSet = product.images;
         
-        if (options.demoMode) {
-          // In Demo Mode, use placeholders or a single static image if configured
-          imageSet = this.generateProductImageSet(product.name.en_US);
-        } else {
-          // In Live Mode, we would generate unique images per product
-          // For now, still using Picsum but we could call OpenAI DALL-E here
-          imageSet = this.generateProductImageSet(product.name.en_US);
+        if (!imageSet || imageSet.length === 0) {
+          if (options.demoMode) {
+            imageSet = this.generateProductImageSet(product.name.en_US || product.name);
+          } else {
+            imageSet = this.generateProductImageSet(product.name.en_US || product.name);
+          }
         }
 
         for (const imageData of imageSet) {
-          // If we have a URL, we can use by-url or fetch and submit by-base64
-          // The user specifically requested by-base64 or multipart for reliability
           const response = await axios.get(imageData.src, { responseType: 'arraybuffer' });
           const base64 = Buffer.from(response.data, 'binary').toString('base64');
           
@@ -345,12 +350,17 @@ class MediaGenerator {
     this.validateConfig(config, options);
     await this.validateOptions(config, options);
 
-    const entityType = 'media-pdfs';
+    const entityType = 'pdfs';
     const operation = 'generate';
     const batchId = `pdfs-individual-${Date.now()}`;
     const batchERC = createERC(ERC_PREFIX.MEDIA_BATCH);
 
-    const productsWithPdfs = this.selectProductsForPDFs(products, options.pdfRatio || 0);
+    // If products already have attachments populated, use them directly.
+    let productsWithPdfs = products.filter(p => p.attachments?.length > 0);
+
+    if (productsWithPdfs.length === 0) {
+      productsWithPdfs = this.selectProductsForPDFs(products, options.pdfRatio || 0);
+    }
 
     if (productsWithPdfs.length === 0) {
       logger.info('No products selected for PDF generation.', { sessionId });
@@ -380,10 +390,10 @@ class MediaGenerator {
             } else {
               // Generate unique PDF for live mode
               const pdfData = { 
-                title: `${product.name.en_US} Manual`, 
-                sections: [{ title: 'Overview', content: product.description.en_US }] 
+                title: `${(product.name.en_US || product.name)} Manual`, 
+                sections: [{ title: 'Overview', content: (product.description.en_US || product.description) }] 
               };
-              const pdfBuffer = await this.generateProductPDF(pdfData, sku, config);
+              const pdfBuffer = await this.generateProductPDF(pdfData, sku, config, sessionId);
               pdfBase64 = pdfBuffer.toString('base64');
             }
 

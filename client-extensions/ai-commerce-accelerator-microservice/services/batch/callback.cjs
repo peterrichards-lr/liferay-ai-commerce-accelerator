@@ -18,6 +18,37 @@ class BatchCallbackService {
     );
   }
 
+  _normalizeEntityType(stepKey) {
+    const map = {
+      'product-data-generation': 'products',
+      products: 'products',
+      'resolve-product-ids': 'products',
+      'link-product-options': 'options',
+      'attach-images': 'images',
+      'process-images': 'images',
+      'attach-pdfs': 'pdfs',
+      'process-pdfs': 'pdfs',
+      'update-inventory': 'products',
+      'generate-warehouses': 'warehouses',
+      'resolve-warehouse-ids': 'warehouses',
+      accounts: 'accounts',
+      'postal-addresses': 'accounts',
+      orders: 'orders',
+      deleteProducts: 'products',
+      deleteAccounts: 'accounts',
+      deleteOrders: 'orders',
+      deleteWarehouses: 'warehouses',
+      deleteSpecifications: 'specifications',
+      deleteProductSpecifications: 'specifications',
+      deleteOptions: 'options',
+      deleteProductOptions: 'options',
+      deletePriceLists: 'price-lists',
+      deletePromotions: 'promotions',
+    };
+
+    return map[stepKey] || stepKey;
+  }
+
   async _checkSessionCompletion(sessionId, correlationId) {
     const { logger, persistence } = this.ctx;
     
@@ -36,13 +67,19 @@ class BatchCallbackService {
       
       // Use the steps currently tracked in the session object
       const { activeSteps, hasFailures } = await this._updateActiveSteps(
-        sessionId,
+        session,
         session.currentSteps, 
-        allBatchesForSession
+        allBatchesForSession,
+        correlationId
       );
 
       if (hasFailures) {
         await persistence.updateSession(sessionId, { status: 'FAILED' });
+        this.ctx.progress.sessionFailed({
+          sessionId,
+          error: { message: 'Workflow failed during step execution.' },
+          correlationId,
+        });
         return;
       }
       
@@ -50,16 +87,33 @@ class BatchCallbackService {
       
       if (currentSteps.length === 0) {
         const { newActiveSteps, startedAny } = await this._advanceWorkflow(session, allBatchesForSession, correlationId);
-        currentSteps = newActiveSteps;
         
-        await persistence.updateSessionCurrentSteps(sessionId, currentSteps);
-        
-        if (!startedAny || currentSteps.length === 0) {
+        if (!startedAny || newActiveSteps.length === 0) {
+          await persistence.updateSessionCurrentSteps(sessionId, []);
           continueLoop = false;
         } else {
           // Check if all newly started steps are already terminal (synchronous/bypassed)
           const latestBatches = await persistence.getBatchesForSession(sessionId);
-          const { activeSteps: stillActive } = await this._updateActiveSteps(sessionId, currentSteps, latestBatches);
+          const { activeSteps: stillActive, hasFailures: newFailures } = await this._updateActiveSteps(
+            session, 
+            newActiveSteps, 
+            latestBatches, 
+            correlationId
+          );
+
+          if (newFailures) {
+            await persistence.updateSession(sessionId, { status: 'FAILED' });
+            this.ctx.progress.sessionFailed({
+              sessionId,
+              error: { message: 'Workflow failed during step execution.' },
+              correlationId,
+            });
+            return;
+          }
+
+          // Important: Update DB with the filtered active steps so the next iteration 
+          // or next check doesn't re-detect terminal steps we just logged.
+          await persistence.updateSessionCurrentSteps(sessionId, stillActive);
           
           if (stillActive.length === 0) {
             // All new steps are terminal, continue loop to advance again
@@ -84,8 +138,9 @@ class BatchCallbackService {
     }
   }
 
-  async _updateActiveSteps(sessionId, stepsToCheck, allBatchesForSession) {
-    const { logger } = this.ctx;
+  async _updateActiveSteps(session, stepsToCheck, allBatchesForSession, correlationId) {
+    const { logger, progress } = this.ctx;
+    const sessionId = session.session_id;
 
     let hasFailures = false;
     const nextActiveSteps = [];
@@ -110,6 +165,17 @@ class BatchCallbackService {
 
       if (isStepCompleted) {
         logger.info(`Step '${stepName}' completed.`, { sessionId, stepName, stepType });
+        
+        // Emit step completion
+        const totalCount = batchesForStep.reduce((sum, b) => sum + (b.total_count || 0), 0);
+        progress.stepCompleted({
+          sessionId,
+          step: stepName,
+          entityType: this._normalizeEntityType(stepName),
+          operation: session.flow_type,
+          totalCount,
+          correlationId,
+        });
       } else {
         nextActiveSteps.push(stepDefinition);
       }
@@ -220,7 +286,7 @@ class BatchCallbackService {
   }
   
   async _finalizeSession(session, allBatchesForSession, correlationId) {
-      const { logger, persistence } = this.ctx;
+      const { logger, persistence, progress } = this.ctx;
       const { session_id:sessionId, flow_type, context } = session;
 
       logger.info('Workflow session completed - all steps finished', {
@@ -232,6 +298,11 @@ class BatchCallbackService {
       });
 
       await persistence.updateSession(sessionId, { status: 'COMPLETED', currentSteps: [] });
+
+      progress.sessionCompleted({
+        sessionId,
+        correlationId,
+      });
 
       const onSessionComplete = this._getOnSessionComplete(flow_type);
       if (typeof onSessionComplete === 'function') {
@@ -265,6 +336,7 @@ class BatchCallbackService {
       accountGenerator,
       orderGenerator,
       persistence,
+      progress,
     } = this.ctx;
     const session = await persistence.getSession(sessionId);
 
@@ -288,6 +360,15 @@ class BatchCallbackService {
       `Attempting to start step handler for '${stepName}' (Flow: ${flowType})`,
       { sessionId, stepName, flowType }
     );
+
+    // Emit step start
+    progress.stepStarted({
+      sessionId,
+      step: stepName,
+      entityType: this._normalizeEntityType(stepName),
+      operation: flowType,
+      correlationId,
+    });
 
     try {
       const {
@@ -375,12 +456,13 @@ class BatchCallbackService {
         stack: error.stack,
       });
       await persistence.updateSession(sessionId, { status: 'FAILED' });
+      progress.sessionFailed({ sessionId, error, correlationId });
     }
   }
 
 
   async _runStep(step, { sessionId, config, options, channelId, catalogId }) {
-    const { logger, liferay, persistence } = this.ctx;
+    const { logger, liferay, persistence, progress } = this.ctx;
 
     const batchERC = createERC(ERC_PREFIX.BATCH_DELETION);
 
@@ -430,6 +512,16 @@ class BatchCallbackService {
           downstreamBatchId: result.batchRefs[0].taskId,
           totalCount: totalCount,
         });
+        
+        progress.batchStarted({
+          sessionId,
+          batchERC,
+          batchId: result.batchRefs[0].taskId,
+          totalItems: totalCount,
+          entityType: this._normalizeEntityType(step),
+          operation: 'delete',
+          correlationId: config.correlationId,
+        });
       } else if (result && result.success) {
         // Simulated or empty step completed
         await persistence.updateBatch(batchERC, {
@@ -467,9 +559,12 @@ class BatchCallbackService {
 
     const checkMap = {
       deleteAccounts: async () => {
+        // Fallback filter if channelId discovery returns nothing
+        const filter = `externalReferenceCode sw 'AICA-ACC'`;
         const res = await liferay.getAccounts(config, {
           channelId,
           pageSize: 1,
+          filter,
         });
         return {
           totalCount: res.totalCount,
@@ -583,7 +678,7 @@ class BatchCallbackService {
   }
 
   async processCallback(batchERC, payload) {
-    const { logger, liferay, persistence, ws } = this.ctx;
+    const { logger, liferay, persistence, progress } = this.ctx;
 
     const dbBatch = await persistence.getBatch(batchERC);
 
@@ -657,9 +752,9 @@ class BatchCallbackService {
         downstreamBatchId: batchId,
       });
 
-      ws.emitBatchCompleted(
+      progress.batchCompleted(
         {
-          entityType: dbBatch.step_key,
+          entityType: this._normalizeEntityType(dbBatch.step_key),
           operation: session.flow_type,
           batchId: batchId,
           batchERC: batchERC,
@@ -667,8 +762,8 @@ class BatchCallbackService {
           successCount: processedItemsCount,
           failureCount: errorCount,
           errors: failureDetails.length > 0 ? failureDetails.slice(0, 5) : (failedItems?.slice(0, 5) || []),
-        },
-        { correlationId }
+          correlationId,
+        }
       );
 
       await this._checkSessionCompletion(dbBatch.session_id, correlationId);
@@ -680,6 +775,15 @@ class BatchCallbackService {
       });
 
       await persistence.updateBatch(batchERC, { status: 'FAILED' });
+      progress.batchFailed({
+        sessionId: dbBatch.session_id,
+        batchERC,
+        batchId,
+        error,
+        entityType: this._normalizeEntityType(dbBatch.step_key),
+        operation: session.flow_type,
+        correlationId,
+      });
     }
   }
 }

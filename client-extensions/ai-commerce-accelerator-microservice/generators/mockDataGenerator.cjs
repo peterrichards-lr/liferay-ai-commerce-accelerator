@@ -354,13 +354,19 @@ class MockDataGenerator {
         ],
       };
 
-      if (imageMode && imageMode !== 'none') {
+      const imageRatio = options.imageRatio || 0;
+      if (imageMode && imageMode !== 'none' && getRandomInt(100) < imageRatio) {
         productData.images = [
           {
             src: 'default.webp',
             type: 'image',
           },
         ];
+      }
+
+      const pdfRatio = options.pdfRatio || 0;
+      if (options.pdfMode && options.pdfMode !== 'none' && getRandomInt(100) < pdfRatio) {
+        productData.attachments = ['default.pdf'];
       }
 
       if (generateSpecifications) {

@@ -14,21 +14,28 @@ class LiferayService {
 
   async getProducts(
     config,
-    { catalogId, pageSize = 200, fields = 'productId', filter: providedFilter } = {},
+    { catalogId, pageSize = 200, fields = 'productId', filter: providedFilter, search } = {},
   ) {
     const exclusions = await this._getExclusions(config, 'product');
 
     const filters = [];
     if (catalogId) filters.push(`catalogId eq ${catalogId}`);
     if (providedFilter) filters.push(providedFilter);
+    if (search) filters.push(`externalReferenceCode sw '${search}'`);
     
+    const hasERCFilter = filters.some(f => f.includes('externalReferenceCode'));
     const nameFilter = this._buildNameExclusionFilter(exclusions);
-    if (nameFilter) filters.push(nameFilter);
+    if (nameFilter && !hasERCFilter) {
+      filters.push(nameFilter);
+    }
 
     const filter = filters.length > 0 ? filters.join(' and ') : null;
 
-    const requestedFields = new Set(typeof fields === 'string' ? fields.split(',') : fields || []);
-    ['productId', 'externalReferenceCode', 'name'].forEach(f => requestedFields.add(f));
+    const requestedFields = new Set(['productId', 'externalReferenceCode', 'name']);
+    if (fields) {
+      const allowed = new Set(['productId', 'externalReferenceCode', 'name', 'id', 'sku']);
+      fields.split(',').forEach(f => { if (allowed.has(f)) requestedFields.add(f); });
+    }
 
     const res = await this.graphql.getProducts(config, filter, Array.from(requestedFields), {
       page: 1,
@@ -47,50 +54,61 @@ class LiferayService {
 
   async getAccounts(
     config,
-    { channelId, pageSize = 200, fields = 'id', filter: providedFilter } = {},
+    { channelId, pageSize = 200, fields = 'id', filter: providedFilter, search } = {},
   ) {
     const exclusions = await this._getExclusions(config, 'account');
 
     const filters = [];
     if (providedFilter) filters.push(providedFilter);
+    if (search) filters.push(`externalReferenceCode sw '${search}'`);
 
     if (channelId) {
-      const orderAccountIds = await this.rest._collectPagedIds(config, {
-        op: 'orders:list',
-        friendly: 'List account IDs from orders for channel',
-        listUrl: PATH.ORDERS,
-        pageSize,
-        filter: `channelId eq ${channelId}`,
-        fields: 'accountId',
-        idKey: 'accountId',
-      });
+      try {
+        const orderAccountIds = await this.rest._collectPagedIds(config, {
+          op: 'orders:list',
+          friendly: 'List account IDs from orders for channel',
+          listUrl: PATH.ORDERS,
+          pageSize,
+          filter: `channelId eq ${channelId}`,
+          fields: 'accountId',
+          idKey: 'accountId',
+        });
 
-      const uniqueIds = [...new Set(orderAccountIds)].filter(Boolean);
+        const uniqueIds = [...new Set(orderAccountIds)].filter(Boolean);
 
-      if (!uniqueIds.length) {
-        return {
-          items: [],
-          page: 1,
-          pageSize: 0,
-          lastPage: 1,
-          totalCount: 0,
-        };
+        if (uniqueIds.length > 0) {
+          filters.push(`id in (${uniqueIds.join(',')})`);
+        } else if (!providedFilter && !search) {
+          return { items: [], page: 1, pageSize: 0, lastPage: 1, totalCount: 0 };
+        }
+      } catch (err) {
+        this.ctx.logger.warn('Failed to discover accounts via channel orders', { channelId, error: err.message });
+        if (!providedFilter && !search) throw err;
       }
-
-      filters.push(`id in (${uniqueIds.join(',')})`);
     }
 
+    const hasERCFilter = filters.some(f => f.includes('externalReferenceCode'));
     const nameFilter = this._buildNameExclusionFilter(exclusions);
-    if (nameFilter) filters.push(nameFilter);
+    if (nameFilter && !hasERCFilter) {
+      filters.push(nameFilter);
+    }
 
     const filter = filters.length > 0 ? filters.join(' and ') : null;
 
-    const requestedFields = new Set(typeof fields === 'string' ? fields.split(',') : fields || []);
-    ['id', 'externalReferenceCode', 'name'].forEach(f => requestedFields.add(f));
+    const requestedFields = new Set(['id', 'externalReferenceCode', 'name']);
+    if (fields) {
+      const allowed = new Set(['id', 'externalReferenceCode', 'name', 'type', 'status']);
+      fields.split(',').forEach(f => { if (allowed.has(f)) requestedFields.add(f); });
+    }
 
-    const res = await this.graphql.getAccounts(config, filter, Array.from(requestedFields), {
-      page: 1,
-      pageSize,
+    // Switch to REST for Accounts as headlessAdminUser_v1_0 GraphQL is unstable with filters
+    const res = await this.rest._get(config, PATH.ACCOUNTS, 'accounts:list', 'List accounts', {
+      params: {
+        page: 1,
+        pageSize,
+        filter,
+        fields: Array.from(requestedFields).join(','),
+      }
     });
 
     const items = asItems(res);
@@ -103,15 +121,23 @@ class LiferayService {
     };
   }
 
-  async getOptionCategories(config, { pageSize = 200, fields = 'id', search } = {}) {
+  async getOptionCategories(config, { pageSize = 200, fields = 'id', search, filter: providedFilter } = {}) {
     const exclusions = await this._getExclusions(config, 'optionCategory');
 
-    const requestedFields = new Set(typeof fields === 'string' ? fields.split(',') : fields || []);
-    ['id', 'externalReferenceCode', 'title'].forEach(f => requestedFields.add(f));
+    const requestedFields = new Set(['id', 'externalReferenceCode', 'title']);
+    if (fields) {
+      const allowed = new Set(['id', 'externalReferenceCode', 'title', 'key', 'priority']);
+      fields.split(',').forEach(f => { if (allowed.has(f)) requestedFields.add(f); });
+    }
 
     const filters = [];
+    if (providedFilter) filters.push(providedFilter);
+    
+    const hasERCFilter = filters.some(f => f.includes('externalReferenceCode'));
     const nameFilter = this._buildNameExclusionFilter(exclusions, 'title');
-    if (nameFilter) filters.push(nameFilter);
+    if (nameFilter && !hasERCFilter) {
+      filters.push(nameFilter);
+    }
     const filter = filters.length > 0 ? filters.join(' and ') : null;
 
     const res = await this.rest._listOptionCategories(config, { 
@@ -133,14 +159,21 @@ class LiferayService {
   async getSpecifications(config, { pageSize = 200, fields = 'id', filter: providedFilter, search } = {}) {
     const exclusions = await this._getExclusions(config, 'specification');
 
-    const requestedFields = new Set(typeof fields === 'string' ? fields.split(',') : fields || []);
-    ['id', 'key', 'externalReferenceCode', 'title'].forEach(f => requestedFields.add(f));
+    const requestedFields = new Set(['id', 'key', 'externalReferenceCode', 'title']);
+    if (fields) {
+      const allowed = new Set(['id', 'key', 'externalReferenceCode', 'title']);
+      fields.split(',').forEach(f => { if (allowed.has(f)) requestedFields.add(f); });
+    }
 
     const filters = [];
     if (providedFilter) filters.push(providedFilter);
     if (search) filters.push(`key sw '${search}'`);
+    
+    const hasERCFilter = filters.some(f => f.includes('key') || f.includes('externalReferenceCode'));
     const nameFilter = this._buildNameExclusionFilter(exclusions, 'key');
-    if (nameFilter) filters.push(nameFilter);
+    if (nameFilter && !hasERCFilter) {
+      filters.push(nameFilter);
+    }
     const filter = filters.length > 0 ? filters.join(' and ') : null;
 
     const res = await this.graphql.getSpecifications(config, filter, Array.from(requestedFields), { page: 1, pageSize });
@@ -154,16 +187,24 @@ class LiferayService {
     };
   }
 
-  async getOptions(config, { pageSize = 200, fields = 'id', filter: providedFilter } = {}) {
+  async getOptions(config, { pageSize = 200, fields = 'id', filter: providedFilter, search } = {}) {
     const exclusions = await this._getExclusions(config, 'option');
 
-    const requestedFields = new Set(typeof fields === 'string' ? fields.split(',') : fields || []);
-    ['id', 'key', 'externalReferenceCode', 'name'].forEach(f => requestedFields.add(f));
+    const requestedFields = new Set(['id', 'key', 'externalReferenceCode', 'name']);
+    if (fields) {
+      const allowed = new Set(['id', 'key', 'externalReferenceCode', 'name', 'fieldType']);
+      fields.split(',').forEach(f => { if (allowed.has(f)) requestedFields.add(f); });
+    }
 
     const filters = [];
     if (providedFilter) filters.push(providedFilter);
+    if (search) filters.push(`key sw '${search}'`);
+
+    const hasERCFilter = filters.some(f => f.includes('key') || f.includes('externalReferenceCode'));
     const nameFilter = this._buildNameExclusionFilter(exclusions);
-    if (nameFilter) filters.push(nameFilter);
+    if (nameFilter && !hasERCFilter) {
+      filters.push(nameFilter);
+    }
     const filter = filters.length > 0 ? filters.join(' and ') : null;
 
     const res = await this.graphql.getOptions(config, filter, Array.from(requestedFields), { page: 1, pageSize });
@@ -177,11 +218,19 @@ class LiferayService {
     };
   }
 
-  async getOrders(config, { pageSize = 200, fields = 'id', filter } = {}) {
+  async getOrders(config, { pageSize = 200, fields = 'id', filter: providedFilter, search } = {}) {
     const exclusions = await this._getExclusions(config, 'order');
 
-    const requestedFields = new Set(typeof fields === 'string' ? fields.split(',') : fields || []);
-    ['id', 'externalReferenceCode'].forEach(f => requestedFields.add(f));
+    const requestedFields = new Set(['id', 'externalReferenceCode']);
+    if (fields) {
+      const allowed = new Set(['id', 'externalReferenceCode', 'orderNumber', 'status']);
+      fields.split(',').forEach(f => { if (allowed.has(f)) requestedFields.add(f); });
+    }
+
+    const filters = [];
+    if (providedFilter) filters.push(providedFilter);
+    if (search) filters.push(`externalReferenceCode sw '${search}'`);
+    const filter = filters.length > 0 ? filters.join(' and ') : null;
 
     const res = await this.graphql.getOrders(config, filter, Array.from(requestedFields), { page: 1, pageSize });
     const items = asItems(res);
@@ -194,16 +243,24 @@ class LiferayService {
     };
   }
 
-  async getWarehouses(config, { pageSize = 200, fields = 'id', filter: providedFilter } = {}) {
+  async getWarehouses(config, { pageSize = 200, fields = 'id', filter: providedFilter, search } = {}) {
     const exclusions = await this._getExclusions(config, 'warehouse');
 
-    const requestedFields = new Set(typeof fields === 'string' ? fields.split(',') : fields || []);
-    ['id', 'externalReferenceCode', 'name'].forEach(f => requestedFields.add(f));
+    const requestedFields = new Set(['id', 'externalReferenceCode', 'name']);
+    if (fields) {
+      const allowed = new Set(['id', 'externalReferenceCode', 'name']);
+      fields.split(',').forEach(f => { if (allowed.has(f)) requestedFields.add(f); });
+    }
 
     const filters = [];
     if (providedFilter) filters.push(providedFilter);
+    if (search) filters.push(`externalReferenceCode sw '${search}'`);
+
+    const hasERCFilter = filters.some(f => f.includes('externalReferenceCode'));
     const nameFilter = this._buildNameExclusionFilter(exclusions);
-    if (nameFilter) filters.push(nameFilter);
+    if (nameFilter && !hasERCFilter) {
+      filters.push(nameFilter);
+    }
     const filter = filters.length > 0 ? filters.join(' and ') : null;
 
     const res = await this.graphql.getWarehouses(config, filter, Array.from(requestedFields), { page: 1, pageSize });
@@ -219,18 +276,25 @@ class LiferayService {
 
   async getPriceLists(
     config,
-    { pageSize = 200, fields = 'id', type = 'PRICE_LIST', filter: providedFilter } = {},
+    { pageSize = 200, fields = 'id', type = 'PRICE_LIST', filter: providedFilter, search } = {},
   ) {
     const exclusions = await this._getExclusions(config, 'priceList');
 
-    const requestedFields = new Set(typeof fields === 'string' ? fields.split(',') : fields || []);
-    ['id', 'externalReferenceCode', 'name', 'catalogBasePriceList', 'type'].forEach(f => requestedFields.add(f));
+    const requestedFields = new Set(['id', 'externalReferenceCode', 'name', 'catalogBasePriceList', 'type']);
+    if (fields) {
+      const allowed = new Set(['id', 'externalReferenceCode', 'name', 'catalogBasePriceList', 'type', 'currencyCode']);
+      fields.split(',').forEach(f => { if (allowed.has(f)) requestedFields.add(f); });
+    }
 
     const filters = [`type eq '${type}'`, `catalogBasePriceList eq false` ];
     if (providedFilter) filters.push(providedFilter);
+    if (search) filters.push(`externalReferenceCode sw '${search}'`);
     
+    const hasERCFilter = filters.some(f => f.includes('externalReferenceCode'));
     const nameFilter = this._buildNameExclusionFilter(exclusions);
-    if (nameFilter) filters.push(nameFilter);
+    if (nameFilter && !hasERCFilter) {
+      filters.push(nameFilter);
+    }
 
     const filter = filters.join(' and ');
 
@@ -259,9 +323,20 @@ class LiferayService {
 
     const exclusions = await this._getExclusions(config, entityName);
     
-    const discoveryFields = new Set(['id', 'productId', 'externalReferenceCode', 'name', 'title']);
-    if (entityName === 'priceList' || entityName === 'promotion') discoveryFields.add('catalogBasePriceList');
-    const fieldsParam = Array.from(discoveryFields).join(',');
+    // Define discovery fields per entity to avoid GraphQL DataFetchingException
+    const DISCOVERY_FIELDS = {
+      product: 'productId,externalReferenceCode,name',
+      account: 'id,externalReferenceCode,name',
+      warehouse: 'id,externalReferenceCode,name',
+      priceList: 'id,externalReferenceCode,name,catalogBasePriceList',
+      promotion: 'id,externalReferenceCode,name,catalogBasePriceList',
+      order: 'id,externalReferenceCode',
+      specification: 'id,externalReferenceCode,title,key',
+      option: 'id,externalReferenceCode,name,key',
+      optionCategory: 'id,externalReferenceCode,title,key',
+    };
+
+    const fieldsParam = DISCOVERY_FIELDS[entityName] || 'id,externalReferenceCode,name';
 
     let totalDeleted = 0;
     const batchRefs = [];
@@ -325,13 +400,13 @@ class LiferayService {
       while (hasMore) {
         let res;
         if (entityName === 'account') {
-          res = await this.getAccounts(config, { channelId, pageSize, fields: fieldsParam });
+          res = await this.getAccounts(config, { channelId, pageSize, fields: fieldsParam, filter, search });
         } else if (entityName === 'priceList') {
-          res = await this.getPriceLists(config, { pageSize, fields: fieldsParam });
+          res = await this.getPriceLists(config, { pageSize, fields: fieldsParam, filter, search });
         } else if (entityName === 'promotion') {
-          res = await this.getPromotions(config, { pageSize, fields: fieldsParam });
+          res = await this.getPromotions(config, { pageSize, fields: fieldsParam, filter, search });
         } else if (entityName === 'product') {
-          res = await this.getProducts(config, { catalogId: rest.catalogId, pageSize, fields: fieldsParam });
+          res = await this.getProducts(config, { catalogId: rest.catalogId, pageSize, fields: fieldsParam, filter, search });
         } else {
           res = await this.rest._get(config, rest.listUrl, `${entityName}:list`, `List ${entityName}`, {
             params: {

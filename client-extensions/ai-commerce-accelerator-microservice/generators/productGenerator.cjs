@@ -406,6 +406,7 @@ class ProductGenerator {
     await persistence.updateSessionContext(sessionId, {
       ...session.context,
       productDataList: allProductData,
+      options,
     });
 
     logger.info('Product data generation step complete', {

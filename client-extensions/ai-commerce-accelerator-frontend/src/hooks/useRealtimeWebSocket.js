@@ -1,6 +1,10 @@
 import { useEffect, useRef, useState } from 'react';
 import { useApp } from '../context/AppContext';
 import {
+  STARTED,
+  PROGRESS,
+  COMPLETED,
+  FAILED,
   BATCH_COMPLETED,
   BATCH_ERROR_DETAILS,
   BATCH_FAILED,
@@ -184,17 +188,20 @@ export default function useRealtimeWebSocket({
         data.entityType || data.details?.entityType
       );
       const bId = data.batchId || data.details?.batchId;
+      const op = extractOperation(data);
 
       if (
         bId &&
-        (data.type === BATCH_COMPLETED || data.type === BATCH_FAILED)
+        (data.type === BATCH_COMPLETED || data.type === BATCH_FAILED || data.type === COMPLETED || data.type === FAILED)
       ) {
-        if (seenBatchIdsRef.current.has(bId)) {
-          logDebug(`Duplicate ${data.type} ignored`, { batchId: bId });
-          return;
+        if (data.scope === 'batch' || !data.scope) {
+          if (seenBatchIdsRef.current.has(bId)) {
+            logDebug(`Duplicate ${data.type} ignored`, { batchId: bId });
+            return;
+          }
+          seenBatchIdsRef.current.add(bId);
+          logDebug('Tracking new batch event', { type: data.type, batchId: bId });
         }
-        seenBatchIdsRef.current.add(bId);
-        logDebug('Tracking new batch event', { type: data.type, batchId: bId });
       }
 
       const coerceNum = (v) => (Number.isFinite(v) ? v : undefined);
@@ -225,8 +232,176 @@ export default function useRealtimeWebSocket({
       };
 
       switch (data.type) {
+        case STARTED: {
+          const total = data.totalCount ?? data.details?.totalCount;
+          logDebug(`${data.scope?.toUpperCase() || 'UNKNOWN'} STARTED received`, {
+            scope: data.scope,
+            entityType,
+            total,
+            raw: data,
+          });
+
+          if (data.scope === 'session') {
+            onLog?.(`Session started: ${data.details?.flowType || 'unknown'}`, 'info');
+          } else if (data.scope === 'step' || data.scope === 'batch') {
+            onLog?.(
+              total != null
+                ? `${data.scope} started: ${entityType} — total ${total}`
+                : `${data.scope} started: ${entityType}`,
+              'info'
+            );
+
+            if (onProgress && entityType !== 'unknown') {
+              onProgress((prev) => ({
+                ...prev,
+                [entityType]: {
+                  ...prev[entityType],
+                  total: total ?? prev[entityType]?.total,
+                  completed: 0,
+                },
+              }));
+            }
+          }
+          break;
+        }
+
+        case PROGRESS: {
+          const { processedCount, totalCount } = data;
+          logDebug(`${data.scope?.toUpperCase() || 'UNKNOWN'} PROGRESS received`, {
+            scope: data.scope,
+            entityType,
+            processedCount,
+            totalCount,
+            raw: data,
+          });
+
+          if (data.scope === 'batch' || data.scope === 'step') {
+            if (onProgress && entityType !== 'unknown') {
+              onProgress((prev) => {
+                const cur = prev?.[entityType] || {
+                  total: 0,
+                  completed: 0,
+                  errors: [],
+                };
+                return {
+                  ...prev,
+                  [entityType]: {
+                    ...cur,
+                    total: totalCount ?? cur.total,
+                    completed: processedCount ?? cur.completed,
+                  },
+                };
+              });
+            }
+          }
+          break;
+        }
+
+        case COMPLETED: {
+          const { success, total } = extractCounts(data);
+          logDebug(`${data.scope?.toUpperCase() || 'UNKNOWN'} COMPLETED received`, {
+            scope: data.scope,
+            entityType,
+            successCount: success,
+            totalCount: total,
+            raw: data,
+          });
+
+          if (data.scope === 'session') {
+            onLog?.('Workflow session completed.', 'success');
+          } else if (data.scope === 'step' || data.scope === 'batch') {
+            onLog?.(
+              total != null
+                ? `${data.scope} complete: ${entityType} — +${success}`
+                : `${data.scope} complete: ${entityType}`,
+              'success'
+            );
+
+            if (onProgress && entityType !== 'unknown') {
+              onProgress((prev) => {
+                const cur = prev?.[entityType] || {
+                  total: 0,
+                  completed: 0,
+                  errors: [],
+                };
+                const nextCompleted = data.scope === 'batch' ? (cur.completed + (success ?? 0)) : (total ?? success ?? cur.total);
+                return {
+                  ...prev,
+                  [entityType]: {
+                    ...cur,
+                    total: total ?? cur.total,
+                    completed: Math.min(
+                      nextCompleted,
+                      total || cur.total || Infinity
+                    ),
+                  },
+                };
+              });
+            }
+          }
+          break;
+        }
+
+        case FAILED: {
+          const { failures, total } = extractCounts(data);
+          logError(`${data.scope?.toUpperCase() || 'UNKNOWN'} FAILED received`, {
+            scope: data.scope,
+            entityType,
+            failureCount: failures,
+            raw: data,
+          });
+
+          if (data.scope === 'session') {
+            onLog?.(`Session failed: ${data.error || 'Unknown error'}`, 'error');
+          } else {
+            onLog?.(
+              `${data.scope} failed: ${entityType} — errors: +${failures}`,
+              'error'
+            );
+
+            if (onBatchErrorDetails && data.scope === 'batch') {
+              onBatchErrorDetails({
+                batchId: bId,
+                importTask: { errorMessage: data.error },
+                errorReport: data.details?.errors,
+              });
+            }
+
+            if (onProgress && entityType !== 'unknown') {
+              onProgress((prev) => {
+                const cur = prev?.[entityType] || {
+                  total: 0,
+                  completed: 0,
+                  errors: [],
+                };
+                const nextCompleted = cur.completed + (failures ?? 0);
+                const addErrors =
+                  failures > 0
+                    ? Array.from({ length: failures }, () => ({
+                        batchId: bId,
+                        op,
+                      }))
+                    : [];
+                return {
+                  ...prev,
+                  [entityType]: {
+                    ...cur,
+                    total: total ?? cur.total,
+                    completed: Math.min(
+                      nextCompleted,
+                      total || cur.total || Infinity
+                    ),
+                    errors: [...cur.errors, ...addErrors],
+                  },
+                };
+              });
+            }
+          }
+          break;
+        }
+
+        // Legacy event handlers (keeping for backward compatibility)
         case BATCH_START: {
-          const op = extractOperation(data);
           const total =
             data?.details?.totalItems ?? data?.details?.totalCount ?? undefined;
 
@@ -243,12 +418,12 @@ export default function useRealtimeWebSocket({
             'info'
           );
 
-          if (entityType === 'warehouses' && onProgress) {
+          if (onProgress && entityType !== 'unknown') {
             onProgress((prev) => ({
               ...prev,
-              warehouses: {
-                ...prev.warehouses,
-                total: total,
+              [entityType]: {
+                ...prev[entityType],
+                total: total ?? prev[entityType]?.total,
                 completed: 0,
               },
             }));
@@ -257,8 +432,7 @@ export default function useRealtimeWebSocket({
         }
 
         case BATCH_PROGRESS: {
-          const { entityType, operation: op, processedCount, totalItems } =
-            data;
+          const { processedCount, totalItems } = data;
 
           logDebug('BATCH_PROGRESS received', {
             entityType,
@@ -277,12 +451,29 @@ export default function useRealtimeWebSocket({
             'info'
           );
 
+          if (onProgress && entityType !== 'unknown') {
+            onProgress((prev) => {
+              const cur = prev?.[entityType] || {
+                total: 0,
+                completed: 0,
+                errors: [],
+              };
+              return {
+                ...prev,
+                [entityType]: {
+                  ...cur,
+                  total: totalItems ?? cur.total,
+                  completed: processedCount ?? cur.completed,
+                },
+              };
+            });
+          }
+
           break;
         }
 
         case BATCH_COMPLETED: {
           const { success, total } = extractCounts(data);
-          const op = extractOperation(data);
           const activityOnly = !!(data.details && data.details.activityOnly);
 
           logDebug('BATCH_COMPLETED received', {
@@ -302,13 +493,7 @@ export default function useRealtimeWebSocket({
             'success'
           );
 
-          if (
-            (op === 'generate' ||
-              op === 'process-images' ||
-              op === 'process-attachments') &&
-            !activityOnly &&
-            onProgress
-          ) {
+          if (!activityOnly && onProgress && entityType !== 'unknown') {
             onProgress((prev) => {
               const cur = prev?.[entityType] || {
                 total: 0,
@@ -320,10 +505,10 @@ export default function useRealtimeWebSocket({
                 ...prev,
                 [entityType]: {
                   ...cur,
-                  total: cur.total || 0,
+                  total: total ?? cur.total,
                   completed: Math.min(
                     nextCompleted,
-                    cur.total || Infinity
+                    total || cur.total || Infinity
                   ),
                 },
               };
@@ -334,7 +519,6 @@ export default function useRealtimeWebSocket({
         }
 
         case BATCH_FAILED: {
-          const op = extractOperation(data);
           const failures = data.failureCount ?? data.details?.errorCount ?? 0;
           const total = data.details?.totalCount ?? undefined;
 
@@ -359,12 +543,7 @@ export default function useRealtimeWebSocket({
             });
           }
 
-          if (
-            (op === 'generate' ||
-              op === 'process-images' ||
-              op === 'process-attachments') &&
-            onProgress
-          ) {
+          if (onProgress && entityType !== 'unknown') {
             onProgress((prev) => {
               const cur = prev?.[entityType] || {
                 total: 0,
@@ -383,10 +562,10 @@ export default function useRealtimeWebSocket({
                 ...prev,
                 [entityType]: {
                   ...cur,
-                  total: cur.total || 0,
+                  total: total ?? cur.total,
                   completed: Math.min(
                     nextCompleted,
-                    cur.total || Infinity
+                    total || cur.total || Infinity
                   ),
                   errors: [...cur.errors, ...addErrors],
                 },
@@ -399,7 +578,6 @@ export default function useRealtimeWebSocket({
 
         case BATCH_ERROR_DETAILS: {
           logDebug('BATCH_ERROR_DETAILS received', { raw: data });
-          console.log('BATCH_ERROR_DETAILS received by useRealtimeWebSocket:', data);
           onBatchErrorDetails?.(data);
           break;
         }
@@ -422,7 +600,7 @@ export default function useRealtimeWebSocket({
 
         case ERROR: {
           logError('ERROR received', { raw: data });
-          const errorMessage = data?.details?.message || 'Unknown error';
+          const errorMessage = data?.details?.message || data?.message || 'Unknown error';
           const errorRef = data?.errorReference || data?.details?.errorReference;
           const message = errorRef
             ? `Error: ${errorMessage} (Ref: ${errorRef})`
@@ -432,8 +610,8 @@ export default function useRealtimeWebSocket({
           if (data.batchId && onBatchErrorDetails) {
             onBatchErrorDetails({
               batchId: data.batchId,
-              importTask: { errorMessage: data?.details?.message },
-              errorReport: data?.details?.errors,
+              importTask: { errorMessage: errorMessage },
+              errorReport: data.details?.errors,
             });
           }
           break;
