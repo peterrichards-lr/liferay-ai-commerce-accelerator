@@ -75,7 +75,7 @@ const PATH = {
 
   WAREHOUSES: `${BASE.INVENTORY_API}/warehouses`,
   WAREHOUSE_INVENTORIES: (warehouseId) =>
-    `${BASE.INVENTORY_API}/warehouses/${warehouseId}/inventories`,
+    `${BASE.INVENTORY_API}/warehouses/${warehouseId}/warehouseItems`,
 
   PRODUCTS: BASE.PRODUCTS,
   PRICE_LISTS: BASE.PRICE_LISTS,

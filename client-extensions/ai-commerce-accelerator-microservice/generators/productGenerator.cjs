@@ -914,39 +914,81 @@ class ProductGenerator {
     if (options.createWarehouses) {
       try {
         logger.info('Updating inventory for all products', { sessionId });
-        
+
         // Use resolved numeric IDs for warehouses if available
         const warehouses = options.warehouses || [];
-        
+
         for (const product of productDataList) {
           if (!product.id) {
-            logger.warn(`Skipping inventory update for product ${product.externalReferenceCode} as ID is missing.`, { sessionId });
+            logger.warn(
+              `Skipping inventory update for product ${product.externalReferenceCode} as ID is missing.`,
+              { sessionId }
+            );
+            continue;
+          }
+
+          // Collect all SKUs for this product (base SKUs and variants)
+          const skusToUpdate = [];
+
+          if (product.skus && Array.isArray(product.skus)) {
+            product.skus.forEach((s) => {
+              if (s.sku) skusToUpdate.push(s);
+            });
+          } else if (product.sku || product.baseSku) {
+            skusToUpdate.push({
+              sku: product.sku || product.baseSku,
+              quantity: product.quantity || 100,
+            });
+          }
+
+          if (product.skuVariants && Array.isArray(product.skuVariants)) {
+            product.skuVariants.forEach((v) => {
+              if (v.sku) skusToUpdate.push(v);
+            });
+          }
+
+          if (skusToUpdate.length === 0) {
+            logger.warn(
+              `No SKUs found to update inventory for product ${product.id}`,
+              { sessionId }
+            );
             continue;
           }
 
           for (const warehouse of warehouses) {
             if (!warehouse.id) {
-              logger.warn(`Skipping inventory update for warehouse ${warehouse.externalReferenceCode || warehouse.erc} as ID is missing.`, { sessionId });
+              logger.warn(
+                `Skipping inventory update for warehouse ${
+                  warehouse.externalReferenceCode || warehouse.erc
+                } as ID is missing.`,
+                { sessionId }
+              );
               continue;
             }
 
-            try {
-              await liferay.updateInventory(
-                config,
-                warehouse.id,
-                product.id,
-                {
-                  sku: product.sku || product.externalReferenceCode,
-                  quantity: product.quantity || 100,
-                  neverExpire: true,
-                }
-              );
-              logger.trace(`Updated inventory for product ${product.id} in warehouse ${warehouse.id}`, { sessionId });
-            } catch (error) {
-              logger.error(`Failed to update inventory for product ${product.id} in warehouse ${warehouse.id}`, {
-                sessionId,
-                error: error.message,
-              });
+            for (const skuItem of skusToUpdate) {
+              try {
+                await liferay.updateInventory(
+                  config,
+                  warehouse.id,
+                  skuItem.sku,
+                  {
+                    quantity: skuItem.quantity || skuItem.inventoryLevel || 100,
+                  }
+                );
+                logger.trace(
+                  `Updated inventory for SKU ${skuItem.sku} in warehouse ${warehouse.id}`,
+                  { sessionId }
+                );
+              } catch (error) {
+                logger.error(
+                  `Failed to update inventory for SKU ${skuItem.sku} in warehouse ${warehouse.id}`,
+                  {
+                    sessionId,
+                    error: error.message,
+                  }
+                );
+              }
             }
           }
         }
