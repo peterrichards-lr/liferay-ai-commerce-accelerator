@@ -191,7 +191,7 @@ class ProgressService {
         details: {
           successCount,
           failureCount,
-          errors: failureCount > 0 ? errors.slice(0, 5) : [],
+          errors: (failureCount > 0 && Array.isArray(errors)) ? errors.slice(0, 5) : [],
         }
       };
     this.ws.emitProgress(payload, { correlationId });

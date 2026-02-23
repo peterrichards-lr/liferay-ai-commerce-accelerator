@@ -202,3 +202,86 @@
 
 ### [x] 3. Missing Product Images and PDFs
 **Rationale**: This is a high-value feature with complex data dependencies. It requires coordinated changes across the AI Service (prompts/schema), Mock Data Generator, and Media Generator. Addressing this after securing observability (Priority 1) and environment stability (Priority 2) ensures a more efficient implementation cycle.
+
+---
+
+## 8. Warehouse & Inventory Fixes
+
+### [x] Warehouse Inventory Duplication
+**Analysis**: Inventory records were duplicated during subsequent generation runs because they lacked stable External Reference Codes (ERCs). Liferay's default batch behavior is to create new records when no ERC match is found.
+**Result**: **FIXED**.
+1. Implemented a deterministic ERC pattern for inventory: `AICA-INV-[warehouseERC]-[sku]`.
+2. Updated `LiferayRestService.createWarehouseItemsBatch` to utilize the `UPSERT` strategy.
+3. Refactored `ProductGenerator._runUpdateInventoryStep` to calculate stable ERCs and use the new upsert-capable batch method.
+
+### [x] Warehouse Deletion Failure (Referential Integrity)
+**Analysis**: Deleting warehouses failed because associated inventory items (WarehouseItems) were still present, violating referential integrity.
+**Result**: **FIXED**.
+1. Introduced a `deleteWarehouseItems` step at the beginning of the deletion workflow in `DeleteCoordinatorService`.
+2. Implemented `LiferayService.getWarehouseItems` to discover inventory items by iterating through all available warehouses (as Liferay lacks a global list endpoint).
+3. Added `deleteWarehouseItemsBatch` to handle bulk removal via the Batch Engine.
+4. Updated `BatchCallbackService` to support existence checks and UI normalization for inventory deletion.
+5. Updated `DISCOVERY_FIELDS` in `LiferayService` to include `warehouseItem` with correct field mapping (`sku`).
+
+---
+
+## 9. Recent Runtime Stability & Bug Fixes
+
+### [x] Missing `createWarehouseItemsBatch` Delegation
+**Analysis**: The `LiferayService` facade in `index.cjs` is missing the `createWarehouseItemsBatch` method, which is implemented in `rest.cjs`. This causes a `TypeError` when the inventory update step attempts to use the batch creation method.
+**Proposed Steps**:
+1. Open `client-extensions/ai-commerce-accelerator-microservice/services/liferay/index.cjs`.
+2. Add the `createWarehouseItemsBatch` method to the `LiferayService` class.
+3. Delegate the call to `this.rest.createWarehouseItemsBatch(config, itemsData, opts)`. (COMPLETED)
+
+### [x] Fix Batch Callback Crash (`failureDetails` Undefined)
+**Analysis**: The orchestrator crashes with `Cannot read properties of undefined (reading 'slice')` if `liferay.getImportTaskFailedItemReport` returns `undefined` (which can happen on network errors or unexpected API responses).
+**Proposed Steps**:
+1. Modify `services/batch/callback.cjs` (lines 752 and 779).
+2. Add null/undefined checks for `failureDetails` before calling `.slice()` or `.length`. (COMPLETED)
+
+### [x] Media Generator Fallback Fix (parseDataUrl)
+**Analysis**: `MediaGenerator` fails with `parseDataUrl: input must be a string` when `ConfigService` returns `null` for a default image or PDF. It incorrectly passes `null` to the utility function instead of using the fallback immediately.
+**Proposed Steps**:
+1. Update `generators/mediaGenerator.cjs` methods `getDefaultBase64Image` and `getDefaultBase64Pdf`.
+2. Check if `dataUrl` is a string before calling `parseDataUrl`. (COMPLETED)
+
+### [x] Fix `Invalid URL` in Image Creation
+**Analysis**: `MediaGenerator.createImages` attempts to fetch image data via `axios.get(imageData.src)` without validating that `src` is a valid URL. AI-generated or malformed data can trigger an `Invalid URL` exception.
+**Proposed Steps**:
+1. Add a URL validation check in `MediaGenerator.createImages` before the `axios.get` call.
+2. Log a warning and skip the specific image if the URL is invalid. (COMPLETED)
+
+### [ ] Investigate Warehouse Deletion 500 Error
+**Analysis**: Sequential `DELETE` requests for warehouses are encountering `500 Internal Server Error` in some cases, even after inventory items have been removed.
+**Proposed Steps**:
+1. Review server-side Liferay logs to determine the cause of the 500 error (likely referential integrity with an undocumented entity).
+2. Ensure all dependent entities (like warehouse-specific pricing or assignments) are cleared before warehouse deletion.
+
+### [x] Fix Inventory ERC Duplication (Truncation Bug)
+**Analysis**: `ProductGenerator._runUpdateInventoryStep` used `sanitizeForERC` which truncated strings to 12 characters by default. The inventory ERC pattern `AICA-INV-[warehouseERC]-[sku]` resulted in non-unique ERCs for different variant SKUs of the same product because their sanitized prefixes were identical.
+**Result**: **FIXED**. Increased truncation limit to 30 characters in `_runUpdateInventoryStep` to ensure uniqueness.
+
+### [x] Handle Local Assets in Image Attachment (Demo Mode)
+**Analysis**: In demo mode, `MockDataGenerator` used `default.webp` as the image source. `MediaGenerator.createImages` skipped it because it failed the `isValidUrl` check.
+**Result**: **FIXED**. Updated `MediaGenerator.createImages` to detect local placeholder strings and use the configured default base64 image.
+
+### [x] 10. Log-based Issues (Feb 23 Analysis)
+
+#### 10.1. Inventory Batch Failure (`NotSupportedException` & 404)
+**Analysis**: The `update-inventory` step failed in Liferay with `javax.ws.rs.NotSupportedException`. This was caused by using a "global" inventory batch endpoint that lacked warehouse context. A subsequent attempt to use a scoped path resulted in a 404 because the path was not in the OpenAPI schema. Additionally, inventory ERCs were colliding due to aggressive 12-character truncation.
+**Result**: **FIXED**.
+1.  Updated `liferayPaths.cjs` to use the valid schema path `/warehouses/warehouseItems/batch` while passing the warehouse context (`externalReferenceCode`) via query parameters.
+2.  Refactored `ProductGenerator._runUpdateInventoryStep` to group inventory items by warehouse and submit separate batches.
+3.  Updated `LiferayRestService.createWarehouseItemsBatch` to pass both `warehouseId` and `externalReferenceCode` to the scoped path helper.
+4.  Increased ERC truncation limit to 30 characters to ensure uniqueness across variant SKUs.
+
+#### 10.2. Demo Mode Image Skipping
+**Analysis**: `MediaGenerator.createImages` used a strict URL validation (`new URL()`) that rejected local placeholders like `default.webp` used in demo mode. This caused all image attachments to be skipped during demo runs.
+**Result**: **FIXED**. Added logic to detect local assets and fetch the default base64 content via `this.getDefaultBase64Image(config)`.
+
+#### 10.3. Localized Title NullPointerException (`addProductImageByBase64`)
+**Analysis**: The `attach-images` step failed with a 500 Internal Server Error. Liferay logs showed `java.lang.NullPointerException: Cannot invoke "java.util.Map.get(Object)" because "titleMap" is null`. This was caused by the microservice sending a payload for the `by-base64` image endpoint that completely omitted the `title` field.
+**Result**: **FIXED**.
+1.  Updated `MockDataGenerator.cjs` to include a default localized `title` for mock images.
+2.  Updated `MediaGenerator.cjs` to provide a fallback localized `title` (based on the product name) if `imageData.title` is missing during image creation.

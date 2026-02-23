@@ -661,8 +661,8 @@ class LiferayService {
       dryRun,
       sessionId,
       nativeBatch: true,
-      path: PATH.WAREHOUSE_INVENTORIES_BATCH,
-      listUrl: PATH.WAREHOUSE_INVENTORIES_BATCH('').split('?')[0].replace('/batch', ''),
+      path: PATH.WAREHOUSE_INVENTORIES_DELETE_BATCH,
+      listUrl: PATH.WAREHOUSE_INVENTORIES_DELETE_BATCH('').split('?')[0].replace('/batch', ''),
       op: 'inventory:batch-delete',
       friendly: 'Delete inventory items (batch)',
       items,
@@ -858,6 +858,10 @@ class LiferayService {
 
   createWarehousesBatch(config, warehousesData, opts) {
     return this.rest.createWarehousesBatch(config, warehousesData, opts);
+  }
+
+  createWarehouseItemsBatch(config, itemsData, opts) {
+    return this.rest.createWarehouseItemsBatch(config, itemsData, opts);
   }
 
   deleteWarehouse(config, warehouseId) {

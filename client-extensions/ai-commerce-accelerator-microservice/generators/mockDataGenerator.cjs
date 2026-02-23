@@ -360,6 +360,7 @@ class MockDataGenerator {
           {
             src: 'default.webp',
             type: 'image',
+            title: Object.fromEntries(languageCodes.map(lc => [lc, `${productName} Image`]))
           },
         ];
       }

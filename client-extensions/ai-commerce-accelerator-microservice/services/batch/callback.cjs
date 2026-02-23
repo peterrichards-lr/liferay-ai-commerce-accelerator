@@ -743,7 +743,7 @@ class BatchCallbackService {
       let failureDetails = [];
       if (errorCount > 0) {
         try {
-          failureDetails = await liferay.getImportTaskFailedItemReport(config, batchId);
+          failureDetails = await liferay.getImportTaskFailedItemReport(config, batchId) || [];
           logger.error('Batch processing errors detected', {
             batchId,
             batchERC,
@@ -776,7 +776,7 @@ class BatchCallbackService {
           sessionId: dbBatch.session_id,
           successCount: processedItemsCount,
           failureCount: errorCount,
-          errors: failureDetails.length > 0 ? failureDetails.slice(0, 5) : (failedItems?.slice(0, 5) || []),
+          errors: (failureDetails && failureDetails.length > 0) ? failureDetails.slice(0, 5) : (failedItems ? failedItems.slice(0, 5) : []),
           correlationId,
         }
       );

@@ -622,9 +622,13 @@ class LiferayRestService {
   }
 
   async getConfig(config, configKey) {
+    const erc = String(configKey || '').toUpperCase();
     return await this._get(
       config,
-      PATH.CUSTOM_OBJECT_QUERY(CUSTOM_OBJECTS.AICA_CONFIGS, { filter: `externalReferenceCode eq '${configKey}'` }),
+      PATH.CUSTOM_OBJECT_QUERY(CUSTOM_OBJECTS.AICA_CONFIGS, { 
+        filter: `externalReferenceCode eq '${erc}'`,
+        pageSize: 500
+      }),
       `get-config:${configKey}`,
     );
   }
@@ -1042,6 +1046,9 @@ class LiferayRestService {
   }
 
   async createWarehouseItemsBatch(config, itemsData, opts = {}) {
+    const warehouseERC = opts.warehouseExternalReferenceCode;
+    const warehouseId = opts.warehouseId;
+
     const results = await this._postBatch(config, {
       entityName: 'inventory',
       items: itemsData,
@@ -1049,7 +1056,12 @@ class LiferayRestService {
       itemERCKey: 'externalReferenceCode',
       op: 'create-inventory-batch',
       friendly: 'Failed to create inventory batch',
-      path: PATH.WAREHOUSE_INVENTORIES_BATCH,
+      path: (callback) =>
+        PATH.WAREHOUSE_INVENTORY_BATCH_SCOPED(
+          warehouseId,
+          warehouseERC,
+          callback,
+        ),
       sessionId: opts.sessionId,
       createStrategy: 'UPSERT',
     });

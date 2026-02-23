@@ -77,6 +77,16 @@ const PATH = {
   WAREHOUSE_INVENTORIES: (warehouseId) =>
     `${BASE.INVENTORY_API}/warehouses/${warehouseId}/warehouseItems`,
   WAREHOUSE_INVENTORIES_BATCH: (callbackURL) =>
+    `${BASE.INVENTORY_API}/warehouses/warehouseItems/batch${
+      callbackURL ? `?callbackURL=${enc(callbackURL)}` : ''
+    }`,
+  WAREHOUSE_INVENTORY_BATCH_SCOPED: (warehouseId, warehouseERC, callbackURL) => {
+    const params = { callbackURL };
+    if (warehouseId) params.warehouseId = warehouseId;
+    if (warehouseERC) params.externalReferenceCode = warehouseERC;
+    return `${BASE.INVENTORY_API}/warehouses/warehouseItems/batch${q(params)}`;
+  },
+  WAREHOUSE_INVENTORIES_DELETE_BATCH: (callbackURL) =>
     `${BASE.INVENTORY_API}/warehouseItems/batch${
       callbackURL ? `?callbackURL=${enc(callbackURL)}` : ''
     }`,

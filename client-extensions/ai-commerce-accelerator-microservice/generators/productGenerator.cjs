@@ -45,6 +45,7 @@ class ProductGenerator {
   async generate(config, options) {
     const { logger, persistence, batchCallback } = this.ctx;
     const sessionId = options.sessionId || createERC(ERC_PREFIX.BATCH_SESSION);
+    options.sessionId = sessionId;
 
     const steps = [
       { name: 'generate-warehouses', type: 'sync' },
@@ -1020,7 +1021,9 @@ class ProductGenerator {
     if (options.createWarehouses || (options.warehouses && options.warehouses.length > 0)) {
       try {
         const warehouses = options.warehouses || [];
-        const inventoryItems = [];
+        
+        // Group items by warehouse
+        const inventoryByWarehouse = new Map();
 
         for (const product of productDataList) {
           const skusToUpdate = [];
@@ -1051,12 +1054,17 @@ class ProductGenerator {
               continue;
             }
 
+            if (!inventoryByWarehouse.has(warehouseERC)) {
+              inventoryByWarehouse.set(warehouseERC, []);
+            }
+
+            const items = inventoryByWarehouse.get(warehouseERC);
+
             for (const skuItem of skusToUpdate) {
               const qty = skuItem.quantity || skuItem.inventoryLevel || 100;
-              // Generate a stable ERC for the inventory record to enable UPSERT
-              const inventoryERC = `AICA-INV-${sanitizeForERC(warehouseERC)}-${sanitizeForERC(skuItem.sku)}`;
+              const inventoryERC = `AICA-INV-${sanitizeForERC(warehouseERC, { max: 30 })}-${sanitizeForERC(skuItem.sku, { max: 30 })}`;
               
-              inventoryItems.push({
+              items.push({
                 externalReferenceCode: inventoryERC,
                 sku: skuItem.sku,
                 warehouseExternalReferenceCode: warehouseERC,
@@ -1066,45 +1074,49 @@ class ProductGenerator {
           }
         }
 
-        if (inventoryItems.length > 0) {
-          logger.info(`Submitting batch inventory update for ${inventoryItems.length} items`, { sessionId });
+        if (inventoryByWarehouse.size > 0) {
+          logger.info(`Submitting batch inventory updates for ${inventoryByWarehouse.size} warehouses`, { sessionId });
 
-          const batchERC = createERC(ERC_PREFIX.INVENTORY_BATCH);
-          
-          await persistence.createBatch({
-            erc: batchERC,
-            sessionId,
-            stepKey: 'update-inventory',
-            status: 'prepared',
-          });
-
-          if (options.dryRun) {
-            logger.info('DRY RUN: Skipping inventory batch submission.');
-            await persistence.updateBatch(batchERC, { status: 'SYNCHRONOUS' });
-            return;
-          }
-
-          const result = await liferay.createWarehouseItemsBatch(config, inventoryItems, {
-            externalReferenceCode: batchERC,
-            sessionId,
-          });
-
-          if (result?.batchId) {
-            await persistence.updateBatch(batchERC, {
-              status: 'SUBMITTED',
-              downstreamBatchId: result.batchId,
-            });
-
-            progress.batchStarted({
+          for (const [warehouseERC, items] of inventoryByWarehouse.entries()) {
+            const batchERC = createERC(ERC_PREFIX.INVENTORY_BATCH);
+            
+            await persistence.createBatch({
+              erc: batchERC,
               sessionId,
-              batchERC,
-              batchId: result.batchId,
-              totalItems: inventoryItems.length,
-              entityType: 'inventory',
-              operation: 'generate',
+              stepKey: 'update-inventory',
+              status: 'prepared',
             });
-          } else {
-            await persistence.updateBatch(batchERC, { status: 'FAILED' });
+
+            if (options.dryRun) {
+              logger.info(`DRY RUN: Skipping inventory batch submission for warehouse ${warehouseERC}.`);
+              await persistence.updateBatch(batchERC, { status: 'SYNCHRONOUS' });
+              continue;
+            }
+
+            const result = await liferay.createWarehouseItemsBatch(config, items, {
+              externalReferenceCode: batchERC,
+              warehouseExternalReferenceCode: warehouseERC,
+              warehouseId: warehouse.id,
+              sessionId,
+            });
+
+            if (result?.batchId) {
+              await persistence.updateBatch(batchERC, {
+                status: 'SUBMITTED',
+                downstreamBatchId: result.batchId,
+              });
+
+              progress.batchStarted({
+                sessionId,
+                batchERC,
+                batchId: result.batchId,
+                totalItems: items.length,
+                entityType: 'inventory',
+                operation: 'generate',
+              });
+            } else {
+              await persistence.updateBatch(batchERC, { status: 'FAILED' });
+            }
           }
         } else {
           logger.info('No inventory items to update.', { sessionId });

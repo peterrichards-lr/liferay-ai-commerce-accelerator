@@ -367,6 +367,16 @@ function tryParseJSON(value) {
   }
 }
 
+function isValidUrl(url) {
+  if (!url || typeof url !== 'string') return false;
+  try {
+    new URL(url);
+    return true;
+  } catch (err) {
+    return false;
+  }
+}
+
 const toI18n = (v, fallback) => {
   if (!v && !fallback) {
     throw new Error('Both arguments cannot be empty');
@@ -407,6 +417,7 @@ module.exports = {
   isJSON,
   isoNow,
   isoToday,
+  isValidUrl,
   normalizeNumber,
   now,
   parseDataUrl,

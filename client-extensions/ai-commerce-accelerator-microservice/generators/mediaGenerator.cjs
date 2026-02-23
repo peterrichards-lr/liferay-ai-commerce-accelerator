@@ -7,6 +7,7 @@ const {
   now,
   elapsedMs,
   createERC,
+  isValidUrl,
 } = require('../utils/misc.cjs');
 const { ERC_PREFIX } = require('../utils/constants.cjs');
 
@@ -44,6 +45,9 @@ class MediaGenerator {
     const { config: configService, logger } = this.ctx;
     try {
       const dataUrl = await configService.getDefaultImage(config);
+      if (typeof dataUrl !== 'string') {
+        throw new Error('Default image configuration is missing or invalid');
+      }
       return parseDataUrl(dataUrl);
     } catch (err) {
       logger.error('Failed to retrieve default image; using fallback', {
@@ -64,6 +68,9 @@ class MediaGenerator {
     const { config: configService, logger } = this.ctx;
     try {
       const dataUrl = await configService.getDefaultPdf(config);
+      if (typeof dataUrl !== 'string') {
+        throw new Error('Default PDF configuration is missing or invalid');
+      }
       return parseDataUrl(dataUrl);
     } catch (err) {
       logger.error('Failed to retrieve default PDF; using fallback', {
@@ -296,22 +303,41 @@ class MediaGenerator {
         let imageSet = product.images;
         
         if (!imageSet || imageSet.length === 0) {
-          if (options.demoMode) {
-            imageSet = this.generateProductImageSet(product.name.en_US || product.name);
-          } else {
-            imageSet = this.generateProductImageSet(product.name.en_US || product.name);
-          }
+          imageSet = this.generateProductImageSet(product.name.en_US || product.name);
         }
 
         for (const imageData of imageSet) {
-          const response = await axios.get(imageData.src, { responseType: 'arraybuffer' });
-          const base64 = Buffer.from(response.data, 'binary').toString('base64');
+          let base64;
+          let contentType;
+
+          if (!isValidUrl(imageData.src)) {
+            // Handle local assets or demo placeholders
+            if (imageData.src === 'default.webp' || !imageData.src.includes('://')) {
+              const defaultImage = await this.getDefaultBase64Image(config);
+              base64 = defaultImage.base64;
+              contentType = defaultImage.contentType;
+            } else {
+              logger.warn(`Skipping image with invalid URL for product ${product.id || 'unknown'}`, { 
+                sessionId, 
+                src: imageData.src 
+            });
+            continue;
+            }
+          } else {
+            const response = await axios.get(imageData.src, { responseType: 'arraybuffer' });
+            base64 = Buffer.from(response.data, 'binary').toString('base64');
+            contentType = response.headers['content-type'] || 'image/webp';
+          }
           
+          const title = imageData.title || Object.fromEntries(
+            (config.selectedLanguages || ['en-US']).map(lang => [lang.replace('-', '_'), `${product.name.en_US || product.name} Image`])
+          );
+
           await liferay.addProductImageByBase64(config, product.externalReferenceCode, {
             attachment: base64,
-            contentType: response.headers['content-type'] || 'image/webp',
-            title: imageData.title,
-            priority: imageData.priority
+            contentType: contentType,
+            title: title,
+            priority: imageData.priority || 1
           });
         }
         completedCount++;
