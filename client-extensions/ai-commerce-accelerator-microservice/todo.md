@@ -96,5 +96,77 @@
 - **Affected Code**: `WarehouseGenerator.cjs` (return value of `createWarehouses`) and `productGenerator.cjs` (`_runResolveWarehouseIdsStep`).
 **Result**: **FIXED**.
 1. Refactored `WarehouseGenerator.createWarehouses` to return the `normalizedWarehouseDataList` (containing individual ERCs).
-2. Updated `ProductGenerator._runResolveWarehouseIdsStep` to filter out any remaining batch ERCs and added more robust verification of resolved IDs.
+2. Updated `ProductGenerator._runWarehouseGenerationStep` to filter out any remaining batch ERCs and added more robust verification of resolved IDs.
 
+### [x] Redundant "Step completed" Logging
+**Analysis**: The workflow orchestrator logs step completion multiple times, especially when synchronous steps are skipped or finish very quickly. This makes the logs noisy and harder to trace.
+- **Root Cause**: In `BatchCallbackService._checkSessionCompletion`, the `while` loop re-evaluated step completion using a stale `session` object within the `if (currentSteps.length === 0)` block. When a step advanced, the orchestrator called `_updateActiveSteps` using the `session` fetched at the start of the iteration. This session still contains the *previously* completed steps in its `currentSteps` property. Since the batches for those steps are now terminal in the database, `_updateActiveSteps` sees them as "just completed" and logs the completion message again.
+- **Affected Code**: `client-extensions/ai-commerce-accelerator-microservice/services/batch/callback.cjs` (lines 60-70).
+**Result**: **FIXED**. Refactored `_checkSessionCompletion` and `_updateActiveSteps` to explicitly pass the steps list and ensure the most current state is used for completion checks and logging.
+
+### [x] Graceful Shutdown Logger Failure (write EPIPE)
+**Analysis**: During process termination (SIGTERM/SIGINT), the logger throws an uncaught `EPIPE` error when trying to write to `process.stdout` or `process.stderr`.
+- **Root Cause**: The microservice attempts to log status updates during its graceful shutdown sequence (e.g., "WebSocket server stopped"). If the parent process or container orchestrator has already closed the standard input/output pipes, the `out.write()` call in `Logger._log` throws `EPIPE`.
+- **Affected Code**: `client-extensions/ai-commerce-accelerator-microservice/utils/logger.cjs` (line 152).
+**Result**: **FIXED**. Wrapped `out.write()` calls in `Logger._log` with `writable` checks and `try-catch` blocks to safely handle `EPIPE` errors during shutdown.
+
+### [x] Missing Context IDs in Full Deletion
+**Analysis**: The "Full environment deletion" process (triggered via `runDeleteAndMonitor`) does not explicitly populate `channelId` and `catalogId` at the root of the session context.
+- **Root Cause**: `DeleteCoordinatorService.runDeleteAndMonitor` initialized the session context with only `config`, `options`, `sessionId`, and `steps`. However, the delete orchestrator (`BatchCallbackService._startStep`) expects `channelId` and `catalogId` to be present directly in `session.context` to pass them to entity-specific deletion handlers.
+- **Affected Code**: `client-extensions/ai-commerce-accelerator-microservice/services/deleteCoordinatorService.cjs` (line 30).
+**Result**: **FIXED**. Updated `DeleteCoordinatorService.runDeleteAndMonitor` to extract and populate these IDs at the context root, matching the structure of `runDeleteSelectedAndMonitor`.
+
+### [x] Fix Product Inventory Update Schema Mismatch
+**Analysis**: The `update-product-inventory` operation was failing with a 400 Bad Request.
+- **Root Cause**: The microservice was sending an unsupported `neverExpire` property in the `WarehouseItem` payload. Additionally, the numeric `product.id` was being incorrectly passed as the SKU string.
+- **Result**: **FIXED**.
+    1. Modified `ProductGenerator._runUpdateInventoryStep` to remove `neverExpire`.
+    2. Corrected the `liferay.updateInventory` call to pass the actual alphanumeric SKU.
+    3. Added support for iterating over and updating inventory for all SKUs and variants associated with a product.
+
+### [ ] Analyse Missing Product Images and PDFs
+**Objective**: Understand why product images and PDFs are not being generated and attached to products.
+**Analysis Findings (Initial)**:
+- Logs show `attach-images` failing with `Failed to process image attachments`.
+- Logs show `attach-pdfs` skipping with `No PDFs to attach for this session.`.
+**Proposed Steps**:
+1. Investigate `MediaGenerator.cjs` and `ProductGenerator.cjs` to understand how image/PDF generation is triggered.
+2. Check if the `imageMode` and `pdfMode` in the configuration are correctly handled.
+3. Determine if the failure is in the AI generation phase or the Liferay submission phase.
+
+### [ ] Analyse Account Deletion Failure in Delete Workflow
+**Objective**: Understand why accounts are not being deleted as part of the delete workflow.
+**Analysis Findings (Initial)**:
+- Initial log review shows no evidence of `DELETE` requests for accounts during recent workflow runs.
+- Possible stall or silent skip in the `DeleteCoordinatorService`.
+**Proposed Steps**:
+1. Review `DeleteCoordinatorService.cjs` to identify the sequence of steps for account deletion.
+2. Trace the workflow execution logs for a session that includes account deletion to see if it reaches the `delete-accounts` step.
+3. Verify if `Simulated Batching` or `Batch Engine` is being used for account deletion and if there's a protocol mismatch.
+
+### [ ] Analyse WebSocket Progress Communication Mismatch
+**Objective**: Understand why batch updates are not being reflected in the UI progress bars.
+**Analysis Findings**:
+- **Redundant Event Prefixes**: Current event types like `BATCH_START` and `SESSION_COMPLETE` duplicate the information that should be in a `scope` field. 
+- **Hierarchical Mismatch**: The system lacks a clear distinction between **Session** (overall flow), **Step** (logical entity category), and **Batch** (physical Liferay submission).
+- **Operation Mismatch**: Frontend `useRealtimeWebSocket.js` ignores progress updates unless `operation` is exactly `'generate'`, `'process-images'`, or `'process-attachments'`.
+- **Entity Type Mapping**: Microservice sends specific step keys (e.g., `'postal-addresses'`, `'generate-warehouses'`), but the frontend expects normalized keys (`'accounts'`, `'warehouses'`).
+- **Granular Progress Ignored**: `BATCH_PROGRESS` (soon to be `PROGRESS` with scope `batch`) events are logged but never update the UI state.
+- **Missing Entity Support**: Support for `warehouses`, `price-lists`, and `specifications` is inconsistent across emitters and handlers.
+- **ProgressService Bug**: `batchFailed` incorrectly calls `emitBatchCompleted`.
+**Proposed Steps**:
+1. **Unify Event Types**: Move to a generic `STARTED`, `PROGRESS`, `COMPLETED`, `FAILED` event set, differentiated by a mandatory `scope` field (`session`, `step`, or `batch`).
+2. **Standardize Operations**: Align on a shared set of `operation` constants (e.g., `'generate'`, `'delete'`).
+3. **Comprehensive Entity Support**: Ensure all entity types (products, accounts, orders, warehouses, images, pdfs, specifications, options, price-lists, promotions) are supported in both microservice emitters and frontend normalization logic.
+4. **Implement Step Hierarchy**: Update the orchestrator and generators to emit `step` scope events for logical progress (e.g., "50/100 products created").
+5. **Update Frontend Hook**: Refactor `useRealtimeWebSocket.js` to route updates based on `scope` and `entityType`, and ensure `PROGRESS` events actually update the state.
+6. **Fix normalizeEntityType**: Add missing mappings for all microservice step keys.
+
+---
+
+## 6. Verification Tasks
+
+### [x] Verify redundant `_checkSessionCompletion` removal
+**Analysis**: Commit `a437fd98f22c64bb2d9f6a015c911ed28661224f` removed manual calls to `batchCallback._checkSessionCompletion` from all generator step handlers (Accounts, Orders, Products). 
+- **Reason**: These manual calls were redundant because the `BatchCallbackService` orchestrator centrally manages session completion checks. Triggering them from within handlers caused duplicate execution threads, race conditions in state updates, and noisy logs.
+**Result**: **VERIFIED**. Code review confirms that the `while` loop in `BatchCallbackService` correctly handles synchronous advancement. Logs confirm smooth transitions without recursion.

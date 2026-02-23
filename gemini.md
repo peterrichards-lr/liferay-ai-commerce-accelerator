@@ -423,6 +423,74 @@ submitted → failed
 
 ------------------------------------------------------------------------
 
+## WebSocket Communication Contract
+
+The Microservice and Frontend UI communicate via WebSockets using a hierarchical **Scope/Status** model to provide real-time feedback. This approach avoids redundant event types by combining a generic lifecycle status with a specific operational scope.
+
+### Lifecycle Statuses
+
+- **`STARTED`**: An operation at the given scope has begun.
+- **`PROGRESS`**: Granular update within the current scope (e.g., items processed).
+- **`COMPLETED`**: An operation at the given scope has finished successfully.
+- **`FAILED`**: An operation at the given scope has encountered an error.
+
+### Operational Scopes
+
+- **`session`**: Global workflow lifecycle (e.g., "Product Generation Flow").
+- **`step`**: Logical entity category within a flow (e.g., "Generating Products", "Attaching Images").
+- **`batch`**: A single physical submission to the Liferay Batch Engine.
+
+### Standardized Entity Types
+
+The microservice emits specific step keys which the frontend normalizes into these standard categories for UI routing:
+
+| Standard Category | Description | Source Step Keys |
+| :--- | :--- | :--- |
+| **`products`** | Commerce Products | `products`, `deleteProducts`, `product-data-generation` |
+| **`accounts`** | Liferay Accounts | `accounts`, `deleteAccounts`, `postal-addresses` |
+| **`orders`** | Commerce Orders | `orders`, `deleteOrders` |
+| **`warehouses`** | Inventory Warehouses | `warehouses`, `generate-warehouses`, `deleteWarehouses` |
+| **`images`** | Product Images | `attach-images`, `process-images` |
+| **`pdfs`** | Product PDFs | `attach-pdfs`, `process-pdfs` |
+| **`specifications`** | Product Specifications | `deleteSpecifications`, `deleteProductSpecifications` |
+| **`options`** | Product Options | `deleteOptions`, `deleteProductOptions`, `link-product-options` |
+| **`price-lists`** | Price Lists & Entries | `deletePriceLists` |
+| **`promotions`** | Discounts & Promotions | `deletePromotions` |
+
+### Payload Structure
+
+All messages MUST include `type` (the status), `scope`, and `sessionId`.
+
+```json
+{
+  "type": "PROGRESS",
+  "scope": "step",
+  "entityType": "products",
+  "operation": "generate",
+  "sessionId": "SESS-123",
+  "batchId": "456", 
+  "processedCount": 50,
+  "totalCount": 100,
+  "percent": 50,
+  "timestamp": "2026-02-23T12:00:00Z",
+  "correlationId": "CID-789"
+}
+```
+
+### Constraints & Requirements
+
+1.  **Operation Standardization**:
+    - The `operation` field MUST be `'generate'`, `'delete'`, `'process-images'`, or `'process-attachments'`.
+2.  **Entity Type Normalization**:
+    - The frontend MUST normalize incoming `entityType` using `normalizeEntityType` to update the correct UI progress bar.
+3.  **Progress Tracking**:
+    - `PROGRESS` and `COMPLETED` events MUST update the `completed` count in the state.
+    - `STARTED` events MUST provide the `totalCount` to initialize UI bar widths.
+4.  **Finality**:
+    - `GENERATION_SESSION_COMPLETE` remains as a top-level signal that all background tasks (including post-processing) are done.
+
+------------------------------------------------------------------------
+
 ## API Path Constants
 
 To ensure consistency and prevent errors from outdated or mismatched path strings, the microservice uses two sets of constants for API paths.
