@@ -106,6 +106,12 @@ const PATH = {
     `${BASE.PRODUCTS}/skus/batch${
       callbackURL ? `?callbackURL=${enc(callbackURL)}` : ''
     }`,
+  PRODUCT_SKUS_BATCH_SCOPED: (productId, productERC, callbackURL) => {
+    const params = { callbackURL };
+    if (productId) params.productId = productId;
+    if (productERC) params.externalReferenceCode = productERC;
+    return `${BASE.PRODUCTS}/skus/batch${q(params)}`;
+  },
   WAREHOUSES_BATCH: (callbackURL) =>
     `${BASE.INVENTORY_API}/warehouses/batch${
       callbackURL ? `?callbackURL=${enc(callbackURL)}` : ''

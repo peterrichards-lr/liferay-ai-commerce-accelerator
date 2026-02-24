@@ -77,12 +77,14 @@ class BatchCallbackService {
       );
 
       if (hasFailures) {
-        await persistence.updateSession(sessionId, { status: 'FAILED' });
-        this.ctx.progress.sessionFailed({
-          sessionId,
-          error: { message: 'Workflow failed during step execution.' },
-          correlationId,
-        });
+        const failed = await persistence.tryFailSession(sessionId);
+        if (failed) {
+          this.ctx.progress.sessionFailed({
+            sessionId,
+            error: { message: 'Workflow failed during step execution.' },
+            correlationId,
+          });
+        }
         return;
       }
       
@@ -105,12 +107,14 @@ class BatchCallbackService {
           );
 
           if (newFailures) {
-            await persistence.updateSession(sessionId, { status: 'FAILED' });
-            this.ctx.progress.sessionFailed({
-              sessionId,
-              error: { message: 'Workflow failed during step execution.' },
-              correlationId,
-            });
+            const failed = await persistence.tryFailSession(sessionId);
+            if (failed) {
+              this.ctx.progress.sessionFailed({
+                sessionId,
+                error: { message: 'Workflow failed during step execution.' },
+                correlationId,
+              });
+            }
             return;
           }
 
@@ -292,6 +296,28 @@ class BatchCallbackService {
       const { logger, persistence, progress } = this.ctx;
       const { session_id:sessionId, flow_type, context } = session;
 
+      // Check for any failures across the entire session before completing
+      const hasAnyFailures = allBatchesForSession.some(b => b.status === 'FAILED');
+      if (hasAnyFailures) {
+        const failed = await persistence.tryFailSession(sessionId);
+        if (failed) {
+          logger.error('Session failed due to batch processing errors detected during finalization', { sessionId });
+          progress.sessionFailed({
+            sessionId,
+            error: { message: 'One or more steps failed during the workflow.' },
+            correlationId,
+          });
+        }
+        return;
+      }
+
+      // Atomic transition to COMPLETED
+      const success = await persistence.tryFinalizeSession(sessionId);
+      if (!success) {
+        logger.debug('Session already terminal, skipping redundant finalization.', { sessionId });
+        return;
+      }
+
       logger.info('Workflow session completed - all steps finished', {
         operation: 'session-complete',
         correlationId,
@@ -299,8 +325,6 @@ class BatchCallbackService {
         flowType: flow_type,
         totalBatches: allBatchesForSession.length,
       });
-
-      await persistence.updateSession(sessionId, { status: 'COMPLETED', currentSteps: [] });
 
       progress.sessionCompleted({
         sessionId,

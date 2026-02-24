@@ -88,26 +88,44 @@
 						"type": "object"
 					},
 					"options": {
-						"description": "Product options (e.g. Color, Size) with possible values.",
+						"description": "Product options (e.g. Color, Size) with possible values and field types.",
 						"items": {
 							"additionalProperties": false,
 							"properties": {
+								"fieldType": {
+									"description": "The Liferay Commerce field type for this option.",
+									"enum": [
+										"checkbox",
+										"checkbox_multiple",
+										"date",
+										"numeric",
+										"radio",
+										"select",
+										"select_date",
+										"text"
+									],
+									"type": "string"
+								},
 								"name": {
 									"description": "Option name, such as 'Color' or 'Size'.",
 									"type": "string"
 								},
+								"skuContributor": {
+									"description": "Whether this option contributes to creating unique SKU variants.",
+									"type": "boolean"
+								},
 								"values": {
-									"description": "List of possible values for this option.",
+									"description": "List of possible values for this option. Only provided for value-driven field types (select, radio, checkbox, etc.).",
 									"items": {
 										"type": "string"
 									},
-									"minItems": 1,
 									"type": "array"
 								}
 							},
 							"required": [
 								"name",
-								"values"
+								"fieldType",
+								"skuContributor"
 							],
 							"type": "object"
 						},

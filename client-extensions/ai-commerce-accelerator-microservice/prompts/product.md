@@ -22,10 +22,12 @@ You must return a JSON array that conforms to the provided JSON schema. Each ele
   - value: object of multilingual specification values keyed by language code ({{languageCodesCSV}}).
 - options: array of 2–3 product option objects that are contextually appropriate for {{category}} products. Each option object must have:
   - name: string option name (for example "Color", "Size").
-  - values: array of one or more string values (for example ["Black", "Silver"]).
+  - fieldType: string, one of: "checkbox", "checkbox_multiple", "date", "numeric", "radio", "select", "select_date", "text".
+  - skuContributor: boolean, set to true ONLY for options that define unique physical variants (e.g. Color, Size).
+  - values: array of string values (for example ["Black", "Silver"]). IMPORTANT: This array must be EMPTY for "numeric", "text", and "date" field types. For "select_date", values should be date strings (e.g. "2026-05-01").
 - skuVariants: array of variant SKU objects generated from meaningful combinations of the options. Limit to 8–12 variants per product. Each variant object must have:
   - sku: string composed from baseSku plus variant codes (for example "PRODUCT-001-BLK-L").
-  - options: object mapping option names to selected values (for example {"color": "Black", "size": "Large"}).
+  - options: object mapping option names to selected values (for example {"color": "Black", "size": "Large"}). IMPORTANT: You MUST provide a value for EVERY option defined in the "options" array, even if it is not a skuContributor.
   - priceModifier: number representing percentage adjustment from the base price (for example -0.15 for -15%, 0.2 for +20%). Premium options should cost more.
   - inStock: boolean (for realism, roughly 90% true and 10% false).
 - images: array of 1–3 realistic image metadata objects. Each image object must have:
@@ -46,3 +48,5 @@ IMPORTANT rules:
   name, description, shortDescription, urls, baseSku, productType, skus, specifications, options, skuVariants, images, attachments, metaDescription, metaKeyword, metaTitle, externalReferenceCode.
 - Do NOT wrap the array in an outer object (no "products" property). Return a JSON array only.
 - Do NOT include explanations, comments, markdown, or backticks. Return raw JSON only.
+- SKU Activation: For a SKU to be "Active" in Liferay, it MUST have an assigned value for EVERY option that is defined on the product. Ensure "skuVariants" objects include all options.
+- Option Values: Predefined values ("values" array) are only for "select", "radio", "checkbox", "checkbox_multiple", and "select_date". Do not provide them for "numeric", "text", or "date".

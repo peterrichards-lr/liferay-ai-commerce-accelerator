@@ -893,6 +893,10 @@ class LiferayService {
     return this.rest.createProductsBatch(config, productsData, opts);
   }
 
+  createProductSkusBatch(config, skusData, opts) {
+    return this.rest.createProductSkusBatch(config, skusData, opts);
+  }
+
   createAccount(config, accountData) {
     return this.rest.createAccount(config, accountData);
   }

@@ -764,9 +764,10 @@ class LiferayRestService {
   ) {
     const { logger, cache, config: configService } = this.ctx;
 
+    const prefixKey = `${entityName.toUpperCase()}_BATCH`;
     const erc =
       externalReferenceCode ??
-      createERC(ERC_PREFIX[`${entityName.toUpperCase()}_BATCH`]);
+      createERC(ERC_PREFIX[prefixKey] || ERC_PREFIX.BATCH);
 
     const processedItems = (items || []).map((item) => {
       const extERC = sanitizedERC(
@@ -780,9 +781,9 @@ class LiferayRestService {
     this._cacheItemERCs(erc, null, itemERCs, sessionId);
 
     const batchPayload = {
+      batchExternalReferenceCode: erc,
       createStrategy,
       items: processedItems,
-      externalReferenceCode: erc,
     };
 
     const callbackUrl = this._buildCallbackURL(
@@ -800,7 +801,7 @@ class LiferayRestService {
       operation: op,
       count: processedItems.length,
       callbackUrl: url,
-      externalReferenceCode: erc,
+      batchExternalReferenceCode: erc,
     });
 
     const data = await this._post(config, url, batchPayload, op, friendly);
@@ -832,14 +833,14 @@ class LiferayRestService {
       operation: op,
       batchId: data.id || 'unknown',
       status: data.status || 'submitted',
-      externalReferenceCode: erc,
+      batchExternalReferenceCode: erc,
     });
 
     return {
       batchId: data.id || `batch-${Date.now()}`,
       status: data.status || 'submitted',
       count: processedItems.length,
-      externalReferenceCode: erc,
+      batchExternalReferenceCode: erc,
       batchRefs: [{ taskId: data.id, count: processedItems.length, erc }],
     };
   }
@@ -1322,7 +1323,16 @@ class LiferayRestService {
       itemERCKey: 'sku',
       op: 'create-skus-batch',
       friendly: 'Failed to create SKUs batch',
-      path: PATH.PRODUCTS_SKUS_BATCH,
+      path: (callback) => {
+        if (opts.productId || opts.productExternalReferenceCode) {
+          return PATH.PRODUCT_SKUS_BATCH_SCOPED(
+            opts.productId,
+            opts.productExternalReferenceCode,
+            callback,
+          );
+        }
+        return PATH.PRODUCTS_SKUS_BATCH(callback);
+      },
       sessionId: opts.sessionId,
     });
 
@@ -1640,19 +1650,6 @@ class LiferayRestService {
         { optionKey: optionData.key },
       );
       optionData.skuContributor = false;
-    }
-
-    if (
-      optionData.priceContributor &&
-      !COMMERCE_CONSTRAINTS.PRICE_CONTRIBUTOR_FIELD_TYPES.includes(
-        optionData.fieldType,
-      )
-    ) {
-      logger.warn(
-        `REST: fieldType '${optionData.fieldType}' is incompatible with priceContributor. Disabling priceContributor.`,
-        { optionKey: optionData.key },
-      );
-      optionData.priceContributor = false;
     }
 
     logger.debug(`LiferayRestService.createOption called with:`, {

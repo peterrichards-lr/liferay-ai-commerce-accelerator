@@ -306,3 +306,35 @@
 1.  Updated `ProductGenerator.cjs`: Removed the `active` property from all SKU mapping logic.
 2.  Updated `MockDataGenerator.cjs`: Removed the `active` property from initial SKU and variant SKU generation.
 3.  Verified that SKU status in Liferay is derived from its configuration (e.g., presence of required SKU-contributing option values) rather than a boolean field.
+
+---
+
+## 11. Log-based Issues (Feb 24 Analysis)
+
+### [ ] Fix Product Option Linking (Schema Violation)
+**Analysis**: The `link-product-options` step fails with `400 Bad Request`.
+- **Root Cause**: The payload sent to `/o/headless-commerce-admin-catalog/v1.0/products/{productId}/productOptions` includes an internal `__catalogOption` property (a decoration used during data generation). Liferay's API strictly validates the DTO and rejects unrecognized fields.
+**Proposed Steps**:
+1. Review `ProductGenerator._runLinkProductOptionsStep`.
+2. Ensure that the mapping logic strips all internal properties (like `__catalogOption`) before calling the Liferay service.
+
+### [ ] Fix Inventory Batch Duplication
+**Analysis**: The `update-inventory` step fails with `DuplicateCommerceInventoryWarehouseItemException`.
+- **Root Cause**: The batch payload contains multiple inventory records for the same SKU and Warehouse ERC (e.g., one entry with quantity 50 and another with 100). This occurs when the generation logic assigns a product to the same warehouse multiple times or fails to deduplicate SKUs.
+**Proposed Steps**:
+1. Update `ProductGenerator._runUpdateInventoryStep` to deduplicate inventory assignments.
+2. If multiple assignments exist for the same SKU/Warehouse, either sum the quantities or pick the latest one before building the batch payload.
+
+### [ ] Resolve Session Completion Race Condition
+**Analysis**: Multiple `Workflow session completed` events are emitted for a single session.
+- **Root Cause**: High-frequency callbacks from parallel steps (`attach-images`, `attach-pdfs`, `update-inventory`) trigger `BatchCallbackService._checkSessionCompletion` concurrently. If the session status update is not atomic or the local state is stale, multiple threads detect completion and emit events.
+**Proposed Steps**:
+1. Implement a mutex or atomic status check in `BatchCallbackService` to ensure the transition to `COMPLETED` happens exactly once.
+2. Verify that `current_steps` is cleared and the session status is updated in the database before emitting the final WebSocket events.
+
+### [ ] Enforce Workflow Failure Policy
+**Analysis**: A session was marked as `COMPLETED` even though the `update-inventory` step `FAILED`.
+- **Root Cause**: The orchestrator may be advancing the workflow or completing the session based on the *existence* of results rather than their *success*, or the parallel step coordinator is not correctly aggregating failure states.
+**Proposed Steps**:
+1. Review `BatchCallbackService` logic for handling step failures.
+2. Ensure that if any mandatory step (or parallel sub-step) fails, the session is transitioned to `FAILED` instead of `COMPLETED`.

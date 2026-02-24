@@ -3,21 +3,27 @@
  */
 
 const COMMERCE_CONSTRAINTS = Object.freeze({
-  // Field types allowed for options that contribute to SKUs
+  // Field types allowed for options that contribute to SKUs (variants)
   SKU_CONTRIBUTOR_FIELD_TYPES: [
+    'checkbox',
+    'checkbox_multiple',
+    'radio',
     'select',
-    'select_date',
-    'radio'
-  ],
-
-  // Field types allowed for options that contribute to price
-  PRICE_CONTRIBUTOR_FIELD_TYPES: [
-    'select',
-    'radio'
+    'select_date'
   ],
 
   // Field types that support multiple values
   MULTIPLE_VALUES_FIELD_TYPES: [
+    'checkbox',
+    'checkbox_multiple',
+    'radio',
+    'select',
+    'select_date'
+  ],
+
+  // Field types that require/support predefined OptionValues
+  FIELD_TYPES_WITH_VALUES: [
+    'checkbox',
     'checkbox_multiple',
     'radio',
     'select',

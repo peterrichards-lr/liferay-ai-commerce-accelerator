@@ -167,6 +167,32 @@ class PersistenceService {
     return this.getSession(sessionId);
   }
 
+  tryFinalizeSession(sessionId) {
+    const stmt = this.db.prepare(
+      "UPDATE workflow_sessions SET status = 'COMPLETED', current_steps = '[]', updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now') WHERE session_id = ? AND status NOT IN ('COMPLETED', 'FAILED')"
+    );
+
+    const info = stmt.run(sessionId);
+    if (info.changes > 0) {
+      this.cache.del(sessionId);
+      return true;
+    }
+    return false;
+  }
+
+  tryFailSession(sessionId) {
+    const stmt = this.db.prepare(
+      "UPDATE workflow_sessions SET status = 'FAILED', current_steps = '[]', updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now') WHERE session_id = ? AND status NOT IN ('COMPLETED', 'FAILED')"
+    );
+
+    const info = stmt.run(sessionId);
+    if (info.changes > 0) {
+      this.cache.del(sessionId);
+      return true;
+    }
+    return false;
+  }
+
   createBatch({ erc, sessionId, stepKey, step_key, status }) {
     const key = stepKey || step_key;
     const stmt = this.db.prepare(

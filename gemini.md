@@ -667,3 +667,38 @@ Investigation of batch import failures (`IllegalArgumentException: Unrecognized 
 2.  **Derived Status**: In Liferay, a SKU's "active" or "enabled" state is determined by its configuration rather than a simple boolean flag.
 3.  **Activation Rule**: A SKU linked to a product with SKU-contributing options (e.g., Color, Size) is considered active only if it has an explicit `skuOption` entry for **every** contributing option defined on the product.
 4.  **Actionable Pattern**: Always remove the `active` property from SKU objects before submission. Ensure that generated variant SKUs include values for all product options marked as `skuContributor` to ensure they are activated by Liferay.
+
+### Commerce Option Value Constraints (API Finding)
+
+Investigation of Commerce Option behavior revealed strict rules about which field types support predefined values:
+
+1.  **Values Supported (Value-Driven)**: The following field types support/require `OptionValues`. The user MUST select from a predefined list:
+    *   **Select from List** (`select`)
+    *   **Single Selection** (`radio`)
+    *   **Multiple Selection** (`checkbox_multiple`)
+    *   **Boolean** (`checkbox`) - Treated as a selection (e.g., "Yes" or "No").
+    *   **Select Date from List** (`select_date`) - User picks from a list of fixed dates.
+2.  **Values NOT Supported (Free-Form/Input)**: The following field types MUST NOT have `OptionValues` defined. They rely on user input or a full date picker:
+    *   **Numeric** (`numeric`)
+    *   **Text** (`text`)
+    *   **Date** (`date`) - This uses a standard date picker UI without fixed value restrictions.
+3.  **Validation Rule**: Attempting to create `OptionValues` for value-less field types (like Numeric) may cause API errors or inconsistent behavior in the UI.
+4.  **Actionable Pattern**: Generator logic must check the `fieldType` of an Option before attempting to create its values. Use `COMMERCE_CONSTRAINTS.FIELD_TYPES_WITH_VALUES` to gate value creation.
+
+### AI Schema & Option Metadata
+
+To ensure the AI generates data that can be correctly mapped to Liferay Commerce, the `options` property in the AI schema includes metadata:
+
+1.  **`fieldType`**: The AI must specify the intended Liferay field type (e.g., `select`, `numeric`). This determines whether the system creates predefined `OptionValues`.
+2.  **`skuContributor`**: The AI must flag which options should define physical variants. This prevents "over-generation" of SKUs for non-contributing required fields (like "Screen Size").
+3.  **Consistency**: Both `MockDataGenerator` and `AIService` must return this metadata to ensure the `ProductGenerator` can consistently apply Liferay's business rules for SKU creation and activation.
+
+### Initial Product SKU Omission (Architecture Finding)
+
+Investigation into SKU option-linking failures revealed a conflict when including a base SKU in the initial product creation payload for products intended to have variants:
+
+1.  **Stateless Initial SKU**: If a SKU is included in the initial `createProductsBatch` call, it is created before product options are linked.
+2.  **UPSERT Limitation**: Subsequent attempts to update this existing SKU via the `product-skus` batch (using the same ERC or SKU string) to add `skuOptions` sometimes fail to establish the relationship correctly in Liferay Commerce.
+3.  **Corrective Pattern**: For products where `generateSkuVariants` is enabled and SKU-contributing options exist, the `skus` array MUST be omitted from the initial product creation payload.
+4.  **Deferred Creation**: All SKUs for these products are then created for the first time in the `product-skus` step (after options are linked), ensuring that the initial creation record includes the mandatory `skuOptions` mapping.
+5.  **Simple Product Fallback**: Products without SKU-contributing options (simple products) still include their single SKU in the initial creation to ensure they are immediately purchasable.

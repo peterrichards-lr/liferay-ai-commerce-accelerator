@@ -370,7 +370,7 @@ class MockDataGenerator {
       }
 
       if (generateSpecifications) {
-        productData.productSpecifications = this.generateSpecifications(
+        productData.specifications = this.generateSpecifications(
           category,
           i,
           languageCodes
@@ -382,7 +382,31 @@ class MockDataGenerator {
         Array.isArray(data.options) &&
         data.options.length > 0
       ) {
-        productData.options = data.options;
+        // Enforce new AI schema format for options
+        productData.options = data.options.map(opt => {
+          const name = opt.name.toLowerCase();
+          let fieldType = 'select';
+          let skuContributor = false;
+
+          if (name.includes('color') || name.includes('size') || name.includes('material')) {
+            skuContributor = true;
+          }
+          if (name.includes('type') || name.includes('style') || name.includes('format') || name.includes('edition')) {
+            skuContributor = true;
+            fieldType = 'radio';
+          }
+          if (name.includes('weight') || name.includes('quantity')) {
+            fieldType = 'numeric';
+          }
+
+          return {
+            name: opt.name,
+            fieldType,
+            skuContributor,
+            values: fieldType === 'numeric' ? [] : opt.values
+          };
+        });
+
         productData.skuVariants = this.generateSkuVariants(
           sku,
           data.options,
@@ -441,41 +465,75 @@ class MockDataGenerator {
   generateSkuVariants(baseSku, options, basePrice, category) {
     if (!options || options.length === 0) return [];
 
+    const isSkuContributor = (optionName) => {
+      const name = optionName.toLowerCase();
+      return (
+        name.includes('color') ||
+        name.includes('size') ||
+        name.includes('material') ||
+        name.includes('type') ||
+        name.includes('style') ||
+        name.includes('format') ||
+        name.includes('edition')
+      );
+    };
+
+    const skuContributors = options.filter((opt) => isSkuContributor(opt.name));
+    const nonSkuContributors = options.filter(
+      (opt) => !isSkuContributor(opt.name)
+    );
+
+    if (skuContributors.length === 0) return [];
+
     const variants = [];
-    const maxVariants = 8;
+    const maxVariants = 12;
     let variantCount = 0;
 
-    const option1 = options[0];
-    const option2 = options[1] || { values: ['Standard'], name: 'Default' };
-    const otherOptions = options.slice(2);
-
-    const toKey = (s) => 
+    const toKey = (s) =>
       String(s)
         .toLowerCase()
         .replace(/\s+/g, '-')
-        .replace(/&/g, 'and');
+        .replace(/&/g, 'and')
+        .replace(/[^\w-]/g, '');
 
-    for (const value1 of option1.values.slice(0, 3)) {
-      for (const value2 of option2.values.slice(0, 3)) {
+    // Permute up to 2 SKU contributors
+    const option1 = skuContributors[0];
+    const option2 = skuContributors[1];
+
+    const values1 = option1.values.slice(0, 4);
+    const values2 = option2 ? option2.values.slice(0, 3) : [null];
+
+    for (const v1 of values1) {
+      for (const v2 of values2) {
         if (variantCount >= maxVariants) break;
 
         const priceModifier = (getRandomInt(401) - 200) / 1000;
         const variantPrice = Math.round(basePrice * (1 + priceModifier));
 
         const variantOptions = {
-          [`${toKey(category)}-${toKey(option1.name)}`]: value1,
-          [`${toKey(category)}-${toKey(option2.name)}`]: value2,
+          [`${toKey(category)}-${toKey(option1.name)}`]: v1,
         };
-
-        // Include default values for all other options to ensure SKU activation
-        for (const opt of otherOptions) {
-          variantOptions[`${toKey(category)}-${toKey(opt.name)}`] = opt.values[0];
+        if (option2 && v2) {
+          variantOptions[`${toKey(category)}-${toKey(option2.name)}`] = v2;
         }
 
+        // Include first value for all other options (contributor or not) to ensure SKU activation
+        // SKU contributors not in the permutation must have a value assigned.
+        // Non-contributors that are required also need a value.
+        const otherOptions = options.filter(
+          (opt) => opt !== option1 && opt !== option2
+        );
+        for (const opt of otherOptions) {
+          variantOptions[`${toKey(category)}-${toKey(opt.name)}`] =
+            opt.values[0];
+        }
+
+        const skuSuffix =
+          (v1 ? `-${v1.slice(0, 2).toUpperCase()}` : '') +
+          (v2 ? `-${v2.slice(0, 2).toUpperCase()}` : '');
+
         const variant = {
-          sku: `${baseSku}-${value1.slice(0, 2).toUpperCase()}-${value2
-            .slice(0, 2)
-            .toUpperCase()}`,
+          sku: `${baseSku}${skuSuffix.replace(/[^\w-]/g, '')}`,
           options: variantOptions,
           priceModifier: Math.round(priceModifier * 100),
           price: variantPrice,

@@ -295,8 +295,17 @@ class ProductGenerator {
         try {
           // Link all options for this product
           // The productOptions were already built in _generateProductData
-          await liferay.addProductOptions(config, product.id, product.productOptions);
-          logger.trace(`Linked ${product.productOptions.length} options to product ${product.id}`, { sessionId });
+          
+          // Strip internal/read-only properties before sending to Liferay
+          const cleanedOptions = product.productOptions.map((opt) => {
+            const cleanOpt = { ...opt };
+            delete cleanOpt.id;
+            delete cleanOpt.__catalogOption;
+            return cleanOpt;
+          });
+
+          await liferay.addProductOptions(config, product.id, cleanedOptions);
+          logger.trace(`Linked ${cleanedOptions.length} options to product ${product.id}`, { sessionId });
         } catch (error) {
           logger.error(`Failed to link options for product ${product.id}`, {
             sessionId,
@@ -321,67 +330,70 @@ class ProductGenerator {
     const session = await persistence.getSession(sessionId);
     const { config, productDataList, options } = session.context;
 
-    logger.info('Starting product SKUs creation step (via product update batch)', { sessionId });
+    logger.info('Starting product SKUs creation step (via scoped SKU batch API)', { sessionId });
 
     const productsWithVariants = (productDataList || []).filter(
-      (p) => p.skus?.length > 1
+      (p) => p.skus?.length > 0
     );
 
     if (productsWithVariants.length > 0) {
       logger.info(
-        `Submitting update batch for ${productsWithVariants.length} products to create variant SKUs`,
+        `Processing variant SKUs for ${productsWithVariants.length} products`,
         { sessionId }
       );
 
-      const preparedProducts = productsWithVariants.map((productData) => {
-        const liferayProduct = {
-          active: productData.active !== undefined ? productData.active : true,
-          catalogId: parseInt(config.catalogId, 10),
-          name: toI18n(productData.name),
-          description: toI18n(productData.description),
-          productType: productData.productType || 'simple',
-          externalReferenceCode: productData.externalReferenceCode,
-          productOptions: productData.productOptions,
-          skus: productData.skus, // Include ALL SKUs this time
-        };
+      for (const product of productsWithVariants) {
+        if (!Array.isArray(product.skus) || product.skus.length === 0) continue;
 
-        if (productData.productSpecifications) {
-          liferayProduct.productSpecifications = productData.productSpecifications;
-        }
+        const productSkus = product.skus.map(s => ({
+          ...s,
+          productId: product.id,
+        }));
 
-        return liferayProduct;
-      });
-
-      const batchERC = createERC(ERC_PREFIX.PRODUCT_BATCH);
-      
-      await persistence.createBatch({
-        erc: batchERC,
-        sessionId,
-        stepKey: 'product-skus',
-        status: 'prepared',
-      });
-
-      const result = await liferay.createProductsBatch(config, preparedProducts, {
-        externalReferenceCode: batchERC,
-        sessionId,
-      });
-
-      if (result?.batchId) {
-        await persistence.updateBatch(batchERC, {
-          status: 'SUBMITTED',
-          downstreamBatchId: result.batchId,
+        // Clean SKUs using the central helper
+        const cleanedSkus = productSkus.map(s => {
+          // We use _cleanProductForLiferay on a dummy product wrapping the SKU
+          // This ensures the same sanitization logic is applied.
+          const cleaned = this._cleanProductForLiferay({ skus: [s] });
+          return cleaned.skus[0];
         });
 
-        progress.batchStarted({
+        const batchERC = createERC(ERC_PREFIX.SKU_BATCH);
+        
+        await persistence.createBatch({
+          erc: batchERC,
           sessionId,
-          batchERC,
-          batchId: result.batchId,
-          totalItems: preparedProducts.length,
-          entityType: 'products',
-          operation: 'generate',
+          stepKey: 'product-skus',
+          status: 'prepared',
         });
-      } else {
-        await persistence.updateBatch(batchERC, { status: 'FAILED' });
+
+        logger.trace(`Submitting SKU batch for product ${product.externalReferenceCode} (ERC: ${batchERC})`, { sessionId });
+
+        const result = await liferay.createProductSkusBatch(config, cleanedSkus, {
+          externalReferenceCode: batchERC,
+          productExternalReferenceCode: product.externalReferenceCode,
+          productId: product.id,
+          sessionId,
+        });
+
+        if (result?.batchId) {
+          await persistence.updateBatch(batchERC, {
+            status: 'SUBMITTED',
+            downstreamBatchId: result.batchId,
+          });
+
+          progress.batchStarted({
+            sessionId,
+            batchERC,
+            batchId: result.batchId,
+            totalItems: cleanedSkus.length,
+            entityType: 'products',
+            operation: 'generate',
+          });
+        } else {
+          logger.error(`Failed to submit SKU batch for product ${product.id}`, { sessionId, batchERC });
+          await persistence.updateBatch(batchERC, { status: 'FAILED' });
+        }
       }
     } else {
       logger.info('No products require variant SKU creation.', { sessionId });
@@ -591,7 +603,7 @@ class ProductGenerator {
       try {
         let productDataList;
         if (options.demoMode) {
-          productDataList = mockData.generateProductData(
+          productDataList = await mockData.generateProductData(
             category,
             countForCategory,
             config.selectedLanguages || ['en-US'],
@@ -653,70 +665,102 @@ class ProductGenerator {
                       facetable: catalogOption.facetable,
                       required: catalogOption.required,
                       skuContributor: catalogOption.skuContributor,
+                      __catalogOption: catalogOption, // Keep reference for value lookups
                     };
                   }
+                  
+                  if (option.fieldType) {
+                    return {
+                      name: option.name,
+                      fieldType: option.fieldType,
+                      skuContributor: !!option.skuContributor,
+                      required: true,
+                    };
+                  }
+
                   return null;
                 })
                 .filter(Boolean);
 
-              // Infer product type: Liferay Commerce Headless API usually expects 'simple' even for products with variants.
-              // We ensure it defaults to 'simple' to avoid CPDefinitionProductTypeNameException.
-              const hasSkuContributor = pd.productOptions.some(opt => opt.skuContributor);
+              // Infer product type
+              const hasSkuContributor = (pd.productOptions || []).some(opt => opt.skuContributor);
               if (hasSkuContributor) {
                 pd.productType = 'simple';
               }
 
               if (pd.skuVariants && Array.isArray(pd.skuVariants)) {
+                const seenSkuOptions = new Set();
                 const variantSkus = pd.skuVariants
                   .map((variant) => {
                     const skuOptions = [];
-                    for (const [optRef, valName] of Object.entries(
-                      variant.options || {}
-                    )) {
-                      const catalogOption = 
-                        catalogOptionsByKey.get(optRef) || 
-                        catalogOptionsMap.get(optRef) || 
-                        catalogOptionsMap.get(optRef.toLowerCase());
+                    
+                    for (const [optName, valName] of Object.entries(variant.options || {})) {
+                      // Find the enriched option metadata we just built
+                      const productOption = (pd.productOptions || []).find(
+                        (po) => {
+                          const name =
+                            typeof po.name === 'object'
+                              ? po.name.en_US
+                              : po.name;
+                          return (
+                            name === optName ||
+                            name?.toLowerCase() === optName.toLowerCase() ||
+                            po.key === optName
+                          );
+                        }
+                      );
 
-                      if (catalogOption) {
-                        const catalogValue = (catalogOption.values || []).find(
-                          (v) => v.name.en_US === valName || v.name === valName || v.name.en_US.toLowerCase() === valName.toLowerCase()
+                      if (productOption && productOption.skuContributor && productOption.optionId) {
+                        const catalogOption = productOption.__catalogOption;
+                        const values = catalogOption?.optionValues || catalogOption?.values || [];
+                        
+                        const catalogValue = values.find(
+                          (v) =>
+                            v.name?.en_US === valName ||
+                            v.name === valName ||
+                            v.name?.en_US?.toLowerCase() === valName.toLowerCase() ||
+                            v.key === valName.toLowerCase()
                         );
+
                         if (catalogValue) {
                           skuOptions.push({
-                            optionId: catalogOption.id,
+                            key: productOption.key,
+                            optionId: productOption.optionId,
                             optionValueId: catalogValue.id,
+                            value: catalogValue.key,
                           });
                         }
                       }
                     }
 
+                    if (skuOptions.length === 0) return null;
+
+                    // Deduplicate
+                    const comboKey = skuOptions
+                      .sort((a, b) => a.optionId - b.optionId)
+                      .map((o) => `${o.optionId}:${o.optionValueId}`)
+                      .join('|');
+
+                    if (seenSkuOptions.has(comboKey)) return null;
+                    seenSkuOptions.add(comboKey);
+
                     return {
                       sku: variant.sku,
                       externalReferenceCode: createERC(ERC_PREFIX.SKU),
                       price: variant.price,
-                      published:
-                        variant.published !== undefined
-                          ? variant.published
-                          : true,
-                      purchasable:
-                        variant.purchasable !== undefined
-                          ? variant.purchasable
-                          : true,
-                      neverExpire:
-                        variant.neverExpire !== undefined
-                          ? variant.neverExpire
-                          : true,
+                      published: variant.published !== undefined ? variant.published : true,
+                      purchasable: variant.purchasable !== undefined ? variant.purchasable : true,
+                      neverExpire: variant.neverExpire !== undefined ? variant.neverExpire : true,
                       inventoryLevel: variant.inStock ? 50 : 0,
                       skuOptions,
                     };
                   })
-                  .filter((v) => v.skuOptions.length > 0);
+                  .filter((v) => v !== null);
 
                 if (variantSkus.length > 0) {
                   pd.skus = variantSkus;
                   logger.trace(
-                    `Replaced base SKU with ${variantSkus.length} variant SKUs for product ${pd.externalReferenceCode}`,
+                    `Replaced base SKU with ${variantSkus.length} unique variant SKUs for product ${pd.externalReferenceCode}`,
                     { sessionId }
                   );
                 }
@@ -763,11 +807,10 @@ class ProductGenerator {
         }
         allProductData.push(...productDataList);
       } catch (error) {
-        logger.error(
-          `Failed to generate products for category ${category}:`,
-          error
-        );
-        // Assuming results.errors might be needed by the calling context
+        logger.errorWithStack(error, {
+          category,
+          message: `Failed to generate products for category ${category}`,
+        });
       }
     }
     if (allProductData.length === 0) {
@@ -779,6 +822,66 @@ class ProductGenerator {
     }
 
     return allProductData;
+  }
+
+  _cleanProductForLiferay(product, options = {}) {
+    const { stripSkuOptions = false } = options;
+    const cleanProduct = { ...product };
+
+    // Remove internal/read-only fields from the top level
+    delete cleanProduct.id;
+    delete cleanProduct.productId;
+    delete cleanProduct.images;
+    delete cleanProduct.attachments;
+    delete cleanProduct.category;
+    delete cleanProduct.__catalogOptions;
+    delete cleanProduct.__catalogSpecifications;
+    delete cleanProduct.options; // AI-generated raw options
+    delete cleanProduct.specifications; // AI-generated raw specs
+    delete cleanProduct.skuVariants; // Internal variant tracking
+
+    // Deep clean productOptions
+    if (Array.isArray(cleanProduct.productOptions)) {
+      cleanProduct.productOptions = cleanProduct.productOptions.map((opt) => {
+        const cleanOpt = { ...opt };
+        delete cleanOpt.id; // Read-only in ProductOption
+        delete cleanOpt.__catalogOption; // Internal helper
+        return cleanOpt;
+      });
+    }
+
+    // Deep clean productSpecifications
+    if (Array.isArray(cleanProduct.productSpecifications)) {
+      cleanProduct.productSpecifications = cleanProduct.productSpecifications.map(
+        (spec) => {
+          const cleanSpec = { ...spec };
+          delete cleanSpec.id; // Read-only
+          delete cleanSpec.productId; // Derived
+          return cleanSpec;
+        },
+      );
+    }
+
+    // Deep clean SKUs
+    if (Array.isArray(cleanProduct.skus)) {
+      cleanProduct.skus = cleanProduct.skus.map((sku) => {
+        const cleanSku = { ...sku };
+        if (stripSkuOptions) {
+          delete cleanSku.skuOptions;
+        }
+        delete cleanSku.id; // Read-only
+        delete cleanSku.active; // Not supported in Sku DTO (use published/purchasable)
+        delete cleanSku.inventoryLevel; // Read-only in Sku DTO (use inventory API)
+        delete cleanSku.productName; // Read-only
+        delete cleanSku.unitOfMeasureKey; // Read-only
+        delete cleanSku.unitOfMeasureName; // Read-only
+        delete cleanSku.unitOfMeasureSkuId; // Read-only
+        delete cleanSku.inStock; // Derived
+        return cleanSku;
+      });
+    }
+
+    return cleanProduct;
   }
 
   async startProductsBatch({ sessionId, session, correlationId }) {
@@ -847,7 +950,21 @@ class ProductGenerator {
           liferayProduct.productSpecifications =
             productData.productSpecifications;
         }
+
+        const hasSkuContributors = (productData.productOptions || []).some(
+          (opt) => opt.skuContributor
+        );
+
         if (
+          options.generateSkuVariants &&
+          hasSkuContributors &&
+          productData.skus?.length > 0
+        ) {
+          // Omit SKUs for products that will have variants.
+          // They will be created in the 'product-skus' step after options are linked.
+          // This prevents issues where the base SKU created here cannot be updated with option links later.
+          delete liferayProduct.skus;
+        } else if (
           productData.skus &&
           Array.isArray(productData.skus) &&
           productData.skus.length > 1
@@ -860,20 +977,16 @@ class ProductGenerator {
           liferayProduct.skus = productData.skus;
         }
 
-        return liferayProduct;
-      });
-
-      const cleanedProducts = preparedProducts.map((product) => {
-        const cleanProduct = { ...product };
-        delete cleanProduct.images;
-        delete cleanProduct.attachments;
-        return cleanProduct;
+        // Initially strip skuOptions as they require the options to be linked first
+        return this._cleanProductForLiferay(liferayProduct, {
+          stripSkuOptions: true,
+        });
       });
 
       const productBatches = [];
       const safeBatchSize = Math.max(1, parseInt(config.batchSize, 10) || 1);
-      for (let i = 0; i < cleanedProducts.length; i += safeBatchSize) {
-        productBatches.push(cleanedProducts.slice(i, i + safeBatchSize));
+      for (let i = 0; i < preparedProducts.length; i += safeBatchSize) {
+        productBatches.push(preparedProducts.slice(i, i + safeBatchSize));
       }
 
       if (options.dryRun) {
@@ -1042,30 +1155,19 @@ class ProductGenerator {
       try {
         const warehouses = options.warehouses || [];
         
-        // Group items by warehouse
+        // Group items by warehouse and deduplicate by inventoryERC
+        // Map<warehouseERC, Map<inventoryERC, item>>
         const inventoryByWarehouse = new Map();
 
         for (const product of productDataList) {
-          const skusToUpdate = [];
+          // Prioritize variants, fallback to base SKU
+          const sourceSkus = (product.skus && product.skus.length > 0)
+            ? product.skus
+            : (product.sku || product.baseSku)
+              ? [{ sku: product.sku || product.baseSku, quantity: product.quantity || product.inventoryLevel || 100 }]
+              : [];
 
-          if (product.skus && Array.isArray(product.skus)) {
-            product.skus.forEach((s) => {
-              if (s.sku) skusToUpdate.push(s);
-            });
-          } else if (product.sku || product.baseSku) {
-            skusToUpdate.push({
-              sku: product.sku || product.baseSku,
-              quantity: product.quantity || 100,
-            });
-          }
-
-          if (product.skuVariants && Array.isArray(product.skuVariants)) {
-            product.skuVariants.forEach((v) => {
-              if (v.sku) skusToUpdate.push(v);
-            });
-          }
-
-          if (skusToUpdate.length === 0) continue;
+          if (sourceSkus.length === 0) continue;
 
           for (const warehouse of warehouses) {
             const warehouseERC = warehouse.externalReferenceCode || warehouse.erc;
@@ -1075,21 +1177,29 @@ class ProductGenerator {
             }
 
             if (!inventoryByWarehouse.has(warehouseERC)) {
-              inventoryByWarehouse.set(warehouseERC, []);
+              inventoryByWarehouse.set(warehouseERC, new Map());
             }
 
-            const items = inventoryByWarehouse.get(warehouseERC);
+            const warehouseItemsMap = inventoryByWarehouse.get(warehouseERC);
 
-            for (const skuItem of skusToUpdate) {
+            for (const skuItem of sourceSkus) {
+              if (!skuItem.sku) continue;
+
               const qty = skuItem.quantity || skuItem.inventoryLevel || 100;
               const inventoryERC = `AICA-INV-${sanitizeForERC(warehouseERC, { max: 50, preserveUnderscore: true })}-${sanitizeForERC(skuItem.sku, { max: 50, preserveUnderscore: true })}`;
               
-              items.push({
-                externalReferenceCode: inventoryERC,
-                sku: skuItem.sku,
-                warehouseExternalReferenceCode: warehouseERC,
-                quantity: qty,
-              });
+              if (warehouseItemsMap.has(inventoryERC)) {
+                // Sum quantities for duplicates to ensure total count is preserved
+                const existing = warehouseItemsMap.get(inventoryERC);
+                existing.quantity = (existing.quantity || 0) + qty;
+              } else {
+                warehouseItemsMap.set(inventoryERC, {
+                  externalReferenceCode: inventoryERC,
+                  sku: skuItem.sku,
+                  warehouseExternalReferenceCode: warehouseERC,
+                  quantity: qty,
+                });
+              }
             }
           }
         }
@@ -1097,7 +1207,8 @@ class ProductGenerator {
         if (inventoryByWarehouse.size > 0) {
           logger.info(`Submitting batch inventory updates for ${inventoryByWarehouse.size} warehouses`, { sessionId });
 
-          for (const [warehouseERC, items] of inventoryByWarehouse.entries()) {
+          for (const [warehouseERC, itemsMap] of inventoryByWarehouse.entries()) {
+            const items = Array.from(itemsMap.values());
             const batchERC = createERC(ERC_PREFIX.INVENTORY_BATCH);
             
             // Find the warehouse object to get its ID
@@ -1143,6 +1254,7 @@ class ProductGenerator {
                 operation: 'generate',
               });
             } else {
+              logger.error(`Failed to submit inventory batch for warehouse ${warehouseERC}`, { sessionId, batchERC });
               await persistence.updateBatch(batchERC, { status: 'FAILED' });
             }
           }
@@ -1552,36 +1664,42 @@ class ProductGenerator {
           },
         });
         const optionValues = [];
-        for (let i = 0; i < optionData.values.length; i++) {
-          const values = Array.isArray(optionData.values)
-            ? optionData.values
-            : [];
-          const value = values[i];
-          const sanitizedValueForId = sanitizeForERC(value, { max: 20, preserveUnderscore: false });
-          const valueERC = `VAL-${option.id}-${sanitizedValueForId
-            .toUpperCase()
-            .replace(/\s+/g, '_')}`;
-          const valueName = {};
-          languageCodes.forEach((langCode) => {
-            const suffix = langCode === 'en_US' ? '' : ` (${langCode})`;
-            valueName[langCode] = `${value}${suffix}`;
-          });
-          const optionValue = await liferay.createOptionValueWithReuse(
-            config,
-            option.id,
-            {
-              name: valueName,
-              key: `${option.id}-${sanitizedValueForId
-                .toLowerCase()
-                .replace(/\s+/g, '-')
-                .replace(/&/g, 'and')}`,
-              priority: i + 1,
-              externalReferenceCode: valueERC,
-            }
-          );
-          optionValues.push(optionValue);
+        if (COMMERCE_CONSTRAINTS.FIELD_TYPES_WITH_VALUES.includes(optionCharacteristics.fieldType)) {
+          for (let i = 0; i < optionData.values.length; i++) {
+            const values = Array.isArray(optionData.values)
+              ? optionData.values
+              : [];
+            const value = values[i];
+            const sanitizedValueForId = sanitizeForERC(value, { max: 20, preserveUnderscore: false });
+            const valueERC = `VAL-${option.id}-${sanitizedValueForId
+              .toUpperCase()
+              .replace(/\s+/g, '_')}`;
+            const valueName = {};
+            languageCodes.forEach((langCode) => {
+              const suffix = langCode === 'en_US' ? '' : ` (${langCode})`;
+              valueName[langCode] = `${value}${suffix}`;
+            });
+            const optionValue = await liferay.createOptionValueWithReuse(
+              config,
+              option.id,
+              {
+                name: valueName,
+                key: `${option.id}-${sanitizedValueForId
+                  .toLowerCase()
+                  .replace(/\s+/g, '-')
+                  .replace(/&/g, 'and')}`,
+                priority: i + 1,
+                externalReferenceCode: valueERC,
+              }
+            );
+            optionValues.push(optionValue);
+            logger.trace(
+              `Created or reused option value: ${optionValue.name.en_US}`
+            );
+          }
+        } else {
           logger.trace(
-            `Created or reused option value: ${optionValue.name.en_US}`
+            `Skipping OptionValue creation for fieldType: ${optionCharacteristics.fieldType}`
           );
         }
         catalogOptions[category].push({ ...option, values: optionValues });
@@ -1971,6 +2089,7 @@ class ProductGenerator {
       catalogId,
       category,
       skus,
+      productOptions,
     } = productData;
 
     const payload = {
@@ -1983,11 +2102,21 @@ class ProductGenerator {
         externalReferenceCode || createERC(ERC_PREFIX.PRODUCT),
     };
 
-    if (skus && Array.isArray(skus)) {
+    const hasSkuContributors = (productOptions || []).some(
+      (opt) => opt.skuContributor
+    );
+
+    if (options.generateSkuVariants && hasSkuContributors && skus?.length > 0) {
+      // Omit SKUs for products that will have variants.
+    } else if (skus && Array.isArray(skus)) {
       payload.skus = skus.slice(0, 1);
     }
 
-    const createdProduct = await liferay.createProduct(config, payload);
+    const cleanedPayload = this._cleanProductForLiferay(payload, {
+      stripSkuOptions: true,
+    });
+
+    const createdProduct = await liferay.createProduct(config, cleanedPayload);
     logger.info(`Created product: ${createdProduct.name?.en_US || 'N/A'}`, {
       productId: createdProduct.id,
     });
@@ -2019,11 +2148,21 @@ class ProductGenerator {
       productSpecifications: productSpecifications || [],
     };
 
-    if (skus && Array.isArray(skus)) {
+    const hasSkuContributors = (productOptions || []).some(
+      (opt) => opt.skuContributor
+    );
+
+    if (options.generateSkuVariants && hasSkuContributors && skus?.length > 0) {
+      // Omit SKUs for products that will have variants.
+    } else if (skus && Array.isArray(skus)) {
       payload.skus = skus.slice(0, 1);
     }
 
-    const createdProduct = await liferay.createProduct(config, payload);
+    const cleanedPayload = this._cleanProductForLiferay(payload, {
+      stripSkuOptions: true,
+    });
+
+    const createdProduct = await liferay.createProduct(config, cleanedPayload);
     logger.info(`Created product: ${createdProduct.name?.en_US || 'N/A'}`, {
       productId: createdProduct.id,
     });
