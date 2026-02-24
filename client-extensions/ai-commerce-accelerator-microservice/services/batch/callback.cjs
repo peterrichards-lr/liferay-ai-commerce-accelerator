@@ -1,4 +1,4 @@
-const { createERC } = require('../../utils/misc.cjs');
+const { createERC, delay } = require('../../utils/misc.cjs');
 const { ERC_PREFIX } = require('../../utils/constants.cjs');
 const { asItems, asCount } = require('../../utils/liferayUtils.cjs');
 
@@ -16,6 +16,20 @@ class BatchCallbackService {
       batch.status === 'BYPASSED' ||
       batch.status === 'SYNCHRONOUS'
     );
+  }
+
+  async getBatchStatus(batchId) {
+    const { persistence } = this.ctx;
+    const batch = await persistence.getBatchByDownstreamId(batchId);
+    if (!batch) return { status: 'UNKNOWN' };
+    return {
+      status: batch.status,
+      processedCount: batch.processed_count,
+      totalCount: batch.total_count,
+      errorCount: batch.error_count,
+      stepKey: batch.step_key,
+      sessionId: batch.session_id
+    };
   }
 
   _normalizeEntityType(stepKey) {
@@ -771,12 +785,28 @@ class BatchCallbackService {
     }
 
     try {
-      const importTask = await liferay.getImportTask(config, batchId);
+      let importTask = await liferay.getImportTask(config, batchId);
+      let data = importTask?.data || importTask;
       
+      // Verification Loop: If the callback arrives but the task is not yet terminal in the REST API, poll briefly.
+      let attempts = 0;
+      const maxAttempts = 3;
+      while (data.executeStatus !== 'COMPLETED' && data.executeStatus !== 'FAILED' && attempts < maxAttempts) {
+          attempts++;
+          logger.warn(`Batch ${batchId} received callback but REST status is still '${data.executeStatus}'. Polling... attempt ${attempts}/${maxAttempts}`, { 
+            sessionId: dbBatch.session_id, 
+            correlationId: effectiveCorrelationId 
+          });
+          await delay(2000);
+          importTask = await liferay.getImportTask(config, batchId);
+          data = importTask?.data || importTask;
+      }
+
       logger.debug('Import task details retrieved', {
         batchId,
         sessionId: dbBatch.session_id,
-        importTask: importTask?.data || importTask,
+        executeStatus: data.executeStatus,
+        importTask: data,
         correlationId: effectiveCorrelationId,
       });
 
@@ -784,7 +814,7 @@ class BatchCallbackService {
         processedItemsCount = 0, 
         totalItemsCount = 0, 
         failedItems = [] 
-      } = importTask?.data || {}; 
+      } = data; 
       const errorCount = failedItems?.length || 0;
 
       let failureDetails = [];
@@ -808,8 +838,11 @@ class BatchCallbackService {
         }
       }
 
+      // Source of truth for status is the REST API status, falling back to callback status if missing.
+      const finalStatus = (data.executeStatus || status).toUpperCase();
+
       await persistence.updateBatch(batchERC, {
-        status: status.toUpperCase(),
+        status: finalStatus,
         processedCount: processedItemsCount,
         totalCount: totalItemsCount,
         errorCount: errorCount,

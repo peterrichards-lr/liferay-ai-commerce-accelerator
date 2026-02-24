@@ -226,3 +226,32 @@
 ### [x] Improve Asynchronous Traceability (Correlation ID)
 **Analysis**: Batch callbacks from Liferay were missing the `correlationId`, making it difficult to trace logs back to the originating UI session. Outgoing API logs also lacked this context.
 **Result**: **FIXED**. Added `correlationId` to batch callback URLs, updated middleware to handle it from querystring, and ensured all internal and outgoing logs include it.
+
+---
+
+## 13. Stability & Utility Fixes (Feb 24 Continued)
+
+### [x] Fix `delay is not defined` ReferenceError in LiferayService
+**Analysis**: The `resolveByERCsWithRetry` method in `services/liferay/index.cjs` uses the `delay` function for retries, but it was not imported. This caused any step using this utility (like resolving IDs for products, accounts, or addresses) to crash immediately upon encountering a `STALE_INDEX` error from Liferay.
+**Result**: **FIXED**. Added import for `delay` from `../../utils/misc.cjs`.
+
+### [x] Reduce GraphQL Error Noise in Logs
+**Analysis**: `LiferayGraphQLService._fetchByERCs` logged all GraphQL errors as `ERROR` level. During data generation, `DataFetchingException` (404 Not Found) is a common and expected condition caused by Liferay's indexing lag. These were cluttering the logs.
+**Result**: **FIXED**. Modified `_fetchByERCs` to log missing entity errors at `DEBUG` level and provide a more informative message.
+
+### [ ] Verify `set-billing-and-shipping-addresses` Step Logic
+**Analysis**: This step failed due to the `delay` issue, but also showed a large number of 404s for both accounts and addresses. After fixing the `delay` issue, we should verify that this step correctly associates addresses with accounts once they are indexed.
+**Priority**: Low (Verification)
+**Ease of Fix**: Easy (Manual test)
+
+---
+
+## 14. Batch Callback & Verification Fixes (Feb 24)
+
+### [x] Verify Batch Terminal Status and Counts After Callback
+**Analysis**: The `BatchCallbackService.processCallback` method was assuming the callback payload's status was the final and complete state. However, Liferay's REST API status (`executeStatus`) and item counts (`processedItemsCount`, `totalItemsCount`) may lag behind the callback or be sent while the task is still technically "STARTED". Additionally, a bug in count extraction (`importTask?.data || importTask`) resulted in 0 counts if the response body was the object itself.
+**Result**: **FIXED**. Added a short polling loop to verify `executeStatus` is `COMPLETED` or `FAILED` before proceeding, corrected the count extraction logic, and standardized status resolution between the callback and the REST API.
+
+### [x] Implement Missing `getBatchStatus` API
+**Analysis**: The `GET /api/v1/batch/status/:batchId` route was calling a non-existent method on `BatchCallbackService`, leading to a crash.
+**Result**: **FIXED**. Added `getBatchStatus` to `BatchCallbackService` and `getBatchByDownstreamId` to `PersistenceService`.

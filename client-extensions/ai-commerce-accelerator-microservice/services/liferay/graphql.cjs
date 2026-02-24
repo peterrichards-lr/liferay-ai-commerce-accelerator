@@ -144,20 +144,25 @@ class LiferayGraphQLService {
         });
         
         if (response.data.errors) {
-          this.logger.error('GraphQL errors detected in _fetchByERCs:', {
-            errors: response.data.errors,
-            namespace,
-            queryMethod,
-            ercs: batch,
-          });
-
           // Check if any error is related to a missing entity (STALE_INDEX)
           const isMissingEntity = response.data.errors.some(err => 
             err.extensions?.code === 'NOT_FOUND' || 
             err.message?.includes('DataFetchingException') ||
             err.message?.includes('null')
           );
-          
+
+          const logLevel = isMissingEntity ? 'debug' : 'error';
+          const logMessage = isMissingEntity 
+            ? 'GraphQL data not found (likely stale index), will retry if possible:' 
+            : 'GraphQL errors detected in _fetchByERCs:';
+
+          this.logger[logLevel](logMessage, {
+            errors: response.data.errors,
+            namespace,
+            queryMethod,
+            ercs: batch,
+          });
+
           if (isMissingEntity) {
             throw new Error('STALE_INDEX');
           }

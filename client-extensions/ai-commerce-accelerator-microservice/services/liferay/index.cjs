@@ -2,6 +2,7 @@ const LiferayRestService = require('./rest.cjs');
 const LiferayGraphQLService = require('./graphql.cjs');
 const { asItems, asCount } = require('../../utils/liferayUtils.cjs');
 const { PATH } = require('../../utils/liferayPaths.cjs');
+const { delay } = require('../../utils/misc.cjs');
 
 class LiferayService {
   constructor(ctx) {

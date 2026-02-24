@@ -326,6 +326,11 @@ class PersistenceService {
     return batch;
   }
 
+  getBatchByDownstreamId(downstreamBatchId) {
+    const stmt = this.db.prepare('SELECT * FROM workflow_batches WHERE downstream_batch_id = ?');
+    return stmt.get(downstreamBatchId);
+  }
+
   logWorkflowEvent({ sessionId, batchId, status, message, details }) {
     const detailsJson = details ? JSON.stringify(details) : null;
     const stmt = this.db.prepare(
