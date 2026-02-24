@@ -31,31 +31,35 @@ class AccountGenerator {
     try {
       countries = await liferay.getCountries(config);
       logger.info('Fetched countries', { sessionId, count: countries.length });
+      
+      await persistence.updateSessionContext(sessionId, {
+        ...session.context,
+        countries,
+      });
+
+      await persistence.createBatch({
+        erc: createERC(ERC_PREFIX.BATCH),
+        sessionId,
+        stepKey: 'load-countries',
+        status: 'SYNCHRONOUS',
+      });
+
+      logger.info('Load countries step complete', {
+        sessionId,
+        countriesCount: countries.length,
+      });
     } catch (error) {
       logger.error('Failed to fetch countries in load-countries step', { 
         sessionId, 
         error: error.message 
       });
-      await persistence.updateSession(sessionId, { status: 'FAILED' });
-      return;
+      await persistence.createBatch({
+        erc: createERC(ERC_PREFIX.BATCH),
+        sessionId,
+        stepKey: 'load-countries',
+        status: 'FAILED',
+      });
     }
-
-    await persistence.updateSessionContext(sessionId, {
-      ...session.context,
-      countries,
-    });
-
-    await persistence.createBatch({
-      erc: createERC(ERC_PREFIX.BATCH),
-      sessionId,
-      stepKey: 'load-countries',
-      status: 'SYNCHRONOUS',
-    });
-
-    logger.info('Load countries step complete', {
-      sessionId,
-      countriesCount: countries.length,
-    });
   }
 
   async generate(config, options) {
@@ -99,121 +103,134 @@ class AccountGenerator {
 
     logger.info('Starting account data generation step', { sessionId });
 
-    this.validateConfig(config);
-    await this.validateOptions(config, options);
+    try {
+      this.validateConfig(config);
+      await this.validateOptions(config, options);
 
-    let accountDataList;
-    if (options.demoMode) {
-      accountDataList = await mockData.generateAccountData(
-        options.accountCount,
-        config,
-        options.categories
-      );
-    } else {
-      accountDataList = await ai.generateAccountData(
-        options.accountCount,
-        config,
-        config.aiModel,
-        options.categories
-      );
-    }
+      let accountDataList;
+      if (options.demoMode) {
+        accountDataList = await mockData.generateAccountData(
+          options.accountCount,
+          config,
+          options.categories
+        );
+      } else {
+        accountDataList = await ai.generateAccountData(
+          options.accountCount,
+          config,
+          config.aiModel,
+          options.categories
+        );
+      }
 
-    const accountsToCreate = [];
-    const addressesToCreate = [];
+      const accountsToCreate = [];
+      const addressesToCreate = [];
 
-    for (const raw of accountDataList) {
-      const account = { ...raw };
-      account.accountContactInformation =
-        account.accountContactInformation || {};
+      for (const raw of accountDataList) {
+        const account = { ...raw };
+        account.accountContactInformation =
+          account.accountContactInformation || {};
 
-      if (account.emailAddress) {
-        account.accountContactInformation.emailAddresses = [
-          {
-            emailAddress: account.emailAddress,
-            primary: true,
-            type: 'email-address',
-          },
+        if (account.emailAddress) {
+          account.accountContactInformation.emailAddresses = [
+            {
+              emailAddress: account.emailAddress,
+              primary: true,
+              type: 'email-address',
+            },
+          ];
+          delete account.emailAddress;
+        }
+
+        const allDomains = [
+          ...(account.domains || []),
+          ...(account.accountContactInformation?.domains || []),
         ];
-        delete account.emailAddress;
-      }
+        if (allDomains.length > 0) {
+          account.accountContactInformation.webUrls = allDomains.map(
+            (domain) => ({
+              url: `http://${domain}`,
+              urlType: 'Website',
+              primary: false,
+            })
+          );
+        }
+        if (account.domains) delete account.domains;
+        if (account.accountContactInformation?.domains) {
+          delete account.accountContactInformation.domains;
+        }
 
-      const allDomains = [
-        ...(account.domains || []),
-        ...(account.accountContactInformation?.domains || []),
-      ];
-      if (allDomains.length > 0) {
-        account.accountContactInformation.webUrls = allDomains.map(
-          (domain) => ({
-            url: `http://${domain}`,
-            urlType: 'Website',
-            primary: false,
-          })
+        account.accountContactInformation.postalAddresses =
+          account.accountContactInformation.postalAddresses || [];
+        if (account.headOfficeAddress) {
+          account.accountContactInformation.postalAddresses.push(
+            await this._generateAddress(
+              'head-office',
+              config,
+              account.headOfficeAddress,
+              countries
+            )
+          );
+          delete account.headOfficeAddress;
+        }
+
+        const billingAddress = await this._generateAddress(
+          'billing',
+          config,
+          account.billingAddress,
+          countries
         );
-      }
-      if (account.domains) delete account.domains;
-      if (account.accountContactInformation?.domains) {
-        delete account.accountContactInformation.domains;
-      }
-
-      account.accountContactInformation.postalAddresses =
-        account.accountContactInformation.postalAddresses || [];
-      if (account.headOfficeAddress) {
-        account.accountContactInformation.postalAddresses.push(
-          await this._generateAddress(
-            'head-office',
-            config,
-            account.headOfficeAddress,
-            countries
-          )
+        const shippingAddress = await this._generateAddress(
+          'shipping',
+          config,
+          account.shippingAddress,
+          countries
         );
-        delete account.headOfficeAddress;
+
+        addressesToCreate.push({
+          ...billingAddress,
+          accountERC: account.externalReferenceCode,
+        });
+        addressesToCreate.push({
+          ...shippingAddress,
+          accountERC: account.externalReferenceCode,
+        });
+
+        delete account.billingAddress;
+        delete account.shippingAddress;
+        accountsToCreate.push(account);
       }
 
-      const billingAddress = await this._generateAddress(
-        'billing',
-        config,
-        account.billingAddress,
-        countries
-      );
-      const shippingAddress = await this._generateAddress(
-        'shipping',
-        config,
-        account.shippingAddress,
-        countries
-      );
-
-      addressesToCreate.push({
-        ...billingAddress,
-        accountERC: account.externalReferenceCode,
-      });
-      addressesToCreate.push({
-        ...shippingAddress,
-        accountERC: account.externalReferenceCode,
+      await persistence.updateSessionContext(sessionId, {
+        ...session.context,
+        accountsToCreate,
+        addressesToCreate,
       });
 
-      delete account.billingAddress;
-      delete account.shippingAddress;
-      accountsToCreate.push(account);
+      await persistence.createBatch({
+        erc: createERC(ERC_PREFIX.BATCH),
+        sessionId,
+        stepKey: 'account-data-generation',
+        status: 'SYNCHRONOUS',
+      });
+
+      logger.info('Account data generation step complete', {
+        sessionId,
+        accountCount: accountsToCreate.length,
+        addressCount: addressesToCreate.length,
+      });
+    } catch (error) {
+      logger.error('Failed execution of account-data-generation step', {
+        sessionId,
+        error: error.message,
+      });
+      await persistence.createBatch({
+        erc: createERC(ERC_PREFIX.BATCH),
+        sessionId,
+        stepKey: 'account-data-generation',
+        status: 'FAILED',
+      });
     }
-
-    await persistence.updateSessionContext(sessionId, {
-      ...session.context,
-      accountsToCreate,
-      addressesToCreate,
-    });
-
-    await persistence.createBatch({
-      erc: createERC(ERC_PREFIX.BATCH),
-      sessionId,
-      stepKey: 'account-data-generation',
-      status: 'SYNCHRONOUS',
-    });
-
-    logger.info('Account data generation step complete', {
-      sessionId,
-      accountCount: accountsToCreate.length,
-      addressCount: addressesToCreate.length,
-    });
   }
 
   async _runAccountCreationStep(sessionId) {
@@ -223,74 +240,108 @@ class AccountGenerator {
 
     logger.info('Starting account creation step', { sessionId });
 
-    if (!accountsToCreate || accountsToCreate.length === 0) {
-      logger.info('No accounts to create. Skipping step.', { sessionId });
-      return;
-    }
-
-    const batchERC = createERC(ERC_PREFIX.BATCH_GENERATION);
-
-    if (options.dryRun) {
-        logger.info('DRY RUN: Skipping account creation batch submission.');
-        logger.info({
-            dryRunData: {
-                step: 'accounts',
-                count: accountsToCreate.length,
-                payload: accountsToCreate,
-            },
-        });
+    try {
+      if (!accountsToCreate || accountsToCreate.length === 0) {
+        logger.info('No accounts to create. Skipping step.', { sessionId });
         await persistence.createBatch({
-            erc: batchERC,
-            sessionId,
-            stepKey: 'accounts',
-            status: 'SYNCHRONOUS',
+          erc: createERC(ERC_PREFIX.BATCH),
+          sessionId,
+          stepKey: 'accounts',
+          status: 'BYPASSED',
         });
-        return; 
+        return;
+      }
+
+      const batchERC = createERC(ERC_PREFIX.BATCH_GENERATION);
+
+      if (options.dryRun) {
+          logger.info('DRY RUN: Skipping account creation batch submission.');
+          logger.info({
+              dryRunData: {
+                  step: 'accounts',
+                  count: accountsToCreate.length,
+                  payload: accountsToCreate,
+              },
+          });
+          await persistence.createBatch({
+              erc: batchERC,
+              sessionId,
+              stepKey: 'accounts',
+              status: 'SYNCHRONOUS',
+          });
+          return; 
+      }
+
+      await persistence.createBatch({
+        erc: batchERC,
+        sessionId,
+        stepKey: 'accounts',
+        status: 'PREPARED',
+      });
+
+      const submission = await liferay.createAccountsBatch(config, accountsToCreate, {
+        externalReferenceCode: batchERC,
+        sessionId,
+      });
+
+      await persistence.updateBatch(batchERC, { 
+        status: 'SUBMITTED',
+        downstreamBatchId: submission.batchId,
+        totalCount: accountsToCreate.length
+      });
+
+      progress.batchStarted({
+        sessionId,
+        batchERC,
+        batchId: submission.batchId,
+        totalItems: accountsToCreate.length,
+        entityType: 'accounts',
+        operation: 'generate',
+        correlationId: config.correlationId,
+      });
+
+      logger.info('Account creation batch submitted.', {
+        sessionId,
+        batchERC,
+        count: accountsToCreate.length,
+      });
+    } catch (error) {
+      logger.error('Failed execution of accounts creation step', {
+        sessionId,
+        error: error.message,
+      });
+      // Try to find if we created a batch record and mark it failed, 
+      // otherwise create a generic failure batch for this step.
+      await persistence.createBatch({
+        erc: createERC(ERC_PREFIX.BATCH),
+        sessionId,
+        stepKey: 'accounts',
+        status: 'FAILED',
+      });
     }
-
-    await persistence.createBatch({
-      erc: batchERC,
-      sessionId,
-      stepKey: 'accounts',
-      status: 'PREPARED',
-    });
-
-    const submission = await liferay.createAccountsBatch(config, accountsToCreate, {
-      externalReferenceCode: batchERC,
-      sessionId,
-    });
-
-    await persistence.updateBatch(batchERC, { 
-      status: 'SUBMITTED',
-      downstreamBatchId: submission.batchId,
-      totalCount: accountsToCreate.length
-    });
-
-    progress.batchStarted({
-      sessionId,
-      batchERC,
-      batchId: submission.batchId,
-      totalItems: accountsToCreate.length,
-      entityType: 'accounts',
-      operation: 'generate',
-      correlationId: config.correlationId,
-    });
-
-    logger.info('Account creation batch submitted.', {
-      sessionId,
-      batchERC,
-      count: accountsToCreate.length,
-    });
   }
 
   async _runAddressCreationStep(sessionId) {
-    const { persistence } = this.ctx;
+    const { logger, persistence } = this.ctx;
     const session = await persistence.getSession(sessionId);
-    await this.startPostalAddressesBatch({
-      sessionId,
-      session: session.context,
-      correlationId: session.context.config.correlationId,
-    });
+    try {
+      await this.startPostalAddressesBatch({
+        sessionId,
+        session: session.context,
+        correlationId: session.context.config.correlationId,
+      });
+    } catch (error) {
+      logger.error('Failed execution of postal-addresses step', {
+        sessionId,
+        error: error.message,
+      });
+      await persistence.createBatch({
+        erc: createERC(ERC_PREFIX.BATCH),
+        sessionId,
+        stepKey: 'postal-addresses',
+        status: 'FAILED',
+      });
+    }
   }
 
   validateConfig(config) {
@@ -359,6 +410,12 @@ class AccountGenerator {
 
     if (!addressesToCreate || addressesToCreate.length === 0) {
       logger.info('No addresses to create. Skipping step.', { sessionId });
+      await persistence.createBatch({
+        erc: createERC(ERC_PREFIX.BATCH),
+        sessionId,
+        stepKey: 'postal-addresses',
+        status: 'BYPASSED',
+      });
       return;
     }
 
@@ -366,6 +423,8 @@ class AccountGenerator {
     const accounts = accountsResult?.items || [];
 
     logger.debug(`Found ${accounts.length} accounts`);
+
+    let startedAny = false;
 
     for (const account of accounts) {
       const addressesForAccount = addressesToCreate
@@ -398,6 +457,7 @@ class AccountGenerator {
                 stepKey: 'postal-addresses',
                 status: 'SYNCHRONOUS',
             });
+            startedAny = true;
             continue;
         }
 
@@ -440,11 +500,21 @@ class AccountGenerator {
           accountId: account.id,
           count: addressesForAccount.length,
         });
+        startedAny = true;
       } else{
         logger.debug('No addresses to create for account', {
           accountERC: account.externalReferenceCode
         });
       }
+    }
+
+    if (!startedAny) {
+      await persistence.createBatch({
+        erc: createERC(ERC_PREFIX.BATCH),
+        sessionId,
+        stepKey: 'postal-addresses',
+        status: 'SYNCHRONOUS',
+      });
     }
   }
 
@@ -489,109 +559,123 @@ class AccountGenerator {
     const { config, options, accountsToCreate, addressesToCreate } = session.context;
 
     logger.info('Starting set billing and shipping addresses step', { sessionId });
-    if ((!accountsToCreate || accountsToCreate.length === 0) && (!addressesToCreate || addressesToCreate.length === 0)) {
-      logger.info('No accounts or addresses to set. Skipping step.', { sessionId });
-      await persistence.createBatch({
-        erc: createERC(ERC_PREFIX.BATCH),
-        sessionId,
-        stepKey: 'set-billing-and-shipping-addresses',
-        status: 'BYPASSED',
-      });
-      return;
-    }
-
-    if (options.dryRun) {
-        logger.info('DRY RUN: Skipping set billing and shipping addresses step.');
-        await persistence.createBatch({
-            erc: createERC(ERC_PREFIX.BATCH),
-            sessionId,
-            stepKey: 'set-billing-and-shipping-addresses',
-            status: 'BYPASSED',
-        });
-        return;
-    }
-
-    const addressErcs = addressesToCreate.map(address => address.externalReferenceCode);
-    const accountErcs = accountsToCreate.map(account => account.externalReferenceCode);
     
-    let addressMap = new Map();
-    let accountMap = new Map();
-
     try {
-        const [liferayAddresses, liferayAccounts] = await Promise.all([
-            liferay.getPostalAddressesByERC(config, addressErcs),
-            liferay.getAccountsByERC(config, accountErcs, ['id', 'externalReferenceCode'])
-        ]);
-
-        (liferayAddresses || []).forEach(address => {
-            if (address && address.externalReferenceCode) {
-                addressMap.set(address.externalReferenceCode, address);
-            }
-        });
-
-        (liferayAccounts || []).forEach(account => {
-            if (account && account.externalReferenceCode) {
-                accountMap.set(account.externalReferenceCode, account);
-            }
-        });
-
-    } catch (error) {
-        logger.error(`Failed to fetch accounts or postal addresses in batch`, { error: error.message, sessionId });
+      if ((!accountsToCreate || accountsToCreate.length === 0) && (!addressesToCreate || addressesToCreate.length === 0)) {
+        logger.info('No accounts or addresses to set. Skipping step.', { sessionId });
         await persistence.createBatch({
           erc: createERC(ERC_PREFIX.BATCH),
           sessionId,
           stepKey: 'set-billing-and-shipping-addresses',
-          status: 'FAILED',
+          status: 'BYPASSED',
         });
         return;
-    }
-
-    for (const account of accountsToCreate) {
-      try {
-        const liferayAccount = accountMap.get(account.externalReferenceCode);
-
-        if (!liferayAccount) {
-            logger.warn(`Could not find created account for ERC ${account.externalReferenceCode || 'N/A'}. Skipping address association.`, { sessionId });
-            continue;
-        }
-
-        const shippingAddressErc = addressesToCreate.find(
-          (address) =>
-            address.accountERC === account.externalReferenceCode &&
-            address.addressType === 'shipping'
-        )?.externalReferenceCode;
-
-        const liferayShippingAddress = shippingAddressErc ? addressMap.get(shippingAddressErc) : undefined;
-
-        const billingAddressErc = addressesToCreate.find(
-          (address) =>
-            address.accountERC === account.externalReferenceCode &&
-            address.addressType === 'billing'
-        )?.externalReferenceCode;
-        
-        const liferayBillingAddress = billingAddressErc ? addressMap.get(billingAddressErc) : undefined;
-
-        if (liferayShippingAddress || liferayBillingAddress) {
-          await liferay.setBillingAndShippingAddresses(
-            config,
-            liferayAccount.id,
-            liferayShippingAddress?.id,
-            liferayBillingAddress?.id
-          );
-        }
-      } catch (error) {
-        logger.error(`Failed to set addresses for account ${account.externalReferenceCode}`, { error: error.message, sessionId });
       }
+
+      if (options.dryRun) {
+          logger.info('DRY RUN: Skipping set billing and shipping addresses step.');
+          await persistence.createBatch({
+              erc: createERC(ERC_PREFIX.BATCH),
+              sessionId,
+              stepKey: 'set-billing-and-shipping-addresses',
+              status: 'BYPASSED',
+          });
+          return;
+      }
+
+      const addressErcs = addressesToCreate.map(address => address.externalReferenceCode);
+      const accountErcs = accountsToCreate.map(account => account.externalReferenceCode);
+      
+      let addressMap = new Map();
+      let accountMap = new Map();
+
+      try {
+          const [liferayAddresses, liferayAccounts] = await Promise.all([
+              liferay.getPostalAddressesByERC(config, addressErcs),
+              liferay.getAccountsByERC(config, accountErcs, ['id', 'externalReferenceCode'])
+          ]);
+
+          (liferayAddresses || []).forEach(address => {
+              if (address && address.externalReferenceCode) {
+                  addressMap.set(address.externalReferenceCode, address);
+              }
+          });
+
+          (liferayAccounts || []).forEach(account => {
+              if (account && account.externalReferenceCode) {
+                  accountMap.set(account.externalReferenceCode, account);
+              }
+          });
+
+      } catch (error) {
+          logger.error(`Failed to fetch accounts or postal addresses in batch`, { error: error.message, sessionId });
+          await persistence.createBatch({
+            erc: createERC(ERC_PREFIX.BATCH),
+            sessionId,
+            stepKey: 'set-billing-and-shipping-addresses',
+            status: 'FAILED',
+          });
+          return;
+      }
+
+      for (const account of accountsToCreate) {
+        try {
+          const liferayAccount = accountMap.get(account.externalReferenceCode);
+
+          if (!liferayAccount) {
+              logger.warn(`Could not find created account for ERC ${account.externalReferenceCode || 'N/A'}. Skipping address association.`, { sessionId });
+              continue;
+          }
+
+          const shippingAddressErc = addressesToCreate.find(
+            (address) =>
+              address.accountERC === account.externalReferenceCode &&
+              address.addressType === 'shipping'
+          )?.externalReferenceCode;
+
+          const liferayShippingAddress = shippingAddressErc ? addressMap.get(shippingAddressErc) : undefined;
+
+          const billingAddressErc = addressesToCreate.find(
+            (address) =>
+              address.accountERC === account.externalReferenceCode &&
+              address.addressType === 'billing'
+          )?.externalReferenceCode;
+          
+          const liferayBillingAddress = billingAddressErc ? addressMap.get(billingAddressErc) : undefined;
+
+          if (liferayShippingAddress || liferayBillingAddress) {
+            await liferay.setBillingAndShippingAddresses(
+              config,
+              liferayAccount.id,
+              liferayShippingAddress?.id,
+              liferayBillingAddress?.id
+            );
+          }
+        } catch (error) {
+          logger.error(`Failed to set addresses for account ${account.externalReferenceCode}`, { error: error.message, sessionId });
+        }
+      }
+
+      logger.info('Set billing and shipping addresses step complete', { sessionId });
+
+      await persistence.createBatch({
+        erc: createERC(ERC_PREFIX.BATCH),
+        sessionId,
+        stepKey: 'set-billing-and-shipping-addresses',
+        status: 'SYNCHRONOUS',
+      });
+    } catch (error) {
+      logger.error('Failed execution of set-billing-and-shipping-addresses step', {
+        sessionId,
+        error: error.message,
+      });
+      await persistence.createBatch({
+        erc: createERC(ERC_PREFIX.BATCH),
+        sessionId,
+        stepKey: 'set-billing-and-shipping-addresses',
+        status: 'FAILED',
+      });
     }
-
-    logger.info('Set billing and shipping addresses step complete', { sessionId });
-
-    await persistence.createBatch({
-      erc: createERC(ERC_PREFIX.BATCH),
-      sessionId,
-      stepKey: 'set-billing-and-shipping-addresses',
-      status: 'SYNCHRONOUS',
-    });
   }
 
   async getExistingAccounts(config) {

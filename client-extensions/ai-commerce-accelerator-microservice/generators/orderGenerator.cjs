@@ -63,46 +63,59 @@ class OrderGenerator {
 
     logger.info('Starting order data generation step', { sessionId });
 
-    this.validateConfig(config);
-    await this.validateOptions(config, options);
+    try {
+      this.validateConfig(config);
+      await this.validateOptions(config, options);
 
-    const { products, accounts } = await this.getProductsAndAccounts(config);
+      const { products, accounts } = await this.getProductsAndAccounts(config);
 
-    let orderDataList;
-    if (options.demoMode) {
-      orderDataList = mockData.generateOrderData(
-        options.orderCount,
-        {},
-        accounts
-      );
-    } else {
-      orderDataList = await ai.generateOrderData(
+      let orderDataList;
+      if (options.demoMode) {
+        orderDataList = mockData.generateOrderData(
+          options.orderCount,
+          {},
+          accounts
+        );
+      } else {
+        orderDataList = await ai.generateOrderData(
+          products,
+          accounts,
+          options.orderCount,
+          config,
+          config.aiModel
+        );
+      }
+
+      await persistence.updateSessionContext(sessionId, {
+        ...session.context,
+        orderDataList,
         products,
         accounts,
-        options.orderCount,
-        config,
-        config.aiModel
-      );
+      });
+
+      logger.info('Order data generation step complete', {
+        sessionId,
+        orderCount: orderDataList.length,
+      });
+
+      await persistence.createBatch({
+        erc: createERC(ERC_PREFIX.BATCH),
+        sessionId,
+        stepKey: 'order-data-generation',
+        status: 'SYNCHRONOUS',
+      });
+    } catch (error) {
+      logger.error('Failed execution of order-data-generation step', {
+        sessionId,
+        error: error.message,
+      });
+      await persistence.createBatch({
+        erc: createERC(ERC_PREFIX.BATCH),
+        sessionId,
+        stepKey: 'order-data-generation',
+        status: 'FAILED',
+      });
     }
-
-    await persistence.updateSessionContext(sessionId, {
-      ...session.context,
-      orderDataList,
-      products,
-      accounts,
-    });
-
-    logger.info('Order data generation step complete', {
-      sessionId,
-      orderCount: orderDataList.length,
-    });
-
-    await persistence.createBatch({
-      erc: createERC(ERC_PREFIX.BATCH),
-      sessionId,
-      stepKey: 'order-data-generation',
-      status: 'SYNCHRONOUS',
-    });
   }
 
   async _runOrderCreationStep(sessionId) {
@@ -113,25 +126,93 @@ class OrderGenerator {
 
     logger.info('Starting order creation step', { sessionId });
 
-    const batchSize = Math.max(1, parseInt(config.batchSize, 10) || 1);
-    const useBatch = batchSize > 1 && options.orderCount > 1;
+    try {
+      const batchSize = Math.max(1, parseInt(config.batchSize, 10) || 1);
+      const useBatch = batchSize > 1 && options.orderCount > 1;
 
-    if (useBatch) {
-      const chunks = [];
-      for (let i = 0; i < orderDataList.length; i += batchSize) {
-        chunks.push(orderDataList.slice(i, i + batchSize));
-      }
+      if (useBatch) {
+        const chunks = [];
+        for (let i = 0; i < orderDataList.length; i += batchSize) {
+          chunks.push(orderDataList.slice(i, i + batchSize));
+        }
 
-      if (options.dryRun) {
-        logger.info('DRY RUN: Skipping order creation batch submission.');
-        for (const originalBatch of chunks) {
-          const batch = originalBatch.map((od) => this.buildOrderPayload(config, od, accounts, products, warehouses));
+        if (options.dryRun) {
+          logger.info('DRY RUN: Skipping order creation batch submission.');
+          for (const originalBatch of chunks) {
+            const batch = originalBatch.map((od) => this.buildOrderPayload(config, od, accounts, products, warehouses));
+            const batchERC = createERC(ERC_PREFIX.ORDER_BATCH);
+            logger.info({
+                dryRunData: {
+                    step: 'orders',
+                    count: batch.length,
+                    payload: batch,
+                },
+            });
+            await persistence.createBatch({
+                erc: batchERC,
+                sessionId,
+                stepKey: 'orders',
+                status: 'SYNCHRONOUS',
+            });
+          }
+          return;
+        }
+
+        for (let batchIndex = 0; batchIndex < chunks.length; batchIndex++) {
+          const originalBatch = chunks[batchIndex];
+
+          const batch = originalBatch.map((od) =>
+            this.buildOrderPayload(
+              config,
+              od,
+              accounts,
+              products,
+              warehouses
+            )
+          );
+
+          const batchERC = createERC(ERC_PREFIX.ORDER_BATCH);
+
+          await persistence.createBatch({
+            erc: batchERC,
+            sessionId,
+            stepKey: 'orders',
+            status: 'PREPARED',
+          });
+
+          const submission = await liferay.createOrdersBatch(config, batch, {
+            externalReferenceCode: batchERC,
+          });
+
+          await persistence.updateBatch(batchERC, {
+            status: 'SUBMITTED',
+            downstreamBatchId: submission.batchId,
+          });
+
+          progress.batchStarted(
+            {
+              batchId: submission.batchId,
+              entityType: 'orders',
+              totalItems: batch.length,
+              batchERC: batchERC,
+            },
+            { correlationId: config.correlationId }
+          );
+
+          logger.info('Orders batch submission completed', {
+            batchId: submission.batchId,
+            orderCount: batch.length,
+          });
+        }
+      } else {
+        if (options.dryRun) {
+          logger.info('DRY RUN: Skipping individual order creation.');
           const batchERC = createERC(ERC_PREFIX.ORDER_BATCH);
           logger.info({
               dryRunData: {
                   step: 'orders',
-                  count: batch.length,
-                  payload: batch,
+                  count: orderDataList.length,
+                  payload: orderDataList.map((od) => this.buildOrderPayload(config, od, accounts, products, warehouses)),
               },
           });
           await persistence.createBatch({
@@ -140,82 +221,27 @@ class OrderGenerator {
               stepKey: 'orders',
               status: 'SYNCHRONOUS',
           });
+          return;
         }
-        return;
-      }
-
-      for (let batchIndex = 0; batchIndex < chunks.length; batchIndex++) {
-        const originalBatch = chunks[batchIndex];
-
-        const batch = originalBatch.map((od) =>
-          this.buildOrderPayload(
-            config,
-            od,
-            accounts,
-            products,
-            warehouses
-          )
+        await this.generateOrdersIndividually(
+          config,
+          options,
+          orderDataList,
+          accounts,
+          products
         );
-
-        const batchERC = createERC(ERC_PREFIX.ORDER_BATCH);
-
-        await persistence.createBatch({
-          erc: batchERC,
-          sessionId,
-          stepKey: 'orders',
-          status: 'PREPARED',
-        });
-
-        const submission = await liferay.createOrdersBatch(config, batch, {
-          externalReferenceCode: batchERC,
-        });
-
-        await persistence.updateBatch(batchERC, {
-          status: 'SUBMITTED',
-          downstreamBatchId: submission.batchId,
-        });
-
-        progress.batchStarted(
-          {
-            batchId: submission.batchId,
-            entityType: 'orders',
-            totalItems: batch.length,
-            batchERC: batchERC,
-          },
-          { correlationId: config.correlationId }
-        );
-
-        logger.info('Orders batch submission completed', {
-          batchId: submission.batchId,
-          orderCount: batch.length,
-        });
       }
-    } else {
-      if (options.dryRun) {
-        logger.info('DRY RUN: Skipping individual order creation.');
-        const batchERC = createERC(ERC_PREFIX.ORDER_BATCH);
-        logger.info({
-            dryRunData: {
-                step: 'orders',
-                count: orderDataList.length,
-                payload: orderDataList.map((od) => this.buildOrderPayload(config, od, accounts, products, warehouses)),
-            },
-        });
-        await persistence.createBatch({
-            erc: batchERC,
-            sessionId,
-            stepKey: 'orders',
-            status: 'SYNCHRONOUS',
-        });
-        return;
-      }
-      await this.generateOrdersIndividually(
-        config,
-        options,
-        orderDataList,
-        accounts,
-        products
-      );
+    } catch (error) {
+      logger.error('Failed execution of orders creation step', {
+        sessionId,
+        error: error.message,
+      });
+      await persistence.createBatch({
+        erc: createERC(ERC_PREFIX.BATCH),
+        sessionId,
+        stepKey: 'orders',
+        status: 'FAILED',
+      });
     }
   }
 

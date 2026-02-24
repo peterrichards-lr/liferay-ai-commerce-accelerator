@@ -281,48 +281,63 @@ class ProductGenerator {
 
     logger.info('Starting product options linking step', { sessionId });
 
-    const productsWithMissingOptions = (productDataList || []).filter(
-      (p) => p.id && p.productOptions?.length > 0
-    );
-
-    if (productsWithMissingOptions.length > 0) {
-      logger.info(
-        `Linking options for ${productsWithMissingOptions.length} products`,
-        { sessionId }
+    try {
+      const productsWithMissingOptions = (productDataList || []).filter(
+        (p) => p.id && p.productOptions?.length > 0
       );
-      
-      for (const product of productsWithMissingOptions) {
-        try {
-          // Link all options for this product
-          // The productOptions were already built in _generateProductData
-          
-          // Strip internal/read-only properties before sending to Liferay
-          const cleanedOptions = product.productOptions.map((opt) => {
-            const cleanOpt = { ...opt };
-            delete cleanOpt.id;
-            delete cleanOpt.__catalogOption;
-            return cleanOpt;
-          });
 
-          await liferay.addProductOptions(config, product.id, cleanedOptions);
-          logger.trace(`Linked ${cleanedOptions.length} options to product ${product.id}`, { sessionId });
-        } catch (error) {
-          logger.error(`Failed to link options for product ${product.id}`, {
-            sessionId,
-            error: error.message,
-          });
+      if (productsWithMissingOptions.length > 0) {
+        logger.info(
+          `Linking options for ${productsWithMissingOptions.length} products`,
+          { sessionId }
+        );
+        
+        for (const product of productsWithMissingOptions) {
+          try {
+            // Link all options for this product
+            // The productOptions were already built in _generateProductData
+            
+            // Strip internal/read-only properties before sending to Liferay
+            const cleanedOptions = product.productOptions.map((opt) => {
+              const cleanOpt = { ...opt };
+              delete cleanOpt.id;
+              delete cleanOpt.__catalogOption;
+              return cleanOpt;
+            });
+
+            await liferay.addProductOptions(config, product.id, cleanedOptions);
+            logger.trace(`Linked ${cleanedOptions.length} options to product ${product.id}`, { sessionId });
+          } catch (error) {
+            logger.error(`Failed to link options for product ${product.id}`, {
+              sessionId,
+              error: error.message,
+            });
+            // Individual product failure doesn't necessarily fail the whole step, 
+            // but we log it.
+          }
         }
+      } else {
+        logger.info('No products require option linking.', { sessionId });
       }
-    } else {
-      logger.info('No products require option linking.', { sessionId });
-    }
 
-    await persistence.createBatch({
-      erc: createERC(ERC_PREFIX.BATCH),
-      sessionId,
-      stepKey: 'link-product-options',
-      status: 'SYNCHRONOUS',
-    });
+      await persistence.createBatch({
+        erc: createERC(ERC_PREFIX.BATCH),
+        sessionId,
+        stepKey: 'link-product-options',
+        status: 'SYNCHRONOUS',
+      });
+    } catch (error) {
+      logger.error('Failed execution of link-product-options step', {
+        sessionId,
+        error: error.message,
+      });
+      await persistence.createBatch({
+        erc: createERC(ERC_PREFIX.BATCH),
+        sessionId,
+        stepKey: 'link-product-options',
+        status: 'FAILED',
+      });
+    }
   }
 
   async _runProductSkusStep(sessionId) {
@@ -1079,33 +1094,46 @@ class ProductGenerator {
 
     logger.info('Starting attach images step', { sessionId });
 
-    const withImages = (productDataList || []).filter(
-      (p) => p.images?.length > 0
-    );
-
-    if (withImages.length > 0) {
-      logger.info(
-        `Processing ${withImages.length} products with image attachments`,
-        { sessionId }
+    try {
+      const withImages = (productDataList || []).filter(
+        (p) => p.images?.length > 0
       );
-      try {
-        await media.createImages(config, withImages, options);
-      } catch (error) {
-        logger.error('Failed to process image attachments', {
-          sessionId,
-          error: error.message,
-        });
-      }
-    } else {
-      logger.info('No images to attach for this session.', { sessionId });
-    }
 
-    await persistence.createBatch({
-      erc: createERC(ERC_PREFIX.BATCH),
-      sessionId,
-      stepKey: 'attach-images',
-      status: 'SYNCHRONOUS',
-    });
+      if (withImages.length > 0) {
+        logger.info(
+          `Processing ${withImages.length} products with image attachments`,
+          { sessionId }
+        );
+        try {
+          await media.createImages(config, withImages, options);
+        } catch (error) {
+          logger.error('Failed to process image attachments', {
+            sessionId,
+            error: error.message,
+          });
+        }
+      } else {
+        logger.info('No images to attach for this session.', { sessionId });
+      }
+
+      await persistence.createBatch({
+        erc: createERC(ERC_PREFIX.BATCH),
+        sessionId,
+        stepKey: 'attach-images',
+        status: 'SYNCHRONOUS',
+      });
+    } catch (error) {
+      logger.error('Failed execution of attach-images step', {
+        sessionId,
+        error: error.message,
+      });
+      await persistence.createBatch({
+        erc: createERC(ERC_PREFIX.BATCH),
+        sessionId,
+        stepKey: 'attach-images',
+        status: 'FAILED',
+      });
+    }
   }
 
   async _runAttachPdfsStep(sessionId) {
@@ -1115,33 +1143,46 @@ class ProductGenerator {
 
     logger.info('Starting attach PDFs step', { sessionId });
 
-    const withPdfs = (productDataList || []).filter(
-      (p) => p.attachments?.length > 0
-    );
-
-    if (withPdfs.length > 0) {
-      logger.info(
-        `Processing ${withPdfs.length} products with PDF attachments`,
-        { sessionId }
+    try {
+      const withPdfs = (productDataList || []).filter(
+        (p) => p.attachments?.length > 0
       );
-      try {
-        await media.createPdfs(config, withPdfs, options);
-      } catch (error) {
-        logger.error('Failed to process PDF attachments', {
-          sessionId,
-          error: error.message,
-        });
-      }
-    } else {
-      logger.info('No PDFs to attach for this session.', { sessionId });
-    }
 
-    await persistence.createBatch({
-      erc: createERC(ERC_PREFIX.BATCH),
-      sessionId,
-      stepKey: 'attach-pdfs',
-      status: 'SYNCHRONOUS',
-    });
+      if (withPdfs.length > 0) {
+        logger.info(
+          `Processing ${withPdfs.length} products with PDF attachments`,
+          { sessionId }
+        );
+        try {
+          await media.createPdfs(config, withPdfs, options);
+        } catch (error) {
+          logger.error('Failed to process PDF attachments', {
+            sessionId,
+            error: error.message,
+          });
+        }
+      } else {
+        logger.info('No PDFs to attach for this session.', { sessionId });
+      }
+
+      await persistence.createBatch({
+        erc: createERC(ERC_PREFIX.BATCH),
+        sessionId,
+        stepKey: 'attach-pdfs',
+        status: 'SYNCHRONOUS',
+      });
+    } catch (error) {
+      logger.error('Failed execution of attach-pdfs step', {
+        sessionId,
+        error: error.message,
+      });
+      await persistence.createBatch({
+        erc: createERC(ERC_PREFIX.BATCH),
+        sessionId,
+        stepKey: 'attach-pdfs',
+        status: 'FAILED',
+      });
+    }
   }
 
   async _runUpdateInventoryStep(sessionId) {
@@ -1151,229 +1192,166 @@ class ProductGenerator {
 
     logger.info('Starting update inventory step (via batch UPSERT)', { sessionId });
 
-    if (options.createWarehouses || (options.warehouses && options.warehouses.length > 0)) {
-      try {
-        const warehouses = options.warehouses || [];
-        
-        // Group items by warehouse and deduplicate by inventoryERC
-        // Map<warehouseERC, Map<inventoryERC, item>>
-        const inventoryByWarehouse = new Map();
+    try {
+      const assignmentRatio = options.inventoryAssignmentRatio !== undefined ? parseFloat(options.inventoryAssignmentRatio) : 100;
+      const minQty = options.inventoryMin !== undefined ? parseInt(options.inventoryMin, 10) : 10;
+      const maxQty = options.inventoryMax !== undefined ? parseInt(options.inventoryMax, 10) : 100;
 
-        for (const product of productDataList) {
-          // Prioritize variants, fallback to base SKU
-          const sourceSkus = (product.skus && product.skus.length > 0)
-            ? product.skus
-            : (product.sku || product.baseSku)
-              ? [{ sku: product.sku || product.baseSku, quantity: product.quantity || product.inventoryLevel || 100 }]
-              : [];
+      if (options.createWarehouses || (options.warehouses && options.warehouses.length > 0)) {
+        try {
+          const warehouses = options.warehouses || [];
+          
+          // Group items by warehouse and deduplicate by inventoryERC
+          // Map<warehouseERC, Map<inventoryERC, item>>
+          const inventoryByWarehouse = new Map();
 
-          if (sourceSkus.length === 0) continue;
-
-          for (const warehouse of warehouses) {
-            const warehouseERC = warehouse.externalReferenceCode || warehouse.erc;
-            if (!warehouseERC) {
-              logger.warn('Skipping warehouse with missing ERC', { warehouseId: warehouse.id });
+          for (const product of productDataList) {
+            // Apply assignment ratio check per product
+            if (assignmentRatio < 100 && Math.random() * 100 > assignmentRatio) {
               continue;
             }
 
-            if (!inventoryByWarehouse.has(warehouseERC)) {
-              inventoryByWarehouse.set(warehouseERC, new Map());
-            }
+            // Prioritize variants, fallback to base SKU
+            const sourceSkus = (product.skus && product.skus.length > 0)
+              ? product.skus
+              : (product.sku || product.baseSku)
+                ? [{ sku: product.sku || product.baseSku, quantity: product.quantity || product.inventoryLevel }]
+                : [];
 
-            const warehouseItemsMap = inventoryByWarehouse.get(warehouseERC);
+            if (sourceSkus.length === 0) continue;
 
-            for (const skuItem of sourceSkus) {
-              if (!skuItem.sku) continue;
+            for (const warehouse of warehouses) {
+              const warehouseERC = warehouse.externalReferenceCode || warehouse.erc;
+              if (!warehouseERC) {
+                logger.warn('Skipping warehouse with missing ERC', { warehouseId: warehouse.id });
+                continue;
+              }
 
-              const qty = skuItem.quantity || skuItem.inventoryLevel || 100;
-              const inventoryERC = `AICA-INV-${sanitizeForERC(warehouseERC, { max: 50, preserveUnderscore: true })}-${sanitizeForERC(skuItem.sku, { max: 50, preserveUnderscore: true })}`;
-              
-              if (warehouseItemsMap.has(inventoryERC)) {
-                // Sum quantities for duplicates to ensure total count is preserved
-                const existing = warehouseItemsMap.get(inventoryERC);
-                existing.quantity = (existing.quantity || 0) + qty;
-              } else {
-                warehouseItemsMap.set(inventoryERC, {
-                  externalReferenceCode: inventoryERC,
-                  sku: skuItem.sku,
-                  warehouseExternalReferenceCode: warehouseERC,
-                  quantity: qty,
-                });
+              if (!inventoryByWarehouse.has(warehouseERC)) {
+                inventoryByWarehouse.set(warehouseERC, new Map());
+              }
+
+              const warehouseItemsMap = inventoryByWarehouse.get(warehouseERC);
+
+              for (const skuItem of sourceSkus) {
+                if (!skuItem.sku) continue;
+
+                let qty = skuItem.quantity || skuItem.inventoryLevel;
+                
+                if (qty === undefined || qty === null) {
+                  // Generate random quantity within range
+                  qty = Math.floor(Math.random() * (maxQty - minQty + 1)) + minQty;
+                }
+
+                const inventoryERC = `AICA-INV-${sanitizeForERC(warehouseERC, { max: 50, preserveUnderscore: true })}-${sanitizeForERC(skuItem.sku, { max: 50, preserveUnderscore: true })}`;
+                
+                if (warehouseItemsMap.has(inventoryERC)) {
+                  // Sum quantities for duplicates to ensure total count is preserved
+                  const existing = warehouseItemsMap.get(inventoryERC);
+                  existing.quantity = (existing.quantity || 0) + qty;
+                } else {
+                  warehouseItemsMap.set(inventoryERC, {
+                    externalReferenceCode: inventoryERC,
+                    sku: skuItem.sku,
+                    warehouseExternalReferenceCode: warehouseERC,
+                    quantity: qty,
+                  });
+                }
               }
             }
           }
-        }
 
-        if (inventoryByWarehouse.size > 0) {
-          logger.info(`Submitting batch inventory updates for ${inventoryByWarehouse.size} warehouses`, { sessionId });
+          if (inventoryByWarehouse.size > 0) {
+            logger.info(`Submitting batch inventory updates for ${inventoryByWarehouse.size} warehouses`, { sessionId });
 
-          for (const [warehouseERC, itemsMap] of inventoryByWarehouse.entries()) {
-            const items = Array.from(itemsMap.values());
-            const batchERC = createERC(ERC_PREFIX.INVENTORY_BATCH);
-            
-            // Find the warehouse object to get its ID
-            const warehouse = warehouses.find(w => (w.externalReferenceCode || w.erc) === warehouseERC);
-            
-            if (!warehouse) {
-              logger.error(`Could not find warehouse with ERC ${warehouseERC} for inventory update`, { sessionId });
-              continue;
-            }
+            for (const [warehouseERC, itemsMap] of inventoryByWarehouse.entries()) {
+              const items = Array.from(itemsMap.values());
+              const batchERC = createERC(ERC_PREFIX.INVENTORY_BATCH);
+              
+              // Find the warehouse object to get its ID
+              const warehouse = warehouses.find(w => (w.externalReferenceCode || w.erc) === warehouseERC);
+              
+              if (!warehouse) {
+                logger.error(`Could not find warehouse with ERC ${warehouseERC} for inventory update`, { sessionId });
+                continue;
+              }
 
-            await persistence.createBatch({
-              erc: batchERC,
-              sessionId,
-              stepKey: 'update-inventory',
-              status: 'prepared',
-            });
-
-            if (options.dryRun) {
-              logger.info(`DRY RUN: Skipping inventory batch submission for warehouse ${warehouseERC}.`);
-              await persistence.updateBatch(batchERC, { status: 'SYNCHRONOUS' });
-              continue;
-            }
-
-            const result = await liferay.createWarehouseItemsBatch(config, items, {
-              externalReferenceCode: batchERC,
-              warehouseExternalReferenceCode: warehouseERC,
-              warehouseId: warehouse.id,
-              sessionId,
-            });
-
-            if (result?.batchId) {
-              await persistence.updateBatch(batchERC, {
-                status: 'SUBMITTED',
-                downstreamBatchId: result.batchId,
-              });
-
-              progress.batchStarted({
+              await persistence.createBatch({
+                erc: batchERC,
                 sessionId,
-                batchERC,
-                batchId: result.batchId,
-                totalItems: items.length,
-                entityType: 'inventory',
-                operation: 'generate',
+                stepKey: 'update-inventory',
+                status: 'prepared',
               });
-            } else {
-              logger.error(`Failed to submit inventory batch for warehouse ${warehouseERC}`, { sessionId, batchERC });
-              await persistence.updateBatch(batchERC, { status: 'FAILED' });
+
+              if (options.dryRun) {
+                logger.info(`DRY RUN: Skipping inventory batch submission for warehouse ${warehouseERC}.`);
+                await persistence.updateBatch(batchERC, { status: 'SYNCHRONOUS' });
+                continue;
+              }
+
+              const result = await liferay.createWarehouseItemsBatch(config, items, {
+                externalReferenceCode: batchERC,
+                warehouseExternalReferenceCode: warehouseERC,
+                warehouseId: warehouse.id,
+                sessionId,
+              });
+
+              if (result?.batchId) {
+                await persistence.updateBatch(batchERC, {
+                  status: 'SUBMITTED',
+                  downstreamBatchId: result.batchId,
+                });
+
+                progress.batchStarted({
+                  sessionId,
+                  batchERC,
+                  batchId: result.batchId,
+                  totalItems: items.length,
+                  entityType: 'inventory',
+                  operation: 'generate',
+                });
+              } else {
+                logger.error(`Failed to submit inventory batch for warehouse ${warehouseERC}`, { sessionId, batchERC });
+                await persistence.updateBatch(batchERC, { status: 'FAILED' });
+              }
             }
+          } else {
+            logger.info('No inventory items to update.', { sessionId });
           }
-        } else {
-          logger.info('No inventory items to update.', { sessionId });
+        } catch (error) {
+          logger.error('Failed to update inventory batch', {
+            sessionId,
+            error: error.message,
+          });
+          // Non-critical error within the warehouse loop, but we log it.
         }
-      } catch (error) {
-        logger.error('Failed to update inventory batch', {
+      } else {
+        logger.info('Skipping inventory update.', { sessionId });
+      }
+
+      // Only create a synchronous batch marker if NO other batches were created for this step.
+      const stepBatches = await persistence.getBatchesForSession(sessionId);
+      const hasRealBatches = stepBatches.some(b => b.step_key === 'update-inventory');
+
+      if (!hasRealBatches) {
+        await persistence.createBatch({
+          erc: createERC(ERC_PREFIX.BATCH),
           sessionId,
-          error: error.message,
+          stepKey: 'update-inventory',
+          status: 'SYNCHRONOUS',
         });
       }
-    } else {
-      logger.info('Skipping inventory update.', { sessionId });
-    }
-
-    // Only create a synchronous batch marker if NO other batches were created for this step.
-    const stepBatches = await persistence.getBatchesForSession(sessionId);
-    const hasRealBatches = stepBatches.some(b => b.step_key === 'update-inventory');
-
-    if (!hasRealBatches) {
+    } catch (error) {
+      logger.error('Failed execution of update-inventory step', {
+        sessionId,
+        error: error.message,
+      });
       await persistence.createBatch({
         erc: createERC(ERC_PREFIX.BATCH),
         sessionId,
         stepKey: 'update-inventory',
-        status: 'SYNCHRONOUS',
+        status: 'FAILED',
       });
-    }
-  }
-  
-  async onSessionComplete({ sessionId, session, correlationId }) {
-    const { logger, persistence, progress } = this.ctx;
-
-    const dbSession = await persistence.getSession(sessionId);
-
-    if (dbSession.status === 'completed' || dbSession.status === 'failed') {
-      return;
-    }
-
-    logger.info('Generation session complete', {
-      entityType: 'products',
-      operation: 'generate',
-      sessionId,
-      correlationId,
-    });
-
-    progress.sessionCompleted({
-      sessionId,
-      correlationId,
-    });
-
-    await persistence.updateSessionStatus(sessionId, 'completed');
-  }
-
-  async processImageAndPDFAttachments(
-    config,
-    productDataList,
-    options = {}
-  ) {
-    const { logger, liferay, media } = this.ctx;
-    const { sessionId } = options;
-    logger.info('Starting image and PDF attachment processing', {
-      sessionId,
-      productCount: productDataList.length,
-    });
-    const createdProducts = await liferay.getProducts(config);
-    if (!createdProducts || createdProducts.length === 0) {
-      logger.warn('No products found to process for attachments', {
-        sessionId,
-      });
-      return;
-    }
-    const ercToProductMap = new Map();
-    for (const product of createdProducts) {
-      ercToProductMap.set(product.externalReferenceCode, product);
-    }
-    const productsToProcess = productDataList
-      .map((originalProduct) => {
-        const createdProduct = ercToProductMap.get(
-          originalProduct.externalReferenceCode
-        );
-        if (createdProduct) {
-          return {
-            ...originalProduct,
-            id: createdProduct.id,
-          };
-        }
-        return null;
-      })
-      .filter(Boolean);
-    const withImages = productsToProcess.filter((p) => p.images?.length > 0);
-    const withPdfs = productsToProcess.filter((p) => p.attachments?.length > 0);
-    if (withImages.length > 0) {
-      logger.info(
-        `Processing ${withImages.length} products with image attachments`,
-        { sessionId }
-      );
-      try {
-        await media.createImages(config, withImages, options);
-      } catch (error) {
-        logger.error('Failed to process image attachments', {
-          sessionId,
-          error: error.message,
-        });
-      }
-    }
-    if (withPdfs.length > 0) {
-      logger.info(
-        `Processing ${withPdfs.length} products with PDF attachments`,
-        { sessionId }
-      );
-      try {
-        await media.createPdfs(config, withPdfs, options);
-      } catch (error) {
-        logger.error('Failed to process PDF attachments', {
-          sessionId,
-          error: error.message,
-        });
-      }
     }
   }
 

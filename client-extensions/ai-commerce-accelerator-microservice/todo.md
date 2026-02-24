@@ -311,30 +311,44 @@
 
 ## 11. Log-based Issues (Feb 24 Analysis)
 
-### [ ] Fix Product Option Linking (Schema Violation)
+### [x] Fix Product Option Linking (Schema Violation)
 **Analysis**: The `link-product-options` step fails with `400 Bad Request`.
-- **Root Cause**: The payload sent to `/o/headless-commerce-admin-catalog/v1.0/products/{productId}/productOptions` includes an internal `__catalogOption` property (a decoration used during data generation). Liferay's API strictly validates the DTO and rejects unrecognized fields.
-**Proposed Steps**:
-1. Review `ProductGenerator._runLinkProductOptionsStep`.
-2. Ensure that the mapping logic strips all internal properties (like `__catalogOption`) before calling the Liferay service.
+- **Root Cause**: The payload sent to `/o/headless-commerce-admin-catalog/v1.0/products/{productId}/productOptions` includes an internal `__catalogOption` property.
+**Result**: **FIXED**. Modified `ProductGenerator._runLinkProductOptionsStep` to strip internal and read-only properties (`id`, `__catalogOption`) before calling the Liferay service.
 
-### [ ] Fix Inventory Batch Duplication
+### [x] Fix Inventory Batch Duplication
 **Analysis**: The `update-inventory` step fails with `DuplicateCommerceInventoryWarehouseItemException`.
-- **Root Cause**: The batch payload contains multiple inventory records for the same SKU and Warehouse ERC (e.g., one entry with quantity 50 and another with 100). This occurs when the generation logic assigns a product to the same warehouse multiple times or fails to deduplicate SKUs.
-**Proposed Steps**:
-1. Update `ProductGenerator._runUpdateInventoryStep` to deduplicate inventory assignments.
-2. If multiple assignments exist for the same SKU/Warehouse, either sum the quantities or pick the latest one before building the batch payload.
+- **Root Cause**: The batch payload contains multiple inventory records for the same SKU and Warehouse ERC.
+**Result**: **FIXED**. Updated `ProductGenerator._runUpdateInventoryStep` to use a `Map` to deduplicate and sum quantities for the same SKU/Warehouse pair before building the batch payload.
 
-### [ ] Resolve Session Completion Race Condition
+### [x] Resolve Session Completion Race Condition
 **Analysis**: Multiple `Workflow session completed` events are emitted for a single session.
-- **Root Cause**: High-frequency callbacks from parallel steps (`attach-images`, `attach-pdfs`, `update-inventory`) trigger `BatchCallbackService._checkSessionCompletion` concurrently. If the session status update is not atomic or the local state is stale, multiple threads detect completion and emit events.
-**Proposed Steps**:
-1. Implement a mutex or atomic status check in `BatchCallbackService` to ensure the transition to `COMPLETED` happens exactly once.
-2. Verify that `current_steps` is cleared and the session status is updated in the database before emitting the final WebSocket events.
+- **Root Cause**: Redundant finalization logic in `ProductGenerator.onSessionComplete` used lowercase `'completed'`, which bypassed the atomic `tryFinalizeSession` check (expecting uppercase `'COMPLETED'`) in `BatchCallbackService`. This allowed multiple threads to transition the state and emit events.
+**Result**: **FIXED**. Removed the redundant `onSessionComplete` and `processImageAndPDFAttachments` methods from `ProductGenerator.cjs`, ensuring `BatchCallbackService` remains the sole authority for session finalization.
 
-### [ ] Enforce Workflow Failure Policy
+### [x] Enforce Workflow Failure Policy
 **Analysis**: A session was marked as `COMPLETED` even though the `update-inventory` step `FAILED`.
-- **Root Cause**: The orchestrator may be advancing the workflow or completing the session based on the *existence* of results rather than their *success*, or the parallel step coordinator is not correctly aggregating failure states.
+- **Root Cause**: `SYNCHRONOUS` steps (and some internal generator failures) log errors but do not record a `FAILED` batch/step in the database. The orchestrator only checks for the presence of `FAILED` records in the `workflow_batches` table.
+**Result**: **FIXED**. Wrapped synchronous step handlers in generators and delete handlers in the orchestrator with `try-catch` blocks that explicitly record a `FAILED` batch status in the database upon error.
+
+---
+
+## 12. Future Pricing Enhancements
+
+### [ ] Utilize `generatePriceLists` Flag
+**Analysis**: The `generatePriceLists` boolean is currently passed to generators but ignored. Price lists are essential for regional pricing and multi-currency support.
 **Proposed Steps**:
-1. Review `BatchCallbackService` logic for handling step failures.
-2. Ensure that if any mandatory step (or parallel sub-step) fails, the session is transitioned to `FAILED` instead of `COMPLETED`.
+1. Implement logic in `MockDataGenerator` and `AIService` to generate price list entries when the flag is enabled.
+2. Add a `generate-price-lists` step to `ProductGenerator.cjs` to handle batch submission of price entries.
+
+### [ ] Utilize `generateBulkPricing` Flag
+**Analysis**: The `generateBulkPricing` boolean is currently inactive. Bulk pricing allows for discounts based on order volume.
+**Proposed Steps**:
+1. Update generator logic to produce bulk pricing tiers when requested.
+2. Integrate with Liferay's pricing APIs to persist these tiers.
+
+### [ ] Utilize `generateTierPricing` Flag
+**Analysis**: The `generateTierPricing` boolean is currently a placeholder. Tiered pricing allows for different price points based on account groups or roles.
+**Proposed Steps**:
+1. Extend data generation to include account-group-specific pricing tiers.
+2. Implement the corresponding step in the product generation workflow.

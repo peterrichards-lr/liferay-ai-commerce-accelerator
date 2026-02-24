@@ -530,39 +530,49 @@ class BatchCallbackService {
         totalCount,
       };
 
-      const result = await handler(this.ctx, handlerContext);
+      try {
+        const result = await handler(this.ctx, handlerContext);
 
-      if (result && result.batchRefs && result.batchRefs.length > 0) {
-        // Native batches were triggered
-        await persistence.updateBatch(batchERC, {
-          status: 'SUBMITTED',
-          downstreamBatchId: result.batchRefs[0].taskId,
-          totalCount: totalCount,
-        });
-        
-        progress.batchStarted({
+        if (result && result.batchRefs && result.batchRefs.length > 0) {
+          // Native batches were triggered
+          await persistence.updateBatch(batchERC, {
+            status: 'SUBMITTED',
+            downstreamBatchId: result.batchRefs[0].taskId,
+            totalCount: totalCount,
+          });
+          
+          progress.batchStarted({
+            sessionId,
+            batchERC,
+            batchId: result.batchRefs[0].taskId,
+            totalItems: totalCount,
+            entityType: this._normalizeEntityType(step),
+            operation: 'delete',
+            correlationId: config.correlationId,
+          });
+        } else if (result && result.success) {
+          // Simulated or empty step completed
+          await persistence.updateBatch(batchERC, {
+            status: 'COMPLETED',
+            totalCount: totalCount,
+            processedCount: totalCount,
+          });
+        } else {
+          // Fallback for handlers that don't return standardized results
+          await persistence.updateBatch(batchERC, {
+            status: 'COMPLETED',
+            totalCount: totalCount,
+            processedCount: totalCount,
+          });
+        }
+      } catch (error) {
+        logger.error(`Handler execution failed for step '${step}'`, {
           sessionId,
+          step,
           batchERC,
-          batchId: result.batchRefs[0].taskId,
-          totalItems: totalCount,
-          entityType: this._normalizeEntityType(step),
-          operation: 'delete',
-          correlationId: config.correlationId,
+          error: error.message,
         });
-      } else if (result && result.success) {
-        // Simulated or empty step completed
-        await persistence.updateBatch(batchERC, {
-          status: 'COMPLETED',
-          totalCount: totalCount,
-          processedCount: totalCount,
-        });
-      } else {
-        // Fallback for handlers that don't return standardized results
-        await persistence.updateBatch(batchERC, {
-          status: 'COMPLETED',
-          totalCount: totalCount,
-          processedCount: totalCount,
-        });
+        await persistence.updateBatch(batchERC, { status: 'FAILED' });
       }
     } else {
       logger.warn(`Unknown step in deletion process: ${step}`, {

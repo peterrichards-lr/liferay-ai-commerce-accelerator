@@ -702,3 +702,11 @@ Investigation into SKU option-linking failures revealed a conflict when includin
 3.  **Corrective Pattern**: For products where `generateSkuVariants` is enabled and SKU-contributing options exist, the `skus` array MUST be omitted from the initial product creation payload.
 4.  **Deferred Creation**: All SKUs for these products are then created for the first time in the `product-skus` step (after options are linked), ensuring that the initial creation record includes the mandatory `skuOptions` mapping.
 5.  **Simple Product Fallback**: Products without SKU-contributing options (simple products) still include their single SKU in the initial creation to ensure they are immediately purchasable.
+
+### Inventory Level and Distribution Control (Architecture Finding)
+
+To provide more granular control over the generated inventory data, the `update-inventory` step now strictly enforces the following configuration parameters:
+
+1.  **Distribution Gate**: The `inventoryAssignmentRatio` (0-100) is applied per product. A random check determines if a product receives any inventory entries across the assigned warehouses.
+2.  **Dynamic Quantity Generation**: When a SKU does not have an explicitly assigned quantity, a random value is generated within the range defined by `inventoryMin` and `inventoryMax`.
+3.  **Deduplication and Summing**: If multiple assignments result in the same SKU/Warehouse pair (e.g., due to different source data paths), the quantities are summed and deduplicated before the batch UPSERT to prevent Batch Engine collisions.
