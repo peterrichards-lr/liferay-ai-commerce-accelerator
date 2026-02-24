@@ -341,7 +341,6 @@ class MockDataGenerator {
         metaTitle,
         skus: [
           {
-            active: true,
             cost: Math.round(basePrice * 0.6),
             externalReferenceCode: sku,
             inventoryLevel: 10 + getRandomInt(41),
@@ -447,7 +446,9 @@ class MockDataGenerator {
     let variantCount = 0;
 
     const option1 = options[0];
-    const option2 = options[1] || { values: ['Standard'] };
+    const option2 = options[1] || { values: ['Standard'], name: 'Default' };
+    const otherOptions = options.slice(2);
+
     const toKey = (s) => 
       String(s)
         .toLowerCase()
@@ -461,15 +462,21 @@ class MockDataGenerator {
         const priceModifier = (getRandomInt(401) - 200) / 1000;
         const variantPrice = Math.round(basePrice * (1 + priceModifier));
 
+        const variantOptions = {
+          [`${toKey(category)}-${toKey(option1.name)}`]: value1,
+          [`${toKey(category)}-${toKey(option2.name)}`]: value2,
+        };
+
+        // Include default values for all other options to ensure SKU activation
+        for (const opt of otherOptions) {
+          variantOptions[`${toKey(category)}-${toKey(opt.name)}`] = opt.values[0];
+        }
+
         const variant = {
-          active: true,
           sku: `${baseSku}-${value1.slice(0, 2).toUpperCase()}-${value2
             .slice(0, 2)
             .toUpperCase()}`,
-          options: {
-            [`${toKey(category)}-${toKey(option1.name)}`]: value1,
-            [`${toKey(category)}-${toKey(option2.name)}`]: value2,
-          },
+          options: variantOptions,
           priceModifier: Math.round(priceModifier * 100),
           price: variantPrice,
           published: true,

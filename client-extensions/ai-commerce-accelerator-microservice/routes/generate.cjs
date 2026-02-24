@@ -81,6 +81,7 @@ module.exports = (
           steps.push({ name: 'products', type: 'sync' });
           steps.push({ name: 'resolve-product-ids', type: 'sync' });
           steps.push({ name: 'link-product-options', type: 'sync' });
+          steps.push({ name: 'product-skus', type: 'sync' });
           steps.push({
             type: 'parallel',
             steps: [

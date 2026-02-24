@@ -658,3 +658,12 @@ Investigation of product creation failures (`CPDefinitionProductTypeNameExceptio
 2.  **Invalid Values**: Values like `variable` or `grouped` are rejected by the API validation layer during creation.
 3.  **Variant Handling**: Conceptual "variable" products are created as `simple` products first. Variants are then established by linking `productOptions` and creating additional `skus` in subsequent update steps.
 4.  **Actionable Pattern**: All generator logic, AI prompts, and schemas must strictly use `productType: 'simple'` to ensure successful initial creation.
+
+### SKU Property Constraints (API Finding)
+
+Investigation of batch import failures (`IllegalArgumentException: Unrecognized field "active"`) revealed constraints on the `Sku` DTO:
+
+1.  **Unsupported Fields**: The `Sku` DTO in Liferay Headless Commerce Admin Catalog API (v1.0) does not recognize an `active` property. Including this field in a batch payload (e.g., for products or skus) will cause the entire import task to fail.
+2.  **Derived Status**: In Liferay, a SKU's "active" or "enabled" state is determined by its configuration rather than a simple boolean flag.
+3.  **Activation Rule**: A SKU linked to a product with SKU-contributing options (e.g., Color, Size) is considered active only if it has an explicit `skuOption` entry for **every** contributing option defined on the product.
+4.  **Actionable Pattern**: Always remove the `active` property from SKU objects before submission. Ensure that generated variant SKUs include values for all product options marked as `skuContributor` to ensure they are activated by Liferay.

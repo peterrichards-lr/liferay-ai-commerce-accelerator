@@ -639,6 +639,7 @@ class LiferayService {
       op: 'warehouses:batch-delete',
       friendly: 'Delete warehouses (batch)',
       items,
+      concurrency: 1,
     });
   }
 

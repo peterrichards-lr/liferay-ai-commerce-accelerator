@@ -636,11 +636,12 @@ class ProductGenerator {
               const catalogOptionsByKey = new Map();
               for (const co of catalogOptions) {
                 catalogOptionsMap.set(co.name.en_US, co);
+                catalogOptionsMap.set(co.name.en_US.toLowerCase(), co);
                 catalogOptionsByKey.set(co.key, co);
               }
               pd.productOptions = pd.options
                 .map((option) => {
-                  const catalogOption = catalogOptionsMap.get(option.name);
+                  const catalogOption = catalogOptionsMap.get(option.name) || catalogOptionsMap.get(option.name.toLowerCase());
                   if (catalogOption) {
                     return {
                       optionId: catalogOption.id,
@@ -669,13 +670,17 @@ class ProductGenerator {
                 const variantSkus = pd.skuVariants
                   .map((variant) => {
                     const skuOptions = [];
-                    for (const [optKey, valName] of Object.entries(
+                    for (const [optRef, valName] of Object.entries(
                       variant.options || {}
                     )) {
-                      const catalogOption = catalogOptionsByKey.get(optKey);
+                      const catalogOption = 
+                        catalogOptionsByKey.get(optRef) || 
+                        catalogOptionsMap.get(optRef) || 
+                        catalogOptionsMap.get(optRef.toLowerCase());
+
                       if (catalogOption) {
                         const catalogValue = (catalogOption.values || []).find(
-                          (v) => v.name.en_US === valName || v.name === valName
+                          (v) => v.name.en_US === valName || v.name === valName || v.name.en_US.toLowerCase() === valName.toLowerCase()
                         );
                         if (catalogValue) {
                           skuOptions.push({
@@ -687,8 +692,6 @@ class ProductGenerator {
                     }
 
                     return {
-                      active:
-                        variant.active !== undefined ? variant.active : true,
                       sku: variant.sku,
                       externalReferenceCode: createERC(ERC_PREFIX.SKU),
                       price: variant.price,
@@ -711,9 +714,9 @@ class ProductGenerator {
                   .filter((v) => v.skuOptions.length > 0);
 
                 if (variantSkus.length > 0) {
-                  pd.skus = (pd.skus || []).concat(variantSkus);
+                  pd.skus = variantSkus;
                   logger.trace(
-                    `Added ${variantSkus.length} variant SKUs to product ${pd.externalReferenceCode}`,
+                    `Replaced base SKU with ${variantSkus.length} variant SKUs for product ${pd.externalReferenceCode}`,
                     { sessionId }
                   );
                 }
@@ -1079,7 +1082,7 @@ class ProductGenerator {
 
             for (const skuItem of skusToUpdate) {
               const qty = skuItem.quantity || skuItem.inventoryLevel || 100;
-              const inventoryERC = `AICA-INV-${sanitizeForERC(warehouseERC, { max: 30 })}-${sanitizeForERC(skuItem.sku, { max: 30 })}`;
+              const inventoryERC = `AICA-INV-${sanitizeForERC(warehouseERC, { max: 50, preserveUnderscore: true })}-${sanitizeForERC(skuItem.sku, { max: 50, preserveUnderscore: true })}`;
               
               items.push({
                 externalReferenceCode: inventoryERC,

@@ -288,13 +288,21 @@
 
 ### [x] Fix Product Options Linking and Variant Creation
 **Analysis**: Options were not appearing on products, and variants were not being created despite being generated in the context. Additionally, a ReferenceError was crashing the inventory update.
-- **Root Cause 1 (Product Type)**: Previous attempts wrongly assumed Liferay requires `variable` for products with variants. However, the Headless API expects `simple` (variants are handled by linking options/SKUs). Sending `variable` results in a `CPDefinitionProductTypeNameException`. Logic has been updated to consistently use `simple`.
+- **Root Cause 1 (Product Type)**: Liferay Headless API requires `simple` for ALL products during initial creation, even those that will have variants. Sending `variable` results in a `CPDefinitionProductTypeNameException`.
 - **Root Cause 2 (Missing Fields)**: `link-product-options` omitted `key`, `name`, and `fieldType`, violating the API contract for linking.
 - **Root Cause 3 (Scoping Bug)**: `_runUpdateInventoryStep` crashed with `warehouse is not defined` because it tried to access a loop variable from an outer scope.
 - **Root Cause 4 (Step Skipping)**: The `product-skus` step was bypassed because the product type was incompatible with variants.
 **Result**: **FIXED**.
-1.  Updated `ProductGenerator.cjs`: In `_generateProductData`, inferred `productType: 'variable'` if variants/sku-contributors are present.
-2.  Updated `ProductGenerator.cjs`: In `_generateProductData`, included mandatory `key`, `name`, and `fieldType` in the `productOptions` mapping.
+1.  Updated `ProductGenerator.cjs`: Consistently use `productType: 'simple'` to avoid API validation errors.
+2.  Updated `ProductGenerator.cjs`: Included mandatory `key`, `name`, and `fieldType` in the `productOptions` mapping.
 3.  Updated `ProductGenerator.cjs`: Fixed the `ReferenceError` in `_runUpdateInventoryStep` by correctly finding the warehouse in the loop scope.
-4.  Updated `MockDataGenerator.cjs`: Set `productType` to `variable` when variants are generated.
-5.  Updated `product.json` and `product.md`: Updated AI schema and prompt to support `variable` products.
+4.  Updated `MockDataGenerator.cjs`: Consistently use `productType: 'simple'`.
+5.  Updated `product.json` and `product.md`: Updated AI schema and prompt to use `simple` products.
+
+### [x] Fix SKU Validation Exception (Unrecognized field "active")
+**Analysis**: The `products` and `product-skus` steps failed with `java.lang.IllegalArgumentException: Unrecognized field "active" (class com.liferay.headless.commerce.admin.catalog.dto.v1_0.Sku)`.
+- **Root Cause**: The microservice was sending an `active: true` property within SKU objects in the batch payload. While `active` is a valid field for the `Product` DTO, it is NOT recognized by the `Sku` DTO in the Headless Commerce API.
+**Result**: **FIXED**.
+1.  Updated `ProductGenerator.cjs`: Removed the `active` property from all SKU mapping logic.
+2.  Updated `MockDataGenerator.cjs`: Removed the `active` property from initial SKU and variant SKU generation.
+3.  Verified that SKU status in Liferay is derived from its configuration (e.g., presence of required SKU-contributing option values) rather than a boolean field.
