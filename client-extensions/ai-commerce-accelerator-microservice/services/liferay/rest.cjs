@@ -78,6 +78,10 @@ class LiferayRestService {
 
       if (meta.sessionId)
         u.searchParams.set('sessionId', String(meta.sessionId));
+
+      if (meta.correlationId)
+        u.searchParams.set('correlationId', String(meta.correlationId));
+
       return u.toString();
     } catch {
       return baseUrl;
@@ -118,6 +122,7 @@ class LiferayRestService {
         operation: op,
         method,
         url,
+        correlationId: config.correlationId,
         data: this._stringifySafe(data),
       });
 
@@ -791,6 +796,7 @@ class LiferayRestService {
       {
         batchERC: erc,
         sessionId: sessionId,
+        correlationId: config.correlationId,
         op: 'create',
       },
     );
@@ -873,6 +879,7 @@ class LiferayRestService {
         op: 'delete',
         batchERC,
         sessionId,
+        correlationId: config.correlationId,
       },
     );
 

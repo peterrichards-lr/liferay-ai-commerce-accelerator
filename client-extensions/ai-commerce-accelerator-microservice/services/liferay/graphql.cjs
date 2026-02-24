@@ -63,6 +63,7 @@ class LiferayGraphQLService {
       operation: 'graphql:fetchByFilter',
       namespace,
       queryMethod,
+      correlationId: config.correlationId,
       gqlBody,
       queryForGraphiQL: `QUERY:\n${query}\n\nVARIABLES:\n${JSON.stringify(variables, null, 2)}`,
     });
@@ -126,6 +127,7 @@ class LiferayGraphQLService {
           operation: 'graphql:fetchByERCs',
           namespace,
           queryMethod,
+          correlationId: config.correlationId,
           ercCount: batch.length,
           gqlBody,
           queryForGraphiQL: `QUERY:\n${query}`,
@@ -141,7 +143,33 @@ class LiferayGraphQLService {
           data: response.data,
         });
         
-        const data = response.data.data[namespace];
+        if (response.data.errors) {
+          this.logger.error('GraphQL errors detected in _fetchByERCs:', {
+            errors: response.data.errors,
+            namespace,
+            queryMethod,
+            ercs: batch,
+          });
+
+          // Check if any error is related to a missing entity (STALE_INDEX)
+          const isMissingEntity = response.data.errors.some(err => 
+            err.extensions?.code === 'NOT_FOUND' || 
+            err.message?.includes('DataFetchingException') ||
+            err.message?.includes('null')
+          );
+          
+          if (isMissingEntity) {
+            throw new Error('STALE_INDEX');
+          }
+          
+          throw new Error(`GraphQL query failed: ${response.data.errors[0].message}`);
+        }
+
+        const data = response.data.data?.[namespace];
+        if (!data) {
+          throw new Error(`GraphQL response missing data for ${namespace}`);
+        }
+
         const results = Object.values(data);
 
         // TRIGGER RETRY: If any ERC returned null, the index might be stale.
@@ -176,6 +204,7 @@ class LiferayGraphQLService {
 
       this.logger.trace(`Liferay GraphQL Request (${queryMethod})`, {
         operation: `graphql:${queryMethod}`,
+        correlationId: config.correlationId,
         productCount: batch.length,
         gqlBody,
         queryForGraphiQL: `QUERY:\n${query}`,

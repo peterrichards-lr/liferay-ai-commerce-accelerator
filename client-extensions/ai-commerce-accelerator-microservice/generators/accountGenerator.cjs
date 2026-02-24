@@ -76,6 +76,7 @@ class AccountGenerator {
       flowType: 'accounts',
       status: 'STARTED',
       currentSteps: [],
+      correlationId: config.correlationId,
       context: {
         config,
         options,
@@ -586,37 +587,34 @@ class AccountGenerator {
       const addressErcs = addressesToCreate.map(address => address.externalReferenceCode);
       const accountErcs = accountsToCreate.map(account => account.externalReferenceCode);
       
-      let addressMap = new Map();
-      let accountMap = new Map();
+      const [liferayAddresses, liferayAccounts] = await Promise.all([
+        liferay.resolveByERCsWithRetry(
+          config,
+          addressErcs,
+          (cfg, e) => liferay.getPostalAddressesByERC(cfg, e, ['id', 'externalReferenceCode']),
+          { label: 'postal addresses' }
+        ),
+        liferay.resolveByERCsWithRetry(
+          config,
+          accountErcs,
+          (cfg, e) => liferay.getAccountsByERC(cfg, e, ['id', 'externalReferenceCode']),
+          { label: 'accounts' }
+        )
+      ]);
 
-      try {
-          const [liferayAddresses, liferayAccounts] = await Promise.all([
-              liferay.getPostalAddressesByERC(config, addressErcs),
-              liferay.getAccountsByERC(config, accountErcs, ['id', 'externalReferenceCode'])
-          ]);
+      const addressMap = new Map();
+      (liferayAddresses || []).forEach(address => {
+        if (address && address.externalReferenceCode) {
+          addressMap.set(address.externalReferenceCode, address);
+        }
+      });
 
-          (liferayAddresses || []).forEach(address => {
-              if (address && address.externalReferenceCode) {
-                  addressMap.set(address.externalReferenceCode, address);
-              }
-          });
-
-          (liferayAccounts || []).forEach(account => {
-              if (account && account.externalReferenceCode) {
-                  accountMap.set(account.externalReferenceCode, account);
-              }
-          });
-
-      } catch (error) {
-          logger.error(`Failed to fetch accounts or postal addresses in batch`, { error: error.message, sessionId });
-          await persistence.createBatch({
-            erc: createERC(ERC_PREFIX.BATCH),
-            sessionId,
-            stepKey: 'set-billing-and-shipping-addresses',
-            status: 'FAILED',
-          });
-          return;
-      }
+      const accountMap = new Map();
+      (liferayAccounts || []).forEach(account => {
+        if (account && account.externalReferenceCode) {
+          accountMap.set(account.externalReferenceCode, account);
+        }
+      });
 
       for (const account of accountsToCreate) {
         try {

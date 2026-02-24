@@ -10,6 +10,7 @@ function readSafeQuery(req) {
     'batchExternalReferenceCode',
     'opCode',
     'entity',
+    'correlationId',
   ]);
   const SAFE_RE = /^[a-zA-Z0-9._:-]+$/;
   const out = {};
@@ -95,7 +96,8 @@ module.exports = (app, { batchCallbackService, logger, ws }) => {
 
     try {
       const batchERC = req.query.batchExternalReferenceCode;
-      await batchCallbackService.processCallback(batchERC, req.body);
+      const correlationId = req.correlationId; // Middleware already populated this from query or header
+      await batchCallbackService.processCallback(batchERC, req.body, correlationId);
     } catch (error) {
       safeErrorResponse({
         res,

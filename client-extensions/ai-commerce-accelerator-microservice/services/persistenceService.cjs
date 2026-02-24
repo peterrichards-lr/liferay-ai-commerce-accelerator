@@ -16,6 +16,7 @@ class PersistenceService {
         status TEXT NOT NULL,
         current_steps TEXT,
         context_json TEXT,
+        correlation_id TEXT,
         version INTEGER NOT NULL DEFAULT 1,
         created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
         updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
@@ -49,17 +50,20 @@ class PersistenceService {
         details TEXT
       )
     `);
+
+    this.db.exec(`CREATE INDEX IF NOT EXISTS idx_workflow_batches_session_id ON workflow_batches (session_id);`);
+    this.db.exec(`CREATE INDEX IF NOT EXISTS idx_workflow_events_session_id ON workflow_events (session_id);`);
   }
 
-  createSession({ sessionId, flowType, status, context, currentSteps }) {
+  createSession({ sessionId, flowType, status, context, currentSteps, correlationId }) {
     const contextJson = JSON.stringify(context);
     const currentStepsJson = JSON.stringify(currentSteps || []);
 
     const stmt = this.db.prepare(
-      'INSERT INTO workflow_sessions (session_id, flow_type, status, context_json, current_steps) VALUES (?, ?, ?, ?, ?)'
+      'INSERT INTO workflow_sessions (session_id, flow_type, status, context_json, current_steps, correlation_id) VALUES (?, ?, ?, ?, ?, ?)'
     );
 
-    stmt.run(sessionId, flowType, status, contextJson, currentStepsJson);
+    stmt.run(sessionId, flowType, status, contextJson, currentStepsJson, correlationId);
 
     return this.getSession(sessionId);
   }
@@ -76,8 +80,10 @@ class PersistenceService {
     if (session) {
       session.context = JSON.parse(session.context_json);
       session.currentSteps = JSON.parse(session.current_steps);
+      session.correlationId = session.correlation_id;
       delete session.context_json;
       delete session.current_steps;
+      delete session.correlation_id;
       this.cache.put(sessionId, session);
     }
 
@@ -91,8 +97,10 @@ class PersistenceService {
     return sessions.map(session => {
       session.context = JSON.parse(session.context_json);
       session.currentSteps = JSON.parse(session.current_steps);
+      session.correlationId = session.correlation_id;
       delete session.context_json;
       delete session.current_steps;
+      delete session.correlation_id;
       return session;
     });
   }
@@ -131,7 +139,7 @@ class PersistenceService {
     return this.getSession(sessionId);
   }
 
-  updateSession(sessionId, { status, context, currentSteps }) {
+  updateSession(sessionId, { status, context, currentSteps, correlationId }) {
     const updates = [];
     const params = [];
 
@@ -150,6 +158,11 @@ class PersistenceService {
       params.push(JSON.stringify(currentSteps));
     }
 
+    if (correlationId) {
+      updates.push('correlation_id = ?');
+      params.push(correlationId);
+    }
+
     if (updates.length === 0) {
       return this.getSession(sessionId);
     }
@@ -165,6 +178,12 @@ class PersistenceService {
     this.cache.del(sessionId);
 
     return this.getSession(sessionId);
+  }
+
+  close() {
+    if (this.db) {
+      this.db.close();
+    }
   }
 
   tryFinalizeSession(sessionId) {
@@ -200,6 +219,10 @@ class PersistenceService {
     );
 
     stmt.run(erc, sessionId, key, status);
+    
+    // Invalidate session batches cache
+    this.cache.del(`batches-${sessionId}`);
+    
     return this.getBatch(erc);
   }
 
@@ -222,8 +245,36 @@ class PersistenceService {
   }
 
   getBatchesForSession(sessionId) {
+    const cacheKey = `batches-${sessionId}`;
+    const cached = this.cache.get(cacheKey);
+    if (cached) {
+      return cached;
+    }
+
     const stmt = this.db.prepare('SELECT * FROM workflow_batches WHERE session_id = ?');
-    return stmt.all(sessionId);
+    const batches = stmt.all(sessionId);
+    
+    if (batches) {
+      this.cache.put(cacheKey, batches);
+    }
+    
+    return batches;
+  }
+
+  getEventsForSession(sessionId) {
+    const stmt = this.db.prepare('SELECT * FROM workflow_events WHERE session_id = ? ORDER BY timestamp ASC');
+    const events = stmt.all(sessionId);
+
+    return events.map(event => {
+      if (event.details) {
+        try {
+          event.details = JSON.parse(event.details);
+        } catch (_) {
+          // Keep as string if parsing fails
+        }
+      }
+      return event;
+    });
   }
 
   updateBatch(erc, { status, downstreamBatchId, processedCount, totalCount, errorCount }) {
@@ -263,10 +314,16 @@ class PersistenceService {
     const stmt = this.db.prepare(sql);
     stmt.run(params);
 
+    const batch = this.getBatch(erc);
+    if (batch) {
+      // Invalidate session batches cache
+      this.cache.del(`batches-${batch.session_id}`);
+    }
+
     const cacheKey = `batch-${erc}`;
     this.cache.del(cacheKey);
 
-    return this.getBatch(erc);
+    return batch;
   }
 
   logWorkflowEvent({ sessionId, batchId, status, message, details }) {

@@ -328,6 +328,11 @@ const server = http.createServer(app);
       if (logger.close) {
         await logger.close();
       }
+
+      if (persistenceService && persistenceService.close) {
+        persistenceService.close();
+        logger.info('Database connection closed', { operation: 'server-shutdown' });
+      }
       
       process.exit(0);
     } catch (error) {

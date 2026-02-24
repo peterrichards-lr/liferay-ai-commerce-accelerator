@@ -130,28 +130,35 @@ To ensure reliability and prevent runtime errors (e.g., requesting non-existent 
 **Workflow execution state must not depend on Liferay availability or
 Headless API latency.**
 
-### Recommended hybrid model
+### Hybrid Persistence Model
 
-#### Microservice-local storage (fast path, source of truth)
+The microservice employs two distinct storage layers to balance resilience, performance, and data isolation.
 
-A hybrid persistence model will be used to balance performance and durability.
+#### 1. Workflow Persistence Layer (`PersistenceService`)
+This layer manages the canonical state of all asynchronous operations (sessions, batches, and events).
 
-1.  **Primary Store (Source of Truth):**
-    - A lightweight, filebased SQLite database (lifetime scoped to the process).
-    - It stores the canonical record of:
-        - active workflow session context
-        - batch correlation and callback state
-        - idempotency and concurrency control
+-   **Primary Store (Source of Truth):**
+    -   A file-based **SQLite** database (`workflows.db`).
+    -   **Durability**: Preserved across process restarts, enabling session resumption and reliable audit trails.
+    -   **Schema**: Includes `workflow_sessions`, `workflow_batches`, and `workflow_events`.
+-   **Read-Through Cache:**
+    -   An in-memory cache (`memory-cache`) sits in front of the database to reduce disk I/O for frequent lookups (e.g., status checks).
+-   **Consistency Model (Write-Invalidate):**
+    -   **Reads**: Checks cache first; on miss, loads from SQLite and populates cache.
+    -   **Writes/Updates**: All mutations are written directly to SQLite first. Immediately following a successful write, the corresponding cache entry is **invalidated (deleted)**. This ensures subsequent reads always fetch the latest data from the database.
 
-1.  **Secondary Store (Read-Through Cache):**
-    - An in-memory cache sits in front of the database to reduce disk I/O.
-    - **Pattern:** All database operations are wrapped by the cache.
-        - **Reads:** Attempt to read from the cache first. On a cache miss, read from the database, populate the cache, and then return the data.
-        - **Writes/Updates:** Write directly to the database and then immediately update or invalidate the corresponding entry in the cache.
-    - **Abstraction:** This caching logic is an internal implementation detail of the persistence service and is not exposed to the rest of the application.
-    - **Correctness:** Correctness must never depend on the cache. The database is always the source of truth.
+#### 2. Application Data Cache (`CacheService`)
+This layer stores transient metadata, configuration, and intermediate processing results.
 
-#### Liferay Objects (slow path, visibility and configuration)
+-   **Source of Truth**: Remote Liferay Headless APIs or local configuration files.
+-   **Mechanism**: A custom `Map`-based implementation with **TTL (Time-To-Live)** and periodic background cleanup.
+-   **Scope**:
+    -   **Configuration**: Liferay OAuth settings, AI prompts, and schemas.
+    -   **Metadata**: Site languages, countries, and regions (to reduce redundant API calls).
+    -   **Session Context**: Mapping of batch IDs to individual item ERCs for callback correlation.
+-   **Pattern**: Uses a "remember" logic to fetch and cache remote data transparently.
+
+### Liferay Objects (slow path, visibility and configuration)
 
 Use Liferay Objects only for: - configuration managed by
 administrators - optional workflow run summaries
@@ -209,6 +216,7 @@ Identifier for correlating user-visible errors and server logs.
 - status
 - current_steps (updated to TEXT to store JSON array of active steps)
 - context_json
+- correlation_id
 - version
 - created_at
 - updated_at

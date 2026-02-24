@@ -534,6 +534,7 @@ function createWebSocketService({
     opts = {}
   ) => {
     const bid = normalizeBid(batchId);
+    const cid = correlationId || opts.correlationId || 'unknown';
     const totalCount =
       details.totalCount ?? details.totalItems ?? details.expectedTotal;
 
@@ -547,10 +548,10 @@ function createWebSocketService({
       ),
       totalCount,
       timestamp: isoNow(),
-      correlationId: correlationId || opts.correlationId || 'unknown',
+      correlationId: cid,
     };
 
-    return emit(payload, { ...opts, batchId: bid, correlationId });
+    return emit(payload, { ...opts, batchId: bid, correlationId: cid });
   };
 
   const emitBatchProgress = (
@@ -567,6 +568,7 @@ function createWebSocketService({
     opts = {}
   ) => {
     const bid = normalizeBid(batchId);
+    const cid = correlationId || opts.correlationId || 'unknown';
     const processedCount =
       details.processedCount ?? details.completedCount ?? completedCount ?? 0;
 
@@ -593,10 +595,10 @@ function createWebSocketService({
         operation
       ),
       timestamp: isoNow(),
-      correlationId: correlationId || opts.correlationId || 'unknown',
+      correlationId: cid,
     };
 
-    return emit(payload, { ...opts, batchId: bid });
+    return emit(payload, { ...opts, batchId: bid, correlationId: cid });
   };
 
   const emitBatchCompleted = (
@@ -614,6 +616,7 @@ function createWebSocketService({
     opts = {}
   ) => {
     const bid = normalizeBid(batchId);
+    const cid = correlationId || opts.correlationId || 'unknown';
 
     const normalizedTotal =
       details.totalCount ??
@@ -669,7 +672,7 @@ function createWebSocketService({
         operation
       ),
       timestamp: isoNow(),
-      correlationId: correlationId || opts?.correlationId || 'unknown',
+      correlationId: cid,
     };
 
     lastCompletion.set(bid, {
@@ -678,7 +681,7 @@ function createWebSocketService({
       total: Number(normalizedTotal) || sumSF,
     });
 
-    return emit(payload, { ...opts, batchId: bid });
+    return emit(payload, { ...opts, batchId: bid, correlationId: cid });
   };
 
   const emitBatchFailed = (
@@ -695,6 +698,7 @@ function createWebSocketService({
     opts = {}
   ) => {
     const bid = normalizeBid(batchId);
+    const cid = correlationId || opts.correlationId || 'unknown';
     const totalCount =
       details.totalCount ??
       (Number.isFinite(successCount) && Number.isFinite(failureCount)
@@ -721,41 +725,43 @@ function createWebSocketService({
         operation
       ),
       timestamp: isoNow(),
-      correlationId: correlationId || opts.correlationId || 'unknown',
+      correlationId: cid,
     };
 
-    return emit(payload, { ...opts, batchId: bid });
+    return emit(payload, { ...opts, batchId: bid, correlationId: cid });
   };
 
   const emitSessionCompleted = (
     { correlationId, details = {}, entityType, operation },
     opts = {}
   ) => {
+    const cid = correlationId || opts.correlationId || 'unknown';
     const payload = {
       type: WEB_SOCKET_EVENTS.SESSION_COMPLETE,
       entityType,
       details: withOperation({ ...details }, operation),
       timestamp: isoNow(),
-      correlationId: correlationId || opts.correlationId || 'unknown',
+      correlationId: cid,
     };
 
-    return emit(payload, { ...opts });
+    return emit(payload, { ...opts, correlationId: cid });
   };
 
   const emitPostProcessingStarted = (
     { correlationId, details = {}, entityType, operation },
     opts = {}
   ) => {
+    const cid = correlationId || opts.correlationId || 'unknown';
     const payload = {
       type: WEB_SOCKET_EVENTS.POSTPROC_STARTED,
       operation,
       entityType,
       details: withOperation(details, operation),
       timestamp: isoNow(),
-      correlationId: correlationId || opts.correlationId || 'unknown',
+      correlationId: cid,
     };
 
-    return emit(payload, { ...opts });
+    return emit(payload, { ...opts, correlationId: cid });
   };
 
   const emitPostProcessingProgress = (
@@ -770,6 +776,7 @@ function createWebSocketService({
     },
     opts = {}
   ) => {
+    const cid = correlationId || opts.correlationId || 'unknown';
     const payload = {
       type: WEB_SOCKET_EVENTS.POSTPROC_PROGRESS,
       operation,
@@ -779,10 +786,10 @@ function createWebSocketService({
         operation
       ),
       timestamp: isoNow(),
-      correlationId: correlationId || opts.correlationId || 'unknown',
+      correlationId: cid,
     };
 
-    return emit(payload, { ...opts });
+    return emit(payload, { ...opts, correlationId: cid });
   };
 
   const emitPostProcessingCompleted = (
@@ -798,6 +805,7 @@ function createWebSocketService({
     },
     opts = {}
   ) => {
+    const cid = correlationId || opts.correlationId || 'unknown';
     const payload = {
       type: WEB_SOCKET_EVENTS.POSTPROC_COMPLETED,
       operation,
@@ -807,25 +815,26 @@ function createWebSocketService({
         operation
       ),
       timestamp: isoNow(),
-      correlationId: correlationId || opts.correlationId || 'unknown',
+      correlationId: cid,
     };
 
-    return emit(payload, { ...opts });
+    return emit(payload, { ...opts, correlationId: cid });
   };
 
   const emitGenerationSessionComplete = (
     { correlationId, details = {}, operation, sessionId },
     opts = {}
   ) => {
+    const cid = correlationId || opts.correlationId || 'unknown';
     const payload = {
       type: WEB_SOCKET_EVENTS.GENERATION_SESSION_COMPLETE,
       operation,
       details: withOperation({ ...details, sessionId }, operation),
       timestamp: isoNow(),
-      correlationId: correlationId || opts.correlationId || 'unknown',
+      correlationId: cid,
     };
 
-    return emit(payload, { ...opts });
+    return emit(payload, { ...opts, correlationId: cid });
   };
 
   const emitGenerationProgress = (
@@ -842,6 +851,7 @@ function createWebSocketService({
     opts = {}
   ) => {
     const bid = normalizeBid(batchId);
+    const cid = correlationId || opts.correlationId || 'unknown';
 
     const payload = {
       type: WEB_SOCKET_EVENTS.GENERATION_PROGRESS,
@@ -853,10 +863,10 @@ function createWebSocketService({
         operation
       ),
       timestamp: isoNow(),
-      correlationId: correlationId || opts.correlationId || 'unknown',
+      correlationId: cid,
     };
 
-    return emit(payload, { ...opts, batchId: bid });
+    return emit(payload, { ...opts, batchId: bid, correlationId: cid });
   };
 
   const emitError = (
@@ -874,6 +884,7 @@ function createWebSocketService({
     opts = {}
   ) => {
     const bid = normalizeBid(batchId);
+    const cid = correlationId || opts.correlationId || 'unknown';
     const erc =
       errorReference || details.errorReference || createERC(ERC_PREFIX.ERROR);
 
@@ -890,13 +901,14 @@ function createWebSocketService({
       },
       operation,
       timestamp: isoNow(),
-      correlationId: correlationId || opts.correlationId || 'unknown',
+      correlationId: cid,
       errorReference: erc,
     };
 
     return emit(payload, {
       ...opts,
       batchId: bid,
+      correlationId: cid,
       fireAndForget: false,
     });
   };
@@ -906,11 +918,12 @@ function createWebSocketService({
     opts = {}
   ) => {
     const bid = normalizeBid(batchId);
+    const cid = correlationId || opts.correlationId || 'unknown';
 
     const payload = {
       type: WEB_SOCKET_EVENTS.BATCH_ERROR_DETAILS,
       batchId: bid,
-      correlationId,
+      correlationId: cid,
       importTask,
       errorReport,
       timestamp: isoNow(),
@@ -919,6 +932,7 @@ function createWebSocketService({
     return emit(payload, {
       ...opts,
       batchId: bid,
+      correlationId: cid,
       fireAndForget: true,
     });
   };
@@ -946,6 +960,7 @@ function createWebSocketService({
     opts = {}
   ) => {
     const bid = normalizeBid(batchId);
+    const cid = correlationId || opts.correlationId || 'unknown';
     const type = status || WEB_SOCKET_EVENTS.PROGRESS;
 
     const payload = {
@@ -966,11 +981,11 @@ function createWebSocketService({
       error,
       errorReference,
       timestamp: isoNow(),
-      correlationId: correlationId || opts.correlationId || 'unknown',
+      correlationId: cid,
       details: withOperation({ ...details, sessionId, scope }, operation),
     };
 
-    return emit(payload, { ...opts, batchId: bid, correlationId });
+    return emit(payload, { ...opts, batchId: bid, correlationId: cid });
   };
 
   const stop = () => {

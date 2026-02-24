@@ -72,6 +72,7 @@ class ProductGenerator {
       flowType: 'generate',
       status: 'STARTED',
       currentSteps: [],
+      correlationId: config.correlationId,
       context: {
         config,
         options,
@@ -219,27 +220,15 @@ class ProductGenerator {
     const ercs = productDataList.map(p => p.externalReferenceCode).filter(Boolean);
     
     try {
-      const maxRetries = parseInt(config.pollingRetries, 10) || 10;
-      const delayMs = parseInt(config.pollingDelay, 10) || 5000;
-      
-      let resolvedItems = [];
-      let success = false;
-
-      for (let attempt = 1; attempt <= maxRetries; attempt++) {
-        try {
-          // getProductsByERC uses _fetchByERCs middle-layer which has built-in exponential backoff/retries for STALE_INDEX
-          resolvedItems = await liferay.getProductsByERC(config, ercs, ['id', 'externalReferenceCode', 'productId']);
-          success = true;
-          break;
-        } catch (error) {
-          if (attempt === maxRetries) throw error;
-          logger.warn(`Retrying product ID resolution (attempt ${attempt}/${maxRetries}) as search index may be stale...`, { sessionId });
-          await delay(delayMs);
-        }
-      }
+      const resolvedItems = await liferay.resolveByERCsWithRetry(
+        config,
+        ercs,
+        (cfg, e) => liferay.getProductsByERC(cfg, e, ['id', 'externalReferenceCode', 'productId']),
+        { label: 'products' }
+      );
       
       const ercToIdMap = new Map();
-      resolvedItems.forEach(item => {
+      (resolvedItems || []).forEach(item => {
         if (item) {
           ercToIdMap.set(item.externalReferenceCode, item.productId || item.id);
         }
@@ -312,38 +301,15 @@ class ProductGenerator {
     }
 
     try {
-      const maxRetries = parseInt(config.pollingRetries, 10) || 10;
-      const delayMs = parseInt(config.pollingDelay, 10) || 5000;
-      
-      let resolvedItems = [];
-      
-      for (let attempt = 1; attempt <= maxRetries; attempt++) {
-        try {
-          resolvedItems = await liferay.getWarehousesByERC(config, ercs, ['id', 'externalReferenceCode', 'name']);
-          
-          // Verify we have all requested IDs
-          const resolvedErcs = new Set(resolvedItems.filter(Boolean).map(it => it.externalReferenceCode));
-          const missingCount = ercs.filter(erc => !resolvedErcs.has(erc)).length;
-
-          if (missingCount === 0) {
-            break;
-          }
-
-          if (attempt === maxRetries) {
-            throw new Error(`Failed to resolve all warehouse IDs after ${maxRetries} attempts. Missing ${missingCount} IDs.`);
-          }
-
-          logger.warn(`Retrying warehouse ID resolution (attempt ${attempt}/${maxRetries}). Missing ${missingCount} of ${ercs.length} IDs.`, { sessionId });
-          await delay(delayMs);
-        } catch (error) {
-          if (attempt === maxRetries) throw error;
-          logger.warn(`Retrying warehouse ID resolution (attempt ${attempt}/${maxRetries}) due to error: ${error.message}`, { sessionId });
-          await delay(delayMs);
-        }
-      }
+      const resolvedItems = await liferay.resolveByERCsWithRetry(
+        config,
+        ercs,
+        (cfg, e) => liferay.getWarehousesByERC(cfg, e, ['id', 'externalReferenceCode', 'name']),
+        { label: 'warehouses' }
+      );
       
       const ercToIdMap = new Map();
-      resolvedItems.forEach(item => {
+      (resolvedItems || []).forEach(item => {
         if (item) {
           ercToIdMap.set(item.externalReferenceCode, item.id);
         }
@@ -1073,7 +1039,9 @@ class ProductGenerator {
           description: toI18n(productData.description),
           productType: productData.productType || 'simple',
           externalReferenceCode: productData.externalReferenceCode,
-          allowBackOrder: productData.allowBackOrder || false,
+          productConfiguration: {
+            allowBackOrder: productData.allowBackOrder || false,
+          },
         };
         // Ensure product options and specifications are included if generated
         if (options.generateSkuVariants && productData.productOptions) {
@@ -2200,7 +2168,9 @@ class ProductGenerator {
       productType: productType || 'simple',
       externalReferenceCode:
         externalReferenceCode || createERC(ERC_PREFIX.PRODUCT),
-      allowBackOrder: allowBackOrder || false,
+      productConfiguration: {
+        allowBackOrder: allowBackOrder || false,
+      },
     };
 
     const hasSkuContributors = (productOptions || []).some(
@@ -2303,112 +2273,6 @@ class ProductGenerator {
           { error: error.message }
         );
       }
-    }
-  }
-
-  async _runGeneratePriceListsStep(sessionId) {
-    const { logger, liferay, persistence, progress } = this.ctx;
-    const session = await persistence.getSession(sessionId);
-    const { config, options, productDataList } = session.context;
-
-    if (!options.generatePriceLists) {
-      logger.info('Skipping price list generation step.', { sessionId });
-      await persistence.createBatch({
-        erc: createERC(ERC_PREFIX.BATCH),
-        sessionId,
-        stepKey: 'generate-price-lists',
-        status: 'BYPASSED',
-      });
-      return;
-    }
-
-    logger.info('Starting generate-price-lists step', { sessionId });
-
-    try {
-      const PRICE_LIST_ERC = 'AICA-PL-GENERAL';
-      const PRICE_LIST_NAME = 'AI Commerce Accelerator Price List';
-      
-      let priceList;
-      try {
-        priceList = await liferay.getPriceListByERC(config, PRICE_LIST_ERC);
-        if (!priceList) {
-          logger.info(`Creating missing default price list: ${PRICE_LIST_NAME}`, { sessionId });
-          priceList = await liferay.createPriceList(config, {
-            externalReferenceCode: PRICE_LIST_ERC,
-            name: { en_US: PRICE_LIST_NAME },
-            currencyCode: config.currencyCode || 'USD',
-            active: true,
-            priority: 1.0,
-            catalogId: config.catalogId
-          });
-        }
-      } catch (err) {
-        logger.error('Failed to ensure default price list exists', { sessionId, error: err.message });
-        throw err;
-      }
-
-      const allPriceEntries = [];
-      for (const product of productDataList) {
-        if (Array.isArray(product.priceEntries)) {
-          allPriceEntries.push(...product.priceEntries);
-        }
-      }
-
-      if (allPriceEntries.length > 0) {
-        logger.info(`Submitting ${allPriceEntries.length} price entries via batch API`, { sessionId });
-        
-        const batchERC = createERC(ERC_PREFIX.PRICEENTRY_BATCH);
-        
-        await persistence.createBatch({
-          erc: batchERC,
-          sessionId,
-          stepKey: 'generate-price-lists',
-          status: 'prepared',
-        });
-
-        const result = await liferay.createPriceEntriesBatch(config, allPriceEntries, {
-          externalReferenceCode: batchERC,
-          sessionId,
-        });
-
-        if (result?.batchId) {
-          await persistence.updateBatch(batchERC, {
-            status: 'SUBMITTED',
-            downstreamBatchId: result.batchId,
-          });
-
-          progress.batchStarted({
-            sessionId,
-            batchERC,
-            batchId: result.batchId,
-            totalItems: allPriceEntries.length,
-            entityType: 'price-lists',
-            operation: 'generate',
-          });
-        } else {
-          logger.error('Failed to submit price entries batch', { sessionId, batchERC });
-          await persistence.updateBatch(batchERC, { status: 'FAILED' });
-        }
-      } else {
-        logger.info('No price entries generated. Marking step as SYNCHRONOUS.', { sessionId });
-        await persistence.createBatch({
-          erc: createERC(ERC_PREFIX.BATCH),
-          sessionId,
-          stepKey: 'generate-price-lists',
-          status: 'SYNCHRONOUS',
-        });
-      }
-    } catch (error) {
-      logger.error('Failed execution of generate-price-lists step', {
-        sessionId,
-        error: error.message,
-      });
-      await persistence.createBatch({
-        erc: createERC(ERC_PREFIX.BATCH),
-        sessionId,
-        stepKey: 'generate-price-lists',
-        status: 'FAILED',
-      });
     }
   }
 }

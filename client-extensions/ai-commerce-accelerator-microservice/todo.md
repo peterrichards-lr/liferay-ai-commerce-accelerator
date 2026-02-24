@@ -4,23 +4,15 @@
 
 ### [x] Fix Warehouse ERC Prefix
 **Analysis**: The `ERC_PREFIX` object in `utils/constants.cjs` was missing the `WAREHOUSE` constant. When `createERC(ERC_PREFIX.WAREHOUSE)` was called, it resolved to `undefined`, resulting in ERCs like `undefined-1771533564373-98088246`.
-**Proposed Steps**:
-1. Open `client-extensions/ai-commerce-accelerator-microservice/utils/constants.cjs`.
-2. Locate the `ERC_PREFIX` object.
-3. Add `WAREHOUSE: `${APP_PREFIX}WH`` to the object properties. (COMPLETED)
+**Result**: **FIXED**.
 
 ### [x] Restore Missing Facade Method (`updateInventory`)
 **Analysis**: The recent refactor moved coordination logic to the `LiferayService` facade in `index.cjs`, but the delegation for inventory updates was missed. This causes a `TypeError` when the `update-inventory` step attempts to call the method.
-**Proposed Steps**:
-1. Open `client-extensions/ai-commerce-accelerator-microservice/services/liferay/index.cjs`.
-2. Add an `updateInventory` method to the `LiferayService` class.
-3. Delegate the call to `this.rest.updateProductInventory(config, warehouseId, sku, inventoryData)`. (COMPLETED)
+**Result**: **FIXED**.
 
 ### [x] Fix Workflow Stall in Deletion (Simulated Batching)
 **Analysis**: The deletion workflow stalled at steps using 'Simulated Batching' (like Warehouses). The orchestrator was not capturing handler outcomes, leaving batches stuck in 'PREPARED' status. Additionally, a stale session object in the loop caused redundant log messages.
-**Proposed Steps**:
-1. Modify `batch/callback.cjs` to refresh session state in every iteration of the `_checkSessionCompletion` loop.
-2. Update `_runStep` to await handler results and update the database with `COMPLETED` (simulated) or `SUBMITTED` (native) status. (COMPLETED)
+**Result**: **FIXED**.
 
 ---
 
@@ -28,56 +20,44 @@
 
 ### [x] Resilient ID Resolution (Stale Search Index)
 **Analysis**: Newly created products are not immediately searchable due to Liferay's asynchronous indexing. The `resolve-product-ids` step currently makes a single attempt to find them via GraphQL, often returning a partial list (e.g., 5 out of 10). This leaves the remaining products with `undefined` IDs, breaking all subsequent steps.
-**Proposed Steps**:
-1. Modify `ProductGenerator._runResolveProductIdsStep` in `productGenerator.cjs`.
-2. Implement a retry loop using the `pollingRetries` and `pollingDelay` values from the configuration.
-3. Inside the loop, perform the GraphQL discovery and check if the number of resolved products matches the expected count.
-4. Only proceed to the next step once all IDs are resolved or the maximum retries are exhausted. (COMPLETED)
+**Result**: **FIXED**.
 
 ### [x] Explicit Product Options Linking
 **Analysis**: Observations confirm that while `productSpecifications` are successfully linked via the Batch Engine create payload, `productOptions` are ignored. Global options must be linked to products via an explicit REST call.
-**Result**: **FIXED**. Added `link-product-options` step definition and implementation using explicit REST calls.
+**Result**: **FIXED**.
 
 ### [x] Consolidate Attachment and Inventory Logic
 **Analysis**: Logic for creating images, PDFs, and updating inventory currently exists in two places: as explicit generator steps and within the `onSessionComplete` hook. This redundancy is confusing and can lead to race conditions.
-**Result**: **FIXED**. Refactored `onSessionComplete` to remove redundant loops; generator steps are now the single source of truth.
+**Result**: **FIXED**.
 
 ### [x] Fix Missing Images and PDF Attachments
 **Analysis**: Beyond the ID resolution failure, we must ensure that once IDs are available, the binary data transfer is reliable. The current implementation uses an `ObjectStorageService` to host images/PDFs which Liferay then fetches via URL. Any misconfiguration in the sidecar endpoint or Liferay's ability to reach the microservice will result in "silent" attachment failures.
 **Result**: **FIXED**. 
-1. Implemented `addProductImageByBase64` and `addProductDocumentAttachmentByBase64` in `rest.cjs` and facade.
-2. Added `multipart` and `Document Library` (URL pattern) attachment methods to `rest.cjs`.
-3. Updated `MediaGenerator.cjs` to handle Live vs Demo modes and submit content via Base64 for reliability.
-4. Restored `ObjectStorageService.cjs` for data preservation/export use only.
 
 ### [x] Resolve Warehouse IDs
 **Analysis**: Warehouses are created via Batch Engine, but their numeric IDs are not returned in the submission. Subsequent steps (like `update-inventory`) require these IDs to interact with Liferay REST APIs.
-**Result**: **FIXED**. Implemented `resolve-warehouse-ids` step after warehouse generation to resolve numeric IDs via GraphQL filtering by ERC.
+**Result**: **FIXED**.
 
 ### [x] Refresh Session Context in Step Handlers
 **Analysis**: Step handlers (e.g., `_runUpdateInventoryStep`) receive a `session` object passed by the orchestrator at the start of the workflow. However, as steps complete and update the `context_json` in the database (e.g., adding resolved IDs), the handlers were still using the initial stale object.
-**Proposed Steps**:
-1. Update `ProductGenerator.cjs` handlers to re-fetch the latest session context using `persistence.getSession(sessionId)` at the start of each step method. (COMPLETED)
+**Result**: **FIXED**.
 
 ---
 
 ## 3. System Stability
 
 ### [x] Handle Shutdown Exceptions (`write EPIPE`)
-**Proposed Steps**:
-1. Implement graceful shutdown sequence in `server.cjs` by closing WebSocket server and awaiting logger draining. (COMPLETED)
+**Result**: **FIXED**.
 
 ### [x] Improve Error Message Clarity (Remove 'undefined' references)
-**Proposed Steps**:
-1. Review `logger` calls in `generators/*.cjs` and refactor template strings to avoid referencing properties that might be null/undefined directly in the message string. (COMPLETED)
+**Result**: **FIXED**.
 
 ---
 
 ## 4. Discovery Enhancements (Standardization)
 
 ### [x] Extend Query-Level Exclusions
-**Proposed Steps**:
-1. Update `getWarehouses`, `getSpecifications`, and `getOptions` in `liferay/index.cjs` to incorporate proactive name-based filtering using the `_buildNameExclusionFilter(exclusions)` helper. (COMPLETED)
+**Result**: **FIXED**.
 
 ---
 
@@ -85,110 +65,38 @@
 
 ### [x] GraphQL DataFetchingException (Specifications)
 **Analysis**: The `product-data-generation` step was encountering intermittent `DataFetchingException` (500 Internal Server Error) when querying Liferay's GraphQL endpoint for specifications.
-- **Root Cause**: The filter built in `liferay/index.cjs` for `getSpecifications` included `title sw '${search}'`. While `title` is a valid field in GraphQL, the underlying OData engine for specifications does not support filtering on this localized field, resulting in a server-side `null` pointer or data fetching exception.
-- **Trigger**: Occurs during the "Verification list for specifications" in `ProductGenerator.cjs` which passes a `search` prefix.
-- **Affected Code**: `client-extensions/ai-commerce-accelerator-microservice/services/liferay/index.cjs` (lines 133-154).
-**Result**: **FIXED**. Modified `getSpecifications` to filter solely on `key` and updated `_buildNameExclusionFilter` to use `key` for specifications.
+**Result**: **FIXED**.
 
 ### [x] Persistent Warehouse Resolution Failure (STALE_INDEX)
 **Analysis**: Despite a 12-attempt retry loop, `resolve-warehouse-ids` was still timing out with `STALE_INDEX`.
-- **Root Cause**: A structural mismatch in the data flow. `WarehouseGenerator.createWarehouses` returned a batch reference (containing the **Batch ERC**) instead of individual warehouse data when using batch mode. `ProductGenerator` then incorrectly used this batch ERC to attempt warehouse-level ID resolution. Since the batch ERC never matches an individual warehouse, Liferay returned `null`, triggering the `STALE_INDEX` retry logic until timeout.
-- **Affected Code**: `WarehouseGenerator.cjs` (return value of `createWarehouses`) and `productGenerator.cjs` (`_runResolveWarehouseIdsStep`).
 **Result**: **FIXED**.
-1. Refactored `WarehouseGenerator.createWarehouses` to return the `normalizedWarehouseDataList` (containing individual ERCs).
-2. Updated `ProductGenerator._runWarehouseGenerationStep` to filter out any remaining batch ERCs and added more robust verification of resolved IDs.
 
 ### [x] GraphQL DataFetchingException (Accounts Discovery)
 **Analysis**: The `deleteAccounts` step was consistently failing with `DataFetchingException: null` in Liferay's GraphQL layer.
-- **Root Cause**: The orchestrator was "standardizing" discovery fields in `deleteByFilter` to include both Commerce and User fields (e.g., `productId`, `title`). When these were passed to the `headlessAdminUser_v1_0/accounts` GraphQL query, Liferay crashed because those fields don't exist on the core Account DTO. Additionally, mixing `sw` filters on ERCs with `ne` filters on localized names was problematic in some environments.
-- **Result**: **FIXED**.
-    1. Refactored `deleteByFilter` to define entity-specific discovery fields.
-    2. Standardized all discovery methods (`getProducts`, `getAccounts`, etc.) to explicitly validate and filter requested fields against a whitelist of supported fields per entity.
-    3. Switched `getAccounts` to use the REST API for discovery, as it is more stable than GraphQL for core User/Account entities with complex filters.
-    4. Improved filter logic to automatically skip redundant name-based exclusions when a specific AI-generated prefix filter is provided.
+**Result**: **FIXED**.
 
 ### [x] Redundant "Step completed" Logging (Loop Atomicity)
 **Analysis**: Step completion was being logged and emitted multiple times for fast synchronous steps.
-- **Root Cause**: The orchestrator loop in `BatchCallbackService._checkSessionCompletion` re-evaluated state without persisting the updated `current_steps` to the database before continuing. This caused subsequent iterations to re-detect the same completion events.
-- **Result**: **FIXED**. Ensured that `persistence.updateSessionCurrentSteps` is called with the latest filtered state immediately after detection and before any loop `continue`.
+**Result**: **FIXED**.
 
 ### [x] Graceful Shutdown Logger Failure (write EPIPE)
 **Analysis**: During process termination (SIGTERM/SIGINT), the logger throws an uncaught `EPIPE` error when trying to write to `process.stdout` or `process.stderr`.
-- **Root Cause**: The microservice attempts to log status updates during its graceful shutdown sequence (e.g., "WebSocket server stopped"). If the parent process or container orchestrator has already closed the standard input/output pipes, the `out.write()` call in `Logger._log` throws `EPIPE`.
-- **Affected Code**: `client-extensions/ai-commerce-accelerator-microservice/utils/logger.cjs` (line 152).
-**Result**: **FIXED**. Wrapped `out.write()` calls in `Logger._log` with `writable` checks and `try-catch` blocks to safely handle `EPIPE` errors during shutdown.
+**Result**: **FIXED**.
 
 ### [x] Missing Context IDs in Full Deletion
 **Analysis**: The "Full environment deletion" process (triggered via `runDeleteAndMonitor`) does not explicitly populate `channelId` and `catalogId` at the root of the session context.
-- **Root Cause**: `DeleteCoordinatorService.runDeleteAndMonitor` initialized the session context with only `config`, `options`, `sessionId`, and `steps`. However, the delete orchestrator (`BatchCallbackService._startStep`) expects `channelId` and `catalogId` to be present directly in `session.context` to pass them to entity-specific deletion handlers.
-- **Affected Code**: `client-extensions/ai-commerce-accelerator-microservice/services/deleteCoordinatorService.cjs` (line 30).
-**Result**: **FIXED**. Updated `DeleteCoordinatorService.runDeleteAndMonitor` to extract and populate these IDs at the context root, matching the structure of `runDeleteSelectedAndMonitor`.
+**Result**: **FIXED**.
 
 ### [x] Fix Product Inventory Update Schema Mismatch
 **Analysis**: The `update-product-inventory` operation was failing with a 400 Bad Request.
-- **Root Cause**: The microservice was sending an unsupported `neverExpire` property in the `WarehouseItem` payload. Additionally, the numeric `product.id` was being incorrectly passed as the SKU string.
-- **Result**: **FIXED**.
-    1. Modified `ProductGenerator._runUpdateInventoryStep` to remove `neverExpire`.
-    2. Corrected the `liferay.updateInventory` call to pass the actual alphanumeric SKU.
-    3. Added support for iterating over and updating inventory for all SKUs and variants associated with a product.
-
-### [x] Analyse Missing Product Images and PDFs
-**Objective**: Understand why product images and PDFs are not being generated and attached to products.
-**Analysis Findings**:
-- **Type Mismatch (Validation Error)**: `options.imageRatio` and `options.pdfRatio` are received as strings from the UI. `ProductGenerator._generateProductData` converts them to Numbers on the `options` object but fails to persist these mutated options back to the session context. Subsequent steps (like `_runAttachImagesStep`) re-fetch the session from the DB, get the original strings, and pass them to `MediaGenerator.validateOptions`, which throws a `TypeError` because it expects a `number`. This explains the `Failed to process image attachments` log message.
-- **MockDataGenerator Bug (Demo Mode)**: `MockDataGenerator.generateProductData` does not populate the `attachments` property for products and ignores the `pdfRatio` option entirely. This causes the `attach-pdfs` step to skip because `withPdfs` is empty.
-- **AIService/Prompt/Schema Bug (Live Mode)**: The `product.json` schema and `product.md` prompt do not include an `images` property. Consequently, AI-generated products never have the `images` property, causing the `attach-images` step to skip.
-- **Logic Redundancy**: There is a disconnect between Generators and MediaGenerator regarding who owns the "ratio" logic. Generators should decide which products get attachments and populate the properties; MediaGenerator should then process those properties without re-applying a random ratio.
 **Result**: **FIXED**.
-1. Fixed `ProductGenerator.cjs` to persist normalized `options` (specifically numeric ratios) back to the session context.
-2. Updated `MockDataGenerator.cjs` to populate `images` and `attachments` based on ratios.
-3. Updated `AIService.cjs`, `product.json`, and `product.md` to include `images` in AI-generated data and fix `specifications` multilingual structure.
-4. Refactor `MediaGenerator.cjs` to use populated properties and remove redundant ratio filtering.
-
-### [x] Analyse Account Deletion Failure in Delete Workflow
-**Objective**: Understand why accounts are not being deleted as part of the delete workflow.
-**Analysis Findings**:
-- **Protocol Mismatch (Step Order)**: The delete workflow executes `deleteOrders` before `deleteAccounts`. `LiferayService.getAccounts` (used for discovery) has logic that, if `channelId` is provided, attempts to find accounts by querying orders in that channel. Since orders have already been deleted, this query returns zero results, causing the account deletion step to be skipped.
-- **Discovery Logic Bug**: `LiferayService.deleteByFilter` fails to pass the `filter` and `search` parameters to specialized discovery methods like `getAccounts`, `getProducts`, and `getPriceLists`. This prevents any caller-supplied filters (like ERC prefix filters) from being applied during these steps.
-- **Overly Restrictive Discovery**: `getAccounts` returns an empty result set immediately if `channelId` is present but no orders are found, even if other filters (like an ERC prefix) are provided.
-**Result**: **FIXED**.
-1. Fixed `LiferayService.deleteByFilter` to pass `filter` and `search` parameters to all specialized discovery methods.
-2. Refactored `LiferayService.getAccounts` to combine `channelId` discovery with other filters, preventing early exit.
-3. Updated `BatchCallbackService._checkIfEntitiesExist` and `deleteAccounts` step handler to use a default ERC prefix filter (`AICA-ACC-*`) for account discovery.
-
-### [x] Analyse WebSocket Progress Communication Mismatch
-**Objective**: Understand why batch updates are not being reflected in the UI progress bars.
-**Analysis Findings**:
-- **Redundant Event Prefixes**: Current event types like `BATCH_START` and `SESSION_COMPLETE` duplicate the information that should be in a `scope` field. 
-- **Hierarchical Mismatch**: The system lacks a clear distinction between **Session** (overall flow), **Step** (logical entity category), and **Batch** (physical Liferay submission).
-- **Operation Mismatch**: Frontend `useRealtimeWebSocket.js` ignores progress updates unless `operation` is exactly `'generate'`, `'process-images'`, or `'process-attachments'`.
-- **Entity Type Mapping**: Microservice sends specific step keys (e.g., `'postal-addresses'`, `'generate-warehouses'`), but the frontend expects normalized keys (`'accounts'`, `'warehouses'`).
-- **Granular Progress Ignored**: `BATCH_PROGRESS` (soon to be `PROGRESS` with scope `batch`) events are logged but never update the UI state.
-- **Missing Entity Support**: Support for `warehouses`, `price-lists`, and `specifications` is inconsistent across emitters and handlers.
-- **ProgressService Bug**: `batchFailed` incorrectly calls `emitBatchCompleted`.
-**Result**: **FIXED**.
-1. Unified events into `STARTED`, `PROGRESS`, `COMPLETED`, `FAILED` with mandatory `scope` field.
-2. Implemented hierarchical emission in `BatchCallbackService` (STEP level) and Generators (BATCH level).
-3. Enhanced `normalizeEntityType` in both microservice and frontend to ensure consistent category mapping.
-4. Refactored `useRealtimeWebSocket.js` to route updates based on `scope` and `entityType`, ensuring granular progress updates the UI.
-5. Fixed `ProgressService` bugs and aligned legacy emitters with the new protocol.
-
-### [x] Account Deletion Failure (OData Filter Compatibility)
-**Analysis**: The `deleteAccounts` workflow step was failing with `InvalidFilterException: Filter expressions must be boolean`.
-- **Root Cause**: The filter built for account discovery used `externalReferenceCode sw 'AICA-ACC'`. The Liferay Headless Admin User (Accounts) REST API does not support the `sw` operator (unlike Commerce APIs). Additionally, standard OData functions like `startswith()` are often unsupported or behave inconsistently for core Account entities in some Liferay versions.
-- **Result**: **FIXED**.
-    1. Updated `LiferayService.getAccounts` to utilize the native `search` parameter of the Headless REST API instead of building an OData filter for prefix matching. This provides a reliable, built-in way to find accounts by ERC or Name prefix.
-    2. Updated `BatchCallbackService._checkIfEntitiesExist` and the `deleteAccounts` step handler to pass the prefix as a `search` parameter.
-    3. Implemented a global `_normalizeFilter` transformation in the `LiferayService` facade to convert any remaining `sw` operators to the compliant `startswith()` function for entities that support standard OData functions.
 
 ---
 
 ## 6. Verification Tasks
 
 ### [x] Verify redundant `_checkSessionCompletion` removal
-**Analysis**: Commit `a437fd98f22c64bb2d9f6a015c911ed28661224f` removed manual calls to `batchCallback._checkSessionCompletion` from all generator step handlers (Accounts, Orders, Products). 
-- **Reason**: These manual calls were redundant because the `BatchCallbackService` orchestrator centrally manages session completion checks. Triggering them from within handlers caused duplicate execution threads, race conditions in state updates, and noisy logs.
-**Result**: **VERIFIED**. Code review confirms that the `while` loop in `BatchCallbackService` correctly handles synchronous advancement. Logs confirm smooth transitions without recursion.
+**Result**: **VERIFIED**.
 
 ---
 
@@ -210,18 +118,10 @@
 ### [x] Warehouse Inventory Duplication
 **Analysis**: Inventory records were duplicated during subsequent generation runs because they lacked stable External Reference Codes (ERCs). Liferay's default batch behavior is to create new records when no ERC match is found.
 **Result**: **FIXED**.
-1. Implemented a deterministic ERC pattern for inventory: `AICA-INV-[warehouseERC]-[sku]`.
-2. Updated `LiferayRestService.createWarehouseItemsBatch` to utilize the `UPSERT` strategy.
-3. Refactored `ProductGenerator._runUpdateInventoryStep` to calculate stable ERCs and use the new upsert-capable batch method.
 
 ### [x] Warehouse Deletion Failure (Referential Integrity)
 **Analysis**: Deleting warehouses failed because associated inventory items (WarehouseItems) were still present, violating referential integrity.
 **Result**: **FIXED**.
-1. Introduced a `deleteWarehouseItems` step at the beginning of the deletion workflow in `DeleteCoordinatorService`.
-2. Implemented `LiferayService.getWarehouseItems` to discover inventory items by iterating through all available warehouses (as Liferay lacks a global list endpoint).
-3. Added `deleteWarehouseItemsBatch` to handle bulk removal via the Batch Engine.
-4. Updated `BatchCallbackService` to support existence checks and UI normalization for inventory deletion.
-5. Updated `DISCOVERY_FIELDS` in `LiferayService` to include `warehouseItem` with correct field mapping (`sku`).
 
 ---
 
@@ -229,120 +129,100 @@
 
 ### [x] Missing `createWarehouseItemsBatch` Delegation
 **Analysis**: The `LiferayService` facade in `index.cjs` is missing the `createWarehouseItemsBatch` method, which is implemented in `rest.cjs`. This causes a `TypeError` when the inventory update step attempts to use the batch creation method.
-**Proposed Steps**:
-1. Open `client-extensions/ai-commerce-accelerator-microservice/services/liferay/index.cjs`.
-2. Add the `createWarehouseItemsBatch` method to the `LiferayService` class.
-3. Delegate the call to `this.rest.createWarehouseItemsBatch(config, itemsData, opts)`. (COMPLETED)
+**Result**: **FIXED**.
 
 ### [x] Fix Batch Callback Crash (`failureDetails` Undefined)
 **Analysis**: The orchestrator crashes with `Cannot read properties of undefined (reading 'slice')` if `liferay.getImportTaskFailedItemReport` returns `undefined` (which can happen on network errors or unexpected API responses).
-**Proposed Steps**:
-1. Modify `services/batch/callback.cjs` (lines 752 and 779).
-2. Add null/undefined checks for `failureDetails` before calling `.slice()` or `.length`. (COMPLETED)
+**Result**: **FIXED**.
 
 ### [x] Media Generator Fallback Fix (parseDataUrl)
 **Analysis**: `MediaGenerator` fails with `parseDataUrl: input must be a string` when `ConfigService` returns `null` for a default image or PDF. It incorrectly passes `null` to the utility function instead of using the fallback immediately.
-**Proposed Steps**:
-1. Update `generators/mediaGenerator.cjs` methods `getDefaultBase64Image` and `getDefaultBase64Pdf`.
-2. Check if `dataUrl` is a string before calling `parseDataUrl`. (COMPLETED)
+**Result**: **FIXED**.
 
 ### [x] Fix `Invalid URL` in Image Creation
 **Analysis**: `MediaGenerator.createImages` attempts to fetch image data via `axios.get(imageData.src)` without validating that `src` is a valid URL. AI-generated or malformed data can trigger an `Invalid URL` exception.
-**Proposed Steps**:
-1. Add a URL validation check in `MediaGenerator.createImages` before the `axios.get` call.
-2. Log a warning and skip the specific image if the URL is invalid. (COMPLETED)
+**Result**: **FIXED**.
 
-### [ ] Investigate Warehouse Deletion 500 Error
-**Analysis**: Sequential `DELETE` requests for warehouses are encountering `500 Internal Server Error` in some cases, even after inventory items have been removed.
-**Proposed Steps**:
-1. Review server-side Liferay logs to determine the cause of the 500 error (likely referential integrity with an undocumented entity).
-2. Ensure all dependent entities (like warehouse-specific pricing or assignments) are cleared before warehouse deletion.
+### [x] Investigate Warehouse Deletion 500 Error
+**Analysis**: Sequential `DELETE` requests for warehouses were encountering `500 Internal Server Error` (specifically `StaleStateException`) because the `deleteWarehouseItems` step was running immediately before it. Liferay's internal warehouse deletion logic attempts to clean up associated items; if they are already gone, Hibernate throws a stale state exception.
+**Result**: **FIXED**. Reordered deletion workflow to run `deleteOrders` first, then `deleteWarehouses` (which handles its own items), and removed the redundant `deleteWarehouseItems` from the full deletion flow.
 
 ### [x] Fix Inventory ERC Duplication (Truncation Bug)
 **Analysis**: `ProductGenerator._runUpdateInventoryStep` used `sanitizeForERC` which truncated strings to 12 characters by default. The inventory ERC pattern `AICA-INV-[warehouseERC]-[sku]` resulted in non-unique ERCs for different variant SKUs of the same product because their sanitized prefixes were identical.
-**Result**: **FIXED**. Increased truncation limit to 30 characters in `_runUpdateInventoryStep` to ensure uniqueness.
+**Result**: **FIXED**.
 
 ### [x] Handle Local Assets in Image Attachment (Demo Mode)
 **Analysis**: In demo mode, `MockDataGenerator` used `default.webp` as the image source. `MediaGenerator.createImages` skipped it because it failed the `isValidUrl` check.
-**Result**: **FIXED**. Updated `MediaGenerator.createImages` to detect local placeholder strings and use the configured default base64 image.
-
-### [x] 10. Log-based Issues (Feb 23 Analysis)
-
-#### 10.1. Inventory Batch Failure (`NotSupportedException` & 404)
-**Analysis**: The `update-inventory` step failed in Liferay with `javax.ws.rs.NotSupportedException`. This was caused by using a "global" inventory batch endpoint that lacked warehouse context. A subsequent attempt to use a scoped path resulted in a 404 because the path was not in the OpenAPI schema. Additionally, inventory ERCs were colliding due to aggressive 12-character truncation.
 **Result**: **FIXED**.
-1.  Updated `liferayPaths.cjs` to use the valid schema path `/warehouses/warehouseItems/batch` while passing the warehouse context (`externalReferenceCode`) via query parameters.
-2.  Refactored `ProductGenerator._runUpdateInventoryStep` to group inventory items by warehouse and submit separate batches.
-3.  Updated `LiferayRestService.createWarehouseItemsBatch` to pass both `warehouseId` and `externalReferenceCode` to the scoped path helper.
-4.  Increased ERC truncation limit to 30 characters to ensure uniqueness across variant SKUs.
 
-#### 10.2. Demo Mode Image Skipping
-**Analysis**: `MediaGenerator.createImages` used a strict URL validation (`new URL()`) that rejected local placeholders like `default.webp` used in demo mode. This caused all image attachments to be skipped during demo runs.
-**Result**: **FIXED**. Added logic to detect local assets and fetch the default base64 content via `this.getDefaultBase64Image(config)`.
+---
 
-#### 10.3. Localized Title NullPointerException (`addProductImageByBase64`)
-**Analysis**: The `attach-images` step failed with a 500 Internal Server Error. Liferay logs showed `java.lang.NullPointerException: Cannot invoke "java.util.Map.get(Object)" because "titleMap" is null`. This was caused by the microservice sending a payload for the `by-base64` image endpoint that completely omitted the `title` field.
-**Result**: **FIXED**.
-1.  Updated `MockDataGenerator.cjs` to include a default localized `title` for mock images.
-2.  Updated `MediaGenerator.cjs` to provide a fallback localized `title` (based on the product name) if `imageData.title` is missing during image creation.
+## 10. Pricing & Data Generation Fixes (Feb 24)
 
 ### [x] Fix Product Options Linking and Variant Creation
 **Analysis**: Options were not appearing on products, and variants were not being created despite being generated in the context. Additionally, a ReferenceError was crashing the inventory update.
-- **Root Cause 1 (Product Type)**: Liferay Headless API requires `simple` for ALL products during initial creation, even those that will have variants. Sending `variable` results in a `CPDefinitionProductTypeNameException`.
-- **Root Cause 2 (Missing Fields)**: `link-product-options` omitted `key`, `name`, and `fieldType`, violating the API contract for linking.
-- **Root Cause 3 (Scoping Bug)**: `_runUpdateInventoryStep` crashed with `warehouse is not defined` because it tried to access a loop variable from an outer scope.
-- **Root Cause 4 (Step Skipping)**: The `product-skus` step was bypassed because the product type was incompatible with variants.
 **Result**: **FIXED**.
-1.  Updated `ProductGenerator.cjs`: Consistently use `productType: 'simple'` to avoid API validation errors.
-2.  Updated `ProductGenerator.cjs`: Included mandatory `key`, `name`, and `fieldType` in the `productOptions` mapping.
-3.  Updated `ProductGenerator.cjs`: Fixed the `ReferenceError` in `_runUpdateInventoryStep` by correctly finding the warehouse in the loop scope.
-4.  Updated `MockDataGenerator.cjs`: Consistently use `productType: 'simple'`.
-5.  Updated `product.json` and `product.md`: Updated AI schema and prompt to use `simple` products.
 
 ### [x] Fix SKU Validation Exception (Unrecognized field "active")
-**Analysis**: The `products` and `product-skus` steps failed with `java.lang.IllegalArgumentException: Unrecognized field "active" (class com.liferay.headless.commerce.admin.catalog.dto.v1_0.Sku)`.
-- **Root Cause**: The microservice was sending an `active: true` property within SKU objects in the batch payload. While `active` is a valid field for the `Product` DTO, it is NOT recognized by the `Sku` DTO in the Headless Commerce API.
+**Analysis**: The `Sku` DTO in Liferay Headless Commerce API (v1.0) does not recognize an `active` property.
 **Result**: **FIXED**.
-1.  Updated `ProductGenerator.cjs`: Removed the `active` property from all SKU mapping logic.
-2.  Updated `MockDataGenerator.cjs`: Removed the `active` property from initial SKU and variant SKU generation.
-3.  Verified that SKU status in Liferay is derived from its configuration (e.g., presence of required SKU-contributing option values) rather than a boolean field.
 
 ---
 
-## 11. Log-based Issues (Feb 24 Analysis)
-
-### [x] Fix Product Option Linking (Schema Violation)
-**Analysis**: The `link-product-options` step fails with `400 Bad Request`.
-- **Root Cause**: The payload sent to `/o/headless-commerce-admin-catalog/v1.0/products/{productId}/productOptions` includes an internal `__catalogOption` property.
-**Result**: **FIXED**. Modified `ProductGenerator._runLinkProductOptionsStep` to strip internal and read-only properties (`id`, `__catalogOption`) before calling the Liferay service.
-
-### [x] Fix Inventory Batch Duplication
-**Analysis**: The `update-inventory` step fails with `DuplicateCommerceInventoryWarehouseItemException`.
-- **Root Cause**: The batch payload contains multiple inventory records for the same SKU and Warehouse ERC.
-**Result**: **FIXED**. Updated `ProductGenerator._runUpdateInventoryStep` to use a `Map` to deduplicate and sum quantities for the same SKU/Warehouse pair before building the batch payload.
+## 11. Orchestration & State Fixes (Feb 24)
 
 ### [x] Resolve Session Completion Race Condition
-**Analysis**: Multiple `Workflow session completed` events are emitted for a single session.
-- **Root Cause**: Redundant finalization logic in `ProductGenerator.onSessionComplete` used lowercase `'completed'`, which bypassed the atomic `tryFinalizeSession` check (expecting uppercase `'COMPLETED'`) in `BatchCallbackService`. This allowed multiple threads to transition the state and emit events.
-**Result**: **FIXED**. Removed the redundant `onSessionComplete` and `processImageAndPDFAttachments` methods from `ProductGenerator.cjs`, ensuring `BatchCallbackService` remains the sole authority for session finalization.
+**Analysis**: Multiple `Workflow session completed` events were emitted for a single session.
+**Result**: **FIXED**.
 
 ### [x] Enforce Workflow Failure Policy
-**Analysis**: A session was marked as `COMPLETED` even though the `update-inventory` step `FAILED`.
-- **Root Cause**: `SYNCHRONOUS` steps (and some internal generator failures) log errors but do not record a `FAILED` batch/step in the database. The orchestrator only checks for the presence of `FAILED` records in the `workflow_batches` table.
-**Result**: **FIXED**. Wrapped synchronous step handlers in generators and delete handlers in the orchestrator with `try-catch` blocks that explicitly record a `FAILED` batch status in the database upon error.
+**Analysis**: Sessions were marked as `COMPLETED` even when synchronous steps failed.
+**Result**: **FIXED**.
 
 ---
 
-## 12. Future Pricing Enhancements
+## 12. Strategic Roadmap (Completed Feb 24)
 
-### [x] Utilize `generatePriceLists` Flag
-**Analysis**: The `generatePriceLists` boolean is currently passed to generators but ignored. Price lists are essential for regional pricing and multi-currency support.
-**Result**: **FIXED**. Implemented price entry generation in both `MockDataGenerator` and `AIService`. Added a new `generate-price-lists` workflow step to `ProductGenerator` that ensures a default "Accelerator Price List" exists and submits entries via the Liferay Batch Engine.
+### [x] Fix `OrderGenerator` Signature Mismatch (PRIORITY 1)
+**Analysis**: `OrderGenerator.getProductsAndAccounts` was passing raw IDs instead of options objects, and incorrectly processing result items.
+**Result**: **FIXED**.
 
-### [x] Utilize `generateBulkPricing` Flag
-**Analysis**: The `generateBulkPricing` boolean is currently active. Bulk pricing applies the same tier price to all items in qualifying bulk orders.
-**Status**: [DONE] Implemented in `MockDataGenerator`, `AIService` prompt engineering, and product schema.
+### [x] Consistent `correlationId` Propagation (PRIORITY 2)
+**Analysis**: WebSocket messages were missing `correlationId` due to inconsistent argument patterns between `ProgressService` and `WebSocketService`.
+**Result**: **FIXED**. Standardized propagation in both services.
 
-### [x] Utilize `generateTierPricing` Flag
-**Analysis**: The `generateTierPricing` boolean is currently active. Tiered pricing applies different prices to order items according to defined price tiers.
-**Status**: [DONE] Implemented in `MockDataGenerator`, `AIService` prompt engineering, and product schema.
+### [x] Align Event Types and UI Handling (PRIORITY 2)
+**Analysis**: UI was resetting progress counts on batch-level `STARTED` events and not accumulating progress correctly. `normalizeEntityType` was missing several step keys.
+**Result**: **FIXED**. Updated `useRealtimeWebSocket.js` to track individual batch progress and `normalizeEntityType` to support all keys.
+
+### [x] Account Address Linking `STALE_INDEX` Failure (PRIORITY 3)
+**Analysis**: Newly created accounts/addresses were not immediately searchable via GraphQL due to indexing lag.
+**Result**: **FIXED**. Implemented resilient retry logic in `AccountGenerator`.
+
+### [x] Graceful Database Shutdown (PRIORITY 3)
+**Analysis**: SQLite connection should be closed during server shutdown to prevent file corruption.
+**Result**: **FIXED**. Updated `PersistenceService` and `server.cjs`.
+
+### [x] Implement Workflow Summary API (PRIORITY 4)
+**Objective**: Allow callers to retrieve a detailed summary of a specific workflow session, including steps, timings, and events.
+**Result**: **FIXED**. Added `getEventsForSession`, path constant, and summary GET route.
+
+### [x] Standardize Resilient Discovery Across Generators (PRIORITY 5)
+**Analysis**: Inconsistent retry patterns across generators.
+**Result**: **FIXED**. Extracted `liferay.resolveByERCsWithRetry` utility and refactored generators to use it.
+
+### [x] Improve GraphQL SDK Error Handling (PRIORITY 5)
+**Analysis**: GraphQL error arrays were ignored by the `STALE_INDEX` check.
+**Result**: **FIXED**. Updated `LiferayGraphQLService._fetchByERCs`.
+
+### [x] Enhance Cache Coordination in `PersistenceService` (PRIORITY 5)
+**Analysis**: `PersistenceService` lacked paged list caching for batches.
+**Result**: **FIXED**. Implemented read-through caching for `getBatchesForSession`.
+
+### [x] Add Database Indexes for Performance (PRIORITY 5)
+**Analysis**: Queries by `session_id` would slow down as tables grow.
+**Result**: **FIXED**. Added indexes on `session_id` for batches and events tables.
+
+### [x] Improve Asynchronous Traceability (Correlation ID)
+**Analysis**: Batch callbacks from Liferay were missing the `correlationId`, making it difficult to trace logs back to the originating UI session. Outgoing API logs also lacked this context.
+**Result**: **FIXED**. Added `correlationId` to batch callback URLs, updated middleware to handle it from querystring, and ensured all internal and outgoing logs include it.

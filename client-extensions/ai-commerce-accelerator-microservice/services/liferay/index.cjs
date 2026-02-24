@@ -1097,6 +1097,39 @@ class LiferayService {
     return this.rest.setBillingAndShippingAddresses(config, accountId, shippingAddressId, billingAddressId);
   }
 
+  // Resilient Resolution Utility
+  async resolveByERCsWithRetry(config, ercs, resolverFn, options = {}) {
+    const { logger } = this.ctx;
+    const maxRetries = options.maxRetries ?? (parseInt(config.pollingRetries, 10) || 10);
+    const delayMs = options.delayMs ?? (parseInt(config.pollingDelay, 10) || 5000);
+    const label = options.label || 'entities';
+
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      try {
+        const resolvedItems = await resolverFn(config, ercs);
+        
+        const resolvedErcs = new Set(resolvedItems.filter(Boolean).map(it => it.externalReferenceCode));
+        const missingCount = ercs.filter(erc => !resolvedErcs.has(erc)).length;
+
+        if (missingCount === 0) {
+          return resolvedItems;
+        }
+
+        if (attempt === maxRetries) {
+          logger.warn(`Failed to resolve all ${label} after ${maxRetries} attempts. Missing ${missingCount} IDs.`);
+          return resolvedItems;
+        }
+
+        logger.warn(`Retrying ${label} resolution (attempt ${attempt}/${maxRetries}). Missing ${missingCount} of ${ercs.length} IDs.`);
+        await delay(delayMs);
+      } catch (error) {
+        if (attempt === maxRetries) throw error;
+        logger.warn(`Retrying ${label} resolution (attempt ${attempt}/${maxRetries}) due to error: ${error.message}`);
+        await delay(delayMs);
+      }
+    }
+  }
+
   // Other Coordination/Logic
   getSpecificationsByProductIds(config, productIds, fields) {
     return this.graphql.getSpecificationsByProductIds(config, productIds, fields);

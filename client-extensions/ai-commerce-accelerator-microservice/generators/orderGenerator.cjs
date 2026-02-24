@@ -36,6 +36,7 @@ class OrderGenerator {
       flowType: 'orders',
       status: 'STARTED',
       currentSteps: [],
+      correlationId: config.correlationId,
       context: {
         config,
         options,
@@ -527,8 +528,11 @@ class OrderGenerator {
   async getProductsAndAccounts(config) {
     const { liferay, logger } = this.ctx;
 
-    const products = await liferay.getProducts(config, config.catalogId);
-    const accounts = await liferay.getAccounts(config);
+    const productsRes = await liferay.getProducts(config, { catalogId: config.catalogId });
+    const accountsRes = await liferay.getAccounts(config, { channelId: config.channelId });
+
+    const products = productsRes.items || [];
+    const accounts = accountsRes.items || [];
 
     if (products.length === 0) {
       throw new Error('No products available. Please generate products first.');

@@ -30,6 +30,7 @@ export default function useRealtimeWebSocket({
   const [wsConnected, setWsConnected] = useState(false);
 
   const seenBatchIdsRef = useRef(new Set());
+  const batchProgressRef = useRef({}); // Map<entityType, Map<batchId, processedCount>>
   const backoffRef = useRef(1000);
   const reconnectTimerRef = useRef(null);
 
@@ -123,6 +124,7 @@ export default function useRealtimeWebSocket({
     }
 
     seenBatchIdsRef.current = new Set();
+    batchProgressRef.current = {};
 
     const trimmed = microserviceUrl.replace(/\/$/, '');
     const wsUrl = trimmed.replace(/^http/, 'ws');
@@ -231,6 +233,23 @@ export default function useRealtimeWebSocket({
         return { success, failures, total };
       };
 
+      const updateBatchProgress = (type, batchId, processedCount) => {
+        if (!type || !batchId) return;
+        if (!batchProgressRef.current[type]) {
+          batchProgressRef.current[type] = new Map();
+        }
+        batchProgressRef.current[type].set(batchId, processedCount);
+      };
+
+      const getAggregateCompleted = (type) => {
+        if (!batchProgressRef.current[type]) return 0;
+        let sum = 0;
+        for (const count of batchProgressRef.current[type].values()) {
+          sum += count;
+        }
+        return sum;
+      };
+
       switch (data.type) {
         case STARTED: {
           const total = data.totalCount ?? data.details?.totalCount;
@@ -243,6 +262,7 @@ export default function useRealtimeWebSocket({
 
           if (data.scope === 'session') {
             onLog?.(`Session started: ${data.details?.flowType || 'unknown'}`, 'info');
+            batchProgressRef.current = {};
           } else if (data.scope === 'step' || data.scope === 'batch') {
             onLog?.(
               total != null
@@ -252,14 +272,25 @@ export default function useRealtimeWebSocket({
             );
 
             if (onProgress && entityType !== 'unknown') {
-              onProgress((prev) => ({
-                ...prev,
-                [entityType]: {
-                  ...prev[entityType],
-                  total: total ?? prev[entityType]?.total,
-                  completed: 0,
-                },
-              }));
+              onProgress((prev) => {
+                const cur = prev[entityType] || { total: 0, completed: 0, errors: [] };
+                
+                if (data.scope === 'step') {
+                  // Step started - reset this entity's batch tracking
+                  if (batchProgressRef.current[entityType]) {
+                    batchProgressRef.current[entityType].clear();
+                  }
+                }
+
+                return {
+                  ...prev,
+                  [entityType]: {
+                    ...cur,
+                    total: total ?? cur.total,
+                    completed: data.scope === 'step' ? 0 : cur.completed,
+                  },
+                };
+              });
             }
           }
           break;
@@ -276,6 +307,10 @@ export default function useRealtimeWebSocket({
           });
 
           if (data.scope === 'batch' || data.scope === 'step') {
+            if (data.scope === 'batch' && bId) {
+              updateBatchProgress(entityType, bId, processedCount);
+            }
+
             if (onProgress && entityType !== 'unknown') {
               onProgress((prev) => {
                 const cur = prev?.[entityType] || {
@@ -283,12 +318,17 @@ export default function useRealtimeWebSocket({
                   completed: 0,
                   errors: [],
                 };
+                
+                const nextCompleted = data.scope === 'batch' 
+                  ? getAggregateCompleted(entityType)
+                  : (processedCount ?? cur.completed);
+
                 return {
                   ...prev,
                   [entityType]: {
                     ...cur,
                     total: totalCount ?? cur.total,
-                    completed: processedCount ?? cur.completed,
+                    completed: nextCompleted,
                   },
                 };
               });
@@ -317,6 +357,10 @@ export default function useRealtimeWebSocket({
               'success'
             );
 
+            if (data.scope === 'batch' && bId) {
+              updateBatchProgress(entityType, bId, success);
+            }
+
             if (onProgress && entityType !== 'unknown') {
               onProgress((prev) => {
                 const cur = prev?.[entityType] || {
@@ -324,7 +368,11 @@ export default function useRealtimeWebSocket({
                   completed: 0,
                   errors: [],
                 };
-                const nextCompleted = data.scope === 'batch' ? (cur.completed + (success ?? 0)) : (total ?? success ?? cur.total);
+                
+                const nextCompleted = data.scope === 'batch' 
+                  ? getAggregateCompleted(entityType)
+                  : (total ?? success ?? cur.total);
+
                 return {
                   ...prev,
                   [entityType]: {
@@ -367,6 +415,11 @@ export default function useRealtimeWebSocket({
               });
             }
 
+            if (data.scope === 'batch' && bId) {
+              // Even if it failed, record whatever success/processed count it had
+              updateBatchProgress(entityType, bId, data.successCount ?? 0);
+            }
+
             if (onProgress && entityType !== 'unknown') {
               onProgress((prev) => {
                 const cur = prev?.[entityType] || {
@@ -374,7 +427,11 @@ export default function useRealtimeWebSocket({
                   completed: 0,
                   errors: [],
                 };
-                const nextCompleted = cur.completed + (failures ?? 0);
+                
+                const nextCompleted = data.scope === 'batch'
+                  ? getAggregateCompleted(entityType)
+                  : cur.completed;
+
                 const addErrors =
                   failures > 0
                     ? Array.from({ length: failures }, () => ({
@@ -424,7 +481,7 @@ export default function useRealtimeWebSocket({
               [entityType]: {
                 ...prev[entityType],
                 total: total ?? prev[entityType]?.total,
-                completed: 0,
+                completed: prev[entityType]?.completed || 0,
               },
             }));
           }
@@ -451,6 +508,10 @@ export default function useRealtimeWebSocket({
             'info'
           );
 
+          if (bId) {
+            updateBatchProgress(entityType, bId, processedCount);
+          }
+
           if (onProgress && entityType !== 'unknown') {
             onProgress((prev) => {
               const cur = prev?.[entityType] || {
@@ -463,7 +524,7 @@ export default function useRealtimeWebSocket({
                 [entityType]: {
                   ...cur,
                   total: totalItems ?? cur.total,
-                  completed: processedCount ?? cur.completed,
+                  completed: bId ? getAggregateCompleted(entityType) : (processedCount ?? cur.completed),
                 },
               };
             });
@@ -493,6 +554,10 @@ export default function useRealtimeWebSocket({
             'success'
           );
 
+          if (bId) {
+            updateBatchProgress(entityType, bId, success);
+          }
+
           if (!activityOnly && onProgress && entityType !== 'unknown') {
             onProgress((prev) => {
               const cur = prev?.[entityType] || {
@@ -500,7 +565,7 @@ export default function useRealtimeWebSocket({
                 completed: 0,
                 errors: [],
               };
-              const nextCompleted = cur.completed + (success ?? 0);
+              const nextCompleted = bId ? getAggregateCompleted(entityType) : (cur.completed + (success ?? 0));
               return {
                 ...prev,
                 [entityType]: {
@@ -543,6 +608,10 @@ export default function useRealtimeWebSocket({
             });
           }
 
+          if (bId) {
+            updateBatchProgress(entityType, bId, data.successCount ?? 0);
+          }
+
           if (onProgress && entityType !== 'unknown') {
             onProgress((prev) => {
               const cur = prev?.[entityType] || {
@@ -550,7 +619,7 @@ export default function useRealtimeWebSocket({
                 completed: 0,
                 errors: [],
               };
-              const nextCompleted = cur.completed + (failures ?? 0);
+              const nextCompleted = bId ? getAggregateCompleted(entityType) : (cur.completed + (failures ?? 0));
               const addErrors =
                 failures > 0
                   ? Array.from({ length: failures }, () => ({

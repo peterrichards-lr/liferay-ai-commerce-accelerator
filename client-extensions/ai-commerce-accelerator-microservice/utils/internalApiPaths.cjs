@@ -32,6 +32,7 @@ const INTERNAL_API_PATHS = {
   JOBS: '/jobs/:jobId',
   WORKFLOW_SESSIONS: '/workflows/sessions',
   WORKFLOW_BATCHES: '/workflows/batches/:sessionId',
+  WORKFLOW_SUMMARY: '/workflows/sessions/:sessionId/summary',
 };
 
 module.exports = { INTERNAL_API_PATHS };

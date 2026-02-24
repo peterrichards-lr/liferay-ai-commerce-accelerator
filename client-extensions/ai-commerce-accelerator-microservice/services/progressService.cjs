@@ -16,6 +16,7 @@ class ProgressService {
     this.ws.emitProgress(
       {
         sessionId,
+        correlationId,
         status: WEB_SOCKET_EVENTS.STARTED,
         scope: WS_SCOPE.SESSION,
         details: { flowType },
@@ -34,6 +35,7 @@ class ProgressService {
     this.ws.emitProgress(
       {
         sessionId,
+        correlationId,
         status: WEB_SOCKET_EVENTS.COMPLETED,
         scope: WS_SCOPE.SESSION,
       },
@@ -43,6 +45,7 @@ class ProgressService {
     this.ws.emitGenerationSessionComplete(
       {
         sessionId,
+        correlationId,
         timestamp: new Date().toISOString(),
       },
       { correlationId }
@@ -59,6 +62,7 @@ class ProgressService {
     this.ws.emitProgress(
       {
         sessionId,
+        correlationId,
         status: WEB_SOCKET_EVENTS.FAILED,
         scope: WS_SCOPE.SESSION,
         error: error.message,
@@ -78,6 +82,7 @@ class ProgressService {
     this.ws.emitProgress(
       {
         sessionId,
+        correlationId,
         status: WEB_SOCKET_EVENTS.STARTED,
         scope: WS_SCOPE.STEP,
         entityType,
@@ -99,6 +104,7 @@ class ProgressService {
     this.ws.emitProgress(
       {
         sessionId,
+        correlationId,
         status: WEB_SOCKET_EVENTS.PROGRESS,
         scope: WS_SCOPE.STEP,
         entityType,
@@ -114,6 +120,7 @@ class ProgressService {
     this.ws.emitProgress(
       {
         sessionId,
+        correlationId,
         status: WEB_SOCKET_EVENTS.COMPLETED,
         scope: WS_SCOPE.STEP,
         entityType,
@@ -141,6 +148,7 @@ class ProgressService {
         batchERC,
         totalCount: totalItems,
         sessionId,
+        correlationId,
         status: WEB_SOCKET_EVENTS.STARTED,
         scope: WS_SCOPE.BATCH,
       };
@@ -161,6 +169,7 @@ class ProgressService {
             batchId,
             batchERC,
             sessionId,
+            correlationId,
             processedCount: completedCount,
             totalCount: totalItems,
             status: WEB_SOCKET_EVENTS.PROGRESS,
@@ -186,6 +195,7 @@ class ProgressService {
         batchId,
         batchERC,
         sessionId,
+        correlationId,
         status: WEB_SOCKET_EVENTS.COMPLETED,
         scope: WS_SCOPE.BATCH,
         details: {
@@ -212,6 +222,7 @@ class ProgressService {
         batchId,
         batchERC,
         sessionId,
+        correlationId,
         status: WEB_SOCKET_EVENTS.FAILED,
         scope: WS_SCOPE.BATCH,
         error: error.message,
@@ -239,6 +250,7 @@ class ProgressService {
         operation,
         ...resolvePhaseAndMode({ useBatch: false, phase: 'postprocess' }),
         sessionId,
+        correlationId,
         status: WEB_SOCKET_EVENTS.STARTED,
         scope: WS_SCOPE.STEP, // Post-processing is treated as a STEP in the new model
       };
@@ -262,6 +274,7 @@ class ProgressService {
         processedCount,
         totalCount,
         sessionId,
+        correlationId,
         status: WEB_SOCKET_EVENTS.COMPLETED,
         scope: WS_SCOPE.STEP,
       };
@@ -279,13 +292,14 @@ class ProgressService {
     const payload = {
         sessionId: rest.sessionId,
         batchId: rest.batchId,
+        correlationId,
         message,
         errorReference,
         status: WEB_SOCKET_EVENTS.FAILED,
         scope: rest.scope || WS_SCOPE.SESSION,
         ...rest
     };
-    this.ws.emitError(payload);
+    this.ws.emitError(payload, { correlationId });
     this.persistence.logWorkflowEvent({
         sessionId: rest.sessionId,
         batchId: rest.batchId,

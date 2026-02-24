@@ -60,6 +60,8 @@ class BatchCallbackService {
       return;
     }
 
+    const effectiveCorrelationId = correlationId || session.correlationId;
+
     let continueLoop = true;
     while (continueLoop) {
       // Refresh session data at the start of each iteration to avoid stale state
@@ -73,7 +75,7 @@ class BatchCallbackService {
         session,
         session.currentSteps, 
         allBatchesForSession,
-        correlationId
+        effectiveCorrelationId
       );
 
       if (hasFailures) {
@@ -82,7 +84,7 @@ class BatchCallbackService {
           this.ctx.progress.sessionFailed({
             sessionId,
             error: { message: 'Workflow failed during step execution.' },
-            correlationId,
+            correlationId: effectiveCorrelationId,
           });
         }
         return;
@@ -91,7 +93,7 @@ class BatchCallbackService {
       let currentSteps = activeSteps;
       
       if (currentSteps.length === 0) {
-        const { newActiveSteps, startedAny } = await this._advanceWorkflow(session, allBatchesForSession, correlationId);
+        const { newActiveSteps, startedAny } = await this._advanceWorkflow(session, allBatchesForSession, effectiveCorrelationId);
         
         if (!startedAny || newActiveSteps.length === 0) {
           await persistence.updateSessionCurrentSteps(sessionId, []);
@@ -103,7 +105,7 @@ class BatchCallbackService {
             session, 
             newActiveSteps, 
             latestBatches, 
-            correlationId
+            effectiveCorrelationId
           );
 
           if (newFailures) {
@@ -112,7 +114,7 @@ class BatchCallbackService {
               this.ctx.progress.sessionFailed({
                 sessionId,
                 error: { message: 'Workflow failed during step execution.' },
-                correlationId,
+                correlationId: effectiveCorrelationId,
               });
             }
             return;
@@ -139,7 +141,7 @@ class BatchCallbackService {
       const workflowFinished = await this._isWorkflowFinished(session, currentSteps, latestBatches);
 
       if (workflowFinished) {
-        await this._finalizeSession(session, latestBatches, correlationId);
+        await this._finalizeSession(session, latestBatches, effectiveCorrelationId);
         continueLoop = false;
       }
     }
@@ -726,7 +728,7 @@ class BatchCallbackService {
     return generator?.onSessionComplete?.bind(generator);
   }
 
-  async processCallback(batchERC, payload) {
+  async processCallback(batchERC, payload, correlationId = null) {
     const { logger, liferay, persistence, progress } = this.ctx;
 
     const dbBatch = await persistence.getBatch(batchERC);
@@ -736,6 +738,7 @@ class BatchCallbackService {
         batchERC,
         payload,
         operation: 'batch-callback-no-record',
+        correlationId,
       });
       return;
     }
@@ -746,13 +749,14 @@ class BatchCallbackService {
         operation: 'batch-callback-no-session',
         batchERC,
         sessionId: dbBatch.session_id,
+        correlationId,
       });
       await persistence.updateBatch(batchERC, { status: 'FAILED' });
       return;
     }
 
     const { config } = session.context;
-    const correlationId = config.correlationId;
+    const effectiveCorrelationId = correlationId || session.correlationId || config.correlationId;
 
     const batchId = Object.keys(payload)[0];
     const status = payload[batchId];
@@ -761,6 +765,7 @@ class BatchCallbackService {
       logger.error('Could not extract batchId from callback payload', {
         payload,
         operation: 'batch-callback-bad-payload',
+        correlationId: effectiveCorrelationId,
       });
       return;
     }
@@ -771,7 +776,8 @@ class BatchCallbackService {
       logger.debug('Import task details retrieved', {
         batchId,
         sessionId: dbBatch.session_id,
-        importTask: importTask?.data || importTask
+        importTask: importTask?.data || importTask,
+        correlationId: effectiveCorrelationId,
       });
 
       const { 
@@ -791,11 +797,13 @@ class BatchCallbackService {
             sessionId: dbBatch.session_id,
             errorCount,
             failureDetails: failureDetails.slice(0, 10), // Log first 10 for visibility
+            correlationId: effectiveCorrelationId,
           });
         } catch (reportError) {
           logger.warn('Failed to retrieve detailed batch failure report', {
             batchId,
             error: reportError.message,
+            correlationId: effectiveCorrelationId,
           });
         }
       }
@@ -818,15 +826,15 @@ class BatchCallbackService {
           successCount: processedItemsCount,
           failureCount: errorCount,
           errors: (failureDetails && failureDetails.length > 0) ? failureDetails.slice(0, 5) : (failedItems ? failedItems.slice(0, 5) : []),
-          correlationId,
+          correlationId: effectiveCorrelationId,
         }
       );
 
-      await this._checkSessionCompletion(dbBatch.session_id, correlationId);
+      await this._checkSessionCompletion(dbBatch.session_id, effectiveCorrelationId);
     } catch (error) {      logger.error('Error processing batch callback', {
         operation: 'batch-callback-error',
         batchERC,
-        correlationId,
+        correlationId: effectiveCorrelationId,
         message: error.message,
       });
 
@@ -838,7 +846,7 @@ class BatchCallbackService {
         error,
         entityType: this._normalizeEntityType(dbBatch.step_key),
         operation: session.flow_type,
-        correlationId,
+        correlationId: effectiveCorrelationId,
       });
     }
   }
