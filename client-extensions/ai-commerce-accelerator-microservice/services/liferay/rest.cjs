@@ -1440,6 +1440,34 @@ class LiferayRestService {
     );
   }
 
+  async getPriceListByERC(config, externalReferenceCode) {
+    try {
+      return await this._get(
+        config,
+        PATH.PRICE_LIST_BY_ERC(externalReferenceCode),
+        'get-price-list-by-erc',
+      );
+    } catch (error) {
+      if (error.response?.status === 404) return null;
+      throw error;
+    }
+  }
+
+  async createPriceEntriesBatch(config, priceEntriesData, opts = {}) {
+    const results = await this._postBatch(config, {
+      entityName: 'priceentry',
+      items: priceEntriesData,
+      externalReferenceCode: opts.externalReferenceCode,
+      itemERCKey: 'externalReferenceCode',
+      op: 'create-price-entries-batch',
+      friendly: 'Failed to create price entries batch',
+      path: PATH.PRICE_ENTRIES_BATCH,
+      sessionId: opts.sessionId,
+    });
+
+    return results;
+  }
+
   async createPriceEntry(config, priceListId, priceEntryData) {
     return await this._post(
       config,

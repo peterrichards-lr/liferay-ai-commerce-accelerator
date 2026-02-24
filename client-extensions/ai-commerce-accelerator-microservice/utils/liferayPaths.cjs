@@ -98,6 +98,10 @@ const PATH = {
     `${BASE.PRICE_LISTS}/batch${
       callbackURL ? `?callbackURL=${enc(callbackURL)}` : ''
     }`,
+  PRICE_ENTRIES_BATCH: (callbackURL) =>
+    `${BASE.PRICE_LISTS}/priceEntries/batch${
+      callbackURL ? `?callbackURL=${enc(callbackURL)}` : ''
+    }`,
   PRODUCTS_BATCH: (callbackURL) =>
     `${BASE.PRODUCTS}/batch${
       callbackURL ? `?callbackURL=${enc(callbackURL)}` : ''

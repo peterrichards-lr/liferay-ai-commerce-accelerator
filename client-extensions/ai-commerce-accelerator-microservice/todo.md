@@ -335,20 +335,14 @@
 
 ## 12. Future Pricing Enhancements
 
-### [ ] Utilize `generatePriceLists` Flag
+### [x] Utilize `generatePriceLists` Flag
 **Analysis**: The `generatePriceLists` boolean is currently passed to generators but ignored. Price lists are essential for regional pricing and multi-currency support.
-**Proposed Steps**:
-1. Implement logic in `MockDataGenerator` and `AIService` to generate price list entries when the flag is enabled.
-2. Add a `generate-price-lists` step to `ProductGenerator.cjs` to handle batch submission of price entries.
+**Result**: **FIXED**. Implemented price entry generation in both `MockDataGenerator` and `AIService`. Added a new `generate-price-lists` workflow step to `ProductGenerator` that ensures a default "Accelerator Price List" exists and submits entries via the Liferay Batch Engine.
 
-### [ ] Utilize `generateBulkPricing` Flag
-**Analysis**: The `generateBulkPricing` boolean is currently inactive. Bulk pricing allows for discounts based on order volume.
-**Proposed Steps**:
-1. Update generator logic to produce bulk pricing tiers when requested.
-2. Integrate with Liferay's pricing APIs to persist these tiers.
+### [x] Utilize `generateBulkPricing` Flag
+**Analysis**: The `generateBulkPricing` boolean is currently active. Bulk pricing applies the same tier price to all items in qualifying bulk orders.
+**Status**: [DONE] Implemented in `MockDataGenerator`, `AIService` prompt engineering, and product schema.
 
-### [ ] Utilize `generateTierPricing` Flag
-**Analysis**: The `generateTierPricing` boolean is currently a placeholder. Tiered pricing allows for different price points based on account groups or roles.
-**Proposed Steps**:
-1. Extend data generation to include account-group-specific pricing tiers.
-2. Implement the corresponding step in the product generation workflow.
+### [x] Utilize `generateTierPricing` Flag
+**Analysis**: The `generateTierPricing` boolean is currently active. Tiered pricing applies different prices to order items according to defined price tiers.
+**Status**: [DONE] Implemented in `MockDataGenerator`, `AIService` prompt engineering, and product schema.

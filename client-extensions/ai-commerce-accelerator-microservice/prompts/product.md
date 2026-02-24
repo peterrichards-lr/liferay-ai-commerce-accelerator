@@ -11,7 +11,7 @@ You must return a JSON array that conforms to the provided JSON schema. Each ele
 - skus: array of one or more base SKU objects. Each SKU object must have:
   - sku: string (usually baseSku).
   - cost: number.
-  - price: number (&gt; 0).
+  - price: number (> 0).
   - inventoryLevel: integer quantity in stock.
   - published: boolean.
   - purchasable: boolean.
@@ -30,6 +30,7 @@ You must return a JSON array that conforms to the provided JSON schema. Each ele
   - options: object mapping option names to selected values (for example {"color": "Black", "size": "Large"}). IMPORTANT: You MUST provide a value for EVERY option defined in the "options" array, even if it is not a skuContributor.
   - priceModifier: number representing percentage adjustment from the base price (for example -0.15 for -15%, 0.2 for +20%). Premium options should cost more.
   - inStock: boolean (for realism, roughly 90% true and 10% false).
+{{priceEntriesInstruction}}
 - images: array of 1–3 realistic image metadata objects. Each image object must have:
   - src: string (placeholder filename like "product-main.webp").
   - title: object of multilingual image titles keyed by language code.
@@ -45,7 +46,7 @@ IMPORTANT rules:
 - For all multilingual fields (name, description, shortDescription, urls, metaDescription, metaKeyword, metaTitle, image title, specification value), create objects where each key is a language code from {{languageCodesCSV}} and each value is the content translated into that language.
 - For urls, derive each value from the corresponding name: lowercase, spaces replaced by hyphens, remove characters that are not URL-friendly.
 - Do NOT include any properties on the product objects other than:
-  name, description, shortDescription, urls, baseSku, productType, skus, specifications, options, skuVariants, images, attachments, metaDescription, metaKeyword, metaTitle, externalReferenceCode.
+  name, description, shortDescription, urls, baseSku, productType, skus, specifications, options, skuVariants, images, attachments, metaDescription, metaKeyword, metaTitle, externalReferenceCode, priceEntries.
 - Do NOT wrap the array in an outer object (no "products" property). Return a JSON array only.
 - Do NOT include explanations, comments, markdown, or backticks. Return raw JSON only.
 - SKU Activation: For a SKU to be "Active" in Liferay, it MUST have an assigned value for EVERY option that is defined on the product. Ensure "skuVariants" objects include all options.

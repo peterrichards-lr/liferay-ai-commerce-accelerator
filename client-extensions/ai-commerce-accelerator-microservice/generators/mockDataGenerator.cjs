@@ -270,7 +270,15 @@ class MockDataGenerator {
     const pricing =
       this.pricingData[category] || this.pricingData['Electronics'];
 
-    const { catalogId, generateSpecifications, generateSkuVariants, imageMode } = options;
+    const {
+      catalogId,
+      generateSpecifications,
+      generateSkuVariants,
+      generatePriceLists,
+      generateBulkPricing,
+      generateTierPricing,
+      imageMode,
+    } = options;
 
     const categoryCode = toERCPart(category, 3);
     const localeSuffixMap = Object.fromEntries(
@@ -305,7 +313,7 @@ class MockDataGenerator {
       const metaKeyword = {};
       const metaTitle = {};
 
-      const baseSlug = productName.toLowerCase().replace(/\s+/g, '-') ;
+      const baseSlug = productName.toLowerCase().replace(/\s+/g, '-');
 
       for (const lc of languageCodes) {
         const suffix = localeSuffixMap[lc];
@@ -359,13 +367,19 @@ class MockDataGenerator {
           {
             src: 'default.webp',
             type: 'image',
-            title: Object.fromEntries(languageCodes.map(lc => [lc, `${productName} Image`]))
+            title: Object.fromEntries(
+              languageCodes.map((lc) => [lc, `${productName} Image`])
+            ),
           },
         ];
       }
 
       const pdfRatio = options.pdfRatio || 0;
-      if (options.pdfMode && options.pdfMode !== 'none' && getRandomInt(100) < pdfRatio) {
+      if (
+        options.pdfMode &&
+        options.pdfMode !== 'none' &&
+        getRandomInt(100) < pdfRatio
+      ) {
         productData.attachments = ['default.pdf'];
       }
 
@@ -383,15 +397,24 @@ class MockDataGenerator {
         data.options.length > 0
       ) {
         // Enforce new AI schema format for options
-        productData.options = data.options.map(opt => {
+        productData.options = data.options.map((opt) => {
           const name = opt.name.toLowerCase();
           let fieldType = 'select';
           let skuContributor = false;
 
-          if (name.includes('color') || name.includes('size') || name.includes('material')) {
+          if (
+            name.includes('color') ||
+            name.includes('size') ||
+            name.includes('material')
+          ) {
             skuContributor = true;
           }
-          if (name.includes('type') || name.includes('style') || name.includes('format') || name.includes('edition')) {
+          if (
+            name.includes('type') ||
+            name.includes('style') ||
+            name.includes('format') ||
+            name.includes('edition')
+          ) {
             skuContributor = true;
             fieldType = 'radio';
           }
@@ -403,7 +426,7 @@ class MockDataGenerator {
             name: opt.name,
             fieldType,
             skuContributor,
-            values: fieldType === 'numeric' ? [] : opt.values
+            values: fieldType === 'numeric' ? [] : opt.values,
           };
         });
 
@@ -415,6 +438,16 @@ class MockDataGenerator {
         );
         productData.defaultSku = sku;
         productData.productType = 'simple';
+      }
+
+      if (generatePriceLists) {
+        productData.priceEntries = this.generatePriceEntries(
+          sku,
+          basePrice,
+          pricing,
+          i,
+          productData.skuVariants
+        );
       }
 
       products.push(productData);
@@ -550,6 +583,53 @@ class MockDataGenerator {
     }
 
     return variants;
+  }
+
+  generatePriceEntries(baseSku, basePrice, pricingConfig, productIndex, skuVariants = [], options = {}) {
+    const PRICE_LIST_ERC = 'AICA-PL-GENERAL';
+    const entries = [];
+    const { generateBulkPricing, generateTierPricing } = options;
+
+    const buildPriceEntry = (sku, price) => {
+      const entry = {
+        price,
+        promoPrice: Math.round(price * 0.85),
+        sku,
+        priceListExternalReferenceCode: PRICE_LIST_ERC,
+        externalReferenceCode: `PE-${sku}-${PRICE_LIST_ERC}`,
+      };
+
+      // Add Bulk/Tiered Pricing if enabled
+      if (generateBulkPricing || generateTierPricing) {
+        // Use Bulk if both are selected for simplicity in mock, or if specifically bulk is selected
+        const isBulk = generateBulkPricing;
+        entry.bulkPricing = isBulk;
+        
+        // Generate two tiers: 5+ and 10+
+        entry.tierPrices = [
+          {
+            minimumQuantity: 5,
+            price: Math.round(price * (isBulk ? 0.90 : 0.92)), // Bulk gets 10% off, Tiered gets 8% off for first tier
+            externalReferenceCode: `TP-${sku}-5-${PRICE_LIST_ERC}`
+          },
+          {
+            minimumQuantity: 10,
+            price: Math.round(price * 0.80), // Both get 20% off for 10+
+            externalReferenceCode: `TP-${sku}-10-${PRICE_LIST_ERC}`
+          }
+        ];
+      }
+
+      return entry;
+    };
+
+    entries.push(buildPriceEntry(baseSku, basePrice));
+
+    for (const variant of skuVariants) {
+      entries.push(buildPriceEntry(variant.sku, variant.price));
+    }
+
+    return entries;
   }
 
   async generateAccountData(count = 1, config, categories = []) {

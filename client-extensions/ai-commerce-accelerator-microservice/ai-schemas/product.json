@@ -131,6 +131,67 @@
 						},
 						"type": "array"
 					},
+					"priceEntries": {
+						"description": "Additional price list entries for the product or its variants.",
+						"items": {
+							"additionalProperties": false,
+							"properties": {
+								"bulkPricing": {
+									"description": "Whether this entry uses Bulk Pricing (true) or Tiered Pricing (false).",
+									"type": "boolean"
+								},
+								"externalReferenceCode": {
+									"type": "string"
+								},
+								"price": {
+									"type": "number"
+								},
+								"priceListExternalReferenceCode": {
+									"type": "string"
+								},
+								"promoPrice": {
+									"type": "number"
+								},
+								"sku": {
+									"type": "string"
+								},
+								"tierPrices": {
+									"description": "Price tiers for Bulk or Tiered pricing.",
+									"items": {
+										"additionalProperties": false,
+										"properties": {
+											"externalReferenceCode": {
+												"type": "string"
+											},
+											"minimumQuantity": {
+												"type": "integer"
+											},
+											"price": {
+												"type": "number"
+											},
+											"promoPrice": {
+												"type": "number"
+											}
+										},
+										"required": [
+											"minimumQuantity",
+											"price",
+											"externalReferenceCode"
+										],
+										"type": "object"
+									},
+									"type": "array"
+								}
+							},
+							"required": [
+								"price",
+								"sku",
+								"priceListExternalReferenceCode"
+							],
+							"type": "object"
+						},
+						"type": "array"
+					},
 					"productType": {
 						"description": "The product type, expected to be 'simple'.",
 						"type": "string"

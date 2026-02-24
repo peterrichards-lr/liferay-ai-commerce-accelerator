@@ -945,6 +945,14 @@ class LiferayService {
     return this.rest.createPriceList(config, priceListData);
   }
 
+  getPriceListByERC(config, externalReferenceCode) {
+    return this.rest.getPriceListByERC(config, externalReferenceCode);
+  }
+
+  createPriceEntriesBatch(config, priceEntriesData, opts) {
+    return this.rest.createPriceEntriesBatch(config, priceEntriesData, opts);
+  }
+
   createPriceEntry(config, priceListId, priceEntryData) {
     return this.rest.createPriceEntry(config, priceListId, priceEntryData);
   }

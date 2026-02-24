@@ -36,6 +36,7 @@ class ProductGenerator {
       'resolve-product-ids': this._runResolveProductIdsStep.bind(this),
       'link-product-options': this._runLinkProductOptionsStep.bind(this),
       'product-skus': this._runProductSkusStep.bind(this),
+      'generate-price-lists': this._runGeneratePriceListsStep.bind(this),
       'attach-images': this._runAttachImagesStep.bind(this),
       'attach-pdfs': this._runAttachPdfsStep.bind(this),
       'update-inventory': this._runUpdateInventoryStep.bind(this),
@@ -55,6 +56,7 @@ class ProductGenerator {
       { name: 'resolve-product-ids', type: 'sync' },
       { name: 'link-product-options', type: 'sync' },
       { name: 'product-skus', type: 'sync' },
+      { name: 'generate-price-lists', type: 'sync' },
       {
         type: 'parallel',
         steps: [
@@ -88,6 +90,112 @@ class ProductGenerator {
       sessionId,
       message: 'Product generation workflow started.',
     };
+  }
+
+  async _runGeneratePriceListsStep(sessionId) {
+    const { logger, liferay, persistence, progress } = this.ctx;
+    const session = await persistence.getSession(sessionId);
+    const { config, options, productDataList } = session.context;
+
+    if (!options.generatePriceLists) {
+      logger.info('Skipping price list generation step.', { sessionId });
+      await persistence.createBatch({
+        erc: createERC(ERC_PREFIX.BATCH),
+        sessionId,
+        stepKey: 'generate-price-lists',
+        status: 'BYPASSED',
+      });
+      return;
+    }
+
+    logger.info('Starting generate-price-lists step', { sessionId });
+
+    try {
+      const PRICE_LIST_ERC = 'AICA-PL-GENERAL';
+      const PRICE_LIST_NAME = 'AI Commerce Accelerator Price List';
+      
+      let priceList;
+      try {
+        priceList = await liferay.getPriceListByERC(config, PRICE_LIST_ERC);
+        if (!priceList) {
+          logger.info(`Creating missing default price list: ${PRICE_LIST_NAME}`, { sessionId });
+          priceList = await liferay.createPriceList(config, {
+            externalReferenceCode: PRICE_LIST_ERC,
+            name: { en_US: PRICE_LIST_NAME },
+            currencyCode: config.currencyCode || 'USD',
+            active: true,
+            priority: 1.0,
+            catalogId: config.catalogId
+          });
+        }
+      } catch (err) {
+        logger.error('Failed to ensure default price list exists', { sessionId, error: err.message });
+        throw err;
+      }
+
+      const allPriceEntries = [];
+      for (const product of productDataList) {
+        if (Array.isArray(product.priceEntries)) {
+          allPriceEntries.push(...product.priceEntries);
+        }
+      }
+
+      if (allPriceEntries.length > 0) {
+        logger.info(`Submitting ${allPriceEntries.length} price entries via batch API`, { sessionId });
+        
+        const batchERC = createERC(ERC_PREFIX.PRICEENTRY_BATCH);
+        
+        await persistence.createBatch({
+          erc: batchERC,
+          sessionId,
+          stepKey: 'generate-price-lists',
+          status: 'prepared',
+        });
+
+        const result = await liferay.createPriceEntriesBatch(config, allPriceEntries, {
+          externalReferenceCode: batchERC,
+          sessionId,
+        });
+
+        if (result?.batchId) {
+          await persistence.updateBatch(batchERC, {
+            status: 'SUBMITTED',
+            downstreamBatchId: result.batchId,
+          });
+
+          progress.batchStarted({
+            sessionId,
+            batchERC,
+            batchId: result.batchId,
+            totalItems: allPriceEntries.length,
+            entityType: 'price-lists',
+            operation: 'generate',
+          });
+        } else {
+          logger.error('Failed to submit price entries batch', { sessionId, batchERC });
+          await persistence.updateBatch(batchERC, { status: 'FAILED' });
+        }
+      } else {
+        logger.info('No price entries generated. Marking step as SYNCHRONOUS.', { sessionId });
+        await persistence.createBatch({
+          erc: createERC(ERC_PREFIX.BATCH),
+          sessionId,
+          stepKey: 'generate-price-lists',
+          status: 'SYNCHRONOUS',
+        });
+      }
+    } catch (error) {
+      logger.error('Failed execution of generate-price-lists step', {
+        sessionId,
+        error: error.message,
+      });
+      await persistence.createBatch({
+        erc: createERC(ERC_PREFIX.BATCH),
+        sessionId,
+        stepKey: 'generate-price-lists',
+        status: 'FAILED',
+      });
+    }
   }
 
   async _runResolveProductIdsStep(sessionId) {
@@ -590,6 +698,9 @@ class ProductGenerator {
     let catalogOptionsByCategory = {};
     let catalogSpecificationsByCategory = {};
 
+    const enableBackorders = options.enableBackorders === true || options.enableBackorders === 'true';
+    const backorderRatio = options.backorderAssignmentRatio !== undefined ? parseFloat(options.backorderAssignmentRatio) : 0;
+
     if (options.generateSkuVariants) {
       catalogOptionsByCategory = await this.createCatalogOptions(config, {
         ...options,
@@ -642,7 +753,8 @@ class ProductGenerator {
             countForCategory,
             config,
             config.aiModel,
-            config.selectedLanguages || ['en-US']
+            config.selectedLanguages || ['en-US'],
+            options
           );
         }
         if (options.generateSkuVariants || options.generateSpecifications) {
@@ -652,6 +764,14 @@ class ProductGenerator {
             pd.__catalogOptions = catOpts;
             pd.__catalogSpecifications = catSpecs;
             pd.category = category;
+
+            // Apply backorder logic
+            if (enableBackorders) {
+              pd.allowBackOrder = backorderRatio >= 100 || Math.random() * 100 <= backorderRatio;
+            } else {
+              pd.allowBackOrder = false;
+            }
+
             // Add productOptions and productSpecifications to productData
             if (
               options.generateSkuVariants &&
@@ -953,6 +1073,7 @@ class ProductGenerator {
           description: toI18n(productData.description),
           productType: productData.productType || 'simple',
           externalReferenceCode: productData.externalReferenceCode,
+          allowBackOrder: productData.allowBackOrder || false,
         };
         // Ensure product options and specifications are included if generated
         if (options.generateSkuVariants && productData.productOptions) {
@@ -2068,6 +2189,7 @@ class ProductGenerator {
       category,
       skus,
       productOptions,
+      allowBackOrder,
     } = productData;
 
     const payload = {
@@ -2078,6 +2200,7 @@ class ProductGenerator {
       productType: productType || 'simple',
       externalReferenceCode:
         externalReferenceCode || createERC(ERC_PREFIX.PRODUCT),
+      allowBackOrder: allowBackOrder || false,
     };
 
     const hasSkuContributors = (productOptions || []).some(
@@ -2112,6 +2235,7 @@ class ProductGenerator {
       productOptions,
       productSpecifications,
       skus,
+      allowBackOrder,
     } = productData;
 
     const payload = {
@@ -2124,6 +2248,7 @@ class ProductGenerator {
         externalReferenceCode || createERC(ERC_PREFIX.PRODUCT),
       productOptions: productOptions || [],
       productSpecifications: productSpecifications || [],
+      allowBackOrder: allowBackOrder || false,
     };
 
     const hasSkuContributors = (productOptions || []).some(
@@ -2178,6 +2303,112 @@ class ProductGenerator {
           { error: error.message }
         );
       }
+    }
+  }
+
+  async _runGeneratePriceListsStep(sessionId) {
+    const { logger, liferay, persistence, progress } = this.ctx;
+    const session = await persistence.getSession(sessionId);
+    const { config, options, productDataList } = session.context;
+
+    if (!options.generatePriceLists) {
+      logger.info('Skipping price list generation step.', { sessionId });
+      await persistence.createBatch({
+        erc: createERC(ERC_PREFIX.BATCH),
+        sessionId,
+        stepKey: 'generate-price-lists',
+        status: 'BYPASSED',
+      });
+      return;
+    }
+
+    logger.info('Starting generate-price-lists step', { sessionId });
+
+    try {
+      const PRICE_LIST_ERC = 'AICA-PL-GENERAL';
+      const PRICE_LIST_NAME = 'AI Commerce Accelerator Price List';
+      
+      let priceList;
+      try {
+        priceList = await liferay.getPriceListByERC(config, PRICE_LIST_ERC);
+        if (!priceList) {
+          logger.info(`Creating missing default price list: ${PRICE_LIST_NAME}`, { sessionId });
+          priceList = await liferay.createPriceList(config, {
+            externalReferenceCode: PRICE_LIST_ERC,
+            name: { en_US: PRICE_LIST_NAME },
+            currencyCode: config.currencyCode || 'USD',
+            active: true,
+            priority: 1.0,
+            catalogId: config.catalogId
+          });
+        }
+      } catch (err) {
+        logger.error('Failed to ensure default price list exists', { sessionId, error: err.message });
+        throw err;
+      }
+
+      const allPriceEntries = [];
+      for (const product of productDataList) {
+        if (Array.isArray(product.priceEntries)) {
+          allPriceEntries.push(...product.priceEntries);
+        }
+      }
+
+      if (allPriceEntries.length > 0) {
+        logger.info(`Submitting ${allPriceEntries.length} price entries via batch API`, { sessionId });
+        
+        const batchERC = createERC(ERC_PREFIX.PRICEENTRY_BATCH);
+        
+        await persistence.createBatch({
+          erc: batchERC,
+          sessionId,
+          stepKey: 'generate-price-lists',
+          status: 'prepared',
+        });
+
+        const result = await liferay.createPriceEntriesBatch(config, allPriceEntries, {
+          externalReferenceCode: batchERC,
+          sessionId,
+        });
+
+        if (result?.batchId) {
+          await persistence.updateBatch(batchERC, {
+            status: 'SUBMITTED',
+            downstreamBatchId: result.batchId,
+          });
+
+          progress.batchStarted({
+            sessionId,
+            batchERC,
+            batchId: result.batchId,
+            totalItems: allPriceEntries.length,
+            entityType: 'price-lists',
+            operation: 'generate',
+          });
+        } else {
+          logger.error('Failed to submit price entries batch', { sessionId, batchERC });
+          await persistence.updateBatch(batchERC, { status: 'FAILED' });
+        }
+      } else {
+        logger.info('No price entries generated. Marking step as SYNCHRONOUS.', { sessionId });
+        await persistence.createBatch({
+          erc: createERC(ERC_PREFIX.BATCH),
+          sessionId,
+          stepKey: 'generate-price-lists',
+          status: 'SYNCHRONOUS',
+        });
+      }
+    } catch (error) {
+      logger.error('Failed execution of generate-price-lists step', {
+        sessionId,
+        error: error.message,
+      });
+      await persistence.createBatch({
+        erc: createERC(ERC_PREFIX.BATCH),
+        sessionId,
+        stepKey: 'generate-price-lists',
+        status: 'FAILED',
+      });
     }
   }
 }

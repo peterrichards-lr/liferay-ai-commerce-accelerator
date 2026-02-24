@@ -282,7 +282,8 @@ class AIService {
     count = 1,
     requestConfig,
     model,
-    selectedLanguages = ['en-US']
+    selectedLanguages = ['en-US'],
+    options = {}
   ) {
     const { logger, prompt } = this.ctx;
     const correlationId = requestConfig?.correlationId;
@@ -317,6 +318,17 @@ class AIService {
                 .toLowerCase()}"`
           )
           .join(',\n    '),
+        priceEntriesInstruction: options.generatePriceLists
+          ? `- priceEntries: array of price list entry objects. Each object must have:
+            - price (number): The unit price.
+            - promoPrice (number): The promotional unit price.
+            - sku (string): Reference to one of the generated SKUs.
+            - priceListExternalReferenceCode (string): Always use "AICA-PL-GENERAL".
+            - externalReferenceCode (string): Unique identifier for this entry.
+            ${options.generateBulkPricing || options.generateTierPricing ? `
+            - bulkPricing (boolean): ${options.generateBulkPricing ? 'Set to true for Bulk Pricing (same price for all items if threshold reached).' : 'Set to false for Tiered Pricing (different prices for quantity ranges).'}
+            - tierPrices (array): List of objects with "minimumQuantity" (number), "price" (number), and "externalReferenceCode" (string). Generate at least two tiers (e.g., 5+ and 10+).` : ''}`
+          : '',
       };
 
       const promptContent = await prompt.render('product', vars, requestConfig);
