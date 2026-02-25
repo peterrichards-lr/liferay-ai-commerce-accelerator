@@ -7,6 +7,8 @@ const BATCH_STEP_HANDLERS = require('./batch-steps/index.cjs');
 class BatchCallbackService {
   constructor(ctx) {
     this.ctx = ctx;
+    this.processingSessions = new Set();
+    this.sessionDirtyFlags = new Set();
   }
 
   _isBatchTerminal(batch) {
@@ -47,6 +49,9 @@ class BatchCallbackService {
       inventory: 'products',
       'generate-warehouses': 'warehouses',
       'resolve-warehouse-ids': 'warehouses',
+      'generate-price-lists': 'products',
+      'generate-bulk-pricing': 'products',
+      'generate-tier-pricing': 'products',
       accounts: 'accounts',
       'postal-addresses': 'accounts',
       orders: 'orders',
@@ -68,96 +73,118 @@ class BatchCallbackService {
 
   async _checkSessionCompletion(sessionId, correlationId) {
     const { logger, persistence } = this.ctx;
-    
-    let session = await persistence.getSession(sessionId);
-    if (!session || session.status === 'COMPLETED' || session.status === 'FAILED') {
+
+    if (this.processingSessions.has(sessionId)) {
+      this.sessionDirtyFlags.add(sessionId);
+      logger.debug('Session already being processed, marked as dirty.', { sessionId });
       return;
     }
 
-    const effectiveCorrelationId = correlationId || session.correlationId;
+    this.processingSessions.add(sessionId);
 
-    let continueLoop = true;
-    while (continueLoop) {
-      // Refresh session data at the start of each iteration to avoid stale state
-      session = await persistence.getSession(sessionId);
-      if (!session) break;
-
-      const allBatchesForSession = await persistence.getBatchesForSession(sessionId);
-      
-      // Use the steps currently tracked in the session object
-      const { activeSteps, hasFailures } = await this._updateActiveSteps(
-        session,
-        session.currentSteps, 
-        allBatchesForSession,
-        effectiveCorrelationId
-      );
-
-      if (hasFailures) {
-        const failed = await persistence.tryFailSession(sessionId);
-        if (failed) {
-          this.ctx.progress.sessionFailed({
-            sessionId,
-            error: { message: 'Workflow failed during step execution.' },
-            correlationId: effectiveCorrelationId,
-          });
-        }
+    try {
+      let session = await persistence.getSession(sessionId);
+      if (!session || session.status === 'COMPLETED' || session.status === 'FAILED') {
         return;
       }
-      
-      let currentSteps = activeSteps;
-      
-      if (currentSteps.length === 0) {
-        const { newActiveSteps, startedAny } = await this._advanceWorkflow(session, allBatchesForSession, effectiveCorrelationId);
+
+      const effectiveCorrelationId = correlationId || session.correlationId;
+
+      let continueLoop = true;
+      while (continueLoop) {
+        this.sessionDirtyFlags.delete(sessionId);
+
+        // Refresh session data at the start of each iteration to avoid stale state
+        session = await persistence.getSession(sessionId);
+        if (!session) break;
+
+        const allBatchesForSession = await persistence.getBatchesForSession(sessionId);
         
-        if (!startedAny || newActiveSteps.length === 0) {
-          await persistence.updateSessionCurrentSteps(sessionId, []);
-          continueLoop = false;
-        } else {
-          // Check if all newly started steps are already terminal (synchronous/bypassed)
-          const latestBatches = await persistence.getBatchesForSession(sessionId);
-          const { activeSteps: stillActive, hasFailures: newFailures } = await this._updateActiveSteps(
-            session, 
-            newActiveSteps, 
-            latestBatches, 
-            effectiveCorrelationId
-          );
+        // Use the steps currently tracked in the session object
+        const { activeSteps, hasFailures } = await this._updateActiveSteps(
+          session,
+          session.currentSteps, 
+          allBatchesForSession,
+          effectiveCorrelationId
+        );
 
-          if (newFailures) {
-            const failed = await persistence.tryFailSession(sessionId);
-            if (failed) {
-              this.ctx.progress.sessionFailed({
-                sessionId,
-                error: { message: 'Workflow failed during step execution.' },
-                correlationId: effectiveCorrelationId,
-              });
-            }
-            return;
+        if (hasFailures) {
+          const failed = await persistence.tryFailSession(sessionId);
+          if (failed) {
+            this.ctx.progress.sessionFailed({
+              sessionId,
+              error: { message: 'Workflow failed during step execution.' },
+              correlationId: effectiveCorrelationId,
+            });
           }
-
-          // Important: Update DB with the filtered active steps so the next iteration 
-          // or next check doesn't re-detect terminal steps we just logged.
-          await persistence.updateSessionCurrentSteps(sessionId, stillActive);
+          return;
+        }
+        
+        let currentSteps = activeSteps;
+        
+        if (currentSteps.length === 0) {
+          const { newActiveSteps, startedAny } = await this._advanceWorkflow(session, allBatchesForSession, effectiveCorrelationId);
           
-          if (stillActive.length === 0) {
-            // All new steps are terminal, continue loop to advance again
-            continue; 
+          if (!startedAny || newActiveSteps.length === 0) {
+            await persistence.updateSessionCurrentSteps(sessionId, []);
+            
+            // If we are about to exit, check if another callback came in
+            if (!this.sessionDirtyFlags.has(sessionId)) {
+              continueLoop = false;
+            }
           } else {
-            // Some steps are still running, wait for callbacks
+            // Check if all newly started steps are already terminal (synchronous/bypassed)
+            const latestBatches = await persistence.getBatchesForSession(sessionId);
+            const { activeSteps: stillActive, hasFailures: newFailures } = await this._updateActiveSteps(
+              session, 
+              newActiveSteps, 
+              latestBatches, 
+              effectiveCorrelationId
+            );
+
+            if (newFailures) {
+              const failed = await persistence.tryFailSession(sessionId);
+              if (failed) {
+                this.ctx.progress.sessionFailed({
+                  sessionId,
+                  error: { message: 'Workflow failed during step execution.' },
+                  correlationId: effectiveCorrelationId,
+                });
+              }
+              return;
+            }
+
+            // Important: Update DB with the filtered active steps so the next iteration 
+            // or next check doesn't re-detect terminal steps we just logged.
+            await persistence.updateSessionCurrentSteps(sessionId, stillActive);
+            
+            if (stillActive.length === 0) {
+              // All new steps are terminal, continue loop to advance again
+              continue; 
+            } else {
+              // Some steps are still running, wait for callbacks
+              if (!this.sessionDirtyFlags.has(sessionId)) {
+                continueLoop = false;
+              }
+            }
+          }
+        } else {
+          await persistence.updateSessionCurrentSteps(sessionId, currentSteps);
+          if (!this.sessionDirtyFlags.has(sessionId)) {
             continueLoop = false;
           }
         }
-      } else {
-        await persistence.updateSessionCurrentSteps(sessionId, currentSteps);
-        continueLoop = false;
-      }
-      
-      const latestBatches = await persistence.getBatchesForSession(sessionId);
-      const workflowFinished = await this._isWorkflowFinished(session, currentSteps, latestBatches);
+        
+        const latestBatches = await persistence.getBatchesForSession(sessionId);
+        const workflowFinished = await this._isWorkflowFinished(session, currentSteps, latestBatches);
 
-      if (workflowFinished) {
-        await this._finalizeSession(session, latestBatches, effectiveCorrelationId);
-        continueLoop = false;
+        if (workflowFinished) {
+          await this._finalizeSession(session, latestBatches, effectiveCorrelationId);
+          continueLoop = false;
+        }
       }
+    } finally {
+      this.processingSessions.delete(sessionId);
     }
   }
 
@@ -490,18 +517,17 @@ class BatchCallbackService {
           processedCount: 0,
         });
       }
-    } catch (error) {
-      logger.error(`Error executing step '${stepName}': ${error.message}`, {
-        sessionId,
-        stepName,
-        flowType,
-        error: error.message,
-        stack: error.stack,
-      });
-      await persistence.updateSession(sessionId, { status: 'FAILED' });
-      progress.sessionFailed({ sessionId, error, correlationId });
-    }
-  }
+          } catch (error) {
+            logger.error(`Error executing step '${stepName}': ${error.message}`, {
+              sessionId,
+              stepName,
+              flowType,
+              error: error.message,
+              stack: error.stack,
+            });
+            await persistence.tryFailSession(sessionId);
+            progress.sessionFailed({ sessionId, error, correlationId });
+          }  }
 
 
   async _runStep(step, { sessionId, config, options, channelId, catalogId }) {
@@ -612,11 +638,9 @@ class BatchCallbackService {
 
     const checkMap = {
       deleteAccounts: async () => {
-        // Use search instead of invalid sw filter for Accounts
         const res = await liferay.getAccounts(config, {
           channelId,
-          pageSize: 1,
-          search: 'AICA-ACC',
+          pageSize: 10,
         });
         return {
           totalCount: res.totalCount,
@@ -625,7 +649,7 @@ class BatchCallbackService {
       deleteProducts: async () => {
         const res = await liferay.getProducts(config, {
           catalogId,
-          pageSize: 1,
+          pageSize: 10,
         });
         return {
           totalCount: res.totalCount,
@@ -634,7 +658,7 @@ class BatchCallbackService {
       deleteProductOptions: async () => {
         const res = await liferay.getProducts(config, {
           catalogId,
-          pageSize: 1,
+          pageSize: 10,
         });
         return {
           totalCount: res.totalCount,
@@ -643,27 +667,27 @@ class BatchCallbackService {
       deleteProductSpecifications: async () => {
         const res = await liferay.getProducts(config, {
           catalogId,
-          pageSize: 1,
+          pageSize: 10,
         });
         return {
           totalCount: res.totalCount,
         };
       },
       deleteSpecifications: async () => {
-        const res = await liferay.getSpecifications(config, { pageSize: 1 });
+        const res = await liferay.getSpecifications(config, { pageSize: 10 });
         return {
           totalCount: res.totalCount,
         };
       },
       deleteOptions: async () => {
-        const res = await liferay.getOptions(config, { pageSize: 1 });
+        const res = await liferay.getOptions(config, { pageSize: 10 });
         return {
           totalCount: res.totalCount,
         };
       },
       deleteOptionCategories: async () => {
         const res = await liferay.getOptionCategories(config, {
-          pageSize: 1,
+          pageSize: 10,
         });
         return {
           totalCount: res.totalCount,
@@ -684,32 +708,32 @@ class BatchCallbackService {
       },
       deleteOrders: async () => {
         const res = await liferay.getOrders(config, {
-          pageSize: 1,
+          pageSize: 10,
         });
         return {
           totalCount: res.totalCount,
         };
       },
       deleteWarehouses: async () => {
-        const res = await liferay.getWarehouses(config, { pageSize: 1 });
+        const res = await liferay.getWarehouses(config, { pageSize: 10 });
         return {
           totalCount: res.totalCount,
         };
       },
       deleteWarehouseItems: async () => {
-        const res = await liferay.getWarehouseItems(config, { pageSize: 1, search: 'AICA-INV' });
+        const res = await liferay.getWarehouseItems(config, { pageSize: 10 });
         return {
           totalCount: res.totalCount,
         };
       },
       deletePriceLists: async () => {
-        const res = await liferay.getPriceLists(config, { pageSize: 1 });
+        const res = await liferay.getPriceLists(config, { pageSize: 10 });
         return {
           totalCount: res.totalCount,
         };
       },
       deletePromotions: async () => {
-        const res = await liferay.getPromotions(config, { pageSize: 1 });
+        const res = await liferay.getPromotions(config, { pageSize: 10 });
         return {
           totalCount: res.totalCount,
         };

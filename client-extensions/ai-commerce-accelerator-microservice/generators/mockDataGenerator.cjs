@@ -10,7 +10,7 @@ const {
   randomString,
   randomPastDate,
 } = require('../utils/misc.cjs');
-const { ERC_PREFIX } = require('../utils/constants.cjs');
+const { ERC_PREFIX, ENV } = require('../utils/constants.cjs');
 const { COMMERCE_CONSTRAINTS } = require('../utils/commerceConstants.cjs');
 
 const ajv = new Ajv({ removeAdditional: true });
@@ -334,21 +334,22 @@ class MockDataGenerator {
         });
       }
 
-      const productData = {
-        active: true,
-        catalogId,
-        name,
-        description,
-        shortDescription,
-        urls,
-        baseSku: sku,
-        productType: 'simple',
-        externalReferenceCode,
-        metaDescription,
-        metaKeyword,
-        metaTitle,
-        skus: [
-          {
+              const productData = {
+                active: true,
+                catalogId,
+                name,
+                description,
+                shortDescription,
+                urls,
+                baseSku: sku,
+                productType: 'simple',
+                externalReferenceCode,
+                metaDescription,
+                metaKeyword,
+                metaTitle,
+                category,
+                allowBackOrder: options.enableBackorders || false,
+                skus: [          {
             cost: Math.round(basePrice * 0.6),
             externalReferenceCode: sku,
             inventoryLevel: 10 + getRandomInt(41),
@@ -440,16 +441,16 @@ class MockDataGenerator {
         productData.productType = 'simple';
       }
 
-      if (generatePriceLists) {
-        productData.priceEntries = this.generatePriceEntries(
-          sku,
-          basePrice,
-          pricing,
-          i,
-          productData.skuVariants
-        );
-      }
-
+              if (generatePriceLists) {
+                productData.priceEntries = this.generatePriceEntries(
+                  sku,
+                  basePrice,
+                  pricing,
+                  i,
+                  productData.skuVariants,
+                  options
+                );
+              }
       products.push(productData);
     }
 
@@ -589,32 +590,38 @@ class MockDataGenerator {
     const PRICE_LIST_ERC = 'AICA-PL-GENERAL';
     const entries = [];
     const { generateBulkPricing, generateTierPricing } = options;
+    const hasPromotion = Math.random() < ENV.PRICING_PROMOTION_RATIO;
+    const hasBulk = generateBulkPricing && Math.random() < ENV.PRICING_BULK_RATIO;
+    const hasTier = generateTierPricing && Math.random() < ENV.PRICING_TIER_RATIO;
 
     const buildPriceEntry = (sku, price) => {
       const entry = {
         price,
-        promoPrice: Math.round(price * 0.85),
-        sku,
+        sku: {
+          basePrice: price,
+          basePromoPrice: hasPromotion ? Math.round(price * 0.85) : null,
+        },
+        skuExternalReferenceCode: sku,
         priceListExternalReferenceCode: PRICE_LIST_ERC,
         externalReferenceCode: `PE-${sku}-${PRICE_LIST_ERC}`,
       };
 
-      // Add Bulk/Tiered Pricing if enabled
-      if (generateBulkPricing || generateTierPricing) {
-        // Use Bulk if both are selected for simplicity in mock, or if specifically bulk is selected
-        const isBulk = generateBulkPricing;
+      // Add Bulk/Tiered Pricing if enabled and chosen for this product
+      if (hasBulk || hasTier) {
+        // Use Bulk if specifically chosen, otherwise Tiered
+        const isBulk = hasBulk;
         entry.bulkPricing = isBulk;
         
         // Generate two tiers: 5+ and 10+
         entry.tierPrices = [
           {
             minimumQuantity: 5,
-            price: Math.round(price * (isBulk ? 0.90 : 0.92)), // Bulk gets 10% off, Tiered gets 8% off for first tier
+            price: Math.round(price * (isBulk ? 0.90 : 0.92)),
             externalReferenceCode: `TP-${sku}-5-${PRICE_LIST_ERC}`
           },
           {
             minimumQuantity: 10,
-            price: Math.round(price * 0.80), // Both get 20% off for 10+
+            price: Math.round(price * 0.80),
             externalReferenceCode: `TP-${sku}-10-${PRICE_LIST_ERC}`
           }
         ];

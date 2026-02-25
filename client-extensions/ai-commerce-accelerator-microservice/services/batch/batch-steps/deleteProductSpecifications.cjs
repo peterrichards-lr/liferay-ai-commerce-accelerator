@@ -37,6 +37,10 @@ module.exports = async function deleteProductSpecifications(
         logger.debug(`Clearing ${productSpecifications.length} specifications from product ${productId}`);
         
         for (const ps of productSpecifications) {
+          if (!ps.id) {
+            logger.debug(`Skipping product specification association removal: missing ID for product ${productId}`);
+            continue;
+          }
           await liferay.deleteProductSpecification(config, productId, ps.id);
           clearedCount++;
         }

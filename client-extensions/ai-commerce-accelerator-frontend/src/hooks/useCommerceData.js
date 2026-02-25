@@ -264,6 +264,17 @@ export default function useCommerceData({
     [api, config.microserviceUrl, config.liferayUrl]
   );
 
+  useEffect(() => {
+    if (config.channelId && channels.length > 0 && languages.length === 0) {
+      const chObj = channels.find(
+        (c) => String(c.id) === String(config.channelId)
+      );
+      if (chObj && chObj.siteGroupId) {
+        loadChannelDependent(chObj);
+      }
+    }
+  }, [config.channelId, channels, languages.length]);
+
   return {
     catalogs,
     channels,

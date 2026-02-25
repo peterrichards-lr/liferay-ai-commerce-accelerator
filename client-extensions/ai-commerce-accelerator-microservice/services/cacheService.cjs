@@ -289,6 +289,36 @@ class CacheService {
     }
   }
 
+  cleanupSelective(cutoffTimestamp) {
+    const { logger } = this.ctx;
+    try {
+      const cutoff = new Date(cutoffTimestamp).getTime();
+      let clearedCount = 0;
+
+      for (const [key, entry] of this.cache.entries()) {
+        if (entry.timestamp < cutoff) {
+          this.delete(key);
+          clearedCount++;
+        }
+      }
+
+      logger?.info?.('Selective cache cleanup completed', {
+        operation: 'cache-cleanup-selective',
+        clearedEntries: clearedCount,
+        cutoffTimestamp,
+      });
+    } catch (error) {
+      const errorReference =
+        error.errorReference || createERC(ERC_PREFIX.ERROR);
+      logger?.error?.('Selective cache cleanup failed', {
+        operation: 'cache-cleanup-selective',
+        errorReference,
+        message: error.message,
+        stack: error.stack,
+      });
+    }
+  }
+
   cleanup() {
     const { logger } = this.ctx;
     try {

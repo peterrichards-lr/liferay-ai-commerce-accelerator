@@ -1,8 +1,9 @@
 const Database = require('better-sqlite3');
 const { Cache } = require('memory-cache');
+const path = require('path');
 
 class PersistenceService {
-  constructor(dbPath = './data/workflows.db') {
+  constructor(dbPath = path.join(__dirname, '..', 'data', 'workflows.db')) {
     this.db = new Database(dbPath);
     this.cache = new Cache();
     this._initSchema();
@@ -91,14 +92,14 @@ class PersistenceService {
   }
 
   getAllSessions() {
-    const stmt = this.db.prepare('SELECT * FROM workflow_sessions ORDER BY created_at DESC');
+    const stmt = this.db.prepare(
+      'SELECT session_id, flow_type, status, current_steps, correlation_id, version, created_at, updated_at FROM workflow_sessions ORDER BY created_at DESC'
+    );
     const sessions = stmt.all();
 
-    return sessions.map(session => {
-      session.context = JSON.parse(session.context_json);
+    return sessions.map((session) => {
       session.currentSteps = JSON.parse(session.current_steps);
       session.correlationId = session.correlation_id;
-      delete session.context_json;
       delete session.current_steps;
       delete session.correlation_id;
       return session;
@@ -329,6 +330,20 @@ class PersistenceService {
   getBatchByDownstreamId(downstreamBatchId) {
     const stmt = this.db.prepare('SELECT * FROM workflow_batches WHERE downstream_batch_id = ?');
     return stmt.get(downstreamBatchId);
+  }
+
+  clearAll() {
+    this.db.prepare('DELETE FROM workflow_events').run();
+    this.db.prepare('DELETE FROM workflow_batches').run();
+    this.db.prepare('DELETE FROM workflow_sessions').run();
+    this.cache.clear();
+  }
+
+  cleanup(cutoffTimestamp) {
+    this.db.prepare('DELETE FROM workflow_events WHERE timestamp < ?').run(cutoffTimestamp);
+    this.db.prepare('DELETE FROM workflow_batches WHERE created_at < ?').run(cutoffTimestamp);
+    this.db.prepare('DELETE FROM workflow_sessions WHERE created_at < ?').run(cutoffTimestamp);
+    this.cache.clear();
   }
 
   logWorkflowEvent({ sessionId, batchId, status, message, details }) {

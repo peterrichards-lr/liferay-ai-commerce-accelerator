@@ -11,7 +11,7 @@ const {
   isoNow,
   sanitizeForERC,
 } = require('../utils/misc.cjs');
-const { ERC_PREFIX } = require('../utils/constants.cjs');
+const { ERC_PREFIX, ENV } = require('../utils/constants.cjs');
 const { COMMERCE_CONSTRAINTS } = require('../utils/commerceConstants.cjs');
 const { sanitizedObject } = require('../utils/normalize.cjs');
 const { v4: uuidv4 } = require('uuid');
@@ -37,13 +37,15 @@ class ProductGenerator {
       'link-product-options': this._runLinkProductOptionsStep.bind(this),
       'product-skus': this._runProductSkusStep.bind(this),
       'generate-price-lists': this._runGeneratePriceListsStep.bind(this),
+      'generate-bulk-pricing': this._runGenerateBulkPricingStep.bind(this),
+      'generate-tier-pricing': this._runGenerateTierPricingStep.bind(this),
       'attach-images': this._runAttachImagesStep.bind(this),
       'attach-pdfs': this._runAttachPdfsStep.bind(this),
       'update-inventory': this._runUpdateInventoryStep.bind(this),
     };
   }
 
-  async generate(config, options) {
+  async generateProducts(config, options) {
     const { logger, persistence, batchCallback } = this.ctx;
     const sessionId = options.sessionId || createERC(ERC_PREFIX.BATCH_SESSION);
     options.sessionId = sessionId;
@@ -56,16 +58,28 @@ class ProductGenerator {
       { name: 'resolve-product-ids', type: 'sync' },
       { name: 'link-product-options', type: 'sync' },
       { name: 'product-skus', type: 'sync' },
-      { name: 'generate-price-lists', type: 'sync' },
-      {
-        type: 'parallel',
-        steps: [
-          { name: 'attach-images', type: 'sync' },
-          { name: 'attach-pdfs', type: 'sync' },
-          { name: 'update-inventory', type: 'sync' },
-        ],
-      },
     ];
+
+    if (options.generatePriceLists) {
+      steps.push({ name: 'generate-price-lists', type: 'sync' });
+    }
+
+    if (options.generateBulkPricing) {
+      steps.push({ name: 'generate-bulk-pricing', type: 'sync' });
+    }
+
+    if (options.generateTierPricing) {
+      steps.push({ name: 'generate-tier-pricing', type: 'sync' });
+    }
+
+    steps.push({
+      type: 'parallel',
+      steps: [
+        { name: 'attach-images', type: 'sync' },
+        { name: 'attach-pdfs', type: 'sync' },
+        { name: 'update-inventory', type: 'sync' },
+      ],
+    });
 
     await persistence.createSession({
       sessionId,
@@ -94,67 +108,134 @@ class ProductGenerator {
   }
 
   async _runGeneratePriceListsStep(sessionId) {
+    return this._runPricingStep(sessionId, 'generate-price-lists', (e) => !e.bulkPricing && (!e.tierPrices || e.tierPrices.length === 0));
+  }
+
+  async _runGenerateBulkPricingStep(sessionId) {
+    return this._runPricingStep(sessionId, 'generate-bulk-pricing', (e) => e.bulkPricing === true);
+  }
+
+  async _runGenerateTierPricingStep(sessionId) {
+    return this._runPricingStep(sessionId, 'generate-tier-pricing', (e) => !e.bulkPricing && e.tierPrices && e.tierPrices.length > 0);
+  }
+
+  async _runPricingStep(sessionId, stepKey, filterFn) {
     const { logger, liferay, persistence, progress } = this.ctx;
     const session = await persistence.getSession(sessionId);
     const { config, options, productDataList } = session.context;
 
-    if (!options.generatePriceLists) {
-      logger.info('Skipping price list generation step.', { sessionId });
-      await persistence.createBatch({
-        erc: createERC(ERC_PREFIX.BATCH),
-        sessionId,
-        stepKey: 'generate-price-lists',
-        status: 'BYPASSED',
-      });
-      return;
-    }
-
-    logger.info('Starting generate-price-lists step', { sessionId });
+    logger.info(`Starting ${stepKey} step`, { sessionId });
 
     try {
-      const PRICE_LIST_ERC = 'AICA-PL-GENERAL';
-      const PRICE_LIST_NAME = 'AI Commerce Accelerator Price List';
-      
-      let priceList;
-      try {
-        priceList = await liferay.getPriceListByERC(config, PRICE_LIST_ERC);
-        if (!priceList) {
-          logger.info(`Creating missing default price list: ${PRICE_LIST_NAME}`, { sessionId });
-          priceList = await liferay.createPriceList(config, {
-            externalReferenceCode: PRICE_LIST_ERC,
-            name: { en_US: PRICE_LIST_NAME },
-            currencyCode: config.currencyCode || 'USD',
-            active: true,
-            priority: 1.0,
-            catalogId: config.catalogId
-          });
-        }
-      } catch (err) {
-        logger.error('Failed to ensure default price list exists', { sessionId, error: err.message });
-        throw err;
-      }
+      await this._ensurePriceLists(config, sessionId);
 
-      const allPriceEntries = [];
+      const entries = [];
       for (const product of productDataList) {
+        // Determine promotion status once per product for consistency across variants
+        const productHasPromotion = Math.random() < ENV.PRICING_PROMOTION_RATIO;
+
         if (Array.isArray(product.priceEntries)) {
-          allPriceEntries.push(...product.priceEntries);
+          for (const entry of product.priceEntries) {
+            // Determine if this specific entry should be included in this step
+            const isMatch = filterFn(entry);
+            if (!isMatch) continue;
+
+            const baseErc = entry.externalReferenceCode || uuidv4();
+            const hasBulkOrTier = entry.tierPrices && entry.tierPrices.length > 0;
+
+            // Apply distribution rules:
+            // - Bulk Pricing: 15% (if step is generate-bulk-pricing)
+            // - Tiered Pricing: 15% (if step is generate-tier-pricing)
+            
+            let shouldInclude = true;
+            if (stepKey === 'generate-bulk-pricing' || stepKey === 'generate-tier-pricing') {
+              // Only apply to a subset of products that actually have tier data from AI
+              if (!hasBulkOrTier) {
+                shouldInclude = false;
+              } else {
+                // Force distribution based on config
+                const ratio = stepKey === 'generate-bulk-pricing' 
+                  ? ENV.PRICING_BULK_RATIO 
+                  : ENV.PRICING_TIER_RATIO;
+                shouldInclude = Math.random() < ratio;
+              }
+            }
+
+            if (shouldInclude) {
+              const skuERC = entry.skuExternalReferenceCode || (typeof entry.sku === 'string' ? entry.sku : null);
+              const skuData = typeof entry.sku === 'object' ? entry.sku : {
+                basePrice: entry.price,
+                basePromoPrice: entry.promoPrice || null,
+              };
+
+              // Main entry for GENERAL list
+              entries.push({
+                price: entry.price,
+                sku: skuData,
+                skuExternalReferenceCode: skuERC,
+                bulkPricing: stepKey === 'generate-bulk-pricing',
+                tierPrices: (entry.tierPrices || []).map(tp => ({
+                  minimumQuantity: tp.minimumQuantity,
+                  price: tp.price,
+                  externalReferenceCode: tp.externalReferenceCode
+                })),
+                priceListExternalReferenceCode: 'AICA-PL-GENERAL',
+                externalReferenceCode: `PE-${skuERC}-GEN-${sanitizeForERC(baseErc, { max: 40 })}`,
+              });
+
+              // Separate entry for PROMOTIONS list if promoPrice exists AND product passes probability check
+              if ((skuData.basePromoPrice || entry.promoPrice) && productHasPromotion) {
+                const promoPrice = skuData.basePromoPrice || entry.promoPrice;
+                entries.push({
+                  price: promoPrice,
+                  sku: {
+                    ...skuData,
+                    basePrice: promoPrice, // Use promo price as the base in the promotion list
+                    basePromoPrice: null,
+                  },
+                  skuExternalReferenceCode: skuERC,
+                  bulkPricing: stepKey === 'generate-bulk-pricing',
+                  tierPrices: (entry.tierPrices || []).map(tp => ({
+                    minimumQuantity: tp.minimumQuantity,
+                    price: tp.promoPrice || tp.price,
+                    externalReferenceCode: tp.externalReferenceCode
+                  })),
+                  priceListExternalReferenceCode: 'AICA-PL-PROMOTIONS',
+                  externalReferenceCode: `PE-${skuERC}-PROM-${sanitizeForERC(baseErc, { max: 40 })}`,
+                });
+              }
+            }
+          }
         }
       }
 
-      if (allPriceEntries.length > 0) {
-        logger.info(`Submitting ${allPriceEntries.length} price entries via batch API`, { sessionId });
-        
+    if (entries.length > 0) {
+      // Group entries by priceListExternalReferenceCode for scoped batch submission
+      const entriesByPriceList = entries.reduce((acc, entry) => {
+        const plERC = entry.priceListExternalReferenceCode;
+        if (!acc[plERC]) acc[plERC] = [];
+        acc[plERC].push(entry);
+        return acc;
+      }, {});
+
+      for (const [plERC, plEntries] of Object.entries(entriesByPriceList)) {
+        logger.info(
+          `Submitting ${plEntries.length} price entries for ${stepKey} (Price List: ${plERC}) via batch API`,
+          { sessionId }
+        );
+
         const batchERC = createERC(ERC_PREFIX.PRICEENTRY_BATCH);
-        
+
         await persistence.createBatch({
           erc: batchERC,
           sessionId,
-          stepKey: 'generate-price-lists',
+          stepKey,
           status: 'prepared',
         });
 
-        const result = await liferay.createPriceEntriesBatch(config, allPriceEntries, {
+        const result = await liferay.createPriceEntriesBatch(config, plEntries, {
           externalReferenceCode: batchERC,
+          priceListExternalReferenceCode: plERC,
           sessionId,
         });
 
@@ -168,34 +249,62 @@ class ProductGenerator {
             sessionId,
             batchERC,
             batchId: result.batchId,
-            totalItems: allPriceEntries.length,
-            entityType: 'price-lists',
+            totalItems: plEntries.length,
+            entityType: 'products',
             operation: 'generate',
+            correlationId: config.correlationId,
           });
         } else {
-          logger.error('Failed to submit price entries batch', { sessionId, batchERC });
+          logger.error(
+            `Failed to submit price entries batch for ${stepKey} (PL: ${plERC})`,
+            { sessionId, batchERC }
+          );
           await persistence.updateBatch(batchERC, { status: 'FAILED' });
         }
-      } else {
-        logger.info('No price entries generated. Marking step as SYNCHRONOUS.', { sessionId });
+      }
+    } else {
+        logger.info(`No price entries for ${stepKey}. Marking as SYNCHRONOUS.`, { sessionId });
         await persistence.createBatch({
           erc: createERC(ERC_PREFIX.BATCH),
           sessionId,
-          stepKey: 'generate-price-lists',
+          stepKey: stepKey,
           status: 'SYNCHRONOUS',
+          totalCount: 0,
+          processedCount: 0,
         });
       }
     } catch (error) {
-      logger.error('Failed execution of generate-price-lists step', {
-        sessionId,
-        error: error.message,
-      });
-      await persistence.createBatch({
-        erc: createERC(ERC_PREFIX.BATCH),
-        sessionId,
-        stepKey: 'generate-price-lists',
-        status: 'FAILED',
-      });
+      logger.error(`Error in ${stepKey} step: ${error.message}`, { sessionId, error });
+      throw error;
+    }
+  }
+
+  async _ensurePriceLists(config, sessionId) {
+    const { logger, liferay } = this.ctx;
+    const PRICE_LISTS = [
+      { erc: 'AICA-PL-GENERAL', name: 'AI Commerce Accelerator Price List', priority: 1.0, type: 'price-list' },
+      { erc: 'AICA-PL-PROMOTIONS', name: 'AI Commerce Accelerator Promotions', priority: 2.0, type: 'promotion' }
+    ];
+
+    for (const pl of PRICE_LISTS) {
+      try {
+        const existing = await liferay.getPriceListByERC(config, pl.erc);
+        if (!existing) {
+          logger.info(`Creating missing price list: ${pl.name} (${pl.type})`, { sessionId });
+          await liferay.createPriceList(config, {
+            externalReferenceCode: pl.erc,
+            name: pl.name,
+            currencyCode: config.currencyCode || 'USD',
+            active: true,
+            priority: pl.priority,
+            catalogId: config.catalogId,
+            type: pl.type
+          });
+        }
+      } catch (err) {
+        logger.error(`Failed to ensure price list ${pl.erc} exists`, { sessionId, error: err.message });
+        throw err;
+      }
     }
   }
 
@@ -419,36 +528,40 @@ class ProductGenerator {
     const session = await persistence.getSession(sessionId);
     const { config, productDataList, options } = session.context;
 
-    logger.info('Starting product SKUs creation step (via scoped SKU batch API)', { sessionId });
+    logger.info('Starting variant SKUs creation step (via Product UPSERT batch)', { sessionId });
 
-    const productsWithVariants = (productDataList || []).filter(
-      (p) => p.skus?.length > 0
-    );
+    const preparedProducts = (productDataList || []).filter(
+      p => Array.isArray(p.skus) && p.skus.length > 0
+    ).map((productData) => {
+      const liferayProduct = {
+        active: productData.active !== undefined ? productData.active : true,
+        catalogId: parseInt(config.catalogId, 10),
+        name: toI18n(productData.name),
+        description: toI18n(productData.description),
+        productType: productData.productType || 'simple',
+        externalReferenceCode: productData.externalReferenceCode,
+        productConfiguration: {
+          allowBackOrder: productData.allowBackOrder || false,
+        },
+        skus: productData.skus,
+      };
+      
+      if (options.generateSkuVariants && productData.productOptions) {
+        liferayProduct.productOptions = productData.productOptions;
+      }
+      if (options.generateSpecifications && productData.productSpecifications) {
+        liferayProduct.productSpecifications = productData.productSpecifications;
+      }
 
-    if (productsWithVariants.length > 0) {
-      logger.info(
-        `Processing variant SKUs for ${productsWithVariants.length} products`,
-        { sessionId }
-      );
+      return this._cleanProductForLiferay(liferayProduct, { stripSkuOptions: false });
+    });
 
-      for (const product of productsWithVariants) {
-        if (!Array.isArray(product.skus) || product.skus.length === 0) continue;
+    if (preparedProducts.length > 0) {
+      const safeBatchSize = Math.max(1, parseInt(config.batchSize, 10) || 1);
+      for (let i = 0; i < preparedProducts.length; i += safeBatchSize) {
+        const batch = preparedProducts.slice(i, i + safeBatchSize);
+        const batchERC = createERC(ERC_PREFIX.PRODUCT_BATCH);
 
-        const productSkus = product.skus.map(s => ({
-          ...s,
-          productId: product.id,
-        }));
-
-        // Clean SKUs using the central helper
-        const cleanedSkus = productSkus.map(s => {
-          // We use _cleanProductForLiferay on a dummy product wrapping the SKU
-          // This ensures the same sanitization logic is applied.
-          const cleaned = this._cleanProductForLiferay({ skus: [s] });
-          return cleaned.skus[0];
-        });
-
-        const batchERC = createERC(ERC_PREFIX.SKU_BATCH);
-        
         await persistence.createBatch({
           erc: batchERC,
           sessionId,
@@ -456,12 +569,8 @@ class ProductGenerator {
           status: 'prepared',
         });
 
-        logger.trace(`Submitting SKU batch for product ${product.externalReferenceCode} (ERC: ${batchERC})`, { sessionId });
-
-        const result = await liferay.createProductSkusBatch(config, cleanedSkus, {
+        const result = await liferay.createProductsBatch(config, batch, {
           externalReferenceCode: batchERC,
-          productExternalReferenceCode: product.externalReferenceCode,
-          productId: product.id,
           sessionId,
         });
 
@@ -475,29 +584,25 @@ class ProductGenerator {
             sessionId,
             batchERC,
             batchId: result.batchId,
-            totalItems: cleanedSkus.length,
+            totalItems: batch.length,
             entityType: 'products',
             operation: 'generate',
+            correlationId: config.correlationId,
           });
         } else {
-          logger.error(`Failed to submit SKU batch for product ${product.id}`, { sessionId, batchERC });
+          logger.error(`Failed to submit SKU update batch ${i / safeBatchSize + 1}`, { sessionId, batchERC });
           await persistence.updateBatch(batchERC, { status: 'FAILED' });
         }
       }
     } else {
-      logger.info('No products require variant SKU creation.', { sessionId });
-    }
-
-    // Only create a synchronous batch marker if NO other batches were created for this step.
-    const stepBatches = await persistence.getBatchesForSession(sessionId);
-    const hasRealBatches = stepBatches.some(b => b.step_key === 'product-skus');
-
-    if (!hasRealBatches) {
+      logger.info('No variant SKUs to create. Marking step as SYNCHRONOUS.', { sessionId });
       await persistence.createBatch({
         erc: createERC(ERC_PREFIX.BATCH),
         sessionId,
         stepKey: 'product-skus',
         status: 'SYNCHRONOUS',
+        totalCount: 0,
+        processedCount: 0,
       });
     }
   }
@@ -585,13 +690,10 @@ class ProductGenerator {
     );
 
     if (!allProductData || allProductData.length === 0) {
-      logger.info('No product data generated. Skipping product creation.', {
-        sessionId,
-      });
-      // Potentially end the workflow here if no data is generated
-      return;
+      const error = new Error('No product data generated. Workflow cannot continue.');
+      logger.error(error.message, { sessionId });
+      throw error;
     }
-
     await persistence.updateSessionContext(sessionId, {
       ...session.context,
       productDataList: allProductData,
@@ -615,7 +717,11 @@ class ProductGenerator {
     const { logger, persistence } = this.ctx;
     const session = await persistence.getSession(sessionId);
     logger.info('Starting product creation step', { sessionId });
-    await this.startProductsBatch({ sessionId, session });
+    await this.startProductsBatch({
+      sessionId,
+      session,
+      correlationId: session.correlationId,
+    });
   }
 
 
@@ -726,10 +832,12 @@ class ProductGenerator {
         if (options.generateSkuVariants || options.generateSpecifications) {
           const catOpts = catalogOptionsByCategory[category] || [];
           const catSpecs = catalogSpecificationsByCategory[category] || [];
-          for (const pd of productDataList) {
-            pd.__catalogOptions = catOpts;
-            pd.__catalogSpecifications = catSpecs;
-            pd.category = category;
+                      for (const pd of productDataList) {
+                        if (!pd.externalReferenceCode) {
+                          pd.externalReferenceCode = createERC(ERC_PREFIX.PRODUCT);
+                        }
+                        pd.__catalogOptions = catOpts;
+                        pd.__catalogSpecifications = catSpecs;            pd.category = category;
 
             // Apply backorder logic
             if (enableBackorders) {
@@ -907,13 +1015,13 @@ class ProductGenerator {
           }
         }
         allProductData.push(...productDataList);
-      } catch (error) {
-        logger.errorWithStack(error, {
-          category,
-          message: `Failed to generate products for category ${category}`,
-        });
-      }
-    }
+              } catch (error) {
+                logger.errorWithStack(error, {
+                  category,
+                  message: `Failed to generate products for category ${category}`,
+                });
+                throw error;
+              }    }
     if (allProductData.length === 0) {
       logger.info('No products generated after distribution', {
         entityType: 'products',
@@ -1369,7 +1477,7 @@ class ProductGenerator {
                 erc: batchERC,
                 sessionId,
                 stepKey: 'update-inventory',
-                status: 'prepared',
+                status: 'PREPARED',
               });
 
               if (options.dryRun) {
@@ -1378,12 +1486,23 @@ class ProductGenerator {
                 continue;
               }
 
-              const result = await liferay.createWarehouseItemsBatch(config, items, {
-                externalReferenceCode: batchERC,
-                warehouseExternalReferenceCode: warehouseERC,
-                warehouseId: warehouse.id,
-                sessionId,
-              });
+              let result;
+              try {
+                result = await liferay.createWarehouseItemsBatch(config, items, {
+                  externalReferenceCode: batchERC,
+                  warehouseExternalReferenceCode: warehouseERC,
+                  warehouseId: warehouse.id,
+                  sessionId,
+                });
+              } catch (batchError) {
+                logger.error(`Critical error submitting inventory batch for warehouse ${warehouseERC}`, { 
+                  sessionId, 
+                  batchERC,
+                  error: batchError.message 
+                });
+                await persistence.updateBatch(batchERC, { status: 'FAILED' });
+                continue;
+              }
 
               if (result?.batchId) {
                 await persistence.updateBatch(batchERC, {
@@ -1398,6 +1517,7 @@ class ProductGenerator {
                   totalItems: items.length,
                   entityType: 'inventory',
                   operation: 'generate',
+                  correlationId: config.correlationId,
                 });
               } else {
                 logger.error(`Failed to submit inventory batch for warehouse ${warehouseERC}`, { sessionId, batchERC });
@@ -1444,104 +1564,12 @@ class ProductGenerator {
     }
   }
 
-  validateConfig(config) {
-    const pollingRetriesValue = config.pollingRetries;
-    if (pollingRetriesValue === undefined || pollingRetriesValue === null) {
-      throw new Error('pollingRetries is required');
-    }
-    const pollingRetries = parseInt(pollingRetriesValue);
-    if (isNaN(pollingRetries) || pollingRetries < 0 || pollingRetries > 20) {
-      throw new Error('pollingRetries must be between 0 and 20');
-    }
-    const pollingDelayValue = config.pollingDelay;
-    if (pollingDelayValue === undefined || pollingDelayValue === null) {
-      throw new Error('pollingDelay is required');
-    }
-    const pollingDelay = parseInt(pollingDelayValue);
-    if (isNaN(pollingDelay) || pollingDelay < 5000 || pollingDelay > 600000) {
-      throw new Error('pollingDelay must be between 5 and 600 seconds');
-    }
-    const catalogIdValue = config.catalogId;
-    if (catalogIdValue === undefined || catalogIdValue === null) {
-      throw new Error('catalogId is required');
-    }
-    const catalogId = parseInt(catalogIdValue);
-    if (isNaN(catalogId) || catalogId <= 0) {
-      throw new Error('catalogId must be a positive integer');
-    }
-  }
-
-  async validateOptions(config, options) {
-    const { ai, logger } = this.ctx;
-
-    if (
-      !options.productCount ||
-      typeof options.productCount !== 'number' ||
-      options.productCount <= 0
-    ) {
-      throw new Error('Product count must be greater than 0');
-    }
-
-    if (!options.demoMode) {
-      if (!config.aiModel) {
-        const err = new Error(
-          'AI model not configured. Please select an AI model in the AI Configuration object.'
-        );
-        err.statusCode = 400;
-        logger.error(
-          '✗ AI model validation failed for products: missing aiModel'
-        );
-        throw err;
-      }
-
-      await ai.getOpenAIClient(config);
-    }
-
-    if (
-      (options.imageRatio ?? 0) > 0 &&
-      options.imageMode !== 'none' &&
-      !options.demoMode
-    ) {
-      if (!config.imageGenerationKey) {
-        throw new Error(
-          'Image generation API key not configured. Please set it in the AI Configuration object or disable image generation.'
-        );
-      }
-    }
-  }
-
-  buildCategoryCounts(total, categories, mode = 'random', logger = null) {
-    const counts = {};
-    categories.forEach((c) => (counts[c] = 0));
-    if (mode === 'even') {
-      const base = Math.floor(total / categories.length);
-      let remainder = total - base * categories.length;
-      for (const c of categories) counts[c] = base;
-      let i = 0;
-      while (remainder-- > 0) {
-        counts[categories[i % categories.length]]++;
-        i++;
-      }
-      return counts;
-    }
-    for (let i = 0; i < total; i++) {
-      const idx = Math.floor(Math.random() * categories.length);
-      counts[categories[idx]]++;
-    }
-    if (logger) {
-      logger.trace('Category distribution (random): ' + JSON.stringify(counts));
-    }
-    return counts;
-  }
-  
   async createCatalogOptions(config, options) {
     const { logger, liferay } = this.ctx;
     const categories = options.categories;
     logger.trace(
       `Creating catalog-level options for SKU variants... (Demo mode: ${options.demoMode})`
     );
-    logger.trace(`Liferay URL: ${config.liferayUrl}`);
-    logger.trace(`Categories to process: ${categories.join(', ')}`);
     const catalogOptions = {};
     const selectedLanguages = config.selectedLanguages || ['en-US'];
     const languageCodes = selectedLanguages.map((lang) =>
@@ -1556,7 +1584,6 @@ class ProductGenerator {
         facetable: true,
       };
 
-      // Determine initial characteristics based on name and values
       if (
         values.length <= 4 &&
         (name.includes('type') ||
@@ -1632,10 +1659,6 @@ class ProductGenerator {
         characteristics.skuContributor = true;
       }
 
-      // FINAL VALIDATION: Enforce Liferay Commerce Constraints
-      
-      // 1. If it's a SKU contributor, it must have an allowed field type.
-      // If not, we disable SKU contribution to respect the detected field type.
       if (
         characteristics.skuContributor &&
         !COMMERCE_CONSTRAINTS.SKU_CONTRIBUTOR_FIELD_TYPES.includes(
@@ -1645,7 +1668,6 @@ class ProductGenerator {
         characteristics.skuContributor = false;
       }
 
-      // 2. Ensure fieldType is in the valid list (sanity check)
       if (
         !COMMERCE_CONSTRAINTS.VALID_FIELD_TYPES.includes(
           characteristics.fieldType,
@@ -1684,9 +1706,6 @@ class ProductGenerator {
       categoryOptions =
         categoryOptionsMap[category] || categoryOptionsMap['Electronics'];
       catalogOptions[category] = [];
-      logger.trace(
-        `Processing ${categoryOptions.length} options for category: ${category}`
-      );
       for (const optionData of categoryOptions) {
         const optionERC = `OPT-${category.toUpperCase()}-${optionData.name
           .toUpperCase()
@@ -1716,19 +1735,6 @@ class ProductGenerator {
           required: optionCharacteristics.required,
           skuContributor: optionCharacteristics.skuContributor,
           externalReferenceCode: optionERC,
-        });
-        logger.trace(
-          `Created or reused option: ${option.name.en_US} (ID: ${option.id})`
-        );
-        logger.debug('Created/Reused Option', {
-          category,
-          optionData,
-          option: {
-            id: option.id,
-            key: option.key,
-            name: option.name,
-            externalReferenceCode: option.externalReferenceCode,
-          },
         });
         const optionValues = [];
         if (COMMERCE_CONSTRAINTS.FIELD_TYPES_WITH_VALUES.includes(optionCharacteristics.fieldType)) {
@@ -1760,14 +1766,7 @@ class ProductGenerator {
               }
             );
             optionValues.push(optionValue);
-            logger.trace(
-              `Created or reused option value: ${optionValue.name.en_US}`
-            );
           }
-        } else {
-          logger.trace(
-            `Skipping OptionValue creation for fieldType: ${optionCharacteristics.fieldType}`
-          );
         }
         catalogOptions[category].push({ ...option, values: optionValues });
       }
@@ -1778,9 +1777,6 @@ class ProductGenerator {
   async createCatalogSpecifications(config, options) {
     const { logger, liferay } = this.ctx;
     const categories = options.categories;
-    logger.trace(
-      'Creating catalog-level specifications with option categories...'
-    );
     const catalogSpecifications = {};
     const selectedLanguages = config.selectedLanguages || ['en-US'];
     const languageCodes = selectedLanguages.map((lang) =>
@@ -1934,7 +1930,6 @@ class ProductGenerator {
       }
       catalogSpecifications[category] = [];
       const optionCategories = {};
-      let createdSpecCount = 0;
 
       for (const groupData of categoryGroups) {
         try {
@@ -1959,26 +1954,7 @@ class ProductGenerator {
           );
 
           if (optionCategory) {
-            logger.trace(
-              `Using option category: ${
-                optionCategory.title.en_US || optionCategory.key
-              } (ID: ${optionCategory.id})`
-            );
-            logger.debug('Created/Reused Option Category', {
-              category: category,
-              groupData: groupData,
-              optionCategory: {
-                id: optionCategory.id,
-                key: optionCategory.key,
-                title: optionCategory.title,
-                externalReferenceCode: optionCategory.externalReferenceCode,
-              },
-            });
             optionCategories[groupData.key] = optionCategory;
-          } else {
-            logger.warn(
-              `Could not create or retrieve option category for key: ${groupData.key}`
-            );
           }
         } catch (error) {
           logger.error(
@@ -2000,19 +1976,6 @@ class ProductGenerator {
           const linkedOptionCategory =
             optionCategories[resolveGroup(specData.group)];
 
-          logger.debug('Preparing Specification Payload', {
-            category,
-            specData,
-            linkedOptionCategory: linkedOptionCategory
-              ? {
-                  id: linkedOptionCategory.id,
-                  externalReferenceCode: linkedOptionCategory.externalReferenceCode,
-                  key: linkedOptionCategory.key,
-                  title: linkedOptionCategory.title,
-                }
-              : null,
-          });
-
           const specificationPayload = {
             key: `${category.toLowerCase()}-${specData.key}`,
             title: specTitle,
@@ -2033,22 +1996,6 @@ class ProductGenerator {
             config,
             specificationPayload
           );
-          logger.trace(
-            `Created or reused specification: ${
-              specification.title?.en_US || specification.key
-            } (ID: ${specification.id})`
-          );
-          logger.debug('Created/Reused Specification', {
-            category,
-            specData,
-            specification: {
-              id: specification.id,
-              key: specification.key,
-              title: specification.title,
-              externalReferenceCode: specification.externalReferenceCode,
-              optionCategoryId: specification.optionCategoryId,
-            },
-          });
 
           if (linkedOptionCategory) {
             const desiredId = linkedOptionCategory.id;
@@ -2080,16 +2027,6 @@ class ProductGenerator {
                     },
                   });
                 }
-                specification.optionCategoryId =
-                  desiredId || specification.optionCategoryId;
-                if (desiredERC)
-                  specification.optionCategoryExternalReferenceCode =
-                    desiredERC;
-                logger.trace(
-                  `Linked specification ${specERC} to option category ${
-                    desiredId ? `ID ${desiredId}` : desiredERC
-                  }`
-                );
               } catch (patchErr) {
                 logger.warn(
                   `Failed to patch option category link for ${specERC}: ${patchErr.message}`
@@ -2099,7 +2036,6 @@ class ProductGenerator {
           }
 
           catalogSpecifications[category].push(specification);
-          createdSpecCount++;
         } catch (error) {
           logger.error(
             `Failed to process specification ${specData.title} for ${category}:`,
@@ -2111,41 +2047,11 @@ class ProductGenerator {
           );
         }
       }
-
-      logger.info(
-        `Option categories ready for ${category}: ${
-          Object.keys(optionCategories).length
-        }`
-      );
-
-      logger.info(
-        `Created/reused ${createdSpecCount} specifications for category: ${category}`
-      );
-
-      try {
-        const prefix = `${String(category).toLowerCase()}-`;
-        const listed = await liferay.getSpecifications(config, {
-          search: prefix,
-          pageSize: 200,
-          fields: 'id,key,externalReferenceCode',
-        });
-        const items = Array.isArray(listed?.items) ? listed.items : [];
-        logger.info(
-          `Verification: ${items.length} specifications found matching prefix '${prefix}'`
-        );
-      } catch (verifyErr) {
-        logger.warn(
-          `Verification list for specifications failed: ${verifyErr.message}`
-        );
-      }
-
-      logger.info(
-        `Processed ${catalogSpecifications[category].length} specifications for category: ${category}`
-      );
     }
 
     return catalogSpecifications;
   }
+
   async createBasicProduct(config, productData, options) {
     const { logger, liferay } = this.ctx;
     const {
@@ -2188,11 +2094,9 @@ class ProductGenerator {
     });
 
     const createdProduct = await liferay.createProduct(config, cleanedPayload);
-    logger.info(`Created product: ${createdProduct.name?.en_US || 'N/A'}`, {
-      productId: createdProduct.id,
-    });
     return createdProduct;
   }
+
   async createSingleProduct(config, productData, options) {
     const { logger, liferay } = this.ctx;
     const {
@@ -2218,7 +2122,9 @@ class ProductGenerator {
         externalReferenceCode || createERC(ERC_PREFIX.PRODUCT),
       productOptions: productOptions || [],
       productSpecifications: productSpecifications || [],
-      allowBackOrder: allowBackOrder || false,
+      productConfiguration: {
+        allowBackOrder: allowBackOrder || false,
+      },
     };
 
     const hasSkuContributors = (productOptions || []).some(
@@ -2236,19 +2142,14 @@ class ProductGenerator {
     });
 
     const createdProduct = await liferay.createProduct(config, cleanedPayload);
-    logger.info(`Created product: ${createdProduct.name?.en_US || 'N/A'}`, {
-      productId: createdProduct.id,
-    });
     return createdProduct;
   }
+
   async updateInventory(config, createdProduct, originalProduct, options) {
     const { logger, liferay } = this.ctx;
     const { warehouses } = options;
 
     if (!warehouses || warehouses.length === 0) {
-      logger.warn('No warehouses available to update inventory for', {
-        productId: createdProduct.id,
-      });
       return;
     }
 
@@ -2264,9 +2165,6 @@ class ProductGenerator {
             neverExpire: true,
           }
         );
-        logger.info(
-          `Updated inventory for product ${createdProduct.id} in warehouse ${warehouse.id}`
-        );
       } catch (error) {
         logger.error(
           `Failed to update inventory for product ${createdProduct.id} in warehouse ${warehouse.id}`,
@@ -2274,6 +2172,96 @@ class ProductGenerator {
         );
       }
     }
+  }
+
+  validateConfig(config) {
+    const pollingRetriesValue = config.pollingRetries;
+    if (pollingRetriesValue === undefined || pollingRetriesValue === null) {
+      throw new Error('pollingRetries is required');
+    }
+    const pollingRetries = parseInt(pollingRetriesValue);
+    if (isNaN(pollingRetries) || pollingRetries < 0 || pollingRetries > 20) {
+      throw new Error('pollingRetries must be between 0 and 20');
+    }
+    const pollingDelayValue = config.pollingDelay;
+    if (pollingDelayValue === undefined || pollingDelayValue === null) {
+      throw new Error('pollingDelay is required');
+    }
+    const pollingDelay = parseInt(pollingDelayValue);
+    if (isNaN(pollingDelay) || pollingDelay < 5000 || pollingDelay > 600000) {
+      throw new Error('pollingDelay must be between 5 and 600 seconds');
+    }
+    const catalogIdValue = config.catalogId;
+    if (catalogIdValue === undefined || catalogIdValue === null) {
+      throw new Error('catalogId is required');
+    }
+    const catalogId = parseInt(catalogIdValue);
+    if (isNaN(catalogId) || catalogId <= 0) {
+      throw new Error('catalogId must be a positive integer');
+    }
+  }
+
+  async validateOptions(config, options) {
+    const { ai, logger } = this.ctx;
+
+    if (
+      !options.productCount ||
+      typeof options.productCount !== 'number' ||
+      options.productCount <= 0
+    ) {
+      throw new Error('Product count must be greater than 0');
+    }
+
+    if (!options.demoMode) {
+      if (!config.aiModel) {
+        const err = new Error(
+          'AI model not configured. Please select an AI model in the AI Configuration object.'
+        );
+        err.statusCode = 400;
+        logger.error(
+          '✗ AI model validation failed for products: missing aiModel'
+        );
+        throw err;
+      }
+
+      await ai.getOpenAIClient(config);
+    }
+
+    if (
+      (options.imageRatio ?? 0) > 0 &&
+      options.imageMode !== 'none' &&
+      !options.demoMode
+    ) {
+      if (!config.imageGenerationKey) {
+        throw new Error(
+          'Image generation API key not configured. Please set it in the AI Configuration object or disable image generation.'
+        );
+      }
+    }
+  }
+
+  buildCategoryCounts(total, categories, mode = 'random', logger = null) {
+    const counts = {};
+    categories.forEach((c) => (counts[c] = 0));
+    if (mode === 'even') {
+      const base = Math.floor(total / categories.length);
+      let remainder = total - base * categories.length;
+      for (const c of categories) counts[c] = base;
+      let i = 0;
+      while (remainder-- > 0) {
+        counts[categories[i % categories.length]]++;
+        i++;
+      }
+      return counts;
+    }
+    for (let i = 0; i < total; i++) {
+      const idx = Math.floor(Math.random() * categories.length);
+      counts[categories[idx]]++;
+    }
+    if (logger) {
+      logger.trace('Category distribution (random): ' + JSON.stringify(counts));
+    }
+    return counts;
   }
 }
 

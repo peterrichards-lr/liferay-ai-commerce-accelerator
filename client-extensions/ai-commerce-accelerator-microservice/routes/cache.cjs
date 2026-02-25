@@ -88,4 +88,58 @@ module.exports = (app, { logger, cacheService }) => {
       });
     }
   });
+
+  app.delete(INTERNAL_API_PATHS.CACHE_CLEAR, async (req, res) => {
+    try {
+      cacheService.clear();
+      res.json({
+        success: true,
+        message: 'Cache cleared successfully',
+        timestamp: new Date().toISOString(),
+      });
+    } catch (error) {
+      safeErrorResponse({
+        res,
+        logger,
+        req,
+        error,
+        operation: 'cache-clear',
+        meta: {},
+        statusCode: 500,
+        fallbackMessage: 'Failed to clear cache',
+      });
+    }
+  });
+
+  app.delete(INTERNAL_API_PATHS.CACHE_CLEANUP, async (req, res) => {
+    try {
+      let { cutoff } = req.query;
+      
+      if (!cutoff) {
+        const midnight = new Date();
+        midnight.setHours(0, 0, 0, 0);
+        cutoff = midnight.toISOString();
+      }
+
+      cacheService.cleanupSelective(cutoff);
+
+      res.json({
+        success: true,
+        message: `Cache entries created before ${cutoff} cleared successfully`,
+        cutoff,
+        timestamp: new Date().toISOString(),
+      });
+    } catch (error) {
+      safeErrorResponse({
+        res,
+        logger,
+        req,
+        error,
+        operation: 'cache-cleanup',
+        meta: { cutoff: req.query.cutoff },
+        statusCode: 500,
+        fallbackMessage: 'Failed to cleanup cache',
+      });
+    }
+  });
 };

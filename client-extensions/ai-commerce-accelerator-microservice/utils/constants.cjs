@@ -223,6 +223,10 @@ const ENV = Object.freeze({
     ABS_MIN.WS_RETRY_INTERVAL_MS
   ),
   WS_MAX_RETRIES: num('ws.max.retries', 3, ABS_MIN.WS_MAX_RETRIES),
+
+  PRICING_PROMOTION_RATIO: num('pricing.promotion.ratio', 0.2, 0),
+  PRICING_BULK_RATIO: num('pricing.bulk.ratio', 0.15, 0),
+  PRICING_TIER_RATIO: num('pricing.tier.ratio', 0.15, 0),
 });
 
 const QUEUE_CONFIG = Object.freeze({

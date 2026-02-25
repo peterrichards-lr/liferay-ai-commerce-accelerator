@@ -23,7 +23,7 @@ const API_ROOT = {
   INVENTORY: '/o/headless-commerce-admin-inventory/v1.0',
   OBJECT: '/o/c',
   ORDER: '/o/headless-commerce-admin-order/v1.0',
-  PRICING: '/o/headless-commerce-admin-pricing/v1.0',
+  PRICING: '/o/headless-commerce-admin-pricing/v2.0',
   USER: '/o/headless-admin-user/v1.0',
 };
 
@@ -48,7 +48,7 @@ const BASE = {
   OPTIONS: `${API_ROOT.CATALOG}/options`,
   ORDERS: `${API_ROOT.ORDER}/orders`,
   POSTAL_ADDRESSES: `${API_ROOT.USER}/postal-addresses`,
-  PRICE_LISTS: `${API_ROOT.PRICING}/priceLists`,
+  PRICE_LISTS: `${API_ROOT.PRICING}/price-lists`,
   PRODUCTS: `${API_ROOT.CATALOG}/products`,
   SPECIFICATIONS: `${API_ROOT.CATALOG}/specifications`,
 };
@@ -57,7 +57,7 @@ const VARIANT = {
   optionCategories: 'camel',
   options: 'camel',
   postalAddresses: 'kebab',
-  pricing: 'camel',
+  pricing: 'kebab',
   products: 'camel',
   specifications: 'kebab',
 };
@@ -98,11 +98,14 @@ const PATH = {
     `${BASE.PRICE_LISTS}/batch${
       callbackURL ? `?callbackURL=${enc(callbackURL)}` : ''
     }`,
-  PRICE_ENTRIES_BATCH: (callbackURL) =>
-    `${BASE.PRICE_LISTS}/priceEntries/batch${
-      callbackURL ? `?callbackURL=${enc(callbackURL)}` : ''
-    }`,
-  PRODUCTS_BATCH: (callbackURL) =>
+      PRICE_ENTRIES_BATCH: (callbackURL) =>
+        `${BASE.PRICE_LISTS}/price-entries/batch${
+          callbackURL ? `?callbackURL=${enc(callbackURL)}` : ''
+        }`,
+      PRICE_LIST_PRICE_ENTRIES_BATCH: (priceListERC, callbackURL) =>
+        `${BASE.PRICE_LISTS}/by-externalReferenceCode/${priceListERC}/price-entries/batch${
+          callbackURL ? `?callbackURL=${enc(callbackURL)}` : ''
+        }`,  PRODUCTS_BATCH: (callbackURL) =>
     `${BASE.PRODUCTS}/batch${
       callbackURL ? `?callbackURL=${enc(callbackURL)}` : ''
     }`,
@@ -227,7 +230,7 @@ const PATH = {
   DOCUMENT_FOLDER: (folderId) =>
     `${BASE.DELIVERY}/document-folders/${folderId}`,
   DOCUMENT_FOLDER_PERMISSIONS: (folderId) =>
-    `${BASE.DELIVERY}/document-folders/${folderId}/permissions`,
+    `${base.DELIVERY}/document-folders/${folderId}/permissions`,
   DOCUMENT: (documentId) => `${BASE.DELIVERY}/documents/${documentId}`,
   DOCUMENT_PERMISSIONS: (documentId) =>
     `${BASE.DELIVERY}/documents/${documentId}/permissions`,
@@ -253,36 +256,36 @@ const PATH = {
     byERC(BASE.PRICE_LISTS, erc, VARIANT.pricing),
 
   PRICE_ENTRIES: (priceListId) =>
-    `${BASE.PRICE_LISTS}/${enc(priceListId)}/priceEntries`,
+    `${BASE.PRICE_LISTS}/${enc(priceListId)}/price-entries`,
   PRICE_ENTRIES_BY_ERC: (priceListERC) =>
     `${byERC(
       BASE.PRICE_LISTS,
       priceListERC,
       VARIANT.pricing,
-    )}/priceEntries`,
-  PRICE_ENTRY: (id) => `${BASE.PRICING_API}/priceEntries/${id}`,
+    )}/price-entries`,
+  PRICE_ENTRY: (id) => `${BASE.PRICING_API}/price-entries/${id}`,
   PRICE_ENTRY_BY_ERC: (erc) =>
-    byERC(`${BASE.PRICING_API}/priceEntries`, erc, VARIANT.pricing),
+    byERC(`${BASE.PRICING_API}/price-entries`, erc, VARIANT.pricing),
 
   TIER_PRICES: (priceEntryId) =>
-    `${BASE.PRICING_API}/priceEntries/${enc(priceEntryId)}/tierPrices`,
+    `${BASE.PRICING_API}/price-entries/${enc(priceEntryId)}/tier-prices`,
   TIER_PRICES_BY_PRICE_ENTRY_ERC: (priceEntryERC) =>
     `${byERC(
-      `${BASE.PRICING_API}/priceEntries`,
+      `${BASE.PRICING_API}/price-entries`,
       priceEntryERC,
       VARIANT.pricing,
-    )}/tierPrices`,
+    )}/tier-prices`,
 
   PRICE_LIST_ACCOUNT_GROUPS: (priceListId) =>
-    `${BASE.PRICE_LISTS}/${enc(priceListId)}/priceListAccountGroups`,
+    `${BASE.PRICE_LISTS}/${enc(priceListId)}/price-list-account-groups`,
   PRICE_LIST_ACCOUNT_GROUPS_BY_ERC: (priceListERC) =>
     `${byERC(
       BASE.PRICE_LISTS,
       priceListERC,
-      'camel',
-    )}/priceListAccountGroups`,
+      VARIANT.pricing,
+    )}/price-list-account-groups`,
   PRICE_LIST_ACCOUNT_GROUP: (id) =>
-    `${BASE.PRICING_API}/priceListAccountGroups/${enc(id)}`,
+    `${BASE.PRICING_API}/price-list-account-groups/${enc(id)}`,
 
   IMPORT_TASK: (batchId) =>
     `${BASE.BATCH_ENGINE_API}/import-task/${enc(batchId)}`,

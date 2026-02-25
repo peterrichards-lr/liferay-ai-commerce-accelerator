@@ -15,6 +15,7 @@ class AccountGenerator {
       'load-countries': this._runLoadCountriesStep.bind(this),
       'account-data-generation': this._runAccountDataGenerationStep.bind(this),
       'accounts': this._runAccountCreationStep.bind(this),
+      'resolve-account-ids': this._runResolveAccountIdsStep.bind(this),
       'postal-addresses': this._runAddressCreationStep.bind(this),
       'set-billing-and-shipping-addresses': this._runSetBillingAndShippingAddressesStep.bind(this),
     };
@@ -62,7 +63,7 @@ class AccountGenerator {
     }
   }
 
-  async generate(config, options) {
+  async generateAccounts(config, options) {
     const { logger, persistence, batchCallback } = this.ctx;
     const sessionId = createERC(ERC_PREFIX.BATCH_SESSION);
 
@@ -127,10 +128,12 @@ class AccountGenerator {
       const accountsToCreate = [];
       const addressesToCreate = [];
 
-      for (const raw of accountDataList) {
-        const account = { ...raw };
-        account.accountContactInformation =
-          account.accountContactInformation || {};
+              for (const raw of accountDataList) {
+                const account = { ...raw };
+                if (!account.externalReferenceCode) {
+                  account.externalReferenceCode = createERC(ERC_PREFIX.ACCOUNT);
+                }
+                account.accountContactInformation =          account.accountContactInformation || {};
 
         if (account.emailAddress) {
           account.accountContactInformation.emailAddresses = [
@@ -322,6 +325,70 @@ class AccountGenerator {
     }
   }
 
+  async _runResolveAccountIdsStep(sessionId) {
+    const { logger, liferay, persistence } = this.ctx;
+    const session = await persistence.getSession(sessionId);
+    const { config, accountsToCreate } = session.context;
+
+    if (!accountsToCreate || accountsToCreate.length === 0) {
+      logger.info('No accounts to resolve IDs for. Skipping step.', { sessionId });
+      await persistence.createBatch({
+        erc: createERC(ERC_PREFIX.BATCH),
+        sessionId,
+        stepKey: 'resolve-account-ids',
+        status: 'BYPASSED',
+      });
+      return;
+    }
+
+    logger.info(`Resolving real numeric IDs for ${accountsToCreate.length} accounts via GraphQL/ERC...`, { sessionId });
+
+    try {
+      const ercs = accountsToCreate.map(a => a.externalReferenceCode);
+      const resolvedItems = await liferay.resolveByERCsWithRetry(
+        config,
+        ercs,
+        (cfg, e) => liferay.getAccountsByERC(cfg, e, ['id', 'externalReferenceCode', 'name']),
+        { label: 'accounts' }
+      );
+
+      const ercToIdMap = new Map();
+      (resolvedItems || []).forEach(item => {
+        if (item) {
+          ercToIdMap.set(item.externalReferenceCode, item.id);
+        }
+      });
+
+      const updatedAccounts = accountsToCreate.map(a => ({
+        ...a,
+        id: ercToIdMap.get(a.externalReferenceCode) || a.id
+      }));
+
+      await persistence.updateSessionContext(sessionId, {
+        ...session.context,
+        accountsToCreate: updatedAccounts
+      });
+
+      logger.info('Successfully resolved account IDs.', { sessionId, resolvedCount: ercToIdMap.size });
+
+      await persistence.createBatch({
+        erc: createERC(ERC_PREFIX.BATCH),
+        sessionId,
+        stepKey: 'resolve-account-ids',
+        status: 'SYNCHRONOUS',
+      });
+
+    } catch (error) {
+      logger.error('Failed to resolve account IDs', { sessionId, error: error.message });
+      await persistence.createBatch({
+        erc: createERC(ERC_PREFIX.BATCH),
+        sessionId,
+        stepKey: 'resolve-account-ids',
+        status: 'FAILED',
+      });
+    }
+  }
+
   async _runAddressCreationStep(sessionId) {
     const { logger, persistence } = this.ctx;
     const session = await persistence.getSession(sessionId);
@@ -405,7 +472,7 @@ class AccountGenerator {
 
   async startPostalAddressesBatch({ sessionId, session, correlationId }) {
     const { logger, persistence, liferay, progress } = this.ctx;
-    const { config, options, addressesToCreate } = session;
+    const { config, options, accountsToCreate, addressesToCreate } = session;
 
     logger.info('Starting postal address creation step', { sessionId });
 
@@ -420,14 +487,27 @@ class AccountGenerator {
       return;
     }
 
-    const accountsResult = await liferay.getAccounts(config);
-    const accounts = accountsResult?.items || [];
+    if (!accountsToCreate || accountsToCreate.length === 0) {
+      logger.warn('No accounts available in context to associate addresses with.', { sessionId });
+      await persistence.createBatch({
+        erc: createERC(ERC_PREFIX.BATCH),
+        sessionId,
+        stepKey: 'postal-addresses',
+        status: 'BYPASSED',
+      });
+      return;
+    }
 
-    logger.debug(`Found ${accounts.length} accounts`);
+    logger.debug(`Processing addresses for ${accountsToCreate.length} accounts from context`);
 
     let startedAny = false;
 
-    for (const account of accounts) {
+    for (const account of accountsToCreate) {
+      if (!account.id) {
+        logger.warn(`Account with ERC ${account.externalReferenceCode} has no ID. Skipping address creation.`, { sessionId });
+        continue;
+      }
+
       const addressesForAccount = addressesToCreate
         .filter(
           (address) => address.accountERC === account.externalReferenceCode
@@ -443,14 +523,6 @@ class AccountGenerator {
         if (options.dryRun) {
             logger.info('DRY RUN: Skipping address creation', {
               accountERC: account.externalReferenceCode,
-            });
-            logger.info({
-                dryRunData: {
-                    step: 'postal-addresses',
-                    accountId: account.id,
-                    count: addressesForAccount.length,
-                    payload: addressesForAccount,
-                },
             });
             await persistence.createBatch({
                 erc: batchERC,
@@ -502,7 +574,7 @@ class AccountGenerator {
           count: addressesForAccount.length,
         });
         startedAny = true;
-      } else{
+      } else {
         logger.debug('No addresses to create for account', {
           accountERC: account.externalReferenceCode
         });

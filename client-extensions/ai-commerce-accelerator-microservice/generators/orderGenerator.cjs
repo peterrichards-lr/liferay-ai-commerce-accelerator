@@ -22,7 +22,7 @@ class OrderGenerator {
     };
   }
 
-  async generate(config, options) {
+  async generateOrders(config, options) {
     const { logger, persistence, batchCallback } = this.ctx;
     const sessionId = createERC(ERC_PREFIX.BATCH_SESSION);
 

@@ -82,6 +82,19 @@ module.exports = (
           steps.push({ name: 'resolve-product-ids', type: 'sync' });
           steps.push({ name: 'link-product-options', type: 'sync' });
           steps.push({ name: 'product-skus', type: 'sync' });
+
+          if (options.generatePriceLists) {
+            steps.push({ name: 'generate-price-lists', type: 'sync' });
+          }
+
+          if (options.generateBulkPricing) {
+            steps.push({ name: 'generate-bulk-pricing', type: 'sync' });
+          }
+
+          if (options.generateTierPricing) {
+            steps.push({ name: 'generate-tier-pricing', type: 'sync' });
+          }
+
           steps.push({
             type: 'parallel',
             steps: [
@@ -96,6 +109,7 @@ module.exports = (
           steps.push({ name: 'load-countries', type: 'sync' });
           steps.push({ name: 'account-data-generation', type: 'sync' });
           steps.push({ name: 'accounts', type: 'sync' });
+          steps.push({ name: 'resolve-account-ids', type: 'sync' });
           steps.push({ name: 'postal-addresses', type: 'sync' });
           steps.push({
             name: 'set-billing-and-shipping-addresses',

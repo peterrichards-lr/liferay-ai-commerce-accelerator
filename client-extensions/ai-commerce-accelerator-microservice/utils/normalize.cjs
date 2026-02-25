@@ -111,7 +111,6 @@ function buildConfigAndOptions(req) {
     pollingDelay,
     pollingRetries,
     productCount,
-    requiredCount,
     reuseExistingWarehouses,
     selectedLanguages,
     siteGroupId,
@@ -224,7 +223,6 @@ function buildConfigAndOptions(req) {
   options.customPdfFile = getCustomPdf(req, options.pdfMode);
   options.orderCount = toNumber(orderCount);
   options.accountCount = toNumber(accountCount);
-  options.requiredCount = toNumber(requiredCount);
   options.inventoryMin = toNumber(inventoryMin);
   options.inventoryMax = toNumber(inventoryMax);
   options.inventoryAssignmentRatio = toNumber(inventoryAssignmentRatio);
@@ -424,6 +422,7 @@ module.exports = {
   redactUrl,
   sanitizeCacheDump,
   sanitizeCacheEntry,
+  sanitizeValue,
   sanitizedERC,
   sanitizedObject,
   toBoolean,

@@ -138,6 +138,7 @@ class LiferayRestService {
       const logData = {
         operation: op,
         status: res.status,
+        correlationId: config.correlationId,
       };
 
       if (res.data) {
@@ -689,12 +690,30 @@ class LiferayRestService {
   }
 
   async getImportTask(config, batchId) {
-    return await this._get(
-      config,
-      PATH.IMPORT_TASK(batchId),
-      'import-task',
-      'Failed to get import task',
-    );
+    let attempts = 0;
+    const maxAttempts = 3;
+    const backoff = 1000;
+
+    while (attempts < maxAttempts) {
+      try {
+        return await this._get(
+          config,
+          PATH.IMPORT_TASK(batchId),
+          'import-task',
+          'Failed to get import task',
+        );
+      } catch (error) {
+        attempts++;
+        if (attempts >= maxAttempts || error.status !== 400) {
+          throw error;
+        }
+        logger.warn(`Intermittent 400 error getting import task ${batchId}. Retrying ${attempts}/${maxAttempts}...`, {
+          correlationId: config.correlationId,
+          error: error.message
+        });
+        await delay(backoff * attempts);
+      }
+    }
   }
 
   async getImportTaskSubmittedContent(config, batchId) {
@@ -1468,7 +1487,15 @@ class LiferayRestService {
       itemERCKey: 'externalReferenceCode',
       op: 'create-price-entries-batch',
       friendly: 'Failed to create price entries batch',
-      path: PATH.PRICE_ENTRIES_BATCH,
+      path: (callback) => {
+        if (opts.priceListExternalReferenceCode) {
+          return PATH.PRICE_LIST_PRICE_ENTRIES_BATCH(
+            opts.priceListExternalReferenceCode,
+            callback
+          );
+        }
+        return PATH.PRICE_ENTRIES_BATCH(callback);
+      },
       sessionId: opts.sessionId,
     });
 

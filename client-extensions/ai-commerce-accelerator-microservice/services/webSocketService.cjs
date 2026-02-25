@@ -201,10 +201,17 @@ function createWebSocketService({
   function resolveTargets({ mode = 'auto', correlationId, batchId }, payload) {
     const cid = correlationId ?? payload?.correlationId ?? null;
     const bid = normalizeBid(batchId ?? payload?.batchId);
+    const sid = payload?.sessionId ?? null;
 
     if (mode === 'unicast' || (mode === 'auto' && cid)) {
       const c = clients.get(cid);
-      return c ? [c] : [];
+      if (c) return [c];
+      
+      // Fallback to sessionId matching if cid not found
+      if (sid) {
+        return Array.from(clients.values()).filter(ws => ws.sessionId === sid);
+      }
+      return [];
     }
 
     if (mode === 'batch' || (mode === 'auto' && bid && byBatch.has(bid))) {
@@ -364,12 +371,14 @@ function createWebSocketService({
     try {
       const url = new URL(req.url, `http://${req.headers.host}`);
       const correlationId = url.searchParams.get(CORRELATION_ID_HEADER) || null;
+      const sessionId = url.searchParams.get('sessionId') || null;
       ws.id = correlationId;
       ws.correlationId = correlationId;
+      ws.sessionId = sessionId;
     } catch (e) {
       const error = withErrorRef(e, 'ws-attach-correlation');
-      logger?.warn?.('Unable to attach the correlationId to the WebSocket', {
-        operation: 'ws-attach-correlation',
+      logger?.warn?.('Unable to attach properties to the WebSocket', {
+        operation: 'ws-attach-properties',
         errorReference: error.errorReference,
         message: error.message,
       });
@@ -378,12 +387,16 @@ function createWebSocketService({
     ws.isAlive = true;
     ws.url = req.headers.origin;
     ws.ip = req.socket.remoteAddress;
-    clients.set(ws.correlationId, ws);
+    
+    if (ws.correlationId) {
+      clients.set(ws.correlationId, ws);
+    }
 
     logger?.info?.('WebSocket connection', {
       operation: 'websocket-connect',
       clientIP: req?.socket?.remoteAddress,
       id: ws.id,
+      sessionId: ws.sessionId,
       connectedClients: clients.size,
       correlationId: ws.correlationId,
     });

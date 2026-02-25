@@ -2,6 +2,7 @@ const { logger } = require('./utils/logger.cjs');
 
 const { connectionSchema } = require('./utils/schemas.cjs');
 const { ENV } = require('./utils/constants.cjs');
+const { INTERNAL_API_PATHS } = require('./utils/internalApiPaths.cjs');
 const { createWebSocketService } = require('./services/webSocketService.cjs');
 
 const { lookupConfig, lxcConfig } = require('@rotty3000/config-node');
@@ -30,8 +31,78 @@ const path = require('path');
 const app = express();
 const server = http.createServer(app);
 
+let ws;
+let persistence;
+
+const gracefulShutdown = async (signal) => {
+  // Use console.info to ensure immediate visibility regardless of logger state
+  console.info(`\n${signal} received, shutting down gracefully...`);
+  
+  if (process.stdin.isTTY) {
+    process.stdin.pause();
+  }
+
+  logger.info(`${signal} received, shutting down gracefully`, {
+    operation: 'server-shutdown',
+    signal,
+  });
+
+  try {
+    if (ws) {
+      ws.stop();
+      logger.debug('WebSocket server stopped', {
+        operation: 'server-shutdown',
+      });
+    }
+
+    await new Promise((resolve) => {
+      const timeout = setTimeout(() => {
+        logger.warn('Server close timed out, forcing resolve', { operation: 'server-shutdown' });
+        resolve();
+      }, 5000);
+
+      server.close((err) => {
+        clearTimeout(timeout);
+        if (err) {
+          logger.error('Error during server close', {
+            operation: 'server-shutdown',
+            error: err.message,
+          });
+        } else {
+          logger.info('HTTP server closed successfully', {
+            operation: 'server-shutdown',
+          });
+        }
+        resolve();
+      });
+    });
+
+    if (persistence && persistence.close) {
+      persistence.close();
+      logger.info('Database connection closed', {
+        operation: 'server-shutdown',
+      });
+    }
+
+    if (logger.close) {
+      await logger.close();
+    }
+
+    logger.info('Graceful shutdown completed', { operation: 'server-shutdown' });
+
+    // Give the event loop and buffers a moment to flush
+    setTimeout(() => {
+      process.exit(0);
+    }, 500);
+  } catch (error) {
+    console.error('Error during graceful shutdown', error);
+    setTimeout(() => {
+      process.exit(1);
+    }, 500);
+  }
+};
+
 (async () => {
-  let ws;
   try {
     ws = createWebSocketService({ server, logger });
   } catch (error) {
@@ -56,6 +127,8 @@ const server = http.createServer(app);
     warehouseGenerator,
     oauthService,
   } = await require('./bootstrap.cjs')(ws);
+
+  persistence = persistenceService;
 
   const PORT = lookupConfig('server.port') || 3000;
 
@@ -87,6 +160,7 @@ const server = http.createServer(app);
 
   app.locals.oauthService = oauthService;
   app.locals.liferayService = liferayService;
+  app.locals.triggerShutdown = gracefulShutdown;
 
   app.use(
     cors({
@@ -291,61 +365,15 @@ const server = http.createServer(app);
     );
     logger.info(`Frontend available at: http://localhost:${PORT}`);
     logger.info(`WebSocket server listening on ws://localhost:${PORT}`);
+    logger.info(`Remote shutdown: curl -X POST http://localhost:${PORT}/api/v1${INTERNAL_API_PATHS.HEALTH_SHUTDOWN}`);
 
     logger.debug('🔌 WebSocket server status:', {
       clients: ws.totalClients(),
     });
   });
-
-  const gracefulShutdown = async (signal) => {
-    logger.info(`${signal} received, shutting down gracefully`, {
-      operation: 'server-shutdown',
-      signal,
-    });
-
-    try {
-      if (ws) {
-        ws.stop();
-        logger.debug('WebSocket server stopped', { operation: 'server-shutdown' });
-      }
-
-      await new Promise((resolve) => {
-        server.close((err) => {
-          if (err) {
-            logger.error('Error during server close', {
-              operation: 'server-shutdown',
-              error: err.message,
-            });
-          } else {
-            logger.info('HTTP server closed successfully', {
-              operation: 'server-shutdown',
-            });
-          }
-          resolve();
-        });
-      });
-
-      if (logger.close) {
-        await logger.close();
-      }
-
-      if (persistenceService && persistenceService.close) {
-        persistenceService.close();
-        logger.info('Database connection closed', { operation: 'server-shutdown' });
-      }
-      
-      process.exit(0);
-    } catch (error) {
-      logger.error('Error during graceful shutdown', {
-        operation: 'server-shutdown',
-        error: error.message,
-      });
-      process.exit(1);
-    }
-  };
-
-  process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
-  process.on('SIGINT', () => gracefulShutdown('SIGINT'));
 })();
+
+process.once('SIGTERM', () => gracefulShutdown('SIGTERM'));
+process.once('SIGINT', () => gracefulShutdown('SIGINT'));
 
 module.exports = app;

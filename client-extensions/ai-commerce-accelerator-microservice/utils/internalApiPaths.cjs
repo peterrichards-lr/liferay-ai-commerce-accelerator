@@ -3,6 +3,8 @@ const INTERNAL_API_PATHS = {
   BATCH_STATUS: '/batch/status/:batchId',
   CACHE_STATS: '/cache/stats',
   CACHE_ENTRIES: '/cache/entries',
+  CACHE_CLEAR: '/cache/clear',
+  CACHE_CLEANUP: '/cache/cleanup',
   CONFIG_AI: '/config/ai',
   CONFIG_CACHE: '/config/cache',
   CONFIG_QUEUES: '/config/queues',
@@ -27,12 +29,16 @@ const INTERNAL_API_PATHS = {
   HEALTH_DETAILED: '/health/detailed',
   HEALTH_READY: '/health/ready',
   HEALTH_LIVE: '/health/live',
+  HEALTH_SHUTDOWN: '/health/shutdown',
   IMPORT_COMMERCE_DATA: '/import-commerce-data',
   QUEUE_STATS: '/queue/stats',
   JOBS: '/jobs/:jobId',
   WORKFLOW_SESSIONS: '/workflows/sessions',
   WORKFLOW_BATCHES: '/workflows/batches/:sessionId',
   WORKFLOW_SUMMARY: '/workflows/sessions/:sessionId/summary',
+  WORKFLOW_SESSION_CONTEXT: '/workflows/sessions/:sessionId/context',
+  WORKFLOW_CLEAR_ALL: '/workflows/clear-all',
+  WORKFLOW_CLEANUP: '/workflows/cleanup',
 };
 
 module.exports = { INTERNAL_API_PATHS };

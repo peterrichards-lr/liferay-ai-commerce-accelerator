@@ -8,8 +8,8 @@ class LiferayGraphQLService {
     this.logger = ctx.logger;
     this.maxBatchSize = 50;
     // Retry Settings
-    this.maxRetries = 3;
-    this.initialDelay = 1000; // 1 second
+    this.maxRetries = 10;
+    this.initialDelay = 2000; // 2 seconds
   }
 
   async _getClient(config) {
@@ -28,15 +28,48 @@ class LiferayGraphQLService {
     });
   }
 
-  async _fetchByFilter(config, namespace, queryMethod, filter, fields, pagination) {
+  async _fetchByFilter(config, namespace, queryMethod, filter, fields, pagination, extraArgs = {}) {
     const client = await this._getClient(config);
     const fieldSelection = fields.join(' ');
     const { page, pageSize } = pagination;
 
+    // Build arguments and variable declarations dynamically
+    const args = [];
+    const varDecls = [];
+    const variables = { page, pageSize };
+
+    if (filter) {
+      args.push('filter: $filter');
+      varDecls.push('$filter: String');
+      variables.filter = filter;
+    }
+
+    for (const [key, value] of Object.entries(extraArgs)) {
+      if (value !== undefined && value !== null) {
+        args.push(`${key}: $${key}`);
+        
+        let type = 'String';
+        if (typeof value === 'boolean') {
+          type = 'Boolean';
+        } else if (typeof value === 'number' || (typeof value === 'string' && !isNaN(value) && !isNaN(parseFloat(value)))) {
+          type = 'Long'; // Default to Long for IDs
+        }
+        
+        varDecls.push(`$${key}: ${type}`);
+        variables[key] = value;
+      }
+    }
+
+    args.push('page: $page', 'pageSize: $pageSize');
+    varDecls.push('$page: Int', '$pageSize: Int');
+
+    const argString = args.join(', ');
+    const varString = varDecls.join(', ');
+
     const query = `
-        query($filter: String, $page: Int, $pageSize: Int) {
+        query(${varString}) {
           ${namespace} {
-            ${queryMethod}(filter: $filter, page: $page, pageSize: $pageSize) {
+            ${queryMethod}(${argString}) {
               items {
                 ${fieldSelection}
               }
@@ -48,19 +81,13 @@ class LiferayGraphQLService {
         }
       `;
 
-    const variables = {
-      filter,
-      page,
-      pageSize,
-    };
-
     const gqlBody = {
       query,
       variables,
     };
 
     this.logger.trace('Liferay GraphQL Request', {
-      operation: 'graphql:fetchByFilter',
+      operation: `graphql:${queryMethod}`,
       namespace,
       queryMethod,
       correlationId: config.correlationId,
@@ -71,20 +98,33 @@ class LiferayGraphQLService {
     const response = await client.post('', gqlBody);
 
     this.logger.trace('Liferay GraphQL Response', {
-      operation: 'graphql:fetchByFilter',
+      operation: `graphql:${queryMethod}`,
       namespace,
       queryMethod,
+      correlationId: config.correlationId,
       status: response.status,
       itemCount: response.data?.data?.[namespace]?.[queryMethod]?.items?.length,
       totalCount: response.data?.data?.[namespace]?.[queryMethod]?.totalCount,
     });
 
     if (response.data.errors) {
-      this.logger.error('GraphQL errors detected in _fetchByFilter:', {
+      const isMissingEntity = response.data.errors.some(err => 
+        err.extensions?.code === 'NOT_FOUND' || 
+        err.message?.includes('DataFetchingException') ||
+        err.message?.includes('null')
+      );
+
+      const logLevel = isMissingEntity ? 'debug' : 'error';
+      const logMessage = isMissingEntity 
+        ? 'GraphQL data not found (likely stale index), will retry if possible:' 
+        : 'GraphQL errors detected in _fetchByFilter:';
+
+      this.logger[logLevel](logMessage, {
         errors: response.data.errors,
         namespace,
         queryMethod,
-        filter
+        filter,
+        correlationId: config.correlationId,
       });
       throw new Error(`GraphQL query failed: ${response.data.errors[0].message}`);
     }
@@ -93,7 +133,8 @@ class LiferayGraphQLService {
       this.logger.error('GraphQL response missing data for namespace:', {
         namespace,
         queryMethod,
-        data: response.data.data
+        data: response.data.data,
+        correlationId: config.correlationId,
       });
       throw new Error(`GraphQL response missing data for ${namespace}.${queryMethod}`);
     }
@@ -114,7 +155,7 @@ class LiferayGraphQLService {
     let allResults = [];
 
     for (const batch of chunks) {
-      const result = await this._executeWithRetry(async () => {
+      const result = await this._executeWithRetry(config, async () => {
         const fieldSelection = fields.join(' ');
         const aliasedQueries = batch.map((erc, index) => `
           a${index}: ${queryMethod}(externalReferenceCode: "${erc}") { ${fieldSelection} }
@@ -139,6 +180,7 @@ class LiferayGraphQLService {
           operation: 'graphql:fetchByERCs',
           namespace,
           queryMethod,
+          correlationId: config.correlationId,
           status: response.status,
           data: response.data,
         });
@@ -161,6 +203,7 @@ class LiferayGraphQLService {
             namespace,
             queryMethod,
             ercs: batch,
+            correlationId: config.correlationId,
           });
 
           if (isMissingEntity) {
@@ -219,6 +262,7 @@ class LiferayGraphQLService {
 
       this.logger.trace(`Liferay GraphQL Response (${queryMethod})`, {
         operation: `graphql:${queryMethod}`,
+        correlationId: config.correlationId,
         status: response.status,
         data: response.data,
       });
@@ -236,15 +280,19 @@ class LiferayGraphQLService {
   /**
    * Internal retry logic using Exponential Backoff
    */
-  async _executeWithRetry(fn, attempt = 0) {
+  async _executeWithRetry(config, fn, attempt = 0) {
     try {
       return await fn();
     } catch (error) {
       if (error.message === 'STALE_INDEX' && attempt < this.maxRetries) {
         const delay = this.initialDelay * Math.pow(2, attempt);
-        console.warn(`[Liferay SDK] Index stale. Retrying in ${delay}ms (Attempt ${attempt + 1}/${this.maxRetries})`);
+        this.logger.warn(`[Liferay GraphQL] Index stale. Retrying in ${delay}ms (Attempt ${attempt + 1}/${this.maxRetries})`, {
+          correlationId: config.correlationId,
+          attempt: attempt + 1,
+          maxRetries: this.maxRetries,
+        });
         await new Promise(resolve => setTimeout(resolve, delay));
-        return this._executeWithRetry(fn, attempt + 1);
+        return this._executeWithRetry(config, fn, attempt + 1);
       }
       throw error; // Re-throw if max retries reached or it's a real 500/400 error
     }
@@ -284,13 +332,37 @@ class LiferayGraphQLService {
     return this._fetchByFilter(config, 'headlessCommerceAdminCatalog_v1_0', 'specifications', filter, fields, pagination);
   }
 
+  async getOptionCategories(config, filter, fields = ['id', 'externalReferenceCode', 'title'], pagination = { page: 1, pageSize: 200 }) {
+    return this._fetchByFilter(config, 'headlessCommerceAdminCatalog_v1_0', 'optionCategories', filter, fields, pagination);
+  }
+
+  async getCatalogs(config, filter, fields = ['id', 'externalReferenceCode', 'name'], pagination = { page: 1, pageSize: 200 }) {
+    return this._fetchByFilter(config, 'headlessCommerceAdminCatalog_v1_0', 'catalogs', filter, fields, pagination);
+  }
+
+  async getChannels(config, filter, fields = ['id', 'externalReferenceCode', 'name', 'siteGroupId', 'currencyCode'], pagination = { page: 1, pageSize: 200 }) {
+    return this._fetchByFilter(config, 'headlessCommerceAdminChannel_v1_0', 'channels', filter, fields, pagination);
+  }
+
+  async getCountries(config, filter, fields = ['id', 'a2', 'name', 'title_i18n'], pagination = { page: 1, pageSize: 1000 }, active = true) {
+    return this._fetchByFilter(config, 'headlessAdminAddress_v1_0', 'countries', filter, fields, pagination, { active });
+  }
+
+  async getCountryRegions(config, countryId, filter, fields = ['id', 'name', 'regionCode'], pagination = { page: 1, pageSize: 1000 }, active = true) {
+    return this._fetchByFilter(config, 'headlessAdminAddress_v1_0', 'countryRegions', filter, fields, pagination, { countryId, active });
+  }
+
+  async getWarehouseItems(config, id, filter, fields = ['id', 'externalReferenceCode', 'sku', 'quantity'], pagination = { page: 1, pageSize: 200 }) {
+    return this._fetchByFilter(config, 'headlessCommerceAdminInventory_v1_0', 'warehouseIdWarehouseItems', filter, fields, pagination, { id });
+  }
+
   async getSpecificationsByProductIds(config, productIds) {
     return this._fetchByProductIds(
       config, 
       'headlessCommerceAdminCatalog_v1_0', 
       'productIdProductSpecifications', 
       productIds, 
-      ['specificationId', 'optionCategoryId']
+      ['id', 'specificationId', 'optionCategoryId']
     );
   }
 
@@ -300,7 +372,7 @@ class LiferayGraphQLService {
       'headlessCommerceAdminCatalog_v1_0', 
       'productIdProductOptions', 
       productIds, 
-      ['optionId']
+      ['id', 'optionId']
     );
   }
 

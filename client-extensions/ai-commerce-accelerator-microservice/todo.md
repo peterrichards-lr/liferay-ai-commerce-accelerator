@@ -239,10 +239,9 @@
 **Analysis**: `LiferayGraphQLService._fetchByERCs` logged all GraphQL errors as `ERROR` level. During data generation, `DataFetchingException` (404 Not Found) is a common and expected condition caused by Liferay's indexing lag. These were cluttering the logs.
 **Result**: **FIXED**. Modified `_fetchByERCs` to log missing entity errors at `DEBUG` level and provide a more informative message.
 
-### [ ] Verify `set-billing-and-shipping-addresses` Step Logic
-**Analysis**: This step failed due to the `delay` issue, but also showed a large number of 404s for both accounts and addresses. After fixing the `delay` issue, we should verify that this step correctly associates addresses with accounts once they are indexed.
-**Priority**: Low (Verification)
-**Ease of Fix**: Easy (Manual test)
+### [x] Verify `set-billing-and-shipping-addresses` Step Logic
+**Analysis**: This step was verified in a live run. While the `delay` ReferenceError is resolved, the step still fails with `STALE_INDEX` after 12 retries (60s) for large data sets. Investigation revealed redundant nested retries between the facade and GraphQL services, causing excessive log volume.
+**Result**: **ANALYZED & PARTIALLY FIXED**. Logical errors resolved, but performance/scalability issues identified (see Section 16).
 
 ---
 
@@ -255,3 +254,85 @@
 ### [x] Implement Missing `getBatchStatus` API
 **Analysis**: The `GET /api/v1/batch/status/:batchId` route was calling a non-existent method on `BatchCallbackService`, leading to a crash.
 **Result**: **FIXED**. Added `getBatchStatus` to `BatchCallbackService` and `getBatchByDownstreamId` to `PersistenceService`.
+
+---
+
+## 16. SDK Refinement & Scalability (Feb 25)
+
+### [x] Consolidate Redundant Retry Logic (STALE_INDEX)
+**Analysis**: Both `LiferayService.resolveByERCsWithRetry` and `LiferayGraphQLService._executeWithRetry` implement independent retry loops for handling Liferay's indexing lag. This leads to nested retries (e.g., 12 * 12 = 144 attempts), excessive log bloat, and masked failure roots.
+**Result**: **FIXED**. Standardized on a single retry mechanism within the GraphQL service (10 attempts, exponential backoff). Refactored the facade to remove its redundant loop.
+
+### [x] Complete `correlationId` Propagation in SDK Logs
+**Analysis**: Many internal logs in `rest.cjs` and `graphql.cjs` (especially Response and Retry logs) still default to `"correlationId": "system"` because the CID is not explicitly passed to the logger metadata.
+**Result**: **FIXED**. Updated `_request` in `rest.cjs` and all fetchers in `graphql.cjs` to explicitly include `correlationId` from the request config.
+
+### [x] Increase Indexing Resilience for Large Data Sets
+**Analysis**: Even with retries, the final address association step fails when large numbers of accounts and addresses are created simultaneously, as Liferay's index consistency can take longer than the current 60s window.
+**Result**: **FIXED**. Implemented `resolve-account-ids` step in `AccountGenerator` to wait for account indexing before proceeding to addresses. Refactored `postal-addresses` to use these resolved IDs from context, ensuring no accounts are skipped during the association phase. Increased default retry timeout and backoff in the GraphQL layer.
+
+---
+
+## 17. Deletion Discovery & Sequencing Fixes (Feb 25)
+
+### [x] Fix Account Deletion Discovery (Relational Dependency)
+**Analysis**: `LiferayService.getAccounts` relied on querying existing orders to discover accounts when a `channelId` was provided. Since orders are deleted first in the workflow, this discovery returned zero results, causing account deletion to be silently skipped.
+**Result**: **FIXED**. Updated `getAccounts` to prioritize prefix-based discovery (`externalReferenceCode sw 'AICA-ACC'`) when a search term is provided, ensuring accounts are found even after orders are removed.
+
+---
+
+## 19. Current Failures & Regression Fixes (Feb 25)
+
+### [x] Fix Product Schema for `promoPrice` (PRIORITY 1 - High Impact, Easy Fix)
+**Issue**: The `product-data-generation` step fails with `Mock product data failed schema validation: must be number` for `/products/0/priceEntries/0/promoPrice`. This happens because the schema requires a `number` but the generator (and AI) often provides `null` for products without active promotions.
+**Resolution**: **FIXED**. Updated `ai-schemas/product.json` to allow `null` for `promoPrice` at both the `priceEntry` and `tierPrice` levels by using `["number", "null"]` for the type.
+
+### [x] Robust Workflow Failure Propagation (PRIORITY 2 - High Impact, Moderate Fix)
+**Issue**: When `product-data-generation` fails (e.g., due to the validation error above), the workflow logs the error but the session remains in a "zombie" state or is silently skipped instead of being marked as `FAILED`. The UI is not notified of the specific failure.
+**Resolution**: **FIXED**. Updated `ProductGenerator._runProductDataGenerationStep` and `BatchCallbackService` to ensure that any exception in a synchronous step handler triggers `persistence.tryFailSession` and emits a `session_failed` WebSocket event.
+
+### [x] Deduplicate Shutdown Signal Handlers (PRIORITY 3 - Medium Impact, Easy Fix)
+**Issue**: Logs show redundant `SIGTERM received` and `Database connection closed` messages during shutdown. This indicates that handlers in `server.cjs` might be registered multiple times (e.g., inside and outside the async IIFE) or that the sequence is being triggered twice.
+**Resolution**: **FIXED**. Audited `server.cjs` and ensured signal handlers are registered exactly once using `process.once`.
+
+### [x] Refine `MockDataGenerator` Schema Adherence (PRIORITY 4 - Medium Impact, Easy Fix)
+**Issue**: The `MockDataGenerator` might be producing data structures that deviate slightly from the recently updated AI schema, leading to validation warnings or errors in Demo Mode.
+**Resolution**: **FIXED**. Synchronized `MockDataGenerator` logic with the latest `product.json` schema requirements (especially regarding the newly added `category`, `active`, and `allowBackOrder` fields).
+
+---
+
+## 21. Regression Analysis & Batch Engine Reliability (Feb 25)
+
+### [x] Investigate Liferay 400 Error on `import-task` (PRIORITY 1 - High Impact, Moderate Fix)
+**Issue**: The microservice intermittently receives `400 Bad Request` with message `The service parameter was not provided by this object` when calling `GET /o/headless-batch-engine/v1.0/import-task/{id}` immediately after a batch submission.
+**Resolution**: **FIXED**. Added a retry/backoff mechanism in `LiferayRestService.getImportTask` specifically for HTTP 400 errors to handle the race condition in Liferay task initialization.
+
+### [ ] Fix SKU Batch Conflict / Redundancy (PRIORITY 2 - High Impact, Moderate Fix)
+**Issue**: Multiple `product-skus` batches are being submitted simultaneously. Some fail or cause Liferay errors. The query parameters `productId` and `externalReferenceCode` are both being passed to the Catalog SKU batch endpoint, which might be redundant or conflicting.
+**Resolution**: Investigate and audit `ProductGenerator.startProductsBatch` and `LiferayService.createSkusBatch`. Ensure only the necessary identifier is used.
+
+### [ ] Stabilize WebSocket Correlation (`cid=unknown`) (PRIORITY 3 - Medium Impact, Moderate Fix)
+**Issue**: Logs show `cid=unknown` for many WebSocket events, and `sent=0/0` indicating no clients are receiving updates for certain batches. This suggests the `correlationId` is being lost between the initial submission and the callback processing.
+**Resolution**: Verify that the `correlationId` is correctly extracted from the `callbackURL` query parameters in `routes/batch.cjs` and consistently passed through `BatchCallbackService`.
+
+---
+
+---
+
+## 24. Workflow Continuation & Pricing Fixes (Feb 25)
+
+### [x] Fix Pricing Workflow Stall (stepKey Mismatch)
+**Analysis**: When a pricing step (Standard, Bulk, or Tiered) has no items to process, it incorrectly creates a terminal batch marker with `stepKey: 'status'`. The `BatchCallbackService` expects the marker to match the current step's name (e.g., `generate-price-lists`). This mismatch causes the orchestrator to wait indefinitely for a non-existent batch, stalling the entire workflow and preventing subsequent steps (attachments, inventory, accounts, orders) from running.
+**Approach**: Updated `ProductGenerator._runPricingStep` to correctly use the dynamic `stepKey` when creating synchronous terminal markers.
+**Result**: **FIXED**.
+
+### [x] Verify Price Entry Distribution Logic
+**Analysis**: The current `filterFn` in pricing steps (`generate-price-lists`, `generate-bulk-pricing`, `generate-tier-pricing`) is mutually exclusive. Products with tiered pricing are skipped in the "Standard" step. If all products happen to be tiered, the standard step will be empty, potentially triggering the stall bug.
+**Approach**: Verified that the distribution ratios in `MockDataGenerator` and the filters in `ProductGenerator` provide a consistent coverage of products across the three pricing steps. Consolidating the steps is not necessary as the stall fix allows the workflow to proceed through empty steps.
+**Result**: **VERIFIED**.
+
+### [x] Resolve Attachment and Inventory Bypass
+**Analysis**: The user reported missing images, PDFs, and inventory updates. These steps are currently scheduled *after* the pricing steps in a `parallel` block. If the pricing steps stall, these "post-processing" steps are never initiated.
+**Approach**: Fixing the pricing stall (Task 1) naturally resolved the bypass of these downstream steps.
+**Result**: **FIXED**.
+

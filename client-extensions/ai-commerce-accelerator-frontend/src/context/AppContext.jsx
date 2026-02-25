@@ -38,7 +38,7 @@ export function AppProvider({
       const PROTECTED_KEYS = new Set(['siteGroupId', 'channelId', 'catalogId']);
       const safe = { ...raw };
       for (const k of PROTECTED_KEYS) {
-        if (safe[k] == null) delete safe[k];
+        if (!(k in raw)) delete safe[k];
       }
       const merged = { ...prev, ...safe };
       return normalizeConfig(merged);

@@ -1,6 +1,7 @@
 const { INTERNAL_API_PATHS } = require('../utils/internalApiPaths.cjs');
 const { createERC, resolveErrorReference } = require('../utils/misc.cjs');
 const { ERC_PREFIX } = require('../utils/constants.cjs');
+const { sanitizeValue } = require('../utils/normalize.cjs');
 
 function safeErrorResponse({
   res,
@@ -90,6 +91,42 @@ module.exports = (app, { logger, persistenceService }) => {
     }
   });
 
+  app.get(INTERNAL_API_PATHS.WORKFLOW_SESSION_CONTEXT, async (req, res) => {
+    try {
+      const { sessionId } = req.params;
+      const session = await persistenceService.getSession(sessionId);
+
+      if (!session) {
+        return res.status(404).json({
+          success: false,
+          error: 'Session not found',
+          timestamp: new Date().toISOString(),
+        });
+      }
+
+      // Redact sensitive information from the context
+      const redactedContext = sanitizeValue(session.context, ['workflow-context']);
+
+      res.json({
+        success: true,
+        sessionId,
+        context: redactedContext,
+        timestamp: new Date().toISOString(),
+      });
+    } catch (error) {
+      safeErrorResponse({
+        res,
+        logger,
+        req,
+        error,
+        operation: 'workflow-session-context',
+        meta: { sessionId: req.params.sessionId },
+        statusCode: 500,
+        fallbackMessage: 'Failed to get workflow session context',
+      });
+    }
+  });
+
   app.get(INTERNAL_API_PATHS.WORKFLOW_SUMMARY, async (req, res) => {
     try {
       const { sessionId } = req.params;
@@ -168,6 +205,60 @@ module.exports = (app, { logger, persistenceService }) => {
         meta: { sessionId: req.params.sessionId },
         statusCode: 500,
         fallbackMessage: 'Failed to get workflow summary',
+      });
+    }
+  });
+
+  app.delete(INTERNAL_API_PATHS.WORKFLOW_CLEAR_ALL, async (req, res) => {
+    try {
+      persistenceService.clearAll();
+      res.json({
+        success: true,
+        message: 'All workflow data cleared successfully',
+        timestamp: new Date().toISOString(),
+      });
+    } catch (error) {
+      safeErrorResponse({
+        res,
+        logger,
+        req,
+        error,
+        operation: 'workflow-clear-all',
+        meta: {},
+        statusCode: 500,
+        fallbackMessage: 'Failed to clear workflow data',
+      });
+    }
+  });
+
+  app.delete(INTERNAL_API_PATHS.WORKFLOW_CLEANUP, async (req, res) => {
+    try {
+      let { cutoff } = req.query;
+      
+      if (!cutoff) {
+        const midnight = new Date();
+        midnight.setHours(0, 0, 0, 0);
+        cutoff = midnight.toISOString();
+      }
+
+      persistenceService.cleanup(cutoff);
+
+      res.json({
+        success: true,
+        message: `Workflow data created before ${cutoff} cleared successfully`,
+        cutoff,
+        timestamp: new Date().toISOString(),
+      });
+    } catch (error) {
+      safeErrorResponse({
+        res,
+        logger,
+        req,
+        error,
+        operation: 'workflow-cleanup',
+        meta: { cutoff: req.query.cutoff },
+        statusCode: 500,
+        fallbackMessage: 'Failed to cleanup workflow data',
       });
     }
   });

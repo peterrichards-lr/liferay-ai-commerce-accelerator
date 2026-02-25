@@ -38,6 +38,10 @@ module.exports = async function deleteProductOptions(
         logger.debug(`Clearing ${productOptions.length} options from product ${productId}`);
         
         for (const po of productOptions) {
+          if (!po.id) {
+            logger.debug(`Skipping product option association removal: missing ID for product ${productId}`);
+            continue;
+          }
           await liferay.deleteProductOption(config, productId, po.id);
           clearedCount++;
         }

@@ -318,13 +318,15 @@ class AIService {
                 .toLowerCase()}"`
           )
           .join(',\n    '),
-        priceEntriesInstruction: options.generatePriceLists
+        priceEntriesInstruction: (options.generatePriceLists || options.generateBulkPricing || options.generateTierPricing)
           ? `- priceEntries: array of price list entry objects. Each object must have:
             - price (number): The unit price.
-            - promoPrice (number): The promotional unit price.
-            - sku (string): Reference to one of the generated SKUs.
+            - skuExternalReferenceCode (string): The SKU identifier.
             - priceListExternalReferenceCode (string): Always use "AICA-PL-GENERAL".
             - externalReferenceCode (string): Unique identifier for this entry.
+            - sku (object): A nested object containing:
+              - basePrice (number): The same value as the top-level price.
+              - basePromoPrice (number or null): The promotional price for this SKU.
             ${options.generateBulkPricing || options.generateTierPricing ? `
             - bulkPricing (boolean): ${options.generateBulkPricing ? 'Set to true for Bulk Pricing (same price for all items if threshold reached).' : 'Set to false for Tiered Pricing (different prices for quantity ranges).'}
             - tierPrices (array): List of objects with "minimumQuantity" (number), "price" (number), and "externalReferenceCode" (string). Generate at least two tiers (e.g., 5+ and 10+).` : ''}`

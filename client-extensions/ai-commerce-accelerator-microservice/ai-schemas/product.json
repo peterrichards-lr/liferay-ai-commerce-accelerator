@@ -14,8 +14,24 @@
 						},
 						"type": "array"
 					},
+					"active": {
+						"description": "Whether the product is active.",
+						"type": "boolean"
+					},
+					"allowBackOrder": {
+						"description": "Whether backorders are allowed for this product.",
+						"type": "boolean"
+					},
 					"baseSku": {
 						"description": "Base SKU without variant codes.",
+						"type": "string"
+					},
+					"catalogId": {
+						"description": "The numeric ID of the catalog.",
+						"type": "integer"
+					},
+					"category": {
+						"description": "The category name for the product (e.g. 'Electronics', 'Home & Garden').",
 						"type": "string"
 					},
 					"description": {
@@ -149,10 +165,24 @@
 								"priceListExternalReferenceCode": {
 									"type": "string"
 								},
-								"promoPrice": {
-									"type": "number"
-								},
 								"sku": {
+									"properties": {
+										"basePrice": {
+											"type": "number"
+										},
+										"basePromoPrice": {
+											"type": [
+												"number",
+												"null"
+											]
+										}
+									},
+									"required": [
+										"basePrice"
+									],
+									"type": "object"
+								},
+								"skuExternalReferenceCode": {
 									"type": "string"
 								},
 								"tierPrices": {
@@ -170,7 +200,10 @@
 												"type": "number"
 											},
 											"promoPrice": {
-												"type": "number"
+												"type": [
+													"number",
+													"null"
+												]
 											}
 										},
 										"required": [

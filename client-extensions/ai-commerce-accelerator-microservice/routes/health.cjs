@@ -107,4 +107,31 @@ module.exports = (app, { logger, healthService }) => {
       return handleError(res, logger, req, 'liveness-check', error, 503);
     }
   });
+
+  app.post(INTERNAL_API_PATHS.HEALTH_SHUTDOWN, async (req, res) => {
+    logger.info('Remote shutdown request received', {
+      correlationId: req.correlationId,
+      operation: 'remote-shutdown',
+    });
+
+    res.json({
+      success: true,
+      message: 'Shutdown sequence initiated.',
+      timestamp: new Date().toISOString(),
+    });
+
+    // Execute the shutdown after sending the response
+    // Use req.app.locals as the router itself doesn't have a locals property
+    const trigger = req.app.locals.triggerShutdown;
+
+    if (typeof trigger === 'function') {
+      setTimeout(() => {
+        trigger('Remote API Request');
+      }, 500);
+    } else {
+      logger.warn('Shutdown trigger not registered in app.locals', {
+        operation: 'remote-shutdown',
+      });
+    }
+  });
 };

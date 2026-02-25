@@ -13,76 +13,80 @@ class ProgressService {
   }
 
   sessionStarted({ sessionId, flowType, correlationId }) {
+    const cid = correlationId || 'unknown';
     this.ws.emitProgress(
       {
         sessionId,
-        correlationId,
+        correlationId: cid,
         status: WEB_SOCKET_EVENTS.STARTED,
         scope: WS_SCOPE.SESSION,
         details: { flowType },
       },
-      { correlationId }
+      { correlationId: cid }
     );
     this.persistence.logWorkflowEvent({
       sessionId,
       status: 'SESSION_STARTED',
       message: `Session ${sessionId} of type ${flowType} started.`,
-      details: { flowType, correlationId },
+      details: { flowType, correlationId: cid },
     });
   }
 
   sessionCompleted({ sessionId, correlationId }) {
+    const cid = correlationId || 'unknown';
     this.ws.emitProgress(
       {
         sessionId,
-        correlationId,
+        correlationId: cid,
         status: WEB_SOCKET_EVENTS.COMPLETED,
         scope: WS_SCOPE.SESSION,
       },
-      { correlationId }
+      { correlationId: cid }
     );
     // Legacy support for top-level completion signal
     this.ws.emitGenerationSessionComplete(
       {
         sessionId,
-        correlationId,
+        correlationId: cid,
         timestamp: new Date().toISOString(),
       },
-      { correlationId }
+      { correlationId: cid }
     );
     this.persistence.logWorkflowEvent({
       sessionId,
       status: 'SESSION_COMPLETED',
       message: `Session ${sessionId} completed successfully.`,
-      details: { correlationId },
+      details: { correlationId: cid },
     });
   }
 
   sessionFailed({ sessionId, error, correlationId }) {
+    const cid = correlationId || 'unknown';
     this.ws.emitProgress(
       {
         sessionId,
-        correlationId,
+        correlationId: cid,
         status: WEB_SOCKET_EVENTS.FAILED,
         scope: WS_SCOPE.SESSION,
         error: error.message,
         errorReference: error.errorReference,
       },
-      { correlationId }
+      { correlationId: cid }
     );
     this.persistence.logWorkflowEvent({
       sessionId,
       status: 'SESSION_FAILED',
       message: `Session ${sessionId} failed: ${error.message}`,
-      details: { error, correlationId },
+      details: { error, correlationId: cid },
     });
   }
 
   stepStarted({ sessionId, step, totalCount, entityType, operation, correlationId }) {
+    const cid = correlationId || 'unknown';
     this.ws.emitProgress(
       {
         sessionId,
-        correlationId,
+        correlationId: cid,
         status: WEB_SOCKET_EVENTS.STARTED,
         scope: WS_SCOPE.STEP,
         entityType,
@@ -90,21 +94,22 @@ class ProgressService {
         totalCount,
         message: `Step '${step}' started.`,
       },
-      { correlationId }
+      { correlationId: cid }
     );
     this.persistence.logWorkflowEvent({
       sessionId,
       status: 'STEP_STARTED',
       message: `Step '${step}' started.`,
-      details: { step, correlationId },
+      details: { step, correlationId: cid },
     });
   }
 
   stepProgress({ sessionId, entityType, operation, processedCount, totalCount, correlationId }) {
+    const cid = correlationId || 'unknown';
     this.ws.emitProgress(
       {
         sessionId,
-        correlationId,
+        correlationId: cid,
         status: WEB_SOCKET_EVENTS.PROGRESS,
         scope: WS_SCOPE.STEP,
         entityType,
@@ -112,15 +117,16 @@ class ProgressService {
         processedCount,
         totalCount,
       },
-      { correlationId }
+      { correlationId: cid }
     );
   }
 
   stepCompleted({ sessionId, step, entityType, operation, totalCount, correlationId }) {
+    const cid = correlationId || 'unknown';
     this.ws.emitProgress(
       {
         sessionId,
-        correlationId,
+        correlationId: cid,
         status: WEB_SOCKET_EVENTS.COMPLETED,
         scope: WS_SCOPE.STEP,
         entityType,
@@ -129,17 +135,18 @@ class ProgressService {
         processedCount: totalCount,
         message: `Step '${step}' completed.`,
       },
-      { correlationId }
+      { correlationId: cid }
     );
     this.persistence.logWorkflowEvent({
       sessionId,
       status: 'STEP_COMPLETED',
       message: `Step '${step}' completed.`,
-      details: { step, correlationId },
+      details: { step, correlationId: cid },
     });
   }
 
   batchStarted({ sessionId, batchERC, batchId, totalItems, entityType, operation, correlationId }) {
+    const cid = correlationId || 'unknown';
     const payload = {
         entityType,
         operation,
@@ -148,12 +155,12 @@ class ProgressService {
         batchERC,
         totalCount: totalItems,
         sessionId,
-        correlationId,
+        correlationId: cid,
         status: WEB_SOCKET_EVENTS.STARTED,
         scope: WS_SCOPE.BATCH,
       };
 
-    this.ws.emitProgress(payload, { correlationId });
+    this.ws.emitProgress(payload, { correlationId: cid });
     this.persistence.logWorkflowEvent({
         sessionId,
         batchId,
@@ -164,19 +171,20 @@ class ProgressService {
   }
 
   batchProgress({ sessionId, batchERC, batchId, completedCount, totalItems, correlationId }) {
+    const cid = correlationId || 'unknown';
     if (totalItems >= 0) {
         const payload = {
             batchId,
             batchERC,
             sessionId,
-            correlationId,
+            correlationId: cid,
             processedCount: completedCount,
             totalCount: totalItems,
             status: WEB_SOCKET_EVENTS.PROGRESS,
             scope: WS_SCOPE.BATCH,
         };
 
-        this.ws.emitProgress(payload, { correlationId });
+        this.ws.emitProgress(payload, { correlationId: cid });
         this.persistence.logWorkflowEvent({
             sessionId,
             batchId,
@@ -188,6 +196,7 @@ class ProgressService {
   }
 
   batchCompleted({ sessionId, batchERC, batchId, successCount, failureCount, errors, entityType, operation, correlationId }) {
+    const cid = correlationId || 'unknown';
     const payload = {
         entityType,
         operation,
@@ -195,7 +204,7 @@ class ProgressService {
         batchId,
         batchERC,
         sessionId,
-        correlationId,
+        correlationId: cid,
         status: WEB_SOCKET_EVENTS.COMPLETED,
         scope: WS_SCOPE.BATCH,
         details: {
@@ -204,7 +213,7 @@ class ProgressService {
           errors: (failureCount > 0 && Array.isArray(errors)) ? errors.slice(0, 5) : [],
         }
       };
-    this.ws.emitProgress(payload, { correlationId });
+    this.ws.emitProgress(payload, { correlationId: cid });
     this.persistence.logWorkflowEvent({
         sessionId,
         batchId,
@@ -215,6 +224,7 @@ class ProgressService {
   }
 
   batchFailed({ sessionId, batchERC, batchId, error, entityType, operation, correlationId }) {
+    const cid = correlationId || 'unknown';
     const payload = {
         entityType,
         operation,
@@ -222,7 +232,7 @@ class ProgressService {
         batchId,
         batchERC,
         sessionId,
-        correlationId,
+        correlationId: cid,
         status: WEB_SOCKET_EVENTS.FAILED,
         scope: WS_SCOPE.BATCH,
         error: error.message,
@@ -232,7 +242,7 @@ class ProgressService {
           errors: [{ message: error.message }],
         }
       };
-    this.ws.emitProgress(payload, { correlationId });
+    this.ws.emitProgress(payload, { correlationId: cid });
     this.persistence.logWorkflowEvent({
         sessionId,
         batchId,
