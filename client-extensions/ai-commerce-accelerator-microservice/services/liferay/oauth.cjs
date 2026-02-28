@@ -12,9 +12,14 @@ class OAuthService {
     this.ctx = ctx;
     const lxcDXPMainDomain = lxcConfig.dxpMainDomain();
     const lxcDXPServerProtocol = lxcConfig.dxpProtocol();
-    const uri = serverOauthApp.tokenUri();
-    this.liferayUrl = `${lxcDXPServerProtocol}://${lxcDXPMainDomain}`;
-    this.tokenEndpoint = `${this.liferayUrl}${uri}`;
+    const uri = serverOauthApp?.tokenUri?.();
+    this.liferayUrl =
+      lxcDXPMainDomain && lxcDXPServerProtocol
+        ? `${lxcDXPServerProtocol}://${lxcDXPMainDomain}`
+        : ENV.LIFERAY_API_URL;
+    this.tokenEndpoint = uri
+      ? `${this.liferayUrl}${uri}`
+      : `${this.liferayUrl}/o/oauth2/token`;
     this.pendingTokenPromises = new Map();
 
     this.settings = {
@@ -248,8 +253,9 @@ class OAuthService {
 
   async getAccessTokenFromRoute() {
     const { logger } = this.ctx;
-    const clientId = serverOauthApp.clientId();
-    const clientSecret = serverOauthApp.clientSecret();
+    const clientId = serverOauthApp?.clientId?.() || ENV.LIFERAY_OAUTH_CLIENT_ID;
+    const clientSecret =
+      serverOauthApp?.clientSecret?.() || ENV.LIFERAY_OAUTH_CLIENT_SECRET;
 
     if (!this.liferayUrl || !clientId || !clientSecret) {
       const errorRef = createERC(ERC_PREFIX.ERROR);
@@ -376,8 +382,8 @@ class OAuthService {
   isLiferayRouteAvailable() {
     return (
       this.tokenEndpoint &&
-      serverOauthApp.clientId() &&
-      serverOauthApp.clientSecret()
+      (serverOauthApp?.clientId?.() || ENV.LIFERAY_OAUTH_CLIENT_ID) &&
+      (serverOauthApp?.clientSecret?.() || ENV.LIFERAY_OAUTH_CLIENT_SECRET)
     );
   }
 
@@ -390,10 +396,10 @@ class OAuthService {
   }
 
   getDefaultClientId() {
-    return serverOauthApp.clientId();
+    return serverOauthApp?.clientId?.() || ENV.LIFERAY_OAUTH_CLIENT_ID;
   }
   getDefaultClientSecret() {
-    return serverOauthApp.clientSecret();
+    return serverOauthApp?.clientSecret?.() || ENV.LIFERAY_OAUTH_CLIENT_SECRET;
   }
   getDefaultLiferayUrl() {
     return this.liferayUrl;

@@ -162,6 +162,7 @@ class AIService {
         logger.trace('AIService._chatJson raw response', {
           task,
           truncatedContent,
+          correlationId: requestConfig.correlationId,
         });
       }
 
@@ -171,6 +172,7 @@ class AIService {
         logger.trace('AIService._chatJson parsed response preview', {
           task,
           parsedPreview: Array.isArray(parsed) ? parsed.slice(0, 3) : parsed,
+          correlationId: requestConfig.correlationId,
         });
       }
 
@@ -191,6 +193,7 @@ class AIService {
           parsedPreview: Array.isArray(processedCandidate)
             ? processedCandidate.slice(0, 3)
             : processedCandidate,
+          correlationId: requestConfig.correlationId,
         });
       }
 
@@ -204,6 +207,7 @@ class AIService {
               task,
               errors: validate.errors,
               validatedCandidate: JSON.stringify(processedCandidate, null, 2),
+              correlationId: requestConfig.correlationId,
             });
           }
 
@@ -321,12 +325,13 @@ class AIService {
         priceEntriesInstruction: (options.generatePriceLists || options.generateBulkPricing || options.generateTierPricing)
           ? `- priceEntries: array of price list entry objects. Each object must have:
             - price (number): The unit price.
-            - skuExternalReferenceCode (string): The SKU identifier.
+            - skuExternalReferenceCode (string): This MUST be the same as the SKU's "sku" code (e.g., "PRODUCT-001-BLK-L").
             - priceListExternalReferenceCode (string): Always use "AICA-PL-GENERAL".
             - externalReferenceCode (string): Unique identifier for this entry.
+            - discountDiscovery (boolean): Always set to false.
             - sku (object): A nested object containing:
               - basePrice (number): The same value as the top-level price.
-              - basePromoPrice (number or null): The promotional price for this SKU.
+              - basePromoPrice (number or null): The promotional price for this SKU. Generate this for approximately 20% of products.
             ${options.generateBulkPricing || options.generateTierPricing ? `
             - bulkPricing (boolean): ${options.generateBulkPricing ? 'Set to true for Bulk Pricing (same price for all items if threshold reached).' : 'Set to false for Tiered Pricing (different prices for quantity ranges).'}
             - tierPrices (array): List of objects with "minimumQuantity" (number), "price" (number), and "externalReferenceCode" (string). Generate at least two tiers (e.g., 5+ and 10+).` : ''}`

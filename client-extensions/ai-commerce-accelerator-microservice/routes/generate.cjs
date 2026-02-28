@@ -83,8 +83,10 @@ module.exports = (
           steps.push({ name: 'link-product-options', type: 'sync' });
           steps.push({ name: 'product-skus', type: 'sync' });
 
+          steps.push({ name: 'generate-price-lists', type: 'sync' });
+
           if (options.generatePriceLists) {
-            steps.push({ name: 'generate-price-lists', type: 'sync' });
+            steps.push({ name: 'update-catalog-configuration', type: 'sync' });
           }
 
           if (options.generateBulkPricing) {

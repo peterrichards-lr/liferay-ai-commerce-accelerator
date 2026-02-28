@@ -49,6 +49,7 @@ class OrderGenerator {
     logger.info('Order generation workflow started', {
       sessionId,
       steps: steps.map((s) => s.name),
+      correlationId: config.correlationId,
     });
 
     return {
@@ -62,7 +63,7 @@ class OrderGenerator {
     const session = await persistence.getSession(sessionId);
     const { config, options } = session.context;
 
-    logger.info('Starting order data generation step', { sessionId });
+    logger.info('Starting order data generation step', { sessionId, correlationId: session.correlationId });
 
     try {
       this.validateConfig(config);
@@ -96,6 +97,7 @@ class OrderGenerator {
 
       logger.info('Order data generation step complete', {
         sessionId,
+        correlationId: session.correlationId,
         orderCount: orderDataList.length,
       });
 
@@ -108,6 +110,7 @@ class OrderGenerator {
     } catch (error) {
       logger.error('Failed execution of order-data-generation step', {
         sessionId,
+        correlationId: session.correlationId,
         error: error.message,
       });
       await persistence.createBatch({
@@ -125,7 +128,7 @@ class OrderGenerator {
     const { config, options, orderDataList, accounts, products, warehouses } =
       session.context;
 
-    logger.info('Starting order creation step', { sessionId });
+    logger.info('Starting order creation step', { sessionId, correlationId: session.correlationId });
 
     try {
       const batchSize = Math.max(1, parseInt(config.batchSize, 10) || 1);
@@ -235,6 +238,7 @@ class OrderGenerator {
     } catch (error) {
       logger.error('Failed execution of orders creation step', {
         sessionId,
+        correlationId: session.correlationId,
         error: error.message,
       });
       await persistence.createBatch({

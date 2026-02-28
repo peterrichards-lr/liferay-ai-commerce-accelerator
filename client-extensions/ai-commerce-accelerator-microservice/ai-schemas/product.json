@@ -156,6 +156,10 @@
 									"description": "Whether this entry uses Bulk Pricing (true) or Tiered Pricing (false).",
 									"type": "boolean"
 								},
+								"discountDiscovery": {
+									"description": "Whether to allow discount discovery for this entry. Mandatory for Pricing V2.0.",
+									"type": "boolean"
+								},
 								"externalReferenceCode": {
 									"type": "string"
 								},
@@ -192,6 +196,10 @@
 										"properties": {
 											"externalReferenceCode": {
 												"type": "string"
+											},
+											"discountDiscovery": {
+												"description": "Whether to allow discount discovery for this entry. Always set to false.",
+												"type": "boolean"
 											},
 											"minimumQuantity": {
 												"type": "integer"
@@ -307,6 +315,10 @@
 								},
 								"sku": {
 									"description": "The SKU of the product.",
+									"type": "string"
+								},
+								"externalReferenceCode": {
+									"description": "Unique external reference for the SKU.",
 									"type": "string"
 								}
 							},

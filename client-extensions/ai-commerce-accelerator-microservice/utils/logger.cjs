@@ -162,7 +162,7 @@ class Logger {
     
     if (out.writable) {
       try {
-        if (ENV.LOG_PRETTY) {
+        if (ENV.LOGGER_PRETTY) {
           out.write(this._asPretty(level, message, timestamp, meta) + '\n');
         } else {
           out.write(jsonLine + '\n');
@@ -175,18 +175,29 @@ class Logger {
     }
   }
 
-  isLogEnabled = () => isTraceEnabled();
-
-  isTraceEnabled = () => this.loggingLevel >= 4;
-
-  isDebugEnabled = () => this.loggingLevel >= 3;
-
-  isInfoEnabled = () => this.loggingLevel >= 2;
-
-  isWarnEnabled = () => this.loggingLevel >= 1;
-
-  isErrorEnabled = () => true;
-
+    isLogEnabled() {
+      return this.isTraceEnabled();
+    }
+  
+    isTraceEnabled() {
+      return this.loggingLevel >= 4;
+    }
+  
+    isDebugEnabled() {
+      return this.loggingLevel >= 3;
+    }
+  
+    isInfoEnabled() {
+      return this.loggingLevel >= 2;
+    }
+  
+    isWarnEnabled() {
+      return this.loggingLevel >= 1;
+    }
+  
+    isErrorEnabled() {
+      return true;
+    }
   isSuccessEnabled = () => true;
 
   log(message, meta = {}) {

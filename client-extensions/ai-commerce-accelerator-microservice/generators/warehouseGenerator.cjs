@@ -35,8 +35,8 @@ class WarehouseGenerator {
   async createWarehouses(config, options) {
     const { logger, ai, mockData, progress, liferay, persistence } =
       this.ctx;
-    const { warehouseCount, demoMode, sessionId, dryRun, stepKey = 'warehouses' } = options;
-    const correlationId = config?.correlationId || '∅';
+    const { warehouseCount, demoMode, sessionId, dryRun, stepKey = 'warehouses', correlationId: optionsCID } = options;
+    const correlationId = optionsCID || config?.correlationId || this.ctx?.correlationId || '∅';
 
     this.validateConfig(config);
     await this.validateOptions(config, options);
@@ -81,13 +81,14 @@ class WarehouseGenerator {
       );
 
       if (dryRun) {
-        logger.info('DRY RUN: Skipping warehouse batch creation.');
+        logger.info('DRY RUN: Skipping warehouse batch creation.', { correlationId });
         logger.info({
             dryRunData: {
                 step: 'warehouses',
                 count: normalizedWarehouseDataList.length,
                 payload: normalizedWarehouseDataList,
             },
+            correlationId,
         });
         return normalizedWarehouseDataList.map(w => ({ externalReferenceCode: w.externalReferenceCode }));
       }
@@ -149,8 +150,9 @@ class WarehouseGenerator {
           if (dryRun) {
             logger.info('DRY RUN: Skipping individual warehouse creation', {
               friendlyName: normalizedWarehouse.name?.en_US || normalizedWarehouse.externalReferenceCode,
+              correlationId,
             });
-            logger.info({ dryRunData: { step: 'warehouses', payload: normalizedWarehouse }});
+            logger.info({ dryRunData: { step: 'warehouses', payload: normalizedWarehouse }, correlationId });
             createdWarehouses.push(normalizedWarehouse);
             continue;
           }

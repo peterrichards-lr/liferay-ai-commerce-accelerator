@@ -8,7 +8,7 @@ const liferayConfig = require('../../config/liferayConfig.cjs');
 const { logger } = require('../../utils/logger.cjs');
 const { v4: uuidv4 } = require('uuid');
 
-const { PATH, CUSTOM_OBJECTS } = require('../../utils/liferayPaths.cjs');
+const { PATH, CUSTOM_OBJECTS, q } = require('../../utils/liferayPaths.cjs');
 const {
   ACTION_IDS,
   ROLE,
@@ -31,6 +31,10 @@ const SOFT_STATUS_BY_OP = {
   'import-task': [404],
   'options:list': [404],
   'pricelists:list': [404],
+  'get-price-list-by-erc': [404],
+  'get-account-by-erc': [404],
+  'get-product-by-erc': [404],
+  'get-warehouse-by-erc': [404],
   'specifications:list': [404],
   'optionCategories:list': [404],
 };
@@ -150,7 +154,10 @@ class LiferayRestService {
         }
       }
 
-      logger.debug('Liferay API Response', logData);
+      logger.debug('Liferay API Response', {
+        ...logData,
+        correlationId: config.correlationId,
+      });
 
       if (fullResponse) {
         return {
@@ -236,6 +243,7 @@ class LiferayRestService {
           params,
           status,
           statusText,
+          correlationId: config.correlationId,
           errorReference,
           problem,
           responseBody:
@@ -254,6 +262,7 @@ class LiferayRestService {
           method,
           url,
           params,
+          correlationId: config.correlationId,
           errorReference,
           errorName: err?.name,
           errorCode: err?.code,
@@ -810,64 +819,112 @@ class LiferayRestService {
       items: processedItems,
     };
 
-    const callbackUrl = this._buildCallbackURL(
-      this._getBaseCallbackUrl(config),
-      {
-        batchERC: erc,
-        sessionId: sessionId,
-        correlationId: config.correlationId,
-        op: 'create',
-      },
-    );
+    let currentERC = erc;
+    let attempts = 0;
+    const maxAttempts = 2;
+    let lastError;
 
-    const url = path(callbackUrl);
-
-    logger.info(`Sending batch ${entityName} creation request`, {
-      operation: op,
-      count: processedItems.length,
-      callbackUrl: url,
-      batchExternalReferenceCode: erc,
-    });
-
-    const data = await this._post(config, url, batchPayload, op, friendly);
-
-    this._cacheItemERCs(erc, data?.id, itemERCs, sessionId);
-
-    if (cache && data?.id) {
-      cache.set(
-        `batch:${data.id}:submission`,
+    while (attempts < maxAttempts) {
+      const callbackUrl = this._buildCallbackURL(
+        this._getBaseCallbackUrl(config),
         {
-          op: op,
-          erc: erc,
-          itemERCs,
-          count: processedItems.length,
-          createdAt: new Date().toISOString(),
+          batchERC: currentERC,
+          sessionId: sessionId,
+          correlationId: config.correlationId,
+          op: 'create',
         },
-        getBatchCacheTTLms(configService),
       );
+
+      const url = path(callbackUrl);
+      const currentBatchPayload = {
+        ...batchPayload,
+        batchExternalReferenceCode: currentERC,
+      };
+
+      logger.debug(`Sending batch ${entityName} creation request`, {
+        operation: op,
+        count: processedItems.length,
+        callbackUrl: url,
+        batchExternalReferenceCode: currentERC,
+        correlationId: config.correlationId,
+      });
+
+      try {
+        const data = await this._post(
+          config,
+          url,
+          currentBatchPayload,
+          op,
+          friendly
+        );
+
+        this._cacheItemERCs(currentERC, data?.id, itemERCs, sessionId);
+
+        if (cache && data?.id) {
+          cache.set(
+            `batch:${data.id}:submission`,
+            {
+              op: op,
+              erc: currentERC,
+              itemERCs,
+              count: processedItems.length,
+              createdAt: new Date().toISOString(),
+            },
+            getBatchCacheTTLms(configService)
+          );
+        }
+
+        logger?.trace?.('cache:itemERCs:stored', {
+          scopeERC: currentERC,
+          sessionId: sessionId || null,
+          batchId: data?.id || null,
+          count: itemERCs.length,
+        });
+
+        logger.debug(`Batch ${entityName} creation initiated`, {
+          operation: op,
+          batchId: data.id || 'unknown',
+          status: data.status || 'submitted',
+          batchExternalReferenceCode: currentERC,
+          correlationId: config.correlationId,
+        });
+
+        return {
+          batchId: data.id || `batch-${Date.now()}`,
+          status: data.status || 'submitted',
+          count: processedItems.length,
+          batchExternalReferenceCode: currentERC,
+          batchRefs: [
+            { taskId: data.id, count: processedItems.length, erc: currentERC },
+          ],
+        };
+      } catch (error) {
+        lastError = error;
+        const isDuplicateERC =
+          error.status === 400 &&
+          (error.problem?.title?.includes('already in use') ||
+            error.message?.includes('already in use'));
+
+        if (isDuplicateERC && attempts < maxAttempts - 1) {
+          const oldERC = currentERC;
+          currentERC = createERC(ERC_PREFIX[prefixKey] || ERC_PREFIX.BATCH);
+          logger.warn(
+            `Batch ERC collision detected for ${entityName}. Regenerating ERC and retrying.`,
+            {
+              oldERC,
+              newERC: currentERC,
+              sessionId,
+              correlationId: config.correlationId,
+            }
+          );
+          attempts++;
+          continue;
+        }
+        throw error;
+      }
     }
 
-    logger?.trace?.('cache:itemERCs:stored', {
-      scopeERC: erc,
-      sessionId: sessionId || null,
-      batchId: data?.id || null,
-      count: itemERCs.length,
-    });
-
-    logger.info(`Batch ${entityName} creation initiated`, {
-      operation: op,
-      batchId: data.id || 'unknown',
-      status: data.status || 'submitted',
-      batchExternalReferenceCode: erc,
-    });
-
-    return {
-      batchId: data.id || `batch-${Date.now()}`,
-      status: data.status || 'submitted',
-      count: processedItems.length,
-      batchExternalReferenceCode: erc,
-      batchRefs: [{ taskId: data.id, count: processedItems.length, erc }],
-    };
+    throw lastError;
   }
 
   async _deleteBatchNative(
@@ -904,7 +961,7 @@ class LiferayRestService {
 
     const batchUrl = path(taggedCallback);
 
-    logger.info(`Submitting batch delete for ${entityName}`, {
+    logger.debug(`Submitting batch delete for ${entityName}`, {
       count: ids.length,
       dryRun,
       callbackUrl: taggedCallback || 'none',
@@ -1011,7 +1068,7 @@ class LiferayRestService {
   ) {
     const { logger } = this.ctx;
 
-    logger.info(`Submitting simulated batch delete for ${entityName}`, {
+    logger.debug(`Submitting simulated batch delete for ${entityName}`, {
       count: ids.length,
       dryRun,
     });
@@ -1213,11 +1270,13 @@ class LiferayRestService {
 
   async getAccountByERC(config, externalReferenceCode) {
     try {
-      return await this._get(
+      const res = await this._get(
         config,
         PATH.ACCOUNT_BY_ERC(externalReferenceCode),
-        'get-account-by-erc',
+        'get-account-by-erc'
       );
+      if (res && res.softEmpty) return null;
+      return res;
     } catch (error) {
       if (error.response?.status === 404) return null;
       throw new Error(`Failed to get account by ERC: ${error.message}`);
@@ -1466,17 +1525,54 @@ class LiferayRestService {
     );
   }
 
+  async patchPriceList(config, priceListId, priceListData) {
+    return await this._patch(
+      config,
+      PATH.PRICE_LIST(priceListId),
+      priceListData,
+      'patch-price-list',
+      'Failed to patch price list',
+    );
+  }
+
   async getPriceListByERC(config, externalReferenceCode) {
     try {
-      return await this._get(
+      const res = await this._get(
         config,
         PATH.PRICE_LIST_BY_ERC(externalReferenceCode),
-        'get-price-list-by-erc',
+        'get-price-list-by-erc'
       );
+      if (res && res.softEmpty) return null;
+      return res;
     } catch (error) {
       if (error.response?.status === 404) return null;
       throw error;
     }
+  }
+
+  async getPriceLists(config, { filter, page, pageSize, search, sort } = {}) {
+    const params = { filter, page, pageSize, search, sort };
+    return await this._get(
+      config,
+      PATH.PRICE_LISTS + q(params),
+      'get-price-lists',
+    );
+  }
+
+  async createPriceListsBatch(config, priceListsData, opts = {}) {
+    return await this._postBatch(
+      config,
+      {
+        entityName: 'pricelist',
+        items: priceListsData,
+        externalReferenceCode: opts.externalReferenceCode,
+        itemERCKey: 'externalReferenceCode',
+        op: 'create-price-lists-batch',
+        friendly: 'Failed to create price lists batch',
+        path: PATH.PRICE_LISTS_BATCH,
+        sessionId: opts.sessionId,
+      },
+    );
   }
 
   async createPriceEntriesBatch(config, priceEntriesData, opts = {}) {
@@ -1488,10 +1584,11 @@ class LiferayRestService {
       op: 'create-price-entries-batch',
       friendly: 'Failed to create price entries batch',
       path: (callback) => {
-        if (opts.priceListExternalReferenceCode) {
+        if (opts.priceListExternalReferenceCode || opts.priceListId) {
           return PATH.PRICE_LIST_PRICE_ENTRIES_BATCH(
             opts.priceListExternalReferenceCode,
-            callback
+            callback,
+            opts.priceListId
           );
         }
         return PATH.PRICE_ENTRIES_BATCH(callback);

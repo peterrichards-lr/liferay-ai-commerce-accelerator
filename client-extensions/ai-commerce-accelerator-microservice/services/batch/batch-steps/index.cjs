@@ -1,5 +1,6 @@
 module.exports = {
   // Deletion
+  resetCatalogConfiguration: require('./resetCatalogConfiguration.cjs'),
   deleteOrders: require('./deleteOrders.cjs'),
   deleteWarehouses: require('./deleteWarehouses.cjs'),
   deleteWarehouseItems: require('./deleteWarehouseItems.cjs'),

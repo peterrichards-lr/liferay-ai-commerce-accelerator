@@ -13,7 +13,7 @@ class ProgressService {
   }
 
   sessionStarted({ sessionId, flowType, correlationId }) {
-    const cid = correlationId || 'unknown';
+    const cid = correlationId;
     this.ws.emitProgress(
       {
         sessionId,
@@ -33,7 +33,7 @@ class ProgressService {
   }
 
   sessionCompleted({ sessionId, correlationId }) {
-    const cid = correlationId || 'unknown';
+    const cid = correlationId;
     this.ws.emitProgress(
       {
         sessionId,
@@ -61,7 +61,7 @@ class ProgressService {
   }
 
   sessionFailed({ sessionId, error, correlationId }) {
-    const cid = correlationId || 'unknown';
+    const cid = correlationId;
     this.ws.emitProgress(
       {
         sessionId,
@@ -82,7 +82,7 @@ class ProgressService {
   }
 
   stepStarted({ sessionId, step, totalCount, entityType, operation, correlationId }) {
-    const cid = correlationId || 'unknown';
+    const cid = correlationId;
     this.ws.emitProgress(
       {
         sessionId,
@@ -105,7 +105,7 @@ class ProgressService {
   }
 
   stepProgress({ sessionId, entityType, operation, processedCount, totalCount, correlationId }) {
-    const cid = correlationId || 'unknown';
+    const cid = correlationId;
     this.ws.emitProgress(
       {
         sessionId,
@@ -122,7 +122,7 @@ class ProgressService {
   }
 
   stepCompleted({ sessionId, step, entityType, operation, totalCount, correlationId }) {
-    const cid = correlationId || 'unknown';
+    const cid = correlationId;
     this.ws.emitProgress(
       {
         sessionId,
@@ -146,7 +146,7 @@ class ProgressService {
   }
 
   batchStarted({ sessionId, batchERC, batchId, totalItems, entityType, operation, correlationId }) {
-    const cid = correlationId || 'unknown';
+    const cid = correlationId;
     const payload = {
         entityType,
         operation,
@@ -171,7 +171,7 @@ class ProgressService {
   }
 
   batchProgress({ sessionId, batchERC, batchId, completedCount, totalItems, correlationId }) {
-    const cid = correlationId || 'unknown';
+    const cid = correlationId;
     if (totalItems >= 0) {
         const payload = {
             batchId,
@@ -196,7 +196,7 @@ class ProgressService {
   }
 
   batchCompleted({ sessionId, batchERC, batchId, successCount, failureCount, errors, entityType, operation, correlationId }) {
-    const cid = correlationId || 'unknown';
+    const cid = correlationId;
     const payload = {
         entityType,
         operation,
@@ -224,7 +224,7 @@ class ProgressService {
   }
 
   batchFailed({ sessionId, batchERC, batchId, error, entityType, operation, correlationId }) {
-    const cid = correlationId || 'unknown';
+    const cid = correlationId;
     const payload = {
         entityType,
         operation,

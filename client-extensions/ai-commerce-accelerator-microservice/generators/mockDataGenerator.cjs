@@ -9,200 +9,34 @@ const {
   toERCPart,
   randomString,
   randomPastDate,
+  randomFutureDate,
 } = require('../utils/misc.cjs');
 const { ERC_PREFIX, ENV } = require('../utils/constants.cjs');
-const { COMMERCE_CONSTRAINTS } = require('../utils/commerceConstants.cjs');
-
-const ajv = new Ajv({ removeAdditional: true });
-addFormats(ajv);
+const { asItems } = require('../utils/liferayUtils.cjs');
 
 class MockDataGenerator {
   constructor(ctx) {
-    this.ctx = ctx || {};
-    this.logger = this.ctx.logger;
-    this.categoryData = null;
-    this.specificationValues = null;
-    this.pricingData = null;
+    this.ctx = ctx;
+    this.logger = ctx.logger;
     this.schemas = {};
-    this.countries = [];
-    this.regions = [];
-    this._countriesAndRegions = [];
-    this._loadAndCompileSchemas();
-    this.loadConfigurationData();
+    this._loadSchemas();
   }
 
-  _loadSchema(schemaName) {
-    try {
-      const schemaPath = path.join(
-        __dirname,
-        '..',
-        'ai-schemas',
-        `${schemaName}.json`
-      );
-      if (fs.existsSync(schemaPath)) {
-        return JSON.parse(fs.readFileSync(schemaPath, 'utf8'));
-      }
-      this.logger?.warn?.(
-        `Schema ${schemaName}.json not found at ${schemaPath}`
-      );
-      return null;
-    } catch (error) {
-      this.logger?.error?.(`Error loading schema ${schemaName}.json:`, error);
-      return null;
-    }
-  }
+  _loadSchemas() {
+    const schemaDir = path.join(__dirname, '../ai-schemas');
+    const files = fs.readdirSync(schemaDir);
+    const ajv = new Ajv({ allErrors: true, strict: false });
+    addFormats(ajv);
 
-  _compileSchema(schemaName) {
-    const schemaDef = this._loadSchema(schemaName);
-    if (schemaDef) {
-      try {
-        this.schemas[schemaName] = ajv.compile(schemaDef);
-        this.logger?.trace?.(`Compiled schema for ${schemaName}`);
-      } catch (error) {
-        this.logger?.error?.(`Error compiling schema ${schemaName}:`, error);
-      }
-    }
-  }
-
-  _loadAndCompileSchemas() {
-    this._compileSchema('account');
-    this._compileSchema('product');
-    this._compileSchema('order');
-    this._compileSchema('warehouse');
-  }
-
-  loadConfigurationData() {
-    const logger = this.logger;
-    try {
-      const dataDir = path.join(__dirname, '..', 'data');
-
-      const categoriesPath = path.join(dataDir, 'categories.json');
-      if (fs.existsSync(categoriesPath)) {
-        this.categoryData = JSON.parse(fs.readFileSync(categoriesPath, 'utf8'));
-        logger?.trace?.('Loaded category configuration from categories.json');
-      } else {
-        logger?.warn?.('categories.json not found, using fallback data');
-        this.categoryData = this.getFallbackCategoryData();
-      }
-
-      const specificationsPath = path.join(dataDir, 'specifications.json');
-      if (fs.existsSync(specificationsPath)) {
-        this.specificationValues = JSON.parse(
-          fs.readFileSync(specificationsPath, 'utf8')
+    for (const file of files) {
+      if (file.endsWith('.json')) {
+        const schemaName = path.basename(file, '.json');
+        const schemaContent = JSON.parse(
+          fs.readFileSync(path.join(schemaDir, file), 'utf8')
         );
-        logger?.trace?.(
-          'Loaded specification configuration from specifications.json'
-        );
-      } else {
-        logger?.warn?.('specifications.json not found, using fallback data');
-        this.specificationValues = this.getFallbackSpecificationData();
+        this.schemas[schemaName] = ajv.compile(schemaContent);
       }
-
-      const pricingPath = path.join(dataDir, 'pricing.json');
-      if (fs.existsSync(pricingPath)) {
-        this.pricingData = JSON.parse(fs.readFileSync(pricingPath, 'utf8'));
-        logger?.trace?.('Loaded pricing configuration from pricing.json');
-      } else {
-        logger?.warn?.('pricing.json not found, using fallback data');
-        this.pricingData = this.getFallbackPricingData();
-      }
-    } catch (error) {
-      logger?.error?.('Error loading configuration data:', error);
-      logger?.trace?.('Using fallback configuration data');
-      this.categoryData = this.getFallbackCategoryData();
-      this.specificationValues = this.getFallbackSpecificationData();
-      this.pricingData = this.getFallbackPricingData();
     }
-  }
-
-  getFallbackCategoryData() {
-    return {
-      Electronics: {
-        names: [
-          'SmartPhone Pro',
-          'Wireless Headphones',
-          'Gaming Laptop',
-          'Smart Watch',
-          'Bluetooth Speaker',
-        ],
-        options: [
-          { name: 'Color', values: ['Black', 'White', 'Silver', 'Space Gray'] },
-          { name: 'Storage', values: ['64GB', '128GB', '256GB', '512GB'] },
-        ],
-        specs: ['Screen Size', 'Battery Life', 'Processor', 'RAM', 'Warranty'],
-      },
-      Clothing: {
-        names: [
-          'Cotton T-Shirt',
-          'Denim Jeans',
-          'Wool Sweater',
-          'Running Shoes',
-          'Baseball Cap',
-        ],
-        options: [
-          { name: 'Size', values: ['XS', 'S', 'M', 'L', 'XL', 'XXL'] },
-          { name: 'Color', values: ['Black', 'White', 'Navy', 'Red', 'Gray'] },
-        ],
-        specs: ['Material', 'Care Instructions', 'Fit', 'Season', 'Brand'],
-      },
-      'Home & Garden': {
-        names: [
-          'Garden Hose',
-          'Patio Umbrella',
-          'Flower Pot',
-          'Outdoor Chair',
-          'BBQ Grill',
-        ],
-        options: [
-          { name: 'Size', values: ['Small', 'Medium', 'Large'] },
-          { name: 'Material', values: ['Wood', 'Metal', 'Plastic', 'Glass'] },
-        ],
-        specs: [
-          'Dimensions',
-          'Weight',
-          'Material',
-          'Weather Resistance',
-          'Assembly Required',
-        ],
-      },
-    };
-  }
-
-  getFallbackSpecificationData() {
-    return {
-      Electronics: {
-        'screen-size': ['5.4"', '6.1"', '6.7"', '12.9"', '13.3"'],
-        'battery-life': [
-          '8 hours',
-          '12 hours',
-          '16 hours',
-          '24 hours',
-          '48 hours',
-        ],
-        processor: [
-          'A15 Bionic',
-          'Snapdragon 888',
-          'Intel i7',
-          'M1 Pro',
-          'AMD Ryzen 7',
-        ],
-        ram: ['4GB', '8GB', '16GB', '32GB', '64GB'],
-        warranty: [
-          '1 Year',
-          '2 Years',
-          '3 Years',
-          'Extended Warranty Available',
-        ],
-      },
-    };
-  }
-
-  getFallbackPricingData() {
-    return {
-      Electronics: { basePrice: { min: 50, max: 2000 }, priceModifiers: {} },
-      Clothing: { basePrice: { min: 15, max: 300 }, priceModifiers: {} },
-      'Home & Garden': { basePrice: { min: 20, max: 800 }, priceModifiers: {} },
-    };
   }
 
   generateProducts(config, options = {}) {
@@ -220,6 +54,7 @@ class MockDataGenerator {
       category,
       count,
       selectedLanguages,
+      config,
       options
     );
 
@@ -232,23 +67,20 @@ class MockDataGenerator {
   }
 
   async generateAccounts(config, options = {}) {
-    const count = options.count || options.accountCount || 1;
-    const accounts = await this.generateAccountData(count, config, options.categories);
+    const count = options.accountCount || 1;
+    const categories = options.categories || [];
+    const accounts = await this.generateAccountData(
+      count,
+      config,
+      categories,
+      options
+    );
+
     return {
       created: accounts.length,
       accounts,
       errors: [],
-    };
-  }
-
-  generateOrders(config, options = {}) {
-    const count = options.count || options.orderCount || 1;
-    const currencyCode = options.currencyCode || config?.currencyCode || 'USD';
-    const orders = this.generateOrderData(count, { currencyCode });
-    return {
-      created: orders.length,
-      orders,
-      errors: [],
+      batchId: null,
     };
   }
 
@@ -256,6 +88,7 @@ class MockDataGenerator {
     category,
     count = 1,
     selectedLanguages = ['en-US'],
+    config = {},
     options = {}
   ) {
     const logger = this.logger;
@@ -265,14 +98,7 @@ class MockDataGenerator {
       lang.replace('-', '_')
     );
 
-    const data =
-      this.categoryData[category] || this.categoryData['Electronics'];
-    const pricing =
-      this.pricingData[category] || this.pricingData['Electronics'];
-
     const {
-      catalogId,
-      generateSpecifications,
       generateSkuVariants,
       generatePriceLists,
       generateBulkPricing,
@@ -286,171 +112,111 @@ class MockDataGenerator {
     );
 
     for (let i = 0; i < count; i++) {
-      const baseName = data.names[i % data.names.length];
-      const baseNameLower = baseName.toLowerCase();
-      const productName = `${baseName} ${i + 1}`;
+      const baseErc = createERC(ERC_PREFIX.PRODUCT);
+      const basePrice = getRandomInt(500, 1500);
+      const pricing = { basePrice };
+      const sku = `SKU-${categoryCode}-${String(i + 1).padStart(3, '0')}`;
 
-      const basePrice = this.calculatePrice(pricing, data.options, i);
-
-      const nameCode = toERCPart(baseName, 6);
-      const rand = randomString(3, true);
-      const skuRoot = `${ERC_PREFIX.PRODUCT}-${categoryCode}-${nameCode}-${rand}`;
-
-      const sku = `${skuRoot}-${String(i + 1).padStart(3, '0')}`;
-      const externalReferenceCode = createERC(ERC_PREFIX.PRODUCT);
-
-      const baseDescription = `High-quality ${baseNameLower} perfect for everyday use. Features premium materials and excellent craftsmanship.`;
-      const baseShortDescription = `Premium ${baseNameLower} with great value.`;
-      const baseMetaDescription = `Shop ${baseName} - Premium quality at great prices`;
-      const baseMetaKeyword = `${baseNameLower}, ${category.toLowerCase()}, premium, quality`;
-      const baseMetaTitle = `${baseName} - Premium ${category}`;
-
-      const name = {};
-      const description = {};
-      const shortDescription = {};
-      const urls = {};
-      const metaDescription = {};
-      const metaKeyword = {};
-      const metaTitle = {};
-
-      const baseSlug = productName.toLowerCase().replace(/\s+/g, '-');
-
-      for (const lc of languageCodes) {
-        const suffix = localeSuffixMap[lc];
-        name[lc] = `${productName}${suffix}`;
-        description[lc] = `${baseDescription}${suffix}`;
-        shortDescription[lc] = `${baseShortDescription}${suffix}`;
-        urls[lc] = `${baseSlug}${suffix ? `-${lc.toLowerCase()}` : ''}`;
-        metaDescription[lc] = `${baseMetaDescription}${suffix}`;
-        metaKeyword[lc] = `${baseMetaKeyword}${suffix}`;
-        metaTitle[lc] = `${baseMetaTitle}${suffix}`;
-      }
-
-      if (i === 0) {
-        logger?.trace?.('Generated multilingual content for first product:', {
-          name,
-          description,
-          languageCodes,
-        });
-      }
-
-              const productData = {
-                active: true,
-                catalogId,
-                name,
-                description,
-                shortDescription,
-                urls,
-                baseSku: sku,
-                productType: 'simple',
-                externalReferenceCode,
-                metaDescription,
-                metaKeyword,
-                metaTitle,
-                category,
-                allowBackOrder: options.enableBackorders || false,
-                skus: [          {
-            cost: Math.round(basePrice * 0.6),
-            externalReferenceCode: sku,
-            inventoryLevel: 10 + getRandomInt(41),
-            neverExpire: true,
-            price: basePrice,
-            published: true,
-            purchasable: true,
-            sku,
-          },
-        ],
+      const productData = {
+        externalReferenceCode: baseErc,
+        name: {},
+        description: {},
+        productType: 'simple',
+        active: true,
+        catalogId: config.catalogId,
+        category: category,
       };
 
-      const imageRatio = options.imageRatio || 0;
-      if (imageMode && imageMode !== 'none' && getRandomInt(100) < imageRatio) {
-        productData.images = [
+      for (const lang of languageCodes) {
+        const suffix = localeSuffixMap[lang] || '';
+        productData.name[lang] = `Mock ${category} Product ${i + 1}${suffix}`;
+        productData.description[lang] =
+          `High quality ${category.toLowerCase()} item for professional use.${suffix}`;
+      }
+
+      if (generateSkuVariants) {
+        productData.productType = 'simple'; // Initial type is always simple
+        productData.options = [
           {
-            src: 'default.webp',
-            type: 'image',
-            title: Object.fromEntries(
-              languageCodes.map((lc) => [lc, `${productName} Image`])
-            ),
+            name: { en_US: 'Color' },
+            fieldType: 'select',
+            skuContributor: true,
+            required: true,
+            values: [
+              { name: { en_US: 'Red' }, key: 'red' },
+              { name: { en_US: 'Blue' }, key: 'blue' },
+              { name: { en_US: 'Green' }, key: 'green' },
+            ],
+          },
+          {
+            name: { en_US: 'Size' },
+            fieldType: 'select',
+            skuContributor: true,
+            required: true,
+            values: [
+              { name: { en_US: 'Small' }, key: 'small' },
+              { name: { en_US: 'Medium' }, key: 'medium' },
+              { name: { en_US: 'Large' }, key: 'large' },
+            ],
           },
         ];
-      }
 
-      const pdfRatio = options.pdfRatio || 0;
-      if (
-        options.pdfMode &&
-        options.pdfMode !== 'none' &&
-        getRandomInt(100) < pdfRatio
-      ) {
-        productData.attachments = ['default.pdf'];
-      }
+        productData.skuVariants = [];
+        for (const color of ['red', 'blue']) {
+          for (const size of ['small', 'medium']) {
+            const variantSku = `${sku}-${color.toUpperCase()}-${size.toUpperCase()}`;
+            const variantPrice = basePrice + (size === 'medium' ? 50 : 0);
 
-      if (generateSpecifications) {
-        productData.specifications = this.generateSpecifications(
-          category,
-          i,
-          languageCodes
-        );
-      }
-
-      if (
-        generateSkuVariants &&
-        Array.isArray(data.options) &&
-        data.options.length > 0
-      ) {
-        // Enforce new AI schema format for options
-        productData.options = data.options.map((opt) => {
-          const name = opt.name.toLowerCase();
-          let fieldType = 'select';
-          let skuContributor = false;
-
-          if (
-            name.includes('color') ||
-            name.includes('size') ||
-            name.includes('material')
-          ) {
-            skuContributor = true;
+            const variant = {
+              sku: variantSku,
+              externalReferenceCode: variantSku,
+              price: variantPrice,
+              active: true,
+              published: true,
+              purchasable: true,
+              skuOptions: [
+                { key: 'color', value: color },
+                { key: 'size', value: size },
+              ],
+            };
+            productData.skuVariants.push(variant);
           }
-          if (
-            name.includes('type') ||
-            name.includes('style') ||
-            name.includes('format') ||
-            name.includes('edition')
-          ) {
-            skuContributor = true;
-            fieldType = 'radio';
-          }
-          if (name.includes('weight') || name.includes('quantity')) {
-            fieldType = 'numeric';
-          }
+        }
 
-          return {
-            name: opt.name,
-            fieldType,
-            skuContributor,
-            values: fieldType === 'numeric' ? [] : opt.values,
-          };
-        });
-
-        productData.skuVariants = this.generateSkuVariants(
-          sku,
-          data.options,
-          basePrice,
-          category
-        );
+        if (generatePriceLists) {
+          productData.priceEntries = this.generatePriceEntries(
+            sku,
+            basePrice,
+            pricing,
+            i,
+            productData.skuVariants,
+            options
+          );
+        }
+      } else {
+        productData.skus = [
+          {
+            sku: sku,
+            externalReferenceCode: sku,
+            published: true,
+            purchasable: true,
+          },
+        ];
         productData.defaultSku = sku;
         productData.productType = 'simple';
+
+        if (generatePriceLists) {
+          productData.priceEntries = this.generatePriceEntries(
+            sku,
+            basePrice,
+            pricing,
+            i,
+            productData.skuVariants,
+            options
+          );
+        }
       }
 
-              if (generatePriceLists) {
-                productData.priceEntries = this.generatePriceEntries(
-                  sku,
-                  basePrice,
-                  pricing,
-                  i,
-                  productData.skuVariants,
-                  options
-                );
-              }
       products.push(productData);
     }
 
@@ -462,168 +228,73 @@ class MockDataGenerator {
         logger?.error?.('Mock product data failed schema validation:', {
           errors: validate.errors,
           payload: JSON.stringify(payload, null, 2),
+          correlationId: options?.correlationId,
         });
-        throw new Error('Mock product data failed schema validation.');
+      } else {
+        this.logger?.info?.(
+          'Mock product data validated successfully against schema.',
+          { correlationId: options?.correlationId }
+        );
       }
-      logger?.trace?.(
-        'Mock product data validated successfully against schema.'
-      );
-    } else {
-      logger?.warn?.(
-        'Product schema not compiled, skipping mock data validation.'
-      );
     }
 
     return products;
   }
 
-  calculatePrice(pricingConfig, options, productIndex) {
-    const { min, max } = pricingConfig.basePrice;
-    let basePrice = min + getRandomInt(Math.max(1, max - min + 1));
-
-    if (pricingConfig.priceModifiers && options) {
-      for (const option of options) {
-        const modifiers = pricingConfig.priceModifiers[option.name];
-        if (modifiers) {
-          const selectedValue =
-            option.values[productIndex % option.values.length];
-          const modifier = modifiers[selectedValue] || 0;
-          basePrice += modifier;
-        }
-      }
-    }
-
-    return Math.max(basePrice, min);
-  }
-
-  generateSkuVariants(baseSku, options, basePrice, category) {
-    if (!options || options.length === 0) return [];
-
-    const isSkuContributor = (optionName) => {
-      const name = optionName.toLowerCase();
-      return (
-        name.includes('color') ||
-        name.includes('size') ||
-        name.includes('material') ||
-        name.includes('type') ||
-        name.includes('style') ||
-        name.includes('format') ||
-        name.includes('edition')
-      );
-    };
-
-    const skuContributors = options.filter((opt) => isSkuContributor(opt.name));
-    const nonSkuContributors = options.filter(
-      (opt) => !isSkuContributor(opt.name)
-    );
-
-    if (skuContributors.length === 0) return [];
-
-    const variants = [];
-    const maxVariants = 12;
-    let variantCount = 0;
-
-    const toKey = (s) =>
-      String(s)
-        .toLowerCase()
-        .replace(/\s+/g, '-')
-        .replace(/&/g, 'and')
-        .replace(/[^\w-]/g, '');
-
-    // Permute up to 2 SKU contributors
-    const option1 = skuContributors[0];
-    const option2 = skuContributors[1];
-
-    const values1 = option1.values.slice(0, 4);
-    const values2 = option2 ? option2.values.slice(0, 3) : [null];
-
-    for (const v1 of values1) {
-      for (const v2 of values2) {
-        if (variantCount >= maxVariants) break;
-
-        const priceModifier = (getRandomInt(401) - 200) / 1000;
-        const variantPrice = Math.round(basePrice * (1 + priceModifier));
-
-        const variantOptions = {
-          [`${toKey(category)}-${toKey(option1.name)}`]: v1,
-        };
-        if (option2 && v2) {
-          variantOptions[`${toKey(category)}-${toKey(option2.name)}`] = v2;
-        }
-
-        // Include first value for all other options (contributor or not) to ensure SKU activation
-        // SKU contributors not in the permutation must have a value assigned.
-        // Non-contributors that are required also need a value.
-        const otherOptions = options.filter(
-          (opt) => opt !== option1 && opt !== option2
-        );
-        for (const opt of otherOptions) {
-          variantOptions[`${toKey(category)}-${toKey(opt.name)}`] =
-            opt.values[0];
-        }
-
-        const skuSuffix =
-          (v1 ? `-${v1.slice(0, 2).toUpperCase()}` : '') +
-          (v2 ? `-${v2.slice(0, 2).toUpperCase()}` : '');
-
-        const variant = {
-          sku: `${baseSku}${skuSuffix.replace(/[^\w-]/g, '')}`,
-          options: variantOptions,
-          priceModifier: Math.round(priceModifier * 100),
-          price: variantPrice,
-          published: true,
-          purchasable: true,
-          neverExpire: true,
-          inStock: getRandomInt(10) > 1,
-        };
-
-        variants.push(variant);
-        variantCount++;
-      }
-      if (variantCount >= maxVariants) break;
-    }
-
-    return variants;
-  }
-
-  generatePriceEntries(baseSku, basePrice, pricingConfig, productIndex, skuVariants = [], options = {}) {
-    const PRICE_LIST_ERC = 'AICA-PL-GENERAL';
-    const entries = [];
+  generatePriceEntries(
+    baseSku,
+    basePrice,
+    pricingConfig,
+    productIndex,
+    skuVariants = [],
+    options = {}
+  ) {
     const { generateBulkPricing, generateTierPricing } = options;
+    const PRICE_LIST_ERC = 'AICA-PL-GENERAL';
     const hasPromotion = Math.random() < ENV.PRICING_PROMOTION_RATIO;
-    const hasBulk = generateBulkPricing && Math.random() < ENV.PRICING_BULK_RATIO;
-    const hasTier = generateTierPricing && Math.random() < ENV.PRICING_TIER_RATIO;
+    const hasBulk =
+      generateBulkPricing && Math.random() < ENV.PRICING_BULK_RATIO;
+    const hasTier =
+      generateTierPricing && Math.random() < ENV.PRICING_TIER_RATIO;
+
+    const entries = [];
 
     const buildPriceEntry = (sku, price) => {
+      const priceEntryErc = createERC(ERC_PREFIX.PRICE_ENTRY);
+      const promoPrice = hasPromotion ? Math.round(price * 0.85) : null;
+
       const entry = {
         price,
+        promoPrice,
         sku: {
           basePrice: price,
-          basePromoPrice: hasPromotion ? Math.round(price * 0.85) : null,
+          basePromoPrice: promoPrice,
         },
         skuExternalReferenceCode: sku,
         priceListExternalReferenceCode: PRICE_LIST_ERC,
-        externalReferenceCode: `PE-${sku}-${PRICE_LIST_ERC}`,
+        discountDiscovery: false,
+        externalReferenceCode: priceEntryErc,
       };
 
-      // Add Bulk/Tiered Pricing if enabled and chosen for this product
       if (hasBulk || hasTier) {
-        // Use Bulk if specifically chosen, otherwise Tiered
         const isBulk = hasBulk;
         entry.bulkPricing = isBulk;
-        
-        // Generate two tiers: 5+ and 10+
+
         entry.tierPrices = [
           {
             minimumQuantity: 5,
-            price: Math.round(price * (isBulk ? 0.90 : 0.92)),
-            externalReferenceCode: `TP-${sku}-5-${PRICE_LIST_ERC}`
+            price: Math.round(price * (isBulk ? 0.9 : 0.92)),
+            promoPrice: hasPromotion ? Math.round(price * 0.75) : null,
+            discountDiscovery: false,
+            externalReferenceCode: createERC(ERC_PREFIX.TIER_PRICE),
           },
           {
             minimumQuantity: 10,
-            price: Math.round(price * 0.80),
-            externalReferenceCode: `TP-${sku}-10-${PRICE_LIST_ERC}`
-          }
+            price: Math.round(price * 0.8),
+            promoPrice: hasPromotion ? Math.round(price * 0.65) : null,
+            discountDiscovery: false,
+            externalReferenceCode: createERC(ERC_PREFIX.TIER_PRICE),
+          },
         ];
       }
 
@@ -639,7 +310,7 @@ class MockDataGenerator {
     return entries;
   }
 
-  async generateAccountData(count = 1, config, categories = []) {
+  async generateAccountData(count = 1, config, categories = [], options = {}) {
     const { liferay } = this.ctx;
     const accounts = [];
     let companies = [
@@ -668,42 +339,62 @@ class MockDataGenerator {
         'Advisors',
         'First',
       ];
-      
-      companies = companySuffixes.map(suffix => `${categories[0]} ${suffix}`);
+      companies = companySuffixes.map((suffix) => `${categories[0]} ${suffix}`);
     }
 
-    const countries = await liferay.getCountries(config);
+    const countriesFetched = await liferay.getCountries(config);
+    let countries = countriesFetched || [];
+
+    if (!countries || countries.length === 0) {
+      this.logger?.warn?.(
+        'No countries found in Liferay. Using default fallback for account generation.'
+      );
+      countries = [
+        {
+          id: 0,
+          name: 'United States',
+          a2: 'US',
+          title_i18n: { en_US: 'United States' },
+        },
+      ];
+    }
+
+    const countryToRegionsCache = new Map();
 
     for (let i = 0; i < count; i++) {
       const companyName = companies[i % companies.length];
-      const accountEmail = `contact@${companyName
-        .toLowerCase()
-        .replace(/\s+/g, '')}.com`;
-      const accountDomain = `${companyName
-        .toLowerCase()
-        .replace(/\s+/g, '')}.com`;
+      const accountEmail = `contact@${companyName.toLowerCase().replace(/\s+/g, '')}.com`;
+      const accountDomain = `${companyName.toLowerCase().replace(/\s+/g, '')}.com`;
 
-      let country;
-      let regions = [];
-      while (regions.length === 0) {
-        country = countries[Math.floor(Math.random() * countries.length)];
-        regions = await liferay.getCountryRegions(config, country.id);
+      const country = countries[Math.floor(Math.random() * countries.length)];
+
+      let region = { name: null };
+      if (country && country.id) {
+        // Fetch regions once per country and cache
+        if (!countryToRegionsCache.has(country.id)) {
+          const regions = await liferay.getCountryRegions(config, country.id);
+          countryToRegionsCache.set(country.id, regions || []);
+        }
+
+        const regions = countryToRegionsCache.get(country.id);
+        if (regions && regions.length > 0) {
+          region = regions[Math.floor(Math.random() * regions.length)];
+        }
       }
-      const region = regions.length > 0 ? regions[Math.floor(Math.random() * regions.length)] : { name: 'N/A' };
-      
+
       const location = {
-        country: country.name,
-        region: region.name,
+        country: country?.name || 'United States',
+        region: region?.name || null,
         city: randomString(6),
         zip: `${Math.floor(Math.random() * 99999) + 10000}`,
-      }
+      };
 
       const account = {
         name: `${companyName} ${i + 1}`,
         type: 'business',
         taxId: `TAX-${String(getRandomInt(1_000_000)).padStart(6, '0')}`,
         externalReferenceCode: createERC(ERC_PREFIX.ACCOUNT),
-        description: `Professional ${companyName.toLowerCase()} providing quality services since 2020.`, 
+        description: `Professional ${companyName.toLowerCase()} providing quality services since 2020.`,
         accountContactInformation: {
           emailAddresses: [
             {
@@ -751,18 +442,18 @@ class MockDataGenerator {
 
     const validate = this.schemas.account;
     if (validate) {
-      const payload = { accounts: accounts };
-      const isValid = validate(payload);
+      const isValid = validate({ accounts });
       if (!isValid) {
         this.logger?.error?.('Mock account data failed schema validation:', {
           errors: validate.errors,
-          payload: JSON.stringify(payload, null, 2),
+          correlationId: options?.correlationId,
         });
-        throw new Error('Mock account data failed schema validation.');
+      } else {
+        this.logger?.info?.(
+          'Mock account data validated successfully against schema.',
+          { correlationId: options?.correlationId }
+        );
       }
-      this.logger?.trace?.(
-        'Mock account data validated successfully against schema.'
-      );
     } else {
       this.logger?.warn?.(
         'Account schema not compiled, skipping mock data validation.'
@@ -772,286 +463,93 @@ class MockDataGenerator {
     return accounts;
   }
 
-  generateOrderData(count = 10, opts = {}, accounts = []) {
-    const orders = [];
-    const orderStatuses = [0, 1, 2, 10, 15];
-    const paymentStatuses = [0, 1, 2, 3];
-    const currencyCode = opts.currencyCode || 'USD';
-
-    for (let i = 0; i < count; i++) {
-      const orderTotal = 100 + getRandomInt(2000);
-      const itemCount = 1 + getRandomInt(5);
-
-      const order = {
-        orderDate: randomPastDate().toISOString(),
-        orderStatus: orderStatuses[getRandomInt(orderStatuses.length)],
-        total: orderTotal,
-        currency: currencyCode,
-        itemCount,
-        externalReferenceCode: `${createERC(ERC_PREFIX.ORDER)}-${i}`,
-        customerName: `Customer ${i + 1}`,
-        shippingAddress: {
-          street: `${100 + i} Main Street`,
-          city: 'Sample City',
-          zip: `${10000 + i}`,
-          country: 'US',
-        },
-        paymentStatuses: paymentStatuses[getRandomInt(paymentStatuses.length)],
-        items: [],
-      };
-
-      if (accounts.length > 0) {
-        order.accountId = String(accounts[i % accounts.length].id);
-      }
-
-      orders.push(order);
-    }
-
-    const validate = this.schemas.order;
-    if (validate) {
-      const payload = { orders: orders };
-      const isValid = validate(payload);
-      if (!isValid) {
-        this.logger?.error?.('Mock order data failed schema validation:', {
-          errors: validate.errors,
-          payload: JSON.stringify(payload, null, 2),
-        });
-        throw new Error('Mock order data failed schema validation.');
-      }
-      this.logger?.trace?.(
-        'Mock order data validated successfully against schema.'
-      );
-    } else {
-      this.logger?.warn?.(
-        'Order schema not compiled, skipping mock data validation.'
-      );
-    }
-
-    return orders;
-  }
-
   async generateWarehouseData(count = 1, config) {
-    const { liferay } = this.ctx;
     const warehouses = [];
-
-    const countries = await liferay.getCountries(config);
+    const cities = [
+      'New York',
+      'Los Angeles',
+      'Chicago',
+      'Houston',
+      'Phoenix',
+      'Philadelphia',
+      'San Antonio',
+      'San Diego',
+      'Dallas',
+      'San Jose',
+    ];
+    const states = ['NY', 'CA', 'IL', 'TX', 'AZ', 'PA', 'TX', 'CA', 'TX', 'CA'];
 
     for (let i = 0; i < count; i++) {
-      let countryToUse = null;
-      let regionsToUse = [];
-      let attempts = 0;
-      const maxAttempts = 10;
-
-      // Attempt to find a country with regions
-      while (attempts < maxAttempts) {
-          const potentialCountry = countries[Math.floor(Math.random() * countries.length)];
-          if (potentialCountry) {
-              const fetchedRegions = await liferay.getCountryRegions(config, potentialCountry.id);
-              if (fetchedRegions && fetchedRegions.length > 0) {
-                  countryToUse = potentialCountry;
-                  regionsToUse = fetchedRegions;
-                  break; // Found a country with regions, exit loop
-              }
-          }
-          attempts++;
-      }
-
-      // Fallback: If no country with regions was found after attempts,
-      // try 'United States' or the first available country, and get its regions.
-      if (!countryToUse && countries.length > 0) {
-          countryToUse = countries.find(c => (c.name === 'United States' || c.title_i18n?.['en_US'] === 'United States')) || countries[0];
-          if (countryToUse) {
-              regionsToUse = await liferay.getCountryRegions(config, countryToUse.id);
-          }
-      } else if (countries.length === 0) {
-          // No countries available at all, log and skip this warehouse
-          this.logger?.warn?.("No countries available to generate warehouse data. Skipping warehouse.");
-          continue; 
-      }
-      
-      // Ensure countryToUse and regionsToUse are defined before proceeding
-      if (!countryToUse) {
-          this.logger?.warn?.("Could not determine a country for warehouse generation. Skipping warehouse.");
-          continue;
-      }
-
-      const country = countryToUse;
-      const regions = regionsToUse;
-      
-      const region = regions.length > 0 ? regions[Math.floor(Math.random() * regions.length)] : { name: 'N/A' };
-      
-      const location = {
-        country: country.name,
-        region: region.name,
-        city: randomString(6),
-        zip: `${Math.floor(Math.random() * 99999) + 10000}`,
-      }
-
-      const warehouse = {
-        id: Math.floor(Math.random() * 10000),
-        name: `Warehouse ${i + 1}`,
+      const cityIndex = i % cities.length;
+      warehouses.push({
+        name: { en_US: `Mock Warehouse ${i + 1} (${cities[cityIndex]})` },
+        description: {
+          en_US: `Primary distribution center for the ${cities[cityIndex]} region.`,
+        },
+        country: 'US',
+        region: states[cityIndex],
+        city: cities[cityIndex],
+        street1: `${1000 + i} Industrial Way`,
+        zip: `${10000 + i}`,
+        latitude: 34.0522 + (Math.random() - 0.5),
+        longitude: -118.2437 + (Math.random() - 0.5),
+        active: true,
         externalReferenceCode: createERC(ERC_PREFIX.WAREHOUSE),
-        country: location.country,
-        region: location.region,
-        city: location.city,
-        street1: `${100 + i} Main Street`,
-        zip: location.zip,
-        latitude: Math.random() * 180 - 90,
-        longitude: Math.random() * 360 - 180,
-      };
-      warehouses.push(warehouse);
+      });
+    }
+
+    const validate = this.schemas.warehouse;
+    if (validate) {
+      const isValid = validate({ warehouses });
+      if (!isValid) {
+        this.logger?.error?.('Mock warehouse data failed schema validation:', {
+          errors: validate.errors,
+          correlationId: config?.correlationId,
+        });
+      }
     }
 
     return warehouses;
   }
 
-  generatePDFContent(product, category) {
-    const productName = product.name?.en_US || product.name;
+  generateOrderData(count = 1, extraArgs = {}, accounts = []) {
+    const orders = [];
+    const orderStatuses = [0, 1, 2, 10]; // Pending, Processing, Shipped, Completed
 
-    return {
-      title: `Product Documentation - ${productName}`,
-      sections: [
-        {
-          title: 'Technical Specifications',
-          content: `${productName} features industry-leading specifications designed for optimal performance:\n\n• Premium build quality with attention to detail\n• Engineered for durability and reliability\n• Tested to meet international standards\n• Compatible with industry standards\n• Energy efficient design\n\nDimensions: Various sizes available\nWeight: Optimized for portability\nMaterial: High-grade components`,
-        },
-        {
-          title: 'Warranty Information',
-          content: `Limited Warranty Coverage for ${productName}:\n\n• 2-year manufacturer warranty included\n• Coverage includes manufacturing defects\n• 30-day return policy for unused items\n• Customer support available 24/7\n• Warranty registration recommended\n\nFor warranty claims, contact:\nSupport Phone: 1-800-SUPPORT\nEmail: warranty@company.com\nOnline: www.company.com/warranty`,
-        },
-        {
-          title: 'Marketing Highlights',
-          content: `Why Choose ${productName}?\n\n✓ Premium Quality: Built with the finest materials\n✓ Innovative Design: Modern styling meets functionality  \n✓ Great Value: Competitive pricing without compromise\n✓ Customer Satisfaction: Backed by thousands of reviews\n✓ Trusted Brand: Years of excellence in ${category.toLowerCase()}
+    if (!accounts || accounts.length === 0) {
+      throw new Error('No accounts provided for mock order generation.');
+    }
 
-Perfect for both personal and professional use. Ideal gift for anyone who appreciates quality and performance.`,
-        },
-        {
-          title: 'Usage Guidelines',
-          content: `Getting Started with ${productName}:\n\n1. Unpack carefully and check all components\n2. Review quick start guide included in package\n3. Follow setup instructions step by step\n4. Register your product for warranty coverage\n5. Enjoy your new ${productName}!\n\nDaily Use Tips:\n• Regular cleaning maintains performance\n• Store in appropriate conditions\n• Handle with care to prevent damage\n• Follow maintenance schedule as recommended`,
-        },
-        {
-          title: 'Safety & Compliance',
-          content: `Safety Information for ${productName}:\n\n⚠ Important Safety Notices:\n• Read all instructions before use\n• Keep away from water unless waterproof\n• Adult supervision required for children\n• Do not disassemble without authorization\n\nCompliance Certifications:\n✓ CE Marking (European Conformity)\n✓ FCC Approved (Federal Communications Commission)\n✓ RoHS Compliant (Restriction of Hazardous Substances)\n✓ ISO 9001 Quality Management\n\nFor complete safety information, visit our website or contact customer service.`,
-        },
-      ],
-    };
-  }
+    for (let i = 0; i < count; i++) {
+      const account = accounts[i % accounts.length];
+      const orderDate = randomPastDate(30).toISOString();
 
-  generateSpecifications(category, productIndex, languageCodes = ['en-US']) {
-    const categoryValues =
-      this.specificationValues[category] ||
-      this.specificationValues['Electronics'];
-    const specifications = [];
+      orders.push({
+        accountId: account.id || account.externalReferenceCode,
+        externalReferenceCode: createERC(ERC_PREFIX.ORDER),
+        orderStatus:
+          orderStatuses[Math.floor(Math.random() * orderStatuses.length)],
+        orderDate,
+        items: [
+          {
+            sku: `SKU-MOCK-${String(i + 1).padStart(3, '0')}`,
+            quantity: Math.floor(Math.random() * 5) + 1,
+          },
+        ],
+      });
+    }
 
-    const specsForCategory = Object.keys(categoryValues);
-
-    const numSpecs = 5 + getRandomInt(3);
-    const selectedSpecs = specsForCategory.slice(0, numSpecs);
-
-    for (const specKey of selectedSpecs) {
-      const possibleValues = categoryValues[specKey];
-      if (possibleValues) {
-        const baseValue = possibleValues[productIndex % possibleValues.length];
-        const baseName =
-          specKey
-            .split('-')
-            .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
-            .join(' ');
-
-        const label = {};
-        const value = {};
-
-        languageCodes.forEach((langCode) => {
-          const suffix = langCode === 'en_US' ? '' : ` (${langCode})`;
-          label[langCode] = `${baseName}${suffix}`;
-          value[langCode] = `${baseValue}${suffix}`;
-        });
-
-        specifications.push({
-          key: specKey,
-          label: label,
-          value: value,
-          priority: 1 + getRandomInt(10),
-          externalReferenceCode: `${createERC(
-            ERC_PREFIX.SPECIFICATION
-          )}-${productIndex}`,
+    const validate = this.schemas.order;
+    if (validate) {
+      const isValid = validate({ orders });
+      if (!isValid) {
+        this.logger?.error?.('Mock order data failed schema validation:', {
+          errors: validate.errors,
         });
       }
     }
 
-    return specifications;
-  }
-
-  generateSpecificationCategories(categories, selectedLanguages = ['en-US']) {
-    const languageCodes = selectedLanguages.map((lang) =>
-      lang.replace('-', '_')
-    );
-    const specCategories = [];
-
-    const categoryMappings = {
-      Electronics: [
-        'Technical Specs',
-        'Performance',
-        'Connectivity',
-        'Physical',
-      ],
-      Clothing: [
-        'Material & Care',
-        'Fit & Style',
-        'Design Details',
-        'Product Info',
-      ],
-      'Home & Garden': [
-        'Dimensions & Weight',
-        'Materials',
-        'Features',
-        'Care & Maintenance',
-      ],
-      Sports: ['Performance', 'Durability', 'Safety', 'Specifications'],
-      Books: [
-        'Publication Info',
-        'Physical Properties',
-        'Content Details',
-        'Availability',
-      ],
-    };
-
-    for (const category of categories) {
-      const categoryGroups =
-        categoryMappings[category] || categoryMappings['Electronics'];
-
-      for (let i = 0; i < categoryGroups.length; i++) {
-        const baseTitle = categoryGroups[i];
-        const baseDescription = `Specifications related to ${baseTitle.toLowerCase()} for ${category.toLowerCase()} products`;
-
-        const title = {};
-        const description = {};
-
-        languageCodes.forEach((langCode) => {
-          const suffix = langCode === 'en_US' ? '' : ` (${langCode})`;
-          title[langCode] = `${baseTitle}${suffix}`;
-          description[langCode] = `${baseDescription}${suffix}`;
-        });
-
-        specCategories.push({
-          key: `${category.toLowerCase().replace(/\s+/g, '-')}-${baseTitle
-            .toLowerCase()
-            .replace(/\s+/g, '-')}`,
-          title: title,
-          description: description,
-          priority: i + 1,
-          externalReferenceCode: buildSpecCatERC(category, baseTitle),
-        });
-      }
-    }
-
-    return specCategories;
-  }
-
-  reloadConfiguration() {
-    const logger = this.logger;
-    logger?.trace?.('Reloading configuration data...');
-    this.loadConfigurationData();
+    return orders;
   }
 
   shuffleArray(array) {

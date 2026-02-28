@@ -123,6 +123,117 @@ To ensure reliability and prevent runtime errors (e.g., requesting non-existent 
 
 ------------------------------------------------------------------------
 
+## OData Filtering & API Constraints
+
+To ensure maximum compatibility across Liferay's diverse Headless API implementations, the following OData and filtering patterns must be strictly followed:
+
+### 1. OData Operator Reference
+While Liferay supports a broad range of OData operators, **implementation is inconsistent** across different entities and API versions. 
+
+| Operator | Description | Example |
+| :--- | :--- | :--- |
+| `eq` | Equal | `addressLocality eq 'Redmond'` |
+| `eq` | Equal null | `addressLocality eq null` |
+| `ne` | Not equal | `addressLocality ne 'London'` |
+| `ne` | Not null | `addressLocality ne null` |
+| `gt` | Greater than | `price gt 20` |
+| `ge` | Greater than or equal | `price ge 10` |
+| `lt` | Less than | `dateCreated lt 2018-02-13T12:33:12Z` |
+| `le` | Less than or equal | `dateCreated le 2012-05-29T09:13:28Z` |
+| **Logical** | | |
+| `and` | Logical and | `price le 200 and price gt 3.5` |
+| `or` | Logical or | `price le 3.5 or price gt 200` |
+| `not` | Logical not | `not (price le 3.5)` (Note: trailing space required) |
+| **Grouping** | | |
+| `( )` | Precedence grouping | `(price eq 5) or (addressLocality eq 'London')` |
+| **String Functions** | | |
+| `contains()` | Contains | `contains(title, 'edmon')` |
+| `startswith()` | Starts with | `startswith(addressLocality, 'Lond')` |
+| **String (Shorthand)** | | |
+| `sw` | Starts with | `externalReferenceCode sw 'AICA-'` |
+| **Lambda Operators** | | |
+| `any` | Any | `keywords/any(k:contains(k,'news'))` |
+
+### 2. Implementation Caveats & Mandatory Patterns
+- **Operator Preference (`sw` vs `startswith`)**: Always use the shorthand `sw` operator instead of the functional `startswith()` for prefix filtering. Functional notation often triggers `400 Bad Request` on newer entities (e.g., Pricing V2.0, Catalog V1.0).
+- **Pricing V2.0 Domain Restrictions**: Both REST and GraphQL Price List/Promotion endpoints have extremely limited OData support. 
+    - **Forbidden Filters**: Do not attempt to filter by `type`, `catalogId`, or boolean flags like `catalogBasePriceList` via OData. These frequently cause `Collection not allowed` or `DataFetchingException: null`.
+    - **Discovery Strategy**: Retrieve items using only simple filters (or no filter) and perform all logic-heavy evaluation (casing, complex properties) in **JavaScript memory**.
+- **Enum Comparison Robustness**: Casing and formatting of Enum values vary. Always normalize strings (lowercase + remove hyphens/underscores) before comparison in JavaScript.
+- **Regional Metadata Fallbacks**: Liferay's Headless API for Addresses strictly validates the `addressRegion` field. Providing placeholder strings like `N/A` will result in a `400 Bad Request`. Always provide `null` if a region cannot be determined.
+
+### 3. Documentation Reference
+For the most up-to-date information on Liferay's OData implementation, refer to the official [Headless API Query Parameters](https://learn.liferay.com/w/dxp/integration/headless-apis/using-liferay-as-a-headless-platform/consuming-apis/api-query-parameters) documentation.
+
+------------------------------------------------------------------------
+
+## GraphQL Discovery Pattern
+
+To ensure high reliability and performance when using Liferay's Headless GraphQL API, follow these established patterns:
+
+### 1. Preference for Data Retrieval
+- **Usage Recommendation**: Prefer GraphQL over REST for all data retrieval operations (GET requests).
+- **Rationale**: Provides granular control over the returned schema, minimizes payload size, and allows for efficient retrieval of related data in a single round-trip.
+
+### 2. Aliased Queries for Multi-Item Fetching
+- **Mandatory Pattern**: When fetching multiple individual items by a unique key (like `externalReferenceCode`), use **Aliased Queries** to batch them into a single request.
+- **Example**:
+  ```graphql
+  query {
+    headlessCommerceAdminCatalog_v1_0 {
+      a0: productByExternalReferenceCode(externalReferenceCode: "ERC-1") { id name }
+      a1: productByExternalReferenceCode(externalReferenceCode: "ERC-2") { id name }
+    }
+  }
+  ```
+- **Rationale**: Significantly more efficient than making multiple individual GraphQL queries or a single filtered query when dealing with many specific IDs.
+
+### 3. Variable-Based Queries
+- **Mandatory Pattern**: Always use GraphQL variables for dynamic values (like `filter`, `externalReferenceCode`, or `id`). Never use template literal interpolation for variable values inside the query string.
+- **Rationale**: Improves security, makes logs more readable, and allows Liferay to cache the query structure more efficiently.
+
+### 4. Resilient STALE_INDEX Handling
+- **Constraint**: Liferay's Search Index is asynchronous. Entities created via Batch Engine may not be immediately visible to GraphQL queries.
+- **Actionable Pattern**: Implement an automatic retry mechanism with **Exponential Backoff** (e.g., 10 attempts starting at 2s).
+- **Trigger**: Any `DataFetchingException` or `null` result for an expected entity should be interpreted as a potential `STALE_INDEX` and trigger a retry.
+
+### 5. Error Level Demotion
+- **Pattern**: Common errors indicating a missing entity (e.g., `DataFetchingException`, `NOT_FOUND`) should be logged at the `DEBUG` level rather than `ERROR`.
+- **Rationale**: These are common and expected conditions during rapid data generation and shouldn't clutter the production error logs.
+
+### 6. Prefer for Nested Data
+- **Usage Recommendation**: Prefer GraphQL over REST when fetching multiple related levels (e.g., `Product` -> `Skus` -> `OptionValues`). 
+- **Rationale**: Significantly reduces the number of round-trips to the server compared to multiple REST calls.
+
+------------------------------------------------------------------------
+
+## Liferay API Best Practices
+
+The following patterns are derived from Liferay's official documentation and ensure long-term compatibility:
+
+### 1. Authentication & Headers
+- **Production Standard**: Always use **OAuth2** (`Authorization: Bearer <token>`) for all REST and GraphQL requests.
+- **Content Type**: `application/json` is mandatory for all `POST`, `PUT`, and `PATCH` operations.
+- **Localization**: Use the `Accept-Language` header to request localized content or specify the language for the response.
+
+### 2. GraphQL Namespacing
+- **Constraint**: Newer Liferay versions require versioned namespaces (e.g., `headlessDelivery_v1_0 { ... }`) to avoid naming conflicts. 
+- **Mandatory Pattern**: Always wrap GraphQL queries and mutations within the appropriate versioned namespace. Non-namespaced APIs are deprecated.
+
+### 3. Site Identification Resolution
+- **Constraint**: From 2025.Q3+, endpoints accepting `{siteId}` also accept the **Site Key** or **External Reference Code**.
+- **Resolution Priority**: If values conflict, Liferay resolves them in this order:
+    1.  **Site Key** (Highest)
+    2.  **Site ID**
+    3.  **External Reference Code** (Lowest)
+- **Actionable Pattern**: In GraphQL, use the `siteKey` argument where REST would use a `siteId` path parameter.
+
+### 4. HATEOAS & Actions
+- **Feature**: REST responses include an `actions` block containing URLs and methods for permitted operations (e.g., `update`, `delete`).
+- **Usage Recommendation**: Inspect the `actions` block to dynamically determine if an operation is available for the current user/entity state.
+
+------------------------------------------------------------------------
+
 ## Storage strategy
 
 ### Guiding principle
@@ -718,3 +829,19 @@ To provide more granular control over the generated inventory data, the `update-
 1.  **Distribution Gate**: The `inventoryAssignmentRatio` (0-100) is applied per product. A random check determines if a product receives any inventory entries across the assigned warehouses.
 2.  **Dynamic Quantity Generation**: When a SKU does not have an explicitly assigned quantity, a random value is generated within the range defined by `inventoryMin` and `inventoryMax`.
 3.  **Deduplication and Summing**: If multiple assignments result in the same SKU/Warehouse pair (e.g., due to different source data paths), the quantities are summed and deduplicated before the batch UPSERT to prevent Batch Engine collisions.
+
+### Price List & Pricing Engineering Learnings (Architecture Finding)
+
+Investigation into Price List creation and scoping revealed critical constraints within Liferay Commerce Pricing V2.0:
+
+1.  **Base Price List Conflict**: Liferay allows only **one** base price list per catalog and type. Attempting to create a second one (e.g., with `catalogBasePriceList: true`) results in a `DuplicateCommerceBasePriceListException` (500 Error).
+    *   **Actionable Pattern**: Always set `catalogBasePriceList: false` for generated Price Lists to ensure they can coexist with any existing system base price list.
+2.  **Deletion Protection**: To prevent accidental deletion of critical system data, the deletion workflow must strictly protect base price lists that do not belong to the application's own namespace.
+    *   **Actionable Pattern**: Only delete price lists and promotions that are either marked as non-base OR carry the application's unique prefix (e.g., `AICA-`).
+3.  **Numeric ID Scoping (Indexing Resilience)**: ERC-based scoping for batch operations (e.g., price entries) is highly vulnerable to Liferay's indexing lag. If a parent Price List is created and its children are submitted immediately, Liferay may fail to "discover" the parent by ERC.
+    *   **Actionable Pattern**: Capture and prioritize numeric IDs (`priceListId`) over ERCs for all batch scoping and item properties. Bypassing ERC discovery at the database level ensures 100% reliability immediately after parent creation.
+4.  **Path and Parameter Constraints**:
+    *   **Case Sensitivity**: Pricing V2.0 Headless API strictly requires `camelCase` for ERC path segments (`by-externalReferenceCode`).
+    *   **Batch URL Redundancy**: Avoid passing parent identifiers (like `priceListId`) as query parameters to nested batch endpoints (e.g., `/price-lists/price-entries/batch`). Liferay often interprets these as identifiers for the *ImportTask* object itself, leading to ERC collisions ("external reference code already in use").
+    *   **Scoping Priority**: Rely entirely on item-level properties (within each record in the batch body) for scoping to avoid URL-based conflicts.
+5.  **Soft Fallback Handling**: SDK methods that demote 404s to "Soft Results" (returning an empty object instead of throwing) must be handled carefully by callers. A "Soft Empty" result must be explicitly checked to trigger creation logic, otherwise the system will incorrectly assume the entity exists.

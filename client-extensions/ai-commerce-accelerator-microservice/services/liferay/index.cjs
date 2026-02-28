@@ -3,6 +3,7 @@ const LiferayGraphQLService = require('./graphql.cjs');
 const { asItems, asCount } = require('../../utils/liferayUtils.cjs');
 const { PATH } = require('../../utils/liferayPaths.cjs');
 const { delay } = require('../../utils/misc.cjs');
+const { ERC_PREFIX } = require('../../utils/constants.cjs');
 
 class LiferayService {
   constructor(ctx) {
@@ -15,14 +16,19 @@ class LiferayService {
 
   async getProducts(
     config,
-    { catalogId, pageSize = 200, fields = 'productId', filter: providedFilter } = {},
+    {
+      catalogId,
+      pageSize = 200,
+      fields = 'productId',
+      filter: providedFilter,
+    } = {}
   ) {
     const exclusions = await this._getExclusions(config, 'product');
 
     const filters = [];
     if (catalogId) filters.push(`catalogId eq ${catalogId}`);
     if (providedFilter) filters.push(providedFilter);
-    
+
     const nameFilter = this._buildNameExclusionFilter(exclusions);
     if (nameFilter) {
       filters.push(nameFilter);
@@ -30,20 +36,39 @@ class LiferayService {
 
     const filter = filters.length > 0 ? filters.join(' and ') : null;
 
-    const requestedFields = new Set(['productId', 'externalReferenceCode', 'name']);
+    const requestedFields = new Set([
+      'productId',
+      'externalReferenceCode',
+      'name',
+    ]);
     if (fields) {
-      const allowed = new Set(['productId', 'externalReferenceCode', 'name', 'id', 'sku']);
-      fields.split(',').forEach(f => { if (allowed.has(f)) requestedFields.add(f); });
+      const allowed = new Set([
+        'productId',
+        'externalReferenceCode',
+        'name',
+        'id',
+        'sku',
+      ]);
+      fields.split(',').forEach((f) => {
+        if (allowed.has(f)) requestedFields.add(f);
+      });
     }
 
-    const res = await this.graphql.getProducts(config, filter, Array.from(requestedFields), {
-      page: 1,
-      pageSize,
-    });
+    const res = await this.graphql.getProducts(
+      config,
+      filter,
+      Array.from(requestedFields),
+      {
+        page: 1,
+        pageSize,
+      }
+    );
 
     const items = asItems(res);
-    const filteredItems = items.filter(it => !this._shouldExclude(it, exclusions));
-    
+    const filteredItems = items.filter(
+      (it) => !this._shouldExclude(it, exclusions)
+    );
+
     return {
       ...res,
       items: filteredItems,
@@ -53,28 +78,50 @@ class LiferayService {
 
   async getAccounts(
     config,
-    { channelId, pageSize = 200, fields = 'id', filter: providedFilter } = {},
+    { channelId, pageSize = 200, fields = 'id', filter: providedFilter } = {}
   ) {
     const exclusions = await this._getExclusions(config, 'account');
 
     const filters = [];
     if (providedFilter) filters.push(providedFilter);
 
-    if (channelId) {
-      try {
-        const res = await this.graphql.getOrders(config, `channelId eq ${channelId}`, ['accountId'], {
-          page: 1,
-          pageSize: 1000,
-        });
+    const prefixFilter = `startswith(externalReferenceCode, '${ERC_PREFIX.ACCOUNT}')`;
 
-        const uniqueIds = [...new Set(asItems(res).map(o => o.accountId))].filter(Boolean);
+    if (channelId) {
+      let channelAccountFilter;
+      try {
+        const res = await this.graphql.getOrders(
+          config,
+          `channelId eq ${channelId}`,
+          ['accountId'],
+          {
+            page: 1,
+            pageSize: 1000,
+          }
+        );
+
+        const uniqueIds = [
+          ...new Set(asItems(res).map((o) => o.accountId)),
+        ].filter(Boolean);
 
         if (uniqueIds.length > 0) {
-          filters.push(`id in (${uniqueIds.join(',')})`);
+          channelAccountFilter = `id in (${uniqueIds.join(',')})`;
         }
       } catch (err) {
-        this.ctx.logger.warn('Failed to discover accounts via channel orders (GraphQL)', { channelId, error: err.message });
+        this.ctx.logger.warn(
+          'Failed to discover accounts via channel orders (GraphQL)',
+          { channelId, error: err.message }
+        );
       }
+
+      if (channelAccountFilter) {
+        filters.push(`(${channelAccountFilter} or ${prefixFilter})`);
+      } else {
+        filters.push(prefixFilter);
+      }
+    } else {
+      // Fallback to prefix-only discovery if no channel is provided
+      filters.push(prefixFilter);
     }
 
     const nameFilter = this._buildNameExclusionFilter(exclusions);
@@ -86,17 +133,32 @@ class LiferayService {
 
     const requestedFields = new Set(['id', 'externalReferenceCode', 'name']);
     if (fields) {
-      const allowed = new Set(['id', 'externalReferenceCode', 'name', 'type', 'status']);
-      fields.split(',').forEach(f => { if (allowed.has(f)) requestedFields.add(f); });
+      const allowed = new Set([
+        'id',
+        'externalReferenceCode',
+        'name',
+        'type',
+        'status',
+      ]);
+      fields.split(',').forEach((f) => {
+        if (allowed.has(f)) requestedFields.add(f);
+      });
     }
 
-    const res = await this.graphql.getAccounts(config, filter, Array.from(requestedFields), {
-      page: 1,
-      pageSize,
-    });
+    const res = await this.graphql.getAccounts(
+      config,
+      filter,
+      Array.from(requestedFields),
+      {
+        page: 1,
+        pageSize,
+      }
+    );
 
     const items = asItems(res);
-    const filteredItems = items.filter(it => !this._shouldExclude(it, exclusions));
+    const filteredItems = items.filter(
+      (it) => !this._shouldExclude(it, exclusions)
+    );
 
     return {
       ...res,
@@ -105,30 +167,48 @@ class LiferayService {
     };
   }
 
-  async getOptionCategories(config, { pageSize = 200, fields = 'id', filter: providedFilter } = {}) {
+  async getOptionCategories(
+    config,
+    { pageSize = 200, fields = 'id', filter: providedFilter } = {}
+  ) {
     const exclusions = await this._getExclusions(config, 'optionCategory');
 
     const requestedFields = new Set(['id', 'externalReferenceCode', 'title']);
     if (fields) {
-      const allowed = new Set(['id', 'externalReferenceCode', 'title', 'key', 'priority']);
-      fields.split(',').forEach(f => { if (allowed.has(f)) requestedFields.add(f); });
+      const allowed = new Set([
+        'id',
+        'externalReferenceCode',
+        'title',
+        'key',
+        'priority',
+      ]);
+      fields.split(',').forEach((f) => {
+        if (allowed.has(f)) requestedFields.add(f);
+      });
     }
 
     const filters = [];
     if (providedFilter) filters.push(providedFilter);
-    
+
     const nameFilter = this._buildNameExclusionFilter(exclusions, 'title');
     if (nameFilter) {
       filters.push(nameFilter);
     }
     const filter = filters.length > 0 ? filters.join(' and ') : null;
 
-    const res = await this.graphql.getOptionCategories(config, filter, Array.from(requestedFields), {
-      page: 1,
-      pageSize,
-    });
+    const res = await this.graphql.getOptionCategories(
+      config,
+      filter,
+      Array.from(requestedFields),
+      {
+        page: 1,
+        pageSize,
+      }
+    );
     const items = asItems(res);
-    const filteredItems = items.filter(it => !this._shouldExclude(it, exclusions));
+    const filteredItems = items.filter(
+      (it) => !this._shouldExclude(it, exclusions)
+    );
 
     return {
       ...res,
@@ -137,27 +217,44 @@ class LiferayService {
     };
   }
 
-  async getSpecifications(config, { pageSize = 200, fields = 'id', filter: providedFilter } = {}) {
+  async getSpecifications(
+    config,
+    { pageSize = 200, fields = 'id', filter: providedFilter } = {}
+  ) {
     const exclusions = await this._getExclusions(config, 'specification');
 
-    const requestedFields = new Set(['id', 'key', 'externalReferenceCode', 'title']);
+    const requestedFields = new Set([
+      'id',
+      'key',
+      'externalReferenceCode',
+      'title',
+    ]);
     if (fields) {
       const allowed = new Set(['id', 'key', 'externalReferenceCode', 'title']);
-      fields.split(',').forEach(f => { if (allowed.has(f)) requestedFields.add(f); });
+      fields.split(',').forEach((f) => {
+        if (allowed.has(f)) requestedFields.add(f);
+      });
     }
 
     const filters = [];
     if (providedFilter) filters.push(providedFilter);
-    
+
     const nameFilter = this._buildNameExclusionFilter(exclusions, 'key');
     if (nameFilter) {
       filters.push(nameFilter);
     }
     const filter = filters.length > 0 ? filters.join(' and ') : null;
 
-    const res = await this.graphql.getSpecifications(config, filter, Array.from(requestedFields), { page: 1, pageSize });
+    const res = await this.graphql.getSpecifications(
+      config,
+      filter,
+      Array.from(requestedFields),
+      { page: 1, pageSize }
+    );
     const items = asItems(res);
-    const filteredItems = items.filter(it => !this._shouldExclude(it, exclusions));
+    const filteredItems = items.filter(
+      (it) => !this._shouldExclude(it, exclusions)
+    );
 
     return {
       ...res,
@@ -166,13 +263,29 @@ class LiferayService {
     };
   }
 
-  async getOptions(config, { pageSize = 200, fields = 'id', filter: providedFilter } = {}) {
+  async getOptions(
+    config,
+    { pageSize = 200, fields = 'id', filter: providedFilter } = {}
+  ) {
     const exclusions = await this._getExclusions(config, 'option');
 
-    const requestedFields = new Set(['id', 'key', 'externalReferenceCode', 'name']);
+    const requestedFields = new Set([
+      'id',
+      'key',
+      'externalReferenceCode',
+      'name',
+    ]);
     if (fields) {
-      const allowed = new Set(['id', 'key', 'externalReferenceCode', 'name', 'fieldType']);
-      fields.split(',').forEach(f => { if (allowed.has(f)) requestedFields.add(f); });
+      const allowed = new Set([
+        'id',
+        'key',
+        'externalReferenceCode',
+        'name',
+        'fieldType',
+      ]);
+      fields.split(',').forEach((f) => {
+        if (allowed.has(f)) requestedFields.add(f);
+      });
     }
 
     const filters = [];
@@ -184,9 +297,16 @@ class LiferayService {
     }
     const filter = filters.length > 0 ? filters.join(' and ') : null;
 
-    const res = await this.graphql.getOptions(config, filter, Array.from(requestedFields), { page: 1, pageSize });
+    const res = await this.graphql.getOptions(
+      config,
+      filter,
+      Array.from(requestedFields),
+      { page: 1, pageSize }
+    );
     const items = asItems(res);
-    const filteredItems = items.filter(it => !this._shouldExclude(it, exclusions));
+    const filteredItems = items.filter(
+      (it) => !this._shouldExclude(it, exclusions)
+    );
 
     return {
       ...res,
@@ -195,27 +315,45 @@ class LiferayService {
     };
   }
 
-  async getOrders(config, { pageSize = 200, fields = 'id', filter: providedFilter } = {}) {
+  async getOrders(
+    config,
+    { pageSize = 200, fields = 'id', filter: providedFilter } = {}
+  ) {
     const exclusions = await this._getExclusions(config, 'order');
 
     const requestedFields = new Set(['id', 'externalReferenceCode']);
     if (fields) {
-      const allowed = new Set(['id', 'externalReferenceCode', 'orderNumber', 'status', 'accountId']);
-      fields.split(',').forEach(f => { if (allowed.has(f)) requestedFields.add(f); });
+      const allowed = new Set([
+        'id',
+        'externalReferenceCode',
+        'orderNumber',
+        'status',
+        'accountId',
+      ]);
+      fields.split(',').forEach((f) => {
+        if (allowed.has(f)) requestedFields.add(f);
+      });
     }
 
     const filters = [];
     if (providedFilter) filters.push(providedFilter);
-    
+
     const nameFilter = this._buildNameExclusionFilter(exclusions);
     if (nameFilter) {
       filters.push(nameFilter);
     }
     const filter = filters.length > 0 ? filters.join(' and ') : null;
 
-    const res = await this.graphql.getOrders(config, filter, Array.from(requestedFields), { page: 1, pageSize });
+    const res = await this.graphql.getOrders(
+      config,
+      filter,
+      Array.from(requestedFields),
+      { page: 1, pageSize }
+    );
     const items = asItems(res);
-    const filteredItems = items.filter(it => !this._shouldExclude(it, exclusions));
+    const filteredItems = items.filter(
+      (it) => !this._shouldExclude(it, exclusions)
+    );
 
     return {
       ...res,
@@ -224,13 +362,18 @@ class LiferayService {
     };
   }
 
-  async getWarehouses(config, { pageSize = 200, fields = 'id', filter: providedFilter } = {}) {
+  async getWarehouses(
+    config,
+    { pageSize = 200, fields = 'id', filter: providedFilter } = {}
+  ) {
     const exclusions = await this._getExclusions(config, 'warehouse');
 
     const requestedFields = new Set(['id', 'externalReferenceCode', 'name']);
     if (fields) {
       const allowed = new Set(['id', 'externalReferenceCode', 'name']);
-      fields.split(',').forEach(f => { if (allowed.has(f)) requestedFields.add(f); });
+      fields.split(',').forEach((f) => {
+        if (allowed.has(f)) requestedFields.add(f);
+      });
     }
 
     const filters = [];
@@ -242,9 +385,16 @@ class LiferayService {
     }
     const filter = filters.length > 0 ? filters.join(' and ') : null;
 
-    const res = await this.graphql.getWarehouses(config, filter, Array.from(requestedFields), { page: 1, pageSize });
+    const res = await this.graphql.getWarehouses(
+      config,
+      filter,
+      Array.from(requestedFields),
+      { page: 1, pageSize }
+    );
     const items = asItems(res);
-    const filteredItems = items.filter(it => !this._shouldExclude(it, exclusions));
+    const filteredItems = items.filter(
+      (it) => !this._shouldExclude(it, exclusions)
+    );
 
     return {
       ...res,
@@ -253,30 +403,47 @@ class LiferayService {
     };
   }
 
-  async getWarehouseItems(config, { pageSize = 200, fields = 'id', filter } = {}) {
+  async getWarehouseItems(
+    config,
+    { pageSize = 200, fields = 'id', filter } = {}
+  ) {
     const warehouses = await this.getWarehouses(config, { pageSize: 1000 });
     const allItems = [];
     let totalCount = 0;
 
     // Standardize requested fields for GraphQL
-    const requestedFields = new Set(['id', 'externalReferenceCode', 'sku', 'quantity']);
+    const requestedFields = new Set([
+      'id',
+      'externalReferenceCode',
+      'sku',
+      'quantity',
+    ]);
     if (fields) {
-      fields.split(',').forEach(f => requestedFields.add(f.trim()));
+      fields.split(',').forEach((f) => requestedFields.add(f.trim()));
     }
 
     for (const warehouse of warehouses.items) {
       try {
-        const res = await this.graphql.getWarehouseItems(config, warehouse.id, filter, Array.from(requestedFields), {
-          page: 1,
-          pageSize,
-        });
+        const res = await this.graphql.getWarehouseItems(
+          config,
+          warehouse.id,
+          filter,
+          Array.from(requestedFields),
+          {
+            page: 1,
+            pageSize,
+          }
+        );
         const items = asItems(res);
         allItems.push(...items);
-        totalCount += (res.totalCount || items.length);
+        totalCount += res.totalCount || items.length;
       } catch (err) {
-        this.ctx.logger.warn(`Failed to list warehouse items via GraphQL for ${warehouse.id}`, { error: err.message });
+        this.ctx.logger.warn(
+          `Failed to list warehouse items via GraphQL for ${warehouse.id}`,
+          { error: err.message }
+        );
       }
-      
+
       if (allItems.length >= pageSize) break;
     }
 
@@ -285,34 +452,60 @@ class LiferayService {
 
   async getPriceLists(
     config,
-    { pageSize = 200, fields = 'id', type = 'price-list', filter: providedFilter } = {},
+    {
+      pageSize = 200,
+      fields = 'id',
+      type = 'price-list',
+      filter: providedFilter,
+      search,
+      ignoreExclusions = false,
+    } = {}
   ) {
-    const exclusions = await this._getExclusions(config, 'priceList');
+    const exclusions = ignoreExclusions
+      ? []
+      : await this._getExclusions(config, 'priceList');
 
-    const requestedFields = new Set(['id', 'externalReferenceCode', 'name', 'catalogBasePriceList', 'type']);
-    if (fields) {
-      const allowed = new Set(['id', 'externalReferenceCode', 'name', 'catalogBasePriceList', 'type', 'currencyCode']);
-      fields.split(',').forEach(f => { if (allowed.has(f)) requestedFields.add(f); });
-    }
-
-    const filters = [`type eq '${type}'`, `catalogBasePriceList eq false` ];
-    if (providedFilter) filters.push(providedFilter);
-    
-    const nameFilter = this._buildNameExclusionFilter(exclusions);
-    if (nameFilter) {
-      filters.push(nameFilter);
-    }
-
-    const filter = filters.join(' and ');
-
-    const res = await this.graphql.getPriceLists(config, filter, Array.from(requestedFields), { page: 1, pageSize });
+    // Fetch all price lists without filters or search to avoid Pricing V2.0 REST API limitations
+    const res = await this.rest.getPriceLists(config, { pageSize: 1000 });
     const items = asItems(res);
-    const filteredItems = items.filter(it => !this._shouldExclude(it, exclusions));
+
+    // Parse catalogId from providedFilter if it exists (e.g. "catalogId eq 123")
+    let targetCatalogId = null;
+    if (providedFilter && providedFilter.includes('catalogId eq')) {
+      const match = providedFilter.match(/catalogId eq (\d+)/);
+      if (match) targetCatalogId = parseInt(match[1], 10);
+    }
+
+    const filteredItems = items.filter((it) => {
+      // Filter by type (robust comparison) - skip if type is explicitly null
+      if (type !== null) {
+        const normalize = (s) =>
+          String(s || '')
+            .toLowerCase()
+            .replace(/[-_]/g, '');
+        if (normalize(it.type) !== normalize(type)) return false;
+      }
+
+      // Filter by catalogId if requested
+      if (targetCatalogId && Number(it.catalogId) !== Number(targetCatalogId))
+        return false;
+
+      // Filter by search term (case-insensitive) if provided
+      if (search) {
+        const term = search.toLowerCase();
+        const nameMatch = it.name?.toLowerCase().includes(term);
+        const ercMatch = it.externalReferenceCode?.toLowerCase().includes(term);
+        if (!nameMatch && !ercMatch) return false;
+      }
+
+      // Filter by exclusions
+      return !this._shouldExclude(it, exclusions);
+    });
 
     return {
       ...res,
       items: filteredItems,
-      totalCount: res.totalCount,
+      totalCount: filteredItems.length,
     };
   }
 
@@ -324,12 +517,20 @@ class LiferayService {
 
   async deleteByFilter(
     config,
-    { entityName, filter, nativeBatch, ids: providedIds, items: providedItems, channelId, ...rest },
+    {
+      entityName,
+      filter,
+      nativeBatch,
+      ids: providedIds,
+      items: providedItems,
+      channelId,
+      ...rest
+    }
   ) {
     const { logger } = this.ctx;
 
     const exclusions = await this._getExclusions(config, entityName);
-    
+
     // Define discovery fields per entity to avoid GraphQL DataFetchingException
     const DISCOVERY_FIELDS = {
       product: 'productId,externalReferenceCode,name',
@@ -344,16 +545,23 @@ class LiferayService {
       optionCategory: 'id,externalReferenceCode,title,key',
     };
 
-    const fieldsParam = DISCOVERY_FIELDS[entityName] || 'id,externalReferenceCode,name';
+    const fieldsParam =
+      DISCOVERY_FIELDS[entityName] || 'id,externalReferenceCode,name';
 
     let totalDeleted = 0;
     const batchRefs = [];
 
     const processBatch = async (items) => {
-      const filteredItems = items.filter(it => !this._shouldExclude(it, exclusions));
-      
+      const filteredItems = items.filter(
+        (it) => !this._shouldExclude(it, exclusions)
+      );
+
       const ids = filteredItems
-        .map(it => entityName === 'product' ? (it.productId || it.id) : (it.id || it.productId))
+        .map((it) =>
+          entityName === 'product'
+            ? it.productId || it.id
+            : it.id || it.productId
+        )
         .filter(Boolean);
 
       if (ids.length === 0) return;
@@ -374,7 +582,7 @@ class LiferayService {
         });
       }
 
-      totalDeleted += (result.count || 0);
+      totalDeleted += result.count || 0;
       if (result.batchRefs) batchRefs.push(...result.batchRefs);
     };
 
@@ -386,10 +594,11 @@ class LiferayService {
     } else if (providedIds && providedIds.length > 0) {
       const idChunks = this.rest._chunkArray(providedIds, 200);
       for (const idChunk of idChunks) {
-        const idFilter = entityName === 'product' 
-          ? `productId in (${idChunk.join(',')})`
-          : `id in (${idChunk.join(',')})`;
-        
+        const idFilter =
+          entityName === 'product'
+            ? `productId in (${idChunk.join(',')})`
+            : `id in (${idChunk.join(',')})`;
+
         const items = await this.rest._collectPagedItems(config, {
           listUrl: rest.listUrl,
           pageSize: 200,
@@ -408,35 +617,83 @@ class LiferayService {
       while (hasMore) {
         let res;
         if (entityName === 'account') {
-          res = await this.getAccounts(config, { channelId, pageSize, fields: fieldsParam, filter });
+          res = await this.getAccounts(config, {
+            channelId,
+            pageSize,
+            fields: fieldsParam,
+            filter,
+          });
         } else if (entityName === 'priceList') {
-          res = await this.getPriceLists(config, { pageSize, fields: fieldsParam, filter });
+          res = await this.getPriceLists(config, {
+            pageSize,
+            fields: fieldsParam,
+            filter,
+          });
         } else if (entityName === 'promotion') {
-          res = await this.getPromotions(config, { pageSize, fields: fieldsParam, filter });
+          res = await this.getPromotions(config, {
+            pageSize,
+            fields: fieldsParam,
+            filter,
+          });
         } else if (entityName === 'product') {
-          res = await this.getProducts(config, { catalogId: rest.catalogId, pageSize, fields: fieldsParam, filter });
+          res = await this.getProducts(config, {
+            catalogId: rest.catalogId,
+            pageSize,
+            fields: fieldsParam,
+            filter,
+          });
         } else if (entityName === 'warehouseItem') {
-          res = await this.getWarehouseItems(config, { pageSize, fields: fieldsParam, filter });
+          res = await this.getWarehouseItems(config, {
+            pageSize,
+            fields: fieldsParam,
+            filter,
+          });
         } else if (entityName === 'specification') {
-          res = await this.getSpecifications(config, { pageSize, fields: fieldsParam, filter });
+          res = await this.getSpecifications(config, {
+            pageSize,
+            fields: fieldsParam,
+            filter,
+          });
         } else if (entityName === 'option') {
-          res = await this.getOptions(config, { pageSize, fields: fieldsParam, filter });
+          res = await this.getOptions(config, {
+            pageSize,
+            fields: fieldsParam,
+            filter,
+          });
         } else if (entityName === 'optionCategory') {
-          res = await this.getOptionCategories(config, { pageSize, fields: fieldsParam, filter });
+          res = await this.getOptionCategories(config, {
+            pageSize,
+            fields: fieldsParam,
+            filter,
+          });
         } else if (entityName === 'order') {
-          res = await this.getOrders(config, { pageSize, fields: fieldsParam, filter });
+          res = await this.getOrders(config, {
+            pageSize,
+            fields: fieldsParam,
+            filter,
+          });
         } else if (entityName === 'warehouse') {
-          res = await this.getWarehouses(config, { pageSize, fields: fieldsParam, filter });
+          res = await this.getWarehouses(config, {
+            pageSize,
+            fields: fieldsParam,
+            filter,
+          });
         } else {
           // Absolute REST fallback for non-GraphQL entities
-          res = await this.rest._get(config, rest.listUrl, `${entityName}:list`, `List ${entityName}`, {
-            params: {
-              page,
-              pageSize,
-              filter,
-              fields: fieldsParam,
-            },
-          });
+          res = await this.rest._get(
+            config,
+            rest.listUrl,
+            `${entityName}:list`,
+            `List ${entityName}`,
+            {
+              params: {
+                page,
+                pageSize,
+                filter,
+                fields: fieldsParam,
+              },
+            }
+          );
         }
 
         const items = asItems(res);
@@ -454,8 +711,11 @@ class LiferayService {
         }
 
         if (page > 1000) {
-           logger.warn('Safety break hit in deleteByFilter pagination', { entityName, sessionId: rest.sessionId });
-           break;
+          logger.warn('Safety break hit in deleteByFilter pagination', {
+            entityName,
+            sessionId: rest.sessionId,
+          });
+          break;
         }
       }
     }
@@ -472,7 +732,7 @@ class LiferayService {
       dryRun = false,
       sessionId,
       items,
-    } = {},
+    } = {}
   ) {
     return this.deleteByFilter(config, {
       entityName: 'priceList',
@@ -499,7 +759,7 @@ class LiferayService {
       dryRun = false,
       sessionId,
       items,
-    } = {},
+    } = {}
   ) {
     return this.deleteByFilter(config, {
       entityName: 'promotion',
@@ -527,7 +787,7 @@ class LiferayService {
       sessionId,
       items,
       catalogId,
-    } = {},
+    } = {}
   ) {
     return this.deleteByFilter(config, {
       entityName: 'product',
@@ -556,7 +816,7 @@ class LiferayService {
       sessionId,
       items,
       channelId,
-    } = {},
+    } = {}
   ) {
     return this.deleteByFilter(config, {
       entityName: 'account',
@@ -584,7 +844,7 @@ class LiferayService {
       dryRun = false,
       sessionId,
       items,
-    } = {},
+    } = {}
   ) {
     return this.deleteByFilter(config, {
       entityName: 'order',
@@ -611,7 +871,7 @@ class LiferayService {
       dryRun = false,
       sessionId,
       items,
-    } = {},
+    } = {}
   ) {
     return this.deleteByFilter(config, {
       entityName: 'warehouse',
@@ -639,7 +899,7 @@ class LiferayService {
       dryRun = false,
       sessionId,
       items,
-    } = {},
+    } = {}
   ) {
     return this.deleteByFilter(config, {
       entityName: 'warehouseItem',
@@ -650,7 +910,9 @@ class LiferayService {
       sessionId,
       nativeBatch: true,
       path: PATH.WAREHOUSE_INVENTORIES_DELETE_BATCH,
-      listUrl: PATH.WAREHOUSE_INVENTORIES_DELETE_BATCH('').split('?')[0].replace('/batch', ''),
+      listUrl: PATH.WAREHOUSE_INVENTORIES_DELETE_BATCH('')
+        .split('?')[0]
+        .replace('/batch', ''),
       op: 'inventory:batch-delete',
       friendly: 'Delete inventory items (batch)',
       items,
@@ -667,7 +929,7 @@ class LiferayService {
       dryRun = false,
       sessionId,
       items,
-    } = {},
+    } = {}
   ) {
     return this.deleteByFilter(config, {
       entityName: 'specification',
@@ -696,7 +958,7 @@ class LiferayService {
       dryRun = false,
       sessionId,
       items,
-    } = {},
+    } = {}
   ) {
     return this.deleteByFilter(config, {
       entityName: 'option',
@@ -725,7 +987,7 @@ class LiferayService {
       dryRun = false,
       sessionId,
       items,
-    } = {},
+    } = {}
   ) {
     return this.deleteByFilter(config, {
       entityName: 'optionCategory',
@@ -758,7 +1020,7 @@ class LiferayService {
   async _getExclusions(config, entityName) {
     const { config: configService } = this.ctx;
     const excludeLists = await configService.getExcludeLists(config);
-    
+
     const keyMap = {
       account: 'excludedAccounts',
       product: 'excludedProducts',
@@ -777,15 +1039,34 @@ class LiferayService {
 
   _shouldExclude(item, exclusions) {
     if (item.system === true || item.system === 'true') return true;
-    if (item.catalogBasePriceList === true || item.catalogBasePriceList === 'true') return true;
-    
+
+    if (
+      item.catalogBasePriceList === true ||
+      item.catalogBasePriceList === 'true'
+    ) {
+      if (
+        !item.externalReferenceCode ||
+        !item.externalReferenceCode.startsWith('AICA-')
+      ) {
+        return true;
+      }
+    }
+
     if (!exclusions || exclusions.length === 0) return false;
 
     return exclusions.some((ex) => {
-      const idMatch = ex.entityId && (String(item.id) === String(ex.entityId) || String(item.productId) === String(ex.entityId));
+      const idMatch =
+        ex.entityId &&
+        (String(item.id) === String(ex.entityId) ||
+          String(item.productId) === String(ex.entityId));
       const ercMatch = ex.erc && item.externalReferenceCode === ex.erc;
-      const nameMatch = ex.name && (item.name === ex.name || item.title === ex.name || (typeof item.name === 'object' && Object.values(item.name).includes(ex.name)));
-      
+      const nameMatch =
+        ex.name &&
+        (item.name === ex.name ||
+          item.title === ex.name ||
+          (typeof item.name === 'object' &&
+            Object.values(item.name).includes(ex.name)));
+
       return idMatch || ercMatch || nameMatch;
     });
   }
@@ -833,7 +1114,7 @@ class LiferayService {
   getImportTaskSubmittedContent(config, batchId) {
     return this.rest.getImportTaskSubmittedContent(config, batchId);
   }
-  
+
   getImportTaskFailedItemReport(config, batchId) {
     return this.rest.getImportTaskFailedItemReport(config, batchId);
   }
@@ -859,7 +1140,12 @@ class LiferayService {
   }
 
   updateProductInventory(config, warehouseId, sku, inventoryData) {
-    return this.rest.updateProductInventory(config, warehouseId, sku, inventoryData);
+    return this.rest.updateProductInventory(
+      config,
+      warehouseId,
+      sku,
+      inventoryData
+    );
   }
 
   updateInventory(config, warehouseId, sku, inventoryData) {
@@ -914,7 +1200,14 @@ class LiferayService {
     const res = await this.graphql.getCountries(config);
     countries = asItems(res);
 
-    cache.set(cacheKey, countries, 900000);
+    if (countries && countries.length > 0) {
+      cache.set(cacheKey, countries, 900000);
+    } else {
+      this.ctx.logger.warn(
+        'Fetched 0 countries from Liferay. Not caching empty result.'
+      );
+    }
+
     return countries;
   }
 
@@ -939,7 +1232,12 @@ class LiferayService {
   }
 
   createAccountAddressBatch(config, accountId, addressesData, opts) {
-    return this.rest.createAccountAddressBatch(config, accountId, addressesData, opts);
+    return this.rest.createAccountAddressBatch(
+      config,
+      accountId,
+      addressesData,
+      opts
+    );
   }
 
   createAccountsBatch(config, accountsData, opts) {
@@ -958,8 +1256,16 @@ class LiferayService {
     return this.rest.createPriceList(config, priceListData);
   }
 
+  patchPriceList(config, priceListId, priceListData) {
+    return this.rest.patchPriceList(config, priceListId, priceListData);
+  }
+
   getPriceListByERC(config, externalReferenceCode) {
     return this.rest.getPriceListByERC(config, externalReferenceCode);
+  }
+
+  createPriceListsBatch(config, priceListsData, opts) {
+    return this.rest.createPriceListsBatch(config, priceListsData, opts);
   }
 
   createPriceEntriesBatch(config, priceEntriesData, opts) {
@@ -971,7 +1277,12 @@ class LiferayService {
   }
 
   createSkuPriceEntry(config, priceListId, skuId, priceEntryData) {
-    return this.rest.createSkuPriceEntry(config, priceListId, skuId, priceEntryData);
+    return this.rest.createSkuPriceEntry(
+      config,
+      priceListId,
+      skuId,
+      priceEntryData
+    );
   }
 
   createProductSku(config, productId, skuData) {
@@ -983,7 +1294,11 @@ class LiferayService {
   }
 
   addProductDocumentAttachment(config, productId, attachment) {
-    return this.rest.addProductDocumentAttachment(config, productId, attachment);
+    return this.rest.addProductDocumentAttachment(
+      config,
+      productId,
+      attachment
+    );
   }
 
   addProductImageByBase64(config, productERC, image) {
@@ -991,7 +1306,11 @@ class LiferayService {
   }
 
   addProductDocumentAttachmentByBase64(config, productERC, attachment) {
-    return this.rest.addProductDocumentAttachmentByBase64(config, productERC, attachment);
+    return this.rest.addProductDocumentAttachmentByBase64(
+      config,
+      productERC,
+      attachment
+    );
   }
 
   addProductImageMultipart(config, productId, data) {
@@ -999,7 +1318,11 @@ class LiferayService {
   }
 
   addProductDocumentAttachmentMultipart(config, productId, data) {
-    return this.rest.addProductDocumentAttachmentMultipart(config, productId, data);
+    return this.rest.addProductDocumentAttachmentMultipart(
+      config,
+      productId,
+      data
+    );
   }
 
   addProductImageDocumentLibrary(config, productId, data) {
@@ -1007,7 +1330,11 @@ class LiferayService {
   }
 
   addProductDocumentAttachmentDocumentLibrary(config, productId, data) {
-    return this.rest.addProductDocumentAttachmentDocumentLibrary(config, productId, data);
+    return this.rest.addProductDocumentAttachmentDocumentLibrary(
+      config,
+      productId,
+      data
+    );
   }
 
   addProductOptions(config, productId, productOptions) {
@@ -1023,7 +1350,11 @@ class LiferayService {
   }
 
   deleteProductSpecification(config, productId, productSpecificationId) {
-    return this.rest.deleteProductSpecification(config, productId, productSpecificationId);
+    return this.rest.deleteProductSpecification(
+      config,
+      productId,
+      productSpecificationId
+    );
   }
 
   async getProductSpecifications(config, productId) {
@@ -1055,19 +1386,28 @@ class LiferayService {
   }
 
   getOptionValueByERC(config, optionId, externalReferenceCode) {
-    return this.rest.getOptionValueByERC(config, optionId, externalReferenceCode);
+    return this.rest.getOptionValueByERC(
+      config,
+      optionId,
+      externalReferenceCode
+    );
   }
 
   getOptionValueByKey(config, optionId, key) {
     return this.rest.getOptionValueByKey(config, optionId, key);
   }
-  
+
   updateOptionValueById(config, optionId, valueId, payload) {
     return this.rest.updateOptionValueById(config, optionId, valueId, payload);
   }
 
   updateOptionValueByERC(config, optionId, externalReferenceCode, payload) {
-    return this.rest.updateOptionValueByERC(config, optionId, externalReferenceCode, payload);
+    return this.rest.updateOptionValueByERC(
+      config,
+      optionId,
+      externalReferenceCode,
+      payload
+    );
   }
 
   createOptionValueWithReuse(config, optionId, payload) {
@@ -1089,7 +1429,7 @@ class LiferayService {
   createOptionCategoryWithReuse(config, payload) {
     return this.rest.createOptionCategoryWithReuse(config, payload);
   }
-  
+
   getOptionCategoryByERC(config, externalReferenceCode) {
     return this.rest.getOptionCategoryByERC(config, externalReferenceCode);
   }
@@ -1106,8 +1446,18 @@ class LiferayService {
     return this.rest.createSpecificationWithReuse(config, payload);
   }
 
-  setBillingAndShippingAddresses(config, accountId, shippingAddressId, billingAddressId) {
-    return this.rest.setBillingAndShippingAddresses(config, accountId, shippingAddressId, billingAddressId);
+  setBillingAndShippingAddresses(
+    config,
+    accountId,
+    shippingAddressId,
+    billingAddressId
+  ) {
+    return this.rest.setBillingAndShippingAddresses(
+      config,
+      accountId,
+      shippingAddressId,
+      billingAddressId
+    );
   }
 
   // Resilient Resolution Utility
@@ -1122,14 +1472,19 @@ class LiferayService {
     try {
       // The resolver (usually GraphQL) now handles its own internal retry loop for STALE_INDEX
       const resolvedItems = await resolverFn(config, ercs);
-      
-      const resolvedErcs = new Set(resolvedItems.filter(Boolean).map(it => it.externalReferenceCode));
-      const missingCount = ercs.filter(erc => !resolvedErcs.has(erc)).length;
+
+      const resolvedErcs = new Set(
+        resolvedItems.filter(Boolean).map((it) => it.externalReferenceCode)
+      );
+      const missingCount = ercs.filter((erc) => !resolvedErcs.has(erc)).length;
 
       if (missingCount > 0) {
-        logger.warn(`Resolution complete for ${label} but ${missingCount} IDs are still missing.`, {
-          correlationId: config.correlationId,
-        });
+        logger.warn(
+          `Resolution complete for ${label} but ${missingCount} IDs are still missing.`,
+          {
+            correlationId: config.correlationId,
+          }
+        );
       } else {
         logger.debug(`Successfully resolved all ${ercs.length} ${label}.`, {
           correlationId: config.correlationId,
@@ -1148,7 +1503,11 @@ class LiferayService {
 
   // Other Coordination/Logic
   getSpecificationsByProductIds(config, productIds, fields) {
-    return this.graphql.getSpecificationsByProductIds(config, productIds, fields);
+    return this.graphql.getSpecificationsByProductIds(
+      config,
+      productIds,
+      fields
+    );
   }
 
   getOptionsByProductIds(config, productIds, fields) {
@@ -1169,6 +1528,10 @@ class LiferayService {
 
   getPostalAddressesByERC(config, ercs, fields) {
     return this.graphql.getPostalAddressesByERC(config, ercs, fields);
+  }
+
+  getSkusByERC(config, ercs, fields) {
+    return this.graphql.getSkusByERC(config, ercs, fields);
   }
 }
 

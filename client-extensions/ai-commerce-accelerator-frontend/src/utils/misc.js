@@ -11,7 +11,7 @@ function normalizeEntityType(t) {
   if (s === 'pdfs' || s === 'attach-pdfs' || s === 'process-pdfs') return 'pdfs';
   if (s === 'specifications' || s === 'deletespecifications' || s === 'deleteproductspecifications') return 'specifications';
   if (s === 'options' || s === 'link-product-options' || s === 'deleteoptions' || s === 'deleteproductoptions') return 'options';
-  if (s === 'price-lists' || s === 'deletepricelists') return 'price-lists';
+  if (s === 'price-lists' || s === 'deletepricelists' || s === 'update-catalog-configuration' || s === 'resetcatalogconfiguration') return 'price-lists';
   if (s === 'promotions' || s === 'deletepromotions') return 'promotions';
 
   // Fallbacks

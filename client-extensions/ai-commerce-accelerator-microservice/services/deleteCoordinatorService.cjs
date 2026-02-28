@@ -13,6 +13,7 @@ class DeleteCoordinatorService {
     const { channelId, catalogId } = config;
 
     const steps = [
+      { name: 'resetCatalogConfiguration', type: 'sync' },
       { name: 'deleteOrders', type: 'sync' },
       { name: 'deleteWarehouses', type: 'sync' },
       { name: 'deleteAccounts', type: 'sync' },
@@ -67,7 +68,7 @@ class DeleteCoordinatorService {
     const sessionId = createERC(ERC_PREFIX.BATCH_SESSION);
 
     // deleteScope is expected to be an array of step objects, e.g., [{ name: 'deleteAccounts', type: 'sync' }]
-    const steps = Array.isArray(deleteScope) ? deleteScope : [];
+    let steps = Array.isArray(deleteScope) ? [...deleteScope] : [];
 
     if (steps.length === 0) {
       return {
@@ -75,6 +76,12 @@ class DeleteCoordinatorService {
         message: 'No entities selected for deletion.',
         steps: [],
       };
+    }
+
+    // Always prepend resetCatalogConfiguration if price lists or promotions are involved
+    const hasPricing = steps.some(s => s.name === 'deletePriceLists' || s.name === 'deletePromotions');
+    if (hasPricing && !steps.some(s => s.name === 'resetCatalogConfiguration')) {
+      steps.unshift({ name: 'resetCatalogConfiguration', type: 'sync' });
     }
 
     await persistence.createSession({

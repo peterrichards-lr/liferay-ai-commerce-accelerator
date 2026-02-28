@@ -277,11 +277,12 @@ function createWebSocketService({
       );
       const targetCount = countIterable(targets);
       const msgType = message?.type ?? '(no-type)';
+      const logCID = correlationId ?? message?.correlationId ?? '∅';
 
       logger?.trace?.(
-        `[ws:send] type=${msgType} mode=${mode} cid=${
-          correlationId ?? '∅'
-        } bid=${bid ?? '∅'} → ${targetCount} target(s)`
+        `[ws:send] type=${msgType} mode=${mode} cid=${logCID} bid=${
+          bid ?? '∅'
+        } → ${targetCount} target(s)`
       );
 
       if (!message?.type) {
@@ -323,8 +324,9 @@ function createWebSocketService({
     return run()
       .then((res) => {
         const t = message?.type ?? '(unknown)';
+        const logCID = correlationId ?? message?.correlationId ?? '∅';
         logger?.trace?.(
-          `[ws:sent] type=${t} cid=${correlationId ?? '∅'} bid=${
+          `[ws:sent] type=${t} cid=${logCID} bid=${
             bid ?? '∅'
           } attempts=${res.attempts} sent=${res.last.sent}/${
             res.last.open

@@ -96,7 +96,7 @@ module.exports = (app, { batchCallbackService, logger, ws }) => {
 
     try {
       const batchERC = req.query.batchExternalReferenceCode;
-      const correlationId = req.correlationId; // Middleware already populated this from query or header
+      const correlationId = req.query.correlationId;
       await batchCallbackService.processCallback(batchERC, req.body, correlationId);
     } catch (error) {
       safeErrorResponse({

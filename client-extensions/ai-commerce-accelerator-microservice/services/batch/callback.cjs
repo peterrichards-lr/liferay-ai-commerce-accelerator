@@ -76,7 +76,10 @@ class BatchCallbackService {
 
     if (this.processingSessions.has(sessionId)) {
       this.sessionDirtyFlags.add(sessionId);
-      logger.debug('Session already being processed, marked as dirty.', { sessionId });
+      logger.debug('Session already being processed, marked as dirty.', {
+        sessionId,
+        correlationId: correlationId || 'system',
+      });
       return;
     }
 
@@ -208,13 +211,22 @@ class BatchCallbackService {
       const isStepFailed = batchesForStep.some(b => b.status === 'FAILED');
 
       if (isStepFailed) {
-        logger.error(`Step '${stepName}' failed.`, { sessionId, stepName });
+        logger.error(`Step '${stepName}' failed.`, {
+          sessionId,
+          stepName,
+          correlationId,
+        });
         hasFailures = true;
-        break; 
+        break;
       }
 
       if (isStepCompleted) {
-        logger.info(`Step '${stepName}' completed.`, { sessionId, stepName, stepType });
+        logger.info(`Step '${stepName}' completed.`, {
+          sessionId,
+          stepName,
+          stepType,
+          correlationId,
+        });
         
         // Emit step completion
         const totalCount = batchesForStep.reduce((sum, b) => sum + (b.total_count || 0), 0);
@@ -264,7 +276,11 @@ class BatchCallbackService {
         for (const subStep of step.steps) {
           const subStepName = typeof subStep === 'string' ? subStep : subStep.name;
           if (!completedStepNames.has(subStepName) && !runningStepNames.has(subStepName)) {
-            logger.info(`Starting parallel sub-step '${subStepName}'`, { sessionId, subStepName });
+            logger.info(`Starting parallel sub-step '${subStepName}'`, {
+              sessionId,
+              subStepName,
+              correlationId,
+            });
             newActiveSteps.push(subStep);
             await this._startStep(subStep, sessionId, config, correlationId);
             startedAny = true;
@@ -280,7 +296,11 @@ class BatchCallbackService {
       }
       else if (stepType === 'async') {
         if (!completedStepNames.has(stepName) && !runningStepNames.has(stepName)) {
-          logger.info(`Starting async step '${stepName}'`, { sessionId, stepName });
+          logger.info(`Starting async step '${stepName}'`, {
+            sessionId,
+            stepName,
+            correlationId,
+          });
           // Async steps don't block, so we start them and continue the loop
           await this._startStep(step, sessionId, config, correlationId);
           startedAny = true;
@@ -296,7 +316,11 @@ class BatchCallbackService {
       }
       else { // sync
         if (!completedStepNames.has(stepName) && !runningStepNames.has(stepName)) {
-          logger.info(`Starting step '${stepName}'`, { sessionId, nextStepName: stepName });
+          logger.info(`Starting step '${stepName}'`, {
+            sessionId,
+            nextStepName: stepName,
+            correlationId,
+          });
           newActiveSteps.push(step);
           await this._startStep(step, sessionId, config, correlationId);
           return { newActiveSteps, startedAny: true };
@@ -344,7 +368,10 @@ class BatchCallbackService {
       if (hasAnyFailures) {
         const failed = await persistence.tryFailSession(sessionId);
         if (failed) {
-          logger.error('Session failed due to batch processing errors detected during finalization', { sessionId });
+          logger.error(
+            'Session failed due to batch processing errors detected during finalization',
+            { sessionId, correlationId }
+          );
           progress.sessionFailed({
             sessionId,
             error: { message: 'One or more steps failed during the workflow.' },
@@ -357,7 +384,10 @@ class BatchCallbackService {
       // Atomic transition to COMPLETED
       const success = await persistence.tryFinalizeSession(sessionId);
       if (!success) {
-        logger.debug('Session already terminal, skipping redundant finalization.', { sessionId });
+        logger.debug(
+          'Session already terminal, skipping redundant finalization.',
+          { sessionId, correlationId }
+        );
         return;
       }
 
@@ -418,7 +448,7 @@ class BatchCallbackService {
     if (!session || !session.context) {
       logger.error(
         `Cannot start step '${stepName}': Session or session context missing.`,
-        { sessionId, stepName }
+        { sessionId, stepName, correlationId }
       );
       await persistence.updateSession(sessionId, { status: 'FAILED' });
       return;
@@ -428,7 +458,7 @@ class BatchCallbackService {
 
     logger.info(
       `Attempting to start step handler for '${stepName}' (Flow: ${flowType})`,
-      { sessionId, stepName, flowType }
+      { sessionId, stepName, flowType, correlationId }
     );
 
     // Emit step start
@@ -467,7 +497,7 @@ class BatchCallbackService {
         } else {
           logger.warn(
             `No generation handler found for step '${stepName}'`,
-            { sessionId, stepName, flowType }
+            { sessionId, stepName, flowType, correlationId }
           );
           await persistence.createBatch({
             erc: createERC(ERC_PREFIX.BATCH),
@@ -485,7 +515,7 @@ class BatchCallbackService {
         } else {
           logger.warn(
             `No handler found for step '${stepName}' in flow '${flowType}'`,
-            { sessionId }
+            { sessionId, correlationId }
           );
           await persistence.createBatch({
             erc: createERC(ERC_PREFIX.BATCH),
@@ -502,11 +532,12 @@ class BatchCallbackService {
           options: session.context.options,
           channelId,
           catalogId,
+          correlationId,
         });
       } else {
         logger.warn(
           `No handler found for step '${stepName}' in flow '${flowType}'`,
-          { sessionId }
+          { sessionId, correlationId }
         );
         await persistence.createBatch({
           erc: createERC(ERC_PREFIX.BATCH),
@@ -517,20 +548,24 @@ class BatchCallbackService {
           processedCount: 0,
         });
       }
-          } catch (error) {
-            logger.error(`Error executing step '${stepName}': ${error.message}`, {
-              sessionId,
-              stepName,
-              flowType,
-              error: error.message,
-              stack: error.stack,
-            });
-            await persistence.tryFailSession(sessionId);
-            progress.sessionFailed({ sessionId, error, correlationId });
-          }  }
+    } catch (error) {
+      logger.error(`Error executing step '${stepName}': ${error.message}`, {
+        sessionId,
+        stepName,
+        flowType,
+        correlationId,
+        error: error.message,
+        stack: error.stack,
+      });
+      await persistence.tryFailSession(sessionId);
+      progress.sessionFailed({ sessionId, error, correlationId });
+    }
+  }
 
-
-  async _runStep(step, { sessionId, config, options, channelId, catalogId }) {
+  async _runStep(
+    step,
+    { sessionId, config, options, channelId, catalogId, correlationId }
+  ) {
     const { logger, liferay, persistence, progress } = this.ctx;
 
     const batchERC = createERC(ERC_PREFIX.BATCH_DELETION);
@@ -553,12 +588,20 @@ class BatchCallbackService {
       logger.info(`Skipping ${step}: No entities found. Marking as complete.`, {
         batchERC,
         step,
+        sessionId,
+        correlationId,
       });
 
-      await persistence.updateBatch(batchERC, { status: 'BYPASSED', totalCount: 0, processedCount: 0 });
-      return;
-    }
-
+              await persistence.updateBatch(batchERC, {
+                status: 'BYPASSED',
+                totalCount: 0,
+                processedCount: 0,
+              });
+      
+              // Trigger next step even if this one was bypassed
+              await this._checkSessionCompletion(sessionId, correlationId);
+              return;
+            }
     const handler = BATCH_STEP_HANDLERS[step];
 
     if (handler) {
@@ -570,6 +613,7 @@ class BatchCallbackService {
         channelId,
         catalogId,
         totalCount,
+        correlationId,
       };
 
       try {
@@ -582,7 +626,7 @@ class BatchCallbackService {
             downstreamBatchId: result.batchRefs[0].taskId,
             totalCount: totalCount,
           });
-          
+
           progress.batchStarted({
             sessionId,
             batchERC,
@@ -590,7 +634,7 @@ class BatchCallbackService {
             totalItems: totalCount,
             entityType: this._normalizeEntityType(step),
             operation: 'delete',
-            correlationId: config.correlationId,
+            correlationId,
           });
         } else if (result && result.success) {
           // Simulated or empty step completed
@@ -601,17 +645,20 @@ class BatchCallbackService {
           });
         } else {
           // Fallback for handlers that don't return standardized results
-          await persistence.updateBatch(batchERC, {
-            status: 'COMPLETED',
-            totalCount: totalCount,
-            processedCount: totalCount,
-          });
-        }
-      } catch (error) {
-        logger.error(`Handler execution failed for step '${step}'`, {
+                      await persistence.updateBatch(batchERC, {
+                        status: 'COMPLETED',
+                        totalCount: totalCount,
+                        processedCount: totalCount,
+                      });
+                    }
+          
+                    // Advance to the next step if this was a synchronous operation
+                    await this._checkSessionCompletion(sessionId, correlationId);
+                  } catch (error) {        logger.error(`Handler execution failed for step '${step}'`, {
           sessionId,
           step,
           batchERC,
+          correlationId,
           error: error.message,
         });
         await persistence.updateBatch(batchERC, { status: 'FAILED' });
@@ -619,6 +666,8 @@ class BatchCallbackService {
     } else {
       logger.warn(`Unknown step in deletion process: ${step}`, {
         batchERC,
+        sessionId,
+        correlationId,
       });
 
       await persistence.updateBatch(batchERC, { status: 'FAILED' });
@@ -634,6 +683,7 @@ class BatchCallbackService {
       channelId,
       catalogId,
       operation: context.options?.operation,
+      correlationId: config.correlationId,
     });
 
     const checkMap = {
@@ -727,20 +777,25 @@ class BatchCallbackService {
         };
       },
       deletePriceLists: async () => {
-        const res = await liferay.getPriceLists(config, { pageSize: 10 });
+        const res = await liferay.getPriceLists(config, {
+          pageSize: 10,
+          search: 'AICA-',
+        });
         return {
           totalCount: res.totalCount,
         };
       },
-      deletePromotions: async () => {
-        const res = await liferay.getPromotions(config, { pageSize: 10 });
-        return {
-          totalCount: res.totalCount,
-        };
-      },
-    };
-
-    if (!checkMap[entityType]) return { hasItems: false }; 
+                      deletePromotions: async () => {
+                        const res = await liferay.getPromotions(config, {
+                          pageSize: 10,
+                          search: 'AICA-',
+                        });
+                        return {
+                          totalCount: res.totalCount,
+                        };
+                      },
+                      resetCatalogConfiguration: async () => ({ hasItems: true }),
+                    };    if (!checkMap[entityType]) return { hasItems: false }; 
 
     const result = await checkMap[entityType]();
     const totalCount = result.totalCount || 0;
@@ -750,6 +805,7 @@ class BatchCallbackService {
       entityType,
       hasItems,
       totalCount,
+      correlationId: config.correlationId,
     });
 
     return { hasItems, totalCount };

@@ -263,8 +263,8 @@ class MediaGenerator {
 
   async createImages(config, products, options) {
     const { logger, liferay, progress } = this.ctx;
-    const { sessionId } = options;
-    const correlationId = config?.correlationId || '∅';
+    const { sessionId, correlationId: optionsCID } = options;
+    const correlationId = optionsCID || config?.correlationId || '∅';
 
     this.validateConfig(config, options);
     await this.validateOptions(config, options);
@@ -283,7 +283,10 @@ class MediaGenerator {
     }
     
     if (productsWithImages.length === 0) {
-      logger.info('No products selected for image generation.', { sessionId });
+      logger.info('No products selected for image generation.', {
+        sessionId,
+        correlationId,
+      });
       return;
     }
 
@@ -319,6 +322,7 @@ class MediaGenerator {
             } else {
               logger.warn(`Skipping image with invalid URL for product ${product.id || 'unknown'}`, { 
                 sessionId, 
+                correlationId,
                 src: imageData.src 
             });
             continue;
@@ -342,7 +346,11 @@ class MediaGenerator {
         }
         completedCount++;
       } catch (error) {
-        logger.error(`Failed to create images for product ${product.id || 'unknown'}`, { sessionId, error: error.message });
+        logger.error(`Failed to create images for product ${product.id || 'unknown'}`, {
+          sessionId,
+          correlationId,
+          error: error.message
+        });
       }
       progress.batchProgress({
         batchId,
@@ -370,8 +378,8 @@ class MediaGenerator {
 
   async createPdfs(config, products, options) {
     const { logger, liferay, progress } = this.ctx;
-    const { sessionId } = options;
-    const correlationId = config?.correlationId || '∅';
+    const { sessionId, correlationId: optionsCID } = options;
+    const correlationId = optionsCID || config?.correlationId || this.ctx?.correlationId || '∅';
 
     this.validateConfig(config, options);
     await this.validateOptions(config, options);
@@ -389,7 +397,10 @@ class MediaGenerator {
     }
 
     if (productsWithPdfs.length === 0) {
-      logger.info('No products selected for PDF generation.', { sessionId });
+      logger.info('No products selected for PDF generation.', {
+        sessionId,
+        correlationId,
+      });
       return;
     }
 
@@ -432,7 +443,11 @@ class MediaGenerator {
 
             completedCount++;
         } catch (error) {
-            logger.error(`Failed to create PDF for product ${product.id}`, { sessionId, error: error.message });
+            logger.error(`Failed to create PDF for product ${product.id}`, {
+              sessionId,
+              correlationId,
+              error: error.message
+            });
         }
         progress.batchProgress({
             batchId,

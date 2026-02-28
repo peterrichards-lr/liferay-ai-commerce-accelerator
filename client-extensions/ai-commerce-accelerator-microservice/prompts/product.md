@@ -8,7 +8,7 @@ You must return a JSON array that conforms to the provided JSON schema. Each ele
 - urls: object of multilingual URL slugs keyed by language code (lowercase, spaces replaced with hyphens) for each language code in {{languageCodesCSV}}.
 - baseSku: string base SKU without variant codes, used as the root for all SKUs (for example "PRODUCT-001").
 - productType: string, always "simple".
-- skus: array of one or more base SKU objects. Each SKU object must have:
+- skus: array of one base SKU object. Each SKU object must have:
   - sku: string (usually baseSku).
   - cost: number.
   - price: number (> 0).
@@ -16,7 +16,7 @@ You must return a JSON array that conforms to the provided JSON schema. Each ele
   - published: boolean.
   - purchasable: boolean.
   - neverExpire: boolean.
-  - externalReferenceCode: string unique identifier for this SKU.
+  - externalReferenceCode: string. For all SKUs (base and variants), this MUST be the same as the "sku" field.
 - specifications: array of 3–5 realistic specification objects. Each spec object must have:
   - key: string specification name (for example "Material", "Weight").
   - value: object of multilingual specification values keyed by language code ({{languageCodesCSV}}).

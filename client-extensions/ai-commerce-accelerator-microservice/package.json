@@ -1,34 +1,37 @@
 {
-	"author": "Peter Richards",
-	"dependencies": {
-		"@google-cloud/storage": "^7.17.0",
-		"@rotty3000/config-node": "^0.4.1",
-		"ajv": "^8.12.0",
-		"ajv-formats": "^2.1.1",
-		"axios": "^1.12.2",
-		"better-sqlite3": "^12.5.0",
-		"cors": "^2.8.5",
-		"csv-parse": "^6.1.0",
-		"express": "^5.1.0",
-		"form-data": "^4.0.0",
-		"jsonwebtoken": "^9.0.0",
-		"jspdf": "^3.0.1",
-		"jwk-to-pem": "^2.0.5",
-		"memory-cache": "^0.2.0",
-		"multer": "^2.0.2",
-		"node-fetch": "^3.3.2",
-		"node-stream-zip": "^1.15.0",
-		"openai": "^5.13.1",
-		"uuid": "^11.0.3",
-		"ws": "^8.18.0"
-	},
-	"license": "GPL-3.0",
-	"main": "server.cjs",
-	"name": "@liferay/liferay-ai-commerce-accelerator-microservice",
-	"scripts": {
-		"debug": "node --inspect --trace-warnings server.cjs",
-		"start": "node server.cjs"
-	},
-	"type": "module",
-	"version": "1.0.0"
+  "author": "Peter Richards",
+  "dependencies": {
+    "@google-cloud/storage": "^7.17.0",
+    "@rotty3000/config-node": "^0.4.1",
+    "ajv": "^8.12.0",
+    "ajv-formats": "^2.1.1",
+    "axios": "^1.12.2",
+    "better-sqlite3": "^12.5.0",
+    "cors": "^2.8.5",
+    "csv-parse": "^6.1.0",
+    "express": "^5.1.0",
+    "form-data": "^4.0.0",
+    "jsonwebtoken": "^9.0.0",
+    "jspdf": "^3.0.1",
+    "jwk-to-pem": "^2.0.5",
+    "memory-cache": "^0.2.0",
+    "multer": "^2.0.2",
+    "node-fetch": "^3.3.2",
+    "node-stream-zip": "^1.15.0",
+    "openai": "^5.13.1",
+    "uuid": "^11.0.3",
+    "ws": "^8.18.0"
+  },
+  "license": "GPL-3.0",
+  "main": "server.cjs",
+  "name": "@liferay/liferay-ai-commerce-accelerator-microservice",
+  "scripts": {
+    "debug": "node --inspect --trace-warnings server.cjs",
+    "start": "node server.cjs"
+  },
+  "type": "module",
+  "version": "1.0.0",
+  "devDependencies": {
+    "prettier": "^3.8.1"
+  }
 }

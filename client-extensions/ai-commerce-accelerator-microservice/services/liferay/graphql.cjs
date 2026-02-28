@@ -348,6 +348,10 @@ class LiferayGraphQLService {
     return this._fetchByFilter(config, 'headlessAdminAddress_v1_0', 'countries', filter, fields, pagination, { active });
   }
 
+  async getSkusByERC(config, ercs, fields = ['id', 'externalReferenceCode', 'sku']) {
+    return this._fetchByERCs(config, 'headlessCommerceAdminCatalog_v1_0', 'skus', ercs, fields);
+  }
+
   async getCountryRegions(config, countryId, filter, fields = ['id', 'name', 'regionCode'], pagination = { page: 1, pageSize: 1000 }, active = true) {
     return this._fetchByFilter(config, 'headlessAdminAddress_v1_0', 'countryRegions', filter, fields, pagination, { countryId, active });
   }

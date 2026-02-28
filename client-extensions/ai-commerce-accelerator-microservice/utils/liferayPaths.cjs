@@ -57,7 +57,7 @@ const VARIANT = {
   optionCategories: 'camel',
   options: 'camel',
   postalAddresses: 'kebab',
-  pricing: 'kebab',
+  pricing: 'camel',
   products: 'camel',
   specifications: 'kebab',
 };
@@ -82,8 +82,11 @@ const PATH = {
     }`,
   WAREHOUSE_INVENTORY_BATCH_SCOPED: (warehouseId, warehouseERC, callbackURL) => {
     const params = { callbackURL };
-    if (warehouseId) params.warehouseId = warehouseId;
-    if (warehouseERC) params.externalReferenceCode = warehouseERC;
+    if (warehouseERC) {
+      params.externalReferenceCode = warehouseERC;
+    } else if (warehouseId) {
+      params.warehouseId = warehouseId;
+    }
     return `${BASE.INVENTORY_API}/warehouses/warehouseItems/batch${q(params)}`;
   },
   WAREHOUSE_INVENTORIES_DELETE_BATCH: (callbackURL) =>
@@ -98,14 +101,16 @@ const PATH = {
     `${BASE.PRICE_LISTS}/batch${
       callbackURL ? `?callbackURL=${enc(callbackURL)}` : ''
     }`,
-      PRICE_ENTRIES_BATCH: (callbackURL) =>
-        `${BASE.PRICE_LISTS}/price-entries/batch${
-          callbackURL ? `?callbackURL=${enc(callbackURL)}` : ''
-        }`,
-      PRICE_LIST_PRICE_ENTRIES_BATCH: (priceListERC, callbackURL) =>
-        `${BASE.PRICE_LISTS}/by-externalReferenceCode/${priceListERC}/price-entries/batch${
-          callbackURL ? `?callbackURL=${enc(callbackURL)}` : ''
-        }`,  PRODUCTS_BATCH: (callbackURL) =>
+  PRICE_ENTRIES_BATCH: (callbackURL) =>
+    `${BASE.PRICING_API}/price-entries/batch${
+      callbackURL ? `?callbackURL=${enc(callbackURL)}` : ''
+    }`,
+  PRICE_LIST_PRICE_ENTRIES_BATCH: (priceListERC, callbackURL, priceListId) => {
+    const params = { callbackURL };
+    if (priceListId) params.priceListId = priceListId;
+    return `${BASE.PRICE_LISTS}/price-entries/batch${q(params)}`;
+  },
+  PRODUCTS_BATCH: (callbackURL) =>
     `${BASE.PRODUCTS}/batch${
       callbackURL ? `?callbackURL=${enc(callbackURL)}` : ''
     }`,
@@ -115,8 +120,11 @@ const PATH = {
     }`,
   PRODUCT_SKUS_BATCH_SCOPED: (productId, productERC, callbackURL) => {
     const params = { callbackURL };
-    if (productId) params.productId = productId;
-    if (productERC) params.externalReferenceCode = productERC;
+    if (productId) {
+      params.productId = productId;
+    } else if (productERC) {
+      params.externalReferenceCode = productERC;
+    }
     return `${BASE.PRODUCTS}/skus/batch${q(params)}`;
   },
   WAREHOUSES_BATCH: (callbackURL) =>
@@ -295,4 +303,4 @@ const PATH = {
     `${BASE.BATCH_ENGINE_API}/import-task/${enc(batchId)}/failed-items/report`,
 };
 
-module.exports = { PATH, byERC, CUSTOM_OBJECTS };
+module.exports = { PATH, byERC, q, CUSTOM_OBJECTS };
