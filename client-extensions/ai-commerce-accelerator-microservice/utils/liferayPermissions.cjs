@@ -41,7 +41,6 @@ const VIEWABLE_BY = {
  *  (Based on your observed payloads and Liferay defaults)
  * ----------------------------------------------*/
 
-
 const OWNER_ACTIONS = {
   [ASSET_TYPE.DOCUMENT_FOLDER]: new Set([
     ACTION_IDS.DELETE,
@@ -68,8 +67,6 @@ const OWNER_ACTIONS = {
   ]),
 };
 
-
-
 const BASE_NON_OWNER = {
   [ASSET_TYPE.DOCUMENT_FOLDER]: {
     [ROLE.SITE_MEMBER]: new Set([
@@ -77,15 +74,11 @@ const BASE_NON_OWNER = {
       ACTION_IDS.ADD_SHORTCUT,
       ACTION_IDS.ADD_DOCUMENT,
       ACTION_IDS.SUBSCRIBE,
-     
     ]),
-    [ROLE.GUEST]: new Set([
-     
-    ]),
+    [ROLE.GUEST]: new Set([]),
   },
 
   [ASSET_TYPE.DOCUMENT]: {
-   
     [ROLE.SITE_MEMBER]: new Set([ACTION_IDS.ADD_DISCUSSION]),
     [ROLE.GUEST]: new Set([ACTION_IDS.ADD_DISCUSSION]),
   },
@@ -104,7 +97,6 @@ const BASE_NON_OWNER = {
 function viewableByGrants(assetType, viewableBy, roleName) {
   const grants = new Set();
 
- 
   const grantSiteMembers =
     viewableBy === VIEWABLE_BY.SITE_MEMBERS ||
     viewableBy === VIEWABLE_BY.ANYONE;
@@ -139,14 +131,10 @@ function computeRoleActions(assetType, viewableBy, roleName) {
     return new Set(OWNER_ACTIONS[assetType]);
   }
 
- 
   const base = new Set(BASE_NON_OWNER[assetType]?.[roleName] || []);
 
- 
   const grants = viewableByGrants(assetType, viewableBy, roleName);
   for (const a of grants) base.add(a);
-
- 
 
   return base;
 }
@@ -200,10 +188,8 @@ function buildPermissionsItems({
     const base = computeRoleActions(assetType, viewableBy, roleName);
     const finalSet = mergeOverrides(base, overrides[roleName]);
 
-   
     const actionIds = Array.from(finalSet).sort();
 
-   
     items.push({ actionIds, roleName });
   }
 

@@ -8,12 +8,16 @@ module.exports = async function deleteProductRelatedEntities(
       config,
       productIds
     );
-    
+
     const specificationIds = [
-      ...new Set(productSpecifications.map((s) => s.specificationId).filter(Boolean))
+      ...new Set(
+        productSpecifications.map((s) => s.specificationId).filter(Boolean)
+      ),
     ];
     const optionCategoryIds = [
-      ...new Set(productSpecifications.map((s) => s.optionCategoryId).filter(Boolean))
+      ...new Set(
+        productSpecifications.map((s) => s.optionCategoryId).filter(Boolean)
+      ),
     ];
 
     // 2. Fetch ProductOptions to get global optionId
@@ -21,9 +25,9 @@ module.exports = async function deleteProductRelatedEntities(
       config,
       productIds
     );
-    
+
     const optionIds = [
-      ...new Set(productOptions.map((o) => o.optionId).filter(Boolean))
+      ...new Set(productOptions.map((o) => o.optionId).filter(Boolean)),
     ];
 
     // 3. Perform deletions
@@ -34,7 +38,7 @@ module.exports = async function deleteProductRelatedEntities(
         sessionId,
       });
     }
-    
+
     if (optionIds.length > 0) {
       await liferay.deleteOptionsBatch(config, {
         ids: optionIds,
@@ -42,7 +46,7 @@ module.exports = async function deleteProductRelatedEntities(
         sessionId,
       });
     }
-    
+
     if (optionCategoryIds.length > 0) {
       await liferay.deleteOptionCategoriesBatch(config, {
         ids: optionCategoryIds,

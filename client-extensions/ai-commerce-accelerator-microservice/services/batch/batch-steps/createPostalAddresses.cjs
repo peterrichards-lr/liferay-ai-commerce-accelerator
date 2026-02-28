@@ -4,21 +4,31 @@ module.exports = async function createPostalAddresses(
   { liferay, logger },
   { config, options, callbackUrl, batchERC, lastBatchResults, accounts }
 ) {
-  logger.info('createPostalAddresses step started. Received lastBatchResults:', {
-    batchERC,
-    lastBatchResults: JSON.stringify(lastBatchResults, null, 2)
-  });
+  logger.info(
+    'createPostalAddresses step started. Received lastBatchResults:',
+    {
+      batchERC,
+      lastBatchResults: JSON.stringify(lastBatchResults, null, 2),
+    }
+  );
 
   const createdAccounts = lastBatchResults;
   const accountsWithAddresses = accounts;
 
-  if (!createdAccounts || createdAccounts.length === 0 || !accountsWithAddresses) {
-    logger.warn('Cannot create postal addresses, missing created accounts or original account data.', { 
-        batchERC, 
+  if (
+    !createdAccounts ||
+    createdAccounts.length === 0 ||
+    !accountsWithAddresses
+  ) {
+    logger.warn(
+      'Cannot create postal addresses, missing created accounts or original account data.',
+      {
+        batchERC,
         hasCreatedAccounts: !!createdAccounts,
         createdAccountsCount: createdAccounts?.length,
-        hasAccountsWithAddresses: !!accountsWithAddresses
-     });
+        hasAccountsWithAddresses: !!accountsWithAddresses,
+      }
+    );
     return { batchRefs: [] };
   }
 
@@ -26,19 +36,31 @@ module.exports = async function createPostalAddresses(
 
   for (const createdAccount of createdAccounts) {
     const accountData = accountsWithAddresses.find(
-      (acc) => acc.externalReferenceCode === createdAccount.externalReferenceCode
+      (acc) =>
+        acc.externalReferenceCode === createdAccount.externalReferenceCode
     );
 
     if (accountData) {
       const addresses = [];
       if (accountData.billingAddress) {
-        addresses.push({ ...accountData.billingAddress, addressType: 'billing', primary: true });
+        addresses.push({
+          ...accountData.billingAddress,
+          addressType: 'billing',
+          primary: true,
+        });
       }
       if (accountData.shippingAddress) {
-        addresses.push({ ...accountData.shippingAddress, addressType: 'shipping', primary: false });
+        addresses.push({
+          ...accountData.shippingAddress,
+          addressType: 'shipping',
+          primary: false,
+        });
       }
 
-      logger.info(`Found ${addresses.length} addresses for account ERC ${createdAccount.externalReferenceCode}`, { batchERC });
+      logger.info(
+        `Found ${addresses.length} addresses for account ERC ${createdAccount.externalReferenceCode}`,
+        { batchERC }
+      );
 
       if (addresses.length > 0) {
         batchPromises.push(
@@ -52,7 +74,10 @@ module.exports = async function createPostalAddresses(
         );
       }
     } else {
-        logger.warn(`No matching original account data found for created account with ERC ${createdAccount.externalReferenceCode}`, { batchERC });
+      logger.warn(
+        `No matching original account data found for created account with ERC ${createdAccount.externalReferenceCode}`,
+        { batchERC }
+      );
     }
   }
 
@@ -64,6 +89,6 @@ module.exports = async function createPostalAddresses(
   const results = await Promise.all(batchPromises);
 
   return {
-    batchRefs: results.flatMap(result => result.batchRefs)
+    batchRefs: results.flatMap((result) => result.batchRefs),
   };
 };

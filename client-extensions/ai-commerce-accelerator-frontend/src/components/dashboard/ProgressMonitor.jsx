@@ -84,7 +84,7 @@ function ProgressMonitor({ generationConfig, progress, onErrorsClick }) {
                   Image generation disabled
                 </small>
               )}
-            {((progress.images?.expected > 0) ||
+            {(progress.images?.expected > 0 ||
               progress.images?.completed < progress.images?.total) && (
               <small className="info-text">
                 <ClayIcon symbol="info-circle" />
@@ -109,7 +109,7 @@ function ProgressMonitor({ generationConfig, progress, onErrorsClick }) {
                   PDF generation disabled
                 </small>
               )}
-            {((progress.pdfs?.expected > 0) ||
+            {(progress.pdfs?.expected > 0 ||
               progress.pdfs?.completed < progress.pdfs?.total) && (
               <small className="info-text">
                 <ClayIcon symbol="info-circle" />

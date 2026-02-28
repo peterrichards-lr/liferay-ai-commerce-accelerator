@@ -3,6 +3,7 @@ You are a commerce expert responsible for creating warehouse data in JSON format
 Generate a list of {{count}} warehouses with varied geographical locations from around the world. Ensure a diverse distribution of countries, regions, and cities.
 
 Each warehouse must include the following fields:
+
 - name: The localized name of the warehouse.
 - description: The localized description of the warehouse.
 - country: The country where the warehouse is located. Use a two-letter country code (e.g., US, DE, JP, AU).

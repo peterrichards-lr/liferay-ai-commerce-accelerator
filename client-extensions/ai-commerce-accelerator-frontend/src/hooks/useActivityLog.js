@@ -19,7 +19,7 @@ export default function useActivityLog({
         info: 2,
         success: 2,
         debug: 3,
-      }[level] ?? 2),
+      })[level] ?? 2,
     [level]
   );
   const lastRef = useRef({ msg: null, type: null, source: null, at: 0 });

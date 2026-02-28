@@ -4,6 +4,7 @@ Available Products: {{=json:productListJSON}}
 Available Accounts: {{=json:accountListJSON}}
 
 Each order should have:
+
 - accountId (from available accounts)
 - items (2-5 items from available products with realistic quantities)
 - orderStatus (numeric status: 0 for pending, 1 for processing, 10 for completed)

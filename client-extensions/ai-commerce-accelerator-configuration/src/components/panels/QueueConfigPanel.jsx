@@ -114,7 +114,10 @@ export default function QueueConfigPanel() {
   const updateDefault = (key) => (e) =>
     setValues((v) => ({
       ...v,
-      defaults: { ...v.defaults, [key]: toInt(e.target.value, v.defaults[key]) },
+      defaults: {
+        ...v.defaults,
+        [key]: toInt(e.target.value, v.defaults[key]),
+      },
     }));
 
   const addQueue = () => {
@@ -166,26 +169,40 @@ export default function QueueConfigPanel() {
         </ClayButton>
       </div>
       <ClayForm.Group>
-        <label htmlFor={`${q.name}-concurrency`} className="font-weight-semi-bold">concurrency</label>
+        <label
+          htmlFor={`${q.name}-concurrency`}
+          className="font-weight-semi-bold"
+        >
+          concurrency
+        </label>
         <ClayInput
           id={`${q.name}-concurrency`}
           type="number"
           min={1}
           step={1}
           value={q.concurrency}
-          onChange={(e) => updateQueue(i, 'concurrency', toInt(e.target.value, q.concurrency))}
+          onChange={(e) =>
+            updateQueue(i, 'concurrency', toInt(e.target.value, q.concurrency))
+          }
         />
       </ClayForm.Group>
 
       <ClayForm.Group>
-        <label htmlFor={`${q.name}-maxRetries`} className="font-weight-semi-bold">maxRetries</label>
+        <label
+          htmlFor={`${q.name}-maxRetries`}
+          className="font-weight-semi-bold"
+        >
+          maxRetries
+        </label>
         <ClayInput
           id={`${q.name}-maxRetries`}
           type="number"
           min={0}
           step={1}
           value={q.maxRetries}
-          onChange={(e) => updateQueue(i, 'maxRetries', toInt(e.target.value, q.maxRetries))}
+          onChange={(e) =>
+            updateQueue(i, 'maxRetries', toInt(e.target.value, q.maxRetries))
+          }
         />
       </ClayForm.Group>
 
@@ -195,7 +212,9 @@ export default function QueueConfigPanel() {
         value={q.retryDelay}
         min={0}
         step={100}
-        onChange={(e) => updateQueue(i, 'retryDelay', toInt(e.target.value, q.retryDelay))}
+        onChange={(e) =>
+          updateQueue(i, 'retryDelay', toInt(e.target.value, q.retryDelay))
+        }
         helper="Delay before retrying a failed job."
       />
 
@@ -205,7 +224,9 @@ export default function QueueConfigPanel() {
         value={q.jobTimeout}
         min={1000}
         step={1000}
-        onChange={(e) => updateQueue(i, 'jobTimeout', toInt(e.target.value, q.jobTimeout))}
+        onChange={(e) =>
+          updateQueue(i, 'jobTimeout', toInt(e.target.value, q.jobTimeout))
+        }
         helper="Maximum runtime before the job is aborted."
       />
 
@@ -215,7 +236,9 @@ export default function QueueConfigPanel() {
         value={q.jobTTL}
         min={60000}
         step={1000}
-        onChange={(e) => updateQueue(i, 'jobTTL', toInt(e.target.value, q.jobTTL))}
+        onChange={(e) =>
+          updateQueue(i, 'jobTTL', toInt(e.target.value, q.jobTTL))
+        }
         helper="Retention time for completed jobs."
       />
     </div>
@@ -243,7 +266,12 @@ export default function QueueConfigPanel() {
       <div className="sheet-section">
         <h4>Default Settings</h4>
         <ClayForm.Group>
-          <label htmlFor="defaults-concurrency" className="font-weight-semi-bold">concurrency</label>
+          <label
+            htmlFor="defaults-concurrency"
+            className="font-weight-semi-bold"
+          >
+            concurrency
+          </label>
           <ClayInput
             id="defaults-concurrency"
             type="number"
@@ -255,7 +283,12 @@ export default function QueueConfigPanel() {
         </ClayForm.Group>
 
         <ClayForm.Group>
-          <label htmlFor="defaults-max-retries" className="font-weight-semi-bold">maxRetries</label>
+          <label
+            htmlFor="defaults-max-retries"
+            className="font-weight-semi-bold"
+          >
+            maxRetries
+          </label>
           <ClayInput
             id="defaults-max-retries"
             type="number"

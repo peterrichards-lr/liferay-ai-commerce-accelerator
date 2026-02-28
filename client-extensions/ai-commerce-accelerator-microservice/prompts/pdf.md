@@ -13,6 +13,7 @@ Create realistic content for:
 1. Safety Information (warnings, certifications)
 
 Product Context:
+
 - Name: {{productName}}
 - Category: {{category}}
 - Description: {{productDescription}}
@@ -20,14 +21,14 @@ Product Context:
 
 Return as JSON with sections:
 {
-  "title": "Product Documentation - [Product Name]",
-  "sections": [
-    { "title": "Technical Specifications", "content": "[detailed specs in readable format]" },
-    { "title": "Warranty Information", "content": "[warranty details, coverage, terms]" },
-    { "title": "Marketing Highlights", "content": "[key features and benefits]" },
-    { "title": "Usage Guidelines", "content": "[basic usage instructions]" },
-    { "title": "Safety & Compliance", "content": "[safety warnings, certifications]" }
-  ]
+"title": "Product Documentation - [Product Name]",
+"sections": [
+{ "title": "Technical Specifications", "content": "[detailed specs in readable format]" },
+{ "title": "Warranty Information", "content": "[warranty details, coverage, terms]" },
+{ "title": "Marketing Highlights", "content": "[key features and benefits]" },
+{ "title": "Usage Guidelines", "content": "[basic usage instructions]" },
+{ "title": "Safety & Compliance", "content": "[safety warnings, certifications]" }
+]
 }
 
 Make content realistic and category-appropriate for {{category}} products.

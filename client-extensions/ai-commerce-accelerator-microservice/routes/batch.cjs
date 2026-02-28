@@ -97,7 +97,11 @@ module.exports = (app, { batchCallbackService, logger, ws }) => {
     try {
       const batchERC = req.query.batchExternalReferenceCode;
       const correlationId = req.query.correlationId;
-      await batchCallbackService.processCallback(batchERC, req.body, correlationId);
+      await batchCallbackService.processCallback(
+        batchERC,
+        req.body,
+        correlationId
+      );
     } catch (error) {
       safeErrorResponse({
         res,

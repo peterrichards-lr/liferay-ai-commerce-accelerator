@@ -59,11 +59,15 @@ class OrderGenerator {
   }
 
   async _runOrderDataGenerationStep(sessionId) {
-    const { logger, ai, mockData, persistence, liferay, batchCallback } = this.ctx;
+    const { logger, ai, mockData, persistence, liferay, batchCallback } =
+      this.ctx;
     const session = await persistence.getSession(sessionId);
     const { config, options } = session.context;
 
-    logger.info('Starting order data generation step', { sessionId, correlationId: session.correlationId });
+    logger.info('Starting order data generation step', {
+      sessionId,
+      correlationId: session.correlationId,
+    });
 
     try {
       this.validateConfig(config);
@@ -128,7 +132,10 @@ class OrderGenerator {
     const { config, options, orderDataList, accounts, products, warehouses } =
       session.context;
 
-    logger.info('Starting order creation step', { sessionId, correlationId: session.correlationId });
+    logger.info('Starting order creation step', {
+      sessionId,
+      correlationId: session.correlationId,
+    });
 
     try {
       const batchSize = Math.max(1, parseInt(config.batchSize, 10) || 1);
@@ -143,20 +150,22 @@ class OrderGenerator {
         if (options.dryRun) {
           logger.info('DRY RUN: Skipping order creation batch submission.');
           for (const originalBatch of chunks) {
-            const batch = originalBatch.map((od) => this.buildOrderPayload(config, od, accounts, products, warehouses));
+            const batch = originalBatch.map((od) =>
+              this.buildOrderPayload(config, od, accounts, products, warehouses)
+            );
             const batchERC = createERC(ERC_PREFIX.ORDER_BATCH);
             logger.info({
-                dryRunData: {
-                    step: 'orders',
-                    count: batch.length,
-                    payload: batch,
-                },
+              dryRunData: {
+                step: 'orders',
+                count: batch.length,
+                payload: batch,
+              },
             });
             await persistence.createBatch({
-                erc: batchERC,
-                sessionId,
-                stepKey: 'orders',
-                status: 'SYNCHRONOUS',
+              erc: batchERC,
+              sessionId,
+              stepKey: 'orders',
+              status: 'SYNCHRONOUS',
             });
           }
           return;
@@ -166,13 +175,7 @@ class OrderGenerator {
           const originalBatch = chunks[batchIndex];
 
           const batch = originalBatch.map((od) =>
-            this.buildOrderPayload(
-              config,
-              od,
-              accounts,
-              products,
-              warehouses
-            )
+            this.buildOrderPayload(config, od, accounts, products, warehouses)
           );
 
           const batchERC = createERC(ERC_PREFIX.ORDER_BATCH);
@@ -213,17 +216,25 @@ class OrderGenerator {
           logger.info('DRY RUN: Skipping individual order creation.');
           const batchERC = createERC(ERC_PREFIX.ORDER_BATCH);
           logger.info({
-              dryRunData: {
-                  step: 'orders',
-                  count: orderDataList.length,
-                  payload: orderDataList.map((od) => this.buildOrderPayload(config, od, accounts, products, warehouses)),
-              },
+            dryRunData: {
+              step: 'orders',
+              count: orderDataList.length,
+              payload: orderDataList.map((od) =>
+                this.buildOrderPayload(
+                  config,
+                  od,
+                  accounts,
+                  products,
+                  warehouses
+                )
+              ),
+            },
           });
           await persistence.createBatch({
-              erc: batchERC,
-              sessionId,
-              stepKey: 'orders',
-              status: 'SYNCHRONOUS',
+            erc: batchERC,
+            sessionId,
+            stepKey: 'orders',
+            status: 'SYNCHRONOUS',
           });
           return;
         }
@@ -281,7 +292,7 @@ class OrderGenerator {
     const ch = parseInt(config.channelId);
     if (!Number.isFinite(ch) || ch <= 0)
       throw new Error('channelId must be a positive integer');
-      
+
     if (!config.currencyCode) throw new Error('currencyCode is required');
   }
 
@@ -311,7 +322,6 @@ class OrderGenerator {
       await ai.getOpenAIClient(config);
     }
   }
-
 
   async createSingleOrder(config, payload) {
     const { logger, liferay } = this.ctx;
@@ -435,7 +445,7 @@ class OrderGenerator {
       entityType: 'orders',
       totalItems: orderDataList.length,
       operation: 'generate',
-      correlationId: config.correlationId
+      correlationId: config.correlationId,
     });
 
     const created = [];
@@ -532,8 +542,12 @@ class OrderGenerator {
   async getProductsAndAccounts(config) {
     const { liferay, logger } = this.ctx;
 
-    const productsRes = await liferay.getProducts(config, { catalogId: config.catalogId });
-    const accountsRes = await liferay.getAccounts(config, { channelId: config.channelId });
+    const productsRes = await liferay.getProducts(config, {
+      catalogId: config.catalogId,
+    });
+    const accountsRes = await liferay.getAccounts(config, {
+      channelId: config.channelId,
+    });
 
     const products = productsRes.items || [];
     const accounts = accountsRes.items || [];
@@ -541,7 +555,7 @@ class OrderGenerator {
     if (products.length === 0) {
       throw new Error('No products available. Please generate products first.');
     }
-    
+
     if (accounts.length === 0) {
       throw new Error('No accounts available. Please generate accounts first.');
     }
@@ -551,7 +565,7 @@ class OrderGenerator {
       productsCount: products.length,
       accountsCount: accounts.length,
     });
-    
+
     return { products, accounts };
   }
 }

@@ -20,7 +20,7 @@ const BATCH_SIZES = `${CONFIG_PATH}/batch-sizes`;
 const GET_CATEGORIES = `${CONFIG_PATH}/categories`;
 
 const WORKFLOW = 'workflow';
-const GENERATE_WORKFLOW = `${GENERATE_PATH}/${WORKFLOW}`
+const GENERATE_WORKFLOW = `${GENERATE_PATH}/${WORKFLOW}`;
 
 export {
   DELETE_COMMERCE_DATA,

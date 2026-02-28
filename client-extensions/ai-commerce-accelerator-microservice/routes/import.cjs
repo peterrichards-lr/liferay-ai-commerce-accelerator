@@ -15,7 +15,9 @@ module.exports = (app, { liferayService, logger, configService }) => {
       const correlationId = config.correlationId;
 
       if (!req.file) {
-        return res.status(400).json({ success: false, error: 'No file uploaded' });
+        return res
+          .status(400)
+          .json({ success: false, error: 'No file uploaded' });
       }
 
       try {
@@ -33,13 +35,19 @@ module.exports = (app, { liferayService, logger, configService }) => {
         const batchIds = [];
 
         if (products && products.length > 0) {
-          const result = await liferayService.createProductsBatch(config, products);
+          const result = await liferayService.createProductsBatch(
+            config,
+            products
+          );
           batchIds.push(result.batchId);
           logger.info(`Products import batch created: ${result.batchId}`);
         }
 
         if (accounts && accounts.length > 0) {
-          const result = await liferayService.createAccountsBatch(config, accounts);
+          const result = await liferayService.createAccountsBatch(
+            config,
+            accounts
+          );
           batchIds.push(result.batchId);
           logger.info(`Accounts import batch created: ${result.batchId}`);
         }

@@ -20,8 +20,7 @@ function resolveErrorRef(err) {
 }
 
 function handleError(res, logger, req, operation, error, statusCodeOverride) {
-  const errorReference =
-    resolveErrorRef(error) || createERC(ERC_PREFIX.ERROR);
+  const errorReference = resolveErrorRef(error) || createERC(ERC_PREFIX.ERROR);
 
   const message =
     (error && error.message) ||
@@ -57,8 +56,8 @@ module.exports = (app, { logger, healthService }) => {
         health.status === 'healthy'
           ? 200
           : health.status === 'degraded'
-          ? 200
-          : 503;
+            ? 200
+            : 503;
 
       return res.status(statusCode).json({
         ...health,

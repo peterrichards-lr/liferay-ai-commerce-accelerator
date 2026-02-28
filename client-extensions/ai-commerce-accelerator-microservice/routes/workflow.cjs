@@ -105,7 +105,9 @@ module.exports = (app, { logger, persistenceService }) => {
       }
 
       // Redact sensitive information from the context
-      const redactedContext = sanitizeValue(session.context, ['workflow-context']);
+      const redactedContext = sanitizeValue(session.context, [
+        'workflow-context',
+      ]);
 
       res.json({
         success: true,
@@ -234,7 +236,7 @@ module.exports = (app, { logger, persistenceService }) => {
   app.delete(INTERNAL_API_PATHS.WORKFLOW_CLEANUP, async (req, res) => {
     try {
       let { cutoff } = req.query;
-      
+
       if (!cutoff) {
         const midnight = new Date();
         midnight.setHours(0, 0, 0, 0);

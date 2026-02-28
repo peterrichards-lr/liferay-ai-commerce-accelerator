@@ -33,13 +33,17 @@ module.exports = async function deleteProductOptions(
 
     try {
       const productOptions = await liferay.getProductOptions(config, productId);
-      
+
       if (productOptions && productOptions.length > 0) {
-        logger.debug(`Clearing ${productOptions.length} options from product ${productId}`);
-        
+        logger.debug(
+          `Clearing ${productOptions.length} options from product ${productId}`
+        );
+
         for (const po of productOptions) {
           if (!po.id) {
-            logger.debug(`Skipping product option association removal: missing ID for product ${productId}`);
+            logger.debug(
+              `Skipping product option association removal: missing ID for product ${productId}`
+            );
             continue;
           }
           await liferay.deleteProductOption(config, productId, po.id);
@@ -47,11 +51,15 @@ module.exports = async function deleteProductOptions(
         }
       }
     } catch (err) {
-      logger.warn(`Failed to clear options for product ${productId}: ${err.message}`);
+      logger.warn(
+        `Failed to clear options for product ${productId}: ${err.message}`
+      );
     }
   }
 
-  logger.info(`Successfully cleared ${clearedCount} product-option associations.`);
+  logger.info(
+    `Successfully cleared ${clearedCount} product-option associations.`
+  );
 
   if (batchERC) {
     await persistence.updateBatch(batchERC, {

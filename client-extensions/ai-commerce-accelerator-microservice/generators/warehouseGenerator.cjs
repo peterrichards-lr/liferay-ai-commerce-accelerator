@@ -1,8 +1,4 @@
-const {
-  createERC,
-  toI18n,
-  resolvePhaseAndMode,
-} = require('../utils/misc.cjs');
+const { createERC, toI18n, resolvePhaseAndMode } = require('../utils/misc.cjs');
 const { ERC_PREFIX } = require('../utils/constants.cjs');
 
 class WarehouseGenerator {
@@ -33,10 +29,17 @@ class WarehouseGenerator {
   }
 
   async createWarehouses(config, options) {
-    const { logger, ai, mockData, progress, liferay, persistence } =
-      this.ctx;
-    const { warehouseCount, demoMode, sessionId, dryRun, stepKey = 'warehouses', correlationId: optionsCID } = options;
-    const correlationId = optionsCID || config?.correlationId || this.ctx?.correlationId || '∅';
+    const { logger, ai, mockData, progress, liferay, persistence } = this.ctx;
+    const {
+      warehouseCount,
+      demoMode,
+      sessionId,
+      dryRun,
+      stepKey = 'warehouses',
+      correlationId: optionsCID,
+    } = options;
+    const correlationId =
+      optionsCID || config?.correlationId || this.ctx?.correlationId || '∅';
 
     this.validateConfig(config);
     await this.validateOptions(config, options);
@@ -81,16 +84,20 @@ class WarehouseGenerator {
       );
 
       if (dryRun) {
-        logger.info('DRY RUN: Skipping warehouse batch creation.', { correlationId });
-        logger.info({
-            dryRunData: {
-                step: 'warehouses',
-                count: normalizedWarehouseDataList.length,
-                payload: normalizedWarehouseDataList,
-            },
-            correlationId,
+        logger.info('DRY RUN: Skipping warehouse batch creation.', {
+          correlationId,
         });
-        return normalizedWarehouseDataList.map(w => ({ externalReferenceCode: w.externalReferenceCode }));
+        logger.info({
+          dryRunData: {
+            step: 'warehouses',
+            count: normalizedWarehouseDataList.length,
+            payload: normalizedWarehouseDataList,
+          },
+          correlationId,
+        });
+        return normalizedWarehouseDataList.map((w) => ({
+          externalReferenceCode: w.externalReferenceCode,
+        }));
       }
 
       const submission = await liferay.createWarehousesBatch(
@@ -120,7 +127,7 @@ class WarehouseGenerator {
         entityType,
         operation,
         totalItems,
-        correlationId
+        correlationId,
       });
 
       return normalizedWarehouseDataList;
@@ -133,7 +140,7 @@ class WarehouseGenerator {
         totalItems: warehouseDataList.length,
         operation,
         sessionId,
-        correlationId
+        correlationId,
       });
 
       const createdWarehouses = [];
@@ -149,10 +156,15 @@ class WarehouseGenerator {
 
           if (dryRun) {
             logger.info('DRY RUN: Skipping individual warehouse creation', {
-              friendlyName: normalizedWarehouse.name?.en_US || normalizedWarehouse.externalReferenceCode,
+              friendlyName:
+                normalizedWarehouse.name?.en_US ||
+                normalizedWarehouse.externalReferenceCode,
               correlationId,
             });
-            logger.info({ dryRunData: { step: 'warehouses', payload: normalizedWarehouse }, correlationId });
+            logger.info({
+              dryRunData: { step: 'warehouses', payload: normalizedWarehouse },
+              correlationId,
+            });
             createdWarehouses.push(normalizedWarehouse);
             continue;
           }
@@ -193,7 +205,7 @@ class WarehouseGenerator {
         sessionId,
         correlationId,
       });
-      
+
       logger.info('Warehouse creation completed', {
         correlationId,
         operation: 'warehouses/generate:complete',

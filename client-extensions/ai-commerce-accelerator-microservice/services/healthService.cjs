@@ -114,8 +114,8 @@ class HealthService {
       memoryUsagePercent > 90
         ? 'unhealthy'
         : memoryUsagePercent > 80
-        ? 'degraded'
-        : 'healthy';
+          ? 'degraded'
+          : 'healthy';
 
     return Promise.resolve({
       status,
@@ -198,8 +198,8 @@ class HealthService {
     const overallStatus = allStatuses.includes('unhealthy')
       ? 'unhealthy'
       : allStatuses.includes('degraded')
-      ? 'degraded'
-      : 'healthy';
+        ? 'degraded'
+        : 'healthy';
 
     const healthReport = {
       status: overallStatus,

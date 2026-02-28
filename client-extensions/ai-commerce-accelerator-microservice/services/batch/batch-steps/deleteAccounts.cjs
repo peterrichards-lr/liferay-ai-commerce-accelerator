@@ -1,6 +1,16 @@
 module.exports = async function deleteAccounts(
   { liferay },
-  { config, options, ids, items, channelId, batchERC, sessionId, filter, search }
+  {
+    config,
+    options,
+    ids,
+    items,
+    channelId,
+    batchERC,
+    sessionId,
+    filter,
+    search,
+  }
 ) {
   // Use provided search/filter or fallback to accelerator prefix
   const finalSearch = search || (!filter ? 'AICA-ACC' : undefined);

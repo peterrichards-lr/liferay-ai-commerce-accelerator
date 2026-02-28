@@ -28,7 +28,9 @@ class BaseComponent extends HTMLElement {
   }
 
   disconnectedCallback() {
-    try { this.root?.unmount?.(); } catch {}
+    try {
+      this.root?.unmount?.();
+    } catch {}
     this.root = null;
   }
 }
@@ -46,7 +48,7 @@ class LiferayAICommerceAcceleratorConfigurationComponent extends BaseComponent {
     if (!this.root) return;
     const spritemap =
       this.getAttribute('spritemap') ||
-      (globalThis?.Liferay?.Icons?.spritemap) ||
+      globalThis?.Liferay?.Icons?.spritemap ||
       SPRITEMAP_FALLBACK;
 
     this.root.render(
@@ -58,5 +60,8 @@ class LiferayAICommerceAcceleratorConfigurationComponent extends BaseComponent {
 }
 
 if (!customElements.get(ELEMENT_ID)) {
-  customElements.define(ELEMENT_ID, LiferayAICommerceAcceleratorConfigurationComponent);
+  customElements.define(
+    ELEMENT_ID,
+    LiferayAICommerceAcceleratorConfigurationComponent
+  );
 }

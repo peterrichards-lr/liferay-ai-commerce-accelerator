@@ -18,14 +18,14 @@ function getEffectivePolling(configService, runtime = {}) {
   const interval = Number.isFinite(jsonInterval)
     ? jsonInterval
     : Number.isFinite(rtInterval)
-    ? rtInterval
-    : 5000;
+      ? rtInterval
+      : 5000;
 
   const attempts = Number.isFinite(jsonAttempts)
     ? jsonAttempts
     : Number.isFinite(rtAttempts)
-    ? rtAttempts
-    : 120;
+      ? rtAttempts
+      : 120;
 
   const safeInterval = Math.max(1000, Math.min(interval, MIN(10)));
   const safeAttempts = Math.max(1, Math.min(attempts, 1000));

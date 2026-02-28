@@ -110,8 +110,7 @@ export default function ExcludeListsPanel() {
         if (!validate(parsed)) {
           setIssues(
             validate.errors.map(
-              (err) =>
-                `Validation Error: ${err.message} at ${err.instancePath}`
+              (err) => `Validation Error: ${err.message} at ${err.instancePath}`
             )
           );
         } else {
@@ -130,7 +129,10 @@ export default function ExcludeListsPanel() {
     () =>
       issues.length > 0 ||
       (typeof excludeLists === 'string' && excludeLists.length > 0) ||
-      (typeof excludeLists === 'object' && !Array.isArray(excludeLists) && excludeLists !== null && !validate(excludeLists)),
+      (typeof excludeLists === 'object' &&
+        !Array.isArray(excludeLists) &&
+        excludeLists !== null &&
+        !validate(excludeLists)),
     [issues, excludeLists]
   );
 

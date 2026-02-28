@@ -17,7 +17,9 @@ function WarehousesToggle({ productCount, values, onChange, disabled }) {
 
       {values.createWarehouses && (
         <div className="form-group">
-          <label htmlFor="dataGeneration_warehouseCount">Number of Warehouses</label>
+          <label htmlFor="dataGeneration_warehouseCount">
+            Number of Warehouses
+          </label>
           <input
             id="dataGeneration_warehouseCount"
             type="number"
@@ -25,7 +27,9 @@ function WarehousesToggle({ productCount, values, onChange, disabled }) {
             min="1"
             max="10"
             value={values.warehouseCount}
-            onChange={(e) => onChange('warehouseCount', parseInt(e.target.value) || 1)}
+            onChange={(e) =>
+              onChange('warehouseCount', parseInt(e.target.value) || 1)
+            }
             disabled={disabled || isMuted}
           />
         </div>

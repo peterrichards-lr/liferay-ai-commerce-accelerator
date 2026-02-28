@@ -260,7 +260,13 @@ class AIService {
       };
 
       const promptContent = await prompt.render('pdf', vars, requestConfig);
-      return await this._chatJson('pdf', promptContent, requestConfig, model, 'pdf');
+      return await this._chatJson(
+        'pdf',
+        promptContent,
+        requestConfig,
+        model,
+        'pdf'
+      );
     } catch (error) {
       const errorReference =
         error.errorReference || createERC(ERC_PREFIX.ERROR);
@@ -322,8 +328,11 @@ class AIService {
                 .toLowerCase()}"`
           )
           .join(',\n    '),
-        priceEntriesInstruction: (options.generatePriceLists || options.generateBulkPricing || options.generateTierPricing)
-          ? `- priceEntries: array of price list entry objects. Each object must have:
+        priceEntriesInstruction:
+          options.generatePriceLists ||
+          options.generateBulkPricing ||
+          options.generateTierPricing
+            ? `- priceEntries: array of price list entry objects. Each object must have:
             - price (number): The unit price.
             - skuExternalReferenceCode (string): This MUST be the same as the SKU's "sku" code (e.g., "PRODUCT-001-BLK-L").
             - priceListExternalReferenceCode (string): Always use "AICA-PL-GENERAL".
@@ -332,10 +341,14 @@ class AIService {
             - sku (object): A nested object containing:
               - basePrice (number): The same value as the top-level price.
               - basePromoPrice (number or null): The promotional price for this SKU. Generate this for approximately 20% of products.
-            ${options.generateBulkPricing || options.generateTierPricing ? `
+            ${
+              options.generateBulkPricing || options.generateTierPricing
+                ? `
             - bulkPricing (boolean): ${options.generateBulkPricing ? 'Set to true for Bulk Pricing (same price for all items if threshold reached).' : 'Set to false for Tiered Pricing (different prices for quantity ranges).'}
-            - tierPrices (array): List of objects with "minimumQuantity" (number), "price" (number), and "externalReferenceCode" (string). Generate at least two tiers (e.g., 5+ and 10+).` : ''}`
-          : '',
+            - tierPrices (array): List of objects with "minimumQuantity" (number), "price" (number), and "externalReferenceCode" (string). Generate at least two tiers (e.g., 5+ and 10+).`
+                : ''
+            }`
+            : '',
       };
 
       const promptContent = await prompt.render('product', vars, requestConfig);
@@ -596,7 +609,12 @@ class AIService {
       };
 
       const promptContent = await prompt.render('pricing', vars, requestConfig);
-      const obj = await this._chatJson('pricing', promptContent, requestConfig, model);
+      const obj = await this._chatJson(
+        'pricing',
+        promptContent,
+        requestConfig,
+        model
+      );
 
       return obj;
     } catch (error) {

@@ -158,4 +158,3 @@ module.exports = (app, { deleteCoordinatorService, logger, configService }) => {
     }
   );
 };
-

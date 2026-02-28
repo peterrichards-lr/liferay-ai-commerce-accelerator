@@ -28,7 +28,15 @@ class LiferayGraphQLService {
     });
   }
 
-  async _fetchByFilter(config, namespace, queryMethod, filter, fields, pagination, extraArgs = {}) {
+  async _fetchByFilter(
+    config,
+    namespace,
+    queryMethod,
+    filter,
+    fields,
+    pagination,
+    extraArgs = {}
+  ) {
     const client = await this._getClient(config);
     const fieldSelection = fields.join(' ');
     const { page, pageSize } = pagination;
@@ -47,14 +55,19 @@ class LiferayGraphQLService {
     for (const [key, value] of Object.entries(extraArgs)) {
       if (value !== undefined && value !== null) {
         args.push(`${key}: $${key}`);
-        
+
         let type = 'String';
         if (typeof value === 'boolean') {
           type = 'Boolean';
-        } else if (typeof value === 'number' || (typeof value === 'string' && !isNaN(value) && !isNaN(parseFloat(value)))) {
+        } else if (
+          typeof value === 'number' ||
+          (typeof value === 'string' &&
+            !isNaN(value) &&
+            !isNaN(parseFloat(value)))
+        ) {
           type = 'Long'; // Default to Long for IDs
         }
-        
+
         varDecls.push(`$${key}: ${type}`);
         variables[key] = value;
       }
@@ -108,15 +121,16 @@ class LiferayGraphQLService {
     });
 
     if (response.data.errors) {
-      const isMissingEntity = response.data.errors.some(err => 
-        err.extensions?.code === 'NOT_FOUND' || 
-        err.message?.includes('DataFetchingException') ||
-        err.message?.includes('null')
+      const isMissingEntity = response.data.errors.some(
+        (err) =>
+          err.extensions?.code === 'NOT_FOUND' ||
+          err.message?.includes('DataFetchingException') ||
+          err.message?.includes('null')
       );
 
       const logLevel = isMissingEntity ? 'debug' : 'error';
-      const logMessage = isMissingEntity 
-        ? 'GraphQL data not found (likely stale index), will retry if possible:' 
+      const logMessage = isMissingEntity
+        ? 'GraphQL data not found (likely stale index), will retry if possible:'
         : 'GraphQL errors detected in _fetchByFilter:';
 
       this.logger[logLevel](logMessage, {
@@ -126,7 +140,9 @@ class LiferayGraphQLService {
         filter,
         correlationId: config.correlationId,
       });
-      throw new Error(`GraphQL query failed: ${response.data.errors[0].message}`);
+      throw new Error(
+        `GraphQL query failed: ${response.data.errors[0].message}`
+      );
     }
 
     if (!response.data.data || !response.data.data[namespace]) {
@@ -136,7 +152,9 @@ class LiferayGraphQLService {
         data: response.data.data,
         correlationId: config.correlationId,
       });
-      throw new Error(`GraphQL response missing data for ${namespace}.${queryMethod}`);
+      throw new Error(
+        `GraphQL response missing data for ${namespace}.${queryMethod}`
+      );
     }
 
     return response.data.data[namespace][queryMethod];
@@ -157,9 +175,13 @@ class LiferayGraphQLService {
     for (const batch of chunks) {
       const result = await this._executeWithRetry(config, async () => {
         const fieldSelection = fields.join(' ');
-        const aliasedQueries = batch.map((erc, index) => `
+        const aliasedQueries = batch
+          .map(
+            (erc, index) => `
           a${index}: ${queryMethod}(externalReferenceCode: "${erc}") { ${fieldSelection} }
-        `).join('\n');
+        `
+          )
+          .join('\n');
 
         const query = `query { ${namespace} { ${aliasedQueries} } }`;
         const gqlBody = { query };
@@ -184,18 +206,19 @@ class LiferayGraphQLService {
           status: response.status,
           data: response.data,
         });
-        
+
         if (response.data.errors) {
           // Check if any error is related to a missing entity (STALE_INDEX)
-          const isMissingEntity = response.data.errors.some(err => 
-            err.extensions?.code === 'NOT_FOUND' || 
-            err.message?.includes('DataFetchingException') ||
-            err.message?.includes('null')
+          const isMissingEntity = response.data.errors.some(
+            (err) =>
+              err.extensions?.code === 'NOT_FOUND' ||
+              err.message?.includes('DataFetchingException') ||
+              err.message?.includes('null')
           );
 
           const logLevel = isMissingEntity ? 'debug' : 'error';
-          const logMessage = isMissingEntity 
-            ? 'GraphQL data not found (likely stale index), will retry if possible:' 
+          const logMessage = isMissingEntity
+            ? 'GraphQL data not found (likely stale index), will retry if possible:'
             : 'GraphQL errors detected in _fetchByERCs:';
 
           this.logger[logLevel](logMessage, {
@@ -209,8 +232,10 @@ class LiferayGraphQLService {
           if (isMissingEntity) {
             throw new Error('STALE_INDEX');
           }
-          
-          throw new Error(`GraphQL query failed: ${response.data.errors[0].message}`);
+
+          throw new Error(
+            `GraphQL query failed: ${response.data.errors[0].message}`
+          );
         }
 
         const data = response.data.data?.[namespace];
@@ -222,8 +247,8 @@ class LiferayGraphQLService {
 
         // TRIGGER RETRY: If any ERC returned null, the index might be stale.
         // We only return the batch if EVERY requested ERC was found.
-        if (results.some(item => item === null)) {
-          throw new Error('STALE_INDEX'); 
+        if (results.some((item) => item === null)) {
+          throw new Error('STALE_INDEX');
         }
 
         return results;
@@ -243,9 +268,13 @@ class LiferayGraphQLService {
 
     for (const batch of chunks) {
       const fieldSelection = fields.join(' ');
-      const aliasedQueries = batch.map((id, index) => `
+      const aliasedQueries = batch
+        .map(
+          (id, index) => `
         a${index}: ${queryMethod}(id: ${id}, pageSize: 100) { items { ${fieldSelection} } }
-      `).join('\n');
+      `
+        )
+        .join('\n');
 
       const query = `query { ${namespace} { ${aliasedQueries} } }`;
       const gqlBody = { query };
@@ -269,7 +298,7 @@ class LiferayGraphQLService {
 
       if (response.data.data && response.data.data[namespace]) {
         const results = Object.values(response.data.data[namespace]);
-        results.forEach(r => {
+        results.forEach((r) => {
           if (r?.items) allResults = allResults.concat(r.items);
         });
       }
@@ -286,12 +315,15 @@ class LiferayGraphQLService {
     } catch (error) {
       if (error.message === 'STALE_INDEX' && attempt < this.maxRetries) {
         const delay = this.initialDelay * Math.pow(2, attempt);
-        this.logger.warn(`[Liferay GraphQL] Index stale. Retrying in ${delay}ms (Attempt ${attempt + 1}/${this.maxRetries})`, {
-          correlationId: config.correlationId,
-          attempt: attempt + 1,
-          maxRetries: this.maxRetries,
-        });
-        await new Promise(resolve => setTimeout(resolve, delay));
+        this.logger.warn(
+          `[Liferay GraphQL] Index stale. Retrying in ${delay}ms (Attempt ${attempt + 1}/${this.maxRetries})`,
+          {
+            correlationId: config.correlationId,
+            attempt: attempt + 1,
+            maxRetries: this.maxRetries,
+          }
+        );
+        await new Promise((resolve) => setTimeout(resolve, delay));
         return this._executeWithRetry(config, fn, attempt + 1);
       }
       throw error; // Re-throw if max retries reached or it's a real 500/400 error
@@ -300,104 +332,337 @@ class LiferayGraphQLService {
 
   // --- Wrapper Methods ---
 
-  async getProducts(config, filter, fields = ['id', 'externalReferenceCode', 'name'], pagination = { page: 1, pageSize: 200 }) {
-    return this._fetchByFilter(config, 'headlessCommerceAdminCatalog_v1_0', 'products', filter, fields, pagination);
+  async getProducts(
+    config,
+    filter,
+    fields = ['id', 'externalReferenceCode', 'name'],
+    pagination = { page: 1, pageSize: 200 }
+  ) {
+    return this._fetchByFilter(
+      config,
+      'headlessCommerceAdminCatalog_v1_0',
+      'products',
+      filter,
+      fields,
+      pagination
+    );
   }
 
-  async getAccounts(config, filter, fields = ['id', 'externalReferenceCode', 'name'], pagination = { page: 1, pageSize: 200 }) {
-    return this._fetchByFilter(config, 'headlessAdminUser_v1_0', 'accounts', filter, fields, pagination);
+  async getAccounts(
+    config,
+    filter,
+    fields = ['id', 'externalReferenceCode', 'name'],
+    pagination = { page: 1, pageSize: 200 }
+  ) {
+    return this._fetchByFilter(
+      config,
+      'headlessAdminUser_v1_0',
+      'accounts',
+      filter,
+      fields,
+      pagination
+    );
   }
 
-  async getOrders(config, filter, fields = ['id', 'externalReferenceCode'], pagination = { page: 1, pageSize: 200 }) {
-    return this._fetchByFilter(config, 'headlessCommerceAdminOrder_v1_0', 'orders', filter, fields, pagination);
+  async getOrders(
+    config,
+    filter,
+    fields = ['id', 'externalReferenceCode'],
+    pagination = { page: 1, pageSize: 200 }
+  ) {
+    return this._fetchByFilter(
+      config,
+      'headlessCommerceAdminOrder_v1_0',
+      'orders',
+      filter,
+      fields,
+      pagination
+    );
   }
 
-  async getPriceLists(config, filter, fields = ['id', 'externalReferenceCode', 'name'], pagination = { page: 1, pageSize: 200 }) {
-    return this._fetchByFilter(config, 'headlessCommerceAdminPricing_v2_0', 'priceLists', filter, fields, pagination);
+  async getPriceLists(
+    config,
+    filter,
+    fields = ['id', 'externalReferenceCode', 'name'],
+    pagination = { page: 1, pageSize: 200 }
+  ) {
+    return this._fetchByFilter(
+      config,
+      'headlessCommerceAdminPricing_v2_0',
+      'priceLists',
+      filter,
+      fields,
+      pagination
+    );
   }
 
-  async getPromotions(config, filter, fields = ['id', 'externalReferenceCode', 'name'], pagination = { page: 1, pageSize: 200 }) {
-    return this._fetchByFilter(config, 'headlessCommerceAdminPricing_v2_0', 'priceLists', filter, fields, pagination);
+  async getPromotions(
+    config,
+    filter,
+    fields = ['id', 'externalReferenceCode', 'name'],
+    pagination = { page: 1, pageSize: 200 }
+  ) {
+    return this._fetchByFilter(
+      config,
+      'headlessCommerceAdminPricing_v2_0',
+      'priceLists',
+      filter,
+      fields,
+      pagination
+    );
   }
 
-  async getWarehouses(config, filter, fields = ['id', 'externalReferenceCode', 'name'], pagination = { page: 1, pageSize: 200 }) {
-    return this._fetchByFilter(config, 'headlessCommerceAdminInventory_v1_0', 'warehouses', filter, fields, pagination);
+  async getWarehouses(
+    config,
+    filter,
+    fields = ['id', 'externalReferenceCode', 'name'],
+    pagination = { page: 1, pageSize: 200 }
+  ) {
+    return this._fetchByFilter(
+      config,
+      'headlessCommerceAdminInventory_v1_0',
+      'warehouses',
+      filter,
+      fields,
+      pagination
+    );
   }
 
-  async getOptions(config, filter, fields = ['id', 'key', 'externalReferenceCode'], pagination = { page: 1, pageSize: 200 }) {
-    return this._fetchByFilter(config, 'headlessCommerceAdminCatalog_v1_0', 'options', filter, fields, pagination);
+  async getOptions(
+    config,
+    filter,
+    fields = ['id', 'key', 'externalReferenceCode'],
+    pagination = { page: 1, pageSize: 200 }
+  ) {
+    return this._fetchByFilter(
+      config,
+      'headlessCommerceAdminCatalog_v1_0',
+      'options',
+      filter,
+      fields,
+      pagination
+    );
   }
 
-  async getSpecifications(config, filter, fields = ['id', 'key', 'externalReferenceCode'], pagination = { page: 1, pageSize: 200 }) {
-    return this._fetchByFilter(config, 'headlessCommerceAdminCatalog_v1_0', 'specifications', filter, fields, pagination);
+  async getSpecifications(
+    config,
+    filter,
+    fields = ['id', 'key', 'externalReferenceCode'],
+    pagination = { page: 1, pageSize: 200 }
+  ) {
+    return this._fetchByFilter(
+      config,
+      'headlessCommerceAdminCatalog_v1_0',
+      'specifications',
+      filter,
+      fields,
+      pagination
+    );
   }
 
-  async getOptionCategories(config, filter, fields = ['id', 'externalReferenceCode', 'title'], pagination = { page: 1, pageSize: 200 }) {
-    return this._fetchByFilter(config, 'headlessCommerceAdminCatalog_v1_0', 'optionCategories', filter, fields, pagination);
+  async getOptionCategories(
+    config,
+    filter,
+    fields = ['id', 'externalReferenceCode', 'title'],
+    pagination = { page: 1, pageSize: 200 }
+  ) {
+    return this._fetchByFilter(
+      config,
+      'headlessCommerceAdminCatalog_v1_0',
+      'optionCategories',
+      filter,
+      fields,
+      pagination
+    );
   }
 
-  async getCatalogs(config, filter, fields = ['id', 'externalReferenceCode', 'name'], pagination = { page: 1, pageSize: 200 }) {
-    return this._fetchByFilter(config, 'headlessCommerceAdminCatalog_v1_0', 'catalogs', filter, fields, pagination);
+  async getCatalogs(
+    config,
+    filter,
+    fields = ['id', 'externalReferenceCode', 'name'],
+    pagination = { page: 1, pageSize: 200 }
+  ) {
+    return this._fetchByFilter(
+      config,
+      'headlessCommerceAdminCatalog_v1_0',
+      'catalogs',
+      filter,
+      fields,
+      pagination
+    );
   }
 
-  async getChannels(config, filter, fields = ['id', 'externalReferenceCode', 'name', 'siteGroupId', 'currencyCode'], pagination = { page: 1, pageSize: 200 }) {
-    return this._fetchByFilter(config, 'headlessCommerceAdminChannel_v1_0', 'channels', filter, fields, pagination);
+  async getChannels(
+    config,
+    filter,
+    fields = [
+      'id',
+      'externalReferenceCode',
+      'name',
+      'siteGroupId',
+      'currencyCode',
+    ],
+    pagination = { page: 1, pageSize: 200 }
+  ) {
+    return this._fetchByFilter(
+      config,
+      'headlessCommerceAdminChannel_v1_0',
+      'channels',
+      filter,
+      fields,
+      pagination
+    );
   }
 
-  async getCountries(config, filter, fields = ['id', 'a2', 'name', 'title_i18n'], pagination = { page: 1, pageSize: 1000 }, active = true) {
-    return this._fetchByFilter(config, 'headlessAdminAddress_v1_0', 'countries', filter, fields, pagination, { active });
+  async getCountries(
+    config,
+    filter,
+    fields = ['id', 'a2', 'name', 'title_i18n'],
+    pagination = { page: 1, pageSize: 1000 },
+    active = true
+  ) {
+    return this._fetchByFilter(
+      config,
+      'headlessAdminAddress_v1_0',
+      'countries',
+      filter,
+      fields,
+      pagination,
+      { active }
+    );
   }
 
-  async getSkusByERC(config, ercs, fields = ['id', 'externalReferenceCode', 'sku']) {
-    return this._fetchByERCs(config, 'headlessCommerceAdminCatalog_v1_0', 'skus', ercs, fields);
+  async getSkusByERC(
+    config,
+    ercs,
+    fields = ['id', 'externalReferenceCode', 'sku']
+  ) {
+    return this._fetchByERCs(
+      config,
+      'headlessCommerceAdminCatalog_v1_0',
+      'skus',
+      ercs,
+      fields
+    );
   }
 
-  async getCountryRegions(config, countryId, filter, fields = ['id', 'name', 'regionCode'], pagination = { page: 1, pageSize: 1000 }, active = true) {
-    return this._fetchByFilter(config, 'headlessAdminAddress_v1_0', 'countryRegions', filter, fields, pagination, { countryId, active });
+  async getCountryRegions(
+    config,
+    countryId,
+    filter,
+    fields = ['id', 'name', 'regionCode'],
+    pagination = { page: 1, pageSize: 1000 },
+    active = true
+  ) {
+    return this._fetchByFilter(
+      config,
+      'headlessAdminAddress_v1_0',
+      'countryRegions',
+      filter,
+      fields,
+      pagination,
+      { countryId, active }
+    );
   }
 
-  async getWarehouseItems(config, id, filter, fields = ['id', 'externalReferenceCode', 'sku', 'quantity'], pagination = { page: 1, pageSize: 200 }) {
-    return this._fetchByFilter(config, 'headlessCommerceAdminInventory_v1_0', 'warehouseIdWarehouseItems', filter, fields, pagination, { id });
+  async getWarehouseItems(
+    config,
+    id,
+    filter,
+    fields = ['id', 'externalReferenceCode', 'sku', 'quantity'],
+    pagination = { page: 1, pageSize: 200 }
+  ) {
+    return this._fetchByFilter(
+      config,
+      'headlessCommerceAdminInventory_v1_0',
+      'warehouseIdWarehouseItems',
+      filter,
+      fields,
+      pagination,
+      { id }
+    );
   }
 
   async getSpecificationsByProductIds(config, productIds) {
     return this._fetchByProductIds(
-      config, 
-      'headlessCommerceAdminCatalog_v1_0', 
-      'productIdProductSpecifications', 
-      productIds, 
+      config,
+      'headlessCommerceAdminCatalog_v1_0',
+      'productIdProductSpecifications',
+      productIds,
       ['id', 'specificationId', 'optionCategoryId']
     );
   }
 
   async getOptionsByProductIds(config, productIds) {
     return this._fetchByProductIds(
-      config, 
-      'headlessCommerceAdminCatalog_v1_0', 
-      'productIdProductOptions', 
-      productIds, 
+      config,
+      'headlessCommerceAdminCatalog_v1_0',
+      'productIdProductOptions',
+      productIds,
       ['id', 'optionId']
     );
   }
 
-  async getAccountsByERC(config, ercs, fields = ['id', 'externalReferenceCode', 'name']) {
-    return this._fetchByERCs(config, 'headlessAdminUser_v1_0', 'accountByExternalReferenceCode', ercs, fields);
+  async getAccountsByERC(
+    config,
+    ercs,
+    fields = ['id', 'externalReferenceCode', 'name']
+  ) {
+    return this._fetchByERCs(
+      config,
+      'headlessAdminUser_v1_0',
+      'accountByExternalReferenceCode',
+      ercs,
+      fields
+    );
   }
 
-  async getProductsByERC(config, ercs, fields = ['id', 'externalReferenceCode', 'productId']) {
-    return this._fetchByERCs(config, 'headlessCommerceAdminCatalog_v1_0', 'productByExternalReferenceCode', ercs, fields);
+  async getProductsByERC(
+    config,
+    ercs,
+    fields = ['id', 'externalReferenceCode', 'productId']
+  ) {
+    return this._fetchByERCs(
+      config,
+      'headlessCommerceAdminCatalog_v1_0',
+      'productByExternalReferenceCode',
+      ercs,
+      fields
+    );
   }
 
-  async getWarehousesByERC(config, ercs, fields = ['id', 'externalReferenceCode', 'name']) {
-    return this._fetchByERCs(config, 'headlessCommerceAdminInventory_v1_0', 'warehouseByExternalReferenceCode', ercs, fields);
+  async getWarehousesByERC(
+    config,
+    ercs,
+    fields = ['id', 'externalReferenceCode', 'name']
+  ) {
+    return this._fetchByERCs(
+      config,
+      'headlessCommerceAdminInventory_v1_0',
+      'warehouseByExternalReferenceCode',
+      ercs,
+      fields
+    );
   }
 
-  async getPostalAddressesByERC(config, ercs, fields = ['id', 'externalReferenceCode']) {
-    return this._fetchByERCs(config, 'headlessAdminUser_v1_0', 'postalAddressByExternalReferenceCode', ercs, fields);
+  async getPostalAddressesByERC(
+    config,
+    ercs,
+    fields = ['id', 'externalReferenceCode']
+  ) {
+    return this._fetchByERCs(
+      config,
+      'headlessAdminUser_v1_0',
+      'postalAddressByExternalReferenceCode',
+      ercs,
+      fields
+    );
   }
 
   _chunkArray(arr, size) {
-    return Array.from({ length: Math.ceil(arr.length / size) }, (v, i) => arr.slice(i * size, i * size + size));
+    return Array.from({ length: Math.ceil(arr.length / size) }, (v, i) =>
+      arr.slice(i * size, i * size + size)
+    );
   }
 }
 

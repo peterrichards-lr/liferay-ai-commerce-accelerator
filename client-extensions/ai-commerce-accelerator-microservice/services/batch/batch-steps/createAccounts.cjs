@@ -6,12 +6,8 @@ module.exports = async function createAccounts(
   { config, options, callbackUrl, batchERC, accounts, sessionId }
 ) {
   const accountsForBatch = accounts.map((account) => {
-    const {
-      billingAddress,
-      shippingAddress,
-      headOfficeAddress,
-      ...rest
-    } = account;
+    const { billingAddress, shippingAddress, headOfficeAddress, ...rest } =
+      account;
     return rest;
   });
 

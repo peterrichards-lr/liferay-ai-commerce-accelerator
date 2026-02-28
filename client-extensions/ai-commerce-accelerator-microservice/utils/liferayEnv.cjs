@@ -14,7 +14,9 @@ function isValidAbsoluteUrl(maybeUrl) {
 
 function tryBuildColocatedLiferayUrl() {
   try {
-    const liferayServerProtocol = lookupConfig('com.liferay.lxc.dxp.server.protocol');
+    const liferayServerProtocol = lookupConfig(
+      'com.liferay.lxc.dxp.server.protocol'
+    );
     const liferayServerDomain = lxcConfig.dxpMainDomain();
     const built = `${liferayServerProtocol}://${liferayServerDomain}`;
     if (isValidAbsoluteUrl(built)) return built;
@@ -60,7 +62,9 @@ function resolveEffectiveLiferayConnection(config = {}, oauthService) {
   }
 
   if (!isValidAbsoluteUrl(liferayUrl)) {
-    const e = new Error('Liferay URL is not configured. Please provide liferayUrl in the request.');
+    const e = new Error(
+      'Liferay URL is not configured. Please provide liferayUrl in the request.'
+    );
     e.name = 'LiferayRequestError';
     e.operation = 'liferay-url-resolution';
     e.userMessage =
@@ -69,7 +73,7 @@ function resolveEffectiveLiferayConnection(config = {}, oauthService) {
     e.problem = {
       status: 'CONFIGURATION_ERROR',
       detail:
-        'No liferayUrl was provided, and this service cannot derive one automatically.'
+        'No liferayUrl was provided, and this service cannot derive one automatically.',
     };
     throw e;
   }
@@ -85,7 +89,7 @@ function resolveEffectiveLiferayConnection(config = {}, oauthService) {
       e.problem = {
         status: 'AUTH_CONFIG_ERROR',
         detail:
-          'clientId and/or clientSecret are missing. They must be supplied when running outside Liferay.'
+          'clientId and/or clientSecret are missing. They must be supplied when running outside Liferay.',
       };
       throw e;
     }

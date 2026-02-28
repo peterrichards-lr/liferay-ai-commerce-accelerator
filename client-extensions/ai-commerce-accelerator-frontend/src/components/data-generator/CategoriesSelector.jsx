@@ -18,7 +18,11 @@ export default function CategoriesSelector({
   return (
     <div className="categories-section">
       <span className="categories-title">Categories</span>
-      {showNote && <small className="categories-note">(Categories are used for both product and account generation)</small>}
+      {showNote && (
+        <small className="categories-note">
+          (Categories are used for both product and account generation)
+        </small>
+      )}
       <div className="categories-grid">
         {availableCategories.map((category, index) => (
           <div key={category} className="category-item">

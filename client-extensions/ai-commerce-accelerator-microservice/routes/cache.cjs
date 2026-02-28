@@ -114,7 +114,7 @@ module.exports = (app, { logger, cacheService }) => {
   app.delete(INTERNAL_API_PATHS.CACHE_CLEANUP, async (req, res) => {
     try {
       let { cutoff } = req.query;
-      
+
       if (!cutoff) {
         const midnight = new Date();
         midnight.setHours(0, 0, 0, 0);

@@ -105,7 +105,8 @@ export default function BatchSizesPanel() {
       <div className="sheet-header">
         <h2 className="sheet-title">Batch Sizes</h2>
         <div className="sheet-text">
-          Define the available batch sizes. Each batch size should be a positive integer.
+          Define the available batch sizes. Each batch size should be a positive
+          integer.
         </div>
       </div>
       <div className="sheet-section">

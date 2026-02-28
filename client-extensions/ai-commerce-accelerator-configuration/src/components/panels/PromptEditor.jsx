@@ -7,12 +7,7 @@ import 'codemirror/addon/fold/foldgutter';
 import 'codemirror/addon/fold/brace-fold';
 import { defaultEditorOptions } from '../../utils/editor';
 
-export default function PromptEditor({
-  title,
-  configKey,
-  value,
-  onChange,
-}) {
+export default function PromptEditor({ title, configKey, value, onChange }) {
   return (
     <ClayLayout.Sheet>
       <div className="sheet-header">

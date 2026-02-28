@@ -24,7 +24,6 @@ const OrderGenerator = require('./generators/orderGenerator.cjs');
 const ProductGenerator = require('./generators/productGenerator.cjs');
 const WarehouseGenerator = require('./generators/warehouseGenerator.cjs');
 
-
 const registerDataGenerationWorkers = require('./workers/dataGenerationWorkers.cjs');
 
 module.exports = (ws) => {
@@ -42,7 +41,7 @@ module.exports = (ws) => {
     cache: ctx.cache,
     logger,
   });
-  
+
   ctx.liferay = new LiferayService({
     oauth: ctx.oauth,
     logger,

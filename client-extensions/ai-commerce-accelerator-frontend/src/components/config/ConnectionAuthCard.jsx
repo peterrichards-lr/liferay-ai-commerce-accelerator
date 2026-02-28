@@ -46,8 +46,8 @@ export default function ConnectionAuthCard({
     status === 'success'
       ? 'success'
       : status === 'error'
-      ? 'danger'
-      : 'outline-primary';
+        ? 'danger'
+        : 'outline-primary';
 
   return (
     <ClayCard className="p-4">
@@ -182,15 +182,15 @@ export default function ConnectionAuthCard({
             displayType === 'success'
               ? 'icon-connected'
               : displayType === 'danger'
-              ? 'icon-connection-failed'
-              : 'icon-connection-unknown'
+                ? 'icon-connection-failed'
+                : 'icon-connection-unknown'
           } me-2`}
         ></i>
         {status === 'success'
           ? 'Connected'
           : status === 'error'
-          ? 'Retry Connection'
-          : 'Test Connection & Load Data'}
+            ? 'Retry Connection'
+            : 'Test Connection & Load Data'}
       </button>
     </ClayCard>
   );

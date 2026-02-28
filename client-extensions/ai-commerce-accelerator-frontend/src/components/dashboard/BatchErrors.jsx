@@ -11,11 +11,7 @@ function BatchErrors({ batchErrors, clearBatchErrors }) {
     <div className="mt-4">
       <div className="d-flex justify-content-between align-items-center mb-3">
         <h4>Batch Errors</h4>
-        <ClayButton
-          onClick={clearBatchErrors}
-          displayType="secondary"
-          small
-        >
+        <ClayButton onClick={clearBatchErrors} displayType="secondary" small>
           Clear
         </ClayButton>
       </div>

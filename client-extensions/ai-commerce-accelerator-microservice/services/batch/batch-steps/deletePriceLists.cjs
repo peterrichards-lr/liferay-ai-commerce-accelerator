@@ -5,16 +5,25 @@ module.exports = async function deletePriceLists(
   // Restore master list if available in context (safety)
   if (options.masterPriceListId) {
     try {
-      logger.info(`Ensuring master price list ${options.masterPriceListId} is base`, { sessionId });
-      await liferay.patchPriceList(config, options.masterPriceListId, { catalogBasePriceList: true });
+      logger.info(
+        `Ensuring master price list ${options.masterPriceListId} is base`,
+        { sessionId }
+      );
+      await liferay.patchPriceList(config, options.masterPriceListId, {
+        catalogBasePriceList: true,
+      });
     } catch (err) {
-      logger.debug(`Master price list restoration skipped: ${err.message}`, { sessionId });
+      logger.debug(`Master price list restoration skipped: ${err.message}`, {
+        sessionId,
+      });
     }
   }
 
-  const result = await liferay.deletePriceListsBatch(
-    config,
-    { ...options, items, callbackBatchERC: batchERC, sessionId }
-  );
+  const result = await liferay.deletePriceListsBatch(config, {
+    ...options,
+    items,
+    callbackBatchERC: batchERC,
+    sessionId,
+  });
   return result;
 };

@@ -80,7 +80,11 @@ const PATH = {
     `${BASE.INVENTORY_API}/warehouses/warehouseItems/batch${
       callbackURL ? `?callbackURL=${enc(callbackURL)}` : ''
     }`,
-  WAREHOUSE_INVENTORY_BATCH_SCOPED: (warehouseId, warehouseERC, callbackURL) => {
+  WAREHOUSE_INVENTORY_BATCH_SCOPED: (
+    warehouseId,
+    warehouseERC,
+    callbackURL
+  ) => {
     const params = { callbackURL };
     if (warehouseERC) {
       params.externalReferenceCode = warehouseERC;
@@ -193,8 +197,7 @@ const PATH = {
     `${BASE.ACCOUNTS}/${accountId}/postal-addresses`,
   ACCOUNT_ADDRESSES_BATCH: (accountId, callbackURL) =>
     `${BASE.ACCOUNTS}/${accountId}/postal-addresses/batch?callbackURL=${enc(callbackURL)}`,
-  ACCOUNT_USERS: (accountId) =>
-    `${BASE.ACCOUNTS}/${accountId}/user-accounts`,
+  ACCOUNT_USERS: (accountId) => `${BASE.ACCOUNTS}/${accountId}/user-accounts`,
   ACCOUNTS_BATCH: (callbackURL) =>
     `${BASE.ACCOUNTS}/batch?callbackURL=${enc(callbackURL)}`,
 
@@ -207,8 +210,7 @@ const PATH = {
   ORDERS: BASE.ORDERS,
   ORDER: (orderId) => `${BASE.ORDERS}/${orderId}`,
   ORDER_ITEMS: (orderId) => `${BASE.ORDERS}/${orderId}/orderItems`,
-  ORDER_ITEM: (orderItemId) =>
-    `${BASE.ORDER_API}/orderItems/${orderItemId}`,
+  ORDER_ITEM: (orderItemId) => `${BASE.ORDER_API}/orderItems/${orderItemId}`,
   ORDERS_BATCH: (callbackURL) =>
     `${BASE.ORDERS}/batch${
       callbackURL ? `?callbackURL=${enc(callbackURL)}` : ''
@@ -251,7 +253,7 @@ const PATH = {
         return `${BASE.DELIVERY}/documents/${id}/permissions`;
       default:
         throw new Error(
-          `PATH.PERMISSIONS_BY_ASSET: unsupported assetType "${assetType}"`,
+          `PATH.PERMISSIONS_BY_ASSET: unsupported assetType "${assetType}"`
         );
     }
   },
@@ -260,17 +262,12 @@ const PATH = {
   CUSTOM_OBJECT_QUERY: (plural, params) =>
     `${BASE.C_OBJECT}/${plural}${q(params)}`,
 
-  PRICE_LIST_BY_ERC: (erc) =>
-    byERC(BASE.PRICE_LISTS, erc, VARIANT.pricing),
+  PRICE_LIST_BY_ERC: (erc) => byERC(BASE.PRICE_LISTS, erc, VARIANT.pricing),
 
   PRICE_ENTRIES: (priceListId) =>
     `${BASE.PRICE_LISTS}/${enc(priceListId)}/price-entries`,
   PRICE_ENTRIES_BY_ERC: (priceListERC) =>
-    `${byERC(
-      BASE.PRICE_LISTS,
-      priceListERC,
-      VARIANT.pricing,
-    )}/price-entries`,
+    `${byERC(BASE.PRICE_LISTS, priceListERC, VARIANT.pricing)}/price-entries`,
   PRICE_ENTRY: (id) => `${BASE.PRICING_API}/price-entries/${id}`,
   PRICE_ENTRY_BY_ERC: (erc) =>
     byERC(`${BASE.PRICING_API}/price-entries`, erc, VARIANT.pricing),
@@ -281,7 +278,7 @@ const PATH = {
     `${byERC(
       `${BASE.PRICING_API}/price-entries`,
       priceEntryERC,
-      VARIANT.pricing,
+      VARIANT.pricing
     )}/tier-prices`,
 
   PRICE_LIST_ACCOUNT_GROUPS: (priceListId) =>
@@ -290,7 +287,7 @@ const PATH = {
     `${byERC(
       BASE.PRICE_LISTS,
       priceListERC,
-      VARIANT.pricing,
+      VARIANT.pricing
     )}/price-list-account-groups`,
   PRICE_LIST_ACCOUNT_GROUP: (id) =>
     `${BASE.PRICING_API}/price-list-account-groups/${enc(id)}`,

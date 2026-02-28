@@ -121,14 +121,15 @@ export default function CacheConfigPanel() {
         <div className="sheet-text">
           Stored under <code>{CACHE_CONFIG_KEY}</code> as JSON:{' '}
           <code>
-            {'{ maxSize, defaultTTL, cleanupInterval, configTTL, apiResponseTTL, defaultBatchTTL, sessionTTL, ephemeralTTL, uploadTTL, ercConfigTTL }'}
+            {
+              '{ maxSize, defaultTTL, cleanupInterval, configTTL, apiResponseTTL, defaultBatchTTL, sessionTTL, ephemeralTTL, uploadTTL, ercConfigTTL }'
+            }
           </code>
           .
           <div className="mt-1">
-            Default TTL:{' '}
-            <strong>{msToHHMMSS(values.defaultTTL)}</strong> · Cleanup every{' '}
-            <strong>{msToHHMMSS(values.cleanupInterval)}</strong> · Approx. capacity:{' '}
-            <strong>{approxCapacityKB} KB</strong>
+            Default TTL: <strong>{msToHHMMSS(values.defaultTTL)}</strong> ·
+            Cleanup every <strong>{msToHHMMSS(values.cleanupInterval)}</strong>{' '}
+            · Approx. capacity: <strong>{approxCapacityKB} KB</strong>
           </div>
         </div>
       </div>
@@ -270,7 +271,9 @@ export default function CacheConfigPanel() {
               !dirty || saving || issues.some((m) => !m.startsWith('Warning:'))
             }
             aria-label={
-              saving ? 'Saving cache configuration…' : 'Save cache configuration'
+              saving
+                ? 'Saving cache configuration…'
+                : 'Save cache configuration'
             }
           >
             <ClayIcon symbol={saving ? 'time' : 'disk'} />

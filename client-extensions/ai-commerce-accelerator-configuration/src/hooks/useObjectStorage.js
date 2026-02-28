@@ -6,11 +6,7 @@ function toInt(v, fallback) {
   return Number.isFinite(n) ? n : fallback;
 }
 
-export const useObjectStorage = ({
-  keys,
-  defaults = {},
-  json = true,
-}) => {
+export const useObjectStorage = ({ keys, defaults = {}, json = true }) => {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [values, setValues] = useState(defaults);
@@ -81,7 +77,10 @@ export const useObjectStorage = ({
     try {
       await Promise.all(
         keys.map((key) =>
-          persistConfigKey(key, json ? JSON.stringify(values[key]) : values[key])
+          persistConfigKey(
+            key,
+            json ? JSON.stringify(values[key]) : values[key]
+          )
         )
       );
       setLastSaved(values);

@@ -109,7 +109,11 @@ export default function AdvancedPanel({
           disabled={disabled}
         >
           {batchSizes.map((size) => (
-            <ClaySelect.Option key={size} value={size} label={size.toString()} />
+            <ClaySelect.Option
+              key={size}
+              value={size}
+              label={size.toString()}
+            />
           ))}
         </ClaySelect>
         <div className="form-text">How many items per batch.</div>
@@ -126,7 +130,11 @@ export default function AdvancedPanel({
           disabled={disabled}
         >
           {aiModelOptions.map((option) => (
-            <ClaySelect.Option key={option.value} value={option.value} label={option.label} />
+            <ClaySelect.Option
+              key={option.value}
+              value={option.value}
+              label={option.label}
+            />
           ))}
         </ClaySelect>
         <div className="form-text">Choose based on speed/cost needs.</div>

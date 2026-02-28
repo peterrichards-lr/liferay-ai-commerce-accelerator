@@ -253,7 +253,8 @@ class OAuthService {
 
   async getAccessTokenFromRoute() {
     const { logger } = this.ctx;
-    const clientId = serverOauthApp?.clientId?.() || ENV.LIFERAY_OAUTH_CLIENT_ID;
+    const clientId =
+      serverOauthApp?.clientId?.() || ENV.LIFERAY_OAUTH_CLIENT_ID;
     const clientSecret =
       serverOauthApp?.clientSecret?.() || ENV.LIFERAY_OAUTH_CLIENT_SECRET;
 

@@ -123,7 +123,7 @@ class ProductGenerator {
 
     logger.info(
       `Starting inter-service synchronization delay of ${ENV.LIFERAY_SYNC_DELAY_MS}ms`,
-      { sessionId, correlationId },
+      { sessionId, correlationId }
     );
 
     await persistence.createBatch({
@@ -145,7 +145,7 @@ class ProductGenerator {
     return this._runPricingStep(
       sessionId,
       'generate-price-lists',
-      (e) => !e.bulkPricing && (!e.tierPrices || e.tierPrices.length === 0),
+      (e) => !e.bulkPricing && (!e.tierPrices || e.tierPrices.length === 0)
     );
   }
 
@@ -153,7 +153,7 @@ class ProductGenerator {
     return this._runPricingStep(
       sessionId,
       'generate-bulk-pricing',
-      (e) => e.bulkPricing === true,
+      (e) => e.bulkPricing === true
     );
   }
 
@@ -161,7 +161,7 @@ class ProductGenerator {
     return this._runPricingStep(
       sessionId,
       'generate-tier-pricing',
-      (e) => !e.bulkPricing && e.tierPrices && e.tierPrices.length > 0,
+      (e) => !e.bulkPricing && e.tierPrices && e.tierPrices.length > 0
     );
   }
 
@@ -203,7 +203,7 @@ class ProductGenerator {
         } else {
           logger.warn(
             `AICA ${item.label} (${item.erc}) not found. Skipping catalog link.`,
-            { sessionId },
+            { sessionId }
           );
         }
       }
@@ -224,7 +224,7 @@ class ProductGenerator {
       const items = res.items || [];
       logger.debug(
         `Evaluating ${items.length} price lists for base status handover`,
-        { sessionId },
+        { sessionId }
       );
 
       for (const pl of items) {
@@ -233,7 +233,7 @@ class ProductGenerator {
         if (pl.catalogBasePriceList && !isTarget) {
           logger.info(
             `Unsetting existing ${pl.type} '${pl.name}' (ID: ${pl.id}, ERC: ${pl.externalReferenceCode}) as base for catalog ${catalogId}`,
-            { sessionId },
+            { sessionId }
           );
           await liferay.patchPriceList(config, pl.id, {
             catalogBasePriceList: false,
@@ -248,7 +248,7 @@ class ProductGenerator {
       for (const pl of aicaLists) {
         logger.info(
           `Setting AICA ${pl.label} (${pl.erc}, ID: ${pl.id}) as base for catalog ${catalogId}`,
-          { sessionId },
+          { sessionId }
         );
         await liferay.patchPriceList(config, pl.id, {
           catalogBasePriceList: true,
@@ -269,24 +269,24 @@ class ProductGenerator {
       const allFinalLists = finalListsRes.items || [];
       for (const item of PRICE_LIST_CONFIGS) {
         const finalPL = allFinalLists.find(
-          (l) => l.externalReferenceCode === item.erc,
+          (l) => l.externalReferenceCode === item.erc
         );
         if (finalPL) {
           if (finalPL.catalogBasePriceList) {
             logger.info(
               `VERIFIED: AICA ${item.label} (${item.erc}) is now base for catalog ${catalogId}`,
-              { sessionId },
+              { sessionId }
             );
           } else {
             logger.error(
               `VERIFICATION FAILED: AICA ${item.label} (${item.erc}) is NOT base. Liferay returned false.`,
-              { sessionId },
+              { sessionId }
             );
           }
         } else {
           logger.error(
             `VERIFICATION FAILED: AICA ${item.label} (${item.erc}) not found in catalog lists during verification.`,
-            { sessionId },
+            { sessionId }
           );
         }
       }
@@ -328,7 +328,7 @@ class ProductGenerator {
         {
           sessionId,
           correlationId: session.correlationId,
-        },
+        }
       );
       await persistence.createBatch({
         erc: createERC(ERC_PREFIX.BATCH),
@@ -352,7 +352,7 @@ class ProductGenerator {
         config,
         sessionId,
         session.correlationId,
-        options,
+        options
       );
 
       const generalListId = ercToIdMap.get('AICA-PL-GENERAL');
@@ -427,7 +427,7 @@ class ProductGenerator {
                   s.externalReferenceCode === skuERC ||
                   s.sku === skuERC ||
                   (!s.externalReferenceCode &&
-                    product.externalReferenceCode === skuERC),
+                    product.externalReferenceCode === skuERC)
               );
               const skuId = matchedSku?.id;
 
@@ -441,7 +441,7 @@ class ProductGenerator {
 
               // Add to General Price List
               const generalList = priceListTemplates.find(
-                (pl) => pl.id === generalListId,
+                (pl) => pl.id === generalListId
               );
 
               const basePriceEntry = {
@@ -468,14 +468,14 @@ class ProductGenerator {
               totalEntriesAcrossAllLists++;
               logger.trace(
                 `Added base price entry for SKU ${skuERC} to General list (${generalListId})`,
-                { sessionId },
+                { sessionId }
               );
 
               // Add to Promotions list if applicable
               const promoPrice = skuData.basePromoPrice || entry.promoPrice;
               if (promoPrice && promotionsListId) {
                 const promotionsList = priceListTemplates.find(
-                  (pl) => pl.id === promotionsListId,
+                  (pl) => pl.id === promotionsListId
                 );
 
                 const promoPriceEntry = {
@@ -507,7 +507,7 @@ class ProductGenerator {
 
                 logger.trace(
                   `Added promotional price entry for SKU ${skuERC} to Promotions list (${promotionsListId}) (Price: ${promoPrice})`,
-                  { sessionId },
+                  { sessionId }
                 );
               }
             }
@@ -516,13 +516,13 @@ class ProductGenerator {
       }
 
       const activePriceLists = priceListTemplates.filter(
-        (pl) => pl.priceEntries.length > 0,
+        (pl) => pl.priceEntries.length > 0
       );
 
       if (activePriceLists.length > 0) {
         logger.info(
           `Submitting atomic Price List update for ${stepKey} with ${totalEntriesAcrossAllLists} total entries across ${activePriceLists.length} lists`,
-          { sessionId, correlationId: session.correlationId },
+          { sessionId, correlationId: session.correlationId }
         );
 
         const batchERC = createERC(ERC_PREFIX.PRICEENTRY_BATCH);
@@ -570,7 +570,7 @@ class ProductGenerator {
         } else {
           logger.error(
             `Failed to submit atomic price list update batch for ${stepKey}`,
-            { sessionId, batchERC, correlationId: session.correlationId },
+            { sessionId, batchERC, correlationId: session.correlationId }
           );
           await persistence.updateBatch(batchERC, { status: 'FAILED' });
         }
@@ -580,7 +580,7 @@ class ProductGenerator {
           {
             sessionId,
             correlationId: session.correlationId,
-          },
+          }
         );
         await persistence.createBatch({
           erc: createERC(ERC_PREFIX.BATCH),
@@ -616,7 +616,7 @@ class ProductGenerator {
       // 1. Discover current base price lists for the catalog
       logger.debug(
         `Discovering current base price lists for catalog ${catalogId}`,
-        { sessionId },
+        { sessionId }
       );
 
       const session = await persistence.getSession(sessionId);
@@ -641,10 +641,10 @@ class ProductGenerator {
         ]);
 
         const existingBasePL = currentBasePL.items?.find(
-          (it) => it.catalogBasePriceList,
+          (it) => it.catalogBasePriceList
         );
         const existingBaseProm = currentBaseProm.items?.find(
-          (it) => it.catalogBasePriceList,
+          (it) => it.catalogBasePriceList
         );
 
         let contextUpdated = false;
@@ -653,7 +653,7 @@ class ProductGenerator {
         if (existingBasePL) {
           logger.debug(
             `Found existing base price list: ${existingBasePL.name} (${existingBasePL.id})`,
-            { sessionId },
+            { sessionId }
           );
           if (!existingBasePL.externalReferenceCode?.startsWith('AICA-')) {
             newOptions.masterPriceListId = existingBasePL.id;
@@ -664,7 +664,7 @@ class ProductGenerator {
         if (existingBaseProm) {
           logger.debug(
             `Found existing base promotion list: ${existingBaseProm.name} (${existingBaseProm.id})`,
-            { sessionId },
+            { sessionId }
           );
           if (!existingBaseProm.externalReferenceCode?.startsWith('AICA-')) {
             newOptions.masterPromotionListId = existingBaseProm.id;
@@ -679,7 +679,7 @@ class ProductGenerator {
           });
           logger.info(
             'Stored master price list IDs in options for restoration during deletion',
-            { sessionId },
+            { sessionId }
           );
         }
       }
@@ -738,11 +738,11 @@ class ProductGenerator {
           if (!targetId) {
             logger.warn(
               `No base ${pl.type} found for catalog ${catalogId}. Looking for AICA fallback...`,
-              { sessionId },
+              { sessionId }
             );
             const aicaExisting = await liferay.getPriceListByERC(
               config,
-              pl.erc,
+              pl.erc
             );
             targetId = aicaExisting?.id;
           }
@@ -753,7 +753,7 @@ class ProductGenerator {
         } else {
           logger.error(
             `Could not resolve a target ${pl.type} for catalog ${catalogId}`,
-            { sessionId },
+            { sessionId }
           );
         }
       }
@@ -764,7 +764,7 @@ class ProductGenerator {
           sessionId,
           correlationId,
           error: err,
-        },
+        }
       );
       throw err;
     }
@@ -793,7 +793,7 @@ class ProductGenerator {
 
     logger.debug(
       `Resolving real numeric IDs for ${productDataList.length} products via GraphQL/ERC...`,
-      { sessionId, correlationId: session.correlationId },
+      { sessionId, correlationId: session.correlationId }
     );
 
     const ercs = productDataList
@@ -810,7 +810,7 @@ class ProductGenerator {
             'externalReferenceCode',
             'productId',
           ]),
-        { label: 'products' },
+        { label: 'products' }
       );
 
       const ercToIdMap = new Map();
@@ -881,8 +881,8 @@ class ProductGenerator {
     const skuErcs = (productDataList || [])
       .flatMap((p) =>
         (p.skus || []).map(
-          (sku) => sku.externalReferenceCode || p.externalReferenceCode,
-        ),
+          (sku) => sku.externalReferenceCode || p.externalReferenceCode
+        )
       )
       .filter(Boolean);
 
@@ -902,7 +902,7 @@ class ProductGenerator {
 
     logger.debug(
       `Resolving real numeric IDs for ${skuErcs.length} SKUs via GraphQL/ERC...`,
-      { sessionId, correlationId: session.correlationId },
+      { sessionId, correlationId: session.correlationId }
     );
 
     try {
@@ -911,7 +911,7 @@ class ProductGenerator {
         skuErcs,
         (cfg, e) =>
           liferay.getSkusByERC(cfg, e, ['id', 'externalReferenceCode', 'sku']),
-        { label: 'skus' },
+        { label: 'skus' }
       );
 
       const ercToIdMap = new Map();
@@ -928,7 +928,7 @@ class ProductGenerator {
           ...sku,
           id:
             ercToIdMap.get(
-              sku.externalReferenceCode || p.externalReferenceCode,
+              sku.externalReferenceCode || p.externalReferenceCode
             ) || sku.id,
         })),
       }));
@@ -986,7 +986,7 @@ class ProductGenerator {
 
     logger.debug(
       `Resolving real numeric IDs for ${warehouses.length} warehouses via GraphQL/ERC...`,
-      { sessionId, correlationId: session.correlationId },
+      { sessionId, correlationId: session.correlationId }
     );
 
     // Ensure we are using individual warehouse ERCs, not batch ERCs
@@ -997,7 +997,7 @@ class ProductGenerator {
     if (ercs.length === 0) {
       logger.warn(
         'No individual warehouse ERCs found for resolution. All warehouses may already have IDs or ERCs are missing.',
-        { sessionId, correlationId: session.correlationId },
+        { sessionId, correlationId: session.correlationId }
       );
       await persistence.createBatch({
         erc: createERC(ERC_PREFIX.BATCH),
@@ -1018,7 +1018,7 @@ class ProductGenerator {
             'externalReferenceCode',
             'name',
           ]),
-        { label: 'warehouses' },
+        { label: 'warehouses' }
       );
 
       const ercToIdMap = new Map();
@@ -1079,13 +1079,13 @@ class ProductGenerator {
 
     try {
       const productsWithMissingOptions = (productDataList || []).filter(
-        (p) => p.id && p.productOptions?.length > 0,
+        (p) => p.id && p.productOptions?.length > 0
       );
 
       if (productsWithMissingOptions.length > 0) {
         logger.debug(
           `Linking options for ${productsWithMissingOptions.length} products`,
-          { sessionId, correlationId: session.correlationId },
+          { sessionId, correlationId: session.correlationId }
         );
 
         for (const product of productsWithMissingOptions) {
@@ -1104,7 +1104,7 @@ class ProductGenerator {
             await liferay.addProductOptions(config, product.id, cleanedOptions);
             logger.trace(
               `Linked ${cleanedOptions.length} options to product ${product.id}`,
-              { sessionId, correlationId: session.correlationId },
+              { sessionId, correlationId: session.correlationId }
             );
           } catch (error) {
             logger.error(`Failed to link options for product ${product.id}`, {
@@ -1151,7 +1151,7 @@ class ProductGenerator {
 
     logger.info(
       'Starting variant SKUs creation step (via Product UPSERT batch)',
-      { sessionId, correlationId: session.correlationId },
+      { sessionId, correlationId: session.correlationId }
     );
 
     const preparedProducts = (productDataList || [])
@@ -1226,7 +1226,7 @@ class ProductGenerator {
               sessionId,
               correlationId: session.correlationId,
               batchERC,
-            },
+            }
           );
           await persistence.updateBatch(batchERC, { status: 'FAILED' });
         }
@@ -1333,7 +1333,7 @@ class ProductGenerator {
     // This allows the callback service to correctly track real asynchronous batches.
     const stepBatches = await persistence.getBatchesForSession(sessionId);
     const hasRealBatches = stepBatches.some(
-      (b) => b.step_key === 'generate-warehouses',
+      (b) => b.step_key === 'generate-warehouses'
     );
 
     if (!hasRealBatches) {
@@ -1360,12 +1360,12 @@ class ProductGenerator {
       config,
       options,
       sessionId,
-      session.correlationId,
+      session.correlationId
     );
 
     if (!allProductData || allProductData.length === 0) {
       const error = new Error(
-        'No product data generated. Workflow cannot continue.',
+        'No product data generated. Workflow cannot continue.'
       );
       logger.error(error.message, {
         sessionId,
@@ -1417,7 +1417,7 @@ class ProductGenerator {
     if (options.imageRatio != null) {
       options.imageRatio = Math.max(
         0,
-        Math.min(100, Number(options.imageRatio)),
+        Math.min(100, Number(options.imageRatio))
       );
     }
     if (options.pdfRatio != null) {
@@ -1436,7 +1436,7 @@ class ProductGenerator {
       options.productCount,
       selectedCategories,
       distributionMode,
-      logger,
+      logger
     );
     logger.info('Computed category distribution for this run', {
       entityType: 'products',
@@ -1473,7 +1473,7 @@ class ProductGenerator {
           ...options,
           sessionId,
           correlationId,
-        },
+        }
       );
     }
 
@@ -1487,7 +1487,7 @@ class ProductGenerator {
       }
       logger.trace(
         `Generating ${countForCategory} products for category: ${category}`,
-        { correlationId },
+        { correlationId }
       );
       try {
         let productDataList;
@@ -1508,7 +1508,7 @@ class ProductGenerator {
               imageRatio: options.imageRatio || 0,
               pdfMode: options.pdfMode,
               pdfRatio: options.pdfRatio || 0,
-            },
+            }
           );
         } else {
           productDataList = await ai.generateProductData(
@@ -1517,7 +1517,7 @@ class ProductGenerator {
             config,
             config.aiModel,
             config.selectedLanguages || ['en-US'],
-            options,
+            options
           );
         }
         if (options.generateSkuVariants || options.generateSpecifications) {
@@ -1589,7 +1589,7 @@ class ProductGenerator {
 
               // Infer product type
               const hasSkuContributor = (pd.productOptions || []).some(
-                (opt) => opt.skuContributor,
+                (opt) => opt.skuContributor
               );
               if (hasSkuContributor) {
                 pd.productType = 'simple';
@@ -1602,7 +1602,7 @@ class ProductGenerator {
                     const skuOptions = [];
 
                     for (const [optName, valName] of Object.entries(
-                      variant.options || {},
+                      variant.options || {}
                     )) {
                       // Find the enriched option metadata we just built
                       const productOption = (pd.productOptions || []).find(
@@ -1616,7 +1616,7 @@ class ProductGenerator {
                             name?.toLowerCase() === optName.toLowerCase() ||
                             po.key === optName
                           );
-                        },
+                        }
                       );
 
                       if (
@@ -1636,7 +1636,7 @@ class ProductGenerator {
                             v.name === valName ||
                             v.name?.en_US?.toLowerCase() ===
                               valName.toLowerCase() ||
-                            v.key === valName.toLowerCase(),
+                            v.key === valName.toLowerCase()
                         );
 
                         if (catalogValue) {
@@ -1687,7 +1687,7 @@ class ProductGenerator {
                   pd.skus = variantSkus;
                   logger.trace(
                     `Replaced base SKU with ${variantSkus.length} unique variant SKUs for product ${pd.externalReferenceCode}`,
-                    { sessionId, correlationId },
+                    { sessionId, correlationId }
                   );
                 }
               }
@@ -1716,11 +1716,11 @@ class ProductGenerator {
 
             // --- CRITICAL FIX: Ensure priceEntries only contain entries for SKUs that actually exist in pd.skus ---
             const finalSkuErcs = new Set(
-              (pd.skus || []).map((s) => s.externalReferenceCode),
+              (pd.skus || []).map((s) => s.externalReferenceCode)
             );
             if (pd.priceEntries && pd.priceEntries.length > 0) {
               pd.priceEntries = pd.priceEntries.filter((pe) =>
-                finalSkuErcs.has(pe.skuExternalReferenceCode),
+                finalSkuErcs.has(pe.skuExternalReferenceCode)
               );
             }
 
@@ -1860,7 +1860,7 @@ class ProductGenerator {
     if (!allProductData || allProductData.length === 0) {
       logger.info(
         'No products to create for this session. Marking step as BYPASSED.',
-        { sessionId, correlationId },
+        { sessionId, correlationId }
       );
       await persistence.createBatch({
         erc: createERC(ERC_PREFIX.BATCH), // Generic ERC for an empty step
@@ -1879,7 +1879,7 @@ class ProductGenerator {
         const createdProduct = await this.createSingleProduct(
           config,
           productData,
-          options,
+          options
         );
         await persistence.createBatch({
           erc:
@@ -1921,7 +1921,7 @@ class ProductGenerator {
         }
 
         const hasSkuContributors = (productData.productOptions || []).some(
-          (opt) => opt.skuContributor,
+          (opt) => opt.skuContributor
         );
 
         if (
@@ -2053,13 +2053,13 @@ class ProductGenerator {
 
     try {
       const withImages = (productDataList || []).filter(
-        (p) => p.images?.length > 0,
+        (p) => p.images?.length > 0
       );
 
       if (withImages.length > 0) {
         logger.info(
           `Processing ${withImages.length} products with image attachments`,
-          { sessionId, correlationId: session.correlationId },
+          { sessionId, correlationId: session.correlationId }
         );
         try {
           await media.createImages(config, withImages, {
@@ -2113,13 +2113,13 @@ class ProductGenerator {
 
     try {
       const withPdfs = (productDataList || []).filter(
-        (p) => p.attachments?.length > 0,
+        (p) => p.attachments?.length > 0
       );
 
       if (withPdfs.length > 0) {
         logger.info(
           `Processing ${withPdfs.length} products with PDF attachments`,
-          { sessionId, correlationId: session.correlationId },
+          { sessionId, correlationId: session.correlationId }
         );
         try {
           await media.createPdfs(config, withPdfs, {
@@ -2268,7 +2268,7 @@ class ProductGenerator {
           if (inventoryByWarehouse.size > 0) {
             logger.info(
               `Submitting batch inventory updates for ${inventoryByWarehouse.size} warehouses`,
-              { sessionId, correlationId: session.correlationId },
+              { sessionId, correlationId: session.correlationId }
             );
 
             for (const [
@@ -2280,13 +2280,13 @@ class ProductGenerator {
 
               // Find the warehouse object to get its ID
               const warehouse = warehouses.find(
-                (w) => (w.externalReferenceCode || w.erc) === warehouseERC,
+                (w) => (w.externalReferenceCode || w.erc) === warehouseERC
               );
 
               if (!warehouse) {
                 logger.error(
                   `Could not find warehouse with ERC ${warehouseERC} for inventory update`,
-                  { sessionId, correlationId: session.correlationId },
+                  { sessionId, correlationId: session.correlationId }
                 );
                 continue;
               }
@@ -2300,7 +2300,7 @@ class ProductGenerator {
 
               if (options.dryRun) {
                 logger.info(
-                  `DRY RUN: Skipping inventory batch submission for warehouse ${warehouseERC}.`,
+                  `DRY RUN: Skipping inventory batch submission for warehouse ${warehouseERC}.`
                 );
                 await persistence.updateBatch(batchERC, {
                   status: 'SYNCHRONOUS',
@@ -2318,7 +2318,7 @@ class ProductGenerator {
                     warehouseExternalReferenceCode: warehouseERC,
                     warehouseId: warehouse.id,
                     sessionId,
-                  },
+                  }
                 );
               } catch (batchError) {
                 logger.error(
@@ -2327,7 +2327,7 @@ class ProductGenerator {
                     sessionId,
                     batchERC,
                     error: batchError.message,
-                  },
+                  }
                 );
                 await persistence.updateBatch(batchERC, { status: 'FAILED' });
                 continue;
@@ -2351,7 +2351,7 @@ class ProductGenerator {
               } else {
                 logger.error(
                   `Failed to submit inventory batch for warehouse ${warehouseERC}`,
-                  { sessionId, batchERC },
+                  { sessionId, batchERC }
                 );
                 await persistence.updateBatch(batchERC, { status: 'FAILED' });
               }
@@ -2379,7 +2379,7 @@ class ProductGenerator {
       // Only create a synchronous batch marker if NO other batches were created for this step.
       const stepBatches = await persistence.getBatchesForSession(sessionId);
       const hasRealBatches = stepBatches.some(
-        (b) => b.step_key === 'update-inventory',
+        (b) => b.step_key === 'update-inventory'
       );
 
       if (!hasRealBatches) {
@@ -2410,12 +2410,12 @@ class ProductGenerator {
     const { categories, correlationId } = options;
     logger.trace(
       `Creating catalog-level options for SKU variants... (Demo mode: ${options.demoMode})`,
-      { correlationId },
+      { correlationId }
     );
     const catalogOptions = {};
     const selectedLanguages = config.selectedLanguages || ['en-US'];
     const languageCodes = selectedLanguages.map((lang) =>
-      lang.replace('-', '_'),
+      lang.replace('-', '_')
     );
     const getOptionCharacteristics = (optionName, values) => {
       const name = optionName.toLowerCase();
@@ -2442,12 +2442,12 @@ class ProductGenerator {
         values.length === 2 &&
         (values.some(
           (v) =>
-            v.toLowerCase().includes('yes') || v.toLowerCase().includes('no'),
+            v.toLowerCase().includes('yes') || v.toLowerCase().includes('no')
         ) ||
           values.some(
             (v) =>
               v.toLowerCase().includes('enabled') ||
-              v.toLowerCase().includes('disabled'),
+              v.toLowerCase().includes('disabled')
           ))
       ) {
         characteristics.fieldType = 'checkbox';
@@ -2504,7 +2504,7 @@ class ProductGenerator {
       if (
         characteristics.skuContributor &&
         !COMMERCE_CONSTRAINTS.SKU_CONTRIBUTOR_FIELD_TYPES.includes(
-          characteristics.fieldType,
+          characteristics.fieldType
         )
       ) {
         characteristics.skuContributor = false;
@@ -2512,7 +2512,7 @@ class ProductGenerator {
 
       if (
         !COMMERCE_CONSTRAINTS.VALID_FIELD_TYPES.includes(
-          characteristics.fieldType,
+          characteristics.fieldType
         )
       ) {
         characteristics.fieldType = 'select';
@@ -2554,7 +2554,7 @@ class ProductGenerator {
           .replace(/\s+/g, '_')}`;
         const optionCharacteristics = getOptionCharacteristics(
           optionData.name,
-          optionData.values,
+          optionData.values
         );
         const optionName = {};
         const optionDescription = {};
@@ -2580,7 +2580,7 @@ class ProductGenerator {
         const optionValues = [];
         if (
           COMMERCE_CONSTRAINTS.FIELD_TYPES_WITH_VALUES.includes(
-            optionCharacteristics.fieldType,
+            optionCharacteristics.fieldType
           )
         ) {
           for (let i = 0; i < optionData.values.length; i++) {
@@ -2611,7 +2611,7 @@ class ProductGenerator {
                   .replace(/&/g, 'and')}`,
                 priority: i + 1,
                 externalReferenceCode: valueERC,
-              },
+              }
             );
             optionValues.push(optionValue);
           }
@@ -2628,7 +2628,7 @@ class ProductGenerator {
     const catalogSpecifications = {};
     const selectedLanguages = config.selectedLanguages || ['en-US'];
     const languageCodes = selectedLanguages.map((lang) =>
-      lang.replace('-', '_'),
+      lang.replace('-', '_')
     );
 
     const categoryGroupsMap = {
@@ -2808,7 +2808,7 @@ class ProductGenerator {
         const keys = Object.keys(jsonDefs);
         if (keys.length) {
           const lookup = new Map(
-            (categorySpecificationsMap[category] || []).map((s) => [s.key, s]),
+            (categorySpecificationsMap[category] || []).map((s) => [s.key, s])
           );
           const toTitle = (k) =>
             String(k)
@@ -2848,7 +2848,7 @@ class ProductGenerator {
               description: categoryDescription,
               priority: groupData.priority,
               externalReferenceCode: categoryERC,
-            },
+            }
           );
 
           if (optionCategory) {
@@ -2857,7 +2857,7 @@ class ProductGenerator {
         } catch (error) {
           logger.error(
             `Failed to process option category ${groupData.title} for ${category}:`,
-            error,
+            error
           );
         }
       }
@@ -2892,7 +2892,7 @@ class ProductGenerator {
 
           const specification = await liferay.rest.createSpecificationWithReuse(
             config,
-            specificationPayload,
+            specificationPayload
           );
 
           if (linkedOptionCategory) {
@@ -2927,7 +2927,7 @@ class ProductGenerator {
                 }
               } catch (patchErr) {
                 logger.warn(
-                  `Failed to patch option category link for ${specERC}: ${patchErr.message}`,
+                  `Failed to patch option category link for ${specERC}: ${patchErr.message}`
                 );
               }
             }
@@ -2941,7 +2941,7 @@ class ProductGenerator {
               message: error.message,
               stack: error.stack,
               errors: error.errors,
-            },
+            }
           );
         }
       }
@@ -2978,7 +2978,7 @@ class ProductGenerator {
     };
 
     const hasSkuContributors = (productOptions || []).some(
-      (opt) => opt.skuContributor,
+      (opt) => opt.skuContributor
     );
 
     if (options.generateSkuVariants && hasSkuContributors && skus?.length > 0) {
@@ -3026,7 +3026,7 @@ class ProductGenerator {
     };
 
     const hasSkuContributors = (productOptions || []).some(
-      (opt) => opt.skuContributor,
+      (opt) => opt.skuContributor
     );
 
     if (options.generateSkuVariants && hasSkuContributors && skus?.length > 0) {
@@ -3061,7 +3061,7 @@ class ProductGenerator {
       } catch (error) {
         logger.error(
           `Failed to update inventory for product ${createdProduct.id} in warehouse ${warehouse.id}`,
-          { error: error.message },
+          { error: error.message }
         );
       }
     }
@@ -3108,11 +3108,11 @@ class ProductGenerator {
     if (!options.demoMode) {
       if (!config.aiModel) {
         const err = new Error(
-          'AI model not configured. Please select an AI model in the AI Configuration object.',
+          'AI model not configured. Please select an AI model in the AI Configuration object.'
         );
         err.statusCode = 400;
         logger.error(
-          '✗ AI model validation failed for products: missing aiModel',
+          '✗ AI model validation failed for products: missing aiModel'
         );
         throw err;
       }
@@ -3127,7 +3127,7 @@ class ProductGenerator {
     ) {
       if (!config.imageGenerationKey) {
         throw new Error(
-          'Image generation API key not configured. Please set it in the AI Configuration object or disable image generation.',
+          'Image generation API key not configured. Please set it in the AI Configuration object or disable image generation.'
         );
       }
     }

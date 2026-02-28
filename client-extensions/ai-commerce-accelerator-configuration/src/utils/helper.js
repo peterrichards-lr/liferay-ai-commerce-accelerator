@@ -22,7 +22,4 @@ function msToHuman(ms) {
   return `${parts.join(' ')} (${msToHHMMSS(ms)})`;
 }
 
-export {
-   msToHHMMSS,
-   msToHuman
-}
+export { msToHHMMSS, msToHuman };

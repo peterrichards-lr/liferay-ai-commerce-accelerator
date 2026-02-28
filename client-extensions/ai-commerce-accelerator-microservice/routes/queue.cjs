@@ -21,8 +21,7 @@ function resolveErrorRef(err) {
 }
 
 function handleError(res, logger, req, operation, error, extra = {}) {
-  const errorReference =
-    resolveErrorRef(error) || createERC(ERC_PREFIX.ERROR);
+  const errorReference = resolveErrorRef(error) || createERC(ERC_PREFIX.ERROR);
 
   const message =
     (error && error.message) ||

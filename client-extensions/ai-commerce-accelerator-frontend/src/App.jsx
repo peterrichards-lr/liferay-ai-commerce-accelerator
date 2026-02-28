@@ -239,8 +239,8 @@ export function AppUI() {
     !connectionEstablished || !config?.microserviceUrl
       ? 'disabled'
       : wsConnected
-      ? 'connected'
-      : 'connecting';
+        ? 'connected'
+        : 'connecting';
 
   useEffect(() => {
     if (!openAiKeyAvailable) {

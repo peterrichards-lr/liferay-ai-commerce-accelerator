@@ -56,8 +56,8 @@ export default function useCommerceData({
         selectedLanguages: Array.isArray(config.selectedLanguages)
           ? config.selectedLanguages
           : config.selectedLanguages
-          ? [config.selectedLanguages]
-          : [],
+            ? [config.selectedLanguages]
+            : [],
 
         ...rest,
       };
@@ -216,8 +216,8 @@ export default function useCommerceData({
       ...(prev.currencyCode
         ? {}
         : chObj.currencyCode
-        ? { currencyCode: chObj.currencyCode }
-        : {}),
+          ? { currencyCode: chObj.currencyCode }
+          : {}),
     }));
 
     return chObj;

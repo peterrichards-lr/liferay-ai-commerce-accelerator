@@ -8,10 +8,7 @@ import {
 export default function useValidation(config, generationConfig) {
   const [connectionErrors, setConnectionErrors] = useState({});
 
-  const commerceErrors = useMemo(
-    () => getCommerceErrorsMap(config),
-    [config]
-  );
+  const commerceErrors = useMemo(() => getCommerceErrorsMap(config), [config]);
 
   const generationErrors = useMemo(
     () => getGenerationErrorsMap(generationConfig),

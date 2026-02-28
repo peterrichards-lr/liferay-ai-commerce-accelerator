@@ -70,10 +70,7 @@ export const fileToDataURL = (file) => {
 
 export const resizeBase64ToFitLimit = async (
   dataUrl,
-  {
-    targetCharLimit = BASE64_CHAR_LIMIT,
-    preferType,
-  } = {}
+  { targetCharLimit = BASE64_CHAR_LIMIT, preferType } = {}
 ) => {
   const payload = getBase64Payload(dataUrl);
   if (!payload) return dataUrl;

@@ -79,8 +79,13 @@ class DeleteCoordinatorService {
     }
 
     // Always prepend resetCatalogConfiguration if price lists or promotions are involved
-    const hasPricing = steps.some(s => s.name === 'deletePriceLists' || s.name === 'deletePromotions');
-    if (hasPricing && !steps.some(s => s.name === 'resetCatalogConfiguration')) {
+    const hasPricing = steps.some(
+      (s) => s.name === 'deletePriceLists' || s.name === 'deletePromotions'
+    );
+    if (
+      hasPricing &&
+      !steps.some((s) => s.name === 'resetCatalogConfiguration')
+    ) {
       steps.unshift({ name: 'resetCatalogConfiguration', type: 'sync' });
     }
 
@@ -115,7 +120,6 @@ class DeleteCoordinatorService {
       steps: steps.map((s) => s.name),
     };
   }
-
 }
 
 module.exports = DeleteCoordinatorService;

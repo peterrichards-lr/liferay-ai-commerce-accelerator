@@ -37,7 +37,7 @@ let persistence;
 const gracefulShutdown = async (signal) => {
   // Use console.info to ensure immediate visibility regardless of logger state
   console.info(`\n${signal} received, shutting down gracefully...`);
-  
+
   if (process.stdin.isTTY) {
     process.stdin.pause();
   }
@@ -57,7 +57,9 @@ const gracefulShutdown = async (signal) => {
 
     await new Promise((resolve) => {
       const timeout = setTimeout(() => {
-        logger.warn('Server close timed out, forcing resolve', { operation: 'server-shutdown' });
+        logger.warn('Server close timed out, forcing resolve', {
+          operation: 'server-shutdown',
+        });
         resolve();
       }, 5000);
 
@@ -88,7 +90,9 @@ const gracefulShutdown = async (signal) => {
       await logger.close();
     }
 
-    logger.info('Graceful shutdown completed', { operation: 'server-shutdown' });
+    logger.info('Graceful shutdown completed', {
+      operation: 'server-shutdown',
+    });
 
     // Give the event loop and buffers a moment to flush
     setTimeout(() => {
@@ -365,7 +369,9 @@ const gracefulShutdown = async (signal) => {
     );
     logger.info(`Frontend available at: http://localhost:${PORT}`);
     logger.info(`WebSocket server listening on ws://localhost:${PORT}`);
-    logger.info(`Remote shutdown: curl -X POST http://localhost:${PORT}/api/v1${INTERNAL_API_PATHS.HEALTH_SHUTDOWN}`);
+    logger.info(
+      `Remote shutdown: curl -X POST http://localhost:${PORT}/api/v1${INTERNAL_API_PATHS.HEALTH_SHUTDOWN}`
+    );
 
     logger.debug('🔌 WebSocket server status:', {
       clients: ws.totalClients(),

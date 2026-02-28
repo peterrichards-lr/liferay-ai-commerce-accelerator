@@ -5,7 +5,7 @@
 /**
  * Extract items from a Liferay API response.
  * Handles both flat arrays and paginated response objects.
- * 
+ *
  * @param {any} data The response data from Liferay.
  * @returns {Array} An array of items.
  */
@@ -17,7 +17,7 @@ function asItems(data) {
 
 /**
  * Extract the total count from a Liferay API response.
- * 
+ *
  * @param {any} data The response data from Liferay.
  * @returns {number} The total count of items.
  */
@@ -29,5 +29,5 @@ function asCount(data) {
 
 module.exports = {
   asItems,
-  asCount
+  asCount,
 };

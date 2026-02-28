@@ -47,7 +47,9 @@ export const PANELS = [
     id: 'objectstorage',
     label: 'Object Storage',
     icon: 'cloud',
-    component: lazy(() => import('./components/panels/ObjectStorageConfigPanel')),
+    component: lazy(
+      () => import('./components/panels/ObjectStorageConfigPanel')
+    ),
   },
   {
     id: 'websocket',
@@ -59,7 +61,9 @@ export const PANELS = [
     id: 'batchpolling',
     label: 'Batch Polling',
     icon: 'change',
-    component: lazy(() => import('./components/panels/BatchPollingConfigPanel')),
+    component: lazy(
+      () => import('./components/panels/BatchPollingConfigPanel')
+    ),
   },
   {
     id: 'cache',

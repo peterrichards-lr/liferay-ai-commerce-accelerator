@@ -9,7 +9,7 @@ const COMMERCE_CONSTRAINTS = Object.freeze({
     'checkbox_multiple',
     'radio',
     'select',
-    'select_date'
+    'select_date',
   ],
 
   // Field types that support multiple values
@@ -18,7 +18,7 @@ const COMMERCE_CONSTRAINTS = Object.freeze({
     'checkbox_multiple',
     'radio',
     'select',
-    'select_date'
+    'select_date',
   ],
 
   // Field types that require/support predefined OptionValues
@@ -27,7 +27,7 @@ const COMMERCE_CONSTRAINTS = Object.freeze({
     'checkbox_multiple',
     'radio',
     'select',
-    'select_date'
+    'select_date',
   ],
 
   // All valid field types for commerce options as per OpenAPI spec
@@ -39,10 +39,10 @@ const COMMERCE_CONSTRAINTS = Object.freeze({
     'radio',
     'select',
     'select_date',
-    'text'
-  ]
+    'text',
+  ],
 });
 
 module.exports = {
-  COMMERCE_CONSTRAINTS
+  COMMERCE_CONSTRAINTS,
 };

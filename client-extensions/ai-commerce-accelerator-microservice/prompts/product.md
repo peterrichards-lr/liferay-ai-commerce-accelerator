@@ -30,7 +30,7 @@ You must return a JSON array that conforms to the provided JSON schema. Each ele
   - options: object mapping option names to selected values (for example {"color": "Black", "size": "Large"}). IMPORTANT: You MUST provide a value for EVERY option defined in the "options" array, even if it is not a skuContributor.
   - priceModifier: number representing percentage adjustment from the base price (for example -0.15 for -15%, 0.2 for +20%). Premium options should cost more.
   - inStock: boolean (for realism, roughly 90% true and 10% false).
-{{priceEntriesInstruction}}
+    {{priceEntriesInstruction}}
 - images: array of 1–3 realistic image metadata objects. Each image object must have:
   - src: string (placeholder filename like "product-main.webp").
   - title: object of multilingual image titles keyed by language code.

@@ -87,8 +87,8 @@ export default function PlaceholderItem({
   const status = !normalized.base64
     ? { type: 'secondary', text: 'Empty' }
     : isValid
-    ? { type: 'success', text: 'Ready' }
-    : { type: 'warning', text: 'Invalid base64' };
+      ? { type: 'success', text: 'Ready' }
+      : { type: 'warning', text: 'Invalid base64' };
 
   const accept =
     fixedMimeType === 'application/pdf'
@@ -479,7 +479,7 @@ export default function PlaceholderItem({
           )}
       </ClayForm.Group>
 
-      <ClayForm.Group >
+      <ClayForm.Group>
         <label className="font-weight-semi-bold" htmlFor={`${prefix}-preview`}>
           Preview
         </label>

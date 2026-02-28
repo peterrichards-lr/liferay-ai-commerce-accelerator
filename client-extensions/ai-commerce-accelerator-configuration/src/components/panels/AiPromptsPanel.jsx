@@ -11,20 +11,15 @@ const ENTITY_CONFIGS = [
   { id: 'pricing', title: 'Pricing Prompt', configKey: 'ai-prompt-pricing' },
 ];
 
-const {
-  keys,
-  defaults
-} = ENTITY_CONFIGS.reduce(
-  (acc, {
-    configKey,
-    id
-  }) => {
+const { keys, defaults } = ENTITY_CONFIGS.reduce(
+  (acc, { configKey, id }) => {
     acc.keys.push(configKey);
     acc.defaults[configKey] = '';
     return acc;
-  }, {
+  },
+  {
     keys: [],
-    defaults: {}
+    defaults: {},
   }
 );
 

@@ -6,18 +6,18 @@ const num = (v, fb = null) =>
   v === null || v === undefined
     ? fb
     : Number.isFinite(Number(v))
-    ? Number(v)
-    : fb;
+      ? Number(v)
+      : fb;
 const str = (v, fb = '') => (typeof v === 'string' ? v.trim() : fb);
 const arr = (v, fb = []) =>
   Array.isArray(v)
     ? v
     : typeof v === 'string' && v.trim()
-    ? v
-        .split(',')
-        .map((s) => s.trim())
-        .filter(Boolean)
-    : fb;
+      ? v
+          .split(',')
+          .map((s) => s.trim())
+          .filter(Boolean)
+      : fb;
 
 export function normalizeConfig(incoming = {}) {
   const cfg = { ...DEFAULTS, ...(incoming || {}) };

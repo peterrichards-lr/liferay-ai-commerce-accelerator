@@ -206,10 +206,12 @@ function createWebSocketService({
     if (mode === 'unicast' || (mode === 'auto' && cid)) {
       const c = clients.get(cid);
       if (c) return [c];
-      
+
       // Fallback to sessionId matching if cid not found
       if (sid) {
-        return Array.from(clients.values()).filter(ws => ws.sessionId === sid);
+        return Array.from(clients.values()).filter(
+          (ws) => ws.sessionId === sid
+        );
       }
       return [];
     }
@@ -389,7 +391,7 @@ function createWebSocketService({
     ws.isAlive = true;
     ws.url = req.headers.origin;
     ws.ip = req.socket.remoteAddress;
-    
+
     if (ws.correlationId) {
       clients.set(ws.correlationId, ws);
     }

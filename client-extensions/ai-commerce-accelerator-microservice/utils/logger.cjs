@@ -110,7 +110,7 @@ class Logger {
       const escaped = JSON.stringify(logEntry.queryForGraphiQL);
       // Remove surrounding quotes and replace escaped newlines with actual newlines
       const literal = logEntry.queryForGraphiQL;
-      json = json.replace(escaped, "`" + literal.replace(/\`/g, "'") + "`");
+      json = json.replace(escaped, '`' + literal.replace(/\`/g, "'") + '`');
     }
 
     return json;
@@ -137,7 +137,7 @@ class Logger {
           })}`
         : '';
 
-    const graphiQL = queryForGraphiQL 
+    const graphiQL = queryForGraphiQL
       ? `\n${color}queryForGraphiQL:${reset}\n${queryForGraphiQL}`
       : '';
 
@@ -159,7 +159,7 @@ class Logger {
 
     const out =
       level === 'ERROR' || level === 'WARN' ? process.stderr : process.stdout;
-    
+
     if (out.writable) {
       try {
         if (ENV.LOGGER_PRETTY) {
@@ -175,29 +175,29 @@ class Logger {
     }
   }
 
-    isLogEnabled() {
-      return this.isTraceEnabled();
-    }
-  
-    isTraceEnabled() {
-      return this.loggingLevel >= 4;
-    }
-  
-    isDebugEnabled() {
-      return this.loggingLevel >= 3;
-    }
-  
-    isInfoEnabled() {
-      return this.loggingLevel >= 2;
-    }
-  
-    isWarnEnabled() {
-      return this.loggingLevel >= 1;
-    }
-  
-    isErrorEnabled() {
-      return true;
-    }
+  isLogEnabled() {
+    return this.isTraceEnabled();
+  }
+
+  isTraceEnabled() {
+    return this.loggingLevel >= 4;
+  }
+
+  isDebugEnabled() {
+    return this.loggingLevel >= 3;
+  }
+
+  isInfoEnabled() {
+    return this.loggingLevel >= 2;
+  }
+
+  isWarnEnabled() {
+    return this.loggingLevel >= 1;
+  }
+
+  isErrorEnabled() {
+    return true;
+  }
   isSuccessEnabled = () => true;
 
   log(message, meta = {}) {

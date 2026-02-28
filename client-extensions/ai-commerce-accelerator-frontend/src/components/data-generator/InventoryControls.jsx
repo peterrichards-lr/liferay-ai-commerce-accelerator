@@ -17,7 +17,9 @@ function InventoryControls({
 
   return (
     <div className="form-group">
-      <h6 className={`config-section-title ${productCount === 0 ? 'muted' : ''}`}>
+      <h6
+        className={`config-section-title ${productCount === 0 ? 'muted' : ''}`}
+      >
         <ClayIcon symbol="box-container" />
         Inventory & Backorders
       </h6>
@@ -31,10 +33,14 @@ function InventoryControls({
             className={`form-input ${hasErr('inventoryMin') ? 'invalid' : ''}`}
             min="0"
             value={inventoryMin ?? 0}
-            onChange={(e) => onChange('inventoryMin', parseInt(e.target.value || '0'))}
+            onChange={(e) =>
+              onChange('inventoryMin', parseInt(e.target.value || '0'))
+            }
             disabled={disabled || productCount === 0}
           />
-          {hasErr('inventoryMin') && <FieldError errors={validationErrors.inventoryMin} />}
+          {hasErr('inventoryMin') && (
+            <FieldError errors={validationErrors.inventoryMin} />
+          )}
         </div>
 
         <div className="form-col">
@@ -45,14 +51,20 @@ function InventoryControls({
             className={`form-input ${hasErr('inventoryMax') ? 'invalid' : ''}`}
             min="0"
             value={inventoryMax ?? 0}
-            onChange={(e) => onChange('inventoryMax', parseInt(e.target.value || '0'))}
+            onChange={(e) =>
+              onChange('inventoryMax', parseInt(e.target.value || '0'))
+            }
             disabled={disabled || productCount === 0}
           />
-          {hasErr('inventoryMax') && <FieldError errors={validationErrors.inventoryMax} />}
+          {hasErr('inventoryMax') && (
+            <FieldError errors={validationErrors.inventoryMax} />
+          )}
         </div>
 
         <div className="form-col">
-          <label htmlFor="dg_inventoryAssignmentRatio">Apply Inventory To</label>
+          <label htmlFor="dg_inventoryAssignmentRatio">
+            Apply Inventory To
+          </label>
           <div className="input-with-unit">
             <input
               id="dg_inventoryAssignmentRatio"
@@ -61,7 +73,12 @@ function InventoryControls({
               min="0"
               max="100"
               value={inventoryAssignmentRatio ?? 0}
-              onChange={(e) => onChange('inventoryAssignmentRatio', parseInt(e.target.value || '0'))}
+              onChange={(e) =>
+                onChange(
+                  'inventoryAssignmentRatio',
+                  parseInt(e.target.value || '0')
+                )
+              }
               disabled={disabled || productCount === 0}
             />
             <span className="input-unit">%</span>
@@ -69,7 +86,9 @@ function InventoryControls({
           {hasErr('inventoryAssignmentRatio') && (
             <FieldError errors={validationErrors.inventoryAssignmentRatio} />
           )}
-          <small className="help-text">Randomly assigns inventory to this percentage of products.</small>
+          <small className="help-text">
+            Randomly assigns inventory to this percentage of products.
+          </small>
         </div>
       </div>
 
@@ -89,7 +108,9 @@ function InventoryControls({
 
       <div className="form-row">
         <div className="form-col">
-          <label htmlFor="dg_backorderAssignmentRatio">Apply Backorders To</label>
+          <label htmlFor="dg_backorderAssignmentRatio">
+            Apply Backorders To
+          </label>
           <div className="input-with-unit">
             <input
               id="dg_backorderAssignmentRatio"
@@ -98,7 +119,12 @@ function InventoryControls({
               min="0"
               max="100"
               value={backorderAssignmentRatio ?? 0}
-              onChange={(e) => onChange('backorderAssignmentRatio', parseInt(e.target.value || '0'))}
+              onChange={(e) =>
+                onChange(
+                  'backorderAssignmentRatio',
+                  parseInt(e.target.value || '0')
+                )
+              }
               disabled={disabled || productCount === 0 || !enableBackorders}
             />
             <span className="input-unit">%</span>
@@ -106,13 +132,16 @@ function InventoryControls({
           {hasErr('backorderAssignmentRatio') && (
             <FieldError errors={validationErrors.backorderAssignmentRatio} />
           )}
-          <small className="help-text">Randomly enables backorders on this percentage of products.</small>
+          <small className="help-text">
+            Randomly enables backorders on this percentage of products.
+          </small>
         </div>
       </div>
 
       <small className="help-text">
-        Inventory values will be split across available warehouses. If none exist and "Create Warehouses" is enabled,
-        warehouses will be created first.
+        Inventory values will be split across available warehouses. If none
+        exist and "Create Warehouses" is enabled, warehouses will be created
+        first.
       </small>
     </div>
   );

@@ -3,7 +3,7 @@ const { ERC_PREFIX } = require('../utils/constants.cjs');
 
 function handleError(res, logger, req, config, operation, error, extra = {}) {
   const rawMessage =
-    (error && error.userMessage) || 
+    (error && error.userMessage) ||
     (error && error.message) ||
     (typeof error === 'string' ? error : null) ||
     'An unexpected error occurred. Please try again.';
@@ -46,9 +46,9 @@ function handleError(res, logger, req, config, operation, error, extra = {}) {
   if (!res.headersSent) {
     return res.status(statusCode).json({
       success: false,
-      error: userMessage, 
-      operation: error?.operation || operation, 
-      errorReference: errorRef, 
+      error: userMessage,
+      operation: error?.operation || operation,
+      errorReference: errorRef,
       demo: !!config?.demoMode,
       timestamp: new Date().toISOString(),
     });

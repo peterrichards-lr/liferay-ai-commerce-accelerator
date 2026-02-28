@@ -17,28 +17,28 @@ import { defaultEditorOptions } from '../../utils/editor';
 const CATEGORIES_CONFIG_KEY = 'ai-categories';
 const DEFAULTS = {
   [CATEGORIES_CONFIG_KEY]: [
-    "Electronics",
-    "Clothing",
-    "Home & Garden",
-    "Sports",
-    "Books",
-    "Automotive",
-    "Health & Beauty",
-    "Toys & Games",
-    "Food & Beverage",
-    "Office Supplies"
+    'Electronics',
+    'Clothing',
+    'Home & Garden',
+    'Sports',
+    'Books',
+    'Automotive',
+    'Health & Beauty',
+    'Toys & Games',
+    'Food & Beverage',
+    'Office Supplies',
   ],
 };
 
 const ajv = new Ajv();
 const schema = {
-  type: "array",
+  type: 'array',
   items: {
-    type: "string",
-    minLength: 1
+    type: 'string',
+    minLength: 1,
   },
   minItems: 1,
-  uniqueItems: true
+  uniqueItems: true,
 };
 const validate = ajv.compile(schema);
 
@@ -65,23 +65,33 @@ export default function CategoriesConfigPanel() {
 
   useForm({ dirty, onSave });
 
-  const onCategoriesChange = useCallback((rawValue) => {
-    try {
-      const parsed = JSON.parse(rawValue);
-      if (!validate(parsed)) {
-        setIssues(validate.errors.map(err => `Validation Error: ${err.message} at ${err.instancePath}`));
-      } else {
-        setIssues([]);
+  const onCategoriesChange = useCallback(
+    (rawValue) => {
+      try {
+        const parsed = JSON.parse(rawValue);
+        if (!validate(parsed)) {
+          setIssues(
+            validate.errors.map(
+              (err) => `Validation Error: ${err.message} at ${err.instancePath}`
+            )
+          );
+        } else {
+          setIssues([]);
+        }
+        setValue(CATEGORIES_CONFIG_KEY, parsed);
+      } catch (error) {
+        setIssues([`JSON Parse Error: ${error.message}`]);
+        setValue(CATEGORIES_CONFIG_KEY, rawValue); // Store raw value to preserve user input
       }
-      setValue(CATEGORIES_CONFIG_KEY, parsed);
-    } catch (error) {
-      setIssues([`JSON Parse Error: ${error.message}`]);
-      setValue(CATEGORIES_CONFIG_KEY, rawValue); // Store raw value to preserve user input
-    }
-  }, [setValue]);
+    },
+    [setValue]
+  );
 
   const hasErrors = useMemo(
-    () => issues.length > 0 || (typeof categories === 'string' && categories.length > 0) || (Array.isArray(categories) && !validate(categories)),
+    () =>
+      issues.length > 0 ||
+      (typeof categories === 'string' && categories.length > 0) ||
+      (Array.isArray(categories) && !validate(categories)),
     [issues, categories]
   );
 
@@ -110,7 +120,11 @@ export default function CategoriesConfigPanel() {
             Product Categories (JSON Array of Strings)
           </label>
           <CodeMirror
-            value={typeof categories === 'string' ? categories : JSON.stringify(categories, null, 2)}
+            value={
+              typeof categories === 'string'
+                ? categories
+                : JSON.stringify(categories, null, 2)
+            }
             options={{
               ...defaultEditorOptions,
               mode: { name: 'javascript', json: true },

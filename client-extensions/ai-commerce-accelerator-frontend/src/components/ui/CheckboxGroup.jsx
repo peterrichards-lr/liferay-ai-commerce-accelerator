@@ -1,10 +1,6 @@
 import React from 'react';
 
-export default function CheckboxGroup({
-  title,
-  subtitle,
-  children,
-}) {
+export default function CheckboxGroup({ title, subtitle, children }) {
   return (
     <div className="config-options">
       {title && <h6 className="config-section-title">{title}</h6>}

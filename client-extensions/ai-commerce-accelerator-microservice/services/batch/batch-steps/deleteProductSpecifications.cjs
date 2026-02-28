@@ -4,7 +4,9 @@ module.exports = async function deleteProductSpecifications(
   { liferay, logger, persistence },
   { config, options, sessionId, batchERC }
 ) {
-  logger.info('Starting explicit removal of product-specification associations');
+  logger.info(
+    'Starting explicit removal of product-specification associations'
+  );
 
   const productsRes = await liferay.getProducts(config, {
     pageSize: 200,
@@ -31,14 +33,21 @@ module.exports = async function deleteProductSpecifications(
     if (!productId) continue;
 
     try {
-      const productSpecifications = await liferay.getProductSpecifications(config, productId);
-      
+      const productSpecifications = await liferay.getProductSpecifications(
+        config,
+        productId
+      );
+
       if (productSpecifications && productSpecifications.length > 0) {
-        logger.debug(`Clearing ${productSpecifications.length} specifications from product ${productId}`);
-        
+        logger.debug(
+          `Clearing ${productSpecifications.length} specifications from product ${productId}`
+        );
+
         for (const ps of productSpecifications) {
           if (!ps.id) {
-            logger.debug(`Skipping product specification association removal: missing ID for product ${productId}`);
+            logger.debug(
+              `Skipping product specification association removal: missing ID for product ${productId}`
+            );
             continue;
           }
           await liferay.deleteProductSpecification(config, productId, ps.id);
@@ -46,11 +55,15 @@ module.exports = async function deleteProductSpecifications(
         }
       }
     } catch (err) {
-      logger.warn(`Failed to clear specifications for product ${productId}: ${err.message}`);
+      logger.warn(
+        `Failed to clear specifications for product ${productId}: ${err.message}`
+      );
     }
   }
 
-  logger.info(`Successfully cleared ${clearedCount} product-specification associations.`);
+  logger.info(
+    `Successfully cleared ${clearedCount} product-specification associations.`
+  );
 
   if (batchERC) {
     await persistence.updateBatch(batchERC, {

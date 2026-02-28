@@ -224,24 +224,25 @@ module.exports = (app, { logger, configService }) => {
     }
   });
 
-      app.get(INTERNAL_API_PATHS.CONFIG_AI_MODEL_OPTIONS, async (req, res) => {
-      const { config } = buildConfigAndOptions(req);
-  
-      try {
-        const { aiModelOptions, defaultModel } = await configService.getAIModelOptions(config);
-  
-        res.json({
-          success: true,
-          aiModelOptions: aiModelOptions || [],
-          defaultModel,
-          timestamp: new Date().toISOString(),
-        });
-      } catch (error) {
-        sendSafeError(res, logger, req, error, 'get-ai-model-options', {
-          sanitizeConfig: sanitizedObject(config),
-        });
-      }
-    });
+  app.get(INTERNAL_API_PATHS.CONFIG_AI_MODEL_OPTIONS, async (req, res) => {
+    const { config } = buildConfigAndOptions(req);
+
+    try {
+      const { aiModelOptions, defaultModel } =
+        await configService.getAIModelOptions(config);
+
+      res.json({
+        success: true,
+        aiModelOptions: aiModelOptions || [],
+        defaultModel,
+        timestamp: new Date().toISOString(),
+      });
+    } catch (error) {
+      sendSafeError(res, logger, req, error, 'get-ai-model-options', {
+        sanitizeConfig: sanitizedObject(config),
+      });
+    }
+  });
   app.get(INTERNAL_API_PATHS.CONFIG_BATCH_SIZES, async (req, res) => {
     const { config } = buildConfigAndOptions(req);
 

@@ -14,25 +14,35 @@ module.exports = async function deleteProducts(
   }
 
   if (items && items.length > 0) {
-    logger.info(`Clearing associations for ${items.length} products before deletion`);
+    logger.info(
+      `Clearing associations for ${items.length} products before deletion`
+    );
     for (const product of items) {
       const productId = product.productId || product.id;
       if (!productId) continue;
 
       try {
         // Clear options
-        const productOptions = await liferay.getProductOptions(config, productId);
+        const productOptions = await liferay.getProductOptions(
+          config,
+          productId
+        );
         for (const po of productOptions) {
           await liferay.deleteProductOption(config, productId, po.id);
         }
 
         // Clear specifications
-        const productSpecs = await liferay.getProductSpecifications(config, productId);
+        const productSpecs = await liferay.getProductSpecifications(
+          config,
+          productId
+        );
         for (const ps of productSpecs) {
           await liferay.deleteProductSpecification(config, productId, ps.id);
         }
       } catch (err) {
-        logger.warn(`Failed to clear associations for product ${productId}: ${err.message}`);
+        logger.warn(
+          `Failed to clear associations for product ${productId}: ${err.message}`
+        );
       }
     }
   }

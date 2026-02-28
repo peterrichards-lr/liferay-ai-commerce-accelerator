@@ -62,7 +62,6 @@ module.exports = (
     batchCallbackService,
   }
 ) => {
-
   app.post(
     INTERNAL_API_PATHS.GENERATE_WORKFLOW,
     upload.fields([{ name: 'customImageFile' }, { name: 'customPDFFile' }]),
