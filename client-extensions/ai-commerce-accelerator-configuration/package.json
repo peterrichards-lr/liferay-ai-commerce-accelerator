@@ -19,7 +19,8 @@
 	"devDependencies": {
 		"@types/codemirror": "^5.60.15",
 		"@types/prop-types": "^15.7.15",
-		"esbuild": "^0.20.2"
+		"esbuild": "^0.20.2",
+		"prettier": "^3.8.1"
 	},
 	"name": "@liferay/liferay-ai-commerce-accelerator-configuration",
 	"private": true,
