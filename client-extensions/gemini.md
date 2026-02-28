@@ -844,4 +844,24 @@ Investigation into Price List creation and scoping revealed critical constraints
     *   **Case Sensitivity**: Pricing V2.0 Headless API strictly requires `camelCase` for ERC path segments (`by-externalReferenceCode`).
     *   **Batch URL Redundancy**: Avoid passing parent identifiers (like `priceListId`) as query parameters to nested batch endpoints (e.g., `/price-lists/price-entries/batch`). Liferay often interprets these as identifiers for the *ImportTask* object itself, leading to ERC collisions ("external reference code already in use").
     *   **Scoping Priority**: Rely entirely on item-level properties (within each record in the batch body) for scoping to avoid URL-based conflicts.
-5.  **Soft Fallback Handling**: SDK methods that demote 404s to "Soft Results" (returning an empty object instead of throwing) must be handled carefully by callers. A "Soft Empty" result must be explicitly checked to trigger creation logic, otherwise the system will incorrectly assume the entity exists.
+5. **Soft Fallback Handling**: SDK methods that demote 404s to "Soft Results" (returning an empty object instead of throwing) must be handled carefully by callers. A "Soft Empty" result must be explicitly checked to trigger creation logic, otherwise the system will incorrectly assume the entity exists.
+
+### Account & Address Creation Sequence (Architecture Finding)
+
+Liferay Headless Admin User API (v1.0) imposes strict constraints on how accounts and their addresses are established:
+
+1.  **Clean Initial Payload**: Accounts must be created without any nested address fields (`billingAddress`, `shippingAddress`, etc.) in the initial batch submission. Including them often leads to validation errors or ignored data.
+2.  **Atomic Address Batching**: Postal addresses must be created as separate entities. While Liferay supports batching, these batches must be scoped to a specific account (`/accounts/{accountId}/postal-addresses/batch`).
+3.  **Explicit Default Linking**: Setting an address as the "Default Billing" or "Default Shipping" address for an account is a third distinct step. It requires the numeric ID of both the account and the successfully created postal address.
+4.  **Actionable Pattern**: Implement a 3-phase workflow: (1) Create Accounts, (2) Create Addresses (grouped by resolved Account ID), (3) Update Accounts to link default address IDs.
+
+### Pre-commit Formatting & Hook Stability (Engineering Standard)
+
+To maintain code quality across multiple independent client extensions within a single repository:
+
+1.  **Independent Standards**: Each client extension (`microservice`, `frontend`, `configuration`) maintains its own `.prettierrc` file. This allows projects to evolve their formatting standards independently.
+2.  **Centralised Orchestration**: Husky and `lint-staged` are configured at the repository root to detect which project a staged file belongs to and apply the correct local formatting rules.
+3.  **Environment Resilience**: Git hooks must be robust against diverse environments (local, CI, GUI clients). 
+    - **Executable Bit**: The `.husky/pre-commit` file MUST have the executable bit (`chmod +x`) set.
+    - **Path Detection**: Hooks should include logic to find Node/npx in project-local paths (e.g., Maven-managed `build/node/bin`) and support user-specific overrides via `~/.huskyrc`.
+
