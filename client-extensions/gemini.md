@@ -850,10 +850,21 @@ Investigation into Price List creation and scoping revealed critical constraints
 
 Liferay Headless Admin User API (v1.0) imposes strict constraints on how accounts and their addresses are established:
 
-1.  **Clean Initial Payload**: Accounts must be created without any nested address fields (`billingAddress`, `shippingAddress`, etc.) in the initial batch submission. Including them often leads to validation errors or ignored data.
-2.  **Atomic Address Batching**: Postal addresses must be created as separate entities. While Liferay supports batching, these batches must be scoped to a specific account (`/accounts/{accountId}/postal-addresses/batch`).
+1.  **Specialised Initial Payload**: 
+    -   **Head Office (Type 'other')**: The "Head Office" address MUST be included in the initial account creation batch as an item in the top-level `postalAddresses` array. It MUST use the `addressType: 'other'`. This ensures the account is created with a primary physical presence.
+    -   **Address Stripping**: All other specialized address fields (`billingAddress`, `shippingAddress`) MUST be removed from the initial `Account` objects to prevent validation errors.
+2.  **Atomic Address Batching**: specialized "Billing" and "Shipping" addresses MUST be created as separate entities after the account exists. These batches must be scoped to the account ID (`/accounts/{accountId}/postal-addresses/batch`).
 3.  **Explicit Default Linking**: Setting an address as the "Default Billing" or "Default Shipping" address for an account is a third distinct step. It requires the numeric ID of both the account and the successfully created postal address.
-4.  **Actionable Pattern**: Implement a 3-phase workflow: (1) Create Accounts, (2) Create Addresses (grouped by resolved Account ID), (3) Update Accounts to link default address IDs.
+4.  **Actionable Pattern**: Implement a 3-phase workflow: (1) Create Accounts (including Head Office), (2) Create specialized Addresses (grouped by resolved Account ID), (3) Update Accounts to link default address IDs.
+
+### Async Batch & Callback Resilience (Engineering Standard)
+
+To prevent stalled workflows and "orphaned" callbacks in high-concurrency environments:
+
+1.  **Persistence-First Submission**: Batch metadata (ERC, Session ID, Step Key) MUST be persisted to the local database *before* the batch is submitted to Liferay. This ensures that if a callback arrives extremely quickly (even before the submission call returns), the handler can correlate it.
+2.  **Proactive Caching**: The `PersistenceService` should populate its in-memory cache immediately during creation to ensure visibility across different execution threads/processes.
+3.  **Callback Parameter Consistency**: The callback URL query parameters must be robust. Support both `batchExternalReferenceCode` and `batchERC` to handle naming variations across different Liferay API versions or internal path helpers.
+4.  **Handler Retries**: Callback handlers should implement a short retry loop (e.g., 3 attempts over 3s) when looking up batch records to account for potential database write latency.
 
 ### Pre-commit Formatting & Hook Stability (Engineering Standard)
 

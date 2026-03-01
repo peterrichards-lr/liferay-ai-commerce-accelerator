@@ -233,18 +233,32 @@ class PersistenceService {
     return false;
   }
 
-  createBatch({ erc, sessionId, stepKey, step_key, status }) {
+  createBatch({ erc, sessionId, stepKey, step_key, status, totalCount }) {
     const key = stepKey || step_key;
     const stmt = this.db.prepare(
-      'INSERT INTO workflow_batches (erc, session_id, step_key, status) VALUES (?, ?, ?, ?)'
+      'INSERT INTO workflow_batches (erc, session_id, step_key, status, total_count) VALUES (?, ?, ?, ?, ?)'
     );
 
-    stmt.run(erc, sessionId, key, status);
+    stmt.run(erc, sessionId, key, status, totalCount || 0);
 
     // Invalidate session batches cache
     this.cache.del(`batches-${sessionId}`);
 
-    return this.getBatch(erc);
+    // Proactively populate the individual batch cache
+    const batch = {
+      erc,
+      session_id: sessionId,
+      step_key: key,
+      status,
+      total_count: totalCount || 0,
+      processed_count: 0,
+      error_count: 0,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    };
+    this.cache.put(`batch-${erc}`, batch);
+
+    return batch;
   }
 
   getBatch(erc) {

@@ -95,7 +95,8 @@ module.exports = (app, { batchCallbackService, logger, ws }) => {
     res.status(200).send();
 
     try {
-      const batchERC = req.query.batchExternalReferenceCode;
+      const batchERC =
+        req.query.batchExternalReferenceCode || req.query.batchERC;
       const correlationId = req.query.correlationId;
       await batchCallbackService.processCallback(
         batchERC,

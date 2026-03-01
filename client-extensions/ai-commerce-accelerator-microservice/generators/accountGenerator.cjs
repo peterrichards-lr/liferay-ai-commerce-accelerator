@@ -146,13 +146,11 @@ class AccountGenerator {
           account.externalReferenceCode = createERC(ERC_PREFIX.ACCOUNT);
         }
 
-        // Ensure accountContactInformation exists but clean postalAddresses
+        // Initialize contact info
         account.accountContactInformation =
           account.accountContactInformation || {};
-        if (account.accountContactInformation.postalAddresses) {
-          delete account.accountContactInformation.postalAddresses;
-        }
 
+        // Handle Email Addresses (nested in accountContactInformation)
         if (account.emailAddress) {
           account.accountContactInformation.emailAddresses = [
             {
@@ -164,20 +162,27 @@ class AccountGenerator {
           delete account.emailAddress;
         }
 
+        // Handle Domains (Top-level property in Account DTO)
         const allDomains = [
           ...(account.domains || []),
           ...(account.accountContactInformation?.domains || []),
         ];
         if (allDomains.length > 0) {
-          account.accountContactInformation.webUrls = allDomains.map(
+          account.domains = [...new Set(allDomains)]; // De-duplicate
+          
+          // Also provide WebUrls in contact info based on these domains
+          account.accountContactInformation.webUrls = account.domains.map(
             (domain) => ({
               url: `http://${domain}`,
               urlType: 'Website',
               primary: false,
             })
           );
+        } else {
+          delete account.domains;
         }
-        if (account.domains) delete account.domains;
+        
+        // Clean up temporary/incorrect domain fields
         if (account.accountContactInformation?.domains) {
           delete account.accountContactInformation.domains;
         }
@@ -191,19 +196,25 @@ class AccountGenerator {
         delete account.billingAddress;
         delete account.shippingAddress;
 
-        // Generate addresses for separate batch creation
-        if (rawHeadOffice) {
-          addressesToCreate.push({
-            ...(await this._generateAddress(
-              'head-office',
-              config,
-              rawHeadOffice,
-              countries
-            )),
-            accountERC: account.externalReferenceCode,
-          });
+        // Ensure no postalAddresses are in the contact info stage
+        if (account.accountContactInformation.postalAddresses) {
+          delete account.accountContactInformation.postalAddresses;
         }
 
+        // Head Office address must be submitted with the account (type 'other')
+        if (rawHeadOffice) {
+          const headOffice = await this._generateAddress(
+            'other',
+            config,
+            rawHeadOffice,
+            countries
+          );
+          account.postalAddresses = [headOffice];
+        } else {
+          account.postalAddresses = [];
+        }
+
+        // Billing and Shipping addresses are created separately
         if (rawBilling) {
           addressesToCreate.push({
             ...(await this._generateAddress(
@@ -439,7 +450,8 @@ class AccountGenerator {
           if (!groupedAddresses.has(accountId)) {
             groupedAddresses.set(accountId, []);
           }
-          groupedAddresses.get(accountId).push(addr);
+          const {accountERC, ...addressWithoutErc } = addr;
+          groupedAddresses.get(accountId).push(addressWithoutErc);
         }
       });
 
@@ -468,11 +480,28 @@ class AccountGenerator {
           logger.info(
             `DRY RUN: Skipping postal address creation batch submission for account ${accountId}.`
           );
+          await persistence.createBatch({
+            erc: batchERC,
+            sessionId,
+            stepKey: 'postal-addresses',
+            status: 'SYNCHRONOUS',
+            processedCount: addresses.length,
+            totalCount: addresses.length,
+          });
           taskResults.push({
             taskId: `dry-run-${accountId}`,
             count: addresses.length,
           });
         } else {
+          // Persist the batch record BEFORE submission to avoid race conditions in callbacks
+          await persistence.createBatch({
+            erc: batchERC,
+            sessionId,
+            stepKey: 'postal-addresses',
+            status: 'prepared',
+            totalCount: addresses.length,
+          });
+
           const result = await liferay.createAccountAddressBatch(
             config,
             accountId,
@@ -490,11 +519,12 @@ class AccountGenerator {
         }
       }
 
+      // Create a master batch record for the step to satisfy the orchestrator's completion check
       await persistence.createBatch({
-        erc: createERC(ERC_PREFIX.BATCH_GENERATION),
+        erc: createERC(ERC_PREFIX.BATCH),
         sessionId,
         stepKey: 'postal-addresses',
-        status: options.dryRun ? 'SYNCHRONOUS' : 'prepared',
+        status: 'SYNCHRONOUS',
         processedCount: options.dryRun ? totalAddresses : 0,
         totalCount: totalAddresses,
         batchRefs: taskResults,

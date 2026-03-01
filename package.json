@@ -1,32 +1,32 @@
 {
-  "private": true,
-  "workspaces": {
-    "packages": [
-      "client-extensions/ai-commerce-accelerator-microservice",
-      "client-extensions/ai-commerce-accelerator-configuration",
-      "client-extensions/ai-commerce-accelerator-frontend"
-    ]
-  },
-  "devDependencies": {
-    "husky": "^9.1.7",
-    "lint-staged": "^16.3.0",
-    "prettier": "^3.8.1"
-  },
-  "scripts": {
-    "prepare": "husky"
-  },
-  "lint-staged": {
-    "client-extensions/ai-commerce-accelerator-microservice/**/*.{js,cjs,json,md}": [
-      "prettier --write --config client-extensions/ai-commerce-accelerator-microservice/.prettierrc"
-    ],
-    "client-extensions/ai-commerce-accelerator-configuration/**/*.{js,jsx,json,md}": [
-      "prettier --write --config client-extensions/ai-commerce-accelerator-configuration/.prettierrc"
-    ],
-    "client-extensions/ai-commerce-accelerator-frontend/**/*.{js,jsx,json,md}": [
-      "prettier --write --config client-extensions/ai-commerce-accelerator-frontend/.prettierrc"
-    ],
-    "*.{js,json,md}": [
-      "prettier --write"
-    ]
-  }
+    "private": true,
+    "workspaces": {
+        "packages": [
+            "client-extensions/ai-commerce-accelerator-microservice",
+            "client-extensions/ai-commerce-accelerator-configuration",
+            "client-extensions/ai-commerce-accelerator-frontend"
+        ]
+    },
+    "devDependencies": {
+        "husky": "^9.1.7",
+        "lint-staged": "^16.3.0",
+        "prettier": "^3.8.1"
+    },
+    "scripts": {
+        "prepare": "husky"
+    },
+    "lint-staged": {
+        "client-extensions/ai-commerce-accelerator-microservice/**/*.{js,cjs,json,md}": [
+            "prettier --write --config client-extensions/ai-commerce-accelerator-microservice/.prettierrc"
+        ],
+        "client-extensions/ai-commerce-accelerator-configuration/**/*.{js,jsx,json,md}": [
+            "prettier --write --config client-extensions/ai-commerce-accelerator-configuration/.prettierrc"
+        ],
+        "client-extensions/ai-commerce-accelerator-frontend/**/*.{js,jsx,json,md}": [
+            "prettier --write --config client-extensions/ai-commerce-accelerator-frontend/.prettierrc"
+        ],
+        "*.{js,json,md}": [
+            "prettier --write"
+        ]
+    }
 }

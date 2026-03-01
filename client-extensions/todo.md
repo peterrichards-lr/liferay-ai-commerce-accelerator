@@ -590,3 +590,40 @@
 2. In some environments (especially non-interactive shells used by Git), `npx` was not in the `PATH`.
 3. Local environment uses Maven-managed Node (located in `build/node/bin`).
 **Result**: **FIXED**. Applied `chmod +x` and updated the hook script to prioritize project-local Node binaries and support `~/.huskyrc` for user-specific environment configuration.
+
+---
+
+## 48. Workflow Resilience & Race Condition Fixes (Feb 28 - Round 3)
+
+### [x] Fix Postal Address Callback Race Condition
+
+**Issue**: The workflow stalled during address creation with "No batch record found for batchERC in callback" errors in the logs.
+**Analysis**: 
+1. `_runAddressCreationStep` was submitting multiple batches but only persisting after the loop.
+2. Callback arrives before SQLite write is visible to the callback handler thread/process.
+3. Query parameter naming mismatch between `liferayPaths.cjs` and `routes/batch.cjs`.
+**Result**: **FIXED**.
+- Refactored `AccountGenerator.cjs` to persist records *before* submission.
+- Enhanced `PersistenceService.cjs` to proactively populate the in-memory cache during `createBatch`.
+- Added a retry mechanism in `BatchCallbackService.processCallback` to wait for records that are mid-commit.
+- Updated `routes/batch.cjs` to accept both `batchExternalReferenceCode` and `batchERC` parameters.
+
+## 49. Workflow Stability & Discovery Fixes (Feb 28 - Round 4)
+
+### [x] Fix Premature Workflow Advancement (Multiple Batches) (PRIORITY 1)
+
+**Issue**: The workflow advances to the next step before all batches for the current step are finished. Specifically, `set-billing-and-shipping-addresses` starts before `postal-addresses` callbacks are received.
+**Analysis**: `BatchCallbackService._advanceWorkflow` uses a simplified check for completed steps (`completedStepNames`). If a step produces multiple batches and one of them is synchronous or finishes early, the orchestrator might incorrectly flag the entire step as complete.
+**Result**: **FIXED**. Refactored `_advanceWorkflow` and `_isWorkflowFinished` to use rigorous batch-level completion checking (ensuring ALL batches for a step are terminal).
+
+### [x] Restore Reliable Account Discovery (Functional Notation Fix) (PRIORITY 1)
+
+**Issue**: `OrderGenerator` fails with "No accounts available" even when accounts have been created.
+**Analysis**: `LiferayService.getAccounts` was updated to use functional `startswith()` notation, which is inconsistently supported across Liferay APIs. This resulted in 0 accounts being found via GraphQL despite them existing in the database.
+**Result**: **FIXED**. Reverted `startswith()` to shorthand `sw` operator in `getAccounts`.
+
+### [x] Consolidate Account ID Resolution (PRIORITY 2)
+
+**Issue**: Multiple steps independently refetch accounts to resolve IDs (e.g., `resolve-account-ids`, `order-data-generation`).
+**Analysis**: Redundant refetching increases the risk of hitting `STALE_INDEX` and adds unnecessary latency.
+**Result**: **FIXED**. Updated `OrderGenerator` to prefer accounts from context if they have resolved IDs.

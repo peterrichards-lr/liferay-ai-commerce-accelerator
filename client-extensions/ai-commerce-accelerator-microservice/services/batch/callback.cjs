@@ -299,11 +299,26 @@ class BatchCallbackService {
     const newActiveSteps = [];
     let startedAny = false;
 
+    // RIGOROUS COMPLETION CHECK:
+    // A step is only truly complete if:
+    // 1. It has at least one batch record in the database
+    // 2. EVERY batch record for that step key is in a terminal state (COMPLETED, FAILED, BYPASSED, SYNCHRONOUS)
+    const stepCompletionMap = new Map();
+    const allStepKeys = [
+      ...new Set(allBatchesForSession.map((b) => b.step_key)),
+    ];
+
+    for (const key of allStepKeys) {
+      const batches = allBatchesForSession.filter((b) => b.step_key === key);
+      const isComplete =
+        batches.length > 0 && batches.every((b) => this._isBatchTerminal(b));
+      stepCompletionMap.set(key, isComplete);
+    }
+
     const completedStepNames = new Set(
-      allBatchesForSession
-        .filter((b) => this._isBatchTerminal(b))
-        .map((b) => b.step_key)
+      allStepKeys.filter((key) => stepCompletionMap.get(key))
     );
+
     const runningStepNames = new Set(
       allBatchesForSession
         .filter((b) => !this._isBatchTerminal(b))
@@ -397,10 +412,20 @@ class BatchCallbackService {
       return false;
     }
 
+    const stepCompletionMap = new Map();
+    const allStepKeys = [
+      ...new Set(allBatchesForSession.map((b) => b.step_key)),
+    ];
+
+    for (const key of allStepKeys) {
+      const batches = allBatchesForSession.filter((b) => b.step_key === key);
+      const isComplete =
+        batches.length > 0 && batches.every((b) => this._isBatchTerminal(b));
+      stepCompletionMap.set(key, isComplete);
+    }
+
     const completedStepNames = new Set(
-      allBatchesForSession
-        .filter((b) => this._isBatchTerminal(b))
-        .map((b) => b.step_key)
+      allStepKeys.filter((key) => stepCompletionMap.get(key))
     );
 
     for (const step of workflowSteps) {
@@ -887,10 +912,24 @@ class BatchCallbackService {
   async processCallback(batchERC, payload, correlationId = null) {
     const { logger, liferay, persistence, progress } = this.ctx;
 
-    const dbBatch = await persistence.getBatch(batchERC);
+    // Retry loop for getBatch to handle extreme race conditions where the callback 
+    // arrives almost simultaneously with the local DB write.
+    let dbBatch = await persistence.getBatch(batchERC);
+    let retryCount = 0;
+    const maxBatchRetries = 3;
+
+    while (!dbBatch && retryCount < maxBatchRetries) {
+      retryCount++;
+      logger.warn(`No batch record found for batchERC ${batchERC} in callback. Retrying ${retryCount}/${maxBatchRetries}...`, {
+        batchERC,
+        correlationId
+      });
+      await delay(1000);
+      dbBatch = await persistence.getBatch(batchERC);
+    }
 
     if (!dbBatch) {
-      logger.warn('No batch record found for batchERC in callback', {
+      logger.warn('No batch record found for batchERC after retries', {
         batchERC,
         payload,
         operation: 'batch-callback-no-record',

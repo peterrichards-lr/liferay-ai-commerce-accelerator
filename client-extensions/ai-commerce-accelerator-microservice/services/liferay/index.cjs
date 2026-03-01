@@ -85,7 +85,7 @@ class LiferayService {
     const filters = [];
     if (providedFilter) filters.push(providedFilter);
 
-    const prefixFilter = `startswith(externalReferenceCode, '${ERC_PREFIX.ACCOUNT}')`;
+    const prefixFilter = `externalReferenceCode sw '${ERC_PREFIX.ACCOUNT}'`;
 
     if (channelId) {
       let channelAccountFilter;
