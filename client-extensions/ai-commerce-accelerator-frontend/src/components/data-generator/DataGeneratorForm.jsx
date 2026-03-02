@@ -293,7 +293,8 @@ function DataGeneratorForm({
 
         <div
           className={
-            generationConfig.productCount > 0
+            generationConfig.productCount > 0 ||
+            generationConfig.accountCount > 0
               ? 'product-config-section'
               : 'product-config-section hidden'
           }
@@ -303,14 +304,17 @@ function DataGeneratorForm({
           <div className="form-group">
             <h5
               className={`section-title ${
-                generationConfig.productCount === 0 ? 'muted' : ''
+                generationConfig.productCount === 0 &&
+                generationConfig.accountCount === 0
+                  ? 'muted'
+                  : ''
               }`}
             >
               <ClayIcon symbol="cog" />
-              Product Configuration Options
+              Generation Context Options
             </h5>
             <small className="section-subtitle">
-              The following options are only applicable when generating products
+              The following options influence how data is generated
             </small>
           </div>
 
@@ -324,9 +328,7 @@ function DataGeneratorForm({
                 onToggleCategory={handleCategoryChange}
                 disabled={
                   lockFields ||
-                  availableCategories.length === 0 ||
-                  (generationConfig.productCount === 0 &&
-                    generationConfig.accountCount === 0)
+                  availableCategories.length === 0
                 }
                 invalid={
                   hasErr(validationErrors, 'categories')
@@ -334,8 +336,8 @@ function DataGeneratorForm({
                     : null
                 }
                 showNote={
-                  generationConfig.productCount === 0 &&
-                  generationConfig.accountCount === 0
+                  generationConfig.productCount > 0 &&
+                  generationConfig.accountCount > 0
                 }
               />
             )}
