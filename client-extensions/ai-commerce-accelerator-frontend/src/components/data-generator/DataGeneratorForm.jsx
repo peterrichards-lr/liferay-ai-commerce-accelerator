@@ -81,7 +81,7 @@ function DataGeneratorForm({
     }
 
     if (
-      generationConfig.imageMode === 'generate' &&
+      generationConfig.imageMode === 'ai' &&
       generationConfig.productCount > 0
     ) {
       const imageCount = Math.ceil(
@@ -95,7 +95,7 @@ function DataGeneratorForm({
     }
 
     if (
-      generationConfig.pdfMode === 'generate' &&
+      generationConfig.pdfMode === 'ai' &&
       generationConfig.productCount > 0
     ) {
       const pdfCount = Math.ceil(
@@ -413,9 +413,9 @@ function DataGeneratorForm({
                             type="radio"
                             name="imageSource"
                             id="dataGeneration_useDefaultImage"
-                            checked={generationConfig.imageMode === 'default'}
+                            checked={generationConfig.imageMode === 'placeholder'}
                             onChange={() =>
-                              handleConfigChange('imageMode', 'default')
+                              handleConfigChange('imageMode', 'placeholder')
                             }
                             disabled={
                               lockFields || generationConfig.productCount === 0
@@ -427,7 +427,31 @@ function DataGeneratorForm({
                             }`}
                             htmlFor="dataGeneration_useDefaultImage"
                           >
-                            Use default placeholder image
+                            Use placeholder image
+                          </label>
+                        </div>
+
+                        <div className="radio-wrapper">
+                          <input
+                            className="radio-input"
+                            type="radio"
+                            name="imageSource"
+                            id="dataGeneration_usePicsumImage"
+                            checked={generationConfig.imageMode === 'picsum'}
+                            onChange={() =>
+                              handleConfigChange('imageMode', 'picsum')
+                            }
+                            disabled={
+                              lockFields || generationConfig.productCount === 0
+                            }
+                          />
+                          <label
+                            className={`radio-label ${
+                              generationConfig.productCount === 0 ? 'muted' : ''
+                            }`}
+                            htmlFor="dataGeneration_usePicsumImage"
+                          >
+                            Use Picsum images (Dynamic)
                           </label>
                         </div>
 
@@ -560,9 +584,9 @@ function DataGeneratorForm({
                             type="radio"
                             name="pdfSource"
                             id="dataGeneration_useDefaultPDF"
-                            checked={generationConfig.pdfMode === 'default'}
+                            checked={generationConfig.pdfMode === 'placeholder'}
                             onChange={() =>
-                              handleConfigChange('pdfMode', 'default')
+                              handleConfigChange('pdfMode', 'placeholder')
                             }
                             disabled={
                               lockFields || generationConfig.productCount === 0
@@ -574,7 +598,7 @@ function DataGeneratorForm({
                             }`}
                             htmlFor="dataGeneration_useDefaultPDF"
                           >
-                            Use default placeholder PDF
+                            Use placeholder PDF
                           </label>
                         </div>
 
@@ -723,9 +747,9 @@ function DataGeneratorForm({
                             type="radio"
                             name="imageSource"
                             id="dataGeneration_generateImages"
-                            checked={generationConfig.imageMode === 'generate'}
+                            checked={generationConfig.imageMode === 'ai'}
                             onChange={() =>
-                              handleConfigChange('imageMode', 'generate')
+                              handleConfigChange('imageMode', 'ai')
                             }
                             disabled={
                               lockFields || generationConfig.productCount === 0
@@ -739,6 +763,54 @@ function DataGeneratorForm({
                           >
                             <ClayIcon symbol="magic" className="ai-icon" />
                             Generate with AI
+                          </label>
+                        </div>
+
+                        <div className="radio-wrapper">
+                          <input
+                            className="radio-input"
+                            type="radio"
+                            name="imageSource"
+                            id="dataGeneration_picsumImages_live"
+                            checked={generationConfig.imageMode === 'picsum'}
+                            onChange={() =>
+                              handleConfigChange('imageMode', 'picsum')
+                            }
+                            disabled={
+                              lockFields || generationConfig.productCount === 0
+                            }
+                          />
+                          <label
+                            className={`radio-label ${
+                              generationConfig.productCount === 0 ? 'muted' : ''
+                            }`}
+                            htmlFor="dataGeneration_picsumImages_live"
+                          >
+                            Use Picsum images (Dynamic)
+                          </label>
+                        </div>
+
+                        <div className="radio-wrapper">
+                          <input
+                            className="radio-input"
+                            type="radio"
+                            name="imageSource"
+                            id="dataGeneration_placeholderImages_live"
+                            checked={generationConfig.imageMode === 'placeholder'}
+                            onChange={() =>
+                              handleConfigChange('imageMode', 'placeholder')
+                            }
+                            disabled={
+                              lockFields || generationConfig.productCount === 0
+                            }
+                          />
+                          <label
+                            className={`radio-label ${
+                              generationConfig.productCount === 0 ? 'muted' : ''
+                            }`}
+                            htmlFor="dataGeneration_placeholderImages_live"
+                          >
+                            Use placeholder image
                           </label>
                         </div>
 
@@ -978,9 +1050,9 @@ function DataGeneratorForm({
                             type="radio"
                             name="pdfSource"
                             id="dataGeneration_generatePDFs"
-                            checked={generationConfig.pdfMode === 'generate'}
+                            checked={generationConfig.pdfMode === 'ai'}
                             onChange={() =>
-                              handleConfigChange('pdfMode', 'generate')
+                              handleConfigChange('pdfMode', 'ai')
                             }
                             disabled={
                               lockFields || generationConfig.productCount === 0
@@ -994,6 +1066,30 @@ function DataGeneratorForm({
                           >
                             <ClayIcon symbol="magic" className="ai-icon" />
                             Generate with AI
+                          </label>
+                        </div>
+
+                        <div className="radio-wrapper">
+                          <input
+                            className="radio-input"
+                            type="radio"
+                            name="pdfSource"
+                            id="dataGeneration_placeholderPDFs_live"
+                            checked={generationConfig.pdfMode === 'placeholder'}
+                            onChange={() =>
+                              handleConfigChange('pdfMode', 'placeholder')
+                            }
+                            disabled={
+                              lockFields || generationConfig.productCount === 0
+                            }
+                          />
+                          <label
+                            className={`radio-label ${
+                              generationConfig.productCount === 0 ? 'muted' : ''
+                            }`}
+                            htmlFor="dataGeneration_placeholderPDFs_live"
+                          >
+                            Use placeholder PDF
                           </label>
                         </div>
 

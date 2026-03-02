@@ -146,11 +146,11 @@ const ENV = {
   BATCH_SIZE: num('BATCH_SIZE', 10, 1),
   IMAGE_HEIGHT: num('IMAGE_HEIGHT', 512, 128),
   IMAGE_WIDTH: num('IMAGE_WIDTH', 512, 128),
-  IMAGE_MODE: str('IMAGE_MODE', 'none'), // 'none', 'dall-e', 'demo'
+  IMAGE_MODE: str('IMAGE_MODE', 'placeholder'), // 'none', 'ai', 'picsum', 'placeholder', 'custom'
   IMAGE_QUALITY: str('IMAGE_QUALITY', 'standard'), // 'standard', 'hd'
   IMAGE_RATIO: num('IMAGE_RATIO', 80, 0), // 80% of products get images
   IMAGE_STYLE: str('IMAGE_STYLE', 'photographic'),
-  PDF_MODE: str('PDF_MODE', 'none'), // 'none', 'jspdf', 'demo'
+  PDF_MODE: str('PDF_MODE', 'placeholder'), // 'none', 'ai', 'placeholder', 'custom'
   PDF_RATIO: num('PDF_RATIO', 50, 0), // 50% of products get PDFs
   INVENTORY_ASSIGNMENT_RATIO: num('INVENTORY_ASSIGNMENT_RATIO', 80, 0), // 80% of SKUs get assigned inventory
   INVENTORY_MIN: num('INVENTORY_MIN', 10, 0),

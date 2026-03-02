@@ -104,6 +104,7 @@ class MockDataGenerator {
       generateBulkPricing,
       generateTierPricing,
       imageMode,
+      pdfMode,
     } = options;
 
     const categoryCode = toERCPart(category, 3);
@@ -132,6 +133,22 @@ class MockDataGenerator {
         productData.name[lang] = `Mock ${category} Product ${i + 1}${suffix}`;
         productData.description[lang] =
           `High quality ${category.toLowerCase()} item for professional use.${suffix}`;
+      }
+
+      // Add image metadata placeholders if images are enabled
+      if (imageMode && imageMode !== 'none') {
+        productData.images = [
+          {
+            src: 'placeholder.webp',
+            title: Object.fromEntries(languageCodes.map(l => [l, 'Product Image'])),
+            priority: 1
+          }
+        ];
+      }
+
+      // Add attachment metadata placeholders if PDFs are enabled
+      if (pdfMode && pdfMode !== 'none') {
+        productData.attachments = ['manual.pdf'];
       }
 
       if (generateSkuVariants) {
@@ -249,315 +266,119 @@ class MockDataGenerator {
     skuVariants = [],
     options = {}
   ) {
-    const { generateBulkPricing, generateTierPricing } = options;
-    const PRICE_LIST_ERC = 'AICA-PL-GENERAL';
-    const hasPromotion = Math.random() < ENV.PRICING_PROMOTION_RATIO;
-    const hasBulk =
-      generateBulkPricing && Math.random() < ENV.PRICING_BULK_RATIO;
-    const hasTier =
-      generateTierPricing && Math.random() < ENV.PRICING_TIER_RATIO;
-
     const entries = [];
+    const baseErc = createERC(ERC_PREFIX.BATCH);
 
-    const buildPriceEntry = (sku, price) => {
-      const priceEntryErc = createERC(ERC_PREFIX.PRICE_ENTRY);
-      const promoPrice = hasPromotion ? Math.round(price * 0.85) : null;
-
-      const entry = {
-        price,
-        promoPrice,
-        sku: {
-          basePrice: price,
-          basePromoPrice: promoPrice,
-        },
-        skuExternalReferenceCode: sku,
-        priceListExternalReferenceCode: PRICE_LIST_ERC,
-        discountDiscovery: false,
-        externalReferenceCode: priceEntryErc,
-      };
-
-      if (hasBulk || hasTier) {
-        const isBulk = hasBulk;
-        entry.bulkPricing = isBulk;
-
-        entry.tierPrices = [
-          {
-            minimumQuantity: 5,
-            price: Math.round(price * (isBulk ? 0.9 : 0.92)),
-            promoPrice: hasPromotion ? Math.round(price * 0.75) : null,
-            discountDiscovery: false,
-            externalReferenceCode: createERC(ERC_PREFIX.TIER_PRICE),
-          },
-          {
-            minimumQuantity: 10,
-            price: Math.round(price * 0.8),
-            promoPrice: hasPromotion ? Math.round(price * 0.65) : null,
-            discountDiscovery: false,
-            externalReferenceCode: createERC(ERC_PREFIX.TIER_PRICE),
-          },
-        ];
-      }
-
-      return entry;
+    const mainEntry = {
+      price: basePrice,
+      skuExternalReferenceCode: baseSku,
+      priceListExternalReferenceCode: 'AICA-PL-GENERAL',
+      externalReferenceCode: `PE-${baseSku}-GEN-${baseErc}`,
+      discountDiscovery: false,
+      sku: {
+        basePrice: basePrice,
+        basePromoPrice: productIndex % 5 === 0 ? basePrice * 0.8 : null,
+      },
     };
 
-    entries.push(buildPriceEntry(baseSku, basePrice));
+    if (options.generateBulkPricing) {
+      mainEntry.bulkPricing = true;
+      mainEntry.tierPrices = [
+        {
+          minimumQuantity: 10,
+          price: basePrice * 0.9,
+          externalReferenceCode: `TP-${baseSku}-B10-${baseErc}`,
+        },
+        {
+          minimumQuantity: 50,
+          price: basePrice * 0.8,
+          externalReferenceCode: `TP-${baseSku}-B50-${baseErc}`,
+        },
+      ];
+    } else if (options.generateTierPricing) {
+      mainEntry.bulkPricing = false;
+      mainEntry.tierPrices = [
+        {
+          minimumQuantity: 5,
+          price: basePrice * 0.95,
+          externalReferenceCode: `TP-${baseSku}-T5-${baseErc}`,
+        },
+        {
+          minimumQuantity: 20,
+          price: basePrice * 0.85,
+          externalReferenceCode: `TP-${baseSku}-T20-${baseErc}`,
+        },
+      ];
+    }
+
+    entries.push(mainEntry);
 
     for (const variant of skuVariants) {
-      entries.push(buildPriceEntry(variant.sku, variant.price));
+      const vEntry = {
+        price: variant.price,
+        skuExternalReferenceCode: variant.sku,
+        priceListExternalReferenceCode: 'AICA-PL-GENERAL',
+        externalReferenceCode: `PE-${variant.sku}-GEN-${baseErc}`,
+        discountDiscovery: false,
+        sku: {
+          basePrice: variant.price,
+          basePromoPrice: null,
+        },
+      };
+      entries.push(vEntry);
     }
 
     return entries;
   }
 
-  async generateAccountData(count = 1, config, categories = [], options = {}) {
-    const { liferay } = this.ctx;
+  async generateAccountData(
+    count = 1,
+    config = {},
+    categories = [],
+    options = {}
+  ) {
     const accounts = [];
-    let companies = [
-      'Solutions Inc',
-      'Global Manufacturing',
-      'Creative Design Studio',
-      'Green Energy Corp',
-      'Digital Marketing Pro',
-      'Healthcare Partners',
-      'Construction Plus',
-      'Retail Experts',
-      'Financial Advisors',
-      'Education First',
-    ];
-
-    if (categories && categories.length > 0) {
-      const companySuffixes = [
-        'Solutions Inc',
-        'Manufacturing',
-        'Design Studio',
-        'Energy Corp',
-        'Marketing Pro',
-        'Partners',
-        'Plus',
-        'Experts',
-        'Advisors',
-        'First',
-      ];
-      companies = companySuffixes.map((suffix) => `${categories[0]} ${suffix}`);
-    }
-
-    const countriesFetched = await liferay.getCountries(config);
-    let countries = countriesFetched || [];
-
-    if (!countries || countries.length === 0) {
-      this.logger?.warn?.(
-        'No countries found in Liferay. Using default fallback for account generation.'
-      );
-      countries = [
-        {
-          id: 0,
-          name: 'United States',
-          a2: 'US',
-          title_i18n: { en_US: 'United States' },
-        },
-      ];
-    }
-
-    const countryToRegionsCache = new Map();
+    const languageId = config.languageId || 'en_US';
 
     for (let i = 0; i < count; i++) {
-      const companyName = companies[i % companies.length];
-      const accountEmail = `contact@${companyName.toLowerCase().replace(/\s+/g, '')}.com`;
-      const accountDomain = `${companyName.toLowerCase().replace(/\s+/g, '')}.com`;
+      const baseErc = createERC(ERC_PREFIX.ACCOUNT);
+      const accountName = `Mock Account ${i + 1} (${randomString(4)})`;
 
-      const country = countries[Math.floor(Math.random() * countries.length)];
-
-      let region = { name: null };
-      if (country && country.id) {
-        // Fetch regions once per country and cache
-        if (!countryToRegionsCache.has(country.id)) {
-          const regions = await liferay.getCountryRegions(config, country.id);
-          countryToRegionsCache.set(country.id, regions || []);
-        }
-
-        const regions = countryToRegionsCache.get(country.id);
-        if (regions && regions.length > 0) {
-          region = regions[Math.floor(Math.random() * regions.length)];
-        }
-      }
-
-      const location = {
-        country: country?.name || 'United States',
-        region: region?.name || null,
-        city: randomString(6),
-        zip: `${Math.floor(Math.random() * 99999) + 10000}`,
-      };
-
-      const account = {
-        name: `${companyName} ${i + 1}`,
+      const accountData = {
+        externalReferenceCode: baseErc,
+        name: accountName,
         type: 'business',
-        taxId: `TAX-${String(getRandomInt(1_000_000)).padStart(6, '0')}`,
-        externalReferenceCode: createERC(ERC_PREFIX.ACCOUNT),
-        description: `Professional ${companyName.toLowerCase()} providing quality services since 2020.`,
-        accountContactInformation: {
-          emailAddresses: [
-            {
-              emailAddress: accountEmail,
-              primary: true,
-              type: 'email-address',
-            },
-          ],
-          webUrls: [
-            {
-              url: `http://${accountDomain}`,
-              urlType: 'Website',
-              primary: false,
-            },
-          ],
-        },
-        domains: [accountDomain],
-        billingAddress: {
-          addressCountry: location.country,
-          addressRegion: location.region,
-          addressLocality: location.city,
-          postalCode: location.zip,
-          streetAddressLine1: `${100 + i} Main St`,
-          name: 'Billing Address',
-        },
-        shippingAddress: {
-          addressCountry: location.country,
-          addressRegion: location.region,
-          addressLocality: location.city,
-          postalCode: location.zip,
-          streetAddressLine1: `${200 + i} Second St`,
-          name: 'Shipping Address',
-        },
-        headOfficeAddress: {
-          addressCountry: location.country,
-          addressRegion: location.region,
-          addressLocality: location.city,
-          postalCode: location.zip,
-          streetAddressLine1: `${500 + i} Corporate Ave`,
-          name: 'Head Office',
-        },
+        description: `Generated mock business account for ${accountName}.`,
+        postalAddresses: [
+          {
+            addressLine1: `${getRandomInt(100, 999)} Main St`,
+            addressLocality: 'Los Angeles',
+            addressRegion: 'CA',
+            countryId: 'US',
+            postalCode: '90001',
+            addressType: 'other', // Head office address
+            name: 'Head Office',
+            externalReferenceCode: `ADDR-${baseErc}-HEAD`,
+          },
+        ],
       };
-      accounts.push(account);
+
+      accounts.push(accountData);
     }
 
     const validate = this.schemas.account;
     if (validate) {
-      const isValid = validate({ accounts });
+      const payload = { accounts: accounts };
+      const isValid = validate(payload);
       if (!isValid) {
         this.logger?.error?.('Mock account data failed schema validation:', {
           errors: validate.errors,
           correlationId: options?.correlationId,
         });
-      } else {
-        this.logger?.info?.(
-          'Mock account data validated successfully against schema.',
-          { correlationId: options?.correlationId }
-        );
       }
-    } else {
-      this.logger?.warn?.(
-        'Account schema not compiled, skipping mock data validation.'
-      );
     }
 
     return accounts;
-  }
-
-  async generateWarehouseData(count = 1, config) {
-    const warehouses = [];
-    const cities = [
-      'New York',
-      'Los Angeles',
-      'Chicago',
-      'Houston',
-      'Phoenix',
-      'Philadelphia',
-      'San Antonio',
-      'San Diego',
-      'Dallas',
-      'San Jose',
-    ];
-    const states = ['NY', 'CA', 'IL', 'TX', 'AZ', 'PA', 'TX', 'CA', 'TX', 'CA'];
-
-    for (let i = 0; i < count; i++) {
-      const cityIndex = i % cities.length;
-      warehouses.push({
-        name: { en_US: `Mock Warehouse ${i + 1} (${cities[cityIndex]})` },
-        description: {
-          en_US: `Primary distribution center for the ${cities[cityIndex]} region.`,
-        },
-        country: 'US',
-        region: states[cityIndex],
-        city: cities[cityIndex],
-        street1: `${1000 + i} Industrial Way`,
-        zip: `${10000 + i}`,
-        latitude: 34.0522 + (Math.random() - 0.5),
-        longitude: -118.2437 + (Math.random() - 0.5),
-        active: true,
-        externalReferenceCode: createERC(ERC_PREFIX.WAREHOUSE),
-      });
-    }
-
-    const validate = this.schemas.warehouse;
-    if (validate) {
-      const isValid = validate({ warehouses });
-      if (!isValid) {
-        this.logger?.error?.('Mock warehouse data failed schema validation:', {
-          errors: validate.errors,
-          correlationId: config?.correlationId,
-        });
-      }
-    }
-
-    return warehouses;
-  }
-
-  generateOrderData(count = 1, extraArgs = {}, accounts = []) {
-    const orders = [];
-    const orderStatuses = [0, 1, 2, 10]; // Pending, Processing, Shipped, Completed
-
-    if (!accounts || accounts.length === 0) {
-      throw new Error('No accounts provided for mock order generation.');
-    }
-
-    for (let i = 0; i < count; i++) {
-      const account = accounts[i % accounts.length];
-      const orderDate = randomPastDate(30).toISOString();
-
-      orders.push({
-        accountId: account.id || account.externalReferenceCode,
-        externalReferenceCode: createERC(ERC_PREFIX.ORDER),
-        orderStatus:
-          orderStatuses[Math.floor(Math.random() * orderStatuses.length)],
-        orderDate,
-        items: [
-          {
-            sku: `SKU-MOCK-${String(i + 1).padStart(3, '0')}`,
-            quantity: Math.floor(Math.random() * 5) + 1,
-          },
-        ],
-      });
-    }
-
-    const validate = this.schemas.order;
-    if (validate) {
-      const isValid = validate({ orders });
-      if (!isValid) {
-        this.logger?.error?.('Mock order data failed schema validation:', {
-          errors: validate.errors,
-        });
-      }
-    }
-
-    return orders;
-  }
-
-  shuffleArray(array) {
-    for (let i = array.length - 1; i > 0; i--) {
-      const j = Math.floor(Math.random() * (i + 1));
-      [array[i], array[j]] = [array[j], array[i]];
-    }
-    return array;
   }
 }
 

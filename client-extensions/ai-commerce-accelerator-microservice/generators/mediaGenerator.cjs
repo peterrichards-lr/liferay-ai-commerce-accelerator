@@ -10,6 +10,7 @@ const {
   isValidUrl,
 } = require('../utils/misc.cjs');
 const { ERC_PREFIX } = require('../utils/constants.cjs');
+const { asItems, asCount } = require('../utils/liferayUtils.cjs');
 
 class MediaGenerator {
   constructor(ctx) {
@@ -262,30 +263,30 @@ class MediaGenerator {
   }
 
   async createImages(config, products, options) {
-    const { logger, liferay, progress } = this.ctx;
+    const { logger, liferay, progress, ai } = this.ctx;
     const { sessionId, correlationId: optionsCID } = options;
     const correlationId = optionsCID || config?.correlationId || '∅';
 
     this.validateConfig(config, options);
     await this.validateOptions(config, options);
 
+    const imageMode = options.imageMode || 'none';
+    if (imageMode === 'none') {
+      logger.info('Image generation disabled (imageMode: none).', { sessionId });
+      return;
+    }
+
     const entityType = 'images';
     const operation = 'generate';
     const batchId = `images-individual-${Date.now()}`;
     const batchERC = createERC(ERC_PREFIX.MEDIA_BATCH);
 
-    // If products already have images populated, use them directly.
-    // Otherwise, apply the ratio filtering (legacy/fallback).
-    let productsWithImages = products.filter((p) => p.images?.length > 0);
+    const productsToProcess = this.selectProductsForImages(
+      products,
+      options.imageRatio || 0
+    );
 
-    if (productsWithImages.length === 0) {
-      productsWithImages = this.selectProductsForImages(
-        products,
-        options.imageRatio || 0
-      );
-    }
-
-    if (productsWithImages.length === 0) {
+    if (productsToProcess.length === 0) {
       logger.info('No products selected for image generation.', {
         sessionId,
         correlationId,
@@ -297,48 +298,52 @@ class MediaGenerator {
       batchId,
       batchERC,
       entityType,
-      totalItems: productsWithImages.length,
+      totalItems: productsToProcess.length,
       operation,
       sessionId,
       correlationId,
     });
 
     let completedCount = 0;
-    for (const product of productsWithImages) {
+    for (const product of productsToProcess) {
       try {
-        let imageSet = product.images;
+        let imageSet = [];
 
-        if (!imageSet || imageSet.length === 0) {
-          imageSet = this.generateProductImageSet(
-            product.name.en_US || product.name
-          );
+        if (imageMode === 'ai' && !options.demoMode) {
+          const b64 = await ai.generateImageDataForProduct(product, {
+            ...options,
+            correlationId,
+          });
+          imageSet = [{
+            title: { en_US: `${product.name.en_US || product.name} AI Image` },
+            base64: b64,
+            contentType: 'image/png',
+            priority: 1
+          }];
+        } else if (imageMode === 'picsum') {
+          imageSet = this.generateProductImageSet(product.name.en_US || product.name);
+        } else if (imageMode === 'placeholder' || imageMode === 'default') {
+          const placeholder = await this.getDefaultBase64Image(config);
+          imageSet = [{
+            title: { en_US: `${product.name.en_US || product.name} Placeholder` },
+            base64: placeholder.base64,
+            contentType: placeholder.contentType,
+            priority: 1
+          }];
+        } else if (imageMode === 'custom' && options.customImageFile) {
+          imageSet = [{
+            title: { en_US: `${product.name.en_US || product.name} Custom Image` },
+            base64: options.customImageFile.buffer.toString('base64'),
+            contentType: options.customImageFile.mime,
+            priority: 1
+          }];
         }
 
         for (const imageData of imageSet) {
-          let base64;
-          let contentType;
+          let base64 = imageData.base64;
+          let contentType = imageData.contentType;
 
-          if (!isValidUrl(imageData.src)) {
-            // Handle local assets or demo placeholders
-            if (
-              imageData.src === 'default.webp' ||
-              !imageData.src.includes('://')
-            ) {
-              const defaultImage = await this.getDefaultBase64Image(config);
-              base64 = defaultImage.base64;
-              contentType = defaultImage.contentType;
-            } else {
-              logger.warn(
-                `Skipping image with invalid URL for product ${product.id || 'unknown'}`,
-                {
-                  sessionId,
-                  correlationId,
-                  src: imageData.src,
-                }
-              );
-              continue;
-            }
-          } else {
+          if (!base64 && isValidUrl(imageData.src)) {
             const response = await axios.get(imageData.src, {
               responseType: 'arraybuffer',
             });
@@ -346,14 +351,14 @@ class MediaGenerator {
             contentType = response.headers['content-type'] || 'image/webp';
           }
 
-          const title =
-            imageData.title ||
-            Object.fromEntries(
-              (config.selectedLanguages || ['en-US']).map((lang) => [
-                lang.replace('-', '_'),
-                `${product.name.en_US || product.name} Image`,
-              ])
-            );
+          if (!base64) continue;
+
+          const title = imageData.title || Object.fromEntries(
+            (config.selectedLanguages || ['en-US']).map((lang) => [
+              lang.replace('-', '_'),
+              `${product.name.en_US || product.name} Image`,
+            ])
+          );
 
           await liferay.addProductImageByBase64(
             config,
@@ -382,7 +387,7 @@ class MediaGenerator {
         batchERC,
         entityType,
         completedCount: completedCount,
-        totalItems: productsWithImages.length,
+        totalItems: productsToProcess.length,
         operation,
         sessionId,
         correlationId,
@@ -394,7 +399,7 @@ class MediaGenerator {
       batchERC,
       entityType,
       successCount: completedCount,
-      failureCount: productsWithImages.length - completedCount,
+      failureCount: productsToProcess.length - completedCount,
       operation,
       sessionId,
       correlationId,
@@ -410,22 +415,23 @@ class MediaGenerator {
     this.validateConfig(config, options);
     await this.validateOptions(config, options);
 
+    const pdfMode = options.pdfMode || 'none';
+    if (pdfMode === 'none') {
+      logger.info('PDF generation disabled (pdfMode: none).', { sessionId });
+      return;
+    }
+
     const entityType = 'pdfs';
     const operation = 'generate';
     const batchId = `pdfs-individual-${Date.now()}`;
     const batchERC = createERC(ERC_PREFIX.MEDIA_BATCH);
 
-    // If products already have attachments populated, use them directly.
-    let productsWithPdfs = products.filter((p) => p.attachments?.length > 0);
+    const productsToProcess = this.selectProductsForPDFs(
+      products,
+      options.pdfRatio || 0
+    );
 
-    if (productsWithPdfs.length === 0) {
-      productsWithPdfs = this.selectProductsForPDFs(
-        products,
-        options.pdfRatio || 0
-      );
-    }
-
-    if (productsWithPdfs.length === 0) {
+    if (productsToProcess.length === 0) {
       logger.info('No products selected for PDF generation.', {
         sessionId,
         correlationId,
@@ -437,24 +443,19 @@ class MediaGenerator {
       batchId,
       batchERC,
       entityType,
-      totalItems: productsWithPdfs.length,
+      totalItems: productsToProcess.length,
       operation,
       sessionId,
       correlationId,
     });
 
     let completedCount = 0;
-    for (const product of productsWithPdfs) {
+    for (const product of productsToProcess) {
       try {
         const sku = product.skus?.[0]?.sku || product.externalReferenceCode;
         let pdfBase64;
 
-        if (options.demoMode) {
-          // Use mock PDF content for demo mode
-          const mockPdf = await this.getDefaultBase64Pdf(config);
-          pdfBase64 = mockPdf.base64;
-        } else {
-          // Generate unique PDF for live mode
+        if (pdfMode === 'ai' && !options.demoMode) {
           const pdfData = {
             title: `${product.name.en_US || product.name} Manual`,
             sections: [
@@ -471,6 +472,12 @@ class MediaGenerator {
             sessionId
           );
           pdfBase64 = pdfBuffer.toString('base64');
+        } else if (pdfMode === 'custom' && options.customPdfFile) {
+          pdfBase64 = options.customPdfFile.buffer.toString('base64');
+        } else {
+          // Fallback to placeholder for 'placeholder', 'default', or 'ai' in demo mode
+          const mockPdf = await this.getDefaultBase64Pdf(config);
+          pdfBase64 = mockPdf.base64;
         }
 
         await liferay.addProductDocumentAttachmentByBase64(
@@ -497,7 +504,7 @@ class MediaGenerator {
         batchERC,
         entityType,
         completedCount,
-        totalItems: productsWithPdfs.length,
+        totalItems: productsToProcess.length,
         operation,
         sessionId,
         correlationId,
@@ -509,7 +516,7 @@ class MediaGenerator {
       batchERC,
       entityType,
       successCount: completedCount,
-      failureCount: productsWithPdfs.length - completedCount,
+      failureCount: productsToProcess.length - completedCount,
       operation,
       sessionId,
       correlationId,
@@ -517,10 +524,10 @@ class MediaGenerator {
   }
 
   validateConfig(config, options) {
-    if (!options.demoMode && (options.imageRatio ?? 0) > 0) {
+    if (!options.demoMode && options.imageMode === 'ai' && (options.imageRatio ?? 0) > 0) {
       if (!config.imageGenerationKey) {
         console.warn(
-          'Image generation API key not configured. Using placeholder images.'
+          'Image generation API key not configured. AI image generation may fail.'
         );
       }
     }
