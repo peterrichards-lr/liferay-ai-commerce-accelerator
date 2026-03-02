@@ -104,7 +104,9 @@ class MockDataGenerator {
       generateBulkPricing,
       generateTierPricing,
       imageMode,
+      imageRatio,
       pdfMode,
+      pdfRatio,
     } = options;
 
     const categoryCode = toERCPart(category, 3);
