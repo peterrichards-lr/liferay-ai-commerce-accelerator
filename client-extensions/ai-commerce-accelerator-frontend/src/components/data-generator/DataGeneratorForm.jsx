@@ -1007,9 +1007,9 @@ function DataGeneratorForm({
                             <FieldError errors={validationErrors.imageRatio} />
                           )}
                           <small className="help-text">
-                            {generationConfig.imageMode === 'generate'
+                            {generationConfig.imageMode === 'ai'
                               ? 'Generate images for this percentage of products'
-                              : 'Assign custom image to this percentage of products'}
+                              : 'Assign images to this percentage of products'}
                           </small>
                         </div>
                       )}
@@ -1180,9 +1180,9 @@ function DataGeneratorForm({
                             <FieldError errors={validationErrors.pdfRatio} />
                           )}
                           <small className="help-text">
-                            {generationConfig.pdfMode === 'generate'
+                            {generationConfig.pdfMode === 'ai'
                               ? 'Generate PDFs for this percentage of products'
-                              : 'Assign custom PDF to this percentage of products'}
+                              : 'Assign PDFs to this percentage of products'}
                           </small>
                         </div>
                       )}
