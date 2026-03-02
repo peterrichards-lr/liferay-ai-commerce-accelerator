@@ -284,6 +284,9 @@ class BatchCallbackService {
 
   _areAllStepsComplete(steps, completedStepNames) {
     return steps.every((s) => {
+      if (s.type === 'parallel' || s.steps) {
+        return this._areAllStepsComplete(s.steps, completedStepNames);
+      }
       const name = typeof s === 'string' ? s : s.name;
       return completedStepNames.has(name);
     });
@@ -334,28 +337,39 @@ class BatchCallbackService {
           continue;
         }
 
-        let allSubStepsStartedOrRunning = true;
-        for (const subStep of step.steps) {
-          const subStepName =
-            typeof subStep === 'string' ? subStep : subStep.name;
-          if (
-            !completedStepNames.has(subStepName) &&
-            !runningStepNames.has(subStepName)
-          ) {
-            logger.info(`Starting parallel sub-step '${subStepName}'`, {
-              sessionId,
-              subStepName,
-              correlationId,
-            });
-            newActiveSteps.push(subStep);
-            await this._startStep(subStep, sessionId, config, correlationId);
-            startedAny = true;
-          } else if (runningStepNames.has(subStepName)) {
-            newActiveSteps.push(subStep);
-          } else {
-            // This sub-step is completed
+        const startNestedSteps = async (subSteps) => {
+          for (const subStep of subSteps) {
+            const subStepName =
+              typeof subStep === 'string' ? subStep : subStep.name;
+
+            if (subStep.type === 'parallel' || subStep.steps) {
+              await startNestedSteps(subStep.steps);
+            } else {
+              if (
+                !completedStepNames.has(subStepName) &&
+                !runningStepNames.has(subStepName)
+              ) {
+                logger.info(`Starting parallel sub-step '${subStepName}'`, {
+                  sessionId,
+                  subStepName,
+                  correlationId,
+                });
+                newActiveSteps.push(subStep);
+                await this._startStep(
+                  subStep,
+                  sessionId,
+                  config,
+                  correlationId
+                );
+                startedAny = true;
+              } else if (runningStepNames.has(subStepName)) {
+                newActiveSteps.push(subStep);
+              }
+            }
           }
-        }
+        };
+
+        await startNestedSteps(step.steps);
 
         // A parallel step blocks the main loop until all its sub-steps are terminal
         return { newActiveSteps, startedAny };
@@ -776,7 +790,8 @@ class BatchCallbackService {
       deleteAccounts: async () => {
         const res = await liferay.getAccounts(config, {
           channelId,
-          pageSize: 10,
+          pageSize: 200,
+          search: 'AICA-ACC',
         });
         return {
           totalCount: res.totalCount,

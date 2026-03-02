@@ -73,30 +73,37 @@ module.exports = (
         const steps = [];
         let flowType = 'generate';
 
-        if (options.productCount > 0) {
-          steps.push({ name: 'generate-warehouses', type: 'sync' });
-          steps.push({ name: 'resolve-warehouse-ids', type: 'sync' });
-          steps.push({ name: 'product-data-generation', type: 'sync' });
-          steps.push({ name: 'products', type: 'sync' });
-          steps.push({ name: 'resolve-product-ids', type: 'sync' });
-          steps.push({ name: 'link-product-options', type: 'sync' });
-          steps.push({ name: 'product-skus', type: 'sync' });
+        const productSteps = [];
+        const accountSteps = [];
+        const orderSteps = [];
 
-          steps.push({ name: 'generate-price-lists', type: 'sync' });
+        if (options.productCount > 0) {
+          productSteps.push({ name: 'generate-warehouses', type: 'sync' });
+          productSteps.push({ name: 'resolve-warehouse-ids', type: 'sync' });
+          productSteps.push({ name: 'product-data-generation', type: 'sync' });
+          productSteps.push({ name: 'products', type: 'sync' });
+          productSteps.push({ name: 'resolve-product-ids', type: 'sync' });
+          productSteps.push({ name: 'link-product-options', type: 'sync' });
+          productSteps.push({ name: 'product-skus', type: 'sync' });
+          productSteps.push({ name: 'resolve-sku-ids', type: 'sync' });
+          productSteps.push({ name: 'generate-price-lists', type: 'sync' });
 
           if (options.generatePriceLists) {
-            steps.push({ name: 'update-catalog-configuration', type: 'sync' });
+            productSteps.push({
+              name: 'update-catalog-configuration',
+              type: 'sync',
+            });
           }
 
           if (options.generateBulkPricing) {
-            steps.push({ name: 'generate-bulk-pricing', type: 'sync' });
+            productSteps.push({ name: 'generate-bulk-pricing', type: 'sync' });
           }
 
           if (options.generateTierPricing) {
-            steps.push({ name: 'generate-tier-pricing', type: 'sync' });
+            productSteps.push({ name: 'generate-tier-pricing', type: 'sync' });
           }
 
-          steps.push({
+          productSteps.push({
             type: 'parallel',
             steps: [
               { name: 'attach-images', type: 'sync' },
@@ -107,20 +114,40 @@ module.exports = (
         }
 
         if (options.accountCount > 0) {
-          steps.push({ name: 'load-countries', type: 'sync' });
-          steps.push({ name: 'account-data-generation', type: 'sync' });
-          steps.push({ name: 'accounts', type: 'sync' });
-          steps.push({ name: 'resolve-account-ids', type: 'sync' });
-          steps.push({ name: 'postal-addresses', type: 'sync' });
-          steps.push({
+          accountSteps.push({ name: 'load-countries', type: 'sync' });
+          accountSteps.push({ name: 'account-data-generation', type: 'sync' });
+          accountSteps.push({ name: 'accounts', type: 'sync' });
+          accountSteps.push({ name: 'resolve-account-ids', type: 'sync' });
+          accountSteps.push({ name: 'postal-addresses', type: 'sync' });
+          accountSteps.push({
             name: 'set-billing-and-shipping-addresses',
             type: 'sync',
           });
         }
 
         if (options.orderCount > 0) {
-          steps.push({ name: 'order-data-generation', type: 'sync' });
-          steps.push({ name: 'orders', type: 'sync' });
+          orderSteps.push({ name: 'order-data-generation', type: 'sync' });
+          orderSteps.push({ name: 'orders', type: 'sync' });
+        }
+
+        // COMPOSE WORKFLOW WITH CLEAR DEPENDENCIES
+        if (productSteps.length > 0 || accountSteps.length > 0) {
+          steps.push({
+            type: 'parallel',
+            steps: [
+              ...(productSteps.length > 0
+                ? [{ name: 'subflow-products', steps: productSteps }]
+                : []),
+              ...(accountSteps.length > 0
+                ? [{ name: 'subflow-accounts', steps: accountSteps }]
+                : []),
+            ],
+          });
+        }
+
+        // Orders only start after products and accounts subflows are terminal
+        if (orderSteps.length > 0) {
+          steps.push(...orderSteps);
         }
 
         if (

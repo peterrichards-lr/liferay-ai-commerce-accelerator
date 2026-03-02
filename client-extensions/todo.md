@@ -608,22 +608,57 @@
 - Added a retry mechanism in `BatchCallbackService.processCallback` to wait for records that are mid-commit.
 - Updated `routes/batch.cjs` to accept both `batchExternalReferenceCode` and `batchERC` parameters.
 
-## 49. Workflow Stability & Discovery Fixes (Feb 28 - Round 4)
+## 50. Robust Discovery & OData Removal (Mar 1)
 
-### [x] Fix Premature Workflow Advancement (Multiple Batches) (PRIORITY 1)
+### [x] Eliminate `sw` and `startswith()` Operators (PRIORITY 1)
 
-**Issue**: The workflow advances to the next step before all batches for the current step are finished. Specifically, `set-billing-and-shipping-addresses` starts before `postal-addresses` callbacks are received.
-**Analysis**: `BatchCallbackService._advanceWorkflow` uses a simplified check for completed steps (`completedStepNames`). If a step produces multiple batches and one of them is synchronous or finishes early, the orchestrator might incorrectly flag the entire step as complete.
-**Result**: **FIXED**. Refactored `_advanceWorkflow` and `_isWorkflowFinished` to use rigorous batch-level completion checking (ensuring ALL batches for a step are terminal).
+**Issue**: Liferay's `headlessAdminUser_v1_0` GraphQL fetcher crashes with a 500 error (`null` response) when using the `sw` or `startswith()` operators.
+**Analysis**: These string operators are inconsistently supported and unreliable for discovery. The user has explicitly forbidden their use.
+**Result**: **FIXED**. Removed `prefixFilter` from the OData `filter` string in `LiferayService.getAccounts` and implemented JS memory filtering to verify the `AICA-` prefix on returned items.
 
-### [x] Restore Reliable Account Discovery (Functional Notation Fix) (PRIORITY 1)
+### [x] Restore Deletion Workflow Reliability (PRIORITY 1)
 
-**Issue**: `OrderGenerator` fails with "No accounts available" even when accounts have been created.
-**Analysis**: `LiferayService.getAccounts` was updated to use functional `startswith()` notation, which is inconsistently supported across Liferay APIs. This resulted in 0 accounts being found via GraphQL despite them existing in the database.
-**Result**: **FIXED**. Reverted `startswith()` to shorthand `sw` operator in `getAccounts`.
+**Issue**: The `deleteAccounts` step is failing due to the broken `sw` operator, preventing environment cleanup.
+**Analysis**: Discovery must be able to find AICA-created accounts even when they are not linked to orders.
+**Result**: **FIXED**. Updated `deleteAccounts` handler in `BatchCallbackService` to fetch a larger page size (200) and pass the `search` parameter to ensure AICA accounts are captured without an OData prefix filter.
 
-### [x] Consolidate Account ID Resolution (PRIORITY 2)
+### [x] Implement Mutating Cache Invalidation (REST SDK) (PRIORITY 1)
 
-**Issue**: Multiple steps independently refetch accounts to resolve IDs (e.g., `resolve-account-ids`, `order-data-generation`).
-**Analysis**: Redundant refetching increases the risk of hitting `STALE_INDEX` and adds unnecessary latency.
-**Result**: **FIXED**. Updated `OrderGenerator` to prefer accounts from context if they have resolved IDs.
+**Issue**: Verification steps (like checking if a Price List is base after a `PATCH`) are failing because they hit the stale API response cache from earlier in the same workflow.
+**Analysis**: Initial analysis suspected `LiferayRestService._get` used a response cache that wasn't invalidated. Further investigation revealed there is NO API response cache for generic GET calls; the `Cache hit` logs were for OAuth tokens and configuration. The verification failure was purely due to Liferay persistence lag.
+**Result**: **VOID**. Task abandoned due to false premise. Verification issue resolved via polling loop.
+
+### [x] Correct Price List Verification Logic (PRIORITY 2)
+
+**Issue**: Logs show `VERIFICATION FAILED` for AICA Price Lists despite potential success.
+**Analysis**: The verification logic was too strict and timing-sensitive, failing due to Liferay's internal asynchronous indexing/persistence lag after a `PATCH`.
+**Result**: **FIXED**. Implemented a polling loop for the final base status check in `_runUpdateCatalogConfigurationStep`.
+
+### [x] Robust Master Price List Discovery (PRIORITY 2)
+
+**Issue**: Warnings show "Could not find a master price list to restore".
+**Analysis**: The current logic relies on finding a list with "master" in the name or the `catalogBasePriceList` flag. If AICA lists are already base, and no other list has "master" in the name, restoration fails.
+**Result**: **FIXED**. Improved discovery logic in `resetCatalogConfiguration.cjs` to fallback to the first available non-AICA list if no explicitly named 'master' or 'default' list is found.
+
+---
+
+## 51. Attachment & Order Generation Stabilisation (Mar 1 - Round 2)
+
+### [x] Correct Step Dependencies in Combined Generation (PRIORITY 1)
+
+**Issue**: `order-data-generation` starts before products and accounts are fully ready, leading to "No accounts available" or missing product links.
+**Analysis**: The generation route (`generate.cjs`) flattened all steps into a single array without explicit synchronization gates between different entity types.
+**Result**: **FIXED**. Refactored `generate.cjs` to group Product and Account steps into nested parallel subflows, and updated the orchestrator to support recursive synchronization gates. This ensures Orders only start after both parent flows are fully terminal.
+
+### [x] Fix Missing Attachments in Mock Data (PRIORITY 1)
+
+**Issue**: Images and PDFs are not created in Demo Mode.
+**Analysis**: Regression introduced in `ProductGenerator.cjs` where pre-filtering was added to step handlers, bypassing `MediaGenerator`'s internal fallback and ratio logic.
+**Result**: **FIXED**. Removed pre-filtering from `ProductGenerator.cjs`, allowing `MediaGenerator` to handle ratios and fallbacks as it did previously.
+
+### [ ] Robust Inventory & Pricing Verification (PRIORITY 2)
+
+**Issue**: Price entries and inventory records are reported as missing despite successful batches.
+**Analysis**: Race conditions between batch callbacks and subsequent retrieval steps.
+**Steps**:
+1. Implement a short polling loop in `_runUpdateInventoryStep` and `_runPricingStep` to verify records exist before completing the step.

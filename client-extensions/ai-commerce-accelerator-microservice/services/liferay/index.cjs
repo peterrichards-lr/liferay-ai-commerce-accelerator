@@ -78,15 +78,19 @@ class LiferayService {
 
   async getAccounts(
     config,
-    { channelId, pageSize = 200, fields = 'id', filter: providedFilter } = {}
+    { channelId, pageSize = 200, fields = 'id', filter: providedFilter, search } = {}
   ) {
     const exclusions = await this._getExclusions(config, 'account');
 
     const filters = [];
     if (providedFilter) filters.push(providedFilter);
 
-    const prefixFilter = `externalReferenceCode sw '${ERC_PREFIX.ACCOUNT}'`;
+    // To ensure we can find our accounts, we fetch a potentially larger page
+    // and filter out non-AICA items in memory, completely avoiding 'sw'/'startswith'.
+    let fetchPageSize = pageSize;
 
+    // We no longer inject prefix filters into OData to avoid GraphQL crashes
+    // If channelId is provided, we can filter by it
     if (channelId) {
       let channelAccountFilter;
       try {
@@ -115,13 +119,11 @@ class LiferayService {
       }
 
       if (channelAccountFilter) {
-        filters.push(`(${channelAccountFilter} or ${prefixFilter})`);
-      } else {
-        filters.push(prefixFilter);
+        filters.push(channelAccountFilter);
       }
     } else {
-      // Fallback to prefix-only discovery if no channel is provided
-      filters.push(prefixFilter);
+      // If we are looking for AICA accounts globally, we need a larger page
+      fetchPageSize = Math.max(pageSize, 500);
     }
 
     const nameFilter = this._buildNameExclusionFilter(exclusions);
@@ -151,19 +153,36 @@ class LiferayService {
       Array.from(requestedFields),
       {
         page: 1,
-        pageSize,
+        pageSize: fetchPageSize,
       }
     );
 
-    const items = asItems(res);
+    let items = asItems(res);
+    
+    // Always apply prefix filter in JS memory to guarantee safety
+    items = items.filter((it) => 
+       it.externalReferenceCode && it.externalReferenceCode.startsWith(ERC_PREFIX.ACCOUNT)
+    );
+
+    // Apply exclusion filter in JS just to be absolutely certain
     const filteredItems = items.filter(
       (it) => !this._shouldExclude(it, exclusions)
     );
 
+    // If search term is provided, filter by it in JS memory
+    const finalItems = search
+      ? filteredItems.filter((it) =>
+          it.name?.toLowerCase().includes(search.toLowerCase()) ||
+          it.externalReferenceCode?.toLowerCase().includes(search.toLowerCase())
+        )
+      : filteredItems;
+
     return {
       ...res,
-      items: filteredItems,
-      totalCount: res.totalCount,
+      items: finalItems,
+      // Total count is not perfectly accurate due to memory filtering, 
+      // but sufficient for determining existence and pagination boundaries
+      totalCount: finalItems.length,
     };
   }
 

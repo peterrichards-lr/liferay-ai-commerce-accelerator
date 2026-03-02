@@ -260,13 +260,36 @@ class ProductGenerator {
 
       // 4. Final Verification
       logger.info('Verifying catalog configuration handover...', { sessionId });
-      const finalListsRes = await liferay.getPriceLists(config, {
-        filter: `catalogId eq ${catalogId}`,
-        ignoreExclusions: true,
-        pageSize: 1000,
-      });
+      
+      let allFinalLists = [];
+      let verificationSuccess = false;
+      const maxRetries = 5;
+      
+      for (let attempt = 1; attempt <= maxRetries; attempt++) {
+        const finalListsRes = await liferay.getPriceLists(config, {
+          filter: `catalogId eq ${catalogId}`,
+          ignoreExclusions: true,
+          pageSize: 1000,
+        });
 
-      const allFinalLists = finalListsRes.items || [];
+        allFinalLists = finalListsRes.items || [];
+        
+        const failedChecks = PRICE_LIST_CONFIGS.filter(item => {
+           const finalPL = allFinalLists.find(l => l.externalReferenceCode === item.erc);
+           return !finalPL || !finalPL.catalogBasePriceList;
+        });
+
+        if (failedChecks.length === 0) {
+           verificationSuccess = true;
+           break;
+        }
+
+        if (attempt < maxRetries) {
+          logger.debug(`Verification attempt ${attempt} failed. Retrying in 2s...`, { sessionId });
+          await delay(2000);
+        }
+      }
+
       for (const item of PRICE_LIST_CONFIGS) {
         const finalPL = allFinalLists.find(
           (l) => l.externalReferenceCode === item.erc
@@ -2042,7 +2065,7 @@ class ProductGenerator {
   }
 
   async _runAttachImagesStep(sessionId) {
-    const { logger, media, persistence, batchCallback } = this.ctx;
+    const { logger, media, persistence } = this.ctx;
     const session = await persistence.getSession(sessionId);
     const { config, options, productDataList } = session.context;
 
@@ -2052,34 +2075,12 @@ class ProductGenerator {
     });
 
     try {
-      const withImages = (productDataList || []).filter(
-        (p) => p.images?.length > 0
-      );
-
-      if (withImages.length > 0) {
-        logger.info(
-          `Processing ${withImages.length} products with image attachments`,
-          { sessionId, correlationId: session.correlationId }
-        );
-        try {
-          await media.createImages(config, withImages, {
-            ...options,
-            sessionId,
-            correlationId: session.correlationId,
-          });
-        } catch (error) {
-          logger.error('Failed to process image attachments', {
-            sessionId,
-            correlationId: session.correlationId,
-            error: error.message,
-          });
-        }
-      } else {
-        logger.info('No images to attach for this session.', {
-          sessionId,
-          correlationId: session.correlationId,
-        });
-      }
+      // Delegate directly to media generator; it handles ratio filtering and fallbacks internally
+      await media.createImages(config, productDataList || [], {
+        ...options,
+        sessionId,
+        correlationId: session.correlationId,
+      });
 
       await persistence.createBatch({
         erc: createERC(ERC_PREFIX.BATCH),
@@ -2102,7 +2103,7 @@ class ProductGenerator {
   }
 
   async _runAttachPdfsStep(sessionId) {
-    const { logger, media, persistence, batchCallback } = this.ctx;
+    const { logger, media, persistence } = this.ctx;
     const session = await persistence.getSession(sessionId);
     const { config, options, productDataList } = session.context;
 
@@ -2112,34 +2113,12 @@ class ProductGenerator {
     });
 
     try {
-      const withPdfs = (productDataList || []).filter(
-        (p) => p.attachments?.length > 0
-      );
-
-      if (withPdfs.length > 0) {
-        logger.info(
-          `Processing ${withPdfs.length} products with PDF attachments`,
-          { sessionId, correlationId: session.correlationId }
-        );
-        try {
-          await media.createPdfs(config, withPdfs, {
-            ...options,
-            sessionId,
-            correlationId: session.correlationId,
-          });
-        } catch (error) {
-          logger.error('Failed to process PDF attachments', {
-            sessionId,
-            correlationId: session.correlationId,
-            error: error.message,
-          });
-        }
-      } else {
-        logger.info('No PDFs to attach for this session.', {
-          sessionId,
-          correlationId: session.correlationId,
-        });
-      }
+      // Delegate directly to media generator; it handles ratio filtering and fallbacks internally
+      await media.createPdfs(config, productDataList || [], {
+        ...options,
+        sessionId,
+        correlationId: session.correlationId,
+      });
 
       await persistence.createBatch({
         erc: createERC(ERC_PREFIX.BATCH),

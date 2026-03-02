@@ -31,7 +31,7 @@ module.exports = async function resetCatalogConfiguration(
 
       // Find standard master list
       if (!masterPriceListId) {
-        const fallback = allLists.find(
+        let fallback = allLists.find(
           (pl) =>
             String(pl.type || '')
               .toLowerCase()
@@ -40,6 +40,18 @@ module.exports = async function resetCatalogConfiguration(
             (pl.catalogBasePriceList ||
               pl.name?.toLowerCase().includes('master'))
         );
+        
+        // If no master found, just pick the first non-AICA price list
+        if (!fallback) {
+           fallback = allLists.find(
+            (pl) =>
+              String(pl.type || '')
+                .toLowerCase()
+                .includes('price') &&
+              !pl.externalReferenceCode?.startsWith('AICA-')
+          );
+        }
+
         if (fallback) {
           masterPriceListId = fallback.id;
           logger.info(
@@ -51,7 +63,7 @@ module.exports = async function resetCatalogConfiguration(
 
       // Find promotion master list
       if (!masterPromotionListId) {
-        const fallback = allLists.find(
+        let fallback = allLists.find(
           (pl) =>
             String(pl.type || '')
               .toLowerCase()
@@ -61,6 +73,18 @@ module.exports = async function resetCatalogConfiguration(
               pl.name?.toLowerCase().includes('master') ||
               pl.name?.toLowerCase().includes('default'))
         );
+
+        // If no master/default found, pick the first non-AICA promotion list
+        if (!fallback) {
+          fallback = allLists.find(
+            (pl) =>
+              String(pl.type || '')
+                .toLowerCase()
+                .includes('promotion') &&
+              !pl.externalReferenceCode?.startsWith('AICA-')
+          );
+        }
+
         if (fallback) {
           masterPromotionListId = fallback.id;
           logger.info(

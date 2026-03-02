@@ -148,17 +148,14 @@ While Liferay supports a broad range of OData operators, **implementation is inc
 | `( )` | Precedence grouping | `(price eq 5) or (addressLocality eq 'London')` |
 | **String Functions** | | |
 | `contains()` | Contains | `contains(title, 'edmon')` |
-| `startswith()` | Starts with | `startswith(addressLocality, 'Lond')` |
-| **String (Shorthand)** | | |
-| `sw` | Starts with | `externalReferenceCode sw 'AICA-'` |
+| **String (FORBIDDEN)** | | |
+| `sw` / `startswith()` | Starts with | **DO NOT USE**. These operators are unreliable across Liferay APIs and frequently trigger 500 errors in GraphQL. |
 | **Lambda Operators** | | |
 | `any` | Any | `keywords/any(k:contains(k,'news'))` |
 
 ### 2. Implementation Caveats & Mandatory Patterns
-- **Operator Preference (`sw` vs `startswith`)**: Always use the shorthand `sw` operator instead of the functional `startswith()` for prefix filtering. Functional notation often triggers `400 Bad Request` on newer entities (e.g., Pricing V2.0, Catalog V1.0).
-- **Pricing V2.0 Domain Restrictions**: Both REST and GraphQL Price List/Promotion endpoints have extremely limited OData support. 
-    - **Forbidden Filters**: Do not attempt to filter by `type`, `catalogId`, or boolean flags like `catalogBasePriceList` via OData. These frequently cause `Collection not allowed` or `DataFetchingException: null`.
-    - **Discovery Strategy**: Retrieve items using only simple filters (or no filter) and perform all logic-heavy evaluation (casing, complex properties) in **JavaScript memory**.
+- **Operator Ban (`sw` and `startswith`)**: **NEVER** use `sw` or `startswith()` operators for prefix filtering. These operators are inconsistently supported and frequently trigger `DataFetchingException: null` (500 error) in Liferay's Headless GraphQL fetchers, particularly for `headlessAdminUser`.
+- **Discovery Strategy**: Retrieve items using only simple, robust filters (like `id` or `externalReferenceCode eq`) or no filter at all, and perform all prefix matching or logic-heavy evaluation in **JavaScript memory**.
 - **Enum Comparison Robustness**: Casing and formatting of Enum values vary. Always normalize strings (lowercase + remove hyphens/underscores) before comparison in JavaScript.
 - **Regional Metadata Fallbacks**: Liferay's Headless API for Addresses strictly validates the `addressRegion` field. Providing placeholder strings like `N/A` will result in a `400 Bad Request`. Always provide `null` if a region cannot be determined.
 
@@ -767,7 +764,7 @@ Analysis of the account deletion failure revealed a critical conflict between wo
 
 1.  **Sequencing Dependency**: `deleteOrders` must precede `deleteAccounts` due to Liferay referential integrity.
 2.  **Discovery Flaw**: `LiferayService.getAccounts` relies on querying existing orders when a `channelId` is provided. If orders are already deleted, discovery returns zero results, causing account deletion to be silently skipped.
-3.  **Corrective Pattern**: Deletion discovery for entities with complex or volatile relationships (like Accounts) MUST prioritize stable identifiers like `externalReferenceCode` prefixes (e.g., `AICA-ACC-*`) over relational discovery (orders). Specialized discovery methods in `LiferayService` must be updated to combine relational filters with prefix-based filters and ensure parameters like `filter` and `search` are correctly propagated from `deleteByFilter`.
+3.  **Corrective Pattern**: Deletion discovery for entities with complex or volatile relationships (like Accounts) MUST prioritize stable identifiers and robust discovery methods. Use the `search` parameter where supported, or fetch larger result sets and perform **memory filtering** based on prefixes (e.g., items where `externalReferenceCode` includes `AICA-ACC-`). Specialized discovery methods in `LiferayService` must be updated to combine relational filters with memory-based verification.
 
 ### Product Type Constraint (API Finding)
 
