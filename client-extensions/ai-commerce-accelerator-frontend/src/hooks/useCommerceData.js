@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { useApp, useApi } from '../context/AppContext';
 import notifyUser from '../utils/notifications';
 import { getConnectionErrorsMap, hasAnyErrors } from '../utils/validation';
