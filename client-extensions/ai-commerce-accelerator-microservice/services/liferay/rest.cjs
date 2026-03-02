@@ -37,6 +37,8 @@ const SOFT_STATUS_BY_OP = {
   'get-warehouse-by-erc': [404],
   'specifications:list': [404],
   'optionCategories:list': [404],
+  'warehouse:items': [404],
+  'price-entries:list': [404],
 };
 
 class LiferayRestService {
@@ -1210,6 +1212,16 @@ class LiferayRestService {
     );
   }
 
+  async getWarehouseItems(config, warehouseId, { filter, page, pageSize } = {}) {
+    return await this._get(
+      config,
+      PATH.WAREHOUSE_INVENTORIES(warehouseId),
+      'warehouse:items',
+      'Get warehouse items',
+      { params: { filter, page, pageSize } }
+    );
+  }
+
   async getCurrencies(config) {
     const data = await this._get(config, PATH.CURRENCIES, 'get-currencies');
     const items = asItems(data);
@@ -1583,6 +1595,15 @@ class LiferayRestService {
       config,
       PATH.PRICE_LISTS + q(params),
       'get-price-lists'
+    );
+  }
+
+  async getPriceEntries(config, priceListId, { filter, page, pageSize } = {}) {
+    const params = { filter, page, pageSize };
+    return await this._get(
+      config,
+      PATH.PRICE_ENTRIES(priceListId) + q(params),
+      'price-entries:list'
     );
   }
 

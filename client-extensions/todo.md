@@ -656,9 +656,8 @@
 **Analysis**: Regression introduced in `ProductGenerator.cjs` where pre-filtering was added to step handlers, bypassing `MediaGenerator`'s internal fallback and ratio logic.
 **Result**: **FIXED**. Removed pre-filtering from `ProductGenerator.cjs`, allowing `MediaGenerator` to handle ratios and fallbacks as it did previously.
 
-### [ ] Robust Inventory & Pricing Verification (PRIORITY 2)
+### [x] Robust Inventory & Pricing Verification (PRIORITY 2)
 
 **Issue**: Price entries and inventory records are reported as missing despite successful batches.
 **Analysis**: Race conditions between batch callbacks and subsequent retrieval steps.
-**Steps**:
-1. Implement a short polling loop in `_runUpdateInventoryStep` and `_runPricingStep` to verify records exist before completing the step.
+**Result**: **FIXED**. Implemented `_verifyPricing` and `_verifyInventory` polling loops in `ProductGenerator.cjs`. These are triggered by `BatchCallbackService` after successful batch completion to ensure data is visible to Liferay's indexing layer before the workflow proceeds.

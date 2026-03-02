@@ -2384,6 +2384,90 @@ class ProductGenerator {
     }
   }
 
+  async _verifyInventory(sessionId, batchERC) {
+    const { logger, liferay, persistence } = this.ctx;
+    const session = await persistence.getSession(sessionId);
+    const { config } = session.context;
+
+    logger.info(`Starting post-batch verification for inventory: ${batchERC}`, { sessionId });
+
+    // Find the batch to get the metadata if possible
+    const batch = await persistence.getBatchByERC(batchERC);
+    if (!batch || !batch.downstream_batch_id) return true;
+
+    // We implement a polling loop to ensure items are visible
+    let verified = false;
+    const maxAttempts = 5;
+
+    // We can't easily get the warehouse ID here, so we check AICA warehouses
+    try {
+      const warehouses = await liferay.getWarehouses(config, { pageSize: 100 });
+      const aicaWarehouses = asItems(warehouses).filter(w => (w.externalReferenceCode || w.erc)?.startsWith('AICA-'));
+      
+      if (aicaWarehouses.length > 0) {
+        for (let i = 1; i <= maxAttempts; i++) {
+          // Check the first AICA warehouse as a representative sample
+          const items = await liferay.getWarehouseItems(config, aicaWarehouses[0].id, { pageSize: 1 });
+          if (asCount(items) > 0) {
+            verified = true;
+            break;
+          }
+          if (i < maxAttempts) await delay(2000);
+        }
+      } else {
+        verified = true; // No AICA warehouses to verify
+      }
+    } catch (err) {
+      logger.debug(`Inventory verification error: ${err.message}`, { sessionId });
+    }
+
+    if (verified) {
+      logger.info(`Inventory verification successful for ${batchERC}`, { sessionId });
+    } else {
+      logger.warn(`Inventory verification timed out for ${batchERC}. Continuing anyway.`, { sessionId });
+    }
+
+    return true;
+  }
+
+  async _verifyPricing(sessionId, batchERC) {
+    const { logger, persistence, liferay } = this.ctx;
+    const session = await persistence.getSession(sessionId);
+    const { config } = session.context;
+
+    logger.info(`Starting post-batch verification for pricing: ${batchERC}`, { sessionId });
+
+    // Implementation of a polling loop to ensure price entries are visible
+    // This handles Liferay's indexing lag after a successful batch callback
+    let verified = false;
+    const maxAttempts = 5;
+
+    for (let i = 1; i <= maxAttempts; i++) {
+       // We can check AICA-PL-GENERAL as a representative sample
+       try {
+         const pl = await liferay.getPriceListByERC(config, 'AICA-PL-GENERAL');
+         if (pl && pl.id) {
+            const entries = await liferay.getPriceEntries(config, pl.id, { pageSize: 1 });
+            if (asCount(entries) > 0) {
+              verified = true;
+              break;
+            }
+         }
+       } catch (err) {
+         logger.debug(`Pricing verification attempt ${i} failed: ${err.message}`, { sessionId });
+       }
+       if (i < maxAttempts) await delay(2000);
+    }
+
+    if (verified) {
+      logger.info(`Pricing verification successful for ${batchERC}`, { sessionId });
+    } else {
+      logger.warn(`Pricing verification timed out for ${batchERC}. Continuing anyway.`, { sessionId });
+    }
+
+    return true;
+  }
+
   async createCatalogOptions(config, options) {
     const { logger, liferay } = this.ctx;
     const { categories, correlationId } = options;

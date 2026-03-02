@@ -1055,6 +1055,20 @@ class BatchCallbackService {
         downstreamBatchId: batchId,
       });
 
+      // Post-Batch Verification for sensitive steps (Pricing, Inventory)
+      // This handles Liferay's indexing lag to ensure subsequent steps find the data
+      if (finalStatus === 'COMPLETED') {
+        if (
+          ['generate-price-lists', 'generate-bulk-pricing', 'generate-tier-pricing'].includes(
+            dbBatch.step_key
+          )
+        ) {
+          await productGenerator._verifyPricing(dbBatch.session_id, batchERC);
+        } else if (dbBatch.step_key === 'update-inventory') {
+          await productGenerator._verifyInventory(dbBatch.session_id, batchERC);
+        }
+      }
+
       progress.batchCompleted({
         entityType: this._normalizeEntityType(dbBatch.step_key),
         operation: session.flow_type,

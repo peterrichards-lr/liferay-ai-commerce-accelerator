@@ -1552,6 +1552,24 @@ class LiferayService {
   getSkusByERC(config, ercs, fields) {
     return this.graphql.getSkusByERC(config, ercs, fields);
   }
+
+  // --- REST SDK Passthrough ---
+
+  getWarehouseItems(config, warehouseId, opts) {
+    return this.rest.getWarehouseItems(config, warehouseId, opts);
+  }
+
+  updateProductInventory(config, warehouseId, sku, inventoryData) {
+    return this.rest.updateProductInventory(config, warehouseId, sku, inventoryData);
+  }
+
+  getPriceEntries(config, priceListId, opts) {
+    return this.rest.getPriceEntries(config, priceListId, opts);
+  }
+
+  getPriceLists(config, opts) {
+    return this.rest.getPriceLists(config, opts);
+  }
 }
 
 module.exports = { LiferayService };
