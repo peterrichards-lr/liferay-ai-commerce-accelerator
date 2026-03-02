@@ -13,7 +13,7 @@
         "prettier": "^3.8.1"
     },
     "scripts": {
-        "prepare": "husky"
+        "prepare": "husky || true"
     },
     "lint-staged": {
         "client-extensions/ai-commerce-accelerator-microservice/**/*.{js,cjs,json,md}": [
