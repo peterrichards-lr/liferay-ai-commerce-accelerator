@@ -25,6 +25,7 @@ const ProductGenerator = require('./generators/productGenerator.cjs');
 const WarehouseGenerator = require('./generators/warehouseGenerator.cjs');
 
 const registerDataGenerationWorkers = require('./workers/dataGenerationWorkers.cjs');
+const registerBatchWorkers = require('./workers/registerBatchWorkers.cjs');
 
 module.exports = (ws) => {
   const ctx = { logger, ws };
@@ -96,6 +97,12 @@ module.exports = (ws) => {
     accountGenerator: ctx.accountGenerator,
     orderGenerator: ctx.orderGenerator,
     mockDataGenerator: ctx.mockData,
+  });
+
+  registerBatchWorkers({
+    queue: ctx.queue,
+    logger,
+    batchCallbackService: ctx.batchCallback,
   });
 
   return {

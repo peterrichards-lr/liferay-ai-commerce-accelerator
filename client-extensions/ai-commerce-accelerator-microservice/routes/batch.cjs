@@ -91,26 +91,25 @@ function safeErrorResponse({
 
 module.exports = (app, { batchCallbackService, logger, ws }) => {
   app.post(INTERNAL_API_PATHS.BATCH_CALLBACK, async (req, res) => {
-    // No-op for now to keep Liferay happy
-    res.status(200).send();
+    // Return 202 Accepted immediately as per Task 2
+    res.status(202).send();
 
     try {
       const batchERC =
         req.query.batchExternalReferenceCode || req.query.batchERC;
       const correlationId = req.query.correlationId;
+      
+      // This now enqueues the job instead of processing immediately
       await batchCallbackService.processCallback(
         batchERC,
         req.body,
         correlationId
       );
     } catch (error) {
-      safeErrorResponse({
-        res,
-        logger,
-        req,
-        error,
-        operation: 'batch-callback',
-        ws,
+      // Since we already sent 202, we just log errors here
+      logger.error('Failed to enqueue batch callback', {
+        batchERC: req.query.batchExternalReferenceCode || req.query.batchERC,
+        error: error.message
       });
     }
   });

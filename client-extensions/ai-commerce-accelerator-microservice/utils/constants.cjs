@@ -86,6 +86,15 @@ const QUEUE_CONFIG = {
     ABS_MIN.QUEUE_CLEANUP_INTERVAL
   ),
   JOB_TTL: num('QUEUE_JOB_TTL', 3600000, ABS_MIN.QUEUE_JOB_TTL),
+
+  // Specific settings for callback processing to handle race conditions
+  CALLBACK_MAX_RETRIES: 5,
+  CALLBACK_RETRY_DELAY: 2000,
+};
+
+const JOB_TYPES = {
+  DATA_GENERATION: 'data-generation',
+  BATCH_CALLBACK_PROCESSING: 'batch-callback-processing',
 };
 
 // Environment variables and their defaults
@@ -334,4 +343,5 @@ module.exports = {
   CONFIG_ERCS,
   COMMERCE_CONSTRAINTS,
   WORKFLOW_STEPS,
+  JOB_TYPES,
 };

@@ -81,42 +81,91 @@ class BatchCallbackService {
           break;
         }
 
-        // Delegate step advancement to the specialized generator
-        await generator.executeNextStep(sessionId);
+        try {
+          // Delegate step advancement to the specialized generator
+          await generator.executeNextStep(sessionId);
+        } catch (stepErr) {
+          logger.error(`Critical error advancing workflow for session ${sessionId}: ${stepErr.message}`, { 
+            sessionId,
+            error: stepErr.message,
+            stack: stepErr.stack
+          });
+          // Avoid tight loop on failure
+          continueLoop = false;
+          break;
+        }
 
         if (!this.sessionDirtyFlags.has(sessionId)) {
           continueLoop = false;
         }
       }
+    } catch (err) {
+      logger.error(`Fatal error in _checkSessionCompletion for ${sessionId}: ${err.message}`, { sessionId });
     } finally {
       this.processingSessions.delete(sessionId);
     }
   }
 
   /**
-   * Generic callback processor.
-   * Correlates callbacks to batches and delegates post-batch logic to generators.
+   * Public entry point for callbacks.
+   * Enqueues the callback for processing via the QueueService to handle race conditions.
    */
   async processCallback(batchERC, payload, correlationId = null) {
+    const { logger, queue } = this.ctx;
+    const { JOB_TYPES, QUEUE_CONFIG } = require('../../utils/constants.cjs');
+
+    logger.info('Enqueuing batch callback for processing', {
+      batchERC,
+      correlationId,
+    });
+
+    try {
+      await queue.add(
+        'default',
+        JOB_TYPES.BATCH_CALLBACK_PROCESSING,
+        {
+          batchERC,
+          payload,
+          correlationId,
+        },
+        {
+          retries: QUEUE_CONFIG.CALLBACK_MAX_RETRIES,
+          retryDelay: QUEUE_CONFIG.CALLBACK_RETRY_DELAY,
+          correlationId,
+        }
+      );
+    } catch (error) {
+      logger.error('Failed to enqueue batch callback', {
+        batchERC,
+        correlationId,
+        error: error.message,
+      });
+      // Fallback to immediate processing if queue fails
+      await this.processCallbackInternal(batchERC, payload, correlationId);
+    }
+  }
+
+  /**
+   * Internal implementation of callback processing.
+   * Throws an error if the batch record is not found to trigger queue retries.
+   */
+  async processCallbackInternal(batchERC, payload, correlationId = null) {
     const { logger, liferay, persistence, progress } = this.ctx;
 
     // 1. Resolve Batch and Session
-    let dbBatch = await persistence.getBatch(batchERC);
-    let retryCount = 0;
-    while (!dbBatch && retryCount < 3) {
-      retryCount++;
-      await delay(1000);
-      dbBatch = await persistence.getBatch(batchERC);
-    }
+    const dbBatch = await persistence.getBatch(batchERC);
 
     if (!dbBatch) {
-      logger.warn('No batch record found for batchERC after retries', { batchERC, correlationId });
-      return;
+      // Throwing error here is critical for QueueService to retry
+      throw new Error(`Batch record not found for ERC: ${batchERC}`);
     }
 
     const session = await persistence.getSession(dbBatch.session_id);
     if (!session) {
-      logger.error('Orphaned batch detected - no session found', { batchERC, sessionId: dbBatch.session_id });
+      logger.error('Orphaned batch detected - no session found', {
+        batchERC,
+        sessionId: dbBatch.session_id,
+      });
       return;
     }
 
@@ -126,25 +175,29 @@ class BatchCallbackService {
 
     const batchId = Object.keys(payload)[0];
     if (!batchId) {
-      logger.error('Could not extract batchId from callback payload', { batchERC });
+      logger.error('Could not extract batchId from callback payload', {
+        batchERC,
+      });
       return;
     }
 
     try {
       // 2. Retrieve final state from Liferay REST API
-      let importTask = await liferay.getImportTask(config, batchId);
-      let data = importTask?.data || importTask;
+      const importTask = await liferay.getImportTask(config, batchId);
+      const data = importTask?.data || importTask;
 
       // 3. Update Batch State
       const errorCount = data.failedItems?.length || 0;
-      const finalStatus = (data.executeStatus || payload[batchId]).toUpperCase();
+      const finalStatus = (
+        data.executeStatus || payload[batchId]
+      ).toUpperCase();
 
       await persistence.updateBatch(batchERC, {
         status: finalStatus,
         processedCount: data.processedItemsCount || 0,
         totalCount: data.totalItemsCount || 0,
         errorCount: errorCount,
-        downstreamBatchId: batchId
+        downstreamBatchId: batchId,
       });
 
       // 4. Delegate Step-Specific Logic (Verification, etc.)
@@ -154,28 +207,35 @@ class BatchCallbackService {
 
       // 5. Broadcast Progress
       progress.batchCompleted({
-        entityType: generator ? generator._normalizeEntityType(dbBatch.step_key) : dbBatch.step_key,
+        entityType: generator
+          ? generator._normalizeEntityType(dbBatch.step_key)
+          : dbBatch.step_key,
         operation: session.flow_type,
         batchId,
         batchERC,
         sessionId: session.session_id,
         successCount: data.processedItemsCount || 0,
         failureCount: errorCount,
-        correlationId: effectiveCorrelationId
+        correlationId: effectiveCorrelationId,
       });
 
       // 6. Trigger Advancement
-      await this._checkSessionCompletion(session.session_id, effectiveCorrelationId);
-
+      await this._checkSessionCompletion(
+        session.session_id,
+        effectiveCorrelationId
+      );
     } catch (error) {
-      logger.error('Error processing batch callback', { batchERC, error: error.message });
+      logger.error('Error processing batch callback', {
+        batchERC,
+        error: error.message,
+      });
       await persistence.updateBatch(batchERC, { status: 'FAILED' });
       progress.batchFailed({
         sessionId: session.session_id,
         batchERC,
         batchId,
         error,
-        correlationId: effectiveCorrelationId
+        correlationId: effectiveCorrelationId,
       });
     }
   }

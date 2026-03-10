@@ -94,7 +94,11 @@ class LiferayGraphQLService {
   async _fetchCollection(config, namespace, queryMethod, fields, pagination = { page: 1, pageSize: 200 }, filter = null) {
     const client = await this._getClient(config);
     const fieldSelection = fields.join(' ');
-    const filterArg = filter ? `, filter: "${filter}"` : '';
+    
+    // Proper OData escaping for GraphQL string argument
+    const escapedFilter = filter ? filter.replace(/"/g, '\\"') : null;
+    const filterArg = escapedFilter ? `, filter: "${escapedFilter}"` : '';
+    
     const { page = 1, pageSize = 200 } = pagination;
     
     const query = `

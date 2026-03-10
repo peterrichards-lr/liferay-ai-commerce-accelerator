@@ -7,14 +7,12 @@ const S = WORKFLOW_STEPS;
 
 /**
  * DeleteCoordinatorService - Orchestrates the safe, dependency-aware deletion of AICA data.
- * It extends BaseWorkflowService to leverage standardized batch submission and persistence logic
- * without being bound to the complex parallel/async logic of the BaseGenerator.
  */
 class DeleteCoordinatorService extends BaseWorkflowService {
   constructor(ctx) {
     super(ctx);
 
-    // Register all deletion steps with standardized kebab-case names from the enum
+    // Register all deletion steps
     this.steps = {
       [S.RESET_CATALOG_CONFIG]: this._runGenericDeletionStep.bind(this, 'resetCatalogConfiguration'),
       [S.DELETE_ORDERS]: this._runGenericDeletionStep.bind(this, 'deleteOrders'),
@@ -37,67 +35,95 @@ class DeleteCoordinatorService extends BaseWorkflowService {
    * Orchestrates the execution of a deletion step.
    */
   async executeStep(sessionId, stepName) {
-    const session = await this.persistence.getSession(sessionId);
-    if (!session) return;
+    try {
+      const session = await this.persistence.getSession(sessionId);
+      if (!session) return;
 
-    const stepHandler = this.steps[stepName];
-    if (!stepHandler) {
-      this.logger.warn(`No handler found for deletion step '${stepName}'`, { sessionId });
-      return await this.completeSyncStep(sessionId, stepName, 'SYNCHRONOUS');
+      const stepHandler = this.steps[stepName];
+      if (!stepHandler) {
+        this.logger.warn(`No handler found for deletion step '${stepName}'`, { sessionId });
+        return await this.completeSyncStep(sessionId, stepName, 'SYNCHRONOUS');
+      }
+
+      // State Gatekeeping: Verify dependencies
+      const isReady = await this.verifyStepDependencies(sessionId, stepName, session.context.steps);
+      if (!isReady) return;
+
+      this.logger.info(`Executing deletion step: ${stepName}`, { sessionId });
+
+      this.progress.stepStarted({
+        sessionId,
+        step: stepName,
+        entityType: this._normalizeEntityType(stepName),
+        operation: 'delete',
+        correlationId: session.correlationId
+      });
+
+      await stepHandler(sessionId, session);
+      
+      // If the step was synchronous (like reset-catalog-config), trigger the next step immediately
+      const batches = await this.persistence.getBatchesForSession(sessionId);
+      const currentBatch = batches.find(b => b.step_key === stepName);
+      if (currentBatch && ['SYNCHRONOUS', 'BYPASSED', 'COMPLETED'].includes(currentBatch.status)) {
+         await this.ctx.batchCallback._checkSessionCompletion(sessionId, session.correlationId);
+      }
+    } catch (err) {
+      this.logger.error(`Critical error in executeStep for ${stepName}: ${err.message}`, { 
+        sessionId,
+        stack: err.stack 
+      });
+      
+      // Attempt to mark the step as failed so the workflow doesn't hang forever
+      try {
+        await this.completeSyncStep(sessionId, stepName, 'FAILED');
+        await this.ctx.batchCallback._checkSessionCompletion(sessionId, sessionId);
+      } catch (innerErr) {
+        this.logger.error(`Failed to fail step ${stepName} after critical error: ${innerErr.message}`);
+      }
     }
-
-    // State Gatekeeping: Verify dependencies
-    const isReady = await this.verifyStepDependencies(sessionId, stepName, session.context.steps);
-    if (!isReady) return;
-
-    this.logger.info(`Executing deletion step: ${stepName}`, { sessionId });
-
-    this.progress.stepStarted({
-      sessionId,
-      step: stepName,
-      entityType: this._normalizeEntityType(stepName),
-      operation: 'delete',
-      correlationId: session.correlationId
-    });
-
-    return await stepHandler(sessionId, session);
   }
 
   /**
    * Advances the deletion workflow sequentially.
    */
   async executeNextStep(sessionId) {
-    const session = await this.persistence.getSession(sessionId);
-    if (!session || session.status === 'COMPLETED' || session.status === 'FAILED') return;
+    try {
+      const session = await this.persistence.getSession(sessionId);
+      if (!session || session.status === 'COMPLETED' || session.status === 'FAILED') return;
 
-    const { correlationId, context } = session;
-    const workflowSteps = context.steps || [];
-    const batches = await this.persistence.getBatchesForSession(sessionId);
+      const { correlationId, context } = session;
+      const workflowSteps = context.steps || [];
+      const batches = await this.persistence.getBatchesForSession(sessionId);
 
-    const isTerminal = (b) => ['COMPLETED', 'FAILED', 'BYPASSED', 'SYNCHRONOUS'].includes(b.status);
-    
-    // Find the first non-complete step
-    for (const stepConfig of workflowSteps) {
-      const stepName = typeof stepConfig === 'string' ? stepConfig : stepConfig.name;
-      const stepBatches = batches.filter(b => b.step_key === stepName);
+      const isTerminal = (b) => ['COMPLETED', 'FAILED', 'BYPASSED', 'SYNCHRONOUS'].includes(b.status);
       
-      const isComplete = stepBatches.length > 0 && stepBatches.every(isTerminal);
-      if (isComplete) continue;
+      // Find the first non-complete step
+      for (const stepConfig of workflowSteps) {
+        const stepName = typeof stepConfig === 'string' ? stepConfig : stepConfig.name;
+        const stepBatches = batches.filter(b => b.step_key === stepName);
+        
+        const isComplete = stepBatches.length > 0 && stepBatches.every(isTerminal);
+        if (isComplete) continue;
 
-      const isRunning = stepBatches.length > 0 && !stepBatches.every(isTerminal);
-      if (isRunning) {
+        const isRunning = stepBatches.length > 0 && !stepBatches.every(isTerminal);
+        if (isRunning) {
+          await this.persistence.updateSessionCurrentSteps(sessionId, [stepName]);
+          return;
+        }
+
+        // Found the next step to run
         await this.persistence.updateSessionCurrentSteps(sessionId, [stepName]);
+        await this.executeStep(sessionId, stepName);
         return;
       }
 
-      // Found the next step to run
-      await this.persistence.updateSessionCurrentSteps(sessionId, [stepName]);
-      await this.executeStep(sessionId, stepName);
-      return;
+      // If we reach here, all steps are terminal
+      await this._finalizeDeletionSession(sessionId, correlationId);
+    } catch (err) {
+      this.logger.error(`Critical error in executeNextStep for session ${sessionId}: ${err.message}`, { 
+        stack: err.stack 
+      });
     }
-
-    // If we reach here, all steps are terminal
-    await this._finalizeDeletionSession(sessionId, correlationId);
   }
 
   async _finalizeDeletionSession(sessionId, correlationId) {
@@ -121,10 +147,8 @@ class DeleteCoordinatorService extends BaseWorkflowService {
     const session = await this.persistence.getSession(sessionId);
     const { config, options, channelId, catalogId } = session.context;
     
-    // We need to find the step key that triggered this handler
-    const workflowSteps = session.context.steps;
     const activeSteps = session.currentSteps;
-    const stepName = activeSteps[0]; // Sequential deletion always has 1 active step
+    const stepName = activeSteps[0]; 
 
     const { hasItems, totalCount } = await this._checkIfEntitiesExist(
       this.liferay,
@@ -134,7 +158,7 @@ class DeleteCoordinatorService extends BaseWorkflowService {
     );
 
     if (!hasItems) {
-      this.logger.info(`Skipping ${stepName}: No entities found.`, { sessionId });
+      this.logger.info(`No items found for ${stepName}, moving to next`, { sessionId });
       return await this.completeSyncStep(sessionId, stepName, 'BYPASSED');
     }
 
@@ -151,7 +175,7 @@ class DeleteCoordinatorService extends BaseWorkflowService {
       });
 
       if (result && result.batchRefs && result.batchRefs.length > 0) {
-        // Native batch was triggered
+        // Native batch was triggered, callback will advance workflow
       } else {
         await this.completeSyncStep(sessionId, stepName, 'COMPLETED', totalCount, totalCount);
       }
@@ -166,27 +190,34 @@ class DeleteCoordinatorService extends BaseWorkflowService {
 
     const checkMap = {
       [S.DELETE_ACCOUNTS]: async () => {
-        const res = await liferay.getAccounts(config, { channelId, pageSize: 1, search: 'AICA-ACC' });
+        const res = await liferay.getAccounts(config, { channelId, pageSize: 1, ercPrefix: ERC_PREFIX.ACCOUNT });
         return { totalCount: res.totalCount };
       },
       [S.DELETE_PRODUCTS]: async () => {
-        const res = await liferay.getProducts(config, { catalogId, pageSize: 1 });
+        const res = await liferay.getProducts(config, { catalogId, pageSize: 1, ercPrefix: ERC_PREFIX.PRODUCT });
         return { totalCount: res.totalCount };
       },
       [S.DELETE_ORDERS]: async () => {
-        const res = await liferay.getOrders(config, { pageSize: 1 });
-        return { totalCount: res.totalCount };
+        try {
+          const res = await liferay.getOrders(config, { pageSize: 1, ercPrefix: ERC_PREFIX.ORDER });
+          return { totalCount: res.totalCount };
+        } catch (err) {
+          this.logger.warn(`Failed to check if orders exist for deletion: ${err.message}. Skipping to avoid crash.`, {
+            stepKey
+          });
+          return { totalCount: 0 }; // Return 0 to bypass the step
+        }
       },
       [S.DELETE_WAREHOUSES]: async () => {
-        const res = await liferay.getWarehouses(config, { pageSize: 1 });
+        const res = await liferay.getWarehouses(config, { pageSize: 1, ercPrefix: ERC_PREFIX.WAREHOUSE });
         return { totalCount: res.totalCount };
       },
       [S.DELETE_PRICE_LISTS]: async () => {
-        const res = await liferay.getPriceLists(config, { catalogId, pageSize: 1, search: 'AICA-' });
+        const res = await liferay.getPriceLists(config, { catalogId, pageSize: 1, ercPrefix: 'AICA-' });
         return { totalCount: res.totalCount };
       },
       [S.DELETE_PROMOTIONS]: async () => {
-        const res = await liferay.getPromotions(config, { catalogId, pageSize: 1, search: 'AICA-' });
+        const res = await liferay.getPromotions(config, { catalogId, pageSize: 1, ercPrefix: 'AICA-' });
         return { totalCount: res.totalCount };
       },
       [S.RESET_CATALOG_CONFIG]: async () => ({ hasItems: true, totalCount: 1 }),
@@ -210,13 +241,11 @@ class DeleteCoordinatorService extends BaseWorkflowService {
       { name: S.DELETE_ORDERS, type: 'sync' },
       { name: S.DELETE_WAREHOUSES, type: 'sync' },
       { name: S.DELETE_ACCOUNTS, type: 'sync' },
-      { name: S.DELETE_PRODUCT_OPTIONS, type: 'sync' },
-      { name: S.DELETE_PRODUCT_SPECIFICATIONS, type: 'sync' },
+      { name: S.DELETE_OPTIONS, type: 'sync' },
+      { name: S.DELETE_SPECIFICATIONS, type: 'sync' },
       { name: S.DELETE_PRODUCTS, type: 'sync' },
       { name: S.DELETE_PRICE_LISTS, type: 'sync' },
       { name: S.DELETE_PROMOTIONS, type: 'sync' },
-      { name: S.DELETE_SPECIFICATIONS, type: 'sync' },
-      { name: S.DELETE_OPTIONS, type: 'sync' },
       { name: S.DELETE_OPTION_CATEGORIES, type: 'sync' },
     ];
 
@@ -237,7 +266,6 @@ class DeleteCoordinatorService extends BaseWorkflowService {
   async runDeleteSelectedAndMonitor(config, options = {}, { channelId, catalogId, deleteScope }) {
     const sessionId = createERC(ERC_PREFIX.BATCH_SESSION);
 
-    // Map scopes to new standardized enum keys if necessary
     let steps = Array.isArray(deleteScope) ? deleteScope.map(s => {
        const scopeMap = {
           'resetCatalogConfiguration': S.RESET_CATALOG_CONFIG,

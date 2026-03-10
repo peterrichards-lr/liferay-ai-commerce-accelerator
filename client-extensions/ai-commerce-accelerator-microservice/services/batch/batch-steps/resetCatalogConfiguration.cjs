@@ -1,4 +1,4 @@
-const { createERC, delay } = require('../../../utils/misc.cjs');
+const { createERC } = require('../../../utils/misc.cjs');
 const { ERC_PREFIX } = require('../../../utils/constants.cjs');
 
 module.exports = async function resetCatalogConfiguration(
@@ -11,154 +11,68 @@ module.exports = async function resetCatalogConfiguration(
   });
 
   try {
-    // 1. Discover master lists to restore
-    let masterPriceListId = options.masterPriceListId;
-    let masterPromotionListId = options.masterPromotionListId;
-
-    if (!masterPriceListId || !masterPromotionListId) {
-      logger.debug('Searching for master price list fallbacks...', {
-        sessionId,
-      });
-
-      const res = await liferay.getPriceLists(config, {
-        catalogId,
-        type: null, // Get all types
-        ignoreExclusions: true,
-        pageSize: 1000,
-      });
-
-      const allLists = res.items || [];
-
-      // Find standard master list
-      if (!masterPriceListId) {
-        let fallback = allLists.find(
-          (pl) =>
-            String(pl.type || '')
-              .toLowerCase()
-              .includes('price') &&
-            !pl.externalReferenceCode?.startsWith('AICA-') &&
-            (pl.catalogBasePriceList ||
-              pl.name?.toLowerCase().includes('master'))
-        );
-        
-        // If no master found, just pick the first non-AICA price list
-        if (!fallback) {
-           fallback = allLists.find(
-            (pl) =>
-              String(pl.type || '')
-                .toLowerCase()
-                .includes('price') &&
-              !pl.externalReferenceCode?.startsWith('AICA-')
-          );
-        }
-
-        if (fallback) {
-          masterPriceListId = fallback.id;
-          logger.info(
-            `Found master price list fallback: ${fallback.name} (${masterPriceListId})`,
-            { sessionId }
-          );
-        }
-      }
-
-      // Find promotion master list
-      if (!masterPromotionListId) {
-        let fallback = allLists.find(
-          (pl) =>
-            String(pl.type || '')
-              .toLowerCase()
-              .includes('promotion') &&
-            !pl.externalReferenceCode?.startsWith('AICA-') &&
-            (pl.catalogBasePriceList ||
-              pl.name?.toLowerCase().includes('master') ||
-              pl.name?.toLowerCase().includes('default'))
-        );
-
-        // If no master/default found, pick the first non-AICA promotion list
-        if (!fallback) {
-          fallback = allLists.find(
-            (pl) =>
-              String(pl.type || '')
-                .toLowerCase()
-                .includes('promotion') &&
-              !pl.externalReferenceCode?.startsWith('AICA-')
-          );
-        }
-
-        if (fallback) {
-          masterPromotionListId = fallback.id;
-          logger.info(
-            `Found master promotion list fallback: ${fallback.name} (${masterPromotionListId})`,
-            { sessionId }
-          );
-        }
-      }
-    }
-
-    // 2. Restore master lists
-    let restoreCount = 0;
-    if (masterPriceListId) {
-      logger.info(
-        `Restoring master price list ${masterPriceListId} as base for catalog ${catalogId}`,
-        { sessionId }
-      );
-      await liferay.patchPriceList(config, masterPriceListId, {
-        catalogBasePriceList: true,
-      });
-      restoreCount++;
-      await delay(1000);
-    } else {
-      logger.warn(
-        `Could not find a master price list to restore for catalog ${catalogId}`,
-        { sessionId }
-      );
-    }
-
-    if (masterPromotionListId) {
-      logger.info(
-        `Restoring master promotion list ${masterPromotionListId} as base for catalog ${catalogId}`,
-        { sessionId }
-      );
-      await liferay.patchPriceList(config, masterPromotionListId, {
-        catalogBasePriceList: true,
-      });
-      restoreCount++;
-      await delay(1000);
-    } else {
-      logger.warn(
-        `Could not find a master promotion list to restore for catalog ${catalogId}`,
-        { sessionId }
-      );
-    }
-
-    // 3. Explicitly unset AICA lists as base if they are still set
+    // 1. Fetch all price lists for the target catalog
     const res = await liferay.getPriceLists(config, {
-      pageSize: 100,
-      search: 'AICA-',
-      type: null, // Check all types
-      ignoreExclusions: true,
+      catalogId,
+      pageSize: 1000,
+      ignoreExclusions: true, // We need to see system/master lists
     });
 
-    for (const pl of res.items || []) {
-      if (pl.catalogBasePriceList) {
-        logger.info(
-          `Unsetting AICA ${pl.type} '${pl.name}' (${pl.id}) as base`,
-          { sessionId }
-        );
-        await liferay.patchPriceList(config, pl.id, {
-          catalogBasePriceList: false,
-        });
-        await delay(1000);
-      }
+    const allLists = res.items || [];
+
+    // 2. Identify Master Price List and Master Promotion
+    // Logic: type === 'price-list'/'promotion' AND catalogBasePriceList === true
+    const masterPriceList = allLists.find(
+      (pl) => pl.type === 'price-list' && pl.catalogBasePriceList === true
+    );
+    const masterPromotion = allLists.find(
+      (pl) => pl.type === 'promotion' && pl.catalogBasePriceList === true
+    );
+
+    const masterPriceListId = masterPriceList?.id;
+    const masterPromotionId = masterPromotion?.id;
+
+    if (!masterPriceListId || !masterPromotionId) {
+      logger.warn(
+        `Dynamic master identification incomplete for catalog ${catalogId}. ` +
+        `Found PriceList: ${masterPriceListId || 'MISSING'}, Promotion: ${masterPromotionId || 'MISSING'}. ` +
+        `Proceeding with available defaults.`,
+        { sessionId }
+      );
     }
 
+    // 3. Perform the Catalog Update via Admin API
+    // Mirroring the portlet action identified in the HAR trace
+    const catalogUpdatePayload = {};
+    if (masterPriceListId) {
+      catalogUpdatePayload.baseCommercePriceListId = masterPriceListId;
+    }
+    if (masterPromotionId) {
+      catalogUpdatePayload.basePromotionCommercePriceListId = masterPromotionId;
+    }
+
+    if (Object.keys(catalogUpdatePayload).length > 0) {
+      logger.info(`Updating catalog ${catalogId} to restore system master pricing...`, { 
+        sessionId,
+        masterPriceListId,
+        masterPromotionId 
+      });
+      
+      await liferay.patchCatalog(config, catalogId, catalogUpdatePayload);
+      
+      logger.info('Catalog reset to system defaults. AICA price lists are now unlocked for deletion.', {
+        sessionId
+      });
+    }
+
+    // 4. Record completion and proceed
     await persistence.createBatch({
       erc: createERC(ERC_PREFIX.BATCH),
       sessionId,
       stepKey: 'resetCatalogConfiguration',
       status: 'SYNCHRONOUS',
-      processedCount: restoreCount,
-      totalCount: 2,
+      processedCount: 1,
+      totalCount: 1,
     });
 
     return { success: true };
@@ -167,15 +81,18 @@ module.exports = async function resetCatalogConfiguration(
       sessionId,
       error: err,
     });
-    // Don't fail the whole workflow, try to proceed
+    
+    // We create a failed batch record but don't throw, allowing the coordinator 
+    // to decide whether to attempt commerce data deletion anyway.
     await persistence.createBatch({
       erc: createERC(ERC_PREFIX.BATCH),
       sessionId,
       stepKey: 'resetCatalogConfiguration',
-      status: 'SYNCHRONOUS',
+      status: 'FAILED',
       processedCount: 0,
-      totalCount: 2,
+      totalCount: 1,
     });
+    
     return { success: false };
   }
 };

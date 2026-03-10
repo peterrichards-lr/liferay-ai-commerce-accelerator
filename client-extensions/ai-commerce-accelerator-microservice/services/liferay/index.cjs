@@ -22,12 +22,14 @@ class LiferayService {
       pageSize = 200,
       fields = 'productId',
       filter: providedFilter,
+      ercPrefix,
     } = {}
   ) {
     const exclusions = await this._getExclusions(config, 'product');
 
     const filters = [];
     if (catalogId) filters.push(`catalogId eq ${catalogId}`);
+    if (ercPrefix) filters.push(`startsWith(externalReferenceCode, '${ercPrefix}')`);
     if (providedFilter) filters.push(providedFilter);
 
     const nameFilter = this._buildNameExclusionFilter(exclusions);
@@ -79,18 +81,14 @@ class LiferayService {
 
   async getAccounts(
     config,
-    { channelId, pageSize = 200, fields = 'id', filter: providedFilter, search } = {}
+    { channelId, pageSize = 200, fields = 'id', filter: providedFilter, search, ercPrefix } = {}
   ) {
     const exclusions = await this._getExclusions(config, 'account');
 
     const filters = [];
+    if (ercPrefix) filters.push(`startsWith(externalReferenceCode, '${ercPrefix}')`);
     if (providedFilter) filters.push(providedFilter);
 
-    // To ensure we can find our accounts, we fetch a potentially larger page
-    // and filter out non-AICA items in memory, completely avoiding 'sw'/'startswith'.
-    let fetchPageSize = pageSize;
-
-    // We no longer inject prefix filters into OData to avoid GraphQL crashes
     // If channelId is provided, we can filter by it
     if (channelId) {
       let channelAccountFilter;
@@ -122,9 +120,6 @@ class LiferayService {
       if (channelAccountFilter) {
         filters.push(channelAccountFilter);
       }
-    } else {
-      // If we are looking for AICA accounts globally, we need a larger page
-      fetchPageSize = Math.max(pageSize, 500);
     }
 
     const nameFilter = this._buildNameExclusionFilter(exclusions);
@@ -154,16 +149,18 @@ class LiferayService {
       Array.from(requestedFields),
       {
         page: 1,
-        pageSize: fetchPageSize,
+        pageSize,
       }
     );
 
     let items = asItems(res);
     
-    // Always apply prefix filter in JS memory to guarantee safety
-    items = items.filter((it) => 
-       it.externalReferenceCode && it.externalReferenceCode.startsWith(ERC_PREFIX.ACCOUNT)
-    );
+    // Apply prefix filter in JS memory as a secondary check
+    if (ercPrefix) {
+      items = items.filter((it) => 
+         it.externalReferenceCode && it.externalReferenceCode.startsWith(ercPrefix)
+      );
+    }
 
     // Apply exclusion filter in JS just to be absolutely certain
     const filteredItems = items.filter(
@@ -181,15 +178,13 @@ class LiferayService {
     return {
       ...res,
       items: finalItems,
-      // Total count is not perfectly accurate due to memory filtering, 
-      // but sufficient for determining existence and pagination boundaries
-      totalCount: finalItems.length,
+      totalCount: res.totalCount,
     };
   }
 
   async getOptionCategories(
     config,
-    { pageSize = 200, fields = 'id', filter: providedFilter } = {}
+    { pageSize = 200, fields = 'id', filter: providedFilter, ercPrefix } = {}
   ) {
     const exclusions = await this._getExclusions(config, 'optionCategory');
 
@@ -208,6 +203,7 @@ class LiferayService {
     }
 
     const filters = [];
+    if (ercPrefix) filters.push(`startsWith(externalReferenceCode, '${ercPrefix}')`);
     if (providedFilter) filters.push(providedFilter);
 
     const nameFilter = this._buildNameExclusionFilter(exclusions, 'title');
@@ -239,7 +235,7 @@ class LiferayService {
 
   async getSpecifications(
     config,
-    { pageSize = 200, fields = 'id', filter: providedFilter } = {}
+    { pageSize = 200, fields = 'id', filter: providedFilter, ercPrefix } = {}
   ) {
     const exclusions = await this._getExclusions(config, 'specification');
 
@@ -257,6 +253,7 @@ class LiferayService {
     }
 
     const filters = [];
+    if (ercPrefix) filters.push(`startsWith(externalReferenceCode, '${ercPrefix}')`);
     if (providedFilter) filters.push(providedFilter);
 
     const nameFilter = this._buildNameExclusionFilter(exclusions, 'key');
@@ -285,7 +282,7 @@ class LiferayService {
 
   async getOptions(
     config,
-    { pageSize = 200, fields = 'id', filter: providedFilter } = {}
+    { pageSize = 200, fields = 'id', filter: providedFilter, ercPrefix } = {}
   ) {
     const exclusions = await this._getExclusions(config, 'option');
 
@@ -309,6 +306,7 @@ class LiferayService {
     }
 
     const filters = [];
+    if (ercPrefix) filters.push(`startsWith(externalReferenceCode, '${ercPrefix}')`);
     if (providedFilter) filters.push(providedFilter);
 
     const nameFilter = this._buildNameExclusionFilter(exclusions);
@@ -337,7 +335,7 @@ class LiferayService {
 
   async getOrders(
     config,
-    { pageSize = 200, fields = 'id', filter: providedFilter } = {}
+    { pageSize = 200, fields = 'id', filter: providedFilter, ercPrefix } = {}
   ) {
     const exclusions = await this._getExclusions(config, 'order');
 
@@ -356,6 +354,7 @@ class LiferayService {
     }
 
     const filters = [];
+    if (ercPrefix) filters.push(`startsWith(externalReferenceCode, '${ercPrefix}')`);
     if (providedFilter) filters.push(providedFilter);
 
     const nameFilter = this._buildNameExclusionFilter(exclusions);
@@ -384,7 +383,7 @@ class LiferayService {
 
   async getWarehouses(
     config,
-    { pageSize = 200, fields = 'id', filter: providedFilter } = {}
+    { pageSize = 200, fields = 'id', filter: providedFilter, ercPrefix } = {}
   ) {
     const exclusions = await this._getExclusions(config, 'warehouse');
 
@@ -397,6 +396,7 @@ class LiferayService {
     }
 
     const filters = [];
+    if (ercPrefix) filters.push(`startsWith(externalReferenceCode, '${ercPrefix}')`);
     if (providedFilter) filters.push(providedFilter);
 
     const nameFilter = this._buildNameExclusionFilter(exclusions);
@@ -425,7 +425,7 @@ class LiferayService {
 
   async getWarehouseItems(
     config,
-    { pageSize = 200, fields = 'id', filter } = {}
+    { pageSize = 200, fields = 'id', filter, ercPrefix } = {}
   ) {
     const warehouses = await this.getWarehouses(config, { pageSize: 1000 });
     const allItems = [];
@@ -442,12 +442,17 @@ class LiferayService {
       fields.split(',').forEach((f) => requestedFields.add(f.trim()));
     }
 
+    const filters = [];
+    if (ercPrefix) filters.push(`startsWith(externalReferenceCode, '${ercPrefix}')`);
+    if (filter) filters.push(filter);
+    const combinedFilter = filters.length > 0 ? filters.join(' and ') : null;
+
     for (const warehouse of warehouses.items) {
       try {
         const res = await this.graphql.getWarehouseItems(
           config,
           warehouse.id,
-          filter,
+          combinedFilter,
           Array.from(requestedFields),
           {
             page: 1,
@@ -480,6 +485,7 @@ class LiferayService {
       filter: providedFilter,
       search,
       ignoreExclusions = false,
+      ercPrefix,
     } = {}
   ) {
     const exclusions = ignoreExclusions
@@ -508,18 +514,23 @@ class LiferayService {
       });
     }
 
+    const filters = [];
+    if (ercPrefix) filters.push(`startsWith(externalReferenceCode, '${ercPrefix}')`);
+    if (providedFilter) filters.push(providedFilter);
+    const filter = filters.length > 0 ? filters.join(' and ') : null;
+
     // Fetch a large page via GraphQL to allow for in-memory catalog and exclusion filtering
     // This bypasses Pricing V2.0 REST API filtering limitations
     const res = isPromotion
       ? await this.graphql.getDiscounts(
           config,
-          null,
+          filter,
           Array.from(requestedFields),
           { page: 1, pageSize: 1000 }
         )
       : await this.graphql.getPriceLists(
           config,
-          null,
+          filter,
           Array.from(requestedFields),
           { page: 1, pageSize: 1000 }
         );
@@ -1143,19 +1154,23 @@ class LiferayService {
     return asItems(res);
   }
 
-  getCatalog(config, catalogId) {
+  async getCatalog(config, catalogId) {
     return this.rest.getCatalog(config, catalogId);
   }
 
+  async patchCatalog(config, catalogId, catalogData) {
+    return this.rest.patchCatalog(config, catalogId, catalogData);
+  }
+
   async getChannels(config) {
+
     const res = await this.graphql.getChannels(config);
     return asItems(res);
   }
 
   async getLanguages(config, siteGroupId) {
-    const res = await this.graphql.getLanguages(config, siteGroupId);
-    const items = asItems(res);
-    return items.map((lang) => ({
+    const data = await this.rest.getLanguages(config, siteGroupId);
+    return data.map((lang) => ({
       id: lang.id,
       name: lang.name,
       isDefault: lang.markedAsDefault || false,

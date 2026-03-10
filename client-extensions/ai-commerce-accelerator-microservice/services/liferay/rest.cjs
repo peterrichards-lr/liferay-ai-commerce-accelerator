@@ -669,13 +669,30 @@ class LiferayRestService {
     return data;
   }
 
+  async patchCatalog(config, catalogId, catalogData) {
+    return await this._patch(
+      config,
+      PATH.CATALOG(catalogId),
+      catalogData,
+      'patch-catalog',
+      'Failed to patch catalog'
+    );
+  }
+
   async getChannels(config) {
     const data = await this._get(config, PATH.CHANNELS, 'get-channels');
     return asItems(data);
   }
 
-  async getLanguages(config) {
-    const data = await this._get(config, PATH.BASE.LANGUAGES, 'get-languages');
+  async getLanguages(config, siteGroupId) {
+    const params = siteGroupId ? { siteGroupId } : {};
+    const data = await this._get(
+      config,
+      PATH.BASE.LANGUAGES,
+      'get-languages',
+      null,
+      { params }
+    );
     return asItems(data);
   }
 
