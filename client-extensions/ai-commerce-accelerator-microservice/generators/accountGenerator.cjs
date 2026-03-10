@@ -1,11 +1,12 @@
 const BaseGenerator = require('./baseGenerator.cjs');
-const { ERC_PREFIX, WORKFLOW_STEPS } = require('../utils/constants.cjs');
+const { ERC_PREFIX, WORKFLOW_STEPS, ENV } = require('../utils/constants.cjs');
 const {
   createERC,
   processWithRetry,
   randomString,
   toTitleCase,
   delay,
+  resolveErrorReference,
 } = require('../utils/misc.cjs');
 
 const S = WORKFLOW_STEPS;
@@ -21,14 +22,54 @@ class AccountGenerator extends BaseGenerator {
       [S.RESOLVE_ACCOUNT_IDS]: this._runResolveAccountIdsStep.bind(this),
       [S.CREATE_POSTAL_ADDRESSES]: this._runAddressCreationStep.bind(this),
       [S.SET_ADDRESS_DEFAULTS]: this._runSetBillingAndShippingAddressesStep.bind(this),
+      [S.SUBFLOW_ACCOUNTS]: this._runSubflowAccountsStep.bind(this),
     };
+  }
+
+  async _runSubflowAccountsStep(sessionId) {
+    const session = await this.persistence.getSession(sessionId);
+    const { config, options } = session.context;
+
+    this.logger.info('Enqueuing generate-accounts job for subflow', {
+      sessionId,
+      correlationId: session.correlationId,
+    });
+
+    try {
+      await this.ctx.queue.add('data-generation', 'generate-accounts', {
+        config,
+        options: {
+          ...options,
+          count: options.accountCount || options.count || 1,
+        },
+        correlationId: session.correlationId,
+      });
+
+      await this.completeSyncStep(
+        sessionId,
+        S.SUBFLOW_ACCOUNTS,
+        'SYNCHRONOUS'
+      );
+    } catch (error) {
+      const errorReferenceCode = resolveErrorReference(error) || createERC(ERC_PREFIX.ERROR);
+      this.logger.error(`Failed to enqueue accounts subflow: ${error.message}`, {
+        sessionId,
+        errorReferenceCode,
+        error,
+      });
+      await this.persistence.createBatch({
+        erc: createERC(ERC_PREFIX.BATCH),
+        sessionId,
+        stepKey: S.SUBFLOW_ACCOUNTS,
+        status: 'FAILED',
+      });
+    }
   }
 
   async generateAccounts(config, options) {
     const sessionId = options.sessionId || createERC(ERC_PREFIX.BATCH_SESSION);
     options.sessionId = sessionId;
 
-    // Fallback logic for selectedLanguages
     if (!options.selectedLanguages || (Array.isArray(options.selectedLanguages) && options.selectedLanguages.length === 0)) {
       this.logger.warn(`No languages selected for generation. Falling back to DEFAULT_LOCALE: ${ENV.DEFAULT_LOCALE}`, { sessionId });
       options.selectedLanguages = [ENV.DEFAULT_LOCALE];
@@ -83,8 +124,10 @@ class AccountGenerator extends BaseGenerator {
 
       await this.completeSyncStep(sessionId, S.LOAD_COUNTRIES, 'SYNCHRONOUS', countries.length, countries.length);
     } catch (error) {
+      const errorReferenceCode = resolveErrorReference(error) || createERC(ERC_PREFIX.ERROR);
       this.logger.error(`Failed to load countries: ${error.message}`, {
         sessionId,
+        errorReferenceCode,
         error,
       });
       await this.persistence.createBatch({
@@ -209,15 +252,17 @@ class AccountGenerator extends BaseGenerator {
 
       await this.persistence.updateSessionContext(sessionId, {
         ...session.context,
-        accountsToCreate,
-        addressesToCreate,
+        accountsToCreate: accountsToCreate,
+        addressesToCreate: addressesToCreate,
       });
 
       await this.completeSyncStep(sessionId, S.GENERATE_ACCOUNT_DATA, 'SYNCHRONOUS', accountsToCreate.length, accountsToCreate.length);
     } catch (error) {
+      const errorReferenceCode = resolveErrorReference(error) || createERC(ERC_PREFIX.ERROR);
       this.logger.error('Failed execution of generate-account-data step', {
         sessionId,
         correlationId: session.correlationId,
+        errorReferenceCode,
         error: error.message,
       });
       await this.persistence.createBatch({
@@ -259,8 +304,10 @@ class AccountGenerator extends BaseGenerator {
         accountsToCreate.length
       );
     } catch (error) {
+      const errorReferenceCode = resolveErrorReference(error) || createERC(ERC_PREFIX.ERROR);
       this.logger.error('Failed to start account creation step', {
         sessionId,
+        errorReferenceCode,
         error: error.message,
       });
       await this.persistence.createBatch({
@@ -304,8 +351,10 @@ class AccountGenerator extends BaseGenerator {
 
       await this.completeSyncStep(sessionId, S.RESOLVE_ACCOUNT_IDS, 'SYNCHRONOUS', ercToIdMap.size, ercs.length);
     } catch (error) {
+      const errorReferenceCode = resolveErrorReference(error) || createERC(ERC_PREFIX.ERROR);
       this.logger.error('Failed to resolve account IDs', {
         sessionId,
+        errorReferenceCode,
         error: error.message,
       });
       await this.persistence.createBatch({
@@ -380,8 +429,10 @@ class AccountGenerator extends BaseGenerator {
 
       await this.completeSyncStep(sessionId, S.CREATE_POSTAL_ADDRESSES, 'SYNCHRONOUS', options.dryRun ? totalAddresses : 0, totalAddresses);
     } catch (error) {
+      const errorReferenceCode = resolveErrorReference(error) || createERC(ERC_PREFIX.ERROR);
       this.logger.error('Failed to start postal address creation step', {
         sessionId,
+        errorReferenceCode,
         error: error.message,
       });
       await this.persistence.createBatch({
@@ -448,8 +499,10 @@ class AccountGenerator extends BaseGenerator {
 
       await this.completeSyncStep(sessionId, S.SET_ADDRESS_DEFAULTS, 'SYNCHRONOUS', updateCount, accountsToCreate.length);
     } catch (error) {
+      const errorReferenceCode = resolveErrorReference(error) || createERC(ERC_PREFIX.ERROR);
       this.logger.error('Failed to set billing and shipping addresses', {
         sessionId,
+        errorReferenceCode,
         error: error.message,
       });
       await this.persistence.createBatch({
@@ -510,6 +563,10 @@ class AccountGenerator extends BaseGenerator {
       primary: false,
       externalReferenceCode: createERC(ERC_PREFIX.ADDRESS),
     };
+  }
+  async handleBatchCallback(sessionId, batchERC) {
+    this.logger.debug(`Batch callback received for account generation session ${sessionId}`, { batchERC });
+    return true;
   }
 }
 

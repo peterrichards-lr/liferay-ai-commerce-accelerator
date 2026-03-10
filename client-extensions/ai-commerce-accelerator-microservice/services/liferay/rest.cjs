@@ -669,13 +669,13 @@ class LiferayRestService {
     return data;
   }
 
-  async patchCatalog(config, catalogId, catalogData) {
+  async patchCatalog(config, catalogId, data) {
     return await this._patch(
       config,
       PATH.CATALOG(catalogId),
-      catalogData,
+      data,
       'patch-catalog',
-      'Failed to patch catalog'
+      'Failed to update catalog configuration'
     );
   }
 
@@ -685,13 +685,15 @@ class LiferayRestService {
   }
 
   async getLanguages(config, siteGroupId) {
-    const params = siteGroupId ? { siteGroupId } : {};
+    if (!siteGroupId) {
+      throw new Error('siteGroupId is required for getLanguages');
+    }
+    const url = `/o/headless-admin-user/v1.0/sites/${siteGroupId}/languages`;
     const data = await this._get(
       config,
-      PATH.BASE.LANGUAGES,
+      url,
       'get-languages',
-      null,
-      { params }
+      'Failed to get site languages'
     );
     return asItems(data);
   }
@@ -1251,6 +1253,24 @@ class LiferayRestService {
       code: currency.code,
       name: currency.name?.[config.languageId],
     }));
+  }
+
+  async getProductById(config, productId) {
+    return await this._get(
+      config,
+      PATH.PRODUCT(productId),
+      'get-product-by-id'
+    );
+  }
+
+  async patchProductById(config, productId, data) {
+    return await this._patch(
+      config,
+      PATH.PRODUCT(productId),
+      data,
+      'patch-product-by-id',
+      'Failed to patch product'
+    );
   }
 
   async createProduct(config, productData) {

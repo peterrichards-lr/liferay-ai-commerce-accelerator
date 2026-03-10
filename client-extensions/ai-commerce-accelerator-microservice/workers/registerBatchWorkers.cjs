@@ -5,6 +5,8 @@ module.exports = function registerBatchWorkers({
   logger,
   batchCallbackService,
 }) {
+  // Workers are registered globally to the QueueService instance.
+  // The 'queue' parameter here is the QueueService instance.
   queue.registerWorker(
     JOB_TYPES.BATCH_CALLBACK_PROCESSING,
     async (data, { job }) => {
@@ -15,6 +17,7 @@ module.exports = function registerBatchWorkers({
         operation: 'job-batch-callback-processing',
         jobId: job.id,
         batchERC,
+        queue: job.queue
       });
 
       // Delegate to internal implementation which throws if batch not found
@@ -29,6 +32,7 @@ module.exports = function registerBatchWorkers({
         operation: 'job-batch-callback-processing',
         jobId: job.id,
         batchERC,
+        queue: job.queue
       });
 
       return { success: true };

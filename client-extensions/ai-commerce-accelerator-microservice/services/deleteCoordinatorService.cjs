@@ -126,6 +126,14 @@ class DeleteCoordinatorService extends BaseWorkflowService {
     }
   }
 
+  /**
+   * Standardized callback handler for deletion steps.
+   */
+  async handleBatchCallback(sessionId, batchERC) {
+    this.logger.debug(`Batch callback received for deletion session ${sessionId}`, { batchERC });
+    return true;
+  }
+
   async _finalizeDeletionSession(sessionId, correlationId) {
     const batches = await this.persistence.getBatchesForSession(sessionId);
     const hasFailures = batches.some(b => b.status === 'FAILED');
@@ -163,6 +171,18 @@ class DeleteCoordinatorService extends BaseWorkflowService {
     }
 
     const handler = BATCH_STEP_HANDLERS[handlerName];
+    const batchERC = createERC(ERC_PREFIX.BATCH);
+
+    // CRITICAL: Persist the batch record before making the Liferay call
+    // This ensures the callback worker can correlate the incoming request immediately.
+    await this.persistence.createBatch({
+      erc: batchERC,
+      sessionId,
+      stepKey: stepName,
+      status: 'PREPARED',
+      totalCount: totalCount
+    });
+
     try {
       const result = await handler(this.ctx, {
         config,
@@ -171,16 +191,40 @@ class DeleteCoordinatorService extends BaseWorkflowService {
         channelId,
         catalogId,
         totalCount,
+        batchERC, // Pass the pre-generated ERC to the handler
         correlationId: session.correlationId,
       });
 
       if (result && result.batchRefs && result.batchRefs.length > 0) {
-        // Native batch was triggered, callback will advance workflow
+        // Native batch was triggered, update status to SUBMITTED
+        const firstBatchId = result.batchRefs[0].taskId;
+        await this.persistence.updateBatch(batchERC, {
+          status: 'SUBMITTED',
+          downstreamBatchId: firstBatchId
+        });
+
+        this.progress.batchStarted({
+          sessionId,
+          batchERC,
+          batchId: firstBatchId,
+          totalItems: totalCount,
+          entityType: this._normalizeEntityType(stepName),
+          operation: 'delete',
+          correlationId: session.correlationId
+        });
       } else {
+        // Step was processed synchronously (or simulated batch)
+        await this.persistence.updateBatch(batchERC, {
+          status: 'COMPLETED',
+          processedCount: totalCount,
+          errorCount: 0
+        });
+
         await this.completeSyncStep(sessionId, stepName, 'COMPLETED', totalCount, totalCount);
       }
     } catch (error) {
-      this.logger.error(`Deletion step '${stepName}' failed: ${error.message}`, { sessionId });
+      this.logger.error(`Deletion step '${stepName}' failed: ${error.message}`, { sessionId, batchERC });
+      await this.persistence.updateBatch(batchERC, { status: 'FAILED' });
       throw error;
     }
   }

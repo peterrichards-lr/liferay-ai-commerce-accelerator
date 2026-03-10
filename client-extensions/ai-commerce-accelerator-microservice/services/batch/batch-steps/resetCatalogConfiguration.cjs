@@ -52,17 +52,31 @@ module.exports = async function resetCatalogConfiguration(
     }
 
     if (Object.keys(catalogUpdatePayload).length > 0) {
+      if (!catalogId || isNaN(catalogId)) {
+        throw new Error(`Invalid catalogId: ${config.catalogId}. Cannot reset catalog configuration.`);
+      }
+
       logger.info(`Updating catalog ${catalogId} to restore system master pricing...`, { 
         sessionId,
         masterPriceListId,
         masterPromotionId 
       });
       
-      await liferay.patchCatalog(config, catalogId, catalogUpdatePayload);
-      
-      logger.info('Catalog reset to system defaults. AICA price lists are now unlocked for deletion.', {
-        sessionId
-      });
+      try {
+        await liferay.patchCatalog(config, catalogId, catalogUpdatePayload);
+        logger.info('Catalog reset to system defaults. AICA price lists are now unlocked for deletion.', {
+          sessionId
+        });
+      } catch (patchErr) {
+        // If the property is missing in this version of the API, we ignore and proceed
+        if (patchErr.response?.status === 400) {
+          logger.warn(`Failed to reset catalog properties (possibly unsupported field): ${patchErr.message}. Ignoring to allow workflow to proceed.`, {
+            sessionId
+          });
+        } else {
+          throw patchErr;
+        }
+      }
     }
 
     // 4. Record completion and proceed

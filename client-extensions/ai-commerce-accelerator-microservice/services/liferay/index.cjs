@@ -29,7 +29,6 @@ class LiferayService {
 
     const filters = [];
     if (catalogId) filters.push(`catalogId eq ${catalogId}`);
-    if (ercPrefix) filters.push(`startsWith(externalReferenceCode, '${ercPrefix}')`);
     if (providedFilter) filters.push(providedFilter);
 
     const nameFilter = this._buildNameExclusionFilter(exclusions);
@@ -67,7 +66,15 @@ class LiferayService {
       }
     );
 
-    const items = asItems(res);
+    let items = asItems(res);
+
+    // Apply prefix filter in JS memory as OData filter on ERC is often not supported
+    if (ercPrefix) {
+      items = items.filter((it) =>
+        it.externalReferenceCode && it.externalReferenceCode.startsWith(ercPrefix)
+      );
+    }
+
     const filteredItems = items.filter(
       (it) => !this._shouldExclude(it, exclusions)
     );
@@ -86,7 +93,6 @@ class LiferayService {
     const exclusions = await this._getExclusions(config, 'account');
 
     const filters = [];
-    if (ercPrefix) filters.push(`startsWith(externalReferenceCode, '${ercPrefix}')`);
     if (providedFilter) filters.push(providedFilter);
 
     // If channelId is provided, we can filter by it
@@ -155,7 +161,7 @@ class LiferayService {
 
     let items = asItems(res);
     
-    // Apply prefix filter in JS memory as a secondary check
+    // Apply prefix filter in JS memory
     if (ercPrefix) {
       items = items.filter((it) => 
          it.externalReferenceCode && it.externalReferenceCode.startsWith(ercPrefix)
@@ -203,7 +209,6 @@ class LiferayService {
     }
 
     const filters = [];
-    if (ercPrefix) filters.push(`startsWith(externalReferenceCode, '${ercPrefix}')`);
     if (providedFilter) filters.push(providedFilter);
 
     const nameFilter = this._buildNameExclusionFilter(exclusions, 'title');
@@ -221,7 +226,15 @@ class LiferayService {
         pageSize,
       }
     );
-    const items = asItems(res);
+    let items = asItems(res);
+
+    // Apply prefix filter in JS memory
+    if (ercPrefix) {
+      items = items.filter((it) =>
+        it.externalReferenceCode && it.externalReferenceCode.startsWith(ercPrefix)
+      );
+    }
+
     const filteredItems = items.filter(
       (it) => !this._shouldExclude(it, exclusions)
     );
@@ -253,7 +266,6 @@ class LiferayService {
     }
 
     const filters = [];
-    if (ercPrefix) filters.push(`startsWith(externalReferenceCode, '${ercPrefix}')`);
     if (providedFilter) filters.push(providedFilter);
 
     const nameFilter = this._buildNameExclusionFilter(exclusions, 'key');
@@ -268,7 +280,15 @@ class LiferayService {
       Array.from(requestedFields),
       { page: 1, pageSize }
     );
-    const items = asItems(res);
+    let items = asItems(res);
+
+    // Apply prefix filter in JS memory
+    if (ercPrefix) {
+      items = items.filter((it) =>
+        it.externalReferenceCode && it.externalReferenceCode.startsWith(ercPrefix)
+      );
+    }
+
     const filteredItems = items.filter(
       (it) => !this._shouldExclude(it, exclusions)
     );
@@ -306,7 +326,6 @@ class LiferayService {
     }
 
     const filters = [];
-    if (ercPrefix) filters.push(`startsWith(externalReferenceCode, '${ercPrefix}')`);
     if (providedFilter) filters.push(providedFilter);
 
     const nameFilter = this._buildNameExclusionFilter(exclusions);
@@ -321,7 +340,15 @@ class LiferayService {
       Array.from(requestedFields),
       { page: 1, pageSize }
     );
-    const items = asItems(res);
+    let items = asItems(res);
+
+    // Apply prefix filter in JS memory
+    if (ercPrefix) {
+      items = items.filter((it) =>
+        it.externalReferenceCode && it.externalReferenceCode.startsWith(ercPrefix)
+      );
+    }
+
     const filteredItems = items.filter(
       (it) => !this._shouldExclude(it, exclusions)
     );
@@ -354,7 +381,6 @@ class LiferayService {
     }
 
     const filters = [];
-    if (ercPrefix) filters.push(`startsWith(externalReferenceCode, '${ercPrefix}')`);
     if (providedFilter) filters.push(providedFilter);
 
     const nameFilter = this._buildNameExclusionFilter(exclusions);
@@ -369,7 +395,15 @@ class LiferayService {
       Array.from(requestedFields),
       { page: 1, pageSize }
     );
-    const items = asItems(res);
+    let items = asItems(res);
+
+    // Apply prefix filter in JS memory
+    if (ercPrefix) {
+      items = items.filter((it) =>
+        it.externalReferenceCode && it.externalReferenceCode.startsWith(ercPrefix)
+      );
+    }
+
     const filteredItems = items.filter(
       (it) => !this._shouldExclude(it, exclusions)
     );
@@ -396,7 +430,6 @@ class LiferayService {
     }
 
     const filters = [];
-    if (ercPrefix) filters.push(`startsWith(externalReferenceCode, '${ercPrefix}')`);
     if (providedFilter) filters.push(providedFilter);
 
     const nameFilter = this._buildNameExclusionFilter(exclusions);
@@ -411,7 +444,15 @@ class LiferayService {
       Array.from(requestedFields),
       { page: 1, pageSize }
     );
-    const items = asItems(res);
+    let items = asItems(res);
+
+    // Apply prefix filter in JS memory
+    if (ercPrefix) {
+      items = items.filter((it) =>
+        it.externalReferenceCode && it.externalReferenceCode.startsWith(ercPrefix)
+      );
+    }
+
     const filteredItems = items.filter(
       (it) => !this._shouldExclude(it, exclusions)
     );
@@ -443,7 +484,6 @@ class LiferayService {
     }
 
     const filters = [];
-    if (ercPrefix) filters.push(`startsWith(externalReferenceCode, '${ercPrefix}')`);
     if (filter) filters.push(filter);
     const combinedFilter = filters.length > 0 ? filters.join(' and ') : null;
 
@@ -459,7 +499,15 @@ class LiferayService {
             pageSize,
           }
         );
-        const items = asItems(res);
+        let items = asItems(res);
+
+        // Apply prefix filter in JS memory
+        if (ercPrefix) {
+          items = items.filter((it) =>
+            it.externalReferenceCode && it.externalReferenceCode.startsWith(ercPrefix)
+          );
+        }
+
         allItems.push(...items);
         totalCount += res.totalCount || items.length;
       } catch (err) {
@@ -515,7 +563,6 @@ class LiferayService {
     }
 
     const filters = [];
-    if (ercPrefix) filters.push(`startsWith(externalReferenceCode, '${ercPrefix}')`);
     if (providedFilter) filters.push(providedFilter);
     const filter = filters.length > 0 ? filters.join(' and ') : null;
 
@@ -535,7 +582,14 @@ class LiferayService {
           { page: 1, pageSize: 1000 }
         );
 
-    const items = asItems(res);
+    let items = asItems(res);
+
+    // Apply prefix filter in JS memory
+    if (ercPrefix) {
+      items = items.filter((it) =>
+        it.externalReferenceCode && it.externalReferenceCode.startsWith(ercPrefix)
+      );
+    }
 
     // Parse catalogId from providedFilter if it exists (for backward compatibility)
     let targetCatalogId = catalogId;
@@ -1163,18 +1217,40 @@ class LiferayService {
   }
 
   async getChannels(config) {
-
     const res = await this.graphql.getChannels(config);
     return asItems(res);
   }
 
-  async getLanguages(config, siteGroupId) {
-    const data = await this.rest.getLanguages(config, siteGroupId);
-    return data.map((lang) => ({
-      id: lang.id,
-      name: lang.name,
-      isDefault: lang.markedAsDefault || false,
-    }));
+  async getLanguages(config, siteKey) {
+    const { logger } = this.ctx;
+    try {
+      if (!siteKey) {
+        logger.warn('siteKey is missing for getLanguages, falling back to REST');
+        return await this.rest.getLanguages(config, siteKey);
+      }
+
+      const res = await this.graphql.getLanguages(config, siteKey);
+      const items = asItems(res);
+
+      if (!items || items.length === 0) {
+        logger.warn(`GraphQL returned 0 languages for site ${siteKey}, falling back to REST`);
+        return await this.rest.getLanguages(config, siteKey);
+      }
+
+      return items.map((lang) => ({
+        id: lang.id,
+        name: lang.name,
+        isDefault: lang.markedAsDefault || false,
+      }));
+    } catch (err) {
+      logger.warn(`Failed to fetch languages for site ${siteKey}: ${err.message}. Attempting REST fallback.`);
+      try {
+        return await this.rest.getLanguages(config, siteKey);
+      } catch (restErr) {
+        logger.error(`Critical failure: Failed to fetch languages via GraphQL AND REST for site ${siteKey}.`);
+        throw restErr;
+      }
+    }
   }
 
   getProductCount(config) {

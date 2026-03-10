@@ -197,7 +197,7 @@ class WarehouseGenerator extends BaseGenerator {
       await this.persistence.createBatch({
         erc: createERC(ERC_PREFIX.BATCH),
         sessionId,
-        stepKey,
+        stepKey: stepKey,
         status: 'FAILED',
       });
       throw error;
@@ -232,6 +232,11 @@ class WarehouseGenerator extends BaseGenerator {
     if (!options.warehouseCount || options.warehouseCount <= 0) {
       throw new Error('warehouseCount must be greater than 0');
     }
+  }
+
+  async handleBatchCallback(sessionId, batchERC) {
+    this.logger.debug(`Batch callback received for warehouse generation session ${sessionId}`, { batchERC });
+    return true;
   }
 }
 

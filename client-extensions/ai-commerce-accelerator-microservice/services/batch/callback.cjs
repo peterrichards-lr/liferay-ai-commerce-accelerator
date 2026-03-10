@@ -117,11 +117,12 @@ class BatchCallbackService {
     logger.info('Enqueuing batch callback for processing', {
       batchERC,
       correlationId,
+      targetQueue: 'batch-callback'
     });
 
     try {
       await queue.add(
-        'default',
+        'batch-callback',
         JOB_TYPES.BATCH_CALLBACK_PROCESSING,
         {
           batchERC,

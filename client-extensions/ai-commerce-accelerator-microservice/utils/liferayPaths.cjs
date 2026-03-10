@@ -100,6 +100,7 @@ const PATH = {
     }`,
 
   PRODUCTS: BASE.PRODUCTS,
+  PRODUCT: (id) => `${BASE.CATALOG_API}/product/${id}`,
   PRICE_LISTS: BASE.PRICE_LISTS,
   PRICE_LIST: (priceListId) => `${BASE.PRICE_LISTS}/${priceListId}`,
   PRICE_LISTS_BATCH: (callbackURL) =>
@@ -166,7 +167,7 @@ const PATH = {
   OPTION_VALUE_BY_ERC: (optionId, erc) =>
     byERC(`${BASE.OPTIONS}/${optionId}/optionValues`, erc, VARIANT.options),
 
-  OPTION_CATEGORIES: BASE.OPTION_CATEGORIES,
+  OPTION_CATEGORIES: BASE.OPTIONS,
   OPTION_CATEGORY: (optionCategoryId) =>
     `${BASE.OPTION_CATEGORIES}/${optionCategoryId}`,
   OPTION_CATEGORIES_BATCH: (callbackURL) =>
@@ -218,7 +219,7 @@ const PATH = {
     }`,
 
   CATALOGS: BASE.CATALOGS,
-  CATALOG: (catalogId) => `${BASE.CATALOGS}/${catalogId}`,
+  CATALOG: (catalogId) => `${BASE.CATALOG_API}/catalog/${catalogId}`,
   CHANNELS: BASE.CHANNELS,
   CHANNEL: (channelId) => `${BASE.CHANNELS}/${channelId}`,
   CURRENCIES: BASE.CURRENCIES,

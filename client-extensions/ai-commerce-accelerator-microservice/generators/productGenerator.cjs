@@ -11,6 +11,7 @@ const {
   now,
   isoNow,
   sanitizeForERC,
+  resolveErrorReference,
 } = require('../utils/misc.cjs');
 const { ERC_PREFIX, ENV, WORKFLOW_STEPS } = require('../utils/constants.cjs');
 const { COMMERCE_CONSTRAINTS } = require('../utils/commerceConstants.cjs');
@@ -47,14 +48,87 @@ class ProductGenerator extends BaseGenerator {
       [S.ATTACH_IMAGES]: this._runAttachImagesStep.bind(this),
       [S.ATTACH_PDFS]: this._runAttachPdfsStep.bind(this),
       [S.UPDATE_INVENTORY]: this._runUpdateInventoryStep.bind(this),
+      [S.SUBFLOW_PRODUCTS]: this._runSubflowProductsStep.bind(this),
+      [S.SUBFLOW_ACCOUNTS]: this._runSubflowAccountsStep.bind(this),
     };
+  }
+
+  async _runSubflowProductsStep(sessionId) {
+    const session = await this.persistence.getSession(sessionId);
+    const { config, options } = session.context;
+
+    this.logger.info('Enqueuing generate-products job for subflow', {
+      sessionId,
+      correlationId: session.correlationId,
+    });
+
+    try {
+      await this.ctx.queue.add('data-generation', 'generate-products', {
+        config,
+        options: {
+          ...options,
+          count: options.productCount || options.count || 1,
+        },
+        correlationId: session.correlationId,
+      });
+
+      await this.completeSyncStep(sessionId, S.SUBFLOW_PRODUCTS, 'SYNCHRONOUS');
+    } catch (error) {
+      const errorReferenceCode = resolveErrorReference(error) || createERC(ERC_PREFIX.ERROR);
+      this.logger.error(`Failed to enqueue products subflow: ${error.message}`, {
+        sessionId,
+        errorReferenceCode,
+        error,
+      });
+      await this.persistence.createBatch({
+        erc: createERC(ERC_PREFIX.BATCH),
+        sessionId,
+        stepKey: S.SUBFLOW_PRODUCTS,
+        status: 'FAILED',
+      });
+    }
+  }
+
+  async _runSubflowAccountsStep(sessionId) {
+    const session = await this.persistence.getSession(sessionId);
+    const { config, options } = session.context;
+
+    this.logger.info('Enqueuing generate-accounts job for subflow (from ProductGenerator)', {
+      sessionId,
+      correlationId: session.correlationId,
+    });
+
+    try {
+      await this.ctx.queue.add('data-generation', 'generate-accounts', {
+        config,
+        options: {
+          ...options,
+          count: options.accountCount || options.count || 1,
+        },
+        correlationId: session.correlationId,
+      });
+
+      await this.completeSyncStep(sessionId, S.SUBFLOW_ACCOUNTS, 'SYNCHRONOUS');
+    } catch (error) {
+      const errorReferenceCode = resolveErrorReference(error) || createERC(ERC_PREFIX.ERROR);
+      this.logger.error(`Failed to enqueue accounts subflow: ${error.message}`, {
+        sessionId,
+        errorReferenceCode,
+        error,
+      });
+      await this.persistence.createBatch({
+        erc: createERC(ERC_PREFIX.BATCH),
+        sessionId,
+        stepKey: S.SUBFLOW_ACCOUNTS,
+        status: 'FAILED',
+      });
+    }
   }
 
   async generateProducts(config, options) {
     const sessionId = options.sessionId || createERC(ERC_PREFIX.BATCH_SESSION);
     options.sessionId = sessionId;
 
-    // Fallback logic for selectedLanguages
     if (!options.selectedLanguages || (Array.isArray(options.selectedLanguages) && options.selectedLanguages.length === 0)) {
       const fallbackLanguage = config.defaultLanguageId || ENV.DEFAULT_LOCALE;
       this.logger.info(`No languages selected for generation. Falling back to: ${fallbackLanguage}`, { sessionId });
@@ -143,27 +217,69 @@ class ProductGenerator extends BaseGenerator {
   }
 
   async _runGeneratePriceListsStep(sessionId) {
-    return this._runPricingStep(
-      sessionId,
-      S.GENERATE_PRICE_LISTS,
-      (e) => !e.bulkPricing && (!e.tierPrices || e.tierPrices.length === 0)
-    );
+    try {
+      return await this._runPricingStep(
+        sessionId,
+        S.GENERATE_PRICE_LISTS,
+        (e) => !e.bulkPricing && (!e.tierPrices || e.tierPrices.length === 0)
+      );
+    } catch (error) {
+      const errorReferenceCode = resolveErrorReference(error) || createERC(ERC_PREFIX.ERROR);
+      this.logger.error(`Error in generate-price-lists step: ${error.message}`, {
+        sessionId,
+        errorReferenceCode,
+      });
+      await this.persistence.createBatch({
+        erc: createERC(ERC_PREFIX.BATCH),
+        sessionId,
+        stepKey: S.GENERATE_PRICE_LISTS,
+        status: 'FAILED',
+      });
+    }
   }
 
   async _runGenerateBulkPricingStep(sessionId) {
-    return this._runPricingStep(
-      sessionId,
-      S.GENERATE_BULK_PRICING,
-      (e) => e.bulkPricing === true
-    );
+    try {
+      return await this._runPricingStep(
+        sessionId,
+        S.GENERATE_BULK_PRICING,
+        (e) => e.bulkPricing === true
+      );
+    } catch (error) {
+      const errorReferenceCode = resolveErrorReference(error) || createERC(ERC_PREFIX.ERROR);
+      this.logger.error(`Error in generate-bulk-pricing step: ${error.message}`, {
+        sessionId,
+        errorReferenceCode,
+      });
+      await this.persistence.createBatch({
+        erc: createERC(ERC_PREFIX.BATCH),
+        sessionId,
+        stepKey: S.GENERATE_BULK_PRICING,
+        status: 'FAILED',
+      });
+    }
   }
 
   async _runGenerateTierPricingStep(sessionId) {
-    return this._runPricingStep(
-      sessionId,
-      S.GENERATE_TIER_PRICING,
-      (e) => !e.bulkPricing && e.tierPrices && e.tierPrices.length > 0
-    );
+    try {
+      return await this._runPricingStep(
+        sessionId,
+        S.GENERATE_TIER_PRICING,
+        (e) => !e.bulkPricing && e.tierPrices && e.tierPrices.length > 0
+      );
+    } catch (error) {
+      const errorReferenceCode = resolveErrorReference(error) || createERC(ERC_PREFIX.ERROR);
+      this.logger.error(`Error in generate-tier-pricing step: ${error.message}`, {
+        sessionId,
+        errorReferenceCode,
+      });
+      await this.persistence.createBatch({
+        erc: createERC(ERC_PREFIX.BATCH),
+        sessionId,
+        stepKey: S.GENERATE_TIER_PRICING,
+        status: 'FAILED',
+      });
+    }
   }
 
   async _runUpdateCatalogConfigurationStep(sessionId) {
@@ -214,7 +330,11 @@ class ProductGenerator extends BaseGenerator {
 
       await this.completeSyncStep(sessionId, S.UPDATE_CATALOG_CONFIG, 'SYNCHRONOUS', updateCount, PRICE_LIST_CONFIGS.length);
     } catch (err) {
-      this.logger.error(`Failed to update catalog configuration: ${err.message}`, { sessionId });
+      const errorReferenceCode = resolveErrorReference(err) || createERC(ERC_PREFIX.ERROR);
+      this.logger.error(`Failed to update catalog configuration: ${err.message}`, {
+        sessionId,
+        errorReferenceCode,
+      });
       await this.persistence.createBatch({
         erc: createERC(ERC_PREFIX.BATCH),
         sessionId,
@@ -234,114 +354,103 @@ class ProductGenerator extends BaseGenerator {
 
     this.logger.info(`Starting ${stepKey} step`, { sessionId });
 
-    try {
-      const ercToIdMap = await this._ensurePriceLists(config, sessionId, session.correlationId, options);
-      const generalListId = ercToIdMap.get('AICA-PL-GENERAL');
-      const promotionsListId = ercToIdMap.get('AICA-PL-PROMOTIONS');
+    const ercToIdMap = await this._ensurePriceLists(config, sessionId, session.correlationId, options);
+    const generalListId = ercToIdMap.get('AICA-PL-GENERAL');
+    const promotionsListId = ercToIdMap.get('AICA-PL-PROMOTIONS');
 
-      if (!generalListId) throw new Error(`Failed to resolve target price list for ${stepKey}`);
+    if (!generalListId) throw new Error(`Failed to resolve target price list for ${stepKey}`);
 
-      const priceListTemplates = [
-        {
-          id: generalListId,
-          externalReferenceCode: 'AICA-PL-GENERAL',
-          name: 'AI Commerce Accelerator Price List',
-          type: 'price-list',
-          catalogId: parseInt(config.catalogId, 10),
-          currencyCode: config.currencyCode || 'USD',
-          priceEntries: [],
-        },
-      ];
+    const priceListTemplates = [
+      {
+        id: generalListId,
+        externalReferenceCode: 'AICA-PL-GENERAL',
+        name: 'AI Commerce Accelerator Price List',
+        type: 'price-list',
+        catalogId: parseInt(config.catalogId, 10),
+        currencyCode: config.currencyCode || 'USD',
+        priceEntries: [],
+      },
+    ];
 
-      if (promotionsListId) {
-        priceListTemplates.push({
-          id: promotionsListId,
-          externalReferenceCode: 'AICA-PL-PROMOTIONS',
-          name: 'AI Commerce Accelerator Promotions',
-          type: 'promotion',
-          catalogId: parseInt(config.catalogId, 10),
-          currencyCode: config.currencyCode || 'USD',
-          priceEntries: [],
-        });
+    if (promotionsListId) {
+      priceListTemplates.push({
+        id: promotionsListId,
+        externalReferenceCode: 'AICA-PL-PROMOTIONS',
+        name: 'AI Commerce Accelerator Promotions',
+        type: 'promotion',
+        catalogId: parseInt(config.catalogId, 10),
+        currencyCode: config.currencyCode || 'USD',
+        priceEntries: [],
+      });
+    }
+
+    let totalEntries = 0;
+    for (const product of productDataList) {
+      if (!Array.isArray(product.priceEntries)) continue;
+      for (const entry of product.priceEntries) {
+        if (!filterFn(entry)) continue;
+
+        const baseErc = entry.externalReferenceCode || uuidv4();
+        const skuERC = entry.skuExternalReferenceCode || (typeof entry.sku === 'string' ? entry.sku : null);
+        const matchedSku = (product.skus || []).find(s => s.externalReferenceCode === skuERC || s.sku === skuERC);
+        const skuId = matchedSku?.id;
+
+        const basePriceEntry = {
+          price: entry.price,
+          sku: typeof entry.sku === 'object' ? entry.sku : { basePrice: entry.price },
+          bulkPricing: stepKey === S.GENERATE_BULK_PRICING,
+          externalReferenceCode: `PE-${skuERC}-GEN-${sanitizeForERC(baseErc, { max: 40 })}`,
+          tierPrices: (entry.tierPrices || []).map(tp => ({ minimumQuantity: tp.minimumQuantity, price: tp.price }))
+        };
+
+        if (skuId) basePriceEntry.skuId = skuId;
+        else basePriceEntry.skuExternalReferenceCode = skuERC;
+
+        priceListTemplates[0].priceEntries.push(basePriceEntry);
+        totalEntries++;
       }
+    }
 
-      let totalEntries = 0;
-      for (const product of productDataList) {
-        if (!Array.isArray(product.priceEntries)) continue;
-        for (const entry of product.priceEntries) {
-          if (!filterFn(entry)) continue;
-
-          const baseErc = entry.externalReferenceCode || uuidv4();
-          const skuERC = entry.skuExternalReferenceCode || (typeof entry.sku === 'string' ? entry.sku : null);
-          const matchedSku = (product.skus || []).find(s => s.externalReferenceCode === skuERC || s.sku === skuERC);
-          const skuId = matchedSku?.id;
-
-          const basePriceEntry = {
-            price: entry.price,
-            sku: typeof entry.sku === 'object' ? entry.sku : { basePrice: entry.price },
-            bulkPricing: stepKey === S.GENERATE_BULK_PRICING,
-            externalReferenceCode: `PE-${skuERC}-GEN-${sanitizeForERC(baseErc, { max: 40 })}`,
-            tierPrices: (entry.tierPrices || []).map(tp => ({ minimumQuantity: tp.minimumQuantity, price: tp.price }))
-          };
-
-          if (skuId) basePriceEntry.skuId = skuId;
-          else basePriceEntry.skuExternalReferenceCode = skuERC;
-
-          priceListTemplates[0].priceEntries.push(basePriceEntry);
-          totalEntries++;
-        }
-      }
-
-      const activeLists = priceListTemplates.filter(pl => pl.priceEntries.length > 0);
-      if (activeLists.length > 0) {
-        await this.submitBatch(
-          sessionId,
-          stepKey,
-          'products',
-          'generate',
-          (erc) => this.liferay.createPriceListsBatch(config, activeLists, { externalReferenceCode: erc, sessionId }),
-          totalEntries
-        );
-      } else {
-        await this.completeSyncStep(sessionId, stepKey, 'SYNCHRONOUS');
-      }
-    } catch (error) {
-      this.logger.error(`Error in ${stepKey} step: ${error.message}`, { sessionId });
-      throw error;
+    const activeLists = priceListTemplates.filter(pl => pl.priceEntries.length > 0);
+    if (activeLists.length > 0) {
+      await this.submitBatch(
+        sessionId,
+        stepKey,
+        'products',
+        'generate',
+        (erc) => this.liferay.createPriceListsBatch(config, activeLists, { externalReferenceCode: erc, sessionId }),
+        totalEntries
+      );
+    } else {
+      await this.completeSyncStep(sessionId, stepKey, 'SYNCHRONOUS');
     }
   }
 
   async _ensurePriceLists(config, sessionId, correlationId, options = {}) {
     const generateNewLists = options.generatePriceLists;
-    const catalogId = parseInt(config.catalogId, 10);
     const ercToIdMap = new Map();
 
-    try {
-      const PRICE_LIST_TEMPLATES = [
-        { erc: 'AICA-PL-GENERAL', name: 'AI Commerce Accelerator Price List', priority: 1, type: 'price-list' },
-        { erc: 'AICA-PL-PROMOTIONS', name: 'AI Commerce Accelerator Promotions', priority: 2, type: 'promotion' },
-      ];
+    const PRICE_LIST_TEMPLATES = [
+      { erc: 'AICA-PL-GENERAL', name: 'AI Commerce Accelerator Price List', priority: 1, type: 'price-list' },
+      { erc: 'AICA-PL-PROMOTIONS', name: 'AI Commerce Accelerator Promotions', priority: 2, type: 'promotion' },
+    ];
 
-      for (const pl of PRICE_LIST_TEMPLATES) {
-        let existing = await this.liferay.getPriceListByERC(config, pl.erc);
-        if (!existing && generateNewLists) {
-          existing = await this.liferay.createPriceList(config, {
-            externalReferenceCode: pl.erc,
-            name: pl.name,
-            currencyCode: config.currencyCode || 'USD',
-            active: true,
-            priority: pl.priority,
-            catalogId: config.catalogId,
-            type: pl.type,
-            catalogBasePriceList: false,
-            neverExpire: true,
-          });
-        }
-        if (existing?.id) ercToIdMap.set(pl.erc, existing.id);
+    for (const pl of PRICE_LIST_TEMPLATES) {
+      let existing = await this.liferay.getPriceListByERC(config, pl.erc);
+      if (!existing && generateNewLists) {
+        existing = await this.liferay.createPriceList(config, {
+          externalReferenceCode: pl.erc,
+          name: pl.name,
+          currencyCode: config.currencyCode || 'USD',
+          active: true,
+          priority: pl.priority,
+          catalogId: config.catalogId,
+          type: pl.type,
+          catalogBasePriceList: false,
+          neverExpire: true,
+        });
       }
-    } catch (err) {
-      this.logger.error(`Failed to ensure price lists: ${err.message}`, { sessionId });
-      throw err;
+      if (existing?.id) ercToIdMap.set(pl.erc, existing.id);
     }
     return ercToIdMap;
   }
@@ -374,7 +483,12 @@ class ProductGenerator extends BaseGenerator {
       await this.persistence.updateSessionContext(sessionId, { ...session.context, productDataList: updatedList });
       await this.completeSyncStep(sessionId, S.RESOLVE_PRODUCT_IDS, 'SYNCHRONOUS', normalized.length, ercs.length);
     } catch (error) {
-      this.logger.error('Failed to resolve product IDs', { sessionId, error: error.message });
+      const errorReferenceCode = resolveErrorReference(error) || createERC(ERC_PREFIX.ERROR);
+      this.logger.error('Failed to resolve product IDs', {
+        sessionId,
+        errorReferenceCode,
+        error: error.message,
+      });
       await this.persistence.createBatch({ erc: createERC(ERC_PREFIX.BATCH), sessionId, stepKey: S.RESOLVE_PRODUCT_IDS, status: 'FAILED' });
     }
   }
@@ -411,7 +525,12 @@ class ProductGenerator extends BaseGenerator {
       await this.persistence.updateSessionContext(sessionId, { ...session.context, productDataList: updatedList });
       await this.completeSyncStep(sessionId, S.RESOLVE_SKU_IDS, 'SYNCHRONOUS', normalized.length, skuErcs.length);
     } catch (error) {
-      this.logger.error('Failed to resolve SKU IDs', { sessionId, error: error.message });
+      const errorReferenceCode = resolveErrorReference(error) || createERC(ERC_PREFIX.ERROR);
+      this.logger.error('Failed to resolve SKU IDs', {
+        sessionId,
+        errorReferenceCode,
+        error: error.message,
+      });
       await this.persistence.createBatch({ erc: createERC(ERC_PREFIX.BATCH), sessionId, stepKey: S.RESOLVE_SKU_IDS, status: 'FAILED' });
     }
   }
@@ -445,7 +564,12 @@ class ProductGenerator extends BaseGenerator {
       await this.persistence.updateSessionContext(sessionId, { ...session.context, options: { ...options, warehouses: updatedWarehouses } });
       await this.completeSyncStep(sessionId, S.RESOLVE_WAREHOUSE_IDS, 'SYNCHRONOUS', normalized.length, ercs.length);
     } catch (error) {
-      this.logger.error('Failed to resolve warehouse IDs', { sessionId, error: error.message });
+      const errorReferenceCode = resolveErrorReference(error) || createERC(ERC_PREFIX.ERROR);
+      this.logger.error('Failed to resolve warehouse IDs', {
+        sessionId,
+        errorReferenceCode,
+        error: error.message,
+      });
       await this.persistence.createBatch({ erc: createERC(ERC_PREFIX.BATCH), sessionId, stepKey: S.RESOLVE_WAREHOUSE_IDS, status: 'FAILED' });
     }
   }
@@ -467,7 +591,12 @@ class ProductGenerator extends BaseGenerator {
       }
       await this.completeSyncStep(sessionId, S.LINK_PRODUCT_OPTIONS, 'SYNCHRONOUS', productsWithOpts.length, productsWithOpts.length);
     } catch (error) {
-      this.logger.error('Failed to link options', { sessionId, error: error.message });
+      const errorReferenceCode = resolveErrorReference(error) || createERC(ERC_PREFIX.ERROR);
+      this.logger.error('Failed to link options', {
+        sessionId,
+        errorReferenceCode,
+        error: error.message,
+      });
       await this.persistence.createBatch({ erc: createERC(ERC_PREFIX.BATCH), sessionId, stepKey: S.LINK_PRODUCT_OPTIONS, status: 'FAILED' });
     }
   }
@@ -476,32 +605,42 @@ class ProductGenerator extends BaseGenerator {
     const session = await this.persistence.getSession(sessionId);
     const { config, productDataList } = session.context;
 
-    const preparedProducts = (productDataList || []).filter((p) => Array.isArray(p.skus) && p.skus.length > 0).map((pd) => {
-      const lp = {
-        catalogId: parseInt(config.catalogId, 10),
-        name: toI18n(pd.name),
-        productType: pd.productType || 'simple',
-        externalReferenceCode: pd.externalReferenceCode,
-        skus: pd.skus,
-      };
-      return this._cleanProductForLiferay(lp);
-    });
+    try {
+      const preparedProducts = (productDataList || []).filter((p) => Array.isArray(p.skus) && p.skus.length > 0).map((pd) => {
+        const lp = {
+          catalogId: parseInt(config.catalogId, 10),
+          name: toI18n(pd.name),
+          productType: pd.productType || 'simple',
+          externalReferenceCode: pd.externalReferenceCode,
+          skus: pd.skus,
+        };
+        return this._cleanProductForLiferay(lp);
+      });
 
-    if (preparedProducts.length > 0) {
-      const batchSize = Math.max(1, parseInt(config.batchSize, 10) || 1);
-      for (let i = 0; i < preparedProducts.length; i += batchSize) {
-        const batch = preparedProducts.slice(i, i + batchSize);
-        await this.submitBatch(
-          sessionId,
-          S.CREATE_PRODUCT_SKUS,
-          'products',
-          'generate',
-          (erc) => this.liferay.createProductsBatch(config, batch, { externalReferenceCode: erc, sessionId }),
-          batch.length
-        );
+      if (preparedProducts.length > 0) {
+        const batchSize = Math.max(1, parseInt(config.batchSize, 10) || 1);
+        for (let i = 0; i < preparedProducts.length; i += batchSize) {
+          const batch = preparedProducts.slice(i, i + batchSize);
+          await this.submitBatch(
+            sessionId,
+            S.CREATE_PRODUCT_SKUS,
+            'products',
+            'generate',
+            (erc) => this.liferay.createProductsBatch(config, batch, { externalReferenceCode: erc, sessionId }),
+            batch.length
+          );
+        }
+      } else {
+        await this.completeSyncStep(sessionId, S.CREATE_PRODUCT_SKUS, 'SYNCHRONOUS');
       }
-    } else {
-      await this.completeSyncStep(sessionId, S.CREATE_PRODUCT_SKUS, 'SYNCHRONOUS');
+    } catch (error) {
+      const errorReferenceCode = resolveErrorReference(error) || createERC(ERC_PREFIX.ERROR);
+      this.logger.error('Failed product SKUs creation step', {
+        sessionId,
+        errorReferenceCode,
+        error: error.message,
+      });
+      await this.persistence.createBatch({ erc: createERC(ERC_PREFIX.BATCH), sessionId, stepKey: S.CREATE_PRODUCT_SKUS, status: 'FAILED' });
     }
   }
 
@@ -513,17 +652,37 @@ class ProductGenerator extends BaseGenerator {
       return await this.completeSyncStep(sessionId, S.CREATE_WAREHOUSES, 'BYPASSED');
     }
 
-    const warehouses = await this.ctx.warehouseGenerator.createWarehouses(config, { ...options, sessionId, stepKey: S.CREATE_WAREHOUSES });
-    await this.persistence.updateSessionContext(sessionId, { ...session.context, options: { ...options, warehouses } });
+    try {
+      const warehouses = await this.ctx.warehouseGenerator.createWarehouses(config, { ...options, sessionId, stepKey: S.CREATE_WAREHOUSES });
+      await this.persistence.updateSessionContext(sessionId, { ...session.context, options: { ...options, warehouses } });
+    } catch (error) {
+      const errorReferenceCode = resolveErrorReference(error) || createERC(ERC_PREFIX.ERROR);
+      this.logger.error('Failed warehouse generation step', {
+        sessionId,
+        errorReferenceCode,
+        error: error.message,
+      });
+      await this.persistence.createBatch({ erc: createERC(ERC_PREFIX.BATCH), sessionId, stepKey: S.CREATE_WAREHOUSES, status: 'FAILED' });
+    }
   }
 
   async _runProductDataGenerationStep(sessionId) {
     const session = await this.persistence.getSession(sessionId);
     const { config, options } = session.context;
 
-    const allData = await this._generateProductData(config, options, sessionId, session.correlationId);
-    await this.persistence.updateSessionContext(sessionId, { ...session.context, productDataList: allData });
-    await this.completeSyncStep(sessionId, S.GENERATE_PRODUCT_DATA, 'SYNCHRONOUS', allData.length, options.productCount);
+    try {
+      const allData = await this._generateProductData(config, options, sessionId, session.correlationId);
+      await this.persistence.updateSessionContext(sessionId, { ...session.context, productDataList: allData });
+      await this.completeSyncStep(sessionId, S.GENERATE_PRODUCT_DATA, 'SYNCHRONOUS', allData.length, options.productCount);
+    } catch (error) {
+      const errorReferenceCode = resolveErrorReference(error) || createERC(ERC_PREFIX.ERROR);
+      this.logger.error('Failed product data generation step', {
+        sessionId,
+        errorReferenceCode,
+        error: error.message,
+      });
+      await this.persistence.createBatch({ erc: createERC(ERC_PREFIX.BATCH), sessionId, stepKey: S.GENERATE_PRODUCT_DATA, status: 'FAILED' });
+    }
   }
 
   async _runProductCreationStep(sessionId) {
@@ -534,43 +693,73 @@ class ProductGenerator extends BaseGenerator {
       return await this.completeSyncStep(sessionId, S.CREATE_PRODUCTS, 'BYPASSED');
     }
 
-    const prepared = productDataList.map((pd) => {
-      const lp = {
-        catalogId: parseInt(config.catalogId, 10),
-        name: toI18n(pd.name),
-        productType: pd.productType || 'simple',
-        externalReferenceCode: pd.externalReferenceCode,
-      };
-      if (options.generateSkuVariants && pd.skus) lp.skus = pd.skus.slice(0, 1);
-      return this._cleanProductForLiferay(lp, { stripSkuOptions: true });
-    });
+    try {
+      const prepared = productDataList.map((pd) => {
+        const lp = {
+          catalogId: parseInt(config.catalogId, 10),
+          name: toI18n(pd.name),
+          productType: pd.productType || 'simple',
+          externalReferenceCode: pd.externalReferenceCode,
+        };
+        if (options.generateSkuVariants && pd.skus) lp.skus = pd.skus.slice(0, 1);
+        return this._cleanProductForLiferay(lp, { stripSkuOptions: true });
+      });
 
-    const batchSize = Math.max(1, parseInt(config.batchSize, 10) || 1);
-    for (let i = 0; i < prepared.length; i += batchSize) {
-      const batch = prepared.slice(i, i + batchSize);
-      await this.submitBatch(
+      const batchSize = Math.max(1, parseInt(config.batchSize, 10) || 1);
+      for (let i = 0; i < prepared.length; i += batchSize) {
+        const batch = prepared.slice(i, i + batchSize);
+        await this.submitBatch(
+          sessionId,
+          S.CREATE_PRODUCTS,
+          'products',
+          'generate',
+          (erc) => this.liferay.createProductsBatch(config, batch, { externalReferenceCode: erc, sessionId }),
+          batch.length
+        );
+      }
+    } catch (error) {
+      const errorReferenceCode = resolveErrorReference(error) || createERC(ERC_PREFIX.ERROR);
+      this.logger.error('Failed product creation step', {
         sessionId,
-        S.CREATE_PRODUCTS,
-        'products',
-        'generate',
-        (erc) => this.liferay.createProductsBatch(config, batch, { externalReferenceCode: erc, sessionId }),
-        batch.length
-      );
+        errorReferenceCode,
+        error: error.message,
+      });
+      await this.persistence.createBatch({ erc: createERC(ERC_PREFIX.BATCH), sessionId, stepKey: S.CREATE_PRODUCTS, status: 'FAILED' });
     }
   }
 
   async _runAttachImagesStep(sessionId) {
     const session = await this.persistence.getSession(sessionId);
     const { config, options, productDataList } = session.context;
-    await this.ctx.media.createImages(config, productDataList || [], { ...options, sessionId });
-    await this.completeSyncStep(sessionId, S.ATTACH_IMAGES);
+    try {
+      await this.ctx.media.createImages(config, productDataList || [], { ...options, sessionId });
+      await this.completeSyncStep(sessionId, S.ATTACH_IMAGES);
+    } catch (error) {
+      const errorReferenceCode = resolveErrorReference(error) || createERC(ERC_PREFIX.ERROR);
+      this.logger.error('Failed attach images step', {
+        sessionId,
+        errorReferenceCode,
+        error: error.message,
+      });
+      await this.persistence.createBatch({ erc: createERC(ERC_PREFIX.BATCH), sessionId, stepKey: S.ATTACH_IMAGES, status: 'FAILED' });
+    }
   }
 
   async _runAttachPdfsStep(sessionId) {
     const session = await this.persistence.getSession(sessionId);
     const { config, options, productDataList } = session.context;
-    await this.ctx.media.createPdfs(config, productDataList || [], { ...options, sessionId });
-    await this.completeSyncStep(sessionId, S.ATTACH_PDFS);
+    try {
+      await this.ctx.media.createPdfs(config, productDataList || [], { ...options, sessionId });
+      await this.completeSyncStep(sessionId, S.ATTACH_PDFS);
+    } catch (error) {
+      const errorReferenceCode = resolveErrorReference(error) || createERC(ERC_PREFIX.ERROR);
+      this.logger.error('Failed attach PDFs step', {
+        sessionId,
+        errorReferenceCode,
+        error: error.message,
+      });
+      await this.persistence.createBatch({ erc: createERC(ERC_PREFIX.BATCH), sessionId, stepKey: S.ATTACH_PDFS, status: 'FAILED' });
+    }
   }
 
   async _runUpdateInventoryStep(sessionId) {
@@ -578,10 +767,20 @@ class ProductGenerator extends BaseGenerator {
     const { config, options, productDataList } = session.context;
     const warehouses = options.warehouses || [];
     
-    if (warehouses.length > 0) {
-      await this.completeSyncStep(sessionId, S.UPDATE_INVENTORY);
-    } else {
-      await this.completeSyncStep(sessionId, S.UPDATE_INVENTORY, 'BYPASSED');
+    try {
+      if (warehouses.length > 0) {
+        await this.completeSyncStep(sessionId, S.UPDATE_INVENTORY);
+      } else {
+        await this.completeSyncStep(sessionId, S.UPDATE_INVENTORY, 'BYPASSED');
+      }
+    } catch (error) {
+      const errorReferenceCode = resolveErrorReference(error) || createERC(ERC_PREFIX.ERROR);
+      this.logger.error('Failed update inventory step', {
+        sessionId,
+        errorReferenceCode,
+        error: error.message,
+      });
+      await this.persistence.createBatch({ erc: createERC(ERC_PREFIX.BATCH), sessionId, stepKey: S.UPDATE_INVENTORY, status: 'FAILED' });
     }
   }
 

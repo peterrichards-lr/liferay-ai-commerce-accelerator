@@ -18,6 +18,24 @@ export default function CommerceCard({
 }) {
   const { config, setConfig } = useApp();
 
+  // Auto-selection Effect: Monitors selectedCatalog AND the newly loaded availableLanguages.
+  // When both are present, find the language in availableLanguages that matches 
+  // selectedCatalog.defaultLanguageId and automatically add it.
+  useEffect(() => {
+    if (!connected || !config.catalogId || languages.length === 0) return;
+
+    const selectedCatalog = catalogs.find(c => Number(c.id) === Number(config.catalogId));
+    if (!selectedCatalog || !selectedCatalog.defaultLanguageId) return;
+
+    const hasLanguage = languages.some(lang => lang.id === selectedCatalog.defaultLanguageId);
+    const alreadySelected = config.selectedLanguages?.includes(selectedCatalog.defaultLanguageId);
+
+    if (hasLanguage && !alreadySelected) {
+      const nextLangs = Array.from(new Set([...(config.selectedLanguages || []), selectedCatalog.defaultLanguageId]));
+      setConfig({ selectedLanguages: nextLangs });
+    }
+  }, [connected, config.catalogId, languages, catalogs, config.selectedLanguages, setConfig]);
+
   useEffect(() => {
     if (!connected) return;
     if (!config.catalogId && catalogs.length === 1) {

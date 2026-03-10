@@ -123,6 +123,9 @@ export function AppProvider({
       return fetchWithCache(key, () => api.post(GET_LANGUAGES, payload), {
         ttlMs: 30 * 60_000,
         force,
+      }).catch((err) => {
+        console.warn('Failed to fetch languages, returning empty array:', err);
+        return [];
       });
     },
     [api, config.microserviceUrl, config.liferayUrl]

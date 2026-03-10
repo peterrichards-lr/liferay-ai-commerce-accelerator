@@ -311,6 +311,11 @@ const WORKFLOW_STEPS = {
   CREATE_ORDERS: 'create-orders',
   SYNC_DELAY: 'sync-delay',
 
+  // Subflow Steps
+  SUBFLOW_ACCOUNTS: 'subflow-accounts',
+  SUBFLOW_PRODUCTS: 'subflow-products',
+  SUBFLOW_ORDERS: 'subflow-orders',
+
   // Cleanup/Deletion Steps
   RESET_CATALOG_CONFIG: 'reset-catalog-config',
   DELETE_ORDERS: 'delete-orders',

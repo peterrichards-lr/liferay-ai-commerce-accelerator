@@ -5,6 +5,7 @@ const {
   createERC,
   isoNow,
   now,
+  resolveErrorReference,
 } = require('../utils/misc.cjs');
 const { ERC_PREFIX, WORKFLOW_STEPS } = require('../utils/constants.cjs');
 
@@ -20,7 +21,44 @@ class OrderGenerator extends BaseGenerator {
     this.steps = {
       [S.GENERATE_ORDER_DATA]: this._runOrderDataGenerationStep.bind(this),
       [S.CREATE_ORDERS]: this._runOrderCreationStep.bind(this),
+      [S.SUBFLOW_ORDERS]: this._runSubflowOrdersStep.bind(this),
     };
+  }
+
+  async _runSubflowOrdersStep(sessionId) {
+    const session = await this.persistence.getSession(sessionId);
+    const { config, options } = session.context;
+
+    this.logger.info('Enqueuing generate-orders job for subflow', {
+      sessionId,
+      correlationId: session.correlationId,
+    });
+
+    try {
+      await this.ctx.queue.add('data-generation', 'generate-orders', {
+        config,
+        options: {
+          ...options,
+          count: options.orderCount || options.count || 1,
+        },
+        correlationId: session.correlationId,
+      });
+
+      await this.completeSyncStep(sessionId, S.SUBFLOW_ORDERS, 'SYNCHRONOUS');
+    } catch (error) {
+      const errorReferenceCode = resolveErrorReference(error) || createERC(ERC_PREFIX.ERROR);
+      this.logger.error(`Failed to enqueue orders subflow: ${error.message}`, {
+        sessionId,
+        errorReferenceCode,
+        error,
+      });
+      await this.persistence.createBatch({
+        erc: createERC(ERC_PREFIX.BATCH),
+        sessionId,
+        stepKey: S.SUBFLOW_ORDERS,
+        status: 'FAILED',
+      });
+    }
   }
 
   async generateOrders(config, options) {
@@ -100,9 +138,11 @@ class OrderGenerator extends BaseGenerator {
 
       await this.completeSyncStep(sessionId, S.GENERATE_ORDER_DATA, 'SYNCHRONOUS', orderDataList.length, orderDataList.length);
     } catch (error) {
+      const errorReferenceCode = resolveErrorReference(error) || createERC(ERC_PREFIX.ERROR);
       this.logger.error('Failed execution of generate-order-data step', {
         sessionId,
         correlationId: session.correlationId,
+        errorReferenceCode,
         error: error.message,
       });
       await this.persistence.createBatch({
@@ -173,9 +213,11 @@ class OrderGenerator extends BaseGenerator {
         );
       }
     } catch (error) {
+      const errorReferenceCode = resolveErrorReference(error) || createERC(ERC_PREFIX.ERROR);
       this.logger.error('Failed execution of create-orders step', {
         sessionId,
         correlationId: session.correlationId,
+        errorReferenceCode,
         error: error.message,
       });
       await this.persistence.createBatch({
@@ -204,7 +246,11 @@ class OrderGenerator extends BaseGenerator {
       const createdOrder = await this.liferay.createOrder(config, payload);
       return createdOrder;
     } catch (error) {
-      this.logger.error('Failed to create single order', { error: error.message });
+      const errorReferenceCode = resolveErrorReference(error) || createERC(ERC_PREFIX.ERROR);
+      this.logger.error('Failed to create single order', {
+        errorReferenceCode,
+        error: error.message
+      });
       throw error;
     }
   }
@@ -314,6 +360,7 @@ class OrderGenerator extends BaseGenerator {
 
   pickAccountId(requestedId, accounts) {
     if (requestedId && accounts.find((a) => a.id === requestedId)) return requestedId;
+    if (accounts.length === 0) throw new Error('No accounts found to pick from.');
     return accounts[Math.floor(Math.random() * accounts.length)].id;
   }
 
@@ -334,6 +381,11 @@ class OrderGenerator extends BaseGenerator {
     }
     const products = productsRes.items || [];
     return { products, accounts };
+  }
+
+  async handleBatchCallback(sessionId, batchERC) {
+    this.logger.debug(`Batch callback received for order generation session ${sessionId}`, { batchERC });
+    return true;
   }
 }
 

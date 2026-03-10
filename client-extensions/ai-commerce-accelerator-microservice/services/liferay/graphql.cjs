@@ -95,8 +95,9 @@ class LiferayGraphQLService {
     const client = await this._getClient(config);
     const fieldSelection = fields.join(' ');
     
-    // Proper OData escaping for GraphQL string argument
-    const escapedFilter = filter ? filter.replace(/"/g, '\\"') : null;
+    // Safety: ensure filter is a string and properly escaped for the GraphQL query string
+    const safeFilter = (typeof filter === 'string') ? filter : '';
+    const escapedFilter = safeFilter.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
     const filterArg = escapedFilter ? `, filter: "${escapedFilter}"` : '';
     
     const { page = 1, pageSize = 200 } = pagination;
@@ -117,7 +118,15 @@ class LiferayGraphQLService {
     try {
       const response = await client.post('', { query });
       if (response.data.errors) {
-        throw new Error(`GraphQL Errors in ${queryMethod}: ${JSON.stringify(response.data.errors)}`);
+        // Log individual errors for easier debugging of DataFetchingException
+        response.data.errors.forEach(err => {
+           this.ctx.logger.warn(`GraphQL Error in ${queryMethod}: ${err.message}`, { 
+             path: err.path,
+             namespace,
+             queryMethod
+           });
+        });
+        throw new Error(`GraphQL Errors in ${queryMethod}: ${response.data.errors[0].message}`);
       }
       return response.data.data[namespace][queryMethod];
     } catch (error) {
@@ -155,7 +164,7 @@ class LiferayGraphQLService {
       config,
       'headlessAdminAddress_v1_0',
       'countries',
-      ['id', 'a2', 'name', 'title_i18n']
+      ['id', 'a2', 'name']
     );
   }
 
@@ -182,6 +191,33 @@ class LiferayGraphQLService {
       return response.data.data.headlessDelivery_v1_0.languages;
     } catch (error) {
       this.ctx.logger.error(`GraphQL getLanguages failed for site ${siteKey}`, { error: error.message });
+      throw error;
+    }
+  }
+
+  async getSiteLanguages(config, siteKey) {
+    const client = await this._getClient(config);
+    const query = `
+      query {
+        headlessDelivery_v1_0 {
+          languages(siteKey: "${siteKey}") {
+            items {
+              id
+              name
+              markedAsDefault
+            }
+            totalCount
+          }
+        }
+      }
+    `;
+
+    try {
+      const response = await client.post('', { query });
+      if (response.data.errors) throw new Error(JSON.stringify(response.data.errors));
+      return response.data.data.headlessDelivery_v1_0.languages;
+    } catch (error) {
+      this.ctx.logger.error(`GraphQL getSiteLanguages failed for site ${siteKey}`, { error: error.message });
       throw error;
     }
   }
@@ -213,19 +249,26 @@ class LiferayGraphQLService {
   }
 
   async getWarehouses(config, filter, fields, opts) {
-    return this._fetchCollection(config, 'headlessCommerceAdminInventory_v1_0', 'warehouses', fields, opts, filter);
+    // Simplify warehouses discovery fields
+    const discoveryFields = fields || ['id', 'externalReferenceCode', 'name'];
+    return this._fetchCollection(config, 'headlessCommerceAdminInventory_v1_0', 'warehouses', discoveryFields, opts, filter);
   }
 
   async getProducts(config, filter, fields, opts) {
-    return this._fetchCollection(config, 'headlessCommerceAdminCatalog_v1_0', 'products', fields, opts, filter);
+    // Simplify products discovery fields to avoid deep object fetching
+    const discoveryFields = fields || ['id', 'externalReferenceCode', 'productId', 'name'];
+    return this._fetchCollection(config, 'headlessCommerceAdminCatalog_v1_0', 'products', discoveryFields, opts, filter);
   }
 
   async getAccounts(config, filter, fields, opts) {
-    return this._fetchCollection(config, 'headlessAdminUser_v1_0', 'accounts', fields, opts, filter);
+    const discoveryFields = fields || ['id', 'externalReferenceCode', 'name'];
+    return this._fetchCollection(config, 'headlessAdminUser_v1_0', 'accounts', discoveryFields, opts, filter);
   }
 
   async getOrders(config, filter, fields, opts) {
-    return this._fetchCollection(config, 'headlessCommerceAdminOrder_v1_0', 'orders', fields, opts, filter);
+    // Simplify orders discovery fields
+    const discoveryFields = fields || ['id', 'externalReferenceCode', 'orderNumber'];
+    return this._fetchCollection(config, 'headlessCommerceAdminOrder_v1_0', 'orders', discoveryFields, opts, filter);
   }
 
   async getOptions(config, filter, fields, opts) {
@@ -251,7 +294,9 @@ class LiferayGraphQLService {
   async getWarehouseItems(config, warehouseId, filter, fields, opts) {
     const client = await this._getClient(config);
     const fieldSelection = fields.join(' ');
-    const filterArg = filter ? `, filter: "${filter}"` : '';
+    const safeFilter = (typeof filter === 'string') ? filter : '';
+    const escapedFilter = safeFilter.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
+    const filterArg = escapedFilter ? `, filter: "${escapedFilter}"` : '';
     const { page = 1, pageSize = 200 } = opts || {};
 
     const query = `
@@ -269,7 +314,7 @@ class LiferayGraphQLService {
 
     try {
       const response = await client.post('', { query });
-      if (response.data.errors) throw new Error(JSON.stringify(response.data.errors));
+      if (response.data.errors) throw new Error(response.data.errors[0].message);
       return response.data.data.headlessCommerceAdminInventory_v1_0.warehouseIdWarehouseItems;
     } catch (error) {
       this.ctx.logger.error(`GraphQL getWarehouseItems failed for warehouse ${warehouseId}`, { error: error.message });
@@ -347,6 +392,70 @@ class LiferayGraphQLService {
       ercs,
       fields
     );
+  }
+
+  async getOptionsByProductIds(config, productIds, fields = ['id', 'externalReferenceCode', 'name']) {
+    if (!productIds || productIds.length === 0) return [];
+    
+    const client = await this._getClient(config);
+    const fieldSelection = fields.join(' ');
+    
+    const query = `
+      query {
+        headlessCommerceAdminCatalog_v1_0 {
+          products(filter: "id in (${productIds.join(',')})") {
+            items {
+              productOptions {
+                ${fieldSelection}
+              }
+            }
+          }
+        }
+      }
+    `;
+
+    try {
+      const response = await client.post('', { query });
+      if (response.data.errors) throw new Error(JSON.stringify(response.data.errors));
+      
+      const products = response.data.data.headlessCommerceAdminCatalog_v1_0.products.items;
+      return products.flatMap(p => p.productOptions || []);
+    } catch (error) {
+      this.ctx.logger.error(`GraphQL getOptionsByProductIds failed`, { error: error.message });
+      throw error;
+    }
+  }
+
+  async getSpecificationsByProductIds(config, productIds, fields = ['id', 'externalReferenceCode', 'title']) {
+    if (!productIds || productIds.length === 0) return [];
+    
+    const client = await this._getClient(config);
+    const fieldSelection = fields.join(' ');
+    
+    const query = `
+      query {
+        headlessCommerceAdminCatalog_v1_0 {
+          products(filter: "id in (${productIds.join(',')})") {
+            items {
+              productSpecifications {
+                ${fieldSelection}
+              }
+            }
+          }
+        }
+      }
+    `;
+
+    try {
+      const response = await client.post('', { query });
+      if (response.data.errors) throw new Error(JSON.stringify(response.data.errors));
+      
+      const products = response.data.data.headlessCommerceAdminCatalog_v1_0.products.items;
+      return products.flatMap(p => p.productSpecifications || []);
+    } catch (error) {
+      this.ctx.logger.error(`GraphQL getSpecificationsByProductIds failed`, { error: error.message });
+      throw error;
+    }
   }
 }
 

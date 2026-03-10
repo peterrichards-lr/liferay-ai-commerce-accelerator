@@ -27,7 +27,7 @@ class QueueService {
     this.queues = new Map();
     this.jobs = new Map();
     this.workers = new Map();
-    this.defaultQueue = 'default';
+    this.defaultQueue = 'data-generation';
 
     this.config = {
       defaults: {
@@ -64,9 +64,8 @@ class QueueService {
       this.applyConfig(cached);
     }
 
-    this.createQueue('data-generation');
-    this.createQueue('pdf-generation', { concurrency: 1 });
-    this.createQueue('notification', { concurrency: 5, retries: 1 });
+    this.createQueue('data-generation', { concurrency: 2 });
+    this.createQueue('batch-callback', { concurrency: 10, retries: 5 });
 
     this.startProcessing();
   }
