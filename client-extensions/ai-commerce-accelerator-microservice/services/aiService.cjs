@@ -1,5 +1,3 @@
-const Ajv = require('ajv');
-const addFormats = require('ajv-formats');
 const OpenAI = require('openai');
 const {
   pluralize,
@@ -8,9 +6,6 @@ const {
 } = require('../utils/promptHelpers.cjs');
 const { createERC, tryParseJSON } = require('../utils/misc.cjs');
 const { ERC_PREFIX } = require('../utils/constants.cjs');
-
-const ajv = new Ajv({ removeAdditional: true });
-addFormats(ajv);
 
 class AIService {
   constructor(ctx) {
@@ -187,58 +182,11 @@ class AIService {
         schemaName
       );
 
-      if (logger && logger.trace && processedCandidate !== null) {
-        logger.trace('AIService._chatJson parsed response preview', {
-          task,
-          parsedPreview: Array.isArray(processedCandidate)
-            ? processedCandidate.slice(0, 3)
-            : processedCandidate,
-          correlationId: requestConfig.correlationId,
-        });
-      }
-
-      if (schema) {
-        const validate = ajv.compile(schema);
-        const valid = validate(processedCandidate);
-
-        if (!valid) {
-          if (logger && logger.trace) {
-            logger.trace('AIService._chatJson schema validation failed', {
-              task,
-              errors: validate.errors,
-              validatedCandidate: JSON.stringify(processedCandidate, null, 2),
-              correlationId: requestConfig.correlationId,
-            });
-          }
-
-          const err = new Error(
-            `AI output for task "${task}" failed schema validation.`
-          );
-          err.errors = validate.errors;
-          throw err;
-        }
-
-        const mainPropertyName = schemaName + 's';
-        if (
-          schema.properties &&
-          schema.properties[mainPropertyName] &&
-          Array.isArray(processedCandidate[mainPropertyName])
-        ) {
-          return processedCandidate[mainPropertyName];
-        }
-
-        if (schema.type === 'array' && Array.isArray(processedCandidate)) {
-          return processedCandidate;
-        }
-        return processedCandidate;
-      }
-
       return processedCandidate;
     } catch (error) {
       logger?.error?.(`AIService._chatJson failed for ${task}:`, {
         message: error.message,
         stack: error.stack,
-        errors: error.errors,
       });
       throw error;
     }
@@ -352,19 +300,13 @@ class AIService {
       };
 
       const promptContent = await prompt.render('product', vars, requestConfig);
-      const result = await this._chatJson(
+      return await this._chatJson(
         'product',
         promptContent,
         requestConfig,
         model,
         'product'
       );
-
-      const products = Array.isArray(result)
-        ? result
-        : result.products || [result];
-
-      return products;
     } catch (error) {
       const errorReference =
         error.errorReference || createERC(ERC_PREFIX.ERROR);
@@ -387,30 +329,39 @@ class AIService {
     }
   }
 
-  async generateAccountData(count = 1, requestConfig, model, categories = []) {
+  async generateAccountData(
+    count = 1,
+    requestConfig,
+    model,
+    categories = [],
+    selectedLanguages = ['en-US']
+  ) {
     const { logger, prompt } = this.ctx;
     const correlationId = requestConfig?.correlationId;
     try {
+      const langs =
+        Array.isArray(selectedLanguages) && selectedLanguages.length
+          ? selectedLanguages
+          : ['en-US'];
+
+      const languageCodes = langs.map((l) => l.replace('-', '_'));
+
       const vars = {
         count,
         pluralSuffix: pluralize(count),
         categories: categories.join(', '),
+        languageList: joinList(langs),
+        languageCodesCSV: languageCodes.join(', '),
       };
 
       const promptContent = await prompt.render('account', vars, requestConfig);
-      const result = await this._chatJson(
+      return await this._chatJson(
         'account',
         promptContent,
         requestConfig,
         model,
         'account'
       );
-
-      const accounts = Array.isArray(result)
-        ? result
-        : result.accounts || [result];
-
-      return accounts;
     } catch (error) {
       const errorReference =
         error.errorReference || createERC(ERC_PREFIX.ERROR);
@@ -433,10 +384,24 @@ class AIService {
     }
   }
 
-  async generateOrderData(products, accounts, count = 1, requestConfig, model) {
+  async generateOrderData(
+    products,
+    accounts,
+    count = 1,
+    requestConfig,
+    model,
+    selectedLanguages = ['en-US']
+  ) {
     const { logger, prompt } = this.ctx;
     const correlationId = requestConfig?.correlationId;
     try {
+      const langs =
+        Array.isArray(selectedLanguages) && selectedLanguages.length
+          ? selectedLanguages
+          : ['en-US'];
+
+      const languageCodes = langs.map((l) => l.replace('-', '_'));
+
       const productList = products
         .map((p) => ({
           name: p.name?.en_US || p.name,
@@ -457,20 +422,18 @@ class AIService {
         pluralSuffix: pluralize(count),
         productListJSON: JSON.stringify(productList, null, 2),
         accountListJSON: JSON.stringify(accountList, null, 2),
+        languageList: joinList(langs),
+        languageCodesCSV: languageCodes.join(', '),
       };
 
       const promptContent = await prompt.render('order', vars, requestConfig);
-      const result = await this._chatJson(
+      return await this._chatJson(
         'order',
         promptContent,
         requestConfig,
         model,
         'order'
       );
-
-      const orders = Array.isArray(result) ? result : result.orders || [result];
-
-      return orders;
     } catch (error) {
       const errorReference =
         error.errorReference || createERC(ERC_PREFIX.ERROR);
@@ -491,13 +454,27 @@ class AIService {
     }
   }
 
-  async generateWarehouseData(count = 1, requestConfig, model) {
+  async generateWarehouseData(
+    count = 1,
+    requestConfig,
+    model,
+    selectedLanguages = ['en-US']
+  ) {
     const { logger, prompt } = this.ctx;
     const correlationId = requestConfig?.correlationId;
     try {
+      const langs =
+        Array.isArray(selectedLanguages) && selectedLanguages.length
+          ? selectedLanguages
+          : ['en-US'];
+
+      const languageCodes = langs.map((l) => l.replace('-', '_'));
+
       const vars = {
         count,
         pluralSuffix: pluralize(count),
+        languageList: joinList(langs),
+        languageCodesCSV: languageCodes.join(', '),
       };
 
       const promptContent = await prompt.render(
@@ -505,19 +482,13 @@ class AIService {
         vars,
         requestConfig
       );
-      const result = await this._chatJson(
+      return await this._chatJson(
         'warehouse',
         promptContent,
         requestConfig,
         model,
         'warehouse'
       );
-
-      const warehouses = Array.isArray(result)
-        ? result
-        : result.warehouses || [result];
-
-      return warehouses;
     } catch (error) {
       const errorReference =
         error.errorReference || createERC(ERC_PREFIX.ERROR);
@@ -591,7 +562,8 @@ class AIService {
     products,
     pricingType = 'standard',
     requestConfig,
-    model
+    model,
+    selectedLanguages = ['en-US']
   ) {
     const { logger, prompt } = this.ctx;
     const correlationId = requestConfig?.correlationId;
@@ -609,14 +581,13 @@ class AIService {
       };
 
       const promptContent = await prompt.render('pricing', vars, requestConfig);
-      const obj = await this._chatJson(
+      return await this._chatJson(
         'pricing',
         promptContent,
         requestConfig,
-        model
+        model,
+        'pricing'
       );
-
-      return obj;
     } catch (error) {
       const errorReference =
         error.errorReference || createERC(ERC_PREFIX.ERROR);

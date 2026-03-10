@@ -66,22 +66,22 @@ module.exports = (ws) => {
     logger,
   });
   ctx.media = new MediaGenerator(ctx);
+  const { GenerationFacade } = require('./services/generationFacade.cjs');
+  ctx.generation = new GenerationFacade(ctx);
 
-  // Instantiate individual generators first
+  // Instantiate individual generators
   ctx.warehouseGenerator = new WarehouseGenerator(ctx);
   ctx.accountGenerator = new AccountGenerator(ctx);
   ctx.orderGenerator = new OrderGenerator(ctx);
   ctx.productGenerator = new ProductGenerator(ctx);
-
-  const entityGeneratorCtx = {
-    ...ctx,
-    warehouseGenerator: ctx.warehouseGenerator,
-    accountGenerator: ctx.accountGenerator,
-    orderGenerator: ctx.orderGenerator,
-    productGenerator: ctx.productGenerator,
-  };
-
   ctx.deleteCoordinator = new DeleteCoordinatorService(ctx);
+
+  // Register generators with the callback dispatcher
+  ctx.batchCallback.registerGenerator('warehouse', ctx.warehouseGenerator);
+  ctx.batchCallback.registerGenerator('account', ctx.accountGenerator);
+  ctx.batchCallback.registerGenerator('order', ctx.orderGenerator);
+  ctx.batchCallback.registerGenerator('product', ctx.productGenerator);
+  ctx.batchCallback.registerGenerator('delete', ctx.deleteCoordinator);
 
   ctx.queue = new QueueService({
     logger,

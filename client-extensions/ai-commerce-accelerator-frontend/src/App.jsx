@@ -123,6 +123,8 @@ export function AppUI() {
   const setProgress = useCallback((arg) => {
     if (typeof arg === 'function') {
       dispatch({ type: 'APPLY_UPDATER', updater: arg });
+    } else if (arg && arg.type) {
+      dispatch(arg);
     } else {
       dispatch({ type: 'MERGE', payload: arg });
     }
@@ -163,6 +165,7 @@ export function AppUI() {
     categories,
     buildPayload,
     selectChannel,
+    selectCatalog,
     testConnection,
     handleDeleteAllCommerceData,
     handleDeleteSelectedCommerceData,
@@ -602,6 +605,7 @@ export function AppUI() {
                     languages={languages}
                     currencies={currencies}
                     onSelectChannel={selectChannel}
+                    onSelectCatalog={selectCatalog}
                     commerceConfigured={commerceConfigured}
                     onOpenAiKeyStatusChange={setOpenAiKeyAvailable}
                     openAiKeyAvailable={openAiKeyAvailable}

@@ -674,6 +674,11 @@ class LiferayRestService {
     return asItems(data);
   }
 
+  async getLanguages(config) {
+    const data = await this._get(config, PATH.BASE.LANGUAGES, 'get-languages');
+    return asItems(data);
+  }
+
   async getProductCount(config) {
     let url =
       PATH.PRODUCTS +
@@ -1231,15 +1236,6 @@ class LiferayRestService {
     }));
   }
 
-  async getSiteLanguages(config, siteGroupId) {
-    const data = await this._get(
-      config,
-      PATH.SITE_LANGUAGES(siteGroupId),
-      'get-site-languages'
-    );
-    return asItems(data);
-  }
-
   async createProduct(config, productData) {
     const { logger } = this.ctx;
     if (!productData.catalogId && config.catalogId) {
@@ -1589,13 +1585,26 @@ class LiferayRestService {
     }
   }
 
-  async getPriceLists(config, { filter, page, pageSize, search, sort } = {}) {
+  async getPriceLists(config, { filter, page, pageSize, search, sort, catalogId } = {}) {
     const params = { filter, page, pageSize, search, sort };
-    return await this._get(
+    const res = await this._get(
       config,
       PATH.PRICE_LISTS + q(params),
       'get-price-lists'
     );
+
+    if (catalogId && res.items) {
+      const filteredItems = res.items.filter(
+        (pl) => parseInt(pl.catalogId, 10) === parseInt(catalogId, 10)
+      );
+      return {
+        ...res,
+        items: filteredItems,
+        totalCount: filteredItems.length,
+      };
+    }
+
+    return res;
   }
 
   async getPriceEntries(config, priceListId, { filter, page, pageSize } = {}) {

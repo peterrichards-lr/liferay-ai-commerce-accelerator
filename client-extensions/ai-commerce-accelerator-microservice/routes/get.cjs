@@ -144,7 +144,7 @@ module.exports = (app, { liferayService, logger }) => {
           throw new Error('siteGroupId is required');
         }
 
-        const languages = await liferayService.getSiteLanguages(
+        const languages = await liferayService.getLanguages(
           config,
           siteGroupId
         );

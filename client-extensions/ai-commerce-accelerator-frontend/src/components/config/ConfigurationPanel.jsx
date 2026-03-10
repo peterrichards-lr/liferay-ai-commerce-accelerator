@@ -17,6 +17,7 @@ export default function ApplicationConfigPanel({
   languages = [],
   currencies = [],
   onSelectChannel,
+  onSelectCatalog,
   connectionErrors = [],
   commerceErrors = [],
   onErrorsChange,
@@ -55,6 +56,7 @@ export default function ApplicationConfigPanel({
         currencies={currencies}
         connected={!!connected}
         onSelectChannel={onSelectChannel}
+        onSelectCatalog={onSelectCatalog}
         commerceConfigured={commerceConfigured}
         errors={commerceErrors}
       />

@@ -23,7 +23,7 @@ task generateBatchFiles (type: DefaultTask)
 
 generateBatchFiles {
 	group = 'build'
-	description = 'Generates Liferay batch engine files from AI schemas and prompts.'
+	description = 'Generates Liferay batch engine files from generation schemas and AI prompts.'
 
 	doFirst {
 		def batchDir = file("$rootDir/client-extensions/ai-commerce-accelerator-batch/batch")
@@ -31,7 +31,7 @@ generateBatchFiles {
 		if (batchDir.exists()) {
 			batchDir.eachFile {
 				file ->
-				if (file.name.contains("-object-entry-ai-schema-") || file.name.contains("-object-entry-ai-prompt-")) {
+				if (file.name.contains("-object-entry-generation-schema-") || file.name.contains("-object-entry-ai-prompt-")) {
 					logger.debug("Deleting ${file.name}")
 					file.delete()
 
@@ -58,7 +58,7 @@ generateBatchFiles {
 		int fileIndex = 4
 
 		// --- Schemas ---
-		def schemaDir = file("$microserviceDir/ai-schemas")
+		def schemaDir = file("$microserviceDir/generation-schemas")
 		if (schemaDir.exists()) {
 			entities.each {
 				entity ->

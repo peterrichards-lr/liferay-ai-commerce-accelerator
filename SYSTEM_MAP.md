@@ -1,0 +1,104 @@
+# Liferay AI Commerce Accelerator - System Map
+
+This document defines the architectural responsibilities and data flow for the entire Liferay AI Commerce Accelerator suite, detailing each client extension as a specialized subsystem.
+
+## 1. Workspace Overview
+The project is a multi-module Liferay Workspace using a headless-first architecture. A central microservice orchestrates data operations, while multiple UI and resource extensions handle presentation, configuration, and environment bootstrapping.
+
+---
+
+## 2. Subsystems
+
+### 🚀 Microservice Subsystem (`ai-commerce-accelerator-microservice`)
+**Role**: The central orchestrator and backend engine.
+- **Responsibilities**: Workflow execution, AI integration (Gemini/OpenAI), Liferay Headless API coordination, and real-time state broadcasting via WebSockets.
+- **Core Directories**:
+    - `generators/`: Defines the business logic and step sequences for entity creation/deletion (e.g., `ProductGenerator.cjs`).
+    - `services/`: Core logic providers like `BatchCallbackService.cjs` (state machine), `LiferayService` (API facade), and `PersistenceService.cjs` (SQLite manager).
+    - `routes/`: Express endpoints for initiating workflows and receiving Liferay batch callbacks.
+    - `utils/`: Shared constants (`constants.cjs`) and API path helpers (`liferayPaths.cjs`).
+    - `data/`: Location of `workflows.db` (SQLite source of truth).
+- **Stack**: Node.js (Express), SQLite (Better-SQLite3).
+
+### 🖥️ Frontend Subsystem (`ai-commerce-accelerator-frontend`)
+**Role**: The primary control plane for the accelerator.
+- **Responsibilities**: Subscribing to microservice WebSockets, displaying multi-step progress bars, and providing the user interface for generating and deleting data.
+- **Core Directories**:
+    - `src/components/`: Modular UI elements like `ProgressBar`, `StatusIndicator`, and `ControlPanel`.
+    - `src/hooks/`: Custom React hooks for WebSocket communication and session management.
+- **Integration**: Embedded into Liferay via the `fragments/` wrapper.
+- **Stack**: React, Vite.
+
+### ⚙️ Configuration Subsystem (`ai-commerce-accelerator-configuration`)
+**Role**: Administrative and settings management.
+- **Responsibilities**: Providing a UI for managing AI credentials (API keys), prompt templates, and global generator thresholds.
+- **Persistence**: Stores settings in Liferay Objects, retrieved by the Microservice at runtime.
+- **Stack**: React (Client Extension).
+
+### 📦 Batch Subsystem (`ai-commerce-accelerator-batch`)
+**Role**: Structural and metadata definition.
+- **Responsibilities**: Defining the Liferay Object folders, definitions, and entries required for the system's own configuration and auditing.
+- **Key Files**: `batch/*.json` (Batch Engine descriptors for system entities).
+
+### 🏗️ Site Initializer Subsystem (`ai-commerce-accelerator-site-initialiser`)
+**Role**: Environment bootstrapping.
+- **Responsibilities**: Automatically provisioning the initial Liferay Site, Commerce Catalogs, and Channels required for the accelerator to operate on a fresh Liferay instance.
+
+---
+
+## 3. Shared Resources
+
+### `/fragments`
+- **Fragment Wrapper**: A Liferay Page Fragment that hosts the Frontend UI, ensuring CSS/JS scoping and Liferay theme compatibility.
+
+### Schemas (`/api-schemas` & `/ai-schemas`)
+- **`api-schemas/`**: Authoritative OpenAPI and GraphQL definitions from Liferay, used for request validation and SDK generation.
+- **`ai-schemas/`**: JSON schemas that define the data contract between AI models and the microservice generators.
+
+---
+
+## 4. Cross-Subsystem Workflows
+
+### Data Generation Workflow
+1. **Frontend**: User initiates a request.
+2. **Microservice**: Creates a `workflow_session` in SQLite and starts a `Generator`.
+3. **Microservice -> Liferay**: Submits asynchronous batches; persists state *before* submission.
+4. **Liferay -> Microservice**: Sends batch callbacks to the `batch.cjs` route.
+5. **Microservice -> Frontend**: `BatchCallbackService` advances the state and broadcasts `PROGRESS` events via WebSockets.
+6. **Frontend**: Updates progress bars and status displays for the user.
+
+### Environment Deletion Workflow
+1. **Microservice**: `DeleteCoordinatorService` executes a fixed, dependency-aware sequence:
+   *Reset Config -> Orders -> Warehouses -> Accounts -> Products -> Pricing.*
+2. **Persistence**: Ensures referential integrity is maintained throughout the cleanup process.
+
+---
+
+## 5. WebSocket Event Contract
+The Microservice and Frontend communicate via WebSockets using a hierarchical **Scope/Status** model. This ensures real-time, granular feedback for long-running workflows.
+
+### Event Structure (JSON)
+All `PROGRESS` packets MUST follow this structure:
+```json
+{
+  "type": "STARTED | PROGRESS | COMPLETED | FAILED",
+  "scope": "session | step | batch",
+  "entityType": "products | accounts | orders | warehouses | images | pdfs",
+  "operation": "generate | delete | process-images | process-attachments",
+  "sessionId": "SESS-123",
+  "batchId": "456",
+  "processedCount": 50,
+  "totalCount": 100,
+  "error": "Optional error message or object",
+  "correlationId": "CID-789"
+}
+```
+
+### Critical Sync Rule
+Any change to the event emission logic in `ProgressService.cjs` (Server) MUST be matched by a corresponding update in `progressReducer.js` and `useRealtimeWebSocket.js` (Frontend).
+
+### Logic Mapping
+- **`STARTED` (session)**: Triggers `RESET_ALL` in the frontend to initialize progress bars.
+- **`PROGRESS` (batch/step)**: Triggers `SET_COMPLETED` using `processedCount`.
+- **`COMPLETED` (step)**: Marks the `entityType` as 100% complete.
+- **`FAILED`**: Propagates errors to the `ADD_ERRORS` action for UI display.

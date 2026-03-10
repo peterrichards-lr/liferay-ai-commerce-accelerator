@@ -661,3 +661,37 @@
 **Issue**: Price entries and inventory records are reported as missing despite successful batches.
 **Analysis**: Race conditions between batch callbacks and subsequent retrieval steps.
 **Result**: **FIXED**. Implemented `_verifyPricing` and `_verifyInventory` polling loops in `ProductGenerator.cjs`. These are triggered by `BatchCallbackService` after successful batch completion to ensure data is visible to Liferay's indexing layer before the workflow proceeds.
+
+---
+
+## 52. Workflow Failures & Schema Adherence (Mar 2)
+
+### [ ] Fix GraphQL Validation Error in SKU Resolution (PRIORITY 1)
+
+**Issue**: The 'resolve-sku-ids' step fails with a critical GraphQL validation error.
+**Analysis**: The logs report: `Unknown field argument 'externalReferenceCode'` for the 'skus' query in the 'headlessCommerceAdminCatalog_v1_0' namespace. The `_fetchByERCs` utility assumes all plural queries support this argument, but Liferay's SKU API appears to require a different filtering or lookup pattern (e.g., using the 'filter' argument or product-scoped queries).
+**Steps**:
+1. Investigate the GraphQL schema for the correct way to query multiple SKUs by ERC.
+2. Update `LiferayGraphQLService.getSkusByERC` or the generic `_fetchByERCs` utility to handle this exception.
+
+### [ ] Align Mock Account Data with Schema (PRIORITY 1)
+
+**Issue**: Mock account generation fails schema validation in Demo Mode.
+**Analysis**: The `account.json` schema requires the `accountContactInformation` property (including emailAddresses), but `MockDataGenerator.generateAccountData` does not provide it.
+**Steps**:
+1. Update `MockDataGenerator.cjs` to include a valid `accountContactInformation` block for all generated accounts.
+
+### [ ] Investigate Price List Retrieval Failure (HTTP Error)
+
+**Issue**: The 'generate-tier-pricing' step fails when calling 'get-price-lists'.
+**Analysis**: Logs show `LiferayRequestError: get-price-lists` (HTTP error) during the `_ensurePriceLists` phase. This may be due to a timeout, a 404 on a scoped resource, or a 500 error in Liferay's Pricing REST controller.
+**Steps**:
+1. Verify if the catalog ID is being passed correctly.
+2. Add more granular logging to `rest.cjs` to capture the specific HTTP status and response body for this failure.
+
+### [ ] Resolve Session Check Race Condition
+
+**Issue**: Logs show frequent "Session already being processed, marked as dirty" warnings.
+**Analysis**: Concurrent callbacks for different batches in the same session are triggering `_checkSessionCompletion` simultaneously. While the "dirty" flag mechanism prevents some data loss, it indicates a lack of proper locking or atomic state transitions in `BatchCallbackService`, which could lead to skipped steps or duplicate transitions.
+**Steps**:
+1. Implement a more robust concurrency control (e.g., a mutex or atomic update lock) for session state transitions in `BatchCallbackService`.

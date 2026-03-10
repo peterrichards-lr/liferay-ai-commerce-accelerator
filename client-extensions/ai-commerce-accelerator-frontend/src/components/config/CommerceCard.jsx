@@ -12,6 +12,7 @@ export default function CommerceCard({
   currencies = [],
   connected = false,
   onSelectChannel,
+  onSelectCatalog,
   commerceConfigured,
   errors,
 }) {
@@ -20,9 +21,9 @@ export default function CommerceCard({
   useEffect(() => {
     if (!connected) return;
     if (!config.catalogId && catalogs.length === 1) {
-      setConfig({ catalogId: Number(catalogs[0].id) });
+      onSelectCatalog?.(Number(catalogs[0].id));
     }
-  }, [connected, catalogs, config.catalogId, setConfig]);
+  }, [connected, catalogs, config.catalogId, onSelectCatalog]);
 
   useEffect(() => {
     if (!connected) return;
@@ -30,29 +31,6 @@ export default function CommerceCard({
       onSelectChannel?.(Number(channels[0].id));
     }
   }, [connected, channels, config.channelId, onSelectChannel]);
-
-  useEffect(() => {
-    if (!connected || !config.channelId) return;
-    const noneSelected =
-      !Array.isArray(config.selectedLanguages) ||
-      config.selectedLanguages.length === 0;
-    if (noneSelected && languages.length === 1) {
-      setConfig({ selectedLanguages: [languages[0].id] });
-    }
-  }, [
-    connected,
-    config.channelId,
-    languages,
-    config.selectedLanguages,
-    setConfig,
-  ]);
-
-  useEffect(() => {
-    if (!connected || !config.channelId) return;
-    if (!config.currencyCode && currencies.length === 1) {
-      setConfig({ currencyCode: currencies[0].code });
-    }
-  }, [connected, config.channelId, currencies, config.currencyCode, setConfig]);
 
   return (
     <ClayCard className="p-4">
@@ -79,9 +57,10 @@ export default function CommerceCard({
               aria-label="Catalog"
               value={config.catalogId || ''}
               disabled={disabled}
-              onChange={(e) =>
-                setConfig({ catalogId: Number(e.target.value) || null })
-              }
+              onChange={(e) => {
+                const id = Number(e.target.value) || null;
+                onSelectCatalog?.(id);
+              }}
             >
               <ClaySelect.Option value="">Select a catalog…</ClaySelect.Option>
               {catalogs.map((c) => (

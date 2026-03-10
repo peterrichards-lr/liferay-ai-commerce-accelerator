@@ -21,7 +21,7 @@ module.exports = async function resetCatalogConfiguration(
       });
 
       const res = await liferay.getPriceLists(config, {
-        filter: `catalogId eq ${catalogId}`,
+        catalogId,
         type: null, // Get all types
         ignoreExclusions: true,
         pageSize: 1000,

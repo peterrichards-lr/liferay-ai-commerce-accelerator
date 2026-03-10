@@ -11,8 +11,10 @@ const {
   inputValidationMiddleware,
 } = require('../middleware/securityMiddleware.cjs');
 const { handleError } = require('../utils/handleErrorHelper.cjs');
-const { ERC_PREFIX } = require('../utils/constants.cjs');
+const { ERC_PREFIX, WORKFLOW_STEPS } = require('../utils/constants.cjs');
 const { resolveErrorReference, createERC } = require('../utils/misc.cjs');
+
+const S = WORKFLOW_STEPS;
 
 const upload = multer({
   storage: multer.memoryStorage(),
@@ -78,56 +80,51 @@ module.exports = (
         const orderSteps = [];
 
         if (options.productCount > 0) {
-          productSteps.push({ name: 'generate-warehouses', type: 'sync' });
-          productSteps.push({ name: 'resolve-warehouse-ids', type: 'sync' });
-          productSteps.push({ name: 'product-data-generation', type: 'sync' });
-          productSteps.push({ name: 'products', type: 'sync' });
-          productSteps.push({ name: 'resolve-product-ids', type: 'sync' });
-          productSteps.push({ name: 'link-product-options', type: 'sync' });
-          productSteps.push({ name: 'product-skus', type: 'sync' });
-          productSteps.push({ name: 'resolve-sku-ids', type: 'sync' });
-          productSteps.push({ name: 'generate-price-lists', type: 'sync' });
+          productSteps.push({ name: S.CREATE_WAREHOUSES, type: 'sync' });
+          productSteps.push({ name: S.RESOLVE_WAREHOUSE_IDS, type: 'sync' });
+          productSteps.push({ name: S.GENERATE_PRODUCT_DATA, type: 'sync' });
+          productSteps.push({ name: S.CREATE_PRODUCTS, type: 'sync' });
+          productSteps.push({ name: S.RESOLVE_PRODUCT_IDS, type: 'sync' });
+          productSteps.push({ name: S.LINK_PRODUCT_OPTIONS, type: 'sync' });
+          productSteps.push({ name: S.CREATE_PRODUCT_SKUS, type: 'sync' });
+          productSteps.push({ name: S.RESOLVE_SKU_IDS, type: 'sync' });
+          productSteps.push({ name: S.SYNC_DELAY, type: 'sync' });
+          productSteps.push({ name: S.GENERATE_PRICE_LISTS, type: 'sync' });
 
           if (options.generatePriceLists) {
-            productSteps.push({
-              name: 'update-catalog-configuration',
-              type: 'sync',
-            });
+            productSteps.push({ name: S.UPDATE_CATALOG_CONFIG, type: 'sync' });
           }
 
           if (options.generateBulkPricing) {
-            productSteps.push({ name: 'generate-bulk-pricing', type: 'sync' });
+            productSteps.push({ name: S.GENERATE_BULK_PRICING, type: 'sync' });
           }
 
           if (options.generateTierPricing) {
-            productSteps.push({ name: 'generate-tier-pricing', type: 'sync' });
+            productSteps.push({ name: S.GENERATE_TIER_PRICING, type: 'sync' });
           }
 
           productSteps.push({
             type: 'parallel',
             steps: [
-              { name: 'attach-images', type: 'sync' },
-              { name: 'attach-pdfs', type: 'sync' },
-              { name: 'update-inventory', type: 'sync' },
+              { name: S.ATTACH_IMAGES, type: 'sync' },
+              { name: S.ATTACH_PDFS, type: 'sync' },
+              { name: S.UPDATE_INVENTORY, type: 'sync' },
             ],
           });
         }
 
         if (options.accountCount > 0) {
-          accountSteps.push({ name: 'load-countries', type: 'sync' });
-          accountSteps.push({ name: 'account-data-generation', type: 'sync' });
-          accountSteps.push({ name: 'accounts', type: 'sync' });
-          accountSteps.push({ name: 'resolve-account-ids', type: 'sync' });
-          accountSteps.push({ name: 'postal-addresses', type: 'sync' });
-          accountSteps.push({
-            name: 'set-billing-and-shipping-addresses',
-            type: 'sync',
-          });
+          accountSteps.push({ name: S.LOAD_COUNTRIES, type: 'sync' });
+          accountSteps.push({ name: S.GENERATE_ACCOUNT_DATA, type: 'sync' });
+          accountSteps.push({ name: S.CREATE_ACCOUNTS, type: 'sync' });
+          accountSteps.push({ name: S.RESOLVE_ACCOUNT_IDS, type: 'sync' });
+          accountSteps.push({ name: S.CREATE_POSTAL_ADDRESSES, type: 'sync' });
+          accountSteps.push({ name: S.SET_ADDRESS_DEFAULTS, type: 'sync' });
         }
 
         if (options.orderCount > 0) {
-          orderSteps.push({ name: 'order-data-generation', type: 'sync' });
-          orderSteps.push({ name: 'orders', type: 'sync' });
+          orderSteps.push({ name: S.GENERATE_ORDER_DATA, type: 'sync' });
+          orderSteps.push({ name: S.CREATE_ORDERS, type: 'sync' });
         }
 
         // COMPOSE WORKFLOW WITH CLEAR DEPENDENCIES

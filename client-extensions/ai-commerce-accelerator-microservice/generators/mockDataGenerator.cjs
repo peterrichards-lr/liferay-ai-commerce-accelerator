@@ -1,7 +1,3 @@
-const fs = require('fs');
-const path = require('path');
-const Ajv = require('ajv');
-const addFormats = require('ajv-formats');
 const {
   createERC,
   buildSpecCatERC,
@@ -12,76 +8,11 @@ const {
   randomFutureDate,
 } = require('../utils/misc.cjs');
 const { ERC_PREFIX, ENV } = require('../utils/constants.cjs');
-const { asItems } = require('../utils/liferayUtils.cjs');
 
 class MockDataGenerator {
   constructor(ctx) {
     this.ctx = ctx;
     this.logger = ctx.logger;
-    this.schemas = {};
-    this._loadSchemas();
-  }
-
-  _loadSchemas() {
-    const schemaDir = path.join(__dirname, '../ai-schemas');
-    const files = fs.readdirSync(schemaDir);
-    const ajv = new Ajv({ allErrors: true, strict: false });
-    addFormats(ajv);
-
-    for (const file of files) {
-      if (file.endsWith('.json')) {
-        const schemaName = path.basename(file, '.json');
-        const schemaContent = JSON.parse(
-          fs.readFileSync(path.join(schemaDir, file), 'utf8')
-        );
-        this.schemas[schemaName] = ajv.compile(schemaContent);
-      }
-    }
-  }
-
-  generateProducts(config, options = {}) {
-    const count = options.count || options.productCount || 1;
-    const category =
-      Array.isArray(options.categories) && options.categories.length
-        ? options.categories[0]
-        : 'Electronics';
-    const selectedLanguages =
-      options.selectedLanguages && options.selectedLanguages.length
-        ? options.selectedLanguages
-        : ['en-US'];
-
-    const products = this.generateProductData(
-      category,
-      count,
-      selectedLanguages,
-      config,
-      options
-    );
-
-    return {
-      created: products.length,
-      products,
-      errors: [],
-      batchId: null,
-    };
-  }
-
-  async generateAccounts(config, options = {}) {
-    const count = options.accountCount || 1;
-    const categories = options.categories || [];
-    const accounts = await this.generateAccountData(
-      count,
-      config,
-      categories,
-      options
-    );
-
-    return {
-      created: accounts.length,
-      accounts,
-      errors: [],
-      batchId: null,
-    };
   }
 
   generateProductData(
@@ -91,7 +22,6 @@ class MockDataGenerator {
     config = {},
     options = {}
   ) {
-    const logger = this.logger;
     const products = [];
 
     const languageCodes = selectedLanguages.map((lang) =>
@@ -137,7 +67,6 @@ class MockDataGenerator {
           `High quality ${category.toLowerCase()} item for professional use.${suffix}`;
       }
 
-      // Add image metadata placeholders if images are enabled
       if (imageMode && imageMode !== 'none') {
         productData.images = [
           {
@@ -148,13 +77,12 @@ class MockDataGenerator {
         ];
       }
 
-      // Add attachment metadata placeholders if PDFs are enabled
       if (pdfMode && pdfMode !== 'none') {
         productData.attachments = ['manual.pdf'];
       }
 
       if (generateSkuVariants) {
-        productData.productType = 'simple'; // Initial type is always simple
+        productData.productType = 'simple';
         productData.options = [
           {
             name: { en_US: 'Color' },
@@ -239,24 +167,6 @@ class MockDataGenerator {
       products.push(productData);
     }
 
-    const validate = this.schemas.product;
-    if (validate) {
-      const payload = { products: products };
-      const isValid = validate(payload);
-      if (!isValid) {
-        logger?.error?.('Mock product data failed schema validation:', {
-          errors: validate.errors,
-          payload: JSON.stringify(payload, null, 2),
-          correlationId: options?.correlationId,
-        });
-      } else {
-        this.logger?.info?.(
-          'Mock product data validated successfully against schema.',
-          { correlationId: options?.correlationId }
-        );
-      }
-    }
-
     return products;
   }
 
@@ -333,14 +243,13 @@ class MockDataGenerator {
     return entries;
   }
 
-  async generateAccountData(
+  generateAccountData(
     count = 1,
     config = {},
     categories = [],
-    options = {}
+    selectedLanguages = ['en-US']
   ) {
     const accounts = [];
-    const languageId = config.languageId || 'en_US';
 
     for (let i = 0; i < count; i++) {
       const baseErc = createERC(ERC_PREFIX.ACCOUNT);
@@ -358,7 +267,7 @@ class MockDataGenerator {
             addressRegion: 'CA',
             countryId: 'US',
             postalCode: '90001',
-            addressType: 'other', // Head office address
+            addressType: 'other',
             name: 'Head Office',
             externalReferenceCode: `ADDR-${baseErc}-HEAD`,
           },
@@ -368,19 +277,42 @@ class MockDataGenerator {
       accounts.push(accountData);
     }
 
-    const validate = this.schemas.account;
-    if (validate) {
-      const payload = { accounts: accounts };
-      const isValid = validate(payload);
-      if (!isValid) {
-        this.logger?.error?.('Mock account data failed schema validation:', {
-          errors: validate.errors,
-          correlationId: options?.correlationId,
-        });
-      }
-    }
-
     return accounts;
+  }
+
+  generateOrderData(count = 1, config = {}, accounts = [], selectedLanguages = ['en-US']) {
+    const orders = [];
+    for (let i = 0; i < count; i++) {
+      const account = accounts[Math.floor(Math.random() * accounts.length)];
+      orders.push({
+        externalReferenceCode: createERC(ERC_PREFIX.ORDER),
+        accountId: account?.id,
+        orderDate: randomPastDate(30).toISOString(),
+        orderStatus: 0
+      });
+    }
+    return orders;
+  }
+
+  generateWarehouseData(count = 1, config = {}, selectedLanguages = ['en-US']) {
+    const warehouses = [];
+    for (let i = 0; i < count; i++) {
+      warehouses.push({
+        externalReferenceCode: createERC(ERC_PREFIX.WAREHOUSE),
+        name: `Mock Warehouse ${i + 1}`,
+        description: `Description for Warehouse ${i + 1}`,
+        country: 'US',
+        region: 'CA'
+      });
+    }
+    return warehouses;
+  }
+
+  generatePricingData(products = [], pricingType = 'standard', config = {}, selectedLanguages = ['en-US']) {
+    return products.map(p => ({
+      skuExternalReferenceCode: p.sku,
+      price: getRandomInt(10, 1000)
+    }));
   }
 }
 

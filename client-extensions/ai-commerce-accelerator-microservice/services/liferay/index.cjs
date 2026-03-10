@@ -10,6 +10,7 @@ class LiferayService {
     this.ctx = ctx;
     this.rest = new LiferayRestService(ctx);
     this.graphql = new LiferayGraphQLService(ctx);
+    this.ctx.logger.debug('LiferayService: GraphQL client initialized');
   }
 
   // --- Discovery Methods (Standardized Entry Points with Exclusions) ---
@@ -475,6 +476,7 @@ class LiferayService {
       pageSize = 200,
       fields = 'id',
       type = 'price-list',
+      catalogId,
       filter: providedFilter,
       search,
       ignoreExclusions = false,
@@ -484,37 +486,73 @@ class LiferayService {
       ? []
       : await this._getExclusions(config, 'priceList');
 
-    // Fetch all price lists without filters or search to avoid Pricing V2.0 REST API limitations
-    const res = await this.rest.getPriceLists(config, { pageSize: 1000 });
+    const isPromotion = type === 'promotion';
+
+    // Pricing V2.0 GraphQL Schema varies between PriceList and Discount
+    const requestedFields = new Set(['id', 'externalReferenceCode']);
+    if (isPromotion) {
+      requestedFields.add('title');
+    } else {
+      requestedFields.add('name');
+      requestedFields.add('catalogId');
+      requestedFields.add('catalogBasePriceList');
+    }
+
+    if (fields) {
+      fields.split(',').forEach((f) => {
+        const trimmed = f.trim();
+        // Map common fields to their type-specific counterparts
+        if (trimmed === 'name' && isPromotion) requestedFields.add('title');
+        else if (trimmed === 'title' && !isPromotion) requestedFields.add('name');
+        else requestedFields.add(trimmed);
+      });
+    }
+
+    // Fetch a large page via GraphQL to allow for in-memory catalog and exclusion filtering
+    // This bypasses Pricing V2.0 REST API filtering limitations
+    const res = isPromotion
+      ? await this.graphql.getDiscounts(
+          config,
+          null,
+          Array.from(requestedFields),
+          { page: 1, pageSize: 1000 }
+        )
+      : await this.graphql.getPriceLists(
+          config,
+          null,
+          Array.from(requestedFields),
+          { page: 1, pageSize: 1000 }
+        );
+
     const items = asItems(res);
 
-    // Parse catalogId from providedFilter if it exists (e.g. "catalogId eq 123")
-    let targetCatalogId = null;
-    if (providedFilter && providedFilter.includes('catalogId eq')) {
+    // Parse catalogId from providedFilter if it exists (for backward compatibility)
+    let targetCatalogId = catalogId;
+    if (
+      !targetCatalogId &&
+      providedFilter &&
+      providedFilter.includes('catalogId eq')
+    ) {
       const match = providedFilter.match(/catalogId eq (\d+)/);
       if (match) targetCatalogId = parseInt(match[1], 10);
     }
 
     const filteredItems = items.filter((it) => {
-      // Filter by type (robust comparison) - skip if type is explicitly null
-      if (type !== null) {
-        const normalize = (s) =>
-          String(s || '')
-            .toLowerCase()
-            .replace(/[-_]/g, '');
-        if (normalize(it.type) !== normalize(type)) return false;
-      }
-
-      // Filter by catalogId if requested
-      if (targetCatalogId && Number(it.catalogId) !== Number(targetCatalogId))
+      // Filter by catalogId if requested (PriceLists only as Discounts aren't catalog-bound in this schema)
+      if (
+        !isPromotion &&
+        targetCatalogId &&
+        Number(it.catalogId) !== Number(targetCatalogId)
+      ) {
         return false;
+      }
 
       // Filter by search term (case-insensitive) if provided
       if (search) {
         const term = search.toLowerCase();
-        const nameMatch = it.name?.toLowerCase().includes(term);
-        const ercMatch = it.externalReferenceCode?.toLowerCase().includes(term);
-        if (!nameMatch && !ercMatch) return false;
+        const itemName = (it.name || it.title || '').toLowerCase();
+        const itemErc = (it.externalReferenceCode || '').toLowerCase();
+        if (!itemName.includes(term) && !itemErc.includes(term)) return false;
       }
 
       // Filter by exclusions
@@ -1114,6 +1152,16 @@ class LiferayService {
     return asItems(res);
   }
 
+  async getLanguages(config, siteGroupId) {
+    const res = await this.graphql.getLanguages(config, siteGroupId);
+    const items = asItems(res);
+    return items.map((lang) => ({
+      id: lang.id,
+      name: lang.name,
+      isDefault: lang.markedAsDefault || false,
+    }));
+  }
+
   getProductCount(config) {
     return this.rest.getProductCount(config);
   }
@@ -1173,10 +1221,6 @@ class LiferayService {
 
   getCurrencies(config) {
     return this.rest.getCurrencies(config);
-  }
-
-  getSiteLanguages(config, siteGroupId) {
-    return this.rest.getSiteLanguages(config, siteGroupId);
   }
 
   createProduct(config, productData) {

@@ -201,6 +201,23 @@ class PersistenceService {
     return this.getSession(sessionId);
   }
 
+  async verifyDependencyReady(sessionId, dependencyStepKey) {
+    const batches = this.getBatchesForSession(sessionId);
+    if (!batches || batches.length === 0) return false;
+
+    const dependencyBatches = batches.filter(
+      (b) => b.step_key === dependencyStepKey
+    );
+    if (dependencyBatches.length === 0) return false;
+
+    return dependencyBatches.every(
+      (b) =>
+        b.status === 'COMPLETED' ||
+        b.status === 'BYPASSED' ||
+        b.status === 'SYNCHRONOUS'
+    );
+  }
+
   close() {
     if (this.db) {
       this.db.close();

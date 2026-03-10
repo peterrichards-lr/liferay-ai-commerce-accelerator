@@ -136,10 +136,10 @@ export default function useCommerceData({
       const total = s.total ?? 0;
       const batches = s.batches ?? 0;
       const batchesText = plural(batches, 'batch', 'batches');
-      const dryTag = s.dryRun ? ' (dry run)' : '';
+      const dryRunTag = s.dryRun ? ' (dry run)' : '';
 
       addLog(
-        `Submitted ${entity} for deletion: ${total} over ${batchesText}${dryTag}`,
+        `Submitted ${entity} for deletion: ${total} over ${batchesText}${dryRunTag}`,
         'info'
       );
 
@@ -204,50 +204,76 @@ export default function useCommerceData({
     setLanguages(langs);
     setCurrencies(currs);
 
-    const selectLangs = langs
-      .filter((lang) => lang.markedAsDefault)
-      .map((lang) => lang.id);
-
-    setConfig((prev) => ({
-      ...prev,
-      channelId: chObj.id,
-      siteGroupId: chObj.siteGroupId,
-      selectedLanguages: selectLangs,
-      ...(prev.currencyCode
-        ? {}
-        : chObj.currencyCode
-          ? { currencyCode: chObj.currencyCode }
-          : {}),
-    }));
-
-    return chObj;
+    return { chObj, langs, currs };
   };
 
-  const selectChannel = async (
-    channelObjOrId,
-    { selectedLanguages, currencyCode } = {}
-  ) => {
-    const chObj = await loadChannelDependent(channelObjOrId);
-    if (!chObj) return;
+  const selectChannel = async (channelId) => {
+    if (!channelId) {
+      setConfig((prev) => ({
+        ...prev,
+        channelId: null,
+        siteGroupId: null,
+        selectedLanguages: [],
+        currencyCode: '',
+      }));
+      setLanguages([]);
+      setCurrencies([]);
+      return;
+    }
+
+    const result = await loadChannelDependent(channelId);
+    if (!result) return;
+
+    const { chObj, langs } = result;
 
     setConfig((prev) => {
-      const available = new Set(
-        (languages || []).map((l) => l.code ?? l.locale ?? l.id)
-      );
-      const nextLangs = Array.isArray(selectedLanguages)
-        ? selectedLanguages.filter((code) => available.has(code))
-        : prev.selectedLanguages;
+      const availableIds = new Set(langs.map((l) => l.id));
+      
+      // Keep previous selected languages if they are still valid for the new channel
+      const filteredLangs = (prev.selectedLanguages || []).filter(id => availableIds.has(id));
+      
+      // If none of previous are valid, select default from new channel
+      let nextLangs = filteredLangs;
+      if (filteredLangs.length === 0) {
+        nextLangs = langs.filter(l => l.markedAsDefault).map(l => l.id);
+      }
 
-      const nextCurr =
-        currencyCode ?? prev.currencyCode ?? chObj.currencyCode ?? '';
+      // If still nothing, and we have languages, just pick the first
+      if (nextLangs.length === 0 && langs.length > 0) {
+        nextLangs = [langs[0].id];
+      }
 
       return {
         ...prev,
         channelId: chObj.id,
         siteGroupId: chObj.siteGroupId,
         selectedLanguages: nextLangs,
-        currencyCode: nextCurr,
+        currencyCode: chObj.currencyCode || prev.currencyCode || '',
       };
+    });
+  };
+
+  const selectCatalog = (catalogId) => {
+    if (!catalogId) {
+      setConfig((prev) => ({ ...prev, catalogId: null }));
+      return;
+    }
+
+    const catObj = catalogs.find(c => String(c.id) === String(catalogId));
+    if (!catObj) return;
+
+    setConfig((prev) => {
+      const nextConfig = { ...prev, catalogId: catObj.id };
+      
+      // If we have a default language for the catalog, and it's available in the channel's languages
+      if (catObj.defaultLanguageId) {
+        const isAvailable = languages.some(l => l.id === catObj.defaultLanguageId);
+        if (isAvailable && !prev.selectedLanguages?.includes(catObj.defaultLanguageId)) {
+          nextConfig.selectedLanguages = [...(prev.selectedLanguages || []), catObj.defaultLanguageId];
+        }
+      }
+
+      return nextConfig;
     });
   };
 
@@ -284,6 +310,7 @@ export default function useCommerceData({
     buildPayload,
     loadRootLists,
     selectChannel,
+    selectCatalog,
     testConnection,
     handleDeleteAllCommerceData,
     handleDeleteSelectedCommerceData,

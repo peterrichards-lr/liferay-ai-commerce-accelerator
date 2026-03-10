@@ -43,6 +43,7 @@ const BASE = {
   CATALOGS: `${API_ROOT.CATALOG}/catalogs`,
   CHANNELS: `${API_ROOT.CHANNEL}/channels`,
   CURRENCIES: `${API_ROOT.CATALOG}/currencies`,
+  LANGUAGES: `${API_ROOT.USER}/languages`,
   ME: `${API_ROOT.USER}/my-user-account`,
   OPTION_CATEGORIES: `${API_ROOT.CATALOG}/optionCategories`,
   OPTIONS: `${API_ROOT.CATALOG}/options`,

@@ -143,7 +143,7 @@ class ConfigService {
 
     const defaultSchemaPath = path.join(
       __dirname,
-      '../ai-schemas',
+      '../generation-schemas',
       `${schemaName}.json`
     );
 

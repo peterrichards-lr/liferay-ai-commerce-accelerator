@@ -182,3 +182,33 @@ This version includes several critical reliability improvements and bug fixes:
   - **Accurate Error Reporting:** Improved the batch deletion callback mechanism to ensure the correct entity type is identified even during recovery from failures. This prevents "unknown" entity type errors in logs and provides more accurate error reporting to the frontend.
 
 A new feature has been added to allow users to export generated commerce data to a JSON file and import it back into the application.
+
+## WebSocket Event Contract
+
+The Microservice and Frontend communicate via WebSockets using a hierarchical **Scope/Status** model. This ensures real-time, granular feedback for long-running workflows.
+
+### Event Structure (JSON)
+All `PROGRESS` packets MUST follow this structure:
+```json
+{
+  "type": "STARTED | PROGRESS | COMPLETED | FAILED",
+  "scope": "session | step | batch",
+  "entityType": "products | accounts | orders | warehouses | images | pdfs",
+  "operation": "generate | delete | process-images | process-attachments",
+  "sessionId": "SESS-123",
+  "batchId": "456",
+  "processedCount": 50,
+  "totalCount": 100,
+  "error": "Optional error message or object",
+  "correlationId": "CID-789"
+}
+```
+
+### Critical Sync Rule
+Any change to the event emission logic in `ProgressService.cjs` (Server) MUST be matched by a corresponding update in `progressReducer.js` and `useRealtimeWebSocket.js` (Frontend).
+
+### Logic Mapping
+- **`STARTED` (session)**: Triggers `RESET_ALL` in the frontend to initialize progress bars.
+- **`PROGRESS` (batch/step)**: Triggers `SET_COMPLETED` using `processedCount`.
+- **`COMPLETED` (step)**: Marks the `entityType` as 100% complete (setting completed equal to total).
+- **`FAILED`**: Propagates errors to the `ADD_ERRORS` action for UI display.

@@ -274,6 +274,51 @@ const COMMERCE_CONSTRAINTS = {
   MAX_PRICE_ENTRY_ERC_LENGTH: 60, // Max length for COMMERCEPRICEENTRY.EXTERNALREFERENCECODE is 75, so leave a buffer
 };
 
+const WORKFLOW_STEPS = {
+  // Generation Steps
+  LOAD_COUNTRIES: 'load-countries',
+  GENERATE_ACCOUNT_DATA: 'generate-account-data',
+  CREATE_ACCOUNTS: 'create-accounts',
+  RESOLVE_ACCOUNT_IDS: 'resolve-account-ids',
+  CREATE_POSTAL_ADDRESSES: 'create-addresses',
+  SET_ADDRESS_DEFAULTS: 'link-addresses',
+  CREATE_WAREHOUSES: 'create-warehouses',
+  RESOLVE_WAREHOUSE_IDS: 'resolve-warehouse-ids',
+  GENERATE_WAREHOUSE_DATA: 'generate-warehouse-data',
+  GENERATE_PRODUCT_DATA: 'generate-product-data',
+  CREATE_PRODUCTS: 'create-products',
+  RESOLVE_PRODUCT_IDS: 'resolve-product-ids',
+  LINK_PRODUCT_OPTIONS: 'link-product-options',
+  CREATE_PRODUCT_SKUS: 'create-skus',
+  RESOLVE_SKU_IDS: 'resolve-sku-ids',
+  GENERATE_PRICE_LISTS: 'create-price-lists',
+  UPDATE_CATALOG_CONFIG: 'update-catalog-config',
+  GENERATE_BULK_PRICING: 'create-bulk-pricing',
+  GENERATE_TIER_PRICING: 'create-tier-pricing',
+  ATTACH_IMAGES: 'create-images',
+  ATTACH_PDFS: 'create-pdfs',
+  UPDATE_INVENTORY: 'update-inventory',
+  GENERATE_ORDER_DATA: 'generate-order-data',
+  CREATE_ORDERS: 'create-orders',
+  SYNC_DELAY: 'sync-delay',
+
+  // Cleanup/Deletion Steps
+  RESET_CATALOG_CONFIG: 'reset-catalog-config',
+  DELETE_ORDERS: 'delete-orders',
+  DELETE_WAREHOUSES: 'delete-warehouses',
+  DELETE_WAREHOUSE_ITEMS: 'delete-warehouse-items',
+  DELETE_ACCOUNTS: 'delete-accounts',
+  DELETE_PRODUCTS: 'delete-products',
+  DELETE_PRODUCT_OPTIONS: 'delete-product-options',
+  DELETE_PRODUCT_SPECIFICATIONS: 'delete-product-specifications',
+  DELETE_PRICE_LISTS: 'delete-price-lists',
+  DELETE_PROMOTIONS: 'delete-promotions',
+  DELETE_SPECIFICATIONS: 'delete-specifications',
+  DELETE_OPTIONS: 'delete-options',
+  DELETE_OPTION_CATEGORIES: 'delete-option-categories',
+  DELETE_PRODUCT_RELATED: 'delete-product-related',
+};
+
 module.exports = {
   APP_ERCS,
   ENV,
@@ -288,4 +333,5 @@ module.exports = {
   WS_OPERATION,
   CONFIG_ERCS,
   COMMERCE_CONSTRAINTS,
+  WORKFLOW_STEPS,
 };
