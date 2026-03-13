@@ -785,7 +785,7 @@ class ProductGenerator extends BaseGenerator {
   }
 
   async _generateProductData(config, options, sessionId, correlationId) {
-    const data = await this.ctx.generation.generate(
+    const data = await this.ctx.generation.generateData(
       'product',
       options.productCount,
       config,

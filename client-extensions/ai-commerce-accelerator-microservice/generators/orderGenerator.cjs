@@ -103,6 +103,7 @@ class OrderGenerator extends BaseGenerator {
   async _runOrderDataGenerationStep(sessionId) {
     const session = await this.persistence.getSession(sessionId);
     const { config, options } = session.context;
+    const { demoMode } = options;
 
     this.logger.info('Starting order data generation step', {
       sessionId,
@@ -118,7 +119,7 @@ class OrderGenerator extends BaseGenerator {
         session.context
       );
 
-      const orderDataList = await this.ctx.generation.generate(
+      const orderDataList = await this.ctx.generation.generateData(
         'order',
         options.orderCount,
         config,

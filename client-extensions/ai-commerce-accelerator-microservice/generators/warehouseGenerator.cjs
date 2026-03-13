@@ -65,7 +65,7 @@ class WarehouseGenerator extends BaseGenerator {
       this.validateConfig(config);
       await this.validateOptions(config, options);
 
-      const warehouseDataList = await this.ctx.generation.generate(
+      const warehouseDataList = await this.ctx.generation.generateData(
         'warehouse',
         options.warehouseCount,
         config,

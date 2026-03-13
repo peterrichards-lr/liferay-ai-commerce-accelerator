@@ -61,7 +61,7 @@ module.exports = (ws) => {
   });
   ctx.batchProcessor = new BatchProcessorService({ logger });
   ctx.batchCallback = new BatchCallbackService(ctx);
-  ctx.mockData = new MockDataGenerator({ logger, liferay: ctx.liferay });
+  ctx.mockDataGenerator = new MockDataGenerator({ logger, liferay: ctx.liferay });
   ctx.objectStorage = new ObjectStorageService({
     config: ctx.config,
     logger,
@@ -96,7 +96,7 @@ module.exports = (ws) => {
     productGenerator: ctx.productGenerator,
     accountGenerator: ctx.accountGenerator,
     orderGenerator: ctx.orderGenerator,
-    mockDataGenerator: ctx.mockData,
+    mockDataGenerator: ctx.mockDataGenerator,
   });
 
   registerBatchWorkers({
@@ -115,7 +115,7 @@ module.exports = (ws) => {
     healthService: ctx.health,
     liferayService: ctx.liferay,
     mediaGenerator: ctx.media,
-    mockDataGenerator: ctx.mockData,
+    mockDataGenerator: ctx.mockDataGenerator,
     oauthService: ctx.oauth,
     orderGenerator: ctx.orderGenerator,
     productGenerator: ctx.productGenerator,

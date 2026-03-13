@@ -126,7 +126,7 @@ const ENV = {
   SERVICE_NAME: str('SERVICE_NAME', 'liferay-ai-data-microservice'),
   SERVICE_VERSION: str('SERVICE_VERSION', '1.0.0'),
   DEFAULT_LOCALE: str('DEFAULT_LOCALE', 'en-US'),
-  SQLITE_DB_PATH: str('SQLITE_DB_PATH', './data/workflows.db'),
+  PERSISTENCE_DB_PATH: str('PERSISTENCE_DB_PATH', './data/workflows.json'),
   BATCH_CACHE_TTL_MS: num('BATCH_CACHE_TTL_MS', 3600000, 0), // 1 hour
   API_REQUEST_TIMEOUT_MS: num('API_REQUEST_TIMEOUT_MS', 15000, 0), // 15 seconds
   WS_HEARTBEAT_MS: num(

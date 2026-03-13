@@ -1,0 +1,1526 @@
+{
+  "sessions": [
+    {
+      "session_id": "AICA-SESSION-1773314727152-64797c8f",
+      "flow_type": "generate",
+      "status": "STARTED",
+      "context": {
+        "config": {
+          "batchSize": 10,
+          "catalogId": 33171,
+          "channelId": 33679,
+          "clientId": "id-f075bd58-1ab9-595d-ede3-34b86b79233",
+          "clientSecret": "secret-3d1a3b66-7aa0-4d48-92ab-5cc4a7cd9a",
+          "currencyCode": "GBP",
+          "languageId": "en_US",
+          "liferayUrl": "http://localhost:8080",
+          "localeCode": "en-US",
+          "pollingDelay": 5000,
+          "pollingRetries": 12,
+          "selectedLanguages": [
+            "en-US"
+          ],
+          "siteGroupId": 20118,
+          "microserviceUrl": "http://localhost:3001",
+          "correlationId": "c97004c8-bc92-42f3-a7da-725a7075c4fc",
+          "aiModel": "gpt-4o-mini",
+          "isColocated": "secret-3d1a3b66-7aa0-4d48-92ab-5cc4a7cd9a",
+          "demoMode": true
+        },
+        "options": {
+          "demoMode": true,
+          "productCount": 10,
+          "categories": [
+            "Electronics"
+          ],
+          "generateBulkPricing": true,
+          "generatePriceLists": true,
+          "generateSkuVariants": true,
+          "generateSpecifications": true,
+          "generateTierPricing": true,
+          "imageHeight": 1024,
+          "imageMode": "placeholder",
+          "imageQuality": "standard",
+          "imageRatio": 100,
+          "imageStyle": "photographic",
+          "imageWidth": 1024,
+          "pdfMode": "placeholder",
+          "pdfRatio": 100,
+          "createWarehouses": true,
+          "reuseExistingWarehouses": true,
+          "warehouseCount": 5,
+          "orderCount": 2,
+          "accountCount": 2,
+          "inventoryMin": 0,
+          "inventoryMax": 1000,
+          "inventoryAssignmentRatio": 100,
+          "enableBackorders": true,
+          "backorderAssignmentRatio": 50
+        },
+        "steps": [
+          {
+            "type": "parallel",
+            "steps": [
+              {
+                "name": "subflow-products",
+                "steps": [
+                  {
+                    "name": "create-warehouses",
+                    "type": "sync"
+                  },
+                  {
+                    "name": "resolve-warehouse-ids",
+                    "type": "sync"
+                  },
+                  {
+                    "name": "generate-product-data",
+                    "type": "sync"
+                  },
+                  {
+                    "name": "create-products",
+                    "type": "sync"
+                  },
+                  {
+                    "name": "resolve-product-ids",
+                    "type": "sync"
+                  },
+                  {
+                    "name": "link-product-options",
+                    "type": "sync"
+                  },
+                  {
+                    "name": "create-skus",
+                    "type": "sync"
+                  },
+                  {
+                    "name": "resolve-sku-ids",
+                    "type": "sync"
+                  },
+                  {
+                    "name": "sync-delay",
+                    "type": "sync"
+                  },
+                  {
+                    "name": "create-price-lists",
+                    "type": "sync"
+                  },
+                  {
+                    "name": "update-catalog-config",
+                    "type": "sync"
+                  },
+                  {
+                    "name": "create-bulk-pricing",
+                    "type": "sync"
+                  },
+                  {
+                    "name": "create-tier-pricing",
+                    "type": "sync"
+                  },
+                  {
+                    "type": "parallel",
+                    "steps": [
+                      {
+                        "name": "create-images",
+                        "type": "sync"
+                      },
+                      {
+                        "name": "create-pdfs",
+                        "type": "sync"
+                      },
+                      {
+                        "name": "update-inventory",
+                        "type": "sync"
+                      }
+                    ]
+                  }
+                ]
+              },
+              {
+                "name": "subflow-accounts",
+                "steps": [
+                  {
+                    "name": "load-countries",
+                    "type": "sync"
+                  },
+                  {
+                    "name": "generate-account-data",
+                    "type": "sync"
+                  },
+                  {
+                    "name": "create-accounts",
+                    "type": "sync"
+                  },
+                  {
+                    "name": "resolve-account-ids",
+                    "type": "sync"
+                  },
+                  {
+                    "name": "create-addresses",
+                    "type": "sync"
+                  },
+                  {
+                    "name": "link-addresses",
+                    "type": "sync"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "name": "generate-order-data",
+            "type": "sync"
+          },
+          {
+            "name": "create-orders",
+            "type": "sync"
+          }
+        ]
+      },
+      "currentSteps": [
+        "subflow-products",
+        "subflow-accounts"
+      ],
+      "correlationId": "c97004c8-bc92-42f3-a7da-725a7075c4fc",
+      "version": 1,
+      "created_at": "2026-03-12T11:25:27.152Z",
+      "updated_at": "2026-03-12T11:25:27.174Z"
+    },
+    {
+      "session_id": "AICA-SESSION-1773314765094-571bbce6",
+      "flow_type": "delete",
+      "status": "COMPLETED",
+      "context": {
+        "config": {
+          "batchSize": 10,
+          "catalogId": 33171,
+          "channelId": 33679,
+          "clientId": "id-f075bd58-1ab9-595d-ede3-34b86b79233",
+          "clientSecret": "secret-3d1a3b66-7aa0-4d48-92ab-5cc4a7cd9a",
+          "currencyCode": "GBP",
+          "languageId": "en_US",
+          "liferayUrl": "http://localhost:8080",
+          "localeCode": "en-US",
+          "pollingDelay": 5000,
+          "pollingRetries": 12,
+          "selectedLanguages": [
+            "en-US"
+          ],
+          "siteGroupId": 20118,
+          "microserviceUrl": "http://localhost:3001",
+          "correlationId": "c97004c8-bc92-42f3-a7da-725a7075c4fc",
+          "aiModel": "gpt-4o-mini",
+          "isColocated": "secret-3d1a3b66-7aa0-4d48-92ab-5cc4a7cd9a"
+        },
+        "options": {
+          "demoMode": false,
+          "generateBulkPricing": false,
+          "generatePriceLists": false,
+          "generateSkuVariants": false,
+          "generateSpecifications": false,
+          "generateTierPricing": false,
+          "imageHeight": 512,
+          "imageMode": "none",
+          "imageQuality": "standard",
+          "imageRatio": 0,
+          "imageStyle": "photographic",
+          "imageWidth": 512,
+          "pdfMode": "none",
+          "pdfRatio": 0,
+          "createWarehouses": false,
+          "reuseExistingWarehouses": false,
+          "enableBackorders": false
+        },
+        "sessionId": "AICA-SESSION-1773314765094-571bbce6",
+        "channelId": 33679,
+        "catalogId": 33171,
+        "steps": [
+          {
+            "name": "reset-catalog-config",
+            "type": "sync"
+          },
+          {
+            "name": "delete-orders",
+            "type": "sync"
+          },
+          {
+            "name": "delete-warehouses",
+            "type": "sync"
+          },
+          {
+            "name": "delete-accounts",
+            "type": "sync"
+          },
+          {
+            "name": "delete-options",
+            "type": "sync"
+          },
+          {
+            "name": "delete-specifications",
+            "type": "sync"
+          },
+          {
+            "name": "delete-products",
+            "type": "sync"
+          },
+          {
+            "name": "delete-price-lists",
+            "type": "sync"
+          },
+          {
+            "name": "delete-promotions",
+            "type": "sync"
+          },
+          {
+            "name": "delete-option-categories",
+            "type": "sync"
+          }
+        ]
+      },
+      "currentSteps": [],
+      "correlationId": "c97004c8-bc92-42f3-a7da-725a7075c4fc",
+      "version": 1,
+      "created_at": "2026-03-12T11:26:05.094Z",
+      "updated_at": "2026-03-12T11:26:06.031Z"
+    },
+    {
+      "session_id": "AICA-SESSION-1773318969742-0af65dd2",
+      "flow_type": "delete",
+      "status": "COMPLETED",
+      "context": {
+        "config": {
+          "batchSize": 10,
+          "catalogId": 33171,
+          "channelId": 33679,
+          "clientId": "id-f075bd58-1ab9-595d-ede3-34b86b79233",
+          "clientSecret": "secret-3d1a3b66-7aa0-4d48-92ab-5cc4a7cd9a",
+          "currencyCode": "GBP",
+          "languageId": "en_US",
+          "liferayUrl": "http://localhost:8080",
+          "localeCode": "en-US",
+          "pollingDelay": 5000,
+          "pollingRetries": 12,
+          "selectedLanguages": [
+            "en-US"
+          ],
+          "siteGroupId": 20118,
+          "microserviceUrl": "http://localhost:3001",
+          "correlationId": "c97004c8-bc92-42f3-a7da-725a7075c4fc",
+          "aiModel": "gpt-4o-mini",
+          "isColocated": "secret-3d1a3b66-7aa0-4d48-92ab-5cc4a7cd9a"
+        },
+        "options": {
+          "demoMode": false,
+          "generateBulkPricing": false,
+          "generatePriceLists": false,
+          "generateSkuVariants": false,
+          "generateSpecifications": false,
+          "generateTierPricing": false,
+          "imageHeight": 512,
+          "imageMode": "none",
+          "imageQuality": "standard",
+          "imageRatio": 0,
+          "imageStyle": "photographic",
+          "imageWidth": 512,
+          "pdfMode": "none",
+          "pdfRatio": 0,
+          "createWarehouses": false,
+          "reuseExistingWarehouses": false,
+          "enableBackorders": false
+        },
+        "sessionId": "AICA-SESSION-1773318969742-0af65dd2",
+        "channelId": 33679,
+        "catalogId": 33171,
+        "steps": [
+          {
+            "name": "reset-catalog-config",
+            "type": "sync"
+          },
+          {
+            "name": "delete-orders",
+            "type": "sync"
+          },
+          {
+            "name": "delete-warehouses",
+            "type": "sync"
+          },
+          {
+            "name": "delete-accounts",
+            "type": "sync"
+          },
+          {
+            "name": "delete-options",
+            "type": "sync"
+          },
+          {
+            "name": "delete-specifications",
+            "type": "sync"
+          },
+          {
+            "name": "delete-products",
+            "type": "sync"
+          },
+          {
+            "name": "delete-price-lists",
+            "type": "sync"
+          },
+          {
+            "name": "delete-promotions",
+            "type": "sync"
+          },
+          {
+            "name": "delete-option-categories",
+            "type": "sync"
+          }
+        ]
+      },
+      "currentSteps": [],
+      "correlationId": "c97004c8-bc92-42f3-a7da-725a7075c4fc",
+      "version": 1,
+      "created_at": "2026-03-12T12:36:09.742Z",
+      "updated_at": "2026-03-12T12:36:11.538Z"
+    },
+    {
+      "session_id": "AICA-SESSION-1773318997047-cf7c14ea",
+      "flow_type": "generate",
+      "status": "STARTED",
+      "context": {
+        "config": {
+          "batchSize": 10,
+          "catalogId": 33171,
+          "channelId": 33679,
+          "clientId": "id-f075bd58-1ab9-595d-ede3-34b86b79233",
+          "clientSecret": "secret-3d1a3b66-7aa0-4d48-92ab-5cc4a7cd9a",
+          "currencyCode": "GBP",
+          "languageId": "en_US",
+          "liferayUrl": "http://localhost:8080",
+          "localeCode": "en-US",
+          "pollingDelay": 5000,
+          "pollingRetries": 12,
+          "selectedLanguages": [
+            "en-US"
+          ],
+          "siteGroupId": 20118,
+          "microserviceUrl": "http://localhost:3001",
+          "correlationId": "c97004c8-bc92-42f3-a7da-725a7075c4fc",
+          "aiModel": "gpt-4o-mini",
+          "isColocated": "secret-3d1a3b66-7aa0-4d48-92ab-5cc4a7cd9a",
+          "demoMode": true
+        },
+        "options": {
+          "demoMode": true,
+          "productCount": 10,
+          "categories": [
+            "Electronics"
+          ],
+          "generateBulkPricing": true,
+          "generatePriceLists": true,
+          "generateSkuVariants": true,
+          "generateSpecifications": true,
+          "generateTierPricing": true,
+          "imageHeight": 1024,
+          "imageMode": "placeholder",
+          "imageQuality": "standard",
+          "imageRatio": 100,
+          "imageStyle": "photographic",
+          "imageWidth": 1024,
+          "pdfMode": "placeholder",
+          "pdfRatio": 100,
+          "createWarehouses": true,
+          "reuseExistingWarehouses": true,
+          "warehouseCount": 5,
+          "orderCount": 2,
+          "accountCount": 2,
+          "inventoryMin": 0,
+          "inventoryMax": 1000,
+          "inventoryAssignmentRatio": 100,
+          "enableBackorders": true,
+          "backorderAssignmentRatio": 50
+        },
+        "steps": [
+          {
+            "type": "parallel",
+            "steps": [
+              {
+                "name": "subflow-products",
+                "steps": [
+                  {
+                    "name": "create-warehouses",
+                    "type": "sync"
+                  },
+                  {
+                    "name": "resolve-warehouse-ids",
+                    "type": "sync"
+                  },
+                  {
+                    "name": "generate-product-data",
+                    "type": "sync"
+                  },
+                  {
+                    "name": "create-products",
+                    "type": "sync"
+                  },
+                  {
+                    "name": "resolve-product-ids",
+                    "type": "sync"
+                  },
+                  {
+                    "name": "link-product-options",
+                    "type": "sync"
+                  },
+                  {
+                    "name": "create-skus",
+                    "type": "sync"
+                  },
+                  {
+                    "name": "resolve-sku-ids",
+                    "type": "sync"
+                  },
+                  {
+                    "name": "sync-delay",
+                    "type": "sync"
+                  },
+                  {
+                    "name": "create-price-lists",
+                    "type": "sync"
+                  },
+                  {
+                    "name": "update-catalog-config",
+                    "type": "sync"
+                  },
+                  {
+                    "name": "create-bulk-pricing",
+                    "type": "sync"
+                  },
+                  {
+                    "name": "create-tier-pricing",
+                    "type": "sync"
+                  },
+                  {
+                    "type": "parallel",
+                    "steps": [
+                      {
+                        "name": "create-images",
+                        "type": "sync"
+                      },
+                      {
+                        "name": "create-pdfs",
+                        "type": "sync"
+                      },
+                      {
+                        "name": "update-inventory",
+                        "type": "sync"
+                      }
+                    ]
+                  }
+                ]
+              },
+              {
+                "name": "subflow-accounts",
+                "steps": [
+                  {
+                    "name": "load-countries",
+                    "type": "sync"
+                  },
+                  {
+                    "name": "generate-account-data",
+                    "type": "sync"
+                  },
+                  {
+                    "name": "create-accounts",
+                    "type": "sync"
+                  },
+                  {
+                    "name": "resolve-account-ids",
+                    "type": "sync"
+                  },
+                  {
+                    "name": "create-addresses",
+                    "type": "sync"
+                  },
+                  {
+                    "name": "link-addresses",
+                    "type": "sync"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "name": "generate-order-data",
+            "type": "sync"
+          },
+          {
+            "name": "create-orders",
+            "type": "sync"
+          }
+        ]
+      },
+      "currentSteps": [
+        "subflow-products",
+        "subflow-accounts"
+      ],
+      "correlationId": "c97004c8-bc92-42f3-a7da-725a7075c4fc",
+      "version": 1,
+      "created_at": "2026-03-12T12:36:37.047Z",
+      "updated_at": "2026-03-12T12:36:37.070Z"
+    }
+  ],
+  "batches": [
+    {
+      "erc": "AICA-BATCH-1773314727165-55d73569",
+      "session_id": "AICA-SESSION-1773314727152-64797c8f",
+      "step_key": "subflow-products",
+      "status": "SYNCHRONOUS",
+      "downstream_batch_id": null,
+      "processed_count": 0,
+      "total_count": 0,
+      "error_count": 0,
+      "created_at": "2026-03-12T11:25:27.166Z",
+      "updated_at": "2026-03-12T11:25:27.166Z"
+    },
+    {
+      "erc": "AICA-BATCH-1773314727172-3465d7f8",
+      "session_id": "AICA-SESSION-1773314727152-64797c8f",
+      "step_key": "subflow-accounts",
+      "status": "SYNCHRONOUS",
+      "downstream_batch_id": null,
+      "processed_count": 0,
+      "total_count": 0,
+      "error_count": 0,
+      "created_at": "2026-03-12T11:25:27.173Z",
+      "updated_at": "2026-03-12T11:25:27.173Z"
+    },
+    {
+      "erc": "AICA-BATCH-1773314765100-33ff578e",
+      "session_id": "AICA-SESSION-1773314765094-571bbce6",
+      "step_key": "reset-catalog-config",
+      "status": "COMPLETED",
+      "downstream_batch_id": null,
+      "processed_count": 1,
+      "total_count": 1,
+      "error_count": 0,
+      "created_at": "2026-03-12T11:26:05.100Z",
+      "updated_at": "2026-03-12T11:26:05.306Z"
+    },
+    {
+      "erc": "AICA-BATCH-1773314765305-a8996730",
+      "session_id": "AICA-SESSION-1773314765094-571bbce6",
+      "step_key": "resetCatalogConfiguration",
+      "status": "SYNCHRONOUS",
+      "downstream_batch_id": null,
+      "processed_count": 0,
+      "total_count": 1,
+      "error_count": 0,
+      "created_at": "2026-03-12T11:26:05.305Z",
+      "updated_at": "2026-03-12T11:26:05.305Z"
+    },
+    {
+      "erc": "AICA-BATCH-1773314765307-f062bdea",
+      "session_id": "AICA-SESSION-1773314765094-571bbce6",
+      "step_key": "reset-catalog-config",
+      "status": "COMPLETED",
+      "downstream_batch_id": null,
+      "processed_count": 0,
+      "total_count": 1,
+      "error_count": 0,
+      "created_at": "2026-03-12T11:26:05.307Z",
+      "updated_at": "2026-03-12T11:26:05.307Z"
+    },
+    {
+      "erc": "AICA-BATCH-1773314765413-fcdd10b7",
+      "session_id": "AICA-SESSION-1773314765094-571bbce6",
+      "step_key": "delete-orders",
+      "status": "BYPASSED",
+      "downstream_batch_id": null,
+      "processed_count": 0,
+      "total_count": 0,
+      "error_count": 0,
+      "created_at": "2026-03-12T11:26:05.413Z",
+      "updated_at": "2026-03-12T11:26:05.413Z"
+    },
+    {
+      "erc": "AICA-BATCH-1773314765463-2ba839a3",
+      "session_id": "AICA-SESSION-1773314765094-571bbce6",
+      "step_key": "delete-warehouses",
+      "status": "BYPASSED",
+      "downstream_batch_id": null,
+      "processed_count": 0,
+      "total_count": 0,
+      "error_count": 0,
+      "created_at": "2026-03-12T11:26:05.463Z",
+      "updated_at": "2026-03-12T11:26:05.463Z"
+    },
+    {
+      "erc": "AICA-BATCH-1773314765592-516e3b44",
+      "session_id": "AICA-SESSION-1773314765094-571bbce6",
+      "step_key": "delete-accounts",
+      "status": "BYPASSED",
+      "downstream_batch_id": null,
+      "processed_count": 0,
+      "total_count": 0,
+      "error_count": 0,
+      "created_at": "2026-03-12T11:26:05.592Z",
+      "updated_at": "2026-03-12T11:26:05.592Z"
+    },
+    {
+      "erc": "AICA-BATCH-1773314765598-3f8fcc47",
+      "session_id": "AICA-SESSION-1773314765094-571bbce6",
+      "step_key": "delete-options",
+      "status": "COMPLETED",
+      "downstream_batch_id": null,
+      "processed_count": 0,
+      "total_count": 0,
+      "error_count": 0,
+      "created_at": "2026-03-12T11:26:05.598Z",
+      "updated_at": "2026-03-12T11:26:05.649Z"
+    },
+    {
+      "erc": "AICA-BATCH-1773314765649-955fef5a",
+      "session_id": "AICA-SESSION-1773314765094-571bbce6",
+      "step_key": "delete-options",
+      "status": "COMPLETED",
+      "downstream_batch_id": null,
+      "processed_count": 0,
+      "total_count": 0,
+      "error_count": 0,
+      "created_at": "2026-03-12T11:26:05.649Z",
+      "updated_at": "2026-03-12T11:26:05.649Z"
+    },
+    {
+      "erc": "AICA-BATCH-1773314765656-433605fd",
+      "session_id": "AICA-SESSION-1773314765094-571bbce6",
+      "step_key": "delete-specifications",
+      "status": "COMPLETED",
+      "downstream_batch_id": null,
+      "processed_count": 0,
+      "total_count": 0,
+      "error_count": 0,
+      "created_at": "2026-03-12T11:26:05.656Z",
+      "updated_at": "2026-03-12T11:26:05.693Z"
+    },
+    {
+      "erc": "AICA-BATCH-1773314765694-c22ea813",
+      "session_id": "AICA-SESSION-1773314765094-571bbce6",
+      "step_key": "delete-specifications",
+      "status": "COMPLETED",
+      "downstream_batch_id": null,
+      "processed_count": 0,
+      "total_count": 0,
+      "error_count": 0,
+      "created_at": "2026-03-12T11:26:05.694Z",
+      "updated_at": "2026-03-12T11:26:05.694Z"
+    },
+    {
+      "erc": "AICA-BATCH-1773314765769-6cd39965",
+      "session_id": "AICA-SESSION-1773314765094-571bbce6",
+      "step_key": "delete-products",
+      "status": "BYPASSED",
+      "downstream_batch_id": null,
+      "processed_count": 0,
+      "total_count": 0,
+      "error_count": 0,
+      "created_at": "2026-03-12T11:26:05.769Z",
+      "updated_at": "2026-03-12T11:26:05.769Z"
+    },
+    {
+      "erc": "AICA-BATCH-1773314765818-c7235d16",
+      "session_id": "AICA-SESSION-1773314765094-571bbce6",
+      "step_key": "delete-price-lists",
+      "status": "COMPLETED",
+      "downstream_batch_id": null,
+      "processed_count": 1,
+      "total_count": 1,
+      "error_count": 0,
+      "created_at": "2026-03-12T11:26:05.818Z",
+      "updated_at": "2026-03-12T11:26:05.861Z"
+    },
+    {
+      "erc": "AICA-BATCH-1773314765863-6c37f1f5",
+      "session_id": "AICA-SESSION-1773314765094-571bbce6",
+      "step_key": "delete-price-lists",
+      "status": "COMPLETED",
+      "downstream_batch_id": null,
+      "processed_count": 0,
+      "total_count": 1,
+      "error_count": 0,
+      "created_at": "2026-03-12T11:26:05.863Z",
+      "updated_at": "2026-03-12T11:26:05.863Z"
+    },
+    {
+      "erc": "AICA-BATCH-1773314765912-04a31110",
+      "session_id": "AICA-SESSION-1773314765094-571bbce6",
+      "step_key": "delete-promotions",
+      "status": "COMPLETED",
+      "downstream_batch_id": null,
+      "processed_count": 1,
+      "total_count": 1,
+      "error_count": 0,
+      "created_at": "2026-03-12T11:26:05.912Z",
+      "updated_at": "2026-03-12T11:26:05.963Z"
+    },
+    {
+      "erc": "AICA-BATCH-1773314765963-cb1a5440",
+      "session_id": "AICA-SESSION-1773314765094-571bbce6",
+      "step_key": "delete-promotions",
+      "status": "COMPLETED",
+      "downstream_batch_id": null,
+      "processed_count": 0,
+      "total_count": 1,
+      "error_count": 0,
+      "created_at": "2026-03-12T11:26:05.963Z",
+      "updated_at": "2026-03-12T11:26:05.963Z"
+    },
+    {
+      "erc": "AICA-BATCH-1773314765970-80d46a91",
+      "session_id": "AICA-SESSION-1773314765094-571bbce6",
+      "step_key": "delete-option-categories",
+      "status": "COMPLETED",
+      "downstream_batch_id": null,
+      "processed_count": 0,
+      "total_count": 0,
+      "error_count": 0,
+      "created_at": "2026-03-12T11:26:05.971Z",
+      "updated_at": "2026-03-12T11:26:06.026Z"
+    },
+    {
+      "erc": "AICA-BATCH-1773314766026-5e9db79c",
+      "session_id": "AICA-SESSION-1773314765094-571bbce6",
+      "step_key": "delete-option-categories",
+      "status": "COMPLETED",
+      "downstream_batch_id": null,
+      "processed_count": 0,
+      "total_count": 0,
+      "error_count": 0,
+      "created_at": "2026-03-12T11:26:06.026Z",
+      "updated_at": "2026-03-12T11:26:06.026Z"
+    },
+    {
+      "erc": "AICA-BATCH-1773318969751-e8858bfb",
+      "session_id": "AICA-SESSION-1773318969742-0af65dd2",
+      "step_key": "reset-catalog-config",
+      "status": "COMPLETED",
+      "downstream_batch_id": null,
+      "processed_count": 1,
+      "total_count": 1,
+      "error_count": 0,
+      "created_at": "2026-03-12T12:36:09.751Z",
+      "updated_at": "2026-03-12T12:36:10.634Z"
+    },
+    {
+      "erc": "AICA-BATCH-1773318970633-69ca259b",
+      "session_id": "AICA-SESSION-1773318969742-0af65dd2",
+      "step_key": "resetCatalogConfiguration",
+      "status": "SYNCHRONOUS",
+      "downstream_batch_id": null,
+      "processed_count": 0,
+      "total_count": 1,
+      "error_count": 0,
+      "created_at": "2026-03-12T12:36:10.633Z",
+      "updated_at": "2026-03-12T12:36:10.633Z"
+    },
+    {
+      "erc": "AICA-BATCH-1773318970635-1cee4926",
+      "session_id": "AICA-SESSION-1773318969742-0af65dd2",
+      "step_key": "reset-catalog-config",
+      "status": "COMPLETED",
+      "downstream_batch_id": null,
+      "processed_count": 0,
+      "total_count": 1,
+      "error_count": 0,
+      "created_at": "2026-03-12T12:36:10.635Z",
+      "updated_at": "2026-03-12T12:36:10.635Z"
+    },
+    {
+      "erc": "AICA-BATCH-1773318970928-a9027236",
+      "session_id": "AICA-SESSION-1773318969742-0af65dd2",
+      "step_key": "delete-orders",
+      "status": "BYPASSED",
+      "downstream_batch_id": null,
+      "processed_count": 0,
+      "total_count": 0,
+      "error_count": 0,
+      "created_at": "2026-03-12T12:36:10.928Z",
+      "updated_at": "2026-03-12T12:36:10.928Z"
+    },
+    {
+      "erc": "AICA-BATCH-1773318970978-1d5b8545",
+      "session_id": "AICA-SESSION-1773318969742-0af65dd2",
+      "step_key": "delete-warehouses",
+      "status": "BYPASSED",
+      "downstream_batch_id": null,
+      "processed_count": 0,
+      "total_count": 0,
+      "error_count": 0,
+      "created_at": "2026-03-12T12:36:10.978Z",
+      "updated_at": "2026-03-12T12:36:10.978Z"
+    },
+    {
+      "erc": "AICA-BATCH-1773318971105-15fd3bbf",
+      "session_id": "AICA-SESSION-1773318969742-0af65dd2",
+      "step_key": "delete-accounts",
+      "status": "BYPASSED",
+      "downstream_batch_id": null,
+      "processed_count": 0,
+      "total_count": 0,
+      "error_count": 0,
+      "created_at": "2026-03-12T12:36:11.105Z",
+      "updated_at": "2026-03-12T12:36:11.105Z"
+    },
+    {
+      "erc": "AICA-BATCH-1773318971113-e2f84daa",
+      "session_id": "AICA-SESSION-1773318969742-0af65dd2",
+      "step_key": "delete-options",
+      "status": "COMPLETED",
+      "downstream_batch_id": null,
+      "processed_count": 0,
+      "total_count": 0,
+      "error_count": 0,
+      "created_at": "2026-03-12T12:36:11.113Z",
+      "updated_at": "2026-03-12T12:36:11.151Z"
+    },
+    {
+      "erc": "AICA-BATCH-1773318971152-4f24edc2",
+      "session_id": "AICA-SESSION-1773318969742-0af65dd2",
+      "step_key": "delete-options",
+      "status": "COMPLETED",
+      "downstream_batch_id": null,
+      "processed_count": 0,
+      "total_count": 0,
+      "error_count": 0,
+      "created_at": "2026-03-12T12:36:11.152Z",
+      "updated_at": "2026-03-12T12:36:11.152Z"
+    },
+    {
+      "erc": "AICA-BATCH-1773318971161-0343c2b2",
+      "session_id": "AICA-SESSION-1773318969742-0af65dd2",
+      "step_key": "delete-specifications",
+      "status": "COMPLETED",
+      "downstream_batch_id": null,
+      "processed_count": 0,
+      "total_count": 0,
+      "error_count": 0,
+      "created_at": "2026-03-12T12:36:11.161Z",
+      "updated_at": "2026-03-12T12:36:11.215Z"
+    },
+    {
+      "erc": "AICA-BATCH-1773318971216-74f00b89",
+      "session_id": "AICA-SESSION-1773318969742-0af65dd2",
+      "step_key": "delete-specifications",
+      "status": "COMPLETED",
+      "downstream_batch_id": null,
+      "processed_count": 0,
+      "total_count": 0,
+      "error_count": 0,
+      "created_at": "2026-03-12T12:36:11.216Z",
+      "updated_at": "2026-03-12T12:36:11.216Z"
+    },
+    {
+      "erc": "AICA-BATCH-1773318971286-78d526fb",
+      "session_id": "AICA-SESSION-1773318969742-0af65dd2",
+      "step_key": "delete-products",
+      "status": "BYPASSED",
+      "downstream_batch_id": null,
+      "processed_count": 0,
+      "total_count": 0,
+      "error_count": 0,
+      "created_at": "2026-03-12T12:36:11.286Z",
+      "updated_at": "2026-03-12T12:36:11.286Z"
+    },
+    {
+      "erc": "AICA-BATCH-1773318971339-0b8373ec",
+      "session_id": "AICA-SESSION-1773318969742-0af65dd2",
+      "step_key": "delete-price-lists",
+      "status": "COMPLETED",
+      "downstream_batch_id": null,
+      "processed_count": 1,
+      "total_count": 1,
+      "error_count": 0,
+      "created_at": "2026-03-12T12:36:11.339Z",
+      "updated_at": "2026-03-12T12:36:11.380Z"
+    },
+    {
+      "erc": "AICA-BATCH-1773318971381-5cd0a1d8",
+      "session_id": "AICA-SESSION-1773318969742-0af65dd2",
+      "step_key": "delete-price-lists",
+      "status": "COMPLETED",
+      "downstream_batch_id": null,
+      "processed_count": 0,
+      "total_count": 1,
+      "error_count": 0,
+      "created_at": "2026-03-12T12:36:11.381Z",
+      "updated_at": "2026-03-12T12:36:11.381Z"
+    },
+    {
+      "erc": "AICA-BATCH-1773318971435-84b9aadb",
+      "session_id": "AICA-SESSION-1773318969742-0af65dd2",
+      "step_key": "delete-promotions",
+      "status": "COMPLETED",
+      "downstream_batch_id": null,
+      "processed_count": 1,
+      "total_count": 1,
+      "error_count": 0,
+      "created_at": "2026-03-12T12:36:11.435Z",
+      "updated_at": "2026-03-12T12:36:11.484Z"
+    },
+    {
+      "erc": "AICA-BATCH-1773318971484-12d85b7f",
+      "session_id": "AICA-SESSION-1773318969742-0af65dd2",
+      "step_key": "delete-promotions",
+      "status": "COMPLETED",
+      "downstream_batch_id": null,
+      "processed_count": 0,
+      "total_count": 1,
+      "error_count": 0,
+      "created_at": "2026-03-12T12:36:11.484Z",
+      "updated_at": "2026-03-12T12:36:11.484Z"
+    },
+    {
+      "erc": "AICA-BATCH-1773318971495-6e3b7e02",
+      "session_id": "AICA-SESSION-1773318969742-0af65dd2",
+      "step_key": "delete-option-categories",
+      "status": "COMPLETED",
+      "downstream_batch_id": null,
+      "processed_count": 0,
+      "total_count": 0,
+      "error_count": 0,
+      "created_at": "2026-03-12T12:36:11.495Z",
+      "updated_at": "2026-03-12T12:36:11.531Z"
+    },
+    {
+      "erc": "AICA-BATCH-1773318971532-2cec6dba",
+      "session_id": "AICA-SESSION-1773318969742-0af65dd2",
+      "step_key": "delete-option-categories",
+      "status": "COMPLETED",
+      "downstream_batch_id": null,
+      "processed_count": 0,
+      "total_count": 0,
+      "error_count": 0,
+      "created_at": "2026-03-12T12:36:11.532Z",
+      "updated_at": "2026-03-12T12:36:11.532Z"
+    },
+    {
+      "erc": "AICA-BATCH-1773318997058-8b155e34",
+      "session_id": "AICA-SESSION-1773318997047-cf7c14ea",
+      "step_key": "subflow-products",
+      "status": "SYNCHRONOUS",
+      "downstream_batch_id": null,
+      "processed_count": 0,
+      "total_count": 0,
+      "error_count": 0,
+      "created_at": "2026-03-12T12:36:37.058Z",
+      "updated_at": "2026-03-12T12:36:37.058Z"
+    },
+    {
+      "erc": "AICA-BATCH-1773318997067-e15b490e",
+      "session_id": "AICA-SESSION-1773318997047-cf7c14ea",
+      "step_key": "subflow-accounts",
+      "status": "SYNCHRONOUS",
+      "downstream_batch_id": null,
+      "processed_count": 0,
+      "total_count": 0,
+      "error_count": 0,
+      "created_at": "2026-03-12T12:36:37.067Z",
+      "updated_at": "2026-03-12T12:36:37.067Z"
+    }
+  ],
+  "events": [
+    {
+      "timestamp": "2026-03-12T11:25:27.162Z",
+      "session_id": "AICA-SESSION-1773314727152-64797c8f",
+      "status": "STEP_STARTED",
+      "message": "Step 'subflow-products' started.",
+      "details": {
+        "step": "subflow-products",
+        "correlationId": "c97004c8-bc92-42f3-a7da-725a7075c4fc"
+      }
+    },
+    {
+      "timestamp": "2026-03-12T11:25:27.167Z",
+      "session_id": "AICA-SESSION-1773314727152-64797c8f",
+      "status": "STEP_COMPLETED",
+      "message": "Step 'subflow-products' completed.",
+      "details": {
+        "step": "subflow-products",
+        "correlationId": "c97004c8-bc92-42f3-a7da-725a7075c4fc"
+      }
+    },
+    {
+      "timestamp": "2026-03-12T11:25:27.169Z",
+      "session_id": "AICA-SESSION-1773314727152-64797c8f",
+      "status": "STEP_STARTED",
+      "message": "Step 'subflow-accounts' started.",
+      "details": {
+        "step": "subflow-accounts",
+        "correlationId": "c97004c8-bc92-42f3-a7da-725a7075c4fc"
+      }
+    },
+    {
+      "timestamp": "2026-03-12T11:25:27.174Z",
+      "session_id": "AICA-SESSION-1773314727152-64797c8f",
+      "status": "STEP_COMPLETED",
+      "message": "Step 'subflow-accounts' completed.",
+      "details": {
+        "step": "subflow-accounts",
+        "correlationId": "c97004c8-bc92-42f3-a7da-725a7075c4fc"
+      }
+    },
+    {
+      "timestamp": "2026-03-12T11:26:05.100Z",
+      "session_id": "AICA-SESSION-1773314765094-571bbce6",
+      "status": "STEP_STARTED",
+      "message": "Step 'reset-catalog-config' started.",
+      "details": {
+        "step": "reset-catalog-config",
+        "correlationId": "c97004c8-bc92-42f3-a7da-725a7075c4fc"
+      }
+    },
+    {
+      "timestamp": "2026-03-12T11:26:05.307Z",
+      "session_id": "AICA-SESSION-1773314765094-571bbce6",
+      "status": "STEP_COMPLETED",
+      "message": "Step 'reset-catalog-config' completed.",
+      "details": {
+        "step": "reset-catalog-config",
+        "correlationId": "c97004c8-bc92-42f3-a7da-725a7075c4fc"
+      }
+    },
+    {
+      "timestamp": "2026-03-12T11:26:05.312Z",
+      "session_id": "AICA-SESSION-1773314765094-571bbce6",
+      "status": "STEP_STARTED",
+      "message": "Step 'delete-orders' started.",
+      "details": {
+        "step": "delete-orders",
+        "correlationId": "c97004c8-bc92-42f3-a7da-725a7075c4fc"
+      }
+    },
+    {
+      "timestamp": "2026-03-12T11:26:05.414Z",
+      "session_id": "AICA-SESSION-1773314765094-571bbce6",
+      "status": "STEP_COMPLETED",
+      "message": "Step 'delete-orders' completed.",
+      "details": {
+        "step": "delete-orders",
+        "correlationId": "c97004c8-bc92-42f3-a7da-725a7075c4fc"
+      }
+    },
+    {
+      "timestamp": "2026-03-12T11:26:05.418Z",
+      "session_id": "AICA-SESSION-1773314765094-571bbce6",
+      "status": "STEP_STARTED",
+      "message": "Step 'delete-warehouses' started.",
+      "details": {
+        "step": "delete-warehouses",
+        "correlationId": "c97004c8-bc92-42f3-a7da-725a7075c4fc"
+      }
+    },
+    {
+      "timestamp": "2026-03-12T11:26:05.464Z",
+      "session_id": "AICA-SESSION-1773314765094-571bbce6",
+      "status": "STEP_COMPLETED",
+      "message": "Step 'delete-warehouses' completed.",
+      "details": {
+        "step": "delete-warehouses",
+        "correlationId": "c97004c8-bc92-42f3-a7da-725a7075c4fc"
+      }
+    },
+    {
+      "timestamp": "2026-03-12T11:26:05.469Z",
+      "session_id": "AICA-SESSION-1773314765094-571bbce6",
+      "status": "STEP_STARTED",
+      "message": "Step 'delete-accounts' started.",
+      "details": {
+        "step": "delete-accounts",
+        "correlationId": "c97004c8-bc92-42f3-a7da-725a7075c4fc"
+      }
+    },
+    {
+      "timestamp": "2026-03-12T11:26:05.593Z",
+      "session_id": "AICA-SESSION-1773314765094-571bbce6",
+      "status": "STEP_COMPLETED",
+      "message": "Step 'delete-accounts' completed.",
+      "details": {
+        "step": "delete-accounts",
+        "correlationId": "c97004c8-bc92-42f3-a7da-725a7075c4fc"
+      }
+    },
+    {
+      "timestamp": "2026-03-12T11:26:05.598Z",
+      "session_id": "AICA-SESSION-1773314765094-571bbce6",
+      "status": "STEP_STARTED",
+      "message": "Step 'delete-options' started.",
+      "details": {
+        "step": "delete-options",
+        "correlationId": "c97004c8-bc92-42f3-a7da-725a7075c4fc"
+      }
+    },
+    {
+      "timestamp": "2026-03-12T11:26:05.651Z",
+      "session_id": "AICA-SESSION-1773314765094-571bbce6",
+      "status": "STEP_COMPLETED",
+      "message": "Step 'delete-options' completed.",
+      "details": {
+        "step": "delete-options",
+        "correlationId": "c97004c8-bc92-42f3-a7da-725a7075c4fc"
+      }
+    },
+    {
+      "timestamp": "2026-03-12T11:26:05.656Z",
+      "session_id": "AICA-SESSION-1773314765094-571bbce6",
+      "status": "STEP_STARTED",
+      "message": "Step 'delete-specifications' started.",
+      "details": {
+        "step": "delete-specifications",
+        "correlationId": "c97004c8-bc92-42f3-a7da-725a7075c4fc"
+      }
+    },
+    {
+      "timestamp": "2026-03-12T11:26:05.696Z",
+      "session_id": "AICA-SESSION-1773314765094-571bbce6",
+      "status": "STEP_COMPLETED",
+      "message": "Step 'delete-specifications' completed.",
+      "details": {
+        "step": "delete-specifications",
+        "correlationId": "c97004c8-bc92-42f3-a7da-725a7075c4fc"
+      }
+    },
+    {
+      "timestamp": "2026-03-12T11:26:05.700Z",
+      "session_id": "AICA-SESSION-1773314765094-571bbce6",
+      "status": "STEP_STARTED",
+      "message": "Step 'delete-products' started.",
+      "details": {
+        "step": "delete-products",
+        "correlationId": "c97004c8-bc92-42f3-a7da-725a7075c4fc"
+      }
+    },
+    {
+      "timestamp": "2026-03-12T11:26:05.770Z",
+      "session_id": "AICA-SESSION-1773314765094-571bbce6",
+      "status": "STEP_COMPLETED",
+      "message": "Step 'delete-products' completed.",
+      "details": {
+        "step": "delete-products",
+        "correlationId": "c97004c8-bc92-42f3-a7da-725a7075c4fc"
+      }
+    },
+    {
+      "timestamp": "2026-03-12T11:26:05.775Z",
+      "session_id": "AICA-SESSION-1773314765094-571bbce6",
+      "status": "STEP_STARTED",
+      "message": "Step 'delete-price-lists' started.",
+      "details": {
+        "step": "delete-price-lists",
+        "correlationId": "c97004c8-bc92-42f3-a7da-725a7075c4fc"
+      }
+    },
+    {
+      "timestamp": "2026-03-12T11:26:05.864Z",
+      "session_id": "AICA-SESSION-1773314765094-571bbce6",
+      "status": "STEP_COMPLETED",
+      "message": "Step 'delete-price-lists' completed.",
+      "details": {
+        "step": "delete-price-lists",
+        "correlationId": "c97004c8-bc92-42f3-a7da-725a7075c4fc"
+      }
+    },
+    {
+      "timestamp": "2026-03-12T11:26:05.869Z",
+      "session_id": "AICA-SESSION-1773314765094-571bbce6",
+      "status": "STEP_STARTED",
+      "message": "Step 'delete-promotions' started.",
+      "details": {
+        "step": "delete-promotions",
+        "correlationId": "c97004c8-bc92-42f3-a7da-725a7075c4fc"
+      }
+    },
+    {
+      "timestamp": "2026-03-12T11:26:05.965Z",
+      "session_id": "AICA-SESSION-1773314765094-571bbce6",
+      "status": "STEP_COMPLETED",
+      "message": "Step 'delete-promotions' completed.",
+      "details": {
+        "step": "delete-promotions",
+        "correlationId": "c97004c8-bc92-42f3-a7da-725a7075c4fc"
+      }
+    },
+    {
+      "timestamp": "2026-03-12T11:26:05.970Z",
+      "session_id": "AICA-SESSION-1773314765094-571bbce6",
+      "status": "STEP_STARTED",
+      "message": "Step 'delete-option-categories' started.",
+      "details": {
+        "step": "delete-option-categories",
+        "correlationId": "c97004c8-bc92-42f3-a7da-725a7075c4fc"
+      }
+    },
+    {
+      "timestamp": "2026-03-12T11:26:06.028Z",
+      "session_id": "AICA-SESSION-1773314765094-571bbce6",
+      "status": "STEP_COMPLETED",
+      "message": "Step 'delete-option-categories' completed.",
+      "details": {
+        "step": "delete-option-categories",
+        "correlationId": "c97004c8-bc92-42f3-a7da-725a7075c4fc"
+      }
+    },
+    {
+      "timestamp": "2026-03-12T11:26:06.033Z",
+      "session_id": "AICA-SESSION-1773314765094-571bbce6",
+      "status": "SESSION_COMPLETED",
+      "message": "Session AICA-SESSION-1773314765094-571bbce6 completed successfully.",
+      "details": {
+        "correlationId": "c97004c8-bc92-42f3-a7da-725a7075c4fc"
+      }
+    },
+    {
+      "timestamp": "2026-03-12T12:36:09.749Z",
+      "session_id": "AICA-SESSION-1773318969742-0af65dd2",
+      "status": "STEP_STARTED",
+      "message": "Step 'reset-catalog-config' started.",
+      "details": {
+        "step": "reset-catalog-config",
+        "correlationId": "c97004c8-bc92-42f3-a7da-725a7075c4fc"
+      }
+    },
+    {
+      "timestamp": "2026-03-12T12:36:10.636Z",
+      "session_id": "AICA-SESSION-1773318969742-0af65dd2",
+      "status": "STEP_COMPLETED",
+      "message": "Step 'reset-catalog-config' completed.",
+      "details": {
+        "step": "reset-catalog-config",
+        "correlationId": "c97004c8-bc92-42f3-a7da-725a7075c4fc"
+      }
+    },
+    {
+      "timestamp": "2026-03-12T12:36:10.643Z",
+      "session_id": "AICA-SESSION-1773318969742-0af65dd2",
+      "status": "STEP_STARTED",
+      "message": "Step 'delete-orders' started.",
+      "details": {
+        "step": "delete-orders",
+        "correlationId": "c97004c8-bc92-42f3-a7da-725a7075c4fc"
+      }
+    },
+    {
+      "timestamp": "2026-03-12T12:36:10.929Z",
+      "session_id": "AICA-SESSION-1773318969742-0af65dd2",
+      "status": "STEP_COMPLETED",
+      "message": "Step 'delete-orders' completed.",
+      "details": {
+        "step": "delete-orders",
+        "correlationId": "c97004c8-bc92-42f3-a7da-725a7075c4fc"
+      }
+    },
+    {
+      "timestamp": "2026-03-12T12:36:10.935Z",
+      "session_id": "AICA-SESSION-1773318969742-0af65dd2",
+      "status": "STEP_STARTED",
+      "message": "Step 'delete-warehouses' started.",
+      "details": {
+        "step": "delete-warehouses",
+        "correlationId": "c97004c8-bc92-42f3-a7da-725a7075c4fc"
+      }
+    },
+    {
+      "timestamp": "2026-03-12T12:36:10.978Z",
+      "session_id": "AICA-SESSION-1773318969742-0af65dd2",
+      "status": "STEP_COMPLETED",
+      "message": "Step 'delete-warehouses' completed.",
+      "details": {
+        "step": "delete-warehouses",
+        "correlationId": "c97004c8-bc92-42f3-a7da-725a7075c4fc"
+      }
+    },
+    {
+      "timestamp": "2026-03-12T12:36:10.984Z",
+      "session_id": "AICA-SESSION-1773318969742-0af65dd2",
+      "status": "STEP_STARTED",
+      "message": "Step 'delete-accounts' started.",
+      "details": {
+        "step": "delete-accounts",
+        "correlationId": "c97004c8-bc92-42f3-a7da-725a7075c4fc"
+      }
+    },
+    {
+      "timestamp": "2026-03-12T12:36:11.106Z",
+      "session_id": "AICA-SESSION-1773318969742-0af65dd2",
+      "status": "STEP_COMPLETED",
+      "message": "Step 'delete-accounts' completed.",
+      "details": {
+        "step": "delete-accounts",
+        "correlationId": "c97004c8-bc92-42f3-a7da-725a7075c4fc"
+      }
+    },
+    {
+      "timestamp": "2026-03-12T12:36:11.112Z",
+      "session_id": "AICA-SESSION-1773318969742-0af65dd2",
+      "status": "STEP_STARTED",
+      "message": "Step 'delete-options' started.",
+      "details": {
+        "step": "delete-options",
+        "correlationId": "c97004c8-bc92-42f3-a7da-725a7075c4fc"
+      }
+    },
+    {
+      "timestamp": "2026-03-12T12:36:11.155Z",
+      "session_id": "AICA-SESSION-1773318969742-0af65dd2",
+      "status": "STEP_COMPLETED",
+      "message": "Step 'delete-options' completed.",
+      "details": {
+        "step": "delete-options",
+        "correlationId": "c97004c8-bc92-42f3-a7da-725a7075c4fc"
+      }
+    },
+    {
+      "timestamp": "2026-03-12T12:36:11.160Z",
+      "session_id": "AICA-SESSION-1773318969742-0af65dd2",
+      "status": "STEP_STARTED",
+      "message": "Step 'delete-specifications' started.",
+      "details": {
+        "step": "delete-specifications",
+        "correlationId": "c97004c8-bc92-42f3-a7da-725a7075c4fc"
+      }
+    },
+    {
+      "timestamp": "2026-03-12T12:36:11.217Z",
+      "session_id": "AICA-SESSION-1773318969742-0af65dd2",
+      "status": "STEP_COMPLETED",
+      "message": "Step 'delete-specifications' completed.",
+      "details": {
+        "step": "delete-specifications",
+        "correlationId": "c97004c8-bc92-42f3-a7da-725a7075c4fc"
+      }
+    },
+    {
+      "timestamp": "2026-03-12T12:36:11.223Z",
+      "session_id": "AICA-SESSION-1773318969742-0af65dd2",
+      "status": "STEP_STARTED",
+      "message": "Step 'delete-products' started.",
+      "details": {
+        "step": "delete-products",
+        "correlationId": "c97004c8-bc92-42f3-a7da-725a7075c4fc"
+      }
+    },
+    {
+      "timestamp": "2026-03-12T12:36:11.287Z",
+      "session_id": "AICA-SESSION-1773318969742-0af65dd2",
+      "status": "STEP_COMPLETED",
+      "message": "Step 'delete-products' completed.",
+      "details": {
+        "step": "delete-products",
+        "correlationId": "c97004c8-bc92-42f3-a7da-725a7075c4fc"
+      }
+    },
+    {
+      "timestamp": "2026-03-12T12:36:11.293Z",
+      "session_id": "AICA-SESSION-1773318969742-0af65dd2",
+      "status": "STEP_STARTED",
+      "message": "Step 'delete-price-lists' started.",
+      "details": {
+        "step": "delete-price-lists",
+        "correlationId": "c97004c8-bc92-42f3-a7da-725a7075c4fc"
+      }
+    },
+    {
+      "timestamp": "2026-03-12T12:36:11.383Z",
+      "session_id": "AICA-SESSION-1773318969742-0af65dd2",
+      "status": "STEP_COMPLETED",
+      "message": "Step 'delete-price-lists' completed.",
+      "details": {
+        "step": "delete-price-lists",
+        "correlationId": "c97004c8-bc92-42f3-a7da-725a7075c4fc"
+      }
+    },
+    {
+      "timestamp": "2026-03-12T12:36:11.390Z",
+      "session_id": "AICA-SESSION-1773318969742-0af65dd2",
+      "status": "STEP_STARTED",
+      "message": "Step 'delete-promotions' started.",
+      "details": {
+        "step": "delete-promotions",
+        "correlationId": "c97004c8-bc92-42f3-a7da-725a7075c4fc"
+      }
+    },
+    {
+      "timestamp": "2026-03-12T12:36:11.486Z",
+      "session_id": "AICA-SESSION-1773318969742-0af65dd2",
+      "status": "STEP_COMPLETED",
+      "message": "Step 'delete-promotions' completed.",
+      "details": {
+        "step": "delete-promotions",
+        "correlationId": "c97004c8-bc92-42f3-a7da-725a7075c4fc"
+      }
+    },
+    {
+      "timestamp": "2026-03-12T12:36:11.494Z",
+      "session_id": "AICA-SESSION-1773318969742-0af65dd2",
+      "status": "STEP_STARTED",
+      "message": "Step 'delete-option-categories' started.",
+      "details": {
+        "step": "delete-option-categories",
+        "correlationId": "c97004c8-bc92-42f3-a7da-725a7075c4fc"
+      }
+    },
+    {
+      "timestamp": "2026-03-12T12:36:11.534Z",
+      "session_id": "AICA-SESSION-1773318969742-0af65dd2",
+      "status": "STEP_COMPLETED",
+      "message": "Step 'delete-option-categories' completed.",
+      "details": {
+        "step": "delete-option-categories",
+        "correlationId": "c97004c8-bc92-42f3-a7da-725a7075c4fc"
+      }
+    },
+    {
+      "timestamp": "2026-03-12T12:36:11.541Z",
+      "session_id": "AICA-SESSION-1773318969742-0af65dd2",
+      "status": "SESSION_COMPLETED",
+      "message": "Session AICA-SESSION-1773318969742-0af65dd2 completed successfully.",
+      "details": {
+        "correlationId": "c97004c8-bc92-42f3-a7da-725a7075c4fc"
+      }
+    },
+    {
+      "timestamp": "2026-03-12T12:36:37.053Z",
+      "session_id": "AICA-SESSION-1773318997047-cf7c14ea",
+      "status": "STEP_STARTED",
+      "message": "Step 'subflow-products' started.",
+      "details": {
+        "step": "subflow-products",
+        "correlationId": "c97004c8-bc92-42f3-a7da-725a7075c4fc"
+      }
+    },
+    {
+      "timestamp": "2026-03-12T12:36:37.058Z",
+      "session_id": "AICA-SESSION-1773318997047-cf7c14ea",
+      "status": "STEP_COMPLETED",
+      "message": "Step 'subflow-products' completed.",
+      "details": {
+        "step": "subflow-products",
+        "correlationId": "c97004c8-bc92-42f3-a7da-725a7075c4fc"
+      }
+    },
+    {
+      "timestamp": "2026-03-12T12:36:37.063Z",
+      "session_id": "AICA-SESSION-1773318997047-cf7c14ea",
+      "status": "STEP_STARTED",
+      "message": "Step 'subflow-accounts' started.",
+      "details": {
+        "step": "subflow-accounts",
+        "correlationId": "c97004c8-bc92-42f3-a7da-725a7075c4fc"
+      }
+    },
+    {
+      "timestamp": "2026-03-12T12:36:37.068Z",
+      "session_id": "AICA-SESSION-1773318997047-cf7c14ea",
+      "status": "STEP_COMPLETED",
+      "message": "Step 'subflow-accounts' completed.",
+      "details": {
+        "step": "subflow-accounts",
+        "correlationId": "c97004c8-bc92-42f3-a7da-725a7075c4fc"
+      }
+    }
+  ]
+}

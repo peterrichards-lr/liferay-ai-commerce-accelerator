@@ -14,11 +14,11 @@ The project is a multi-module Liferay Workspace using a headless-first architect
 - **Responsibilities**: Workflow execution, AI integration (Gemini/OpenAI), Liferay Headless API coordination, and real-time state broadcasting via WebSockets.
 - **Core Directories**:
     - `generators/`: Defines the business logic and step sequences for entity creation/deletion (e.g., `ProductGenerator.cjs`).
-    - `services/`: Core logic providers like `BatchCallbackService.cjs` (state machine), `LiferayService` (API facade), and `PersistenceService.cjs` (SQLite manager).
+    - `services/`: Core logic providers like `BatchCallbackService.cjs` (state machine), `LiferayService` (API facade), and `PersistenceService.cjs` (lowdb manager).
     - `routes/`: Express endpoints for initiating workflows and receiving Liferay batch callbacks.
     - `utils/`: Shared constants (`constants.cjs`) and API path helpers (`liferayPaths.cjs`).
-    - `data/`: Location of `workflows.db` (SQLite source of truth).
-- **Stack**: Node.js (Express), SQLite (Better-SQLite3).
+    - `data/`: Location of `workflows.json` (JSON source of truth).
+- **Stack**: Node.js (Express), lowdb (Pure-JS JSON database).
 
 ### 🖥️ Frontend Subsystem (`ai-commerce-accelerator-frontend`)
 **Role**: The primary control plane for the accelerator.

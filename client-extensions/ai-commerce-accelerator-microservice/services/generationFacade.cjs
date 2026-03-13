@@ -42,9 +42,9 @@ class GenerationFacade {
   /**
    * Primary entry point for routing and validating all generated data.
    */
-  async generate(entityType, count, requestConfig, options = {}) {
+  async generateData(entityType, count, requestConfig, options = {}) {
     const { demoMode, correlationId } = options;
-    const generator = demoMode ? this.ctx.mockData : this.ctx.ai;
+    const generator = demoMode ? this.ctx.mockDataGenerator : this.ctx.ai;
     const methodMap = {
       product: 'generateProductData',
       account: 'generateAccountData',

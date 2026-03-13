@@ -15,11 +15,123 @@ class MockDataGenerator {
     this.logger = ctx.logger;
   }
 
+  /**
+   * Generic generate method to match GenerationFacade signature.
+   */
+  async generate(entityType, count, config, options = {}) {
+    const methodMap = {
+      product: 'generateProductData',
+      account: 'generateAccountData',
+      order: 'generateOrderData',
+      warehouse: 'generateWarehouseData',
+      pricing: 'generatePricingData'
+    };
+
+    const methodName = methodMap[entityType];
+    if (!methodName || typeof this[methodName] !== 'function') {
+      throw new Error(`MockDataGenerator: Unsupported entity type: ${entityType}`);
+    }
+
+    const selectedLanguages = options.selectedLanguages || ['en-US'];
+
+    if (entityType === 'product') {
+      return this.generateProductData(
+        options.category || 'Electronics',
+        count,
+        config,
+        null, // model
+        selectedLanguages,
+        options
+      );
+    } else if (entityType === 'account') {
+      return this.generateAccountData(
+        count,
+        config,
+        null, // model
+        options.categories || [],
+        selectedLanguages
+      );
+    } else if (entityType === 'order') {
+      return this.generateOrderData(
+        options.products || [],
+        options.accounts || [],
+        count,
+        config,
+        null,
+        selectedLanguages
+      );
+    } else if (entityType === 'warehouse') {
+      return this.generateWarehouseData(
+        count,
+        config,
+        null,
+        selectedLanguages
+      );
+    } else if (entityType === 'pricing') {
+      return this.generatePricingData(
+        options.products || [],
+        options.pricingType || 'standard',
+        config,
+        null,
+        selectedLanguages
+      );
+    }
+  }
+
+  async generateProducts(config, options) {
+    const count = options.productCount || options.count || 1;
+    const products = this.generateProductData(
+      options.category || 'Electronics',
+      count,
+      config,
+      null, // model
+      options.selectedLanguages || ['en-US'],
+      options
+    );
+
+    if (options.onProgress) {
+      options.onProgress(100);
+    }
+
+    return {
+      created: products.length,
+      products,
+      errors: [],
+    };
+  }
+
+  async generateOrders(config, options) {
+    const count = options.orderCount || options.count || 1;
+    // We need some mock accounts and products to link to orders
+    const accounts = this.generateAccountData(5);
+    const products = this.generateProductData('Electronics', 10);
+    
+    const orders = this.generateOrderData(
+      products,
+      accounts,
+      count,
+      config,
+      null,
+      options.selectedLanguages || ['en-US']
+    );
+
+    if (options.onProgress) {
+      options.onProgress(100);
+    }
+
+    return {
+      created: orders.length,
+      orders,
+      errors: [],
+    };
+  }
+
   generateProductData(
     category,
     count = 1,
-    selectedLanguages = ['en-US'],
     config = {},
+    model = null,
+    selectedLanguages = ['en-US'],
     options = {}
   ) {
     const products = [];
@@ -243,9 +355,31 @@ class MockDataGenerator {
     return entries;
   }
 
+  async generateAccounts(config, options) {
+    const count = options.accountCount || options.count || 1;
+    const accounts = this.generateAccountData(
+      count,
+      config,
+      null, // model
+      options.categories || [],
+      options.selectedLanguages || ['en-US']
+    );
+
+    if (options.onProgress) {
+      options.onProgress(100);
+    }
+
+    return {
+      created: accounts.length,
+      accounts,
+      errors: [],
+    };
+  }
+
   generateAccountData(
     count = 1,
     config = {},
+    model = null,
     categories = [],
     selectedLanguages = ['en-US']
   ) {
@@ -280,7 +414,14 @@ class MockDataGenerator {
     return accounts;
   }
 
-  generateOrderData(count = 1, config = {}, accounts = [], selectedLanguages = ['en-US']) {
+  generateOrderData(
+    products = [],
+    accounts = [],
+    count = 1, 
+    config = {}, 
+    model = null,
+    selectedLanguages = ['en-US']
+  ) {
     const orders = [];
     for (let i = 0; i < count; i++) {
       const account = accounts[Math.floor(Math.random() * accounts.length)];
@@ -294,7 +435,12 @@ class MockDataGenerator {
     return orders;
   }
 
-  generateWarehouseData(count = 1, config = {}, selectedLanguages = ['en-US']) {
+  generateWarehouseData(
+    count = 1, 
+    config = {}, 
+    model = null,
+    selectedLanguages = ['en-US']
+  ) {
     const warehouses = [];
     for (let i = 0; i < count; i++) {
       warehouses.push({
@@ -308,7 +454,13 @@ class MockDataGenerator {
     return warehouses;
   }
 
-  generatePricingData(products = [], pricingType = 'standard', config = {}, selectedLanguages = ['en-US']) {
+  generatePricingData(
+    products = [], 
+    pricingType = 'standard', 
+    config = {}, 
+    model = null,
+    selectedLanguages = ['en-US']
+  ) {
     return products.map(p => ({
       skuExternalReferenceCode: p.sku,
       price: getRandomInt(10, 1000)

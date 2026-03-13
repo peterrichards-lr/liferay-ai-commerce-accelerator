@@ -149,7 +149,7 @@ class AccountGenerator extends BaseGenerator {
     });
 
     try {
-      const accountDataList = await this.ctx.generation.generate(
+      const accountDataList = await this.ctx.generation.generateData(
         'account',
         options.accountCount,
         config,

@@ -32,6 +32,7 @@ building or refactoring the system.
 ## Non-negotiable constraints
 
 - All code must be **self-documenting** and contain **no comments**
+- **Pure-JS Mandate**: DO NOT use any package that requires `node-gyp` or native compilation (e.g., native SQLite drivers). The microservice MUST remain compatible across Node versions without requiring `npm rebuild`. Use pure-JS alternatives like `lowdb` for persistence.
 - The AI agent must **not**:
     - build, deploy, or test the project
     - make source control changes (commits, reverts, rebases, etc.)
@@ -246,14 +247,18 @@ The microservice employs two distinct storage layers to balance resilience, perf
 This layer manages the canonical state of all asynchronous operations (sessions, batches, and events).
 
 -   **Primary Store (Source of Truth):**
-    -   A file-based **SQLite** database (`workflows.db`).
+    -   A file-based **lowdb** (JSON) database (`workflows.json`).
     -   **Durability**: Preserved across process restarts, enabling session resumption and reliable audit trails.
-    -   **Schema**: Includes `workflow_sessions`, `workflow_batches`, and `workflow_events`.
--   **Read-Through Cache:**
+    -   **Schema**: Includes `sessions`, `batches`, and `events` arrays.
+-   **Implementation (lowdb + FileSync):**
+    -   Uses the `FileSync` adapter for synchronous, atomic writes to ensure state integrity during concurrent callbacks.
+    -   Leverages `lodash` for efficient, expressive querying and mutation of the JSON database.
+-   **Read-Through Cache (Hybrid Sync):**
     -   An in-memory cache (`memory-cache`) sits in front of the database to reduce disk I/O for frequent lookups (e.g., status checks).
 -   **Consistency Model (Write-Invalidate):**
-    -   **Reads**: Checks cache first; on miss, loads from SQLite and populates cache.
-    -   **Writes/Updates**: All mutations are written directly to SQLite first. Immediately following a successful write, the corresponding cache entry is **invalidated (deleted)**. This ensures subsequent reads always fetch the latest data from the database.
+    -   **Reads**: Checks cache first; on miss, loads from lowdb and populates cache.
+    -   **Writes/Updates**: All mutations are written directly to lowdb first via `.write()`. Immediately following a successful write, the corresponding cache entry is **invalidated (deleted)**. This ensures subsequent reads always fetch the latest data from the database.
+-   **Object Mapping**: Data is stored in its natural JSON form. To prevent accidental mutation of the in-memory database state, methods like `getSession` and `getBatch` always return deep clones of the retrieved objects.
 
 #### 2. Application Data Cache (`CacheService`)
 This layer stores transient metadata, configuration, and intermediate processing results.
@@ -289,8 +294,8 @@ store.
   Batch CX Liferay Objects Liferay Objects Structural/configuration
                                                            data
 
-  Microservice Liferay SQLite Single writer for workflow
-                         Objects, SQLite state
+  Microservice Liferay lowdb Single writer for workflow
+                         Objects, JSON state
   -----------------------------------------------------------------------------------
 
 ------------------------------------------------------------------------
@@ -317,19 +322,19 @@ Identifier for correlating user-visible errors and server logs.
 
 ## Storage model (microservice)
 
-### workflow_sessions
+### sessions (JSON array)
 
 - session_id
 - flow_type
 - status
-- current_steps (updated to TEXT to store JSON array of active steps)
-- context_json
-- correlation_id
+- currentSteps (JSON array of active steps)
+- context (JSON object)
+- correlationId
 - version
 - created_at
 - updated_at
 
-### workflow_batches
+### batches (JSON array)
 
 - erc
 - session_id
@@ -341,6 +346,15 @@ Identifier for correlating user-visible errors and server logs.
 - error_count
 - created_at
 - updated_at
+
+### events (JSON array)
+
+- timestamp
+- session_id
+- batch_id
+- status
+- message
+- details (JSON object)
 
 ------------------------------------------------------------------------
 
@@ -391,7 +405,7 @@ Failed batches trigger a follow-up step that fetches failure details.
 
 ### Restart behavior
 
-- If SQLite is preserved, sessions may resume
+- If lowdb JSON is preserved, sessions may resume
 - Otherwise sessions are failed with an errorRef
 
 ### Late callbacks
@@ -521,7 +535,7 @@ submitted → failed
 
   WebSocket disconnect Workflow continues; UI may reconnect
 
-  Microservice restart Session resumed if SQLite preserved, otherwise
+  Microservice restart Session resumed if lowdb preserved, otherwise
   mid-run failed
 
   Liferay Headless API Workflow execution continues; Liferay writes

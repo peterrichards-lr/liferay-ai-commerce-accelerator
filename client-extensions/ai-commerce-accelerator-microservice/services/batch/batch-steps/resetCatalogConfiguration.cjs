@@ -45,10 +45,10 @@ module.exports = async function resetCatalogConfiguration(
     // Mirroring the portlet action identified in the HAR trace
     const catalogUpdatePayload = {};
     if (masterPriceListId) {
-      catalogUpdatePayload.baseCommercePriceListId = masterPriceListId;
+      catalogUpdatePayload.defaultCommercePriceListId = masterPriceListId;
     }
     if (masterPromotionId) {
-      catalogUpdatePayload.basePromotionCommercePriceListId = masterPromotionId;
+      catalogUpdatePayload.defaultPromotionCommercePriceListId = masterPromotionId;
     }
 
     if (Object.keys(catalogUpdatePayload).length > 0) {

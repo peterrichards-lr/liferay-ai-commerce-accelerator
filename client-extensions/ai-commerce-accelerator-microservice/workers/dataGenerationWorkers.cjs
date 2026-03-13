@@ -4,7 +4,6 @@ module.exports = function registerDataGenerationWorkers({
   productGenerator,
   accountGenerator,
   orderGenerator,
-  mockDataGenerator,
 }) {
   queue.registerWorker(
     'generate-products',
@@ -20,18 +19,10 @@ module.exports = function registerDataGenerationWorkers({
 
       updateProgress(5);
 
-      let result;
-      if (options.demoMode) {
-        result = await mockDataGenerator.generateProducts(config, {
-          ...options,
-          onProgress: (progress) => updateProgress(5 + progress * 0.9),
-        });
-      } else {
-        result = await productGenerator.generateProducts(config, {
-          ...options,
-          onProgress: (progress) => updateProgress(5 + progress * 0.9),
-        });
-      }
+      const result = await productGenerator.generateProducts(config, {
+        ...options,
+        onProgress: (progress) => updateProgress(5 + progress * 0.9),
+      });
 
       updateProgress(100);
 
@@ -66,15 +57,10 @@ module.exports = function registerDataGenerationWorkers({
 
       updateProgress(5);
 
-      let result;
-      if (options.demoMode) {
-        result = mockDataGenerator.generateAccountData(options.count);
-      } else {
-        result = await accountGenerator.generateAccounts(config, {
-          ...options,
-          onProgress: (progress) => updateProgress(5 + progress * 0.9),
-        });
-      }
+      const result = await accountGenerator.generateAccounts(config, {
+        ...options,
+        onProgress: (progress) => updateProgress(5 + progress * 0.9),
+      });
 
       updateProgress(100);
 
@@ -109,18 +95,10 @@ module.exports = function registerDataGenerationWorkers({
 
       updateProgress(5);
 
-      let result;
-      if (options.demoMode) {
-        result = await mockDataGenerator.generateOrders(config, {
-          ...options,
-          onProgress: (progress) => updateProgress(5 + progress * 0.9),
-        });
-      } else {
-        result = await orderGenerator.generateOrders(config, {
-          ...options,
-          onProgress: (progress) => updateProgress(5 + progress * 0.9),
-        });
-      }
+      const result = await orderGenerator.generateOrders(config, {
+        ...options,
+        onProgress: (progress) => updateProgress(5 + progress * 0.9),
+      });
 
       updateProgress(100);
 
@@ -226,17 +204,10 @@ module.exports = function registerDataGenerationWorkers({
               ),
           };
 
-          if (demoMode) {
-            results.products = await mockDataGenerator.generateProducts(
-              config,
-              productOptions
-            );
-          } else {
-            results.products = await productGenerator.generateProducts(
-              config,
-              productOptions
-            );
-          }
+          results.products = await productGenerator.generateProducts(
+            config,
+            productOptions
+          );
 
           currentProgress += stepProgress;
           updateProgress(5 + currentProgress);
@@ -253,18 +224,10 @@ module.exports = function registerDataGenerationWorkers({
               ),
           };
 
-          if (demoMode) {
-            results.accounts = {
-              created: accountCount,
-              accounts: mockDataGenerator.generateAccountData(accountCount),
-              errors: [],
-            };
-          } else {
-            results.accounts = await accountGenerator.generateAccounts(
-              config,
-              accountOptions
-            );
-          }
+          results.accounts = await accountGenerator.generateAccounts(
+            config,
+            accountOptions
+          );
 
           currentProgress += stepProgress;
           updateProgress(5 + currentProgress);
@@ -281,17 +244,10 @@ module.exports = function registerDataGenerationWorkers({
               ),
           };
 
-          if (demoMode) {
-            results.orders = await mockDataGenerator.generateOrders(
-              config,
-              orderOptions
-            );
-          } else {
-            results.orders = await orderGenerator.generateOrders(
-              config,
-              orderOptions
-            );
-          }
+          results.orders = await orderGenerator.generateOrders(
+            config,
+            orderOptions
+          );
 
           currentProgress += stepProgress;
           updateProgress(5 + currentProgress);
