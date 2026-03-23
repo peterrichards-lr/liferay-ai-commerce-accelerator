@@ -150,26 +150,72 @@ module.exports = (app, { logger, persistenceService }) => {
         orders: { completed: 0, total: 0 },
         images: { completed: 0, total: 0 },
         pdfs: { completed: 0, total: 0 },
-        warehouses: { completed: 0, total: 0 }
+        warehouses: { completed: 0, total: 0 },
+        options: { completed: 0, total: 0 },
+        specifications: { completed: 0, total: 0 }
       };
 
-      // We need a way to map step keys to entity types here too
-      // Since we don't have the generator instance, we use a simple mapping
+      // Consistent mapping with BaseWorkflowService._normalizeEntityType
       const entityMap = {
+        'product-data-generation': 'products',
         'create-products': 'products',
-        'create-skus': 'products',
+        'resolve-product-ids': 'products',
+        'create-product-skus': 'products',
+        'resolve-sku-ids': 'products',
         'update-inventory': 'products',
-        'create-price-lists': 'products',
-        'create-bulk-pricing': 'products',
-        'create-tier-pricing': 'products',
+        'generate-price-lists': 'products',
+        'update-catalog-configuration': 'products',
+        'generate-bulk-pricing': 'products',
+        'generate-tier-pricing': 'products',
+        'delete-products': 'products',
+        'delete-product-related': 'products',
+        'delete-price-lists': 'products',
+        'delete-promotions': 'products',
+        'reset-catalog-configuration': 'products',
+        'deleteproducts': 'products',
+        'deletepricelists': 'products',
+        'deletepromotions': 'products',
+        'resetcatalogconfiguration': 'products',
+
+        'load-countries': 'accounts',
+        'generate-account-data': 'accounts',
         'create-accounts': 'accounts',
+        'resolve-account-ids': 'accounts',
         'create-postal-addresses': 'accounts',
+        'set-address-defaults': 'accounts',
+        'delete-accounts': 'accounts',
+        'deleteaccounts': 'accounts',
+        'postal-addresses': 'accounts',
+        'set-billing-and-shipping-addresses': 'accounts',
+
+        'generate-order-data': 'orders',
         'create-orders': 'orders',
+        'delete-orders': 'orders',
+        'deleteorders': 'orders',
+
+        'generate-warehouse-data': 'warehouses',
+        'create-warehouses': 'warehouses',
+        'resolve-warehouse-ids': 'warehouses',
+        'delete-warehouses': 'warehouses',
+        'delete-warehouse-items': 'warehouses',
+        'deletewarehouses': 'warehouses',
+        'deletewarehouseitems': 'warehouses',
+
         'attach-images': 'images',
         'process-images': 'images',
         'attach-pdfs': 'pdfs',
         'process-pdfs': 'pdfs',
-        'create-warehouses': 'warehouses'
+
+        'link-product-options': 'options',
+        'delete-options': 'options',
+        'delete-option-categories': 'options',
+        'delete-product-options': 'options',
+        'deleteoptions': 'options',
+        'deleteproductoptions': 'options',
+
+        'delete-specifications': 'specifications',
+        'delete-product-specifications': 'specifications',
+        'deletespecifications': 'specifications'
       };
 
       batches.forEach(b => {
