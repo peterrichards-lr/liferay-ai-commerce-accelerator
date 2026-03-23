@@ -95,6 +95,7 @@ export default function useGeneration({
       }
 
       if (response.sessionId) {
+        dispatch({ type: 'SET_ACTIVE_SESSION', sessionId: response.sessionId });
         addLog(
           `✓ Workflow submitted successfully. Session ID: ${response.sessionId}`,
           'success'

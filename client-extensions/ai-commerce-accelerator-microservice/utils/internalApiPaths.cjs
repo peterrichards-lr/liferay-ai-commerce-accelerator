@@ -35,6 +35,7 @@ const INTERNAL_API_PATHS = {
   JOBS: '/jobs/:jobId',
   WORKFLOW_SESSIONS: '/workflows/sessions',
   WORKFLOW_BATCHES: '/workflows/batches/:sessionId',
+  WORKFLOW_STATUS: '/workflows/sessions/:sessionId/status',
   WORKFLOW_SUMMARY: '/workflows/sessions/:sessionId/summary',
   WORKFLOW_SESSION_CONTEXT: '/workflows/sessions/:sessionId/context',
   WORKFLOW_CLEAR_ALL: '/workflows/clear-all',

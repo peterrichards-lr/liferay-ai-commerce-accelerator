@@ -1,6 +1,7 @@
 import { clampCompleted } from '../state/progressSelectors';
 
 export const initialProgress = {
+  activeSessionId: null,
   products: { total: 0, completed: 0, errors: [], batches: {} },
   accounts: { total: 0, completed: 0, errors: [], batches: {} },
   orders: { total: 0, completed: 0, errors: [], batches: {} },
@@ -21,6 +22,10 @@ export function progressReducer(state, action) {
 
     case 'MERGE': {
       return { ...state, ...action.payload };
+    }
+
+    case 'SET_ACTIVE_SESSION': {
+      return { ...state, activeSessionId: action.sessionId };
     }
 
     case 'SET_TOTAL': {
@@ -129,6 +134,7 @@ export function progressReducer(state, action) {
 export const ProgressActions = {
   apply: (updater) => ({ type: 'APPLY_UPDATER', updater }),
   merge: (payload) => ({ type: 'MERGE', payload }),
+  setActiveSession: (sessionId) => ({ type: 'SET_ACTIVE_SESSION', sessionId }),
   setTotal: (entity, total) => ({ type: 'SET_TOTAL', entity, total }),
   setCompleted: (entity, completed) => ({ type: 'SET_COMPLETED', entity, completed }),
   setCompletedToTotal: (entity) => ({ type: 'SET_COMPLETED_TO_TOTAL', entity }),

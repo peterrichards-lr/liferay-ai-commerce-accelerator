@@ -14,14 +14,40 @@ class PersistenceService {
     this._initSchema();
   }
 
+  /**
+   * Robust write helper with synchronous retry for file contention.
+   */
+  _write() {
+    let attempts = 0;
+    const maxAttempts = 5;
+    const retryDelayMs = 100;
+
+    while (attempts < maxAttempts) {
+      try {
+        attempts++;
+        this.db.write();
+        return;
+      } catch (err) {
+        // Handle transient file-system errors (EBUSY is common on concurrent writes)
+        if (attempts < maxAttempts && ['EBUSY', 'EAGAIN', 'EPERM'].includes(err.code)) {
+          // Synchronous sleep
+          const start = Date.now();
+          while (Date.now() - start < retryDelayMs) { /* sleep */ }
+          continue;
+        }
+        throw err;
+      }
+    }
+  }
+
   _initSchema() {
     this.db
       .defaults({
         sessions: [],
         batches: [],
         events: [],
-      })
-      .write();
+      });
+    this._write();
   }
 
   createSession({
@@ -45,7 +71,8 @@ class PersistenceService {
       updated_at: now,
     };
 
-    this.db.get('sessions').push(session).write();
+    this.db.get('sessions').push(session);
+    this._write();
 
     this.cache.del(sessionId);
     return this.getSession(sessionId);
@@ -82,8 +109,8 @@ class PersistenceService {
     this.db
       .get('sessions')
       .find({ session_id: sessionId })
-      .assign({ status, updated_at: new Date().toISOString() })
-      .write();
+      .assign({ status, updated_at: new Date().toISOString() });
+    this._write();
 
     this.cache.del(sessionId);
     return this.getSession(sessionId);
@@ -93,8 +120,8 @@ class PersistenceService {
     this.db
       .get('sessions')
       .find({ session_id: sessionId })
-      .assign({ currentSteps, updated_at: new Date().toISOString() })
-      .write();
+      .assign({ currentSteps, updated_at: new Date().toISOString() });
+    this._write();
 
     this.cache.del(sessionId);
     return this.getSession(sessionId);
@@ -104,8 +131,8 @@ class PersistenceService {
     this.db
       .get('sessions')
       .find({ session_id: sessionId })
-      .assign({ context, updated_at: new Date().toISOString() })
-      .write();
+      .assign({ context, updated_at: new Date().toISOString() });
+    this._write();
 
     this.cache.del(sessionId);
     return this.getSession(sessionId);
@@ -119,7 +146,8 @@ class PersistenceService {
     if (currentSteps) updates.currentSteps = currentSteps;
     if (correlationId) updates.correlationId = correlationId;
 
-    this.db.get('sessions').find({ session_id: sessionId }).assign(updates).write();
+    this.db.get('sessions').find({ session_id: sessionId }).assign(updates);
+    this._write();
 
     this.cache.del(sessionId);
     return this.getSession(sessionId);
@@ -157,8 +185,8 @@ class PersistenceService {
           status: 'COMPLETED',
           currentSteps: [],
           updated_at: new Date().toISOString(),
-        })
-        .write();
+        });
+      this._write();
 
       this.cache.del(sessionId);
       return true;
@@ -177,8 +205,8 @@ class PersistenceService {
           status: 'FAILED',
           currentSteps: [],
           updated_at: new Date().toISOString(),
-        })
-        .write();
+        });
+      this._write();
 
       this.cache.del(sessionId);
       return true;
@@ -202,7 +230,8 @@ class PersistenceService {
       updated_at: now,
     };
 
-    this.db.get('batches').push(batch).write();
+    this.db.get('batches').push(batch);
+    this._write();
 
     this.cache.del(`batches-${sessionId}`);
     this.cache.put(`batch-${erc}`, _.cloneDeep(batch));
@@ -269,7 +298,8 @@ class PersistenceService {
     if (totalCount !== undefined) updates.total_count = totalCount;
     if (errorCount !== undefined) updates.error_count = errorCount;
 
-    this.db.get('batches').find({ erc }).assign(updates).write();
+    this.db.get('batches').find({ erc }).assign(updates);
+    this._write();
 
     const batch = this.db.get('batches').find({ erc }).value();
     if (batch) {
@@ -297,16 +327,14 @@ class PersistenceService {
   cleanup(cutoffTimestamp) {
     this.db
       .get('events')
-      .remove((e) => e.timestamp < cutoffTimestamp)
-      .write();
+      .remove((e) => e.timestamp < cutoffTimestamp);
     this.db
       .get('batches')
-      .remove((b) => b.created_at < cutoffTimestamp)
-      .write();
+      .remove((b) => b.created_at < cutoffTimestamp);
     this.db
       .get('sessions')
-      .remove((s) => s.created_at < cutoffTimestamp)
-      .write();
+      .remove((s) => s.created_at < cutoffTimestamp);
+    this._write();
     this.cache.clear();
   }
 
@@ -319,7 +347,8 @@ class PersistenceService {
       message,
       details,
     };
-    this.db.get('events').push(event).write();
+    this.db.get('events').push(event);
+    this._write();
   }
 }
 

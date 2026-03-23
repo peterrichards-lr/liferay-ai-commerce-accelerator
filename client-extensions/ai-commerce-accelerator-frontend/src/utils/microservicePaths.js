@@ -22,6 +22,10 @@ const GET_CATEGORIES = `${CONFIG_PATH}/categories`;
 const WORKFLOW = 'workflow';
 const GENERATE_WORKFLOW = `${GENERATE_PATH}/${WORKFLOW}`;
 
+const WORKFLOW_SESSIONS = `${BASE_PATH}/workflows/sessions`;
+const WORKFLOW_BATCHES = `${BASE_PATH}/workflows/batches/:sessionId`;
+const WORKFLOW_STATUS = `${BASE_PATH}/workflows/sessions/:sessionId/status`;
+
 export {
   DELETE_COMMERCE_DATA,
   DELETE_SELECTED_COMMERCE_DATA,
@@ -36,4 +40,7 @@ export {
   AI_MODEL_OPTIONS,
   BATCH_SIZES,
   GENERATE_WORKFLOW,
+  WORKFLOW_SESSIONS,
+  WORKFLOW_BATCHES,
+  WORKFLOW_STATUS,
 };

@@ -1,4 +1,5 @@
 const BaseWorkflowService = require('../services/baseWorkflowService.cjs');
+const { delay } = require('../utils/misc.cjs');
 
 /**
  * BaseGenerator - Specialized orchestrator for data generation workflows.
@@ -169,6 +170,21 @@ class BaseGenerator extends BaseWorkflowService {
         } else {
           // Mandatory Synchronous Step
           if (state === 'PENDING') {
+            // --- HARDENING: Inter-Service Settling Delay ---
+            // If the last terminal step involved a different entity type, add a "settling delay"
+            // to allow Liferay's indexing to catch up across microservices (e.g. Catalog -> Inventory)
+            const lastBatch = batches.length > 0 ? batches[batches.length - 1] : null;
+            if (lastBatch) {
+              const lastEntityType = this._normalizeEntityType(lastBatch.step_key);
+              const currentEntityType = this._normalizeEntityType(stepName);
+              
+              if (lastEntityType !== currentEntityType && lastEntityType !== 'unknown') {
+                const SETTLING_DELAY_MS = 2000;
+                this.logger.debug(`Service boundary crossed (${lastEntityType} -> ${currentEntityType}). Settling for ${SETTLING_DELAY_MS}ms...`, { sessionId });
+                await delay(SETTLING_DELAY_MS);
+              }
+            }
+
             newActiveSteps.push(stepName);
             // CRITICAL: Update database state before execution so the handler can see it
             await this.persistence.updateSessionCurrentSteps(sessionId, newActiveSteps);

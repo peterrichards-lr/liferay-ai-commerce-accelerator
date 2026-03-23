@@ -787,3 +787,32 @@
 
 **Result**: **FIXED**. Updated `BatchCallbackService` to log the full raw JSON content of the first failed item when Liferay returns an 'Unknown error', facilitating manual schema comparison and debugging.
 
+---
+
+## 65. Batch Logic Hardening & Reliability
+
+### [x] Orphaned Callback Backoff (PRIORITY 1)
+
+**Issue**: Extremely fast callbacks may arrive before the initial submission persistence is complete.
+**Result**: **FIXED**. Updated `processCallbackInternal` to identify missing records and throw a retryable error message for the queue.
+
+### [x] Strict Batch Error Detection (PRIORITY 1)
+
+**Issue**: Liferay may report 'COMPLETED' even if items failed.
+**Result**: **FIXED**. Enhanced `BatchCallbackService` to check `errorCount` and treat any failure as terminal `FAILED` status.
+
+### [x] Persistence Contention Retry (PRIORITY 2)
+
+**Issue**: Concurrent `FileSync` writes might encounter file lock issues.
+**Result**: **FIXED**. Implemented a `_write()` helper in `PersistenceService` with a 5-attempt retry loop for transient FS errors.
+
+### [x] Inter-Service Settling Delay (PRIORITY 2)
+
+**Issue**: Search indexing lag between different Liferay services (e.g. Catalog -> Pricing).
+**Result**: **FIXED**. Introduced a 2-second settling delay in `BaseGenerator.executeNextStep` when crossing service boundaries.
+
+### [x] Frontend Reconnection Sync (PRIORITY 3)
+
+**Issue**: WebSocket reconnection resets progress bars to zero.
+**Result**: **FIXED**. Implemented `WORKFLOW_STATUS` endpoint and updated `useRealtimeWebSocket` to hydrate progress state upon reconnection.
+

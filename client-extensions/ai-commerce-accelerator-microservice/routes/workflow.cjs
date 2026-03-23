@@ -129,6 +129,78 @@ module.exports = (app, { logger, persistenceService }) => {
     }
   });
 
+  app.get(INTERNAL_API_PATHS.WORKFLOW_STATUS, async (req, res) => {
+    try {
+      const { sessionId } = req.params;
+      const session = await persistenceService.getSession(sessionId);
+      if (!session) {
+        return res.status(404).json({
+          success: false,
+          error: 'Session not found',
+          timestamp: new Date().toISOString(),
+        });
+      }
+
+      const batches = await persistenceService.getBatchesForSession(sessionId);
+      
+      // Calculate progress per entity type
+      const progress = {
+        products: { completed: 0, total: 0 },
+        accounts: { completed: 0, total: 0 },
+        orders: { completed: 0, total: 0 },
+        images: { completed: 0, total: 0 },
+        pdfs: { completed: 0, total: 0 },
+        warehouses: { completed: 0, total: 0 }
+      };
+
+      // We need a way to map step keys to entity types here too
+      // Since we don't have the generator instance, we use a simple mapping
+      const entityMap = {
+        'create-products': 'products',
+        'create-skus': 'products',
+        'update-inventory': 'products',
+        'create-price-lists': 'products',
+        'create-bulk-pricing': 'products',
+        'create-tier-pricing': 'products',
+        'create-accounts': 'accounts',
+        'create-postal-addresses': 'accounts',
+        'create-orders': 'orders',
+        'attach-images': 'images',
+        'process-images': 'images',
+        'attach-pdfs': 'pdfs',
+        'process-pdfs': 'pdfs',
+        'create-warehouses': 'warehouses'
+      };
+
+      batches.forEach(b => {
+        const entity = entityMap[b.step_key];
+        if (entity && progress[entity]) {
+          progress[entity].completed += (b.processed_count || 0);
+          progress[entity].total += (b.total_count || 0);
+        }
+      });
+
+      res.json({
+        success: true,
+        sessionId,
+        status: session.status,
+        progress,
+        timestamp: new Date().toISOString(),
+      });
+    } catch (error) {
+      safeErrorResponse({
+        res,
+        logger,
+        req,
+        error,
+        operation: 'workflow-status',
+        meta: { sessionId: req.params.sessionId },
+        statusCode: 500,
+        fallbackMessage: 'Failed to get workflow status',
+      });
+    }
+  });
+
   app.get(INTERNAL_API_PATHS.WORKFLOW_SUMMARY, async (req, res) => {
     try {
       const { sessionId } = req.params;

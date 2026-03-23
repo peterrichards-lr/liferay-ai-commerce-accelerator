@@ -187,8 +187,8 @@ class BatchCallbackService {
     const dbBatch = await persistence.getBatch(batchERC);
 
     if (!dbBatch) {
-      // Throwing error here is critical for QueueService to retry
-      throw new Error(`Batch record not found for ERC: ${batchERC}`);
+      // Throwing a specific message helps with log filtering and triggers queue retry
+      throw new Error(`[RETRYABLE] Batch record not yet persisted for ERC: ${batchERC}. Callback arrived too fast.`);
     }
 
     const sessionId = providedSessionId || dbBatch.session_id;
@@ -224,24 +224,26 @@ class BatchCallbackService {
       const totalCount = data.totalItemsCount || 0;
       let finalStatus = (data.executeStatus || payload[batchId]).toUpperCase();
 
-      // CRITICAL: If Liferay says COMPLETED but processed 0 items out of N, it's a failure (usually payload error or mapping error)
-      if (finalStatus === 'COMPLETED' && processedCount === 0 && totalCount > 0) {
-        let detailedError = data.errorMessage;
-        try {
-          const failureReport = await liferay.getImportTaskFailedItemReport(config, batchId);
-          if (failureReport && failureReport.length > 0) {
-            detailedError = JSON.stringify(failureReport[0]);
-          }
-        } catch (reportErr) {
-          logger.warn('Failed to fetch detailed batch failure report', { batchId, error: reportErr.message });
-        }
+      // --- HARDENING: Strict Error Detection ---
 
+      // Case A: Liferay says COMPLETED but processed 0 items out of N (Global Failure)
+      if (finalStatus === 'COMPLETED' && processedCount === 0 && totalCount > 0) {
         logger.error('Batch completed with 0 items processed - marking as FAILED', {
           batchERC,
           batchId,
           totalCount,
-          errorMessage: data.errorMessage,
-          detailedError
+          errorMessage: data.errorMessage
+        });
+        finalStatus = 'FAILED';
+      }
+
+      // Case B: Liferay says COMPLETED but there are partial failures
+      if (finalStatus === 'COMPLETED' && errorCount > 0) {
+        logger.error('Batch completed with partial failures - marking as FAILED for strict reliability', {
+          batchERC,
+          batchId,
+          errorCount,
+          totalCount
         });
         finalStatus = 'FAILED';
       }

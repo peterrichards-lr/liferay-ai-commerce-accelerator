@@ -6,6 +6,7 @@ import {
   CORRELATION_ID_HEADER,
 } from '../utils/sharedConstants';
 import { normalizeEntityType } from '../utils/misc';
+import { WORKFLOW_STATUS } from '../utils/microservicePaths';
 
 export default function useRealtimeWebSocket({
   enabled,
@@ -15,9 +16,10 @@ export default function useRealtimeWebSocket({
   onProgress,
   onBatchErrorDetails,
 }) {
-  const { getCorrelationId } = useApp();
+  const { getCorrelationId, api } = useApp();
   const wsRef = useRef(null);
   const [wsConnected, setWsConnected] = useState(false);
+  const [activeSessionId, setActiveSessionId] = useState(null);
 
   const backoffRef = useRef(1000);
   const reconnectTimerRef = useRef(null);
@@ -34,6 +36,39 @@ export default function useRealtimeWebSocket({
   };
   const logError = (...args) => {
     if (loggingLevel !== 'off') console.error('🟥 WS:', ...args);
+  };
+
+  const hydrateSessionStatus = async (sessionId) => {
+    if (!sessionId || !api) return;
+    try {
+      logDebug(`Hydrating session status for ${sessionId}...`);
+      const path = WORKFLOW_STATUS.replace(':sessionId', sessionId);
+      const res = await api.get(path);
+      
+      if (res?.success && res.progress) {
+        logDebug('Received hydration data:', res.progress);
+        
+        // Update each entity's progress
+        Object.entries(res.progress).forEach(([entity, data]) => {
+          if (data.total > 0) {
+            onProgress?.({
+              type: 'SET_TOTAL',
+              entity,
+              total: data.total
+            });
+            onProgress?.({
+              type: 'SET_COMPLETED',
+              entity,
+              completed: data.completed
+            });
+          }
+        });
+        
+        onLog?.('Progress bars hydrated from server.', 'debug');
+      }
+    } catch (err) {
+      logError('Failed to hydrate session status', err);
+    }
   };
 
   const cleanupSocket = () => {
@@ -95,6 +130,12 @@ export default function useRealtimeWebSocket({
       setWsConnected(true);
       onLog?.('WebSocket connected.', 'success');
       logInfo('✅ Connection established');
+      
+      // Attempt to hydrate status if we have a session
+      if (activeSessionId) {
+        hydrateSessionStatus(activeSessionId);
+      }
+
       try {
         ws.send(JSON.stringify({ type: 'ping' }));
       } catch {}
@@ -126,6 +167,11 @@ export default function useRealtimeWebSocket({
         sessionId,
         batchId,
       } = data;
+
+      // Track the active session ID locally
+      if (sessionId && sessionId !== activeSessionId) {
+        setActiveSessionId(sessionId);
+      }
 
       // We prioritize sessionId for identifying the current local task context
       // ignoring correlationId which is prone to being lost in proxy/batch layers
@@ -187,6 +233,7 @@ export default function useRealtimeWebSocket({
         case E.COMPLETED:
           if (scope === WS_SCOPE.SESSION) {
             onLog?.('Workflow session completed.', 'success');
+            setActiveSessionId(null);
           } else if (scope === WS_SCOPE.STEP) {
             onLog?.(`Step completed: ${entityType}`, 'success');
             if (onProgress && entityType) {
@@ -212,6 +259,7 @@ export default function useRealtimeWebSocket({
           const errorMessage = error?.message || error || 'Unknown error';
           if (scope === WS_SCOPE.SESSION) {
             onLog?.(`Workflow failed: ${errorMessage}`, 'error');
+            setActiveSessionId(null);
           } else {
             onLog?.(`${scope} failed: ${entityType} — ${errorMessage}`, 'error');
             if (onProgress && entityType) {
