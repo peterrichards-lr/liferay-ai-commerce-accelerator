@@ -18,7 +18,18 @@ function ProgressMonitor({ generationConfig, progress, onErrorsClick }) {
   };
 
   useEffect(() => {
+    const handleWsEvent = (event) => {
+      if (event.detail) {
+        console.log('[WS] Incoming Event:', event.detail);
+      }
+    };
+
+    window.addEventListener('liferay-ai-ws-event', handleWsEvent);
     console.log('Progress updated:', progress);
+
+    return () => {
+      window.removeEventListener('liferay-ai-ws-event', handleWsEvent);
+    };
   }, [progress]);
 
   return (

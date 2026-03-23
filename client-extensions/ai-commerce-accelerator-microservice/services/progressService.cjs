@@ -205,6 +205,8 @@ class ProgressService {
     batchId,
     completedCount,
     totalItems,
+    entityType,
+    operation,
     correlationId,
   }) {
     const cid = correlationId;
@@ -213,6 +215,8 @@ class ProgressService {
         batchId,
         batchERC,
         sessionId,
+        entityType,
+        operation,
         correlationId: cid,
         processedCount: completedCount,
         totalCount: totalItems,
@@ -267,6 +271,39 @@ class ProgressService {
       status: 'BATCH_COMPLETED',
       message: `Batch ${batchId} completed. Success: ${successCount}, Failures: ${failureCount}.`,
       details: payload,
+    });
+  }
+
+  emitBatchItemsFailed({
+    sessionId,
+    batchERC,
+    batchId,
+    entityType,
+    operation,
+    failedItems,
+    correlationId,
+  }) {
+    const cid = correlationId;
+    const payload = {
+      sessionId,
+      batchId,
+      batchERC,
+      entityType,
+      operation,
+      correlationId: cid,
+      status: WEB_SOCKET_EVENTS.BATCH_ERROR_DETAILS,
+      scope: WS_SCOPE.BATCH,
+      failedItems: failedItems.slice(0, 10), // Limit payload size
+    };
+
+    this.ws.emitProgress(payload, { correlationId: cid });
+    
+    this.persistence.logWorkflowEvent({
+      sessionId,
+      batchId,
+      status: 'BATCH_ITEMS_FAILED',
+      message: `Batch ${batchId} had ${failedItems.length} failed items.`,
+      details: { failedCount: failedItems.length, firstError: failedItems[0]?.errorMessage },
     });
   }
 

@@ -10,10 +10,11 @@ module.exports = function registerBatchWorkers({
   queue.registerWorker(
     JOB_TYPES.BATCH_CALLBACK_PROCESSING,
     async (data, { job }) => {
-      const { batchERC, payload, correlationId } = data;
+      const { batchERC, payload, correlationId, sessionId } = data;
 
       logger.info('Starting batch callback processing job', {
         correlationId,
+        sessionId,
         operation: 'job-batch-callback-processing',
         jobId: job.id,
         batchERC,
@@ -24,7 +25,8 @@ module.exports = function registerBatchWorkers({
       await batchCallbackService.processCallbackInternal(
         batchERC,
         payload,
-        correlationId
+        correlationId,
+        sessionId
       );
 
       logger.info('Batch callback processing job completed', {

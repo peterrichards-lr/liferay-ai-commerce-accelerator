@@ -13,6 +13,18 @@ class LiferayService {
     this.ctx.logger.debug('LiferayService: GraphQL client initialized');
   }
 
+  async _collectAllItems(config, fetcherFn, ercPrefix, maxItems = 1000) {
+    const res = await fetcherFn(config, 1, maxItems);
+    let items = asItems(res);
+
+    if (ercPrefix) {
+      items = items.filter((it) =>
+        it.externalReferenceCode && it.externalReferenceCode.startsWith(ercPrefix)
+      );
+    }
+    return { items, totalCount: items.length };
+  }
+
   // --- Discovery Methods (Standardized Entry Points with Exclusions) ---
 
   async getProducts(
@@ -56,33 +68,20 @@ class LiferayService {
       });
     }
 
-    const res = await this.graphql.getProducts(
+    // Brute force discovery: Fetch all and filter in memory to avoid OData issues
+    const { items } = await this._collectAllItems(
       config,
-      filter,
-      Array.from(requestedFields),
-      {
-        page: 1,
-        pageSize,
-      }
+      (cfg, page, size) => this.graphql.getProducts(cfg, filter, Array.from(requestedFields), { page, pageSize: size }),
+      ercPrefix
     );
-
-    let items = asItems(res);
-
-    // Apply prefix filter in JS memory as OData filter on ERC is often not supported
-    if (ercPrefix) {
-      items = items.filter((it) =>
-        it.externalReferenceCode && it.externalReferenceCode.startsWith(ercPrefix)
-      );
-    }
 
     const filteredItems = items.filter(
       (it) => !this._shouldExclude(it, exclusions)
     );
 
     return {
-      ...res,
       items: filteredItems,
-      totalCount: res.totalCount,
+      totalCount: filteredItems.length,
     };
   }
 
@@ -149,26 +148,13 @@ class LiferayService {
       });
     }
 
-    const res = await this.graphql.getAccounts(
+    // Brute force discovery
+    const { items } = await this._collectAllItems(
       config,
-      filter,
-      Array.from(requestedFields),
-      {
-        page: 1,
-        pageSize,
-      }
+      (cfg, page, size) => this.graphql.getAccounts(cfg, filter, Array.from(requestedFields), { page, pageSize: size, search }),
+      ercPrefix
     );
 
-    let items = asItems(res);
-    
-    // Apply prefix filter in JS memory
-    if (ercPrefix) {
-      items = items.filter((it) => 
-         it.externalReferenceCode && it.externalReferenceCode.startsWith(ercPrefix)
-      );
-    }
-
-    // Apply exclusion filter in JS just to be absolutely certain
     const filteredItems = items.filter(
       (it) => !this._shouldExclude(it, exclusions)
     );
@@ -182,9 +168,8 @@ class LiferayService {
       : filteredItems;
 
     return {
-      ...res,
       items: finalItems,
-      totalCount: res.totalCount,
+      totalCount: finalItems.length,
     };
   }
 
@@ -389,29 +374,20 @@ class LiferayService {
     }
     const filter = filters.length > 0 ? filters.join(' and ') : null;
 
-    const res = await this.graphql.getOrders(
+    // Brute force discovery
+    const { items } = await this._collectAllItems(
       config,
-      filter,
-      Array.from(requestedFields),
-      { page: 1, pageSize }
+      (cfg, page, size) => this.graphql.getOrders(cfg, filter, Array.from(requestedFields), { page, pageSize: size }),
+      ercPrefix
     );
-    let items = asItems(res);
-
-    // Apply prefix filter in JS memory
-    if (ercPrefix) {
-      items = items.filter((it) =>
-        it.externalReferenceCode && it.externalReferenceCode.startsWith(ercPrefix)
-      );
-    }
 
     const filteredItems = items.filter(
       (it) => !this._shouldExclude(it, exclusions)
     );
 
     return {
-      ...res,
       items: filteredItems,
-      totalCount: res.totalCount,
+      totalCount: filteredItems.length,
     };
   }
 
@@ -438,29 +414,20 @@ class LiferayService {
     }
     const filter = filters.length > 0 ? filters.join(' and ') : null;
 
-    const res = await this.graphql.getWarehouses(
+    // Brute force discovery
+    const { items } = await this._collectAllItems(
       config,
-      filter,
-      Array.from(requestedFields),
-      { page: 1, pageSize }
+      (cfg, page, size) => this.graphql.getWarehouses(cfg, filter, Array.from(requestedFields), { page, pageSize: size }),
+      ercPrefix
     );
-    let items = asItems(res);
-
-    // Apply prefix filter in JS memory
-    if (ercPrefix) {
-      items = items.filter((it) =>
-        it.externalReferenceCode && it.externalReferenceCode.startsWith(ercPrefix)
-      );
-    }
 
     const filteredItems = items.filter(
       (it) => !this._shouldExclude(it, exclusions)
     );
 
     return {
-      ...res,
       items: filteredItems,
-      totalCount: res.totalCount,
+      totalCount: filteredItems.length,
     };
   }
 
@@ -1700,10 +1667,6 @@ class LiferayService {
 
   getPriceEntries(config, priceListId, opts) {
     return this.rest.getPriceEntries(config, priceListId, opts);
-  }
-
-  getPriceLists(config, opts) {
-    return this.rest.getPriceLists(config, opts);
   }
 }
 

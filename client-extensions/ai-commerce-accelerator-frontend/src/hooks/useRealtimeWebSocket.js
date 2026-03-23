@@ -111,10 +111,25 @@ export default function useRealtimeWebSocket({
       if (!data || typeof data !== 'object') return;
       if (data.type === 'pong') return;
 
-      const entityType = normalizeEntityType(data.entityType);
-      const { scope, type, processedCount, totalCount, error } = data;
+      // Dispatch global event for debugging/logging
+      window.dispatchEvent(
+        new CustomEvent('liferay-ai-ws-event', { detail: data })
+      );
 
-      logDebug(`WS Event: ${scope}/${type}`, data);
+      const entityType = normalizeEntityType(data.entityType);
+      const {
+        scope,
+        type,
+        processedCount,
+        totalCount,
+        error,
+        sessionId,
+        batchId,
+      } = data;
+
+      // We prioritize sessionId for identifying the current local task context
+      // ignoring correlationId which is prone to being lost in proxy/batch layers
+      logDebug(`WS Event for Session ${sessionId}: ${scope}/${type}`, data);
 
       switch (type) {
         case E.STARTED:
@@ -127,18 +142,43 @@ export default function useRealtimeWebSocket({
           } else if (scope === WS_SCOPE.STEP) {
             onLog?.(`Step started: ${entityType}`, 'info');
             if (onProgress && entityType) {
-              onProgress({ type: 'SET_TOTAL', entity: entityType, total: totalCount || 0 });
+              onProgress({
+                type: 'SET_TOTAL',
+                entity: entityType,
+                total: totalCount || 0,
+              });
+            }
+          } else if (scope === WS_SCOPE.BATCH) {
+            // New: Track individual batch starts within a step
+            if (onProgress && entityType && batchId) {
+              onProgress({
+                type: 'UPDATE_BATCH',
+                entity: entityType,
+                batchId,
+                completed: 0,
+                total: totalCount || 0,
+              });
             }
           }
           break;
 
         case E.PROGRESS:
-          if (scope === WS_SCOPE.BATCH || scope === WS_SCOPE.STEP) {
-            if (onProgress && entityType) {
-              onProgress({ 
-                type: 'SET_COMPLETED', 
-                entity: entityType, 
-                completed: processedCount || 0 
+          if (onProgress && entityType) {
+            if (scope === WS_SCOPE.STEP) {
+              // Direct absolute step progress (e.g. from post-processing or internal logic)
+              onProgress({
+                type: 'SET_COMPLETED',
+                entity: entityType,
+                completed: processedCount || 0,
+              });
+            } else if (scope === WS_SCOPE.BATCH && batchId) {
+              // Granular batch progress - update batch then re-sum entity total
+              onProgress({
+                type: 'UPDATE_BATCH',
+                entity: entityType,
+                batchId,
+                completed: processedCount || 0,
+                total: totalCount,
               });
             }
           }
@@ -153,6 +193,18 @@ export default function useRealtimeWebSocket({
               // Mark as 100% complete
               onProgress({ type: 'SET_COMPLETED_TO_TOTAL', entity: entityType });
             }
+          } else if (scope === WS_SCOPE.BATCH && batchId) {
+            // Batch finished - mark it done and re-sum
+            const successCount =
+              data.successCount ?? data.details?.successCount ?? totalCount;
+            onProgress({
+              type: 'UPDATE_BATCH',
+              entity: entityType,
+              batchId,
+              completed: successCount,
+              total: totalCount,
+            });
+            onLog?.(`Batch completed: ${batchId} (+${successCount})`, 'success');
           }
           break;
 
@@ -163,10 +215,10 @@ export default function useRealtimeWebSocket({
           } else {
             onLog?.(`${scope} failed: ${entityType} — ${errorMessage}`, 'error');
             if (onProgress && entityType) {
-              onProgress({ 
-                type: 'ADD_ERRORS', 
-                entity: entityType, 
-                errors: { message: errorMessage, batchId: data.batchId } 
+              onProgress({
+                type: 'ADD_ERRORS',
+                entity: entityType,
+                errors: { message: errorMessage, batchId: data.batchId },
               });
             }
           }
@@ -175,13 +227,21 @@ export default function useRealtimeWebSocket({
         // Backward compatibility for legacy events
         case E.BATCH_PROGRESS:
           if (onProgress && entityType) {
-            onProgress({ type: 'SET_COMPLETED', entity: entityType, completed: processedCount });
+            onProgress({
+              type: 'SET_COMPLETED',
+              entity: entityType,
+              completed: processedCount,
+            });
           }
           break;
 
         case E.BATCH_COMPLETED:
           if (onProgress && entityType) {
-            onProgress({ type: 'INCR_COMPLETED', entity: entityType, amount: data.successCount });
+            onProgress({
+              type: 'INCR_COMPLETED',
+              entity: entityType,
+              amount: data.successCount,
+            });
           }
           break;
 

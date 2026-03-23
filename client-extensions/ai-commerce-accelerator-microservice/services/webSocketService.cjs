@@ -198,21 +198,23 @@ function createWebSocketService({
 
   heartbeatTimer = setInterval(_heartbeatTick, state.heartbeatIntervalMs);
 
-  function resolveTargets({ mode = 'auto', correlationId, batchId }, payload) {
+  function resolveTargets({ mode = 'auto', correlationId, batchId, sessionId }, payload) {
     const cid = correlationId ?? payload?.correlationId ?? null;
     const bid = normalizeBid(batchId ?? payload?.batchId);
-    const sid = payload?.sessionId ?? null;
+    const sid = sessionId ?? payload?.sessionId ?? null;
 
+    // Highest Priority: sessionId (most stable across callbacks)
+    if (sid) {
+      const targets = Array.from(clients.values()).filter(
+        (ws) => ws.sessionId === sid
+      );
+      if (targets.length > 0) return targets;
+    }
+
+    // Second Priority: correlationId
     if (mode === 'unicast' || (mode === 'auto' && cid)) {
       const c = clients.get(cid);
       if (c) return [c];
-
-      // Fallback to sessionId matching if cid not found
-      if (sid) {
-        return Array.from(clients.values()).filter(
-          (ws) => ws.sessionId === sid
-        );
-      }
       return [];
     }
 
@@ -269,12 +271,13 @@ function createWebSocketService({
     }
 
     const bid = normalizeBid(batchId ?? message?.batchId);
+    const sid = opts.sessionId ?? message?.sessionId ?? null;
     const packet = safeJSON(bid ? { ...message, batchId: bid } : message);
     const schedule = Array.isArray(retries) ? retries : retrySchedule();
 
     const run = async () => {
       const targets = resolveTargets(
-        { mode, correlationId, batchId: bid },
+        { mode, correlationId, batchId: bid, sessionId: sid },
         message
       );
       const targetCount = countIterable(targets);
@@ -301,7 +304,7 @@ function createWebSocketService({
         if (last.sent > 0) break;
         await delay(schedule[i]);
         const retryTargets = resolveTargets(
-          { mode, correlationId, batchId: bid },
+          { mode, correlationId, batchId: bid, sessionId: sid },
           message
         );
         last = sendOnce(packet, retryTargets);

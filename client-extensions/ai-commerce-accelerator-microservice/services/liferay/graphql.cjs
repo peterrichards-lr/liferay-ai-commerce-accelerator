@@ -255,9 +255,12 @@ class LiferayGraphQLService {
   }
 
   async getProducts(config, filter, fields, opts) {
-    // Simplify products discovery fields to avoid deep object fetching
-    const discoveryFields = fields || ['id', 'externalReferenceCode', 'productId', 'name'];
-    return this._fetchCollection(config, 'headlessCommerceAdminCatalog_v1_0', 'products', discoveryFields, opts, filter);
+    // Ensure id and externalReferenceCode are always requested
+    const requestedFields = new Set(fields || ['id', 'externalReferenceCode', 'productId', 'name']);
+    requestedFields.add('id');
+    requestedFields.add('externalReferenceCode');
+    
+    return this._fetchCollection(config, 'headlessCommerceAdminCatalog_v1_0', 'products', Array.from(requestedFields), opts, filter);
   }
 
   async getAccounts(config, filter, fields, opts) {
@@ -394,22 +397,25 @@ class LiferayGraphQLService {
     );
   }
 
-  async getOptionsByProductIds(config, productIds, fields = ['id', 'externalReferenceCode', 'name']) {
+  async getOptionsByProductIds(config, productIds, fields = ['id', 'optionId', 'optionExternalReferenceCode', 'name']) {
     if (!productIds || productIds.length === 0) return [];
-    
+
     const client = await this._getClient(config);
-    const fieldSelection = fields.join(' ');
-    
+    const fieldSelection = fields.join('\n                ');
+
+    // Use Aliased Queries for 100% reliability fetching multiple IDs
+    const queries = productIds.map((id, index) => `
+      p${index}: product(id: ${id}) {
+        productOptions {
+          ${fieldSelection}
+        }
+      }
+    `).join('\n');
+
     const query = `
       query {
         headlessCommerceAdminCatalog_v1_0 {
-          products(filter: "id in (${productIds.join(',')})") {
-            items {
-              productOptions {
-                ${fieldSelection}
-              }
-            }
-          }
+          ${queries}
         }
       }
     `;
@@ -417,9 +423,9 @@ class LiferayGraphQLService {
     try {
       const response = await client.post('', { query });
       if (response.data.errors) throw new Error(JSON.stringify(response.data.errors));
-      
-      const products = response.data.data.headlessCommerceAdminCatalog_v1_0.products.items;
-      return products.flatMap(p => p.productOptions || []);
+
+      const results = response.data.data.headlessCommerceAdminCatalog_v1_0;
+      return Object.values(results).flatMap(p => p?.productOptions || []);
     } catch (error) {
       this.ctx.logger.error(`GraphQL getOptionsByProductIds failed`, { error: error.message });
       throw error;
@@ -428,20 +434,22 @@ class LiferayGraphQLService {
 
   async getSpecificationsByProductIds(config, productIds, fields = ['id', 'externalReferenceCode', 'title']) {
     if (!productIds || productIds.length === 0) return [];
-    
+
     const client = await this._getClient(config);
-    const fieldSelection = fields.join(' ');
-    
+    const fieldSelection = fields.join('\n                ');
+
+    const queries = productIds.map((id, index) => `
+      p${index}: product(id: ${id}) {
+        productSpecifications {
+          ${fieldSelection}
+        }
+      }
+    `).join('\n');
+
     const query = `
       query {
         headlessCommerceAdminCatalog_v1_0 {
-          products(filter: "id in (${productIds.join(',')})") {
-            items {
-              productSpecifications {
-                ${fieldSelection}
-              }
-            }
-          }
+          ${queries}
         }
       }
     `;
@@ -449,14 +457,13 @@ class LiferayGraphQLService {
     try {
       const response = await client.post('', { query });
       if (response.data.errors) throw new Error(JSON.stringify(response.data.errors));
-      
-      const products = response.data.data.headlessCommerceAdminCatalog_v1_0.products.items;
-      return products.flatMap(p => p.productSpecifications || []);
+
+      const results = response.data.data.headlessCommerceAdminCatalog_v1_0;
+      return Object.values(results).flatMap(p => p?.productSpecifications || []);
     } catch (error) {
       this.ctx.logger.error(`GraphQL getSpecificationsByProductIds failed`, { error: error.message });
       throw error;
     }
-  }
-}
+  }}
 
 module.exports = LiferayGraphQLService;

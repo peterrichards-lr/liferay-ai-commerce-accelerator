@@ -1,6 +1,7 @@
 const BaseGenerator = require('./baseGenerator.cjs');
 const { ASSET_TYPE, VIEWABLE_BY } = require('../utils/liferayPermissions.cjs');
 const specificationCatalog = require('../data/specifications.json');
+const { deepCleanIds } = require('../utils/payload-cleaner.cjs');
 const {
   delay,
   resolvePhaseAndMode,
@@ -40,7 +41,7 @@ class ProductGenerator extends BaseGenerator {
       [S.LINK_PRODUCT_OPTIONS]: this._runLinkProductOptionsStep.bind(this),
       [S.CREATE_PRODUCT_SKUS]: this._runProductSkusStep.bind(this),
       [S.RESOLVE_SKU_IDS]: this._runResolveSkuIdsStep.bind(this),
-      [S.SYNC_DELAY]: this._runInterServiceSyncDelayStep.bind(this),
+      [S.SYNC_DELAY_PRICING]: this._runInterServiceSyncDelayStep.bind(this),
       [S.GENERATE_PRICE_LISTS]: this._runGeneratePriceListsStep.bind(this),
       [S.UPDATE_CATALOG_CONFIG]: this._runUpdateCatalogConfigurationStep.bind(this),
       [S.GENERATE_BULK_PRICING]: this._runGenerateBulkPricingStep.bind(this),
@@ -144,7 +145,7 @@ class ProductGenerator extends BaseGenerator {
       { name: S.LINK_PRODUCT_OPTIONS, type: 'sync' },
       { name: S.CREATE_PRODUCT_SKUS, type: 'sync' },
       { name: S.RESOLVE_SKU_IDS, type: 'sync' },
-      { name: S.SYNC_DELAY, type: 'sync' },
+      { name: S.SYNC_DELAY_PRICING, type: 'sync' },
     ];
 
     steps.push({ name: S.GENERATE_PRICE_LISTS, type: 'sync' });
@@ -208,7 +209,7 @@ class ProductGenerator extends BaseGenerator {
 
     await delay(ENV.LIFERAY_SYNC_DELAY_MS);
 
-    await this.completeSyncStep(sessionId, S.SYNC_DELAY);
+    await this.completeSyncStep(sessionId, S.SYNC_DELAY_PRICING);
 
     this.logger.info('Inter-service synchronization delay completed.', {
       sessionId,
@@ -501,7 +502,9 @@ class ProductGenerator extends BaseGenerator {
       return await this.completeSyncStep(sessionId, S.RESOLVE_SKU_IDS, 'BYPASSED');
     }
 
-    const skuErcs = (productDataList || []).flatMap((p) => (p.skus || []).map((sku) => sku.externalReferenceCode || p.externalReferenceCode)).filter(Boolean);
+    const skuErcs = (productDataList || [])
+      .flatMap((p) => (p.skus || []).map((sku) => sku.externalReferenceCode))
+      .filter(Boolean);
 
     try {
       const resolvedItems = await this.liferay.resolveByERCsWithRetry(
@@ -579,9 +582,14 @@ class ProductGenerator extends BaseGenerator {
     const { config, productDataList } = session.context;
 
     try {
-      const productsWithOpts = (productDataList || []).filter((p) => p.id && p.productOptions?.length > 0);
+      const productsWithOpts = (productDataList || []).filter((p) => {
+        const opts = p.productOptions || p.options;
+        return p.id && Array.isArray(opts) && opts.length > 0;
+      });
+
       for (const product of productsWithOpts) {
-        const cleanedOptions = product.productOptions.map((opt) => {
+        const sourceOptions = product.productOptions || product.options;
+        const cleanedOptions = sourceOptions.map((opt) => {
           const cleanOpt = { ...opt };
           delete cleanOpt.id;
           delete cleanOpt.__catalogOption;
@@ -695,26 +703,55 @@ class ProductGenerator extends BaseGenerator {
 
     try {
       const prepared = productDataList.map((pd) => {
+        const hasMultipleSkus = Array.isArray(pd.skus) && pd.skus.length > 1;
+        const productType = (options.generateSkuVariants && hasMultipleSkus) ? 'grouped' : (pd.productType || 'simple');
+
         const lp = {
           catalogId: parseInt(config.catalogId, 10),
           name: toI18n(pd.name),
-          productType: pd.productType || 'simple',
+          shortDescription: toI18n(pd.shortDescription || pd.description),
+          description: toI18n(pd.description),
+          productType,
+          productStatus: 0, // Published
+          taxCategory: 'Standard',
           externalReferenceCode: pd.externalReferenceCode,
+          productSpecifications: pd.productSpecifications || pd.specifications || [],
+          productOptions: pd.productOptions || pd.options || []
         };
-        if (options.generateSkuVariants && pd.skus) lp.skus = pd.skus.slice(0, 1);
-        return this._cleanProductForLiferay(lp, { stripSkuOptions: true });
+
+        // For initial creation, only include skeletal SKUs to avoid validation loops
+        if (pd.skus && pd.skus.length > 0) {
+          lp.skus = pd.skus.map(s => ({
+            sku: s.sku,
+            externalReferenceCode: s.externalReferenceCode || s.sku,
+            published: true,
+            purchasable: true
+          }));
+          
+          // If variants are disabled or simple, only send the first SKU
+          if (!options.generateSkuVariants || productType === 'simple') {
+            lp.skus = lp.skus.slice(0, 1);
+          }
+        }
+        
+        // Deep clean to remove forbidden IDs at all levels
+        return deepCleanIds(lp);
       });
+
+      if (prepared.length === 0) {
+        throw new Error('No products prepared for creation');
+      }
 
       const batchSize = Math.max(1, parseInt(config.batchSize, 10) || 1);
       for (let i = 0; i < prepared.length; i += batchSize) {
-        const batch = prepared.slice(i, i + batchSize);
+        const chunk = prepared.slice(i, i + batchSize);
         await this.submitBatch(
           sessionId,
           S.CREATE_PRODUCTS,
           'products',
           'generate',
-          (erc) => this.liferay.createProductsBatch(config, batch, { externalReferenceCode: erc, sessionId }),
-          batch.length
+          (erc) => this.liferay.createProductsBatch(config, chunk, { externalReferenceCode: erc, sessionId }),
+          chunk.length
         );
       }
     } catch (error) {
@@ -795,11 +832,19 @@ class ProductGenerator extends BaseGenerator {
   }
 
   _cleanProductForLiferay(product, options = {}) {
-    const clean = { ...product };
-    delete clean.id;
+    // 1. Recursive removal of forbidden numeric IDs
+    let clean = this.deepClean(product);
+
+    // 2. Explicitly preserve fields that might be considered unknown by sanitizedObject but are needed for Liferay
+    // (Ensure they are not stripped if sanitizedObject is called later)
+    
     if (options.stripSkuOptions && clean.skus) {
-      clean.skus = clean.skus.map(s => { const { skuOptions, ...rest } = s; return rest; });
+      clean.skus = clean.skus.map((s) => {
+        const { skuOptions, ...rest } = s;
+        return rest;
+      });
     }
+
     return clean;
   }
 

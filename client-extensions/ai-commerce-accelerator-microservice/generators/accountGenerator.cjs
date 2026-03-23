@@ -1,4 +1,5 @@
 const BaseGenerator = require('./baseGenerator.cjs');
+const { deepCleanIds } = require('../utils/payload-cleaner.cjs');
 const { ERC_PREFIX, WORKFLOW_STEPS, ENV } = require('../utils/constants.cjs');
 const {
   createERC,
@@ -19,6 +20,7 @@ class AccountGenerator extends BaseGenerator {
       [S.LOAD_COUNTRIES]: this._runLoadCountriesStep.bind(this),
       [S.GENERATE_ACCOUNT_DATA]: this._runAccountDataGenerationStep.bind(this),
       [S.CREATE_ACCOUNTS]: this._runAccountCreationStep.bind(this),
+      [S.SYNC_DELAY]: this._runInterServiceSyncDelayStep.bind(this),
       [S.RESOLVE_ACCOUNT_IDS]: this._runResolveAccountIdsStep.bind(this),
       [S.CREATE_POSTAL_ADDRESSES]: this._runAddressCreationStep.bind(this),
       [S.SET_ADDRESS_DEFAULTS]: this._runSetBillingAndShippingAddressesStep.bind(this),
@@ -79,6 +81,7 @@ class AccountGenerator extends BaseGenerator {
       { name: S.LOAD_COUNTRIES, type: 'sync' },
       { name: S.GENERATE_ACCOUNT_DATA, type: 'sync' },
       { name: S.CREATE_ACCOUNTS, type: 'sync' },
+      { name: S.SYNC_DELAY, type: 'sync' },
       { name: S.RESOLVE_ACCOUNT_IDS, type: 'sync' },
       { name: S.CREATE_POSTAL_ADDRESSES, type: 'sync' },
       { name: S.SET_ADDRESS_DEFAULTS, type: 'sync' },
@@ -274,6 +277,25 @@ class AccountGenerator extends BaseGenerator {
     }
   }
 
+  async _runInterServiceSyncDelayStep(sessionId) {
+    const session = await this.persistence.getSession(sessionId);
+    const { correlationId } = session;
+
+    this.logger.info(
+      `Starting inter-service synchronization delay of ${ENV.LIFERAY_SYNC_DELAY_MS}ms`,
+      { sessionId, correlationId }
+    );
+
+    await delay(ENV.LIFERAY_SYNC_DELAY_MS);
+
+    await this.completeSyncStep(sessionId, S.SYNC_DELAY);
+
+    this.logger.info('Inter-service synchronization delay completed.', {
+      sessionId,
+      correlationId,
+    });
+  }
+
   async _runAccountCreationStep(sessionId) {
     const session = await this.persistence.getSession(sessionId);
     const { config, options, accountsToCreate } = session.context;
@@ -292,12 +314,14 @@ class AccountGenerator extends BaseGenerator {
         return await this.completeSyncStep(sessionId, S.CREATE_ACCOUNTS, 'SYNCHRONOUS', accountsToCreate.length, accountsToCreate.length);
       }
 
+      const prepared = deepCleanIds(accountsToCreate);
+
       await this.submitBatch(
         sessionId,
         S.CREATE_ACCOUNTS,
         'accounts',
         'generate',
-        (erc) => this.liferay.createAccountsBatch(config, accountsToCreate, {
+        (erc) => this.liferay.createAccountsBatch(config, prepared, {
           externalReferenceCode: erc,
           sessionId,
         }),
@@ -408,6 +432,7 @@ class AccountGenerator extends BaseGenerator {
         if (options.dryRun) {
           await this.completeSyncStep(sessionId, S.CREATE_POSTAL_ADDRESSES, 'SYNCHRONOUS', addresses.length, addresses.length);
         } else {
+          const prepared = deepCleanIds(addresses);
           await this.submitBatch(
             sessionId,
             S.CREATE_POSTAL_ADDRESSES,
@@ -416,7 +441,7 @@ class AccountGenerator extends BaseGenerator {
             (erc) => this.liferay.createAccountAddressBatch(
               config,
               accountId,
-              addresses,
+              prepared,
               {
                 externalReferenceCode: erc,
                 sessionId,

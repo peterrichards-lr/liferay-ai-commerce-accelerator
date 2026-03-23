@@ -124,6 +124,11 @@ class LiferayRestService {
     try {
       const client = await this._client(config);
 
+      if (data && (method === 'POST' || method === 'PATCH' || method === 'PUT')) {
+        const raw = JSON.stringify(data);
+        logger.trace(`Outbound payload structure (${op}): ${raw.substring(0, 1000)}...`, { correlationId: config.correlationId });
+      }
+
       logger.debug('Liferay API Request', {
         operation: op,
         method,

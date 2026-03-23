@@ -111,9 +111,8 @@ const PATH = {
     `${BASE.PRICING_API}/price-entries/batch${
       callbackURL ? `?callbackURL=${enc(callbackURL)}` : ''
     }`,
-  PRICE_LIST_PRICE_ENTRIES_BATCH: (priceListERC, callbackURL, priceListId) => {
+  PRICE_LIST_PRICE_ENTRIES_BATCH: (priceListERC, callbackURL) => {
     const params = { callbackURL };
-    if (priceListId) params.priceListId = priceListId;
     return `${BASE.PRICE_LISTS}/price-entries/batch${q(params)}`;
   },
   PRODUCTS_BATCH: (callbackURL) =>

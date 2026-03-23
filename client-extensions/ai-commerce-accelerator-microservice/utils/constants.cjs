@@ -208,6 +208,7 @@ const ERC_PREFIX = {
   WAREHOUSE: 'AICA-WH',
   ADDRESS: 'AICA-ADDR',
   TIER_PRICE: 'AICA-TP',
+  ERROR: 'AICA-ERR',
 };
 
 const IMAGE_BATCH_ID = uuidv4();
@@ -300,6 +301,7 @@ const WORKFLOW_STEPS = {
   LINK_PRODUCT_OPTIONS: 'link-product-options',
   CREATE_PRODUCT_SKUS: 'create-skus',
   RESOLVE_SKU_IDS: 'resolve-sku-ids',
+  SYNC_DELAY_PRICING: 'sync-delay-pricing',
   GENERATE_PRICE_LISTS: 'create-price-lists',
   UPDATE_CATALOG_CONFIG: 'update-catalog-config',
   GENERATE_BULK_PRICING: 'create-bulk-pricing',

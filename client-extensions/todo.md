@@ -666,32 +666,124 @@
 
 ## 52. Workflow Failures & Schema Adherence (Mar 2)
 
-### [ ] Fix GraphQL Validation Error in SKU Resolution (PRIORITY 1)
+### [x] Fix GraphQL Validation Error in SKU Resolution (PRIORITY 1)
 
 **Issue**: The 'resolve-sku-ids' step fails with a critical GraphQL validation error.
-**Analysis**: The logs report: `Unknown field argument 'externalReferenceCode'` for the 'skus' query in the 'headlessCommerceAdminCatalog_v1_0' namespace. The `_fetchByERCs` utility assumes all plural queries support this argument, but Liferay's SKU API appears to require a different filtering or lookup pattern (e.g., using the 'filter' argument or product-scoped queries).
-**Steps**:
-1. Investigate the GraphQL schema for the correct way to query multiple SKUs by ERC.
-2. Update `LiferayGraphQLService.getSkusByERC` or the generic `_fetchByERCs` utility to handle this exception.
+**Analysis**: The `getSkusByERC` method in `graphql.cjs` was previously incorrectly using the `skus` query with `externalReferenceCode`. This has been fixed to use `skuByExternalReferenceCode`. Additionally, the extraction logic in `ProductGenerator.cjs` was updated to avoid using the product's ERC as a fallback for SKUs, preventing 404s during resolution.
+**Result**: **FIXED**.
 
-### [ ] Align Mock Account Data with Schema (PRIORITY 1)
+### [x] Align Mock Account Data with Schema (PRIORITY 1)
 
 **Issue**: Mock account generation fails schema validation in Demo Mode.
 **Analysis**: The `account.json` schema requires the `accountContactInformation` property (including emailAddresses), but `MockDataGenerator.generateAccountData` does not provide it.
 **Steps**:
 1. Update `MockDataGenerator.cjs` to include a valid `accountContactInformation` block for all generated accounts.
 
-### [ ] Investigate Price List Retrieval Failure (HTTP Error)
+### [x] Investigate Price List Retrieval Failure (HTTP Error)
 
-**Issue**: The 'generate-tier-pricing' step fails when calling 'get-price-lists'.
-**Analysis**: Logs show `LiferayRequestError: get-price-lists` (HTTP error) during the `_ensurePriceLists` phase. This may be due to a timeout, a 404 on a scoped resource, or a 500 error in Liferay's Pricing REST controller.
-**Steps**:
-1. Verify if the catalog ID is being passed correctly.
-2. Add more granular logging to `rest.cjs` to capture the specific HTTP status and response body for this failure.
+**Analysis**: Investigation revealed two critical issues in `LiferayService`:
+1.  **Duplicate Method Definitions**: `LiferayService` (in `index.cjs`) had two definitions for `getPriceLists`. The first used a robust GraphQL-based implementation to bypass OData limitations, but the second (at the end of the file) was a simple passthrough to the REST SDK. In JavaScript, the last definition wins, so the system was incorrectly using the fragile REST implementation.
+2.  **REST Parameter Mismatch**: The REST implementation of `getPriceLists` incorrectly appended `catalogId` as a raw query parameter instead of part of an OData filter. This likely triggered 400 errors from Liferay's Pricing API, which only supports standard pagination and OData parameters.
+**Result**: **FIXED**. Removed duplicate REST-based passthrough from `index.cjs` to ensure the robust GraphQL implementation is always used.
 
-### [ ] Resolve Session Check Race Condition
+### [x] Resolve Session Check Race Condition
 
 **Issue**: Logs show frequent "Session already being processed, marked as dirty" warnings.
-**Analysis**: Concurrent callbacks for different batches in the same session are triggering `_checkSessionCompletion` simultaneously. While the "dirty" flag mechanism prevents some data loss, it indicates a lack of proper locking or atomic state transitions in `BatchCallbackService`, which could lead to skipped steps or duplicate transitions.
-**Steps**:
-1. Implement a more robust concurrency control (e.g., a mutex or atomic update lock) for session state transitions in `BatchCallbackService`.
+**Analysis**: The previous logic used non-atomic in-memory Sets, allowing concurrent callbacks to bypass checks and execute `executeNextStep` simultaneously.
+**Result**: **FIXED**. Implemented a session-scoped promise chain (`sessionLocks` Map) in `BatchCallbackService` to ensure atomic, sequential execution of advancement logic per session.
+
+---
+
+## 53. Log Analysis & Workflow Stability (Mar 13)
+
+### [x] Fix Warehouse Mock Data Schema Mismatch (PRIORITY 1)
+
+**Issue**: MockDataGenerator.generateWarehouseData produces objects that fail validation against warehouse.json.
+**Result**: **FIXED**.
+
+### [x] Fix Account Mock Data Schema Mismatch (PRIORITY 1)
+
+**Issue**: MockDataGenerator.generateAccountData fails schema validation in Demo Mode.
+**Result**: **FIXED**.
+
+### [x] Fix "undefined" Prefix in Error ERCs
+
+**Issue**: Error reference codes in logs show as undefined-1773396002096-c347cce7.
+**Result**: **FIXED**.
+
+### [x] Prevent Workflow Advancement Stalls and Handle Sync Step Failures
+
+**Issue**: The workflow was failing with "no current step found" or stalling after sync steps.
+**Root Cause**: 
+1. `BaseGenerator.executeNextStep` was calling `executeStep` before persisting the updated `currentSteps` to the database, causing handlers to see an empty list.
+2. `DeleteCoordinatorService.executeStep` had a redundant trigger logic that conflicted with the base class.
+**Result**: **FIXED**. Refactored `BaseGenerator` to persist state before execution and removed redundant overrides in `DeleteCoordinatorService`.
+
+### [x] Improve Session Failure Propagation in Orchestrator
+
+**Issue**: Critical errors during step execution are logged but not always reflected in the session status.
+**Root Cause**: `BatchCallbackService._checkSessionCompletion` catches exceptions from `generator.executeNextStep` but does not consistently call `persistence.tryFailSession` to update the database state.
+**Result**: **FIXED**. Updated `BatchCallbackService._checkSessionCompletion` to explicitly fail the session and notify the UI via WebSocket.
+
+---
+
+## 54. Realistic Mock Data & Schema Alignment (Mar 13 - Round 2)
+
+### [x] Restore Realistic Mock Data Structure (PRIORITY 1)
+
+**Issue**: The current mock data was overly simplified.
+**Result**: **FIXED**. Re-introduced varied content templates and comprehensive dependency resolution (mock IDs) for products, accounts, and orders.
+
+### [x] Fix Product Mock Data Schema Validation Errors
+
+**Issue**: The logs report multiple schema validation failures for products in Demo Mode.
+**Result**: **FIXED**. Updated `MockDataGenerator.generateProductData` to precisely match `product.json` (localization, flat variant options, baseSku, skus array with pricing/cost).
+
+### [x] Fix Order Mock Data Null Account ID
+
+**Issue**: Orders were missing valid account and product associations.
+**Result**: **FIXED**. Implemented fallback pools and mock ID resolution in `generateOrderData`.
+
+---
+
+## 61. Structural Hardening: Payload Hygiene & WebSocket Stability (Mar 13 - Round 9)
+
+### [x] Deep-Clean Forbidden Numeric IDs
+
+**Result**: **FIXED**. Implemented a recursive `deepClean` helper in `BaseGenerator.cjs` and updated `ProductGenerator` and `AccountGenerator` to use it before batch submission. This removes any `id`, `productId`, `accountId`, or `skuId` properties, ensuring Liferay Headless Admin APIs accept the records.
+
+### [x] Explicit Field Preservation (Product Details)
+
+**Result**: **FIXED**. Audited `_cleanProductForLiferay` to ensure that commerce-rich fields like `productSpecifications`, `productOptions`, and `shortDescription` are explicitly preserved and mapped, preventing 'empty shell' products.
+
+### [x] Harden WebSocket Targeting (Session-First)
+
+**Result**: **FIXED**. 
+1. Refactored `WebSocketService.resolveTargets` to use `sessionId` as the primary lookup key.
+2. Updated `deliver()` to ensure `sessionId` is correctly propagated through retries.
+3. This ensures Liferay callbacks still correctly target the originating browser session even if proxy headers strip the `correlationId`.
+
+### [x] Validate Batch Processing Success (Zero-Item Detection)
+
+**Result**: **FIXED**. Refactored `BatchCallbackService` to treat batches with 0 processed items as `FAILED` even if Liferay reports `COMPLETED`, ensuring the workflow doesn't 'speed-run' over failures.
+
+---
+
+## 64. Finalize Catalog Context & WebSocket Mapping (Mar 13 - Round 12)
+
+### [x] Add Required Catalog Fields (Tax & Status)
+
+**Result**: **FIXED**. Updated `ProductGenerator._runProductCreationStep` to explicitly set `taxCategory: 'Standard'` and `productStatus: 0` (Published) for every product. This ensures Liferay doesn't reject records due to missing environment-specific defaults.
+
+### [x] Simplified Initial SKU Payload
+
+**Result**: **FIXED**. Refactored the initial product creation batch to only include `sku`, `published`, and `purchasable`. Price and inventory mappings are now moved to subsequent dedicated steps, preventing validation loops during the initial entity establishment.
+
+### [x] Harden Frontend Progress reception (Session-First)
+
+**Result**: **FIXED**. Updated `useRealtimeWebSocket.js` to use `sessionId` as the primary identifier for state updates, ignoring the often-missing `correlationId`. This ensures progress bars update correctly based on Liferay callbacks.
+
+### [x] Verbose Failure Logging (Schema Mapping)
+
+**Result**: **FIXED**. Updated `BatchCallbackService` to log the full raw JSON content of the first failed item when Liferay returns an 'Unknown error', facilitating manual schema comparison and debugging.
+

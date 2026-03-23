@@ -143,12 +143,6 @@ class MockDataGenerator {
     const {
       generateSkuVariants,
       generatePriceLists,
-      generateBulkPricing,
-      generateTierPricing,
-      imageMode,
-      imageRatio,
-      pdfMode,
-      pdfRatio,
     } = options;
 
     const categoryCode = toERCPart(category, 3);
@@ -156,124 +150,144 @@ class MockDataGenerator {
       languageCodes.map((lc) => [lc, lc === 'en_US' ? '' : ` (${lc})`])
     );
 
+    // Realistic content templates
+    const adjectives = ['Professional', 'Industrial', 'Advanced', 'Ultra', 'Smart', 'Elite'];
+    const features = ['High Performance', 'Eco-Friendly', 'Durable Design', 'Cutting Edge', 'Versatile'];
+
     for (let i = 0; i < count; i++) {
       const baseErc = createERC(ERC_PREFIX.PRODUCT);
       const basePrice = getRandomInt(500, 1500);
-      const pricing = { basePrice };
       const sku = `SKU-${categoryCode}-${String(i + 1).padStart(3, '0')}`;
+      const adj = adjectives[i % adjectives.length];
+      const feat = features[i % features.length];
 
       const productData = {
+        id: 30000 + i, // Mock numeric ID
         externalReferenceCode: baseErc,
         name: {},
         description: {},
+        shortDescription: {},
+        urls: {},
         productType: 'simple',
         active: true,
         catalogId: config.catalogId,
         category: category,
+        baseSku: sku,
+        productStatus: 0, // Published
       };
 
       for (const lang of languageCodes) {
         const suffix = localeSuffixMap[lang] || '';
-        productData.name[lang] = `Mock ${category} Product ${i + 1}${suffix}`;
-        productData.description[lang] =
-          `High quality ${category.toLowerCase()} item for professional use.${suffix}`;
+        const name = `${adj} ${category} ${i + 1}`;
+        productData.name[lang] = `${name}${suffix}`;
+        productData.description[lang] = `The ${name} is a ${feat.toLowerCase()} solution designed for ${category.toLowerCase()} professionals. It offers reliability and performance in any environment.${suffix}`;
+        productData.shortDescription[lang] = `${adj} ${category} with ${feat.toLowerCase()}.${suffix}`;
+        productData.urls[lang] = `${name.toLowerCase().replace(/\s+/g, '-')}-${i + 1}`;
       }
 
-      if (imageMode && imageMode !== 'none') {
+      // Metadata (Optional in schema but good for realism)
+      productData.metaTitle = { ...productData.name };
+      productData.metaDescription = { ...productData.shortDescription };
+
+      if (options.imageMode && options.imageMode !== 'none') {
         productData.images = [
           {
-            src: 'placeholder.webp',
-            title: Object.fromEntries(languageCodes.map(l => [l, 'Product Image'])),
-            priority: 1
+            src: 'https://picsum.photos/1024/1024',
+            title: Object.fromEntries(languageCodes.map(l => [l, productData.name[l]])),
+            priority: 1,
+            type: 'main'
           }
         ];
       }
 
-      if (pdfMode && pdfMode !== 'none') {
-        productData.attachments = ['manual.pdf'];
+      if (options.pdfMode && options.pdfMode !== 'none') {
+        productData.attachments = [`manual-${sku.toLowerCase()}.pdf`];
       }
 
       if (generateSkuVariants) {
-        productData.productType = 'simple';
-        productData.options = [
+        productData.productOptions = [
           {
-            name: { en_US: 'Color' },
+            name: { 'en_US': 'Color' },
             fieldType: 'select',
             skuContributor: true,
-            required: true,
             values: [
-              { name: { en_US: 'Red' }, key: 'red' },
-              { name: { en_US: 'Blue' }, key: 'blue' },
-              { name: { en_US: 'Green' }, key: 'green' },
+              { name: { 'en_US': 'Red' }, key: 'red' },
+              { name: { 'en_US': 'Blue' }, key: 'blue' },
+              { name: { 'en_US': 'Green' }, key: 'green' }
             ],
           },
           {
-            name: { en_US: 'Size' },
+            name: { 'en_US': 'Size' },
             fieldType: 'select',
             skuContributor: true,
-            required: true,
             values: [
-              { name: { en_US: 'Small' }, key: 'small' },
-              { name: { en_US: 'Medium' }, key: 'medium' },
-              { name: { en_US: 'Large' }, key: 'large' },
+              { name: { 'en_US': 'Small' }, key: 'small' },
+              { name: { 'en_US': 'Medium' }, key: 'medium' },
+              { name: { 'en_US': 'Large' }, key: 'large' }
             ],
           },
         ];
 
         productData.skuVariants = [];
-        for (const color of ['red', 'blue']) {
-          for (const size of ['small', 'medium']) {
-            const variantSku = `${sku}-${color.toUpperCase()}-${size.toUpperCase()}`;
-            const variantPrice = basePrice + (size === 'medium' ? 50 : 0);
+        // Generate a subset of combinations for realism
+        const colors = ['Red', 'Blue'];
+        const sizes = ['Small', 'Medium'];
 
-            const variant = {
+        let variantCounter = 0;
+        for (const color of colors) {
+          for (const size of sizes) {
+            const variantSku = `${sku}-${color.toUpperCase()}-${size.toUpperCase()}`;
+            const variantPriceModifier = size === 'Medium' ? 0.1 : 0;
+
+            productData.skuVariants.push({
+              id: 40000 + i * 10 + variantCounter++, // Mock variant ID
               sku: variantSku,
-              externalReferenceCode: variantSku,
-              price: variantPrice,
-              active: true,
-              published: true,
-              purchasable: true,
-              skuOptions: [
-                { key: 'color', value: color },
-                { key: 'size', value: size },
-              ],
-            };
-            productData.skuVariants.push(variant);
+              options: {
+                'Color': color,
+                'Size': size
+              },
+              priceModifier: variantPriceModifier,
+              inStock: true
+            });
           }
         }
+      }
 
-        if (generatePriceLists) {
-          productData.priceEntries = this.generatePriceEntries(
-            sku,
-            basePrice,
-            pricing,
-            i,
-            productData.skuVariants,
-            options
-          );
+      // Add mock specifications
+      productData.productSpecifications = [
+        {
+          specificationKey: 'brand',
+          value: { 'en_US': 'AICA Elite' }
+        },
+        {
+          specificationKey: 'material',
+          value: { 'en_US': 'Industrial Grade' }
         }
-      } else {
-        productData.skus = [
-          {
-            sku: sku,
-            externalReferenceCode: sku,
-            published: true,
-            purchasable: true,
-          },
-        ];
-        productData.defaultSku = sku;
-        productData.productType = 'simple';
+      ];
 
-        if (generatePriceLists) {
-          productData.priceEntries = this.generatePriceEntries(
-            sku,
-            basePrice,
-            pricing,
-            i,
-            productData.skuVariants,
-            options
-          );
+      // Every product must have at least one SKU object in the 'skus' array
+      productData.skus = [
+        {
+          id: 50000 + i, // Mock base SKU ID
+          sku: sku,
+          externalReferenceCode: sku,
+          published: true,
+          purchasable: true,
+          price: basePrice,
+          cost: basePrice * 0.6,
+          inventoryLevel: getRandomInt(10, 100),
+          neverExpire: true
         }
+      ];
+
+      if (generatePriceLists) {
+        productData.priceEntries = this.generatePriceEntries(
+          sku,
+          basePrice,
+          i,
+          productData.skuVariants || [],
+          options
+        );
       }
 
       products.push(productData);
@@ -285,7 +299,6 @@ class MockDataGenerator {
   generatePriceEntries(
     baseSku,
     basePrice,
-    pricingConfig,
     productIndex,
     skuVariants = [],
     options = {}
@@ -339,13 +352,13 @@ class MockDataGenerator {
 
     for (const variant of skuVariants) {
       const vEntry = {
-        price: variant.price,
+        price: variant.price || (basePrice * (1 + (variant.priceModifier || 0))),
         skuExternalReferenceCode: variant.sku,
         priceListExternalReferenceCode: 'AICA-PL-GENERAL',
         externalReferenceCode: `PE-${variant.sku}-GEN-${baseErc}`,
         discountDiscovery: false,
         sku: {
-          basePrice: variant.price,
+          basePrice: variant.price || (basePrice * (1 + (variant.priceModifier || 0))),
           basePromoPrice: null,
         },
       };
@@ -387,25 +400,50 @@ class MockDataGenerator {
 
     for (let i = 0; i < count; i++) {
       const baseErc = createERC(ERC_PREFIX.ACCOUNT);
-      const accountName = `Mock Account ${i + 1} (${randomString(4)})`;
+      const suffix = randomString(4);
+      const accountName = `Mock Account ${i + 1} (${suffix})`;
+      const email = `contact-${suffix.toLowerCase()}@example.com`;
 
       const accountData = {
+        id: 10000 + i, // Mock numeric ID for Demo Mode
         externalReferenceCode: baseErc,
         name: accountName,
         type: 'business',
         description: `Generated mock business account for ${accountName}.`,
-        postalAddresses: [
-          {
-            addressLine1: `${getRandomInt(100, 999)} Main St`,
-            addressLocality: 'Los Angeles',
-            addressRegion: 'CA',
-            countryId: 'US',
-            postalCode: '90001',
-            addressType: 'other',
-            name: 'Head Office',
-            externalReferenceCode: `ADDR-${baseErc}-HEAD`,
-          },
-        ],
+        domains: [`${suffix.toLowerCase()}.example.com`],
+        accountContactInformation: {
+          emailAddresses: [
+            {
+              emailAddress: email,
+              primary: true,
+              type: 'email-address',
+            },
+          ],
+        },
+        headOfficeAddress: {
+          streetAddressLine1: `${getRandomInt(100, 999)} Main St`,
+          addressLocality: 'Los Angeles',
+          addressRegion: 'CA',
+          addressCountry: 'United States',
+          postalCode: '90001',
+          name: 'Head Office',
+        },
+        billingAddress: {
+          streetAddressLine1: `${getRandomInt(100, 999)} Finance Way`,
+          addressLocality: 'New York',
+          addressRegion: 'NY',
+          addressCountry: 'United States',
+          postalCode: '10001',
+          name: 'Billing Dept',
+        },
+        shippingAddress: {
+          streetAddressLine1: `${getRandomInt(100, 999)} Logistics Ave`,
+          addressLocality: 'Chicago',
+          addressRegion: 'IL',
+          addressCountry: 'United States',
+          postalCode: '60601',
+          name: 'Main Warehouse',
+        },
       };
 
       accounts.push(accountData);
@@ -423,13 +461,29 @@ class MockDataGenerator {
     selectedLanguages = ['en-US']
   ) {
     const orders = [];
+    
+    // Safety fallback for Demo Mode if arrays are empty
+    const poolAccounts = (accounts.length > 0) ? accounts : this.generateAccountData(5);
+    const poolProducts = (products.length > 0) ? products : this.generateProductData('Electronics', 10);
+
     for (let i = 0; i < count; i++) {
-      const account = accounts[Math.floor(Math.random() * accounts.length)];
+      const account = poolAccounts[i % poolAccounts.length];
+      const product = poolProducts[i % poolProducts.length];
+      const skuObj = (product.skus && product.skus.length > 0) ? product.skus[0] : { sku: 'MOCK-SKU', price: 100 };
+
       orders.push({
         externalReferenceCode: createERC(ERC_PREFIX.ORDER),
-        accountId: account?.id,
+        accountId: account?.id || (10000 + i),
         orderDate: randomPastDate(30).toISOString(),
-        orderStatus: 0
+        orderStatus: 0,
+        orderItems: [
+          {
+            sku: skuObj.sku,
+            skuExternalReferenceCode: skuObj.sku,
+            quantity: getRandomInt(1, 5),
+            unitPrice: skuObj.price || 100,
+          }
+        ]
       });
     }
     return orders;
@@ -442,14 +496,31 @@ class MockDataGenerator {
     selectedLanguages = ['en-US']
   ) {
     const warehouses = [];
+    const languageCodes = selectedLanguages.map((lang) =>
+      lang.replace('-', '_')
+    );
+
     for (let i = 0; i < count; i++) {
-      warehouses.push({
+      const warehouse = {
         externalReferenceCode: createERC(ERC_PREFIX.WAREHOUSE),
-        name: `Mock Warehouse ${i + 1}`,
-        description: `Description for Warehouse ${i + 1}`,
+        name: {},
+        description: {},
+        city: 'Los Angeles',
+        street1: `${getRandomInt(100, 9999)} Commerce Blvd`,
+        zip: '90001',
         country: 'US',
-        region: 'CA'
-      });
+        region: 'CA',
+        latitude: 34.0522,
+        longitude: -118.2437,
+        active: true
+      };
+
+      for (const lang of languageCodes) {
+        warehouse.name[lang] = `Mock Warehouse ${i + 1}${lang === 'en_US' ? '' : ` (${lang})`}`;
+        warehouse.description[lang] = `Primary distribution center for ${lang} region.`;
+      }
+
+      warehouses.push(warehouse);
     }
     return warehouses;
   }
@@ -462,7 +533,7 @@ class MockDataGenerator {
     selectedLanguages = ['en-US']
   ) {
     return products.map(p => ({
-      skuExternalReferenceCode: p.sku,
+      skuExternalReferenceCode: p.sku || (p.skus?.[0]?.sku),
       price: getRandomInt(10, 1000)
     }));
   }

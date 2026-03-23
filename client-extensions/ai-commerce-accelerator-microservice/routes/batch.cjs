@@ -98,12 +98,14 @@ module.exports = (app, { batchCallbackService, logger, ws }) => {
       const batchERC =
         req.query.batchExternalReferenceCode || req.query.batchERC;
       const correlationId = req.query.correlationId;
+      const sessionId = req.query.sessionId;
       
       // This now enqueues the job instead of processing immediately
       await batchCallbackService.processCallback(
         batchERC,
         req.body,
-        correlationId
+        correlationId,
+        sessionId
       );
     } catch (error) {
       // Since we already sent 202, we just log errors here
