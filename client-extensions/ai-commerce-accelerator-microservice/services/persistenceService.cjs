@@ -7,11 +7,18 @@ const _ = require('lodash');
 const { ENV } = require('../utils/constants.cjs');
 
 class PersistenceService {
-  constructor(dbPath = path.resolve(process.cwd(), ENV.PERSISTENCE_DB_PATH)) {
-    const adapter = new FileSync(dbPath);
+  constructor(dbPath) {
+    const defaultPath = path.resolve(__dirname, '..', ENV.PERSISTENCE_DB_PATH || './data/workflows.json');
+    const finalPath = dbPath || defaultPath;
+    
+    const adapter = new FileSync(finalPath);
     this.db = low(adapter);
     this.cache = new Cache();
     this._initSchema();
+
+    // We use console.log here because the internal logger might not be fully initialized yet
+    // and this is a critical startup diagnostic.
+    console.log(`[PersistenceService] Initialized with database at: ${finalPath}`);
   }
 
   /**

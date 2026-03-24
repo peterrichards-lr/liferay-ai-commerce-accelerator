@@ -1,6 +1,5 @@
 const BaseGenerator = require('./baseGenerator.cjs');
 const { ASSET_TYPE, VIEWABLE_BY } = require('../utils/liferayPermissions.cjs');
-const specificationCatalog = require('../data/specifications.json');
 const { deepCleanIds } = require('../utils/payload-cleaner.cjs');
 const {
   delay,

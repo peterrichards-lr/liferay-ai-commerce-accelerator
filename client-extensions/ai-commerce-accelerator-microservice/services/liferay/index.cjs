@@ -13,16 +13,31 @@ class LiferayService {
     this.ctx.logger.debug('LiferayService: GraphQL client initialized');
   }
 
-  async _collectAllItems(config, fetcherFn, ercPrefix, maxItems = 1000) {
-    const res = await fetcherFn(config, 1, maxItems);
-    let items = asItems(res);
+  async _collectAllItems(config, fetcherFn, maxItems = 5000) {
+    let allItems = [];
+    let page = 1;
+    const pageSize = 200;
+    let hasMore = true;
 
-    if (ercPrefix) {
-      items = items.filter((it) =>
-        it.externalReferenceCode && it.externalReferenceCode.startsWith(ercPrefix)
-      );
+    while (hasMore) {
+      const res = await fetcherFn(config, page, pageSize);
+      const items = asItems(res);
+      
+      if (items.length === 0) {
+        hasMore = false;
+        break;
+      }
+
+      allItems.push(...items);
+
+      if (items.length < pageSize || allItems.length >= maxItems) {
+        hasMore = false;
+      } else {
+        page++;
+      }
     }
-    return { items, totalCount: items.length };
+
+    return { items: allItems, totalCount: allItems.length };
   }
 
   // --- Discovery Methods (Standardized Entry Points with Exclusions) ---
@@ -34,7 +49,6 @@ class LiferayService {
       pageSize = 200,
       fields = 'productId',
       filter: providedFilter,
-      ercPrefix,
     } = {}
   ) {
     const exclusions = await this._getExclusions(config, 'product');
@@ -71,8 +85,7 @@ class LiferayService {
     // Brute force discovery: Fetch all and filter in memory to avoid OData issues
     const { items } = await this._collectAllItems(
       config,
-      (cfg, page, size) => this.graphql.getProducts(cfg, filter, Array.from(requestedFields), { page, pageSize: size }),
-      ercPrefix
+      (cfg, p, size) => this.graphql.getProducts(cfg, filter, Array.from(requestedFields), { page: p, pageSize: size })
     );
 
     const filteredItems = items.filter(
@@ -87,14 +100,14 @@ class LiferayService {
 
   async getAccounts(
     config,
-    { channelId, pageSize = 200, fields = 'id', filter: providedFilter, search, ercPrefix } = {}
+    { channelId, pageSize = 200, fields = 'id', filter: providedFilter, search } = {}
   ) {
     const exclusions = await this._getExclusions(config, 'account');
 
     const filters = [];
     if (providedFilter) filters.push(providedFilter);
 
-    // If channelId is provided, we can filter by it
+    // If channelId is provided, we FIRST try to find accounts linked to that channel via orders.
     if (channelId) {
       let channelAccountFilter;
       try {
@@ -149,11 +162,14 @@ class LiferayService {
     }
 
     // Brute force discovery
-    const { items } = await this._collectAllItems(
+    let { items } = await this._collectAllItems(
       config,
-      (cfg, page, size) => this.graphql.getAccounts(cfg, filter, Array.from(requestedFields), { page, pageSize: size, search }),
-      ercPrefix
+      (cfg, p, size) => this.graphql.getAccounts(cfg, filter, Array.from(requestedFields), { page: p, pageSize: size, search })
     );
+
+    // FIX: If we found NONE via the channel filter but want to find AICA accounts, 
+    // we can't rely on prefix anymore, so we rely on the manifest building phase
+    // to have caught them while orders still existed.
 
     const filteredItems = items.filter(
       (it) => !this._shouldExclude(it, exclusions)
@@ -347,7 +363,7 @@ class LiferayService {
 
   async getOrders(
     config,
-    { pageSize = 200, fields = 'id', filter: providedFilter, ercPrefix } = {}
+    { pageSize = 200, fields = 'id', filter: providedFilter } = {}
   ) {
     const exclusions = await this._getExclusions(config, 'order');
 
@@ -377,8 +393,7 @@ class LiferayService {
     // Brute force discovery
     const { items } = await this._collectAllItems(
       config,
-      (cfg, page, size) => this.graphql.getOrders(cfg, filter, Array.from(requestedFields), { page, pageSize: size }),
-      ercPrefix
+      (cfg, p, size) => this.graphql.getOrders(cfg, filter, Array.from(requestedFields), { page: p, pageSize: size })
     );
 
     const filteredItems = items.filter(
@@ -393,7 +408,7 @@ class LiferayService {
 
   async getWarehouses(
     config,
-    { pageSize = 200, fields = 'id', filter: providedFilter, ercPrefix } = {}
+    { pageSize = 200, fields = 'id', filter: providedFilter } = {}
   ) {
     const exclusions = await this._getExclusions(config, 'warehouse');
 
@@ -417,8 +432,7 @@ class LiferayService {
     // Brute force discovery
     const { items } = await this._collectAllItems(
       config,
-      (cfg, page, size) => this.graphql.getWarehouses(cfg, filter, Array.from(requestedFields), { page, pageSize: size }),
-      ercPrefix
+      (cfg, p, size) => this.graphql.getWarehouses(cfg, filter, Array.from(requestedFields), { page: p, pageSize: size })
     );
 
     const filteredItems = items.filter(
@@ -433,7 +447,7 @@ class LiferayService {
 
   async getWarehouseItems(
     config,
-    { pageSize = 200, fields = 'id', filter, ercPrefix } = {}
+    { pageSize = 200, fields = 'id', filter } = {}
   ) {
     const warehouses = await this.getWarehouses(config, { pageSize: 1000 });
     const allItems = [];
@@ -468,13 +482,6 @@ class LiferayService {
         );
         let items = asItems(res);
 
-        // Apply prefix filter in JS memory
-        if (ercPrefix) {
-          items = items.filter((it) =>
-            it.externalReferenceCode && it.externalReferenceCode.startsWith(ercPrefix)
-          );
-        }
-
         allItems.push(...items);
         totalCount += res.totalCount || items.length;
       } catch (err) {
@@ -500,7 +507,6 @@ class LiferayService {
       filter: providedFilter,
       search,
       ignoreExclusions = false,
-      ercPrefix,
     } = {}
   ) {
     const exclusions = ignoreExclusions
@@ -550,13 +556,6 @@ class LiferayService {
         );
 
     let items = asItems(res);
-
-    // Apply prefix filter in JS memory
-    if (ercPrefix) {
-      items = items.filter((it) =>
-        it.externalReferenceCode && it.externalReferenceCode.startsWith(ercPrefix)
-      );
-    }
 
     // Parse catalogId from providedFilter if it exists (for backward compatibility)
     let targetCatalogId = catalogId;

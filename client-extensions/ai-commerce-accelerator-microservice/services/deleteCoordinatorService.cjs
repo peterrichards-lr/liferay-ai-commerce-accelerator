@@ -13,8 +13,9 @@ class DeleteCoordinatorService extends BaseGenerator {
   constructor(ctx) {
     super(ctx);
 
-    // Register all deletion steps using the generic handler
+    // Register all deletion steps
     this.steps = {
+      'DISCOVER': this._runDiscoveryStep.bind(this),
       [S.RESET_CATALOG_CONFIG]: this._runGenericDeletionStep.bind(this, 'resetCatalogConfiguration'),
       [S.DELETE_ORDERS]: this._runGenericDeletionStep.bind(this, 'deleteOrders'),
       [S.DELETE_WAREHOUSES]: this._runGenericDeletionStep.bind(this, 'deleteWarehouses'),
@@ -43,27 +44,143 @@ class DeleteCoordinatorService extends BaseGenerator {
   }
 
   /**
+   * Discovery Phase: Crawls the catalog and channel to build a manifest of IDs to delete.
+   * This ensures we capture relationship-dependent IDs while they are still available.
+   */
+  async _runDiscoveryStep(sessionId) {
+    const session = await this.persistence.getSession(sessionId);
+    if (!session) return;
+
+    const { config, channelId, catalogId } = session.context;
+    const { correlationId } = session;
+
+    this.logger.info('Starting deletion discovery phase...', { sessionId, correlationId });
+
+    const manifest = {
+      orders: [],
+      accounts: [],
+      warehouses: [],
+      products: [],
+      specifications: [],
+      options: [],
+      optionCategories: [],
+      priceLists: [],
+      promotions: [],
+    };
+
+    try {
+      // 1. Discover Orders and their Accounts (Channel Context)
+      if (channelId) {
+        this.logger.debug(`Discovering orders for channel ${channelId}...`, { sessionId });
+        const ordersRes = await this.liferay.getOrders(config, { 
+          filter: `channelId eq ${channelId}` 
+        });
+        manifest.orders = ordersRes.items.map(it => it.id);
+        
+        // Find accounts linked to these orders
+        const accountIds = [...new Set(ordersRes.items.map(it => it.accountId))].filter(Boolean);
+        if (accountIds.length > 0) {
+          this.logger.debug(`Identified ${accountIds.length} accounts linked to channel orders.`, { sessionId });
+          manifest.accounts = accountIds;
+        }
+
+        // Discover Warehouses linked to channel (if possible via naming/prefix or association)
+        // For now we look for warehouses since they are usually channel-specific in setup
+        const warehousesRes = await this.liferay.getWarehouses(config);
+        manifest.warehouses = warehousesRes.items.map(it => it.id);
+      }
+
+      // 2. Discover Catalog Entities (Catalog Context)
+      if (catalogId) {
+        this.logger.debug(`Discovering products for catalog ${catalogId}...`, { sessionId });
+        const productsRes = await this.liferay.getProducts(config, { catalogId });
+        manifest.products = productsRes.items.map(it => it.productId || it.id);
+
+        // RELATIONAL DISCOVERY: Fetch linked entities while products still exist
+        if (manifest.products.length > 0) {
+          this.logger.debug(`Identifying linked specifications and options for ${manifest.products.length} products...`, { sessionId });
+          
+          // These methods should already handle exclusions internally or we filter them here
+          const specs = await this.liferay.getSpecificationsByProductIds(config, manifest.products);
+          manifest.specifications = [...new Set(specs.map(s => s.id))].filter(Boolean);
+
+          const opts = await this.liferay.getOptionsByProductIds(config, manifest.products);
+          manifest.options = [...new Set(opts.map(o => o.id))].filter(Boolean);
+        }
+
+        // Discover Price Lists and Promotions
+        const priceListsRes = await this.liferay.getPriceLists(config, { catalogId });
+        manifest.priceLists = priceListsRes.items.map(it => it.id);
+
+        const promosRes = await this.liferay.getPromotions(config, { catalogId });
+        manifest.promotions = promosRes.items.map(it => it.id);
+      }
+
+      // 3. Persist manifest back to session context
+      const updatedContext = { ...session.context, manifest };
+      await this.persistence.updateSessionContext(sessionId, updatedContext);
+
+      this.logger.info('Discovery manifest completed.', { 
+        sessionId, 
+        counts: {
+          orders: manifest.orders.length,
+          accounts: manifest.accounts.length,
+          products: manifest.products.length,
+          specifications: manifest.specifications.length,
+          options: manifest.options.length,
+          priceLists: manifest.priceLists.length
+        }
+      });
+
+      await this.completeSyncStep(sessionId, 'DISCOVER', 'COMPLETED');
+    } catch (error) {
+      this.logger.error(`Discovery phase failed: ${error.message}`, { sessionId, correlationId });
+      throw error;
+    }
+  }
+
+  /**
    * Generic wrapper for deletion handlers that ensures batch records are created correctly.
    */
   async _runGenericDeletionStep(handlerName, sessionId) {
     const session = await this.persistence.getSession(sessionId);
     if (!session) return;
 
-    const { config, options, channelId, catalogId } = session.context;
+    const { config, options, channelId, catalogId, manifest } = session.context;
     const { correlationId } = session;
     
-    // Find the current step name from the session context (we only have one active step in delete flow)
     const stepName = session.currentSteps[0]; 
     if (!stepName) {
       throw new Error(`Execution triggered for ${handlerName} but no current step found in session ${sessionId}`);
     }
 
-    const { hasItems, totalCount } = await this._checkIfEntitiesExist(
-      this.liferay,
-      config,
-      stepName,
-      { channelId, catalogId }
-    );
+    // NEW LOGIC: Use the manifest IDs if available, otherwise fallback to existence check
+    const manifestMap = {
+      [S.DELETE_ACCOUNTS]: manifest?.accounts,
+      [S.DELETE_ORDERS]: manifest?.orders,
+      [S.DELETE_WAREHOUSES]: manifest?.warehouses,
+      [S.DELETE_PRODUCTS]: manifest?.products,
+      [S.DELETE_SPECIFICATIONS]: manifest?.specifications,
+      [S.DELETE_OPTIONS]: manifest?.options,
+      [S.DELETE_PRICE_LISTS]: manifest?.priceLists,
+      [S.DELETE_PROMOTIONS]: manifest?.promotions,
+    };
+
+    let targetIds = manifestMap[stepName];
+    let totalCount = targetIds ? targetIds.length : 0;
+    let hasItems = totalCount > 0;
+
+    // Fallback for steps not in manifest or if manifest-first is skipped
+    if (!manifest) {
+      const check = await this._checkIfEntitiesExist(
+        this.liferay,
+        config,
+        stepName,
+        { channelId, catalogId }
+      );
+      hasItems = check.hasItems;
+      totalCount = check.totalCount;
+    }
 
     if (!hasItems) {
       this.logger.info(`No items found for ${stepName}, bypassing.`, { sessionId, correlationId });
@@ -73,7 +190,6 @@ class DeleteCoordinatorService extends BaseGenerator {
     const handler = BATCH_STEP_HANDLERS[handlerName];
     const batchERC = createERC(ERC_PREFIX.BATCH);
 
-    // CRITICAL: Persist the batch record before making the Liferay call
     await this.persistence.createBatch({
       erc: batchERC,
       sessionId,
@@ -92,10 +208,11 @@ class DeleteCoordinatorService extends BaseGenerator {
         totalCount,
         batchERC,
         correlationId,
+        // Pass manifest IDs to handler if available
+        ids: targetIds,
       });
 
       if (result && result.batchRefs && result.batchRefs.length > 0) {
-        // Native batch was triggered, update status to SUBMITTED
         const firstBatchId = result.batchRefs[0].taskId;
         await this.persistence.updateBatch(batchERC, {
           status: 'SUBMITTED',
@@ -112,7 +229,6 @@ class DeleteCoordinatorService extends BaseGenerator {
           correlationId
         });
       } else {
-        // Step was processed synchronously (like reset-catalog-config or simulated batch)
         await this.persistence.updateBatch(batchERC, {
           status: 'COMPLETED',
           processedCount: totalCount,
@@ -124,32 +240,28 @@ class DeleteCoordinatorService extends BaseGenerator {
     } catch (error) {
       this.logger.error(`Deletion step '${stepName}' failed: ${error.message}`, { sessionId, batchERC, correlationId });
       await this.persistence.updateBatch(batchERC, { status: 'FAILED' });
-      // We re-throw to ensure the orchestrator handles the failure
       throw error;
     }
   }
 
   async _checkIfEntitiesExist(liferay, config, stepKey, context) {
     const { channelId, catalogId } = context;
-    const BRUTE_FORCE_PAGE_SIZE = 1000;
 
     const checkMap = {
       [S.DELETE_ACCOUNTS]: async () => {
-        // Fetch all items and filter in JS memory
-        const res = await liferay.getAccounts(config, { channelId, pageSize: BRUTE_FORCE_PAGE_SIZE });
-        const filtered = res.items.filter(it => it.externalReferenceCode?.startsWith(ERC_PREFIX.ACCOUNT));
-        return { totalCount: filtered.length };
+        const res = await liferay.getAccounts(config, { channelId });
+        return { totalCount: res.totalCount };
       },
       [S.DELETE_PRODUCTS]: async () => {
-        const res = await liferay.getProducts(config, { catalogId, pageSize: BRUTE_FORCE_PAGE_SIZE });
-        const filtered = res.items.filter(it => it.externalReferenceCode?.startsWith(ERC_PREFIX.PRODUCT));
-        return { totalCount: filtered.length };
+        const res = await liferay.getProducts(config, { catalogId });
+        return { totalCount: res.totalCount };
       },
       [S.DELETE_ORDERS]: async () => {
         try {
-          const res = await liferay.getOrders(config, { pageSize: BRUTE_FORCE_PAGE_SIZE });
-          const filtered = res.items.filter(it => it.externalReferenceCode?.startsWith(ERC_PREFIX.ORDER));
-          return { totalCount: filtered.length };
+          const res = await liferay.getOrders(config, { 
+            filter: channelId ? `channelId eq ${channelId}` : undefined
+          });
+          return { totalCount: res.totalCount };
         } catch (err) {
           this.logger.warn(`Failed to check if orders exist for deletion: ${err.message}. Skipping to avoid crash.`, {
             stepKey
@@ -158,19 +270,16 @@ class DeleteCoordinatorService extends BaseGenerator {
         }
       },
       [S.DELETE_WAREHOUSES]: async () => {
-        const res = await liferay.getWarehouses(config, { pageSize: BRUTE_FORCE_PAGE_SIZE });
-        const filtered = res.items.filter(it => it.externalReferenceCode?.startsWith(ERC_PREFIX.WAREHOUSE));
-        return { totalCount: filtered.length };
+        const res = await liferay.getWarehouses(config);
+        return { totalCount: res.totalCount };
       },
       [S.DELETE_PRICE_LISTS]: async () => {
-        const res = await liferay.getPriceLists(config, { catalogId, pageSize: BRUTE_FORCE_PAGE_SIZE });
-        const filtered = res.items.filter(it => it.externalReferenceCode?.startsWith('AICA-'));
-        return { totalCount: filtered.length };
+        const res = await liferay.getPriceLists(config, { catalogId });
+        return { totalCount: res.totalCount };
       },
       [S.DELETE_PROMOTIONS]: async () => {
-        const res = await liferay.getPromotions(config, { catalogId, pageSize: BRUTE_FORCE_PAGE_SIZE });
-        const filtered = res.items.filter(it => it.externalReferenceCode?.startsWith('AICA-'));
-        return { totalCount: filtered.length };
+        const res = await liferay.getPromotions(config, { catalogId });
+        return { totalCount: res.totalCount };
       },
       [S.RESET_CATALOG_CONFIG]: async () => ({ hasItems: true, totalCount: 1 }),
     };
@@ -189,6 +298,7 @@ class DeleteCoordinatorService extends BaseGenerator {
     const { channelId, catalogId } = config;
 
     const steps = [
+      { name: 'DISCOVER', type: 'sync' },
       { name: S.RESET_CATALOG_CONFIG, type: 'sync' },
       { name: S.DELETE_ORDERS, type: 'sync' },
       { name: S.DELETE_WAREHOUSES, type: 'sync' },
@@ -208,6 +318,11 @@ class DeleteCoordinatorService extends BaseGenerator {
       currentSteps: [],
       correlationId: config.correlationId,
       context: { config, options, sessionId, channelId, catalogId, steps },
+    });
+
+    this.logger.info(`Full environment deletion session ${sessionId} started.`, {
+      sessionId,
+      correlationId: config.correlationId,
     });
 
     this.ctx.batchCallback._checkSessionCompletion(sessionId, config.correlationId);
@@ -238,6 +353,9 @@ class DeleteCoordinatorService extends BaseGenerator {
       steps.unshift({ name: S.RESET_CATALOG_CONFIG, type: 'sync' });
     }
 
+    // Always add DISCOVER at the start
+    steps.unshift({ name: 'DISCOVER', type: 'sync' });
+
     await this.persistence.createSession({
       sessionId,
       flowType: 'delete',
@@ -254,3 +372,4 @@ class DeleteCoordinatorService extends BaseGenerator {
 }
 
 module.exports = DeleteCoordinatorService;
+

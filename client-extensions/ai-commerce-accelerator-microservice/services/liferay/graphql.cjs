@@ -100,43 +100,67 @@ class LiferayGraphQLService {
     const escapedFilter = safeFilter.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
     const filterArg = escapedFilter ? `, filter: "${escapedFilter}"` : '';
     
-    const { page = 1, pageSize = 200 } = pagination;
-    
-    const query = `
-      query {
-        ${namespace} {
-          ${queryMethod}(page: ${page}, pageSize: ${pageSize}${filterArg}) {
-            items {
-              ${fieldSelection}
+    let allItems = [];
+    let currentPage = pagination.page || 1;
+    const pageSize = pagination.pageSize || 200;
+    let hasMore = true;
+    let totalCount = 0;
+
+    while (hasMore) {
+      const query = `
+        query {
+          ${namespace} {
+            ${queryMethod}(page: ${currentPage}, pageSize: ${pageSize}${filterArg}) {
+              items {
+                ${fieldSelection}
+              }
+              totalCount
             }
-            totalCount
           }
         }
-      }
-    `;
+      `;
 
-    try {
-      const response = await client.post('', { query });
-      if (response.data.errors) {
-        // Log individual errors for easier debugging of DataFetchingException
-        response.data.errors.forEach(err => {
-           this.ctx.logger.warn(`GraphQL Error in ${queryMethod}: ${err.message}`, { 
-             path: err.path,
-             namespace,
-             queryMethod
-           });
+      try {
+        const response = await client.post('', { query });
+        if (response.data.errors) {
+          response.data.errors.forEach(err => {
+             this.ctx.logger.warn(`GraphQL Error in ${queryMethod}: ${err.message}`, { 
+               path: err.path,
+               namespace,
+               queryMethod
+             });
+          });
+          throw new Error(`GraphQL Errors in ${queryMethod}: ${response.data.errors[0].message}`);
+        }
+
+        const result = response.data.data[namespace][queryMethod];
+        const items = result.items || [];
+        totalCount = result.totalCount || 0;
+        
+        allItems.push(...items);
+
+        if (items.length < pageSize || allItems.length >= totalCount) {
+          hasMore = false;
+        } else {
+          currentPage++;
+        }
+
+        // Safety break
+        if (currentPage > 1000) break;
+      } catch (error) {
+        this.ctx.logger.error(`GraphQL _fetchCollection failed for ${queryMethod}`, { 
+          error: error.message,
+          namespace,
+          queryMethod 
         });
-        throw new Error(`GraphQL Errors in ${queryMethod}: ${response.data.errors[0].message}`);
+        throw error;
       }
-      return response.data.data[namespace][queryMethod];
-    } catch (error) {
-      this.ctx.logger.error(`GraphQL _fetchCollection failed for ${queryMethod}`, { 
-        error: error.message,
-        namespace,
-        queryMethod 
-      });
-      throw error;
     }
+
+    return {
+      items: allItems,
+      totalCount: totalCount
+    };
   }
 
   // --- Collection Methods (Thin Wrappers) ---

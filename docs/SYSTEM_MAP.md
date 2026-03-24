@@ -61,7 +61,7 @@ The project is a multi-module Liferay Workspace using a headless-first architect
 
 ### Data Generation Workflow
 1. **Frontend**: User initiates a request.
-2. **Microservice**: Creates a `workflow_session` in SQLite and starts a `Generator`.
+2. **Microservice**: Creates a `workflow_session` in lowdb and starts a `Generator`.
 3. **Microservice -> Liferay**: Submits asynchronous batches; persists state *before* submission.
 4. **Liferay -> Microservice**: Sends batch callbacks to the `batch.cjs` route.
 5. **Microservice -> Frontend**: `BatchCallbackService` advances the state and broadcasts `PROGRESS` events via WebSockets.
