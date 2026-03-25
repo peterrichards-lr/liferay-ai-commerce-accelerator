@@ -158,6 +158,7 @@ class BaseWorkflowService {
   _normalizeEntityType(stepKey) {
     const S = WORKFLOW_STEPS;
     const map = {
+      DISCOVER: 'products',
       // Generation
       [S.GENERATE_PRODUCT_DATA]: 'products',
       [S.CREATE_PRODUCTS]: 'products',

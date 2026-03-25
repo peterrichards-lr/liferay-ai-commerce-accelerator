@@ -285,6 +285,7 @@ const COMMERCE_CONSTRAINTS = {
 };
 
 const WORKFLOW_STEPS = {
+  DISCOVER: 'discover',
   // Generation Steps
   LOAD_COUNTRIES: 'load-countries',
   GENERATE_ACCOUNT_DATA: 'generate-account-data',

@@ -99,6 +99,7 @@ class BatchCallbackService {
         }
 
         try {
+          this.ctx.logger.info(`Advancing session ${sessionId} via ${generator.constructor.name}...`);
           // Delegate step advancement to the specialized generator
           await generator.executeNextStep(sessionId);
         } catch (stepErr) {

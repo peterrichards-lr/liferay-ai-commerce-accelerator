@@ -91,7 +91,7 @@ class LiferayGraphQLService {
 
   // --- Unified Collection Fetcher ---
 
-  async _fetchCollection(config, namespace, queryMethod, fields, pagination = { page: 1, pageSize: 200 }, filter = null) {
+  async _fetchCollection(config, namespace, queryMethod, fields, pagination = { page: 1, pageSize: 200 }, filter = null, search = null) {
     const client = await this._getClient(config);
     const fieldSelection = fields.join(' ');
     
@@ -99,6 +99,11 @@ class LiferayGraphQLService {
     const safeFilter = (typeof filter === 'string') ? filter : '';
     const escapedFilter = safeFilter.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
     const filterArg = escapedFilter ? `, filter: "${escapedFilter}"` : '';
+
+    // Search support
+    const safeSearch = (typeof search === 'string') ? search : '';
+    const escapedSearch = safeSearch.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
+    const searchArg = escapedSearch ? `, search: "${escapedSearch}"` : '';
     
     let allItems = [];
     let currentPage = pagination.page || 1;
@@ -110,7 +115,7 @@ class LiferayGraphQLService {
       const query = `
         query {
           ${namespace} {
-            ${queryMethod}(page: ${currentPage}, pageSize: ${pageSize}${filterArg}) {
+            ${queryMethod}(page: ${currentPage}, pageSize: ${pageSize}${filterArg}${searchArg}) {
               items {
                 ${fieldSelection}
               }
@@ -272,30 +277,30 @@ class LiferayGraphQLService {
     }
   }
 
-  async getWarehouses(config, filter, fields, opts) {
+  async getWarehouses(config, filter, fields, opts, search = null) {
     // Simplify warehouses discovery fields
     const discoveryFields = fields || ['id', 'externalReferenceCode', 'name'];
-    return this._fetchCollection(config, 'headlessCommerceAdminInventory_v1_0', 'warehouses', discoveryFields, opts, filter);
+    return this._fetchCollection(config, 'headlessCommerceAdminInventory_v1_0', 'warehouses', discoveryFields, opts, filter, search);
   }
 
-  async getProducts(config, filter, fields, opts) {
+  async getProducts(config, filter, fields, opts, search = null) {
     // Ensure id and externalReferenceCode are always requested
     const requestedFields = new Set(fields || ['id', 'externalReferenceCode', 'productId', 'name']);
     requestedFields.add('id');
     requestedFields.add('externalReferenceCode');
     
-    return this._fetchCollection(config, 'headlessCommerceAdminCatalog_v1_0', 'products', Array.from(requestedFields), opts, filter);
+    return this._fetchCollection(config, 'headlessCommerceAdminCatalog_v1_0', 'products', Array.from(requestedFields), opts, filter, search);
   }
 
-  async getAccounts(config, filter, fields, opts) {
+  async getAccounts(config, filter, fields, opts, search = null) {
     const discoveryFields = fields || ['id', 'externalReferenceCode', 'name'];
-    return this._fetchCollection(config, 'headlessAdminUser_v1_0', 'accounts', discoveryFields, opts, filter);
+    return this._fetchCollection(config, 'headlessAdminUser_v1_0', 'accounts', discoveryFields, opts, filter, search);
   }
 
-  async getOrders(config, filter, fields, opts) {
+  async getOrders(config, filter, fields, opts, search = null) {
     // Simplify orders discovery fields
     const discoveryFields = fields || ['id', 'externalReferenceCode', 'orderNumber'];
-    return this._fetchCollection(config, 'headlessCommerceAdminOrder_v1_0', 'orders', discoveryFields, opts, filter);
+    return this._fetchCollection(config, 'headlessCommerceAdminOrder_v1_0', 'orders', discoveryFields, opts, filter, search);
   }
 
   async getOptions(config, filter, fields, opts) {

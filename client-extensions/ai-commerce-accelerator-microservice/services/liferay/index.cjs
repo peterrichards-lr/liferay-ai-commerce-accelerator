@@ -682,20 +682,38 @@ class LiferayService {
     } else if (providedIds && providedIds.length > 0) {
       const idChunks = this.rest._chunkArray(providedIds, 200);
       for (const idChunk of idChunks) {
+        // Resolve full metadata for these IDs to check exclusions
         const idFilter =
           entityName === 'product'
             ? `productId in (${idChunk.join(',')})`
             : `id in (${idChunk.join(',')})`;
 
-        const items = await this.rest._collectPagedItems(config, {
-          listUrl: rest.listUrl,
-          pageSize: 200,
-          filter: idFilter,
-          fields: fieldsParam,
-          op: `${entityName}:list-for-exclusion`,
-          friendly: `Fetch ${entityName} for metadata check`,
-        });
-        await processBatch(items);
+        try {
+          const items = await this.rest._collectPagedItems(config, {
+            listUrl: rest.listUrl,
+            pageSize: 200,
+            filter: idFilter,
+            fields: fieldsParam,
+            op: `${entityName}:list-for-exclusion`,
+            friendly: `Fetch ${entityName} for metadata check`,
+          });
+          
+          if (items && items.length > 0) {
+            await processBatch(items);
+          }
+        } catch (err) {
+          logger.error(`Failed to resolve metadata for ${entityName} chunk. Deleting without exclusion check as fallback.`, {
+            error: err.message,
+            sessionId: rest.sessionId
+          });
+          // If metadata fetch fails, we fallback to deleting the IDs directly to avoid stalling the workflow
+          // Note: Exclusions won't be respected in this fallback case
+          await this.rest._deleteBatchSimulated(config, {
+            entityName,
+            ids: idChunk,
+            ...rest,
+          });
+        }
       }
     } else {
       let page = 1;

@@ -15,7 +15,7 @@ class DeleteCoordinatorService extends BaseGenerator {
 
     // Register all deletion steps
     this.steps = {
-      'DISCOVER': this._runDiscoveryStep.bind(this),
+      [S.DISCOVER]: this._runDiscoveryStep.bind(this),
       [S.RESET_CATALOG_CONFIG]: this._runGenericDeletionStep.bind(this, 'resetCatalogConfiguration'),
       [S.DELETE_ORDERS]: this._runGenericDeletionStep.bind(this, 'deleteOrders'),
       [S.DELETE_WAREHOUSES]: this._runGenericDeletionStep.bind(this, 'deleteWarehouses'),
@@ -71,24 +71,50 @@ class DeleteCoordinatorService extends BaseGenerator {
     try {
       // 1. Discover Orders and their Accounts (Channel Context)
       if (channelId) {
-        this.logger.debug(`Discovering orders for channel ${channelId}...`, { sessionId });
-        const ordersRes = await this.liferay.getOrders(config, { 
-          filter: `channelId eq ${channelId}` 
-        });
-        manifest.orders = ordersRes.items.map(it => it.id);
+        this.logger.info(`Discovering all orders for channel ${channelId}...`, { sessionId });
+        
+        // Use the paginated collection helper from liferayService
+        const { items: orders } = await this.liferay._collectAllItems(
+          config,
+          (cfg, p, size) => this.liferay.graphql.getOrders(cfg, `channelId eq ${channelId}`, ['id', 'accountId'], { page: p, pageSize: size })
+        );
+        
+        manifest.orders = orders.map(it => it.id);
+        this.logger.info(`Found ${orders.length} orders in channel ${channelId}.`, { sessionId });
         
         // Find accounts linked to these orders
-        const accountIds = [...new Set(ordersRes.items.map(it => it.accountId))].filter(Boolean);
+        const accountIds = [...new Set(orders.map(it => it.accountId))].filter(Boolean);
         if (accountIds.length > 0) {
-          this.logger.debug(`Identified ${accountIds.length} accounts linked to channel orders.`, { sessionId });
+          this.logger.info(`Identified ${accountIds.length} unique accounts linked to channel orders.`, { sessionId });
           manifest.accounts = accountIds;
         }
-
-        // Discover Warehouses linked to channel (if possible via naming/prefix or association)
-        // For now we look for warehouses since they are usually channel-specific in setup
-        const warehousesRes = await this.liferay.getWarehouses(config);
-        manifest.warehouses = warehousesRes.items.map(it => it.id);
       }
+
+      // FALLBACK DISCOVERY: If manifest accounts is empty, look for accounts globally
+      if (manifest.accounts.length === 0) {
+        this.logger.info('No accounts found via channel filter, performing global discovery...', { sessionId });
+        // Use paginated collection helper
+        const { items: allAccounts } = await this.liferay._collectAllItems(
+          config,
+          (cfg, p, size) => this.liferay.graphql.getAccounts(cfg, null, ['id', 'externalReferenceCode', 'name'], { page: p, pageSize: size })
+        );
+        
+        this.logger.info(`Global discovery found ${allAccounts.length} accounts total.`, { sessionId });
+        
+        // Filter out system accounts or protected ones here if not already handled by exclusions
+        manifest.accounts = allAccounts.map(it => it.id);
+      }
+
+      // WAREHOUSES: Discovery (Global)
+      this.logger.info('Discovering all warehouses...', { sessionId });
+      const { items: allWarehouses } = await this.liferay._collectAllItems(
+        config,
+        (cfg, p, size) => this.liferay.graphql.getWarehouses(cfg, null, ['id', 'externalReferenceCode', 'name'], { page: p, pageSize: size })
+      );
+      
+      this.logger.info(`Warehouse discovery found ${allWarehouses.length} total.`, { sessionId });
+      
+      manifest.warehouses = allWarehouses.map(it => it.id);
 
       // 2. Discover Catalog Entities (Catalog Context)
       if (catalogId) {
@@ -132,7 +158,7 @@ class DeleteCoordinatorService extends BaseGenerator {
         }
       });
 
-      await this.completeSyncStep(sessionId, 'DISCOVER', 'COMPLETED');
+      await this.completeSyncStep(sessionId, S.DISCOVER, 'COMPLETED');
     } catch (error) {
       this.logger.error(`Discovery phase failed: ${error.message}`, { sessionId, correlationId });
       throw error;
@@ -161,7 +187,9 @@ class DeleteCoordinatorService extends BaseGenerator {
       [S.DELETE_WAREHOUSES]: manifest?.warehouses,
       [S.DELETE_PRODUCTS]: manifest?.products,
       [S.DELETE_SPECIFICATIONS]: manifest?.specifications,
+      [S.DELETE_PRODUCT_SPECIFICATIONS]: manifest?.specifications,
       [S.DELETE_OPTIONS]: manifest?.options,
+      [S.DELETE_PRODUCT_OPTIONS]: manifest?.options,
       [S.DELETE_PRICE_LISTS]: manifest?.priceLists,
       [S.DELETE_PROMOTIONS]: manifest?.promotions,
     };
@@ -298,9 +326,10 @@ class DeleteCoordinatorService extends BaseGenerator {
     const { channelId, catalogId } = config;
 
     const steps = [
-      { name: 'DISCOVER', type: 'sync' },
+      { name: S.DISCOVER, type: 'sync' },
       { name: S.RESET_CATALOG_CONFIG, type: 'sync' },
       { name: S.DELETE_ORDERS, type: 'sync' },
+      { name: S.DELETE_WAREHOUSE_ITEMS, type: 'sync' },
       { name: S.DELETE_WAREHOUSES, type: 'sync' },
       { name: S.DELETE_ACCOUNTS, type: 'sync' },
       { name: S.DELETE_OPTIONS, type: 'sync' },
@@ -338,6 +367,7 @@ class DeleteCoordinatorService extends BaseGenerator {
           'resetCatalogConfiguration': S.RESET_CATALOG_CONFIG,
           'deleteOrders': S.DELETE_ORDERS,
           'deleteWarehouses': S.DELETE_WAREHOUSES,
+          'deleteWarehouseItems': S.DELETE_WAREHOUSE_ITEMS,
           'deleteAccounts': S.DELETE_ACCOUNTS,
           'deleteProducts': S.DELETE_PRODUCTS,
           'deletePriceLists': S.DELETE_PRICE_LISTS,
@@ -354,7 +384,7 @@ class DeleteCoordinatorService extends BaseGenerator {
     }
 
     // Always add DISCOVER at the start
-    steps.unshift({ name: 'DISCOVER', type: 'sync' });
+    steps.unshift({ name: S.DISCOVER, type: 'sync' });
 
     await this.persistence.createSession({
       sessionId,

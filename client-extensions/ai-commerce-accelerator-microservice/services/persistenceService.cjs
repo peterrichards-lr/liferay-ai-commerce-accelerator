@@ -35,9 +35,14 @@ class PersistenceService {
         this.db.write();
         return;
       } catch (err) {
+        // Log the error to console as a last resort since logger might fail if this fails
+        console.error(`[PersistenceService] Write failure (attempt ${attempts}): ${err.message}`, {
+          code: err.code,
+          path: this.db?.adapter?.source
+        });
+
         // Handle transient file-system errors (EBUSY is common on concurrent writes)
         if (attempts < maxAttempts && ['EBUSY', 'EAGAIN', 'EPERM'].includes(err.code)) {
-          // Synchronous sleep
           const start = Date.now();
           while (Date.now() - start < retryDelayMs) { /* sleep */ }
           continue;

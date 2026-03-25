@@ -41,7 +41,16 @@ class BaseGenerator extends BaseWorkflowService {
       correlationId
     });
 
-    return await stepHandler(sessionId, session);
+    try {
+      return await stepHandler(sessionId, session);
+    } catch (error) {
+      this.logger.error(`Error in step handler '${stepName}': ${error.message}`, {
+        sessionId,
+        correlationId,
+        stack: error.stack
+      });
+      throw error;
+    }
   }
 
   /**
@@ -86,136 +95,120 @@ class BaseGenerator extends BaseWorkflowService {
    */
   async executeNextStep(sessionId) {
     let continueAdvancing = true;
+    this.logger.debug(`Advancing workflow for session ${sessionId}...`);
 
     while (continueAdvancing) {
-      const session = await this.persistence.getSession(sessionId);
-      if (!session || session.status === 'COMPLETED' || session.status === 'FAILED') {
-        break;
-      }
-
-      const { correlationId, context } = session;
-      const workflowSteps = context.steps || [];
-      const batches = await this.persistence.getBatchesForSession(sessionId);
-
-      const isTerminal = (b) => ['COMPLETED', 'FAILED', 'BYPASSED', 'SYNCHRONOUS'].includes(b.status);
-      const isSuccessful = (b) => ['COMPLETED', 'BYPASSED', 'SYNCHRONOUS'].includes(b.status);
-      
-      const stepStateMap = new Map(); // { status: 'COMPLETE' | 'FAILED' | 'RUNNING' | 'PENDING' }
-      const allStepKeys = [...new Set(batches.map(b => b.step_key))];
-      
-      for (const key of allStepKeys) {
-        const stepBatches = batches.filter(b => b.step_key === key);
-        if (stepBatches.some(b => b.status === 'FAILED')) {
-          stepStateMap.set(key, 'FAILED');
-        } else if (stepBatches.every(isTerminal)) {
-          stepStateMap.set(key, 'COMPLETE');
-        } else {
-          stepStateMap.set(key, 'RUNNING');
-        }
-      }
-
-      const getStepState = (s) => {
-        const name = typeof s === 'string' ? s : s.name;
-        if (s.type === 'parallel') {
-          const subStates = s.steps.map(getStepState);
-          if (subStates.some(st => st === 'FAILED')) return 'FAILED';
-          if (subStates.every(st => st === 'COMPLETE')) return 'COMPLETE';
-          if (subStates.some(st => st === 'RUNNING' || st === 'COMPLETE')) return 'RUNNING';
-          return 'PENDING';
-        }
-        return stepStateMap.get(name) || 'PENDING';
-      };
-
-      const newActiveSteps = [];
-      let foundBlockingStep = false;
-      let executedAnySyncStep = false;
-
-      for (const step of workflowSteps) {
-        const stepName = typeof step === 'string' ? step : step.name;
-        const stepType = step.type || 'sync';
-        const state = getStepState(step);
-
-        if (state === 'FAILED') {
-          this.logger.error(`Workflow step '${stepName}' failed. Stopping advancement.`, { sessionId, correlationId });
-          await this._finalizeSession(sessionId, correlationId);
-          continueAdvancing = false;
-          foundBlockingStep = true;
+      try {
+        const session = await this.persistence.getSession(sessionId);
+        if (!session || session.status === 'COMPLETED' || session.status === 'FAILED') {
           break;
         }
 
-        if (state === 'COMPLETE') continue;
+        const { correlationId, context } = session;
+        const workflowSteps = context.steps || [];
+        const batches = await this.persistence.getBatchesForSession(sessionId);
 
-        if (stepType === 'parallel') {
-          for (const subStep of step.steps) {
-            const subName = typeof subStep === 'string' ? subStep : subStep.name;
-            const subState = getStepState(subStep);
-            if (subState === 'PENDING') {
-              newActiveSteps.push(subName);
-              await this.executeStep(sessionId, subName);
-              // Parallel steps are tricky; we don't know if they are sync or async yet.
-              // For safety, we treat the parallel block as an async boundary.
-            } else if (subState === 'RUNNING') {
-              newActiveSteps.push(subName);
-            }
+        const isTerminal = (b) => ['COMPLETED', 'FAILED', 'BYPASSED', 'SYNCHRONOUS'].includes(b.status);
+        
+        const stepStateMap = new Map();
+        const allStepKeys = [...new Set(batches.map(b => b.step_key))];
+        
+        for (const key of allStepKeys) {
+          const stepBatches = batches.filter(b => b.step_key === key);
+          if (stepBatches.some(b => b.status === 'FAILED')) {
+            stepStateMap.set(key, 'FAILED');
+          } else if (stepBatches.every(isTerminal)) {
+            stepStateMap.set(key, 'COMPLETE');
+          } else {
+            stepStateMap.set(key, 'RUNNING');
           }
-          foundBlockingStep = true;
-          continueAdvancing = false;
-          break;
-        } else if (stepType === 'async') {
-          if (state === 'PENDING') {
-            await this.executeStep(sessionId, stepName);
+        }
+
+        const getStepState = (s) => {
+          const name = typeof s === 'string' ? s : s.name;
+          if (s.type === 'parallel') {
+            const subStates = s.steps.map(getStepState);
+            if (subStates.some(st => st === 'FAILED')) return 'FAILED';
+            if (subStates.every(st => st === 'COMPLETE')) return 'COMPLETE';
+            if (subStates.some(st => st === 'RUNNING' || st === 'COMPLETE')) return 'RUNNING';
+            return 'PENDING';
           }
-          // Async steps never block
-          continue;
-        } else {
-          // Mandatory Synchronous Step
-          if (state === 'PENDING') {
-            // --- HARDENING: Inter-Service Settling Delay ---
-            // If the last terminal step involved a different entity type, add a "settling delay"
-            // to allow Liferay's indexing to catch up across microservices (e.g. Catalog -> Inventory)
-            const lastBatch = batches.length > 0 ? batches[batches.length - 1] : null;
-            if (lastBatch) {
-              const lastEntityType = this._normalizeEntityType(lastBatch.step_key);
-              const currentEntityType = this._normalizeEntityType(stepName);
-              
-              if (lastEntityType !== currentEntityType && lastEntityType !== 'unknown') {
-                const SETTLING_DELAY_MS = 2000;
-                this.logger.debug(`Service boundary crossed (${lastEntityType} -> ${currentEntityType}). Settling for ${SETTLING_DELAY_MS}ms...`, { sessionId });
-                await delay(SETTLING_DELAY_MS);
+          return stepStateMap.get(name) || 'PENDING';
+        };
+
+        const newActiveSteps = [];
+        let foundBlockingStep = false;
+        let executedAnySyncStep = false;
+
+        for (const step of workflowSteps) {
+          const stepName = typeof step === 'string' ? step : step.name;
+          const stepType = step.type || 'sync';
+          const state = getStepState(step);
+
+          if (state === 'FAILED') {
+            this.logger.error(`Workflow step '${stepName}' failed. Stopping advancement.`, { sessionId, correlationId });
+            await this._finalizeSession(sessionId, correlationId);
+            continueAdvancing = false;
+            foundBlockingStep = true;
+            break;
+          }
+
+          if (state === 'COMPLETE') continue;
+
+          if (stepType === 'parallel') {
+            for (const subStep of step.steps) {
+              const subName = typeof subStep === 'string' ? subStep : subStep.name;
+              const subState = getStepState(subStep);
+              if (subState === 'PENDING') {
+                newActiveSteps.push(subName);
+                await this.executeStep(sessionId, subName);
+              } else if (subState === 'RUNNING') {
+                newActiveSteps.push(subName);
               }
             }
-
-            newActiveSteps.push(stepName);
-            // CRITICAL: Update database state before execution so the handler can see it
-            await this.persistence.updateSessionCurrentSteps(sessionId, newActiveSteps);
-            await this.executeStep(sessionId, stepName);
-            executedAnySyncStep = true;
-            // We loop again to see if the step we just executed completed synchronously
-          } else {
-            // Step is RUNNING (waiting for callback)
-            newActiveSteps.push(stepName);
+            foundBlockingStep = true;
             continueAdvancing = false;
+            break;
+          } else if (stepType === 'async') {
+            if (state === 'PENDING') {
+              await this.executeStep(sessionId, stepName);
+            }
+            continue;
+          } else {
+            if (state === 'PENDING') {
+              newActiveSteps.push(stepName);
+              await this.persistence.updateSessionCurrentSteps(sessionId, newActiveSteps);
+              await this.executeStep(sessionId, stepName);
+              executedAnySyncStep = true;
+            } else {
+              newActiveSteps.push(stepName);
+              continueAdvancing = false;
+            }
+            foundBlockingStep = true;
+            break;
           }
-          foundBlockingStep = true;
-          break;
         }
-      }
 
-      if (!foundBlockingStep) {
-        const allDone = workflowSteps.every(s => getStepState(s) === 'COMPLETE');
-        if (allDone) {
-          await this._finalizeSession(sessionId, correlationId);
+        if (!foundBlockingStep) {
+          const allDone = workflowSteps.every(s => getStepState(s) === 'COMPLETE');
+          if (allDone) {
+            await this._finalizeSession(sessionId, correlationId);
+          }
+          continueAdvancing = false;
         }
+
+        if (!executedAnySyncStep) {
+          continueAdvancing = false;
+        }
+
+        await this.persistence.updateSessionCurrentSteps(sessionId, newActiveSteps);
+      } catch (err) {
+        this.logger.error(`Fatal error in executeNextStep for session ${sessionId}: ${err.message}`, {
+          sessionId,
+          stack: err.stack
+        });
         continueAdvancing = false;
       }
-
-      // If we didn't execute a sync step in this pass, or we hit an async boundary, stop the loop
-      if (!executedAnySyncStep) {
-        continueAdvancing = false;
-      }
-
-      // Update the active steps in the session
-      await this.persistence.updateSessionCurrentSteps(sessionId, newActiveSteps);
     }
   }
 
