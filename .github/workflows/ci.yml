@@ -18,19 +18,19 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: "22"
-          cache: "npm"
+          cache: "yarn"
 
       - name: Install dependencies
-        run: npm ci --include=optional
+        run: yarn install --frozen-lockfile
 
       - name: Run Linting
-        run: npm run lint
+        run: yarn lint
 
       - name: Run Tests
-        run: npm test
+        run: yarn test
 
       - name: Install Playwright Browsers
         run: npx playwright install --with-deps
 
       - name: Run Smoke Tests
-        run: npm run smoke
+        run: yarn smoke
