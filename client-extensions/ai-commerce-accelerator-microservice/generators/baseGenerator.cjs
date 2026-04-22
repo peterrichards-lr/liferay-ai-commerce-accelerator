@@ -20,17 +20,37 @@ class BaseGenerator extends BaseWorkflowService {
     if (!session) return;
     const { correlationId, flow_type: flowType } = session;
 
+    const stepConfig = session.context.steps.find((s) =>
+      typeof s === 'string' ? s === stepName : s.name === stepName
+    );
+    const stepType = stepConfig?.type || 'sync';
+
     const stepHandler = this.steps[stepName];
     if (!stepHandler) {
-      this.logger.warn(`No handler found for step '${stepName}' in ${this.constructor.name}`, { sessionId, correlationId });
+      // Structural steps (parallel, sequence) don't have handlers; they are orchestrated in executeNextStep
+      if (['parallel', 'sequence'].includes(stepType)) {
+        return;
+      }
+
+      this.logger.warn(
+        `No handler found for step '${stepName}' in ${this.constructor.name}`,
+        { sessionId, correlationId }
+      );
       return await this.completeSyncStep(sessionId, stepName, 'SYNCHRONOUS');
     }
 
     // State Gatekeeping: Verify dependencies
-    const isReady = await this.verifyStepDependencies(sessionId, stepName, session.context.steps);
+    const isReady = await this.verifyStepDependencies(
+      sessionId,
+      stepName,
+      session.context.steps
+    );
     if (!isReady) return;
 
-    this.logger.info(`Executing step: ${stepName}`, { sessionId, correlationId });
+    this.logger.info(`Executing step: ${stepName}`, {
+      sessionId,
+      correlationId,
+    });
 
     // Emit step start via progress service
     this.progress.stepStarted({
@@ -38,17 +58,20 @@ class BaseGenerator extends BaseWorkflowService {
       step: stepName,
       entityType: this._normalizeEntityType(stepName),
       operation: flowType,
-      correlationId
+      correlationId,
     });
 
     try {
       return await stepHandler(sessionId, session);
     } catch (error) {
-      this.logger.error(`Error in step handler '${stepName}': ${error.message}`, {
-        sessionId,
-        correlationId,
-        stack: error.stack
-      });
+      this.logger.error(
+        `Error in step handler '${stepName}': ${error.message}`,
+        {
+          sessionId,
+          correlationId,
+          stack: error.stack,
+        }
+      );
       throw error;
     }
   }
@@ -100,7 +123,11 @@ class BaseGenerator extends BaseWorkflowService {
     while (continueAdvancing) {
       try {
         const session = await this.persistence.getSession(sessionId);
-        if (!session || session.status === 'COMPLETED' || session.status === 'FAILED') {
+        if (
+          !session ||
+          session.status === 'COMPLETED' ||
+          session.status === 'FAILED'
+        ) {
           break;
         }
 
@@ -108,14 +135,15 @@ class BaseGenerator extends BaseWorkflowService {
         const workflowSteps = context.steps || [];
         const batches = await this.persistence.getBatchesForSession(sessionId);
 
-        const isTerminal = (b) => ['COMPLETED', 'FAILED', 'BYPASSED', 'SYNCHRONOUS'].includes(b.status);
-        
+        const isTerminal = (b) =>
+          ['COMPLETED', 'FAILED', 'BYPASSED', 'SYNCHRONOUS'].includes(b.status);
+
         const stepStateMap = new Map();
-        const allStepKeys = [...new Set(batches.map(b => b.step_key))];
-        
+        const allStepKeys = [...new Set(batches.map((b) => b.step_key))];
+
         for (const key of allStepKeys) {
-          const stepBatches = batches.filter(b => b.step_key === key);
-          if (stepBatches.some(b => b.status === 'FAILED')) {
+          const stepBatches = batches.filter((b) => b.step_key === key);
+          if (stepBatches.some((b) => b.status === 'FAILED')) {
             stepStateMap.set(key, 'FAILED');
           } else if (stepBatches.every(isTerminal)) {
             stepStateMap.set(key, 'COMPLETE');
@@ -126,13 +154,26 @@ class BaseGenerator extends BaseWorkflowService {
 
         const getStepState = (s) => {
           const name = typeof s === 'string' ? s : s.name;
-          if (s.type === 'parallel') {
+          const type = s.type || 'sync';
+
+          if (type === 'parallel') {
             const subStates = s.steps.map(getStepState);
-            if (subStates.some(st => st === 'FAILED')) return 'FAILED';
-            if (subStates.every(st => st === 'COMPLETE')) return 'COMPLETE';
-            if (subStates.some(st => st === 'RUNNING' || st === 'COMPLETE')) return 'RUNNING';
+            if (subStates.some((st) => st === 'FAILED')) return 'FAILED';
+            if (subStates.every((st) => st === 'COMPLETE')) return 'COMPLETE';
+            if (subStates.some((st) => st === 'RUNNING' || st === 'COMPLETE'))
+              return 'RUNNING';
             return 'PENDING';
           }
+
+          if (type === 'sequence') {
+            const subStates = s.steps.map(getStepState);
+            if (subStates.some((st) => st === 'FAILED')) return 'FAILED';
+            if (subStates.every((st) => st === 'COMPLETE')) return 'COMPLETE';
+            if (subStates.some((st) => st === 'RUNNING' || st === 'COMPLETE'))
+              return 'RUNNING';
+            return 'PENDING';
+          }
+
           return stepStateMap.get(name) || 'PENDING';
         };
 
@@ -140,73 +181,102 @@ class BaseGenerator extends BaseWorkflowService {
         let foundBlockingStep = false;
         let executedAnySyncStep = false;
 
-        for (const step of workflowSteps) {
+        const processStep = async (step) => {
           const stepName = typeof step === 'string' ? step : step.name;
           const stepType = step.type || 'sync';
           const state = getStepState(step);
 
           if (state === 'FAILED') {
-            this.logger.error(`Workflow step '${stepName}' failed. Stopping advancement.`, { sessionId, correlationId });
+            this.logger.error(
+              `Workflow step '${stepName || stepType}' failed. Stopping advancement.`,
+              { sessionId, correlationId }
+            );
             await this._finalizeSession(sessionId, correlationId);
-            continueAdvancing = false;
             foundBlockingStep = true;
-            break;
+            return false;
           }
 
-          if (state === 'COMPLETE') continue;
+          if (state === 'COMPLETE') return true;
 
           if (stepType === 'parallel') {
             for (const subStep of step.steps) {
-              const subName = typeof subStep === 'string' ? subStep : subStep.name;
-              const subState = getStepState(subStep);
-              if (subState === 'PENDING') {
-                newActiveSteps.push(subName);
-                await this.executeStep(sessionId, subName);
-              } else if (subState === 'RUNNING') {
-                newActiveSteps.push(subName);
-              }
+              await processStep(subStep);
             }
             foundBlockingStep = true;
-            continueAdvancing = false;
-            break;
+            return false;
+          } else if (stepType === 'sequence') {
+            for (const subStep of step.steps) {
+              const subState = await processStep(subStep);
+              if (!subState) {
+                foundBlockingStep = true;
+                return false;
+              }
+            }
+            return true;
           } else if (stepType === 'async') {
             if (state === 'PENDING') {
               await this.executeStep(sessionId, stepName);
             }
-            continue;
+            return true;
           } else {
             if (state === 'PENDING') {
               newActiveSteps.push(stepName);
-              await this.persistence.updateSessionCurrentSteps(sessionId, newActiveSteps);
+              await this.persistence.updateSessionCurrentSteps(
+                sessionId,
+                newActiveSteps
+              );
               await this.executeStep(sessionId, stepName);
               executedAnySyncStep = true;
             } else {
               newActiveSteps.push(stepName);
-              continueAdvancing = false;
             }
             foundBlockingStep = true;
-            break;
+            return false;
           }
+        };
+
+        for (const step of workflowSteps) {
+          const ok = await processStep(step);
+          if (!ok) break;
         }
 
         if (!foundBlockingStep) {
-          const allDone = workflowSteps.every(s => getStepState(s) === 'COMPLETE');
+          const allDone = workflowSteps.every(
+            (s) => getStepState(s) === 'COMPLETE'
+          );
           if (allDone) {
             await this._finalizeSession(sessionId, correlationId);
           }
           continueAdvancing = false;
         }
 
-        if (!executedAnySyncStep) {
+        if (executedAnySyncStep) {
+          // If we ran a sync step, check if it finished immediately (like a delay or purely internal logic)
+          // If so, loop again. If not, wait for callback.
+          const freshBatches =
+            await this.persistence.getBatchesForSession(sessionId);
+          const activeBatches = freshBatches.filter(
+            (b) => newActiveSteps.includes(b.step_key) && !isTerminal(b)
+          );
+          if (activeBatches.length > 0) {
+            continueAdvancing = false;
+          }
+        } else {
           continueAdvancing = false;
         }
 
-        await this.persistence.updateSessionCurrentSteps(sessionId, newActiveSteps);
-      } catch (err) {
-        this.logger.error(`Fatal error in executeNextStep for session ${sessionId}: ${err.message}`, {
+        await this.persistence.updateSessionCurrentSteps(
           sessionId,
-          stack: err.stack
-        });
+          newActiveSteps
+        );
+      } catch (err) {
+        this.logger.error(
+          `Fatal error in executeNextStep for session ${sessionId}: ${err.message}`,
+          {
+            sessionId,
+            stack: err.stack,
+          }
+        );
         continueAdvancing = false;
       }
     }
@@ -215,16 +285,22 @@ class BaseGenerator extends BaseWorkflowService {
   async _finalizeSession(sessionId, correlationId) {
     const batches = await this.persistence.getBatchesForSession(sessionId);
 
-    const hasFailures = batches.some(b => b.status === 'FAILED');
+    const hasFailures = batches.some((b) => b.status === 'FAILED');
     if (hasFailures) {
       if (await this.persistence.tryFailSession(sessionId)) {
-        this.progress.sessionFailed({ sessionId, correlationId, error: { message: 'Workflow failed.' } });
+        this.progress.sessionFailed({
+          sessionId,
+          correlationId,
+          error: { message: 'Workflow failed.' },
+        });
       }
       return;
     }
 
     if (await this.persistence.tryFinalizeSession(sessionId)) {
-      this.logger.info(`Workflow session completed: ${sessionId}`, { correlationId });
+      this.logger.info(`Workflow session completed: ${sessionId}`, {
+        correlationId,
+      });
       this.progress.sessionCompleted({ sessionId, correlationId });
 
       if (typeof this.onSessionComplete === 'function') {

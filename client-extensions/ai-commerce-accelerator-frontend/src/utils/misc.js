@@ -24,7 +24,7 @@ function normalizeEntityType(t) {
     'deleteproducts',
     'deletepricelists',
     'deletepromotions',
-    'resetcatalogconfiguration'
+    'resetcatalogconfiguration',
   ];
 
   const accounts = [
@@ -38,7 +38,7 @@ function normalizeEntityType(t) {
     'delete-accounts',
     'deleteaccounts',
     'postal-addresses',
-    'set-billing-and-shipping-addresses'
+    'set-billing-and-shipping-addresses',
   ];
 
   const orders = [
@@ -46,7 +46,7 @@ function normalizeEntityType(t) {
     'generate-order-data',
     'create-orders',
     'delete-orders',
-    'deleteorders'
+    'deleteorders',
   ];
 
   const warehouses = [
@@ -57,7 +57,7 @@ function normalizeEntityType(t) {
     'delete-warehouses',
     'delete-warehouse-items',
     'deletewarehouses',
-    'deletewarehouseitems'
+    'deletewarehouseitems',
   ];
 
   const images = ['images', 'attach-images', 'process-images'];
@@ -69,13 +69,13 @@ function normalizeEntityType(t) {
     'delete-option-categories',
     'delete-product-options',
     'deleteoptions',
-    'deleteproductoptions'
+    'deleteproductoptions',
   ];
   const specifications = [
     'specifications',
     'delete-specifications',
     'delete-product-specifications',
-    'deletespecifications'
+    'deletespecifications',
   ];
 
   if (products.includes(s)) return 'products';

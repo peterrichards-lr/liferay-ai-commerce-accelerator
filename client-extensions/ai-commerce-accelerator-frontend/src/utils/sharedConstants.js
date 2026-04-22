@@ -23,11 +23,3 @@ export const WS_SCOPE = {
   SESSION: 'session',
   STEP: 'step',
 };
-
-// Standardized Operations
-export const WS_OPERATION = {
-  GENERATE: 'generate',
-  DELETE: 'delete',
-  PROCESS_IMAGES: 'process-images',
-  PROCESS_ATTACHMENTS: 'process-attachments',
-};

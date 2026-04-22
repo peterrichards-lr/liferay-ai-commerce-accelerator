@@ -14,7 +14,6 @@ export default function useRealtimeWebSocket({
   loggingLevel = 'off',
   onLog,
   onProgress,
-  onBatchErrorDetails,
 }) {
   const { getCorrelationId, api } = useApp();
   const wsRef = useRef(null);
@@ -44,26 +43,26 @@ export default function useRealtimeWebSocket({
       logDebug(`Hydrating session status for ${sessionId}...`);
       const path = WORKFLOW_STATUS.replace(':sessionId', sessionId);
       const res = await api.get(path);
-      
+
       if (res?.success && res.progress) {
         logDebug('Received hydration data:', res.progress);
-        
+
         // Update each entity's progress
         Object.entries(res.progress).forEach(([entity, data]) => {
           if (data.total > 0) {
             onProgress?.({
               type: 'SET_TOTAL',
               entity,
-              total: data.total
+              total: data.total,
             });
             onProgress?.({
               type: 'SET_COMPLETED',
               entity,
-              completed: data.completed
+              completed: data.completed,
             });
           }
         });
-        
+
         onLog?.('Progress bars hydrated from server.', 'debug');
       }
     } catch (err) {
@@ -130,7 +129,7 @@ export default function useRealtimeWebSocket({
       setWsConnected(true);
       onLog?.('WebSocket connected.', 'success');
       logInfo('✅ Connection established');
-      
+
       // Attempt to hydrate status if we have a session
       if (activeSessionId) {
         hydrateSessionStatus(activeSessionId);
@@ -238,7 +237,10 @@ export default function useRealtimeWebSocket({
             onLog?.(`Step completed: ${entityType}`, 'success');
             if (onProgress && entityType) {
               // Mark as 100% complete
-              onProgress({ type: 'SET_COMPLETED_TO_TOTAL', entity: entityType });
+              onProgress({
+                type: 'SET_COMPLETED_TO_TOTAL',
+                entity: entityType,
+              });
             }
           } else if (scope === WS_SCOPE.BATCH && batchId) {
             // Batch finished - mark it done and re-sum
@@ -251,7 +253,10 @@ export default function useRealtimeWebSocket({
               completed: successCount,
               total: totalCount,
             });
-            onLog?.(`Batch completed: ${batchId} (+${successCount})`, 'success');
+            onLog?.(
+              `Batch completed: ${batchId} (+${successCount})`,
+              'success'
+            );
           }
           break;
 
@@ -261,7 +266,10 @@ export default function useRealtimeWebSocket({
             onLog?.(`Workflow failed: ${errorMessage}`, 'error');
             setActiveSessionId(null);
           } else {
-            onLog?.(`${scope} failed: ${entityType} — ${errorMessage}`, 'error');
+            onLog?.(
+              `${scope} failed: ${entityType} — ${errorMessage}`,
+              'error'
+            );
             if (onProgress && entityType) {
               onProgress({
                 type: 'ADD_ERRORS',

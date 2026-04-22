@@ -133,10 +133,22 @@ module.exports = (
             type: 'parallel',
             steps: [
               ...(productSteps.length > 0
-                ? [{ name: 'subflow-products', steps: productSteps }]
+                ? [
+                    {
+                      name: 'subflow-products',
+                      type: 'sequence',
+                      steps: productSteps,
+                    },
+                  ]
                 : []),
               ...(accountSteps.length > 0
-                ? [{ name: 'subflow-accounts', steps: accountSteps }]
+                ? [
+                    {
+                      name: 'subflow-accounts',
+                      type: 'sequence',
+                      steps: accountSteps,
+                    },
+                  ]
                 : []),
             ],
           });
@@ -144,7 +156,11 @@ module.exports = (
 
         // Orders only start after products and accounts subflows are terminal
         if (orderSteps.length > 0) {
-          steps.push(...orderSteps);
+          steps.push({
+            name: 'subflow-orders',
+            type: 'sequence',
+            steps: orderSteps,
+          });
         }
 
         if (

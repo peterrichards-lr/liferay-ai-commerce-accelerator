@@ -1,11 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { getKeyValue, persistConfigKey } from '../utils/api';
 
-function toInt(v, fallback) {
-  const n = typeof v === 'string' ? parseInt(v, 10) : v;
-  return Number.isFinite(n) ? n : fallback;
-}
-
 export const useObjectStorage = ({ keys, defaults = {}, json = true }) => {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -16,6 +11,8 @@ export const useObjectStorage = ({ keys, defaults = {}, json = true }) => {
     () => JSON.stringify(values) !== JSON.stringify(lastSaved),
     [values, lastSaved]
   );
+
+  const keyString = useMemo(() => keys.join(','), [keys]);
 
   useEffect(() => {
     let alive = true;
@@ -69,7 +66,7 @@ export const useObjectStorage = ({ keys, defaults = {}, json = true }) => {
     return () => {
       alive = false;
     };
-  }, [keys.join(','), json]);
+  }, [keyString, json, defaults]);
 
   const onSave = useCallback(async () => {
     if (saving) return;
@@ -97,7 +94,7 @@ export const useObjectStorage = ({ keys, defaults = {}, json = true }) => {
     } finally {
       setSaving(false);
     }
-  }, [saving, values, keys.join(','), json]);
+  }, [saving, values, keys, json]);
 
   const onCancel = useCallback(() => setValues(lastSaved), [lastSaved]);
 

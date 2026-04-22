@@ -244,7 +244,7 @@ function isLikelyJWT(str) {
   return (
     typeof str === 'string' &&
     str.split('.').length === 3 &&
-    /[A-Za-z0-9_\-]+=*/.test(str.split('.')[0]) &&
+    /[A-Za-z0-9_-]+=*/.test(str.split('.')[0]) &&
     str.length > 60
   );
 }
@@ -372,7 +372,7 @@ function sanitizeCacheEntry(entry) {
   const safe = { ...entry };
   safe.key = String(entry.key || '');
   const pathRoot = [safe.key];
-  if (entry.hasOwnProperty('value')) {
+  if ('value' in entry) {
     safe.value = sanitizeValue(entry.value, pathRoot.concat('value'));
   }
   return safe;
@@ -409,7 +409,7 @@ function parseBatchStatuses(obj) {
 const sanitizedERC = (str) =>
   str
     .replace(/&/g, 'AND')
-    .replace(/[^A-Za-z0-9\-]/g, '_')
+    .replace(/[^A-Za-z0-9-]/g, '_')
     .replace(/_+/g, '_')
     .replace(/^_|_$/g, '');
 

@@ -198,7 +198,10 @@ function createWebSocketService({
 
   heartbeatTimer = setInterval(_heartbeatTick, state.heartbeatIntervalMs);
 
-  function resolveTargets({ mode = 'auto', correlationId, batchId, sessionId }, payload) {
+  function resolveTargets(
+    { mode = 'auto', correlationId, batchId, sessionId },
+    payload
+  ) {
     const cid = correlationId ?? payload?.correlationId ?? null;
     const bid = normalizeBid(batchId ?? payload?.batchId);
     const sid = sessionId ?? payload?.sessionId ?? null;

@@ -99,7 +99,7 @@ module.exports = (app, { batchCallbackService, logger, ws }) => {
         req.query.batchExternalReferenceCode || req.query.batchERC;
       const correlationId = req.query.correlationId;
       const sessionId = req.query.sessionId;
-      
+
       // This now enqueues the job instead of processing immediately
       await batchCallbackService.processCallback(
         batchERC,
@@ -111,7 +111,7 @@ module.exports = (app, { batchCallbackService, logger, ws }) => {
       // Since we already sent 202, we just log errors here
       logger.error('Failed to enqueue batch callback', {
         batchERC: req.query.batchExternalReferenceCode || req.query.batchERC,
-        error: error.message
+        error: error.message,
       });
     }
   });

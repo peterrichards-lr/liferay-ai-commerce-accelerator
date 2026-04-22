@@ -1,65 +1,89 @@
-const low = require('lowdb');
-const FileSync = require('lowdb/adapters/FileSync');
+const Database = require('better-sqlite3');
 const { Cache } = require('memory-cache');
 const path = require('path');
-const _ = require('lodash');
+const fs = require('fs');
 
 const { ENV } = require('../utils/constants.cjs');
 
 class PersistenceService {
   constructor(dbPath) {
-    const defaultPath = path.resolve(__dirname, '..', ENV.PERSISTENCE_DB_PATH || './data/workflows.json');
+    const defaultPath = path.resolve(
+      __dirname,
+      '..',
+      ENV.PERSISTENCE_DB_PATH || './data/workflows.db'
+    );
     const finalPath = dbPath || defaultPath;
-    
-    const adapter = new FileSync(finalPath);
-    this.db = low(adapter);
-    this.cache = new Cache();
-    this._initSchema();
 
-    // We use console.log here because the internal logger might not be fully initialized yet
-    // and this is a critical startup diagnostic.
-    console.log(`[PersistenceService] Initialized with database at: ${finalPath}`);
-  }
+    // We can't use this.logger yet as ctx hasn't been passed to constructor in bootstrap.cjs
+    // Wait, let's check bootstrap.cjs again.
 
-  /**
-   * Robust write helper with synchronous retry for file contention.
-   */
-  _write() {
-    let attempts = 0;
-    const maxAttempts = 5;
-    const retryDelayMs = 100;
-
-    while (attempts < maxAttempts) {
-      try {
-        attempts++;
-        this.db.write();
-        return;
-      } catch (err) {
-        // Log the error to console as a last resort since logger might fail if this fails
-        console.error(`[PersistenceService] Write failure (attempt ${attempts}): ${err.message}`, {
-          code: err.code,
-          path: this.db?.adapter?.source
-        });
-
-        // Handle transient file-system errors (EBUSY is common on concurrent writes)
-        if (attempts < maxAttempts && ['EBUSY', 'EAGAIN', 'EPERM'].includes(err.code)) {
-          const start = Date.now();
-          while (Date.now() - start < retryDelayMs) { /* sleep */ }
-          continue;
-        }
-        throw err;
+    try {
+      const dbDir = path.dirname(finalPath);
+      if (!fs.existsSync(dbDir)) {
+        fs.mkdirSync(dbDir, { recursive: true });
       }
+
+      this.db = new Database(finalPath);
+      this.db.pragma('journal_mode = WAL');
+      this.db.pragma('synchronous = NORMAL');
+
+      this.cache = new Cache();
+      this._initSchema();
+
+      console.log(
+        `[PersistenceService] SUCCESS: Initialized SQLite database at: ${finalPath}`
+      );
+      console.log(`[PersistenceService] Working directory: ${process.cwd()}`);
+    } catch (err) {
+      console.error(
+        `[PersistenceService] FATAL ERROR during initialization: ${err.message}`
+      );
+      throw err;
     }
   }
 
   _initSchema() {
-    this.db
-      .defaults({
-        sessions: [],
-        batches: [],
-        events: [],
-      });
-    this._write();
+    this.db.exec(`
+      CREATE TABLE IF NOT EXISTS workflow_sessions (
+        session_id TEXT PRIMARY KEY,
+        flow_type TEXT NOT NULL,
+        status TEXT NOT NULL,
+        context_json TEXT NOT NULL,
+        current_steps_json TEXT NOT NULL,
+        correlation_id TEXT,
+        version INTEGER DEFAULT 1,
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL
+      );
+
+      CREATE TABLE IF NOT EXISTS workflow_batches (
+        erc TEXT PRIMARY KEY,
+        session_id TEXT NOT NULL,
+        step_key TEXT NOT NULL,
+        status TEXT NOT NULL,
+        downstream_batch_id TEXT,
+        processed_count INTEGER DEFAULT 0,
+        total_count INTEGER DEFAULT 0,
+        error_count INTEGER DEFAULT 0,
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL,
+        FOREIGN KEY (session_id) REFERENCES workflow_sessions(session_id) ON DELETE CASCADE
+      );
+
+      CREATE TABLE IF NOT EXISTS workflow_events (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        timestamp TEXT NOT NULL,
+        session_id TEXT NOT NULL,
+        batch_id TEXT,
+        status TEXT NOT NULL,
+        message TEXT,
+        details_json TEXT,
+        FOREIGN KEY (session_id) REFERENCES workflow_sessions(session_id) ON DELETE CASCADE
+      );
+
+      CREATE INDEX IF NOT EXISTS idx_batches_session ON workflow_batches(session_id);
+      CREATE INDEX IF NOT EXISTS idx_events_session ON workflow_events(session_id);
+    `);
   }
 
   createSession({
@@ -71,20 +95,22 @@ class PersistenceService {
     correlationId,
   }) {
     const now = new Date().toISOString();
-    const session = {
-      session_id: sessionId,
-      flow_type: flowType,
-      status,
-      context,
-      currentSteps: currentSteps || [],
-      correlationId,
-      version: 1,
-      created_at: now,
-      updated_at: now,
-    };
+    const stmt = this.db.prepare(`
+      INSERT INTO workflow_sessions (
+        session_id, flow_type, status, context_json, current_steps_json, correlation_id, created_at, updated_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    `);
 
-    this.db.get('sessions').push(session);
-    this._write();
+    stmt.run(
+      sessionId,
+      flowType,
+      status,
+      JSON.stringify(context || {}),
+      JSON.stringify(currentSteps || []),
+      correlationId || null,
+      now,
+      now
+    );
 
     this.cache.del(sessionId);
     return this.getSession(sessionId);
@@ -92,75 +118,109 @@ class PersistenceService {
 
   getSession(sessionId) {
     const cachedSession = this.cache.get(sessionId);
-    if (cachedSession) {
-      return cachedSession;
-    }
+    if (cachedSession) return cachedSession;
 
-    const session = this.db.get('sessions').find({ session_id: sessionId }).value();
+    const row = this.db
+      .prepare('SELECT * FROM workflow_sessions WHERE session_id = ?')
+      .get(sessionId);
 
-    if (session) {
-      const result = _.cloneDeep(session);
-      // Map properties to match expected output if necessary
-      // In this new implementation we store them more naturally
-      this.cache.put(sessionId, result);
-      return result;
+    if (row) {
+      const session = {
+        session_id: row.session_id,
+        flow_type: row.flow_type,
+        status: row.status,
+        context: JSON.parse(row.context_json),
+        currentSteps: JSON.parse(row.current_steps_json),
+        correlationId: row.correlation_id,
+        version: row.version,
+        created_at: row.created_at,
+        updated_at: row.updated_at,
+      };
+      this.cache.put(sessionId, session, 60000); // 1 minute cache
+      return session;
     }
 
     return null;
   }
 
   getAllSessions() {
-    return this.db
-      .get('sessions')
-      .orderBy(['created_at'], ['desc'])
-      .map((session) => _.cloneDeep(session))
-      .value();
+    const rows = this.db
+      .prepare('SELECT * FROM workflow_sessions ORDER BY created_at DESC')
+      .all();
+    return rows.map((row) => ({
+      session_id: row.session_id,
+      flow_type: row.flow_type,
+      status: row.status,
+      context: JSON.parse(row.context_json),
+      currentSteps: JSON.parse(row.current_steps_json),
+      correlationId: row.correlation_id,
+      version: row.version,
+      created_at: row.created_at,
+      updated_at: row.updated_at,
+    }));
   }
 
   updateSessionStatus(sessionId, status) {
+    const now = new Date().toISOString();
     this.db
-      .get('sessions')
-      .find({ session_id: sessionId })
-      .assign({ status, updated_at: new Date().toISOString() });
-    this._write();
-
+      .prepare(
+        'UPDATE workflow_sessions SET status = ?, updated_at = ? WHERE session_id = ?'
+      )
+      .run(status, now, sessionId);
     this.cache.del(sessionId);
     return this.getSession(sessionId);
   }
 
   updateSessionCurrentSteps(sessionId, currentSteps) {
+    const now = new Date().toISOString();
     this.db
-      .get('sessions')
-      .find({ session_id: sessionId })
-      .assign({ currentSteps, updated_at: new Date().toISOString() });
-    this._write();
-
+      .prepare(
+        'UPDATE workflow_sessions SET current_steps_json = ?, updated_at = ? WHERE session_id = ?'
+      )
+      .run(JSON.stringify(currentSteps), now, sessionId);
     this.cache.del(sessionId);
     return this.getSession(sessionId);
   }
 
   updateSessionContext(sessionId, context) {
+    const now = new Date().toISOString();
     this.db
-      .get('sessions')
-      .find({ session_id: sessionId })
-      .assign({ context, updated_at: new Date().toISOString() });
-    this._write();
-
+      .prepare(
+        'UPDATE workflow_sessions SET context_json = ?, updated_at = ? WHERE session_id = ?'
+      )
+      .run(JSON.stringify(context), now, sessionId);
     this.cache.del(sessionId);
     return this.getSession(sessionId);
   }
 
   updateSession(sessionId, { status, context, currentSteps, correlationId }) {
-    const updates = { updated_at: new Date().toISOString() };
+    const now = new Date().toISOString();
+    const sets = ['updated_at = ?'];
+    const params = [now];
 
-    if (status) updates.status = status;
-    if (context) updates.context = context;
-    if (currentSteps) updates.currentSteps = currentSteps;
-    if (correlationId) updates.correlationId = correlationId;
+    if (status) {
+      sets.push('status = ?');
+      params.push(status);
+    }
+    if (context) {
+      sets.push('context_json = ?');
+      params.push(JSON.stringify(context));
+    }
+    if (currentSteps) {
+      sets.push('current_steps_json = ?');
+      params.push(JSON.stringify(currentSteps));
+    }
+    if (correlationId) {
+      sets.push('correlation_id = ?');
+      params.push(correlationId);
+    }
 
-    this.db.get('sessions').find({ session_id: sessionId }).assign(updates);
-    this._write();
-
+    params.push(sessionId);
+    this.db
+      .prepare(
+        `UPDATE workflow_sessions SET ${sets.join(', ')} WHERE session_id = ?`
+      )
+      .run(...params);
     this.cache.del(sessionId);
     return this.getSession(sessionId);
   }
@@ -174,32 +234,24 @@ class PersistenceService {
     );
     if (dependencyBatches.length === 0) return false;
 
-    return dependencyBatches.every(
-      (b) =>
-        b.status === 'COMPLETED' ||
-        b.status === 'BYPASSED' ||
-        b.status === 'SYNCHRONOUS'
+    return dependencyBatches.every((b) =>
+      ['COMPLETED', 'BYPASSED', 'SYNCHRONOUS'].includes(b.status)
     );
   }
 
-  close() {
-    // lowdb FileSync doesn't need explicit close
-  }
-
   tryFinalizeSession(sessionId) {
-    const session = this.db.get('sessions').find({ session_id: sessionId }).value();
+    const now = new Date().toISOString();
+    const result = this.db
+      .prepare(
+        `
+      UPDATE workflow_sessions 
+      SET status = 'COMPLETED', current_steps_json = '[]', updated_at = ?
+      WHERE session_id = ? AND status NOT IN ('COMPLETED', 'FAILED')
+    `
+      )
+      .run(now, sessionId);
 
-    if (session && session.status !== 'COMPLETED' && session.status !== 'FAILED') {
-      this.db
-        .get('sessions')
-        .find({ session_id: sessionId })
-        .assign({
-          status: 'COMPLETED',
-          currentSteps: [],
-          updated_at: new Date().toISOString(),
-        });
-      this._write();
-
+    if (result.changes > 0) {
       this.cache.del(sessionId);
       return true;
     }
@@ -207,160 +259,165 @@ class PersistenceService {
   }
 
   tryFailSession(sessionId) {
-    const session = this.db.get('sessions').find({ session_id: sessionId }).value();
+    const now = new Date().toISOString();
+    const result = this.db
+      .prepare(
+        `
+      UPDATE workflow_sessions 
+      SET status = 'FAILED', current_steps_json = '[]', updated_at = ?
+      WHERE session_id = ? AND status NOT IN ('COMPLETED', 'FAILED')
+    `
+      )
+      .run(now, sessionId);
 
-    if (session && session.status !== 'COMPLETED' && session.status !== 'FAILED') {
-      this.db
-        .get('sessions')
-        .find({ session_id: sessionId })
-        .assign({
-          status: 'FAILED',
-          currentSteps: [],
-          updated_at: new Date().toISOString(),
-        });
-      this._write();
-
+    if (result.changes > 0) {
       this.cache.del(sessionId);
       return true;
     }
     return false;
   }
 
-  createBatch({ erc, sessionId, stepKey, step_key, status, totalCount }) {
-    const key = stepKey || step_key;
+  createBatch({ erc, sessionId, stepKey, status, totalCount }) {
     const now = new Date().toISOString();
-    const batch = {
-      erc,
-      session_id: sessionId,
-      step_key: key,
-      status,
-      downstream_batch_id: null,
-      processed_count: 0,
-      total_count: totalCount || 0,
-      error_count: 0,
-      created_at: now,
-      updated_at: now,
-    };
+    const stmt = this.db.prepare(`
+      INSERT INTO workflow_batches (
+        erc, session_id, step_key, status, processed_count, total_count, error_count, created_at, updated_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `);
 
-    this.db.get('batches').push(batch);
-    this._write();
+    stmt.run(erc, sessionId, stepKey, status, 0, totalCount || 0, 0, now, now);
 
     this.cache.del(`batches-${sessionId}`);
-    this.cache.put(`batch-${erc}`, _.cloneDeep(batch));
-
-    return batch;
+    return this.getBatch(erc);
   }
 
   getBatch(erc) {
     const cacheKey = `batch-${erc}`;
-    const cachedBatch = this.cache.get(cacheKey);
+    const cached = this.cache.get(cacheKey);
+    if (cached) return cached;
 
-    if (cachedBatch) {
-      return cachedBatch;
+    const row = this.db
+      .prepare('SELECT * FROM workflow_batches WHERE erc = ?')
+      .get(erc);
+    if (row) {
+      this.cache.put(cacheKey, row, 60000);
+      return row;
     }
-
-    const batch = this.db.get('batches').find({ erc }).value();
-
-    if (batch) {
-      const result = _.cloneDeep(batch);
-      this.cache.put(cacheKey, result);
-      return result;
-    }
-
     return null;
   }
 
   getBatchesForSession(sessionId) {
     const cacheKey = `batches-${sessionId}`;
     const cached = this.cache.get(cacheKey);
-    if (cached) {
-      return cached;
-    }
+    if (cached) return cached;
 
-    const batches = this.db.get('batches').filter({ session_id: sessionId }).value();
-
-    if (batches) {
-      const result = _.cloneDeep(batches);
-      this.cache.put(cacheKey, result);
-      return result;
-    }
-
-    return [];
-  }
-
-  getEventsForSession(sessionId) {
-    const events = this.db
-      .get('events')
-      .filter({ session_id: sessionId })
-      .orderBy(['timestamp'], ['asc'])
-      .value();
-
-    return _.cloneDeep(events);
+    const rows = this.db
+      .prepare('SELECT * FROM workflow_batches WHERE session_id = ?')
+      .all(sessionId);
+    this.cache.put(cacheKey, rows, 30000);
+    return rows;
   }
 
   updateBatch(
     erc,
     { status, downstreamBatchId, processedCount, totalCount, errorCount }
   ) {
-    const updates = { updated_at: new Date().toISOString() };
+    const now = new Date().toISOString();
+    const sets = ['updated_at = ?'];
+    const params = [now];
 
-    if (status) updates.status = status;
-    if (downstreamBatchId !== undefined) updates.downstream_batch_id = downstreamBatchId;
-    if (processedCount !== undefined) updates.processed_count = processedCount;
-    if (totalCount !== undefined) updates.total_count = totalCount;
-    if (errorCount !== undefined) updates.error_count = errorCount;
-
-    this.db.get('batches').find({ erc }).assign(updates);
-    this._write();
-
-    const batch = this.db.get('batches').find({ erc }).value();
-    if (batch) {
-      this.cache.del(`batches-${batch.session_id}`);
+    if (status) {
+      sets.push('status = ?');
+      params.push(status);
+    }
+    if (downstreamBatchId !== undefined) {
+      sets.push('downstream_batch_id = ?');
+      params.push(downstreamBatchId);
+    }
+    if (processedCount !== undefined) {
+      sets.push('processed_count = ?');
+      params.push(processedCount);
+    }
+    if (totalCount !== undefined) {
+      sets.push('total_count = ?');
+      params.push(totalCount);
+    }
+    if (errorCount !== undefined) {
+      sets.push('error_count = ?');
+      params.push(errorCount);
     }
 
-    this.cache.del(`batch-${erc}`);
+    params.push(erc);
+    this.db
+      .prepare(`UPDATE workflow_batches SET ${sets.join(', ')} WHERE erc = ?`)
+      .run(...params);
 
-    return batch ? _.cloneDeep(batch) : null;
+    const batch = this.getBatch(erc);
+    if (batch) {
+      this.cache.del(`batches-${batch.session_id}`);
+      this.cache.del(`batch-${erc}`);
+    }
+    return this.getBatch(erc);
   }
 
   getBatchByDownstreamId(downstreamBatchId) {
-    const batch = this.db
-      .get('batches')
-      .find({ downstream_batch_id: downstreamBatchId })
-      .value();
-    return batch ? _.cloneDeep(batch) : null;
+    return this.db
+      .prepare('SELECT * FROM workflow_batches WHERE downstream_batch_id = ?')
+      .get(downstreamBatchId);
+  }
+
+  getEventsForSession(sessionId) {
+    const rows = this.db
+      .prepare(
+        'SELECT * FROM workflow_events WHERE session_id = ? ORDER BY timestamp ASC'
+      )
+      .all(sessionId);
+    return rows.map((row) => ({
+      ...row,
+      details: row.details_json ? JSON.parse(row.details_json) : null,
+    }));
+  }
+
+  logWorkflowEvent({ sessionId, batchId, status, message, details }) {
+    const now = new Date().toISOString();
+    const stmt = this.db.prepare(`
+      INSERT INTO workflow_events (timestamp, session_id, batch_id, status, message, details_json)
+      VALUES (?, ?, ?, ?, ?, ?)
+    `);
+    stmt.run(
+      now,
+      sessionId,
+      batchId || null,
+      status,
+      message,
+      JSON.stringify(details || {})
+    );
   }
 
   clearAll() {
-    this.db.set('events', []).set('batches', []).set('sessions', []).write();
+    this.db.prepare('DELETE FROM workflow_events').run();
+    this.db.prepare('DELETE FROM workflow_batches').run();
+    this.db.prepare('DELETE FROM workflow_sessions').run();
     this.cache.clear();
   }
 
   cleanup(cutoffTimestamp) {
     this.db
-      .get('events')
-      .remove((e) => e.timestamp < cutoffTimestamp);
+      .prepare('DELETE FROM workflow_events WHERE timestamp < ?')
+      .run(cutoffTimestamp);
     this.db
-      .get('batches')
-      .remove((b) => b.created_at < cutoffTimestamp);
+      .prepare('DELETE FROM workflow_batches WHERE created_at < ?')
+      .run(cutoffTimestamp);
     this.db
-      .get('sessions')
-      .remove((s) => s.created_at < cutoffTimestamp);
-    this._write();
+      .prepare('DELETE FROM workflow_sessions WHERE created_at < ?')
+      .run(cutoffTimestamp);
     this.cache.clear();
   }
 
-  logWorkflowEvent({ sessionId, batchId, status, message, details }) {
-    const event = {
-      timestamp: new Date().toISOString(),
-      session_id: sessionId,
-      batch_id: batchId,
-      status,
-      message,
-      details,
-    };
-    this.db.get('events').push(event);
-    this._write();
+  close() {
+    if (this.db) {
+      this.db.close();
+    }
   }
 }
 

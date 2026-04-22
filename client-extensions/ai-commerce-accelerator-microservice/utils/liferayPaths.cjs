@@ -166,7 +166,7 @@ const PATH = {
   OPTION_VALUE_BY_ERC: (optionId, erc) =>
     byERC(`${BASE.OPTIONS}/${optionId}/optionValues`, erc, VARIANT.options),
 
-  OPTION_CATEGORIES: BASE.OPTIONS,
+  OPTION_CATEGORIES: BASE.OPTION_CATEGORIES,
   OPTION_CATEGORY: (optionCategoryId) =>
     `${BASE.OPTION_CATEGORIES}/${optionCategoryId}`,
   OPTION_CATEGORIES_BATCH: (callbackURL) =>
@@ -241,7 +241,7 @@ const PATH = {
   DOCUMENT_FOLDER: (folderId) =>
     `${BASE.DELIVERY}/document-folders/${folderId}`,
   DOCUMENT_FOLDER_PERMISSIONS: (folderId) =>
-    `${base.DELIVERY}/document-folders/${folderId}/permissions`,
+    `${BASE.DELIVERY}/document-folders/${folderId}/permissions`,
   DOCUMENT: (documentId) => `${BASE.DELIVERY}/documents/${documentId}`,
   DOCUMENT_PERMISSIONS: (documentId) =>
     `${BASE.DELIVERY}/documents/${documentId}/permissions`,

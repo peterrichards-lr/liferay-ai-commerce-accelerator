@@ -46,7 +46,8 @@ class OrderGenerator extends BaseGenerator {
 
       await this.completeSyncStep(sessionId, S.SUBFLOW_ORDERS, 'SYNCHRONOUS');
     } catch (error) {
-      const errorReferenceCode = resolveErrorReference(error) || createERC(ERC_PREFIX.ERROR);
+      const errorReferenceCode =
+        resolveErrorReference(error) || createERC(ERC_PREFIX.ERROR);
       this.logger.error(`Failed to enqueue orders subflow: ${error.message}`, {
         sessionId,
         errorReferenceCode,
@@ -65,10 +66,10 @@ class OrderGenerator extends BaseGenerator {
     const sessionId = createERC(ERC_PREFIX.BATCH_SESSION);
 
     const steps = [
-      { 
-        name: S.GENERATE_ORDER_DATA, 
+      {
+        name: S.GENERATE_ORDER_DATA,
         type: 'sync',
-        dependsOn: [S.CREATE_PRODUCTS, S.CREATE_ACCOUNTS]
+        dependsOn: [S.CREATE_PRODUCTS, S.CREATE_ACCOUNTS],
       },
       { name: S.CREATE_ORDERS, type: 'sync' },
     ];
@@ -86,7 +87,10 @@ class OrderGenerator extends BaseGenerator {
       },
     });
 
-    this.ctx.batchCallback._checkSessionCompletion(sessionId, config.correlationId);
+    this.ctx.batchCallback._checkSessionCompletion(
+      sessionId,
+      config.correlationId
+    );
 
     this.logger.info('Order generation workflow started', {
       sessionId,
@@ -126,7 +130,7 @@ class OrderGenerator extends BaseGenerator {
         {
           ...options,
           products,
-          accounts
+          accounts,
         }
       );
 
@@ -137,9 +141,16 @@ class OrderGenerator extends BaseGenerator {
         accounts,
       });
 
-      await this.completeSyncStep(sessionId, S.GENERATE_ORDER_DATA, 'SYNCHRONOUS', orderDataList.length, orderDataList.length);
+      await this.completeSyncStep(
+        sessionId,
+        S.GENERATE_ORDER_DATA,
+        'SYNCHRONOUS',
+        orderDataList.length,
+        orderDataList.length
+      );
     } catch (error) {
-      const errorReferenceCode = resolveErrorReference(error) || createERC(ERC_PREFIX.ERROR);
+      const errorReferenceCode =
+        resolveErrorReference(error) || createERC(ERC_PREFIX.ERROR);
       this.logger.error('Failed execution of generate-order-data step', {
         sessionId,
         correlationId: session.correlationId,
@@ -167,7 +178,11 @@ class OrderGenerator extends BaseGenerator {
 
     try {
       if (!orderDataList || orderDataList.length === 0) {
-        return await this.completeSyncStep(sessionId, S.CREATE_ORDERS, 'BYPASSED');
+        return await this.completeSyncStep(
+          sessionId,
+          S.CREATE_ORDERS,
+          'BYPASSED'
+        );
       }
 
       const batchSize = Math.max(1, parseInt(config.batchSize, 10) || 1);
@@ -180,7 +195,13 @@ class OrderGenerator extends BaseGenerator {
         }
 
         if (options.dryRun) {
-          return await this.completeSyncStep(sessionId, S.CREATE_ORDERS, 'SYNCHRONOUS', orderDataList.length, orderDataList.length);
+          return await this.completeSyncStep(
+            sessionId,
+            S.CREATE_ORDERS,
+            'SYNCHRONOUS',
+            orderDataList.length,
+            orderDataList.length
+          );
         }
 
         for (let batchIndex = 0; batchIndex < chunks.length; batchIndex++) {
@@ -194,15 +215,22 @@ class OrderGenerator extends BaseGenerator {
             S.CREATE_ORDERS,
             'orders',
             'generate',
-            (erc) => this.liferay.createOrdersBatch(config, batch, {
-              externalReferenceCode: erc,
-            }),
+            (erc) =>
+              this.liferay.createOrdersBatch(config, batch, {
+                externalReferenceCode: erc,
+              }),
             batch.length
           );
         }
       } else {
         if (options.dryRun) {
-          return await this.completeSyncStep(sessionId, S.CREATE_ORDERS, 'SYNCHRONOUS', orderDataList.length, orderDataList.length);
+          return await this.completeSyncStep(
+            sessionId,
+            S.CREATE_ORDERS,
+            'SYNCHRONOUS',
+            orderDataList.length,
+            orderDataList.length
+          );
         }
         await this.generateOrdersIndividually(
           sessionId,
@@ -214,7 +242,8 @@ class OrderGenerator extends BaseGenerator {
         );
       }
     } catch (error) {
-      const errorReferenceCode = resolveErrorReference(error) || createERC(ERC_PREFIX.ERROR);
+      const errorReferenceCode =
+        resolveErrorReference(error) || createERC(ERC_PREFIX.ERROR);
       this.logger.error('Failed execution of create-orders step', {
         sessionId,
         correlationId: session.correlationId,
@@ -247,10 +276,11 @@ class OrderGenerator extends BaseGenerator {
       const createdOrder = await this.liferay.createOrder(config, payload);
       return createdOrder;
     } catch (error) {
-      const errorReferenceCode = resolveErrorReference(error) || createERC(ERC_PREFIX.ERROR);
+      const errorReferenceCode =
+        resolveErrorReference(error) || createERC(ERC_PREFIX.ERROR);
       this.logger.error('Failed to create single order', {
         errorReferenceCode,
-        error: error.message
+        error: error.message,
       });
       throw error;
     }
@@ -264,7 +294,9 @@ class OrderGenerator extends BaseGenerator {
     const itemCount = Math.floor(Math.random() * 3) + 1;
 
     const allPurchasableSkus = products.flatMap((p) =>
-      (p.skus || []).filter((s) => s.purchasable && s.sku && p.productStatus === 0)
+      (p.skus || []).filter(
+        (s) => s.purchasable && s.sku && p.productStatus === 0
+      )
     );
 
     if (allPurchasableSkus.length === 0) {
@@ -273,7 +305,8 @@ class OrderGenerator extends BaseGenerator {
 
     for (let i = 0; i < itemCount; i++) {
       const sku = allPurchasableSkus[i % allPurchasableSkus.length];
-      const warehouse = warehouses && warehouses.length > 0
+      const warehouse =
+        warehouses && warehouses.length > 0
           ? warehouses[Math.floor(Math.random() * warehouses.length)]
           : null;
 
@@ -323,11 +356,18 @@ class OrderGenerator extends BaseGenerator {
 
     for (let i = 0; i < orderDataList.length; i++) {
       try {
-        const payload = this.buildOrderPayload(config, orderDataList[i], accounts, products, options.warehouses);
+        const payload = this.buildOrderPayload(
+          config,
+          orderDataList[i],
+          accounts,
+          products,
+          options.warehouses
+        );
         const createdOrder = await this.createSingleOrder(config, payload);
         created.push(createdOrder);
 
-        this.progress.batchProgress({
+        this.progress.batchProgress(
+          {
             batchId,
             batchERC,
             entityType: 'orders',
@@ -342,7 +382,8 @@ class OrderGenerator extends BaseGenerator {
       }
     }
 
-    this.progress.batchCompleted({
+    this.progress.batchCompleted(
+      {
         batchId,
         batchERC,
         entityType: 'orders',
@@ -354,30 +395,60 @@ class OrderGenerator extends BaseGenerator {
       { correlationId: config.correlationId }
     );
 
-    await this.completeSyncStep(sessionId, S.CREATE_ORDERS, 'SYNCHRONOUS', created.length, orderDataList.length);
+    await this.completeSyncStep(
+      sessionId,
+      S.CREATE_ORDERS,
+      'SYNCHRONOUS',
+      created.length,
+      orderDataList.length
+    );
 
-    return { orders: created, created: created.length, errors, success: errors.length === 0 };
+    return {
+      orders: created,
+      created: created.length,
+      errors,
+      success: errors.length === 0,
+    };
   }
 
   pickAccountId(requestedId, accounts) {
-    if (requestedId && accounts.find((a) => a.id === requestedId)) return requestedId;
-    if (accounts.length === 0) throw new Error('No accounts found to pick from.');
+    if (requestedId && accounts.find((a) => a.id === requestedId))
+      return requestedId;
+    if (accounts.length === 0)
+      throw new Error('No accounts found to pick from.');
     return accounts[Math.floor(Math.random() * accounts.length)].id;
   }
 
   normalizeOrderStatus(s) {
     if (typeof s === 'number') return s;
-    const m = { open: 0, pending: 0, 'in-progress': 1, processing: 1, shipped: 2, delivered: 10, completed: 10, cancelled: 15, canceled: 15 };
+    const m = {
+      open: 0,
+      pending: 0,
+      'in-progress': 1,
+      processing: 1,
+      shipped: 2,
+      delivered: 10,
+      completed: 10,
+      cancelled: 15,
+      canceled: 15,
+    };
     return m[(s || '').toLowerCase()] ?? 0;
   }
 
   async getProductsAndAccounts(config, context = {}) {
-    const productsRes = await this.liferay.getProducts(config, { catalogId: config.catalogId });
+    const productsRes = await this.liferay.getProducts(config, {
+      catalogId: config.catalogId,
+    });
     let accounts = [];
-    if (context.accountsToCreate && context.accountsToCreate.every((a) => a.id)) {
+    if (
+      context.accountsToCreate &&
+      context.accountsToCreate.every((a) => a.id)
+    ) {
       accounts = context.accountsToCreate;
     } else {
-      const accountsRes = await this.liferay.getAccounts(config, { channelId: config.channelId });
+      const accountsRes = await this.liferay.getAccounts(config, {
+        channelId: config.channelId,
+      });
       accounts = accountsRes.items || [];
     }
     const products = productsRes.items || [];
@@ -385,7 +456,10 @@ class OrderGenerator extends BaseGenerator {
   }
 
   async handleBatchCallback(sessionId, batchERC) {
-    this.logger.debug(`Batch callback received for order generation session ${sessionId}`, { batchERC });
+    this.logger.debug(
+      `Batch callback received for order generation session ${sessionId}`,
+      { batchERC }
+    );
     return true;
   }
 }

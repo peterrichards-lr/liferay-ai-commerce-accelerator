@@ -17,9 +17,7 @@
           "localeCode": "en-US",
           "pollingDelay": 5000,
           "pollingRetries": 12,
-          "selectedLanguages": [
-            "en-US"
-          ],
+          "selectedLanguages": ["en-US"],
           "siteGroupId": 20118,
           "microserviceUrl": "http://localhost:3001",
           "correlationId": "c97004c8-bc92-42f3-a7da-725a7075c4fc",
@@ -30,9 +28,7 @@
         "options": {
           "demoMode": true,
           "productCount": 10,
-          "categories": [
-            "Electronics"
-          ],
+          "categories": ["Electronics"],
           "generateBulkPricing": true,
           "generatePriceLists": true,
           "generateSkuVariants": true,
@@ -176,10 +172,7 @@
           }
         ]
       },
-      "currentSteps": [
-        "subflow-products",
-        "subflow-accounts"
-      ],
+      "currentSteps": ["subflow-products", "subflow-accounts"],
       "correlationId": "c97004c8-bc92-42f3-a7da-725a7075c4fc",
       "version": 1,
       "created_at": "2026-03-12T11:25:27.152Z",
@@ -202,9 +195,7 @@
           "localeCode": "en-US",
           "pollingDelay": 5000,
           "pollingRetries": 12,
-          "selectedLanguages": [
-            "en-US"
-          ],
+          "selectedLanguages": ["en-US"],
           "siteGroupId": 20118,
           "microserviceUrl": "http://localhost:3001",
           "correlationId": "c97004c8-bc92-42f3-a7da-725a7075c4fc",
@@ -299,9 +290,7 @@
           "localeCode": "en-US",
           "pollingDelay": 5000,
           "pollingRetries": 12,
-          "selectedLanguages": [
-            "en-US"
-          ],
+          "selectedLanguages": ["en-US"],
           "siteGroupId": 20118,
           "microserviceUrl": "http://localhost:3001",
           "correlationId": "c97004c8-bc92-42f3-a7da-725a7075c4fc",
@@ -396,9 +385,7 @@
           "localeCode": "en-US",
           "pollingDelay": 5000,
           "pollingRetries": 12,
-          "selectedLanguages": [
-            "en-US"
-          ],
+          "selectedLanguages": ["en-US"],
           "siteGroupId": 20118,
           "microserviceUrl": "http://localhost:3001",
           "correlationId": "c97004c8-bc92-42f3-a7da-725a7075c4fc",
@@ -409,9 +396,7 @@
         "options": {
           "demoMode": true,
           "productCount": 10,
-          "categories": [
-            "Electronics"
-          ],
+          "categories": ["Electronics"],
           "generateBulkPricing": true,
           "generatePriceLists": true,
           "generateSkuVariants": true,
@@ -555,10 +540,7 @@
           }
         ]
       },
-      "currentSteps": [
-        "subflow-products",
-        "subflow-accounts"
-      ],
+      "currentSteps": ["subflow-products", "subflow-accounts"],
       "correlationId": "c97004c8-bc92-42f3-a7da-725a7075c4fc",
       "version": 1,
       "created_at": "2026-03-12T12:36:37.047Z",
@@ -581,9 +563,7 @@
           "localeCode": "en-US",
           "pollingDelay": 5000,
           "pollingRetries": 12,
-          "selectedLanguages": [
-            "en-US"
-          ],
+          "selectedLanguages": ["en-US"],
           "siteGroupId": 20118,
           "microserviceUrl": "http://localhost:3001",
           "correlationId": "bf55fc14-3b0e-48dd-af0f-cf5af7751fba",
@@ -594,9 +574,7 @@
         "options": {
           "demoMode": true,
           "productCount": 10,
-          "categories": [
-            "Electronics"
-          ],
+          "categories": ["Electronics"],
           "generateBulkPricing": true,
           "generatePriceLists": true,
           "generateSkuVariants": true,
@@ -740,10 +718,7 @@
           }
         ]
       },
-      "currentSteps": [
-        "subflow-products",
-        "subflow-accounts"
-      ],
+      "currentSteps": ["subflow-products", "subflow-accounts"],
       "correlationId": "bf55fc14-3b0e-48dd-af0f-cf5af7751fba",
       "version": 1,
       "created_at": "2026-03-13T10:00:01.513Z",
@@ -766,9 +741,7 @@
           "localeCode": "en-US",
           "pollingDelay": 5000,
           "pollingRetries": 12,
-          "selectedLanguages": [
-            "en-US"
-          ],
+          "selectedLanguages": ["en-US"],
           "siteGroupId": 20118,
           "microserviceUrl": "http://localhost:3001",
           "correlationId": "bf55fc14-3b0e-48dd-af0f-cf5af7751fba",
@@ -779,9 +752,7 @@
         "options": {
           "demoMode": true,
           "productCount": 10,
-          "categories": [
-            "Electronics"
-          ],
+          "categories": ["Electronics"],
           "generateBulkPricing": true,
           "generatePriceLists": true,
           "generateSkuVariants": true,
@@ -807,9 +778,7 @@
           "backorderAssignmentRatio": 50,
           "count": 10,
           "sessionId": "AICA-SESSION-1773396002036-876495b8",
-          "selectedLanguages": [
-            "en-US"
-          ]
+          "selectedLanguages": ["en-US"]
         },
         "steps": [
           {
@@ -883,9 +852,7 @@
           }
         ]
       },
-      "currentSteps": [
-        "create-warehouses"
-      ],
+      "currentSteps": ["create-warehouses"],
       "correlationId": "bf55fc14-3b0e-48dd-af0f-cf5af7751fba",
       "version": 1,
       "created_at": "2026-03-13T10:00:02.041Z",
@@ -908,9 +875,7 @@
           "localeCode": "en-US",
           "pollingDelay": 5000,
           "pollingRetries": 12,
-          "selectedLanguages": [
-            "en-US"
-          ],
+          "selectedLanguages": ["en-US"],
           "siteGroupId": 20118,
           "microserviceUrl": "http://localhost:3001",
           "correlationId": "bf55fc14-3b0e-48dd-af0f-cf5af7751fba",
@@ -921,9 +886,7 @@
         "options": {
           "demoMode": true,
           "productCount": 10,
-          "categories": [
-            "Electronics"
-          ],
+          "categories": ["Electronics"],
           "generateBulkPricing": true,
           "generatePriceLists": true,
           "generateSkuVariants": true,
@@ -949,9 +912,7 @@
           "backorderAssignmentRatio": 50,
           "count": 2,
           "sessionId": "AICA-SESSION-1773396002060-35f8d0e6",
-          "selectedLanguages": [
-            "en-US"
-          ]
+          "selectedLanguages": ["en-US"]
         },
         "steps": [
           {
@@ -1982,9 +1943,7 @@
           }
         ]
       },
-      "currentSteps": [
-        "load-countries"
-      ],
+      "currentSteps": ["load-countries"],
       "correlationId": "bf55fc14-3b0e-48dd-af0f-cf5af7751fba",
       "version": 1,
       "created_at": "2026-03-13T10:00:02.061Z",
@@ -2007,9 +1966,7 @@
           "localeCode": "en-US",
           "pollingDelay": 5000,
           "pollingRetries": 12,
-          "selectedLanguages": [
-            "en-US"
-          ],
+          "selectedLanguages": ["en-US"],
           "siteGroupId": 20118,
           "microserviceUrl": "http://localhost:3001",
           "correlationId": "bf55fc14-3b0e-48dd-af0f-cf5af7751fba",
@@ -2020,9 +1977,7 @@
         "options": {
           "demoMode": true,
           "productCount": 10,
-          "categories": [
-            "Electronics"
-          ],
+          "categories": ["Electronics"],
           "generateBulkPricing": true,
           "generatePriceLists": true,
           "generateSkuVariants": true,
@@ -2048,9 +2003,7 @@
           "backorderAssignmentRatio": 50,
           "count": 10,
           "sessionId": "AICA-SESSION-1773396002036-876495b8",
-          "selectedLanguages": [
-            "en-US"
-          ],
+          "selectedLanguages": ["en-US"],
           "stepKey": "create-warehouses"
         },
         "steps": [
@@ -2087,9 +2040,7 @@
           "localeCode": "en-US",
           "pollingDelay": 5000,
           "pollingRetries": 12,
-          "selectedLanguages": [
-            "en-US"
-          ],
+          "selectedLanguages": ["en-US"],
           "siteGroupId": 20118,
           "microserviceUrl": "http://localhost:3001",
           "correlationId": "bf55fc14-3b0e-48dd-af0f-cf5af7751fba",
@@ -2100,9 +2051,7 @@
         "options": {
           "demoMode": true,
           "productCount": 10,
-          "categories": [
-            "Electronics"
-          ],
+          "categories": ["Electronics"],
           "generateBulkPricing": true,
           "generatePriceLists": true,
           "generateSkuVariants": true,
@@ -2246,10 +2195,7 @@
           }
         ]
       },
-      "currentSteps": [
-        "subflow-products",
-        "subflow-accounts"
-      ],
+      "currentSteps": ["subflow-products", "subflow-accounts"],
       "correlationId": "bf55fc14-3b0e-48dd-af0f-cf5af7751fba",
       "version": 1,
       "created_at": "2026-03-13T10:43:31.261Z",
@@ -2272,9 +2218,7 @@
           "localeCode": "en-US",
           "pollingDelay": 5000,
           "pollingRetries": 12,
-          "selectedLanguages": [
-            "en-US"
-          ],
+          "selectedLanguages": ["en-US"],
           "siteGroupId": 20118,
           "microserviceUrl": "http://localhost:3001",
           "correlationId": "bf55fc14-3b0e-48dd-af0f-cf5af7751fba",
@@ -2285,9 +2229,7 @@
         "options": {
           "demoMode": true,
           "productCount": 10,
-          "categories": [
-            "Electronics"
-          ],
+          "categories": ["Electronics"],
           "generateBulkPricing": true,
           "generatePriceLists": true,
           "generateSkuVariants": true,
@@ -2313,9 +2255,7 @@
           "backorderAssignmentRatio": 50,
           "count": 10,
           "sessionId": "AICA-SESSION-1773398613029-a9a48752",
-          "selectedLanguages": [
-            "en-US"
-          ],
+          "selectedLanguages": ["en-US"],
           "warehouses": [
             {
               "externalReferenceCode": "AICA-WH-1773398613090-04a5f22a",
@@ -2504,9 +2444,7 @@
           "localeCode": "en-US",
           "pollingDelay": 5000,
           "pollingRetries": 12,
-          "selectedLanguages": [
-            "en-US"
-          ],
+          "selectedLanguages": ["en-US"],
           "siteGroupId": 20118,
           "microserviceUrl": "http://localhost:3001",
           "correlationId": "bf55fc14-3b0e-48dd-af0f-cf5af7751fba",
@@ -2517,9 +2455,7 @@
         "options": {
           "demoMode": true,
           "productCount": 10,
-          "categories": [
-            "Electronics"
-          ],
+          "categories": ["Electronics"],
           "generateBulkPricing": true,
           "generatePriceLists": true,
           "generateSkuVariants": true,
@@ -2545,9 +2481,7 @@
           "backorderAssignmentRatio": 50,
           "count": 2,
           "sessionId": "AICA-SESSION-1773398613043-2fa769f4",
-          "selectedLanguages": [
-            "en-US"
-          ]
+          "selectedLanguages": ["en-US"]
         },
         "steps": [
           {
@@ -3638,9 +3572,7 @@
           "localeCode": "en-US",
           "pollingDelay": 5000,
           "pollingRetries": 12,
-          "selectedLanguages": [
-            "en-US"
-          ],
+          "selectedLanguages": ["en-US"],
           "siteGroupId": 20118,
           "microserviceUrl": "http://localhost:3001",
           "correlationId": "bf55fc14-3b0e-48dd-af0f-cf5af7751fba",
@@ -3651,9 +3583,7 @@
         "options": {
           "demoMode": true,
           "productCount": 10,
-          "categories": [
-            "Electronics"
-          ],
+          "categories": ["Electronics"],
           "generateBulkPricing": true,
           "generatePriceLists": true,
           "generateSkuVariants": true,
@@ -3679,9 +3609,7 @@
           "backorderAssignmentRatio": 50,
           "count": 10,
           "sessionId": "AICA-SESSION-1773398613029-a9a48752",
-          "selectedLanguages": [
-            "en-US"
-          ],
+          "selectedLanguages": ["en-US"],
           "stepKey": "create-warehouses"
         },
         "steps": [
@@ -3718,9 +3646,7 @@
           "localeCode": "en-US",
           "pollingDelay": 5000,
           "pollingRetries": 12,
-          "selectedLanguages": [
-            "en-US"
-          ],
+          "selectedLanguages": ["en-US"],
           "siteGroupId": 20118,
           "microserviceUrl": "http://localhost:3001",
           "correlationId": "bf55fc14-3b0e-48dd-af0f-cf5af7751fba",
@@ -3792,9 +3718,7 @@
           }
         ]
       },
-      "currentSteps": [
-        "reset-catalog-config"
-      ],
+      "currentSteps": ["reset-catalog-config"],
       "correlationId": "bf55fc14-3b0e-48dd-af0f-cf5af7751fba",
       "version": 1,
       "created_at": "2026-03-13T11:22:27.893Z",
@@ -3817,9 +3741,7 @@
           "localeCode": "en-US",
           "pollingDelay": 5000,
           "pollingRetries": 12,
-          "selectedLanguages": [
-            "en-US"
-          ],
+          "selectedLanguages": ["en-US"],
           "siteGroupId": 20118,
           "microserviceUrl": "http://localhost:3001",
           "correlationId": "bf55fc14-3b0e-48dd-af0f-cf5af7751fba",
@@ -3891,9 +3813,7 @@
           }
         ]
       },
-      "currentSteps": [
-        "reset-catalog-config"
-      ],
+      "currentSteps": ["reset-catalog-config"],
       "correlationId": "bf55fc14-3b0e-48dd-af0f-cf5af7751fba",
       "version": 1,
       "created_at": "2026-03-13T11:28:01.311Z",
@@ -3916,9 +3836,7 @@
           "localeCode": "en-US",
           "pollingDelay": 5000,
           "pollingRetries": 12,
-          "selectedLanguages": [
-            "en-US"
-          ],
+          "selectedLanguages": ["en-US"],
           "siteGroupId": 20118,
           "microserviceUrl": "http://localhost:3001",
           "correlationId": "bf55fc14-3b0e-48dd-af0f-cf5af7751fba",
@@ -3990,9 +3908,7 @@
           }
         ]
       },
-      "currentSteps": [
-        "reset-catalog-config"
-      ],
+      "currentSteps": ["reset-catalog-config"],
       "correlationId": "bf55fc14-3b0e-48dd-af0f-cf5af7751fba",
       "version": 1,
       "created_at": "2026-03-13T11:33:00.080Z",
@@ -4015,9 +3931,7 @@
           "localeCode": "en-US",
           "pollingDelay": 5000,
           "pollingRetries": 12,
-          "selectedLanguages": [
-            "en-US"
-          ],
+          "selectedLanguages": ["en-US"],
           "siteGroupId": 20118,
           "microserviceUrl": "http://localhost:3001",
           "correlationId": "bf55fc14-3b0e-48dd-af0f-cf5af7751fba",
@@ -4089,9 +4003,7 @@
           }
         ]
       },
-      "currentSteps": [
-        "reset-catalog-config"
-      ],
+      "currentSteps": ["reset-catalog-config"],
       "correlationId": "bf55fc14-3b0e-48dd-af0f-cf5af7751fba",
       "version": 1,
       "created_at": "2026-03-13T11:36:54.037Z",
@@ -4114,9 +4026,7 @@
           "localeCode": "en-US",
           "pollingDelay": 5000,
           "pollingRetries": 12,
-          "selectedLanguages": [
-            "en-US"
-          ],
+          "selectedLanguages": ["en-US"],
           "siteGroupId": 20118,
           "microserviceUrl": "http://localhost:3001",
           "correlationId": "bf55fc14-3b0e-48dd-af0f-cf5af7751fba",
@@ -4211,9 +4121,7 @@
           "localeCode": "en-US",
           "pollingDelay": 5000,
           "pollingRetries": 12,
-          "selectedLanguages": [
-            "en-US"
-          ],
+          "selectedLanguages": ["en-US"],
           "siteGroupId": 20118,
           "microserviceUrl": "http://localhost:3001",
           "correlationId": "bf55fc14-3b0e-48dd-af0f-cf5af7751fba",
@@ -4308,9 +4216,7 @@
           "localeCode": "en-US",
           "pollingDelay": 5000,
           "pollingRetries": 12,
-          "selectedLanguages": [
-            "en-US"
-          ],
+          "selectedLanguages": ["en-US"],
           "siteGroupId": 20118,
           "microserviceUrl": "http://localhost:3001",
           "correlationId": "bf55fc14-3b0e-48dd-af0f-cf5af7751fba",
@@ -4321,9 +4227,7 @@
         "options": {
           "demoMode": true,
           "productCount": 10,
-          "categories": [
-            "Electronics"
-          ],
+          "categories": ["Electronics"],
           "generateBulkPricing": true,
           "generatePriceLists": true,
           "generateSkuVariants": true,
@@ -4467,10 +4371,7 @@
           }
         ]
       },
-      "currentSteps": [
-        "subflow-products",
-        "subflow-accounts"
-      ],
+      "currentSteps": ["subflow-products", "subflow-accounts"],
       "correlationId": "bf55fc14-3b0e-48dd-af0f-cf5af7751fba",
       "version": 1,
       "created_at": "2026-03-13T11:49:35.462Z",
@@ -4493,9 +4394,7 @@
           "localeCode": "en-US",
           "pollingDelay": 5000,
           "pollingRetries": 12,
-          "selectedLanguages": [
-            "en-US"
-          ],
+          "selectedLanguages": ["en-US"],
           "siteGroupId": 20118,
           "microserviceUrl": "http://localhost:3001",
           "correlationId": "bf55fc14-3b0e-48dd-af0f-cf5af7751fba",
@@ -4506,9 +4405,7 @@
         "options": {
           "demoMode": true,
           "productCount": 10,
-          "categories": [
-            "Electronics"
-          ],
+          "categories": ["Electronics"],
           "generateBulkPricing": true,
           "generatePriceLists": true,
           "generateSkuVariants": true,
@@ -4534,9 +4431,7 @@
           "backorderAssignmentRatio": 50,
           "count": 10,
           "sessionId": "AICA-SESSION-1773402577060-9e5d6bbc",
-          "selectedLanguages": [
-            "en-US"
-          ],
+          "selectedLanguages": ["en-US"],
           "warehouses": [
             {
               "externalReferenceCode": "AICA-WH-1773402577150-001e392c",
@@ -4739,29 +4634,19 @@
                 "type": "main"
               }
             ],
-            "attachments": [
-              "manual-sku-ele-001.pdf"
-            ],
+            "attachments": ["manual-sku-ele-001.pdf"],
             "options": [
               {
                 "name": "Color",
                 "fieldType": "select",
                 "skuContributor": true,
-                "values": [
-                  "Red",
-                  "Blue",
-                  "Green"
-                ]
+                "values": ["Red", "Blue", "Green"]
               },
               {
                 "name": "Size",
                 "fieldType": "select",
                 "skuContributor": true,
-                "values": [
-                  "Small",
-                  "Medium",
-                  "Large"
-                ]
+                "values": ["Small", "Medium", "Large"]
               }
             ],
             "skuVariants": [
@@ -4923,29 +4808,19 @@
                 "type": "main"
               }
             ],
-            "attachments": [
-              "manual-sku-ele-002.pdf"
-            ],
+            "attachments": ["manual-sku-ele-002.pdf"],
             "options": [
               {
                 "name": "Color",
                 "fieldType": "select",
                 "skuContributor": true,
-                "values": [
-                  "Red",
-                  "Blue",
-                  "Green"
-                ]
+                "values": ["Red", "Blue", "Green"]
               },
               {
                 "name": "Size",
                 "fieldType": "select",
                 "skuContributor": true,
-                "values": [
-                  "Small",
-                  "Medium",
-                  "Large"
-                ]
+                "values": ["Small", "Medium", "Large"]
               }
             ],
             "skuVariants": [
@@ -5107,29 +4982,19 @@
                 "type": "main"
               }
             ],
-            "attachments": [
-              "manual-sku-ele-003.pdf"
-            ],
+            "attachments": ["manual-sku-ele-003.pdf"],
             "options": [
               {
                 "name": "Color",
                 "fieldType": "select",
                 "skuContributor": true,
-                "values": [
-                  "Red",
-                  "Blue",
-                  "Green"
-                ]
+                "values": ["Red", "Blue", "Green"]
               },
               {
                 "name": "Size",
                 "fieldType": "select",
                 "skuContributor": true,
-                "values": [
-                  "Small",
-                  "Medium",
-                  "Large"
-                ]
+                "values": ["Small", "Medium", "Large"]
               }
             ],
             "skuVariants": [
@@ -5291,29 +5156,19 @@
                 "type": "main"
               }
             ],
-            "attachments": [
-              "manual-sku-ele-004.pdf"
-            ],
+            "attachments": ["manual-sku-ele-004.pdf"],
             "options": [
               {
                 "name": "Color",
                 "fieldType": "select",
                 "skuContributor": true,
-                "values": [
-                  "Red",
-                  "Blue",
-                  "Green"
-                ]
+                "values": ["Red", "Blue", "Green"]
               },
               {
                 "name": "Size",
                 "fieldType": "select",
                 "skuContributor": true,
-                "values": [
-                  "Small",
-                  "Medium",
-                  "Large"
-                ]
+                "values": ["Small", "Medium", "Large"]
               }
             ],
             "skuVariants": [
@@ -5475,29 +5330,19 @@
                 "type": "main"
               }
             ],
-            "attachments": [
-              "manual-sku-ele-005.pdf"
-            ],
+            "attachments": ["manual-sku-ele-005.pdf"],
             "options": [
               {
                 "name": "Color",
                 "fieldType": "select",
                 "skuContributor": true,
-                "values": [
-                  "Red",
-                  "Blue",
-                  "Green"
-                ]
+                "values": ["Red", "Blue", "Green"]
               },
               {
                 "name": "Size",
                 "fieldType": "select",
                 "skuContributor": true,
-                "values": [
-                  "Small",
-                  "Medium",
-                  "Large"
-                ]
+                "values": ["Small", "Medium", "Large"]
               }
             ],
             "skuVariants": [
@@ -5659,29 +5504,19 @@
                 "type": "main"
               }
             ],
-            "attachments": [
-              "manual-sku-ele-006.pdf"
-            ],
+            "attachments": ["manual-sku-ele-006.pdf"],
             "options": [
               {
                 "name": "Color",
                 "fieldType": "select",
                 "skuContributor": true,
-                "values": [
-                  "Red",
-                  "Blue",
-                  "Green"
-                ]
+                "values": ["Red", "Blue", "Green"]
               },
               {
                 "name": "Size",
                 "fieldType": "select",
                 "skuContributor": true,
-                "values": [
-                  "Small",
-                  "Medium",
-                  "Large"
-                ]
+                "values": ["Small", "Medium", "Large"]
               }
             ],
             "skuVariants": [
@@ -5843,29 +5678,19 @@
                 "type": "main"
               }
             ],
-            "attachments": [
-              "manual-sku-ele-007.pdf"
-            ],
+            "attachments": ["manual-sku-ele-007.pdf"],
             "options": [
               {
                 "name": "Color",
                 "fieldType": "select",
                 "skuContributor": true,
-                "values": [
-                  "Red",
-                  "Blue",
-                  "Green"
-                ]
+                "values": ["Red", "Blue", "Green"]
               },
               {
                 "name": "Size",
                 "fieldType": "select",
                 "skuContributor": true,
-                "values": [
-                  "Small",
-                  "Medium",
-                  "Large"
-                ]
+                "values": ["Small", "Medium", "Large"]
               }
             ],
             "skuVariants": [
@@ -6027,29 +5852,19 @@
                 "type": "main"
               }
             ],
-            "attachments": [
-              "manual-sku-ele-008.pdf"
-            ],
+            "attachments": ["manual-sku-ele-008.pdf"],
             "options": [
               {
                 "name": "Color",
                 "fieldType": "select",
                 "skuContributor": true,
-                "values": [
-                  "Red",
-                  "Blue",
-                  "Green"
-                ]
+                "values": ["Red", "Blue", "Green"]
               },
               {
                 "name": "Size",
                 "fieldType": "select",
                 "skuContributor": true,
-                "values": [
-                  "Small",
-                  "Medium",
-                  "Large"
-                ]
+                "values": ["Small", "Medium", "Large"]
               }
             ],
             "skuVariants": [
@@ -6211,29 +6026,19 @@
                 "type": "main"
               }
             ],
-            "attachments": [
-              "manual-sku-ele-009.pdf"
-            ],
+            "attachments": ["manual-sku-ele-009.pdf"],
             "options": [
               {
                 "name": "Color",
                 "fieldType": "select",
                 "skuContributor": true,
-                "values": [
-                  "Red",
-                  "Blue",
-                  "Green"
-                ]
+                "values": ["Red", "Blue", "Green"]
               },
               {
                 "name": "Size",
                 "fieldType": "select",
                 "skuContributor": true,
-                "values": [
-                  "Small",
-                  "Medium",
-                  "Large"
-                ]
+                "values": ["Small", "Medium", "Large"]
               }
             ],
             "skuVariants": [
@@ -6395,29 +6200,19 @@
                 "type": "main"
               }
             ],
-            "attachments": [
-              "manual-sku-ele-010.pdf"
-            ],
+            "attachments": ["manual-sku-ele-010.pdf"],
             "options": [
               {
                 "name": "Color",
                 "fieldType": "select",
                 "skuContributor": true,
-                "values": [
-                  "Red",
-                  "Blue",
-                  "Green"
-                ]
+                "values": ["Red", "Blue", "Green"]
               },
               {
                 "name": "Size",
                 "fieldType": "select",
                 "skuContributor": true,
-                "values": [
-                  "Small",
-                  "Medium",
-                  "Large"
-                ]
+                "values": ["Small", "Medium", "Large"]
               }
             ],
             "skuVariants": [
@@ -6567,9 +6362,7 @@
           "localeCode": "en-US",
           "pollingDelay": 5000,
           "pollingRetries": 12,
-          "selectedLanguages": [
-            "en-US"
-          ],
+          "selectedLanguages": ["en-US"],
           "siteGroupId": 20118,
           "microserviceUrl": "http://localhost:3001",
           "correlationId": "bf55fc14-3b0e-48dd-af0f-cf5af7751fba",
@@ -6580,9 +6373,7 @@
         "options": {
           "demoMode": true,
           "productCount": 10,
-          "categories": [
-            "Electronics"
-          ],
+          "categories": ["Electronics"],
           "generateBulkPricing": true,
           "generatePriceLists": true,
           "generateSkuVariants": true,
@@ -6608,9 +6399,7 @@
           "backorderAssignmentRatio": 50,
           "count": 2,
           "sessionId": "AICA-SESSION-1773402577080-a95405a9",
-          "selectedLanguages": [
-            "en-US"
-          ]
+          "selectedLanguages": ["en-US"]
         },
         "steps": [
           {
@@ -7701,9 +7490,7 @@
           "localeCode": "en-US",
           "pollingDelay": 5000,
           "pollingRetries": 12,
-          "selectedLanguages": [
-            "en-US"
-          ],
+          "selectedLanguages": ["en-US"],
           "siteGroupId": 20118,
           "microserviceUrl": "http://localhost:3001",
           "correlationId": "bf55fc14-3b0e-48dd-af0f-cf5af7751fba",
@@ -7714,9 +7501,7 @@
         "options": {
           "demoMode": true,
           "productCount": 10,
-          "categories": [
-            "Electronics"
-          ],
+          "categories": ["Electronics"],
           "generateBulkPricing": true,
           "generatePriceLists": true,
           "generateSkuVariants": true,
@@ -7742,9 +7527,7 @@
           "backorderAssignmentRatio": 50,
           "count": 10,
           "sessionId": "AICA-SESSION-1773402577060-9e5d6bbc",
-          "selectedLanguages": [
-            "en-US"
-          ],
+          "selectedLanguages": ["en-US"],
           "stepKey": "create-warehouses"
         },
         "steps": [
@@ -7781,9 +7564,7 @@
           "localeCode": "en-US",
           "pollingDelay": 5000,
           "pollingRetries": 12,
-          "selectedLanguages": [
-            "en-US"
-          ],
+          "selectedLanguages": ["en-US"],
           "siteGroupId": 20118,
           "microserviceUrl": "http://localhost:3001",
           "correlationId": "bf55fc14-3b0e-48dd-af0f-cf5af7751fba",
@@ -7878,9 +7659,7 @@
           "localeCode": "en-US",
           "pollingDelay": 5000,
           "pollingRetries": 12,
-          "selectedLanguages": [
-            "en-US"
-          ],
+          "selectedLanguages": ["en-US"],
           "siteGroupId": 20118,
           "microserviceUrl": "http://localhost:3001",
           "correlationId": "bf55fc14-3b0e-48dd-af0f-cf5af7751fba",
@@ -7891,9 +7670,7 @@
         "options": {
           "demoMode": true,
           "productCount": 10,
-          "categories": [
-            "Electronics"
-          ],
+          "categories": ["Electronics"],
           "generateBulkPricing": true,
           "generatePriceLists": true,
           "generateSkuVariants": true,
@@ -8037,10 +7814,7 @@
           }
         ]
       },
-      "currentSteps": [
-        "subflow-products",
-        "subflow-accounts"
-      ],
+      "currentSteps": ["subflow-products", "subflow-accounts"],
       "correlationId": "bf55fc14-3b0e-48dd-af0f-cf5af7751fba",
       "version": 1,
       "created_at": "2026-03-13T12:47:47.978Z",
@@ -8063,9 +7837,7 @@
           "localeCode": "en-US",
           "pollingDelay": 5000,
           "pollingRetries": 12,
-          "selectedLanguages": [
-            "en-US"
-          ],
+          "selectedLanguages": ["en-US"],
           "siteGroupId": 20118,
           "microserviceUrl": "http://localhost:3001",
           "correlationId": "bf55fc14-3b0e-48dd-af0f-cf5af7751fba",
@@ -8076,9 +7848,7 @@
         "options": {
           "demoMode": true,
           "productCount": 10,
-          "categories": [
-            "Electronics"
-          ],
+          "categories": ["Electronics"],
           "generateBulkPricing": true,
           "generatePriceLists": true,
           "generateSkuVariants": true,
@@ -8104,9 +7874,7 @@
           "backorderAssignmentRatio": 50,
           "count": 10,
           "sessionId": "AICA-SESSION-1773406069649-6884ae67",
-          "selectedLanguages": [
-            "en-US"
-          ],
+          "selectedLanguages": ["en-US"],
           "warehouses": [
             {
               "externalReferenceCode": "AICA-WH-1773406069777-f8e5e1c0",
@@ -8309,29 +8077,19 @@
                 "type": "main"
               }
             ],
-            "attachments": [
-              "manual-sku-ele-001.pdf"
-            ],
+            "attachments": ["manual-sku-ele-001.pdf"],
             "options": [
               {
                 "name": "Color",
                 "fieldType": "select",
                 "skuContributor": true,
-                "values": [
-                  "Red",
-                  "Blue",
-                  "Green"
-                ]
+                "values": ["Red", "Blue", "Green"]
               },
               {
                 "name": "Size",
                 "fieldType": "select",
                 "skuContributor": true,
-                "values": [
-                  "Small",
-                  "Medium",
-                  "Large"
-                ]
+                "values": ["Small", "Medium", "Large"]
               }
             ],
             "skuVariants": [
@@ -8493,29 +8251,19 @@
                 "type": "main"
               }
             ],
-            "attachments": [
-              "manual-sku-ele-002.pdf"
-            ],
+            "attachments": ["manual-sku-ele-002.pdf"],
             "options": [
               {
                 "name": "Color",
                 "fieldType": "select",
                 "skuContributor": true,
-                "values": [
-                  "Red",
-                  "Blue",
-                  "Green"
-                ]
+                "values": ["Red", "Blue", "Green"]
               },
               {
                 "name": "Size",
                 "fieldType": "select",
                 "skuContributor": true,
-                "values": [
-                  "Small",
-                  "Medium",
-                  "Large"
-                ]
+                "values": ["Small", "Medium", "Large"]
               }
             ],
             "skuVariants": [
@@ -8677,29 +8425,19 @@
                 "type": "main"
               }
             ],
-            "attachments": [
-              "manual-sku-ele-003.pdf"
-            ],
+            "attachments": ["manual-sku-ele-003.pdf"],
             "options": [
               {
                 "name": "Color",
                 "fieldType": "select",
                 "skuContributor": true,
-                "values": [
-                  "Red",
-                  "Blue",
-                  "Green"
-                ]
+                "values": ["Red", "Blue", "Green"]
               },
               {
                 "name": "Size",
                 "fieldType": "select",
                 "skuContributor": true,
-                "values": [
-                  "Small",
-                  "Medium",
-                  "Large"
-                ]
+                "values": ["Small", "Medium", "Large"]
               }
             ],
             "skuVariants": [
@@ -8861,29 +8599,19 @@
                 "type": "main"
               }
             ],
-            "attachments": [
-              "manual-sku-ele-004.pdf"
-            ],
+            "attachments": ["manual-sku-ele-004.pdf"],
             "options": [
               {
                 "name": "Color",
                 "fieldType": "select",
                 "skuContributor": true,
-                "values": [
-                  "Red",
-                  "Blue",
-                  "Green"
-                ]
+                "values": ["Red", "Blue", "Green"]
               },
               {
                 "name": "Size",
                 "fieldType": "select",
                 "skuContributor": true,
-                "values": [
-                  "Small",
-                  "Medium",
-                  "Large"
-                ]
+                "values": ["Small", "Medium", "Large"]
               }
             ],
             "skuVariants": [
@@ -9045,29 +8773,19 @@
                 "type": "main"
               }
             ],
-            "attachments": [
-              "manual-sku-ele-005.pdf"
-            ],
+            "attachments": ["manual-sku-ele-005.pdf"],
             "options": [
               {
                 "name": "Color",
                 "fieldType": "select",
                 "skuContributor": true,
-                "values": [
-                  "Red",
-                  "Blue",
-                  "Green"
-                ]
+                "values": ["Red", "Blue", "Green"]
               },
               {
                 "name": "Size",
                 "fieldType": "select",
                 "skuContributor": true,
-                "values": [
-                  "Small",
-                  "Medium",
-                  "Large"
-                ]
+                "values": ["Small", "Medium", "Large"]
               }
             ],
             "skuVariants": [
@@ -9229,29 +8947,19 @@
                 "type": "main"
               }
             ],
-            "attachments": [
-              "manual-sku-ele-006.pdf"
-            ],
+            "attachments": ["manual-sku-ele-006.pdf"],
             "options": [
               {
                 "name": "Color",
                 "fieldType": "select",
                 "skuContributor": true,
-                "values": [
-                  "Red",
-                  "Blue",
-                  "Green"
-                ]
+                "values": ["Red", "Blue", "Green"]
               },
               {
                 "name": "Size",
                 "fieldType": "select",
                 "skuContributor": true,
-                "values": [
-                  "Small",
-                  "Medium",
-                  "Large"
-                ]
+                "values": ["Small", "Medium", "Large"]
               }
             ],
             "skuVariants": [
@@ -9413,29 +9121,19 @@
                 "type": "main"
               }
             ],
-            "attachments": [
-              "manual-sku-ele-007.pdf"
-            ],
+            "attachments": ["manual-sku-ele-007.pdf"],
             "options": [
               {
                 "name": "Color",
                 "fieldType": "select",
                 "skuContributor": true,
-                "values": [
-                  "Red",
-                  "Blue",
-                  "Green"
-                ]
+                "values": ["Red", "Blue", "Green"]
               },
               {
                 "name": "Size",
                 "fieldType": "select",
                 "skuContributor": true,
-                "values": [
-                  "Small",
-                  "Medium",
-                  "Large"
-                ]
+                "values": ["Small", "Medium", "Large"]
               }
             ],
             "skuVariants": [
@@ -9597,29 +9295,19 @@
                 "type": "main"
               }
             ],
-            "attachments": [
-              "manual-sku-ele-008.pdf"
-            ],
+            "attachments": ["manual-sku-ele-008.pdf"],
             "options": [
               {
                 "name": "Color",
                 "fieldType": "select",
                 "skuContributor": true,
-                "values": [
-                  "Red",
-                  "Blue",
-                  "Green"
-                ]
+                "values": ["Red", "Blue", "Green"]
               },
               {
                 "name": "Size",
                 "fieldType": "select",
                 "skuContributor": true,
-                "values": [
-                  "Small",
-                  "Medium",
-                  "Large"
-                ]
+                "values": ["Small", "Medium", "Large"]
               }
             ],
             "skuVariants": [
@@ -9781,29 +9469,19 @@
                 "type": "main"
               }
             ],
-            "attachments": [
-              "manual-sku-ele-009.pdf"
-            ],
+            "attachments": ["manual-sku-ele-009.pdf"],
             "options": [
               {
                 "name": "Color",
                 "fieldType": "select",
                 "skuContributor": true,
-                "values": [
-                  "Red",
-                  "Blue",
-                  "Green"
-                ]
+                "values": ["Red", "Blue", "Green"]
               },
               {
                 "name": "Size",
                 "fieldType": "select",
                 "skuContributor": true,
-                "values": [
-                  "Small",
-                  "Medium",
-                  "Large"
-                ]
+                "values": ["Small", "Medium", "Large"]
               }
             ],
             "skuVariants": [
@@ -9965,29 +9643,19 @@
                 "type": "main"
               }
             ],
-            "attachments": [
-              "manual-sku-ele-010.pdf"
-            ],
+            "attachments": ["manual-sku-ele-010.pdf"],
             "options": [
               {
                 "name": "Color",
                 "fieldType": "select",
                 "skuContributor": true,
-                "values": [
-                  "Red",
-                  "Blue",
-                  "Green"
-                ]
+                "values": ["Red", "Blue", "Green"]
               },
               {
                 "name": "Size",
                 "fieldType": "select",
                 "skuContributor": true,
-                "values": [
-                  "Small",
-                  "Medium",
-                  "Large"
-                ]
+                "values": ["Small", "Medium", "Large"]
               }
             ],
             "skuVariants": [
@@ -10137,9 +9805,7 @@
           "localeCode": "en-US",
           "pollingDelay": 5000,
           "pollingRetries": 12,
-          "selectedLanguages": [
-            "en-US"
-          ],
+          "selectedLanguages": ["en-US"],
           "siteGroupId": 20118,
           "microserviceUrl": "http://localhost:3001",
           "correlationId": "bf55fc14-3b0e-48dd-af0f-cf5af7751fba",
@@ -10150,9 +9816,7 @@
         "options": {
           "demoMode": true,
           "productCount": 10,
-          "categories": [
-            "Electronics"
-          ],
+          "categories": ["Electronics"],
           "generateBulkPricing": true,
           "generatePriceLists": true,
           "generateSkuVariants": true,
@@ -10178,9 +9842,7 @@
           "backorderAssignmentRatio": 50,
           "count": 2,
           "sessionId": "AICA-SESSION-1773406069677-17cb312a",
-          "selectedLanguages": [
-            "en-US"
-          ]
+          "selectedLanguages": ["en-US"]
         },
         "steps": [
           {
@@ -11271,9 +10933,7 @@
           "localeCode": "en-US",
           "pollingDelay": 5000,
           "pollingRetries": 12,
-          "selectedLanguages": [
-            "en-US"
-          ],
+          "selectedLanguages": ["en-US"],
           "siteGroupId": 20118,
           "microserviceUrl": "http://localhost:3001",
           "correlationId": "bf55fc14-3b0e-48dd-af0f-cf5af7751fba",
@@ -11284,9 +10944,7 @@
         "options": {
           "demoMode": true,
           "productCount": 10,
-          "categories": [
-            "Electronics"
-          ],
+          "categories": ["Electronics"],
           "generateBulkPricing": true,
           "generatePriceLists": true,
           "generateSkuVariants": true,
@@ -11312,9 +10970,7 @@
           "backorderAssignmentRatio": 50,
           "count": 10,
           "sessionId": "AICA-SESSION-1773406069649-6884ae67",
-          "selectedLanguages": [
-            "en-US"
-          ],
+          "selectedLanguages": ["en-US"],
           "stepKey": "create-warehouses"
         },
         "steps": [
@@ -11351,9 +11007,7 @@
           "localeCode": "en-US",
           "pollingDelay": 5000,
           "pollingRetries": 12,
-          "selectedLanguages": [
-            "en-US"
-          ],
+          "selectedLanguages": ["en-US"],
           "siteGroupId": 20118,
           "microserviceUrl": "http://localhost:3001",
           "correlationId": "bf55fc14-3b0e-48dd-af0f-cf5af7751fba",
@@ -11448,9 +11102,7 @@
           "localeCode": "en-US",
           "pollingDelay": 5000,
           "pollingRetries": 12,
-          "selectedLanguages": [
-            "en-US"
-          ],
+          "selectedLanguages": ["en-US"],
           "siteGroupId": 20118,
           "microserviceUrl": "http://localhost:3001",
           "correlationId": "bf55fc14-3b0e-48dd-af0f-cf5af7751fba",
@@ -11461,9 +11113,7 @@
         "options": {
           "demoMode": true,
           "productCount": 10,
-          "categories": [
-            "Electronics"
-          ],
+          "categories": ["Electronics"],
           "generateBulkPricing": true,
           "generatePriceLists": true,
           "generateSkuVariants": true,
@@ -11607,10 +11257,7 @@
           }
         ]
       },
-      "currentSteps": [
-        "subflow-products",
-        "subflow-accounts"
-      ],
+      "currentSteps": ["subflow-products", "subflow-accounts"],
       "correlationId": "bf55fc14-3b0e-48dd-af0f-cf5af7751fba",
       "version": 1,
       "created_at": "2026-03-13T13:00:07.075Z",
@@ -11633,9 +11280,7 @@
           "localeCode": "en-US",
           "pollingDelay": 5000,
           "pollingRetries": 12,
-          "selectedLanguages": [
-            "en-US"
-          ],
+          "selectedLanguages": ["en-US"],
           "siteGroupId": 20118,
           "microserviceUrl": "http://localhost:3001",
           "correlationId": "bf55fc14-3b0e-48dd-af0f-cf5af7751fba",
@@ -11646,9 +11291,7 @@
         "options": {
           "demoMode": true,
           "productCount": 10,
-          "categories": [
-            "Electronics"
-          ],
+          "categories": ["Electronics"],
           "generateBulkPricing": true,
           "generatePriceLists": true,
           "generateSkuVariants": true,
@@ -11674,9 +11317,7 @@
           "backorderAssignmentRatio": 50,
           "count": 10,
           "sessionId": "AICA-SESSION-1773406808319-559f8b1a",
-          "selectedLanguages": [
-            "en-US"
-          ],
+          "selectedLanguages": ["en-US"],
           "warehouses": [
             {
               "externalReferenceCode": "AICA-WH-1773406808483-49aad4a7",
@@ -11879,29 +11520,19 @@
                 "type": "main"
               }
             ],
-            "attachments": [
-              "manual-sku-ele-001.pdf"
-            ],
+            "attachments": ["manual-sku-ele-001.pdf"],
             "options": [
               {
                 "name": "Color",
                 "fieldType": "select",
                 "skuContributor": true,
-                "values": [
-                  "Red",
-                  "Blue",
-                  "Green"
-                ]
+                "values": ["Red", "Blue", "Green"]
               },
               {
                 "name": "Size",
                 "fieldType": "select",
                 "skuContributor": true,
-                "values": [
-                  "Small",
-                  "Medium",
-                  "Large"
-                ]
+                "values": ["Small", "Medium", "Large"]
               }
             ],
             "skuVariants": [
@@ -12063,29 +11694,19 @@
                 "type": "main"
               }
             ],
-            "attachments": [
-              "manual-sku-ele-002.pdf"
-            ],
+            "attachments": ["manual-sku-ele-002.pdf"],
             "options": [
               {
                 "name": "Color",
                 "fieldType": "select",
                 "skuContributor": true,
-                "values": [
-                  "Red",
-                  "Blue",
-                  "Green"
-                ]
+                "values": ["Red", "Blue", "Green"]
               },
               {
                 "name": "Size",
                 "fieldType": "select",
                 "skuContributor": true,
-                "values": [
-                  "Small",
-                  "Medium",
-                  "Large"
-                ]
+                "values": ["Small", "Medium", "Large"]
               }
             ],
             "skuVariants": [
@@ -12247,29 +11868,19 @@
                 "type": "main"
               }
             ],
-            "attachments": [
-              "manual-sku-ele-003.pdf"
-            ],
+            "attachments": ["manual-sku-ele-003.pdf"],
             "options": [
               {
                 "name": "Color",
                 "fieldType": "select",
                 "skuContributor": true,
-                "values": [
-                  "Red",
-                  "Blue",
-                  "Green"
-                ]
+                "values": ["Red", "Blue", "Green"]
               },
               {
                 "name": "Size",
                 "fieldType": "select",
                 "skuContributor": true,
-                "values": [
-                  "Small",
-                  "Medium",
-                  "Large"
-                ]
+                "values": ["Small", "Medium", "Large"]
               }
             ],
             "skuVariants": [
@@ -12431,29 +12042,19 @@
                 "type": "main"
               }
             ],
-            "attachments": [
-              "manual-sku-ele-004.pdf"
-            ],
+            "attachments": ["manual-sku-ele-004.pdf"],
             "options": [
               {
                 "name": "Color",
                 "fieldType": "select",
                 "skuContributor": true,
-                "values": [
-                  "Red",
-                  "Blue",
-                  "Green"
-                ]
+                "values": ["Red", "Blue", "Green"]
               },
               {
                 "name": "Size",
                 "fieldType": "select",
                 "skuContributor": true,
-                "values": [
-                  "Small",
-                  "Medium",
-                  "Large"
-                ]
+                "values": ["Small", "Medium", "Large"]
               }
             ],
             "skuVariants": [
@@ -12615,29 +12216,19 @@
                 "type": "main"
               }
             ],
-            "attachments": [
-              "manual-sku-ele-005.pdf"
-            ],
+            "attachments": ["manual-sku-ele-005.pdf"],
             "options": [
               {
                 "name": "Color",
                 "fieldType": "select",
                 "skuContributor": true,
-                "values": [
-                  "Red",
-                  "Blue",
-                  "Green"
-                ]
+                "values": ["Red", "Blue", "Green"]
               },
               {
                 "name": "Size",
                 "fieldType": "select",
                 "skuContributor": true,
-                "values": [
-                  "Small",
-                  "Medium",
-                  "Large"
-                ]
+                "values": ["Small", "Medium", "Large"]
               }
             ],
             "skuVariants": [
@@ -12799,29 +12390,19 @@
                 "type": "main"
               }
             ],
-            "attachments": [
-              "manual-sku-ele-006.pdf"
-            ],
+            "attachments": ["manual-sku-ele-006.pdf"],
             "options": [
               {
                 "name": "Color",
                 "fieldType": "select",
                 "skuContributor": true,
-                "values": [
-                  "Red",
-                  "Blue",
-                  "Green"
-                ]
+                "values": ["Red", "Blue", "Green"]
               },
               {
                 "name": "Size",
                 "fieldType": "select",
                 "skuContributor": true,
-                "values": [
-                  "Small",
-                  "Medium",
-                  "Large"
-                ]
+                "values": ["Small", "Medium", "Large"]
               }
             ],
             "skuVariants": [
@@ -12983,29 +12564,19 @@
                 "type": "main"
               }
             ],
-            "attachments": [
-              "manual-sku-ele-007.pdf"
-            ],
+            "attachments": ["manual-sku-ele-007.pdf"],
             "options": [
               {
                 "name": "Color",
                 "fieldType": "select",
                 "skuContributor": true,
-                "values": [
-                  "Red",
-                  "Blue",
-                  "Green"
-                ]
+                "values": ["Red", "Blue", "Green"]
               },
               {
                 "name": "Size",
                 "fieldType": "select",
                 "skuContributor": true,
-                "values": [
-                  "Small",
-                  "Medium",
-                  "Large"
-                ]
+                "values": ["Small", "Medium", "Large"]
               }
             ],
             "skuVariants": [
@@ -13167,29 +12738,19 @@
                 "type": "main"
               }
             ],
-            "attachments": [
-              "manual-sku-ele-008.pdf"
-            ],
+            "attachments": ["manual-sku-ele-008.pdf"],
             "options": [
               {
                 "name": "Color",
                 "fieldType": "select",
                 "skuContributor": true,
-                "values": [
-                  "Red",
-                  "Blue",
-                  "Green"
-                ]
+                "values": ["Red", "Blue", "Green"]
               },
               {
                 "name": "Size",
                 "fieldType": "select",
                 "skuContributor": true,
-                "values": [
-                  "Small",
-                  "Medium",
-                  "Large"
-                ]
+                "values": ["Small", "Medium", "Large"]
               }
             ],
             "skuVariants": [
@@ -13351,29 +12912,19 @@
                 "type": "main"
               }
             ],
-            "attachments": [
-              "manual-sku-ele-009.pdf"
-            ],
+            "attachments": ["manual-sku-ele-009.pdf"],
             "options": [
               {
                 "name": "Color",
                 "fieldType": "select",
                 "skuContributor": true,
-                "values": [
-                  "Red",
-                  "Blue",
-                  "Green"
-                ]
+                "values": ["Red", "Blue", "Green"]
               },
               {
                 "name": "Size",
                 "fieldType": "select",
                 "skuContributor": true,
-                "values": [
-                  "Small",
-                  "Medium",
-                  "Large"
-                ]
+                "values": ["Small", "Medium", "Large"]
               }
             ],
             "skuVariants": [
@@ -13535,29 +13086,19 @@
                 "type": "main"
               }
             ],
-            "attachments": [
-              "manual-sku-ele-010.pdf"
-            ],
+            "attachments": ["manual-sku-ele-010.pdf"],
             "options": [
               {
                 "name": "Color",
                 "fieldType": "select",
                 "skuContributor": true,
-                "values": [
-                  "Red",
-                  "Blue",
-                  "Green"
-                ]
+                "values": ["Red", "Blue", "Green"]
               },
               {
                 "name": "Size",
                 "fieldType": "select",
                 "skuContributor": true,
-                "values": [
-                  "Small",
-                  "Medium",
-                  "Large"
-                ]
+                "values": ["Small", "Medium", "Large"]
               }
             ],
             "skuVariants": [
@@ -13684,9 +13225,7 @@
           }
         ]
       },
-      "currentSteps": [
-        "sync-delay-pricing"
-      ],
+      "currentSteps": ["sync-delay-pricing"],
       "correlationId": "bf55fc14-3b0e-48dd-af0f-cf5af7751fba",
       "version": 1,
       "created_at": "2026-03-13T13:00:08.321Z",
@@ -13709,9 +13248,7 @@
           "localeCode": "en-US",
           "pollingDelay": 5000,
           "pollingRetries": 12,
-          "selectedLanguages": [
-            "en-US"
-          ],
+          "selectedLanguages": ["en-US"],
           "siteGroupId": 20118,
           "microserviceUrl": "http://localhost:3001",
           "correlationId": "bf55fc14-3b0e-48dd-af0f-cf5af7751fba",
@@ -13722,9 +13259,7 @@
         "options": {
           "demoMode": true,
           "productCount": 10,
-          "categories": [
-            "Electronics"
-          ],
+          "categories": ["Electronics"],
           "generateBulkPricing": true,
           "generatePriceLists": true,
           "generateSkuVariants": true,
@@ -13750,9 +13285,7 @@
           "backorderAssignmentRatio": 50,
           "count": 2,
           "sessionId": "AICA-SESSION-1773406808354-9c9632c7",
-          "selectedLanguages": [
-            "en-US"
-          ]
+          "selectedLanguages": ["en-US"]
         },
         "steps": [
           {
@@ -14843,9 +14376,7 @@
           "localeCode": "en-US",
           "pollingDelay": 5000,
           "pollingRetries": 12,
-          "selectedLanguages": [
-            "en-US"
-          ],
+          "selectedLanguages": ["en-US"],
           "siteGroupId": 20118,
           "microserviceUrl": "http://localhost:3001",
           "correlationId": "bf55fc14-3b0e-48dd-af0f-cf5af7751fba",
@@ -14856,9 +14387,7 @@
         "options": {
           "demoMode": true,
           "productCount": 10,
-          "categories": [
-            "Electronics"
-          ],
+          "categories": ["Electronics"],
           "generateBulkPricing": true,
           "generatePriceLists": true,
           "generateSkuVariants": true,
@@ -14884,9 +14413,7 @@
           "backorderAssignmentRatio": 50,
           "count": 10,
           "sessionId": "AICA-SESSION-1773406808319-559f8b1a",
-          "selectedLanguages": [
-            "en-US"
-          ],
+          "selectedLanguages": ["en-US"],
           "stepKey": "create-warehouses"
         },
         "steps": [
@@ -14923,9 +14450,7 @@
           "localeCode": "en-US",
           "pollingDelay": 5000,
           "pollingRetries": 12,
-          "selectedLanguages": [
-            "en-US"
-          ],
+          "selectedLanguages": ["en-US"],
           "siteGroupId": 20118,
           "microserviceUrl": "http://localhost:3001",
           "correlationId": "bf55fc14-3b0e-48dd-af0f-cf5af7751fba",
@@ -15020,9 +14545,7 @@
           "localeCode": "en-US",
           "pollingDelay": 5000,
           "pollingRetries": 12,
-          "selectedLanguages": [
-            "en-US"
-          ],
+          "selectedLanguages": ["en-US"],
           "siteGroupId": 20118,
           "microserviceUrl": "http://localhost:3001",
           "correlationId": "bf55fc14-3b0e-48dd-af0f-cf5af7751fba",
@@ -15117,9 +14640,7 @@
           "localeCode": "en-US",
           "pollingDelay": 5000,
           "pollingRetries": 12,
-          "selectedLanguages": [
-            "en-US"
-          ],
+          "selectedLanguages": ["en-US"],
           "siteGroupId": 20118,
           "microserviceUrl": "http://localhost:3001",
           "correlationId": "bf55fc14-3b0e-48dd-af0f-cf5af7751fba",
@@ -15130,9 +14651,7 @@
         "options": {
           "demoMode": true,
           "productCount": 10,
-          "categories": [
-            "Electronics"
-          ],
+          "categories": ["Electronics"],
           "generateBulkPricing": true,
           "generatePriceLists": true,
           "generateSkuVariants": true,
@@ -15276,10 +14795,7 @@
           }
         ]
       },
-      "currentSteps": [
-        "subflow-products",
-        "subflow-accounts"
-      ],
+      "currentSteps": ["subflow-products", "subflow-accounts"],
       "correlationId": "bf55fc14-3b0e-48dd-af0f-cf5af7751fba",
       "version": 1,
       "created_at": "2026-03-13T13:54:49.960Z",
@@ -15302,9 +14818,7 @@
           "localeCode": "en-US",
           "pollingDelay": 5000,
           "pollingRetries": 12,
-          "selectedLanguages": [
-            "en-US"
-          ],
+          "selectedLanguages": ["en-US"],
           "siteGroupId": 20118,
           "microserviceUrl": "http://localhost:3001",
           "correlationId": "bf55fc14-3b0e-48dd-af0f-cf5af7751fba",
@@ -15315,9 +14829,7 @@
         "options": {
           "demoMode": true,
           "productCount": 10,
-          "categories": [
-            "Electronics"
-          ],
+          "categories": ["Electronics"],
           "generateBulkPricing": true,
           "generatePriceLists": true,
           "generateSkuVariants": true,
@@ -15343,9 +14855,7 @@
           "backorderAssignmentRatio": 50,
           "count": 10,
           "sessionId": "AICA-SESSION-1773410090415-5f156f8d",
-          "selectedLanguages": [
-            "en-US"
-          ],
+          "selectedLanguages": ["en-US"],
           "warehouses": [
             {
               "externalReferenceCode": "AICA-WH-1773410090630-49b9866f",
@@ -15548,9 +15058,7 @@
                 "type": "main"
               }
             ],
-            "attachments": [
-              "manual-sku-ele-001.pdf"
-            ],
+            "attachments": ["manual-sku-ele-001.pdf"],
             "productOptions": [
               {
                 "name": {
@@ -15779,9 +15287,7 @@
                 "type": "main"
               }
             ],
-            "attachments": [
-              "manual-sku-ele-002.pdf"
-            ],
+            "attachments": ["manual-sku-ele-002.pdf"],
             "productOptions": [
               {
                 "name": {
@@ -16010,9 +15516,7 @@
                 "type": "main"
               }
             ],
-            "attachments": [
-              "manual-sku-ele-003.pdf"
-            ],
+            "attachments": ["manual-sku-ele-003.pdf"],
             "productOptions": [
               {
                 "name": {
@@ -16241,9 +15745,7 @@
                 "type": "main"
               }
             ],
-            "attachments": [
-              "manual-sku-ele-004.pdf"
-            ],
+            "attachments": ["manual-sku-ele-004.pdf"],
             "productOptions": [
               {
                 "name": {
@@ -16472,9 +15974,7 @@
                 "type": "main"
               }
             ],
-            "attachments": [
-              "manual-sku-ele-005.pdf"
-            ],
+            "attachments": ["manual-sku-ele-005.pdf"],
             "productOptions": [
               {
                 "name": {
@@ -16703,9 +16203,7 @@
                 "type": "main"
               }
             ],
-            "attachments": [
-              "manual-sku-ele-006.pdf"
-            ],
+            "attachments": ["manual-sku-ele-006.pdf"],
             "productOptions": [
               {
                 "name": {
@@ -16934,9 +16432,7 @@
                 "type": "main"
               }
             ],
-            "attachments": [
-              "manual-sku-ele-007.pdf"
-            ],
+            "attachments": ["manual-sku-ele-007.pdf"],
             "productOptions": [
               {
                 "name": {
@@ -17165,9 +16661,7 @@
                 "type": "main"
               }
             ],
-            "attachments": [
-              "manual-sku-ele-008.pdf"
-            ],
+            "attachments": ["manual-sku-ele-008.pdf"],
             "productOptions": [
               {
                 "name": {
@@ -17396,9 +16890,7 @@
                 "type": "main"
               }
             ],
-            "attachments": [
-              "manual-sku-ele-009.pdf"
-            ],
+            "attachments": ["manual-sku-ele-009.pdf"],
             "productOptions": [
               {
                 "name": {
@@ -17627,9 +17119,7 @@
                 "type": "main"
               }
             ],
-            "attachments": [
-              "manual-sku-ele-010.pdf"
-            ],
+            "attachments": ["manual-sku-ele-010.pdf"],
             "productOptions": [
               {
                 "name": {
@@ -17846,9 +17336,7 @@
           "localeCode": "en-US",
           "pollingDelay": 5000,
           "pollingRetries": 12,
-          "selectedLanguages": [
-            "en-US"
-          ],
+          "selectedLanguages": ["en-US"],
           "siteGroupId": 20118,
           "microserviceUrl": "http://localhost:3001",
           "correlationId": "bf55fc14-3b0e-48dd-af0f-cf5af7751fba",
@@ -17859,9 +17347,7 @@
         "options": {
           "demoMode": true,
           "productCount": 10,
-          "categories": [
-            "Electronics"
-          ],
+          "categories": ["Electronics"],
           "generateBulkPricing": true,
           "generatePriceLists": true,
           "generateSkuVariants": true,
@@ -17887,9 +17373,7 @@
           "backorderAssignmentRatio": 50,
           "count": 2,
           "sessionId": "AICA-SESSION-1773410090454-08febcf9",
-          "selectedLanguages": [
-            "en-US"
-          ]
+          "selectedLanguages": ["en-US"]
         },
         "steps": [
           {
@@ -18984,9 +18468,7 @@
           "localeCode": "en-US",
           "pollingDelay": 5000,
           "pollingRetries": 12,
-          "selectedLanguages": [
-            "en-US"
-          ],
+          "selectedLanguages": ["en-US"],
           "siteGroupId": 20118,
           "microserviceUrl": "http://localhost:3001",
           "correlationId": "bf55fc14-3b0e-48dd-af0f-cf5af7751fba",
@@ -18997,9 +18479,7 @@
         "options": {
           "demoMode": true,
           "productCount": 10,
-          "categories": [
-            "Electronics"
-          ],
+          "categories": ["Electronics"],
           "generateBulkPricing": true,
           "generatePriceLists": true,
           "generateSkuVariants": true,
@@ -19025,9 +18505,7 @@
           "backorderAssignmentRatio": 50,
           "count": 10,
           "sessionId": "AICA-SESSION-1773410090415-5f156f8d",
-          "selectedLanguages": [
-            "en-US"
-          ],
+          "selectedLanguages": ["en-US"],
           "stepKey": "create-warehouses"
         },
         "steps": [
@@ -19064,9 +18542,7 @@
           "localeCode": "en-US",
           "pollingDelay": 5000,
           "pollingRetries": 12,
-          "selectedLanguages": [
-            "en-US"
-          ],
+          "selectedLanguages": ["en-US"],
           "siteGroupId": 20118,
           "microserviceUrl": "http://localhost:3001",
           "correlationId": "bf55fc14-3b0e-48dd-af0f-cf5af7751fba",
@@ -19161,9 +18637,7 @@
           "localeCode": "en-US",
           "pollingDelay": 5000,
           "pollingRetries": 12,
-          "selectedLanguages": [
-            "en-US"
-          ],
+          "selectedLanguages": ["en-US"],
           "siteGroupId": 20118,
           "microserviceUrl": "http://localhost:3001",
           "correlationId": "bf55fc14-3b0e-48dd-af0f-cf5af7751fba",
@@ -19174,9 +18648,7 @@
         "options": {
           "demoMode": true,
           "productCount": 10,
-          "categories": [
-            "Electronics"
-          ],
+          "categories": ["Electronics"],
           "generateBulkPricing": true,
           "generatePriceLists": true,
           "generateSkuVariants": true,
@@ -19320,10 +18792,7 @@
           }
         ]
       },
-      "currentSteps": [
-        "subflow-products",
-        "subflow-accounts"
-      ],
+      "currentSteps": ["subflow-products", "subflow-accounts"],
       "correlationId": "bf55fc14-3b0e-48dd-af0f-cf5af7751fba",
       "version": 1,
       "created_at": "2026-03-13T14:29:15.367Z",
@@ -19346,9 +18815,7 @@
           "localeCode": "en-US",
           "pollingDelay": 5000,
           "pollingRetries": 12,
-          "selectedLanguages": [
-            "en-US"
-          ],
+          "selectedLanguages": ["en-US"],
           "siteGroupId": 20118,
           "microserviceUrl": "http://localhost:3001",
           "correlationId": "bf55fc14-3b0e-48dd-af0f-cf5af7751fba",
@@ -19359,9 +18826,7 @@
         "options": {
           "demoMode": true,
           "productCount": 10,
-          "categories": [
-            "Electronics"
-          ],
+          "categories": ["Electronics"],
           "generateBulkPricing": true,
           "generatePriceLists": true,
           "generateSkuVariants": true,
@@ -19387,9 +18852,7 @@
           "backorderAssignmentRatio": 50,
           "count": 10,
           "sessionId": "AICA-SESSION-1773412155756-d38b2953",
-          "selectedLanguages": [
-            "en-US"
-          ],
+          "selectedLanguages": ["en-US"],
           "warehouses": [
             {
               "externalReferenceCode": "AICA-WH-1773412156025-42f7aa34",
@@ -19592,9 +19055,7 @@
                 "type": "main"
               }
             ],
-            "attachments": [
-              "manual-sku-ele-001.pdf"
-            ],
+            "attachments": ["manual-sku-ele-001.pdf"],
             "productOptions": [
               {
                 "name": {
@@ -19823,9 +19284,7 @@
                 "type": "main"
               }
             ],
-            "attachments": [
-              "manual-sku-ele-002.pdf"
-            ],
+            "attachments": ["manual-sku-ele-002.pdf"],
             "productOptions": [
               {
                 "name": {
@@ -20054,9 +19513,7 @@
                 "type": "main"
               }
             ],
-            "attachments": [
-              "manual-sku-ele-003.pdf"
-            ],
+            "attachments": ["manual-sku-ele-003.pdf"],
             "productOptions": [
               {
                 "name": {
@@ -20285,9 +19742,7 @@
                 "type": "main"
               }
             ],
-            "attachments": [
-              "manual-sku-ele-004.pdf"
-            ],
+            "attachments": ["manual-sku-ele-004.pdf"],
             "productOptions": [
               {
                 "name": {
@@ -20516,9 +19971,7 @@
                 "type": "main"
               }
             ],
-            "attachments": [
-              "manual-sku-ele-005.pdf"
-            ],
+            "attachments": ["manual-sku-ele-005.pdf"],
             "productOptions": [
               {
                 "name": {
@@ -20747,9 +20200,7 @@
                 "type": "main"
               }
             ],
-            "attachments": [
-              "manual-sku-ele-006.pdf"
-            ],
+            "attachments": ["manual-sku-ele-006.pdf"],
             "productOptions": [
               {
                 "name": {
@@ -20978,9 +20429,7 @@
                 "type": "main"
               }
             ],
-            "attachments": [
-              "manual-sku-ele-007.pdf"
-            ],
+            "attachments": ["manual-sku-ele-007.pdf"],
             "productOptions": [
               {
                 "name": {
@@ -21209,9 +20658,7 @@
                 "type": "main"
               }
             ],
-            "attachments": [
-              "manual-sku-ele-008.pdf"
-            ],
+            "attachments": ["manual-sku-ele-008.pdf"],
             "productOptions": [
               {
                 "name": {
@@ -21440,9 +20887,7 @@
                 "type": "main"
               }
             ],
-            "attachments": [
-              "manual-sku-ele-009.pdf"
-            ],
+            "attachments": ["manual-sku-ele-009.pdf"],
             "productOptions": [
               {
                 "name": {
@@ -21671,9 +21116,7 @@
                 "type": "main"
               }
             ],
-            "attachments": [
-              "manual-sku-ele-010.pdf"
-            ],
+            "attachments": ["manual-sku-ele-010.pdf"],
             "productOptions": [
               {
                 "name": {
@@ -21890,9 +21333,7 @@
           "localeCode": "en-US",
           "pollingDelay": 5000,
           "pollingRetries": 12,
-          "selectedLanguages": [
-            "en-US"
-          ],
+          "selectedLanguages": ["en-US"],
           "siteGroupId": 20118,
           "microserviceUrl": "http://localhost:3001",
           "correlationId": "bf55fc14-3b0e-48dd-af0f-cf5af7751fba",
@@ -21903,9 +21344,7 @@
         "options": {
           "demoMode": true,
           "productCount": 10,
-          "categories": [
-            "Electronics"
-          ],
+          "categories": ["Electronics"],
           "generateBulkPricing": true,
           "generatePriceLists": true,
           "generateSkuVariants": true,
@@ -21931,9 +21370,7 @@
           "backorderAssignmentRatio": 50,
           "count": 2,
           "sessionId": "AICA-SESSION-1773412155795-279ed771",
-          "selectedLanguages": [
-            "en-US"
-          ]
+          "selectedLanguages": ["en-US"]
         },
         "steps": [
           {
@@ -23028,9 +22465,7 @@
           "localeCode": "en-US",
           "pollingDelay": 5000,
           "pollingRetries": 12,
-          "selectedLanguages": [
-            "en-US"
-          ],
+          "selectedLanguages": ["en-US"],
           "siteGroupId": 20118,
           "microserviceUrl": "http://localhost:3001",
           "correlationId": "bf55fc14-3b0e-48dd-af0f-cf5af7751fba",
@@ -23041,9 +22476,7 @@
         "options": {
           "demoMode": true,
           "productCount": 10,
-          "categories": [
-            "Electronics"
-          ],
+          "categories": ["Electronics"],
           "generateBulkPricing": true,
           "generatePriceLists": true,
           "generateSkuVariants": true,
@@ -23069,9 +22502,7 @@
           "backorderAssignmentRatio": 50,
           "count": 10,
           "sessionId": "AICA-SESSION-1773412155756-d38b2953",
-          "selectedLanguages": [
-            "en-US"
-          ],
+          "selectedLanguages": ["en-US"],
           "stepKey": "create-warehouses"
         },
         "steps": [
@@ -23108,9 +22539,7 @@
           "localeCode": "en-US",
           "pollingDelay": 5000,
           "pollingRetries": 12,
-          "selectedLanguages": [
-            "en-US"
-          ],
+          "selectedLanguages": ["en-US"],
           "siteGroupId": 20118,
           "microserviceUrl": "http://localhost:3001",
           "correlationId": "bf55fc14-3b0e-48dd-af0f-cf5af7751fba",
@@ -23205,9 +22634,7 @@
           "localeCode": "en-US",
           "pollingDelay": 5000,
           "pollingRetries": 12,
-          "selectedLanguages": [
-            "en-US"
-          ],
+          "selectedLanguages": ["en-US"],
           "siteGroupId": 20118,
           "microserviceUrl": "http://localhost:3001",
           "correlationId": "bf55fc14-3b0e-48dd-af0f-cf5af7751fba",
@@ -23218,9 +22645,7 @@
         "options": {
           "demoMode": true,
           "productCount": 10,
-          "categories": [
-            "Electronics"
-          ],
+          "categories": ["Electronics"],
           "generateBulkPricing": true,
           "generatePriceLists": true,
           "generateSkuVariants": true,
@@ -23364,10 +22789,7 @@
           }
         ]
       },
-      "currentSteps": [
-        "subflow-products",
-        "subflow-accounts"
-      ],
+      "currentSteps": ["subflow-products", "subflow-accounts"],
       "correlationId": "bf55fc14-3b0e-48dd-af0f-cf5af7751fba",
       "version": 1,
       "created_at": "2026-03-13T14:46:22.517Z",
@@ -23390,9 +22812,7 @@
           "localeCode": "en-US",
           "pollingDelay": 5000,
           "pollingRetries": 12,
-          "selectedLanguages": [
-            "en-US"
-          ],
+          "selectedLanguages": ["en-US"],
           "siteGroupId": 20118,
           "microserviceUrl": "http://localhost:3001",
           "correlationId": "bf55fc14-3b0e-48dd-af0f-cf5af7751fba",
@@ -23403,9 +22823,7 @@
         "options": {
           "demoMode": true,
           "productCount": 10,
-          "categories": [
-            "Electronics"
-          ],
+          "categories": ["Electronics"],
           "generateBulkPricing": true,
           "generatePriceLists": true,
           "generateSkuVariants": true,
@@ -23431,9 +22849,7 @@
           "backorderAssignmentRatio": 50,
           "count": 10,
           "sessionId": "AICA-SESSION-1773413183618-6ed68f1e",
-          "selectedLanguages": [
-            "en-US"
-          ],
+          "selectedLanguages": ["en-US"],
           "warehouses": [
             {
               "externalReferenceCode": "AICA-WH-1773413183913-165d35e2",
@@ -23636,9 +23052,7 @@
                 "type": "main"
               }
             ],
-            "attachments": [
-              "manual-sku-ele-001.pdf"
-            ],
+            "attachments": ["manual-sku-ele-001.pdf"],
             "productOptions": [
               {
                 "name": {
@@ -23867,9 +23281,7 @@
                 "type": "main"
               }
             ],
-            "attachments": [
-              "manual-sku-ele-002.pdf"
-            ],
+            "attachments": ["manual-sku-ele-002.pdf"],
             "productOptions": [
               {
                 "name": {
@@ -24098,9 +23510,7 @@
                 "type": "main"
               }
             ],
-            "attachments": [
-              "manual-sku-ele-003.pdf"
-            ],
+            "attachments": ["manual-sku-ele-003.pdf"],
             "productOptions": [
               {
                 "name": {
@@ -24329,9 +23739,7 @@
                 "type": "main"
               }
             ],
-            "attachments": [
-              "manual-sku-ele-004.pdf"
-            ],
+            "attachments": ["manual-sku-ele-004.pdf"],
             "productOptions": [
               {
                 "name": {
@@ -24560,9 +23968,7 @@
                 "type": "main"
               }
             ],
-            "attachments": [
-              "manual-sku-ele-005.pdf"
-            ],
+            "attachments": ["manual-sku-ele-005.pdf"],
             "productOptions": [
               {
                 "name": {
@@ -24791,9 +24197,7 @@
                 "type": "main"
               }
             ],
-            "attachments": [
-              "manual-sku-ele-006.pdf"
-            ],
+            "attachments": ["manual-sku-ele-006.pdf"],
             "productOptions": [
               {
                 "name": {
@@ -25022,9 +24426,7 @@
                 "type": "main"
               }
             ],
-            "attachments": [
-              "manual-sku-ele-007.pdf"
-            ],
+            "attachments": ["manual-sku-ele-007.pdf"],
             "productOptions": [
               {
                 "name": {
@@ -25253,9 +24655,7 @@
                 "type": "main"
               }
             ],
-            "attachments": [
-              "manual-sku-ele-008.pdf"
-            ],
+            "attachments": ["manual-sku-ele-008.pdf"],
             "productOptions": [
               {
                 "name": {
@@ -25484,9 +24884,7 @@
                 "type": "main"
               }
             ],
-            "attachments": [
-              "manual-sku-ele-009.pdf"
-            ],
+            "attachments": ["manual-sku-ele-009.pdf"],
             "productOptions": [
               {
                 "name": {
@@ -25715,9 +25113,7 @@
                 "type": "main"
               }
             ],
-            "attachments": [
-              "manual-sku-ele-010.pdf"
-            ],
+            "attachments": ["manual-sku-ele-010.pdf"],
             "productOptions": [
               {
                 "name": {
@@ -25934,9 +25330,7 @@
           "localeCode": "en-US",
           "pollingDelay": 5000,
           "pollingRetries": 12,
-          "selectedLanguages": [
-            "en-US"
-          ],
+          "selectedLanguages": ["en-US"],
           "siteGroupId": 20118,
           "microserviceUrl": "http://localhost:3001",
           "correlationId": "bf55fc14-3b0e-48dd-af0f-cf5af7751fba",
@@ -25947,9 +25341,7 @@
         "options": {
           "demoMode": true,
           "productCount": 10,
-          "categories": [
-            "Electronics"
-          ],
+          "categories": ["Electronics"],
           "generateBulkPricing": true,
           "generatePriceLists": true,
           "generateSkuVariants": true,
@@ -25975,9 +25367,7 @@
           "backorderAssignmentRatio": 50,
           "count": 2,
           "sessionId": "AICA-SESSION-1773413183668-f5e480a8",
-          "selectedLanguages": [
-            "en-US"
-          ]
+          "selectedLanguages": ["en-US"]
         },
         "steps": [
           {
@@ -27072,9 +26462,7 @@
           "localeCode": "en-US",
           "pollingDelay": 5000,
           "pollingRetries": 12,
-          "selectedLanguages": [
-            "en-US"
-          ],
+          "selectedLanguages": ["en-US"],
           "siteGroupId": 20118,
           "microserviceUrl": "http://localhost:3001",
           "correlationId": "bf55fc14-3b0e-48dd-af0f-cf5af7751fba",
@@ -27085,9 +26473,7 @@
         "options": {
           "demoMode": true,
           "productCount": 10,
-          "categories": [
-            "Electronics"
-          ],
+          "categories": ["Electronics"],
           "generateBulkPricing": true,
           "generatePriceLists": true,
           "generateSkuVariants": true,
@@ -27113,9 +26499,7 @@
           "backorderAssignmentRatio": 50,
           "count": 10,
           "sessionId": "AICA-SESSION-1773413183618-6ed68f1e",
-          "selectedLanguages": [
-            "en-US"
-          ],
+          "selectedLanguages": ["en-US"],
           "stepKey": "create-warehouses"
         },
         "steps": [
@@ -27152,9 +26536,7 @@
           "localeCode": "en-US",
           "pollingDelay": 5000,
           "pollingRetries": 12,
-          "selectedLanguages": [
-            "en-US"
-          ],
+          "selectedLanguages": ["en-US"],
           "siteGroupId": 20118,
           "microserviceUrl": "http://localhost:3001",
           "correlationId": "bf55fc14-3b0e-48dd-af0f-cf5af7751fba",
@@ -27249,9 +26631,7 @@
           "localeCode": "en-US",
           "pollingDelay": 5000,
           "pollingRetries": 12,
-          "selectedLanguages": [
-            "en-US"
-          ],
+          "selectedLanguages": ["en-US"],
           "siteGroupId": 20118,
           "microserviceUrl": "http://localhost:3001",
           "correlationId": "bf55fc14-3b0e-48dd-af0f-cf5af7751fba",
@@ -27262,9 +26642,7 @@
         "options": {
           "demoMode": true,
           "productCount": 10,
-          "categories": [
-            "Electronics"
-          ],
+          "categories": ["Electronics"],
           "generateBulkPricing": true,
           "generatePriceLists": true,
           "generateSkuVariants": true,
@@ -27408,10 +26786,7 @@
           }
         ]
       },
-      "currentSteps": [
-        "subflow-products",
-        "subflow-accounts"
-      ],
+      "currentSteps": ["subflow-products", "subflow-accounts"],
       "correlationId": "bf55fc14-3b0e-48dd-af0f-cf5af7751fba",
       "version": 1,
       "created_at": "2026-03-13T15:09:46.115Z",
@@ -27434,9 +26809,7 @@
           "localeCode": "en-US",
           "pollingDelay": 5000,
           "pollingRetries": 12,
-          "selectedLanguages": [
-            "en-US"
-          ],
+          "selectedLanguages": ["en-US"],
           "siteGroupId": 20118,
           "microserviceUrl": "http://localhost:3001",
           "correlationId": "bf55fc14-3b0e-48dd-af0f-cf5af7751fba",
@@ -27447,9 +26820,7 @@
         "options": {
           "demoMode": true,
           "productCount": 10,
-          "categories": [
-            "Electronics"
-          ],
+          "categories": ["Electronics"],
           "generateBulkPricing": true,
           "generatePriceLists": true,
           "generateSkuVariants": true,
@@ -27475,9 +26846,7 @@
           "backorderAssignmentRatio": 50,
           "count": 10,
           "sessionId": "AICA-SESSION-1773414587837-c560d544",
-          "selectedLanguages": [
-            "en-US"
-          ],
+          "selectedLanguages": ["en-US"],
           "warehouses": [
             {
               "externalReferenceCode": "AICA-WH-1773414588182-d6ebf7f2",
@@ -27680,9 +27049,7 @@
                 "type": "main"
               }
             ],
-            "attachments": [
-              "manual-sku-ele-001.pdf"
-            ],
+            "attachments": ["manual-sku-ele-001.pdf"],
             "productOptions": [
               {
                 "name": {
@@ -27911,9 +27278,7 @@
                 "type": "main"
               }
             ],
-            "attachments": [
-              "manual-sku-ele-002.pdf"
-            ],
+            "attachments": ["manual-sku-ele-002.pdf"],
             "productOptions": [
               {
                 "name": {
@@ -28142,9 +27507,7 @@
                 "type": "main"
               }
             ],
-            "attachments": [
-              "manual-sku-ele-003.pdf"
-            ],
+            "attachments": ["manual-sku-ele-003.pdf"],
             "productOptions": [
               {
                 "name": {
@@ -28373,9 +27736,7 @@
                 "type": "main"
               }
             ],
-            "attachments": [
-              "manual-sku-ele-004.pdf"
-            ],
+            "attachments": ["manual-sku-ele-004.pdf"],
             "productOptions": [
               {
                 "name": {
@@ -28604,9 +27965,7 @@
                 "type": "main"
               }
             ],
-            "attachments": [
-              "manual-sku-ele-005.pdf"
-            ],
+            "attachments": ["manual-sku-ele-005.pdf"],
             "productOptions": [
               {
                 "name": {
@@ -28835,9 +28194,7 @@
                 "type": "main"
               }
             ],
-            "attachments": [
-              "manual-sku-ele-006.pdf"
-            ],
+            "attachments": ["manual-sku-ele-006.pdf"],
             "productOptions": [
               {
                 "name": {
@@ -29066,9 +28423,7 @@
                 "type": "main"
               }
             ],
-            "attachments": [
-              "manual-sku-ele-007.pdf"
-            ],
+            "attachments": ["manual-sku-ele-007.pdf"],
             "productOptions": [
               {
                 "name": {
@@ -29297,9 +28652,7 @@
                 "type": "main"
               }
             ],
-            "attachments": [
-              "manual-sku-ele-008.pdf"
-            ],
+            "attachments": ["manual-sku-ele-008.pdf"],
             "productOptions": [
               {
                 "name": {
@@ -29528,9 +28881,7 @@
                 "type": "main"
               }
             ],
-            "attachments": [
-              "manual-sku-ele-009.pdf"
-            ],
+            "attachments": ["manual-sku-ele-009.pdf"],
             "productOptions": [
               {
                 "name": {
@@ -29759,9 +29110,7 @@
                 "type": "main"
               }
             ],
-            "attachments": [
-              "manual-sku-ele-010.pdf"
-            ],
+            "attachments": ["manual-sku-ele-010.pdf"],
             "productOptions": [
               {
                 "name": {
@@ -29978,9 +29327,7 @@
           "localeCode": "en-US",
           "pollingDelay": 5000,
           "pollingRetries": 12,
-          "selectedLanguages": [
-            "en-US"
-          ],
+          "selectedLanguages": ["en-US"],
           "siteGroupId": 20118,
           "microserviceUrl": "http://localhost:3001",
           "correlationId": "bf55fc14-3b0e-48dd-af0f-cf5af7751fba",
@@ -29991,9 +29338,7 @@
         "options": {
           "demoMode": true,
           "productCount": 10,
-          "categories": [
-            "Electronics"
-          ],
+          "categories": ["Electronics"],
           "generateBulkPricing": true,
           "generatePriceLists": true,
           "generateSkuVariants": true,
@@ -30019,9 +29364,7 @@
           "backorderAssignmentRatio": 50,
           "count": 2,
           "sessionId": "AICA-SESSION-1773414587906-62d94d6d",
-          "selectedLanguages": [
-            "en-US"
-          ]
+          "selectedLanguages": ["en-US"]
         },
         "steps": [
           {
@@ -31116,9 +30459,7 @@
           "localeCode": "en-US",
           "pollingDelay": 5000,
           "pollingRetries": 12,
-          "selectedLanguages": [
-            "en-US"
-          ],
+          "selectedLanguages": ["en-US"],
           "siteGroupId": 20118,
           "microserviceUrl": "http://localhost:3001",
           "correlationId": "bf55fc14-3b0e-48dd-af0f-cf5af7751fba",
@@ -31129,9 +30470,7 @@
         "options": {
           "demoMode": true,
           "productCount": 10,
-          "categories": [
-            "Electronics"
-          ],
+          "categories": ["Electronics"],
           "generateBulkPricing": true,
           "generatePriceLists": true,
           "generateSkuVariants": true,
@@ -31157,9 +30496,7 @@
           "backorderAssignmentRatio": 50,
           "count": 10,
           "sessionId": "AICA-SESSION-1773414587837-c560d544",
-          "selectedLanguages": [
-            "en-US"
-          ],
+          "selectedLanguages": ["en-US"],
           "stepKey": "create-warehouses"
         },
         "steps": [
@@ -31196,9 +30533,7 @@
           "localeCode": "en-US",
           "pollingDelay": 5000,
           "pollingRetries": 12,
-          "selectedLanguages": [
-            "en-US"
-          ],
+          "selectedLanguages": ["en-US"],
           "siteGroupId": 20118,
           "microserviceUrl": "http://localhost:3001",
           "correlationId": "bf55fc14-3b0e-48dd-af0f-cf5af7751fba",
@@ -31293,9 +30628,7 @@
           "localeCode": "en-US",
           "pollingDelay": 5000,
           "pollingRetries": 12,
-          "selectedLanguages": [
-            "en-US"
-          ],
+          "selectedLanguages": ["en-US"],
           "siteGroupId": 20118,
           "microserviceUrl": "http://localhost:3001",
           "correlationId": "bf55fc14-3b0e-48dd-af0f-cf5af7751fba",
@@ -31306,9 +30639,7 @@
         "options": {
           "demoMode": true,
           "productCount": 10,
-          "categories": [
-            "Electronics"
-          ],
+          "categories": ["Electronics"],
           "generateBulkPricing": true,
           "generatePriceLists": true,
           "generateSkuVariants": true,
@@ -31452,10 +30783,7 @@
           }
         ]
       },
-      "currentSteps": [
-        "subflow-products",
-        "subflow-accounts"
-      ],
+      "currentSteps": ["subflow-products", "subflow-accounts"],
       "correlationId": "bf55fc14-3b0e-48dd-af0f-cf5af7751fba",
       "version": 1,
       "created_at": "2026-03-13T15:15:58.344Z",
@@ -31478,9 +30806,7 @@
           "localeCode": "en-US",
           "pollingDelay": 5000,
           "pollingRetries": 12,
-          "selectedLanguages": [
-            "en-US"
-          ],
+          "selectedLanguages": ["en-US"],
           "siteGroupId": 20118,
           "microserviceUrl": "http://localhost:3001",
           "correlationId": "bf55fc14-3b0e-48dd-af0f-cf5af7751fba",
@@ -31491,9 +30817,7 @@
         "options": {
           "demoMode": true,
           "productCount": 10,
-          "categories": [
-            "Electronics"
-          ],
+          "categories": ["Electronics"],
           "generateBulkPricing": true,
           "generatePriceLists": true,
           "generateSkuVariants": true,
@@ -31519,9 +30843,7 @@
           "backorderAssignmentRatio": 50,
           "count": 10,
           "sessionId": "AICA-SESSION-1773414958692-7f8cfc2e",
-          "selectedLanguages": [
-            "en-US"
-          ],
+          "selectedLanguages": ["en-US"],
           "warehouses": [
             {
               "externalReferenceCode": "AICA-WH-1773414959046-36dab498",
@@ -31724,9 +31046,7 @@
                 "type": "main"
               }
             ],
-            "attachments": [
-              "manual-sku-ele-001.pdf"
-            ],
+            "attachments": ["manual-sku-ele-001.pdf"],
             "productOptions": [
               {
                 "name": {
@@ -31955,9 +31275,7 @@
                 "type": "main"
               }
             ],
-            "attachments": [
-              "manual-sku-ele-002.pdf"
-            ],
+            "attachments": ["manual-sku-ele-002.pdf"],
             "productOptions": [
               {
                 "name": {
@@ -32186,9 +31504,7 @@
                 "type": "main"
               }
             ],
-            "attachments": [
-              "manual-sku-ele-003.pdf"
-            ],
+            "attachments": ["manual-sku-ele-003.pdf"],
             "productOptions": [
               {
                 "name": {
@@ -32417,9 +31733,7 @@
                 "type": "main"
               }
             ],
-            "attachments": [
-              "manual-sku-ele-004.pdf"
-            ],
+            "attachments": ["manual-sku-ele-004.pdf"],
             "productOptions": [
               {
                 "name": {
@@ -32648,9 +31962,7 @@
                 "type": "main"
               }
             ],
-            "attachments": [
-              "manual-sku-ele-005.pdf"
-            ],
+            "attachments": ["manual-sku-ele-005.pdf"],
             "productOptions": [
               {
                 "name": {
@@ -32879,9 +32191,7 @@
                 "type": "main"
               }
             ],
-            "attachments": [
-              "manual-sku-ele-006.pdf"
-            ],
+            "attachments": ["manual-sku-ele-006.pdf"],
             "productOptions": [
               {
                 "name": {
@@ -33110,9 +32420,7 @@
                 "type": "main"
               }
             ],
-            "attachments": [
-              "manual-sku-ele-007.pdf"
-            ],
+            "attachments": ["manual-sku-ele-007.pdf"],
             "productOptions": [
               {
                 "name": {
@@ -33341,9 +32649,7 @@
                 "type": "main"
               }
             ],
-            "attachments": [
-              "manual-sku-ele-008.pdf"
-            ],
+            "attachments": ["manual-sku-ele-008.pdf"],
             "productOptions": [
               {
                 "name": {
@@ -33572,9 +32878,7 @@
                 "type": "main"
               }
             ],
-            "attachments": [
-              "manual-sku-ele-009.pdf"
-            ],
+            "attachments": ["manual-sku-ele-009.pdf"],
             "productOptions": [
               {
                 "name": {
@@ -33803,9 +33107,7 @@
                 "type": "main"
               }
             ],
-            "attachments": [
-              "manual-sku-ele-010.pdf"
-            ],
+            "attachments": ["manual-sku-ele-010.pdf"],
             "productOptions": [
               {
                 "name": {
@@ -34022,9 +33324,7 @@
           "localeCode": "en-US",
           "pollingDelay": 5000,
           "pollingRetries": 12,
-          "selectedLanguages": [
-            "en-US"
-          ],
+          "selectedLanguages": ["en-US"],
           "siteGroupId": 20118,
           "microserviceUrl": "http://localhost:3001",
           "correlationId": "bf55fc14-3b0e-48dd-af0f-cf5af7751fba",
@@ -34035,9 +33335,7 @@
         "options": {
           "demoMode": true,
           "productCount": 10,
-          "categories": [
-            "Electronics"
-          ],
+          "categories": ["Electronics"],
           "generateBulkPricing": true,
           "generatePriceLists": true,
           "generateSkuVariants": true,
@@ -34063,9 +33361,7 @@
           "backorderAssignmentRatio": 50,
           "count": 2,
           "sessionId": "AICA-SESSION-1773414958743-daf4e3c0",
-          "selectedLanguages": [
-            "en-US"
-          ]
+          "selectedLanguages": ["en-US"]
         },
         "steps": [
           {
@@ -35160,9 +34456,7 @@
           "localeCode": "en-US",
           "pollingDelay": 5000,
           "pollingRetries": 12,
-          "selectedLanguages": [
-            "en-US"
-          ],
+          "selectedLanguages": ["en-US"],
           "siteGroupId": 20118,
           "microserviceUrl": "http://localhost:3001",
           "correlationId": "bf55fc14-3b0e-48dd-af0f-cf5af7751fba",
@@ -35173,9 +34467,7 @@
         "options": {
           "demoMode": true,
           "productCount": 10,
-          "categories": [
-            "Electronics"
-          ],
+          "categories": ["Electronics"],
           "generateBulkPricing": true,
           "generatePriceLists": true,
           "generateSkuVariants": true,
@@ -35201,9 +34493,7 @@
           "backorderAssignmentRatio": 50,
           "count": 10,
           "sessionId": "AICA-SESSION-1773414958692-7f8cfc2e",
-          "selectedLanguages": [
-            "en-US"
-          ],
+          "selectedLanguages": ["en-US"],
           "stepKey": "create-warehouses"
         },
         "steps": [
@@ -35240,9 +34530,7 @@
           "localeCode": "en-US",
           "pollingDelay": 5000,
           "pollingRetries": 12,
-          "selectedLanguages": [
-            "en-US"
-          ],
+          "selectedLanguages": ["en-US"],
           "siteGroupId": 20118,
           "microserviceUrl": "http://localhost:3001",
           "correlationId": "bf55fc14-3b0e-48dd-af0f-cf5af7751fba",
@@ -35337,9 +34625,7 @@
           "localeCode": "en-US",
           "pollingDelay": 5000,
           "pollingRetries": 12,
-          "selectedLanguages": [
-            "en-US"
-          ],
+          "selectedLanguages": ["en-US"],
           "siteGroupId": 20118,
           "microserviceUrl": "http://localhost:3001",
           "correlationId": "bf55fc14-3b0e-48dd-af0f-cf5af7751fba",
@@ -35350,9 +34636,7 @@
         "options": {
           "demoMode": true,
           "productCount": 10,
-          "categories": [
-            "Electronics"
-          ],
+          "categories": ["Electronics"],
           "generateBulkPricing": true,
           "generatePriceLists": true,
           "generateSkuVariants": true,
@@ -35496,10 +34780,7 @@
           }
         ]
       },
-      "currentSteps": [
-        "subflow-products",
-        "subflow-accounts"
-      ],
+      "currentSteps": ["subflow-products", "subflow-accounts"],
       "correlationId": "bf55fc14-3b0e-48dd-af0f-cf5af7751fba",
       "version": 1,
       "created_at": "2026-03-13T15:24:46.430Z",
@@ -35522,9 +34803,7 @@
           "localeCode": "en-US",
           "pollingDelay": 5000,
           "pollingRetries": 12,
-          "selectedLanguages": [
-            "en-US"
-          ],
+          "selectedLanguages": ["en-US"],
           "siteGroupId": 20118,
           "microserviceUrl": "http://localhost:3001",
           "correlationId": "bf55fc14-3b0e-48dd-af0f-cf5af7751fba",
@@ -35535,9 +34814,7 @@
         "options": {
           "demoMode": true,
           "productCount": 10,
-          "categories": [
-            "Electronics"
-          ],
+          "categories": ["Electronics"],
           "generateBulkPricing": true,
           "generatePriceLists": true,
           "generateSkuVariants": true,
@@ -35563,9 +34840,7 @@
           "backorderAssignmentRatio": 50,
           "count": 10,
           "sessionId": "AICA-SESSION-1773415486823-bdd02e01",
-          "selectedLanguages": [
-            "en-US"
-          ],
+          "selectedLanguages": ["en-US"],
           "warehouses": [
             {
               "externalReferenceCode": "AICA-WH-1773415487218-289a85dc",
@@ -35768,9 +35043,7 @@
                 "type": "main"
               }
             ],
-            "attachments": [
-              "manual-sku-ele-001.pdf"
-            ],
+            "attachments": ["manual-sku-ele-001.pdf"],
             "productOptions": [
               {
                 "name": {
@@ -35999,9 +35272,7 @@
                 "type": "main"
               }
             ],
-            "attachments": [
-              "manual-sku-ele-002.pdf"
-            ],
+            "attachments": ["manual-sku-ele-002.pdf"],
             "productOptions": [
               {
                 "name": {
@@ -36230,9 +35501,7 @@
                 "type": "main"
               }
             ],
-            "attachments": [
-              "manual-sku-ele-003.pdf"
-            ],
+            "attachments": ["manual-sku-ele-003.pdf"],
             "productOptions": [
               {
                 "name": {
@@ -36461,9 +35730,7 @@
                 "type": "main"
               }
             ],
-            "attachments": [
-              "manual-sku-ele-004.pdf"
-            ],
+            "attachments": ["manual-sku-ele-004.pdf"],
             "productOptions": [
               {
                 "name": {
@@ -36692,9 +35959,7 @@
                 "type": "main"
               }
             ],
-            "attachments": [
-              "manual-sku-ele-005.pdf"
-            ],
+            "attachments": ["manual-sku-ele-005.pdf"],
             "productOptions": [
               {
                 "name": {
@@ -36923,9 +36188,7 @@
                 "type": "main"
               }
             ],
-            "attachments": [
-              "manual-sku-ele-006.pdf"
-            ],
+            "attachments": ["manual-sku-ele-006.pdf"],
             "productOptions": [
               {
                 "name": {
@@ -37154,9 +36417,7 @@
                 "type": "main"
               }
             ],
-            "attachments": [
-              "manual-sku-ele-007.pdf"
-            ],
+            "attachments": ["manual-sku-ele-007.pdf"],
             "productOptions": [
               {
                 "name": {
@@ -37385,9 +36646,7 @@
                 "type": "main"
               }
             ],
-            "attachments": [
-              "manual-sku-ele-008.pdf"
-            ],
+            "attachments": ["manual-sku-ele-008.pdf"],
             "productOptions": [
               {
                 "name": {
@@ -37616,9 +36875,7 @@
                 "type": "main"
               }
             ],
-            "attachments": [
-              "manual-sku-ele-009.pdf"
-            ],
+            "attachments": ["manual-sku-ele-009.pdf"],
             "productOptions": [
               {
                 "name": {
@@ -37847,9 +37104,7 @@
                 "type": "main"
               }
             ],
-            "attachments": [
-              "manual-sku-ele-010.pdf"
-            ],
+            "attachments": ["manual-sku-ele-010.pdf"],
             "productOptions": [
               {
                 "name": {
@@ -38066,9 +37321,7 @@
           "localeCode": "en-US",
           "pollingDelay": 5000,
           "pollingRetries": 12,
-          "selectedLanguages": [
-            "en-US"
-          ],
+          "selectedLanguages": ["en-US"],
           "siteGroupId": 20118,
           "microserviceUrl": "http://localhost:3001",
           "correlationId": "bf55fc14-3b0e-48dd-af0f-cf5af7751fba",
@@ -38079,9 +37332,7 @@
         "options": {
           "demoMode": true,
           "productCount": 10,
-          "categories": [
-            "Electronics"
-          ],
+          "categories": ["Electronics"],
           "generateBulkPricing": true,
           "generatePriceLists": true,
           "generateSkuVariants": true,
@@ -38107,9 +37358,7 @@
           "backorderAssignmentRatio": 50,
           "count": 2,
           "sessionId": "AICA-SESSION-1773415486878-8ce2fb31",
-          "selectedLanguages": [
-            "en-US"
-          ]
+          "selectedLanguages": ["en-US"]
         },
         "steps": [
           {
@@ -39204,9 +38453,7 @@
           "localeCode": "en-US",
           "pollingDelay": 5000,
           "pollingRetries": 12,
-          "selectedLanguages": [
-            "en-US"
-          ],
+          "selectedLanguages": ["en-US"],
           "siteGroupId": 20118,
           "microserviceUrl": "http://localhost:3001",
           "correlationId": "bf55fc14-3b0e-48dd-af0f-cf5af7751fba",
@@ -39217,9 +38464,7 @@
         "options": {
           "demoMode": true,
           "productCount": 10,
-          "categories": [
-            "Electronics"
-          ],
+          "categories": ["Electronics"],
           "generateBulkPricing": true,
           "generatePriceLists": true,
           "generateSkuVariants": true,
@@ -39245,9 +38490,7 @@
           "backorderAssignmentRatio": 50,
           "count": 10,
           "sessionId": "AICA-SESSION-1773415486823-bdd02e01",
-          "selectedLanguages": [
-            "en-US"
-          ],
+          "selectedLanguages": ["en-US"],
           "stepKey": "create-warehouses"
         },
         "steps": [
@@ -39284,9 +38527,7 @@
           "localeCode": "en-US",
           "pollingDelay": 5000,
           "pollingRetries": 12,
-          "selectedLanguages": [
-            "en-US"
-          ],
+          "selectedLanguages": ["en-US"],
           "siteGroupId": 20118,
           "microserviceUrl": "http://localhost:3001",
           "correlationId": "bf55fc14-3b0e-48dd-af0f-cf5af7751fba",
@@ -39381,9 +38622,7 @@
           "localeCode": "en-US",
           "pollingDelay": 5000,
           "pollingRetries": 12,
-          "selectedLanguages": [
-            "en-US"
-          ],
+          "selectedLanguages": ["en-US"],
           "siteGroupId": 20118,
           "microserviceUrl": "http://localhost:3001",
           "correlationId": "bf55fc14-3b0e-48dd-af0f-cf5af7751fba",
@@ -39394,9 +38633,7 @@
         "options": {
           "demoMode": true,
           "productCount": 10,
-          "categories": [
-            "Electronics"
-          ],
+          "categories": ["Electronics"],
           "generateBulkPricing": true,
           "generatePriceLists": true,
           "generateSkuVariants": true,
@@ -39540,10 +38777,7 @@
           }
         ]
       },
-      "currentSteps": [
-        "subflow-products",
-        "subflow-accounts"
-      ],
+      "currentSteps": ["subflow-products", "subflow-accounts"],
       "correlationId": "bf55fc14-3b0e-48dd-af0f-cf5af7751fba",
       "version": 1,
       "created_at": "2026-03-13T15:29:43.699Z",
@@ -39566,9 +38800,7 @@
           "localeCode": "en-US",
           "pollingDelay": 5000,
           "pollingRetries": 12,
-          "selectedLanguages": [
-            "en-US"
-          ],
+          "selectedLanguages": ["en-US"],
           "siteGroupId": 20118,
           "microserviceUrl": "http://localhost:3001",
           "correlationId": "bf55fc14-3b0e-48dd-af0f-cf5af7751fba",
@@ -39579,9 +38811,7 @@
         "options": {
           "demoMode": true,
           "productCount": 10,
-          "categories": [
-            "Electronics"
-          ],
+          "categories": ["Electronics"],
           "generateBulkPricing": true,
           "generatePriceLists": true,
           "generateSkuVariants": true,
@@ -39607,9 +38837,7 @@
           "backorderAssignmentRatio": 50,
           "count": 10,
           "sessionId": "AICA-SESSION-1773415784488-6cc501da",
-          "selectedLanguages": [
-            "en-US"
-          ],
+          "selectedLanguages": ["en-US"],
           "warehouses": [
             {
               "externalReferenceCode": "AICA-WH-1773415784946-2375e15f",
@@ -39812,9 +39040,7 @@
                 "type": "main"
               }
             ],
-            "attachments": [
-              "manual-sku-ele-001.pdf"
-            ],
+            "attachments": ["manual-sku-ele-001.pdf"],
             "productOptions": [
               {
                 "name": {
@@ -40043,9 +39269,7 @@
                 "type": "main"
               }
             ],
-            "attachments": [
-              "manual-sku-ele-002.pdf"
-            ],
+            "attachments": ["manual-sku-ele-002.pdf"],
             "productOptions": [
               {
                 "name": {
@@ -40274,9 +39498,7 @@
                 "type": "main"
               }
             ],
-            "attachments": [
-              "manual-sku-ele-003.pdf"
-            ],
+            "attachments": ["manual-sku-ele-003.pdf"],
             "productOptions": [
               {
                 "name": {
@@ -40505,9 +39727,7 @@
                 "type": "main"
               }
             ],
-            "attachments": [
-              "manual-sku-ele-004.pdf"
-            ],
+            "attachments": ["manual-sku-ele-004.pdf"],
             "productOptions": [
               {
                 "name": {
@@ -40736,9 +39956,7 @@
                 "type": "main"
               }
             ],
-            "attachments": [
-              "manual-sku-ele-005.pdf"
-            ],
+            "attachments": ["manual-sku-ele-005.pdf"],
             "productOptions": [
               {
                 "name": {
@@ -40967,9 +40185,7 @@
                 "type": "main"
               }
             ],
-            "attachments": [
-              "manual-sku-ele-006.pdf"
-            ],
+            "attachments": ["manual-sku-ele-006.pdf"],
             "productOptions": [
               {
                 "name": {
@@ -41198,9 +40414,7 @@
                 "type": "main"
               }
             ],
-            "attachments": [
-              "manual-sku-ele-007.pdf"
-            ],
+            "attachments": ["manual-sku-ele-007.pdf"],
             "productOptions": [
               {
                 "name": {
@@ -41429,9 +40643,7 @@
                 "type": "main"
               }
             ],
-            "attachments": [
-              "manual-sku-ele-008.pdf"
-            ],
+            "attachments": ["manual-sku-ele-008.pdf"],
             "productOptions": [
               {
                 "name": {
@@ -41660,9 +40872,7 @@
                 "type": "main"
               }
             ],
-            "attachments": [
-              "manual-sku-ele-009.pdf"
-            ],
+            "attachments": ["manual-sku-ele-009.pdf"],
             "productOptions": [
               {
                 "name": {
@@ -41891,9 +41101,7 @@
                 "type": "main"
               }
             ],
-            "attachments": [
-              "manual-sku-ele-010.pdf"
-            ],
+            "attachments": ["manual-sku-ele-010.pdf"],
             "productOptions": [
               {
                 "name": {
@@ -42110,9 +41318,7 @@
           "localeCode": "en-US",
           "pollingDelay": 5000,
           "pollingRetries": 12,
-          "selectedLanguages": [
-            "en-US"
-          ],
+          "selectedLanguages": ["en-US"],
           "siteGroupId": 20118,
           "microserviceUrl": "http://localhost:3001",
           "correlationId": "bf55fc14-3b0e-48dd-af0f-cf5af7751fba",
@@ -42123,9 +41329,7 @@
         "options": {
           "demoMode": true,
           "productCount": 10,
-          "categories": [
-            "Electronics"
-          ],
+          "categories": ["Electronics"],
           "generateBulkPricing": true,
           "generatePriceLists": true,
           "generateSkuVariants": true,
@@ -42151,9 +41355,7 @@
           "backorderAssignmentRatio": 50,
           "count": 2,
           "sessionId": "AICA-SESSION-1773415784565-21d657d6",
-          "selectedLanguages": [
-            "en-US"
-          ]
+          "selectedLanguages": ["en-US"]
         },
         "steps": [
           {
@@ -43248,9 +42450,7 @@
           "localeCode": "en-US",
           "pollingDelay": 5000,
           "pollingRetries": 12,
-          "selectedLanguages": [
-            "en-US"
-          ],
+          "selectedLanguages": ["en-US"],
           "siteGroupId": 20118,
           "microserviceUrl": "http://localhost:3001",
           "correlationId": "bf55fc14-3b0e-48dd-af0f-cf5af7751fba",
@@ -43261,9 +42461,7 @@
         "options": {
           "demoMode": true,
           "productCount": 10,
-          "categories": [
-            "Electronics"
-          ],
+          "categories": ["Electronics"],
           "generateBulkPricing": true,
           "generatePriceLists": true,
           "generateSkuVariants": true,
@@ -43289,9 +42487,7 @@
           "backorderAssignmentRatio": 50,
           "count": 10,
           "sessionId": "AICA-SESSION-1773415784488-6cc501da",
-          "selectedLanguages": [
-            "en-US"
-          ],
+          "selectedLanguages": ["en-US"],
           "stepKey": "create-warehouses"
         },
         "steps": [
@@ -43328,9 +42524,7 @@
           "localeCode": "en-US",
           "pollingDelay": 5000,
           "pollingRetries": 12,
-          "selectedLanguages": [
-            "en-US"
-          ],
+          "selectedLanguages": ["en-US"],
           "siteGroupId": 20118,
           "microserviceUrl": "http://localhost:3001",
           "correlationId": "bf55fc14-3b0e-48dd-af0f-cf5af7751fba",
@@ -43425,9 +42619,7 @@
           "localeCode": "en-US",
           "pollingDelay": 5000,
           "pollingRetries": 12,
-          "selectedLanguages": [
-            "en-US"
-          ],
+          "selectedLanguages": ["en-US"],
           "siteGroupId": 20118,
           "microserviceUrl": "http://localhost:3001",
           "correlationId": "bf55fc14-3b0e-48dd-af0f-cf5af7751fba",
@@ -43438,9 +42630,7 @@
         "options": {
           "demoMode": true,
           "productCount": 10,
-          "categories": [
-            "Electronics"
-          ],
+          "categories": ["Electronics"],
           "generateBulkPricing": true,
           "generatePriceLists": true,
           "generateSkuVariants": true,
@@ -43584,10 +42774,7 @@
           }
         ]
       },
-      "currentSteps": [
-        "subflow-products",
-        "subflow-accounts"
-      ],
+      "currentSteps": ["subflow-products", "subflow-accounts"],
       "correlationId": "bf55fc14-3b0e-48dd-af0f-cf5af7751fba",
       "version": 1,
       "created_at": "2026-03-13T15:36:54.980Z",
@@ -43610,9 +42797,7 @@
           "localeCode": "en-US",
           "pollingDelay": 5000,
           "pollingRetries": 12,
-          "selectedLanguages": [
-            "en-US"
-          ],
+          "selectedLanguages": ["en-US"],
           "siteGroupId": 20118,
           "microserviceUrl": "http://localhost:3001",
           "correlationId": "bf55fc14-3b0e-48dd-af0f-cf5af7751fba",
@@ -43623,9 +42808,7 @@
         "options": {
           "demoMode": true,
           "productCount": 10,
-          "categories": [
-            "Electronics"
-          ],
+          "categories": ["Electronics"],
           "generateBulkPricing": true,
           "generatePriceLists": true,
           "generateSkuVariants": true,
@@ -43651,9 +42834,7 @@
           "backorderAssignmentRatio": 50,
           "count": 10,
           "sessionId": "AICA-SESSION-1773416215820-82c4550b",
-          "selectedLanguages": [
-            "en-US"
-          ],
+          "selectedLanguages": ["en-US"],
           "warehouses": [
             {
               "externalReferenceCode": "AICA-WH-1773416216307-20cf655e",
@@ -43856,9 +43037,7 @@
                 "type": "main"
               }
             ],
-            "attachments": [
-              "manual-sku-ele-001.pdf"
-            ],
+            "attachments": ["manual-sku-ele-001.pdf"],
             "productOptions": [
               {
                 "name": {
@@ -44087,9 +43266,7 @@
                 "type": "main"
               }
             ],
-            "attachments": [
-              "manual-sku-ele-002.pdf"
-            ],
+            "attachments": ["manual-sku-ele-002.pdf"],
             "productOptions": [
               {
                 "name": {
@@ -44318,9 +43495,7 @@
                 "type": "main"
               }
             ],
-            "attachments": [
-              "manual-sku-ele-003.pdf"
-            ],
+            "attachments": ["manual-sku-ele-003.pdf"],
             "productOptions": [
               {
                 "name": {
@@ -44549,9 +43724,7 @@
                 "type": "main"
               }
             ],
-            "attachments": [
-              "manual-sku-ele-004.pdf"
-            ],
+            "attachments": ["manual-sku-ele-004.pdf"],
             "productOptions": [
               {
                 "name": {
@@ -44780,9 +43953,7 @@
                 "type": "main"
               }
             ],
-            "attachments": [
-              "manual-sku-ele-005.pdf"
-            ],
+            "attachments": ["manual-sku-ele-005.pdf"],
             "productOptions": [
               {
                 "name": {
@@ -45011,9 +44182,7 @@
                 "type": "main"
               }
             ],
-            "attachments": [
-              "manual-sku-ele-006.pdf"
-            ],
+            "attachments": ["manual-sku-ele-006.pdf"],
             "productOptions": [
               {
                 "name": {
@@ -45242,9 +44411,7 @@
                 "type": "main"
               }
             ],
-            "attachments": [
-              "manual-sku-ele-007.pdf"
-            ],
+            "attachments": ["manual-sku-ele-007.pdf"],
             "productOptions": [
               {
                 "name": {
@@ -45473,9 +44640,7 @@
                 "type": "main"
               }
             ],
-            "attachments": [
-              "manual-sku-ele-008.pdf"
-            ],
+            "attachments": ["manual-sku-ele-008.pdf"],
             "productOptions": [
               {
                 "name": {
@@ -45704,9 +44869,7 @@
                 "type": "main"
               }
             ],
-            "attachments": [
-              "manual-sku-ele-009.pdf"
-            ],
+            "attachments": ["manual-sku-ele-009.pdf"],
             "productOptions": [
               {
                 "name": {
@@ -45935,9 +45098,7 @@
                 "type": "main"
               }
             ],
-            "attachments": [
-              "manual-sku-ele-010.pdf"
-            ],
+            "attachments": ["manual-sku-ele-010.pdf"],
             "productOptions": [
               {
                 "name": {
@@ -46154,9 +45315,7 @@
           "localeCode": "en-US",
           "pollingDelay": 5000,
           "pollingRetries": 12,
-          "selectedLanguages": [
-            "en-US"
-          ],
+          "selectedLanguages": ["en-US"],
           "siteGroupId": 20118,
           "microserviceUrl": "http://localhost:3001",
           "correlationId": "bf55fc14-3b0e-48dd-af0f-cf5af7751fba",
@@ -46167,9 +45326,7 @@
         "options": {
           "demoMode": true,
           "productCount": 10,
-          "categories": [
-            "Electronics"
-          ],
+          "categories": ["Electronics"],
           "generateBulkPricing": true,
           "generatePriceLists": true,
           "generateSkuVariants": true,
@@ -46195,9 +45352,7 @@
           "backorderAssignmentRatio": 50,
           "count": 2,
           "sessionId": "AICA-SESSION-1773416215904-56ab71ff",
-          "selectedLanguages": [
-            "en-US"
-          ]
+          "selectedLanguages": ["en-US"]
         },
         "steps": [
           {
@@ -47292,9 +46447,7 @@
           "localeCode": "en-US",
           "pollingDelay": 5000,
           "pollingRetries": 12,
-          "selectedLanguages": [
-            "en-US"
-          ],
+          "selectedLanguages": ["en-US"],
           "siteGroupId": 20118,
           "microserviceUrl": "http://localhost:3001",
           "correlationId": "bf55fc14-3b0e-48dd-af0f-cf5af7751fba",
@@ -47305,9 +46458,7 @@
         "options": {
           "demoMode": true,
           "productCount": 10,
-          "categories": [
-            "Electronics"
-          ],
+          "categories": ["Electronics"],
           "generateBulkPricing": true,
           "generatePriceLists": true,
           "generateSkuVariants": true,
@@ -47333,9 +46484,7 @@
           "backorderAssignmentRatio": 50,
           "count": 10,
           "sessionId": "AICA-SESSION-1773416215820-82c4550b",
-          "selectedLanguages": [
-            "en-US"
-          ],
+          "selectedLanguages": ["en-US"],
           "stepKey": "create-warehouses"
         },
         "steps": [
@@ -47372,9 +46521,7 @@
           "localeCode": "en-US",
           "pollingDelay": 5000,
           "pollingRetries": 12,
-          "selectedLanguages": [
-            "en-US"
-          ],
+          "selectedLanguages": ["en-US"],
           "siteGroupId": 20118,
           "microserviceUrl": "http://localhost:3001",
           "correlationId": "bf55fc14-3b0e-48dd-af0f-cf5af7751fba",
@@ -47469,9 +46616,7 @@
           "localeCode": "en-US",
           "pollingDelay": 5000,
           "pollingRetries": 12,
-          "selectedLanguages": [
-            "en-US"
-          ],
+          "selectedLanguages": ["en-US"],
           "siteGroupId": 20118,
           "microserviceUrl": "http://localhost:3001",
           "correlationId": "bf55fc14-3b0e-48dd-af0f-cf5af7751fba",
@@ -47482,9 +46627,7 @@
         "options": {
           "demoMode": true,
           "productCount": 10,
-          "categories": [
-            "Electronics"
-          ],
+          "categories": ["Electronics"],
           "generateBulkPricing": true,
           "generatePriceLists": true,
           "generateSkuVariants": true,
@@ -47628,10 +46771,7 @@
           }
         ]
       },
-      "currentSteps": [
-        "subflow-products",
-        "subflow-accounts"
-      ],
+      "currentSteps": ["subflow-products", "subflow-accounts"],
       "correlationId": "bf55fc14-3b0e-48dd-af0f-cf5af7751fba",
       "version": 1,
       "created_at": "2026-03-13T16:01:05.052Z",
@@ -47654,9 +46794,7 @@
           "localeCode": "en-US",
           "pollingDelay": 5000,
           "pollingRetries": 12,
-          "selectedLanguages": [
-            "en-US"
-          ],
+          "selectedLanguages": ["en-US"],
           "siteGroupId": 20118,
           "microserviceUrl": "http://localhost:3001",
           "correlationId": "bf55fc14-3b0e-48dd-af0f-cf5af7751fba",
@@ -47667,9 +46805,7 @@
         "options": {
           "demoMode": true,
           "productCount": 10,
-          "categories": [
-            "Electronics"
-          ],
+          "categories": ["Electronics"],
           "generateBulkPricing": true,
           "generatePriceLists": true,
           "generateSkuVariants": true,
@@ -47695,9 +46831,7 @@
           "backorderAssignmentRatio": 50,
           "count": 10,
           "sessionId": "AICA-SESSION-1773417665855-2ba6ebb2",
-          "selectedLanguages": [
-            "en-US"
-          ],
+          "selectedLanguages": ["en-US"],
           "warehouses": [
             {
               "externalReferenceCode": "AICA-WH-1773417666386-2fae323b",
@@ -47900,9 +47034,7 @@
                 "type": "main"
               }
             ],
-            "attachments": [
-              "manual-sku-ele-001.pdf"
-            ],
+            "attachments": ["manual-sku-ele-001.pdf"],
             "productOptions": [
               {
                 "name": {
@@ -48131,9 +47263,7 @@
                 "type": "main"
               }
             ],
-            "attachments": [
-              "manual-sku-ele-002.pdf"
-            ],
+            "attachments": ["manual-sku-ele-002.pdf"],
             "productOptions": [
               {
                 "name": {
@@ -48362,9 +47492,7 @@
                 "type": "main"
               }
             ],
-            "attachments": [
-              "manual-sku-ele-003.pdf"
-            ],
+            "attachments": ["manual-sku-ele-003.pdf"],
             "productOptions": [
               {
                 "name": {
@@ -48593,9 +47721,7 @@
                 "type": "main"
               }
             ],
-            "attachments": [
-              "manual-sku-ele-004.pdf"
-            ],
+            "attachments": ["manual-sku-ele-004.pdf"],
             "productOptions": [
               {
                 "name": {
@@ -48824,9 +47950,7 @@
                 "type": "main"
               }
             ],
-            "attachments": [
-              "manual-sku-ele-005.pdf"
-            ],
+            "attachments": ["manual-sku-ele-005.pdf"],
             "productOptions": [
               {
                 "name": {
@@ -49055,9 +48179,7 @@
                 "type": "main"
               }
             ],
-            "attachments": [
-              "manual-sku-ele-006.pdf"
-            ],
+            "attachments": ["manual-sku-ele-006.pdf"],
             "productOptions": [
               {
                 "name": {
@@ -49286,9 +48408,7 @@
                 "type": "main"
               }
             ],
-            "attachments": [
-              "manual-sku-ele-007.pdf"
-            ],
+            "attachments": ["manual-sku-ele-007.pdf"],
             "productOptions": [
               {
                 "name": {
@@ -49517,9 +48637,7 @@
                 "type": "main"
               }
             ],
-            "attachments": [
-              "manual-sku-ele-008.pdf"
-            ],
+            "attachments": ["manual-sku-ele-008.pdf"],
             "productOptions": [
               {
                 "name": {
@@ -49748,9 +48866,7 @@
                 "type": "main"
               }
             ],
-            "attachments": [
-              "manual-sku-ele-009.pdf"
-            ],
+            "attachments": ["manual-sku-ele-009.pdf"],
             "productOptions": [
               {
                 "name": {
@@ -49979,9 +49095,7 @@
                 "type": "main"
               }
             ],
-            "attachments": [
-              "manual-sku-ele-010.pdf"
-            ],
+            "attachments": ["manual-sku-ele-010.pdf"],
             "productOptions": [
               {
                 "name": {
@@ -50198,9 +49312,7 @@
           "localeCode": "en-US",
           "pollingDelay": 5000,
           "pollingRetries": 12,
-          "selectedLanguages": [
-            "en-US"
-          ],
+          "selectedLanguages": ["en-US"],
           "siteGroupId": 20118,
           "microserviceUrl": "http://localhost:3001",
           "correlationId": "bf55fc14-3b0e-48dd-af0f-cf5af7751fba",
@@ -50211,9 +49323,7 @@
         "options": {
           "demoMode": true,
           "productCount": 10,
-          "categories": [
-            "Electronics"
-          ],
+          "categories": ["Electronics"],
           "generateBulkPricing": true,
           "generatePriceLists": true,
           "generateSkuVariants": true,
@@ -50239,9 +49349,7 @@
           "backorderAssignmentRatio": 50,
           "count": 2,
           "sessionId": "AICA-SESSION-1773417665949-47867935",
-          "selectedLanguages": [
-            "en-US"
-          ]
+          "selectedLanguages": ["en-US"]
         },
         "steps": [
           {
@@ -51336,9 +50444,7 @@
           "localeCode": "en-US",
           "pollingDelay": 5000,
           "pollingRetries": 12,
-          "selectedLanguages": [
-            "en-US"
-          ],
+          "selectedLanguages": ["en-US"],
           "siteGroupId": 20118,
           "microserviceUrl": "http://localhost:3001",
           "correlationId": "bf55fc14-3b0e-48dd-af0f-cf5af7751fba",
@@ -51349,9 +50455,7 @@
         "options": {
           "demoMode": true,
           "productCount": 10,
-          "categories": [
-            "Electronics"
-          ],
+          "categories": ["Electronics"],
           "generateBulkPricing": true,
           "generatePriceLists": true,
           "generateSkuVariants": true,
@@ -51377,9 +50481,7 @@
           "backorderAssignmentRatio": 50,
           "count": 10,
           "sessionId": "AICA-SESSION-1773417665855-2ba6ebb2",
-          "selectedLanguages": [
-            "en-US"
-          ],
+          "selectedLanguages": ["en-US"],
           "stepKey": "create-warehouses"
         },
         "steps": [
@@ -51416,9 +50518,7 @@
           "localeCode": "en-US",
           "pollingDelay": 5000,
           "pollingRetries": 12,
-          "selectedLanguages": [
-            "en-US"
-          ],
+          "selectedLanguages": ["en-US"],
           "siteGroupId": 20118,
           "microserviceUrl": "http://localhost:3001",
           "correlationId": "bf55fc14-3b0e-48dd-af0f-cf5af7751fba",
@@ -51513,9 +50613,7 @@
           "localeCode": "en-US",
           "pollingDelay": 5000,
           "pollingRetries": 12,
-          "selectedLanguages": [
-            "en-US"
-          ],
+          "selectedLanguages": ["en-US"],
           "siteGroupId": 20118,
           "microserviceUrl": "http://localhost:3001",
           "correlationId": "bf55fc14-3b0e-48dd-af0f-cf5af7751fba",
@@ -51526,9 +50624,7 @@
         "options": {
           "demoMode": true,
           "productCount": 2,
-          "categories": [
-            "Electronics"
-          ],
+          "categories": ["Electronics"],
           "generateBulkPricing": true,
           "generatePriceLists": true,
           "generateSkuVariants": true,
@@ -51672,10 +50768,7 @@
           }
         ]
       },
-      "currentSteps": [
-        "subflow-products",
-        "subflow-accounts"
-      ],
+      "currentSteps": ["subflow-products", "subflow-accounts"],
       "correlationId": "bf55fc14-3b0e-48dd-af0f-cf5af7751fba",
       "version": 1,
       "created_at": "2026-03-13T16:08:29.666Z",
@@ -51698,9 +50791,7 @@
           "localeCode": "en-US",
           "pollingDelay": 5000,
           "pollingRetries": 12,
-          "selectedLanguages": [
-            "en-US"
-          ],
+          "selectedLanguages": ["en-US"],
           "siteGroupId": 20118,
           "microserviceUrl": "http://localhost:3001",
           "correlationId": "bf55fc14-3b0e-48dd-af0f-cf5af7751fba",
@@ -51711,9 +50802,7 @@
         "options": {
           "demoMode": true,
           "productCount": 2,
-          "categories": [
-            "Electronics"
-          ],
+          "categories": ["Electronics"],
           "generateBulkPricing": true,
           "generatePriceLists": true,
           "generateSkuVariants": true,
@@ -51739,9 +50828,7 @@
           "backorderAssignmentRatio": 50,
           "count": 2,
           "sessionId": "AICA-SESSION-1773418110215-78442f0a",
-          "selectedLanguages": [
-            "en-US"
-          ],
+          "selectedLanguages": ["en-US"],
           "warehouses": [
             {
               "externalReferenceCode": "AICA-WH-1773418110778-e039e437",
@@ -51944,9 +51031,7 @@
                 "type": "main"
               }
             ],
-            "attachments": [
-              "manual-sku-ele-001.pdf"
-            ],
+            "attachments": ["manual-sku-ele-001.pdf"],
             "productOptions": [
               {
                 "name": {
@@ -52175,9 +51260,7 @@
                 "type": "main"
               }
             ],
-            "attachments": [
-              "manual-sku-ele-002.pdf"
-            ],
+            "attachments": ["manual-sku-ele-002.pdf"],
             "productOptions": [
               {
                 "name": {
@@ -52394,9 +51477,7 @@
           "localeCode": "en-US",
           "pollingDelay": 5000,
           "pollingRetries": 12,
-          "selectedLanguages": [
-            "en-US"
-          ],
+          "selectedLanguages": ["en-US"],
           "siteGroupId": 20118,
           "microserviceUrl": "http://localhost:3001",
           "correlationId": "bf55fc14-3b0e-48dd-af0f-cf5af7751fba",
@@ -52407,9 +51488,7 @@
         "options": {
           "demoMode": true,
           "productCount": 2,
-          "categories": [
-            "Electronics"
-          ],
+          "categories": ["Electronics"],
           "generateBulkPricing": true,
           "generatePriceLists": true,
           "generateSkuVariants": true,
@@ -52435,9 +51514,7 @@
           "backorderAssignmentRatio": 50,
           "count": 2,
           "sessionId": "AICA-SESSION-1773418110296-c623d153",
-          "selectedLanguages": [
-            "en-US"
-          ]
+          "selectedLanguages": ["en-US"]
         },
         "steps": [
           {
@@ -53532,9 +52609,7 @@
           "localeCode": "en-US",
           "pollingDelay": 5000,
           "pollingRetries": 12,
-          "selectedLanguages": [
-            "en-US"
-          ],
+          "selectedLanguages": ["en-US"],
           "siteGroupId": 20118,
           "microserviceUrl": "http://localhost:3001",
           "correlationId": "bf55fc14-3b0e-48dd-af0f-cf5af7751fba",
@@ -53545,9 +52620,7 @@
         "options": {
           "demoMode": true,
           "productCount": 2,
-          "categories": [
-            "Electronics"
-          ],
+          "categories": ["Electronics"],
           "generateBulkPricing": true,
           "generatePriceLists": true,
           "generateSkuVariants": true,
@@ -53573,9 +52646,7 @@
           "backorderAssignmentRatio": 50,
           "count": 2,
           "sessionId": "AICA-SESSION-1773418110215-78442f0a",
-          "selectedLanguages": [
-            "en-US"
-          ],
+          "selectedLanguages": ["en-US"],
           "stepKey": "create-warehouses"
         },
         "steps": [
@@ -53612,9 +52683,7 @@
           "localeCode": "en-US",
           "pollingDelay": 5000,
           "pollingRetries": 12,
-          "selectedLanguages": [
-            "en-US"
-          ],
+          "selectedLanguages": ["en-US"],
           "siteGroupId": 20118,
           "microserviceUrl": "http://localhost:3001",
           "correlationId": "bf55fc14-3b0e-48dd-af0f-cf5af7751fba",
@@ -53709,9 +52778,7 @@
           "localeCode": "en-US",
           "pollingDelay": 5000,
           "pollingRetries": 12,
-          "selectedLanguages": [
-            "en-US"
-          ],
+          "selectedLanguages": ["en-US"],
           "siteGroupId": 20118,
           "microserviceUrl": "http://localhost:3001",
           "correlationId": "bf55fc14-3b0e-48dd-af0f-cf5af7751fba",
@@ -53722,9 +52789,7 @@
         "options": {
           "demoMode": true,
           "productCount": 2,
-          "categories": [
-            "Electronics"
-          ],
+          "categories": ["Electronics"],
           "generateBulkPricing": true,
           "generatePriceLists": true,
           "generateSkuVariants": true,
@@ -53868,10 +52933,7 @@
           }
         ]
       },
-      "currentSteps": [
-        "subflow-products",
-        "subflow-accounts"
-      ],
+      "currentSteps": ["subflow-products", "subflow-accounts"],
       "correlationId": "bf55fc14-3b0e-48dd-af0f-cf5af7751fba",
       "version": 1,
       "created_at": "2026-03-13T16:17:28.821Z",
@@ -53894,9 +52956,7 @@
           "localeCode": "en-US",
           "pollingDelay": 5000,
           "pollingRetries": 12,
-          "selectedLanguages": [
-            "en-US"
-          ],
+          "selectedLanguages": ["en-US"],
           "siteGroupId": 20118,
           "microserviceUrl": "http://localhost:3001",
           "correlationId": "bf55fc14-3b0e-48dd-af0f-cf5af7751fba",
@@ -53907,9 +52967,7 @@
         "options": {
           "demoMode": true,
           "productCount": 2,
-          "categories": [
-            "Electronics"
-          ],
+          "categories": ["Electronics"],
           "generateBulkPricing": true,
           "generatePriceLists": true,
           "generateSkuVariants": true,
@@ -53935,9 +52993,7 @@
           "backorderAssignmentRatio": 50,
           "count": 2,
           "sessionId": "AICA-SESSION-1773418649840-caa8720a",
-          "selectedLanguages": [
-            "en-US"
-          ],
+          "selectedLanguages": ["en-US"],
           "warehouses": [
             {
               "externalReferenceCode": "AICA-WH-1773418650436-a9aceba2",
@@ -54140,9 +53196,7 @@
                 "type": "main"
               }
             ],
-            "attachments": [
-              "manual-sku-ele-001.pdf"
-            ],
+            "attachments": ["manual-sku-ele-001.pdf"],
             "productOptions": [
               {
                 "name": {
@@ -54371,9 +53425,7 @@
                 "type": "main"
               }
             ],
-            "attachments": [
-              "manual-sku-ele-002.pdf"
-            ],
+            "attachments": ["manual-sku-ele-002.pdf"],
             "productOptions": [
               {
                 "name": {
@@ -54590,9 +53642,7 @@
           "localeCode": "en-US",
           "pollingDelay": 5000,
           "pollingRetries": 12,
-          "selectedLanguages": [
-            "en-US"
-          ],
+          "selectedLanguages": ["en-US"],
           "siteGroupId": 20118,
           "microserviceUrl": "http://localhost:3001",
           "correlationId": "bf55fc14-3b0e-48dd-af0f-cf5af7751fba",
@@ -54603,9 +53653,7 @@
         "options": {
           "demoMode": true,
           "productCount": 2,
-          "categories": [
-            "Electronics"
-          ],
+          "categories": ["Electronics"],
           "generateBulkPricing": true,
           "generatePriceLists": true,
           "generateSkuVariants": true,
@@ -54631,9 +53679,7 @@
           "backorderAssignmentRatio": 50,
           "count": 2,
           "sessionId": "AICA-SESSION-1773418649938-4134062d",
-          "selectedLanguages": [
-            "en-US"
-          ]
+          "selectedLanguages": ["en-US"]
         },
         "steps": [
           {
@@ -55728,9 +54774,7 @@
           "localeCode": "en-US",
           "pollingDelay": 5000,
           "pollingRetries": 12,
-          "selectedLanguages": [
-            "en-US"
-          ],
+          "selectedLanguages": ["en-US"],
           "siteGroupId": 20118,
           "microserviceUrl": "http://localhost:3001",
           "correlationId": "bf55fc14-3b0e-48dd-af0f-cf5af7751fba",
@@ -55741,9 +54785,7 @@
         "options": {
           "demoMode": true,
           "productCount": 2,
-          "categories": [
-            "Electronics"
-          ],
+          "categories": ["Electronics"],
           "generateBulkPricing": true,
           "generatePriceLists": true,
           "generateSkuVariants": true,
@@ -55769,9 +54811,7 @@
           "backorderAssignmentRatio": 50,
           "count": 2,
           "sessionId": "AICA-SESSION-1773418649840-caa8720a",
-          "selectedLanguages": [
-            "en-US"
-          ],
+          "selectedLanguages": ["en-US"],
           "stepKey": "create-warehouses"
         },
         "steps": [
@@ -55808,9 +54848,7 @@
           "localeCode": "en-US",
           "pollingDelay": 5000,
           "pollingRetries": 12,
-          "selectedLanguages": [
-            "en-US"
-          ],
+          "selectedLanguages": ["en-US"],
           "siteGroupId": 20118,
           "microserviceUrl": "http://localhost:3001",
           "correlationId": "bf55fc14-3b0e-48dd-af0f-cf5af7751fba",
@@ -55905,9 +54943,7 @@
           "localeCode": "en-US",
           "pollingDelay": 5000,
           "pollingRetries": 12,
-          "selectedLanguages": [
-            "en-US"
-          ],
+          "selectedLanguages": ["en-US"],
           "siteGroupId": 20118,
           "microserviceUrl": "http://localhost:3001",
           "correlationId": "bf55fc14-3b0e-48dd-af0f-cf5af7751fba",
@@ -55918,9 +54954,7 @@
         "options": {
           "demoMode": true,
           "productCount": 2,
-          "categories": [
-            "Electronics"
-          ],
+          "categories": ["Electronics"],
           "generateBulkPricing": true,
           "generatePriceLists": true,
           "generateSkuVariants": true,
@@ -56064,10 +55098,7 @@
           }
         ]
       },
-      "currentSteps": [
-        "subflow-products",
-        "subflow-accounts"
-      ],
+      "currentSteps": ["subflow-products", "subflow-accounts"],
       "correlationId": "bf55fc14-3b0e-48dd-af0f-cf5af7751fba",
       "version": 1,
       "created_at": "2026-03-13T16:26:07.788Z",
@@ -56090,9 +55121,7 @@
           "localeCode": "en-US",
           "pollingDelay": 5000,
           "pollingRetries": 12,
-          "selectedLanguages": [
-            "en-US"
-          ],
+          "selectedLanguages": ["en-US"],
           "siteGroupId": 20118,
           "microserviceUrl": "http://localhost:3001",
           "correlationId": "bf55fc14-3b0e-48dd-af0f-cf5af7751fba",
@@ -56103,9 +55132,7 @@
         "options": {
           "demoMode": true,
           "productCount": 2,
-          "categories": [
-            "Electronics"
-          ],
+          "categories": ["Electronics"],
           "generateBulkPricing": true,
           "generatePriceLists": true,
           "generateSkuVariants": true,
@@ -56131,9 +55158,7 @@
           "backorderAssignmentRatio": 50,
           "count": 2,
           "sessionId": "AICA-SESSION-1773419169578-cc29cd75",
-          "selectedLanguages": [
-            "en-US"
-          ],
+          "selectedLanguages": ["en-US"],
           "warehouses": [
             {
               "externalReferenceCode": "AICA-WH-1773419170196-2a2743bd",
@@ -56336,9 +55361,7 @@
                 "type": "main"
               }
             ],
-            "attachments": [
-              "manual-sku-ele-001.pdf"
-            ],
+            "attachments": ["manual-sku-ele-001.pdf"],
             "productOptions": [
               {
                 "name": {
@@ -56567,9 +55590,7 @@
                 "type": "main"
               }
             ],
-            "attachments": [
-              "manual-sku-ele-002.pdf"
-            ],
+            "attachments": ["manual-sku-ele-002.pdf"],
             "productOptions": [
               {
                 "name": {
@@ -56786,9 +55807,7 @@
           "localeCode": "en-US",
           "pollingDelay": 5000,
           "pollingRetries": 12,
-          "selectedLanguages": [
-            "en-US"
-          ],
+          "selectedLanguages": ["en-US"],
           "siteGroupId": 20118,
           "microserviceUrl": "http://localhost:3001",
           "correlationId": "bf55fc14-3b0e-48dd-af0f-cf5af7751fba",
@@ -56799,9 +55818,7 @@
         "options": {
           "demoMode": true,
           "productCount": 2,
-          "categories": [
-            "Electronics"
-          ],
+          "categories": ["Electronics"],
           "generateBulkPricing": true,
           "generatePriceLists": true,
           "generateSkuVariants": true,
@@ -56827,9 +55844,7 @@
           "backorderAssignmentRatio": 50,
           "count": 2,
           "sessionId": "AICA-SESSION-1773419169683-7fc5e06c",
-          "selectedLanguages": [
-            "en-US"
-          ]
+          "selectedLanguages": ["en-US"]
         },
         "steps": [
           {
@@ -57924,9 +56939,7 @@
           "localeCode": "en-US",
           "pollingDelay": 5000,
           "pollingRetries": 12,
-          "selectedLanguages": [
-            "en-US"
-          ],
+          "selectedLanguages": ["en-US"],
           "siteGroupId": 20118,
           "microserviceUrl": "http://localhost:3001",
           "correlationId": "bf55fc14-3b0e-48dd-af0f-cf5af7751fba",
@@ -57937,9 +56950,7 @@
         "options": {
           "demoMode": true,
           "productCount": 2,
-          "categories": [
-            "Electronics"
-          ],
+          "categories": ["Electronics"],
           "generateBulkPricing": true,
           "generatePriceLists": true,
           "generateSkuVariants": true,
@@ -57965,9 +56976,7 @@
           "backorderAssignmentRatio": 50,
           "count": 2,
           "sessionId": "AICA-SESSION-1773419169578-cc29cd75",
-          "selectedLanguages": [
-            "en-US"
-          ],
+          "selectedLanguages": ["en-US"],
           "stepKey": "create-warehouses"
         },
         "steps": [

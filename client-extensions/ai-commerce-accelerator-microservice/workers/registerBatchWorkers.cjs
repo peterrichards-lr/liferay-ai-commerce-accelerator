@@ -18,7 +18,7 @@ module.exports = function registerBatchWorkers({
         operation: 'job-batch-callback-processing',
         jobId: job.id,
         batchERC,
-        queue: job.queue
+        queue: job.queue,
       });
 
       // Delegate to internal implementation which throws if batch not found
@@ -34,7 +34,7 @@ module.exports = function registerBatchWorkers({
         operation: 'job-batch-callback-processing',
         jobId: job.id,
         batchERC,
-        queue: job.queue
+        queue: job.queue,
       });
 
       return { success: true };

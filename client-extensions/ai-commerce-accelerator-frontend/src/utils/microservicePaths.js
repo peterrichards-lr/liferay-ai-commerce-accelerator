@@ -3,7 +3,6 @@ const API_VERSION = 'v1';
 const BASE_PATH = `/api/${API_VERSION}`;
 const CONFIG_PATH = `${BASE_PATH}/config`;
 const GENERATE_PATH = `${BASE_PATH}/generate`;
-const VALIDATE_PATH = `${BASE_PATH}/validate`;
 
 const DELETE_COMMERCE_DATA = `${BASE_PATH}/delete-commerce-data`;
 const DELETE_SELECTED_COMMERCE_DATA = `${BASE_PATH}/delete-selected-commerce-data`;

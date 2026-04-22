@@ -6,6 +6,7 @@
     "ajv": "^8.12.0",
     "ajv-formats": "^2.1.1",
     "axios": "^1.12.2",
+    "better-sqlite3": "^11.0.0",
     "cors": "^2.8.5",
     "csv-parse": "^6.1.0",
     "express": "^5.1.0",
@@ -14,7 +15,6 @@
     "jspdf": "^3.0.1",
     "jwk-to-pem": "^2.0.5",
     "lodash": "^4.17.21",
-    "lowdb": "1.0.0",
     "memory-cache": "^0.2.0",
     "multer": "^2.0.2",
     "node-fetch": "^3.3.2",
@@ -28,11 +28,17 @@
   "name": "@liferay/liferay-ai-commerce-accelerator-microservice",
   "scripts": {
     "debug": "node --inspect --trace-warnings server.cjs",
-    "start": "node server.cjs"
+    "start": "node server.cjs",
+    "test": "vitest run",
+    "lint": "eslint . && prettier --check ."
   },
   "type": "module",
   "version": "1.0.0",
   "devDependencies": {
-    "prettier": "^3.8.1"
+    "@eslint/js": "^9.39.4",
+    "eslint": "^9.39.4",
+    "msw": "^2.13.4",
+    "prettier": "^3.8.1",
+    "vitest": "^4.1.5"
   }
 }

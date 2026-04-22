@@ -61,7 +61,10 @@ module.exports = (ws) => {
   });
   ctx.batchProcessor = new BatchProcessorService({ logger });
   ctx.batchCallback = new BatchCallbackService(ctx);
-  ctx.mockDataGenerator = new MockDataGenerator({ logger, liferay: ctx.liferay });
+  ctx.mockDataGenerator = new MockDataGenerator({
+    logger,
+    liferay: ctx.liferay,
+  });
   ctx.objectStorage = new ObjectStorageService({
     config: ctx.config,
     logger,

@@ -18,7 +18,7 @@ The project is a multi-module Liferay Workspace using a headless-first architect
     - `routes/`: Express endpoints for initiating workflows and receiving Liferay batch callbacks.
     - `utils/`: Shared constants (`constants.cjs`) and API path helpers (`liferayPaths.cjs`).
     - `data/`: Location of `workflows.json` (JSON source of truth).
-- **Stack**: Node.js (Express), lowdb (Pure-JS JSON database).
+- **Stack**: Node.js (Express), SQLite (better-sqlite3).
 
 ### 🖥️ Frontend Subsystem (`ai-commerce-accelerator-frontend`)
 **Role**: The primary control plane for the accelerator.
@@ -61,16 +61,18 @@ The project is a multi-module Liferay Workspace using a headless-first architect
 
 ### Data Generation Workflow
 1. **Frontend**: User initiates a request.
-2. **Microservice**: Creates a `workflow_session` in lowdb and starts a `Generator`.
+2. **Microservice**: Creates a `workflow_session` in SQLite and starts a `Generator`.
 3. **Microservice -> Liferay**: Submits asynchronous batches; persists state *before* submission.
 4. **Liferay -> Microservice**: Sends batch callbacks to the `batch.cjs` route.
 5. **Microservice -> Frontend**: `BatchCallbackService` advances the state and broadcasts `PROGRESS` events via WebSockets.
 6. **Frontend**: Updates progress bars and status displays for the user.
 
 ### Environment Deletion Workflow
-1. **Microservice**: `DeleteCoordinatorService` executes a fixed, dependency-aware sequence:
-   *Reset Config -> Orders -> Warehouses -> Accounts -> Products -> Pricing.*
-2. **Persistence**: Ensures referential integrity is maintained throughout the cleanup process.
+1. **Microservice**: `DeleteCoordinatorService` initiates the **Manifest-First Discovery** phase (`DISCOVER`). It crawls the Liferay instance to find all relevant entities (Orders, Accounts, Warehouses, Products, etc.) and stores their full metadata (ID, ERC, Name) in a session manifest.
+2. **Exclusion Check**: During discovery, the system automatically cross-references entities against the **Exclude Lists** (configured in Liferay Objects).
+3. **Execution**: The service executes a dependency-aware sequence:
+   *DISCOVER -> Reset Config -> Orders -> Warehouse Items -> Warehouses -> Accounts -> Options -> Specifications -> Products -> Pricing.*
+4. **Resilience**: Deletions are performed using the metadata in the manifest, bypassing the need for redundant API calls during the deletion phase and ensuring OData compatibility by using `OR` filters instead of `IN` filters.
 
 ---
 

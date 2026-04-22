@@ -60,7 +60,7 @@ class Logger {
 
   _normalizeMessage(message, spacer = ' ') {
     let normalized = message
-      .replace(/\"/g, "'")
+      .replace(/"/g, "'")
       .replace(/\r\n/g, '\n')
       .replace(/\n\s*/g, spacer)
       .trim();
@@ -110,7 +110,7 @@ class Logger {
       const escaped = JSON.stringify(logEntry.queryForGraphiQL);
       // Remove surrounding quotes and replace escaped newlines with actual newlines
       const literal = logEntry.queryForGraphiQL;
-      json = json.replace(escaped, '`' + literal.replace(/\`/g, "'") + '`');
+      json = json.replace(escaped, '`' + literal.replace(/`/g, "'") + '`');
     }
 
     return json;

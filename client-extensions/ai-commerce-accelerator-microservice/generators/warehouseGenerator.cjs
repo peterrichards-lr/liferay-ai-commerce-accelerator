@@ -12,7 +12,8 @@ class WarehouseGenerator extends BaseGenerator {
     super(ctx);
 
     this.steps = {
-      [S.GENERATE_WAREHOUSE_DATA]: this._runWarehouseDataGenerationStep.bind(this),
+      [S.GENERATE_WAREHOUSE_DATA]:
+        this._runWarehouseDataGenerationStep.bind(this),
       [S.CREATE_WAREHOUSES]: this._runWarehouseCreationStep.bind(this),
     };
   }
@@ -40,11 +41,14 @@ class WarehouseGenerator extends BaseGenerator {
     });
 
     if (options.stepKey) {
-       await this.executeStep(sessionId, S.GENERATE_WAREHOUSE_DATA);
-       return await this.executeStep(sessionId, S.CREATE_WAREHOUSES);
+      await this.executeStep(sessionId, S.GENERATE_WAREHOUSE_DATA);
+      return await this.executeStep(sessionId, S.CREATE_WAREHOUSES);
     }
 
-    this.ctx.batchCallback._checkSessionCompletion(sessionId, config.correlationId);
+    this.ctx.batchCallback._checkSessionCompletion(
+      sessionId,
+      config.correlationId
+    );
 
     return {
       sessionId,
@@ -81,8 +85,14 @@ class WarehouseGenerator extends BaseGenerator {
         warehouseDataList: normalizedWarehouseDataList,
       });
 
-      await this.completeSyncStep(sessionId, S.GENERATE_WAREHOUSE_DATA, 'SYNCHRONOUS', normalizedWarehouseDataList.length, options.warehouseCount);
-      
+      await this.completeSyncStep(
+        sessionId,
+        S.GENERATE_WAREHOUSE_DATA,
+        'SYNCHRONOUS',
+        normalizedWarehouseDataList.length,
+        options.warehouseCount
+      );
+
       return normalizedWarehouseDataList;
     } catch (error) {
       this.logger.error('Failed execution of generate-warehouse-data step', {
@@ -119,7 +129,13 @@ class WarehouseGenerator extends BaseGenerator {
 
       if (useBatch) {
         if (options.dryRun) {
-          return await this.completeSyncStep(sessionId, stepKey, 'SYNCHRONOUS', warehouseDataList.length, warehouseDataList.length);
+          return await this.completeSyncStep(
+            sessionId,
+            stepKey,
+            'SYNCHRONOUS',
+            warehouseDataList.length,
+            warehouseDataList.length
+          );
         }
 
         const result = await this.submitBatch(
@@ -127,12 +143,13 @@ class WarehouseGenerator extends BaseGenerator {
           stepKey,
           'warehouses',
           'generate',
-          (erc) => this.liferay.createWarehousesBatch(config, warehouseDataList, {
-            externalReferenceCode: erc,
-          }),
+          (erc) =>
+            this.liferay.createWarehousesBatch(config, warehouseDataList, {
+              externalReferenceCode: erc,
+            }),
           warehouseDataList.length
         );
-        
+
         return warehouseDataList;
       } else {
         const createdWarehouses = [];
@@ -158,7 +175,10 @@ class WarehouseGenerator extends BaseGenerator {
               continue;
             }
 
-            const created = await this.liferay.createWarehouse(config, warehouse);
+            const created = await this.liferay.createWarehouse(
+              config,
+              warehouse
+            );
             createdWarehouses.push(created);
 
             this.progress.batchProgress({
@@ -185,7 +205,13 @@ class WarehouseGenerator extends BaseGenerator {
           correlationId: session.correlationId,
         });
 
-        await this.completeSyncStep(sessionId, stepKey, 'SYNCHRONOUS', createdWarehouses.length, warehouseDataList.length);
+        await this.completeSyncStep(
+          sessionId,
+          stepKey,
+          'SYNCHRONOUS',
+          createdWarehouses.length,
+          warehouseDataList.length
+        );
         return createdWarehouses;
       }
     } catch (error) {
@@ -235,7 +261,10 @@ class WarehouseGenerator extends BaseGenerator {
   }
 
   async handleBatchCallback(sessionId, batchERC) {
-    this.logger.debug(`Batch callback received for warehouse generation session ${sessionId}`, { batchERC });
+    this.logger.debug(
+      `Batch callback received for warehouse generation session ${sessionId}`,
+      { batchERC }
+    );
     return true;
   }
 }

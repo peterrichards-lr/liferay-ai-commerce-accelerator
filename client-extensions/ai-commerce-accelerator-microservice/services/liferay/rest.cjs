@@ -124,9 +124,15 @@ class LiferayRestService {
     try {
       const client = await this._client(config);
 
-      if (data && (method === 'POST' || method === 'PATCH' || method === 'PUT')) {
+      if (
+        data &&
+        (method === 'POST' || method === 'PATCH' || method === 'PUT')
+      ) {
         const raw = JSON.stringify(data);
-        logger.trace(`Outbound payload structure (${op}): ${raw.substring(0, 1000)}...`, { correlationId: config.correlationId });
+        logger.trace(
+          `Outbound payload structure (${op}): ${raw.substring(0, 1000)}...`,
+          { correlationId: config.correlationId }
+        );
       }
 
       logger.debug('Liferay API Request', {
@@ -144,6 +150,7 @@ class LiferayRestService {
         params,
         headers,
         responseType,
+        timeout: 30000, // 30 second timeout
       });
 
       const logData = {
@@ -1241,7 +1248,11 @@ class LiferayRestService {
     );
   }
 
-  async getWarehouseItems(config, warehouseId, { filter, page, pageSize } = {}) {
+  async getWarehouseItems(
+    config,
+    warehouseId,
+    { filter, page, pageSize } = {}
+  ) {
     return await this._get(
       config,
       PATH.WAREHOUSE_INVENTORIES(warehouseId),
@@ -1627,7 +1638,10 @@ class LiferayRestService {
     }
   }
 
-  async getPriceLists(config, { filter, page, pageSize, search, sort, catalogId } = {}) {
+  async getPriceLists(
+    config,
+    { filter, page, pageSize, search, sort, catalogId } = {}
+  ) {
     const params = { filter, page, pageSize, search, sort };
     const res = await this._get(
       config,

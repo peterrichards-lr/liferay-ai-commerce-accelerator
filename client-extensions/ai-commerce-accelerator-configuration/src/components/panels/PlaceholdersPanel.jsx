@@ -51,6 +51,53 @@ export default function PlaceholdersPanel() {
     ]
   );
 
+  const onSave = useCallback(async () => {
+    if (saving) return;
+    setSaving(true);
+    try {
+      const pdfPayload = normalizeToJsonPayload(
+        pdfBase64,
+        'application/pdf',
+        'application/pdf'
+      );
+      const imgPayload = normalizeToJsonPayload(
+        imgBase64,
+        'image/png',
+        imgMime
+      );
+
+      await Promise.all([
+        persistConfigKey(PDF_PLACEHOLDER_KEY, JSON.stringify(pdfPayload)),
+        persistConfigKey(IMAGE_PLACEHOLDER_KEY, JSON.stringify(imgPayload)),
+      ]);
+
+      setLastPdfBase64(pdfPayload.base64);
+      setLastPdfMime(pdfPayload.mimeType);
+      setLastImgBase64(imgPayload.base64);
+      setLastImgMime(imgPayload.mimeType);
+
+      Liferay?.Util?.openToast?.({
+        message: 'Placeholders saved successfully.',
+        type: 'success',
+      });
+    } catch (error) {
+      console.error(error);
+      Liferay?.Util?.openToast?.({
+        message: 'Failed to save placeholders.',
+        type: 'danger',
+      });
+    } finally {
+      setSaving(false);
+    }
+  }, [saving, pdfBase64, imgBase64, imgMime]);
+
+  const onCancel = useCallback(() => {
+    setPdfBase64(lastPdfBase64);
+    setPdfMime(lastPdfMime);
+    setImgBase64(lastImgBase64);
+    setImgMime(lastImgMime);
+  }, [lastPdfBase64, lastPdfMime, lastImgBase64, lastImgMime]);
+
   const validateBase64 = useCallback((s) => {
     if (!s) return ['No data provided'];
 
@@ -137,54 +184,7 @@ export default function PlaceholdersPanel() {
     };
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
-  });
-
-  const onSave = useCallback(async () => {
-    if (saving) return;
-    setSaving(true);
-    try {
-      const pdfPayload = normalizeToJsonPayload(
-        pdfBase64,
-        'application/pdf',
-        'application/pdf'
-      );
-      const imgPayload = normalizeToJsonPayload(
-        imgBase64,
-        'image/png',
-        imgMime
-      );
-
-      await Promise.all([
-        persistConfigKey(PDF_PLACEHOLDER_KEY, JSON.stringify(pdfPayload)),
-        persistConfigKey(IMAGE_PLACEHOLDER_KEY, JSON.stringify(imgPayload)),
-      ]);
-
-      setLastPdfBase64(pdfPayload.base64);
-      setLastPdfMime(pdfPayload.mimeType);
-      setLastImgBase64(imgPayload.base64);
-      setLastImgMime(imgPayload.mimeType);
-
-      Liferay?.Util?.openToast?.({
-        message: 'Placeholders saved successfully.',
-        type: 'success',
-      });
-    } catch (error) {
-      console.error(error);
-      Liferay?.Util?.openToast?.({
-        message: 'Failed to save placeholders.',
-        type: 'danger',
-      });
-    } finally {
-      setSaving(false);
-    }
-  }, [saving, pdfBase64, imgBase64, imgMime]);
-
-  const onCancel = useCallback(() => {
-    setPdfBase64(lastPdfBase64);
-    setPdfMime(lastPdfMime);
-    setImgBase64(lastImgBase64);
-    setImgMime(lastImgMime);
-  }, [lastPdfBase64, lastPdfMime, lastImgBase64, lastImgMime]);
+  }, [onSave]);
 
   const renderIssues = (issues) =>
     issues?.length ? (

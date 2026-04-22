@@ -24,12 +24,14 @@ class MockDataGenerator {
       account: 'generateAccountData',
       order: 'generateOrderData',
       warehouse: 'generateWarehouseData',
-      pricing: 'generatePricingData'
+      pricing: 'generatePricingData',
     };
 
     const methodName = methodMap[entityType];
     if (!methodName || typeof this[methodName] !== 'function') {
-      throw new Error(`MockDataGenerator: Unsupported entity type: ${entityType}`);
+      throw new Error(
+        `MockDataGenerator: Unsupported entity type: ${entityType}`
+      );
     }
 
     const selectedLanguages = options.selectedLanguages || ['en-US'];
@@ -61,12 +63,7 @@ class MockDataGenerator {
         selectedLanguages
       );
     } else if (entityType === 'warehouse') {
-      return this.generateWarehouseData(
-        count,
-        config,
-        null,
-        selectedLanguages
-      );
+      return this.generateWarehouseData(count, config, null, selectedLanguages);
     } else if (entityType === 'pricing') {
       return this.generatePricingData(
         options.products || [],
@@ -105,7 +102,7 @@ class MockDataGenerator {
     // We need some mock accounts and products to link to orders
     const accounts = this.generateAccountData(5);
     const products = this.generateProductData('Electronics', 10);
-    
+
     const orders = this.generateOrderData(
       products,
       accounts,
@@ -140,10 +137,7 @@ class MockDataGenerator {
       lang.replace('-', '_')
     );
 
-    const {
-      generateSkuVariants,
-      generatePriceLists,
-    } = options;
+    const { generateSkuVariants, generatePriceLists } = options;
 
     const categoryCode = toERCPart(category, 3);
     const localeSuffixMap = Object.fromEntries(
@@ -151,8 +145,21 @@ class MockDataGenerator {
     );
 
     // Realistic content templates
-    const adjectives = ['Professional', 'Industrial', 'Advanced', 'Ultra', 'Smart', 'Elite'];
-    const features = ['High Performance', 'Eco-Friendly', 'Durable Design', 'Cutting Edge', 'Versatile'];
+    const adjectives = [
+      'Professional',
+      'Industrial',
+      'Advanced',
+      'Ultra',
+      'Smart',
+      'Elite',
+    ];
+    const features = [
+      'High Performance',
+      'Eco-Friendly',
+      'Durable Design',
+      'Cutting Edge',
+      'Versatile',
+    ];
 
     for (let i = 0; i < count; i++) {
       const baseErc = createERC(ERC_PREFIX.PRODUCT);
@@ -180,9 +187,12 @@ class MockDataGenerator {
         const suffix = localeSuffixMap[lang] || '';
         const name = `${adj} ${category} ${i + 1}`;
         productData.name[lang] = `${name}${suffix}`;
-        productData.description[lang] = `The ${name} is a ${feat.toLowerCase()} solution designed for ${category.toLowerCase()} professionals. It offers reliability and performance in any environment.${suffix}`;
-        productData.shortDescription[lang] = `${adj} ${category} with ${feat.toLowerCase()}.${suffix}`;
-        productData.urls[lang] = `${name.toLowerCase().replace(/\s+/g, '-')}-${i + 1}`;
+        productData.description[lang] =
+          `The ${name} is a ${feat.toLowerCase()} solution designed for ${category.toLowerCase()} professionals. It offers reliability and performance in any environment.${suffix}`;
+        productData.shortDescription[lang] =
+          `${adj} ${category} with ${feat.toLowerCase()}.${suffix}`;
+        productData.urls[lang] =
+          `${name.toLowerCase().replace(/\s+/g, '-')}-${i + 1}`;
       }
 
       // Metadata (Optional in schema but good for realism)
@@ -193,10 +203,12 @@ class MockDataGenerator {
         productData.images = [
           {
             src: 'https://picsum.photos/1024/1024',
-            title: Object.fromEntries(languageCodes.map(l => [l, productData.name[l]])),
+            title: Object.fromEntries(
+              languageCodes.map((l) => [l, productData.name[l]])
+            ),
             priority: 1,
-            type: 'main'
-          }
+            type: 'main',
+          },
         ];
       }
 
@@ -207,23 +219,23 @@ class MockDataGenerator {
       if (generateSkuVariants) {
         productData.productOptions = [
           {
-            name: { 'en_US': 'Color' },
+            name: { en_US: 'Color' },
             fieldType: 'select',
             skuContributor: true,
             values: [
-              { name: { 'en_US': 'Red' }, key: 'red' },
-              { name: { 'en_US': 'Blue' }, key: 'blue' },
-              { name: { 'en_US': 'Green' }, key: 'green' }
+              { name: { en_US: 'Red' }, key: 'red' },
+              { name: { en_US: 'Blue' }, key: 'blue' },
+              { name: { en_US: 'Green' }, key: 'green' },
             ],
           },
           {
-            name: { 'en_US': 'Size' },
+            name: { en_US: 'Size' },
             fieldType: 'select',
             skuContributor: true,
             values: [
-              { name: { 'en_US': 'Small' }, key: 'small' },
-              { name: { 'en_US': 'Medium' }, key: 'medium' },
-              { name: { 'en_US': 'Large' }, key: 'large' }
+              { name: { en_US: 'Small' }, key: 'small' },
+              { name: { en_US: 'Medium' }, key: 'medium' },
+              { name: { en_US: 'Large' }, key: 'large' },
             ],
           },
         ];
@@ -243,11 +255,11 @@ class MockDataGenerator {
               id: 40000 + i * 10 + variantCounter++, // Mock variant ID
               sku: variantSku,
               options: {
-                'Color': color,
-                'Size': size
+                Color: color,
+                Size: size,
               },
               priceModifier: variantPriceModifier,
-              inStock: true
+              inStock: true,
             });
           }
         }
@@ -257,12 +269,12 @@ class MockDataGenerator {
       productData.productSpecifications = [
         {
           specificationKey: 'brand',
-          value: { 'en_US': 'AICA Elite' }
+          value: { en_US: 'AICA Elite' },
         },
         {
           specificationKey: 'material',
-          value: { 'en_US': 'Industrial Grade' }
-        }
+          value: { en_US: 'Industrial Grade' },
+        },
       ];
 
       // Every product must have at least one SKU object in the 'skus' array
@@ -276,8 +288,8 @@ class MockDataGenerator {
           price: basePrice,
           cost: basePrice * 0.6,
           inventoryLevel: getRandomInt(10, 100),
-          neverExpire: true
-        }
+          neverExpire: true,
+        },
       ];
 
       if (generatePriceLists) {
@@ -352,13 +364,14 @@ class MockDataGenerator {
 
     for (const variant of skuVariants) {
       const vEntry = {
-        price: variant.price || (basePrice * (1 + (variant.priceModifier || 0))),
+        price: variant.price || basePrice * (1 + (variant.priceModifier || 0)),
         skuExternalReferenceCode: variant.sku,
         priceListExternalReferenceCode: 'AICA-PL-GENERAL',
         externalReferenceCode: `PE-${variant.sku}-GEN-${baseErc}`,
         discountDiscovery: false,
         sku: {
-          basePrice: variant.price || (basePrice * (1 + (variant.priceModifier || 0))),
+          basePrice:
+            variant.price || basePrice * (1 + (variant.priceModifier || 0)),
           basePromoPrice: null,
         },
       };
@@ -455,25 +468,32 @@ class MockDataGenerator {
   generateOrderData(
     products = [],
     accounts = [],
-    count = 1, 
-    config = {}, 
+    count = 1,
+    config = {},
     model = null,
     selectedLanguages = ['en-US']
   ) {
     const orders = [];
-    
+
     // Safety fallback for Demo Mode if arrays are empty
-    const poolAccounts = (accounts.length > 0) ? accounts : this.generateAccountData(5);
-    const poolProducts = (products.length > 0) ? products : this.generateProductData('Electronics', 10);
+    const poolAccounts =
+      accounts.length > 0 ? accounts : this.generateAccountData(5);
+    const poolProducts =
+      products.length > 0
+        ? products
+        : this.generateProductData('Electronics', 10);
 
     for (let i = 0; i < count; i++) {
       const account = poolAccounts[i % poolAccounts.length];
       const product = poolProducts[i % poolProducts.length];
-      const skuObj = (product.skus && product.skus.length > 0) ? product.skus[0] : { sku: 'MOCK-SKU', price: 100 };
+      const skuObj =
+        product.skus && product.skus.length > 0
+          ? product.skus[0]
+          : { sku: 'MOCK-SKU', price: 100 };
 
       orders.push({
         externalReferenceCode: createERC(ERC_PREFIX.ORDER),
-        accountId: account?.id || (10000 + i),
+        accountId: account?.id || 10000 + i,
         orderDate: randomPastDate(30).toISOString(),
         orderStatus: 0,
         orderItems: [
@@ -482,16 +502,16 @@ class MockDataGenerator {
             skuExternalReferenceCode: skuObj.sku,
             quantity: getRandomInt(1, 5),
             unitPrice: skuObj.price || 100,
-          }
-        ]
+          },
+        ],
       });
     }
     return orders;
   }
 
   generateWarehouseData(
-    count = 1, 
-    config = {}, 
+    count = 1,
+    config = {},
     model = null,
     selectedLanguages = ['en-US']
   ) {
@@ -512,12 +532,14 @@ class MockDataGenerator {
         region: 'CA',
         latitude: 34.0522,
         longitude: -118.2437,
-        active: true
+        active: true,
       };
 
       for (const lang of languageCodes) {
-        warehouse.name[lang] = `Mock Warehouse ${i + 1}${lang === 'en_US' ? '' : ` (${lang})`}`;
-        warehouse.description[lang] = `Primary distribution center for ${lang} region.`;
+        warehouse.name[lang] =
+          `Mock Warehouse ${i + 1}${lang === 'en_US' ? '' : ` (${lang})`}`;
+        warehouse.description[lang] =
+          `Primary distribution center for ${lang} region.`;
       }
 
       warehouses.push(warehouse);
@@ -526,15 +548,15 @@ class MockDataGenerator {
   }
 
   generatePricingData(
-    products = [], 
-    pricingType = 'standard', 
-    config = {}, 
+    products = [],
+    pricingType = 'standard',
+    config = {},
     model = null,
     selectedLanguages = ['en-US']
   ) {
-    return products.map(p => ({
-      skuExternalReferenceCode: p.sku || (p.skus?.[0]?.sku),
-      price: getRandomInt(10, 1000)
+    return products.map((p) => ({
+      skuExternalReferenceCode: p.sku || p.skus?.[0]?.sku,
+      price: getRandomInt(10, 1000),
     }));
   }
 }

@@ -228,14 +228,16 @@ export default function useCommerceData({
 
     setConfig((prev) => {
       const availableIds = new Set(langs.map((l) => l.id));
-      
+
       // Keep previous selected languages if they are still valid for the new channel
-      const filteredLangs = (prev.selectedLanguages || []).filter(id => availableIds.has(id));
-      
+      const filteredLangs = (prev.selectedLanguages || []).filter((id) =>
+        availableIds.has(id)
+      );
+
       // If none of previous are valid, select default from new channel
       let nextLangs = filteredLangs;
       if (filteredLangs.length === 0) {
-        nextLangs = langs.filter(l => l.markedAsDefault).map(l => l.id);
+        nextLangs = langs.filter((l) => l.markedAsDefault).map((l) => l.id);
       }
 
       // If still nothing, and we have languages, just pick the first
@@ -259,17 +261,25 @@ export default function useCommerceData({
       return;
     }
 
-    const catObj = catalogs.find(c => String(c.id) === String(catalogId));
+    const catObj = catalogs.find((c) => String(c.id) === String(catalogId));
     if (!catObj) return;
 
     setConfig((prev) => {
       const nextConfig = { ...prev, catalogId: catObj.id };
-      
+
       // If we have a default language for the catalog, and it's available in the channel's languages
       if (catObj.defaultLanguageId) {
-        const isAvailable = languages.some(l => l.id === catObj.defaultLanguageId);
-        if (isAvailable && !prev.selectedLanguages?.includes(catObj.defaultLanguageId)) {
-          nextConfig.selectedLanguages = [...(prev.selectedLanguages || []), catObj.defaultLanguageId];
+        const isAvailable = languages.some(
+          (l) => l.id === catObj.defaultLanguageId
+        );
+        if (
+          isAvailable &&
+          !prev.selectedLanguages?.includes(catObj.defaultLanguageId)
+        ) {
+          nextConfig.selectedLanguages = [
+            ...(prev.selectedLanguages || []),
+            catObj.defaultLanguageId,
+          ];
         }
       }
 

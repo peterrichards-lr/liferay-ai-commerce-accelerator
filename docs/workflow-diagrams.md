@@ -81,7 +81,7 @@ graph TD
 Deletion is orchestrated by the `DeleteCoordinatorService` to ensure data is removed without violating referential integrity.
 
 ### 3.1 Full Environment Deletion (All)
-Wipes all AICA-prefixed data in a hardcoded, safe sequence.
+Wipes all data in a hardcoded, safe sequence after performing a global discovery.
 
 ```mermaid
 sequenceDiagram
@@ -89,17 +89,19 @@ sequenceDiagram
     participant LR as Liferay (Batch & API)
     
     Note over MS: Fixed Sequence:
-    MS->>LR: 1. Reset Catalog Configuration
-    MS->>LR: 2. Delete Orders
-    MS->>LR: 3. Delete Warehouses
-    MS->>LR: 4. Delete Accounts
-    MS->>LR: 5. Delete Products & SKUs
-    MS->>LR: 6. Delete Pricing & Promotions
-    MS->>LR: 7. Global Cleanup (Options/Specs)
+    MS->>LR: 1. DISCOVER (Build Manifest)
+    MS->>LR: 2. Reset Catalog Configuration
+    MS->>LR: 3. Delete Orders
+    MS->>LR: 4. Delete Warehouse Items
+    MS->>LR: 5. Delete Warehouses
+    MS->>LR: 6. Delete Accounts
+    MS->>LR: 7. Delete Products & SKUs
+    MS->>LR: 8. Delete Pricing & Promotions
+    MS->>LR: 9. Global Cleanup (Options/Specs)
 ```
 
 ### 3.2 Selected Data Deletion
-Allows users to target specific categories (e.g., only "Accounts"). Automatically prepends dependency-reset steps if necessary.
+Allows users to target specific categories (e.g., only "Accounts"). Automatically performs discovery first to ensure accurate targeting.
 
 ```mermaid
 sequenceDiagram
@@ -108,10 +110,11 @@ sequenceDiagram
     participant LR as Liferay (Batch & API)
 
     User->>MS: POST /delete-selected (Scope: [Accounts, Pricing])
+    MS->>MS: Prepend DISCOVER Step
     MS->>MS: dependencyCheck(Pricing) -> Prepend ResetCatalogConfig
     
-    loop For each Selected Step
-        MS->>LR: Execute Deletion Step (Batch or Sequential)
+    loop For each Step (Starting with DISCOVER)
+        MS->>LR: Execute Deletion/Discovery Step
     end
 ```
 

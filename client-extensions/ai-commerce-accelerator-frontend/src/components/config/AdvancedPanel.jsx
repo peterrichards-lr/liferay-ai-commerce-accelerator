@@ -1,13 +1,80 @@
 import React, { useState } from 'react';
-import ClayForm, { ClayInput, ClaySelect } from '@clayui/form';
+import ClayForm, { ClaySelect } from '@clayui/form';
 import { useApp } from '../../context/AppContext';
 import { ConfirmProvider, useConfirm } from '../ConfirmProvider';
 import CollapsiblePanel from '../ui/CollapsiblePanel';
 
+function ClearCommerceDataButton({
+  disabled = false,
+  onDeleteAllCommerceData,
+}) {
+  const confirm = useConfirm();
+
+  const onClick = async () => {
+    const ok = await confirm({
+      title: 'Delete All Commerce Data',
+      message:
+        'This will delete ALL commerce data, including orders, accounts, and products across ALL channels and catalogs. This action cannot be undone.',
+      confirmText: 'Delete',
+      cancelText: 'Cancel',
+      destructive: true,
+    });
+    if (ok) {
+      onDeleteAllCommerceData &&
+        typeof onDeleteAllCommerceData === 'function' &&
+        (await onDeleteAllCommerceData());
+    }
+  };
+  return (
+    <button
+      type="button"
+      className={`btn w-100 btn-danger my-2 py-2`}
+      onClick={onClick}
+      disabled={disabled}
+    >
+      <i className={`icon icon-warning`}></i>
+      Delete All Commerce Data
+    </button>
+  );
+}
+
+function ClearChannelCommerceDataButton({
+  disabled = false,
+  onDeleteSelectedCommerceData,
+}) {
+  const confirm = useConfirm();
+
+  const onClick = async () => {
+    const ok = await confirm({
+      title: 'Delete Selected Commerce Data',
+      message:
+        'This will delete orders for the selected channel and products for the selected catalog. This action cannot be undone.',
+      confirmText: 'Delete',
+      cancelText: 'Cancel',
+      destructive: true,
+    });
+    if (ok) {
+      onDeleteSelectedCommerceData &&
+        typeof onDeleteSelectedCommerceData === 'function' &&
+        (await onDeleteSelectedCommerceData());
+    }
+  };
+  return (
+    <button
+      type="button"
+      className={`btn w-100 btn-secondary my-2 py-2`}
+      onClick={onClick}
+      disabled={disabled}
+    >
+      <i className={`icon icon-warning`}></i>
+      Delete Selected Commerce Data
+    </button>
+  );
+}
+
 export default function AdvancedPanel({
   disabled = false,
   connected = false,
-  generationConfig,
   onDeleteAllCommerceData,
   onDeleteSelectedCommerceData,
   batchSizes,
@@ -15,78 +82,14 @@ export default function AdvancedPanel({
 }) {
   const { config, setConfig } = useApp();
 
-  const [open, setOpen] = useState(true);
-
-  console.log('AdvancedPanel Props:', {
-    disabled,
-    connected,
-    batchSizes,
-    aiModelOptions,
-    currentAiModel: config.aiModel,
-    currentBatchSize: config.batchSize,
-  });
-
-  function ClearCommerceDataButton({ disabled = false }) {
-    const confirm = useConfirm();
-
-    const onClick = async () => {
-      const ok = await confirm({
-        title: 'Delete All Commerce Data',
-        message:
-          'This will delete ALL commerce data, including orders, accounts, and products across ALL channels and catalogs. This action cannot be undone.',
-        confirmText: 'Delete',
-        cancelText: 'Cancel',
-        destructive: true,
-      });
-      if (ok) {
-        onDeleteAllCommerceData &&
-          typeof onDeleteAllCommerceData === 'function' &&
-          (await onDeleteAllCommerceData());
-      }
-    };
-    return (
-      <button
-        type="button"
-        className={`btn w-100 btn-danger my-2 py-2`}
-        onClick={onClick}
-        disabled={disabled}
-      >
-        <i className={`icon icon-warning`}></i>
-        Delete All Commerce Data
-      </button>
-    );
-  }
-
-  function ClearChannelCommerceDataButton({ disabled = false }) {
-    const confirm = useConfirm();
-
-    const onClick = async () => {
-      const ok = await confirm({
-        title: 'Delete Selected Commerce Data',
-        message:
-          'This will delete orders for the selected channel and products for the selected catalog. This action cannot be undone.',
-        confirmText: 'Delete',
-        cancelText: 'Cancel',
-        destructive: true,
-      });
-      if (ok) {
-        onDeleteSelectedCommerceData &&
-          typeof onDeleteSelectedCommerceData === 'function' &&
-          (await onDeleteSelectedCommerceData());
-      }
-    };
-    return (
-      <button
-        type="button"
-        className={`btn w-100 btn-secondary my-2 py-2`}
-        onClick={onClick}
-        disabled={disabled}
-      >
-        <i className={`icon icon-warning`}></i>
-        Delete Selected Commerce Data
-      </button>
-    );
-  }
+  // console.log('AdvancedPanel Props:', {
+  //   disabled,
+  //   connected,
+  //   batchSizes,
+  //   aiModelOptions,
+  //   currentAiModel: config.aiModel,
+  //   currentBatchSize: config.batchSize,
+  // });
 
   return (
     <CollapsiblePanel
@@ -161,8 +164,12 @@ export default function AdvancedPanel({
         <ConfirmProvider>
           <ClearChannelCommerceDataButton
             disabled={!connected || !config.channelId}
+            onDeleteSelectedCommerceData={onDeleteSelectedCommerceData}
           />
-          <ClearCommerceDataButton disabled={!connected} />
+          <ClearCommerceDataButton
+            disabled={!connected}
+            onDeleteAllCommerceData={onDeleteAllCommerceData}
+          />
         </ConfirmProvider>
         <div className="form-text">
           Proceeding will delete the Commerce data in your Liferay DXP instance.

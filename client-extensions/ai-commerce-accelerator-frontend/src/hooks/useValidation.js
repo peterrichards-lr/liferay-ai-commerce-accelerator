@@ -1,6 +1,5 @@
 import { useState, useMemo } from 'react';
 import {
-  getConnectionErrorsMap,
   getCommerceErrorsMap,
   getGenerationErrorsMap,
 } from '../utils/validation';

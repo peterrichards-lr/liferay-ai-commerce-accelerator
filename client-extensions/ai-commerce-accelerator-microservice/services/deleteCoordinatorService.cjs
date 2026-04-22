@@ -1,4 +1,5 @@
 const BaseGenerator = require('../generators/baseGenerator.cjs');
+const { asItems } = require('../utils/liferayUtils.cjs');
 const { createERC } = require('../utils/misc.cjs');
 const { ERC_PREFIX, WORKFLOW_STEPS } = require('../utils/constants.cjs');
 const BATCH_STEP_HANDLERS = require('./batch/batch-steps/index.cjs');
@@ -16,20 +17,62 @@ class DeleteCoordinatorService extends BaseGenerator {
     // Register all deletion steps
     this.steps = {
       [S.DISCOVER]: this._runDiscoveryStep.bind(this),
-      [S.RESET_CATALOG_CONFIG]: this._runGenericDeletionStep.bind(this, 'resetCatalogConfiguration'),
-      [S.DELETE_ORDERS]: this._runGenericDeletionStep.bind(this, 'deleteOrders'),
-      [S.DELETE_WAREHOUSES]: this._runGenericDeletionStep.bind(this, 'deleteWarehouses'),
-      [S.DELETE_WAREHOUSE_ITEMS]: this._runGenericDeletionStep.bind(this, 'deleteWarehouseItems'),
-      [S.DELETE_ACCOUNTS]: this._runGenericDeletionStep.bind(this, 'deleteAccounts'),
-      [S.DELETE_PRODUCTS]: this._runGenericDeletionStep.bind(this, 'deleteProducts'),
-      [S.DELETE_PRODUCT_OPTIONS]: this._runGenericDeletionStep.bind(this, 'deleteProductOptions'),
-      [S.DELETE_PRODUCT_SPECIFICATIONS]: this._runGenericDeletionStep.bind(this, 'deleteProductSpecifications'),
-      [S.DELETE_PRICE_LISTS]: this._runGenericDeletionStep.bind(this, 'deletePriceLists'),
-      [S.DELETE_PROMOTIONS]: this._runGenericDeletionStep.bind(this, 'deletePromotions'),
-      [S.DELETE_SPECIFICATIONS]: this._runGenericDeletionStep.bind(this, 'deleteSpecifications'),
-      [S.DELETE_OPTIONS]: this._runGenericDeletionStep.bind(this, 'deleteOptions'),
-      [S.DELETE_OPTION_CATEGORIES]: this._runGenericDeletionStep.bind(this, 'deleteOptionCategories'),
-      [S.DELETE_PRODUCT_RELATED]: this._runGenericDeletionStep.bind(this, 'deleteProductRelatedEntities'),
+      [S.RESET_CATALOG_CONFIG]: this._runGenericDeletionStep.bind(
+        this,
+        'resetCatalogConfiguration'
+      ),
+      [S.DELETE_ORDERS]: this._runGenericDeletionStep.bind(
+        this,
+        'deleteOrders'
+      ),
+      [S.DELETE_WAREHOUSES]: this._runGenericDeletionStep.bind(
+        this,
+        'deleteWarehouses'
+      ),
+      [S.DELETE_WAREHOUSE_ITEMS]: this._runGenericDeletionStep.bind(
+        this,
+        'deleteWarehouseItems'
+      ),
+      [S.DELETE_ACCOUNTS]: this._runGenericDeletionStep.bind(
+        this,
+        'deleteAccounts'
+      ),
+      [S.DELETE_PRODUCTS]: this._runGenericDeletionStep.bind(
+        this,
+        'deleteProducts'
+      ),
+      [S.DELETE_PRODUCT_OPTIONS]: this._runGenericDeletionStep.bind(
+        this,
+        'deleteProductOptions'
+      ),
+      [S.DELETE_PRODUCT_SPECIFICATIONS]: this._runGenericDeletionStep.bind(
+        this,
+        'deleteProductSpecifications'
+      ),
+      [S.DELETE_PRICE_LISTS]: this._runGenericDeletionStep.bind(
+        this,
+        'deletePriceLists'
+      ),
+      [S.DELETE_PROMOTIONS]: this._runGenericDeletionStep.bind(
+        this,
+        'deletePromotions'
+      ),
+      [S.DELETE_SPECIFICATIONS]: this._runGenericDeletionStep.bind(
+        this,
+        'deleteSpecifications'
+      ),
+      [S.DELETE_OPTIONS]: this._runGenericDeletionStep.bind(
+        this,
+        'deleteOptions'
+      ),
+      [S.DELETE_OPTION_CATEGORIES]: this._runGenericDeletionStep.bind(
+        this,
+        'deleteOptionCategories'
+      ),
+      [S.DELETE_PRODUCT_RELATED]: this._runGenericDeletionStep.bind(
+        this,
+        'deleteProductRelatedEntities'
+      ),
     };
   }
 
@@ -38,7 +81,9 @@ class DeleteCoordinatorService extends BaseGenerator {
    */
   async _finalizeSession(sessionId, correlationId) {
     if (await this.persistence.tryFinalizeSession(sessionId)) {
-      this.logger.info(`Deletion session completed: ${sessionId}`, { correlationId });
+      this.logger.info(`Deletion session completed: ${sessionId}`, {
+        correlationId,
+      });
       this.progress.sessionCompleted({ sessionId, correlationId });
     }
   }
@@ -48,13 +93,22 @@ class DeleteCoordinatorService extends BaseGenerator {
    * This ensures we capture relationship-dependent IDs while they are still available.
    */
   async _runDiscoveryStep(sessionId) {
+    console.log(`[DISCOVERY] >>> Phase started for session: ${sessionId}`);
     const session = await this.persistence.getSession(sessionId);
-    if (!session) return;
+    if (!session) {
+      console.error(
+        `[DISCOVERY] !!! Critical: Session not found for ${sessionId}`
+      );
+      return;
+    }
 
     const { config, channelId, catalogId } = session.context;
     const { correlationId } = session;
 
-    this.logger.info('Starting deletion discovery phase...', { sessionId, correlationId });
+    this.logger.info('Starting deletion discovery phase...', {
+      sessionId,
+      correlationId,
+    });
 
     const manifest = {
       orders: [],
@@ -71,96 +125,201 @@ class DeleteCoordinatorService extends BaseGenerator {
     try {
       // 1. Discover Orders and their Accounts (Channel Context)
       if (channelId) {
-        this.logger.info(`Discovering all orders for channel ${channelId}...`, { sessionId });
-        
+        console.log(`[DISCOVERY] Crawling orders for channel: ${channelId}`);
+        this.logger.info(`Discovering all orders for channel ${channelId}...`, {
+          sessionId,
+        });
+
         // Use the paginated collection helper from liferayService
         const { items: orders } = await this.liferay._collectAllItems(
           config,
-          (cfg, p, size) => this.liferay.graphql.getOrders(cfg, `channelId eq ${channelId}`, ['id', 'accountId'], { page: p, pageSize: size })
+          (cfg, p, size) =>
+            this.liferay.graphql.getOrders(
+              cfg,
+              `channelId eq ${channelId}`,
+              ['id', 'accountId', 'externalReferenceCode'],
+              { page: p, pageSize: size }
+            )
         );
-        
-        manifest.orders = orders.map(it => it.id);
-        this.logger.info(`Found ${orders.length} orders in channel ${channelId}.`, { sessionId });
-        
+
+        manifest.orders = orders;
+        console.log(`[DISCOVERY] Found ${orders.length} orders.`);
+        this.logger.info(
+          `Found ${orders.length} orders in channel ${channelId}.`,
+          { sessionId }
+        );
+
         // Find accounts linked to these orders
-        const accountIds = [...new Set(orders.map(it => it.accountId))].filter(Boolean);
+        const accountIds = [
+          ...new Set(orders.map((it) => it.accountId)),
+        ].filter(Boolean);
         if (accountIds.length > 0) {
-          this.logger.info(`Identified ${accountIds.length} unique accounts linked to channel orders.`, { sessionId });
-          manifest.accounts = accountIds;
+          console.log(`[DISCOVERY] Resolving unique accounts from orders...`);
+          const accountFilter = accountIds
+            .map((id) => `id eq ${id}`)
+            .join(' or ');
+          const resolvedAccounts = await this.liferay.graphql.getAccounts(
+            config,
+            accountFilter,
+            ['id', 'externalReferenceCode', 'name']
+          );
+          manifest.accounts = asItems(resolvedAccounts);
+          console.log(
+            `[DISCOVERY] Found ${manifest.accounts.length} unique accounts from orders.`
+          );
+          this.logger.info(
+            `Identified ${manifest.accounts.length} unique accounts linked to channel orders.`,
+            { sessionId }
+          );
         }
       }
 
       // FALLBACK DISCOVERY: If manifest accounts is empty, look for accounts globally
       if (manifest.accounts.length === 0) {
-        this.logger.info('No accounts found via channel filter, performing global discovery...', { sessionId });
+        console.log(
+          '[DISCOVERY] No accounts from orders, performing global account discovery...'
+        );
+        this.logger.info(
+          'No accounts found via channel filter, performing global discovery...',
+          { sessionId }
+        );
         // Use paginated collection helper
         const { items: allAccounts } = await this.liferay._collectAllItems(
           config,
-          (cfg, p, size) => this.liferay.graphql.getAccounts(cfg, null, ['id', 'externalReferenceCode', 'name'], { page: p, pageSize: size })
+          (cfg, p, size) =>
+            this.liferay.graphql.getAccounts(
+              cfg,
+              null,
+              ['id', 'externalReferenceCode', 'name'],
+              { page: p, pageSize: size }
+            )
         );
-        
-        this.logger.info(`Global discovery found ${allAccounts.length} accounts total.`, { sessionId });
-        
-        // Filter out system accounts or protected ones here if not already handled by exclusions
-        manifest.accounts = allAccounts.map(it => it.id);
+
+        console.log(`[DISCOVERY] Global found ${allAccounts.length} accounts.`);
+        this.logger.info(
+          `Global discovery found ${allAccounts.length} accounts total.`,
+          { sessionId }
+        );
+
+        manifest.accounts = allAccounts;
       }
 
       // WAREHOUSES: Discovery (Global)
+      console.log('[DISCOVERY] Crawling warehouses...');
       this.logger.info('Discovering all warehouses...', { sessionId });
       const { items: allWarehouses } = await this.liferay._collectAllItems(
         config,
-        (cfg, p, size) => this.liferay.graphql.getWarehouses(cfg, null, ['id', 'externalReferenceCode', 'name'], { page: p, pageSize: size })
+        (cfg, p, size) =>
+          this.liferay.graphql.getWarehouses(
+            cfg,
+            null,
+            ['id', 'externalReferenceCode', 'name'],
+            { page: p, pageSize: size }
+          )
       );
-      
-      this.logger.info(`Warehouse discovery found ${allWarehouses.length} total.`, { sessionId });
-      
-      manifest.warehouses = allWarehouses.map(it => it.id);
+
+      console.log(`[DISCOVERY] Found ${allWarehouses.length} warehouses.`);
+      this.logger.info(
+        `Warehouse discovery found ${allWarehouses.length} total.`,
+        { sessionId }
+      );
+
+      manifest.warehouses = allWarehouses;
+
+      // WAREHOUSE ITEMS: Discovery (Global via discovered warehouses)
+      console.log('[DISCOVERY] Crawling warehouse items...');
+      this.logger.info('Discovering all warehouse items...', { sessionId });
+      const warehouseItemsRes = await this.liferay.getAllWarehouseItems(
+        config,
+        { pageSize: 5000 }
+      );
+      manifest.warehouseItems = warehouseItemsRes.items;
+      console.log(
+        `[DISCOVERY] Found ${manifest.warehouseItems.length} warehouse items.`
+      );
+      this.logger.info(
+        `Found ${manifest.warehouseItems.length} total warehouse items.`,
+        { sessionId }
+      );
 
       // 2. Discover Catalog Entities (Catalog Context)
       if (catalogId) {
-        this.logger.debug(`Discovering products for catalog ${catalogId}...`, { sessionId });
-        const productsRes = await this.liferay.getProducts(config, { catalogId });
-        manifest.products = productsRes.items.map(it => it.productId || it.id);
+        console.log(`[DISCOVERY] Crawling catalog: ${catalogId}`);
+        this.logger.debug(`Discovering products for catalog ${catalogId}...`, {
+          sessionId,
+        });
+        const productsRes = await this.liferay.getProducts(config, {
+          catalogId,
+          fields: 'productId,externalReferenceCode,name',
+        });
+        manifest.products = productsRes.items;
+        console.log(`[DISCOVERY] Found ${manifest.products.length} products.`);
 
         // RELATIONAL DISCOVERY: Fetch linked entities while products still exist
         if (manifest.products.length > 0) {
-          this.logger.debug(`Identifying linked specifications and options for ${manifest.products.length} products...`, { sessionId });
-          
-          // These methods should already handle exclusions internally or we filter them here
-          const specs = await this.liferay.getSpecificationsByProductIds(config, manifest.products);
-          manifest.specifications = [...new Set(specs.map(s => s.id))].filter(Boolean);
+          const productIds = manifest.products.map((p) => p.productId || p.id);
+          console.log(
+            '[DISCOVERY] Resolving specifications/options for products...'
+          );
+          const specs = await this.liferay.getSpecificationsByProductIds(
+            config,
+            productIds
+          );
+          manifest.specifications = specs;
 
-          const opts = await this.liferay.getOptionsByProductIds(config, manifest.products);
-          manifest.options = [...new Set(opts.map(o => o.id))].filter(Boolean);
+          const opts = await this.liferay.getOptionsByProductIds(
+            config,
+            productIds
+          );
+          manifest.options = opts;
+          console.log(
+            `[DISCOVERY] Found ${manifest.specifications.length} specs and ${manifest.options.length} options.`
+          );
         }
 
         // Discover Price Lists and Promotions
-        const priceListsRes = await this.liferay.getPriceLists(config, { catalogId });
-        manifest.priceLists = priceListsRes.items.map(it => it.id);
+        const priceListsRes = await this.liferay.getPriceLists(config, {
+          catalogId,
+          fields: 'id,externalReferenceCode,name,catalogBasePriceList',
+        });
+        manifest.priceLists = priceListsRes.items;
 
-        const promosRes = await this.liferay.getPromotions(config, { catalogId });
-        manifest.promotions = promosRes.items.map(it => it.id);
+        const promosRes = await this.liferay.getPromotions(config, {
+          catalogId,
+          fields: 'id,externalReferenceCode,title',
+        });
+        manifest.promotions = promosRes.items;
+        console.log(
+          `[DISCOVERY] Found ${manifest.priceLists.length} price lists and ${manifest.promotions.length} promos.`
+        );
       }
 
       // 3. Persist manifest back to session context
+      console.log(
+        '[DISCOVERY] <<< Manifest building complete. Saving context...'
+      );
       const updatedContext = { ...session.context, manifest };
       await this.persistence.updateSessionContext(sessionId, updatedContext);
 
-      this.logger.info('Discovery manifest completed.', { 
-        sessionId, 
+      this.logger.info('Discovery manifest completed.', {
+        sessionId,
         counts: {
           orders: manifest.orders.length,
           accounts: manifest.accounts.length,
           products: manifest.products.length,
           specifications: manifest.specifications.length,
           options: manifest.options.length,
-          priceLists: manifest.priceLists.length
-        }
+          priceLists: manifest.priceLists.length,
+        },
       });
 
       await this.completeSyncStep(sessionId, S.DISCOVER, 'COMPLETED');
     } catch (error) {
-      this.logger.error(`Discovery phase failed: ${error.message}`, { sessionId, correlationId });
+      console.error(`[DISCOVERY] !!! FATAL FAILURE: ${error.message}`);
+      this.logger.error(`Discovery phase failed: ${error.message}`, {
+        sessionId,
+        correlationId,
+      });
       throw error;
     }
   }
@@ -174,10 +333,12 @@ class DeleteCoordinatorService extends BaseGenerator {
 
     const { config, options, channelId, catalogId, manifest } = session.context;
     const { correlationId } = session;
-    
-    const stepName = session.currentSteps[0]; 
+
+    const stepName = session.currentSteps[0];
     if (!stepName) {
-      throw new Error(`Execution triggered for ${handlerName} but no current step found in session ${sessionId}`);
+      throw new Error(
+        `Execution triggered for ${handlerName} but no current step found in session ${sessionId}`
+      );
     }
 
     // NEW LOGIC: Use the manifest IDs if available, otherwise fallback to existence check
@@ -185,6 +346,7 @@ class DeleteCoordinatorService extends BaseGenerator {
       [S.DELETE_ACCOUNTS]: manifest?.accounts,
       [S.DELETE_ORDERS]: manifest?.orders,
       [S.DELETE_WAREHOUSES]: manifest?.warehouses,
+      [S.DELETE_WAREHOUSE_ITEMS]: manifest?.warehouseItems,
       [S.DELETE_PRODUCTS]: manifest?.products,
       [S.DELETE_SPECIFICATIONS]: manifest?.specifications,
       [S.DELETE_PRODUCT_SPECIFICATIONS]: manifest?.specifications,
@@ -194,8 +356,8 @@ class DeleteCoordinatorService extends BaseGenerator {
       [S.DELETE_PROMOTIONS]: manifest?.promotions,
     };
 
-    let targetIds = manifestMap[stepName];
-    let totalCount = targetIds ? targetIds.length : 0;
+    let targetItems = manifestMap[stepName];
+    let totalCount = targetItems ? targetItems.length : 0;
     let hasItems = totalCount > 0;
 
     // Fallback for steps not in manifest or if manifest-first is skipped
@@ -211,7 +373,10 @@ class DeleteCoordinatorService extends BaseGenerator {
     }
 
     if (!hasItems) {
-      this.logger.info(`No items found for ${stepName}, bypassing.`, { sessionId, correlationId });
+      this.logger.info(`No items found for ${stepName}, bypassing.`, {
+        sessionId,
+        correlationId,
+      });
       return await this.completeSyncStep(sessionId, stepName, 'BYPASSED');
     }
 
@@ -223,7 +388,7 @@ class DeleteCoordinatorService extends BaseGenerator {
       sessionId,
       stepKey: stepName,
       status: 'PREPARED',
-      totalCount: totalCount
+      totalCount: totalCount,
     });
 
     try {
@@ -236,15 +401,15 @@ class DeleteCoordinatorService extends BaseGenerator {
         totalCount,
         batchERC,
         correlationId,
-        // Pass manifest IDs to handler if available
-        ids: targetIds,
+        // Pass manifest items to handler if available
+        items: targetItems,
       });
 
       if (result && result.batchRefs && result.batchRefs.length > 0) {
         const firstBatchId = result.batchRefs[0].taskId;
         await this.persistence.updateBatch(batchERC, {
           status: 'SUBMITTED',
-          downstreamBatchId: firstBatchId
+          downstreamBatchId: firstBatchId,
         });
 
         this.progress.batchStarted({
@@ -254,19 +419,28 @@ class DeleteCoordinatorService extends BaseGenerator {
           totalItems: totalCount,
           entityType: this._normalizeEntityType(stepName),
           operation: 'delete',
-          correlationId
+          correlationId,
         });
       } else {
         await this.persistence.updateBatch(batchERC, {
           status: 'COMPLETED',
           processedCount: totalCount,
-          errorCount: 0
+          errorCount: 0,
         });
 
-        await this.completeSyncStep(sessionId, stepName, 'COMPLETED', totalCount, totalCount);
+        await this.completeSyncStep(
+          sessionId,
+          stepName,
+          'COMPLETED',
+          totalCount,
+          totalCount
+        );
       }
     } catch (error) {
-      this.logger.error(`Deletion step '${stepName}' failed: ${error.message}`, { sessionId, batchERC, correlationId });
+      this.logger.error(
+        `Deletion step '${stepName}' failed: ${error.message}`,
+        { sessionId, batchERC, correlationId }
+      );
       await this.persistence.updateBatch(batchERC, { status: 'FAILED' });
       throw error;
     }
@@ -286,14 +460,17 @@ class DeleteCoordinatorService extends BaseGenerator {
       },
       [S.DELETE_ORDERS]: async () => {
         try {
-          const res = await liferay.getOrders(config, { 
-            filter: channelId ? `channelId eq ${channelId}` : undefined
+          const res = await liferay.getOrders(config, {
+            filter: channelId ? `channelId eq ${channelId}` : undefined,
           });
           return { totalCount: res.totalCount };
         } catch (err) {
-          this.logger.warn(`Failed to check if orders exist for deletion: ${err.message}. Skipping to avoid crash.`, {
-            stepKey
-          });
+          this.logger.warn(
+            `Failed to check if orders exist for deletion: ${err.message}. Skipping to avoid crash.`,
+            {
+              stepKey,
+            }
+          );
           return { totalCount: 0 };
         }
       },
@@ -317,7 +494,7 @@ class DeleteCoordinatorService extends BaseGenerator {
     const result = await checkMap[stepKey]();
     return {
       hasItems: (result.totalCount || 0) > 0 || !!result.hasItems,
-      totalCount: result.totalCount || 0
+      totalCount: result.totalCount || 0,
     };
   }
 
@@ -349,37 +526,52 @@ class DeleteCoordinatorService extends BaseGenerator {
       context: { config, options, sessionId, channelId, catalogId, steps },
     });
 
-    this.logger.info(`Full environment deletion session ${sessionId} started.`, {
-      sessionId,
-      correlationId: config.correlationId,
-    });
+    this.logger.info(
+      `Full environment deletion session ${sessionId} started.`,
+      {
+        sessionId,
+        correlationId: config.correlationId,
+      }
+    );
 
-    this.ctx.batchCallback._checkSessionCompletion(sessionId, config.correlationId);
+    this.ctx.batchCallback._checkSessionCompletion(
+      sessionId,
+      config.correlationId
+    );
 
     return { sessionId, message: 'Deletion started.' };
   }
 
-  async runDeleteSelectedAndMonitor(config, options = {}, { channelId, catalogId, deleteScope }) {
+  async runDeleteSelectedAndMonitor(
+    config,
+    options = {},
+    { channelId, catalogId, deleteScope }
+  ) {
     const sessionId = createERC(ERC_PREFIX.BATCH_SESSION);
 
-    let steps = Array.isArray(deleteScope) ? deleteScope.map(s => {
-       const scopeMap = {
-          'resetCatalogConfiguration': S.RESET_CATALOG_CONFIG,
-          'deleteOrders': S.DELETE_ORDERS,
-          'deleteWarehouses': S.DELETE_WAREHOUSES,
-          'deleteWarehouseItems': S.DELETE_WAREHOUSE_ITEMS,
-          'deleteAccounts': S.DELETE_ACCOUNTS,
-          'deleteProducts': S.DELETE_PRODUCTS,
-          'deletePriceLists': S.DELETE_PRICE_LISTS,
-          'deletePromotions': S.DELETE_PROMOTIONS,
-       };
-       return { ...s, name: scopeMap[s.name] || s.name };
-    }) : [];
+    let steps = Array.isArray(deleteScope)
+      ? deleteScope.map((s) => {
+          const scopeMap = {
+            resetCatalogConfiguration: S.RESET_CATALOG_CONFIG,
+            deleteOrders: S.DELETE_ORDERS,
+            deleteWarehouses: S.DELETE_WAREHOUSES,
+            deleteWarehouseItems: S.DELETE_WAREHOUSE_ITEMS,
+            deleteAccounts: S.DELETE_ACCOUNTS,
+            deleteProducts: S.DELETE_PRODUCTS,
+            deletePriceLists: S.DELETE_PRICE_LISTS,
+            deletePromotions: S.DELETE_PROMOTIONS,
+          };
+          return { ...s, name: scopeMap[s.name] || s.name };
+        })
+      : [];
 
-    if (steps.length === 0) return { sessionId, message: 'No entities selected.' };
+    if (steps.length === 0)
+      return { sessionId, message: 'No entities selected.' };
 
-    const hasPricing = steps.some(s => s.name === S.DELETE_PRICE_LISTS || s.name === S.DELETE_PROMOTIONS);
-    if (hasPricing && !steps.some(s => s.name === S.RESET_CATALOG_CONFIG)) {
+    const hasPricing = steps.some(
+      (s) => s.name === S.DELETE_PRICE_LISTS || s.name === S.DELETE_PROMOTIONS
+    );
+    if (hasPricing && !steps.some((s) => s.name === S.RESET_CATALOG_CONFIG)) {
       steps.unshift({ name: S.RESET_CATALOG_CONFIG, type: 'sync' });
     }
 
@@ -395,11 +587,13 @@ class DeleteCoordinatorService extends BaseGenerator {
       context: { config, options, channelId, catalogId, steps },
     });
 
-    this.ctx.batchCallback._checkSessionCompletion(sessionId, config.correlationId);
+    this.ctx.batchCallback._checkSessionCompletion(
+      sessionId,
+      config.correlationId
+    );
 
     return { sessionId, message: 'Selected deletion started.' };
   }
 }
 
 module.exports = DeleteCoordinatorService;
-

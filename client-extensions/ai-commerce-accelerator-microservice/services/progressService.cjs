@@ -297,13 +297,16 @@ class ProgressService {
     };
 
     this.ws.emitProgress(payload, { correlationId: cid });
-    
+
     this.persistence.logWorkflowEvent({
       sessionId,
       batchId,
       status: 'BATCH_ITEMS_FAILED',
       message: `Batch ${batchId} had ${failedItems.length} failed items.`,
-      details: { failedCount: failedItems.length, firstError: failedItems[0]?.errorMessage },
+      details: {
+        failedCount: failedItems.length,
+        firstError: failedItems[0]?.errorMessage,
+      },
     });
   }
 

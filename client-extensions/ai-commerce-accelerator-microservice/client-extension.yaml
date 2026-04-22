@@ -1,20 +1,20 @@
 assemble:
-    -   include:
-            -   "**/*.cjs"
-            -   package.json
+  - include:
+      - '**/*.cjs'
+      - package.json
 liferay-ai-commerce-accelerator-microservice-oauth-application-headless-server:
-    .serviceAddress: localhost:3001
-    .serviceScheme: http
-    name: Liferay AI Commerce Accelerator OAuth Application Headless Server
-    scopes:
-        -   Liferay.Headless.Admin.User.everything
-        -   Liferay.Headless.Batch.Engine.everything.read
-        -   Liferay.Headless.Admin.Address.everything
-        -   Liferay.Headless.Commerce.Admin.Catalog.everything
-        -   Liferay.Headless.Commerce.Admin.Channel.everything
-        -   Liferay.Headless.Commerce.Admin.Inventory.everything
-        -   Liferay.Headless.Commerce.Admin.Order.everything
-        -   Liferay.Headless.Commerce.Admin.Pricing.everything
-        -   Liferay.Headless.Delivery.everything
-        -   c_aicommerceacceleratorconfiguration.everything.read
-    type: oAuthApplicationHeadlessServer
+  .serviceAddress: localhost:3001
+  .serviceScheme: http
+  name: Liferay AI Commerce Accelerator OAuth Application Headless Server
+  scopes:
+    - Liferay.Headless.Admin.User.everything
+    - Liferay.Headless.Batch.Engine.everything.read
+    - Liferay.Headless.Admin.Address.everything
+    - Liferay.Headless.Commerce.Admin.Catalog.everything
+    - Liferay.Headless.Commerce.Admin.Channel.everything
+    - Liferay.Headless.Commerce.Admin.Inventory.everything
+    - Liferay.Headless.Commerce.Admin.Order.everything
+    - Liferay.Headless.Commerce.Admin.Pricing.everything
+    - Liferay.Headless.Delivery.everything
+    - c_aicommerceacceleratorconfiguration.everything.read
+  type: oAuthApplicationHeadlessServer

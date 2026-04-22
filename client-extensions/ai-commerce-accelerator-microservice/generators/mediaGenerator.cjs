@@ -272,7 +272,9 @@ class MediaGenerator {
 
     const imageMode = options.imageMode || 'none';
     if (imageMode === 'none') {
-      logger.info('Image generation disabled (imageMode: none).', { sessionId });
+      logger.info('Image generation disabled (imageMode: none).', {
+        sessionId,
+      });
       return;
     }
 
@@ -314,29 +316,43 @@ class MediaGenerator {
             ...options,
             correlationId,
           });
-          imageSet = [{
-            title: { en_US: `${product.name.en_US || product.name} AI Image` },
-            base64: b64,
-            contentType: 'image/png',
-            priority: 1
-          }];
+          imageSet = [
+            {
+              title: {
+                en_US: `${product.name.en_US || product.name} AI Image`,
+              },
+              base64: b64,
+              contentType: 'image/png',
+              priority: 1,
+            },
+          ];
         } else if (imageMode === 'picsum') {
-          imageSet = this.generateProductImageSet(product.name.en_US || product.name);
+          imageSet = this.generateProductImageSet(
+            product.name.en_US || product.name
+          );
         } else if (imageMode === 'placeholder' || imageMode === 'default') {
           const placeholder = await this.getDefaultBase64Image(config);
-          imageSet = [{
-            title: { en_US: `${product.name.en_US || product.name} Placeholder` },
-            base64: placeholder.base64,
-            contentType: placeholder.contentType,
-            priority: 1
-          }];
+          imageSet = [
+            {
+              title: {
+                en_US: `${product.name.en_US || product.name} Placeholder`,
+              },
+              base64: placeholder.base64,
+              contentType: placeholder.contentType,
+              priority: 1,
+            },
+          ];
         } else if (imageMode === 'custom' && options.customImageFile) {
-          imageSet = [{
-            title: { en_US: `${product.name.en_US || product.name} Custom Image` },
-            base64: options.customImageFile.buffer.toString('base64'),
-            contentType: options.customImageFile.mime,
-            priority: 1
-          }];
+          imageSet = [
+            {
+              title: {
+                en_US: `${product.name.en_US || product.name} Custom Image`,
+              },
+              base64: options.customImageFile.buffer.toString('base64'),
+              contentType: options.customImageFile.mime,
+              priority: 1,
+            },
+          ];
         }
 
         for (const imageData of imageSet) {
@@ -353,12 +369,14 @@ class MediaGenerator {
 
           if (!base64) continue;
 
-          const title = imageData.title || Object.fromEntries(
-            (config.selectedLanguages || ['en-US']).map((lang) => [
-              lang.replace('-', '_'),
-              `${product.name.en_US || product.name} Image`,
-            ])
-          );
+          const title =
+            imageData.title ||
+            Object.fromEntries(
+              (config.selectedLanguages || ['en-US']).map((lang) => [
+                lang.replace('-', '_'),
+                `${product.name.en_US || product.name} Image`,
+              ])
+            );
 
           await liferay.addProductImageByBase64(
             config,
@@ -524,7 +542,11 @@ class MediaGenerator {
   }
 
   validateConfig(config, options) {
-    if (!options.demoMode && options.imageMode === 'ai' && (options.imageRatio ?? 0) > 0) {
+    if (
+      !options.demoMode &&
+      options.imageMode === 'ai' &&
+      (options.imageRatio ?? 0) > 0
+    ) {
       if (!config.imageGenerationKey) {
         console.warn(
           'Image generation API key not configured. AI image generation may fail.'

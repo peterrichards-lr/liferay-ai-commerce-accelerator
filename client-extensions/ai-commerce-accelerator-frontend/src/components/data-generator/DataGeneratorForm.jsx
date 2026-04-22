@@ -326,10 +326,7 @@ function DataGeneratorForm({
                 availableCategories={availableCategories}
                 selectedCategories={generationConfig.categories}
                 onToggleCategory={handleCategoryChange}
-                disabled={
-                  lockFields ||
-                  availableCategories.length === 0
-                }
+                disabled={lockFields || availableCategories.length === 0}
                 invalid={
                   hasErr(validationErrors, 'categories')
                     ? validationErrors.categories
@@ -415,7 +412,9 @@ function DataGeneratorForm({
                             type="radio"
                             name="imageSource"
                             id="dataGeneration_useDefaultImage"
-                            checked={generationConfig.imageMode === 'placeholder'}
+                            checked={
+                              generationConfig.imageMode === 'placeholder'
+                            }
                             onChange={() =>
                               handleConfigChange('imageMode', 'placeholder')
                             }
@@ -798,7 +797,9 @@ function DataGeneratorForm({
                             type="radio"
                             name="imageSource"
                             id="dataGeneration_placeholderImages_live"
-                            checked={generationConfig.imageMode === 'placeholder'}
+                            checked={
+                              generationConfig.imageMode === 'placeholder'
+                            }
                             onChange={() =>
                               handleConfigChange('imageMode', 'placeholder')
                             }
@@ -1053,9 +1054,7 @@ function DataGeneratorForm({
                             name="pdfSource"
                             id="dataGeneration_generatePDFs"
                             checked={generationConfig.pdfMode === 'ai'}
-                            onChange={() =>
-                              handleConfigChange('pdfMode', 'ai')
-                            }
+                            onChange={() => handleConfigChange('pdfMode', 'ai')}
                             disabled={
                               lockFields || generationConfig.productCount === 0
                             }

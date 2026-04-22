@@ -9,11 +9,11 @@ class GenerationFacade {
   constructor(ctx) {
     this.ctx = ctx;
     this.logger = ctx.logger;
-    this.ajv = new Ajv({ 
-      allErrors: true, 
+    this.ajv = new Ajv({
+      allErrors: true,
       strict: false,
       removeAdditional: true,
-      useDefaults: true
+      useDefaults: true,
     });
     addFormats(this.ajv);
     this.validators = {};
@@ -50,7 +50,7 @@ class GenerationFacade {
       account: 'generateAccountData',
       order: 'generateOrderData',
       warehouse: 'generateWarehouseData',
-      pricing: 'generatePricingData'
+      pricing: 'generatePricingData',
     };
 
     const methodName = methodMap[entityType];
@@ -58,10 +58,13 @@ class GenerationFacade {
       throw new Error(`Unsupported generation entity type: ${entityType}`);
     }
 
-    this.logger.info(`Routing ${entityType} generation request to ${demoMode ? 'Mock' : 'AI'} service`, {
-      count,
-      correlationId
-    });
+    this.logger.info(
+      `Routing ${entityType} generation request to ${demoMode ? 'Mock' : 'AI'} service`,
+      {
+        count,
+        correlationId,
+      }
+    );
 
     let data;
     const selectedLanguages = options.selectedLanguages || ['en-US'];
@@ -125,10 +128,12 @@ class GenerationFacade {
       if (!isValid) {
         this.logger.error(`${schemaName} generation failed schema validation`, {
           errors: validator.errors,
-          correlationId
+          correlationId,
         });
 
-        const err = new Error(`${schemaName} generation failed schema validation`);
+        const err = new Error(
+          `${schemaName} generation failed schema validation`
+        );
         err.name = 'ValidationError';
         err.errors = validator.errors;
         err.errorReference = createERC(ERC_PREFIX.ERROR);
@@ -136,7 +141,10 @@ class GenerationFacade {
       }
 
       // Extract array back if it was wrapped
-      if (payload[mainPropertyName] && Array.isArray(payload[mainPropertyName])) {
+      if (
+        payload[mainPropertyName] &&
+        Array.isArray(payload[mainPropertyName])
+      ) {
         data = payload[mainPropertyName];
       }
     }
@@ -151,12 +159,12 @@ class GenerationFacade {
     if (!Array.isArray(data)) {
       return this._standardizeItem(data);
     }
-    return data.map(item => this._standardizeItem(item));
+    return data.map((item) => this._standardizeItem(item));
   }
 
   _standardizeItem(item) {
     if (!item || typeof item !== 'object') return item;
-    
+
     // Ensure ERC exists
     if (!item.externalReferenceCode && !item.erc) {
       // Try to determine a prefix based on common properties or fallback to BATCH

@@ -15,11 +15,7 @@ import useValidation from './hooks/useValidation';
 import useCommerceData from './hooks/useCommerceData';
 import useGeneration from './hooks/useGeneration';
 
-import {
-  computeTotalsFromConfig,
-  expectedImageTotal,
-  expectedPdfTotal,
-} from './state/progressSelectors';
+import { computeTotalsFromConfig } from './state/progressSelectors';
 
 import notifyUser from './utils/notifications';
 
@@ -31,15 +27,14 @@ import ConfigurationPanel from './components/config/ConfigurationPanel';
 import DataGeneratorForm from './components/data-generator/DataGeneratorForm';
 import Dashboard from './components/dashboard/Dashboard';
 
+import useAppConfigIO from './hooks/useAppConfigIO';
+
 import {
   EXPORT_COMMERCE_DATA,
   IMPORT_COMMERCE_DATA,
   AI_MODEL_OPTIONS,
   BATCH_SIZES,
 } from './utils/microservicePaths';
-
-const toInt = (v) => (v == null || v === '' ? undefined : parseInt(v, 10));
-const toArray = (v) => (Array.isArray(v) ? v : v ? [v] : []);
 
 const initialGenerationConfig = {
   productCount: 10,
@@ -108,6 +103,8 @@ export function AppUI() {
     { label: 'GPT-4.1 Mini', value: 'gpt-4.1-mini' },
   ]);
 
+  const [availableCategories, setAvailableCategories] = useState([]);
+
   const initialLoggingConfig = {
     level: config?.wsLoggingLevel || 'info',
     maxEntries: 500,
@@ -130,7 +127,7 @@ export function AppUI() {
     }
   }, []);
 
-  const { wsRef, ping, wsConnected } = useRealtimeWebSocket({
+  const { ping, wsConnected } = useRealtimeWebSocket({
     enabled: connectionEstablished && !!config.microserviceUrl,
     microserviceUrl: config.microserviceUrl,
     loggingLevel: config?.wsLoggingLevel ?? 'off',
@@ -190,6 +187,19 @@ export function AppUI() {
     setProgress,
     setGenerationCompleted,
     connectionEstablished,
+  });
+
+  const { exportConfiguration, importConfiguration } = useAppConfigIO({
+    config,
+    setConfig,
+    generationConfig,
+    setGenerationConfig,
+    connectionEstablished,
+    setConnectionEstablished,
+    setOpenAiKeyAvailable,
+    availableCategories,
+    mountedRef,
+    selectChannel,
   });
 
   const forceDemoMode = connectionEstablished && !openAiKeyAvailable;
@@ -282,172 +292,6 @@ export function AppUI() {
     generationConfig.reuseExistingWarehouses,
   ]);
 
-  const exportConfiguration = () => {
-    const exportData = {
-      liferayUrl: config.liferayUrl,
-      microserviceUrl: config.microserviceUrl,
-      batchSize: config.batchSize,
-      aiModel: config.aiModel,
-      currencyCode: config.currencyCode,
-      localeCode: config.localeCode,
-      selectedLanguages: config.selectedLanguages,
-      catalogId: config.catalogId,
-      channelId: config.channelId,
-      generationConfig: generationConfig,
-      exportedAt: new Date().toISOString(),
-    };
-
-    const filename = buildFilename('ai-commerce-accelerator-config');
-    exportJsonFile(exportData, filename);
-
-    notifyUser('Configuration exported successfully');
-  };
-
-  const importConfiguration = useCallback(
-    (event) => {
-      const file = event.target.files[0];
-      if (!file) return;
-
-      const reader = new FileReader();
-      reader.onload = async (e) => {
-        try {
-          const importedData = JSON.parse(e.target.result);
-
-          const fieldsToValidate = ['liferayUrl', 'clientId', 'clientSecret'];
-          const missingFields = [];
-
-          fieldsToValidate.forEach((field) => {
-            const val = importedData[field];
-            const empty =
-              val == null || (typeof val === 'string' && val.trim() === '');
-            if (importedData.hasOwnProperty(field) && empty) {
-              missingFields.push(field);
-            }
-          });
-
-          if (missingFields.length > 0) {
-            notifyUser(
-              `Invalid values for: ${missingFields.join(', ')}`,
-              'danger'
-            );
-            return;
-          }
-
-          const connectionParamsWillChange =
-            (importedData.hasOwnProperty('liferayUrl') &&
-              config.liferayUrl !== importedData.liferayUrl) ||
-            (importedData.hasOwnProperty('clientId') &&
-              config.clientId !== importedData.clientId) ||
-            (importedData.hasOwnProperty('clientSecret') &&
-              config.clientSecret !== importedData.clientSecret);
-
-          const allowedConfigFields = [
-            'liferayUrl',
-            'microserviceUrl',
-            'clientId',
-            'clientSecret',
-            'batchSize',
-            'aiModel',
-            'currencyCode',
-            'selectedLanguages',
-            'catalogId',
-            'channelId',
-            'reactLoggingLevel',
-            'wsLoggingLevel',
-          ];
-
-          const newConfig = { ...config };
-          allowedConfigFields.forEach((field) => {
-            if (importedData.hasOwnProperty(field)) {
-              newConfig[field] = importedData[field];
-            }
-          });
-
-          if (newConfig.channelId != null) {
-            await selectChannel(newConfig.channelId, {
-              selectedLanguages: newConfig.selectedLanguages,
-              currencyCode: newConfig.currencyCode,
-            });
-          }
-
-          setConfig(newConfig);
-
-          if (importedData.generationConfig) {
-            setGenerationConfig((prevConfig) => {
-              const importedGenConfig = importedData.generationConfig;
-              let newCategories = importedGenConfig.categories || [];
-              const availableCategoryNames = new Set(
-                availableCategories.map((c) => c.key)
-              );
-
-              // Filter out categories that are not available
-              const validImportedCategories = newCategories.filter((cat) =>
-                availableCategoryNames.has(cat)
-              );
-
-              // Identify unavailable categories
-              const unavailableCategories = newCategories.filter(
-                (cat) => !availableCategoryNames.has(cat)
-              );
-
-              if (unavailableCategories.length > 0) {
-                notifyUser(
-                  `Some imported categories are not available in the current Liferay instance: ${unavailableCategories.join(
-                    ', '
-                  )}. These categories have been removed from the configuration.`,
-                  'warning'
-                );
-              }
-
-              // If no valid categories remain, default to the first available
-              if (
-                validImportedCategories.length === 0 &&
-                availableCategories.length > 0
-              ) {
-                validImportedCategories.push(availableCategories[0].key);
-                notifyUser(
-                  `No valid categories were imported, defaulting to '${availableCategories[0].key}'.`,
-                  'info'
-                );
-              }
-
-              return {
-                ...prevConfig,
-                ...importedGenConfig,
-                categories: validImportedCategories,
-              };
-            });
-          }
-
-          if (connectionParamsWillChange) {
-            if (mountedRef.current) setConnectionEstablished(false);
-            if (mountedRef.current) setOpenAiKeyAvailable(false);
-
-            notifyUser(
-              'Configuration imported successfully. Please test connection with new parameters.'
-            );
-          } else {
-            notifyUser(
-              connectionEstablished
-                ? 'Configuration imported successfully! Connection maintained.'
-                : 'Configuration imported successfully.'
-            );
-          }
-        } catch (error) {
-          notifyUser(
-            'Failed to import configuration. Invalid JSON file.',
-            'danger',
-            error
-          );
-        }
-      };
-
-      reader.readAsText(file);
-      event.target.value = '';
-    },
-    [config, setConfig, connectionEstablished, notifyUser, setGenerationConfig]
-  );
-
   const subtitle = useMemo(
     () =>
       config?.subtitle ||
@@ -463,10 +307,8 @@ export function AppUI() {
     clearLogs();
     setBatchErrors([]);
 
-    const { products, accounts, orders, warehouses } =
+    const { products, accounts, orders, warehouses, images, pdfs } =
       computeTotalsFromConfig(generationConfig);
-    const images = expectedImageTotal(generationConfig);
-    const pdfs = expectedPdfTotal(generationConfig);
 
     setProgress(() => ({
       ...initialProgress,
@@ -518,8 +360,6 @@ export function AppUI() {
     [api]
   );
 
-  const [availableCategories, setAvailableCategories] = useState([]);
-
   useEffect(() => {
     if (!connectionEstablished) return;
     (async () => {
@@ -534,7 +374,7 @@ export function AppUI() {
               (prevConfig.categories == null ||
                 prevConfig.categories.length === 0)
             ) {
-              return { ...prevConfig, categories: [fetched[0]] };
+              return { ...prevConfig, categories: [fetched[0].key] };
             }
             return prevConfig;
           });
@@ -543,8 +383,9 @@ export function AppUI() {
         addLog('Failed to load categories: ' + err.message, 'error');
       }
 
+      let fetchedBatchSizes = [];
       try {
-        const fetchedBatchSizes = await api.get(BATCH_SIZES);
+        fetchedBatchSizes = await api.get(BATCH_SIZES);
         if (mountedRef.current && Array.isArray(fetchedBatchSizes)) {
           setBatchSizes(fetchedBatchSizes);
         }
@@ -563,7 +404,11 @@ export function AppUI() {
             if (!newConfig.aiModel && fetchedAIModelOptions.length > 0) {
               newConfig.aiModel = fetchedAIModelOptions[0].value;
             }
-            if (!newConfig.batchSize && fetchedBatchSizes.length > 0) {
+            if (
+              !newConfig.batchSize &&
+              Array.isArray(fetchedBatchSizes) &&
+              fetchedBatchSizes.length > 0
+            ) {
               newConfig.batchSize = fetchedBatchSizes[0];
             }
             return newConfig;

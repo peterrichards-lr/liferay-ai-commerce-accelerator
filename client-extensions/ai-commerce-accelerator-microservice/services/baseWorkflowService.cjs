@@ -13,10 +13,18 @@ class BaseWorkflowService {
 
   // --- Infrastructure Accessors ---
 
-  get logger() { return this.ctx.logger; }
-  get liferay() { return this.ctx.liferay; }
-  get persistence() { return this.ctx.persistence; }
-  get progress() { return this.ctx.progress; }
+  get logger() {
+    return this.ctx.logger;
+  }
+  get liferay() {
+    return this.ctx.liferay;
+  }
+  get persistence() {
+    return this.ctx.persistence;
+  }
+  get progress() {
+    return this.ctx.progress;
+  }
 
   // --- Step Validation ---
 
@@ -32,7 +40,9 @@ class BaseWorkflowService {
    */
   _ensureValidStep(stepKey) {
     if (!this.isValidStep(stepKey)) {
-      throw new Error(`Unregistered workflow step key: '${stepKey}'. Please add it to WORKFLOW_STEPS in constants.cjs`);
+      throw new Error(
+        `Unregistered workflow step key: '${stepKey}'. Please add it to WORKFLOW_STEPS in constants.cjs`
+      );
     }
   }
 
@@ -42,14 +52,24 @@ class BaseWorkflowService {
    * Verifies if all upstream dependencies for a specific step are in a terminal state.
    */
   async verifyStepDependencies(sessionId, stepName, workflowSteps) {
-    const stepConfig = workflowSteps.find(s => (typeof s === 'string' ? s === stepName : s.name === stepName));
-    
+    const stepConfig = workflowSteps.find((s) =>
+      typeof s === 'string' ? s === stepName : s.name === stepName
+    );
+
     if (stepConfig && stepConfig.dependsOn) {
-      const dependencies = Array.isArray(stepConfig.dependsOn) ? stepConfig.dependsOn : [stepConfig.dependsOn];
+      const dependencies = Array.isArray(stepConfig.dependsOn)
+        ? stepConfig.dependsOn
+        : [stepConfig.dependsOn];
       for (const dep of dependencies) {
-        const isReady = await this.persistence.verifyDependencyReady(sessionId, dep);
+        const isReady = await this.persistence.verifyDependencyReady(
+          sessionId,
+          dep
+        );
         if (!isReady) {
-          this.logger.warn(`Dependency '${dep}' not ready for step '${stepName}'. Pausing execution.`, { sessionId });
+          this.logger.warn(
+            `Dependency '${dep}' not ready for step '${stepName}'. Pausing execution.`,
+            { sessionId }
+          );
           return false;
         }
       }
@@ -63,7 +83,14 @@ class BaseWorkflowService {
    * Standardized helper to start a Liferay batch submission.
    * Handles the 'PREPARED' -> 'SUBMITTED' lifecycle and WebSocket notifications.
    */
-  async submitBatch(sessionId, stepKey, entityType, operation, submitFn, itemsCount) {
+  async submitBatch(
+    sessionId,
+    stepKey,
+    entityType,
+    operation,
+    submitFn,
+    itemsCount
+  ) {
     this._ensureValidStep(stepKey);
     const session = await this.persistence.getSession(sessionId);
     const batchERC = createERC(ERC_PREFIX.BATCH);
@@ -73,7 +100,7 @@ class BaseWorkflowService {
       sessionId,
       stepKey,
       status: 'PREPARED',
-      totalCount: itemsCount
+      totalCount: itemsCount,
     });
 
     try {
@@ -82,7 +109,7 @@ class BaseWorkflowService {
       if (result && result.batchId) {
         await this.persistence.updateBatch(batchERC, {
           status: 'SUBMITTED',
-          downstreamBatchId: result.batchId
+          downstreamBatchId: result.batchId,
         });
 
         this.progress.batchStarted({
@@ -92,15 +119,20 @@ class BaseWorkflowService {
           totalItems: itemsCount,
           entityType,
           operation,
-          correlationId: session.correlationId
+          correlationId: session.correlationId,
         });
 
         return { batchERC, batchId: result.batchId };
       } else {
-        throw new Error(`Failed to obtain batchId from Liferay for step '${stepKey}'`);
+        throw new Error(
+          `Failed to obtain batchId from Liferay for step '${stepKey}'`
+        );
       }
     } catch (error) {
-      this.logger.error(`Batch submission failed for step '${stepKey}': ${error.message}`, { sessionId, batchERC });
+      this.logger.error(
+        `Batch submission failed for step '${stepKey}': ${error.message}`,
+        { sessionId, batchERC }
+      );
       await this.persistence.updateBatch(batchERC, { status: 'FAILED' });
       throw error;
     }
@@ -110,29 +142,35 @@ class BaseWorkflowService {
    * Standardized helper for synchronous or bypassed steps.
    * Consistently marks the step as finished and broadcasts progress.
    */
-  async completeSyncStep(sessionId, stepKey, status = 'SYNCHRONOUS', processedCount = 0, totalCount = 0) {
+  async completeSyncStep(
+    sessionId,
+    stepKey,
+    status = 'SYNCHRONOUS',
+    processedCount = 0,
+    totalCount = 0
+  ) {
     this._ensureValidStep(stepKey);
     const session = await this.persistence.getSession(sessionId);
     const erc = createERC(ERC_PREFIX.BATCH);
-    
+
     const batch = await this.persistence.createBatch({
       erc,
       sessionId,
       stepKey,
       status,
       processedCount,
-      totalCount
+      totalCount,
     });
 
     if (['SYNCHRONOUS', 'COMPLETED', 'BYPASSED'].includes(status)) {
-       this.progress.stepCompleted({
-          sessionId,
-          step: stepKey,
-          entityType: this._normalizeEntityType(stepKey),
-          operation: session.flow_type,
-          totalCount,
-          correlationId: session.correlationId
-       });
+      this.progress.stepCompleted({
+        sessionId,
+        step: stepKey,
+        entityType: this._normalizeEntityType(stepKey),
+        operation: session.flow_type,
+        totalCount,
+        correlationId: session.correlationId,
+      });
     }
 
     return batch;
@@ -145,10 +183,15 @@ class BaseWorkflowService {
    */
   _normalize(items) {
     if (!Array.isArray(items)) return [];
-    return items.map(item => ({
-      id: item.id || item.productId || item.accountId || item.warehouseId || item.orderId,
+    return items.map((item) => ({
+      id:
+        item.id ||
+        item.productId ||
+        item.accountId ||
+        item.warehouseId ||
+        item.orderId,
       erc: item.externalReferenceCode || item.erc,
-      ...item
+      ...item,
     }));
   }
 
@@ -159,6 +202,9 @@ class BaseWorkflowService {
     const S = WORKFLOW_STEPS;
     const map = {
       DISCOVER: 'products',
+      'subflow-products': 'products',
+      'subflow-accounts': 'accounts',
+      'subflow-orders': 'orders',
       // Generation
       [S.GENERATE_PRODUCT_DATA]: 'products',
       [S.CREATE_PRODUCTS]: 'products',
@@ -201,6 +247,9 @@ class BaseWorkflowService {
       [S.DELETE_OPTION_CATEGORIES]: 'options',
       [S.DELETE_PRODUCT_RELATED]: 'products',
     };
+
+    // If the step matches a known category, return it for grouping.
+    // Otherwise, return the step key itself so the UI can display its specific name.
     return map[stepKey] || stepKey;
   }
 }

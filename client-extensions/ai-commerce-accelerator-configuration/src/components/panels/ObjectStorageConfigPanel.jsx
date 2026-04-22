@@ -94,7 +94,10 @@ export default function ObjectStorageConfigPanel() {
           onChange={(e) => {
             const ms = toInt(e.target.value, values.signedUrlTtlSec * 1000);
             const sec = Math.floor(ms / 1000);
-            setValues((v) => ({ ...v, signedUrlTtlSec: Math.max(60, sec) }));
+            setValue(OBJ_KEY, {
+              ...values,
+              signedUrlTtlSec: Math.max(60, sec),
+            });
           }}
           helper="Time-to-live for generated signed URLs."
         />

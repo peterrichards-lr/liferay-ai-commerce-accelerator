@@ -146,11 +146,13 @@ class CacheService {
         this.defaultTTL,
         Number(ttl) || this.defaultTTL
       );
-      const expiry = Date.now() + effectiveTtl;
+      const now = Date.now();
+      const expiry = now + effectiveTtl;
+      // console.log(`[CACHE-DEBUG] set key=${key} now=${now} effectiveTtl=${effectiveTtl} expiry=${expiry}`);
 
       this.cache.set(key, {
         value,
-        timestamp: Date.now(),
+        timestamp: now,
         accessCount: 0,
         size: this.calculateSize(value),
       });
@@ -179,6 +181,7 @@ class CacheService {
     const { logger } = this.ctx;
     try {
       const ttlEntry = this.ttlMap.get(key);
+      // console.log(`[DEBUG] get key=${key} now=${Date.now()} ttlEntry=${ttlEntry} expired=${Date.now() > ttlEntry}`);
 
       if (!ttlEntry || Date.now() > ttlEntry) {
         this.delete(key);
@@ -484,14 +487,14 @@ class CacheService {
   }
 
   cacheApiResponse(url, method, body, response, ttl = 300000) {
-    const cacheKey = `api:${method}:${url}:${_normalizeRequestBodyForCache(
+    const cacheKey = `api:${method}:${url}:${this._normalizeRequestBodyForCache(
       body
     )}`;
     this.set(cacheKey, response, ttl);
   }
 
   getApiResponse(url, method, body) {
-    const cacheKey = `api:${method}:${url}:${_normalizeRequestBodyForCache(
+    const cacheKey = `api:${method}:${url}:${this._normalizeRequestBodyForCache(
       body
     )}`;
     return this.get(cacheKey);

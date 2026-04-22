@@ -14,6 +14,7 @@ import {
   countBase64Chars,
   detectMimeFromBase64,
   fileToDataURL,
+  getBase64Payload,
   parseMaybeDataUrl,
   resizeBase64ToFitLimit,
   toMB,

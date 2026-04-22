@@ -231,6 +231,10 @@
             "items": {
               "additionalProperties": false,
               "properties": {
+                "id": {
+                  "description": "Internal numeric ID (optional, used in Demo Mode).",
+                  "type": "integer"
+                },
                 "inStock": {
                   "description": "Whether this variant is in stock.",
                   "type": "boolean"
@@ -293,6 +297,10 @@
                 "sku": {
                   "description": "The SKU of the product.",
                   "type": "string"
+                },
+                "id": {
+                  "description": "Internal numeric ID (optional, used in Demo Mode).",
+                  "type": "integer"
                 },
                 "externalReferenceCode": {
                   "description": "Unique external reference for the SKU.",

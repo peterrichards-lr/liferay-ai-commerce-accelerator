@@ -142,7 +142,7 @@ module.exports = (app, { logger, persistenceService }) => {
       }
 
       const batches = await persistenceService.getBatchesForSession(sessionId);
-      
+
       // Calculate progress per entity type
       const progress = {
         products: { completed: 0, total: 0 },
@@ -152,7 +152,7 @@ module.exports = (app, { logger, persistenceService }) => {
         pdfs: { completed: 0, total: 0 },
         warehouses: { completed: 0, total: 0 },
         options: { completed: 0, total: 0 },
-        specifications: { completed: 0, total: 0 }
+        specifications: { completed: 0, total: 0 },
       };
 
       // Consistent mapping with BaseWorkflowService._normalizeEntityType
@@ -172,10 +172,10 @@ module.exports = (app, { logger, persistenceService }) => {
         'delete-price-lists': 'products',
         'delete-promotions': 'products',
         'reset-catalog-configuration': 'products',
-        'deleteproducts': 'products',
-        'deletepricelists': 'products',
-        'deletepromotions': 'products',
-        'resetcatalogconfiguration': 'products',
+        deleteproducts: 'products',
+        deletepricelists: 'products',
+        deletepromotions: 'products',
+        resetcatalogconfiguration: 'products',
 
         'load-countries': 'accounts',
         'generate-account-data': 'accounts',
@@ -184,22 +184,22 @@ module.exports = (app, { logger, persistenceService }) => {
         'create-postal-addresses': 'accounts',
         'set-address-defaults': 'accounts',
         'delete-accounts': 'accounts',
-        'deleteaccounts': 'accounts',
+        deleteaccounts: 'accounts',
         'postal-addresses': 'accounts',
         'set-billing-and-shipping-addresses': 'accounts',
 
         'generate-order-data': 'orders',
         'create-orders': 'orders',
         'delete-orders': 'orders',
-        'deleteorders': 'orders',
+        deleteorders: 'orders',
 
         'generate-warehouse-data': 'warehouses',
         'create-warehouses': 'warehouses',
         'resolve-warehouse-ids': 'warehouses',
         'delete-warehouses': 'warehouses',
         'delete-warehouse-items': 'warehouses',
-        'deletewarehouses': 'warehouses',
-        'deletewarehouseitems': 'warehouses',
+        deletewarehouses: 'warehouses',
+        deletewarehouseitems: 'warehouses',
 
         'attach-images': 'images',
         'process-images': 'images',
@@ -210,19 +210,19 @@ module.exports = (app, { logger, persistenceService }) => {
         'delete-options': 'options',
         'delete-option-categories': 'options',
         'delete-product-options': 'options',
-        'deleteoptions': 'options',
-        'deleteproductoptions': 'options',
+        deleteoptions: 'options',
+        deleteproductoptions: 'options',
 
         'delete-specifications': 'specifications',
         'delete-product-specifications': 'specifications',
-        'deletespecifications': 'specifications'
+        deletespecifications: 'specifications',
       };
 
-      batches.forEach(b => {
+      batches.forEach((b) => {
         const entity = entityMap[b.step_key];
         if (entity && progress[entity]) {
-          progress[entity].completed += (b.processed_count || 0);
-          progress[entity].total += (b.total_count || 0);
+          progress[entity].completed += b.processed_count || 0;
+          progress[entity].total += b.total_count || 0;
         }
       });
 

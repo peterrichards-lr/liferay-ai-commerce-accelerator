@@ -22,7 +22,7 @@ class LiferayService {
     while (hasMore) {
       const res = await fetcherFn(config, page, pageSize);
       const items = asItems(res);
-      
+
       if (items.length === 0) {
         hasMore = false;
         break;
@@ -83,9 +83,11 @@ class LiferayService {
     }
 
     // Brute force discovery: Fetch all and filter in memory to avoid OData issues
-    const { items } = await this._collectAllItems(
-      config,
-      (cfg, p, size) => this.graphql.getProducts(cfg, filter, Array.from(requestedFields), { page: p, pageSize: size })
+    const { items } = await this._collectAllItems(config, (cfg, p, size) =>
+      this.graphql.getProducts(cfg, filter, Array.from(requestedFields), {
+        page: p,
+        pageSize: size,
+      })
     );
 
     const filteredItems = items.filter(
@@ -100,7 +102,13 @@ class LiferayService {
 
   async getAccounts(
     config,
-    { channelId, pageSize = 200, fields = 'id', filter: providedFilter, search } = {}
+    {
+      channelId,
+      pageSize = 200,
+      fields = 'id',
+      filter: providedFilter,
+      search,
+    } = {}
   ) {
     const exclusions = await this._getExclusions(config, 'account');
 
@@ -126,7 +134,9 @@ class LiferayService {
         ].filter(Boolean);
 
         if (uniqueIds.length > 0) {
-          channelAccountFilter = `id in (${uniqueIds.join(',')})`;
+          channelAccountFilter = uniqueIds
+            .map((id) => `id eq ${id}`)
+            .join(' or ');
         }
       } catch (err) {
         this.ctx.logger.warn(
@@ -162,12 +172,15 @@ class LiferayService {
     }
 
     // Brute force discovery
-    let { items } = await this._collectAllItems(
-      config,
-      (cfg, p, size) => this.graphql.getAccounts(cfg, filter, Array.from(requestedFields), { page: p, pageSize: size, search })
+    let { items } = await this._collectAllItems(config, (cfg, p, size) =>
+      this.graphql.getAccounts(cfg, filter, Array.from(requestedFields), {
+        page: p,
+        pageSize: size,
+        search,
+      })
     );
 
-    // FIX: If we found NONE via the channel filter but want to find AICA accounts, 
+    // FIX: If we found NONE via the channel filter but want to find AICA accounts,
     // we can't rely on prefix anymore, so we rely on the manifest building phase
     // to have caught them while orders still existed.
 
@@ -177,9 +190,12 @@ class LiferayService {
 
     // If search term is provided, filter by it in JS memory
     const finalItems = search
-      ? filteredItems.filter((it) =>
-          it.name?.toLowerCase().includes(search.toLowerCase()) ||
-          it.externalReferenceCode?.toLowerCase().includes(search.toLowerCase())
+      ? filteredItems.filter(
+          (it) =>
+            it.name?.toLowerCase().includes(search.toLowerCase()) ||
+            it.externalReferenceCode
+              ?.toLowerCase()
+              .includes(search.toLowerCase())
         )
       : filteredItems;
 
@@ -231,8 +247,10 @@ class LiferayService {
 
     // Apply prefix filter in JS memory
     if (ercPrefix) {
-      items = items.filter((it) =>
-        it.externalReferenceCode && it.externalReferenceCode.startsWith(ercPrefix)
+      items = items.filter(
+        (it) =>
+          it.externalReferenceCode &&
+          it.externalReferenceCode.startsWith(ercPrefix)
       );
     }
 
@@ -285,8 +303,10 @@ class LiferayService {
 
     // Apply prefix filter in JS memory
     if (ercPrefix) {
-      items = items.filter((it) =>
-        it.externalReferenceCode && it.externalReferenceCode.startsWith(ercPrefix)
+      items = items.filter(
+        (it) =>
+          it.externalReferenceCode &&
+          it.externalReferenceCode.startsWith(ercPrefix)
       );
     }
 
@@ -345,8 +365,10 @@ class LiferayService {
 
     // Apply prefix filter in JS memory
     if (ercPrefix) {
-      items = items.filter((it) =>
-        it.externalReferenceCode && it.externalReferenceCode.startsWith(ercPrefix)
+      items = items.filter(
+        (it) =>
+          it.externalReferenceCode &&
+          it.externalReferenceCode.startsWith(ercPrefix)
       );
     }
 
@@ -391,9 +413,11 @@ class LiferayService {
     const filter = filters.length > 0 ? filters.join(' and ') : null;
 
     // Brute force discovery
-    const { items } = await this._collectAllItems(
-      config,
-      (cfg, p, size) => this.graphql.getOrders(cfg, filter, Array.from(requestedFields), { page: p, pageSize: size })
+    const { items } = await this._collectAllItems(config, (cfg, p, size) =>
+      this.graphql.getOrders(cfg, filter, Array.from(requestedFields), {
+        page: p,
+        pageSize: size,
+      })
     );
 
     const filteredItems = items.filter(
@@ -430,9 +454,11 @@ class LiferayService {
     const filter = filters.length > 0 ? filters.join(' and ') : null;
 
     // Brute force discovery
-    const { items } = await this._collectAllItems(
-      config,
-      (cfg, p, size) => this.graphql.getWarehouses(cfg, filter, Array.from(requestedFields), { page: p, pageSize: size })
+    const { items } = await this._collectAllItems(config, (cfg, p, size) =>
+      this.graphql.getWarehouses(cfg, filter, Array.from(requestedFields), {
+        page: p,
+        pageSize: size,
+      })
     );
 
     const filteredItems = items.filter(
@@ -445,7 +471,7 @@ class LiferayService {
     };
   }
 
-  async getWarehouseItems(
+  async getAllWarehouseItems(
     config,
     { pageSize = 200, fields = 'id', filter } = {}
   ) {
@@ -530,7 +556,8 @@ class LiferayService {
         const trimmed = f.trim();
         // Map common fields to their type-specific counterparts
         if (trimmed === 'name' && isPromotion) requestedFields.add('title');
-        else if (trimmed === 'title' && !isPromotion) requestedFields.add('name');
+        else if (trimmed === 'title' && !isPromotion)
+          requestedFields.add('name');
         else requestedFields.add(trimmed);
       });
     }
@@ -680,13 +707,15 @@ class LiferayService {
         await processBatch(chunk);
       }
     } else if (providedIds && providedIds.length > 0) {
-      const idChunks = this.rest._chunkArray(providedIds, 200);
+      const idChunks = this.rest._chunkArray(providedIds, 100); // Smaller chunks for large OR filters
       for (const idChunk of idChunks) {
         // Resolve full metadata for these IDs to check exclusions
-        const idFilter =
-          entityName === 'product'
-            ? `productId in (${idChunk.join(',')})`
-            : `id in (${idChunk.join(',')})`;
+        // Use 'or' instead of 'in' for maximum compatibility
+        const idFilter = idChunk
+          .map((id) =>
+            entityName === 'product' ? `productId eq ${id}` : `id eq ${id}`
+          )
+          .join(' or ');
 
         try {
           const items = await this.rest._collectPagedItems(config, {
@@ -697,15 +726,18 @@ class LiferayService {
             op: `${entityName}:list-for-exclusion`,
             friendly: `Fetch ${entityName} for metadata check`,
           });
-          
+
           if (items && items.length > 0) {
             await processBatch(items);
           }
         } catch (err) {
-          logger.error(`Failed to resolve metadata for ${entityName} chunk. Deleting without exclusion check as fallback.`, {
-            error: err.message,
-            sessionId: rest.sessionId
-          });
+          logger.error(
+            `Failed to resolve metadata for ${entityName} chunk. Deleting without exclusion check as fallback.`,
+            {
+              error: err.message,
+              sessionId: rest.sessionId,
+            }
+          );
           // If metadata fetch fails, we fallback to deleting the IDs directly to avoid stalling the workflow
           // Note: Exclusions won't be respected in this fallback case
           await this.rest._deleteBatchSimulated(config, {
@@ -749,7 +781,7 @@ class LiferayService {
             filter,
           });
         } else if (entityName === 'warehouseItem') {
-          res = await this.getWarehouseItems(config, {
+          res = await this.getAllWarehouseItems(config, {
             pageSize,
             fields: fieldsParam,
             filter,
@@ -849,6 +881,7 @@ class LiferayService {
       sessionId,
       nativeBatch: true,
       path: PATH.PRICE_LISTS_BATCH,
+      basePath: PATH.PRICE_LISTS,
       listUrl: PATH.PRICE_LISTS,
       op: 'pricelists:batch-delete',
       friendly: 'Delete price lists (batch)',
@@ -876,6 +909,7 @@ class LiferayService {
       sessionId,
       nativeBatch: true,
       path: PATH.PRICE_LISTS_BATCH,
+      basePath: PATH.PRICE_LISTS,
       listUrl: PATH.PRICE_LISTS,
       op: 'promotions:batch-delete',
       friendly: 'Delete promotions (batch)',
@@ -886,24 +920,27 @@ class LiferayService {
   async deleteProductsBatch(
     config,
     {
+      catalogId,
       pageSize = 200,
       filter,
+      ids,
       callbackBatchERC,
       dryRun = false,
       sessionId,
       items,
-      catalogId,
     } = {}
   ) {
     return this.deleteByFilter(config, {
       entityName: 'product',
       filter: filter || (catalogId ? `catalogId eq ${catalogId}` : undefined),
+      ids,
       pageSize,
       externalReferenceCode: callbackBatchERC,
       dryRun,
       sessionId,
       nativeBatch: true,
       path: PATH.PRODUCTS_BATCH,
+      basePath: PATH.PRODUCTS,
       listUrl: PATH.PRODUCTS,
       op: 'products:batch-delete',
       friendly: 'Delete products (batch)',
@@ -917,6 +954,7 @@ class LiferayService {
     {
       pageSize = 200,
       filter,
+      ids,
       callbackBatchERC,
       dryRun = false,
       sessionId,
@@ -927,12 +965,14 @@ class LiferayService {
     return this.deleteByFilter(config, {
       entityName: 'account',
       filter,
+      ids,
       pageSize,
       externalReferenceCode: callbackBatchERC,
       dryRun,
       sessionId,
       nativeBatch: true,
       path: PATH.ACCOUNTS_BATCH,
+      basePath: PATH.ACCOUNTS,
       listUrl: PATH.ACCOUNTS,
       op: 'accounts:batch-delete',
       friendly: 'Delete accounts (batch)',
@@ -946,6 +986,7 @@ class LiferayService {
     {
       pageSize = 200,
       filter,
+      ids,
       callbackBatchERC,
       dryRun = false,
       sessionId,
@@ -955,12 +996,14 @@ class LiferayService {
     return this.deleteByFilter(config, {
       entityName: 'order',
       filter,
+      ids,
       pageSize,
       externalReferenceCode: callbackBatchERC,
       dryRun,
       sessionId,
       nativeBatch: true,
       path: PATH.ORDERS_BATCH,
+      basePath: PATH.ORDERS,
       listUrl: PATH.ORDERS,
       op: 'orders:batch-delete',
       friendly: 'Delete orders (batch)',
@@ -973,6 +1016,7 @@ class LiferayService {
     {
       pageSize = 200,
       filter,
+      ids,
       callbackBatchERC,
       dryRun = false,
       sessionId,
@@ -982,6 +1026,7 @@ class LiferayService {
     return this.deleteByFilter(config, {
       entityName: 'warehouse',
       filter,
+      ids,
       pageSize,
       externalReferenceCode: callbackBatchERC,
       dryRun,
@@ -1001,24 +1046,29 @@ class LiferayService {
     {
       pageSize = 200,
       filter,
+      ids,
       callbackBatchERC,
       dryRun = false,
       sessionId,
       items,
     } = {}
   ) {
+    const listUrl = PATH.WAREHOUSE_INVENTORIES_DELETE_BATCH('')
+      .split('?')[0]
+      .replace('/batch', '');
+
     return this.deleteByFilter(config, {
       entityName: 'warehouseItem',
       filter,
+      ids,
       pageSize,
       externalReferenceCode: callbackBatchERC,
       dryRun,
       sessionId,
       nativeBatch: true,
       path: PATH.WAREHOUSE_INVENTORIES_DELETE_BATCH,
-      listUrl: PATH.WAREHOUSE_INVENTORIES_DELETE_BATCH('')
-        .split('?')[0]
-        .replace('/batch', ''),
+      basePath: listUrl,
+      listUrl: listUrl,
       op: 'inventory:batch-delete',
       friendly: 'Delete inventory items (batch)',
       items,
@@ -1047,6 +1097,7 @@ class LiferayService {
       sessionId,
       nativeBatch: true,
       path: PATH.SPECIFICATIONS_BATCH,
+      basePath: PATH.SPECIFICATIONS,
       listUrl: PATH.SPECIFICATIONS,
       op: 'specifications:batch-delete',
       friendly: 'Delete specifications (batch)',
@@ -1076,6 +1127,7 @@ class LiferayService {
       sessionId,
       nativeBatch: true,
       path: PATH.OPTIONS_BATCH,
+      basePath: PATH.OPTIONS,
       listUrl: PATH.OPTIONS,
       op: 'options:batch-delete',
       friendly: 'Delete options (batch)',
@@ -1105,6 +1157,7 @@ class LiferayService {
       sessionId,
       nativeBatch: true,
       path: PATH.OPTION_CATEGORIES_BATCH,
+      basePath: PATH.OPTION_CATEGORIES,
       listUrl: PATH.OPTION_CATEGORIES,
       op: 'optionCategories:batch-delete',
       friendly: 'Delete option categories (batch)',
@@ -1209,7 +1262,9 @@ class LiferayService {
     const { logger } = this.ctx;
     try {
       if (!siteKey) {
-        logger.warn('siteKey is missing for getLanguages, falling back to REST');
+        logger.warn(
+          'siteKey is missing for getLanguages, falling back to REST'
+        );
         return await this.rest.getLanguages(config, siteKey);
       }
 
@@ -1217,7 +1272,9 @@ class LiferayService {
       const items = asItems(res);
 
       if (!items || items.length === 0) {
-        logger.warn(`GraphQL returned 0 languages for site ${siteKey}, falling back to REST`);
+        logger.warn(
+          `GraphQL returned 0 languages for site ${siteKey}, falling back to REST`
+        );
         return await this.rest.getLanguages(config, siteKey);
       }
 
@@ -1227,11 +1284,15 @@ class LiferayService {
         isDefault: lang.markedAsDefault || false,
       }));
     } catch (err) {
-      logger.warn(`Failed to fetch languages for site ${siteKey}: ${err.message}. Attempting REST fallback.`);
+      logger.warn(
+        `Failed to fetch languages for site ${siteKey}: ${err.message}. Attempting REST fallback.`
+      );
       try {
         return await this.rest.getLanguages(config, siteKey);
       } catch (restErr) {
-        logger.error(`Critical failure: Failed to fetch languages via GraphQL AND REST for site ${siteKey}.`);
+        logger.error(
+          `Critical failure: Failed to fetch languages via GraphQL AND REST for site ${siteKey}.`
+        );
         throw restErr;
       }
     }
@@ -1674,12 +1735,8 @@ class LiferayService {
 
   // --- REST SDK Passthrough ---
 
-  getWarehouseItems(config, warehouseId, opts) {
+  getWarehouseItemsByWarehouseId(config, warehouseId, opts) {
     return this.rest.getWarehouseItems(config, warehouseId, opts);
-  }
-
-  updateProductInventory(config, warehouseId, sku, inventoryData) {
-    return this.rest.updateProductInventory(config, warehouseId, sku, inventoryData);
   }
 
   getPriceEntries(config, priceListId, opts) {

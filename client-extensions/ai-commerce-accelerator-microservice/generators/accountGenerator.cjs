@@ -23,57 +23,24 @@ class AccountGenerator extends BaseGenerator {
       [S.SYNC_DELAY]: this._runInterServiceSyncDelayStep.bind(this),
       [S.RESOLVE_ACCOUNT_IDS]: this._runResolveAccountIdsStep.bind(this),
       [S.CREATE_POSTAL_ADDRESSES]: this._runAddressCreationStep.bind(this),
-      [S.SET_ADDRESS_DEFAULTS]: this._runSetBillingAndShippingAddressesStep.bind(this),
-      [S.SUBFLOW_ACCOUNTS]: this._runSubflowAccountsStep.bind(this),
+      [S.SET_ADDRESS_DEFAULTS]:
+        this._runSetBillingAndShippingAddressesStep.bind(this),
     };
-  }
-
-  async _runSubflowAccountsStep(sessionId) {
-    const session = await this.persistence.getSession(sessionId);
-    const { config, options } = session.context;
-
-    this.logger.info('Enqueuing generate-accounts job for subflow', {
-      sessionId,
-      correlationId: session.correlationId,
-    });
-
-    try {
-      await this.ctx.queue.add('data-generation', 'generate-accounts', {
-        config,
-        options: {
-          ...options,
-          count: options.accountCount || options.count || 1,
-        },
-        correlationId: session.correlationId,
-      });
-
-      await this.completeSyncStep(
-        sessionId,
-        S.SUBFLOW_ACCOUNTS,
-        'SYNCHRONOUS'
-      );
-    } catch (error) {
-      const errorReferenceCode = resolveErrorReference(error) || createERC(ERC_PREFIX.ERROR);
-      this.logger.error(`Failed to enqueue accounts subflow: ${error.message}`, {
-        sessionId,
-        errorReferenceCode,
-        error,
-      });
-      await this.persistence.createBatch({
-        erc: createERC(ERC_PREFIX.BATCH),
-        sessionId,
-        stepKey: S.SUBFLOW_ACCOUNTS,
-        status: 'FAILED',
-      });
-    }
   }
 
   async generateAccounts(config, options) {
     const sessionId = options.sessionId || createERC(ERC_PREFIX.BATCH_SESSION);
     options.sessionId = sessionId;
 
-    if (!options.selectedLanguages || (Array.isArray(options.selectedLanguages) && options.selectedLanguages.length === 0)) {
-      this.logger.warn(`No languages selected for generation. Falling back to DEFAULT_LOCALE: ${ENV.DEFAULT_LOCALE}`, { sessionId });
+    if (
+      !options.selectedLanguages ||
+      (Array.isArray(options.selectedLanguages) &&
+        options.selectedLanguages.length === 0)
+    ) {
+      this.logger.warn(
+        `No languages selected for generation. Falling back to DEFAULT_LOCALE: ${ENV.DEFAULT_LOCALE}`,
+        { sessionId }
+      );
       options.selectedLanguages = [ENV.DEFAULT_LOCALE];
     }
 
@@ -100,7 +67,10 @@ class AccountGenerator extends BaseGenerator {
       },
     });
 
-    this.ctx.batchCallback._checkSessionCompletion(sessionId, config.correlationId);
+    this.ctx.batchCallback._checkSessionCompletion(
+      sessionId,
+      config.correlationId
+    );
 
     return {
       sessionId,
@@ -125,9 +95,16 @@ class AccountGenerator extends BaseGenerator {
         countries,
       });
 
-      await this.completeSyncStep(sessionId, S.LOAD_COUNTRIES, 'SYNCHRONOUS', countries.length, countries.length);
+      await this.completeSyncStep(
+        sessionId,
+        S.LOAD_COUNTRIES,
+        'SYNCHRONOUS',
+        countries.length,
+        countries.length
+      );
     } catch (error) {
-      const errorReferenceCode = resolveErrorReference(error) || createERC(ERC_PREFIX.ERROR);
+      const errorReferenceCode =
+        resolveErrorReference(error) || createERC(ERC_PREFIX.ERROR);
       this.logger.error(`Failed to load countries: ${error.message}`, {
         sessionId,
         errorReferenceCode,
@@ -168,7 +145,8 @@ class AccountGenerator extends BaseGenerator {
           account.externalReferenceCode = createERC(ERC_PREFIX.ACCOUNT);
         }
 
-        account.accountContactInformation = account.accountContactInformation || {};
+        account.accountContactInformation =
+          account.accountContactInformation || {};
 
         if (account.emailAddress) {
           account.accountContactInformation.emailAddresses = [
@@ -197,7 +175,7 @@ class AccountGenerator extends BaseGenerator {
         } else {
           delete account.domains;
         }
-        
+
         if (account.accountContactInformation?.domains) {
           delete account.accountContactInformation.domains;
         }
@@ -259,9 +237,16 @@ class AccountGenerator extends BaseGenerator {
         addressesToCreate: addressesToCreate,
       });
 
-      await this.completeSyncStep(sessionId, S.GENERATE_ACCOUNT_DATA, 'SYNCHRONOUS', accountsToCreate.length, accountsToCreate.length);
+      await this.completeSyncStep(
+        sessionId,
+        S.GENERATE_ACCOUNT_DATA,
+        'SYNCHRONOUS',
+        accountsToCreate.length,
+        accountsToCreate.length
+      );
     } catch (error) {
-      const errorReferenceCode = resolveErrorReference(error) || createERC(ERC_PREFIX.ERROR);
+      const errorReferenceCode =
+        resolveErrorReference(error) || createERC(ERC_PREFIX.ERROR);
       this.logger.error('Failed execution of generate-account-data step', {
         sessionId,
         correlationId: session.correlationId,
@@ -307,11 +292,21 @@ class AccountGenerator extends BaseGenerator {
 
     try {
       if (!accountsToCreate || accountsToCreate.length === 0) {
-        return await this.completeSyncStep(sessionId, S.CREATE_ACCOUNTS, 'BYPASSED');
+        return await this.completeSyncStep(
+          sessionId,
+          S.CREATE_ACCOUNTS,
+          'BYPASSED'
+        );
       }
 
       if (options.dryRun) {
-        return await this.completeSyncStep(sessionId, S.CREATE_ACCOUNTS, 'SYNCHRONOUS', accountsToCreate.length, accountsToCreate.length);
+        return await this.completeSyncStep(
+          sessionId,
+          S.CREATE_ACCOUNTS,
+          'SYNCHRONOUS',
+          accountsToCreate.length,
+          accountsToCreate.length
+        );
       }
 
       const prepared = deepCleanIds(accountsToCreate);
@@ -321,14 +316,16 @@ class AccountGenerator extends BaseGenerator {
         S.CREATE_ACCOUNTS,
         'accounts',
         'generate',
-        (erc) => this.liferay.createAccountsBatch(config, prepared, {
-          externalReferenceCode: erc,
-          sessionId,
-        }),
+        (erc) =>
+          this.liferay.createAccountsBatch(config, prepared, {
+            externalReferenceCode: erc,
+            sessionId,
+          }),
         accountsToCreate.length
       );
     } catch (error) {
-      const errorReferenceCode = resolveErrorReference(error) || createERC(ERC_PREFIX.ERROR);
+      const errorReferenceCode =
+        resolveErrorReference(error) || createERC(ERC_PREFIX.ERROR);
       this.logger.error('Failed to start account creation step', {
         sessionId,
         errorReferenceCode,
@@ -348,7 +345,11 @@ class AccountGenerator extends BaseGenerator {
     const { config, accountsToCreate } = session.context;
 
     if (!accountsToCreate || accountsToCreate.length === 0) {
-      return await this.completeSyncStep(sessionId, S.RESOLVE_ACCOUNT_IDS, 'BYPASSED');
+      return await this.completeSyncStep(
+        sessionId,
+        S.RESOLVE_ACCOUNT_IDS,
+        'BYPASSED'
+      );
     }
 
     try {
@@ -356,12 +357,16 @@ class AccountGenerator extends BaseGenerator {
       const results = await this.liferay.resolveByERCsWithRetry(
         config,
         ercs,
-        (cfg, e) => this.liferay.getAccountsByERC(cfg, e, ['id', 'externalReferenceCode']),
+        (cfg, e) =>
+          this.liferay.getAccountsByERC(cfg, e, [
+            'id',
+            'externalReferenceCode',
+          ]),
         { label: 'accounts' }
       );
 
       const normalized = this._normalize(results);
-      const ercToIdMap = new Map(normalized.map(item => [item.erc, item.id]));
+      const ercToIdMap = new Map(normalized.map((item) => [item.erc, item.id]));
 
       const updatedAccounts = accountsToCreate.map((a) => ({
         ...a,
@@ -373,9 +378,16 @@ class AccountGenerator extends BaseGenerator {
         accountsToCreate: updatedAccounts,
       });
 
-      await this.completeSyncStep(sessionId, S.RESOLVE_ACCOUNT_IDS, 'SYNCHRONOUS', ercToIdMap.size, ercs.length);
+      await this.completeSyncStep(
+        sessionId,
+        S.RESOLVE_ACCOUNT_IDS,
+        'SYNCHRONOUS',
+        ercToIdMap.size,
+        ercs.length
+      );
     } catch (error) {
-      const errorReferenceCode = resolveErrorReference(error) || createERC(ERC_PREFIX.ERROR);
+      const errorReferenceCode =
+        resolveErrorReference(error) || createERC(ERC_PREFIX.ERROR);
       this.logger.error('Failed to resolve account IDs', {
         sessionId,
         errorReferenceCode,
@@ -392,7 +404,8 @@ class AccountGenerator extends BaseGenerator {
 
   async _runAddressCreationStep(sessionId) {
     const session = await this.persistence.getSession(sessionId);
-    const { config, options, accountsToCreate, addressesToCreate } = session.context;
+    const { config, options, accountsToCreate, addressesToCreate } =
+      session.context;
 
     this.logger.info('Starting postal address creation step', {
       sessionId,
@@ -401,7 +414,11 @@ class AccountGenerator extends BaseGenerator {
 
     try {
       if (!addressesToCreate || addressesToCreate.length === 0) {
-        return await this.completeSyncStep(sessionId, S.CREATE_POSTAL_ADDRESSES, 'BYPASSED');
+        return await this.completeSyncStep(
+          sessionId,
+          S.CREATE_POSTAL_ADDRESSES,
+          'BYPASSED'
+        );
       }
 
       const accountERCtoId = new Map();
@@ -416,45 +433,61 @@ class AccountGenerator extends BaseGenerator {
           if (!groupedAddresses.has(accountId)) {
             groupedAddresses.set(accountId, []);
           }
-          const {accountERC, ...addressWithoutErc } = addr;
+          const { accountERC, ...addressWithoutErc } = addr;
           groupedAddresses.get(accountId).push(addressWithoutErc);
         }
       });
 
       if (groupedAddresses.size === 0) {
-        return await this.completeSyncStep(sessionId, S.CREATE_POSTAL_ADDRESSES, 'BYPASSED');
+        return await this.completeSyncStep(
+          sessionId,
+          S.CREATE_POSTAL_ADDRESSES,
+          'BYPASSED'
+        );
       }
 
+      let submittedAny = false;
       let totalAddresses = 0;
       for (const [accountId, addresses] of groupedAddresses.entries()) {
         totalAddresses += addresses.length;
 
         if (options.dryRun) {
-          await this.completeSyncStep(sessionId, S.CREATE_POSTAL_ADDRESSES, 'SYNCHRONOUS', addresses.length, addresses.length);
+          // Dry run is handled as sync
         } else {
+          submittedAny = true;
           const prepared = deepCleanIds(addresses);
           await this.submitBatch(
             sessionId,
             S.CREATE_POSTAL_ADDRESSES,
             'accounts',
             'generate',
-            (erc) => this.liferay.createAccountAddressBatch(
-              config,
-              accountId,
-              prepared,
-              {
-                externalReferenceCode: erc,
-                sessionId,
-              }
-            ),
+            (erc) =>
+              this.liferay.createAccountAddressBatch(
+                config,
+                accountId,
+                prepared,
+                {
+                  externalReferenceCode: erc,
+                  sessionId,
+                }
+              ),
             addresses.length
           );
         }
       }
 
-      await this.completeSyncStep(sessionId, S.CREATE_POSTAL_ADDRESSES, 'SYNCHRONOUS', options.dryRun ? totalAddresses : 0, totalAddresses);
+      if (!submittedAny) {
+        await this.completeSyncStep(
+          sessionId,
+          S.CREATE_POSTAL_ADDRESSES,
+          'SYNCHRONOUS',
+          totalAddresses,
+          totalAddresses
+        );
+      }
     } catch (error) {
-      const errorReferenceCode = resolveErrorReference(error) || createERC(ERC_PREFIX.ERROR);
+      const errorReferenceCode =
+        resolveErrorReference(error) || createERC(ERC_PREFIX.ERROR);
       this.logger.error('Failed to start postal address creation step', {
         sessionId,
         errorReferenceCode,
@@ -471,7 +504,8 @@ class AccountGenerator extends BaseGenerator {
 
   async _runSetBillingAndShippingAddressesStep(sessionId) {
     const session = await this.persistence.getSession(sessionId);
-    const { config, options, accountsToCreate, addressesToCreate } = session.context;
+    const { config, options, accountsToCreate, addressesToCreate } =
+      session.context;
 
     this.logger.info('Starting set billing and shipping addresses step', {
       sessionId,
@@ -479,24 +513,43 @@ class AccountGenerator extends BaseGenerator {
     });
 
     try {
-      if (!accountsToCreate || accountsToCreate.length === 0 || !addressesToCreate || addressesToCreate.length === 0) {
-        return await this.completeSyncStep(sessionId, S.SET_ADDRESS_DEFAULTS, 'BYPASSED');
+      if (
+        !accountsToCreate ||
+        accountsToCreate.length === 0 ||
+        !addressesToCreate ||
+        addressesToCreate.length === 0
+      ) {
+        return await this.completeSyncStep(
+          sessionId,
+          S.SET_ADDRESS_DEFAULTS,
+          'BYPASSED'
+        );
       }
 
       if (options.dryRun) {
-        return await this.completeSyncStep(sessionId, S.SET_ADDRESS_DEFAULTS, 'SYNCHRONOUS');
+        return await this.completeSyncStep(
+          sessionId,
+          S.SET_ADDRESS_DEFAULTS,
+          'SYNCHRONOUS'
+        );
       }
 
       const addressERCs = addressesToCreate.map((a) => a.externalReferenceCode);
       const resolvedAddresses = await this.liferay.resolveByERCsWithRetry(
         config,
         addressERCs,
-        (cfg, e) => this.liferay.getPostalAddressesByERC(cfg, e, ['id', 'externalReferenceCode']),
+        (cfg, e) =>
+          this.liferay.getPostalAddressesByERC(cfg, e, [
+            'id',
+            'externalReferenceCode',
+          ]),
         { label: 'postalAddresses' }
       );
 
       const normalizedAddresses = this._normalize(resolvedAddresses);
-      const ercToAddrId = new Map(normalizedAddresses.map(a => [a.erc, a.id]));
+      const ercToAddrId = new Map(
+        normalizedAddresses.map((a) => [a.erc, a.id])
+      );
 
       let updateCount = 0;
       for (const account of accountsToCreate) {
@@ -505,15 +558,23 @@ class AccountGenerator extends BaseGenerator {
         const accountAddresses = addressesToCreate.filter(
           (a) => a.accountERC === account.externalReferenceCode
         );
-        const billing = accountAddresses.find((a) => a.addressType === 'billing');
-        const shipping = accountAddresses.find((a) => a.addressType === 'shipping');
+        const billing = accountAddresses.find(
+          (a) => a.addressType === 'billing'
+        );
+        const shipping = accountAddresses.find(
+          (a) => a.addressType === 'shipping'
+        );
 
         const patch = {};
         if (billing && ercToAddrId.has(billing.externalReferenceCode)) {
-          patch.defaultBillingAddressId = ercToAddrId.get(billing.externalReferenceCode);
+          patch.defaultBillingAddressId = ercToAddrId.get(
+            billing.externalReferenceCode
+          );
         }
         if (shipping && ercToAddrId.has(shipping.externalReferenceCode)) {
-          patch.defaultShippingAddressId = ercToAddrId.get(shipping.externalReferenceCode);
+          patch.defaultShippingAddressId = ercToAddrId.get(
+            shipping.externalReferenceCode
+          );
         }
 
         if (Object.keys(patch).length > 0) {
@@ -522,9 +583,16 @@ class AccountGenerator extends BaseGenerator {
         }
       }
 
-      await this.completeSyncStep(sessionId, S.SET_ADDRESS_DEFAULTS, 'SYNCHRONOUS', updateCount, accountsToCreate.length);
+      await this.completeSyncStep(
+        sessionId,
+        S.SET_ADDRESS_DEFAULTS,
+        'SYNCHRONOUS',
+        updateCount,
+        accountsToCreate.length
+      );
     } catch (error) {
-      const errorReferenceCode = resolveErrorReference(error) || createERC(ERC_PREFIX.ERROR);
+      const errorReferenceCode =
+        resolveErrorReference(error) || createERC(ERC_PREFIX.ERROR);
       this.logger.error('Failed to set billing and shipping addresses', {
         sessionId,
         errorReferenceCode,
@@ -542,7 +610,9 @@ class AccountGenerator extends BaseGenerator {
   async _generateAddress(addressType, config, address, countries) {
     const streetNumber = Math.floor(Math.random() * 999) + 1;
     const streetName = randomString(8);
-    const streetType = ['Street', 'Avenue', 'Road', 'Lane'][Math.floor(Math.random() * 4)];
+    const streetType = ['Street', 'Avenue', 'Road', 'Lane'][
+      Math.floor(Math.random() * 4)
+    ];
 
     if (!countries || countries.length === 0) {
       return {
@@ -590,7 +660,10 @@ class AccountGenerator extends BaseGenerator {
     };
   }
   async handleBatchCallback(sessionId, batchERC) {
-    this.logger.debug(`Batch callback received for account generation session ${sessionId}`, { batchERC });
+    this.logger.debug(
+      `Batch callback received for account generation session ${sessionId}`,
+      { batchERC }
+    );
     return true;
   }
 }
