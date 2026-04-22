@@ -35,7 +35,6 @@ building or refactoring the system.
 ## Non-negotiable constraints
 
 - All code must be **self-documenting** and contain **no comments**
-- **Pure-JS Mandate**: DO NOT use any package that requires `node-gyp` or native compilation (e.g., native SQLite drivers). The microservice MUST remain compatible across Node versions without requiring `npm rebuild`. Use pure-JS alternatives like `lowdb` for persistence.
 - The AI agent must **not**:
   - build, deploy, or test the project
   - make source control changes (commits, reverts, rebases, etc.)
@@ -275,22 +274,21 @@ Headless API latency.**
 The microservice employs two distinct storage layers to balance resilience, performance, and data isolation.
 
 #### 1. Workflow Persistence Layer (`PersistenceService`)
-
 This layer manages the canonical state of all asynchronous operations (sessions, batches, and events).
 
-- **Primary Store (Source of Truth):**
-  - A file-based **lowdb** (JSON) database (`workflows.json`).
-  - **Durability**: Preserved across process restarts, enabling session resumption and reliable audit trails.
-  - **Schema**: Includes `sessions`, `batches`, and `events` arrays.
-- **Implementation (lowdb + FileSync):**
-  - Uses the `FileSync` adapter for synchronous, atomic writes to ensure state integrity during concurrent callbacks.
-  - Leverages `lodash` for efficient, expressive querying and mutation of the JSON database.
-- **Read-Through Cache (Hybrid Sync):**
-  - An in-memory cache (`memory-cache`) sits in front of the database to reduce disk I/O for frequent lookups (e.g., status checks).
-- **Consistency Model (Write-Invalidate):**
-  - **Reads**: Checks cache first; on miss, loads from lowdb and populates cache.
-  - **Writes/Updates**: All mutations are written directly to lowdb first via `.write()`. Immediately following a successful write, the corresponding cache entry is **invalidated (deleted)**. This ensures subsequent reads always fetch the latest data from the database.
-- **Object Mapping**: Data is stored in its natural JSON form. To prevent accidental mutation of the in-memory database state, methods like `getSession` and `getBatch` always return deep clones of the retrieved objects.
+-   **Primary Store (Source of Truth):**
+    -   A local **SQLite** database (`workflows.db`).
+    -   **Durability**: Preserved across process restarts, enabling session resumption and reliable audit trails.
+    -   **Schema**: Includes `workflow_sessions`, `workflow_batches`, and `workflow_events` tables.
+-   **Implementation (SQLite + better-sqlite3):**
+    -   Uses the `better-sqlite3` driver for high-performance, synchronous, atomic writes to ensure state integrity during concurrent callbacks.
+    -   Leverages relational SQL for efficient, expressive querying and mutation of the workflow state.
+-   **Read-Through Cache (Hybrid Sync):**
+    -   An in-memory cache (`memory-cache`) sits in front of the database to reduce disk I/O for frequent lookups (e.g., status checks).
+-   **Consistency Model (Write-Invalidate):**
+    -   **Reads**: Checks cache first; on miss, loads from SQLite and populates cache.
+    -   **Writes/Updates**: All mutations are written directly to SQLite first. Immediately following a successful write, the corresponding cache entry is **invalidated (deleted)**. This ensures subsequent reads always fetch the latest data from the database.
+-   **Object Mapping**: Data is converted between relational rows and JSON objects at the service boundary. To prevent accidental mutation of the in-memory state, retrieved objects are always treated as immutable snapshots.
 
 #### 2. Application Data Cache (`CacheService`)
 

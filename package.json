@@ -1,55 +1,55 @@
 {
-    "private": true,
-    "workspaces": {
-        "packages": [
-            "client-extensions/ai-commerce-accelerator-microservice",
-            "client-extensions/ai-commerce-accelerator-configuration",
-            "client-extensions/ai-commerce-accelerator-frontend"
-        ]
-    },
-    "devDependencies": {
-        "@playwright/test": "^1.59.1",
-        "husky": "^9.1.7",
-        "lint-staged": "^16.3.0",
-        "prettier": "^3.8.1"
-    },
-    "optionalDependencies": {
-        "@rollup/rollup-linux-x64-gnu": "4.1.5",
-        "@rollup/rollup-darwin-x64": "4.1.5"
-    },
-    "scripts": {
-        "prepare": "husky || true",
-        "test": "npm test --workspaces",
-        "smoke": "playwright test",
-        "lint": "npm run lint --workspaces"
-    },
-    "lint-staged": {
-        "client-extensions/ai-commerce-accelerator-microservice/**/*.{js,cjs}": [
-            "eslint --fix",
-            "prettier --write --config client-extensions/ai-commerce-accelerator-microservice/.prettierrc",
-            "npm test --workspace=client-extensions/ai-commerce-accelerator-microservice -- --run"
-        ],
-        "client-extensions/ai-commerce-accelerator-microservice/**/*.{json,md}": [
-            "prettier --write --config client-extensions/ai-commerce-accelerator-microservice/.prettierrc"
-        ],
-        "client-extensions/ai-commerce-accelerator-configuration/**/*.{js,jsx}": [
-            "eslint --fix",
-            "prettier --write --config client-extensions/ai-commerce-accelerator-configuration/.prettierrc",
-            "npm test --workspace=client-extensions/ai-commerce-accelerator-configuration -- --run"
-        ],
-        "client-extensions/ai-commerce-accelerator-configuration/**/*.{json,md}": [
-            "prettier --write --config client-extensions/ai-commerce-accelerator-configuration/.prettierrc"
-        ],
-        "client-extensions/ai-commerce-accelerator-frontend/**/*.{js,jsx}": [
-            "eslint --fix",
-            "prettier --write --config client-extensions/ai-commerce-accelerator-frontend/.prettierrc",
-            "npm test --workspace=client-extensions/ai-commerce-accelerator-frontend -- --run"
-        ],
-        "client-extensions/ai-commerce-accelerator-frontend/**/*.{json,md}": [
-            "prettier --write --config client-extensions/ai-commerce-accelerator-frontend/.prettierrc"
-        ],
-        "*.{js,json,md}": [
-            "prettier --write"
-        ]
-    }
+  "private": true,
+  "workspaces": {
+    "packages": [
+      "client-extensions/ai-commerce-accelerator-microservice",
+      "client-extensions/ai-commerce-accelerator-configuration",
+      "client-extensions/ai-commerce-accelerator-frontend"
+    ]
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.59.1",
+    "husky": "^9.1.7",
+    "lint-staged": "^16.3.0",
+    "prettier": "^3.8.1"
+  },
+  "optionalDependencies": {
+    "@rollup/rollup-linux-x64-gnu": "4.1.5",
+    "@rollup/rollup-darwin-x64": "4.1.5"
+  },
+  "scripts": {
+    "prepare": "husky || true",
+    "test": "npm test --workspaces",
+    "smoke": "playwright test",
+    "lint": "npm run lint --workspaces"
+  },
+  "lint-staged": {
+    "client-extensions/ai-commerce-accelerator-microservice/**/*.{js,cjs}": [
+      "eslint --fix",
+      "prettier --write --config client-extensions/ai-commerce-accelerator-microservice/.prettierrc",
+      "npm test --workspace=client-extensions/ai-commerce-accelerator-microservice -- --run"
+    ],
+    "client-extensions/ai-commerce-accelerator-microservice/**/*.{json,md}": [
+      "prettier --write --config client-extensions/ai-commerce-accelerator-microservice/.prettierrc"
+    ],
+    "client-extensions/ai-commerce-accelerator-configuration/**/*.{js,jsx}": [
+      "eslint --fix",
+      "prettier --write --config client-extensions/ai-commerce-accelerator-configuration/.prettierrc",
+      "npm test --workspace=client-extensions/ai-commerce-accelerator-configuration -- --run"
+    ],
+    "client-extensions/ai-commerce-accelerator-configuration/**/*.{json,md}": [
+      "prettier --write --config client-extensions/ai-commerce-accelerator-configuration/.prettierrc"
+    ],
+    "client-extensions/ai-commerce-accelerator-frontend/**/*.{js,jsx}": [
+      "eslint --fix",
+      "prettier --write --config client-extensions/ai-commerce-accelerator-frontend/.prettierrc",
+      "npm test --workspace=client-extensions/ai-commerce-accelerator-frontend -- --run"
+    ],
+    "client-extensions/ai-commerce-accelerator-frontend/**/*.{json,md}": [
+      "prettier --write --config client-extensions/ai-commerce-accelerator-frontend/.prettierrc"
+    ],
+    "*.{js,json,md}": [
+      "prettier --write"
+    ]
+  }
 }

@@ -18,9 +18,9 @@ The accelerator is composed of four main parts that work together:
 
 The microservice employs a sophisticated, stateful, and asynchronous architecture to manage the creation of large amounts of commerce data. Understanding this workflow is key to extending or debugging the service.
 
-- **Stateful Workflow Engine**: At its core, the system is a state machine orchestrated by `batchCallbackService.cjs`. It uses a local **lowdb** JSON database (`persistenceService.cjs` / `workflows.json`) to track the state of every generation job, including the sequence of steps and the status of each batch submitted to Liferay. This makes the process resilient to server restarts.
+- **Stateful Workflow Engine**: At its core, the system is a state machine orchestrated by `batchCallbackService.cjs`. It uses a local **SQLite** database (`persistenceService.cjs` / `workflows.db`) to track the state of every generation job, including the sequence of steps and the status of each batch submitted to Liferay. This makes the process resilient to server restarts.
 
-- **Pure-JS Mandate**: To ensure maximum compatibility across different environments and Node.js versions without requiring native compilation or `npm rebuild`, the accelerator strictly avoids native modules (like native SQLite drivers). All persistence and application logic are implemented using pure-JS alternatives.
+- **High-Performance Persistence**: The microservice uses `better-sqlite3` for fast, synchronous, and atomic data operations, ensuring state integrity even during rapid asynchronous callbacks from Liferay.
 
 - **Asynchronous Batch Processing**: The architecture is designed around the limitations of Liferay's Headless Batch APIs.
   1.  **Stateless Callbacks**: Liferay's batch engine callback does not contain context about the original request.

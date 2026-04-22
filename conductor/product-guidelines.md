@@ -9,7 +9,6 @@
 ## Coding Standards
 
 - **Self-Documenting Code**: No comments; use clear naming and structure.
-- **Pure JS**: No `node-gyp` or native compilation dependencies in the microservice.
 - **Modular Steps**: Keep generator steps isolated and reusable.
 
 ## API Usage
