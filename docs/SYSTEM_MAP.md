@@ -14,20 +14,23 @@ The project is a multi-module Liferay Workspace using a headless-first architect
 - **Responsibilities**: Workflow execution, AI integration (Gemini/OpenAI), Liferay Headless API coordination, and real-time state broadcasting via WebSockets.
 - **Core Directories**:
     - `generators/`: Defines the business logic and step sequences for entity creation/deletion (e.g., `ProductGenerator.cjs`).
-    - `services/`: Core logic providers like `BatchCallbackService.cjs` (state machine), `LiferayService` (API facade), and `PersistenceService.cjs` (lowdb manager).
+    - `services/`: Core logic providers like `BatchCallbackService.cjs` (state machine), `LiferayService` (API facade), and `PersistenceService.cjs` (SQLite manager).
     - `routes/`: Express endpoints for initiating workflows and receiving Liferay batch callbacks.
     - `utils/`: Shared constants (`constants.cjs`) and API path helpers (`liferayPaths.cjs`).
-    - `data/`: Location of `workflows.json` (JSON source of truth).
+    - `data/`: Location of `workflows.json` (SQLite database).
 - **Stack**: Node.js (Express), SQLite (better-sqlite3).
+- **Testing**: Vitest with MSW (Mock Service Worker) for Liferay API isolation.
 
 ### 🖥️ Frontend Subsystem (`ai-commerce-accelerator-frontend`)
 **Role**: The primary control plane for the accelerator.
 - **Responsibilities**: Subscribing to microservice WebSockets, displaying multi-step progress bars, and providing the user interface for generating and deleting data.
 - **Core Directories**:
     - `src/components/`: Modular UI elements like `ProgressBar`, `StatusIndicator`, and `ControlPanel`.
-    - `src/hooks/`: Custom React hooks for WebSocket communication and session management.
+    - `src/hooks/`: Custom React hooks for WebSocket communication (`useRealtimeWebSocket`), session management, and configuration IO (`useAppConfigIO`).
+    - `src/state/`: Centralized state management using `progressReducer`.
 - **Integration**: Embedded into Liferay via the `fragments/` wrapper.
 - **Stack**: React, Vite.
+- **Testing**: Vitest + React Testing Library + MSW for microservice API mocking.
 
 ### ⚙️ Configuration Subsystem (`ai-commerce-accelerator-configuration`)
 **Role**: Administrative and settings management.
@@ -51,13 +54,24 @@ The project is a multi-module Liferay Workspace using a headless-first architect
 ### `/fragments`
 - **Fragment Wrapper**: A Liferay Page Fragment that hosts the Frontend UI, ensuring CSS/JS scoping and Liferay theme compatibility.
 
-### Schemas (`/api-schemas` & `/ai-schemas`)
+### Schemas (`/api-schemas` & `/generation-schemas`)
 - **`api-schemas/`**: Authoritative OpenAPI and GraphQL definitions from Liferay, used for request validation and SDK generation.
-- **`ai-schemas/`**: JSON schemas that define the data contract between AI models and the microservice generators.
+- **`generation-schemas/`**: JSON schemas that define the data contract between AI models and the microservice generators.
 
 ---
 
-## 4. Cross-Subsystem Workflows
+## 4. Testing Strategy
+The project employs a tiered testing strategy to ensure reliability across all layers:
+
+- **Unit Tests**: Verified logic in isolation (Reducers, Selectors, Utility functions).
+- **Service Tests**: Mocks external dependencies (Liferay, OpenAI) via MSW to verify service-level interactions.
+- **Integration Tests**: Verifies multi-component flows (e.g., App -> Context -> Configuration Panel -> Connection Test).
+- **Smoke Tests**: Cross-component verification using Playwright (Server + UI).
+- **Schema Validation**: Authoritative AJV validation for all AI and Mock data payloads.
+
+---
+
+## 5. Cross-Subsystem Workflows
 
 ### Data Generation Workflow
 1. **Frontend**: User initiates a request.
@@ -76,7 +90,7 @@ The project is a multi-module Liferay Workspace using a headless-first architect
 
 ---
 
-## 5. WebSocket Event Contract
+## 6. WebSocket Event Contract
 The Microservice and Frontend communicate via WebSockets using a hierarchical **Scope/Status** model. This ensures real-time, granular feedback for long-running workflows.
 
 ### Event Structure (JSON)
@@ -88,7 +102,7 @@ All `PROGRESS` packets MUST follow this structure:
   "entityType": "products | accounts | orders | warehouses | images | pdfs",
   "operation": "generate | delete | process-images | process-attachments",
   "sessionId": "SESS-123",
-  "batchId": "456",
+  "batchId": "456", 
   "processedCount": 50,
   "totalCount": 100,
   "error": "Optional error message or object",
