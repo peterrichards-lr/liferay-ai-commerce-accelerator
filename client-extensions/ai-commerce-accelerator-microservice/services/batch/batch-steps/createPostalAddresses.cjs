@@ -2,7 +2,7 @@ const { createERC } = require('../../../utils/misc.cjs');
 
 module.exports = async function createPostalAddresses(
   { liferay, logger },
-  { config, options, callbackUrl, batchERC, lastBatchResults, accounts }
+  { config, options, session, callbackUrl, batchERC, lastBatchResults, accounts }
 ) {
   logger.info(
     'createPostalAddresses step started. Received lastBatchResults:',
@@ -69,7 +69,7 @@ module.exports = async function createPostalAddresses(
             createdAccount.id,
             addresses,
             callbackUrl,
-            { externalReferenceCode: createERC('ADDRESS_BATCH') }
+            { externalReferenceCode: createERC('ADDRESS_BATCH'), session }
           )
         );
       }

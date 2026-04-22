@@ -1,6 +1,6 @@
 module.exports = async function deleteProductRelatedEntities(
   { liferay },
-  { config, options, productIds, sessionId }
+  { config, options, session, productIds, sessionId }
 ) {
   if (productIds && productIds.length > 0) {
     // 1. Fetch ProductSpecifications to get global specificationId and optionCategoryId
@@ -35,7 +35,7 @@ module.exports = async function deleteProductRelatedEntities(
       await liferay.deleteSpecificationsBatch(config, {
         ids: specificationIds,
         dryRun: options.dryRun,
-        sessionId,
+        sessionId, session,
       });
     }
 
@@ -43,7 +43,7 @@ module.exports = async function deleteProductRelatedEntities(
       await liferay.deleteOptionsBatch(config, {
         ids: optionIds,
         dryRun: options.dryRun,
-        sessionId,
+        sessionId, session,
       });
     }
 
@@ -51,7 +51,7 @@ module.exports = async function deleteProductRelatedEntities(
       await liferay.deleteOptionCategoriesBatch(config, {
         ids: optionCategoryIds,
         dryRun: options.dryRun,
-        sessionId,
+        sessionId, session,
       });
     }
   }

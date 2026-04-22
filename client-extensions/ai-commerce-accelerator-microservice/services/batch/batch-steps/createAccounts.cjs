@@ -3,7 +3,7 @@ const { ERC_PREFIX } = require('../../../utils/constants.cjs');
 
 module.exports = async function createAccounts(
   { liferay },
-  { config, options, callbackUrl, batchERC, accounts, sessionId }
+  { config, options, session, callbackUrl, batchERC, accounts, sessionId }
 ) {
   const accountsForBatch = accounts.map((account) => {
     const { billingAddress, shippingAddress, headOfficeAddress, ...rest } =
@@ -26,6 +26,7 @@ module.exports = async function createAccounts(
       {
         externalReferenceCode: batchERC,
         sessionId,
+        session,
       }
     );
     result.batchRefs.push(...batchResult.batchRefs);

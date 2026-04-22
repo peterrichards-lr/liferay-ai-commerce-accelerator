@@ -17,12 +17,16 @@ class BatchCallbackService {
 
   /**
    * Identifies the owner generator for a given session.
-   * Typically based on the session.flow_type.
    */
   _getOwnerGenerator(session) {
-    const { flow_type: flowType } = session;
+    const { flow_type: flowType, context } = session;
 
-    // Mapping flow types to registry keys
+    // 1. Explicit generator key (new standard)
+    if (context?.generator && this.generators[context.generator]) {
+      return this.generators[context.generator];
+    }
+
+    // 2. Fallback to flow_type mapping
     const map = {
       generate: 'product',
       accounts: 'account',

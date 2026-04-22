@@ -56,14 +56,19 @@ class LiferayRestService {
     }
   }
 
-  _getBaseCallbackUrl(config) {
-    if (!config.microserviceUrl) {
+  _getBaseCallbackUrl(config, session = null) {
+    const url =
+      config?.microserviceUrl ||
+      session?.context?.config?.microserviceUrl ||
+      session?.context?.microserviceUrl;
+
+    if (!url) {
       logger.warn(
         'microserviceUrl is not configured. Callbacks will likely fail.'
       );
       return null;
     }
-    return `${config.microserviceUrl}/api/v1/batch/callback`;
+    return `${url}/api/v1/batch/callback`;
   }
 
   _buildCallbackURL(baseUrl, meta = {}) {
@@ -838,6 +843,7 @@ class LiferayRestService {
       friendly,
       path,
       sessionId,
+      session = null,
       createStrategy = 'UPSERT',
     }
   ) {
@@ -872,11 +878,11 @@ class LiferayRestService {
 
     while (attempts < maxAttempts) {
       const callbackUrl = this._buildCallbackURL(
-        this._getBaseCallbackUrl(config),
+        this._getBaseCallbackUrl(config, session),
         {
           batchERC: currentERC,
           sessionId: sessionId,
-          correlationId: config.correlationId,
+          correlationId: config?.correlationId || session?.correlationId,
           op: 'create',
         }
       );
@@ -892,7 +898,7 @@ class LiferayRestService {
         count: processedItems.length,
         callbackUrl: url,
         batchExternalReferenceCode: currentERC,
-        correlationId: config.correlationId,
+        correlationId: config?.correlationId || session?.correlationId,
       });
 
       try {
@@ -932,7 +938,7 @@ class LiferayRestService {
           batchId: data.id || 'unknown',
           status: data.status || 'submitted',
           batchExternalReferenceCode: currentERC,
-          correlationId: config.correlationId,
+          correlationId: config?.correlationId || session?.correlationId,
         });
 
         return {
@@ -981,6 +987,7 @@ class LiferayRestService {
       externalReferenceCode,
       dryRun,
       sessionId,
+      session = null,
       path,
       op,
       friendly,
@@ -995,13 +1002,13 @@ class LiferayRestService {
       createERC(ERC_PREFIX[prefixKey] || ERC_PREFIX.BATCH);
 
     const taggedCallback = this._buildCallbackURL(
-      this._getBaseCallbackUrl(config),
+      this._getBaseCallbackUrl(config, session),
       {
         entity: entityName,
         op: 'delete',
         batchERC,
         sessionId,
-        correlationId: config.correlationId,
+        correlationId: config?.correlationId || session?.correlationId,
       }
     );
 
@@ -1185,7 +1192,8 @@ class LiferayRestService {
       op: 'create-warehouses-batch',
       friendly: 'Failed to create warehouses batch',
       path: PATH.WAREHOUSES_BATCH,
-      sessionId: opts.sessionId,
+      sessionId: opts.sessionId, session: opts.session,
+      session: opts.session,
     });
 
     return {
@@ -1211,7 +1219,7 @@ class LiferayRestService {
           warehouseERC,
           callback
         ),
-      sessionId: opts.sessionId,
+      sessionId: opts.sessionId, session: opts.session,
       createStrategy: 'UPSERT',
     });
 
@@ -1323,7 +1331,7 @@ class LiferayRestService {
       op: 'create-products-batch',
       friendly: 'Failed to create products batch',
       path: PATH.PRODUCTS_BATCH,
-      sessionId: opts.sessionId,
+      sessionId: opts.sessionId, session: opts.session,
     });
 
     return {
@@ -1479,7 +1487,7 @@ class LiferayRestService {
       op: 'create-account-addresses-batch',
       friendly: 'Failed to create account addresses batch',
       path: (callback) => PATH.ACCOUNT_ADDRESSES_BATCH(accountId, callback),
-      sessionId: opts.sessionId,
+      sessionId: opts.sessionId, session: opts.session,
     });
 
     return {
@@ -1506,7 +1514,7 @@ class LiferayRestService {
         }
         return PATH.PRODUCTS_SKUS_BATCH(callback);
       },
-      sessionId: opts.sessionId,
+      sessionId: opts.sessionId, session: opts.session,
     });
 
     return {
@@ -1524,7 +1532,7 @@ class LiferayRestService {
       op: 'create-accounts-batch',
       friendly: 'Failed to create accounts batch',
       path: PATH.ACCOUNTS_BATCH,
-      sessionId: opts.sessionId,
+      sessionId: opts.sessionId, session: opts.session,
     });
 
     return {
@@ -1569,7 +1577,7 @@ class LiferayRestService {
       op: 'create-orders-batch',
       friendly: 'Failed to create orders batch',
       path: PATH.ORDERS_BATCH,
-      sessionId: opts.sessionId,
+      sessionId: opts.sessionId, session: opts.session,
     });
 
     return {
@@ -1681,7 +1689,7 @@ class LiferayRestService {
       op: 'create-price-lists-batch',
       friendly: 'Failed to create price lists batch',
       path: PATH.PRICE_LISTS_BATCH,
-      sessionId: opts.sessionId,
+      sessionId: opts.sessionId, session: opts.session,
     });
   }
 
@@ -1703,7 +1711,7 @@ class LiferayRestService {
         }
         return PATH.PRICE_ENTRIES_BATCH(callback);
       },
-      sessionId: opts.sessionId,
+      sessionId: opts.sessionId, session: opts.session,
     });
 
     return results;

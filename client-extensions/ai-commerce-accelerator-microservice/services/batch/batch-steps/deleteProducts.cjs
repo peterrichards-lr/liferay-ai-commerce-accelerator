@@ -2,7 +2,7 @@ const { asItems } = require('../../../utils/liferayUtils.cjs');
 
 module.exports = async function deleteProducts(
   { liferay, logger },
-  { config, options, ids, items, catalogId, batchERC, sessionId }
+  { config, options, session, ids, items, catalogId, batchERC, sessionId }
 ) {
   // Discovery phase to clear associations if not already provided
   if (!items || items.length === 0) {
@@ -53,7 +53,7 @@ module.exports = async function deleteProducts(
     catalogId,
     callbackBatchERC: batchERC,
     dryRun: options.dryRun,
-    sessionId,
+    sessionId, session,
   });
   return result;
 };

@@ -187,9 +187,16 @@ class BaseGenerator extends BaseWorkflowService {
           const state = getStepState(step);
 
           if (state === 'FAILED') {
+            const displayId = stepName || stepType;
             this.logger.error(
-              `Workflow step '${stepName || stepType}' failed. Stopping advancement.`,
-              { sessionId, correlationId }
+              `Workflow step '${displayId}' failed. Stopping advancement.`,
+              {
+                sessionId,
+                correlationId,
+                step: stepName,
+                type: stepType,
+                state: 'FAILED',
+              }
             );
             await this._finalizeSession(sessionId, correlationId);
             foundBlockingStep = true;

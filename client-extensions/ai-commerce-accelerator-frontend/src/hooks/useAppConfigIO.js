@@ -113,43 +113,58 @@ export default function useAppConfigIO({
           if (importedData.generationConfig) {
             setGenerationConfig((prevConfig) => {
               const importedGenConfig = importedData.generationConfig;
-              let newCategories = importedGenConfig.categories || [];
-              const availableCategoryNames = new Set(
-                availableCategories.map((c) => c.key)
-              );
 
-              const validImportedCategories = newCategories.filter((cat) =>
-                availableCategoryNames.has(cat)
-              );
+              // Filter out any nulls or empty strings from imported list
+              let newCategories = (importedGenConfig.categories || [])
+                .filter((cat) => cat != null && cat !== '')
+                .map(String);
 
-              const unavailableCategories = newCategories.filter(
-                (cat) => !availableCategoryNames.has(cat)
-              );
-
-              if (unavailableCategories.length > 0) {
-                notifyUser(
-                  `Some imported categories are not available in the current Liferay instance: ${unavailableCategories.join(
-                    ', '
-                  )}. These categories have been removed from the configuration.`,
-                  'warning'
+              // If we have categories loaded from the server, validate against them
+              if (availableCategories && availableCategories.length > 0) {
+                const availableCategoryNames = new Set(
+                  availableCategories.map((c) => (typeof c === 'string' ? c : c.key))
                 );
-              }
 
-              if (
-                validImportedCategories.length === 0 &&
-                availableCategories.length > 0
-              ) {
-                validImportedCategories.push(availableCategories[0].key);
-                notifyUser(
-                  `No valid categories were imported, defaulting to '${availableCategories[0].key}'.`,
-                  'info'
+                const validImportedCategories = newCategories.filter((cat) =>
+                  availableCategoryNames.has(cat)
                 );
+
+                const unavailableCategories = newCategories.filter(
+                  (cat) => !availableCategoryNames.has(cat)
+                );
+
+                if (unavailableCategories.length > 0) {
+                  notifyUser(
+                    `Some imported categories are not available in the current Liferay instance: ${Array.from(
+                      new Set(unavailableCategories)
+                    ).join(
+                      ', '
+                    )}. These categories have been removed from the configuration.`,
+                    'warning'
+                  );
+                }
+
+                // If no valid categories were found in the import, use the first available from server
+                if (validImportedCategories.length === 0) {
+                  const defaultCat =
+                    typeof availableCategories[0] === 'string'
+                      ? availableCategories[0]
+                      : availableCategories[0].key;
+
+                  validImportedCategories.push(defaultCat);
+                  notifyUser(
+                    `No valid categories were imported, defaulting to '${defaultCat}'.`,
+                    'info'
+                  );
+                }
+
+                newCategories = validImportedCategories;
               }
 
               return {
                 ...prevConfig,
                 ...importedGenConfig,
-                categories: validImportedCategories,
+                categories: newCategories,
               };
             });
           }

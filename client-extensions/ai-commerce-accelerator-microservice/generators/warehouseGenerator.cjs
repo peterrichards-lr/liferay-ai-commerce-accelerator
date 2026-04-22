@@ -1,5 +1,5 @@
 const BaseGenerator = require('./baseGenerator.cjs');
-const { createERC, toI18n, resolvePhaseAndMode } = require('../utils/misc.cjs');
+const { createERC, toI18n } = require('../utils/misc.cjs');
 const { ERC_PREFIX, WORKFLOW_STEPS } = require('../utils/constants.cjs');
 
 const S = WORKFLOW_STEPS;
@@ -18,7 +18,10 @@ class WarehouseGenerator extends BaseGenerator {
     };
   }
 
-  async createWarehouses(config, options) {
+  /**
+   * Standalone entry point for warehouse generation.
+   */
+  async runWorkflow(config, options) {
     const sessionId = options.sessionId || createERC(ERC_PREFIX.BATCH_SESSION);
     options.sessionId = sessionId;
 
@@ -37,13 +40,9 @@ class WarehouseGenerator extends BaseGenerator {
         config,
         options,
         steps,
+        generator: 'warehouse',
       },
     });
-
-    if (options.stepKey) {
-      await this.executeStep(sessionId, S.GENERATE_WAREHOUSE_DATA);
-      return await this.executeStep(sessionId, S.CREATE_WAREHOUSES);
-    }
 
     this.ctx.batchCallback._checkSessionCompletion(
       sessionId,
@@ -54,6 +53,24 @@ class WarehouseGenerator extends BaseGenerator {
       sessionId,
       message: 'Warehouse generation workflow started.',
     };
+  }
+
+  /**
+   * Internal method used by other generators (e.g. ProductGenerator)
+   * to perform warehouse creation within an existing session.
+   */
+  async createWarehouses(sessionId, session) {
+    const { config, options } = session.context;
+
+    this.logger.info('Executing embedded warehouse generation sub-flow', {
+      sessionId,
+    });
+
+    // 1. Generate Data
+    const data = await this._runWarehouseDataGenerationStep(sessionId);
+
+    // 2. Create in Liferay
+    return await this._runWarehouseCreationStep(sessionId);
   }
 
   async _runWarehouseDataGenerationStep(sessionId) {
@@ -67,11 +84,12 @@ class WarehouseGenerator extends BaseGenerator {
 
     try {
       this.validateConfig(config);
-      await this.validateOptions(config, options);
+      // Fallback for warehouse count if embedded in product flow
+      const count = options.warehouseCount || 5;
 
       const warehouseDataList = await this.ctx.generation.generateData(
         'warehouse',
-        options.warehouseCount,
+        count,
         config,
         options
       );
@@ -80,8 +98,8 @@ class WarehouseGenerator extends BaseGenerator {
         this._normalizeWarehouseData(data, config)
       );
 
+      // Targeted update: Only add the new data to the existing context
       await this.persistence.updateSessionContext(sessionId, {
-        ...session.context,
         warehouseDataList: normalizedWarehouseDataList,
       });
 
@@ -90,7 +108,7 @@ class WarehouseGenerator extends BaseGenerator {
         S.GENERATE_WAREHOUSE_DATA,
         'SYNCHRONOUS',
         normalizedWarehouseDataList.length,
-        options.warehouseCount
+        count
       );
 
       return normalizedWarehouseDataList;
@@ -113,7 +131,7 @@ class WarehouseGenerator extends BaseGenerator {
   async _runWarehouseCreationStep(sessionId) {
     const session = await this.persistence.getSession(sessionId);
     const { config, options, warehouseDataList } = session.context;
-    const stepKey = options.stepKey || S.CREATE_WAREHOUSES;
+    const stepKey = S.CREATE_WAREHOUSES;
 
     this.logger.info('Starting warehouse creation step', {
       sessionId,
@@ -125,95 +143,22 @@ class WarehouseGenerator extends BaseGenerator {
         return await this.completeSyncStep(sessionId, stepKey, 'BYPASSED');
       }
 
-      const useBatch = warehouseDataList.length > 1;
-
-      if (useBatch) {
-        if (options.dryRun) {
-          return await this.completeSyncStep(
+      // Always use batch for warehouses to keep logic simple
+      const result = await this.submitBatch(
+        sessionId,
+        stepKey,
+        'warehouses',
+        'generate',
+        (erc) =>
+          this.liferay.createWarehousesBatch(config, warehouseDataList, {
+            externalReferenceCode: erc,
             sessionId,
-            stepKey,
-            'SYNCHRONOUS',
-            warehouseDataList.length,
-            warehouseDataList.length
-          );
-        }
+            session,
+          }),
+        warehouseDataList.length
+      );
 
-        const result = await this.submitBatch(
-          sessionId,
-          stepKey,
-          'warehouses',
-          'generate',
-          (erc) =>
-            this.liferay.createWarehousesBatch(config, warehouseDataList, {
-              externalReferenceCode: erc,
-            }),
-          warehouseDataList.length
-        );
-
-        return warehouseDataList;
-      } else {
-        const createdWarehouses = [];
-        const errors = [];
-        const batchId = `warehouses-individual-${Date.now()}`;
-        const batchERC = createERC(ERC_PREFIX.WAREHOUSE_BATCH);
-
-        this.progress.batchStarted({
-          batchId,
-          batchERC,
-          entityType: 'warehouses',
-          totalItems: warehouseDataList.length,
-          operation: 'generate',
-          sessionId,
-          correlationId: session.correlationId,
-        });
-
-        for (let i = 0; i < warehouseDataList.length; i++) {
-          const warehouse = warehouseDataList[i];
-          try {
-            if (options.dryRun) {
-              createdWarehouses.push(warehouse);
-              continue;
-            }
-
-            const created = await this.liferay.createWarehouse(
-              config,
-              warehouse
-            );
-            createdWarehouses.push(created);
-
-            this.progress.batchProgress({
-              batchId,
-              entityType: 'warehouses',
-              completedCount: i + 1,
-              totalItems: warehouseDataList.length,
-              sessionId,
-              correlationId: session.correlationId,
-            });
-          } catch (err) {
-            errors.push({ index: i, error: err.message });
-          }
-        }
-
-        this.progress.batchCompleted({
-          batchId,
-          entityType: 'warehouses',
-          successCount: createdWarehouses.length,
-          failureCount: errors.length,
-          errors,
-          operation: 'generate',
-          sessionId,
-          correlationId: session.correlationId,
-        });
-
-        await this.completeSyncStep(
-          sessionId,
-          stepKey,
-          'SYNCHRONOUS',
-          createdWarehouses.length,
-          warehouseDataList.length
-        );
-        return createdWarehouses;
-      }
+      return warehouseDataList;
     } catch (error) {
       this.logger.error(`Failed execution of ${stepKey} step`, {
         sessionId,
@@ -254,17 +199,7 @@ class WarehouseGenerator extends BaseGenerator {
     if (!config.catalogId) throw new Error('catalogId is required');
   }
 
-  async validateOptions(config, options) {
-    if (!options.warehouseCount || options.warehouseCount <= 0) {
-      throw new Error('warehouseCount must be greater than 0');
-    }
-  }
-
   async handleBatchCallback(sessionId, batchERC) {
-    this.logger.debug(
-      `Batch callback received for warehouse generation session ${sessionId}`,
-      { batchERC }
-    );
     return true;
   }
 }

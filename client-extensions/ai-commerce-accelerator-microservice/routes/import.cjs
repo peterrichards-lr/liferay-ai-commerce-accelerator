@@ -22,7 +22,18 @@ module.exports = (app, { liferayService, logger, configService }) => {
 
       try {
         const importData = JSON.parse(req.file.buffer.toString());
-        const { products, accounts, orders } = importData;
+
+        const products = importData.products || [];
+        const accounts = importData.accounts || [];
+        const orders = importData.orders || [];
+
+        if (products.length === 0 && accounts.length === 0 && orders.length === 0) {
+          return res.status(400).json({
+            success: false,
+            error:
+              'Invalid import file structure. The file must contain at least one of: products, accounts, or orders.',
+          });
+        }
 
         logger.info('Starting commerce data import', {
           correlationId,

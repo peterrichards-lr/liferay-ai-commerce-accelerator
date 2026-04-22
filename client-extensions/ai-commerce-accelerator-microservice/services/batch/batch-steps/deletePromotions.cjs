@@ -1,6 +1,6 @@
 module.exports = async function deletePromotions(
   { liferay, logger },
-  { config, options, items, batchERC, sessionId }
+  { config, options, session, items, batchERC, sessionId }
 ) {
   // Restore master promotion list if available in context (safety)
   if (options.masterPromotionListId) {
@@ -24,7 +24,7 @@ module.exports = async function deletePromotions(
     ...options,
     items,
     callbackBatchERC: batchERC,
-    sessionId,
+    sessionId, session,
   });
   return result;
 };

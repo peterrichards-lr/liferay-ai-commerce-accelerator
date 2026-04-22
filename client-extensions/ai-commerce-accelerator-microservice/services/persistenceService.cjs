@@ -96,7 +96,7 @@ class PersistenceService {
   }) {
     const now = new Date().toISOString();
     const stmt = this.db.prepare(`
-      INSERT INTO workflow_sessions (
+      INSERT OR REPLACE INTO workflow_sessions (
         session_id, flow_type, status, context_json, current_steps_json, correlation_id, created_at, updated_at
       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
     `);

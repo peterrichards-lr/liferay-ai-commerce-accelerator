@@ -222,7 +222,7 @@ class MockDataGenerator {
             name: { en_US: 'Color' },
             fieldType: 'select',
             skuContributor: true,
-            values: [
+            productOptionValues: [
               { name: { en_US: 'Red' }, key: 'red' },
               { name: { en_US: 'Blue' }, key: 'blue' },
               { name: { en_US: 'Green' }, key: 'green' },
@@ -232,7 +232,7 @@ class MockDataGenerator {
             name: { en_US: 'Size' },
             fieldType: 'select',
             skuContributor: true,
-            values: [
+            productOptionValues: [
               { name: { en_US: 'Small' }, key: 'small' },
               { name: { en_US: 'Medium' }, key: 'medium' },
               { name: { en_US: 'Large' }, key: 'large' },

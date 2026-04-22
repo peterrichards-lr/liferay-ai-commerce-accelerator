@@ -1,6 +1,6 @@
 module.exports = async function deleteOptionCategories(
   { liferay },
-  { config, options, ids, items, batchERC, sessionId }
+  { config, options, session, ids, items, batchERC, sessionId }
 ) {
   const result = await liferay.deleteOptionCategoriesBatch(config, {
     ids,
@@ -8,6 +8,7 @@ module.exports = async function deleteOptionCategories(
     callbackBatchERC: batchERC,
     dryRun: options.dryRun,
     sessionId,
+    session,
   });
   return result;
 };

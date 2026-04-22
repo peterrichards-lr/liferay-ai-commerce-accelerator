@@ -1,6 +1,6 @@
 module.exports = async function deletePriceLists(
   { liferay, logger },
-  { config, options, items, batchERC, sessionId }
+  { config, options, session, items, batchERC, sessionId }
 ) {
   // Restore master list if available in context (safety)
   if (options.masterPriceListId) {
@@ -24,6 +24,7 @@ module.exports = async function deletePriceLists(
     items,
     callbackBatchERC: batchERC,
     sessionId,
+    session,
   });
   return result;
 };

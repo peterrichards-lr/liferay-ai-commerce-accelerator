@@ -2,7 +2,7 @@ const { asItems } = require('../../../utils/liferayUtils.cjs');
 
 module.exports = async function deleteProductSpecifications(
   { liferay, logger, persistence },
-  { config, options, sessionId, batchERC }
+  { config, options, session, sessionId, batchERC }
 ) {
   logger.info(
     'Starting explicit removal of product-specification associations'

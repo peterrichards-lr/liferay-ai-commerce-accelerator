@@ -104,7 +104,7 @@ class BaseWorkflowService {
     });
 
     try {
-      const result = await submitFn(batchERC);
+      const result = await submitFn(batchERC, session);
 
       if (result && result.batchId) {
         await this.persistence.updateBatch(batchERC, {

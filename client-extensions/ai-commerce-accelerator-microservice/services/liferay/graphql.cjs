@@ -593,7 +593,7 @@ class LiferayGraphQLService {
   async getSpecificationsByProductIds(
     config,
     productIds,
-    fields = ['id', 'externalReferenceCode', 'title']
+    fields = ['id', 'externalReferenceCode', 'specificationKey']
   ) {
     if (!productIds || productIds.length === 0) return [];
 

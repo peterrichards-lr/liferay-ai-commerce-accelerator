@@ -80,6 +80,13 @@ module.exports = (
         const orderSteps = [];
 
         if (options.productCount > 0) {
+          // Filter out null/invalid categories
+          if (Array.isArray(options.categories)) {
+            options.categories = options.categories.filter((c) => c != null);
+          } else if (options.categories == null) {
+            options.categories = [];
+          }
+
           productSteps.push({ name: S.CREATE_WAREHOUSES, type: 'sync' });
           productSteps.push({ name: S.RESOLVE_WAREHOUSE_IDS, type: 'sync' });
           productSteps.push({ name: S.GENERATE_PRODUCT_DATA, type: 'sync' });
@@ -196,6 +203,7 @@ module.exports = (
             config,
             options,
             steps,
+            generator: 'product',
           },
         });
 

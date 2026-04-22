@@ -3,6 +3,7 @@ module.exports = async function deleteAccounts(
   {
     config,
     options,
+    session,
     ids,
     items,
     channelId,
@@ -24,6 +25,7 @@ module.exports = async function deleteAccounts(
     sessionId,
     filter,
     search: finalSearch,
+    session,
   });
   return result;
 };

@@ -3,7 +3,6 @@ const { deepCleanIds } = require('../utils/payload-cleaner.cjs');
 const { ERC_PREFIX, WORKFLOW_STEPS, ENV } = require('../utils/constants.cjs');
 const {
   createERC,
-  processWithRetry,
   randomString,
   toTitleCase,
   delay,
@@ -28,7 +27,10 @@ class AccountGenerator extends BaseGenerator {
     };
   }
 
-  async generateAccounts(config, options) {
+  /**
+   * Standalone entry point for account generation.
+   */
+  async runWorkflow(config, options) {
     const sessionId = options.sessionId || createERC(ERC_PREFIX.BATCH_SESSION);
     options.sessionId = sessionId;
 
@@ -64,6 +66,7 @@ class AccountGenerator extends BaseGenerator {
         config,
         options,
         steps,
+        generator: 'account',
       },
     });
 
@@ -320,6 +323,7 @@ class AccountGenerator extends BaseGenerator {
           this.liferay.createAccountsBatch(config, prepared, {
             externalReferenceCode: erc,
             sessionId,
+            session,
           }),
         accountsToCreate.length
       );
@@ -469,6 +473,7 @@ class AccountGenerator extends BaseGenerator {
                 {
                   externalReferenceCode: erc,
                   sessionId,
+                  session,
                 }
               ),
             addresses.length

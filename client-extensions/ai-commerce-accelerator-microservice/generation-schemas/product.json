@@ -128,7 +128,7 @@
                   "description": "Whether this option contributes to creating unique SKU variants.",
                   "type": "boolean"
                 },
-                "values": {
+                "productOptionValues": {
                   "description": "List of possible values for this option. Only provided for value-driven field types (select, radio, checkbox, etc.).",
                   "items": {
                     "type": "string"

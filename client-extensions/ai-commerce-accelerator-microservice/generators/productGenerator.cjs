@@ -17,14 +17,7 @@ const { ERC_PREFIX, ENV, WORKFLOW_STEPS } = require('../utils/constants.cjs');
 const { COMMERCE_CONSTRAINTS } = require('../utils/commerceConstants.cjs');
 const { sanitizedObject } = require('../utils/normalize.cjs');
 const { v4: uuidv4 } = require('uuid');
-const {
-  getBatchCacheTTLms,
-  getEphemeralTTLms,
-  getSessionTTLms,
-  getLongLivedTTLms,
-} = require('../utils/ttl.cjs');
 
-const RETRY = { maxAttempts: 3, baseMs: 500, factor: 2 };
 const S = WORKFLOW_STEPS;
 
 class ProductGenerator extends BaseGenerator {
@@ -35,6 +28,7 @@ class ProductGenerator extends BaseGenerator {
       [S.CREATE_WAREHOUSES]: this._runWarehouseGenerationStep.bind(this),
       [S.RESOLVE_WAREHOUSE_IDS]: this._runResolveWarehouseIdsStep.bind(this),
       [S.GENERATE_PRODUCT_DATA]: this._runProductDataGenerationStep.bind(this),
+      [S.ENSURE_SPECIFICATIONS]: this._runEnsureSpecificationsStep.bind(this),
       [S.CREATE_PRODUCTS]: this._runProductCreationStep.bind(this),
       [S.RESOLVE_PRODUCT_IDS]: this._runResolveProductIdsStep.bind(this),
       [S.LINK_PRODUCT_OPTIONS]: this._runLinkProductOptionsStep.bind(this),
@@ -52,7 +46,10 @@ class ProductGenerator extends BaseGenerator {
     };
   }
 
-  async generateProducts(config, options) {
+  /**
+   * Standalone entry point for product generation.
+   */
+  async runWorkflow(config, options) {
     const sessionId = options.sessionId || createERC(ERC_PREFIX.BATCH_SESSION);
     options.sessionId = sessionId;
 
@@ -73,15 +70,15 @@ class ProductGenerator extends BaseGenerator {
       { name: S.CREATE_WAREHOUSES, type: 'sync' },
       { name: S.RESOLVE_WAREHOUSE_IDS, type: 'sync' },
       { name: S.GENERATE_PRODUCT_DATA, type: 'sync' },
+      { name: S.ENSURE_SPECIFICATIONS, type: 'sync' },
       { name: S.CREATE_PRODUCTS, type: 'sync' },
       { name: S.RESOLVE_PRODUCT_IDS, type: 'sync' },
       { name: S.LINK_PRODUCT_OPTIONS, type: 'sync' },
       { name: S.CREATE_PRODUCT_SKUS, type: 'sync' },
       { name: S.RESOLVE_SKU_IDS, type: 'sync' },
       { name: S.SYNC_DELAY_PRICING, type: 'sync' },
+      { name: S.GENERATE_PRICE_LISTS, type: 'sync' },
     ];
-
-    steps.push({ name: S.GENERATE_PRICE_LISTS, type: 'sync' });
 
     if (options.generatePriceLists) {
       steps.push({ name: S.UPDATE_CATALOG_CONFIG, type: 'sync' });
@@ -114,6 +111,7 @@ class ProductGenerator extends BaseGenerator {
         config,
         options,
         steps,
+        generator: 'product',
       },
     });
 
@@ -121,12 +119,6 @@ class ProductGenerator extends BaseGenerator {
       sessionId,
       config.correlationId
     );
-
-    this.logger.info('Product generation workflow started', {
-      sessionId,
-      steps: steps.map((s) => (typeof s === 'string' ? s : s.name || s.type)),
-      correlationId: config.correlationId,
-    });
 
     return {
       sessionId,
@@ -411,6 +403,7 @@ class ProductGenerator extends BaseGenerator {
           this.liferay.createPriceListsBatch(config, activeLists, {
             externalReferenceCode: erc,
             sessionId,
+            session,
           }),
         totalEntries
       );
@@ -665,11 +658,37 @@ class ProductGenerator extends BaseGenerator {
       for (const product of productsWithOpts) {
         const sourceOptions = product.productOptions || product.options;
         const cleanedOptions = sourceOptions.map((opt) => {
-          const cleanOpt = { ...opt };
+          const cleanOpt = {
+            ...opt,
+            name: typeof opt.name === 'string' ? { en_US: opt.name } : opt.name,
+          };
+
+          // Liferay Headless Commerce API (v1.0) expects 'productOptionValues' instead of 'values'
+          const sourceValues = opt.productOptionValues || opt.values || [];
+
+          if (sourceValues.length > 0) {
+            cleanOpt.productOptionValues = sourceValues.map((val) => {
+              if (typeof val === 'string') {
+                return {
+                  name: { en_US: val },
+                  key: sanitizeForERC(val),
+                };
+              }
+              return {
+                ...val,
+                name:
+                  typeof val.name === 'string' ? { en_US: val.name } : val.name,
+                key: val.key || sanitizeForERC(val.name?.en_US || val.name),
+              };
+            });
+          }
+
           delete cleanOpt.id;
+          delete cleanOpt.values; // Remove incorrect field
           delete cleanOpt.__catalogOption;
           return cleanOpt;
         });
+
         await this.liferay.addProductOptions(
           config,
           product.id,
@@ -731,8 +750,8 @@ class ProductGenerator extends BaseGenerator {
               this.liferay.createProductsBatch(config, batch, {
                 externalReferenceCode: erc,
                 sessionId,
-              }),
-            batch.length
+                session,
+              }),            batch.length
           );
         }
       } else {
@@ -759,8 +778,7 @@ class ProductGenerator extends BaseGenerator {
     }
   }
 
-  async _runWarehouseGenerationStep(sessionId) {
-    const session = await this.persistence.getSession(sessionId);
+  async _runWarehouseGenerationStep(sessionId, session) {
     const { config, options } = session.context;
 
     if (!options.createWarehouses) {
@@ -772,14 +790,7 @@ class ProductGenerator extends BaseGenerator {
     }
 
     try {
-      const warehouses = await this.ctx.warehouseGenerator.createWarehouses(
-        config,
-        { ...options, sessionId, stepKey: S.CREATE_WAREHOUSES }
-      );
-      await this.persistence.updateSessionContext(sessionId, {
-        ...session.context,
-        options: { ...options, warehouses },
-      });
+      await this.ctx.warehouseGenerator.createWarehouses(sessionId, session);
     } catch (error) {
       const errorReferenceCode =
         resolveErrorReference(error) || createERC(ERC_PREFIX.ERROR);
@@ -836,6 +847,88 @@ class ProductGenerator extends BaseGenerator {
     }
   }
 
+  async _runEnsureSpecificationsStep(sessionId) {
+    const session = await this.persistence.getSession(sessionId);
+    const { config, productDataList } = session.context;
+
+    if (!productDataList || productDataList.length === 0) {
+      return await this.completeSyncStep(
+        sessionId,
+        S.ENSURE_SPECIFICATIONS,
+        'BYPASSED'
+      );
+    }
+
+    this.logger.info('Starting ensure specifications step', {
+      sessionId,
+      correlationId: session.correlationId,
+    });
+
+    try {
+      // 1. Identify all unique specification keys used in the generated data
+      const specMap = new Map();
+      for (const product of productDataList) {
+        const specs = product.productSpecifications || product.specifications || [];
+        for (const spec of specs) {
+          if (spec.specificationKey) {
+            specMap.set(spec.specificationKey, spec);
+          }
+        }
+      }
+
+      const uniqueKeys = Array.from(specMap.keys());
+      if (uniqueKeys.length === 0) {
+        return await this.completeSyncStep(
+          sessionId,
+          S.ENSURE_SPECIFICATIONS,
+          'BYPASSED'
+        );
+      }
+
+      this.logger.debug(`Synchronizing ${uniqueKeys.length} specification definitions...`, {
+        sessionId,
+        keys: uniqueKeys,
+      });
+
+      // 2. Ensure each specification exists in Liferay
+      let createdCount = 0;
+      for (const key of uniqueKeys) {
+        const spec = specMap.get(key);
+        const title = spec.title || spec.name || { en_US: toI18n(key).en_US };
+        
+        await this.liferay.createSpecificationWithReuse(config, {
+          externalReferenceCode: buildSpecificationERC(key),
+          key: key,
+          title: typeof title === 'string' ? { en_US: title } : title,
+          description: { en_US: `Auto-generated specification for ${key}` }
+        });
+        createdCount++;
+      }
+
+      await this.completeSyncStep(
+        sessionId,
+        S.ENSURE_SPECIFICATIONS,
+        'SYNCHRONOUS',
+        createdCount,
+        uniqueKeys.length
+      );
+    } catch (error) {
+      const errorReferenceCode =
+        resolveErrorReference(error) || createERC(ERC_PREFIX.ERROR);
+      this.logger.error('Failed ensure specifications step', {
+        sessionId,
+        errorReferenceCode,
+        error: error.message,
+      });
+      await this.persistence.createBatch({
+        erc: createERC(ERC_PREFIX.BATCH),
+        sessionId,
+        stepKey: S.ENSURE_SPECIFICATIONS,
+        status: 'FAILED',
+      });
+    }
+  }
+
   async _runProductCreationStep(sessionId) {
     const session = await this.persistence.getSession(sessionId);
     const { config, productDataList, options } = session.context;
@@ -850,11 +943,8 @@ class ProductGenerator extends BaseGenerator {
 
     try {
       const prepared = productDataList.map((pd) => {
-        const hasMultipleSkus = Array.isArray(pd.skus) && pd.skus.length > 1;
-        const productType =
-          options.generateSkuVariants && hasMultipleSkus
-            ? 'grouped'
-            : pd.productType || 'simple';
+        // Liferay Headless Commerce API (v1.0) requires all products to be 'simple' during initial creation.
+        const productType = 'simple';
 
         const lp = {
           catalogId: parseInt(config.catalogId, 10),
@@ -863,14 +953,20 @@ class ProductGenerator extends BaseGenerator {
           description: toI18n(pd.description),
           productType,
           productStatus: 0, // Published
-          taxCategory: 'Standard',
+          productConfiguration: {
+            productTaxConfiguration: {
+              taxCategory: 'Standard',
+              taxable: true,
+            },
+          },
           externalReferenceCode: pd.externalReferenceCode,
-          productSpecifications:
-            pd.productSpecifications || pd.specifications || [],
+          productSpecifications: (pd.productSpecifications || pd.specifications || []).map(spec => ({
+            ...spec,
+            title: spec.title || spec.value || spec.name // Liferay requires title for the underlying CPSpecificationOption
+          })),
           productOptions: pd.productOptions || pd.options || [],
         };
 
-        // For initial creation, only include skeletal SKUs to avoid validation loops
         if (pd.skus && pd.skus.length > 0) {
           lp.skus = pd.skus.map((s) => ({
             sku: s.sku,
@@ -879,13 +975,11 @@ class ProductGenerator extends BaseGenerator {
             purchasable: true,
           }));
 
-          // If variants are disabled or simple, only send the first SKU
           if (!options.generateSkuVariants || productType === 'simple') {
             lp.skus = lp.skus.slice(0, 1);
           }
         }
 
-        // Deep clean to remove forbidden IDs at all levels
         return deepCleanIds(lp);
       });
 
@@ -905,6 +999,7 @@ class ProductGenerator extends BaseGenerator {
             this.liferay.createProductsBatch(config, chunk, {
               externalReferenceCode: erc,
               sessionId,
+              session,
             }),
           chunk.length
         );
@@ -1021,11 +1116,7 @@ class ProductGenerator extends BaseGenerator {
   }
 
   _cleanProductForLiferay(product, options = {}) {
-    // 1. Recursive removal of forbidden numeric IDs
     let clean = this.deepClean(product);
-
-    // 2. Explicitly preserve fields that might be considered unknown by sanitizedObject but are needed for Liferay
-    // (Ensure they are not stripped if sanitizedObject is called later)
 
     if (options.stripSkuOptions && clean.skus) {
       clean.skus = clean.skus.map((s) => {

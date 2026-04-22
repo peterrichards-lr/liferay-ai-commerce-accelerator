@@ -396,6 +396,7 @@ class DeleteCoordinatorService extends BaseGenerator {
         config,
         options,
         sessionId,
+        session,
         channelId,
         catalogId,
         totalCount,
