@@ -1,33 +1,28 @@
 {
-	"configuration": {
-		"className": "com.liferay.object.admin.rest.dto.v1_0.ObjectFolder",
-		"parameters": {
-			"containsHeaders": "true",
-			"createStrategy": "UPSERT",
-			"importStrategy": "ON_ERROR_FAIL",
-			"taskItemDelegateName": "DEFAULT",
-			"updateStrategy": "UPDATE"
-		}
-	},
-	"items": [
-		{
-			"actions": {
-				"delete": {
-				},
-				"get": {
-				},
-				"permissions": {
-				},
-				"update": {
-				}
-			},
-			"externalReferenceCode": "AI_COMMERCE_ACCELERATOR_OBJECTS_FOLDER",
-			"label": {
-				"en_US": "AI Commerce Accelerator"
-			},
-			"name": "aicommerceaccelerator",
-			"objectFolderItems": [
-			]
-		}
-	]
+  "configuration": {
+    "className": "com.liferay.object.admin.rest.dto.v1_0.ObjectFolder",
+    "parameters": {
+      "containsHeaders": "true",
+      "createStrategy": "UPSERT",
+      "importStrategy": "ON_ERROR_FAIL",
+      "taskItemDelegateName": "DEFAULT",
+      "updateStrategy": "UPDATE"
+    }
+  },
+  "items": [
+    {
+      "actions": {
+        "delete": {},
+        "get": {},
+        "permissions": {},
+        "update": {}
+      },
+      "externalReferenceCode": "AI_COMMERCE_ACCELERATOR_OBJECTS_FOLDER",
+      "label": {
+        "en_US": "AI Commerce Accelerator"
+      },
+      "name": "aicommerceaccelerator",
+      "objectFolderItems": []
+    }
+  ]
 }

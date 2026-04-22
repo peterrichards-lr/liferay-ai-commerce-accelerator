@@ -585,11 +585,12 @@
 ### [x] Fix Pre-commit Hook Execution
 
 **Issue**: The Git pre-commit hook failed to execute or could not find `npx`.
-**Analysis**: 
+**Analysis**:
+
 1. The `.husky/pre-commit` file was initially created without the executable bit.
 2. In some environments (especially non-interactive shells used by Git), `npx` was not in the `PATH`.
 3. Local environment uses Maven-managed Node (located in `build/node/bin`).
-**Result**: **FIXED**. Applied `chmod +x` and updated the hook script to prioritize project-local Node binaries and support `~/.huskyrc` for user-specific environment configuration.
+   **Result**: **FIXED**. Applied `chmod +x` and updated the hook script to prioritize project-local Node binaries and support `~/.huskyrc` for user-specific environment configuration.
 
 ---
 
@@ -598,12 +599,14 @@
 ### [x] Fix Postal Address Callback Race Condition
 
 **Issue**: The workflow stalled during address creation with "No batch record found for batchERC in callback" errors in the logs.
-**Analysis**: 
+**Analysis**:
+
 1. `_runAddressCreationStep` was submitting multiple batches but only persisting after the loop.
 2. Callback arrives before SQLite write is visible to the callback handler thread/process.
 3. Query parameter naming mismatch between `liferayPaths.cjs` and `routes/batch.cjs`.
-**Result**: **FIXED**.
-- Refactored `AccountGenerator.cjs` to persist records *before* submission.
+   **Result**: **FIXED**.
+
+- Refactored `AccountGenerator.cjs` to persist records _before_ submission.
 - Enhanced `PersistenceService.cjs` to proactively populate the in-memory cache during `createBatch`.
 - Added a retry mechanism in `BatchCallbackService.processCallback` to wait for records that are mid-commit.
 - Updated `routes/batch.cjs` to accept both `batchExternalReferenceCode` and `batchERC` parameters.
@@ -677,14 +680,16 @@
 **Issue**: Mock account generation fails schema validation in Demo Mode.
 **Analysis**: The `account.json` schema requires the `accountContactInformation` property (including emailAddresses), but `MockDataGenerator.generateAccountData` does not provide it.
 **Steps**:
+
 1. Update `MockDataGenerator.cjs` to include a valid `accountContactInformation` block for all generated accounts.
 
 ### [x] Investigate Price List Retrieval Failure (HTTP Error)
 
 **Analysis**: Investigation revealed two critical issues in `LiferayService`:
+
 1.  **Duplicate Method Definitions**: `LiferayService` (in `index.cjs`) had two definitions for `getPriceLists`. The first used a robust GraphQL-based implementation to bypass OData limitations, but the second (at the end of the file) was a simple passthrough to the REST SDK. In JavaScript, the last definition wins, so the system was incorrectly using the fragile REST implementation.
 2.  **REST Parameter Mismatch**: The REST implementation of `getPriceLists` incorrectly appended `catalogId` as a raw query parameter instead of part of an OData filter. This likely triggered 400 errors from Liferay's Pricing API, which only supports standard pagination and OData parameters.
-**Result**: **FIXED**. Removed duplicate REST-based passthrough from `index.cjs` to ensure the robust GraphQL implementation is always used.
+    **Result**: **FIXED**. Removed duplicate REST-based passthrough from `index.cjs` to ensure the robust GraphQL implementation is always used.
 
 ### [x] Resolve Session Check Race Condition
 
@@ -714,10 +719,11 @@
 ### [x] Prevent Workflow Advancement Stalls and Handle Sync Step Failures
 
 **Issue**: The workflow was failing with "no current step found" or stalling after sync steps.
-**Root Cause**: 
+**Root Cause**:
+
 1. `BaseGenerator.executeNextStep` was calling `executeStep` before persisting the updated `currentSteps` to the database, causing handlers to see an empty list.
 2. `DeleteCoordinatorService.executeStep` had a redundant trigger logic that conflicted with the base class.
-**Result**: **FIXED**. Refactored `BaseGenerator` to persist state before execution and removed redundant overrides in `DeleteCoordinatorService`.
+   **Result**: **FIXED**. Refactored `BaseGenerator` to persist state before execution and removed redundant overrides in `DeleteCoordinatorService`.
 
 ### [x] Improve Session Failure Propagation in Orchestrator
 
@@ -758,7 +764,8 @@
 
 ### [x] Harden WebSocket Targeting (Session-First)
 
-**Result**: **FIXED**. 
+**Result**: **FIXED**.
+
 1. Refactored `WebSocketService.resolveTargets` to use `sessionId` as the primary lookup key.
 2. Updated `deliver()` to ensure `sessionId` is correctly propagated through retries.
 3. This ensures Liferay callbacks still correctly target the originating browser session even if proxy headers strip the `correlationId`.
@@ -815,4 +822,3 @@
 
 **Issue**: WebSocket reconnection resets progress bars to zero.
 **Result**: **FIXED**. Implemented `WORKFLOW_STATUS` endpoint and updated `useRealtimeWebSocket` to hydrate progress state upon reconnection.
-

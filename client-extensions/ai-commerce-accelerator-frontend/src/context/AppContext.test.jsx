@@ -7,7 +7,9 @@ const TestComponent = () => {
   return (
     <div>
       <span data-testid="title">{config.title}</span>
-      <button onClick={() => setConfig({ title: 'New Title' })}>Change Title</button>
+      <button onClick={() => setConfig({ title: 'New Title' })}>
+        Change Title
+      </button>
     </div>
   );
 };
@@ -19,8 +21,10 @@ describe('AppContext', () => {
         <TestComponent />
       </AppProvider>
     );
-    
-    expect(screen.getByTestId('title')).toHaveTextContent(/AI Commerce Accelerator/i);
+
+    expect(screen.getByTestId('title')).toHaveTextContent(
+      /AI Commerce Accelerator/i
+    );
   });
 
   it('updates config via setConfig', async () => {
@@ -32,7 +36,7 @@ describe('AppContext', () => {
 
     const btn = screen.getByText('Change Title');
     await act(async () => {
-        btn.click();
+      btn.click();
     });
 
     expect(screen.getByTestId('title')).toHaveTextContent('New Title');

@@ -190,7 +190,9 @@ A new feature has been added to allow users to export generated commerce data to
 The Microservice and Frontend communicate via WebSockets using a hierarchical **Scope/Status** model. This ensures real-time, granular feedback for long-running workflows.
 
 ### Event Structure (JSON)
+
 All `PROGRESS` packets MUST follow this structure:
+
 ```json
 {
   "type": "STARTED | PROGRESS | COMPLETED | FAILED",
@@ -207,9 +209,11 @@ All `PROGRESS` packets MUST follow this structure:
 ```
 
 ### Critical Sync Rule
+
 Any change to the event emission logic in `ProgressService.cjs` (Server) MUST be matched by a corresponding update in `progressReducer.js` and `useRealtimeWebSocket.js` (Frontend).
 
 ### Logic Mapping
+
 - **`STARTED` (session)**: Triggers `RESET_ALL` in the frontend to initialize progress bars.
 - **`PROGRESS` (batch/step)**: Triggers `SET_COMPLETED` using `processedCount`.
 - **`COMPLETED` (step)**: Marks the `entityType` as 100% complete (setting completed equal to total).

@@ -9,6 +9,7 @@ This document contains sequence diagrams illustrating the primary workflows of t
 The microservice supports two primary modes for generating data (Products, Accounts, Orders, etc.), depending on the requested count and configuration.
 
 ### 1.1 Batch Mode (Count > 1)
+
 Optimized for high-volume generation. Uses Liferay's Batch Engine for asynchronous processing and follows a step-by-step state machine.
 
 ```mermaid
@@ -34,6 +35,7 @@ sequenceDiagram
 ```
 
 ### 1.2 Individual Mode (Count = 1)
+
 Used for low-volume requests or when `batchSize` is set to 1. Executes synchronous Headless API calls for immediate feedback.
 
 ```mermaid
@@ -46,10 +48,10 @@ sequenceDiagram
     Note over MS: Data Generation Phase (Live or Demo)
     MS->>DB: createBatch(erc, status: 'SYNCHRONOUS')
     MS->>WS: Emit: batch_started (totalCount: 1)
-    
+
     MS->>+LR_API: POST /entities (Single Payload)
     LR_API-->>-MS: 201 Created (Entity JSON)
-    
+
     MS->>DB: updateBatch(status: 'COMPLETED')
     MS->>WS: Emit: batch_completed (processedCount: 1)
     MS->>MS: triggerNextStep()
@@ -67,10 +69,10 @@ graph TD
     Mode -- Live --> AI[AI Service: Request Synthetic Data]
     AI --> Schema[Validate against AI JSON Schema]
     Schema --> Persist[Store generated payload in Session Context]
-    
+
     Mode -- Demo --> Mock[MockData Generator: Generate deterministic data]
     Mock --> Persist
-    
+
     Persist --> End[Continue to Creation Step]
 ```
 
@@ -81,13 +83,14 @@ graph TD
 Deletion is orchestrated by the `DeleteCoordinatorService` to ensure data is removed without violating referential integrity.
 
 ### 3.1 Full Environment Deletion (All)
+
 Wipes all data in a hardcoded, safe sequence after performing a global discovery.
 
 ```mermaid
 sequenceDiagram
     participant MS as Microservice (Orchestrator)
     participant LR as Liferay (Batch & API)
-    
+
     Note over MS: Fixed Sequence:
     MS->>LR: 1. DISCOVER (Build Manifest)
     MS->>LR: 2. Reset Catalog Configuration
@@ -101,6 +104,7 @@ sequenceDiagram
 ```
 
 ### 3.2 Selected Data Deletion
+
 Allows users to target specific categories (e.g., only "Accounts"). Automatically performs discovery first to ensure accurate targeting.
 
 ```mermaid
@@ -112,7 +116,7 @@ sequenceDiagram
     User->>MS: POST /delete-selected (Scope: [Accounts, Pricing])
     MS->>MS: Prepend DISCOVER Step
     MS->>MS: dependencyCheck(Pricing) -> Prepend ResetCatalogConfig
-    
+
     loop For each Step (Starting with DISCOVER)
         MS->>LR: Execute Deletion/Discovery Step
     end
@@ -123,6 +127,7 @@ sequenceDiagram
 ## 5. Detailed Entity Sequences
 
 ### 5.1 Account Generation Sequence
+
 Handles specialized address establishment (Head Office vs. Billing/Shipping) which requires multiple batch/API loops.
 
 ```mermaid
@@ -133,21 +138,22 @@ sequenceDiagram
     Note over MS: 1. Generate Accounts (Batch)
     MS->>LR: createAccountsBatch() (Includes Head Office 'other' address)
     LR-->>MS: Callback (Success)
-    
+
     Note over MS: 2. Resolve IDs
     MS->>LR: resolveByERCsWithRetry()
     LR-->>MS: Map of ERC -> Account ID
-    
+
     Note over MS: 3. Create Specialized Addresses
     MS->>LR: createAddressesBatch() (Type: billing/shipping)
     LR-->>MS: Callback (Success)
-    
+
     Note over MS: 4. Link Default IDs
     MS->>LR: Update Accounts (Set billingAddressId/shippingAddressId)
     LR-->>MS: 200 OK
 ```
 
 ### 5.2 Order Generation Sequence
+
 Depends on existing Products, Accounts, and Warehouses.
 
 ```mermaid
@@ -158,10 +164,10 @@ sequenceDiagram
     Note over MS: 1. Dependency Discovery
     MS->>LR: getProductsAndAccounts() (GraphQL Search)
     LR-->>MS: Product & Account Lists
-    
+
     Note over MS: 2. Data Generation (Live or Demo)
     MS->>MS: generateOrderDataList() (Using AI or Mock)
-    
+
     Note over MS: 3. Submit Orders
     alt Count > 1
         MS->>LR: createOrdersBatch()
