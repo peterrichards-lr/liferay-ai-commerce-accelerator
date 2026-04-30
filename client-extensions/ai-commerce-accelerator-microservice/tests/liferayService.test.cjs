@@ -1,5 +1,7 @@
 const { LiferayService } = require('../services/liferay/index.cjs');
 const OAuthService = require('../services/liferay/oauth.cjs');
+const ContractValidator = require('../services/contractValidator.cjs');
+const { ENV } = require('../utils/constants.cjs');
 
 describe('LiferayService', () => {
   let liferayService;
@@ -27,6 +29,7 @@ describe('LiferayService', () => {
       config: {},
     };
     mockCtx.oauth = new OAuthService(mockCtx);
+    mockCtx.contractValidator = new ContractValidator(mockCtx);
     liferayService = new LiferayService(mockCtx);
 
     // Mock getExclusions to avoid needing real persistence logic in discovery tests
@@ -82,5 +85,18 @@ describe('LiferayService', () => {
     expect(result.processedItemsCount).toBe(10);
     expect(result.totalItemsCount).toBe(10);
     expect(result.id).toBe(9001);
+  });
+
+  it('should fail to create products batch if contract is violated', async () => {
+    const invalidProducts = [
+      {
+        name: { en_US: 'Invalid Product' },
+        // missing 'active' and 'productType'
+      },
+    ];
+
+    await expect(
+      liferayService.createProductsBatch(config, invalidProducts)
+    ).rejects.toThrow(/Data does not match Liferay API contract/);
   });
 });

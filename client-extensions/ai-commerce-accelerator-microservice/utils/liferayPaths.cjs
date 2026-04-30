@@ -51,6 +51,7 @@ const BASE = {
   POSTAL_ADDRESSES: `${API_ROOT.USER}/postal-addresses`,
   PRICE_LISTS: `${API_ROOT.PRICING}/price-lists`,
   PRODUCTS: `${API_ROOT.CATALOG}/products`,
+  SPECIFICATION_CATEGORIES: `${API_ROOT.CATALOG}/specification-categories`,
   SPECIFICATIONS: `${API_ROOT.CATALOG}/specifications`,
 };
 
@@ -136,10 +137,26 @@ const PATH = {
     `${BASE.INVENTORY_API}/warehouses/batch${
       callbackURL ? `?callbackURL=${enc(callbackURL)}` : ''
     }`,
+  WAREHOUSE_CHANNELS: (warehouseId) =>
+    `${BASE.INVENTORY_API}/warehouses/${warehouseId}/warehouse-channels`,
+  WAREHOUSE_CHANNELS_BY_ERC: (erc) =>
+    `${BASE.INVENTORY_API}/warehouses/by-externalReferenceCode/${enc(erc)}/warehouse-channels`,
+  WAREHOUSE_CHANNELS_BATCH: (callbackURL) =>
+    `${BASE.INVENTORY_API}/warehouses/warehouse-channels/batch${
+      callbackURL ? `?callbackURL=${enc(callbackURL)}` : ''
+    }`,
   PRODUCT_SKUS: (productId) => `${BASE.PRODUCTS}/${productId}/skus`,
+  SKU_BY_ERC: (erc) =>
+    `${BASE.CATALOG_API}/skus/by-externalReferenceCode/${enc(erc)}`,
   PRODUCT_OPTIONS: (productId) =>
     `${BASE.PRODUCTS}/${productId}/productOptions`,
+  PRODUCT_OPTIONS_BY_ERC: (erc) =>
+    `${BASE.PRODUCTS}/by-externalReferenceCode/${enc(erc)}/productOptions`,
   PRODUCT_OPTION: (id) => `${BASE.CATALOG_API}/productOptions/${id}`,
+  PRODUCT_CHANNELS: (productId) =>
+    `${BASE.PRODUCTS}/${productId}/product-channels`,
+  PRODUCT_CHANNELS_BY_ERC: (erc) =>
+    `${BASE.PRODUCTS}/by-externalReferenceCode/${enc(erc)}/product-channels`,
   PRODUCT_SPECIFICATIONS: (productId) =>
     `${BASE.PRODUCTS}/${productId}/productSpecifications`,
   PRODUCT_SPECIFICATION: (id) =>
@@ -181,6 +198,10 @@ const PATH = {
     `${BASE.OPTIONS}/batch${
       callbackURL ? `?callbackURL=${enc(callbackURL)}` : ''
     }`,
+
+  SPECIFICATION_CATEGORIES: BASE.OPTION_CATEGORIES,
+  SPECIFICATION_CATEGORY: (id) => `${BASE.OPTION_CATEGORIES}/${id}`,
+  SPECIFICATION_CATEGORY_BY_ERC: (erc) => byERC(BASE.OPTION_CATEGORIES, erc, 'camel'),
 
   SPECIFICATIONS: BASE.SPECIFICATIONS,
   SPECIFICATION_BY_ERC: (erc) =>

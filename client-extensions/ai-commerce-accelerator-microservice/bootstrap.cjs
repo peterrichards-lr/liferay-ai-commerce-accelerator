@@ -10,6 +10,7 @@ const DeleteCoordinatorService = require('./services/deleteCoordinatorService.cj
 const { LiferayService } = require('./services/liferay/index.cjs');
 const { ObjectStorageService } = require('./services/objectStorageService.cjs');
 const PersistenceService = require('./services/persistenceService.cjs');
+const ContractValidator = require('./services/contractValidator.cjs');
 
 const OAuthService = require('./services/liferay/oauth.cjs');
 const HealthService = require('./services/healthService.cjs');
@@ -23,6 +24,7 @@ const MockDataGenerator = require('./generators/mockDataGenerator.cjs');
 const OrderGenerator = require('./generators/orderGenerator.cjs');
 const ProductGenerator = require('./generators/productGenerator.cjs');
 const WarehouseGenerator = require('./generators/warehouseGenerator.cjs');
+const WorkflowCoordinator = require('./generators/workflowCoordinator.cjs');
 
 const registerDataGenerationWorkers = require('./workers/dataGenerationWorkers.cjs');
 const registerBatchWorkers = require('./workers/registerBatchWorkers.cjs');
@@ -31,7 +33,8 @@ module.exports = (ws) => {
   const ctx = { logger, ws };
 
   ctx.cache = new CacheService(ctx);
-  ctx.persistence = new PersistenceService();
+  ctx.persistence = new PersistenceService(ctx);
+  ctx.contractValidator = new ContractValidator(ctx);
   ctx.progress = new ProgressService({
     ws,
     logger,
@@ -52,7 +55,7 @@ module.exports = (ws) => {
 
   ctx.config.setLiferayService(ctx.liferay);
   ctx.prompt = new PromptService(ctx);
-  ctx.health = new HealthService({ config: ctx.config });
+  ctx.health = new HealthService({ config: ctx.config, logger });
   ctx.ai = new AIService({
     config: ctx.config,
     logger,
@@ -78,7 +81,15 @@ module.exports = (ws) => {
   ctx.accountGenerator = new AccountGenerator(ctx);
   ctx.orderGenerator = new OrderGenerator(ctx);
   ctx.productGenerator = new ProductGenerator(ctx);
+  ctx.workflowCoordinator = new WorkflowCoordinator(ctx);
   ctx.deleteCoordinator = new DeleteCoordinatorService(ctx);
+
+  // Register generators with the master coordinator
+  ctx.workflowCoordinator.registerGenerator('warehouse', ctx.warehouseGenerator);
+  ctx.workflowCoordinator.registerGenerator('account', ctx.accountGenerator);
+  ctx.workflowCoordinator.registerGenerator('order', ctx.orderGenerator);
+  ctx.workflowCoordinator.registerGenerator('product', ctx.productGenerator);
+  ctx.workflowCoordinator.registerGenerator('delete', ctx.deleteCoordinator);
 
   // Register generators with the callback dispatcher
   ctx.batchCallback.registerGenerator('warehouse', ctx.warehouseGenerator);
@@ -86,6 +97,15 @@ module.exports = (ws) => {
   ctx.batchCallback.registerGenerator('order', ctx.orderGenerator);
   ctx.batchCallback.registerGenerator('product', ctx.productGenerator);
   ctx.batchCallback.registerGenerator('delete', ctx.deleteCoordinator);
+  ctx.batchCallback.registerGenerator('unified', ctx.workflowCoordinator);
+
+  // HARDENING: Verify that all registered generators have valid method handlers 
+  // for their registered workflow steps. Throws at startup if mapping is broken.
+  ctx.warehouseGenerator.verifySteps();
+  ctx.accountGenerator.verifySteps();
+  ctx.orderGenerator.verifySteps();
+  ctx.productGenerator.verifySteps();
+  ctx.deleteCoordinator.verifySteps();
 
   ctx.queue = new QueueService({
     logger,
@@ -128,5 +148,6 @@ module.exports = (ws) => {
     promptService: ctx.prompt,
     queueService: ctx.queue,
     warehouseGenerator: ctx.warehouseGenerator,
+    workflowCoordinator: ctx.workflowCoordinator,
   };
 };

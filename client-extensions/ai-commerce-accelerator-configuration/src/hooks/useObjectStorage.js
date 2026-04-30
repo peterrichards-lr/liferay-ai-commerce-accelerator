@@ -13,6 +13,7 @@ export const useObjectStorage = ({ keys, defaults = {}, json = true }) => {
   );
 
   const keyString = useMemo(() => keys.join(','), [keys]);
+  const defaultsString = useMemo(() => JSON.stringify(defaults), [defaults]);
 
   useEffect(() => {
     let alive = true;
@@ -66,7 +67,7 @@ export const useObjectStorage = ({ keys, defaults = {}, json = true }) => {
     return () => {
       alive = false;
     };
-  }, [keyString, json, defaults]);
+  }, [keyString, json, defaultsString]);
 
   const onSave = useCallback(async () => {
     if (saving) return;

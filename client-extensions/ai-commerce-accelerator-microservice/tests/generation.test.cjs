@@ -83,6 +83,9 @@ describe('Data Generation Reliability', () => {
       );
 
       const isValid = validate({ products });
+      if (!isValid) {
+        console.error('Schema errors (variants):', JSON.stringify(validate.errors, null, 2));
+      }
       expect(isValid).toBe(true);
 
       products.forEach((p) => {

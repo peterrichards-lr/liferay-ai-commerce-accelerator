@@ -13,6 +13,20 @@ class BaseGenerator extends BaseWorkflowService {
   }
 
   /**
+   * Hardening: Programmatically verifies that all registered steps have 
+   * a corresponding method handler. Throws at startup if mapping is broken.
+   */
+  verifySteps() {
+    for (const [stepName, handler] of Object.entries(this.steps)) {
+      if (typeof handler !== 'function') {
+        throw new Error(
+          `FATAL: Workflow Step '${stepName}' in ${this.constructor.name} has no valid method handler.`
+        );
+      }
+    }
+  }
+
+  /**
    * Orchestrates the execution of a single named step.
    */
   async executeStep(sessionId, stepName) {
@@ -20,7 +34,8 @@ class BaseGenerator extends BaseWorkflowService {
     if (!session) return;
     const { correlationId, flow_type: flowType } = session;
 
-    const stepConfig = session.context.steps.find((s) =>
+    const steps = session.context.steps || [];
+    const stepConfig = steps.find((s) =>
       typeof s === 'string' ? s === stepName : s.name === stepName
     );
     const stepType = stepConfig?.type || 'sync';
@@ -32,11 +47,11 @@ class BaseGenerator extends BaseWorkflowService {
         return;
       }
 
-      this.logger.warn(
-        `No handler found for step '${stepName}' in ${this.constructor.name}`,
-        { sessionId, correlationId }
+      // HARDENING: Throw fatal error instead of silently bypassing.
+      // This prevents \"Ghost Steps\" from causing downstream data corruption.
+      throw new Error(
+        `FATAL: No handler found for workflow step '${stepName}' in ${this.constructor.name}. Register it in the constructor steps map.`
       );
-      return await this.completeSyncStep(sessionId, stepName, 'SYNCHRONOUS');
     }
 
     // State Gatekeeping: Verify dependencies
@@ -74,6 +89,41 @@ class BaseGenerator extends BaseWorkflowService {
       );
       throw error;
     }
+  }
+
+  /**
+   * Hardening: Standardized method to mark a synchronous step as complete.
+   * This creates a physical database entry and triggers the workflow advancement.
+   */
+  async completeSyncStep(
+    sessionId,
+    stepKey,
+    status = 'SYNCHRONOUS',
+    processedCount = 1,
+    totalCount = 1
+  ) {
+    const session = await this.persistence.getSession(sessionId);
+    if (!session) return;
+
+    // 1. Persist the completion state to the database
+    await this.persistence.createBatch({
+      erc: `SYNC-${stepKey}-${Date.now()}`,
+      sessionId,
+      stepKey,
+      status,
+      processed_count: processedCount,
+      total_count: totalCount,
+    });
+
+    this.logger.debug(
+      `Synchronous step '${stepKey}' marked as ${status}. Advancing...`,
+      { sessionId }
+    );
+
+    // 2. Trigger the next step discovery
+    // We add a tiny jitter to ensure the SQLite write-lock has cleared
+    await delay(100);
+    return await this.executeNextStep(sessionId);
   }
 
   /**
@@ -188,8 +238,28 @@ class BaseGenerator extends BaseWorkflowService {
 
           if (state === 'FAILED') {
             const displayId = stepName || stepType;
+            // ENHANCED OBSERVABILITY: Find the specific failed sub-step
+            let failedSubStep = '';
+            if (['parallel', 'sequence'].includes(stepType)) {
+               const failedSteps = step.steps.filter(s => getStepState(s) === 'FAILED');
+               failedSubStep = failedSteps.length > 0 ? ` (Failed sub-steps: ${failedSteps.map(s => s.name || 'unnamed').join(', ')})` : '';
+            }
+
+            if (session.flowType === 'delete' || session.flow_type === 'delete') {
+              this.logger.warn(
+                `Workflow step '${displayId}' failed${failedSubStep}. Try-Every-Step mode active for deletion. Continuing to next step...`,
+                {
+                  sessionId,
+                  correlationId,
+                  step: stepName,
+                  type: stepType,
+                }
+              );
+              return true; // Treat as complete to unblock subsequent cleanup steps
+            }
+
             this.logger.error(
-              `Workflow step '${displayId}' failed. Stopping advancement.`,
+              `Workflow step '${displayId}' failed${failedSubStep}. Stopping advancement.`,
               {
                 sessionId,
                 correlationId,
@@ -209,9 +279,27 @@ class BaseGenerator extends BaseWorkflowService {
             for (const subStep of step.steps) {
               await processStep(subStep);
             }
-            foundBlockingStep = true;
-            return false;
-          } else if (stepType === 'sequence') {
+
+            const subStates = step.steps.map(getStepState);
+
+            // If any sub-step is still running or pending, we are NOT terminal
+            if (subStates.some(st => ['RUNNING', 'PENDING'].includes(st))) {
+              foundBlockingStep = true;
+              return false;
+            }
+
+            // All sub-steps are terminal (COMPLETE or FAILED)
+            if (subStates.some(st => st === 'FAILED')) {
+              // HARDENING: We allow continuation if it's a parallel block,
+              // but we mark the block itself as finished so the master sequence can move on.
+              // This ensures that a failure in 'Products' doesn't prevent 'Account Defaults' from running.
+              this.logger.warn(`Parallel step '${stepName || 'unnamed'}' finished with some sub-step failures. Continuing to next top-level step...`, { sessionId });
+              return true; 
+            }
+
+            return true; // All sub-steps completed successfully
+          }
+ else if (stepType === 'sequence') {
             for (const subStep of step.steps) {
               const subState = await processStep(subStep);
               if (!subState) {
@@ -232,7 +320,21 @@ class BaseGenerator extends BaseWorkflowService {
                 sessionId,
                 newActiveSteps
               );
-              await this.executeStep(sessionId, stepName);
+
+              // HARDENING: If we are part of a coordinated flow, delegate execution
+              // to the coordinator so it can route the step to the correct generator.
+              // Otherwise, we might throw a FATAL ERROR if the step belongs to another generator.
+              if (
+                this.ctx.workflowCoordinator &&
+                this.constructor.name !== 'WorkflowCoordinator'
+              ) {
+                await this.ctx.workflowCoordinator.executeStep(
+                  sessionId,
+                  stepName
+                );
+              } else {
+                await this.executeStep(sessionId, stepName);
+              }
               executedAnySyncStep = true;
             } else {
               newActiveSteps.push(stepName);

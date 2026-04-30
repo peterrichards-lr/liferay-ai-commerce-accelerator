@@ -17,7 +17,7 @@ export default function useGeneration({
   setGenerationCompleted,
   connectionEstablished,
 }) {
-  const [isGenerating, setIsGenerating] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const generateData = useCallback(async () => {
     if (!connectionEstablished) {
@@ -29,16 +29,16 @@ export default function useGeneration({
     }
 
     if (mountedRef.current) {
-      setIsGenerating(true);
+      setIsSubmitting(true);
       setGenerationCompleted(false);
     }
 
-    const { products, accounts, orders, images, pdfs } =
+    const { products, accounts, orders, images, pdfs, warehouses } =
       computeTotalsFromConfig(generationConfig);
 
     dispatch({
       type: 'SET_TOTALS',
-      totals: { products, accounts, orders, images, pdfs },
+      totals: { products, accounts, orders, images, pdfs, warehouses },
     });
 
     dispatch({
@@ -54,6 +54,7 @@ export default function useGeneration({
         orders: { ...progress.orders, completed: 0, errors: [] },
         images: { ...progress.images, completed: 0, errors: [] },
         pdfs: { ...progress.pdfs, completed: 0, errors: [] },
+        warehouses: { ...progress.warehouses, completed: 0, errors: [] },
       },
     });
 
@@ -115,8 +116,7 @@ export default function useGeneration({
       );
     } finally {
       if (mountedRef.current) {
-        setIsGenerating(false);
-        setGenerationCompleted(true);
+        setIsSubmitting(false);
       }
     }
   }, [
@@ -134,5 +134,5 @@ export default function useGeneration({
     setGenerationCompleted,
   ]);
 
-  return { isGenerating, generateData };
+  return { isSubmitting, generateData };
 }

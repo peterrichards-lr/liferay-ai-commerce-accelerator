@@ -56,6 +56,7 @@ module.exports = (
     accountGenerator,
     orderGenerator,
     warehouseGenerator,
+    workflowCoordinator,
     configService,
     cacheService,
     logger,
@@ -87,15 +88,23 @@ module.exports = (
             options.categories = [];
           }
 
+          productSteps.push({ name: S.GENERATE_WAREHOUSE_DATA, type: 'sync' });
           productSteps.push({ name: S.CREATE_WAREHOUSES, type: 'sync' });
           productSteps.push({ name: S.RESOLVE_WAREHOUSE_IDS, type: 'sync' });
+          productSteps.push({ name: S.LINK_WAREHOUSE_CHANNELS, type: 'sync' });
           productSteps.push({ name: S.GENERATE_PRODUCT_DATA, type: 'sync' });
+          productSteps.push({
+            name: S.ENSURE_SPECIFICATION_CATEGORIES,
+            type: 'sync',
+          });
+          productSteps.push({ name: S.ENSURE_SPECIFICATIONS, type: 'sync' });
+          productSteps.push({ name: S.ENSURE_OPTIONS, type: 'sync' });
           productSteps.push({ name: S.CREATE_PRODUCTS, type: 'sync' });
           productSteps.push({ name: S.RESOLVE_PRODUCT_IDS, type: 'sync' });
           productSteps.push({ name: S.LINK_PRODUCT_OPTIONS, type: 'sync' });
           productSteps.push({ name: S.CREATE_PRODUCT_SKUS, type: 'sync' });
           productSteps.push({ name: S.RESOLVE_SKU_IDS, type: 'sync' });
-          productSteps.push({ name: S.SYNC_DELAY, type: 'sync' });
+          productSteps.push({ name: S.SYNC_DELAY_PRICING, type: 'sync' });
           productSteps.push({ name: S.GENERATE_PRICE_LISTS, type: 'sync' });
 
           if (options.generatePriceLists) {
@@ -203,7 +212,7 @@ module.exports = (
             config,
             options,
             steps,
-            generator: 'product',
+            generator: 'unified',
           },
         });
 

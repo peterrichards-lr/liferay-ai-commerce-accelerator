@@ -102,10 +102,10 @@ class DeleteCoordinatorService extends BaseGenerator {
       return;
     }
 
-    const { config, channelId, catalogId } = session.context;
+    const { config, channelId, catalogId, isTotal } = session.context;
     const { correlationId } = session;
 
-    this.logger.info('Starting deletion discovery phase...', {
+    this.logger.info(`Starting discovery (${isTotal ? 'TOTAL' : 'SELECTED'})...`, {
       sessionId,
       correlationId,
     });
@@ -114,6 +114,7 @@ class DeleteCoordinatorService extends BaseGenerator {
       orders: [],
       accounts: [],
       warehouses: [],
+      warehouseItems: [],
       products: [],
       specifications: [],
       options: [],
@@ -122,182 +123,150 @@ class DeleteCoordinatorService extends BaseGenerator {
       promotions: [],
     };
 
+    const isAICA = (erc) => {
+      if (!erc) return false;
+      // Match AICA prefix OR standard Liferay UUID pattern
+      const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+      return erc.startsWith('AICA-') || uuidRegex.test(erc);
+    };
+
     try {
-      // 1. Discover Orders and their Accounts (Channel Context)
-      if (channelId) {
-        console.log(`[DISCOVERY] Crawling orders for channel: ${channelId}`);
-        this.logger.info(`Discovering all orders for channel ${channelId}...`, {
-          sessionId,
-        });
+      // --- 1. CHANNEL-BASED DISCOVERY (Orders & Linked Accounts) ---
+      const activeChannels = [];
+      if (isTotal) {
+        this.logger.info('TOTAL mode: Fetching all channels for exhaustive order sweep...', { sessionId });
+        const allChannels = await this.liferay.getChannels(config);
+        activeChannels.push(...allChannels);
+      } else if (channelId) {
+        activeChannels.push({ id: channelId });
+      }
 
-        // Use the paginated collection helper from liferayService
-        const { items: orders } = await this.liferay._collectAllItems(
-          config,
-          (cfg, p, size) =>
-            this.liferay.graphql.getOrders(
-              cfg,
-              `channelId eq ${channelId}`,
-              ['id', 'accountId', 'externalReferenceCode'],
-              { page: p, pageSize: size }
-            )
-        );
-
-        manifest.orders = orders;
-        console.log(`[DISCOVERY] Found ${orders.length} orders.`);
-        this.logger.info(
-          `Found ${orders.length} orders in channel ${channelId}.`,
-          { sessionId }
-        );
-
-        // Find accounts linked to these orders
-        const accountIds = [
-          ...new Set(orders.map((it) => it.accountId)),
-        ].filter(Boolean);
-        if (accountIds.length > 0) {
-          console.log(`[DISCOVERY] Resolving unique accounts from orders...`);
-          const accountFilter = accountIds
-            .map((id) => `id eq ${id}`)
-            .join(' or ');
-          const resolvedAccounts = await this.liferay.graphql.getAccounts(
-            config,
-            accountFilter,
-            ['id', 'externalReferenceCode', 'name']
-          );
-          manifest.accounts = asItems(resolvedAccounts);
-          console.log(
-            `[DISCOVERY] Found ${manifest.accounts.length} unique accounts from orders.`
-          );
-          this.logger.info(
-            `Identified ${manifest.accounts.length} unique accounts linked to channel orders.`,
-            { sessionId }
-          );
+      for (const chan of activeChannels) {
+        try {
+          this.logger.info(`Crawling orders for channel ${chan.id} (${chan.name || 'unnamed'})...`, { sessionId });
+          const { items: chanOrders } = await this.liferay.getOrders(config, { 
+            filter: `channelId eq ${chan.id}`
+          });
+          manifest.orders.push(...chanOrders);
+        } catch (err) {
+          this.logger.warn(`Failed to crawl channel ${chan.id}. Skipping.`, { sessionId, error: err.message });
         }
       }
 
-      // FALLBACK DISCOVERY: If manifest accounts is empty, look for accounts globally
-      if (manifest.accounts.length === 0) {
-        console.log(
-          '[DISCOVERY] No accounts from orders, performing global account discovery...'
-        );
-        this.logger.info(
-          'No accounts found via channel filter, performing global discovery...',
-          { sessionId }
-        );
-        // Use paginated collection helper
-        const { items: allAccounts } = await this.liferay._collectAllItems(
-          config,
-          (cfg, p, size) =>
-            this.liferay.graphql.getAccounts(
-              cfg,
-              null,
-              ['id', 'externalReferenceCode', 'name'],
-              { page: p, pageSize: size }
-            )
-        );
-
-        console.log(`[DISCOVERY] Global found ${allAccounts.length} accounts.`);
-        this.logger.info(
-          `Global discovery found ${allAccounts.length} accounts total.`,
-          { sessionId }
-        );
-
-        manifest.accounts = allAccounts;
-      }
-
-      // WAREHOUSES: Discovery (Global)
-      console.log('[DISCOVERY] Crawling warehouses...');
-      this.logger.info('Discovering all warehouses...', { sessionId });
-      const { items: allWarehouses } = await this.liferay._collectAllItems(
-        config,
-        (cfg, p, size) =>
-          this.liferay.graphql.getWarehouses(
-            cfg,
-            null,
-            ['id', 'externalReferenceCode', 'name'],
-            { page: p, pageSize: size }
-          )
-      );
-
-      console.log(`[DISCOVERY] Found ${allWarehouses.length} warehouses.`);
-      this.logger.info(
-        `Warehouse discovery found ${allWarehouses.length} total.`,
-        { sessionId }
-      );
-
-      manifest.warehouses = allWarehouses;
-
-      // WAREHOUSE ITEMS: Discovery (Global via discovered warehouses)
-      console.log('[DISCOVERY] Crawling warehouse items...');
-      this.logger.info('Discovering all warehouse items...', { sessionId });
-      const warehouseItemsRes = await this.liferay.getAllWarehouseItems(
-        config,
-        { pageSize: 5000 }
-      );
-      manifest.warehouseItems = warehouseItemsRes.items;
-      console.log(
-        `[DISCOVERY] Found ${manifest.warehouseItems.length} warehouse items.`
-      );
-      this.logger.info(
-        `Found ${manifest.warehouseItems.length} total warehouse items.`,
-        { sessionId }
-      );
-
-      // 2. Discover Catalog Entities (Catalog Context)
-      if (catalogId) {
-        console.log(`[DISCOVERY] Crawling catalog: ${catalogId}`);
-        this.logger.debug(`Discovering products for catalog ${catalogId}...`, {
-          sessionId,
-        });
-        const productsRes = await this.liferay.getProducts(config, {
-          catalogId,
-          fields: 'productId,externalReferenceCode,name',
-        });
-        manifest.products = productsRes.items;
-        console.log(`[DISCOVERY] Found ${manifest.products.length} products.`);
-
-        // RELATIONAL DISCOVERY: Fetch linked entities while products still exist
-        if (manifest.products.length > 0) {
-          const productIds = manifest.products.map((p) => p.productId || p.id);
-          console.log(
-            '[DISCOVERY] Resolving specifications/options for products...'
+      // Final Global Sweep for AICA/UUID orders that might be "orphaned" from any channel
+      if (isTotal) {
+        try {
+          const { items: allOrders } = await this.liferay._collectAllItems(config, (cfg, p, size) => 
+            this.liferay.rest._get(cfg, '/o/headless-commerce-admin-order/v1.0/orders', 'get-all-orders', 'Get All Orders', { params: { page: p, pageSize: size } })
           );
-          const specs = await this.liferay.getSpecificationsByProductIds(
-            config,
-            productIds
-          );
-          manifest.specifications = specs;
-
-          const opts = await this.liferay.getOptionsByProductIds(
-            config,
-            productIds
-          );
-          manifest.options = opts;
-          console.log(
-            `[DISCOVERY] Found ${manifest.specifications.length} specs and ${manifest.options.length} options.`
-          );
+          const orphanedOrders = allOrders.filter(o => isAICA(o.externalReferenceCode) && !manifest.orders.some(m => m.id === o.id));
+          manifest.orders.push(...orphanedOrders);
+        } catch (err) {
+          this.logger.warn('Global order sweep failed. Continuing...', { sessionId, error: err.message });
         }
-
-        // Discover Price Lists and Promotions
-        const priceListsRes = await this.liferay.getPriceLists(config, {
-          catalogId,
-          fields: 'id,externalReferenceCode,name,catalogBasePriceList',
-        });
-        manifest.priceLists = priceListsRes.items;
-
-        const promosRes = await this.liferay.getPromotions(config, {
-          catalogId,
-          fields: 'id,externalReferenceCode,title',
-        });
-        manifest.promotions = promosRes.items;
-        console.log(
-          `[DISCOVERY] Found ${manifest.priceLists.length} price lists and ${manifest.promotions.length} promos.`
-        );
       }
 
-      // 3. Persist manifest back to session context
-      console.log(
-        '[DISCOVERY] <<< Manifest building complete. Saving context...'
+      // --- 2. ACCOUNT DISCOVERY (Based on Orders + Prefix) ---
+      const accountIdsFromOrders = new Set(manifest.orders.map(o => o.accountId).filter(Boolean));
+      const { items: allAccounts } = await this.liferay.getAccounts(config, { pageSize: 500 });
+      
+      const relatedAccounts = allAccounts.filter(a => 
+        accountIdsFromOrders.has(a.id) || 
+        (isTotal && isAICA(a.externalReferenceCode)) ||
+        (!isTotal && channelId && isAICA(a.externalReferenceCode))
       );
+      manifest.accounts = relatedAccounts;
+
+      // --- 3. CATALOG-BASED DISCOVERY (Products, Specs, Options) ---
+      const activeCatalogs = [];
+      if (isTotal) {
+        this.logger.info('TOTAL mode: Fetching all catalogs for exhaustive product sweep...', { sessionId });
+        const allCatalogs = await this.liferay.getCatalogs(config);
+        activeCatalogs.push(...allCatalogs);
+      } else if (catalogId) {
+        activeCatalogs.push({ id: catalogId });
+      }
+
+      for (const cat of activeCatalogs) {
+        try {
+          this.logger.info(`Crawling products for catalog ${cat.id} (${cat.name || 'unnamed'})...`, { sessionId });
+          const { items: catProducts } = await this.liferay.getProducts(config, { catalogId: cat.id });
+          manifest.products.push(...catProducts);
+
+          // Discovery price lists and promos for this specific catalog
+          const { items: catPrices } = await this.liferay.getPriceLists(config, { catalogId: cat.id });
+          manifest.priceLists.push(...catPrices);
+          const { items: catPromos } = await this.liferay.getPromotions(config, { catalogId: cat.id });
+          manifest.promotions.push(...catPromos);
+        } catch (err) {
+          this.logger.warn(`Failed to crawl catalog ${cat.id}. Skipping.`, { sessionId, error: err.message });
+        }
+      }
+
+      // Final Global Sweep for Orphaned Products (AICA/UUID)
+      if (isTotal) {
+        try {
+          const { items: allProducts } = await this.liferay.getProducts(config, { pageSize: 500 });
+          const orphanedProducts = allProducts.filter(p => isAICA(p.externalReferenceCode) && !manifest.products.some(m => m.id === (p.productId || p.id)));
+          manifest.products.push(...orphanedProducts);
+        } catch (err) {
+          this.logger.warn('Global product sweep failed. Continuing...', { sessionId, error: err.message });
+        }
+      }
+
+      // RELATIONAL CRAWL: Fetch Specs/Options linked to discovered products
+      if (manifest.products.length > 0) {
+        const productIds = manifest.products.map(p => p.productId || p.id);
+        const specs = await this.liferay.getSpecificationsByProductIds(config, productIds);
+        manifest.specifications.push(...specs);
+        const opts = await this.liferay.getOptionsByProductIds(config, productIds);
+        manifest.options.push(...opts);
+      }
+
+      // Final Global Sweep for Orphaned Specs/Options/Categories (AICA/UUID)
+      if (isTotal) {
+        const { items: allSpecs } = await this.liferay.getSpecifications(config);
+        const orphanedSpecs = allSpecs.filter(s => isAICA(s.externalReferenceCode) && !manifest.specifications.some(m => m.id === s.id));
+        manifest.specifications.push(...orphanedSpecs);
+
+        const { items: allOpts } = await this.liferay.getOptions(config);
+        const orphanedOpts = allOpts.filter(o => isAICA(o.externalReferenceCode) && !manifest.options.some(m => m.id === o.id));
+        manifest.options.push(...orphanedOpts);
+
+        const { items: allCats } = await this.liferay.getOptionCategories(config);
+        const orphanedCats = allCats.filter(c => isAICA(c.externalReferenceCode) || c.key === 'specifications-group');
+        manifest.optionCategories.push(...orphanedCats);
+      }
+
+      // --- 4. WAREHOUSE DISCOVERY ---
+      const { items: warehouses } = await this.liferay.getWarehouses(config);
+      manifest.warehouses = warehouses.filter(w => isTotal ? isAICA(w.externalReferenceCode) : (channelId && isAICA(w.externalReferenceCode)));
+      
+      const { items: warehouseItems } = await this.liferay.getAllWarehouseItems(config, { pageSize: 5000 });
+      manifest.warehouseItems = warehouseItems.filter(wi => isTotal ? isAICA(wi.externalReferenceCode) : (channelId && isAICA(wi.externalReferenceCode)));
+
+      // --- deduplicate and finalize ---
+      manifest.products = [...new Map(manifest.products.map(i => [i.productId || i.id, i])).values()];
+      manifest.specifications = [...new Map(manifest.specifications.map(i => [i.id, i])).values()];
+      manifest.options = [...new Map(manifest.options.map(i => [i.id, i])).values()];
+      manifest.optionCategories = [...new Map(manifest.optionCategories.map(i => [i.id, i])).values()];
+      manifest.priceLists = [...new Map(manifest.priceLists.map(i => [i.id, i])).values()];
+      manifest.promotions = [...new Map(manifest.promotions.map(i => [i.id, i])).values()];
+
+      this.logger.info(
+        `Discovery manifest completed. Found ${manifest.orders.length} orders, ${manifest.products.length} products, ${manifest.accounts.length} accounts.`,
+        { sessionId }
+      );
+
+      this.logger.info(
+        `Discovered ${manifest.specifications.length} total specs, ${manifest.options.length} total options, and ${manifest.optionCategories.length} total groups.`,
+        { sessionId }
+      );
+
+      // 4. Persist manifest back to session context
+      this.logger.info('Manifest building complete. Saving context...', {
+        sessionId,
+      });
       const updatedContext = { ...session.context, manifest };
       await this.persistence.updateSessionContext(sessionId, updatedContext);
 
@@ -310,6 +279,7 @@ class DeleteCoordinatorService extends BaseGenerator {
           specifications: manifest.specifications.length,
           options: manifest.options.length,
           priceLists: manifest.priceLists.length,
+          optionCategories: manifest.optionCategories.length,
         },
       });
 
@@ -354,6 +324,7 @@ class DeleteCoordinatorService extends BaseGenerator {
       [S.DELETE_PRODUCT_OPTIONS]: manifest?.options,
       [S.DELETE_PRICE_LISTS]: manifest?.priceLists,
       [S.DELETE_PROMOTIONS]: manifest?.promotions,
+      [S.DELETE_OPTION_CATEGORIES]: manifest?.optionCategories,
     };
 
     let targetItems = manifestMap[stepName];
@@ -372,8 +343,21 @@ class DeleteCoordinatorService extends BaseGenerator {
       totalCount = check.totalCount;
     }
 
+    // IMPROVED LOGIC: Perform a final real-time check before bypassing
+    // This ensures we catch entities that might have been missed in discovery
     if (!hasItems) {
-      this.logger.info(`No items found for ${stepName}, bypassing.`, {
+      const finalCheck = await this._checkIfEntitiesExist(
+        this.liferay,
+        config,
+        stepName,
+        { channelId, catalogId, options }
+      );
+      hasItems = finalCheck.hasItems;
+      totalCount = finalCheck.totalCount;
+    }
+
+    if (!hasItems) {
+      this.logger.info(`Confirmed no items found for ${stepName}, bypassing.`, {
         sessionId,
         correlationId,
       });
@@ -461,10 +445,15 @@ class DeleteCoordinatorService extends BaseGenerator {
       },
       [S.DELETE_ORDERS]: async () => {
         try {
-          const res = await liferay.getOrders(config, {
-            filter: channelId ? `channelId eq ${channelId}` : undefined,
-          });
-          return { totalCount: res.totalCount };
+          // Use REST for reliable global checking
+          const res = await liferay.rest._get(
+            config,
+            '/o/headless-commerce-admin-order/v1.0/orders',
+            'check-orders',
+            'Check Orders',
+            { params: { filter: channelId ? `channelId eq ${channelId}` : undefined, page: 1, pageSize: 1 } }
+          );
+          return { totalCount: res.totalCount || (res.items && res.items.length) || 0 };
         } catch (err) {
           this.logger.warn(
             `Failed to check if orders exist for deletion: ${err.message}. Skipping to avoid crash.`,
@@ -505,17 +494,19 @@ class DeleteCoordinatorService extends BaseGenerator {
 
     const steps = [
       { name: S.DISCOVER, type: 'sync' },
-      { name: S.RESET_CATALOG_CONFIG, type: 'sync' },
       { name: S.DELETE_ORDERS, type: 'sync' },
       { name: S.DELETE_WAREHOUSE_ITEMS, type: 'sync' },
       { name: S.DELETE_WAREHOUSES, type: 'sync' },
-      { name: S.DELETE_ACCOUNTS, type: 'sync' },
-      { name: S.DELETE_OPTIONS, type: 'sync' },
-      { name: S.DELETE_SPECIFICATIONS, type: 'sync' },
+      { name: S.DELETE_PRODUCT_SPECIFICATIONS, type: 'sync' },
+      { name: S.DELETE_PRODUCT_OPTIONS, type: 'sync' },
       { name: S.DELETE_PRODUCTS, type: 'sync' },
+      { name: S.DELETE_ACCOUNTS, type: 'sync' },
       { name: S.DELETE_PRICE_LISTS, type: 'sync' },
       { name: S.DELETE_PROMOTIONS, type: 'sync' },
+      { name: S.DELETE_SPECIFICATIONS, type: 'sync' },
+      { name: S.DELETE_OPTIONS, type: 'sync' },
       { name: S.DELETE_OPTION_CATEGORIES, type: 'sync' },
+      { name: S.RESET_CATALOG_CONFIG, type: 'sync' },
     ];
 
     this.persistence.createSession({
@@ -524,7 +515,15 @@ class DeleteCoordinatorService extends BaseGenerator {
       status: 'STARTED',
       currentSteps: [],
       correlationId: config.correlationId,
-      context: { config, options, sessionId, channelId, catalogId, steps },
+      context: { 
+        config, 
+        options, 
+        sessionId, 
+        channelId, 
+        catalogId, 
+        steps,
+        isTotal: true // MARK AS TOTAL DELETION
+      },
     });
 
     this.logger.info(

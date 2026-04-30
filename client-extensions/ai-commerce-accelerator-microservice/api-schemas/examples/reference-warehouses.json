@@ -1,0 +1,269 @@
+{
+  "actions": {},
+  "facets": [],
+  "items": [
+    {
+      "actions": {
+        "permissions": {
+          "method": "PATCH",
+          "href": "http://localhost:8080/o/headless-commerce-admin-inventory/v1.0/warehouses/69837"
+        },
+        "get": {
+          "method": "GET",
+          "href": "http://localhost:8080/o/headless-commerce-admin-inventory/v1.0/warehouses"
+        },
+        "update": {
+          "method": "PATCH",
+          "href": "http://localhost:8080/o/headless-commerce-admin-inventory/v1.0/warehouses/69837"
+        },
+        "delete": {
+          "method": "DELETE",
+          "href": "http://localhost:8080/o/headless-commerce-admin-inventory/v1.0/warehouses/69837"
+        }
+      },
+      "active": true,
+      "city": "Southampton",
+      "countryISOCode": "GB",
+      "description": {},
+      "externalReferenceCode": "SC-SOU-00",
+      "id": 69837,
+      "latitude": 50.9032,
+      "longitude": -1.4375,
+      "name": {
+        "en_US": "South Coast Solent Gateway"
+      },
+      "regionISOCode": "HAM",
+      "street1": "Unit 14, Western Avenue",
+      "street2": "Southampton Western Docks",
+      "street3": "",
+      "type": "",
+      "zip": "SO15 0AF"
+    },
+    {
+      "actions": {
+        "permissions": {
+          "method": "PATCH",
+          "href": "http://localhost:8080/o/headless-commerce-admin-inventory/v1.0/warehouses/69838"
+        },
+        "get": {
+          "method": "GET",
+          "href": "http://localhost:8080/o/headless-commerce-admin-inventory/v1.0/warehouses"
+        },
+        "update": {
+          "method": "PATCH",
+          "href": "http://localhost:8080/o/headless-commerce-admin-inventory/v1.0/warehouses/69838"
+        },
+        "delete": {
+          "method": "DELETE",
+          "href": "http://localhost:8080/o/headless-commerce-admin-inventory/v1.0/warehouses/69838"
+        }
+      },
+      "active": true,
+      "city": "Long Beach",
+      "countryISOCode": "US",
+      "description": {},
+      "externalReferenceCode": "SC-LGB-01",
+      "id": 69838,
+      "latitude": 33.7541,
+      "longitude": -118.213,
+      "name": {
+        "en_US": "South Coast Pacific Gateway"
+      },
+      "regionISOCode": "CA",
+      "street1": "700 Pier A Way",
+      "street2": "Terminal Island",
+      "street3": "",
+      "type": "",
+      "zip": ""
+    },
+    {
+      "actions": {
+        "permissions": {
+          "method": "PATCH",
+          "href": "http://localhost:8080/o/headless-commerce-admin-inventory/v1.0/warehouses/69839"
+        },
+        "get": {
+          "method": "GET",
+          "href": "http://localhost:8080/o/headless-commerce-admin-inventory/v1.0/warehouses"
+        },
+        "update": {
+          "method": "PATCH",
+          "href": "http://localhost:8080/o/headless-commerce-admin-inventory/v1.0/warehouses/69839"
+        },
+        "delete": {
+          "method": "DELETE",
+          "href": "http://localhost:8080/o/headless-commerce-admin-inventory/v1.0/warehouses/69839"
+        }
+      },
+      "active": true,
+      "city": "Shenzhen",
+      "countryISOCode": "CN",
+      "description": {},
+      "externalReferenceCode": "SC-SZX-02",
+      "id": 69839,
+      "latitude": 22.5333,
+      "longitude": 113.9167,
+      "name": {
+        "en_US": "South Coast Greater Bay Logistics"
+      },
+      "regionISOCode": "GD",
+      "street1": "No. 18 Qianhai Road,",
+      "street2": "Nanshan District",
+      "street3": "",
+      "type": "",
+      "zip": "518054"
+    },
+    {
+      "actions": {
+        "permissions": {
+          "method": "PATCH",
+          "href": "http://localhost:8080/o/headless-commerce-admin-inventory/v1.0/warehouses/69840"
+        },
+        "get": {
+          "method": "GET",
+          "href": "http://localhost:8080/o/headless-commerce-admin-inventory/v1.0/warehouses"
+        },
+        "update": {
+          "method": "PATCH",
+          "href": "http://localhost:8080/o/headless-commerce-admin-inventory/v1.0/warehouses/69840"
+        },
+        "delete": {
+          "method": "DELETE",
+          "href": "http://localhost:8080/o/headless-commerce-admin-inventory/v1.0/warehouses/69840"
+        }
+      },
+      "active": true,
+      "city": "Yokohama",
+      "countryISOCode": "JP",
+      "description": {},
+      "externalReferenceCode": "SC-YOK-03",
+      "id": 69840,
+      "latitude": 35.4547,
+      "longitude": 139.6314,
+      "name": {
+        "en_US": "South Coast Kanto Distribution"
+      },
+      "regionISOCode": "14.0",
+      "street1": "2-1-1 Minatomirai",
+      "street2": "Nishi Ward",
+      "street3": "",
+      "type": "",
+      "zip": "220-0012"
+    },
+    {
+      "actions": {
+        "permissions": {
+          "method": "PATCH",
+          "href": "http://localhost:8080/o/headless-commerce-admin-inventory/v1.0/warehouses/69841"
+        },
+        "get": {
+          "method": "GET",
+          "href": "http://localhost:8080/o/headless-commerce-admin-inventory/v1.0/warehouses"
+        },
+        "update": {
+          "method": "PATCH",
+          "href": "http://localhost:8080/o/headless-commerce-admin-inventory/v1.0/warehouses/69841"
+        },
+        "delete": {
+          "method": "DELETE",
+          "href": "http://localhost:8080/o/headless-commerce-admin-inventory/v1.0/warehouses/69841"
+        }
+      },
+      "active": true,
+      "city": "Port Adelaide",
+      "countryISOCode": "AU",
+      "description": {},
+      "externalReferenceCode": "SC-ADL-04",
+      "id": 69841,
+      "latitude": -34.843,
+      "longitude": 138.502,
+      "name": {
+        "en_US": "South Coast Southern Cross Hub"
+      },
+      "regionISOCode": "SA",
+      "street1": "1 Pelaco Street",
+      "street2": "",
+      "street3": "",
+      "type": "",
+      "zip": "5015"
+    },
+    {
+      "actions": {
+        "permissions": {
+          "method": "PATCH",
+          "href": "http://localhost:8080/o/headless-commerce-admin-inventory/v1.0/warehouses/69842"
+        },
+        "get": {
+          "method": "GET",
+          "href": "http://localhost:8080/o/headless-commerce-admin-inventory/v1.0/warehouses"
+        },
+        "update": {
+          "method": "PATCH",
+          "href": "http://localhost:8080/o/headless-commerce-admin-inventory/v1.0/warehouses/69842"
+        },
+        "delete": {
+          "method": "DELETE",
+          "href": "http://localhost:8080/o/headless-commerce-admin-inventory/v1.0/warehouses/69842"
+        }
+      },
+      "active": true,
+      "city": "Cape Town",
+      "countryISOCode": "ZA",
+      "description": {},
+      "externalReferenceCode": "SC-CPT-05",
+      "id": 69842,
+      "latitude": -33.91,
+      "longitude": 18.43,
+      "name": {
+        "en_US": "South Coast Atlantic Seaboard"
+      },
+      "regionISOCode": "0",
+      "street1": "South Arm Road",
+      "street2": "Port of Cape Town",
+      "street3": "",
+      "type": "",
+      "zip": "8001"
+    },
+    {
+      "actions": {
+        "permissions": {
+          "method": "PATCH",
+          "href": "http://localhost:8080/o/headless-commerce-admin-inventory/v1.0/warehouses/69843"
+        },
+        "get": {
+          "method": "GET",
+          "href": "http://localhost:8080/o/headless-commerce-admin-inventory/v1.0/warehouses"
+        },
+        "update": {
+          "method": "PATCH",
+          "href": "http://localhost:8080/o/headless-commerce-admin-inventory/v1.0/warehouses/69843"
+        },
+        "delete": {
+          "method": "DELETE",
+          "href": "http://localhost:8080/o/headless-commerce-admin-inventory/v1.0/warehouses/69843"
+        }
+      },
+      "active": true,
+      "city": "Santos",
+      "countryISOCode": "BR",
+      "description": {},
+      "externalReferenceCode": "SC-SSZ-06",
+      "id": 69843,
+      "latitude": -23.9535,
+      "longitude": -46.3275,
+      "name": {
+        "en_US": "South Coast Mercosur Terminal"
+      },
+      "regionISOCode": "SP",
+      "street1": "Av. Conselheiro Rodrigues Alves",
+      "street2": "Porto de Santos",
+      "street3": "",
+      "type": "",
+      "zip": "11015-900"
+    }
+  ],
+  "lastPage": 1,
+  "page": 1,
+  "pageSize": 20,
+  "totalCount": 7
+}

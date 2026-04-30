@@ -53,40 +53,50 @@ class LiferayService {
   ) {
     const exclusions = await this._getExclusions(config, 'product');
 
+    // HARDENING: Liferay's /products API throws 404 if no catalogId is provided.
+    // If we want a "Global" search, we MUST iterate through all catalogs.
+    if (!catalogId && !providedFilter?.includes('catalogId')) {
+      this.ctx.logger.info('Performing multi-catalog product discovery sweep...');
+      const allCatalogs = await this.getCatalogs(config);
+      const allItems = [];
+
+      for (const cat of allCatalogs) {
+        try {
+          const { items } = await this.getProducts(config, { 
+            catalogId: cat.id, 
+            pageSize, 
+            fields 
+          });
+          allItems.push(...items);
+        } catch (err) {
+          this.ctx.logger.warn(`Skipping products for catalog ${cat.id}: ${err.message}`);
+        }
+      }
+
+      // Deduplicate and filter in memory
+      const filteredItems = [...new Map(allItems.map(i => [i.productId || i.id, i])).values()]
+        .filter(it => !this._shouldExclude(it, exclusions));
+
+      return {
+        items: filteredItems,
+        totalCount: filteredItems.length,
+      };
+    }
+
+    // Standard single-catalog fetch
     const filters = [];
     if (catalogId) filters.push(`catalogId eq ${catalogId}`);
     if (providedFilter) filters.push(providedFilter);
 
-    const nameFilter = this._buildNameExclusionFilter(exclusions);
-    if (nameFilter) {
-      filters.push(nameFilter);
-    }
-
     const filter = filters.length > 0 ? filters.join(' and ') : null;
 
-    const requestedFields = new Set([
-      'productId',
-      'externalReferenceCode',
-      'name',
-    ]);
-    if (fields) {
-      const allowed = new Set([
-        'productId',
-        'externalReferenceCode',
-        'name',
-        'id',
-        'sku',
-      ]);
-      fields.split(',').forEach((f) => {
-        if (allowed.has(f)) requestedFields.add(f);
-      });
-    }
-
-    // Brute force discovery: Fetch all and filter in memory to avoid OData issues
     const { items } = await this._collectAllItems(config, (cfg, p, size) =>
-      this.graphql.getProducts(cfg, filter, Array.from(requestedFields), {
-        page: p,
-        pageSize: size,
+      this.rest._get(cfg, PATH.PRODUCTS, 'get-products-bulk', 'Get Products Bulk', {
+        params: {
+          filter,
+          page: p,
+          pageSize: size,
+        }
       })
     );
 
@@ -112,83 +122,38 @@ class LiferayService {
   ) {
     const exclusions = await this._getExclusions(config, 'account');
 
-    const filters = [];
-    if (providedFilter) filters.push(providedFilter);
-
-    // If channelId is provided, we FIRST try to find accounts linked to that channel via orders.
-    if (channelId) {
-      let channelAccountFilter;
-      try {
-        const res = await this.graphql.getOrders(
-          config,
-          `channelId eq ${channelId}`,
-          ['accountId'],
-          {
-            page: 1,
-            pageSize: 1000,
-          }
-        );
-
-        const uniqueIds = [
-          ...new Set(asItems(res).map((o) => o.accountId)),
-        ].filter(Boolean);
-
-        if (uniqueIds.length > 0) {
-          channelAccountFilter = uniqueIds
-            .map((id) => `id eq ${id}`)
-            .join(' or ');
-        }
-      } catch (err) {
-        this.ctx.logger.warn(
-          'Failed to discover accounts via channel orders (GraphQL)',
-          { channelId, error: err.message }
-        );
-      }
-
-      if (channelAccountFilter) {
-        filters.push(channelAccountFilter);
-      }
-    }
-
-    const nameFilter = this._buildNameExclusionFilter(exclusions);
-    if (nameFilter) {
-      filters.push(nameFilter);
-    }
-
-    let filter = filters.length > 0 ? filters.join(' and ') : null;
-
-    const requestedFields = new Set(['id', 'externalReferenceCode', 'name']);
-    if (fields) {
-      const allowed = new Set([
-        'id',
-        'externalReferenceCode',
-        'name',
-        'type',
-        'status',
-      ]);
-      fields.split(',').forEach((f) => {
-        if (allowed.has(f)) requestedFields.add(f);
-      });
-    }
-
-    // Brute force discovery
+    // HARDENING: Fetch all accounts without OData filters
+    // (Liferay's Account API rejects 'id' and 'name' filters in many environments)
     let { items } = await this._collectAllItems(config, (cfg, p, size) =>
-      this.graphql.getAccounts(cfg, filter, Array.from(requestedFields), {
-        page: p,
-        pageSize: size,
-        search,
+      this.rest._get(cfg, PATH.ACCOUNTS, 'get-accounts-bulk', 'Get Accounts Bulk', {
+        params: {
+          page: p,
+          pageSize: size,
+        }
       })
     );
 
-    // FIX: If we found NONE via the channel filter but want to find AICA accounts,
-    // we can't rely on prefix anymore, so we rely on the manifest building phase
-    // to have caught them while orders still existed.
+    // Filter 1: Provided OData filter (Simulated in JS memory)
+    // We only support simple "id eq" or "externalReferenceCode eq" simulation
+    if (providedFilter) {
+       const idMatch = providedFilter.match(/id eq (\d+)/);
+       const ercMatch = providedFilter.match(/externalReferenceCode eq '([^']+)'/);
+       
+       if (idMatch) {
+         const targetId = parseInt(idMatch[1], 10);
+         items = items.filter(it => it.id === targetId);
+       } else if (ercMatch) {
+         const targetErc = ercMatch[1];
+         items = items.filter(it => it.externalReferenceCode === targetErc);
+       }
+    }
 
+    // Filter 2: Name Exclusions
     const filteredItems = items.filter(
       (it) => !this._shouldExclude(it, exclusions)
     );
 
-    // If search term is provided, filter by it in JS memory
+    // Filter 3: Search Term
     const finalItems = search
       ? filteredItems.filter(
           (it) =>
@@ -207,43 +172,32 @@ class LiferayService {
 
   async getOptionCategories(
     config,
-    { pageSize = 200, fields = 'id', filter: providedFilter, ercPrefix } = {}
+    {
+      page = 1,
+      pageSize = 200,
+      fields = 'id',
+      filter: providedFilter,
+      ercPrefix,
+    } = {}
   ) {
     const exclusions = await this._getExclusions(config, 'optionCategory');
-
-    const requestedFields = new Set(['id', 'externalReferenceCode', 'title']);
-    if (fields) {
-      const allowed = new Set([
-        'id',
-        'externalReferenceCode',
-        'title',
-        'key',
-        'priority',
-      ]);
-      fields.split(',').forEach((f) => {
-        if (allowed.has(f)) requestedFields.add(f);
-      });
-    }
 
     const filters = [];
     if (providedFilter) filters.push(providedFilter);
 
-    const nameFilter = this._buildNameExclusionFilter(exclusions, 'title');
-    if (nameFilter) {
-      filters.push(nameFilter);
-    }
+    // REMOVAL: Do not use OData for name exclusions (unreliable)
     const filter = filters.length > 0 ? filters.join(' and ') : null;
 
-    const res = await this.graphql.getOptionCategories(
-      config,
-      filter,
-      Array.from(requestedFields),
-      {
-        page: 1,
-        pageSize,
-      }
+    const { items: allItems } = await this._collectAllItems(config, (cfg, p, size) =>
+      this.rest._get(cfg, PATH.OPTION_CATEGORIES, 'get-option-categories-bulk', 'Get Option Categories Bulk', {
+        params: {
+          filter,
+          page: p,
+          pageSize: size,
+        }
+      })
     );
-    let items = asItems(res);
+    let items = allItems;
 
     // Apply prefix filter in JS memory
     if (ercPrefix) {
@@ -254,52 +208,46 @@ class LiferayService {
       );
     }
 
+    // HARDENING: Perform all exclusions in JS memory
     const filteredItems = items.filter(
       (it) => !this._shouldExclude(it, exclusions)
     );
 
     return {
-      ...res,
       items: filteredItems,
-      totalCount: res.totalCount || filteredItems.length,
+      totalCount: filteredItems.length,
     };
   }
 
   async getSpecifications(
     config,
-    { pageSize = 200, fields = 'id', filter: providedFilter, ercPrefix } = {}
+    {
+      page = 1,
+      pageSize = 200,
+      fields = 'id',
+      filter: providedFilter,
+      ercPrefix,
+    } = {}
   ) {
     const exclusions = await this._getExclusions(config, 'specification');
-
-    const requestedFields = new Set([
-      'id',
-      'key',
-      'externalReferenceCode',
-      'title',
-    ]);
-    if (fields) {
-      const allowed = new Set(['id', 'key', 'externalReferenceCode', 'title']);
-      fields.split(',').forEach((f) => {
-        if (allowed.has(f)) requestedFields.add(f);
-      });
-    }
 
     const filters = [];
     if (providedFilter) filters.push(providedFilter);
 
-    const nameFilter = this._buildNameExclusionFilter(exclusions, 'key');
-    if (nameFilter) {
-      filters.push(nameFilter);
-    }
+    // REMOVAL: Do not use OData for name exclusions (unreliable)
     const filter = filters.length > 0 ? filters.join(' and ') : null;
 
-    const res = await this.graphql.getSpecifications(
-      config,
-      filter,
-      Array.from(requestedFields),
-      { page: 1, pageSize }
+    const { items: allItems } = await this._collectAllItems(config, (cfg, p, size) =>
+      this.rest._get(cfg, PATH.SPECIFICATIONS, 'get-specifications-bulk', 'Get Specifications Bulk', {
+        params: {
+          filter,
+          page: p,
+          pageSize: size,
+        }
+      })
     );
-    let items = asItems(res);
+
+    let items = allItems;
 
     // Apply prefix filter in JS memory
     if (ercPrefix) {
@@ -310,58 +258,45 @@ class LiferayService {
       );
     }
 
+    // HARDENING: Perform all exclusions in JS memory
     const filteredItems = items.filter(
       (it) => !this._shouldExclude(it, exclusions)
     );
 
     return {
-      ...res,
       items: filteredItems,
-      totalCount: res.totalCount,
+      totalCount: filteredItems.length,
     };
   }
 
   async getOptions(
     config,
-    { pageSize = 200, fields = 'id', filter: providedFilter, ercPrefix } = {}
+    {
+      page = 1,
+      pageSize = 200,
+      fields = 'id',
+      filter: providedFilter,
+      ercPrefix,
+    } = {}
   ) {
     const exclusions = await this._getExclusions(config, 'option');
-
-    const requestedFields = new Set([
-      'id',
-      'key',
-      'externalReferenceCode',
-      'name',
-    ]);
-    if (fields) {
-      const allowed = new Set([
-        'id',
-        'key',
-        'externalReferenceCode',
-        'name',
-        'fieldType',
-      ]);
-      fields.split(',').forEach((f) => {
-        if (allowed.has(f)) requestedFields.add(f);
-      });
-    }
 
     const filters = [];
     if (providedFilter) filters.push(providedFilter);
 
-    const nameFilter = this._buildNameExclusionFilter(exclusions);
-    if (nameFilter) {
-      filters.push(nameFilter);
-    }
+    // REMOVAL: Do not use OData for name exclusions (unreliable)
     const filter = filters.length > 0 ? filters.join(' and ') : null;
 
-    const res = await this.graphql.getOptions(
-      config,
-      filter,
-      Array.from(requestedFields),
-      { page: 1, pageSize }
+    const { items: allItems } = await this._collectAllItems(config, (cfg, p, size) =>
+      this.rest._get(cfg, PATH.OPTIONS, 'get-options-bulk', 'Get Options Bulk', {
+        params: {
+          filter,
+          page: p,
+          pageSize: size,
+        }
+      })
     );
-    let items = asItems(res);
+    let items = allItems;
 
     // Apply prefix filter in JS memory
     if (ercPrefix) {
@@ -372,14 +307,14 @@ class LiferayService {
       );
     }
 
+    // HARDENING: Perform all exclusions in JS memory
     const filteredItems = items.filter(
       (it) => !this._shouldExclude(it, exclusions)
     );
 
     return {
-      ...res,
       items: filteredItems,
-      totalCount: res.totalCount,
+      totalCount: filteredItems.length,
     };
   }
 
@@ -389,37 +324,24 @@ class LiferayService {
   ) {
     const exclusions = await this._getExclusions(config, 'order');
 
-    const requestedFields = new Set(['id', 'externalReferenceCode']);
-    if (fields) {
-      const allowed = new Set([
-        'id',
-        'externalReferenceCode',
-        'orderNumber',
-        'status',
-        'accountId',
-      ]);
-      fields.split(',').forEach((f) => {
-        if (allowed.has(f)) requestedFields.add(f);
-      });
-    }
-
     const filters = [];
     if (providedFilter) filters.push(providedFilter);
 
-    const nameFilter = this._buildNameExclusionFilter(exclusions);
-    if (nameFilter) {
-      filters.push(nameFilter);
-    }
+    // REMOVAL: Do not use OData for name/status exclusions (unreliable)
     const filter = filters.length > 0 ? filters.join(' and ') : null;
 
     // Brute force discovery
     const { items } = await this._collectAllItems(config, (cfg, p, size) =>
-      this.graphql.getOrders(cfg, filter, Array.from(requestedFields), {
-        page: p,
-        pageSize: size,
+      this.rest._get(cfg, PATH.ORDERS, 'get-orders-bulk', 'Get Orders Bulk', {
+        params: {
+          filter,
+          page: p,
+          pageSize: size,
+        }
       })
     );
 
+    // HARDENING: Perform all exclusions in JS memory
     const filteredItems = items.filter(
       (it) => !this._shouldExclude(it, exclusions)
     );
@@ -436,31 +358,24 @@ class LiferayService {
   ) {
     const exclusions = await this._getExclusions(config, 'warehouse');
 
-    const requestedFields = new Set(['id', 'externalReferenceCode', 'name']);
-    if (fields) {
-      const allowed = new Set(['id', 'externalReferenceCode', 'name']);
-      fields.split(',').forEach((f) => {
-        if (allowed.has(f)) requestedFields.add(f);
-      });
-    }
-
     const filters = [];
     if (providedFilter) filters.push(providedFilter);
 
-    const nameFilter = this._buildNameExclusionFilter(exclusions);
-    if (nameFilter) {
-      filters.push(nameFilter);
-    }
+    // REMOVAL: Do not use OData for name exclusions (unreliable)
     const filter = filters.length > 0 ? filters.join(' and ') : null;
 
     // Brute force discovery
     const { items } = await this._collectAllItems(config, (cfg, p, size) =>
-      this.graphql.getWarehouses(cfg, filter, Array.from(requestedFields), {
-        page: p,
-        pageSize: size,
+      this.rest._get(cfg, PATH.WAREHOUSES, 'get-warehouses-bulk', 'Get Warehouses Bulk', {
+        params: {
+          filter,
+          page: p,
+          pageSize: size,
+        }
       })
     );
 
+    // HARDENING: Perform all exclusions in JS memory
     const filteredItems = items.filter(
       (it) => !this._shouldExclude(it, exclusions)
     );
@@ -525,107 +440,61 @@ class LiferayService {
 
   async getPriceLists(
     config,
-    {
-      pageSize = 200,
-      fields = 'id',
-      type = 'price-list',
-      catalogId,
-      filter: providedFilter,
-      search,
-      ignoreExclusions = false,
-    } = {}
+    { catalogId, pageSize = 200, filter: providedFilter } = {}
   ) {
-    const exclusions = ignoreExclusions
-      ? []
-      : await this._getExclusions(config, 'priceList');
+    // HARDENING: Pricing V2.0 GraphQL and REST filters are unstable in 2025.Q1.
+    // Specifically, 'catalogId eq' triggers "Collection not allowed".
+    // We permanently switch to Iterative REST Discovery with Memory Filtering.
 
-    const isPromotion = type === 'promotion';
+    if (!catalogId && !providedFilter?.includes('catalogId')) {
+      this.ctx.logger.info('Performing multi-catalog price list discovery sweep...');
+      const allCatalogs = await this.getCatalogs(config);
+      const allItems = [];
 
-    // Pricing V2.0 GraphQL Schema varies between PriceList and Discount
-    const requestedFields = new Set(['id', 'externalReferenceCode']);
-    if (isPromotion) {
-      requestedFields.add('title');
-    } else {
-      requestedFields.add('name');
-      requestedFields.add('catalogId');
-      requestedFields.add('catalogBasePriceList');
-    }
-
-    if (fields) {
-      fields.split(',').forEach((f) => {
-        const trimmed = f.trim();
-        // Map common fields to their type-specific counterparts
-        if (trimmed === 'name' && isPromotion) requestedFields.add('title');
-        else if (trimmed === 'title' && !isPromotion)
-          requestedFields.add('name');
-        else requestedFields.add(trimmed);
-      });
-    }
-
-    const filters = [];
-    if (providedFilter) filters.push(providedFilter);
-    const filter = filters.length > 0 ? filters.join(' and ') : null;
-
-    // Fetch a large page via GraphQL to allow for in-memory catalog and exclusion filtering
-    // This bypasses Pricing V2.0 REST API filtering limitations
-    const res = isPromotion
-      ? await this.graphql.getDiscounts(
-          config,
-          filter,
-          Array.from(requestedFields),
-          { page: 1, pageSize: 1000 }
-        )
-      : await this.graphql.getPriceLists(
-          config,
-          filter,
-          Array.from(requestedFields),
-          { page: 1, pageSize: 1000 }
-        );
-
-    let items = asItems(res);
-
-    // Parse catalogId from providedFilter if it exists (for backward compatibility)
-    let targetCatalogId = catalogId;
-    if (
-      !targetCatalogId &&
-      providedFilter &&
-      providedFilter.includes('catalogId eq')
-    ) {
-      const match = providedFilter.match(/catalogId eq (\d+)/);
-      if (match) targetCatalogId = parseInt(match[1], 10);
-    }
-
-    const filteredItems = items.filter((it) => {
-      // Filter by catalogId if requested (PriceLists only as Discounts aren't catalog-bound in this schema)
-      if (
-        !isPromotion &&
-        targetCatalogId &&
-        Number(it.catalogId) !== Number(targetCatalogId)
-      ) {
-        return false;
+      for (const cat of allCatalogs) {
+        try {
+          const { items } = await this.rest.getPriceLists(config, { 
+            catalogId: cat.id, 
+            pageSize 
+          });
+          allItems.push(...items);
+        } catch (err) {
+          this.ctx.logger.warn(`Skipping price lists for catalog ${cat.id}: ${err.message}`);
+        }
       }
 
-      // Filter by search term (case-insensitive) if provided
-      if (search) {
-        const term = search.toLowerCase();
-        const itemName = (it.name || it.title || '').toLowerCase();
-        const itemErc = (it.externalReferenceCode || '').toLowerCase();
-        if (!itemName.includes(term) && !itemErc.includes(term)) return false;
-      }
+      // Deduplicate and filter in memory
+      const filteredItems = [...new Map(allItems.map(i => [i.id, i])).values()];
 
-      // Filter by exclusions
-      return !this._shouldExclude(it, exclusions);
-    });
+      return {
+        items: filteredItems,
+        totalCount: filteredItems.length,
+      };
+    }
+
+    // Standard single-catalog fetch via REST but with MEMORY FILTERING
+    // We fetch without the catalogId filter to avoid "Collection not allowed"
+    const { items } = await this.rest.getPriceLists(config, { pageSize, filter: providedFilter });
+    
+    const filteredItems = items.filter(it => 
+      !catalogId || Number(it.catalogId) === Number(catalogId)
+    );
 
     return {
-      ...res,
       items: filteredItems,
       totalCount: filteredItems.length,
     };
   }
 
   async getPromotions(config, args = {}) {
-    return this.getPriceLists(config, { ...args, type: 'promotion' });
+    // HARDENING: Switch to memory filtering for promotions to avoid OData issues
+    const { items } = await this.getPriceLists(config, args);
+    const filtered = items.filter(it => it.type === 'promotion');
+    
+    return {
+      items: filtered,
+      totalCount: filtered.length
+    };
   }
 
   // --- Filtered Deletion Loop ---
@@ -1241,7 +1110,9 @@ class LiferayService {
   }
 
   async getCatalogs(config) {
-    const res = await this.graphql.getCatalogs(config);
+    const res = await this.rest._get(config, PATH.CATALOGS, 'get-catalogs-bulk', 'Get Catalogs Bulk', {
+      params: { page: 1, pageSize: 100 }
+    });
     return asItems(res);
   }
 
@@ -1254,7 +1125,9 @@ class LiferayService {
   }
 
   async getChannels(config) {
-    const res = await this.graphql.getChannels(config);
+    const res = await this.rest._get(config, PATH.CHANNELS, 'get-channels-bulk', 'Get Channels Bulk', {
+      params: { page: 1, pageSize: 100 }
+    });
     return asItems(res);
   }
 
@@ -1338,6 +1211,10 @@ class LiferayService {
     return this.rest.createWarehouseItemsBatch(config, itemsData, opts);
   }
 
+  createWarehouseChannelsBatch(config, itemsData, opts) {
+    return this.rest.createWarehouseChannelsBatch(config, itemsData, opts);
+  }
+
   deleteWarehouse(config, warehouseId) {
     return this.rest.deleteWarehouse(config, warehouseId);
   }
@@ -1377,6 +1254,10 @@ class LiferayService {
 
   patchAccount(config, accountId, accountData) {
     return this.rest.patchAccount(config, accountId, accountData);
+  }
+
+  patchAccountByERC(config, externalReferenceCode, accountData) {
+    return this.rest.patchAccountByERC(config, externalReferenceCode, accountData);
   }
 
   getAccountByERC(config, externalReferenceCode) {
@@ -1536,12 +1417,30 @@ class LiferayService {
     );
   }
 
-  addProductOptions(config, productId, productOptions) {
-    return this.rest.addProductOptions(config, productId, productOptions);
+  addProductOptions(config, productId, productOptions, productERC) {
+    return this.rest.addProductOptions(
+      config,
+      productId,
+      productOptions,
+      productERC
+    );
   }
 
   deleteProductOption(config, productId, productOptionId) {
     return this.rest.deleteProductOption(config, productId, productOptionId);
+  }
+
+  addProductChannels(config, productId, channelIds, productERC) {
+    return this.rest.addProductChannels(
+      config,
+      productId,
+      channelIds,
+      productERC
+    );
+  }
+
+  addWarehouseChannel(config, warehouseId, channelId) {
+    return this.rest.addWarehouseChannel(config, warehouseId, channelId);
   }
 
   async getProductOptions(config, productId) {
@@ -1641,6 +1540,14 @@ class LiferayService {
     return this.rest.getSpecificationByKey(config, key);
   }
 
+  createOptionCategoryWithReuse(config, payload) {
+    return this.rest.createOptionCategoryWithReuse(config, payload);
+  }
+
+  createSpecificationCategoryWithReuse(config, payload) {
+    return this.rest.createSpecificationCategoryWithReuse(config, payload);
+  }
+
   createSpecificationWithReuse(config, payload) {
     return this.rest.createSpecificationWithReuse(config, payload);
   }
@@ -1730,7 +1637,7 @@ class LiferayService {
   }
 
   getSkusByERC(config, ercs, fields) {
-    return this.graphql.getSkusByERC(config, ercs, fields);
+    return this.rest.getSkusByERC(config, ercs, fields);
   }
 
   // --- REST SDK Passthrough ---

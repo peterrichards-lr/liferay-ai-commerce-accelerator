@@ -133,8 +133,8 @@ export function AppUI() {
     loggingLevel: config?.wsLoggingLevel ?? 'off',
     onLog: addLog,
     onProgress: setProgress,
+    activeSessionId: progress.activeSessionId,
     onBatchErrorDetails: (errorDetails) => {
-      console.log('Received BATCH_ERROR_DETAILS:', errorDetails);
       setBatchErrors((prevErrors) => {
         const existingErrorIndex = prevErrors.findIndex(
           (e) => e.batchId === errorDetails.batchId
@@ -174,7 +174,7 @@ export function AppUI() {
     ping,
   });
 
-  const { isGenerating, generateData } = useGeneration({
+  const { isSubmitting, generateData } = useGeneration({
     addLog,
     buildPayload,
     api,
@@ -188,6 +188,8 @@ export function AppUI() {
     setGenerationCompleted,
     connectionEstablished,
   });
+
+  const isGenerating = isSubmitting || !!progress.activeSessionId;
 
   const { exportConfiguration, importConfiguration } = useAppConfigIO({
     config,
@@ -395,7 +397,6 @@ export function AppUI() {
 
       try {
         const fetchedAIModelOptions = await api.get(AI_MODEL_OPTIONS);
-        console.log('Fetched AI Model Options:', fetchedAIModelOptions);
         if (mountedRef.current && Array.isArray(fetchedAIModelOptions)) {
           setAiModelOptions(fetchedAIModelOptions);
 
@@ -421,7 +422,7 @@ export function AppUI() {
   }, [connectionEstablished, categories, mountedRef, addLog, api, setConfig]);
 
   useEffect(() => {
-    console.log('Batch Errors:', batchErrors);
+    // Sync logic for errors or side effects
   }, [batchErrors]);
 
   return (

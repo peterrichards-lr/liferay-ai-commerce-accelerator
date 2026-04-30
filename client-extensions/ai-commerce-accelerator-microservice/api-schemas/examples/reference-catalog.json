@@ -1,0 +1,37 @@
+{
+  "entity": "Catalog",
+  "rest": {
+    "path": "/o/headless-commerce-admin-catalog/v1.0/catalog/by-externalReferenceCode/{erc}",
+    "response": {
+      "accountId": 0,
+      "currencyCode": "USD",
+      "currencyExternalReferenceCode": "9f77ebe7-3624-a082-2355-e938bf89fe64",
+      "currencyId": 30201,
+      "defaultLanguageId": "en_US",
+      "externalReferenceCode": "ed46a883-f5f4-6db8-ddc7-bc04c7ccf92a",
+      "id": 71493,
+      "name": "Commerce Classic",
+      "system": false
+    }
+  },
+  "graphql": {
+    "query": "query HeadlessCommerceAdminCatalog_v1_0($erc: String) { catalogByExternalReferenceCode(externalReferenceCode: $erc) { currencyCode, currencyExternalReferenceCode, currencyId, defaultLanguageId, externalReferenceCode, id, name, system } }",
+    "variables": {
+      "erc": "ed46a883-f5f4-6db8-ddc7-bc04c7ccf92a"
+    },
+    "response": {
+      "data": {
+        "catalogByExternalReferenceCode": {
+          "currencyCode": "USD",
+          "currencyExternalReferenceCode": "9f77ebe7-3624-a082-2355-e938bf89fe64",
+          "currencyId": 30201,
+          "defaultLanguageId": "en_US",
+          "externalReferenceCode": "ed46a883-f5f4-6db8-ddc7-bc04c7ccf92a",
+          "id": 71493,
+          "name": "Commerce Classic",
+          "system": false
+        }
+      }
+    }
+  }
+}

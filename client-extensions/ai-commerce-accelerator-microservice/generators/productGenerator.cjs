@@ -6,6 +6,8 @@ const {
   resolvePhaseAndMode,
   createERC,
   toI18n,
+  fromI18n,
+  buildKeyedERC,
   buildOptionCategoryERC,
   buildSpecificationERC,
   now,
@@ -25,10 +27,11 @@ class ProductGenerator extends BaseGenerator {
     super(ctx);
 
     this.steps = {
-      [S.CREATE_WAREHOUSES]: this._runWarehouseGenerationStep.bind(this),
-      [S.RESOLVE_WAREHOUSE_IDS]: this._runResolveWarehouseIdsStep.bind(this),
       [S.GENERATE_PRODUCT_DATA]: this._runProductDataGenerationStep.bind(this),
+      [S.ENSURE_SPECIFICATION_CATEGORIES]:
+        this._runEnsureSpecificationCategoriesStep.bind(this),
       [S.ENSURE_SPECIFICATIONS]: this._runEnsureSpecificationsStep.bind(this),
+      [S.ENSURE_OPTIONS]: this._runEnsureOptionsStep.bind(this),
       [S.CREATE_PRODUCTS]: this._runProductCreationStep.bind(this),
       [S.RESOLVE_PRODUCT_IDS]: this._runResolveProductIdsStep.bind(this),
       [S.LINK_PRODUCT_OPTIONS]: this._runLinkProductOptionsStep.bind(this),
@@ -67,10 +70,13 @@ class ProductGenerator extends BaseGenerator {
     }
 
     const steps = [
+      { name: S.GENERATE_WAREHOUSE_DATA, type: 'sync' },
       { name: S.CREATE_WAREHOUSES, type: 'sync' },
       { name: S.RESOLVE_WAREHOUSE_IDS, type: 'sync' },
       { name: S.GENERATE_PRODUCT_DATA, type: 'sync' },
+      { name: S.ENSURE_SPECIFICATION_CATEGORIES, type: 'sync' },
       { name: S.ENSURE_SPECIFICATIONS, type: 'sync' },
+      { name: S.ENSURE_OPTIONS, type: 'sync' },
       { name: S.CREATE_PRODUCTS, type: 'sync' },
       { name: S.RESOLVE_PRODUCT_IDS, type: 'sync' },
       { name: S.LINK_PRODUCT_OPTIONS, type: 'sync' },
@@ -255,13 +261,16 @@ class ProductGenerator extends BaseGenerator {
         }
       }
 
+      // HARDENING: Pricing V2.0 strictly forbids 'catalogId eq' filters in 2025.Q1.
+      // We fetch all and filter in memory to bypass "Collection not allowed" errors.
       const res = await this.liferay.getPriceLists(config, {
-        filter: `catalogId eq ${catalogId}`,
         ignoreExclusions: true,
         pageSize: 1000,
       });
 
-      const items = res.items || [];
+      const items = (res.items || []).filter(
+        (it) => !catalogId || Number(it.catalogId) === Number(catalogId)
+      );
       for (const pl of items) {
         const isTarget = aicaLists.some((aica) => aica.id === pl.id);
         if (pl.catalogBasePriceList && !isTarget) {
@@ -363,29 +372,55 @@ class ProductGenerator extends BaseGenerator {
         const skuERC =
           entry.skuExternalReferenceCode ||
           (typeof entry.sku === 'string' ? entry.sku : null);
-        const matchedSku = (product.skus || []).find(
+        
+        // HARDENING: Look for the resolved ID in BOTH the skus and skuVariants arrays
+        const allSkus = [...(product.skus || []), ...(product.skuVariants || [])];
+        const matchedSku = allSkus.find(
           (s) => s.externalReferenceCode === skuERC || s.sku === skuERC
         );
         const skuId = matchedSku?.id;
 
+        // CRITICAL: If we still have a placeholder (like 50000) or no ID, do NOT send it.
+        // Pricing V2.0 will crash the entire batch if one ID is invalid.
+        if (!skuId || skuId === 50000) {
+          this.logger.warn(`Skipping price entry for SKU ${skuERC}: Real physical ID not resolved yet.`, {
+            sessionId,
+            productId: product.id
+          });
+          continue;
+        }
+
+        const targetList = (promotionsListId && entry.promoPrice) ? priceListTemplates[1] : priceListTemplates[0];
+        const targetListId = targetList.id;
+
         const basePriceEntry = {
           price: entry.price,
-          sku:
-            typeof entry.sku === 'object'
-              ? entry.sku
-              : { basePrice: entry.price },
+          priceListId: targetListId, 
           bulkPricing: stepKey === S.GENERATE_BULK_PRICING,
           externalReferenceCode: `PE-${skuERC}-GEN-${sanitizeForERC(baseErc, { max: 40 })}`,
+          active: true,
+          // HARDENING: Pricing V2.0 strictly requires this boolean to be non-null
+          discountDiscovery: false,
+          // HARDENING: Always provide the ERC as the primary identifier
+          skuExternalReferenceCode: skuERC,
           tierPrices: (entry.tierPrices || []).map((tp) => ({
             minimumQuantity: tp.minimumQuantity,
             price: tp.price,
+            externalReferenceCode: createERC(ERC_PREFIX.BATCH), // Add ERC for tier items
           })),
         };
 
-        if (skuId) basePriceEntry.skuId = skuId;
-        else basePriceEntry.skuExternalReferenceCode = skuERC;
+        if (skuId && skuId !== 40000 && skuId !== 50000) {
+          // HARDENING: Provide the physical ID if resolved as a secondary high-speed path
+          basePriceEntry.skuId = parseInt(skuId, 10);
+          basePriceEntry.sku = { id: parseInt(skuId, 10) };
+        }
 
-        priceListTemplates[0].priceEntries.push(basePriceEntry);
+        if (entry.promoPrice) {
+          basePriceEntry.promoPrice = entry.promoPrice;
+        }
+
+        targetList.priceEntries.push(basePriceEntry);
         totalEntries++;
       }
     }
@@ -516,7 +551,7 @@ class ProductGenerator extends BaseGenerator {
 
   async _runResolveSkuIdsStep(sessionId) {
     const session = await this.persistence.getSession(sessionId);
-    const { config, productDataList } = session.context;
+    const { config, productDataList, options } = session.context;
 
     if (!productDataList || productDataList.length === 0) {
       return await this.completeSyncStep(
@@ -526,14 +561,27 @@ class ProductGenerator extends BaseGenerator {
       );
     }
 
-    const skuErcs = (productDataList || [])
-      .flatMap((p) => (p.skus || []).map((sku) => sku.externalReferenceCode))
-      .filter(Boolean);
+    // HARDENING: Resolve ALL SKU ERCs (Base SKUs + Variant SKUs)
+    const skuErcs = [];
+    for (const p of productDataList) {
+      // 1. Base SKUs
+      if (Array.isArray(p.skus)) {
+        skuErcs.push(...p.skus.map(s => s.externalReferenceCode).filter(Boolean));
+      }
+      // 2. Variant SKUs (generated from options)
+      if (options.generateSkuVariants && Array.isArray(p.skuVariants)) {
+        skuErcs.push(...p.skuVariants.map(v => v.externalReferenceCode).filter(Boolean));
+      }
+    }
+
+    const uniqueErcs = [...new Set(skuErcs)];
 
     try {
+      this.logger.info(`Resolving physical database IDs for ${uniqueErcs.length} SKUs...`, { sessionId });
+
       const resolvedItems = await this.liferay.resolveByERCsWithRetry(
         config,
-        skuErcs,
+        uniqueErcs,
         (cfg, e) =>
           this.liferay.getSkusByERC(cfg, e, ['id', 'externalReferenceCode']),
         { label: 'skus' }
@@ -544,25 +592,29 @@ class ProductGenerator extends BaseGenerator {
 
       const updatedList = productDataList.map((p) => ({
         ...p,
+        // Update IDs on Base SKUs
         skus: (p.skus || []).map((sku) => ({
           ...sku,
-          id:
-            ercToIdMap.get(
-              sku.externalReferenceCode || p.externalReferenceCode
-            ) || sku.id,
+          id: ercToIdMap.get(sku.externalReferenceCode) || sku.id,
         })),
+        // Update IDs on Variant SKUs
+        skuVariants: (p.skuVariants || []).map((variant) => ({
+          ...variant,
+          id: ercToIdMap.get(variant.externalReferenceCode) || variant.id,
+        }))
       }));
 
       await this.persistence.updateSessionContext(sessionId, {
         ...session.context,
         productDataList: updatedList,
       });
+
       await this.completeSyncStep(
         sessionId,
         S.RESOLVE_SKU_IDS,
         'SYNCHRONOUS',
         normalized.length,
-        skuErcs.length
+        uniqueErcs.length
       );
     } catch (error) {
       const errorReferenceCode =
@@ -581,70 +633,6 @@ class ProductGenerator extends BaseGenerator {
     }
   }
 
-  async _runResolveWarehouseIdsStep(sessionId) {
-    const session = await this.persistence.getSession(sessionId);
-    const { config, options } = session.context;
-    const warehouses = options?.warehouses || [];
-
-    if (!warehouses || warehouses.length === 0) {
-      return await this.completeSyncStep(
-        sessionId,
-        S.RESOLVE_WAREHOUSE_IDS,
-        'BYPASSED'
-      );
-    }
-
-    try {
-      const ercs = warehouses
-        .map((w) => w.externalReferenceCode || w.erc)
-        .filter((erc) => erc && !erc.includes('-BATCH-'));
-      const resolvedItems = await this.liferay.resolveByERCsWithRetry(
-        config,
-        ercs,
-        (cfg, e) =>
-          this.liferay.getWarehousesByERC(cfg, e, [
-            'id',
-            'externalReferenceCode',
-          ]),
-        { label: 'warehouses' }
-      );
-
-      const normalized = this._normalize(resolvedItems);
-      const ercToIdMap = new Map(normalized.map((item) => [item.erc, item.id]));
-
-      const updatedWarehouses = warehouses.map((w) => ({
-        ...w,
-        id: ercToIdMap.get(w.externalReferenceCode || w.erc) || w.id,
-      }));
-
-      await this.persistence.updateSessionContext(sessionId, {
-        ...session.context,
-        options: { ...options, warehouses: updatedWarehouses },
-      });
-      await this.completeSyncStep(
-        sessionId,
-        S.RESOLVE_WAREHOUSE_IDS,
-        'SYNCHRONOUS',
-        normalized.length,
-        ercs.length
-      );
-    } catch (error) {
-      const errorReferenceCode =
-        resolveErrorReference(error) || createERC(ERC_PREFIX.ERROR);
-      this.logger.error('Failed to resolve warehouse IDs', {
-        sessionId,
-        errorReferenceCode,
-        error: error.message,
-      });
-      await this.persistence.createBatch({
-        erc: createERC(ERC_PREFIX.BATCH),
-        sessionId,
-        stepKey: S.RESOLVE_WAREHOUSE_IDS,
-        status: 'FAILED',
-      });
-    }
-  }
-
   async _runLinkProductOptionsStep(sessionId) {
     const session = await this.persistence.getSession(sessionId);
     const { config, productDataList } = session.context;
@@ -656,43 +644,43 @@ class ProductGenerator extends BaseGenerator {
       });
 
       for (const product of productsWithOpts) {
+        this.logger.debug(`Linking options for product ${product.externalReferenceCode} (ID: ${product.id})`, { sessionId });
         const sourceOptions = product.productOptions || product.options;
         const cleanedOptions = sourceOptions.map((opt) => {
+          const name = typeof opt.name === 'string' ? { en_US: opt.name } : opt.name;
+          const key = opt.key || sanitizeForERC(name?.en_US || name);
+          
+          // HARDENING: Strict DTO Mapping (No Ghost Properties)
           const cleanOpt = {
-            ...opt,
-            name: typeof opt.name === 'string' ? { en_US: opt.name } : opt.name,
+            optionId: opt.optionId,
+            key: key,
+            name: name,
+            fieldType: opt.fieldType,
+            required: opt.required || false,
+            skuContributor: opt.skuContributor || false,
           };
 
-          // Liferay Headless Commerce API (v1.0) expects 'productOptionValues' instead of 'values'
+          // Liferay Headless Commerce API (v1.0) expects 'productOptionValues'
           const sourceValues = opt.productOptionValues || opt.values || [];
 
           if (sourceValues.length > 0) {
             cleanOpt.productOptionValues = sourceValues.map((val) => {
-              if (typeof val === 'string') {
-                return {
-                  name: { en_US: val },
-                  key: sanitizeForERC(val),
-                };
-              }
+              const valName = typeof val.name === 'string' ? { en_US: val.name } : val.name;
               return {
-                ...val,
-                name:
-                  typeof val.name === 'string' ? { en_US: val.name } : val.name,
-                key: val.key || sanitizeForERC(val.name?.en_US || val.name),
+                key: val.key || sanitizeForERC(valName?.en_US || valName || val),
+                name: valName,
               };
             });
           }
 
-          delete cleanOpt.id;
-          delete cleanOpt.values; // Remove incorrect field
-          delete cleanOpt.__catalogOption;
           return cleanOpt;
         });
 
         await this.liferay.addProductOptions(
           config,
           product.id,
-          cleanedOptions
+          cleanedOptions,
+          product.externalReferenceCode // HARDENING: Pass ERC to bypass indexing race condition
         );
       }
       await this.completeSyncStep(
@@ -721,23 +709,69 @@ class ProductGenerator extends BaseGenerator {
 
   async _runProductSkusStep(sessionId) {
     const session = await this.persistence.getSession(sessionId);
-    const { config, productDataList } = session.context;
+    const { config, productDataList, options } = session.context;
 
     try {
       const preparedProducts = (productDataList || [])
-        .filter((p) => Array.isArray(p.skus) && p.skus.length > 0)
         .map((pd) => {
           const lp = {
             catalogId: parseInt(config.catalogId, 10),
             name: toI18n(pd.name),
             productType: pd.productType || 'simple',
             externalReferenceCode: pd.externalReferenceCode,
-            skus: pd.skus,
           };
+
+          const hasSkuContributingOptions = (pd.productOptions || pd.options || []).some(o => o.skuContributor);
+
+          // If variants are enabled, generate all SKUs with option mappings
+          if (options.generateSkuVariants && hasSkuContributingOptions && Array.isArray(pd.skuVariants)) {
+            lp.skus = pd.skuVariants.map(v => {
+              const sku = {
+                sku: v.sku,
+                externalReferenceCode: v.externalReferenceCode || v.sku,
+                published: true,
+                purchasable: true,
+                skuOptions: []
+              };
+
+              if (v.options) {
+                sku.skuOptions = Object.entries(v.options).map(([optName, valName]) => {
+                  const optMeta = (pd.productOptions || pd.options || []).find(o => 
+                    sanitizeForERC(o.name) === sanitizeForERC(optName) || 
+                    o.key === optName
+                  );
+
+                  const valMeta = (optMeta?.optionValuesWithIds || []).find(vMeta => 
+                    sanitizeForERC(vMeta.name) === sanitizeForERC(String(valName))
+                  );
+
+                  return {
+                    optionId: optMeta?.optionId || 0,
+                    optionValueId: valMeta?.optionValueId || 0,
+                  };
+                }).filter(o => o.optionId > 0);
+              }
+              return sku;
+            });
+          } else if (Array.isArray(pd.skus) && pd.skus.length > 0) {
+            // Fallback for simple products or if variants disabled
+            lp.skus = pd.skus.map(s => ({
+              sku: s.sku,
+              externalReferenceCode: s.externalReferenceCode || s.sku,
+              published: true,
+              purchasable: true
+            }));
+          }
+
           return this._cleanProductForLiferay(lp);
-        });
+        })
+        .filter((p) => Array.isArray(p.skus) && p.skus.length > 0);
 
       if (preparedProducts.length > 0) {
+        // HARDENING: Brief delay to allow Liferay's Option links to propagate
+        // before we attempt to create SKUs that use those links.
+        await delay(2000);
+
         const batchSize = Math.max(1, parseInt(config.batchSize, 10) || 1);
         for (let i = 0; i < preparedProducts.length; i += batchSize) {
           const batch = preparedProducts.slice(i, i + batchSize);
@@ -751,7 +785,8 @@ class ProductGenerator extends BaseGenerator {
                 externalReferenceCode: erc,
                 sessionId,
                 session,
-              }),            batch.length
+              }),
+            batch.length
           );
         }
       } else {
@@ -773,36 +808,6 @@ class ProductGenerator extends BaseGenerator {
         erc: createERC(ERC_PREFIX.BATCH),
         sessionId,
         stepKey: S.CREATE_PRODUCT_SKUS,
-        status: 'FAILED',
-      });
-    }
-  }
-
-  async _runWarehouseGenerationStep(sessionId, session) {
-    const { config, options } = session.context;
-
-    if (!options.createWarehouses) {
-      return await this.completeSyncStep(
-        sessionId,
-        S.CREATE_WAREHOUSES,
-        'BYPASSED'
-      );
-    }
-
-    try {
-      await this.ctx.warehouseGenerator.createWarehouses(sessionId, session);
-    } catch (error) {
-      const errorReferenceCode =
-        resolveErrorReference(error) || createERC(ERC_PREFIX.ERROR);
-      this.logger.error('Failed warehouse generation step', {
-        sessionId,
-        errorReferenceCode,
-        error: error.message,
-      });
-      await this.persistence.createBatch({
-        erc: createERC(ERC_PREFIX.BATCH),
-        sessionId,
-        stepKey: S.CREATE_WAREHOUSES,
         status: 'FAILED',
       });
     }
@@ -847,9 +852,73 @@ class ProductGenerator extends BaseGenerator {
     }
   }
 
+  async _runEnsureSpecificationCategoriesStep(sessionId) {
+    const session = await this.persistence.getSession(sessionId);
+    const { config } = session.context;
+
+    this.logger.info('Starting ensure specification categories step', {
+      sessionId,
+      correlationId: session.correlationId,
+    });
+
+    try {
+      // For now, we ensure a default "General" specification category exists
+      const defaultCategory = {
+        externalReferenceCode: buildKeyedERC({
+          prefix: ERC_PREFIX.OPTION_CATEGORY,
+          category: 'SPC',
+          key: 'GENERAL',
+        }),
+        key: 'GENERAL',
+        title: { en_US: 'General' },
+        description: { en_US: 'Auto-generated general specification group' },
+      };
+
+      const liferayCategory =
+        await this.liferay.createSpecificationCategoryWithReuse(
+          config,
+          defaultCategory
+        );
+
+      await this.persistence.updateSessionContext(sessionId, {
+        ...session.context,
+        // HARDENING: Store the full category metadata object
+        defaultSpecificationCategory: {
+          id: liferayCategory.id,
+          key: liferayCategory.key || defaultCategory.key,
+          title: liferayCategory.title || defaultCategory.title,
+        },
+        defaultSpecificationCategoryId: liferayCategory.id, // Keep legacy for safety
+      });
+
+      await this.completeSyncStep(
+        sessionId,
+        S.ENSURE_SPECIFICATION_CATEGORIES,
+        'SYNCHRONOUS',
+        1,
+        1
+      );
+    } catch (error) {
+      const errorReferenceCode =
+        resolveErrorReference(error) || createERC(ERC_PREFIX.ERROR);
+      this.logger.error('Failed ensure specification categories step', {
+        sessionId,
+        errorReferenceCode,
+        error: error.message,
+      });
+      await this.persistence.createBatch({
+        erc: createERC(ERC_PREFIX.BATCH),
+        sessionId,
+        stepKey: S.ENSURE_SPECIFICATION_CATEGORIES,
+        status: 'FAILED',
+      });
+    }
+  }
+
   async _runEnsureSpecificationsStep(sessionId) {
     const session = await this.persistence.getSession(sessionId);
-    const { config, productDataList } = session.context;
+    const { config, productDataList, defaultSpecificationCategory } =
+      session.context;
 
     if (!productDataList || productDataList.length === 0) {
       return await this.completeSyncStep(
@@ -892,18 +961,47 @@ class ProductGenerator extends BaseGenerator {
 
       // 2. Ensure each specification exists in Liferay
       let createdCount = 0;
+      const updatedProductDataList = JSON.parse(JSON.stringify(productDataList));
+
       for (const key of uniqueKeys) {
         const spec = specMap.get(key);
         const title = spec.title || spec.name || { en_US: toI18n(key).en_US };
-        
-        await this.liferay.createSpecificationWithReuse(config, {
-          externalReferenceCode: buildSpecificationERC(key),
-          key: key,
-          title: typeof title === 'string' ? { en_US: title } : title,
-          description: { en_US: `Auto-generated specification for ${key}` }
-        });
+
+        const liferaySpec = await this.liferay.createSpecificationWithReuse(
+          config,
+          {
+            externalReferenceCode: buildSpecificationERC(key),
+            key: key,
+            title: typeof title === 'string' ? { en_US: title } : title,
+            description: { en_US: `Auto-generated specification for ${key}` },
+            // HARDENING: Use full metadata object to satisfy Liferay's strict validation
+            optionCategory: defaultSpecificationCategory,
+          }
+        );
+
+        // Update all products that use this specification with the real specificationId
+        if (liferaySpec?.id) {
+          for (const product of updatedProductDataList) {
+            const productSpecs =
+              product.productSpecifications || product.specifications || [];
+            for (const pSpec of productSpecs) {
+              const pKey =
+                pSpec.specificationKey ||
+                sanitizeForERC(pSpec.label?.en_US || pSpec.label);
+              if (pKey === key) {
+                pSpec.specificationId = liferaySpec.id;
+              }
+            }
+          }
+        }
         createdCount++;
       }
+
+      // Save the updated product data with specificationIds back to context
+      await this.persistence.updateSessionContext(sessionId, {
+        ...session.context,
+        productDataList: updatedProductDataList,
+      });
 
       await this.completeSyncStep(
         sessionId,
@@ -929,9 +1027,177 @@ class ProductGenerator extends BaseGenerator {
     }
   }
 
+  async _runEnsureOptionsStep(sessionId) {
+    const session = await this.persistence.getSession(sessionId);
+    const { config, productDataList } = session.context;
+
+    if (!productDataList || productDataList.length === 0) {
+      return await this.completeSyncStep(
+        sessionId,
+        S.ENSURE_OPTIONS,
+        'BYPASSED'
+      );
+    }
+
+    this.logger.info('Starting ensure options step', {
+      sessionId,
+      correlationId: session.correlationId,
+    });
+
+    try {
+      // 1. Identify all unique options used in the generated data
+      const optionMap = new Map();
+      for (const product of productDataList) {
+        const options = product.productOptions || product.options || [];
+        for (const opt of options) {
+          const key = opt.key || sanitizeForERC(opt.name?.en_US || opt.name);
+          if (key) {
+            optionMap.set(key, opt);
+          }
+        }
+      }
+
+      const uniqueKeys = Array.from(optionMap.keys());
+      if (uniqueKeys.length === 0) {
+        return await this.completeSyncStep(
+          sessionId,
+          S.ENSURE_OPTIONS,
+          'BYPASSED'
+        );
+      }
+
+      this.logger.debug(`Synchronizing ${uniqueKeys.length} option definitions...`, {
+        sessionId,
+        keys: uniqueKeys,
+      });
+
+      // 2. Ensure each option exists in Liferay
+      let processedCount = 0;
+      const updatedProductDataList = JSON.parse(JSON.stringify(productDataList));
+
+      for (const key of uniqueKeys) {
+        const sourceOpt = optionMap.get(key);
+
+        const optionData = {
+          externalReferenceCode: buildKeyedERC({
+            prefix: ERC_PREFIX.OPTION,
+            category: 'OPT',
+            key: key,
+          }),
+          key: key,
+          name:
+            typeof sourceOpt.name === 'string'
+              ? { en_US: sourceOpt.name }
+              : sourceOpt.name,
+          fieldType: sourceOpt.fieldType || 'select',
+          skuContributor:
+            sourceOpt.skuContributor !== undefined
+              ? sourceOpt.skuContributor
+              : true,
+        };
+
+        // Handle Option Values if applicable
+        const sourceValues =
+          sourceOpt.productOptionValues || sourceOpt.values || [];
+        if (
+          sourceValues.length > 0 &&
+          COMMERCE_CONSTRAINTS.FIELD_TYPES_WITH_VALUES.includes(
+            optionData.fieldType?.toLowerCase()
+          )
+        ) {
+          optionData.optionValues = sourceValues.map((v) => {
+            const vName = typeof v.name === 'string' ? { en_US: v.name } : v.name;
+            return {
+              key: v.key || sanitizeForERC(vName?.en_US || vName || v),
+              name: vName,
+            };
+          });
+        }
+
+        const liferayOption = await this.liferay.createOptionWithReuse(
+          config,
+          optionData
+        );
+
+        // Map IDs back to productDataList
+        if (liferayOption?.id) {
+          const valueNameToIdMap = new Map();
+          if (Array.isArray(liferayOption.optionValues)) {
+            liferayOption.optionValues.forEach((v) => {
+              // Normalize name for matching
+              const vName =
+                typeof v.name === 'string'
+                  ? v.name
+                  : fromI18n(v.name_i18n || v.name);
+              if (vName) valueNameToIdMap.set(vName.toLowerCase(), v.id);
+            });
+          }
+
+          for (const product of updatedProductDataList) {
+            const productOpts = product.productOptions || product.options || [];
+            for (const pOpt of productOpts) {
+              const pKey =
+                pOpt.key || sanitizeForERC(pOpt.name?.en_US || pOpt.name);
+              if (pKey === key) {
+                pOpt.optionId = liferayOption.id;
+                pOpt.key = key;
+
+                // Also map value IDs if they exist
+                const pValues =
+                  pOpt.productOptionValues || pOpt.values || [];
+                pOpt.optionValuesWithIds = pValues.map((val) => {
+                  const valName =
+                    typeof val === 'string'
+                      ? val
+                      : fromI18n(val.name_i18n || val.name || val);
+                  return {
+                    name: valName,
+                    optionValueId: valName
+                      ? valueNameToIdMap.get(valName.toLowerCase())
+                      : null,
+                  };
+                });
+              }
+            }
+          }
+        }
+        processedCount++;
+      }
+
+      // Save the updated product data with optionIds back to context
+      await this.persistence.updateSessionContext(sessionId, {
+        ...session.context,
+        productDataList: updatedProductDataList
+      });
+
+      await this.completeSyncStep(
+        sessionId,
+        S.ENSURE_OPTIONS,
+        'SYNCHRONOUS',
+        processedCount,
+        uniqueKeys.length
+      );
+    } catch (error) {
+      const errorReferenceCode =
+        resolveErrorReference(error) || createERC(ERC_PREFIX.ERROR);
+      this.logger.error('Failed ensure options step', {
+        sessionId,
+        errorReferenceCode,
+        error: error.message,
+      });
+      await this.persistence.createBatch({
+        erc: createERC(ERC_PREFIX.BATCH),
+        sessionId,
+        stepKey: S.ENSURE_OPTIONS,
+        status: 'FAILED',
+      });
+    }
+  }
+
   async _runProductCreationStep(sessionId) {
     const session = await this.persistence.getSession(sessionId);
-    const { config, productDataList, options } = session.context;
+    const { config, productDataList, options, defaultSpecificationCategoryId } =
+      session.context;
 
     if (!productDataList || productDataList.length === 0) {
       return await this.completeSyncStep(
@@ -953,6 +1219,7 @@ class ProductGenerator extends BaseGenerator {
           description: toI18n(pd.description),
           productType,
           productStatus: 0, // Published
+          active: true,
           productConfiguration: {
             productTaxConfiguration: {
               taxCategory: 'Standard',
@@ -960,23 +1227,39 @@ class ProductGenerator extends BaseGenerator {
             },
           },
           externalReferenceCode: pd.externalReferenceCode,
-          productSpecifications: (pd.productSpecifications || pd.specifications || []).map(spec => ({
+          // HARDENING: Establishing indirect channel relationship at creation
+          productChannels: [
+            {
+              channelId: parseInt(config.channelId, 10),
+            },
+          ],
+          productSpecifications: (
+            pd.productSpecifications ||
+            pd.specifications ||
+            []
+          ).map((spec) => ({
             ...spec,
-            title: spec.title || spec.value || spec.name // Liferay requires title for the underlying CPSpecificationOption
+            label: spec.label || toI18n(spec.title || spec.value || spec.name),
+            value: spec.value || spec.title || spec.name, // Value is usually the text content
+            optionCategoryId: defaultSpecificationCategoryId,
+            specificationId: spec.specificationId,
           })),
-          productOptions: pd.productOptions || pd.options || [],
         };
 
-        if (pd.skus && pd.skus.length > 0) {
-          lp.skus = pd.skus.map((s) => ({
-            sku: s.sku,
-            externalReferenceCode: s.externalReferenceCode || s.sku,
-            published: true,
-            purchasable: true,
-          }));
+        const hasSkuContributingOptions = (pd.productOptions || pd.options || []).some(o => o.skuContributor);
 
-          if (!options.generateSkuVariants || productType === 'simple') {
-            lp.skus = lp.skus.slice(0, 1);
+        if (pd.skus && pd.skus.length > 0) {
+          // Rule: If product has SKU-contributing options, omit SKUs in initial payload
+          // because they must be created AFTER options are linked to have correct skuOptions.
+          if (options.generateSkuVariants && hasSkuContributingOptions) {
+            this.logger.debug(`Omitting SKUs for ${pd.externalReferenceCode} due to SKU-contributing options`, { sessionId });
+          } else {
+            lp.skus = pd.skus.slice(0, 1).map((s) => ({
+              sku: s.sku,
+              externalReferenceCode: s.externalReferenceCode || s.sku,
+              published: true,
+              purchasable: true,
+            }));
           }
         }
 
@@ -1076,11 +1359,58 @@ class ProductGenerator extends BaseGenerator {
   async _runUpdateInventoryStep(sessionId) {
     const session = await this.persistence.getSession(sessionId);
     const { config, options, productDataList } = session.context;
-    const warehouses = options.warehouses || [];
+    
+    // Hard-resolving warehouses to ensure we have IDs and ERCs
+    const { items: warehouses } = await this.liferay.getWarehouses(config);
+
+    if (!warehouses || warehouses.length === 0) {
+      return await this.completeSyncStep(sessionId, S.UPDATE_INVENTORY, 'BYPASSED');
+    }
 
     try {
-      if (warehouses.length > 0) {
-        await this.completeSyncStep(sessionId, S.UPDATE_INVENTORY);
+      this.logger.info(`Starting inventory update for ${productDataList.length} products across ${warehouses.length} warehouses...`, { sessionId });
+
+      // HARDENING: Brief delay to allow SKUs to be indexed by Liferay
+      // Inventory requires the SKU string to be 'resolvable' by the backend.
+      await delay(3000);
+
+      const inventoryItems = [];
+      const { inventoryMin = 10, inventoryMax = 100, inventoryAssignmentRatio = 100 } = options;
+
+      for (const pd of productDataList) {
+        // Roll dice for assignment ratio
+        if (Math.random() * 100 > inventoryAssignmentRatio) continue;
+
+        const skus = pd.skus || [];
+        for (const sku of skus) {
+          if (!sku.sku) continue;
+
+          // Assign to a random warehouse
+          const warehouse = warehouses[Math.floor(Math.random() * warehouses.length)];
+          
+          inventoryItems.push({
+            externalReferenceCode: createERC(ERC_PREFIX.INVENTORY_BATCH),
+            sku: sku.sku,
+            quantity: Math.floor(Math.random() * (inventoryMax - inventoryMin + 1)) + inventoryMin,
+            warehouseExternalReferenceCode: warehouse.externalReferenceCode,
+            warehouseId: warehouse.id
+          });
+        }
+      }
+
+      if (inventoryItems.length > 0) {
+        const batchERC = createERC(ERC_PREFIX.BATCH);
+        await this.submitBatch(
+          sessionId,
+          S.UPDATE_INVENTORY,
+          'inventory',
+          'generate',
+          (erc) => this.liferay.createWarehouseItemsBatch(config, inventoryItems, {
+            externalReferenceCode: erc,
+            sessionId,
+          }),
+          inventoryItems.length
+        );
       } else {
         await this.completeSyncStep(sessionId, S.UPDATE_INVENTORY, 'BYPASSED');
       }

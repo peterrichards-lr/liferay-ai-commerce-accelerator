@@ -43,8 +43,14 @@ class GenerationFacade {
    * Primary entry point for routing and validating all generated data.
    */
   async generateData(entityType, count, requestConfig, options = {}) {
-    const { demoMode, correlationId } = options;
+    const { demoMode, correlationId, openAiKey } = options;
     const generator = demoMode ? this.ctx.mockDataGenerator : this.ctx.ai;
+
+    // HARDENING: Propagate openAiKey from options to requestConfig if present
+    if (openAiKey) {
+      requestConfig.openAiKey = openAiKey;
+    }
+
     const methodMap = {
       product: 'generateProductData',
       account: 'generateAccountData',
@@ -122,7 +128,21 @@ class GenerationFacade {
     if (validator) {
       // Wrap in expected object structure if schema expects it (e.g. { products: [...] })
       const mainPropertyName = schemaName + 's';
-      const payload = Array.isArray(data) ? { [mainPropertyName]: data } : data;
+      let payload;
+
+      if (
+        data &&
+        typeof data === 'object' &&
+        !Array.isArray(data) &&
+        data[mainPropertyName]
+      ) {
+        // Already wrapped correctly
+        payload = data;
+      } else {
+        // Wrap it ourselves
+        const dataArr = Array.isArray(data) ? data : [data];
+        payload = { [mainPropertyName]: dataArr };
+      }
 
       const isValid = validator(payload);
       if (!isValid) {

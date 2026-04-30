@@ -6,16 +6,16 @@ const fs = require('fs');
 const { ENV } = require('../utils/constants.cjs');
 
 class PersistenceService {
-  constructor(dbPath) {
+  constructor(ctx, dbPath) {
+    this.ctx = ctx;
+    this.logger = ctx?.logger;
+
     const defaultPath = path.resolve(
       __dirname,
       '..',
       ENV.PERSISTENCE_DB_PATH || './data/workflows.db'
     );
     const finalPath = dbPath || defaultPath;
-
-    // We can't use this.logger yet as ctx hasn't been passed to constructor in bootstrap.cjs
-    // Wait, let's check bootstrap.cjs again.
 
     try {
       const dbDir = path.dirname(finalPath);
@@ -30,14 +30,19 @@ class PersistenceService {
       this.cache = new Cache();
       this._initSchema();
 
-      console.log(
+      this.logger?.info(
         `[PersistenceService] SUCCESS: Initialized SQLite database at: ${finalPath}`
       );
-      console.log(`[PersistenceService] Working directory: ${process.cwd()}`);
     } catch (err) {
-      console.error(
-        `[PersistenceService] FATAL ERROR during initialization: ${err.message}`
-      );
+      if (this.logger) {
+        this.logger.error(
+          `[PersistenceService] FATAL ERROR during initialization: ${err.message}`
+        );
+      } else {
+        console.error(
+          `[PersistenceService] FATAL ERROR during initialization: ${err.message}`
+        );
+      }
       throw err;
     }
   }
@@ -182,13 +187,18 @@ class PersistenceService {
     return this.getSession(sessionId);
   }
 
-  updateSessionContext(sessionId, context) {
+  updateSessionContext(sessionId, newContext) {
     const now = new Date().toISOString();
+    const session = this.getSession(sessionId);
+    if (!session) return null;
+
+    const mergedContext = { ...session.context, ...newContext };
+
     this.db
       .prepare(
         'UPDATE workflow_sessions SET context_json = ?, updated_at = ? WHERE session_id = ?'
       )
-      .run(JSON.stringify(context), now, sessionId);
+      .run(JSON.stringify(mergedContext), now, sessionId);
     this.cache.del(sessionId);
     return this.getSession(sessionId);
   }
@@ -198,13 +208,17 @@ class PersistenceService {
     const sets = ['updated_at = ?'];
     const params = [now];
 
+    const currentSession = this.getSession(sessionId);
+    if (!currentSession) return null;
+
     if (status) {
       sets.push('status = ?');
       params.push(status);
     }
     if (context) {
+      const mergedContext = { ...currentSession.context, ...context };
       sets.push('context_json = ?');
-      params.push(JSON.stringify(context));
+      params.push(JSON.stringify(mergedContext));
     }
     if (currentSteps) {
       sets.push('current_steps_json = ?');

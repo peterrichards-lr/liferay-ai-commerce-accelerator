@@ -1,4 +1,8 @@
 const OpenAI = require('openai');
+const Ajv = require('ajv');
+const addFormats = require('ajv-formats');
+const fs = require('fs');
+const path = require('path');
 const {
   pluralize,
   pricingHints,
@@ -16,6 +20,35 @@ class AIService {
     this.defaultTemperature = 0.7;
     this.maxTokens = 4000;
     this.requestTimeoutMs = 60000;
+
+    this.ajv = new Ajv({ allErrors: true, strict: false });
+    addFormats(this.ajv);
+    this.localSchemas = {};
+  }
+
+  _validateResponse(data, schemaName) {
+    if (!schemaName) return data;
+
+    let validator = this.localSchemas[schemaName];
+    if (!validator) {
+      const schemaPath = path.join(__dirname, `../generation-schemas/${schemaName}.json`);
+      if (fs.existsSync(schemaPath)) {
+        const schema = JSON.parse(fs.readFileSync(schemaPath, 'utf8'));
+        validator = this.ajv.compile(schema);
+        this.localSchemas[schemaName] = validator;
+      }
+    }
+
+    if (validator) {
+      const isValid = validator(data);
+      if (!isValid) {
+        this.ctx.logger.error(`AI generated data for ${schemaName} violates internal schema`, {
+          errors: validator.errors
+        });
+        // We don't throw here to allow for partial data, but we log the issue.
+      }
+    }
+    return data;
   }
 
   _getActualDataFromAIResponse(parsedResponse, schemaName) {
@@ -57,6 +90,11 @@ class AIService {
     const { config } = this.ctx;
     const aiCfg = (await config.getAIConfig(requestConfig)) || {};
 
+    // HARDENING: If key was passed in request, ensure it's available in the returned config
+    if (requestConfig.openAiKey) {
+      aiCfg.openAiKey = requestConfig.openAiKey;
+    }
+
     if (!aiCfg.defaultModel) {
       const err = new Error(
         'AI model not configured. Please select an AI model in the AI Configuration object.'
@@ -94,18 +132,15 @@ class AIService {
   async getOpenAIClient(requestConfig) {
     const { config } = this.ctx;
 
-    if (!this.openai) {
-      if (!requestConfig) {
-        throw new Error(
-          'OAuth configuration required to initialize OpenAI client'
-        );
-      }
+    // HARDENING: Prefer the key from the runtime config if available
+    const apiKey =
+      requestConfig?.openAiKey || (await config.getOpenAIKey(requestConfig));
 
-      const apiKey = await config.getOpenAIKey(requestConfig);
-      if (!apiKey) {
-        throw new Error('OpenAI API key not configured');
-      }
+    if (!apiKey) {
+      throw new Error('OpenAI API key not configured');
+    }
 
+    if (!this.openai || this.openai.apiKey !== apiKey) {
       this.openai = new OpenAI({ apiKey });
     }
 
@@ -182,7 +217,7 @@ class AIService {
         schemaName
       );
 
-      return processedCandidate;
+      return this._validateResponse(processedCandidate, schemaName);
     } catch (error) {
       logger?.error?.(`AIService._chatJson failed for ${task}:`, {
         message: error.message,

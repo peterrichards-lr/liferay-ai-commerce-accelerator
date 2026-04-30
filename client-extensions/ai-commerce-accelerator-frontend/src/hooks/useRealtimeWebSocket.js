@@ -14,11 +14,20 @@ export default function useRealtimeWebSocket({
   loggingLevel = 'off',
   onLog,
   onProgress,
+  onBatchErrorDetails,
+  activeSessionId: providedSessionId,
 }) {
   const { getCorrelationId, api } = useApp();
   const wsRef = useRef(null);
   const [wsConnected, setWsConnected] = useState(false);
   const [activeSessionId, setActiveSessionId] = useState(null);
+
+  // Sync internal activeSessionId with provided prop
+  useEffect(() => {
+    if (providedSessionId && providedSessionId !== activeSessionId) {
+      setActiveSessionId(providedSessionId);
+    }
+  }, [providedSessionId, activeSessionId]);
 
   const backoffRef = useRef(1000);
   const reconnectTimerRef = useRef(null);
@@ -46,6 +55,12 @@ export default function useRealtimeWebSocket({
 
       if (res?.success && res.progress) {
         logDebug('Received hydration data:', res.progress);
+
+        // Ensure the reducer knows this is the active session
+        onProgress?.({
+          type: 'SET_ACTIVE_SESSION',
+          sessionId,
+        });
 
         // Update each entity's progress
         Object.entries(res.progress).forEach(([entity, data]) => {
@@ -232,6 +247,7 @@ export default function useRealtimeWebSocket({
         case E.COMPLETED:
           if (scope === WS_SCOPE.SESSION) {
             onLog?.('Workflow session completed.', 'success');
+            onProgress?.({ type: 'SET_ACTIVE_SESSION', sessionId: null });
             setActiveSessionId(null);
           } else if (scope === WS_SCOPE.STEP) {
             onLog?.(`Step completed: ${entityType}`, 'success');
@@ -246,6 +262,8 @@ export default function useRealtimeWebSocket({
             // Batch finished - mark it done and re-sum
             const successCount =
               data.successCount ?? data.details?.successCount ?? totalCount;
+            const failureCount = data.failureCount ?? data.details?.failureCount ?? 0;
+
             onProgress({
               type: 'UPDATE_BATCH',
               entity: entityType,
@@ -253,10 +271,27 @@ export default function useRealtimeWebSocket({
               completed: successCount,
               total: totalCount,
             });
-            onLog?.(
-              `Batch completed: ${batchId} (+${successCount})`,
-              'success'
-            );
+
+            if (failureCount > 0) {
+              onLog?.(
+                `Batch finished with ${failureCount} failure(s): ${batchId}`,
+                'warning'
+              );
+              if (onProgress && entityType) {
+                onProgress({
+                  type: 'ADD_ERRORS',
+                  entity: entityType,
+                  errors: data.details?.errors || [
+                    { message: `Batch had ${failureCount} failures`, batchId },
+                  ],
+                });
+              }
+            } else {
+              onLog?.(
+                `Batch completed: ${batchId} (+${successCount})`,
+                'success'
+              );
+            }
           }
           break;
 
@@ -264,6 +299,7 @@ export default function useRealtimeWebSocket({
           const errorMessage = error?.message || error || 'Unknown error';
           if (scope === WS_SCOPE.SESSION) {
             onLog?.(`Workflow failed: ${errorMessage}`, 'error');
+            onProgress?.({ type: 'SET_ACTIVE_SESSION', sessionId: null });
             setActiveSessionId(null);
           } else {
             onLog?.(
@@ -278,6 +314,16 @@ export default function useRealtimeWebSocket({
               });
             }
           }
+          break;
+
+        case E.BATCH_ERROR_DETAILS:
+          if (onBatchErrorDetails) {
+            onBatchErrorDetails(data);
+          }
+          break;
+
+        case E.ERROR:
+          onLog?.(`System error: ${data.message || 'Unknown error'}`, 'error');
           break;
 
         // Backward compatibility for legacy events
@@ -346,7 +392,7 @@ export default function useRealtimeWebSocket({
     cleanupSocket();
     if (enabled && microserviceUrl) connect();
     return () => cleanupSocket();
-  }, [enabled, microserviceUrl]);
+  }, [enabled, microserviceUrl, providedSessionId]);
 
   return { wsRef, wsConnected, reconnect, ping };
 }

@@ -138,44 +138,6 @@ class BaseWorkflowService {
     }
   }
 
-  /**
-   * Standardized helper for synchronous or bypassed steps.
-   * Consistently marks the step as finished and broadcasts progress.
-   */
-  async completeSyncStep(
-    sessionId,
-    stepKey,
-    status = 'SYNCHRONOUS',
-    processedCount = 0,
-    totalCount = 0
-  ) {
-    this._ensureValidStep(stepKey);
-    const session = await this.persistence.getSession(sessionId);
-    const erc = createERC(ERC_PREFIX.BATCH);
-
-    const batch = await this.persistence.createBatch({
-      erc,
-      sessionId,
-      stepKey,
-      status,
-      processedCount,
-      totalCount,
-    });
-
-    if (['SYNCHRONOUS', 'COMPLETED', 'BYPASSED'].includes(status)) {
-      this.progress.stepCompleted({
-        sessionId,
-        step: stepKey,
-        entityType: this._normalizeEntityType(stepKey),
-        operation: session.flow_type,
-        totalCount,
-        correlationId: session.correlationId,
-      });
-    }
-
-    return batch;
-  }
-
   // --- Normalization & Mapping ---
 
   /**

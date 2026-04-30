@@ -193,8 +193,10 @@ function getClientSecret(clientId) {
 
   return secret;
 }
-
 function sqlInjectionProtectionMiddleware(req, res, next) {
+  // Allow legitimate batch operations that contain SQL-like keywords
+  const isCallback = req.path.includes('/batch/callback');
+
   const suspiciousPatterns = [
     /(\b(SELECT|INSERT|UPDATE|DELETE|DROP|CREATE|ALTER|EXEC|EXECUTE|UNION|TRUNCATE)\b)/i,
     /('|(\\x27)|(\\x22)|(\\x60)|(\\x3B)|(\\x2D)|(\\x2F)|(\\x5C))/i,
@@ -204,6 +206,12 @@ function sqlInjectionProtectionMiddleware(req, res, next) {
 
   const checkValue = (value, path = '') => {
     if (typeof value === 'string') {
+      // Exemption for batch operation codes in the query string
+      if (isCallback && path === 'query.opCode') {
+        const allowedOps = ['create', 'update', 'delete', 'upsert'];
+        if (allowedOps.includes(value.toLowerCase())) return false;
+      }
+
       for (const pattern of suspiciousPatterns) {
         if (pattern.test(value)) {
           logger.warn('Potential SQL injection detected', {

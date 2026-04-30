@@ -9,17 +9,36 @@ class LiferayGraphQLService {
   }
 
   async _getClient(config) {
-    const accessToken = await this.ctx.oauth.getAccessToken(
-      config.liferayUrl,
-      config.clientId,
-      config.clientSecret
-    );
+    const { oauth } = this.ctx;
+    const { ENV } = require('../../utils/constants.cjs');
+    let authHeader;
+
+    // HARDENING: Fallback to Basic Auth if OAuth is not configured or specifically requested
+    const useBasic =
+      config.authMethod === 'basic' ||
+      (!config.clientId &&
+        ENV.LIFERAY_API_USERNAME &&
+        ENV.LIFERAY_API_PASSWORD);
+
+    if (useBasic) {
+      const user = config.username || ENV.LIFERAY_API_USERNAME;
+      const pass = config.password || ENV.LIFERAY_API_PASSWORD;
+      const token = Buffer.from(`${user}:${pass}`).toString('base64');
+      authHeader = `Basic ${token}`;
+    } else {
+      const accessToken = await oauth.getAccessToken(
+        config.liferayUrl,
+        config.clientId,
+        config.clientSecret
+      );
+      authHeader = `Bearer ${accessToken}`;
+    }
 
     return axios.create({
       baseURL: `${config.liferayUrl}/o/graphql`,
       timeout: 30000,
       headers: {
-        Authorization: `Bearer ${accessToken}`,
+        Authorization: authHeader,
         'Content-Type': 'application/json',
       },
     });
@@ -220,7 +239,7 @@ class LiferayGraphQLService {
       config,
       'headlessAdminAddress_v1_0',
       'countries',
-      ['id', 'a2', 'name']
+      ['id', 'a2', 'a3', 'name', 'active', 'title_i18n']
     );
   }
 
@@ -294,6 +313,8 @@ class LiferayGraphQLService {
             items {
               id
               name
+              regionCode
+              title_i18n
             }
             totalCount
           }

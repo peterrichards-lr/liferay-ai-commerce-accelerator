@@ -1,4 +1,39 @@
 const { http, HttpResponse } = require('msw');
+const ContractValidator = require('../../services/contractValidator.cjs');
+const { findContract } = require('../../utils/contractMappings.cjs');
+const { logger } = require('../../utils/logger.cjs');
+
+// Mock context for the validator
+const mockCtx = {
+  logger,
+  DEBUG: true
+};
+const validator = new ContractValidator(mockCtx);
+
+function validateRequest(request, data, method = 'POST') {
+  const contract = findContract(request.url, method);
+  if (contract) {
+    try {
+      if (contract.isBatch && Array.isArray(data)) {
+        // Validate first item as a sample
+        if (data.length > 0) {
+          validator.validate(contract.spec, contract.schema, data[0]);
+        }
+      } else {
+        validator.validate(contract.spec, contract.schema, data);
+      }
+    } catch (err) {
+      if (err.name === 'ContractViolationError') {
+        return HttpResponse.json({
+          error: 'ContractViolation',
+          message: err.message,
+          errors: err.errors
+        }, { status: 400 });
+      }
+    }
+  }
+  return null;
+}
 
 const handlers = [
   // Mock OAuth Token
@@ -14,7 +49,9 @@ const handlers = [
     '*/o/headless-commerce-admin-catalog/v1.0/products',
     ({ request }) => {
       const url = new URL(request.url);
-      const catalogId = url.searchParams.get('catalogId');
+      const filter = url.searchParams.get('filter') || '';
+      const catalogIdMatch = filter.match(/catalogId eq (\d+)/);
+      const catalogId = catalogIdMatch ? parseInt(catalogIdMatch[1], 10) : 100;
 
       return HttpResponse.json({
         items: [
@@ -22,7 +59,7 @@ const handlers = [
             id: 123,
             externalReferenceCode: 'PROD-1',
             name: 'Test Product 1',
-            catalogId: catalogId || 100,
+            catalogId: catalogId,
           },
         ],
         totalCount: 1,
@@ -60,6 +97,25 @@ const handlers = [
     });
   }),
 
+  // Mock Catalogs List
+  http.get(
+    '*/o/headless-commerce-admin-catalog/v1.0/catalogs',
+    ({ request }) => {
+      return HttpResponse.json({
+        items: [
+          {
+            id: 123,
+            externalReferenceCode: 'CAT-1',
+            name: 'Test Catalog 1',
+            defaultLanguageId: 'en_US',
+            currencyCode: 'USD',
+          },
+        ],
+        totalCount: 1,
+      });
+    }
+  ),
+
   // Mock Orders List
   http.get('*/o/headless-commerce-admin-order/v1.0/orders', () => {
     return HttpResponse.json({
@@ -82,6 +138,7 @@ const handlers = [
           id: 3001,
           externalReferenceCode: 'PL-1',
           name: 'Test Price List 1',
+          catalogId: 123,
         },
       ],
       totalCount: 1,
@@ -116,12 +173,29 @@ const handlers = [
     });
   }),
 
+  // Mock Product Options (POST)
+  http.post(
+    '*/o/headless-commerce-admin-catalog/v1.0/products/:id/productOptions',
+    async ({ params, request }) => {
+      const data = await request.json();
+      const errorResponse = validateRequest(request, data, 'POST');
+      if (errorResponse) return errorResponse;
+
+      return HttpResponse.json(data);
+    }
+  ),
+
   // Mock Batch Engine - Submit (POST)
   http.post(
     '*/o/headless-batch-engine/v1.0/import-task/:className',
-    ({ params, request }) => {
-      const url = new URL(request.url);
-      const callbackURL = url.searchParams.get('callbackURL');
+    async ({ params, request }) => {
+      const data = await request.json();
+
+      // If it's a JSON batch, validate items
+      if (Array.isArray(data.items)) {
+        const errorResponse = validateRequest(request, data.items, 'POST');
+        if (errorResponse) return errorResponse;
+      }
 
       return HttpResponse.json({
         id: 9001,

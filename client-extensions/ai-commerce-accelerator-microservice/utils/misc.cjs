@@ -384,6 +384,12 @@ const toI18n = (v, fallback) => {
   return typeof v === 'string' ? { en_US: v } : v || { en_US: fallback };
 };
 
+const fromI18n = (v, locale = 'en_US') => {
+  if (!v) return null;
+  if (typeof v === 'string') return v;
+  return v[locale] || Object.values(v)[0] || null;
+};
+
 function getByValue(collection, searchValue) {
   const iterable =
     collection instanceof Map ? collection : Object.entries(collection || {});
@@ -427,6 +433,7 @@ module.exports = {
   randomPastDate,
   randomString,
   ratioTrigger,
+  buildKeyedERC,
   resolveErrorReference,
   resolveOperation,
   resolvePhaseAndMode,
@@ -434,6 +441,7 @@ module.exports = {
   sanitizeForERC,
   toERCPart,
   toI18n,
+  fromI18n,
   tryParseJSON,
   toTitleCase,
 };

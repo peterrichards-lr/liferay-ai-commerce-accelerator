@@ -13,6 +13,7 @@ export const WEB_SOCKET_EVENTS = {
   BATCH_PROGRESS: 'batch_progress',
   BATCH_START: 'batch_start',
   BATCH_FAILED: 'batch_failed',
+  BATCH_ERROR_DETAILS: 'batch_error_details',
   ERROR: 'error',
   GENERATION_SESSION_COMPLETE: 'generation_session_complete',
 };

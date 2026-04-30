@@ -76,6 +76,7 @@ function buildConfigAndOptions(req) {
   const {
     accountCount,
     aiModel,
+    authMethod,
     batchSize,
     catalogId,
     categories,
@@ -151,6 +152,7 @@ function buildConfigAndOptions(req) {
   }
 
   const rawConfig = {
+    authMethod,
     batchSize: toNumber(batchSize),
     catalogId: toNumber(catalogId),
     channelId: toNumber(channelId),

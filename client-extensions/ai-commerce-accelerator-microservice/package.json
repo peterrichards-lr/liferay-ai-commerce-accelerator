@@ -27,6 +27,8 @@
   "main": "server.cjs",
   "name": "@liferay/liferay-ai-commerce-accelerator-microservice",
   "scripts": {
+    "predebug": "node scripts/ensure-native-modules.cjs",
+    "prestart": "node scripts/ensure-native-modules.cjs",
     "debug": "node --inspect --trace-warnings server.cjs",
     "start": "node server.cjs",
     "test": "vitest run",

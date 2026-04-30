@@ -32,6 +32,13 @@
                 },
                 "type": "array"
               },
+              "postalAddresses": {
+                "description": "The postal addresses for the contact information (e.g., Head Office).",
+                "items": {
+                  "type": "object"
+                },
+                "type": "array"
+              },
               "webUrls": {
                 "description": "A list of web URLs associated with the account.",
                 "items": {
@@ -56,16 +63,26 @@
             "required": ["emailAddresses"],
             "type": "object"
           },
+          "postalAddresses": {
+            "description": "Additional addresses for the account (e.g., Billing, Shipping).",
+            "items": {
+              "type": "object"
+            },
+            "type": "array"
+          },
           "billingAddress": {
             "description": "The billing address for the account.",
             "properties": {
               "addressCountry": {
+                "description": "The FULL name of the country (e.g., 'United States', 'United Kingdom'). ISO codes are NOT allowed.",
                 "type": "string"
               },
               "addressLocality": {
+                "description": "The city or locality name.",
                 "type": "string"
               },
               "addressRegion": {
+                "description": "The FULL name of the region or state (e.g., 'New York', 'Texas').",
                 "type": "string"
               },
               "name": {
@@ -92,12 +109,14 @@
             "description": "The head office address for the account.",
             "properties": {
               "addressCountry": {
+                "description": "The FULL name of the country (e.g., 'United States'). ISO codes are NOT allowed.",
                 "type": "string"
               },
               "addressLocality": {
                 "type": "string"
               },
               "addressRegion": {
+                "description": "The FULL name of the region (e.g., 'California').",
                 "type": "string"
               },
               "name": {
@@ -120,12 +139,14 @@
             "description": "The shipping address for the account.",
             "properties": {
               "addressCountry": {
+                "description": "The FULL name of the country (e.g., 'United States'). ISO codes are NOT allowed.",
                 "type": "string"
               },
               "addressLocality": {
                 "type": "string"
               },
               "addressRegion": {
+                "description": "The FULL name of the region (e.g., 'Texas').",
                 "type": "string"
               },
               "name": {

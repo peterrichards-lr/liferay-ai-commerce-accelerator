@@ -5,7 +5,7 @@ describe('PersistenceService', () => {
 
   beforeEach(() => {
     // Use an in-memory database for testing
-    persistence = new PersistenceService(':memory:');
+    persistence = new PersistenceService(null, ':memory:');
   });
 
   afterEach(() => {

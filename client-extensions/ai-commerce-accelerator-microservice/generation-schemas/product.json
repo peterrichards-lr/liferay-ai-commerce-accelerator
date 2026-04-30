@@ -216,7 +216,8 @@
             "type": "array"
           },
           "productType": {
-            "description": "The product type, expected to be 'simple'.",
+            "description": "The product type, strictly required to be 'simple' for initial creation.",
+            "enum": ["simple"],
             "type": "string"
           },
           "shortDescription": {
@@ -253,6 +254,10 @@
                 },
                 "sku": {
                   "description": "Variant SKU (baseSku plus variant codes).",
+                  "type": "string"
+                },
+                "externalReferenceCode": {
+                  "description": "Unique external reference for the SKU variant.",
                   "type": "string"
                 }
               },
@@ -327,19 +332,25 @@
             "items": {
               "additionalProperties": false,
               "properties": {
-                "key": {
-                  "description": "Specification name.",
-                  "type": "string"
+                "label": {
+                  "additionalProperties": {
+                    "type": "string"
+                  },
+                  "description": "Multilingual specification name keyed by language code (e.g. 'Material').",
+                  "type": "object"
                 },
                 "value": {
                   "additionalProperties": {
                     "type": "string"
                   },
-                  "description": "Multilingual specification value keyed by language code.",
+                  "description": "Multilingual specification value keyed by language code (e.g. 'Stainless Steel').",
                   "type": "object"
+                },
+                "externalReferenceCode": {
+                  "type": "string"
                 }
               },
-              "required": ["key", "value"],
+              "required": ["label", "value"],
               "type": "object"
             },
             "type": "array"

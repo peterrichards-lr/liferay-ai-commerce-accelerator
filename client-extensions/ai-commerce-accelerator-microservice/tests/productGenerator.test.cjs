@@ -63,7 +63,7 @@ describe('ProductGenerator', () => {
     };
     const options = { productCount: 1, generatePriceLists: true };
 
-    const result = await generator.generateProducts(config, options);
+    const result = await generator.runWorkflow(config, options);
 
     expect(result.sessionId).toBeDefined();
     expect(result.message).toContain('started');
@@ -76,7 +76,7 @@ describe('ProductGenerator', () => {
   });
 
   it('should run product data generation step', async () => {
-    const sessionId = 'test-session';
+    const sessionId = 'prod-test-session';
     persistence.createSession({
       sessionId,
       flowType: 'generate',

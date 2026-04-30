@@ -3,16 +3,18 @@ const { asItems, asCount } = require('../../../utils/liferayUtils.cjs');
 
 module.exports = async function deleteProductOptions(
   { liferay, logger, persistence },
-  { config, options, session, sessionId, batchERC }
+  { config, options, session, sessionId, batchERC, items }
 ) {
   logger.info('Starting explicit removal of product-option associations');
 
-  const productsRes = await liferay.getProducts(config, {
-    pageSize: 200,
-    session,
-  });
-
-  const products = asItems(productsRes);
+  const products =
+    Array.isArray(items) && items.length > 0
+      ? items
+      : asItems(
+          await liferay.getProducts(config, {
+            pageSize: 200,
+          })
+        );
 
   if (products.length === 0) {
     logger.info('No products found to clear options from.');

@@ -315,7 +315,8 @@ class OrderGenerator extends BaseGenerator {
         skuExternalReferenceCode: sku.sku,
         quantity: Math.floor(Math.random() * 3) + 1,
         warehouseId: warehouse ? warehouse.id : undefined,
-        unitPrice: sku.price,
+        price: sku.price, // Liferay expects 'price'
+        unitPrice: sku.price, // Keep for backward compatibility
       });
     }
 

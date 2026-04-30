@@ -108,7 +108,7 @@ const ENV = {
   // Liferay connection
   LIFERAY_API_URL: str('LIFERAY_API_URL', 'http://localhost:8080'),
   LIFERAY_API_USERNAME: str('LIFERAY_API_USERNAME', 'test@liferay.com'),
-  LIFERAY_API_PASSWORD: str('LIFERAY_API_PASSWORD', 'test'),
+  LIFERAY_API_PASSWORD: str('LIFERAY_API_PASSWORD', 'L1feray$'),
   LIFERAY_COMPANY_ID: num('LIFERAY_COMPANY_ID', 20101),
   LIFERAY_OAUTH_CLIENT_ID: str(
     'LIFERAY_OAUTH_CLIENT_ID',
@@ -297,9 +297,14 @@ const WORKFLOW_STEPS = {
   RESOLVE_WAREHOUSE_IDS: 'resolve-warehouse-ids',
   GENERATE_WAREHOUSE_DATA: 'generate-warehouse-data',
   GENERATE_PRODUCT_DATA: 'generate-product-data',
+  ENSURE_SPECIFICATION_CATEGORIES: 'ensure-specification-categories',
+  ENSURE_SPECIFICATIONS: 'ensure-specifications',
+  ENSURE_OPTIONS: 'ensure-options',
   CREATE_PRODUCTS: 'create-products',
   RESOLVE_PRODUCT_IDS: 'resolve-product-ids',
   LINK_PRODUCT_OPTIONS: 'link-product-options',
+  LINK_PRODUCT_CHANNELS: 'link-product-channels',
+  LINK_WAREHOUSE_CHANNELS: 'link-warehouse-channels',
   CREATE_PRODUCT_SKUS: 'create-skus',
   RESOLVE_SKU_IDS: 'resolve-sku-ids',
   SYNC_DELAY_PRICING: 'sync-delay-pricing',

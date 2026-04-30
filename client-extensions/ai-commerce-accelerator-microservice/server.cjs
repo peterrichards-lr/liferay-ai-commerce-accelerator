@@ -1,4 +1,8 @@
 const { logger } = require('./utils/logger.cjs');
+const { checkAndRebuild } = require('./scripts/ensure-native-modules.cjs');
+
+// Ensure native modules (better-sqlite3) match current Node runtime
+checkAndRebuild();
 
 const { connectionSchema } = require('./utils/schemas.cjs');
 const { ENV } = require('./utils/constants.cjs');

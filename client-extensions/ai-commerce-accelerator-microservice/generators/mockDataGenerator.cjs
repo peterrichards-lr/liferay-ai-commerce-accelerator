@@ -169,7 +169,7 @@ class MockDataGenerator {
       const feat = features[i % features.length];
 
       const productData = {
-        id: 30000 + i, // Mock numeric ID
+        // HARDENING: Removed placeholder ID to force physical resolution
         externalReferenceCode: baseErc,
         name: {},
         description: {},
@@ -252,7 +252,7 @@ class MockDataGenerator {
             const variantPriceModifier = size === 'Medium' ? 0.1 : 0;
 
             productData.skuVariants.push({
-              id: 40000 + i * 10 + variantCounter++, // Mock variant ID
+              // HARDENING: Removed placeholder ID to force physical resolution
               sku: variantSku,
               options: {
                 Color: color,
@@ -260,6 +260,7 @@ class MockDataGenerator {
               },
               priceModifier: variantPriceModifier,
               inStock: true,
+              externalReferenceCode: variantSku, // Ensure ERC is present for resolution
             });
           }
         }
@@ -280,7 +281,7 @@ class MockDataGenerator {
       // Every product must have at least one SKU object in the 'skus' array
       productData.skus = [
         {
-          id: 50000 + i, // Mock base SKU ID
+          // HARDENING: Removed placeholder ID to force physical resolution
           sku: sku,
           externalReferenceCode: sku,
           published: true,
@@ -418,7 +419,7 @@ class MockDataGenerator {
       const email = `contact-${suffix.toLowerCase()}@example.com`;
 
       const accountData = {
-        id: 10000 + i, // Mock numeric ID for Demo Mode
+        // HARDENING: Removed placeholder ID to force physical resolution
         externalReferenceCode: baseErc,
         name: accountName,
         type: 'business',

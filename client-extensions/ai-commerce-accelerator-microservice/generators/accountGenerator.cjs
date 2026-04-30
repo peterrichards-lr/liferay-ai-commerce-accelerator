@@ -7,6 +7,7 @@ const {
   toTitleCase,
   delay,
   resolveErrorReference,
+  fromI18n,
 } = require('../utils/misc.cjs');
 
 const S = WORKFLOW_STEPS;
@@ -92,6 +93,7 @@ class AccountGenerator extends BaseGenerator {
 
     try {
       const countries = await this.liferay.getCountries(config);
+      this.logger.debug(`Fetched ${countries?.length || 0} countries from Liferay`, { sessionId });
 
       await this.persistence.updateSessionContext(sessionId, {
         ...session.context,
@@ -200,10 +202,14 @@ class AccountGenerator extends BaseGenerator {
             'other',
             config,
             rawHeadOffice,
-            countries
+            countries,
+            sessionId
           );
+          // Include in BOTH for maximum visibility in Liferay UI/Headless
+          account.accountContactInformation.postalAddresses = [headOffice];
           account.postalAddresses = [headOffice];
         } else {
+          account.accountContactInformation.postalAddresses = [];
           account.postalAddresses = [];
         }
 
@@ -213,7 +219,8 @@ class AccountGenerator extends BaseGenerator {
               'billing',
               config,
               rawBilling,
-              countries
+              countries,
+              sessionId
             )),
             accountERC: account.externalReferenceCode,
           });
@@ -225,7 +232,8 @@ class AccountGenerator extends BaseGenerator {
               'shipping',
               config,
               rawShipping,
-              countries
+              countries,
+              sessionId
             )),
             accountERC: account.externalReferenceCode,
           });
@@ -539,26 +547,9 @@ class AccountGenerator extends BaseGenerator {
         );
       }
 
-      const addressERCs = addressesToCreate.map((a) => a.externalReferenceCode);
-      const resolvedAddresses = await this.liferay.resolveByERCsWithRetry(
-        config,
-        addressERCs,
-        (cfg, e) =>
-          this.liferay.getPostalAddressesByERC(cfg, e, [
-            'id',
-            'externalReferenceCode',
-          ]),
-        { label: 'postalAddresses' }
-      );
-
-      const normalizedAddresses = this._normalize(resolvedAddresses);
-      const ercToAddrId = new Map(
-        normalizedAddresses.map((a) => [a.erc, a.id])
-      );
-
       let updateCount = 0;
       for (const account of accountsToCreate) {
-        if (!account.id) continue;
+        if (!account.id && !account.externalReferenceCode) continue;
 
         const accountAddresses = addressesToCreate.filter(
           (a) => a.accountERC === account.externalReferenceCode
@@ -571,19 +562,26 @@ class AccountGenerator extends BaseGenerator {
         );
 
         const patch = {};
-        if (billing && ercToAddrId.has(billing.externalReferenceCode)) {
-          patch.defaultBillingAddressId = ercToAddrId.get(
-            billing.externalReferenceCode
-          );
+        if (billing) {
+          patch.defaultBillingAddressExternalReferenceCode =
+            billing.externalReferenceCode;
         }
-        if (shipping && ercToAddrId.has(shipping.externalReferenceCode)) {
-          patch.defaultShippingAddressId = ercToAddrId.get(
-            shipping.externalReferenceCode
-          );
+        if (shipping) {
+          patch.defaultShippingAddressExternalReferenceCode =
+            shipping.externalReferenceCode;
         }
 
         if (Object.keys(patch).length > 0) {
-          await this.liferay.rest.patchAccount(config, account.id, patch);
+          // If we have an ID, use it, otherwise use ERC
+          if (account.id) {
+            await this.liferay.rest.patchAccount(config, account.id, patch);
+          } else {
+            await this.liferay.rest.patchAccountByERC(
+              config,
+              account.externalReferenceCode,
+              patch
+            );
+          }
           updateCount++;
         }
       }
@@ -612,14 +610,18 @@ class AccountGenerator extends BaseGenerator {
     }
   }
 
-  async _generateAddress(addressType, config, address, countries) {
+  async _generateAddress(addressType, config, address, countries, sessionId) {
     const streetNumber = Math.floor(Math.random() * 999) + 1;
     const streetName = randomString(8);
     const streetType = ['Street', 'Avenue', 'Road', 'Lane'][
       Math.floor(Math.random() * 4)
     ];
 
-    if (!countries || countries.length === 0) {
+    // 0. Filter for active countries and ensure we have a list
+    const activeCountries = (countries || []).filter(c => c.active !== false);
+
+    if (activeCountries.length === 0) {
+      this.logger.warn('No active countries found in Liferay. Falling back to default data structure.', { sessionId });
       return {
         name: `${toTitleCase(addressType).replace(/-/g, ' ')} Address`,
         streetAddressLine1: `${streetNumber} ${streetName} ${streetType}`,
@@ -627,19 +629,37 @@ class AccountGenerator extends BaseGenerator {
         postalCode: address.postalCode,
         addressType,
         primary: false,
+        addressCountry: 'United States', // Use full name for fallback reliability
         externalReferenceCode: createERC(ERC_PREFIX.ADDRESS),
       };
     }
 
-    const country = countries[Math.floor(Math.random() * countries.length)];
+    // Try to find the AI-suggested country in the list from Liferay
+    let country = null;
+    if (address.addressCountry) {
+      const target = address.addressCountry.toLowerCase().replace(/[^a-z0-9]/g, '');
+      country = activeCountries.find(
+        (c) =>
+          c.name.toLowerCase().replace(/[^a-z0-9]/g, '') === target ||
+          c.a2.toLowerCase() === target ||
+          c.a3?.toLowerCase() === target
+      );
+    }
+
+    // Fallback to random if no match found or no suggestion provided
+    if (!country) {
+      country = activeCountries[Math.floor(Math.random() * activeCountries.length)];
+    }
+
     if (!country || !country.id) {
+      // Should not happen given the check above, but for safety
       return {
         name: `${toTitleCase(addressType).replace(/-/g, ' ')} Address`,
         streetAddressLine1: `${streetNumber} ${streetName} ${streetType}`,
         addressLocality: address.addressLocality,
         addressRegion: null,
         postalCode: address.postalCode,
-        addressCountry: country?.name || 'United States',
+        addressCountry: 'United States',
         addressType,
         primary: false,
         externalReferenceCode: createERC(ERC_PREFIX.ADDRESS),
@@ -649,20 +669,40 @@ class AccountGenerator extends BaseGenerator {
     const regions = await this.liferay.getCountryRegions(config, country.id);
     let region;
     if (regions && regions.length > 0) {
-      region = regions[Math.floor(Math.random() * regions.length)];
+      // Try to match suggested region
+      if (address.addressRegion) {
+        const targetRegion = address.addressRegion.toLowerCase().replace(/[^a-z0-9]/g, '');
+        region = regions.find(
+          (r) =>
+            r.name.toLowerCase().replace(/[^a-z0-9]/g, '') === targetRegion ||
+            r.regionCode?.toLowerCase() === targetRegion
+        );
+      }
+      // Fallback to random
+      if (!region) {
+        region = regions[Math.floor(Math.random() * regions.length)];
+      }
     }
+
+    const finalCountry = fromI18n(country.title_i18n) || country.name || country.a2 || country.a3;
+    const finalRegion = region ? (fromI18n(region.title_i18n) || region.name) : null;
+
+    this.logger.debug(`Address Geographic Match: SuggestedCountry="${address.addressCountry}", MatchedCountryName="${country.name}", MatchedCountryTitle="${fromI18n(country.title_i18n)}", FinalCountry="${finalCountry}", SuggestedRegion="${address.addressRegion}", FinalRegion="${finalRegion}"`, { sessionId });
 
     return {
       name: `${toTitleCase(addressType).replace(/-/g, ' ')} Address`,
       streetAddressLine1: `${streetNumber} ${streetName} ${streetType}`,
       addressLocality: address.addressLocality,
-      addressRegion: region?.name || null,
+      addressRegion: finalRegion,
       postalCode: address.postalCode,
-      addressCountry: country?.title_i18n?.en_US || country?.name,
+      // Liferay Headless Admin User API (PostalAddress) dedicated address endpoint 
+      // appears to require the full Country Name (e.g. "United States") based on empirical tests.
+      addressCountry: finalCountry,
       addressType,
       primary: false,
       externalReferenceCode: createERC(ERC_PREFIX.ADDRESS),
     };
+
   }
   async handleBatchCallback(sessionId, batchERC) {
     this.logger.debug(
