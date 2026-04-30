@@ -1,10 +1,9 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import ClayAlert from '@clayui/alert';
 import ClayButton from '@clayui/button';
 import ClayForm, { ClayInput } from '@clayui/form';
 import ClayIcon from '@clayui/icon';
 import ClayLayout from '@clayui/layout';
-import { getKeyValue, persistConfigKey } from '../../utils/api';
 
 export default function OpenAISettingsPanel({
   keyValue,
@@ -12,11 +11,8 @@ export default function OpenAISettingsPanel({
   title = 'OpenAI Settings',
   helpText = 'The Open AI key os stored as plain text. In production, prefer using environment variables or a secrets vault rather than storing keys in the database.',
 }) {
-  const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
-
   const [show, setShow] = useState(false);
-  const [issues, setIssues] = useState([]);
+  const issues = [];
 
   const maskedMultiline = useMemo(
     () => (keyValue ? keyValue.replace(/[^\n]/g, '•') : ''),
@@ -43,7 +39,7 @@ export default function OpenAISettingsPanel({
     [keyValue]
   );
 
-  const onClear = useCallback(() => setKeyValue(''), []);
+  const onClear = useCallback(() => setKeyValue(''), [setKeyValue]);
 
   return (
     <ClayLayout.SheetSection className="mt-4">

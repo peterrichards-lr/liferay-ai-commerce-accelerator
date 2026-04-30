@@ -30,7 +30,9 @@ class BaseComponent extends HTMLElement {
   disconnectedCallback() {
     try {
       this.root?.unmount?.();
-    } catch {}
+    } catch {
+      // ignore
+    }
     this.root = null;
   }
 }

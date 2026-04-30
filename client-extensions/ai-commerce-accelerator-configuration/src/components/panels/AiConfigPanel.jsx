@@ -5,7 +5,6 @@ import ClayButton from '@clayui/button';
 import ClayIcon from '@clayui/icon';
 import ClayLayout from '@clayui/layout';
 import ClayTable from '@clayui/table';
-import Ajv from 'ajv';
 import SchemaEditor from './SchemaEditor';
 import { useForm, useObjectStorage } from '../../hooks';
 import MillisecondsInput from '../common/MillisecondsInput';
@@ -62,8 +61,6 @@ const EMPTY_ERRORS = ENTITY_CONFIGS.reduce((acc, { id }) => {
   acc[id] = [];
   return acc;
 }, {});
-
-const ajv = new Ajv();
 
 const CODEMIRROR_LIFERAY_CSS_ID = 'liferay-codemirror-vendors-css';
 
@@ -438,7 +435,7 @@ export default function AiConfigPanel() {
 
         <div className="sheet-text">
           Define the available AI models for generation. Each model should have
-          a 'label' and 'value'.
+          a &apos;label&apos; and &apos;value&apos;.
         </div>
 
         {ENTITY_CONFIGS.map(({ id, title, configKey }) => (

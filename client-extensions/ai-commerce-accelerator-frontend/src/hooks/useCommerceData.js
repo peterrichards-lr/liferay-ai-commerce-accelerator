@@ -72,7 +72,7 @@ export default function useCommerceData({
     [config]
   );
 
-  const loadRootLists = async () => {
+  const loadRootLists = useCallback(async () => {
     const payload = buildPayload();
 
     const [cat, ch] = await Promise.all([
@@ -87,7 +87,7 @@ export default function useCommerceData({
     setChannels(chs);
 
     return { catalogs: cats, channels: chs };
-  };
+  }, [api, buildPayload]);
 
   const testConnection = async () => {
     const errs = getConnectionErrorsMap(config);
@@ -126,86 +126,46 @@ export default function useCommerceData({
     return res;
   };
 
-  const logDeletionSummary = (summary) => {
-    if (!summary || typeof summary !== 'object') return;
+  const loadChannelDependent = useCallback(
+    async (channelOrId) => {
+      let chObj =
+        channelOrId && typeof channelOrId === 'object'
+          ? channelOrId
+          : (channels || []).find((c) => String(c.id) === String(channelOrId));
 
-    const plural = (n, s, p = s + 'es') => `${n} ${n === 1 ? s : p}`;
-
-    Object.entries(summary).forEach(([entity, s]) => {
-      if (!s) return;
-      const total = s.total ?? 0;
-      const batches = s.batches ?? 0;
-      const batchesText = plural(batches, 'batch', 'batches');
-      const dryRunTag = s.dryRun ? ' (dry run)' : '';
-
-      addLog(
-        `Submitted ${entity} for deletion: ${total} over ${batchesText}${dryRunTag}`,
-        'info'
-      );
-
-      const failures = Array.isArray(s.failures) ? s.failures : [];
-      if (failures.length > 0) {
-        addLog(
-          `${entity}: ${failures.length} failure${
-            failures.length === 1 ? '' : 's'
-          }`,
-          'error'
-        );
-      }
-    });
-  };
-
-  const handleDeleteAllCommerceData = useCallback(async () => {
-    const payload = buildPayload();
-    const res = await api.post(DELETE_COMMERCE_DATA, payload);
-    if (res?.summary) {
-      logDeletionSummary(res.summary);
-    }
-  });
-
-  const handleDeleteSelectedCommerceData = useCallback(async () => {
-    const payload = buildPayload();
-    const res = await api.post(DELETE_SELECTED_COMMERCE_DATA, payload);
-    if (res?.summary) {
-      logDeletionSummary(res.summary);
-    }
-  });
-
-  const loadChannelDependent = async (channelOrId) => {
-    let chObj =
-      channelOrId && typeof channelOrId === 'object'
-        ? channelOrId
-        : (channels || []).find((c) => String(c.id) === String(channelOrId));
-
-    if (!chObj) {
-      const fresh = (await loadRootLists()).channels;
-      chObj = fresh.find((c) => String(c.id) === String(channelOrId));
       if (!chObj) {
-        notifyUser(
-          'Selected channel not found. Please test the connection again.',
-          'warning'
-        );
-        return null;
+        const fresh = (await loadRootLists()).channels;
+        chObj = fresh.find((c) => String(c.id) === String(channelOrId));
+        if (!chObj) {
+          notifyUser(
+            'Selected channel not found. Please test the connection again.',
+            'warning'
+          );
+          return null;
+        }
       }
-    }
 
-    const payload = buildPayload({ channel: chObj });
+      const payload = buildPayload({ channel: chObj });
 
-    const [langsRes, currsRes] = await Promise.all([
-      getLanguages(payload),
-      getCurrencies(payload),
-    ]);
+      const [langsRes, currsRes] = await Promise.all([
+        getLanguages(payload),
+        getCurrencies(payload),
+      ]);
 
-    const langs = Array.isArray(langsRes?.languages) ? langsRes.languages : [];
-    const currs = Array.isArray(currsRes?.currencies)
-      ? currsRes.currencies
-      : [];
+      const langs = Array.isArray(langsRes?.languages)
+        ? langsRes.languages
+        : [];
+      const currs = Array.isArray(currsRes?.currencies)
+        ? currsRes.currencies
+        : [];
 
-    setLanguages(langs);
-    setCurrencies(currs);
+      setLanguages(langs);
+      setCurrencies(currs);
 
-    return { chObj, langs, currs };
-  };
+      return { chObj, langs, currs };
+    },
+    [channels, loadRootLists, buildPayload, getLanguages, getCurrencies]
+  );
 
   const selectChannel = async (channelId) => {
     if (!channelId) {
@@ -289,15 +249,12 @@ export default function useCommerceData({
 
   const getCategories = useCallback(
     (payload, { force = false } = {}) => {
-      const key = `categories:${config.microserviceUrl || ''}:${
-        config.liferayUrl || ''
-      }`;
       return api.get(GET_CATEGORIES, { force }).then((res) => {
         if (Array.isArray(res?.categories)) return res.categories;
         return [];
       });
     },
-    [api, config.microserviceUrl, config.liferayUrl]
+    [api]
   );
 
   useEffect(() => {
@@ -306,10 +263,59 @@ export default function useCommerceData({
         (c) => String(c.id) === String(config.channelId)
       );
       if (chObj && chObj.siteGroupId) {
+        // eslint-disable-next-line react-hooks/set-state-in-effect
         loadChannelDependent(chObj);
       }
     }
-  }, [config.channelId, channels, languages.length]);
+  }, [config.channelId, channels, languages.length, loadChannelDependent]);
+
+  const logDeletionSummary = useCallback(
+    (summary) => {
+      if (!summary || typeof summary !== 'object') return;
+
+      const plural = (n, s, p = s + 'es') => `${n} ${n === 1 ? s : p}`;
+
+      Object.entries(summary).forEach(([entity, s]) => {
+        if (!s) return;
+        const total = s.total ?? 0;
+        const batches = s.batches ?? 0;
+        const batchesText = plural(batches, 'batch', 'batches');
+        const dryRunTag = s.dryRun ? ' (dry run)' : '';
+
+        addLog(
+          `Submitted ${entity} for deletion: ${total} over ${batchesText}${dryRunTag}`,
+          'info'
+        );
+
+        const failures = Array.isArray(s.failures) ? s.failures : [];
+        if (failures.length > 0) {
+          addLog(
+            `${entity}: ${failures.length} failure${
+              failures.length === 1 ? '' : 's'
+            }`,
+            'error'
+          );
+        }
+      });
+    },
+    [addLog]
+  );
+
+  const handleDeleteAllCommerceData = useCallback(async () => {
+    const payload = buildPayload();
+    const res = await api.post(DELETE_COMMERCE_DATA, payload);
+    if (res?.summary) {
+      logDeletionSummary(res.summary);
+    }
+  }, [api, buildPayload, logDeletionSummary]);
+
+  const handleDeleteSelectedCommerceData = useCallback(async () => {
+    const payload = buildPayload();
+    const res = await api.post(DELETE_SELECTED_COMMERCE_DATA, payload);
+    if (res?.summary) {
+      logDeletionSummary(res.summary);
+    }
+  }, [api, buildPayload, logDeletionSummary]);
 
   return {
     catalogs,

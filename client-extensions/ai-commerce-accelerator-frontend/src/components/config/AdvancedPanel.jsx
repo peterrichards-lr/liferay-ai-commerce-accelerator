@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React from 'react';
 import ClayForm, { ClaySelect } from '@clayui/form';
 import { useApp } from '../../context/AppContext';
 import { ConfirmProvider, useConfirm } from '../ConfirmProvider';
@@ -81,15 +81,6 @@ export default function AdvancedPanel({
   aiModelOptions,
 }) {
   const { config, setConfig } = useApp();
-
-  // console.log('AdvancedPanel Props:', {
-  //   disabled,
-  //   connected,
-  //   batchSizes,
-  //   aiModelOptions,
-  //   currentAiModel: config.aiModel,
-  //   currentBatchSize: config.batchSize,
-  // });
 
   return (
     <CollapsiblePanel

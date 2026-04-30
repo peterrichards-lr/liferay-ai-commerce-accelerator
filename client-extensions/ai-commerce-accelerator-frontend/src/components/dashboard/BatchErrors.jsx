@@ -50,7 +50,7 @@ function BatchErrors({ batchErrors, clearBatchErrors }) {
                           (() => {
                             try {
                               return JSON.parse(item.item)?.id;
-                            } catch (e) {
+                            } catch {
                               return item.item;
                             }
                           })()}

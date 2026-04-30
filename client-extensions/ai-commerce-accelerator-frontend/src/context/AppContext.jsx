@@ -8,6 +8,7 @@ import React, {
   useRef,
 } from 'react';
 import { normalizeConfig } from '../config/normalize';
+import { DEFAULTS } from '../config/defaults';
 import { createApiClient } from '../services/apiClient';
 import { GET_CURRENCIES, GET_LANGUAGES } from '../utils/microservicePaths';
 
@@ -22,7 +23,9 @@ export function AppProvider({
   const cacheStore = useRef(new Map());
   const inflight = useRef(new Map());
 
-  const [config, setConfig] = useState(() => normalizeConfig(initialConfig));
+  const [config, setConfig] = useState(() =>
+    normalizeConfig({ ...DEFAULTS, ...initialConfig })
+  );
   const [correlationId, setCorrelationId] = useState(
     () => sessionStorage.getItem('correlationId') || null
   );
@@ -46,6 +49,7 @@ export function AppProvider({
   }, []);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     if (initialConfig) updateConfig(initialConfig);
   }, [initialConfig, updateConfig]);
 
@@ -142,7 +146,7 @@ export function AppProvider({
       getCurrencies,
       getLanguages,
     }),
-    [config, api, updateConfig]
+    [config, api, updateConfig, getCorrelationId, getCurrencies, getLanguages]
   );
 
   return (

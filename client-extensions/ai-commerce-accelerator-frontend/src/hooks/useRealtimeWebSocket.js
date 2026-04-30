@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useApp } from '../context/AppContext';
 import {
   WEB_SOCKET_EVENTS as E,
@@ -20,93 +20,123 @@ export default function useRealtimeWebSocket({
   const { getCorrelationId, api } = useApp();
   const wsRef = useRef(null);
   const [wsConnected, setWsConnected] = useState(false);
-  const [activeSessionId, setActiveSessionId] = useState(null);
+  const activeSessionIdRef = useRef(null);
+  const connectRef = useRef(null);
 
-  // Sync internal activeSessionId with provided prop
+  // Sync internal activeSessionIdRef with provided prop
   useEffect(() => {
-    if (providedSessionId && providedSessionId !== activeSessionId) {
-      setActiveSessionId(providedSessionId);
+    if (providedSessionId && providedSessionId !== activeSessionIdRef.current) {
+      activeSessionIdRef.current = providedSessionId;
     }
-  }, [providedSessionId, activeSessionId]);
+  }, [providedSessionId]);
+
+  // Use refs for callbacks to prevent reconnection loops when they change identity
+  const callbacksRef = useRef({ onLog, onProgress, onBatchErrorDetails, api });
+  useEffect(() => {
+    callbacksRef.current = { onLog, onProgress, onBatchErrorDetails, api };
+  }, [onLog, onProgress, onBatchErrorDetails, api]);
 
   const backoffRef = useRef(1000);
   const reconnectTimerRef = useRef(null);
 
-  const logInfo = (...args) => {
-    if (loggingLevel === 'basic' || loggingLevel === 'debug')
-      console.info('🟦 WS:', ...args);
-  };
-  const logDebug = (...args) => {
-    if (loggingLevel === 'debug') console.debug('⚙️ WS:', ...args);
-  };
-  const logWarn = (...args) => {
-    if (loggingLevel !== 'off') console.warn('🟨 WS:', ...args);
-  };
-  const logError = (...args) => {
-    if (loggingLevel !== 'off') console.error('🟥 WS:', ...args);
-  };
+  const logInfo = useCallback(
+    (...args) => {
+      if (loggingLevel === 'basic' || loggingLevel === 'debug')
+        console.info('🟦 WS:', ...args);
+    },
+    [loggingLevel]
+  );
+  const logDebug = useCallback(
+    (...args) => {
+      if (loggingLevel === 'debug') console.debug('⚙️ WS:', ...args);
+    },
+    [loggingLevel]
+  );
+  const logWarn = useCallback(
+    (...args) => {
+      if (loggingLevel !== 'off') console.warn('🟨 WS:', ...args);
+    },
+    [loggingLevel]
+  );
+  const logError = useCallback(
+    (...args) => {
+      if (loggingLevel !== 'off') console.error('🟥 WS:', ...args);
+    },
+    [loggingLevel]
+  );
 
-  const hydrateSessionStatus = async (sessionId) => {
-    if (!sessionId || !api) return;
-    try {
-      logDebug(`Hydrating session status for ${sessionId}...`);
-      const path = WORKFLOW_STATUS.replace(':sessionId', sessionId);
-      const res = await api.get(path);
+  const hydrateSessionStatus = useCallback(
+    async (sessionId) => {
+      const {
+        api: currentApi,
+        onProgress: currentOnProgress,
+        onLog: currentOnLog,
+      } = callbacksRef.current;
+      if (!sessionId || !currentApi) return;
+      try {
+        logDebug(`Hydrating session status for ${sessionId}...`);
+        const path = WORKFLOW_STATUS.replace(':sessionId', sessionId);
+        const res = await currentApi.get(path);
 
-      if (res?.success && res.progress) {
-        logDebug('Received hydration data:', res.progress);
+        if (res?.success && res.progress) {
+          logDebug('Received hydration data:', res.progress);
 
-        // Ensure the reducer knows this is the active session
-        onProgress?.({
-          type: 'SET_ACTIVE_SESSION',
-          sessionId,
-        });
+          // Ensure the reducer knows this is the active session
+          currentOnProgress?.({
+            type: 'SET_ACTIVE_SESSION',
+            sessionId,
+          });
 
-        // Update each entity's progress
-        Object.entries(res.progress).forEach(([entity, data]) => {
-          if (data.total > 0) {
-            onProgress?.({
-              type: 'SET_TOTAL',
-              entity,
-              total: data.total,
-            });
-            onProgress?.({
-              type: 'SET_COMPLETED',
-              entity,
-              completed: data.completed,
-            });
-          }
-        });
+          // Update each entity's progress
+          Object.entries(res.progress).forEach(([entity, data]) => {
+            if (data.total > 0) {
+              currentOnProgress?.({
+                type: 'SET_TOTAL',
+                entity,
+                total: data.total,
+              });
+              currentOnProgress?.({
+                type: 'SET_COMPLETED',
+                entity,
+                completed: data.completed,
+              });
+            }
+          });
 
-        onLog?.('Progress bars hydrated from server.', 'debug');
+          currentOnLog?.('Progress bars hydrated from server.', 'debug');
+        }
+      } catch (err) {
+        logError('Failed to hydrate session status', err);
       }
-    } catch (err) {
-      logError('Failed to hydrate session status', err);
-    }
-  };
+    },
+    [logDebug, logError]
+  );
 
-  const cleanupSocket = () => {
+  const cleanupSocket = useCallback(() => {
     if (reconnectTimerRef.current) {
       clearTimeout(reconnectTimerRef.current);
       reconnectTimerRef.current = null;
     }
     if (wsRef.current) {
       try {
-        wsRef.current.onopen =
-          wsRef.current.onmessage =
-          wsRef.current.onerror =
-          wsRef.current.onclose =
-            null;
-      } catch {}
+        wsRef.current.onopen = null;
+        wsRef.current.onmessage = null;
+        wsRef.current.onerror = null;
+        wsRef.current.onclose = null;
+      } catch {
+        /* ignore */
+      }
       try {
         wsRef.current.close();
-      } catch {}
+      } catch {
+        /* ignore */
+      }
       wsRef.current = null;
     }
     setWsConnected(false);
-  };
+  }, []);
 
-  const connect = () => {
+  const connect = useCallback(() => {
     if (!enabled || !microserviceUrl) return;
     if (
       wsRef.current &&
@@ -133,8 +163,11 @@ export default function useRealtimeWebSocket({
         logWarn('⏰ WebSocket connection timeout');
         try {
           ws.close();
-        } catch {}
-        onLog?.(`WebSocket timed out at ${trimmed}.`, 'warning');
+        } catch {
+          /* ignore */
+        }
+        const { onLog: currentOnLog } = callbacksRef.current;
+        currentOnLog?.(`WebSocket timed out at ${trimmed}.`, 'warning');
       }
     }, 10000);
 
@@ -142,17 +175,20 @@ export default function useRealtimeWebSocket({
       clearTimeout(connectionTimeout);
       backoffRef.current = 1000;
       setWsConnected(true);
-      onLog?.('WebSocket connected.', 'success');
+      const { onLog: currentOnLog } = callbacksRef.current;
+      currentOnLog?.('WebSocket connected.', 'success');
       logInfo('✅ Connection established');
 
       // Attempt to hydrate status if we have a session
-      if (activeSessionId) {
-        hydrateSessionStatus(activeSessionId);
+      if (activeSessionIdRef.current) {
+        hydrateSessionStatus(activeSessionIdRef.current);
       }
 
       try {
         ws.send(JSON.stringify({ type: 'ping' }));
-      } catch {}
+      } catch {
+        /* ignore */
+      }
     };
 
     ws.onmessage = (event) => {
@@ -165,6 +201,12 @@ export default function useRealtimeWebSocket({
 
       if (!data || typeof data !== 'object') return;
       if (data.type === 'pong') return;
+
+      const {
+        onProgress: currentOnProgress,
+        onLog: currentOnLog,
+        onBatchErrorDetails: currentOnBatchErrorDetails,
+      } = callbacksRef.current;
 
       // Dispatch global event for debugging/logging
       window.dispatchEvent(
@@ -183,35 +225,35 @@ export default function useRealtimeWebSocket({
       } = data;
 
       // Track the active session ID locally
-      if (sessionId && sessionId !== activeSessionId) {
-        setActiveSessionId(sessionId);
+      if (sessionId && sessionId !== activeSessionIdRef.current) {
+        activeSessionIdRef.current = sessionId;
       }
 
-      // We prioritize sessionId for identifying the current local task context
-      // ignoring correlationId which is prone to being lost in proxy/batch layers
       logDebug(`WS Event for Session ${sessionId}: ${scope}/${type}`, data);
 
       switch (type) {
         case E.STARTED:
           if (scope === WS_SCOPE.SESSION) {
-            onLog?.(`Workflow started: ${data.operation || 'process'}`, 'info');
+            currentOnLog?.(
+              `Workflow started: ${data.operation || 'process'}`,
+              'info'
+            );
             // Trigger RESET_ALL with initial totals if provided
-            if (onProgress && data.totals) {
-              onProgress({ type: 'RESET_ALL', totals: data.totals });
+            if (currentOnProgress && data.totals) {
+              currentOnProgress({ type: 'RESET_ALL', totals: data.totals });
             }
           } else if (scope === WS_SCOPE.STEP) {
-            onLog?.(`Step started: ${entityType}`, 'info');
-            if (onProgress && entityType) {
-              onProgress({
+            currentOnLog?.(`Step started: ${entityType}`, 'info');
+            if (currentOnProgress && entityType) {
+              currentOnProgress({
                 type: 'SET_TOTAL',
                 entity: entityType,
                 total: totalCount || 0,
               });
             }
           } else if (scope === WS_SCOPE.BATCH) {
-            // New: Track individual batch starts within a step
-            if (onProgress && entityType && batchId) {
-              onProgress({
+            if (currentOnProgress && entityType && batchId) {
+              currentOnProgress({
                 type: 'UPDATE_BATCH',
                 entity: entityType,
                 batchId,
@@ -223,17 +265,15 @@ export default function useRealtimeWebSocket({
           break;
 
         case E.PROGRESS:
-          if (onProgress && entityType) {
+          if (currentOnProgress && entityType) {
             if (scope === WS_SCOPE.STEP) {
-              // Direct absolute step progress (e.g. from post-processing or internal logic)
-              onProgress({
+              currentOnProgress({
                 type: 'SET_COMPLETED',
                 entity: entityType,
                 completed: processedCount || 0,
               });
             } else if (scope === WS_SCOPE.BATCH && batchId) {
-              // Granular batch progress - update batch then re-sum entity total
-              onProgress({
+              currentOnProgress({
                 type: 'UPDATE_BATCH',
                 entity: entityType,
                 batchId,
@@ -246,14 +286,17 @@ export default function useRealtimeWebSocket({
 
         case E.COMPLETED:
           if (scope === WS_SCOPE.SESSION) {
-            onLog?.('Workflow session completed.', 'success');
-            onProgress?.({ type: 'SET_ACTIVE_SESSION', sessionId: null });
-            setActiveSessionId(null);
+            currentOnLog?.('Workflow session completed.', 'success');
+            currentOnProgress?.({
+              type: 'SET_ACTIVE_SESSION',
+              sessionId: null,
+            });
+            activeSessionIdRef.current = null;
           } else if (scope === WS_SCOPE.STEP) {
-            onLog?.(`Step completed: ${entityType}`, 'success');
-            if (onProgress && entityType) {
+            currentOnLog?.(`Step completed: ${entityType}`, 'success');
+            if (currentOnProgress && entityType) {
               // Mark as 100% complete
-              onProgress({
+              currentOnProgress({
                 type: 'SET_COMPLETED_TO_TOTAL',
                 entity: entityType,
               });
@@ -262,9 +305,10 @@ export default function useRealtimeWebSocket({
             // Batch finished - mark it done and re-sum
             const successCount =
               data.successCount ?? data.details?.successCount ?? totalCount;
-            const failureCount = data.failureCount ?? data.details?.failureCount ?? 0;
+            const failureCount =
+              data.failureCount ?? data.details?.failureCount ?? 0;
 
-            onProgress({
+            currentOnProgress?.({
               type: 'UPDATE_BATCH',
               entity: entityType,
               batchId,
@@ -273,12 +317,12 @@ export default function useRealtimeWebSocket({
             });
 
             if (failureCount > 0) {
-              onLog?.(
+              currentOnLog?.(
                 `Batch finished with ${failureCount} failure(s): ${batchId}`,
                 'warning'
               );
-              if (onProgress && entityType) {
-                onProgress({
+              if (currentOnProgress && entityType) {
+                currentOnProgress({
                   type: 'ADD_ERRORS',
                   entity: entityType,
                   errors: data.details?.errors || [
@@ -287,7 +331,7 @@ export default function useRealtimeWebSocket({
                 });
               }
             } else {
-              onLog?.(
+              currentOnLog?.(
                 `Batch completed: ${batchId} (+${successCount})`,
                 'success'
               );
@@ -295,19 +339,22 @@ export default function useRealtimeWebSocket({
           }
           break;
 
-        case E.FAILED:
+        case E.FAILED: {
           const errorMessage = error?.message || error || 'Unknown error';
           if (scope === WS_SCOPE.SESSION) {
-            onLog?.(`Workflow failed: ${errorMessage}`, 'error');
-            onProgress?.({ type: 'SET_ACTIVE_SESSION', sessionId: null });
-            setActiveSessionId(null);
+            currentOnLog?.(`Workflow failed: ${errorMessage}`, 'error');
+            currentOnProgress?.({
+              type: 'SET_ACTIVE_SESSION',
+              sessionId: null,
+            });
+            activeSessionIdRef.current = null;
           } else {
-            onLog?.(
+            currentOnLog?.(
               `${scope} failed: ${entityType} — ${errorMessage}`,
               'error'
             );
-            if (onProgress && entityType) {
-              onProgress({
+            if (currentOnProgress && entityType) {
+              currentOnProgress({
                 type: 'ADD_ERRORS',
                 entity: entityType,
                 errors: { message: errorMessage, batchId: data.batchId },
@@ -315,21 +362,25 @@ export default function useRealtimeWebSocket({
             }
           }
           break;
+        }
 
         case E.BATCH_ERROR_DETAILS:
-          if (onBatchErrorDetails) {
-            onBatchErrorDetails(data);
+          if (currentOnBatchErrorDetails) {
+            currentOnBatchErrorDetails(data);
           }
           break;
 
         case E.ERROR:
-          onLog?.(`System error: ${data.message || 'Unknown error'}`, 'error');
+          currentOnLog?.(
+            `System error: ${data.message || 'Unknown error'}`,
+            'error'
+          );
           break;
 
         // Backward compatibility for legacy events
         case E.BATCH_PROGRESS:
-          if (onProgress && entityType) {
-            onProgress({
+          if (currentOnProgress && entityType) {
+            currentOnProgress({
               type: 'SET_COMPLETED',
               entity: entityType,
               completed: processedCount,
@@ -338,8 +389,8 @@ export default function useRealtimeWebSocket({
           break;
 
         case E.BATCH_COMPLETED:
-          if (onProgress && entityType) {
-            onProgress({
+          if (currentOnProgress && entityType) {
+            currentOnProgress({
               type: 'INCR_COMPLETED',
               entity: entityType,
               amount: data.successCount,
@@ -363,36 +414,56 @@ export default function useRealtimeWebSocket({
       setWsConnected(false);
       if (!enabled) return;
 
-      const delay = Math.min(backoffRef.current, 10000);
+      const delayAmount = Math.min(backoffRef.current, 10000);
       reconnectTimerRef.current = setTimeout(() => {
         backoffRef.current = Math.min(backoffRef.current * 2, 10000);
-        connect();
-      }, delay);
+        // Use ref to call the latest version of connect without lexical loop
+        if (connectRef.current) {
+          connectRef.current();
+        }
+      }, delayAmount);
     };
-  };
+  }, [
+    enabled,
+    microserviceUrl,
+    getCorrelationId,
+    logDebug,
+    logWarn,
+    logInfo,
+    hydrateSessionStatus,
+    logError,
+  ]);
 
-  const reconnect = () => {
+  // Final check to update the connectRef
+  useEffect(() => {
+    connectRef.current = connect;
+  }, [connect]);
+
+  const reconnect = useCallback(() => {
     cleanupSocket();
     connect();
-  };
+  }, [cleanupSocket, connect]);
 
-  const ping = () => {
+  const ping = useCallback(() => {
     const ws = wsRef.current;
     if (ws && ws.readyState === WebSocket.OPEN) {
       try {
         ws.send(JSON.stringify({ type: 'ping' }));
         return true;
-      } catch {}
+      } catch {
+        /* ignore */
+      }
     }
     reconnect();
     return false;
-  };
+  }, [reconnect]);
 
   useEffect(() => {
-    cleanupSocket();
-    if (enabled && microserviceUrl) connect();
+    if (enabled && microserviceUrl) {
+      connect();
+    }
     return () => cleanupSocket();
-  }, [enabled, microserviceUrl, providedSessionId]);
+  }, [enabled, microserviceUrl, cleanupSocket, connect]);
 
   return { wsRef, wsConnected, reconnect, ping };
 }

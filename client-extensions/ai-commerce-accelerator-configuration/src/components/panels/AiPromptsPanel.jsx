@@ -12,7 +12,7 @@ const ENTITY_CONFIGS = [
 ];
 
 const { keys, defaults } = ENTITY_CONFIGS.reduce(
-  (acc, { configKey, id }) => {
+  (acc, { configKey, id: _id }) => {
     acc.keys.push(configKey);
     acc.defaults[configKey] = '';
     return acc;

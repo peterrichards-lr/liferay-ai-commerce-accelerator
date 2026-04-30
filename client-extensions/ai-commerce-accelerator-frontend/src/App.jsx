@@ -127,6 +127,22 @@ export function AppUI() {
     }
   }, []);
 
+  const onBatchErrorDetails = useCallback((errorDetails) => {
+    setBatchErrors((prevErrors) => {
+      const existingErrorIndex = prevErrors.findIndex(
+        (e) => e.batchId === errorDetails.batchId
+      );
+
+      if (existingErrorIndex >= 0) {
+        const nextErrors = [...prevErrors];
+        nextErrors[existingErrorIndex] = errorDetails;
+        return nextErrors;
+      }
+
+      return [...prevErrors, errorDetails];
+    });
+  }, []);
+
   const { ping, wsConnected } = useRealtimeWebSocket({
     enabled: connectionEstablished && !!config.microserviceUrl,
     microserviceUrl: config.microserviceUrl,
@@ -134,24 +150,7 @@ export function AppUI() {
     onLog: addLog,
     onProgress: setProgress,
     activeSessionId: progress.activeSessionId,
-    onBatchErrorDetails: (errorDetails) => {
-      setBatchErrors((prevErrors) => {
-        const existingErrorIndex = prevErrors.findIndex(
-          (e) => e.batchId === errorDetails.batchId
-        );
-
-        if (existingErrorIndex > -1) {
-          const newErrors = [...prevErrors];
-          newErrors[existingErrorIndex] = {
-            ...newErrors[existingErrorIndex],
-            ...errorDetails,
-          };
-          return newErrors;
-        }
-
-        return [...prevErrors, errorDetails];
-      });
-    },
+    onBatchErrorDetails,
   });
 
   const {
@@ -191,21 +190,6 @@ export function AppUI() {
 
   const isGenerating = isSubmitting || !!progress.activeSessionId;
 
-  const { exportConfiguration, importConfiguration } = useAppConfigIO({
-    config,
-    setConfig,
-    generationConfig,
-    setGenerationConfig,
-    connectionEstablished,
-    setConnectionEstablished,
-    setOpenAiKeyAvailable,
-    availableCategories,
-    mountedRef,
-    selectChannel,
-  });
-
-  const forceDemoMode = connectionEstablished && !openAiKeyAvailable;
-
   const commerceConfigured =
     !!config.catalogId &&
     !!config.channelId &&
@@ -239,16 +223,39 @@ export function AppUI() {
       : 'Generating data…';
   }
 
-  useEffect(() => {
-    if (!forceDemoMode) return;
+  const { exportConfiguration, importConfiguration } = useAppConfigIO({
+    config,
+    setConfig,
+    generationConfig,
+    setGenerationConfig,
+    connectionEstablished,
+    setConnectionEstablished,
+    setOpenAiKeyAvailable,
+    availableCategories,
+    mountedRef,
+    selectChannel,
+  });
 
-    setGenerationConfig((prev) => {
-      const next = { ...prev, demoMode: true };
-      if (next.imageMode === 'generate') next.imageMode = 'default';
-      if (next.pdfMode === 'generate') next.pdfMode = 'default';
-      return next;
-    });
-  }, [forceDemoMode, setGenerationConfig]);
+  const forceDemoMode = connectionEstablished && !openAiKeyAvailable;
+
+  useEffect(() => {
+    if (forceDemoMode) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setGenerationConfig((prev) => {
+        if (
+          prev.demoMode &&
+          prev.imageMode !== 'generate' &&
+          prev.pdfMode !== 'generate'
+        ) {
+          return prev;
+        }
+        const next = { ...prev, demoMode: true };
+        if (next.imageMode === 'generate') next.imageMode = 'default';
+        if (next.pdfMode === 'generate') next.pdfMode = 'default';
+        return next;
+      });
+    }
+  }, [forceDemoMode]);
 
   const wsStatus =
     !connectionEstablished || !config?.microserviceUrl
@@ -256,14 +263,6 @@ export function AppUI() {
       : wsConnected
         ? 'connected'
         : 'connecting';
-
-  useEffect(() => {
-    if (!openAiKeyAvailable) {
-      setGenerationConfig((prev) =>
-        prev.demoMode ? prev : { ...prev, demoMode: true }
-      );
-    }
-  }, [openAiKeyAvailable]);
 
   useEffect(() => {
     if (isGenerating) return;
@@ -280,19 +279,7 @@ export function AppUI() {
       type: 'SET_TOTALS',
       totals: { products, accounts, orders, images, pdfs, warehouses },
     });
-  }, [
-    isGenerating,
-    generationConfig.productCount,
-    generationConfig.accountCount,
-    generationConfig.orderCount,
-    generationConfig.imageMode,
-    generationConfig.imageRatio,
-    generationConfig.pdfMode,
-    generationConfig.pdfRatio,
-    generationConfig.createWarehouses,
-    generationConfig.warehouseCount,
-    generationConfig.reuseExistingWarehouses,
-  ]);
+  }, [isGenerating, generationConfig]);
 
   const subtitle = useMemo(
     () =>
@@ -323,7 +310,7 @@ export function AppUI() {
     }));
 
     notifyUser('Progress and activity log have been reset.');
-  }, [clearLogs, setProgress, generationConfig, notifyUser]);
+  }, [clearLogs, setProgress, generationConfig]);
 
   const handleSettingsReset = () => {
     const newConfig = { ...initialGenerationConfig };

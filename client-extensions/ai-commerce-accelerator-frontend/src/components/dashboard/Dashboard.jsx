@@ -75,7 +75,7 @@ function Dashboard({
   const logDisabled = isGenerating || !hasLogs;
   const allDisabled = isGenerating || !hasProgress || !hasLogs;
 
-  const [{ startTime, lastUpdateTime, endTime }, setTimes] = useState(() => {
+  const [{ startTime, lastUpdateTime }, setTimes] = useState(() => {
     const { start, last, end } = loadPersistedTimes();
     return { startTime: start, lastUpdateTime: last, endTime: end };
   });

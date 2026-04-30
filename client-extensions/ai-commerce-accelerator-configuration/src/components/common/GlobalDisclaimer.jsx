@@ -5,14 +5,19 @@ export default function GlobalDisclaimer({
   text = '',
   localStorageKey = 'globalDisclaimerDismissed',
 }) {
-  if (!text) return null;
   const [dismissed, setDismissed] = useState(false);
   useEffect(() => {
     try {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setDismissed(localStorage.getItem(localStorageKey) === '1');
-    } catch {}
+    } catch {
+      // Ignore storage errors
+    }
   }, [localStorageKey]);
-  return dismissed ? null : (
+
+  if (!text || dismissed) return null;
+
+  return (
     <ClayAlert
       displayType="warning"
       className="mb-3"
@@ -21,7 +26,9 @@ export default function GlobalDisclaimer({
         setDismissed(true);
         try {
           localStorage.setItem(localStorageKey, '1');
-        } catch {}
+        } catch {
+          // Ignore storage errors
+        }
       }}
     >
       {text}

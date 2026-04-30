@@ -8,7 +8,22 @@ export default function useActivityLog({
   storageKey = 'activityLog:v1', // change if you want a distinct key
   hydrateOnMount = true,
 } = {}) {
-  const [logs, setLogs] = useState([]);
+  const [logs, setLogs] = useState(() => {
+    if (!hydrateOnMount || typeof window === 'undefined') return [];
+    try {
+      const raw = sessionStorage.getItem(storageKey);
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed)) {
+          return parsed.slice(0, maxEntries);
+        }
+      }
+    } catch {
+      /* ignore */
+    }
+    return [];
+  });
+
   const levelRank = useMemo(
     () =>
       ({
@@ -25,23 +40,14 @@ export default function useActivityLog({
   const lastRef = useRef({ msg: null, type: null, source: null, at: 0 });
 
   useEffect(() => {
-    if (!hydrateOnMount) return;
-    try {
-      const raw = sessionStorage.getItem(storageKey);
-      if (raw) {
-        const parsed = JSON.parse(raw);
-        if (Array.isArray(parsed)) setLogs(parsed.slice(0, maxEntries));
-      }
-    } catch {}
-  }, []);
-
-  useEffect(() => {
     try {
       sessionStorage.setItem(
         storageKey,
         JSON.stringify(logs.slice(0, maxEntries))
       );
-    } catch {}
+    } catch {
+      /* ignore storage errors */
+    }
   }, [logs, maxEntries, storageKey]);
 
   const shouldLog = useCallback(

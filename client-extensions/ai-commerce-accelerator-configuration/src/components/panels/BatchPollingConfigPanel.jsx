@@ -1,11 +1,10 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import ClayForm, { ClayInput } from '@clayui/form';
 import ClayAlert from '@clayui/alert';
 import ClayButton from '@clayui/button';
 import ClayIcon from '@clayui/icon';
 import ClayLayout from '@clayui/layout';
 import { useForm, useObjectStorage } from '../../hooks';
-import { getKeyValue, persistConfigKey } from '../../utils/api';
 import MillisecondsInput from '../common/MillisecondsInput';
 
 const BATCH_POLLING_KEY = 'batch-polling-config';

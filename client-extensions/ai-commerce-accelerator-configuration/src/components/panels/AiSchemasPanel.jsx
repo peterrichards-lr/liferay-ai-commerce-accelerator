@@ -53,7 +53,6 @@ export default function AiSchemasPanel() {
   const [errors, setErrors] = useState(EMPTY_ERRORS);
 
   const {
-    loading,
     saving,
     values: schemas,
     dirty,

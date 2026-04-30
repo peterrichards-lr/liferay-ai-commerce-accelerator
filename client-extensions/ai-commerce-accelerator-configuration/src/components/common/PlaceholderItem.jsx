@@ -172,7 +172,8 @@ export default function PlaceholderItem({
       try {
         const dataUrl = await fileToDataURL(file);
         ingestDataUrl(dataUrl, file.type);
-      } catch (ex) {
+      } catch {
+        // Log or handle the error as needed
         setUploadError('Failed to read file.');
       } finally {
         e.target.value = '';

@@ -119,7 +119,7 @@ export const isBase64 = (str) => {
   }
   try {
     return btoa(atob(str)) == str;
-  } catch (err) {
+  } catch {
     return false;
   }
 };

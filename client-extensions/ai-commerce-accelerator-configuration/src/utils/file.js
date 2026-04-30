@@ -55,7 +55,9 @@ export const detectMimeFromBase64 = (b64) => {
       bytes[11] === 0x50
     )
       return 'image/webp';
-  } catch {}
+  } catch {
+    // Ignore parsing errors and return null
+  }
   return null;
 };
 

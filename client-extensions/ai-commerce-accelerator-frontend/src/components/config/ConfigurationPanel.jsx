@@ -3,7 +3,6 @@ import React from 'react';
 import ConnectionAuthCard from './ConnectionAuthCard';
 import CommerceCard from './CommerceCard';
 import AdvancedPanel from './AdvancedPanel';
-import { useApp } from '../../context/AppContext';
 
 export default function ApplicationConfigPanel({
   disabled = false,
@@ -26,8 +25,6 @@ export default function ApplicationConfigPanel({
   batchSizes,
   aiModelOptions,
 }) {
-  const { config } = useApp();
-
   const handleTest = async () => {
     try {
       const result = await onTestConnection(); // parent does GET + POSTs

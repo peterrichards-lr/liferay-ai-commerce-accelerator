@@ -38,10 +38,13 @@ export function ConfirmProvider({ children }) {
     }
   }, [state]);
 
-  function close(result) {
-    state?.resolve(result);
-    setState(null);
-  }
+  const close = useCallback(
+    (result) => {
+      state?.resolve(result);
+      setState(null);
+    },
+    [state]
+  );
 
   useEffect(() => {
     if (!state) return;
@@ -66,7 +69,7 @@ export function ConfirmProvider({ children }) {
     };
     document.addEventListener('keydown', onKeyDown);
     return () => document.removeEventListener('keydown', onKeyDown);
-  }, [state]);
+  }, [state, close]);
 
   return (
     <ConfirmCtx.Provider value={confirm}>

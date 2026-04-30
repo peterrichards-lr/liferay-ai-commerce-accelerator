@@ -13,6 +13,7 @@ function CollapsiblePanel({
   className = '',
 }) {
   const [open, setOpen] = useState(Boolean(startOpen));
+
   const panelId = useMemo(
     () =>
       id ||
@@ -24,11 +25,15 @@ function CollapsiblePanel({
   );
 
   useEffect(() => {
-    if (autoCollapseWhen) setOpen(false);
+    if (autoCollapseWhen) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setOpen(false);
+    }
   }, [autoCollapseWhen]);
 
   useEffect(() => {
     if (expandSignal !== null && expandSignal !== undefined) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setOpen(true);
     }
   }, [expandSignal]);

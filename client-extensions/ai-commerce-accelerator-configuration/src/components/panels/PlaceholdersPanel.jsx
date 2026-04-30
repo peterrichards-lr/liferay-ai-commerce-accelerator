@@ -107,10 +107,12 @@ export default function PlaceholdersPanel() {
   }, []);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setPdfIssues(validateBase64(pdfBase64));
   }, [pdfBase64, validateBase64]);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setImgIssues(validateBase64(imgBase64));
   }, [imgBase64, validateBase64]);
 
@@ -135,7 +137,7 @@ export default function PlaceholdersPanel() {
           setPdfMime('application/pdf');
           setLastPdfBase64(base64);
           setLastPdfMime('application/pdf');
-        } catch (e) {
+        } catch {
           setPdfIssues(['Failed to load PDF placeholder']);
         }
 
@@ -148,10 +150,10 @@ export default function PlaceholdersPanel() {
           setImgMime(mimeType || 'image/png');
           setLastImgBase64(base64);
           setLastImgMime(mimeType || 'image/png');
-        } catch (e) {
+        } catch {
           setImgIssues(['Failed to load image placeholder']);
         }
-      } catch (e) {
+      } catch {
         Liferay?.Util?.openToast?.({
           message: 'Failed to load placeholders.',
           type: 'danger',
@@ -221,7 +223,7 @@ export default function PlaceholdersPanel() {
           <div className="text-secondary small mb-3">
             Stored under <code>{PDF_PLACEHOLDER_KEY}</code> as JSON:{' '}
             <code>{'{ mimeType, base64 }'}</code> with{' '}
-            <code>mimeType="application/pdf"</code>.
+            <code>mimeType=&quot;application/pdf&quot;</code>.
           </div>
           <PlaceholderItem
             prefix="pdf"

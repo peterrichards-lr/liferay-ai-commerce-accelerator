@@ -867,9 +867,9 @@ class ProductGenerator extends BaseGenerator {
         externalReferenceCode: buildKeyedERC({
           prefix: ERC_PREFIX.OPTION_CATEGORY,
           category: 'SPC',
-          key: 'GENERAL',
+          key: 'general',
         }),
-        key: 'GENERAL',
+        key: 'general',
         title: { en_US: 'General' },
         description: { en_US: 'Auto-generated general specification group' },
       };

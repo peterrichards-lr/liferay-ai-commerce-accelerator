@@ -23,6 +23,9 @@ jobs:
       - name: Install dependencies
         run: yarn install --frozen-lockfile
 
+      - name: Update browser baseline data
+        run: yarn add -D baseline-browser-mapping@latest -W
+
       - name: Run Linting
         run: yarn lint
 

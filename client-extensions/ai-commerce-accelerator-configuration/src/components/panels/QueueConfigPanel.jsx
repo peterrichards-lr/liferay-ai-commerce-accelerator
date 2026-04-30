@@ -32,7 +32,6 @@ export default function QueueConfigPanel() {
   const [issues, setIssues] = useState([]);
   const [values, setValues] = useState(DEFAULTS);
   const [lastSaved, setLastSaved] = useState(DEFAULTS);
-  const [selectedQueue, setSelectedQueue] = useState(null);
 
   const dirty = useMemo(
     () => JSON.stringify(values) !== JSON.stringify(lastSaved),
@@ -86,6 +85,7 @@ export default function QueueConfigPanel() {
       found.push('Default max retries cannot be negative.');
     if (!Number.isFinite(defaults.retryDelay) || defaults.retryDelay < 0)
       found.push('Default retry delay must be positive.');
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setIssues(found);
   }, [values]);
 

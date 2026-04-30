@@ -22,7 +22,9 @@ function parsePropsFrom(el) {
       const json = JSON.parse(script.textContent);
       cfg = json.config || {};
       runtime = json.runtime || {};
-    } catch {}
+    } catch {
+      /* ignore invalid JSON in script tag */
+    }
   }
 
   if (el.hasAttribute('spritemap')) {

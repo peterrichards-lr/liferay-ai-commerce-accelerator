@@ -1,7 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import ClayButton from '@clayui/button';
 import ClayIcon from '@clayui/icon';
-import Ajv from 'ajv';
 import SchemaEditor from './SchemaEditor';
 import { useForm, useObjectStorage } from '../../hooks';
 
@@ -22,8 +21,6 @@ const EMPTY_ERRORS = ENTITY_CONFIGS.reduce((acc, { id }) => {
   acc[id] = [];
   return acc;
 }, {});
-
-const ajv = new Ajv();
 
 const CODEMIRROR_LIFERAY_CSS_ID = 'liferay-codemirror-vendors-css';
 
@@ -51,7 +48,6 @@ export default function BatchSizesPanel() {
   const [errors, setErrors] = useState(EMPTY_ERRORS);
 
   const {
-    loading,
     saving,
     values: batchSizes,
     dirty,

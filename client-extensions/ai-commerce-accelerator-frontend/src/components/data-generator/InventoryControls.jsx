@@ -140,8 +140,8 @@ function InventoryControls({
 
       <small className="help-text">
         Inventory values will be split across available warehouses. If none
-        exist and "Create Warehouses" is enabled, warehouses will be created
-        first.
+        exist and &quot;Create Warehouses&quot; is enabled, warehouses will be
+        created first.
       </small>
     </div>
   );

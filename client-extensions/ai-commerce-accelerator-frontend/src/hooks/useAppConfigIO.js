@@ -122,7 +122,9 @@ export default function useAppConfigIO({
               // If we have categories loaded from the server, validate against them
               if (availableCategories && availableCategories.length > 0) {
                 const availableCategoryNames = new Set(
-                  availableCategories.map((c) => (typeof c === 'string' ? c : c.key))
+                  availableCategories.map((c) =>
+                    typeof c === 'string' ? c : c.key
+                  )
                 );
 
                 const validImportedCategories = newCategories.filter((cat) =>

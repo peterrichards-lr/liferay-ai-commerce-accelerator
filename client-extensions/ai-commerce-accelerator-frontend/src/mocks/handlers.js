@@ -27,16 +27,18 @@ export const handlers = [
 
   // Root Lists - Languages
   http.post('*/api/v1/get-languages', () => {
-    return HttpResponse.json([
-      { id: 'en_US', name: 'English (United States)', isDefault: true },
-    ]);
+    return HttpResponse.json({
+      languages: [
+        { id: 'en_US', name: 'English (United States)', isDefault: true },
+      ],
+    });
   }),
 
   // Root Lists - Currencies
   http.post('*/api/v1/get-currencies', () => {
-    return HttpResponse.json([
-      { id: 'USD', name: 'US Dollar', isDefault: true },
-    ]);
+    return HttpResponse.json({
+      currencies: [{ id: 'USD', name: 'US Dollar', isDefault: true }],
+    });
   }),
 
   // Config - Categories

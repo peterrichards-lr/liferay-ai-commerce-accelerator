@@ -7,13 +7,11 @@ export default function useGeneration({
   addLog,
   buildPayload,
   api,
-  config,
   dispatch,
   forceDemoMode,
   generationConfig,
   mountedRef,
   progress,
-  setProgress,
   setGenerationCompleted,
   connectionEstablished,
 }) {
@@ -123,14 +121,12 @@ export default function useGeneration({
     addLog,
     api,
     buildPayload,
-    config,
     connectionEstablished,
     dispatch,
     forceDemoMode,
     generationConfig,
     mountedRef,
     progress,
-    setProgress,
     setGenerationCompleted,
   ]);
 

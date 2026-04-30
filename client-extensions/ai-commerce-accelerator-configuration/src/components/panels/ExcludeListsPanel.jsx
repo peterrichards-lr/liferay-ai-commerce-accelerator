@@ -175,9 +175,10 @@ export default function ExcludeListsPanel() {
             }}
           />
           <small className="form-text text-secondary">
-            Enter a JSON object with 'excludedAccounts', 'excludedProducts', and
-            'excludedWarehouses' arrays. Each array item should be an object
-            with at least one of 'entityId', 'erc', or 'name'.
+            Enter a JSON object with &apos;excludedAccounts&apos;,
+            &apos;excludedProducts&apos;, and &apos;excludedWarehouses&apos;
+            arrays. Each array item should be an object with at least one of
+            &apos;entityId&apos;, &apos;erc&apos;, or &apos;name&apos;.
           </small>
         </ClayForm.Group>
       </div>

@@ -32,11 +32,16 @@ export default function LiferayAICommerceAcceleratorConfiguration() {
 
   useEffect(() => {
     const id = validIds.has(activeId) ? activeId : defaultId;
-    if (id !== activeId) setActiveId(defaultId);
+    if (id !== activeId) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setActiveId(defaultId);
+    }
     try {
       window.history.replaceState(null, '', `#${id}`);
       localStorage.setItem(STORAGE_KEY, id);
-    } catch {}
+    } catch {
+      // Ignore storage errors
+    }
   }, [activeId, defaultId, validIds]);
 
   useEffect(() => {

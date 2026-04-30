@@ -1,5 +1,5 @@
 import ClayForm, { ClayInput } from '@clayui/form';
-import { msToHHMMSS, msToHuman } from '../../utils/helper';
+import { msToHuman } from '../../utils/helper';
 
 export default function MillisecondsInput({
   id,
