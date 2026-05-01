@@ -63,6 +63,7 @@ function Dashboard({
   connected,
 }) {
   const frozenRef = useRef(false);
+  const [entityFilter, setEntityFilter] = useState(null);
 
   const [screenReaderStatus, setScreenReaderStatus] = useState('');
   const hasProgress =
@@ -91,9 +92,20 @@ function Dashboard({
   });
   const [activeTab, setActiveTab] = useState(0);
 
-  const onErrorsClick = useCallback(() => {
+  const onErrorsClick = useCallback((index, entity) => {
+    setEntityFilter(entity || null);
     setActiveTab(1); // Index of the Batch Errors tab
   }, []);
+
+  const handleTabChange = useCallback((index) => {
+    if (index === 0) setEntityFilter(null);
+    setActiveTab(index);
+  }, []);
+
+  const handleClearErrors = useCallback(() => {
+    setEntityFilter(null);
+    clearBatchErrors?.();
+  }, [clearBatchErrors]);
 
   const handleExportSummary = () => {
     const filename = buildFilename('progress-summary');
@@ -265,21 +277,19 @@ function Dashboard({
                 onErrorsClick={onErrorsClick}
               />
 
-              <ClayTabs active={activeTab} onActiveChange={setActiveTab}>
+              <ClayTabs active={activeTab} onActiveChange={handleTabChange}>
                 <ClayTabs.Item
                   key="activity-log"
                   aria-controls="activity-log-panel"
                 >
                   Activity Log
                 </ClayTabs.Item>
-                {batchErrors && batchErrors.length > 0 && (
-                  <ClayTabs.Item
-                    key="batch-errors"
-                    aria-controls="batch-errors-panel"
-                  >
-                    Batch Errors
-                  </ClayTabs.Item>
-                )}
+                <ClayTabs.Item
+                  key="batch-errors"
+                  aria-controls="batch-errors-panel"
+                >
+                  Batch Errors {batchErrors?.length > 0 ? `(${batchErrors.length})` : ''}
+                </ClayTabs.Item>
               </ClayTabs>
               <ClayTabs.Content activeIndex={activeTab}>
                 <ClayTabs.TabPane aria-labelledby="activity-log-tab">
@@ -289,14 +299,13 @@ function Dashboard({
                     isGenerating={isGenerating}
                   />
                 </ClayTabs.TabPane>
-                {batchErrors && batchErrors.length > 0 && (
-                  <ClayTabs.TabPane aria-labelledby="batch-errors-tab">
-                    <BatchErrors
-                      batchErrors={batchErrors}
-                      clearBatchErrors={clearBatchErrors}
-                    />
-                  </ClayTabs.TabPane>
-                )}
+                <ClayTabs.TabPane aria-labelledby="batch-errors-tab">
+                  <BatchErrors
+                    batchErrors={batchErrors}
+                    clearBatchErrors={handleClearErrors}
+                    entityFilter={entityFilter}
+                  />
+                </ClayTabs.TabPane>
               </ClayTabs.Content>
             </>
           )}

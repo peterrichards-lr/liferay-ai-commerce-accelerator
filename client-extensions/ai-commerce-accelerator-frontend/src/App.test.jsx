@@ -46,7 +46,7 @@ describe('App', () => {
     const { server } = await import('./mocks/server');
 
     server.use(
-      http.post('*/api/v1/test-connection', () => {
+      http.post('http://localhost:3001/api/v1/test-connection', () => {
         return HttpResponse.json({
           success: true,
           message: 'Connected to Liferay (no AI).',

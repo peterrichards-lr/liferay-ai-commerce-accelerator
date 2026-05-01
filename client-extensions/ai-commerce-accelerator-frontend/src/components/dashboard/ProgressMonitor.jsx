@@ -48,7 +48,7 @@ function ProgressMonitor({ generationConfig, progress, onErrorsClick }) {
             completed={progress.products.completed}
             total={progress.products.total}
             errors={progress.products.errors}
-            onErrorsClick={() => onErrorsClick(0)}
+            onErrorsClick={() => onErrorsClick(0, 'products')}
           />
 
           <ProgressItem
@@ -58,7 +58,7 @@ function ProgressMonitor({ generationConfig, progress, onErrorsClick }) {
             completed={progress.accounts.completed}
             total={progress.accounts.total}
             errors={progress.accounts.errors}
-            onErrorsClick={() => onErrorsClick(1)}
+            onErrorsClick={() => onErrorsClick(1, 'accounts')}
           />
 
           <ProgressItem
@@ -68,7 +68,7 @@ function ProgressMonitor({ generationConfig, progress, onErrorsClick }) {
             completed={progress.orders.completed}
             total={progress.orders.total}
             errors={progress.orders.errors}
-            onErrorsClick={() => onErrorsClick(2)}
+            onErrorsClick={() => onErrorsClick(2, 'orders')}
           />
         </div>
       </div>
@@ -87,6 +87,7 @@ function ProgressMonitor({ generationConfig, progress, onErrorsClick }) {
             completed={progress.images?.completed || 0}
             total={progress.images?.total || 0}
             errors={progress.images?.errors || []}
+            onErrorsClick={() => onErrorsClick(3, 'images')}
           >
             {(progress.images?.total || 0) === 0 &&
               (generationConfig?.imageRatio || 0) === 0 && (
@@ -112,6 +113,7 @@ function ProgressMonitor({ generationConfig, progress, onErrorsClick }) {
             completed={progress.pdfs.completed}
             total={progress.pdfs.total}
             errors={progress.pdfs.errors}
+            onErrorsClick={() => onErrorsClick(4, 'pdfs')}
           >
             {progress.pdfs.total === 0 &&
               (generationConfig?.pdfRatio || 0) === 0 && (
@@ -136,6 +138,7 @@ function ProgressMonitor({ generationConfig, progress, onErrorsClick }) {
             completed={progress.warehouses.completed}
             total={progress.warehouses.total}
             errors={progress.warehouses.errors}
+            onErrorsClick={() => onErrorsClick(5, 'warehouses')}
           />
         </div>
       </div>
@@ -154,6 +157,7 @@ function ProgressMonitor({ generationConfig, progress, onErrorsClick }) {
             completed={progress.specifications?.completed || 0}
             total={progress.specifications?.total || 0}
             errors={progress.specifications?.errors || []}
+            onErrorsClick={() => onErrorsClick(6, 'specifications')}
           />
 
           <ProgressItem
@@ -163,6 +167,7 @@ function ProgressMonitor({ generationConfig, progress, onErrorsClick }) {
             completed={progress.options?.completed || 0}
             total={progress.options?.total || 0}
             errors={progress.options?.errors || []}
+            onErrorsClick={() => onErrorsClick(7, 'options')}
           />
 
           <ProgressItem
@@ -172,6 +177,7 @@ function ProgressMonitor({ generationConfig, progress, onErrorsClick }) {
             completed={progress.priceLists?.completed || 0}
             total={progress.priceLists?.total || 0}
             errors={progress.priceLists?.errors || []}
+            onErrorsClick={() => onErrorsClick(8, 'priceLists')}
           />
 
           <ProgressItem
@@ -181,6 +187,7 @@ function ProgressMonitor({ generationConfig, progress, onErrorsClick }) {
             completed={progress.promotions?.completed || 0}
             total={progress.promotions?.total || 0}
             errors={progress.promotions?.errors || []}
+            onErrorsClick={() => onErrorsClick(9, 'promotions')}
           />
         </div>
       </div>
