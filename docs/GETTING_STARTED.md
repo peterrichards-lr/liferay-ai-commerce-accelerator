@@ -6,7 +6,7 @@ This guide provides instructions for setting up and developing the Liferay AI Co
 
 - **Node.js**: v22+ (LTS recommended)
 - **Liferay DXP/Portal**: 7.4+
-- **OpenAI API Key**: Required for AI-powered generation (optional for Demo Mode).
+- **AI Credentials**: Required for AI-powered generation (optional for Demo Mode). Supports OpenAI, Google Gemini, and Anthropic Claude.
 
 ## 2. Workspace Setup
 
@@ -82,7 +82,15 @@ Cross-component verification using Playwright:
 npx playwright test
 ```
 
-## 5. Troubleshooting
+## 5. Liferay Object Configuration
+
+The accelerator uses a Liferay Object called `AI Commerce Accelerator Configuration` to store its settings. To ensure this works correctly:
+
+1.  **Deployment**: Ensure the `ai-commerce-accelerator-batch` client extension is deployed to your Liferay instance.
+2.  **Activation**: Go to **Control Panel -> Objects** and verify that `AI Commerce Accelerator Configuration` is **Active**.
+3.  **Search Indexing**: If you receive `400 Bad Request` or empty results when saving settings, you may need to reindex. Go to **Control Panel -> Search -> Index Actions** and run **Reindex All** (specifically for the Objects engine).
+
+## 6. Troubleshooting
 
 - **Port Conflicts**: Ensure ports 3001 (Microservice) and 5173 (Frontend) are available.
 - **SQLite Latency**: On some systems, first-run database initialization may take a few seconds.

@@ -186,7 +186,10 @@ function DataGeneratorForm({
         <div className="compact-config-grid">
           <div className="config-brand-row">
             <div className="form-group mb-0">
-              <label htmlFor="dataGeneration_brandName" className="small font-weight-bold text-uppercase text-muted">
+              <label
+                htmlFor="dataGeneration_brandName"
+                className="small font-weight-bold text-uppercase text-muted"
+              >
                 Brand / Context
               </label>
               <div className="input-group">
@@ -356,9 +359,7 @@ function DataGeneratorForm({
                       generationConfig.backorderAssignmentRatio
                     }
                     onChange={handleConfigChange}
-                    disabled={
-                      lockFields || generationConfig.productCount === 0
-                    }
+                    disabled={lockFields || generationConfig.productCount === 0}
                     validationErrors={validationErrors}
                   />
                 </div>
@@ -415,7 +416,10 @@ function DataGeneratorForm({
                 </>
               ) : (
                 <>
-                  <ClayIcon symbol={generationConfig.demoMode ? 'flask' : 'play'} className="mr-2" />
+                  <ClayIcon
+                    symbol={generationConfig.demoMode ? 'flask' : 'play'}
+                    className="mr-2"
+                  />
                   {generationConfig.demoMode
                     ? 'Start Demo Generation'
                     : 'Start Generation'}

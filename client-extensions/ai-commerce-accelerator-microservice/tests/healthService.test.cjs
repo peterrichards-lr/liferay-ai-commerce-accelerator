@@ -7,7 +7,7 @@ describe('HealthService', () => {
   beforeEach(() => {
     mockCtx = {
       config: {
-        getOpenAIKeyCached: vi.fn().mockResolvedValue('test-api-key'),
+        getAIKeyCached: vi.fn().mockResolvedValue('test-api-key'),
       },
       logger: {
         info: vi.fn(),
@@ -20,7 +20,7 @@ describe('HealthService', () => {
 
   it('should register default health checks', () => {
     expect(healthService.healthChecks.has('database')).toBe(true);
-    expect(healthService.healthChecks.has('openai')).toBe(true);
+    expect(healthService.healthChecks.has('ai')).toBe(true);
     expect(healthService.healthChecks.has('liferay')).toBe(true);
     expect(healthService.healthChecks.has('memory')).toBe(true);
     expect(healthService.healthChecks.has('disk')).toBe(true);
@@ -38,7 +38,7 @@ describe('HealthService', () => {
     const report = await healthService.runAllHealthChecks();
     expect(report.status).toBe('healthy');
     expect(report.checks.database.status).toBe('healthy');
-    expect(report.checks.openai.status).toBe('healthy');
+    expect(report.checks.ai.status).toBe('healthy');
   });
 
   it('should return unhealthy if memory check fails', async () => {

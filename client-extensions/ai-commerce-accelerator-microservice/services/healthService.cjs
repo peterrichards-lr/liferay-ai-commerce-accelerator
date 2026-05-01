@@ -8,7 +8,7 @@ class HealthService {
     this.lastHealthCheck = null;
 
     this.registerHealthCheck('database', this.checkDatabase.bind(this));
-    this.registerHealthCheck('openai', this.checkOpenAI.bind(this));
+    this.registerHealthCheck('ai', this.checkAI.bind(this));
     this.registerHealthCheck('liferay', this.checkLiferay.bind(this));
     this.registerHealthCheck('memory', this.checkMemory.bind(this));
     this.registerHealthCheck('disk', this.checkDiskSpace.bind(this));
@@ -50,28 +50,28 @@ class HealthService {
     };
   }
 
-  async checkOpenAI() {
+  async checkAI() {
     const { config } = this.ctx;
     const start = Date.now();
     try {
-      const apiKey = await config.getOpenAIKeyCached();
+      const apiKey = await config.getAIKeyCached();
       const responseTime = Date.now() - start;
 
       if (!apiKey) {
         return {
           status: 'healthy',
-          message: 'OpenAI API key not configured',
+          message: 'AI credentials not configured',
           responseTime,
-          name: 'openai',
+          name: 'ai',
           timestamp: new Date().toISOString(),
         };
       }
 
       return {
         status: 'healthy',
-        message: 'OpenAI API key configured',
+        message: 'AI credentials configured',
         responseTime,
-        name: 'openai',
+        name: 'ai',
         timestamp: new Date().toISOString(),
       };
     } catch (error) {
@@ -79,7 +79,7 @@ class HealthService {
         status: 'unhealthy',
         message: error.message,
         responseTime: Date.now() - start,
-        name: 'openai',
+        name: 'ai',
         timestamp: new Date().toISOString(),
       };
     }
@@ -231,7 +231,7 @@ class HealthService {
   }
 
   async getReadinessProbe() {
-    const criticalChecks = ['openai', 'memory'];
+    const criticalChecks = ['ai', 'memory'];
 
     for (const checkName of criticalChecks) {
       const result = await this.runHealthCheck(checkName);

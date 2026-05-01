@@ -93,7 +93,10 @@ function InventoryControls({
           onChange={(e) => onChange('enableBackorders', e.target.checked)}
           disabled={disabled || productCount === 0}
         />
-        <label className="checkbox-label font-weight-bold" htmlFor="dg_enableBackorders">
+        <label
+          className="checkbox-label font-weight-bold"
+          htmlFor="dg_enableBackorders"
+        >
           Enable Backorders
         </label>
       </div>
@@ -129,7 +132,8 @@ function InventoryControls({
 
       <div className="mt-3">
         <small className="help-text text-muted">
-          Inventory values will be split across warehouses. If none exist, they will be created first.
+          Inventory values will be split across warehouses. If none exist, they
+          will be created first.
         </small>
       </div>
     </div>

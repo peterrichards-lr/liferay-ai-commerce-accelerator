@@ -134,7 +134,9 @@ export default function VisualAssetControls({
                   <option value="product_info">Product Information</option>
                   <option value="user_guide">User Guide</option>
                   <option value="compliance">Compliance & Regulations</option>
-                  <option value="technical_specs">Technical Specifications</option>
+                  <option value="technical_specs">
+                    Technical Specifications
+                  </option>
                 </select>
               </div>
             </div>

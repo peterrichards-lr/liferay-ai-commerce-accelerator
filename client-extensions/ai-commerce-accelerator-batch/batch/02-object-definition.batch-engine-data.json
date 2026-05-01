@@ -33,9 +33,9 @@
           "businessType": "Text",
           "defaultValue": "null",
           "externalReferenceCode": "CONFIG_KEY",
-          "indexed": false,
-          "indexedAsKeyword": false,
-          "indexedLanguageId": "",
+          "indexed": true,
+          "indexedAsKeyword": true,
+          "indexedLanguageId": "en_US",
           "label": {
             "en_US": "Configuration Key"
           },
@@ -55,9 +55,9 @@
           "businessType": "LongText",
           "defaultValue": "null",
           "externalReferenceCode": "CONFIG_VALUE",
-          "indexed": false,
+          "indexed": true,
           "indexedAsKeyword": false,
-          "indexedLanguageId": "",
+          "indexedLanguageId": "en_US",
           "label": {
             "en_US": "Configuration Value"
           },
