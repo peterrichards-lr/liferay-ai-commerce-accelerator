@@ -1,7 +1,7 @@
 import { useCallback, useMemo, useState } from 'react';
 import ClayAlert from '@clayui/alert';
 import ClayButton from '@clayui/button';
-import ClayForm, { ClayInput } from '@clayui/form';
+import ClayForm, { ClayInput, ClaySelect } from '@clayui/form';
 import ClayIcon from '@clayui/icon';
 import ClayLayout from '@clayui/layout';
 
@@ -91,19 +91,19 @@ export default function AiSettingsPanel({
           >
             {type === 'media' ? 'Media Provider' : 'Core AI Provider'}
           </label>
-          <ClayForm.Select
+          <ClaySelect
             id={`ai-provider-${type}`}
             value={providerValue || (type === 'media' ? 'inherit' : 'openai')}
             onChange={(e) => setProviderValue(e.target.value)}
           >
             {providers.map((p) => (
-              <ClayForm.Select.Option
+              <ClaySelect.Option
                 key={p.value}
                 label={p.label}
                 value={p.value}
               />
             ))}
-          </ClayForm.Select>
+          </ClaySelect>
         </ClayForm.Group>
 
         {!isInherited && (

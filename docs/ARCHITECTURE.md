@@ -7,7 +7,7 @@ The Liferay AI Commerce Accelerator employs a sophisticated, stateful, and async
 ```mermaid
 graph TD
     A[Frontend React App] -->|WebSocket/REST| B[Node.js Microservice]
-    B -->|Generative AI API| C[AI Providers (OpenAI, Gemini, etc.)]
+    B -->|Generative AI API| C["AI Providers (OpenAI, Gemini, etc.)"]
     B -->|Headless Batch APIs| D[Liferay DXP]
     D -->|Batch Callbacks| B
     B -->|State Management| E[(SQLite Database)]
