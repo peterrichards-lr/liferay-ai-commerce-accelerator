@@ -261,4 +261,4 @@ Investigation of product creation failures (`CPDefinitionProductTypeNameExceptio
 
 - **Demo Mode**: Uses deterministic ERCs for addresses. Repeated runs will trigger "Duplicate address" errors unless the database is cleared.
 - **Liferay Password**: Default local development password is set to `L1feray$`.
-- **Node Version**: v22.12.0 is the current target; ensure native modules are rebuilt if switching environments.
+- **Node Version**: v24.0.0+ is the current target; ensure native modules are rebuilt if switching environments.
