@@ -37,6 +37,66 @@
         "en-US": "AI Commerce Accelerator Configuration Status"
       },
       "system": false
+    },
+    {
+      "externalReferenceCode": "AI_COMMERCE_ACCELERATOR_PROVIDER",
+      "listTypeEntries": [
+        {
+          "externalReferenceCode": "AI_PROVIDER_OPENAI",
+          "key": "openai",
+          "name": "OpenAI",
+          "name_i18n": {
+            "en-US": "OpenAI"
+          }
+        },
+        {
+          "externalReferenceCode": "AI_PROVIDER_GEMINI",
+          "key": "gemini",
+          "name": "Google Gemini",
+          "name_i18n": {
+            "en-US": "Google Gemini"
+          }
+        },
+        {
+          "externalReferenceCode": "AI_PROVIDER_ANTHROPIC",
+          "key": "anthropic",
+          "name": "Anthropic Claude",
+          "name_i18n": {
+            "en-US": "Anthropic Claude"
+          }
+        }
+      ],
+      "name": "aicommerceacceleratorprovider",
+      "name_i18n": {
+        "en-US": "AI Commerce Accelerator Provider"
+      },
+      "system": false
+    },
+    {
+      "externalReferenceCode": "AI_COMMERCE_ACCELERATOR_MEDIA_PROVIDER",
+      "listTypeEntries": [
+        {
+          "externalReferenceCode": "AI_MEDIA_PROVIDER_OPENAI",
+          "key": "openai",
+          "name": "OpenAI (DALL·E)",
+          "name_i18n": {
+            "en-US": "OpenAI (DALL·E)"
+          }
+        },
+        {
+          "externalReferenceCode": "AI_MEDIA_PROVIDER_NANOBANANA",
+          "key": "nanobanana",
+          "name": "Nano Banana",
+          "name_i18n": {
+            "en-US": "Nano Banana"
+          }
+        }
+      ],
+      "name": "aicommerceacceleratormediaprovider",
+      "name_i18n": {
+        "en-US": "AI Commerce Accelerator Media Provider"
+      },
+      "system": false
     }
   ]
 }

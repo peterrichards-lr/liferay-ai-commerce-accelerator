@@ -1,4 +1,4 @@
-const OpenAI = require('openai');
+const AIProviderFactory = require('./ai-providers/providerFactory.cjs');
 const Ajv = require('ajv');
 const addFormats = require('ajv-formats');
 const fs = require('fs');
@@ -14,7 +14,7 @@ const { ERC_PREFIX } = require('../utils/constants.cjs');
 class AIService {
   constructor(ctx) {
     this.ctx = ctx;
-    this.openai = null;
+    this.factory = new AIProviderFactory(ctx);
 
     this.defaultModel = null;
     this.defaultTemperature = 0.7;
@@ -51,7 +51,6 @@ class AIService {
             errors: validator.errors,
           }
         );
-        // We don't throw here to allow for partial data, but we log the issue.
       }
     }
     return data;
@@ -96,14 +95,19 @@ class AIService {
     const { config } = this.ctx;
     const aiCfg = (await config.getAIConfig(requestConfig)) || {};
 
-    // HARDENING: If key was passed in request, ensure it's available in the returned config
-    if (requestConfig.openAiKey) {
-      aiCfg.openAiKey = requestConfig.openAiKey;
-    }
+    const provider = aiCfg.provider || 'openai';
+    const mediaProvider = aiCfg.mediaProvider || provider;
+
+    const apiKey =
+      requestConfig?.aiApiKey || (await config.getAIKey(requestConfig));
+    const mediaApiKey =
+      requestConfig?.aiMediaApiKey ||
+      (await config.getAIMediaKey(requestConfig)) ||
+      apiKey;
 
     if (!aiCfg.defaultModel) {
       const err = new Error(
-        'AI model not configured. Please select an AI model in the AI Configuration object.'
+        `AI model not configured for provider ${provider}.`
       );
       err.statusCode = 400;
       throw err;
@@ -114,103 +118,49 @@ class AIService {
       typeof aiCfg.temperature === 'number' ? aiCfg.temperature : 0.7;
     const maxTokens =
       (aiCfg.maxTokens && aiCfg.maxTokens.default) || aiCfg.maxTokens || 4000;
-    const responseFormat =
-      aiCfg.responseFormat === 'json_object' ? 'json_object' : 'json_object';
     const requestTimeoutMs =
       typeof aiCfg.requestTimeoutMs === 'number'
         ? aiCfg.requestTimeoutMs
         : 60000;
 
-    this.defaultModel = model;
-    this.defaultTemperature = temperature;
-    this.maxTokens = maxTokens;
-    this.requestTimeoutMs = requestTimeoutMs;
-
     return {
+      provider,
+      mediaProvider,
+      credentials: { apiKey },
+      mediaCredentials: { apiKey: mediaApiKey },
       model,
       temperature,
       maxTokens,
-      responseFormat,
       requestTimeoutMs,
     };
   }
 
-  async getOpenAIClient(requestConfig) {
-    const { config } = this.ctx;
-
-    // HARDENING: Prefer the key from the runtime config if available
-    const apiKey =
-      requestConfig?.openAiKey || (await config.getOpenAIKey(requestConfig));
-
-    if (!apiKey) {
-      throw new Error('OpenAI API key not configured');
-    }
-
-    if (!this.openai || this.openai.apiKey !== apiKey) {
-      this.openai = new OpenAI({ apiKey });
-    }
-
-    return this.openai;
+  async getAIProvider(requestConfig, type = 'text') {
+    const runtime = await this.getRuntimeAIConfig(requestConfig);
+    const providerName =
+      type === 'media' ? runtime.mediaProvider : runtime.provider;
+    return this.factory.getProvider(providerName);
   }
 
   async _chatJson(task, prompt, requestConfig, model, schemaName) {
     const { logger, config } = this.ctx;
     try {
-      const openai = await this.getOpenAIClient(requestConfig);
+      const provider = await this.getAIProvider(requestConfig, 'text');
       const runtime = await this.getRuntimeAIConfig(requestConfig);
 
       const schema = schemaName
         ? await config.getAISchema(requestConfig, schemaName)
         : null;
 
-      const messages = [
+      const parsed = await provider.generateJSON(
+        task,
+        prompt,
         {
-          role: 'system',
-          content: `You are an expert AI generator for ${task} data. Return only valid JSON.`,
+          ...runtime,
+          model: model || runtime.model,
         },
-        {
-          role: 'user',
-          content: prompt,
-        },
-      ];
-
-      if (schema) {
-        messages[0].content += `\n\nThe JSON output must conform to the following schema:\n\n${JSON.stringify(
-          schema
-        )}`;
-      }
-
-      const response = await openai.chat.completions.create({
-        model: model || runtime.model,
-        messages,
-        response_format: { type: 'json_object' },
-        temperature: runtime.temperature,
-        max_tokens: runtime.maxTokens,
-      });
-
-      const content = response.choices[0].message.content;
-
-      if (logger && logger.trace) {
-        const truncatedContent =
-          content && content.length > 4000
-            ? content.slice(0, 4000) + '…'
-            : content;
-        logger.trace('AIService._chatJson raw response', {
-          task,
-          truncatedContent,
-          correlationId: requestConfig.correlationId,
-        });
-      }
-
-      const parsed = tryParseJSON(content, null);
-
-      if (logger && logger.trace && parsed !== null) {
-        logger.trace('AIService._chatJson parsed response preview', {
-          task,
-          parsedPreview: Array.isArray(parsed) ? parsed.slice(0, 3) : parsed,
-          correlationId: requestConfig.correlationId,
-        });
-      }
+        schema
+      );
 
       if (parsed === null) {
         throw new Error(
@@ -233,7 +183,7 @@ class AIService {
     }
   }
 
-  async generatePDFContent(product, category, requestConfig, model) {
+  async generatePDFContent(product, category, requestConfig, model, options = {}) {
     const { logger, prompt } = this.ctx;
     const correlationId = requestConfig?.correlationId;
     try {
@@ -241,6 +191,13 @@ class AIService {
         productName: product.name?.en_US || product.name,
         productDescription: product.description?.en_US || product.description,
         category,
+        contentType: options.pdfContentType || 'product_info',
+        contentTypeLabel: {
+          product_info: 'detailed product information',
+          user_guide: 'a step-by-step user guide',
+          compliance: 'compliance and regulatory documentation',
+          technical_specs: 'technical specifications and data sheet',
+        }[options.pdfContentType || 'product_info'],
         specificationsJSON: JSON.stringify(
           product.specifications || {},
           null,
@@ -269,7 +226,9 @@ class AIService {
       });
 
       const wrapped = new Error(
-        `AI service error: ${error.message || 'Failed to generate PDF content'}`
+        `AI service error: ${
+          error.message || 'Failed to generate PDF content'
+        }`
       );
       wrapped.errorReference = errorReference;
       throw wrapped;
@@ -564,28 +523,14 @@ class AIService {
     const correlationId = options?.correlationId;
 
     try {
-      const openai = await this.getOpenAIClient(options);
+      const provider = await this.getAIProvider(options, 'media');
+      const runtime = await this.getRuntimeAIConfig(options);
 
-      const prompt = `A high-quality, professional product photograph of a ${
-        product.name?.en_US || product.name
-      }, which is a ${
-        product.description?.en_US || product.description
-      }. The product belongs to the category: ${
-        product.category
-      }. The image should be in a ${
-        options.imageStyle || 'photographic'
-      } style on a clean background.`;
-
-      const response = await openai.images.generate({
-        model: 'dall-e-3',
-        prompt: prompt,
-        n: 1,
-        size: `${options.imageWidth || 1024}x${options.imageHeight || 1024}`,
-        quality: options.imageQuality || 'standard',
-        response_format: 'b64_json',
+      return await provider.generateImage(product, {
+        ...runtime,
+        credentials: runtime.mediaCredentials, // USE MEDIA CREDENTIALS
+        ...options,
       });
-
-      return response.data[0].b64_json;
     } catch (error) {
       const errorReference =
         error.errorReference || createERC(ERC_PREFIX.ERROR);

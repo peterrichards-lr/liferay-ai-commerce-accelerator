@@ -37,7 +37,7 @@ function sendSafeError(res, logger, req, error, operation, meta = {}) {
   });
 }
 
-function maskOpenAIKey(rawKey) {
+function maskAIKey(rawKey) {
   if (!rawKey || typeof rawKey !== 'string') return '';
   if (rawKey.length <= 8) return '********';
   return rawKey.slice(0, 4) + '********' + rawKey.slice(-4);
@@ -51,9 +51,17 @@ module.exports = (app, { logger, configService }) => {
       const aiCfg = await configService.getAIConfig(config);
       const promptsCfg = await configService.getAIPromptsConfig(config);
 
-      const openAIKeyRaw = await (async () => {
+      const aiKeyRaw = await (async () => {
         try {
-          return await configService.getOpenAIKey(config);
+          return await configService.getAIKey(config);
+        } catch {
+          return null;
+        }
+      })();
+
+      const mediaKeyRaw = await (async () => {
+        try {
+          return await configService.getAIMediaKey(config);
         } catch {
           return null;
         }
@@ -62,8 +70,10 @@ module.exports = (app, { logger, configService }) => {
       const body = {
         ai: aiCfg || {},
         prompts: promptsCfg || {},
-        keyAvailable: !!openAIKeyRaw,
-        maskedApiKey: maskOpenAIKey(openAIKeyRaw || ''),
+        keyAvailable: !!aiKeyRaw,
+        mediaKeyAvailable: !!mediaKeyRaw,
+        maskedApiKey: maskAIKey(aiKeyRaw || ''),
+        maskedMediaApiKey: maskAIKey(mediaKeyRaw || ''),
       };
 
       res.json({
@@ -188,7 +198,7 @@ module.exports = (app, { logger, configService }) => {
     try {
       const key = await (async () => {
         try {
-          return await configService.getOpenAIKey(config);
+          return await configService.getAIKey(config);
         } catch {
           return null;
         }
@@ -200,7 +210,7 @@ module.exports = (app, { logger, configService }) => {
         timestamp: new Date().toISOString(),
       });
     } catch (error) {
-      sendSafeError(res, logger, req, error, 'get-openai-status', {
+      sendSafeError(res, logger, req, error, 'get-ai-status', {
         sanitizeConfig: sanitizedObject(config),
       });
     }
