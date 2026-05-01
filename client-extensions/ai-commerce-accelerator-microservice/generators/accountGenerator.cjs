@@ -280,12 +280,14 @@ class AccountGenerator extends BaseGenerator {
     const session = await this.persistence.getSession(sessionId);
     const { correlationId } = session;
 
+    const delayMs = ENV.LIFERAY_SYNC_DELAY_MS || 10000;
+
     this.logger.info(
-      `Starting inter-service synchronization delay of ${ENV.LIFERAY_SYNC_DELAY_MS}ms`,
+      `Starting inter-service synchronization delay of ${delayMs}ms`,
       { sessionId, correlationId }
     );
 
-    await delay(ENV.LIFERAY_SYNC_DELAY_MS);
+    await delay(delayMs);
 
     await this.completeSyncStep(sessionId, S.SYNC_DELAY);
 

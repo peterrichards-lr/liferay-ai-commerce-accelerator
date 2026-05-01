@@ -17,13 +17,14 @@ export function progressReducer(state, action) {
     case 'RESET':
       return initialProgress;
 
-    case 'APPLY_UPDATER': {
-      const next = action.updater(state);
-      return next ?? state;
-    }
-
-    case 'MERGE': {
-      return { ...state, ...action.payload };
+    case 'RESET_ALL': {
+      const next = { ...initialProgress };
+      if (action.totals) {
+        Object.entries(action.totals).forEach(([k, v]) => {
+          if (next[k]) next[k].total = v;
+        });
+      }
+      return next;
     }
 
     case 'SET_ACTIVE_SESSION': {
@@ -38,11 +39,11 @@ export function progressReducer(state, action) {
         errors: [],
         batches: {},
       };
-      // When a new total is set, we clear batches to avoid double-counting
-      // from previous steps that might have mapped to the same entity.
+      // HARDENING: We no longer clear completed/batches here.
+      // This ensures stability when multiple steps map to the same entity.
       return {
         ...state,
-        [entity]: { ...cur, total, batches: {}, completed: 0 },
+        [entity]: { ...cur, total },
       };
     }
 
@@ -59,27 +60,9 @@ export function progressReducer(state, action) {
 
     case 'SET_COMPLETED_TO_TOTAL': {
       const { entity } = action;
-      const cur = state[entity] || {
-        total: 0,
-        completed: 0,
-        errors: [],
-        batches: {},
-      };
+      const cur = state[entity];
+      if (!cur) return state;
       return { ...state, [entity]: { ...cur, completed: cur.total } };
-    }
-
-    case 'INCR_COMPLETED': {
-      const { entity, amount = 1 } = action;
-      const cur = state[entity] || {
-        total: 0,
-        completed: 0,
-        errors: [],
-        batches: {},
-      };
-      return {
-        ...state,
-        [entity]: { ...cur, completed: cur.completed + amount },
-      };
     }
 
     case 'UPDATE_BATCH': {
@@ -102,13 +85,16 @@ export function progressReducer(state, action) {
         0
       );
 
-      // TRUST the explicitly set total if available, otherwise use the sum
-      // (For generation, we usually have an explicit total. For deletion, batches are better)
+      // Sum up the totals from all batches.
       const summedBatchTotals = Object.values(nextBatches).reduce(
         (sum, b) => sum + (b.total || 0),
         0
       );
-      const summedTotal = cur.total > 0 ? cur.total : summedBatchTotals;
+
+      // If we have an explicitly set total (e.g. from generation config),
+      // we use it as a 'base', but we allow the actual total to expand
+      // if batches report more.
+      const summedTotal = Math.max(cur.total, summedBatchTotals);
 
       return {
         ...state,
@@ -129,45 +115,9 @@ export function progressReducer(state, action) {
         errors: [],
         batches: {},
       };
-      const add = Array.isArray(errors) ? errors : [errors];
       return {
         ...state,
-        [entity]: { ...cur, errors: [...cur.errors, ...add] },
-      };
-    }
-
-    case 'RESET_ALL': {
-      const withTotals = action.totals || {};
-      const base = JSON.parse(JSON.stringify(initialProgress));
-      for (const [entity, total] of Object.entries(withTotals)) {
-        if (!base[entity])
-          base[entity] = { total: 0, completed: 0, errors: [], batches: {} };
-        base[entity].total = total;
-      }
-      return base;
-    }
-
-    case 'SET_TOTALS': {
-      const { totals } = action;
-      const nextState = { ...state };
-      for (const [entity, total] of Object.entries(totals)) {
-        if (nextState[entity]) {
-          nextState[entity] = {
-            ...nextState[entity],
-            total,
-            completed: Math.min(nextState[entity].completed, total),
-          };
-        }
-      }
-      return nextState;
-    }
-
-    case 'SET_EXPECTED_VALUES': {
-      const { values } = action;
-      return {
-        ...state,
-        images: { ...state.images, expected: values.images },
-        pdfs: { ...state.pdfs, expected: values.pdfs },
+        [entity]: { ...cur, errors: [...cur.errors, ...errors] },
       };
     }
 
@@ -176,9 +126,8 @@ export function progressReducer(state, action) {
   }
 }
 
-export const ProgressActions = {
-  apply: (updater) => ({ type: 'APPLY_UPDATER', updater }),
-  merge: (payload) => ({ type: 'MERGE', payload }),
+export const ACTIONS = {
+  reset: () => ({ type: 'RESET' }),
   setActiveSession: (sessionId) => ({ type: 'SET_ACTIVE_SESSION', sessionId }),
   setTotal: (entity, total) => ({ type: 'SET_TOTAL', entity, total }),
   setCompleted: (entity, completed) => ({
@@ -187,11 +136,6 @@ export const ProgressActions = {
     completed,
   }),
   setCompletedToTotal: (entity) => ({ type: 'SET_COMPLETED_TO_TOTAL', entity }),
-  incrCompleted: (entity, amount = 1) => ({
-    type: 'INCR_COMPLETED',
-    entity,
-    amount,
-  }),
   updateBatch: (entity, batchId, completed, total) => ({
     type: 'UPDATE_BATCH',
     entity,

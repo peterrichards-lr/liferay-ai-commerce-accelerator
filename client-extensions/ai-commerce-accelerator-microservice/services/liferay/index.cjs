@@ -1663,41 +1663,80 @@ class LiferayService {
   async resolveByERCsWithRetry(config, ercs, resolverFn, options = {}) {
     const { logger } = this.ctx;
     const label = options.label || 'entities';
+    const maxRetries = options.maxRetries || 5;
+    const initialDelay = options.initialDelay || 3000;
 
-    logger.debug(`Starting resolution for ${ercs.length} ${label}...`, {
-      correlationId: config.correlationId,
-    });
+    logger.debug(
+      `Starting resolution loop for ${ercs.length} ${label} (max ${maxRetries} retries)...`,
+      { correlationId: config.correlationId }
+    );
 
-    try {
-      // The resolver (usually GraphQL) now handles its own internal retry loop for STALE_INDEX
-      const resolvedItems = await resolverFn(config, ercs);
+    let currentErcs = [...ercs];
+    let resolvedMap = new Map();
+    let attempt = 0;
 
-      const resolvedErcs = new Set(
-        resolvedItems.filter(Boolean).map((it) => it.externalReferenceCode)
-      );
-      const missingCount = ercs.filter((erc) => !resolvedErcs.has(erc)).length;
+    while (attempt < maxRetries && currentErcs.length > 0) {
+      if (attempt > 0) {
+        const delayMs = initialDelay * Math.pow(2, attempt - 1);
+        logger.debug(`Retry ${attempt}/${maxRetries} for ${label} in ${delayMs}ms...`, {
+          missing: currentErcs.length,
+          correlationId: config.correlationId,
+        });
+        await delay(delayMs);
+      }
 
-      if (missingCount > 0) {
-        logger.warn(
-          `Resolution complete for ${label} but ${missingCount} IDs are still missing.`,
-          {
-            correlationId: config.correlationId,
-          }
-        );
-      } else {
-        logger.debug(`Successfully resolved all ${ercs.length} ${label}.`, {
+      try {
+        const batchResults = await resolverFn(config, currentErcs);
+        batchResults.filter(Boolean).forEach((item) => {
+          resolvedMap.set(item.externalReferenceCode, item);
+        });
+
+        // Update list of missing ERCs
+        currentErcs = currentErcs.filter((erc) => !resolvedMap.has(erc));
+      } catch (error) {
+        logger.warn(`Resolution attempt ${attempt} failed for ${label}: ${error.message}`, {
           correlationId: config.correlationId,
         });
       }
 
-      return resolvedItems;
-    } catch (error) {
-      logger.error(`Critical failure resolving ${label}: ${error.message}`, {
-        correlationId: config.correlationId,
-        ercCount: ercs.length,
-      });
-      throw error;
+      attempt++;
     }
+
+    // FINAL HARDENING: REST Fallback for missing Accounts
+    if (currentErcs.length > 0 && label === 'accounts') {
+      logger.info(`Attempting REST fallback for ${currentErcs.length} missing accounts...`, {
+        correlationId: config.correlationId,
+      });
+
+      for (const erc of currentErcs) {
+        try {
+          const account = await this.rest.getAccountByERC(config, erc);
+          if (account) {
+            resolvedMap.set(erc, account);
+          }
+        } catch (err) {
+          // Ignore individual REST failures
+        }
+      }
+      currentErcs = currentErcs.filter((erc) => !resolvedMap.has(erc));
+    }
+
+    if (currentErcs.length > 0) {
+      logger.error(
+        `Resolution failed to find ${currentErcs.length} / ${ercs.length} ${label} after ${maxRetries} attempts.`,
+        {
+          missingERCs: currentErcs,
+          correlationId: config.correlationId,
+        }
+      );
+    } else {
+      logger.debug(`Successfully resolved all ${ercs.length} ${label}.`, {
+        correlationId: config.correlationId,
+      });
+    }
+
+    // Return in original order if possible, or just the values
+    return Array.from(resolvedMap.values());
   }
 
   // Other Coordination/Logic

@@ -92,12 +92,15 @@ class LiferayGraphQLService {
       try {
         const response = await client.post('', { query });
         if (response.data.errors) {
-          throw new Error(
-            `GraphQL Errors: ${JSON.stringify(response.data.errors)}`
-          );
+          this.ctx.logger.warn(`GraphQL partial failure in ${method}`, {
+            errorCount: response.data.errors.length,
+            firstError: response.data.errors[0].message,
+          });
         }
-        // Merge this chunk's results into the master object
-        Object.assign(combinedResults, response.data.data[namespace]);
+        // Merge successful aliases from this chunk
+        if (response.data.data && response.data.data[namespace]) {
+          Object.assign(combinedResults, response.data.data[namespace]);
+        }
       } catch (error) {
         this.ctx.logger.error(`GraphQL fetch failed for ${method}`, {
           error: error.message,
