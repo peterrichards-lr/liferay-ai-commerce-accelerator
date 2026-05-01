@@ -6,7 +6,7 @@ const path = require('path');
 const StreamZip = require('node-stream-zip');
 const liferayConfig = require('../../config/liferayConfig.cjs');
 const { logger } = require('../../utils/logger.cjs');
-const { v4: uuidv4 } = require('uuid');
+const crypto = require('crypto');
 
 const { PATH, CUSTOM_OBJECTS, q } = require('../../utils/liferayPaths.cjs');
 const {
@@ -856,7 +856,7 @@ class LiferayRestService {
     });
 
     if (urlResponse && urlResponse.url) {
-      const tempFilePath = path.join(tmpdir(), `${uuidv4()}.zip`);
+      const tempFilePath = path.join(tmpdir(), `${crypto.randomUUID()}.zip`);
 
       try {
         await this._downloadFile(config, urlResponse.url, tempFilePath);
@@ -921,7 +921,7 @@ class LiferayRestService {
 
     const processedItems = (items || []).map((item) => {
       const extERC = sanitizedERC(
-        item.externalReferenceCode || item[itemERCKey] || uuidv4()
+        item.externalReferenceCode || item[itemERCKey] || crypto.randomUUID()
       );
       return { ...item, externalReferenceCode: extERC };
     });
@@ -1159,7 +1159,10 @@ class LiferayRestService {
         logger.info(`[DRY RUN] Would delete batch of ${chunk.length} items`, {
           url: batchUrl,
         });
-        batchRefs.push({ taskId: `dry-run-${uuidv4()}`, count: chunk.length });
+        batchRefs.push({
+          taskId: `dry-run-${crypto.randomUUID()}`,
+          count: chunk.length,
+        });
         continue;
       }
 

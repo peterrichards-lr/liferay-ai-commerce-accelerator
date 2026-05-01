@@ -1,10 +1,12 @@
-const { v4: uuidv4 } = require('uuid');
+const crypto = require('crypto');
 const { logger } = require('../utils/logger.cjs');
 const { CORRELATION_ID_HEADER } = require('../utils/sharedConstants.cjs');
 
 function correlationIdMiddleware(req, res, next) {
   req.correlationId =
-    req.get(CORRELATION_ID_HEADER) || req.query.correlationId || uuidv4();
+    req.get(CORRELATION_ID_HEADER) ||
+    req.query.correlationId ||
+    crypto.randomUUID();
   res.set(CORRELATION_ID_HEADER, req.correlationId);
   next();
 }

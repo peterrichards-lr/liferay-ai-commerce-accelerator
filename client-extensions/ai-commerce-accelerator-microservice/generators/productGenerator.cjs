@@ -18,7 +18,7 @@ const {
 const { ERC_PREFIX, ENV, WORKFLOW_STEPS } = require('../utils/constants.cjs');
 const { COMMERCE_CONSTRAINTS } = require('../utils/commerceConstants.cjs');
 const { sanitizedObject } = require('../utils/normalize.cjs');
-const { v4: uuidv4 } = require('uuid');
+const crypto = require('crypto');
 
 const S = WORKFLOW_STEPS;
 
@@ -368,7 +368,7 @@ class ProductGenerator extends BaseGenerator {
       for (const entry of product.priceEntries) {
         if (!filterFn(entry)) continue;
 
-        const baseErc = entry.externalReferenceCode || uuidv4();
+        const baseErc = entry.externalReferenceCode || crypto.randomUUID();
         const skuERC =
           entry.skuExternalReferenceCode ||
           (typeof entry.sku === 'string' ? entry.sku : null);

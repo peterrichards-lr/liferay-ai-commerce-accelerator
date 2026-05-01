@@ -1,5 +1,5 @@
 const { lookupConfig } = require('@rotty3000/config-node');
-const { v4: uuidv4 } = require('uuid');
+const crypto = require('crypto');
 
 function toNumber(v) {
   const n = Number(v);
@@ -211,8 +211,8 @@ const ERC_PREFIX = {
   ERROR: 'AICA-ERR',
 };
 
-const IMAGE_BATCH_ID = uuidv4();
-const PDF_BATCH_ID = uuidv4();
+const IMAGE_BATCH_ID = crypto.randomUUID();
+const PDF_BATCH_ID = crypto.randomUUID();
 
 const OP_MAP = {
   CREATE: 'create',

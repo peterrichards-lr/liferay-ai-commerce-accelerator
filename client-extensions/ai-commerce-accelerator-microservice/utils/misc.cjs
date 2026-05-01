@@ -1,5 +1,5 @@
 const { logger } = require('../utils/logger.cjs');
-const { v4: uuidv4 } = require('uuid');
+const crypto = require('crypto');
 const liferayConfig = require('../config/liferayConfig.cjs');
 const { ErrorHandler } = require('./errorHandler.cjs');
 const { ERC_PREFIX } = require('./constants.cjs');
@@ -176,7 +176,7 @@ async function processWithRetry(
 }
 
 function createERC(prefix) {
-  return `${prefix}-${Date.now()}-${uuidv4().slice(0, 8)}`;
+  return `${prefix}-${Date.now()}-${crypto.randomUUID().slice(0, 8)}`;
 }
 
 function resolveErrorReference(err) {

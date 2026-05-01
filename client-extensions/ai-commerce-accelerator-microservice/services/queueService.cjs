@@ -1,4 +1,4 @@
-const { v4: uuidv4 } = require('uuid');
+const crypto = require('crypto');
 const {
   delay,
   delayCall,
@@ -253,7 +253,7 @@ class QueueService {
       throw err;
     }
 
-    const jobId = options.jobId || uuidv4();
+    const jobId = options.jobId || crypto.randomUUID();
 
     const job = {
       id: jobId,
