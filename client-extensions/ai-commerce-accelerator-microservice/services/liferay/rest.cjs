@@ -9,14 +9,8 @@ const { logger } = require('../../utils/logger.cjs');
 const crypto = require('crypto');
 
 const { PATH, CUSTOM_OBJECTS, q } = require('../../utils/liferayPaths.cjs');
-const {
-  ACTION_IDS,
-  ROLE,
-  ASSET_TYPE,
-  VIEWABLE_BY,
-  buildPermissionsItems,
-} = require('../../utils/liferayPermissions.cjs');
-const { DEBUG, ERC_PREFIX, OP_MAP, ENV } = require('../../utils/constants.cjs');
+const { ASSET_TYPE } = require('../../utils/liferayPermissions.cjs');
+const { ERC_PREFIX, OP_MAP, ENV } = require('../../utils/constants.cjs');
 const { findContract } = require('../../utils/contractMappings.cjs');
 const { delay, createERC } = require('../../utils/misc.cjs');
 const { sanitizedERC } = require('../../utils/normalize.cjs');
@@ -1463,7 +1457,6 @@ class LiferayRestService {
   }
 
   async createAccount(config, accountData) {
-    const { logger } = this.ctx;
     const data = await this._post(
       config,
       PATH.ACCOUNTS,
@@ -2056,7 +2049,6 @@ class LiferayRestService {
   }
 
   async createSpecificationCategoryWithReuse(config, payload) {
-    const { logger } = this.ctx;
     try {
       return await this.createSpecificationCategory(config, payload);
     } catch (e) {
@@ -2206,7 +2198,7 @@ class LiferayRestService {
             externalReferenceCode: erc,
           });
           existing.externalReferenceCode = erc;
-        } catch (updateError) {
+        } catch {
           logger.warn(
             `Failed to update ERC for existing specification '${key}'`
           );
@@ -2217,8 +2209,6 @@ class LiferayRestService {
   }
 
   async createOption(config, optionData) {
-    const { logger } = this.ctx;
-
     // Last-line-of-defense validation for Commerce constraints
     if (
       optionData.skuContributor &&
@@ -2298,7 +2288,9 @@ class LiferayRestService {
           await this.updateOptionById(config, existing.id, {
             externalReferenceCode: erc,
           });
-        } catch {}
+        } catch {
+          // Ignore error
+        }
       }
       return existing;
     }
@@ -2446,12 +2438,16 @@ class LiferayRestService {
       if (erc) {
         try {
           existing = await this.getOptionValueByERC(config, optionId, erc);
-        } catch {}
+        } catch {
+          // Ignore error
+        }
       }
       if (!existing && key) {
         try {
           existing = await this.getOptionValueByKey(config, optionId, key);
-        } catch {}
+        } catch {
+          // Ignore error
+        }
       }
       if (!existing) throw e;
 
@@ -2461,7 +2457,9 @@ class LiferayRestService {
             externalReferenceCode: erc,
           });
           existing.externalReferenceCode = erc;
-        } catch {}
+        } catch {
+          // Ignore error
+        }
       }
       return existing;
     }
@@ -2577,7 +2575,7 @@ class LiferayRestService {
             externalReferenceCode: erc,
           });
           existing.externalReferenceCode = erc;
-        } catch (updateError) {
+        } catch {
           logger.warn(
             `Failed to update ERC for existing option category '${key}'`
           );

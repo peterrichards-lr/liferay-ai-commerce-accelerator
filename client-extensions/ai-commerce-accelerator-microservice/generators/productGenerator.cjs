@@ -1,23 +1,17 @@
 const BaseGenerator = require('./baseGenerator.cjs');
-const { ASSET_TYPE, VIEWABLE_BY } = require('../utils/liferayPermissions.cjs');
 const { deepCleanIds } = require('../utils/payload-cleaner.cjs');
 const {
   delay,
-  resolvePhaseAndMode,
   createERC,
   toI18n,
   fromI18n,
   buildKeyedERC,
-  buildOptionCategoryERC,
   buildSpecificationERC,
-  now,
-  isoNow,
   sanitizeForERC,
   resolveErrorReference,
 } = require('../utils/misc.cjs');
 const { ERC_PREFIX, ENV, WORKFLOW_STEPS } = require('../utils/constants.cjs');
 const { COMMERCE_CONSTRAINTS } = require('../utils/commerceConstants.cjs');
-const { sanitizedObject } = require('../utils/normalize.cjs');
 const crypto = require('crypto');
 
 const S = WORKFLOW_STEPS;
@@ -1470,7 +1464,6 @@ class ProductGenerator extends BaseGenerator {
       }
 
       if (inventoryItems.length > 0) {
-        const batchERC = createERC(ERC_PREFIX.BATCH);
         await this.submitBatch(
           sessionId,
           S.UPDATE_INVENTORY,
@@ -1503,7 +1496,7 @@ class ProductGenerator extends BaseGenerator {
     }
   }
 
-  async _generateProductData(config, options, sessionId, correlationId) {
+  async _generateProductData(config, options, _sessionId, _correlationId) {
     const data = await this.ctx.generation.generateData(
       'product',
       options.productCount,
@@ -1522,7 +1515,7 @@ class ProductGenerator extends BaseGenerator {
 
     if (options.stripSkuOptions && clean.skus) {
       clean.skus = clean.skus.map((s) => {
-        const { skuOptions, ...rest } = s;
+        const { skuOptions: _skuOptions, ...rest } = s;
         return rest;
       });
     }
@@ -1530,7 +1523,7 @@ class ProductGenerator extends BaseGenerator {
     return clean;
   }
 
-  async handleBatchCallback(sessionId, batchERC) {
+  async handleBatchCallback(_sessionId, batchERC) {
     const batch = await this.persistence.getBatch(batchERC);
     if (
       [
@@ -1539,11 +1532,11 @@ class ProductGenerator extends BaseGenerator {
         S.GENERATE_TIER_PRICING,
       ].includes(batch.step_key)
     ) {
-      await this._verifyPricing(sessionId, batchERC);
+      await this._verifyPricing(_sessionId, batchERC);
     }
   }
 
-  async _verifyPricing(sessionId, batchERC) {
+  async _verifyPricing(_sessionId, _batchERC) {
     return true;
   }
 }

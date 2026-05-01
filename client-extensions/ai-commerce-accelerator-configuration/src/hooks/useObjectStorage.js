@@ -67,7 +67,7 @@ export const useObjectStorage = ({ keys, defaults = {}, json = true }) => {
     return () => {
       alive = false;
     };
-  }, [keyString, json, defaultsString, keys, defaults]);
+  }, [keyString, json, defaultsString]);
 
   const onSave = useCallback(async () => {
     if (saving) return;

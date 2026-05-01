@@ -1,13 +1,11 @@
 const {
   createERC,
-  buildSpecCatERC,
   getRandomInt,
   toERCPart,
   randomString,
   randomPastDate,
-  randomFutureDate,
 } = require('../utils/misc.cjs');
-const { ERC_PREFIX, ENV } = require('../utils/constants.cjs');
+const { ERC_PREFIX } = require('../utils/constants.cjs');
 
 class MockDataGenerator {
   constructor(ctx) {
@@ -127,7 +125,7 @@ class MockDataGenerator {
     category,
     count = 1,
     config = {},
-    model = null,
+    _model = null,
     selectedLanguages = ['en-US'],
     options = {}
   ) {
@@ -245,7 +243,6 @@ class MockDataGenerator {
         const colors = ['Red', 'Blue'];
         const sizes = ['Small', 'Medium'];
 
-        let variantCounter = 0;
         for (const color of colors) {
           for (const size of sizes) {
             const variantSku = `${sku}-${color.toUpperCase()}-${size.toUpperCase()}`;
@@ -405,10 +402,10 @@ class MockDataGenerator {
 
   generateAccountData(
     count = 1,
-    config = {},
-    model = null,
-    categories = [],
-    selectedLanguages = ['en-US']
+    _config = {},
+    _model = null,
+    _categories = [],
+    _selectedLanguages = ['en-US']
   ) {
     const accounts = [];
 
@@ -470,9 +467,9 @@ class MockDataGenerator {
     products = [],
     accounts = [],
     count = 1,
-    config = {},
-    model = null,
-    selectedLanguages = ['en-US']
+    _config = {},
+    _model = null,
+    _selectedLanguages = ['en-US']
   ) {
     const orders = [];
 
@@ -512,8 +509,8 @@ class MockDataGenerator {
 
   generateWarehouseData(
     count = 1,
-    config = {},
-    model = null,
+    _config = {},
+    _model = null,
     selectedLanguages = ['en-US']
   ) {
     const warehouses = [];
@@ -550,10 +547,10 @@ class MockDataGenerator {
 
   generatePricingData(
     products = [],
-    pricingType = 'standard',
-    config = {},
-    model = null,
-    selectedLanguages = ['en-US']
+    _pricingType = 'standard',
+    _config = {},
+    _model = null,
+    _selectedLanguages = ['en-US']
   ) {
     return products.map((p) => ({
       skuExternalReferenceCode: p.sku || p.skus?.[0]?.sku,

@@ -1,4 +1,3 @@
-const { INTERNAL_API_PATHS } = require('./internalApiPaths.cjs');
 const { logger } = require('./logger.cjs');
 const crypto = require('crypto');
 const { resolveEffectiveLiferayConnection } = require('./liferayEnv.cjs');
@@ -314,7 +313,7 @@ function redactByKey(keyPath, value) {
   return null;
 }
 
-function redactStringGeneric(str, keyPath) {
+function redactStringGeneric(str, _) {
   if (/^Bearer\s+[\w\-_.]+/i.test(str)) return 'Bearer [REDACTED]';
 
   if (/^https?:\/\//i.test(str)) return redactUrl(str);

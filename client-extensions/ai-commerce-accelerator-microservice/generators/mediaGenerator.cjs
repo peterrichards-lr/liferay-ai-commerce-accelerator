@@ -3,14 +3,12 @@ const axios = require('axios');
 const {
   buildDataUrl,
   parseDataUrl,
-  delay,
   now,
   elapsedMs,
   createERC,
   isValidUrl,
 } = require('../utils/misc.cjs');
 const { ERC_PREFIX } = require('../utils/constants.cjs');
-const { asItems, asCount } = require('../utils/liferayUtils.cjs');
 
 class MediaGenerator {
   constructor(ctx) {
@@ -108,7 +106,7 @@ class MediaGenerator {
     if (blur)
       params.append(
         'blur',
-        isNaN(blur) ? '' : Math.Math.min(Math.max(parseInt(blur), 1), 10)
+        isNaN(blur) ? '' : Math.min(Math.max(parseInt(blur), 1), 10)
       );
     const query = params.toString();
     if (query) url += `?${query}`;

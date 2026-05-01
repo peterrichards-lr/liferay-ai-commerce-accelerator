@@ -42,7 +42,7 @@ class GeminiProvider extends BaseAIProvider {
     return tryParseJSON(content);
   }
 
-  async generateImage(product, options) {
+  async generateImage(_product, _options) {
     // Note: Standard Gemini API doesn't do Image Gen (that's Vertex/Imagen)
     // For now, we'll suggest a fallback or mark as not supported.
     throw new Error('Image generation not supported yet for Gemini provider');

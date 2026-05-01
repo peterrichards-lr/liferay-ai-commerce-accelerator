@@ -48,7 +48,7 @@ class WorkflowCoordinator extends BaseGenerator {
    * Standardized entry point (not used as much for the coordinator as it's usually
    * initialized via routes/generate.cjs)
    */
-  async runWorkflow(config, options) {
+  async runWorkflow(_config, _options) {
     throw new Error(
       'WorkflowCoordinator should be initialized via combined workflow logic in routes.'
     );

@@ -9,19 +9,12 @@ export default defineConfig({
     pool: 'forks',
     server: {
       deps: {
-        inline: [
-          /msw/,
-          /rettime/,
-          /std-env/,
-          /@ai-sdk\/provider-utils/,
-          /node-fetch/,
-          /@ai-sdk\/anthropic/,
-        ],
+        inline: true,
       },
     },
   },
   resolve: {
-    mainFields: ['module', 'main', 'jsnext:main', 'browser'],
+    mainFields: ['module', 'main'],
     conditions: ['node', 'import', 'default'],
   },
 });

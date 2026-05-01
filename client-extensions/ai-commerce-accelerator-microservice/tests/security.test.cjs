@@ -1,7 +1,6 @@
 const {
   sqlInjectionProtectionMiddleware,
 } = require('../middleware/securityMiddleware.cjs');
-const { logger } = require('../utils/logger.cjs');
 
 describe('Security Middleware - SQL Injection', () => {
   let req;

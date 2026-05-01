@@ -1,9 +1,5 @@
 const { resolvePhaseAndMode } = require('../utils/misc.cjs');
-const {
-  WEB_SOCKET_EVENTS,
-  WS_SCOPE,
-  WS_OPERATION,
-} = require('../utils/constants.cjs');
+const { WEB_SOCKET_EVENTS, WS_SCOPE } = require('../utils/constants.cjs');
 
 class ProgressService {
   constructor({ ws, logger, persistence }) {

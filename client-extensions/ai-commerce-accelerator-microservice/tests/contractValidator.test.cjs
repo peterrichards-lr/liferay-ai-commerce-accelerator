@@ -39,16 +39,6 @@ describe('ContractValidator', () => {
     }
   });
 
-  it('should throw error for an invalid product payload (missing name)', () => {
-    const invalidProduct = {
-      externalReferenceCode: 'PROD-1',
-      productType: 'simple',
-    };
-
-    // Note: In OpenAPI 'Product' required fields are actually few, let's check.
-    // Actually Liferay schemas often don't mark 'required' as strictly as you'd think.
-  });
-
   it('should fail if field type is incorrect', () => {
     const invalidProduct = {
       externalReferenceCode: 'PROD-1',

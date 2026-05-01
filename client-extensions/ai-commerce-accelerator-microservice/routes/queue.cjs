@@ -1,5 +1,4 @@
 const { INTERNAL_API_PATHS } = require('../utils/internalApiPaths.cjs');
-const { queueService } = require('../services/queueService.cjs');
 const { createERC } = require('../utils/misc.cjs');
 const { ERC_PREFIX } = require('../utils/constants.cjs');
 
