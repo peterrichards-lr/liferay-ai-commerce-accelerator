@@ -1,6 +1,6 @@
 const { INTERNAL_API_PATHS } = require('./internalApiPaths.cjs');
 const { logger } = require('./logger.cjs');
-const { v4: uuidv4 } = require('uuid');
+const crypto = require('crypto');
 const { resolveEffectiveLiferayConnection } = require('./liferayEnv.cjs');
 
 const SENSITIVE_KEY_RE =
@@ -121,7 +121,7 @@ function buildConfigAndOptions(req) {
   logger.info('req.body in buildConfigAndOptions:', req.body);
 
   const correlationId =
-    req.correlationId || req.headers['x-correlation-id'] || uuidv4();
+    req.correlationId || req.headers['x-correlation-id'] || crypto.randomUUID();
 
   let constructedMicroserviceUrl = microserviceUrl;
   if (
