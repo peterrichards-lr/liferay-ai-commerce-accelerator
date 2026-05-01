@@ -35,7 +35,7 @@
     "@testing-library/user-event": "^14.6.1",
     "autoprefixer": "^10.4.21",
     "baseline-browser-mapping": "^2.10.25",
-    "eslint": "^9.39.4",
+    "eslint": "^10.3.0",
     "eslint-plugin-react": "^7.37.5",
     "eslint-plugin-react-hooks": "^7.1.1",
     "globals": "^17.5.0",
