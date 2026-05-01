@@ -26,7 +26,7 @@ liferay-ai-commerce-accelerator-frontend {
     &__backdrop {
       position: fixed;
       inset: 0;
-      background: var($confirm-backdrop-bg);
+      background: $confirm-backdrop-bg;
       display: flex;
       align-items: center;
       justify-content: center;

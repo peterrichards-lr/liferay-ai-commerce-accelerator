@@ -20,7 +20,9 @@ function tryBuildColocatedLiferayUrl() {
     const liferayServerDomain = lxcConfig.dxpMainDomain();
     const built = `${liferayServerProtocol}://${liferayServerDomain}`;
     if (isValidAbsoluteUrl(built)) return built;
-  } catch {}
+  } catch {
+    // Ignore error
+  }
   return null;
 }
 

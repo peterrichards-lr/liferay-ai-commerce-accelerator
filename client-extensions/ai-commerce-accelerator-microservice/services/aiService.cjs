@@ -8,7 +8,7 @@ const {
   pricingHints,
   joinList,
 } = require('../utils/promptHelpers.cjs');
-const { createERC, tryParseJSON } = require('../utils/misc.cjs');
+const { createERC } = require('../utils/misc.cjs');
 const { ERC_PREFIX } = require('../utils/constants.cjs');
 
 class AIService {
@@ -560,7 +560,7 @@ class AIService {
     pricingType = 'standard',
     requestConfig,
     model,
-    selectedLanguages = ['en-US']
+    _selectedLanguages = ['en-US']
   ) {
     const { logger, prompt } = this.ctx;
     const correlationId = requestConfig?.correlationId;

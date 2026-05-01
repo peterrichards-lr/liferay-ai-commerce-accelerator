@@ -320,7 +320,7 @@ const gracefulShutdown = async (signal) => {
 
   app.use(errorLoggingMiddleware);
 
-  app.use((error, req, res, next) => {
+  app.use((error, req, res, _) => {
     logger.errorWithStack(error, {
       correlationId: req.correlationId,
       operation: 'global-error-handler',

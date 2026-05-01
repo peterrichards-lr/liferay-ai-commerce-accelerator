@@ -4,7 +4,7 @@ module.exports = async function createPostalAddresses(
   { liferay, logger },
   {
     config,
-    options,
+    _options,
     session,
     callbackUrl,
     batchERC,

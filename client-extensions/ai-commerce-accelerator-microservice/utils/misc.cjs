@@ -1,4 +1,3 @@
-const { logger } = require('../utils/logger.cjs');
 const crypto = require('crypto');
 const liferayConfig = require('../config/liferayConfig.cjs');
 const { ErrorHandler } = require('./errorHandler.cjs');
@@ -372,7 +371,7 @@ function isValidUrl(url) {
   try {
     new URL(url);
     return true;
-  } catch (err) {
+  } catch {
     return false;
   }
 }

@@ -5,7 +5,7 @@ class NanoBananaProvider extends BaseAIProvider {
     super(ctx);
   }
 
-  async generateJSON(task, prompt, options, schema) {
+  async generateJSON(_task, _prompt, _options, _schema) {
     throw new Error('Nano Banana provider only supports image generation');
   }
 

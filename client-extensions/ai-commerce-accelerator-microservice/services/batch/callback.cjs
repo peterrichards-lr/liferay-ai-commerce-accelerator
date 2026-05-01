@@ -1,5 +1,3 @@
-const { delay } = require('../../utils/misc.cjs');
-
 class BatchCallbackService {
   constructor(ctx) {
     this.ctx = ctx;

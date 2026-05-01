@@ -195,6 +195,13 @@ The user interface must reflect a premium, professional standard, characterized 
 
 ---
 
+## Clean Code & Linting (Engineering Rule)
+
+- **Zero Warning Mandate**: The codebase must be free of lint warnings and formatting errors.
+- **Intentional Omissions**: Use the **`_` (underscore)** prefix for any intentionally unused parameters, variables, or caught errors (e.g., `const { unused: _unused } = obj`, `catch (_err) {}`). The ESLint config is hardened to support this pattern without warnings.
+
+---
+
 ## Core identifiers
 
 ### sessionId

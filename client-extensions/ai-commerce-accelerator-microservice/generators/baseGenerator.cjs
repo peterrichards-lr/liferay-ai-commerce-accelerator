@@ -130,7 +130,7 @@ class BaseGenerator extends BaseWorkflowService {
    * Standardized callback handler for post-batch logic.
    * Can be overridden by subclasses.
    */
-  async handleBatchCallback(sessionId, batchERC) {
+  async handleBatchCallback(_sessionId, _batchERC) {
     return true;
   }
 

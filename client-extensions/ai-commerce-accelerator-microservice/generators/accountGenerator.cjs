@@ -450,7 +450,7 @@ class AccountGenerator extends BaseGenerator {
           if (!groupedAddresses.has(accountId)) {
             groupedAddresses.set(accountId, []);
           }
-          const { accountERC, ...addressWithoutErc } = addr;
+          const { accountERC: _accountERC, ...addressWithoutErc } = addr;
           groupedAddresses.get(accountId).push(addressWithoutErc);
         }
       });

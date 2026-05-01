@@ -1,69 +1,35 @@
 const { INTERNAL_API_PATHS } = require('../utils/internalApiPaths.cjs');
 const multer = require('multer');
 const {
-  toBoolean,
-  toNumber,
-  parseMaybeJSON,
   buildConfigAndOptions,
   sanitizedObject,
 } = require('../utils/normalize.cjs');
-const {
-  inputValidationMiddleware,
-} = require('../middleware/securityMiddleware.cjs');
 const { handleError } = require('../utils/handleErrorHelper.cjs');
 const { ERC_PREFIX, WORKFLOW_STEPS } = require('../utils/constants.cjs');
 const { resolveErrorReference, createERC } = require('../utils/misc.cjs');
 
 const S = WORKFLOW_STEPS;
 
-const upload = multer({
-  storage: multer.memoryStorage(),
-  limits: { fileSize: 15 * 1024 * 1024 },
-});
+const upload = multer({ storage: multer.memoryStorage() });
 
 function emitRouteError(
-  progressService,
-  {
-    error,
-    fallbackMessage,
-    operation,
-    entityType,
-    correlationId,
-    errorReference,
-  }
+  progress,
+  { error, operation, entityType, correlationId, errorReference }
 ) {
-  const uiMessage =
-    error?.userMessage ||
-    error?.message ||
-    fallbackMessage ||
-    'An unexpected error occurred';
-
-  if (progressService && typeof progressService.sessionFailed === 'function') {
-    progressService.sessionFailed({
-      correlationId,
-      error: Object.assign(error, { message: uiMessage, errorReference }),
-      entityType,
+  if (progress?.emitError) {
+    progress.emitError({
+      message: error.message || 'Workflow initialization failed',
       operation,
+      entityType,
+      correlationId,
+      errorReference,
     });
   }
 }
 
 module.exports = (
   app,
-  {
-    liferayService,
-    productGenerator,
-    accountGenerator,
-    orderGenerator,
-    warehouseGenerator,
-    workflowCoordinator,
-    configService,
-    cacheService,
-    logger,
-    progressService,
-    persistenceService,
-    batchCallbackService,
-  }
+  { logger, progressService, persistenceService, batchCallbackService }
 ) => {
   app.post(
     INTERNAL_API_PATHS.GENERATE_WORKFLOW,
