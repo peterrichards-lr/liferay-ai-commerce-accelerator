@@ -33,8 +33,11 @@ const OAUTH_CONFIG_KEY = 'oauth-config';
 const OBJECT_STORAGE_CONFIG_CACHE_KEY = 'OBJECT_STORAGE_CONFIG_KEY';
 const OBJECT_STORAGE_CONFIG_KEY = 'object-storage-config';
 
-const OPENAPI_CACHE_KEY = 'OPENAI_API_KEY';
-const OPENAI_CONFIG_KEY = 'open-ai-key';
+const AI_API_CACHE_KEY = 'AI_API_KEY';
+const AI_CREDENTIALS_CONFIG_KEY = 'ai-credentials';
+
+const AI_MEDIA_API_CACHE_KEY = 'AI_MEDIA_API_KEY';
+const AI_MEDIA_CREDENTIALS_CONFIG_KEY = 'ai-media-credentials';
 
 const QUEUE_CONFIG_CACHE_KEY = 'QUEUE_CONFIG_KEY';
 const QUEUE_CONFIG_KEY = 'queue-config';
@@ -311,27 +314,50 @@ class ConfigService {
     return this.getConfigCached(DEFAULT_PDF_CACHE_KEY);
   }
 
-  async getOpenAIKey(requestConfig) {
+  async getAIKey(requestConfig) {
     const logger = this.logger;
     try {
       return await this.getConfig(
         requestConfig,
-        OPENAPI_CACHE_KEY,
-        OPENAI_CONFIG_KEY
+        AI_API_CACHE_KEY,
+        AI_CREDENTIALS_CONFIG_KEY
       );
     } catch (error) {
       const erc = error?.errorReference || createERC(ERC_PREFIX.ERROR);
       logger?.errorWithStack?.(error, {
-        operation: 'get-openai-key',
+        operation: 'get-ai-key',
         errorReference: erc,
-        message: 'Failed to get OpenAI key from Liferay Object',
+        message: 'Failed to get AI key from Liferay Object',
       });
-      throw new Error('OpenAI API key not configured.');
+      throw new Error('AI API key not configured.');
     }
   }
 
-  getOpenAIKeyCached() {
-    return this.getConfigCached(OPENAPI_CACHE_KEY);
+  getAIKeyCached() {
+    return this.getConfigCached(AI_API_CACHE_KEY);
+  }
+
+  async getAIMediaKey(requestConfig) {
+    const logger = this.logger;
+    try {
+      return await this.getConfig(
+        requestConfig,
+        AI_MEDIA_API_CACHE_KEY,
+        AI_MEDIA_CREDENTIALS_CONFIG_KEY
+      );
+    } catch (error) {
+      const erc = error?.errorReference || createERC(ERC_PREFIX.ERROR);
+      logger?.errorWithStack?.(error, {
+        operation: 'get-ai-media-key',
+        errorReference: erc,
+        message: 'Failed to get AI media key from Liferay Object',
+      });
+      throw new Error('AI media key not configured.');
+    }
+  }
+
+  getAIMediaKeyCached() {
+    return this.getConfigCached(AI_MEDIA_API_CACHE_KEY);
   }
 
   async _getConfigWithFallback(
