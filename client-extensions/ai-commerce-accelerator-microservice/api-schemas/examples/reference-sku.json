@@ -1,0 +1,41 @@
+{
+  "entity": "Sku",
+  "rest": {
+    "path": "/o/headless-commerce-admin-catalog/v1.0/skus/by-externalReferenceCode/{erc}",
+    "response": {
+      "externalReferenceCode": "MIN93016A",
+      "id": 71569,
+      "price": 80,
+      "productId": 71551,
+      "sku": "MIN93016A",
+      "skuOptions": [
+        {
+          "key": "package-quantity",
+          "optionId": 71565,
+          "optionValueId": 71566,
+          "value": "12"
+        }
+      ]
+    }
+  },
+  "graphql": {
+    "query": "query HeadlessCommerceAdminCatalog_v1_0($erc: String) { skuByExternalReferenceCode(externalReferenceCode: $erc) { id, sku, skuOptions { key, optionId, optionValueId, value } } }",
+    "variables": { "erc": "MIN93016A" },
+    "response": {
+      "data": {
+        "skuByExternalReferenceCode": {
+          "id": 71569,
+          "sku": "MIN93016A",
+          "skuOptions": [
+            {
+              "key": "package-quantity",
+              "optionId": 71565,
+              "optionValueId": 71566,
+              "value": "12"
+            }
+          ]
+        }
+      }
+    }
+  }
+}

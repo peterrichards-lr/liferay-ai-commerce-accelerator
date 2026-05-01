@@ -1,0 +1,36 @@
+{
+  "entity": "Product",
+  "rest": {
+    "path": "/o/headless-commerce-admin-catalog/v1.0/products/by-externalReferenceCode/{erc}",
+    "response": {
+      "externalReferenceCode": "MIN93016",
+      "id": 71550,
+      "productId": 71551,
+      "name": { "en_US": "Brake Fluid" },
+      "catalogExternalReferenceCode": "ed46a883-f5f4-6db8-ddc7-bc04c7ccf92a",
+      "productType": "simple"
+    },
+    "nested": {
+      "productOptions": {
+        "path": ".../productOptions",
+        "items": [
+          {
+            "key": "package-quantity",
+            "optionExternalReferenceCode": "833e9177-6ef3-0464-0f94-1ca5abf8d66e",
+            "optionId": 71501
+          }
+        ]
+      },
+      "relatedProducts": {
+        "path": ".../relatedProducts",
+        "items": [
+          {
+            "productExternalReferenceCode": "MIN93017",
+            "productId": 71594,
+            "type": "up-sell"
+          }
+        ]
+      }
+    }
+  }
+}

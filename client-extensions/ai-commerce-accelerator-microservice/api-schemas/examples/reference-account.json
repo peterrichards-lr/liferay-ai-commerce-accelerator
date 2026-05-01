@@ -1,0 +1,121 @@
+{
+  "accountContactInformation": {
+    "emailAddresses": [
+      {
+        "emailAddress": "contact-soiq@example.com",
+        "externalReferenceCode": "9b6fff8b-d250-6206-3fe1-b1dd32072688",
+        "id": 69519,
+        "primary": true,
+        "type": "email-address"
+      }
+    ],
+    "facebook": "",
+    "jabber": "",
+    "postalAddresses": [
+      {
+        "addressCountry": "United States",
+        "addressLocality": "Los Angeles",
+        "addressRegion": "Texas",
+        "addressType": "other",
+        "externalReferenceCode": "1cc0201c-ecd5-ae4c-b067-78bf1dccc246",
+        "id": 69515,
+        "name": "Other Address",
+        "postalCode": "90001",
+        "primary": false,
+        "streetAddressLine1": "671 qkdvypfu Street",
+        "streetAddressLine2": "",
+        "streetAddressLine3": ""
+      }
+    ],
+    "skype": "",
+    "sms": "",
+    "telephones": [],
+    "twitter": "",
+    "webUrls": [
+      {
+        "externalReferenceCode": "b15a49c9-0b42-f0a0-24fa-45c0ee5b6c31",
+        "id": 69520,
+        "primary": false,
+        "url": "http://soiq.example.com",
+        "urlType": "public"
+      }
+    ]
+  },
+  "actions": {
+    "move-organization-accounts": {
+      "method": "PATCH",
+      "href": "http://localhost:8080/o/headless-admin-user/v1.0/organizations/move-accounts/69511/{targetOrganizationId}"
+    },
+    "replace-by-external-reference-code": {
+      "method": "PUT",
+      "href": "http://localhost:8080/o/headless-admin-user/v1.0/accounts/by-external-reference-code/{externalReferenceCode}"
+    },
+    "move-organization-accounts-by-external-reference-code": {
+      "method": "PATCH",
+      "href": "http://localhost:8080/o/headless-admin-user/v1.0/organizations/move-accounts/69511/{targetOrganizationId}/by-external-reference-code"
+    },
+    "replace": {
+      "method": "PUT",
+      "href": "http://localhost:8080/o/headless-admin-user/v1.0/accounts/69511"
+    },
+    "update": {
+      "method": "PATCH",
+      "href": "http://localhost:8080/o/headless-admin-user/v1.0/accounts/69511"
+    },
+    "delete": {
+      "method": "DELETE",
+      "href": "http://localhost:8080/o/headless-admin-user/v1.0/accounts/69511"
+    },
+    "update-by-external-reference-code": {
+      "method": "PATCH",
+      "href": "http://localhost:8080/o/headless-admin-user/v1.0/accounts/by-external-reference-code/{externalReferenceCode}"
+    },
+    "create-organization-accounts": {
+      "method": "POST",
+      "href": "http://localhost:8080/o/headless-admin-user/v1.0/organizations/69511/accounts"
+    },
+    "get": {
+      "method": "GET",
+      "href": "http://localhost:8080/o/headless-admin-user/v1.0/accounts/69511"
+    },
+    "get-by-external-reference-code": {
+      "method": "GET",
+      "href": "http://localhost:8080/o/headless-admin-user/v1.0/accounts/by-external-reference-code/{externalReferenceCode}"
+    },
+    "create-organization-accounts-by-external-reference-code": {
+      "method": "POST",
+      "href": "http://localhost:8080/o/headless-admin-user/v1.0/organizations/69511/accounts/by-external-reference-code"
+    },
+    "delete-organization-accounts": {
+      "method": "DELETE",
+      "href": "http://localhost:8080/o/headless-admin-user/v1.0/organizations/69511/accounts"
+    },
+    "delete-organization-accounts-by-external-reference-code": {
+      "method": "DELETE",
+      "href": "http://localhost:8080/o/headless-admin-user/v1.0/organizations/69511/accounts/by-external-reference-code"
+    },
+    "delete-by-external-reference-code": {
+      "method": "DELETE",
+      "href": "http://localhost:8080/o/headless-admin-user/v1.0/accounts/by-external-reference-code/{externalReferenceCode}"
+    }
+  },
+  "customFields": [],
+  "dateCreated": "2026-04-23T13:13:35Z",
+  "dateModified": "2026-04-23T13:13:35Z",
+  "defaultBillingAddressId": 0,
+  "defaultShippingAddressId": 0,
+  "description": "Generated mock business account for Mock Account 1 (soiq).",
+  "domains": ["soiq.example.com"],
+  "externalReferenceCode": "AICA-ACC-1776950015713-0c17de09",
+  "id": 69511,
+  "logoId": 0,
+  "logoURL": "/image/organization_logo?img_id=0&t=1776950033676",
+  "name": "Mock Account 1 (soiq)",
+  "numberOfUsers": 0,
+  "organizationExternalReferenceCodes": [],
+  "organizationIds": [],
+  "parentAccountId": 0,
+  "status": 0,
+  "taxId": "",
+  "type": "business"
+}

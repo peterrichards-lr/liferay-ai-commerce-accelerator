@@ -1,0 +1,40 @@
+{
+  "entity": "Option",
+  "rest": {
+    "path": "/o/headless-commerce-admin-catalog/v1.0/options/by-externalReferenceCode/{erc}",
+    "response": {
+      "actions": {
+        "get": { "method": "GET", "href": ".../options/71501" },
+        "update": { "method": "PATCH", "href": ".../options/71501" },
+        "delete": { "method": "DELETE", "href": ".../options/71501" }
+      },
+      "externalReferenceCode": "833e9177-6ef3-0464-0f94-1ca5abf8d66e",
+      "facetable": true,
+      "fieldType": "select",
+      "id": 71501,
+      "key": "package-quantity",
+      "name": { "en_US": "Package Quantity" },
+      "required": true,
+      "skuContributor": true
+    }
+  },
+  "graphql": {
+    "query": "query HeadlessCommerceAdminCatalog_v1_0($erc: String) { optionByExternalReferenceCode(externalReferenceCode: $erc) { externalReferenceCode, fieldType, id, key, name, required, skuContributor } }",
+    "variables": {
+      "erc": "833e9177-6ef3-0464-0f94-1ca5abf8d66e"
+    },
+    "response": {
+      "data": {
+        "optionByExternalReferenceCode": {
+          "externalReferenceCode": "833e9177-6ef3-0464-0f94-1ca5abf8d66e",
+          "fieldType": "SELECT",
+          "id": 71501,
+          "key": "package-quantity",
+          "name": { "en_US": "Package Quantity" },
+          "required": true,
+          "skuContributor": true
+        }
+      }
+    }
+  }
+}

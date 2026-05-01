@@ -1,0 +1,16 @@
+{
+  "entity": "Shipment",
+  "rest": {
+    "path": "/o/headless-commerce-admin-shipment/v1.0/shipments/by-externalReferenceCode/{erc}/items",
+    "response": {
+      "items": [
+        {
+          "externalReferenceCode": "3160fe51-6c9b-67d2-0f57-b94b1626c333",
+          "orderItemExternalReferenceCode": "53d6ff28-5524-455d-0afd-1e2d66f0f436",
+          "shipmentExternalReferenceCode": "1fb4ac3a-1ce2-9d5a-1a1c-589560b6db51",
+          "warehouseExternalReferenceCode": "380RI2021"
+        }
+      ]
+    }
+  }
+}

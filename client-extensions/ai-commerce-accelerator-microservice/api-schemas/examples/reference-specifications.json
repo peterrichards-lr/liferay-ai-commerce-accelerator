@@ -1,0 +1,30 @@
+{
+  "items": [
+    {
+      "description": {},
+      "externalReferenceCode": "b9d6e67a-6cac-1e0d-4d03-c26e778d9c4f",
+      "facetable": true,
+      "id": 70075,
+      "key": "size",
+      "listTypeDefinitionId": 70082,
+      "listTypeDefinitionIds": [70082],
+      "optionCategory": {
+        "description": {
+          "en_US": "A specification group"
+        },
+        "externalReferenceCode": "93c04a7f-5817-d73f-243c-4fe6ceafc9eb",
+        "id": 70073,
+        "key": "specifications-group",
+        "priority": 0,
+        "title": {
+          "en_US": "Specifications Group"
+        }
+      },
+      "priority": 0,
+      "title": {
+        "en_US": "Size"
+      }
+    }
+  ],
+  "totalCount": 1
+}
