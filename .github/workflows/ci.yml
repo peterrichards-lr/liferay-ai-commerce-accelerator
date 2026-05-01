@@ -33,7 +33,7 @@ jobs:
         run: yarn test
 
       - name: Install Playwright Browsers
-        run: npx playwright install --with-deps
+        run: yarn playwright install
 
       - name: Run Smoke Tests
         run: yarn smoke
