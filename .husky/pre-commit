@@ -1,0 +1,11 @@
+# Prioritise project-local node if present (common in Maven/Gradle builds)
+if [ -d "./build/node/bin" ]; then
+  export PATH="$PWD/build/node/bin:$PATH"
+elif [ -d "../build/node/bin" ]; then
+  export PATH="$PWD/../build/node/bin:$PATH"
+fi
+
+# Load local huskyrc if it exists for user-specific PATH overrides
+[ -f ~/.huskyrc ] && . ~/.huskyrc
+
+npx lint-staged

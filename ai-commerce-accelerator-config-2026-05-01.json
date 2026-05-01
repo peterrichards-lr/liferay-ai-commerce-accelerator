@@ -1,0 +1,46 @@
+{
+  "liferayUrl": "http://localhost:8080",
+  "microserviceUrl": "http://localhost:3001",
+  "batchSize": 10,
+  "aiModel": "gpt-4o-mini",
+  "currencyCode": "USD",
+  "localeCode": "en-US",
+  "selectedLanguages": [
+    "en-US"
+  ],
+  "catalogId": 32693,
+  "channelId": 44207,
+  "generationConfig": {
+    "productCount": 10,
+    "accountCount": 10,
+    "orderCount": 50,
+    "categories": [
+      "Electronics"
+    ],
+    "generatePriceLists": true,
+    "generateBulkPricing": true,
+    "generateTierPricing": true,
+    "imageMode": "placeholder",
+    "imageWidth": 1024,
+    "imageHeight": 1024,
+    "imageQuality": "standard",
+    "imageStyle": "photographic",
+    "imageRatio": 100,
+    "customImageFile": null,
+    "generateSpecifications": true,
+    "generateSkuVariants": true,
+    "pdfMode": "placeholder",
+    "pdfRatio": 100,
+    "demoMode": true,
+    "inventoryMin": 0,
+    "inventoryMax": 1000,
+    "inventoryAssignmentRatio": 100,
+    "enableBackorders": true,
+    "backorderAssignmentRatio": 50,
+    "createWarehouses": true,
+    "reuseExistingWarehouses": true,
+    "warehouseCount": 5,
+    "customPDFFile": null
+  },
+  "exportedAt": "2026-05-01T13:17:36.312Z"
+}

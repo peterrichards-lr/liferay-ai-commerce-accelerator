@@ -1,0 +1,199 @@
+{
+  "timestamp": "2026-05-01T13:22:22.636Z",
+  "summary": {
+    "activeSessionId": null,
+    "products": {
+      "total": 10,
+      "completed": 10,
+      "errors": [],
+      "batches": {
+        "571": {
+          "completed": 10
+        },
+        "573": {
+          "completed": 10
+        }
+      }
+    },
+    "accounts": {
+      "total": 10,
+      "completed": 10,
+      "errors": [],
+      "batches": {
+        "572": {
+          "completed": 10
+        }
+      }
+    },
+    "orders": {
+      "total": 50,
+      "completed": 0,
+      "errors": [],
+      "batches": {}
+    },
+    "images": {
+      "expected": 10,
+      "total": 10,
+      "completed": 0,
+      "errors": [],
+      "batches": {}
+    },
+    "pdfs": {
+      "expected": 10,
+      "total": 10,
+      "completed": 0,
+      "errors": [],
+      "batches": {}
+    },
+    "warehouses": {
+      "total": 5,
+      "completed": 5,
+      "errors": [],
+      "batches": {
+        "570": {
+          "completed": 5
+        }
+      }
+    }
+  },
+  "batchErrors": [],
+  "activityLog": [
+    {
+      "id": "1777641716398-qxa0j",
+      "timestamp": "14:21:56",
+      "message": "Workflow failed: Workflow failed.",
+      "type": "error"
+    },
+    {
+      "id": "1777641716391-wde0l",
+      "timestamp": "14:21:56",
+      "message": "Batch completed: 573 (+10)",
+      "type": "success"
+    },
+    {
+      "id": "1777641714309-upsrt",
+      "timestamp": "14:21:54",
+      "message": "Step started: accounts",
+      "type": "info"
+    },
+    {
+      "id": "1777641714302-gvy9b",
+      "timestamp": "14:21:54",
+      "message": "Batch completed: 572 (+10)",
+      "type": "success"
+    },
+    {
+      "id": "1777641712218-rwou7",
+      "timestamp": "14:21:52",
+      "message": "Step started: products",
+      "type": "info"
+    },
+    {
+      "id": "1777641707839-lvy00",
+      "timestamp": "14:21:47",
+      "message": "Step started: options",
+      "type": "info"
+    },
+    {
+      "id": "1777641707539-gk32t",
+      "timestamp": "14:21:47",
+      "message": "Step started: products",
+      "type": "info"
+    },
+    {
+      "id": "1777641707532-lv7j5",
+      "timestamp": "14:21:47",
+      "message": "Batch completed: 571 (+10)",
+      "type": "success"
+    },
+    {
+      "id": "1777641706420-ldrvd",
+      "timestamp": "14:21:46",
+      "message": "Step started: accounts",
+      "type": "info"
+    },
+    {
+      "id": "1777641705403-ds2af",
+      "timestamp": "14:21:45",
+      "message": "Step started: accounts",
+      "type": "info"
+    },
+    {
+      "id": "1777641705336-p9hky",
+      "timestamp": "14:21:45",
+      "message": "Step started: products",
+      "type": "info"
+    },
+    {
+      "id": "1777641704721-wxn46",
+      "timestamp": "14:21:44",
+      "message": "Step started: ensure-options",
+      "type": "info"
+    },
+    {
+      "id": "1777641704442-e2wqu",
+      "timestamp": "14:21:44",
+      "message": "Step started: ensure-specifications",
+      "type": "info"
+    },
+    {
+      "id": "1777641704094-0fws6",
+      "timestamp": "14:21:44",
+      "message": "Step started: ensure-specification-categories",
+      "type": "info"
+    },
+    {
+      "id": "1777641703968-8m575",
+      "timestamp": "14:21:43",
+      "message": "Step started: products",
+      "type": "info"
+    },
+    {
+      "id": "1777641703742-kp784",
+      "timestamp": "14:21:43",
+      "message": "Step started: link-warehouse-channels",
+      "type": "info"
+    },
+    {
+      "id": "1777641703612-dr8oa",
+      "timestamp": "14:21:43",
+      "message": "Step started: warehouses",
+      "type": "info"
+    },
+    {
+      "id": "1777641703556-lagsw",
+      "timestamp": "14:21:43",
+      "message": "Batch completed: 570 (+5)",
+      "type": "success"
+    },
+    {
+      "id": "1777641703022-56heb",
+      "timestamp": "14:21:43",
+      "message": "Step started: accounts",
+      "type": "info"
+    },
+    {
+      "id": "1777641702786-urjwf",
+      "timestamp": "14:21:42",
+      "message": "Step started: warehouses",
+      "type": "info"
+    },
+    {
+      "id": "1777641702783-j2ate",
+      "timestamp": "14:21:42",
+      "message": "✓ Workflow submitted successfully. Session ID: AICA-SESSION-1777641702778-569d5f4e",
+      "type": "success"
+    },
+    {
+      "id": "1777641702745-5elm0",
+      "timestamp": "14:21:42",
+      "message": "Submitting generation workflow: 10 products, 10 accounts, 50 orders",
+      "type": "info"
+    }
+  ],
+  "webSocketStatus": "connected",
+  "lastRun": {
+    "lastUpdateTime": 1777641716395,
+    "displayElapsedMs": 13656
+  }
+}
