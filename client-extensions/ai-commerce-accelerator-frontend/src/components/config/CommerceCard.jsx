@@ -55,15 +55,25 @@ export default function CommerceCard({
   ]);
 
   useEffect(() => {
-    if (!connected) return;
-    if (!config.catalogId && catalogs.length === 1) {
+    if (!connected || catalogs.length === 0) return;
+
+    const isCurrentValid = catalogs.some(
+      (c) => Number(c.id) === Number(config.catalogId)
+    );
+
+    if (!isCurrentValid || (!config.catalogId && catalogs.length === 1)) {
       onSelectCatalog?.(Number(catalogs[0].id));
     }
   }, [connected, catalogs, config.catalogId, onSelectCatalog]);
 
   useEffect(() => {
-    if (!connected) return;
-    if (!config.channelId && channels.length === 1) {
+    if (!connected || channels.length === 0) return;
+
+    const isCurrentValid = channels.some(
+      (c) => Number(c.id) === Number(config.channelId)
+    );
+
+    if (!isCurrentValid || (!config.channelId && channels.length === 1)) {
       onSelectChannel?.(Number(channels[0].id));
     }
   }, [connected, channels, config.channelId, onSelectChannel]);
@@ -92,17 +102,32 @@ export default function CommerceCard({
               id="catalogId"
               aria-label="Catalog"
               value={config.catalogId || ''}
-              disabled={disabled}
+              disabled={disabled || catalogs.length === 0}
               onChange={(e) => {
                 const id = Number(e.target.value) || null;
                 onSelectCatalog?.(id);
               }}
             >
-              <ClaySelect.Option value="">Select a catalog…</ClaySelect.Option>
-              {catalogs.map((c) => (
-                <ClaySelect.Option key={c.id} value={c.id} label={c.name} />
-              ))}
+              {catalogs.length === 0 ? (
+                <ClaySelect.Option value="" label="No catalogs found" />
+              ) : (
+                <>
+                  <ClaySelect.Option
+                    value=""
+                    label="Select a catalog…"
+                  />
+                  {catalogs.map((c) => (
+                    <ClaySelect.Option key={c.id} value={c.id} label={c.name} />
+                  ))}
+                </>
+              )}
             </ClaySelect>
+            {connected && catalogs.length === 0 && (
+              <small className="text-danger d-block mt-1">
+                No catalogs found. Please ensure you have at least one Catalog
+                created in Liferay.
+              </small>
+            )}
             <FieldError errors={errors.catalogId} />
           </ClayForm.Group>
 
@@ -114,17 +139,32 @@ export default function CommerceCard({
               id="channelId"
               aria-label="Channel"
               value={config.channelId || ''}
-              disabled={disabled}
+              disabled={disabled || channels.length === 0}
               onChange={(e) => {
                 const id = Number(e.target.value) || null;
                 onSelectChannel?.(id);
               }}
             >
-              <ClaySelect.Option value="">Select a channel…</ClaySelect.Option>
-              {channels.map((c) => (
-                <ClaySelect.Option key={c.id} value={c.id} label={c.name} />
-              ))}
+              {channels.length === 0 ? (
+                <ClaySelect.Option value="" label="No channels found" />
+              ) : (
+                <>
+                  <ClaySelect.Option
+                    value=""
+                    label="Select a channel…"
+                  />
+                  {channels.map((c) => (
+                    <ClaySelect.Option key={c.id} value={c.id} label={c.name} />
+                  ))}
+                </>
+              )}
             </ClaySelect>
+            {connected && channels.length === 0 && (
+              <small className="text-danger d-block mt-1">
+                No channels found. Please ensure you have at least one Channel
+                created in Liferay.
+              </small>
+            )}
             <FieldError errors={errors.channelId} />
           </ClayForm.Group>
 

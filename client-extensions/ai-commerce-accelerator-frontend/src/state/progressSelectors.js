@@ -1,5 +1,8 @@
-export const getProgressPercentage = (completed = 0, total = 0) =>
-  total > 0 ? (completed / total) * 100 : 0;
+export const getProgressPercentage = (completed = 0, total = 0) => {
+  if (total > 0) return (completed / total) * 100;
+  if (completed > 0) return 100;
+  return 0;
+};
 
 export const clampCompleted = (completed = 0, total = 0) =>
   Math.min(Math.max(completed, 0), Math.max(total, 0));

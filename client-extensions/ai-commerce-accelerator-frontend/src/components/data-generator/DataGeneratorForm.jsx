@@ -257,21 +257,24 @@ function DataGeneratorForm({
           </div>
         </div>
 
-        <div className="config-row mt-4">
-          <div className="config-col-narrow">
-            <h6 className="config-section-title">Target Categories</h6>
-            <CategoriesSelector
-              availableCategories={availableCategories}
-              selectedCategories={generationConfig.categories}
-              onChange={handleCategoryChange}
-              disabled={lockFields}
-              error={hasErr(validationErrors, 'categories')}
-            />
-            {hasErr(validationErrors, 'categories') && (
-              <FieldError errors={validationErrors.categories} />
-            )}
-          </div>
-          <div className="config-col-wide">
+        <div className="config-section categories-top-section mt-4">
+          <h6 className="config-section-title">Target Categories</h6>
+          <CategoriesSelector
+            availableCategories={availableCategories}
+            selectedCategories={generationConfig.categories}
+            onToggleCategory={handleCategoryChange}
+            disabled={lockFields}
+            error={hasErr(validationErrors, 'categories')}
+          />
+          {hasErr(validationErrors, 'categories') && (
+            <FieldError errors={validationErrors.categories} />
+          )}
+        </div>
+
+        <div className="divider my-4"></div>
+
+        <div className="config-row">
+          <div className="config-col-wide" style={{ gridColumn: 'span 2' }}>
             <div className="generator-main-settings">
               <div className="config-section">
                 <ProductToggleSet

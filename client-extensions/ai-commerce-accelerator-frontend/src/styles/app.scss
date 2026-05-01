@@ -1105,4 +1105,19 @@ liferay-ai-commerce-accelerator-frontend {
   .error-icon {
     color: #dc3545;
   }
+
+  .categories-top-section {
+    background: #f8f9fa;
+    padding: 1.25rem;
+    border-radius: 8px;
+    border: 1px solid #dee2e6;
+    margin-bottom: 1.5rem;
+
+    .categories-title {
+      font-weight: 600;
+      color: #495057;
+      margin-bottom: 0.75rem;
+      display: block;
+    }
+  }
 }

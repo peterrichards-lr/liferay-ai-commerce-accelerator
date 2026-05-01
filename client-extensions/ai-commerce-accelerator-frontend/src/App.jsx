@@ -356,17 +356,25 @@ export function AppUI() {
         const fetched = await categories();
         if (mountedRef.current) {
           setAvailableCategories(fetched);
+
           // Set first category as default if none selected
-          setGenerationConfig((prevConfig) => {
-            if (
-              fetched.length > 0 &&
-              (prevConfig.categories == null ||
-                prevConfig.categories.length === 0)
-            ) {
-              return { ...prevConfig, categories: [fetched[0].key] };
-            }
-            return prevConfig;
-          });
+          if (fetched.length > 0) {
+            setGenerationConfig((prevConfig) => {
+              if (
+                !prevConfig.categories ||
+                prevConfig.categories.length === 0
+              ) {
+                const firstCategory = fetched[0];
+                const firstCategoryKey =
+                  typeof firstCategory === 'string'
+                    ? firstCategory
+                    : firstCategory.key;
+
+                return { ...prevConfig, categories: [firstCategoryKey] };
+              }
+              return prevConfig;
+            });
+          }
         }
       } catch (err) {
         addLog('Failed to load categories: ' + err.message, 'error');

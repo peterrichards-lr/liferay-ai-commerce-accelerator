@@ -10,8 +10,15 @@ export default function CategoriesSelector({
   invalid,
   showNote,
 }) {
+  const getCategoryKey = (c) => (typeof c === 'string' ? c : c.key);
+  const getCategoryLabel = (c) =>
+    typeof c === 'string' ? c : c.title || c.name || c.key;
+
   const ids = useMemo(
-    () => availableCategories.map((c) => `dataGeneration_category-${c}`),
+    () =>
+      availableCategories.map(
+        (c) => `dataGeneration_category-${getCategoryKey(c)}`
+      ),
     [availableCategories]
   );
 
@@ -24,19 +31,24 @@ export default function CategoriesSelector({
         </small>
       )}
       <div className="categories-grid">
-        {availableCategories.map((category, index) => (
-          <div key={category} className="category-item">
-            <CheckboxField
-              id={ids[index]}
-              checked={selectedCategories.includes(category)}
-              onChange={(checked) => onToggleCategory(category, checked)}
-              disabled={disabled}
-              invalid={invalid}
-              label={category}
-              muted={disabled}
-            />
-          </div>
-        ))}
+        {availableCategories.map((category, index) => {
+          const key = getCategoryKey(category);
+          const label = getCategoryLabel(category);
+
+          return (
+            <div key={key} className="category-item">
+              <CheckboxField
+                id={ids[index]}
+                checked={selectedCategories.includes(key)}
+                onChange={(checked) => onToggleCategory(key, checked)}
+                disabled={disabled}
+                invalid={invalid}
+                label={label}
+                muted={disabled}
+              />
+            </div>
+          );
+        })}
         {invalid && <FieldError errors={invalid} />}
       </div>
     </div>

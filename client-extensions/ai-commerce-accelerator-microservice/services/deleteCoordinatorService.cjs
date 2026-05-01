@@ -128,10 +128,9 @@ class DeleteCoordinatorService extends BaseGenerator {
 
     const isAICA = (erc) => {
       if (!erc) return false;
-      // Match AICA prefix OR standard Liferay UUID pattern
-      const uuidRegex =
-        /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-      return erc.startsWith('AICA-') || uuidRegex.test(erc);
+      // HARDENING: Only match explicit AICA prefix.
+      // UUID-based matching is too aggressive as many system entities use UUIDs.
+      return erc.startsWith('AICA-');
     };
 
     try {
@@ -143,6 +142,8 @@ class DeleteCoordinatorService extends BaseGenerator {
           { sessionId }
         );
         const allChannels = await this.liferay.getChannels(config);
+        // Ensure we NEVER include the current channel in a deletion manifest
+        // (though discovery here is only for finding child entities)
         activeChannels.push(...allChannels);
       } else if (channelId) {
         activeChannels.push({ id: channelId });

@@ -167,85 +167,91 @@ export default function useCommerceData({
     [channels, loadRootLists, buildPayload, getLanguages, getCurrencies]
   );
 
-  const selectChannel = async (channelId) => {
-    if (!channelId) {
-      setConfig((prev) => ({
-        ...prev,
-        channelId: null,
-        siteGroupId: null,
-        selectedLanguages: [],
-        currencyCode: '',
-      }));
-      setLanguages([]);
-      setCurrencies([]);
-      return;
-    }
-
-    const result = await loadChannelDependent(channelId);
-    if (!result) return;
-
-    const { chObj, langs } = result;
-
-    setConfig((prev) => {
-      const availableIds = new Set(langs.map((l) => l.id));
-
-      // Keep previous selected languages if they are still valid for the new channel
-      const filteredLangs = (prev.selectedLanguages || []).filter((id) =>
-        availableIds.has(id)
-      );
-
-      // If none of previous are valid, select default from new channel
-      let nextLangs = filteredLangs;
-      if (filteredLangs.length === 0) {
-        nextLangs = langs.filter((l) => l.markedAsDefault).map((l) => l.id);
+  const selectChannel = useCallback(
+    async (channelId) => {
+      if (!channelId) {
+        setConfig((prev) => ({
+          ...prev,
+          channelId: null,
+          siteGroupId: null,
+          selectedLanguages: [],
+          currencyCode: '',
+        }));
+        setLanguages([]);
+        setCurrencies([]);
+        return;
       }
 
-      // If still nothing, and we have languages, just pick the first
-      if (nextLangs.length === 0 && langs.length > 0) {
-        nextLangs = [langs[0].id];
-      }
+      const result = await loadChannelDependent(channelId);
+      if (!result) return;
 
-      return {
-        ...prev,
-        channelId: chObj.id,
-        siteGroupId: chObj.siteGroupId,
-        selectedLanguages: nextLangs,
-        currencyCode: chObj.currencyCode || prev.currencyCode || '',
-      };
-    });
-  };
+      const { chObj, langs } = result;
 
-  const selectCatalog = (catalogId) => {
-    if (!catalogId) {
-      setConfig((prev) => ({ ...prev, catalogId: null }));
-      return;
-    }
+      setConfig((prev) => {
+        const availableIds = new Set(langs.map((l) => l.id));
 
-    const catObj = catalogs.find((c) => String(c.id) === String(catalogId));
-    if (!catObj) return;
-
-    setConfig((prev) => {
-      const nextConfig = { ...prev, catalogId: catObj.id };
-
-      // If we have a default language for the catalog, and it's available in the channel's languages
-      if (catObj.defaultLanguageId) {
-        const isAvailable = languages.some(
-          (l) => l.id === catObj.defaultLanguageId
+        // Keep previous selected languages if they are still valid for the new channel
+        const filteredLangs = (prev.selectedLanguages || []).filter((id) =>
+          availableIds.has(id)
         );
-        if (
-          isAvailable &&
-          !prev.selectedLanguages?.includes(catObj.defaultLanguageId)
-        ) {
-          nextConfig.selectedLanguages = [
-            ...(prev.selectedLanguages || []),
-            catObj.defaultLanguageId,
-          ];
+
+        // If none of previous are valid, select default from new channel
+        let nextLangs = filteredLangs;
+        if (filteredLangs.length === 0) {
+          nextLangs = langs.filter((l) => l.markedAsDefault).map((l) => l.id);
         }
+
+        // If still nothing, and we have languages, just pick the first
+        if (nextLangs.length === 0 && langs.length > 0) {
+          nextLangs = [langs[0].id];
+        }
+
+        return {
+          ...prev,
+          channelId: chObj.id,
+          siteGroupId: chObj.siteGroupId,
+          selectedLanguages: nextLangs,
+          currencyCode: chObj.currencyCode || prev.currencyCode || '',
+        };
+      });
+    },
+    [loadChannelDependent, setConfig]
+  );
+
+  const selectCatalog = useCallback(
+    (catalogId) => {
+      if (!catalogId) {
+        setConfig((prev) => ({ ...prev, catalogId: null }));
+        return;
       }
 
-      return nextConfig;
-    });
-  };
+      const catObj = catalogs.find((c) => String(c.id) === String(catalogId));
+      if (!catObj) return;
+
+      setConfig((prev) => {
+        const nextConfig = { ...prev, catalogId: catObj.id };
+
+        // If we have a default language for the catalog, and it's available in the channel's languages
+        if (catObj.defaultLanguageId) {
+          const isAvailable = languages.some(
+            (l) => l.id === catObj.defaultLanguageId
+          );
+          if (
+            isAvailable &&
+            !prev.selectedLanguages?.includes(catObj.defaultLanguageId)
+          ) {
+            nextConfig.selectedLanguages = [
+              ...(prev.selectedLanguages || []),
+              catObj.defaultLanguageId,
+            ];
+          }
+        }
+
+        return nextConfig;
+      });
+    },
+    [catalogs, languages, setConfig]
+  );
 
   const getCategories = useCallback(
     (payload, { force = false } = {}) => {

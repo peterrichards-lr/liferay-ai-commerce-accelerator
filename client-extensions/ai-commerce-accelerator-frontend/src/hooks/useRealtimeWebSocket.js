@@ -244,11 +244,16 @@ export default function useRealtimeWebSocket({
             }
           } else if (scope === WS_SCOPE.STEP) {
             currentOnLog?.(`Step started: ${entityType}`, 'info');
-            if (currentOnProgress && entityType) {
+            if (
+              currentOnProgress &&
+              entityType &&
+              typeof totalCount === 'number' &&
+              totalCount > 0
+            ) {
               currentOnProgress({
                 type: 'SET_TOTAL',
                 entity: entityType,
-                total: totalCount || 0,
+                total: totalCount,
               });
             }
           } else if (scope === WS_SCOPE.BATCH) {
