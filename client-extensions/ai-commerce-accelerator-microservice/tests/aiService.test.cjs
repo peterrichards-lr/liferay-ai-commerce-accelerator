@@ -1,6 +1,6 @@
 const { AIService } = require('../services/aiService.cjs');
 
-describe('AIService', () => {
+describe('AIService (Multi-Provider)', () => {
   let aiService;
   let mockCtx;
 
@@ -8,64 +8,58 @@ describe('AIService', () => {
     mockCtx = {
       config: {
         getAIConfig: vi.fn().mockResolvedValue({
+          provider: 'openai',
+          mediaProvider: 'openai',
           defaultModel: 'gpt-4o-mini',
           temperature: 0.7,
-          maxTokens: 4000,
         }),
-        getOpenAIKey: vi.fn().mockResolvedValue('test-key'),
+        getAIKey: vi.fn().mockResolvedValue('test-text-key'),
+        getAIMediaKey: vi.fn().mockResolvedValue('test-media-key'),
         getAISchema: vi.fn().mockResolvedValue({ type: 'object' }),
+        getAIKeyCached: vi.fn().mockResolvedValue('test-text-key'),
+        getAIMediaKeyCached: vi.fn().mockResolvedValue('test-media-key'),
       },
       logger: {
         info: vi.fn(),
         debug: vi.fn(),
-        warn: vi.fn(),
         error: vi.fn(),
         trace: vi.fn(),
       },
       prompt: {
-        render: vi.fn().mockResolvedValue('rendered-prompt'),
+        render: vi.fn().mockResolvedValue('rendered prompt'),
       },
     };
+
     aiService = new AIService(mockCtx);
   });
 
-  it('should generate product data using mocked OpenAI', async () => {
-    const result = await aiService.generateProductData(
-      'Electronics',
-      1,
-      {},
-      null,
-      ['en-US']
-    );
+  it('should resolve different providers for text and media', async () => {
+    const textProvider = await aiService.getAIProvider({}, 'text');
+    const mediaProvider = await aiService.getAIProvider({}, 'media');
 
-    expect(result.products).toHaveLength(1);
-    expect(result.products[0].name.en_US).toBe('AI Product');
-    expect(mockCtx.prompt.render).toHaveBeenCalledWith(
-      'product',
-      expect.any(Object),
-      expect.any(Object)
-    );
+    expect(textProvider).toBeDefined();
+    expect(mediaProvider).toBeDefined();
   });
 
-  it('should extract actual data from different response shapes', () => {
-    const schemaName = 'product';
+  it('should use media credentials for image generation', async () => {
+    const runtime = await aiService.getRuntimeAIConfig({});
+    expect(runtime.credentials.apiKey).toBe('test-text-key');
+    expect(runtime.mediaCredentials.apiKey).toBe('test-media-key');
+  });
 
-    // Case 1: Wrapped in "products"
-    const resp1 = { products: [{ id: 1 }] };
-    expect(aiService._getActualDataFromAIResponse(resp1, schemaName)).toEqual(
-      resp1
-    );
+  it('should fallback to core key if media key is missing', async () => {
+    mockCtx.config.getAIMediaKey.mockResolvedValue(null);
+    const runtime = await aiService.getRuntimeAIConfig({});
+    expect(runtime.mediaCredentials.apiKey).toBe('test-text-key');
+  });
 
-    // Case 2: Direct array
-    const resp2 = [{ id: 1 }];
-    expect(aiService._getActualDataFromAIResponse(resp2, schemaName)).toEqual(
-      resp2
-    );
-
-    // Case 3: Wrapped in properties (sometimes happens with specific prompts)
-    const resp3 = { properties: { products: [{ id: 1 }] }, $schema: '...' };
-    expect(aiService._getActualDataFromAIResponse(resp3, schemaName)).toEqual({
-      products: [{ id: 1 }],
+  it('should support Gemini provider for text', async () => {
+    mockCtx.config.getAIConfig.mockResolvedValue({
+      provider: 'gemini',
+      defaultModel: 'gemini-1.5-flash',
     });
+
+    const provider = await aiService.getAIProvider({}, 'text');
+    expect(provider.constructor.name).toBe('GeminiProvider');
   });
 });

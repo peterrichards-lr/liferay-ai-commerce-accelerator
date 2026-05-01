@@ -425,7 +425,7 @@ class MediaGenerator {
   }
 
   async createPdfs(config, products, options) {
-    const { logger, liferay, progress } = this.ctx;
+    const { logger, liferay, progress, ai } = this.ctx;
     const { sessionId, correlationId: optionsCID } = options;
     const correlationId =
       optionsCID || config?.correlationId || this.ctx?.correlationId || '∅';
@@ -474,17 +474,16 @@ class MediaGenerator {
         let pdfBase64;
 
         if (pdfMode === 'ai' && !options.demoMode) {
-          const pdfData = {
-            title: `${product.name.en_US || product.name} Manual`,
-            sections: [
-              {
-                title: 'Overview',
-                content: product.description.en_US || product.description,
-              },
-            ],
-          };
+          const pdfContent = await ai.generatePDFContent(
+            product,
+            product.categoryName || options.categories?.[0] || 'Generic',
+            config,
+            options.aiModel,
+            options
+          );
+
           const pdfBuffer = await this.generateProductPDF(
-            pdfData,
+            pdfContent,
             sku,
             config,
             sessionId
