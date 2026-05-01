@@ -1,7 +1,6 @@
 const { LiferayService } = require('../services/liferay/index.cjs');
 const OAuthService = require('../services/liferay/oauth.cjs');
 const ContractValidator = require('../services/contractValidator.cjs');
-const { ENV } = require('../utils/constants.cjs');
 
 describe('LiferayService', () => {
   let liferayService;

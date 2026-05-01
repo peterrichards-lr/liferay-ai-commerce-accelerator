@@ -1,9 +1,8 @@
-const { PATH } = require('../../../utils/liferayPaths.cjs');
-const { asItems, asCount } = require('../../../utils/liferayUtils.cjs');
+const { asItems } = require('../../../utils/liferayUtils.cjs');
 
 module.exports = async function deleteProductOptions(
   { liferay, logger, persistence },
-  { config, options, session, sessionId, batchERC, items }
+  { config, _options, _session, _sessionId, batchERC, items }
 ) {
   logger.info('Starting explicit removal of product-option associations');
 

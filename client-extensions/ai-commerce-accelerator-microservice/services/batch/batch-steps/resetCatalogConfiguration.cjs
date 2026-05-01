@@ -1,9 +1,6 @@
-const { createERC } = require('../../../utils/misc.cjs');
-const { ERC_PREFIX } = require('../../../utils/constants.cjs');
-
 module.exports = async function resetCatalogConfiguration(
-  { liferay, logger, persistence },
-  { config, options, session, sessionId }
+  { liferay, logger, _persistence },
+  { config, _options, session, sessionId }
 ) {
   const catalogId = parseInt(config.catalogId, 10);
   logger.info(`Resetting catalog configuration for catalog ${catalogId}`, {

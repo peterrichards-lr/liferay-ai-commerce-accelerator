@@ -45,7 +45,9 @@ class PromptService {
     if (rec.expiresAt && rec.expiresAt <= Date.now()) {
       try {
         this.cache.delete?.(key);
-      } catch {}
+      } catch {
+        // Ignore error
+      }
       return null;
     }
     return rec;
@@ -59,7 +61,9 @@ class PromptService {
     } catch {
       try {
         this.cache.set(key, { ...value, expiresAt });
-      } catch {}
+      } catch {
+        // Ignore error
+      }
     }
   }
 

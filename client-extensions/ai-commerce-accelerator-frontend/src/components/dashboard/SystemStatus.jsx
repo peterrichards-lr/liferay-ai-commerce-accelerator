@@ -19,11 +19,11 @@ function StatusBadge({ icon, label, status, sublabel }) {
   return (
     <div className="status-badge-item">
       <div className={`status-badge-icon ${statusClass}`}>
-        <ClayIcon symbol={icon} />
+        <ClayIcon symbol={icon} className="lexicon-icon" />
       </div>
       <div className="status-badge-content">
         <div className="status-badge-label">{label}</div>
-        <div className="status-badge-status">
+        <div className="status-badge-status text-truncate">
           {sublabel ? `${sublabel} (${status})` : status}
         </div>
       </div>
@@ -41,43 +41,51 @@ function SystemStatus({
 }) {
   return (
     <div className="system-status-strip mb-4">
-      <StatusBadge
-        icon="globe"
-        label="Liferay DXP"
-        status={liferayStatus ? 'connected' : 'error'}
-      />
+      <div className="status-section">
+        <StatusBadge
+          icon="globe"
+          label="Liferay DXP"
+          status={liferayStatus ? 'connected' : 'error'}
+        />
+      </div>
 
       <div className="status-divider" />
 
-      <button
-        className="status-btn"
-        onClick={onReconnect}
-        title="Click to reconnect WebSocket"
-      >
-        <StatusBadge icon="api" label="Live Monitor" status={wsStatus} />
-      </button>
+      <div className="status-section">
+        <button
+          className="status-btn"
+          onClick={onReconnect}
+          title="Click to reconnect WebSocket"
+        >
+          <StatusBadge icon="api" label="Live Monitor" status={wsStatus} />
+        </button>
+      </div>
 
       <div className="status-divider" />
 
-      <StatusBadge
-        icon="magic"
-        label="AI Text"
-        status="active"
-        sublabel={`${textProvider?.toUpperCase()} / ${textModel}`}
-      />
+      <div className="status-section">
+        <StatusBadge
+          icon="magic"
+          label="AI Text"
+          status="active"
+          sublabel={`${textProvider?.toUpperCase() || 'OPENAI'} / ${textModel || 'gpt-4o'}`}
+        />
+      </div>
 
       <div className="status-divider" />
 
-      <StatusBadge
-        icon="picture"
-        label="AI Media"
-        status="active"
-        sublabel={
-          mediaProvider === 'inherit'
-            ? textProvider?.toUpperCase()
-            : mediaProvider?.toUpperCase()
-        }
-      />
+      <div className="status-section">
+        <StatusBadge
+          icon="picture"
+          label="AI Media"
+          status="active"
+          sublabel={
+            mediaProvider === 'inherit'
+              ? textProvider?.toUpperCase() || 'OPENAI'
+              : mediaProvider?.toUpperCase() || 'OPENAI'
+          }
+        />
+      </div>
     </div>
   );
 }

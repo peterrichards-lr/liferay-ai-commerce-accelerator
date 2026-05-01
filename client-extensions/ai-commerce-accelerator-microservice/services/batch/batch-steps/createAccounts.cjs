@@ -1,13 +1,14 @@
-const { createERC } = require('../../../utils/misc.cjs');
-const { ERC_PREFIX } = require('../../../utils/constants.cjs');
-
 module.exports = async function createAccounts(
   { liferay },
-  { config, options, session, callbackUrl, batchERC, accounts, sessionId }
+  { config, _options, session, callbackUrl, batchERC, accounts, sessionId }
 ) {
   const accountsForBatch = accounts.map((account) => {
-    const { billingAddress, shippingAddress, headOfficeAddress, ...rest } =
-      account;
+    const {
+      billingAddress: _billingAddress,
+      shippingAddress: _shippingAddress,
+      headOfficeAddress: _headOfficeAddress,
+      ...rest
+    } = account;
     return rest;
   });
 

@@ -141,7 +141,7 @@ class LiferayService {
     config,
     {
       channelId: _channelId,
-      pageSize = 200,
+      _pageSize = 200,
       fields: _fields = 'id',
       filter: providedFilter,
       search,
@@ -1724,7 +1724,7 @@ class LiferayService {
           if (account) {
             resolvedMap.set(erc, account);
           }
-        } catch (err) {
+        } catch (_err) {
           // Ignore individual REST failures
         }
       }

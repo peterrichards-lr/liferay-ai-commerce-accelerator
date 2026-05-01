@@ -2,7 +2,7 @@ const liferayConfig = require('../config/liferayConfig.cjs');
 const logger = require('./logger.cjs');
 
 class ErrorHandler {
-  static handleError(error, req, res, next) {
+  static handleError(error, req, res, _) {
     logger.error('Error occurred:', error);
 
     let status = 500;
@@ -182,7 +182,7 @@ const errorMiddleware = (error, req, res, next) => {
   ErrorHandler.handleError(error, req, res, next);
 };
 
-ErrorHandler.handleError = (error, req, res, next) => {
+ErrorHandler.handleError = (error, req, res, _) => {
   let statusCode = 500;
   if (error.statusCode) {
     statusCode = error.statusCode;

@@ -1,0 +1,18 @@
+{
+  "openapi": "3.0.1",
+  "info": {
+    "title": "Headless Commerce Admin Order",
+    "version": "v1.0"
+  },
+  "components": {
+    "schemas": {
+      "Order": {
+        "properties": {
+          "id": { "type": "integer" },
+          "externalReferenceCode": { "type": "string" }
+        },
+        "required": ["externalReferenceCode"]
+      }
+    }
+  }
+}
