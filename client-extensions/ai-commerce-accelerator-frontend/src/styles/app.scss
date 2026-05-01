@@ -48,13 +48,23 @@ liferay-ai-commerce-accelerator-frontend {
   }
 
   @keyframes confirm-fade-in {
-    from { opacity: 0; }
-    to { opacity: 1; }
+    from {
+      opacity: 0;
+    }
+    to {
+      opacity: 1;
+    }
   }
 
   @keyframes confirm-pop {
-    from { opacity: 0; transform: scale(0.96); }
-    to { opacity: 1; transform: scale(1); }
+    from {
+      opacity: 0;
+      transform: scale(0.96);
+    }
+    to {
+      opacity: 1;
+      transform: scale(1);
+    }
   }
 
   .dashboard {
@@ -92,7 +102,9 @@ liferay-ai-commerce-accelerator-frontend {
       cursor: pointer;
       border-radius: 8px;
       transition: background 0.2s;
-      &:hover { background: rgba(0, 0, 0, 0.04); }
+      &:hover {
+        background: rgba(0, 0, 0, 0.04);
+      }
     }
 
     .status-badge-item {
@@ -109,17 +121,30 @@ liferay-ai-commerce-accelerator-frontend {
         justify-content: center;
         flex-shrink: 0;
 
-        i, .lexicon-icon {
+        i,
+        .lexicon-icon {
           width: 16px;
           height: 16px;
           margin-right: 0;
           display: block;
         }
 
-        &.label-success { background: #e6f4ea; color: #1e8e3e; }
-        &.label-warning { background: #fef7e0; color: #f9ab00; }
-        &.label-danger { background: #fce8e6; color: #d93025; }
-        &.label-secondary { background: #f1f3f4; color: #5f6368; }
+        &.label-success {
+          background: #e6f4ea;
+          color: #1e8e3e;
+        }
+        &.label-warning {
+          background: #fef7e0;
+          color: #f9ab00;
+        }
+        &.label-danger {
+          background: #fce8e6;
+          color: #d93025;
+        }
+        &.label-secondary {
+          background: #f1f3f4;
+          color: #5f6368;
+        }
       }
 
       .status-badge-content {
@@ -184,8 +209,17 @@ liferay-ai-commerce-accelerator-frontend {
     .gauge-text {
       position: absolute;
       text-align: center;
-      .gauge-value { font-size: 1.25rem; font-weight: 800; color: #202124; display: block; }
-      .gauge-label { font-size: 0.55rem; text-transform: uppercase; color: #70757a; }
+      .gauge-value {
+        font-size: 1.25rem;
+        font-weight: 800;
+        color: #202124;
+        display: block;
+      }
+      .gauge-label {
+        font-size: 0.55rem;
+        text-transform: uppercase;
+        color: #70757a;
+      }
     }
   }
 
@@ -195,7 +229,7 @@ liferay-ai-commerce-accelerator-frontend {
     border-radius: 10px;
     padding: 1.25rem;
     margin-bottom: 1.5rem;
-    box-shadow: inset 0 1px 2px rgba(0,0,0,0.02);
+    box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.02);
 
     .config-counts-row {
       display: grid;
@@ -223,8 +257,12 @@ liferay-ai-commerce-accelerator-frontend {
 
       .settings-column {
         padding: 0 1.5rem;
-        &:first-child { padding-left: 0; }
-        &.border-left { border-left: 1px solid #e9ecef !important; }
+        &:first-child {
+          padding-left: 0;
+        }
+        &.border-left {
+          border-left: 1px solid #e9ecef !important;
+        }
       }
     }
   }
@@ -239,7 +277,9 @@ liferay-ai-commerce-accelerator-frontend {
     display: flex;
     align-items: center;
     gap: 0.5rem;
-    i { color: #0b5fff; }
+    i {
+      color: #0b5fff;
+    }
   }
 
   .divider {
@@ -261,9 +301,14 @@ liferay-ai-commerce-accelerator-frontend {
     border-radius: 12px;
     padding: 1.25rem;
     box-shadow: 0 2px 6px rgba(0, 0, 0, 0.02);
-    transition: transform 0.2s, box-shadow 0.2s;
+    transition:
+      transform 0.2s,
+      box-shadow 0.2s;
     height: 100%;
-    &:hover { transform: translateY(-2px); box-shadow: 0 6px 15px rgba(0, 0, 0, 0.06); }
+    &:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 6px 15px rgba(0, 0, 0, 0.06);
+    }
 
     .group-header {
       display: flex;
@@ -272,8 +317,17 @@ liferay-ai-commerce-accelerator-frontend {
       margin-bottom: 1.25rem;
       padding-bottom: 0.75rem;
       border-bottom: 1px solid #f1f3f4;
-      .group-icon { color: #0b5fff; font-size: 1.1rem; }
-      .group-title { margin: 0; font-size: 0.85rem; font-weight: 700; text-transform: uppercase; color: #5f6368; }
+      .group-icon {
+        color: #0b5fff;
+        font-size: 1.1rem;
+      }
+      .group-title {
+        margin: 0;
+        font-size: 0.85rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        color: #5f6368;
+      }
     }
 
     .group-body {
@@ -289,7 +343,9 @@ liferay-ai-commerce-accelerator-frontend {
     border-radius: 10px;
     background: #fcfdfe;
     transition: border-color 0.2s;
-    &:hover { border-color: #0b5fff; }
+    &:hover {
+      border-color: #0b5fff;
+    }
   }
 
   .visual-asset-controls {
@@ -303,44 +359,122 @@ liferay-ai-commerce-accelerator-frontend {
       border: 1px solid #e9ecef;
       border-radius: 10px;
       padding: 0.75rem;
-      .asset-toggle-header { display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.5rem; font-weight: 600; font-size: 0.75rem; color: #5f6368; i { color: #0b5fff; } }
-      .asset-toggle-options { display: flex; background: #f1f3f4; padding: 2px; border-radius: 6px; gap: 2px; }
+      .asset-toggle-header {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        margin-bottom: 0.5rem;
+        font-weight: 600;
+        font-size: 0.75rem;
+        color: #5f6368;
+        i {
+          color: #0b5fff;
+        }
+      }
+      .asset-toggle-options {
+        display: flex;
+        background: #f1f3f4;
+        padding: 2px;
+        border-radius: 6px;
+        gap: 2px;
+      }
       .asset-opt-btn {
-        flex: 1; border: none; background: transparent; padding: 4px 1px; border-radius: 5px; font-size: 0.65rem; font-weight: 700; color: #5f6368;
-        &.active { background: white; color: #0b5fff; box-shadow: 0 1px 2px rgba(0,0,0,0.1); }
+        flex: 1;
+        border: none;
+        background: transparent;
+        padding: 4px 1px;
+        border-radius: 5px;
+        font-size: 0.65rem;
+        font-weight: 700;
+        color: #5f6368;
+        &.active {
+          background: white;
+          color: #0b5fff;
+          box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+        }
       }
     }
     .asset-settings-panel {
-      background: #f8f9fa; padding: 0.75rem; border-radius: 8px; border: 1px solid #e9ecef;
-      label { font-size: 0.6rem; font-weight: 700; text-transform: uppercase; color: #70757a; margin-bottom: 0.25rem; display: block; }
+      background: #f8f9fa;
+      padding: 0.75rem;
+      border-radius: 8px;
+      border: 1px solid #e9ecef;
+      label {
+        font-size: 0.6rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        color: #70757a;
+        margin-bottom: 0.25rem;
+        display: block;
+      }
     }
   }
 
   @media (min-width: 992px) {
-    .col-lg-4 { position: sticky; top: 1.5rem; height: fit-content; }
+    .col-lg-4 {
+      position: sticky;
+      top: 1.5rem;
+      height: fit-content;
+    }
   }
 
   @media (max-width: 991px) {
     .generator-main-settings .settings-grid {
       grid-template-columns: 1fr;
-      .settings-column { padding: 1.5rem 0; &.border-left { border-left: none !important; border-top: 1px solid #e9ecef !important; } }
+      .settings-column {
+        padding: 1.5rem 0;
+        &.border-left {
+          border-left: none !important;
+          border-top: 1px solid #e9ecef !important;
+        }
+      }
     }
     .progress-monitor-grid-custom {
       grid-template-columns: 1fr;
     }
   }
 
-  .form-input-sm { padding: 0.375rem 0.5rem; font-size: 0.875rem; border-radius: 6px; }
+  .form-input-sm {
+    padding: 0.375rem 0.5rem;
+    font-size: 0.875rem;
+    border-radius: 6px;
+  }
 
   .cost-card {
-    background: #e6f4ea; border: 1px solid #ceead6; border-radius: 10px;
-    .cost-title { color: #1e8e3e; font-size: 0.85rem; font-weight: 700; text-transform: uppercase; }
-    .cost-amount { color: #1e8e3e; font-size: 1.5rem; font-weight: 800; }
+    background: #e6f4ea;
+    border: 1px solid #ceead6;
+    border-radius: 10px;
+    .cost-title {
+      color: #1e8e3e;
+      font-size: 0.85rem;
+      font-weight: 700;
+      text-transform: uppercase;
+    }
+    .cost-amount {
+      color: #1e8e3e;
+      font-size: 1.5rem;
+      font-weight: 800;
+    }
   }
 
   .submit-button {
-    border-radius: 12px; font-weight: 700; letter-spacing: 0.5px; text-transform: uppercase;
-    &.generate-mode { background: #0b5fff; color: white; &:hover { background: #004ecc; } }
-    &.demo-mode { background: #f9ab00; color: #202124; &:hover { background: #e39a00; } }
+    border-radius: 12px;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+    &.generate-mode {
+      background: #0b5fff;
+      color: white;
+      &:hover {
+        background: #004ecc;
+      }
+    }
+    &.demo-mode {
+      background: #f9ab00;
+      color: #202124;
+      &:hover {
+        background: #e39a00;
+      }
+    }
   }
 }
