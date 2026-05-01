@@ -85,7 +85,10 @@ module.exports = (ws) => {
   ctx.deleteCoordinator = new DeleteCoordinatorService(ctx);
 
   // Register generators with the master coordinator
-  ctx.workflowCoordinator.registerGenerator('warehouse', ctx.warehouseGenerator);
+  ctx.workflowCoordinator.registerGenerator(
+    'warehouse',
+    ctx.warehouseGenerator
+  );
   ctx.workflowCoordinator.registerGenerator('account', ctx.accountGenerator);
   ctx.workflowCoordinator.registerGenerator('order', ctx.orderGenerator);
   ctx.workflowCoordinator.registerGenerator('product', ctx.productGenerator);
@@ -99,7 +102,7 @@ module.exports = (ws) => {
   ctx.batchCallback.registerGenerator('delete', ctx.deleteCoordinator);
   ctx.batchCallback.registerGenerator('unified', ctx.workflowCoordinator);
 
-  // HARDENING: Verify that all registered generators have valid method handlers 
+  // HARDENING: Verify that all registered generators have valid method handlers
   // for their registered workflow steps. Throws at startup if mapping is broken.
   ctx.warehouseGenerator.verifySteps();
   ctx.accountGenerator.verifySteps();

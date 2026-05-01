@@ -7,7 +7,8 @@ module.exports = async function resetCatalogConfiguration(
 ) {
   const catalogId = parseInt(config.catalogId, 10);
   logger.info(`Resetting catalog configuration for catalog ${catalogId}`, {
-    sessionId, session,
+    sessionId,
+    session,
   });
 
   try {
@@ -91,7 +92,8 @@ module.exports = async function resetCatalogConfiguration(
     return { success: true };
   } catch (err) {
     logger.error(`Failed to reset catalog configuration: ${err.message}`, {
-      sessionId, session,
+      sessionId,
+      session,
       error: err,
     });
     throw err;

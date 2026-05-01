@@ -105,9 +105,7 @@
   "defaultBillingAddressId": 0,
   "defaultShippingAddressId": 0,
   "description": "Generated mock business account for Mock Account 1 (soiq).",
-  "domains": [
-    "soiq.example.com"
-  ],
+  "domains": ["soiq.example.com"],
   "externalReferenceCode": "AICA-ACC-1776950015713-0c17de09",
   "id": 69511,
   "logoId": 0,

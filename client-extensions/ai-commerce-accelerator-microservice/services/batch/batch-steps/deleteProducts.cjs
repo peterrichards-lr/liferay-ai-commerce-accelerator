@@ -53,7 +53,8 @@ module.exports = async function deleteProducts(
     catalogId,
     callbackBatchERC: batchERC,
     dryRun: options.dryRun,
-    sessionId, session,
+    sessionId,
+    session,
   });
   return result;
 };

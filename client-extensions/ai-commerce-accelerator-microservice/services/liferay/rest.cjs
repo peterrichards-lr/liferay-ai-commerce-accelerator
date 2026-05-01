@@ -142,17 +142,28 @@ class LiferayRestService {
       if (contract && !contract.isBatch) {
         try {
           if (contract.isArray) {
-            this.ctx.contractValidator.validateArray(contract.spec, contract.schema, data);
+            this.ctx.contractValidator.validateArray(
+              contract.spec,
+              contract.schema,
+              data
+            );
           } else {
-            this.ctx.contractValidator.validate(contract.spec, contract.schema, data);
+            this.ctx.contractValidator.validate(
+              contract.spec,
+              contract.schema,
+              data
+            );
           }
         } catch (err) {
           if (err.name === 'ContractViolationError') {
-            this.ctx.logger.error(`Outbound request to ${url} violates Liferay OpenAPI contract`, {
-              op,
-              schema: contract.schema,
-              errors: err.errors
-            });
+            this.ctx.logger.error(
+              `Outbound request to ${url} violates Liferay OpenAPI contract`,
+              {
+                op,
+                schema: contract.schema,
+                errors: err.errors,
+              }
+            );
             // In development/test, we want to fail fast to catch schema drifts.
             throw err;
           }
@@ -920,23 +931,35 @@ class LiferayRestService {
     this._cacheItemERCs(erc, null, itemERCs, sessionId);
 
     // RUNTIME CONTRACT VALIDATION (BATCH)
-    if (processedItems && processedItems.length > 0 && (ENV.NODE_ENV === 'development' || ENV.NODE_ENV === 'test')) {
-      const sampleUrl = typeof path === 'function' ? path('http://sample') : path;
+    if (
+      processedItems &&
+      processedItems.length > 0 &&
+      (ENV.NODE_ENV === 'development' || ENV.NODE_ENV === 'test')
+    ) {
+      const sampleUrl =
+        typeof path === 'function' ? path('http://sample') : path;
       const contract = findContract(sampleUrl, 'POST');
       if (contract && contract.isBatch) {
         try {
           // Validate first 3 items to avoid excessive overhead while still catching patterns
           const sample = processedItems.slice(0, 3);
           for (const item of sample) {
-            this.ctx.contractValidator.validate(contract.spec, contract.schema, item);
+            this.ctx.contractValidator.validate(
+              contract.spec,
+              contract.schema,
+              item
+            );
           }
         } catch (err) {
           if (err.name === 'ContractViolationError') {
-            logger.error(`Batch item for ${entityName} violates Liferay OpenAPI contract`, {
-              op,
-              schema: contract.schema,
-              errors: err.errors
-            });
+            logger.error(
+              `Batch item for ${entityName} violates Liferay OpenAPI contract`,
+              {
+                op,
+                schema: contract.schema,
+                errors: err.errors,
+              }
+            );
             throw err;
           }
         }
@@ -1401,24 +1424,6 @@ class LiferayRestService {
     return data;
   }
 
-  async getPriceLists(config, { catalogId, pageSize = 200, filter: providedFilter } = {}) {
-    const filters = [];
-    if (catalogId) filters.push(`catalogId eq ${catalogId}`);
-    if (providedFilter) filters.push(providedFilter);
-
-    const filter = filters.length > 0 ? filters.join(' and ') : null;
-
-    return await this._collectAllItems(config, (cfg, p, size) =>
-      this._get(cfg, PATH.PRICE_LISTS, 'get-price-lists-bulk', 'Get Price Lists Bulk', {
-        params: {
-          filter,
-          page: p,
-          pageSize: size,
-        }
-      })
-    );
-  }
-
   async createProductsBatch(config, productsData, opts = {}) {
     const results = await this._postBatch(config, {
       entityName: 'product',
@@ -1436,23 +1441,6 @@ class LiferayRestService {
       ...results,
       productCount: results.count,
     };
-  }
-
-  async createPriceListsBatch(config, priceListsData, opts = {}) {
-    const results = await this._postBatch(config, {
-      entityName: 'price-list',
-      items: priceListsData,
-      externalReferenceCode: opts.externalReferenceCode,
-      itemERCKey: 'name',
-      op: 'create-price-lists-batch',
-      friendly: 'Failed to create price lists batch',
-      path: PATH.PRICE_LISTS_BATCH(opts.callbackURL),
-      sessionId: opts.sessionId,
-      session: opts.session,
-      createStrategy: 'UPSERT',
-    });
-
-    return results;
   }
 
   async createWarehouseChannelsBatch(config, itemsData, opts = {}) {
@@ -1900,7 +1888,7 @@ class LiferayRestService {
     let lastError;
 
     // HARDENING: Use ERC-based path if available to bypass Indexing Lag
-    const path = productERC 
+    const path = productERC
       ? PATH.PRODUCT_OPTIONS_BY_ERC(productERC)
       : PATH.PRODUCT_OPTIONS(productId);
 
@@ -1939,12 +1927,12 @@ class LiferayRestService {
     const maxAttempts = 3;
     let lastError;
 
-    const path = productERC 
+    const path = productERC
       ? PATH.PRODUCT_CHANNELS_BY_ERC(productERC)
       : PATH.PRODUCT_CHANNELS(productId);
 
     // DTO expects an array of { channelId: 123 }
-    const payload = channelIds.map(id => ({ channelId: parseInt(id, 10) }));
+    const payload = channelIds.map((id) => ({ channelId: parseInt(id, 10) }));
 
     while (attempts < maxAttempts) {
       try {
@@ -2125,9 +2113,7 @@ class LiferayRestService {
       ercs.map((erc) => this.getSkuByERC(config, erc))
     );
 
-    return results
-      .filter((r) => r.status === 'fulfilled')
-      .map((r) => r.value);
+    return results.filter((r) => r.status === 'fulfilled').map((r) => r.value);
   }
 
   async getSpecificationByERC(config, externalReferenceCode) {

@@ -31,7 +31,10 @@ class AIService {
 
     let validator = this.localSchemas[schemaName];
     if (!validator) {
-      const schemaPath = path.join(__dirname, `../generation-schemas/${schemaName}.json`);
+      const schemaPath = path.join(
+        __dirname,
+        `../generation-schemas/${schemaName}.json`
+      );
       if (fs.existsSync(schemaPath)) {
         const schema = JSON.parse(fs.readFileSync(schemaPath, 'utf8'));
         validator = this.ajv.compile(schema);
@@ -42,9 +45,12 @@ class AIService {
     if (validator) {
       const isValid = validator(data);
       if (!isValid) {
-        this.ctx.logger.error(`AI generated data for ${schemaName} violates internal schema`, {
-          errors: validator.errors
-        });
+        this.ctx.logger.error(
+          `AI generated data for ${schemaName} violates internal schema`,
+          {
+            errors: validator.errors,
+          }
+        );
         // We don't throw here to allow for partial data, but we log the issue.
       }
     }

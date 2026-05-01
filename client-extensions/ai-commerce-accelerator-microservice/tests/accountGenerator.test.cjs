@@ -107,13 +107,36 @@ describe('AccountGenerator', () => {
 
   it('should match country correctly in _generateAddress', async () => {
     const countries = [
-      { id: 1, name: 'spain', a2: 'ES', a3: 'ESP', active: true, title_i18n: { en_US: 'Spain' } },
-      { id: 2, name: 'thailand', a2: 'TH', a3: 'THA', active: true, title_i18n: { en_US: 'Thailand' } },
+      {
+        id: 1,
+        name: 'spain',
+        a2: 'ES',
+        a3: 'ESP',
+        active: true,
+        title_i18n: { en_US: 'Spain' },
+      },
+      {
+        id: 2,
+        name: 'thailand',
+        a2: 'TH',
+        a3: 'THA',
+        active: true,
+        title_i18n: { en_US: 'Thailand' },
+      },
     ];
-    const rawAddress = { addressCountry: 'thailand', addressLocality: 'Bangkok' };
+    const rawAddress = {
+      addressCountry: 'thailand',
+      addressLocality: 'Bangkok',
+    };
     const config = { localeCode: 'en-US' };
 
-    const address = await generator._generateAddress('billing', config, rawAddress, countries, 'test-session');
+    const address = await generator._generateAddress(
+      'billing',
+      config,
+      rawAddress,
+      countries,
+      'test-session'
+    );
 
     expect(address.addressCountry).toBe('Thailand');
     expect(mockCtx.liferay.getCountryRegions).toHaveBeenCalledWith(config, 2);

@@ -18,26 +18,30 @@ describe('Schema Alignment (Drift Detection)', () => {
       gen: 'product.json',
       spec: 'headless-commerce-admin-catalog-v1.0-openapi.json',
       entity: 'Product',
-      path: 'properties.products.items'
+      path: 'properties.products.items',
     },
     {
       gen: 'account.json',
       spec: 'headless-admin-user-v1.0-openapi.json',
       entity: 'Account',
-      path: 'properties.accounts.items'
+      path: 'properties.accounts.items',
     },
     {
       gen: 'warehouse.json',
       spec: 'headless-commerce-admin-inventory-v1.0-openapi.json',
       entity: 'Warehouse',
-      path: 'properties.warehouses.items'
-    }
+      path: 'properties.warehouses.items',
+    },
   ];
 
   mappings.forEach(({ gen, spec, entity, path: schemaPath }) => {
     it(`should ensure ${gen} is aligned with Liferay ${entity} DTO`, () => {
-      const genSchema = JSON.parse(fs.readFileSync(path.join(generationSchemasDir, gen), 'utf8'));
-      const apiSpec = JSON.parse(fs.readFileSync(path.join(apiSchemasDir, spec), 'utf8'));
+      const genSchema = JSON.parse(
+        fs.readFileSync(path.join(generationSchemasDir, gen), 'utf8')
+      );
+      const apiSpec = JSON.parse(
+        fs.readFileSync(path.join(apiSchemasDir, spec), 'utf8')
+      );
       const apiSchema = apiSpec.components.schemas[entity];
 
       // Navigate to the entity part of the generation schema
@@ -51,13 +55,24 @@ describe('Schema Alignment (Drift Detection)', () => {
       const genProps = Object.keys(targetGenSchema.properties || {});
       const apiProps = Object.keys(apiSchema.properties || {});
 
-      genProps.forEach(prop => {
+      genProps.forEach((prop) => {
         // Some properties are internal orchestration fields, allow those
-        const allowedInternal = ['skus', 'options', 'specifications', 'headOfficeAddress', 'billingAddress', 'shippingAddress', 'category', 'productOptionValues'];
-        
+        const allowedInternal = [
+          'skus',
+          'options',
+          'specifications',
+          'headOfficeAddress',
+          'billingAddress',
+          'shippingAddress',
+          'category',
+          'productOptionValues',
+        ];
+
         if (!apiProps.includes(prop) && !allowedInternal.includes(prop)) {
           // This highlights drift!
-          logger.warn(`[Drift Warning] ${gen} property "${prop}" is not in Liferay ${entity} DTO`);
+          logger.warn(
+            `[Drift Warning] ${gen} property "${prop}" is not in Liferay ${entity} DTO`
+          );
         }
       });
 

@@ -12,7 +12,7 @@ describe('ContractValidator', () => {
         warn: vi.fn(),
         error: vi.fn(),
       },
-      DEBUG: true
+      DEBUG: true,
     };
     validator = new ContractValidator(mockCtx);
   });
@@ -23,7 +23,7 @@ describe('ContractValidator', () => {
       name: { en_US: 'Test Product' },
       description: { en_US: 'Test Description' },
       productType: 'simple',
-      active: true
+      active: true,
     };
 
     try {
@@ -42,7 +42,7 @@ describe('ContractValidator', () => {
   it('should throw error for an invalid product payload (missing name)', () => {
     const invalidProduct = {
       externalReferenceCode: 'PROD-1',
-      productType: 'simple'
+      productType: 'simple',
     };
 
     // Note: In OpenAPI 'Product' required fields are actually few, let's check.
@@ -52,7 +52,7 @@ describe('ContractValidator', () => {
   it('should fail if field type is incorrect', () => {
     const invalidProduct = {
       externalReferenceCode: 'PROD-1',
-      productStatus: 'Published' // Should be integer
+      productStatus: 'Published', // Should be integer
     };
 
     expect(() => {

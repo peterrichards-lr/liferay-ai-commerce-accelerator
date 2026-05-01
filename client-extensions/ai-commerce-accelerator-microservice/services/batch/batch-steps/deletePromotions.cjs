@@ -24,7 +24,8 @@ module.exports = async function deletePromotions(
     ...options,
     items,
     callbackBatchERC: batchERC,
-    sessionId, session,
+    sessionId,
+    session,
   });
   return result;
 };

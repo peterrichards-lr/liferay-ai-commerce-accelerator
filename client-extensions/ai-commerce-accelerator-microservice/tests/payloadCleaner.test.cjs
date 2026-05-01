@@ -1,4 +1,3 @@
-import { describe, it, expect } from 'vitest';
 const { deepCleanIds } = require('../utils/payload-cleaner.cjs');
 
 describe('Payload Cleaner (Strict ID Guard)', () => {
@@ -14,7 +13,7 @@ describe('Payload Cleaner (Strict ID Guard)', () => {
       productId: 0,
       accountId: null,
       skuId: undefined,
-      name: 'Test'
+      name: 'Test',
     };
     const result = deepCleanIds(input);
     expect(result).not.toHaveProperty('productId');
@@ -26,8 +25,8 @@ describe('Payload Cleaner (Strict ID Guard)', () => {
     const input = {
       accountId: 10001, // Mock Account range
       productId: 30500, // Mock Product range
-      skuId: 40051,     // Mock SKU range
-      priceListId: 50000 // Mock SKU/Pricing range
+      skuId: 40051, // Mock SKU range
+      priceListId: 50000, // Mock SKU/Pricing range
     };
     const result = deepCleanIds(input);
     expect(result).not.toHaveProperty('accountId');
@@ -39,8 +38,8 @@ describe('Payload Cleaner (Strict ID Guard)', () => {
   it('should PRESERVE resolved IDs outside of mock ranges', () => {
     const input = {
       productId: 88234, // A "Real" Liferay ID
-      accountId: 1234,  // A "Real" Liferay ID
-      skuId: 999999     // A "Real" Liferay ID
+      accountId: 1234, // A "Real" Liferay ID
+      skuId: 999999, // A "Real" Liferay ID
     };
     const result = deepCleanIds(input);
     expect(result.productId).toBe(88234);
@@ -53,8 +52,8 @@ describe('Payload Cleaner (Strict ID Guard)', () => {
       name: 'Root',
       sku: {
         skuId: 40051,
-        externalReferenceCode: 'SKU-1'
-      }
+        externalReferenceCode: 'SKU-1',
+      },
     };
     const result = deepCleanIds(input);
     // The skuId inside the object should be gone
@@ -66,8 +65,8 @@ describe('Payload Cleaner (Strict ID Guard)', () => {
     const input = {
       name: 'Root',
       sku: {
-        skuId: 40051 // Only has an invalid ID
-      }
+        skuId: 40051, // Only has an invalid ID
+      },
     };
     const result = deepCleanIds(input);
     // The entire 'sku' object should be removed because it resulted in {}
@@ -78,7 +77,7 @@ describe('Payload Cleaner (Strict ID Guard)', () => {
     const input = [
       { id: 1, name: 'Item 1' },
       { productId: 30001, name: 'Item 2' },
-      { productId: 888, name: 'Item 3' }
+      { productId: 888, name: 'Item 3' },
     ];
     const result = deepCleanIds(input);
     expect(result).toHaveLength(3);

@@ -7,7 +7,8 @@ module.exports = async function deleteWarehouses(
     items,
     callbackBatchERC: batchERC,
     dryRun: options.dryRun,
-    sessionId, session,
+    sessionId,
+    session,
   });
   return result;
 };

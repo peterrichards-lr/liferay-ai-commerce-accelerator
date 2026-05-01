@@ -372,9 +372,12 @@ class ProductGenerator extends BaseGenerator {
         const skuERC =
           entry.skuExternalReferenceCode ||
           (typeof entry.sku === 'string' ? entry.sku : null);
-        
+
         // HARDENING: Look for the resolved ID in BOTH the skus and skuVariants arrays
-        const allSkus = [...(product.skus || []), ...(product.skuVariants || [])];
+        const allSkus = [
+          ...(product.skus || []),
+          ...(product.skuVariants || []),
+        ];
         const matchedSku = allSkus.find(
           (s) => s.externalReferenceCode === skuERC || s.sku === skuERC
         );
@@ -383,19 +386,25 @@ class ProductGenerator extends BaseGenerator {
         // CRITICAL: If we still have a placeholder (like 50000) or no ID, do NOT send it.
         // Pricing V2.0 will crash the entire batch if one ID is invalid.
         if (!skuId || skuId === 50000) {
-          this.logger.warn(`Skipping price entry for SKU ${skuERC}: Real physical ID not resolved yet.`, {
-            sessionId,
-            productId: product.id
-          });
+          this.logger.warn(
+            `Skipping price entry for SKU ${skuERC}: Real physical ID not resolved yet.`,
+            {
+              sessionId,
+              productId: product.id,
+            }
+          );
           continue;
         }
 
-        const targetList = (promotionsListId && entry.promoPrice) ? priceListTemplates[1] : priceListTemplates[0];
+        const targetList =
+          promotionsListId && entry.promoPrice
+            ? priceListTemplates[1]
+            : priceListTemplates[0];
         const targetListId = targetList.id;
 
         const basePriceEntry = {
           price: entry.price,
-          priceListId: targetListId, 
+          priceListId: targetListId,
           bulkPricing: stepKey === S.GENERATE_BULK_PRICING,
           externalReferenceCode: `PE-${skuERC}-GEN-${sanitizeForERC(baseErc, { max: 40 })}`,
           active: true,
@@ -566,18 +575,25 @@ class ProductGenerator extends BaseGenerator {
     for (const p of productDataList) {
       // 1. Base SKUs
       if (Array.isArray(p.skus)) {
-        skuErcs.push(...p.skus.map(s => s.externalReferenceCode).filter(Boolean));
+        skuErcs.push(
+          ...p.skus.map((s) => s.externalReferenceCode).filter(Boolean)
+        );
       }
       // 2. Variant SKUs (generated from options)
       if (options.generateSkuVariants && Array.isArray(p.skuVariants)) {
-        skuErcs.push(...p.skuVariants.map(v => v.externalReferenceCode).filter(Boolean));
+        skuErcs.push(
+          ...p.skuVariants.map((v) => v.externalReferenceCode).filter(Boolean)
+        );
       }
     }
 
     const uniqueErcs = [...new Set(skuErcs)];
 
     try {
-      this.logger.info(`Resolving physical database IDs for ${uniqueErcs.length} SKUs...`, { sessionId });
+      this.logger.info(
+        `Resolving physical database IDs for ${uniqueErcs.length} SKUs...`,
+        { sessionId }
+      );
 
       const resolvedItems = await this.liferay.resolveByERCsWithRetry(
         config,
@@ -601,7 +617,7 @@ class ProductGenerator extends BaseGenerator {
         skuVariants: (p.skuVariants || []).map((variant) => ({
           ...variant,
           id: ercToIdMap.get(variant.externalReferenceCode) || variant.id,
-        }))
+        })),
       }));
 
       await this.persistence.updateSessionContext(sessionId, {
@@ -644,12 +660,16 @@ class ProductGenerator extends BaseGenerator {
       });
 
       for (const product of productsWithOpts) {
-        this.logger.debug(`Linking options for product ${product.externalReferenceCode} (ID: ${product.id})`, { sessionId });
+        this.logger.debug(
+          `Linking options for product ${product.externalReferenceCode} (ID: ${product.id})`,
+          { sessionId }
+        );
         const sourceOptions = product.productOptions || product.options;
         const cleanedOptions = sourceOptions.map((opt) => {
-          const name = typeof opt.name === 'string' ? { en_US: opt.name } : opt.name;
+          const name =
+            typeof opt.name === 'string' ? { en_US: opt.name } : opt.name;
           const key = opt.key || sanitizeForERC(name?.en_US || name);
-          
+
           // HARDENING: Strict DTO Mapping (No Ghost Properties)
           const cleanOpt = {
             optionId: opt.optionId,
@@ -665,9 +685,11 @@ class ProductGenerator extends BaseGenerator {
 
           if (sourceValues.length > 0) {
             cleanOpt.productOptionValues = sourceValues.map((val) => {
-              const valName = typeof val.name === 'string' ? { en_US: val.name } : val.name;
+              const valName =
+                typeof val.name === 'string' ? { en_US: val.name } : val.name;
               return {
-                key: val.key || sanitizeForERC(valName?.en_US || valName || val),
+                key:
+                  val.key || sanitizeForERC(valName?.en_US || valName || val),
                 name: valName,
               };
             });
@@ -721,45 +743,62 @@ class ProductGenerator extends BaseGenerator {
             externalReferenceCode: pd.externalReferenceCode,
           };
 
-          const hasSkuContributingOptions = (pd.productOptions || pd.options || []).some(o => o.skuContributor);
+          const hasSkuContributingOptions = (
+            pd.productOptions ||
+            pd.options ||
+            []
+          ).some((o) => o.skuContributor);
 
           // If variants are enabled, generate all SKUs with option mappings
-          if (options.generateSkuVariants && hasSkuContributingOptions && Array.isArray(pd.skuVariants)) {
-            lp.skus = pd.skuVariants.map(v => {
+          if (
+            options.generateSkuVariants &&
+            hasSkuContributingOptions &&
+            Array.isArray(pd.skuVariants)
+          ) {
+            lp.skus = pd.skuVariants.map((v) => {
               const sku = {
                 sku: v.sku,
                 externalReferenceCode: v.externalReferenceCode || v.sku,
                 published: true,
                 purchasable: true,
-                skuOptions: []
+                skuOptions: [],
               };
 
               if (v.options) {
-                sku.skuOptions = Object.entries(v.options).map(([optName, valName]) => {
-                  const optMeta = (pd.productOptions || pd.options || []).find(o => 
-                    sanitizeForERC(o.name) === sanitizeForERC(optName) || 
-                    o.key === optName
-                  );
+                sku.skuOptions = Object.entries(v.options)
+                  .map(([optName, valName]) => {
+                    const optMeta = (
+                      pd.productOptions ||
+                      pd.options ||
+                      []
+                    ).find(
+                      (o) =>
+                        sanitizeForERC(o.name) === sanitizeForERC(optName) ||
+                        o.key === optName
+                    );
 
-                  const valMeta = (optMeta?.optionValuesWithIds || []).find(vMeta => 
-                    sanitizeForERC(vMeta.name) === sanitizeForERC(String(valName))
-                  );
+                    const valMeta = (optMeta?.optionValuesWithIds || []).find(
+                      (vMeta) =>
+                        sanitizeForERC(vMeta.name) ===
+                        sanitizeForERC(String(valName))
+                    );
 
-                  return {
-                    optionId: optMeta?.optionId || 0,
-                    optionValueId: valMeta?.optionValueId || 0,
-                  };
-                }).filter(o => o.optionId > 0);
+                    return {
+                      optionId: optMeta?.optionId || 0,
+                      optionValueId: valMeta?.optionValueId || 0,
+                    };
+                  })
+                  .filter((o) => o.optionId > 0);
               }
               return sku;
             });
           } else if (Array.isArray(pd.skus) && pd.skus.length > 0) {
             // Fallback for simple products or if variants disabled
-            lp.skus = pd.skus.map(s => ({
+            lp.skus = pd.skus.map((s) => ({
               sku: s.sku,
               externalReferenceCode: s.externalReferenceCode || s.sku,
               published: true,
-              purchasable: true
+              purchasable: true,
             }));
           }
 
@@ -937,7 +976,8 @@ class ProductGenerator extends BaseGenerator {
       // 1. Identify all unique specification keys used in the generated data
       const specMap = new Map();
       for (const product of productDataList) {
-        const specs = product.productSpecifications || product.specifications || [];
+        const specs =
+          product.productSpecifications || product.specifications || [];
         for (const spec of specs) {
           if (spec.specificationKey) {
             specMap.set(spec.specificationKey, spec);
@@ -954,14 +994,19 @@ class ProductGenerator extends BaseGenerator {
         );
       }
 
-      this.logger.debug(`Synchronizing ${uniqueKeys.length} specification definitions...`, {
-        sessionId,
-        keys: uniqueKeys,
-      });
+      this.logger.debug(
+        `Synchronizing ${uniqueKeys.length} specification definitions...`,
+        {
+          sessionId,
+          keys: uniqueKeys,
+        }
+      );
 
       // 2. Ensure each specification exists in Liferay
       let createdCount = 0;
-      const updatedProductDataList = JSON.parse(JSON.stringify(productDataList));
+      const updatedProductDataList = JSON.parse(
+        JSON.stringify(productDataList)
+      );
 
       for (const key of uniqueKeys) {
         const spec = specMap.get(key);
@@ -1066,14 +1111,19 @@ class ProductGenerator extends BaseGenerator {
         );
       }
 
-      this.logger.debug(`Synchronizing ${uniqueKeys.length} option definitions...`, {
-        sessionId,
-        keys: uniqueKeys,
-      });
+      this.logger.debug(
+        `Synchronizing ${uniqueKeys.length} option definitions...`,
+        {
+          sessionId,
+          keys: uniqueKeys,
+        }
+      );
 
       // 2. Ensure each option exists in Liferay
       let processedCount = 0;
-      const updatedProductDataList = JSON.parse(JSON.stringify(productDataList));
+      const updatedProductDataList = JSON.parse(
+        JSON.stringify(productDataList)
+      );
 
       for (const key of uniqueKeys) {
         const sourceOpt = optionMap.get(key);
@@ -1106,7 +1156,8 @@ class ProductGenerator extends BaseGenerator {
           )
         ) {
           optionData.optionValues = sourceValues.map((v) => {
-            const vName = typeof v.name === 'string' ? { en_US: v.name } : v.name;
+            const vName =
+              typeof v.name === 'string' ? { en_US: v.name } : v.name;
             return {
               key: v.key || sanitizeForERC(vName?.en_US || vName || v),
               name: vName,
@@ -1143,8 +1194,7 @@ class ProductGenerator extends BaseGenerator {
                 pOpt.key = key;
 
                 // Also map value IDs if they exist
-                const pValues =
-                  pOpt.productOptionValues || pOpt.values || [];
+                const pValues = pOpt.productOptionValues || pOpt.values || [];
                 pOpt.optionValuesWithIds = pValues.map((val) => {
                   const valName =
                     typeof val === 'string'
@@ -1167,7 +1217,7 @@ class ProductGenerator extends BaseGenerator {
       // Save the updated product data with optionIds back to context
       await this.persistence.updateSessionContext(sessionId, {
         ...session.context,
-        productDataList: updatedProductDataList
+        productDataList: updatedProductDataList,
       });
 
       await this.completeSyncStep(
@@ -1246,13 +1296,20 @@ class ProductGenerator extends BaseGenerator {
           })),
         };
 
-        const hasSkuContributingOptions = (pd.productOptions || pd.options || []).some(o => o.skuContributor);
+        const hasSkuContributingOptions = (
+          pd.productOptions ||
+          pd.options ||
+          []
+        ).some((o) => o.skuContributor);
 
         if (pd.skus && pd.skus.length > 0) {
           // Rule: If product has SKU-contributing options, omit SKUs in initial payload
           // because they must be created AFTER options are linked to have correct skuOptions.
           if (options.generateSkuVariants && hasSkuContributingOptions) {
-            this.logger.debug(`Omitting SKUs for ${pd.externalReferenceCode} due to SKU-contributing options`, { sessionId });
+            this.logger.debug(
+              `Omitting SKUs for ${pd.externalReferenceCode} due to SKU-contributing options`,
+              { sessionId }
+            );
           } else {
             lp.skus = pd.skus.slice(0, 1).map((s) => ({
               sku: s.sku,
@@ -1359,23 +1416,34 @@ class ProductGenerator extends BaseGenerator {
   async _runUpdateInventoryStep(sessionId) {
     const session = await this.persistence.getSession(sessionId);
     const { config, options, productDataList } = session.context;
-    
+
     // Hard-resolving warehouses to ensure we have IDs and ERCs
     const { items: warehouses } = await this.liferay.getWarehouses(config);
 
     if (!warehouses || warehouses.length === 0) {
-      return await this.completeSyncStep(sessionId, S.UPDATE_INVENTORY, 'BYPASSED');
+      return await this.completeSyncStep(
+        sessionId,
+        S.UPDATE_INVENTORY,
+        'BYPASSED'
+      );
     }
 
     try {
-      this.logger.info(`Starting inventory update for ${productDataList.length} products across ${warehouses.length} warehouses...`, { sessionId });
+      this.logger.info(
+        `Starting inventory update for ${productDataList.length} products across ${warehouses.length} warehouses...`,
+        { sessionId }
+      );
 
       // HARDENING: Brief delay to allow SKUs to be indexed by Liferay
       // Inventory requires the SKU string to be 'resolvable' by the backend.
       await delay(3000);
 
       const inventoryItems = [];
-      const { inventoryMin = 10, inventoryMax = 100, inventoryAssignmentRatio = 100 } = options;
+      const {
+        inventoryMin = 10,
+        inventoryMax = 100,
+        inventoryAssignmentRatio = 100,
+      } = options;
 
       for (const pd of productDataList) {
         // Roll dice for assignment ratio
@@ -1386,14 +1454,17 @@ class ProductGenerator extends BaseGenerator {
           if (!sku.sku) continue;
 
           // Assign to a random warehouse
-          const warehouse = warehouses[Math.floor(Math.random() * warehouses.length)];
-          
+          const warehouse =
+            warehouses[Math.floor(Math.random() * warehouses.length)];
+
           inventoryItems.push({
             externalReferenceCode: createERC(ERC_PREFIX.INVENTORY_BATCH),
             sku: sku.sku,
-            quantity: Math.floor(Math.random() * (inventoryMax - inventoryMin + 1)) + inventoryMin,
+            quantity:
+              Math.floor(Math.random() * (inventoryMax - inventoryMin + 1)) +
+              inventoryMin,
             warehouseExternalReferenceCode: warehouse.externalReferenceCode,
-            warehouseId: warehouse.id
+            warehouseId: warehouse.id,
           });
         }
       }
@@ -1405,10 +1476,11 @@ class ProductGenerator extends BaseGenerator {
           S.UPDATE_INVENTORY,
           'inventory',
           'generate',
-          (erc) => this.liferay.createWarehouseItemsBatch(config, inventoryItems, {
-            externalReferenceCode: erc,
-            sessionId,
-          }),
+          (erc) =>
+            this.liferay.createWarehouseItemsBatch(config, inventoryItems, {
+              externalReferenceCode: erc,
+              sessionId,
+            }),
           inventoryItems.length
         );
       } else {

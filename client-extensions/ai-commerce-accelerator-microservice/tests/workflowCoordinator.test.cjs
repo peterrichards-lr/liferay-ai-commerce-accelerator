@@ -22,7 +22,7 @@ describe('WorkflowCoordinator', () => {
       progress: {
         stepStarted: vi.fn(),
         stepCompleted: vi.fn(),
-      }
+      },
     };
 
     coordinator = new WorkflowCoordinator(mockCtx);
@@ -41,7 +41,7 @@ describe('WorkflowCoordinator', () => {
     const sessionId = 'SESS-1';
     const session = {
       session_id: sessionId,
-      context: { steps: [{ name: 'acc-step' }] }
+      context: { steps: [{ name: 'acc-step' }] },
     };
     mockCtx.persistence.getSession.mockResolvedValue(session);
 
@@ -56,11 +56,14 @@ describe('WorkflowCoordinator', () => {
     const session = {
       session_id: sessionId,
       flow_type: 'generate',
-      context: { steps: [{ name: 'unknown-step' }] }
+      context: { steps: [{ name: 'unknown-step' }] },
     };
     mockCtx.persistence.getSession.mockResolvedValue(session);
 
-    await expect(coordinator.executeStep(sessionId, 'unknown-step'))
-      .rejects.toThrow(/FATAL: No handler found for workflow step 'unknown-step'/);
+    await expect(
+      coordinator.executeStep(sessionId, 'unknown-step')
+    ).rejects.toThrow(
+      /FATAL: No handler found for workflow step 'unknown-step'/
+    );
   });
 });

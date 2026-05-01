@@ -1,5 +1,9 @@
 const BaseGenerator = require('./baseGenerator.cjs');
-const { createERC, toI18n, resolveErrorReference } = require('../utils/misc.cjs');
+const {
+  createERC,
+  toI18n,
+  resolveErrorReference,
+} = require('../utils/misc.cjs');
 const { ERC_PREFIX, WORKFLOW_STEPS } = require('../utils/constants.cjs');
 
 const S = WORKFLOW_STEPS;
@@ -16,7 +20,8 @@ class WarehouseGenerator extends BaseGenerator {
         this._runWarehouseDataGenerationStep.bind(this),
       [S.CREATE_WAREHOUSES]: this._runWarehouseCreationStep.bind(this),
       [S.RESOLVE_WAREHOUSE_IDS]: this._runResolveWarehouseIdsStep.bind(this),
-      [S.LINK_WAREHOUSE_CHANNELS]: this._runLinkWarehouseChannelsStep.bind(this),
+      [S.LINK_WAREHOUSE_CHANNELS]:
+        this._runLinkWarehouseChannelsStep.bind(this),
     };
   }
 
@@ -263,10 +268,13 @@ class WarehouseGenerator extends BaseGenerator {
       );
     }
 
-    this.logger.info('Starting warehouse-to-channel linking step (Sequential)', {
-      sessionId,
-      correlationId: session.correlationId,
-    });
+    this.logger.info(
+      'Starting warehouse-to-channel linking step (Sequential)',
+      {
+        sessionId,
+        correlationId: session.correlationId,
+      }
+    );
 
     try {
       // HARDENING: WarehouseChannel entity does NOT support externalReferenceCode.
@@ -319,9 +327,21 @@ class WarehouseGenerator extends BaseGenerator {
   _normalizeWarehouseData(warehouseData, config) {
     const name = toI18n(warehouseData.name, config.localeCode);
     const description = toI18n(warehouseData.description, config.localeCode);
-    const countryISOCode = (warehouseData.countryISOCode || warehouseData.addressCountry || warehouseData.country || 'US').substring(0, 2).toUpperCase();
-    const regionISOCode = (warehouseData.regionISOCode || warehouseData.addressRegion || warehouseData.region || '').toUpperCase();
-    
+    const countryISOCode = (
+      warehouseData.countryISOCode ||
+      warehouseData.addressCountry ||
+      warehouseData.country ||
+      'US'
+    )
+      .substring(0, 2)
+      .toUpperCase();
+    const regionISOCode = (
+      warehouseData.regionISOCode ||
+      warehouseData.addressRegion ||
+      warehouseData.region ||
+      ''
+    ).toUpperCase();
+
     const normalized = {
       ...warehouseData,
       name,

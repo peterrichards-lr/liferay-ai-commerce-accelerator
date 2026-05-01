@@ -27,7 +27,11 @@ module.exports = (app, { liferayService, logger, configService }) => {
         const accounts = importData.accounts || [];
         const orders = importData.orders || [];
 
-        if (products.length === 0 && accounts.length === 0 && orders.length === 0) {
+        if (
+          products.length === 0 &&
+          accounts.length === 0 &&
+          orders.length === 0
+        ) {
           return res.status(400).json({
             success: false,
             error:

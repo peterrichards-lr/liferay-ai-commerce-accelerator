@@ -13,7 +13,7 @@ class BaseGenerator extends BaseWorkflowService {
   }
 
   /**
-   * Hardening: Programmatically verifies that all registered steps have 
+   * Hardening: Programmatically verifies that all registered steps have
    * a corresponding method handler. Throws at startup if mapping is broken.
    */
   verifySteps() {
@@ -241,11 +241,19 @@ class BaseGenerator extends BaseWorkflowService {
             // ENHANCED OBSERVABILITY: Find the specific failed sub-step
             let failedSubStep = '';
             if (['parallel', 'sequence'].includes(stepType)) {
-               const failedSteps = step.steps.filter(s => getStepState(s) === 'FAILED');
-               failedSubStep = failedSteps.length > 0 ? ` (Failed sub-steps: ${failedSteps.map(s => s.name || 'unnamed').join(', ')})` : '';
+              const failedSteps = step.steps.filter(
+                (s) => getStepState(s) === 'FAILED'
+              );
+              failedSubStep =
+                failedSteps.length > 0
+                  ? ` (Failed sub-steps: ${failedSteps.map((s) => s.name || 'unnamed').join(', ')})`
+                  : '';
             }
 
-            if (session.flowType === 'delete' || session.flow_type === 'delete') {
+            if (
+              session.flowType === 'delete' ||
+              session.flow_type === 'delete'
+            ) {
               this.logger.warn(
                 `Workflow step '${displayId}' failed${failedSubStep}. Try-Every-Step mode active for deletion. Continuing to next step...`,
                 {
@@ -283,23 +291,25 @@ class BaseGenerator extends BaseWorkflowService {
             const subStates = step.steps.map(getStepState);
 
             // If any sub-step is still running or pending, we are NOT terminal
-            if (subStates.some(st => ['RUNNING', 'PENDING'].includes(st))) {
+            if (subStates.some((st) => ['RUNNING', 'PENDING'].includes(st))) {
               foundBlockingStep = true;
               return false;
             }
 
             // All sub-steps are terminal (COMPLETE or FAILED)
-            if (subStates.some(st => st === 'FAILED')) {
+            if (subStates.some((st) => st === 'FAILED')) {
               // HARDENING: We allow continuation if it's a parallel block,
               // but we mark the block itself as finished so the master sequence can move on.
               // This ensures that a failure in 'Products' doesn't prevent 'Account Defaults' from running.
-              this.logger.warn(`Parallel step '${stepName || 'unnamed'}' finished with some sub-step failures. Continuing to next top-level step...`, { sessionId });
-              return true; 
+              this.logger.warn(
+                `Parallel step '${stepName || 'unnamed'}' finished with some sub-step failures. Continuing to next top-level step...`,
+                { sessionId }
+              );
+              return true;
             }
 
             return true; // All sub-steps completed successfully
-          }
- else if (stepType === 'sequence') {
+          } else if (stepType === 'sequence') {
             for (const subStep of step.steps) {
               const subState = await processStep(subStep);
               if (!subState) {

@@ -32,14 +32,14 @@ class ContractValidator {
             fs.readFileSync(path.join(apiSchemaDir, file), 'utf8')
           );
           const fileName = path.basename(file);
-          
+
           // Pre-process the whole spec for OpenAPI specifics
           this._handleOpenApiSpecifics(spec);
-          
+
           // Add the whole spec to AJV with the filename as the base ID
           spec.$id = fileName;
           this.ajv.addSchema(spec);
-          
+
           this.schemas[fileName] = spec;
         }
       }
@@ -53,7 +53,10 @@ class ContractValidator {
 
     // Handle OpenAPI 'exclusiveMinimum/Maximum'
     if (typeof schema.exclusiveMinimum === 'boolean') {
-      if (schema.exclusiveMinimum === true && typeof schema.minimum === 'number') {
+      if (
+        schema.exclusiveMinimum === true &&
+        typeof schema.minimum === 'number'
+      ) {
         schema.exclusiveMinimum = schema.minimum;
         delete schema.minimum;
       } else {
@@ -61,7 +64,10 @@ class ContractValidator {
       }
     }
     if (typeof schema.exclusiveMaximum === 'boolean') {
-      if (schema.exclusiveMaximum === true && typeof schema.maximum === 'number') {
+      if (
+        schema.exclusiveMaximum === true &&
+        typeof schema.maximum === 'number'
+      ) {
         schema.exclusiveMaximum = schema.maximum;
         delete schema.maximum;
       } else {
@@ -112,12 +118,17 @@ class ContractValidator {
     if (!isValid) {
       // Create a descriptive error message
       const errorsText = this.ajv.errorsText(validator.errors);
-      this.logger.error(`Contract violation for ${fullSchemaId}: ${errorsText}`, {
-        errors: validator.errors,
-        data: this.ctx.DEBUG ? data : '[truncated]',
-      });
-      
-      const error = new Error(`Data does not match Liferay API contract for ${schemaName}: ${errorsText}`);
+      this.logger.error(
+        `Contract violation for ${fullSchemaId}: ${errorsText}`,
+        {
+          errors: validator.errors,
+          data: this.ctx.DEBUG ? data : '[truncated]',
+        }
+      );
+
+      const error = new Error(
+        `Data does not match Liferay API contract for ${schemaName}: ${errorsText}`
+      );
       error.name = 'ContractViolationError';
       error.errors = validator.errors;
       error.schemaId = fullSchemaId;

@@ -93,7 +93,10 @@ class AccountGenerator extends BaseGenerator {
 
     try {
       const countries = await this.liferay.getCountries(config);
-      this.logger.debug(`Fetched ${countries?.length || 0} countries from Liferay`, { sessionId });
+      this.logger.debug(
+        `Fetched ${countries?.length || 0} countries from Liferay`,
+        { sessionId }
+      );
 
       await this.persistence.updateSessionContext(sessionId, {
         ...session.context,
@@ -618,10 +621,13 @@ class AccountGenerator extends BaseGenerator {
     ];
 
     // 0. Filter for active countries and ensure we have a list
-    const activeCountries = (countries || []).filter(c => c.active !== false);
+    const activeCountries = (countries || []).filter((c) => c.active !== false);
 
     if (activeCountries.length === 0) {
-      this.logger.warn('No active countries found in Liferay. Falling back to default data structure.', { sessionId });
+      this.logger.warn(
+        'No active countries found in Liferay. Falling back to default data structure.',
+        { sessionId }
+      );
       return {
         name: `${toTitleCase(addressType).replace(/-/g, ' ')} Address`,
         streetAddressLine1: `${streetNumber} ${streetName} ${streetType}`,
@@ -637,7 +643,9 @@ class AccountGenerator extends BaseGenerator {
     // Try to find the AI-suggested country in the list from Liferay
     let country = null;
     if (address.addressCountry) {
-      const target = address.addressCountry.toLowerCase().replace(/[^a-z0-9]/g, '');
+      const target = address.addressCountry
+        .toLowerCase()
+        .replace(/[^a-z0-9]/g, '');
       country = activeCountries.find(
         (c) =>
           c.name.toLowerCase().replace(/[^a-z0-9]/g, '') === target ||
@@ -648,7 +656,8 @@ class AccountGenerator extends BaseGenerator {
 
     // Fallback to random if no match found or no suggestion provided
     if (!country) {
-      country = activeCountries[Math.floor(Math.random() * activeCountries.length)];
+      country =
+        activeCountries[Math.floor(Math.random() * activeCountries.length)];
     }
 
     if (!country || !country.id) {
@@ -671,7 +680,9 @@ class AccountGenerator extends BaseGenerator {
     if (regions && regions.length > 0) {
       // Try to match suggested region
       if (address.addressRegion) {
-        const targetRegion = address.addressRegion.toLowerCase().replace(/[^a-z0-9]/g, '');
+        const targetRegion = address.addressRegion
+          .toLowerCase()
+          .replace(/[^a-z0-9]/g, '');
         region = regions.find(
           (r) =>
             r.name.toLowerCase().replace(/[^a-z0-9]/g, '') === targetRegion ||
@@ -684,10 +695,16 @@ class AccountGenerator extends BaseGenerator {
       }
     }
 
-    const finalCountry = fromI18n(country.title_i18n) || country.name || country.a2 || country.a3;
-    const finalRegion = region ? (fromI18n(region.title_i18n) || region.name) : null;
+    const finalCountry =
+      fromI18n(country.title_i18n) || country.name || country.a2 || country.a3;
+    const finalRegion = region
+      ? fromI18n(region.title_i18n) || region.name
+      : null;
 
-    this.logger.debug(`Address Geographic Match: SuggestedCountry="${address.addressCountry}", MatchedCountryName="${country.name}", MatchedCountryTitle="${fromI18n(country.title_i18n)}", FinalCountry="${finalCountry}", SuggestedRegion="${address.addressRegion}", FinalRegion="${finalRegion}"`, { sessionId });
+    this.logger.debug(
+      `Address Geographic Match: SuggestedCountry="${address.addressCountry}", MatchedCountryName="${country.name}", MatchedCountryTitle="${fromI18n(country.title_i18n)}", FinalCountry="${finalCountry}", SuggestedRegion="${address.addressRegion}", FinalRegion="${finalRegion}"`,
+      { sessionId }
+    );
 
     return {
       name: `${toTitleCase(addressType).replace(/-/g, ' ')} Address`,
@@ -695,14 +712,13 @@ class AccountGenerator extends BaseGenerator {
       addressLocality: address.addressLocality,
       addressRegion: finalRegion,
       postalCode: address.postalCode,
-      // Liferay Headless Admin User API (PostalAddress) dedicated address endpoint 
+      // Liferay Headless Admin User API (PostalAddress) dedicated address endpoint
       // appears to require the full Country Name (e.g. "United States") based on empirical tests.
       addressCountry: finalCountry,
       addressType,
       primary: false,
       externalReferenceCode: createERC(ERC_PREFIX.ADDRESS),
     };
-
   }
   async handleBatchCallback(sessionId, batchERC) {
     this.logger.debug(

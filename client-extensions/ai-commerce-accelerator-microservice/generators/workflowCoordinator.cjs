@@ -1,7 +1,7 @@
 const BaseGenerator = require('./baseGenerator.cjs');
 
 /**
- * WorkflowCoordinator - A master generator that can orchestrate steps 
+ * WorkflowCoordinator - A master generator that can orchestrate steps
  * across multiple specialized generators. Used for combined generation flows.
  */
 class WorkflowCoordinator extends BaseGenerator {
@@ -26,10 +26,15 @@ class WorkflowCoordinator extends BaseGenerator {
     if (!session) return;
 
     // Find which generator handles this step
-    const targetGenerator = Object.values(this.generators).find(g => !!g.steps[stepName]);
+    const targetGenerator = Object.values(this.generators).find(
+      (g) => !!g.steps[stepName]
+    );
 
     if (targetGenerator) {
-      this.logger.info(`Delegating step '${stepName}' to ${targetGenerator.constructor.name}`, { sessionId });
+      this.logger.info(
+        `Delegating step '${stepName}' to ${targetGenerator.constructor.name}`,
+        { sessionId }
+      );
       // Call the target generator's executeStep logic
       // We must use targetGenerator as 'this' context for the call
       return await targetGenerator.executeStep(sessionId, stepName);
@@ -40,11 +45,13 @@ class WorkflowCoordinator extends BaseGenerator {
   }
 
   /**
-   * Standardized entry point (not used as much for the coordinator as it's usually 
+   * Standardized entry point (not used as much for the coordinator as it's usually
    * initialized via routes/generate.cjs)
    */
   async runWorkflow(config, options) {
-    throw new Error('WorkflowCoordinator should be initialized via combined workflow logic in routes.');
+    throw new Error(
+      'WorkflowCoordinator should be initialized via combined workflow logic in routes.'
+    );
   }
 }
 

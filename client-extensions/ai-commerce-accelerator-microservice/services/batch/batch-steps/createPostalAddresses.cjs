@@ -2,7 +2,15 @@ const { createERC } = require('../../../utils/misc.cjs');
 
 module.exports = async function createPostalAddresses(
   { liferay, logger },
-  { config, options, session, callbackUrl, batchERC, lastBatchResults, accounts }
+  {
+    config,
+    options,
+    session,
+    callbackUrl,
+    batchERC,
+    lastBatchResults,
+    accounts,
+  }
 ) {
   logger.info(
     'createPostalAddresses step started. Received lastBatchResults:',

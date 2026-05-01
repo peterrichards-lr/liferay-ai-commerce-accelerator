@@ -35,7 +35,8 @@ module.exports = async function deleteProductRelatedEntities(
       await liferay.deleteSpecificationsBatch(config, {
         ids: specificationIds,
         dryRun: options.dryRun,
-        sessionId, session,
+        sessionId,
+        session,
       });
     }
 
@@ -43,7 +44,8 @@ module.exports = async function deleteProductRelatedEntities(
       await liferay.deleteOptionsBatch(config, {
         ids: optionIds,
         dryRun: options.dryRun,
-        sessionId, session,
+        sessionId,
+        session,
       });
     }
 
@@ -51,7 +53,8 @@ module.exports = async function deleteProductRelatedEntities(
       await liferay.deleteOptionCategoriesBatch(config, {
         ids: optionCategoryIds,
         dryRun: options.dryRun,
-        sessionId, session,
+        sessionId,
+        session,
       });
     }
   }

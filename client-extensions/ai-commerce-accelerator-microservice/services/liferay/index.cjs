@@ -56,26 +56,31 @@ class LiferayService {
     // HARDENING: Liferay's /products API throws 404 if no catalogId is provided.
     // If we want a "Global" search, we MUST iterate through all catalogs.
     if (!catalogId && !providedFilter?.includes('catalogId')) {
-      this.ctx.logger.info('Performing multi-catalog product discovery sweep...');
+      this.ctx.logger.info(
+        'Performing multi-catalog product discovery sweep...'
+      );
       const allCatalogs = await this.getCatalogs(config);
       const allItems = [];
 
       for (const cat of allCatalogs) {
         try {
-          const { items } = await this.getProducts(config, { 
-            catalogId: cat.id, 
-            pageSize, 
-            fields 
+          const { items } = await this.getProducts(config, {
+            catalogId: cat.id,
+            pageSize,
+            fields,
           });
           allItems.push(...items);
         } catch (err) {
-          this.ctx.logger.warn(`Skipping products for catalog ${cat.id}: ${err.message}`);
+          this.ctx.logger.warn(
+            `Skipping products for catalog ${cat.id}: ${err.message}`
+          );
         }
       }
 
       // Deduplicate and filter in memory
-      const filteredItems = [...new Map(allItems.map(i => [i.productId || i.id, i])).values()]
-        .filter(it => !this._shouldExclude(it, exclusions));
+      const filteredItems = [
+        ...new Map(allItems.map((i) => [i.productId || i.id, i])).values(),
+      ].filter((it) => !this._shouldExclude(it, exclusions));
 
       return {
         items: filteredItems,
@@ -91,13 +96,19 @@ class LiferayService {
     const filter = filters.length > 0 ? filters.join(' and ') : null;
 
     const { items } = await this._collectAllItems(config, (cfg, p, size) =>
-      this.rest._get(cfg, PATH.PRODUCTS, 'get-products-bulk', 'Get Products Bulk', {
-        params: {
-          filter,
-          page: p,
-          pageSize: size,
+      this.rest._get(
+        cfg,
+        PATH.PRODUCTS,
+        'get-products-bulk',
+        'Get Products Bulk',
+        {
+          params: {
+            filter,
+            page: p,
+            pageSize: size,
+          },
         }
-      })
+      )
     );
 
     const filteredItems = items.filter(
@@ -125,27 +136,35 @@ class LiferayService {
     // HARDENING: Fetch all accounts without OData filters
     // (Liferay's Account API rejects 'id' and 'name' filters in many environments)
     let { items } = await this._collectAllItems(config, (cfg, p, size) =>
-      this.rest._get(cfg, PATH.ACCOUNTS, 'get-accounts-bulk', 'Get Accounts Bulk', {
-        params: {
-          page: p,
-          pageSize: size,
+      this.rest._get(
+        cfg,
+        PATH.ACCOUNTS,
+        'get-accounts-bulk',
+        'Get Accounts Bulk',
+        {
+          params: {
+            page: p,
+            pageSize: size,
+          },
         }
-      })
+      )
     );
 
     // Filter 1: Provided OData filter (Simulated in JS memory)
     // We only support simple "id eq" or "externalReferenceCode eq" simulation
     if (providedFilter) {
-       const idMatch = providedFilter.match(/id eq (\d+)/);
-       const ercMatch = providedFilter.match(/externalReferenceCode eq '([^']+)'/);
-       
-       if (idMatch) {
-         const targetId = parseInt(idMatch[1], 10);
-         items = items.filter(it => it.id === targetId);
-       } else if (ercMatch) {
-         const targetErc = ercMatch[1];
-         items = items.filter(it => it.externalReferenceCode === targetErc);
-       }
+      const idMatch = providedFilter.match(/id eq (\d+)/);
+      const ercMatch = providedFilter.match(
+        /externalReferenceCode eq '([^']+)'/
+      );
+
+      if (idMatch) {
+        const targetId = parseInt(idMatch[1], 10);
+        items = items.filter((it) => it.id === targetId);
+      } else if (ercMatch) {
+        const targetErc = ercMatch[1];
+        items = items.filter((it) => it.externalReferenceCode === targetErc);
+      }
     }
 
     // Filter 2: Name Exclusions
@@ -188,14 +207,22 @@ class LiferayService {
     // REMOVAL: Do not use OData for name exclusions (unreliable)
     const filter = filters.length > 0 ? filters.join(' and ') : null;
 
-    const { items: allItems } = await this._collectAllItems(config, (cfg, p, size) =>
-      this.rest._get(cfg, PATH.OPTION_CATEGORIES, 'get-option-categories-bulk', 'Get Option Categories Bulk', {
-        params: {
-          filter,
-          page: p,
-          pageSize: size,
-        }
-      })
+    const { items: allItems } = await this._collectAllItems(
+      config,
+      (cfg, p, size) =>
+        this.rest._get(
+          cfg,
+          PATH.OPTION_CATEGORIES,
+          'get-option-categories-bulk',
+          'Get Option Categories Bulk',
+          {
+            params: {
+              filter,
+              page: p,
+              pageSize: size,
+            },
+          }
+        )
     );
     let items = allItems;
 
@@ -237,14 +264,22 @@ class LiferayService {
     // REMOVAL: Do not use OData for name exclusions (unreliable)
     const filter = filters.length > 0 ? filters.join(' and ') : null;
 
-    const { items: allItems } = await this._collectAllItems(config, (cfg, p, size) =>
-      this.rest._get(cfg, PATH.SPECIFICATIONS, 'get-specifications-bulk', 'Get Specifications Bulk', {
-        params: {
-          filter,
-          page: p,
-          pageSize: size,
-        }
-      })
+    const { items: allItems } = await this._collectAllItems(
+      config,
+      (cfg, p, size) =>
+        this.rest._get(
+          cfg,
+          PATH.SPECIFICATIONS,
+          'get-specifications-bulk',
+          'Get Specifications Bulk',
+          {
+            params: {
+              filter,
+              page: p,
+              pageSize: size,
+            },
+          }
+        )
     );
 
     let items = allItems;
@@ -287,14 +322,22 @@ class LiferayService {
     // REMOVAL: Do not use OData for name exclusions (unreliable)
     const filter = filters.length > 0 ? filters.join(' and ') : null;
 
-    const { items: allItems } = await this._collectAllItems(config, (cfg, p, size) =>
-      this.rest._get(cfg, PATH.OPTIONS, 'get-options-bulk', 'Get Options Bulk', {
-        params: {
-          filter,
-          page: p,
-          pageSize: size,
-        }
-      })
+    const { items: allItems } = await this._collectAllItems(
+      config,
+      (cfg, p, size) =>
+        this.rest._get(
+          cfg,
+          PATH.OPTIONS,
+          'get-options-bulk',
+          'Get Options Bulk',
+          {
+            params: {
+              filter,
+              page: p,
+              pageSize: size,
+            },
+          }
+        )
     );
     let items = allItems;
 
@@ -337,7 +380,7 @@ class LiferayService {
           filter,
           page: p,
           pageSize: size,
-        }
+        },
       })
     );
 
@@ -366,13 +409,19 @@ class LiferayService {
 
     // Brute force discovery
     const { items } = await this._collectAllItems(config, (cfg, p, size) =>
-      this.rest._get(cfg, PATH.WAREHOUSES, 'get-warehouses-bulk', 'Get Warehouses Bulk', {
-        params: {
-          filter,
-          page: p,
-          pageSize: size,
+      this.rest._get(
+        cfg,
+        PATH.WAREHOUSES,
+        'get-warehouses-bulk',
+        'Get Warehouses Bulk',
+        {
+          params: {
+            filter,
+            page: p,
+            pageSize: size,
+          },
         }
-      })
+      )
     );
 
     // HARDENING: Perform all exclusions in JS memory
@@ -447,24 +496,30 @@ class LiferayService {
     // We permanently switch to Iterative REST Discovery with Memory Filtering.
 
     if (!catalogId && !providedFilter?.includes('catalogId')) {
-      this.ctx.logger.info('Performing multi-catalog price list discovery sweep...');
+      this.ctx.logger.info(
+        'Performing multi-catalog price list discovery sweep...'
+      );
       const allCatalogs = await this.getCatalogs(config);
       const allItems = [];
 
       for (const cat of allCatalogs) {
         try {
-          const { items } = await this.rest.getPriceLists(config, { 
-            catalogId: cat.id, 
-            pageSize 
+          const { items } = await this.rest.getPriceLists(config, {
+            catalogId: cat.id,
+            pageSize,
           });
           allItems.push(...items);
         } catch (err) {
-          this.ctx.logger.warn(`Skipping price lists for catalog ${cat.id}: ${err.message}`);
+          this.ctx.logger.warn(
+            `Skipping price lists for catalog ${cat.id}: ${err.message}`
+          );
         }
       }
 
       // Deduplicate and filter in memory
-      const filteredItems = [...new Map(allItems.map(i => [i.id, i])).values()];
+      const filteredItems = [
+        ...new Map(allItems.map((i) => [i.id, i])).values(),
+      ];
 
       return {
         items: filteredItems,
@@ -474,10 +529,13 @@ class LiferayService {
 
     // Standard single-catalog fetch via REST but with MEMORY FILTERING
     // We fetch without the catalogId filter to avoid "Collection not allowed"
-    const { items } = await this.rest.getPriceLists(config, { pageSize, filter: providedFilter });
-    
-    const filteredItems = items.filter(it => 
-      !catalogId || Number(it.catalogId) === Number(catalogId)
+    const { items } = await this.rest.getPriceLists(config, {
+      pageSize,
+      filter: providedFilter,
+    });
+
+    const filteredItems = items.filter(
+      (it) => !catalogId || Number(it.catalogId) === Number(catalogId)
     );
 
     return {
@@ -489,11 +547,11 @@ class LiferayService {
   async getPromotions(config, args = {}) {
     // HARDENING: Switch to memory filtering for promotions to avoid OData issues
     const { items } = await this.getPriceLists(config, args);
-    const filtered = items.filter(it => it.type === 'promotion');
-    
+    const filtered = items.filter((it) => it.type === 'promotion');
+
     return {
       items: filtered,
-      totalCount: filtered.length
+      totalCount: filtered.length,
     };
   }
 
@@ -1110,9 +1168,15 @@ class LiferayService {
   }
 
   async getCatalogs(config) {
-    const res = await this.rest._get(config, PATH.CATALOGS, 'get-catalogs-bulk', 'Get Catalogs Bulk', {
-      params: { page: 1, pageSize: 100 }
-    });
+    const res = await this.rest._get(
+      config,
+      PATH.CATALOGS,
+      'get-catalogs-bulk',
+      'Get Catalogs Bulk',
+      {
+        params: { page: 1, pageSize: 100 },
+      }
+    );
     return asItems(res);
   }
 
@@ -1125,9 +1189,15 @@ class LiferayService {
   }
 
   async getChannels(config) {
-    const res = await this.rest._get(config, PATH.CHANNELS, 'get-channels-bulk', 'Get Channels Bulk', {
-      params: { page: 1, pageSize: 100 }
-    });
+    const res = await this.rest._get(
+      config,
+      PATH.CHANNELS,
+      'get-channels-bulk',
+      'Get Channels Bulk',
+      {
+        params: { page: 1, pageSize: 100 },
+      }
+    );
     return asItems(res);
   }
 
@@ -1257,7 +1327,11 @@ class LiferayService {
   }
 
   patchAccountByERC(config, externalReferenceCode, accountData) {
-    return this.rest.patchAccountByERC(config, externalReferenceCode, accountData);
+    return this.rest.patchAccountByERC(
+      config,
+      externalReferenceCode,
+      accountData
+    );
   }
 
   getAccountByERC(config, externalReferenceCode) {
@@ -1538,10 +1612,6 @@ class LiferayService {
 
   getSpecificationByKey(config, key) {
     return this.rest.getSpecificationByKey(config, key);
-  }
-
-  createOptionCategoryWithReuse(config, payload) {
-    return this.rest.createOptionCategoryWithReuse(config, payload);
   }
 
   createSpecificationCategoryWithReuse(config, payload) {

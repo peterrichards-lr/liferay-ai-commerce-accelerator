@@ -6,7 +6,7 @@ const { logger } = require('../../utils/logger.cjs');
 // Mock context for the validator
 const mockCtx = {
   logger,
-  DEBUG: true
+  DEBUG: true,
 };
 const validator = new ContractValidator(mockCtx);
 
@@ -24,11 +24,14 @@ function validateRequest(request, data, method = 'POST') {
       }
     } catch (err) {
       if (err.name === 'ContractViolationError') {
-        return HttpResponse.json({
-          error: 'ContractViolation',
-          message: err.message,
-          errors: err.errors
-        }, { status: 400 });
+        return HttpResponse.json(
+          {
+            error: 'ContractViolation',
+            message: err.message,
+            errors: err.errors,
+          },
+          { status: 400 }
+        );
       }
     }
   }
