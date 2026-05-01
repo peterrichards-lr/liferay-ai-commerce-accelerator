@@ -9,3 +9,4 @@ fi
 [ -f ~/.huskyrc ] && . ~/.huskyrc
 
 npx lint-staged
+yarn test
