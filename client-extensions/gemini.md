@@ -181,6 +181,20 @@ The user interface must reflect a premium, professional standard, characterized 
 
 ---
 
+## Dependabot & Lockfile Integrity (Operational Rule)
+
+- **Conflict Prevention**: To prevent 'npm_and_yarn' conflicts in CI and Dependabot, **NEVER** commit a `package-lock.json` file. Yarn is the authoritative package manager for this monorepo.
+- **Explicit Scoping**: The `.github/dependabot.yml` file explicitly defines the ecosystem and directories for automated updates to ensure monorepo-wide consistency.
+
+---
+
+## Native Identifier Strategy (Engineering Rule)
+
+- **Eliminate `uuid` Dependency**: To reduce security surface area and avoid CommonJS/ESM compatibility friction, **DO NOT** use the `uuid` npm package in the microservice.
+- **Authority**: Use Node.js's built-in **`crypto.randomUUID()`** for all random identifier generation (ERCs, correlation IDs, task IDs).
+
+---
+
 ## Core identifiers
 
 ### sessionId
