@@ -1,0 +1,46 @@
+{
+  "author": "Peter Richards",
+  "dependencies": {
+    "@google-cloud/storage": "^7.17.0",
+    "@rotty3000/config-node": "^0.4.1",
+    "ajv": "^8.12.0",
+    "ajv-formats": "^2.1.1",
+    "axios": "^1.12.2",
+    "better-sqlite3": "^11.10.0",
+    "cors": "^2.8.5",
+    "csv-parse": "^6.1.0",
+    "express": "^5.1.0",
+    "form-data": "^4.0.0",
+    "jsonwebtoken": "^9.0.0",
+    "jspdf": "^4.2.1",
+    "jwk-to-pem": "^2.0.5",
+    "lodash": "^4.18.1",
+    "memory-cache": "^0.2.0",
+    "multer": "^2.1.1",
+    "node-fetch": "^3.3.2",
+    "node-stream-zip": "^1.15.0",
+    "openai": "^5.13.1",
+    "uuid": "^11.0.3",
+    "ws": "^8.18.0"
+  },
+  "license": "GPL-3.0",
+  "main": "server.cjs",
+  "name": "@liferay/liferay-ai-commerce-accelerator-microservice",
+  "scripts": {
+    "predebug": "node scripts/ensure-native-modules.cjs",
+    "prestart": "node scripts/ensure-native-modules.cjs",
+    "debug": "node --inspect --trace-warnings server.cjs",
+    "start": "node server.cjs",
+    "test": "vitest run",
+    "lint": "eslint . && prettier --check ."
+  },
+  "type": "module",
+  "version": "1.0.0",
+  "devDependencies": {
+    "@eslint/js": "^9.39.4",
+    "eslint": "^9.39.4",
+    "msw": "^2.13.4",
+    "prettier": "^3.8.1",
+    "vitest": "^4.1.5"
+  }
+}

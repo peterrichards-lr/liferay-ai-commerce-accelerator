@@ -1,0 +1,8 @@
+assemble:
+  - from: build/static
+    into: static
+liferay-ai-commerce-accelerator-frontend-cx-js-import-maps-entry:
+  bareSpecifier: liferay-ai-commerce-accelerator-frontend
+  name: Liferay AI Commerce Accelerator Frontend CX JS Import Maps Entry
+  type: jsImportMapsEntry
+  url: liferay-ai-commerce-accelerator-frontend.*.esm.js

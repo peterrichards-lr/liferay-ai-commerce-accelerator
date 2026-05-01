@@ -57,5 +57,7 @@
             "prettier --write"
         ]
     },
-    "dependencies": {}
+    "dependencies": {
+        
+    }
 }

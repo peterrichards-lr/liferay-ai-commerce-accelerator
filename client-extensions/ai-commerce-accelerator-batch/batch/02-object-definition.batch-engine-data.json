@@ -1,0 +1,138 @@
+{
+  "configuration": {
+    "className": "com.liferay.object.admin.rest.dto.v1_0.ObjectDefinition",
+    "parameters": {
+      "containsHeaders": "true",
+      "createStrategy": "UPSERT",
+      "onErrorFail": "false",
+      "taskItemDelegateName": "DEFAULT",
+      "updateStrategy": "UPDATE"
+    }
+  },
+  "items": [
+    {
+      "accountEntryRestricted": false,
+      "active": true,
+      "className": "com.liferay.object.model.ObjectDefinition#E7F4",
+      "defaultLanguageId": "en_US",
+      "enableCategorization": false,
+      "enableComments": false,
+      "enableIndexSearch": false,
+      "enableLocalization": true,
+      "enableObjectEntryDraft": false,
+      "enableObjectEntryHistory": false,
+      "externalReferenceCode": "AI_COMMERCE_ACCELERATOR_CONFIGURATION",
+      "label": {
+        "en_US": "AI Commerce Accelerator Configuration"
+      },
+      "modifiable": true,
+      "name": "AICommerceAcceleratorConfiguration",
+      "objectFields": [
+        {
+          "DBType": "String",
+          "businessType": "Text",
+          "defaultValue": "null",
+          "externalReferenceCode": "CONFIG_KEY",
+          "indexed": false,
+          "indexedAsKeyword": false,
+          "indexedLanguageId": "",
+          "label": {
+            "en_US": "Configuration Key"
+          },
+          "localized": false,
+          "name": "configKey",
+          "objectFieldSettings": [],
+          "readOnly": "false",
+          "readOnlyConditionExpression": "",
+          "required": true,
+          "state": false,
+          "system": false,
+          "type": "String",
+          "unique": false
+        },
+        {
+          "DBType": "Clob",
+          "businessType": "LongText",
+          "defaultValue": "null",
+          "externalReferenceCode": "CONFIG_VALUE",
+          "indexed": false,
+          "indexedAsKeyword": false,
+          "indexedLanguageId": "",
+          "label": {
+            "en_US": "Configuration Value"
+          },
+          "localized": false,
+          "name": "configValue",
+          "objectFieldSettings": [],
+          "readOnly": "false",
+          "readOnlyConditionExpression": "",
+          "required": true,
+          "state": false,
+          "system": false,
+          "type": "Clob",
+          "unique": false
+        },
+        {
+          "DBType": "String",
+          "businessType": "Text",
+          "defaultValue": "null",
+          "externalReferenceCode": "DESCRIPTION",
+          "indexed": false,
+          "indexedAsKeyword": false,
+          "indexedLanguageId": "",
+          "label": {
+            "en_US": "Description"
+          },
+          "localized": false,
+          "name": "description",
+          "objectFieldSettings": [],
+          "readOnly": "false",
+          "readOnlyConditionExpression": "",
+          "required": false,
+          "state": false,
+          "system": false,
+          "type": "String",
+          "unique": false
+        },
+        {
+          "DBType": "String",
+          "businessType": "Picklist",
+          "defaultValue": "null",
+          "externalReferenceCode": "CONFIG_STATUS",
+          "indexed": true,
+          "indexedAsKeyword": false,
+          "indexedLanguageId": "en_US",
+          "label": {
+            "en_US": "Configuration Status"
+          },
+          "listTypeDefinitionExternalReferenceCode": "AI_COMMERCE_ACCELERATOR_CONFIG_ENTRY_STATUS",
+          "localized": false,
+          "name": "configStatus",
+          "objectFieldSettings": [],
+          "readOnly": "false",
+          "readOnlyConditionExpression": "",
+          "required": true,
+          "state": false,
+          "system": false,
+          "type": "String",
+          "unique": false
+        }
+      ],
+      "objectFolderExternalReferenceCode": "AI_COMMERCE_ACCELERATOR_OBJECTS_FOLDER",
+      "parameterRequired": false,
+      "pluralLabel": {
+        "en_US": "AI Commerce Accelerator Configurations"
+      },
+      "portlet": false,
+      "restContextPath": "/o/c/aicommerceacceleratorconfigurations",
+      "scope": "company",
+      "status": {
+        "code": 0,
+        "label": "approved",
+        "label_i18n": "Approved"
+      },
+      "system": false,
+      "titleObjectFieldName": "configKey"
+    }
+  ]
+}

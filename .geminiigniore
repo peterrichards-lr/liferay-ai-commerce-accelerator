@@ -1,0 +1,10 @@
+**/bin
+**/build
+**/build_gradle
+**/dist
+**/node_modules
+**/node_modules_cache
+.gradle
+.idea
+/bundles
+.vscode

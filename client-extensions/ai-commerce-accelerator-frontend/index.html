@@ -1,0 +1,47 @@
+<!doctype html>
+
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta content="width=device-width, initial-scale=1" name="viewport" />
+    <meta content="#000000" name="theme-color" />
+
+    <link
+      href="https://cdn.jsdelivr.net/npm/@clayui/css@3.0.0/lib/css/atlas.css"
+      rel="stylesheet"
+    />
+    <title>Liferay AI Commerce Accelerator</title>
+
+    <script type="text/javascript">
+      (function () {
+        if (!window.Liferay) {
+          window.Liferay = {};
+        }
+
+        if (!window.Liferay.Util) {
+          window.Liferay.Util = {};
+        }
+
+        if (!window.Liferay.Icons) {
+          window.Liferay.Icons = {};
+        }
+
+        if (!window.Liferay.ThemeDisplay) {
+          window.Liferay.ThemeDisplay = {};
+          window.Liferay.ThemeDisplay.getLanguageId = () => {
+            return 'fr_FR';
+          };
+        }
+
+        window.Liferay.Icons.spritemap = '/icons.svg';
+      })();
+    </script>
+  </head>
+
+  <body>
+    <script src="/src/index.jsx" type="module"></script>
+    <noscript>You need to enable JavaScript to run this app.</noscript>
+
+    <liferay-ai-commerce-accelerator-frontend></liferay-ai-commerce-accelerator-frontend>
+  </body>
+</html>
