@@ -1,0 +1,87 @@
+[
+  {
+    "accountContactInformation": {
+      "domains": ["techinnovations.com"],
+      "emailAddresses": [
+        {
+          "emailAddress": "contact@techinnovations.com",
+          "primary": true,
+          "type": "email-address"
+        }
+      ]
+    },
+    "description": "A company specializing in innovative tech solutions.",
+    "externalReferenceCode": "TI-001",
+    "name": "Tech Innovations Inc.",
+    "taxId": "12-3456789",
+    "type": "business"
+  },
+  {
+    "accountContactInformation": {
+      "domains": ["greenearthlogistics.com"],
+      "emailAddresses": [
+        {
+          "emailAddress": "info@greenearthlogistics.com",
+          "primary": true,
+          "type": "email-address"
+        }
+      ]
+    },
+    "description": "Sustainable logistics and transportation solutions.",
+    "externalReferenceCode": "GEL-002",
+    "name": "Green Earth Logistics",
+    "taxId": "98-7654321",
+    "type": "business"
+  },
+  {
+    "accountContactInformation": {
+      "domains": ["creativemediaagency.com"],
+      "emailAddresses": [
+        {
+          "emailAddress": "hello@creativemediaagency.com",
+          "primary": true,
+          "type": "email-address"
+        }
+      ]
+    },
+    "description": "A full-service media and marketing agency.",
+    "externalReferenceCode": "CMA-003",
+    "name": "Creative Media Agency",
+    "taxId": "56-1234567",
+    "type": "business"
+  },
+  {
+    "accountContactInformation": {
+      "domains": ["healthtechsolutions.com"],
+      "emailAddresses": [
+        {
+          "emailAddress": "support@healthtechsolutions.com",
+          "primary": true,
+          "type": "email-address"
+        }
+      ]
+    },
+    "description": "Providing technology solutions for healthcare providers.",
+    "externalReferenceCode": "HTS-004",
+    "name": "HealthTech Solutions LLC",
+    "taxId": "23-4567890",
+    "type": "business"
+  },
+  {
+    "accountContactInformation": {
+      "domains": ["smarthomeinnovations.com"],
+      "emailAddresses": [
+        {
+          "emailAddress": "contact@smarthomeinnovations.com",
+          "primary": true,
+          "type": "email-address"
+        }
+      ]
+    },
+    "description": "Integrating smart technology into home solutions.",
+    "externalReferenceCode": "SHI-005",
+    "name": "Smart Home Innovations",
+    "taxId": "34-5678901",
+    "type": "business"
+  }
+]
