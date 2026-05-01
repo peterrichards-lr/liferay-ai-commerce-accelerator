@@ -112,10 +112,7 @@ export default function CommerceCard({
                 <ClaySelect.Option value="" label="No catalogs found" />
               ) : (
                 <>
-                  <ClaySelect.Option
-                    value=""
-                    label="Select a catalog…"
-                  />
+                  <ClaySelect.Option value="" label="Select a catalog…" />
                   {catalogs.map((c) => (
                     <ClaySelect.Option key={c.id} value={c.id} label={c.name} />
                   ))}
@@ -149,10 +146,7 @@ export default function CommerceCard({
                 <ClaySelect.Option value="" label="No channels found" />
               ) : (
                 <>
-                  <ClaySelect.Option
-                    value=""
-                    label="Select a channel…"
-                  />
+                  <ClaySelect.Option value="" label="Select a channel…" />
                   {channels.map((c) => (
                     <ClaySelect.Option key={c.id} value={c.id} label={c.name} />
                   ))}
