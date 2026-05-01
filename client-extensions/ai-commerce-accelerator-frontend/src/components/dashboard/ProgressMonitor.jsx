@@ -139,6 +139,51 @@ function ProgressMonitor({ generationConfig, progress, onErrorsClick }) {
           />
         </div>
       </div>
+
+      <div className="progress-section">
+        <h6 className="section-title">
+          <ClayIcon symbol="list" />
+          Product Architecture
+        </h6>
+
+        <div className="progress-grid content-generation">
+          <ProgressItem
+            title="Specifications"
+            iconSymbol="list"
+            iconClassName="specifications-icon"
+            completed={progress.specifications?.completed || 0}
+            total={progress.specifications?.total || 0}
+            errors={progress.specifications?.errors || []}
+          />
+
+          <ProgressItem
+            title="Options"
+            iconSymbol="check-circle-full"
+            iconClassName="options-icon"
+            completed={progress.options?.completed || 0}
+            total={progress.options?.total || 0}
+            errors={progress.options?.errors || []}
+          />
+
+          <ProgressItem
+            title="Price Lists"
+            iconSymbol="info-circle"
+            iconClassName="price-lists-icon"
+            completed={progress.priceLists?.completed || 0}
+            total={progress.priceLists?.total || 0}
+            errors={progress.priceLists?.errors || []}
+          />
+
+          <ProgressItem
+            title="Promotions"
+            iconSymbol="calendar"
+            iconClassName="promotions-icon"
+            completed={progress.promotions?.completed || 0}
+            total={progress.promotions?.total || 0}
+            errors={progress.promotions?.errors || []}
+          />
+        </div>
+      </div>
     </div>
   );
 }

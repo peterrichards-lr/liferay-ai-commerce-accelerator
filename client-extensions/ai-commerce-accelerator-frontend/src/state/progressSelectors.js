@@ -12,6 +12,8 @@ export const getTotalProgress = (progress) => {
     'images',
     'pdfs',
     'warehouses',
+    'specifications',
+    'options',
   ];
   const totals = entities.map((e) => progress[e]?.total || 0);
   const completeds = entities.map((e) => progress[e]?.completed || 0);

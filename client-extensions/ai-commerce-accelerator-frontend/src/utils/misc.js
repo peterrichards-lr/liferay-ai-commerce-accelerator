@@ -78,6 +78,15 @@ function normalizeEntityType(t) {
     'deletespecifications',
   ];
 
+  const priceLists = [
+    'pricelists',
+    'price-lists',
+    'generate-price-lists',
+    'delete-price-lists',
+  ];
+
+  const promotions = ['promotions', 'generate-promotions', 'delete-promotions'];
+
   if (products.includes(s)) return 'products';
   if (accounts.includes(s)) return 'accounts';
   if (orders.includes(s)) return 'orders';
@@ -86,6 +95,8 @@ function normalizeEntityType(t) {
   if (pdfs.includes(s)) return 'pdfs';
   if (options.includes(s)) return 'options';
   if (specifications.includes(s)) return 'specifications';
+  if (priceLists.includes(s)) return 'priceLists';
+  if (promotions.includes(s)) return 'promotions';
 
   // Fallbacks
   if (s.startsWith('product')) return 'products';

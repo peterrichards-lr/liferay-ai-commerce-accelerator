@@ -6,6 +6,10 @@ export const initialProgress = {
   images: { expected: 0, total: 0, completed: 0, errors: [], batches: {} },
   pdfs: { expected: 0, total: 0, completed: 0, errors: [], batches: {} },
   warehouses: { total: 0, completed: 0, errors: [], batches: {} },
+  specifications: { total: 0, completed: 0, errors: [], batches: {} },
+  options: { total: 0, completed: 0, errors: [], batches: {} },
+  priceLists: { total: 0, completed: 0, errors: [], batches: {} },
+  promotions: { total: 0, completed: 0, errors: [], batches: {} },
 };
 
 export function progressReducer(state, action) {
@@ -98,11 +102,13 @@ export function progressReducer(state, action) {
         0
       );
 
-      // Use the max of the explicitly set 'total' or the sum of batch totals
-      const summedTotal = Math.max(
-        cur.total,
-        Object.values(nextBatches).reduce((sum, b) => sum + (b.total || 0), 0)
+      // TRUST the explicitly set total if available, otherwise use the sum
+      // (For generation, we usually have an explicit total. For deletion, batches are better)
+      const summedBatchTotals = Object.values(nextBatches).reduce(
+        (sum, b) => sum + (b.total || 0),
+        0
       );
+      const summedTotal = cur.total > 0 ? cur.total : summedBatchTotals;
 
       return {
         ...state,

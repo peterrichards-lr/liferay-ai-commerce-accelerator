@@ -32,7 +32,7 @@ function ProgressItem({
           {title}
         </h6>
         <span className="progress-count">
-          {completed} / {total > 0 ? total : '?'}
+          {completed} / {total || 0}
         </span>
       </div>
       <div className="progress-bar-container">

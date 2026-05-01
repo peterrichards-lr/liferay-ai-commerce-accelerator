@@ -421,6 +421,22 @@ class DeleteCoordinatorService extends BaseGenerator {
         totalCount: manifest.warehouses.length,
         correlationId,
       });
+      this.progress.stepProgress({
+        sessionId,
+        entityType: 'specifications',
+        operation: 'delete',
+        processedCount: 0,
+        totalCount: manifest.specifications.length,
+        correlationId,
+      });
+      this.progress.stepProgress({
+        sessionId,
+        entityType: 'options',
+        operation: 'delete',
+        processedCount: 0,
+        totalCount: manifest.options.length + manifest.optionCategories.length,
+        correlationId,
+      });
 
       await this.completeSyncStep(sessionId, S.DISCOVER, 'COMPLETED');
     } catch (error) {
@@ -670,6 +686,7 @@ class DeleteCoordinatorService extends BaseGenerator {
         catalogId,
         steps,
         isTotal: true, // MARK AS TOTAL DELETION
+        generator: 'delete',
       },
     });
 
@@ -731,7 +748,14 @@ class DeleteCoordinatorService extends BaseGenerator {
       status: 'STARTED',
       currentSteps: [],
       correlationId: config.correlationId,
-      context: { config, options, channelId, catalogId, steps },
+      context: {
+        config,
+        options,
+        channelId,
+        catalogId,
+        steps,
+        generator: 'delete',
+      },
     });
 
     this.ctx.batchCallback._checkSessionCompletion(

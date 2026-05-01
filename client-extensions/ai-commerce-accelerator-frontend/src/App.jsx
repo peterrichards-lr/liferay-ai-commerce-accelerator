@@ -453,10 +453,14 @@ export function AppUI() {
                     connectionErrors={connectionErrors}
                     commerceErrors={commerceErrors}
                     onErrorsChange={setConnectionErrors}
-                    onDeleteAllCommerceData={handleDeleteAllCommerceData}
-                    onDeleteSelectedCommerceData={
-                      handleDeleteSelectedCommerceData
-                    }
+                    onDeleteAllCommerceData={async () => {
+                      setProgress({ type: 'RESET_ALL', totals: {} });
+                      await handleDeleteAllCommerceData();
+                    }}
+                    onDeleteSelectedCommerceData={async (scope) => {
+                      setProgress({ type: 'RESET_ALL', totals: {} });
+                      await handleDeleteSelectedCommerceData(scope);
+                    }}
                     batchSizes={batchSizes}
                     aiModelOptions={aiModelOptions}
                   />
