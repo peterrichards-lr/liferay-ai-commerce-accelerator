@@ -1,9 +1,7 @@
 const LiferayRestService = require('./rest.cjs');
 const LiferayGraphQLService = require('./graphql.cjs');
-const { asItems, asCount } = require('../../utils/liferayUtils.cjs');
+const { asItems } = require('../../utils/liferayUtils.cjs');
 const { PATH } = require('../../utils/liferayPaths.cjs');
-const { delay } = require('../../utils/misc.cjs');
-const { ERC_PREFIX } = require('../../utils/constants.cjs');
 
 class LiferayService {
   constructor(ctx) {
@@ -41,6 +39,23 @@ class LiferayService {
   }
 
   // --- Discovery Methods (Standardized Entry Points with Exclusions) ---
+
+  async getProductsWithSkus(config, { catalogId, pageSize = 200 } = {}) {
+    const { items } = await this.graphql.getProducts(
+      config,
+      catalogId ? `catalogId eq ${catalogId}` : null,
+      [
+        'id',
+        'externalReferenceCode',
+        'productId',
+        'name',
+        'productStatus',
+        'skus { sku purchasable price }',
+      ],
+      { page: 1, pageSize }
+    );
+    return { items, totalCount: items.length };
+  }
 
   async getProducts(
     config,
@@ -124,9 +139,9 @@ class LiferayService {
   async getAccounts(
     config,
     {
-      channelId,
+      channelId: _channelId,
       pageSize = 200,
-      fields = 'id',
+      fields: _fields = 'id',
       filter: providedFilter,
       search,
     } = {}
@@ -192,9 +207,9 @@ class LiferayService {
   async getOptionCategories(
     config,
     {
-      page = 1,
-      pageSize = 200,
-      fields = 'id',
+      page: _page = 1,
+      pageSize: _pageSize = 200,
+      fields: _fields = 'id',
       filter: providedFilter,
       ercPrefix,
     } = {}
@@ -249,9 +264,9 @@ class LiferayService {
   async getSpecifications(
     config,
     {
-      page = 1,
-      pageSize = 200,
-      fields = 'id',
+      page: _page = 1,
+      pageSize: _pageSize = 200,
+      fields: _fields = 'id',
       filter: providedFilter,
       ercPrefix,
     } = {}
@@ -307,9 +322,9 @@ class LiferayService {
   async getOptions(
     config,
     {
-      page = 1,
-      pageSize = 200,
-      fields = 'id',
+      page: _page = 1,
+      pageSize: _pageSize = 200,
+      fields: _fields = 'id',
       filter: providedFilter,
       ercPrefix,
     } = {}
@@ -363,7 +378,11 @@ class LiferayService {
 
   async getOrders(
     config,
-    { pageSize = 200, fields = 'id', filter: providedFilter } = {}
+    {
+      pageSize: _pageSize = 200,
+      fields: _fields = 'id',
+      filter: providedFilter,
+    } = {}
   ) {
     const exclusions = await this._getExclusions(config, 'order');
 
@@ -397,7 +416,11 @@ class LiferayService {
 
   async getWarehouses(
     config,
-    { pageSize = 200, fields = 'id', filter: providedFilter } = {}
+    {
+      pageSize: _pageSize = 200,
+      fields: _fields = 'id',
+      filter: providedFilter,
+    } = {}
   ) {
     const exclusions = await this._getExclusions(config, 'warehouse');
 

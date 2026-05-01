@@ -1,33 +1,27 @@
 export const getProgressPercentage = (completed = 0, total = 0) => {
   if (total > 0) return (completed / total) * 100;
-  if (completed > 0) return 100;
   return 0;
 };
 
-export const clampCompleted = (completed = 0, total = 0) =>
-  Math.min(Math.max(completed, 0), Math.max(total, 0));
-
 export const getTotalProgress = (progress) => {
   if (!progress) return { total: 0, completed: 0 };
-  const totals = [
-    progress.products?.total || 0,
-    progress.accounts?.total || 0,
-    progress.orders?.total || 0,
-    progress.images?.total || 0,
-    progress.pdfs?.total || 0,
-    progress.warehouses?.total || 0,
+  const entities = [
+    'products',
+    'accounts',
+    'orders',
+    'images',
+    'pdfs',
+    'warehouses',
   ];
-  const completeds = [
-    progress.products?.completed || 0,
-    progress.accounts?.completed || 0,
-    progress.orders?.completed || 0,
-    progress.images?.completed || 0,
-    progress.pdfs?.completed || 0,
-    progress.warehouses?.completed || 0,
-  ];
+  const totals = entities.map((e) => progress[e]?.total || 0);
+  const completeds = entities.map((e) => progress[e]?.completed || 0);
+
+  const totalSum = totals.reduce((a, b) => a + b, 0);
+  const completedSum = completeds.reduce((a, b) => a + b, 0);
+
   return {
-    total: totals.reduce((a, b) => a + b, 0),
-    completed: completeds.reduce((a, b) => a + b, 0),
+    total: totalSum,
+    completed: completedSum,
   };
 };
 

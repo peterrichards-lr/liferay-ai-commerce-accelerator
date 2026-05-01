@@ -1,10 +1,7 @@
 const BaseGenerator = require('./baseGenerator.cjs');
 const {
-  delay,
-  resolvePhaseAndMode,
   createERC,
   isoNow,
-  now,
   resolveErrorReference,
 } = require('../utils/misc.cjs');
 const { ERC_PREFIX, WORKFLOW_STEPS } = require('../utils/constants.cjs');
@@ -107,7 +104,6 @@ class OrderGenerator extends BaseGenerator {
   async _runOrderDataGenerationStep(sessionId) {
     const session = await this.persistence.getSession(sessionId);
     const { config, options } = session.context;
-    const { demoMode } = options;
 
     this.logger.info('Starting order data generation step', {
       sessionId,
@@ -299,8 +295,25 @@ class OrderGenerator extends BaseGenerator {
       )
     );
 
+    this.logger.debug(
+      `Found ${allPurchasableSkus.length} purchasable SKUs across ${products.length} products.`,
+      { sessionId: config.sessionId }
+    );
+
     if (allPurchasableSkus.length === 0) {
-      throw new Error('No products with purchasable SKUs found.');
+      this.logger.error('No purchasable SKUs found. Cannot create orders.', {
+        productCount: products.length,
+        firstProduct: products[0]
+          ? {
+              id: products[0].id,
+              status: products[0].productStatus,
+              skuCount: products[0].skus?.length,
+            }
+          : 'none',
+      });
+      throw new Error(
+        'No products with purchasable SKUs found. Ensure products are published and have SKUs.'
+      );
     }
 
     for (let i = 0; i < itemCount; i++) {
@@ -437,20 +450,28 @@ class OrderGenerator extends BaseGenerator {
   }
 
   async getProductsAndAccounts(config, context = {}) {
-    const productsRes = await this.liferay.getProducts(config, {
+    const productsRes = await this.liferay.getProductsWithSkus(config, {
       catalogId: config.catalogId,
     });
     let accounts = [];
     if (
       context.accountsToCreate &&
+      context.accountsToCreate.length > 0 &&
       context.accountsToCreate.every((a) => a.id)
     ) {
       accounts = context.accountsToCreate;
+      this.logger.debug(
+        `Using ${accounts.length} newly created accounts for orders.`
+      );
     } else {
+      this.logger.debug(
+        'Fetching existing accounts from Liferay for order assignment...'
+      );
       const accountsRes = await this.liferay.getAccounts(config, {
         channelId: config.channelId,
       });
       accounts = accountsRes.items || [];
+      this.logger.debug(`Found ${accounts.length} existing accounts.`);
     }
     const products = productsRes.items || [];
     return { products, accounts };

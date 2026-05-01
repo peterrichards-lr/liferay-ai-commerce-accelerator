@@ -118,12 +118,13 @@ class GenerationFacade {
       );
     }
 
-    return this.validateAndNormalize(entityType, data, options);
+    return this.validateAndNormalize(entityType, data, { ...options, count });
   }
 
   validateAndNormalize(schemaName, data, options = {}) {
     const validator = this.validators[schemaName];
     const correlationId = options.correlationId;
+    const count = options.count || 0;
 
     if (validator) {
       // Wrap in expected object structure if schema expects it (e.g. { products: [...] })
@@ -166,6 +167,15 @@ class GenerationFacade {
         Array.isArray(payload[mainPropertyName])
       ) {
         data = payload[mainPropertyName];
+      }
+
+      // HARDENING: Truncate to requested count if exceeded to maintain UI consistency
+      if (count > 0 && Array.isArray(data) && data.length > count) {
+        this.logger.warn(
+          `${schemaName} generator returned ${data.length} items, truncating to requested ${count}`,
+          { correlationId }
+        );
+        data = data.slice(0, count);
       }
     }
 

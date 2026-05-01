@@ -1,5 +1,4 @@
 const BaseGenerator = require('../generators/baseGenerator.cjs');
-const { asItems } = require('../utils/liferayUtils.cjs');
 const { createERC } = require('../utils/misc.cjs');
 const { ERC_PREFIX, WORKFLOW_STEPS } = require('../utils/constants.cjs');
 const BATCH_STEP_HANDLERS = require('./batch/batch-steps/index.cjs');
@@ -387,6 +386,40 @@ class DeleteCoordinatorService extends BaseGenerator {
           priceLists: manifest.priceLists.length,
           optionCategories: manifest.optionCategories.length,
         },
+      });
+
+      // Emit totals to the UI immediately after discovery
+      this.progress.stepProgress({
+        sessionId,
+        entityType: 'orders',
+        operation: 'delete',
+        processedCount: 0,
+        totalCount: manifest.orders.length,
+        correlationId,
+      });
+      this.progress.stepProgress({
+        sessionId,
+        entityType: 'products',
+        operation: 'delete',
+        processedCount: 0,
+        totalCount: manifest.products.length,
+        correlationId,
+      });
+      this.progress.stepProgress({
+        sessionId,
+        entityType: 'accounts',
+        operation: 'delete',
+        processedCount: 0,
+        totalCount: manifest.accounts.length,
+        correlationId,
+      });
+      this.progress.stepProgress({
+        sessionId,
+        entityType: 'warehouses',
+        operation: 'delete',
+        processedCount: 0,
+        totalCount: manifest.warehouses.length,
+        correlationId,
       });
 
       await this.completeSyncStep(sessionId, S.DISCOVER, 'COMPLETED');

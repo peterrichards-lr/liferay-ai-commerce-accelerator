@@ -25,7 +25,7 @@ export default function CommerceCard({
     if (!connected || !config.catalogId || languages.length === 0) return;
 
     const selectedCatalog = catalogs.find(
-      (c) => Number(c.id) === Number(config.catalogId)
+      (c) => String(c.id) === String(config.catalogId)
     );
     if (!selectedCatalog || !selectedCatalog.defaultLanguageId) return;
 
@@ -57,24 +57,26 @@ export default function CommerceCard({
   useEffect(() => {
     if (!connected || catalogs.length === 0) return;
 
+    const currentCatalogId = config.catalogId ? String(config.catalogId) : null;
     const isCurrentValid = catalogs.some(
-      (c) => Number(c.id) === Number(config.catalogId)
+      (c) => String(c.id) === currentCatalogId
     );
 
     if (!isCurrentValid || (!config.catalogId && catalogs.length === 1)) {
-      onSelectCatalog?.(Number(catalogs[0].id));
+      onSelectCatalog?.(String(catalogs[0].id));
     }
   }, [connected, catalogs, config.catalogId, onSelectCatalog]);
 
   useEffect(() => {
     if (!connected || channels.length === 0) return;
 
+    const currentChannelId = config.channelId ? String(config.channelId) : null;
     const isCurrentValid = channels.some(
-      (c) => Number(c.id) === Number(config.channelId)
+      (c) => String(c.id) === currentChannelId
     );
 
     if (!isCurrentValid || (!config.channelId && channels.length === 1)) {
-      onSelectChannel?.(Number(channels[0].id));
+      onSelectChannel?.(String(channels[0].id));
     }
   }, [connected, channels, config.channelId, onSelectChannel]);
 
@@ -104,7 +106,7 @@ export default function CommerceCard({
               value={config.catalogId || ''}
               disabled={disabled || catalogs.length === 0}
               onChange={(e) => {
-                const id = Number(e.target.value) || null;
+                const id = e.target.value || null;
                 onSelectCatalog?.(id);
               }}
             >
@@ -138,7 +140,7 @@ export default function CommerceCard({
               value={config.channelId || ''}
               disabled={disabled || channels.length === 0}
               onChange={(e) => {
-                const id = Number(e.target.value) || null;
+                const id = e.target.value || null;
                 onSelectChannel?.(id);
               }}
             >

@@ -34,7 +34,12 @@ export function progressReducer(state, action) {
         errors: [],
         batches: {},
       };
-      return { ...state, [entity]: { ...cur, total } };
+      // When a new total is set, we clear batches to avoid double-counting
+      // from previous steps that might have mapped to the same entity.
+      return {
+        ...state,
+        [entity]: { ...cur, total, batches: {}, completed: 0 },
+      };
     }
 
     case 'SET_COMPLETED': {

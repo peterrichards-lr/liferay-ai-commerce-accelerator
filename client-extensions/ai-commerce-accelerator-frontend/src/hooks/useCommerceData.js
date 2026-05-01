@@ -11,7 +11,7 @@ import {
   DELETE_SELECTED_COMMERCE_DATA,
 } from '../utils/microservicePaths';
 
-const toInt = (v) => (v == null || v === '' ? undefined : parseInt(v, 10));
+const toInt = (v) => (v == null || v === '' ? undefined : String(v));
 
 export default function useCommerceData({
   addLog,
@@ -44,11 +44,9 @@ export default function useCommerceData({
         pollingDelay: config.pollingDelay,
         pollingRetries: config.pollingRetries,
 
-        catalogId: toInt(config.catalogId),
-        channelId:
-          channel?.id != null ? toInt(channel.id) : toInt(config.channelId),
-        siteGroupId:
-          channel?.siteGroupId ?? siteGroupId ?? toInt(config.siteGroupId),
+        catalogId: config.catalogId,
+        channelId: channel?.id != null ? String(channel.id) : config.channelId,
+        siteGroupId: channel?.siteGroupId ?? siteGroupId ?? config.siteGroupId,
         currencyCode: config.currencyCode,
 
         aiModel: config.aiModel,
