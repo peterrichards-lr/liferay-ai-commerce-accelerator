@@ -6,6 +6,7 @@ import CategoriesSelector from './CategoriesSelector';
 import ProductToggleSet from './ProductToggleSet';
 import WarehousesToggle from './WarehousesToggle';
 import InventoryControls from './InventoryControls';
+import VisualAssetControls from './VisualAssetControls';
 
 function hasErr(map, key, msgStartsWith) {
   const list = map?.[key] || [];
@@ -24,7 +25,7 @@ function DataGeneratorForm({
   disabledReason,
   isGenerating,
   forceDemoMode,
-  openAiKeyAvailable,
+  aiKeyAvailable,
   validationErrors,
   scrollTargetRef,
   availableCategories,
@@ -119,15 +120,15 @@ function DataGeneratorForm({
       }
       headerActions={
         <>
-          {typeof openAiKeyAvailable === 'boolean' && (
+          {typeof aiKeyAvailable === 'boolean' && (
             <span
               className={`label ${
-                openAiKeyAvailable ? 'label-success' : 'label-warning'
+                aiKeyAvailable ? 'label-success' : 'label-warning'
               }`}
             >
-              {openAiKeyAvailable
-                ? 'OpenAI key detected'
-                : 'OpenAI key not set'}
+              {aiKeyAvailable
+                ? 'AI credentials detected'
+                : 'AI credentials missing'}
             </span>
           )}
           <button
@@ -182,44 +183,37 @@ function DataGeneratorForm({
       expandedIndicator="⏷"
     >
       <form name="dataGeneration" onSubmit={handleSubmit}>
-        <div className="form-group mb-4">
-          <label htmlFor="dataGeneration_brandName">Brand / Context</label>
-          <div className="input-group">
-            <div className="input-group-item input-group-item-shrink">
-              <span className="input-group-text">
-                <ClayIcon symbol="info-circle" />
-              </span>
-            </div>
-            <div className="input-group-item">
-              <input
-                id="dataGeneration_brandName"
-                type="text"
-                className="form-control"
-                placeholder="e.g. Sahid's Electronics, Global Hub..."
-                value={generationConfig.brandName || ''}
-                onChange={(e) =>
-                  handleConfigChange('brandName', e.target.value)
-                }
-                disabled={lockFields}
-              />
+        <div className="compact-config-grid">
+          <div className="config-brand-row">
+            <div className="form-group mb-0">
+              <label htmlFor="dataGeneration_brandName" className="small font-weight-bold text-uppercase text-muted">
+                Brand / Context
+              </label>
+              <div className="input-group">
+                <div className="input-group-item">
+                  <input
+                    id="dataGeneration_brandName"
+                    type="text"
+                    className="form-control form-control-sm"
+                    placeholder="e.g. Sahid's Electronics, Global Hub..."
+                    value={generationConfig.brandName || ''}
+                    onChange={(e) =>
+                      handleConfigChange('brandName', e.target.value)
+                    }
+                    disabled={lockFields}
+                  />
+                </div>
+              </div>
             </div>
           </div>
-          <small className="form-text text-muted">
-            This name will be used to personalize names, descriptions, and
-            branding in the AI-generated data.
-          </small>
-        </div>
 
-        <div className="form-row">
-          <div className="form-col">
-            <div className="form-group">
-              <label htmlFor="dataGeneration_productCount">
-                Products to Generate
-              </label>
+          <div className="config-counts-row mt-3">
+            <div className="count-item">
+              <label htmlFor="dataGeneration_productCount">Products</label>
               <input
                 id="dataGeneration_productCount"
                 type="number"
-                className={`form-input ${
+                className={`form-control form-control-sm ${
                   hasErr(validationErrors, 'productCount') ? 'invalid' : ''
                 }`}
                 min="0"
@@ -234,16 +228,12 @@ function DataGeneratorForm({
                 <FieldError errors={validationErrors.productCount} />
               )}
             </div>
-          </div>
-          <div className="form-col">
-            <div className="form-group">
-              <label htmlFor="dataGeneration_accountCount">
-                Accounts to Generate
-              </label>
+            <div className="count-item">
+              <label htmlFor="dataGeneration_accountCount">Accounts</label>
               <input
                 id="dataGeneration_accountCount"
                 type="number"
-                className={`form-input ${
+                className={`form-control form-control-sm ${
                   hasErr(validationErrors, 'accountCount') ? 'invalid' : ''
                 }`}
                 min="0"
@@ -258,16 +248,12 @@ function DataGeneratorForm({
                 <FieldError errors={validationErrors.accountCount} />
               )}
             </div>
-          </div>
-          <div className="form-col">
-            <div className="form-group">
-              <label htmlFor="dataGeneration_orderCount">
-                Orders to Generate
-              </label>
+            <div className="count-item">
+              <label htmlFor="dataGeneration_orderCount">Orders</label>
               <input
                 id="dataGeneration_orderCount"
                 type="number"
-                className={`form-input ${
+                className={`form-control form-control-sm ${
                   hasErr(validationErrors, 'orderCount') ? 'invalid' : ''
                 }`}
                 min="0"
@@ -299,166 +285,144 @@ function DataGeneratorForm({
           )}
         </div>
 
-        <div className="divider my-4"></div>
+        <div className="divider my-3"></div>
 
-        <div className="config-row">
-          <div className="config-col-wide" style={{ gridColumn: 'span 2' }}>
-            <div className="generator-main-settings">
-              <div className="config-section">
-                <ProductToggleSet
-                  values={{
-                    imageMode: generationConfig.imageMode,
-                    imageWidth: generationConfig.imageWidth,
-                    imageHeight: generationConfig.imageHeight,
-                    imageQuality: generationConfig.imageQuality,
-                    imageStyle: generationConfig.imageStyle,
-                    imageRatio: generationConfig.imageRatio,
-                    pdfMode: generationConfig.pdfMode,
-                    pdfRatio: generationConfig.pdfRatio,
-                    generateSpecifications:
-                      generationConfig.generateSpecifications,
-                    generateSkuVariants: generationConfig.generateSkuVariants,
-                    generatePriceLists: generationConfig.generatePriceLists,
-                  }}
-                  forceDemoMode={forceDemoMode}
-                  openAiKeyAvailable={openAiKeyAvailable}
-                  productCount={generationConfig.productCount}
-                  onChange={handleConfigChange}
-                  disabled={lockFields || generationConfig.productCount === 0}
-                  errors={validationErrors}
-                />
-              </div>
+        <div className="generator-main-settings">
+          <div className="settings-grid">
+            <div className="settings-column">
+              <ProductToggleSet
+                values={{
+                  generateSpecifications:
+                    generationConfig.generateSpecifications,
+                  generateSkuVariants: generationConfig.generateSkuVariants,
+                  generatePriceLists: generationConfig.generatePriceLists,
+                  generateBulkPricing: generationConfig.generateBulkPricing,
+                  generateTierPricing: generationConfig.generateTierPricing,
+                }}
+                productCount={generationConfig.productCount}
+                onChange={handleConfigChange}
+                disabled={lockFields || generationConfig.productCount === 0}
+                errors={validationErrors}
+              />
 
-              <div className="divider"></div>
+              <VisualAssetControls
+                values={{
+                  imageMode: generationConfig.imageMode,
+                  imageRatio: generationConfig.imageRatio,
+                  imageStyle: generationConfig.imageStyle,
+                  pdfMode: generationConfig.pdfMode,
+                  pdfRatio: generationConfig.pdfRatio,
+                  pdfContentType: generationConfig.pdfContentType,
+                }}
+                onChange={handleConfigChange}
+                disabled={lockFields || generationConfig.productCount === 0}
+                aiKeyAvailable={aiKeyAvailable}
+              />
+            </div>
 
-              <div className="config-row">
-                <div className="config-col-narrow">
-                  <h6
-                    className={`config-section-title ${
-                      generationConfig.productCount === 0 ? 'muted' : ''
-                    }`}
-                  >
-                    Warehouses & Inventory
-                  </h6>
+            <div className="settings-column border-left pl-4">
+              <h6
+                className={`config-section-title ${
+                  generationConfig.productCount === 0 ? 'muted' : ''
+                }`}
+              >
+                <ClayIcon symbol="box-container" className="mr-2" />
+                Warehouses & Inventory
+              </h6>
 
-                  <WarehousesToggle
+              <WarehousesToggle
+                productCount={generationConfig.productCount}
+                values={{
+                  createWarehouses: generationConfig.createWarehouses,
+                  reuseExistingWarehouses:
+                    generationConfig.reuseExistingWarehouses,
+                  warehouseCount: generationConfig.warehouseCount,
+                }}
+                onChange={handleConfigChange}
+                disabled={lockFields || generationConfig.productCount === 0}
+              />
+
+              {generationConfig.createWarehouses && (
+                <div className="mt-4">
+                  <InventoryControls
                     productCount={generationConfig.productCount}
-                    values={{
-                      createWarehouses: generationConfig.createWarehouses,
-                      reuseExistingWarehouses:
-                        generationConfig.reuseExistingWarehouses,
-                      warehouseCount: generationConfig.warehouseCount,
-                    }}
+                    inventoryMin={generationConfig.inventoryMin}
+                    inventoryMax={generationConfig.inventoryMax}
+                    inventoryAssignmentRatio={
+                      generationConfig.inventoryAssignmentRatio
+                    }
+                    enableBackorders={generationConfig.enableBackorders}
+                    backorderAssignmentRatio={
+                      generationConfig.backorderAssignmentRatio
+                    }
                     onChange={handleConfigChange}
-                    disabled={lockFields || generationConfig.productCount === 0}
+                    disabled={
+                      lockFields || generationConfig.productCount === 0
+                    }
+                    validationErrors={validationErrors}
                   />
                 </div>
-                <div className="config-col-wide">
-                  {generationConfig.createWarehouses && (
-                    <InventoryControls
-                      productCount={generationConfig.productCount}
-                      inventoryMin={generationConfig.inventoryMin}
-                      inventoryMax={generationConfig.inventoryMax}
-                      inventoryAssignmentRatio={
-                        generationConfig.inventoryAssignmentRatio
-                      }
-                      enableBackorders={generationConfig.enableBackorders}
-                      backorderAssignmentRatio={
-                        generationConfig.backorderAssignmentRatio
-                      }
-                      onChange={handleConfigChange}
-                      disabled={
-                        lockFields || generationConfig.productCount === 0
-                      }
-                      errors={{
-                        inventoryMin:
-                          (validationErrors && validationErrors.inventoryMin) ||
-                          null,
-                        inventoryMax:
-                          (validationErrors && validationErrors.inventoryMax) ||
-                          null,
-                        inventoryAssignmentRatio:
-                          (validationErrors &&
-                            validationErrors.inventoryAssignmentRatio) ||
-                          null,
-                        backorderAssignmentRatio:
-                          (validationErrors &&
-                            validationErrors.backorderAssignmentRatio) ||
-                          null,
-                      }}
-                    />
-                  )}
-                </div>
-              </div>
-
-              <div className="divider"></div>
-            </div>
-
-            {!generationConfig.demoMode && (
-              <div className="cost-estimation">
-                <div className="cost-card">
-                  <h5 className="cost-title">
-                    <ClayIcon symbol="coin" />
-                    Cost Estimation
-                  </h5>
-                  <div className="cost-summary">
-                    <h6>Estimated Cost:</h6>
-                    <h5 className="cost-amount">
-                      ${estimatedCost.total.toFixed(2)}
-                    </h5>
-                  </div>
-                  {estimatedCost.breakdown.length > 0 && (
-                    <ul className="cost-breakdown">
-                      {estimatedCost.breakdown.map((item, index) => (
-                        <li key={index}>{item}</li>
-                      ))}
-                    </ul>
-                  )}
-                </div>
-              </div>
-            )}
-
-            <div className="submit-section">
-              <span
-                title={disabled && !isGenerating ? disabledReason : undefined}
-                style={{ display: 'inline-block' }}
-              >
-                <button
-                  type="submit"
-                  className={`submit-button w-100 btn my-2 py-2 ${
-                    generationConfig.demoMode ? 'demo-mode' : 'generate-mode'
-                  }`}
-                  disabled={isSubmitDisabled}
-                  aria-disabled={isSubmitDisabled ? 'true' : 'false'}
-                >
-                  {isGenerating ? (
-                    <div className="processing-indicator">
-                      <span className="pm-spinner" aria-hidden="true" />
-                      {generationConfig.demoMode
-                        ? 'Generating Demo Data...'
-                        : 'Generating Data...'}
-                    </div>
-                  ) : disabled ? (
-                    <>
-                      <ClayIcon symbol="warning-full" className="error-icon" />
-                      {disabledReason || 'Not ready to generate yet'}
-                    </>
-                  ) : (
-                    <>
-                      <i
-                        className={`icon ${
-                          generationConfig.demoMode ? 'icon-flask' : 'icon-play'
-                        }`}
-                      />
-                      {generationConfig.demoMode
-                        ? 'Start Demo Generation'
-                        : 'Start Generation'}
-                    </>
-                  )}
-                </button>
-              </span>
+              )}
             </div>
           </div>
+        </div>
+
+        {!generationConfig.demoMode && (
+          <div className="cost-estimation mt-4">
+            <div className="cost-card p-3">
+              <h6 className="cost-title mb-2">
+                <ClayIcon symbol="coin" className="mr-2" />
+                Estimated Generation Cost
+              </h6>
+              <div className="d-flex justify-content-between align-items-center">
+                <h5 className="cost-amount mb-0">
+                  ${estimatedCost.total.toFixed(2)}
+                </h5>
+                {estimatedCost.breakdown.length > 0 && (
+                  <small className="text-muted">
+                    {estimatedCost.breakdown.join(' | ')}
+                  </small>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
+
+        <div className="submit-section mt-4">
+          <span
+            title={disabled && !isGenerating ? disabledReason : undefined}
+            style={{ display: 'block' }}
+          >
+            <button
+              type="submit"
+              className={`submit-button btn btn-block btn-lg ${
+                generationConfig.demoMode ? 'demo-mode' : 'generate-mode'
+              }`}
+              disabled={isSubmitDisabled}
+              aria-disabled={isSubmitDisabled ? 'true' : 'false'}
+            >
+              {isGenerating ? (
+                <div className="processing-indicator">
+                  <span className="pm-spinner mr-2" aria-hidden="true" />
+                  {generationConfig.demoMode
+                    ? 'Generating Demo Data...'
+                    : 'Generating Data...'}
+                </div>
+              ) : disabled ? (
+                <>
+                  <ClayIcon symbol="warning-full" className="mr-2" />
+                  {disabledReason || 'Not ready to generate yet'}
+                </>
+              ) : (
+                <>
+                  <ClayIcon symbol={generationConfig.demoMode ? 'flask' : 'play'} className="mr-2" />
+                  {generationConfig.demoMode
+                    ? 'Start Demo Generation'
+                    : 'Start Generation'}
+                </>
+              )}
+            </button>
+          </span>
         </div>
       </form>
     </CollapsiblePanel>

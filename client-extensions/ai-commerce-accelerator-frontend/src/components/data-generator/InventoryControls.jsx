@@ -63,36 +63,28 @@ function InventoryControls({
 
         <div className="form-col">
           <label htmlFor="dg_inventoryAssignmentRatio">
-            Apply Inventory To
+            Apply Inventory To ({inventoryAssignmentRatio ?? 0}%)
           </label>
-          <div className="input-with-unit">
-            <input
-              id="dg_inventoryAssignmentRatio"
-              type="number"
-              className={`form-input ${hasErr('inventoryAssignmentRatio') ? 'invalid' : ''}`}
-              min="0"
-              max="100"
-              value={inventoryAssignmentRatio ?? 0}
-              onChange={(e) =>
-                onChange(
-                  'inventoryAssignmentRatio',
-                  parseInt(e.target.value || '0')
-                )
-              }
-              disabled={disabled || productCount === 0}
-            />
-            <span className="input-unit">%</span>
-          </div>
+          <input
+            id="dg_inventoryAssignmentRatio"
+            type="range"
+            className="form-control-range"
+            min="0"
+            max="100"
+            step="10"
+            value={inventoryAssignmentRatio ?? 0}
+            onChange={(e) =>
+              onChange('inventoryAssignmentRatio', parseInt(e.target.value))
+            }
+            disabled={disabled || productCount === 0}
+          />
           {hasErr('inventoryAssignmentRatio') && (
             <FieldError errors={validationErrors.inventoryAssignmentRatio} />
           )}
-          <small className="help-text">
-            Randomly assigns inventory to this percentage of products.
-          </small>
         </div>
       </div>
 
-      <div className="checkbox-wrapper mt-2">
+      <div className="checkbox-wrapper mt-3">
         <input
           className="checkbox-input"
           type="checkbox"
@@ -101,48 +93,45 @@ function InventoryControls({
           onChange={(e) => onChange('enableBackorders', e.target.checked)}
           disabled={disabled || productCount === 0}
         />
-        <label className="checkbox-label" htmlFor="dg_enableBackorders">
+        <label className="checkbox-label font-weight-bold" htmlFor="dg_enableBackorders">
           Enable Backorders
         </label>
       </div>
 
-      <div className="form-row">
-        <div className="form-col">
-          <label htmlFor="dg_backorderAssignmentRatio">
-            Apply Backorders To
-          </label>
-          <div className="input-with-unit">
+      {enableBackorders && (
+        <div className="form-row mt-2">
+          <div className="form-col">
+            <label htmlFor="dg_backorderAssignmentRatio">
+              Apply Backorders To ({backorderAssignmentRatio ?? 0}%)
+            </label>
             <input
               id="dg_backorderAssignmentRatio"
-              type="number"
-              className={`form-input ${hasErr('backorderAssignmentRatio') ? 'invalid' : ''}`}
+              type="range"
+              className="form-control-range"
               min="0"
               max="100"
+              step="10"
               value={backorderAssignmentRatio ?? 0}
               onChange={(e) =>
-                onChange(
-                  'backorderAssignmentRatio',
-                  parseInt(e.target.value || '0')
-                )
+                onChange('backorderAssignmentRatio', parseInt(e.target.value))
               }
-              disabled={disabled || productCount === 0 || !enableBackorders}
+              disabled={disabled || productCount === 0}
             />
-            <span className="input-unit">%</span>
+            {hasErr('backorderAssignmentRatio') && (
+              <FieldError errors={validationErrors.backorderAssignmentRatio} />
+            )}
+            <small className="help-text">
+              Randomly enables backorders on this percentage of products.
+            </small>
           </div>
-          {hasErr('backorderAssignmentRatio') && (
-            <FieldError errors={validationErrors.backorderAssignmentRatio} />
-          )}
-          <small className="help-text">
-            Randomly enables backorders on this percentage of products.
-          </small>
         </div>
-      </div>
+      )}
 
-      <small className="help-text">
-        Inventory values will be split across available warehouses. If none
-        exist and &quot;Create Warehouses&quot; is enabled, warehouses will be
-        created first.
-      </small>
+      <div className="mt-3">
+        <small className="help-text text-muted">
+          Inventory values will be split across warehouses. If none exist, they will be created first.
+        </small>
+      </div>
     </div>
   );
 }

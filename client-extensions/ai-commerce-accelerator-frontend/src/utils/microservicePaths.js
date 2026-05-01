@@ -15,6 +15,7 @@ const IMPORT_COMMERCE_DATA = `${BASE_PATH}/import-commerce-data`;
 const TEST_CONNECTION = `${BASE_PATH}/test-connection`;
 
 const AI_MODEL_OPTIONS = `${CONFIG_PATH}/ai-model-options`;
+const AI_CONFIG = `${CONFIG_PATH}/ai`;
 const BATCH_SIZES = `${CONFIG_PATH}/batch-sizes`;
 const GET_CATEGORIES = `${CONFIG_PATH}/categories`;
 
@@ -37,6 +38,7 @@ export {
   IMPORT_COMMERCE_DATA,
   TEST_CONNECTION,
   AI_MODEL_OPTIONS,
+  AI_CONFIG,
   BATCH_SIZES,
   GENERATE_WORKFLOW,
   WORKFLOW_SESSIONS,

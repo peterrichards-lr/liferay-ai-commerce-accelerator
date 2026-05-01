@@ -62,9 +62,7 @@ export const getKeyObject = async (
   fields = DEFAULT_OBJECT_FIELDS
 ) => {
   const filter = encodeURIComponent(`configKey eq '${key}'`);
-  return await fetchJSON(
-    `${OBJECT_ROOT_PATH}?fields=${fields}&filter=${filter}`
-  )
+  return await fetchJSON(`${OBJECT_ROOT_PATH}?filter=${filter}`)
     .then((result) => {
       if (result.totalCount == 0) {
         return null;

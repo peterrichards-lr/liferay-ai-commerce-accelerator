@@ -1,0 +1,7 @@
+yarn run v1.22.22
+$ esbuild src/index.js --outdir=build/static --bundle --minify --entry-names=liferay-ai-commerce-accelerator-configuration.min.[hash] --format=esm --external:@liferay/oauth2-provider-web/client --loader:.js=jsx --jsx=automatic --loader:.css=css
+
+  ...ic/liferay-ai-commerce-accelerator-configuration.min.D2DUL7YV.js  622.4kb
+  ...c/liferay-ai-commerce-accelerator-configuration.min.5ZWV7NT7.css    2.2kb
+
+Done in 0.80s.

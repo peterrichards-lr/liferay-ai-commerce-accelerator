@@ -8,13 +8,16 @@ import ClayTable from '@clayui/table';
 import SchemaEditor from './SchemaEditor';
 import { useForm, useObjectStorage } from '../../hooks';
 import MillisecondsInput from '../common/MillisecondsInput';
-import OpenAISettingsPanel from './OpenAISettingsPanel';
+import AiSettingsPanel from './AiSettingsPanel';
 
-const OPEN_AI_KEY_KEY = 'open-ai-key';
+const AI_CREDENTIALS_KEY = 'ai-credentials';
+const AI_MEDIA_CREDENTIALS_KEY = 'ai-media-credentials';
 const AI_CONFIG_KEY = 'ai-config';
 
 const DEFAULTS = {
   [AI_CONFIG_KEY]: {
+    provider: 'openai',
+    mediaProvider: 'inherit',
     defaultModel: 'gpt-4o',
     temperature: 0.7,
     responseFormat: 'json_object',
@@ -39,14 +42,17 @@ const DEFAULTS = {
     systemPrompts: {},
     strictJson: true,
   },
-  [OPEN_AI_KEY_KEY]: '',
+  [AI_CREDENTIALS_KEY]: '',
+  [AI_MEDIA_CREDENTIALS_KEY]: '',
 };
 
 const AI_MODEL_OPTIONS_CONFIG_KEY = 'ai-model-options';
 const AI_MODEL_OPTIONS_DEFAULTS = [
   { label: 'GPT-4o Mini', value: 'gpt-4o-mini' },
   { label: 'GPT-4o', value: 'gpt-4o' },
-  { label: 'GPT-4.1 Mini', value: 'gpt-4.1-mini' },
+  { label: 'Gemini 1.5 Flash', value: 'gemini-1.5-flash' },
+  { label: 'Gemini 1.5 Pro', value: 'gemini-1.5-pro' },
+  { label: 'Claude 3.5 Sonnet', value: 'claude-3-5-sonnet-20240620' },
 ];
 
 const ENTITY_CONFIGS = [
@@ -91,64 +97,48 @@ function toInt(v, fallback) {
 
 export default function AiConfigPanel() {
   const [issues, setIssues] = useState([]);
-
   const [errors, setErrors] = useState(EMPTY_ERRORS);
 
   const {
     loading: loadingAi,
-
     saving: savingAi,
-
     values: { [AI_CONFIG_KEY]: aiConfig },
-
     dirty: dirtyAi,
-
     onSave: onSaveAi,
-
     onCancel: onCancelAi,
-
     setValue: setAiValue,
   } = useObjectStorage({
     keys: [AI_CONFIG_KEY],
-
     defaults: { [AI_CONFIG_KEY]: DEFAULTS[AI_CONFIG_KEY] },
   });
 
   const {
     loading: loadingKey,
-
     saving: savingKey,
-
-    values: { [OPEN_AI_KEY_KEY]: openAiKeyValue },
-
+    values: {
+      [AI_CREDENTIALS_KEY]: aiCredentialsValue,
+      [AI_MEDIA_CREDENTIALS_KEY]: aiMediaCredentialsValue,
+    },
     dirty: dirtyKey,
-
     onSave: onSaveKey,
-
     onCancel: onCancelKey,
-
-    setValue: setOpenAiKeyValue,
+    setValue: setAiCredentialsValue,
   } = useObjectStorage({
-    keys: [OPEN_AI_KEY_KEY],
-
-    defaults: { [OPEN_AI_KEY_KEY]: DEFAULTS[OPEN_AI_KEY_KEY] },
-
+    keys: [AI_CREDENTIALS_KEY, AI_MEDIA_CREDENTIALS_KEY],
+    defaults: {
+      [AI_CREDENTIALS_KEY]: DEFAULTS[AI_CREDENTIALS_KEY],
+      [AI_MEDIA_CREDENTIALS_KEY]: DEFAULTS[AI_MEDIA_CREDENTIALS_KEY],
+    },
     json: false,
   });
 
   const {
     loading: loadingAiModels,
-
     saving: savingAiModels,
-
     values: aiModelOptions,
-
     dirty: dirtyAiModels,
-
     onSave: onSaveAiModels,
-
     onCancel: onCancelAiModels,
-
     setValues: setAiModelOptionsValues,
   } = useObjectStorage({
     keys: ENTITY_CONFIGS.map((c) => c.configKey),
@@ -162,9 +152,7 @@ export default function AiConfigPanel() {
   });
 
   const loading = loadingAi || loadingKey || loadingAiModels;
-
   const saving = savingAi || savingKey || savingAiModels;
-
   const dirty = dirtyAi || dirtyKey || dirtyAiModels;
 
   const onSave = useCallback(async () => {
@@ -173,11 +161,8 @@ export default function AiConfigPanel() {
 
   const onCancel = useCallback(() => {
     onCancelAi();
-
     onCancelKey();
-
     onCancelAiModels();
-
     setErrors(EMPTY_ERRORS);
   }, [onCancelAi, onCancelKey, onCancelAiModels]);
 
@@ -190,32 +175,23 @@ export default function AiConfigPanel() {
   const onSchemaChange = (schemaId, configKey, value) => {
     try {
       const parsed = JSON.parse(value);
-
-      // Custom validation for AI Model Options: array of { label: string, value: string }
-
       if (!Array.isArray(parsed)) {
         throw new Error('Expected an array.');
       }
-
       parsed.forEach((item, index) => {
         if (typeof item !== 'object' || item === null || Array.isArray(item)) {
           throw new Error(`Item ${index} is not an object.`);
         }
-
         if (typeof item.label !== 'string' || item.label.trim() === '') {
           throw new Error(`Item ${index} is missing a valid 'label' string.`);
         }
-
         if (typeof item.value !== 'string' || item.value.trim() === '') {
           throw new Error(`Item ${index} is missing a valid 'value' string.`);
         }
       });
-
       setErrors((prev) => ({ ...prev, [schemaId]: [] }));
-
       setAiModelOptionsValues((prev) => ({
         ...prev,
-
         [configKey]: parsed,
       }));
     } catch (error) {
@@ -225,24 +201,19 @@ export default function AiConfigPanel() {
 
   const hasErrors = useMemo(
     () => Object.values(errors).some((e) => e.length > 0),
-
     [errors]
   );
 
   useEffect(() => {
     const found = [];
-
     if (!aiConfig.defaultModel) found.push('Default model cannot be empty.');
-
     if (aiConfig.temperature < 0 || aiConfig.temperature > 2)
       found.push('Temperature must be between 0 and 2.');
-
     if (
       !Number.isFinite(aiConfig.requestTimeoutMs) ||
       aiConfig.requestTimeoutMs < 1000
     )
       found.push('Request timeout must be at least 1000 ms.');
-
     setIssues(found);
   }, [aiConfig]);
 
@@ -252,7 +223,6 @@ export default function AiConfigPanel() {
   const updateRetry = (k, val) =>
     setAiValue(AI_CONFIG_KEY, {
       ...aiConfig,
-
       retry: { ...aiConfig.retry, [k]: val },
     });
 
@@ -262,14 +232,33 @@ export default function AiConfigPanel() {
         <h2 className="sheet-title">AI Configuration</h2>
 
         <div className="sheet-text">
-          Manages <code>{OPEN_AI_KEY_KEY}</code> and{' '}
+          Manages <code>{AI_CREDENTIALS_KEY}</code> and{' '}
           <code>{AI_CONFIG_KEY}</code>.
         </div>
       </div>
 
-      <OpenAISettingsPanel
-        keyValue={openAiKeyValue || ''}
-        setKeyValue={(value) => setOpenAiKeyValue(OPEN_AI_KEY_KEY, value)}
+      <AiSettingsPanel
+        type="text"
+        title="Core AI Generation (Text)"
+        helpText="Used for Products, Accounts, and Order descriptions."
+        keyValue={aiCredentialsValue || ''}
+        setKeyValue={(value) =>
+          setAiCredentialsValue(AI_CREDENTIALS_KEY, value)
+        }
+        providerValue={aiConfig.provider || 'openai'}
+        setProviderValue={(value) => updateAi('provider', value)}
+      />
+
+      <AiSettingsPanel
+        type="media"
+        title="Media Generation (Images/PDFs)"
+        helpText="Choose a specialized provider for product visuals, or inherit from Core AI."
+        keyValue={aiMediaCredentialsValue || ''}
+        setKeyValue={(value) =>
+          setAiCredentialsValue(AI_MEDIA_CREDENTIALS_KEY, value)
+        }
+        providerValue={aiConfig.mediaProvider || 'inherit'}
+        setProviderValue={(value) => updateAi('mediaProvider', value)}
       />
 
       {!!issues.length && (

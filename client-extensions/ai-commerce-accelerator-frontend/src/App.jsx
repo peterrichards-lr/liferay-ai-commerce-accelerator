@@ -25,6 +25,7 @@ import { buildFilename, exportJsonFile } from './utils/fileHelper';
 
 import ConfigurationPanel from './components/config/ConfigurationPanel';
 import DataGeneratorForm from './components/data-generator/DataGeneratorForm';
+import HelpSection from './components/dashboard/HelpSection';
 import Dashboard from './components/dashboard/Dashboard';
 
 import useAppConfigIO from './hooks/useAppConfigIO';
@@ -33,6 +34,7 @@ import {
   EXPORT_COMMERCE_DATA,
   IMPORT_COMMERCE_DATA,
   AI_MODEL_OPTIONS,
+  AI_CONFIG,
   BATCH_SIZES,
 } from './utils/microservicePaths';
 
@@ -55,6 +57,7 @@ const initialGenerationConfig = {
   generateSkuVariants: true,
   pdfMode: 'placeholder',
   pdfRatio: 100,
+  pdfContentType: 'product_info',
   demoMode: true,
   inventoryMin: 0,
   inventoryMax: 1000,
@@ -93,7 +96,7 @@ export function AppUI() {
   } = useValidation(config, generationConfig);
 
   const [connectionEstablished, setConnectionEstablished] = useState(false);
-  const [openAiKeyAvailable, setOpenAiKeyAvailable] = useState(false);
+  const [aiKeyAvailable, setAiKeyAvailable] = useState(false);
   const [generationCompleted, setGenerationCompleted] = useState(false);
   const [batchErrors, setBatchErrors] = useState([]);
   const [batchSizes, setBatchSizes] = useState([1, 10, 25, 50]); // Default values
@@ -104,6 +107,7 @@ export function AppUI() {
   ]);
 
   const [availableCategories, setAvailableCategories] = useState([]);
+  const [aiConfig, setAiConfig] = useState(null);
 
   const initialLoggingConfig = {
     level: config?.wsLoggingLevel || 'info',
@@ -168,7 +172,7 @@ export function AppUI() {
   } = useCommerceData({
     addLog,
     setConnectionEstablished,
-    setOpenAiKeyAvailable,
+    setAiKeyAvailable,
     setConnectionErrors,
     ping,
   });
@@ -179,7 +183,7 @@ export function AppUI() {
     api,
     config,
     dispatch,
-    forceDemoMode: connectionEstablished && !openAiKeyAvailable,
+    forceDemoMode: connectionEstablished && !aiKeyAvailable,
     generationConfig,
     mountedRef,
     progress,
@@ -230,13 +234,13 @@ export function AppUI() {
     setGenerationConfig,
     connectionEstablished,
     setConnectionEstablished,
-    setOpenAiKeyAvailable,
+    setAiKeyAvailable,
     availableCategories,
     mountedRef,
     selectChannel,
   });
 
-  const forceDemoMode = connectionEstablished && !openAiKeyAvailable;
+  const forceDemoMode = connectionEstablished && !aiKeyAvailable;
 
   useEffect(() => {
     if (forceDemoMode) {
@@ -413,6 +417,15 @@ export function AppUI() {
       } catch (err) {
         addLog('Failed to load AI model options: ' + err.message, 'error');
       }
+
+      try {
+        const fullAiConfig = await api.get(AI_CONFIG);
+        if (mountedRef.current && fullAiConfig?.success) {
+          setAiConfig(fullAiConfig.config?.ai);
+        }
+      } catch (err) {
+        // Silently fail
+      }
     })();
   }, [connectionEstablished, categories, mountedRef, addLog, api, setConfig]);
 
@@ -435,6 +448,7 @@ export function AppUI() {
             <div className="card-body">
               <div className="row">
                 <div className="col-lg-4">
+                  <HelpSection />
                   <ConfigurationPanel
                     disabled={isGenerating}
                     generationConfig={generationConfig}
@@ -448,8 +462,8 @@ export function AppUI() {
                     onSelectChannel={selectChannel}
                     onSelectCatalog={selectCatalog}
                     commerceConfigured={commerceConfigured}
-                    onOpenAiKeyStatusChange={setOpenAiKeyAvailable}
-                    openAiKeyAvailable={openAiKeyAvailable}
+                    onOpenAiKeyStatusChange={setAiKeyAvailable}
+                    aiKeyAvailable={aiKeyAvailable}
                     connectionErrors={connectionErrors}
                     commerceErrors={commerceErrors}
                     onErrorsChange={setConnectionErrors}
@@ -514,7 +528,7 @@ export function AppUI() {
                     disabledReason={disabledReason}
                     isGenerating={isGenerating}
                     forceDemoMode={forceDemoMode}
-                    openAiKeyAvailable={openAiKeyAvailable}
+                    aiKeyAvailable={aiKeyAvailable}
                     validationErrors={generationErrors}
                     scrollTargetRef={appTopRef}
                     availableCategories={availableCategories}
@@ -535,6 +549,7 @@ export function AppUI() {
                     clearBatchErrors={clearBatchErrors}
                     onReconnect={reconnect}
                     connected={connectionEstablished}
+                    aiConfig={aiConfig}
                   />
                 </div>
               </div>
