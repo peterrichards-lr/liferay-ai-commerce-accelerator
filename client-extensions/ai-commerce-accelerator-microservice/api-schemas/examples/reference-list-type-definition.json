@@ -1,0 +1,16 @@
+{
+  "externalReferenceCode": "18aa3cd3-5b28-a006-51aa-3a07a6278245",
+  "id": 70082,
+  "listTypeEntries": [
+    {
+      "externalReferenceCode": "BX-001-ISO",
+      "id": 70083,
+      "key": "SZXS",
+      "name": "Extra Small (Parcel/Bin)",
+      "name_i18n": {
+        "en-US": "Extra Small (Parcel/Bin)"
+      }
+    }
+  ],
+  "name": "Size"
+}

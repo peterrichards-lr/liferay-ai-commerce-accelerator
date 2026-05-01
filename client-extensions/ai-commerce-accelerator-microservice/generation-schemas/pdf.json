@@ -1,0 +1,31 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "description": "A schema for the content of a generated PDF document.",
+  "properties": {
+    "sections": {
+      "description": "An array of sections, each with a title and content.",
+      "items": {
+        "properties": {
+          "content": {
+            "description": "The content of the section.",
+            "type": "string"
+          },
+          "title": {
+            "description": "The title of the section.",
+            "type": "string"
+          }
+        },
+        "required": ["title", "content"],
+        "type": "object"
+      },
+      "type": "array"
+    },
+    "title": {
+      "description": "The main title of the document.",
+      "type": "string"
+    }
+  },
+  "required": ["title", "sections"],
+  "title": "PDF Content",
+  "type": "object"
+}
