@@ -13,7 +13,7 @@
     "codemirror": "^5.65.16",
     "prop-types": "^15.8.1",
     "react": "^18.2.0",
-    "react-codemirror2": "^8.0.2",
+    "react-codemirror2": "^9.0.1",
     "react-dom": "^18.2.0"
   },
   "devDependencies": {
