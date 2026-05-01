@@ -14,7 +14,10 @@ import DashboardHeader from './DashboardHeader';
 import ProgressMonitor from './ProgressMonitor';
 import BatchErrors from './BatchErrors';
 import DashboardEmptyState from './DashboardEmptyState';
+import SystemStatus from './SystemStatus';
+import OverallProgressGauge from './OverallProgressGauge';
 
+import { getTotalProgress } from '../../state/progressSelectors';
 import { buildFilename, exportJsonFile } from '../../utils/fileHelper';
 
 const STORAGE_KEYS = {
@@ -61,6 +64,7 @@ function Dashboard({
   clearBatchErrors,
   onReconnect,
   connected,
+  aiConfig,
 }) {
   const frozenRef = useRef(false);
   const [entityFilter, setEntityFilter] = useState(null);
@@ -74,6 +78,10 @@ function Dashboard({
         (Number(s?.completed) || 0) > 0 ||
         (Array.isArray(s?.errors) && s.errors.length > 0)
     );
+
+  const { total, completed } = getTotalProgress(progress);
+  const overallPercentage = total > 0 ? (completed / total) * 100 : 0;
+
   const hasLogs = Array.isArray(logs) && logs.length > 0;
   const summaryDisabled = isGenerating || !hasProgress;
   const logDisabled = isGenerating || !hasLogs;
@@ -260,11 +268,29 @@ function Dashboard({
 
   return (
     <div className="dashboard">
+      <SystemStatus
+        liferayStatus={connected}
+        wsStatus={wsStatus}
+        textProvider={aiConfig?.provider || 'openai'}
+        mediaProvider={aiConfig?.mediaProvider || 'inherit'}
+        textModel={aiConfig?.defaultModel || 'gpt-4o'}
+        onReconnect={onReconnect}
+      />
+
       <div className="dashboard-card">
-        <DashboardHeader
-          handleReset={handleReset}
-          isGenerating={isGenerating}
-        />
+        <div
+          className={
+            hasProgress || isGenerating ? 'dashboard-header-with-gauge' : ''
+          }
+        >
+          <DashboardHeader
+            handleReset={handleReset}
+            isGenerating={isGenerating}
+          />
+          {(hasProgress || isGenerating) && (
+            <OverallProgressGauge percentage={overallPercentage} />
+          )}
+        </div>
 
         <div className="dashboard-body">
           {!hasProgress && !isGenerating ? (

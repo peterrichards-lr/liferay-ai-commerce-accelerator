@@ -27,6 +27,12 @@ export function progressReducer(state, action) {
       return next;
     }
 
+    case 'MERGE':
+      return { ...state, ...action.payload };
+
+    case 'APPLY_UPDATER':
+      return action.updater(state);
+
     case 'SET_ACTIVE_SESSION': {
       return { ...state, activeSessionId: action.sessionId };
     }
@@ -39,12 +45,38 @@ export function progressReducer(state, action) {
         errors: [],
         batches: {},
       };
-      // HARDENING: We no longer clear completed/batches here.
-      // This ensures stability when multiple steps map to the same entity.
       return {
         ...state,
         [entity]: { ...cur, total },
       };
+    }
+
+    case 'SET_TOTALS': {
+      const next = { ...state };
+      Object.entries(action.totals).forEach(([entity, total]) => {
+        const cur = next[entity] || {
+          total: 0,
+          completed: 0,
+          errors: [],
+          batches: {},
+        };
+        next[entity] = { ...cur, total };
+      });
+      return next;
+    }
+
+    case 'SET_EXPECTED_VALUES': {
+      const next = { ...state };
+      Object.entries(action.values).forEach(([entity, expected]) => {
+        const cur = next[entity] || {
+          total: 0,
+          completed: 0,
+          errors: [],
+          batches: {},
+        };
+        next[entity] = { ...cur, expected };
+      });
+      return next;
     }
 
     case 'SET_COMPLETED': {
@@ -79,21 +111,16 @@ export function progressReducer(state, action) {
         [batchId]: { completed, total },
       };
 
-      // Sum up all active batches for this entity
       const summedCompleted = Object.values(nextBatches).reduce(
         (sum, b) => sum + (b.completed || 0),
         0
       );
 
-      // Sum up the totals from all batches.
       const summedBatchTotals = Object.values(nextBatches).reduce(
         (sum, b) => sum + (b.total || 0),
         0
       );
 
-      // If we have an explicitly set total (e.g. from generation config),
-      // we use it as a 'base', but we allow the actual total to expand
-      // if batches report more.
       const summedTotal = Math.max(cur.total, summedBatchTotals);
 
       return {
@@ -130,6 +157,8 @@ export const ACTIONS = {
   reset: () => ({ type: 'RESET' }),
   setActiveSession: (sessionId) => ({ type: 'SET_ACTIVE_SESSION', sessionId }),
   setTotal: (entity, total) => ({ type: 'SET_TOTAL', entity, total }),
+  setTotals: (totals) => ({ type: 'SET_TOTALS', totals }),
+  setExpectedValues: (values) => ({ type: 'SET_EXPECTED_VALUES', values }),
   setCompleted: (entity, completed) => ({
     type: 'SET_COMPLETED',
     entity,

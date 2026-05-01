@@ -40,8 +40,8 @@ describe('App', () => {
     );
   });
 
-  it('updates generation config when OpenAI key is missing', async () => {
-    // Override handler to return openAiKeyAvailable: false
+  it('updates generation config when AI credentials are missing', async () => {
+    // Override handler to return aiKeyAvailable: false
     const { http, HttpResponse } = await import('msw');
     const { server } = await import('./mocks/server');
 
@@ -50,6 +50,7 @@ describe('App', () => {
         return HttpResponse.json({
           success: true,
           message: 'Connected to Liferay (no AI).',
+          aiKeyAvailable: false,
           openAiKeyAvailable: false,
           liferayUrl: 'http://liferay-test:8080',
         });
