@@ -183,7 +183,13 @@ class AIService {
     }
   }
 
-  async generatePDFContent(product, category, requestConfig, model, options = {}) {
+  async generatePDFContent(
+    product,
+    category,
+    requestConfig,
+    model,
+    options = {}
+  ) {
     const { logger, prompt } = this.ctx;
     const correlationId = requestConfig?.correlationId;
     try {
@@ -226,9 +232,7 @@ class AIService {
       });
 
       const wrapped = new Error(
-        `AI service error: ${
-          error.message || 'Failed to generate PDF content'
-        }`
+        `AI service error: ${error.message || 'Failed to generate PDF content'}`
       );
       wrapped.errorReference = errorReference;
       throw wrapped;

@@ -16,7 +16,7 @@ const toInt = (v) => (v == null || v === '' ? undefined : String(v));
 export default function useCommerceData({
   addLog,
   setConnectionEstablished,
-  setOpenAiKeyAvailable,
+  setAiKeyAvailable,
   setConnectionErrors,
   ping,
 }) {
@@ -105,13 +105,13 @@ export default function useCommerceData({
 
     if (!res?.success) {
       setConnectionEstablished(false);
-      setOpenAiKeyAvailable(false);
+      setAiKeyAvailable(false);
       throw new Error(res?.message || 'Failed to establish connection.');
     }
 
     addLog(res.message || 'Connected.', 'success');
 
-    setOpenAiKeyAvailable(Boolean(res.openAiKeyAvailable));
+    setAiKeyAvailable(Boolean(res.aiKeyAvailable));
 
     const wsOk = ping();
     if (!wsOk) {

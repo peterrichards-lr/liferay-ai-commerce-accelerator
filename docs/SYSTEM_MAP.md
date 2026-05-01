@@ -14,7 +14,8 @@ The project is a multi-module Liferay Workspace using a headless-first architect
 
 **Role**: The central orchestrator and backend engine.
 
-- **Responsibilities**: Workflow execution, AI integration (Gemini/OpenAI), Liferay Headless API coordination, and real-time state broadcasting via WebSockets.
+- **Responsibilities**: Workflow execution, AI integration (multi-provider), Liferay Headless API coordination, and real-time state broadcasting via WebSockets.
+- **AI Integration**: Support for multiple providers including OpenAI (GPT) and Google Gemini via a unified driver architecture.
 - **Core Directories**:
   - `generators/`: Defines the business logic and step sequences for entity creation/deletion (e.g., `ProductGenerator.cjs`).
   - `services/`: Core logic providers like `BatchCallbackService.cjs` (state machine), `LiferayService` (API facade), and `PersistenceService.cjs` (SQLite manager).

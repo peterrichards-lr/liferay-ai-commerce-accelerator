@@ -264,35 +264,36 @@ const gracefulShutdown = async (signal) => {
 
         const result = await liferayService.testConnection(req.body);
 
-        let openAiKeyAvailable = false;
+        let aiKeyAvailable = false;
         try {
-          await configService.getOpenAIKey(req.body);
-          openAiKeyAvailable = true;
+          await configService.getAIKey(req.body);
+          aiKeyAvailable = true;
         } catch (error) {
-          openAiKeyAvailable = false;
-          logger.debug('OpenAI key check failed', {
+          aiKeyAvailable = false;
+          logger.debug('AI key check failed', {
             correlationId,
-            operation: 'openai-key-check',
+            operation: 'ai-key-check',
             error: error.message,
           });
         }
 
-        const openAiKeyMessage = openAiKeyAvailable
-          ? 'OpenAI API key is configured and ready for AI features.'
-          : 'OpenAI API key not found. Only demo mode will be available.';
+        const aiKeyMessage = aiKeyAvailable
+          ? 'AI API key is configured and ready for generation.'
+          : 'AI API key not found. Only demo mode will be available.';
 
         logger.info('Connection test successful', {
           correlationId,
           operation: 'test-connection',
-          openAiKeyAvailable,
+          aiKeyAvailable,
           message: result.message,
         });
 
         res.json({
           success: true,
           message: result.message,
-          openAiKeyAvailable,
-          openAiKeyMessage,
+          openAiKeyAvailable: aiKeyAvailable, // Keep backward compatibility for frontend field
+          aiKeyAvailable,
+          aiKeyMessage,
         });
       } catch (error) {
         logger.error('Connection test failed', {

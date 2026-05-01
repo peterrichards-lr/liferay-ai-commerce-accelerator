@@ -109,8 +109,8 @@ In newer Liferay Commerce versions, Catalogs and Channels are decoupled. For a s
 Liferay's newer Headless APIs (2024.Qx+) enforce strict metadata validation for nested relationships:
 
 - **Full Metadata Objects**: Many DTOs (e.g., `Specification`) require a **Full Parent Object** instead of a flat ID.
-  - *Correct*: `"optionCategory": { "id": 123, "key": "spec-group", "title": { "en_US": "Specs" } }`
-  - *Incorrect*: `"optionCategoryId": 123`
+  - _Correct_: `"optionCategory": { "id": 123, "key": "spec-group", "title": { "en_US": "Specs" } }`
+  - _Incorrect_: `"optionCategoryId": 123`
 - **Indexing Heartbeats**: Implement a **2-3 second delay** between linking a child to a parent (e.g., Options to Product) and performing dependent operations (e.g., creating SKUs or Inventory). This allows Liferay's internal relationship mapping to settle.
 - **Pricing Resilience**: Pricing V2.0 strictly requires the **`discountDiscovery`** boolean in the `PriceEntry` DTO. Omitting it will cause a backend `NullPointerException`.
 
@@ -121,14 +121,14 @@ Liferay's newer Headless APIs (2024.Qx+) enforce strict metadata validation for 
 To prevent regression and ensure 100% architectural integrity, the following automated checks are mandatory:
 
 1.  **Service Parity Testing**:
-    *   **Rule**: Every public wrapper method in `LiferayService` (index.cjs) MUST have a corresponding implementation in either `LiferayRestService` or `LiferayGraphqlService`.
-    *   **Enforcement**: Verified via `tests/serviceParity.test.cjs`. This prevents `TypeError: ... is not a function` errors.
+    - **Rule**: Every public wrapper method in `LiferayService` (index.cjs) MUST have a corresponding implementation in either `LiferayRestService` or `LiferayGraphqlService`.
+    - **Enforcement**: Verified via `tests/serviceParity.test.cjs`. This prevents `TypeError: ... is not a function` errors.
 2.  **Startup Step Verification**:
-    *   **Rule**: Every workflow step registered in a Generator (e.g., `[S.CREATE_PRODUCTS]`) MUST be mapped to a valid class method.
-    *   **Enforcement**: The `BaseGenerator.verifySteps()` method is called at boot time in `bootstrap.cjs`. The microservice will fail to start if any mapping is broken.
+    - **Rule**: Every workflow step registered in a Generator (e.g., `[S.CREATE_PRODUCTS]`) MUST be mapped to a valid class method.
+    - **Enforcement**: The `BaseGenerator.verifySteps()` method is called at boot time in `bootstrap.cjs`. The microservice will fail to start if any mapping is broken.
 3.  **Pre-Commit Verification**:
-    *   **Rule**: All code must be free of syntax errors, undefined references, and lint violations.
-    *   **Enforcement**: Husky and `lint-staged` run `eslint --fix` and `vitest run` on every commit. This catches `ReferenceError` and `SyntaxError` issues before they reach the repository.
+    - **Rule**: All code and documentation must be free of syntax errors, undefined references, and lint violations.
+    - **Enforcement**: Husky and `lint-staged` run `eslint --fix`, `vitest run`, and `markdownlint` on every commit. This catches `ReferenceError`, `SyntaxError`, and documentation drift before they reach the repository.
 
 ---
 
@@ -156,6 +156,28 @@ This layer manages the canonical state of all asynchronous operations (sessions,
 - **Consistency Model (Write-Invalidate):**
   - **Reads**: Checks cache first; on miss, loads from SQLite and populates cache.
   - **Writes/Updates**: All mutations are written directly to SQLite first. Immediately following a successful write, the corresponding cache entry is **invalidated (deleted)**.
+
+---
+
+## AI Multi-Provider Strategy (Text vs. Media)
+
+To provide maximum flexibility and cost optimization, the microservice supports independent AI drivers for different content types.
+
+1.  **Independent Keys**: Text generation (Products, Accounts, Orders) and Media generation (Images, PDFs) can be configured with separate API keys and providers.
+2.  **Nano Banana Support**: Dedicated provider for specialized image generation.
+3.  **Intelligent Fallback**: Media tasks will automatically fall back to the Core AI provider if no dedicated media key is provided, ensuring seamless operation for single-provider setups.
+4.  **Provider Factory**: All AI interactions must go through `providerFactory.cjs` to ensure consistent error handling and model normalization.
+
+---
+
+## UI/UX Standards & Layout Real-Estate
+
+The user interface must reflect a premium, professional standard, characterized by:
+
+1.  **Horizontal Space Optimization**: Prefer multi-column grids (e.g., the 2-column generator settings) to minimize vertical scrolling on desktop.
+2.  **Information Density**: Use compact card layouts and high-fidelity components like the `OverallProgressGauge` and `SystemStatus` strip to provide maximum data with minimal clutter.
+3.  **Interactive States**: Use button groups, toggles, and range sliders for configuration parameters to provide immediate visual feedback.
+4.  **Sticky Context**: Key navigation and configuration elements should be sticky on large screens to maintain accessibility during long generation runs.
 
 ---
 
@@ -204,19 +226,15 @@ Investigation of product creation failures (`CPDefinitionProductTypeNameExceptio
 ### Batch Engine Verb Support (Unusual Behavior)
 
 - **Constraint**: Not all Liferay Batch Engine endpoints support the HTTP `DELETE` verb.
-- **Example**: The `/warehouses/batch` endpoint only supports `POST`.
-- **Resolution**: For entity types that lack native batch deletion support, use **Simulated Batching** (sequential individual `DELETE` requests) or direct REST batch endpoints if available.
+- **Example**: For entity types that lack native batch deletion support, use **Simulated Batching** (sequential individual `DELETE` requests) or direct REST batch endpoints if available.
+
+### Security & History Hygiene (Operational Finding)
+
+1.  **Purge Policy**: Sensitive files (`workflows.db`, `*.log`) must be purged from Git history using `git-filter-repo` if accidentally committed.
+2.  **Resolution Lockdown**: Always use `resolutions` in root `package.json` to override nested vulnerabilities (e.g., `uuid`, `axios`, `braces`).
+3.  **Lock File Single Source**: Maintain only `yarn.lock`. Delete `package-lock.json` to prevent CI conflicts.
 
 ---
-
-## Architectural Mandates (2025.Q1 Hardening)
-
-- **ID Guard**: Never send placeholder IDs (0, null, 10000+, 30000+, 40000+, 50000+) to Liferay. Use `payload-cleaner.cjs`.
-- **Ghost Step Guard**: Workflow engine must throw FATAL ERROR if a handler is missing.
-- **Context Merging**: `PersistenceService` MUST merge context objects instead of overwriting to prevent state loss during parallel subflows.
-- **Auth Fallback**: Services MUST support Basic Auth as a fallback if OAuth is not configured.
-- **UI Feedback**: Frontend MUST handle `BATCH_ERROR_DETAILS` WebSocket events to populate the Errors tab.
-- **Session Sync**: 'isGenerating' state MUST be derived from `activeSessionId` to maintain dashboard activity across reloads.
 
 ## Known Operational States
 

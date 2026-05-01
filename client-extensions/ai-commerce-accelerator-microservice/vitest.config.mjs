@@ -15,7 +15,7 @@ export default defineConfig({
           /std-env/,
           /@ai-sdk\/provider-utils/,
           /node-fetch/,
-          /@ai-sdk\/anthropic/
+          /@ai-sdk\/anthropic/,
         ],
       },
     },

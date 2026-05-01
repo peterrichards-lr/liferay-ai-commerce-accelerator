@@ -44,7 +44,7 @@ describe('DataGeneratorForm', () => {
     disabledReason: '',
     isGenerating: false,
     forceDemoMode: false,
-    openAiKeyAvailable: true,
+    aiKeyAvailable: true,
     validationErrors: {},
     availableCategories: ['Electronics', 'Clothing'],
     generationCompleted: false,
@@ -56,16 +56,16 @@ describe('DataGeneratorForm', () => {
   it('renders correctly with initial config', () => {
     render(<DataGeneratorForm {...mockProps} />);
 
-    expect(screen.getByLabelText(/Products to Generate/i)).toHaveValue(10);
-    expect(screen.getByLabelText(/Accounts to Generate/i)).toHaveValue(10);
-    expect(screen.getByLabelText(/Orders to Generate/i)).toHaveValue(50);
+    expect(screen.getByLabelText(/^Products$/i)).toHaveValue(10);
+    expect(screen.getByLabelText(/^Accounts$/i)).toHaveValue(10);
+    expect(screen.getByLabelText(/^Orders$/i)).toHaveValue(50);
     expect(screen.getByText(/Start Demo Generation/i)).toBeInTheDocument();
   });
 
   it('updates product count on change', () => {
     render(<DataGeneratorForm {...mockProps} />);
 
-    const productInput = screen.getByLabelText(/Products to Generate/i);
+    const productInput = screen.getByLabelText(/^Products$/i);
     fireEvent.change(productInput, { target: { value: '20' } });
 
     expect(mockProps.setGenerationConfig).toHaveBeenCalled();
@@ -78,7 +78,7 @@ describe('DataGeneratorForm', () => {
     };
     render(<DataGeneratorForm {...liveProps} />);
 
-    expect(screen.getByText(/Cost Estimation/i)).toBeInTheDocument();
+    expect(screen.getByText(/Estimated Generation Cost/i)).toBeInTheDocument();
     // 10 products + 10 accounts + 50 orders = 70 entities * 0.002 = $0.14
     expect(screen.getAllByText(/\$0\.14/)[0]).toBeInTheDocument();
   });

@@ -15,14 +15,14 @@ function handleError(res, logger, req, config, operation, error, extra = {}) {
     rawMessage.includes('missing') ||
     rawMessage.includes('invalid');
 
-  const isAIKeyError = rawMessage.includes('OpenAI API key not configured');
+  const isAIKeyMissingError = rawMessage.includes('AI API key not configured');
 
   let statusCode = isValidationError ? 400 : 500;
   let userMessage = rawMessage;
 
-  if (isAIKeyError) {
+  if (isAIKeyMissingError) {
     userMessage =
-      'AI service error: OpenAI API key not configured. Please set it in the AI Configuration object.';
+      'AI service error: AI credentials not configured. Please set them in the AI Configuration object.';
   }
 
   const errorRef = resolveErrorReference(error) || createERC(ERC_PREFIX.ERROR);
