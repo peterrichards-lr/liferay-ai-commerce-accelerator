@@ -143,7 +143,7 @@ export function AppUI() {
     });
   }, []);
 
-  const { ping, wsConnected } = useRealtimeWebSocket({
+  const { ping, wsConnected, reconnect } = useRealtimeWebSocket({
     enabled: connectionEstablished && !!config.microserviceUrl,
     microserviceUrl: config.microserviceUrl,
     loggingLevel: config?.wsLoggingLevel ?? 'off',
@@ -530,9 +530,11 @@ export function AppUI() {
                     onClearLogs={clearLogs}
                     onReset={handleProgressReset}
                     generationConfig={generationConfig}
-                    wsStatus={wsStatus}
+                    wsStatus={wsConnected ? 'connected' : 'closed'}
                     batchErrors={batchErrors}
                     clearBatchErrors={clearBatchErrors}
+                    onReconnect={reconnect}
+                    connected={connectionEstablished}
                   />
                 </div>
               </div>

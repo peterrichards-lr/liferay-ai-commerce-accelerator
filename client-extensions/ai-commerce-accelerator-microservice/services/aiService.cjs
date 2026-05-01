@@ -295,6 +295,7 @@ class AIService {
       const languageCodes = langs.map((l) => l.replace('-', '_'));
 
       const vars = {
+        brandName: options.brandName || '',
         category,
         count,
         pluralSuffix: pluralize(count),
@@ -388,6 +389,7 @@ class AIService {
       const languageCodes = langs.map((l) => l.replace('-', '_'));
 
       const vars = {
+        brandName: options.brandName || '',
         count,
         pluralSuffix: pluralize(count),
         categories: categories.join(', '),
@@ -459,6 +461,7 @@ class AIService {
         .slice(0, 10);
 
       const vars = {
+        brandName: options.brandName || '',
         count,
         pluralSuffix: pluralize(count),
         productListJSON: JSON.stringify(productList, null, 2),
@@ -512,6 +515,7 @@ class AIService {
       const languageCodes = langs.map((l) => l.replace('-', '_'));
 
       const vars = {
+        brandName: options.brandName || '',
         count,
         pluralSuffix: pluralize(count),
         languageList: joinList(langs),

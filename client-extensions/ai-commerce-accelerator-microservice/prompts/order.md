@@ -1,5 +1,9 @@
 Generate realistic order data for {{count}} orders using the provided products and accounts.
 
+{% if brandName %}
+BRAND CONTEXT: These orders represent business transactions with the brand/company "{{brandName}}".
+{% endif %}
+
 Available Products: {{=json:productListJSON}}
 Available Accounts: {{=json:accountListJSON}}
 

@@ -182,6 +182,34 @@ function DataGeneratorForm({
       expandedIndicator="⏷"
     >
       <form name="dataGeneration" onSubmit={handleSubmit}>
+        <div className="form-group mb-4">
+          <label htmlFor="dataGeneration_brandName">Brand / Context</label>
+          <div className="input-group">
+            <div className="input-group-item input-group-item-shrink">
+              <span className="input-group-text">
+                <ClayIcon symbol="info-circle" />
+              </span>
+            </div>
+            <div className="input-group-item">
+              <input
+                id="dataGeneration_brandName"
+                type="text"
+                className="form-control"
+                placeholder="e.g. Sahid's Electronics, Global Hub..."
+                value={generationConfig.brandName || ''}
+                onChange={(e) =>
+                  handleConfigChange('brandName', e.target.value)
+                }
+                disabled={lockFields}
+              />
+            </div>
+          </div>
+          <small className="form-text text-muted">
+            This name will be used to personalize names, descriptions, and
+            branding in the AI-generated data.
+          </small>
+        </div>
+
         <div className="form-row">
           <div className="form-col">
             <div className="form-group">

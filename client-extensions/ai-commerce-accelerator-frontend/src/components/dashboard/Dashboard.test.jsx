@@ -29,6 +29,8 @@ describe('Dashboard', () => {
     wsStatus: 'connected',
     batchErrors: [],
     clearBatchErrors: vi.fn(),
+    onReconnect: vi.fn(),
+    connected: true,
   };
 
   it('renders correctly with progress and logs', () => {
@@ -36,8 +38,8 @@ describe('Dashboard', () => {
 
     expect(screen.getByText(/Progress Monitor/i)).toBeInTheDocument();
     expect(screen.getByText(/Step 1 complete/i)).toBeInTheDocument();
-    // Check for the ARIA label or status dot specifically
-    expect(screen.getByTitle(/Live updates: connected/i)).toBeInTheDocument();
+    // Check for the updated tooltip label for connected status
+    expect(screen.getByTitle(/Live updates active/i)).toBeInTheDocument();
   });
 
   it('shows progress bars for products', () => {
@@ -75,5 +77,12 @@ describe('Dashboard', () => {
     fireEvent.click(exportBtn);
 
     expect(screen.getByText(/Download started/i)).toBeInTheDocument();
+  });
+
+  it('shows empty state when no progress exists', () => {
+    render(<Dashboard {...mockProps} progress={{}} logs={[]} />);
+
+    expect(screen.getByText(/Ready to Accelerate/i)).toBeInTheDocument();
+    expect(screen.getByText(/Your dashboard will come alive/i)).toBeInTheDocument();
   });
 });

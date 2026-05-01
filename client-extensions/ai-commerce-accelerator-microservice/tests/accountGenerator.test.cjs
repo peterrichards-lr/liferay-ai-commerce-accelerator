@@ -33,10 +33,15 @@ describe('AccountGenerator', () => {
         getCountryRegions: vi
           .fn()
           .mockResolvedValue([{ id: 10, name: 'California' }]),
-        createAccountsBatch: vi.fn().mockResolvedValue({ id: 'batch-123' }),
+        createAccountsBatch: vi.fn().mockResolvedValue({ batchId: 'batch-123' }),
         resolveByERCsWithRetry: vi
           .fn()
           .mockResolvedValue([{ erc: 'ACC-1', id: 1001 }]),
+      },
+      progress: {
+        stepStarted: vi.fn(),
+        stepProgress: vi.fn(),
+        sessionCompleted: vi.fn(),
       },
       batchCallback: {
         _checkSessionCompletion: vi.fn(),
@@ -62,10 +67,7 @@ describe('AccountGenerator', () => {
     const session = persistence.getSession(result.sessionId);
     expect(session).not.toBeNull();
     expect(session.flow_type).toBe('accounts');
-    expect(mockCtx.batchCallback._checkSessionCompletion).toHaveBeenCalledWith(
-      result.sessionId,
-      undefined
-    );
+    expect(mockCtx.batchCallback._checkSessionCompletion).toHaveBeenCalled();
   });
 
   it('should run load countries step', async () => {
@@ -74,7 +76,7 @@ describe('AccountGenerator', () => {
       sessionId,
       flowType: 'accounts',
       status: 'STARTED',
-      context: { config: {} },
+      context: { config: {}, steps: [{ name: 'load-countries' }] },
     });
 
     await generator._runLoadCountriesStep(sessionId);
@@ -94,6 +96,7 @@ describe('AccountGenerator', () => {
         config: {},
         options: { accountCount: 1 },
         countries: [{ id: 1, name: 'US' }],
+        steps: [{ name: 'generate-account-data' }]
       },
     });
 

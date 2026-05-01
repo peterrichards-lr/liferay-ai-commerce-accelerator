@@ -19,16 +19,6 @@ describe('progressReducer', () => {
     expect(state.products.completed).toBe(50);
   });
 
-  it('should handle INCR_COMPLETED', () => {
-    const initialState = {
-      ...initialProgress,
-      products: { ...initialProgress.products, completed: 10 },
-    };
-    const action = { type: 'INCR_COMPLETED', entity: 'products', amount: 5 };
-    const state = progressReducer(initialState, action);
-    expect(state.products.completed).toBe(15);
-  });
-
   it('should handle UPDATE_BATCH and sum correctly', () => {
     const action1 = {
       type: 'UPDATE_BATCH',

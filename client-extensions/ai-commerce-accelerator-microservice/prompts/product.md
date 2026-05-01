@@ -1,5 +1,9 @@
 Generate realistic product data for {{count}} {{category}} products with multilingual content for these languages: {{languageList}}.
 
+{% if brandName %}
+BRAND CONTEXT: These products are for the brand/company "{{brandName}}". Ensure that product names, descriptions, marketing copy, and specifications reflect this brand's identity and tone.
+{% endif %}
+
 You must return a JSON array that conforms to the provided JSON schema. Each element in the array must be one product object with exactly the following properties:
 
 - name: object of multilingual product names keyed by language code ({{languageCodesCSV}}). Example structure: {{languageCodesNamePairs}}. Values are human-friendly product names.

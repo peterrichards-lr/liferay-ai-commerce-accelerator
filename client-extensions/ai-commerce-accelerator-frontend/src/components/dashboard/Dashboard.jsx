@@ -13,6 +13,7 @@ import StatusMonitor from './StatusMonitor';
 import DashboardHeader from './DashboardHeader';
 import ProgressMonitor from './ProgressMonitor';
 import BatchErrors from './BatchErrors';
+import DashboardEmptyState from './DashboardEmptyState';
 
 import { buildFilename, exportJsonFile } from '../../utils/fileHelper';
 
@@ -58,6 +59,8 @@ function Dashboard({
   wsStatus = 'disabled',
   batchErrors,
   clearBatchErrors,
+  onReconnect,
+  connected,
 }) {
   const frozenRef = useRef(false);
 
@@ -252,50 +255,57 @@ function Dashboard({
         />
 
         <div className="dashboard-body">
-          <ProgressMonitor
-            generationConfig={generationConfig}
-            progress={progress}
-            onErrorsClick={onErrorsClick}
-          />
-
-          <ClayTabs active={activeTab} onActiveChange={setActiveTab}>
-            <ClayTabs.Item
-              key="activity-log"
-              aria-controls="activity-log-panel"
-            >
-              Activity Log
-            </ClayTabs.Item>
-            {batchErrors && batchErrors.length > 0 && (
-              <ClayTabs.Item
-                key="batch-errors"
-                aria-controls="batch-errors-panel"
-              >
-                Batch Errors
-              </ClayTabs.Item>
-            )}
-          </ClayTabs>
-          <ClayTabs.Content activeIndex={activeTab}>
-            <ClayTabs.TabPane aria-labelledby="activity-log-tab">
-              <ActivityLog
-                onClearLogs={onClearLogs}
-                logs={logs}
-                isGenerating={isGenerating}
+          {!hasProgress && !isGenerating ? (
+            <DashboardEmptyState connected={connected} />
+          ) : (
+            <>
+              <ProgressMonitor
+                generationConfig={generationConfig}
+                progress={progress}
+                onErrorsClick={onErrorsClick}
               />
-            </ClayTabs.TabPane>
-            {batchErrors && batchErrors.length > 0 && (
-              <ClayTabs.TabPane aria-labelledby="batch-errors-tab">
-                <BatchErrors
-                  batchErrors={batchErrors}
-                  clearBatchErrors={clearBatchErrors}
-                />
-              </ClayTabs.TabPane>
-            )}
-          </ClayTabs.Content>
+
+              <ClayTabs active={activeTab} onActiveChange={setActiveTab}>
+                <ClayTabs.Item
+                  key="activity-log"
+                  aria-controls="activity-log-panel"
+                >
+                  Activity Log
+                </ClayTabs.Item>
+                {batchErrors && batchErrors.length > 0 && (
+                  <ClayTabs.Item
+                    key="batch-errors"
+                    aria-controls="batch-errors-panel"
+                  >
+                    Batch Errors
+                  </ClayTabs.Item>
+                )}
+              </ClayTabs>
+              <ClayTabs.Content activeIndex={activeTab}>
+                <ClayTabs.TabPane aria-labelledby="activity-log-tab">
+                  <ActivityLog
+                    onClearLogs={onClearLogs}
+                    logs={logs}
+                    isGenerating={isGenerating}
+                  />
+                </ClayTabs.TabPane>
+                {batchErrors && batchErrors.length > 0 && (
+                  <ClayTabs.TabPane aria-labelledby="batch-errors-tab">
+                    <BatchErrors
+                      batchErrors={batchErrors}
+                      clearBatchErrors={clearBatchErrors}
+                    />
+                  </ClayTabs.TabPane>
+                )}
+              </ClayTabs.Content>
+            </>
+          )}
 
           <StatusMonitor
             lastUpdated={lastUpdateTime}
             elapsedMs={displayElapsedMs}
             wsStatus={wsStatus}
+            onReconnect={onReconnect}
           />
 
           <div className="export-controls">
