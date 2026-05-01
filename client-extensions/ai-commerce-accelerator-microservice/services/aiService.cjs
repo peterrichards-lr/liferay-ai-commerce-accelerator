@@ -376,7 +376,8 @@ class AIService {
     requestConfig,
     model,
     categories = [],
-    selectedLanguages = ['en-US']
+    selectedLanguages = ['en-US'],
+    options = {}
   ) {
     const { logger, prompt } = this.ctx;
     const correlationId = requestConfig?.correlationId;
@@ -433,7 +434,8 @@ class AIService {
     count = 1,
     requestConfig,
     model,
-    selectedLanguages = ['en-US']
+    selectedLanguages = ['en-US'],
+    options = {}
   ) {
     const { logger, prompt } = this.ctx;
     const correlationId = requestConfig?.correlationId;
@@ -502,7 +504,8 @@ class AIService {
     count = 1,
     requestConfig,
     model,
-    selectedLanguages = ['en-US']
+    selectedLanguages = ['en-US'],
+    options = {}
   ) {
     const { logger, prompt } = this.ctx;
     const correlationId = requestConfig?.correlationId;

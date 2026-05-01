@@ -33,7 +33,9 @@ describe('AccountGenerator', () => {
         getCountryRegions: vi
           .fn()
           .mockResolvedValue([{ id: 10, name: 'California' }]),
-        createAccountsBatch: vi.fn().mockResolvedValue({ batchId: 'batch-123' }),
+        createAccountsBatch: vi
+          .fn()
+          .mockResolvedValue({ batchId: 'batch-123' }),
         resolveByERCsWithRetry: vi
           .fn()
           .mockResolvedValue([{ erc: 'ACC-1', id: 1001 }]),
@@ -96,7 +98,7 @@ describe('AccountGenerator', () => {
         config: {},
         options: { accountCount: 1 },
         countries: [{ id: 1, name: 'US' }],
-        steps: [{ name: 'generate-account-data' }]
+        steps: [{ name: 'generate-account-data' }],
       },
     });
 

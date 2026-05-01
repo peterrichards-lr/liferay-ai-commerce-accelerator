@@ -23,12 +23,18 @@ describe('DeleteCoordinatorService', () => {
         getAccounts: vi.fn().mockResolvedValue({ items: [], totalCount: 0 }),
         getProducts: vi.fn().mockResolvedValue({ items: [], totalCount: 0 }),
         getWarehouses: vi.fn().mockResolvedValue({ items: [], totalCount: 0 }),
-        getAllWarehouseItems: vi.fn().mockResolvedValue({ items: [], totalCount: 0 }),
-        getSpecifications: vi.fn().mockResolvedValue({ items: [], totalCount: 0 }),
+        getAllWarehouseItems: vi
+          .fn()
+          .mockResolvedValue({ items: [], totalCount: 0 }),
+        getSpecifications: vi
+          .fn()
+          .mockResolvedValue({ items: [], totalCount: 0 }),
         getOptions: vi.fn().mockResolvedValue({ items: [], totalCount: 0 }),
         getPriceLists: vi.fn().mockResolvedValue({ items: [], totalCount: 0 }),
         getPromotions: vi.fn().mockResolvedValue({ items: [], totalCount: 0 }),
-        getOptionCategories: vi.fn().mockResolvedValue({ items: [], totalCount: 0 }),
+        getOptionCategories: vi
+          .fn()
+          .mockResolvedValue({ items: [], totalCount: 0 }),
         getCatalogs: vi.fn().mockResolvedValue([]),
         getChannels: vi.fn().mockResolvedValue([]),
         _collectAllItems: vi.fn().mockResolvedValue({ items: [] }),
@@ -72,11 +78,11 @@ describe('DeleteCoordinatorService', () => {
       flowType: 'delete',
       status: 'STARTED',
       currentSteps: ['discover'],
-      context: { 
-        config: { correlationId: 'test-cid' }, 
+      context: {
+        config: { correlationId: 'test-cid' },
         options: {},
         isTotal: true,
-        steps: [{ name: 'discover' }]
+        steps: [{ name: 'discover' }],
       },
     });
 

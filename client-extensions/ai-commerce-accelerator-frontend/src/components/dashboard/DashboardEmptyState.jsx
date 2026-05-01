@@ -10,7 +10,8 @@ function DashboardEmptyState({ connected, hasConfig }) {
         </div>
         <h4>Ready to Accelerate?</h4>
         <p className="text-muted">
-          Your dashboard will come alive once you start a generation or deletion flow.
+          Your dashboard will come alive once you start a generation or deletion
+          flow.
         </p>
 
         {!connected && (
@@ -27,8 +28,9 @@ function DashboardEmptyState({ connected, hasConfig }) {
           <div className="setup-tip alert alert-info">
             <ClayIcon symbol="magic" />
             <span>
-              <strong>Next Step:</strong> Use the <strong>Data Generation</strong>{' '}
-              form to create products, accounts, and orders for your catalog.
+              <strong>Next Step:</strong> Use the{' '}
+              <strong>Data Generation</strong> form to create products,
+              accounts, and orders for your catalog.
             </span>
           </div>
         )}
@@ -43,8 +45,8 @@ function DashboardEmptyState({ connected, hasConfig }) {
             </li>
             <li>
               <ClayIcon symbol="trash" />
-              <strong>Cleanup:</strong> Safely remove only the data created by this
-              accelerator.
+              <strong>Cleanup:</strong> Safely remove only the data created by
+              this accelerator.
             </li>
             <li>
               <ClayIcon symbol="sync" />

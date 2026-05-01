@@ -2,6 +2,7 @@ const LiferayRestService = require('./rest.cjs');
 const LiferayGraphQLService = require('./graphql.cjs');
 const { asItems } = require('../../utils/liferayUtils.cjs');
 const { PATH } = require('../../utils/liferayPaths.cjs');
+const { delay } = require('../../utils/misc.cjs');
 
 class LiferayService {
   constructor(ctx) {
@@ -1678,10 +1679,13 @@ class LiferayService {
     while (attempt < maxRetries && currentErcs.length > 0) {
       if (attempt > 0) {
         const delayMs = initialDelay * Math.pow(2, attempt - 1);
-        logger.debug(`Retry ${attempt}/${maxRetries} for ${label} in ${delayMs}ms...`, {
-          missing: currentErcs.length,
-          correlationId: config.correlationId,
-        });
+        logger.debug(
+          `Retry ${attempt}/${maxRetries} for ${label} in ${delayMs}ms...`,
+          {
+            missing: currentErcs.length,
+            correlationId: config.correlationId,
+          }
+        );
         await delay(delayMs);
       }
 
@@ -1694,9 +1698,12 @@ class LiferayService {
         // Update list of missing ERCs
         currentErcs = currentErcs.filter((erc) => !resolvedMap.has(erc));
       } catch (error) {
-        logger.warn(`Resolution attempt ${attempt} failed for ${label}: ${error.message}`, {
-          correlationId: config.correlationId,
-        });
+        logger.warn(
+          `Resolution attempt ${attempt} failed for ${label}: ${error.message}`,
+          {
+            correlationId: config.correlationId,
+          }
+        );
       }
 
       attempt++;
@@ -1704,9 +1711,12 @@ class LiferayService {
 
     // FINAL HARDENING: REST Fallback for missing Accounts
     if (currentErcs.length > 0 && label === 'accounts') {
-      logger.info(`Attempting REST fallback for ${currentErcs.length} missing accounts...`, {
-        correlationId: config.correlationId,
-      });
+      logger.info(
+        `Attempting REST fallback for ${currentErcs.length} missing accounts...`,
+        {
+          correlationId: config.correlationId,
+        }
+      );
 
       for (const erc of currentErcs) {
         try {

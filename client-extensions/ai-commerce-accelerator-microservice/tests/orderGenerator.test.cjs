@@ -44,7 +44,9 @@ describe('OrderGenerator', () => {
         getAccounts: vi.fn().mockResolvedValue({
           items: [{ id: 1001, externalReferenceCode: 'ACC-1' }],
         }),
-        createOrdersBatch: vi.fn().mockResolvedValue({ batchId: 'order-batch' }),
+        createOrdersBatch: vi
+          .fn()
+          .mockResolvedValue({ batchId: 'order-batch' }),
         createOrder: vi.fn().mockResolvedValue({ id: 5001 }),
       },
       progress: {
@@ -95,13 +97,19 @@ describe('OrderGenerator', () => {
       context: {
         config: { channelId: '44207', catalogId: '32693', currencyCode: 'USD' },
         options: { orderCount: 1 },
-        steps: [{ name: 'generate-order-data' }]
+        steps: [{ name: 'generate-order-data' }],
       },
     });
 
     // Mock internal methods
     generator.getProductsAndAccounts = vi.fn().mockResolvedValue({
-      products: [{ id: 2001, skus: [{ sku: 'SKU-1', purchasable: true }], productStatus: 0 }],
+      products: [
+        {
+          id: 2001,
+          skus: [{ sku: 'SKU-1', purchasable: true }],
+          productStatus: 0,
+        },
+      ],
       accounts: [{ id: 1001 }],
     });
 
@@ -122,14 +130,26 @@ describe('OrderGenerator', () => {
       flowType: 'orders',
       status: 'STARTED',
       context: {
-        config: { channelId: '44207', catalogId: '32693', currencyCode: 'USD', batchSize: 2 },
+        config: {
+          channelId: '44207',
+          catalogId: '32693',
+          currencyCode: 'USD',
+          batchSize: 2,
+        },
         options: { orderCount: 2 },
-        products: [{ id: 2001, externalReferenceCode: 'P1', skus: [{ sku: 'S1', purchasable: true }], productStatus: 0 }],
+        products: [
+          {
+            id: 2001,
+            externalReferenceCode: 'P1',
+            skus: [{ sku: 'S1', purchasable: true }],
+            productStatus: 0,
+          },
+        ],
         accounts: [{ id: 1001, externalReferenceCode: 'A1' }],
         steps: [{ name: 'create-orders' }],
         orderDataList: [
           { externalReferenceCode: 'O1', accountId: 1001 },
-          { externalReferenceCode: 'O2', accountId: 1001 }
+          { externalReferenceCode: 'O2', accountId: 1001 },
         ],
       },
     });
@@ -146,14 +166,24 @@ describe('OrderGenerator', () => {
       flowType: 'orders',
       status: 'STARTED',
       context: {
-        config: { channelId: '44207', catalogId: '32693', currencyCode: 'USD', batchSize: 1 },
+        config: {
+          channelId: '44207',
+          catalogId: '32693',
+          currencyCode: 'USD',
+          batchSize: 1,
+        },
         options: { orderCount: 1 },
-        products: [{ id: 2001, externalReferenceCode: 'P1', skus: [{ sku: 'S1', purchasable: true }], productStatus: 0 }],
+        products: [
+          {
+            id: 2001,
+            externalReferenceCode: 'P1',
+            skus: [{ sku: 'S1', purchasable: true }],
+            productStatus: 0,
+          },
+        ],
         accounts: [{ id: 1001, externalReferenceCode: 'A1' }],
         steps: [{ name: 'create-orders' }],
-        orderDataList: [
-          { externalReferenceCode: 'O1', accountId: 1001 }
-        ],
+        orderDataList: [{ externalReferenceCode: 'O1', accountId: 1001 }],
       },
     });
 

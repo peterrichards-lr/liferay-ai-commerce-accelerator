@@ -83,6 +83,8 @@ describe('Dashboard', () => {
     render(<Dashboard {...mockProps} progress={{}} logs={[]} />);
 
     expect(screen.getByText(/Ready to Accelerate/i)).toBeInTheDocument();
-    expect(screen.getByText(/Your dashboard will come alive/i)).toBeInTheDocument();
+    expect(
+      screen.getByText(/Your dashboard will come alive/i)
+    ).toBeInTheDocument();
   });
 });
