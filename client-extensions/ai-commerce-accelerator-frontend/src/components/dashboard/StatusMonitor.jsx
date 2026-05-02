@@ -26,41 +26,14 @@ function formatDuration(ms) {
   return h > 0 ? `${h}h ${m}m ${s}s` : `${m}m ${s}s`;
 }
 
-function WsDot({ status, onReconnect }) {
-  const labelMap = {
-    connected: 'Live updates active. Click to refresh connection.',
-    connecting: 'Live updates connecting...',
-    disabled: 'Live updates disabled.',
-    error: 'Live updates error. Click to retry.',
-    closed: 'Live updates closed. Click to reconnect.',
-  };
-
-  const label = labelMap[status] || 'Live updates';
+function StatusMonitor({ lastUpdated, elapsedMs }) {
   return (
-    <button
-      className={`ws-dot-btn ws-${status}`}
-      onClick={(e) => {
-        e.preventDefault();
-        onReconnect?.();
-      }}
-      title={label}
-      aria-label={label}
-      type="button"
-      disabled={status === 'connecting'}
-    >
-      <span className={`ws-dot ws-${status}`} role="status" />
-    </button>
-  );
-}
-
-function StatusMonitor({ lastUpdated, elapsedMs, wsStatus, onReconnect }) {
-  return (
-    <div className="last-updated">
-      <small className="info-text">
-        Last updated: {formatTimestamp(lastUpdated)} · Elapsed:{' '}
+    <div className="mt-3 pt-3 border-top text-center">
+      <span className="text-secondary" style={{ fontSize: '0.75rem' }}>
+        <strong>Last updated:</strong> {formatTimestamp(lastUpdated)}{' '}
+        <span className="mx-2">|</span> <strong>Elapsed:</strong>{' '}
         {formatDuration(elapsedMs)}
-      </small>
-      <WsDot status={wsStatus} onReconnect={onReconnect} />
+      </span>
     </div>
   );
 }

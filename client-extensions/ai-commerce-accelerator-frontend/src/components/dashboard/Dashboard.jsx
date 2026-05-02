@@ -119,8 +119,6 @@ function Dashboard({
           <StatusMonitor
             lastUpdated={lastUpdateTime}
             elapsedMs={displayElapsedMs}
-            wsStatus={wsStatus}
-            onReconnect={onReconnect}
           />
         </ClayCard.Body>
       </ClayCard>

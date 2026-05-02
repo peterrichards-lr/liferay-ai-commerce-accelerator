@@ -181,6 +181,39 @@ class OrderGenerator extends BaseGenerator {
         );
       }
 
+      if (config.orderDistribution) {
+        const statuses = [];
+        const statusMap = {
+          open: 0,
+          processing: 1,
+          shipped: 2,
+          completed: 10,
+        };
+        for (const [key, count] of Object.entries(config.orderDistribution)) {
+          const statusId = statusMap[key];
+          if (statusId !== undefined) {
+            for (let i = 0; i < count; i++) {
+              statuses.push(statusId);
+            }
+          }
+        }
+
+        // Shuffle the array to distribute the statuses randomly
+        for (let i = statuses.length - 1; i > 0; i--) {
+          const j = Math.floor(Math.random() * (i + 1));
+          [statuses[i], statuses[j]] = [statuses[j], statuses[i]];
+        }
+
+        // Apply to orderDataList
+        for (let i = 0; i < orderDataList.length; i++) {
+          if (i < statuses.length) {
+            orderDataList[i].orderStatus = statuses[i];
+          } else {
+            orderDataList[i].orderStatus = 10; // Default to completed if we run out somehow
+          }
+        }
+      }
+
       const batchSize = Math.max(1, parseInt(config.batchSize, 10) || 1);
       const useBatch = batchSize > 1 && options.orderCount > 1;
 

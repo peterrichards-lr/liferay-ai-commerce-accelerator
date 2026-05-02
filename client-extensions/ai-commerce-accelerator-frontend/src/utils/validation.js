@@ -51,7 +51,7 @@ export function getCommerceErrorsMap(cfg) {
   return errors;
 }
 
-export function getGenerationErrorsMap(gc) {
+export function getGenerationErrorsMap(gc, liferayConnected = true) {
   const errors = {};
 
   if (gc.productCount < 0)
@@ -80,7 +80,8 @@ export function getGenerationErrorsMap(gc) {
   }
 
   if (
-    gc.productCount > 0 &&
+    liferayConnected &&
+    (gc.productCount > 0 || gc.accountCount > 0) &&
     (!Array.isArray(gc.categories) || gc.categories.length === 0)
   ) {
     (errors.categories ??= []).push('Pick at least one category.');

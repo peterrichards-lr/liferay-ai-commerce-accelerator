@@ -4,14 +4,18 @@ import {
   getGenerationErrorsMap,
 } from '../utils/validation';
 
-export default function useValidation(config, generationConfig) {
+export default function useValidation(
+  config,
+  generationConfig,
+  liferayConnected
+) {
   const [connectionErrors, setConnectionErrors] = useState({});
 
   const commerceErrors = useMemo(() => getCommerceErrorsMap(config), [config]);
 
   const generationErrors = useMemo(
-    () => getGenerationErrorsMap(generationConfig),
-    [generationConfig]
+    () => getGenerationErrorsMap(generationConfig, liferayConnected),
+    [generationConfig, liferayConnected]
   );
 
   return {

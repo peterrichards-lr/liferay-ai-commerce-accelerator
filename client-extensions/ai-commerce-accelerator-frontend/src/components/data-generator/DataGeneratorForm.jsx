@@ -10,6 +10,7 @@ import ProductToggleSet from './ProductToggleSet';
 import WarehousesToggle from './WarehousesToggle';
 import InventoryControls from './InventoryControls';
 import VisualAssetControls from './VisualAssetControls';
+import OrderDistributionControl from './OrderDistributionControl';
 
 function hasErr(map, key, msgStartsWith) {
   const list = map?.[key] || [];
@@ -285,7 +286,23 @@ function DataGeneratorForm({
           </div>
         </div>
 
-        <fieldset className="form-group mb-4">
+        {generationConfig.orderCount > 0 && (
+          <OrderDistributionControl
+            totalOrders={generationConfig.orderCount}
+            distribution={
+              generationConfig.orderDistribution || {
+                open: 0,
+                processing: 0,
+                shipped: 0,
+                completed: 0,
+              }
+            }
+            onChange={(dist) => handleConfigChange('orderDistribution', dist)}
+            disabled={lockFields}
+          />
+        )}
+
+        <fieldset className="form-group mb-4 mt-4">
           <legend
             className="font-weight-semi-bold"
             style={{ fontSize: '1rem' }}

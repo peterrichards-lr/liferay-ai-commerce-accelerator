@@ -44,6 +44,7 @@ const initialGenerationConfig = {
   productCount: 10,
   accountCount: 10,
   orderCount: 50,
+  orderDistribution: { open: 5, processing: 5, shipped: 10, completed: 30 },
   categories: [],
   generatePriceLists: true,
   generateBulkPricing: true,
@@ -90,17 +91,17 @@ export function AppUI() {
     initialGenerationConfig
   );
 
+  const [connectionEstablished, setConnectionEstablished] = useState(false);
+  const [aiKeyAvailable, setAiKeyAvailable] = useState(false);
+  const [batchErrors, setBatchErrors] = useState([]);
+  const [batchSizes, setBatchSizes] = useState([1, 10, 25, 50]); // Default values
+
   const {
     connectionErrors,
     setConnectionErrors,
     commerceErrors,
     generationErrors,
-  } = useValidation(config, generationConfig);
-
-  const [connectionEstablished, setConnectionEstablished] = useState(false);
-  const [aiKeyAvailable, setAiKeyAvailable] = useState(false);
-  const [batchErrors, setBatchErrors] = useState([]);
-  const [batchSizes, setBatchSizes] = useState([1, 10, 25, 50]); // Default values
+  } = useValidation(config, generationConfig, connectionEstablished);
 
   const [availableCategories, setAvailableCategories] = useState([]);
   const [aiConfig, setAiConfig] = useState(null);
