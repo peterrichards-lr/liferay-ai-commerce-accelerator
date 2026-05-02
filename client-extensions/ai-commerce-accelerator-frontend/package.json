@@ -21,7 +21,6 @@
     "@clayui/list": "^3.155.0",
     "@clayui/panel": "^3.148.0",
     "@clayui/tabs": "^3.151.0",
-    "@vitejs/plugin-react": "^6.0.1",
     "react": "^18.3.1",
     "react-dom": "^18.3.1"
   },
@@ -29,10 +28,13 @@
   "devDependencies": {
     "@eslint/js": "^10.0.1",
     "@rollup/plugin-replace": "^6.0.2",
-    "@testing-library/dom": "^10.4.1",
+    "vite": "^6.0.0",
+    "@vitejs/plugin-react": "^4.0.0",
     "@testing-library/jest-dom": "^6.9.1",
     "@testing-library/react": "^16.3.2",
     "@testing-library/user-event": "^14.6.1",
+    "@types/react": "^18.3.1",
+    "@types/react-dom": "^18.3.1",
     "autoprefixer": "^10.4.21",
     "baseline-browser-mapping": "^2.10.25",
     "eslint": "^9.39.4",
@@ -44,7 +46,6 @@
     "postcss": "^8.5.6",
     "prettier": "^3.8.1",
     "sass": "^1.94.2",
-    "vite": "^8.0.10",
     "vitest": "^4.1.5"
   },
   "name": "@liferay/liferay-ai-commerce-accelerator-frontend",

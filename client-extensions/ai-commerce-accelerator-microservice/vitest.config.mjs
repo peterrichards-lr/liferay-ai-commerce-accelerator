@@ -6,6 +6,10 @@ export default defineConfig({
     environment: 'node',
     include: ['tests/**/*.test.cjs'],
     setupFiles: ['./tests/setup.cjs'],
+    reporters: ['default', 'junit'],
+    outputFile: {
+      junit: './vitest-report-microservice.xml',
+    },
     pool: 'forks',
     server: {
       deps: {

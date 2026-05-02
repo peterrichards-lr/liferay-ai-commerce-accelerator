@@ -1,0 +1,197 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<testsuites name="vitest tests" tests="75" failures="0" errors="0" time="2.506013957">
+    <testsuite name="tests/accountGenerator.test.cjs" timestamp="2026-05-02T07:12:15.282Z" hostname="peters-mbp.lan" tests="4" failures="0" errors="0" skipped="0" time="0.384993542">
+        <testcase classname="tests/accountGenerator.test.cjs" name="AccountGenerator &gt; should start account generation workflow" time="0.164312709">
+        </testcase>
+        <testcase classname="tests/accountGenerator.test.cjs" name="AccountGenerator &gt; should run load countries step" time="0.112715625">
+        </testcase>
+        <testcase classname="tests/accountGenerator.test.cjs" name="AccountGenerator &gt; should run data generation step" time="0.102811916">
+        </testcase>
+        <testcase classname="tests/accountGenerator.test.cjs" name="AccountGenerator &gt; should match country correctly in _generateAddress" time="0.001597291">
+        </testcase>
+    </testsuite>
+    <testsuite name="tests/aiService.test.cjs" timestamp="2026-05-02T07:12:15.283Z" hostname="peters-mbp.lan" tests="4" failures="0" errors="0" skipped="0" time="0.00815875">
+        <testcase classname="tests/aiService.test.cjs" name="AIService (Multi-Provider) &gt; should resolve different providers for text and media" time="0.003642333">
+        </testcase>
+        <testcase classname="tests/aiService.test.cjs" name="AIService (Multi-Provider) &gt; should use media credentials for image generation" time="0.000638291">
+        </testcase>
+        <testcase classname="tests/aiService.test.cjs" name="AIService (Multi-Provider) &gt; should fallback to core key if media key is missing" time="0.000443583">
+        </testcase>
+        <testcase classname="tests/aiService.test.cjs" name="AIService (Multi-Provider) &gt; should support Gemini provider for text" time="0.000434375">
+        </testcase>
+    </testsuite>
+    <testsuite name="tests/cacheService.test.cjs" timestamp="2026-05-02T07:12:15.283Z" hostname="peters-mbp.lan" tests="6" failures="0" errors="0" skipped="0" time="0.005881917">
+        <testcase classname="tests/cacheService.test.cjs" name="CacheService &gt; should set and get a value" time="0.001573708">
+        </testcase>
+        <testcase classname="tests/cacheService.test.cjs" name="CacheService &gt; should return null for expired entries (manual mock)" time="0.000340417">
+        </testcase>
+        <testcase classname="tests/cacheService.test.cjs" name="CacheService &gt; should delete entries" time="0.000197625">
+        </testcase>
+        <testcase classname="tests/cacheService.test.cjs" name="CacheService &gt; should evict oldest entries when limit reached" time="0.000258833">
+        </testcase>
+        <testcase classname="tests/cacheService.test.cjs" name="CacheService &gt; should use the remember pattern" time="0.000333875">
+        </testcase>
+        <testcase classname="tests/cacheService.test.cjs" name="CacheService &gt; should return stats" time="0.000273625">
+        </testcase>
+    </testsuite>
+    <testsuite name="tests/contractValidator.test.cjs" timestamp="2026-05-02T07:12:15.284Z" hostname="peters-mbp.lan" tests="2" failures="0" errors="0" skipped="0" time="0.216135333">
+        <testcase classname="tests/contractValidator.test.cjs" name="ContractValidator &gt; should validate a correct product payload" time="0.149422459">
+        </testcase>
+        <testcase classname="tests/contractValidator.test.cjs" name="ContractValidator &gt; should fail if field type is incorrect" time="0.063816125">
+        </testcase>
+    </testsuite>
+    <testsuite name="tests/deleteCoordinatorService.test.cjs" timestamp="2026-05-02T07:12:15.284Z" hostname="peters-mbp.lan" tests="3" failures="0" errors="0" skipped="0" time="0.356311458">
+        <testcase classname="tests/deleteCoordinatorService.test.cjs" name="DeleteCoordinatorService &gt; should start full deletion workflow" time="0.101140916">
+        </testcase>
+        <testcase classname="tests/deleteCoordinatorService.test.cjs" name="DeleteCoordinatorService &gt; should run discovery step" time="0.115159125">
+            <system-out>
+[DISCOVERY] &gt;&gt;&gt; Phase started for session: delete-test-session
+
+            </system-out>
+        </testcase>
+        <testcase classname="tests/deleteCoordinatorService.test.cjs" name="DeleteCoordinatorService &gt; should handle order deletion step" time="0.136479875">
+        </testcase>
+    </testsuite>
+    <testsuite name="tests/generation.test.cjs" timestamp="2026-05-02T07:12:15.284Z" hostname="peters-mbp.lan" tests="4" failures="0" errors="0" skipped="0" time="0.009297875">
+        <testcase classname="tests/generation.test.cjs" name="Data Generation Reliability &gt; Product Generation &gt; should generate valid simple products" time="0.004078959">
+        </testcase>
+        <testcase classname="tests/generation.test.cjs" name="Data Generation Reliability &gt; Product Generation &gt; should generate valid products with variants" time="0.000512084">
+        </testcase>
+        <testcase classname="tests/generation.test.cjs" name="Data Generation Reliability &gt; Account Generation &gt; should generate valid accounts" time="0.001100834">
+        </testcase>
+        <testcase classname="tests/generation.test.cjs" name="Data Generation Reliability &gt; Warehouse Generation &gt; should generate valid warehouses" time="0.000602792">
+        </testcase>
+    </testsuite>
+    <testsuite name="tests/healthService.test.cjs" timestamp="2026-05-02T07:12:15.285Z" hostname="peters-mbp.lan" tests="4" failures="0" errors="0" skipped="0" time="0.007604292">
+        <testcase classname="tests/healthService.test.cjs" name="HealthService &gt; should register default health checks" time="0.001518208">
+        </testcase>
+        <testcase classname="tests/healthService.test.cjs" name="HealthService &gt; should return system info" time="0.001954">
+        </testcase>
+        <testcase classname="tests/healthService.test.cjs" name="HealthService &gt; should run all health checks and return a healthy status" time="0.000757292">
+        </testcase>
+        <testcase classname="tests/healthService.test.cjs" name="HealthService &gt; should return unhealthy if memory check fails" time="0.000197">
+        </testcase>
+    </testsuite>
+    <testsuite name="tests/liferayService.test.cjs" timestamp="2026-05-02T07:12:15.285Z" hostname="peters-mbp.lan" tests="7" failures="0" errors="0" skipped="0" time="0.4181075">
+        <testcase classname="tests/liferayService.test.cjs" name="LiferayService &gt; should fetch products using the mocked Liferay API" time="0.124645791">
+        </testcase>
+        <testcase classname="tests/liferayService.test.cjs" name="LiferayService &gt; should fetch accounts using the mocked Liferay API" time="0.039002125">
+        </testcase>
+        <testcase classname="tests/liferayService.test.cjs" name="LiferayService &gt; should fetch orders using the mocked Liferay API" time="0.051645292">
+        </testcase>
+        <testcase classname="tests/liferayService.test.cjs" name="LiferayService &gt; should fetch price lists using the mocked Liferay API" time="0.045740417">
+        </testcase>
+        <testcase classname="tests/liferayService.test.cjs" name="LiferayService &gt; should fetch warehouses using the mocked Liferay API" time="0.039938042">
+        </testcase>
+        <testcase classname="tests/liferayService.test.cjs" name="LiferayService &gt; should fetch batch status using the mocked Liferay API" time="0.034911834">
+        </testcase>
+        <testcase classname="tests/liferayService.test.cjs" name="LiferayService &gt; should fail to create products batch if contract is violated" time="0.078872709">
+        </testcase>
+    </testsuite>
+    <testsuite name="tests/orchestrationSafety.test.cjs" timestamp="2026-05-02T07:12:15.286Z" hostname="peters-mbp.lan" tests="3" failures="0" errors="0" skipped="0" time="0.107954208">
+        <testcase classname="tests/orchestrationSafety.test.cjs" name="Orchestration Safety (Ghost Step Protection) &gt; should throw a FATAL ERROR if a step handler is missing" time="0.00211625">
+        </testcase>
+        <testcase classname="tests/orchestrationSafety.test.cjs" name="Orchestration Safety (Ghost Step Protection) &gt; should allow structural steps (parallel/sequence) without handlers" time="0.00044875">
+        </testcase>
+        <testcase classname="tests/orchestrationSafety.test.cjs" name="Orchestration Safety (Ghost Step Protection) &gt; should correctly mark a synchronous step as complete via completeSyncStep" time="0.102382083">
+        </testcase>
+    </testsuite>
+    <testsuite name="tests/orderGenerator.test.cjs" timestamp="2026-05-02T07:12:15.286Z" hostname="peters-mbp.lan" tests="4" failures="0" errors="0" skipped="0" time="0.387584291">
+        <testcase classname="tests/orderGenerator.test.cjs" name="OrderGenerator &gt; should start order generation workflow" time="0.1646575">
+        </testcase>
+        <testcase classname="tests/orderGenerator.test.cjs" name="OrderGenerator &gt; should run order data generation step" time="0.115985583">
+        </testcase>
+        <testcase classname="tests/orderGenerator.test.cjs" name="OrderGenerator &gt; should handle order creation step (batch mode)" time="0.001950542">
+        </testcase>
+        <testcase classname="tests/orderGenerator.test.cjs" name="OrderGenerator &gt; should handle order creation step (individual mode)" time="0.101910708">
+        </testcase>
+    </testsuite>
+    <testsuite name="tests/payloadCleaner.test.cjs" timestamp="2026-05-02T07:12:15.286Z" hostname="peters-mbp.lan" tests="7" failures="0" errors="0" skipped="0" time="0.006360042">
+        <testcase classname="tests/payloadCleaner.test.cjs" name="Payload Cleaner (Strict ID Guard) &gt; should remove the root &quot;id&quot; field regardless of value" time="0.001524334">
+        </testcase>
+        <testcase classname="tests/payloadCleaner.test.cjs" name="Payload Cleaner (Strict ID Guard) &gt; should remove specialized IDs if they are 0 or null" time="0.000252667">
+        </testcase>
+        <testcase classname="tests/payloadCleaner.test.cjs" name="Payload Cleaner (Strict ID Guard) &gt; should remove IDs within the known Mock/Ghost ranges" time="0.00019825">
+        </testcase>
+        <testcase classname="tests/payloadCleaner.test.cjs" name="Payload Cleaner (Strict ID Guard) &gt; should PRESERVE resolved IDs outside of mock ranges" time="0.000151083">
+        </testcase>
+        <testcase classname="tests/payloadCleaner.test.cjs" name="Payload Cleaner (Strict ID Guard) &gt; should recursively clean nested objects" time="0.0001435">
+        </testcase>
+        <testcase classname="tests/payloadCleaner.test.cjs" name="Payload Cleaner (Strict ID Guard) &gt; should remove the parent key if the nested object becomes empty after cleaning" time="0.000105042">
+        </testcase>
+        <testcase classname="tests/payloadCleaner.test.cjs" name="Payload Cleaner (Strict ID Guard) &gt; should handle arrays correctly" time="0.000588708">
+        </testcase>
+    </testsuite>
+    <testsuite name="tests/persistenceService.test.cjs" timestamp="2026-05-02T07:12:15.287Z" hostname="peters-mbp.lan" tests="7" failures="0" errors="0" skipped="0" time="0.172133083">
+        <testcase classname="tests/persistenceService.test.cjs" name="PersistenceService &gt; should initialize the schema correctly" time="0.164988833">
+        </testcase>
+        <testcase classname="tests/persistenceService.test.cjs" name="PersistenceService &gt; should retrieve a session by ID" time="0.0006985">
+        </testcase>
+        <testcase classname="tests/persistenceService.test.cjs" name="PersistenceService &gt; should update session status" time="0.000467417">
+        </testcase>
+        <testcase classname="tests/persistenceService.test.cjs" name="PersistenceService &gt; should create and retrieve batches for a session" time="0.000977917">
+        </testcase>
+        <testcase classname="tests/persistenceService.test.cjs" name="PersistenceService &gt; should update batch details" time="0.000562292">
+        </testcase>
+        <testcase classname="tests/persistenceService.test.cjs" name="PersistenceService &gt; should verify dependency readiness" time="0.000508792">
+        </testcase>
+        <testcase classname="tests/persistenceService.test.cjs" name="PersistenceService &gt; should log workflow events" time="0.000520416">
+        </testcase>
+    </testsuite>
+    <testsuite name="tests/productGenerator.test.cjs" timestamp="2026-05-02T07:12:15.287Z" hostname="peters-mbp.lan" tests="3" failures="0" errors="0" skipped="0" time="0.294562542">
+        <testcase classname="tests/productGenerator.test.cjs" name="ProductGenerator &gt; should start product generation workflow" time="0.181215333">
+        </testcase>
+        <testcase classname="tests/productGenerator.test.cjs" name="ProductGenerator &gt; should run product data generation step" time="0.10768675">
+        </testcase>
+        <testcase classname="tests/productGenerator.test.cjs" name="ProductGenerator &gt; should handle product creation step" time="0.0023285">
+        </testcase>
+    </testsuite>
+    <testsuite name="tests/resilience.test.cjs" timestamp="2026-05-02T07:12:15.288Z" hostname="peters-mbp.lan" tests="2" failures="0" errors="0" skipped="2" time="0">
+        <testcase classname="tests/resilience.test.cjs" name="Resilience &amp; Retry &gt; should retry on transient failures and eventually succeed" time="0">
+            <skipped/>
+        </testcase>
+        <testcase classname="tests/resilience.test.cjs" name="Resilience &amp; Retry &gt; should fail after maximum retries" time="0">
+            <skipped/>
+        </testcase>
+    </testsuite>
+    <testsuite name="tests/schemaAlignment.test.cjs" timestamp="2026-05-02T07:12:15.288Z" hostname="peters-mbp.lan" tests="6" failures="0" errors="0" skipped="0" time="0.102759875">
+        <testcase classname="tests/schemaAlignment.test.cjs" name="Schema Alignment (Drift Detection) &gt; should align account.json with the corresponding Liferay API contract" time="0.031179125">
+        </testcase>
+        <testcase classname="tests/schemaAlignment.test.cjs" name="Schema Alignment (Drift Detection) &gt; should align order.json with the corresponding Liferay API contract" time="0.003028417">
+        </testcase>
+        <testcase classname="tests/schemaAlignment.test.cjs" name="Schema Alignment (Drift Detection) &gt; should align pdf.json with the corresponding Liferay API contract" time="0.000988542">
+        </testcase>
+        <testcase classname="tests/schemaAlignment.test.cjs" name="Schema Alignment (Drift Detection) &gt; should align pricing.json with the corresponding Liferay API contract" time="0.001423208">
+        </testcase>
+        <testcase classname="tests/schemaAlignment.test.cjs" name="Schema Alignment (Drift Detection) &gt; should align product.json with the corresponding Liferay API contract" time="0.043350208">
+        </testcase>
+        <testcase classname="tests/schemaAlignment.test.cjs" name="Schema Alignment (Drift Detection) &gt; should align warehouse.json with the corresponding Liferay API contract" time="0.019639125">
+        </testcase>
+    </testsuite>
+    <testsuite name="tests/security.test.cjs" timestamp="2026-05-02T07:12:15.288Z" hostname="peters-mbp.lan" tests="3" failures="0" errors="0" skipped="0" time="0.008702791">
+        <testcase classname="tests/security.test.cjs" name="Security Middleware - SQL Injection &gt; should allow legitimate batch operation codes in callback path" time="0.002629">
+        </testcase>
+        <testcase classname="tests/security.test.cjs" name="Security Middleware - SQL Injection &gt; should still block actual SQL keywords in other fields" time="0.002048458">
+        </testcase>
+        <testcase classname="tests/security.test.cjs" name="Security Middleware - SQL Injection &gt; should block SQL keywords in opCode if path is not callback" time="0.000711375">
+        </testcase>
+    </testsuite>
+    <testsuite name="tests/serviceParity.test.cjs" timestamp="2026-05-02T07:12:15.289Z" hostname="peters-mbp.lan" tests="1" failures="0" errors="0" skipped="0" time="0.005462083">
+        <testcase classname="tests/serviceParity.test.cjs" name="LiferayService Parity &gt; should ensure all public methods in LiferayService bridge to existing implementation methods" time="0.002471958">
+        </testcase>
+    </testsuite>
+    <testsuite name="tests/webSocketService.test.cjs" timestamp="2026-05-02T07:12:15.289Z" hostname="peters-mbp.lan" tests="3" failures="0" errors="0" skipped="0" time="0.006767">
+        <testcase classname="tests/webSocketService.test.cjs" name="WebSocketService &gt; should initialize correctly" time="0.002462458">
+        </testcase>
+        <testcase classname="tests/webSocketService.test.cjs" name="WebSocketService &gt; should handle broadcast" time="0.000386166">
+        </testcase>
+        <testcase classname="tests/webSocketService.test.cjs" name="WebSocketService &gt; should close correctly" time="0.000234625">
+        </testcase>
+    </testsuite>
+    <testsuite name="tests/workflowCoordinator.test.cjs" timestamp="2026-05-02T07:12:15.289Z" hostname="peters-mbp.lan" tests="2" failures="0" errors="0" skipped="0" time="0.007237375">
+        <testcase classname="tests/workflowCoordinator.test.cjs" name="WorkflowCoordinator &gt; should delegate step to correct generator" time="0.0019635">
+        </testcase>
+        <testcase classname="tests/workflowCoordinator.test.cjs" name="WorkflowCoordinator &gt; should throw a FATAL ERROR if no handler found in any generator" time="0.001554875">
+        </testcase>
+    </testsuite>
+</testsuites>
