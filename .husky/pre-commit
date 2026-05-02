@@ -1,9 +1,6 @@
-# Prioritise project-local node if present (common in Maven/Gradle builds)
-if [ -d "./build/node/bin" ]; then
-  export PATH="$PWD/build/node/bin:$PATH"
-elif [ -d "../build/node/bin" ]; then
-  export PATH="$PWD/../build/node/bin:$PATH"
-fi
+# Load NVM if it exists so GUI clients (like GitHub Desktop) can find Node and Yarn
+export NVM_DIR="$HOME/.nvm"
+[ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
 
 # Load local huskyrc if it exists for user-specific PATH overrides
 [ -f ~/.huskyrc ] && . ~/.huskyrc
