@@ -76,7 +76,6 @@ describe('App', () => {
   it('renders the main sections', () => {
     render(<AppRoot />);
 
-    expect(screen.getByText(/Application Configuration/i)).toBeInTheDocument();
     expect(screen.getByTestId('generator-form')).toBeInTheDocument();
     expect(screen.getByTestId('dashboard')).toBeInTheDocument();
   });

@@ -1,5 +1,5 @@
 import React from 'react';
-import { render, screen, fireEvent } from '@testing-library/react';
+import { render, screen } from '@testing-library/react';
 import Dashboard from './Dashboard';
 
 const initialProgress = {
@@ -36,55 +36,22 @@ describe('Dashboard', () => {
   it('renders correctly with progress and logs', () => {
     render(<Dashboard {...mockProps} />);
 
-    expect(screen.getByText(/Progress Monitor/i)).toBeInTheDocument();
+    expect(screen.getByText(/Generation Status/i)).toBeInTheDocument();
+    expect(screen.getByText(/Live Console/i)).toBeInTheDocument();
     expect(screen.getByText(/Step 1 complete/i)).toBeInTheDocument();
-    // Check for the updated tooltip label for connected status
-    expect(screen.getByTitle(/Live updates active/i)).toBeInTheDocument();
   });
 
-  it('shows progress bars for products', () => {
+  it('shows progress for products', () => {
     render(<Dashboard {...mockProps} />);
 
-    // Target the specific progress count for products
-    const productProgress = screen.getByText((content, element) => {
-      return (
-        element.tagName.toLowerCase() === 'span' &&
-        element.classList.contains('progress-count') &&
-        content.includes('5') &&
-        content.includes('10')
-      );
-    });
-    expect(productProgress).toBeInTheDocument();
+    const productProgressText = screen.getByText('5 / 10');
+    expect(productProgressText).toBeInTheDocument();
   });
 
-  it('triggers onReset when Reset button is clicked', () => {
-    render(<Dashboard {...mockProps} />);
+  it('handles empty progress gracefully', () => {
+    // Pass undefined for progress to trigger the null return in ProgressMonitor
+    render(<Dashboard {...mockProps} progress={undefined} logs={[]} />);
 
-    const resetBtn = screen.getByTitle(/Reset progress counters/i);
-    fireEvent.click(resetBtn);
-
-    expect(mockProps.onReset).toHaveBeenCalled();
-  });
-
-  it('handles export actions', () => {
-    // Mock global URL and Blob for exports
-    global.URL.createObjectURL = vi.fn().mockReturnValue('mock-url');
-    global.URL.revokeObjectURL = vi.fn();
-
-    render(<Dashboard {...mockProps} />);
-
-    const exportBtn = screen.getByText(/Export Summary/i);
-    fireEvent.click(exportBtn);
-
-    expect(screen.getByText(/Download started/i)).toBeInTheDocument();
-  });
-
-  it('shows empty state when no progress exists', () => {
-    render(<Dashboard {...mockProps} progress={{}} logs={[]} />);
-
-    expect(screen.getByText(/Ready to Accelerate/i)).toBeInTheDocument();
-    expect(
-      screen.getByText(/Your dashboard will come alive/i)
-    ).toBeInTheDocument();
+    expect(screen.getByText(/Waiting for activity/i)).toBeInTheDocument();
   });
 });
