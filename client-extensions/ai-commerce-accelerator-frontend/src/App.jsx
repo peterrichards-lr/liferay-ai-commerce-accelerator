@@ -477,11 +477,11 @@ export function AppUI() {
         </div>
       </div>
 
-      {/* MAIN CONTENT AREA - Dual Pane Layout */}
+      {/* MAIN CONTENT AREA - 3 Column Layout */}
       <div className="container-fluid container-fluid-max-xl mt-4">
         <ClayLayout.Row>
-          {/* LEFT PANE: CONFIGURATION */}
-          <ClayLayout.Col size={8}>
+          {/* COLUMN 1: CONFIGURATION & HELP */}
+          <ClayLayout.Col size={4}>
             <div className="sheet sheet-lg">
               <HelpSection />
 
@@ -518,7 +518,12 @@ export function AppUI() {
                   />
                 </div>
               </div>
+            </div>
+          </ClayLayout.Col>
 
+          {/* COLUMN 2: DATA GENERATION STRATEGY */}
+          <ClayLayout.Col size={4}>
+            <div className="sheet sheet-lg">
               <DataGeneratorForm
                 generationConfig={generationConfig}
                 setGenerationConfig={setGenerationConfig}
@@ -541,13 +546,13 @@ export function AppUI() {
             </div>
           </ClayLayout.Col>
 
-          {/* RIGHT PANE: OBSERVABILITY (Sticky) */}
+          {/* COLUMN 3: OBSERVABILITY (Sticky) */}
           <ClayLayout.Col
             size={4}
             className="sticky-top"
             style={{
-              top: '2rem',
-              maxHeight: 'calc(100vh - 4rem)',
+              top: 'calc(var(--control-menu-height, 0px) + 2rem)',
+              maxHeight: 'calc(100vh - var(--control-menu-height, 0px) - 4rem)',
               overflowY: 'auto',
             }}
           >
