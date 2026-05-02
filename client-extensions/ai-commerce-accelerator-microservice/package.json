@@ -31,7 +31,7 @@
   "scripts": {
     "predebug": "node scripts/ensure-native-modules.cjs",
     "prestart": "node scripts/ensure-native-modules.cjs",
-    "debug": "DRY_RUN=true node --inspect --trace-warnings server.cjs",
+    "debug": "node --inspect --trace-warnings server.cjs",
     "dry-run": "DRY_RUN=true node server.cjs",
     "start": "node server.cjs",
     "test": "vitest run",
