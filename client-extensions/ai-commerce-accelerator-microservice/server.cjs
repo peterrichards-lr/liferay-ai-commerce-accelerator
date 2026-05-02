@@ -53,7 +53,7 @@ const gracefulShutdown = async (signal) => {
 
   try {
     if (ws) {
-      ws.stop();
+      ws.close();
       logger.debug('WebSocket server stopped', {
         operation: 'server-shutdown',
       });
@@ -381,6 +381,11 @@ const gracefulShutdown = async (signal) => {
     logger.debug('🔌 WebSocket server status:', {
       clients: ws.clients.size,
     });
+
+    if (process.env.DRY_RUN === 'true') {
+      logger.info('DRY_RUN enabled. Shutting down immediately.');
+      setTimeout(() => gracefulShutdown('DRY_RUN_COMPLETED'), 500);
+    }
   });
 })();
 

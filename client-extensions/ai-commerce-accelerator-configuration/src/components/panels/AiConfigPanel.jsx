@@ -99,6 +99,9 @@ export default function AiConfigPanel() {
   const [issues, setIssues] = useState([]);
   const [errors, setErrors] = useState(EMPTY_ERRORS);
 
+  const aiKeys = useMemo(() => [AI_CONFIG_KEY], []);
+  const aiDefaults = useMemo(() => ({ [AI_CONFIG_KEY]: DEFAULTS[AI_CONFIG_KEY] }), []);
+
   const {
     loading: loadingAi,
     saving: savingAi,
@@ -108,9 +111,15 @@ export default function AiConfigPanel() {
     onCancel: onCancelAi,
     setValue: setAiValue,
   } = useObjectStorage({
-    keys: [AI_CONFIG_KEY],
-    defaults: { [AI_CONFIG_KEY]: DEFAULTS[AI_CONFIG_KEY] },
+    keys: aiKeys,
+    defaults: aiDefaults,
   });
+
+  const credentialKeys = useMemo(() => [AI_CREDENTIALS_KEY, AI_MEDIA_CREDENTIALS_KEY], []);
+  const credentialDefaults = useMemo(() => ({
+    [AI_CREDENTIALS_KEY]: DEFAULTS[AI_CREDENTIALS_KEY],
+    [AI_MEDIA_CREDENTIALS_KEY]: DEFAULTS[AI_MEDIA_CREDENTIALS_KEY],
+  }), []);
 
   const {
     loading: loadingKey,
@@ -124,13 +133,19 @@ export default function AiConfigPanel() {
     onCancel: onCancelKey,
     setValue: setAiCredentialsValue,
   } = useObjectStorage({
-    keys: [AI_CREDENTIALS_KEY, AI_MEDIA_CREDENTIALS_KEY],
-    defaults: {
-      [AI_CREDENTIALS_KEY]: DEFAULTS[AI_CREDENTIALS_KEY],
-      [AI_MEDIA_CREDENTIALS_KEY]: DEFAULTS[AI_MEDIA_CREDENTIALS_KEY],
-    },
+    keys: credentialKeys,
+    defaults: credentialDefaults,
     json: false,
   });
+
+  const modelKeys = useMemo(() => ENTITY_CONFIGS.map((c) => c.configKey), []);
+  const modelDefaults = useMemo(() => ENTITY_CONFIGS.reduce(
+    (acc, { configKey }) => ({
+      ...acc,
+      [configKey]: AI_MODEL_OPTIONS_DEFAULTS,
+    }),
+    {}
+  ), []);
 
   const {
     loading: loadingAiModels,
@@ -141,14 +156,8 @@ export default function AiConfigPanel() {
     onCancel: onCancelAiModels,
     setValues: setAiModelOptionsValues,
   } = useObjectStorage({
-    keys: ENTITY_CONFIGS.map((c) => c.configKey),
-    defaults: ENTITY_CONFIGS.reduce(
-      (acc, { configKey }) => ({
-        ...acc,
-        [configKey]: AI_MODEL_OPTIONS_DEFAULTS,
-      }),
-      {}
-    ),
+    keys: modelKeys,
+    defaults: modelDefaults,
   });
 
   const loading = loadingAi || loadingKey || loadingAiModels;
