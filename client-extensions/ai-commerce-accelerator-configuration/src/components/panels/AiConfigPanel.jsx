@@ -100,7 +100,10 @@ export default function AiConfigPanel() {
   const [errors, setErrors] = useState(EMPTY_ERRORS);
 
   const aiKeys = useMemo(() => [AI_CONFIG_KEY], []);
-  const aiDefaults = useMemo(() => ({ [AI_CONFIG_KEY]: DEFAULTS[AI_CONFIG_KEY] }), []);
+  const aiDefaults = useMemo(
+    () => ({ [AI_CONFIG_KEY]: DEFAULTS[AI_CONFIG_KEY] }),
+    []
+  );
 
   const {
     loading: loadingAi,
@@ -115,11 +118,17 @@ export default function AiConfigPanel() {
     defaults: aiDefaults,
   });
 
-  const credentialKeys = useMemo(() => [AI_CREDENTIALS_KEY, AI_MEDIA_CREDENTIALS_KEY], []);
-  const credentialDefaults = useMemo(() => ({
-    [AI_CREDENTIALS_KEY]: DEFAULTS[AI_CREDENTIALS_KEY],
-    [AI_MEDIA_CREDENTIALS_KEY]: DEFAULTS[AI_MEDIA_CREDENTIALS_KEY],
-  }), []);
+  const credentialKeys = useMemo(
+    () => [AI_CREDENTIALS_KEY, AI_MEDIA_CREDENTIALS_KEY],
+    []
+  );
+  const credentialDefaults = useMemo(
+    () => ({
+      [AI_CREDENTIALS_KEY]: DEFAULTS[AI_CREDENTIALS_KEY],
+      [AI_MEDIA_CREDENTIALS_KEY]: DEFAULTS[AI_MEDIA_CREDENTIALS_KEY],
+    }),
+    []
+  );
 
   const {
     loading: loadingKey,
@@ -139,13 +148,17 @@ export default function AiConfigPanel() {
   });
 
   const modelKeys = useMemo(() => ENTITY_CONFIGS.map((c) => c.configKey), []);
-  const modelDefaults = useMemo(() => ENTITY_CONFIGS.reduce(
-    (acc, { configKey }) => ({
-      ...acc,
-      [configKey]: AI_MODEL_OPTIONS_DEFAULTS,
-    }),
-    {}
-  ), []);
+  const modelDefaults = useMemo(
+    () =>
+      ENTITY_CONFIGS.reduce(
+        (acc, { configKey }) => ({
+          ...acc,
+          [configKey]: AI_MODEL_OPTIONS_DEFAULTS,
+        }),
+        {}
+      ),
+    []
+  );
 
   const {
     loading: loadingAiModels,

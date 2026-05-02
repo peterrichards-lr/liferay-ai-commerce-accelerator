@@ -22,7 +22,7 @@ export const useObjectStorage = ({ keys, defaults = {}, json = true }) => {
       try {
         const parsedKeys = keyString ? keyString.split(',') : [];
         const parsedDefaults = defaultsString ? JSON.parse(defaultsString) : {};
-        
+
         const fetchedValues = await Promise.all(
           parsedKeys.map((key) => getKeyValue(key))
         );
