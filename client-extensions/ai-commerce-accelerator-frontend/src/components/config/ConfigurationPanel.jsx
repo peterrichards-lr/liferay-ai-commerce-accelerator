@@ -6,7 +6,6 @@ import AdvancedPanel from './AdvancedPanel';
 
 export default function ApplicationConfigPanel({
   disabled = false,
-  generationConfig,
   onTestConnection,
   onConnectionStatusChange,
   commerceConfigured,
@@ -23,7 +22,6 @@ export default function ApplicationConfigPanel({
   onDeleteAllCommerceData,
   onDeleteSelectedCommerceData,
   batchSizes,
-  aiModelOptions,
 }) {
   const handleTest = async () => {
     try {
@@ -61,11 +59,9 @@ export default function ApplicationConfigPanel({
       <AdvancedPanel
         disabled={disabled || !connected}
         connected={!!connected}
-        generationConfig={generationConfig}
         onDeleteAllCommerceData={onDeleteAllCommerceData}
         onDeleteSelectedCommerceData={onDeleteSelectedCommerceData}
         batchSizes={batchSizes}
-        aiModelOptions={aiModelOptions}
       />
     </div>
   );

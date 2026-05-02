@@ -12,21 +12,21 @@ export const handlers = [
   }),
 
   // Root Lists - Catalogs
-  http.get('http://localhost:3001/api/v1/get-catalogs', () => {
+  http.post('http://localhost:3001/api/v1/get-catalogs', () => {
     return HttpResponse.json({
       catalogs: [{ id: 123, name: 'Default Catalog' }],
     });
   }),
 
   // Root Lists - Channels
-  http.get('http://localhost:3001/api/v1/get-channels', () => {
+  http.post('http://localhost:3001/api/v1/get-channels', () => {
     return HttpResponse.json({
       channels: [{ id: 456, name: 'Default Channel', siteGroupId: 789 }],
     });
   }),
 
   // Root Lists - Languages
-  http.get('http://localhost:3001/api/v1/get-languages', () => {
+  http.post('http://localhost:3001/api/v1/get-languages', () => {
     return HttpResponse.json({
       languages: [
         { id: 'en_US', name: 'English (United States)', isDefault: true },
@@ -35,7 +35,7 @@ export const handlers = [
   }),
 
   // Root Lists - Currencies
-  http.get('http://localhost:3001/api/v1/get-currencies', () => {
+  http.post('http://localhost:3001/api/v1/get-currencies', () => {
     return HttpResponse.json({
       currencies: [{ id: 'USD', name: 'US Dollar', isDefault: true }],
     });
@@ -47,6 +47,11 @@ export const handlers = [
       { key: 'Electronics', label: 'Electronics' },
       { key: 'Clothing', label: 'Clothing' },
     ]);
+  }),
+
+  // Config - AI
+  http.get('http://localhost:3001/api/v1/config/ai', () => {
+    return HttpResponse.json({ success: true, config: { ai: {} } });
   }),
 
   // Config - Batch Sizes

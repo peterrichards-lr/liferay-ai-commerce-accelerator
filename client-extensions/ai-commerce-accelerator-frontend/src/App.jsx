@@ -36,7 +36,6 @@ import useAppConfigIO from './hooks/useAppConfigIO';
 import {
   EXPORT_COMMERCE_DATA,
   IMPORT_COMMERCE_DATA,
-  AI_MODEL_OPTIONS,
   AI_CONFIG,
   BATCH_SIZES,
 } from './utils/microservicePaths';
@@ -103,11 +102,6 @@ export function AppUI() {
   const [generationCompleted, setGenerationCompleted] = useState(false);
   const [batchErrors, setBatchErrors] = useState([]);
   const [batchSizes, setBatchSizes] = useState([1, 10, 25, 50]); // Default values
-  const [aiModelOptions, setAiModelOptions] = useState([
-    { label: 'GPT-4o Mini', value: 'gpt-4o-mini' },
-    { label: 'GPT-4o', value: 'gpt-4o' },
-    { label: 'GPT-4.1 Mini', value: 'gpt-4.1-mini' },
-  ]);
 
   const [availableCategories, setAvailableCategories] = useState([]);
   const [aiConfig, setAiConfig] = useState(null);
@@ -378,33 +372,16 @@ export function AppUI() {
         fetchedBatchSizes = await api.get(BATCH_SIZES);
         if (mountedRef.current && Array.isArray(fetchedBatchSizes)) {
           setBatchSizes(fetchedBatchSizes);
-        }
-      } catch (err) {
-        addLog('Failed to load batch sizes: ' + err.message, 'error');
-      }
-
-      try {
-        const fetchedAIModelOptions = await api.get(AI_MODEL_OPTIONS);
-        if (mountedRef.current && Array.isArray(fetchedAIModelOptions)) {
-          setAiModelOptions(fetchedAIModelOptions);
-
           setConfig((prevConfig) => {
             const newConfig = { ...prevConfig };
-            if (!newConfig.aiModel && fetchedAIModelOptions.length > 0) {
-              newConfig.aiModel = fetchedAIModelOptions[0].value;
-            }
-            if (
-              !newConfig.batchSize &&
-              Array.isArray(fetchedBatchSizes) &&
-              fetchedBatchSizes.length > 0
-            ) {
+            if (!newConfig.batchSize && fetchedBatchSizes.length > 0) {
               newConfig.batchSize = fetchedBatchSizes[0];
             }
             return newConfig;
           });
         }
       } catch (err) {
-        addLog('Failed to load AI model options: ' + err.message, 'error');
+        addLog('Failed to load batch sizes: ' + err.message, 'error');
       }
 
       try {
@@ -481,7 +458,7 @@ export function AppUI() {
       <div className="container-fluid mt-4">
         <ClayLayout.Row>
           {/* COLUMN 1: CONFIGURATION & HELP */}
-          <ClayLayout.Col size={4}>
+          <ClayLayout.Col size={3}>
             <div className="sheet sheet-lg">
               <HelpSection />
 
@@ -514,7 +491,6 @@ export function AppUI() {
                       await handleDeleteSelectedCommerceData(scope);
                     }}
                     batchSizes={batchSizes}
-                    aiModelOptions={aiModelOptions}
                   />
                 </div>
               </div>
@@ -522,7 +498,7 @@ export function AppUI() {
           </ClayLayout.Col>
 
           {/* COLUMN 2: DATA GENERATION STRATEGY */}
-          <ClayLayout.Col size={4}>
+          <ClayLayout.Col size={6}>
             <div className="sheet sheet-lg">
               <DataGeneratorForm
                 generationConfig={generationConfig}
@@ -548,12 +524,13 @@ export function AppUI() {
 
           {/* COLUMN 3: OBSERVABILITY (Sticky) */}
           <ClayLayout.Col
-            size={4}
+            size={3}
             className="sticky-top"
             style={{
               top: 'calc(var(--control-menu-height, 0px) + 2rem)',
               maxHeight: 'calc(100vh - var(--control-menu-height, 0px) - 4rem)',
               overflowY: 'auto',
+              zIndex: 10,
             }}
           >
             <Dashboard

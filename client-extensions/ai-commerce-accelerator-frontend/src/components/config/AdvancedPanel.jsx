@@ -78,7 +78,6 @@ export default function AdvancedPanel({
   onDeleteAllCommerceData,
   onDeleteSelectedCommerceData,
   batchSizes,
-  aiModelOptions,
 }) {
   const { config, setConfig } = useApp();
 
@@ -111,27 +110,6 @@ export default function AdvancedPanel({
           ))}
         </ClaySelect>
         <div className="form-text">How many items per batch.</div>
-      </ClayForm.Group>
-      <ClayForm.Group className="mb-3">
-        <label htmlFor="aiModel" className="form-label">
-          AI Model
-        </label>
-        <ClaySelect
-          id="aiModel"
-          aria-label="AI Model"
-          value={config.aiModel}
-          onChange={(e) => setConfig({ aiModel: e.target.value })}
-          disabled={disabled}
-        >
-          {aiModelOptions.map((option) => (
-            <ClaySelect.Option
-              key={option.value}
-              value={option.value}
-              label={option.label}
-            />
-          ))}
-        </ClaySelect>
-        <div className="form-text">Choose based on speed/cost needs.</div>
       </ClayForm.Group>
       <ClayForm.Group>
         <label htmlFor="wsLoggingLevel" className="form-label">

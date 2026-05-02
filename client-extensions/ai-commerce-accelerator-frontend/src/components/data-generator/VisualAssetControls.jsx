@@ -3,19 +3,20 @@ import ClayIcon from '@clayui/icon';
 
 function AssetToggle({ label, icon, value, onChange, disabled, options }) {
   return (
-    <div className="asset-toggle-card">
-      <div className="asset-toggle-header">
-        <ClayIcon symbol={icon} />
+    <div className="mb-3">
+      <div className="d-flex align-items-center mb-2 font-weight-semi-bold">
+        <ClayIcon symbol={icon} className="mr-2" />
         <span>{label}</span>
       </div>
-      <div className="asset-toggle-options">
+      <div className="btn-group w-100" role="group">
         {options.map((opt) => (
           <button
             key={opt.value}
             type="button"
-            className={`asset-opt-btn ${value === opt.value ? 'active' : ''}`}
+            className={`btn btn-secondary ${value === opt.value ? 'active' : ''}`}
             onClick={() => onChange(opt.value)}
             disabled={disabled}
+            style={{ flex: 1 }}
           >
             {opt.label}
           </button>
@@ -27,13 +28,14 @@ function AssetToggle({ label, icon, value, onChange, disabled, options }) {
 
 function RatioControl({ label, value, onChange, disabled }) {
   return (
-    <div className="form-group mb-0">
-      <label className="text-uppercase small font-weight-bold text-muted mb-1">
-        {label} ({value}%)
+    <div className="form-group mb-3">
+      <label className="form-label font-weight-semi-bold">
+        {label}{' '}
+        <span className="text-secondary font-weight-normal">({value}%)</span>
       </label>
       <input
         type="range"
-        className="form-control-range"
+        className="form-control-range custom-range"
         min="0"
         max="100"
         step="10"
@@ -59,10 +61,12 @@ export default function VisualAssetControls({ values, onChange, disabled }) {
   ];
 
   return (
-    <div className="visual-asset-controls mt-4">
-      <h6 className="config-section-title">Visual Assets & Media</h6>
-      <div className="asset-grid">
-        <div className="asset-column">
+    <div className="mt-4">
+      <h3 className="sheet-title mb-3" style={{ fontSize: '1rem' }}>
+        Visual Assets & Media
+      </h3>
+      <div className="row">
+        <div className="col-12 col-md-6 mb-4">
           <AssetToggle
             label="Product Images"
             icon="picture"
@@ -72,19 +76,19 @@ export default function VisualAssetControls({ values, onChange, disabled }) {
             options={imageOptions}
           />
           {values.imageMode === 'ai' && (
-            <div className="asset-settings-panel mt-2">
+            <div className="p-3 bg-light rounded mt-2 border">
               <RatioControl
-                label="Image Ratio"
+                label="Generation Ratio"
                 value={values.imageRatio}
                 onChange={(v) => onChange('imageRatio', v)}
                 disabled={disabled}
               />
-              <div className="form-group mt-2 mb-0">
-                <label className="text-uppercase small font-weight-bold text-muted mb-1">
-                  Style
+              <div className="form-group mb-0">
+                <label className="form-label font-weight-semi-bold">
+                  Image Style
                 </label>
                 <select
-                  className="form-control form-control-sm"
+                  className="form-control"
                   value={values.imageStyle}
                   onChange={(e) => onChange('imageStyle', e.target.value)}
                   disabled={disabled}
@@ -99,7 +103,7 @@ export default function VisualAssetControls({ values, onChange, disabled }) {
           )}
         </div>
 
-        <div className="asset-column">
+        <div className="col-12 col-md-6 mb-4">
           <AssetToggle
             label="Product PDFs"
             icon="document"
@@ -109,19 +113,19 @@ export default function VisualAssetControls({ values, onChange, disabled }) {
             options={pdfOptions}
           />
           {values.pdfMode === 'ai' && (
-            <div className="asset-settings-panel mt-2">
+            <div className="p-3 bg-light rounded mt-2 border">
               <RatioControl
-                label="PDF Ratio"
+                label="Generation Ratio"
                 value={values.pdfRatio}
                 onChange={(v) => onChange('pdfRatio', v)}
                 disabled={disabled}
               />
-              <div className="form-group mt-2 mb-0">
-                <label className="text-uppercase small font-weight-bold text-muted mb-1">
+              <div className="form-group mb-0">
+                <label className="form-label font-weight-semi-bold">
                   Content Type
                 </label>
                 <select
-                  className="form-control form-control-sm"
+                  className="form-control"
                   value={values.pdfContentType || 'product_info'}
                   onChange={(e) => onChange('pdfContentType', e.target.value)}
                   disabled={disabled}

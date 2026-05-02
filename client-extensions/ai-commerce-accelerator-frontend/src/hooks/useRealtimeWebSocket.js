@@ -214,15 +214,11 @@ export default function useRealtimeWebSocket({
       );
 
       const entityType = normalizeEntityType(data.entityType);
-      const {
-        scope,
-        type,
-        processedCount,
-        totalCount,
-        error,
-        sessionId,
-        batchId,
-      } = data;
+      const { scope, type, error, sessionId } = data;
+
+      const processedCount = data.processedCount ?? data.completedCount;
+      const totalCount = data.totalCount ?? data.totalItems;
+      const batchId = data.batchId ?? data.batchERC;
 
       // Track the active session ID locally
       if (sessionId && sessionId !== activeSessionIdRef.current) {

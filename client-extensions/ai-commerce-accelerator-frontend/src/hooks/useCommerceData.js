@@ -16,7 +16,6 @@ export default function useCommerceData({
   setConnectionEstablished,
   setAiKeyAvailable,
   setConnectionErrors,
-  ping,
 }) {
   const { config, setConfig, getLanguages, getCurrencies } = useApp();
   const api = useApi();
@@ -110,11 +109,6 @@ export default function useCommerceData({
     addLog(res.message || 'Connected.', 'success');
 
     setAiKeyAvailable(Boolean(res.aiKeyAvailable));
-
-    const wsOk = ping();
-    if (!wsOk) {
-      addLog('Unable to ping web socket.', 'warning');
-    }
 
     await loadRootLists();
     setConnectionEstablished(true);

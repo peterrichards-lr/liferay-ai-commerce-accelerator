@@ -1,6 +1,6 @@
 import React, { useCallback, useMemo, useState } from 'react';
 import ClayIcon from '@clayui/icon';
-import { ClayInput } from '@clayui/form';
+import { ClayInput, ClayToggle } from '@clayui/form';
 import ClayButton from '@clayui/button';
 
 import FieldError from '../ui/FieldError';
@@ -140,6 +140,26 @@ function DataGeneratorForm({
       expandedIndicator="⏷"
     >
       <form name="dataGeneration" onSubmit={handleSubmit}>
+        <div className="d-flex justify-content-end mb-3 align-items-center">
+          <span
+            className={`mr-2 font-weight-semi-bold ${!generationConfig.demoMode ? 'text-secondary' : 'text-primary'}`}
+          >
+            Demo (Mock Data)
+          </span>
+          <ClayToggle
+            id="dataGeneration_demoMode"
+            toggled={!generationConfig.demoMode}
+            onToggle={(val) => handleConfigChange('demoMode', !val)}
+            disabled={lockFields}
+            aria-label="Toggle Data Generation Mode"
+          />
+          <span
+            className={`ml-2 font-weight-semi-bold ${!generationConfig.demoMode ? 'text-primary' : 'text-secondary'}`}
+          >
+            Live (AI Driven)
+          </span>
+        </div>
+
         <div className="form-group mb-4">
           <label
             htmlFor="dataGeneration_brandName"
