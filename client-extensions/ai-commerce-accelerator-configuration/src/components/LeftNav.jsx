@@ -19,7 +19,7 @@ export default function LeftNav({ items, activeId, onSelect, header }) {
     const focusables = itemRefs.current.filter(Boolean);
     if (!focusables.length) return;
     const idx = focusables.indexOf(document.activeElement);
-    let nextIdx = idx;
+    let nextIdx;
 
     switch (e.key) {
       case 'ArrowDown':
