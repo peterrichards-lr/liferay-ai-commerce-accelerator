@@ -9,6 +9,10 @@ export default defineConfig({
     environment: 'jsdom',
     setupFiles: ['./src/setupTests.js'],
     include: ['src/**/*.test.{js,jsx}'],
+    reporters: ['default', 'junit'],
+    outputFile: {
+      junit: './vitest-report-frontend.xml',
+    },
   },
   resolve: {
     alias: {

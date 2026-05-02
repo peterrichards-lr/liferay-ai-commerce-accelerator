@@ -348,28 +348,40 @@ tasks.register('buildFrontendCX') {
 
 	}
 	doLast {
-		if (useYarn) {
+		try {
 			exec {
 				workingDir CX_DIR; commandLine findYarnExecutable(), 'install'
-
 			}
 			exec {
 				workingDir CX_DIR; commandLine findYarnExecutable(), 'build'
-
 			}
-
-		} else {
+		} catch (Exception e) {
 			exec {
-				workingDir CX_DIR; commandLine findNpmExecutable(), (useNpmCi ? 'ci' : 'install')
-
+				workingDir CX_DIR; commandLine 'npx', 'yarn', 'install'
 			}
 			exec {
-				workingDir CX_DIR; commandLine findNpmExecutable(), 'run', 'build'
-
+				workingDir CX_DIR; commandLine 'npx', 'yarn', 'build'
 			}
-
 		}
+	}
+}
 
+tasks.register('testFrontendCX') {
+	group = 'verification'
+	description = "Run tests for the Frontend CX."
+	onlyIf {
+		CX_DIR.exists()
+	}
+	doLast {
+		try {
+			exec {
+				workingDir CX_DIR; commandLine findYarnExecutable(), 'test'
+			}
+		} catch (Exception e) {
+			exec {
+				workingDir CX_DIR; commandLine 'npx', 'yarn', 'test'
+			}
+		}
 	}
 }
 
@@ -383,29 +395,96 @@ tasks.register('buildConfigurationCX') {
 	}
 	doLast {
 		def useYarnConfig = new File(CONFIG_CX_DIR, "yarn.lock").exists()
-		def useNpmCiConfig = new File(CONFIG_CX_DIR, "package-lock.json").exists()
-		if (useYarnConfig) {
+		try {
 			exec {
 				workingDir CONFIG_CX_DIR; commandLine findYarnExecutable(), 'install'
-
 			}
 			exec {
 				workingDir CONFIG_CX_DIR; commandLine findYarnExecutable(), 'build'
-
 			}
-
-		} else {
+		} catch (Exception e) {
 			exec {
-				workingDir CONFIG_CX_DIR; commandLine findNpmExecutable(), (useNpmCiConfig ? 'ci' : 'install')
-
+				workingDir CONFIG_CX_DIR; commandLine 'npx', 'yarn', 'install'
 			}
 			exec {
-				workingDir CONFIG_CX_DIR; commandLine findNpmExecutable(), 'run', 'build'
-
+				workingDir CONFIG_CX_DIR; commandLine 'npx', 'yarn', 'build'
 			}
-
 		}
+	}
+}
 
+tasks.register('testConfigurationCX') {
+	group = 'verification'
+	description = "Run tests for the Configuration CX."
+	def CONFIG_CX_DIR = file("$rootDir/client-extensions/ai-commerce-accelerator-configuration")
+	onlyIf {
+		CONFIG_CX_DIR.exists()
+	}
+	doLast {
+		try {
+			exec {
+				workingDir CONFIG_CX_DIR; commandLine findYarnExecutable(), 'test'
+			}
+		} catch (Exception e) {
+			exec {
+				workingDir CONFIG_CX_DIR; commandLine 'npx', 'yarn', 'test'
+			}
+		}
+	}
+}
+
+tasks.register('testMicroserviceCX') {
+	group = 'verification'
+	description = "Run tests for the Microservice CX."
+	def MICROSERVICE_CX_DIR = file("$rootDir/client-extensions/ai-commerce-accelerator-microservice")
+	onlyIf {
+		MICROSERVICE_CX_DIR.exists()
+	}
+	doLast {
+		try {
+			exec {
+				workingDir MICROSERVICE_CX_DIR; commandLine findYarnExecutable(), 'test'
+			}
+		} catch (Exception e) {
+			exec {
+				workingDir MICROSERVICE_CX_DIR; commandLine 'npx', 'yarn', 'test'
+			}
+		}
+	}
+}
+
+tasks.register('aggregateTestReports', Copy) {
+	group = 'verification'
+	description = 'Consolidates all Client Extension test reports into a central directory.'
+	
+	destinationDir = file("$buildDir/test-results/all-cx")
+	
+	from('client-extensions/ai-commerce-accelerator-frontend/vitest-report-frontend.xml')
+	from('client-extensions/ai-commerce-accelerator-configuration/vitest-report-configuration.xml')
+	from('client-extensions/ai-commerce-accelerator-microservice/vitest-report-microservice.xml')
+	
+	doLast {
+		logger.lifecycle("Aggregated test reports are available in ${destinationDir}")
+	}
+}
+
+tasks.register('testAllCX') {
+	group = 'verification'
+	description = "Run tests for all Client Extensions."
+	dependsOn tasks.named('testFrontendCX')
+	dependsOn tasks.named('testConfigurationCX')
+	dependsOn tasks.named('testMicroserviceCX')
+	finalizedBy tasks.named('aggregateTestReports')
+}
+
+tasks.register('smokeTest') {
+	group = 'verification'
+	description = 'Run Playwright E2E smoke tests.'
+	
+	doLast {
+		exec {
+			commandLine 'npx', 'playwright', 'test', 'tests/smoke'
+		}
 	}
 }
 
@@ -524,13 +603,19 @@ tasks.register('generateFragmentCss') {
 }
 
 // ===================== LIFECYCLE WIRING =====================
+tasks.named('check') {
+	dependsOn tasks.named('testAllCX')
+}
+
 tasks.named('assemble') {
-						dependsOn tasks.named('generateBatchFiles')
-						dependsOn tasks.named('zipFragments')
-						dependsOn tasks.named('buildConfigurationCX')
-					}
-					tasks.matching { it.name == 'deploy' }.configureEach {
-						dependsOn tasks.named('generateBatchFiles')
-						dependsOn tasks.named('buildConfigurationCX')
-						dependsOn tasks.named('autoDeployFragments')
-					}
+	dependsOn tasks.named('generateBatchFiles')
+	dependsOn tasks.named('zipFragments')
+	dependsOn tasks.named('buildConfigurationCX')
+}
+
+tasks.matching { it.name == 'deploy' }.configureEach {
+	dependsOn tasks.named('testAllCX')
+	dependsOn tasks.named('generateBatchFiles')
+	dependsOn tasks.named('buildConfigurationCX')
+	dependsOn tasks.named('autoDeployFragments')
+}
