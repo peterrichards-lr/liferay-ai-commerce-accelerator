@@ -36,7 +36,9 @@ describe('App', () => {
     expect(screen.getByText('Disconnected')).toBeInTheDocument();
 
     // Verify the connection button is present
-    const testBtn = screen.getByRole('button', { name: /(Test Connection & Load Data|Retry Connection)/i });
+    const testBtn = screen.getByRole('button', {
+      name: /(Test Connection & Load Data|Retry Connection)/i,
+    });
     expect(testBtn).toBeInTheDocument();
   });
 
@@ -65,7 +67,9 @@ describe('App', () => {
     };
     render(<AppRoot config={config} />);
 
-    const testBtn = screen.getByRole('button', { name: /(Test Connection & Load Data|Retry Connection)/i });
+    const testBtn = screen.getByRole('button', {
+      name: /(Test Connection & Load Data|Retry Connection)/i,
+    });
     fireEvent.click(testBtn);
 
     await waitFor(() => {
