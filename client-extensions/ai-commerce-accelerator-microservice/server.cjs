@@ -379,7 +379,7 @@ const gracefulShutdown = async (signal) => {
     );
 
     logger.debug('🔌 WebSocket server status:', {
-      clients: ws.totalClients(),
+      clients: ws.clients.size,
     });
   });
 })();

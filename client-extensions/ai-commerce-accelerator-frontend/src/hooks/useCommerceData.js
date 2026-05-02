@@ -11,8 +11,6 @@ import {
   DELETE_SELECTED_COMMERCE_DATA,
 } from '../utils/microservicePaths';
 
-const toInt = (v) => (v == null || v === '' ? undefined : String(v));
-
 export default function useCommerceData({
   addLog,
   setConnectionEstablished,

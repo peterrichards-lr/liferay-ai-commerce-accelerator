@@ -1,10 +1,4 @@
-import React, {
-  useState,
-  useCallback,
-  useEffect,
-  useRef,
-  useMemo,
-} from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import ClayCard from '@clayui/card';
 
 import ActivityLog from './ActivityLog';
@@ -34,24 +28,13 @@ function Dashboard({
   logs,
   isGenerating,
   onClearLogs,
-  onReset,
   generationConfig,
   wsStatus = 'disabled',
   _batchErrors,
-  clearBatchErrors,
   onReconnect,
   connected,
   aiConfig,
 }) {
-  const hasProgress =
-    !!progress &&
-    typeof progress === 'object' &&
-    Object.values(progress).some(
-      (s) =>
-        (Number(s?.completed) || 0) > 0 ||
-        (Array.isArray(s?.errors) && s.errors.length > 0)
-    );
-
   const { total, completed } = getTotalProgress(progress);
   const overallPercentage = total > 0 ? (completed / total) * 100 : 0;
 
@@ -72,77 +55,6 @@ function Dashboard({
     // For now, we'll keep the state but the UI presentation might need adjustment later
     console.log('Show errors for', entity);
   }, []);
-
-  const handleClearErrors = useCallback(() => {
-    clearBatchErrors?.();
-  }, [clearBatchErrors]);
-
-  // ... (export functions remain same)
-  const handleExportSummary = () => {
-    /* ... */
-  };
-  const handleExportLog = () => {
-    /* ... */
-  };
-  const handleExportAll = () => {
-    /* ... */
-  };
-
-  const startRun = useCallback(() => {
-    /* ... */
-  }, []);
-  const tick = useCallback(() => {
-    /* ... */
-  }, [startTime]);
-  const stopRun = useCallback(() => {
-    /* ... */
-  }, [startTime, lastUpdateTime]);
-  const resetTimes = useCallback(() => {
-    /* ... */
-  }, []);
-
-  const handleReset = useCallback(() => {
-    resetTimes();
-    onClearLogs?.();
-    onReset?.();
-  }, [resetTimes, onClearLogs, onReset]);
-
-  const prevIsGen = useRef(isGenerating);
-  useEffect(() => {
-    const started = isGenerating && !prevIsGen.current;
-    const stopped = !isGenerating && prevIsGen.current;
-    if (started) startRun();
-    if (stopped) stopRun();
-    prevIsGen.current = isGenerating;
-  }, [isGenerating, startRun, stopRun]);
-
-  const activityKey = useMemo(() => {
-    const p = progress || {};
-    return (
-      (p.products?.completed || 0) +
-      (p.accounts?.completed || 0) +
-      (p.orders?.completed || 0) +
-      (p.images?.completed || 0) +
-      (p.pdfs?.completed || 0) +
-      (p.products?.errors?.length || 0) +
-      (p.accounts?.errors?.length || 0) +
-      (p.orders?.errors?.length || 0) +
-      (p.images?.errors?.length || 0) +
-      (p.pdfs?.errors?.length || 0)
-    );
-  }, [progress]);
-
-  const prevActivity = useRef(activityKey);
-  useEffect(() => {
-    if (!isGenerating) {
-      prevActivity.current = activityKey;
-      return;
-    }
-    if (activityKey !== prevActivity.current) {
-      tick();
-      prevActivity.current = activityKey;
-    }
-  }, [activityKey, isGenerating, tick]);
 
   useEffect(() => {
     if (!isGenerating || !startTime) return;

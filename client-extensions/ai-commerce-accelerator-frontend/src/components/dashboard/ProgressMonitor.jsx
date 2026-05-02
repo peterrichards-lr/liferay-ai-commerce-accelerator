@@ -1,7 +1,5 @@
 import React from 'react';
-import ClayIcon from '@clayui/icon';
 import ClayBadge from '@clayui/badge';
-import ClayProgressBar from '@clayui/progress-bar';
 
 function MiniProgressItem({ title, completed, total, errors, onErrorsClick }) {
   const hasErrors = errors && errors.length > 0;
@@ -50,7 +48,7 @@ function MiniProgressItem({ title, completed, total, errors, onErrorsClick }) {
   );
 }
 
-function ProgressMonitor({ generationConfig, progress, onErrorsClick }) {
+function ProgressMonitor({ progress, onErrorsClick }) {
   if (!progress) return null;
 
   return (

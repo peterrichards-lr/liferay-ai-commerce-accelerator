@@ -1,7 +1,7 @@
 import React from 'react';
 import ClayIcon from '@clayui/icon';
 
-function DashboardEmptyState({ connected, hasConfig }) {
+function DashboardEmptyState({ connected }) {
   return (
     <div className="dashboard-empty-state">
       <div className="empty-state-content">

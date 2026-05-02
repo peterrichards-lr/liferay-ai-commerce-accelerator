@@ -2,7 +2,6 @@ import React, { useCallback, useMemo, useState } from 'react';
 import ClayIcon from '@clayui/icon';
 import { ClayInput } from '@clayui/form';
 import ClayButton from '@clayui/button';
-import ClayLabel from '@clayui/label';
 
 import FieldError from '../ui/FieldError';
 import CollapsiblePanel from '../ui/CollapsiblePanel';
@@ -28,15 +27,10 @@ function DataGeneratorForm({
   isSubmitDisabled,
   disabledReason,
   isGenerating,
-  forceDemoMode,
   aiKeyAvailable,
   validationErrors,
   scrollTargetRef,
   availableCategories,
-  generationCompleted,
-  onExport,
-  onImport,
-  liferayConnected,
 }) {
   const [expandSignal, setExpandSignal] = useState(0);
 

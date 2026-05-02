@@ -45,12 +45,7 @@ function RatioControl({ label, value, onChange, disabled }) {
   );
 }
 
-export default function VisualAssetControls({
-  values,
-  onChange,
-  disabled,
-  aiKeyAvailable,
-}) {
+export default function VisualAssetControls({ values, onChange, disabled }) {
   const imageOptions = [
     { label: 'None', value: 'none' },
     { label: 'Placeholder', value: 'placeholder' },
