@@ -10,7 +10,7 @@
     "axios": "^1.12.2",
     "better-sqlite3": "^12.9.0",
     "cors": "^2.8.5",
-    "csv-parse": "^6.1.0",
+    "csv-parse": "^6.2.1",
     "express": "^5.1.0",
     "form-data": "^4.0.0",
     "jsonwebtoken": "^9.0.0",
@@ -22,8 +22,8 @@
     "node-fetch": "^3.3.2",
     "node-stream-zip": "^1.15.0",
     "openai": "^6.35.0",
-    "ws": "^8.18.0",
-    "zod": "^3.25.76"
+    "ws": "^8.20.0",
+    "zod": "^4.4.2"
   },
   "license": "GPL-3.0",
   "main": "server.cjs",
@@ -38,10 +38,10 @@
   },
   "version": "1.0.0",
   "devDependencies": {
-    "@eslint/js": "^9.39.4",
+    "@eslint/js": "^10.0.1",
     "eslint": "^10.3.0",
-    "msw": "^2.13.4",
-    "prettier": "^3.8.1",
+    "msw": "^2.14.2",
+    "prettier": "^3.8.3",
     "vitest": "^4.1.5"
   }
 }
