@@ -5,21 +5,15 @@ import React, {
   useRef,
   useMemo,
 } from 'react';
-import ClayIcon from '@clayui/icon';
 import ClayCard from '@clayui/card';
-import ClayBadge from '@clayui/badge';
 
 import ActivityLog from './ActivityLog';
 import StatusMonitor from './StatusMonitor';
-import DashboardHeader from './DashboardHeader';
 import ProgressMonitor from './ProgressMonitor';
-import BatchErrors from './BatchErrors';
-import DashboardEmptyState from './DashboardEmptyState';
 import SystemStatus from './SystemStatus';
 import OverallProgressGauge from './OverallProgressGauge';
 
 import { getTotalProgress } from '../../state/progressSelectors';
-import { buildFilename, exportJsonFile } from '../../utils/fileHelper';
 
 const STORAGE_KEYS = {
   start: 'progress.startTime',
@@ -104,7 +98,7 @@ function Dashboard({
     setEntityFilter(entity || null);
     // In this revised design, we might want a modal or a dedicated view for batch errors
     // For now, we'll keep the state but the UI presentation might need adjustment later
-    console.log("Show errors for", entity);
+    console.log('Show errors for', entity);
   }, []);
 
   const handleClearErrors = useCallback(() => {
@@ -113,19 +107,33 @@ function Dashboard({
   }, [clearBatchErrors]);
 
   // ... (export functions remain same)
-  const handleExportSummary = () => { /* ... */ };
-  const handleExportLog = () => { /* ... */ };
-  const handleExportAll = () => { /* ... */ };
+  const handleExportSummary = () => {
+    /* ... */
+  };
+  const handleExportLog = () => {
+    /* ... */
+  };
+  const handleExportAll = () => {
+    /* ... */
+  };
 
-  const startRun = useCallback(() => { /* ... */ }, []);
-  const tick = useCallback(() => { /* ... */ }, [startTime]);
-  const stopRun = useCallback(() => { /* ... */ }, [startTime, lastUpdateTime]);
-  const resetTimes = useCallback(() => { /* ... */ }, []);
+  const startRun = useCallback(() => {
+    /* ... */
+  }, []);
+  const tick = useCallback(() => {
+    /* ... */
+  }, [startTime]);
+  const stopRun = useCallback(() => {
+    /* ... */
+  }, [startTime, lastUpdateTime]);
+  const resetTimes = useCallback(() => {
+    /* ... */
+  }, []);
 
   const handleReset = useCallback(() => {
-    resetTimes(); 
-    onClearLogs?.(); 
-    onReset?.(); 
+    resetTimes();
+    onClearLogs?.();
+    onReset?.();
   }, [resetTimes, onClearLogs, onReset]);
 
   const prevIsGen = useRef(isGenerating);
@@ -186,25 +194,43 @@ function Dashboard({
 
       <ClayCard className="mt-3 flex-shrink-0">
         <ClayCard.Body>
-          <ClayCard.Description displayType="title" className="d-flex justify-content-between align-items-center">
+          <ClayCard.Description
+            displayType="title"
+            className="d-flex justify-content-between align-items-center"
+          >
             Generation Status
-            {isGenerating && <span className="spinner-border spinner-border-sm text-primary" role="status"></span>}
+            {isGenerating && (
+              <span
+                className="spinner-border spinner-border-sm text-primary"
+                role="status"
+              ></span>
+            )}
           </ClayCard.Description>
-          
+
           <div className="mt-3">
             <div className="d-flex justify-content-between mb-1">
-              <span className="text-secondary font-weight-semi-bold" style={{fontSize: '0.875rem'}}>Overall Progress</span>
-              <span className="font-weight-semi-bold" style={{fontSize: '0.875rem'}}>{Math.round(overallPercentage)}%</span>
+              <span
+                className="text-secondary font-weight-semi-bold"
+                style={{ fontSize: '0.875rem' }}
+              >
+                Overall Progress
+              </span>
+              <span
+                className="font-weight-semi-bold"
+                style={{ fontSize: '0.875rem' }}
+              >
+                {Math.round(overallPercentage)}%
+              </span>
             </div>
             <OverallProgressGauge percentage={overallPercentage} />
           </div>
 
           <div className="mt-3">
-             <ProgressMonitor
-                generationConfig={generationConfig}
-                progress={progress}
-                onErrorsClick={onErrorsClick}
-              />
+            <ProgressMonitor
+              generationConfig={generationConfig}
+              progress={progress}
+              onErrorsClick={onErrorsClick}
+            />
           </div>
 
           <StatusMonitor
@@ -217,14 +243,16 @@ function Dashboard({
       </ClayCard>
 
       {/* Live Console */}
-      <div className="live-console flex-grow-1 mt-3 d-flex flex-column" style={{ minHeight: '250px' }}>
-         <ActivityLog
-            onClearLogs={onClearLogs}
-            logs={logs}
-            isGenerating={isGenerating}
-          />
+      <div
+        className="live-console flex-grow-1 mt-3 d-flex flex-column"
+        style={{ minHeight: '250px' }}
+      >
+        <ActivityLog
+          onClearLogs={onClearLogs}
+          logs={logs}
+          isGenerating={isGenerating}
+        />
       </div>
-
     </div>
   );
 }

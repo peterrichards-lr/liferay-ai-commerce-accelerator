@@ -264,13 +264,6 @@ export function AppUI() {
     }
   }, [forceDemoMode]);
 
-  const wsStatus =
-    !connectionEstablished || !config?.microserviceUrl
-      ? 'disabled'
-      : wsConnected
-        ? 'connected'
-        : 'connecting';
-
   useEffect(() => {
     if (isGenerating) return;
 
@@ -287,13 +280,6 @@ export function AppUI() {
       totals: { products, accounts, orders, images, pdfs, warehouses },
     });
   }, [isGenerating, generationConfig]);
-
-  const subtitle = useMemo(
-    () =>
-      config?.subtitle ||
-      'Generate comprehensive Commerce data using AI and Liferay Headless APIs',
-    [config?.subtitle]
-  );
 
   const clearBatchErrors = useCallback(() => {
     setBatchErrors([]);
@@ -426,7 +412,7 @@ export function AppUI() {
         if (mountedRef.current && fullAiConfig?.success) {
           setAiConfig(fullAiConfig.config?.ai);
         }
-      } catch (err) {
+      } catch {
         // Silently fail
       }
     })();
@@ -447,8 +433,12 @@ export function AppUI() {
                 <i className="fas fa-robot mr-2"></i>
                 {config?.title ?? 'Liferay AI Commerce Accelerator'}
               </h1>
-              <ClayLabel displayType={connectionEstablished ? "success" : "warning"}>
-                {connectionEstablished ? "Connected to Liferay" : "Disconnected"}
+              <ClayLabel
+                displayType={connectionEstablished ? 'success' : 'warning'}
+              >
+                {connectionEstablished
+                  ? 'Connected to Liferay'
+                  : 'Disconnected'}
               </ClayLabel>
             </div>
             <ul className="navbar-nav ml-auto">
@@ -465,7 +455,9 @@ export function AppUI() {
                   <ClayButton
                     displayType="secondary"
                     size="sm"
-                    onClick={() => document.getElementById('configImport').click()}
+                    onClick={() =>
+                      document.getElementById('configImport').click()
+                    }
                     disabled={isGenerating}
                   >
                     Import Config
@@ -488,44 +480,43 @@ export function AppUI() {
       {/* MAIN CONTENT AREA - Dual Pane Layout */}
       <div className="container-fluid container-fluid-max-xl mt-4">
         <ClayLayout.Row>
-          
           {/* LEFT PANE: CONFIGURATION */}
           <ClayLayout.Col size={8}>
             <div className="sheet sheet-lg">
               <HelpSection />
-              
+
               <div className="row mb-4">
-                 <div className="col-12">
-                   <ConfigurationPanel
-                      disabled={isGenerating}
-                      generationConfig={generationConfig}
-                      onTestConnection={testConnection}
-                      onConnectionStatusChange={setConnectionEstablished}
-                      connected={connectionEstablished}
-                      catalogs={catalogs}
-                      channels={channels}
-                      languages={languages}
-                      currencies={currencies}
-                      onSelectChannel={selectChannel}
-                      onSelectCatalog={selectCatalog}
-                      commerceConfigured={commerceConfigured}
-                      onOpenAiKeyStatusChange={setAiKeyAvailable}
-                      aiKeyAvailable={aiKeyAvailable}
-                      connectionErrors={connectionErrors}
-                      commerceErrors={commerceErrors}
-                      onErrorsChange={setConnectionErrors}
-                      onDeleteAllCommerceData={async () => {
-                        setProgress({ type: 'RESET_ALL', totals: {} });
-                        await handleDeleteAllCommerceData();
-                      }}
-                      onDeleteSelectedCommerceData={async (scope) => {
-                        setProgress({ type: 'RESET_ALL', totals: {} });
-                        await handleDeleteSelectedCommerceData(scope);
-                      }}
-                      batchSizes={batchSizes}
-                      aiModelOptions={aiModelOptions}
-                    />
-                 </div>
+                <div className="col-12">
+                  <ConfigurationPanel
+                    disabled={isGenerating}
+                    generationConfig={generationConfig}
+                    onTestConnection={testConnection}
+                    onConnectionStatusChange={setConnectionEstablished}
+                    connected={connectionEstablished}
+                    catalogs={catalogs}
+                    channels={channels}
+                    languages={languages}
+                    currencies={currencies}
+                    onSelectChannel={selectChannel}
+                    onSelectCatalog={selectCatalog}
+                    commerceConfigured={commerceConfigured}
+                    onOpenAiKeyStatusChange={setAiKeyAvailable}
+                    aiKeyAvailable={aiKeyAvailable}
+                    connectionErrors={connectionErrors}
+                    commerceErrors={commerceErrors}
+                    onErrorsChange={setConnectionErrors}
+                    onDeleteAllCommerceData={async () => {
+                      setProgress({ type: 'RESET_ALL', totals: {} });
+                      await handleDeleteAllCommerceData();
+                    }}
+                    onDeleteSelectedCommerceData={async (scope) => {
+                      setProgress({ type: 'RESET_ALL', totals: {} });
+                      await handleDeleteSelectedCommerceData(scope);
+                    }}
+                    batchSizes={batchSizes}
+                    aiModelOptions={aiModelOptions}
+                  />
+                </div>
               </div>
 
               <DataGeneratorForm
@@ -551,21 +542,29 @@ export function AppUI() {
           </ClayLayout.Col>
 
           {/* RIGHT PANE: OBSERVABILITY (Sticky) */}
-          <ClayLayout.Col size={4} className="sticky-top" style={{ top: '2rem', maxHeight: 'calc(100vh - 4rem)', overflowY: 'auto' }}>
-             <Dashboard
-                progress={progress}
-                logs={logs}
-                isGenerating={isGenerating}
-                onClearLogs={clearLogs}
-                onReset={handleProgressReset}
-                generationConfig={generationConfig}
-                wsStatus={wsConnected ? 'connected' : 'closed'}
-                batchErrors={batchErrors}
-                clearBatchErrors={clearBatchErrors}
-                onReconnect={reconnect}
-                connected={connectionEstablished}
-                aiConfig={aiConfig}
-              />
+          <ClayLayout.Col
+            size={4}
+            className="sticky-top"
+            style={{
+              top: '2rem',
+              maxHeight: 'calc(100vh - 4rem)',
+              overflowY: 'auto',
+            }}
+          >
+            <Dashboard
+              progress={progress}
+              logs={logs}
+              isGenerating={isGenerating}
+              onClearLogs={clearLogs}
+              onReset={handleProgressReset}
+              generationConfig={generationConfig}
+              wsStatus={wsConnected ? 'connected' : 'closed'}
+              batchErrors={batchErrors}
+              clearBatchErrors={clearBatchErrors}
+              onReconnect={reconnect}
+              connected={connectionEstablished}
+              aiConfig={aiConfig}
+            />
           </ClayLayout.Col>
         </ClayLayout.Row>
       </div>

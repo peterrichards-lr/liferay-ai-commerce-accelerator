@@ -146,10 +146,18 @@ function DataGeneratorForm({
       expandedIndicator="⏷"
     >
       <form name="dataGeneration" onSubmit={handleSubmit}>
-        
         <div className="form-group mb-4">
-          <label htmlFor="dataGeneration_brandName" className="font-weight-semi-bold">
-            Brand / Context <span className="text-secondary font-weight-normal" style={{fontSize: '0.8em'}}>(Used by LLM for thematic generation)</span>
+          <label
+            htmlFor="dataGeneration_brandName"
+            className="font-weight-semi-bold"
+          >
+            Brand / Context{' '}
+            <span
+              className="text-secondary font-weight-normal"
+              style={{ fontSize: '0.8em' }}
+            >
+              (Used by LLM for thematic generation)
+            </span>
           </label>
           <textarea
             id="dataGeneration_brandName"
@@ -162,10 +170,14 @@ function DataGeneratorForm({
           ></textarea>
         </div>
 
-        <h3 className="sheet-title mt-5 mb-3" style={{fontSize: '1rem'}}>Data Volumes</h3>
+        <h3 className="sheet-title mt-5 mb-3" style={{ fontSize: '1rem' }}>
+          Data Volumes
+        </h3>
         <div className="row mb-4">
           <div className="col-md-4">
-            <div className={`form-group ${hasErr(validationErrors, 'productCount') ? 'has-error' : ''}`}>
+            <div
+              className={`form-group ${hasErr(validationErrors, 'productCount') ? 'has-error' : ''}`}
+            >
               <label htmlFor="dataGeneration_productCount">Products</label>
               <ClayInput.Group>
                 <ClayInput.GroupItem>
@@ -175,7 +187,12 @@ function DataGeneratorForm({
                     min="0"
                     max="100"
                     value={generationConfig.productCount}
-                    onChange={(e) => handleConfigChange('productCount', parseInt(e.target.value))}
+                    onChange={(e) =>
+                      handleConfigChange(
+                        'productCount',
+                        parseInt(e.target.value)
+                      )
+                    }
                     disabled={lockFields}
                   />
                 </ClayInput.GroupItem>
@@ -183,12 +200,16 @@ function DataGeneratorForm({
                   <ClayInput.GroupText>items</ClayInput.GroupText>
                 </ClayInput.GroupItem>
               </ClayInput.Group>
-              {hasErr(validationErrors, 'productCount') && <FieldError errors={validationErrors.productCount} />}
+              {hasErr(validationErrors, 'productCount') && (
+                <FieldError errors={validationErrors.productCount} />
+              )}
             </div>
           </div>
-          
+
           <div className="col-md-4">
-            <div className={`form-group ${hasErr(validationErrors, 'accountCount') ? 'has-error' : ''}`}>
+            <div
+              className={`form-group ${hasErr(validationErrors, 'accountCount') ? 'has-error' : ''}`}
+            >
               <label htmlFor="dataGeneration_accountCount">B2B Accounts</label>
               <ClayInput.Group>
                 <ClayInput.GroupItem>
@@ -198,7 +219,12 @@ function DataGeneratorForm({
                     min="0"
                     max="100"
                     value={generationConfig.accountCount}
-                    onChange={(e) => handleConfigChange('accountCount', parseInt(e.target.value))}
+                    onChange={(e) =>
+                      handleConfigChange(
+                        'accountCount',
+                        parseInt(e.target.value)
+                      )
+                    }
                     disabled={lockFields}
                   />
                 </ClayInput.GroupItem>
@@ -206,13 +232,19 @@ function DataGeneratorForm({
                   <ClayInput.GroupText>accounts</ClayInput.GroupText>
                 </ClayInput.GroupItem>
               </ClayInput.Group>
-              {hasErr(validationErrors, 'accountCount') && <FieldError errors={validationErrors.accountCount} />}
+              {hasErr(validationErrors, 'accountCount') && (
+                <FieldError errors={validationErrors.accountCount} />
+              )}
             </div>
           </div>
 
           <div className="col-md-4">
-            <div className={`form-group ${hasErr(validationErrors, 'orderCount') ? 'has-error' : ''}`}>
-              <label htmlFor="dataGeneration_orderCount">Historical Orders</label>
+            <div
+              className={`form-group ${hasErr(validationErrors, 'orderCount') ? 'has-error' : ''}`}
+            >
+              <label htmlFor="dataGeneration_orderCount">
+                Historical Orders
+              </label>
               <ClayInput.Group>
                 <ClayInput.GroupItem>
                   <ClayInput
@@ -221,7 +253,9 @@ function DataGeneratorForm({
                     min="0"
                     max="500"
                     value={generationConfig.orderCount}
-                    onChange={(e) => handleConfigChange('orderCount', parseInt(e.target.value))}
+                    onChange={(e) =>
+                      handleConfigChange('orderCount', parseInt(e.target.value))
+                    }
                     disabled={lockFields}
                   />
                 </ClayInput.GroupItem>
@@ -229,7 +263,9 @@ function DataGeneratorForm({
                   <ClayInput.GroupText>orders</ClayInput.GroupText>
                 </ClayInput.GroupItem>
               </ClayInput.Group>
-              {hasErr(validationErrors, 'orderCount') && <FieldError errors={validationErrors.orderCount} />}
+              {hasErr(validationErrors, 'orderCount') && (
+                <FieldError errors={validationErrors.orderCount} />
+              )}
             </div>
           </div>
         </div>
@@ -243,106 +279,131 @@ function DataGeneratorForm({
             disabled={lockFields}
             error={hasErr(validationErrors, 'categories')}
           />
-          {hasErr(validationErrors, 'categories') && <FieldError errors={validationErrors.categories} />}
+          {hasErr(validationErrors, 'categories') && (
+            <FieldError errors={validationErrors.categories} />
+          )}
         </div>
-
 
         <div className="row mt-5">
           <div className="col-lg-6 pr-lg-4 border-right-lg">
-             <h3 className="sheet-title mb-3" style={{fontSize: '1rem'}}>Architecture Features</h3>
-             <ProductToggleSet
+            <h3 className="sheet-title mb-3" style={{ fontSize: '1rem' }}>
+              Architecture Features
+            </h3>
+            <ProductToggleSet
+              values={{
+                generateSpecifications: generationConfig.generateSpecifications,
+                generateSkuVariants: generationConfig.generateSkuVariants,
+                generatePriceLists: generationConfig.generatePriceLists,
+                generateBulkPricing: generationConfig.generateBulkPricing,
+                generateTierPricing: generationConfig.generateTierPricing,
+              }}
+              productCount={generationConfig.productCount}
+              onChange={handleConfigChange}
+              disabled={lockFields || generationConfig.productCount === 0}
+              errors={validationErrors}
+            />
+
+            <div className="mt-4">
+              <VisualAssetControls
                 values={{
-                  generateSpecifications: generationConfig.generateSpecifications,
-                  generateSkuVariants: generationConfig.generateSkuVariants,
-                  generatePriceLists: generationConfig.generatePriceLists,
-                  generateBulkPricing: generationConfig.generateBulkPricing,
-                  generateTierPricing: generationConfig.generateTierPricing,
+                  imageMode: generationConfig.imageMode,
+                  imageRatio: generationConfig.imageRatio,
+                  imageStyle: generationConfig.imageStyle,
+                  pdfMode: generationConfig.pdfMode,
+                  pdfRatio: generationConfig.pdfRatio,
+                  pdfContentType: generationConfig.pdfContentType,
                 }}
-                productCount={generationConfig.productCount}
                 onChange={handleConfigChange}
                 disabled={lockFields || generationConfig.productCount === 0}
-                errors={validationErrors}
+                aiKeyAvailable={aiKeyAvailable}
               />
-
-              <div className="mt-4">
-                 <VisualAssetControls
-                    values={{
-                      imageMode: generationConfig.imageMode,
-                      imageRatio: generationConfig.imageRatio,
-                      imageStyle: generationConfig.imageStyle,
-                      pdfMode: generationConfig.pdfMode,
-                      pdfRatio: generationConfig.pdfRatio,
-                      pdfContentType: generationConfig.pdfContentType,
-                    }}
-                    onChange={handleConfigChange}
-                    disabled={lockFields || generationConfig.productCount === 0}
-                    aiKeyAvailable={aiKeyAvailable}
-                  />
-              </div>
+            </div>
           </div>
 
           <div className="col-lg-6 pl-lg-4">
-             <h3 className={`sheet-title mb-3 ${generationConfig.productCount === 0 ? 'text-muted' : ''}`} style={{fontSize: '1rem'}}>
-               Inventory Strategy
-             </h3>
-             <WarehousesToggle
-                productCount={generationConfig.productCount}
-                values={{
-                  createWarehouses: generationConfig.createWarehouses,
-                  reuseExistingWarehouses: generationConfig.reuseExistingWarehouses,
-                  warehouseCount: generationConfig.warehouseCount,
-                }}
-                onChange={handleConfigChange}
-                disabled={lockFields || generationConfig.productCount === 0}
-              />
+            <h3
+              className={`sheet-title mb-3 ${generationConfig.productCount === 0 ? 'text-muted' : ''}`}
+              style={{ fontSize: '1rem' }}
+            >
+              Inventory Strategy
+            </h3>
+            <WarehousesToggle
+              productCount={generationConfig.productCount}
+              values={{
+                createWarehouses: generationConfig.createWarehouses,
+                reuseExistingWarehouses:
+                  generationConfig.reuseExistingWarehouses,
+                warehouseCount: generationConfig.warehouseCount,
+              }}
+              onChange={handleConfigChange}
+              disabled={lockFields || generationConfig.productCount === 0}
+            />
 
-              {generationConfig.createWarehouses && (
-                <div className="mt-3">
-                  <InventoryControls
-                    productCount={generationConfig.productCount}
-                    inventoryMin={generationConfig.inventoryMin}
-                    inventoryMax={generationConfig.inventoryMax}
-                    inventoryAssignmentRatio={generationConfig.inventoryAssignmentRatio}
-                    enableBackorders={generationConfig.enableBackorders}
-                    backorderAssignmentRatio={generationConfig.backorderAssignmentRatio}
-                    onChange={handleConfigChange}
-                    disabled={lockFields || generationConfig.productCount === 0}
-                    validationErrors={validationErrors}
-                  />
-                </div>
-              )}
+            {generationConfig.createWarehouses && (
+              <div className="mt-3">
+                <InventoryControls
+                  productCount={generationConfig.productCount}
+                  inventoryMin={generationConfig.inventoryMin}
+                  inventoryMax={generationConfig.inventoryMax}
+                  inventoryAssignmentRatio={
+                    generationConfig.inventoryAssignmentRatio
+                  }
+                  enableBackorders={generationConfig.enableBackorders}
+                  backorderAssignmentRatio={
+                    generationConfig.backorderAssignmentRatio
+                  }
+                  onChange={handleConfigChange}
+                  disabled={lockFields || generationConfig.productCount === 0}
+                  validationErrors={validationErrors}
+                />
+              </div>
+            )}
           </div>
         </div>
 
         {!generationConfig.demoMode && (
           <div className="mt-4 p-3 bg-light rounded d-flex justify-content-between align-items-center">
-              <span className="font-weight-semi-bold">
-                <ClayIcon symbol="coin" className="mr-2 text-warning" />
-                Estimated Generation Cost
+            <span className="font-weight-semi-bold">
+              <ClayIcon symbol="coin" className="mr-2 text-warning" />
+              Estimated Generation Cost
+            </span>
+            <div className="text-right">
+              <span className="h4 mb-0 d-block">
+                ${estimatedCost.total.toFixed(2)}
               </span>
-              <div className="text-right">
-                <span className="h4 mb-0 d-block">${estimatedCost.total.toFixed(2)}</span>
-                {estimatedCost.breakdown.length > 0 && (
-                  <small className="text-muted d-block" style={{fontSize: '0.75rem'}}>
-                    {estimatedCost.breakdown.join(' | ')}
-                  </small>
-                )}
-              </div>
+              {estimatedCost.breakdown.length > 0 && (
+                <small
+                  className="text-muted d-block"
+                  style={{ fontSize: '0.75rem' }}
+                >
+                  {estimatedCost.breakdown.join(' | ')}
+                </small>
+              )}
+            </div>
           </div>
         )}
 
         <div className="mt-4">
-          <span title={disabled && !isGenerating ? disabledReason : undefined} style={{ display: 'block' }}>
+          <span
+            title={disabled && !isGenerating ? disabledReason : undefined}
+            style={{ display: 'block' }}
+          >
             <ClayButton
               type="submit"
-              displayType={generationConfig.demoMode ? "secondary" : "primary"}
+              displayType={generationConfig.demoMode ? 'secondary' : 'primary'}
               block
               disabled={isSubmitDisabled}
             >
               {isGenerating ? (
                 <>
-                  <span className="spinner-border spinner-border-sm mr-2" role="status" aria-hidden="true" />
-                  {generationConfig.demoMode ? 'Generating Demo Data...' : 'Generating Data...'}
+                  <span
+                    className="spinner-border spinner-border-sm mr-2"
+                    role="status"
+                    aria-hidden="true"
+                  />
+                  {generationConfig.demoMode
+                    ? 'Generating Demo Data...'
+                    : 'Generating Data...'}
                 </>
               ) : disabled ? (
                 <>
@@ -351,8 +412,13 @@ function DataGeneratorForm({
                 </>
               ) : (
                 <>
-                  <ClayIcon symbol={generationConfig.demoMode ? 'flask' : 'play'} className="mr-2" />
-                  {generationConfig.demoMode ? 'Start Demo Generation' : 'Start Generation'}
+                  <ClayIcon
+                    symbol={generationConfig.demoMode ? 'flask' : 'play'}
+                    className="mr-2"
+                  />
+                  {generationConfig.demoMode
+                    ? 'Start Demo Generation'
+                    : 'Start Generation'}
                 </>
               )}
             </ClayButton>
