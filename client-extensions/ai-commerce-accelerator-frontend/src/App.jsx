@@ -99,7 +99,6 @@ export function AppUI() {
 
   const [connectionEstablished, setConnectionEstablished] = useState(false);
   const [aiKeyAvailable, setAiKeyAvailable] = useState(false);
-  const [generationCompleted, setGenerationCompleted] = useState(false);
   const [batchErrors, setBatchErrors] = useState([]);
   const [batchSizes, setBatchSizes] = useState([1, 10, 25, 50]); // Default values
 
@@ -185,7 +184,6 @@ export function AppUI() {
     mountedRef,
     progress,
     setProgress,
-    setGenerationCompleted,
     connectionEstablished,
   });
 
@@ -307,34 +305,6 @@ export function AppUI() {
     setGenerationConfig(newConfig);
     notifyUser('Generator settings restored to defaults.');
   };
-
-  const handleExport = useCallback(async () => {
-    try {
-      const response = await api.get(EXPORT_COMMERCE_DATA);
-      const filename = buildFilename('ai-commerce-accelerator-data');
-      exportJsonFile(response, filename);
-      notifyUser('Commerce data exported successfully');
-    } catch (error) {
-      notifyUser('Failed to export commerce data', 'danger', error);
-    }
-  }, [api]);
-
-  const handleImport = useCallback(
-    async (event) => {
-      const file = event.target.files[0];
-      if (!file) return;
-
-      try {
-        const formData = new FormData();
-        formData.append('importFile', file);
-        await api.post(IMPORT_COMMERCE_DATA, formData);
-        notifyUser('Commerce data import started');
-      } catch (error) {
-        notifyUser('Failed to import commerce data', 'danger', error);
-      }
-    },
-    [api]
-  );
 
   useEffect(() => {
     if (!connectionEstablished) return;

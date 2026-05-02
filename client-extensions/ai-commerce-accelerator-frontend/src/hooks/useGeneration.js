@@ -12,7 +12,6 @@ export default function useGeneration({
   generationConfig,
   mountedRef,
   progress,
-  setGenerationCompleted,
   connectionEstablished,
 }) {
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -28,7 +27,6 @@ export default function useGeneration({
 
     if (mountedRef.current) {
       setIsSubmitting(true);
-      setGenerationCompleted(false);
     }
 
     const { products, accounts, orders, images, pdfs, warehouses } =
@@ -127,7 +125,6 @@ export default function useGeneration({
     generationConfig,
     mountedRef,
     progress,
-    setGenerationCompleted,
   ]);
 
   return { isSubmitting, generateData };
