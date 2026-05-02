@@ -1,5 +1,6 @@
 import React from 'react';
 import ClayIcon from '@clayui/icon';
+import { ClaySelect } from '@clayui/form';
 
 function AssetToggle({ label, icon, value, onChange, disabled, options }) {
   return (
@@ -87,17 +88,21 @@ export default function VisualAssetControls({ values, onChange, disabled }) {
                 <label className="form-label font-weight-semi-bold">
                   Image Style
                 </label>
-                <select
-                  className="form-control"
+                <ClaySelect
+                  id="imageStyle"
+                  aria-label="Image Style"
                   value={values.imageStyle}
                   onChange={(e) => onChange('imageStyle', e.target.value)}
                   disabled={disabled}
                 >
-                  <option value="photographic">Photographic</option>
-                  <option value="minimalist">Minimalist</option>
-                  <option value="abstract">Abstract</option>
-                  <option value="sketch">Sketch</option>
-                </select>
+                  <ClaySelect.Option
+                    value="photographic"
+                    label="Photographic"
+                  />
+                  <ClaySelect.Option value="minimalist" label="Minimalist" />
+                  <ClaySelect.Option value="abstract" label="Abstract" />
+                  <ClaySelect.Option value="sketch" label="Sketch" />
+                </ClaySelect>
               </div>
             </div>
           )}
@@ -124,19 +129,27 @@ export default function VisualAssetControls({ values, onChange, disabled }) {
                 <label className="form-label font-weight-semi-bold">
                   Content Type
                 </label>
-                <select
-                  className="form-control"
+                <ClaySelect
+                  id="pdfContentType"
+                  aria-label="PDF Content Type"
                   value={values.pdfContentType || 'product_info'}
                   onChange={(e) => onChange('pdfContentType', e.target.value)}
                   disabled={disabled}
                 >
-                  <option value="product_info">Product Information</option>
-                  <option value="user_guide">User Guide</option>
-                  <option value="compliance">Compliance & Regulations</option>
-                  <option value="technical_specs">
-                    Technical Specifications
-                  </option>
-                </select>
+                  <ClaySelect.Option
+                    value="product_info"
+                    label="Product Information"
+                  />
+                  <ClaySelect.Option value="user_guide" label="User Guide" />
+                  <ClaySelect.Option
+                    value="compliance"
+                    label="Compliance & Regulations"
+                  />
+                  <ClaySelect.Option
+                    value="technical_specs"
+                    label="Technical Specifications"
+                  />
+                </ClaySelect>
               </div>
             </div>
           )}
