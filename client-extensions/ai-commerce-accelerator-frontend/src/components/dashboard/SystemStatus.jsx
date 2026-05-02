@@ -4,10 +4,19 @@ import ClayCard from '@clayui/card';
 import ClayLabel from '@clayui/label';
 
 function StatusItem({ icon, title, status, details, onClick }) {
-  const isError =
-    status === 'error' || status === 'closed' || status === 'disabled';
+  const isError = status === 'error' || status === 'closed';
+  const isSuccess =
+    status === 'connected' || status === 'ready' || status === 'active';
   const isWarning = status === 'connecting' || status === 'degraded';
-  const displayType = isError ? 'danger' : isWarning ? 'warning' : 'success';
+
+  const displayType = isError
+    ? 'danger'
+    : isSuccess
+      ? 'success'
+      : isWarning
+        ? 'warning'
+        : 'secondary';
+
   const labelText = status.charAt(0).toUpperCase() + status.slice(1);
 
   const content = (
@@ -72,7 +81,7 @@ function SystemStatus({
           <StatusItem
             icon="globe"
             title="Liferay DXP"
-            status={liferayStatus ? 'connected' : 'error'}
+            status={liferayStatus ? 'connected' : 'unknown'}
           />
 
           <StatusItem
@@ -85,14 +94,14 @@ function SystemStatus({
           <StatusItem
             icon="magic"
             title="AI Text"
-            status={liferayStatus ? 'active' : 'disabled'}
+            status={liferayStatus ? 'active' : 'waiting'}
             details={`${textProvider?.toUpperCase() || 'OPENAI'} / ${textModel || 'gpt-4o'}`}
           />
 
           <StatusItem
             icon="picture"
             title="AI Media"
-            status={liferayStatus ? 'active' : 'disabled'}
+            status={liferayStatus ? 'active' : 'waiting'}
             details={
               mediaProvider === 'inherit'
                 ? textProvider?.toUpperCase() || 'OPENAI'
