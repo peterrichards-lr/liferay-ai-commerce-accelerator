@@ -20,12 +20,15 @@ export const useObjectStorage = ({ keys, defaults = {}, json = true }) => {
     (async () => {
       setLoading(true);
       try {
+        const parsedKeys = keyString ? keyString.split(',') : [];
+        const parsedDefaults = defaultsString ? JSON.parse(defaultsString) : {};
+        
         const fetchedValues = await Promise.all(
-          keys.map((key) => getKeyValue(key))
+          parsedKeys.map((key) => getKeyValue(key))
         );
 
         const newValues = {};
-        keys.forEach((key, index) => {
+        parsedKeys.forEach((key, index) => {
           const raw = fetchedValues[index];
           if (json) {
             try {
@@ -34,18 +37,18 @@ export const useObjectStorage = ({ keys, defaults = {}, json = true }) => {
                 if (Array.isArray(parsed)) {
                   newValues[key] = parsed;
                 } else if (typeof parsed === 'object' && parsed !== null) {
-                  newValues[key] = { ...defaults[key], ...parsed };
+                  newValues[key] = { ...parsedDefaults[key], ...parsed };
                 } else {
                   newValues[key] = parsed;
                 }
               } else {
-                newValues[key] = defaults[key];
+                newValues[key] = parsedDefaults[key];
               }
             } catch {
-              newValues[key] = defaults[key];
+              newValues[key] = parsedDefaults[key];
             }
           } else {
-            newValues[key] = raw || defaults[key];
+            newValues[key] = raw || parsedDefaults[key];
           }
         });
 
@@ -67,14 +70,15 @@ export const useObjectStorage = ({ keys, defaults = {}, json = true }) => {
     return () => {
       alive = false;
     };
-  }, [keyString, json, defaultsString, keys, defaults]);
+  }, [keyString, json, defaultsString]);
 
   const onSave = useCallback(async () => {
     if (saving) return;
     setSaving(true);
     try {
+      const parsedKeys = keyString ? keyString.split(',') : [];
       await Promise.all(
-        keys.map((key) =>
+        parsedKeys.map((key) =>
           persistConfigKey(
             key,
             json ? JSON.stringify(values[key]) : values[key]
@@ -95,7 +99,7 @@ export const useObjectStorage = ({ keys, defaults = {}, json = true }) => {
     } finally {
       setSaving(false);
     }
-  }, [saving, values, keys, json]);
+  }, [saving, values, keyString, json]);
 
   const onCancel = useCallback(() => setValues(lastSaved), [lastSaved]);
 
