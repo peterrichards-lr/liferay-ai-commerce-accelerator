@@ -320,8 +320,6 @@ Liferay. Invoke the operation using the following command:
 
 SUCCESS: The successful result is a list of all the artifacts needed to run
 without any resolution errors.
-FAILURE: A failure will indicate missing a requirement. Correct the missing
-requirement and rerun the task.
 
 ## Testing & Quality Gates
 
@@ -329,11 +327,11 @@ The project implements a modular and enforced testing strategy to ensure long-te
 
 ### Automated Test Tasks
 
-*   **`blade gw testFrontendCX`**: Runs unit and component tests (Vitest) for the frontend extension.
-*   **`blade gw testConfigurationCX`**: Runs tests for the configuration extension.
-*   **`blade gw testMicroserviceCX`**: Runs tests for the microservice.
-*   **`blade gw testAllCX`**: Orchestrates all extension tests and aggregates the results.
-*   **`blade gw smokeTest`**: Runs Playwright E2E tests in the `tests/smoke` directory to verify the integration between Liferay and its extensions.
+- **`blade gw testFrontendCX`**: Runs unit and component tests (Vitest) for the frontend extension.
+- **`blade gw testConfigurationCX`**: Runs tests for the configuration extension.
+- **`blade gw testMicroserviceCX`**: Runs tests for the microservice.
+- **`blade gw testAllCX`**: Orchestrates all extension tests and aggregates the results.
+- **`blade gw smokeTest`**: Runs Playwright E2E tests in the `tests/smoke` directory to verify the integration between Liferay and its extensions.
 
 ### Enforced Quality Gate
 
@@ -353,9 +351,48 @@ This allows for easy review of test results across all project components in a s
 **Working Configuration:** To ensure successful builds within Liferay's environment, we are utilizing Node.js 20.12.2 for the client extension build. This necessitates the use of specific, older versions of Vite (`^8.0.10`) and `@vitejs/plugin-react` (`^6.0.1`) that are known to be compatible with this Node.js version.
 
 **Future Node.js Upgrades & Dependency Alerts:**
-*   Node.js version upgrades for the *Liferay build process* will be considered when Liferay officially supports newer LTS versions (e.g., v22 or later).
-*   Dependency bot alerts related to Node.js versions for the build environment will be noted and deferred until Liferay's support allows for upgrades within the build tooling.
+
+- Node.js version upgrades for the _Liferay build process_ will be considered when Liferay officially supports newer LTS versions (e.g., v22 or later).
+- Dependency bot alerts related to Node.js versions for the build environment will be noted and deferred until Liferay's support allows for upgrades within the build tooling.
 
 **Microservice Environment:**
-*   The microservice, running in its own Docker container, is not subject to these Liferay build constraints. It can and should utilize a modern Node.js version (e.g., Node.js 24 LTS) independently to leverage up-to-date tooling, security, and features.
 
+- The microservice, running in its own Docker container, is not subject to these Liferay build constraints. It can and should utilize a modern Node.js version (e.g., Node.js 24 LTS) independently to leverage up-to-date tooling, security, and features.
+
+## Testing & Quality Gates
+
+The project implements a modular and enforced testing strategy to ensure long-term reliability and a "rock-solid" foundation.
+
+### Automated Test Tasks
+
+- **`blade gw testFrontendCX`**: Runs unit and component tests (Vitest) for the frontend extension.
+- **`blade gw testConfigurationCX`**: Runs tests for the configuration extension.
+- **`blade gw testMicroserviceCX`**: Runs tests for the microservice.
+- **`blade gw testAllCX`**: Orchestrates all extension tests and aggregates the results.
+- **`blade gw smokeTest`**: Runs Playwright E2E tests in the `tests/smoke` directory to verify the integration between Liferay and its extensions.
+
+### Enforced Quality Gate
+
+The `deploy` task is dependent on `testAllCX`. This means **client extensions will only be deployed if all tests pass**, preventing regressions from entering the Liferay environment.
+
+### Aggregated Reporting
+
+JUnit-style XML reports are automatically generated for each client extension and consolidated into:
+`build/test-results/all-cx/`
+
+This allows for easy review of test results across all project components in a single location.
+
+## Node.js Versioning for Liferay Client Extensions
+
+**Liferay Build Environment Constraint:** Liferay's build process for client extensions enforces Node.js 20.12.2 for compatibility with its internal tooling. Attempts to override this with newer Node.js versions via Gradle properties have been unsuccessful and conflict with Liferay's build requirements.
+
+**Working Configuration:** To ensure successful builds within Liferay's environment, we are utilizing Node.js 20.12.2 for the client extension build. This necessitates the use of specific, older versions of Vite (`^8.0.10`) and `@vitejs/plugin-react` (`^6.0.1`) that are known to be compatible with this Node.js version.
+
+**Future Node.js Upgrades & Dependency Alerts:**
+
+- Node.js version upgrades for the _Liferay build process_ will be considered when Liferay officially supports newer LTS versions (e.g., v22 or later).
+- Dependency bot alerts related to Node.js versions for the build environment will be noted and deferred until Liferay's support allows for upgrades within the build tooling.
+
+**Microservice Environment:**
+
+- The microservice, running in its own Docker container, is not subject to these Liferay build constraints. It can and should utilize a modern Node.js version (e.g., Node.js 24 LTS) independently to leverage up-to-date tooling, security, and features.

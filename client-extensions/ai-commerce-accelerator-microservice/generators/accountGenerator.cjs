@@ -99,7 +99,6 @@ class AccountGenerator extends BaseGenerator {
       );
 
       await this.persistence.updateSessionContext(sessionId, {
-        ...session.context,
         countries,
       });
 
@@ -124,6 +123,7 @@ class AccountGenerator extends BaseGenerator {
         stepKey: S.LOAD_COUNTRIES,
         status: 'FAILED',
       });
+      throw error;
     }
   }
 

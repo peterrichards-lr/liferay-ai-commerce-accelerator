@@ -1,15 +1,15 @@
 <?xml version="1.0" encoding="UTF-8" ?>
-<testsuites name="vitest tests" tests="25" failures="0" errors="0" time="0.559175957">
-    <testsuite name="src/App.test.jsx" timestamp="2026-05-02T07:12:13.542Z" hostname="peters-mbp.lan" tests="3" failures="0" errors="0" skipped="0" time="0.171310833">
-        <testcase classname="src/App.test.jsx" name="App &gt; renders the application title and connects upon user action" time="0.131042375">
+<testsuites name="vitest tests" tests="25" failures="0" errors="0" time="0.565081833">
+    <testsuite name="src/App.test.jsx" timestamp="2026-05-02T09:40:02.513Z" hostname="peters-mbp.lan" tests="3" failures="0" errors="0" skipped="0" time="0.171429583">
+        <testcase classname="src/App.test.jsx" name="App &gt; renders the application title and connects upon user action" time="0.129970916">
             <system-out>
-[08:12:13] SUCCESS: Connected to Liferay.
+[10:40:02 AM] SUCCESS: Connected to Liferay.
 
-[08:12:13] SUCCESS: WebSocket connected.
+[10:40:02 AM] SUCCESS: WebSocket connected.
 
             </system-out>
             <system-err>
-[08:12:13] WARNING: Unable to ping web socket.
+[10:40:02 AM] WARNING: Unable to ping web socket.
 
 [MSW] Warning: intercepted a WebSocket connection without a matching event handler:
 
@@ -46,15 +46,15 @@ Read more: https://mswjs.io/docs/http/intercepting-requests
 
             </system-err>
         </testcase>
-        <testcase classname="src/App.test.jsx" name="App &gt; updates generation config when AI credentials are missing" time="0.029803708">
+        <testcase classname="src/App.test.jsx" name="App &gt; updates generation config when AI credentials are missing" time="0.031051875">
             <system-out>
-[08:12:13] SUCCESS: Connected to Liferay (no AI).
+[10:40:02 AM] SUCCESS: Connected to Liferay (no AI).
 
-[08:12:13] SUCCESS: WebSocket connected.
+[10:40:02 AM] SUCCESS: WebSocket connected.
 
             </system-out>
             <system-err>
-[08:12:13] WARNING: Unable to ping web socket.
+[10:40:02 AM] WARNING: Unable to ping web socket.
 
 [MSW] Warning: intercepted a WebSocket connection without a matching event handler:
 
@@ -72,61 +72,61 @@ Read more: https://mswjs.io/docs/http/intercepting-requests
 
             </system-err>
         </testcase>
-        <testcase classname="src/App.test.jsx" name="App &gt; renders the main sections" time="0.007113458">
+        <testcase classname="src/App.test.jsx" name="App &gt; renders the main sections" time="0.007243041">
         </testcase>
     </testsuite>
-    <testsuite name="src/context/AppContext.test.jsx" timestamp="2026-05-02T07:12:13.544Z" hostname="peters-mbp.lan" tests="3" failures="0" errors="0" skipped="0" time="0.030559875">
-        <testcase classname="src/context/AppContext.test.jsx" name="AppContext &gt; provides default config to children" time="0.015896458">
+    <testsuite name="src/context/AppContext.test.jsx" timestamp="2026-05-02T09:40:02.514Z" hostname="peters-mbp.lan" tests="3" failures="0" errors="0" skipped="0" time="0.03238875">
+        <testcase classname="src/context/AppContext.test.jsx" name="AppContext &gt; provides default config to children" time="0.017472125">
         </testcase>
-        <testcase classname="src/context/AppContext.test.jsx" name="AppContext &gt; updates config via setConfig" time="0.009718208">
+        <testcase classname="src/context/AppContext.test.jsx" name="AppContext &gt; updates config via setConfig" time="0.009970125">
         </testcase>
-        <testcase classname="src/context/AppContext.test.jsx" name="AppContext &gt; initializes with provided config" time="0.001627291">
-        </testcase>
-    </testsuite>
-    <testsuite name="src/hooks/useRealtimeWebSocket.test.js" timestamp="2026-05-02T07:12:13.544Z" hostname="peters-mbp.lan" tests="4" failures="0" errors="0" skipped="0" time="0.070418458">
-        <testcase classname="src/hooks/useRealtimeWebSocket.test.js" name="useRealtimeWebSocket &gt; should connect when enabled and microserviceUrl is provided" time="0.008933">
-        </testcase>
-        <testcase classname="src/hooks/useRealtimeWebSocket.test.js" name="useRealtimeWebSocket &gt; should handle STARTED event for session" time="0.003885292">
-        </testcase>
-        <testcase classname="src/hooks/useRealtimeWebSocket.test.js" name="useRealtimeWebSocket &gt; should handle COMPLETED event with partial failures" time="0.001371208">
-        </testcase>
-        <testcase classname="src/hooks/useRealtimeWebSocket.test.js" name="useRealtimeWebSocket &gt; should hydrate session status on connect if activeSessionId is provided" time="0.052972583">
+        <testcase classname="src/context/AppContext.test.jsx" name="AppContext &gt; initializes with provided config" time="0.001740708">
         </testcase>
     </testsuite>
-    <testsuite name="src/state/progressReducer.test.js" timestamp="2026-05-02T07:12:13.545Z" hostname="peters-mbp.lan" tests="5" failures="0" errors="0" skipped="0" time="0.005109416">
-        <testcase classname="src/state/progressReducer.test.js" name="progressReducer &gt; should return provided state for unknown action" time="0.0011675">
+    <testsuite name="src/hooks/useRealtimeWebSocket.test.js" timestamp="2026-05-02T09:40:02.515Z" hostname="peters-mbp.lan" tests="4" failures="0" errors="0" skipped="0" time="0.0709645">
+        <testcase classname="src/hooks/useRealtimeWebSocket.test.js" name="useRealtimeWebSocket &gt; should connect when enabled and microserviceUrl is provided" time="0.010420333">
         </testcase>
-        <testcase classname="src/state/progressReducer.test.js" name="progressReducer &gt; should handle SET_TOTAL" time="0.000205625">
+        <testcase classname="src/hooks/useRealtimeWebSocket.test.js" name="useRealtimeWebSocket &gt; should handle STARTED event for session" time="0.0039185">
         </testcase>
-        <testcase classname="src/state/progressReducer.test.js" name="progressReducer &gt; should handle SET_COMPLETED" time="0.000109583">
+        <testcase classname="src/hooks/useRealtimeWebSocket.test.js" name="useRealtimeWebSocket &gt; should handle COMPLETED event with partial failures" time="0.0014105">
         </testcase>
-        <testcase classname="src/state/progressReducer.test.js" name="progressReducer &gt; should handle UPDATE_BATCH and sum correctly" time="0.000297875">
-        </testcase>
-        <testcase classname="src/state/progressReducer.test.js" name="progressReducer &gt; should handle RESET_ALL" time="0.000150083">
+        <testcase classname="src/hooks/useRealtimeWebSocket.test.js" name="useRealtimeWebSocket &gt; should hydrate session status on connect if activeSessionId is provided" time="0.052139792">
         </testcase>
     </testsuite>
-    <testsuite name="src/components/dashboard/Dashboard.test.jsx" timestamp="2026-05-02T07:12:13.545Z" hostname="peters-mbp.lan" tests="5" failures="0" errors="0" skipped="0" time="0.098993667">
-        <testcase classname="src/components/dashboard/Dashboard.test.jsx" name="Dashboard &gt; renders correctly with progress and logs" time="0.048445">
+    <testsuite name="src/components/dashboard/Dashboard.test.jsx" timestamp="2026-05-02T09:40:02.515Z" hostname="peters-mbp.lan" tests="5" failures="0" errors="0" skipped="0" time="0.096729083">
+        <testcase classname="src/components/dashboard/Dashboard.test.jsx" name="Dashboard &gt; renders correctly with progress and logs" time="0.045748833">
         </testcase>
-        <testcase classname="src/components/dashboard/Dashboard.test.jsx" name="Dashboard &gt; shows progress bars for products" time="0.012677875">
+        <testcase classname="src/components/dashboard/Dashboard.test.jsx" name="Dashboard &gt; shows progress bars for products" time="0.01278725">
         </testcase>
-        <testcase classname="src/components/dashboard/Dashboard.test.jsx" name="Dashboard &gt; triggers onReset when Reset button is clicked" time="0.013346375">
+        <testcase classname="src/components/dashboard/Dashboard.test.jsx" name="Dashboard &gt; triggers onReset when Reset button is clicked" time="0.014161125">
         </testcase>
-        <testcase classname="src/components/dashboard/Dashboard.test.jsx" name="Dashboard &gt; handles export actions" time="0.01611075">
+        <testcase classname="src/components/dashboard/Dashboard.test.jsx" name="Dashboard &gt; handles export actions" time="0.015387959">
         </testcase>
-        <testcase classname="src/components/dashboard/Dashboard.test.jsx" name="Dashboard &gt; shows empty state when no progress exists" time="0.0053155">
+        <testcase classname="src/components/dashboard/Dashboard.test.jsx" name="Dashboard &gt; shows empty state when no progress exists" time="0.005436375">
         </testcase>
     </testsuite>
-    <testsuite name="src/components/data-generator/DataGeneratorForm.test.jsx" timestamp="2026-05-02T07:12:13.546Z" hostname="peters-mbp.lan" tests="5" failures="0" errors="0" skipped="0" time="0.182783708">
-        <testcase classname="src/components/data-generator/DataGeneratorForm.test.jsx" name="DataGeneratorForm &gt; renders correctly with initial config" time="0.056004292">
+    <testsuite name="src/state/progressReducer.test.js" timestamp="2026-05-02T09:40:02.516Z" hostname="peters-mbp.lan" tests="5" failures="0" errors="0" skipped="0" time="0.004860083">
+        <testcase classname="src/state/progressReducer.test.js" name="progressReducer &gt; should return provided state for unknown action" time="0.001087417">
         </testcase>
-        <testcase classname="src/components/data-generator/DataGeneratorForm.test.jsx" name="DataGeneratorForm &gt; updates product count on change" time="0.017578625">
+        <testcase classname="src/state/progressReducer.test.js" name="progressReducer &gt; should handle SET_TOTAL" time="0.000207583">
         </testcase>
-        <testcase classname="src/components/data-generator/DataGeneratorForm.test.jsx" name="DataGeneratorForm &gt; shows cost estimation when not in demo mode" time="0.010499667">
+        <testcase classname="src/state/progressReducer.test.js" name="progressReducer &gt; should handle SET_COMPLETED" time="0.00010975">
         </testcase>
-        <testcase classname="src/components/data-generator/DataGeneratorForm.test.jsx" name="DataGeneratorForm &gt; triggers onGenerate on form submission" time="0.011613042">
+        <testcase classname="src/state/progressReducer.test.js" name="progressReducer &gt; should handle UPDATE_BATCH and sum correctly" time="0.000297959">
         </testcase>
-        <testcase classname="src/components/data-generator/DataGeneratorForm.test.jsx" name="DataGeneratorForm &gt; disables submit button and shows loading state when generating" time="0.083857625">
+        <testcase classname="src/state/progressReducer.test.js" name="progressReducer &gt; should handle RESET_ALL" time="0.000149292">
+        </testcase>
+    </testsuite>
+    <testsuite name="src/components/data-generator/DataGeneratorForm.test.jsx" timestamp="2026-05-02T09:40:02.517Z" hostname="peters-mbp.lan" tests="5" failures="0" errors="0" skipped="0" time="0.188709834">
+        <testcase classname="src/components/data-generator/DataGeneratorForm.test.jsx" name="DataGeneratorForm &gt; renders correctly with initial config" time="0.058823833">
+        </testcase>
+        <testcase classname="src/components/data-generator/DataGeneratorForm.test.jsx" name="DataGeneratorForm &gt; updates product count on change" time="0.018429708">
+        </testcase>
+        <testcase classname="src/components/data-generator/DataGeneratorForm.test.jsx" name="DataGeneratorForm &gt; shows cost estimation when not in demo mode" time="0.010902041">
+        </testcase>
+        <testcase classname="src/components/data-generator/DataGeneratorForm.test.jsx" name="DataGeneratorForm &gt; triggers onGenerate on form submission" time="0.012220125">
+        </testcase>
+        <testcase classname="src/components/data-generator/DataGeneratorForm.test.jsx" name="DataGeneratorForm &gt; disables submit button and shows loading state when generating" time="0.084644292">
         </testcase>
     </testsuite>
 </testsuites>

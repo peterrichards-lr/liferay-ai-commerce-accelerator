@@ -1,250 +1,197 @@
 <?xml version="1.0" encoding="UTF-8" ?>
-<testsuites name="vitest tests" tests="19" failures="19" errors="0" time="0">
-    <testsuite name="tests/accountGenerator.test.cjs" timestamp="2026-05-02T07:13:01.929Z" hostname="peters-mbp.lan" tests="1" failures="1" errors="0" skipped="0" time="0">
-        <testcase classname="tests/accountGenerator.test.cjs" name="tests/accountGenerator.test.cjs" time="0">
-            <failure message="require() of ES Module /Volumes/SanDisk/repos/liferay-ai-commerce-accelerator/node_modules/rettime/build/index.mjs not supported.
-Instead change the require of /Volumes/SanDisk/repos/liferay-ai-commerce-accelerator/node_modules/rettime/build/index.mjs to a dynamic import() which is available in all CommonJS modules." type="Error">
-Error: require() of ES Module /Volumes/SanDisk/repos/liferay-ai-commerce-accelerator/node_modules/rettime/build/index.mjs not supported.
-Instead change the require of /Volumes/SanDisk/repos/liferay-ai-commerce-accelerator/node_modules/rettime/build/index.mjs to a dynamic import() which is available in all CommonJS modules.
- ❯ Object.&lt;anonymous&gt; ../../node_modules/msw/src/core/experimental/define-network.ts:2:46
-
-⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯
-Serialized Error: { code: &apos;ERR_REQUIRE_ESM&apos; }
-            </failure>
+<testsuites name="vitest tests" tests="75" failures="0" errors="0" time="1.786493872">
+    <testsuite name="tests/accountGenerator.test.cjs" timestamp="2026-05-02T09:40:37.035Z" hostname="peters-mbp.lan" tests="4" failures="0" errors="0" skipped="0" time="0.461565416">
+        <testcase classname="tests/accountGenerator.test.cjs" name="AccountGenerator &gt; should start account generation workflow" time="0.005795041">
+        </testcase>
+        <testcase classname="tests/accountGenerator.test.cjs" name="AccountGenerator &gt; should run load countries step" time="0.332441959">
+        </testcase>
+        <testcase classname="tests/accountGenerator.test.cjs" name="AccountGenerator &gt; should run data generation step" time="0.1140325">
+        </testcase>
+        <testcase classname="tests/accountGenerator.test.cjs" name="AccountGenerator &gt; should match country correctly in _generateAddress" time="0.0037835">
         </testcase>
     </testsuite>
-    <testsuite name="tests/aiService.test.cjs" timestamp="2026-05-02T07:13:01.932Z" hostname="peters-mbp.lan" tests="1" failures="1" errors="0" skipped="0" time="0">
-        <testcase classname="tests/aiService.test.cjs" name="tests/aiService.test.cjs" time="0">
-            <failure message="require() of ES Module /Volumes/SanDisk/repos/liferay-ai-commerce-accelerator/node_modules/rettime/build/index.mjs not supported.
-Instead change the require of /Volumes/SanDisk/repos/liferay-ai-commerce-accelerator/node_modules/rettime/build/index.mjs to a dynamic import() which is available in all CommonJS modules." type="Error">
-Error: require() of ES Module /Volumes/SanDisk/repos/liferay-ai-commerce-accelerator/node_modules/rettime/build/index.mjs not supported.
-Instead change the require of /Volumes/SanDisk/repos/liferay-ai-commerce-accelerator/node_modules/rettime/build/index.mjs to a dynamic import() which is available in all CommonJS modules.
- ❯ Object.&lt;anonymous&gt; ../../node_modules/msw/src/core/experimental/define-network.ts:2:46
-
-⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯
-Serialized Error: { code: &apos;ERR_REQUIRE_ESM&apos; }
-            </failure>
+    <testsuite name="tests/aiService.test.cjs" timestamp="2026-05-02T09:40:37.036Z" hostname="peters-mbp.lan" tests="4" failures="0" errors="0" skipped="0" time="0.015462083">
+        <testcase classname="tests/aiService.test.cjs" name="AIService (Multi-Provider) &gt; should resolve different providers for text and media" time="0.003784042">
+        </testcase>
+        <testcase classname="tests/aiService.test.cjs" name="AIService (Multi-Provider) &gt; should use media credentials for image generation" time="0.000699833">
+        </testcase>
+        <testcase classname="tests/aiService.test.cjs" name="AIService (Multi-Provider) &gt; should fallback to core key if media key is missing" time="0.000435333">
+        </testcase>
+        <testcase classname="tests/aiService.test.cjs" name="AIService (Multi-Provider) &gt; should support Gemini provider for text" time="0.000397125">
         </testcase>
     </testsuite>
-    <testsuite name="tests/cacheService.test.cjs" timestamp="2026-05-02T07:13:01.936Z" hostname="peters-mbp.lan" tests="1" failures="1" errors="0" skipped="0" time="0">
-        <testcase classname="tests/cacheService.test.cjs" name="tests/cacheService.test.cjs" time="0">
-            <failure message="require() of ES Module /Volumes/SanDisk/repos/liferay-ai-commerce-accelerator/node_modules/rettime/build/index.mjs not supported.
-Instead change the require of /Volumes/SanDisk/repos/liferay-ai-commerce-accelerator/node_modules/rettime/build/index.mjs to a dynamic import() which is available in all CommonJS modules." type="Error">
-Error: require() of ES Module /Volumes/SanDisk/repos/liferay-ai-commerce-accelerator/node_modules/rettime/build/index.mjs not supported.
-Instead change the require of /Volumes/SanDisk/repos/liferay-ai-commerce-accelerator/node_modules/rettime/build/index.mjs to a dynamic import() which is available in all CommonJS modules.
- ❯ Object.&lt;anonymous&gt; ../../node_modules/msw/src/core/experimental/define-network.ts:2:46
-
-⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯
-Serialized Error: { code: &apos;ERR_REQUIRE_ESM&apos; }
-            </failure>
+    <testsuite name="tests/cacheService.test.cjs" timestamp="2026-05-02T09:40:37.036Z" hostname="peters-mbp.lan" tests="6" failures="0" errors="0" skipped="0" time="0.005949708">
+        <testcase classname="tests/cacheService.test.cjs" name="CacheService &gt; should set and get a value" time="0.001641042">
+        </testcase>
+        <testcase classname="tests/cacheService.test.cjs" name="CacheService &gt; should return null for expired entries (manual mock)" time="0.000351542">
+        </testcase>
+        <testcase classname="tests/cacheService.test.cjs" name="CacheService &gt; should delete entries" time="0.000189458">
+        </testcase>
+        <testcase classname="tests/cacheService.test.cjs" name="CacheService &gt; should evict oldest entries when limit reached" time="0.000242375">
+        </testcase>
+        <testcase classname="tests/cacheService.test.cjs" name="CacheService &gt; should use the remember pattern" time="0.0003095">
+        </testcase>
+        <testcase classname="tests/cacheService.test.cjs" name="CacheService &gt; should return stats" time="0.000248167">
         </testcase>
     </testsuite>
-    <testsuite name="tests/contractValidator.test.cjs" timestamp="2026-05-02T07:13:01.938Z" hostname="peters-mbp.lan" tests="1" failures="1" errors="0" skipped="0" time="0">
-        <testcase classname="tests/contractValidator.test.cjs" name="tests/contractValidator.test.cjs" time="0">
-            <failure message="require() of ES Module /Volumes/SanDisk/repos/liferay-ai-commerce-accelerator/node_modules/rettime/build/index.mjs not supported.
-Instead change the require of /Volumes/SanDisk/repos/liferay-ai-commerce-accelerator/node_modules/rettime/build/index.mjs to a dynamic import() which is available in all CommonJS modules." type="Error">
-Error: require() of ES Module /Volumes/SanDisk/repos/liferay-ai-commerce-accelerator/node_modules/rettime/build/index.mjs not supported.
-Instead change the require of /Volumes/SanDisk/repos/liferay-ai-commerce-accelerator/node_modules/rettime/build/index.mjs to a dynamic import() which is available in all CommonJS modules.
- ❯ Object.&lt;anonymous&gt; ../../node_modules/msw/src/core/experimental/define-network.ts:2:46
-
-⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯
-Serialized Error: { code: &apos;ERR_REQUIRE_ESM&apos; }
-            </failure>
+    <testsuite name="tests/contractValidator.test.cjs" timestamp="2026-05-02T09:40:37.037Z" hostname="peters-mbp.lan" tests="2" failures="0" errors="0" skipped="0" time="0.155868125">
+        <testcase classname="tests/contractValidator.test.cjs" name="ContractValidator &gt; should validate a correct product payload" time="0.092251958">
+        </testcase>
+        <testcase classname="tests/contractValidator.test.cjs" name="ContractValidator &gt; should fail if field type is incorrect" time="0.059336833">
         </testcase>
     </testsuite>
-    <testsuite name="tests/deleteCoordinatorService.test.cjs" timestamp="2026-05-02T07:13:01.940Z" hostname="peters-mbp.lan" tests="1" failures="1" errors="0" skipped="0" time="0">
-        <testcase classname="tests/deleteCoordinatorService.test.cjs" name="tests/deleteCoordinatorService.test.cjs" time="0">
-            <failure message="require() of ES Module /Volumes/SanDisk/repos/liferay-ai-commerce-accelerator/node_modules/rettime/build/index.mjs not supported.
-Instead change the require of /Volumes/SanDisk/repos/liferay-ai-commerce-accelerator/node_modules/rettime/build/index.mjs to a dynamic import() which is available in all CommonJS modules." type="Error">
-Error: require() of ES Module /Volumes/SanDisk/repos/liferay-ai-commerce-accelerator/node_modules/rettime/build/index.mjs not supported.
-Instead change the require of /Volumes/SanDisk/repos/liferay-ai-commerce-accelerator/node_modules/rettime/build/index.mjs to a dynamic import() which is available in all CommonJS modules.
- ❯ Object.&lt;anonymous&gt; ../../node_modules/msw/src/core/experimental/define-network.ts:2:46
+    <testsuite name="tests/deleteCoordinatorService.test.cjs" timestamp="2026-05-02T09:40:37.037Z" hostname="peters-mbp.lan" tests="3" failures="0" errors="0" skipped="0" time="0.223789541">
+        <testcase classname="tests/deleteCoordinatorService.test.cjs" name="DeleteCoordinatorService &gt; should start full deletion workflow" time="0.009118292">
+        </testcase>
+        <testcase classname="tests/deleteCoordinatorService.test.cjs" name="DeleteCoordinatorService &gt; should run discovery step" time="0.106715917">
+            <system-out>
+[DISCOVERY] &gt;&gt;&gt; Phase started for session: delete-test-session
 
-⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯
-Serialized Error: { code: &apos;ERR_REQUIRE_ESM&apos; }
-            </failure>
+            </system-out>
+        </testcase>
+        <testcase classname="tests/deleteCoordinatorService.test.cjs" name="DeleteCoordinatorService &gt; should handle order deletion step" time="0.103910208">
         </testcase>
     </testsuite>
-    <testsuite name="tests/generation.test.cjs" timestamp="2026-05-02T07:13:01.941Z" hostname="peters-mbp.lan" tests="1" failures="1" errors="0" skipped="0" time="0">
-        <testcase classname="tests/generation.test.cjs" name="tests/generation.test.cjs" time="0">
-            <failure message="require() of ES Module /Volumes/SanDisk/repos/liferay-ai-commerce-accelerator/node_modules/rettime/build/index.mjs not supported.
-Instead change the require of /Volumes/SanDisk/repos/liferay-ai-commerce-accelerator/node_modules/rettime/build/index.mjs to a dynamic import() which is available in all CommonJS modules." type="Error">
-Error: require() of ES Module /Volumes/SanDisk/repos/liferay-ai-commerce-accelerator/node_modules/rettime/build/index.mjs not supported.
-Instead change the require of /Volumes/SanDisk/repos/liferay-ai-commerce-accelerator/node_modules/rettime/build/index.mjs to a dynamic import() which is available in all CommonJS modules.
- ❯ Object.&lt;anonymous&gt; ../../node_modules/msw/src/core/experimental/define-network.ts:2:46
-
-⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯
-Serialized Error: { code: &apos;ERR_REQUIRE_ESM&apos; }
-            </failure>
+    <testsuite name="tests/generation.test.cjs" timestamp="2026-05-02T09:40:37.037Z" hostname="peters-mbp.lan" tests="4" failures="0" errors="0" skipped="0" time="0.009588208">
+        <testcase classname="tests/generation.test.cjs" name="Data Generation Reliability &gt; Product Generation &gt; should generate valid simple products" time="0.004119292">
+        </testcase>
+        <testcase classname="tests/generation.test.cjs" name="Data Generation Reliability &gt; Product Generation &gt; should generate valid products with variants" time="0.000553958">
+        </testcase>
+        <testcase classname="tests/generation.test.cjs" name="Data Generation Reliability &gt; Account Generation &gt; should generate valid accounts" time="0.001162333">
+        </testcase>
+        <testcase classname="tests/generation.test.cjs" name="Data Generation Reliability &gt; Warehouse Generation &gt; should generate valid warehouses" time="0.000619458">
         </testcase>
     </testsuite>
-    <testsuite name="tests/healthService.test.cjs" timestamp="2026-05-02T07:13:01.942Z" hostname="peters-mbp.lan" tests="1" failures="1" errors="0" skipped="0" time="0">
-        <testcase classname="tests/healthService.test.cjs" name="tests/healthService.test.cjs" time="0">
-            <failure message="require() of ES Module /Volumes/SanDisk/repos/liferay-ai-commerce-accelerator/node_modules/rettime/build/index.mjs not supported.
-Instead change the require of /Volumes/SanDisk/repos/liferay-ai-commerce-accelerator/node_modules/rettime/build/index.mjs to a dynamic import() which is available in all CommonJS modules." type="Error">
-Error: require() of ES Module /Volumes/SanDisk/repos/liferay-ai-commerce-accelerator/node_modules/rettime/build/index.mjs not supported.
-Instead change the require of /Volumes/SanDisk/repos/liferay-ai-commerce-accelerator/node_modules/rettime/build/index.mjs to a dynamic import() which is available in all CommonJS modules.
- ❯ Object.&lt;anonymous&gt; ../../node_modules/msw/src/core/experimental/define-network.ts:2:46
-
-⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯
-Serialized Error: { code: &apos;ERR_REQUIRE_ESM&apos; }
-            </failure>
+    <testsuite name="tests/healthService.test.cjs" timestamp="2026-05-02T09:40:37.038Z" hostname="peters-mbp.lan" tests="4" failures="0" errors="0" skipped="0" time="0.008861958">
+        <testcase classname="tests/healthService.test.cjs" name="HealthService &gt; should register default health checks" time="0.001289375">
+        </testcase>
+        <testcase classname="tests/healthService.test.cjs" name="HealthService &gt; should return system info" time="0.003669167">
+        </testcase>
+        <testcase classname="tests/healthService.test.cjs" name="HealthService &gt; should run all health checks and return a healthy status" time="0.000689042">
+        </testcase>
+        <testcase classname="tests/healthService.test.cjs" name="HealthService &gt; should return unhealthy if memory check fails" time="0.000202667">
         </testcase>
     </testsuite>
-    <testsuite name="tests/liferayService.test.cjs" timestamp="2026-05-02T07:13:01.942Z" hostname="peters-mbp.lan" tests="1" failures="1" errors="0" skipped="0" time="0">
-        <testcase classname="tests/liferayService.test.cjs" name="tests/liferayService.test.cjs" time="0">
-            <failure message="require() of ES Module /Volumes/SanDisk/repos/liferay-ai-commerce-accelerator/node_modules/rettime/build/index.mjs not supported.
-Instead change the require of /Volumes/SanDisk/repos/liferay-ai-commerce-accelerator/node_modules/rettime/build/index.mjs to a dynamic import() which is available in all CommonJS modules." type="Error">
-Error: require() of ES Module /Volumes/SanDisk/repos/liferay-ai-commerce-accelerator/node_modules/rettime/build/index.mjs not supported.
-Instead change the require of /Volumes/SanDisk/repos/liferay-ai-commerce-accelerator/node_modules/rettime/build/index.mjs to a dynamic import() which is available in all CommonJS modules.
- ❯ Object.&lt;anonymous&gt; ../../node_modules/msw/src/core/experimental/define-network.ts:2:46
-
-⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯
-Serialized Error: { code: &apos;ERR_REQUIRE_ESM&apos; }
-            </failure>
+    <testsuite name="tests/liferayService.test.cjs" timestamp="2026-05-02T09:40:37.038Z" hostname="peters-mbp.lan" tests="7" failures="0" errors="0" skipped="0" time="0.388624958">
+        <testcase classname="tests/liferayService.test.cjs" name="LiferayService &gt; should fetch products using the mocked Liferay API" time="0.082809834">
+        </testcase>
+        <testcase classname="tests/liferayService.test.cjs" name="LiferayService &gt; should fetch accounts using the mocked Liferay API" time="0.035017292">
+        </testcase>
+        <testcase classname="tests/liferayService.test.cjs" name="LiferayService &gt; should fetch orders using the mocked Liferay API" time="0.035986917">
+        </testcase>
+        <testcase classname="tests/liferayService.test.cjs" name="LiferayService &gt; should fetch price lists using the mocked Liferay API" time="0.045429375">
+        </testcase>
+        <testcase classname="tests/liferayService.test.cjs" name="LiferayService &gt; should fetch warehouses using the mocked Liferay API" time="0.052797375">
+        </testcase>
+        <testcase classname="tests/liferayService.test.cjs" name="LiferayService &gt; should fetch batch status using the mocked Liferay API" time="0.038632666">
+        </testcase>
+        <testcase classname="tests/liferayService.test.cjs" name="LiferayService &gt; should fail to create products batch if contract is violated" time="0.094644042">
         </testcase>
     </testsuite>
-    <testsuite name="tests/orchestrationSafety.test.cjs" timestamp="2026-05-02T07:13:01.944Z" hostname="peters-mbp.lan" tests="1" failures="1" errors="0" skipped="0" time="0">
-        <testcase classname="tests/orchestrationSafety.test.cjs" name="tests/orchestrationSafety.test.cjs" time="0">
-            <failure message="require() of ES Module /Volumes/SanDisk/repos/liferay-ai-commerce-accelerator/node_modules/rettime/build/index.mjs not supported.
-Instead change the require of /Volumes/SanDisk/repos/liferay-ai-commerce-accelerator/node_modules/rettime/build/index.mjs to a dynamic import() which is available in all CommonJS modules." type="Error">
-Error: require() of ES Module /Volumes/SanDisk/repos/liferay-ai-commerce-accelerator/node_modules/rettime/build/index.mjs not supported.
-Instead change the require of /Volumes/SanDisk/repos/liferay-ai-commerce-accelerator/node_modules/rettime/build/index.mjs to a dynamic import() which is available in all CommonJS modules.
- ❯ Object.&lt;anonymous&gt; ../../node_modules/msw/src/core/experimental/define-network.ts:2:46
-
-⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯
-Serialized Error: { code: &apos;ERR_REQUIRE_ESM&apos; }
-            </failure>
+    <testsuite name="tests/orchestrationSafety.test.cjs" timestamp="2026-05-02T09:40:37.039Z" hostname="peters-mbp.lan" tests="3" failures="0" errors="0" skipped="0" time="0.114956041">
+        <testcase classname="tests/orchestrationSafety.test.cjs" name="Orchestration Safety (Ghost Step Protection) &gt; should throw a FATAL ERROR if a step handler is missing" time="0.004170208">
+        </testcase>
+        <testcase classname="tests/orchestrationSafety.test.cjs" name="Orchestration Safety (Ghost Step Protection) &gt; should allow structural steps (parallel/sequence) without handlers" time="0.000443667">
+        </testcase>
+        <testcase classname="tests/orchestrationSafety.test.cjs" name="Orchestration Safety (Ghost Step Protection) &gt; should correctly mark a synchronous step as complete via completeSyncStep" time="0.10534725">
         </testcase>
     </testsuite>
-    <testsuite name="tests/orderGenerator.test.cjs" timestamp="2026-05-02T07:13:01.946Z" hostname="peters-mbp.lan" tests="1" failures="1" errors="0" skipped="0" time="0">
-        <testcase classname="tests/orderGenerator.test.cjs" name="tests/orderGenerator.test.cjs" time="0">
-            <failure message="require() of ES Module /Volumes/SanDisk/repos/liferay-ai-commerce-accelerator/node_modules/rettime/build/index.mjs not supported.
-Instead change the require of /Volumes/SanDisk/repos/liferay-ai-commerce-accelerator/node_modules/rettime/build/index.mjs to a dynamic import() which is available in all CommonJS modules." type="Error">
-Error: require() of ES Module /Volumes/SanDisk/repos/liferay-ai-commerce-accelerator/node_modules/rettime/build/index.mjs not supported.
-Instead change the require of /Volumes/SanDisk/repos/liferay-ai-commerce-accelerator/node_modules/rettime/build/index.mjs to a dynamic import() which is available in all CommonJS modules.
- ❯ Object.&lt;anonymous&gt; ../../node_modules/msw/src/core/experimental/define-network.ts:2:46
-
-⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯
-Serialized Error: { code: &apos;ERR_REQUIRE_ESM&apos; }
-            </failure>
+    <testsuite name="tests/orderGenerator.test.cjs" timestamp="2026-05-02T09:40:37.039Z" hostname="peters-mbp.lan" tests="4" failures="0" errors="0" skipped="0" time="0.221517291">
+        <testcase classname="tests/orderGenerator.test.cjs" name="OrderGenerator &gt; should start order generation workflow" time="0.00498775">
+        </testcase>
+        <testcase classname="tests/orderGenerator.test.cjs" name="OrderGenerator &gt; should run order data generation step" time="0.104012541">
+        </testcase>
+        <testcase classname="tests/orderGenerator.test.cjs" name="OrderGenerator &gt; should handle order creation step (batch mode)" time="0.007386375">
+        </testcase>
+        <testcase classname="tests/orderGenerator.test.cjs" name="OrderGenerator &gt; should handle order creation step (individual mode)" time="0.101757">
         </testcase>
     </testsuite>
-    <testsuite name="tests/payloadCleaner.test.cjs" timestamp="2026-05-02T07:13:01.947Z" hostname="peters-mbp.lan" tests="1" failures="1" errors="0" skipped="0" time="0">
-        <testcase classname="tests/payloadCleaner.test.cjs" name="tests/payloadCleaner.test.cjs" time="0">
-            <failure message="require() of ES Module /Volumes/SanDisk/repos/liferay-ai-commerce-accelerator/node_modules/rettime/build/index.mjs not supported.
-Instead change the require of /Volumes/SanDisk/repos/liferay-ai-commerce-accelerator/node_modules/rettime/build/index.mjs to a dynamic import() which is available in all CommonJS modules." type="Error">
-Error: require() of ES Module /Volumes/SanDisk/repos/liferay-ai-commerce-accelerator/node_modules/rettime/build/index.mjs not supported.
-Instead change the require of /Volumes/SanDisk/repos/liferay-ai-commerce-accelerator/node_modules/rettime/build/index.mjs to a dynamic import() which is available in all CommonJS modules.
- ❯ Object.&lt;anonymous&gt; ../../node_modules/msw/src/core/experimental/define-network.ts:2:46
-
-⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯
-Serialized Error: { code: &apos;ERR_REQUIRE_ESM&apos; }
-            </failure>
+    <testsuite name="tests/payloadCleaner.test.cjs" timestamp="2026-05-02T09:40:37.040Z" hostname="peters-mbp.lan" tests="7" failures="0" errors="0" skipped="0" time="0.005262125">
+        <testcase classname="tests/payloadCleaner.test.cjs" name="Payload Cleaner (Strict ID Guard) &gt; should remove the root &quot;id&quot; field regardless of value" time="0.001151334">
+        </testcase>
+        <testcase classname="tests/payloadCleaner.test.cjs" name="Payload Cleaner (Strict ID Guard) &gt; should remove specialized IDs if they are 0 or null" time="0.000225">
+        </testcase>
+        <testcase classname="tests/payloadCleaner.test.cjs" name="Payload Cleaner (Strict ID Guard) &gt; should remove IDs within the known Mock/Ghost ranges" time="0.000184334">
+        </testcase>
+        <testcase classname="tests/payloadCleaner.test.cjs" name="Payload Cleaner (Strict ID Guard) &gt; should PRESERVE resolved IDs outside of mock ranges" time="0.000137917">
+        </testcase>
+        <testcase classname="tests/payloadCleaner.test.cjs" name="Payload Cleaner (Strict ID Guard) &gt; should recursively clean nested objects" time="0.000137083">
+        </testcase>
+        <testcase classname="tests/payloadCleaner.test.cjs" name="Payload Cleaner (Strict ID Guard) &gt; should remove the parent key if the nested object becomes empty after cleaning" time="0.000101458">
+        </testcase>
+        <testcase classname="tests/payloadCleaner.test.cjs" name="Payload Cleaner (Strict ID Guard) &gt; should handle arrays correctly" time="0.000523958">
         </testcase>
     </testsuite>
-    <testsuite name="tests/persistenceService.test.cjs" timestamp="2026-05-02T07:13:01.949Z" hostname="peters-mbp.lan" tests="1" failures="1" errors="0" skipped="0" time="0">
-        <testcase classname="tests/persistenceService.test.cjs" name="tests/persistenceService.test.cjs" time="0">
-            <failure message="require() of ES Module /Volumes/SanDisk/repos/liferay-ai-commerce-accelerator/node_modules/rettime/build/index.mjs not supported.
-Instead change the require of /Volumes/SanDisk/repos/liferay-ai-commerce-accelerator/node_modules/rettime/build/index.mjs to a dynamic import() which is available in all CommonJS modules." type="Error">
-Error: require() of ES Module /Volumes/SanDisk/repos/liferay-ai-commerce-accelerator/node_modules/rettime/build/index.mjs not supported.
-Instead change the require of /Volumes/SanDisk/repos/liferay-ai-commerce-accelerator/node_modules/rettime/build/index.mjs to a dynamic import() which is available in all CommonJS modules.
- ❯ Object.&lt;anonymous&gt; ../../node_modules/msw/src/core/experimental/define-network.ts:2:46
-
-⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯
-Serialized Error: { code: &apos;ERR_REQUIRE_ESM&apos; }
-            </failure>
+    <testsuite name="tests/persistenceService.test.cjs" timestamp="2026-05-02T09:40:37.040Z" hostname="peters-mbp.lan" tests="7" failures="0" errors="0" skipped="0" time="0.016653917">
+        <testcase classname="tests/persistenceService.test.cjs" name="PersistenceService &gt; should initialize the schema correctly" time="0.007514667">
+        </testcase>
+        <testcase classname="tests/persistenceService.test.cjs" name="PersistenceService &gt; should retrieve a session by ID" time="0.000963084">
+        </testcase>
+        <testcase classname="tests/persistenceService.test.cjs" name="PersistenceService &gt; should update session status" time="0.001228709">
+        </testcase>
+        <testcase classname="tests/persistenceService.test.cjs" name="PersistenceService &gt; should create and retrieve batches for a session" time="0.001946083">
+        </testcase>
+        <testcase classname="tests/persistenceService.test.cjs" name="PersistenceService &gt; should update batch details" time="0.000811916">
+        </testcase>
+        <testcase classname="tests/persistenceService.test.cjs" name="PersistenceService &gt; should verify dependency readiness" time="0.0005955">
+        </testcase>
+        <testcase classname="tests/persistenceService.test.cjs" name="PersistenceService &gt; should log workflow events" time="0.000550167">
         </testcase>
     </testsuite>
-    <testsuite name="tests/productGenerator.test.cjs" timestamp="2026-05-02T07:13:01.951Z" hostname="peters-mbp.lan" tests="1" failures="1" errors="0" skipped="0" time="0">
-        <testcase classname="tests/productGenerator.test.cjs" name="tests/productGenerator.test.cjs" time="0">
-            <failure message="require() of ES Module /Volumes/SanDisk/repos/liferay-ai-commerce-accelerator/node_modules/rettime/build/index.mjs not supported.
-Instead change the require of /Volumes/SanDisk/repos/liferay-ai-commerce-accelerator/node_modules/rettime/build/index.mjs to a dynamic import() which is available in all CommonJS modules." type="Error">
-Error: require() of ES Module /Volumes/SanDisk/repos/liferay-ai-commerce-accelerator/node_modules/rettime/build/index.mjs not supported.
-Instead change the require of /Volumes/SanDisk/repos/liferay-ai-commerce-accelerator/node_modules/rettime/build/index.mjs to a dynamic import() which is available in all CommonJS modules.
- ❯ Object.&lt;anonymous&gt; ../../node_modules/msw/src/core/experimental/define-network.ts:2:46
-
-⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯
-Serialized Error: { code: &apos;ERR_REQUIRE_ESM&apos; }
-            </failure>
+    <testsuite name="tests/productGenerator.test.cjs" timestamp="2026-05-02T09:40:37.041Z" hostname="peters-mbp.lan" tests="3" failures="0" errors="0" skipped="0" time="0.120163875">
+        <testcase classname="tests/productGenerator.test.cjs" name="ProductGenerator &gt; should start product generation workflow" time="0.008337">
+        </testcase>
+        <testcase classname="tests/productGenerator.test.cjs" name="ProductGenerator &gt; should run product data generation step" time="0.105587083">
+        </testcase>
+        <testcase classname="tests/productGenerator.test.cjs" name="ProductGenerator &gt; should handle product creation step" time="0.001951959">
         </testcase>
     </testsuite>
-    <testsuite name="tests/resilience.test.cjs" timestamp="2026-05-02T07:13:01.953Z" hostname="peters-mbp.lan" tests="1" failures="1" errors="0" skipped="0" time="0">
-        <testcase classname="tests/resilience.test.cjs" name="tests/resilience.test.cjs" time="0">
-            <failure message="require() of ES Module /Volumes/SanDisk/repos/liferay-ai-commerce-accelerator/node_modules/rettime/build/index.mjs not supported.
-Instead change the require of /Volumes/SanDisk/repos/liferay-ai-commerce-accelerator/node_modules/rettime/build/index.mjs to a dynamic import() which is available in all CommonJS modules." type="Error">
-Error: require() of ES Module /Volumes/SanDisk/repos/liferay-ai-commerce-accelerator/node_modules/rettime/build/index.mjs not supported.
-Instead change the require of /Volumes/SanDisk/repos/liferay-ai-commerce-accelerator/node_modules/rettime/build/index.mjs to a dynamic import() which is available in all CommonJS modules.
- ❯ Object.&lt;anonymous&gt; ../../node_modules/msw/src/core/experimental/define-network.ts:2:46
-
-⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯
-Serialized Error: { code: &apos;ERR_REQUIRE_ESM&apos; }
-            </failure>
+    <testsuite name="tests/resilience.test.cjs" timestamp="2026-05-02T09:40:37.041Z" hostname="peters-mbp.lan" tests="2" failures="0" errors="0" skipped="2" time="0">
+        <testcase classname="tests/resilience.test.cjs" name="Resilience &amp; Retry &gt; should retry on transient failures and eventually succeed" time="0">
+            <skipped/>
+        </testcase>
+        <testcase classname="tests/resilience.test.cjs" name="Resilience &amp; Retry &gt; should fail after maximum retries" time="0">
+            <skipped/>
         </testcase>
     </testsuite>
-    <testsuite name="tests/schemaAlignment.test.cjs" timestamp="2026-05-02T07:13:01.954Z" hostname="peters-mbp.lan" tests="1" failures="1" errors="0" skipped="0" time="0">
-        <testcase classname="tests/schemaAlignment.test.cjs" name="tests/schemaAlignment.test.cjs" time="0">
-            <failure message="require() of ES Module /Volumes/SanDisk/repos/liferay-ai-commerce-accelerator/node_modules/rettime/build/index.mjs not supported.
-Instead change the require of /Volumes/SanDisk/repos/liferay-ai-commerce-accelerator/node_modules/rettime/build/index.mjs to a dynamic import() which is available in all CommonJS modules." type="Error">
-Error: require() of ES Module /Volumes/SanDisk/repos/liferay-ai-commerce-accelerator/node_modules/rettime/build/index.mjs not supported.
-Instead change the require of /Volumes/SanDisk/repos/liferay-ai-commerce-accelerator/node_modules/rettime/build/index.mjs to a dynamic import() which is available in all CommonJS modules.
- ❯ Object.&lt;anonymous&gt; ../../node_modules/msw/src/core/experimental/define-network.ts:2:46
-
-⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯
-Serialized Error: { code: &apos;ERR_REQUIRE_ESM&apos; }
-            </failure>
+    <testsuite name="tests/schemaAlignment.test.cjs" timestamp="2026-05-02T09:40:37.041Z" hostname="peters-mbp.lan" tests="6" failures="0" errors="0" skipped="0" time="0.013588792">
+        <testcase classname="tests/schemaAlignment.test.cjs" name="Schema Alignment (Drift Detection) &gt; should align account.json with the corresponding Liferay API contract" time="0.002805125">
+        </testcase>
+        <testcase classname="tests/schemaAlignment.test.cjs" name="Schema Alignment (Drift Detection) &gt; should align order.json with the corresponding Liferay API contract" time="0.000314292">
+        </testcase>
+        <testcase classname="tests/schemaAlignment.test.cjs" name="Schema Alignment (Drift Detection) &gt; should align pdf.json with the corresponding Liferay API contract" time="0.000978417">
+        </testcase>
+        <testcase classname="tests/schemaAlignment.test.cjs" name="Schema Alignment (Drift Detection) &gt; should align pricing.json with the corresponding Liferay API contract" time="0.000350625">
+        </testcase>
+        <testcase classname="tests/schemaAlignment.test.cjs" name="Schema Alignment (Drift Detection) &gt; should align product.json with the corresponding Liferay API contract" time="0.002269375">
+        </testcase>
+        <testcase classname="tests/schemaAlignment.test.cjs" name="Schema Alignment (Drift Detection) &gt; should align warehouse.json with the corresponding Liferay API contract" time="0.000662708">
         </testcase>
     </testsuite>
-    <testsuite name="tests/security.test.cjs" timestamp="2026-05-02T07:13:01.955Z" hostname="peters-mbp.lan" tests="1" failures="1" errors="0" skipped="0" time="0">
-        <testcase classname="tests/security.test.cjs" name="tests/security.test.cjs" time="0">
-            <failure message="require() of ES Module /Volumes/SanDisk/repos/liferay-ai-commerce-accelerator/node_modules/rettime/build/index.mjs not supported.
-Instead change the require of /Volumes/SanDisk/repos/liferay-ai-commerce-accelerator/node_modules/rettime/build/index.mjs to a dynamic import() which is available in all CommonJS modules." type="Error">
-Error: require() of ES Module /Volumes/SanDisk/repos/liferay-ai-commerce-accelerator/node_modules/rettime/build/index.mjs not supported.
-Instead change the require of /Volumes/SanDisk/repos/liferay-ai-commerce-accelerator/node_modules/rettime/build/index.mjs to a dynamic import() which is available in all CommonJS modules.
- ❯ Object.&lt;anonymous&gt; ../../node_modules/msw/src/core/experimental/define-network.ts:2:46
-
-⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯
-Serialized Error: { code: &apos;ERR_REQUIRE_ESM&apos; }
-            </failure>
+    <testsuite name="tests/security.test.cjs" timestamp="2026-05-02T09:40:37.042Z" hostname="peters-mbp.lan" tests="3" failures="0" errors="0" skipped="0" time="0.008114292">
+        <testcase classname="tests/security.test.cjs" name="Security Middleware - SQL Injection &gt; should allow legitimate batch operation codes in callback path" time="0.002166834">
+        </testcase>
+        <testcase classname="tests/security.test.cjs" name="Security Middleware - SQL Injection &gt; should still block actual SQL keywords in other fields" time="0.001920416">
+        </testcase>
+        <testcase classname="tests/security.test.cjs" name="Security Middleware - SQL Injection &gt; should block SQL keywords in opCode if path is not callback" time="0.000766083">
         </testcase>
     </testsuite>
-    <testsuite name="tests/serviceParity.test.cjs" timestamp="2026-05-02T07:13:01.955Z" hostname="peters-mbp.lan" tests="1" failures="1" errors="0" skipped="0" time="0">
-        <testcase classname="tests/serviceParity.test.cjs" name="tests/serviceParity.test.cjs" time="0">
-            <failure message="require() of ES Module /Volumes/SanDisk/repos/liferay-ai-commerce-accelerator/node_modules/rettime/build/index.mjs not supported.
-Instead change the require of /Volumes/SanDisk/repos/liferay-ai-commerce-accelerator/node_modules/rettime/build/index.mjs to a dynamic import() which is available in all CommonJS modules." type="Error">
-Error: require() of ES Module /Volumes/SanDisk/repos/liferay-ai-commerce-accelerator/node_modules/rettime/build/index.mjs not supported.
-Instead change the require of /Volumes/SanDisk/repos/liferay-ai-commerce-accelerator/node_modules/rettime/build/index.mjs to a dynamic import() which is available in all CommonJS modules.
- ❯ Object.&lt;anonymous&gt; ../../node_modules/msw/src/core/experimental/define-network.ts:2:46
-
-⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯
-Serialized Error: { code: &apos;ERR_REQUIRE_ESM&apos; }
-            </failure>
+    <testsuite name="tests/serviceParity.test.cjs" timestamp="2026-05-02T09:40:37.042Z" hostname="peters-mbp.lan" tests="1" failures="0" errors="0" skipped="0" time="0.004685417">
+        <testcase classname="tests/serviceParity.test.cjs" name="LiferayService Parity &gt; should ensure all public methods in LiferayService bridge to existing implementation methods" time="0.002054375">
         </testcase>
     </testsuite>
-    <testsuite name="tests/webSocketService.test.cjs" timestamp="2026-05-02T07:13:01.956Z" hostname="peters-mbp.lan" tests="1" failures="1" errors="0" skipped="0" time="0">
-        <testcase classname="tests/webSocketService.test.cjs" name="tests/webSocketService.test.cjs" time="0">
-            <failure message="require() of ES Module /Volumes/SanDisk/repos/liferay-ai-commerce-accelerator/node_modules/rettime/build/index.mjs not supported.
-Instead change the require of /Volumes/SanDisk/repos/liferay-ai-commerce-accelerator/node_modules/rettime/build/index.mjs to a dynamic import() which is available in all CommonJS modules." type="Error">
-Error: require() of ES Module /Volumes/SanDisk/repos/liferay-ai-commerce-accelerator/node_modules/rettime/build/index.mjs not supported.
-Instead change the require of /Volumes/SanDisk/repos/liferay-ai-commerce-accelerator/node_modules/rettime/build/index.mjs to a dynamic import() which is available in all CommonJS modules.
- ❯ Object.&lt;anonymous&gt; ../../node_modules/msw/src/core/experimental/define-network.ts:2:46
-
-⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯
-Serialized Error: { code: &apos;ERR_REQUIRE_ESM&apos; }
-            </failure>
+    <testsuite name="tests/webSocketService.test.cjs" timestamp="2026-05-02T09:40:37.042Z" hostname="peters-mbp.lan" tests="3" failures="0" errors="0" skipped="0" time="0.0061095">
+        <testcase classname="tests/webSocketService.test.cjs" name="WebSocketService &gt; should initialize correctly" time="0.002495709">
+        </testcase>
+        <testcase classname="tests/webSocketService.test.cjs" name="WebSocketService &gt; should handle broadcast" time="0.000390625">
+        </testcase>
+        <testcase classname="tests/webSocketService.test.cjs" name="WebSocketService &gt; should close correctly" time="0.000244625">
         </testcase>
     </testsuite>
-    <testsuite name="tests/workflowCoordinator.test.cjs" timestamp="2026-05-02T07:13:01.957Z" hostname="peters-mbp.lan" tests="1" failures="1" errors="0" skipped="0" time="0">
-        <testcase classname="tests/workflowCoordinator.test.cjs" name="tests/workflowCoordinator.test.cjs" time="0">
-            <failure message="require() of ES Module /Volumes/SanDisk/repos/liferay-ai-commerce-accelerator/node_modules/rettime/build/index.mjs not supported.
-Instead change the require of /Volumes/SanDisk/repos/liferay-ai-commerce-accelerator/node_modules/rettime/build/index.mjs to a dynamic import() which is available in all CommonJS modules." type="Error">
-Error: require() of ES Module /Volumes/SanDisk/repos/liferay-ai-commerce-accelerator/node_modules/rettime/build/index.mjs not supported.
-Instead change the require of /Volumes/SanDisk/repos/liferay-ai-commerce-accelerator/node_modules/rettime/build/index.mjs to a dynamic import() which is available in all CommonJS modules.
- ❯ Object.&lt;anonymous&gt; ../../node_modules/msw/src/core/experimental/define-network.ts:2:46
-
-⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯
-Serialized Error: { code: &apos;ERR_REQUIRE_ESM&apos; }
-            </failure>
+    <testsuite name="tests/workflowCoordinator.test.cjs" timestamp="2026-05-02T09:40:37.043Z" hostname="peters-mbp.lan" tests="2" failures="0" errors="0" skipped="0" time="0.005732625">
+        <testcase classname="tests/workflowCoordinator.test.cjs" name="WorkflowCoordinator &gt; should delegate step to correct generator" time="0.001865333">
+        </testcase>
+        <testcase classname="tests/workflowCoordinator.test.cjs" name="WorkflowCoordinator &gt; should throw a FATAL ERROR if no handler found in any generator" time="0.001032">
         </testcase>
     </testsuite>
 </testsuites>
