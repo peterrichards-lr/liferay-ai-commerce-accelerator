@@ -82,10 +82,15 @@ describe('AccountGenerator', () => {
 
     await generator._runLoadCountriesStep(sessionId);
 
-    // Wait a tiny bit for background executeNextStep logic to finish
-    await new Promise((resolve) => setTimeout(resolve, 200));
+    // Wait for the session to reach a terminal state
+    let session = persistence.getSession(sessionId);
+    let attempts = 0;
+    while (session.status !== 'COMPLETED' && attempts < 20) {
+      await new Promise((resolve) => setTimeout(resolve, 50));
+      session = persistence.getSession(sessionId);
+      attempts++;
+    }
 
-    const session = persistence.getSession(sessionId);
     expect(session.context.countries).toHaveLength(1);
     expect(session.status).toBe('COMPLETED');
     expect(mockCtx.liferay.getCountries).toHaveBeenCalled();
