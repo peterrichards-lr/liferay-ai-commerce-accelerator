@@ -1,7 +1,0 @@
-<?xml version="1.0" encoding="UTF-8" ?>
-<testsuites name="vitest tests" tests="1" failures="0" errors="0" time="0.02981">
-    <testsuite name="src/index.test.jsx" timestamp="2026-05-02T09:40:51.057Z" hostname="peters-mbp.lan" tests="1" failures="0" errors="0" skipped="0" time="0.02981">
-        <testcase classname="src/index.test.jsx" name="LiferayAICommerceAcceleratorConfiguration &gt; renders the component with navigation and active panel" time="0.02827025">
-        </testcase>
-    </testsuite>
-</testsuites>
