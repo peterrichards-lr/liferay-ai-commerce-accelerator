@@ -31,6 +31,7 @@ function DataGeneratorForm({
   validationErrors,
   scrollTargetRef,
   availableCategories,
+  liferayConnected,
 }) {
   const [expandSignal, setExpandSignal] = useState(0);
 
@@ -284,19 +285,25 @@ function DataGeneratorForm({
           </div>
         </div>
 
-        <div className="form-group mb-4">
-          <label className="font-weight-semi-bold">Target Categories</label>
+        <fieldset className="form-group mb-4">
+          <legend
+            className="font-weight-semi-bold"
+            style={{ fontSize: '1rem' }}
+          >
+            Target Categories
+          </legend>
           <CategoriesSelector
             availableCategories={availableCategories}
             selectedCategories={generationConfig.categories}
             onToggleCategory={handleCategoryChange}
             disabled={lockFields}
+            connected={liferayConnected}
             error={hasErr(validationErrors, 'categories')}
           />
           {hasErr(validationErrors, 'categories') && (
             <FieldError errors={validationErrors.categories} />
           )}
-        </div>
+        </fieldset>
 
         <div className="row mt-5">
           <div className="col-lg-6 pr-lg-4 border-right-lg">

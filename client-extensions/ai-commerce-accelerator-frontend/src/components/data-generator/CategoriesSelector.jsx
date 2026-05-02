@@ -1,6 +1,7 @@
 import React, { useMemo } from 'react';
 import CheckboxField from '../ui/CheckboxField';
 import FieldError from '../ui/FieldError';
+import ClayIcon from '@clayui/icon';
 
 export default function CategoriesSelector({
   availableCategories,
@@ -8,7 +9,7 @@ export default function CategoriesSelector({
   onToggleCategory,
   disabled,
   invalid,
-  showNote,
+  connected,
 }) {
   const getCategoryKey = (c) => (typeof c === 'string' ? c : c.key);
   const getCategoryLabel = (c) =>
@@ -22,21 +23,39 @@ export default function CategoriesSelector({
     [availableCategories]
   );
 
+  if (!connected) {
+    return (
+      <div
+        className="text-muted font-italic mb-2"
+        style={{ fontSize: '0.875rem' }}
+      >
+        <ClayIcon symbol="info-circle" className="mr-1" />
+        Connect to Liferay to load available categories.
+      </div>
+    );
+  }
+
+  if (availableCategories.length === 0) {
+    return (
+      <div
+        className="text-muted font-italic mb-2"
+        style={{ fontSize: '0.875rem' }}
+      >
+        <ClayIcon symbol="exclamation-circle" className="mr-1" />
+        No categories found in Liferay.
+      </div>
+    );
+  }
+
   return (
     <div className="categories-section">
-      <span className="categories-title">Categories</span>
-      {showNote && (
-        <small className="categories-note">
-          (Categories are used for both product and account generation)
-        </small>
-      )}
       <div className="categories-grid">
         {availableCategories.map((category, index) => {
           const key = getCategoryKey(category);
           const label = getCategoryLabel(category);
 
           return (
-            <div key={key} className="category-item">
+            <div key={key} className="category-item mb-2">
               <CheckboxField
                 id={ids[index]}
                 checked={selectedCategories.includes(key)}

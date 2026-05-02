@@ -83,7 +83,7 @@ export function getGenerationErrorsMap(gc) {
     gc.productCount > 0 &&
     (!Array.isArray(gc.categories) || gc.categories.length === 0)
   ) {
-    (errors.categories ??= []).push('Pick at least one category for products.');
+    (errors.categories ??= []).push('Pick at least one category.');
   }
 
   return errors;

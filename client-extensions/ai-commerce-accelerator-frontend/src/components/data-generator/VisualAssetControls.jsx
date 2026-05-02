@@ -27,14 +27,15 @@ function AssetToggle({ label, icon, value, onChange, disabled, options }) {
   );
 }
 
-function RatioControl({ label, value, onChange, disabled }) {
+function RatioControl({ id, label, value, onChange, disabled }) {
   return (
     <div className="form-group mb-3">
-      <label className="form-label font-weight-semi-bold">
+      <label htmlFor={id} className="form-label font-weight-semi-bold">
         {label}{' '}
         <span className="text-secondary font-weight-normal">({value}%)</span>
       </label>
       <input
+        id={id}
         type="range"
         className="form-control-range custom-range"
         min="0"
@@ -79,13 +80,17 @@ export default function VisualAssetControls({ values, onChange, disabled }) {
           {values.imageMode === 'ai' && (
             <div className="p-3 bg-light rounded mt-2 border">
               <RatioControl
+                id="imageRatio"
                 label="Generation Ratio"
                 value={values.imageRatio}
                 onChange={(v) => onChange('imageRatio', v)}
                 disabled={disabled}
               />
               <div className="form-group mb-0">
-                <label className="form-label font-weight-semi-bold">
+                <label
+                  htmlFor="imageStyle"
+                  className="form-label font-weight-semi-bold"
+                >
                   Image Style
                 </label>
                 <ClaySelect
@@ -120,13 +125,17 @@ export default function VisualAssetControls({ values, onChange, disabled }) {
           {values.pdfMode === 'ai' && (
             <div className="p-3 bg-light rounded mt-2 border">
               <RatioControl
+                id="pdfRatio"
                 label="Generation Ratio"
                 value={values.pdfRatio}
                 onChange={(v) => onChange('pdfRatio', v)}
                 disabled={disabled}
               />
               <div className="form-group mb-0">
-                <label className="form-label font-weight-semi-bold">
+                <label
+                  htmlFor="pdfContentType"
+                  className="form-label font-weight-semi-bold"
+                >
                   Content Type
                 </label>
                 <ClaySelect

@@ -509,14 +509,10 @@ export function AppUI() {
                 isSubmitDisabled={isSubmitDisabled}
                 disabledReason={disabledReason}
                 isGenerating={isGenerating}
-                forceDemoMode={forceDemoMode}
                 aiKeyAvailable={aiKeyAvailable}
                 validationErrors={generationErrors}
                 scrollTargetRef={appTopRef}
                 availableCategories={availableCategories}
-                generationCompleted={generationCompleted}
-                onExport={handleExport}
-                onImport={handleImport}
                 liferayConnected={connectionEstablished}
               />
             </div>
