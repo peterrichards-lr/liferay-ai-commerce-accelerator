@@ -426,7 +426,7 @@ export function AppUI() {
     <div className="ai-commerce-dashboard">
       {/* GLOBAL MANAGEMENT BAR */}
       <div className="management-bar management-bar-light">
-        <div className="container-fluid container-fluid-max-xl">
+        <div className="container-fluid">
           <nav className="navbar navbar-expand-md">
             <div className="navbar-brand d-flex align-items-center">
               <h1 className="component-title mb-0 mr-3">
@@ -478,7 +478,7 @@ export function AppUI() {
       </div>
 
       {/* MAIN CONTENT AREA - 3 Column Layout */}
-      <div className="container-fluid container-fluid-max-xl mt-4">
+      <div className="container-fluid mt-4">
         <ClayLayout.Row>
           {/* COLUMN 1: CONFIGURATION & HELP */}
           <ClayLayout.Col size={4}>
