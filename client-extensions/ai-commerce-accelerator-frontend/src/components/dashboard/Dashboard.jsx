@@ -29,24 +29,6 @@ function loadPersistedTimes() {
   return { start, last, end };
 }
 
-function persistTimes({ startTime, lastUpdateTime, endTime }) {
-  startTime != null
-    ? sessionStorage.setItem(STORAGE_KEYS.start, String(startTime))
-    : sessionStorage.removeItem(STORAGE_KEYS.start);
-  lastUpdateTime != null
-    ? sessionStorage.setItem(STORAGE_KEYS.last, String(lastUpdateTime))
-    : sessionStorage.removeItem(STORAGE_KEYS.last);
-  endTime != null
-    ? sessionStorage.setItem(STORAGE_KEYS.end, String(endTime))
-    : sessionStorage.removeItem(STORAGE_KEYS.end);
-}
-
-function clearPersistedTimes() {
-  sessionStorage.removeItem(STORAGE_KEYS.start);
-  sessionStorage.removeItem(STORAGE_KEYS.last);
-  sessionStorage.removeItem(STORAGE_KEYS.end);
-}
-
 function Dashboard({
   progress,
   logs,
@@ -55,16 +37,12 @@ function Dashboard({
   onReset,
   generationConfig,
   wsStatus = 'disabled',
-  batchErrors,
+  _batchErrors,
   clearBatchErrors,
   onReconnect,
   connected,
   aiConfig,
 }) {
-  const frozenRef = useRef(false);
-  const [entityFilter, setEntityFilter] = useState(null);
-
-  const [screenReaderStatus, setScreenReaderStatus] = useState('');
   const hasProgress =
     !!progress &&
     typeof progress === 'object' &&
@@ -77,12 +55,7 @@ function Dashboard({
   const { total, completed } = getTotalProgress(progress);
   const overallPercentage = total > 0 ? (completed / total) * 100 : 0;
 
-  const hasLogs = Array.isArray(logs) && logs.length > 0;
-  const summaryDisabled = isGenerating || !hasProgress;
-  const logDisabled = isGenerating || !hasLogs;
-  const allDisabled = isGenerating || !hasProgress || !hasLogs;
-
-  const [{ startTime, lastUpdateTime }, setTimes] = useState(() => {
+  const [{ startTime, lastUpdateTime }] = useState(() => {
     const { start, last, end } = loadPersistedTimes();
     return { startTime: start, lastUpdateTime: last, endTime: end };
   });
@@ -95,14 +68,12 @@ function Dashboard({
   });
 
   const onErrorsClick = useCallback((index, entity) => {
-    setEntityFilter(entity || null);
     // In this revised design, we might want a modal or a dedicated view for batch errors
     // For now, we'll keep the state but the UI presentation might need adjustment later
     console.log('Show errors for', entity);
   }, []);
 
   const handleClearErrors = useCallback(() => {
-    setEntityFilter(null);
     clearBatchErrors?.();
   }, [clearBatchErrors]);
 
