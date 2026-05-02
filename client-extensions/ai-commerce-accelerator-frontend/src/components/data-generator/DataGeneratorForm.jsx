@@ -1,5 +1,9 @@
 import React, { useCallback, useMemo, useState } from 'react';
 import ClayIcon from '@clayui/icon';
+import { ClayInput } from '@clayui/form';
+import ClayButton from '@clayui/button';
+import ClayLabel from '@clayui/label';
+
 import FieldError from '../ui/FieldError';
 import CollapsiblePanel from '../ui/CollapsiblePanel';
 import CategoriesSelector from './CategoriesSelector';
@@ -113,27 +117,16 @@ function DataGeneratorForm({
     <CollapsiblePanel
       id="data-generator"
       title={
-        <>
-          <ClayIcon symbol="magic" className="me-2" />
-          Data Generation
-        </>
+        <span className="d-flex align-items-center">
+          <ClayIcon symbol="magic" className="mr-2" />
+          Data Generation Strategy
+        </span>
       }
       headerActions={
         <>
-          {typeof aiKeyAvailable === 'boolean' && (
-            <span
-              className={`label ${
-                aiKeyAvailable ? 'label-success' : 'label-warning'
-              }`}
-            >
-              {aiKeyAvailable
-                ? 'AI credentials detected'
-                : 'AI credentials missing'}
-            </span>
-          )}
-          <button
-            type="button"
-            className="btn btn-outline-secondary btn-sm"
+          <ClayButton
+            displayType="unstyled"
+            className="text-secondary p-0 mr-3"
             onClick={() => {
               onResetSettings();
               setExpandSignal((n) => n + 1);
@@ -141,39 +134,9 @@ function DataGeneratorForm({
             disabled={isGenerating}
             title="Reset generator settings to defaults"
           >
-            <ClayIcon symbol="redo" />
+            <ClayIcon symbol="redo" className="mr-1" />
             Reset Settings
-          </button>
-          <div className="btn-group">
-            <input
-              type="file"
-              id="dataImport"
-              accept=".json"
-              onChange={onImport}
-              style={{ display: 'none' }}
-              disabled={isGenerating || !liferayConnected}
-            />
-            <button
-              type="button"
-              className="btn btn-outline-secondary btn-sm"
-              onClick={() => document.getElementById('dataImport').click()}
-              disabled={isGenerating || !liferayConnected}
-              title="Import generated data from a JSON file"
-            >
-              <ClayIcon symbol="upload" />
-              Import Data
-            </button>
-            <button
-              type="button"
-              className="btn btn-outline-secondary btn-sm"
-              onClick={onExport}
-              disabled={isGenerating || !generationCompleted}
-              title="Export generated data to a JSON file"
-            >
-              <ClayIcon symbol="download" />
-              Export Data
-            </button>
-          </div>
+          </ClayButton>
         </>
       }
       startOpen={!isGenerating}
@@ -183,99 +146,96 @@ function DataGeneratorForm({
       expandedIndicator="⏷"
     >
       <form name="dataGeneration" onSubmit={handleSubmit}>
-        <div className="compact-config-grid">
-          <div className="config-brand-row">
-            <div className="form-group mb-0">
-              <label
-                htmlFor="dataGeneration_brandName"
-                className="small font-weight-bold text-uppercase text-muted"
-              >
-                Brand / Context
-              </label>
-              <div className="input-group">
-                <div className="input-group-item">
-                  <input
-                    id="dataGeneration_brandName"
-                    type="text"
-                    className="form-control form-control-sm"
-                    placeholder="e.g. Sahid's Electronics, Global Hub..."
-                    value={generationConfig.brandName || ''}
-                    onChange={(e) =>
-                      handleConfigChange('brandName', e.target.value)
-                    }
+        
+        <div className="form-group mb-4">
+          <label htmlFor="dataGeneration_brandName" className="font-weight-semi-bold">
+            Brand / Context <span className="text-secondary font-weight-normal" style={{fontSize: '0.8em'}}>(Used by LLM for thematic generation)</span>
+          </label>
+          <textarea
+            id="dataGeneration_brandName"
+            className="form-control"
+            rows="2"
+            placeholder="e.g., A premium outdoor gear brand focusing on sustainability..."
+            value={generationConfig.brandName || ''}
+            onChange={(e) => handleConfigChange('brandName', e.target.value)}
+            disabled={lockFields}
+          ></textarea>
+        </div>
+
+        <h3 className="sheet-title mt-5 mb-3" style={{fontSize: '1rem'}}>Data Volumes</h3>
+        <div className="row mb-4">
+          <div className="col-md-4">
+            <div className={`form-group ${hasErr(validationErrors, 'productCount') ? 'has-error' : ''}`}>
+              <label htmlFor="dataGeneration_productCount">Products</label>
+              <ClayInput.Group>
+                <ClayInput.GroupItem>
+                  <ClayInput
+                    id="dataGeneration_productCount"
+                    type="number"
+                    min="0"
+                    max="100"
+                    value={generationConfig.productCount}
+                    onChange={(e) => handleConfigChange('productCount', parseInt(e.target.value))}
                     disabled={lockFields}
                   />
-                </div>
-              </div>
+                </ClayInput.GroupItem>
+                <ClayInput.GroupItem shrink>
+                  <ClayInput.GroupText>items</ClayInput.GroupText>
+                </ClayInput.GroupItem>
+              </ClayInput.Group>
+              {hasErr(validationErrors, 'productCount') && <FieldError errors={validationErrors.productCount} />}
+            </div>
+          </div>
+          
+          <div className="col-md-4">
+            <div className={`form-group ${hasErr(validationErrors, 'accountCount') ? 'has-error' : ''}`}>
+              <label htmlFor="dataGeneration_accountCount">B2B Accounts</label>
+              <ClayInput.Group>
+                <ClayInput.GroupItem>
+                  <ClayInput
+                    id="dataGeneration_accountCount"
+                    type="number"
+                    min="0"
+                    max="100"
+                    value={generationConfig.accountCount}
+                    onChange={(e) => handleConfigChange('accountCount', parseInt(e.target.value))}
+                    disabled={lockFields}
+                  />
+                </ClayInput.GroupItem>
+                <ClayInput.GroupItem shrink>
+                  <ClayInput.GroupText>accounts</ClayInput.GroupText>
+                </ClayInput.GroupItem>
+              </ClayInput.Group>
+              {hasErr(validationErrors, 'accountCount') && <FieldError errors={validationErrors.accountCount} />}
             </div>
           </div>
 
-          <div className="config-counts-row mt-3">
-            <div className="count-item">
-              <label htmlFor="dataGeneration_productCount">Products</label>
-              <input
-                id="dataGeneration_productCount"
-                type="number"
-                className={`form-control form-control-sm ${
-                  hasErr(validationErrors, 'productCount') ? 'invalid' : ''
-                }`}
-                min="0"
-                max="100"
-                value={generationConfig.productCount}
-                onChange={(e) =>
-                  handleConfigChange('productCount', parseInt(e.target.value))
-                }
-                disabled={lockFields}
-              />
-              {hasErr(validationErrors, 'productCount') && (
-                <FieldError errors={validationErrors.productCount} />
-              )}
-            </div>
-            <div className="count-item">
-              <label htmlFor="dataGeneration_accountCount">Accounts</label>
-              <input
-                id="dataGeneration_accountCount"
-                type="number"
-                className={`form-control form-control-sm ${
-                  hasErr(validationErrors, 'accountCount') ? 'invalid' : ''
-                }`}
-                min="0"
-                max="100"
-                value={generationConfig.accountCount}
-                onChange={(e) =>
-                  handleConfigChange('accountCount', parseInt(e.target.value))
-                }
-                disabled={lockFields}
-              />
-              {hasErr(validationErrors, 'accountCount') && (
-                <FieldError errors={validationErrors.accountCount} />
-              )}
-            </div>
-            <div className="count-item">
-              <label htmlFor="dataGeneration_orderCount">Orders</label>
-              <input
-                id="dataGeneration_orderCount"
-                type="number"
-                className={`form-control form-control-sm ${
-                  hasErr(validationErrors, 'orderCount') ? 'invalid' : ''
-                }`}
-                min="0"
-                max="500"
-                value={generationConfig.orderCount}
-                onChange={(e) =>
-                  handleConfigChange('orderCount', parseInt(e.target.value))
-                }
-                disabled={lockFields}
-              />
-              {hasErr(validationErrors, 'orderCount') && (
-                <FieldError errors={validationErrors.orderCount} />
-              )}
+          <div className="col-md-4">
+            <div className={`form-group ${hasErr(validationErrors, 'orderCount') ? 'has-error' : ''}`}>
+              <label htmlFor="dataGeneration_orderCount">Historical Orders</label>
+              <ClayInput.Group>
+                <ClayInput.GroupItem>
+                  <ClayInput
+                    id="dataGeneration_orderCount"
+                    type="number"
+                    min="0"
+                    max="500"
+                    value={generationConfig.orderCount}
+                    onChange={(e) => handleConfigChange('orderCount', parseInt(e.target.value))}
+                    disabled={lockFields}
+                  />
+                </ClayInput.GroupItem>
+                <ClayInput.GroupItem shrink>
+                  <ClayInput.GroupText>orders</ClayInput.GroupText>
+                </ClayInput.GroupItem>
+              </ClayInput.Group>
+              {hasErr(validationErrors, 'orderCount') && <FieldError errors={validationErrors.orderCount} />}
             </div>
           </div>
         </div>
 
-        <div className="config-section categories-top-section mt-4">
-          <h6 className="config-section-title">Target Categories</h6>
+        <div className="form-group mb-4">
+          <label className="font-weight-semi-bold">Target Categories</label>
           <CategoriesSelector
             availableCategories={availableCategories}
             selectedCategories={generationConfig.categories}
@@ -283,20 +243,16 @@ function DataGeneratorForm({
             disabled={lockFields}
             error={hasErr(validationErrors, 'categories')}
           />
-          {hasErr(validationErrors, 'categories') && (
-            <FieldError errors={validationErrors.categories} />
-          )}
+          {hasErr(validationErrors, 'categories') && <FieldError errors={validationErrors.categories} />}
         </div>
 
-        <div className="divider my-3"></div>
 
-        <div className="generator-main-settings">
-          <div className="settings-grid">
-            <div className="settings-column">
-              <ProductToggleSet
+        <div className="row mt-5">
+          <div className="col-lg-6 pr-lg-4 border-right-lg">
+             <h3 className="sheet-title mb-3" style={{fontSize: '1rem'}}>Architecture Features</h3>
+             <ProductToggleSet
                 values={{
-                  generateSpecifications:
-                    generationConfig.generateSpecifications,
+                  generateSpecifications: generationConfig.generateSpecifications,
                   generateSkuVariants: generationConfig.generateSkuVariants,
                   generatePriceLists: generationConfig.generatePriceLists,
                   generateBulkPricing: generationConfig.generateBulkPricing,
@@ -308,37 +264,32 @@ function DataGeneratorForm({
                 errors={validationErrors}
               />
 
-              <VisualAssetControls
-                values={{
-                  imageMode: generationConfig.imageMode,
-                  imageRatio: generationConfig.imageRatio,
-                  imageStyle: generationConfig.imageStyle,
-                  pdfMode: generationConfig.pdfMode,
-                  pdfRatio: generationConfig.pdfRatio,
-                  pdfContentType: generationConfig.pdfContentType,
-                }}
-                onChange={handleConfigChange}
-                disabled={lockFields || generationConfig.productCount === 0}
-                aiKeyAvailable={aiKeyAvailable}
-              />
-            </div>
+              <div className="mt-4">
+                 <VisualAssetControls
+                    values={{
+                      imageMode: generationConfig.imageMode,
+                      imageRatio: generationConfig.imageRatio,
+                      imageStyle: generationConfig.imageStyle,
+                      pdfMode: generationConfig.pdfMode,
+                      pdfRatio: generationConfig.pdfRatio,
+                      pdfContentType: generationConfig.pdfContentType,
+                    }}
+                    onChange={handleConfigChange}
+                    disabled={lockFields || generationConfig.productCount === 0}
+                    aiKeyAvailable={aiKeyAvailable}
+                  />
+              </div>
+          </div>
 
-            <div className="settings-column border-left pl-4">
-              <h6
-                className={`config-section-title ${
-                  generationConfig.productCount === 0 ? 'muted' : ''
-                }`}
-              >
-                <ClayIcon symbol="box-container" className="mr-2" />
-                Warehouses & Inventory
-              </h6>
-
-              <WarehousesToggle
+          <div className="col-lg-6 pl-lg-4">
+             <h3 className={`sheet-title mb-3 ${generationConfig.productCount === 0 ? 'text-muted' : ''}`} style={{fontSize: '1rem'}}>
+               Inventory Strategy
+             </h3>
+             <WarehousesToggle
                 productCount={generationConfig.productCount}
                 values={{
                   createWarehouses: generationConfig.createWarehouses,
-                  reuseExistingWarehouses:
-                    generationConfig.reuseExistingWarehouses,
+                  reuseExistingWarehouses: generationConfig.reuseExistingWarehouses,
                   warehouseCount: generationConfig.warehouseCount,
                 }}
                 onChange={handleConfigChange}
@@ -346,69 +297,53 @@ function DataGeneratorForm({
               />
 
               {generationConfig.createWarehouses && (
-                <div className="mt-4">
+                <div className="mt-3">
                   <InventoryControls
                     productCount={generationConfig.productCount}
                     inventoryMin={generationConfig.inventoryMin}
                     inventoryMax={generationConfig.inventoryMax}
-                    inventoryAssignmentRatio={
-                      generationConfig.inventoryAssignmentRatio
-                    }
+                    inventoryAssignmentRatio={generationConfig.inventoryAssignmentRatio}
                     enableBackorders={generationConfig.enableBackorders}
-                    backorderAssignmentRatio={
-                      generationConfig.backorderAssignmentRatio
-                    }
+                    backorderAssignmentRatio={generationConfig.backorderAssignmentRatio}
                     onChange={handleConfigChange}
                     disabled={lockFields || generationConfig.productCount === 0}
                     validationErrors={validationErrors}
                   />
                 </div>
               )}
-            </div>
           </div>
         </div>
 
         {!generationConfig.demoMode && (
-          <div className="cost-estimation mt-4">
-            <div className="cost-card p-3">
-              <h6 className="cost-title mb-2">
-                <ClayIcon symbol="coin" className="mr-2" />
+          <div className="mt-4 p-3 bg-light rounded d-flex justify-content-between align-items-center">
+              <span className="font-weight-semi-bold">
+                <ClayIcon symbol="coin" className="mr-2 text-warning" />
                 Estimated Generation Cost
-              </h6>
-              <div className="d-flex justify-content-between align-items-center">
-                <h5 className="cost-amount mb-0">
-                  ${estimatedCost.total.toFixed(2)}
-                </h5>
+              </span>
+              <div className="text-right">
+                <span className="h4 mb-0 d-block">${estimatedCost.total.toFixed(2)}</span>
                 {estimatedCost.breakdown.length > 0 && (
-                  <small className="text-muted">
+                  <small className="text-muted d-block" style={{fontSize: '0.75rem'}}>
                     {estimatedCost.breakdown.join(' | ')}
                   </small>
                 )}
               </div>
-            </div>
           </div>
         )}
 
-        <div className="submit-section mt-4">
-          <span
-            title={disabled && !isGenerating ? disabledReason : undefined}
-            style={{ display: 'block' }}
-          >
-            <button
+        <div className="mt-4">
+          <span title={disabled && !isGenerating ? disabledReason : undefined} style={{ display: 'block' }}>
+            <ClayButton
               type="submit"
-              className={`submit-button btn btn-block btn-lg ${
-                generationConfig.demoMode ? 'demo-mode' : 'generate-mode'
-              }`}
+              displayType={generationConfig.demoMode ? "secondary" : "primary"}
+              block
               disabled={isSubmitDisabled}
-              aria-disabled={isSubmitDisabled ? 'true' : 'false'}
             >
               {isGenerating ? (
-                <div className="processing-indicator">
-                  <span className="pm-spinner mr-2" aria-hidden="true" />
-                  {generationConfig.demoMode
-                    ? 'Generating Demo Data...'
-                    : 'Generating Data...'}
-                </div>
+                <>
+                  <span className="spinner-border spinner-border-sm mr-2" role="status" aria-hidden="true" />
+                  {generationConfig.demoMode ? 'Generating Demo Data...' : 'Generating Data...'}
+                </>
               ) : disabled ? (
                 <>
                   <ClayIcon symbol="warning-full" className="mr-2" />
@@ -416,16 +351,11 @@ function DataGeneratorForm({
                 </>
               ) : (
                 <>
-                  <ClayIcon
-                    symbol={generationConfig.demoMode ? 'flask' : 'play'}
-                    className="mr-2"
-                  />
-                  {generationConfig.demoMode
-                    ? 'Start Demo Generation'
-                    : 'Start Generation'}
+                  <ClayIcon symbol={generationConfig.demoMode ? 'flask' : 'play'} className="mr-2" />
+                  {generationConfig.demoMode ? 'Start Demo Generation' : 'Start Generation'}
                 </>
               )}
-            </button>
+            </ClayButton>
           </span>
         </div>
       </form>

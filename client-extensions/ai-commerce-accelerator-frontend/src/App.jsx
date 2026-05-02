@@ -6,6 +6,9 @@ import React, {
   useRef,
   useMemo,
 } from 'react';
+import ClayLayout from '@clayui/layout';
+import ClayButton from '@clayui/button';
+import ClayLabel from '@clayui/label';
 import { AppProvider, useApp, useApi } from './context/AppContext';
 import { progressReducer, initialProgress } from './state/progressReducer';
 
@@ -434,128 +437,137 @@ export function AppUI() {
   }, [batchErrors]);
 
   return (
-    <div className="container-fluid py-4">
-      <div className="row">
-        <div className="col-12">
-          <div className="card shadow-sm" ref={appTopRef}>
-            <div className="card-header bg-primary text-white">
-              <h1 className="h3 mb-0">
-                <i className="fas fa-robot me-2"></i>
+    <div className="ai-commerce-dashboard">
+      {/* GLOBAL MANAGEMENT BAR */}
+      <div className="management-bar management-bar-light">
+        <div className="container-fluid container-fluid-max-xl">
+          <nav className="navbar navbar-expand-md">
+            <div className="navbar-brand d-flex align-items-center">
+              <h1 className="component-title mb-0 mr-3">
+                <i className="fas fa-robot mr-2"></i>
                 {config?.title ?? 'Liferay AI Commerce Accelerator'}
               </h1>
-              {subtitle && <p className="mb-0 mt-2">{subtitle}</p>}
+              <ClayLabel displayType={connectionEstablished ? "success" : "warning"}>
+                {connectionEstablished ? "Connected to Liferay" : "Disconnected"}
+              </ClayLabel>
             </div>
-            <div className="card-body">
-              <div className="row">
-                <div className="col-lg-4">
-                  <HelpSection />
-                  <ConfigurationPanel
+            <ul className="navbar-nav ml-auto">
+              <li className="nav-item mr-2">
+                <div className="btn-group">
+                  <input
+                    type="file"
+                    id="configImport"
+                    accept=".json"
+                    onChange={importConfiguration}
+                    style={{ display: 'none' }}
                     disabled={isGenerating}
-                    generationConfig={generationConfig}
-                    onTestConnection={testConnection}
-                    onConnectionStatusChange={setConnectionEstablished}
-                    connected={connectionEstablished}
-                    catalogs={catalogs}
-                    channels={channels}
-                    languages={languages}
-                    currencies={currencies}
-                    onSelectChannel={selectChannel}
-                    onSelectCatalog={selectCatalog}
-                    commerceConfigured={commerceConfigured}
-                    onOpenAiKeyStatusChange={setAiKeyAvailable}
-                    aiKeyAvailable={aiKeyAvailable}
-                    connectionErrors={connectionErrors}
-                    commerceErrors={commerceErrors}
-                    onErrorsChange={setConnectionErrors}
-                    onDeleteAllCommerceData={async () => {
-                      setProgress({ type: 'RESET_ALL', totals: {} });
-                      await handleDeleteAllCommerceData();
-                    }}
-                    onDeleteSelectedCommerceData={async (scope) => {
-                      setProgress({ type: 'RESET_ALL', totals: {} });
-                      await handleDeleteSelectedCommerceData(scope);
-                    }}
-                    batchSizes={batchSizes}
-                    aiModelOptions={aiModelOptions}
                   />
+                  <ClayButton
+                    displayType="secondary"
+                    size="sm"
+                    onClick={() => document.getElementById('configImport').click()}
+                    disabled={isGenerating}
+                  >
+                    Import Config
+                  </ClayButton>
+                  <ClayButton
+                    displayType="secondary"
+                    size="sm"
+                    onClick={exportConfiguration}
+                    disabled={isGenerating}
+                  >
+                    Export Config
+                  </ClayButton>
                 </div>
-                <div className="col-lg-8">
-                  <div className="d-flex justify-content-between align-items-center mb-3">
-                    <h5>
-                      <i className="fas fa-cogs me-2"></i>
-                      Application Configuration
-                    </h5>
-                    <div className="btn-group">
-                      <input
-                        type="file"
-                        id="configImport"
-                        accept=".json"
-                        onChange={importConfiguration}
-                        style={{ display: 'none' }}
-                        disabled={isGenerating}
-                      />
-                      <button
-                        type="button"
-                        className="btn btn-outline-secondary btn-sm"
-                        onClick={() =>
-                          document.getElementById('configImport').click()
-                        }
-                        disabled={isGenerating}
-                        title="Import complete application configuration to JSON file"
-                      >
-                        <i className="fas fa-upload me-1"></i>
-                        Import Config
-                      </button>
-                      <button
-                        type="button"
-                        className="btn btn-outline-secondary btn-sm"
-                        onClick={exportConfiguration}
-                        disabled={isGenerating}
-                        title="Export complete application configuration to JSON file"
-                      >
-                        <i className="fas fa-download me-1"></i>
-                        Export Config
-                      </button>
-                    </div>
-                  </div>
-                  <DataGeneratorForm
-                    generationConfig={generationConfig}
-                    setGenerationConfig={setGenerationConfig}
-                    onGenerate={generateData}
-                    onResetSettings={handleSettingsReset}
-                    disabled={isFormLocked}
-                    isSubmitDisabled={isSubmitDisabled}
-                    disabledReason={disabledReason}
-                    isGenerating={isGenerating}
-                    forceDemoMode={forceDemoMode}
-                    aiKeyAvailable={aiKeyAvailable}
-                    validationErrors={generationErrors}
-                    scrollTargetRef={appTopRef}
-                    availableCategories={availableCategories}
-                    generationCompleted={generationCompleted}
-                    onExport={handleExport}
-                    onImport={handleImport}
-                    liferayConnected={connectionEstablished}
-                  />
-                  <Dashboard
-                    progress={progress}
-                    logs={logs}
-                    isGenerating={isGenerating}
-                    onClearLogs={clearLogs}
-                    onReset={handleProgressReset}
-                    generationConfig={generationConfig}
-                    wsStatus={wsConnected ? 'connected' : 'closed'}
-                    batchErrors={batchErrors}
-                    clearBatchErrors={clearBatchErrors}
-                    onReconnect={reconnect}
-                    connected={connectionEstablished}
-                    aiConfig={aiConfig}
-                  />
-                </div>
-              </div>
-            </div>
-          </div>
+              </li>
+            </ul>
+          </nav>
         </div>
+      </div>
+
+      {/* MAIN CONTENT AREA - Dual Pane Layout */}
+      <div className="container-fluid container-fluid-max-xl mt-4">
+        <ClayLayout.Row>
+          
+          {/* LEFT PANE: CONFIGURATION */}
+          <ClayLayout.Col size={8}>
+            <div className="sheet sheet-lg">
+              <HelpSection />
+              
+              <div className="row mb-4">
+                 <div className="col-12">
+                   <ConfigurationPanel
+                      disabled={isGenerating}
+                      generationConfig={generationConfig}
+                      onTestConnection={testConnection}
+                      onConnectionStatusChange={setConnectionEstablished}
+                      connected={connectionEstablished}
+                      catalogs={catalogs}
+                      channels={channels}
+                      languages={languages}
+                      currencies={currencies}
+                      onSelectChannel={selectChannel}
+                      onSelectCatalog={selectCatalog}
+                      commerceConfigured={commerceConfigured}
+                      onOpenAiKeyStatusChange={setAiKeyAvailable}
+                      aiKeyAvailable={aiKeyAvailable}
+                      connectionErrors={connectionErrors}
+                      commerceErrors={commerceErrors}
+                      onErrorsChange={setConnectionErrors}
+                      onDeleteAllCommerceData={async () => {
+                        setProgress({ type: 'RESET_ALL', totals: {} });
+                        await handleDeleteAllCommerceData();
+                      }}
+                      onDeleteSelectedCommerceData={async (scope) => {
+                        setProgress({ type: 'RESET_ALL', totals: {} });
+                        await handleDeleteSelectedCommerceData(scope);
+                      }}
+                      batchSizes={batchSizes}
+                      aiModelOptions={aiModelOptions}
+                    />
+                 </div>
+              </div>
+
+              <DataGeneratorForm
+                generationConfig={generationConfig}
+                setGenerationConfig={setGenerationConfig}
+                onGenerate={generateData}
+                onResetSettings={handleSettingsReset}
+                disabled={isFormLocked}
+                isSubmitDisabled={isSubmitDisabled}
+                disabledReason={disabledReason}
+                isGenerating={isGenerating}
+                forceDemoMode={forceDemoMode}
+                aiKeyAvailable={aiKeyAvailable}
+                validationErrors={generationErrors}
+                scrollTargetRef={appTopRef}
+                availableCategories={availableCategories}
+                generationCompleted={generationCompleted}
+                onExport={handleExport}
+                onImport={handleImport}
+                liferayConnected={connectionEstablished}
+              />
+            </div>
+          </ClayLayout.Col>
+
+          {/* RIGHT PANE: OBSERVABILITY (Sticky) */}
+          <ClayLayout.Col size={4} className="sticky-top" style={{ top: '2rem', maxHeight: 'calc(100vh - 4rem)', overflowY: 'auto' }}>
+             <Dashboard
+                progress={progress}
+                logs={logs}
+                isGenerating={isGenerating}
+                onClearLogs={clearLogs}
+                onReset={handleProgressReset}
+                generationConfig={generationConfig}
+                wsStatus={wsConnected ? 'connected' : 'closed'}
+                batchErrors={batchErrors}
+                clearBatchErrors={clearBatchErrors}
+                onReconnect={reconnect}
+                connected={connectionEstablished}
+                aiConfig={aiConfig}
+              />
+          </ClayLayout.Col>
+        </ClayLayout.Row>
       </div>
     </div>
   );
