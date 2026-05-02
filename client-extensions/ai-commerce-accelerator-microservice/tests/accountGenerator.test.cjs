@@ -71,9 +71,8 @@ describe('AccountGenerator', () => {
     expect(session.flow_type).toBe('accounts');
     expect(mockCtx.batchCallback._checkSessionCompletion).toHaveBeenCalled();
   });
-
   it('should run load countries step', async () => {
-    const sessionId = 'test-session';
+    const sessionId = `test-session-${Date.now()}`;
     persistence.createSession({
       sessionId,
       flowType: 'accounts',
@@ -83,13 +82,17 @@ describe('AccountGenerator', () => {
 
     await generator._runLoadCountriesStep(sessionId);
 
+    // Wait a tiny bit for background executeNextStep logic to finish
+    await new Promise((resolve) => setTimeout(resolve, 200));
+
     const session = persistence.getSession(sessionId);
     expect(session.context.countries).toHaveLength(1);
+    expect(session.status).toBe('COMPLETED');
     expect(mockCtx.liferay.getCountries).toHaveBeenCalled();
   });
 
   it('should run data generation step', async () => {
-    const sessionId = 'acc-test-session';
+    const sessionId = `acc-test-session-${Date.now()}`;
     persistence.createSession({
       sessionId,
       flowType: 'accounts',
