@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { ClayInput } from '@clayui/form';
 
 const STATUS_CONFIG = [
@@ -31,11 +31,14 @@ export default function OrderDistributionControl({
   const percentages = getPercentages();
 
   // The dividers are at cumulative percentage points: p1, p1+p2, p1+p2+p3
-  const dividers = [
-    percentages[0],
-    percentages[0] + percentages[1],
-    percentages[0] + percentages[1] + percentages[2],
-  ];
+  const dividers = useMemo(
+    () => [
+      percentages[0],
+      percentages[0] + percentages[1],
+      percentages[0] + percentages[1] + percentages[2],
+    ],
+    [percentages]
+  );
 
   const handleMouseDown = (idx, e) => {
     if (disabled) return;
@@ -104,7 +107,6 @@ export default function OrderDistributionControl({
         if (k === key) continue;
         if (newDist[k] >= excess) {
           newDist[k] -= excess;
-          excess = 0;
           break;
         } else {
           excess -= newDist[k];
@@ -140,7 +142,7 @@ export default function OrderDistributionControl({
           cursor: disabled ? 'default' : 'pointer',
         }}
       >
-        {STATUS_CONFIG.map(({ key, color, label }, i) => {
+        {STATUS_CONFIG.map(({ key, color }, i) => {
           const pct = percentages[i];
           if (pct <= 0 && i > 0 && i < 3) return null; // Keep slots for dividers
 
