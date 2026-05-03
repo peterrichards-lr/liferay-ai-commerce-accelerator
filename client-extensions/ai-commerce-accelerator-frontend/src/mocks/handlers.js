@@ -54,6 +54,24 @@ export const handlers = [
     return HttpResponse.json({ success: true, config: { ai: {} } });
   }),
 
+  // Config - Generation Limits
+  http.get('http://localhost:3001/api/v1/config/generation-limits', () => {
+    return HttpResponse.json({
+      success: true,
+      limits: {
+        maxProducts: 100,
+        maxAccounts: 50,
+        maxOrders: 200,
+        defaultOrderDistribution: {
+          open: 5,
+          processing: 5,
+          shipped: 10,
+          completed: 30,
+        },
+      },
+    });
+  }),
+
   // Config - Batch Sizes
   http.get('http://localhost:3001/api/v1/config/batch-sizes', () => {
     return HttpResponse.json([10, 25, 50, 100]);
