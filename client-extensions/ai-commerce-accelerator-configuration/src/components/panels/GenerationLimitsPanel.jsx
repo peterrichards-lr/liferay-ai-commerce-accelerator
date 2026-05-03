@@ -1,4 +1,4 @@
-import React, { useCallback, useMemo } from 'react';
+import React from 'react';
 import ClayForm, { ClayInput } from '@clayui/form';
 import ClayAlert from '@clayui/alert';
 import ClayButton from '@clayui/button';
@@ -28,7 +28,7 @@ const STATUS_CONFIG = [
 ];
 
 export default function GenerationLimitsPanel() {
-  const { config, loading, persist, reload } = useObjectStorage(
+  const { config, loading, persist } = useObjectStorage(
     [LIMITS_CONFIG_KEY],
     DEFAULTS
   );
@@ -105,7 +105,9 @@ export default function GenerationLimitsPanel() {
                 id="maxProducts"
                 type="number"
                 value={limits.maxProducts}
-                onChange={(e) => handleLimitChange('maxProducts', e.target.value)}
+                onChange={(e) =>
+                  handleLimitChange('maxProducts', e.target.value)
+                }
               />
             </ClayForm.Group>
           </ClayLayout.Col>
@@ -116,7 +118,9 @@ export default function GenerationLimitsPanel() {
                 id="maxAccounts"
                 type="number"
                 value={limits.maxAccounts}
-                onChange={(e) => handleLimitChange('maxAccounts', e.target.value)}
+                onChange={(e) =>
+                  handleLimitChange('maxAccounts', e.target.value)
+                }
               />
             </ClayForm.Group>
           </ClayLayout.Col>
