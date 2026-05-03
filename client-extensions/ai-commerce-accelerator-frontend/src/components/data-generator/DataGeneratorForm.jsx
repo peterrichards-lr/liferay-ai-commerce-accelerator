@@ -33,8 +33,13 @@ function DataGeneratorForm({
   scrollTargetRef,
   availableCategories,
   liferayConnected,
+  generationLimits,
 }) {
   const [expandSignal, setExpandSignal] = useState(0);
+
+  const maxProducts = generationLimits?.maxProducts || 100;
+  const maxAccounts = generationLimits?.maxAccounts || 50;
+  const maxOrders = generationLimits?.maxOrders || 200;
 
   const handleConfigChange = (field, value) => {
     setGenerationConfig((prev) => ({ ...prev, [field]: value }));
@@ -201,7 +206,7 @@ function DataGeneratorForm({
                     id="dataGeneration_productCount"
                     type="number"
                     min="0"
-                    max="100"
+                    max={maxProducts}
                     value={generationConfig.productCount}
                     onChange={(e) =>
                       handleConfigChange(
@@ -233,7 +238,7 @@ function DataGeneratorForm({
                     id="dataGeneration_accountCount"
                     type="number"
                     min="0"
-                    max="100"
+                    max={maxAccounts}
                     value={generationConfig.accountCount}
                     onChange={(e) =>
                       handleConfigChange(
@@ -258,16 +263,14 @@ function DataGeneratorForm({
             <div
               className={`form-group ${hasErr(validationErrors, 'orderCount') ? 'has-error' : ''}`}
             >
-              <label htmlFor="dataGeneration_orderCount">
-                Historical Orders
-              </label>
+              <label htmlFor="dataGeneration_orderCount">Orders</label>
               <ClayInput.Group>
                 <ClayInput.GroupItem>
                   <ClayInput
                     id="dataGeneration_orderCount"
                     type="number"
                     min="0"
-                    max="500"
+                    max={maxOrders}
                     value={generationConfig.orderCount}
                     onChange={(e) =>
                       handleConfigChange('orderCount', parseInt(e.target.value))

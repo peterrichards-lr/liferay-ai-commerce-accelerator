@@ -1,0 +1,24 @@
+{
+    "configuration": {
+        "className": "com.liferay.object.rest.dto.v1_0.ObjectEntry",
+        "parameters": {
+            "containsHeaders": "true",
+            "createStrategy": "UPSERT",
+            "onErrorFail": "false",
+            "taskItemDelegateName": "C_AICommerceAcceleratorConfiguration",
+            "updateStrategy": "UPDATE"
+        },
+        "taskItemDelegateName": "C_AICommerceAcceleratorConfiguration"
+    },
+    "items": [
+        {
+            "configKey": "generation-limits",
+            "configStatus": {
+                "key": "Active"
+            },
+            "configValue": "{\"maxProducts\":100,\"maxAccounts\":50,\"maxOrders\":200,\"defaultOrderDistribution\":{\"open\":5,\"processing\":5,\"shipped\":10,\"completed\":30}}",
+            "description": "Generation Limits",
+            "externalReferenceCode": "GENERATION-LIMITS"
+        }
+    ]
+}

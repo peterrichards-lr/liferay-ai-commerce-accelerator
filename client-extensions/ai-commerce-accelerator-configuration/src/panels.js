@@ -20,6 +20,12 @@ export const PANELS = [
     component: lazy(() => import('./components/panels/AiSchemasPanel')),
   },
   {
+    id: 'generation-limits',
+    label: 'Generation Limits',
+    icon: 'code',
+    component: lazy(() => import('./components/panels/GenerationLimitsPanel')),
+  },
+  {
     id: 'categories',
     label: 'Categories',
     icon: 'categories',

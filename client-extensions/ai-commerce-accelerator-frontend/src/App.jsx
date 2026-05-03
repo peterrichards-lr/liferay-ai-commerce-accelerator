@@ -24,8 +24,6 @@ import notifyUser from './utils/notifications';
 
 import { flattenErrorsMap } from './utils/validation';
 
-import { buildFilename, exportJsonFile } from './utils/fileHelper';
-
 import ConfigurationPanel from './components/config/ConfigurationPanel';
 import DataGeneratorForm from './components/data-generator/DataGeneratorForm';
 import HelpSection from './components/dashboard/HelpSection';
@@ -34,10 +32,9 @@ import Dashboard from './components/dashboard/Dashboard';
 import useAppConfigIO from './hooks/useAppConfigIO';
 
 import {
-  EXPORT_COMMERCE_DATA,
-  IMPORT_COMMERCE_DATA,
   AI_CONFIG,
   BATCH_SIZES,
+  CONFIG_GENERATION_LIMITS,
 } from './utils/microservicePaths';
 
 const initialGenerationConfig = {
@@ -96,12 +93,23 @@ export function AppUI() {
   const [batchErrors, setBatchErrors] = useState([]);
   const [batchSizes, setBatchSizes] = useState([1, 10, 25, 50]); // Default values
 
+  const [generationLimits, setGenerationLimits] = useState({
+    maxProducts: 100,
+    maxAccounts: 50,
+    maxOrders: 200,
+  });
+
   const {
     connectionErrors,
     setConnectionErrors,
     commerceErrors,
     generationErrors,
-  } = useValidation(config, generationConfig, connectionEstablished);
+  } = useValidation(
+    config,
+    generationConfig,
+    connectionEstablished,
+    generationLimits
+  );
 
   const [availableCategories, setAvailableCategories] = useState([]);
   const [aiConfig, setAiConfig] = useState(null);
@@ -363,6 +371,33 @@ export function AppUI() {
       } catch {
         // Silently fail
       }
+
+      try {
+        const res = await api.get(CONFIG_GENERATION_LIMITS);
+        if (mountedRef.current && res?.success && res.limits) {
+          setGenerationLimits(res.limits);
+
+          // Update initial configuration with default distribution if not already set
+          if (res.limits.defaultOrderDistribution) {
+            setGenerationConfig((prev) => {
+              if (
+                prev.orderDistribution.open === 5 &&
+                prev.orderDistribution.processing === 5 &&
+                prev.orderDistribution.shipped === 10 &&
+                prev.orderDistribution.completed === 30
+              ) {
+                return {
+                  ...prev,
+                  orderDistribution: res.limits.defaultOrderDistribution,
+                };
+              }
+              return prev;
+            });
+          }
+        }
+      } catch {
+        // Silently fail
+      }
     })();
   }, [connectionEstablished, categories, mountedRef, addLog, api, setConfig]);
 
@@ -485,6 +520,7 @@ export function AppUI() {
                 scrollTargetRef={appTopRef}
                 availableCategories={availableCategories}
                 liferayConnected={connectionEstablished}
+                generationLimits={generationLimits}
               />
             </div>
           </ClayLayout.Col>

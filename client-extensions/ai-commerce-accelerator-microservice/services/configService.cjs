@@ -54,6 +54,9 @@ const AI_MODEL_OPTIONS_CACHE_KEY = 'AI_MODEL_OPTIONS_KEY';
 const EXCLUDE_LISTS_CONFIG_KEY = 'ai-exclude-lists';
 const EXCLUDE_LISTS_CACHE_KEY = 'EXCLUDE_LISTS_KEY';
 
+const GENERATION_LIMITS_CONFIG_KEY = 'generation-limits';
+const GENERATION_LIMITS_CACHE_KEY = 'GENERATION_LIMITS_KEY';
+
 class ConfigService {
   constructor(ctx) {
     this.cache = ctx.cache;
@@ -265,6 +268,56 @@ class ConfigService {
 
   getExcludeListsCached() {
     return this.getConfigCached(EXCLUDE_LISTS_CACHE_KEY);
+  }
+
+  async getGenerationLimits(requestConfig) {
+    const logger = this.logger;
+    try {
+      const limits = await this.getConfig(
+        requestConfig,
+        GENERATION_LIMITS_CACHE_KEY,
+        GENERATION_LIMITS_CONFIG_KEY
+      );
+      return limits || {};
+    } catch (error) {
+      const erc = error?.errorReference || createERC(ERC_PREFIX.ERROR);
+      logger?.warn?.(
+        'Failed to get generation limits from Liferay Object, using defaults',
+        {
+          operation: 'get-generation-limits',
+          errorReference: erc,
+          message: error.message,
+        }
+      );
+      return {
+        defaultOrderDistribution: {
+          completed: 30,
+          open: 5,
+          processing: 5,
+          shipped: 10,
+        },
+        maxAccounts: 50,
+        maxOrders: 200,
+        maxProducts: 100,
+      };
+    }
+  }
+
+  getGenerationLimitsCached() {
+    const cached = this.getConfigCached(GENERATION_LIMITS_CACHE_KEY);
+    return (
+      cached || {
+        defaultOrderDistribution: {
+          completed: 30,
+          open: 5,
+          processing: 5,
+          shipped: 10,
+        },
+        maxAccounts: 50,
+        maxOrders: 200,
+        maxProducts: 100,
+      }
+    );
   }
 
   async getDefaultImage(requestConfig) {

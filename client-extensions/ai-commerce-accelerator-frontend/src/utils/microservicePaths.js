@@ -17,6 +17,7 @@ const TEST_CONNECTION = `${BASE_PATH}/test-connection`;
 const AI_MODEL_OPTIONS = `${CONFIG_PATH}/ai-model-options`;
 const AI_CONFIG = `${CONFIG_PATH}/ai`;
 const BATCH_SIZES = `${CONFIG_PATH}/batch-sizes`;
+const CONFIG_GENERATION_LIMITS = `${CONFIG_PATH}/generation-limits`;
 const GET_CATEGORIES = `${CONFIG_PATH}/categories`;
 
 const WORKFLOW = 'workflow';
@@ -40,6 +41,7 @@ export {
   AI_MODEL_OPTIONS,
   AI_CONFIG,
   BATCH_SIZES,
+  CONFIG_GENERATION_LIMITS,
   GENERATE_WORKFLOW,
   WORKFLOW_SESSIONS,
   WORKFLOW_BATCHES,

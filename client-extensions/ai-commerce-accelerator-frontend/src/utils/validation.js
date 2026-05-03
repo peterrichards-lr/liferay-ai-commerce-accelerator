@@ -51,19 +51,26 @@ export function getCommerceErrorsMap(cfg) {
   return errors;
 }
 
-export function getGenerationErrorsMap(gc, liferayConnected = true) {
+export function getGenerationErrorsMap(gc, liferayConnected = true, limits) {
   const errors = {};
+
+  const maxProducts = limits?.maxProducts || 100;
+  const maxAccounts = limits?.maxAccounts || 50;
+  const maxOrders = limits?.maxOrders || 200;
 
   if (gc.productCount < 0)
     (errors.productCount ??= []).push('Cannot be negative.');
-  if (gc.productCount > 100) (errors.productCount ??= []).push('Max is 100.');
+  if (gc.productCount > maxProducts)
+    (errors.productCount ??= []).push(`Max is ${maxProducts}.`);
 
   if (gc.accountCount < 0)
     (errors.accountCount ??= []).push('Cannot be negative.');
-  if (gc.accountCount > 50) (errors.accountCount ??= []).push('Max is 50.');
+  if (gc.accountCount > maxAccounts)
+    (errors.accountCount ??= []).push(`Max is ${maxAccounts}.`);
 
   if (gc.orderCount < 0) (errors.orderCount ??= []).push('Cannot be negative.');
-  if (gc.orderCount > 200) (errors.orderCount ??= []).push('Max is 200.');
+  if (gc.orderCount > maxOrders)
+    (errors.orderCount ??= []).push(`Max is ${maxOrders}.`);
 
   if (gc.imageMode !== 'none' && (gc.imageRatio < 0 || gc.imageRatio > 100)) {
     (errors.imageRatio ??= []).push('Must be between 0 and 100.');

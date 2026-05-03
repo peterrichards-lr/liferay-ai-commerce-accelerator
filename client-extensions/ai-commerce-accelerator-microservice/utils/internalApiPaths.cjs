@@ -16,6 +16,7 @@ const INTERNAL_API_PATHS = {
   CONFIG_AI_MODEL_OPTIONS: '/config/ai-model-options',
   CONFIG_BATCH_SIZES: '/config/batch-sizes',
   CONFIG_EXCLUDE_LISTS: '/config/exclude-lists',
+  CONFIG_GENERATION_LIMITS: '/config/generation-limits',
   DELETE_COMMERCE_DATA: '/delete-commerce-data',
   DELETE_CHANNEL_COMMERCE_DATA: '/delete-channel-commerce-data',
   EXPORT_COMMERCE_DATA: '/export-commerce-data',

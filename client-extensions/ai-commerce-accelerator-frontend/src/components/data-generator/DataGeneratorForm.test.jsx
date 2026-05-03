@@ -58,7 +58,7 @@ describe('DataGeneratorForm', () => {
 
     expect(screen.getByLabelText(/^Products$/i)).toHaveValue(10);
     expect(screen.getByLabelText(/^B2B Accounts$/i)).toHaveValue(10);
-    expect(screen.getByLabelText(/^Historical Orders$/i)).toHaveValue(50);
+    expect(screen.getByLabelText(/^Orders$/i)).toHaveValue(50);
     expect(screen.getByText(/Start Demo Generation/i)).toBeInTheDocument();
   });
 

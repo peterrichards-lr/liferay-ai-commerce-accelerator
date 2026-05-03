@@ -288,4 +288,22 @@ module.exports = (app, { logger, configService }) => {
       });
     }
   });
+
+  app.get(INTERNAL_API_PATHS.CONFIG_GENERATION_LIMITS, async (req, res) => {
+    const { config } = buildConfigAndOptions(req);
+
+    try {
+      const limits = await configService.getGenerationLimits(config);
+
+      res.json({
+        success: true,
+        limits: limits || {},
+        timestamp: new Date().toISOString(),
+      });
+    } catch (error) {
+      sendSafeError(res, logger, req, error, 'get-generation-limits', {
+        sanitizeConfig: sanitizedObject(config),
+      });
+    }
+  });
 };
