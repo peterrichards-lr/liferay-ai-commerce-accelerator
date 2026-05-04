@@ -363,8 +363,13 @@ function AdminUI() {
                   <ClayTable.Body>
                     {paginatedSessions.length === 0 ? (
                       <ClayTable.Row>
-                        <ClayTable.Cell colSpan={4} className="text-center py-5">
-                          <div className="text-secondary">No sessions found.</div>
+                        <ClayTable.Cell
+                          colSpan={4}
+                          className="text-center py-5"
+                        >
+                          <div className="text-secondary">
+                            No sessions found.
+                          </div>
                         </ClayTable.Cell>
                       </ClayTable.Row>
                     ) : (
@@ -572,7 +577,13 @@ function HealthItem({ title, status, message }) {
         <div className="font-weight-bold" style={{ fontSize: '0.9rem' }}>
           {title}
         </div>
-        <div className="small text-secondary text-truncate" style={{maxWidth: '220px'}} title={message}>{message}</div>
+        <div
+          className="small text-secondary text-truncate"
+          style={{ maxWidth: '220px' }}
+          title={message}
+        >
+          {message}
+        </div>
       </div>
     </div>
   );
