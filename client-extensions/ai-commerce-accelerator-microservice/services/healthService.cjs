@@ -43,11 +43,33 @@ class HealthService {
   }
 
   async checkDatabase() {
-    return {
-      status: 'healthy',
-      message: 'No direct database connection required',
-      responseTime: 0,
-    };
+    const { persistence } = this.ctx;
+    const start = Date.now();
+
+    try {
+      const isAlive = persistence?.ping?.();
+      const responseTime = Date.now() - start;
+
+      if (isAlive) {
+        return {
+          status: 'healthy',
+          message: 'SQLite database is available and responding',
+          responseTime,
+        };
+      }
+
+      return {
+        status: 'unhealthy',
+        message: 'SQLite database is not responding',
+        responseTime,
+      };
+    } catch (error) {
+      return {
+        status: 'unhealthy',
+        message: `Database health check failed: ${error.message}`,
+        responseTime: Date.now() - start,
+      };
+    }
   }
 
   async checkAI() {

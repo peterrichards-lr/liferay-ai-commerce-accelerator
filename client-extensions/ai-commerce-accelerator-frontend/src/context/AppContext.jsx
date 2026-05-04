@@ -7,6 +7,7 @@ import React, {
   useContext,
   useRef,
 } from 'react';
+import { ClayIconSpriteContext } from '@clayui/icon';
 import { normalizeConfig } from '../config/normalize';
 import { DEFAULTS } from '../config/defaults';
 import { createApiClient } from '../services/apiClient';
@@ -23,9 +24,18 @@ export function AppProvider({
   const cacheStore = useRef(new Map());
   const inflight = useRef(new Map());
 
-  const [config, setConfig] = useState(() =>
-    normalizeConfig({ ...DEFAULTS, ...initialConfig })
-  );
+  const [config, setConfig] = useState(() => {
+    const filteredInitial = Object.entries(initialConfig || {}).reduce(
+      (acc, [key, value]) => {
+        if (value !== null && value !== undefined && value !== '') {
+          acc[key] = value;
+        }
+        return acc;
+      },
+      {}
+    );
+    return normalizeConfig({ ...DEFAULTS, ...filteredInitial });
+  });
   const [correlationId, setCorrelationId] = useState(
     () => sessionStorage.getItem('correlationId') || null
   );
@@ -151,9 +161,11 @@ export function AppProvider({
 
   return (
     <AppContext.Provider value={value}>
-      <div ref={rootRef} className={className} id="app-root">
-        {children}
-      </div>
+      <ClayIconSpriteContext.Provider value={config.spritemap}>
+        <div ref={rootRef} className={className} id="app-root">
+          {children}
+        </div>
+      </ClayIconSpriteContext.Provider>
     </AppContext.Provider>
   );
 }

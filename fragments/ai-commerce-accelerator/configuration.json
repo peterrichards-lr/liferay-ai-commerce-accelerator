@@ -12,7 +12,7 @@
           "dataType": "int",
           "defaultValue": "12",
           "label": "polling-retries",
-          "name": "polliingRetries",
+          "name": "pollingRetries",
           "type": "text"
         },
         {

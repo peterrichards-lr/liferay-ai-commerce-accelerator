@@ -1,8 +1,7 @@
 import { useCallback } from 'react';
 import notifyUser from '../utils/notifications';
 import { buildFilename, exportJsonFile } from '../utils/fileHelper';
-
-const EXPORT_PATH = '/export-commerce-data';
+import { EXPORT_COMMERCE_DATA } from '../utils/microservicePaths';
 
 export default function useDatasetIO({ api, addLog, isGenerating }) {
   const exportSession = useCallback(
@@ -20,7 +19,9 @@ export default function useDatasetIO({ api, addLog, isGenerating }) {
         // but it could be updated to fetch that specific session's context.
         // For now, we fetch from the general export which we updated to use the latest completed.
         // To be truly robust, we'll update the endpoint to accept a sessionId.
-        const res = await api.get(`${EXPORT_PATH}?sessionId=${session.id}`);
+        const res = await api.get(
+          `${EXPORT_COMMERCE_DATA}?sessionId=${session.id}`
+        );
 
         const filename = buildFilename(
           `aica-dataset-${session.name || session.id}`

@@ -9,6 +9,9 @@ describe('HealthService', () => {
       config: {
         getAIKeyCached: vi.fn().mockResolvedValue('test-api-key'),
       },
+      persistence: {
+        ping: vi.fn().mockReturnValue(true),
+      },
       logger: {
         info: vi.fn(),
         error: vi.fn(),

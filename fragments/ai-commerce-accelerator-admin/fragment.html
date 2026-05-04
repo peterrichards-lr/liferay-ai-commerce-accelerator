@@ -1,13 +1,17 @@
-[#assign liferayUrl = ''] [#assign languageId = ''] [#if themeDisplay??]
-[#assign liferayUrl = themeDisplay.portalURL] [#assign languageId =
-themeDisplay.languageId?replace('_','-')] [/#if]
+[#assign liferayUrl = ''] [#assign languageId = ''] [#assign spritemap = '']
+[#if themeDisplay??]
+  [#assign liferayUrl = themeDisplay.portalURL]
+  [#assign languageId = themeDisplay.languageId?replace('_','-')]
+  [#assign spritemap = themeDisplay.getPathThemeImages() + "/lexicon/icons.svg"]
+[/#if]
 <liferay-ai-commerce-accelerator-admin
   liferay-hosted="true"
   liferay-url="${liferayUrl}"
   locale-code="${languageId}"
   microservice-url="${configuration.microserviceUrl}"
   polling-delay="${configuration.pollingDelay}"
-  polling-retries="${configuration.polliingRetries}"
+  polling-retries="${configuration.pollingRetries}"
+  spritemap="${spritemap}"
   subtitle="${configuration.subtitle}"
   title="${configuration.title}"
   ws-logging-level="${configuration.wsLoggingLevel}"

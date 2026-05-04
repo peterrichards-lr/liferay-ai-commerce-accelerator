@@ -4,8 +4,7 @@ import ClayButton from '@clayui/button';
 import ClayIcon from '@clayui/icon';
 import ClayTable from '@clayui/table';
 import notifyUser from '../../utils/notifications';
-
-const SESSION_LIST_PATH = '/workflows/sessions/completed';
+import { COMPLETED_WORKFLOW_SESSIONS } from '../../utils/microservicePaths';
 
 export default function SessionSelectorModal({
   visible,
@@ -22,7 +21,7 @@ export default function SessionSelectorModal({
   const loadSessions = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await api.get(SESSION_LIST_PATH);
+      const res = await api.get(COMPLETED_WORKFLOW_SESSIONS);
       if (res?.success) {
         setSessions(res.sessions || []);
       }
@@ -36,7 +35,7 @@ export default function SessionSelectorModal({
 
   useEffect(() => {
     if (visible && api) {
-      loadSessions();
+      Promise.resolve().then(() => loadSessions());
     }
   }, [visible, api, loadSessions]);
 

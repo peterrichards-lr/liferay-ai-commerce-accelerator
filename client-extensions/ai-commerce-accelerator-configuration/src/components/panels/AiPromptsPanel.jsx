@@ -9,6 +9,12 @@ const ENTITY_CONFIGS = [
   { id: 'account', title: 'Account Prompt', configKey: 'ai-prompt-account' },
   { id: 'order', title: 'Order Prompt', configKey: 'ai-prompt-order' },
   { id: 'pricing', title: 'Pricing Prompt', configKey: 'ai-prompt-pricing' },
+  { id: 'pdf', title: 'PDF Prompt', configKey: 'ai-prompt-pdf' },
+  {
+    id: 'warehouse',
+    title: 'Warehouse Prompt',
+    configKey: 'ai-prompt-warehouse',
+  },
 ];
 
 const { keys, defaults } = ENTITY_CONFIGS.reduce(

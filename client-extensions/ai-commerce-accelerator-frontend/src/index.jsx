@@ -8,12 +8,20 @@ const TAG_MAIN = 'liferay-ai-commerce-accelerator-frontend';
 const TAG_ADMIN = 'liferay-ai-commerce-accelerator-admin';
 
 const toCamel = (k) => k.replace(/-([a-z])/g, (_, c) => c.toUpperCase());
-const coerce = (v) => (v === '' ? true : v);
+
+const BOOLEAN_ATTRS = new Set(['liferay-hosted']);
+
+const coerce = (v, k) => {
+  if (BOOLEAN_ATTRS.has(k)) {
+    return v === '' || v === 'true';
+  }
+  return v;
+};
 
 function parsePropsFrom(el) {
   const configFromAttrs = {};
   for (const { name, value } of Array.from(el.attributes)) {
-    configFromAttrs[toCamel(name)] = coerce(value);
+    configFromAttrs[toCamel(name)] = coerce(value, name);
   }
 
   let cfg = {};

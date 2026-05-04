@@ -72,34 +72,54 @@ export const useObjectStorage = ({ keys, defaults = {}, json = true }) => {
     };
   }, [keyString, json, defaultsString]);
 
-  const onSave = useCallback(async () => {
-    if (saving) return;
-    setSaving(true);
-    try {
+  const onSave = useCallback(
+    async (options = {}) => {
+      const { silent = false } = options;
+      if (saving) return;
+
       const parsedKeys = keyString ? keyString.split(',') : [];
-      await Promise.all(
-        parsedKeys.map((key) =>
-          persistConfigKey(
-            key,
-            json ? JSON.stringify(values[key]) : values[key]
-          )
-        )
+
+      const dirtyKeys = parsedKeys.filter(
+        (key) => JSON.stringify(values[key]) !== JSON.stringify(lastSaved[key])
       );
-      setLastSaved(values);
-      Liferay?.Util?.openToast?.({
-        message: 'Configuration saved.',
-        type: 'success',
-      });
-    } catch (e) {
-      console.error(e);
-      Liferay?.Util?.openToast?.({
-        message: 'Failed to save configuration.',
-        type: 'danger',
-      });
-    } finally {
-      setSaving(false);
-    }
-  }, [saving, values, keyString, json]);
+
+      if (dirtyKeys.length === 0) {
+        return;
+      }
+
+      setSaving(true);
+      try {
+        await Promise.all(
+          dirtyKeys.map((key) =>
+            persistConfigKey(
+              key,
+              json ? JSON.stringify(values[key]) : values[key]
+            )
+          )
+        );
+        setLastSaved(values);
+
+        if (!silent) {
+          Liferay?.Util?.openToast?.({
+            message: 'Configuration saved.',
+            type: 'success',
+          });
+        }
+      } catch (e) {
+        console.error(e);
+        if (!silent) {
+          Liferay?.Util?.openToast?.({
+            message: 'Failed to save configuration.',
+            type: 'danger',
+          });
+        }
+        throw e;
+      } finally {
+        setSaving(false);
+      }
+    },
+    [saving, values, lastSaved, keyString, json]
+  );
 
   const onCancel = useCallback(() => setValues(lastSaved), [lastSaved]);
 

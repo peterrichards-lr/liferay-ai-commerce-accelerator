@@ -178,7 +178,22 @@ export default function AiConfigPanel() {
   const dirty = dirtyAi || dirtyKey || dirtyAiModels;
 
   const onSave = useCallback(async () => {
-    await Promise.all([onSaveAi(), onSaveKey(), onSaveAiModels()]);
+    try {
+      await Promise.all([
+        onSaveAi({ silent: true }),
+        onSaveKey({ silent: true }),
+        onSaveAiModels({ silent: true }),
+      ]);
+      Liferay?.Util?.openToast?.({
+        message: 'Configuration saved.',
+        type: 'success',
+      });
+    } catch {
+      Liferay?.Util?.openToast?.({
+        message: 'Failed to save configuration.',
+        type: 'danger',
+      });
+    }
   }, [onSaveAi, onSaveKey, onSaveAiModels]);
 
   const onCancel = useCallback(() => {

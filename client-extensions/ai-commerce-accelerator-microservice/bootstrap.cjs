@@ -55,7 +55,11 @@ module.exports = (ws) => {
 
   ctx.config.setLiferayService(ctx.liferay);
   ctx.prompt = new PromptService(ctx);
-  ctx.health = new HealthService({ config: ctx.config, logger });
+  ctx.health = new HealthService({
+    config: ctx.config,
+    persistence: ctx.persistence,
+    logger,
+  });
   ctx.ai = new AIService({
     config: ctx.config,
     logger,

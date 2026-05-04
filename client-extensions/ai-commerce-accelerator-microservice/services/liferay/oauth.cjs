@@ -17,9 +17,12 @@ class OAuthService {
       lxcDXPMainDomain && lxcDXPServerProtocol
         ? `${lxcDXPServerProtocol}://${lxcDXPMainDomain}`
         : ENV.LIFERAY_API_URL;
-    this.tokenEndpoint = uri
-      ? `${this.liferayUrl}${uri}`
-      : `${this.liferayUrl}/o/oauth2/token`;
+    this.tokenEndpoint =
+      this.liferayUrl && this.liferayUrl.trim()
+        ? uri
+          ? `${this.liferayUrl}${uri}`
+          : `${this.liferayUrl}/o/oauth2/token`
+        : null;
     this.pendingTokenPromises = new Map();
 
     this.settings = {

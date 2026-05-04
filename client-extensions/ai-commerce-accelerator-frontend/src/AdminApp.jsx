@@ -8,11 +8,12 @@ import ClayLabel from '@clayui/label';
 import { useApp, useApi, AppProvider } from './context/AppContext';
 import notifyUser from './utils/notifications';
 import { buildFilename, exportJsonFile } from './utils/fileHelper';
-
-const SESSION_LIST_PATH = '/workflows/sessions';
-const SESSION_KPIS_PATH = '/workflows/kpis';
-const CONFIG_HEALTH_PATH = '/config/health';
-const EXPORT_PATH = '/export-commerce-data';
+import {
+  WORKFLOW_SESSIONS,
+  WORKFLOW_KPIS,
+  CONFIG_HEALTH,
+  EXPORT_COMMERCE_DATA,
+} from './utils/microservicePaths';
 
 function AdminUI() {
   const { config } = useApp();
@@ -35,9 +36,9 @@ function AdminUI() {
     setConnectionError(null);
     try {
       const [sessionsRes, kpisRes, healthRes] = await Promise.all([
-        api.get(SESSION_LIST_PATH),
-        api.get(SESSION_KPIS_PATH),
-        api.get(CONFIG_HEALTH_PATH),
+        api.get(WORKFLOW_SESSIONS),
+        api.get(WORKFLOW_KPIS),
+        api.get(CONFIG_HEALTH),
       ]);
 
       if (sessionsRes?.success) setSessions(sessionsRes.sessions || []);
@@ -58,12 +59,14 @@ function AdminUI() {
   }, [api, config.microserviceUrl]);
 
   useEffect(() => {
-    fetchData();
+    Promise.resolve().then(() => fetchData());
   }, [fetchData]);
 
   const handleExport = async (sessionId, name) => {
     try {
-      const res = await api.get(`${EXPORT_PATH}?sessionId=${sessionId}`);
+      const res = await api.get(
+        `${EXPORT_COMMERCE_DATA}?sessionId=${sessionId}`
+      );
       const filename = buildFilename(`aica-dataset-${name || sessionId}`);
       exportJsonFile(res, filename);
       notifyUser('Dataset exported successfully');

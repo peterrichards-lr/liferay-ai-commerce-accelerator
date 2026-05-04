@@ -6,14 +6,17 @@ export function createApiClient({
   getCorrelationId,
   onCorrelationIdUpdate,
 }) {
-  const base = (baseUrl || '').replace(/\/+$/, '');
+  const base = (typeof baseUrl === 'string' ? baseUrl : '').replace(/\/+$/, '');
 
   function toUrl(path) {
     if (/^https?:\/\//i.test(path)) return path;
-    if (!base)
-      throw new Error(
-        '[apiClient] Base URL is empty and path is relative: ' + path
-      );
+    if (!base) {
+      const msg = `[apiClient] Cannot construct URL for relative path "${path}". Base URL is ${
+        baseUrl === undefined ? 'undefined' : `"${baseUrl}"`
+      }.`;
+      console.warn(msg);
+      throw new Error(msg);
+    }
     return `${base}${path.startsWith('/') ? '' : '/'}${path}`;
   }
 

@@ -175,7 +175,6 @@ function AppUI() {
     channels,
     categories: fetchCategories,
     selectChannel,
-    selectCatalog,
     testConnection,
     handleDeleteAllCommerceData,
     handleDeleteSelectedCommerceData,

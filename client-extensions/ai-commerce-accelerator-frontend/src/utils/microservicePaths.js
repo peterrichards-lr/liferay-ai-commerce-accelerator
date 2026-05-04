@@ -18,12 +18,15 @@ const AI_MODEL_OPTIONS = `${CONFIG_PATH}/ai-model-options`;
 const AI_CONFIG = `${CONFIG_PATH}/ai`;
 const BATCH_SIZES = `${CONFIG_PATH}/batch-sizes`;
 const CONFIG_GENERATION_LIMITS = `${CONFIG_PATH}/generation-limits`;
+const CONFIG_HEALTH = `${CONFIG_PATH}/health`;
 const GET_CATEGORIES = `${CONFIG_PATH}/categories`;
 
 const WORKFLOW = 'workflow';
 const GENERATE_WORKFLOW = `${GENERATE_PATH}/${WORKFLOW}`;
 
 const WORKFLOW_SESSIONS = `${BASE_PATH}/workflows/sessions`;
+const COMPLETED_WORKFLOW_SESSIONS = `${BASE_PATH}/workflows/sessions/completed`;
+const WORKFLOW_KPIS = `${BASE_PATH}/workflows/kpis`;
 const WORKFLOW_BATCHES = `${BASE_PATH}/workflows/batches/:sessionId`;
 const WORKFLOW_STATUS = `${BASE_PATH}/workflows/sessions/:sessionId/status`;
 
@@ -42,8 +45,11 @@ export {
   AI_CONFIG,
   BATCH_SIZES,
   CONFIG_GENERATION_LIMITS,
+  CONFIG_HEALTH,
   GENERATE_WORKFLOW,
   WORKFLOW_SESSIONS,
+  COMPLETED_WORKFLOW_SESSIONS,
+  WORKFLOW_KPIS,
   WORKFLOW_BATCHES,
   WORKFLOW_STATUS,
 };

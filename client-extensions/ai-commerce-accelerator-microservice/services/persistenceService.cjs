@@ -530,6 +530,19 @@ class PersistenceService {
     this.cache.clear();
   }
 
+  ping() {
+    if (!this.db) return false;
+    try {
+      this.db.prepare('SELECT 1').get();
+      return true;
+    } catch (err) {
+      this.logger?.error(
+        `[PersistenceService] Database ping failed: ${err.message}`
+      );
+      return false;
+    }
+  }
+
   close() {
     if (this.db) {
       this.db.close();

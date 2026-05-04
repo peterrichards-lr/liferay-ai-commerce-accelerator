@@ -9,6 +9,13 @@ const ENTITY_CONFIGS = [
   { id: 'product', title: 'Product Schema', configKey: 'ai-schema-product' },
   { id: 'account', title: 'Account Schema', configKey: 'ai-schema-account' },
   { id: 'order', title: 'Order Schema', configKey: 'ai-schema-order' },
+  { id: 'pdf', title: 'PDF Schema', configKey: 'ai-schema-pdf' },
+  { id: 'pricing', title: 'Pricing Schema', configKey: 'ai-schema-pricing' },
+  {
+    id: 'warehouse',
+    title: 'Warehouse Schema',
+    configKey: 'ai-schema-warehouse',
+  },
 ];
 
 const { keys, defaults } = ENTITY_CONFIGS.reduce(

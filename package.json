@@ -40,6 +40,7 @@
         "@tootallnate/once": "^3.0.1"
     },
     "optionalDependencies": {
+        "@rollup/rollup-darwin-arm64": "4.1.5",
         "@rollup/rollup-darwin-x64": "4.1.5",
         "@rollup/rollup-linux-x64-gnu": "4.1.5"
     },
@@ -57,24 +58,28 @@
             "prettier --write --config client-extensions/ai-commerce-accelerator-microservice/.prettierrc"
         ],
         "client-extensions/ai-commerce-accelerator-microservice/**/*.{json,md}": [
-            "prettier --write --config client-extensions/ai-commerce-accelerator-microservice/.prettierrc"
+            "prettier --write --config client-extensions/ai-commerce-accelerator-microservice/.prettierrc",
+            "markdownlint"
         ],
         "client-extensions/ai-commerce-accelerator-configuration/**/*.{js,jsx}": [
             "eslint --fix --config client-extensions/ai-commerce-accelerator-configuration/eslint.config.js",
             "prettier --write --config client-extensions/ai-commerce-accelerator-configuration/.prettierrc"
         ],
         "client-extensions/ai-commerce-accelerator-configuration/**/*.{json,md}": [
-            "prettier --write --config client-extensions/ai-commerce-accelerator-configuration/.prettierrc"
+            "prettier --write --config client-extensions/ai-commerce-accelerator-configuration/.prettierrc",
+            "markdownlint"
         ],
         "client-extensions/ai-commerce-accelerator-frontend/**/*.{js,jsx}": [
             "eslint --fix --config client-extensions/ai-commerce-accelerator-frontend/eslint.config.js",
             "prettier --write --config client-extensions/ai-commerce-accelerator-frontend/.prettierrc"
         ],
         "client-extensions/ai-commerce-accelerator-frontend/**/*.{json,md}": [
-            "prettier --write --config client-extensions/ai-commerce-accelerator-frontend/.prettierrc"
+            "prettier --write --config client-extensions/ai-commerce-accelerator-frontend/.prettierrc",
+            "markdownlint"
         ],
         "*.{js,json,md}": [
-            "prettier --write"
+            "prettier --write",
+            "markdownlint"
         ]
     },
     "dependencies": {

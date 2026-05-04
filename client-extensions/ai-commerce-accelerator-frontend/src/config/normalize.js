@@ -1,5 +1,12 @@
 export const normalizeConfig = (config) => {
-  const normalized = { ...config };
+  const filtered = Object.entries(config).reduce((acc, [key, value]) => {
+    if (value !== null && value !== undefined && value !== '') {
+      acc[key] = value;
+    }
+    return acc;
+  }, {});
+
+  const normalized = { ...filtered };
 
   if (normalized.batchSize) normalized.batchSize = Number(normalized.batchSize);
   if (normalized.catalogId) normalized.catalogId = Number(normalized.catalogId);
