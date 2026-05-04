@@ -268,13 +268,15 @@ const gracefulShutdown = async (signal) => {
         const result = await liferayService.testConnection(req.body);
 
         const aiConfig = await configService.getAIConfig(req.body);
-        const mediaProvider = (aiConfig?.mediaProvider || 'INHERIT').toUpperCase();
+        const mediaProvider = (
+          aiConfig?.mediaProvider || 'INHERIT'
+        ).toUpperCase();
 
         let aiTextKeyAvailable = false;
         try {
           await configService.getAIKey(req.body);
           aiTextKeyAvailable = true;
-        } catch (error) {
+        } catch (_error) {
           aiTextKeyAvailable = false;
         }
 
@@ -282,11 +284,14 @@ const gracefulShutdown = async (signal) => {
         try {
           await configService.getAIMediaKey(req.body);
           aiMediaKeyAvailable = true;
-        } catch (error) {
+        } catch (_error) {
           aiMediaKeyAvailable = false;
         }
 
-        const isMediaHealthy = mediaProvider === 'INHERIT' ? aiTextKeyAvailable : aiMediaKeyAvailable;
+        const isMediaHealthy =
+          mediaProvider === 'INHERIT'
+            ? aiTextKeyAvailable
+            : aiMediaKeyAvailable;
         const aiKeyAvailable = aiTextKeyAvailable && isMediaHealthy;
 
         const aiKeyMessage = aiKeyAvailable

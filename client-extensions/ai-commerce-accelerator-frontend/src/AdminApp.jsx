@@ -13,9 +13,18 @@ import {
   WORKFLOW_SESSIONS,
   WORKFLOW_KPIS,
   CONFIG_HEALTH,
+  HEALTH,
   EXPORT_COMMERCE_DATA,
   WORKFLOW_CLEAR_ALL,
 } from './utils/microservicePaths';
+
+const formatUptime = (seconds) => {
+  const d = Math.floor(seconds / (3600 * 24));
+  const h = Math.floor((seconds % (3600 * 24)) / 3600);
+  const m = Math.floor((seconds % 3600) / 60);
+  const s = seconds % 60;
+  return `${d}d ${h}h ${m}m ${s}s`.replace(/^(0d\s|0h\s|0m\s)*/, '');
+};
 
 function AdminUI() {
   const { config } = useApp();
@@ -25,6 +34,7 @@ function AdminUI() {
   const [sessions, setSessions] = useState([]);
   const [kpis, setKpis] = useState(null);
   const [health, setHealth] = useState(null);
+  const [systemInfo, setSystemInfo] = useState(null);
   const [loading, setLoading] = useState(true);
   const [purging, setPurging] = useState(false);
   const [connectionEstablished, setConnectionEstablished] = useState(false);
@@ -43,15 +53,17 @@ function AdminUI() {
     setLoading(true);
     setConnectionError(null);
     try {
-      const [sessionsRes, kpisRes, healthRes] = await Promise.all([
+      const [sessionsRes, kpisRes, healthRes, systemRes] = await Promise.all([
         api.get(WORKFLOW_SESSIONS),
         api.get(WORKFLOW_KPIS),
         api.get(CONFIG_HEALTH),
+        api.get(HEALTH),
       ]);
 
       if (sessionsRes?.success) setSessions(sessionsRes.sessions || []);
       if (kpisRes?.success) setKpis(kpisRes.kpis);
       if (healthRes?.success) setHealth(healthRes.health);
+      if (systemRes?.service) setSystemInfo(systemRes);
 
       setConnectionEstablished(true);
     } catch (err) {
@@ -134,7 +146,7 @@ function AdminUI() {
 
   useEffect(() => {
     // Reset to first page when filters change
-    setCurrentPage(1);
+    Promise.resolve().then(() => setCurrentPage(1));
   }, [filters, pageSize]);
 
   const requestSort = (key) => {
@@ -271,6 +283,43 @@ function AdminUI() {
           />
         </ClayLayout.Col>
       </ClayLayout.Row>
+
+      {systemInfo && (
+        <ClayLayout.Row className="mb-4">
+          <ClayLayout.Col lg={3} md={6}>
+            <div className="small text-secondary font-weight-bold mb-1">
+              UPTIME
+            </div>
+            <div className="font-weight-semi-bold">
+              {formatUptime(systemInfo.uptime)}
+            </div>
+          </ClayLayout.Col>
+          <ClayLayout.Col lg={3} md={6}>
+            <div className="small text-secondary font-weight-bold mb-1">
+              MEMORY
+            </div>
+            <div className="font-weight-semi-bold">
+              {systemInfo.memory.used}MB / {systemInfo.memory.total}MB
+            </div>
+          </ClayLayout.Col>
+          <ClayLayout.Col lg={3} md={6}>
+            <div className="small text-secondary font-weight-bold mb-1">
+              PLATFORM
+            </div>
+            <div className="font-weight-semi-bold">
+              {systemInfo.node.platform} ({systemInfo.node.arch})
+            </div>
+          </ClayLayout.Col>
+          <ClayLayout.Col lg={3} md={6}>
+            <div className="small text-secondary font-weight-bold mb-1">
+              ENVIRONMENT
+            </div>
+            <div className="font-weight-semi-bold text-uppercase">
+              {systemInfo.environment || 'production'}
+            </div>
+          </ClayLayout.Col>
+        </ClayLayout.Row>
+      )}
 
       <ClayLayout.Row>
         {/* DOCTOR / TROUBLESHOOTING */}
@@ -512,11 +561,14 @@ function ConfigurationDoctor({ health, liferayUrl }) {
           <HealthItem
             title="AI Media"
             status={
-              health.aiMedia.status === 'CONFIGURED' ? 'success' : 'danger'
+              health.aiMedia.status === 'CONFIGURED' ||
+              health.aiMedia.status === 'INHERITED'
+                ? 'success'
+                : 'danger'
             }
             message={
-              health.aiMedia.provider === 'INHERIT'
-                ? 'Inheriting from Core AI'
+              health.aiMedia.status === 'INHERITED'
+                ? `Inheriting from Core AI (${health.aiText.provider})`
                 : `${health.aiMedia.provider} provider active`
             }
           />

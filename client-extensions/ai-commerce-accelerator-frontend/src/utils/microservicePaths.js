@@ -19,6 +19,7 @@ const AI_CONFIG = `${CONFIG_PATH}/ai`;
 const BATCH_SIZES = `${CONFIG_PATH}/batch-sizes`;
 const CONFIG_GENERATION_LIMITS = `${CONFIG_PATH}/generation-limits`;
 const CONFIG_HEALTH = `${CONFIG_PATH}/health`;
+const HEALTH = `${BASE_PATH}/health`;
 const GET_CATEGORIES = `${CONFIG_PATH}/categories`;
 
 const WORKFLOW = 'workflow';
@@ -47,6 +48,7 @@ export {
   BATCH_SIZES,
   CONFIG_GENERATION_LIMITS,
   CONFIG_HEALTH,
+  HEALTH,
   GENERATE_WORKFLOW,
   WORKFLOW_SESSIONS,
   COMPLETED_WORKFLOW_SESSIONS,

@@ -50,6 +50,8 @@ const initialGenerationConfig = {
   generatePriceLists: true,
   generateBulkPricing: true,
   generateTierPricing: true,
+  generateSpecifications: true,
+  generateSkuVariants: true,
   imageMode: 'placeholder',
   imageRatio: 100,
   imageStyle: 'photographic',
@@ -163,6 +165,7 @@ function AppUI() {
   }, []);
 
   const { ping, wsConnected, reconnect } = useRealtimeWebSocket({
+    enabled: connectionEstablished,
     microserviceUrl: config.microserviceUrl,
     loggingLevel: config?.wsLoggingLevel ?? 'off',
     onLog: addLog,
@@ -174,6 +177,8 @@ function AppUI() {
   const {
     catalogs,
     channels,
+    languages,
+    currencies,
     categories: fetchCategories,
     selectChannel,
     selectCatalog,
@@ -508,6 +513,8 @@ function AppUI() {
                     connected={connectionEstablished}
                     catalogs={catalogs}
                     channels={channels}
+                    languages={languages}
+                    currencies={currencies}
                     onSelectChannel={selectChannel}
                     onSelectCatalog={selectCatalog}
                     connectionErrors={connectionErrors}

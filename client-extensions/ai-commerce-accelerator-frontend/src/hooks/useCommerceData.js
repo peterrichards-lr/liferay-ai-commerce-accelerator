@@ -16,7 +16,7 @@ export default function useCommerceData({
   setAiKeyAvailable,
   setAiMediaKeyAvailable,
   setConnectionErrors,
-  ping,
+  _ping,
 }) {
   const { config, setConfig, getLanguages, getCurrencies } = useApp();
   const api = useApi();
@@ -148,10 +148,14 @@ export default function useCommerceData({
 
       const langs = Array.isArray(langsRes?.languages)
         ? langsRes.languages
-        : [];
+        : Array.isArray(langsRes)
+          ? langsRes
+          : [];
       const currs = Array.isArray(currsRes?.currencies)
         ? currsRes.currencies
-        : [];
+        : Array.isArray(currsRes)
+          ? currsRes
+          : [];
 
       setLanguages(langs);
       setCurrencies(currs);

@@ -123,6 +123,9 @@ export function AppProvider({
       return fetchWithCache(key, () => api.post(GET_CURRENCIES, payload), {
         ttlMs: 60 * 60_000,
         force,
+      }).catch((err) => {
+        console.warn('Failed to fetch currencies, returning empty array:', err);
+        return [];
       });
     },
     [api, config.microserviceUrl, config.liferayUrl]

@@ -130,25 +130,39 @@ function SystemStatus({
   mediaKeyAvailable,
   onReconnect,
 }) {
-  return (
-    <ClayCard className="mb-3">
-      <style>{statusStyles}</style>
-      <ClayCard.Body>
-        <ClayCard.Description displayType="title" className="mb-3">
-          System Connectivity
-        </ClayCard.Description>
+  const isMediaInherit = mediaProvider?.toUpperCase() === 'INHERIT';
+  const displayMediaProvider = isMediaInherit
+    ? `SAME AS CORE (${textProvider?.toUpperCase() || 'OPENAI'})`
+    : mediaProvider?.toUpperCase() || 'OPENAI';
 
-        <div className="status-list">
+  return (
+    <ClayCard className="mb-3 shadow-sm border-0">
+      <style>{statusStyles}</style>
+      <ClayCard.Body className="p-4">
+        <h4 className="mb-4 font-weight-bold" style={{ fontSize: '1.1rem' }}>
+          System Status
+        </h4>
+
+        <div
+          className="status-list d-flex flex-column"
+          style={{ gap: '0.5rem' }}
+        >
           <StatusItem
-            icon="globe"
-            status={liferayStatus ? 'connected' : 'unknown'}
+            icon="liferay-logo"
+            status={liferayStatus ? 'connected' : 'error'}
+            details={liferayStatus ? 'Session established' : 'No connection'}
             title="Liferay DXP"
           />
 
           <StatusItem
             isLiveMonitor
             onClick={onReconnect}
-            status={wsStatus}
+            status={wsStatus === 'connected' ? 'active' : 'waiting'}
+            details={
+              wsStatus === 'connected'
+                ? 'Real-time updates active'
+                : 'Polling fallback active'
+            }
             title="Live Monitor"
           />
 
@@ -156,21 +170,15 @@ function SystemStatus({
             details={`${textProvider?.toUpperCase() || 'OPENAI'} / ${textModel || 'gpt-4o'}`}
             icon="magic"
             status={liferayStatus && textKeyAvailable ? 'active' : 'waiting'}
-            title="AI Text"
+            title="AI Text (Core)"
           />
 
           <StatusItem
-            details={
-              mediaProvider?.toUpperCase() === 'INHERIT'
-                ? `SAME AS CORE (${textProvider?.toUpperCase() || 'OPENAI'})`
-                : mediaProvider?.toUpperCase() || 'OPENAI'
-            }
+            details={displayMediaProvider}
             icon="picture"
             status={
               liferayStatus &&
-              (mediaProvider?.toUpperCase() === 'INHERIT'
-                ? textKeyAvailable
-                : mediaKeyAvailable)
+              (isMediaInherit ? textKeyAvailable : mediaKeyAvailable)
                 ? 'active'
                 : 'waiting'
             }

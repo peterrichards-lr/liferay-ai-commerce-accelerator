@@ -76,23 +76,54 @@ class HealthService {
     const { config } = this.ctx;
     const start = Date.now();
     try {
-      const apiKey = await config.getAIKeyCached();
-      const responseTime = Date.now() - start;
+      const aiConfig = await config.getAIConfigCached();
+      const textProvider = (aiConfig?.provider || 'OPENAI').toUpperCase();
+      const mediaProvider = (
+        aiConfig?.mediaProvider || 'INHERIT'
+      ).toUpperCase();
 
-      if (!apiKey) {
-        return {
-          status: 'healthy',
-          message: 'AI credentials not configured',
-          responseTime,
-          name: 'ai',
-          timestamp: new Date().toISOString(),
-        };
+      let textKey = null;
+      try {
+        textKey = await config.getAIKeyCached();
+      } catch (_e) {
+        // Ignore key retrieval errors for status check
       }
 
+      let mediaKey = null;
+      try {
+        mediaKey = await config.getAIMediaKeyCached();
+      } catch (_e) {
+        // Ignore key retrieval errors for status check
+      }
+
+      const responseTime = Date.now() - start;
+
+      const textStatus = textKey ? 'CONFIGURED' : 'MISSING';
+      let mediaStatus = mediaKey ? 'CONFIGURED' : 'MISSING';
+
+      if (mediaProvider === 'INHERIT') {
+        mediaStatus = textKey ? 'INHERITED' : 'MISSING';
+      }
+
+      const isHealthy =
+        textKey && (mediaProvider === 'INHERIT' ? textKey : mediaKey);
+
       return {
-        status: 'healthy',
-        message: 'AI credentials configured',
+        status: isHealthy ? 'healthy' : 'degraded',
+        message: isHealthy
+          ? 'AI services configured'
+          : 'AI credentials missing',
         responseTime,
+        details: {
+          text: {
+            provider: textProvider,
+            status: textStatus,
+          },
+          media: {
+            provider: mediaProvider,
+            status: mediaStatus,
+          },
+        },
         name: 'ai',
         timestamp: new Date().toISOString(),
       };

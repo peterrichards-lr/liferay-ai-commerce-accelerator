@@ -8,6 +8,11 @@ describe('HealthService', () => {
     mockCtx = {
       config: {
         getAIKeyCached: vi.fn().mockResolvedValue('test-api-key'),
+        getAIMediaKeyCached: vi.fn().mockResolvedValue('test-media-key'),
+        getAIConfigCached: vi.fn().mockResolvedValue({
+          provider: 'openai',
+          mediaProvider: 'inherit',
+        }),
       },
       persistence: {
         ping: vi.fn().mockReturnValue(true),

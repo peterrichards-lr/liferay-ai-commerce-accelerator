@@ -112,10 +112,18 @@ export default function CommerceCard({
               }}
             >
               {catalogs.length === 0 ? (
-                <ClaySelect.Option value="" label="No catalogs found" />
+                <ClaySelect.Option
+                  key="no-catalogs"
+                  value=""
+                  label="No catalogs found"
+                />
               ) : (
                 <>
-                  <ClaySelect.Option value="" label="Select a catalog…" />
+                  <ClaySelect.Option
+                    key="select-catalog"
+                    value=""
+                    label="Select a catalog…"
+                  />
                   {catalogs.map((c) => (
                     <ClaySelect.Option key={c.id} value={c.id} label={c.name} />
                   ))}
@@ -174,7 +182,49 @@ export default function CommerceCard({
           </ClayForm.Group>
 
           <div className="row mt-4">
-            <div className="col-md-6 mb-3">
+            <div className="col-12 mb-4">
+              <ClayForm.Group className="mb-0">
+                <label
+                  htmlFor="currencyCode"
+                  className="form-label font-weight-semi-bold"
+                >
+                  Currency
+                </label>
+                <ClaySelect
+                  id="currencyCode"
+                  aria-label="Currency"
+                  value={config.currencyCode || ''}
+                  onChange={(e) => setConfig({ currencyCode: e.target.value })}
+                  disabled={disabled || !config.channelId}
+                >
+                  {currencies.length === 0 ? (
+                    <ClaySelect.Option
+                      key="no-currencies"
+                      value=""
+                      label="No currencies found"
+                    />
+                  ) : (
+                    <>
+                      <ClaySelect.Option
+                        key="select-currency"
+                        value=""
+                        label="Select a currency…"
+                      />
+                      {currencies.map((c) => (
+                        <ClaySelect.Option
+                          key={c.code}
+                          value={c.code}
+                          label={`${c.name} (${c.code})`}
+                        />
+                      ))}
+                    </>
+                  )}
+                </ClaySelect>
+                <FieldError errors={errors.currencyCode} />
+              </ClayForm.Group>
+            </div>
+
+            <div className="col-12 mb-3">
               <label className="form-label font-weight-semi-bold">
                 Languages
               </label>
@@ -218,33 +268,6 @@ export default function CommerceCard({
                   </small>
                 )}
               <FieldError errors={errors.selectedLanguages} />
-            </div>
-
-            <div className="col-md-6">
-              <ClayForm.Group className="mb-0">
-                <label
-                  htmlFor="currencyCode"
-                  className="form-label font-weight-semi-bold"
-                >
-                  Currency
-                </label>
-                <ClaySelect
-                  id="currencyCode"
-                  aria-label="Currency"
-                  value={config.currencyCode || ''}
-                  onChange={(e) => setConfig({ currencyCode: e.target.value })}
-                  disabled={disabled || !config.channelId}
-                >
-                  {currencies.map((c) => (
-                    <ClaySelect.Option
-                      key={c.code}
-                      value={c.code}
-                      label={c.name}
-                    />
-                  ))}
-                </ClaySelect>
-                <FieldError errors={errors.currencyCode} />
-              </ClayForm.Group>
             </div>
           </div>
         </>

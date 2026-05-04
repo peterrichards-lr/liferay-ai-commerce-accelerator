@@ -1372,10 +1372,27 @@ class LiferayRestService {
   async getCurrencies(config) {
     const data = await this._get(config, PATH.CURRENCIES, 'get-currencies');
     const items = asItems(data);
-    return items.map((currency) => ({
-      code: currency.code,
-      name: currency.name?.[config.languageId],
-    }));
+    const lang = config.languageId || 'en_US';
+
+    return items.map((currency) => {
+      let name = currency.name?.[lang];
+
+      if (!name && currency.name) {
+        // Fallback to en_US
+        name = currency.name['en_US'];
+      }
+
+      if (!name && currency.name && typeof currency.name === 'object') {
+        // Fallback to first available translation
+        const values = Object.values(currency.name);
+        if (values.length > 0) name = values[0];
+      }
+
+      return {
+        code: currency.code,
+        name: name || currency.code,
+      };
+    });
   }
 
   async getProductById(config, productId) {

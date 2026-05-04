@@ -1,9 +1,4 @@
-import React, {
-  createContext,
-  useState,
-  useCallback,
-  useContext,
-} from 'react';
+import React, { createContext, useState, useCallback, useContext } from 'react';
 import ClayModal, { useModal } from '@clayui/modal';
 import ClayButton from '@clayui/button';
 
@@ -55,7 +50,7 @@ function ConfirmDialog({
   destructive,
   onClose,
 }) {
-  const { observer, onClose: handleModalClose } = useModal({
+  const { observer } = useModal({
     onClose: () => onClose(false),
   });
 
