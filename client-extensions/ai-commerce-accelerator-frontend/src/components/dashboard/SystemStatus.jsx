@@ -161,14 +161,14 @@ function SystemStatus({
 
           <StatusItem
             details={
-              mediaProvider === 'inherit'
+              mediaProvider?.toUpperCase() === 'INHERIT'
                 ? `SAME AS CORE (${textProvider?.toUpperCase() || 'OPENAI'})`
                 : mediaProvider?.toUpperCase() || 'OPENAI'
             }
             icon="picture"
             status={
               liferayStatus &&
-              (mediaProvider === 'inherit'
+              (mediaProvider?.toUpperCase() === 'INHERIT'
                 ? textKeyAvailable
                 : mediaKeyAvailable)
                 ? 'active'

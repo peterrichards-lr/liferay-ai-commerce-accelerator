@@ -10,6 +10,7 @@ export default function useAppConfigIO({
   connectionEstablished,
   setConnectionEstablished,
   setOpenAiKeyAvailable,
+  setAiMediaKeyAvailable,
   availableCategories,
   mountedRef,
   selectChannel,
@@ -174,6 +175,7 @@ export default function useAppConfigIO({
           if (connectionParamsWillChange) {
             if (mountedRef.current) setConnectionEstablished(false);
             if (mountedRef.current) setOpenAiKeyAvailable(false);
+            if (mountedRef.current) setAiMediaKeyAvailable(false);
 
             notifyUser(
               'Configuration imported successfully. Please test connection with new parameters.'
@@ -207,6 +209,7 @@ export default function useAppConfigIO({
       selectChannel,
       setConnectionEstablished,
       setOpenAiKeyAvailable,
+      setAiMediaKeyAvailable,
     ]
   );
 

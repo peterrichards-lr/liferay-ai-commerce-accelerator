@@ -74,6 +74,8 @@ function Dashboard({
   _batchErrors,
   onReconnect,
   connected,
+  aiKeyAvailable,
+  aiMediaKeyAvailable,
   aiConfig,
 }) {
   const { total, completed } = getTotalProgress(progress);
@@ -110,11 +112,11 @@ function Dashboard({
       <SystemStatus
         liferayStatus={connected}
         wsStatus={wsStatus}
-        textProvider={aiConfig?.ai?.provider || 'openai'}
-        mediaProvider={aiConfig?.ai?.mediaProvider || 'inherit'}
-        textModel={aiConfig?.ai?.defaultModel || 'gpt-4o'}
-        textKeyAvailable={!!aiConfig?.keyAvailable}
-        mediaKeyAvailable={!!aiConfig?.mediaKeyAvailable}
+        textProvider={aiConfig?.provider || 'OPENAI'}
+        mediaProvider={aiConfig?.mediaProvider || 'INHERIT'}
+        textModel={aiConfig?.defaultModel || 'gpt-4o'}
+        textKeyAvailable={aiKeyAvailable}
+        mediaKeyAvailable={aiMediaKeyAvailable}
         onReconnect={onReconnect}
       />
 

@@ -267,35 +267,50 @@ const gracefulShutdown = async (signal) => {
 
         const result = await liferayService.testConnection(req.body);
 
-        let aiKeyAvailable = false;
+        const aiConfig = await configService.getAIConfig(req.body);
+        const mediaProvider = (aiConfig?.mediaProvider || 'INHERIT').toUpperCase();
+
+        let aiTextKeyAvailable = false;
         try {
           await configService.getAIKey(req.body);
-          aiKeyAvailable = true;
+          aiTextKeyAvailable = true;
         } catch (error) {
-          aiKeyAvailable = false;
-          logger.debug('AI key check failed', {
-            correlationId,
-            operation: 'ai-key-check',
-            error: error.message,
-          });
+          aiTextKeyAvailable = false;
         }
 
+        let aiMediaKeyAvailable = false;
+        try {
+          await configService.getAIMediaKey(req.body);
+          aiMediaKeyAvailable = true;
+        } catch (error) {
+          aiMediaKeyAvailable = false;
+        }
+
+        const isMediaHealthy = mediaProvider === 'INHERIT' ? aiTextKeyAvailable : aiMediaKeyAvailable;
+        const aiKeyAvailable = aiTextKeyAvailable && isMediaHealthy;
+
         const aiKeyMessage = aiKeyAvailable
-          ? 'AI API key is configured and ready for generation.'
-          : 'AI API key not found. Only demo mode will be available.';
+          ? 'AI services are configured and ready for generation.'
+          : !aiTextKeyAvailable
+            ? 'Core AI API key not found. Generation will be disabled.'
+            : 'Media AI API key not found. Media generation will be disabled.';
 
         logger.info('Connection test successful', {
           correlationId,
           operation: 'test-connection',
-          aiKeyAvailable,
+          aiTextKeyAvailable,
+          aiMediaKeyAvailable,
+          isMediaHealthy,
           message: result.message,
         });
 
         res.json({
           success: true,
           message: result.message,
-          openAiKeyAvailable: aiKeyAvailable, // Keep backward compatibility for frontend field
+          openAiKeyAvailable: aiTextKeyAvailable, // Legacy field
           aiKeyAvailable,
+          aiTextKeyAvailable,
+          aiMediaKeyAvailable: isMediaHealthy,
           aiKeyMessage,
         });
       } catch (error) {

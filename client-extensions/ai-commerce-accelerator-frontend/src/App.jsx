@@ -85,6 +85,7 @@ function AppUI() {
 
   const [connectionEstablished, setConnectionEstablished] = useState(false);
   const [aiKeyAvailable, setAiKeyAvailable] = useState(false);
+  const [aiMediaKeyAvailable, setAiMediaKeyAvailable] = useState(false);
   const [batchErrors, setBatchErrors] = useState([]);
   const [showSessionSelector, setShowSessionSelector] = useState(false);
   const [batchSizes, setBatchSizes] = useState([1, 10, 25, 50]); // Default values
@@ -183,6 +184,7 @@ function AppUI() {
     addLog,
     setConnectionEstablished,
     setAiKeyAvailable,
+    setAiMediaKeyAvailable,
     setConnectionErrors,
     ping,
   });
@@ -197,7 +199,8 @@ function AppUI() {
     api,
     config,
     dispatch,
-    forceDemoMode: connectionEstablished && !aiKeyAvailable,
+    forceDemoMode:
+      connectionEstablished && (!aiKeyAvailable || !aiMediaKeyAvailable),
     generationConfig,
     mountedRef,
     progress,
@@ -262,6 +265,7 @@ function AppUI() {
     connectionEstablished,
     setConnectionEstablished,
     setOpenAiKeyAvailable: setAiKeyAvailable,
+    setAiMediaKeyAvailable,
     availableCategories,
     mountedRef,
     selectChannel,
@@ -537,6 +541,7 @@ function AppUI() {
                 isGenerating={isGenerating}
                 progress={progress}
                 aiKeyAvailable={aiKeyAvailable}
+                aiMediaKeyAvailable={aiMediaKeyAvailable}
                 validationErrors={generationErrors}
                 scrollTargetRef={appTopRef}
                 availableCategories={availableCategories}
@@ -587,6 +592,8 @@ function AppUI() {
                 clearBatchErrors={clearBatchErrors}
                 onReconnect={reconnect}
                 connected={connectionEstablished}
+                aiKeyAvailable={aiKeyAvailable}
+                aiMediaKeyAvailable={aiMediaKeyAvailable}
                 aiConfig={aiConfig}
               />
             </div>

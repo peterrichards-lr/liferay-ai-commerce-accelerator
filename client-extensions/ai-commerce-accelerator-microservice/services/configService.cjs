@@ -693,10 +693,25 @@ class ConfigService {
         aiConfig?.mediaProvider || 'INHERIT'
       ).toUpperCase();
 
-      const textKey = await this.getAIKey(requestConfig);
+      let textKey = null;
+      try {
+        textKey = await this.getAIKey(requestConfig);
+      } catch (e) {
+        logger.debug('AI Text key check failed during health check', {
+          error: e.message,
+        });
+      }
       health.aiText.status = textKey ? 'CONFIGURED' : 'MISSING';
 
-      const mediaKey = await this.getAIMediaKey(requestConfig);
+      let mediaKey = null;
+      try {
+        mediaKey = await this.getAIMediaKey(requestConfig);
+      } catch (e) {
+        logger.debug('AI Media key check failed during health check', {
+          error: e.message,
+        });
+      }
+
       if (health.aiMedia.provider === 'INHERIT') {
         health.aiMedia.status = textKey ? 'CONFIGURED' : 'MISSING';
       } else {

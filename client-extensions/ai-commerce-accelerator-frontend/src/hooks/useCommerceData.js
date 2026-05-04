@@ -10,12 +10,13 @@ import {
   DELETE_COMMERCE_DATA,
   DELETE_SELECTED_COMMERCE_DATA,
 } from '../utils/microservicePaths';
-
 export default function useCommerceData({
   addLog,
   setConnectionEstablished,
   setAiKeyAvailable,
+  setAiMediaKeyAvailable,
   setConnectionErrors,
+  ping,
 }) {
   const { config, setConfig, getLanguages, getCurrencies } = useApp();
   const api = useApi();
@@ -103,12 +104,15 @@ export default function useCommerceData({
     if (!res?.success) {
       setConnectionEstablished(false);
       setAiKeyAvailable(false);
+      setAiMediaKeyAvailable && setAiMediaKeyAvailable(false);
       throw new Error(res?.message || 'Failed to establish connection.');
     }
 
     addLog(res.message || 'Connected.', 'success');
 
-    setAiKeyAvailable(Boolean(res.aiKeyAvailable));
+    setAiKeyAvailable(Boolean(res.aiTextKeyAvailable));
+    setAiMediaKeyAvailable &&
+      setAiMediaKeyAvailable(Boolean(res.aiMediaKeyAvailable));
 
     await loadRootLists();
     setConnectionEstablished(true);

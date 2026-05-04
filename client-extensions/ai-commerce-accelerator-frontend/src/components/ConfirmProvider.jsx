@@ -1,22 +1,16 @@
 import React, {
   createContext,
   useState,
-  useRef,
   useCallback,
   useContext,
-  useEffect,
 } from 'react';
-import { createPortal } from 'react-dom';
-import { useApp } from '../context/AppContext';
+import ClayModal, { useModal } from '@clayui/modal';
+import ClayButton from '@clayui/button';
 
 const ConfirmCtx = createContext(null);
 
 export function ConfirmProvider({ children }) {
   const [state, setState] = useState(null); // {title, message, confirmText, cancelText, destructive, resolve}
-  const dialogRef = useRef(null);
-  const okBtnRef = useRef(null);
-
-  const { getRoot } = useApp();
 
   const confirm = useCallback((options = {}) => {
     return new Promise((resolve) => {
@@ -31,96 +25,62 @@ export function ConfirmProvider({ children }) {
     });
   }, []);
 
-  useEffect(() => {
-    if (state && okBtnRef.current) {
-      const t = setTimeout(() => okBtnRef.current?.focus(), 0);
-      return () => clearTimeout(t);
-    }
-  }, [state]);
-
-  const close = useCallback(
-    (result) => {
-      state?.resolve(result);
-      setState(null);
-    },
-    [state]
-  );
-
-  useEffect(() => {
-    if (!state) return;
-    const onKeyDown = (e) => {
-      if (e.key === 'Escape') close(false);
-      if (e.key === 'Tab' && dialogRef.current) {
-        const focusables = dialogRef.current.querySelectorAll(
-          'button,[href],input,select,textarea,[tabindex]:not([tabindex="-1"])'
-        );
-        if (!focusables.length) return;
-        const first = focusables[0];
-        const last = focusables[focusables.length - 1];
-        const active = document.activeElement;
-        if (e.shiftKey && active === first) {
-          e.preventDefault();
-          last.focus();
-        } else if (!e.shiftKey && active === last) {
-          e.preventDefault();
-          first.focus();
-        }
-      }
-    };
-    document.addEventListener('keydown', onKeyDown);
-    return () => document.removeEventListener('keydown', onKeyDown);
-  }, [state, close]);
+  const handleClose = (result) => {
+    state?.resolve(result);
+    setState(null);
+  };
 
   return (
     <ConfirmCtx.Provider value={confirm}>
       {children}
-      {state &&
-        createPortal(
-          <div
-            className="confirm-dialog__backdrop"
-            aria-hidden="true"
-            onMouseDown={(e) => {
-              if (e.target === e.currentTarget) close(false);
-            }}
-          >
-            <div
-              className="confirm-dialog__dialog"
-              role="dialog"
-              aria-modal="true"
-              aria-labelledby="confirm-title"
-              aria-describedby="confirm-desc"
-              ref={dialogRef}
-            >
-              <h2 id="confirm-title" className="confirm-dialog__title">
-                {state.title}
-              </h2>
-              <p id="confirm-desc" className="confirm-dialog__message">
-                {state.message}
-              </p>
-              <div className="confirm-dialog__actions">
-                <button
-                  type="button"
-                  className="confirm-dialog__btn btn btn-secondary"
-                  onClick={() => close(false)}
-                >
-                  {state.cancelText}
-                </button>
-                <button
-                  type="button"
-                  ref={okBtnRef}
-                  className={`confirm-dialog__btn btn ${
-                    state.destructive ? 'btn-danger' : 'btn-primary'
-                  }`}
-                  onClick={() => close(true)}
-                >
-                  {state.confirmText}
-                </button>
-              </div>
-            </div>
-          </div>,
-          getRoot()
-        )}
+      {state && (
+        <ConfirmDialog
+          title={state.title}
+          message={state.message}
+          confirmText={state.confirmText}
+          cancelText={state.cancelText}
+          destructive={state.destructive}
+          onClose={handleClose}
+        />
+      )}
     </ConfirmCtx.Provider>
+  );
+}
+
+function ConfirmDialog({
+  title,
+  message,
+  confirmText,
+  cancelText,
+  destructive,
+  onClose,
+}) {
+  const { observer, onClose: handleModalClose } = useModal({
+    onClose: () => onClose(false),
+  });
+
+  return (
+    <ClayModal observer={observer} size="sm">
+      <ClayModal.Header>{title}</ClayModal.Header>
+      <ClayModal.Body>
+        <p>{message}</p>
+      </ClayModal.Body>
+      <ClayModal.Footer
+        last={
+          <div className="btn-group">
+            <ClayButton displayType="secondary" onClick={() => onClose(false)}>
+              {cancelText}
+            </ClayButton>
+            <ClayButton
+              displayType={destructive ? 'danger' : 'primary'}
+              onClick={() => onClose(true)}
+            >
+              {confirmText}
+            </ClayButton>
+          </div>
+        }
+      />
+    </ClayModal>
   );
 }
 
