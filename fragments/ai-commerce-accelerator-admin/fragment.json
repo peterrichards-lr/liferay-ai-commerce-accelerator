@@ -1,0 +1,9 @@
+{
+  "configurationPath": "configuration.json",
+  "cssPath": "fragment.css",
+  "htmlPath": "fragment.html",
+  "icon": "shield",
+  "jsPath": "fragment.js",
+  "name": "AI Commerce Accelerator Admin",
+  "type": "component"
+}

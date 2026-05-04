@@ -93,12 +93,25 @@ export const getKeyValue = async (
 
 export const persistConfigKey = async (key, value) => {
   const existingConfig = await getKeyObject(key, false, 'id,configStatus');
+
+  // Liferay Objects may have configValue as a required field.
+  // If we are trying to save an empty value for a non-existent key, skip it.
+  const isEmpty = !value || value === '' || value === '""' || value === 'null';
+
+  if (!existingConfig && isEmpty) {
+    return { skipped: true };
+  }
+
+  // If it's a PATCH and we want to "clear" it, we send an empty string
+  // but we must ensure it's at least an empty string and not null/undefined.
+  const safeValue = value ?? '';
+
   const options = {
     headers: DEFAULT_REQUEST_HEADERS,
     method: existingConfig != null ? 'PATCH' : 'POST',
     body: JSON.stringify({
       configKey: key,
-      configValue: value,
+      configValue: safeValue,
       configStatus: existingConfig?.configStatus || {
         key: 'Active',
         name: 'Active',

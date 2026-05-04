@@ -10,21 +10,20 @@ export default function CheckboxField({
   muted,
 }) {
   return (
-    <div className="checkbox-wrapper">
+    <label
+      className={`aica-checkbox-container ${muted ? 'muted' : ''} ${disabled ? 'disabled' : ''}`}
+      htmlFor={id}
+    >
       <input
-        className={`checkbox-input ${invalid ? 'invalid' : ''}`}
+        className="aica-checkbox-input"
         type="checkbox"
         id={id}
         checked={checked}
         onChange={(e) => onChange(e.target.checked)}
         disabled={disabled}
       />
-      <label
-        className={`checkbox-label ${muted ? 'muted' : ''} ${invalid ? 'error' : ''}`}
-        htmlFor={id}
-      >
-        {label}
-      </label>
-    </div>
+      <span className={`aica-checkmark ${invalid ? 'invalid' : ''}`}></span>
+      <span className="aica-label-text">{label}</span>
+    </label>
   );
 }

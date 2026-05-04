@@ -16,7 +16,7 @@
             "configStatus": {
                 "key": "Active"
             },
-            "configValue": "{\"maxProducts\":100,\"maxAccounts\":50,\"maxOrders\":200,\"defaultOrderDistribution\":{\"open\":5,\"processing\":5,\"shipped\":10,\"completed\":30}}",
+            "configValue": "{\"maxProducts\":10000,\"maxAccounts\":5000,\"maxOrders\":50000,\"defaultOrderDistribution\":{\"open\":10,\"processing\":10,\"shipped\":20,\"completed\":60}}",
             "description": "Generation Limits",
             "externalReferenceCode": "GENERATION-LIMITS"
         }

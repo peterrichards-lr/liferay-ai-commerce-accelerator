@@ -35,3 +35,4 @@ client-extensions/ai-commerce-accelerator-microservice/data/workflows.db*
 package-lock.json
 *.png
 *.xml
+*.heic

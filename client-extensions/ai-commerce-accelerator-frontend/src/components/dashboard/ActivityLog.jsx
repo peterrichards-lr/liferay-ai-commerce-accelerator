@@ -1,16 +1,9 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useRef } from 'react';
 import ClayIcon from '@clayui/icon';
 import ClayButton from '@clayui/button';
 
 function ActivityLog({ logs, onClearLogs, isGenerating }) {
   const logContainerRef = useRef(null);
-
-  // Auto-scroll to bottom when new logs arrive
-  useEffect(() => {
-    if (logContainerRef.current) {
-      logContainerRef.current.scrollTop = logContainerRef.current.scrollHeight;
-    }
-  }, [logs]);
 
   return (
     <div
@@ -54,7 +47,18 @@ function ActivityLog({ logs, onClearLogs, isGenerating }) {
           maxHeight: '400px',
         }}
       >
-        {logs.length === 0 ? (
+        {isGenerating && (
+          <div className="mb-3 text-info d-flex align-items-center">
+            <span
+              className="spinner-border spinner-border-sm mr-2"
+              role="status"
+              style={{ width: '1rem', height: '1rem', borderWidth: '0.15em' }}
+            ></span>
+            <span className="font-weight-bold">Processing...</span>
+          </div>
+        )}
+
+        {logs.length === 0 && !isGenerating ? (
           <div className="text-muted font-italic">Waiting for activity...</div>
         ) : (
           logs.map((log, index) => {
@@ -92,16 +96,6 @@ function ActivityLog({ logs, onClearLogs, isGenerating }) {
               </div>
             );
           })
-        )}
-        {isGenerating && (
-          <div className="mt-2 text-info">
-            <span
-              className="spinner-border spinner-border-sm mr-2"
-              role="status"
-              style={{ width: '1rem', height: '1rem', borderWidth: '0.15em' }}
-            ></span>
-            Processing...
-          </div>
         )}
       </div>
     </div>

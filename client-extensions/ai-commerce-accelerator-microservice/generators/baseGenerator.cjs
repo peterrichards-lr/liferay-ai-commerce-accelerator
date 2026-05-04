@@ -48,7 +48,7 @@ class BaseGenerator extends BaseWorkflowService {
       }
 
       // HARDENING: Throw fatal error instead of silently bypassing.
-      // This prevents \"Ghost Steps\" from causing downstream data corruption.
+      // This prevents "Ghost Steps" from causing downstream data corruption.
       throw new Error(
         `FATAL: No handler found for workflow step '${stepName}' in ${this.constructor.name}. Register it in the constructor steps map.`
       );
@@ -171,17 +171,18 @@ class BaseGenerator extends BaseWorkflowService {
     this.logger.debug(`Advancing workflow for session ${sessionId}...`);
 
     while (continueAdvancing) {
+      let currentCorrelationId = '∅';
       try {
         const session = await this.persistence.getSession(sessionId);
         if (
           !session ||
-          session.status === 'COMPLETED' ||
-          session.status === 'FAILED'
+          ['COMPLETED', 'FAILED', 'CANCELLED'].includes(session.status)
         ) {
           break;
         }
 
         const { correlationId, context } = session;
+        currentCorrelationId = correlationId;
         const workflowSteps = context.steps || [];
         const batches = await this.persistence.getBatchesForSession(sessionId);
 
@@ -396,6 +397,14 @@ class BaseGenerator extends BaseWorkflowService {
             stack: err.stack,
           }
         );
+
+        // Notify frontend of the failure so it doesn't hang in "Generating..." state
+        this.progress.sessionFailed({
+          sessionId,
+          error: err,
+          correlationId: currentCorrelationId,
+        });
+
         continueAdvancing = false;
       }
     }
@@ -404,13 +413,15 @@ class BaseGenerator extends BaseWorkflowService {
   async _finalizeSession(sessionId, correlationId) {
     const batches = await this.persistence.getBatchesForSession(sessionId);
 
-    const hasFailures = batches.some((b) => b.status === 'FAILED');
-    if (hasFailures) {
+    const failedBatch = batches.find((b) => b.status === 'FAILED');
+    if (failedBatch) {
       if (await this.persistence.tryFailSession(sessionId)) {
         this.progress.sessionFailed({
           sessionId,
           correlationId,
-          error: { message: 'Workflow failed.' },
+          error: {
+            message: `Workflow failed at step: ${failedBatch.step_key}`,
+          },
         });
       }
       return;

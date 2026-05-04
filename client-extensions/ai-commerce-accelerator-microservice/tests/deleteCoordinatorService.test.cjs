@@ -46,6 +46,7 @@ describe('DeleteCoordinatorService', () => {
         stepStarted: vi.fn(),
         stepProgress: vi.fn(),
         sessionCompleted: vi.fn(),
+        sessionFailed: vi.fn(),
       },
       batchCallback: {
         _checkSessionCompletion: vi.fn(),

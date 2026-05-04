@@ -7,3 +7,4 @@
 | reliability | Data Generation Reliability      | COMPLETED |
 | frontend    | Frontend - Testing & Evolution   | COMPLETED |
 | docs        | Documentation & System Map       | COMPLETED |
+| verification | End-to-End Verification         | IN_PROGRESS |

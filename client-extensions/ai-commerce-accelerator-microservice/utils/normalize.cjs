@@ -113,6 +113,7 @@ function buildConfigAndOptions(req) {
     productCount,
     reuseExistingWarehouses,
     selectedLanguages,
+    sessionName,
     siteGroupId,
     warehouseCount,
   } = req.body || {};
@@ -203,6 +204,7 @@ function buildConfigAndOptions(req) {
   logger.info('options before switch in buildConfigAndOptions:', options);
 
   options.productCount = toNumber(productCount);
+  options.sessionName = sessionName;
   options.categories = categories;
   options.generateBulkPricing = toBoolean(generateBulkPricing);
   options.generatePriceLists = toBoolean(generatePriceLists);

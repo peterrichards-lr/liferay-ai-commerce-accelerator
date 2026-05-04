@@ -81,11 +81,20 @@ export default function useRealtimeWebSocket({
         if (res?.success && res.progress) {
           logDebug('Received hydration data:', res.progress);
 
-          // Ensure the reducer knows this is the active session
-          currentOnProgress?.({
-            type: 'SET_ACTIVE_SESSION',
-            sessionId,
-          });
+          // If the session is finished, clear it from active state
+          if (res.status === 'COMPLETED' || res.status === 'FAILED') {
+            currentOnProgress?.({
+              type: 'SET_ACTIVE_SESSION',
+              sessionId: null,
+            });
+            activeSessionIdRef.current = null;
+          } else {
+            // Ensure the reducer knows this is the active session
+            currentOnProgress?.({
+              type: 'SET_ACTIVE_SESSION',
+              sessionId,
+            });
+          }
 
           // Update each entity's progress
           Object.entries(res.progress).forEach(([entity, data]) => {
@@ -154,6 +163,11 @@ export default function useRealtimeWebSocket({
     if (cid) url.searchParams.set(CORRELATION_ID_HEADER, cid);
 
     logDebug('🔗 Preparing WebSocket connection', { url: url.toString() });
+    const { onLog: currentOnLog } = callbacksRef.current;
+
+    if (loggingLevel === 'debug') {
+      currentOnLog?.(`Connecting to WebSocket: ${trimmed}...`, 'debug');
+    }
 
     const ws = new WebSocket(url.toString());
     wsRef.current = ws;
@@ -200,7 +214,6 @@ export default function useRealtimeWebSocket({
       }
 
       if (!data || typeof data !== 'object') return;
-      if (data.type === 'pong') return;
 
       const {
         onProgress: currentOnProgress,
@@ -208,13 +221,21 @@ export default function useRealtimeWebSocket({
         onBatchErrorDetails: currentOnBatchErrorDetails,
       } = callbacksRef.current;
 
+      if (data.type === 'pong') {
+        if (loggingLevel === 'debug') {
+          currentOnLog?.('WebSocket Pong received.', 'debug');
+        }
+        return;
+      }
+
       // Dispatch global event for debugging/logging
       window.dispatchEvent(
         new CustomEvent('liferay-ai-ws-event', { detail: data })
       );
 
       const entityType = normalizeEntityType(data.entityType);
-      const { scope, type, error, sessionId } = data;
+      const { scope, error, sessionId } = data;
+      const type = data.type || data.status; // Fallback to status if type is missing
 
       const processedCount = data.processedCount ?? data.completedCount;
       const totalCount = data.totalCount ?? data.totalItems;
@@ -433,6 +454,7 @@ export default function useRealtimeWebSocket({
     logInfo,
     hydrateSessionStatus,
     logError,
+    loggingLevel,
   ]);
 
   // Final check to update the connectRef
@@ -449,6 +471,10 @@ export default function useRealtimeWebSocket({
     const ws = wsRef.current;
     if (ws && ws.readyState === WebSocket.OPEN) {
       try {
+        const { onLog: currentOnLog } = callbacksRef.current;
+        if (loggingLevel === 'debug') {
+          currentOnLog?.('Sending WebSocket Ping...', 'debug');
+        }
         ws.send(JSON.stringify({ type: 'ping' }));
         return true;
       } catch {
@@ -457,7 +483,7 @@ export default function useRealtimeWebSocket({
     }
     reconnect();
     return false;
-  }, [reconnect]);
+  }, [reconnect, loggingLevel]);
 
   useEffect(() => {
     if (enabled && microserviceUrl) {

@@ -286,6 +286,18 @@ class WebSocketService {
     });
   }
 
+  emitProgress(data) {
+    return this.broadcast(data);
+  }
+
+  emitGenerationSessionComplete(data) {
+    return this.broadcast({
+      type: 'COMPLETED',
+      scope: 'session',
+      ...data,
+    });
+  }
+
   close() {
     if (this.heartbeatTimer) {
       clearInterval(this.heartbeatTimer);

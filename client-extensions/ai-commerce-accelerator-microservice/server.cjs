@@ -113,6 +113,7 @@ const gracefulShutdown = async (signal) => {
 (async () => {
   try {
     ws = createWebSocketService({ server, logger });
+    ws.init(server);
   } catch (error) {
     logger.errorWithStack(error, {
       operation: 'websocket-init',
@@ -131,6 +132,7 @@ const gracefulShutdown = async (signal) => {
     liferayService,
     orderGenerator,
     persistenceService,
+    progressService,
     productGenerator,
     warehouseGenerator,
     oauthService,
@@ -205,6 +207,7 @@ const gracefulShutdown = async (signal) => {
     liferayService,
     logger,
     persistenceService,
+    progressService,
   };
 
   require('./routes/batch.cjs')(apiV1Router, {

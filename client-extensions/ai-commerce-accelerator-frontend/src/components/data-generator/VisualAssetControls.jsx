@@ -14,7 +14,7 @@ function AssetToggle({ label, icon, value, onChange, disabled, options }) {
           <button
             key={opt.value}
             type="button"
-            className={`btn btn-secondary ${value === opt.value ? 'active' : ''}`}
+            className={`btn ${value === opt.value ? 'btn-primary active' : 'btn-secondary'}`}
             onClick={() => onChange(opt.value)}
             disabled={disabled}
             style={{ flex: 1 }}
@@ -64,11 +64,11 @@ export default function VisualAssetControls({ values, onChange, disabled }) {
 
   return (
     <div className="mt-4">
-      <h3 className="sheet-title mb-3" style={{ fontSize: '1rem' }}>
+      <h3 className="sheet-title mb-4" style={{ fontSize: '1rem' }}>
         Visual Assets & Media
       </h3>
-      <div className="row">
-        <div className="col-12 col-md-6 mb-4">
+      <div className="d-flex flex-column" style={{ gap: '1.5rem' }}>
+        <div className="asset-section">
           <AssetToggle
             label="Product Images"
             icon="picture"
@@ -78,7 +78,7 @@ export default function VisualAssetControls({ values, onChange, disabled }) {
             options={imageOptions}
           />
           {values.imageMode === 'ai' && (
-            <div className="p-3 bg-light rounded mt-2 border">
+            <div className="p-3 bg-light rounded border mt-2">
               <RatioControl
                 id="imageRatio"
                 label="Generation Ratio"
@@ -113,7 +113,7 @@ export default function VisualAssetControls({ values, onChange, disabled }) {
           )}
         </div>
 
-        <div className="col-12 col-md-6 mb-4">
+        <div className="asset-section">
           <AssetToggle
             label="Product PDFs"
             icon="document"
@@ -123,7 +123,7 @@ export default function VisualAssetControls({ values, onChange, disabled }) {
             options={pdfOptions}
           />
           {values.pdfMode === 'ai' && (
-            <div className="p-3 bg-light rounded mt-2 border">
+            <div className="p-3 bg-light rounded border mt-2">
               <RatioControl
                 id="pdfRatio"
                 label="Generation Ratio"

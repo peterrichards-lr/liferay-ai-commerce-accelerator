@@ -100,9 +100,7 @@ describe('DataGeneratorForm', () => {
     };
     render(<DataGeneratorForm {...generatingProps} />);
 
-    const submitBtn = screen.getByRole('button', {
-      name: /Generating Demo Data\.\.\./i,
-    });
-    expect(submitBtn).toBeDisabled();
+    expect(screen.getByText(/Cancel Generation/i)).toBeInTheDocument();
+    expect(screen.getByText(/Generating\.\.\./i)).toBeInTheDocument();
   });
 });

@@ -127,5 +127,28 @@ export default function useGeneration({
     progress,
   ]);
 
-  return { isSubmitting, generateData };
+  const cancelWorkflow = useCallback(async () => {
+    if (!progress.activeSessionId) return;
+
+    try {
+      addLog('Cancellation requested...', 'warning');
+      const res = await api.get(
+        `/workflows/sessions/${progress.activeSessionId}/cancel`
+      );
+
+      if (res?.success) {
+        addLog('✓ Workflow cancellation confirmed by server.', 'success');
+      } else {
+        addLog(
+          'Failed to cancel workflow: ' + (res?.error || 'Unknown error'),
+          'error'
+        );
+      }
+    } catch (error) {
+      console.error('Failed to cancel workflow:', error);
+      addLog('Error cancelling workflow: ' + error.message, 'error');
+    }
+  }, [api, addLog, progress.activeSessionId]);
+
+  return { isSubmitting, generateData, cancelWorkflow };
 }

@@ -33,12 +33,11 @@ describe('Dashboard', () => {
     connected: true,
   };
 
-  it('renders correctly with progress and logs', () => {
+  it('renders correctly with progress', () => {
     render(<Dashboard {...mockProps} />);
 
     expect(screen.getByText(/Generation Status/i)).toBeInTheDocument();
-    expect(screen.getByText(/Live Console/i)).toBeInTheDocument();
-    expect(screen.getByText(/Step 1 complete/i)).toBeInTheDocument();
+    expect(screen.getByText(/Overall Progress/i)).toBeInTheDocument();
   });
 
   it('shows progress for products', () => {
@@ -50,8 +49,8 @@ describe('Dashboard', () => {
 
   it('handles empty progress gracefully', () => {
     // Pass undefined for progress to trigger the null return in ProgressMonitor
-    render(<Dashboard {...mockProps} progress={undefined} logs={[]} />);
+    render(<Dashboard {...mockProps} progress={undefined} />);
 
-    expect(screen.getByText(/Waiting for activity/i)).toBeInTheDocument();
+    expect(screen.getByText(/Generation Status/i)).toBeInTheDocument();
   });
 });

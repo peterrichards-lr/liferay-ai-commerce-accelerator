@@ -241,14 +241,30 @@ module.exports = (app, { logger, configService }) => {
       const { aiModelOptions, defaultModel } =
         await configService.getAIModelOptions(config);
 
-      res.json({
-        success: true,
-        aiModelOptions: aiModelOptions || [],
+      res.status(200).json({
+        aiModelOptions,
         defaultModel,
+        success: true,
         timestamp: new Date().toISOString(),
       });
     } catch (error) {
       sendSafeError(res, logger, req, error, 'get-ai-model-options', {
+        sanitizeConfig: sanitizedObject(config),
+      });
+    }
+  });
+
+  app.get(INTERNAL_API_PATHS.CONFIG_HEALTH, async (req, res) => {
+    const { config } = buildConfigAndOptions(req);
+    try {
+      const health = await configService.checkHealth(config);
+      res.status(200).json({
+        success: true,
+        health,
+        timestamp: new Date().toISOString(),
+      });
+    } catch (error) {
+      sendSafeError(res, logger, req, error, 'get-config-health', {
         sanitizeConfig: sanitizedObject(config),
       });
     }

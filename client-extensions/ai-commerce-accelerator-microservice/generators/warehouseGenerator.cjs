@@ -12,6 +12,15 @@ class WarehouseGenerator extends BaseGenerator {
   constructor(ctx) {
     super(ctx);
     this.name = 'WarehouseGenerator';
+
+    this.steps = {
+      [S.GENERATE_WAREHOUSE_DATA]:
+        this._runWarehouseDataGenerationStep.bind(this),
+      [S.CREATE_WAREHOUSES]: this._runWarehouseCreationStep.bind(this),
+      [S.RESOLVE_WAREHOUSE_IDS]: this._runResolveWarehouseIdsStep.bind(this),
+      [S.LINK_WAREHOUSE_CHANNELS]:
+        this._runLinkWarehouseChannelsStep.bind(this),
+    };
   }
 
   async run(config, options, correlationId) {
@@ -40,14 +49,125 @@ class WarehouseGenerator extends BaseGenerator {
     return await this.executeNextStep(sessionId);
   }
 
-  getSteps() {
-    return [
-      {
-        key: S.GENERATE_WAREHOUSE_DATA,
-        method: '_runWarehouseDataGenerationStep',
-      },
-      { key: S.CREATE_WAREHOUSES, method: '_runWarehouseCreationStep' },
-    ];
+  async _runResolveWarehouseIdsStep(sessionId) {
+    const session = await this.persistence.getSession(sessionId);
+    const { config, warehouseDataList } = session.context;
+
+    if (!warehouseDataList || warehouseDataList.length === 0) {
+      return await this.completeSyncStep(
+        sessionId,
+        S.RESOLVE_WAREHOUSE_IDS,
+        'BYPASSED'
+      );
+    }
+
+    this.logger.info('Resolving warehouse IDs from ERCs', {
+      sessionId,
+      correlationId: session.correlationId,
+    });
+
+    try {
+      const ercs = warehouseDataList
+        .map((w) => w.externalReferenceCode)
+        .filter(Boolean);
+
+      const resolvedItems = await this.liferay.resolveByERCsWithRetry(
+        config,
+        ercs,
+        (cfg, e) =>
+          this.liferay.getWarehousesByERC(cfg, e, [
+            'id',
+            'externalReferenceCode',
+          ]),
+        { label: 'warehouses' }
+      );
+
+      const normalized = this._normalize(resolvedItems);
+      const ercToIdMap = new Map(normalized.map((item) => [item.erc, item.id]));
+
+      const updatedList = warehouseDataList.map((w) => ({
+        ...w,
+        id: ercToIdMap.get(w.externalReferenceCode) || w.id,
+      }));
+
+      await this.persistence.updateSessionContext(sessionId, {
+        warehouseDataList: updatedList,
+      });
+
+      return await this.completeSyncStep(sessionId, S.RESOLVE_WAREHOUSE_IDS);
+    } catch (error) {
+      this.logger.error('Failed to resolve warehouse IDs', {
+        sessionId,
+        error: error.message,
+      });
+      await this.persistence.createBatch({
+        erc: createERC(ERC_PREFIX.BATCH),
+        sessionId,
+        stepKey: S.RESOLVE_WAREHOUSE_IDS,
+        status: 'FAILED',
+      });
+      throw error;
+    }
+  }
+
+  async _runLinkWarehouseChannelsStep(sessionId) {
+    const session = await this.persistence.getSession(sessionId);
+    const { config, warehouseDataList } = session.context;
+    const stepKey = S.LINK_WAREHOUSE_CHANNELS;
+
+    if (!warehouseDataList || warehouseDataList.length === 0) {
+      return await this.completeSyncStep(sessionId, stepKey, 'BYPASSED');
+    }
+
+    this.logger.info('Linking warehouses to channel', {
+      sessionId,
+      correlationId: session.correlationId,
+    });
+
+    try {
+      const payloads = warehouseDataList
+        .filter((w) => w.id)
+        .map((w) => ({
+          channelId: parseInt(config.channelId, 10),
+          warehouseId: parseInt(w.id, 10),
+        }));
+
+      if (payloads.length === 0) {
+        return await this.completeSyncStep(sessionId, stepKey, 'BYPASSED');
+      }
+
+      await this.submitBatch(
+        sessionId,
+        stepKey,
+        'warehouse-channels',
+        'generate',
+        (erc) =>
+          this.liferay.createWarehouseChannelsBatch(config, payloads, {
+            externalReferenceCode: erc,
+            sessionId,
+          }),
+        payloads.length
+      );
+    } catch (error) {
+      this.logger.error('Failed to link warehouses to channel', {
+        sessionId,
+        error: error.message,
+      });
+      await this.persistence.createBatch({
+        erc: createERC(ERC_PREFIX.BATCH),
+        sessionId,
+        stepKey,
+        status: 'FAILED',
+      });
+      throw error;
+    }
+  }
+
+  _normalize(items) {
+    return (items || []).map((item) => ({
+      id: item.id,
+      erc: item.externalReferenceCode || item.erc,
+    }));
   }
 
   /**
@@ -118,6 +238,17 @@ class WarehouseGenerator extends BaseGenerator {
         return await this.completeSyncStep(sessionId, stepKey, 'BYPASSED');
       }
 
+      // MAPPING: Liferay Headless Commerce Admin Inventory Warehouse DTO
+      // uses countryCode and regionCode instead of country and region.
+      const mappedWarehouses = warehouseDataList.map((w) => {
+        const { country, region, ...rest } = w;
+        return {
+          ...rest,
+          countryCode: country,
+          regionCode: region,
+        };
+      });
+
       // Always use batch for warehouses to keep logic simple
       await this.submitBatch(
         sessionId,
@@ -125,7 +256,7 @@ class WarehouseGenerator extends BaseGenerator {
         'warehouses',
         'generate',
         (erc) =>
-          this.liferay.createWarehousesBatch(config, warehouseDataList, {
+          this.liferay.createWarehousesBatch(config, mappedWarehouses, {
             externalReferenceCode: erc,
             sessionId,
           }),

@@ -291,14 +291,14 @@ class ConfigService {
       );
       return {
         defaultOrderDistribution: {
-          completed: 30,
-          open: 5,
-          processing: 5,
-          shipped: 10,
+          completed: 60,
+          open: 10,
+          processing: 10,
+          shipped: 20,
         },
-        maxAccounts: 50,
-        maxOrders: 200,
-        maxProducts: 100,
+        maxAccounts: 5000,
+        maxOrders: 50000,
+        maxProducts: 10000,
       };
     }
   }
@@ -308,14 +308,14 @@ class ConfigService {
     return (
       cached || {
         defaultOrderDistribution: {
-          completed: 30,
-          open: 5,
-          processing: 5,
-          shipped: 10,
+          completed: 60,
+          open: 10,
+          processing: 10,
+          shipped: 20,
         },
-        maxAccounts: 50,
-        maxOrders: 200,
-        maxProducts: 100,
+        maxAccounts: 5000,
+        maxOrders: 50000,
+        maxProducts: 10000,
       }
     );
   }
@@ -662,6 +662,65 @@ class ConfigService {
     }
 
     return { aiModelOptions: resolvedOptions, defaultModel };
+  }
+
+  async checkHealth(requestConfig) {
+    const liferay = this._requireLiferay();
+    const logger = this.logger;
+
+    const health = {
+      liferay: { status: 'UNKNOWN', message: '' },
+      aiText: { status: 'UNKNOWN', provider: 'OPENAI' },
+      aiMedia: { status: 'UNKNOWN', provider: 'OPENAI' },
+      prompts: { status: 'OK', missing: [] },
+      schemas: { status: 'OK', missing: [] },
+    };
+
+    try {
+      // Check Liferay connection
+      try {
+        await liferay.getChannels(requestConfig, { pageSize: 1 });
+        health.liferay.status = 'CONNECTED';
+      } catch (err) {
+        health.liferay.status = 'ERROR';
+        health.liferay.message = err.message;
+      }
+
+      // Check AI Config
+      const aiConfig = await this.getAIConfig(requestConfig);
+      health.aiText.provider = aiConfig.provider || 'OPENAI';
+      health.aiMedia.provider = aiConfig.mediaProvider || 'INHERIT';
+
+      const textKey = await this.getAIKey(requestConfig);
+      health.aiText.status = textKey ? 'CONFIGURED' : 'MISSING';
+
+      const mediaKey = await this.getAIMediaKey(requestConfig);
+      if (health.aiMedia.provider === 'inherit') {
+        health.aiMedia.status = textKey ? 'CONFIGURED' : 'MISSING';
+      } else {
+        health.aiMedia.status = mediaKey ? 'CONFIGURED' : 'MISSING';
+      }
+
+      // Check Propmts (existence check)
+      const entities = ['product', 'account', 'order', 'warehouse'];
+      for (const entity of entities) {
+        const prompt = await this.getAIPrompt(requestConfig, entity);
+        if (!prompt || !prompt.configValue) {
+          health.prompts.status = 'WARNING';
+          health.prompts.missing.push(entity);
+        }
+        const schema = await this.getAISchema(requestConfig, entity);
+        if (!schema || !schema.configValue) {
+          health.schemas.status = 'WARNING';
+          health.schemas.missing.push(entity);
+        }
+      }
+
+      return health;
+    } catch (error) {
+      logger.error('Failed to check config health', { error: error.message });
+      return health;
+    }
   }
 
   clearCache() {

@@ -120,6 +120,42 @@
 
 ---
 
+## 66. Admin Experience & Robustness (May 4)
+
+### [x] Implement Resumable Flows (localStorage)
+
+**Analysis**: Page refreshes were causing the UI to lose track of active background jobs.
+**Result**: **FIXED**. Integrated localStorage to persist the active session ID.
+
+### [x] Implement Workflow Cancellation
+
+**Analysis**: No way for users to stop a mistakenly started job without a server restart.
+**Result**: **FIXED**. Added backend cancel endpoint and frontend 'Cancel' button.
+
+### [x] Implement Admin Dashboard (Second Fragment)
+
+**Analysis**: Administrators need a dedicated view for session history, KPIs, and troubleshooting.
+**Result**: **FIXED**. Created a new Custom Element and Fragment for the Admin Dashboard.
+
+### [x] Configuration Doctor (Diagnostics)
+
+**Analysis**: Users were hitting errors (like missing API keys) that weren't discovered until runtime.
+**Result**: **FIXED**. Built a diagnostic method that verifies API keys, prompts, and schemas before generation begins.
+
+---
+
+## 67. Strategic Roadmap (Current)
+
+### [ ] 1. Detailed Failure Modal in Admin Dashboard
+
+**Rationale**: While the Admin Dashboard shows that a session failed, users need to see the exact stack trace or Liferay error response to self-serve a fix.
+
+### [ ] 2. Dataset Import Logic (Server-side)
+
+**Rationale**: Currently, 'Import Dataset' is a client-side placeholder. Implementing the backend logic to ingest this JSON and trigger creation steps is the final piece of the environmental parity goal.
+
+---
+
 ## 7. Strategic Roadmap (Implementation Priority)
 
 ### [x] 1. WebSocket Progress Communication Mismatch

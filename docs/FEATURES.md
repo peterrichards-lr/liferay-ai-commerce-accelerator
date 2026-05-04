@@ -37,6 +37,29 @@ Everything is manageable via the **AI Commerce Accelerator Configuration** UI.
 - **Custom Prompts & Schemas**: Tailor the AI's output by editing the templates directly in the browser with a built-in CodeMirror editor.
 - **Exclude Lists**: Protect system data by specifying items that should never be modified or deleted.
 
+## System Administration & Troubleshooting
+
+A dedicated **Admin Dashboard** provides high-level oversight and diagnostic tools for platform operators.
+
+### Session Management
+
+- **Session Explorer**: View a complete history of all generation and deletion runs.
+- **Advanced Filtering**: Filter by session name, date range, or outcome (Success, Failed, Cancelled).
+- **History Sorting**: Sort sessions to quickly find the latest runs or analyze past failures.
+- **Targeted Export**: Retrieve the exact AI-generated dataset from any previous successful run.
+- **Failure Diagnostics**: Immediate visibility into why a session failed, including the specific workflow step.
+
+### KPI Metrics
+
+- **Success vs. Failure Rate**: Real-time tracking of generation reliability.
+- **Session Volume**: Monitor total usage and throughput of the accelerator.
+
+### Configuration Doctor
+
+- **Automated Diagnostics**: Real-time alerts for missing AI API keys, invalid prompts, or broken Liferay connectivity.
+- **Direct Resolution Links**: Deep-links to the exact configuration screen in DXP required to fix an issue.
+- **System Parity**: Ensure environment consistency by identifying drifted settings across Liferay instances.
+
 ## Data Portability
 
 - **Export**: Save your generated data set to a JSON file for backup or sharing.

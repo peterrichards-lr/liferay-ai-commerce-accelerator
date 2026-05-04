@@ -56,11 +56,31 @@ class PersistenceService {
         context_json TEXT NOT NULL,
         current_steps_json TEXT NOT NULL,
         correlation_id TEXT,
+        session_name TEXT,
         version INTEGER DEFAULT 1,
         created_at TEXT NOT NULL,
         updated_at TEXT NOT NULL
       );
+    `);
 
+    // Only run migration if column was NOT in the initial CREATE (unlikely for new DBs but good practice)
+    const columns = this.db
+      .prepare('PRAGMA table_info(workflow_sessions)')
+      .all();
+    if (!columns.find((c) => c.name === 'session_name')) {
+      try {
+        this.db.exec(
+          'ALTER TABLE workflow_sessions ADD COLUMN session_name TEXT;'
+        );
+      } catch (err) {
+        // Ignore errors about duplicate columns
+        if (!err.message.includes('duplicate column name')) {
+          throw err;
+        }
+      }
+    }
+
+    this.db.exec(`
       CREATE TABLE IF NOT EXISTS workflow_batches (
         erc TEXT PRIMARY KEY,
         session_id TEXT NOT NULL,
@@ -98,12 +118,13 @@ class PersistenceService {
     context,
     currentSteps,
     correlationId,
+    sessionName,
   }) {
     const now = new Date().toISOString();
     const stmt = this.db.prepare(`
       INSERT OR REPLACE INTO workflow_sessions (
-        session_id, flow_type, status, context_json, current_steps_json, correlation_id, created_at, updated_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        session_id, flow_type, status, context_json, current_steps_json, correlation_id, session_name, created_at, updated_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
     `);
 
     stmt.run(
@@ -113,12 +134,23 @@ class PersistenceService {
       JSON.stringify(context || {}),
       JSON.stringify(currentSteps || []),
       correlationId || null,
+      sessionName || null,
       now,
       now
     );
 
     this.cache.del(sessionId);
     return this.getSession(sessionId);
+  }
+
+  getCompletedSessions() {
+    const rows = this.db
+      .prepare(
+        "SELECT * FROM workflow_sessions WHERE status = 'COMPLETED' AND flow_type = 'generate' ORDER BY created_at DESC"
+      )
+      .all();
+
+    return rows.map((row) => this._parseSession(row));
   }
 
   getSession(sessionId) {
@@ -129,23 +161,44 @@ class PersistenceService {
       .prepare('SELECT * FROM workflow_sessions WHERE session_id = ?')
       .get(sessionId);
 
-    if (row) {
-      const session = {
-        session_id: row.session_id,
-        flow_type: row.flow_type,
-        status: row.status,
-        context: JSON.parse(row.context_json),
-        currentSteps: JSON.parse(row.current_steps_json),
-        correlationId: row.correlation_id,
-        version: row.version,
-        created_at: row.created_at,
-        updated_at: row.updated_at,
-      };
-      this.cache.put(sessionId, session, 60000); // 1 minute cache
-      return session;
-    }
+    return row ? this._parseSession(row) : null;
+  }
 
-    return null;
+  getLatestSession() {
+    const row = this.db
+      .prepare(
+        'SELECT * FROM workflow_sessions ORDER BY created_at DESC LIMIT 1'
+      )
+      .get();
+
+    return row ? this._parseSession(row) : null;
+  }
+
+  getLatestCompletedSession() {
+    const row = this.db
+      .prepare(
+        "SELECT * FROM workflow_sessions WHERE status = 'COMPLETED' ORDER BY created_at DESC LIMIT 1"
+      )
+      .get();
+
+    return row ? this._parseSession(row) : null;
+  }
+
+  _parseSession(row) {
+    const session = {
+      session_id: row.session_id,
+      flow_type: row.flow_type,
+      status: row.status,
+      session_name: row.session_name,
+      context: JSON.parse(row.context_json),
+      currentSteps: JSON.parse(row.current_steps_json),
+      correlationId: row.correlation_id,
+      version: row.version,
+      created_at: row.created_at,
+      updated_at: row.updated_at,
+    };
+    this.cache.put(session.session_id, session, 60000); // 1 minute cache
+    return session;
   }
 
   getAllSessions() {
@@ -291,6 +344,25 @@ class PersistenceService {
     return false;
   }
 
+  tryCancelSession(sessionId) {
+    const now = new Date().toISOString();
+    const result = this.db
+      .prepare(
+        `
+      UPDATE workflow_sessions 
+      SET status = 'CANCELLED', current_steps_json = '[]', updated_at = ?
+      WHERE session_id = ? AND status NOT IN ('COMPLETED', 'FAILED', 'CANCELLED')
+    `
+      )
+      .run(now, sessionId);
+
+    if (result.changes > 0) {
+      this.cache.del(sessionId);
+      return true;
+    }
+    return false;
+  }
+
   createBatch({ erc, sessionId, stepKey, status, totalCount }) {
     const now = new Date().toISOString();
     const stmt = this.db.prepare(`
@@ -406,6 +478,36 @@ class PersistenceService {
       message,
       JSON.stringify(details || {})
     );
+  }
+
+  getWorkflowKPIs() {
+    const totalSessions = this.db
+      .prepare('SELECT COUNT(*) as count FROM workflow_sessions')
+      .get().count;
+    const completedSessions = this.db
+      .prepare(
+        "SELECT COUNT(*) as count FROM workflow_sessions WHERE status = 'COMPLETED'"
+      )
+      .get().count;
+    const failedSessions = this.db
+      .prepare(
+        "SELECT COUNT(*) as count FROM workflow_sessions WHERE status = 'FAILED'"
+      )
+      .get().count;
+    const cancelledSessions = this.db
+      .prepare(
+        "SELECT COUNT(*) as count FROM workflow_sessions WHERE status = 'CANCELLED'"
+      )
+      .get().count;
+
+    return {
+      totalSessions,
+      completedSessions,
+      failedSessions,
+      cancelledSessions,
+      successRate:
+        totalSessions > 0 ? (completedSessions / totalSessions) * 100 : 0,
+    };
   }
 
   clearAll() {

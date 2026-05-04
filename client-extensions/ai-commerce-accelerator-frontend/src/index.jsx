@@ -1,9 +1,11 @@
 import React from 'react';
 import { createRoot } from 'react-dom/client';
 import App from './App.jsx';
+import AdminApp from './AdminApp.jsx';
 import './styles/app.scss';
 
-const TAG = 'liferay-ai-commerce-accelerator-frontend';
+const TAG_MAIN = 'liferay-ai-commerce-accelerator-frontend';
+const TAG_ADMIN = 'liferay-ai-commerce-accelerator-admin';
 
 const toCamel = (k) => k.replace(/-([a-z])/g, (_, c) => c.toUpperCase());
 const coerce = (v) => (v === '' ? true : v);
@@ -40,9 +42,10 @@ function ensureContainer(host) {
   );
 }
 
-function mount(el, props) {
+function mount(el, props, type = 'main') {
   const root = createRoot(el);
-  root.render(<App {...props} />);
+  const Component = type === 'admin' ? AdminApp : App;
+  root.render(<Component {...props} />);
   el.__root = root;
 }
 
@@ -54,6 +57,11 @@ function unmount(el) {
 }
 
 class LiferayAiCommerceAcceleratorElement extends HTMLElement {
+  constructor() {
+    super();
+    this.tagType = 'main';
+  }
+
   static get observedAttributes() {
     return [
       'liferay-hosted',
@@ -72,28 +80,39 @@ class LiferayAiCommerceAcceleratorElement extends HTMLElement {
   connectedCallback() {
     if (this.__mounted) return;
     const container = ensureContainer(this);
-    container.classList.add(`${TAG}-root`);
+    container.classList.add(`${this.tagName.toLowerCase()}-root`);
     const { config, runtime } = parsePropsFrom(this);
-    mount(container, { config, runtime });
+    mount(container, { config, runtime }, this.tagType);
     this.__mounted = true;
   }
 
   attributeChangedCallback() {
     if (!this.__mounted) return;
-    const container = this.querySelector(`.${TAG}-root`);
+    const container = this.querySelector(`.${this.tagName.toLowerCase()}-root`);
     const { config, runtime } = parsePropsFrom(this);
     unmount(container);
-    mount(container, { config, runtime });
+    mount(container, { config, runtime }, this.tagType);
   }
 
   disconnectedCallback() {
     if (!this.__mounted) return;
-    const container = this.querySelector(`.${TAG}-root`);
+    const container = this.querySelector(`.${this.tagName.toLowerCase()}-root`);
     unmount(container);
     this.__mounted = false;
   }
 }
 
-if (!customElements.get(TAG))
-  customElements.define(TAG, LiferayAiCommerceAcceleratorElement);
+class LiferayAiCommerceAcceleratorAdminElement extends LiferayAiCommerceAcceleratorElement {
+  constructor() {
+    super();
+    this.tagType = 'admin';
+  }
+}
+
+if (!customElements.get(TAG_MAIN))
+  customElements.define(TAG_MAIN, LiferayAiCommerceAcceleratorElement);
+
+if (!customElements.get(TAG_ADMIN))
+  customElements.define(TAG_ADMIN, LiferayAiCommerceAcceleratorAdminElement);
+
 export default null;

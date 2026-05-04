@@ -2,42 +2,45 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { ClayInput } from '@clayui/form';
 
 const STATUS_CONFIG = [
-  { key: 'open', label: 'Open', color: 'bg-secondary', statusId: 0 },
-  { key: 'processing', label: 'Processing', color: 'bg-primary', statusId: 1 },
-  { key: 'shipped', label: 'Shipped', color: 'bg-info', statusId: 2 },
-  { key: 'completed', label: 'Fulfilled', color: 'bg-success', statusId: 10 },
+  {
+    color: 'var(--brand-color-1, var(--secondary, #00d1ff))',
+    key: 'open',
+    label: 'Open',
+  },
+  {
+    color: 'var(--brand-color-2, var(--primary, #7a00ff))',
+    key: 'processing',
+    label: 'Processing',
+  },
+  {
+    color: 'var(--brand-color-3, var(--info, #00ff94))',
+    key: 'shipped',
+    label: 'Shipped',
+  },
+  {
+    color: 'var(--brand-color-4, var(--success, #ffbb00))',
+    key: 'completed',
+    label: 'Fulfilled',
+  },
 ];
 
 export default function OrderDistributionControl({
   totalOrders,
-  distribution,
+  distribution, // These are now percentages (0-100)
   onChange,
   disabled,
 }) {
   const containerRef = useRef(null);
   const [draggingIdx, setDraggingIdx] = useState(null);
 
-  // We convert absolute counts to percentages for the UI
-  const getPercentages = () => {
-    if (totalOrders === 0) return [25, 25, 25, 25];
-    return [
-      (distribution.open / totalOrders) * 100,
-      (distribution.processing / totalOrders) * 100,
-      (distribution.shipped / totalOrders) * 100,
-      (distribution.completed / totalOrders) * 100,
-    ];
-  };
-
-  const percentages = getPercentages();
-
   // The dividers are at cumulative percentage points: p1, p1+p2, p1+p2+p3
   const dividers = useMemo(
     () => [
-      percentages[0],
-      percentages[0] + percentages[1],
-      percentages[0] + percentages[1] + percentages[2],
+      distribution.open,
+      distribution.open + distribution.processing,
+      distribution.open + distribution.processing + distribution.shipped,
     ],
-    [percentages]
+    [distribution]
   );
 
   const handleMouseDown = (idx, e) => {
@@ -64,21 +67,14 @@ export default function OrderDistributionControl({
       const newDividers = [...dividers];
       newDividers[draggingIdx] = newPct;
 
-      // Convert back to absolute counts
-      const newPercentages = [
-        newDividers[0],
-        newDividers[1] - newDividers[0],
-        newDividers[2] - newDividers[1],
-        100 - newDividers[2],
-      ];
-
+      // Convert back to percentages for each segment
       const newDist = {
-        open: Math.round((newPercentages[0] / 100) * totalOrders),
-        processing: Math.round((newPercentages[1] / 100) * totalOrders),
-        shipped: Math.round((newPercentages[2] / 100) * totalOrders),
+        open: Math.round(newDividers[0]),
+        processing: Math.round(newDividers[1] - newDividers[0]),
+        shipped: Math.round(newDividers[2] - newDividers[1]),
       };
       newDist.completed =
-        totalOrders - newDist.open - newDist.processing - newDist.shipped;
+        100 - newDist.open - newDist.processing - newDist.shipped;
 
       onChange(newDist);
     };
@@ -91,20 +87,22 @@ export default function OrderDistributionControl({
       window.removeEventListener('mousemove', onMouseMove);
       window.removeEventListener('mouseup', onMouseUp);
     };
-  }, [draggingIdx, totalOrders, dividers, onChange]);
+  }, [draggingIdx, dividers, onChange]);
 
   const handleInputChange = (key, valStr) => {
     let val = parseInt(valStr, 10) || 0;
-    if (val > totalOrders) val = totalOrders;
+    if (val > 100) val = 100;
 
     const newDist = { ...distribution, [key]: val };
     const newTotal = Object.values(newDist).reduce((a, b) => a + b, 0);
 
-    if (newTotal > totalOrders) {
-      // Simple balancing: subtract from other fields
-      let excess = newTotal - totalOrders;
-      for (const k of ['completed', 'shipped', 'processing', 'open']) {
-        if (k === key) continue;
+    if (newTotal > 100) {
+      // Auto-balance: subtract from other fields (completed -> shipped -> processing -> open)
+      let excess = newTotal - 100;
+      const keysToSteal = ['completed', 'shipped', 'processing', 'open'].filter(
+        (k) => k !== key
+      );
+      for (const k of keysToSteal) {
         if (newDist[k] >= excess) {
           newDist[k] -= excess;
           break;
@@ -113,21 +111,25 @@ export default function OrderDistributionControl({
           newDist[k] = 0;
         }
       }
-    } else if (newTotal < totalOrders) {
-      newDist.completed += totalOrders - newTotal;
+    } else if (newTotal < 100) {
+      // Auto-balance: add to the last bucket (completed or open)
+      const target = key === 'completed' ? 'open' : 'completed';
+      newDist[target] += 100 - newTotal;
     }
 
     onChange(newDist);
   };
 
+  const getCount = (pct) => Math.round((pct / 100) * totalOrders);
+
   return (
     <div className="order-distribution mt-4">
       <div className="d-flex justify-content-between align-items-end mb-2">
         <label className="form-label font-weight-semi-bold mb-0">
-          Order Lifecycle Distribution
+          Order Lifecycle Distribution (%)
         </label>
         <span className="text-secondary small font-italic">
-          {totalOrders} total orders
+          Target: {totalOrders} total orders
         </span>
       </div>
 
@@ -136,32 +138,52 @@ export default function OrderDistributionControl({
         ref={containerRef}
         className="progress mb-4 position-relative"
         style={{
-          height: '2.5rem',
-          borderRadius: '0.5rem',
-          overflow: 'visible',
+          height: '1.25rem',
+          borderRadius: '1rem',
+          overflow: 'hidden',
+          backgroundColor: '#f1f3f4',
+          border: '1px solid #e9ecef',
           cursor: disabled ? 'default' : 'pointer',
         }}
       >
         {STATUS_CONFIG.map(({ key, color }, i) => {
-          const pct = percentages[i];
-          if (pct <= 0 && i > 0 && i < 3) return null; // Keep slots for dividers
+          const values = [
+            distribution.open,
+            distribution.processing,
+            distribution.shipped,
+            distribution.completed,
+          ];
+          const pct = values[i];
+
+          // Find the first and last indices with non-zero values to apply rounding
+          const firstVisibleIdx = values.findIndex((v) => v > 0);
+          const lastVisibleIdx = values.map((v) => v > 0).lastIndexOf(true);
 
           return (
             <div
               key={key}
-              className={`progress-bar ${color} d-flex align-items-center justify-content-center`}
+              className="d-flex align-items-center justify-content-center progress-bar"
               role="progressbar"
               style={{
-                width: `${pct}%`,
+                backgroundColor: color,
+                borderBottomLeftRadius: i === firstVisibleIdx ? '1rem' : '0',
+                borderBottomRightRadius: i === lastVisibleIdx ? '1rem' : '0',
+                borderTopLeftRadius: i === firstVisibleIdx ? '1rem' : '0',
+                borderTopRightRadius: i === lastVisibleIdx ? '1rem' : '0',
+                marginRight: i === lastVisibleIdx ? '0' : '2px',
                 transition: draggingIdx !== null ? 'none' : 'width 0.2s',
+                width: `${pct}%`,
               }}
             >
-              {pct > 10 && (
+              {pct > 12 && (
                 <span
                   className="font-weight-bold"
-                  style={{ textShadow: '0 1px 2px rgba(0,0,0,0.2)' }}
+                  style={{
+                    fontSize: '0.65rem',
+                    color: 'white',
+                  }}
                 >
-                  {distribution[key]}
+                  {Math.round(pct)}%
                 </span>
               )}
             </div>
@@ -177,8 +199,8 @@ export default function OrderDistributionControl({
               className="position-absolute h-100"
               style={{
                 left: `${pos}%`,
-                width: '12px',
-                marginLeft: '-6px',
+                width: '14px',
+                marginLeft: '-7px',
                 zIndex: 10,
                 cursor: 'col-resize',
                 display: 'flex',
@@ -189,10 +211,10 @@ export default function OrderDistributionControl({
               <div
                 style={{
                   width: '4px',
-                  height: '80%',
-                  backgroundColor: 'white',
+                  height: '90%',
+                  backgroundColor: '#fff',
                   borderRadius: '2px',
-                  boxShadow: '0 0 4px rgba(0,0,0,0.5)',
+                  boxShadow: '0 0 5px rgba(0,0,0,0.6)',
                 }}
               />
             </div>
@@ -201,41 +223,54 @@ export default function OrderDistributionControl({
 
       {/* Legend and Manual Inputs */}
       <div className="row">
-        {STATUS_CONFIG.map(({ key, label, color }) => (
-          <div key={key} className="col-6 col-md-3 mb-2">
-            <div className="d-flex align-items-center mb-1">
-              <span
-                className={`d-inline-block rounded-circle ${color} mr-2`}
-                style={{ width: '10px', height: '10px' }}
-              ></span>
-              <span className="small font-weight-semi-bold" title={label}>
-                {label}
-              </span>
-            </div>
-            <ClayInput.Group>
-              <ClayInput
-                type="number"
-                min="0"
-                max={totalOrders}
-                value={distribution[key] || 0}
-                onChange={(e) => handleInputChange(key, e.target.value)}
-                disabled={disabled || totalOrders === 0}
-                sizing="sm"
-              />
-              <ClayInput.GroupItem shrink>
-                <ClayInput.GroupText
-                  style={{ padding: '0 4px', fontSize: '0.7rem' }}
+        {STATUS_CONFIG.map(({ key, label, color }) => {
+          const count = getCount(distribution[key] || 0);
+          return (
+            <div key={key} className="col-6 col-md-3 mb-2">
+              <div className="d-flex align-items-center mb-1">
+                <span
+                  className="d-inline-block mr-2 rounded-circle"
+                  style={{
+                    backgroundColor: color,
+                    height: '10px',
+                    width: '10px',
+                  }}
+                ></span>
+                <span
+                  className="small font-weight-semi-bold text-truncate"
+                  title={`${label}: ${count} items`}
                 >
-                  {totalOrders > 0
-                    ? Math.round((distribution[key] / totalOrders) * 100)
-                    : 0}
-                  %
-                </ClayInput.GroupText>
-              </ClayInput.GroupItem>
-            </ClayInput.Group>
-          </div>
-        ))}
+                  {label}{' '}
+                  <span className="text-secondary font-weight-normal">
+                    ({count})
+                  </span>
+                </span>
+              </div>
+              <ClayInput.Group>
+                <ClayInput
+                  type="number"
+                  min="0"
+                  max="100"
+                  value={distribution[key] || 0}
+                  onChange={(e) => handleInputChange(key, e.target.value)}
+                  disabled={disabled || totalOrders === 0}
+                />
+                <ClayInput.GroupItem shrink>
+                  <ClayInput.GroupText
+                    style={{ padding: '0 8px', fontSize: '0.875rem' }}
+                  >
+                    %
+                  </ClayInput.GroupText>
+                </ClayInput.GroupItem>
+              </ClayInput.Group>
+            </div>
+          );
+        })}
       </div>
+      <small className="form-text text-muted mt-1">
+        Adjust percentages to distribute {totalOrders} orders. Total must equal
+        100%.
+      </small>
     </div>
   );
 }

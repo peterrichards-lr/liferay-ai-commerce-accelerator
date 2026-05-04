@@ -1,6 +1,6 @@
 import React, { useCallback, useMemo, useState } from 'react';
 import ClayIcon from '@clayui/icon';
-import { ClayInput, ClayToggle } from '@clayui/form';
+import ClayForm, { ClayInput, ClayToggle } from '@clayui/form';
 import ClayButton from '@clayui/button';
 
 import FieldError from '../ui/FieldError';
@@ -11,6 +11,7 @@ import WarehousesToggle from './WarehousesToggle';
 import InventoryControls from './InventoryControls';
 import VisualAssetControls from './VisualAssetControls';
 import OrderDistributionControl from './OrderDistributionControl';
+import { getTotalProgress } from '../../state/progressSelectors';
 
 function hasErr(map, key, msgStartsWith) {
   const list = map?.[key] || [];
@@ -24,10 +25,13 @@ function DataGeneratorForm({
   setGenerationConfig,
   onGenerate,
   onResetSettings,
+  onCancel,
+  onResetProgress,
   disabled,
   isSubmitDisabled,
   disabledReason,
   isGenerating,
+  progress,
   aiKeyAvailable,
   validationErrors,
   scrollTargetRef,
@@ -36,6 +40,21 @@ function DataGeneratorForm({
   generationLimits,
 }) {
   const [expandSignal, setExpandSignal] = useState(0);
+
+  const defaultSessionName = useMemo(() => {
+    return new Date()
+      .toLocaleString('en-US', {
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit',
+        hour12: false,
+      })
+      .replace(/\//g, '-')
+      .replace(', ', '_');
+  }, []);
 
   const maxProducts = generationLimits?.maxProducts || 100;
   const maxAccounts = generationLimits?.maxAccounts || 50;
@@ -146,8 +165,31 @@ function DataGeneratorForm({
       collapsedIndicator="⏵"
       expandedIndicator="⏷"
     >
-      <form name="dataGeneration" onSubmit={handleSubmit}>
-        <div className="d-flex justify-content-end mb-3 align-items-center">
+      <form name="dataGeneration" onSubmit={handleSubmit} className="mt-4">
+        <div className="row mb-4">
+          <div className="col-12">
+            <ClayForm.Group className="mb-0">
+              <label
+                htmlFor="dataGeneration_sessionName"
+                className="form-label font-weight-semi-bold"
+              >
+                Session Name{' '}
+                <small className="text-secondary">(Optional)</small>
+              </label>
+              <ClayInput
+                id="dataGeneration_sessionName"
+                placeholder={defaultSessionName}
+                value={generationConfig.sessionName || ''}
+                onChange={(e) =>
+                  handleConfigChange('sessionName', e.target.value)
+                }
+                disabled={lockFields}
+              />
+            </ClayForm.Group>
+          </div>
+        </div>
+
+        <div className="d-flex justify-content-end my-4 align-items-center">
           <span
             className={`mr-2 font-weight-semi-bold ${!generationConfig.demoMode ? 'text-secondary' : 'text-primary'}`}
           >
@@ -305,7 +347,7 @@ function DataGeneratorForm({
           />
         )}
 
-        <fieldset className="form-group mb-4 mt-4">
+        <fieldset className="form-group mb-4 mt-5">
           <legend
             className="font-weight-semi-bold"
             style={{ fontSize: '1rem' }}
@@ -325,9 +367,9 @@ function DataGeneratorForm({
           )}
         </fieldset>
 
-        <div className="row mt-5">
-          <div className="col-lg-6 pr-lg-4 border-right-lg">
-            <h3 className="sheet-title mb-3" style={{ fontSize: '1rem' }}>
+        <div className="row mt-5 gx-5">
+          <div className="col-lg-6 pr-lg-5 border-right-lg">
+            <h3 className="sheet-title mb-4" style={{ fontSize: '1rem' }}>
               Architecture Features
             </h3>
             <ProductToggleSet
@@ -361,9 +403,9 @@ function DataGeneratorForm({
             </div>
           </div>
 
-          <div className="col-lg-6 pl-lg-4">
+          <div className="col-lg-6 pl-lg-5">
             <h3
-              className={`sheet-title mb-3 ${generationConfig.productCount === 0 ? 'text-muted' : ''}`}
+              className={`sheet-title mb-4 ${generationConfig.productCount === 0 ? 'text-muted' : ''}`}
               style={{ fontSize: '1rem' }}
             >
               Inventory Strategy
@@ -425,45 +467,68 @@ function DataGeneratorForm({
         )}
 
         <div className="mt-4">
-          <span
-            title={disabled && !isGenerating ? disabledReason : undefined}
-            style={{ display: 'block' }}
-          >
-            <ClayButton
-              type="submit"
-              displayType={generationConfig.demoMode ? 'secondary' : 'primary'}
-              block
-              disabled={isSubmitDisabled}
+          {isGenerating ? (
+            <div className="d-flex" style={{ gap: '1rem' }}>
+              <ClayButton
+                displayType="secondary"
+                block
+                onClick={onCancel}
+                title="Request workflow cancellation"
+              >
+                <ClayIcon symbol="times-circle" className="mr-2" />
+                Cancel Generation
+              </ClayButton>
+              <ClayButton
+                displayType="primary"
+                block
+                disabled
+                className="flex-grow-1"
+              >
+                <span
+                  className="spinner-border spinner-border-sm mr-2"
+                  role="status"
+                  aria-hidden="true"
+                />
+                {generationConfig.demoMode ? 'Generating...' : 'Generating...'}
+              </ClayButton>
+            </div>
+          ) : (
+            <span
+              title={disabled && !isGenerating ? disabledReason : undefined}
+              style={{ display: 'block' }}
             >
-              {isGenerating ? (
-                <>
-                  <span
-                    className="spinner-border spinner-border-sm mr-2"
-                    role="status"
-                    aria-hidden="true"
-                  />
-                  {generationConfig.demoMode
-                    ? 'Generating Demo Data...'
-                    : 'Generating Data...'}
-                </>
-              ) : disabled ? (
-                <>
-                  <ClayIcon symbol="warning-full" className="mr-2" />
-                  {disabledReason || 'Not ready to generate yet'}
-                </>
-              ) : (
-                <>
-                  <ClayIcon
-                    symbol={generationConfig.demoMode ? 'flask' : 'play'}
-                    className="mr-2"
-                  />
-                  {generationConfig.demoMode
-                    ? 'Start Demo Generation'
-                    : 'Start Generation'}
-                </>
-              )}
-            </ClayButton>
-          </span>
+              <ClayButton
+                type="submit"
+                displayType={
+                  generationConfig.demoMode ? 'secondary' : 'primary'
+                }
+                block
+                disabled={isSubmitDisabled}
+              >
+                <ClayIcon
+                  symbol={generationConfig.demoMode ? 'flask' : 'play'}
+                  className="mr-2"
+                />
+                {generationConfig.demoMode
+                  ? 'Start Demo Generation'
+                  : 'Start Generation'}
+              </ClayButton>
+            </span>
+          )}
+
+          {getTotalProgress(progress).total > 0 && !isGenerating && (
+            <div className="mt-3 text-center">
+              <ClayButton
+                displayType="unstyled"
+                className="text-secondary"
+                onClick={onResetProgress}
+                title="Clear current progress and activity logs"
+              >
+                <ClayIcon symbol="redo" className="mr-2" />
+                Reset Dashboard State
+              </ClayButton>
+            </div>
+          )}
         </div>
       </form>
     </CollapsiblePanel>

@@ -189,13 +189,22 @@ class OrderGenerator extends BaseGenerator {
           shipped: 2,
           completed: 10,
         };
-        for (const [key, count] of Object.entries(config.orderDistribution)) {
+        for (const [key, pct] of Object.entries(config.orderDistribution)) {
           const statusId = statusMap[key];
           if (statusId !== undefined) {
+            const count = Math.round((pct / 100) * orderDataList.length);
             for (let i = 0; i < count; i++) {
               statuses.push(statusId);
             }
           }
+        }
+
+        // Adjust length to match exactly
+        while (statuses.length < orderDataList.length) {
+          statuses.push(10); // Default to completed
+        }
+        if (statuses.length > orderDataList.length) {
+          statuses.length = orderDataList.length;
         }
 
         // Shuffle the array to distribute the statuses randomly
@@ -206,11 +215,7 @@ class OrderGenerator extends BaseGenerator {
 
         // Apply to orderDataList
         for (let i = 0; i < orderDataList.length; i++) {
-          if (i < statuses.length) {
-            orderDataList[i].orderStatus = statuses[i];
-          } else {
-            orderDataList[i].orderStatus = 10; // Default to completed if we run out somehow
-          }
+          orderDataList[i].orderStatus = statuses[i];
         }
       }
 

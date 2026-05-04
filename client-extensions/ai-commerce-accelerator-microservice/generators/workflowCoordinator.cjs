@@ -19,6 +19,16 @@ class WorkflowCoordinator extends BaseGenerator {
   }
 
   /**
+   * Overrides verifySteps to verify all registered sub-generators.
+   */
+  verifySteps() {
+    super.verifySteps();
+    for (const generator of Object.values(this.generators)) {
+      generator.verifySteps();
+    }
+  }
+
+  /**
    * Overrides executeStep to delegate to the appropriate generator.
    */
   async executeStep(sessionId, stepName) {

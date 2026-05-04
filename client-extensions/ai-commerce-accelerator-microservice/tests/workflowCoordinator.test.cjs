@@ -22,6 +22,7 @@ describe('WorkflowCoordinator', () => {
       progress: {
         stepStarted: vi.fn(),
         stepCompleted: vi.fn(),
+        sessionFailed: vi.fn(),
       },
     };
 

@@ -174,6 +174,7 @@ module.exports = (
           status: 'STARTED',
           currentSteps: [],
           correlationId: config.correlationId,
+          sessionName: options.sessionName,
           context: {
             config,
             options,

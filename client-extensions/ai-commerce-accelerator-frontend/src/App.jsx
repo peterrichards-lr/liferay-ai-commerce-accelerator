@@ -9,6 +9,7 @@ import React, {
 import ClayLayout from '@clayui/layout';
 import ClayButton from '@clayui/button';
 import ClayLabel from '@clayui/label';
+import ClayIcon from '@clayui/icon';
 import { AppProvider, useApp, useApi } from './context/AppContext';
 import { progressReducer, initialProgress } from './state/progressReducer';
 
@@ -18,8 +19,6 @@ import useValidation from './hooks/useValidation';
 import useCommerceData from './hooks/useCommerceData';
 import useGeneration from './hooks/useGeneration';
 
-import { computeTotalsFromConfig } from './state/progressSelectors';
-
 import notifyUser from './utils/notifications';
 
 import { flattenErrorsMap } from './utils/validation';
@@ -28,8 +27,12 @@ import ConfigurationPanel from './components/config/ConfigurationPanel';
 import DataGeneratorForm from './components/data-generator/DataGeneratorForm';
 import HelpSection from './components/dashboard/HelpSection';
 import Dashboard from './components/dashboard/Dashboard';
+import ActivityLog from './components/dashboard/ActivityLog';
+import SessionSelectorModal from './components/ui/SessionSelectorModal';
 
 import useAppConfigIO from './hooks/useAppConfigIO';
+import useLogExport from './hooks/useLogExport';
+import useDatasetIO from './hooks/useDatasetIO';
 
 import {
   AI_CONFIG,
@@ -38,51 +41,43 @@ import {
 } from './utils/microservicePaths';
 
 const initialGenerationConfig = {
+  sessionName: '',
   productCount: 10,
   accountCount: 10,
   orderCount: 50,
-  orderDistribution: { open: 5, processing: 5, shipped: 10, completed: 30 },
+  orderDistribution: { open: 10, processing: 10, shipped: 20, completed: 60 },
   categories: [],
   generatePriceLists: true,
   generateBulkPricing: true,
   generateTierPricing: true,
   imageMode: 'placeholder',
-  imageWidth: 1024,
-  imageHeight: 1024,
-  imageQuality: 'standard',
-  imageStyle: 'photographic',
   imageRatio: 100,
-  customImageFile: null,
-  generateSpecifications: true,
-  generateSkuVariants: true,
+  imageStyle: 'photographic',
   pdfMode: 'placeholder',
   pdfRatio: 100,
   pdfContentType: 'product_info',
-  demoMode: true,
+  createWarehouses: true,
+  reuseExistingWarehouses: true,
+  warehouseCount: 5,
   inventoryMin: 0,
   inventoryMax: 1000,
   inventoryAssignmentRatio: 100,
   enableBackorders: true,
   backorderAssignmentRatio: 50,
-  createWarehouses: true,
-  reuseExistingWarehouses: true,
-  warehouseCount: 5,
-  customPDFFile: null,
+  demoMode: true,
 };
 
-export function AppUI() {
-  const mountedRef = useRef(true);
-  useEffect(
-    () => () => {
-      mountedRef.current = false;
-    },
-    []
-  );
-
-  const appTopRef = useRef(null);
-
+function AppUI() {
   const { config, setConfig } = useApp();
   const api = useApi();
+  const mountedRef = useRef(true);
+
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+    };
+  }, []);
 
   const [generationConfig, setGenerationConfig] = useState(
     initialGenerationConfig
@@ -91,69 +86,82 @@ export function AppUI() {
   const [connectionEstablished, setConnectionEstablished] = useState(false);
   const [aiKeyAvailable, setAiKeyAvailable] = useState(false);
   const [batchErrors, setBatchErrors] = useState([]);
+  const [showSessionSelector, setShowSessionSelector] = useState(false);
   const [batchSizes, setBatchSizes] = useState([1, 10, 25, 50]); // Default values
 
   const [generationLimits, setGenerationLimits] = useState({
-    maxProducts: 100,
-    maxAccounts: 50,
-    maxOrders: 200,
+    maxProducts: 10000,
+    maxAccounts: 5000,
+    maxOrders: 50000,
   });
 
-  const {
-    connectionErrors,
-    setConnectionErrors,
-    commerceErrors,
-    generationErrors,
-  } = useValidation(
-    config,
-    generationConfig,
-    connectionEstablished,
-    generationLimits
-  );
+  const { connectionErrors, setConnectionErrors, generationErrors } =
+    useValidation(
+      config,
+      generationConfig,
+      connectionEstablished,
+      generationLimits
+    );
 
   const [availableCategories, setAvailableCategories] = useState([]);
   const [aiConfig, setAiConfig] = useState(null);
 
-  const initialLoggingConfig = {
+  const {
+    logs,
+    addLog: baseAddLog,
+    clearLogs,
+  } = useActivityLog({
     level: config?.wsLoggingLevel || 'info',
     maxEntries: 500,
     dedupeWindowMs: 1000,
     mirrorToConsole: true,
     storageKey: 'activityLog:v1',
-  };
+  });
 
-  const { logs, addLog, clearLogs } = useActivityLog(initialLoggingConfig);
+  const addLog = useCallback(
+    (message, type = 'info', source) => {
+      baseAddLog(message, type, source);
+      if (type === 'error' || type === 'danger') {
+        notifyUser(message, 'danger');
+      } else if (type === 'warning' || type === 'warn') {
+        notifyUser(message, 'warning');
+      }
+    },
+    [baseAddLog]
+  );
 
-  const [progress, dispatch] = useReducer(progressReducer, initialProgress);
+  const [progress, dispatch] = useReducer(
+    progressReducer,
+    initialProgress,
+    (initial) => {
+      const savedSessionId = localStorage.getItem('aica_active_session_id');
+      return savedSessionId
+        ? { ...initial, activeSessionId: savedSessionId }
+        : initial;
+    }
+  );
+
+  useEffect(() => {
+    if (progress.activeSessionId) {
+      localStorage.setItem('aica_active_session_id', progress.activeSessionId);
+    } else {
+      localStorage.removeItem('aica_active_session_id');
+    }
+  }, [progress.activeSessionId]);
 
   const setProgress = useCallback((arg) => {
     if (typeof arg === 'function') {
       dispatch({ type: 'APPLY_UPDATER', updater: arg });
     } else if (arg && arg.type) {
       dispatch(arg);
-    } else {
-      dispatch({ type: 'MERGE', payload: arg });
     }
   }, []);
 
-  const onBatchErrorDetails = useCallback((errorDetails) => {
-    setBatchErrors((prevErrors) => {
-      const existingErrorIndex = prevErrors.findIndex(
-        (e) => e.batchId === errorDetails.batchId
-      );
-
-      if (existingErrorIndex >= 0) {
-        const nextErrors = [...prevErrors];
-        nextErrors[existingErrorIndex] = errorDetails;
-        return nextErrors;
-      }
-
-      return [...prevErrors, errorDetails];
-    });
+  const onBatchErrorDetails = useCallback((details) => {
+    setBatchErrors((prev) => [...prev, details]);
   }, []);
 
   const { ping, wsConnected, reconnect } = useRealtimeWebSocket({
-    enabled: connectionEstablished && !!config.microserviceUrl,
     microserviceUrl: config.microserviceUrl,
     loggingLevel: config?.wsLoggingLevel ?? 'off',
     onLog: addLog,
@@ -165,10 +173,7 @@ export function AppUI() {
   const {
     catalogs,
     channels,
-    languages,
-    currencies,
-    categories,
-    buildPayload,
+    categories: fetchCategories,
     selectChannel,
     selectCatalog,
     testConnection,
@@ -182,7 +187,11 @@ export function AppUI() {
     ping,
   });
 
-  const { isSubmitting, generateData } = useGeneration({
+  const {
+    isSubmitting,
+    generateData,
+    cancelWorkflow: baseCancelWorkflow,
+  } = useGeneration({
     addLog,
     buildPayload,
     api,
@@ -193,8 +202,17 @@ export function AppUI() {
     mountedRef,
     progress,
     setProgress,
-    connectionEstablished,
   });
+
+  const handleProgressReset = useCallback(() => {
+    dispatch({ type: 'RESET' });
+    clearLogs();
+    notifyUser('Dashboard state reset.');
+  }, [clearLogs]);
+
+  const cancelWorkflow = useCallback(async () => {
+    await baseCancelWorkflow();
+  }, [baseCancelWorkflow]);
 
   const isGenerating = isSubmitting || !!progress.activeSessionId;
 
@@ -206,30 +224,35 @@ export function AppUI() {
     config.selectedLanguages.length > 0;
 
   const firstConnectionError = flattenErrorsMap(connectionErrors)[0];
-  const firstCommerceError = flattenErrorsMap(commerceErrors)[0];
-  const firstGenerationError = flattenErrorsMap(generationErrors)[0];
 
-  const isFormLocked = isGenerating;
-  let isSubmitDisabled = isGenerating;
-  let disabledReason = '';
+  const isFormLocked = isGenerating || !connectionEstablished;
+  const isSubmitDisabled =
+    isFormLocked ||
+    !commerceConfigured ||
+    flattenErrorsMap(generationErrors).length > 0;
 
-  if (firstConnectionError) {
-    isSubmitDisabled = true;
-    disabledReason = firstConnectionError;
-  } else if (!connectionEstablished) {
-    isSubmitDisabled = true;
-    disabledReason = 'Please test the connection first.';
-  } else if (firstCommerceError) {
-    isSubmitDisabled = true;
-    disabledReason = firstCommerceError;
-  } else if (firstGenerationError) {
-    isSubmitDisabled = true;
-    disabledReason = 'Fix the highlighted issues to continue.';
-  } else if (isGenerating) {
-    disabledReason = generationConfig.demoMode
-      ? 'Generating demo data…'
-      : 'Generating data…';
-  }
+  const disabledReason = useMemo(() => {
+    if (!connectionEstablished) {
+      if (firstConnectionError) return firstConnectionError;
+      return 'Check the system connectivity to enable generation.';
+    }
+
+    if (!commerceConfigured) {
+      return 'Select a Catalog, Channel, and at least one Language.';
+    }
+
+    const genErrors = flattenErrorsMap(generationErrors);
+    if (genErrors.length > 0) {
+      return genErrors[0];
+    }
+
+    return null;
+  }, [
+    connectionEstablished,
+    firstConnectionError,
+    commerceConfigured,
+    generationErrors,
+  ]);
 
   const { exportConfiguration, importConfiguration } = useAppConfigIO({
     config,
@@ -238,80 +261,27 @@ export function AppUI() {
     setGenerationConfig,
     connectionEstablished,
     setConnectionEstablished,
-    setAiKeyAvailable,
+    setOpenAiKeyAvailable: setAiKeyAvailable,
     availableCategories,
     mountedRef,
     selectChannel,
   });
 
-  const forceDemoMode = connectionEstablished && !aiKeyAvailable;
+  const { exportLogs } = useLogExport({
+    logs,
+    progress,
+    config,
+    generationConfig,
+  });
 
-  useEffect(() => {
-    if (forceDemoMode) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect
-      setGenerationConfig((prev) => {
-        if (
-          prev.demoMode &&
-          prev.imageMode !== 'generate' &&
-          prev.pdfMode !== 'generate'
-        ) {
-          return prev;
-        }
-        const next = { ...prev, demoMode: true };
-        if (next.imageMode === 'generate') next.imageMode = 'default';
-        if (next.pdfMode === 'generate') next.pdfMode = 'default';
-        return next;
-      });
-    }
-  }, [forceDemoMode]);
-
-  useEffect(() => {
-    if (isGenerating) return;
-
-    const { products, accounts, orders, images, pdfs, warehouses } =
-      computeTotalsFromConfig(generationConfig);
-
-    dispatch({
-      type: 'SET_EXPECTED_VALUES',
-      values: { images, pdfs },
-    });
-
-    dispatch({
-      type: 'SET_TOTALS',
-      totals: { products, accounts, orders, images, pdfs, warehouses },
-    });
-  }, [isGenerating, generationConfig]);
-
-  const clearBatchErrors = useCallback(() => {
-    setBatchErrors([]);
-  }, []);
-
-  const handleProgressReset = useCallback(() => {
-    clearLogs();
-    setBatchErrors([]);
-
-    const { products, accounts, orders, warehouses, images, pdfs } =
-      computeTotalsFromConfig(generationConfig);
-
-    setProgress(() => ({
-      ...initialProgress,
-      products: { ...initialProgress.products, total: products },
-      accounts: { ...initialProgress.accounts, total: accounts },
-      orders: { ...initialProgress.orders, total: orders },
-      images: { ...initialProgress.images, total: images, expected: images },
-      pdfs: { ...initialProgress.pdfs, total: pdfs, expected: pdfs },
-      warehouses: { ...initialProgress.warehouses, total: warehouses },
-    }));
-
-    notifyUser('Progress and activity log have been reset.');
-  }, [clearLogs, setProgress, generationConfig]);
+  const { exportSession, importDataset } = useDatasetIO({
+    api,
+    addLog,
+    isGenerating,
+  });
 
   const handleSettingsReset = () => {
-    const newConfig = { ...initialGenerationConfig };
-    if (availableCategories.length > 0) {
-      newConfig.categories = [availableCategories[0].key];
-    }
-    setGenerationConfig(newConfig);
+    setGenerationConfig(initialGenerationConfig);
     notifyUser('Generator settings restored to defaults.');
   };
 
@@ -319,54 +289,27 @@ export function AppUI() {
     if (!connectionEstablished) return;
     (async () => {
       try {
-        const fetched = await categories();
+        const fetched = await fetchCategories();
         if (mountedRef.current) {
           setAvailableCategories(fetched);
-
-          // Set first category as default if none selected
-          if (fetched.length > 0) {
-            setGenerationConfig((prevConfig) => {
-              if (
-                !prevConfig.categories ||
-                prevConfig.categories.length === 0
-              ) {
-                const firstCategory = fetched[0];
-                const firstCategoryKey =
-                  typeof firstCategory === 'string'
-                    ? firstCategory
-                    : firstCategory.key;
-
-                return { ...prevConfig, categories: [firstCategoryKey] };
-              }
-              return prevConfig;
-            });
-          }
         }
-      } catch (err) {
-        addLog('Failed to load categories: ' + err.message, 'error');
-      }
-
-      let fetchedBatchSizes = [];
-      try {
-        fetchedBatchSizes = await api.get(BATCH_SIZES);
-        if (mountedRef.current && Array.isArray(fetchedBatchSizes)) {
-          setBatchSizes(fetchedBatchSizes);
-          setConfig((prevConfig) => {
-            const newConfig = { ...prevConfig };
-            if (!newConfig.batchSize && fetchedBatchSizes.length > 0) {
-              newConfig.batchSize = fetchedBatchSizes[0];
-            }
-            return newConfig;
-          });
-        }
-      } catch (err) {
-        addLog('Failed to load batch sizes: ' + err.message, 'error');
+      } catch {
+        // silently fail
       }
 
       try {
         const fullAiConfig = await api.get(AI_CONFIG);
         if (mountedRef.current && fullAiConfig?.success) {
-          setAiConfig(fullAiConfig.config?.ai);
+          setAiConfig(fullAiConfig.config);
+        }
+      } catch {
+        // Silently fail
+      }
+
+      try {
+        const res = await api.get(BATCH_SIZES);
+        if (mountedRef.current && res?.success) {
+          setBatchSizes(res.batchSizes || [1, 10, 25, 50]);
         }
       } catch {
         // Silently fail
@@ -374,18 +317,14 @@ export function AppUI() {
 
       try {
         const res = await api.get(CONFIG_GENERATION_LIMITS);
-        if (mountedRef.current && res?.success && res.limits) {
+        if (mountedRef.current && res?.success) {
           setGenerationLimits(res.limits);
 
           // Update initial configuration with default distribution if not already set
           if (res.limits.defaultOrderDistribution) {
             setGenerationConfig((prev) => {
-              if (
-                prev.orderDistribution.open === 5 &&
-                prev.orderDistribution.processing === 5 &&
-                prev.orderDistribution.shipped === 10 &&
-                prev.orderDistribution.completed === 30
-              ) {
+              if (prev.orderCount === 50) {
+                // If it's the initial default
                 return {
                   ...prev,
                   orderDistribution: res.limits.defaultOrderDistribution,
@@ -399,42 +338,60 @@ export function AppUI() {
         // Silently fail
       }
     })();
-  }, [connectionEstablished, categories, mountedRef, addLog, api, setConfig]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [connectionEstablished, api]);
 
-  useEffect(() => {
-    // Sync logic for errors or side effects
-  }, [batchErrors]);
+  const clearBatchErrors = useCallback(() => {
+    setBatchErrors([]);
+  }, []);
+
+  const appTopRef = useRef(null);
+
+  function buildPayload() {
+    return {
+      ...config,
+      ...generationConfig,
+      correlationId: config.correlationId,
+    };
+  }
 
   return (
-    <div className="ai-commerce-dashboard">
-      {/* GLOBAL MANAGEMENT BAR */}
-      <div className="management-bar management-bar-light">
-        <div className="container-fluid">
-          <nav className="navbar navbar-expand-md">
+    <div className="ai-commerce-dashboard" ref={appTopRef}>
+      {/* HEADER / NAVIGATION BAR */}
+      <div className="dashboard-nav-container py-3 border-bottom bg-white sticky-top">
+        <div className="container-fluid px-4">
+          <nav className="navbar navbar-expand-md navbar-light p-0">
             <div className="navbar-brand d-flex align-items-center">
-              <h1 className="component-title mb-0 mr-3">
-                <i className="fas fa-robot mr-2"></i>
-                {config?.title ?? 'Liferay AI Commerce Accelerator'}
-              </h1>
-              <ClayLabel
-                displayType={connectionEstablished ? 'success' : 'warning'}
+              <div
+                className="brand-icon-wrapper mr-3 bg-primary text-white d-flex align-items-center justify-content-center"
+                style={{ width: '40px', height: '40px', borderRadius: '10px' }}
               >
-                {connectionEstablished
-                  ? 'Connected to Liferay'
-                  : 'Disconnected'}
-              </ClayLabel>
+                <ClayIcon symbol="magic" />
+              </div>
+              <div>
+                <span className="h5 mb-0 font-weight-bold d-block">
+                  {config.title || 'Liferay AI Commerce Accelerator'}
+                </span>
+                <ClayLabel
+                  className="align-self-center mb-0"
+                  displayType={connectionEstablished ? 'success' : 'warning'}
+                >
+                  {connectionEstablished
+                    ? 'Connected to Liferay'
+                    : 'Disconnected'}
+                </ClayLabel>
+              </div>
             </div>
+
             <ul className="navbar-nav ml-auto">
-              <li className="nav-item mr-2">
+              <li className="nav-item mr-3 d-flex align-items-center">
+                <span
+                  className="text-secondary small mr-2 font-weight-bold"
+                  style={{ textTransform: 'uppercase', letterSpacing: '0.5px' }}
+                >
+                  Params:
+                </span>
                 <div className="btn-group">
-                  <input
-                    type="file"
-                    id="configImport"
-                    accept=".json"
-                    onChange={importConfiguration}
-                    style={{ display: 'none' }}
-                    disabled={isGenerating}
-                  />
                   <ClayButton
                     displayType="secondary"
                     size="sm"
@@ -442,58 +399,113 @@ export function AppUI() {
                       document.getElementById('configImport').click()
                     }
                     disabled={isGenerating}
+                    title="Import generation parameters from JSON"
                   >
-                    Import Config
+                    Import
                   </ClayButton>
                   <ClayButton
                     displayType="secondary"
                     size="sm"
                     onClick={exportConfiguration}
                     disabled={isGenerating}
+                    title="Export current generation parameters"
                   >
-                    Export Config
+                    Export
                   </ClayButton>
                 </div>
               </li>
+
+              <li className="nav-item mr-3 d-flex align-items-center">
+                <span
+                  className="text-secondary small mr-2 font-weight-bold"
+                  style={{ textTransform: 'uppercase', letterSpacing: '0.5px' }}
+                >
+                  Dataset:
+                </span>
+                <div className="btn-group">
+                  <ClayButton
+                    displayType="secondary"
+                    size="sm"
+                    onClick={() =>
+                      document.getElementById('datasetImport').click()
+                    }
+                    disabled={isGenerating}
+                    title="Import mock dataset from JSON"
+                  >
+                    Import
+                  </ClayButton>
+                  <ClayButton
+                    displayType="secondary"
+                    size="sm"
+                    onClick={() => setShowSessionSelector(true)}
+                    disabled={isGenerating}
+                    title="Choose a successful generation run to export"
+                  >
+                    Export
+                  </ClayButton>
+                </div>
+              </li>
+
+              <li className="nav-item d-flex align-items-center">
+                <ClayButton
+                  displayType="secondary"
+                  size="sm"
+                  onClick={exportLogs}
+                  title="Export system status and activity logs for sharing"
+                >
+                  <ClayIcon symbol="info-circle" className="mr-1" />
+                  Export Logs
+                </ClayButton>
+              </li>
             </ul>
+
+            {/* Hidden File Inputs */}
+            <input
+              type="file"
+              id="configImport"
+              accept=".json"
+              onChange={importConfiguration}
+              style={{ display: 'none' }}
+              disabled={isGenerating}
+            />
+            <input
+              type="file"
+              id="datasetImport"
+              accept=".json"
+              onChange={importDataset}
+              style={{ display: 'none' }}
+              disabled={isGenerating}
+            />
+
+            <SessionSelectorModal
+              visible={showSessionSelector}
+              onClose={() => setShowSessionSelector(false)}
+              onSelect={exportSession}
+              api={api}
+            />
           </nav>
         </div>
       </div>
 
-      {/* MAIN CONTENT AREA - 3 Column Layout */}
+      {/* MAIN CONTENT AREA - Responsive Column Layout */}
       <div className="container-fluid mt-4">
         <ClayLayout.Row>
-          {/* COLUMN 1: CONFIGURATION & HELP */}
-          <ClayLayout.Col size={3}>
-            <div className="sheet sheet-lg">
+          {/* COLUMN 1: CONFIGURATION & HELP (Top on Mobile/Tablet) */}
+          <ClayLayout.Col lg={3} md={4} sm={12}>
+            <div className="sheet sheet-lg mb-4">
               <HelpSection />
 
-              <div className="row mb-4">
+              <div className="row">
                 <div className="col-12">
                   <ConfigurationPanel
                     disabled={isGenerating}
-                    generationConfig={generationConfig}
-                    onTestConnection={testConnection}
-                    onConnectionStatusChange={setConnectionEstablished}
-                    connected={connectionEstablished}
+                    testConnection={testConnection}
                     catalogs={catalogs}
                     channels={channels}
-                    languages={languages}
-                    currencies={currencies}
-                    onSelectChannel={selectChannel}
-                    onSelectCatalog={selectCatalog}
-                    commerceConfigured={commerceConfigured}
-                    onOpenAiKeyStatusChange={setAiKeyAvailable}
-                    aiKeyAvailable={aiKeyAvailable}
-                    connectionErrors={connectionErrors}
-                    commerceErrors={commerceErrors}
-                    onErrorsChange={setConnectionErrors}
                     onDeleteAllCommerceData={async () => {
-                      setProgress({ type: 'RESET_ALL', totals: {} });
                       await handleDeleteAllCommerceData();
                     }}
                     onDeleteSelectedCommerceData={async (scope) => {
-                      setProgress({ type: 'RESET_ALL', totals: {} });
                       await handleDeleteSelectedCommerceData(scope);
                     }}
                     batchSizes={batchSizes}
@@ -503,18 +515,21 @@ export function AppUI() {
             </div>
           </ClayLayout.Col>
 
-          {/* COLUMN 2: DATA GENERATION STRATEGY */}
-          <ClayLayout.Col size={6}>
-            <div className="sheet sheet-lg">
+          {/* COLUMN 2: DATA GENERATION STRATEGY (Center) */}
+          <ClayLayout.Col lg={6} md={8} sm={12}>
+            <div className="sheet sheet-lg mb-4">
               <DataGeneratorForm
                 generationConfig={generationConfig}
                 setGenerationConfig={setGenerationConfig}
                 onGenerate={generateData}
                 onResetSettings={handleSettingsReset}
+                onCancel={cancelWorkflow}
+                onResetProgress={handleProgressReset}
                 disabled={isFormLocked}
                 isSubmitDisabled={isSubmitDisabled}
                 disabledReason={disabledReason}
                 isGenerating={isGenerating}
+                progress={progress}
                 aiKeyAvailable={aiKeyAvailable}
                 validationErrors={generationErrors}
                 scrollTargetRef={appTopRef}
@@ -522,34 +537,53 @@ export function AppUI() {
                 liferayConnected={connectionEstablished}
                 generationLimits={generationLimits}
               />
+
+              <div className="divider my-4"></div>
+
+              {/* Live Console - Moved from sidebar to center bottom */}
+              <div
+                className="live-console-container"
+                style={{ minHeight: '300px' }}
+              >
+                <ActivityLog
+                  onClearLogs={clearLogs}
+                  logs={logs}
+                  isGenerating={isGenerating}
+                />
+              </div>
             </div>
           </ClayLayout.Col>
 
-          {/* COLUMN 3: OBSERVABILITY (Sticky) */}
+          {/* COLUMN 3: OBSERVABILITY (Sticky on Desktop, Bottom on Mobile) */}
           <ClayLayout.Col
-            size={3}
-            className="sticky-top"
+            lg={3}
+            md={12}
+            sm={12}
+            className="sticky-top-lg"
             style={{
               top: 'calc(var(--control-menu-height, 0px) + 2rem)',
-              maxHeight: 'calc(100vh - var(--control-menu-height, 0px) - 4rem)',
-              overflowY: 'auto',
               zIndex: 10,
             }}
           >
-            <Dashboard
-              progress={progress}
-              logs={logs}
-              isGenerating={isGenerating}
-              onClearLogs={clearLogs}
-              onReset={handleProgressReset}
-              generationConfig={generationConfig}
-              wsStatus={wsConnected ? 'connected' : 'closed'}
-              batchErrors={batchErrors}
-              clearBatchErrors={clearBatchErrors}
-              onReconnect={reconnect}
-              connected={connectionEstablished}
-              aiConfig={aiConfig}
-            />
+            <div className="sheet sheet-lg mb-4">
+              <Dashboard
+                progress={progress}
+                isGenerating={isGenerating}
+                generationConfig={generationConfig}
+                wsStatus={
+                  !connectionEstablished
+                    ? 'unknown'
+                    : wsConnected
+                      ? 'connected'
+                      : 'closed'
+                }
+                batchErrors={batchErrors}
+                clearBatchErrors={clearBatchErrors}
+                onReconnect={reconnect}
+                connected={connectionEstablished}
+                aiConfig={aiConfig}
+              />
+            </div>
           </ClayLayout.Col>
         </ClayLayout.Row>
       </div>
@@ -557,24 +591,10 @@ export function AppUI() {
   );
 }
 
-import { ClayIconSpriteContext } from '@clayui/icon';
-
-const SPRITEMAP_FALLBACK = '/icons.svg';
-
-export default function AppRoot({ config: initialConfig }) {
-  const spritemap = useMemo(
-    () =>
-      initialConfig?.spritemap ||
-      globalThis?.Liferay?.Icons?.spritemap ||
-      SPRITEMAP_FALLBACK,
-    [initialConfig?.spritemap]
-  );
-
+export default function AppRoot(props) {
   return (
-    <AppProvider initialConfig={initialConfig}>
-      <ClayIconSpriteContext.Provider value={spritemap}>
-        <AppUI />
-      </ClayIconSpriteContext.Provider>
+    <AppProvider initialConfig={props.config}>
+      <AppUI />
     </AppProvider>
   );
 }

@@ -5,6 +5,8 @@ export const getProgressPercentage = (completed = 0, total = 0) => {
 
 export const getTotalProgress = (progress) => {
   if (!progress) return { total: 0, completed: 0 };
+
+  // Only include entities that have a non-zero total assigned to them
   const entities = [
     'products',
     'accounts',
@@ -15,15 +17,24 @@ export const getTotalProgress = (progress) => {
     'specifications',
     'options',
   ];
-  const totals = entities.map((e) => progress[e]?.total || 0);
-  const completeds = entities.map((e) => progress[e]?.completed || 0);
 
-  const totalSum = totals.reduce((a, b) => a + b, 0);
-  const completedSum = completeds.reduce((a, b) => a + b, 0);
+  let totalSum = 0;
+  let completedSum = 0;
+
+  entities.forEach((e) => {
+    const total = progress[e]?.total || 0;
+    const completed = progress[e]?.completed || 0;
+
+    // If we have a total for this entity, include it in the global sum
+    if (total > 0) {
+      totalSum += total;
+      completedSum += completed;
+    }
+  });
 
   return {
     total: totalSum,
-    completed: completedSum,
+    completed: Math.min(completedSum, totalSum), // Cap at 100%
   };
 };
 

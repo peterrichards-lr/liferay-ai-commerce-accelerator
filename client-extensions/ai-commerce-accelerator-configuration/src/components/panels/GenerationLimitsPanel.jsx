@@ -1,21 +1,21 @@
 import React from 'react';
 import ClayForm, { ClayInput } from '@clayui/form';
-import ClayAlert from '@clayui/alert';
 import ClayButton from '@clayui/button';
+import ClayIcon from '@clayui/icon';
 import ClayLayout from '@clayui/layout';
 import { useForm, useObjectStorage } from '../../hooks';
 
 const LIMITS_CONFIG_KEY = 'generation-limits';
 const DEFAULTS = {
   [LIMITS_CONFIG_KEY]: {
-    maxProducts: 100,
-    maxAccounts: 50,
-    maxOrders: 200,
+    maxProducts: 10000,
+    maxAccounts: 5000,
+    maxOrders: 50000,
     defaultOrderDistribution: {
-      open: 5,
-      processing: 5,
-      shipped: 10,
-      completed: 30,
+      open: 10,
+      processing: 10,
+      shipped: 20,
+      completed: 60,
     },
   },
 };
@@ -28,56 +28,42 @@ const STATUS_CONFIG = [
 ];
 
 export default function GenerationLimitsPanel() {
-  const { config, loading, persist } = useObjectStorage(
-    [LIMITS_CONFIG_KEY],
-    DEFAULTS
-  );
-
   const {
-    data,
-    errors,
-    isDirty,
-    isSubmitting,
-    reset,
-    setData,
-    setErrors,
-    submit,
-  } = useForm({
-    initialData: config,
-    onSubmit: async (formData) => {
-      await persist(formData);
-    },
+    loading,
+    saving,
+    values: { [LIMITS_CONFIG_KEY]: limits },
+    dirty,
+    onSave,
+    onCancel,
+    setValue,
+  } = useObjectStorage({
+    keys: [LIMITS_CONFIG_KEY],
+    defaults: DEFAULTS,
   });
 
+  useForm({ dirty, onSave });
+
   const handleLimitChange = (key, val) => {
-    setData((prev) => ({
-      ...prev,
-      [LIMITS_CONFIG_KEY]: {
-        ...prev[LIMITS_CONFIG_KEY],
-        [key]: parseInt(val, 10) || 0,
-      },
-    }));
+    setValue(LIMITS_CONFIG_KEY, {
+      ...limits,
+      [key]: parseInt(val, 10) || 0,
+    });
   };
 
   const handleDistChange = (key, val) => {
-    setData((prev) => ({
-      ...prev,
-      [LIMITS_CONFIG_KEY]: {
-        ...prev[LIMITS_CONFIG_KEY],
-        defaultOrderDistribution: {
-          ...prev[LIMITS_CONFIG_KEY].defaultOrderDistribution,
-          [key]: parseInt(val, 10) || 0,
-        },
+    setValue(LIMITS_CONFIG_KEY, {
+      ...limits,
+      defaultOrderDistribution: {
+        ...limits.defaultOrderDistribution,
+        [key]: parseInt(val, 10) || 0,
       },
-    }));
+    });
   };
 
   if (loading) return <div className="loading-animation" />;
 
-  const limits = data[LIMITS_CONFIG_KEY];
-
   return (
-    <div className="generation-limits-panel">
+    <ClayLayout.Sheet aria-busy={loading || saving} aria-live="polite">
       <div className="sheet-header">
         <h2 className="sheet-title">Generation Limits & Default Ratios</h2>
         <div className="sheet-text">
@@ -86,17 +72,7 @@ export default function GenerationLimitsPanel() {
         </div>
       </div>
 
-      <div className="sheet-body">
-        {errors.global && (
-          <ClayAlert
-            displayType="danger"
-            onClose={() => setErrors({})}
-            title="Error"
-          >
-            {errors.global}
-          </ClayAlert>
-        )}
-
+      <div className="sheet-section">
         <ClayLayout.Row>
           <ClayLayout.Col size={4}>
             <ClayForm.Group>
@@ -164,22 +140,26 @@ export default function GenerationLimitsPanel() {
       </div>
 
       <div className="sheet-footer">
-        <ClayButton
-          disabled={!isDirty || isSubmitting}
-          displayType="primary"
-          onClick={submit}
-        >
-          {isSubmitting ? 'Saving...' : 'Save Settings'}
-        </ClayButton>
-        <ClayButton
-          className="ml-2"
-          disabled={!isDirty || isSubmitting}
-          displayType="secondary"
-          onClick={reset}
-        >
-          Cancel
-        </ClayButton>
+        <div className="btn-group-item">
+          <ClayButton
+            displayType="primary"
+            onClick={onSave}
+            disabled={!dirty || saving}
+            className="mr-2"
+          >
+            <ClayIcon symbol={saving ? 'time' : 'disk'} />
+            <span className="ml-2">{saving ? 'Saving…' : 'Save'}</span>
+          </ClayButton>
+          <ClayButton
+            displayType="secondary"
+            onClick={onCancel}
+            disabled={!dirty || saving}
+          >
+            <ClayIcon symbol="restore" />
+            <span className="ml-2">Cancel</span>
+          </ClayButton>
+        </div>
       </div>
-    </div>
+    </ClayLayout.Sheet>
   );
 }

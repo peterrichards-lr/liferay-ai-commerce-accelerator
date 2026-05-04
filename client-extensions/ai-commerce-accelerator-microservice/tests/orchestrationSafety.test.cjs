@@ -19,6 +19,7 @@ const mockLogger = {
 const mockProgress = {
   stepStarted: vi.fn(),
   stepCompleted: vi.fn(),
+  sessionFailed: vi.fn(),
 };
 
 // Create a concrete subclass for testing

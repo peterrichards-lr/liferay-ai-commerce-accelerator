@@ -10,13 +10,6 @@ export default defineConfig({
   use: {
     baseURL: "http://localhost:5173",
     trace: "on-first-retry",
+    ...devices["Desktop Chrome"],
   },
-  projects: [
-    {
-      name: "chromium",
-      use: { ...devices["Desktop Chrome"] },
-    },
-  ],
-  // Note: We don't start servers automatically here yet
-  // as it requires more complex setup for this specific multi-component workspace
 });

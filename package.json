@@ -46,7 +46,7 @@
     "scripts": {
         "prepare": "husky || true",
         "test": "yarn workspaces run test",
-        "smoke": "playwright test",
+        "smoke": "playwright test tests/smoke",
         "lint": "yarn workspaces run lint && yarn lint:md",
         "lint:md": "markdownlint '**/*.md' --ignore '**/node_modules/**' --ignore '**/build/**' --ignore '**/bundles/**' --ignore 'GETTING_STARTED.md'",
         "update-browser-data": "yarn add -D baseline-browser-mapping@latest -W && npx update-browserslist-db@latest -y"

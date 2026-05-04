@@ -1,4 +1,5 @@
 import React from 'react';
+import ClayForm, { ClayInput } from '@clayui/form';
 import CheckboxGroup from '../ui/CheckboxGroup';
 import CheckboxField from '../ui/CheckboxField';
 
@@ -16,14 +17,16 @@ function WarehousesToggle({ productCount, values, onChange, disabled }) {
       />
 
       {values.createWarehouses && (
-        <div className="form-group">
-          <label htmlFor="dataGeneration_warehouseCount">
+        <ClayForm.Group className="mb-4">
+          <label
+            htmlFor="dataGeneration_warehouseCount"
+            className="form-label font-weight-semi-bold"
+          >
             Number of Warehouses
           </label>
-          <input
+          <ClayInput
             id="dataGeneration_warehouseCount"
             type="number"
-            className="form-input"
             min="1"
             max="10"
             value={values.warehouseCount}
@@ -32,21 +35,23 @@ function WarehousesToggle({ productCount, values, onChange, disabled }) {
             }
             disabled={disabled || isMuted}
           />
-        </div>
+        </ClayForm.Group>
       )}
 
-      <CheckboxField
-        id="dataGeneration_reuseExistingWarehouses"
-        checked={values.reuseExistingWarehouses}
-        onChange={(v) => onChange('reuseExistingWarehouses', v)}
-        disabled={disabled || !values.createWarehouses}
-        label="Reuse existing warehouses if found"
-        muted={isMuted}
-      />
-      <small className="help-text">
-        When enabled, new warehouses are created only if none exist. Otherwise
-        existing ones are reused.
-      </small>
+      <div className="d-flex flex-column mb-3">
+        <CheckboxField
+          id="dataGeneration_reuseExistingWarehouses"
+          checked={values.reuseExistingWarehouses}
+          onChange={(v) => onChange('reuseExistingWarehouses', v)}
+          disabled={disabled || !values.createWarehouses}
+          label="Reuse existing warehouses if found"
+          muted={isMuted}
+        />
+        <small className="help-text mt-1 mb-2 pl-4">
+          When enabled, new warehouses are created only if none exist. Otherwise
+          existing ones are reused.
+        </small>
+      </div>
     </CheckboxGroup>
   );
 }

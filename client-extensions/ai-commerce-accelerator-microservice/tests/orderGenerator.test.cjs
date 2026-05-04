@@ -53,6 +53,7 @@ describe('OrderGenerator', () => {
         stepStarted: vi.fn(),
         stepProgress: vi.fn(),
         sessionCompleted: vi.fn(),
+        sessionFailed: vi.fn(),
         batchStarted: vi.fn(),
         batchCompleted: vi.fn(),
         batchProgress: vi.fn(),

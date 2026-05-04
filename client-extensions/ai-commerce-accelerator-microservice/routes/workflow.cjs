@@ -45,7 +45,7 @@ function safeErrorResponse({
   }
 }
 
-module.exports = (app, { logger, persistenceService }) => {
+module.exports = (app, { logger, persistenceService, progressService }) => {
   app.get(INTERNAL_API_PATHS.WORKFLOW_SESSIONS, async (req, res) => {
     try {
       const sessions = await persistenceService.getAllSessions();
@@ -64,6 +64,89 @@ module.exports = (app, { logger, persistenceService }) => {
         meta: {},
         statusCode: 500,
         fallbackMessage: 'Failed to get workflow sessions',
+      });
+    }
+  });
+
+  app.get(INTERNAL_API_PATHS.COMPLETED_WORKFLOW_SESSIONS, async (req, res) => {
+    try {
+      const sessions = persistenceService.getCompletedSessions();
+
+      // Return a concise list for the selector modal
+      const mapped = sessions.map((s) => ({
+        id: s.session_id,
+        name: s.session_name,
+        date: s.created_at,
+        counts: {
+          products: s.context?.productCount || 0,
+          accounts: s.context?.accountCount || 0,
+          orders: s.context?.orderCount || 0,
+        },
+      }));
+
+      res.json({ success: true, sessions: mapped });
+    } catch (error) {
+      safeErrorResponse({
+        res,
+        logger,
+        req,
+        error,
+        operation: 'get-completed-workflow-sessions',
+        statusCode: 500,
+        fallbackMessage: 'Failed to retrieve completed workflow sessions',
+      });
+    }
+  });
+
+  app.get(INTERNAL_API_PATHS.WORKFLOW_KPIS, async (req, res) => {
+    try {
+      const kpis = persistenceService.getWorkflowKPIs();
+      res.json({ success: true, kpis });
+    } catch (error) {
+      safeErrorResponse({
+        res,
+        logger,
+        req,
+        error,
+        operation: 'get-workflow-kpis',
+        statusCode: 500,
+        fallbackMessage: 'Failed to retrieve workflow KPIs',
+      });
+    }
+  });
+
+  app.get(INTERNAL_API_PATHS.WORKFLOW_CANCEL, async (req, res) => {
+    try {
+      const { sessionId } = req.params;
+      const success = await persistenceService.tryCancelSession(sessionId);
+
+      if (success) {
+        // Broadcase cancellation event
+        progressService.sessionFailed({
+          sessionId,
+          correlationId: req.correlationId,
+          error: { message: 'Workflow cancelled by user.' },
+        });
+
+        res.json({
+          success: true,
+          message: 'Workflow cancellation requested.',
+        });
+      } else {
+        res.status(404).json({
+          success: false,
+          error: 'Session not found or already terminal.',
+        });
+      }
+    } catch (error) {
+      safeErrorResponse({
+        res,
+        logger,
+        req,
+        error,
+        operation: 'workflow-cancel',
+        statusCode: 500,
+        fallbackMessage: 'Failed to cancel workflow session',
       });
     }
   });

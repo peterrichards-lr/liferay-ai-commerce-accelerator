@@ -1,13 +1,56 @@
 import React, { useState, useCallback, useEffect } from 'react';
 import ClayCard from '@clayui/card';
 
-import ActivityLog from './ActivityLog';
 import StatusMonitor from './StatusMonitor';
 import ProgressMonitor from './ProgressMonitor';
 import SystemStatus from './SystemStatus';
 import OverallProgressGauge from './OverallProgressGauge';
 
 import { getTotalProgress } from '../../state/progressSelectors';
+
+const statusStyles = `
+  @keyframes status-pulse {
+    0% { opacity: 1; transform: scale(1); }
+    50% { opacity: 0.4; transform: scale(1.2); }
+    100% { opacity: 1; transform: scale(1); }
+  }
+  .status-dot-pulse {
+    animation: status-pulse 1s infinite ease-in-out;
+  }
+`;
+
+function WsStatusIndicator({ status, onReconnect }) {
+  const colorMap = {
+    connected: 'var(--brand-success, var(--success, #28a745))',
+    connecting: 'var(--brand-warning, var(--warning, #ffc107))',
+    disabled: 'var(--brand-secondary, var(--secondary, #6c757d))',
+    error: 'var(--brand-danger, var(--danger, #dc3545))',
+    closed: 'var(--brand-danger, var(--danger, #dc3545))',
+    unknown: 'var(--brand-secondary, var(--secondary, #6c757d))',
+  };
+
+  return (
+    <>
+      <style>{statusStyles}</style>
+      <button
+        className="btn btn-unstyled p-0 d-flex align-items-center"
+        onClick={onReconnect}
+        title={`Live Monitor: ${status}. Click to reconnect.`}
+        disabled={status === 'connecting'}
+      >
+        <div
+          className={`rounded-circle ${status === 'connecting' ? 'status-dot-pulse' : ''}`}
+          style={{
+            backgroundColor: colorMap[status] || 'currentColor',
+            width: '10px',
+            height: '10px',
+            boxShadow: '0 0 4px rgba(0,0,0,0.2)',
+          }}
+        />
+      </button>
+    </>
+  );
+}
 
 const STORAGE_KEYS = {
   start: 'progress.startTime',
@@ -25,9 +68,7 @@ function loadPersistedTimes() {
 
 function Dashboard({
   progress,
-  logs,
   isGenerating,
-  onClearLogs,
   generationConfig,
   wsStatus = 'disabled',
   _batchErrors,
@@ -69,26 +110,28 @@ function Dashboard({
       <SystemStatus
         liferayStatus={connected}
         wsStatus={wsStatus}
-        textProvider={aiConfig?.provider || 'openai'}
-        mediaProvider={aiConfig?.mediaProvider || 'inherit'}
-        textModel={aiConfig?.defaultModel || 'gpt-4o'}
+        textProvider={aiConfig?.ai?.provider || 'openai'}
+        mediaProvider={aiConfig?.ai?.mediaProvider || 'inherit'}
+        textModel={aiConfig?.ai?.defaultModel || 'gpt-4o'}
+        textKeyAvailable={!!aiConfig?.keyAvailable}
+        mediaKeyAvailable={!!aiConfig?.mediaKeyAvailable}
         onReconnect={onReconnect}
       />
 
       <ClayCard className="mt-3 flex-shrink-0">
         <ClayCard.Body>
-          <ClayCard.Description
-            displayType="title"
-            className="d-flex justify-content-between align-items-center"
-          >
-            Generation Status
-            {isGenerating && (
-              <span
-                className="spinner-border spinner-border-sm text-primary"
-                role="status"
-              ></span>
-            )}
-          </ClayCard.Description>
+          <div className="d-flex justify-content-between align-items-center mb-3">
+            <h4 className="sheet-title mb-0 d-flex align-items-center">
+              Generation Status
+              {isGenerating && (
+                <span
+                  className="spinner-border spinner-border-sm text-primary ml-2"
+                  role="status"
+                ></span>
+              )}
+            </h4>
+            <WsStatusIndicator status={wsStatus} onReconnect={onReconnect} />
+          </div>
 
           <div className="mt-3">
             <div className="d-flex justify-content-between mb-1">
@@ -122,18 +165,6 @@ function Dashboard({
           />
         </ClayCard.Body>
       </ClayCard>
-
-      {/* Live Console */}
-      <div
-        className="live-console flex-grow-1 mt-3 d-flex flex-column"
-        style={{ minHeight: '250px' }}
-      >
-        <ActivityLog
-          onClearLogs={onClearLogs}
-          logs={logs}
-          isGenerating={isGenerating}
-        />
-      </div>
     </div>
   );
 }

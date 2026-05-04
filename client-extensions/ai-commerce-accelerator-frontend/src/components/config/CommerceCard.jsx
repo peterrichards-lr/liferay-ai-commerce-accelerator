@@ -3,6 +3,7 @@ import ClayCard from '@clayui/card';
 import ClayForm, { ClaySelect } from '@clayui/form';
 import { useApp } from '../../context/AppContext';
 import FieldError from '../ui/FieldError';
+import CheckboxField from '../ui/CheckboxField';
 
 export default function CommerceCard({
   disabled,
@@ -145,10 +146,18 @@ export default function CommerceCard({
               }}
             >
               {channels.length === 0 ? (
-                <ClaySelect.Option value="" label="No channels found" />
+                <ClaySelect.Option
+                  key="no-channels"
+                  value=""
+                  label="No channels found"
+                />
               ) : (
                 <>
-                  <ClaySelect.Option value="" label="Select a channel…" />
+                  <ClaySelect.Option
+                    key="default-channel"
+                    value=""
+                    label="Select a channel…"
+                  />
                   {channels.map((c) => (
                     <ClaySelect.Option key={c.id} value={c.id} label={c.name} />
                   ))}
@@ -164,54 +173,38 @@ export default function CommerceCard({
             <FieldError errors={errors.channelId} />
           </ClayForm.Group>
 
-          <div
-            className="grid"
-            style={{ gridTemplateColumns: '1fr 1fr', gap: 12 }}
-          >
-            <div className="mb-3">
-              <span className="text-truncate-inline">
-                <span className="text-truncate" title="Input Group">
-                  Languages
-                </span>
-              </span>
+          <div className="row mt-4">
+            <div className="col-md-6 mb-3">
+              <label className="form-label font-weight-semi-bold">
+                Languages
+              </label>
               <div
-                className="border rounded p-2"
+                className="border rounded p-3 bg-white"
                 style={{ maxHeight: '200px', overflowY: 'auto' }}
               >
                 {languages.length > 0 ? (
                   languages.map((language) => (
-                    <div key={language.id} className="form-check">
-                      <input
-                        className="form-check-input"
-                        type="checkbox"
-                        id={`language-${language.id}`}
-                        checked={
-                          config.selectedLanguages?.includes(language.id) ||
-                          false
-                        }
-                        onChange={(e) => {
-                          const currentLanguages =
-                            config.selectedLanguages || [];
-                          const newLanguages = e.target.checked
-                            ? [...currentLanguages, language.id]
-                            : currentLanguages.filter(
-                                (id) => id !== language.id
-                              );
+                    <CheckboxField
+                      key={language.id}
+                      id={`language-${language.id}`}
+                      label={language.name || language.id}
+                      checked={
+                        config.selectedLanguages?.includes(language.id) || false
+                      }
+                      onChange={(checked) => {
+                        const currentLanguages = config.selectedLanguages || [];
+                        const newLanguages = checked
+                          ? [...currentLanguages, language.id]
+                          : currentLanguages.filter((id) => id !== language.id);
 
-                          setConfig({ selectedLanguages: newLanguages });
-                        }}
-                        disabled={disabled || !config.channelId}
-                      />
-                      <label
-                        className="form-check-label"
-                        htmlFor={`language-${language.id}`}
-                      >
-                        {language.name || language.id}
-                      </label>
-                    </div>
+                        setConfig({ selectedLanguages: newLanguages });
+                      }}
+                      disabled={disabled || !config.channelId}
+                      muted={disabled || !config.channelId}
+                    />
                   ))
                 ) : (
-                  <small className="text-muted">
+                  <small className="text-muted d-block p-1">
                     {!config.channelId
                       ? 'Select a channel first to load available languages'
                       : 'No languages found'}
@@ -220,34 +213,39 @@ export default function CommerceCard({
               </div>
               {config.selectedLanguages &&
                 config.selectedLanguages.length > 0 && (
-                  <small className="form-text text-muted">
+                  <small className="form-text text-muted mt-2">
                     {config.selectedLanguages.length} language(s) selected
                   </small>
                 )}
               <FieldError errors={errors.selectedLanguages} />
             </div>
 
-            <ClayForm.Group>
-              <label htmlFor="currencyCode" className="form-label">
-                Currency
-              </label>
-              <ClaySelect
-                id="currencyCode"
-                aria-label="Currency"
-                value={config.currencyCode || ''}
-                onChange={(e) => setConfig({ currencyCode: e.target.value })}
-                disabled={disabled || !config.channelId}
-              >
-                {currencies.map((c) => (
-                  <ClaySelect.Option
-                    key={c.code}
-                    value={c.code}
-                    label={c.name}
-                  />
-                ))}
-              </ClaySelect>
-              <FieldError errors={errors.currencyCode} />
-            </ClayForm.Group>
+            <div className="col-md-6">
+              <ClayForm.Group className="mb-0">
+                <label
+                  htmlFor="currencyCode"
+                  className="form-label font-weight-semi-bold"
+                >
+                  Currency
+                </label>
+                <ClaySelect
+                  id="currencyCode"
+                  aria-label="Currency"
+                  value={config.currencyCode || ''}
+                  onChange={(e) => setConfig({ currencyCode: e.target.value })}
+                  disabled={disabled || !config.channelId}
+                >
+                  {currencies.map((c) => (
+                    <ClaySelect.Option
+                      key={c.code}
+                      value={c.code}
+                      label={c.name}
+                    />
+                  ))}
+                </ClaySelect>
+                <FieldError errors={errors.currencyCode} />
+              </ClayForm.Group>
+            </div>
           </div>
         </>
       )}
