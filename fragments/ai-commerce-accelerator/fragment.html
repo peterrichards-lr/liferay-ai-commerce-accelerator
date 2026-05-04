@@ -1,9 +1,7 @@
 [#assign liferayUrl = ''] [#assign languageId = ''] [#assign spritemap = '']
-[#if themeDisplay??]
-  [#assign liferayUrl = themeDisplay.portalURL]
-  [#assign languageId = themeDisplay.languageId?replace('_','-')]
-  [#assign spritemap = themeDisplay.getPathThemeImages() + "/lexicon/icons.svg"]
-[/#if]
+[#if themeDisplay??] [#assign liferayUrl = themeDisplay.portalURL] [#assign
+languageId = themeDisplay.languageId?replace('_','-')] [#assign spritemap =
+themeDisplay.getPathThemeImages() + "/lexicon/icons.svg"] [/#if]
 <liferay-ai-commerce-accelerator-frontend
   liferay-hosted="true"
   liferay-url="${liferayUrl}"

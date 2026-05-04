@@ -12,13 +12,13 @@ export default defineConfig({
   },
   projects: [
     {
-      name: 'setup',
+      name: "setup",
       testMatch: /auth\.setup\.js/,
     },
     {
       name: "chromium",
       use: { ...devices["Desktop Chrome"] },
-      dependencies: ['setup'],
+      dependencies: ["setup"],
     },
   ],
 });
