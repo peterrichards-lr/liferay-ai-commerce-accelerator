@@ -36,3 +36,4 @@ package-lock.json
 *.png
 *.xml
 *.heic
+.env
