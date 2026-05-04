@@ -175,6 +175,7 @@ function AppUI() {
     channels,
     categories: fetchCategories,
     selectChannel,
+    selectCatalog,
     testConnection,
     handleDeleteAllCommerceData,
     handleDeleteSelectedCommerceData,
@@ -498,9 +499,15 @@ function AppUI() {
                 <div className="col-12">
                   <ConfigurationPanel
                     disabled={isGenerating}
-                    testConnection={testConnection}
+                    onTestConnection={testConnection}
+                    onConnectionStatusChange={setConnectionEstablished}
+                    connected={connectionEstablished}
                     catalogs={catalogs}
                     channels={channels}
+                    onSelectChannel={selectChannel}
+                    onSelectCatalog={selectCatalog}
+                    connectionErrors={connectionErrors}
+                    onErrorsChange={setConnectionErrors}
                     onDeleteAllCommerceData={async () => {
                       await handleDeleteAllCommerceData();
                     }}

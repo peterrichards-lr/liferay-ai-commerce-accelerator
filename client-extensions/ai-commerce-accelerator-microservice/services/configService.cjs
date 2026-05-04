@@ -688,14 +688,16 @@ class ConfigService {
 
       // Check AI Config
       const aiConfig = await this.getAIConfig(requestConfig);
-      health.aiText.provider = aiConfig.provider || 'OPENAI';
-      health.aiMedia.provider = aiConfig.mediaProvider || 'INHERIT';
+      health.aiText.provider = (aiConfig?.provider || 'OPENAI').toUpperCase();
+      health.aiMedia.provider = (
+        aiConfig?.mediaProvider || 'INHERIT'
+      ).toUpperCase();
 
       const textKey = await this.getAIKey(requestConfig);
       health.aiText.status = textKey ? 'CONFIGURED' : 'MISSING';
 
       const mediaKey = await this.getAIMediaKey(requestConfig);
-      if (health.aiMedia.provider === 'inherit') {
+      if (health.aiMedia.provider === 'INHERIT') {
         health.aiMedia.status = textKey ? 'CONFIGURED' : 'MISSING';
       } else {
         health.aiMedia.status = mediaKey ? 'CONFIGURED' : 'MISSING';
@@ -705,12 +707,12 @@ class ConfigService {
       const entities = ['product', 'account', 'order', 'warehouse'];
       for (const entity of entities) {
         const prompt = await this.getAIPrompt(requestConfig, entity);
-        if (!prompt || !prompt.configValue) {
+        if (!prompt) {
           health.prompts.status = 'WARNING';
           health.prompts.missing.push(entity);
         }
         const schema = await this.getAISchema(requestConfig, entity);
-        if (!schema || !schema.configValue) {
+        if (!schema) {
           health.schemas.status = 'WARNING';
           health.schemas.missing.push(entity);
         }

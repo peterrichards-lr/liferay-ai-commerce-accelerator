@@ -6,6 +6,7 @@ import ClayTable from '@clayui/table';
 import ClayCard from '@clayui/card';
 import ClayLabel from '@clayui/label';
 import { useApp, useApi, AppProvider } from './context/AppContext';
+import { ConfirmProvider, useConfirm } from './components/ConfirmProvider';
 import notifyUser from './utils/notifications';
 import { buildFilename, exportJsonFile } from './utils/fileHelper';
 import {
@@ -13,16 +14,19 @@ import {
   WORKFLOW_KPIS,
   CONFIG_HEALTH,
   EXPORT_COMMERCE_DATA,
+  WORKFLOW_CLEAR_ALL,
 } from './utils/microservicePaths';
 
 function AdminUI() {
   const { config } = useApp();
   const api = useApi();
+  const confirm = useConfirm();
 
   const [sessions, setSessions] = useState([]);
   const [kpis, setKpis] = useState(null);
   const [health, setHealth] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [purging, setPurging] = useState(false);
   const [connectionEstablished, setConnectionEstablished] = useState(false);
   const [connectionError, setConnectionError] = useState(null);
   const [sortConfig, setSortConfig] = useState({
@@ -30,6 +34,10 @@ function AdminUI() {
     direction: 'desc',
   });
   const [filters, setSortFilters] = useState({ name: '', status: '' });
+
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
 
   const fetchData = useCallback(async () => {
     setLoading(true);
@@ -62,6 +70,30 @@ function AdminUI() {
     Promise.resolve().then(() => fetchData());
   }, [fetchData]);
 
+  const handlePurgeHistory = async () => {
+    const ok = await confirm({
+      title: 'Purge Workflow History?',
+      message:
+        'This will permanently delete all historic sessions, events, and logs from the database. This action cannot be undone.',
+      confirmText: 'Purge All Data',
+      destructive: true,
+    });
+
+    if (!ok) return;
+
+    setPurging(true);
+    try {
+      await api.del(WORKFLOW_CLEAR_ALL);
+      notifyUser('History purged successfully');
+      fetchData();
+    } catch (err) {
+      console.error('Failed to purge history:', err);
+      notifyUser('Failed to purge history', 'danger');
+    } finally {
+      setPurging(false);
+    }
+  };
+
   const handleExport = async (sessionId, name) => {
     try {
       const res = await api.get(
@@ -92,6 +124,18 @@ function AdminUI() {
         return 0;
       });
   }, [sessions, sortConfig, filters]);
+
+  // Pagination logic
+  const totalPages = Math.ceil(filteredSessions.length / pageSize);
+  const paginatedSessions = useMemo(() => {
+    const start = (currentPage - 1) * pageSize;
+    return filteredSessions.slice(start, start + pageSize);
+  }, [filteredSessions, currentPage, pageSize]);
+
+  useEffect(() => {
+    // Reset to first page when filters change
+    setCurrentPage(1);
+  }, [filters, pageSize]);
 
   const requestSort = (key) => {
     let direction = 'asc';
@@ -152,33 +196,57 @@ function AdminUI() {
 
   return (
     <div className="admin-dashboard p-4">
-      <div className="d-flex justify-content-between align-items-center mb-4">
+      <header className="mb-4 d-flex justify-content-between align-items-center">
         <div>
-          <h1 className="h3 mb-0 font-weight-bold">System Administration</h1>
+          <h1 className="h3 font-weight-bold mb-1">System Administration</h1>
           <p className="text-secondary mb-0">
-            Monitor sessions, configuration health, and system KPIs
+            Monitor system health and explore historic generation sessions
           </p>
         </div>
-        <ClayButton
-          displayType="secondary"
-          onClick={fetchData}
-          disabled={loading}
-        >
-          <ClayIcon symbol="reload" className="mr-2" />
-          Refresh Data
-        </ClayButton>
-      </div>
+        <div className="d-flex gap-2">
+          <ClayButton
+            displayType="secondary"
+            onClick={handlePurgeHistory}
+            disabled={loading || purging || sessions.length === 0}
+          >
+            {purging ? (
+              <span
+                className="spinner-border spinner-border-sm mr-2"
+                role="status"
+              />
+            ) : (
+              <ClayIcon symbol="trash" className="mr-2" />
+            )}
+            Purge History
+          </ClayButton>
+          <ClayButton
+            displayType="primary"
+            onClick={fetchData}
+            disabled={loading}
+          >
+            {loading ? (
+              <span
+                className="spinner-border spinner-border-sm mr-2"
+                role="status"
+              />
+            ) : (
+              <ClayIcon symbol="reload" className="mr-2" />
+            )}
+            Refresh
+          </ClayButton>
+        </div>
+      </header>
 
-      {/* KPI METRICS */}
-      <ClayLayout.Row className="mb-4">
-        <ClayLayout.Col md={3}>
+      <ClayLayout.Row>
+        <ClayLayout.Col lg={3} md={6}>
           <KPICard
             title="Total Sessions"
             value={kpis?.totalSessions || 0}
-            icon=" list"
+            icon="list"
+            color="text-primary"
           />
         </ClayLayout.Col>
-        <ClayLayout.Col md={3}>
+        <ClayLayout.Col lg={3} md={6}>
           <KPICard
             title="Success Rate"
             value={`${Math.round(kpis?.successRate || 0)}%`}
@@ -186,15 +254,15 @@ function AdminUI() {
             color="text-success"
           />
         </ClayLayout.Col>
-        <ClayLayout.Col md={3}>
+        <ClayLayout.Col lg={3} md={6}>
           <KPICard
             title="Failed Sessions"
             value={kpis?.failedSessions || 0}
-            icon="times-circle"
+            icon="exclamation-circle"
             color="text-danger"
           />
         </ClayLayout.Col>
-        <ClayLayout.Col md={3}>
+        <ClayLayout.Col lg={3} md={6}>
           <KPICard
             title="Cancelled"
             value={kpis?.cancelledSessions || 0}
@@ -216,12 +284,26 @@ function AdminUI() {
             <ClayCard.Body>
               <div className="d-flex justify-content-between align-items-center mb-3">
                 <h4 className="mb-0">Session Explorer</h4>
-                <div className="d-flex gap-2">
+                <div className="d-flex gap-2 align-items-center">
+                  <div className="d-flex align-items-center mr-3">
+                    <span className="small text-secondary mr-2">Show:</span>
+                    <select
+                      className="form-control form-control-sm"
+                      style={{ width: '70px' }}
+                      value={pageSize}
+                      onChange={(e) => setPageSize(Number(e.target.value))}
+                    >
+                      <option value="10">10</option>
+                      <option value="25">25</option>
+                      <option value="50">50</option>
+                      <option value="100">100</option>
+                    </select>
+                  </div>
                   <input
                     type="text"
                     className="form-control form-control-sm"
                     placeholder="Filter by name..."
-                    style={{ width: '200px' }}
+                    style={{ width: '180px' }}
                     value={filters.name}
                     onChange={(e) =>
                       setSortFilters((f) => ({ ...f, name: e.target.value }))
@@ -229,7 +311,7 @@ function AdminUI() {
                   />
                   <select
                     className="form-control form-control-sm"
-                    style={{ width: '150px' }}
+                    style={{ width: '130px' }}
                     value={filters.status}
                     onChange={(e) =>
                       setSortFilters((f) => ({ ...f, status: e.target.value }))
@@ -279,46 +361,76 @@ function AdminUI() {
                     </ClayTable.Row>
                   </ClayTable.Head>
                   <ClayTable.Body>
-                    {filteredSessions.map((s) => (
-                      <ClayTable.Row key={s.session_id}>
-                        <ClayTable.Cell>
-                          <div className="font-weight-bold">
-                            {s.session_name || 'Unnamed'}
-                          </div>
-                          <small className="text-muted">{s.session_id}</small>
-                        </ClayTable.Cell>
-                        <ClayTable.Cell>
-                          <StatusBadge status={s.status} />
-                        </ClayTable.Cell>
-                        <ClayTable.Cell style={{ fontSize: '0.875rem' }}>
-                          {new Date(s.created_at).toLocaleString()}
-                        </ClayTable.Cell>
-                        <ClayTable.Cell className="text-right">
-                          <ClayButton
-                            displayType="unstyled"
-                            size="sm"
-                            onClick={() =>
-                              handleExport(s.session_id, s.session_name)
-                            }
-                          >
-                            <ClayIcon symbol="download" />
-                          </ClayButton>
-                        </ClayTable.Cell>
-                      </ClayTable.Row>
-                    ))}
-                    {filteredSessions.length === 0 && (
+                    {paginatedSessions.length === 0 ? (
                       <ClayTable.Row>
-                        <ClayTable.Cell
-                          colSpan={4}
-                          className="text-center p-4 text-muted"
-                        >
-                          No sessions found matching filters.
+                        <ClayTable.Cell colSpan={4} className="text-center py-5">
+                          <div className="text-secondary">No sessions found.</div>
                         </ClayTable.Cell>
                       </ClayTable.Row>
+                    ) : (
+                      paginatedSessions.map((s) => (
+                        <ClayTable.Row key={s.session_id}>
+                          <ClayTable.Cell>
+                            <div className="font-weight-bold">
+                              {s.session_name || 'Unnamed'}
+                            </div>
+                            <small className="text-muted">{s.session_id}</small>
+                          </ClayTable.Cell>
+                          <ClayTable.Cell>
+                            <StatusBadge status={s.status} />
+                          </ClayTable.Cell>
+                          <ClayTable.Cell style={{ fontSize: '0.875rem' }}>
+                            {new Date(s.created_at).toLocaleString()}
+                          </ClayTable.Cell>
+                          <ClayTable.Cell className="text-right">
+                            <ClayButton
+                              displayType="unstyled"
+                              size="sm"
+                              onClick={() =>
+                                handleExport(s.session_id, s.session_name)
+                              }
+                              title="Export dataset"
+                            >
+                              <ClayIcon symbol="download" className="mr-1" />
+                            </ClayButton>
+                          </ClayTable.Cell>
+                        </ClayTable.Row>
+                      ))
                     )}
                   </ClayTable.Body>
                 </ClayTable>
               </div>
+
+              {/* Pagination Controls */}
+              {totalPages > 1 && (
+                <div className="d-flex justify-content-between align-items-center mt-3">
+                  <div className="small text-secondary">
+                    Showing {paginatedSessions.length} of{' '}
+                    {filteredSessions.length} sessions
+                  </div>
+                  <div className="btn-group">
+                    <ClayButton
+                      displayType="secondary"
+                      size="sm"
+                      disabled={currentPage === 1}
+                      onClick={() => setCurrentPage((p) => p - 1)}
+                    >
+                      <ClayIcon symbol="angle-left" />
+                    </ClayButton>
+                    <div className="btn btn-sm btn-secondary disabled bg-light">
+                      Page {currentPage} of {totalPages}
+                    </div>
+                    <ClayButton
+                      displayType="secondary"
+                      size="sm"
+                      disabled={currentPage === totalPages}
+                      onClick={() => setCurrentPage((p) => p + 1)}
+                    >
+                      <ClayIcon symbol="angle-right" />
+                    </ClayButton>
+                  </div>
+                </div>
+              )}
             </ClayCard.Body>
           </ClayCard>
         </ClayLayout.Col>
@@ -327,22 +439,25 @@ function AdminUI() {
   );
 }
 
-function KPICard({ title, value, icon, color = 'text-primary' }) {
+function KPICard({ title, value, icon, color }) {
   return (
-    <ClayCard>
-      <ClayCard.Body className="p-3">
-        <div className="d-flex align-items-center">
-          <div
-            className={`mr-3 rounded-circle bg-light d-flex align-items-center justify-content-center ${color}`}
-            style={{ width: '48px', height: '48px' }}
-          >
-            <ClayIcon symbol={icon} />
-          </div>
+    <ClayCard className="mb-4 shadow-sm border-0">
+      <ClayCard.Body className="p-4">
+        <div className="d-flex justify-content-between align-items-start">
           <div>
-            <div className="small text-secondary font-weight-bold text-uppercase">
+            <div
+              className="text-secondary small font-weight-bold mb-1"
+              style={{ textTransform: 'uppercase', letterSpacing: '0.5px' }}
+            >
               {title}
             </div>
-            <div className="h3 mb-0 font-weight-bold">{value}</div>
+            <div className={`h2 font-weight-bold mb-0 ${color}`}>{value}</div>
+          </div>
+          <div
+            className="p-3 rounded-circle bg-light d-flex align-items-center justify-content-center"
+            style={{ width: '50px', height: '50px' }}
+          >
+            <ClayIcon symbol={icon} className={color} />
           </div>
         </div>
       </ClayCard.Body>
@@ -351,12 +466,17 @@ function KPICard({ title, value, icon, color = 'text-primary' }) {
 }
 
 function StatusBadge({ status }) {
-  let displayType = 'info';
+  let displayType = 'secondary';
   if (status === 'COMPLETED') displayType = 'success';
   if (status === 'FAILED') displayType = 'danger';
   if (status === 'CANCELLED') displayType = 'warning';
+  if (status === 'STARTED' || status === 'PROCESSING') displayType = 'info';
 
-  return <ClayLabel displayType={displayType}>{status}</ClayLabel>;
+  return (
+    <ClayLabel displayType={displayType} outline>
+      {status}
+    </ClayLabel>
+  );
 }
 
 function ConfigurationDoctor({ health, liferayUrl }) {
@@ -367,12 +487,9 @@ function ConfigurationDoctor({ health, liferayUrl }) {
   return (
     <ClayCard>
       <ClayCard.Body>
-        <h4 className="mb-3 d-flex align-items-center">
-          <ClayIcon symbol="first-aid" className="mr-2 text-danger" />
-          Configuration Doctor
-        </h4>
+        <h4 className="mb-4">Configuration Doctor</h4>
 
-        <div className="list-group list-group-flush">
+        <div className="health-list">
           <HealthItem
             title="Liferay Connectivity"
             status={
@@ -393,7 +510,7 @@ function ConfigurationDoctor({ health, liferayUrl }) {
               health.aiMedia.status === 'CONFIGURED' ? 'success' : 'danger'
             }
             message={
-              health.aiMedia.provider === 'inherit'
+              health.aiMedia.provider === 'INHERIT'
                 ? 'Inheriting from Core AI'
                 : `${health.aiMedia.provider} provider active`
             }
@@ -455,16 +572,20 @@ function HealthItem({ title, status, message }) {
         <div className="font-weight-bold" style={{ fontSize: '0.9rem' }}>
           {title}
         </div>
-        <div className="small text-secondary">{message}</div>
+        <div className="small text-secondary text-truncate" style={{maxWidth: '220px'}} title={message}>{message}</div>
       </div>
     </div>
   );
 }
 
-export default function AdminRoot(props) {
+function AdminRootWithContext(props) {
   return (
     <AppProvider initialConfig={props.config}>
-      <AdminUI />
+      <ConfirmProvider>
+        <AdminUI />
+      </ConfirmProvider>
     </AppProvider>
   );
 }
+
+export default AdminRootWithContext;
