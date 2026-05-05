@@ -244,9 +244,10 @@ class AccountGenerator extends BaseGenerator {
 
       for (const raw of accountDataList) {
         const account = { ...raw };
-        if (!account.externalReferenceCode) {
-          account.externalReferenceCode = createERC(ERC_PREFIX.ACCOUNT);
-        }
+
+        // HARDENING: Always generate a guaranteed unique ERC to avoid AI hallucinations
+        // causing duplicates in Liferay (e.g. AI reusing 'TI12345' across sessions).
+        account.externalReferenceCode = createERC(ERC_PREFIX.ACCOUNT);
 
         account.accountContactInformation =
           account.accountContactInformation || {};

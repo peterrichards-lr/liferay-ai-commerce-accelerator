@@ -6,27 +6,16 @@ export const getProgressPercentage = (completed = 0, total = 0) => {
 export const getTotalProgress = (progress) => {
   if (!progress) return { total: 0, completed: 0 };
 
-  // Only include entities that have a non-zero total assigned to them
-  const entities = [
-    'products',
-    'accounts',
-    'addresses',
-    'orders',
-    'images',
-    'pdfs',
-    'warehouses',
-    'specifications',
-    'options',
-  ];
+  // Only include primary entities in the overall total progress calculation
+  const primaryEntities = ['products', 'accounts', 'orders'];
 
   let totalSum = 0;
   let completedSum = 0;
 
-  entities.forEach((e) => {
+  primaryEntities.forEach((e) => {
     const total = progress[e]?.total || 0;
     const completed = progress[e]?.completed || 0;
 
-    // If we have a total for this entity, include it in the global sum
     if (total > 0) {
       totalSum += total;
       completedSum += completed;
@@ -35,7 +24,7 @@ export const getTotalProgress = (progress) => {
 
   return {
     total: totalSum,
-    completed: Math.min(completedSum, totalSum), // Cap at 100%
+    completed: Math.min(completedSum, totalSum),
   };
 };
 

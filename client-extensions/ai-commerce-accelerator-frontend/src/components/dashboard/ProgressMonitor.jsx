@@ -57,7 +57,7 @@ function ProgressMonitor({ progress, onErrorsClick }) {
         className="text-uppercase text-secondary mb-2"
         style={{ fontSize: '0.75rem', letterSpacing: '0.05em' }}
       >
-        Entities
+        Main Entities
       </h6>
       <MiniProgressItem
         title="Products"
@@ -74,13 +74,6 @@ function ProgressMonitor({ progress, onErrorsClick }) {
         onErrorsClick={() => onErrorsClick(1, 'accounts')}
       />
       <MiniProgressItem
-        title="Addresses"
-        completed={progress.addresses?.completed || 0}
-        total={progress.addresses?.total || 0}
-        errors={progress.addresses?.errors || []}
-        onErrorsClick={() => onErrorsClick(10, 'addresses')}
-      />
-      <MiniProgressItem
         title="Orders"
         completed={progress.orders.completed}
         total={progress.orders.total}
@@ -95,6 +88,20 @@ function ProgressMonitor({ progress, onErrorsClick }) {
         Assets & Structure
       </h6>
       <MiniProgressItem
+        title="Warehouses"
+        completed={progress.warehouses.completed}
+        total={progress.warehouses.total}
+        errors={progress.warehouses.errors}
+        onErrorsClick={() => onErrorsClick(5, 'warehouses')}
+      />
+      <MiniProgressItem
+        title="Addresses"
+        completed={progress.addresses?.completed || 0}
+        total={progress.addresses?.total || 0}
+        errors={progress.addresses?.errors || []}
+        onErrorsClick={() => onErrorsClick(10, 'addresses')}
+      />
+      <MiniProgressItem
         title="Images"
         completed={progress.images?.completed || 0}
         total={progress.images?.total || 0}
@@ -107,13 +114,6 @@ function ProgressMonitor({ progress, onErrorsClick }) {
         total={progress.pdfs.total}
         errors={progress.pdfs.errors}
         onErrorsClick={() => onErrorsClick(4, 'pdfs')}
-      />
-      <MiniProgressItem
-        title="Warehouses"
-        completed={progress.warehouses.completed}
-        total={progress.warehouses.total}
-        errors={progress.warehouses.errors}
-        onErrorsClick={() => onErrorsClick(5, 'warehouses')}
       />
       <MiniProgressItem
         title="Prices & Promos"

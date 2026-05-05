@@ -1574,8 +1574,13 @@ class ProductGenerator extends BaseGenerator {
     );
     return data.map((p) => ({
       ...p,
-      externalReferenceCode:
-        p.externalReferenceCode || createERC(ERC_PREFIX.PRODUCT),
+      // HARDENING: Always generate fresh ERCs for products and their skus
+      // to avoid AI hallucinations causing duplicate key errors.
+      externalReferenceCode: createERC(ERC_PREFIX.PRODUCT),
+      skus: (p.skus || []).map((s) => ({
+        ...s,
+        externalReferenceCode: createERC(ERC_PREFIX.SKU),
+      })),
     }));
   }
 

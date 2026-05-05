@@ -152,7 +152,23 @@ class GenerationFacade {
         payload = data;
       } else {
         // Wrap it ourselves
-        const dataArr = Array.isArray(data) ? data : [data];
+        let dataArr = Array.isArray(data) ? data : [data];
+
+        // HARDENING: If it's a nested array (e.g. [[{...}]]), flatten it one level.
+        // Also filter out any non-object items that might have hallucinated.
+        if (
+          dataArr.length === 1 &&
+          Array.isArray(dataArr[0]) &&
+          dataArr[0].length > 0
+        ) {
+          dataArr = dataArr[0];
+        }
+
+        // Final sanity check: ensure everything in the array is an object
+        dataArr = dataArr.filter(
+          (item) => item != null && typeof item === 'object'
+        );
+
         payload = { [mainPropertyName]: dataArr };
       }
 
