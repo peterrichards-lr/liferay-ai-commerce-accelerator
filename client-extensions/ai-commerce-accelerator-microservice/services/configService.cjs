@@ -703,7 +703,7 @@ class ConfigService {
 
   async syncEnvironmentKeys() {
     const logger = this.logger;
-    const coreApiKey = process.env.AI_API_KEY || process.env.CORE_API_KEY;
+    const coreApiKey = process.env.AI_API_KEY;
     const mediaApiKey = process.env.AI_MEDIA_API_KEY;
 
     // 1. Sync Core AI Key
