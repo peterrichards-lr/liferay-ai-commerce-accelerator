@@ -1,3 +1,6 @@
+const {
+  resolveEffectiveLiferayConnection,
+} = require('../../utils/liferayEnv.cjs');
 const axios = require('axios');
 const FormData = require('form-data');
 const fs = require('fs');
@@ -380,7 +383,13 @@ class LiferayRestService {
   }
 
   async _client(config) {
-    return this.createAxiosInstance(config);
+    const { persistence } = this.ctx;
+    const effective = resolveEffectiveLiferayConnection(
+      config,
+      this.ctx.oauth,
+      persistence
+    );
+    return this.createAxiosInstance(effective);
   }
 
   async _get(config, url, op, friendly, opts = {}, fullResponse = false) {
@@ -729,6 +738,15 @@ class LiferayRestService {
       }),
       `get-config:${configKey}`
     );
+  }
+
+  async getRegions(config, countryId) {
+    const data = await this._get(
+      config,
+      PATH.COUNTRY_REGIONS(countryId),
+      `get-regions:${countryId}`
+    );
+    return asItems(data);
   }
 
   async getCatalogs(config) {

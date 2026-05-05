@@ -162,6 +162,29 @@ class ProgressService {
     });
   }
 
+  stepFailed({ sessionId, stepKey, entityType, error, correlationId }) {
+    const cid = correlationId;
+    this.ws.emitProgress(
+      {
+        sessionId,
+        correlationId: cid,
+        status: WEB_SOCKET_EVENTS.FAILED,
+        scope: WS_SCOPE.STEP,
+        entityType,
+        stepKey,
+        error: error.message,
+        errorReference: error.errorReference,
+      },
+      { correlationId: cid }
+    );
+    this.persistence.logWorkflowEvent({
+      sessionId,
+      status: 'STEP_FAILED',
+      message: `Step '${stepKey}' failed: ${error.message}`,
+      details: { stepKey, entityType, error, correlationId: cid },
+    });
+  }
+
   batchStarted({
     sessionId,
     batchERC,

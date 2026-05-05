@@ -271,6 +271,28 @@ const gracefulShutdown = async (signal) => {
 
         const result = await liferayService.testConnection(req.body);
 
+        // HARDENING: If successful, save these details to system_settings for background persistence
+        if (persistenceService && result.status === 'connected') {
+          if (req.body.liferayUrl) {
+            persistenceService.saveSystemSetting(
+              'active_liferay_url',
+              req.body.liferayUrl
+            );
+          }
+          if (req.body.clientId) {
+            persistenceService.saveSystemSetting(
+              'active_client_id',
+              req.body.clientId
+            );
+          }
+          if (req.body.clientSecret) {
+            persistenceService.saveSystemSetting(
+              'active_client_secret',
+              req.body.clientSecret
+            );
+          }
+        }
+
         const aiConfig = await configService.getAIConfig(req.body);
         const mediaProvider = (
           aiConfig?.mediaProvider || 'INHERIT'

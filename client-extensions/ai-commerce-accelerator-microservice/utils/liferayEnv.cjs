@@ -1,6 +1,6 @@
 const { lxcConfig, lookupConfig } = require('@rotty3000/config-node');
 const { createERC } = require('./misc.cjs');
-const { ERC_PREFIX } = require('./constants.cjs');
+const { ERC_PREFIX, ENV } = require('./constants.cjs');
 
 function isValidAbsoluteUrl(maybeUrl) {
   if (!maybeUrl || typeof maybeUrl !== 'string') return false;
@@ -26,7 +26,11 @@ function tryBuildColocatedLiferayUrl() {
   return null;
 }
 
-function resolveEffectiveLiferayConnection(config = {}, oauthService) {
+function resolveEffectiveLiferayConnection(
+  config = {},
+  oauthService,
+  persistence
+) {
   const errorReference = createERC(ERC_PREFIX.ERROR);
 
   const isColocated =
@@ -45,6 +49,7 @@ function resolveEffectiveLiferayConnection(config = {}, oauthService) {
         : null) ||
       tryBuildColocatedLiferayUrl() ||
       ENV.LIFERAY_API_URL ||
+      persistence?.getSystemSetting?.('active_liferay_url') ||
       null;
   }
 
@@ -61,12 +66,16 @@ function resolveEffectiveLiferayConnection(config = {}, oauthService) {
       clientSecret = oauthService.getDefaultClientSecret();
     }
   } else {
-    // STANDALONE / LOCAL: Fallback to ENV if config is empty
+    // STANDALONE / LOCAL: Fallback to ENV then DB if config is empty
     if (!clientId) {
-      clientId = ENV.LIFERAY_OAUTH_CLIENT_ID;
+      clientId =
+        ENV.LIFERAY_OAUTH_CLIENT_ID ||
+        persistence?.getSystemSetting?.('active_client_id');
     }
     if (!clientSecret) {
-      clientSecret = ENV.LIFERAY_OAUTH_CLIENT_SECRET;
+      clientSecret =
+        ENV.LIFERAY_OAUTH_CLIENT_SECRET ||
+        persistence?.getSystemSetting?.('active_client_secret');
     }
   }
 

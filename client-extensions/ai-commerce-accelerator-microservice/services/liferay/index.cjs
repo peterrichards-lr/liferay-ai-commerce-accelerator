@@ -1206,6 +1206,10 @@ class LiferayService {
     return asItems(res);
   }
 
+  async getRegions(config, countryId) {
+    return this.rest.getRegions(config, countryId);
+  }
+
   async getCatalogs(config) {
     const res = await this.rest._get(
       config,

@@ -109,7 +109,30 @@ class PersistenceService {
 
       CREATE INDEX IF NOT EXISTS idx_batches_session ON workflow_batches(session_id);
       CREATE INDEX IF NOT EXISTS idx_events_session ON workflow_events(session_id);
+
+      CREATE TABLE IF NOT EXISTS system_settings (
+        setting_key TEXT PRIMARY KEY,
+        setting_value TEXT,
+        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+      );
     `);
+  }
+
+  getSystemSetting(key) {
+    const row = this.db
+      .prepare(
+        'SELECT setting_value FROM system_settings WHERE setting_key = ?'
+      )
+      .get(key);
+    return row ? row.setting_value : null;
+  }
+
+  saveSystemSetting(key, value) {
+    this.db
+      .prepare(
+        'INSERT OR REPLACE INTO system_settings (setting_key, setting_value, updated_at) VALUES (?, ?, CURRENT_TIMESTAMP)'
+      )
+      .run(key, value);
   }
 
   createSession({

@@ -43,6 +43,11 @@ describe('AccountGenerator', () => {
       progress: {
         stepStarted: vi.fn(),
         stepProgress: vi.fn(),
+        stepFailed: vi.fn(),
+        batchStarted: vi.fn(),
+        batchProgress: vi.fn(),
+        batchCompleted: vi.fn(),
+        batchFailed: vi.fn(),
         sessionCompleted: vi.fn(),
         sessionFailed: vi.fn(),
       },
@@ -154,5 +159,75 @@ describe('AccountGenerator', () => {
 
     expect(address.addressCountry).toBe('Thailand');
     expect(mockCtx.liferay.getCountryRegions).toHaveBeenCalledWith(config, 2);
+  });
+
+  it('should use geographicContext titles if provided in _generateAddress', async () => {
+    const countries = [];
+    const rawAddress = {
+      addressLocality: 'Bangkok',
+    };
+    const config = { localeCode: 'en-US' };
+    const geographicContext = {
+      countryTitle: 'Uzbekistan',
+      regionTitle: 'Tashkent',
+    };
+
+    const address = await generator._generateAddress(
+      'billing',
+      config,
+      rawAddress,
+      countries,
+      'test-session',
+      geographicContext
+    );
+
+    expect(address.addressCountry).toBe('Uzbekistan');
+    expect(address.addressRegion).toBe('Tashkent');
+    expect(address.addressLocality).toBe('Bangkok');
+  });
+
+  it('should use country title from title_i18n in _runAccountDataGenerationStep', async () => {
+    const sessionId = `acc-test-session-${Date.now()}`;
+    const countries = [
+      {
+        id: 1,
+        name: 'uzbekistan',
+        a2: 'UZ',
+        a3: 'UZB',
+        active: true,
+        title_i18n: { en_US: 'Uzbekistan' },
+      },
+    ];
+    const regions = [
+      {
+        id: 101,
+        name: 'tashkent',
+        regionCode: 'TOS',
+        title_i18n: { en_US: 'Tashkent' },
+      },
+    ];
+
+    mockCtx.liferay.getCountryRegions.mockResolvedValue(regions);
+
+    persistence.createSession({
+      sessionId,
+      flowType: 'accounts',
+      status: 'STARTED',
+      context: {
+        config: { localeCode: 'en-US' },
+        options: { accountCount: 1 },
+        countries,
+        steps: [{ name: 'generate-account-data' }],
+      },
+    });
+
+    await generator._runAccountDataGenerationStep(sessionId);
+
+    const session = persistence.getSession(sessionId);
+    // Verify that geographicContext was stored with titles
+    expect(session.context.geographicContext).toMatchObject({
+      countryTitle: 'Uzbekistan',
+      regionTitle: 'Tashkent',
+    });
   });
 });

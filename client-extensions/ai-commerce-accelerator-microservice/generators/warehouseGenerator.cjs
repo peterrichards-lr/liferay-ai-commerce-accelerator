@@ -242,6 +242,10 @@ class WarehouseGenerator extends BaseGenerator {
             sessionId,
             geographicContext,
           });
+
+          await this.persistence.updateSessionContext(sessionId, {
+            geographicContext,
+          });
         }
       }
 
