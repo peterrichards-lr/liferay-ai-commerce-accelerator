@@ -1,5 +1,5 @@
 const { tryParseJSON, createERC } = require('../utils/misc.cjs');
-const { ERC_PREFIX } = require('../utils/constants.cjs');
+const { ERC_PREFIX, EMPTY_PLACEHOLDER } = require('../utils/constants.cjs');
 const fs = require('fs');
 const path = require('path');
 
@@ -121,7 +121,12 @@ class ConfigService {
       const parsedValue =
         typeof rawVal === 'string' ? tryParseJSON(rawVal) : rawVal;
 
-      cache.set(cacheKey, parsedValue, this.getConfigTTL());
+      // HARDENING: Never cache the 'EMPTY' placeholder.
+      // This ensures we always try to get the real key if it's not yet configured.
+      if (parsedValue !== EMPTY_PLACEHOLDER) {
+        cache.set(cacheKey, parsedValue, this.getConfigTTL());
+      }
+
       return parsedValue;
     }
 
@@ -375,7 +380,8 @@ class ConfigService {
         AI_API_CACHE_KEY,
         AI_CREDENTIALS_CONFIG_KEY
       );
-      if (key === 'null' || key === '""' || key === 'EMPTY') return null;
+      if (key === 'null' || key === '""' || key === EMPTY_PLACEHOLDER)
+        return null;
       return key;
     } catch (error) {
       const erc = error?.errorReference || createERC(ERC_PREFIX.ERROR);
@@ -390,7 +396,8 @@ class ConfigService {
 
   getAIKeyCached() {
     const key = this.getConfigCached(AI_API_CACHE_KEY);
-    if (key === 'null' || key === '""' || key === 'EMPTY') return null;
+    if (key === 'null' || key === '""' || key === EMPTY_PLACEHOLDER)
+      return null;
     return key;
   }
 
@@ -402,7 +409,8 @@ class ConfigService {
         AI_MEDIA_API_CACHE_KEY,
         AI_MEDIA_CREDENTIALS_CONFIG_KEY
       );
-      if (key === 'null' || key === '""' || key === 'EMPTY') return null;
+      if (key === 'null' || key === '""' || key === EMPTY_PLACEHOLDER)
+        return null;
       return key;
     } catch (error) {
       const erc = error?.errorReference || createERC(ERC_PREFIX.ERROR);
@@ -417,7 +425,8 @@ class ConfigService {
 
   getAIMediaKeyCached() {
     const key = this.getConfigCached(AI_MEDIA_API_CACHE_KEY);
-    if (key === 'null' || key === '""' || key === 'EMPTY') return null;
+    if (key === 'null' || key === '""' || key === EMPTY_PLACEHOLDER)
+      return null;
     return key;
   }
 

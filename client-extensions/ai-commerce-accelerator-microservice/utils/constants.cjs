@@ -46,6 +46,8 @@ const APP_ERCS = {
     'liferay-ai-commerce-accelerator-microservice-oauth-application-headless-server',
 };
 
+const EMPTY_PLACEHOLDER = '__AICA_EMPTY__';
+
 const ABS_MIN = {
   WS_HEARTBEAT_INTERVAL_MS: 10000,
   WS_RETRY_INTERVAL_MS: 300,
@@ -346,6 +348,7 @@ const WORKFLOW_STEPS = {
 
 module.exports = {
   APP_ERCS,
+  EMPTY_PLACEHOLDER,
   ENV,
   ERC_PREFIX,
   ABS_MIN,

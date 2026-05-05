@@ -31,8 +31,8 @@ export const useObjectStorage = ({ keys, defaults = {}, json = true }) => {
         parsedKeys.forEach((key, index) => {
           let raw = fetchedValues[index];
 
-          // Normalize 'EMPTY' placeholder string from Liferay back to empty string for the UI
-          if (raw === 'EMPTY') {
+          // Normalize '__AICA_EMPTY__' placeholder string from Liferay back to empty string for the UI
+          if (raw === '__AICA_EMPTY__') {
             raw = '';
           }
 

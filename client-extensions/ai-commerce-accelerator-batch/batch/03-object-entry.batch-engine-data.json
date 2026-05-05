@@ -70,7 +70,7 @@
       "configStatus": {
         "key": "Active"
       },
-      "configValue": "EMPTY",
+      "configValue": "__AICA_EMPTY__",
       "description": "AI provider API Key or credentials",
       "externalReferenceCode": "AI-CREDENTIALS"
     },
@@ -79,7 +79,7 @@
       "configStatus": {
         "key": "Active"
       },
-      "configValue": "EMPTY",
+      "configValue": "__AICA_EMPTY__",
       "description": "AI media provider API Key or credentials (e.g. for DALL·E or Nano Banana)",
       "externalReferenceCode": "AI-MEDIA-CREDENTIALS"
     },

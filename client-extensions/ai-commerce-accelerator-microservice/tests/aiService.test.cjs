@@ -86,7 +86,9 @@ describe('AIService (Multi-Provider)', () => {
     };
 
     // We mock _chatJson to avoid full provider execution
-    vi.spyOn(aiService, '_chatJson').mockResolvedValue([{ name: 'AI Product' }]);
+    vi.spyOn(aiService, '_chatJson').mockResolvedValue([
+      { name: 'AI Product' },
+    ]);
 
     await aiService.generateProductData(
       'Electronics',

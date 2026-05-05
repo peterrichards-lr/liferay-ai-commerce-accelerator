@@ -107,8 +107,8 @@ export const persistConfigKey = async (key, value) => {
 
   // If it's a PATCH and we want to "clear" it, we must send something
   // because configValue is a required field in Liferay. The microservice
-  // parses the literal string 'EMPTY' as an empty/missing configuration.
-  const safeValue = isEmpty ? 'EMPTY' : String(value);
+  // parses the literal string '__AICA_EMPTY__' as an empty/missing configuration.
+  const safeValue = isEmpty ? '__AICA_EMPTY__' : String(value);
 
   const options = {
     headers: DEFAULT_REQUEST_HEADERS,
