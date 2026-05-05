@@ -83,7 +83,7 @@ class DeleteCoordinatorService extends BaseGenerator {
       this.logger.info(`Deletion session completed: ${sessionId}`, {
         correlationId,
       });
-      this.progress.sessionCompleted({ sessionId, correlationId });
+      await this.progress.sessionCompleted({ sessionId, correlationId });
     }
   }
 

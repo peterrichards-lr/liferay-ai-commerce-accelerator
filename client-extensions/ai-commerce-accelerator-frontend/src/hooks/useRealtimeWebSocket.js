@@ -234,7 +234,8 @@ export default function useRealtimeWebSocket({
       );
 
       const entityType = normalizeEntityType(data.entityType);
-      const { scope, error, sessionId } = data;
+      const { scope, error, sessionId, details } = data;
+      const flowType = details?.flowType || data.flowType;
       const type = data.type || data.status; // Fallback to status if type is missing
 
       const processedCount = data.processedCount ?? data.completedCount;
@@ -251,16 +252,29 @@ export default function useRealtimeWebSocket({
       switch (type) {
         case E.STARTED:
           if (scope === WS_SCOPE.SESSION) {
+            const isDelete =
+              flowType === 'delete' || data.operation === 'delete';
             currentOnLog?.(
-              `Workflow started: ${data.operation || 'process'}`,
+              `${isDelete ? 'Deletion' : 'Workflow'} started: ${
+                data.operation || 'process'
+              }`,
               'info'
             );
+
+            if (isDelete) return;
+
             // Trigger RESET_ALL with initial totals if provided
             if (currentOnProgress && data.totals) {
               currentOnProgress({ type: 'RESET_ALL', totals: data.totals });
             }
           } else if (scope === WS_SCOPE.STEP) {
-            currentOnLog?.(`Step started: ${entityType}`, 'info');
+            const op = data.operation || 'process';
+            currentOnLog?.(
+              `Step started: ${
+                entityType.charAt(0).toUpperCase() + entityType.slice(1)
+              } (${op})`,
+              'info'
+            );
             if (
               currentOnProgress &&
               entityType &&
@@ -274,6 +288,10 @@ export default function useRealtimeWebSocket({
               });
             }
           } else if (scope === WS_SCOPE.BATCH) {
+            currentOnLog?.(
+              `Batch started: ${entityType} (${batchId}) — ${totalCount} items`,
+              'debug'
+            );
             if (currentOnProgress && entityType && batchId) {
               currentOnProgress({
                 type: 'UPDATE_BATCH',
@@ -295,6 +313,15 @@ export default function useRealtimeWebSocket({
                 completed: processedCount || 0,
               });
             } else if (scope === WS_SCOPE.BATCH && batchId) {
+              // Log batch progress for visibility, but dedupe/throttle if needed 
+              // (currently just logging all for debugging as requested)
+              if (processedCount % 5 === 0 || processedCount === totalCount) {
+                currentOnLog?.(
+                  `Batch progress: ${entityType} — ${processedCount}/${totalCount}`,
+                  'debug'
+                );
+              }
+
               currentOnProgress({
                 type: 'UPDATE_BATCH',
                 entity: entityType,
@@ -308,7 +335,14 @@ export default function useRealtimeWebSocket({
 
         case E.COMPLETED:
           if (scope === WS_SCOPE.SESSION) {
-            currentOnLog?.('Workflow session completed.', 'success');
+            const isDelete = flowType === 'delete';
+            currentOnLog?.(
+              `${isDelete ? 'Deletion' : 'Workflow'} session completed.`,
+              'success'
+            );
+
+            if (isDelete) return;
+
             currentOnProgress?.({
               type: 'SET_ACTIVE_SESSION',
               sessionId: null,
@@ -319,7 +353,12 @@ export default function useRealtimeWebSocket({
             });
             activeSessionIdRef.current = null;
           } else if (scope === WS_SCOPE.STEP) {
-            currentOnLog?.(`Step completed: ${entityType}`, 'success');
+            currentOnLog?.(
+              `Step completed: ${
+                entityType.charAt(0).toUpperCase() + entityType.slice(1)
+              }`,
+              'success'
+            );
             if (currentOnProgress && entityType) {
               // Mark as 100% complete
               currentOnProgress({
@@ -368,7 +407,14 @@ export default function useRealtimeWebSocket({
         case E.FAILED: {
           const errorMessage = error?.message || error || 'Unknown error';
           if (scope === WS_SCOPE.SESSION) {
-            currentOnLog?.(`Workflow failed: ${errorMessage}`, 'error');
+            const isDelete = flowType === 'delete';
+            currentOnLog?.(
+              `${isDelete ? 'Deletion' : 'Workflow'} failed: ${errorMessage}`,
+              'error'
+            );
+
+            if (isDelete) return;
+
             currentOnProgress?.({
               type: 'SET_ACTIVE_SESSION',
               sessionId: null,

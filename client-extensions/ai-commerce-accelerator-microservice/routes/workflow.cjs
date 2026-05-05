@@ -122,7 +122,7 @@ module.exports = (app, { logger, persistenceService, progressService }) => {
 
       if (success) {
         // Broadcase cancellation event
-        progressService.sessionFailed({
+        await progressService.sessionFailed({
           sessionId,
           correlationId: req.correlationId,
           error: { message: 'Workflow cancelled by user.' },

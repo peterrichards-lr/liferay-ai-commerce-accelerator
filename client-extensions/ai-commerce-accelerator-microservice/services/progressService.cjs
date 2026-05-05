@@ -28,14 +28,18 @@ class ProgressService {
     });
   }
 
-  sessionCompleted({ sessionId, correlationId }) {
+  async sessionCompleted({ sessionId, correlationId }) {
     const cid = correlationId;
+    const session = await this.persistence.getSession(sessionId);
+    const flowType = session?.flow_type;
+
     this.ws.emitProgress(
       {
         sessionId,
         correlationId: cid,
         status: WEB_SOCKET_EVENTS.COMPLETED,
         scope: WS_SCOPE.SESSION,
+        flowType,
       },
       { correlationId: cid }
     );
@@ -52,12 +56,15 @@ class ProgressService {
       sessionId,
       status: 'SESSION_COMPLETED',
       message: `Session ${sessionId} completed successfully.`,
-      details: { correlationId: cid },
+      details: { correlationId: cid, flowType },
     });
   }
 
-  sessionFailed({ sessionId, error, correlationId }) {
+  async sessionFailed({ sessionId, error, correlationId }) {
     const cid = correlationId;
+    const session = await this.persistence.getSession(sessionId);
+    const flowType = session?.flow_type;
+
     this.ws.emitProgress(
       {
         sessionId,
@@ -66,6 +73,7 @@ class ProgressService {
         scope: WS_SCOPE.SESSION,
         error: error.message,
         errorReference: error.errorReference,
+        flowType,
       },
       { correlationId: cid }
     );
@@ -73,7 +81,7 @@ class ProgressService {
       sessionId,
       status: 'SESSION_FAILED',
       message: `Session ${sessionId} failed: ${error.message}`,
-      details: { error, correlationId: cid },
+      details: { error, correlationId: cid, flowType },
     });
   }
 

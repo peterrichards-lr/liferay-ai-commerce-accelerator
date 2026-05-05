@@ -399,7 +399,7 @@ class BaseGenerator extends BaseWorkflowService {
         );
 
         // Notify frontend of the failure so it doesn't hang in "Generating..." state
-        this.progress.sessionFailed({
+        await this.progress.sessionFailed({
           sessionId,
           error: err,
           correlationId: currentCorrelationId,
@@ -416,7 +416,7 @@ class BaseGenerator extends BaseWorkflowService {
     const failedBatch = batches.find((b) => b.status === 'FAILED');
     if (failedBatch) {
       if (await this.persistence.tryFailSession(sessionId)) {
-        this.progress.sessionFailed({
+        await this.progress.sessionFailed({
           sessionId,
           correlationId,
           error: {
@@ -431,7 +431,7 @@ class BaseGenerator extends BaseWorkflowService {
       this.logger.info(`Workflow session completed: ${sessionId}`, {
         correlationId,
       });
-      this.progress.sessionCompleted({ sessionId, correlationId });
+      await this.progress.sessionCompleted({ sessionId, correlationId });
 
       if (typeof this.onSessionComplete === 'function') {
         const session = await this.persistence.getSession(sessionId);
