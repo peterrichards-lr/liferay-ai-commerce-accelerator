@@ -1,6 +1,5 @@
 const { parentPort, workerData } = require('node:worker_threads');
 const Database = require('better-sqlite3');
-const path = require('path');
 
 /**
  * Minimal worker thread for queue management.

@@ -682,7 +682,7 @@ class QueueService {
         if (this.persistence) {
           try {
             this.persistence.deleteQueueJob(jobId);
-          } catch (err) {
+          } catch (_err) {
             // Silent
           }
         }

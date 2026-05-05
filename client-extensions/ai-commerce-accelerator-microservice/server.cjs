@@ -432,8 +432,8 @@ const gracefulShutdown = async (signal) => {
     });
 
     // STARTUP TASK: Sync keys from environment to Liferay
-    if (services.configService?.syncEnvironmentKeys) {
-      services.configService.syncEnvironmentKeys().catch((err) => {
+    if (configService?.syncEnvironmentKeys) {
+      configService.syncEnvironmentKeys().catch((err) => {
         logger.error('Startup task failed: syncEnvironmentKeys', {
           error: err.message,
         });
