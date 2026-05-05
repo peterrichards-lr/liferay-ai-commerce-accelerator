@@ -48,7 +48,7 @@
           "state": false,
           "system": false,
           "type": "String",
-          "unique": false
+          "unique": true
         },
         {
           "DBType": "Clob",

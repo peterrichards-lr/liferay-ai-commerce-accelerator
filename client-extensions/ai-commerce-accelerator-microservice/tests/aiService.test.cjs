@@ -62,4 +62,50 @@ describe('AIService (Multi-Provider)', () => {
     const provider = await aiService.getAIProvider({}, 'text');
     expect(provider.constructor.name).toBe('GeminiProvider');
   });
+
+  it('should extract actual data from different response shapes', () => {
+    const schemaName = 'product';
+
+    // Case 1: Wrapped in "products"
+    const resp1 = { products: [{ id: 1 }] };
+    expect(aiService._getActualDataFromAIResponse(resp1, schemaName)).toEqual(
+      resp1
+    );
+
+    // Case 2: Direct array
+    const resp2 = [{ id: 1 }];
+    expect(aiService._getActualDataFromAIResponse(resp2, schemaName)).toEqual(
+      resp2
+    );
+  });
+
+  it('should include grounding metadata in prompt variables', async () => {
+    const options = {
+      groundingMetadata: { languages: [{ id: 'en_US', name: 'English' }] },
+      brandName: 'Test Brand',
+    };
+
+    // We mock _chatJson to avoid full provider execution
+    const chatSpy = vi
+      .spyOn(aiService, '_chatJson')
+      .mockResolvedValue([{ name: 'AI Product' }]);
+
+    await aiService.generateProductData(
+      'Electronics',
+      1,
+      {},
+      'gpt-4o',
+      ['en-US'],
+      options
+    );
+
+    expect(mockCtx.prompt.render).toHaveBeenCalledWith(
+      'product',
+      expect.objectContaining({
+        brandName: 'Test Brand',
+        groundingMetadata: options.groundingMetadata,
+      }),
+      expect.any(Object)
+    );
+  });
 });

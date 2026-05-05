@@ -66,10 +66,13 @@ export const getKeyObject = async (
     .then((result) => {
       if (result.totalCount == 0) {
         return null;
-      } else if (result.totalCount == 1) {
-        return result.items[0];
       }
-      throw new Error(`Too many matches for configuration key - ${key}`);
+      if (result.totalCount > 1) {
+        console.warn(
+          `Multiple matches found for configuration key: ${key}. Using the first one.`
+        );
+      }
+      return result.items[0];
     })
     .then((item) => {
       if (!item) return null;

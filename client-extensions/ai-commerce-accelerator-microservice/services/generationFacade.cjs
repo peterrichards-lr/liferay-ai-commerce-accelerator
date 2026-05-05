@@ -122,7 +122,14 @@ class GenerationFacade {
       );
     }
 
-    return this.validateAndNormalize(entityType, data, { ...options, count });
+    // 1. Standardize/Normalize first (inject missing ERCs, etc)
+    const standardizedData = this._standardize(data);
+
+    // 2. Validate against schema
+    return this.validateAndNormalize(entityType, standardizedData, {
+      ...options,
+      count,
+    });
   }
 
   validateAndNormalize(schemaName, data, options = {}) {
@@ -183,7 +190,7 @@ class GenerationFacade {
       }
     }
 
-    return this._standardize(data);
+    return data;
   }
 
   /**
