@@ -198,13 +198,10 @@ class AccountGenerator extends BaseGenerator {
           }
 
           const countryTitle =
-            country.title_i18n?.en_US ||
-            country.title_i18n?.[config.localeCode?.replace('-', '_')] ||
-            country.name;
-          const regionTitle =
-            region?.title_i18n?.en_US ||
-            region?.title_i18n?.[config.localeCode?.replace('-', '_')] ||
-            region?.name;
+            fromI18n(country.title_i18n) || country.name || country.a2;
+          const regionTitle = region
+            ? fromI18n(region.title_i18n) || region.name || region.regionCode
+            : '';
 
           geographicContext = {
             countryId: country.id,
@@ -307,12 +304,11 @@ class AccountGenerator extends BaseGenerator {
             sessionId,
             geographicContext
           );
-          // Include in BOTH for maximum visibility in Liferay UI/Headless
+          // Only include in contact information to avoid duplication artifacts
+          // during batch processing (prevents ConstraintViolationException)
           account.accountContactInformation.postalAddresses = [headOffice];
-          account.postalAddresses = [headOffice];
         } else {
           account.accountContactInformation.postalAddresses = [];
-          account.postalAddresses = [];
         }
 
         if (rawBilling) {
@@ -737,9 +733,9 @@ class AccountGenerator extends BaseGenerator {
         streetAddressLine1: `${streetNumber} ${streetName} ${streetType}`,
         addressLocality: address.addressLocality || 'Los Angeles',
         addressRegion:
-          geographicContext.regionTitle || geographicContext.regionName || 'CA',
+          geographicContext.regionTitle || geographicContext.regionName || '',
         postalCode: address.postalCode || '90001',
-        addressCountry: geographicContext.countryTitle || 'United States',
+        addressCountry: geographicContext.countryTitle || '',
         addressType,
         primary: false,
         externalReferenceCode: createERC(ERC_PREFIX.ADDRESS),
@@ -775,6 +771,9 @@ class AccountGenerator extends BaseGenerator {
       country = activeCountries.find(
         (c) =>
           c.name.toLowerCase().replace(/[^a-z0-9]/g, '') === target ||
+          fromI18n(c.title_i18n)
+            ?.toLowerCase()
+            .replace(/[^a-z0-9]/g, '') === target ||
           c.a2.toLowerCase() === target ||
           c.a3?.toLowerCase() === target
       );
@@ -792,7 +791,7 @@ class AccountGenerator extends BaseGenerator {
         name: `${toTitleCase(addressType).replace(/-/g, ' ')} Address`,
         streetAddressLine1: `${streetNumber} ${streetName} ${streetType}`,
         addressLocality: address.addressLocality,
-        addressRegion: null,
+        addressRegion: '',
         postalCode: address.postalCode,
         addressCountry: 'United States',
         addressType,
@@ -802,7 +801,7 @@ class AccountGenerator extends BaseGenerator {
     }
 
     const regions = await this.liferay.getCountryRegions(config, country.id);
-    let region;
+    let region = null;
     if (regions && regions.length > 0) {
       // Try to match suggested region
       if (address.addressRegion) {
@@ -812,6 +811,9 @@ class AccountGenerator extends BaseGenerator {
         region = regions.find(
           (r) =>
             r.name.toLowerCase().replace(/[^a-z0-9]/g, '') === targetRegion ||
+            fromI18n(r.title_i18n)
+              ?.toLowerCase()
+              .replace(/[^a-z0-9]/g, '') === targetRegion ||
             r.regionCode?.toLowerCase() === targetRegion
         );
       }
@@ -824,8 +826,8 @@ class AccountGenerator extends BaseGenerator {
     const finalCountry =
       fromI18n(country.title_i18n) || country.name || country.a2 || country.a3;
     const finalRegion = region
-      ? fromI18n(region.title_i18n) || region.name
-      : null;
+      ? fromI18n(region.title_i18n) || region.name || region.regionCode
+      : '';
 
     this.logger.debug(
       `Address Geographic Match: SuggestedCountry="${address.addressCountry}", MatchedCountryName="${country.name}", MatchedCountryTitle="${fromI18n(country.title_i18n)}", FinalCountry="${finalCountry}", SuggestedRegion="${address.addressRegion}", FinalRegion="${finalRegion}"`,
