@@ -678,6 +678,7 @@ class DeleteCoordinatorService extends BaseGenerator {
       status: 'STARTED',
       currentSteps: [],
       correlationId: config.correlationId,
+      sessionName: 'Delete All Commerce Data',
       context: {
         config,
         options,
@@ -748,6 +749,7 @@ class DeleteCoordinatorService extends BaseGenerator {
       status: 'STARTED',
       currentSteps: [],
       correlationId: config.correlationId,
+      sessionName: 'Delete Selected Commerce Data',
       context: {
         config,
         options,

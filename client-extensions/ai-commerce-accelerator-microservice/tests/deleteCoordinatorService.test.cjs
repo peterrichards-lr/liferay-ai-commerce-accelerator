@@ -60,7 +60,7 @@ describe('DeleteCoordinatorService', () => {
     persistence.close();
   });
 
-  it('should start full deletion workflow', async () => {
+  it('should start full deletion workflow with correct name', async () => {
     const config = { correlationId: 'test-cid' };
     const options = {};
 
@@ -69,7 +69,23 @@ describe('DeleteCoordinatorService', () => {
     expect(result.sessionId).toBeDefined();
     const session = persistence.getSession(result.sessionId);
     expect(session.flow_type).toBe('delete');
+    expect(session.session_name).toBe('Delete All Commerce Data');
     expect(session.context.generator).toBe('delete');
+  });
+
+  it('should start selected deletion workflow with correct name', async () => {
+    const config = { correlationId: 'test-cid' };
+    const options = {};
+    const deleteScope = [{ name: 'deleteOrders' }];
+
+    const result = await coordinator.runDeleteSelectedAndMonitor(config, options, {
+      deleteScope,
+    });
+
+    expect(result.sessionId).toBeDefined();
+    const session = persistence.getSession(result.sessionId);
+    expect(session.flow_type).toBe('delete');
+    expect(session.session_name).toBe('Delete Selected Commerce Data');
   });
 
   it('should run discovery step', async () => {

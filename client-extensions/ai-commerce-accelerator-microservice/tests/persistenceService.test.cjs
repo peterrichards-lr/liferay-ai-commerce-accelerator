@@ -148,4 +148,28 @@ describe('PersistenceService', () => {
     expect(events[0].message).toBe('Testing event log');
     expect(events[0].details.key).toBe('value');
   });
+
+  it('should filter completed sessions to exclude deletion flows', () => {
+    persistence.createSession({
+      sessionId: 'gen-1',
+      flowType: 'generate',
+      status: 'COMPLETED',
+    });
+    persistence.createSession({
+      sessionId: 'acc-1',
+      flowType: 'accounts',
+      status: 'COMPLETED',
+    });
+    persistence.createSession({
+      sessionId: 'del-1',
+      flowType: 'delete',
+      status: 'COMPLETED',
+    });
+
+    const completed = persistence.getCompletedSessions();
+    expect(completed).toHaveLength(2);
+    expect(completed.some((s) => s.session_id === 'gen-1')).toBe(true);
+    expect(completed.some((s) => s.session_id === 'acc-1')).toBe(true);
+    expect(completed.some((s) => s.session_id === 'del-1')).toBe(false);
+  });
 });

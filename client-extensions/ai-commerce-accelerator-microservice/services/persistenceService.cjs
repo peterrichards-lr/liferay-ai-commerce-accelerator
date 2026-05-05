@@ -245,7 +245,7 @@ class PersistenceService {
   getCompletedSessions() {
     const rows = this.db
       .prepare(
-        "SELECT * FROM workflow_sessions WHERE status = 'COMPLETED' AND flow_type = 'generate' ORDER BY created_at DESC"
+        "SELECT * FROM workflow_sessions WHERE status = 'COMPLETED' AND flow_type != 'delete' ORDER BY created_at DESC"
       )
       .all();
 
