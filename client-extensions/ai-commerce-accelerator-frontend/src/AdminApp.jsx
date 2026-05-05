@@ -595,10 +595,7 @@ function ConfigurationDoctor({ health, liferayUrl }) {
           <HealthItem
             title="AI Media"
             status={
-              health.aiMedia.status === 'CONFIGURED' ||
-              health.aiMedia.status === 'INHERITED'
-                ? 'success'
-                : 'danger'
+              health.aiMedia.status === 'CONFIGURED' ? 'success' : 'danger'
             }
             message={
               health.aiMedia.provider === 'INHERIT'

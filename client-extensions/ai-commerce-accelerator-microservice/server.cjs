@@ -265,6 +265,10 @@ const gracefulShutdown = async (signal) => {
           clientId: req.body.clientId ? 'provided' : 'missing',
         });
 
+        // Flush any cached configurations to ensure we pull the absolute latest
+        // Liferay custom object entries before evaluating connection health
+        configService.clearCache();
+
         const result = await liferayService.testConnection(req.body);
 
         const aiConfig = await configService.getAIConfig(req.body);
@@ -274,16 +278,16 @@ const gracefulShutdown = async (signal) => {
 
         let aiTextKeyAvailable = false;
         try {
-          await configService.getAIKey(req.body);
-          aiTextKeyAvailable = true;
+          const key = await configService.getAIKey(req.body);
+          aiTextKeyAvailable = !!key;
         } catch (_error) {
           aiTextKeyAvailable = false;
         }
 
         let aiMediaKeyAvailable = false;
         try {
-          await configService.getAIMediaKey(req.body);
-          aiMediaKeyAvailable = true;
+          const mediaKey = await configService.getAIMediaKey(req.body);
+          aiMediaKeyAvailable = !!mediaKey;
         } catch (_error) {
           aiMediaKeyAvailable = false;
         }

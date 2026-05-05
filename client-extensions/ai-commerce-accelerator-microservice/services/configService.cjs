@@ -370,11 +370,13 @@ class ConfigService {
   async getAIKey(requestConfig) {
     const logger = this.logger;
     try {
-      return await this.getConfig(
+      const key = await this.getConfig(
         requestConfig,
         AI_API_CACHE_KEY,
         AI_CREDENTIALS_CONFIG_KEY
       );
+      if (key === 'null' || key === '""') return null;
+      return key;
     } catch (error) {
       const erc = error?.errorReference || createERC(ERC_PREFIX.ERROR);
       logger?.errorWithStack?.(error, {
@@ -387,17 +389,21 @@ class ConfigService {
   }
 
   getAIKeyCached() {
-    return this.getConfigCached(AI_API_CACHE_KEY);
+    const key = this.getConfigCached(AI_API_CACHE_KEY);
+    if (key === 'null' || key === '""') return null;
+    return key;
   }
 
   async getAIMediaKey(requestConfig) {
     const logger = this.logger;
     try {
-      return await this.getConfig(
+      const key = await this.getConfig(
         requestConfig,
         AI_MEDIA_API_CACHE_KEY,
         AI_MEDIA_CREDENTIALS_CONFIG_KEY
       );
+      if (key === 'null' || key === '""') return null;
+      return key;
     } catch (error) {
       const erc = error?.errorReference || createERC(ERC_PREFIX.ERROR);
       logger?.errorWithStack?.(error, {
@@ -410,7 +416,9 @@ class ConfigService {
   }
 
   getAIMediaKeyCached() {
-    return this.getConfigCached(AI_MEDIA_API_CACHE_KEY);
+    const key = this.getConfigCached(AI_MEDIA_API_CACHE_KEY);
+    if (key === 'null' || key === '""') return null;
+    return key;
   }
 
   async _getConfigWithFallback(

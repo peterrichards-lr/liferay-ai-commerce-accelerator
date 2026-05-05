@@ -76,7 +76,16 @@ class HealthService {
     const { config } = this.ctx;
     const start = Date.now();
     try {
-      const aiConfig = config.getAIConfigCached();
+      const requestConfig = {};
+      let aiConfig = {};
+      try {
+        aiConfig = (await config.getAIConfig(requestConfig)) || {};
+      } catch (e) {
+        this.ctx.logger.debug('Failed to fetch AI Config for health check', {
+          error: e.message,
+        });
+      }
+
       const textProvider = (aiConfig?.provider || 'OPENAI').toUpperCase();
       const mediaProvider = (
         aiConfig?.mediaProvider || 'INHERIT'
@@ -84,29 +93,28 @@ class HealthService {
 
       let textKey = null;
       try {
-        textKey = config.getAIKeyCached();
+        textKey = await config.getAIKey(requestConfig);
       } catch (_e) {
         // Ignore key retrieval errors for status check
       }
 
       let mediaKey = null;
       try {
-        mediaKey = config.getAIMediaKeyCached();
+        mediaKey = await config.getAIMediaKey(requestConfig);
       } catch (_e) {
         // Ignore key retrieval errors for status check
+      }
+
+      if (mediaProvider === 'INHERIT') {
+        mediaKey = textKey;
       }
 
       const responseTime = Date.now() - start;
 
       const textStatus = textKey ? 'CONFIGURED' : 'MISSING';
-      let mediaStatus = mediaKey ? 'CONFIGURED' : 'MISSING';
+      const mediaStatus = mediaKey ? 'CONFIGURED' : 'MISSING';
 
-      if (mediaProvider === 'INHERIT') {
-        mediaStatus = textKey ? 'INHERITED' : 'MISSING';
-      }
-
-      const isHealthy =
-        textKey && (mediaProvider === 'INHERIT' ? textKey : mediaKey);
+      const isHealthy = !!(textKey && mediaKey);
 
       return {
         status: isHealthy ? 'healthy' : 'degraded',

@@ -14,7 +14,7 @@ describe('AdminApp UI', () => {
           health: {
             liferay: { status: 'CONNECTED' },
             aiText: { status: 'CONFIGURED', provider: 'OPENAI' },
-            aiMedia: { status: 'INHERITED', provider: 'INHERIT' },
+            aiMedia: { status: 'CONFIGURED', provider: 'INHERIT' },
             prompts: { status: 'OK', missing: [] },
             schemas: { status: 'OK', missing: [] },
           },

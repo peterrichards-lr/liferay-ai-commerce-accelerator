@@ -1,0 +1,127 @@
+{
+  "summary": {
+    "timestamp": "2026-05-05T08:42:33.309Z",
+    "version": "1.0.0",
+    "activeSessionId": "AICA-SESSION-1777970519144-8de7dce6"
+  },
+  "systemStatus": {
+    "config": {
+      "liferayUrl": "http://localhost:8080",
+      "microserviceUrl": "http://localhost:3001",
+      "batchSize": 10,
+      "currencyCode": "USD"
+    },
+    "generationConfig": {
+      "sessionName": "",
+      "productCount": 10,
+      "accountCount": 10,
+      "orderCount": 50,
+      "orderDistribution": {
+        "open": 10,
+        "processing": 10,
+        "shipped": 20,
+        "completed": 60
+      },
+      "categories": ["Electronics"],
+      "generatePriceLists": true,
+      "generateBulkPricing": true,
+      "generateTierPricing": true,
+      "generateSpecifications": true,
+      "generateSkuVariants": true,
+      "imageMode": "placeholder",
+      "imageRatio": 100,
+      "imageStyle": "photographic",
+      "pdfMode": "placeholder",
+      "pdfRatio": 100,
+      "pdfContentType": "product_info",
+      "createWarehouses": true,
+      "reuseExistingWarehouses": true,
+      "warehouseCount": 5,
+      "inventoryMin": 0,
+      "inventoryMax": 1000,
+      "inventoryAssignmentRatio": 100,
+      "enableBackorders": true,
+      "backorderAssignmentRatio": 50,
+      "demoMode": false,
+      "brandName": "Euronics International Ltd. is an international association of over 11,000[1] independent electrical retailers in 37 countries.[2] It functions as a leading international electrical retail group[1] on behalf of its members, and is based in Amsterdam. It operates as a European Economic Interest Grouping entity (an EEIG)[3] meaning that all stores are independent sellers.",
+      "customImageFile": null,
+      "customPDFFile": null
+    }
+  },
+  "progress": {
+    "products": {
+      "total": 0,
+      "completed": 0,
+      "errors": [],
+      "batches": {}
+    },
+    "accounts": {
+      "total": 0,
+      "completed": 0,
+      "errors": [],
+      "batches": {}
+    },
+    "orders": {
+      "total": 0,
+      "completed": 0,
+      "errors": [],
+      "batches": {}
+    },
+    "images": {
+      "expected": 0,
+      "total": 0,
+      "completed": 0,
+      "errors": [],
+      "batches": {}
+    },
+    "pdfs": {
+      "expected": 0,
+      "total": 0,
+      "completed": 0,
+      "errors": [],
+      "batches": {}
+    },
+    "warehouses": {
+      "total": 5,
+      "completed": 0,
+      "errors": [],
+      "batches": {
+        "2927": {
+          "completed": 0
+        }
+      }
+    }
+  },
+  "activityLogs": [
+    {
+      "time": "09:42:11",
+      "type": "WARNING",
+      "message": "Batch finished with 1 failure(s): 2927"
+    },
+    {
+      "time": "09:42:10",
+      "type": "INFO",
+      "message": "Step started: accounts"
+    },
+    {
+      "time": "09:42:09",
+      "type": "INFO",
+      "message": "Step started: warehouses"
+    },
+    {
+      "time": "09:41:59",
+      "type": "INFO",
+      "message": "Step started: warehouses"
+    },
+    {
+      "time": "09:41:59",
+      "type": "SUCCESS",
+      "message": "✓ Workflow submitted successfully. Session ID: AICA-SESSION-1777970519144-8de7dce6"
+    },
+    {
+      "time": "09:41:59",
+      "type": "INFO",
+      "message": "Submitting generation workflow: 10 products, 10 accounts, 50 orders"
+    }
+  ]
+}
