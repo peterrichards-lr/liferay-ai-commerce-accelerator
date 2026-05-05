@@ -1,5 +1,9 @@
 Generate realistic order data for {{count}} orders using the provided products and accounts.
 
+{% if groundingMetadata and groundingMetadata.languages %}
+LIFERAY CONTEXT: You MUST only use the following active Liferay languages for any multilingual fields: {{ groundingMetadata.languages | map(attribute='id') | join(', ') }}.
+{% endif %}
+
 {% if brandName %}
 BRAND CONTEXT: These orders represent business transactions with the brand/company "{{brandName}}".
 {% endif %}

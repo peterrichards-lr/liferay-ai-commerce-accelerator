@@ -90,7 +90,8 @@ class GenerationFacade {
         requestConfig,
         requestConfig.aiModel,
         options.categories || [],
-        selectedLanguages
+        selectedLanguages,
+        options
       );
     } else if (entityType === 'order') {
       data = await generator.generateOrderData(
@@ -99,14 +100,16 @@ class GenerationFacade {
         count,
         requestConfig,
         requestConfig.aiModel,
-        selectedLanguages
+        selectedLanguages,
+        options
       );
     } else if (entityType === 'warehouse') {
       data = await generator.generateWarehouseData(
         count,
         requestConfig,
         requestConfig.aiModel,
-        selectedLanguages
+        selectedLanguages,
+        options
       );
     } else if (entityType === 'pricing') {
       data = await generator.generatePricingData(
@@ -114,7 +117,8 @@ class GenerationFacade {
         options.pricingType || 'standard',
         requestConfig,
         requestConfig.aiModel,
-        selectedLanguages
+        selectedLanguages,
+        options
       );
     }
 

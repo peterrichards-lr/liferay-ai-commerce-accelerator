@@ -194,6 +194,7 @@ class AIService {
     const correlationId = requestConfig?.correlationId;
     try {
       const vars = {
+        brandName: options.brandName || '',
         productName: product.name?.en_US || product.name,
         productDescription: product.description?.en_US || product.description,
         category,
@@ -209,6 +210,7 @@ class AIService {
           null,
           2
         ),
+        groundingMetadata: options.groundingMetadata || null,
       };
 
       const promptContent = await prompt.render('pdf', vars, requestConfig);
@@ -436,6 +438,7 @@ class AIService {
         accountListJSON: JSON.stringify(accountList, null, 2),
         languageList: joinList(langs),
         languageCodesCSV: languageCodes.join(', '),
+        groundingMetadata: options.groundingMetadata || null,
       };
 
       const promptContent = await prompt.render('order', vars, requestConfig);
@@ -565,7 +568,8 @@ class AIService {
     pricingType = 'standard',
     requestConfig,
     model,
-    _selectedLanguages = ['en-US']
+    _selectedLanguages = ['en-US'],
+    options = {}
   ) {
     const { logger, prompt } = this.ctx;
     const correlationId = requestConfig?.correlationId;
@@ -577,9 +581,11 @@ class AIService {
       }));
 
       const vars = {
+        brandName: options.brandName || '',
         pricingType,
         productListJSON: JSON.stringify(productList, null, 2),
         ...pricingHints(pricingType),
+        groundingMetadata: options.groundingMetadata || null,
       };
 
       const promptContent = await prompt.render('pricing', vars, requestConfig);

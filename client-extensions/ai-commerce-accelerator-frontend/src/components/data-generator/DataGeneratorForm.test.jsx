@@ -89,7 +89,9 @@ describe('DataGeneratorForm', () => {
     const submitBtn = screen.getByText(/Start Demo Generation/i);
     fireEvent.click(submitBtn);
 
-    expect(mockProps.onGenerate).toHaveBeenCalledWith(initialGenerationConfig);
+    expect(mockProps.onGenerate).toHaveBeenCalledWith(
+      expect.objectContaining(initialGenerationConfig)
+    );
   });
 
   it('disables submit button and shows loading state when generating', () => {

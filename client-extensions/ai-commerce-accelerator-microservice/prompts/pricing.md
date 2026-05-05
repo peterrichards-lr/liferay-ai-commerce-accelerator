@@ -5,6 +5,9 @@ Products: {{=json:productListJSON}}
 Return a single JSON object with the following structure:
 {
 "priceListName": "A descriptive name for the price list",
+{% if brandName %}
+LIFERAY CONTEXT: This price list is for products belonging to the brand "{{brandName}}".
+{% endif %}
 "priceEntries": [
 {
 "sku": "The product SKU",
