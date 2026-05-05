@@ -703,24 +703,48 @@ class ConfigService {
 
   async syncEnvironmentKeys() {
     const logger = this.logger;
-    const coreApiKey = process.env.CORE_API_KEY;
+    const coreApiKey = process.env.AI_API_KEY || process.env.CORE_API_KEY;
+    const mediaApiKey = process.env.AI_MEDIA_API_KEY;
 
+    // 1. Sync Core AI Key
     if (coreApiKey && coreApiKey.trim().length > 0) {
+      logger?.info?.('Syncing AI_API_KEY from environment to Liferay...', {
+        operation: 'sync-env-keys',
+      });
+
+      try {
+        await this.saveConfig({}, AI_CREDENTIALS_CONFIG_KEY, coreApiKey.trim());
+        logger?.info?.('Successfully synced AI_API_KEY to Liferay.', {
+          operation: 'sync-env-keys',
+        });
+      } catch (error) {
+        logger?.error?.('Failed to sync AI_API_KEY to Liferay', {
+          operation: 'sync-env-keys',
+          error: error.message,
+        });
+      }
+    }
+
+    // 2. Sync Media AI Key
+    if (mediaApiKey && mediaApiKey.trim().length > 0) {
       logger?.info?.(
-        'Found CORE_API_KEY in environment. Syncing to Liferay...',
+        'Syncing AI_MEDIA_API_KEY from environment to Liferay...',
         {
           operation: 'sync-env-keys',
         }
       );
 
       try {
-        // Use empty config to trigger system fallback connection
-        await this.saveConfig({}, AI_CREDENTIALS_CONFIG_KEY, coreApiKey.trim());
-        logger?.info?.('Successfully synced CORE_API_KEY to Liferay.', {
+        await this.saveConfig(
+          {},
+          AI_MEDIA_CREDENTIALS_CONFIG_KEY,
+          mediaApiKey.trim()
+        );
+        logger?.info?.('Successfully synced AI_MEDIA_API_KEY to Liferay.', {
           operation: 'sync-env-keys',
         });
       } catch (error) {
-        logger?.error?.('Failed to sync CORE_API_KEY to Liferay', {
+        logger?.error?.('Failed to sync AI_MEDIA_API_KEY to Liferay', {
           operation: 'sync-env-keys',
           error: error.message,
         });
