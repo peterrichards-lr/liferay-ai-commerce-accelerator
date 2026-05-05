@@ -61,7 +61,7 @@
       "configStatus": {
         "key": "Active"
       },
-      "configValue": "{\"provider\": \"openai\", \"mediaProvider\": \"openai\", \"defaultModel\": \"gpt-4o\", \"languages\": {\"default\": [\"en-US\"]}, \"maxTokens\": {\"account\": 4000, \"default\": 4000, \"order\": 4000, \"pdf\": 4000, \"pricing\": 2000, \"product\": 4000}, \"models\": {\"account\": \"gpt-4o\", \"order\": \"gpt-4o\", \"pdf\": \"gpt-4o\", \"pricing\": \"gpt-4o-mini\", \"product\": \"gpt-4o\"}, \"parallelLimit\": 4, \"requestTimeoutMs\": 60000, \"responseFormat\": \"json_object\", \"retry\": {\"baseDelayMs\": 1000, \"maxDelayMs\": 8000, \"maxRetries\": 2}, \"temperature\": 0.7}",
+      "configValue": "{\"provider\": \"openai\", \"mediaProvider\": \"inherit\", \"defaultModel\": \"gpt-4o\", \"languages\": {\"default\": [\"en-US\"]}, \"maxTokens\": {\"account\": 4000, \"default\": 4000, \"order\": 4000, \"pdf\": 4000, \"pricing\": 2000, \"product\": 4000}, \"models\": {\"account\": \"gpt-4o\", \"order\": \"gpt-4o\", \"pdf\": \"gpt-4o\", \"pricing\": \"gpt-4o-mini\", \"product\": \"gpt-4o\"}, \"parallelLimit\": 4, \"requestTimeoutMs\": 60000, \"responseFormat\": \"json_object\", \"retry\": {\"baseDelayMs\": 1000, \"maxDelayMs\": 8000, \"maxRetries\": 2}, \"temperature\": 0.7}",
       "description": "AI service settings: models, tokens, temperature, retries, timeouts, prompts.",
       "externalReferenceCode": "AI-CONFIG"
     },
