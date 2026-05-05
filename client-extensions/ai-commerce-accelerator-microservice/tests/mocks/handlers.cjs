@@ -125,7 +125,7 @@ const handlers = [
         {
           id: 123,
           externalReferenceCode: 'CAT-1',
-          name: 'Test Catalog 1',
+          name: { en_US: 'Test Catalog 1' },
           defaultLanguageId: 'en_US',
           currencyCode: 'USD',
         },
@@ -135,13 +135,13 @@ const handlers = [
   }),
 
   // Mock Channels List
-  http.get('*/o/headless-commerce-delivery-catalog/v1.0/channels', () => {
+  http.get('*/o/headless-commerce-admin-channel/v1.0/channels', () => {
     return HttpResponse.json({
       items: [
         {
           id: 456,
           externalReferenceCode: 'CHAN-1',
-          name: 'Test Channel 1',
+          name: { en_US: 'Test Channel 1' },
         },
       ],
       totalCount: 1,
@@ -149,12 +149,12 @@ const handlers = [
   }),
 
   // Mock Currencies List
-  http.get('*/o/headless-commerce-delivery-catalog/v1.0/currencies', () => {
+  http.get('*/o/headless-commerce-admin-catalog/v1.0/currencies', () => {
     return HttpResponse.json({
       items: [
         {
           code: 'USD',
-          name: 'US Dollar',
+          name: { en_US: 'US Dollar' },
         },
       ],
       totalCount: 1,

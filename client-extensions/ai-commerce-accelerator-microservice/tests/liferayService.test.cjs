@@ -98,4 +98,19 @@ describe('LiferayService', () => {
       liferayService.createProductsBatch(config, invalidProducts)
     ).rejects.toThrow(/Data does not match Liferay API contract/);
   });
+
+  it('should flatten localized names for catalogs', async () => {
+    const result = await liferayService.getCatalogs(config);
+    expect(result[0].name).toBe('Test Catalog 1');
+  });
+
+  it('should flatten localized names for channels', async () => {
+    const result = await liferayService.getChannels(config);
+    expect(result[0].name).toBe('Test Channel 1');
+  });
+
+  it('should flatten localized names for currencies', async () => {
+    const result = await liferayService.getCurrencies(config);
+    expect(result[0].name).toBe('US Dollar');
+  });
 });
