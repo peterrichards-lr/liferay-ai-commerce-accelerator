@@ -1,24 +1,24 @@
 {
-  "configuration": {
-    "className": "com.liferay.object.rest.dto.v1_0.ObjectEntry",
-    "parameters": {
-      "containsHeaders": "true",
-      "createStrategy": "UPSERT",
-      "onErrorFail": "false",
-      "taskItemDelegateName": "C_AICAConfiguration",
-      "updateStrategy": "UPDATE"
+    "configuration": {
+        "className": "com.liferay.object.rest.dto.v1_0.ObjectEntry",
+        "parameters": {
+            "containsHeaders": "true",
+            "createStrategy": "UPSERT",
+            "onErrorFail": "false",
+            "taskItemDelegateName": "C_AICAConfiguration",
+            "updateStrategy": "UPDATE"
+        },
+        "taskItemDelegateName": "C_AICAConfiguration"
     },
-    "taskItemDelegateName": "C_AICAConfiguration"
-  },
-  "items": [
-    {
-      "configKey": "ai-schema-pdf",
-      "configStatus": {
-        "key": "Active"
-      },
-      "configValue": "{\"$schema\":\"http://json-schema.org/draft-07/schema#\",\"description\":\"A schema for the content of a generated PDF document.\",\"properties\":{\"sections\":{\"description\":\"An array of sections, each with a title and content.\",\"items\":{\"properties\":{\"content\":{\"description\":\"The content of the section.\",\"type\":\"string\"},\"title\":{\"description\":\"The title of the section.\",\"type\":\"string\"}},\"required\":[\"title\",\"content\"],\"type\":\"object\"},\"type\":\"array\"},\"title\":{\"description\":\"The main title of the document.\",\"type\":\"string\"}},\"required\":[\"title\",\"sections\"],\"title\":\"PDF Content\",\"type\":\"object\"}",
-      "description": "AI Schema for Pdf",
-      "externalReferenceCode": "AI-SCHEMA-PDF"
-    }
-  ]
+    "items": [
+        {
+            "configKey": "ai-schema-pdf",
+            "configStatus": {
+                "key": "Active"
+            },
+            "configValue": "{\"$schema\":\"http://json-schema.org/draft-07/schema#\",\"description\":\"A schema for the content of a generated PDF document.\",\"properties\":{\"sections\":{\"description\":\"An array of sections, each with a title and content.\",\"items\":{\"properties\":{\"content\":{\"description\":\"The content of the section.\",\"type\":\"string\"},\"title\":{\"description\":\"The title of the section.\",\"type\":\"string\"}},\"required\":[\"title\",\"content\"],\"type\":\"object\"},\"type\":\"array\"},\"title\":{\"description\":\"The main title of the document.\",\"type\":\"string\"}},\"required\":[\"title\",\"sections\"],\"title\":\"PDF Content\",\"type\":\"object\"}",
+            "description": "AI Schema for Pdf",
+            "externalReferenceCode": "AI-SCHEMA-PDF"
+        }
+    ]
 }

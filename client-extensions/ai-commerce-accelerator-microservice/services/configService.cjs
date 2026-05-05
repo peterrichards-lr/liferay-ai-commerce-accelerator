@@ -1,5 +1,9 @@
 const { tryParseJSON, createERC } = require('../utils/misc.cjs');
-const { ERC_PREFIX, EMPTY_PLACEHOLDER } = require('../utils/constants.cjs');
+const {
+  ERC_PREFIX,
+  EMPTY_PLACEHOLDER,
+  ENV,
+} = require('../utils/constants.cjs');
 const fs = require('fs');
 const path = require('path');
 
@@ -73,7 +77,6 @@ class ConfigService {
   }
 
   getConfigTTL() {
-    const { ENV } = require('../utils/constants.cjs');
     return ENV.CONFIG_CACHE_TTL;
   }
 
@@ -703,8 +706,8 @@ class ConfigService {
 
   async syncEnvironmentKeys() {
     const logger = this.logger;
-    const coreApiKey = process.env.AI_API_KEY;
-    const mediaApiKey = process.env.AI_MEDIA_API_KEY;
+    const coreApiKey = ENV.AI_API_KEY;
+    const mediaApiKey = ENV.AI_MEDIA_API_KEY;
 
     // 1. Sync Core AI Key
     if (coreApiKey && coreApiKey.trim().length > 0) {
