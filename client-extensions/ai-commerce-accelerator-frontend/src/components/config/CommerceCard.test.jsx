@@ -23,11 +23,7 @@ describe('CommerceCard', () => {
     ];
 
     render(
-      <CommerceCard
-        connected={true}
-        currencies={currencies}
-        errors={{}}
-      />
+      <CommerceCard connected={true} currencies={currencies} errors={{}} />
     );
 
     // Verify that the names are rendered correctly in the options

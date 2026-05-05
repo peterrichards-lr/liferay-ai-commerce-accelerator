@@ -174,8 +174,21 @@ async function processWithRetry(
   throw lastError;
 }
 
+let ercCounter = 0;
+let lastErcTimestamp = 0;
+
 function createERC(prefix) {
-  return `${prefix}-${Date.now()}-${crypto.randomUUID().slice(0, 8)}`;
+  const now = Date.now();
+
+  if (now === lastErcTimestamp) {
+    ercCounter++;
+  } else {
+    lastErcTimestamp = now;
+    ercCounter = 0;
+  }
+
+  const suffix = crypto.randomUUID().slice(0, 8);
+  return `${prefix}-${now}-${ercCounter}-${suffix}`;
 }
 
 function resolveErrorReference(err) {

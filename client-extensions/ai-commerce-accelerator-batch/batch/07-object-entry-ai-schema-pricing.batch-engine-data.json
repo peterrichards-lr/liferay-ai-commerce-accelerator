@@ -1,24 +1,24 @@
 {
-    "configuration": {
-        "className": "com.liferay.object.rest.dto.v1_0.ObjectEntry",
-        "parameters": {
-            "containsHeaders": "true",
-            "createStrategy": "UPSERT",
-            "onErrorFail": "false",
-            "taskItemDelegateName": "C_AICAConfiguration",
-            "updateStrategy": "UPDATE"
-        },
-        "taskItemDelegateName": "C_AICAConfiguration"
+  "configuration": {
+    "className": "com.liferay.object.rest.dto.v1_0.ObjectEntry",
+    "parameters": {
+      "containsHeaders": "true",
+      "createStrategy": "UPSERT",
+      "onErrorFail": "false",
+      "taskItemDelegateName": "C_AICAConfiguration",
+      "updateStrategy": "UPDATE"
     },
-    "items": [
-        {
-            "configKey": "ai-schema-pricing",
-            "configStatus": {
-                "key": "Active"
-            },
-            "configValue": "{\"$schema\":\"http://json-schema.org/draft-07/schema#\",\"description\":\"A schema for pricing data, including price list name and price entries.\",\"properties\":{\"priceEntries\":{\"description\":\"An array of price entries for different SKUs.\",\"items\":{\"properties\":{\"cost\":{\"description\":\"The cost of the product.\",\"minimum\":0,\"type\":\"number\"},\"discount\":{\"description\":\"An optional discount percentage.\",\"maximum\":100,\"minimum\":0,\"type\":\"number\"},\"price\":{\"description\":\"The base price of the product.\",\"minimum\":0,\"type\":\"number\"},\"sku\":{\"description\":\"The SKU of the product.\",\"type\":\"string\"},\"tierPrices\":{\"description\":\"An array of tier prices for bulk purchasing.\",\"items\":{\"properties\":{\"minQuantity\":{\"description\":\"The minimum quantity for this tier.\",\"minimum\":1,\"type\":\"integer\"},\"price\":{\"description\":\"The price for this tier.\",\"minimum\":0,\"type\":\"number\"}},\"required\":[\"minQuantity\",\"price\"],\"type\":\"object\"},\"type\":\"array\"}},\"required\":[\"sku\",\"price\"],\"type\":\"object\"},\"type\":\"array\"},\"priceListName\":{\"description\":\"The name of the price list.\",\"type\":\"string\"}},\"required\":[\"priceListName\",\"priceEntries\"],\"title\":\"Pricing\",\"type\":\"object\"}",
-            "description": "AI Schema for Pricing",
-            "externalReferenceCode": "AI-SCHEMA-PRICING"
-        }
-    ]
+    "taskItemDelegateName": "C_AICAConfiguration"
+  },
+  "items": [
+    {
+      "configKey": "ai-schema-pricing",
+      "configStatus": {
+        "key": "Active"
+      },
+      "configValue": "{\"$schema\":\"http://json-schema.org/draft-07/schema#\",\"description\":\"A schema for pricing data, including price list name and price entries.\",\"properties\":{\"priceEntries\":{\"description\":\"An array of price entries for different SKUs.\",\"items\":{\"properties\":{\"cost\":{\"description\":\"The cost of the product.\",\"minimum\":0,\"type\":\"number\"},\"discount\":{\"description\":\"An optional discount percentage.\",\"maximum\":100,\"minimum\":0,\"type\":\"number\"},\"price\":{\"description\":\"The base price of the product.\",\"minimum\":0,\"type\":\"number\"},\"sku\":{\"description\":\"The SKU of the product.\",\"type\":\"string\"},\"tierPrices\":{\"description\":\"An array of tier prices for bulk purchasing.\",\"items\":{\"properties\":{\"minQuantity\":{\"description\":\"The minimum quantity for this tier.\",\"minimum\":1,\"type\":\"integer\"},\"price\":{\"description\":\"The price for this tier.\",\"minimum\":0,\"type\":\"number\"}},\"required\":[\"minQuantity\",\"price\"],\"type\":\"object\"},\"type\":\"array\"}},\"required\":[\"sku\",\"price\"],\"type\":\"object\"},\"type\":\"array\"},\"priceListName\":{\"description\":\"The name of the price list.\",\"type\":\"string\"}},\"required\":[\"priceListName\",\"priceEntries\"],\"title\":\"Pricing\",\"type\":\"object\"}",
+      "description": "AI Schema for Pricing",
+      "externalReferenceCode": "AI-SCHEMA-PRICING"
+    }
+  ]
 }

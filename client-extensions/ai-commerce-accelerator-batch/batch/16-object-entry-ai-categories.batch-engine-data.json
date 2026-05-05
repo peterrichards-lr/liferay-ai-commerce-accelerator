@@ -1,24 +1,24 @@
 {
-    "configuration": {
-        "className": "com.liferay.object.rest.dto.v1_0.ObjectEntry",
-        "parameters": {
-            "containsHeaders": "true",
-            "createStrategy": "UPSERT",
-            "onErrorFail": "false",
-            "taskItemDelegateName": "C_AICAConfiguration",
-            "updateStrategy": "UPDATE"
-        },
-        "taskItemDelegateName": "C_AICAConfiguration"
+  "configuration": {
+    "className": "com.liferay.object.rest.dto.v1_0.ObjectEntry",
+    "parameters": {
+      "containsHeaders": "true",
+      "createStrategy": "UPSERT",
+      "onErrorFail": "false",
+      "taskItemDelegateName": "C_AICAConfiguration",
+      "updateStrategy": "UPDATE"
     },
-    "items": [
-        {
-            "configKey": "ai-categories",
-            "configStatus": {
-                "key": "Active"
-            },
-            "configValue": "[\"Electronics\",\"Clothing\",\"Home & Garden\",\"Sports\",\"Books\",\"Automotive\",\"Health & Beauty\",\"Toys & Games\",\"Food & Beverage\",\"Office Supplies\"]",
-            "description": "AI Product Categories",
-            "externalReferenceCode": "AI-CATEGORIES"
-        }
-    ]
+    "taskItemDelegateName": "C_AICAConfiguration"
+  },
+  "items": [
+    {
+      "configKey": "ai-categories",
+      "configStatus": {
+        "key": "Active"
+      },
+      "configValue": "[\"Electronics\",\"Clothing\",\"Home & Garden\",\"Sports\",\"Books\",\"Automotive\",\"Health & Beauty\",\"Toys & Games\",\"Food & Beverage\",\"Office Supplies\"]",
+      "description": "AI Product Categories",
+      "externalReferenceCode": "AI-CATEGORIES"
+    }
+  ]
 }
