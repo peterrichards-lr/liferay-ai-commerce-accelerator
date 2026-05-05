@@ -36,7 +36,7 @@ describe('Dashboard', () => {
   it('renders correctly with progress', () => {
     render(<Dashboard {...mockProps} />);
 
-    expect(screen.getByText(/Generation Status/i)).toBeInTheDocument();
+    expect(screen.getByText(/Workflow Status/i)).toBeInTheDocument();
     expect(screen.getByText(/Overall Progress/i)).toBeInTheDocument();
   });
 
@@ -51,6 +51,6 @@ describe('Dashboard', () => {
     // Pass undefined for progress to trigger the null return in ProgressMonitor
     render(<Dashboard {...mockProps} progress={undefined} />);
 
-    expect(screen.getByText(/Generation Status/i)).toBeInTheDocument();
+    expect(screen.getByText(/Workflow Status/i)).toBeInTheDocument();
   });
 });

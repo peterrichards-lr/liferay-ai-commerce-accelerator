@@ -1,5 +1,6 @@
 export const initialProgress = {
   activeSessionId: null,
+  activeFlowType: null, // generate, delete, etc.
   workflowStatus: 'idle', // idle, running, completed, failed
   products: { total: 0, completed: 0, errors: [], batches: {} },
   accounts: { total: 0, completed: 0, errors: [], batches: {} },
@@ -39,6 +40,8 @@ export function progressReducer(state, action) {
       return {
         ...state,
         activeSessionId: action.sessionId,
+        activeFlowType:
+          action.flowType || (action.sessionId ? state.activeFlowType : null),
         workflowStatus: action.sessionId ? 'running' : state.workflowStatus,
       };
     }
@@ -166,7 +169,8 @@ export function progressReducer(state, action) {
 
 export const ACTIONS = {
   reset: () => ({ type: 'RESET' }),
-  setActiveSession: (sessionId) => ({ type: 'SET_ACTIVE_SESSION', sessionId }),
+  setActiveSession: (sessionId, flowType) =>
+    ({ type: 'SET_ACTIVE_SESSION', sessionId, flowType }),
   setWorkflowStatus: (status) => ({ type: 'SET_WORKFLOW_STATUS', status }),
   setTotal: (entity, total) => ({ type: 'SET_TOTAL', entity, total }),
   setTotals: (totals) => ({ type: 'SET_TOTALS', totals }),

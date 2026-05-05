@@ -1,7 +1,14 @@
 import React from 'react';
 import ClayBadge from '@clayui/badge';
 
-function MiniProgressItem({ title, completed, total, errors, onErrorsClick }) {
+function MiniProgressItem({
+  title,
+  completed,
+  total,
+  errors,
+  onErrorsClick,
+  isDelete,
+}) {
   const hasErrors = errors && errors.length > 0;
   const isDone = total > 0 && completed >= total && !hasErrors;
   const inProgress = completed > 0 && completed < total && !hasErrors;
@@ -17,7 +24,7 @@ function MiniProgressItem({ title, completed, total, errors, onErrorsClick }) {
           {title}
         </span>
         <span className="text-secondary" style={{ fontSize: '0.75rem' }}>
-          {completed} / {total}
+          {isDelete ? total : `${completed} / ${total}`}
         </span>
       </div>
       <div className="d-flex align-items-center">
@@ -31,6 +38,17 @@ function MiniProgressItem({ title, completed, total, errors, onErrorsClick }) {
           </button>
         ) : isDone ? (
           <ClayBadge displayType="success" label="Done" />
+        ) : isDelete ? (
+          <span
+            className={
+              inProgress
+                ? 'text-primary font-weight-semi-bold'
+                : 'text-secondary'
+            }
+            style={{ fontSize: '0.875rem' }}
+          >
+            {inProgress ? 'In Progress' : 'Pending'}
+          </span>
         ) : inProgress ? (
           <span
             className="text-primary font-weight-semi-bold"
@@ -48,7 +66,7 @@ function MiniProgressItem({ title, completed, total, errors, onErrorsClick }) {
   );
 }
 
-function ProgressMonitor({ progress, onErrorsClick }) {
+function ProgressMonitor({ progress, onErrorsClick, isDelete }) {
   if (!progress) return null;
 
   return (
@@ -65,6 +83,7 @@ function ProgressMonitor({ progress, onErrorsClick }) {
         total={progress.products.total}
         errors={progress.products.errors}
         onErrorsClick={() => onErrorsClick(0, 'products')}
+        isDelete={isDelete}
       />
       <MiniProgressItem
         title="Accounts"
@@ -72,6 +91,7 @@ function ProgressMonitor({ progress, onErrorsClick }) {
         total={progress.accounts.total}
         errors={progress.accounts.errors}
         onErrorsClick={() => onErrorsClick(1, 'accounts')}
+        isDelete={isDelete}
       />
       <MiniProgressItem
         title="Orders"
@@ -79,6 +99,7 @@ function ProgressMonitor({ progress, onErrorsClick }) {
         total={progress.orders.total}
         errors={progress.orders.errors}
         onErrorsClick={() => onErrorsClick(2, 'orders')}
+        isDelete={isDelete}
       />
 
       <h6
@@ -93,6 +114,7 @@ function ProgressMonitor({ progress, onErrorsClick }) {
         total={progress.warehouses.total}
         errors={progress.warehouses.errors}
         onErrorsClick={() => onErrorsClick(5, 'warehouses')}
+        isDelete={isDelete}
       />
       <MiniProgressItem
         title="Addresses"
@@ -100,6 +122,7 @@ function ProgressMonitor({ progress, onErrorsClick }) {
         total={progress.addresses?.total || 0}
         errors={progress.addresses?.errors || []}
         onErrorsClick={() => onErrorsClick(10, 'addresses')}
+        isDelete={isDelete}
       />
       <MiniProgressItem
         title="Images"
@@ -107,6 +130,7 @@ function ProgressMonitor({ progress, onErrorsClick }) {
         total={progress.images?.total || 0}
         errors={progress.images?.errors || []}
         onErrorsClick={() => onErrorsClick(3, 'images')}
+        isDelete={isDelete}
       />
       <MiniProgressItem
         title="PDFs"
@@ -114,6 +138,7 @@ function ProgressMonitor({ progress, onErrorsClick }) {
         total={progress.pdfs.total}
         errors={progress.pdfs.errors}
         onErrorsClick={() => onErrorsClick(4, 'pdfs')}
+        isDelete={isDelete}
       />
       <MiniProgressItem
         title="Prices & Promos"
@@ -129,6 +154,7 @@ function ProgressMonitor({ progress, onErrorsClick }) {
           ...(progress.promotions?.errors || []),
         ]}
         onErrorsClick={() => onErrorsClick(8, 'pricing')}
+        isDelete={isDelete}
       />
     </div>
   );

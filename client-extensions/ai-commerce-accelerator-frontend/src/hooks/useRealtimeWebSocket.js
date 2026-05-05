@@ -86,6 +86,7 @@ export default function useRealtimeWebSocket({
             currentOnProgress?.({
               type: 'SET_ACTIVE_SESSION',
               sessionId: null,
+              flowType: res.flowType,
             });
             activeSessionIdRef.current = null;
           } else {
@@ -93,6 +94,7 @@ export default function useRealtimeWebSocket({
             currentOnProgress?.({
               type: 'SET_ACTIVE_SESSION',
               sessionId,
+              flowType: res.flowType,
             });
           }
 
@@ -261,6 +263,13 @@ export default function useRealtimeWebSocket({
               'info'
             );
 
+            // Notify reducer about the active session and its type
+            currentOnProgress?.({
+              type: 'SET_ACTIVE_SESSION',
+              sessionId,
+              flowType: isDelete ? 'delete' : 'generate',
+            });
+
             if (isDelete) return;
 
             // Trigger RESET_ALL with initial totals if provided
@@ -341,12 +350,20 @@ export default function useRealtimeWebSocket({
               'success'
             );
 
-            if (isDelete) return;
-
             currentOnProgress?.({
               type: 'SET_ACTIVE_SESSION',
               sessionId: null,
+              flowType: isDelete ? 'delete' : 'generate',
             });
+
+            if (isDelete) {
+              currentOnProgress?.({
+                type: 'SET_WORKFLOW_STATUS',
+                status: 'completed',
+              });
+              return;
+            }
+
             currentOnProgress?.({
               type: 'SET_WORKFLOW_STATUS',
               status: 'completed',
@@ -413,12 +430,20 @@ export default function useRealtimeWebSocket({
               'error'
             );
 
-            if (isDelete) return;
-
             currentOnProgress?.({
               type: 'SET_ACTIVE_SESSION',
               sessionId: null,
+              flowType: isDelete ? 'delete' : 'generate',
             });
+
+            if (isDelete) {
+              currentOnProgress?.({
+                type: 'SET_WORKFLOW_STATUS',
+                status: 'failed',
+              });
+              return;
+            }
+
             currentOnProgress?.({
               type: 'SET_WORKFLOW_STATUS',
               status: 'failed',

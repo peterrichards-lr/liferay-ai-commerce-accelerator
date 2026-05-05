@@ -81,6 +81,7 @@ function Dashboard({
 }) {
   const { total, completed } = getTotalProgress(progress);
   const overallPercentage = total > 0 ? (completed / total) * 100 : 0;
+  const isDelete = progress?.activeFlowType === 'delete';
 
   const [{ startTime, lastUpdateTime }] = useState(() => {
     const { start, last, end } = loadPersistedTimes();
@@ -125,7 +126,7 @@ function Dashboard({
         <ClayCard.Body>
           <div className="d-flex justify-content-between align-items-center mb-3">
             <h4 className="sheet-title mb-0 d-flex align-items-center">
-              Generation Status
+              Workflow Status
               {isGenerating && (
                 <span
                   className="spinner-border spinner-border-sm text-primary ml-2"
@@ -161,7 +162,10 @@ function Dashboard({
                 {Math.round(overallPercentage)}%
               </span>
             </div>
-            <OverallProgressGauge percentage={overallPercentage} />
+            <OverallProgressGauge
+              percentage={overallPercentage}
+              isDelete={isDelete}
+            />
           </div>
 
           <div className="mt-3">
@@ -169,6 +173,7 @@ function Dashboard({
               generationConfig={generationConfig}
               progress={progress}
               onErrorsClick={onErrorsClick}
+              isDelete={isDelete}
             />
           </div>
 

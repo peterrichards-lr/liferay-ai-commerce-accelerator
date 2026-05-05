@@ -1,6 +1,6 @@
 import React from 'react';
 
-function OverallProgressGauge({ percentage }) {
+function OverallProgressGauge({ percentage, isDelete }) {
   const radius = 60;
   const stroke = 12;
   const normalizedRadius = radius - stroke * 2;
@@ -35,7 +35,9 @@ function OverallProgressGauge({ percentage }) {
       </svg>
       <div className="gauge-text">
         <span className="gauge-value">{Math.round(percentage)}%</span>
-        <span className="gauge-label">Total Progress</span>
+        <span className="gauge-label">
+          {isDelete ? 'Total Removal' : 'Total Progress'}
+        </span>
       </div>
     </div>
   );

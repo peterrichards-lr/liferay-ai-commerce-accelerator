@@ -313,6 +313,7 @@ module.exports = (app, { logger, persistenceService, progressService }) => {
         success: true,
         sessionId,
         status: session.status,
+        flowType: session.flow_type,
         progress,
         timestamp: new Date().toISOString(),
       });
