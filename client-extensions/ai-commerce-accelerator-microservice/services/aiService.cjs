@@ -359,6 +359,7 @@ class AIService {
         categories: categories.join(', '),
         languageList: joinList(langs),
         languageCodesCSV: languageCodes.join(', '),
+        geographicContext: options.geographicContext || null,
       };
 
       const promptContent = await prompt.render('account', vars, requestConfig);
@@ -486,6 +487,7 @@ class AIService {
         pluralSuffix: pluralize(count),
         languageList: joinList(langs),
         languageCodesCSV: languageCodes.join(', '),
+        geographicContext: options.geographicContext || null,
       };
 
       const promptContent = await prompt.render(

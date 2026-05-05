@@ -137,11 +137,51 @@ class AccountGenerator extends BaseGenerator {
     });
 
     try {
+      // GEOGRAPHIC CONTEXT: Pick a random active country from the list we already loaded
+      const activeCountries = (countries || []).filter(
+        (c) => c.active !== false
+      );
+
+      let geographicContext = null;
+
+      if (activeCountries.length > 0) {
+        const country =
+          activeCountries[Math.floor(Math.random() * activeCountries.length)];
+
+        if (country && country.id) {
+          const regions = await this.liferay.getCountryRegions(
+            config,
+            country.id
+          );
+          let region = null;
+          if (regions && regions.length > 0) {
+            region = regions[Math.floor(Math.random() * regions.length)];
+          }
+
+          geographicContext = {
+            countryId: country.id,
+            countryName: country.name,
+            countryISOCode: country.a2,
+            regionId: region?.id || null,
+            regionName: region?.name || null,
+            regionISOCode: region?.regionCode || null,
+          };
+
+          this.logger.debug('Pre-selected geographic context for AI accounts', {
+            sessionId,
+            geographicContext,
+          });
+        }
+      }
+
       const accountDataList = await this.ctx.generation.generateData(
         'account',
         options.accountCount,
         config,
-        options
+        {
+          ...options,
+          geographicContext,
+        }
       );
 
       const accountsToCreate = [];
@@ -206,7 +246,8 @@ class AccountGenerator extends BaseGenerator {
             config,
             rawHeadOffice,
             countries,
-            sessionId
+            sessionId,
+            geographicContext
           );
           // Include in BOTH for maximum visibility in Liferay UI/Headless
           account.accountContactInformation.postalAddresses = [headOffice];
@@ -223,7 +264,8 @@ class AccountGenerator extends BaseGenerator {
               config,
               rawBilling,
               countries,
-              sessionId
+              sessionId,
+              geographicContext
             )),
             accountERC: account.externalReferenceCode,
           });
@@ -236,7 +278,8 @@ class AccountGenerator extends BaseGenerator {
               config,
               rawShipping,
               countries,
-              sessionId
+              sessionId,
+              geographicContext
             )),
             accountERC: account.externalReferenceCode,
           });
@@ -615,14 +658,36 @@ class AccountGenerator extends BaseGenerator {
     }
   }
 
-  async _generateAddress(addressType, config, address, countries, sessionId) {
+  async _generateAddress(
+    addressType,
+    config,
+    address,
+    countries,
+    sessionId,
+    geographicContext = null
+  ) {
     const streetNumber = Math.floor(Math.random() * 999) + 1;
     const streetName = randomString(8);
     const streetType = ['Street', 'Avenue', 'Road', 'Lane'][
       Math.floor(Math.random() * 4)
     ];
 
-    // 0. Filter for active countries and ensure we have a list
+    // 0. Use pre-selected geographic context if available
+    if (geographicContext) {
+      return {
+        name: `${toTitleCase(addressType).replace(/-/g, ' ')} Address`,
+        streetAddressLine1: `${streetNumber} ${streetName} ${streetType}`,
+        addressLocality: address.addressLocality || 'Los Angeles',
+        addressRegion: geographicContext.regionName,
+        postalCode: address.postalCode || '90001',
+        addressCountry: geographicContext.countryName,
+        addressType,
+        primary: false,
+        externalReferenceCode: createERC(ERC_PREFIX.ADDRESS),
+      };
+    }
+
+    // FALLBACK: Original logic if no geographic context provided
     const activeCountries = (countries || []).filter((c) => c.active !== false);
 
     if (activeCountries.length === 0) {

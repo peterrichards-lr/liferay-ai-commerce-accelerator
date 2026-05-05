@@ -196,11 +196,52 @@ class WarehouseGenerator extends BaseGenerator {
     });
 
     try {
+      // GEOGRAPHIC CONTEXT: Fetch valid countries and pick one randomly
+      const countries = await this.liferay.getCountries(config);
+      const activeCountries = (countries || []).filter(
+        (c) => c.active !== false
+      );
+
+      let geographicContext = null;
+
+      if (activeCountries.length > 0) {
+        const country =
+          activeCountries[Math.floor(Math.random() * activeCountries.length)];
+
+        if (country && country.id) {
+          const regions = await this.liferay.getCountryRegions(
+            config,
+            country.id
+          );
+          let region = null;
+          if (regions && regions.length > 0) {
+            region = regions[Math.floor(Math.random() * regions.length)];
+          }
+
+          geographicContext = {
+            countryId: country.id,
+            countryName: country.name,
+            countryISOCode: country.a2,
+            regionId: region?.id || null,
+            regionName: region?.name || null,
+            regionISOCode: region?.regionCode || null,
+          };
+
+          this.logger.debug('Pre-selected geographic context for AI', {
+            sessionId,
+            geographicContext,
+          });
+        }
+      }
+
       const warehouseDataList = await this.ctx.generation.generateData(
         'warehouse',
         options.warehouseCount || 1,
         config,
-        options
+        {
+          ...options,
+          geographicContext,
+        }
       );
 
       await this.persistence.updateSessionContext(sessionId, {

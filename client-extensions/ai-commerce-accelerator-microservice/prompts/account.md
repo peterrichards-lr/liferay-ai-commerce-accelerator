@@ -9,6 +9,7 @@ BRAND CONTEXT: These accounts are potential customers or business partners for t
 - emailAddress: Company email (string, optional)
 - taxId: Realistic tax ID format (string, optional)
 - externalReferenceCode: Unique identifier (string, required)
-- headOfficeAddress.addressCountry: Choose from the following list of countries: United States, United Kingdom, France, Germany, Australia, Japan, Brazil, India, Canada, Mexico, South Africa, United Arab Emirates, Singapore
+- headOfficeAddress.addressCountry: {% if geographicContext %}{{geographicContext.countryName}}{% else %}Choose from the following list of countries: United States, United Kingdom, France, Germany, Australia, Japan, Brazil, India, Canada, Mexico, South Africa, United Arab Emirates, Singapore{% endif %}
+  {% if geographicContext and geographicContext.regionName %}- headOfficeAddress.addressRegion: {{geographicContext.regionName}}{% endif %}
 
 Return as a JSON array that conforms to the provided JSON schema.
