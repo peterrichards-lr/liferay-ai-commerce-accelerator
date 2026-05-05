@@ -1,0 +1,513 @@
+{
+  "summary": {
+    "timestamp": "2026-05-05T13:33:08.840Z",
+    "version": "1.0.0",
+    "activeSessionId": "AICA-SESSION-1777987909826-36dd98d1"
+  },
+  "systemStatus": {
+    "config": {
+      "liferayUrl": "http://localhost:8080",
+      "microserviceUrl": "http://localhost:3001",
+      "batchSize": 10,
+      "currencyCode": "USD"
+    },
+    "generationConfig": {
+      "sessionName": "Peter's live test",
+      "brandName": "An electrical appliance retailer",
+      "productCount": 10,
+      "accountCount": 10,
+      "orderCount": 50,
+      "orderDistribution": {
+        "open": 10,
+        "processing": 10,
+        "shipped": 20,
+        "completed": 60
+      },
+      "categories": ["Electronics"],
+      "generatePriceLists": true,
+      "generateBulkPricing": true,
+      "generateTierPricing": true,
+      "generateSpecifications": true,
+      "generateSkuVariants": true,
+      "imageMode": "placeholder",
+      "imageRatio": 100,
+      "imageStyle": "photographic",
+      "pdfMode": "placeholder",
+      "pdfRatio": 100,
+      "pdfContentType": "product_info",
+      "createWarehouses": true,
+      "reuseExistingWarehouses": true,
+      "warehouseCount": 5,
+      "inventoryMin": 0,
+      "inventoryMax": 1000,
+      "inventoryAssignmentRatio": 100,
+      "enableBackorders": true,
+      "backorderAssignmentRatio": 50,
+      "demoMode": false,
+      "customImageFile": null,
+      "customPDFFile": null
+    }
+  },
+  "progress": {
+    "products": {
+      "total": 0,
+      "completed": 0,
+      "errors": [],
+      "batches": {}
+    },
+    "accounts": {
+      "total": 20,
+      "completed": 0,
+      "errors": [],
+      "batches": {
+        "3313": {
+          "completed": 10
+        },
+        "3315": {
+          "completed": 2
+        },
+        "3316": {
+          "completed": 2
+        },
+        "3317": {
+          "completed": 2
+        },
+        "3318": {
+          "completed": 2
+        },
+        "3319": {
+          "completed": 2
+        },
+        "3320": {
+          "completed": 2
+        },
+        "3321": {
+          "completed": 2
+        },
+        "3322": {
+          "completed": 2
+        },
+        "3323": {
+          "completed": 2
+        },
+        "3324": {
+          "completed": 2
+        },
+        "3431": {
+          "completed": 10
+        },
+        "3433": {
+          "completed": 0
+        },
+        "3434": {
+          "completed": 0
+        },
+        "3435": {
+          "completed": 0
+        },
+        "3436": {
+          "completed": 0
+        },
+        "3437": {
+          "completed": 0
+        },
+        "3438": {
+          "completed": 0
+        },
+        "3439": {
+          "completed": 0
+        },
+        "3440": {
+          "completed": 0
+        },
+        "3441": {
+          "completed": 0
+        },
+        "3442": {
+          "completed": 0
+        }
+      }
+    },
+    "orders": {
+      "total": 0,
+      "completed": 0,
+      "errors": [],
+      "batches": {}
+    },
+    "images": {
+      "expected": 0,
+      "total": 0,
+      "completed": 0,
+      "errors": [],
+      "batches": {}
+    },
+    "pdfs": {
+      "expected": 0,
+      "total": 0,
+      "completed": 0,
+      "errors": [],
+      "batches": {}
+    },
+    "warehouses": {
+      "total": 15,
+      "completed": 15,
+      "errors": [],
+      "batches": {
+        "3312": {
+          "completed": 5
+        },
+        "3314": {
+          "completed": 0,
+          "total": 5
+        },
+        "3430": {
+          "completed": 5
+        },
+        "3432": {
+          "completed": 0,
+          "total": 5
+        },
+        "3443": {
+          "completed": 5
+        }
+      }
+    }
+  },
+  "activityLogs": [
+    {
+      "time": "14:32:37",
+      "type": "INFO",
+      "message": "Step started: products"
+    },
+    {
+      "time": "14:32:36",
+      "type": "INFO",
+      "message": "Step started: link-warehouse-channels"
+    },
+    {
+      "time": "14:32:36",
+      "type": "INFO",
+      "message": "Step started: warehouses"
+    },
+    {
+      "time": "14:31:57",
+      "type": "SUCCESS",
+      "message": "Batch completed: 3443 (+5)"
+    },
+    {
+      "time": "14:31:56",
+      "type": "INFO",
+      "message": "Step started: accounts"
+    },
+    {
+      "time": "14:31:55",
+      "type": "INFO",
+      "message": "Step started: warehouses"
+    },
+    {
+      "time": "14:31:49",
+      "type": "INFO",
+      "message": "Step started: warehouses"
+    },
+    {
+      "time": "14:31:49",
+      "type": "SUCCESS",
+      "message": "✓ Workflow submitted successfully. Session ID: AICA-SESSION-1777987909826-36dd98d1"
+    },
+    {
+      "time": "14:31:49",
+      "type": "INFO",
+      "message": "Submitting generation workflow: 10 products, 10 accounts, 50 orders"
+    },
+    {
+      "time": "14:31:32",
+      "type": "WARNING",
+      "message": "Batch finished with 1 failure(s): 3442"
+    },
+    {
+      "time": "14:31:32",
+      "type": "WARNING",
+      "message": "Batch finished with 1 failure(s): 3441"
+    },
+    {
+      "time": "14:31:32",
+      "type": "WARNING",
+      "message": "Batch finished with 1 failure(s): 3440"
+    },
+    {
+      "time": "14:31:32",
+      "type": "WARNING",
+      "message": "Batch finished with 1 failure(s): 3439"
+    },
+    {
+      "time": "14:31:32",
+      "type": "WARNING",
+      "message": "Batch finished with 1 failure(s): 3438"
+    },
+    {
+      "time": "14:31:32",
+      "type": "WARNING",
+      "message": "Batch finished with 1 failure(s): 3437"
+    },
+    {
+      "time": "14:31:32",
+      "type": "WARNING",
+      "message": "Batch finished with 1 failure(s): 3436"
+    },
+    {
+      "time": "14:31:32",
+      "type": "WARNING",
+      "message": "Batch finished with 1 failure(s): 3435"
+    },
+    {
+      "time": "14:31:32",
+      "type": "WARNING",
+      "message": "Batch finished with 1 failure(s): 3434"
+    },
+    {
+      "time": "14:31:32",
+      "type": "WARNING",
+      "message": "Batch finished with 1 failure(s): 3433"
+    },
+    {
+      "time": "14:31:32",
+      "type": "ERROR",
+      "message": "Workflow failed: Workflow failed at step: link-warehouse-channels"
+    },
+    {
+      "time": "14:31:32",
+      "type": "SUCCESS",
+      "message": "Batch completed: 3432 (+0)"
+    },
+    {
+      "time": "14:31:31",
+      "type": "INFO",
+      "message": "Step started: accounts"
+    },
+    {
+      "time": "14:31:31",
+      "type": "SUCCESS",
+      "message": "Batch completed: 3431 (+10)"
+    },
+    {
+      "time": "14:31:31",
+      "type": "INFO",
+      "message": "Step started: link-warehouse-channels"
+    },
+    {
+      "time": "14:31:31",
+      "type": "INFO",
+      "message": "Step started: warehouses"
+    },
+    {
+      "time": "14:31:31",
+      "type": "SUCCESS",
+      "message": "Batch completed: 3430 (+5)"
+    },
+    {
+      "time": "14:31:29",
+      "type": "INFO",
+      "message": "Step started: accounts"
+    },
+    {
+      "time": "14:31:29",
+      "type": "INFO",
+      "message": "Step started: warehouses"
+    },
+    {
+      "time": "14:31:27",
+      "type": "INFO",
+      "message": "Step started: warehouses"
+    },
+    {
+      "time": "14:31:27",
+      "type": "SUCCESS",
+      "message": "✓ Workflow submitted successfully. Session ID: AICA-SESSION-1777987887175-e6d4d0dd"
+    },
+    {
+      "time": "14:31:26",
+      "type": "INFO",
+      "message": "Submitting generation workflow: 10 products, 10 accounts, 50 orders"
+    },
+    {
+      "time": "14:31:04",
+      "type": "SUCCESS",
+      "message": "WebSocket connected."
+    },
+    {
+      "time": "14:05:20",
+      "type": "SUCCESS",
+      "message": "WebSocket connected."
+    },
+    {
+      "time": "13:28:09",
+      "type": "ERROR",
+      "message": "Workflow failed: warehouse generation failed schema validation"
+    },
+    {
+      "time": "13:28:01",
+      "type": "INFO",
+      "message": "Step started: warehouses"
+    },
+    {
+      "time": "13:28:01",
+      "type": "SUCCESS",
+      "message": "✓ Workflow submitted successfully. Session ID: AICA-SESSION-1777984081526-5db691b4"
+    },
+    {
+      "time": "13:28:01",
+      "type": "INFO",
+      "message": "Submitting generation workflow: 10 products, 10 accounts, 50 orders"
+    },
+    {
+      "time": "13:27:43",
+      "type": "SUCCESS",
+      "message": "Batch completed: 3324 (+2)"
+    },
+    {
+      "time": "13:27:43",
+      "type": "SUCCESS",
+      "message": "Batch completed: 3323 (+2)"
+    },
+    {
+      "time": "13:27:43",
+      "type": "SUCCESS",
+      "message": "Batch completed: 3322 (+2)"
+    },
+    {
+      "time": "13:27:43",
+      "type": "SUCCESS",
+      "message": "Batch completed: 3321 (+2)"
+    },
+    {
+      "time": "13:27:43",
+      "type": "SUCCESS",
+      "message": "Batch completed: 3320 (+2)"
+    },
+    {
+      "time": "13:27:43",
+      "type": "SUCCESS",
+      "message": "Batch completed: 3315 (+2)"
+    },
+    {
+      "time": "13:27:43",
+      "type": "SUCCESS",
+      "message": "Batch completed: 3318 (+2)"
+    },
+    {
+      "time": "13:27:43",
+      "type": "SUCCESS",
+      "message": "Batch completed: 3317 (+2)"
+    },
+    {
+      "time": "13:27:43",
+      "type": "SUCCESS",
+      "message": "Batch completed: 3319 (+2)"
+    },
+    {
+      "time": "13:27:43",
+      "type": "SUCCESS",
+      "message": "Batch completed: 3316 (+2)"
+    },
+    {
+      "time": "13:27:42",
+      "type": "ERROR",
+      "message": "Workflow failed: Workflow failed at step: link-warehouse-channels"
+    },
+    {
+      "time": "13:27:42",
+      "type": "WARNING",
+      "message": "Batch finished with 1 failure(s): 3314"
+    },
+    {
+      "time": "13:27:41",
+      "type": "INFO",
+      "message": "Step started: accounts"
+    },
+    {
+      "time": "13:27:41",
+      "type": "SUCCESS",
+      "message": "Batch completed: 3313 (+10)"
+    },
+    {
+      "time": "13:27:41",
+      "type": "INFO",
+      "message": "Step started: link-warehouse-channels"
+    },
+    {
+      "time": "13:27:41",
+      "type": "INFO",
+      "message": "Step started: warehouses"
+    },
+    {
+      "time": "13:27:41",
+      "type": "SUCCESS",
+      "message": "Batch completed: 3312 (+5)"
+    },
+    {
+      "time": "13:27:37",
+      "type": "INFO",
+      "message": "Step started: accounts"
+    },
+    {
+      "time": "13:27:37",
+      "type": "INFO",
+      "message": "Step started: warehouses"
+    },
+    {
+      "time": "13:27:37",
+      "type": "SUCCESS",
+      "message": "✓ Workflow submitted successfully. Session ID: AICA-SESSION-1777984057568-f4518c63"
+    },
+    {
+      "time": "13:27:37",
+      "type": "INFO",
+      "message": "Submitting generation workflow: 10 products, 10 accounts, 50 orders"
+    },
+    {
+      "time": "13:26:30",
+      "type": "SUCCESS",
+      "message": "WebSocket connected."
+    },
+    {
+      "time": "13:26:30",
+      "type": "SUCCESS",
+      "message": "Successfully connected to Liferay Commerce using OAuth 2"
+    },
+    {
+      "time": "13:25:54",
+      "type": "SUCCESS",
+      "message": "WebSocket connected."
+    },
+    {
+      "time": "13:08:50",
+      "type": "SUCCESS",
+      "message": "WebSocket connected."
+    },
+    {
+      "time": "13:08:50",
+      "type": "SUCCESS",
+      "message": "Successfully connected to Liferay Commerce using OAuth 2"
+    },
+    {
+      "time": "13:08:40",
+      "type": "SUCCESS",
+      "message": "WebSocket connected."
+    },
+    {
+      "time": "13:08:40",
+      "type": "SUCCESS",
+      "message": "Successfully connected to Liferay Commerce using OAuth 2"
+    },
+    {
+      "time": "13:08:12",
+      "type": "DEBUG",
+      "message": "Progress bars hydrated from server."
+    },
+    {
+      "time": "13:08:12",
+      "type": "SUCCESS",
+      "message": "WebSocket connected."
+    }
+  ]
+}

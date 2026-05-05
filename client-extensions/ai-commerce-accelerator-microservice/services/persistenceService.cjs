@@ -210,6 +210,7 @@ class PersistenceService {
       session_id: row.session_id,
       flow_type: row.flow_type,
       status: row.status,
+      session_name: row.session_name,
       context: JSON.parse(row.context_json),
       currentSteps: JSON.parse(row.current_steps_json),
       correlationId: row.correlation_id,

@@ -1471,7 +1471,7 @@ class LiferayRestService {
       path: PATH.WAREHOUSE_CHANNELS_BATCH,
       sessionId: opts.sessionId,
       session: opts.session,
-      createStrategy: 'UPSERT',
+      createStrategy: 'CREATE',
       skipItemERC: true,
     });
 

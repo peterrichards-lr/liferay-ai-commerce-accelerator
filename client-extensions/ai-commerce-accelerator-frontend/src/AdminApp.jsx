@@ -26,6 +26,12 @@ const formatUptime = (seconds) => {
   return `${d}d ${h}h ${m}m ${s}s`.replace(/^(0d\s|0h\s|0m\s)*/, '');
 };
 
+const unescapeHtml = (str) => {
+  if (!str) return '';
+  const doc = new DOMParser().parseFromString(str, 'text/html');
+  return doc.documentElement.textContent;
+};
+
 function AdminUI() {
   const { config } = useApp();
   const api = useApi();
@@ -122,7 +128,7 @@ function AdminUI() {
   const filteredSessions = useMemo(() => {
     return sessions
       .filter((s) => {
-        const nameMatch = (s.session_name || s.session_id)
+        const nameMatch = (unescapeHtml(s.session_name) || s.session_id)
           .toLowerCase()
           .includes(filters.name.toLowerCase());
         const statusMatch = !filters.status || s.status === filters.status;
@@ -457,7 +463,7 @@ function AdminUI() {
                           <ClayTable.Row key={s.session_id}>
                             <ClayTable.Cell>
                               <div className="font-weight-bold">
-                                {s.session_name || 'Unnamed'}
+                                {unescapeHtml(s.session_name) || 'Unnamed'}
                               </div>
                               <small className="text-muted">
                                 {s.session_id}

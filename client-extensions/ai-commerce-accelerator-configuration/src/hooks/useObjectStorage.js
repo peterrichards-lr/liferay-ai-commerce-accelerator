@@ -29,7 +29,13 @@ export const useObjectStorage = ({ keys, defaults = {}, json = true }) => {
 
         const newValues = {};
         parsedKeys.forEach((key, index) => {
-          const raw = fetchedValues[index];
+          let raw = fetchedValues[index];
+
+          // Normalize 'EMPTY' placeholder string from Liferay back to empty string for the UI
+          if (raw === 'EMPTY') {
+            raw = '';
+          }
+
           if (json) {
             try {
               if (raw) {
