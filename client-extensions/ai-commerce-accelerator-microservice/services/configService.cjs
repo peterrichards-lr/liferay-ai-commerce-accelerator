@@ -705,9 +705,10 @@ class ConfigService {
   }
 
   async syncEnvironmentKeys() {
+    const { lookupConfig } = require('@rotty3000/config-node');
     const logger = this.logger;
-    const coreApiKey = ENV.AI_API_KEY;
-    const mediaApiKey = ENV.AI_MEDIA_API_KEY;
+    const coreApiKey = lookupConfig('AI_API_KEY');
+    const mediaApiKey = lookupConfig('AI_MEDIA_API_KEY');
 
     // 1. Sync Core AI Key
     if (coreApiKey && coreApiKey.trim().length > 0) {
@@ -730,12 +731,9 @@ class ConfigService {
 
     // 2. Sync Media AI Key
     if (mediaApiKey && mediaApiKey.trim().length > 0) {
-      logger?.info?.(
-        'Syncing AI_MEDIA_API_KEY from environment to Liferay...',
-        {
-          operation: 'sync-env-keys',
-        }
-      );
+      logger?.info?.('Syncing AI_MEDIA_API_KEY from environment to Liferay...', {
+        operation: 'sync-env-keys',
+      });
 
       try {
         await this.saveConfig(
