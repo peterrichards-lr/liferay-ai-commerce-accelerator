@@ -22,6 +22,7 @@ class ProductGenerator extends BaseGenerator {
 
     this.steps = {
       [S.GENERATE_PRODUCT_DATA]: this._runProductDataGenerationStep.bind(this),
+      [S.LOAD_METADATA]: this._runLoadMetadataStep.bind(this),
       [S.ENSURE_SPECIFICATION_CATEGORIES]:
         this._runEnsureSpecificationCategoriesStep.bind(this),
       [S.ENSURE_SPECIFICATIONS]: this._runEnsureSpecificationsStep.bind(this),
@@ -64,6 +65,7 @@ class ProductGenerator extends BaseGenerator {
     }
 
     const steps = [
+      { name: S.LOAD_METADATA, type: 'sync' },
       { name: S.GENERATE_WAREHOUSE_DATA, type: 'sync' },
       { name: S.CREATE_WAREHOUSES, type: 'sync' },
       { name: S.RESOLVE_WAREHOUSE_IDS, type: 'sync' },
@@ -846,14 +848,81 @@ class ProductGenerator extends BaseGenerator {
     }
   }
 
+  async _runLoadMetadataStep(sessionId) {
+    const session = await this.persistence.getSession(sessionId);
+    const { config } = session.context;
+
+    this.logger.info('Loading Liferay metadata for AI grounding', {
+      sessionId,
+    });
+
+    try {
+      // 1. Fetch available languages for the site
+      // 2. Fetch available currencies for the catalog
+      // 3. Fetch taxonomy vocabularies and categories for the site
+      const [languages, currencies, vocabularies] = await Promise.all([
+        this.liferay.getLanguages(config, config.siteGroupId),
+        this.liferay.getCurrencies(config),
+        this.liferay.getTaxonomyVocabularies(config, config.siteGroupId),
+      ]);
+
+      // Flatten vocabularies and categories for easier AI consumption
+      const vocabWithCategories = await Promise.all(
+        (vocabularies || []).map(async (v) => {
+          try {
+            const categories = await this.liferay.getTaxonomyCategories(
+              config,
+              v.id
+            );
+            return {
+              name: v.name,
+              categories: (categories || []).map((c) => ({
+                id: c.id,
+                name: c.name,
+                erc: c.externalReferenceCode,
+              })),
+            };
+          } catch (e) {
+            return { name: v.name, categories: [] };
+          }
+        })
+      );
+
+      await this.persistence.updateSessionContext(sessionId, {
+        groundingMetadata: {
+          languages: (languages?.items || languages || []).map((l) => ({
+            id: l.id,
+            name: l.name,
+            default: l.markedAsDefault,
+          })),
+          currencies: (currencies || []).map((c) => ({
+            code: c.code,
+            name: fromI18n(c.name),
+            active: c.active,
+          })),
+          vocabularies: vocabWithCategories,
+        },
+      });
+
+      await this.completeSyncStep(sessionId, S.LOAD_METADATA);
+    } catch (error) {
+      this.logger.error('Failed to load Liferay metadata for grounding', {
+        sessionId,
+        error: error.message,
+      });
+      // Non-fatal, continue without grounding
+      await this.completeSyncStep(sessionId, S.LOAD_METADATA, 'WARNING');
+    }
+  }
+
   async _runProductDataGenerationStep(sessionId) {
     const session = await this.persistence.getSession(sessionId);
-    const { config, options } = session.context;
+    const { config, options, groundingMetadata } = session.context;
 
     try {
       const allData = await this._generateProductData(
         config,
-        options,
+        { ...options, groundingMetadata },
         sessionId,
         session.correlationId
       );

@@ -213,6 +213,59 @@ class LiferayGraphQLService {
 
   // --- Collection Methods (Thin Wrappers) ---
 
+  async getCurrencies(config) {
+    return this._fetchCollection(
+      config,
+      'headlessCommerceAdminCatalog_v1_0',
+      'currencies',
+      ['id', 'externalReferenceCode', 'code', 'name', 'active']
+    );
+  }
+
+  async getTaxonomyVocabularies(config, siteKey) {
+    return this._fetchCollection(
+      config,
+      'headlessAdminTaxonomy_v1_0',
+      'taxonomyVocabularies',
+      ['id', 'externalReferenceCode', 'name', 'description'],
+      { page: 1, pageSize: 200 },
+      `siteKey eq '${siteKey}'`
+    );
+  }
+
+  async getTaxonomyCategories(config, vocabularyId) {
+    const client = await this._getClient(config);
+    const query = `
+      query {
+        headlessAdminTaxonomy_v1_0 {
+          taxonomyVocabularyTaxonomyCategories(taxonomyVocabularyId: ${vocabularyId}, flatten: true, pageSize: 500) {
+            items {
+              id
+              externalReferenceCode
+              name
+              description
+            }
+            totalCount
+          }
+        }
+      }
+    `;
+
+    try {
+      const response = await client.post('', { query });
+      if (response.data.errors)
+        throw new Error(JSON.stringify(response.data.errors));
+      return response.data.data.headlessAdminTaxonomy_v1_0
+        .taxonomyVocabularyTaxonomyCategories;
+    } catch (error) {
+      this.ctx.logger.error(
+        `GraphQL getTaxonomyCategories failed for vocabulary ${vocabularyId}`,
+        { error: error.message }
+      );
+      throw error;
+    }
+  }
+
   async getCatalogs(config) {
     return this._fetchCollection(
       config,

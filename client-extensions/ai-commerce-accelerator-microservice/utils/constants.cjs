@@ -289,6 +289,8 @@ const WORKFLOW_STEPS = {
   DISCOVER: 'discover',
   // Generation Steps
   LOAD_COUNTRIES: 'load-countries',
+  LOAD_LANGUAGES: 'load-languages',
+  LOAD_METADATA: 'load-metadata',
   GENERATE_ACCOUNT_DATA: 'generate-account-data',
   CREATE_ACCOUNTS: 'create-accounts',
   RESOLVE_ACCOUNT_IDS: 'resolve-account-ids',

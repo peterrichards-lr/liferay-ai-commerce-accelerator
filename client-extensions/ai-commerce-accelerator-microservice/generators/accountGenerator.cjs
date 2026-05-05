@@ -18,6 +18,7 @@ class AccountGenerator extends BaseGenerator {
 
     this.steps = {
       [S.LOAD_COUNTRIES]: this._runLoadCountriesStep.bind(this),
+      [S.LOAD_LANGUAGES]: this._runLoadLanguagesStep.bind(this),
       [S.GENERATE_ACCOUNT_DATA]: this._runAccountDataGenerationStep.bind(this),
       [S.CREATE_ACCOUNTS]: this._runAccountCreationStep.bind(this),
       [S.SYNC_DELAY]: this._runInterServiceSyncDelayStep.bind(this),
@@ -49,6 +50,7 @@ class AccountGenerator extends BaseGenerator {
 
     const steps = [
       { name: S.LOAD_COUNTRIES, type: 'sync' },
+      { name: S.LOAD_LANGUAGES, type: 'sync' },
       { name: S.GENERATE_ACCOUNT_DATA, type: 'sync' },
       { name: S.CREATE_ACCOUNTS, type: 'sync' },
       { name: S.SYNC_DELAY, type: 'sync' },
@@ -127,9 +129,46 @@ class AccountGenerator extends BaseGenerator {
     }
   }
 
+  async _runLoadLanguagesStep(sessionId) {
+    const session = await this.persistence.getSession(sessionId);
+    const { config } = session.context;
+
+    this.logger.info('Starting load languages step', {
+      sessionId,
+      correlationId: session.correlationId,
+    });
+
+    try {
+      const languages = await this.liferay.getLanguages(
+        config,
+        config.siteGroupId
+      );
+      this.logger.debug(
+        `Fetched ${languages?.length || languages?.items?.length || 0} languages from Liferay`,
+        { sessionId }
+      );
+
+      await this.persistence.updateSessionContext(sessionId, {
+        siteLanguages: (languages?.items || languages || []).map((l) => ({
+          id: l.id,
+          name: l.name,
+          default: l.markedAsDefault,
+        })),
+      });
+
+      await this.completeSyncStep(sessionId, S.LOAD_LANGUAGES);
+    } catch (error) {
+      this.logger.warn(`Failed to load languages: ${error.message}`, {
+        sessionId,
+      });
+      // Non-fatal
+      await this.completeSyncStep(sessionId, S.LOAD_LANGUAGES, 'WARNING');
+    }
+  }
+
   async _runAccountDataGenerationStep(sessionId) {
     const session = await this.persistence.getSession(sessionId);
-    const { config, options, countries } = session.context;
+    const { config, options, countries, siteLanguages } = session.context;
 
     this.logger.info('Starting account data generation step', {
       sessionId,
@@ -181,6 +220,9 @@ class AccountGenerator extends BaseGenerator {
         {
           ...options,
           geographicContext,
+          groundingMetadata: {
+            languages: siteLanguages || [],
+          },
         }
       );
 

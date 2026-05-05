@@ -46,6 +46,19 @@ You must return a JSON array that conforms to the provided JSON schema. Each ele
 - metaKeyword: object of multilingual SEO keyword strings keyed by language code (comma-separated keywords per language).
 - metaTitle: object of multilingual SEO titles keyed by language code.
 - category: string, the primary category for the product (e.g. "Electronics", "Home & Garden").
+  {% if groundingMetadata and groundingMetadata.vocabularies %}
+  LIFERAY CONTEXT: You MUST categorize these products using the following existing Liferay vocabularies and categories:
+  {% for vocab in groundingMetadata.vocabularies %}
+
+* Vocabulary: "{{vocab.name}}"
+  Categories: {{ vocab.categories | map(attribute='name') | join(', ') }}
+  {% endfor %}
+  {% endif %}
+
+{% if groundingMetadata and groundingMetadata.currencies %}
+LIFERAY CONTEXT: When generating prices, please use one of the following active currencies: {{ groundingMetadata.currencies | map(attribute='code') | join(', ') }}.
+{% endif %}
+
 - externalReferenceCode: string unique identifier for the product (for example "PRODUCT-001-1234567890").
 
 IMPORTANT rules:

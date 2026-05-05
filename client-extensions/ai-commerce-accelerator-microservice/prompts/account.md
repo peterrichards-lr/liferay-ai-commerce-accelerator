@@ -1,5 +1,9 @@
 Generate {{count}} realistic business account{{pluralSuffix}} with the following properties:
 
+{% if groundingMetadata and groundingMetadata.languages %}
+LIFERAY CONTEXT: You MUST only use the following active Liferay languages for any multilingual fields: {{ groundingMetadata.languages | map(attribute='id') | join(', ') }}.
+{% endif %}
+
 {% if brandName %}
 BRAND CONTEXT: These accounts are potential customers or business partners for the brand/company "{{brandName}}".
 {% endif %}

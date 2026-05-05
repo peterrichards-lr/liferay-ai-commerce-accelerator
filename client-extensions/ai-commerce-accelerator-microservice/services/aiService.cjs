@@ -302,6 +302,7 @@ class AIService {
                 : ''
             }`
             : '',
+        groundingMetadata: options.groundingMetadata || null,
       };
 
       const promptContent = await prompt.render('product', vars, requestConfig);
@@ -360,6 +361,7 @@ class AIService {
         languageList: joinList(langs),
         languageCodesCSV: languageCodes.join(', '),
         geographicContext: options.geographicContext || null,
+        groundingMetadata: options.groundingMetadata || null,
       };
 
       const promptContent = await prompt.render('account', vars, requestConfig);
@@ -488,6 +490,7 @@ class AIService {
         languageList: joinList(langs),
         languageCodesCSV: languageCodes.join(', '),
         geographicContext: options.geographicContext || null,
+        groundingMetadata: options.groundingMetadata || null,
       };
 
       const promptContent = await prompt.render(

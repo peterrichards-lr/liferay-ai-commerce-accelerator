@@ -1,5 +1,9 @@
 You are a commerce expert responsible for creating warehouse data in JSON format.
 
+{% if groundingMetadata and groundingMetadata.languages %}
+LIFERAY CONTEXT: You MUST only use the following active Liferay languages for any multilingual fields: {{ groundingMetadata.languages | map(attribute='id') | join(', ') }}.
+{% endif %}
+
 Generate a list of {{count}} warehouses with varied geographical locations from around the world. Ensure a diverse distribution of countries, regions, and cities.
 
 Each warehouse must include the following fields:

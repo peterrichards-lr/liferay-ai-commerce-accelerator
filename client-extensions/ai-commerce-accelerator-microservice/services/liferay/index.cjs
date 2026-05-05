@@ -1191,6 +1191,21 @@ class LiferayService {
     return this.rest.getConfig(config, configKey);
   }
 
+  async getCurrencies(config) {
+    const res = await this.graphql.getCurrencies(config);
+    return asItems(res);
+  }
+
+  async getTaxonomyVocabularies(config, siteKey) {
+    const res = await this.graphql.getTaxonomyVocabularies(config, siteKey);
+    return asItems(res);
+  }
+
+  async getTaxonomyCategories(config, vocabularyId) {
+    const res = await this.graphql.getTaxonomyCategories(config, vocabularyId);
+    return asItems(res);
+  }
+
   async getCatalogs(config) {
     const res = await this.rest._get(
       config,

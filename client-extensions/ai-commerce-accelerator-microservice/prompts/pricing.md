@@ -22,6 +22,10 @@ Return a single JSON object with the following structure:
 
 For {{pricingType}} pricing, generate:
 
+{% if groundingMetadata and groundingMetadata.currencies %}
+LIFERAY CONTEXT: Please use the following active currency for all price entries: {{ groundingMetadata.currencies | map(attribute='code') | join(', ') }}.
+{% endif %}
+
 - A descriptive `priceListName`.
 - A `priceEntries` array for each product SKU.
 - Each entry should have a `price` and `cost`.
