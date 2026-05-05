@@ -375,7 +375,7 @@ class ConfigService {
         AI_API_CACHE_KEY,
         AI_CREDENTIALS_CONFIG_KEY
       );
-      if (key === 'null' || key === '""') return null;
+      if (key === 'null' || key === '""' || key === 'EMPTY') return null;
       return key;
     } catch (error) {
       const erc = error?.errorReference || createERC(ERC_PREFIX.ERROR);
@@ -390,7 +390,7 @@ class ConfigService {
 
   getAIKeyCached() {
     const key = this.getConfigCached(AI_API_CACHE_KEY);
-    if (key === 'null' || key === '""') return null;
+    if (key === 'null' || key === '""' || key === 'EMPTY') return null;
     return key;
   }
 
@@ -402,7 +402,7 @@ class ConfigService {
         AI_MEDIA_API_CACHE_KEY,
         AI_MEDIA_CREDENTIALS_CONFIG_KEY
       );
-      if (key === 'null' || key === '""') return null;
+      if (key === 'null' || key === '""' || key === 'EMPTY') return null;
       return key;
     } catch (error) {
       const erc = error?.errorReference || createERC(ERC_PREFIX.ERROR);
@@ -417,7 +417,7 @@ class ConfigService {
 
   getAIMediaKeyCached() {
     const key = this.getConfigCached(AI_MEDIA_API_CACHE_KEY);
-    if (key === 'null' || key === '""') return null;
+    if (key === 'null' || key === '""' || key === 'EMPTY') return null;
     return key;
   }
 

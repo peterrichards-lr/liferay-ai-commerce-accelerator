@@ -75,11 +75,18 @@ function DataGeneratorForm({
 
   const handleSubmit = (e) => {
     e.preventDefault();
+
+    // Ensure we have a session name
+    const finalConfig = {
+      ...generationConfig,
+      sessionName: generationConfig.sessionName || defaultSessionName,
+    };
+
     const node = scrollTargetRef?.current;
     if (node?.scrollIntoView)
       node.scrollIntoView({ behavior: 'smooth', block: 'start' });
     else window.scrollTo?.({ top: 0, behavior: 'smooth' });
-    onGenerate(generationConfig);
+    onGenerate(finalConfig);
   };
 
   const costEstimate = useCallback(() => {

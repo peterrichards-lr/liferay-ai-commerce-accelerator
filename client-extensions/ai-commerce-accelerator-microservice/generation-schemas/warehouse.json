@@ -16,7 +16,6 @@
           },
           "country": {
             "description": "The two-letter country code for the warehouse's location.",
-            "pattern": "^[A-Z]{2}$",
             "type": "string"
           },
           "description": {
@@ -47,7 +46,6 @@
           },
           "region": {
             "description": "The two-letter region or state code for the warehouse's location.",
-            "pattern": "^[A-Z]{2}$",
             "type": "string"
           },
           "street1": {

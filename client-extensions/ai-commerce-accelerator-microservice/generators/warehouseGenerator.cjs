@@ -130,9 +130,6 @@ class WarehouseGenerator extends BaseGenerator {
         .map((w) => ({
           channelId: parseInt(config.channelId, 10),
           warehouseId: parseInt(w.id, 10),
-          externalReferenceCode: `AICA-WC-${Date.now()}-${w.id}-${Math.floor(
-            Math.random() * 1000
-          )}`,
         }));
 
       if (payloads.length === 0) {

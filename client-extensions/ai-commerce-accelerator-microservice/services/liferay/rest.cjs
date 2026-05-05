@@ -904,6 +904,7 @@ class LiferayRestService {
       sessionId,
       session = null,
       createStrategy = 'UPSERT',
+      skipItemERC = false,
     }
   ) {
     const { logger, cache, config: configService } = this.ctx;
@@ -914,6 +915,9 @@ class LiferayRestService {
       createERC(ERC_PREFIX[prefixKey] || ERC_PREFIX.BATCH);
 
     const processedItems = (items || []).map((item) => {
+      if (skipItemERC) {
+        return { ...item };
+      }
       const extERC = sanitizedERC(
         item.externalReferenceCode || item[itemERCKey] || crypto.randomUUID()
       );
@@ -1468,6 +1472,7 @@ class LiferayRestService {
       sessionId: opts.sessionId,
       session: opts.session,
       createStrategy: 'UPSERT',
+      skipItemERC: true,
     });
 
     return results;
