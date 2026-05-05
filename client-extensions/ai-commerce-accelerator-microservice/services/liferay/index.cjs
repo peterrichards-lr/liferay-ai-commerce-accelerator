@@ -2,7 +2,7 @@ const LiferayRestService = require('./rest.cjs');
 const LiferayGraphQLService = require('./graphql.cjs');
 const { asItems } = require('../../utils/liferayUtils.cjs');
 const { PATH } = require('../../utils/liferayPaths.cjs');
-const { delay } = require('../../utils/misc.cjs');
+const { delay, fromI18n } = require('../../utils/misc.cjs');
 
 class LiferayService {
   constructor(ctx) {
@@ -1192,18 +1192,27 @@ class LiferayService {
   }
 
   async getCurrencies(config) {
-    const res = await this.graphql.getCurrencies(config);
-    return asItems(res);
+    return await this.rest.getCurrencies(config);
   }
 
   async getTaxonomyVocabularies(config, siteKey) {
     const res = await this.graphql.getTaxonomyVocabularies(config, siteKey);
-    return asItems(res);
+    const items = asItems(res);
+    return items.map((item) => ({
+      ...item,
+      name: fromI18n(item.name),
+      description: fromI18n(item.description),
+    }));
   }
 
   async getTaxonomyCategories(config, vocabularyId) {
     const res = await this.graphql.getTaxonomyCategories(config, vocabularyId);
-    return asItems(res);
+    const items = asItems(res);
+    return items.map((item) => ({
+      ...item,
+      name: fromI18n(item.name),
+      description: fromI18n(item.description),
+    }));
   }
 
   async getRegions(config, countryId) {
@@ -1220,7 +1229,11 @@ class LiferayService {
         params: { page: 1, pageSize: 100 },
       }
     );
-    return asItems(res);
+    const items = asItems(res);
+    return items.map((item) => ({
+      ...item,
+      name: fromI18n(item.name),
+    }));
   }
 
   async getCatalog(config, catalogId) {
@@ -1241,7 +1254,11 @@ class LiferayService {
         params: { page: 1, pageSize: 100 },
       }
     );
-    return asItems(res);
+    const items = asItems(res);
+    return items.map((item) => ({
+      ...item,
+      name: fromI18n(item.name),
+    }));
   }
 
   async getLanguages(config, siteKey) {
