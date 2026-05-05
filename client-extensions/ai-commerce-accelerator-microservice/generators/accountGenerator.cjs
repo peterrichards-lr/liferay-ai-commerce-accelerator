@@ -573,7 +573,7 @@ class AccountGenerator extends BaseGenerator {
           await this.submitBatch(
             sessionId,
             S.CREATE_POSTAL_ADDRESSES,
-            'accounts',
+            'addresses',
             'generate',
             (erc) =>
               this.liferay.createAccountAddressBatch(

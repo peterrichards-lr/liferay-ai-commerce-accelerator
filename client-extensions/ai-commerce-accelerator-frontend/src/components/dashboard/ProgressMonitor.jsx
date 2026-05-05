@@ -74,6 +74,13 @@ function ProgressMonitor({ progress, onErrorsClick }) {
         onErrorsClick={() => onErrorsClick(1, 'accounts')}
       />
       <MiniProgressItem
+        title="Addresses"
+        completed={progress.addresses?.completed || 0}
+        total={progress.addresses?.total || 0}
+        errors={progress.addresses?.errors || []}
+        onErrorsClick={() => onErrorsClick(10, 'addresses')}
+      />
+      <MiniProgressItem
         title="Orders"
         completed={progress.orders.completed}
         total={progress.orders.total}

@@ -1,7 +1,9 @@
 export const initialProgress = {
   activeSessionId: null,
+  workflowStatus: 'idle', // idle, running, completed, failed
   products: { total: 0, completed: 0, errors: [], batches: {} },
   accounts: { total: 0, completed: 0, errors: [], batches: {} },
+  addresses: { total: 0, completed: 0, errors: [], batches: {} },
   orders: { total: 0, completed: 0, errors: [], batches: {} },
   images: { expected: 0, total: 0, completed: 0, errors: [], batches: {} },
   pdfs: { expected: 0, total: 0, completed: 0, errors: [], batches: {} },
@@ -34,7 +36,15 @@ export function progressReducer(state, action) {
       return action.updater(state);
 
     case 'SET_ACTIVE_SESSION': {
-      return { ...state, activeSessionId: action.sessionId };
+      return {
+        ...state,
+        activeSessionId: action.sessionId,
+        workflowStatus: action.sessionId ? 'running' : state.workflowStatus,
+      };
+    }
+
+    case 'SET_WORKFLOW_STATUS': {
+      return { ...state, workflowStatus: action.status };
     }
 
     case 'SET_TOTAL': {
@@ -142,9 +152,10 @@ export function progressReducer(state, action) {
         errors: [],
         batches: {},
       };
+      const newErrors = Array.isArray(errors) ? errors : [errors];
       return {
         ...state,
-        [entity]: { ...cur, errors: [...cur.errors, ...errors] },
+        [entity]: { ...cur, errors: [...cur.errors, ...newErrors] },
       };
     }
 
@@ -156,6 +167,7 @@ export function progressReducer(state, action) {
 export const ACTIONS = {
   reset: () => ({ type: 'RESET' }),
   setActiveSession: (sessionId) => ({ type: 'SET_ACTIVE_SESSION', sessionId }),
+  setWorkflowStatus: (status) => ({ type: 'SET_WORKFLOW_STATUS', status }),
   setTotal: (entity, total) => ({ type: 'SET_TOTAL', entity, total }),
   setTotals: (totals) => ({ type: 'SET_TOTALS', totals }),
   setExpectedValues: (values) => ({ type: 'SET_EXPECTED_VALUES', values }),

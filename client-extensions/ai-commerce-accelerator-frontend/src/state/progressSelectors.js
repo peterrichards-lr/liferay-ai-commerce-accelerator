@@ -10,6 +10,7 @@ export const getTotalProgress = (progress) => {
   const entities = [
     'products',
     'accounts',
+    'addresses',
     'orders',
     'images',
     'pdfs',

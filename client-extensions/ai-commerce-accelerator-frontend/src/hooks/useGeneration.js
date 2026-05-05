@@ -97,17 +97,29 @@ export default function useGeneration({
             type: 'SET_ACTIVE_SESSION',
             sessionId: response.sessionId,
           });
+          dispatch({
+            type: 'SET_WORKFLOW_STATUS',
+            status: 'running',
+          });
           addLog(
             `✓ Workflow submitted successfully. Session ID: ${response.sessionId}`,
             'success'
           );
         } else {
+          dispatch({
+            type: 'SET_WORKFLOW_STATUS',
+            status: 'failed',
+          });
           addLog(
             `✗ Workflow submission failed: ${response.error || 'Unknown error'}`,
             'error'
           );
         }
       } catch (error) {
+        dispatch({
+          type: 'SET_WORKFLOW_STATUS',
+          status: 'failed',
+        });
         addLog(
           `✗ Workflow submission failed: ${
             error.response?.data?.error || error.message

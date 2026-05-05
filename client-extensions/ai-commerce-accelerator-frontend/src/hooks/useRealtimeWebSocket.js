@@ -313,6 +313,10 @@ export default function useRealtimeWebSocket({
               type: 'SET_ACTIVE_SESSION',
               sessionId: null,
             });
+            currentOnProgress?.({
+              type: 'SET_WORKFLOW_STATUS',
+              status: 'completed',
+            });
             activeSessionIdRef.current = null;
           } else if (scope === WS_SCOPE.STEP) {
             currentOnLog?.(`Step completed: ${entityType}`, 'success');
@@ -368,6 +372,10 @@ export default function useRealtimeWebSocket({
             currentOnProgress?.({
               type: 'SET_ACTIVE_SESSION',
               sessionId: null,
+            });
+            currentOnProgress?.({
+              type: 'SET_WORKFLOW_STATUS',
+              status: 'failed',
             });
             activeSessionIdRef.current = null;
           } else {

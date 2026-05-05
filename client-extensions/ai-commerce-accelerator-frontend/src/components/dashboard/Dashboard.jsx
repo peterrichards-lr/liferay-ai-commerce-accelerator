@@ -1,5 +1,6 @@
 import React, { useState, useCallback, useEffect } from 'react';
 import ClayCard from '@clayui/card';
+import ClayLabel from '@clayui/label';
 
 import StatusMonitor from './StatusMonitor';
 import ProgressMonitor from './ProgressMonitor';
@@ -130,6 +131,16 @@ function Dashboard({
                   className="spinner-border spinner-border-sm text-primary ml-2"
                   role="status"
                 ></span>
+              )}
+              {progress?.workflowStatus === 'completed' && (
+                <ClayLabel displayType="success" className="ml-2">
+                  COMPLETED
+                </ClayLabel>
+              )}
+              {progress?.workflowStatus === 'failed' && (
+                <ClayLabel displayType="danger" className="ml-2">
+                  FAILED
+                </ClayLabel>
               )}
             </h4>
             <WsStatusIndicator status={wsStatus} onReconnect={onReconnect} />
