@@ -721,7 +721,7 @@ class ConfigService {
       }
 
       if (health.aiMedia.provider === 'INHERIT') {
-        health.aiMedia.status = textKey ? 'INHERITED' : 'MISSING';
+        health.aiMedia.status = textKey ? 'CONFIGURED' : 'MISSING';
       } else {
         health.aiMedia.status = mediaKey ? 'CONFIGURED' : 'MISSING';
       }
