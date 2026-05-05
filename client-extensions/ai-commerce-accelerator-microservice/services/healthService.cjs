@@ -160,8 +160,10 @@ class HealthService {
   checkMemory() {
     const memUsage = process.memoryUsage();
     const heapUsedMB = memUsage.heapUsed / 1024 / 1024;
-    const heapTotalMB = memUsage.heapTotal / 1024 / 1024;
-    const memoryUsagePercent = (heapUsedMB / heapTotalMB) * 100;
+    // V8 dynamically resizes heapTotal. Comparing heapUsed to heapTotal often yields >90% before a GC sweep.
+    // Instead, we evaluate against an arbitrary reasonable max (e.g. 512MB) to prevent false health failures.
+    const maxMemoryMB = 512;
+    const memoryUsagePercent = (heapUsedMB / maxMemoryMB) * 100;
 
     const status =
       memoryUsagePercent > 90
@@ -176,7 +178,7 @@ class HealthService {
       responseTime: 1,
       details: {
         heapUsedMB: Math.round(heapUsedMB),
-        heapTotalMB: Math.round(heapTotalMB),
+        heapTotalMB: Math.round(memUsage.heapTotal / 1024 / 1024),
         usagePercent: Math.round(memoryUsagePercent),
       },
     });
