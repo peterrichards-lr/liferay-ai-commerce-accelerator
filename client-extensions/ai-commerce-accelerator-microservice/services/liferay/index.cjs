@@ -1345,10 +1345,6 @@ class LiferayService {
     return this.updateProductInventory(config, warehouseId, sku, inventoryData);
   }
 
-  getCurrencies(config) {
-    return this.rest.getCurrencies(config);
-  }
-
   createProduct(config, productData) {
     return this.rest.createProduct(config, productData);
   }

@@ -111,24 +111,28 @@ export default function CommerceCard({
                 onSelectCatalog?.(id);
               }}
             >
-              {catalogs.length === 0 ? (
-                <ClaySelect.Option
-                  key="no-catalogs"
-                  value=""
-                  label="No catalogs found"
-                />
-              ) : (
-                <>
-                  <ClaySelect.Option
-                    key="select-catalog"
-                    value=""
-                    label="Select a catalog…"
-                  />
-                  {catalogs.map((c) => (
-                    <ClaySelect.Option key={c.id} value={c.id} label={c.name} />
-                  ))}
-                </>
-              )}
+              {catalogs.length === 0
+                ? [
+                    <ClaySelect.Option
+                      key="no-catalogs"
+                      value=""
+                      label="No catalogs found"
+                    />,
+                  ]
+                : [
+                    <ClaySelect.Option
+                      key="select-catalog"
+                      value=""
+                      label="Select a catalog…"
+                    />,
+                    ...catalogs.map((c) => (
+                      <ClaySelect.Option
+                        key={c.id}
+                        value={c.id}
+                        label={c.name}
+                      />
+                    )),
+                  ]}
             </ClaySelect>
             {connected && catalogs.length === 0 && (
               <small className="text-danger d-block mt-1">
@@ -153,24 +157,28 @@ export default function CommerceCard({
                 onSelectChannel?.(id);
               }}
             >
-              {channels.length === 0 ? (
-                <ClaySelect.Option
-                  key="no-channels"
-                  value=""
-                  label="No channels found"
-                />
-              ) : (
-                <>
-                  <ClaySelect.Option
-                    key="default-channel"
-                    value=""
-                    label="Select a channel…"
-                  />
-                  {channels.map((c) => (
-                    <ClaySelect.Option key={c.id} value={c.id} label={c.name} />
-                  ))}
-                </>
-              )}
+              {channels.length === 0
+                ? [
+                    <ClaySelect.Option
+                      key="no-channels"
+                      value=""
+                      label="No channels found"
+                    />,
+                  ]
+                : [
+                    <ClaySelect.Option
+                      key="default-channel"
+                      value=""
+                      label="Select a channel…"
+                    />,
+                    ...channels.map((c) => (
+                      <ClaySelect.Option
+                        key={c.id}
+                        value={c.id}
+                        label={c.name}
+                      />
+                    )),
+                  ]}
             </ClaySelect>
             {connected && channels.length === 0 && (
               <small className="text-danger d-block mt-1">
@@ -197,28 +205,28 @@ export default function CommerceCard({
                   onChange={(e) => setConfig({ currencyCode: e.target.value })}
                   disabled={disabled || !config.channelId}
                 >
-                  {currencies.length === 0 ? (
-                    <ClaySelect.Option
-                      key="no-currencies"
-                      value=""
-                      label="No currencies found"
-                    />
-                  ) : (
-                    <>
-                      <ClaySelect.Option
-                        key="select-currency"
-                        value=""
-                        label="Select a currency…"
-                      />
-                      {currencies.map((c) => (
+                  {currencies.length === 0
+                    ? [
                         <ClaySelect.Option
-                          key={c.code}
-                          value={c.code}
-                          label={`${c.name} (${c.code})`}
-                        />
-                      ))}
-                    </>
-                  )}
+                          key="no-currencies"
+                          value=""
+                          label="No currencies found"
+                        />,
+                      ]
+                    : [
+                        <ClaySelect.Option
+                          key="select-currency"
+                          value=""
+                          label="Select a currency…"
+                        />,
+                        ...currencies.map((c) => (
+                          <ClaySelect.Option
+                            key={c.code}
+                            value={c.code}
+                            label={`${c.name} (${c.code})`}
+                          />
+                        )),
+                      ]}
                 </ClaySelect>
                 <FieldError errors={errors.currencyCode} />
               </ClayForm.Group>

@@ -84,7 +84,8 @@ describe('GenerationFacade', () => {
     const requestConfig = {};
 
     // Product without its own ERC (though schema requires it, we test normalization)
-    const { externalReferenceCode, ...noErcProduct } = MINIMAL_VALID_PRODUCT;
+    const { externalReferenceCode: _erc, ...noErcProduct } =
+      MINIMAL_VALID_PRODUCT;
     mockCtx.mockDataGenerator.generateProductData.mockResolvedValue([
       noErcProduct,
     ]);

@@ -37,7 +37,7 @@ export const handlers = [
   // Root Lists - Currencies
   http.post('http://localhost:3001/api/v1/get-currencies', () => {
     return HttpResponse.json({
-      currencies: [{ id: 'USD', name: 'US Dollar', isDefault: true }],
+      currencies: [{ code: 'USD', name: 'US Dollar', isDefault: true }],
     });
   }),
 

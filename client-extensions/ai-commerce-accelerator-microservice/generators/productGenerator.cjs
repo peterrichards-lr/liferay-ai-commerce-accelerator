@@ -882,7 +882,7 @@ class ProductGenerator extends BaseGenerator {
                 erc: c.externalReferenceCode,
               })),
             };
-          } catch (e) {
+          } catch (_e) {
             return { name: v.name, categories: [] };
           }
         })

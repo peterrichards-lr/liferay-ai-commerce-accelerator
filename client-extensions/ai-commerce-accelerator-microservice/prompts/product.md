@@ -50,7 +50,7 @@ You must return a JSON array that conforms to the provided JSON schema. Each ele
   LIFERAY CONTEXT: You MUST categorize these products using the following existing Liferay vocabularies and categories:
   {% for vocab in groundingMetadata.vocabularies %}
 
-* Vocabulary: "{{vocab.name}}"
+- Vocabulary: "{{vocab.name}}"
   Categories: {{ vocab.categories | map(attribute='name') | join(', ') }}
   {% endfor %}
   {% endif %}

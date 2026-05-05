@@ -17,7 +17,7 @@ afterAll(() => {
     if (fs.existsSync(dbPath)) fs.unlinkSync(dbPath);
     if (fs.existsSync(dbPath + '-wal')) fs.unlinkSync(dbPath + '-wal');
     if (fs.existsSync(dbPath + '-shm')) fs.unlinkSync(dbPath + '-shm');
-  } catch (e) {
+  } catch (_e) {
     // Ignore cleanup errors
   }
 });
