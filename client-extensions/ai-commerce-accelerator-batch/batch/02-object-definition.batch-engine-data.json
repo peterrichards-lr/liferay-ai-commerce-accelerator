@@ -21,12 +21,12 @@
       "enableLocalization": true,
       "enableObjectEntryDraft": false,
       "enableObjectEntryHistory": false,
-      "externalReferenceCode": "AI_COMMERCE_ACCELERATOR_CONFIGURATION",
+      "externalReferenceCode": "AICA_CONFIGURATION",
       "label": {
-        "en_US": "AI Commerce Accelerator Configuration"
+        "en_US": "AICA Configuration"
       },
       "modifiable": true,
-      "name": "AICommerceAcceleratorConfiguration",
+      "name": "AICAConfiguration",
       "objectFields": [
         {
           "DBType": "String",
@@ -124,7 +124,7 @@
         "en_US": "AI Commerce Accelerator Configurations"
       },
       "portlet": false,
-      "restContextPath": "/aicommerceacceleratorconfigurations",
+      "restContextPath": "/aicaconfigurations",
       "scope": "company",
       "status": {
         "code": 0,

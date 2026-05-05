@@ -199,7 +199,7 @@ function sqlInjectionProtectionMiddleware(req, res, next) {
 
   const suspiciousPatterns = [
     /(\b(SELECT|INSERT|UPDATE|DELETE|DROP|CREATE|ALTER|EXEC|EXECUTE|UNION|TRUNCATE)\b)/i,
-    /('|(\\x27)|(\\x22)|(\\x60)|(\\x3B)|--|\/\*|\*\/|(\\x5C))/i,
+    /((\\x3B)|--|\/\*|\*\/|(\\x5C))/i,
     /(\\x00|\\n|\\r|\\x1a)/i,
     /(\b(OR|AND)\b.*=)/i,
   ];

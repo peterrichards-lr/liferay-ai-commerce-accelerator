@@ -65,7 +65,7 @@ const VARIANT = {
 };
 
 const CUSTOM_OBJECTS = {
-  AICA_CONFIGS: 'aicommerceacceleratorconfigurations',
+  AICA_CONFIGS: 'aicaconfigurations',
 };
 
 const PATH = {

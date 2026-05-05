@@ -1,4 +1,4 @@
-export const OBJECT_ROOT_PATH = '/o/c/aicommerceacceleratorconfigurations';
+export const OBJECT_ROOT_PATH = '/o/c/aicaconfigurations';
 export const DEFAULT_OBJECT_FIELDS =
   'externalReferenceCode,configKey,configValue,configStatus';
 export const DEFAULT_REQUEST_HEADERS = {

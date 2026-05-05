@@ -1,24 +1,24 @@
 {
-    "configuration": {
-        "className": "com.liferay.object.rest.dto.v1_0.ObjectEntry",
-        "parameters": {
-            "containsHeaders": "true",
-            "createStrategy": "UPSERT",
-            "onErrorFail": "false",
-            "taskItemDelegateName": "C_AICommerceAcceleratorConfiguration",
-            "updateStrategy": "UPDATE"
-        },
-        "taskItemDelegateName": "C_AICommerceAcceleratorConfiguration"
+  "configuration": {
+    "className": "com.liferay.object.rest.dto.v1_0.ObjectEntry",
+    "parameters": {
+      "containsHeaders": "true",
+      "createStrategy": "UPSERT",
+      "onErrorFail": "false",
+      "taskItemDelegateName": "C_AICAConfiguration",
+      "updateStrategy": "UPDATE"
     },
-    "items": [
-        {
-            "configKey": "batch-sizes",
-            "configStatus": {
-                "key": "Active"
-            },
-            "configValue": "[1,10,25,50]",
-            "description": "Batch Sizes",
-            "externalReferenceCode": "BATCH-SIZES"
-        }
-    ]
+    "taskItemDelegateName": "C_AICAConfiguration"
+  },
+  "items": [
+    {
+      "configKey": "batch-sizes",
+      "configStatus": {
+        "key": "Active"
+      },
+      "configValue": "[1,10,25,50]",
+      "description": "Batch Sizes",
+      "externalReferenceCode": "BATCH-SIZES"
+    }
+  ]
 }

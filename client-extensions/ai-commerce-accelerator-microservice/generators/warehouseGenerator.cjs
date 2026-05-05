@@ -239,13 +239,13 @@ class WarehouseGenerator extends BaseGenerator {
       }
 
       // MAPPING: Liferay Headless Commerce Admin Inventory Warehouse DTO
-      // uses countryCode and regionCode instead of country and region.
+      // uses countryISOCode and regionISOCode instead of country and region.
       const mappedWarehouses = warehouseDataList.map((w) => {
         const { country, region, ...rest } = w;
         return {
           ...rest,
-          countryCode: country,
-          regionCode: region,
+          countryISOCode: country,
+          regionISOCode: region,
         };
       });
 

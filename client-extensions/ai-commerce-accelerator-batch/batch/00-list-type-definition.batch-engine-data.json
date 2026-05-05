@@ -32,7 +32,7 @@
           "type": ""
         }
       ],
-      "name": "aicommerceacceleratorconfigurationstatus",
+      "name": "aicaconfigurationstatus",
       "name_i18n": {
         "en-US": "AI Commerce Accelerator Configuration Status"
       },

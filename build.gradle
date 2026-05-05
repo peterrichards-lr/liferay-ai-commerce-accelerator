@@ -75,10 +75,10 @@ generateBatchFiles {
 								containsHeaders: "true",
 								createStrategy: "UPSERT",
 								onErrorFail: "false",
-								taskItemDelegateName: "C_AICommerceAcceleratorConfiguration",
+								taskItemDelegateName: "C_AICAConfiguration",
 								updateStrategy: "UPDATE"
 							],
-							taskItemDelegateName: "C_AICommerceAcceleratorConfiguration"
+							taskItemDelegateName: "C_AICAConfiguration"
 						],
 						items: [
 							[
@@ -124,10 +124,10 @@ generateBatchFiles {
 								containsHeaders: "true",
 								createStrategy: "UPSERT",
 								onErrorFail: "false",
-								taskItemDelegateName: "C_AICommerceAcceleratorConfiguration",
+								taskItemDelegateName: "C_AICAConfiguration",
 								updateStrategy: "UPDATE"
 							],
-							taskItemDelegateName: "C_AICommerceAcceleratorConfiguration"
+							taskItemDelegateName: "C_AICAConfiguration"
 						],
 						items: [
 							[
@@ -170,10 +170,10 @@ generateBatchFiles {
 							containsHeaders: "true",
 							createStrategy: "UPSERT",
 							onErrorFail: "false",
-							taskItemDelegateName: "C_AICommerceAcceleratorConfiguration",
+							taskItemDelegateName: "C_AICAConfiguration",
 							updateStrategy: "UPDATE"
 						],
-						taskItemDelegateName: "C_AICommerceAcceleratorConfiguration"
+						taskItemDelegateName: "C_AICAConfiguration"
 					],
 					items: [
 						[
@@ -212,10 +212,10 @@ generateBatchFiles {
 						containsHeaders: "true",
 						createStrategy: "UPSERT",
 						onErrorFail: "false",
-						taskItemDelegateName: "C_AICommerceAcceleratorConfiguration",
+						taskItemDelegateName: "C_AICAConfiguration",
 						updateStrategy: "UPDATE"
 					],
-					taskItemDelegateName: "C_AICommerceAcceleratorConfiguration"
+					taskItemDelegateName: "C_AICAConfiguration"
 				],
 				items: [
 					[
@@ -252,10 +252,10 @@ generateBatchFiles {
 						containsHeaders: "true",
 						createStrategy: "UPSERT",
 						onErrorFail: "false",
-						taskItemDelegateName: "C_AICommerceAcceleratorConfiguration",
+						taskItemDelegateName: "C_AICAConfiguration",
 						updateStrategy: "UPDATE"
 					],
-					taskItemDelegateName: "C_AICommerceAcceleratorConfiguration"
+					taskItemDelegateName: "C_AICAConfiguration"
 				],
 				items: [
 					[

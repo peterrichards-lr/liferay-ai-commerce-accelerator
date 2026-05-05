@@ -1257,15 +1257,15 @@ type c {
   ): CommerceReturnPage
   aICommerceAcceleratorConfiguration(
     aiCommerceAcceleratorConfigurationId: Long
-  ): C_AICommerceAcceleratorConfiguration
-  aICommerceAcceleratorConfigurations(
+  ): C_AICAConfiguration
+  aicaconfigurations(
     aggregation: [String]
     filter: String
     page: Int = 1
     pageSize: Int = 20
     search: String
     sort: String
-  ): C_AICommerceAcceleratorConfigurationPage
+  ): C_AICAConfigurationPage
   dataSetDateFilter(l_dataSetDateFilterId: Long): DataSetDateFilter
   dataSetDateFilters(
     aggregation: [String]
@@ -1402,9 +1402,9 @@ type c {
   ): DataSetSortPage
 }
 
-type C_AICommerceAcceleratorConfiguration {
+type C_AICAConfiguration {
   aiCommerceAcceleratorConfigurationId: Long
-  c_aiCommerceAcceleratorConfigurationId: Long
+  C_AICAConfigurationId: Long
   creator: Creator
   dateCreated: Date
   dateModified: Date
@@ -1417,10 +1417,10 @@ type C_AICommerceAcceleratorConfiguration {
   description: String
 }
 
-type C_AICommerceAcceleratorConfigurationPage {
+type C_AICAConfigurationPage {
   actions: Map
   facets: [Facet]
-  items: [C_AICommerceAcceleratorConfiguration]
+  items: [C_AICAConfiguration]
   lastPage: Long
   page: Long
   pageSize: Long
@@ -14108,7 +14108,7 @@ input InputBlogPosting {
   viewableBy: ViewableBy
 }
 
-input InputC_AICommerceAcceleratorConfiguration {
+input InputC_AICAConfiguration {
   externalReferenceCode: String
   statusCode: Int
   configKey: String
@@ -33092,15 +33092,15 @@ type Mutationc {
     l_commerceReturnId: Long
   ): CommerceReturn
   createAICommerceAcceleratorConfiguration(
-    AICommerceAcceleratorConfiguration: InputC_AICommerceAcceleratorConfiguration
-  ): C_AICommerceAcceleratorConfiguration
+    AICommerceAcceleratorConfiguration: InputC_AICAConfiguration
+  ): C_AICAConfiguration
   deleteAICommerceAcceleratorConfiguration(
     aiCommerceAcceleratorConfigurationId: Long
   ): Boolean
   updateAICommerceAcceleratorConfiguration(
-    AICommerceAcceleratorConfiguration: InputC_AICommerceAcceleratorConfiguration
+    AICommerceAcceleratorConfiguration: InputC_AICAConfiguration
     aiCommerceAcceleratorConfigurationId: Long
-  ): C_AICommerceAcceleratorConfiguration
+  ): C_AICAConfiguration
   createDataSetDateFilter(
     DataSetDateFilter: InputDataSetDateFilter
   ): DataSetDateFilter
