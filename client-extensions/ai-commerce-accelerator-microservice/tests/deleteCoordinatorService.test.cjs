@@ -43,6 +43,7 @@ describe('DeleteCoordinatorService', () => {
         deleteProductsBatch: vi.fn().mockResolvedValue({ success: true }),
       },
       progress: {
+        sessionStarted: vi.fn(),
         stepStarted: vi.fn(),
         stepProgress: vi.fn(),
         sessionCompleted: vi.fn(),

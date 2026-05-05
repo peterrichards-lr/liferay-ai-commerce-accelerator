@@ -2,6 +2,8 @@ export const initialProgress = {
   activeSessionId: null,
   activeFlowType: null, // generate, delete, etc.
   workflowStatus: 'idle', // idle, running, completed, failed
+  totalSteps: 0,
+  completedSteps: 0,
   products: { total: 0, completed: 0, errors: [], batches: {} },
   accounts: { total: 0, completed: 0, errors: [], batches: {} },
   addresses: { total: 0, completed: 0, errors: [], batches: {} },
@@ -48,6 +50,14 @@ export function progressReducer(state, action) {
 
     case 'SET_WORKFLOW_STATUS': {
       return { ...state, workflowStatus: action.status };
+    }
+
+    case 'SET_TOTAL_STEPS': {
+      return { ...state, totalSteps: action.total };
+    }
+
+    case 'INCREMENT_STEPS': {
+      return { ...state, completedSteps: (state.completedSteps || 0) + 1 };
     }
 
     case 'SET_TOTAL': {

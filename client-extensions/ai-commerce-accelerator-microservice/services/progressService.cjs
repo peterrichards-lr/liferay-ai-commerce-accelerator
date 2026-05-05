@@ -8,7 +8,7 @@ class ProgressService {
     this.persistence = persistence;
   }
 
-  sessionStarted({ sessionId, flowType, correlationId }) {
+  sessionStarted({ sessionId, flowType, correlationId, totalSteps }) {
     const cid = correlationId;
     this.ws.emitProgress(
       {
@@ -16,7 +16,7 @@ class ProgressService {
         correlationId: cid,
         status: WEB_SOCKET_EVENTS.STARTED,
         scope: WS_SCOPE.SESSION,
-        details: { flowType },
+        details: { flowType, totalSteps },
       },
       { correlationId: cid }
     );

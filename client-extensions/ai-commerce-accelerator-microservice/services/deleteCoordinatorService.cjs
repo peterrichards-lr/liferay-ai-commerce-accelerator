@@ -691,6 +691,13 @@ class DeleteCoordinatorService extends BaseGenerator {
       },
     });
 
+    this.progress.sessionStarted({
+      sessionId,
+      flowType: 'delete',
+      correlationId: config.correlationId,
+      totalSteps: steps.length,
+    });
+
     this.logger.info(
       `Full environment deletion session ${sessionId} started.`,
       {
@@ -758,6 +765,13 @@ class DeleteCoordinatorService extends BaseGenerator {
         steps,
         generator: 'delete',
       },
+    });
+
+    this.progress.sessionStarted({
+      sessionId,
+      flowType: 'delete',
+      correlationId: config.correlationId,
+      totalSteps: steps.length,
     });
 
     this.ctx.batchCallback._checkSessionCompletion(

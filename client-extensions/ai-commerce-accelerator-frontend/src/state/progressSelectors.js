@@ -6,6 +6,14 @@ export const getProgressPercentage = (completed = 0, total = 0) => {
 export const getTotalProgress = (progress) => {
   if (!progress) return { total: 0, completed: 0 };
 
+  // SPECIAL CASE: For deletion flows, use step-based progress
+  if (progress.activeFlowType === 'delete') {
+    return {
+      total: progress.totalSteps || 0,
+      completed: progress.completedSteps || 0,
+    };
+  }
+
   // Only include primary entities in the overall total progress calculation
   const primaryEntities = ['products', 'accounts', 'orders'];
 

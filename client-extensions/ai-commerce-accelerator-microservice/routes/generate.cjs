@@ -183,6 +183,12 @@ module.exports = (
           },
         });
 
+        progressService.sessionStarted({
+          sessionId,
+          flowType,
+          correlationId: config.correlationId,
+        });
+
         batchCallbackService._checkSessionCompletion(
           sessionId,
           config.correlationId

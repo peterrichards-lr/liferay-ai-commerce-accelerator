@@ -21,6 +21,7 @@ export default function useRealtimeWebSocket({
   const wsRef = useRef(null);
   const [wsConnected, setWsConnected] = useState(false);
   const activeSessionIdRef = useRef(null);
+  const activeFlowTypeRef = useRef(null);
   const connectRef = useRef(null);
 
   // Sync internal activeSessionIdRef with provided prop
@@ -96,6 +97,7 @@ export default function useRealtimeWebSocket({
               sessionId,
               flowType: res.flowType,
             });
+            activeFlowTypeRef.current = res.flowType;
           }
 
           // Update each entity's progress
@@ -269,8 +271,17 @@ export default function useRealtimeWebSocket({
               sessionId,
               flowType: isDelete ? 'delete' : 'generate',
             });
+            activeFlowTypeRef.current = isDelete ? 'delete' : 'generate';
 
-            if (isDelete) return;
+            if (isDelete) {
+              if (data.totalSteps) {
+                currentOnProgress?.({
+                  type: 'SET_TOTAL_STEPS',
+                  total: data.totalSteps,
+                });
+              }
+              return;
+            }
 
             // Trigger RESET_ALL with initial totals if provided
             if (currentOnProgress && data.totals) {
@@ -370,12 +381,18 @@ export default function useRealtimeWebSocket({
             });
             activeSessionIdRef.current = null;
           } else if (scope === WS_SCOPE.STEP) {
+            const isDelete = activeFlowTypeRef.current === 'delete';
             currentOnLog?.(
               `Step completed: ${
                 entityType.charAt(0).toUpperCase() + entityType.slice(1)
               }`,
               'success'
             );
+
+            if (isDelete) {
+              currentOnProgress?.({ type: 'INCREMENT_STEPS' });
+            }
+
             if (currentOnProgress && entityType) {
               // Mark as 100% complete
               currentOnProgress({

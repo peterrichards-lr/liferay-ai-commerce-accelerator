@@ -14,11 +14,15 @@ export default function useLogExport({
 }) {
   const exportLogs = useCallback(() => {
     try {
+      const isDelete = progress.activeFlowType === 'delete';
+
       const exportData = {
         summary: {
           timestamp: new Date().toISOString(),
           version: '1.0.0',
           activeSessionId: progress.activeSessionId,
+          flowType: progress.activeFlowType || 'generate',
+          workflowStatus: progress.workflowStatus,
         },
         systemStatus: {
           config: {
@@ -27,24 +31,46 @@ export default function useLogExport({
             batchSize: config.batchSize,
             currencyCode: config.currencyCode,
           },
-          generationConfig: {
-            ...generationConfig,
-            customImageFile: generationConfig.customImageFile
-              ? '[FILE ATTACHED]'
-              : null,
-            customPDFFile: generationConfig.customPDFFile
-              ? '[FILE ATTACHED]'
-              : null,
-          },
+          // Only relevant for generation
+          ...(isDelete
+            ? {}
+            : {
+                generationConfig: {
+                  ...generationConfig,
+                  customImageFile: generationConfig.customImageFile
+                    ? '[FILE ATTACHED]'
+                    : null,
+                  customPDFFile: generationConfig.customPDFFile
+                    ? '[FILE ATTACHED]'
+                    : null,
+                },
+              }),
         },
-        progress: {
-          products: progress.products,
-          accounts: progress.accounts,
-          orders: progress.orders,
-          images: progress.images,
-          pdfs: progress.pdfs,
-          warehouses: progress.warehouses,
-        },
+        progress: isDelete
+          ? {
+              totalSteps: progress.totalSteps,
+              completedSteps: progress.completedSteps,
+              details: {
+                products: progress.products,
+                accounts: progress.accounts,
+                orders: progress.orders,
+                warehouses: progress.warehouses,
+                images: progress.images,
+                pdfs: progress.pdfs,
+                pricing: {
+                  priceLists: progress.priceLists,
+                  promotions: progress.promotions,
+                },
+              },
+            }
+          : {
+              products: progress.products,
+              accounts: progress.accounts,
+              orders: progress.orders,
+              images: progress.images,
+              pdfs: progress.pdfs,
+              warehouses: progress.warehouses,
+            },
         activityLogs: logs.map((l) => ({
           time: l.timestamp,
           type: l.type?.toUpperCase(),
@@ -53,7 +79,9 @@ export default function useLogExport({
         })),
       };
 
-      const filename = buildFilename('aica-status-logs');
+      const filename = buildFilename(
+        `aica-logs-${progress.activeFlowType || 'generate'}`
+      );
       exportJsonFile(exportData, filename);
 
       notifyUser('System status and logs exported successfully');
