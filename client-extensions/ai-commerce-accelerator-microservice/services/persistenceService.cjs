@@ -10,17 +10,18 @@ class PersistenceService {
     this.ctx = ctx;
     this.logger = ctx?.logger;
 
-    const defaultPath = path.resolve(
-      __dirname,
-      '..',
-      ENV.PERSISTENCE_DB_PATH || './data/workflows.db'
-    );
-    const finalPath = dbPath || defaultPath;
+    const rawPath = dbPath || ENV.PERSISTENCE_DB_PATH || './data/workflows.db';
+    const isMemory = rawPath === ':memory:';
+    const finalPath = isMemory
+      ? ':memory:'
+      : path.resolve(__dirname, '..', rawPath);
 
     try {
-      const dbDir = path.dirname(finalPath);
-      if (!fs.existsSync(dbDir)) {
-        fs.mkdirSync(dbDir, { recursive: true });
+      if (!isMemory) {
+        const dbDir = path.dirname(finalPath);
+        if (!fs.existsSync(dbDir)) {
+          fs.mkdirSync(dbDir, { recursive: true });
+        }
       }
 
       this.db = new Database(finalPath);

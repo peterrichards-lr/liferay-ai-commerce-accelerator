@@ -58,7 +58,7 @@ function CollapsiblePanel({
         style={{ cursor: 'pointer' }}
       >
         <div className="d-flex align-items-center">
-          <span className="me-2" aria-hidden="true">
+          <span className="mr-2" aria-hidden="true">
             {open ? expandedIndicator : collapsedIndicator}
           </span>
           <span className="h5 mb-0 d-flex align-items-center">{title}</span>
