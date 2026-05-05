@@ -42,6 +42,7 @@ import {
 
 const initialGenerationConfig = {
   sessionName: '',
+  brandName: '',
   productCount: 10,
   accountCount: 10,
   orderCount: 50,
