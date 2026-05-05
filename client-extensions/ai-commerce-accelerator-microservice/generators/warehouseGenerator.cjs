@@ -221,10 +221,10 @@ class WarehouseGenerator extends BaseGenerator {
           geographicContext = {
             countryId: country.id,
             countryName: country.name,
-            countryISOCode: country.a2,
+            countryISOCode: country.a2, // e.g. US
             regionId: region?.id || null,
             regionName: region?.name || null,
-            regionISOCode: region?.regionCode || null,
+            regionISOCode: region?.regionCode || null, // e.g. CA
           };
 
           this.logger.debug('Pre-selected geographic context for AI', {

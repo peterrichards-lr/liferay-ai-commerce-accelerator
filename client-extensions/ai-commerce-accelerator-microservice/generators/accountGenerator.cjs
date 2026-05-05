@@ -200,7 +200,8 @@ class AccountGenerator extends BaseGenerator {
           geographicContext = {
             countryId: country.id,
             countryName: country.name,
-            countryISOCode: country.a2,
+            countryISOCode2: country.a2,
+            countryISOCode3: country.a3,
             regionId: region?.id || null,
             regionName: region?.name || null,
             regionISOCode: region?.regionCode || null,
@@ -720,9 +721,12 @@ class AccountGenerator extends BaseGenerator {
         name: `${toTitleCase(addressType).replace(/-/g, ' ')} Address`,
         streetAddressLine1: `${streetNumber} ${streetName} ${streetType}`,
         addressLocality: address.addressLocality || 'Los Angeles',
-        addressRegion: geographicContext.regionName,
+        addressRegion:
+          geographicContext.regionISOCode ||
+          geographicContext.regionName ||
+          'CA',
         postalCode: address.postalCode || '90001',
-        addressCountry: geographicContext.countryName,
+        addressCountry: geographicContext.countryISOCode3 || 'USA',
         addressType,
         primary: false,
         externalReferenceCode: createERC(ERC_PREFIX.ADDRESS),

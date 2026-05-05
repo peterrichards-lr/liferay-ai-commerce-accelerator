@@ -19,7 +19,7 @@ Each warehouse must include the following fields:
 - longitude: The decimal longitude of the location (e.g., -118.2437).
 - active: A boolean indicating if the warehouse is active.
 
-CRITICAL: {% if geographicContext %}The 'country' MUST be "{{geographicContext.countryISOCode}}" and the 'region' MUST be "{{geographicContext.regionISOCode}}".{% else %}The 'country' and 'region' fields MUST be exactly 2 uppercase letters. Failure to follow this format will break the system.{% endif %}
+CRITICAL: {% if geographicContext %}The 'country' MUST be "{{geographicContext.countryISOCode}}" and the 'region' MUST be "{{geographicContext.regionISOCode}}". Use these EXACT values.{% else %}The 'country' and 'region' fields MUST be exactly 2 uppercase letters. Failure to follow this format will break the system.{% endif %}
 
 Return the data as a JSON object with a single key "warehouses" which is an array of the generated warehouse objects.
 The response should only be the JSON object, with no extra text or explanation.
