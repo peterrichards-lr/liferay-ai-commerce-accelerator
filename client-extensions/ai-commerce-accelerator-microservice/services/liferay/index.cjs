@@ -1191,6 +1191,10 @@ class LiferayService {
     return this.rest.getConfig(config, configKey);
   }
 
+  updateConfig(config, configKey, configValue) {
+    return this.rest.updateConfig(config, configKey, configValue);
+  }
+
   async getCurrencies(config) {
     return await this.rest.getCurrencies(config);
   }

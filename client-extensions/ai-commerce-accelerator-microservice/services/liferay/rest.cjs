@@ -740,6 +740,34 @@ class LiferayRestService {
     );
   }
 
+  async updateConfig(config, configKey, configValue) {
+    const erc = String(configKey || '').toUpperCase();
+    const existing = await this.getConfig(config, configKey);
+
+    const payload = {
+      configKey,
+      configValue: configValue || '',
+      externalReferenceCode: erc,
+    };
+
+    if (existing?.items?.length) {
+      const id = existing.items[0].id;
+      return await this._patch(
+        config,
+        `${PATH.CUSTOM_OBJECT(CUSTOM_OBJECTS.AICA_CONFIGS)}/${id}`,
+        payload,
+        `update-config:${configKey}`
+      );
+    } else {
+      return await this._post(
+        config,
+        PATH.CUSTOM_OBJECT(CUSTOM_OBJECTS.AICA_CONFIGS),
+        payload,
+        `create-config:${configKey}`
+      );
+    }
+  }
+
   async getRegions(config, countryId) {
     const data = await this._get(
       config,

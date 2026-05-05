@@ -681,6 +681,53 @@ class ConfigService {
     return { aiModelOptions: resolvedOptions, defaultModel };
   }
 
+  async saveConfig(requestConfig, configKey, configValue) {
+    const liferay = this._requireLiferay();
+    const result = await liferay.updateConfig(
+      requestConfig,
+      configKey,
+      configValue
+    );
+
+    // Clear cache
+    if (configKey === AI_CREDENTIALS_CONFIG_KEY) {
+      this.cache.del(AI_API_CACHE_KEY);
+    } else if (configKey === AI_MEDIA_CREDENTIALS_CONFIG_KEY) {
+      this.cache.del(AI_MEDIA_API_CACHE_KEY);
+    } else if (configKey === AI_CONFIG_KEY) {
+      this.cache.del(AI_CONFIG_CACHE_KEY);
+    }
+
+    return result;
+  }
+
+  async syncEnvironmentKeys() {
+    const logger = this.logger;
+    const coreApiKey = process.env.CORE_API_KEY;
+
+    if (coreApiKey && coreApiKey.trim().length > 0) {
+      logger?.info?.(
+        'Found CORE_API_KEY in environment. Syncing to Liferay...',
+        {
+          operation: 'sync-env-keys',
+        }
+      );
+
+      try {
+        // Use empty config to trigger system fallback connection
+        await this.saveConfig({}, AI_CREDENTIALS_CONFIG_KEY, coreApiKey.trim());
+        logger?.info?.('Successfully synced CORE_API_KEY to Liferay.', {
+          operation: 'sync-env-keys',
+        });
+      } catch (error) {
+        logger?.error?.('Failed to sync CORE_API_KEY to Liferay', {
+          operation: 'sync-env-keys',
+          error: error.message,
+        });
+      }
+    }
+  }
+
   async checkHealth(requestConfig) {
     const liferay = this._requireLiferay();
     const logger = this.logger;
