@@ -115,7 +115,82 @@ class PersistenceService {
         setting_value TEXT,
         updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
       );
+
+      CREATE TABLE IF NOT EXISTS queue_jobs (
+        job_id TEXT PRIMARY KEY,
+        queue_name TEXT NOT NULL,
+        job_type TEXT NOT NULL,
+        data_json TEXT NOT NULL,
+        status TEXT NOT NULL,
+        priority INTEGER DEFAULT 0,
+        attempts INTEGER DEFAULT 0,
+        max_attempts INTEGER DEFAULT 3,
+        run_at DATETIME,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        result_json TEXT,
+        error_message TEXT
+      );
+      CREATE INDEX IF NOT EXISTS idx_queue_jobs_status ON queue_jobs(status, run_at);
     `);
+  }
+
+  // --- Queue Job Management ---
+
+  saveQueueJob(job) {
+    this.db
+      .prepare(
+        `
+      INSERT OR REPLACE INTO queue_jobs (
+        job_id, queue_name, job_type, data_json, status, priority, 
+        attempts, max_attempts, run_at, created_at, updated_at, 
+        result_json, error_message
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `
+      )
+      .run(
+        job.id,
+        job.queue,
+        job.type,
+        JSON.stringify(job.data),
+        job.status,
+        job.priority,
+        job.attempts,
+        job.maxAttempts,
+        job.runAt ? job.runAt.toISOString() : null,
+        job.createdAt.toISOString(),
+        job.updatedAt.toISOString(),
+        job.result ? JSON.stringify(job.result) : null,
+        job.error
+      );
+  }
+
+  getPendingQueueJobs() {
+    const rows = this.db
+      .prepare(
+        "SELECT * FROM queue_jobs WHERE status = 'waiting' AND (run_at IS NULL OR run_at <= CURRENT_TIMESTAMP) ORDER BY priority DESC, created_at ASC"
+      )
+      .all();
+
+    return rows.map((row) => ({
+      id: row.job_id,
+      queue: row.queue_name,
+      type: row.job_type,
+      data: JSON.parse(row.data_json),
+      status: row.status,
+      priority: row.priority,
+      attempts: row.attempts,
+      maxAttempts: row.max_attempts,
+      runAt: row.run_at ? new Date(row.run_at) : null,
+      createdAt: new Date(row.created_at),
+      updatedAt: new Date(row.updated_at),
+      result: row.result_json ? JSON.parse(row.result_json) : null,
+      error: row.error_message,
+    }));
+  }
+
+  deleteQueueJob(jobId) {
+    this.db.prepare('DELETE FROM queue_jobs WHERE job_id = ?').run(jobId);
   }
 
   getSystemSetting(key) {

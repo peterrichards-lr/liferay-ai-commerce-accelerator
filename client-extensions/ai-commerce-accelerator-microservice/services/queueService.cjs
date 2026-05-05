@@ -17,12 +17,16 @@ function withErrorRef(err, operation) {
   return wrapped;
 }
 
+const { Worker } = require('node:worker_threads');
+const path = require('path');
+
 class QueueService {
   constructor(ctx = {}) {
     this.ctx = ctx;
     this.logger = ctx.logger;
     this.cache = ctx.cache;
     this.config = ctx.config;
+    this.persistence = ctx.persistence;
 
     this.queues = new Map();
     this.jobs = new Map();
@@ -67,7 +71,86 @@ class QueueService {
     this.createQueue('data-generation', { concurrency: 2 });
     this.createQueue('batch-callback', { concurrency: 10, retries: 5 });
 
+    // Load pending jobs from persistence
+    this.loadPersistedJobs();
+
     this.startProcessing();
+
+    // SPARK: Separate background thread for monitoring
+    this.startBackgroundWorker();
+  }
+
+  startBackgroundWorker() {
+    if (!this.persistence?.db?.name) return; // Only if we have a file-based DB
+
+    try {
+      const workerPath = path.resolve(
+        __dirname,
+        '..',
+        'workers/queueWorker.cjs'
+      );
+      this.backgroundWorker = new Worker(workerPath, {
+        workerData: {
+          dbPath: this.persistence.db.name,
+          pollInterval: 3000,
+        },
+      });
+
+      this.backgroundWorker.on('message', (msg) => {
+        if (msg.type === 'PENDING_JOBS') {
+          // Worker found work - ensure our local loops are active
+          this.logger?.trace?.(
+            `Background thread detected ${msg.count} pending jobs`
+          );
+          this.loadPersistedJobs();
+        } else if (msg.type === 'ERROR') {
+          this.logger?.warn?.(`Background worker thread error: ${msg.error}`);
+        }
+      });
+
+      this.backgroundWorker.on('error', (err) => {
+        this.logger?.error?.(
+          `Background worker thread crashed: ${err.message}`
+        );
+      });
+
+      this.logger?.info?.('Queue background monitoring thread started');
+    } catch (err) {
+      this.logger?.warn?.(
+        `Failed to start background worker thread: ${err.message}`
+      );
+    }
+  }
+
+  loadPersistedJobs() {
+    if (!this.persistence) return;
+
+    try {
+      const pending = this.persistence.getPendingQueueJobs();
+      if (pending.length > 0) {
+        this.logger?.info?.(`Loading ${pending.length} pending jobs from DB`, {
+          operation: 'queue-load-persisted',
+        });
+
+        pending.forEach((job) => {
+          const queue = this.queues.get(job.queue);
+          if (queue) {
+            queue.jobs.push(job);
+            this.jobs.set(job.id, job);
+          }
+        });
+
+        // Re-sort all queues by priority
+        for (const queue of this.queues.values()) {
+          queue.jobs.sort((a, b) => b.priority - a.priority);
+        }
+      }
+    } catch (err) {
+      this.logger?.error?.('Failed to load persisted jobs', {
+        operation: 'queue-load-persisted',
+        error: err.message,
+      });
+    }
   }
 
   applyConfig(input) {
@@ -292,6 +375,18 @@ class QueueService {
     this.jobs.set(jobId, job);
     queue.jobs.sort((a, b) => b.priority - a.priority);
 
+    // PERSISTENCE: Save job to DB
+    if (this.persistence) {
+      try {
+        this.persistence.saveQueueJob(job);
+      } catch (err) {
+        this.logger?.error?.('Failed to persist job', {
+          jobId,
+          error: err.message,
+        });
+      }
+    }
+
     this.logger?.info?.('Job added to queue', {
       operation: 'job-add',
       jobId,
@@ -392,6 +487,19 @@ class QueueService {
     job.status = 'active';
     job.startedAt = new Date();
     job.attempts++;
+    job.updatedAt = new Date();
+
+    // PERSISTENCE: Update status in DB
+    if (this.persistence) {
+      try {
+        this.persistence.saveQueueJob(job);
+      } catch (err) {
+        this.logger?.error?.('Failed to update job status in DB', {
+          jobId: job.id,
+          error: err.message,
+        });
+      }
+    }
 
     this.logger?.info?.('Job started', {
       operation: 'job-start',
@@ -435,11 +543,24 @@ class QueueService {
     job.result = result;
     job.completedAt = new Date();
     job.progress = 100;
+    job.updatedAt = new Date();
 
     queue.processing--;
 
     const idx = queue.jobs.indexOf(job);
     if (idx > -1) queue.jobs.splice(idx, 1);
+
+    // PERSISTENCE: Update completion in DB
+    if (this.persistence) {
+      try {
+        this.persistence.saveQueueJob(job);
+      } catch (err) {
+        this.logger?.error?.('Failed to update job completion in DB', {
+          jobId: job.id,
+          error: err.message,
+        });
+      }
+    }
 
     this.logger?.success?.('Job completed', {
       operation: 'job-complete',
@@ -458,6 +579,7 @@ class QueueService {
 
     job.error = error.message;
     job.failedAt = new Date();
+    job.updatedAt = new Date();
 
     queue.processing--;
 
@@ -502,6 +624,18 @@ class QueueService {
       });
     }
 
+    // PERSISTENCE: Update failure in DB
+    if (this.persistence) {
+      try {
+        this.persistence.saveQueueJob(job);
+      } catch (err) {
+        this.logger?.error?.('Failed to update job failure in DB', {
+          jobId: job.id,
+          error: err.message,
+        });
+      }
+    }
+
     this.cache?.set(`job:${job.id}`, job, this.config.defaults.jobTTL);
   }
 
@@ -544,6 +678,14 @@ class QueueService {
         job.updatedAt < cutoff
       ) {
         this.jobs.delete(jobId);
+        // PERSISTENCE: Delete from DB
+        if (this.persistence) {
+          try {
+            this.persistence.deleteQueueJob(jobId);
+          } catch (err) {
+            // Silent
+          }
+        }
         cleaned++;
       }
     }
