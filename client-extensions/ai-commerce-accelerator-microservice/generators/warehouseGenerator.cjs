@@ -218,12 +218,23 @@ class WarehouseGenerator extends BaseGenerator {
             region = regions[Math.floor(Math.random() * regions.length)];
           }
 
+          const countryTitle =
+            country.title_i18n?.en_US ||
+            country.title_i18n?.[config.localeCode?.replace('-', '_')] ||
+            country.name;
+          const regionTitle =
+            region?.title_i18n?.en_US ||
+            region?.title_i18n?.[config.localeCode?.replace('-', '_')] ||
+            region?.name;
+
           geographicContext = {
             countryId: country.id,
             countryName: country.name,
+            countryTitle: countryTitle,
             countryISOCode: country.a2, // e.g. US
             regionId: region?.id || null,
             regionName: region?.name || null,
+            regionTitle: regionTitle || null,
             regionISOCode: region?.regionCode || null, // e.g. CA
           };
 

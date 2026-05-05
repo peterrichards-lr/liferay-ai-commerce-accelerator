@@ -197,13 +197,24 @@ class AccountGenerator extends BaseGenerator {
             region = regions[Math.floor(Math.random() * regions.length)];
           }
 
+          const countryTitle =
+            country.title_i18n?.en_US ||
+            country.title_i18n?.[config.localeCode?.replace('-', '_')] ||
+            country.name;
+          const regionTitle =
+            region?.title_i18n?.en_US ||
+            region?.title_i18n?.[config.localeCode?.replace('-', '_')] ||
+            region?.name;
+
           geographicContext = {
             countryId: country.id,
             countryName: country.name,
+            countryTitle: countryTitle,
             countryISOCode2: country.a2,
             countryISOCode3: country.a3,
             regionId: region?.id || null,
             regionName: region?.name || null,
+            regionTitle: regionTitle || null,
             regionISOCode: region?.regionCode || null,
           };
 
@@ -722,11 +733,9 @@ class AccountGenerator extends BaseGenerator {
         streetAddressLine1: `${streetNumber} ${streetName} ${streetType}`,
         addressLocality: address.addressLocality || 'Los Angeles',
         addressRegion:
-          geographicContext.regionISOCode ||
-          geographicContext.regionName ||
-          'CA',
+          geographicContext.regionTitle || geographicContext.regionName || 'CA',
         postalCode: address.postalCode || '90001',
-        addressCountry: geographicContext.countryISOCode3 || 'USA',
+        addressCountry: geographicContext.countryTitle || 'United States',
         addressType,
         primary: false,
         externalReferenceCode: createERC(ERC_PREFIX.ADDRESS),
