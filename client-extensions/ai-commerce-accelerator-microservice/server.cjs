@@ -150,7 +150,7 @@ const gracefulShutdown = async (signal) => {
     try {
       return lxcConfig.dxpDomains();
     } catch (e) {
-      logger.warn(
+      logger.debug(
         'Could not determine Liferay Cloud domains, defaulting to empty list.',
         {
           error: e.message,

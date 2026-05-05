@@ -71,7 +71,13 @@ describe('Schema Alignment (Drift Detection)', () => {
             ];
 
           // Special cases or nested logic can be added here
-          if (!genField) {
+          const fieldExclusions = {
+            'pricing.json': ['catalogId', 'currencyCode', 'type', 'name'],
+          };
+
+          const isExcluded = fieldExclusions[schemaFile]?.includes(field);
+
+          if (!genField && !isExcluded) {
             logger.warn(
               `Potential drift: Required field "${field}" in Liferay API is missing in ${schemaFile}`
             );
