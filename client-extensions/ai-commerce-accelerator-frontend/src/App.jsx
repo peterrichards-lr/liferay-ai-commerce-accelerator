@@ -210,6 +210,7 @@ function AppUI() {
     mountedRef,
     progress,
     setProgress,
+    connectionEstablished,
   });
 
   const handleProgressReset = useCallback(() => {
