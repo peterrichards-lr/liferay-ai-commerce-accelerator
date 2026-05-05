@@ -207,288 +207,319 @@ function AdminUI() {
   }
 
   return (
-    <div className="admin-dashboard p-4">
-      <header className="mb-4 d-flex justify-content-between align-items-center">
-        <div>
-          <h1 className="h3 font-weight-bold mb-1">System Administration</h1>
-          <p className="text-secondary mb-0">
-            Monitor system health and explore historic generation sessions
-          </p>
-        </div>
-        <div className="d-flex gap-2">
-          <ClayButton
-            displayType="secondary"
-            onClick={handlePurgeHistory}
-            disabled={loading || purging || sessions.length === 0}
-          >
-            {purging ? (
-              <span
-                className="spinner-border spinner-border-sm mr-2"
-                role="status"
-              />
-            ) : (
-              <ClayIcon symbol="trash" className="mr-2" />
-            )}
-            Purge History
-          </ClayButton>
-          <ClayButton
-            displayType="primary"
-            onClick={fetchData}
-            disabled={loading}
-          >
-            {loading ? (
-              <span
-                className="spinner-border spinner-border-sm mr-2"
-                role="status"
-              />
-            ) : (
-              <ClayIcon symbol="reload" className="mr-2" />
-            )}
-            Refresh
-          </ClayButton>
-        </div>
-      </header>
+    <div className="ai-commerce-dashboard">
+      <div className="dashboard-nav-container py-3 border-bottom bg-white sticky-top">
+        <div className="container-fluid px-4">
+          <nav className="navbar navbar-expand-md navbar-light p-0">
+            <div className="navbar-brand d-flex align-items-center">
+              <div
+                className="brand-icon-wrapper mr-3 bg-primary text-white d-flex align-items-center justify-content-center"
+                style={{ width: '40px', height: '40px', borderRadius: '10px' }}
+              >
+                <ClayIcon symbol="grid" />
+              </div>
+              <div>
+                <span className="h5 mb-0 font-weight-bold d-block">
+                  System Administration
+                </span>
+                <span className="text-secondary small mb-0 d-block">
+                  Monitor system health and explore historic generation sessions
+                </span>
+              </div>
+            </div>
 
-      <ClayLayout.Row>
-        <ClayLayout.Col lg={3} md={6}>
-          <KPICard
-            title="Total Sessions"
-            value={kpis?.totalSessions || 0}
-            icon="list"
-            color="text-primary"
-          />
-        </ClayLayout.Col>
-        <ClayLayout.Col lg={3} md={6}>
-          <KPICard
-            title="Success Rate"
-            value={`${Math.round(kpis?.successRate || 0)}%`}
-            icon="check-circle"
-            color="text-success"
-          />
-        </ClayLayout.Col>
-        <ClayLayout.Col lg={3} md={6}>
-          <KPICard
-            title="Failed Sessions"
-            value={kpis?.failedSessions || 0}
-            icon="exclamation-circle"
-            color="text-danger"
-          />
-        </ClayLayout.Col>
-        <ClayLayout.Col lg={3} md={6}>
-          <KPICard
-            title="Cancelled"
-            value={kpis?.cancelledSessions || 0}
-            icon="hr"
-            color="text-warning"
-          />
-        </ClayLayout.Col>
-      </ClayLayout.Row>
+            <ul className="navbar-nav ml-auto">
+              <li className="nav-item d-flex align-items-center">
+                <div className="d-flex gap-2">
+                  <ClayButton
+                    displayType="secondary"
+                    size="sm"
+                    onClick={handlePurgeHistory}
+                    disabled={loading || purging || sessions.length === 0}
+                  >
+                    {purging ? (
+                      <span
+                        className="spinner-border spinner-border-sm mr-2"
+                        role="status"
+                      />
+                    ) : (
+                      <ClayIcon symbol="trash" className="mr-2" />
+                    )}
+                    Purge History
+                  </ClayButton>
+                  <ClayButton
+                    displayType="primary"
+                    size="sm"
+                    onClick={fetchData}
+                    disabled={loading}
+                  >
+                    {loading ? (
+                      <span
+                        className="spinner-border spinner-border-sm mr-2"
+                        role="status"
+                      />
+                    ) : (
+                      <ClayIcon symbol="reload" className="mr-2" />
+                    )}
+                    Refresh
+                  </ClayButton>
+                </div>
+              </li>
+            </ul>
+          </nav>
+        </div>
+      </div>
 
-      {systemInfo && (
-        <ClayLayout.Row className="mb-4">
+      <div className="container-fluid mt-4">
+        <ClayLayout.Row>
           <ClayLayout.Col lg={3} md={6}>
-            <div className="small text-secondary font-weight-bold mb-1">
-              UPTIME
-            </div>
-            <div className="font-weight-semi-bold">
-              {formatUptime(systemInfo.uptime)}
-            </div>
+            <KPICard
+              title="Total Sessions"
+              value={kpis?.totalSessions || 0}
+              icon="list"
+              color="text-primary"
+            />
           </ClayLayout.Col>
           <ClayLayout.Col lg={3} md={6}>
-            <div className="small text-secondary font-weight-bold mb-1">
-              MEMORY
-            </div>
-            <div className="font-weight-semi-bold">
-              {systemInfo.memory.used}MB / {systemInfo.memory.total}MB
-            </div>
+            <KPICard
+              title="Success Rate"
+              value={`${Math.round(kpis?.successRate || 0)}%`}
+              icon="check-circle"
+              color="text-success"
+            />
           </ClayLayout.Col>
           <ClayLayout.Col lg={3} md={6}>
-            <div className="small text-secondary font-weight-bold mb-1">
-              PLATFORM
-            </div>
-            <div className="font-weight-semi-bold">
-              {systemInfo.node.platform} ({systemInfo.node.arch})
-            </div>
+            <KPICard
+              title="Failed Sessions"
+              value={kpis?.failedSessions || 0}
+              icon="exclamation-circle"
+              color="text-danger"
+            />
           </ClayLayout.Col>
           <ClayLayout.Col lg={3} md={6}>
-            <div className="small text-secondary font-weight-bold mb-1">
-              ENVIRONMENT
-            </div>
-            <div className="font-weight-semi-bold text-uppercase">
-              {systemInfo.environment || 'production'}
-            </div>
+            <KPICard
+              title="Cancelled"
+              value={kpis?.cancelledSessions || 0}
+              icon="hr"
+              color="text-warning"
+            />
           </ClayLayout.Col>
         </ClayLayout.Row>
-      )}
 
-      <ClayLayout.Row>
-        {/* DOCTOR / TROUBLESHOOTING */}
-        <ClayLayout.Col lg={4}>
-          <ConfigurationDoctor health={health} liferayUrl={config.liferayUrl} />
-        </ClayLayout.Col>
+        {systemInfo && (
+          <ClayLayout.Row className="mb-4">
+            <ClayLayout.Col lg={3} md={6}>
+              <div className="small text-secondary font-weight-bold mb-1">
+                UPTIME
+              </div>
+              <div className="font-weight-semi-bold">
+                {formatUptime(systemInfo.uptime)}
+              </div>
+            </ClayLayout.Col>
+            <ClayLayout.Col lg={3} md={6}>
+              <div className="small text-secondary font-weight-bold mb-1">
+                MEMORY
+              </div>
+              <div className="font-weight-semi-bold">
+                {systemInfo.memory.used}MB / {systemInfo.memory.total}MB
+              </div>
+            </ClayLayout.Col>
+            <ClayLayout.Col lg={3} md={6}>
+              <div className="small text-secondary font-weight-bold mb-1">
+                PLATFORM
+              </div>
+              <div className="font-weight-semi-bold">
+                {systemInfo.node.platform} ({systemInfo.node.arch})
+              </div>
+            </ClayLayout.Col>
+            <ClayLayout.Col lg={3} md={6}>
+              <div className="small text-secondary font-weight-bold mb-1">
+                ENVIRONMENT
+              </div>
+              <div className="font-weight-semi-bold text-uppercase">
+                {systemInfo.environment || 'production'}
+              </div>
+            </ClayLayout.Col>
+          </ClayLayout.Row>
+        )}
 
-        {/* SESSION EXPLORER */}
-        <ClayLayout.Col lg={8}>
-          <ClayCard>
-            <ClayCard.Body>
-              <div className="d-flex justify-content-between align-items-center mb-3">
-                <h4 className="mb-0">Session Explorer</h4>
-                <div className="d-flex gap-2 align-items-center">
-                  <div className="d-flex align-items-center mr-3">
-                    <span className="small text-secondary mr-2">Show:</span>
+        <ClayLayout.Row>
+          {/* DOCTOR / TROUBLESHOOTING */}
+          <ClayLayout.Col lg={4}>
+            <ConfigurationDoctor
+              health={health}
+              liferayUrl={config.liferayUrl}
+            />
+          </ClayLayout.Col>
+
+          {/* SESSION EXPLORER */}
+          <ClayLayout.Col lg={8}>
+            <ClayCard>
+              <ClayCard.Body>
+                <div className="d-flex justify-content-between align-items-center mb-3">
+                  <h4 className="mb-0">Session Explorer</h4>
+                  <div className="d-flex gap-2 align-items-center">
+                    <div className="d-flex align-items-center mr-3">
+                      <span className="small text-secondary mr-2">Show:</span>
+                      <select
+                        className="form-control form-control-sm"
+                        style={{ width: '70px' }}
+                        value={pageSize}
+                        onChange={(e) => setPageSize(Number(e.target.value))}
+                      >
+                        <option value="10">10</option>
+                        <option value="25">25</option>
+                        <option value="50">50</option>
+                        <option value="100">100</option>
+                      </select>
+                    </div>
+                    <input
+                      type="text"
+                      className="form-control form-control-sm"
+                      placeholder="Filter by name..."
+                      style={{ width: '180px' }}
+                      value={filters.name}
+                      onChange={(e) =>
+                        setSortFilters((f) => ({ ...f, name: e.target.value }))
+                      }
+                    />
                     <select
                       className="form-control form-control-sm"
-                      style={{ width: '70px' }}
-                      value={pageSize}
-                      onChange={(e) => setPageSize(Number(e.target.value))}
+                      style={{ width: '130px' }}
+                      value={filters.status}
+                      onChange={(e) =>
+                        setSortFilters((f) => ({
+                          ...f,
+                          status: e.target.value,
+                        }))
+                      }
                     >
-                      <option value="10">10</option>
-                      <option value="25">25</option>
-                      <option value="50">50</option>
-                      <option value="100">100</option>
+                      <option value="">All Statuses</option>
+                      <option value="COMPLETED">Completed</option>
+                      <option value="FAILED">Failed</option>
+                      <option value="CANCELLED">Cancelled</option>
+                      <option value="STARTED">Started</option>
                     </select>
                   </div>
-                  <input
-                    type="text"
-                    className="form-control form-control-sm"
-                    placeholder="Filter by name..."
-                    style={{ width: '180px' }}
-                    value={filters.name}
-                    onChange={(e) =>
-                      setSortFilters((f) => ({ ...f, name: e.target.value }))
-                    }
-                  />
-                  <select
-                    className="form-control form-control-sm"
-                    style={{ width: '130px' }}
-                    value={filters.status}
-                    onChange={(e) =>
-                      setSortFilters((f) => ({ ...f, status: e.target.value }))
-                    }
-                  >
-                    <option value="">All Statuses</option>
-                    <option value="COMPLETED">Completed</option>
-                    <option value="FAILED">Failed</option>
-                    <option value="CANCELLED">Cancelled</option>
-                    <option value="STARTED">Started</option>
-                  </select>
                 </div>
-              </div>
 
-              <div className="table-responsive">
-                <ClayTable>
-                  <ClayTable.Head>
-                    <ClayTable.Row>
-                      <ClayTable.Cell
-                        headingCell
-                        onClick={() => requestSort('session_name')}
-                        style={{ cursor: 'pointer' }}
-                      >
-                        Name / ID{' '}
-                        {sortConfig.key === 'session_name' &&
-                          (sortConfig.direction === 'asc' ? '↑' : '↓')}
-                      </ClayTable.Cell>
-                      <ClayTable.Cell
-                        headingCell
-                        onClick={() => requestSort('status')}
-                        style={{ cursor: 'pointer' }}
-                      >
-                        Status{' '}
-                        {sortConfig.key === 'status' &&
-                          (sortConfig.direction === 'asc' ? '↑' : '↓')}
-                      </ClayTable.Cell>
-                      <ClayTable.Cell
-                        headingCell
-                        onClick={() => requestSort('created_at')}
-                        style={{ cursor: 'pointer' }}
-                      >
-                        Date{' '}
-                        {sortConfig.key === 'created_at' &&
-                          (sortConfig.direction === 'asc' ? '↑' : '↓')}
-                      </ClayTable.Cell>
-                      <ClayTable.Cell headingCell />
-                    </ClayTable.Row>
-                  </ClayTable.Head>
-                  <ClayTable.Body>
-                    {paginatedSessions.length === 0 ? (
+                <div className="table-responsive">
+                  <ClayTable>
+                    <ClayTable.Head>
                       <ClayTable.Row>
                         <ClayTable.Cell
-                          colSpan={4}
-                          className="text-center py-5"
+                          headingCell
+                          onClick={() => requestSort('session_name')}
+                          style={{ cursor: 'pointer' }}
                         >
-                          <div className="text-secondary">
-                            No sessions found.
-                          </div>
+                          Name / ID{' '}
+                          {sortConfig.key === 'session_name' &&
+                            (sortConfig.direction === 'asc' ? '↑' : '↓')}
                         </ClayTable.Cell>
+                        <ClayTable.Cell
+                          headingCell
+                          onClick={() => requestSort('status')}
+                          style={{ cursor: 'pointer' }}
+                        >
+                          Status{' '}
+                          {sortConfig.key === 'status' &&
+                            (sortConfig.direction === 'asc' ? '↑' : '↓')}
+                        </ClayTable.Cell>
+                        <ClayTable.Cell
+                          headingCell
+                          onClick={() => requestSort('created_at')}
+                          style={{ cursor: 'pointer' }}
+                        >
+                          Date{' '}
+                          {sortConfig.key === 'created_at' &&
+                            (sortConfig.direction === 'asc' ? '↑' : '↓')}
+                        </ClayTable.Cell>
+                        <ClayTable.Cell headingCell />
                       </ClayTable.Row>
-                    ) : (
-                      paginatedSessions.map((s) => (
-                        <ClayTable.Row key={s.session_id}>
-                          <ClayTable.Cell>
-                            <div className="font-weight-bold">
-                              {s.session_name || 'Unnamed'}
+                    </ClayTable.Head>
+                    <ClayTable.Body>
+                      {paginatedSessions.length === 0 ? (
+                        <ClayTable.Row>
+                          <ClayTable.Cell
+                            colSpan={4}
+                            className="text-center py-5"
+                          >
+                            <div className="text-secondary">
+                              No sessions found.
                             </div>
-                            <small className="text-muted">{s.session_id}</small>
-                          </ClayTable.Cell>
-                          <ClayTable.Cell>
-                            <StatusBadge status={s.status} />
-                          </ClayTable.Cell>
-                          <ClayTable.Cell style={{ fontSize: '0.875rem' }}>
-                            {new Date(s.created_at).toLocaleString()}
-                          </ClayTable.Cell>
-                          <ClayTable.Cell className="text-right">
-                            <ClayButton
-                              displayType="unstyled"
-                              size="sm"
-                              onClick={() =>
-                                handleExport(s.session_id, s.session_name)
-                              }
-                              title="Export dataset"
-                            >
-                              <ClayIcon symbol="download" className="mr-1" />
-                            </ClayButton>
                           </ClayTable.Cell>
                         </ClayTable.Row>
-                      ))
-                    )}
-                  </ClayTable.Body>
-                </ClayTable>
-              </div>
-
-              {/* Pagination Controls */}
-              {totalPages > 1 && (
-                <div className="d-flex justify-content-between align-items-center mt-3">
-                  <div className="small text-secondary">
-                    Showing {paginatedSessions.length} of{' '}
-                    {filteredSessions.length} sessions
-                  </div>
-                  <div className="btn-group">
-                    <ClayButton
-                      displayType="secondary"
-                      size="sm"
-                      disabled={currentPage === 1}
-                      onClick={() => setCurrentPage((p) => p - 1)}
-                    >
-                      <ClayIcon symbol="angle-left" />
-                    </ClayButton>
-                    <div className="btn btn-sm btn-secondary disabled bg-light">
-                      Page {currentPage} of {totalPages}
-                    </div>
-                    <ClayButton
-                      displayType="secondary"
-                      size="sm"
-                      disabled={currentPage === totalPages}
-                      onClick={() => setCurrentPage((p) => p + 1)}
-                    >
-                      <ClayIcon symbol="angle-right" />
-                    </ClayButton>
-                  </div>
+                      ) : (
+                        paginatedSessions.map((s) => (
+                          <ClayTable.Row key={s.session_id}>
+                            <ClayTable.Cell>
+                              <div className="font-weight-bold">
+                                {s.session_name || 'Unnamed'}
+                              </div>
+                              <small className="text-muted">
+                                {s.session_id}
+                              </small>
+                            </ClayTable.Cell>
+                            <ClayTable.Cell>
+                              <StatusBadge status={s.status} />
+                            </ClayTable.Cell>
+                            <ClayTable.Cell style={{ fontSize: '0.875rem' }}>
+                              {new Date(s.created_at).toLocaleString()}
+                            </ClayTable.Cell>
+                            <ClayTable.Cell className="text-right">
+                              <ClayButton
+                                displayType="unstyled"
+                                size="sm"
+                                onClick={() =>
+                                  handleExport(s.session_id, s.session_name)
+                                }
+                                title="Export dataset"
+                              >
+                                <ClayIcon symbol="download" className="mr-1" />
+                              </ClayButton>
+                            </ClayTable.Cell>
+                          </ClayTable.Row>
+                        ))
+                      )}
+                    </ClayTable.Body>
+                  </ClayTable>
                 </div>
-              )}
-            </ClayCard.Body>
-          </ClayCard>
-        </ClayLayout.Col>
-      </ClayLayout.Row>
+
+                {/* Pagination Controls */}
+                {totalPages > 1 && (
+                  <div className="d-flex justify-content-between align-items-center mt-3">
+                    <div className="small text-secondary">
+                      Showing {paginatedSessions.length} of{' '}
+                      {filteredSessions.length} sessions
+                    </div>
+                    <div className="btn-group">
+                      <ClayButton
+                        displayType="secondary"
+                        size="sm"
+                        disabled={currentPage === 1}
+                        onClick={() => setCurrentPage((p) => p - 1)}
+                      >
+                        <ClayIcon symbol="angle-left" />
+                      </ClayButton>
+                      <div className="btn btn-sm btn-secondary disabled bg-light">
+                        Page {currentPage} of {totalPages}
+                      </div>
+                      <ClayButton
+                        displayType="secondary"
+                        size="sm"
+                        disabled={currentPage === totalPages}
+                        onClick={() => setCurrentPage((p) => p + 1)}
+                      >
+                        <ClayIcon symbol="angle-right" />
+                      </ClayButton>
+                    </div>
+                  </div>
+                )}
+              </ClayCard.Body>
+            </ClayCard>
+          </ClayLayout.Col>
+        </ClayLayout.Row>
+      </div>
     </div>
   );
 }

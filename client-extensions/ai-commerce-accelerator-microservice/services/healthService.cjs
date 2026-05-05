@@ -76,7 +76,10 @@ class HealthService {
     const { config } = this.ctx;
     const start = Date.now();
     try {
-      const aiConfig = await config.getAIConfigCached();
+      // Pass empty config to trigger default authentication (Basic or Server OAuth)
+      const requestConfig = {};
+
+      const aiConfig = await config.getAIConfig(requestConfig);
       const textProvider = (aiConfig?.provider || 'OPENAI').toUpperCase();
       const mediaProvider = (
         aiConfig?.mediaProvider || 'INHERIT'
@@ -84,14 +87,14 @@ class HealthService {
 
       let textKey = null;
       try {
-        textKey = await config.getAIKeyCached();
+        textKey = await config.getAIKey(requestConfig);
       } catch (_e) {
         // Ignore key retrieval errors for status check
       }
 
       let mediaKey = null;
       try {
-        mediaKey = await config.getAIMediaKeyCached();
+        mediaKey = await config.getAIMediaKey(requestConfig);
       } catch (_e) {
         // Ignore key retrieval errors for status check
       }

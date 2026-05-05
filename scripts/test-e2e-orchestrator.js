@@ -39,6 +39,7 @@ async function startMicroservice() {
       ...process.env,
       NODE_ENV: "test",
       PORT: 3000,
+      PERSISTENCE_DB_PATH: ":memory:",
     },
   });
 
