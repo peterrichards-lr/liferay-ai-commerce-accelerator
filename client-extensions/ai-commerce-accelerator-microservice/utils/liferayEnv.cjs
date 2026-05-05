@@ -37,16 +37,19 @@ function resolveEffectiveLiferayConnection(config = {}, oauthService) {
   let clientId = config.clientId;
   let clientSecret = config.clientSecret;
 
-  if (isColocated) {
-    const svcUrl =
-      typeof oauthService?.getDefaultLiferayUrl === 'function'
+  // 1. Resolve Liferay URL
+  if (!isValidAbsoluteUrl(liferayUrl)) {
+    liferayUrl =
+      (typeof oauthService?.getDefaultLiferayUrl === 'function'
         ? oauthService.getDefaultLiferayUrl()
-        : null;
+        : null) ||
+      tryBuildColocatedLiferayUrl() ||
+      ENV.LIFERAY_API_URL ||
+      null;
+  }
 
-    if (!isValidAbsoluteUrl(liferayUrl)) {
-      liferayUrl = svcUrl || tryBuildColocatedLiferayUrl() || null;
-    }
-
+  // 2. Resolve Credentials based on location
+  if (isColocated) {
     if (!clientId && typeof oauthService?.getDefaultClientId === 'function') {
       clientId = oauthService.getDefaultClientId();
     }
@@ -58,43 +61,49 @@ function resolveEffectiveLiferayConnection(config = {}, oauthService) {
       clientSecret = oauthService.getDefaultClientSecret();
     }
   } else {
-    if (!isValidAbsoluteUrl(liferayUrl)) {
-      liferayUrl = null;
+    // STANDALONE / LOCAL: Fallback to ENV if config is empty
+    if (!clientId) {
+      clientId = ENV.LIFERAY_OAUTH_CLIENT_ID;
+    }
+    if (!clientSecret) {
+      clientSecret = ENV.LIFERAY_OAUTH_CLIENT_SECRET;
     }
   }
 
   if (!isValidAbsoluteUrl(liferayUrl)) {
     const e = new Error(
-      'Liferay URL is not configured. Please provide liferayUrl in the request.'
+      'Liferay URL is not configured. Please provide liferayUrl in the request or set LIFERAY_API_URL.'
     );
     e.name = 'LiferayRequestError';
     e.operation = 'liferay-url-resolution';
     e.userMessage =
-      'Missing Liferay URL. Provide a valid liferayUrl in the AI Commerce Accelerator configuration.';
+      'Missing Liferay URL. Provide a valid liferayUrl in the AI Commerce Accelerator configuration or environment.';
     e.errorReference = errorReference;
     e.problem = {
       status: 'CONFIGURATION_ERROR',
       detail:
-        'No liferayUrl was provided, and this service cannot derive one automatically.',
+        'No liferayUrl was provided, and this service cannot derive one from the environment.',
     };
     throw e;
   }
 
-  if (!isColocated) {
-    if (!clientId || !clientSecret) {
-      const e = new Error('OAuth configuration is incomplete');
-      e.name = 'LiferayRequestError';
-      e.operation = 'liferay-oauth-resolution';
-      e.userMessage =
-        'OAuth configuration is incomplete. Please provide Client ID and Client Secret in the AI Configuration.';
-      e.errorReference = errorReference;
-      e.problem = {
-        status: 'AUTH_CONFIG_ERROR',
-        detail:
-          'clientId and/or clientSecret are missing. They must be supplied when running outside Liferay.',
-      };
-      throw e;
-    }
+  // VALIDATION: We either need OAuth credentials OR Basic Auth credentials (checked later in rest.cjs)
+  const hasOAuth = clientId && clientSecret;
+  const hasBasic = ENV.LIFERAY_API_USERNAME && ENV.LIFERAY_API_PASSWORD;
+
+  if (!isColocated && !hasOAuth && !hasBasic) {
+    const e = new Error('Liferay authentication is not configured');
+    e.name = 'LiferayRequestError';
+    e.operation = 'liferay-auth-resolution';
+    e.userMessage =
+      'Liferay authentication is not configured. Please provide Client ID and Client Secret in the AI Configuration, or set system environment variables.';
+    e.errorReference = errorReference;
+    e.problem = {
+      status: 'AUTH_CONFIG_ERROR',
+      detail:
+        'No authentication credentials (OAuth or Basic) were found in the request or environment.',
+    };
+    throw e;
   }
 
   return { liferayUrl, clientId, clientSecret, isColocated };
