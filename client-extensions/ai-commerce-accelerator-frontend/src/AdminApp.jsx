@@ -598,7 +598,7 @@ function ConfigurationDoctor({ health, liferayUrl }) {
                 : 'danger'
             }
             message={
-              health.aiMedia.status === 'INHERITED'
+              health.aiMedia.provider === 'INHERIT'
                 ? `Inheriting from Core AI (${health.aiText.provider})`
                 : `${health.aiMedia.provider} provider active`
             }

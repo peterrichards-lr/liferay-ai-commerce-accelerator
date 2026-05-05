@@ -1,24 +1,24 @@
 {
-  "configuration": {
-    "className": "com.liferay.object.rest.dto.v1_0.ObjectEntry",
-    "parameters": {
-      "containsHeaders": "true",
-      "createStrategy": "UPSERT",
-      "onErrorFail": "false",
-      "taskItemDelegateName": "C_AICommerceAcceleratorConfiguration",
-      "updateStrategy": "UPDATE"
+    "configuration": {
+        "className": "com.liferay.object.rest.dto.v1_0.ObjectEntry",
+        "parameters": {
+            "containsHeaders": "true",
+            "createStrategy": "UPSERT",
+            "onErrorFail": "false",
+            "taskItemDelegateName": "C_AICommerceAcceleratorConfiguration",
+            "updateStrategy": "UPDATE"
+        },
+        "taskItemDelegateName": "C_AICommerceAcceleratorConfiguration"
     },
-    "taskItemDelegateName": "C_AICommerceAcceleratorConfiguration"
-  },
-  "items": [
-    {
-      "configKey": "ai-prompt-warehouse",
-      "configStatus": {
-        "key": "Active"
-      },
-      "configValue": "You are a commerce expert responsible for creating warehouse data in JSON format.\n\nGenerate a list of {{count}} warehouses with varied geographical locations from around the world. Ensure a diverse distribution of countries, regions, and cities.\n\nEach warehouse must include the following fields:\n\n- name: The localized name of the warehouse.\n- description: The localized description of the warehouse.\n- country: The two-letter ISO country code. MUST be exactly 2 uppercase letters (e.g., US, FR, JP).\n- region: The two-letter region or state code. MUST be exactly 2 uppercase letters (e.g., CA, NY, LD). If no standard 2-letter code exists, provide a plausible 2-letter uppercase abbreviation.\n- city: The city where the warehouse is located.\n- street1: The first line of the street address.\n- zip: The postal code for the warehouse's location.\n- latitude: The decimal latitude of the location (e.g., 34.0522).\n- longitude: The decimal longitude of the location (e.g., -118.2437).\n- active: A boolean indicating if the warehouse is active.\n\nCRITICAL: The 'country' and 'region' fields MUST be exactly 2 uppercase letters. Failure to follow this format will break the system.\n\nReturn the data as a JSON object with a single key \"warehouses\" which is an array of the generated warehouse objects.\nThe response should only be the JSON object, with no extra text or explanation.\n\nExample for 1 warehouse:\n\n```json\n{\n  \"warehouses\": [\n    {\n      \"name\": {\n        \"en_US\": \"Global Distribution Hub\"\n      },\n      \"description\": {\n        \"en_US\": \"A central distribution facility serving various international markets.\"\n      },\n      \"country\": \"DE\",\n      \"region\": \"HH\",\n      \"city\": \"Hamburg\",\n      \"street1\": \"Hafenstr. 10\",\n      \"zip\": \"20095\",\n      \"latitude\": 53.5511,\n      \"longitude\": 9.9937,\n      \"active\": true\n    }\n  ]\n}\n```\n",
-      "description": "AI Prompt for Warehouse",
-      "externalReferenceCode": "AI-PROMPT-WAREHOUSE"
-    }
-  ]
+    "items": [
+        {
+            "configKey": "ai-prompt-warehouse",
+            "configStatus": {
+                "key": "Active"
+            },
+            "configValue": "You are a commerce expert responsible for creating warehouse data in JSON format.\n\nGenerate a list of {{count}} warehouses with varied geographical locations from around the world. Ensure a diverse distribution of countries, regions, and cities.\n\nEach warehouse must include the following fields:\n\n- name: The localized name of the warehouse.\n- description: The localized description of the warehouse.\n- country: The two-letter ISO country code. MUST be exactly 2 uppercase letters (e.g., US, FR, JP).\n- region: The two-letter region or state code. MUST be exactly 2 uppercase letters (e.g., CA, NY, LD). If no standard 2-letter code exists, provide a plausible 2-letter uppercase abbreviation.\n- city: The city where the warehouse is located.\n- street1: The first line of the street address.\n- zip: The postal code for the warehouse's location.\n- latitude: The decimal latitude of the location (e.g., 34.0522).\n- longitude: The decimal longitude of the location (e.g., -118.2437).\n- active: A boolean indicating if the warehouse is active.\n\nCRITICAL: The 'country' and 'region' fields MUST be exactly 2 uppercase letters. Failure to follow this format will break the system.\n\nReturn the data as a JSON object with a single key \"warehouses\" which is an array of the generated warehouse objects.\nThe response should only be the JSON object, with no extra text or explanation.\n\nExample for 1 warehouse:\n\n```json\n{\n  \"warehouses\": [\n    {\n      \"name\": {\n        \"en_US\": \"Global Distribution Hub\"\n      },\n      \"description\": {\n        \"en_US\": \"A central distribution facility serving various international markets.\"\n      },\n      \"country\": \"DE\",\n      \"region\": \"HH\",\n      \"city\": \"Hamburg\",\n      \"street1\": \"Hafenstr. 10\",\n      \"zip\": \"20095\",\n      \"latitude\": 53.5511,\n      \"longitude\": 9.9937,\n      \"active\": true\n    }\n  ]\n}\n```\n",
+            "description": "AI Prompt for Warehouse",
+            "externalReferenceCode": "AI-PROMPT-WAREHOUSE"
+        }
+    ]
 }
