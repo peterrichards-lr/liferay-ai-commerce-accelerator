@@ -731,9 +731,12 @@ class ConfigService {
 
     // 2. Sync Media AI Key
     if (mediaApiKey && mediaApiKey.trim().length > 0) {
-      logger?.info?.('Syncing AI_MEDIA_API_KEY from environment to Liferay...', {
-        operation: 'sync-env-keys',
-      });
+      logger?.info?.(
+        'Syncing AI_MEDIA_API_KEY from environment to Liferay...',
+        {
+          operation: 'sync-env-keys',
+        }
+      );
 
       try {
         await this.saveConfig(
