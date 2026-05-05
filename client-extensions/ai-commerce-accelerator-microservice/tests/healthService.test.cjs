@@ -53,10 +53,10 @@ describe('HealthService', () => {
     // Force unhealthy memory status by mocking process.memoryUsage
     const originalMemoryUsage = process.memoryUsage;
     process.memoryUsage = vi.fn().mockReturnValue({
-      heapUsed: 95,
-      heapTotal: 100,
+      heapUsed: 500 * 1024 * 1024, // 500MB, which is > 90% of the 512MB limit
+      heapTotal: 512 * 1024 * 1024,
       external: 0,
-      rss: 150,
+      rss: 600 * 1024 * 1024,
     });
 
     const result = await healthService.runHealthCheck('memory');
