@@ -23,7 +23,13 @@ describe('Schema Alignment (Drift Detection)', () => {
         'account.json': 'headless-admin-user-v1.0-openapi.json',
         'order.json': 'headless-commerce-admin-order-v1.0-openapi.json',
         'warehouse.json': 'headless-commerce-admin-inventory-v1.0-openapi.json',
+        'pricing.json': 'headless-commerce-admin-pricing-v2.0-openapi.json',
       };
+
+      if (schemaFile === 'pdf.json') {
+        // PDF generation does not map directly to a single standard OpenAPI schema in the same way
+        return;
+      }
 
       const apiContractFile = mapping[schemaFile];
       if (!apiContractFile) {
@@ -36,7 +42,13 @@ describe('Schema Alignment (Drift Detection)', () => {
       );
 
       const entityName = schemaFile.replace('.json', '');
+
+      const componentMapping = {
+        pricing: 'PriceList',
+      };
+
       const componentName =
+        componentMapping[entityName] ||
         entityName.charAt(0).toUpperCase() + entityName.slice(1);
 
       const apiSchema =

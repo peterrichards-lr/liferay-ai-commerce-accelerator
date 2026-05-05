@@ -13,7 +13,7 @@ import {
   WORKFLOW_SESSIONS,
   WORKFLOW_KPIS,
   CONFIG_HEALTH,
-  HEALTH,
+  HEALTH_DETAILED,
   EXPORT_COMMERCE_DATA,
   WORKFLOW_CLEAR_ALL,
 } from './utils/microservicePaths';
@@ -57,7 +57,7 @@ function AdminUI() {
         api.get(WORKFLOW_SESSIONS),
         api.get(WORKFLOW_KPIS),
         api.get(CONFIG_HEALTH),
-        api.get(HEALTH),
+        api.get(HEALTH_DETAILED),
       ]);
 
       if (sessionsRes?.success) setSessions(sessionsRes.sessions || []);
@@ -321,7 +321,19 @@ function AdminUI() {
                 MEMORY
               </div>
               <div className="font-weight-semi-bold">
-                {systemInfo.memory.used}MB / {systemInfo.memory.total}MB
+                {systemInfo.health?.checks?.memory?.message?.replace(
+                  'Memory usage: ',
+                  ''
+                ) ||
+                  `${systemInfo.memory.used}MB / ${systemInfo.memory.total}MB`}
+              </div>
+            </ClayLayout.Col>
+            <ClayLayout.Col lg={3} md={6}>
+              <div className="small text-secondary font-weight-bold mb-1">
+                DISK
+              </div>
+              <div className="font-weight-semi-bold">
+                {systemInfo.health?.checks?.disk?.message || 'Sufficient'}
               </div>
             </ClayLayout.Col>
             <ClayLayout.Col lg={3} md={6}>
@@ -332,17 +344,8 @@ function AdminUI() {
                 {systemInfo.node.platform} ({systemInfo.node.arch})
               </div>
             </ClayLayout.Col>
-            <ClayLayout.Col lg={3} md={6}>
-              <div className="small text-secondary font-weight-bold mb-1">
-                ENVIRONMENT
-              </div>
-              <div className="font-weight-semi-bold text-uppercase">
-                {systemInfo.environment || 'production'}
-              </div>
-            </ClayLayout.Col>
           </ClayLayout.Row>
         )}
-
         <ClayLayout.Row>
           {/* DOCTOR / TROUBLESHOOTING */}
           <ClayLayout.Col lg={4}>

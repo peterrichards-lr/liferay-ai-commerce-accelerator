@@ -1,11 +1,22 @@
 const {
   sqlInjectionProtectionMiddleware,
 } = require('../middleware/securityMiddleware.cjs');
+const { logger } = require('../utils/logger.cjs');
 
 describe('Security Middleware - SQL Injection', () => {
   let req;
   let res;
   let next;
+  let originalWarn;
+
+  beforeAll(() => {
+    originalWarn = logger.warn;
+    logger.warn = vi.fn();
+  });
+
+  afterAll(() => {
+    logger.warn = originalWarn;
+  });
 
   beforeEach(() => {
     req = {

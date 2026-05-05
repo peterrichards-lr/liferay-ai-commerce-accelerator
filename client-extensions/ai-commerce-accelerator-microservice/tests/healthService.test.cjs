@@ -7,9 +7,9 @@ describe('HealthService', () => {
   beforeEach(() => {
     mockCtx = {
       config: {
-        getAIKey: vi.fn().mockResolvedValue('test-api-key'),
-        getAIMediaKey: vi.fn().mockResolvedValue('test-media-key'),
-        getAIConfig: vi.fn().mockResolvedValue({
+        getAIKeyCached: vi.fn().mockReturnValue('test-api-key'),
+        getAIMediaKeyCached: vi.fn().mockReturnValue('test-media-key'),
+        getAIConfigCached: vi.fn().mockReturnValue({
           provider: 'openai',
           mediaProvider: 'inherit',
         }),

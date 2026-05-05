@@ -20,6 +20,7 @@ const BATCH_SIZES = `${CONFIG_PATH}/batch-sizes`;
 const CONFIG_GENERATION_LIMITS = `${CONFIG_PATH}/generation-limits`;
 const CONFIG_HEALTH = `${CONFIG_PATH}/health`;
 const HEALTH = `${BASE_PATH}/health`;
+const HEALTH_DETAILED = `${BASE_PATH}/health/detailed`;
 const GET_CATEGORIES = `${CONFIG_PATH}/categories`;
 
 const WORKFLOW = 'workflow';
@@ -49,6 +50,7 @@ export {
   CONFIG_GENERATION_LIMITS,
   CONFIG_HEALTH,
   HEALTH,
+  HEALTH_DETAILED,
   GENERATE_WORKFLOW,
   WORKFLOW_SESSIONS,
   COMPLETED_WORKFLOW_SESSIONS,
