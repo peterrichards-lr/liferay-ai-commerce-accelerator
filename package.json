@@ -57,7 +57,10 @@
       "eslint --fix --config client-extensions/ai-commerce-accelerator-microservice/eslint.config.mjs",
       "prettier --write --config client-extensions/ai-commerce-accelerator-microservice/.prettierrc"
     ],
-    "client-extensions/ai-commerce-accelerator-microservice/**/*.{json,md}": [
+    "client-extensions/ai-commerce-accelerator-microservice/**/*.json": [
+      "prettier --write --config client-extensions/ai-commerce-accelerator-microservice/.prettierrc"
+    ],
+    "client-extensions/ai-commerce-accelerator-microservice/**/*.md": [
       "prettier --write --config client-extensions/ai-commerce-accelerator-microservice/.prettierrc",
       "markdownlint"
     ],
@@ -65,7 +68,10 @@
       "eslint --fix --config client-extensions/ai-commerce-accelerator-configuration/eslint.config.js",
       "prettier --write --config client-extensions/ai-commerce-accelerator-configuration/.prettierrc"
     ],
-    "client-extensions/ai-commerce-accelerator-configuration/**/*.{json,md}": [
+    "client-extensions/ai-commerce-accelerator-configuration/**/*.json": [
+      "prettier --write --config client-extensions/ai-commerce-accelerator-configuration/.prettierrc"
+    ],
+    "client-extensions/ai-commerce-accelerator-configuration/**/*.md": [
       "prettier --write --config client-extensions/ai-commerce-accelerator-configuration/.prettierrc",
       "markdownlint"
     ],
@@ -73,11 +79,17 @@
       "eslint --fix --config client-extensions/ai-commerce-accelerator-frontend/eslint.config.js",
       "prettier --write --config client-extensions/ai-commerce-accelerator-frontend/.prettierrc"
     ],
-    "client-extensions/ai-commerce-accelerator-frontend/**/*.{json,md}": [
+    "client-extensions/ai-commerce-accelerator-frontend/**/*.json": [
+      "prettier --write --config client-extensions/ai-commerce-accelerator-frontend/.prettierrc"
+    ],
+    "client-extensions/ai-commerce-accelerator-frontend/**/*.md": [
       "prettier --write --config client-extensions/ai-commerce-accelerator-frontend/.prettierrc",
       "markdownlint"
     ],
-    "*.{js,json,md}": [
+    "*.{js,json}": [
+      "prettier --write"
+    ],
+    "*.md": [
       "prettier --write",
       "markdownlint"
     ]

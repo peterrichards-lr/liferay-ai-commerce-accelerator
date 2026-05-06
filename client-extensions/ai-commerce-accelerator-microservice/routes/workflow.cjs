@@ -309,11 +309,16 @@ module.exports = (app, { logger, persistenceService, progressService }) => {
         }
       });
 
+      const totalSteps = session.context?.steps?.length || 0;
+      const completedSteps = session.currentSteps?.length || 0;
+
       res.json({
         success: true,
         sessionId,
         status: session.status,
         flowType: session.flow_type,
+        totalSteps,
+        completedSteps,
         progress,
         timestamp: new Date().toISOString(),
       });

@@ -98,6 +98,24 @@ export default function useRealtimeWebSocket({
               flowType: res.flowType,
             });
             activeFlowTypeRef.current = res.flowType;
+
+            // Restore step-based progress if available
+            if (typeof res.totalSteps === 'number' && res.totalSteps > 0) {
+              currentOnProgress?.({
+                type: 'SET_TOTAL_STEPS',
+                total: res.totalSteps,
+              });
+            }
+
+            if (typeof res.completedSteps === 'number') {
+              // We need a SET_COMPLETED_STEPS or similar, but since we
+              // only have INCREMENT, let's add a reset and then apply
+              // For now, let's just dispatch a new action type we'll add
+              currentOnProgress?.({
+                type: 'HYDRATE_STEPS',
+                completed: res.completedSteps,
+              });
+            }
           }
 
           // Update each entity's progress

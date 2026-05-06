@@ -60,6 +60,10 @@ export function progressReducer(state, action) {
       return { ...state, completedSteps: (state.completedSteps || 0) + 1 };
     }
 
+    case 'HYDRATE_STEPS': {
+      return { ...state, completedSteps: action.completed };
+    }
+
     case 'SET_TOTAL': {
       const { entity, total } = action;
       const cur = state[entity] || {

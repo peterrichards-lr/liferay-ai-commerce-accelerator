@@ -11,7 +11,7 @@ export default function useActivityLog({
   const [logs, setLogs] = useState(() => {
     if (!hydrateOnMount || typeof window === 'undefined') return [];
     try {
-      const raw = sessionStorage.getItem(storageKey);
+      const raw = localStorage.getItem(storageKey);
       if (raw) {
         const parsed = JSON.parse(raw);
         if (Array.isArray(parsed)) {
@@ -41,7 +41,7 @@ export default function useActivityLog({
 
   useEffect(() => {
     try {
-      sessionStorage.setItem(
+      localStorage.setItem(
         storageKey,
         JSON.stringify(logs.slice(0, maxEntries))
       );
