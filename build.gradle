@@ -609,7 +609,6 @@ tasks.named('check') {
 
 tasks.named('assemble') {
 	dependsOn tasks.named('generateBatchFiles')
-	dependsOn tasks.named('zipFragments')
 	dependsOn tasks.named('buildConfigurationCX')
 }
 
@@ -623,5 +622,4 @@ tasks.matching { it.name == 'deploy' }.configureEach {
 	dependsOn tasks.named('testAllCX')
 	dependsOn tasks.named('generateBatchFiles')
 	dependsOn tasks.named('buildConfigurationCX')
-	dependsOn tasks.named('autoDeployFragments')
 }
