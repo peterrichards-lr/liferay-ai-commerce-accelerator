@@ -1,12 +1,4 @@
-// Mock liferayEnv to avoid complex environment dependencies before normalize requires it
-vi.mock('../utils/liferayEnv.cjs', () => ({
-  resolveEffectiveLiferayConnection: vi.fn().mockImplementation((config) => ({
-    liferayUrl: config.liferayUrl || 'http://localhost:8080',
-    clientId: config.clientId || 'test-client',
-    clientSecret: config.clientSecret || 'test-secret',
-    isColocated: false,
-  })),
-}));
+// Removed the liferayEnv mock as it's brittle in CI.
 
 const {
   sanitizeValue,
@@ -83,6 +75,9 @@ describe('Data Normalization', () => {
           host: 'my-microservice.com',
         },
         body: {
+          liferayUrl: 'http://test.com',
+          clientId: 'test',
+          clientSecret: 'test',
           productCount: '10',
           demoMode: 'true',
         },
@@ -98,6 +93,9 @@ describe('Data Normalization', () => {
       const req = {
         headers: {},
         body: {
+          liferayUrl: 'http://test.com',
+          clientId: 'test',
+          clientSecret: 'test',
           microserviceUrl: 'not_a_valid_url',
         },
       };
