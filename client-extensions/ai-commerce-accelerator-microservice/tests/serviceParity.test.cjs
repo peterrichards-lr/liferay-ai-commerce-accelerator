@@ -10,7 +10,11 @@ describe('LiferayService Parity', () => {
       trace: vi.fn(),
     },
     cache: { get: vi.fn(), set: vi.fn() },
-    oauth: { getToken: vi.fn() },
+    oauth: {
+      getToken: vi.fn(),
+      getAccessToken: vi.fn().mockResolvedValue('mocked-test-token'),
+      isLiferayRouteAvailable: vi.fn().mockReturnValue(true),
+    },
   };
 
   const service = new LiferayService(mockCtx);

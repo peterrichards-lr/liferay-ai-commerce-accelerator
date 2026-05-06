@@ -33,6 +33,10 @@ describe.skip('Resilience & Retry', () => {
       },
     };
     mockCtx.oauth = new OAuthService(mockCtx);
+    mockCtx.oauth.getAccessToken = vi
+      .fn()
+      .mockResolvedValue('mocked-test-token');
+    mockCtx.oauth.isLiferayRouteAvailable = vi.fn().mockReturnValue(true);
     liferayService = new LiferayService(mockCtx);
   });
 

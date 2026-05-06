@@ -23,6 +23,15 @@ const handlers = [
     });
   }),
 
+  // Mock My User Account
+  http.get('*/o/headless-admin-user/v1.0/my-user-account', () => {
+    return HttpResponse.json({
+      id: 1,
+      emailAddress: 'test@liferay.com',
+      defaultAccountId: 10,
+    });
+  }),
+
   // Mock Products List
   http.get(
     '*/o/headless-commerce-admin-catalog/v1.0/products',

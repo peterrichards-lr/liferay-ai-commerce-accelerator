@@ -28,6 +28,12 @@ describe('LiferayService', () => {
       config: {},
     };
     mockCtx.oauth = new OAuthService(mockCtx);
+    // Mock the OAuth methods to completely bypass network and env requirements in CI
+    mockCtx.oauth.getAccessToken = vi
+      .fn()
+      .mockResolvedValue('mocked-test-token');
+    mockCtx.oauth.isLiferayRouteAvailable = vi.fn().mockReturnValue(true);
+
     mockCtx.contractValidator = new ContractValidator(mockCtx);
     liferayService = new LiferayService(mockCtx);
 
