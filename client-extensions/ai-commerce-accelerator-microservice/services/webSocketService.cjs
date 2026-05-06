@@ -107,6 +107,7 @@ class WebSocketService {
       scope: 'session',
       sessionId: session.id,
       flowType: session.type,
+      totalSteps: session.totalSteps,
       correlationId: options.correlationId || session.correlationId,
     });
   }

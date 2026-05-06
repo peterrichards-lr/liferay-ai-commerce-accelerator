@@ -292,10 +292,11 @@ export default function useRealtimeWebSocket({
             activeFlowTypeRef.current = isDelete ? 'delete' : 'generate';
 
             if (isDelete) {
-              if (data.totalSteps) {
+              const totalSteps = data.totalSteps || details?.totalSteps;
+              if (totalSteps) {
                 currentOnProgress?.({
                   type: 'SET_TOTAL_STEPS',
-                  total: data.totalSteps,
+                  total: totalSteps,
                 });
               }
               return;
@@ -350,6 +351,13 @@ export default function useRealtimeWebSocket({
                 entity: entityType,
                 completed: processedCount || 0,
               });
+              if (typeof totalCount === 'number') {
+                currentOnProgress({
+                  type: 'SET_TOTAL',
+                  entity: entityType,
+                  total: totalCount,
+                });
+              }
             } else if (scope === WS_SCOPE.BATCH && batchId) {
               // Log batch progress for visibility, but dedupe/throttle if needed
               // (currently just logging all for debugging as requested)
