@@ -1,0 +1,189 @@
+const { http, HttpResponse } = require('msw');
+const { server } = require('./mocks/server.cjs');
+const OpenAIProvider = require('../services/ai-providers/openaiProvider.cjs');
+const GeminiProvider = require('../services/ai-providers/geminiProvider.cjs');
+
+describe('AI Providers', () => {
+  beforeEach(() => {
+    // Clear any previous handlers
+    server.resetHandlers();
+  });
+
+  describe('OpenAIProvider', () => {
+    let provider;
+    let mockCtx;
+
+    beforeEach(() => {
+      mockCtx = { logger: { error: vi.fn() } };
+      provider = new OpenAIProvider(mockCtx);
+    });
+
+    it('should format payload correctly and generate JSON', async () => {
+      let requestBody;
+      server.use(
+        http.post(
+          'https://api.openai.com/v1/chat/completions',
+          async ({ request }) => {
+            requestBody = await request.json();
+            return HttpResponse.json({
+              choices: [{ message: { content: '{"status":"ok"}' } }],
+            });
+          }
+        )
+      );
+
+      const options = {
+        credentials: { apiKey: 'key' },
+        model: 'gpt-4o',
+        temperature: 0.5,
+        maxTokens: 1000,
+      };
+      const schema = { type: 'object' };
+      const result = await provider.generateJSON(
+        'test-task',
+        'test-prompt',
+        options,
+        schema
+      );
+
+      expect(result).toEqual({ status: 'ok' });
+      expect(requestBody.model).toBe('gpt-4o');
+      expect(requestBody.temperature).toBe(0.5);
+      expect(requestBody.max_tokens).toBe(1000);
+      expect(requestBody.response_format.type).toBe('json_object');
+      expect(requestBody.messages[0].content).toContain('test-task');
+      expect(requestBody.messages[0].content).toContain(JSON.stringify(schema));
+      expect(requestBody.messages[1].content).toBe('test-prompt');
+    });
+
+    it('should generate an image using dall-e-3', async () => {
+      let requestBody;
+      server.use(
+        http.post(
+          'https://api.openai.com/v1/images/generations',
+          async ({ request }) => {
+            requestBody = await request.json();
+            return HttpResponse.json({
+              data: [{ b64_json: 'base64image' }],
+            });
+          }
+        )
+      );
+
+      const options = { credentials: { apiKey: 'key' }, imageStyle: 'cartoon' };
+      const result = await provider.generateImage(
+        { name: { en_US: 'Product' } },
+        options
+      );
+
+      expect(result).toBe('base64image');
+      expect(requestBody.model).toBe('dall-e-3');
+      expect(requestBody.prompt).toContain('Product');
+      expect(requestBody.prompt).toContain('cartoon');
+    });
+
+    it('should validate credentials successfully', async () => {
+      server.use(
+        http.get('https://api.openai.com/v1/models', () => {
+          return HttpResponse.json({ data: [] });
+        })
+      );
+
+      const result = await provider.validateCredentials({ apiKey: 'key' });
+      expect(result).toBe(true);
+    });
+
+    it('should return false if credentials validation fails', async () => {
+      server.use(
+        http.get('https://api.openai.com/v1/models', () => {
+          return new HttpResponse(null, { status: 401 });
+        })
+      );
+
+      const result = await provider.validateCredentials({ apiKey: 'key' });
+      expect(result).toBe(false);
+    });
+  });
+
+  describe('GeminiProvider', () => {
+    let provider;
+    let mockCtx;
+
+    beforeEach(() => {
+      mockCtx = { logger: { error: vi.fn() } };
+      provider = new GeminiProvider(mockCtx);
+    });
+
+    it('should format payload correctly and generate JSON', async () => {
+      let requestBody;
+      server.use(
+        http.post(
+          'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5:generateContent',
+          async ({ request }) => {
+            requestBody = await request.json();
+            return HttpResponse.json({
+              candidates: [
+                { content: { parts: [{ text: '{"status":"ok"}' }] } },
+              ],
+            });
+          }
+        )
+      );
+
+      const options = { credentials: { apiKey: 'key' }, model: 'gemini-1.5' };
+      const schema = { type: 'object', properties: { test: 'val' } };
+      const result = await provider.generateJSON(
+        'test-task',
+        'test-prompt',
+        options,
+        schema
+      );
+
+      expect(result).toEqual({ status: 'ok' });
+      expect(requestBody.generationConfig.responseMimeType).toBe(
+        'application/json'
+      );
+
+      const content = requestBody.contents[0].parts[0].text;
+      expect(content).toContain('test-task');
+      expect(content).toContain('test-prompt');
+      expect(content).toContain(JSON.stringify(schema));
+    });
+
+    it('should throw unsupported error for generateImage', async () => {
+      await expect(
+        provider.generateImage({}, { credentials: { apiKey: 'key' } })
+      ).rejects.toThrow('Image generation not supported');
+    });
+
+    it('should validate credentials successfully', async () => {
+      server.use(
+        http.post(
+          'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent',
+          () => {
+            return HttpResponse.json({
+              candidates: [{ content: { parts: [{ text: 'pong' }] } }],
+            });
+          }
+        )
+      );
+
+      const result = await provider.validateCredentials({ apiKey: 'key' });
+      expect(result).toBe(true);
+    });
+
+    it('should return false if credentials validation fails', async () => {
+      server.use(
+        http.post(
+          'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent',
+          () => {
+            return new HttpResponse(null, { status: 401 });
+          }
+        )
+      );
+
+      const result = await provider.validateCredentials({ apiKey: 'key' });
+      expect(result).toBe(false);
+    });
+  });
+});

@@ -158,7 +158,7 @@ function requestSigningMiddleware(req, res, next) {
 }
 
 function verifyRequestSignature(req, signature, clientId) {
-  const clientSecret = getClientSecret(clientId);
+  const clientSecret = getClientSecret(clientId, req);
   if (!clientSecret) return false;
 
   const timestamp = req.get('X-Request-Timestamp');
@@ -172,23 +172,30 @@ function verifyRequestSignature(req, signature, clientId) {
     .update(payload)
     .digest('hex');
 
-  return crypto.timingSafeEqual(
-    Buffer.from(signature, 'hex'),
-    Buffer.from(expectedSignature, 'hex')
-  );
+  const signatureBuf = Buffer.from(signature, 'hex');
+  const expectedBuf = Buffer.from(expectedSignature, 'hex');
+
+  if (signatureBuf.length !== expectedBuf.length) {
+    return false;
+  }
+
+  return crypto.timingSafeEqual(signatureBuf, expectedBuf);
 }
 
-function getClientSecret(clientId) {
-  const cached = cacheService.getConfig(`client_secret:${clientId}`);
-  if (cached) return cached;
+function getClientSecret(clientId, req) {
+  const cache = req?.app?.locals?.ctx?.cache;
+  if (cache) {
+    const cached = cache.getConfig(`client_secret:${clientId}`);
+    if (cached) return cached;
+  }
 
   const secrets = {
     'test-client': ENV.TEST_CLIENT_SECRET || 'test-secret-key',
   };
 
   const secret = secrets[clientId];
-  if (secret) {
-    cacheService.cacheConfig(`client_secret:${clientId}`, secret, 3600000);
+  if (secret && cache) {
+    cache.cacheConfig(`client_secret:${clientId}`, secret, 3600000);
   }
 
   return secret;
