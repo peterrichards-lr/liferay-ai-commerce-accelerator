@@ -138,20 +138,21 @@ function AppUI() {
     progressReducer,
     initialProgress,
     (initial) => {
-      const savedSessionId = localStorage.getItem('aica_active_session_id');
-      return savedSessionId
-        ? { ...initial, activeSessionId: savedSessionId }
-        : initial;
+      const savedState = localStorage.getItem('aica_progress_state');
+      if (savedState) {
+        try {
+          return { ...initial, ...JSON.parse(savedState) };
+        } catch (e) {
+          console.error('Failed to parse saved progress state', e);
+        }
+      }
+      return initial;
     }
   );
 
   useEffect(() => {
-    if (progress.activeSessionId) {
-      localStorage.setItem('aica_active_session_id', progress.activeSessionId);
-    } else {
-      localStorage.removeItem('aica_active_session_id');
-    }
-  }, [progress.activeSessionId]);
+    localStorage.setItem('aica_progress_state', JSON.stringify(progress));
+  }, [progress]);
 
   const setProgress = useCallback((arg) => {
     if (typeof arg === 'function') {

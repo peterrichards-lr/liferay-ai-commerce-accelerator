@@ -257,7 +257,8 @@ export default function useRealtimeWebSocket({
 
       const entityType = normalizeEntityType(data.entityType);
       const { scope, error, sessionId, details } = data;
-      const flowType = details?.flowType || data.flowType;
+      const flowType =
+        details?.flowType || data.flowType || activeFlowTypeRef.current;
       const type = data.type || data.status; // Fallback to status if type is missing
 
       const processedCount = data.processedCount ?? data.completedCount;

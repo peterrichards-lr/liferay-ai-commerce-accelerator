@@ -24,7 +24,7 @@ function MiniProgressItem({
           {title}
         </span>
         <span className="text-secondary" style={{ fontSize: '0.75rem' }}>
-          {isDelete ? total : `${completed} / ${total}`}
+          {isDelete ? `${completed} Deleted` : `${completed} / ${total}`}
         </span>
       </div>
       <div className="d-flex align-items-center">
