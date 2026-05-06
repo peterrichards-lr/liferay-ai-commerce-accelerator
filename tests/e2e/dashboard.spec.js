@@ -70,4 +70,51 @@ test.describe("AICA End-to-End Verification", () => {
     await expect(console).toContainText(/Workflow completed/i);
     await expect(console).not.toContainText(/ERROR/i);
   });
+
+  test("should persist and resume active session on page reload", async ({
+    page,
+  }) => {
+    // 1. Ensure Demo Mode is active to avoid external API calls during E2E
+    const demoToggle = page.getByLabel(/Demo Mode/i);
+    if (!(await demoToggle.isChecked())) {
+      await demoToggle.check();
+    }
+
+    // 2. Set slightly higher counts to ensure the workflow doesn't finish before we reload
+    await page
+      .getByLabel(/Products/i)
+      .first()
+      .fill("5");
+    await page
+      .getByLabel(/Accounts/i)
+      .first()
+      .fill("5");
+
+    // 3. Trigger Generation
+    const generateBtn = page.getByRole("button", { name: /Generate/i });
+    await generateBtn.click();
+
+    // 4. Wait for the workflow to begin (Gauge > 0%)
+    const progressGauge = page.locator(".overall-gauge-container");
+    await expect(progressGauge).not.toContainText("0%", { timeout: 15000 });
+
+    // 5. Reload the page mid-flight
+    await page.reload();
+
+    // 6. Verify the UI correctly hydrates the running session state
+    // The "Generate" button should be disabled (replaced by Cancel)
+    await expect(page.getByRole("button", { name: /Generate/i })).toBeDisabled({
+      timeout: 10000,
+    });
+
+    // The Connection button should still show 'Connected'
+    await expect(
+      page.getByRole("button", { name: /Connected/i }),
+    ).toBeVisible();
+
+    // 7. Verify the process eventually completes
+    await expect(progressGauge).toContainText("100%", { timeout: 120000 });
+    const console = page.locator(".console-body");
+    await expect(console).toContainText(/Workflow completed/i);
+  });
 });
