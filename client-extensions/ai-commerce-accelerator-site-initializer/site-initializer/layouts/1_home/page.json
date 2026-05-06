@@ -1,0 +1,24 @@
+{
+  "externalReferenceCode": "ai-commerce-accelerator-home",
+  "friendlyURL": "/home",
+  "name": "Home",
+  "name_i18n": {
+    "en_US": "Home"
+  },
+  "pageDefinition": {
+    "pageElement": {
+      "pageElements": [
+        {
+          "definition": {
+            "fragmentCollectionKey": "ai-commerce-accelerator-fragments",
+            "fragmentKey": "ai-commerce-accelerator"
+          },
+          "type": "fragment"
+        }
+      ],
+      "type": "root"
+    }
+  },
+  "parentLayoutExternalReferenceCode": "",
+  "type": "content"
+}

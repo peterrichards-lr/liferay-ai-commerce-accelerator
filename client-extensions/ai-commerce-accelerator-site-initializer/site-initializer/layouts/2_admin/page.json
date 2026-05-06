@@ -1,0 +1,24 @@
+{
+  "externalReferenceCode": "ai-commerce-accelerator-admin",
+  "friendlyURL": "/admin",
+  "name": "Administration",
+  "name_i18n": {
+    "en_US": "Administration"
+  },
+  "pageDefinition": {
+    "pageElement": {
+      "pageElements": [
+        {
+          "definition": {
+            "fragmentCollectionKey": "ai-commerce-accelerator-fragments",
+            "fragmentKey": "ai-commerce-accelerator-admin"
+          },
+          "type": "fragment"
+        }
+      ],
+      "type": "root"
+    }
+  },
+  "parentLayoutExternalReferenceCode": "",
+  "type": "content"
+}

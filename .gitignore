@@ -26,7 +26,7 @@
 /plugins-sdk/lib
 test-results
 .vscode
-fragments/**/*.css
+client-extensions/ai-commerce-accelerator-site-initializer/site-initializer/fragments/**/*.css
 
 /client-extensions/ai-commerce-accelerator-microservice/logs
 /client-extensions/ai-commerce-accelerator-frontend/logs

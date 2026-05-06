@@ -694,11 +694,11 @@ class ConfigService {
 
     // Clear cache
     if (configKey === AI_CREDENTIALS_CONFIG_KEY) {
-      this.cache.del(AI_API_CACHE_KEY);
+      this.cache.delete(AI_API_CACHE_KEY);
     } else if (configKey === AI_MEDIA_CREDENTIALS_CONFIG_KEY) {
-      this.cache.del(AI_MEDIA_API_CACHE_KEY);
+      this.cache.delete(AI_MEDIA_API_CACHE_KEY);
     } else if (configKey === AI_CONFIG_KEY) {
-      this.cache.del(AI_CONFIG_CACHE_KEY);
+      this.cache.delete(AI_CONFIG_CACHE_KEY);
     }
 
     return result;

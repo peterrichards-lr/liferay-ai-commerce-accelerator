@@ -1,0 +1,66 @@
+{
+  "primaryColor": { "cssVariableMapping": "primary", "value": "#0053f0" },
+  "secondaryColor": { "cssVariableMapping": "secondary", "value": "#6b6c7e" },
+  "infoColor": { "cssVariableMapping": "info", "value": "#00d1ff" },
+  "successColor": { "cssVariableMapping": "success", "value": "#00ff94" },
+  "warningColor": { "cssVariableMapping": "warning", "value": "#ffbb00" },
+  "brandColor1": { "cssVariableMapping": "brand-color-1", "value": "#00d1ff" },
+  "brandColor2": { "cssVariableMapping": "brand-color-2", "value": "#7a00ff" },
+  "brandColor3": { "cssVariableMapping": "brand-color-3", "value": "#00ff94" },
+  "brandColor4": { "cssVariableMapping": "brand-color-4", "value": "#ffbb00" },
+  "btnPrimaryBackgroundColor": {
+    "cssVariableMapping": "btn-primary-background-color",
+    "name": "primaryColor",
+    "value": "#0053f0"
+  },
+  "btnPrimaryBorderColor": {
+    "cssVariableMapping": "btn-primary-border-color",
+    "name": "primaryColor",
+    "value": "#0053f0"
+  },
+  "btnPrimaryHoverBackgroundColor": {
+    "cssVariableMapping": "btn-primary-hover-background-color",
+    "value": "#004ecc"
+  },
+  "btnPrimaryHoverBorderColor": {
+    "cssVariableMapping": "btn-primary-hover-border-color",
+    "value": "#004ecc"
+  },
+  "btnSecondaryBackgroundColor": {
+    "cssVariableMapping": "btn-secondary-background-color",
+    "name": "secondaryColor",
+    "value": "#6b6c7e"
+  },
+  "btnSecondaryColor": {
+    "cssVariableMapping": "btn-secondary-color",
+    "value": "#ffffff"
+  },
+  "btnSecondaryHoverBackgroundColor": {
+    "cssVariableMapping": "btn-secondary-hover-background-color",
+    "value": "#5a5b6a"
+  },
+  "btnSecondaryHoverColor": {
+    "cssVariableMapping": "btn-secondary-hover-color",
+    "value": "#ffffff"
+  },
+  "btnOutlinePrimaryColor": {
+    "cssVariableMapping": "btn-outline-primary-color",
+    "name": "primaryColor",
+    "value": "#0053f0"
+  },
+  "btnOutlinePrimaryBorderColor": {
+    "cssVariableMapping": "btn-outline-primary-border-color",
+    "name": "primaryColor",
+    "value": "#0053f0"
+  },
+  "btnOutlinePrimaryHoverBackgroundColor": {
+    "cssVariableMapping": "btn-outline-primary-hover-background-color",
+    "name": "primaryColor",
+    "value": "#0053f0"
+  },
+  "btnOutlinePrimaryHoverBorderColor": {
+    "cssVariableMapping": "btn-outline-primary-hover-border-color",
+    "name": "primaryColor",
+    "value": "#0053f0"
+  }
+}

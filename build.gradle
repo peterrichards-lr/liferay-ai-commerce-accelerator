@@ -285,8 +285,8 @@ generateBatchFiles {
 // ======================================================================
 
 def CX_DIR = file(findProperty('cx.dir') ?: "$rootDir/client-extensions/ai-commerce-accelerator-frontend")
-def FRAGMENTS_DIR = file(findProperty('fragments.dir') ?: "$rootDir/fragments")
-def FRAGMENT_DIR = file(findProperty('fragment.dir') ?: "$rootDir/fragments/ai-commerce-accelerator")
+def FRAGMENTS_DIR = file(findProperty('fragments.dir') ?: "$rootDir/client-extensions/ai-commerce-accelerator-site-initializer/site-initializer/fragments/group/ai-commerce-accelerator-fragments")
+def FRAGMENT_DIR = file(findProperty('fragment.dir') ?: "$rootDir/client-extensions/ai-commerce-accelerator-site-initializer/site-initializer/fragments/group/ai-commerce-accelerator-fragments/ai-commerce-accelerator")
 
 def FRAGMENTS_ZIP_NAME = "ai-accelerator-fragments.zip"
 def FRAGMENTS_ZIP_OUT = layout.buildDirectory.dir("fragments")
@@ -611,6 +611,12 @@ tasks.named('assemble') {
 	dependsOn tasks.named('generateBatchFiles')
 	dependsOn tasks.named('zipFragments')
 	dependsOn tasks.named('buildConfigurationCX')
+}
+
+project(':client-extensions:ai-commerce-accelerator-site-initializer') {
+	tasks.matching { it.name == 'buildSiteInitializerZip' }.configureEach {
+		dependsOn ':syncFragmentCssToFragment'
+	}
 }
 
 tasks.matching { it.name == 'deploy' }.configureEach {

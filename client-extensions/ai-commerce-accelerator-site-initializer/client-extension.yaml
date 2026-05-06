@@ -1,0 +1,14 @@
+ai-commerce-accelerator-site-initializer:
+    name: AI Commerce Accelerator Site Initializer
+    oAuthApplicationHeadlessServer: ai-commerce-accelerator-site-initializer-oahs
+    siteExternalReferenceCode: ai-commerce-accelerator
+    siteName: AI Commerce Accelerator
+    type: siteInitializer
+
+ai-commerce-accelerator-site-initializer-oahs:
+    .serviceAddress: localhost:8080
+    .serviceScheme: http
+    name: AI Commerce Accelerator Site Initializer OAuth Application Headless Server
+    scopes:
+        - Liferay.Headless.Site.everything
+    type: oAuthApplicationHeadlessServer

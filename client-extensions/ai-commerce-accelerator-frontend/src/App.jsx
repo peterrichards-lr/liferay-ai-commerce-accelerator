@@ -636,7 +636,7 @@ function AppUI() {
             sm={12}
             className="sticky-top-lg"
             style={{
-              top: 'calc(var(--control-menu-height, 0px) + 2rem)',
+              top: 'calc(var(--control-menu-height, 0px))',
               zIndex: 10,
             }}
           >
