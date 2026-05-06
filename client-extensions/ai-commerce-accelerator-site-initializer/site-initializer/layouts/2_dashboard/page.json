@@ -1,9 +1,9 @@
 {
-  "externalReferenceCode": "ai-commerce-accelerator-admin",
-  "friendlyURL": "/admin",
-  "name": "Administration",
+  "externalReferenceCode": "ai-commerce-accelerator-dashboard",
+  "friendlyURL": "/dashboard",
+  "name": "Dashboard",
   "name_i18n": {
-    "en_US": "Administration"
+    "en_US": "Dashboard"
   },
   "pageDefinition": {
     "pageElement": {
