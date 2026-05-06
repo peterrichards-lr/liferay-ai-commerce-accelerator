@@ -179,8 +179,11 @@ export function progressReducer(state, action) {
 
 export const ACTIONS = {
   reset: () => ({ type: 'RESET' }),
-  setActiveSession: (sessionId, flowType) =>
-    ({ type: 'SET_ACTIVE_SESSION', sessionId, flowType }),
+  setActiveSession: (sessionId, flowType) => ({
+    type: 'SET_ACTIVE_SESSION',
+    sessionId,
+    flowType,
+  }),
   setWorkflowStatus: (status) => ({ type: 'SET_WORKFLOW_STATUS', status }),
   setTotal: (entity, total) => ({ type: 'SET_TOTAL', entity, total }),
   setTotals: (totals) => ({ type: 'SET_TOTALS', totals }),

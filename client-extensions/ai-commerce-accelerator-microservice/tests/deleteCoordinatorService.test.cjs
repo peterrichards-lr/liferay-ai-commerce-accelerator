@@ -79,9 +79,13 @@ describe('DeleteCoordinatorService', () => {
     const options = {};
     const deleteScope = [{ name: 'deleteOrders' }];
 
-    const result = await coordinator.runDeleteSelectedAndMonitor(config, options, {
-      deleteScope,
-    });
+    const result = await coordinator.runDeleteSelectedAndMonitor(
+      config,
+      options,
+      {
+        deleteScope,
+      }
+    );
 
     expect(result.sessionId).toBeDefined();
     const session = persistence.getSession(result.sessionId);

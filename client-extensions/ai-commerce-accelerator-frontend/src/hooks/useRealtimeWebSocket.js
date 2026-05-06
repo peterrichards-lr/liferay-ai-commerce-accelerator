@@ -333,7 +333,7 @@ export default function useRealtimeWebSocket({
                 completed: processedCount || 0,
               });
             } else if (scope === WS_SCOPE.BATCH && batchId) {
-              // Log batch progress for visibility, but dedupe/throttle if needed 
+              // Log batch progress for visibility, but dedupe/throttle if needed
               // (currently just logging all for debugging as requested)
               if (processedCount % 5 === 0 || processedCount === totalCount) {
                 currentOnLog?.(

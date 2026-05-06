@@ -41,8 +41,8 @@ jobs:
         run: yarn test
         timeout-minutes: 15
 
-      # Note: Smoke tests are currently disabled in CI because they require 
-      # a running Liferay instance. To enable them, configure a mock environment 
+      # Note: Smoke tests are currently disabled in CI because they require
+      # a running Liferay instance. To enable them, configure a mock environment
       # or a live test server.
       # - name: Install Playwright Browsers
       #   run: npx playwright install --with-deps chromium

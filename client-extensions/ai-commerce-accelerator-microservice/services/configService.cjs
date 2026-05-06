@@ -710,17 +710,29 @@ class ConfigService {
     const coreApiKey = lookupConfig('AI_API_KEY');
     const mediaApiKey = lookupConfig('AI_MEDIA_API_KEY');
 
+    logger?.debug?.('Startup key sync: Checking environment...', {
+      foundAIKey: !!coreApiKey,
+      foundMediaKey: !!mediaApiKey,
+    });
+
     // 1. Sync Core AI Key
-    if (coreApiKey && coreApiKey.trim().length > 0) {
+    if (coreApiKey && String(coreApiKey).trim().length > 0) {
       logger?.info?.('Syncing AI_API_KEY from environment to Liferay...', {
         operation: 'sync-env-keys',
       });
 
       try {
-        await this.saveConfig({}, AI_CREDENTIALS_CONFIG_KEY, coreApiKey.trim());
+        await this.saveConfig(
+          {},
+          AI_CREDENTIALS_CONFIG_KEY,
+          String(coreApiKey).trim()
+        );
         logger?.info?.('Successfully synced AI_API_KEY to Liferay.', {
           operation: 'sync-env-keys',
         });
+
+        // SECURITY: Remove from process.env after sync
+        delete process.env.AI_API_KEY;
       } catch (error) {
         logger?.error?.('Failed to sync AI_API_KEY to Liferay', {
           operation: 'sync-env-keys',
@@ -730,7 +742,7 @@ class ConfigService {
     }
 
     // 2. Sync Media AI Key
-    if (mediaApiKey && mediaApiKey.trim().length > 0) {
+    if (mediaApiKey && String(mediaApiKey).trim().length > 0) {
       logger?.info?.(
         'Syncing AI_MEDIA_API_KEY from environment to Liferay...',
         {
@@ -742,11 +754,14 @@ class ConfigService {
         await this.saveConfig(
           {},
           AI_MEDIA_CREDENTIALS_CONFIG_KEY,
-          mediaApiKey.trim()
+          String(mediaApiKey).trim()
         );
         logger?.info?.('Successfully synced AI_MEDIA_API_KEY to Liferay.', {
           operation: 'sync-env-keys',
         });
+
+        // SECURITY: Remove from process.env after sync
+        delete process.env.AI_MEDIA_API_KEY;
       } catch (error) {
         logger?.error?.('Failed to sync AI_MEDIA_API_KEY to Liferay', {
           operation: 'sync-env-keys',

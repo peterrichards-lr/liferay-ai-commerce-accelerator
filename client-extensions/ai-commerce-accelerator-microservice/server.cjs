@@ -1,3 +1,19 @@
+const path = require('path');
+const fs = require('fs');
+
+// LOAD ENV FROM PROJECT ROOT (MUST BE BEFORE ANY OTHER IMPORTS)
+try {
+  const rootEnvPath = path.resolve(__dirname, '../../.env');
+  if (fs.existsSync(rootEnvPath)) {
+    require('dotenv').config({ path: rootEnvPath });
+    logger.info(`Loaded environment from ${rootEnvPath}`);
+  } else {
+    logger.debug(`No .env found at ${rootEnvPath}`);
+  }
+} catch (err) {
+  logger.warn(`Error loading .env from root: ${err.message}`);
+}
+
 const { logger } = require('./utils/logger.cjs');
 const { checkAndRebuild } = require('./scripts/ensure-native-modules.cjs');
 
@@ -30,7 +46,6 @@ const {
 const express = require('express');
 const cors = require('cors');
 const http = require('http');
-const path = require('path');
 
 const app = express();
 const server = http.createServer(app);
