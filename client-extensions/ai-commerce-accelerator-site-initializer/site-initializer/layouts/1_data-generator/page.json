@@ -1,9 +1,9 @@
 {
-  "externalReferenceCode": "ai-commerce-accelerator-home",
-  "friendlyURL": "/home",
-  "name": "Home",
+  "externalReferenceCode": "ai-commerce-accelerator-data-generator",
+  "friendlyURL": "/data-generator",
+  "name": "Data Generator",
   "name_i18n": {
-    "en_US": "Home"
+    "en_US": "Data Generator"
   },
   "pageDefinition": {
     "pageElement": {
