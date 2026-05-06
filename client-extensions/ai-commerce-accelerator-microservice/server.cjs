@@ -260,7 +260,7 @@ const gracefulShutdown = async (signal) => {
     configService,
     cacheService,
     logger,
-    progressService: ws,
+    progressService,
     persistenceService,
     batchCallbackService,
   };
