@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import ClayCard from '@clayui/card';
 import ClayForm, { ClayInput } from '@clayui/form';
 import { useApp } from '../../context/AppContext';
@@ -8,12 +8,21 @@ import { getConnectionErrorsMap } from '../../utils/validation';
 export default function ConnectionAuthCard({
   onTestConnection,
   disabled = false,
+  connected = false,
   errors,
   onErrorsChange,
 }) {
   const { config, setConfig } = useApp();
   const [loading, setLoading] = useState(false);
   const [status, setStatus] = useState('idle'); // idle | success | error
+
+  useEffect(() => {
+    if (connected) {
+      setStatus('success');
+    } else if (!connected && status === 'success') {
+      setStatus('error');
+    }
+  }, [connected, status]);
 
   const isHosted = !!config.liferayHosted;
 

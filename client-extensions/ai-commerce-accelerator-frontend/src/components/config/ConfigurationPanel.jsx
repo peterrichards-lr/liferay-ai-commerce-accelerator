@@ -38,6 +38,7 @@ export default function ApplicationConfigPanel({
     <div className="application-config grid grid-cols-1 gap-16">
       <ConnectionAuthCard
         disabled={disabled}
+        connected={connected}
         onTestConnection={handleTest}
         errors={connectionErrors}
         onErrorsChange={onErrorsChange}
