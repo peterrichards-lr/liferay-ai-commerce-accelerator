@@ -235,11 +235,16 @@ function AppUI() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const handleProgressReset = useCallback(() => {
+  const handleResetStatus = useCallback(() => {
+    dispatch({ type: 'RESET' });
+    notifyUser('Workflow status reset.');
+  }, [notifyUser]);
+
+  const handleResetAll = useCallback(() => {
     dispatch({ type: 'RESET' });
     clearLogs();
-    notifyUser('Dashboard state reset.');
-  }, [clearLogs]);
+    notifyUser('Dashboard status and logs reset.');
+  }, [clearLogs, notifyUser]);
 
   const cancelWorkflow = useCallback(async () => {
     await baseCancelWorkflow();
@@ -599,7 +604,6 @@ function AppUI() {
                 onGenerate={generateData}
                 onResetSettings={handleSettingsReset}
                 onCancel={cancelWorkflow}
-                onResetProgress={handleProgressReset}
                 disabled={isFormLocked}
                 isSubmitDisabled={isSubmitDisabled}
                 disabledReason={disabledReason}
@@ -660,6 +664,8 @@ function AppUI() {
                 aiKeyAvailable={aiKeyAvailable}
                 aiMediaKeyAvailable={aiMediaKeyAvailable}
                 aiConfig={aiConfig}
+                onResetStatus={handleResetStatus}
+                onResetAll={handleResetAll}
               />
             </div>
           </ClayLayout.Col>

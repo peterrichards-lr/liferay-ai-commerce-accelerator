@@ -1,6 +1,8 @@
 import React, { useState, useCallback, useEffect } from 'react';
 import ClayCard from '@clayui/card';
 import ClayLabel from '@clayui/label';
+import ClayButton from '@clayui/button';
+import ClayIcon from '@clayui/icon';
 
 import StatusMonitor from './StatusMonitor';
 import ProgressMonitor from './ProgressMonitor';
@@ -78,6 +80,8 @@ function Dashboard({
   aiKeyAvailable,
   aiMediaKeyAvailable,
   aiConfig,
+  onResetStatus,
+  onResetAll,
 }) {
   const { total, completed } = getTotalProgress(progress);
   const overallPercentage = total > 0 ? (completed / total) * 100 : 0;
@@ -144,7 +148,29 @@ function Dashboard({
                 </ClayLabel>
               )}
             </h4>
-            <WsStatusIndicator status={wsStatus} onReconnect={onReconnect} />
+            <div className="d-flex align-items-center">
+              {total > 0 && !isGenerating && (
+                <div className="mr-3 d-flex align-items-center">
+                  <ClayButton
+                    displayType="unstyled"
+                    className="text-secondary p-1 mr-2 d-flex align-items-center"
+                    onClick={onResetStatus}
+                    title="Clear Workflow Status"
+                  >
+                    <ClayIcon symbol="times-circle" />
+                  </ClayButton>
+                  <ClayButton
+                    displayType="unstyled"
+                    className="text-secondary p-1 d-flex align-items-center"
+                    onClick={onResetAll}
+                    title="Clear Status & Logs"
+                  >
+                    <ClayIcon symbol="trash" />
+                  </ClayButton>
+                </div>
+              )}
+              <WsStatusIndicator status={wsStatus} onReconnect={onReconnect} />
+            </div>
           </div>
 
           <div className="mt-3">

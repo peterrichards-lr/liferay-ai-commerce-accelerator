@@ -543,20 +543,6 @@ function DataGeneratorForm({
               </ClayButton>
             </span>
           )}
-
-          {getTotalProgress(progress).total > 0 && !isGenerating && (
-            <div className="mt-3 text-center">
-              <ClayButton
-                displayType="unstyled"
-                className="text-secondary"
-                onClick={onResetProgress}
-                title="Clear current progress and activity logs"
-              >
-                <ClayIcon symbol="redo" className="mr-2" />
-                Reset Dashboard State
-              </ClayButton>
-            </div>
-          )}
         </div>
       </form>
     </CollapsiblePanel>
