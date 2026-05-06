@@ -1,11 +1,4 @@
-const {
-  sanitizeValue,
-  redactUrl,
-  sanitizedObject,
-  buildConfigAndOptions,
-} = require('../utils/normalize.cjs');
-
-// Mock liferayEnv to avoid complex environment dependencies
+// Mock liferayEnv to avoid complex environment dependencies before normalize requires it
 vi.mock('../utils/liferayEnv.cjs', () => ({
   resolveEffectiveLiferayConnection: vi.fn().mockImplementation((config) => ({
     liferayUrl: config.liferayUrl || 'http://localhost:8080',
@@ -14,6 +7,13 @@ vi.mock('../utils/liferayEnv.cjs', () => ({
     isColocated: false,
   })),
 }));
+
+const {
+  sanitizeValue,
+  redactUrl,
+  sanitizedObject,
+  buildConfigAndOptions,
+} = require('../utils/normalize.cjs');
 
 describe('Data Normalization', () => {
   describe('redactUrl', () => {
