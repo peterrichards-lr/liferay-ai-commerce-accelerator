@@ -14,9 +14,11 @@ function AssetToggle({ label, icon, value, onChange, disabled, options }) {
           <button
             key={opt.value}
             type="button"
-            className={`btn ${value === opt.value ? 'btn-primary active' : 'btn-secondary'}`}
+            className={`btn ${
+              value === opt.value ? 'btn-primary active' : 'btn-secondary'
+            }`}
             onClick={() => onChange(opt.value)}
-            disabled={disabled}
+            disabled={disabled || opt.disabled}
             style={{ flex: 1 }}
           >
             {opt.label}
@@ -49,17 +51,22 @@ function RatioControl({ id, label, value, onChange, disabled }) {
   );
 }
 
-export default function VisualAssetControls({ values, onChange, disabled }) {
+export default function VisualAssetControls({
+  values,
+  onChange,
+  disabled,
+  aiKeyAvailable,
+}) {
   const imageOptions = [
     { label: 'None', value: 'none' },
     { label: 'Placeholder', value: 'placeholder' },
-    { label: 'AI Gen', value: 'ai' },
+    { label: 'AI Gen', value: 'ai', disabled: !aiKeyAvailable },
   ];
 
   const pdfOptions = [
     { label: 'None', value: 'none' },
     { label: 'Placeholder', value: 'placeholder' },
-    { label: 'AI Gen', value: 'ai' },
+    { label: 'AI Gen', value: 'ai', disabled: !aiKeyAvailable },
   ];
 
   return (

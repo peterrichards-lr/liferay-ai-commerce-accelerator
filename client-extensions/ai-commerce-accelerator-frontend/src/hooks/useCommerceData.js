@@ -85,11 +85,15 @@ export default function useCommerceData({
     return { catalogs: cats, channels: chs };
   }, [api, buildPayload]);
 
-  const testConnection = async () => {
+  const testConnection = async (options = {}) => {
+    const { silent = false } = options;
+
     const errs = getConnectionErrorsMap(config);
-    setConnectionErrors(errs);
+    if (!silent) setConnectionErrors(errs);
 
     if (hasAnyErrors(errs)) {
+      if (silent) return;
+
       const firstKey = Object.keys(errs)[0];
       requestAnimationFrame(() => {
         const el = document.getElementById(`conn_${firstKey}`);
@@ -98,26 +102,37 @@ export default function useCommerceData({
       throw new Error('Fix the highlighted issues to continue.');
     }
 
-    const payload = buildPayload();
-    const res = await api.post(TEST_CONNECTION, payload);
+    try {
+      const payload = buildPayload();
+      const res = await api.post(TEST_CONNECTION, payload);
 
-    if (!res?.success) {
+      if (!res?.success) {
+        setConnectionEstablished(false);
+        setAiKeyAvailable(false);
+        setAiMediaKeyAvailable && setAiMediaKeyAvailable(false);
+
+        if (!silent) {
+          throw new Error(res?.message || 'Failed to establish connection.');
+        }
+        return res;
+      }
+
+      if (!silent) {
+        addLog(res.message || 'Connected.', 'success');
+      }
+
+      setAiKeyAvailable(Boolean(res.aiTextKeyAvailable));
+      setAiMediaKeyAvailable &&
+        setAiMediaKeyAvailable(Boolean(res.aiMediaKeyAvailable));
+
+      await loadRootLists();
+      setConnectionEstablished(true);
+
+      return res;
+    } catch (err) {
       setConnectionEstablished(false);
-      setAiKeyAvailable(false);
-      setAiMediaKeyAvailable && setAiMediaKeyAvailable(false);
-      throw new Error(res?.message || 'Failed to establish connection.');
+      if (!silent) throw err;
     }
-
-    addLog(res.message || 'Connected.', 'success');
-
-    setAiKeyAvailable(Boolean(res.aiTextKeyAvailable));
-    setAiMediaKeyAvailable &&
-      setAiMediaKeyAvailable(Boolean(res.aiMediaKeyAvailable));
-
-    await loadRootLists();
-    setConnectionEstablished(true);
-
-    return res;
   };
 
   const loadChannelDependent = useCallback(

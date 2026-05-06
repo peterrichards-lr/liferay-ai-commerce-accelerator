@@ -214,6 +214,26 @@ function AppUI() {
     connectionEstablished,
   });
 
+  useEffect(() => {
+    if (connectionEstablished) {
+      localStorage.setItem('aica_has_connected_once', 'true');
+    }
+  }, [connectionEstablished]);
+
+  useEffect(() => {
+    const hasConnectedOnce =
+      localStorage.getItem('aica_has_connected_once') === 'true';
+
+    if (hasConnectedOnce && !connectionEstablished) {
+      testConnection({ silent: true }).catch(() => {
+        // Silently reset flag if even auto-probe fails repeatedly?
+        // Actually, let's keep it true so it tries next refresh too,
+        // or just let it be. The user's directive is to wait for them.
+      });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const handleProgressReset = useCallback(() => {
     dispatch({ type: 'RESET' });
     clearLogs();

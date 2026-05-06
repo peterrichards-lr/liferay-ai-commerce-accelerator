@@ -1,4 +1,4 @@
-import React, { useCallback, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import ClayIcon from '@clayui/icon';
 import ClayForm, { ClayInput, ClayToggle } from '@clayui/form';
 import ClayButton from '@clayui/button';
@@ -140,6 +140,13 @@ function DataGeneratorForm({
 
   const lockFields = disabled;
 
+  useEffect(() => {
+    if (!aiKeyAvailable && !generationConfig.demoMode) {
+      handleConfigChange('demoMode', true);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [aiKeyAvailable, generationConfig.demoMode]);
+
   return (
     <CollapsiblePanel
       id="data-generator"
@@ -198,19 +205,33 @@ function DataGeneratorForm({
 
         <div className="d-flex justify-content-end my-4 align-items-center">
           <span
-            className={`mr-2 font-weight-semi-bold ${!generationConfig.demoMode ? 'text-secondary' : 'text-primary'}`}
+            className={`mr-2 font-weight-semi-bold ${
+              generationConfig.demoMode ? 'text-primary' : 'text-secondary'
+            }`}
           >
             Demo (Mock Data)
           </span>
-          <ClayToggle
-            id="dataGeneration_demoMode"
-            toggled={!generationConfig.demoMode}
-            onToggle={(val) => handleConfigChange('demoMode', !val)}
-            disabled={lockFields}
-            aria-label="Toggle Data Generation Mode"
-          />
+          <div
+            title={
+              !aiKeyAvailable
+                ? 'AI API Key not configured. Using Demo Mode.'
+                : undefined
+            }
+          >
+            <ClayToggle
+              id="dataGeneration_demoMode"
+              toggled={!generationConfig.demoMode && aiKeyAvailable}
+              onToggle={(val) => handleConfigChange('demoMode', !val)}
+              disabled={lockFields || !aiKeyAvailable}
+              aria-label="Toggle Data Generation Mode"
+            />
+          </div>
           <span
-            className={`ml-2 font-weight-semi-bold ${!generationConfig.demoMode ? 'text-primary' : 'text-secondary'}`}
+            className={`ml-2 font-weight-semi-bold ${
+              !generationConfig.demoMode && aiKeyAvailable
+                ? 'text-primary'
+                : 'text-secondary'
+            }`}
           >
             Live (AI Driven)
           </span>
