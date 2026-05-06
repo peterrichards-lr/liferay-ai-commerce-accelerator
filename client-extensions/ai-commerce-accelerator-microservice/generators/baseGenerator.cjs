@@ -120,6 +120,18 @@ class BaseGenerator extends BaseWorkflowService {
       { sessionId }
     );
 
+    // Broadcast step completion to the UI
+    if (this.progress && typeof this.progress.stepCompleted === 'function') {
+      await this.progress.stepCompleted({
+        sessionId,
+        step: stepKey,
+        entityType: this._normalizeEntityType(stepKey),
+        operation: session.flow_type || session.flowType,
+        totalCount,
+        correlationId: session.correlationId,
+      });
+    }
+
     // 2. Trigger the next step discovery
     // We add a tiny jitter to ensure the SQLite write-lock has cleared
     await delay(100);

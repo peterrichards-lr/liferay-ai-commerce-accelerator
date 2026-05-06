@@ -378,6 +378,37 @@ class BatchCallbackService {
         correlationId: effectiveCorrelationId,
       });
 
+      // 5.5 Broadcast Step Completed if all batches for this step are done
+      const sessionBatches = await persistence.getBatchesForSession(
+        session.session_id
+      );
+      const stepBatches = sessionBatches.filter(
+        (b) => b.step_key === dbBatch.step_key
+      );
+      const isTerminal = (b) =>
+        ['COMPLETED', 'FAILED', 'BYPASSED', 'SYNCHRONOUS'].includes(b.status);
+
+      if (
+        stepBatches.length > 0 &&
+        stepBatches.every(isTerminal) &&
+        !stepBatches.some((b) => b.status === 'FAILED')
+      ) {
+        const totalStepCount = stepBatches.reduce(
+          (sum, b) => sum + (b.total_count || 0),
+          0
+        );
+        progress.stepCompleted({
+          sessionId: session.session_id,
+          step: dbBatch.step_key,
+          entityType: generator
+            ? generator._normalizeEntityType(dbBatch.step_key)
+            : dbBatch.step_key,
+          operation: session.flow_type,
+          totalCount: totalStepCount,
+          correlationId: effectiveCorrelationId,
+        });
+      }
+
       // 6. Trigger Advancement
       await this._checkSessionCompletion(
         session.session_id,
