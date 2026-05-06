@@ -86,7 +86,7 @@
       "prettier --write --config client-extensions/ai-commerce-accelerator-frontend/.prettierrc",
       "markdownlint"
     ],
-    "*.{js,json}": [
+    "*.{js,json,yaml,yml}": [
       "prettier --write"
     ],
     "*.md": [
