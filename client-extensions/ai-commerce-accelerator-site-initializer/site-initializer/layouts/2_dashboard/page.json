@@ -1,6 +1,7 @@
 {
   "externalReferenceCode": "ai-commerce-accelerator-dashboard",
   "friendlyURL": "/dashboard",
+  "masterPageExternalReferenceCode": "aica-master-page",
   "name": "Dashboard",
   "name_i18n": {
     "en_US": "Dashboard"
