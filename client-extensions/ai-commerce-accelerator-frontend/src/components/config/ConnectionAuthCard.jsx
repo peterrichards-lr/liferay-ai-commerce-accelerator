@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import ClayCard from '@clayui/card';
 import ClayForm, { ClayInput } from '@clayui/form';
 import { useApp } from '../../context/AppContext';
@@ -14,15 +14,15 @@ export default function ConnectionAuthCard({
 }) {
   const { config, setConfig } = useApp();
   const [loading, setLoading] = useState(false);
-  const [status, setStatus] = useState('idle'); // idle | success | error
+  const [testFailed, setTestFailed] = useState(false);
 
-  useEffect(() => {
-    if (connected) {
-      setStatus('success');
-    } else if (!connected && status === 'success') {
-      setStatus('error');
-    }
-  }, [connected, status]);
+  const status = loading
+    ? 'idle'
+    : testFailed
+      ? 'error'
+      : connected
+        ? 'success'
+        : 'idle';
 
   const isHosted = !!config.liferayHosted;
 
@@ -41,11 +41,11 @@ export default function ConnectionAuthCard({
   const onTest = async () => {
     if (disabled) return;
     setLoading(true);
+    setTestFailed(false);
     try {
       await onTestConnection();
-      setStatus('success');
     } catch {
-      setStatus('error');
+      setTestFailed(true);
     } finally {
       setLoading(false);
     }
