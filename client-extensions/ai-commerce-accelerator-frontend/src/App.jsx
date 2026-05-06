@@ -323,6 +323,21 @@ function AppUI() {
         const fetched = await fetchCategories();
         if (mountedRef.current) {
           setAvailableCategories(fetched);
+
+          // Auto-select first category if none are selected
+          if (fetched.length > 0) {
+            setGenerationConfig((prev) => {
+              if (!prev.categories || prev.categories.length === 0) {
+                const firstKey =
+                  typeof fetched[0] === 'string' ? fetched[0] : fetched[0].key;
+                return {
+                  ...prev,
+                  categories: [firstKey],
+                };
+              }
+              return prev;
+            });
+          }
         }
       } catch {
         // silently fail
@@ -399,18 +414,38 @@ function AppUI() {
               >
                 <ClayIcon symbol="magic" />
               </div>
-              <div>
+              <div className="d-flex flex-column">
                 <span className="h5 mb-0 font-weight-bold d-block">
                   {config.title || 'Liferay AI Commerce Accelerator'}
                 </span>
-                <ClayLabel
-                  className="align-self-center mb-0"
-                  displayType={connectionEstablished ? 'success' : 'warning'}
-                >
-                  {connectionEstablished
-                    ? 'Connected to Liferay'
-                    : 'Disconnected'}
-                </ClayLabel>
+                <div className="d-flex align-items-center">
+                  <button
+                    className="btn btn-unstyled p-0"
+                    onClick={() => testConnection()}
+                    disabled={isGenerating}
+                    title="Click to re-initialize the accelerator connection"
+                  >
+                    <ClayLabel
+                      className="mb-0"
+                      displayType={
+                        connectionEstablished ? 'success' : 'warning'
+                      }
+                      style={{
+                        cursor: isGenerating ? 'not-allowed' : 'pointer',
+                      }}
+                    >
+                      {connectionEstablished
+                        ? 'Connected to Liferay'
+                        : 'Disconnected'}
+                    </ClayLabel>
+                  </button>
+                  <small
+                    className="text-muted ml-2"
+                    style={{ fontSize: '0.7rem' }}
+                  >
+                    (Click to re-initialise)
+                  </small>
+                </div>
               </div>
             </div>
 
