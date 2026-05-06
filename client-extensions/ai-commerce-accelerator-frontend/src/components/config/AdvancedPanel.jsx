@@ -72,6 +72,40 @@ function ClearChannelCommerceDataButton({
   );
 }
 
+function FactoryResetButton() {
+  const confirm = useConfirm();
+
+  const onClick = async () => {
+    const ok = await confirm({
+      title: 'Factory Reset App',
+      message:
+        'Are you sure you want to perform a factory reset? This will delete all saved configurations, keys, and workflow history from your browser. This action cannot be undone.',
+      confirmText: 'Reset',
+      cancelText: 'Cancel',
+      destructive: true,
+    });
+    if (ok) {
+      Object.keys(localStorage).forEach((key) => {
+        if (key.startsWith('aica_')) {
+          localStorage.removeItem(key);
+        }
+      });
+      window.location.reload();
+    }
+  };
+
+  return (
+    <button
+      type="button"
+      className="btn w-100 btn-outline-danger my-2 py-2"
+      onClick={onClick}
+    >
+      <i className="icon icon-warning-full mr-2"></i>
+      Factory Reset App
+    </button>
+  );
+}
+
 export default function AdvancedPanel({
   disabled = false,
   connected = false,
@@ -139,9 +173,12 @@ export default function AdvancedPanel({
             disabled={!connected}
             onDeleteAllCommerceData={onDeleteAllCommerceData}
           />
+          <div className="divider my-3"></div>
+          <FactoryResetButton />
         </ConfirmProvider>
         <div className="form-text">
-          Proceeding will delete the Commerce data in your Liferay DXP instance.
+          Proceeding will delete data or configurations from your Liferay DXP
+          instance or local browser.
         </div>
       </ClayForm.Group>
     </CollapsiblePanel>
