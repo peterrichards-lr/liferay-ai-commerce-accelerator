@@ -114,7 +114,10 @@ export function progressReducer(state, action) {
         errors: [],
         batches: {},
       };
-      return { ...state, [entity]: { ...cur, completed } };
+
+      const isDone = cur.total > 0 && completed >= cur.total;
+
+      return { ...state, [entity]: { ...cur, completed, isDone } };
     }
 
     case 'SET_COMPLETED_TO_TOTAL': {
@@ -157,6 +160,7 @@ export function progressReducer(state, action) {
       );
 
       const summedTotal = Math.max(cur.total, summedBatchTotals);
+      const isDone = summedTotal > 0 && summedCompleted >= summedTotal;
 
       return {
         ...state,
@@ -165,6 +169,7 @@ export function progressReducer(state, action) {
           batches: nextBatches,
           completed: summedCompleted,
           total: summedTotal,
+          isDone,
         },
       };
     }
