@@ -5,6 +5,15 @@ export NVM_DIR="$HOME/.nvm"
 # Load local huskyrc if it exists for user-specific PATH overrides
 [ -f ~/.huskyrc ] && . ~/.huskyrc
 
-npx lint-staged
-yarn lint
-yarn test
+echo "🔍 Running pre-commit checks..."
+
+echo "⚡ Running lint-staged (auto-fixing)..."
+npx lint-staged || exit 1
+
+echo "🧹 Running full project lint..."
+yarn lint || exit 1
+
+echo "🧪 Running unit tests..."
+yarn test || exit 1
+
+echo "✅ Pre-commit checks passed!"

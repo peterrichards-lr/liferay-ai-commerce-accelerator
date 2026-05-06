@@ -25,6 +25,9 @@ jobs:
       - name: Install dependencies
         run: yarn install --frozen-lockfile
 
+      - name: Rebuild native modules
+        run: yarn workspace @liferay/liferay-ai-commerce-accelerator-microservice run prestart
+
       - name: Run Prettier Check
         run: yarn prettier --check .
         timeout-minutes: 5

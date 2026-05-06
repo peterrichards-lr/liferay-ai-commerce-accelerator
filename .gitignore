@@ -37,3 +37,4 @@ package-lock.json
 *.xml
 *.heic
 .env
+activation-key-*.xml

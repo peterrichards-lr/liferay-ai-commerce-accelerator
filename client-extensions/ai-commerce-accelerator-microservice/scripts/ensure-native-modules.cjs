@@ -26,7 +26,8 @@ function checkAndRebuild() {
   } catch (err) {
     if (
       err.code === 'ERR_DLOPEN_FAILED' ||
-      err.message.includes('NODE_MODULE_VERSION')
+      err.message.includes('NODE_MODULE_VERSION') ||
+      err.message.includes('Could not locate the bindings file')
     ) {
       console.log(
         `[NativeCheck] Incompatible native module detected for Node ${process.version}.`
