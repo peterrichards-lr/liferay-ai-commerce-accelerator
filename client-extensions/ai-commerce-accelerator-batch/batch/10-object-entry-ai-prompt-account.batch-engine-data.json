@@ -1,24 +1,24 @@
 {
-    "configuration": {
-        "className": "com.liferay.object.rest.dto.v1_0.ObjectEntry",
-        "parameters": {
-            "containsHeaders": "true",
-            "createStrategy": "UPSERT",
-            "onErrorFail": "false",
-            "taskItemDelegateName": "C_AICAConfiguration",
-            "updateStrategy": "UPDATE"
-        },
-        "taskItemDelegateName": "C_AICAConfiguration"
+  "configuration": {
+    "className": "com.liferay.object.rest.dto.v1_0.ObjectEntry",
+    "parameters": {
+      "containsHeaders": "true",
+      "createStrategy": "UPSERT",
+      "onErrorFail": "false",
+      "taskItemDelegateName": "C_AICAConfiguration",
+      "updateStrategy": "UPDATE"
     },
-    "items": [
-        {
-            "configKey": "ai-prompt-account",
-            "configStatus": {
-                "key": "Active"
-            },
-            "configValue": "Generate {{count}} realistic business account{{pluralSuffix}} with the following properties:\n\n{% if groundingMetadata and groundingMetadata.languages %}\nLIFERAY CONTEXT: You MUST only use the following active Liferay languages for any multilingual fields: {{ groundingMetadata.languages | map(attribute='id') | join(', ') }}.\n{% endif %}\n\n{% if brandName %}\nBRAND CONTEXT: These accounts are potential customers or business partners for the brand/company \"{{brandName}}\".\n{% endif %}\n\n- name: Company name (string, required). The company names should be relevant to the following business categories: {{categories}}.\n- type: Account type, always \"business\" (string, required)\n- emailAddress: Company email (string, optional)\n- taxId: Realistic tax ID format (string, optional)\n- externalReferenceCode: Unique identifier (string, required)\n- headOfficeAddress.addressCountry: {% if geographicContext %}{{geographicContext.countryTitle}}{% else %}Choose from the following list of countries: United States, United Kingdom, France, Germany, Australia, Japan, Brazil, India, Canada, Mexico, South Africa, United Arab Emirates, Singapore{% endif %}\n  {% if geographicContext and geographicContext.regionTitle %}- headOfficeAddress.addressRegion: {{geographicContext.regionTitle}}{% endif %} Return as a JSON array that conforms to the provided JSON schema.\n",
-            "description": "AI Prompt for Account",
-            "externalReferenceCode": "AI-PROMPT-ACCOUNT"
-        }
-    ]
+    "taskItemDelegateName": "C_AICAConfiguration"
+  },
+  "items": [
+    {
+      "configKey": "ai-prompt-account",
+      "configStatus": {
+        "key": "Active"
+      },
+      "configValue": "Generate {{count}} realistic business account{{pluralSuffix}} with the following properties:\n\n{% if groundingMetadata and groundingMetadata.languages %}\nLIFERAY CONTEXT: You MUST only use the following active Liferay languages for any multilingual fields: {{ groundingMetadata.languages | map(attribute='id') | join(', ') }}.\n{% endif %}\n\n{% if brandName %}\nBRAND CONTEXT: These accounts are potential customers or business partners for the brand/company \"{{brandName}}\".\n{% endif %}\n\n- name: Company name (string, required). The company names should be relevant to the following business categories: {{categories}}.\n- type: Account type, always \"business\" (string, required)\n- emailAddress: Company email (string, optional)\n- taxId: Realistic tax ID format (string, optional)\n- externalReferenceCode: Unique identifier (string, required)\n- headOfficeAddress.addressCountry: {% if geographicContext %}{{geographicContext.countryTitle}}{% else %}Choose from the following list of countries: United States, United Kingdom, France, Germany, Australia, Japan, Brazil, India, Canada, Mexico, South Africa, United Arab Emirates, Singapore{% endif %}\n  {% if geographicContext and geographicContext.regionTitle %}- headOfficeAddress.addressRegion: {{geographicContext.regionTitle}}{% endif %} Return as a JSON array that conforms to the provided JSON schema.\n",
+      "description": "AI Prompt for Account",
+      "externalReferenceCode": "AI-PROMPT-ACCOUNT"
+    }
+  ]
 }

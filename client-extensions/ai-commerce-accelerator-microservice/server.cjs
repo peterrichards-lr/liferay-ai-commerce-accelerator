@@ -6,12 +6,12 @@ try {
   const rootEnvPath = path.resolve(__dirname, '../../.env');
   if (fs.existsSync(rootEnvPath)) {
     require('dotenv').config({ path: rootEnvPath });
-    logger.info(`Loaded environment from ${rootEnvPath}`);
+    console.info(`[Bootstrap] Loaded environment from ${rootEnvPath}`);
   } else {
-    logger.debug(`No .env found at ${rootEnvPath}`);
+    console.info(`[Bootstrap] No .env found at ${rootEnvPath}`);
   }
 } catch (err) {
-  logger.warn(`Error loading .env from root: ${err.message}`);
+  console.warn(`[Bootstrap] Error loading .env from root: ${err.message}`);
 }
 
 const { logger } = require('./utils/logger.cjs');
