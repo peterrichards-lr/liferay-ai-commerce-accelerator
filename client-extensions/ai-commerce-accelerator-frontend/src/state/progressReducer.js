@@ -119,9 +119,17 @@ export function progressReducer(state, action) {
 
     case 'SET_COMPLETED_TO_TOTAL': {
       const { entity } = action;
-      const cur = state[entity];
-      if (!cur) return state;
-      return { ...state, [entity]: { ...cur, completed: cur.total } };
+      const cur = state[entity] || {
+        total: 0,
+        completed: 0,
+        errors: [],
+        batches: {},
+        isDone: false,
+      };
+      return {
+        ...state,
+        [entity]: { ...cur, completed: cur.total, isDone: true },
+      };
     }
 
     case 'UPDATE_BATCH': {

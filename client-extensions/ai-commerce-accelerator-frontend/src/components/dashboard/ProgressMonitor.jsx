@@ -8,9 +8,19 @@ function MiniProgressItem({
   errors,
   onErrorsClick,
   isDelete,
+  workflowStatus,
+  explicitIsDone,
 }) {
   const hasErrors = errors && errors.length > 0;
-  const isDone = total > 0 && completed >= total && !hasErrors;
+  const isDone =
+    explicitIsDone ||
+    workflowStatus === 'completed' ||
+    (total > 0 && completed >= total && !hasErrors) ||
+    (isDelete &&
+      completed >= total &&
+      total >= 0 &&
+      typeof total === 'number' &&
+      !hasErrors);
   const inProgress = completed > 0 && completed < total && !hasErrors;
   const percentage = total > 0 ? Math.round((completed / total) * 100) : 0;
 
@@ -84,6 +94,8 @@ function ProgressMonitor({ progress, onErrorsClick, isDelete }) {
         errors={progress.products.errors}
         onErrorsClick={() => onErrorsClick(0, 'products')}
         isDelete={isDelete}
+        workflowStatus={progress.workflowStatus}
+        explicitIsDone={progress.products.isDone}
       />
       <MiniProgressItem
         title="Accounts"
@@ -92,6 +104,8 @@ function ProgressMonitor({ progress, onErrorsClick, isDelete }) {
         errors={progress.accounts.errors}
         onErrorsClick={() => onErrorsClick(1, 'accounts')}
         isDelete={isDelete}
+        workflowStatus={progress.workflowStatus}
+        explicitIsDone={progress.accounts.isDone}
       />
       <MiniProgressItem
         title="Orders"
@@ -100,6 +114,8 @@ function ProgressMonitor({ progress, onErrorsClick, isDelete }) {
         errors={progress.orders.errors}
         onErrorsClick={() => onErrorsClick(2, 'orders')}
         isDelete={isDelete}
+        workflowStatus={progress.workflowStatus}
+        explicitIsDone={progress.orders.isDone}
       />
 
       <h6
@@ -115,6 +131,8 @@ function ProgressMonitor({ progress, onErrorsClick, isDelete }) {
         errors={progress.warehouses.errors}
         onErrorsClick={() => onErrorsClick(5, 'warehouses')}
         isDelete={isDelete}
+        workflowStatus={progress.workflowStatus}
+        explicitIsDone={progress.warehouses.isDone}
       />
       <MiniProgressItem
         title="Addresses"
@@ -123,6 +141,8 @@ function ProgressMonitor({ progress, onErrorsClick, isDelete }) {
         errors={progress.addresses?.errors || []}
         onErrorsClick={() => onErrorsClick(10, 'addresses')}
         isDelete={isDelete}
+        workflowStatus={progress.workflowStatus}
+        explicitIsDone={progress.addresses?.isDone}
       />
       <MiniProgressItem
         title="Images"
@@ -131,6 +151,8 @@ function ProgressMonitor({ progress, onErrorsClick, isDelete }) {
         errors={progress.images?.errors || []}
         onErrorsClick={() => onErrorsClick(3, 'images')}
         isDelete={isDelete}
+        workflowStatus={progress.workflowStatus}
+        explicitIsDone={progress.images?.isDone}
       />
       <MiniProgressItem
         title="PDFs"
@@ -139,6 +161,8 @@ function ProgressMonitor({ progress, onErrorsClick, isDelete }) {
         errors={progress.pdfs.errors}
         onErrorsClick={() => onErrorsClick(4, 'pdfs')}
         isDelete={isDelete}
+        workflowStatus={progress.workflowStatus}
+        explicitIsDone={progress.pdfs.isDone}
       />
       <MiniProgressItem
         title="Prices & Promos"
@@ -155,6 +179,10 @@ function ProgressMonitor({ progress, onErrorsClick, isDelete }) {
         ]}
         onErrorsClick={() => onErrorsClick(8, 'pricing')}
         isDelete={isDelete}
+        workflowStatus={progress.workflowStatus}
+        explicitIsDone={
+          progress.priceLists?.isDone || progress.promotions?.isDone
+        }
       />
     </div>
   );
