@@ -1569,7 +1569,7 @@ class LiferayRestService {
 
   async createWarehouseChannel(config, warehouseId, channelId) {
     // HARDENING: Ensure we only send the primitive IDs to prevent nesting corruption.
-    // Also send as both number and string to be extremely resilient to DTO changes.
+    // Liferay Commerce relationship APIs are strict and reject unknown properties.
     const cleanedWarehouseId =
       typeof warehouseId === 'object' ? warehouseId.id : warehouseId;
     const cleanedChannelId =
@@ -1577,10 +1577,7 @@ class LiferayRestService {
 
     const payload = {
       channelId: parseInt(cleanedChannelId, 10),
-      channelIdString: String(cleanedChannelId),
-      id: parseInt(cleanedChannelId, 10), // Some APIs use 'id' for the target
       warehouseId: parseInt(cleanedWarehouseId, 10),
-      warehouseIdString: String(cleanedWarehouseId),
     };
 
     const data = await this._post(
