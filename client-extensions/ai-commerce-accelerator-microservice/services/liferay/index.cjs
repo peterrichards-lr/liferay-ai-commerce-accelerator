@@ -1798,7 +1798,9 @@ class LiferayService {
       try {
         const batchResults = await resolverFn(config, currentErcs);
         batchResults.filter(Boolean).forEach((item) => {
-          resolvedMap.set(item.externalReferenceCode, item);
+          if (item.externalReferenceCode) {
+            resolvedMap.set(item.externalReferenceCode, item);
+          }
         });
 
         // Update list of missing ERCs

@@ -134,6 +134,7 @@ class ProductGenerator extends BaseGenerator {
         stepKey: S.GENERATE_PRICE_LISTS,
         status: 'FAILED',
       });
+      throw error;
     }
   }
 
@@ -160,6 +161,7 @@ class ProductGenerator extends BaseGenerator {
         stepKey: S.GENERATE_BULK_PRICING,
         status: 'FAILED',
       });
+      throw error;
     }
   }
 
@@ -186,6 +188,7 @@ class ProductGenerator extends BaseGenerator {
         stepKey: S.GENERATE_TIER_PRICING,
         status: 'FAILED',
       });
+      throw error;
     }
   }
 
@@ -273,6 +276,7 @@ class ProductGenerator extends BaseGenerator {
         stepKey: S.UPDATE_CATALOG_CONFIG,
         status: 'FAILED',
       });
+      throw err;
     }
   }
 
@@ -514,6 +518,7 @@ class ProductGenerator extends BaseGenerator {
         stepKey: S.RESOLVE_PRODUCT_IDS,
         status: 'FAILED',
       });
+      throw error;
     }
   }
 
@@ -604,6 +609,7 @@ class ProductGenerator extends BaseGenerator {
         stepKey: S.RESOLVE_SKU_IDS,
         status: 'FAILED',
       });
+      throw error;
     }
   }
 
@@ -684,6 +690,7 @@ class ProductGenerator extends BaseGenerator {
         stepKey: S.LINK_PRODUCT_OPTIONS,
         status: 'FAILED',
       });
+      throw error;
     }
   }
 
@@ -807,6 +814,7 @@ class ProductGenerator extends BaseGenerator {
         stepKey: S.CREATE_PRODUCT_SKUS,
         status: 'FAILED',
       });
+      throw error;
     }
   }
 
@@ -912,6 +920,7 @@ class ProductGenerator extends BaseGenerator {
         stepKey: S.GENERATE_PRODUCT_DATA,
         status: 'FAILED',
       });
+      throw error;
     }
   }
 
@@ -974,6 +983,7 @@ class ProductGenerator extends BaseGenerator {
         stepKey: S.ENSURE_SPECIFICATION_CATEGORIES,
         status: 'FAILED',
       });
+      throw error;
     }
   }
 
@@ -1091,6 +1101,7 @@ class ProductGenerator extends BaseGenerator {
         stepKey: S.ENSURE_SPECIFICATIONS,
         status: 'FAILED',
       });
+      throw error;
     }
   }
 
@@ -1262,6 +1273,7 @@ class ProductGenerator extends BaseGenerator {
         stepKey: S.ENSURE_OPTIONS,
         status: 'FAILED',
       });
+      throw error;
     }
   }
 
@@ -1383,6 +1395,7 @@ class ProductGenerator extends BaseGenerator {
         stepKey: S.CREATE_PRODUCTS,
         status: 'FAILED',
       });
+      throw error;
     }
   }
 
@@ -1409,6 +1422,7 @@ class ProductGenerator extends BaseGenerator {
         stepKey: S.ATTACH_IMAGES,
         status: 'FAILED',
       });
+      throw error;
     }
   }
 
@@ -1435,6 +1449,7 @@ class ProductGenerator extends BaseGenerator {
         stepKey: S.ATTACH_PDFS,
         status: 'FAILED',
       });
+      throw error;
     }
   }
 
@@ -1522,6 +1537,7 @@ class ProductGenerator extends BaseGenerator {
         stepKey: S.UPDATE_INVENTORY,
         status: 'FAILED',
       });
+      throw error;
     }
   }
 

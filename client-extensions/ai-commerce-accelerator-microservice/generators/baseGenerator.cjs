@@ -202,7 +202,23 @@ class BaseGenerator extends BaseWorkflowService {
     });
 
     try {
-      return await stepHandler(sessionId, session);
+      const result = await stepHandler(sessionId, session);
+
+      // HARDENING: Even if the handler returns, check if it created any FAILED batches
+      // for this specific step. This catches swallowed errors.
+      const updatedBatches =
+        await this.persistence.getBatchesForSession(sessionId);
+      const failedBatch = updatedBatches.find(
+        (b) => b.step_key === stepName && b.status === 'FAILED'
+      );
+
+      if (failedBatch) {
+        throw new Error(
+          `Step '${stepName}' handler completed but produced a FAILED batch.`
+        );
+      }
+
+      return result;
     } catch (error) {
       this.logger.error(
         `Error in step handler '${stepName}': ${error.message}`,

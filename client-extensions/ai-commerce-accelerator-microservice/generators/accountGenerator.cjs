@@ -342,6 +342,7 @@ class AccountGenerator extends BaseGenerator {
         stepKey: S.GENERATE_ACCOUNT_DATA,
         status: 'FAILED',
       });
+      throw error;
     }
   }
 
@@ -423,6 +424,7 @@ class AccountGenerator extends BaseGenerator {
         stepKey: S.CREATE_ACCOUNTS,
         status: 'FAILED',
       });
+      throw error;
     }
   }
 
@@ -484,6 +486,7 @@ class AccountGenerator extends BaseGenerator {
         stepKey: S.RESOLVE_ACCOUNT_IDS,
         status: 'FAILED',
       });
+      throw error;
     }
   }
 
@@ -584,6 +587,7 @@ class AccountGenerator extends BaseGenerator {
         stepKey: S.CREATE_POSTAL_ADDRESSES,
         status: 'FAILED',
       });
+      throw error;
     }
   }
 
@@ -679,6 +683,7 @@ class AccountGenerator extends BaseGenerator {
         stepKey: S.SET_ADDRESS_DEFAULTS,
         status: 'FAILED',
       });
+      throw error;
     }
   }
 

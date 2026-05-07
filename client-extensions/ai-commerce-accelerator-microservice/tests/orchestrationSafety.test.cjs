@@ -3,7 +3,7 @@ const BaseGenerator = require('../generators/baseGenerator.cjs');
 // Mock infrastructure
 const mockPersistence = {
   getSession: vi.fn(),
-  getBatchesForSession: vi.fn(),
+  getBatchesForSession: vi.fn().mockResolvedValue([]),
   updateSessionCurrentSteps: vi.fn(),
   verifyDependencyReady: vi.fn().mockResolvedValue(true),
   createBatch: vi.fn(),
@@ -97,6 +97,25 @@ describe('Orchestration Safety (Ghost Step Protection)', () => {
         stepKey: 'test-sync-step',
         status: 'SYNCHRONOUS',
       })
+    );
+  });
+
+  it('should throw an error if a step handler completes but produced a FAILED batch', async () => {
+    mockPersistence.getSession.mockResolvedValue({
+      sessionId: 'SESS-1',
+      flow_type: 'generate',
+      context: {
+        steps: ['valid-step'],
+      },
+    });
+
+    // Simulate the handler "completing" but leaving a failure in the DB
+    mockPersistence.getBatchesForSession.mockResolvedValue([
+      { step_key: 'valid-step', status: 'FAILED' },
+    ]);
+
+    await expect(generator.executeStep('SESS-1', 'valid-step')).rejects.toThrow(
+      /produced a FAILED batch/
     );
   });
 });

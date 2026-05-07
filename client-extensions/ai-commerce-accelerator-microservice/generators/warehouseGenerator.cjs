@@ -1,5 +1,9 @@
 const BaseGenerator = require('./baseGenerator.cjs');
-const { createERC, resolveErrorReference } = require('../utils/misc.cjs');
+const {
+  createERC,
+  fromI18n,
+  resolveErrorReference,
+} = require('../utils/misc.cjs');
 const { ERC_PREFIX, WORKFLOW_STEPS } = require('../utils/constants.cjs');
 
 const S = WORKFLOW_STEPS;
@@ -7,8 +11,6 @@ const S = WORKFLOW_STEPS;
 class WarehouseGenerator extends BaseGenerator {
   constructor(ctx) {
     super(ctx);
-    this.name = 'WarehouseGenerator';
-
     this.steps = {
       [S.GENERATE_WAREHOUSE_DATA]:
         this._runWarehouseDataGenerationStep.bind(this),
@@ -27,48 +29,33 @@ class WarehouseGenerator extends BaseGenerator {
       { name: S.LINK_WAREHOUSE_CHANNELS, type: 'sync' },
     ];
 
-    const totals = {
-      warehouses: options.warehouseCount || 1,
-    };
-
-    return super.runWorkflow(config, options, 'warehouses', steps, totals);
+    return await super.runWorkflow(config, options, 'warehouses', steps);
   }
 
   async _runResolveWarehouseIdsStep(sessionId) {
     const session = await this.persistence.getSession(sessionId);
     const { config, warehouseDataList } = session.context;
 
-    if (!warehouseDataList || warehouseDataList.length === 0) {
-      return await this.completeSyncStep(
-        sessionId,
-        S.RESOLVE_WAREHOUSE_IDS,
-        'BYPASSED'
-      );
-    }
-
-    this.logger.info('Resolving warehouse IDs from ERCs', {
-      sessionId,
-      correlationId: session.correlationId,
-    });
-
     try {
-      const ercs = warehouseDataList
-        .map((w) => w.externalReferenceCode)
-        .filter(Boolean);
+      if (!warehouseDataList || warehouseDataList.length === 0) {
+        return await this.completeSyncStep(
+          sessionId,
+          S.RESOLVE_WAREHOUSE_IDS,
+          'BYPASSED'
+        );
+      }
 
-      const resolvedItems = await this.liferay.resolveByERCsWithRetry(
+      const ercs = warehouseDataList.map((w) => w.externalReferenceCode);
+      const warehouses = await this.liferay.resolveByERCsWithRetry(
         config,
         ercs,
-        (cfg, e) =>
-          this.liferay.getWarehousesByERC(cfg, e, [
-            'id',
-            'externalReferenceCode',
-          ]),
+        (cfg, e) => this.liferay.getWarehousesByERC(cfg, e),
         { label: 'warehouses' }
       );
 
-      const normalized = this._normalize(resolvedItems);
-      const ercToIdMap = new Map(normalized.map((item) => [item.erc, item.id]));
+      const ercToIdMap = new Map(
+        warehouses.map((w) => [w.externalReferenceCode, w.id])
+      );
 
       const updatedList = warehouseDataList.map((w) => ({
         ...w,
@@ -100,21 +87,13 @@ class WarehouseGenerator extends BaseGenerator {
     const { config, warehouseDataList } = session.context;
     const stepKey = S.LINK_WAREHOUSE_CHANNELS;
 
-    if (!warehouseDataList || warehouseDataList.length === 0) {
-      return await this.completeSyncStep(sessionId, stepKey, 'BYPASSED');
-    }
-
-    this.logger.info('Linking warehouses to channel', {
-      sessionId,
-      correlationId: session.correlationId,
-    });
-
     try {
+      const channelId = parseInt(config.channelId, 10);
       const payloads = warehouseDataList
         .filter((w) => w.id)
         .map((w) => ({
-          channelId: parseInt(config.channelId, 10),
-          warehouseId: parseInt(w.id, 10),
+          channelId,
+          warehouseId: w.id,
         }));
 
       if (payloads.length === 0) {
@@ -122,19 +101,22 @@ class WarehouseGenerator extends BaseGenerator {
       }
 
       this.logger.info(
-        `Linking ${payloads.length} warehouses to channel individually...`,
-        { sessionId }
+        `Linking ${payloads.length} warehouses to channel ${channelId}`,
+        {
+          sessionId,
+        }
       );
 
+      // HARDENING: Link warehouses individually to avoid schema/batch issues
       for (const payload of payloads) {
         await this.liferay.createWarehouseChannel(
           config,
           payload.warehouseId,
-          payload.channelId
+          payload
         );
       }
 
-      return await this.completeSyncStep(
+      await this.completeSyncStep(
         sessionId,
         stepKey,
         'SYNCHRONOUS',
@@ -156,103 +138,72 @@ class WarehouseGenerator extends BaseGenerator {
     }
   }
 
-  _normalize(items) {
-    return (items || []).map((item) => ({
-      id: item.id,
-      erc: item.externalReferenceCode || item.erc,
-    }));
-  }
-
-  /**
-   * Internal method used by other generators (e.g. ProductGenerator)
-   * to perform warehouse creation within an existing session.
-   */
-  async createWarehouses(sessionId, _session) {
-    this.logger.info('Executing embedded warehouse generation sub-flow', {
-      sessionId,
-    });
-
-    // 1. Generate Data
-    await this._runWarehouseDataGenerationStep(sessionId);
-
-    // 2. Create in Liferay
-    return await this._runWarehouseCreationStep(sessionId);
-  }
-
   async _runWarehouseDataGenerationStep(sessionId) {
     const session = await this.persistence.getSession(sessionId);
     const { config, options } = session.context;
 
-    this.logger.info('Starting warehouse data generation', {
-      sessionId,
-      correlationId: session.correlationId,
-    });
-
     try {
-      // GEOGRAPHIC CONTEXT: Fetch valid countries and pick one randomly
-      const countries = await this.liferay.getCountries(config);
-      const activeCountries = (countries || []).filter(
-        (c) => c.active !== false
-      );
+      // HARDENING: If no geographic context provided, pick a random active one from Liferay
+      // to improve AI grounding and avoid hallucinated country codes.
+      if (!options.geographicContext) {
+        const countries = await this.liferay.getCountries(config);
+        const activeCountries = (countries.items || countries).filter(
+          (c) => c.active
+        );
 
-      let geographicContext = null;
+        if (activeCountries.length > 0) {
+          const country =
+            activeCountries[Math.floor(Math.random() * activeCountries.length)];
 
-      if (activeCountries.length > 0) {
-        const country =
-          activeCountries[Math.floor(Math.random() * activeCountries.length)];
+          if (country && country.id) {
+            const regions = await this.liferay.getCountryRegions(
+              config,
+              country.id
+            );
+            const region = regions.length
+              ? regions[Math.floor(Math.random() * regions.length)]
+              : null;
 
-        if (country && country.id) {
-          const regions = await this.liferay.getCountryRegions(
-            config,
-            country.id
-          );
-          let region = null;
-          if (regions && regions.length > 0) {
-            region = regions[Math.floor(Math.random() * regions.length)];
-          }
+            const countryTitle = fromI18n(
+              country.title_i18n,
+              config.localeCode
+            );
+            const regionTitle = region
+              ? fromI18n(region.title_i18n, config.localeCode)
+              : null;
 
-          const countryTitle =
-            country.title_i18n?.en_US ||
-            country.title_i18n?.[config.localeCode?.replace('-', '_')] ||
-            country.name;
-          const regionTitle =
-            region?.title_i18n?.en_US ||
-            region?.title_i18n?.[config.localeCode?.replace('-', '_')] ||
-            region?.name;
+            const geographicContext = {
+              countryISOCode: country.a2 || null, // e.g. US
+              countryName: country.name || null,
+              countryTitle: countryTitle || null,
+              regionName: region?.name || null,
+              regionTitle: regionTitle || null,
+              regionISOCode: region?.regionCode || null, // e.g. CA
+            };
 
-          geographicContext = {
-            countryId: country.id,
-            countryName: country.name,
-            countryTitle: countryTitle,
-            countryISOCode: country.a2, // e.g. US
-            regionId: region?.id || null,
-            regionName: region?.name || null,
-            regionTitle: regionTitle || null,
-            regionISOCode: region?.regionCode || null, // e.g. CA
-          };
-
-          this.logger.debug('Pre-selected geographic context for AI', {
-            sessionId,
-            geographicContext,
-          });
-
-          await this.persistence.updateSessionContext(sessionId, {
-            options: {
-              ...options,
+            this.logger.debug('Pre-selected geographic context for AI', {
+              sessionId,
               geographicContext,
-            },
-          });
+            });
+
+            await this.persistence.updateSessionContext(sessionId, {
+              options: {
+                ...options,
+                geographicContext,
+              },
+            });
+          }
         }
       }
 
+      // Re-read context to get updated options
+      const updatedSession = await this.persistence.getSession(sessionId);
+
       const warehouseDataList = await this.ctx.generation.generateData(
         'warehouse',
-        options.warehouseCount || 1,
+        options.warehouseCount,
         config,
-        {
-          ...options,
-          geographicContext,
-        }
+        updatedSession.context.options
       );
 
       await this.persistence.updateSessionContext(sessionId, {
@@ -278,41 +229,39 @@ class WarehouseGenerator extends BaseGenerator {
   async _runWarehouseCreationStep(sessionId) {
     const session = await this.persistence.getSession(sessionId);
     const { config, warehouseDataList } = session.context;
-    const stepKey = S.CREATE_WAREHOUSES;
-
-    this.logger.info('Starting warehouse creation step', {
-      sessionId,
-      correlationId: session.correlationId,
-    });
 
     try {
       if (!warehouseDataList || warehouseDataList.length === 0) {
-        return await this.completeSyncStep(sessionId, stepKey, 'BYPASSED');
+        return await this.completeSyncStep(
+          sessionId,
+          S.CREATE_WAREHOUSES,
+          'BYPASSED'
+        );
       }
 
-      // MAPPING: Liferay Headless Commerce Admin Inventory Warehouse DTO
-      // uses countryISOCode and regionISOCode instead of country and region.
-      const mappedWarehouses = warehouseDataList.map((w) => {
+      // HARDENING: Map 'country' to 'countryISOCode' and 'region' to 'regionISOCode'
+      // if coming from AI generator which uses simplified fields.
+      const prepared = warehouseDataList.map((w) => {
         const { country, region, ...rest } = w;
         return {
           ...rest,
-          countryISOCode: country,
-          regionISOCode: region,
+          countryISOCode: w.countryISOCode || country,
+          regionISOCode: w.regionISOCode || region,
         };
       });
 
-      // Always use batch for warehouses to keep logic simple
       await this.submitBatch(
         sessionId,
-        stepKey,
+        S.CREATE_WAREHOUSES,
         'warehouses',
         'generate',
         (erc) =>
-          this.liferay.createWarehousesBatch(config, mappedWarehouses, {
+          this.liferay.createWarehousesBatch(config, prepared, {
             externalReferenceCode: erc,
             sessionId,
+            session,
           }),
-        warehouseDataList.length
+        prepared.length
       );
     } catch (error) {
       const errorReference =
@@ -326,20 +275,9 @@ class WarehouseGenerator extends BaseGenerator {
       await this.persistence.createBatch({
         erc: createERC(ERC_PREFIX.BATCH),
         sessionId,
-        stepKey,
+        stepKey: S.CREATE_WAREHOUSES,
         status: 'FAILED',
       });
-
-      this.ctx.progress.stepFailed(
-        {
-          sessionId,
-          stepKey,
-          entityType: 'warehouses',
-          error,
-        },
-        { correlationId: session.correlationId }
-      );
-
       throw error;
     }
   }

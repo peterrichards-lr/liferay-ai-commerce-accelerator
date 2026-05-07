@@ -18,6 +18,7 @@ describe('WorkflowCoordinator', () => {
       },
       persistence: {
         getSession: vi.fn(),
+        getBatchesForSession: vi.fn().mockResolvedValue([]),
       },
       progress: {
         stepStarted: vi.fn(),

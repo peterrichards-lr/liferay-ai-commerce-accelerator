@@ -56,6 +56,7 @@ class OrderGenerator extends BaseGenerator {
         stepKey: S.SUBFLOW_ORDERS,
         status: 'FAILED',
       });
+      throw error;
     }
   }
 
@@ -137,6 +138,7 @@ class OrderGenerator extends BaseGenerator {
         stepKey: S.GENERATE_ORDER_DATA,
         status: 'FAILED',
       });
+      throw error;
     }
   }
 
@@ -268,6 +270,7 @@ class OrderGenerator extends BaseGenerator {
         stepKey: S.CREATE_ORDERS,
         status: 'FAILED',
       });
+      throw error;
     }
   }
 
