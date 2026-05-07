@@ -82,14 +82,22 @@ export default function useRealtimeWebSocket({
         if (res?.success && res.progress) {
           logDebug('Received hydration data:', res.progress);
 
-          // If the session is finished, clear it from active state
+          // If the session is finished, clear it from active state but set the status
           if (res.status === 'COMPLETED' || res.status === 'FAILED') {
             currentOnProgress?.({
-              type: 'SET_ACTIVE_SESSION',
-              sessionId: null,
-              flowType: res.flowType,
+              type: 'SET_WORKFLOW_STATUS',
+              status: res.status.toLowerCase(),
             });
-            activeSessionIdRef.current = null;
+
+            // Delay clearing active session slightly so the status change is processed
+            setTimeout(() => {
+              currentOnProgress?.({
+                type: 'SET_ACTIVE_SESSION',
+                sessionId: null,
+                flowType: res.flowType,
+              });
+              activeSessionIdRef.current = null;
+            }, 100);
           } else {
             // Ensure the reducer knows this is the active session
             currentOnProgress?.({

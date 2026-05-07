@@ -53,6 +53,18 @@ describe('SessionDetailModal', () => {
     expect(screen.getByText('5')).toBeInTheDocument();
   });
 
+  it('renders the terminal error message if session failed', () => {
+    const failedSession = {
+      ...mockSession,
+      status: 'FAILED',
+      error_message: 'Out of memory',
+    };
+    render(<SessionDetailModal session={failedSession} onClose={() => {}} />);
+
+    expect(screen.getByText('Terminal Error')).toBeInTheDocument();
+    expect(screen.getByText('Out of memory')).toBeInTheDocument();
+  });
+
   it('handles sessions with missing or invalid context gracefully', () => {
     const brokenSession = { ...mockSession, context: 'invalid-json' };
     render(<SessionDetailModal session={brokenSession} onClose={() => {}} />);

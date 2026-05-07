@@ -552,7 +552,7 @@ class BaseGenerator extends BaseWorkflowService {
         );
 
         // HARDENING: Persist the failure in the database so hydration works correctly
-        await this.persistence.tryFailSession(sessionId);
+        await this.persistence.tryFailSession(sessionId, err.message);
 
         // Notify frontend of the failure so it doesn't hang in "Generating..." state
         await this.progress.sessionFailed({
@@ -571,12 +571,13 @@ class BaseGenerator extends BaseWorkflowService {
 
     const failedBatch = batches.find((b) => b.status === 'FAILED');
     if (failedBatch) {
-      if (await this.persistence.tryFailSession(sessionId)) {
+      const errorMsg = `Workflow failed at step: ${failedBatch.step_key}`;
+      if (await this.persistence.tryFailSession(sessionId, errorMsg)) {
         await this.progress.sessionFailed({
           sessionId,
           correlationId,
           error: {
-            message: `Workflow failed at step: ${failedBatch.step_key}`,
+            message: errorMsg,
           },
         });
       }

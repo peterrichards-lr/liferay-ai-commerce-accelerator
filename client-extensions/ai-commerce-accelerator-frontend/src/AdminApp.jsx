@@ -277,7 +277,7 @@ function AdminUI() {
                     ) : (
                       <ClayIcon symbol="reload" className="mr-2" />
                     )}
-                    Refresh
+                    {loading ? 'Refreshing...' : 'Refresh'}
                   </ClayButton>
                 </div>
               </li>
@@ -512,6 +512,15 @@ function AdminUI() {
                               </ClayTable.Cell>
                               <ClayTable.Cell>
                                 <StatusBadge status={s.status} />
+                                {s.status === 'FAILED' && s.error_message && (
+                                  <div
+                                    className="text-danger small mt-1 text-truncate"
+                                    style={{ maxWidth: '200px' }}
+                                    title={s.error_message}
+                                  >
+                                    {s.error_message}
+                                  </div>
+                                )}
                               </ClayTable.Cell>
                               <ClayTable.Cell style={{ fontSize: '0.875rem' }}>
                                 {new Date(s.created_at).toLocaleString()}

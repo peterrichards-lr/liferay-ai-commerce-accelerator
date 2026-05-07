@@ -79,6 +79,16 @@ class PersistenceService {
           throw err;
         }
       }
+
+      try {
+        this.db.exec(
+          'ALTER TABLE workflow_sessions ADD COLUMN error_message TEXT;'
+        );
+      } catch (err) {
+        if (!err.message.includes('duplicate column name')) {
+          throw err;
+        }
+      }
     }
 
     this.db.exec(`
@@ -297,6 +307,7 @@ class PersistenceService {
       flow_type: row.flow_type,
       status: row.status,
       session_name: row.session_name,
+      error_message: row.error_message,
       context: JSON.parse(row.context_json),
       currentSteps: JSON.parse(row.current_steps_json),
       correlationId: row.correlation_id,
@@ -317,6 +328,7 @@ class PersistenceService {
       flow_type: row.flow_type,
       status: row.status,
       session_name: row.session_name,
+      error_message: row.error_message,
       context: JSON.parse(row.context_json),
       currentSteps: JSON.parse(row.current_steps_json),
       correlationId: row.correlation_id,
@@ -433,17 +445,17 @@ class PersistenceService {
     return false;
   }
 
-  tryFailSession(sessionId) {
+  tryFailSession(sessionId, errorMessage = null) {
     const now = new Date().toISOString();
     const result = this.db
       .prepare(
         `
       UPDATE workflow_sessions 
-      SET status = 'FAILED', current_steps_json = '[]', updated_at = ?
+      SET status = 'FAILED', error_message = ?, current_steps_json = '[]', updated_at = ?
       WHERE session_id = ? AND status NOT IN ('COMPLETED', 'FAILED')
     `
       )
-      .run(now, sessionId);
+      .run(errorMessage, now, sessionId);
 
     if (result.changes > 0) {
       this.cache.del(sessionId);

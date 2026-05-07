@@ -77,6 +77,13 @@ function SessionDetailModal({ session, onClose }) {
               </div>
             </div>
 
+            {session.status === 'FAILED' && session.error_message && (
+              <div className="alert alert-danger mb-4">
+                <div className="font-weight-bold mb-1">Terminal Error</div>
+                <div>{session.error_message}</div>
+              </div>
+            )}
+
             {context && (
               <>
                 <div className="divider" />
