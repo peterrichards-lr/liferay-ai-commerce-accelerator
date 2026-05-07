@@ -2927,4 +2927,6 @@ class LiferayRestService {
   }
 }
 
+LiferayRestService.SOFT_STATUS_BY_OP = SOFT_STATUS_BY_OP;
+
 module.exports = LiferayRestService;

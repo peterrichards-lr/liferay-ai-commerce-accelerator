@@ -4,7 +4,6 @@ import ClayButton from '@clayui/button';
 import ClayIcon from '@clayui/icon';
 import ClayTable from '@clayui/table';
 import ClayCard from '@clayui/card';
-import ClayLabel from '@clayui/label';
 import { useApp, useApi, AppProvider } from './context/AppContext';
 import { ConfirmProvider, useConfirm } from './components/ConfirmProvider';
 import notifyUser from './utils/notifications';
@@ -17,6 +16,10 @@ import {
   EXPORT_COMMERCE_DATA,
   WORKFLOW_CLEAR_ALL,
 } from './utils/microservicePaths';
+
+import StatusBadge from './components/admin/StatusBadge';
+import SessionDetailModal from './components/admin/SessionDetailModal';
+import ConfigurationDoctor from './components/admin/ConfigurationDoctor';
 
 const formatUptime = (seconds) => {
   const d = Math.floor(seconds / (3600 * 24));
@@ -31,156 +34,6 @@ const unescapeHtml = (str) => {
   const doc = new DOMParser().parseFromString(str, 'text/html');
   return doc.documentElement.textContent;
 };
-
-function StatusBadge({ status }) {
-  let displayType = 'secondary';
-  if (status === 'COMPLETED') displayType = 'success';
-  if (status === 'FAILED') displayType = 'danger';
-  if (status === 'CANCELLED') displayType = 'warning';
-  if (status === 'STARTED' || status === 'PROCESSING') displayType = 'info';
-
-  return (
-    <ClayLabel displayType={displayType} outline>
-      {status}
-    </ClayLabel>
-  );
-}
-
-function SessionDetailModal({ session, onClose }) {
-  const context = useMemo(() => {
-    try {
-      return typeof session.context === 'string'
-        ? JSON.parse(session.context)
-        : session.context;
-    } catch {
-      return null;
-    }
-  }, [session]);
-
-  return (
-    <div
-      className="confirm-dialog__backdrop"
-      style={{ alignItems: 'flex-start', paddingTop: '5vh' }}
-    >
-      <ClayCard
-        style={{
-          width: 'min(900px, 95%)',
-          maxHeight: '85vh',
-          overflow: 'hidden',
-        }}
-      >
-        <ClayCard.Body
-          className="d-flex flex-column p-0"
-          style={{ height: '100%' }}
-        >
-          <div className="p-4 border-bottom d-flex justify-content-between align-items-center bg-light">
-            <div>
-              <h3 className="mb-1">
-                {session.session_name || 'Session Details'}
-              </h3>
-              <div className="text-muted small">{session.session_id}</div>
-            </div>
-            <ClayButton displayType="unstyled" onClick={onClose}>
-              <ClayIcon
-                symbol="times"
-                style={{ width: '20px', height: '20px' }}
-              />
-            </ClayButton>
-          </div>
-
-          <div
-            className="p-4 overflow-auto flex-fill"
-            style={{ backgroundColor: '#fdfdfd' }}
-          >
-            <div className="row mb-4">
-              <div className="col-md-4">
-                <div className="small text-secondary font-weight-bold mb-1 text-uppercase">
-                  STATUS
-                </div>
-                <StatusBadge status={session.status} />
-              </div>
-              <div className="col-md-4">
-                <div className="small text-secondary font-weight-bold mb-1 text-uppercase">
-                  FLOW TYPE
-                </div>
-                <div className="font-weight-semi-bold">{session.flow_type}</div>
-              </div>
-              <div className="col-md-4">
-                <div className="small text-secondary font-weight-bold mb-1 text-uppercase">
-                  STARTED
-                </div>
-                <div className="font-weight-semi-bold">
-                  {new Date(session.created_at).toLocaleString()}
-                </div>
-              </div>
-            </div>
-
-            {context && (
-              <>
-                <div className="divider" />
-                <h5 className="mb-3 font-weight-bold">Workflow Context</h5>
-
-                <div className="mb-4">
-                  <div className="small text-secondary font-weight-bold mb-2 text-uppercase">
-                    Configuration & Options
-                  </div>
-                  <pre
-                    className="p-3 bg-dark text-light rounded small"
-                    style={{ maxHeight: '400px', overflow: 'auto' }}
-                  >
-                    {JSON.stringify(
-                      {
-                        options: context.options,
-                        config: {
-                          ...context.config,
-                          clientSecret: '[REDACTED]',
-                        },
-                        steps: context.steps,
-                      },
-                      null,
-                      2
-                    )}
-                  </pre>
-                </div>
-
-                {context.totals && (
-                  <div>
-                    <div className="small text-secondary font-weight-bold mb-2 text-uppercase">
-                      Target Totals
-                    </div>
-                    <div className="d-flex flex-wrap gap-3">
-                      {Object.entries(context.totals).map(([key, val]) => (
-                        <div
-                          key={key}
-                          className="p-2 border rounded bg-white"
-                          style={{ minWidth: '100px' }}
-                        >
-                          <div
-                            className="small text-muted text-uppercase"
-                            style={{ fontSize: '0.65rem' }}
-                          >
-                            {key}
-                          </div>
-                          <div className="h5 mb-0 font-weight-bold">{val}</div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-              </>
-            )}
-          </div>
-
-          <div className="p-4 border-top bg-light text-right">
-            <ClayButton displayType="secondary" onClick={onClose}>
-              Close
-            </ClayButton>
-          </div>
-        </ClayCard.Body>
-      </ClayCard>
-    </div>
-  );
-}
 
 function AdminUI() {
   const { config } = useApp();
@@ -756,111 +609,6 @@ function KPICard({ title, value, icon, color }) {
         </div>
       </ClayCard.Body>
     </ClayCard>
-  );
-}
-
-function ConfigurationDoctor({ health, liferayUrl }) {
-  if (!health) return null;
-
-  const configUrl = `${liferayUrl}/group/guest/~/control_panel/manage?p_p_id=com_liferay_client_extension_web_internal_portlet_ClientExtensionEntryPortlet_30394841094851_LXC_liferay_ai_commerce_accelerator_configuration&p_p_lifecycle=0&p_p_state=maximized#ai-config`;
-
-  return (
-    <ClayCard>
-      <ClayCard.Body>
-        <h4 className="mb-4">Configuration Doctor</h4>
-
-        <div className="health-list">
-          <HealthItem
-            title="Liferay Connectivity"
-            status={
-              health.liferay.status === 'CONNECTED' ? 'success' : 'danger'
-            }
-            message={health.liferay.message || 'Ready for population'}
-          />
-          <HealthItem
-            title="AI Text (Core)"
-            status={
-              health.aiText.status === 'CONFIGURED' ? 'success' : 'danger'
-            }
-            message={`${health.aiText.provider} provider active`}
-          />
-          <HealthItem
-            title="AI Media"
-            status={
-              health.aiMedia.status === 'CONFIGURED' ? 'success' : 'danger'
-            }
-            message={
-              health.aiMedia.provider === 'INHERIT'
-                ? `Inheriting from Core AI (${health.aiText.provider})`
-                : `${health.aiMedia.provider} provider active`
-            }
-          />
-          <HealthItem
-            title="AI Prompts"
-            status={health.prompts.status === 'OK' ? 'success' : 'warning'}
-            message={
-              health.prompts.missing.length > 0
-                ? `Missing: ${health.prompts.missing.join(', ')}`
-                : 'All templates found'
-            }
-          />
-          <HealthItem
-            title="AI Schemas"
-            status={health.schemas.status === 'OK' ? 'success' : 'warning'}
-            message={
-              health.schemas.missing.length > 0
-                ? `Missing: ${health.schemas.missing.join(', ')}`
-                : 'All contracts valid'
-            }
-          />
-        </div>
-
-        <div className="mt-4">
-          <a
-            href={configUrl}
-            className="btn btn-primary btn-block"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <ClayIcon symbol="cog" className="mr-2" />
-            Adjust Configuration
-          </a>
-        </div>
-      </ClayCard.Body>
-    </ClayCard>
-  );
-}
-
-function HealthItem({ title, status, message }) {
-  const icon =
-    status === 'success'
-      ? 'check-circle-full'
-      : status === 'danger'
-        ? 'exclamation-full'
-        : 'warning-full';
-  const color =
-    status === 'success'
-      ? 'text-success'
-      : status === 'danger'
-        ? 'text-danger'
-        : 'text-warning';
-
-  return (
-    <div className="py-3 border-bottom d-flex align-items-start">
-      <ClayIcon symbol={icon} className={`mr-3 mt-1 ${color}`} />
-      <div>
-        <div className="font-weight-bold" style={{ fontSize: '0.9rem' }}>
-          {title}
-        </div>
-        <div
-          className="small text-secondary text-truncate"
-          style={{ maxWidth: '220px' }}
-          title={message}
-        >
-          {message}
-        </div>
-      </div>
-    </div>
   );
 }
 
