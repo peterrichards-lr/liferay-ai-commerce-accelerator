@@ -52,6 +52,82 @@ class BatchCallbackService {
   }
 
   /**
+   * Probes Liferay for active batches of incomplete sessions and resumes workflows.
+   * Useful for recovery after microservice restarts.
+   */
+  async recoverOrphanedSessions() {
+    const { logger, persistence, liferay } = this.ctx;
+    const incomplete = await persistence.getIncompleteSessions();
+
+    if (incomplete.length === 0) return;
+
+    logger.info(`Starting recovery probe for ${incomplete.length} sessions...`);
+
+    for (const session of incomplete) {
+      const { session_id: sessionId, correlationId } = session;
+      const batches = await persistence.getBatchesForSession(sessionId);
+
+      // 1. Find batches that might have finished while we were down
+      const activeBatches = batches.filter(
+        (b) =>
+          ['PENDING', 'PROCESSING'].includes(b.status) && b.downstream_batch_id
+      );
+
+      for (const b of activeBatches) {
+        try {
+          logger.info(`Probing Liferay status for batch ${b.erc}...`, {
+            batchId: b.downstream_batch_id,
+            sessionId,
+          });
+
+          const task = await liferay.getImportTask(
+            session.context.config,
+            b.downstream_batch_id
+          );
+
+          if (
+            task &&
+            ['COMPLETED', 'FAILED'].includes(task.executeStatus || task.status)
+          ) {
+            logger.success(
+              `Batch ${b.erc} completed while offline. Reconciling...`
+            );
+
+            // Map Liferay executeStatus to our status
+            const status =
+              (task.executeStatus || task.status) === 'COMPLETED'
+                ? 'COMPLETED'
+                : 'FAILED';
+
+            await this.processCallbackInternal(
+              b.erc,
+              {
+                id: b.downstream_batch_id,
+                status,
+                processedItemsCount: task.processedItemsCount,
+                totalItemsCount: task.totalItemsCount,
+              },
+              correlationId,
+              sessionId
+            );
+          }
+        } catch (err) {
+          logger.warn(`Failed to probe batch ${b.erc}: ${err.message}`, {
+            sessionId,
+          });
+        }
+      }
+
+      // 2. Regardless of batch updates, trigger a completion check
+      // to wake up the orchestration loop for this session.
+      // This handles cases where batches were already finished or no batches were pending.
+      await this._checkSessionCompletion(sessionId, correlationId);
+    }
+
+    logger.info('Orphaned session recovery complete.');
+  }
+
+  /**
    * Main entry point for session advancement checks.
    * Uses a session-scoped promise chain to ensure atomic execution per session.
    */

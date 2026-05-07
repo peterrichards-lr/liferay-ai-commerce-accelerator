@@ -455,6 +455,10 @@ const gracefulShutdown = async (signal) => {
       if (configService?.syncEnvironmentKeys) {
         await configService.syncEnvironmentKeys();
       }
+
+      if (batchCallbackService?.recoverOrphanedSessions) {
+        await batchCallbackService.recoverOrphanedSessions();
+      }
     })().catch((err) => {
       logger.error('Startup background tasks failed', {
         error: err.message,

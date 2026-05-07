@@ -248,7 +248,15 @@ class PersistenceService {
         "SELECT * FROM workflow_sessions WHERE status = 'COMPLETED' AND flow_type != 'delete' ORDER BY created_at DESC"
       )
       .all();
+    return rows.map((row) => this._parseSession(row));
+  }
 
+  getIncompleteSessions() {
+    const rows = this.db
+      .prepare(
+        "SELECT * FROM workflow_sessions WHERE status NOT IN ('COMPLETED', 'FAILED', 'CANCELLED') ORDER BY created_at DESC"
+      )
+      .all();
     return rows.map((row) => this._parseSession(row));
   }
 
