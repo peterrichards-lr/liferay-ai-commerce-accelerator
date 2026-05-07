@@ -112,7 +112,7 @@ class WarehouseGenerator extends BaseGenerator {
         await this.liferay.createWarehouseChannel(
           config,
           payload.warehouseId,
-          payload
+          payload.channelId
         );
       }
 
