@@ -64,30 +64,28 @@ class PersistenceService {
       );
     `);
 
-    // Only run migration if column was NOT in the initial CREATE (unlikely for new DBs but good practice)
+    // Migrations for existing databases
     const columns = this.db
       .prepare('PRAGMA table_info(workflow_sessions)')
       .all();
+
     if (!columns.find((c) => c.name === 'session_name')) {
       try {
         this.db.exec(
           'ALTER TABLE workflow_sessions ADD COLUMN session_name TEXT;'
         );
       } catch (err) {
-        // Ignore errors about duplicate columns
-        if (!err.message.includes('duplicate column name')) {
-          throw err;
-        }
+        if (!err.message.includes('duplicate column name')) throw err;
       }
+    }
 
+    if (!columns.find((c) => c.name === 'error_message')) {
       try {
         this.db.exec(
           'ALTER TABLE workflow_sessions ADD COLUMN error_message TEXT;'
         );
       } catch (err) {
-        if (!err.message.includes('duplicate column name')) {
-          throw err;
-        }
+        if (!err.message.includes('duplicate column name')) throw err;
       }
     }
 
