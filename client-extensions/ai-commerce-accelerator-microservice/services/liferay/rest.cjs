@@ -33,6 +33,7 @@ const SOFT_STATUS_BY_OP = {
   'get-account-by-erc': [404],
   'get-product-by-erc': [404],
   'get-warehouse-by-erc': [404],
+  'get-sku-by-erc': [404],
   'specifications:list': [404],
   'optionCategories:list': [404],
   'warehouse:items': [404],

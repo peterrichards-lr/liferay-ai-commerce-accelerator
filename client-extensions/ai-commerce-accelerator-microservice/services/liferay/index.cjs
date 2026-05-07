@@ -1838,13 +1838,12 @@ class LiferayService {
     }
 
     if (currentErcs.length > 0) {
-      logger.error(
-        `Resolution failed to find ${currentErcs.length} / ${ercs.length} ${label} after ${maxRetries} attempts.`,
-        {
-          missingERCs: currentErcs,
-          correlationId: config.correlationId,
-        }
-      );
+      const errorMsg = `Resolution failed to find ${currentErcs.length} / ${ercs.length} ${label} after ${maxRetries} attempts.`;
+      logger.error(errorMsg, {
+        missingERCs: currentErcs,
+        correlationId: config.correlationId,
+      });
+      throw new Error(errorMsg);
     } else {
       logger.debug(`Successfully resolved all ${ercs.length} ${label}.`, {
         correlationId: config.correlationId,

@@ -535,6 +535,9 @@ class BaseGenerator extends BaseWorkflowService {
           }
         );
 
+        // HARDENING: Persist the failure in the database so hydration works correctly
+        await this.persistence.tryFailSession(sessionId);
+
         // Notify frontend of the failure so it doesn't hang in "Generating..." state
         await this.progress.sessionFailed({
           sessionId,
