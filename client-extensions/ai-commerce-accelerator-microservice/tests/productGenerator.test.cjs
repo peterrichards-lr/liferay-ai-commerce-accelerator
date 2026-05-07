@@ -43,8 +43,23 @@ describe('ProductGenerator', () => {
           .fn()
           .mockResolvedValue({ executeStatus: 'COMPLETED' }),
       },
+      progress: {
+        sessionStarted: vi.fn(),
+        sessionCompleted: vi.fn(),
+        sessionFailed: vi.fn(),
+        stepStarted: vi.fn(),
+        stepProgress: vi.fn(),
+        stepCompleted: vi.fn(),
+        stepFailed: vi.fn(),
+        batchStarted: vi.fn(),
+        batchProgress: vi.fn(),
+        batchCompleted: vi.fn(),
+        batchFailed: vi.fn(),
+      },
       batchCallback: {
-        _checkSessionCompletion: vi.fn(),
+        _checkSessionCompletion: vi
+          .fn()
+          .mockImplementation((sid) => generator.executeNextStep(sid)),
       },
     };
 
@@ -70,8 +85,8 @@ describe('ProductGenerator', () => {
 
     const session = persistence.getSession(result.sessionId);
     expect(session).not.toBeNull();
-    // It's actually 'generate' in current implementation
-    expect(session.flow_type).toBe('generate');
+    // It's actually 'products' in current implementation
+    expect(session.flow_type).toBe('products');
     expect(mockCtx.batchCallback._checkSessionCompletion).toHaveBeenCalled();
   });
 

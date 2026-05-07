@@ -50,16 +50,22 @@ describe('OrderGenerator', () => {
         createOrder: vi.fn().mockResolvedValue({ id: 5001 }),
       },
       progress: {
-        stepStarted: vi.fn(),
-        stepProgress: vi.fn(),
+        sessionStarted: vi.fn(),
         sessionCompleted: vi.fn(),
         sessionFailed: vi.fn(),
+        stepStarted: vi.fn(),
+        stepProgress: vi.fn(),
+        stepCompleted: vi.fn(),
+        stepFailed: vi.fn(),
         batchStarted: vi.fn(),
-        batchCompleted: vi.fn(),
         batchProgress: vi.fn(),
+        batchCompleted: vi.fn(),
+        batchFailed: vi.fn(),
       },
       batchCallback: {
-        _checkSessionCompletion: vi.fn(),
+        _checkSessionCompletion: vi
+          .fn()
+          .mockImplementation((sid) => generator.executeNextStep(sid)),
       },
     };
 
@@ -79,7 +85,7 @@ describe('OrderGenerator', () => {
     };
     const options = { orderCount: 1 };
 
-    const result = await generator.generateOrders(config, options);
+    const result = await generator.runWorkflow(config, options);
 
     expect(result.sessionId).toBeDefined();
     expect(result.message).toContain('started');

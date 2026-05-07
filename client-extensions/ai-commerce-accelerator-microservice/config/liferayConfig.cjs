@@ -32,7 +32,7 @@ module.exports = {
   batchConfig: {
     defaultBatchSize: 5,
     maxBatchSize: 20,
-    batchDelay: 500,
+    batchDelay: 100,
   },
 
   errorConfig: {

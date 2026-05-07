@@ -54,6 +54,7 @@ describe('WarehouseGenerator', () => {
           .mockResolvedValue([{ erc: 'WH-1', id: 2001 }]),
       },
       progress: {
+        sessionStarted: vi.fn(),
         stepStarted: vi.fn(),
         stepProgress: vi.fn(),
         stepFailed: vi.fn(),
@@ -76,11 +77,28 @@ describe('WarehouseGenerator', () => {
     persistence.close();
   });
 
+  it('should start warehouse generation workflow', async () => {
+    const config = {
+      liferayUrl: 'http://test',
+      correlationId: 'test-corr-id',
+    };
+    const options = { warehouseCount: 1 };
+
+    const result = await generator.runWorkflow(config, options);
+
+    expect(result.sessionId).toBeDefined();
+    expect(result.message).toContain('started');
+
+    const session = persistence.getSession(result.sessionId);
+    expect(session).not.toBeNull();
+    expect(session.flow_type).toBe('warehouses');
+  });
+
   it('should store geographicContext with ISO codes in _runWarehouseDataGenerationStep', async () => {
     const sessionId = `wh-test-session-${Date.now()}`;
     persistence.createSession({
       sessionId,
-      flowType: 'warehouse',
+      flowType: 'warehouses',
       status: 'STARTED',
       context: {
         config: { localeCode: 'en-US' },
@@ -92,7 +110,7 @@ describe('WarehouseGenerator', () => {
     await generator._runWarehouseDataGenerationStep(sessionId);
 
     const session = persistence.getSession(sessionId);
-    expect(session.context.geographicContext).toMatchObject({
+    expect(session.context.options.geographicContext).toMatchObject({
       countryISOCode: 'UZ',
       regionISOCode: 'TOS',
       countryTitle: 'Uzbekistan',
@@ -113,7 +131,7 @@ describe('WarehouseGenerator', () => {
 
     persistence.createSession({
       sessionId,
-      flowType: 'warehouse',
+      flowType: 'warehouses',
       status: 'STARTED',
       context: {
         config: {},

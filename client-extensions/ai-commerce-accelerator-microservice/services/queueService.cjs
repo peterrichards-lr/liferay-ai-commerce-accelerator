@@ -448,13 +448,13 @@ class QueueService {
     while (true) {
       try {
         if (queue.processing >= queue.concurrency) {
-          await delay(1000);
+          await delay(100);
           continue;
         }
 
         const job = this.getNextJob(queue);
         if (!job) {
-          await delay(2000);
+          await delay(200);
           continue;
         }
 

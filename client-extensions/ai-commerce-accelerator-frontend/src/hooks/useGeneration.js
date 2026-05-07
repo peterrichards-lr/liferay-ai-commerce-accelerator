@@ -35,26 +35,16 @@ export default function useGeneration({
       const { products, accounts, orders, images, pdfs, warehouses } =
         computeTotalsFromConfig(activeConfig);
 
+      const totals = { products, accounts, orders, images, pdfs, warehouses };
+
       dispatch({
-        type: 'SET_TOTALS',
-        totals: { products, accounts, orders, images, pdfs, warehouses },
+        type: 'RESET_ALL',
+        totals,
       });
 
       dispatch({
         type: 'SET_EXPECTED_VALUES',
         values: { images, pdfs },
-      });
-
-      dispatch({
-        type: 'MERGE',
-        payload: {
-          products: { ...progress.products, completed: 0, errors: [] },
-          accounts: { ...progress.accounts, completed: 0, errors: [] },
-          orders: { ...progress.orders, completed: 0, errors: [] },
-          images: { ...progress.images, completed: 0, errors: [] },
-          pdfs: { ...progress.pdfs, completed: 0, errors: [] },
-          warehouses: { ...progress.warehouses, completed: 0, errors: [] },
-        },
       });
 
       addLog(
@@ -96,6 +86,8 @@ export default function useGeneration({
           dispatch({
             type: 'SET_ACTIVE_SESSION',
             sessionId: response.sessionId,
+            flowType: 'generate',
+            totals: { products, accounts, orders, images, pdfs, warehouses },
           });
           dispatch({
             type: 'SET_WORKFLOW_STATUS',

@@ -1,5 +1,6 @@
 const BaseWorkflowService = require('../services/baseWorkflowService.cjs');
-const { delay } = require('../utils/misc.cjs');
+const { delay, createERC } = require('../utils/misc.cjs');
+const { ERC_PREFIX, ENV, WORKFLOW_STEPS } = require('../utils/constants.cjs');
 
 /**
  * BaseGenerator - Specialized orchestrator for data generation workflows.
@@ -10,6 +11,130 @@ class BaseGenerator extends BaseWorkflowService {
   constructor(ctx) {
     super(ctx);
     this.steps = {}; // Subclasses must define their step map
+  }
+
+  /**
+   * Generalized entry point for generation workflows.
+   */
+  async runWorkflow(config, options, flowType, steps, totals) {
+    const sessionId = options.sessionId || createERC(ERC_PREFIX.BATCH_SESSION);
+    options.sessionId = sessionId;
+
+    // Standardize selected languages
+    if (
+      !options.selectedLanguages ||
+      (Array.isArray(options.selectedLanguages) &&
+        options.selectedLanguages.length === 0)
+    ) {
+      const fallbackLanguage = config.defaultLanguageId || ENV.DEFAULT_LOCALE;
+      this.logger.info(
+        `No languages selected for generation. Falling back to: ${fallbackLanguage}`,
+        { sessionId }
+      );
+      options.selectedLanguages = [fallbackLanguage];
+    }
+
+    await this.persistence.createSession({
+      sessionId,
+      flowType,
+      status: 'STARTED',
+      currentSteps: [],
+      correlationId: config.correlationId,
+      context: {
+        config,
+        options,
+        steps,
+        generator: flowType,
+      },
+    });
+
+    this.progress.sessionStarted({
+      sessionId,
+      flowType,
+      correlationId: config.correlationId,
+      totalSteps: steps.length,
+      totals,
+    });
+
+    // Check completion (in case session finished instantly)
+    this.ctx.batchCallback._checkSessionCompletion(
+      sessionId,
+      config.correlationId
+    );
+
+    this.logger.info(`${flowType} generation workflow started`, {
+      sessionId,
+      steps: steps.map((s) => s.name || s.type),
+      correlationId: config.correlationId,
+    });
+
+    return {
+      sessionId,
+      message: `${flowType} generation workflow started.`,
+    };
+  }
+
+  /**
+   * Standard step to introduce a delay for Liferay search indexing to settle.
+   */
+  async _runInterServiceSyncDelayStep(
+    sessionId,
+    stepKey = WORKFLOW_STEPS.SYNC_DELAY
+  ) {
+    const session = await this.persistence.getSession(sessionId);
+    const { correlationId } = session;
+
+    const delayMs = ENV.LIFERAY_SYNC_DELAY_MS || 10000;
+
+    this.logger.info(
+      `Starting inter-service synchronization delay of ${delayMs}ms for step: ${stepKey}`,
+      { sessionId, correlationId }
+    );
+
+    await delay(delayMs);
+
+    await this.completeSyncStep(sessionId, stepKey);
+
+    this.logger.info('Inter-service synchronization delay completed.', {
+      sessionId,
+      correlationId,
+    });
+  }
+
+  /**
+   * Metadata Step: Load countries from Liferay.
+   */
+  async _runLoadCountriesStep(sessionId) {
+    const session = await this.persistence.getSession(sessionId);
+    const { config } = session.context;
+
+    this.logger.info('Loading countries from Liferay...', { sessionId });
+
+    const countries = await this.liferay.getCountries(config);
+
+    await this.persistence.updateSessionContext(sessionId, {
+      countries: countries.items || countries,
+    });
+
+    await this.completeSyncStep(sessionId, WORKFLOW_STEPS.LOAD_COUNTRIES);
+  }
+
+  /**
+   * Metadata Step: Load active languages from Liferay.
+   */
+  async _runLoadLanguagesStep(sessionId) {
+    const session = await this.persistence.getSession(sessionId);
+    const { config } = session.context;
+
+    this.logger.info('Loading active languages from Liferay...', { sessionId });
+
+    const languages = await this.liferay.getLanguages(config);
+
+    await this.persistence.updateSessionContext(sessionId, {
+      languages: languages.items || languages,
+    });
+
+    await this.completeSyncStep(sessionId, WORKFLOW_STEPS.LOAD_LANGUAGES);
   }
 
   /**
@@ -135,7 +260,7 @@ class BaseGenerator extends BaseWorkflowService {
     // 2. Trigger the next step discovery
     // We add a tiny jitter to ensure the SQLite write-lock has cleared
     await delay(100);
-    return await this.executeNextStep(sessionId);
+    return true;
   }
 
   /**
@@ -297,9 +422,9 @@ class BaseGenerator extends BaseWorkflowService {
           if (state === 'COMPLETE') return true;
 
           if (stepType === 'parallel') {
-            for (const subStep of step.steps) {
-              await processStep(subStep);
-            }
+            await Promise.all(
+              step.steps.map((subStep) => processStep(subStep))
+            );
 
             const subStates = step.steps.map(getStepState);
 

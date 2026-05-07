@@ -16,6 +16,7 @@ export default function useCommerceData({
   setAiKeyAvailable,
   setAiMediaKeyAvailable,
   setConnectionErrors,
+  setProgress,
   _ping,
 }) {
   const { config, setConfig, getLanguages, getCurrencies } = useApp();
@@ -295,7 +296,7 @@ export default function useCommerceData({
       const plural = (n, s, p = s + 'es') => `${n} ${n === 1 ? s : p}`;
 
       Object.entries(summary).forEach(([entity, s]) => {
-        if (!s) return;
+        if (!s || typeof s !== 'object' || s.total === undefined) return;
         const total = s.total ?? 0;
         const batches = s.batches ?? 0;
         const batchesText = plural(batches, 'batch', 'batches');
@@ -321,20 +322,25 @@ export default function useCommerceData({
   );
 
   const handleDeleteAllCommerceData = useCallback(async () => {
+    if (setProgress) setProgress({ type: 'RESET_ALL' });
     const payload = buildPayload();
     const res = await api.post(DELETE_COMMERCE_DATA, payload);
     if (res?.summary) {
       logDeletionSummary(res.summary);
     }
-  }, [api, buildPayload, logDeletionSummary]);
+  }, [api, buildPayload, logDeletionSummary, setProgress]);
 
-  const handleDeleteSelectedCommerceData = useCallback(async () => {
-    const payload = buildPayload();
-    const res = await api.post(DELETE_SELECTED_COMMERCE_DATA, payload);
-    if (res?.summary) {
-      logDeletionSummary(res.summary);
-    }
-  }, [api, buildPayload, logDeletionSummary]);
+  const handleDeleteSelectedCommerceData = useCallback(
+    async (scope) => {
+      if (setProgress) setProgress({ type: 'RESET_ALL' });
+      const payload = buildPayload({ deleteScope: scope });
+      const res = await api.post(DELETE_SELECTED_COMMERCE_DATA, payload);
+      if (res?.summary) {
+        logDeletionSummary(res.summary);
+      }
+    },
+    [api, buildPayload, logDeletionSummary, setProgress]
+  );
 
   return {
     catalogs,

@@ -100,10 +100,16 @@ class AIService {
 
     const apiKey =
       requestConfig?.aiApiKey || (await config.getAIKey(requestConfig));
-    const mediaApiKey =
-      requestConfig?.aiMediaApiKey ||
-      (await config.getAIMediaKey(requestConfig)) ||
-      apiKey;
+
+    let mediaApiKey = requestConfig?.aiMediaApiKey;
+
+    if (!mediaApiKey) {
+      if (mediaProvider === 'inherit') {
+        mediaApiKey = apiKey;
+      } else {
+        mediaApiKey = (await config.getAIMediaKey(requestConfig)) || apiKey;
+      }
+    }
 
     if (!aiCfg.defaultModel) {
       const err = new Error(

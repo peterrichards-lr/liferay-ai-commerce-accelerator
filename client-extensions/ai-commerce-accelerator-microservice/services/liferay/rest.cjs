@@ -730,13 +730,31 @@ class LiferayRestService {
 
   async getConfig(config, configKey) {
     const erc = String(configKey || '').toUpperCase();
-    return await this._get(
+
+    // MANDATE: Filter-In-Memory. Avoid 'or' filters.
+    // We try to find by configKey first.
+    const response = await this._get(
       config,
       PATH.CUSTOM_OBJECT_QUERY(CUSTOM_OBJECTS.AICA_CONFIGS, {
-        filter: `externalReferenceCode eq '${erc}' or configKey eq '${configKey}'`,
+        filter: `configKey eq '${configKey}'`,
         pageSize: 500,
       }),
       `get-config:${configKey}`
+    );
+
+    // If we found a direct match, return it
+    if (response?.items?.length) {
+      return response;
+    }
+
+    // FALLBACK: Try fetching by ERC directly (another simple filter)
+    return await this._get(
+      config,
+      PATH.CUSTOM_OBJECT_QUERY(CUSTOM_OBJECTS.AICA_CONFIGS, {
+        filter: `externalReferenceCode eq '${erc}'`,
+        pageSize: 10,
+      }),
+      `get-config-by-erc:${configKey}`
     );
   }
 
@@ -1097,26 +1115,49 @@ class LiferayRestService {
         };
       } catch (error) {
         lastError = error;
+
+        const errorTitle = error.problem?.title || '';
+        const errorMessage = error.message || '';
+
         const isDuplicateERC =
           error.status === 400 &&
-          (error.problem?.title?.includes('already in use') ||
-            error.message?.includes('already in use'));
+          (errorTitle.toLowerCase().includes('already in use') ||
+            errorMessage.toLowerCase().includes('already in use'));
 
-        if (isDuplicateERC && attempts < maxAttempts - 1) {
-          const oldERC = currentERC;
-          currentERC = createERC(ERC_PREFIX[prefixKey] || ERC_PREFIX.BATCH);
-          logger.warn(
-            `Batch ERC collision detected for ${entityName}. Regenerating ERC and retrying.`,
+        if (isDuplicateERC) {
+          const isBatchERCCollision =
+            errorTitle.includes(currentERC) ||
+            errorMessage.includes(currentERC);
+
+          if (isBatchERCCollision && attempts < maxAttempts - 1) {
+            const oldERC = currentERC;
+            currentERC = createERC(ERC_PREFIX[prefixKey] || ERC_PREFIX.BATCH);
+            logger.warn(
+              `Batch ERC collision detected for ${entityName}. Regenerating batch ERC and retrying.`,
+              {
+                oldERC,
+                newERC: currentERC,
+                sessionId,
+                correlationId: config?.correlationId,
+              }
+            );
+            attempts++;
+            await delay(500 * attempts);
+            continue;
+          }
+
+          logger.error(
+            `Fatal ERC collision in batch ${op}. One or more items already exist in Liferay.`,
             {
-              oldERC,
-              newERC: currentERC,
-              sessionId,
+              batchERC: currentERC,
+              isBatchCollision: isBatchERCCollision,
+              title: errorTitle,
+              message: errorMessage,
               correlationId: config?.correlationId,
             }
           );
-          attempts++;
-          continue;
         }
+
         throw error;
       }
     }
@@ -1370,6 +1411,7 @@ class LiferayRestService {
       sessionId: opts.sessionId,
       session: opts.session,
       createStrategy: 'UPSERT',
+      skipItemERC: true,
     });
 
     return results;
@@ -1524,6 +1566,17 @@ class LiferayRestService {
     return results;
   }
 
+  async createWarehouseChannel(config, warehouseId, channelId) {
+    const data = await this._post(
+      config,
+      PATH.WAREHOUSE_CHANNELS(warehouseId),
+      { channelId, warehouseId },
+      'create-warehouse-channel',
+      'Failed to link warehouse to channel'
+    );
+    return data;
+  }
+
   async createAccount(config, accountData) {
     const data = await this._post(
       config,
@@ -1672,9 +1725,16 @@ class LiferayRestService {
   }
 
   async createAccountAddressBatch(config, accountId, addressesData, opts = {}) {
+    // HARDENING: Strip accountId from items as it is not allowed in the DTO
+    // and is already in the URL path.
+    const preparedItems = addressesData.map((addr) => {
+      const { accountId: _aid, ...rest } = addr;
+      return rest;
+    });
+
     const results = await this._postBatch(config, {
       entityName: 'address',
-      items: addressesData,
+      items: preparedItems,
       externalReferenceCode: opts.externalReferenceCode,
       itemERCKey: 'id',
       op: 'create-account-addresses-batch',

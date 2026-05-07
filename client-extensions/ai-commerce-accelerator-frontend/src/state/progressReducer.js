@@ -2,6 +2,9 @@ export const initialProgress = {
   activeSessionId: null,
   activeFlowType: null, // generate, delete, etc.
   workflowStatus: 'idle', // idle, running, completed, failed
+  startTime: null,
+  lastUpdateTime: null,
+  endTime: null,
   totalSteps: 0,
   completedSteps: 0,
   products: { total: 0, completed: 0, errors: [], batches: {} },
@@ -18,12 +21,14 @@ export const initialProgress = {
 };
 
 export function progressReducer(state, action) {
+  const now = Date.now();
+
   switch (action.type) {
     case 'RESET':
       return initialProgress;
 
     case 'RESET_ALL': {
-      const next = { ...initialProgress };
+      const next = { ...initialProgress, lastUpdateTime: now };
       if (action.totals) {
         Object.entries(action.totals).forEach(([k, v]) => {
           if (next[k]) next[k].total = v;
@@ -33,35 +38,70 @@ export function progressReducer(state, action) {
     }
 
     case 'MERGE':
-      return { ...state, ...action.payload };
+      return { ...state, ...action.payload, lastUpdateTime: now };
 
     case 'APPLY_UPDATER':
-      return action.updater(state);
+      return { ...action.updater(state), lastUpdateTime: now };
 
     case 'SET_ACTIVE_SESSION': {
-      return {
+      const isNewSession =
+        action.sessionId && action.sessionId !== state.activeSessionId;
+      const nextState = {
         ...state,
         activeSessionId: action.sessionId,
         activeFlowType:
           action.flowType || (action.sessionId ? state.activeFlowType : null),
         workflowStatus: action.sessionId ? 'running' : state.workflowStatus,
+        startTime: isNewSession ? now : state.startTime,
+        lastUpdateTime: now,
+        endTime: action.sessionId ? null : state.endTime,
       };
+
+      if (isNewSession && action.totals) {
+        Object.entries(action.totals).forEach(([entity, total]) => {
+          if (nextState[entity]) {
+            nextState[entity] = {
+              ...nextState[entity],
+              total,
+              completed: 0,
+              errors: [],
+              batches: {},
+              isDone: false,
+            };
+          }
+        });
+      }
+      return nextState;
     }
 
     case 'SET_WORKFLOW_STATUS': {
-      return { ...state, workflowStatus: action.status };
+      const isFinished = ['completed', 'failed'].includes(action.status);
+      return {
+        ...state,
+        workflowStatus: action.status,
+        lastUpdateTime: now,
+        endTime: isFinished ? now : state.endTime,
+      };
     }
 
     case 'SET_TOTAL_STEPS': {
-      return { ...state, totalSteps: action.total };
+      return { ...state, totalSteps: action.total, lastUpdateTime: now };
     }
 
     case 'INCREMENT_STEPS': {
-      return { ...state, completedSteps: (state.completedSteps || 0) + 1 };
+      return {
+        ...state,
+        completedSteps: (state.completedSteps || 0) + 1,
+        lastUpdateTime: now,
+      };
     }
 
     case 'HYDRATE_STEPS': {
-      return { ...state, completedSteps: action.completed };
+      return {
+        ...state,
+        completedSteps: action.completed,
+        lastUpdateTime: now,
+      };
     }
 
     case 'SET_TOTAL': {
@@ -75,11 +115,12 @@ export function progressReducer(state, action) {
       return {
         ...state,
         [entity]: { ...cur, total },
+        lastUpdateTime: now,
       };
     }
 
     case 'SET_TOTALS': {
-      const next = { ...state };
+      const next = { ...state, lastUpdateTime: now };
       Object.entries(action.totals).forEach(([entity, total]) => {
         const cur = next[entity] || {
           total: 0,
@@ -93,7 +134,7 @@ export function progressReducer(state, action) {
     }
 
     case 'SET_EXPECTED_VALUES': {
-      const next = { ...state };
+      const next = { ...state, lastUpdateTime: now };
       Object.entries(action.values).forEach(([entity, expected]) => {
         const cur = next[entity] || {
           total: 0,
@@ -115,9 +156,11 @@ export function progressReducer(state, action) {
         batches: {},
       };
 
-      const isDone = cur.total > 0 && completed >= cur.total;
-
-      return { ...state, [entity]: { ...cur, completed, isDone } };
+      return {
+        ...state,
+        [entity]: { ...cur, completed },
+        lastUpdateTime: now,
+      };
     }
 
     case 'SET_COMPLETED_TO_TOTAL': {
@@ -129,9 +172,11 @@ export function progressReducer(state, action) {
         batches: {},
         isDone: false,
       };
+      // Mark as done explicitly. Completed count should match total.
       return {
         ...state,
         [entity]: { ...cur, completed: cur.total, isDone: true },
+        lastUpdateTime: now,
       };
     }
 
@@ -160,7 +205,6 @@ export function progressReducer(state, action) {
       );
 
       const summedTotal = Math.max(cur.total, summedBatchTotals);
-      const isDone = summedTotal > 0 && summedCompleted >= summedTotal;
 
       return {
         ...state,
@@ -169,8 +213,8 @@ export function progressReducer(state, action) {
           batches: nextBatches,
           completed: summedCompleted,
           total: summedTotal,
-          isDone,
         },
+        lastUpdateTime: now,
       };
     }
 
@@ -186,6 +230,7 @@ export function progressReducer(state, action) {
       return {
         ...state,
         [entity]: { ...cur, errors: [...cur.errors, ...newErrors] },
+        lastUpdateTime: now,
       };
     }
 

@@ -416,8 +416,8 @@ export default function useRealtimeWebSocket({
               'success'
             );
 
-            if (isDelete) {
-              currentOnProgress?.({ type: 'INCREMENT_STEPS' });
+            if (currentOnProgress) {
+              currentOnProgress({ type: 'INCREMENT_STEPS' });
             }
 
             if (currentOnProgress && entityType) {

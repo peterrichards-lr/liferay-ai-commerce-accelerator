@@ -446,14 +446,20 @@ const gracefulShutdown = async (signal) => {
       clients: ws.clients.size,
     });
 
-    // STARTUP TASK: Sync keys from environment to Liferay
-    if (configService?.syncEnvironmentKeys) {
-      configService.syncEnvironmentKeys().catch((err) => {
-        logger.error('Startup task failed: syncEnvironmentKeys', {
-          error: err.message,
-        });
+    // STARTUP TASKS (Background): Wait for Liferay and then sync keys
+    (async () => {
+      if (liferayService?.waitForLiferay) {
+        await liferayService.waitForLiferay();
+      }
+
+      if (configService?.syncEnvironmentKeys) {
+        await configService.syncEnvironmentKeys();
+      }
+    })().catch((err) => {
+      logger.error('Startup background tasks failed', {
+        error: err.message,
       });
-    }
+    });
 
     if (process.env.DRY_RUN === 'true') {
       logger.info('DRY_RUN enabled. Shutting down immediately.');

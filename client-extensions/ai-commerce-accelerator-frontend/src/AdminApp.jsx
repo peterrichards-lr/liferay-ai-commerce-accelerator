@@ -32,6 +32,156 @@ const unescapeHtml = (str) => {
   return doc.documentElement.textContent;
 };
 
+function StatusBadge({ status }) {
+  let displayType = 'secondary';
+  if (status === 'COMPLETED') displayType = 'success';
+  if (status === 'FAILED') displayType = 'danger';
+  if (status === 'CANCELLED') displayType = 'warning';
+  if (status === 'STARTED' || status === 'PROCESSING') displayType = 'info';
+
+  return (
+    <ClayLabel displayType={displayType} outline>
+      {status}
+    </ClayLabel>
+  );
+}
+
+function SessionDetailModal({ session, onClose }) {
+  const context = useMemo(() => {
+    try {
+      return typeof session.context === 'string'
+        ? JSON.parse(session.context)
+        : session.context;
+    } catch {
+      return null;
+    }
+  }, [session]);
+
+  return (
+    <div
+      className="confirm-dialog__backdrop"
+      style={{ alignItems: 'flex-start', paddingTop: '5vh' }}
+    >
+      <ClayCard
+        style={{
+          width: 'min(900px, 95%)',
+          maxHeight: '85vh',
+          overflow: 'hidden',
+        }}
+      >
+        <ClayCard.Body
+          className="d-flex flex-column p-0"
+          style={{ height: '100%' }}
+        >
+          <div className="p-4 border-bottom d-flex justify-content-between align-items-center bg-light">
+            <div>
+              <h3 className="mb-1">
+                {session.session_name || 'Session Details'}
+              </h3>
+              <div className="text-muted small">{session.session_id}</div>
+            </div>
+            <ClayButton displayType="unstyled" onClick={onClose}>
+              <ClayIcon
+                symbol="times"
+                style={{ width: '20px', height: '20px' }}
+              />
+            </ClayButton>
+          </div>
+
+          <div
+            className="p-4 overflow-auto flex-fill"
+            style={{ backgroundColor: '#fdfdfd' }}
+          >
+            <div className="row mb-4">
+              <div className="col-md-4">
+                <div className="small text-secondary font-weight-bold mb-1 text-uppercase">
+                  STATUS
+                </div>
+                <StatusBadge status={session.status} />
+              </div>
+              <div className="col-md-4">
+                <div className="small text-secondary font-weight-bold mb-1 text-uppercase">
+                  FLOW TYPE
+                </div>
+                <div className="font-weight-semi-bold">{session.flow_type}</div>
+              </div>
+              <div className="col-md-4">
+                <div className="small text-secondary font-weight-bold mb-1 text-uppercase">
+                  STARTED
+                </div>
+                <div className="font-weight-semi-bold">
+                  {new Date(session.created_at).toLocaleString()}
+                </div>
+              </div>
+            </div>
+
+            {context && (
+              <>
+                <div className="divider" />
+                <h5 className="mb-3 font-weight-bold">Workflow Context</h5>
+
+                <div className="mb-4">
+                  <div className="small text-secondary font-weight-bold mb-2 text-uppercase">
+                    Configuration & Options
+                  </div>
+                  <pre
+                    className="p-3 bg-dark text-light rounded small"
+                    style={{ maxHeight: '400px', overflow: 'auto' }}
+                  >
+                    {JSON.stringify(
+                      {
+                        options: context.options,
+                        config: {
+                          ...context.config,
+                          clientSecret: '[REDACTED]',
+                        },
+                        steps: context.steps,
+                      },
+                      null,
+                      2
+                    )}
+                  </pre>
+                </div>
+
+                {context.totals && (
+                  <div>
+                    <div className="small text-secondary font-weight-bold mb-2 text-uppercase">
+                      Target Totals
+                    </div>
+                    <div className="d-flex flex-wrap gap-3">
+                      {Object.entries(context.totals).map(([key, val]) => (
+                        <div
+                          key={key}
+                          className="p-2 border rounded bg-white"
+                          style={{ minWidth: '100px' }}
+                        >
+                          <div
+                            className="small text-muted text-uppercase"
+                            style={{ fontSize: '0.65rem' }}
+                          >
+                            {key}
+                          </div>
+                          <div className="h5 mb-0 font-weight-bold">{val}</div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </>
+            )}
+          </div>
+
+          <div className="p-4 border-top bg-light text-right">
+            <ClayButton displayType="secondary" onClick={onClose}>
+              Close
+            </ClayButton>
+          </div>
+        </ClayCard.Body>
+      </ClayCard>
+    </div>
+  );
+}
+
 function AdminUI() {
   const { config } = useApp();
   const api = useApi();
@@ -50,6 +200,7 @@ function AdminUI() {
     direction: 'desc',
   });
   const [filters, setSortFilters] = useState({ name: '', status: '' });
+  const [selectedSession, setSelectedSession] = useState(null);
 
   // Pagination state
   const [currentPage, setCurrentPage] = useState(1);
@@ -214,7 +365,13 @@ function AdminUI() {
 
   return (
     <div className="ai-commerce-dashboard">
-      <div className="dashboard-nav-container py-3 border-bottom bg-white sticky-top">
+      <div
+        className="dashboard-nav-container py-3 border-bottom bg-white sticky-top"
+        style={{
+          top: 'calc(var(--control-menu-height, 0px))',
+          zIndex: 10,
+        }}
+      >
         <div className="container-fluid px-4">
           <nav className="navbar navbar-expand-md navbar-light p-0">
             <div className="navbar-brand d-flex align-items-center">
@@ -425,6 +582,9 @@ function AdminUI() {
                           {sortConfig.key === 'session_name' &&
                             (sortConfig.direction === 'asc' ? '↑' : '↓')}
                         </ClayTable.Cell>
+                        <ClayTable.Cell headingCell>
+                          Brand / Context
+                        </ClayTable.Cell>
                         <ClayTable.Cell
                           headingCell
                           onClick={() => requestSort('status')}
@@ -450,7 +610,7 @@ function AdminUI() {
                       {paginatedSessions.length === 0 ? (
                         <ClayTable.Row>
                           <ClayTable.Cell
-                            colSpan={4}
+                            colSpan={5}
                             className="text-center py-5"
                           >
                             <div className="text-secondary">
@@ -459,36 +619,69 @@ function AdminUI() {
                           </ClayTable.Cell>
                         </ClayTable.Row>
                       ) : (
-                        paginatedSessions.map((s) => (
-                          <ClayTable.Row key={s.session_id}>
-                            <ClayTable.Cell>
-                              <div className="font-weight-bold">
-                                {unescapeHtml(s.session_name) || 'Unnamed'}
-                              </div>
-                              <small className="text-muted">
-                                {s.session_id}
-                              </small>
-                            </ClayTable.Cell>
-                            <ClayTable.Cell>
-                              <StatusBadge status={s.status} />
-                            </ClayTable.Cell>
-                            <ClayTable.Cell style={{ fontSize: '0.875rem' }}>
-                              {new Date(s.created_at).toLocaleString()}
-                            </ClayTable.Cell>
-                            <ClayTable.Cell className="text-right">
-                              <ClayButton
-                                displayType="unstyled"
-                                size="sm"
-                                onClick={() =>
-                                  handleExport(s.session_id, s.session_name)
-                                }
-                                title="Export dataset"
-                              >
-                                <ClayIcon symbol="download" className="mr-1" />
-                              </ClayButton>
-                            </ClayTable.Cell>
-                          </ClayTable.Row>
-                        ))
+                        paginatedSessions.map((s) => {
+                          let context = s.context;
+                          try {
+                            if (typeof s.context === 'string') {
+                              context = JSON.parse(s.context);
+                            }
+                          } catch (_err) {
+                            context = {};
+                          }
+
+                          const options = context?.options || {};
+                          const brandName = options.brandName || '---';
+                          const region =
+                            options.geographicContext?.countryTitle ||
+                            options.geographicContext?.regionTitle ||
+                            'Global';
+
+                          return (
+                            <ClayTable.Row
+                              key={s.session_id}
+                              onClick={() => setSelectedSession(s)}
+                              style={{ cursor: 'pointer' }}
+                              className="hover-row"
+                            >
+                              <ClayTable.Cell>
+                                <div className="font-weight-bold">
+                                  {unescapeHtml(s.session_name) || 'Unnamed'}
+                                </div>
+                                <small className="text-muted">
+                                  {s.session_id}
+                                </small>
+                              </ClayTable.Cell>
+                              <ClayTable.Cell>
+                                <div className="font-weight-semi-bold">
+                                  {brandName}
+                                </div>
+                                <small className="text-muted">{region}</small>
+                              </ClayTable.Cell>
+                              <ClayTable.Cell>
+                                <StatusBadge status={s.status} />
+                              </ClayTable.Cell>
+                              <ClayTable.Cell style={{ fontSize: '0.875rem' }}>
+                                {new Date(s.created_at).toLocaleString()}
+                              </ClayTable.Cell>
+                              <ClayTable.Cell className="text-right">
+                                <ClayButton
+                                  displayType="unstyled"
+                                  size="sm"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleExport(s.session_id, s.session_name);
+                                  }}
+                                  title="Export dataset"
+                                >
+                                  <ClayIcon
+                                    symbol="download"
+                                    className="mr-1"
+                                  />
+                                </ClayButton>
+                              </ClayTable.Cell>
+                            </ClayTable.Row>
+                          );
+                        })
                       )}
                     </ClayTable.Body>
                   </ClayTable>
@@ -529,6 +722,13 @@ function AdminUI() {
           </ClayLayout.Col>
         </ClayLayout.Row>
       </div>
+
+      {selectedSession && (
+        <SessionDetailModal
+          onClose={() => setSelectedSession(null)}
+          session={selectedSession}
+        />
+      )}
     </div>
   );
 }
@@ -556,20 +756,6 @@ function KPICard({ title, value, icon, color }) {
         </div>
       </ClayCard.Body>
     </ClayCard>
-  );
-}
-
-function StatusBadge({ status }) {
-  let displayType = 'secondary';
-  if (status === 'COMPLETED') displayType = 'success';
-  if (status === 'FAILED') displayType = 'danger';
-  if (status === 'CANCELLED') displayType = 'warning';
-  if (status === 'STARTED' || status === 'PROCESSING') displayType = 'info';
-
-  return (
-    <ClayLabel displayType={displayType} outline>
-      {status}
-    </ClayLabel>
   );
 }
 

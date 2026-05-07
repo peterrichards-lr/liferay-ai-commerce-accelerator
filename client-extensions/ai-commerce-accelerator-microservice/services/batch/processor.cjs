@@ -204,7 +204,7 @@ class BatchProcessorService {
       );
 
       if (i < items.length - 1) {
-        await delay(100);
+        await delay(10);
       }
     }
 

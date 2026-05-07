@@ -59,9 +59,7 @@ class OrderGenerator extends BaseGenerator {
     }
   }
 
-  async generateOrders(config, options) {
-    const sessionId = createERC(ERC_PREFIX.BATCH_SESSION);
-
+  async runWorkflow(config, options) {
     const steps = [
       {
         name: S.GENERATE_ORDER_DATA,
@@ -71,34 +69,11 @@ class OrderGenerator extends BaseGenerator {
       { name: S.CREATE_ORDERS, type: 'sync' },
     ];
 
-    await this.persistence.createSession({
-      sessionId,
-      flowType: 'orders',
-      status: 'STARTED',
-      currentSteps: [],
-      correlationId: config.correlationId,
-      context: {
-        config,
-        options,
-        steps,
-      },
-    });
-
-    this.ctx.batchCallback._checkSessionCompletion(
-      sessionId,
-      config.correlationId
-    );
-
-    this.logger.info('Order generation workflow started', {
-      sessionId,
-      steps: steps.map((s) => s.name),
-      correlationId: config.correlationId,
-    });
-
-    return {
-      sessionId,
-      message: 'Order generation workflow started.',
+    const totals = {
+      orders: options.orderCount || 0,
     };
+
+    return super.runWorkflow(config, options, 'orders', steps, totals);
   }
 
   async _runOrderDataGenerationStep(sessionId) {
@@ -131,8 +106,11 @@ class OrderGenerator extends BaseGenerator {
       );
 
       await this.persistence.updateSessionContext(sessionId, {
-        ...session.context,
         orderDataList,
+      });
+
+      this.logger.debug('Pre-selected dependencies for orders', {
+        sessionId,
         products,
         accounts,
       });
@@ -321,7 +299,7 @@ class OrderGenerator extends BaseGenerator {
   }
 
   buildOrderPayload(config, orderData, accounts, products, warehouses) {
-    const accountId = this.pickAccountId(orderData.accountId, accounts);
+    const account = this.pickAccount(orderData.accountId, accounts);
     const orderStatus = this.normalizeOrderStatus(orderData.orderStatus);
 
     const orderItems = [];
@@ -372,7 +350,7 @@ class OrderGenerator extends BaseGenerator {
     }
 
     return {
-      accountId,
+      accountExternalReferenceCode: account.externalReferenceCode,
       channelId: parseInt(config.channelId, 10),
       currencyCode: config.currencyCode,
       orderDate: orderData.orderDate || isoNow(),
@@ -463,12 +441,14 @@ class OrderGenerator extends BaseGenerator {
     };
   }
 
-  pickAccountId(requestedId, accounts) {
-    if (requestedId && accounts.find((a) => a.id === requestedId))
-      return requestedId;
+  pickAccount(requestedId, accounts) {
+    if (requestedId) {
+      const found = accounts.find((a) => a.id === requestedId);
+      if (found) return found;
+    }
     if (accounts.length === 0)
       throw new Error('No accounts found to pick from.');
-    return accounts[Math.floor(Math.random() * accounts.length)].id;
+    return accounts[Math.floor(Math.random() * accounts.length)];
   }
 
   normalizeOrderStatus(s) {

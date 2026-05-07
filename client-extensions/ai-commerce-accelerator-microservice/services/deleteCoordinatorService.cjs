@@ -16,62 +16,74 @@ class DeleteCoordinatorService extends BaseGenerator {
     // Register all deletion steps
     this.steps = {
       [S.DISCOVER]: this._runDiscoveryStep.bind(this),
-      [S.RESET_CATALOG_CONFIG]: this._runGenericDeletionStep.bind(
-        this,
-        'resetCatalogConfiguration'
-      ),
-      [S.DELETE_ORDERS]: this._runGenericDeletionStep.bind(
-        this,
-        'deleteOrders'
-      ),
-      [S.DELETE_WAREHOUSES]: this._runGenericDeletionStep.bind(
-        this,
-        'deleteWarehouses'
-      ),
-      [S.DELETE_WAREHOUSE_ITEMS]: this._runGenericDeletionStep.bind(
-        this,
-        'deleteWarehouseItems'
-      ),
-      [S.DELETE_ACCOUNTS]: this._runGenericDeletionStep.bind(
-        this,
-        'deleteAccounts'
-      ),
-      [S.DELETE_PRODUCTS]: this._runGenericDeletionStep.bind(
-        this,
-        'deleteProducts'
-      ),
-      [S.DELETE_PRODUCT_OPTIONS]: this._runGenericDeletionStep.bind(
-        this,
-        'deleteProductOptions'
-      ),
-      [S.DELETE_PRODUCT_SPECIFICATIONS]: this._runGenericDeletionStep.bind(
-        this,
-        'deleteProductSpecifications'
-      ),
-      [S.DELETE_PRICE_LISTS]: this._runGenericDeletionStep.bind(
-        this,
-        'deletePriceLists'
-      ),
-      [S.DELETE_PROMOTIONS]: this._runGenericDeletionStep.bind(
-        this,
-        'deletePromotions'
-      ),
-      [S.DELETE_SPECIFICATIONS]: this._runGenericDeletionStep.bind(
-        this,
-        'deleteSpecifications'
-      ),
-      [S.DELETE_OPTIONS]: this._runGenericDeletionStep.bind(
-        this,
-        'deleteOptions'
-      ),
-      [S.DELETE_OPTION_CATEGORIES]: this._runGenericDeletionStep.bind(
-        this,
-        'deleteOptionCategories'
-      ),
-      [S.DELETE_PRODUCT_RELATED]: this._runGenericDeletionStep.bind(
-        this,
-        'deleteProductRelatedEntities'
-      ),
+      [S.RESET_CATALOG_CONFIG]: (sid) =>
+        this._runGenericDeletionStep(
+          'resetCatalogConfiguration',
+          sid,
+          S.RESET_CATALOG_CONFIG
+        ),
+      [S.DELETE_ORDERS]: (sid) =>
+        this._runGenericDeletionStep('deleteOrders', sid, S.DELETE_ORDERS),
+      [S.DELETE_WAREHOUSES]: (sid) =>
+        this._runGenericDeletionStep(
+          'deleteWarehouses',
+          sid,
+          S.DELETE_WAREHOUSES
+        ),
+      [S.DELETE_WAREHOUSE_ITEMS]: (sid) =>
+        this._runGenericDeletionStep(
+          'deleteWarehouseItems',
+          sid,
+          S.DELETE_WAREHOUSE_ITEMS
+        ),
+      [S.DELETE_ACCOUNTS]: (sid) =>
+        this._runGenericDeletionStep('deleteAccounts', sid, S.DELETE_ACCOUNTS),
+      [S.DELETE_PRODUCTS]: (sid) =>
+        this._runGenericDeletionStep('deleteProducts', sid, S.DELETE_PRODUCTS),
+      [S.DELETE_PRODUCT_OPTIONS]: (sid) =>
+        this._runGenericDeletionStep(
+          'deleteProductOptions',
+          sid,
+          S.DELETE_PRODUCT_OPTIONS
+        ),
+      [S.DELETE_PRODUCT_SPECIFICATIONS]: (sid) =>
+        this._runGenericDeletionStep(
+          'deleteProductSpecifications',
+          sid,
+          S.DELETE_PRODUCT_SPECIFICATIONS
+        ),
+      [S.DELETE_PRICE_LISTS]: (sid) =>
+        this._runGenericDeletionStep(
+          'deletePriceLists',
+          sid,
+          S.DELETE_PRICE_LISTS
+        ),
+      [S.DELETE_PROMOTIONS]: (sid) =>
+        this._runGenericDeletionStep(
+          'deletePromotions',
+          sid,
+          S.DELETE_PROMOTIONS
+        ),
+      [S.DELETE_SPECIFICATIONS]: (sid) =>
+        this._runGenericDeletionStep(
+          'deleteSpecifications',
+          sid,
+          S.DELETE_SPECIFICATIONS
+        ),
+      [S.DELETE_OPTIONS]: (sid) =>
+        this._runGenericDeletionStep('deleteOptions', sid, S.DELETE_OPTIONS),
+      [S.DELETE_OPTION_CATEGORIES]: (sid) =>
+        this._runGenericDeletionStep(
+          'deleteOptionCategories',
+          sid,
+          S.DELETE_OPTION_CATEGORIES
+        ),
+      [S.DELETE_PRODUCT_RELATED]: (sid) =>
+        this._runGenericDeletionStep(
+          'deleteProductRelatedEntities',
+          sid,
+          S.DELETE_PRODUCT_RELATED
+        ),
     };
   }
 
@@ -372,8 +384,7 @@ class DeleteCoordinatorService extends BaseGenerator {
       this.logger.info('Manifest building complete. Saving context...', {
         sessionId,
       });
-      const updatedContext = { ...session.context, manifest };
-      await this.persistence.updateSessionContext(sessionId, updatedContext);
+      await this.persistence.updateSessionContext(sessionId, { manifest });
 
       this.logger.info('Discovery manifest completed.', {
         sessionId,
@@ -438,6 +449,21 @@ class DeleteCoordinatorService extends BaseGenerator {
         correlationId,
       });
 
+      // MARK IMPLICIT MILESTONES AS DONE:
+      // Addresses, Images, and PDFs are handled via referential integrity or omitted in deletion.
+      // We mark them as done here so the visual 'Overall Progress' (1/8 increments) reaches 100%.
+      const implicit = ['addresses', 'images', 'pdfs'];
+      for (const entity of implicit) {
+        this.progress.stepCompleted({
+          sessionId,
+          step: `implicit-delete-${entity}`,
+          entityType: entity,
+          operation: 'delete',
+          totalCount: 0,
+          correlationId,
+        });
+      }
+
       await this.completeSyncStep(sessionId, S.DISCOVER, 'COMPLETED');
     } catch (error) {
       console.error(`[DISCOVERY] !!! FATAL FAILURE: ${error.message}`);
@@ -452,17 +478,18 @@ class DeleteCoordinatorService extends BaseGenerator {
   /**
    * Generic wrapper for deletion handlers that ensures batch records are created correctly.
    */
-  async _runGenericDeletionStep(handlerName, sessionId) {
+  async _runGenericDeletionStep(handlerName, sessionId, stepKey = null) {
     const session = await this.persistence.getSession(sessionId);
     if (!session) return;
 
     const { config, options, channelId, catalogId, manifest } = session.context;
     const { correlationId } = session;
 
-    const stepName = session.currentSteps[0];
+    // Use passed stepKey or fallback to session state
+    const stepName = stepKey || session.currentSteps[0];
     if (!stepName) {
       throw new Error(
-        `Execution triggered for ${handlerName} but no current step found in session ${sessionId}`
+        `Execution triggered for ${handlerName} but no step key available for session ${sessionId}`
       );
     }
 
@@ -696,6 +723,7 @@ class DeleteCoordinatorService extends BaseGenerator {
       flowType: 'delete',
       correlationId: config.correlationId,
       totalSteps: steps.length,
+      totals: {},
     });
 
     this.logger.info(
@@ -711,7 +739,7 @@ class DeleteCoordinatorService extends BaseGenerator {
       config.correlationId
     );
 
-    return { sessionId, message: 'Deletion started.' };
+    return { sessionId, message: 'Deletion started.', summary: {} };
   }
 
   async runDeleteSelectedAndMonitor(
@@ -772,6 +800,7 @@ class DeleteCoordinatorService extends BaseGenerator {
       flowType: 'delete',
       correlationId: config.correlationId,
       totalSteps: steps.length,
+      totals: {},
     });
 
     this.ctx.batchCallback._checkSessionCompletion(
@@ -779,7 +808,7 @@ class DeleteCoordinatorService extends BaseGenerator {
       config.correlationId
     );
 
-    return { sessionId, message: 'Selected deletion started.' };
+    return { sessionId, message: 'Selected deletion started.', summary: {} };
   }
 }
 

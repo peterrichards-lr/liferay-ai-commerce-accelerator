@@ -617,6 +617,7 @@ class LiferayService {
     let totalDeleted = 0;
     const batchRefs = [];
 
+    let batchCount = 0;
     const processBatch = async (items) => {
       const filteredItems = items.filter(
         (it) => !this._shouldExclude(it, exclusions)
@@ -633,21 +634,30 @@ class LiferayService {
       if (ids.length === 0) return;
 
       let result;
+      const currentErc = rest.externalReferenceCode
+        ? batchCount > 0
+          ? `${rest.externalReferenceCode}-${batchCount}`
+          : rest.externalReferenceCode
+        : undefined;
+
       if (nativeBatch) {
         result = await this.rest._deleteBatchNative(config, {
           entityName,
           ids,
           idField: entityName === 'product' ? 'productId' : 'id',
           ...rest,
+          externalReferenceCode: currentErc,
         });
       } else {
         result = await this.rest._deleteBatchSimulated(config, {
           entityName,
           ids,
           ...rest,
+          externalReferenceCode: currentErc,
         });
       }
 
+      batchCount++;
       totalDeleted += result.count || 0;
       if (result.batchRefs) batchRefs.push(...result.batchRefs);
     };
@@ -1181,7 +1191,63 @@ class LiferayService {
     });
   }
 
-  // --- Delegated Methods (REST/GraphQL Mix) ---
+  // --- Connectivity Helpers ---
+
+  /**
+   * Resilience: Retries connection test until Liferay is reachable or timeout hit.
+   * Used at startup to prevent "Ghost failures" during the boot sequence.
+   */
+  async waitForLiferay(maxAttempts = 12, delayMs = 5000) {
+    const { logger } = this.ctx;
+    const { lookupConfig } = require('@rotty3000/config-node');
+
+    // Use default environment credentials for the probe
+    const config = {
+      liferayUrl:
+        lookupConfig('com.liferay.lxc.dxp.main.domain') ||
+        lookupConfig('com.liferay.lxc.dxp.server.host') ||
+        process.env.LIFERAY_URL ||
+        'http://localhost:8080',
+    };
+
+    logger.info(
+      `Starting Liferay connectivity probe for ${config.liferayUrl}`,
+      {
+        operation: 'startup-probe-start',
+        maxAttempts,
+        delayMs,
+      }
+    );
+
+    for (let i = 1; i <= maxAttempts; i++) {
+      try {
+        const result = await this.testConnection(config);
+        if (result.status === 'connected') {
+          logger.success('Liferay connectivity established.', {
+            operation: 'startup-probe-success',
+            attempt: i,
+          });
+          return true;
+        }
+      } catch (err) {
+        logger.debug(
+          `Startup probe ${i}/${maxAttempts} failed: ${err.message}. Retrying in ${delayMs}ms...`,
+          {
+            operation: 'startup-probe-retry',
+          }
+        );
+      }
+      await delay(delayMs);
+    }
+
+    logger.warn(
+      `Liferay connectivity probe timed out after ${maxAttempts} attempts. Proceeding with caution.`,
+      {
+        operation: 'startup-probe-timeout',
+      }
+    );
+    return false;
+  }
 
   testConnection(config) {
     return this.rest.testConnection(config);
@@ -1347,6 +1413,10 @@ class LiferayService {
 
   createWarehouseChannelsBatch(config, itemsData, opts) {
     return this.rest.createWarehouseChannelsBatch(config, itemsData, opts);
+  }
+
+  createWarehouseChannel(config, warehouseId, channelId) {
+    return this.rest.createWarehouseChannel(config, warehouseId, channelId);
   }
 
   deleteWarehouse(config, warehouseId) {

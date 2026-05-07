@@ -21,7 +21,8 @@ class AccountGenerator extends BaseGenerator {
       [S.LOAD_LANGUAGES]: this._runLoadLanguagesStep.bind(this),
       [S.GENERATE_ACCOUNT_DATA]: this._runAccountDataGenerationStep.bind(this),
       [S.CREATE_ACCOUNTS]: this._runAccountCreationStep.bind(this),
-      [S.SYNC_DELAY]: this._runInterServiceSyncDelayStep.bind(this),
+      [S.SYNC_DELAY]: (sId) =>
+        this._runInterServiceSyncDelayStep(sId, S.SYNC_DELAY),
       [S.RESOLVE_ACCOUNT_IDS]: this._runResolveAccountIdsStep.bind(this),
       [S.CREATE_POSTAL_ADDRESSES]: this._runAddressCreationStep.bind(this),
       [S.SET_ADDRESS_DEFAULTS]:
@@ -33,21 +34,6 @@ class AccountGenerator extends BaseGenerator {
    * Standalone entry point for account generation.
    */
   async runWorkflow(config, options) {
-    const sessionId = options.sessionId || createERC(ERC_PREFIX.BATCH_SESSION);
-    options.sessionId = sessionId;
-
-    if (
-      !options.selectedLanguages ||
-      (Array.isArray(options.selectedLanguages) &&
-        options.selectedLanguages.length === 0)
-    ) {
-      this.logger.warn(
-        `No languages selected for generation. Falling back to DEFAULT_LOCALE: ${ENV.DEFAULT_LOCALE}`,
-        { sessionId }
-      );
-      options.selectedLanguages = [ENV.DEFAULT_LOCALE];
-    }
-
     const steps = [
       { name: S.LOAD_COUNTRIES, type: 'sync' },
       { name: S.LOAD_LANGUAGES, type: 'sync' },
@@ -59,29 +45,12 @@ class AccountGenerator extends BaseGenerator {
       { name: S.SET_ADDRESS_DEFAULTS, type: 'sync' },
     ];
 
-    await this.persistence.createSession({
-      sessionId,
-      flowType: 'accounts',
-      status: 'STARTED',
-      currentSteps: [],
-      correlationId: config.correlationId,
-      context: {
-        config,
-        options,
-        steps,
-        generator: 'account',
-      },
-    });
-
-    this.ctx.batchCallback._checkSessionCompletion(
-      sessionId,
-      config.correlationId
-    );
-
-    return {
-      sessionId,
-      message: 'Account generation workflow started.',
+    const totals = {
+      accounts: options.accountCount || 0,
+      addresses: (options.accountCount || 0) * 2,
     };
+
+    return super.runWorkflow(config, options, 'accounts', steps, totals);
   }
 
   async _runLoadCountriesStep(sessionId) {
@@ -221,7 +190,10 @@ class AccountGenerator extends BaseGenerator {
           });
 
           await this.persistence.updateSessionContext(sessionId, {
-            geographicContext,
+            options: {
+              ...options,
+              geographicContext,
+            },
           });
         }
       }
@@ -344,7 +316,6 @@ class AccountGenerator extends BaseGenerator {
       }
 
       await this.persistence.updateSessionContext(sessionId, {
-        ...session.context,
         accountsToCreate: accountsToCreate,
         addressesToCreate: addressesToCreate,
       });
@@ -489,7 +460,6 @@ class AccountGenerator extends BaseGenerator {
       }));
 
       await this.persistence.updateSessionContext(sessionId, {
-        ...session.context,
         accountsToCreate: updatedAccounts,
       });
 
@@ -519,8 +489,7 @@ class AccountGenerator extends BaseGenerator {
 
   async _runAddressCreationStep(sessionId) {
     const session = await this.persistence.getSession(sessionId);
-    const { config, options, accountsToCreate, addressesToCreate } =
-      session.context;
+    const { config, accountsToCreate, addressesToCreate } = session.context;
 
     this.logger.info('Starting postal address creation step', {
       sessionId,
@@ -561,16 +530,17 @@ class AccountGenerator extends BaseGenerator {
         );
       }
 
-      let submittedAny = false;
-      let totalAddresses = 0;
+      // Process each account's addresses in their own batch
+      let totalCreated = 0;
       for (const [accountId, addresses] of groupedAddresses.entries()) {
-        totalAddresses += addresses.length;
+        const prepared = addresses.map((addr) => ({
+          ...addr,
+          accountId: parseInt(accountId, 10),
+          externalReferenceCode:
+            addr.externalReferenceCode || createERC(ERC_PREFIX.ADDRESS),
+        }));
 
-        if (options.dryRun) {
-          // Dry run is handled as sync
-        } else {
-          submittedAny = true;
-          const prepared = deepCleanIds(addresses);
+        if (prepared.length > 0) {
           await this.submitBatch(
             sessionId,
             S.CREATE_POSTAL_ADDRESSES,
@@ -587,18 +557,17 @@ class AccountGenerator extends BaseGenerator {
                   session,
                 }
               ),
-            addresses.length
+            prepared.length
           );
+          totalCreated += prepared.length;
         }
       }
 
-      if (!submittedAny) {
+      if (totalCreated === 0) {
         await this.completeSyncStep(
           sessionId,
           S.CREATE_POSTAL_ADDRESSES,
-          'SYNCHRONOUS',
-          totalAddresses,
-          totalAddresses
+          'BYPASSED'
         );
       }
     } catch (error) {

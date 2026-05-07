@@ -92,6 +92,8 @@ describe('useGeneration hook', () => {
     expect(mockDispatch).toHaveBeenCalledWith({
       type: 'SET_ACTIVE_SESSION',
       sessionId: 'session-123',
+      flowType: 'generate',
+      totals: expect.any(Object),
     });
   });
 

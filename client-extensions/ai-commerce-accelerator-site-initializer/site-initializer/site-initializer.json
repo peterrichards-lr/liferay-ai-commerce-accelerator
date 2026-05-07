@@ -1,5 +1,7 @@
 {
+  "availableLanguageIds": ["en_US"],
   "description": "AI Commerce Accelerator Demo Environment",
+  "mainLanguageId": "en_US",
   "name": "AI Commerce Accelerator",
   "siteExternalReferenceCode": "ai-commerce-accelerator",
   "siteName": "AI Commerce Accelerator"

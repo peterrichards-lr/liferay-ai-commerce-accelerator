@@ -55,26 +55,13 @@ function WsStatusIndicator({ status, onReconnect }) {
   );
 }
 
-const STORAGE_KEYS = {
-  start: 'progress.startTime',
-  last: 'progress.lastUpdateTime',
-  end: 'progress.endTime',
-};
-
-function loadPersistedTimes() {
-  const start = Number(sessionStorage.getItem(STORAGE_KEYS.start)) || null;
-  const last = Number(sessionStorage.getItem(STORAGE_KEYS.last)) || null;
-  const endStr = sessionStorage.getItem(STORAGE_KEYS.end);
-  const end = endStr != null ? Number(endStr) : null;
-  return { start, last, end };
-}
-
 function Dashboard({
   progress,
   isGenerating,
   generationConfig,
   wsStatus = 'disabled',
-  _batchErrors,
+  batchErrors = [],
+  clearBatchErrors,
   onReconnect,
   connected,
   aiKeyAvailable,
@@ -87,31 +74,32 @@ function Dashboard({
   const overallPercentage = total > 0 ? (completed / total) * 100 : 0;
   const isDelete = progress?.activeFlowType === 'delete';
 
-  const [{ startTime, lastUpdateTime }] = useState(() => {
-    const { start, last, end } = loadPersistedTimes();
-    return { startTime: start, lastUpdateTime: last, endTime: end };
-  });
+  const { startTime, lastUpdateTime, endTime } = progress || {};
 
-  const [displayElapsedMs, setDisplayElapsedMs] = useState(() => {
-    const { start, last, end } = loadPersistedTimes();
-    if (!start) return 0;
-    const effectiveEnd = end ?? last ?? Date.now();
-    return Math.max(0, effectiveEnd - start);
-  });
-
-  const onErrorsClick = useCallback((index, entity) => {
-    // In this revised design, we might want a modal or a dedicated view for batch errors
-    // For now, we'll keep the state but the UI presentation might need adjustment later
-    console.log('Show errors for', entity);
-  }, []);
+  const [displayElapsedMs, setDisplayElapsedMs] = useState(0);
 
   useEffect(() => {
-    if (!isGenerating || !startTime) return;
-    const id = setInterval(() => {
-      setDisplayElapsedMs(Math.max(0, Date.now() - startTime));
-    }, 1000);
-    return () => clearInterval(id);
-  }, [isGenerating, startTime]);
+    if (!startTime) {
+      setDisplayElapsedMs(0);
+      return;
+    }
+
+    const update = () => {
+      const effectiveEnd = endTime ?? lastUpdateTime ?? Date.now();
+      setDisplayElapsedMs(Math.max(0, effectiveEnd - startTime));
+    };
+
+    update();
+
+    if (isGenerating && !endTime) {
+      const id = setInterval(update, 1000);
+      return () => clearInterval(id);
+    }
+  }, [isGenerating, startTime, lastUpdateTime, endTime]);
+
+  const onErrorsClick = useCallback((index, entity) => {
+    console.log('Show errors for', entity);
+  }, []);
 
   return (
     <div className="dashboard-sidebar d-flex flex-column h-100">

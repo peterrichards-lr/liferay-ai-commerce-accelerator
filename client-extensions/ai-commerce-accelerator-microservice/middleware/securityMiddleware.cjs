@@ -1,6 +1,5 @@
 const crypto = require('crypto');
 const { logger } = require('../utils/logger.cjs');
-const { cacheService } = require('../services/cacheService.cjs');
 
 const { ENV } = require('../utils/constants.cjs');
 

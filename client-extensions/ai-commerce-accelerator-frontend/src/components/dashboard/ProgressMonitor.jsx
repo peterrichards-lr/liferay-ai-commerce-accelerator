@@ -12,15 +12,13 @@ function MiniProgressItem({
   explicitIsDone,
 }) {
   const hasErrors = errors && errors.length > 0;
-  const isDone =
-    explicitIsDone ||
-    workflowStatus === 'completed' ||
-    (total > 0 && completed >= total && !hasErrors) ||
-    (isDelete &&
-      completed >= total &&
-      total >= 0 &&
-      typeof total === 'number' &&
-      !hasErrors);
+
+  // STRICT COMPLETION: Only mark as done if server explicitly confirmed or whole workflow is finished
+  const isDone = explicitIsDone || workflowStatus === 'completed';
+
+  // VERIFYING STATE: Batch reached 100% but server hasn't sent Step Completed yet
+  const isVerifying = !isDone && !hasErrors && total > 0 && completed >= total;
+
   const inProgress = completed > 0 && completed < total && !hasErrors;
   const percentage = total > 0 ? Math.round((completed / total) * 100) : 0;
 
@@ -48,6 +46,13 @@ function MiniProgressItem({
           </button>
         ) : isDone ? (
           <ClayBadge displayType="success" label="Done" />
+        ) : isVerifying ? (
+          <span
+            className="text-primary font-weight-semi-bold"
+            style={{ fontSize: '0.875rem' }}
+          >
+            Verifying...
+          </span>
         ) : isDelete ? (
           <span
             className={

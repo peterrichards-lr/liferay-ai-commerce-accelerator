@@ -383,11 +383,35 @@ class ConfigService {
         AI_API_CACHE_KEY,
         AI_CREDENTIALS_CONFIG_KEY
       );
-      if (key === 'null' || key === '""' || key === EMPTY_PLACEHOLDER)
-        return null;
-      return key;
+      if (key && key !== 'null' && key !== '""' && key !== EMPTY_PLACEHOLDER) {
+        return key;
+      }
+
+      // FALLBACK: Use environment variable if Liferay Object is missing/empty
+      if (ENV.AI_API_KEY && ENV.AI_API_KEY.trim().length > 0) {
+        logger?.debug?.('AI key not found in Liferay, falling back to ENV', {
+          operation: 'get-ai-key-fallback',
+        });
+        return ENV.AI_API_KEY.trim();
+      }
+
+      return null;
     } catch (error) {
       const erc = error?.errorReference || createERC(ERC_PREFIX.ERROR);
+
+      // If we have an ENV fallback, use it even if Liferay request failed
+      if (ENV.AI_API_KEY && ENV.AI_API_KEY.trim().length > 0) {
+        logger?.warn?.(
+          'Failed to get AI key from Liferay, falling back to ENV',
+          {
+            operation: 'get-ai-key-fallback-error',
+            errorReference: erc,
+            message: error.message,
+          }
+        );
+        return ENV.AI_API_KEY.trim();
+      }
+
       logger?.errorWithStack?.(error, {
         operation: 'get-ai-key',
         errorReference: erc,
@@ -399,24 +423,72 @@ class ConfigService {
 
   getAIKeyCached() {
     const key = this.getConfigCached(AI_API_CACHE_KEY);
-    if (key === 'null' || key === '""' || key === EMPTY_PLACEHOLDER)
-      return null;
-    return key;
+    if (key && key !== 'null' && key !== '""' && key !== EMPTY_PLACEHOLDER) {
+      return key;
+    }
+
+    // FALLBACK: Use environment variable if not in cache
+    if (ENV.AI_API_KEY && ENV.AI_API_KEY.trim().length > 0) {
+      return ENV.AI_API_KEY.trim();
+    }
+
+    return null;
   }
 
   async getAIMediaKey(requestConfig) {
     const logger = this.logger;
     try {
+      // 1. Check if media provider is INHERIT
+      const aiConfig = await this.getAIConfig(requestConfig);
+      if (aiConfig?.mediaProvider === 'inherit') {
+        const key = await this.getAIKey(requestConfig);
+
+        // HARDENING: Populate the media cache key with the core key
+        // to ensure getAIMediaKeyCached returns the correct value
+        if (key && key !== EMPTY_PLACEHOLDER) {
+          this.cache.set(AI_MEDIA_API_CACHE_KEY, key, this.getConfigTTL());
+        }
+
+        return key;
+      }
+
       const key = await this.getConfig(
         requestConfig,
         AI_MEDIA_API_CACHE_KEY,
         AI_MEDIA_CREDENTIALS_CONFIG_KEY
       );
-      if (key === 'null' || key === '""' || key === EMPTY_PLACEHOLDER)
-        return null;
-      return key;
+      if (key && key !== 'null' && key !== '""' && key !== EMPTY_PLACEHOLDER) {
+        return key;
+      }
+
+      // FALLBACK: Use environment variable if Liferay Object is missing/empty
+      if (ENV.AI_MEDIA_API_KEY && ENV.AI_MEDIA_API_KEY.trim().length > 0) {
+        logger?.debug?.(
+          'AI media key not found in Liferay, falling back to ENV',
+          {
+            operation: 'get-ai-media-key-fallback',
+          }
+        );
+        return ENV.AI_MEDIA_API_KEY.trim();
+      }
+
+      return null;
     } catch (error) {
       const erc = error?.errorReference || createERC(ERC_PREFIX.ERROR);
+
+      // If we have an ENV fallback, use it even if Liferay request failed
+      if (ENV.AI_MEDIA_API_KEY && ENV.AI_MEDIA_API_KEY.trim().length > 0) {
+        logger?.warn?.(
+          'Failed to get AI media key from Liferay, falling back to ENV',
+          {
+            operation: 'get-ai-media-key-fallback-error',
+            errorReference: erc,
+            message: error.message,
+          }
+        );
+        return ENV.AI_MEDIA_API_KEY.trim();
+      }
+
       logger?.errorWithStack?.(error, {
         operation: 'get-ai-media-key',
         errorReference: erc,
@@ -428,9 +500,16 @@ class ConfigService {
 
   getAIMediaKeyCached() {
     const key = this.getConfigCached(AI_MEDIA_API_CACHE_KEY);
-    if (key === 'null' || key === '""' || key === EMPTY_PLACEHOLDER)
-      return null;
-    return key;
+    if (key && key !== 'null' && key !== '""' && key !== EMPTY_PLACEHOLDER) {
+      return key;
+    }
+
+    // FALLBACK: Use environment variable if not in cache
+    if (ENV.AI_MEDIA_API_KEY && ENV.AI_MEDIA_API_KEY.trim().length > 0) {
+      return ENV.AI_MEDIA_API_KEY.trim();
+    }
+
+    return null;
   }
 
   async _getConfigWithFallback(
@@ -717,16 +796,28 @@ class ConfigService {
 
     // 1. Sync Core AI Key
     if (coreApiKey && String(coreApiKey).trim().length > 0) {
+      const trimmedCoreKey = String(coreApiKey).trim();
       logger?.info?.('Syncing AI_API_KEY from environment to Liferay...', {
         operation: 'sync-env-keys',
       });
 
       try {
-        await this.saveConfig(
-          {},
-          AI_CREDENTIALS_CONFIG_KEY,
-          String(coreApiKey).trim()
-        );
+        await this.saveConfig({}, AI_CREDENTIALS_CONFIG_KEY, trimmedCoreKey);
+
+        // HARDENING: If media key is missing from ENV, also sync core key to media credentials
+        // to ensure "Same as Core" works consistently and is cached correctly.
+        if (!mediaApiKey || String(mediaApiKey).trim().length === 0) {
+          logger?.info?.(
+            'Media AI key missing from ENV. Syncing Core AI key to media credentials as fallback.',
+            { operation: 'sync-env-keys' }
+          );
+          await this.saveConfig(
+            {},
+            AI_MEDIA_CREDENTIALS_CONFIG_KEY,
+            trimmedCoreKey
+          );
+        }
+
         logger?.info?.('Successfully synced AI_API_KEY to Liferay.', {
           operation: 'sync-env-keys',
         });

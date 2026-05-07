@@ -41,18 +41,22 @@ describe('AccountGenerator', () => {
           .mockResolvedValue([{ erc: 'ACC-1', id: 1001 }]),
       },
       progress: {
+        sessionStarted: vi.fn(),
+        sessionCompleted: vi.fn(),
+        sessionFailed: vi.fn(),
         stepStarted: vi.fn(),
         stepProgress: vi.fn(),
+        stepCompleted: vi.fn(),
         stepFailed: vi.fn(),
         batchStarted: vi.fn(),
         batchProgress: vi.fn(),
         batchCompleted: vi.fn(),
         batchFailed: vi.fn(),
-        sessionCompleted: vi.fn(),
-        sessionFailed: vi.fn(),
       },
       batchCallback: {
-        _checkSessionCompletion: vi.fn(),
+        _checkSessionCompletion: vi
+          .fn()
+          .mockImplementation((sid) => generator.executeNextStep(sid)),
       },
     };
 
@@ -87,16 +91,9 @@ describe('AccountGenerator', () => {
     });
 
     await generator._runLoadCountriesStep(sessionId);
+    await generator.executeNextStep(sessionId);
 
-    // Wait for the session to reach a terminal state
-    let session = persistence.getSession(sessionId);
-    let attempts = 0;
-    while (session.status !== 'COMPLETED' && attempts < 20) {
-      await new Promise((resolve) => setTimeout(resolve, 50));
-      session = persistence.getSession(sessionId);
-      attempts++;
-    }
-
+    const session = persistence.getSession(sessionId);
     expect(session.context.countries).toHaveLength(1);
     expect(session.status).toBe('COMPLETED');
     expect(mockCtx.liferay.getCountries).toHaveBeenCalled();
@@ -224,8 +221,8 @@ describe('AccountGenerator', () => {
     await generator._runAccountDataGenerationStep(sessionId);
 
     const session = persistence.getSession(sessionId);
-    // Verify that geographicContext was stored with titles
-    expect(session.context.geographicContext).toMatchObject({
+    // Verify that geographicContext was stored with titles inside options
+    expect(session.context.options.geographicContext).toMatchObject({
       countryTitle: 'Uzbekistan',
       regionTitle: 'Tashkent',
     });

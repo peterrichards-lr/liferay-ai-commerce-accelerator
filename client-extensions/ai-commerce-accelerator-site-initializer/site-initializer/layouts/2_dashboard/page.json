@@ -11,15 +11,17 @@
       "pageElements": [
         {
           "definition": {
-            "fragmentCollectionKey": "ai-commerce-accelerator-fragments",
-            "fragmentKey": "ai-commerce-accelerator-admin"
+            "fragment": {
+              "key": "ai-commerce-accelerator-admin",
+              "siteKey": "[$GROUP_KEY$]"
+            }
           },
-          "type": "fragment"
+          "type": "Fragment"
         }
       ],
-      "type": "root"
+      "type": "Root"
     }
   },
   "parentLayoutExternalReferenceCode": "",
-  "type": "content"
+  "type": "Content"
 }

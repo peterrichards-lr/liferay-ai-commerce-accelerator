@@ -46,6 +46,7 @@ describe('DeleteCoordinatorService', () => {
         sessionStarted: vi.fn(),
         stepStarted: vi.fn(),
         stepProgress: vi.fn(),
+        stepCompleted: vi.fn(),
         sessionCompleted: vi.fn(),
         sessionFailed: vi.fn(),
       },
@@ -113,6 +114,17 @@ describe('DeleteCoordinatorService', () => {
     const session = persistence.getSession(sessionId);
     expect(session.context.manifest).toBeDefined();
     expect(mockCtx.progress.stepProgress).toHaveBeenCalled();
+
+    // Verify implicit milestones were marked as completed
+    expect(mockCtx.progress.stepCompleted).toHaveBeenCalledWith(
+      expect.objectContaining({ entityType: 'addresses' })
+    );
+    expect(mockCtx.progress.stepCompleted).toHaveBeenCalledWith(
+      expect.objectContaining({ entityType: 'images' })
+    );
+    expect(mockCtx.progress.stepCompleted).toHaveBeenCalledWith(
+      expect.objectContaining({ entityType: 'pdfs' })
+    );
   });
 
   it('should handle order deletion step', async () => {

@@ -286,7 +286,8 @@ generateBatchFiles {
 
 def CX_DIR = file(findProperty('cx.dir') ?: "$rootDir/client-extensions/ai-commerce-accelerator-frontend")
 def FRAGMENTS_DIR = file(findProperty('fragments.dir') ?: "$rootDir/client-extensions/ai-commerce-accelerator-site-initializer/site-initializer/fragments/group/ai-commerce-accelerator-fragments")
-def FRAGMENT_DIR = file(findProperty('fragment.dir') ?: "$rootDir/client-extensions/ai-commerce-accelerator-site-initializer/site-initializer/fragments/group/ai-commerce-accelerator-fragments/ai-commerce-accelerator")
+def FRAGMENT_DIR = file(findProperty('fragment.dir') ?: "$rootDir/client-extensions/ai-commerce-accelerator-site-initializer/site-initializer/fragments/group/ai-commerce-accelerator-fragments/fragments/ai-commerce-accelerator")
+def FRAGMENT_ADMIN_DIR = file(findProperty('fragment.admin.dir') ?: "$rootDir/client-extensions/ai-commerce-accelerator-site-initializer/site-initializer/fragments/group/ai-commerce-accelerator-fragments/fragments/ai-commerce-accelerator-admin")
 
 def FRAGMENTS_ZIP_NAME = "ai-accelerator-fragments.zip"
 def FRAGMENTS_ZIP_OUT = layout.buildDirectory.dir("fragments")
@@ -546,16 +547,22 @@ tasks.register('generateFragmentCss') {
 				}
 			}
 
-			tasks.register('syncFragmentCssToFragment', Copy) {
+			tasks.register('syncFragmentCssToFragment') {
 				group = 'build'
-				description = 'Copy build/tmp/fragment.css into the fragment as fragment.css.'
+				description = 'Copy build/tmp/fragment.css into the fragments as fragment.css.'
 				dependsOn tasks.named('generateFragmentCss')
 
-				from(GENERATED_FRAGMENT_CSS.map { it.asFile })
-				into(FRAGMENT_DIR)
-				rename {
-					'fragment.css'
-
+				doLast {
+					[FRAGMENT_DIR, FRAGMENT_ADMIN_DIR].each { dir ->
+						if (dir.exists()) {
+							copy {
+								from GENERATED_FRAGMENT_CSS
+								into dir
+								rename { 'fragment.css' }
+							}
+							logger.lifecycle("Synced fragment.css to ${dir}")
+						}
+					}
 				}
 			}
 
@@ -588,6 +595,9 @@ tasks.register('generateFragmentCss') {
 			}
 
 			// --- Auto-deploy the ZIP to <liferay.home or ./bundles>/deploy ---
+			// DEACTIVATED: We now rely on the Site Initializer CX to deploy fragments.
+			// This prevents global fragment duplication.
+			/*
 			tasks.register('autoDeployFragments', Copy) {
 				group = 'build'
 				description = 'Copy the fragments ZIP to the bundle deploy/ folder.'
@@ -601,6 +611,7 @@ tasks.register('generateFragmentCss') {
 }
 	into(liferayHome.map { it + '/deploy' })
 }
+			*/
 
 // ===================== LIFECYCLE WIRING =====================
 tasks.named('check') {

@@ -1,28 +1,47 @@
-# Track Implementation Plan: Data Generation Reliability
+# Track: Codebase Deduplication & Architectural Cleanliness
 
-## Phase 1: Mock Generator Validation
+## Status
 
-- [x] Create `generation.test.cjs`.
-- [x] Implement AJV-based schema validation for Products, Accounts, and Warehouses.
-- [x] Verify Liferay-specific constraints (ERC patterns, productType).
+- **Current State**: Significant duplication in Site Initializer configurations, Microservice Generators, and Batch Data. AI Prompts and Schemas are stored in two places (source code and Liferay Objects), risking drift.
+- **Target State**: Dry, maintainable architecture with clear sources of truth and centralized logic.
 
-## Phase 2: AI Service Verification
+## Research Findings
 
-- [x] Create `aiService.test.cjs`.
-- [x] Setup MSW for network-level OpenAI mocking.
-- [x] Verify handling of various AI response shapes.
+1.  **Fragment Configuration**: `ai-commerce-accelerator/configuration.json` and `ai-commerce-accelerator-admin/configuration.json` are 100% identical.
+2.  **Generator Boilerplate**: All generator subclasses (`ProductGenerator`, `AccountGenerator`, etc.) repeat the same `runWorkflow` and session initialization logic.
+3.  **Prompt & Schema Drift**: AI Prompts (`prompts/*.md`) and Schemas (`generation-schemas/*.json`) are duplicated inside Liferay Batch files (`10-15-*.json` and `04-09-*.json`).
+4.  **Batch File Fragmentation**: Multiple files exist for the same Liferay Object type (`C_AICAConfiguration`), leading to maintenance overhead.
 
-## Phase 3: Alignment & Cleanup
+## Implementation Tasks
 
-- [x] Update `product.json` schema to include internal IDs.
-- [x] Align generator ERC prefixes with test expectations.
-- [x] Achieve 100% test pass rate for generation logic.
+### 1. Site Initializer Refactoring
 
-## Phase 4: API Alignment & Contract Verification
+- [ ] Centralize common fragment configuration fields.
+- [ ] Explore using a single fragment with different configuration defaults if possible, or sharing the `configuration.json` via a symlink/shared build step.
 
-- [x] Audit `generation-schemas` against `api-schemas` (documented in `audit_report.md`).
-- [x] Create `ContractValidator` utility using `ajv` and OpenAPI JSONs.
-- [x] Implement outbound request validation in `liferay/rest.cjs` (dev/test mode).
-- [x] Update MSW handlers in `tests/mocks/handlers.cjs` to enforce schema compliance.
-- [x] Create `schemaAlignment.test.cjs` for meta-validation of generation schemas.
-- [ ] Refactor `deepCleanIds` into a schema-aware `LiferayPayloadStandardizer`.
+### 2. Microservice Generator Refactoring
+
+- [x] Refactor `BaseGenerator` to handle `runWorkflow` boilerplate.
+- [x] Parameterize session creation, progress reporting, and step execution.
+- [x] Centralize `_runInterServiceSyncDelayStep` and other common utilities.
+
+### 3. Prompt & Schema Source of Truth
+
+- [ ] Establish `client-extensions/ai-commerce-accelerator-microservice/prompts/` and `generation-schemas/` as the authoritative source.
+- [ ] **Optional/Advanced**: Create a script to generate the Liferay Batch JSON files from these source files to ensure they never drift.
+- [ ] Update `ConfigService` in the microservice to prioritize Liferay Object overrides but fall back to local files cleanly.
+
+### 4. Batch Data Consolidation
+
+- [ ] Merge `10-object-entry-ai-prompt-*.json` files into `10-object-entry-ai-prompts.batch-engine-data.json`.
+- [ ] Merge `04-object-entry-ai-schema-*.json` files into `04-object-entry-ai-schemas.batch-engine-data.json`.
+
+### 5. Payload Standardization
+
+- [ ] Implement `LiferayPayloadStandardizer` (from Reliability recommendations) to replace redundant `deepCleanIds` calls and manual mapping.
+
+## Verification
+
+- [ ] Ensure `yarn lint` passes with zero warnings.
+- [ ] Run `tests/serviceParity.test.cjs` (if implemented) or existing unit tests to ensure no regression.
+- [ ] Deploy site initializer and verify all fragments still function with their configurations.

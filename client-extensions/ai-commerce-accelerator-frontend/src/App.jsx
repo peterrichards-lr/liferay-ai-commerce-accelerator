@@ -193,6 +193,7 @@ function AppUI() {
     setAiKeyAvailable,
     setAiMediaKeyAvailable,
     setConnectionErrors,
+    setProgress,
     ping,
   });
 
@@ -410,7 +411,13 @@ function AppUI() {
   return (
     <div className="ai-commerce-dashboard" ref={appTopRef}>
       {/* HEADER / NAVIGATION BAR */}
-      <div className="dashboard-nav-container py-3 border-bottom bg-white sticky-top">
+      <div
+        className="dashboard-nav-container py-3 border-bottom bg-white sticky-top"
+        style={{
+          top: 'calc(var(--control-menu-height, 0px))',
+          zIndex: 10,
+        }}
+      >
         <div className="container-fluid px-4">
           <nav className="navbar navbar-expand-md navbar-light p-0">
             <div className="navbar-brand d-flex align-items-center">
@@ -634,17 +641,8 @@ function AppUI() {
             </div>
           </ClayLayout.Col>
 
-          {/* COLUMN 3: OBSERVABILITY (Sticky on Desktop, Bottom on Mobile) */}
-          <ClayLayout.Col
-            lg={3}
-            md={12}
-            sm={12}
-            className="sticky-top-lg"
-            style={{
-              top: 'calc(var(--control-menu-height, 0px))',
-              zIndex: 10,
-            }}
-          >
+          {/* COLUMN 3: OBSERVABILITY (Bottom on Mobile, Relative on Desktop) */}
+          <ClayLayout.Col lg={3} md={12} sm={12}>
             <div className="sheet sheet-lg mb-4">
               <Dashboard
                 progress={progress}

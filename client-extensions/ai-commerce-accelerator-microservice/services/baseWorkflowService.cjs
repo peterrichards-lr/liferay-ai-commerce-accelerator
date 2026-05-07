@@ -163,51 +163,57 @@ class BaseWorkflowService {
   _normalizeEntityType(stepKey) {
     const S = WORKFLOW_STEPS;
     const map = {
-      DISCOVER: 'products',
+      // Structural/Container Mappings (for session events)
       'subflow-products': 'products',
       'subflow-accounts': 'accounts',
       'subflow-orders': 'orders',
-      // Generation
-      [S.GENERATE_PRODUCT_DATA]: 'products',
+
+      // Primary Entity Creation (Counts directly against requested amounts)
       [S.CREATE_PRODUCTS]: 'products',
-      [S.RESOLVE_PRODUCT_IDS]: 'products',
-      [S.CREATE_PRODUCT_SKUS]: 'products',
-      [S.RESOLVE_SKU_IDS]: 'products',
-      [S.LINK_PRODUCT_OPTIONS]: 'options',
-      [S.ATTACH_IMAGES]: 'images',
-      [S.ATTACH_PDFS]: 'pdfs',
-      [S.UPDATE_INVENTORY]: 'products',
-      [S.GENERATE_WAREHOUSE_DATA]: 'warehouses',
+      [S.CREATE_ACCOUNTS]: 'accounts',
+      [S.CREATE_ORDERS]: 'orders',
       [S.CREATE_WAREHOUSES]: 'warehouses',
-      [S.RESOLVE_WAREHOUSE_IDS]: 'warehouses',
       [S.GENERATE_PRICE_LISTS]: 'priceLists',
-      [S.UPDATE_CATALOG_CONFIG]: 'products',
       [S.GENERATE_BULK_PRICING]: 'priceLists',
       [S.GENERATE_TIER_PRICING]: 'priceLists',
-      [S.LOAD_COUNTRIES]: 'accounts',
-      [S.GENERATE_ACCOUNT_DATA]: 'accounts',
-      [S.CREATE_ACCOUNTS]: 'accounts',
-      [S.RESOLVE_ACCOUNT_IDS]: 'accounts',
-      [S.CREATE_POSTAL_ADDRESSES]: 'accounts',
-      [S.SET_ADDRESS_DEFAULTS]: 'accounts',
-      [S.GENERATE_ORDER_DATA]: 'orders',
-      [S.CREATE_ORDERS]: 'orders',
+      [S.ATTACH_IMAGES]: 'images',
+      [S.ATTACH_PDFS]: 'pdfs',
 
-      // Deletion
-      [S.RESET_CATALOG_CONFIG]: 'products',
+      // Auxiliary/Secondary Steps (Map to separate entities or leave as is)
+      [S.GENERATE_PRODUCT_DATA]: 'data-generation',
+      [S.RESOLVE_PRODUCT_IDS]: 'metadata',
+      [S.CREATE_PRODUCT_SKUS]: 'skus',
+      [S.RESOLVE_SKU_IDS]: 'metadata',
+      [S.LINK_PRODUCT_OPTIONS]: 'options',
+      [S.UPDATE_INVENTORY]: 'inventory',
+      [S.UPDATE_CATALOG_CONFIG]: 'config',
+
+      [S.LOAD_COUNTRIES]: 'metadata',
+      [S.GENERATE_ACCOUNT_DATA]: 'data-generation',
+      [S.RESOLVE_ACCOUNT_IDS]: 'metadata',
+      [S.CREATE_POSTAL_ADDRESSES]: 'addresses',
+      [S.SET_ADDRESS_DEFAULTS]: 'addresses',
+
+      [S.GENERATE_ORDER_DATA]: 'data-generation',
+
+      [S.GENERATE_WAREHOUSE_DATA]: 'data-generation',
+      [S.RESOLVE_WAREHOUSE_IDS]: 'metadata',
+      [S.LINK_WAREHOUSE_CHANNELS]: 'warehouses',
+
+      // Deletion (Map back to primary entities so we see progress on the same bars)
+      [S.DELETE_PRODUCTS]: 'products',
+      [S.DELETE_ACCOUNTS]: 'accounts',
       [S.DELETE_ORDERS]: 'orders',
       [S.DELETE_WAREHOUSES]: 'warehouses',
       [S.DELETE_WAREHOUSE_ITEMS]: 'warehouses',
-      [S.DELETE_ACCOUNTS]: 'accounts',
-      [S.DELETE_PRODUCTS]: 'products',
+      [S.DELETE_PRODUCT_SPECIFICATIONS]: 'specifications',
+      [S.DELETE_PRODUCT_OPTIONS]: 'options',
       [S.DELETE_SPECIFICATIONS]: 'specifications',
       [S.DELETE_OPTIONS]: 'options',
       [S.DELETE_OPTION_CATEGORIES]: 'options',
-      [S.DELETE_PRODUCT_SPECIFICATIONS]: 'specifications',
-      [S.DELETE_PRODUCT_OPTIONS]: 'options',
       [S.DELETE_PRICE_LISTS]: 'priceLists',
       [S.DELETE_PROMOTIONS]: 'promotions',
-      [S.DELETE_PRODUCT_RELATED]: 'products',
+      [S.RESET_CATALOG_CONFIG]: 'products',
     };
 
     // If the step matches a known category, return it for grouping.

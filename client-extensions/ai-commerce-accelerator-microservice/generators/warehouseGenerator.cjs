@@ -1,9 +1,5 @@
 const BaseGenerator = require('./baseGenerator.cjs');
-const {
-  createERC,
-  resolvePhaseAndMode,
-  resolveErrorReference,
-} = require('../utils/misc.cjs');
+const { createERC, resolveErrorReference } = require('../utils/misc.cjs');
 const { ERC_PREFIX, WORKFLOW_STEPS } = require('../utils/constants.cjs');
 
 const S = WORKFLOW_STEPS;
@@ -23,30 +19,19 @@ class WarehouseGenerator extends BaseGenerator {
     };
   }
 
-  async run(config, options, correlationId) {
-    const { phase, mode } = resolvePhaseAndMode(options);
+  async runWorkflow(config, options) {
+    const steps = [
+      { name: S.GENERATE_WAREHOUSE_DATA, type: 'sync' },
+      { name: S.CREATE_WAREHOUSES, type: 'sync' },
+      { name: S.RESOLVE_WAREHOUSE_IDS, type: 'sync' },
+      { name: S.LINK_WAREHOUSE_CHANNELS, type: 'sync' },
+    ];
 
-    const sessionId = await this.persistence.createSession({
-      type: 'warehouse',
-      operation: 'generate',
-      correlationId,
-      context: {
-        config,
-        options: {
-          ...options,
-          phase,
-          mode,
-        },
-      },
-    });
+    const totals = {
+      warehouses: options.warehouseCount || 1,
+    };
 
-    this.logger.info('Starting warehouse generation workflow', {
-      sessionId,
-      correlationId,
-      warehouseCount: options.warehouseCount,
-    });
-
-    return await this.executeNextStep(sessionId);
+    return super.runWorkflow(config, options, 'warehouses', steps, totals);
   }
 
   async _runResolveWarehouseIdsStep(sessionId) {
@@ -136,16 +121,24 @@ class WarehouseGenerator extends BaseGenerator {
         return await this.completeSyncStep(sessionId, stepKey, 'BYPASSED');
       }
 
-      await this.submitBatch(
+      this.logger.info(
+        `Linking ${payloads.length} warehouses to channel individually...`,
+        { sessionId }
+      );
+
+      for (const payload of payloads) {
+        await this.liferay.createWarehouseChannel(
+          config,
+          payload.warehouseId,
+          payload.channelId
+        );
+      }
+
+      return await this.completeSyncStep(
         sessionId,
         stepKey,
-        'warehouse-channels',
-        'generate',
-        (erc) =>
-          this.liferay.createWarehouseChannelsBatch(config, payloads, {
-            externalReferenceCode: erc,
-            sessionId,
-          }),
+        'SYNCHRONOUS',
+        payloads.length,
         payloads.length
       );
     } catch (error) {
@@ -244,7 +237,10 @@ class WarehouseGenerator extends BaseGenerator {
           });
 
           await this.persistence.updateSessionContext(sessionId, {
-            geographicContext,
+            options: {
+              ...options,
+              geographicContext,
+            },
           });
         }
       }

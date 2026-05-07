@@ -4,35 +4,54 @@ export const getProgressPercentage = (completed = 0, total = 0) => {
 };
 
 export const getTotalProgress = (progress) => {
-  if (!progress) return { total: 0, completed: 0 };
+  if (!progress) return { total: 100, completed: 0, percentage: 0 };
 
-  // SPECIAL CASE: For deletion flows, use step-based progress
-  if (progress.activeFlowType === 'delete') {
+  // If the whole workflow is marked as completed, overall progress is 100%
+  if (progress.workflowStatus === 'completed') {
     return {
-      total: progress.totalSteps || 0,
-      completed: progress.completedSteps || 0,
+      total: 100,
+      completed: 100,
+      percentage: 100,
+      entityCount: 8,
+      doneCount: 8,
     };
   }
 
-  // Only include primary entities in the overall total progress calculation
-  const primaryEntities = ['products', 'accounts', 'orders'];
+  // Define the 8 UI Milestones that match the Workflow Status display
+  const milestones = [
+    { id: 'products', keys: ['products'] },
+    { id: 'accounts', keys: ['accounts'] },
+    { id: 'orders', keys: ['orders'] },
+    { id: 'warehouses', keys: ['warehouses'] },
+    { id: 'addresses', keys: ['addresses'] },
+    { id: 'images', keys: ['images'] },
+    { id: 'pdfs', keys: ['pdfs'] },
+    { id: 'pricing', keys: ['priceLists', 'promotions'] },
+  ];
 
-  let totalSum = 0;
-  let completedSum = 0;
+  let doneMilestones = 0;
 
-  primaryEntities.forEach((e) => {
-    const total = progress[e]?.total || 0;
-    const completed = progress[e]?.completed || 0;
+  milestones.forEach((milestone) => {
+    // A milestone is 'done' if all its associated state keys are marked as isDone
+    const isMilestoneDone = milestone.keys.every(
+      (key) => progress[key]?.isDone
+    );
 
-    if (total > 0) {
-      totalSum += total;
-      completedSum += completed;
+    if (isMilestoneDone) {
+      doneMilestones += 1;
     }
   });
 
+  // Calculate percentage based on 8 milestones (12.5% each)
+  const totalMilestones = milestones.length;
+  const percentage = (doneMilestones / totalMilestones) * 100;
+
   return {
-    total: totalSum,
-    completed: Math.min(completedSum, totalSum),
+    total: 100,
+    completed: Math.round(percentage),
+    percentage: Math.min(100, percentage),
+    entityCount: totalMilestones,
+    doneCount: doneMilestones,
   };
 };
 

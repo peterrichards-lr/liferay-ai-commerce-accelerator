@@ -10,7 +10,7 @@ const {
   sanitizeForERC,
   resolveErrorReference,
 } = require('../utils/misc.cjs');
-const { ERC_PREFIX, ENV, WORKFLOW_STEPS } = require('../utils/constants.cjs');
+const { ERC_PREFIX, WORKFLOW_STEPS } = require('../utils/constants.cjs');
 const { COMMERCE_CONSTRAINTS } = require('../utils/commerceConstants.cjs');
 const crypto = require('crypto');
 
@@ -32,7 +32,8 @@ class ProductGenerator extends BaseGenerator {
       [S.LINK_PRODUCT_OPTIONS]: this._runLinkProductOptionsStep.bind(this),
       [S.CREATE_PRODUCT_SKUS]: this._runProductSkusStep.bind(this),
       [S.RESOLVE_SKU_IDS]: this._runResolveSkuIdsStep.bind(this),
-      [S.SYNC_DELAY_PRICING]: this._runInterServiceSyncDelayStep.bind(this),
+      [S.SYNC_DELAY_PRICING]: (sId) =>
+        this._runInterServiceSyncDelayStep(sId, S.SYNC_DELAY_PRICING),
       [S.GENERATE_PRICE_LISTS]: this._runGeneratePriceListsStep.bind(this),
       [S.UPDATE_CATALOG_CONFIG]:
         this._runUpdateCatalogConfigurationStep.bind(this),
@@ -48,22 +49,6 @@ class ProductGenerator extends BaseGenerator {
    * Standalone entry point for product generation.
    */
   async runWorkflow(config, options) {
-    const sessionId = options.sessionId || createERC(ERC_PREFIX.BATCH_SESSION);
-    options.sessionId = sessionId;
-
-    if (
-      !options.selectedLanguages ||
-      (Array.isArray(options.selectedLanguages) &&
-        options.selectedLanguages.length === 0)
-    ) {
-      const fallbackLanguage = config.defaultLanguageId || ENV.DEFAULT_LOCALE;
-      this.logger.info(
-        `No languages selected for generation. Falling back to: ${fallbackLanguage}`,
-        { sessionId }
-      );
-      options.selectedLanguages = [fallbackLanguage];
-    }
-
     const steps = [
       { name: S.LOAD_METADATA, type: 'sync' },
       { name: S.GENERATE_WAREHOUSE_DATA, type: 'sync' },
@@ -103,48 +88,27 @@ class ProductGenerator extends BaseGenerator {
       ],
     });
 
-    await this.persistence.createSession({
-      sessionId,
-      flowType: 'generate',
-      status: 'STARTED',
-      currentSteps: [],
-      correlationId: config.correlationId,
-      context: {
-        config,
-        options,
-        steps,
-        generator: 'product',
-      },
-    });
-
-    this.ctx.batchCallback._checkSessionCompletion(
-      sessionId,
-      config.correlationId
-    );
-
-    return {
-      sessionId,
-      message: 'Product generation workflow started.',
+    // Calculate initial totals for the UI
+    const totals = {
+      products: options.productCount || 0,
+      accounts: options.accountCount || 0,
+      orders: options.orderCount || 0,
+      warehouses: options.createWarehouses ? options.warehouseCount || 0 : 0,
+      images:
+        options.imageMode !== 'none'
+          ? Math.round(
+              ((options.productCount || 0) * (options.imageRatio || 0)) / 100
+            )
+          : 0,
+      pdfs:
+        options.pdfMode !== 'none'
+          ? Math.round(
+              ((options.productCount || 0) * (options.pdfRatio || 0)) / 100
+            )
+          : 0,
     };
-  }
 
-  async _runInterServiceSyncDelayStep(sessionId) {
-    const session = await this.persistence.getSession(sessionId);
-    const { correlationId } = session;
-
-    this.logger.info(
-      `Starting inter-service synchronization delay of ${ENV.LIFERAY_SYNC_DELAY_MS}ms`,
-      { sessionId, correlationId }
-    );
-
-    await delay(ENV.LIFERAY_SYNC_DELAY_MS);
-
-    await this.completeSyncStep(sessionId, S.SYNC_DELAY_PRICING);
-
-    this.logger.info('Inter-service synchronization delay completed.', {
-      sessionId,
-      correlationId,
-    });
+    return super.runWorkflow(config, options, 'products', steps, totals);
   }
 
   async _runGeneratePriceListsStep(sessionId) {
@@ -527,7 +491,6 @@ class ProductGenerator extends BaseGenerator {
       }));
 
       await this.persistence.updateSessionContext(sessionId, {
-        ...session.context,
         productDataList: updatedList,
       });
       await this.completeSyncStep(
@@ -617,7 +580,6 @@ class ProductGenerator extends BaseGenerator {
       }));
 
       await this.persistence.updateSessionContext(sessionId, {
-        ...session.context,
         productDataList: updatedList,
       });
 
@@ -927,7 +889,6 @@ class ProductGenerator extends BaseGenerator {
         session.correlationId
       );
       await this.persistence.updateSessionContext(sessionId, {
-        ...session.context,
         productDataList: allData,
       });
       await this.completeSyncStep(
@@ -983,7 +944,6 @@ class ProductGenerator extends BaseGenerator {
         );
 
       await this.persistence.updateSessionContext(sessionId, {
-        ...session.context,
         // HARDENING: Store the full category metadata object
         defaultSpecificationCategory: {
           id: liferayCategory.id,
@@ -1107,7 +1067,6 @@ class ProductGenerator extends BaseGenerator {
 
       // Save the updated product data with specificationIds back to context
       await this.persistence.updateSessionContext(sessionId, {
-        ...session.context,
         productDataList: updatedProductDataList,
       });
 
@@ -1279,7 +1238,6 @@ class ProductGenerator extends BaseGenerator {
 
       // Save the updated product data with optionIds back to context
       await this.persistence.updateSessionContext(sessionId, {
-        ...session.context,
         productDataList: updatedProductDataList,
       });
 
@@ -1350,13 +1308,17 @@ class ProductGenerator extends BaseGenerator {
             pd.productSpecifications ||
             pd.specifications ||
             []
-          ).map((spec) => ({
-            ...spec,
-            label: spec.label || toI18n(spec.title || spec.value || spec.name),
-            value: spec.value || spec.title || spec.name, // Value is usually the text content
-            optionCategoryId: defaultSpecificationCategoryId,
-            specificationId: spec.specificationId,
-          })),
+          ).map((spec) => {
+            const { externalReferenceCode: _erc, ...rest } = spec;
+            return {
+              ...rest,
+              label:
+                spec.label || toI18n(spec.title || spec.value || spec.name),
+              value: spec.value || spec.title || spec.name,
+              optionCategoryId: defaultSpecificationCategoryId,
+              specificationId: spec.specificationId,
+            };
+          }),
         };
 
         const hasSkuContributingOptions = (
@@ -1521,12 +1483,10 @@ class ProductGenerator extends BaseGenerator {
             warehouses[Math.floor(Math.random() * warehouses.length)];
 
           inventoryItems.push({
-            externalReferenceCode: createERC(ERC_PREFIX.INVENTORY_BATCH),
             sku: sku.sku,
             quantity:
               Math.floor(Math.random() * (inventoryMax - inventoryMin + 1)) +
               inventoryMin,
-            warehouseExternalReferenceCode: warehouse.externalReferenceCode,
             warehouseId: warehouse.id,
           });
         }

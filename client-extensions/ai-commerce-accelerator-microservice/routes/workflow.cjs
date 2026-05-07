@@ -226,86 +226,84 @@ module.exports = (app, { logger, persistenceService, progressService }) => {
 
       const batches = await persistenceService.getBatchesForSession(sessionId);
 
-      // Calculate progress per entity type
+      const { options = {} } = session.context || {};
+
+      // Initialize with expected totals from configuration to avoid 0/0 state
       const progress = {
-        products: { completed: 0, total: 0 },
-        accounts: { completed: 0, total: 0 },
-        orders: { completed: 0, total: 0 },
-        images: { completed: 0, total: 0 },
-        pdfs: { completed: 0, total: 0 },
-        warehouses: { completed: 0, total: 0 },
+        products: {
+          completed: 0,
+          total: Number.parseInt(options.productCount, 10) || 0,
+        },
+        accounts: {
+          completed: 0,
+          total: Number.parseInt(options.accountCount, 10) || 0,
+        },
+        orders: {
+          completed: 0,
+          total: Number.parseInt(options.orderCount, 10) || 0,
+        },
+        images: {
+          completed: 0,
+          total:
+            options.imageMode !== 'none'
+              ? Math.round(
+                  ((options.productCount || 0) * (options.imageRatio || 0)) /
+                    100
+                )
+              : 0,
+        },
+        pdfs: {
+          completed: 0,
+          total:
+            options.pdfMode !== 'none'
+              ? Math.round(
+                  ((options.productCount || 0) * (options.pdfRatio || 0)) / 100
+                )
+              : 0,
+        },
+        warehouses: {
+          completed: 0,
+          total: options.createWarehouses
+            ? Number.parseInt(options.warehouseCount, 10) || 0
+            : 0,
+        },
         options: { completed: 0, total: 0 },
         specifications: { completed: 0, total: 0 },
+        addresses: { completed: 0, total: 0 },
       };
 
       // Consistent mapping with BaseWorkflowService._normalizeEntityType
       const entityMap = {
-        'product-data-generation': 'products',
+        // Only map primary creation/deletion steps to avoid inflating totals
         'create-products': 'products',
-        'resolve-product-ids': 'products',
-        'create-product-skus': 'products',
-        'resolve-sku-ids': 'products',
-        'update-inventory': 'products',
-        'generate-price-lists': 'products',
-        'update-catalog-configuration': 'products',
-        'generate-bulk-pricing': 'products',
-        'generate-tier-pricing': 'products',
         'delete-products': 'products',
-        'delete-product-related': 'products',
-        'delete-price-lists': 'products',
-        'delete-promotions': 'products',
-        'reset-catalog-configuration': 'products',
-        deleteproducts: 'products',
-        deletepricelists: 'products',
-        deletepromotions: 'products',
-        resetcatalogconfiguration: 'products',
-
-        'load-countries': 'accounts',
-        'generate-account-data': 'accounts',
         'create-accounts': 'accounts',
-        'resolve-account-ids': 'accounts',
-        'create-postal-addresses': 'accounts',
-        'set-address-defaults': 'accounts',
         'delete-accounts': 'accounts',
-        deleteaccounts: 'accounts',
-        'postal-addresses': 'accounts',
-        'set-billing-and-shipping-addresses': 'accounts',
-
-        'generate-order-data': 'orders',
         'create-orders': 'orders',
         'delete-orders': 'orders',
-        deleteorders: 'orders',
-
-        'generate-warehouse-data': 'warehouses',
         'create-warehouses': 'warehouses',
-        'resolve-warehouse-ids': 'warehouses',
         'delete-warehouses': 'warehouses',
-        'delete-warehouse-items': 'warehouses',
-        deletewarehouses: 'warehouses',
-        deletewarehouseitems: 'warehouses',
-
-        'attach-images': 'images',
-        'process-images': 'images',
-        'attach-pdfs': 'pdfs',
-        'process-pdfs': 'pdfs',
-
-        'link-product-options': 'options',
+        'create-price-lists': 'priceLists',
+        'delete-price-lists': 'priceLists',
+        'delete-promotions': 'promotions',
+        'create-images': 'images',
+        'create-pdfs': 'pdfs',
+        'create-addresses': 'addresses',
         'delete-options': 'options',
-        'delete-option-categories': 'options',
-        'delete-product-options': 'options',
-        deleteoptions: 'options',
-        deleteproductoptions: 'options',
-
         'delete-specifications': 'specifications',
-        'delete-product-specifications': 'specifications',
-        deletespecifications: 'specifications',
+        'reset-catalog-config': 'products',
       };
 
       batches.forEach((b) => {
         const entity = entityMap[b.step_key];
         if (entity && progress[entity]) {
           progress[entity].completed += b.processed_count || 0;
-          progress[entity].total += b.total_count || 0;
+          // For batches, we use the max to avoid doubling if multiple batches are used for one step
+          // and we use the discovery total if it's larger than the expected total
+          progress[entity].total = Math.max(
+            progress[entity].total,
+            b.total_count || 0
+          );
         }
       });
 

@@ -77,6 +77,7 @@ function buildConfigAndOptions(req) {
     aiModel,
     authMethod,
     batchSize,
+    brandName,
     catalogId,
     categories,
     channelId,
@@ -92,6 +93,7 @@ function buildConfigAndOptions(req) {
     generateSkuVariants,
     generateSpecifications,
     generateTierPricing,
+    geographicContext,
     imageHeight,
     imageMode,
     imageQuality,
@@ -205,6 +207,8 @@ function buildConfigAndOptions(req) {
 
   options.productCount = toNumber(productCount);
   options.sessionName = sessionName;
+  options.brandName = brandName;
+  options.geographicContext = parseMaybeJSON(geographicContext);
   options.categories = categories;
   options.generateBulkPricing = toBoolean(generateBulkPricing);
   options.generatePriceLists = toBoolean(generatePriceLists);

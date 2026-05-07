@@ -111,16 +111,17 @@ export const persistConfigKey = async (key, value) => {
   const safeValue = isEmpty ? '__AICA_EMPTY__' : String(value);
 
   const options = {
-    headers: DEFAULT_REQUEST_HEADERS,
-    method: existingConfig != null ? 'PATCH' : 'POST',
     body: JSON.stringify({
       configKey: key,
-      configValue: safeValue,
       configStatus: existingConfig?.configStatus || {
         key: 'Active',
         name: 'Active',
       },
+      configValue: safeValue,
+      externalReferenceCode: String(key || '').toUpperCase(),
     }),
+    headers: DEFAULT_REQUEST_HEADERS,
+    method: existingConfig != null ? 'PATCH' : 'POST',
   };
   const url = existingConfig
     ? `${OBJECT_ROOT_PATH}/${existingConfig.id}`
