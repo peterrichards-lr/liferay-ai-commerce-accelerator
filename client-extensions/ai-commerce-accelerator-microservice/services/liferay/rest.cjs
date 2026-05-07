@@ -1568,17 +1568,24 @@ class LiferayRestService {
   }
 
   async createWarehouseChannel(config, warehouseId, channelId) {
-    // HARDENING: Ensure we only send the primitive IDs to prevent nesting corruption
+    // HARDENING: Ensure we only send the primitive IDs to prevent nesting corruption.
+    // Also send as both number and string to be extremely resilient to DTO changes.
+    const cleanedWarehouseId =
+      typeof warehouseId === 'object' ? warehouseId.id : warehouseId;
+    const cleanedChannelId =
+      typeof channelId === 'object' ? channelId.channelId : channelId;
+
     const payload = {
-      channelId:
-        typeof channelId === 'object' ? channelId.channelId : channelId,
-      warehouseId:
-        typeof warehouseId === 'object' ? warehouseId.id : warehouseId,
+      channelId: parseInt(cleanedChannelId, 10),
+      channelIdString: String(cleanedChannelId),
+      id: parseInt(cleanedChannelId, 10), // Some APIs use 'id' for the target
+      warehouseId: parseInt(cleanedWarehouseId, 10),
+      warehouseIdString: String(cleanedWarehouseId),
     };
 
     const data = await this._post(
       config,
-      PATH.WAREHOUSE_CHANNELS(warehouseId),
+      PATH.WAREHOUSE_CHANNELS(cleanedWarehouseId),
       payload,
       'create-warehouse-channel',
       'Failed to link warehouse to channel'
