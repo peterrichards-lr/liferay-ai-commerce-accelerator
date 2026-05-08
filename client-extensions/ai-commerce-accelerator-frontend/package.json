@@ -28,7 +28,7 @@
   },
   "description": "Liferay AI Commerce Accelerator Frontend Client Extension",
   "devDependencies": {
-    "@eslint/js": "9.39.4",
+    "@eslint/js": "10.0.1",
     "@rollup/plugin-replace": "^6.0.2",
     "vite": "^6.0.0",
     "@vitejs/plugin-react": "^4.0.0",
