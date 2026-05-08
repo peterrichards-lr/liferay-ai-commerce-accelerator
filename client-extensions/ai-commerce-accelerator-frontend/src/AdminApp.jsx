@@ -89,7 +89,7 @@ function AdminUI() {
   }, [api, config.microserviceUrl]);
 
   useEffect(() => {
-    Promise.resolve().then(() => fetchData());
+    fetchData();
   }, [fetchData]);
 
   const handlePurgeHistory = async () => {
@@ -156,7 +156,7 @@ function AdminUI() {
 
   useEffect(() => {
     // Reset to first page when filters change
-    Promise.resolve().then(() => setCurrentPage(1));
+    setCurrentPage(1);
   }, [filters, pageSize]);
 
   const requestSort = (key) => {

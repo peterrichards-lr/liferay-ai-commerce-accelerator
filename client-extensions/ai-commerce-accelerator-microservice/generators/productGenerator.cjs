@@ -1550,12 +1550,17 @@ class ProductGenerator extends BaseGenerator {
     );
     return data.map((p) => ({
       ...p,
-      // HARDENING: Always generate fresh ERCs for products and their skus
-      // to avoid AI hallucinations causing duplicate key errors.
+      // HARDENING: Always generate fresh ERCs for products
       externalReferenceCode: createERC(ERC_PREFIX.PRODUCT),
+      // Liferay Commerce ignores nested SKU ERCs during product creation and uses the SKU code.
+      // We must use the SKU code as the ERC to ensure successful resolution later.
       skus: (p.skus || []).map((s) => ({
         ...s,
-        externalReferenceCode: createERC(ERC_PREFIX.SKU),
+        externalReferenceCode: s.externalReferenceCode || s.sku,
+      })),
+      skuVariants: (p.skuVariants || []).map((v) => ({
+        ...v,
+        externalReferenceCode: v.externalReferenceCode || v.sku,
       })),
     }));
   }
