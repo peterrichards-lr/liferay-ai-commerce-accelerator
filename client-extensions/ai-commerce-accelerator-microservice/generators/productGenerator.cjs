@@ -573,7 +573,7 @@ class ProductGenerator extends BaseGenerator {
         uniqueErcs,
         (cfg, e) =>
           this.liferay.getSkusByERC(cfg, e, ['id', 'externalReferenceCode']),
-        { label: 'skus' }
+        { label: 'skus', tolerateMissing: true }
       );
 
       const normalized = this._normalize(resolvedItems);

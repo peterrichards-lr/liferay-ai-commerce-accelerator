@@ -1841,11 +1841,23 @@ class LiferayService {
 
     if (currentErcs.length > 0) {
       const errorMsg = `Resolution failed to find ${currentErcs.length} / ${ercs.length} ${label} after ${maxRetries} attempts.`;
-      logger.error(errorMsg, {
-        missingERCs: currentErcs,
-        correlationId: config.correlationId,
-      });
-      throw new Error(errorMsg);
+
+      if (options.tolerateMissing) {
+        logger.warn(
+          errorMsg +
+            ' Tolerating missing entities and proceeding with partial results.',
+          {
+            missingERCs: currentErcs,
+            correlationId: config.correlationId,
+          }
+        );
+      } else {
+        logger.error(errorMsg, {
+          missingERCs: currentErcs,
+          correlationId: config.correlationId,
+        });
+        throw new Error(errorMsg);
+      }
     } else {
       logger.debug(`Successfully resolved all ${ercs.length} ${label}.`, {
         correlationId: config.correlationId,
