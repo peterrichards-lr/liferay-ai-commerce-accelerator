@@ -534,19 +534,28 @@ class ProductGenerator extends BaseGenerator {
       );
     }
 
-    // HARDENING: Resolve ALL SKU ERCs (Base SKUs + Variant SKUs)
+    // HARDENING: Resolve ONLY the SKUs that were actually sent to Liferay
     const skuErcs = [];
     for (const p of productDataList) {
-      // 1. Base SKUs
-      if (Array.isArray(p.skus)) {
-        skuErcs.push(
-          ...p.skus.map((s) => s.externalReferenceCode).filter(Boolean)
-        );
-      }
-      // 2. Variant SKUs (generated from options)
-      if (options.generateSkuVariants && Array.isArray(p.skuVariants)) {
+      const hasSkuContributingOptions = (
+        p.productOptions ||
+        p.options ||
+        []
+      ).some((o) => o.skuContributor);
+
+      if (
+        options.generateSkuVariants &&
+        hasSkuContributingOptions &&
+        Array.isArray(p.skuVariants)
+      ) {
+        // 1. Variant SKUs
         skuErcs.push(
           ...p.skuVariants.map((v) => v.externalReferenceCode).filter(Boolean)
+        );
+      } else if (Array.isArray(p.skus)) {
+        // 2. Base SKUs (only if variants were not generated)
+        skuErcs.push(
+          ...p.skus.map((s) => s.externalReferenceCode).filter(Boolean)
         );
       }
     }
