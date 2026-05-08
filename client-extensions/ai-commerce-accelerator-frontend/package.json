@@ -24,7 +24,7 @@
     "@clayui/progress-bar": "^3.144.1",
     "@clayui/tabs": "^3.151.0",
     "react": "^18.3.1",
-    "react-dom": "^18.3.1"
+    "react-dom": "^19.2.6"
   },
   "description": "Liferay AI Commerce Accelerator Frontend Client Extension",
   "devDependencies": {
