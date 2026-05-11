@@ -5,7 +5,7 @@ import GlobalDisclaimer from './components/common/GlobalDisclaimer';
 import { PANELS } from './panels';
 
 const APP_NAME = 'Liferay Commerce AI Generator';
-const STORAGE_KEY = 'ai-config-active-tab';
+const STORAGE_KEY = 'aica_config_active_tab';
 
 export default function LiferayAICommerceAcceleratorConfiguration() {
   const initialFromHash =
@@ -74,7 +74,7 @@ export default function LiferayAICommerceAcceleratorConfiguration() {
         <ClayLayout.Col size={9}>
           <GlobalDisclaimer
             text="This configuration is intended for demonstrations and internal testing only. Do not use in production."
-            localStorageKey="aiCommerceAcceleratorConfigurationDisclaimerDismissed"
+            localStorageKey="aica_configuration_disclaimer_dismissed"
           />
           <h2 id={`tab-${activeId}`} className="sr-only">
             {activeLabel}

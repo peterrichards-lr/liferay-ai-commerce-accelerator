@@ -15,14 +15,11 @@ import {
   HEALTH_DETAILED,
   EXPORT_COMMERCE_DATA,
   WORKFLOW_CLEAR_ALL,
-  LOGS_DOWNLOAD,
-  LOGS_CLEAR,
 } from './utils/microservicePaths';
 
 import StatusBadge from './components/admin/StatusBadge';
 import SessionDetailModal from './components/admin/SessionDetailModal';
 import ConfigurationDoctor from './components/admin/ConfigurationDoctor';
-import MicroserviceLogManagementPanel from './components/panels/MicroserviceLogManagementPanel';
 
 const formatUptime = (seconds) => {
   const d = Math.floor(seconds / (3600 * 24));
@@ -116,42 +113,6 @@ function AdminUI() {
       notifyUser('Failed to purge history', 'danger');
     } finally {
       setPurging(false);
-    }
-  };
-
-  const handleDownloadLogs = async () => {
-    try {
-      const res = await api.get(LOGS_DOWNLOAD, { responseType: 'blob' });
-      const url = window.URL.createObjectURL(new Blob([res]));
-      const link = document.createElement('a');
-      link.href = url;
-      link.setAttribute('download', 'microservice-app.log');
-      document.body.appendChild(link);
-      link.click();
-      link.remove();
-    } catch (err) {
-      console.error('Failed to download logs:', err);
-      notifyUser('Failed to download logs', 'danger');
-    }
-  };
-
-  const handleClearLogs = async () => {
-    const ok = await confirm({
-      title: 'Clear Application Logs?',
-      message:
-        'This will permanently erase all debug logs from the server. This action cannot be undone.',
-      confirmText: 'Clear Logs',
-      destructive: true,
-    });
-
-    if (!ok) return;
-
-    try {
-      await api.del(LOGS_CLEAR);
-      notifyUser('Application logs cleared successfully');
-    } catch (err) {
-      console.error('Failed to clear logs:', err);
-      notifyUser('Failed to clear logs', 'danger');
     }
   };
 
@@ -303,26 +264,6 @@ function AdminUI() {
                     Purge History
                   </ClayButton>
                   <ClayButton
-                    displayType="secondary"
-                    size="sm"
-                    onClick={handleDownloadLogs}
-                    disabled={loading}
-                    className="mr-2"
-                  >
-                    <ClayIcon symbol="download" className="mr-2" />
-                    Download Logs
-                  </ClayButton>
-                  <ClayButton
-                    displayType="secondary"
-                    size="sm"
-                    onClick={handleClearLogs}
-                    disabled={loading}
-                    className="mr-2"
-                  >
-                    <ClayIcon symbol="hr-trash" className="mr-2" />
-                    Clear Logs
-                  </ClayButton>
-                  <ClayButton
                     displayType="primary"
                     size="sm"
                     onClick={fetchData}
@@ -428,9 +369,6 @@ function AdminUI() {
               health={health}
               liferayUrl={config.liferayUrl}
             />
-            <div className="mt-4">
-              <MicroserviceLogManagementPanel />
-            </div>
           </ClayLayout.Col>
 
           {/* SESSION EXPLORER */}

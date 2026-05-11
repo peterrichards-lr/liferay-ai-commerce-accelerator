@@ -72,6 +72,14 @@ export const PANELS = [
     ),
   },
   {
+    id: 'microservice-logs',
+    label: 'Microservice Logs',
+    icon: 'list',
+    component: lazy(
+      () => import('./components/panels/MicroserviceLogManagementPanel')
+    ),
+  },
+  {
     id: 'workflow-resilience',
     label: 'Workflow Resilience',
     icon: 'time',
