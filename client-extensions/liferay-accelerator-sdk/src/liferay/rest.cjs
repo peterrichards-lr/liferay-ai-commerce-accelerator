@@ -14,10 +14,10 @@ const { PATH, CUSTOM_OBJECTS, q } = require("../utils/liferayPaths.cjs");
 const { ASSET_TYPE } = require("../utils/liferayPermissions.cjs");
 const { ERC_PREFIX, OP_MAP, ENV } = require("../utils/constants.cjs");
 const { findContract } = require("../utils/contractMappings.cjs");
-const { delay, createERC } = require('../utils/misc.cjs');
-const { sanitizedERC } = require('../utils/normalize.cjs');
-const { ErrorHandler } = require('../utils/errorHandler.cjs');
-const { parse } = require('csv-parse/sync');
+const { delay, createERC } = require("../utils/misc.cjs");
+const { sanitizedERC } = require("../utils/normalize.cjs");
+const { ErrorHandler } = require("../utils/errorHandler.cjs");
+const { parse } = require("csv-parse/sync");
 
 const { getBatchCacheTTLms } = require("../utils/ttl.cjs");
 const { COMMERCE_CONSTRAINTS } = require("../utils/commerceConstants.cjs");
@@ -170,7 +170,6 @@ class LiferayRestService {
     }
 
     const maxRetries = 3;
-    let lastError;
 
     for (let attempt = 1; attempt <= maxRetries; attempt++) {
       try {
@@ -178,16 +177,16 @@ class LiferayRestService {
 
         if (
           data &&
-          (method === 'POST' || method === 'PATCH' || method === 'PUT')
+          (method === "POST" || method === "PATCH" || method === "PUT")
         ) {
           const raw = JSON.stringify(data);
           logger.trace(
             `Outbound payload structure (${op}): ${raw.substring(0, 1000)}...`,
-            { correlationId: config?.correlationId }
+            { correlationId: config?.correlationId },
           );
         }
 
-        logger.debug('Liferay API Request', {
+        logger.debug("Liferay API Request", {
           operation: op,
           method,
           url,
@@ -215,12 +214,12 @@ class LiferayRestService {
           if (Array.isArray(res.data.items)) {
             logData.itemCount = res.data.items.length;
             logData.totalCount = res.data.totalCount;
-          } else if (typeof res.data === 'object') {
+          } else if (typeof res.data === "object") {
             logData.dataKeys = Object.keys(res.data);
           }
         }
 
-        logger.debug('Liferay API Response', {
+        logger.debug("Liferay API Response", {
           ...logData,
           correlationId: config?.correlationId,
         });
@@ -236,8 +235,6 @@ class LiferayRestService {
 
         return res.data;
       } catch (err) {
-        lastError = err;
-
         // Determine if we should retry
         const isRetryable =
           ErrorHandler.isRetryableError(err) && attempt < maxRetries;
@@ -253,143 +250,144 @@ class LiferayRestService {
             {
               correlationId: config?.correlationId,
               status: err.response?.status,
-            }
+            },
           );
           await delay(retryDelay);
           continue;
         }
 
         const hasHTTPResponse = !!err?.response;
-      const res = err.response;
+        const res = err.response;
 
-      const status = hasHTTPResponse ? res.status : undefined;
-      const statusText = hasHTTPResponse ? res.statusText : undefined;
-      const resHeaders = hasHTTPResponse ? res.headers || {} : {};
-      const body = hasHTTPResponse ? res.data : undefined;
+        const status = hasHTTPResponse ? res.status : undefined;
+        const statusText = hasHTTPResponse ? res.statusText : undefined;
+        const resHeaders = hasHTTPResponse ? res.headers || {} : {};
+        const body = hasHTTPResponse ? res.data : undefined;
 
-      const problem =
-        hasHTTPResponse && body && typeof body === "object"
-          ? {
-              status: body.status,
-              title: body.title,
-              type: body.type,
-              detail: body.detail,
-              errorReference:
-                body.errorReference || resHeaders["x-liferay-error-reference"],
-            }
-          : null;
+        const problem =
+          hasHTTPResponse && body && typeof body === "object"
+            ? {
+                status: body.status,
+                title: body.title,
+                type: body.type,
+                detail: body.detail,
+                errorReference:
+                  body.errorReference ||
+                  resHeaders["x-liferay-error-reference"],
+              }
+            : null;
 
-      const existingRef =
-        problem?.errorReference ||
-        err?.errorReference ||
-        err?.response?.headers?.["x-liferay-error-reference"];
+        const existingRef =
+          problem?.errorReference ||
+          err?.errorReference ||
+          err?.response?.headers?.["x-liferay-error-reference"];
 
-      const errorReference = existingRef || createERC(ERC_PREFIX.ERROR);
+        const errorReference = existingRef || createERC(ERC_PREFIX.ERROR);
 
-      const detailMsg =
-        (hasHTTPResponse && (problem?.detail || problem?.title)) ||
-        friendly ||
-        statusText ||
-        err?.message ||
-        "Request failed";
+        const detailMsg =
+          (hasHTTPResponse && (problem?.detail || problem?.title)) ||
+          friendly ||
+          statusText ||
+          err?.message ||
+          "Request failed";
 
-      if (hasHTTPResponse && op && SOFT_STATUS_BY_OP[op]?.includes(status)) {
-        logger?.info?.("Soft HTTP status treated as empty result", {
-          op,
-          method,
-          url,
-          status,
-          errorReference,
-          problem,
-          responseBody:
-            typeof body === "string"
-              ? body
-              : body
-                ? this._stringifySafe(body)
-                : null,
-        });
-
-        const softResult = this._buildSoftFallback(op, status);
-
-        if (fullResponse) {
-          return {
-            data: softResult,
-            headers: resHeaders,
+        if (hasHTTPResponse && op && SOFT_STATUS_BY_OP[op]?.includes(status)) {
+          logger?.info?.("Soft HTTP status treated as empty result", {
+            op,
+            method,
+            url,
             status,
-            statusText,
-          };
+            errorReference,
+            problem,
+            responseBody:
+              typeof body === "string"
+                ? body
+                : body
+                  ? this._stringifySafe(body)
+                  : null,
+          });
+
+          const softResult = this._buildSoftFallback(op, status);
+
+          if (fullResponse) {
+            return {
+              data: softResult,
+              headers: resHeaders,
+              status,
+              statusText,
+            };
+          }
+
+          return softResult;
         }
 
-        return softResult;
-      }
+        if (hasHTTPResponse) {
+          logger?.error?.("Request failed (HTTP error)", {
+            op,
+            friendly,
+            method,
+            url,
+            params,
+            status,
+            statusText,
+            correlationId: config?.correlationId,
+            errorReference,
+            problem,
+            responseBody:
+              typeof body === "string"
+                ? body
+                : body
+                  ? this._stringifySafe(body)
+                  : null,
+            headers,
+            responseHeaders: resHeaders,
+          });
+        } else {
+          logger?.error?.("Request failed (no response from server)", {
+            op,
+            friendly,
+            method,
+            url,
+            params,
+            correlationId: config?.correlationId,
+            errorReference,
+            errorName: err?.name,
+            errorCode: err?.code,
+            message: err?.message,
+            stack: err?.stack,
+          });
+        }
 
-      if (hasHTTPResponse) {
-        logger?.error?.("Request failed (HTTP error)", {
-          op,
-          friendly,
+        const e = new Error(friendly || op || "Request failed");
+        e.name = "LiferayRequestError";
+
+        if (hasHTTPResponse) {
+          e.status = status;
+          e.statusText = statusText;
+        }
+
+        e.errorReference = errorReference;
+        e.problem = problem || null;
+        e.operation = op || friendly || "request";
+        e.userMessage = detailMsg;
+        e.response = hasHTTPResponse
+          ? { status, statusText, headers: resHeaders, data: body }
+          : null;
+        e.request = {
           method,
           url,
           params,
-          status,
-          statusText,
-          correlationId: config?.correlationId,
-          errorReference,
-          problem,
-          responseBody:
-            typeof body === "string"
-              ? body
-              : body
-                ? this._stringifySafe(body)
-                : null,
-          headers,
-          responseHeaders: resHeaders,
-        });
-      } else {
-        logger?.error?.("Request failed (no response from server)", {
-          op,
-          friendly,
-          method,
-          url,
-          params,
-          correlationId: config?.correlationId,
-          errorReference,
-          errorName: err?.name,
-          errorCode: err?.code,
-          message: err?.message,
-          stack: err?.stack,
-        });
+          hasData: !!data,
+        };
+
+        if (!hasHTTPResponse && err?.code) {
+          e.networkCode = err.code;
+        }
+
+        throw e;
       }
-
-      const e = new Error(friendly || op || "Request failed");
-      e.name = "LiferayRequestError";
-
-      if (hasHTTPResponse) {
-        e.status = status;
-        e.statusText = statusText;
-      }
-
-      e.errorReference = errorReference;
-      e.problem = problem || null;
-      e.operation = op || friendly || "request";
-      e.userMessage = detailMsg;
-      e.response = hasHTTPResponse
-        ? { status, statusText, headers: resHeaders, data: body }
-        : null;
-      e.request = {
-        method,
-        url,
-        params,
-        hasData: !!data,
-      };
-
-      if (!hasHTTPResponse && err?.code) {
-        e.networkCode = err.code;
-      }
-
-      throw e;
     }
   }
-}
 
   async _downloadFile(config, url, destination) {
     const writer = fs.createWriteStream(destination);
