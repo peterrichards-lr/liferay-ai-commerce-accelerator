@@ -377,10 +377,12 @@ tasks.register('testFrontendCX') {
 		try {
 			exec {
 				workingDir CX_DIR; commandLine findYarnExecutable(), 'test'
+				environment "FORCE_COLOR", "0"
 			}
 		} catch (Exception e) {
 			exec {
 				workingDir CX_DIR; commandLine 'npx', 'yarn', 'test'
+				environment "FORCE_COLOR", "0"
 			}
 		}
 	}
@@ -425,10 +427,12 @@ tasks.register('testConfigurationCX') {
 		try {
 			exec {
 				workingDir CONFIG_CX_DIR; commandLine findYarnExecutable(), 'test'
+				environment "FORCE_COLOR", "0"
 			}
 		} catch (Exception e) {
 			exec {
 				workingDir CONFIG_CX_DIR; commandLine 'npx', 'yarn', 'test'
+				environment "FORCE_COLOR", "0"
 			}
 		}
 	}
@@ -445,10 +449,12 @@ tasks.register('testMicroserviceCX') {
 		try {
 			exec {
 				workingDir MICROSERVICE_CX_DIR; commandLine findYarnExecutable(), 'test'
+				environment "FORCE_COLOR", "0"
 			}
 		} catch (Exception e) {
 			exec {
 				workingDir MICROSERVICE_CX_DIR; commandLine 'npx', 'yarn', 'test'
+				environment "FORCE_COLOR", "0"
 			}
 		}
 	}
@@ -485,6 +491,7 @@ tasks.register('smokeTest') {
 	doLast {
 		exec {
 			commandLine 'npx', 'playwright', 'test', 'tests/smoke'
+			environment "FORCE_COLOR", "0"
 		}
 	}
 }
