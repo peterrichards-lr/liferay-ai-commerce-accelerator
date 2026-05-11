@@ -19,6 +19,8 @@ class OrderGenerator extends BaseGenerator {
       [S.GENERATE_ORDER_DATA]: this._runOrderDataGenerationStep.bind(this),
       [S.CREATE_ORDERS]: this._runOrderCreationStep.bind(this),
       [S.SUBFLOW_ORDERS]: this._runSubflowOrdersStep.bind(this),
+      [S.SYNC_DELAY_ORDERS]: (sId) =>
+        this._runInterServiceSyncDelayStep(sId, S.SYNC_DELAY_ORDERS),
     };
   }
 
@@ -62,6 +64,7 @@ class OrderGenerator extends BaseGenerator {
 
   async runWorkflow(config, options) {
     const steps = [
+      { name: S.SYNC_DELAY_ORDERS, type: 'sync' },
       {
         name: S.GENERATE_ORDER_DATA,
         type: 'sync',
@@ -471,10 +474,28 @@ class OrderGenerator extends BaseGenerator {
   }
 
   async getProductsAndAccounts(config, context = {}) {
-    const productsRes = await this.liferay.getProductsWithSkus(config, {
-      catalogId: config.catalogId,
-    });
+    let products = [];
     let accounts = [];
+    let attempts = 0;
+    const maxAttempts = 3;
+
+    while (attempts < maxAttempts && products.length === 0) {
+      if (attempts > 0) {
+        this.logger.debug(
+          `Retry ${attempts}/${maxAttempts} fetching products for orders...`,
+          { sessionId: config.sessionId }
+        );
+        const retryDelayMs = 5000;
+        await new Promise((resolve) => setTimeout(resolve, retryDelayMs));
+      }
+
+      const productsRes = await this.liferay.getProductsWithSkus(config, {
+        catalogId: config.catalogId,
+      });
+      products = productsRes.items || [];
+      attempts++;
+    }
+
     if (
       context.accountsToCreate &&
       context.accountsToCreate.length > 0 &&
@@ -494,7 +515,7 @@ class OrderGenerator extends BaseGenerator {
       accounts = accountsRes.items || [];
       this.logger.debug(`Found ${accounts.length} existing accounts.`);
     }
-    const products = productsRes.items || [];
+
     return { products, accounts };
   }
 

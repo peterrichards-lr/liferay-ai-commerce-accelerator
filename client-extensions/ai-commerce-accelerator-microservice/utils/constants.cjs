@@ -314,6 +314,8 @@ const WORKFLOW_STEPS = {
   CREATE_PRODUCT_SKUS: 'create-skus',
   RESOLVE_SKU_IDS: 'resolve-sku-ids',
   SYNC_DELAY_PRICING: 'sync-delay-pricing',
+  SYNC_DELAY_MEDIA: 'sync-delay-media',
+  SYNC_DELAY_ORDERS: 'sync-delay-orders',
   GENERATE_PRICE_LISTS: 'create-price-lists',
   UPDATE_CATALOG_CONFIG: 'update-catalog-config',
   GENERATE_BULK_PRICING: 'create-bulk-pricing',

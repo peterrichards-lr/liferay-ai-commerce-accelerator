@@ -1797,14 +1797,27 @@ class LiferayService {
 
       try {
         const batchResults = await resolverFn(config, currentErcs);
-        batchResults.filter(Boolean).forEach((item) => {
-          if (item.externalReferenceCode) {
-            resolvedMap.set(item.externalReferenceCode, item);
+        const resultsArray = Array.isArray(batchResults)
+          ? batchResults
+          : batchResults?.items || [];
+
+        resultsArray.filter(Boolean).forEach((item) => {
+          const itemErc = item.externalReferenceCode || item.erc;
+          if (itemErc) {
+            resolvedMap.set(itemErc, item);
           }
         });
 
-        // Update list of missing ERCs
+        // Update list of missing ERCs by checking which ones are now in our map
+        const previousCount = currentErcs.length;
         currentErcs = currentErcs.filter((erc) => !resolvedMap.has(erc));
+
+        if (currentErcs.length < previousCount) {
+          logger.debug(
+            `Resolution progress: ${label} found ${previousCount - currentErcs.length} new items. ${currentErcs.length} remaining.`,
+            { correlationId: config.correlationId }
+          );
+        }
       } catch (error) {
         logger.warn(
           `Resolution attempt ${attempt} failed for ${label}: ${error.message}`,

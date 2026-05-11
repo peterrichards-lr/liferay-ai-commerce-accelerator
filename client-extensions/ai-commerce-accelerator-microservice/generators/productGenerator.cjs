@@ -34,6 +34,8 @@ class ProductGenerator extends BaseGenerator {
       [S.RESOLVE_SKU_IDS]: this._runResolveSkuIdsStep.bind(this),
       [S.SYNC_DELAY_PRICING]: (sId) =>
         this._runInterServiceSyncDelayStep(sId, S.SYNC_DELAY_PRICING),
+      [S.SYNC_DELAY_MEDIA]: (sId) =>
+        this._runInterServiceSyncDelayStep(sId, S.SYNC_DELAY_MEDIA),
       [S.GENERATE_PRICE_LISTS]: this._runGeneratePriceListsStep.bind(this),
       [S.UPDATE_CATALOG_CONFIG]:
         this._runUpdateCatalogConfigurationStep.bind(this),
@@ -78,6 +80,8 @@ class ProductGenerator extends BaseGenerator {
     if (options.generateTierPricing) {
       steps.push({ name: S.GENERATE_TIER_PRICING, type: 'sync' });
     }
+
+    steps.push({ name: S.SYNC_DELAY_MEDIA, type: 'sync' });
 
     steps.push({
       type: 'parallel',

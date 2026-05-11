@@ -185,6 +185,9 @@ class BaseWorkflowService {
       [S.CREATE_PRODUCT_SKUS]: 'skus',
       [S.RESOLVE_SKU_IDS]: 'metadata',
       [S.LINK_PRODUCT_OPTIONS]: 'options',
+      [S.SYNC_DELAY_PRICING]: 'sync-delay',
+      [S.SYNC_DELAY_MEDIA]: 'sync-delay',
+      [S.SYNC_DELAY_ORDERS]: 'sync-delay',
       [S.UPDATE_INVENTORY]: 'inventory',
       [S.UPDATE_CATALOG_CONFIG]: 'config',
 
