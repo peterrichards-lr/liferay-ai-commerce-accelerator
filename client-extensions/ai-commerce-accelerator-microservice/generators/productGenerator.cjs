@@ -1538,18 +1538,34 @@ class ProductGenerator extends BaseGenerator {
       }
 
       if (inventoryItems.length > 0) {
-        await this.submitBatch(
-          sessionId,
-          S.UPDATE_INVENTORY,
-          'inventory',
-          'generate',
-          (erc) =>
-            this.liferay.createWarehouseItemsBatch(config, inventoryItems, {
-              externalReferenceCode: erc,
-              sessionId,
-            }),
-          inventoryItems.length
+        // HARDENING: Group by warehouse to ensure compatibility with scoped Batch API
+        const byWarehouse = inventoryItems.reduce((acc, item) => {
+          if (!acc[item.warehouseId]) acc[item.warehouseId] = [];
+          acc[item.warehouseId].push(item);
+          return acc;
+        }, {});
+
+        const warehouseIds = Object.keys(byWarehouse);
+        this.logger.info(
+          `Submitting ${inventoryItems.length} inventory items across ${warehouseIds.length} warehouse-specific batches.`
         );
+
+        for (const wId of warehouseIds) {
+          const items = byWarehouse[wId];
+          await this.submitBatch(
+            sessionId,
+            S.UPDATE_INVENTORY,
+            'inventory',
+            'generate',
+            (erc) =>
+              this.liferay.createWarehouseItemsBatch(config, items, {
+                externalReferenceCode: erc,
+                sessionId,
+                warehouseId: wId, // CRITICAL: Pass the scope!
+              }),
+            items.length
+          );
+        }
       } else {
         await this.completeSyncStep(sessionId, S.UPDATE_INVENTORY, 'BYPASSED');
       }

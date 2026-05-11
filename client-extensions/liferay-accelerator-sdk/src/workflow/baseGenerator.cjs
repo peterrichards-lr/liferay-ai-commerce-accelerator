@@ -642,7 +642,16 @@ class BaseGenerator extends BaseWorkflowService {
 
     const failedBatch = batches.find((b) => b.status === "FAILED");
     if (failedBatch) {
-      const errorMsg = `Workflow failed at step: ${failedBatch.step_key}`;
+      let errorMsg = `Workflow failed at step: ${failedBatch.step_key}`;
+
+      if (failedBatch.error_message) {
+        errorMsg += ` - Error: ${failedBatch.error_message}`;
+      } else if (failedBatch.error_count > 0) {
+        errorMsg += ` (${failedBatch.error_count} items failed)`;
+      } else if (failedBatch.processed_count < failedBatch.total_count) {
+        errorMsg += ` (Incomplete batch: processed ${failedBatch.processed_count} of ${failedBatch.total_count})`;
+      }
+
       if (await this.persistence.tryFailSession(sessionId, errorMsg)) {
         await this.progress.sessionFailed({
           sessionId,

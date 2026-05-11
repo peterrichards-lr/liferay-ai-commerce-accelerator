@@ -99,11 +99,29 @@ class PersistenceService {
         processed_count INTEGER DEFAULT 0,
         total_count INTEGER DEFAULT 0,
         error_count INTEGER DEFAULT 0,
+        error_message TEXT,
         created_at TEXT NOT NULL,
         updated_at TEXT NOT NULL,
         FOREIGN KEY (session_id) REFERENCES workflow_sessions(session_id) ON DELETE CASCADE
       );
+    `);
 
+    // Migration for workflow_batches
+    const batchColumns = this.db
+      .prepare("PRAGMA table_info(workflow_batches)")
+      .all();
+
+    if (!batchColumns.find((c) => c.name === "error_message")) {
+      try {
+        this.db.exec(
+          "ALTER TABLE workflow_batches ADD COLUMN error_message TEXT;",
+        );
+      } catch (err) {
+        if (!err.message.includes("duplicate column name")) throw err;
+      }
+    }
+
+    this.db.exec(`
       CREATE TABLE IF NOT EXISTS workflow_events (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         timestamp TEXT NOT NULL,
@@ -524,7 +542,14 @@ class PersistenceService {
 
   updateBatch(
     erc,
-    { status, downstreamBatchId, processedCount, totalCount, errorCount },
+    {
+      status,
+      downstreamBatchId,
+      processedCount,
+      totalCount,
+      errorCount,
+      errorMessage,
+    },
   ) {
     const now = new Date().toISOString();
     const sets = ["updated_at = ?"];
@@ -549,6 +574,10 @@ class PersistenceService {
     if (errorCount !== undefined) {
       sets.push("error_count = ?");
       params.push(errorCount);
+    }
+    if (errorMessage !== undefined) {
+      sets.push("error_message = ?");
+      params.push(errorMessage);
     }
 
     params.push(erc);

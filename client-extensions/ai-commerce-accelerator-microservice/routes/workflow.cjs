@@ -416,6 +416,30 @@ module.exports = (app, { logger, persistenceService, progressService }) => {
     }
   });
 
+  app.get(INTERNAL_API_PATHS.WORKFLOW_EVENTS, async (req, res) => {
+    try {
+      const { sessionId } = req.params;
+      const events = await persistenceService.getEventsForSession(sessionId);
+      res.json({
+        success: true,
+        sessionId,
+        events,
+        timestamp: new Date().toISOString(),
+      });
+    } catch (error) {
+      safeErrorResponse({
+        res,
+        logger,
+        req,
+        error,
+        operation: 'workflow-events',
+        meta: { sessionId: req.params.sessionId },
+        statusCode: 500,
+        fallbackMessage: 'Failed to get workflow events',
+      });
+    }
+  });
+
   app.delete(INTERNAL_API_PATHS.WORKFLOW_CLEAR_ALL, async (req, res) => {
     try {
       persistenceService.clearAll();

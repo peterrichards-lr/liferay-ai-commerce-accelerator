@@ -31,6 +31,7 @@ const COMPLETED_WORKFLOW_SESSIONS = `${BASE_PATH}/workflows/sessions/completed`;
 const WORKFLOW_KPIS = `${BASE_PATH}/workflows/kpis`;
 const WORKFLOW_BATCHES = `${BASE_PATH}/workflows/batches/:sessionId`;
 const WORKFLOW_STATUS = `${BASE_PATH}/workflows/sessions/:sessionId/status`;
+const WORKFLOW_EVENTS = `${BASE_PATH}/workflows/sessions/:sessionId/events`;
 const WORKFLOW_CLEAR_ALL = `${BASE_PATH}/workflows/clear-all`;
 
 export {
@@ -57,5 +58,6 @@ export {
   WORKFLOW_KPIS,
   WORKFLOW_BATCHES,
   WORKFLOW_STATUS,
+  WORKFLOW_EVENTS,
   WORKFLOW_CLEAR_ALL,
 };

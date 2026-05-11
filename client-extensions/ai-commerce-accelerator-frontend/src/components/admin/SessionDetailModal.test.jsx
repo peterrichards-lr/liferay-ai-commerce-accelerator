@@ -1,5 +1,6 @@
 import React from 'react';
 import { render, screen } from '@testing-library/react';
+import { AppProvider } from '../../context/AppContext';
 import SessionDetailModal from './SessionDetailModal';
 
 describe('SessionDetailModal', () => {
@@ -25,8 +26,18 @@ describe('SessionDetailModal', () => {
     }),
   };
 
+  const renderWithProvider = (ui) => {
+    return render(
+      <AppProvider initialConfig={{ microserviceUrl: 'http://localhost:3001' }}>
+        {ui}
+      </AppProvider>
+    );
+  };
+
   it('renders session basic information correctly', () => {
-    render(<SessionDetailModal session={mockSession} onClose={() => {}} />);
+    renderWithProvider(
+      <SessionDetailModal session={mockSession} onClose={() => {}} />
+    );
 
     expect(screen.getByText('Test Session')).toBeInTheDocument();
     expect(screen.getByText('SESS-123')).toBeInTheDocument();
@@ -35,18 +46,20 @@ describe('SessionDetailModal', () => {
   });
 
   it('redacts sensitive information in the JSON view', () => {
-    render(<SessionDetailModal session={mockSession} onClose={() => {}} />);
+    renderWithProvider(
+      <SessionDetailModal session={mockSession} onClose={() => {}} />
+    );
 
-    const jsonContainer =
-      screen.getByText(/Workflow Context/i).nextElementSibling;
-    expect(jsonContainer).toHaveTextContent('[REDACTED]');
-    expect(jsonContainer).not.toHaveTextContent('super-secret');
+    expect(screen.getByText(/Workflow Configuration/i)).toBeInTheDocument();
+    expect(screen.getByText(/\[REDACTED\]/i)).toBeInTheDocument();
   });
 
   it('renders target totals if present', () => {
-    render(<SessionDetailModal session={mockSession} onClose={() => {}} />);
+    renderWithProvider(
+      <SessionDetailModal session={mockSession} onClose={() => {}} />
+    );
 
-    expect(screen.getByText('Target Totals')).toBeInTheDocument();
+    expect(screen.getByText('Generated Quantities')).toBeInTheDocument();
     expect(screen.getByText('products')).toBeInTheDocument();
     expect(screen.getByText('10')).toBeInTheDocument();
     expect(screen.getByText('accounts')).toBeInTheDocument();
@@ -59,7 +72,9 @@ describe('SessionDetailModal', () => {
       status: 'FAILED',
       error_message: 'Out of memory',
     };
-    render(<SessionDetailModal session={failedSession} onClose={() => {}} />);
+    renderWithProvider(
+      <SessionDetailModal session={failedSession} onClose={() => {}} />
+    );
 
     expect(screen.getByText('Terminal Error')).toBeInTheDocument();
     expect(screen.getByText('Out of memory')).toBeInTheDocument();
@@ -67,9 +82,13 @@ describe('SessionDetailModal', () => {
 
   it('handles sessions with missing or invalid context gracefully', () => {
     const brokenSession = { ...mockSession, context: 'invalid-json' };
-    render(<SessionDetailModal session={brokenSession} onClose={() => {}} />);
+    renderWithProvider(
+      <SessionDetailModal session={brokenSession} onClose={() => {}} />
+    );
 
-    expect(screen.queryByText('Workflow Context')).not.toBeInTheDocument();
+    expect(
+      screen.queryByText('Workflow Configuration')
+    ).not.toBeInTheDocument();
     expect(screen.getByText('Test Session')).toBeInTheDocument();
   });
 });

@@ -94,10 +94,23 @@ class BatchCallbackService {
             );
 
             // Map Liferay executeStatus to our status
-            const status =
+            let status =
               (task.executeStatus || task.status) === "COMPLETED"
                 ? "COMPLETED"
                 : "FAILED";
+
+            // HARDENING: Check for partial failures during recovery
+            if (
+              status === "COMPLETED" &&
+              (task.failedItems?.length > 0 ||
+                (task.processedItemsCount < task.totalItemsCount &&
+                  task.totalItemsCount > 0))
+            ) {
+              logger.warn(
+                `Recovered batch ${b.erc} has partial failures. Marking as FAILED.`,
+              );
+              status = "FAILED";
+            }
 
             await this.processCallbackInternal(
               b.erc,
@@ -418,6 +431,36 @@ class BatchCallbackService {
               failedItems: failureReport,
               correlationId: effectiveCorrelationId,
             });
+
+            // PERSISTENCE: Log detailed failure as a workflow event for audit history
+            persistence.logWorkflowEvent({
+              sessionId: session.session_id,
+              batchId,
+              status: "FAILED",
+              message: `Batch ${batchId} for ${dbBatch.step_key} had ${errorCount} failures. First error: ${errorMessage}`,
+              details: {
+                batchERC,
+                stepKey: dbBatch.step_key,
+                errorCount,
+                totalCount,
+                failedItems: failureReport.slice(0, 50), // Cap details to prevent DB bloat
+              },
+            });
+          } else {
+            // HARDENING: If report is empty but processed < total, log a specific warning
+            persistence.logWorkflowEvent({
+              sessionId: session.session_id,
+              batchId,
+              status: "FAILED",
+              message: `Batch ${batchId} for ${dbBatch.step_key} is incomplete: processed ${processedCount} of ${totalCount} items, but no individual errors were reported by Liferay.`,
+              details: {
+                batchERC,
+                stepKey: dbBatch.step_key,
+                processedCount,
+                totalCount,
+                liferayStatus: data.executeStatus || "UNKNOWN",
+              },
+            });
           }
         } catch (reportErr) {
           logger.warn(
@@ -432,6 +475,7 @@ class BatchCallbackService {
         processedCount: processedCount,
         totalCount: totalCount,
         errorCount: errorCount,
+        errorMessage: data.errorMessage,
         downstreamBatchId: batchId,
       });
 
@@ -441,18 +485,34 @@ class BatchCallbackService {
       }
 
       // 5. Broadcast Progress
-      progress.batchCompleted({
-        entityType: generator
-          ? generator._normalizeEntityType(dbBatch.step_key)
-          : dbBatch.step_key,
-        operation: session.flow_type,
-        batchId,
-        batchERC,
-        sessionId: session.session_id,
-        successCount: data.processedItemsCount || 0,
-        failureCount: errorCount,
-        correlationId: effectiveCorrelationId,
-      });
+      if (finalStatus === "FAILED") {
+        progress.batchFailed({
+          entityType: generator
+            ? generator._normalizeEntityType(dbBatch.step_key)
+            : dbBatch.step_key,
+          operation: session.flow_type,
+          batchId,
+          batchERC,
+          sessionId: session.session_id,
+          error: {
+            message: `Batch is incomplete: processed ${processedCount} of ${totalCount} items.`,
+          },
+          correlationId: effectiveCorrelationId,
+        });
+      } else {
+        progress.batchCompleted({
+          entityType: generator
+            ? generator._normalizeEntityType(dbBatch.step_key)
+            : dbBatch.step_key,
+          operation: session.flow_type,
+          batchId,
+          batchERC,
+          sessionId: session.session_id,
+          successCount: data.processedItemsCount || 0,
+          failureCount: errorCount,
+          correlationId: effectiveCorrelationId,
+        });
+      }
 
       // 5.5 Broadcast Step Completed if all batches for this step are done
       const sessionBatches = await persistence.getBatchesForSession(

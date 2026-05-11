@@ -1,10 +1,16 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState, useEffect } from 'react';
 import ClayButton from '@clayui/button';
 import ClayIcon from '@clayui/icon';
 import ClayCard from '@clayui/card';
+import { useApi } from '../../context/AppContext';
+import { WORKFLOW_EVENTS } from '../../utils/microservicePaths';
 import StatusBadge from './StatusBadge';
 
 function SessionDetailModal({ session, onClose }) {
+  const api = useApi();
+  const [events, setEvents] = useState([]);
+  const [loadingEvents, setLoadingEvents] = useState(false);
+
   const context = useMemo(() => {
     try {
       return typeof session.context === 'string'
@@ -15,15 +21,36 @@ function SessionDetailModal({ session, onClose }) {
     }
   }, [session]);
 
+  useEffect(() => {
+    async function fetchEvents() {
+      setLoadingEvents(true);
+      try {
+        const url = WORKFLOW_EVENTS.replace(':sessionId', session.session_id);
+        const res = await api.get(url);
+        if (res?.success) {
+          setEvents(res.events || []);
+        }
+      } catch (err) {
+        console.error('Failed to fetch session events:', err);
+      } finally {
+        setLoadingEvents(false);
+      }
+    }
+
+    if (session.session_id) {
+      fetchEvents();
+    }
+  }, [api, session.session_id]);
+
   return (
     <div
       className="confirm-dialog__backdrop"
-      style={{ alignItems: 'flex-start', paddingTop: '5vh' }}
+      style={{ alignItems: 'flex-start', paddingTop: '5vh', zIndex: 1050 }}
     >
       <ClayCard
         style={{
-          width: 'min(900px, 95%)',
-          maxHeight: '85vh',
+          width: 'min(1000px, 95%)',
+          maxHeight: '90vh',
           overflow: 'hidden',
         }}
       >
@@ -78,24 +105,109 @@ function SessionDetailModal({ session, onClose }) {
             </div>
 
             {session.status === 'FAILED' && session.error_message && (
-              <div className="alert alert-danger mb-4">
-                <div className="font-weight-bold mb-1">Terminal Error</div>
-                <div>{session.error_message}</div>
+              <div className="alert alert-danger mb-4 border-0 shadow-sm">
+                <div className="d-flex">
+                  <ClayIcon symbol="exclamation-full" className="mr-3 mt-1" />
+                  <div>
+                    <div className="font-weight-bold mb-1">Terminal Error</div>
+                    <div style={{ wordBreak: 'break-word' }}>
+                      {session.error_message}
+                    </div>
+                  </div>
+                </div>
               </div>
             )}
 
+            {/* EVENT LOG / AUDIT TRAIL */}
+            <h5 className="mb-3 font-weight-bold d-flex align-items-center">
+              <ClayIcon symbol="list" className="mr-2 text-primary" />
+              Audit Trail
+              {loadingEvents && (
+                <span className="spinner-border spinner-border-sm ml-2" />
+              )}
+            </h5>
+
+            <div
+              className="mb-4 border rounded bg-white shadow-sm"
+              style={{ maxHeight: '300px', overflow: 'auto' }}
+            >
+              <table className="table table-sm mb-0 table-hover">
+                <thead className="bg-light sticky-top">
+                  <tr>
+                    <th
+                      className="border-top-0 pl-3"
+                      style={{ width: '120px' }}
+                    >
+                      Time
+                    </th>
+                    <th className="border-top-0" style={{ width: '150px' }}>
+                      Status
+                    </th>
+                    <th className="border-top-0">Event / Message</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {events.length === 0 ? (
+                    <tr>
+                      <td colSpan="3" className="text-center py-4 text-muted">
+                        {loadingEvents ? 'Loading logs...' : 'No events found.'}
+                      </td>
+                    </tr>
+                  ) : (
+                    events.map((event) => {
+                      const isError =
+                        event.status.includes('FAILED') ||
+                        event.status === 'ERROR';
+                      return (
+                        <tr key={event.id}>
+                          <td className="pl-3 small text-muted">
+                            {new Date(event.timestamp).toLocaleTimeString()}
+                          </td>
+                          <td>
+                            <span
+                              className={`badge badge-${isError ? 'danger' : 'light'} font-weight-bold text-uppercase`}
+                              style={{ fontSize: '0.65rem' }}
+                            >
+                              {event.status.replace(/_/g, ' ')}
+                            </span>
+                          </td>
+                          <td className="small">
+                            <div className="font-weight-semi-bold">
+                              {event.message}
+                            </div>
+                            {event.details?.firstError && (
+                              <div className="text-danger mt-1">
+                                <strong>Detail:</strong>{' '}
+                                {event.details.firstError}
+                              </div>
+                            )}
+                            {event.details?.error && (
+                              <div className="text-danger mt-1">
+                                {typeof event.details.error === 'string'
+                                  ? event.details.error
+                                  : event.details.error.message}
+                              </div>
+                            )}
+                          </td>
+                        </tr>
+                      );
+                    })
+                  )}
+                </tbody>
+              </table>
+            </div>
+
             {context && (
               <>
-                <div className="divider" />
-                <h5 className="mb-3 font-weight-bold">Workflow Context</h5>
+                <h5 className="mb-3 font-weight-bold d-flex align-items-center">
+                  <ClayIcon symbol="info-circle" className="mr-2 text-info" />
+                  Workflow Configuration
+                </h5>
 
                 <div className="mb-4">
-                  <div className="small text-secondary font-weight-bold mb-2 text-uppercase">
-                    Configuration & Options
-                  </div>
                   <pre
-                    className="p-3 bg-dark text-light rounded small"
-                    style={{ maxHeight: '400px', overflow: 'auto' }}
+                    className="p-3 bg-dark text-light rounded small border-0 shadow-sm"
+                    style={{ maxHeight: '300px', overflow: 'auto' }}
                   >
                     {JSON.stringify(
                       {
@@ -115,13 +227,13 @@ function SessionDetailModal({ session, onClose }) {
                 {context.totals && (
                   <div>
                     <div className="small text-secondary font-weight-bold mb-2 text-uppercase">
-                      Target Totals
+                      Generated Quantities
                     </div>
                     <div className="d-flex flex-wrap gap-3">
                       {Object.entries(context.totals).map(([key, val]) => (
                         <div
                           key={key}
-                          className="p-2 border rounded bg-white"
+                          className="p-2 border rounded bg-white shadow-sm"
                           style={{ minWidth: '100px' }}
                         >
                           <div
@@ -130,7 +242,9 @@ function SessionDetailModal({ session, onClose }) {
                           >
                             {key}
                           </div>
-                          <div className="h5 mb-0 font-weight-bold">{val}</div>
+                          <div className="h5 mb-0 font-weight-bold text-primary">
+                            {val}
+                          </div>
                         </div>
                       ))}
                     </div>
@@ -142,7 +256,7 @@ function SessionDetailModal({ session, onClose }) {
 
           <div className="p-4 border-top bg-light text-right">
             <ClayButton displayType="secondary" onClick={onClose}>
-              Close
+              Close Details
             </ClayButton>
           </div>
         </ClayCard.Body>
