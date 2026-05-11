@@ -3811,3 +3811,828 @@
   "itemCount": 1,
   "totalCount": 1
 }
+{
+  "timestamp": "2026-05-11T08:24:15.902Z",
+  "level": "TRACE",
+  "message": "http:get",
+  "correlationId": "system",
+  "environment": "test",
+  "service": "liferay-ai-data-microservice",
+  "version": "1.0.0",
+  "url": "/o/headless-commerce-admin-catalog/v1.0/products?filter=catalogId+eq+123&page=1&pageSize=200",
+  "params": {
+    "filter": "catalogId eq 123",
+    "page": 1,
+    "pageSize": 200
+  }
+}
+{
+  "timestamp": "2026-05-11T08:24:15.905Z",
+  "level": "DEBUG",
+  "message": "Liferay API Request",
+  "operation": "get-products-bulk",
+  "environment": "test",
+  "service": "liferay-ai-data-microservice",
+  "version": "1.0.0",
+  "method": "GET",
+  "url": "/o/headless-commerce-admin-catalog/v1.0/products?filter=catalogId+eq+123&page=1&pageSize=200"
+}
+{
+  "timestamp": "2026-05-11T08:24:15.936Z",
+  "level": "DEBUG",
+  "message": "Liferay API Response",
+  "operation": "get-products-bulk",
+  "environment": "test",
+  "service": "liferay-ai-data-microservice",
+  "version": "1.0.0",
+  "status": 200,
+  "itemCount": 1,
+  "totalCount": 1
+}
+{
+  "timestamp": "2026-05-11T08:24:15.973Z",
+  "level": "TRACE",
+  "message": "http:get",
+  "correlationId": "system",
+  "environment": "test",
+  "service": "liferay-ai-data-microservice",
+  "version": "1.0.0",
+  "url": "/o/headless-admin-user/v1.0/accounts?page=1&pageSize=200",
+  "params": {
+    "page": 1,
+    "pageSize": 200
+  }
+}
+{
+  "timestamp": "2026-05-11T08:24:15.974Z",
+  "level": "DEBUG",
+  "message": "Liferay API Request",
+  "operation": "get-accounts-bulk",
+  "environment": "test",
+  "service": "liferay-ai-data-microservice",
+  "version": "1.0.0",
+  "method": "GET",
+  "url": "/o/headless-admin-user/v1.0/accounts?page=1&pageSize=200"
+}
+{
+  "timestamp": "2026-05-11T08:24:15.978Z",
+  "level": "DEBUG",
+  "message": "Liferay API Response",
+  "operation": "get-accounts-bulk",
+  "environment": "test",
+  "service": "liferay-ai-data-microservice",
+  "version": "1.0.0",
+  "status": 200,
+  "itemCount": 1,
+  "totalCount": 1
+}
+{
+  "timestamp": "2026-05-11T08:24:16.010Z",
+  "level": "TRACE",
+  "message": "http:get",
+  "correlationId": "system",
+  "environment": "test",
+  "service": "liferay-ai-data-microservice",
+  "version": "1.0.0",
+  "url": "/o/headless-commerce-admin-order/v1.0/orders?page=1&pageSize=200",
+  "params": {
+    "filter": null,
+    "page": 1,
+    "pageSize": 200
+  }
+}
+{
+  "timestamp": "2026-05-11T08:24:16.011Z",
+  "level": "DEBUG",
+  "message": "Liferay API Request",
+  "operation": "get-orders-bulk",
+  "environment": "test",
+  "service": "liferay-ai-data-microservice",
+  "version": "1.0.0",
+  "method": "GET",
+  "url": "/o/headless-commerce-admin-order/v1.0/orders?page=1&pageSize=200"
+}
+{
+  "timestamp": "2026-05-11T08:24:16.015Z",
+  "level": "DEBUG",
+  "message": "Liferay API Response",
+  "operation": "get-orders-bulk",
+  "environment": "test",
+  "service": "liferay-ai-data-microservice",
+  "version": "1.0.0",
+  "status": 200,
+  "itemCount": 1,
+  "totalCount": 1
+}
+{
+  "timestamp": "2026-05-11T08:24:16.048Z",
+  "level": "TRACE",
+  "message": "http:get",
+  "correlationId": "system",
+  "environment": "test",
+  "service": "liferay-ai-data-microservice",
+  "version": "1.0.0",
+  "url": "/o/headless-commerce-admin-catalog/v1.0/catalogs?page=1&pageSize=100",
+  "params": {
+    "page": 1,
+    "pageSize": 100
+  }
+}
+{
+  "timestamp": "2026-05-11T08:24:16.048Z",
+  "level": "DEBUG",
+  "message": "Liferay API Request",
+  "operation": "get-catalogs-bulk",
+  "environment": "test",
+  "service": "liferay-ai-data-microservice",
+  "version": "1.0.0",
+  "method": "GET",
+  "url": "/o/headless-commerce-admin-catalog/v1.0/catalogs?page=1&pageSize=100"
+}
+{
+  "timestamp": "2026-05-11T08:24:16.053Z",
+  "level": "DEBUG",
+  "message": "Liferay API Response",
+  "operation": "get-catalogs-bulk",
+  "environment": "test",
+  "service": "liferay-ai-data-microservice",
+  "version": "1.0.0",
+  "status": 200,
+  "itemCount": 1,
+  "totalCount": 1
+}
+{
+  "timestamp": "2026-05-11T08:24:16.053Z",
+  "level": "TRACE",
+  "message": "http:get",
+  "correlationId": "system",
+  "environment": "test",
+  "service": "liferay-ai-data-microservice",
+  "version": "1.0.0",
+  "url": "/o/headless-commerce-admin-pricing/v2.0/price-lists?pageSize=200"
+}
+{
+  "timestamp": "2026-05-11T08:24:16.055Z",
+  "level": "DEBUG",
+  "message": "Liferay API Request",
+  "operation": "get-price-lists",
+  "environment": "test",
+  "service": "liferay-ai-data-microservice",
+  "version": "1.0.0",
+  "method": "GET",
+  "url": "/o/headless-commerce-admin-pricing/v2.0/price-lists?pageSize=200"
+}
+{
+  "timestamp": "2026-05-11T08:24:16.059Z",
+  "level": "DEBUG",
+  "message": "Liferay API Response",
+  "operation": "get-price-lists",
+  "environment": "test",
+  "service": "liferay-ai-data-microservice",
+  "version": "1.0.0",
+  "status": 200,
+  "itemCount": 1,
+  "totalCount": 1
+}
+{
+  "timestamp": "2026-05-11T08:24:16.099Z",
+  "level": "TRACE",
+  "message": "http:get",
+  "correlationId": "system",
+  "environment": "test",
+  "service": "liferay-ai-data-microservice",
+  "version": "1.0.0",
+  "url": "/o/headless-commerce-admin-inventory/v1.0/warehouses?page=1&pageSize=200",
+  "params": {
+    "filter": null,
+    "page": 1,
+    "pageSize": 200
+  }
+}
+{
+  "timestamp": "2026-05-11T08:24:16.099Z",
+  "level": "DEBUG",
+  "message": "Liferay API Request",
+  "operation": "get-warehouses-bulk",
+  "environment": "test",
+  "service": "liferay-ai-data-microservice",
+  "version": "1.0.0",
+  "method": "GET",
+  "url": "/o/headless-commerce-admin-inventory/v1.0/warehouses?page=1&pageSize=200"
+}
+{
+  "timestamp": "2026-05-11T08:24:16.103Z",
+  "level": "DEBUG",
+  "message": "Liferay API Response",
+  "operation": "get-warehouses-bulk",
+  "environment": "test",
+  "service": "liferay-ai-data-microservice",
+  "version": "1.0.0",
+  "status": 200,
+  "itemCount": 1,
+  "totalCount": 1
+}
+{
+  "timestamp": "2026-05-11T08:24:16.139Z",
+  "level": "TRACE",
+  "message": "http:get",
+  "correlationId": "system",
+  "environment": "test",
+  "service": "liferay-ai-data-microservice",
+  "version": "1.0.0",
+  "url": "/o/headless-batch-engine/v1.0/import-task/9001"
+}
+{
+  "timestamp": "2026-05-11T08:24:16.140Z",
+  "level": "DEBUG",
+  "message": "Liferay API Request",
+  "operation": "import-task",
+  "environment": "test",
+  "service": "liferay-ai-data-microservice",
+  "version": "1.0.0",
+  "method": "GET",
+  "url": "/o/headless-batch-engine/v1.0/import-task/9001"
+}
+{
+  "timestamp": "2026-05-11T08:24:16.144Z",
+  "level": "DEBUG",
+  "message": "Liferay API Response",
+  "operation": "import-task",
+  "environment": "test",
+  "service": "liferay-ai-data-microservice",
+  "version": "1.0.0",
+  "status": 200,
+  "dataKeys": [
+    "id",
+    "status",
+    "executeStatus",
+    "processedItemsCount",
+    "totalItemsCount"
+  ]
+}
+{
+  "timestamp": "2026-05-11T08:24:16.179Z",
+  "level": "DEBUG",
+  "message": "Calculated Batch Cache TTL",
+  "correlationId": "system",
+  "environment": "test",
+  "service": "liferay-ai-data-microservice",
+  "version": "1.0.0",
+  "baseMs": 600000,
+  "overrideMs": null,
+  "rawMs": 1800000,
+  "finalTTLMs": 1800000
+}
+{
+  "timestamp": "2026-05-11T08:24:16.278Z",
+  "level": "TRACE",
+  "message": "http:get",
+  "correlationId": "system",
+  "environment": "test",
+  "service": "liferay-ai-data-microservice",
+  "version": "1.0.0",
+  "url": "/o/headless-commerce-admin-catalog/v1.0/catalogs?page=1&pageSize=100",
+  "params": {
+    "page": 1,
+    "pageSize": 100
+  }
+}
+{
+  "timestamp": "2026-05-11T08:24:16.280Z",
+  "level": "DEBUG",
+  "message": "Liferay API Request",
+  "operation": "get-catalogs-bulk",
+  "environment": "test",
+  "service": "liferay-ai-data-microservice",
+  "version": "1.0.0",
+  "method": "GET",
+  "url": "/o/headless-commerce-admin-catalog/v1.0/catalogs?page=1&pageSize=100"
+}
+{
+  "timestamp": "2026-05-11T08:24:16.282Z",
+  "level": "DEBUG",
+  "message": "Liferay API Response",
+  "operation": "get-catalogs-bulk",
+  "environment": "test",
+  "service": "liferay-ai-data-microservice",
+  "version": "1.0.0",
+  "status": 200,
+  "itemCount": 1,
+  "totalCount": 1
+}
+{
+  "timestamp": "2026-05-11T08:24:16.318Z",
+  "level": "TRACE",
+  "message": "http:get",
+  "correlationId": "system",
+  "environment": "test",
+  "service": "liferay-ai-data-microservice",
+  "version": "1.0.0",
+  "url": "/o/headless-commerce-admin-channel/v1.0/channels?page=1&pageSize=100",
+  "params": {
+    "page": 1,
+    "pageSize": 100
+  }
+}
+{
+  "timestamp": "2026-05-11T08:24:16.318Z",
+  "level": "DEBUG",
+  "message": "Liferay API Request",
+  "operation": "get-channels-bulk",
+  "environment": "test",
+  "service": "liferay-ai-data-microservice",
+  "version": "1.0.0",
+  "method": "GET",
+  "url": "/o/headless-commerce-admin-channel/v1.0/channels?page=1&pageSize=100"
+}
+{
+  "timestamp": "2026-05-11T08:24:16.323Z",
+  "level": "DEBUG",
+  "message": "Liferay API Response",
+  "operation": "get-channels-bulk",
+  "environment": "test",
+  "service": "liferay-ai-data-microservice",
+  "version": "1.0.0",
+  "status": 200,
+  "itemCount": 1,
+  "totalCount": 1
+}
+{
+  "timestamp": "2026-05-11T08:24:16.414Z",
+  "level": "TRACE",
+  "message": "http:get",
+  "correlationId": "system",
+  "environment": "test",
+  "service": "liferay-ai-data-microservice",
+  "version": "1.0.0",
+  "url": "/o/headless-commerce-admin-catalog/v1.0/currencies"
+}
+{
+  "timestamp": "2026-05-11T08:24:16.415Z",
+  "level": "DEBUG",
+  "message": "Liferay API Request",
+  "operation": "get-currencies",
+  "environment": "test",
+  "service": "liferay-ai-data-microservice",
+  "version": "1.0.0",
+  "method": "GET",
+  "url": "/o/headless-commerce-admin-catalog/v1.0/currencies"
+}
+{
+  "timestamp": "2026-05-11T08:24:16.423Z",
+  "level": "DEBUG",
+  "message": "Liferay API Response",
+  "operation": "get-currencies",
+  "environment": "test",
+  "service": "liferay-ai-data-microservice",
+  "version": "1.0.0",
+  "status": 200,
+  "itemCount": 1,
+  "totalCount": 1
+}
+{
+  "timestamp": "2026-05-11T08:28:42.109Z",
+  "level": "ERROR",
+  "message": "getaddrinfo ENOTFOUND liferay",
+  "environment": "test",
+  "service": "liferay-ai-data-microservice",
+  "version": "1.0.0",
+  "op": "get-products-bulk",
+  "friendly": "Get Products Bulk",
+  "method": "GET",
+  "url": "/o/headless-commerce-admin-catalog/v1.0/products?filter=catalogId+eq+123&page=1&pageSize=200",
+  "errorReference": "AICA-ERR-1778488122109-0-0f2b3f5b",
+  "errorName": "Error",
+  "errorCode": "ENOTFOUND",
+  "stack": "Error: getaddrinfo ENOTFOUND liferay\n    at Function.from (/Volumes/SanDisk/repos/liferay-ai-commerce-accelerator/node_modules/axios/dist/node/axios.cjs:1248:24)\n    at RedirectableRequest.handleRequestError (/Volumes/SanDisk/repos/liferay-ai-commerce-accelerator/node_modules/axios/dist/node/axios.cjs:3611:25)\n    at RedirectableRequest.emit (node:events:530:35)\n    at ClientRequest.eventHandlers.<computed> (/Volumes/SanDisk/repos/liferay-ai-commerce-accelerator/node_modules/follow-redirects/index.js:56:24)\n    at ClientRequest.emit (node:events:518:28)\n    at Socket.socketErrorListener (node:_http_client:500:9)\n    at Socket.emit (node:events:530:35)\n    at emitErrorNT (node:internal/streams/destroy:169:8)\n    at emitErrorCloseNT (node:internal/streams/destroy:128:3)\n    at processTicksAndRejections (node:internal/process/task_queues:82:21)\n    at Axios.request (/Volumes/SanDisk/repos/liferay-ai-commerce-accelerator/node_modules/axios/dist/node/axios.cjs:4871:41)\n    at processTicksAndRejections (node:internal/process/task_queues:95:5)\n    at LiferayRestService._request (/Volumes/SanDisk/repos/liferay-ai-commerce-accelerator/client-extensions/liferay-accelerator-sdk/src/liferay/rest.cjs:192:19)\n    at LiferayService._collectAllItems (/Volumes/SanDisk/repos/liferay-ai-commerce-accelerator/client-extensions/liferay-accelerator-sdk/src/liferay/index.cjs:26:19)\n    at LiferayService.getProducts (/Volumes/SanDisk/repos/liferay-ai-commerce-accelerator/client-extensions/liferay-accelerator-sdk/src/liferay/index.cjs:118:23)\n    at /Volumes/SanDisk/repos/liferay-ai-commerce-accelerator/client-extensions/liferay-accelerator-sdk/tests/liferayService.test.js:45:20\n    at file:///Volumes/SanDisk/repos/liferay-ai-commerce-accelerator/node_modules/@vitest/runner/dist/chunk-artifact.js:1903:20"
+}
+{
+  "timestamp": "2026-05-11T08:28:42.117Z",
+  "level": "ERROR",
+  "message": "getaddrinfo ENOTFOUND liferay",
+  "environment": "test",
+  "service": "liferay-ai-data-microservice",
+  "version": "1.0.0",
+  "op": "get-accounts-bulk",
+  "friendly": "Get Accounts Bulk",
+  "method": "GET",
+  "url": "/o/headless-admin-user/v1.0/accounts?page=1&pageSize=200",
+  "errorReference": "AICA-ERR-1778488122117-0-a96491d3",
+  "errorName": "Error",
+  "errorCode": "ENOTFOUND",
+  "stack": "Error: getaddrinfo ENOTFOUND liferay\n    at Function.from (/Volumes/SanDisk/repos/liferay-ai-commerce-accelerator/node_modules/axios/dist/node/axios.cjs:1248:24)\n    at RedirectableRequest.handleRequestError (/Volumes/SanDisk/repos/liferay-ai-commerce-accelerator/node_modules/axios/dist/node/axios.cjs:3611:25)\n    at RedirectableRequest.emit (node:events:530:35)\n    at ClientRequest.eventHandlers.<computed> (/Volumes/SanDisk/repos/liferay-ai-commerce-accelerator/node_modules/follow-redirects/index.js:56:24)\n    at ClientRequest.emit (node:events:518:28)\n    at Socket.socketErrorListener (node:_http_client:500:9)\n    at Socket.emit (node:events:530:35)\n    at emitErrorNT (node:internal/streams/destroy:169:8)\n    at emitErrorCloseNT (node:internal/streams/destroy:128:3)\n    at processTicksAndRejections (node:internal/process/task_queues:82:21)\n    at Axios.request (/Volumes/SanDisk/repos/liferay-ai-commerce-accelerator/node_modules/axios/dist/node/axios.cjs:4871:41)\n    at processTicksAndRejections (node:internal/process/task_queues:95:5)\n    at LiferayRestService._request (/Volumes/SanDisk/repos/liferay-ai-commerce-accelerator/client-extensions/liferay-accelerator-sdk/src/liferay/rest.cjs:192:19)\n    at LiferayService._collectAllItems (/Volumes/SanDisk/repos/liferay-ai-commerce-accelerator/client-extensions/liferay-accelerator-sdk/src/liferay/index.cjs:26:19)\n    at LiferayService.getAccounts (/Volumes/SanDisk/repos/liferay-ai-commerce-accelerator/client-extensions/liferay-accelerator-sdk/src/liferay/index.cjs:158:21)\n    at /Volumes/SanDisk/repos/liferay-ai-commerce-accelerator/client-extensions/liferay-accelerator-sdk/tests/liferayService.test.js:54:20\n    at file:///Volumes/SanDisk/repos/liferay-ai-commerce-accelerator/node_modules/@vitest/runner/dist/chunk-artifact.js:1903:20"
+}
+{
+  "timestamp": "2026-05-11T08:28:42.127Z",
+  "level": "ERROR",
+  "message": "getaddrinfo ENOTFOUND liferay",
+  "environment": "test",
+  "service": "liferay-ai-data-microservice",
+  "version": "1.0.0",
+  "op": "get-orders-bulk",
+  "friendly": "Get Orders Bulk",
+  "method": "GET",
+  "url": "/o/headless-commerce-admin-order/v1.0/orders?page=1&pageSize=200",
+  "errorReference": "AICA-ERR-1778488122127-0-4d2698ab",
+  "errorName": "Error",
+  "errorCode": "ENOTFOUND",
+  "stack": "Error: getaddrinfo ENOTFOUND liferay\n    at Function.from (/Volumes/SanDisk/repos/liferay-ai-commerce-accelerator/node_modules/axios/dist/node/axios.cjs:1248:24)\n    at RedirectableRequest.handleRequestError (/Volumes/SanDisk/repos/liferay-ai-commerce-accelerator/node_modules/axios/dist/node/axios.cjs:3611:25)\n    at RedirectableRequest.emit (node:events:530:35)\n    at ClientRequest.eventHandlers.<computed> (/Volumes/SanDisk/repos/liferay-ai-commerce-accelerator/node_modules/follow-redirects/index.js:56:24)\n    at ClientRequest.emit (node:events:518:28)\n    at Socket.socketErrorListener (node:_http_client:500:9)\n    at Socket.emit (node:events:530:35)\n    at emitErrorNT (node:internal/streams/destroy:169:8)\n    at emitErrorCloseNT (node:internal/streams/destroy:128:3)\n    at processTicksAndRejections (node:internal/process/task_queues:82:21)\n    at Axios.request (/Volumes/SanDisk/repos/liferay-ai-commerce-accelerator/node_modules/axios/dist/node/axios.cjs:4871:41)\n    at processTicksAndRejections (node:internal/process/task_queues:95:5)\n    at LiferayRestService._request (/Volumes/SanDisk/repos/liferay-ai-commerce-accelerator/client-extensions/liferay-accelerator-sdk/src/liferay/rest.cjs:192:19)\n    at LiferayService._collectAllItems (/Volumes/SanDisk/repos/liferay-ai-commerce-accelerator/client-extensions/liferay-accelerator-sdk/src/liferay/index.cjs:26:19)\n    at LiferayService.getOrders (/Volumes/SanDisk/repos/liferay-ai-commerce-accelerator/client-extensions/liferay-accelerator-sdk/src/liferay/index.cjs:401:23)\n    at /Volumes/SanDisk/repos/liferay-ai-commerce-accelerator/client-extensions/liferay-accelerator-sdk/tests/liferayService.test.js:63:20\n    at file:///Volumes/SanDisk/repos/liferay-ai-commerce-accelerator/node_modules/@vitest/runner/dist/chunk-artifact.js:1903:20"
+}
+{
+  "timestamp": "2026-05-11T08:28:42.139Z",
+  "level": "ERROR",
+  "message": "getaddrinfo ENOTFOUND liferay",
+  "environment": "test",
+  "service": "liferay-ai-data-microservice",
+  "version": "1.0.0",
+  "op": "get-catalogs-bulk",
+  "friendly": "Get Catalogs Bulk",
+  "method": "GET",
+  "url": "/o/headless-commerce-admin-catalog/v1.0/catalogs?page=1&pageSize=100",
+  "errorReference": "AICA-ERR-1778488122139-0-836acba6",
+  "errorName": "Error",
+  "errorCode": "ENOTFOUND",
+  "stack": "Error: getaddrinfo ENOTFOUND liferay\n    at Function.from (/Volumes/SanDisk/repos/liferay-ai-commerce-accelerator/node_modules/axios/dist/node/axios.cjs:1248:24)\n    at RedirectableRequest.handleRequestError (/Volumes/SanDisk/repos/liferay-ai-commerce-accelerator/node_modules/axios/dist/node/axios.cjs:3611:25)\n    at RedirectableRequest.emit (node:events:530:35)\n    at ClientRequest.eventHandlers.<computed> (/Volumes/SanDisk/repos/liferay-ai-commerce-accelerator/node_modules/follow-redirects/index.js:56:24)\n    at ClientRequest.emit (node:events:518:28)\n    at Socket.socketErrorListener (node:_http_client:500:9)\n    at Socket.emit (node:events:530:35)\n    at emitErrorNT (node:internal/streams/destroy:169:8)\n    at emitErrorCloseNT (node:internal/streams/destroy:128:3)\n    at processTicksAndRejections (node:internal/process/task_queues:82:21)\n    at Axios.request (/Volumes/SanDisk/repos/liferay-ai-commerce-accelerator/node_modules/axios/dist/node/axios.cjs:4871:41)\n    at processTicksAndRejections (node:internal/process/task_queues:95:5)\n    at LiferayRestService._request (/Volumes/SanDisk/repos/liferay-ai-commerce-accelerator/client-extensions/liferay-accelerator-sdk/src/liferay/rest.cjs:192:19)\n    at LiferayService.getCatalogs (/Volumes/SanDisk/repos/liferay-ai-commerce-accelerator/client-extensions/liferay-accelerator-sdk/src/liferay/index.cjs:1297:17)\n    at LiferayService.getPriceLists (/Volumes/SanDisk/repos/liferay-ai-commerce-accelerator/client-extensions/liferay-accelerator-sdk/src/liferay/index.cjs:530:27)\n    at /Volumes/SanDisk/repos/liferay-ai-commerce-accelerator/client-extensions/liferay-accelerator-sdk/tests/liferayService.test.js:71:20\n    at file:///Volumes/SanDisk/repos/liferay-ai-commerce-accelerator/node_modules/@vitest/runner/dist/chunk-artifact.js:1903:20"
+}
+{
+  "timestamp": "2026-05-11T08:28:42.149Z",
+  "level": "ERROR",
+  "message": "getaddrinfo ENOTFOUND liferay",
+  "environment": "test",
+  "service": "liferay-ai-data-microservice",
+  "version": "1.0.0",
+  "op": "get-warehouses-bulk",
+  "friendly": "Get Warehouses Bulk",
+  "method": "GET",
+  "url": "/o/headless-commerce-admin-inventory/v1.0/warehouses?page=1&pageSize=200",
+  "errorReference": "AICA-ERR-1778488122149-0-75f30e6c",
+  "errorName": "Error",
+  "errorCode": "ENOTFOUND",
+  "stack": "Error: getaddrinfo ENOTFOUND liferay\n    at Function.from (/Volumes/SanDisk/repos/liferay-ai-commerce-accelerator/node_modules/axios/dist/node/axios.cjs:1248:24)\n    at RedirectableRequest.handleRequestError (/Volumes/SanDisk/repos/liferay-ai-commerce-accelerator/node_modules/axios/dist/node/axios.cjs:3611:25)\n    at RedirectableRequest.emit (node:events:530:35)\n    at ClientRequest.eventHandlers.<computed> (/Volumes/SanDisk/repos/liferay-ai-commerce-accelerator/node_modules/follow-redirects/index.js:56:24)\n    at ClientRequest.emit (node:events:518:28)\n    at Socket.socketErrorListener (node:_http_client:500:9)\n    at Socket.emit (node:events:530:35)\n    at emitErrorNT (node:internal/streams/destroy:169:8)\n    at emitErrorCloseNT (node:internal/streams/destroy:128:3)\n    at processTicksAndRejections (node:internal/process/task_queues:82:21)\n    at Axios.request (/Volumes/SanDisk/repos/liferay-ai-commerce-accelerator/node_modules/axios/dist/node/axios.cjs:4871:41)\n    at processTicksAndRejections (node:internal/process/task_queues:95:5)\n    at LiferayRestService._request (/Volumes/SanDisk/repos/liferay-ai-commerce-accelerator/client-extensions/liferay-accelerator-sdk/src/liferay/rest.cjs:192:19)\n    at LiferayService._collectAllItems (/Volumes/SanDisk/repos/liferay-ai-commerce-accelerator/client-extensions/liferay-accelerator-sdk/src/liferay/index.cjs:26:19)\n    at LiferayService.getWarehouses (/Volumes/SanDisk/repos/liferay-ai-commerce-accelerator/client-extensions/liferay-accelerator-sdk/src/liferay/index.cjs:439:23)\n    at /Volumes/SanDisk/repos/liferay-ai-commerce-accelerator/client-extensions/liferay-accelerator-sdk/tests/liferayService.test.js:79:20\n    at file:///Volumes/SanDisk/repos/liferay-ai-commerce-accelerator/node_modules/@vitest/runner/dist/chunk-artifact.js:1903:20"
+}
+{
+  "timestamp": "2026-05-11T08:28:42.161Z",
+  "level": "ERROR",
+  "message": "getaddrinfo ENOTFOUND liferay",
+  "environment": "test",
+  "service": "liferay-ai-data-microservice",
+  "version": "1.0.0",
+  "op": "import-task",
+  "friendly": "Failed to get import task",
+  "method": "GET",
+  "url": "/o/headless-batch-engine/v1.0/import-task/9001",
+  "errorReference": "AICA-ERR-1778488122161-0-608b6836",
+  "errorName": "Error",
+  "errorCode": "ENOTFOUND",
+  "stack": "Error: getaddrinfo ENOTFOUND liferay\n    at Function.from (/Volumes/SanDisk/repos/liferay-ai-commerce-accelerator/node_modules/axios/dist/node/axios.cjs:1248:24)\n    at RedirectableRequest.handleRequestError (/Volumes/SanDisk/repos/liferay-ai-commerce-accelerator/node_modules/axios/dist/node/axios.cjs:3611:25)\n    at RedirectableRequest.emit (node:events:530:35)\n    at ClientRequest.eventHandlers.<computed> (/Volumes/SanDisk/repos/liferay-ai-commerce-accelerator/node_modules/follow-redirects/index.js:56:24)\n    at ClientRequest.emit (node:events:518:28)\n    at Socket.socketErrorListener (node:_http_client:500:9)\n    at Socket.emit (node:events:530:35)\n    at emitErrorNT (node:internal/streams/destroy:169:8)\n    at emitErrorCloseNT (node:internal/streams/destroy:128:3)\n    at processTicksAndRejections (node:internal/process/task_queues:82:21)\n    at Axios.request (/Volumes/SanDisk/repos/liferay-ai-commerce-accelerator/node_modules/axios/dist/node/axios.cjs:4871:41)\n    at processTicksAndRejections (node:internal/process/task_queues:95:5)\n    at LiferayRestService._request (/Volumes/SanDisk/repos/liferay-ai-commerce-accelerator/client-extensions/liferay-accelerator-sdk/src/liferay/rest.cjs:192:19)\n    at LiferayRestService.getImportTask (/Volumes/SanDisk/repos/liferay-ai-commerce-accelerator/client-extensions/liferay-accelerator-sdk/src/liferay/rest.cjs:878:16)\n    at /Volumes/SanDisk/repos/liferay-ai-commerce-accelerator/client-extensions/liferay-accelerator-sdk/tests/liferayService.test.js:87:20\n    at file:///Volumes/SanDisk/repos/liferay-ai-commerce-accelerator/node_modules/@vitest/runner/dist/chunk-artifact.js:1903:20"
+}
+{
+  "timestamp": "2026-05-11T08:28:42.474Z",
+  "level": "ERROR",
+  "message": "getaddrinfo ENOTFOUND liferay",
+  "environment": "test",
+  "service": "liferay-ai-data-microservice",
+  "version": "1.0.0",
+  "op": "get-catalogs-bulk",
+  "friendly": "Get Catalogs Bulk",
+  "method": "GET",
+  "url": "/o/headless-commerce-admin-catalog/v1.0/catalogs?page=1&pageSize=100",
+  "errorReference": "AICA-ERR-1778488122474-0-5c5ab428",
+  "errorName": "Error",
+  "errorCode": "ENOTFOUND",
+  "stack": "Error: getaddrinfo ENOTFOUND liferay\n    at Function.from (/Volumes/SanDisk/repos/liferay-ai-commerce-accelerator/node_modules/axios/dist/node/axios.cjs:1248:24)\n    at RedirectableRequest.handleRequestError (/Volumes/SanDisk/repos/liferay-ai-commerce-accelerator/node_modules/axios/dist/node/axios.cjs:3611:25)\n    at RedirectableRequest.emit (node:events:530:35)\n    at ClientRequest.eventHandlers.<computed> (/Volumes/SanDisk/repos/liferay-ai-commerce-accelerator/node_modules/follow-redirects/index.js:56:24)\n    at ClientRequest.emit (node:events:518:28)\n    at Socket.socketErrorListener (node:_http_client:500:9)\n    at Socket.emit (node:events:530:35)\n    at emitErrorNT (node:internal/streams/destroy:169:8)\n    at emitErrorCloseNT (node:internal/streams/destroy:128:3)\n    at processTicksAndRejections (node:internal/process/task_queues:82:21)\n    at Axios.request (/Volumes/SanDisk/repos/liferay-ai-commerce-accelerator/node_modules/axios/dist/node/axios.cjs:4871:41)\n    at processTicksAndRejections (node:internal/process/task_queues:95:5)\n    at LiferayRestService._request (/Volumes/SanDisk/repos/liferay-ai-commerce-accelerator/client-extensions/liferay-accelerator-sdk/src/liferay/rest.cjs:192:19)\n    at LiferayService.getCatalogs (/Volumes/SanDisk/repos/liferay-ai-commerce-accelerator/client-extensions/liferay-accelerator-sdk/src/liferay/index.cjs:1297:17)\n    at /Volumes/SanDisk/repos/liferay-ai-commerce-accelerator/client-extensions/liferay-accelerator-sdk/tests/liferayService.test.js:113:20\n    at file:///Volumes/SanDisk/repos/liferay-ai-commerce-accelerator/node_modules/@vitest/runner/dist/chunk-artifact.js:1903:20"
+}
+{
+  "timestamp": "2026-05-11T08:28:42.483Z",
+  "level": "ERROR",
+  "message": "getaddrinfo ENOTFOUND liferay",
+  "environment": "test",
+  "service": "liferay-ai-data-microservice",
+  "version": "1.0.0",
+  "op": "get-channels-bulk",
+  "friendly": "Get Channels Bulk",
+  "method": "GET",
+  "url": "/o/headless-commerce-admin-channel/v1.0/channels?page=1&pageSize=100",
+  "errorReference": "AICA-ERR-1778488122483-0-80d70a91",
+  "errorName": "Error",
+  "errorCode": "ENOTFOUND",
+  "stack": "Error: getaddrinfo ENOTFOUND liferay\n    at Function.from (/Volumes/SanDisk/repos/liferay-ai-commerce-accelerator/node_modules/axios/dist/node/axios.cjs:1248:24)\n    at RedirectableRequest.handleRequestError (/Volumes/SanDisk/repos/liferay-ai-commerce-accelerator/node_modules/axios/dist/node/axios.cjs:3611:25)\n    at RedirectableRequest.emit (node:events:530:35)\n    at ClientRequest.eventHandlers.<computed> (/Volumes/SanDisk/repos/liferay-ai-commerce-accelerator/node_modules/follow-redirects/index.js:56:24)\n    at ClientRequest.emit (node:events:518:28)\n    at Socket.socketErrorListener (node:_http_client:500:9)\n    at Socket.emit (node:events:530:35)\n    at emitErrorNT (node:internal/streams/destroy:169:8)\n    at emitErrorCloseNT (node:internal/streams/destroy:128:3)\n    at processTicksAndRejections (node:internal/process/task_queues:82:21)\n    at Axios.request (/Volumes/SanDisk/repos/liferay-ai-commerce-accelerator/node_modules/axios/dist/node/axios.cjs:4871:41)\n    at processTicksAndRejections (node:internal/process/task_queues:95:5)\n    at LiferayRestService._request (/Volumes/SanDisk/repos/liferay-ai-commerce-accelerator/client-extensions/liferay-accelerator-sdk/src/liferay/rest.cjs:192:19)\n    at LiferayService.getChannels (/Volumes/SanDisk/repos/liferay-ai-commerce-accelerator/client-extensions/liferay-accelerator-sdk/src/liferay/index.cjs:1322:17)\n    at /Volumes/SanDisk/repos/liferay-ai-commerce-accelerator/client-extensions/liferay-accelerator-sdk/tests/liferayService.test.js:118:20\n    at file:///Volumes/SanDisk/repos/liferay-ai-commerce-accelerator/node_modules/@vitest/runner/dist/chunk-artifact.js:1903:20"
+}
+{
+  "timestamp": "2026-05-11T08:28:42.489Z",
+  "level": "ERROR",
+  "message": "getaddrinfo ENOTFOUND liferay",
+  "environment": "test",
+  "service": "liferay-ai-data-microservice",
+  "version": "1.0.0",
+  "op": "get-currencies",
+  "method": "GET",
+  "url": "/o/headless-commerce-admin-catalog/v1.0/currencies",
+  "errorReference": "AICA-ERR-1778488122489-0-8b55caa1",
+  "errorName": "Error",
+  "errorCode": "ENOTFOUND",
+  "stack": "Error: getaddrinfo ENOTFOUND liferay\n    at Function.from (/Volumes/SanDisk/repos/liferay-ai-commerce-accelerator/node_modules/axios/dist/node/axios.cjs:1248:24)\n    at RedirectableRequest.handleRequestError (/Volumes/SanDisk/repos/liferay-ai-commerce-accelerator/node_modules/axios/dist/node/axios.cjs:3611:25)\n    at RedirectableRequest.emit (node:events:530:35)\n    at ClientRequest.eventHandlers.<computed> (/Volumes/SanDisk/repos/liferay-ai-commerce-accelerator/node_modules/follow-redirects/index.js:56:24)\n    at ClientRequest.emit (node:events:518:28)\n    at Socket.socketErrorListener (node:_http_client:500:9)\n    at Socket.emit (node:events:530:35)\n    at emitErrorNT (node:internal/streams/destroy:169:8)\n    at emitErrorCloseNT (node:internal/streams/destroy:128:3)\n    at processTicksAndRejections (node:internal/process/task_queues:82:21)\n    at Axios.request (/Volumes/SanDisk/repos/liferay-ai-commerce-accelerator/node_modules/axios/dist/node/axios.cjs:4871:41)\n    at processTicksAndRejections (node:internal/process/task_queues:95:5)\n    at LiferayRestService._request (/Volumes/SanDisk/repos/liferay-ai-commerce-accelerator/client-extensions/liferay-accelerator-sdk/src/liferay/rest.cjs:192:19)\n    at LiferayRestService.getCurrencies (/Volumes/SanDisk/repos/liferay-ai-commerce-accelerator/client-extensions/liferay-accelerator-sdk/src/liferay/rest.cjs:1465:18)\n    at LiferayService.getCurrencies (/Volumes/SanDisk/repos/liferay-ai-commerce-accelerator/client-extensions/liferay-accelerator-sdk/src/liferay/index.cjs:1269:12)\n    at /Volumes/SanDisk/repos/liferay-ai-commerce-accelerator/client-extensions/liferay-accelerator-sdk/tests/liferayService.test.js:123:20\n    at file:///Volumes/SanDisk/repos/liferay-ai-commerce-accelerator/node_modules/@vitest/runner/dist/chunk-artifact.js:1903:20"
+}
+{
+  "timestamp": "2026-05-11T08:31:14.912Z",
+  "level": "ERROR",
+  "message": "Request failed (HTTP error)",
+  "environment": "test",
+  "service": "liferay-ai-data-microservice",
+  "version": "1.0.0",
+  "op": "get-products-bulk",
+  "friendly": "Get Products Bulk",
+  "method": "GET",
+  "url": "/o/headless-commerce-admin-catalog/v1.0/products?filter=catalogId+eq+123&page=1&pageSize=200",
+  "status": 500,
+  "statusText": "Internal Server Error",
+  "errorReference": "AICA-ERR-1778488274912-0-edacbfee",
+  "responseBody": "",
+  "responseHeaders": {}
+}
+{
+  "timestamp": "2026-05-11T08:31:14.920Z",
+  "level": "ERROR",
+  "message": "Request failed (HTTP error)",
+  "environment": "test",
+  "service": "liferay-ai-data-microservice",
+  "version": "1.0.0",
+  "op": "get-products-bulk",
+  "friendly": "Get Products Bulk",
+  "method": "GET",
+  "url": "/o/headless-commerce-admin-catalog/v1.0/products?filter=catalogId+eq+123&page=1&pageSize=200",
+  "status": 500,
+  "statusText": "Internal Server Error",
+  "errorReference": "AICA-ERR-1778488274920-0-4f624428",
+  "responseBody": "",
+  "responseHeaders": {}
+}
+{
+  "timestamp": "2026-05-11T08:32:18.453Z",
+  "level": "ERROR",
+  "message": "Request failed (HTTP error)",
+  "environment": "test",
+  "service": "liferay-ai-data-microservice",
+  "version": "1.0.0",
+  "op": "test-op",
+  "method": "GET",
+  "url": "/o/test-retry-success",
+  "status": 500,
+  "statusText": "Internal Server Error",
+  "errorReference": "AICA-ERR-1778488338453-0-cb9213fa",
+  "responseBody": "",
+  "responseHeaders": {}
+}
+{
+  "timestamp": "2026-05-11T08:32:18.459Z",
+  "level": "ERROR",
+  "message": "Request failed (HTTP error)",
+  "environment": "test",
+  "service": "liferay-ai-data-microservice",
+  "version": "1.0.0",
+  "op": "test-op",
+  "method": "GET",
+  "url": "/o/test-retry-fail",
+  "status": 500,
+  "statusText": "Internal Server Error",
+  "errorReference": "AICA-ERR-1778488338459-0-820f211e",
+  "responseBody": "",
+  "responseHeaders": {}
+}
+{
+  "timestamp": "2026-05-11T08:36:42.173Z",
+  "level": "ERROR",
+  "message": "Request failed (HTTP error)",
+  "environment": "test",
+  "service": "liferay-ai-data-microservice",
+  "version": "1.0.0",
+  "op": "test-op",
+  "method": "GET",
+  "url": "/o/test-retry-success",
+  "status": 500,
+  "statusText": "Internal Server Error",
+  "errorReference": "AICA-ERR-1778488602173-0-ce0b10db",
+  "responseBody": "",
+  "responseHeaders": {}
+}
+{
+  "timestamp": "2026-05-11T08:36:42.180Z",
+  "level": "ERROR",
+  "message": "Request failed (HTTP error)",
+  "environment": "test",
+  "service": "liferay-ai-data-microservice",
+  "version": "1.0.0",
+  "op": "test-op",
+  "method": "GET",
+  "url": "/o/test-retry-fail",
+  "status": 500,
+  "statusText": "Internal Server Error",
+  "errorReference": "AICA-ERR-1778488602180-0-3f7ba39c",
+  "responseBody": "",
+  "responseHeaders": {}
+}
+{
+  "timestamp": "2026-05-11T08:39:04.139Z",
+  "level": "WARN",
+  "message": "Liferay API request failed (test-op), retrying 1/3 in 2000ms: Request failed with status code 500",
+  "environment": "test",
+  "service": "liferay-ai-data-microservice",
+  "version": "1.0.0",
+  "status": 500
+}
+{
+  "timestamp": "2026-05-11T08:39:06.148Z",
+  "level": "WARN",
+  "message": "Liferay API request failed (test-op), retrying 2/3 in 4000ms: Request failed with status code 500",
+  "environment": "test",
+  "service": "liferay-ai-data-microservice",
+  "version": "1.0.0",
+  "status": 500
+}
+{
+  "timestamp": "2026-05-11T08:39:09.116Z",
+  "level": "WARN",
+  "message": "Liferay API request failed (test-op), retrying 1/3 in 2000ms: Request failed with status code 500",
+  "environment": "test",
+  "service": "liferay-ai-data-microservice",
+  "version": "1.0.0",
+  "status": 500
+}
+{
+  "timestamp": "2026-05-11T08:39:10.155Z",
+  "level": "ERROR",
+  "message": "",
+  "environment": "test",
+  "service": "liferay-ai-data-microservice",
+  "version": "1.0.0",
+  "op": "test-op",
+  "method": "GET",
+  "url": "/o/test-retry-success",
+  "errorReference": "AICA-ERR-1778488750155-0-1e8e7aa7",
+  "errorName": "AggregateError",
+  "errorCode": "ECONNREFUSED",
+  "stack": "AggregateError: \n    at Function.from (/Volumes/SanDisk/repos/liferay-ai-commerce-accelerator/node_modules/axios/dist/node/axios.cjs:1248:24)\n    at RedirectableRequest.handleRequestError (/Volumes/SanDisk/repos/liferay-ai-commerce-accelerator/node_modules/axios/dist/node/axios.cjs:3611:25)\n    at RedirectableRequest.emit (node:events:530:35)\n    at _NodeClientRequest.eventHandlers.<computed> (/Volumes/SanDisk/repos/liferay-ai-commerce-accelerator/node_modules/follow-redirects/index.js:56:24)\n    at _NodeClientRequest.emit (node:events:530:35)\n    at _NodeClientRequest.emit (/Volumes/SanDisk/repos/liferay-ai-commerce-accelerator/node_modules/@mswjs/interceptors/lib/node/chunk-SXGRMPXP.js:441:18)\n    at Socket.socketErrorListener (node:_http_client:500:9)\n    at Socket.emit (node:events:530:35)\n    at emitErrorNT (node:internal/streams/destroy:169:8)\n    at emitErrorCloseNT (node:internal/streams/destroy:128:3)\n    at Axios.request (/Volumes/SanDisk/repos/liferay-ai-commerce-accelerator/node_modules/axios/dist/node/axios.cjs:4871:41)\n    at processTicksAndRejections (node:internal/process/task_queues:95:5)\n    at LiferayRestService._request (/Volumes/SanDisk/repos/liferay-ai-commerce-accelerator/client-extensions/liferay-accelerator-sdk/src/liferay/rest.cjs:198:21)\n    at /Volumes/SanDisk/repos/liferay-ai-commerce-accelerator/client-extensions/liferay-accelerator-sdk/tests/resilience.test.js:65:20\n    at file:///Volumes/SanDisk/repos/liferay-ai-commerce-accelerator/node_modules/@vitest/runner/dist/chunk-artifact.js:1903:20"
+}
+{
+  "timestamp": "2026-05-11T08:39:11.120Z",
+  "level": "WARN",
+  "message": "Liferay API request failed (test-op), retrying 2/3 in 4000ms: Request failed with status code 500",
+  "environment": "test",
+  "service": "liferay-ai-data-microservice",
+  "version": "1.0.0",
+  "status": 500
+}
+{
+  "timestamp": "2026-05-11T08:39:32.284Z",
+  "level": "WARN",
+  "message": "Liferay API request failed (test-op), retrying 1/3 in 2000ms: Request failed with status code 500",
+  "environment": "test",
+  "service": "liferay-ai-data-microservice",
+  "version": "1.0.0",
+  "status": 500
+}
+{
+  "timestamp": "2026-05-11T08:39:34.290Z",
+  "level": "WARN",
+  "message": "Liferay API request failed (test-op), retrying 2/3 in 4000ms: Request failed with status code 500",
+  "environment": "test",
+  "service": "liferay-ai-data-microservice",
+  "version": "1.0.0",
+  "status": 500
+}
+{
+  "timestamp": "2026-05-11T08:39:37.268Z",
+  "level": "WARN",
+  "message": "Liferay API request failed (test-op), retrying 1/3 in 2000ms: Request failed with status code 500",
+  "environment": "test",
+  "service": "liferay-ai-data-microservice",
+  "version": "1.0.0",
+  "status": 500
+}
+{
+  "timestamp": "2026-05-11T08:39:38.297Z",
+  "level": "ERROR",
+  "message": "",
+  "environment": "test",
+  "service": "liferay-ai-data-microservice",
+  "version": "1.0.0",
+  "op": "test-op",
+  "method": "GET",
+  "url": "/o/test-retry-success",
+  "errorReference": "AICA-ERR-1778488778297-0-f172ae5b",
+  "errorName": "AggregateError",
+  "errorCode": "ECONNREFUSED",
+  "stack": "AggregateError: \n    at Function.from (/Volumes/SanDisk/repos/liferay-ai-commerce-accelerator/node_modules/axios/dist/node/axios.cjs:1248:24)\n    at RedirectableRequest.handleRequestError (/Volumes/SanDisk/repos/liferay-ai-commerce-accelerator/node_modules/axios/dist/node/axios.cjs:3611:25)\n    at RedirectableRequest.emit (node:events:530:35)\n    at _NodeClientRequest.eventHandlers.<computed> (/Volumes/SanDisk/repos/liferay-ai-commerce-accelerator/node_modules/follow-redirects/index.js:56:24)\n    at _NodeClientRequest.emit (node:events:530:35)\n    at _NodeClientRequest.emit (/Volumes/SanDisk/repos/liferay-ai-commerce-accelerator/node_modules/@mswjs/interceptors/lib/node/chunk-SXGRMPXP.js:441:18)\n    at Socket.socketErrorListener (node:_http_client:500:9)\n    at Socket.emit (node:events:530:35)\n    at emitErrorNT (node:internal/streams/destroy:169:8)\n    at emitErrorCloseNT (node:internal/streams/destroy:128:3)\n    at Axios.request (/Volumes/SanDisk/repos/liferay-ai-commerce-accelerator/node_modules/axios/dist/node/axios.cjs:4871:41)\n    at processTicksAndRejections (node:internal/process/task_queues:95:5)\n    at LiferayRestService._request (/Volumes/SanDisk/repos/liferay-ai-commerce-accelerator/client-extensions/liferay-accelerator-sdk/src/liferay/rest.cjs:198:21)\n    at /Volumes/SanDisk/repos/liferay-ai-commerce-accelerator/client-extensions/liferay-accelerator-sdk/tests/resilience.test.js:75:20\n    at file:///Volumes/SanDisk/repos/liferay-ai-commerce-accelerator/node_modules/@vitest/runner/dist/chunk-artifact.js:1903:20"
+}
+{
+  "timestamp": "2026-05-11T08:39:39.271Z",
+  "level": "WARN",
+  "message": "Liferay API request failed (test-op), retrying 2/3 in 4000ms: Request failed with status code 500",
+  "environment": "test",
+  "service": "liferay-ai-data-microservice",
+  "version": "1.0.0",
+  "status": 500
+}
+{
+  "timestamp": "2026-05-11T08:40:37.054Z",
+  "level": "WARN",
+  "message": "Liferay API request failed (test-op), retrying 1/3 in 2000ms: Request failed with status code 500",
+  "environment": "test",
+  "service": "liferay-ai-data-microservice",
+  "version": "1.0.0",
+  "status": 500
+}
+{
+  "timestamp": "2026-05-11T08:40:39.060Z",
+  "level": "WARN",
+  "message": "Liferay API request failed (test-op), retrying 2/3 in 4000ms: Request failed with status code 500",
+  "environment": "test",
+  "service": "liferay-ai-data-microservice",
+  "version": "1.0.0",
+  "status": 500
+}
+{
+  "timestamp": "2026-05-11T08:40:42.000Z",
+  "level": "WARN",
+  "message": "Liferay API request failed (test-op), retrying 1/3 in 2000ms: Request failed with status code 500",
+  "environment": "test",
+  "service": "liferay-ai-data-microservice",
+  "version": "1.0.0",
+  "status": 500
+}
+{
+  "timestamp": "2026-05-11T08:40:43.069Z",
+  "level": "ERROR",
+  "message": "",
+  "environment": "test",
+  "service": "liferay-ai-data-microservice",
+  "version": "1.0.0",
+  "op": "test-op",
+  "method": "GET",
+  "url": "/o/test-retry-success",
+  "errorReference": "AICA-ERR-1778488843069-0-b99a56da",
+  "errorName": "AggregateError",
+  "errorCode": "ECONNREFUSED",
+  "stack": "AggregateError: \n    at Function.from (/Volumes/SanDisk/repos/liferay-ai-commerce-accelerator/node_modules/axios/dist/node/axios.cjs:1248:24)\n    at RedirectableRequest.handleRequestError (/Volumes/SanDisk/repos/liferay-ai-commerce-accelerator/node_modules/axios/dist/node/axios.cjs:3611:25)\n    at RedirectableRequest.emit (node:events:530:35)\n    at _NodeClientRequest.eventHandlers.<computed> (/Volumes/SanDisk/repos/liferay-ai-commerce-accelerator/node_modules/follow-redirects/index.js:56:24)\n    at _NodeClientRequest.emit (node:events:530:35)\n    at _NodeClientRequest.emit (/Volumes/SanDisk/repos/liferay-ai-commerce-accelerator/node_modules/@mswjs/interceptors/lib/node/chunk-SXGRMPXP.js:441:18)\n    at Socket.socketErrorListener (node:_http_client:500:9)\n    at Socket.emit (node:events:530:35)\n    at emitErrorNT (node:internal/streams/destroy:169:8)\n    at emitErrorCloseNT (node:internal/streams/destroy:128:3)\n    at Axios.request (/Volumes/SanDisk/repos/liferay-ai-commerce-accelerator/node_modules/axios/dist/node/axios.cjs:4871:41)\n    at processTicksAndRejections (node:internal/process/task_queues:95:5)\n    at LiferayRestService._request (/Volumes/SanDisk/repos/liferay-ai-commerce-accelerator/client-extensions/liferay-accelerator-sdk/src/liferay/rest.cjs:198:21)\n    at /Volumes/SanDisk/repos/liferay-ai-commerce-accelerator/client-extensions/liferay-accelerator-sdk/tests/resilience.test.js:76:20\n    at file:///Volumes/SanDisk/repos/liferay-ai-commerce-accelerator/node_modules/@vitest/runner/dist/chunk-artifact.js:1903:20"
+}
+{
+  "timestamp": "2026-05-11T08:40:44.012Z",
+  "level": "WARN",
+  "message": "Liferay API request failed (test-op), retrying 2/3 in 4000ms: Request failed with status code 500",
+  "environment": "test",
+  "service": "liferay-ai-data-microservice",
+  "version": "1.0.0",
+  "status": 500
+}
+{
+  "timestamp": "2026-05-11T08:41:09.252Z",
+  "level": "WARN",
+  "message": "Liferay API request failed (test-op), retrying 1/3 in 1ms: Request failed with status code 500",
+  "environment": "test",
+  "service": "liferay-ai-data-microservice",
+  "version": "1.0.0",
+  "status": 500
+}
+{
+  "timestamp": "2026-05-11T08:41:09.258Z",
+  "level": "WARN",
+  "message": "Liferay API request failed (test-op), retrying 2/3 in 2ms: Request failed with status code 500",
+  "environment": "test",
+  "service": "liferay-ai-data-microservice",
+  "version": "1.0.0",
+  "status": 500
+}
+{
+  "timestamp": "2026-05-11T08:41:09.268Z",
+  "level": "WARN",
+  "message": "Liferay API request failed (test-op), retrying 1/3 in 1ms: Request failed with status code 500",
+  "environment": "test",
+  "service": "liferay-ai-data-microservice",
+  "version": "1.0.0",
+  "status": 500
+}
+{
+  "timestamp": "2026-05-11T08:41:09.271Z",
+  "level": "WARN",
+  "message": "Liferay API request failed (test-op), retrying 2/3 in 2ms: Request failed with status code 500",
+  "environment": "test",
+  "service": "liferay-ai-data-microservice",
+  "version": "1.0.0",
+  "status": 500
+}
+{
+  "timestamp": "2026-05-11T08:41:09.276Z",
+  "level": "ERROR",
+  "message": "Request failed (HTTP error)",
+  "environment": "test",
+  "service": "liferay-ai-data-microservice",
+  "version": "1.0.0",
+  "op": "test-op",
+  "method": "GET",
+  "url": "/o/test-retry-fail",
+  "status": 500,
+  "statusText": "Internal Server Error",
+  "errorReference": "AICA-ERR-1778488869276-0-d3372389",
+  "responseBody": "",
+  "responseHeaders": {}
+}

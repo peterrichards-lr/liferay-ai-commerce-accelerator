@@ -7,12 +7,20 @@ The Liferay AI Commerce Accelerator employs a sophisticated, stateful, and async
 ```mermaid
 graph TD
     A[Frontend React App] -->|WebSocket/REST| B[Node.js Microservice]
+    B -->|SDK Methods| SDK["@liferay/accelerator-sdk"]
+    SDK -->|OAuth/REST/GraphQL| D[Liferay DXP]
     B -->|Generative AI API| C["AI Providers (OpenAI, Gemini, etc.)"]
-    B -->|Headless Batch APIs| D[Liferay DXP]
     D -->|Batch Callbacks| B
     B -->|State Management| E[(SQLite Database)]
     F[Configuration UI] -->|REST| D
 ```
+
+## System Modularization
+
+To ensure scalability and reusability, the Liferay integration logic is isolated into a standalone module: **`@liferay/accelerator-sdk`**.
+
+- **Liferay Protocol Layer (SDK)**: Handles OAuth2 token management, automatic retries with exponential backoff, and fluent API access (REST, GraphQL, Batch). It is version-aware and stays in sync with Liferay via an automated schema sync utility.
+- **Domain Orchestration Layer (Microservice)**: Contains the specific commerce logic, data generators, and state management for complex multi-step workflows.
 
 ## Data Generation Workflow
 

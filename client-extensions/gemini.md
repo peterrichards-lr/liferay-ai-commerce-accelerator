@@ -74,6 +74,30 @@ correctness.
 
 ---
 
+## Liferay Accelerator SDK Modularization
+
+To ensure architectural high-integrity and promote reusability across multiple accelerators, the system is split into two distinct layers:
+
+### 1. Liferay Protocol Layer (`@liferay/accelerator-sdk`)
+
+- **Responsibility**: Hardened communication with Liferay DXP.
+- **Components**:
+  - **`LiferayService`**: High-level unified client (REST, GraphQL, Batch).
+  - **`OAuthService`**: Automated token lifecycle and platform-aware discovery.
+  - **`GeneratedLiferayClient`**: Namespaced, version-aware fluent client derived from Liferay's OpenAPI schemas.
+  - **Contract Validation**: Self-contained runtime schema verification.
+- **Maintenance**: Stays in sync via `yarn sync` and `yarn generate` scripts.
+
+### 2. Domain Orchestration Layer (Microservice)
+
+- **Responsibility**: Business logic and long-running state machines.
+- **Components**:
+  - **Data Generators**: Product, Account, and Order domain logic.
+  - **Workflow State**: SQLite persistence and WebSocket progress streaming.
+  - **Proxy Integration**: Delegates all "Liferay Plumbing" to the SDK.
+
+---
+
 ## OData Filtering & API Constraints
 
 To ensure maximum compatibility across Liferay's diverse Headless API implementations (specifically verified on **DXP 2025.Q1**), the following OData and filtering patterns must be strictly followed:
