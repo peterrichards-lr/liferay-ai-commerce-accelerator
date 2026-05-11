@@ -1,0 +1,17 @@
+{
+  "entity": "Inventory",
+  "rest": {
+    "path": "/o/headless-commerce-admin-inventory/v1.0/warehouses/{id}/warehouseItems",
+    "response": {
+      "items": [
+        {
+          "externalReferenceCode": "e1f3c41a-5e2a-0a89-c8a7-ff1ac3e480c8",
+          "sku": "MIN93016A",
+          "quantity": 100,
+          "warehouseExternalReferenceCode": "380RI2021",
+          "warehouseId": 71491
+        }
+      ]
+    }
+  }
+}

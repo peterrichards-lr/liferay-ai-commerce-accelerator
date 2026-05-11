@@ -1,0 +1,40 @@
+{
+  "entity": "OptionCategory",
+  "alias": "Specification Group",
+  "rest": {
+    "path": "/o/headless-commerce-admin-catalog/v1.0/optionCategories",
+    "response": {
+      "items": [
+        {
+          "description": { "en_US": "This is a description for quantity" },
+          "externalReferenceCode": "86adcfa1-ee7c-b358-f9f1-da0b02cdf902",
+          "id": 71507,
+          "key": "quantity",
+          "priority": 0,
+          "title": { "en_US": "Quantity" }
+        }
+      ],
+      "totalCount": 5
+    }
+  },
+  "graphql": {
+    "query": "query HeadlessCommerceAdminCatalog_v1_0 { optionCategories { actions items { description, externalReferenceCode id, key, priority, title } lastPage page pageSize totalCount } }",
+    "response": {
+      "data": {
+        "optionCategories": {
+          "items": [
+            {
+              "description": { "en_US": "This is a description for quantity" },
+              "externalReferenceCode": "86adcfa1-ee7c-b358-f9f1-da0b02cdf902",
+              "id": 71507,
+              "key": "quantity",
+              "priority": 0,
+              "title": { "en_US": "Quantity" }
+            }
+          ],
+          "totalCount": 5
+        }
+      }
+    }
+  }
+}

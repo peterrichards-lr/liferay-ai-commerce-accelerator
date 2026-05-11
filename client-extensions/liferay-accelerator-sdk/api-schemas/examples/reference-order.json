@@ -1,0 +1,27 @@
+{
+  "entity": "Order",
+  "rest": {
+    "path": "/o/headless-commerce-admin-order/v1.0/orders/by-externalReferenceCode/{erc}",
+    "response": {
+      "externalReferenceCode": "b13aca30-153b-46bf-3ee1-78e809138d0c",
+      "id": 73530,
+      "accountExternalReferenceCode": "AICA-ACC-1776959536388-ebf883a2",
+      "billingAddressExternalReferenceCode": "eaea7d60-39c0-7a4e-c557-96a81afd03de",
+      "shippingAddressExternalReferenceCode": "4fa22bf5-85f3-5ec4-dd4c-891d293f208e",
+      "channelExternalReferenceCode": "7046b82c-9091-bc65-93dc-7153073fc935",
+      "orderStatusInfo": { "label": "pending" }
+    },
+    "nested": {
+      "orderItems": {
+        "path": ".../orderItems",
+        "items": [
+          {
+            "externalReferenceCode": "53d6ff28-5524-455d-0afd-1e2d66f0f436",
+            "skuExternalReferenceCode": "MIN93016A",
+            "orderExternalReferenceCode": "b13aca30-153b-46bf-3ee1-78e809138d0c"
+          }
+        ]
+      }
+    }
+  }
+}

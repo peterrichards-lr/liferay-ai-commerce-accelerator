@@ -1,7 +1,7 @@
 const LiferayRestService = require('../services/liferay/rest.cjs');
 
 describe('Microservice Configuration Integrity', () => {
-  let restService;
+  let _restService;
   let mockCtx;
 
   beforeAll(() => {
@@ -14,7 +14,7 @@ describe('Microservice Configuration Integrity', () => {
         trace: vi.fn(),
       },
     };
-    restService = new LiferayRestService(mockCtx);
+    _restService = new LiferayRestService(mockCtx);
   });
 
   it('should ensure all high-volume discovery operations have SOFT_STATUS_BY_OP entries', () => {
