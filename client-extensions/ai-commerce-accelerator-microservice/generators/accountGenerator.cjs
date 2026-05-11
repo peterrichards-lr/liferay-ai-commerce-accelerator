@@ -801,7 +801,7 @@ class AccountGenerator extends BaseGenerator {
     const finalCountry =
       fromI18n(country.title_i18n) || country.name || country.a2 || country.a3;
     const finalRegion = region
-      ? fromI18n(region.title_i18n) || region.name || region.regionCode
+      ? region.regionCode || fromI18n(region.title_i18n) || region.name
       : '';
 
     this.logger.debug(
