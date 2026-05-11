@@ -32,15 +32,22 @@ export function createApiClient({
             sessionStorage.getItem('correlationId')) ||
           null;
 
+    const h = {
+      Accept: 'application/json, */*;q=0.1',
+      ...(!isFormData && body ? { 'Content-Type': 'application/json' } : {}),
+      ...(headers || {}),
+      ...(cid ? { [CORRELATION_ID_HEADER]: cid } : {}),
+    };
+
+    // Automatically include Liferay Auth Token if available
+    if (typeof Liferay !== 'undefined' && Liferay.authToken) {
+      h['Authorization'] = `Bearer ${Liferay.authToken}`;
+    }
+
     const res = await fetch(url, {
       method,
       credentials: withCredentials ? 'include' : 'same-origin',
-      headers: {
-        Accept: 'application/json, */*;q=0.1',
-        ...(!isFormData && body ? { 'Content-Type': 'application/json' } : {}),
-        ...(headers || {}),
-        ...(cid ? { [CORRELATION_ID_HEADER]: cid } : {}),
-      },
+      headers: h,
       body: isFormData ? body : body ? JSON.stringify(body) : undefined,
       signal,
     });

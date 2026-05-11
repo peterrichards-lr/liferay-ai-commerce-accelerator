@@ -42,3 +42,4 @@ package-lock.json
 *.heic
 .env
 activation-key-*.xml
+aica-logs-*.json

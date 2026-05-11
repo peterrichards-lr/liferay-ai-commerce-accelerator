@@ -1898,16 +1898,53 @@ class LiferayService {
     return this.graphql.getOptionsByProductIds(config, productIds, fields);
   }
 
-  getAccountsByERC(config, ercs, fields) {
-    return this.graphql.getAccountsByERC(config, ercs, fields);
+  async getAccountsByERC(config, ercs, fields) {
+    try {
+      const results = await this.graphql.getAccountsByERC(config, ercs, fields);
+      if (results && results.length > 0) return results;
+      throw new Error("GraphQL returned empty results");
+    } catch (error) {
+      this.ctx.logger.warn(
+        `GraphQL account resolution failed, falling back to REST: ${error.message}`,
+      );
+      const res = await this.getAccounts(config, { pageSize: 500 });
+      const items = res.items || [];
+      return items.filter((a) => ercs.includes(a.externalReferenceCode));
+    }
   }
 
-  getProductsByERC(config, ercs, fields) {
-    return this.graphql.getProductsByERC(config, ercs, fields);
+  async getProductsByERC(config, ercs, fields) {
+    try {
+      const results = await this.graphql.getProductsByERC(config, ercs, fields);
+      if (results && results.length > 0) return results;
+      throw new Error("GraphQL returned empty results");
+    } catch (error) {
+      this.ctx.logger.warn(
+        `GraphQL product resolution failed, falling back to REST: ${error.message}`,
+      );
+      const res = await this.getProducts(config, { pageSize: 500 });
+      const items = res.items || [];
+      return items.filter((p) => ercs.includes(p.externalReferenceCode));
+    }
   }
 
-  getWarehousesByERC(config, ercs, fields) {
-    return this.graphql.getWarehousesByERC(config, ercs, fields);
+  async getWarehousesByERC(config, ercs, fields) {
+    try {
+      const results = await this.graphql.getWarehousesByERC(
+        config,
+        ercs,
+        fields,
+      );
+      if (results && results.length > 0) return results;
+      throw new Error("GraphQL returned empty results");
+    } catch (error) {
+      this.ctx.logger.warn(
+        `GraphQL warehouse resolution failed, falling back to REST: ${error.message}`,
+      );
+      const res = await this.getWarehouses(config, { pageSize: 500 });
+      const items = res.items || [];
+      return items.filter((w) => ercs.includes(w.externalReferenceCode));
+    }
   }
 
   getPostalAddressesByERC(config, ercs, fields) {

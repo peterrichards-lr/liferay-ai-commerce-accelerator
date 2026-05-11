@@ -373,6 +373,7 @@ class BatchCallbackService {
             batchId,
             totalCount,
             errorMessage: data.errorMessage,
+            sessionId,
           },
         );
         finalStatus = "FAILED";
@@ -387,6 +388,7 @@ class BatchCallbackService {
             batchId,
             errorCount,
             totalCount,
+            sessionId,
           },
         );
         finalStatus = "FAILED";
@@ -409,6 +411,7 @@ class BatchCallbackService {
             logger.info("Detailed batch failure detected", {
               batchId,
               firstError: errorMessage,
+              sessionId,
             });
 
             // CRITICAL: Log full raw content if error is unknown to help schema mapping
@@ -416,6 +419,7 @@ class BatchCallbackService {
               logger.error("Full failed item content for investigation:", {
                 batchId,
                 rawContent: firstFailure.content || firstFailure,
+                sessionId,
               });
             }
 
@@ -495,11 +499,13 @@ class BatchCallbackService {
           batchERC,
           sessionId: session.session_id,
           error: {
-            message: `Batch is incomplete: processed ${processedCount} of ${totalCount} items.`,
+            message:
+              data.errorMessage ||
+              `Batch is incomplete: processed ${processedCount} of ${totalCount} items.`,
           },
           correlationId: effectiveCorrelationId,
         });
-      } else {
+      } else if (finalStatus === "COMPLETED") {
         progress.batchCompleted({
           entityType: generator
             ? generator._normalizeEntityType(dbBatch.step_key)

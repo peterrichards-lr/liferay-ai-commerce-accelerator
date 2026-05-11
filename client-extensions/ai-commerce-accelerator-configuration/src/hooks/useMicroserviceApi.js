@@ -15,6 +15,11 @@ export const useApi = (microserviceUrl) => {
         ...options.headers,
       };
 
+      // Automatically include Liferay Auth Token if available
+      if (typeof Liferay !== 'undefined' && Liferay.authToken) {
+        headers['Authorization'] = `Bearer ${Liferay.authToken}`;
+      }
+
       const response = await fetch(url, {
         ...options,
         headers,

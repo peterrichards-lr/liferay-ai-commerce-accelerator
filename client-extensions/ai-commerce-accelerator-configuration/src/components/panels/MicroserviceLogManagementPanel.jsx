@@ -182,24 +182,24 @@ function MicroserviceLogManagementPanel(props) {
       </div>
 
       <div className="sheet-section">
-        <h3 className="sheet-subtitle">Connectivity</h3>
+        <h3 className="sheet-subtitle">Microservice Connectivity</h3>
 
         {liferayHosted ? (
           <div className="alert alert-light border shadow-sm small mb-4">
             <div className="d-flex align-items-center">
               <ClayIcon symbol="info-circle" className="text-info mr-2" />
               <div>
-                This extension is <strong>Liferay Hosted</strong>. Connectivity
-                to the microservice is managed automatically.
+                This system is running in <strong>Liferay Hosted</strong> mode.
+                The microservice endpoint is discovered automatically.
               </div>
             </div>
             <div className="mt-2 text-muted">
-              Effective Endpoint: <code>{effectiveMsUrl}</code>
+              Active Endpoint: <code>{effectiveMsUrl}</code>
             </div>
           </div>
         ) : (
           <ClayForm.Group>
-            <label htmlFor="ms-url">Microservice Base URL</label>
+            <label htmlFor="ms-url">Manual Microservice Endpoint</label>
             <div className="d-flex">
               <ClayInput
                 id="ms-url"
@@ -219,11 +219,12 @@ function MicroserviceLogManagementPanel(props) {
                 onClick={handleSaveMsUrl}
                 disabled={!dirtyMsConfig || savingConfig}
               >
-                Update
+                Save URL
               </ClayButton>
             </div>
             <small className="form-text text-secondary">
-              Stored in Liferay as <code>{MICROSERVICE_CONFIG_KEY}</code>.
+              This endpoint is used for log management and forensic diagnostics.
+              Stored in Liferay Object <code>{MICROSERVICE_CONFIG_KEY}</code>.
             </small>
           </ClayForm.Group>
         )}

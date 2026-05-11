@@ -419,17 +419,16 @@ class ProductGenerator extends BaseGenerator {
       }
     }
 
-    const activeLists = priceListTemplates.filter(
-      (pl) => pl.priceEntries.length > 0
-    );
-    if (activeLists.length > 0) {
+    const allPriceEntries = priceListTemplates.flatMap((pl) => pl.priceEntries);
+
+    if (allPriceEntries.length > 0) {
       await this.submitBatch(
         sessionId,
         stepKey,
         'products',
         'generate',
         (erc) =>
-          this.liferay.createPriceListsBatch(config, activeLists, {
+          this.liferay.createPriceEntriesBatch(config, allPriceEntries, {
             externalReferenceCode: erc,
             sessionId,
             session,
@@ -1552,6 +1551,10 @@ class ProductGenerator extends BaseGenerator {
 
         for (const wId of warehouseIds) {
           const items = byWarehouse[wId];
+          const warehouse = warehouses.find(
+            (w) => String(w.id) === String(wId)
+          );
+
           await this.submitBatch(
             sessionId,
             S.UPDATE_INVENTORY,
@@ -1561,7 +1564,9 @@ class ProductGenerator extends BaseGenerator {
               this.liferay.createWarehouseItemsBatch(config, items, {
                 externalReferenceCode: erc,
                 sessionId,
-                warehouseId: wId, // CRITICAL: Pass the scope!
+                warehouseId: wId,
+                warehouseExternalReferenceCode:
+                  warehouse?.externalReferenceCode,
               }),
             items.length
           );

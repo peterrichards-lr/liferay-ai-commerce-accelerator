@@ -13,13 +13,15 @@
   "liferay-ai-commerce-accelerator-microservice-oauth-application-headless-server.oauth2.authorization.uri": "/o/oauth2/authorize",
   "liferay-ai-commerce-accelerator-microservice-oauth-application-headless-server.oauth2.headless.server.scopes": [
     "Liferay.Headless.Admin.User.everything",
-    "Liferay.Headless.Batch.Engine.everything.read",
+    "Liferay.Headless.Batch.Engine.everything",
+    "Liferay.Headless.Admin.Address.everything",
     "Liferay.Headless.Commerce.Admin.Catalog.everything",
-    "Liferay.Headless.Commerce.Admin.Channel.everything.read",
+    "Liferay.Headless.Commerce.Admin.Channel.everything",
+    "Liferay.Headless.Commerce.Admin.Inventory.everything",
     "Liferay.Headless.Commerce.Admin.Order.everything",
     "Liferay.Headless.Commerce.Admin.Pricing.everything",
-    "Liferay.Headless.Delivery.everything.read",
-    "C_AICAConfiguration.everything.read"
+    "Liferay.Headless.Delivery.everything",
+    "C_AICAConfiguration.everything"
   ],
   "liferay-ai-commerce-accelerator-microservice-oauth-application-headless-server.oauth2.introspection.uri": "/o/oauth2/introspect",
   "liferay-ai-commerce-accelerator-microservice-oauth-application-headless-server.oauth2.jwks.uri": "/o/oauth2/jwks",
