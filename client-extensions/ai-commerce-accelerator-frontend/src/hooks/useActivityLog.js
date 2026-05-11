@@ -5,7 +5,7 @@ export default function useActivityLog({
   maxEntries = 500,
   dedupeWindowMs = 1000,
   mirrorToConsole = true,
-  storageKey = 'activityLog:v1', // change if you want a distinct key
+  storageKey = 'aica_activity_log', // prefixed with aica_ for factory reset management
   hydrateOnMount = true,
 } = {}) {
   const [logs, setLogs] = useState(() => {

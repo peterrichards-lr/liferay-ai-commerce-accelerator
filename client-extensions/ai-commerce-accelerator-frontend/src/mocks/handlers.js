@@ -101,4 +101,50 @@ export const handlers = [
       },
     ]);
   }),
+
+  // Workflow - Session Events
+  http.get(
+    'http://localhost:3001/api/v1/workflows/sessions/:sessionId/events',
+    () => {
+      return HttpResponse.json({
+        success: true,
+        events: [
+          {
+            id: 1,
+            timestamp: new Date().toISOString(),
+            status: 'STARTED',
+            message: 'Workflow started',
+          },
+        ],
+      });
+    }
+  ),
+
+  // Logs - Settings
+  http.post('http://localhost:3001/api/v1/logs/settings', () => {
+    return HttpResponse.json({
+      success: true,
+      config: {
+        enabled: true,
+        retentionCount: 10,
+        autoCycleTime: '00:00',
+      },
+    });
+  }),
+
+  // Logs - Update Settings
+  http.put('http://localhost:3001/api/v1/logs/settings', () => {
+    return HttpResponse.json({
+      success: true,
+      message: 'Log management settings updated',
+    });
+  }),
+
+  // Logs - Cycle
+  http.post('http://localhost:3001/api/v1/logs/cycle', () => {
+    return HttpResponse.json({
+      success: true,
+      message: 'Logs cycled successfully',
+    });
+  }),
 ];

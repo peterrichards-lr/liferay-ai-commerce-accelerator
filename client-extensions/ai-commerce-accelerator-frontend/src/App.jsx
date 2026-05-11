@@ -119,7 +119,7 @@ function AppUI() {
     maxEntries: 500,
     dedupeWindowMs: 1000,
     mirrorToConsole: true,
-    storageKey: 'activityLog:v1',
+    storageKey: 'aica_activity_log',
   });
 
   const addLog = useCallback(
