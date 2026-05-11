@@ -996,6 +996,7 @@ class LiferayRestService {
       session = null,
       createStrategy = "UPSERT",
       skipItemERC = false,
+      method = "POST",
     },
   ) {
     const { logger, cache, config: configService } = this.ctx;
@@ -1093,13 +1094,13 @@ class LiferayRestService {
       });
 
       try {
-        const data = await this._post(
-          config,
+        const data = await this._request(config, {
+          method,
           url,
-          currentBatchPayload,
+          data: currentBatchPayload,
           op,
           friendly,
-        );
+        });
 
         this._cacheItemERCs(currentERC, data?.id, itemERCs, sessionId);
 
@@ -2004,10 +2005,9 @@ class LiferayRestService {
           return PATH.PRICE_LIST_PRICE_ENTRIES_BATCH(
             opts.priceListExternalReferenceCode,
             callback,
-            opts.priceListId,
           );
         }
-        return PATH.PRICE_ENTRIES_BATCH(callback);
+        return PATH.PRICE_ENTRIES_BATCH_POST(callback);
       },
       sessionId: opts.sessionId,
       session: opts.session,

@@ -419,23 +419,28 @@ class ProductGenerator extends BaseGenerator {
       }
     }
 
-    const allPriceEntries = priceListTemplates.flatMap((pl) => pl.priceEntries);
+    for (const pl of priceListTemplates) {
+      const priceEntries = pl.priceEntries;
+      if (!priceEntries || priceEntries.length === 0) continue;
 
-    if (allPriceEntries.length > 0) {
       await this.submitBatch(
         sessionId,
         stepKey,
         'products',
         'generate',
-        (erc) =>
-          this.liferay.createPriceEntriesBatch(config, allPriceEntries, {
-            externalReferenceCode: erc,
+        (batchERC) =>
+          this.liferay.createPriceEntriesBatch(config, priceEntries, {
+            externalReferenceCode: batchERC,
+            priceListExternalReferenceCode: pl.externalReferenceCode,
+            priceListId: pl.id,
             sessionId,
             session,
           }),
-        totalEntries
+        priceEntries.length
       );
-    } else {
+    }
+
+    if (totalEntries === 0) {
       await this.completeSyncStep(sessionId, stepKey, 'SYNCHRONOUS');
     }
   }

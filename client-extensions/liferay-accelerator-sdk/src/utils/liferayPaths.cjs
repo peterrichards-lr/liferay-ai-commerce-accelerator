@@ -112,8 +112,15 @@ const PATH = {
     `${BASE.PRICING_API}/price-entries/batch${
       callbackURL ? `?callbackURL=${enc(callbackURL)}` : ""
     }`,
+  PRICE_ENTRIES_BATCH_POST: (callbackURL) =>
+    `${BASE.PRICE_LISTS}/price-entries/batch${
+      callbackURL ? `?callbackURL=${enc(callbackURL)}` : ""
+    }`,
   PRICE_LIST_PRICE_ENTRIES_BATCH: (priceListERC, callbackURL) => {
     const params = { callbackURL };
+    if (priceListERC) {
+      params.externalReferenceCode = priceListERC;
+    }
     return `${BASE.PRICE_LISTS}/price-entries/batch${q(params)}`;
   },
   PRODUCTS_BATCH: (callbackURL) =>
