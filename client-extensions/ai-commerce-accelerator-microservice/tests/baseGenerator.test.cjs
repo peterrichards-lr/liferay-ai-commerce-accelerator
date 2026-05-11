@@ -18,6 +18,15 @@ describe('BaseGenerator', () => {
         error: vi.fn(),
         debug: vi.fn(),
       },
+      config: {
+        getExcludeLists: vi.fn().mockResolvedValue([]),
+        getLiferaySyncDelayMs: vi.fn().mockReturnValue(0),
+        getWorkflowResilienceConfigCached: vi.fn().mockReturnValue({
+          initialDelayMs: 5000,
+          maxRetries: 5,
+          multiplier: 2,
+        }),
+      },
       liferay: {
         getCountries: vi.fn().mockResolvedValue([{ id: 1, name: 'US' }]),
         getLanguages: vi
@@ -140,6 +149,88 @@ describe('BaseGenerator', () => {
       );
 
       expect(spy).toHaveBeenCalledWith(sessionId, WORKFLOW_STEPS.SYNC_DELAY);
+    });
+
+    it('_runAdaptiveSyncDelayStep should retry with backoff and complete on success', async () => {
+      const sessionId = 'adaptive-session';
+      persistence.createSession({
+        sessionId,
+        flowType: 'test',
+        status: 'STARTED',
+        context: { config: {} },
+      });
+
+      // Mock config to return specific backoff params
+      mockCtx.config.getWorkflowResilienceConfigCached = vi
+        .fn()
+        .mockReturnValue({
+          initialDelayMs: 10,
+          maxRetries: 3,
+          multiplier: 2,
+        });
+
+      const spy = vi.spyOn(generator, 'completeSyncStep').mockResolvedValue();
+
+      let attempts = 0;
+      const checkFn = vi.fn().mockImplementation(() => {
+        attempts++;
+        return attempts === 2; // Succeed on second attempt
+      });
+
+      await generator._runAdaptiveSyncDelayStep(
+        sessionId,
+        'test-step',
+        checkFn
+      );
+
+      expect(checkFn).toHaveBeenCalledTimes(2);
+      expect(spy).toHaveBeenCalledWith(
+        sessionId,
+        'test-step',
+        'SYNCHRONOUS',
+        1,
+        1
+      );
+    });
+
+    it('_runAdaptiveSyncDelayStep should proceed even if max retries reached without success', async () => {
+      const sessionId = 'fail-session';
+      persistence.createSession({
+        sessionId,
+        flowType: 'test',
+        status: 'STARTED',
+        context: { config: {} },
+      });
+
+      mockCtx.config.getWorkflowResilienceConfigCached = vi
+        .fn()
+        .mockReturnValue({
+          initialDelayMs: 5,
+          maxRetries: 2,
+          multiplier: 2,
+        });
+
+      const spy = vi.spyOn(generator, 'completeSyncStep').mockResolvedValue();
+      const checkFn = vi.fn().mockResolvedValue(false); // Never succeeds
+
+      await generator._runAdaptiveSyncDelayStep(
+        sessionId,
+        'fail-step',
+        checkFn
+      );
+
+      expect(checkFn).toHaveBeenCalledTimes(2);
+      expect(spy).toHaveBeenCalledWith(
+        sessionId,
+        'fail-step',
+        'SYNCHRONOUS',
+        0,
+        1
+      );
+      expect(mockCtx.logger.warn).toHaveBeenCalledWith(
+        expect.stringContaining('finished without meeting condition'),
+        expect.anything()
+      );
     });
   });
 
