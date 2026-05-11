@@ -14,9 +14,11 @@ const { PATH, CUSTOM_OBJECTS, q } = require("../utils/liferayPaths.cjs");
 const { ASSET_TYPE } = require("../utils/liferayPermissions.cjs");
 const { ERC_PREFIX, OP_MAP, ENV } = require("../utils/constants.cjs");
 const { findContract } = require("../utils/contractMappings.cjs");
-const { delay, createERC } = require("../utils/misc.cjs");
-const { sanitizedERC } = require("../utils/normalize.cjs");
-const { parse } = require("csv-parse/sync");
+const { delay, createERC } = require('../utils/misc.cjs');
+const { sanitizedERC } = require('../utils/normalize.cjs');
+const { ErrorHandler } = require('../utils/errorHandler.cjs');
+const { parse } = require('csv-parse/sync');
+
 const { getBatchCacheTTLms } = require("../utils/ttl.cjs");
 const { COMMERCE_CONSTRAINTS } = require("../utils/commerceConstants.cjs");
 const { asItems, asCount } = require("../utils/liferayUtils.cjs");
@@ -167,70 +169,97 @@ class LiferayRestService {
       }
     }
 
-    try {
-      const client = await this._client(config);
+    const maxRetries = 3;
+    let lastError;
 
-      if (
-        data &&
-        (method === "POST" || method === "PATCH" || method === "PUT")
-      ) {
-        const raw = JSON.stringify(data);
-        logger.trace(
-          `Outbound payload structure (${op}): ${raw.substring(0, 1000)}...`,
-          { correlationId: config?.correlationId },
-        );
-      }
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      try {
+        const client = await this._client(config);
 
-      logger.debug("Liferay API Request", {
-        operation: op,
-        method,
-        url,
-        correlationId: config?.correlationId,
-        data: this._stringifySafe(data),
-      });
-
-      const res = await client.request({
-        method,
-        url,
-        data,
-        params,
-        headers,
-        responseType,
-        timeout: 30000, // 30 second timeout
-      });
-
-      const logData = {
-        operation: op,
-        status: res.status,
-        correlationId: config?.correlationId,
-      };
-
-      if (res.data) {
-        if (Array.isArray(res.data.items)) {
-          logData.itemCount = res.data.items.length;
-          logData.totalCount = res.data.totalCount;
-        } else if (typeof res.data === "object") {
-          logData.dataKeys = Object.keys(res.data);
+        if (
+          data &&
+          (method === 'POST' || method === 'PATCH' || method === 'PUT')
+        ) {
+          const raw = JSON.stringify(data);
+          logger.trace(
+            `Outbound payload structure (${op}): ${raw.substring(0, 1000)}...`,
+            { correlationId: config?.correlationId }
+          );
         }
-      }
 
-      logger.debug("Liferay API Response", {
-        ...logData,
-        correlationId: config?.correlationId,
-      });
+        logger.debug('Liferay API Request', {
+          operation: op,
+          method,
+          url,
+          correlationId: config?.correlationId,
+          data: this._stringifySafe(data),
+        });
 
-      if (fullResponse) {
-        return {
-          data: res.data,
-          headers: res.headers || {},
+        const res = await client.request({
+          method,
+          url,
+          data,
+          params,
+          headers,
+          responseType,
+          timeout: 30000, // 30 second timeout
+        });
+
+        const logData = {
+          operation: op,
           status: res.status,
-          statusText: res.statusText,
+          correlationId: config?.correlationId,
         };
-      }
 
-      return res.data;
-    } catch (err) {
-      const hasHTTPResponse = !!err?.response;
+        if (res.data) {
+          if (Array.isArray(res.data.items)) {
+            logData.itemCount = res.data.items.length;
+            logData.totalCount = res.data.totalCount;
+          } else if (typeof res.data === 'object') {
+            logData.dataKeys = Object.keys(res.data);
+          }
+        }
+
+        logger.debug('Liferay API Response', {
+          ...logData,
+          correlationId: config?.correlationId,
+        });
+
+        if (fullResponse) {
+          return {
+            data: res.data,
+            headers: res.headers || {},
+            status: res.status,
+            statusText: res.statusText,
+          };
+        }
+
+        return res.data;
+      } catch (err) {
+        lastError = err;
+
+        // Determine if we should retry
+        const isRetryable =
+          ErrorHandler.isRetryableError(err) && attempt < maxRetries;
+
+        if (isRetryable) {
+          const baseDelay =
+            parseInt(process.env.LIFERAY_RETRY_DELAY_MS, 10) ||
+            parseInt(ENV.LIFERAY_RETRY_DELAY_MS, 10) ||
+            2000;
+          const retryDelay = baseDelay * attempt;
+          logger.warn(
+            `Liferay API request failed (${op}), retrying ${attempt}/${maxRetries} in ${retryDelay}ms: ${err.message}`,
+            {
+              correlationId: config?.correlationId,
+              status: err.response?.status,
+            }
+          );
+          await delay(retryDelay);
+          continue;
+        }
+
+        const hasHTTPResponse = !!err?.response;
       const res = err.response;
 
       const status = hasHTTPResponse ? res.status : undefined;
@@ -360,6 +389,7 @@ class LiferayRestService {
       throw e;
     }
   }
+}
 
   async _downloadFile(config, url, destination) {
     const writer = fs.createWriteStream(destination);
