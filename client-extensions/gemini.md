@@ -78,23 +78,25 @@ correctness.
 
 To ensure architectural high-integrity and promote reusability across multiple accelerators, the system is split into two distinct layers:
 
-### 1. Liferay Protocol Layer (`@liferay/accelerator-sdk`)
+### 1. Liferay Protocol & Engine Layer (`@liferay/accelerator-sdk`)
 
-- **Responsibility**: Hardened communication with Liferay DXP.
+- **Responsibility**: Hardened communication and stateful workflow execution.
 - **Components**:
   - **`LiferayService`**: High-level unified client (REST, GraphQL, Batch).
+  - **`BaseGenerator`**: Master orchestrator for multi-step async workflows.
+  - **`PersistenceService`**: SQLite-backed session and batch state management.
+  - **`BatchCallbackService`**: Asynchronous reconciliation for Liferay Batch jobs.
   - **`OAuthService`**: Automated token lifecycle and platform-aware discovery.
-  - **`GeneratedLiferayClient`**: Namespaced, version-aware fluent client derived from Liferay's OpenAPI schemas.
-  - **Contract Validation**: Self-contained runtime schema verification.
+  - **`GeneratedLiferayClient`**: Namespaced, version-aware fluent client.
 - **Maintenance**: Stays in sync via `yarn sync` and `yarn generate` scripts.
 
 ### 2. Domain Orchestration Layer (Microservice)
 
-- **Responsibility**: Business logic and long-running state machines.
+- **Responsibility**: Accelerator-specific business logic and AI prompts.
 - **Components**:
-  - **Data Generators**: Product, Account, and Order domain logic.
-  - **Workflow State**: SQLite persistence and WebSocket progress streaming.
-  - **Proxy Integration**: Delegates all "Liferay Plumbing" to the SDK.
+  - **Data Generators**: Specialized logic (Product, Account, Order).
+  - **AI Integration**: Prompt engineering and provider management.
+  - **Infrastructure**: Queue management (BullMQ) and WebSocket streaming.
 
 ---
 
