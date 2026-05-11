@@ -32,9 +32,9 @@ client-extensions/ai-commerce-accelerator-site-initializer/site-initializer/frag
 /client-extensions/ai-commerce-accelerator-frontend/logs
 /client-extensions/liferay-accelerator-sdk/src/logs
 **/test-workflows*.db*
+**/workflows.db*
 **/logs/*.log
 /.gemini/settings.json
-client-extensions/ai-commerce-accelerator-microservice/data/workflows.db*
 package-lock.json
 *.png
 *.xml
