@@ -9,7 +9,7 @@ function StatusBadge({ status }) {
   if (status === 'STARTED' || status === 'PROCESSING') displayType = 'info';
 
   return (
-    <ClayLabel displayType={displayType} outline>
+    <ClayLabel displayType={displayType} outline={true}>
       {status}
     </ClayLabel>
   );

@@ -1,0 +1,42 @@
+{
+  "entity": "Specification",
+  "rest": {
+    "path": "/o/headless-commerce-admin-catalog/v1.0/specifications/by-external-reference-code/{erc}",
+    "response": {
+      "description": { "en_US": "Another description" },
+      "externalReferenceCode": "a630a0e0-6a1b-fdb2-c795-dae73bd08b4b",
+      "facetable": false,
+      "id": 71512,
+      "key": "quantity",
+      "listTypeDefinitionIds": [],
+      "optionCategory": {
+        "externalReferenceCode": "86adcfa1-ee7c-b358-f9f1-da0b02cdf902",
+        "id": 71507,
+        "key": "quantity",
+        "title": { "en_US": "Quantity" }
+      },
+      "priority": 0,
+      "title": { "en_US": "Quantity" }
+    }
+  },
+  "graphql": {
+    "query": "query HeadlessCommerceAdminCatalog_v1_0($erc: String) { specificationByExternalReferenceCode(externalReferenceCode: $erc) { description, externalReferenceCode, facetable, id, listTypeDefinitionIds, optionCategory { id }, priority, title } }",
+    "variables": {
+      "erc": "a630a0e0-6a1b-fdb2-c795-dae73bd08b4b"
+    },
+    "response": {
+      "data": {
+        "specificationByExternalReferenceCode": {
+          "description": { "en_US": "Another description" },
+          "externalReferenceCode": "a630a0e0-6a1b-fdb2-c795-dae73bd08b4b",
+          "facetable": false,
+          "id": 71512,
+          "listTypeDefinitionIds": [],
+          "optionCategory": { "id": 71507 },
+          "priority": 0,
+          "title": { "en_US": "Quantity" }
+        }
+      }
+    }
+  }
+}

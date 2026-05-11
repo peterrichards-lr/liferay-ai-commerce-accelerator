@@ -1,0 +1,31 @@
+{
+  "entity": "Channel",
+  "rest": {
+    "path": "/o/headless-commerce-admin-channel/v1.0/channels/by-externalReferenceCode/{erc}",
+    "response": {
+      "accountId": 0,
+      "currencyCode": "USD",
+      "currencyExternalReferenceCode": "9f77ebe7-3624-a082-2355-e938bf89fe64",
+      "currencyId": 30201,
+      "externalReferenceCode": "7046b82c-9091-bc65-93dc-7153073fc935",
+      "id": 71480,
+      "name": "Liferay Commerce Channel",
+      "siteGroupId": 71215,
+      "type": "site"
+    }
+  },
+  "graphql": {
+    "query": "query HeadlessCommerceAdminChannel_v1_0($erc: String) { channelByExternalReferenceCode(externalReferenceCode: $erc) { id, name } }",
+    "variables": {
+      "erc": "7046b82c-9091-bc65-93dc-7153073fc935"
+    },
+    "response": {
+      "data": {
+        "channelByExternalReferenceCode": {
+          "id": 71480,
+          "name": "Liferay Commerce Channel"
+        }
+      }
+    }
+  }
+}

@@ -4,6 +4,7 @@
     "@ai-sdk/anthropic": "^3.0.74",
     "@google-cloud/storage": "^7.17.0",
     "@google/generative-ai": "^0.24.1",
+    "@liferay/accelerator-sdk": "*",
     "@rotty3000/config-node": "^0.4.1",
     "ajv": "^8.12.0",
     "ajv-formats": "^3.0.1",

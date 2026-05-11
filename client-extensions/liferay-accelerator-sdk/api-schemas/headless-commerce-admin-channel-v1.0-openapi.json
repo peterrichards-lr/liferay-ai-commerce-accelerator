@@ -1,0 +1,4642 @@
+{
+  "components": {
+    "schemas": {
+      "Account": {
+        "properties": {
+          "accountToCommerceReturnItems": {
+            "description": "Information about the object relationship accountToCommerceReturnItems can be embedded with \"nestedFields\".",
+            "items": {
+              "$ref": "#/components/schemas/CommerceReturnItem"
+            },
+            "type": "array"
+          },
+          "accountToCommerceReturns": {
+            "description": "Information about the object relationship accountToCommerceReturns can be embedded with \"nestedFields\".",
+            "items": {
+              "$ref": "#/components/schemas/CommerceReturn"
+            },
+            "type": "array"
+          },
+          "id": {
+            "example": 30130,
+            "exclusiveMinimum": false,
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "name": {
+            "example": "Account Name",
+            "type": "string"
+          },
+          "x-class-name": {
+            "default": "com.liferay.headless.commerce.admin.channel.dto.v1_0.Account",
+            "readOnly": true,
+            "type": "string"
+          }
+        },
+        "type": "object",
+        "x-filterable": [],
+        "xml": {
+          "name": "Account"
+        }
+      },
+      "AccountAddressChannel": {
+        "properties": {
+          "accountAddressChannelId": {
+            "example": 30643,
+            "exclusiveMinimum": false,
+            "format": "int64",
+            "minimum": 0,
+            "readOnly": true,
+            "type": "integer"
+          },
+          "actions": {
+            "additionalProperties": {
+              "additionalProperties": {
+                "type": "string"
+              },
+              "type": "object"
+            },
+            "readOnly": true,
+            "type": "object"
+          },
+          "addressChannelExternalReferenceCode": {
+            "example": "PAB-34098-789-N",
+            "type": "string"
+          },
+          "addressChannelId": {
+            "example": 30130,
+            "exclusiveMinimum": false,
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "addressExternalReferenceCode": {
+            "example": "DAB-34098-789-N",
+            "type": "string"
+          },
+          "addressId": {
+            "example": 30324,
+            "exclusiveMinimum": false,
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "channel": {
+            "$ref": "#/components/schemas/Channel"
+          },
+          "x-class-name": {
+            "default": "com.liferay.headless.commerce.admin.channel.dto.v1_0.AccountAddressChannel",
+            "readOnly": true,
+            "type": "string"
+          }
+        },
+        "required": ["addressChannelId", "addressId"],
+        "type": "object",
+        "x-filterable": [],
+        "xml": {
+          "name": "AccountAddressChannel"
+        }
+      },
+      "CategoryDisplayPage": {
+        "properties": {
+          "actions": {
+            "additionalProperties": {
+              "additionalProperties": {
+                "type": "string"
+              },
+              "type": "object"
+            },
+            "readOnly": true,
+            "type": "object"
+          },
+          "categoryExternalReferenceCode": {
+            "example": "DAB-34098-789-N",
+            "type": "string"
+          },
+          "categoryId": {
+            "example": 30130,
+            "exclusiveMinimum": false,
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "groupExternalReferenceCode": {
+            "example": "DAB-34098-789-N",
+            "type": "string"
+          },
+          "id": {
+            "example": 30130,
+            "exclusiveMinimum": false,
+            "format": "int64",
+            "minimum": 0,
+            "readOnly": true,
+            "type": "integer"
+          },
+          "pageUuid": {
+            "type": "string"
+          },
+          "x-class-name": {
+            "default": "com.liferay.headless.commerce.admin.channel.dto.v1_0.CategoryDisplayPage",
+            "readOnly": true,
+            "type": "string"
+          }
+        },
+        "type": "object",
+        "x-filterable": [],
+        "xml": {
+          "name": "CategoryDisplayPage"
+        }
+      },
+      "Channel": {
+        "properties": {
+          "accountExternalReferenceCode": {
+            "example": "DAB-34098-789-N",
+            "type": "string"
+          },
+          "accountId": {
+            "example": 30130,
+            "exclusiveMinimum": false,
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "currencyCode": {
+            "type": "string"
+          },
+          "currencyExternalReferenceCode": {
+            "example": "AAB-34098-789-N",
+            "type": "string"
+          },
+          "currencyId": {
+            "example": 30130,
+            "exclusiveMinimum": false,
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "externalReferenceCode": {
+            "type": "string"
+          },
+          "id": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "name": {
+            "type": "string"
+          },
+          "siteGroupId": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "type": {
+            "type": "string"
+          },
+          "x-class-name": {
+            "default": "com.liferay.headless.commerce.admin.channel.dto.v1_0.Channel",
+            "readOnly": true,
+            "type": "string"
+          }
+        },
+        "required": ["currencyCode", "name", "type"],
+        "type": "object",
+        "x-filterable": ["name", "siteGroupId"],
+        "xml": {
+          "name": "Channel"
+        }
+      },
+      "ChannelAccount": {
+        "properties": {
+          "account": {
+            "$ref": "#/components/schemas/Account"
+          },
+          "accountExternalReferenceCode": {
+            "example": "DAB-34098-789-N",
+            "type": "string"
+          },
+          "accountId": {
+            "example": 30324,
+            "exclusiveMinimum": false,
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "actions": {
+            "additionalProperties": {
+              "additionalProperties": {
+                "type": "string"
+              },
+              "type": "object"
+            },
+            "readOnly": true,
+            "type": "object"
+          },
+          "channelAccountId": {
+            "example": 30643,
+            "exclusiveMinimum": false,
+            "format": "int64",
+            "minimum": 0,
+            "readOnly": true,
+            "type": "integer"
+          },
+          "channelExternalReferenceCode": {
+            "example": "PAB-34098-789-N",
+            "type": "string"
+          },
+          "channelId": {
+            "example": 30130,
+            "exclusiveMinimum": false,
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "x-class-name": {
+            "default": "com.liferay.headless.commerce.admin.channel.dto.v1_0.ChannelAccount",
+            "readOnly": true,
+            "type": "string"
+          }
+        },
+        "required": ["accountId", "channelId"],
+        "type": "object",
+        "x-filterable": [],
+        "xml": {
+          "name": "ChannelAccount"
+        }
+      },
+      "CommerceReturn": {
+        "type": "object",
+        "x-filterable": []
+      },
+      "CommerceReturnItem": {
+        "type": "object",
+        "x-filterable": []
+      },
+      "DefaultCategoryDisplayPage": {
+        "properties": {
+          "actions": {
+            "additionalProperties": {
+              "additionalProperties": {
+                "type": "string"
+              },
+              "type": "object"
+            },
+            "readOnly": true,
+            "type": "object"
+          },
+          "pageUuid": {
+            "type": "string"
+          },
+          "x-class-name": {
+            "default": "com.liferay.headless.commerce.admin.channel.dto.v1_0.DefaultCategoryDisplayPage",
+            "readOnly": true,
+            "type": "string"
+          }
+        },
+        "type": "object",
+        "x-filterable": [],
+        "xml": {
+          "name": "DefaultCategoryDisplayPage"
+        }
+      },
+      "DefaultProductDisplayPage": {
+        "properties": {
+          "actions": {
+            "additionalProperties": {
+              "additionalProperties": {
+                "type": "string"
+              },
+              "type": "object"
+            },
+            "readOnly": true,
+            "type": "object"
+          },
+          "pageUuid": {
+            "type": "string"
+          },
+          "x-class-name": {
+            "default": "com.liferay.headless.commerce.admin.channel.dto.v1_0.DefaultProductDisplayPage",
+            "readOnly": true,
+            "type": "string"
+          }
+        },
+        "type": "object",
+        "x-filterable": [],
+        "xml": {
+          "name": "DefaultProductDisplayPage"
+        }
+      },
+      "Facet": {
+        "properties": {
+          "facetCriteria": {
+            "type": "string"
+          },
+          "facetValues": {
+            "items": {
+              "$ref": "#/components/schemas/FacetValue"
+            },
+            "type": "array"
+          }
+        },
+        "type": "object",
+        "x-filterable": []
+      },
+      "FacetValue": {
+        "properties": {
+          "numberOfOccurrences": {
+            "format": "int32",
+            "type": "integer"
+          },
+          "term": {
+            "type": "string"
+          }
+        },
+        "type": "object",
+        "x-filterable": []
+      },
+      "OrderType": {
+        "properties": {
+          "id": {
+            "example": 30130,
+            "exclusiveMinimum": false,
+            "format": "int64",
+            "minimum": 0,
+            "readOnly": true,
+            "type": "integer"
+          },
+          "name": {
+            "additionalProperties": {
+              "example": "{en_US=Hand Saw, hr_HR=Product Name HR, hu_HU=Product Name HU}",
+              "type": "string"
+            },
+            "example": "{en_US=Hand Saw, hr_HR=Product Name HR, hu_HU=Product Name HU}",
+            "type": "object"
+          },
+          "x-class-name": {
+            "default": "com.liferay.headless.commerce.admin.channel.dto.v1_0.OrderType",
+            "readOnly": true,
+            "type": "string"
+          }
+        },
+        "type": "object",
+        "x-filterable": [],
+        "xml": {
+          "name": "OrderType"
+        }
+      },
+      "PageAccountAddressChannel": {
+        "properties": {
+          "actions": {
+            "additionalProperties": {
+              "additionalProperties": {
+                "type": "string"
+              },
+              "type": "object"
+            },
+            "type": "object"
+          },
+          "facets": {
+            "items": {
+              "$ref": "#/components/schemas/Facet"
+            },
+            "type": "array"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/AccountAddressChannel"
+            },
+            "type": "array"
+          },
+          "lastPage": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "page": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "pageSize": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "totalCount": {
+            "format": "int64",
+            "type": "integer"
+          }
+        },
+        "type": "object",
+        "x-filterable": []
+      },
+      "PageCategoryDisplayPage": {
+        "properties": {
+          "actions": {
+            "additionalProperties": {
+              "additionalProperties": {
+                "type": "string"
+              },
+              "type": "object"
+            },
+            "type": "object"
+          },
+          "facets": {
+            "items": {
+              "$ref": "#/components/schemas/Facet"
+            },
+            "type": "array"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/CategoryDisplayPage"
+            },
+            "type": "array"
+          },
+          "lastPage": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "page": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "pageSize": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "totalCount": {
+            "format": "int64",
+            "type": "integer"
+          }
+        },
+        "type": "object",
+        "x-filterable": []
+      },
+      "PageChannel": {
+        "properties": {
+          "actions": {
+            "additionalProperties": {
+              "additionalProperties": {
+                "type": "string"
+              },
+              "type": "object"
+            },
+            "type": "object"
+          },
+          "facets": {
+            "items": {
+              "$ref": "#/components/schemas/Facet"
+            },
+            "type": "array"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/Channel"
+            },
+            "type": "array"
+          },
+          "lastPage": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "page": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "pageSize": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "totalCount": {
+            "format": "int64",
+            "type": "integer"
+          }
+        },
+        "type": "object",
+        "x-filterable": []
+      },
+      "PageChannelAccount": {
+        "properties": {
+          "actions": {
+            "additionalProperties": {
+              "additionalProperties": {
+                "type": "string"
+              },
+              "type": "object"
+            },
+            "type": "object"
+          },
+          "facets": {
+            "items": {
+              "$ref": "#/components/schemas/Facet"
+            },
+            "type": "array"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/ChannelAccount"
+            },
+            "type": "array"
+          },
+          "lastPage": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "page": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "pageSize": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "totalCount": {
+            "format": "int64",
+            "type": "integer"
+          }
+        },
+        "type": "object",
+        "x-filterable": []
+      },
+      "PagePaymentMethodGroupRelOrderType": {
+        "properties": {
+          "actions": {
+            "additionalProperties": {
+              "additionalProperties": {
+                "type": "string"
+              },
+              "type": "object"
+            },
+            "type": "object"
+          },
+          "facets": {
+            "items": {
+              "$ref": "#/components/schemas/Facet"
+            },
+            "type": "array"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/PaymentMethodGroupRelOrderType"
+            },
+            "type": "array"
+          },
+          "lastPage": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "page": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "pageSize": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "totalCount": {
+            "format": "int64",
+            "type": "integer"
+          }
+        },
+        "type": "object",
+        "x-filterable": []
+      },
+      "PagePaymentMethodGroupRelTerm": {
+        "properties": {
+          "actions": {
+            "additionalProperties": {
+              "additionalProperties": {
+                "type": "string"
+              },
+              "type": "object"
+            },
+            "type": "object"
+          },
+          "facets": {
+            "items": {
+              "$ref": "#/components/schemas/Facet"
+            },
+            "type": "array"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/PaymentMethodGroupRelTerm"
+            },
+            "type": "array"
+          },
+          "lastPage": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "page": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "pageSize": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "totalCount": {
+            "format": "int64",
+            "type": "integer"
+          }
+        },
+        "type": "object",
+        "x-filterable": []
+      },
+      "PageProductDisplayPage": {
+        "properties": {
+          "actions": {
+            "additionalProperties": {
+              "additionalProperties": {
+                "type": "string"
+              },
+              "type": "object"
+            },
+            "type": "object"
+          },
+          "facets": {
+            "items": {
+              "$ref": "#/components/schemas/Facet"
+            },
+            "type": "array"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/ProductDisplayPage"
+            },
+            "type": "array"
+          },
+          "lastPage": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "page": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "pageSize": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "totalCount": {
+            "format": "int64",
+            "type": "integer"
+          }
+        },
+        "type": "object",
+        "x-filterable": []
+      },
+      "PageShippingFixedOptionOrderType": {
+        "properties": {
+          "actions": {
+            "additionalProperties": {
+              "additionalProperties": {
+                "type": "string"
+              },
+              "type": "object"
+            },
+            "type": "object"
+          },
+          "facets": {
+            "items": {
+              "$ref": "#/components/schemas/Facet"
+            },
+            "type": "array"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/ShippingFixedOptionOrderType"
+            },
+            "type": "array"
+          },
+          "lastPage": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "page": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "pageSize": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "totalCount": {
+            "format": "int64",
+            "type": "integer"
+          }
+        },
+        "type": "object",
+        "x-filterable": []
+      },
+      "PageShippingFixedOptionTerm": {
+        "properties": {
+          "actions": {
+            "additionalProperties": {
+              "additionalProperties": {
+                "type": "string"
+              },
+              "type": "object"
+            },
+            "type": "object"
+          },
+          "facets": {
+            "items": {
+              "$ref": "#/components/schemas/Facet"
+            },
+            "type": "array"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/ShippingFixedOptionTerm"
+            },
+            "type": "array"
+          },
+          "lastPage": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "page": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "pageSize": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "totalCount": {
+            "format": "int64",
+            "type": "integer"
+          }
+        },
+        "type": "object",
+        "x-filterable": []
+      },
+      "PageShippingMethod": {
+        "properties": {
+          "actions": {
+            "additionalProperties": {
+              "additionalProperties": {
+                "type": "string"
+              },
+              "type": "object"
+            },
+            "type": "object"
+          },
+          "facets": {
+            "items": {
+              "$ref": "#/components/schemas/Facet"
+            },
+            "type": "array"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/ShippingMethod"
+            },
+            "type": "array"
+          },
+          "lastPage": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "page": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "pageSize": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "totalCount": {
+            "format": "int64",
+            "type": "integer"
+          }
+        },
+        "type": "object",
+        "x-filterable": []
+      },
+      "PageTaxCategory": {
+        "properties": {
+          "actions": {
+            "additionalProperties": {
+              "additionalProperties": {
+                "type": "string"
+              },
+              "type": "object"
+            },
+            "type": "object"
+          },
+          "facets": {
+            "items": {
+              "$ref": "#/components/schemas/Facet"
+            },
+            "type": "array"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/TaxCategory"
+            },
+            "type": "array"
+          },
+          "lastPage": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "page": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "pageSize": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "totalCount": {
+            "format": "int64",
+            "type": "integer"
+          }
+        },
+        "type": "object",
+        "x-filterable": []
+      },
+      "PaymentMethodGroupRelOrderType": {
+        "properties": {
+          "actions": {
+            "additionalProperties": {
+              "additionalProperties": {
+                "type": "string"
+              },
+              "type": "object"
+            },
+            "readOnly": true,
+            "type": "object"
+          },
+          "orderType": {
+            "$ref": "#/components/schemas/OrderType"
+          },
+          "orderTypeExternalReferenceCode": {
+            "example": "DAB-34098-789-N",
+            "type": "string"
+          },
+          "orderTypeId": {
+            "example": 30324,
+            "exclusiveMinimum": false,
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "paymentMethodGroupRelId": {
+            "example": 30130,
+            "exclusiveMinimum": false,
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "paymentMethodGroupRelOrderTypeId": {
+            "example": 30643,
+            "exclusiveMinimum": false,
+            "format": "int64",
+            "minimum": 0,
+            "readOnly": true,
+            "type": "integer"
+          },
+          "priority": {
+            "example": 1,
+            "exclusiveMinimum": false,
+            "format": "int32",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "x-class-name": {
+            "default": "com.liferay.headless.commerce.admin.channel.dto.v1_0.PaymentMethodGroupRelOrderType",
+            "readOnly": true,
+            "type": "string"
+          }
+        },
+        "required": ["orderTypeId", "paymentMethodGroupRelId"],
+        "type": "object",
+        "x-filterable": [],
+        "xml": {
+          "name": "PaymentMethodGroupRelOrderType"
+        }
+      },
+      "PaymentMethodGroupRelTerm": {
+        "properties": {
+          "actions": {
+            "additionalProperties": {
+              "additionalProperties": {
+                "type": "string"
+              },
+              "type": "object"
+            },
+            "readOnly": true,
+            "type": "object"
+          },
+          "paymentMethodGroupRelId": {
+            "example": 30324,
+            "exclusiveMinimum": false,
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "paymentMethodGroupRelTermId": {
+            "example": 30643,
+            "exclusiveMinimum": false,
+            "format": "int64",
+            "minimum": 0,
+            "readOnly": true,
+            "type": "integer"
+          },
+          "term": {
+            "$ref": "#/components/schemas/Term"
+          },
+          "termExternalReferenceCode": {
+            "example": "PAB-34098-789-N",
+            "type": "string"
+          },
+          "termId": {
+            "example": 30130,
+            "exclusiveMinimum": false,
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "x-class-name": {
+            "default": "com.liferay.headless.commerce.admin.channel.dto.v1_0.PaymentMethodGroupRelTerm",
+            "readOnly": true,
+            "type": "string"
+          }
+        },
+        "required": ["paymentMethodGroupRelId", "termId"],
+        "type": "object",
+        "x-filterable": [],
+        "xml": {
+          "name": "PaymentMethodGroupRelTerm"
+        }
+      },
+      "ProductDisplayPage": {
+        "properties": {
+          "actions": {
+            "additionalProperties": {
+              "additionalProperties": {
+                "type": "string"
+              },
+              "type": "object"
+            },
+            "readOnly": true,
+            "type": "object"
+          },
+          "id": {
+            "example": 30324,
+            "exclusiveMinimum": false,
+            "format": "int64",
+            "minimum": 0,
+            "readOnly": true,
+            "type": "integer"
+          },
+          "pageTemplateUuid": {
+            "type": "string"
+          },
+          "pageUuid": {
+            "type": "string"
+          },
+          "productExternalReferenceCode": {
+            "example": "DAB-34098-789-N",
+            "type": "string"
+          },
+          "productId": {
+            "example": 30324,
+            "exclusiveMinimum": false,
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "x-class-name": {
+            "default": "com.liferay.headless.commerce.admin.channel.dto.v1_0.ProductDisplayPage",
+            "readOnly": true,
+            "type": "string"
+          }
+        },
+        "type": "object",
+        "x-filterable": [],
+        "xml": {
+          "name": "ProductDisplayPage"
+        }
+      },
+      "ShippingFixedOptionOrderType": {
+        "properties": {
+          "actions": {
+            "additionalProperties": {
+              "additionalProperties": {
+                "type": "string"
+              },
+              "type": "object"
+            },
+            "readOnly": true,
+            "type": "object"
+          },
+          "orderType": {
+            "$ref": "#/components/schemas/OrderType"
+          },
+          "orderTypeExternalReferenceCode": {
+            "example": "DAB-34098-789-N",
+            "type": "string"
+          },
+          "orderTypeId": {
+            "example": 30324,
+            "exclusiveMinimum": false,
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "priority": {
+            "example": 1,
+            "exclusiveMinimum": false,
+            "format": "int32",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "shippingFixedOptionId": {
+            "example": 30130,
+            "exclusiveMinimum": false,
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "shippingFixedOptionOrderTypeId": {
+            "example": 30643,
+            "exclusiveMinimum": false,
+            "format": "int64",
+            "minimum": 0,
+            "readOnly": true,
+            "type": "integer"
+          },
+          "x-class-name": {
+            "default": "com.liferay.headless.commerce.admin.channel.dto.v1_0.ShippingFixedOptionOrderType",
+            "readOnly": true,
+            "type": "string"
+          }
+        },
+        "required": ["orderTypeId", "shippingFixedOptionId"],
+        "type": "object",
+        "x-filterable": [],
+        "xml": {
+          "name": "ShippingFixedOptionOrderType"
+        }
+      },
+      "ShippingFixedOptionTerm": {
+        "properties": {
+          "actions": {
+            "additionalProperties": {
+              "additionalProperties": {
+                "type": "string"
+              },
+              "type": "object"
+            },
+            "readOnly": true,
+            "type": "object"
+          },
+          "shippingFixedOptionId": {
+            "example": 30324,
+            "exclusiveMinimum": false,
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "shippingFixedOptionTermId": {
+            "example": 30643,
+            "exclusiveMinimum": false,
+            "format": "int64",
+            "minimum": 0,
+            "readOnly": true,
+            "type": "integer"
+          },
+          "term": {
+            "$ref": "#/components/schemas/Term"
+          },
+          "termExternalReferenceCode": {
+            "example": "PAB-34098-789-N",
+            "type": "string"
+          },
+          "termId": {
+            "example": 30130,
+            "exclusiveMinimum": false,
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "x-class-name": {
+            "default": "com.liferay.headless.commerce.admin.channel.dto.v1_0.ShippingFixedOptionTerm",
+            "readOnly": true,
+            "type": "string"
+          }
+        },
+        "required": ["shippingFixedOptionId", "termId"],
+        "type": "object",
+        "x-filterable": [],
+        "xml": {
+          "name": "ShippingFixedOptionTerm"
+        }
+      },
+      "ShippingMethod": {
+        "properties": {
+          "active": {
+            "example": true,
+            "type": "boolean"
+          },
+          "description": {
+            "additionalProperties": {
+              "example": "{en_US=Professional hand stainless steel saw for wood. Made to last and saw forever. Made of best steel, hr_HR=Product Description HR, hu_HU=Product Description HU}",
+              "type": "string"
+            },
+            "example": "{en_US=Professional hand stainless steel saw for wood. Made to last and saw forever. Made of best steel, hr_HR=Product Description HR, hu_HU=Product Description HU}",
+            "type": "object"
+          },
+          "engineKey": {
+            "example": "DAB-34098-789-N",
+            "type": "string"
+          },
+          "id": {
+            "example": 30324,
+            "exclusiveMinimum": false,
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "name": {
+            "additionalProperties": {
+              "example": "{en_US=Professional hand stainless steel saw for wood. Made to last and saw forever. Made of best steel, hr_HR=Product Description HR, hu_HU=Product Description HU}",
+              "type": "string"
+            },
+            "example": "{en_US=Professional hand stainless steel saw for wood. Made to last and saw forever. Made of best steel, hr_HR=Product Description HR, hu_HU=Product Description HU}",
+            "type": "object"
+          },
+          "priority": {
+            "example": 1.2,
+            "format": "double",
+            "type": "number"
+          },
+          "shippingOptions": {
+            "items": {
+              "$ref": "#/components/schemas/ShippingOption"
+            },
+            "type": "array"
+          },
+          "x-class-name": {
+            "default": "com.liferay.headless.commerce.admin.channel.dto.v1_0.ShippingMethod",
+            "readOnly": true,
+            "type": "string"
+          }
+        },
+        "type": "object",
+        "x-filterable": [],
+        "xml": {
+          "name": "ShippingMethod"
+        }
+      },
+      "ShippingOption": {
+        "properties": {
+          "active": {
+            "example": true,
+            "type": "boolean"
+          },
+          "amount": {
+            "example": 1.2,
+            "format": "double",
+            "type": "number"
+          },
+          "description": {
+            "additionalProperties": {
+              "example": "{en_US=Professional hand stainless steel saw for wood. Made to last and saw forever. Made of best steel, hr_HR=Product Description HR, hu_HU=Product Description HU}",
+              "type": "string"
+            },
+            "example": "{en_US=Professional hand stainless steel saw for wood. Made to last and saw forever. Made of best steel, hr_HR=Product Description HR, hu_HU=Product Description HU}",
+            "type": "object"
+          },
+          "id": {
+            "example": 30324,
+            "exclusiveMinimum": false,
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "name": {
+            "additionalProperties": {
+              "example": "{en_US=Professional hand stainless steel saw for wood. Made to last and saw forever. Made of best steel, hr_HR=Product Description HR, hu_HU=Product Description HU}",
+              "type": "string"
+            },
+            "example": "{en_US=Professional hand stainless steel saw for wood. Made to last and saw forever. Made of best steel, hr_HR=Product Description HR, hu_HU=Product Description HU}",
+            "type": "object"
+          },
+          "priority": {
+            "example": 1.2,
+            "format": "double",
+            "type": "number"
+          },
+          "x-class-name": {
+            "default": "com.liferay.headless.commerce.admin.channel.dto.v1_0.ShippingOption",
+            "readOnly": true,
+            "type": "string"
+          }
+        },
+        "type": "object",
+        "x-filterable": [],
+        "xml": {
+          "name": "ShippingOption"
+        }
+      },
+      "TaxCategory": {
+        "properties": {
+          "description": {
+            "additionalProperties": {
+              "example": "{en_US=Croatia, hr_HR=Hrvatska, hu_HU=Horvatorszag}",
+              "type": "string"
+            },
+            "example": "{en_US=Croatia, hr_HR=Hrvatska, hu_HU=Horvatorszag}",
+            "type": "object"
+          },
+          "groupId": {
+            "example": 23130,
+            "exclusiveMinimum": false,
+            "format": "int64",
+            "minimum": 0,
+            "readOnly": true,
+            "type": "integer"
+          },
+          "id": {
+            "example": 30130,
+            "exclusiveMinimum": false,
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "name": {
+            "additionalProperties": {
+              "example": "{en_US=Croatia, hr_HR=Hrvatska, hu_HU=Horvatorszag}",
+              "type": "string"
+            },
+            "example": "{en_US=Croatia, hr_HR=Hrvatska, hu_HU=Horvatorszag}",
+            "type": "object"
+          },
+          "x-class-name": {
+            "default": "com.liferay.headless.commerce.admin.channel.dto.v1_0.TaxCategory",
+            "readOnly": true,
+            "type": "string"
+          }
+        },
+        "required": ["name"],
+        "type": "object",
+        "x-filterable": [],
+        "xml": {
+          "name": "TaxCategory"
+        }
+      },
+      "Term": {
+        "properties": {
+          "id": {
+            "example": 30130,
+            "exclusiveMinimum": false,
+            "format": "int64",
+            "minimum": 0,
+            "readOnly": true,
+            "type": "integer"
+          },
+          "name": {
+            "example": "simple",
+            "readOnly": true,
+            "type": "string"
+          },
+          "x-class-name": {
+            "default": "com.liferay.headless.commerce.admin.channel.dto.v1_0.Term",
+            "readOnly": true,
+            "type": "string"
+          }
+        },
+        "type": "object",
+        "x-filterable": [],
+        "xml": {
+          "name": "Term"
+        }
+      }
+    }
+  },
+  "info": {
+    "description": "Liferay Commerce Admin Channel API. A Java client JAR is available for use with the group ID 'com.liferay', artifact ID 'com.liferay.headless.commerce.admin.channel.client', and version '4.0.43'.",
+    "license": {
+      "name": "Apache 2.0",
+      "url": "http://www.apache.org/licenses/LICENSE-2.0.html"
+    },
+    "title": "Liferay Commerce Admin Channel API",
+    "version": "v1.0"
+  },
+  "openapi": "3.0.1",
+  "paths": {
+    "/v1.0/account-address-channels/batch": {
+      "delete": {
+        "operationId": "deleteAccountAddressChannelBatch",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "callbackURL",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              }
+            }
+          }
+        },
+        "responses": {
+          "default": {
+            "content": {
+              "application/json": {}
+            },
+            "description": "default response"
+          }
+        },
+        "tags": ["AccountAddressChannel"]
+      }
+    },
+    "/v1.0/account-address-channels/{accountAddressChannelId}": {
+      "delete": {
+        "operationId": "deleteAccountAddressChannel",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "accountAddressChannelId",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "default": {
+            "content": {
+              "application/json": {},
+              "application/xml": {}
+            },
+            "description": "default response"
+          }
+        },
+        "tags": ["AccountAddressChannel"]
+      }
+    },
+    "/v1.0/account-address-channels/{accountAddressChannelId}/channel": {
+      "get": {
+        "operationId": "getAccountAddressChannelChannel",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "accountAddressChannelId",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Channel"
+                }
+              },
+              "application/xml": {
+                "schema": {
+                  "$ref": "#/components/schemas/Channel"
+                }
+              }
+            },
+            "description": "default response"
+          }
+        },
+        "tags": ["Channel"]
+      }
+    },
+    "/v1.0/account-addresses/by-externalReferenceCode/{externalReferenceCode}/account-address-channels": {
+      "get": {
+        "operationId": "getAccountAddressByExternalReferenceCodeAccountAddressChannelsPage",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "externalReferenceCode",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "page",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "pageSize",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PageAccountAddressChannel"
+                }
+              },
+              "application/xml": {
+                "schema": {
+                  "$ref": "#/components/schemas/PageAccountAddressChannel"
+                }
+              }
+            },
+            "description": "default response"
+          }
+        },
+        "tags": ["AccountAddressChannel"]
+      },
+      "post": {
+        "operationId": "postAccountAddressByExternalReferenceCodeAccountAddressChannel",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "externalReferenceCode",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AccountAddressChannel"
+              }
+            },
+            "application/xml": {
+              "schema": {
+                "$ref": "#/components/schemas/AccountAddressChannel"
+              }
+            }
+          }
+        },
+        "responses": {
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AccountAddressChannel"
+                }
+              },
+              "application/xml": {
+                "schema": {
+                  "$ref": "#/components/schemas/AccountAddressChannel"
+                }
+              }
+            },
+            "description": "default response"
+          }
+        },
+        "tags": ["AccountAddressChannel"]
+      }
+    },
+    "/v1.0/account-addresses/{addressId}/account-address-channels": {
+      "get": {
+        "operationId": "getAccountAddressIdAccountAddressChannelsPage",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "addressId",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "filter",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "page",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "pageSize",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "search",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "sort",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PageAccountAddressChannel"
+                }
+              },
+              "application/xml": {
+                "schema": {
+                  "$ref": "#/components/schemas/PageAccountAddressChannel"
+                }
+              }
+            },
+            "description": "default response"
+          }
+        },
+        "tags": ["AccountAddressChannel"]
+      },
+      "post": {
+        "operationId": "postAccountAddressIdAccountAddressChannel",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "addressId",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AccountAddressChannel"
+              }
+            },
+            "application/xml": {
+              "schema": {
+                "$ref": "#/components/schemas/AccountAddressChannel"
+              }
+            }
+          }
+        },
+        "responses": {
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AccountAddressChannel"
+                }
+              },
+              "application/xml": {
+                "schema": {
+                  "$ref": "#/components/schemas/AccountAddressChannel"
+                }
+              }
+            },
+            "description": "default response"
+          }
+        },
+        "tags": ["AccountAddressChannel"]
+      }
+    },
+    "/v1.0/category-display-pages/batch": {
+      "delete": {
+        "operationId": "deleteCategoryDisplayPageBatch",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "callbackURL",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              }
+            }
+          }
+        },
+        "responses": {
+          "default": {
+            "content": {
+              "application/json": {}
+            },
+            "description": "default response"
+          }
+        },
+        "tags": ["CategoryDisplayPage"]
+      }
+    },
+    "/v1.0/category-display-pages/{id}": {
+      "delete": {
+        "operationId": "deleteCategoryDisplayPage",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "default": {
+            "content": {
+              "application/json": {},
+              "application/xml": {}
+            },
+            "description": "default response"
+          }
+        },
+        "tags": ["CategoryDisplayPage"]
+      },
+      "get": {
+        "operationId": "getCategoryDisplayPage",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CategoryDisplayPage"
+                }
+              },
+              "application/xml": {
+                "schema": {
+                  "$ref": "#/components/schemas/CategoryDisplayPage"
+                }
+              }
+            },
+            "description": "default response"
+          }
+        },
+        "tags": ["CategoryDisplayPage"]
+      },
+      "patch": {
+        "operationId": "patchCategoryDisplayPage",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CategoryDisplayPage"
+              }
+            },
+            "application/xml": {
+              "schema": {
+                "$ref": "#/components/schemas/CategoryDisplayPage"
+              }
+            }
+          }
+        },
+        "responses": {
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CategoryDisplayPage"
+                }
+              },
+              "application/xml": {
+                "schema": {
+                  "$ref": "#/components/schemas/CategoryDisplayPage"
+                }
+              }
+            },
+            "description": "default response"
+          }
+        },
+        "tags": ["CategoryDisplayPage"]
+      }
+    },
+    "/v1.0/channel-accounts/batch": {
+      "delete": {
+        "operationId": "deleteChannelAccountBatch",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "callbackURL",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              }
+            }
+          }
+        },
+        "responses": {
+          "default": {
+            "content": {
+              "application/json": {}
+            },
+            "description": "default response"
+          }
+        },
+        "tags": ["ChannelAccount"]
+      }
+    },
+    "/v1.0/channel-accounts/{channelAccountId}": {
+      "delete": {
+        "operationId": "deleteChannelAccount",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "channelAccountId",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "default": {
+            "content": {
+              "application/json": {},
+              "application/xml": {}
+            },
+            "description": "default response"
+          }
+        },
+        "tags": ["ChannelAccount"]
+      }
+    },
+    "/v1.0/channel-accounts/{channelAccountId}/account": {
+      "get": {
+        "operationId": "getChannelAccountAccount",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "channelAccountId",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Account"
+                }
+              },
+              "application/xml": {
+                "schema": {
+                  "$ref": "#/components/schemas/Account"
+                }
+              }
+            },
+            "description": "default response"
+          }
+        },
+        "tags": ["Account"]
+      }
+    },
+    "/v1.0/channels": {
+      "get": {
+        "description": "Retrieves channels.",
+        "operationId": "getChannelsPage",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "filter",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "page",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "pageSize",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "search",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "sort",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PageChannel"
+                }
+              },
+              "application/xml": {
+                "schema": {
+                  "$ref": "#/components/schemas/PageChannel"
+                }
+              }
+            },
+            "description": "default response"
+          }
+        },
+        "tags": ["Channel"]
+      },
+      "post": {
+        "operationId": "postChannel",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Channel"
+              }
+            },
+            "application/xml": {
+              "schema": {
+                "$ref": "#/components/schemas/Channel"
+              }
+            }
+          }
+        },
+        "responses": {
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Channel"
+                }
+              },
+              "application/xml": {
+                "schema": {
+                  "$ref": "#/components/schemas/Channel"
+                }
+              }
+            },
+            "description": "default response"
+          }
+        },
+        "tags": ["Channel"]
+      }
+    },
+    "/v1.0/channels/batch": {
+      "delete": {
+        "operationId": "deleteChannelBatch",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "callbackURL",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              }
+            }
+          }
+        },
+        "responses": {
+          "default": {
+            "content": {
+              "application/json": {}
+            },
+            "description": "default response"
+          }
+        },
+        "tags": ["Channel"]
+      },
+      "post": {
+        "operationId": "postChannelBatch",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "callbackURL",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              }
+            }
+          }
+        },
+        "responses": {
+          "default": {
+            "content": {
+              "application/json": {}
+            },
+            "description": "default response"
+          }
+        },
+        "tags": ["Channel"]
+      },
+      "put": {
+        "operationId": "putChannelBatch",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "callbackURL",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              }
+            }
+          }
+        },
+        "responses": {
+          "default": {
+            "content": {
+              "application/json": {}
+            },
+            "description": "default response"
+          }
+        },
+        "tags": ["Channel"]
+      }
+    },
+    "/v1.0/channels/by-externalReferenceCode/{externalReferenceCode}": {
+      "delete": {
+        "operationId": "deleteChannelByExternalReferenceCode",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "externalReferenceCode",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "default": {
+            "content": {
+              "application/json": {},
+              "application/xml": {}
+            },
+            "description": "default response"
+          }
+        },
+        "tags": ["Channel"]
+      },
+      "get": {
+        "description": "Retrive information of the given Channel.",
+        "operationId": "getChannelByExternalReferenceCode",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "externalReferenceCode",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Channel"
+                }
+              },
+              "application/xml": {
+                "schema": {
+                  "$ref": "#/components/schemas/Channel"
+                }
+              }
+            },
+            "description": "default response"
+          }
+        },
+        "tags": ["Channel"]
+      },
+      "patch": {
+        "operationId": "patchChannelByExternalReferenceCode",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "externalReferenceCode",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Channel"
+              }
+            },
+            "application/xml": {
+              "schema": {
+                "$ref": "#/components/schemas/Channel"
+              }
+            }
+          }
+        },
+        "responses": {
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Channel"
+                }
+              },
+              "application/xml": {
+                "schema": {
+                  "$ref": "#/components/schemas/Channel"
+                }
+              }
+            },
+            "description": "default response"
+          }
+        },
+        "tags": ["Channel"]
+      },
+      "put": {
+        "operationId": "putChannelByExternalReferenceCode",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "externalReferenceCode",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Channel"
+              }
+            },
+            "application/xml": {
+              "schema": {
+                "$ref": "#/components/schemas/Channel"
+              }
+            }
+          }
+        },
+        "responses": {
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Channel"
+                }
+              },
+              "application/xml": {
+                "schema": {
+                  "$ref": "#/components/schemas/Channel"
+                }
+              }
+            },
+            "description": "default response"
+          }
+        },
+        "tags": ["Channel"]
+      }
+    },
+    "/v1.0/channels/by-externalReferenceCode/{externalReferenceCode}/category-display-pages": {
+      "get": {
+        "operationId": "getChannelByExternalReferenceCodeCategoryDisplayPagesPage",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "externalReferenceCode",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "filter",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "page",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "pageSize",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "search",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "sort",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PageCategoryDisplayPage"
+                }
+              },
+              "application/xml": {
+                "schema": {
+                  "$ref": "#/components/schemas/PageCategoryDisplayPage"
+                }
+              }
+            },
+            "description": "default response"
+          }
+        },
+        "tags": ["CategoryDisplayPage"]
+      },
+      "post": {
+        "operationId": "postChannelByExternalReferenceCodeCategoryDisplayPage",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "externalReferenceCode",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CategoryDisplayPage"
+              }
+            },
+            "application/xml": {
+              "schema": {
+                "$ref": "#/components/schemas/CategoryDisplayPage"
+              }
+            }
+          }
+        },
+        "responses": {
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CategoryDisplayPage"
+                }
+              },
+              "application/xml": {
+                "schema": {
+                  "$ref": "#/components/schemas/CategoryDisplayPage"
+                }
+              }
+            },
+            "description": "default response"
+          }
+        },
+        "tags": ["CategoryDisplayPage"]
+      }
+    },
+    "/v1.0/channels/by-externalReferenceCode/{externalReferenceCode}/channel-accounts": {
+      "get": {
+        "operationId": "getChannelByExternalReferenceCodeChannelAccountsPage",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "externalReferenceCode",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "page",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "pageSize",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PageChannelAccount"
+                }
+              },
+              "application/xml": {
+                "schema": {
+                  "$ref": "#/components/schemas/PageChannelAccount"
+                }
+              }
+            },
+            "description": "default response"
+          }
+        },
+        "tags": ["ChannelAccount"]
+      },
+      "post": {
+        "operationId": "postChannelByExternalReferenceCodeChannelAccount",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "externalReferenceCode",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ChannelAccount"
+              }
+            },
+            "application/xml": {
+              "schema": {
+                "$ref": "#/components/schemas/ChannelAccount"
+              }
+            }
+          }
+        },
+        "responses": {
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ChannelAccount"
+                }
+              },
+              "application/xml": {
+                "schema": {
+                  "$ref": "#/components/schemas/ChannelAccount"
+                }
+              }
+            },
+            "description": "default response"
+          }
+        },
+        "tags": ["ChannelAccount"]
+      }
+    },
+    "/v1.0/channels/by-externalReferenceCode/{externalReferenceCode}/default-category-display-pages": {
+      "delete": {
+        "operationId": "deleteChannelByExternalReferenceCodeDefaultCategoryDisplayPage",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "externalReferenceCode",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "default": {
+            "content": {
+              "application/json": {},
+              "application/xml": {}
+            },
+            "description": "default response"
+          }
+        },
+        "tags": ["DefaultCategoryDisplayPage"]
+      },
+      "get": {
+        "operationId": "getChannelByExternalReferenceCodeDefaultCategoryDisplayPage",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "externalReferenceCode",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DefaultCategoryDisplayPage"
+                }
+              },
+              "application/xml": {
+                "schema": {
+                  "$ref": "#/components/schemas/DefaultCategoryDisplayPage"
+                }
+              }
+            },
+            "description": "default response"
+          }
+        },
+        "tags": ["DefaultCategoryDisplayPage"]
+      },
+      "post": {
+        "operationId": "postChannelByExternalReferenceCodeDefaultCategoryDisplayPage",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "externalReferenceCode",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DefaultCategoryDisplayPage"
+              }
+            },
+            "application/xml": {
+              "schema": {
+                "$ref": "#/components/schemas/DefaultCategoryDisplayPage"
+              }
+            }
+          }
+        },
+        "responses": {
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DefaultCategoryDisplayPage"
+                }
+              },
+              "application/xml": {
+                "schema": {
+                  "$ref": "#/components/schemas/DefaultCategoryDisplayPage"
+                }
+              }
+            },
+            "description": "default response"
+          }
+        },
+        "tags": ["DefaultCategoryDisplayPage"]
+      }
+    },
+    "/v1.0/channels/by-externalReferenceCode/{externalReferenceCode}/default-product-display-page": {
+      "delete": {
+        "operationId": "deleteChannelByExternalReferenceCodeDefaultProductDisplayPage",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "externalReferenceCode",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "default": {
+            "content": {
+              "application/json": {},
+              "application/xml": {}
+            },
+            "description": "default response"
+          }
+        },
+        "tags": ["DefaultProductDisplayPage"]
+      },
+      "get": {
+        "operationId": "getChannelByExternalReferenceCodeDefaultProductDisplayPage",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "externalReferenceCode",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DefaultProductDisplayPage"
+                }
+              },
+              "application/xml": {
+                "schema": {
+                  "$ref": "#/components/schemas/DefaultProductDisplayPage"
+                }
+              }
+            },
+            "description": "default response"
+          }
+        },
+        "tags": ["DefaultProductDisplayPage"]
+      },
+      "post": {
+        "operationId": "postChannelByExternalReferenceCodeDefaultProductDisplayPage",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "externalReferenceCode",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DefaultProductDisplayPage"
+              }
+            },
+            "application/xml": {
+              "schema": {
+                "$ref": "#/components/schemas/DefaultProductDisplayPage"
+              }
+            }
+          }
+        },
+        "responses": {
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DefaultProductDisplayPage"
+                }
+              },
+              "application/xml": {
+                "schema": {
+                  "$ref": "#/components/schemas/DefaultProductDisplayPage"
+                }
+              }
+            },
+            "description": "default response"
+          }
+        },
+        "tags": ["DefaultProductDisplayPage"]
+      }
+    },
+    "/v1.0/channels/by-externalReferenceCode/{externalReferenceCode}/product-display-pages": {
+      "get": {
+        "operationId": "getChannelByExternalReferenceCodeProductDisplayPagesPage",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "externalReferenceCode",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "filter",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "page",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "pageSize",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "search",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "sort",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PageProductDisplayPage"
+                }
+              },
+              "application/xml": {
+                "schema": {
+                  "$ref": "#/components/schemas/PageProductDisplayPage"
+                }
+              }
+            },
+            "description": "default response"
+          }
+        },
+        "tags": ["ProductDisplayPage"]
+      },
+      "post": {
+        "operationId": "postChannelByExternalReferenceCodeProductDisplayPage",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "externalReferenceCode",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ProductDisplayPage"
+              }
+            },
+            "application/xml": {
+              "schema": {
+                "$ref": "#/components/schemas/ProductDisplayPage"
+              }
+            }
+          }
+        },
+        "responses": {
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProductDisplayPage"
+                }
+              },
+              "application/xml": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProductDisplayPage"
+                }
+              }
+            },
+            "description": "default response"
+          }
+        },
+        "tags": ["ProductDisplayPage"]
+      }
+    },
+    "/v1.0/channels/export-batch": {
+      "post": {
+        "operationId": "postChannelsPageExportBatch",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "filter",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "search",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "sort",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "callbackURL",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "contentType",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "fieldNames",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "default": {
+            "content": {
+              "application/json": {}
+            },
+            "description": "default response"
+          }
+        },
+        "tags": ["Channel"]
+      }
+    },
+    "/v1.0/channels/{channelId}": {
+      "delete": {
+        "operationId": "deleteChannel",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "channelId",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "default": {
+            "content": {
+              "application/json": {},
+              "application/xml": {}
+            },
+            "description": "default response"
+          }
+        },
+        "tags": ["Channel"]
+      },
+      "get": {
+        "description": "Retrive information of the given Channel.",
+        "operationId": "getChannel",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "channelId",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Channel"
+                }
+              },
+              "application/xml": {
+                "schema": {
+                  "$ref": "#/components/schemas/Channel"
+                }
+              }
+            },
+            "description": "default response"
+          }
+        },
+        "tags": ["Channel"]
+      },
+      "patch": {
+        "operationId": "patchChannel",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "channelId",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Channel"
+              }
+            },
+            "application/xml": {
+              "schema": {
+                "$ref": "#/components/schemas/Channel"
+              }
+            }
+          }
+        },
+        "responses": {
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Channel"
+                }
+              },
+              "application/xml": {
+                "schema": {
+                  "$ref": "#/components/schemas/Channel"
+                }
+              }
+            },
+            "description": "default response"
+          }
+        },
+        "tags": ["Channel"]
+      },
+      "put": {
+        "operationId": "putChannel",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "channelId",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Channel"
+              }
+            },
+            "application/xml": {
+              "schema": {
+                "$ref": "#/components/schemas/Channel"
+              }
+            }
+          }
+        },
+        "responses": {
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Channel"
+                }
+              },
+              "application/xml": {
+                "schema": {
+                  "$ref": "#/components/schemas/Channel"
+                }
+              }
+            },
+            "description": "default response"
+          }
+        },
+        "tags": ["Channel"]
+      }
+    },
+    "/v1.0/channels/{channelId}/shipping-methods": {
+      "get": {
+        "description": "Retrieves channel shipping methods.",
+        "operationId": "getChannelShippingMethodsPage",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "channelId",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "page",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "pageSize",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PageShippingMethod"
+                }
+              },
+              "application/xml": {
+                "schema": {
+                  "$ref": "#/components/schemas/PageShippingMethod"
+                }
+              }
+            },
+            "description": "default response"
+          }
+        },
+        "tags": ["ShippingMethod"]
+      }
+    },
+    "/v1.0/channels/{channelId}/shipping-methods/export-batch": {
+      "post": {
+        "operationId": "postChannelShippingMethodsPageExportBatch",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "channelId",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "callbackURL",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "contentType",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "fieldNames",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "default": {
+            "content": {
+              "application/json": {}
+            },
+            "description": "default response"
+          }
+        },
+        "tags": ["ShippingMethod"]
+      }
+    },
+    "/v1.0/channels/{id}/category-display-pages": {
+      "get": {
+        "operationId": "getChannelIdCategoryDisplayPagesPage",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "filter",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "page",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "pageSize",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "search",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "sort",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PageCategoryDisplayPage"
+                }
+              },
+              "application/xml": {
+                "schema": {
+                  "$ref": "#/components/schemas/PageCategoryDisplayPage"
+                }
+              }
+            },
+            "description": "default response"
+          }
+        },
+        "tags": ["CategoryDisplayPage"]
+      },
+      "post": {
+        "operationId": "postChannelIdCategoryDisplayPage",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CategoryDisplayPage"
+              }
+            },
+            "application/xml": {
+              "schema": {
+                "$ref": "#/components/schemas/CategoryDisplayPage"
+              }
+            }
+          }
+        },
+        "responses": {
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CategoryDisplayPage"
+                }
+              },
+              "application/xml": {
+                "schema": {
+                  "$ref": "#/components/schemas/CategoryDisplayPage"
+                }
+              }
+            },
+            "description": "default response"
+          }
+        },
+        "tags": ["CategoryDisplayPage"]
+      }
+    },
+    "/v1.0/channels/{id}/channel-accounts": {
+      "get": {
+        "operationId": "getChannelIdChannelAccountsPage",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "filter",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "page",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "pageSize",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "search",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "sort",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PageChannelAccount"
+                }
+              },
+              "application/xml": {
+                "schema": {
+                  "$ref": "#/components/schemas/PageChannelAccount"
+                }
+              }
+            },
+            "description": "default response"
+          }
+        },
+        "tags": ["ChannelAccount"]
+      },
+      "post": {
+        "operationId": "postChannelIdChannelAccount",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ChannelAccount"
+              }
+            },
+            "application/xml": {
+              "schema": {
+                "$ref": "#/components/schemas/ChannelAccount"
+              }
+            }
+          }
+        },
+        "responses": {
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ChannelAccount"
+                }
+              },
+              "application/xml": {
+                "schema": {
+                  "$ref": "#/components/schemas/ChannelAccount"
+                }
+              }
+            },
+            "description": "default response"
+          }
+        },
+        "tags": ["ChannelAccount"]
+      }
+    },
+    "/v1.0/channels/{id}/default-category-display-pages": {
+      "delete": {
+        "operationId": "deleteChannelIdDefaultCategoryDisplayPage",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "default": {
+            "content": {
+              "application/json": {},
+              "application/xml": {}
+            },
+            "description": "default response"
+          }
+        },
+        "tags": ["DefaultCategoryDisplayPage"]
+      },
+      "get": {
+        "operationId": "getChannelIdDefaultCategoryDisplayPage",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DefaultCategoryDisplayPage"
+                }
+              },
+              "application/xml": {
+                "schema": {
+                  "$ref": "#/components/schemas/DefaultCategoryDisplayPage"
+                }
+              }
+            },
+            "description": "default response"
+          }
+        },
+        "tags": ["DefaultCategoryDisplayPage"]
+      },
+      "post": {
+        "operationId": "postChannelIdDefaultCategoryDisplayPage",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DefaultCategoryDisplayPage"
+              }
+            },
+            "application/xml": {
+              "schema": {
+                "$ref": "#/components/schemas/DefaultCategoryDisplayPage"
+              }
+            }
+          }
+        },
+        "responses": {
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DefaultCategoryDisplayPage"
+                }
+              },
+              "application/xml": {
+                "schema": {
+                  "$ref": "#/components/schemas/DefaultCategoryDisplayPage"
+                }
+              }
+            },
+            "description": "default response"
+          }
+        },
+        "tags": ["DefaultCategoryDisplayPage"]
+      }
+    },
+    "/v1.0/channels/{id}/default-product-display-pages": {
+      "delete": {
+        "operationId": "deleteChannelIdDefaultProductDisplayPage",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "default": {
+            "content": {
+              "application/json": {},
+              "application/xml": {}
+            },
+            "description": "default response"
+          }
+        },
+        "tags": ["DefaultProductDisplayPage"]
+      },
+      "get": {
+        "operationId": "getChannelIdDefaultProductDisplayPage",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DefaultProductDisplayPage"
+                }
+              },
+              "application/xml": {
+                "schema": {
+                  "$ref": "#/components/schemas/DefaultProductDisplayPage"
+                }
+              }
+            },
+            "description": "default response"
+          }
+        },
+        "tags": ["DefaultProductDisplayPage"]
+      },
+      "post": {
+        "operationId": "postChannelIdDefaultProductDisplayPage",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DefaultProductDisplayPage"
+              }
+            },
+            "application/xml": {
+              "schema": {
+                "$ref": "#/components/schemas/DefaultProductDisplayPage"
+              }
+            }
+          }
+        },
+        "responses": {
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DefaultProductDisplayPage"
+                }
+              },
+              "application/xml": {
+                "schema": {
+                  "$ref": "#/components/schemas/DefaultProductDisplayPage"
+                }
+              }
+            },
+            "description": "default response"
+          }
+        },
+        "tags": ["DefaultProductDisplayPage"]
+      }
+    },
+    "/v1.0/channels/{id}/product-display-pages": {
+      "get": {
+        "operationId": "getChannelIdProductDisplayPagesPage",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "filter",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "page",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "pageSize",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "search",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "sort",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PageProductDisplayPage"
+                }
+              },
+              "application/xml": {
+                "schema": {
+                  "$ref": "#/components/schemas/PageProductDisplayPage"
+                }
+              }
+            },
+            "description": "default response"
+          }
+        },
+        "tags": ["ProductDisplayPage"]
+      },
+      "post": {
+        "operationId": "postChannelIdProductDisplayPage",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ProductDisplayPage"
+              }
+            },
+            "application/xml": {
+              "schema": {
+                "$ref": "#/components/schemas/ProductDisplayPage"
+              }
+            }
+          }
+        },
+        "responses": {
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProductDisplayPage"
+                }
+              },
+              "application/xml": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProductDisplayPage"
+                }
+              }
+            },
+            "description": "default response"
+          }
+        },
+        "tags": ["ProductDisplayPage"]
+      }
+    },
+    "/v1.0/openapi.{type}": {
+      "get": {
+        "operationId": "getOpenAPI",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "type",
+            "required": true,
+            "schema": {
+              "pattern": "json|yaml",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "default": {
+            "content": {
+              "application/json": {},
+              "application/yaml": {}
+            },
+            "description": "default response"
+          }
+        }
+      }
+    },
+    "/v1.0/payment-method-group-rel-order-types/batch": {
+      "delete": {
+        "operationId": "deletePaymentMethodGroupRelOrderTypeBatch",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "callbackURL",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              }
+            }
+          }
+        },
+        "responses": {
+          "default": {
+            "content": {
+              "application/json": {}
+            },
+            "description": "default response"
+          }
+        },
+        "tags": ["PaymentMethodGroupRelOrderType"]
+      }
+    },
+    "/v1.0/payment-method-group-rel-order-types/{paymentMethodGroupRelOrderTypeId}": {
+      "delete": {
+        "operationId": "deletePaymentMethodGroupRelOrderType",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "paymentMethodGroupRelOrderTypeId",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "default": {
+            "content": {
+              "application/json": {},
+              "application/xml": {}
+            },
+            "description": "default response"
+          }
+        },
+        "tags": ["PaymentMethodGroupRelOrderType"]
+      }
+    },
+    "/v1.0/payment-method-group-rel-order-types/{paymentMethodGroupRelOrderTypeId}/order-type": {
+      "get": {
+        "operationId": "getPaymentMethodGroupRelOrderTypeOrderType",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "paymentMethodGroupRelOrderTypeId",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OrderType"
+                }
+              },
+              "application/xml": {
+                "schema": {
+                  "$ref": "#/components/schemas/OrderType"
+                }
+              }
+            },
+            "description": "default response"
+          }
+        },
+        "tags": ["OrderType"]
+      }
+    },
+    "/v1.0/payment-method-group-rel-terms/batch": {
+      "delete": {
+        "operationId": "deletePaymentMethodGroupRelTermBatch",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "callbackURL",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              }
+            }
+          }
+        },
+        "responses": {
+          "default": {
+            "content": {
+              "application/json": {}
+            },
+            "description": "default response"
+          }
+        },
+        "tags": ["PaymentMethodGroupRelTerm"]
+      }
+    },
+    "/v1.0/payment-method-group-rel-terms/{paymentMethodGroupRelTermId}": {
+      "delete": {
+        "operationId": "deletePaymentMethodGroupRelTerm",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "paymentMethodGroupRelTermId",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "default": {
+            "content": {
+              "application/json": {},
+              "application/xml": {}
+            },
+            "description": "default response"
+          }
+        },
+        "tags": ["PaymentMethodGroupRelTerm"]
+      }
+    },
+    "/v1.0/payment-method-group-rel-terms/{paymentMethodGroupRelTermId}/term": {
+      "get": {
+        "operationId": "getPaymentMethodGroupRelTermTerm",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "paymentMethodGroupRelTermId",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Term"
+                }
+              },
+              "application/xml": {
+                "schema": {
+                  "$ref": "#/components/schemas/Term"
+                }
+              }
+            },
+            "description": "default response"
+          }
+        },
+        "tags": ["Term"]
+      }
+    },
+    "/v1.0/payment-method-group-rels/{id}/payment-method-group-rel-order-types": {
+      "get": {
+        "operationId": "getPaymentMethodGroupRelIdPaymentMethodGroupRelOrderTypesPage",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "filter",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "page",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "pageSize",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "search",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "sort",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PagePaymentMethodGroupRelOrderType"
+                }
+              },
+              "application/xml": {
+                "schema": {
+                  "$ref": "#/components/schemas/PagePaymentMethodGroupRelOrderType"
+                }
+              }
+            },
+            "description": "default response"
+          }
+        },
+        "tags": ["PaymentMethodGroupRelOrderType"]
+      },
+      "post": {
+        "operationId": "postPaymentMethodGroupRelIdPaymentMethodGroupRelOrderType",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PaymentMethodGroupRelOrderType"
+              }
+            },
+            "application/xml": {
+              "schema": {
+                "$ref": "#/components/schemas/PaymentMethodGroupRelOrderType"
+              }
+            }
+          }
+        },
+        "responses": {
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PaymentMethodGroupRelOrderType"
+                }
+              },
+              "application/xml": {
+                "schema": {
+                  "$ref": "#/components/schemas/PaymentMethodGroupRelOrderType"
+                }
+              }
+            },
+            "description": "default response"
+          }
+        },
+        "tags": ["PaymentMethodGroupRelOrderType"]
+      }
+    },
+    "/v1.0/payment-method-group-rels/{id}/payment-method-group-rel-terms": {
+      "get": {
+        "operationId": "getPaymentMethodGroupRelIdPaymentMethodGroupRelTermsPage",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "filter",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "page",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "pageSize",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "search",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "sort",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PagePaymentMethodGroupRelTerm"
+                }
+              },
+              "application/xml": {
+                "schema": {
+                  "$ref": "#/components/schemas/PagePaymentMethodGroupRelTerm"
+                }
+              }
+            },
+            "description": "default response"
+          }
+        },
+        "tags": ["PaymentMethodGroupRelTerm"]
+      },
+      "post": {
+        "operationId": "postPaymentMethodGroupRelIdPaymentMethodGroupRelTerm",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PaymentMethodGroupRelTerm"
+              }
+            },
+            "application/xml": {
+              "schema": {
+                "$ref": "#/components/schemas/PaymentMethodGroupRelTerm"
+              }
+            }
+          }
+        },
+        "responses": {
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PaymentMethodGroupRelTerm"
+                }
+              },
+              "application/xml": {
+                "schema": {
+                  "$ref": "#/components/schemas/PaymentMethodGroupRelTerm"
+                }
+              }
+            },
+            "description": "default response"
+          }
+        },
+        "tags": ["PaymentMethodGroupRelTerm"]
+      }
+    },
+    "/v1.0/product-display-pages/batch": {
+      "delete": {
+        "operationId": "deleteProductDisplayPageBatch",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "callbackURL",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              }
+            }
+          }
+        },
+        "responses": {
+          "default": {
+            "content": {
+              "application/json": {}
+            },
+            "description": "default response"
+          }
+        },
+        "tags": ["ProductDisplayPage"]
+      }
+    },
+    "/v1.0/product-display-pages/{id}": {
+      "delete": {
+        "operationId": "deleteProductDisplayPage",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "default": {
+            "content": {
+              "application/json": {},
+              "application/xml": {}
+            },
+            "description": "default response"
+          }
+        },
+        "tags": ["ProductDisplayPage"]
+      },
+      "get": {
+        "operationId": "getProductDisplayPage",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProductDisplayPage"
+                }
+              },
+              "application/xml": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProductDisplayPage"
+                }
+              }
+            },
+            "description": "default response"
+          }
+        },
+        "tags": ["ProductDisplayPage"]
+      },
+      "patch": {
+        "operationId": "patchProductDisplayPage",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ProductDisplayPage"
+              }
+            },
+            "application/xml": {
+              "schema": {
+                "$ref": "#/components/schemas/ProductDisplayPage"
+              }
+            }
+          }
+        },
+        "responses": {
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProductDisplayPage"
+                }
+              },
+              "application/xml": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProductDisplayPage"
+                }
+              }
+            },
+            "description": "default response"
+          }
+        },
+        "tags": ["ProductDisplayPage"]
+      }
+    },
+    "/v1.0/shipping-fixed-option-order-types/batch": {
+      "delete": {
+        "operationId": "deleteShippingFixedOptionOrderTypeBatch",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "callbackURL",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              }
+            }
+          }
+        },
+        "responses": {
+          "default": {
+            "content": {
+              "application/json": {}
+            },
+            "description": "default response"
+          }
+        },
+        "tags": ["ShippingFixedOptionOrderType"]
+      }
+    },
+    "/v1.0/shipping-fixed-option-order-types/{shippingFixedOptionOrderTypeId}": {
+      "delete": {
+        "operationId": "deleteShippingFixedOptionOrderType",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "shippingFixedOptionOrderTypeId",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "default": {
+            "content": {
+              "application/json": {},
+              "application/xml": {}
+            },
+            "description": "default response"
+          }
+        },
+        "tags": ["ShippingFixedOptionOrderType"]
+      }
+    },
+    "/v1.0/shipping-fixed-option-order-types/{shippingFixedOptionOrderTypeId}/order-type": {
+      "get": {
+        "operationId": "getShippingFixedOptionOrderTypeOrderType",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "shippingFixedOptionOrderTypeId",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OrderType"
+                }
+              },
+              "application/xml": {
+                "schema": {
+                  "$ref": "#/components/schemas/OrderType"
+                }
+              }
+            },
+            "description": "default response"
+          }
+        },
+        "tags": ["OrderType"]
+      }
+    },
+    "/v1.0/shipping-fixed-option-terms/batch": {
+      "delete": {
+        "operationId": "deleteShippingFixedOptionTermBatch",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "callbackURL",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              }
+            }
+          }
+        },
+        "responses": {
+          "default": {
+            "content": {
+              "application/json": {}
+            },
+            "description": "default response"
+          }
+        },
+        "tags": ["ShippingFixedOptionTerm"]
+      }
+    },
+    "/v1.0/shipping-fixed-option-terms/{shippingFixedOptionTermId}": {
+      "delete": {
+        "operationId": "deleteShippingFixedOptionTerm",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "shippingFixedOptionTermId",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "default": {
+            "content": {
+              "application/json": {},
+              "application/xml": {}
+            },
+            "description": "default response"
+          }
+        },
+        "tags": ["ShippingFixedOptionTerm"]
+      }
+    },
+    "/v1.0/shipping-fixed-option-terms/{shippingFixedOptionTermId}/term": {
+      "get": {
+        "operationId": "getShippingFixedOptionTermTerm",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "shippingFixedOptionTermId",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Term"
+                }
+              },
+              "application/xml": {
+                "schema": {
+                  "$ref": "#/components/schemas/Term"
+                }
+              }
+            },
+            "description": "default response"
+          }
+        },
+        "tags": ["Term"]
+      }
+    },
+    "/v1.0/shipping-fixed-options/{id}/shipping-fixed-option-order-types": {
+      "get": {
+        "operationId": "getShippingFixedOptionIdShippingFixedOptionOrderTypesPage",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "filter",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "page",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "pageSize",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "search",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "sort",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PageShippingFixedOptionOrderType"
+                }
+              },
+              "application/xml": {
+                "schema": {
+                  "$ref": "#/components/schemas/PageShippingFixedOptionOrderType"
+                }
+              }
+            },
+            "description": "default response"
+          }
+        },
+        "tags": ["ShippingFixedOptionOrderType"]
+      },
+      "post": {
+        "operationId": "postShippingFixedOptionIdShippingFixedOptionOrderType",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ShippingFixedOptionOrderType"
+              }
+            },
+            "application/xml": {
+              "schema": {
+                "$ref": "#/components/schemas/ShippingFixedOptionOrderType"
+              }
+            }
+          }
+        },
+        "responses": {
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ShippingFixedOptionOrderType"
+                }
+              },
+              "application/xml": {
+                "schema": {
+                  "$ref": "#/components/schemas/ShippingFixedOptionOrderType"
+                }
+              }
+            },
+            "description": "default response"
+          }
+        },
+        "tags": ["ShippingFixedOptionOrderType"]
+      }
+    },
+    "/v1.0/shipping-fixed-options/{id}/shipping-fixed-option-terms": {
+      "get": {
+        "operationId": "getShippingFixedOptionIdShippingFixedOptionTermsPage",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "filter",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "page",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "pageSize",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "search",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "sort",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PageShippingFixedOptionTerm"
+                }
+              },
+              "application/xml": {
+                "schema": {
+                  "$ref": "#/components/schemas/PageShippingFixedOptionTerm"
+                }
+              }
+            },
+            "description": "default response"
+          }
+        },
+        "tags": ["ShippingFixedOptionTerm"]
+      },
+      "post": {
+        "operationId": "postShippingFixedOptionIdShippingFixedOptionTerm",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ShippingFixedOptionTerm"
+              }
+            },
+            "application/xml": {
+              "schema": {
+                "$ref": "#/components/schemas/ShippingFixedOptionTerm"
+              }
+            }
+          }
+        },
+        "responses": {
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ShippingFixedOptionTerm"
+                }
+              },
+              "application/xml": {
+                "schema": {
+                  "$ref": "#/components/schemas/ShippingFixedOptionTerm"
+                }
+              }
+            },
+            "description": "default response"
+          }
+        },
+        "tags": ["ShippingFixedOptionTerm"]
+      }
+    },
+    "/v1.0/tax-categories": {
+      "get": {
+        "operationId": "getTaxCategoriesPage",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "page",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "pageSize",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "search",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PageTaxCategory"
+                }
+              },
+              "application/xml": {
+                "schema": {
+                  "$ref": "#/components/schemas/PageTaxCategory"
+                }
+              }
+            },
+            "description": "default response"
+          }
+        },
+        "tags": ["TaxCategory"]
+      }
+    },
+    "/v1.0/tax-categories/export-batch": {
+      "post": {
+        "operationId": "postTaxCategoriesPageExportBatch",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "search",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "callbackURL",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "contentType",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "fieldNames",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "default": {
+            "content": {
+              "application/json": {}
+            },
+            "description": "default response"
+          }
+        },
+        "tags": ["TaxCategory"]
+      }
+    },
+    "/v1.0/tax-categories/{id}": {
+      "get": {
+        "operationId": "getTaxCategory",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TaxCategory"
+                }
+              },
+              "application/xml": {
+                "schema": {
+                  "$ref": "#/components/schemas/TaxCategory"
+                }
+              }
+            },
+            "description": "default response"
+          }
+        },
+        "tags": ["TaxCategory"]
+      }
+    }
+  },
+  "servers": [
+    {
+      "url": "http://localhost:8080/o/headless-commerce-admin-channel/"
+    }
+  ]
+}

@@ -1,0 +1,3813 @@
+{
+  "timestamp": "2026-05-11T07:47:51.320Z",
+  "level": "TRACE",
+  "message": "http:get",
+  "correlationId": "system",
+  "environment": "test",
+  "service": "liferay-ai-data-microservice",
+  "version": "1.0.0",
+  "url": "/o/headless-commerce-admin-catalog/v1.0/products?filter=catalogId+eq+123&page=1&pageSize=200",
+  "params": {
+    "filter": "catalogId eq 123",
+    "page": 1,
+    "pageSize": 200
+  }
+}
+{
+  "timestamp": "2026-05-11T07:47:51.322Z",
+  "level": "DEBUG",
+  "message": "Liferay API Request",
+  "operation": "get-products-bulk",
+  "environment": "test",
+  "service": "liferay-ai-data-microservice",
+  "version": "1.0.0",
+  "method": "GET",
+  "url": "/o/headless-commerce-admin-catalog/v1.0/products?filter=catalogId+eq+123&page=1&pageSize=200"
+}
+{
+  "timestamp": "2026-05-11T07:47:51.368Z",
+  "level": "DEBUG",
+  "message": "Liferay API Response",
+  "operation": "get-products-bulk",
+  "environment": "test",
+  "service": "liferay-ai-data-microservice",
+  "version": "1.0.0",
+  "status": 200,
+  "itemCount": 1,
+  "totalCount": 1
+}
+{
+  "timestamp": "2026-05-11T07:47:51.420Z",
+  "level": "TRACE",
+  "message": "http:get",
+  "correlationId": "system",
+  "environment": "test",
+  "service": "liferay-ai-data-microservice",
+  "version": "1.0.0",
+  "url": "/o/headless-admin-user/v1.0/accounts?page=1&pageSize=200",
+  "params": {
+    "page": 1,
+    "pageSize": 200
+  }
+}
+{
+  "timestamp": "2026-05-11T07:47:51.420Z",
+  "level": "DEBUG",
+  "message": "Liferay API Request",
+  "operation": "get-accounts-bulk",
+  "environment": "test",
+  "service": "liferay-ai-data-microservice",
+  "version": "1.0.0",
+  "method": "GET",
+  "url": "/o/headless-admin-user/v1.0/accounts?page=1&pageSize=200"
+}
+{
+  "timestamp": "2026-05-11T07:47:51.433Z",
+  "level": "DEBUG",
+  "message": "Liferay API Response",
+  "operation": "get-accounts-bulk",
+  "environment": "test",
+  "service": "liferay-ai-data-microservice",
+  "version": "1.0.0",
+  "status": 200,
+  "itemCount": 1,
+  "totalCount": 1
+}
+{
+  "timestamp": "2026-05-11T07:47:51.533Z",
+  "level": "TRACE",
+  "message": "http:get",
+  "correlationId": "system",
+  "environment": "test",
+  "service": "liferay-ai-data-microservice",
+  "version": "1.0.0",
+  "url": "/o/headless-commerce-admin-order/v1.0/orders?page=1&pageSize=200",
+  "params": {
+    "filter": null,
+    "page": 1,
+    "pageSize": 200
+  }
+}
+{
+  "timestamp": "2026-05-11T07:47:51.534Z",
+  "level": "DEBUG",
+  "message": "Liferay API Request",
+  "operation": "get-orders-bulk",
+  "environment": "test",
+  "service": "liferay-ai-data-microservice",
+  "version": "1.0.0",
+  "method": "GET",
+  "url": "/o/headless-commerce-admin-order/v1.0/orders?page=1&pageSize=200"
+}
+{
+  "timestamp": "2026-05-11T07:47:51.539Z",
+  "level": "DEBUG",
+  "message": "Liferay API Response",
+  "operation": "get-orders-bulk",
+  "environment": "test",
+  "service": "liferay-ai-data-microservice",
+  "version": "1.0.0",
+  "status": 200,
+  "itemCount": 1,
+  "totalCount": 1
+}
+{
+  "timestamp": "2026-05-11T07:47:51.602Z",
+  "level": "TRACE",
+  "message": "http:get",
+  "correlationId": "system",
+  "environment": "test",
+  "service": "liferay-ai-data-microservice",
+  "version": "1.0.0",
+  "url": "/o/headless-commerce-admin-catalog/v1.0/catalogs?page=1&pageSize=100",
+  "params": {
+    "page": 1,
+    "pageSize": 100
+  }
+}
+{
+  "timestamp": "2026-05-11T07:47:51.602Z",
+  "level": "DEBUG",
+  "message": "Liferay API Request",
+  "operation": "get-catalogs-bulk",
+  "environment": "test",
+  "service": "liferay-ai-data-microservice",
+  "version": "1.0.0",
+  "method": "GET",
+  "url": "/o/headless-commerce-admin-catalog/v1.0/catalogs?page=1&pageSize=100"
+}
+{
+  "timestamp": "2026-05-11T07:47:51.610Z",
+  "level": "DEBUG",
+  "message": "Liferay API Response",
+  "operation": "get-catalogs-bulk",
+  "environment": "test",
+  "service": "liferay-ai-data-microservice",
+  "version": "1.0.0",
+  "status": 200,
+  "itemCount": 1,
+  "totalCount": 1
+}
+{
+  "timestamp": "2026-05-11T07:47:51.611Z",
+  "level": "TRACE",
+  "message": "http:get",
+  "correlationId": "system",
+  "environment": "test",
+  "service": "liferay-ai-data-microservice",
+  "version": "1.0.0",
+  "url": "/o/headless-commerce-admin-pricing/v2.0/price-lists?pageSize=200"
+}
+{
+  "timestamp": "2026-05-11T07:47:51.612Z",
+  "level": "DEBUG",
+  "message": "Liferay API Request",
+  "operation": "get-price-lists",
+  "environment": "test",
+  "service": "liferay-ai-data-microservice",
+  "version": "1.0.0",
+  "method": "GET",
+  "url": "/o/headless-commerce-admin-pricing/v2.0/price-lists?pageSize=200"
+}
+{
+  "timestamp": "2026-05-11T07:47:51.617Z",
+  "level": "DEBUG",
+  "message": "Liferay API Response",
+  "operation": "get-price-lists",
+  "environment": "test",
+  "service": "liferay-ai-data-microservice",
+  "version": "1.0.0",
+  "status": 200,
+  "itemCount": 1,
+  "totalCount": 1
+}
+{
+  "timestamp": "2026-05-11T07:47:51.652Z",
+  "level": "TRACE",
+  "message": "http:get",
+  "correlationId": "system",
+  "environment": "test",
+  "service": "liferay-ai-data-microservice",
+  "version": "1.0.0",
+  "url": "/o/headless-commerce-admin-inventory/v1.0/warehouses?page=1&pageSize=200",
+  "params": {
+    "filter": null,
+    "page": 1,
+    "pageSize": 200
+  }
+}
+{
+  "timestamp": "2026-05-11T07:47:51.653Z",
+  "level": "DEBUG",
+  "message": "Liferay API Request",
+  "operation": "get-warehouses-bulk",
+  "environment": "test",
+  "service": "liferay-ai-data-microservice",
+  "version": "1.0.0",
+  "method": "GET",
+  "url": "/o/headless-commerce-admin-inventory/v1.0/warehouses?page=1&pageSize=200"
+}
+{
+  "timestamp": "2026-05-11T07:47:51.657Z",
+  "level": "DEBUG",
+  "message": "Liferay API Response",
+  "operation": "get-warehouses-bulk",
+  "environment": "test",
+  "service": "liferay-ai-data-microservice",
+  "version": "1.0.0",
+  "status": 200,
+  "itemCount": 1,
+  "totalCount": 1
+}
+{
+  "timestamp": "2026-05-11T07:47:51.692Z",
+  "level": "TRACE",
+  "message": "http:get",
+  "correlationId": "system",
+  "environment": "test",
+  "service": "liferay-ai-data-microservice",
+  "version": "1.0.0",
+  "url": "/o/headless-batch-engine/v1.0/import-task/9001"
+}
+{
+  "timestamp": "2026-05-11T07:47:51.693Z",
+  "level": "DEBUG",
+  "message": "Liferay API Request",
+  "operation": "import-task",
+  "environment": "test",
+  "service": "liferay-ai-data-microservice",
+  "version": "1.0.0",
+  "method": "GET",
+  "url": "/o/headless-batch-engine/v1.0/import-task/9001"
+}
+{
+  "timestamp": "2026-05-11T07:47:51.697Z",
+  "level": "DEBUG",
+  "message": "Liferay API Response",
+  "operation": "import-task",
+  "environment": "test",
+  "service": "liferay-ai-data-microservice",
+  "version": "1.0.0",
+  "status": 200,
+  "dataKeys": [
+    "id",
+    "status",
+    "executeStatus",
+    "processedItemsCount",
+    "totalItemsCount"
+  ]
+}
+{
+  "timestamp": "2026-05-11T07:47:51.801Z",
+  "level": "TRACE",
+  "message": "http:get",
+  "correlationId": "system",
+  "environment": "test",
+  "service": "liferay-ai-data-microservice",
+  "version": "1.0.0",
+  "url": "/o/headless-commerce-admin-catalog/v1.0/catalogs?page=1&pageSize=100",
+  "params": {
+    "page": 1,
+    "pageSize": 100
+  }
+}
+{
+  "timestamp": "2026-05-11T07:47:51.805Z",
+  "level": "DEBUG",
+  "message": "Liferay API Request",
+  "operation": "get-catalogs-bulk",
+  "environment": "test",
+  "service": "liferay-ai-data-microservice",
+  "version": "1.0.0",
+  "method": "GET",
+  "url": "/o/headless-commerce-admin-catalog/v1.0/catalogs?page=1&pageSize=100"
+}
+{
+  "timestamp": "2026-05-11T07:47:51.808Z",
+  "level": "DEBUG",
+  "message": "Liferay API Response",
+  "operation": "get-catalogs-bulk",
+  "environment": "test",
+  "service": "liferay-ai-data-microservice",
+  "version": "1.0.0",
+  "status": 200,
+  "itemCount": 1,
+  "totalCount": 1
+}
+{
+  "timestamp": "2026-05-11T07:47:51.864Z",
+  "level": "TRACE",
+  "message": "http:get",
+  "correlationId": "system",
+  "environment": "test",
+  "service": "liferay-ai-data-microservice",
+  "version": "1.0.0",
+  "url": "/o/headless-commerce-admin-channel/v1.0/channels?page=1&pageSize=100",
+  "params": {
+    "page": 1,
+    "pageSize": 100
+  }
+}
+{
+  "timestamp": "2026-05-11T07:47:51.865Z",
+  "level": "DEBUG",
+  "message": "Liferay API Request",
+  "operation": "get-channels-bulk",
+  "environment": "test",
+  "service": "liferay-ai-data-microservice",
+  "version": "1.0.0",
+  "method": "GET",
+  "url": "/o/headless-commerce-admin-channel/v1.0/channels?page=1&pageSize=100"
+}
+{
+  "timestamp": "2026-05-11T07:47:51.870Z",
+  "level": "DEBUG",
+  "message": "Liferay API Response",
+  "operation": "get-channels-bulk",
+  "environment": "test",
+  "service": "liferay-ai-data-microservice",
+  "version": "1.0.0",
+  "status": 200,
+  "itemCount": 1,
+  "totalCount": 1
+}
+{
+  "timestamp": "2026-05-11T07:47:51.906Z",
+  "level": "TRACE",
+  "message": "http:get",
+  "correlationId": "system",
+  "environment": "test",
+  "service": "liferay-ai-data-microservice",
+  "version": "1.0.0",
+  "url": "/o/headless-commerce-admin-catalog/v1.0/currencies"
+}
+{
+  "timestamp": "2026-05-11T07:47:51.907Z",
+  "level": "DEBUG",
+  "message": "Liferay API Request",
+  "operation": "get-currencies",
+  "environment": "test",
+  "service": "liferay-ai-data-microservice",
+  "version": "1.0.0",
+  "method": "GET",
+  "url": "/o/headless-commerce-admin-catalog/v1.0/currencies"
+}
+{
+  "timestamp": "2026-05-11T07:47:51.912Z",
+  "level": "DEBUG",
+  "message": "Liferay API Response",
+  "operation": "get-currencies",
+  "environment": "test",
+  "service": "liferay-ai-data-microservice",
+  "version": "1.0.0",
+  "status": 200,
+  "itemCount": 1,
+  "totalCount": 1
+}
+{
+  "timestamp": "2026-05-11T07:48:33.130Z",
+  "level": "TRACE",
+  "message": "http:get",
+  "correlationId": "system",
+  "environment": "test",
+  "service": "liferay-ai-data-microservice",
+  "version": "1.0.0",
+  "url": "/o/headless-commerce-admin-catalog/v1.0/products?filter=catalogId+eq+123&page=1&pageSize=200",
+  "params": {
+    "filter": "catalogId eq 123",
+    "page": 1,
+    "pageSize": 200
+  }
+}
+{
+  "timestamp": "2026-05-11T07:48:33.133Z",
+  "level": "DEBUG",
+  "message": "Liferay API Request",
+  "operation": "get-products-bulk",
+  "environment": "test",
+  "service": "liferay-ai-data-microservice",
+  "version": "1.0.0",
+  "method": "GET",
+  "url": "/o/headless-commerce-admin-catalog/v1.0/products?filter=catalogId+eq+123&page=1&pageSize=200"
+}
+{
+  "timestamp": "2026-05-11T07:48:33.158Z",
+  "level": "DEBUG",
+  "message": "Liferay API Response",
+  "operation": "get-products-bulk",
+  "environment": "test",
+  "service": "liferay-ai-data-microservice",
+  "version": "1.0.0",
+  "status": 200,
+  "itemCount": 1,
+  "totalCount": 1
+}
+{
+  "timestamp": "2026-05-11T07:48:33.191Z",
+  "level": "TRACE",
+  "message": "http:get",
+  "correlationId": "system",
+  "environment": "test",
+  "service": "liferay-ai-data-microservice",
+  "version": "1.0.0",
+  "url": "/o/headless-admin-user/v1.0/accounts?page=1&pageSize=200",
+  "params": {
+    "page": 1,
+    "pageSize": 200
+  }
+}
+{
+  "timestamp": "2026-05-11T07:48:33.192Z",
+  "level": "DEBUG",
+  "message": "Liferay API Request",
+  "operation": "get-accounts-bulk",
+  "environment": "test",
+  "service": "liferay-ai-data-microservice",
+  "version": "1.0.0",
+  "method": "GET",
+  "url": "/o/headless-admin-user/v1.0/accounts?page=1&pageSize=200"
+}
+{
+  "timestamp": "2026-05-11T07:48:33.203Z",
+  "level": "DEBUG",
+  "message": "Liferay API Response",
+  "operation": "get-accounts-bulk",
+  "environment": "test",
+  "service": "liferay-ai-data-microservice",
+  "version": "1.0.0",
+  "status": 200,
+  "itemCount": 1,
+  "totalCount": 1
+}
+{
+  "timestamp": "2026-05-11T07:48:33.231Z",
+  "level": "TRACE",
+  "message": "http:get",
+  "correlationId": "system",
+  "environment": "test",
+  "service": "liferay-ai-data-microservice",
+  "version": "1.0.0",
+  "url": "/o/headless-commerce-admin-order/v1.0/orders?page=1&pageSize=200",
+  "params": {
+    "filter": null,
+    "page": 1,
+    "pageSize": 200
+  }
+}
+{
+  "timestamp": "2026-05-11T07:48:33.232Z",
+  "level": "DEBUG",
+  "message": "Liferay API Request",
+  "operation": "get-orders-bulk",
+  "environment": "test",
+  "service": "liferay-ai-data-microservice",
+  "version": "1.0.0",
+  "method": "GET",
+  "url": "/o/headless-commerce-admin-order/v1.0/orders?page=1&pageSize=200"
+}
+{
+  "timestamp": "2026-05-11T07:48:33.236Z",
+  "level": "DEBUG",
+  "message": "Liferay API Response",
+  "operation": "get-orders-bulk",
+  "environment": "test",
+  "service": "liferay-ai-data-microservice",
+  "version": "1.0.0",
+  "status": 200,
+  "itemCount": 1,
+  "totalCount": 1
+}
+{
+  "timestamp": "2026-05-11T07:48:33.271Z",
+  "level": "TRACE",
+  "message": "http:get",
+  "correlationId": "system",
+  "environment": "test",
+  "service": "liferay-ai-data-microservice",
+  "version": "1.0.0",
+  "url": "/o/headless-commerce-admin-catalog/v1.0/catalogs?page=1&pageSize=100",
+  "params": {
+    "page": 1,
+    "pageSize": 100
+  }
+}
+{
+  "timestamp": "2026-05-11T07:48:33.271Z",
+  "level": "DEBUG",
+  "message": "Liferay API Request",
+  "operation": "get-catalogs-bulk",
+  "environment": "test",
+  "service": "liferay-ai-data-microservice",
+  "version": "1.0.0",
+  "method": "GET",
+  "url": "/o/headless-commerce-admin-catalog/v1.0/catalogs?page=1&pageSize=100"
+}
+{
+  "timestamp": "2026-05-11T07:48:33.277Z",
+  "level": "DEBUG",
+  "message": "Liferay API Response",
+  "operation": "get-catalogs-bulk",
+  "environment": "test",
+  "service": "liferay-ai-data-microservice",
+  "version": "1.0.0",
+  "status": 200,
+  "itemCount": 1,
+  "totalCount": 1
+}
+{
+  "timestamp": "2026-05-11T07:48:33.278Z",
+  "level": "TRACE",
+  "message": "http:get",
+  "correlationId": "system",
+  "environment": "test",
+  "service": "liferay-ai-data-microservice",
+  "version": "1.0.0",
+  "url": "/o/headless-commerce-admin-pricing/v2.0/price-lists?pageSize=200"
+}
+{
+  "timestamp": "2026-05-11T07:48:33.280Z",
+  "level": "DEBUG",
+  "message": "Liferay API Request",
+  "operation": "get-price-lists",
+  "environment": "test",
+  "service": "liferay-ai-data-microservice",
+  "version": "1.0.0",
+  "method": "GET",
+  "url": "/o/headless-commerce-admin-pricing/v2.0/price-lists?pageSize=200"
+}
+{
+  "timestamp": "2026-05-11T07:48:33.284Z",
+  "level": "DEBUG",
+  "message": "Liferay API Response",
+  "operation": "get-price-lists",
+  "environment": "test",
+  "service": "liferay-ai-data-microservice",
+  "version": "1.0.0",
+  "status": 200,
+  "itemCount": 1,
+  "totalCount": 1
+}
+{
+  "timestamp": "2026-05-11T07:48:33.320Z",
+  "level": "TRACE",
+  "message": "http:get",
+  "correlationId": "system",
+  "environment": "test",
+  "service": "liferay-ai-data-microservice",
+  "version": "1.0.0",
+  "url": "/o/headless-commerce-admin-inventory/v1.0/warehouses?page=1&pageSize=200",
+  "params": {
+    "filter": null,
+    "page": 1,
+    "pageSize": 200
+  }
+}
+{
+  "timestamp": "2026-05-11T07:48:33.320Z",
+  "level": "DEBUG",
+  "message": "Liferay API Request",
+  "operation": "get-warehouses-bulk",
+  "environment": "test",
+  "service": "liferay-ai-data-microservice",
+  "version": "1.0.0",
+  "method": "GET",
+  "url": "/o/headless-commerce-admin-inventory/v1.0/warehouses?page=1&pageSize=200"
+}
+{
+  "timestamp": "2026-05-11T07:48:33.328Z",
+  "level": "DEBUG",
+  "message": "Liferay API Response",
+  "operation": "get-warehouses-bulk",
+  "environment": "test",
+  "service": "liferay-ai-data-microservice",
+  "version": "1.0.0",
+  "status": 200,
+  "itemCount": 1,
+  "totalCount": 1
+}
+{
+  "timestamp": "2026-05-11T07:48:33.363Z",
+  "level": "TRACE",
+  "message": "http:get",
+  "correlationId": "system",
+  "environment": "test",
+  "service": "liferay-ai-data-microservice",
+  "version": "1.0.0",
+  "url": "/o/headless-batch-engine/v1.0/import-task/9001"
+}
+{
+  "timestamp": "2026-05-11T07:48:33.364Z",
+  "level": "DEBUG",
+  "message": "Liferay API Request",
+  "operation": "import-task",
+  "environment": "test",
+  "service": "liferay-ai-data-microservice",
+  "version": "1.0.0",
+  "method": "GET",
+  "url": "/o/headless-batch-engine/v1.0/import-task/9001"
+}
+{
+  "timestamp": "2026-05-11T07:48:33.372Z",
+  "level": "DEBUG",
+  "message": "Liferay API Response",
+  "operation": "import-task",
+  "environment": "test",
+  "service": "liferay-ai-data-microservice",
+  "version": "1.0.0",
+  "status": 200,
+  "dataKeys": [
+    "id",
+    "status",
+    "executeStatus",
+    "processedItemsCount",
+    "totalItemsCount"
+  ]
+}
+{
+  "timestamp": "2026-05-11T07:48:33.424Z",
+  "level": "DEBUG",
+  "message": "Calculated Batch Cache TTL",
+  "correlationId": "system",
+  "environment": "test",
+  "service": "liferay-ai-data-microservice",
+  "version": "1.0.0",
+  "baseMs": 600000,
+  "overrideMs": null,
+  "rawMs": 1800000,
+  "finalTTLMs": 1800000
+}
+{
+  "timestamp": "2026-05-11T07:48:33.425Z",
+  "level": "TRACE",
+  "message": "Outbound payload structure (create-products-batch): {\"batchExternalReferenceCode\":\"AICA-BATCH-1778485713424-0-06008f34\",\"createStrategy\":\"UPSERT\",\"items\":[{\"name\":{\"en_US\":\"Invalid Product\"},\"externalReferenceCode\":\"8aca223d-440a-4ff3-8c7f-e780bd0c3745\"}]}...",
+  "environment": "test",
+  "service": "liferay-ai-data-microservice",
+  "version": "1.0.0"
+}
+{
+  "timestamp": "2026-05-11T07:48:33.426Z",
+  "level": "DEBUG",
+  "message": "Liferay API Request",
+  "operation": "create-products-batch",
+  "environment": "test",
+  "service": "liferay-ai-data-microservice",
+  "version": "1.0.0",
+  "method": "POST",
+  "url": "/o/headless-commerce-admin-catalog/v1.0/products/batch?callbackURL=http%3A%2F%2Flocalhost%3A3001%2Fapi%2Fv1%2Fbatch%2Fcallback%3FopCode%3Dcreate%26batchExternalReferenceCode%3DAICA-BATCH-1778485713424-0-06008f34",
+  "data": "{\n  \"batchExternalReferenceCode\": \"AICA-BATCH-1778485713424-0-06008f34\",\n  \"createStrategy\": \"UPSERT\",\n  \"items\": [\n    {\n      \"name\": {\n        \"en_US\": \"Invalid Product\"\n      },\n      \"externalReferenceCode\": \"8aca223d-440a-4ff3-8c7f-e780bd0c3745\"\n    }\n  ]\n}"
+}
+{
+  "timestamp": "2026-05-11T07:48:33.439Z",
+  "level": "ERROR",
+  "message": "getaddrinfo ENOTFOUND liferay",
+  "environment": "test",
+  "service": "liferay-ai-data-microservice",
+  "version": "1.0.0",
+  "op": "create-products-batch",
+  "friendly": "Failed to create products batch",
+  "method": "POST",
+  "url": "/o/headless-commerce-admin-catalog/v1.0/products/batch?callbackURL=http%3A%2F%2Flocalhost%3A3001%2Fapi%2Fv1%2Fbatch%2Fcallback%3FopCode%3Dcreate%26batchExternalReferenceCode%3DAICA-BATCH-1778485713424-0-06008f34",
+  "errorReference": "AICA-ERR-1778485713439-0-74e98c59",
+  "errorName": "Error",
+  "errorCode": "ENOTFOUND",
+  "stack": "Error: getaddrinfo ENOTFOUND liferay\n    at Function.from (/Volumes/SanDisk/repos/liferay-ai-commerce-accelerator/node_modules/axios/dist/node/axios.cjs:1248:24)\n    at RedirectableRequest.handleRequestError (/Volumes/SanDisk/repos/liferay-ai-commerce-accelerator/node_modules/axios/dist/node/axios.cjs:3611:25)\n    at RedirectableRequest.emit (node:events:530:35)\n    at emitErrorNT (node:internal/streams/destroy:169:8)\n    at emitErrorCloseNT (node:internal/streams/destroy:128:3)\n    at processTicksAndRejections (node:internal/process/task_queues:82:21)\n    at Axios.request (/Volumes/SanDisk/repos/liferay-ai-commerce-accelerator/node_modules/axios/dist/node/axios.cjs:4871:41)\n    at processTicksAndRejections (node:internal/process/task_queues:95:5)\n    at LiferayRestService._request (/Volumes/SanDisk/repos/liferay-ai-commerce-accelerator/client-extensions/liferay-accelerator-sdk/src/liferay/rest.cjs:158:19)\n    at LiferayRestService._postBatch (/Volumes/SanDisk/repos/liferay-ai-commerce-accelerator/client-extensions/liferay-accelerator-sdk/src/liferay/rest.cjs:999:22)\n    at LiferayRestService.createProductsBatch (/Volumes/SanDisk/repos/liferay-ai-commerce-accelerator/client-extensions/liferay-accelerator-sdk/src/liferay/rest.cjs:1465:21)\n    at /Volumes/SanDisk/repos/liferay-ai-commerce-accelerator/client-extensions/ai-commerce-accelerator-microservice/tests/liferayService.test.cjs:103:5\n    at file:///Volumes/SanDisk/repos/liferay-ai-commerce-accelerator/node_modules/@vitest/runner/dist/chunk-artifact.js:1903:20"
+}
+{
+  "timestamp": "2026-05-11T07:48:33.479Z",
+  "level": "TRACE",
+  "message": "http:get",
+  "correlationId": "system",
+  "environment": "test",
+  "service": "liferay-ai-data-microservice",
+  "version": "1.0.0",
+  "url": "/o/headless-commerce-admin-catalog/v1.0/catalogs?page=1&pageSize=100",
+  "params": {
+    "page": 1,
+    "pageSize": 100
+  }
+}
+{
+  "timestamp": "2026-05-11T07:48:33.480Z",
+  "level": "DEBUG",
+  "message": "Liferay API Request",
+  "operation": "get-catalogs-bulk",
+  "environment": "test",
+  "service": "liferay-ai-data-microservice",
+  "version": "1.0.0",
+  "method": "GET",
+  "url": "/o/headless-commerce-admin-catalog/v1.0/catalogs?page=1&pageSize=100"
+}
+{
+  "timestamp": "2026-05-11T07:48:33.483Z",
+  "level": "DEBUG",
+  "message": "Liferay API Response",
+  "operation": "get-catalogs-bulk",
+  "environment": "test",
+  "service": "liferay-ai-data-microservice",
+  "version": "1.0.0",
+  "status": 200,
+  "itemCount": 1,
+  "totalCount": 1
+}
+{
+  "timestamp": "2026-05-11T07:48:33.575Z",
+  "level": "TRACE",
+  "message": "http:get",
+  "correlationId": "system",
+  "environment": "test",
+  "service": "liferay-ai-data-microservice",
+  "version": "1.0.0",
+  "url": "/o/headless-commerce-admin-channel/v1.0/channels?page=1&pageSize=100",
+  "params": {
+    "page": 1,
+    "pageSize": 100
+  }
+}
+{
+  "timestamp": "2026-05-11T07:48:33.576Z",
+  "level": "DEBUG",
+  "message": "Liferay API Request",
+  "operation": "get-channels-bulk",
+  "environment": "test",
+  "service": "liferay-ai-data-microservice",
+  "version": "1.0.0",
+  "method": "GET",
+  "url": "/o/headless-commerce-admin-channel/v1.0/channels?page=1&pageSize=100"
+}
+{
+  "timestamp": "2026-05-11T07:48:33.580Z",
+  "level": "DEBUG",
+  "message": "Liferay API Response",
+  "operation": "get-channels-bulk",
+  "environment": "test",
+  "service": "liferay-ai-data-microservice",
+  "version": "1.0.0",
+  "status": 200,
+  "itemCount": 1,
+  "totalCount": 1
+}
+{
+  "timestamp": "2026-05-11T07:48:33.610Z",
+  "level": "TRACE",
+  "message": "http:get",
+  "correlationId": "system",
+  "environment": "test",
+  "service": "liferay-ai-data-microservice",
+  "version": "1.0.0",
+  "url": "/o/headless-commerce-admin-catalog/v1.0/currencies"
+}
+{
+  "timestamp": "2026-05-11T07:48:33.611Z",
+  "level": "DEBUG",
+  "message": "Liferay API Request",
+  "operation": "get-currencies",
+  "environment": "test",
+  "service": "liferay-ai-data-microservice",
+  "version": "1.0.0",
+  "method": "GET",
+  "url": "/o/headless-commerce-admin-catalog/v1.0/currencies"
+}
+{
+  "timestamp": "2026-05-11T07:48:33.614Z",
+  "level": "DEBUG",
+  "message": "Liferay API Response",
+  "operation": "get-currencies",
+  "environment": "test",
+  "service": "liferay-ai-data-microservice",
+  "version": "1.0.0",
+  "status": 200,
+  "itemCount": 1,
+  "totalCount": 1
+}
+{
+  "timestamp": "2026-05-11T07:49:58.673Z",
+  "level": "TRACE",
+  "message": "http:get",
+  "correlationId": "system",
+  "environment": "test",
+  "service": "liferay-ai-data-microservice",
+  "version": "1.0.0",
+  "url": "/o/headless-commerce-admin-catalog/v1.0/products?filter=catalogId+eq+123&page=1&pageSize=200",
+  "params": {
+    "filter": "catalogId eq 123",
+    "page": 1,
+    "pageSize": 200
+  }
+}
+{
+  "timestamp": "2026-05-11T07:49:58.675Z",
+  "level": "DEBUG",
+  "message": "Liferay API Request",
+  "operation": "get-products-bulk",
+  "environment": "test",
+  "service": "liferay-ai-data-microservice",
+  "version": "1.0.0",
+  "method": "GET",
+  "url": "/o/headless-commerce-admin-catalog/v1.0/products?filter=catalogId+eq+123&page=1&pageSize=200"
+}
+{
+  "timestamp": "2026-05-11T07:49:58.701Z",
+  "level": "DEBUG",
+  "message": "Liferay API Response",
+  "operation": "get-products-bulk",
+  "environment": "test",
+  "service": "liferay-ai-data-microservice",
+  "version": "1.0.0",
+  "status": 200,
+  "itemCount": 1,
+  "totalCount": 1
+}
+{
+  "timestamp": "2026-05-11T07:49:58.734Z",
+  "level": "TRACE",
+  "message": "http:get",
+  "correlationId": "system",
+  "environment": "test",
+  "service": "liferay-ai-data-microservice",
+  "version": "1.0.0",
+  "url": "/o/headless-admin-user/v1.0/accounts?page=1&pageSize=200",
+  "params": {
+    "page": 1,
+    "pageSize": 200
+  }
+}
+{
+  "timestamp": "2026-05-11T07:49:58.734Z",
+  "level": "DEBUG",
+  "message": "Liferay API Request",
+  "operation": "get-accounts-bulk",
+  "environment": "test",
+  "service": "liferay-ai-data-microservice",
+  "version": "1.0.0",
+  "method": "GET",
+  "url": "/o/headless-admin-user/v1.0/accounts?page=1&pageSize=200"
+}
+{
+  "timestamp": "2026-05-11T07:49:58.741Z",
+  "level": "DEBUG",
+  "message": "Liferay API Response",
+  "operation": "get-accounts-bulk",
+  "environment": "test",
+  "service": "liferay-ai-data-microservice",
+  "version": "1.0.0",
+  "status": 200,
+  "itemCount": 1,
+  "totalCount": 1
+}
+{
+  "timestamp": "2026-05-11T07:49:58.771Z",
+  "level": "TRACE",
+  "message": "http:get",
+  "correlationId": "system",
+  "environment": "test",
+  "service": "liferay-ai-data-microservice",
+  "version": "1.0.0",
+  "url": "/o/headless-commerce-admin-order/v1.0/orders?page=1&pageSize=200",
+  "params": {
+    "filter": null,
+    "page": 1,
+    "pageSize": 200
+  }
+}
+{
+  "timestamp": "2026-05-11T07:49:58.771Z",
+  "level": "DEBUG",
+  "message": "Liferay API Request",
+  "operation": "get-orders-bulk",
+  "environment": "test",
+  "service": "liferay-ai-data-microservice",
+  "version": "1.0.0",
+  "method": "GET",
+  "url": "/o/headless-commerce-admin-order/v1.0/orders?page=1&pageSize=200"
+}
+{
+  "timestamp": "2026-05-11T07:49:58.776Z",
+  "level": "DEBUG",
+  "message": "Liferay API Response",
+  "operation": "get-orders-bulk",
+  "environment": "test",
+  "service": "liferay-ai-data-microservice",
+  "version": "1.0.0",
+  "status": 200,
+  "itemCount": 1,
+  "totalCount": 1
+}
+{
+  "timestamp": "2026-05-11T07:49:58.837Z",
+  "level": "TRACE",
+  "message": "http:get",
+  "correlationId": "system",
+  "environment": "test",
+  "service": "liferay-ai-data-microservice",
+  "version": "1.0.0",
+  "url": "/o/headless-commerce-admin-catalog/v1.0/catalogs?page=1&pageSize=100",
+  "params": {
+    "page": 1,
+    "pageSize": 100
+  }
+}
+{
+  "timestamp": "2026-05-11T07:49:58.837Z",
+  "level": "DEBUG",
+  "message": "Liferay API Request",
+  "operation": "get-catalogs-bulk",
+  "environment": "test",
+  "service": "liferay-ai-data-microservice",
+  "version": "1.0.0",
+  "method": "GET",
+  "url": "/o/headless-commerce-admin-catalog/v1.0/catalogs?page=1&pageSize=100"
+}
+{
+  "timestamp": "2026-05-11T07:49:58.842Z",
+  "level": "DEBUG",
+  "message": "Liferay API Response",
+  "operation": "get-catalogs-bulk",
+  "environment": "test",
+  "service": "liferay-ai-data-microservice",
+  "version": "1.0.0",
+  "status": 200,
+  "itemCount": 1,
+  "totalCount": 1
+}
+{
+  "timestamp": "2026-05-11T07:49:58.842Z",
+  "level": "TRACE",
+  "message": "http:get",
+  "correlationId": "system",
+  "environment": "test",
+  "service": "liferay-ai-data-microservice",
+  "version": "1.0.0",
+  "url": "/o/headless-commerce-admin-pricing/v2.0/price-lists?pageSize=200"
+}
+{
+  "timestamp": "2026-05-11T07:49:58.844Z",
+  "level": "DEBUG",
+  "message": "Liferay API Request",
+  "operation": "get-price-lists",
+  "environment": "test",
+  "service": "liferay-ai-data-microservice",
+  "version": "1.0.0",
+  "method": "GET",
+  "url": "/o/headless-commerce-admin-pricing/v2.0/price-lists?pageSize=200"
+}
+{
+  "timestamp": "2026-05-11T07:49:58.847Z",
+  "level": "DEBUG",
+  "message": "Liferay API Response",
+  "operation": "get-price-lists",
+  "environment": "test",
+  "service": "liferay-ai-data-microservice",
+  "version": "1.0.0",
+  "status": 200,
+  "itemCount": 1,
+  "totalCount": 1
+}
+{
+  "timestamp": "2026-05-11T07:49:58.876Z",
+  "level": "TRACE",
+  "message": "http:get",
+  "correlationId": "system",
+  "environment": "test",
+  "service": "liferay-ai-data-microservice",
+  "version": "1.0.0",
+  "url": "/o/headless-commerce-admin-inventory/v1.0/warehouses?page=1&pageSize=200",
+  "params": {
+    "filter": null,
+    "page": 1,
+    "pageSize": 200
+  }
+}
+{
+  "timestamp": "2026-05-11T07:49:58.876Z",
+  "level": "DEBUG",
+  "message": "Liferay API Request",
+  "operation": "get-warehouses-bulk",
+  "environment": "test",
+  "service": "liferay-ai-data-microservice",
+  "version": "1.0.0",
+  "method": "GET",
+  "url": "/o/headless-commerce-admin-inventory/v1.0/warehouses?page=1&pageSize=200"
+}
+{
+  "timestamp": "2026-05-11T07:49:58.881Z",
+  "level": "DEBUG",
+  "message": "Liferay API Response",
+  "operation": "get-warehouses-bulk",
+  "environment": "test",
+  "service": "liferay-ai-data-microservice",
+  "version": "1.0.0",
+  "status": 200,
+  "itemCount": 1,
+  "totalCount": 1
+}
+{
+  "timestamp": "2026-05-11T07:49:58.917Z",
+  "level": "TRACE",
+  "message": "http:get",
+  "correlationId": "system",
+  "environment": "test",
+  "service": "liferay-ai-data-microservice",
+  "version": "1.0.0",
+  "url": "/o/headless-batch-engine/v1.0/import-task/9001"
+}
+{
+  "timestamp": "2026-05-11T07:49:58.917Z",
+  "level": "DEBUG",
+  "message": "Liferay API Request",
+  "operation": "import-task",
+  "environment": "test",
+  "service": "liferay-ai-data-microservice",
+  "version": "1.0.0",
+  "method": "GET",
+  "url": "/o/headless-batch-engine/v1.0/import-task/9001"
+}
+{
+  "timestamp": "2026-05-11T07:49:58.921Z",
+  "level": "DEBUG",
+  "message": "Liferay API Response",
+  "operation": "import-task",
+  "environment": "test",
+  "service": "liferay-ai-data-microservice",
+  "version": "1.0.0",
+  "status": 200,
+  "dataKeys": [
+    "id",
+    "status",
+    "executeStatus",
+    "processedItemsCount",
+    "totalItemsCount"
+  ]
+}
+{
+  "timestamp": "2026-05-11T07:49:58.950Z",
+  "level": "DEBUG",
+  "message": "Calculated Batch Cache TTL",
+  "correlationId": "system",
+  "environment": "test",
+  "service": "liferay-ai-data-microservice",
+  "version": "1.0.0",
+  "baseMs": 600000,
+  "overrideMs": null,
+  "rawMs": 1800000,
+  "finalTTLMs": 1800000
+}
+{
+  "timestamp": "2026-05-11T07:49:59.094Z",
+  "level": "TRACE",
+  "message": "http:get",
+  "correlationId": "system",
+  "environment": "test",
+  "service": "liferay-ai-data-microservice",
+  "version": "1.0.0",
+  "url": "/o/headless-commerce-admin-catalog/v1.0/catalogs?page=1&pageSize=100",
+  "params": {
+    "page": 1,
+    "pageSize": 100
+  }
+}
+{
+  "timestamp": "2026-05-11T07:49:59.094Z",
+  "level": "DEBUG",
+  "message": "Liferay API Request",
+  "operation": "get-catalogs-bulk",
+  "environment": "test",
+  "service": "liferay-ai-data-microservice",
+  "version": "1.0.0",
+  "method": "GET",
+  "url": "/o/headless-commerce-admin-catalog/v1.0/catalogs?page=1&pageSize=100"
+}
+{
+  "timestamp": "2026-05-11T07:49:59.099Z",
+  "level": "DEBUG",
+  "message": "Liferay API Response",
+  "operation": "get-catalogs-bulk",
+  "environment": "test",
+  "service": "liferay-ai-data-microservice",
+  "version": "1.0.0",
+  "status": 200,
+  "itemCount": 1,
+  "totalCount": 1
+}
+{
+  "timestamp": "2026-05-11T07:49:59.130Z",
+  "level": "TRACE",
+  "message": "http:get",
+  "correlationId": "system",
+  "environment": "test",
+  "service": "liferay-ai-data-microservice",
+  "version": "1.0.0",
+  "url": "/o/headless-commerce-admin-channel/v1.0/channels?page=1&pageSize=100",
+  "params": {
+    "page": 1,
+    "pageSize": 100
+  }
+}
+{
+  "timestamp": "2026-05-11T07:49:59.130Z",
+  "level": "DEBUG",
+  "message": "Liferay API Request",
+  "operation": "get-channels-bulk",
+  "environment": "test",
+  "service": "liferay-ai-data-microservice",
+  "version": "1.0.0",
+  "method": "GET",
+  "url": "/o/headless-commerce-admin-channel/v1.0/channels?page=1&pageSize=100"
+}
+{
+  "timestamp": "2026-05-11T07:49:59.138Z",
+  "level": "DEBUG",
+  "message": "Liferay API Response",
+  "operation": "get-channels-bulk",
+  "environment": "test",
+  "service": "liferay-ai-data-microservice",
+  "version": "1.0.0",
+  "status": 200,
+  "itemCount": 1,
+  "totalCount": 1
+}
+{
+  "timestamp": "2026-05-11T07:49:59.176Z",
+  "level": "TRACE",
+  "message": "http:get",
+  "correlationId": "system",
+  "environment": "test",
+  "service": "liferay-ai-data-microservice",
+  "version": "1.0.0",
+  "url": "/o/headless-commerce-admin-catalog/v1.0/currencies"
+}
+{
+  "timestamp": "2026-05-11T07:49:59.177Z",
+  "level": "DEBUG",
+  "message": "Liferay API Request",
+  "operation": "get-currencies",
+  "environment": "test",
+  "service": "liferay-ai-data-microservice",
+  "version": "1.0.0",
+  "method": "GET",
+  "url": "/o/headless-commerce-admin-catalog/v1.0/currencies"
+}
+{
+  "timestamp": "2026-05-11T07:49:59.184Z",
+  "level": "DEBUG",
+  "message": "Liferay API Response",
+  "operation": "get-currencies",
+  "environment": "test",
+  "service": "liferay-ai-data-microservice",
+  "version": "1.0.0",
+  "status": 200,
+  "itemCount": 1,
+  "totalCount": 1
+}
+{
+  "timestamp": "2026-05-11T08:11:32.453Z",
+  "level": "TRACE",
+  "message": "http:get",
+  "correlationId": "system",
+  "environment": "test",
+  "service": "liferay-ai-data-microservice",
+  "version": "1.0.0",
+  "url": "/o/headless-commerce-admin-catalog/v1.0/products?filter=catalogId+eq+123&page=1&pageSize=200",
+  "params": {
+    "filter": "catalogId eq 123",
+    "page": 1,
+    "pageSize": 200
+  }
+}
+{
+  "timestamp": "2026-05-11T08:11:32.469Z",
+  "level": "DEBUG",
+  "message": "Liferay API Request",
+  "operation": "get-products-bulk",
+  "environment": "test",
+  "service": "liferay-ai-data-microservice",
+  "version": "1.0.0",
+  "method": "GET",
+  "url": "/o/headless-commerce-admin-catalog/v1.0/products?filter=catalogId+eq+123&page=1&pageSize=200"
+}
+{
+  "timestamp": "2026-05-11T08:11:32.554Z",
+  "level": "DEBUG",
+  "message": "Liferay API Response",
+  "operation": "get-products-bulk",
+  "environment": "test",
+  "service": "liferay-ai-data-microservice",
+  "version": "1.0.0",
+  "status": 200,
+  "itemCount": 1,
+  "totalCount": 1
+}
+{
+  "timestamp": "2026-05-11T08:11:32.585Z",
+  "level": "TRACE",
+  "message": "http:get",
+  "correlationId": "system",
+  "environment": "test",
+  "service": "liferay-ai-data-microservice",
+  "version": "1.0.0",
+  "url": "/o/headless-admin-user/v1.0/accounts?page=1&pageSize=200",
+  "params": {
+    "page": 1,
+    "pageSize": 200
+  }
+}
+{
+  "timestamp": "2026-05-11T08:11:32.586Z",
+  "level": "DEBUG",
+  "message": "Liferay API Request",
+  "operation": "get-accounts-bulk",
+  "environment": "test",
+  "service": "liferay-ai-data-microservice",
+  "version": "1.0.0",
+  "method": "GET",
+  "url": "/o/headless-admin-user/v1.0/accounts?page=1&pageSize=200"
+}
+{
+  "timestamp": "2026-05-11T08:11:32.591Z",
+  "level": "DEBUG",
+  "message": "Liferay API Response",
+  "operation": "get-accounts-bulk",
+  "environment": "test",
+  "service": "liferay-ai-data-microservice",
+  "version": "1.0.0",
+  "status": 200,
+  "itemCount": 1,
+  "totalCount": 1
+}
+{
+  "timestamp": "2026-05-11T08:11:32.622Z",
+  "level": "TRACE",
+  "message": "http:get",
+  "correlationId": "system",
+  "environment": "test",
+  "service": "liferay-ai-data-microservice",
+  "version": "1.0.0",
+  "url": "/o/headless-commerce-admin-order/v1.0/orders?page=1&pageSize=200",
+  "params": {
+    "filter": null,
+    "page": 1,
+    "pageSize": 200
+  }
+}
+{
+  "timestamp": "2026-05-11T08:11:32.623Z",
+  "level": "DEBUG",
+  "message": "Liferay API Request",
+  "operation": "get-orders-bulk",
+  "environment": "test",
+  "service": "liferay-ai-data-microservice",
+  "version": "1.0.0",
+  "method": "GET",
+  "url": "/o/headless-commerce-admin-order/v1.0/orders?page=1&pageSize=200"
+}
+{
+  "timestamp": "2026-05-11T08:11:32.629Z",
+  "level": "DEBUG",
+  "message": "Liferay API Response",
+  "operation": "get-orders-bulk",
+  "environment": "test",
+  "service": "liferay-ai-data-microservice",
+  "version": "1.0.0",
+  "status": 200,
+  "itemCount": 1,
+  "totalCount": 1
+}
+{
+  "timestamp": "2026-05-11T08:11:32.662Z",
+  "level": "TRACE",
+  "message": "http:get",
+  "correlationId": "system",
+  "environment": "test",
+  "service": "liferay-ai-data-microservice",
+  "version": "1.0.0",
+  "url": "/o/headless-commerce-admin-catalog/v1.0/catalogs?page=1&pageSize=100",
+  "params": {
+    "page": 1,
+    "pageSize": 100
+  }
+}
+{
+  "timestamp": "2026-05-11T08:11:32.663Z",
+  "level": "DEBUG",
+  "message": "Liferay API Request",
+  "operation": "get-catalogs-bulk",
+  "environment": "test",
+  "service": "liferay-ai-data-microservice",
+  "version": "1.0.0",
+  "method": "GET",
+  "url": "/o/headless-commerce-admin-catalog/v1.0/catalogs?page=1&pageSize=100"
+}
+{
+  "timestamp": "2026-05-11T08:11:32.666Z",
+  "level": "DEBUG",
+  "message": "Liferay API Response",
+  "operation": "get-catalogs-bulk",
+  "environment": "test",
+  "service": "liferay-ai-data-microservice",
+  "version": "1.0.0",
+  "status": 200,
+  "itemCount": 1,
+  "totalCount": 1
+}
+{
+  "timestamp": "2026-05-11T08:11:32.667Z",
+  "level": "TRACE",
+  "message": "http:get",
+  "correlationId": "system",
+  "environment": "test",
+  "service": "liferay-ai-data-microservice",
+  "version": "1.0.0",
+  "url": "/o/headless-commerce-admin-pricing/v2.0/price-lists?pageSize=200"
+}
+{
+  "timestamp": "2026-05-11T08:11:32.668Z",
+  "level": "DEBUG",
+  "message": "Liferay API Request",
+  "operation": "get-price-lists",
+  "environment": "test",
+  "service": "liferay-ai-data-microservice",
+  "version": "1.0.0",
+  "method": "GET",
+  "url": "/o/headless-commerce-admin-pricing/v2.0/price-lists?pageSize=200"
+}
+{
+  "timestamp": "2026-05-11T08:11:32.671Z",
+  "level": "DEBUG",
+  "message": "Liferay API Response",
+  "operation": "get-price-lists",
+  "environment": "test",
+  "service": "liferay-ai-data-microservice",
+  "version": "1.0.0",
+  "status": 200,
+  "itemCount": 1,
+  "totalCount": 1
+}
+{
+  "timestamp": "2026-05-11T08:11:32.701Z",
+  "level": "TRACE",
+  "message": "http:get",
+  "correlationId": "system",
+  "environment": "test",
+  "service": "liferay-ai-data-microservice",
+  "version": "1.0.0",
+  "url": "/o/headless-commerce-admin-inventory/v1.0/warehouses?page=1&pageSize=200",
+  "params": {
+    "filter": null,
+    "page": 1,
+    "pageSize": 200
+  }
+}
+{
+  "timestamp": "2026-05-11T08:11:32.702Z",
+  "level": "DEBUG",
+  "message": "Liferay API Request",
+  "operation": "get-warehouses-bulk",
+  "environment": "test",
+  "service": "liferay-ai-data-microservice",
+  "version": "1.0.0",
+  "method": "GET",
+  "url": "/o/headless-commerce-admin-inventory/v1.0/warehouses?page=1&pageSize=200"
+}
+{
+  "timestamp": "2026-05-11T08:11:32.705Z",
+  "level": "DEBUG",
+  "message": "Liferay API Response",
+  "operation": "get-warehouses-bulk",
+  "environment": "test",
+  "service": "liferay-ai-data-microservice",
+  "version": "1.0.0",
+  "status": 200,
+  "itemCount": 1,
+  "totalCount": 1
+}
+{
+  "timestamp": "2026-05-11T08:11:32.741Z",
+  "level": "TRACE",
+  "message": "http:get",
+  "correlationId": "system",
+  "environment": "test",
+  "service": "liferay-ai-data-microservice",
+  "version": "1.0.0",
+  "url": "/o/headless-batch-engine/v1.0/import-task/9001"
+}
+{
+  "timestamp": "2026-05-11T08:11:32.741Z",
+  "level": "DEBUG",
+  "message": "Liferay API Request",
+  "operation": "import-task",
+  "environment": "test",
+  "service": "liferay-ai-data-microservice",
+  "version": "1.0.0",
+  "method": "GET",
+  "url": "/o/headless-batch-engine/v1.0/import-task/9001"
+}
+{
+  "timestamp": "2026-05-11T08:11:32.746Z",
+  "level": "DEBUG",
+  "message": "Liferay API Response",
+  "operation": "import-task",
+  "environment": "test",
+  "service": "liferay-ai-data-microservice",
+  "version": "1.0.0",
+  "status": 200,
+  "dataKeys": [
+    "id",
+    "status",
+    "executeStatus",
+    "processedItemsCount",
+    "totalItemsCount"
+  ]
+}
+{
+  "timestamp": "2026-05-11T08:11:32.784Z",
+  "level": "DEBUG",
+  "message": "Calculated Batch Cache TTL",
+  "correlationId": "system",
+  "environment": "test",
+  "service": "liferay-ai-data-microservice",
+  "version": "1.0.0",
+  "baseMs": 600000,
+  "overrideMs": null,
+  "rawMs": 1800000,
+  "finalTTLMs": 1800000
+}
+{
+  "timestamp": "2026-05-11T08:11:32.879Z",
+  "level": "TRACE",
+  "message": "http:get",
+  "correlationId": "system",
+  "environment": "test",
+  "service": "liferay-ai-data-microservice",
+  "version": "1.0.0",
+  "url": "/o/headless-commerce-admin-catalog/v1.0/catalogs?page=1&pageSize=100",
+  "params": {
+    "page": 1,
+    "pageSize": 100
+  }
+}
+{
+  "timestamp": "2026-05-11T08:11:32.880Z",
+  "level": "DEBUG",
+  "message": "Liferay API Request",
+  "operation": "get-catalogs-bulk",
+  "environment": "test",
+  "service": "liferay-ai-data-microservice",
+  "version": "1.0.0",
+  "method": "GET",
+  "url": "/o/headless-commerce-admin-catalog/v1.0/catalogs?page=1&pageSize=100"
+}
+{
+  "timestamp": "2026-05-11T08:11:32.883Z",
+  "level": "DEBUG",
+  "message": "Liferay API Response",
+  "operation": "get-catalogs-bulk",
+  "environment": "test",
+  "service": "liferay-ai-data-microservice",
+  "version": "1.0.0",
+  "status": 200,
+  "itemCount": 1,
+  "totalCount": 1
+}
+{
+  "timestamp": "2026-05-11T08:11:32.922Z",
+  "level": "TRACE",
+  "message": "http:get",
+  "correlationId": "system",
+  "environment": "test",
+  "service": "liferay-ai-data-microservice",
+  "version": "1.0.0",
+  "url": "/o/headless-commerce-admin-channel/v1.0/channels?page=1&pageSize=100",
+  "params": {
+    "page": 1,
+    "pageSize": 100
+  }
+}
+{
+  "timestamp": "2026-05-11T08:11:32.924Z",
+  "level": "DEBUG",
+  "message": "Liferay API Request",
+  "operation": "get-channels-bulk",
+  "environment": "test",
+  "service": "liferay-ai-data-microservice",
+  "version": "1.0.0",
+  "method": "GET",
+  "url": "/o/headless-commerce-admin-channel/v1.0/channels?page=1&pageSize=100"
+}
+{
+  "timestamp": "2026-05-11T08:11:32.940Z",
+  "level": "DEBUG",
+  "message": "Liferay API Response",
+  "operation": "get-channels-bulk",
+  "environment": "test",
+  "service": "liferay-ai-data-microservice",
+  "version": "1.0.0",
+  "status": 200,
+  "itemCount": 1,
+  "totalCount": 1
+}
+{
+  "timestamp": "2026-05-11T08:11:32.997Z",
+  "level": "TRACE",
+  "message": "http:get",
+  "correlationId": "system",
+  "environment": "test",
+  "service": "liferay-ai-data-microservice",
+  "version": "1.0.0",
+  "url": "/o/headless-commerce-admin-catalog/v1.0/currencies"
+}
+{
+  "timestamp": "2026-05-11T08:11:32.998Z",
+  "level": "DEBUG",
+  "message": "Liferay API Request",
+  "operation": "get-currencies",
+  "environment": "test",
+  "service": "liferay-ai-data-microservice",
+  "version": "1.0.0",
+  "method": "GET",
+  "url": "/o/headless-commerce-admin-catalog/v1.0/currencies"
+}
+{
+  "timestamp": "2026-05-11T08:11:33.002Z",
+  "level": "DEBUG",
+  "message": "Liferay API Response",
+  "operation": "get-currencies",
+  "environment": "test",
+  "service": "liferay-ai-data-microservice",
+  "version": "1.0.0",
+  "status": 200,
+  "itemCount": 1,
+  "totalCount": 1
+}
+{
+  "timestamp": "2026-05-11T08:16:47.500Z",
+  "level": "TRACE",
+  "message": "http:get",
+  "correlationId": "system",
+  "environment": "test",
+  "service": "liferay-ai-data-microservice",
+  "version": "1.0.0",
+  "url": "/o/headless-commerce-admin-catalog/v1.0/products?filter=catalogId+eq+123&page=1&pageSize=200",
+  "params": {
+    "filter": "catalogId eq 123",
+    "page": 1,
+    "pageSize": 200
+  }
+}
+{
+  "timestamp": "2026-05-11T08:16:47.510Z",
+  "level": "DEBUG",
+  "message": "Liferay API Request",
+  "operation": "get-products-bulk",
+  "environment": "test",
+  "service": "liferay-ai-data-microservice",
+  "version": "1.0.0",
+  "method": "GET",
+  "url": "/o/headless-commerce-admin-catalog/v1.0/products?filter=catalogId+eq+123&page=1&pageSize=200"
+}
+{
+  "timestamp": "2026-05-11T08:16:47.552Z",
+  "level": "DEBUG",
+  "message": "Liferay API Response",
+  "operation": "get-products-bulk",
+  "environment": "test",
+  "service": "liferay-ai-data-microservice",
+  "version": "1.0.0",
+  "status": 200,
+  "itemCount": 1,
+  "totalCount": 1
+}
+{
+  "timestamp": "2026-05-11T08:16:47.585Z",
+  "level": "TRACE",
+  "message": "http:get",
+  "correlationId": "system",
+  "environment": "test",
+  "service": "liferay-ai-data-microservice",
+  "version": "1.0.0",
+  "url": "/o/headless-admin-user/v1.0/accounts?page=1&pageSize=200",
+  "params": {
+    "page": 1,
+    "pageSize": 200
+  }
+}
+{
+  "timestamp": "2026-05-11T08:16:47.585Z",
+  "level": "DEBUG",
+  "message": "Liferay API Request",
+  "operation": "get-accounts-bulk",
+  "environment": "test",
+  "service": "liferay-ai-data-microservice",
+  "version": "1.0.0",
+  "method": "GET",
+  "url": "/o/headless-admin-user/v1.0/accounts?page=1&pageSize=200"
+}
+{
+  "timestamp": "2026-05-11T08:16:47.590Z",
+  "level": "DEBUG",
+  "message": "Liferay API Response",
+  "operation": "get-accounts-bulk",
+  "environment": "test",
+  "service": "liferay-ai-data-microservice",
+  "version": "1.0.0",
+  "status": 200,
+  "itemCount": 1,
+  "totalCount": 1
+}
+{
+  "timestamp": "2026-05-11T08:16:47.620Z",
+  "level": "TRACE",
+  "message": "http:get",
+  "correlationId": "system",
+  "environment": "test",
+  "service": "liferay-ai-data-microservice",
+  "version": "1.0.0",
+  "url": "/o/headless-commerce-admin-order/v1.0/orders?page=1&pageSize=200",
+  "params": {
+    "filter": null,
+    "page": 1,
+    "pageSize": 200
+  }
+}
+{
+  "timestamp": "2026-05-11T08:16:47.621Z",
+  "level": "DEBUG",
+  "message": "Liferay API Request",
+  "operation": "get-orders-bulk",
+  "environment": "test",
+  "service": "liferay-ai-data-microservice",
+  "version": "1.0.0",
+  "method": "GET",
+  "url": "/o/headless-commerce-admin-order/v1.0/orders?page=1&pageSize=200"
+}
+{
+  "timestamp": "2026-05-11T08:16:47.629Z",
+  "level": "DEBUG",
+  "message": "Liferay API Response",
+  "operation": "get-orders-bulk",
+  "environment": "test",
+  "service": "liferay-ai-data-microservice",
+  "version": "1.0.0",
+  "status": 200,
+  "itemCount": 1,
+  "totalCount": 1
+}
+{
+  "timestamp": "2026-05-11T08:16:47.680Z",
+  "level": "TRACE",
+  "message": "http:get",
+  "correlationId": "system",
+  "environment": "test",
+  "service": "liferay-ai-data-microservice",
+  "version": "1.0.0",
+  "url": "/o/headless-commerce-admin-catalog/v1.0/catalogs?page=1&pageSize=100",
+  "params": {
+    "page": 1,
+    "pageSize": 100
+  }
+}
+{
+  "timestamp": "2026-05-11T08:16:47.681Z",
+  "level": "DEBUG",
+  "message": "Liferay API Request",
+  "operation": "get-catalogs-bulk",
+  "environment": "test",
+  "service": "liferay-ai-data-microservice",
+  "version": "1.0.0",
+  "method": "GET",
+  "url": "/o/headless-commerce-admin-catalog/v1.0/catalogs?page=1&pageSize=100"
+}
+{
+  "timestamp": "2026-05-11T08:16:47.687Z",
+  "level": "DEBUG",
+  "message": "Liferay API Response",
+  "operation": "get-catalogs-bulk",
+  "environment": "test",
+  "service": "liferay-ai-data-microservice",
+  "version": "1.0.0",
+  "status": 200,
+  "itemCount": 1,
+  "totalCount": 1
+}
+{
+  "timestamp": "2026-05-11T08:16:47.688Z",
+  "level": "TRACE",
+  "message": "http:get",
+  "correlationId": "system",
+  "environment": "test",
+  "service": "liferay-ai-data-microservice",
+  "version": "1.0.0",
+  "url": "/o/headless-commerce-admin-pricing/v2.0/price-lists?pageSize=200"
+}
+{
+  "timestamp": "2026-05-11T08:16:47.689Z",
+  "level": "DEBUG",
+  "message": "Liferay API Request",
+  "operation": "get-price-lists",
+  "environment": "test",
+  "service": "liferay-ai-data-microservice",
+  "version": "1.0.0",
+  "method": "GET",
+  "url": "/o/headless-commerce-admin-pricing/v2.0/price-lists?pageSize=200"
+}
+{
+  "timestamp": "2026-05-11T08:16:47.693Z",
+  "level": "DEBUG",
+  "message": "Liferay API Response",
+  "operation": "get-price-lists",
+  "environment": "test",
+  "service": "liferay-ai-data-microservice",
+  "version": "1.0.0",
+  "status": 200,
+  "itemCount": 1,
+  "totalCount": 1
+}
+{
+  "timestamp": "2026-05-11T08:16:47.724Z",
+  "level": "TRACE",
+  "message": "http:get",
+  "correlationId": "system",
+  "environment": "test",
+  "service": "liferay-ai-data-microservice",
+  "version": "1.0.0",
+  "url": "/o/headless-commerce-admin-inventory/v1.0/warehouses?page=1&pageSize=200",
+  "params": {
+    "filter": null,
+    "page": 1,
+    "pageSize": 200
+  }
+}
+{
+  "timestamp": "2026-05-11T08:16:47.724Z",
+  "level": "DEBUG",
+  "message": "Liferay API Request",
+  "operation": "get-warehouses-bulk",
+  "environment": "test",
+  "service": "liferay-ai-data-microservice",
+  "version": "1.0.0",
+  "method": "GET",
+  "url": "/o/headless-commerce-admin-inventory/v1.0/warehouses?page=1&pageSize=200"
+}
+{
+  "timestamp": "2026-05-11T08:16:47.728Z",
+  "level": "DEBUG",
+  "message": "Liferay API Response",
+  "operation": "get-warehouses-bulk",
+  "environment": "test",
+  "service": "liferay-ai-data-microservice",
+  "version": "1.0.0",
+  "status": 200,
+  "itemCount": 1,
+  "totalCount": 1
+}
+{
+  "timestamp": "2026-05-11T08:16:47.769Z",
+  "level": "TRACE",
+  "message": "http:get",
+  "correlationId": "system",
+  "environment": "test",
+  "service": "liferay-ai-data-microservice",
+  "version": "1.0.0",
+  "url": "/o/headless-batch-engine/v1.0/import-task/9001"
+}
+{
+  "timestamp": "2026-05-11T08:16:47.769Z",
+  "level": "DEBUG",
+  "message": "Liferay API Request",
+  "operation": "import-task",
+  "environment": "test",
+  "service": "liferay-ai-data-microservice",
+  "version": "1.0.0",
+  "method": "GET",
+  "url": "/o/headless-batch-engine/v1.0/import-task/9001"
+}
+{
+  "timestamp": "2026-05-11T08:16:47.776Z",
+  "level": "DEBUG",
+  "message": "Liferay API Response",
+  "operation": "import-task",
+  "environment": "test",
+  "service": "liferay-ai-data-microservice",
+  "version": "1.0.0",
+  "status": 200,
+  "dataKeys": [
+    "id",
+    "status",
+    "executeStatus",
+    "processedItemsCount",
+    "totalItemsCount"
+  ]
+}
+{
+  "timestamp": "2026-05-11T08:16:47.831Z",
+  "level": "DEBUG",
+  "message": "Calculated Batch Cache TTL",
+  "correlationId": "system",
+  "environment": "test",
+  "service": "liferay-ai-data-microservice",
+  "version": "1.0.0",
+  "baseMs": 600000,
+  "overrideMs": null,
+  "rawMs": 1800000,
+  "finalTTLMs": 1800000
+}
+{
+  "timestamp": "2026-05-11T08:16:47.928Z",
+  "level": "TRACE",
+  "message": "http:get",
+  "correlationId": "system",
+  "environment": "test",
+  "service": "liferay-ai-data-microservice",
+  "version": "1.0.0",
+  "url": "/o/headless-commerce-admin-catalog/v1.0/catalogs?page=1&pageSize=100",
+  "params": {
+    "page": 1,
+    "pageSize": 100
+  }
+}
+{
+  "timestamp": "2026-05-11T08:16:47.929Z",
+  "level": "DEBUG",
+  "message": "Liferay API Request",
+  "operation": "get-catalogs-bulk",
+  "environment": "test",
+  "service": "liferay-ai-data-microservice",
+  "version": "1.0.0",
+  "method": "GET",
+  "url": "/o/headless-commerce-admin-catalog/v1.0/catalogs?page=1&pageSize=100"
+}
+{
+  "timestamp": "2026-05-11T08:16:47.932Z",
+  "level": "DEBUG",
+  "message": "Liferay API Response",
+  "operation": "get-catalogs-bulk",
+  "environment": "test",
+  "service": "liferay-ai-data-microservice",
+  "version": "1.0.0",
+  "status": 200,
+  "itemCount": 1,
+  "totalCount": 1
+}
+{
+  "timestamp": "2026-05-11T08:16:47.974Z",
+  "level": "TRACE",
+  "message": "http:get",
+  "correlationId": "system",
+  "environment": "test",
+  "service": "liferay-ai-data-microservice",
+  "version": "1.0.0",
+  "url": "/o/headless-commerce-admin-channel/v1.0/channels?page=1&pageSize=100",
+  "params": {
+    "page": 1,
+    "pageSize": 100
+  }
+}
+{
+  "timestamp": "2026-05-11T08:16:47.974Z",
+  "level": "DEBUG",
+  "message": "Liferay API Request",
+  "operation": "get-channels-bulk",
+  "environment": "test",
+  "service": "liferay-ai-data-microservice",
+  "version": "1.0.0",
+  "method": "GET",
+  "url": "/o/headless-commerce-admin-channel/v1.0/channels?page=1&pageSize=100"
+}
+{
+  "timestamp": "2026-05-11T08:16:47.979Z",
+  "level": "DEBUG",
+  "message": "Liferay API Response",
+  "operation": "get-channels-bulk",
+  "environment": "test",
+  "service": "liferay-ai-data-microservice",
+  "version": "1.0.0",
+  "status": 200,
+  "itemCount": 1,
+  "totalCount": 1
+}
+{
+  "timestamp": "2026-05-11T08:16:48.025Z",
+  "level": "TRACE",
+  "message": "http:get",
+  "correlationId": "system",
+  "environment": "test",
+  "service": "liferay-ai-data-microservice",
+  "version": "1.0.0",
+  "url": "/o/headless-commerce-admin-catalog/v1.0/currencies"
+}
+{
+  "timestamp": "2026-05-11T08:16:48.026Z",
+  "level": "DEBUG",
+  "message": "Liferay API Request",
+  "operation": "get-currencies",
+  "environment": "test",
+  "service": "liferay-ai-data-microservice",
+  "version": "1.0.0",
+  "method": "GET",
+  "url": "/o/headless-commerce-admin-catalog/v1.0/currencies"
+}
+{
+  "timestamp": "2026-05-11T08:16:48.031Z",
+  "level": "DEBUG",
+  "message": "Liferay API Response",
+  "operation": "get-currencies",
+  "environment": "test",
+  "service": "liferay-ai-data-microservice",
+  "version": "1.0.0",
+  "status": 200,
+  "itemCount": 1,
+  "totalCount": 1
+}
+{
+  "timestamp": "2026-05-11T08:18:10.098Z",
+  "level": "TRACE",
+  "message": "http:get",
+  "correlationId": "system",
+  "environment": "test",
+  "service": "liferay-ai-data-microservice",
+  "version": "1.0.0",
+  "url": "/o/headless-commerce-admin-catalog/v1.0/products?filter=catalogId+eq+123&page=1&pageSize=200",
+  "params": {
+    "filter": "catalogId eq 123",
+    "page": 1,
+    "pageSize": 200
+  }
+}
+{
+  "timestamp": "2026-05-11T08:18:10.100Z",
+  "level": "DEBUG",
+  "message": "Liferay API Request",
+  "operation": "get-products-bulk",
+  "environment": "test",
+  "service": "liferay-ai-data-microservice",
+  "version": "1.0.0",
+  "method": "GET",
+  "url": "/o/headless-commerce-admin-catalog/v1.0/products?filter=catalogId+eq+123&page=1&pageSize=200"
+}
+{
+  "timestamp": "2026-05-11T08:18:10.123Z",
+  "level": "DEBUG",
+  "message": "Liferay API Response",
+  "operation": "get-products-bulk",
+  "environment": "test",
+  "service": "liferay-ai-data-microservice",
+  "version": "1.0.0",
+  "status": 200,
+  "itemCount": 1,
+  "totalCount": 1
+}
+{
+  "timestamp": "2026-05-11T08:18:10.158Z",
+  "level": "TRACE",
+  "message": "http:get",
+  "correlationId": "system",
+  "environment": "test",
+  "service": "liferay-ai-data-microservice",
+  "version": "1.0.0",
+  "url": "/o/headless-admin-user/v1.0/accounts?page=1&pageSize=200",
+  "params": {
+    "page": 1,
+    "pageSize": 200
+  }
+}
+{
+  "timestamp": "2026-05-11T08:18:10.159Z",
+  "level": "DEBUG",
+  "message": "Liferay API Request",
+  "operation": "get-accounts-bulk",
+  "environment": "test",
+  "service": "liferay-ai-data-microservice",
+  "version": "1.0.0",
+  "method": "GET",
+  "url": "/o/headless-admin-user/v1.0/accounts?page=1&pageSize=200"
+}
+{
+  "timestamp": "2026-05-11T08:18:10.163Z",
+  "level": "DEBUG",
+  "message": "Liferay API Response",
+  "operation": "get-accounts-bulk",
+  "environment": "test",
+  "service": "liferay-ai-data-microservice",
+  "version": "1.0.0",
+  "status": 200,
+  "itemCount": 1,
+  "totalCount": 1
+}
+{
+  "timestamp": "2026-05-11T08:18:10.191Z",
+  "level": "TRACE",
+  "message": "http:get",
+  "correlationId": "system",
+  "environment": "test",
+  "service": "liferay-ai-data-microservice",
+  "version": "1.0.0",
+  "url": "/o/headless-commerce-admin-order/v1.0/orders?page=1&pageSize=200",
+  "params": {
+    "filter": null,
+    "page": 1,
+    "pageSize": 200
+  }
+}
+{
+  "timestamp": "2026-05-11T08:18:10.192Z",
+  "level": "DEBUG",
+  "message": "Liferay API Request",
+  "operation": "get-orders-bulk",
+  "environment": "test",
+  "service": "liferay-ai-data-microservice",
+  "version": "1.0.0",
+  "method": "GET",
+  "url": "/o/headless-commerce-admin-order/v1.0/orders?page=1&pageSize=200"
+}
+{
+  "timestamp": "2026-05-11T08:18:10.199Z",
+  "level": "DEBUG",
+  "message": "Liferay API Response",
+  "operation": "get-orders-bulk",
+  "environment": "test",
+  "service": "liferay-ai-data-microservice",
+  "version": "1.0.0",
+  "status": 200,
+  "itemCount": 1,
+  "totalCount": 1
+}
+{
+  "timestamp": "2026-05-11T08:18:10.254Z",
+  "level": "TRACE",
+  "message": "http:get",
+  "correlationId": "system",
+  "environment": "test",
+  "service": "liferay-ai-data-microservice",
+  "version": "1.0.0",
+  "url": "/o/headless-commerce-admin-catalog/v1.0/catalogs?page=1&pageSize=100",
+  "params": {
+    "page": 1,
+    "pageSize": 100
+  }
+}
+{
+  "timestamp": "2026-05-11T08:18:10.254Z",
+  "level": "DEBUG",
+  "message": "Liferay API Request",
+  "operation": "get-catalogs-bulk",
+  "environment": "test",
+  "service": "liferay-ai-data-microservice",
+  "version": "1.0.0",
+  "method": "GET",
+  "url": "/o/headless-commerce-admin-catalog/v1.0/catalogs?page=1&pageSize=100"
+}
+{
+  "timestamp": "2026-05-11T08:18:10.258Z",
+  "level": "DEBUG",
+  "message": "Liferay API Response",
+  "operation": "get-catalogs-bulk",
+  "environment": "test",
+  "service": "liferay-ai-data-microservice",
+  "version": "1.0.0",
+  "status": 200,
+  "itemCount": 1,
+  "totalCount": 1
+}
+{
+  "timestamp": "2026-05-11T08:18:10.259Z",
+  "level": "TRACE",
+  "message": "http:get",
+  "correlationId": "system",
+  "environment": "test",
+  "service": "liferay-ai-data-microservice",
+  "version": "1.0.0",
+  "url": "/o/headless-commerce-admin-pricing/v2.0/price-lists?pageSize=200"
+}
+{
+  "timestamp": "2026-05-11T08:18:10.259Z",
+  "level": "DEBUG",
+  "message": "Liferay API Request",
+  "operation": "get-price-lists",
+  "environment": "test",
+  "service": "liferay-ai-data-microservice",
+  "version": "1.0.0",
+  "method": "GET",
+  "url": "/o/headless-commerce-admin-pricing/v2.0/price-lists?pageSize=200"
+}
+{
+  "timestamp": "2026-05-11T08:18:10.263Z",
+  "level": "DEBUG",
+  "message": "Liferay API Response",
+  "operation": "get-price-lists",
+  "environment": "test",
+  "service": "liferay-ai-data-microservice",
+  "version": "1.0.0",
+  "status": 200,
+  "itemCount": 1,
+  "totalCount": 1
+}
+{
+  "timestamp": "2026-05-11T08:18:10.293Z",
+  "level": "TRACE",
+  "message": "http:get",
+  "correlationId": "system",
+  "environment": "test",
+  "service": "liferay-ai-data-microservice",
+  "version": "1.0.0",
+  "url": "/o/headless-commerce-admin-inventory/v1.0/warehouses?page=1&pageSize=200",
+  "params": {
+    "filter": null,
+    "page": 1,
+    "pageSize": 200
+  }
+}
+{
+  "timestamp": "2026-05-11T08:18:10.294Z",
+  "level": "DEBUG",
+  "message": "Liferay API Request",
+  "operation": "get-warehouses-bulk",
+  "environment": "test",
+  "service": "liferay-ai-data-microservice",
+  "version": "1.0.0",
+  "method": "GET",
+  "url": "/o/headless-commerce-admin-inventory/v1.0/warehouses?page=1&pageSize=200"
+}
+{
+  "timestamp": "2026-05-11T08:18:10.299Z",
+  "level": "DEBUG",
+  "message": "Liferay API Response",
+  "operation": "get-warehouses-bulk",
+  "environment": "test",
+  "service": "liferay-ai-data-microservice",
+  "version": "1.0.0",
+  "status": 200,
+  "itemCount": 1,
+  "totalCount": 1
+}
+{
+  "timestamp": "2026-05-11T08:18:10.330Z",
+  "level": "TRACE",
+  "message": "http:get",
+  "correlationId": "system",
+  "environment": "test",
+  "service": "liferay-ai-data-microservice",
+  "version": "1.0.0",
+  "url": "/o/headless-batch-engine/v1.0/import-task/9001"
+}
+{
+  "timestamp": "2026-05-11T08:18:10.331Z",
+  "level": "DEBUG",
+  "message": "Liferay API Request",
+  "operation": "import-task",
+  "environment": "test",
+  "service": "liferay-ai-data-microservice",
+  "version": "1.0.0",
+  "method": "GET",
+  "url": "/o/headless-batch-engine/v1.0/import-task/9001"
+}
+{
+  "timestamp": "2026-05-11T08:18:10.335Z",
+  "level": "DEBUG",
+  "message": "Liferay API Response",
+  "operation": "import-task",
+  "environment": "test",
+  "service": "liferay-ai-data-microservice",
+  "version": "1.0.0",
+  "status": 200,
+  "dataKeys": [
+    "id",
+    "status",
+    "executeStatus",
+    "processedItemsCount",
+    "totalItemsCount"
+  ]
+}
+{
+  "timestamp": "2026-05-11T08:18:10.368Z",
+  "level": "DEBUG",
+  "message": "Calculated Batch Cache TTL",
+  "correlationId": "system",
+  "environment": "test",
+  "service": "liferay-ai-data-microservice",
+  "version": "1.0.0",
+  "baseMs": 600000,
+  "overrideMs": null,
+  "rawMs": 1800000,
+  "finalTTLMs": 1800000
+}
+{
+  "timestamp": "2026-05-11T08:18:10.514Z",
+  "level": "TRACE",
+  "message": "http:get",
+  "correlationId": "system",
+  "environment": "test",
+  "service": "liferay-ai-data-microservice",
+  "version": "1.0.0",
+  "url": "/o/headless-commerce-admin-catalog/v1.0/catalogs?page=1&pageSize=100",
+  "params": {
+    "page": 1,
+    "pageSize": 100
+  }
+}
+{
+  "timestamp": "2026-05-11T08:18:10.515Z",
+  "level": "DEBUG",
+  "message": "Liferay API Request",
+  "operation": "get-catalogs-bulk",
+  "environment": "test",
+  "service": "liferay-ai-data-microservice",
+  "version": "1.0.0",
+  "method": "GET",
+  "url": "/o/headless-commerce-admin-catalog/v1.0/catalogs?page=1&pageSize=100"
+}
+{
+  "timestamp": "2026-05-11T08:18:10.520Z",
+  "level": "DEBUG",
+  "message": "Liferay API Response",
+  "operation": "get-catalogs-bulk",
+  "environment": "test",
+  "service": "liferay-ai-data-microservice",
+  "version": "1.0.0",
+  "status": 200,
+  "itemCount": 1,
+  "totalCount": 1
+}
+{
+  "timestamp": "2026-05-11T08:18:10.570Z",
+  "level": "TRACE",
+  "message": "http:get",
+  "correlationId": "system",
+  "environment": "test",
+  "service": "liferay-ai-data-microservice",
+  "version": "1.0.0",
+  "url": "/o/headless-commerce-admin-channel/v1.0/channels?page=1&pageSize=100",
+  "params": {
+    "page": 1,
+    "pageSize": 100
+  }
+}
+{
+  "timestamp": "2026-05-11T08:18:10.570Z",
+  "level": "DEBUG",
+  "message": "Liferay API Request",
+  "operation": "get-channels-bulk",
+  "environment": "test",
+  "service": "liferay-ai-data-microservice",
+  "version": "1.0.0",
+  "method": "GET",
+  "url": "/o/headless-commerce-admin-channel/v1.0/channels?page=1&pageSize=100"
+}
+{
+  "timestamp": "2026-05-11T08:18:10.576Z",
+  "level": "DEBUG",
+  "message": "Liferay API Response",
+  "operation": "get-channels-bulk",
+  "environment": "test",
+  "service": "liferay-ai-data-microservice",
+  "version": "1.0.0",
+  "status": 200,
+  "itemCount": 1,
+  "totalCount": 1
+}
+{
+  "timestamp": "2026-05-11T08:18:10.622Z",
+  "level": "TRACE",
+  "message": "http:get",
+  "correlationId": "system",
+  "environment": "test",
+  "service": "liferay-ai-data-microservice",
+  "version": "1.0.0",
+  "url": "/o/headless-commerce-admin-catalog/v1.0/currencies"
+}
+{
+  "timestamp": "2026-05-11T08:18:10.622Z",
+  "level": "DEBUG",
+  "message": "Liferay API Request",
+  "operation": "get-currencies",
+  "environment": "test",
+  "service": "liferay-ai-data-microservice",
+  "version": "1.0.0",
+  "method": "GET",
+  "url": "/o/headless-commerce-admin-catalog/v1.0/currencies"
+}
+{
+  "timestamp": "2026-05-11T08:18:10.627Z",
+  "level": "DEBUG",
+  "message": "Liferay API Response",
+  "operation": "get-currencies",
+  "environment": "test",
+  "service": "liferay-ai-data-microservice",
+  "version": "1.0.0",
+  "status": 200,
+  "itemCount": 1,
+  "totalCount": 1
+}
+{
+  "timestamp": "2026-05-11T08:18:53.833Z",
+  "level": "TRACE",
+  "message": "http:get",
+  "correlationId": "system",
+  "environment": "test",
+  "service": "liferay-ai-data-microservice",
+  "version": "1.0.0",
+  "url": "/o/headless-commerce-admin-catalog/v1.0/products?filter=catalogId+eq+123&page=1&pageSize=200",
+  "params": {
+    "filter": "catalogId eq 123",
+    "page": 1,
+    "pageSize": 200
+  }
+}
+{
+  "timestamp": "2026-05-11T08:18:53.835Z",
+  "level": "DEBUG",
+  "message": "Liferay API Request",
+  "operation": "get-products-bulk",
+  "environment": "test",
+  "service": "liferay-ai-data-microservice",
+  "version": "1.0.0",
+  "method": "GET",
+  "url": "/o/headless-commerce-admin-catalog/v1.0/products?filter=catalogId+eq+123&page=1&pageSize=200"
+}
+{
+  "timestamp": "2026-05-11T08:18:53.861Z",
+  "level": "DEBUG",
+  "message": "Liferay API Response",
+  "operation": "get-products-bulk",
+  "environment": "test",
+  "service": "liferay-ai-data-microservice",
+  "version": "1.0.0",
+  "status": 200,
+  "itemCount": 1,
+  "totalCount": 1
+}
+{
+  "timestamp": "2026-05-11T08:18:53.897Z",
+  "level": "TRACE",
+  "message": "http:get",
+  "correlationId": "system",
+  "environment": "test",
+  "service": "liferay-ai-data-microservice",
+  "version": "1.0.0",
+  "url": "/o/headless-admin-user/v1.0/accounts?page=1&pageSize=200",
+  "params": {
+    "page": 1,
+    "pageSize": 200
+  }
+}
+{
+  "timestamp": "2026-05-11T08:18:53.897Z",
+  "level": "DEBUG",
+  "message": "Liferay API Request",
+  "operation": "get-accounts-bulk",
+  "environment": "test",
+  "service": "liferay-ai-data-microservice",
+  "version": "1.0.0",
+  "method": "GET",
+  "url": "/o/headless-admin-user/v1.0/accounts?page=1&pageSize=200"
+}
+{
+  "timestamp": "2026-05-11T08:18:53.903Z",
+  "level": "DEBUG",
+  "message": "Liferay API Response",
+  "operation": "get-accounts-bulk",
+  "environment": "test",
+  "service": "liferay-ai-data-microservice",
+  "version": "1.0.0",
+  "status": 200,
+  "itemCount": 1,
+  "totalCount": 1
+}
+{
+  "timestamp": "2026-05-11T08:18:53.931Z",
+  "level": "TRACE",
+  "message": "http:get",
+  "correlationId": "system",
+  "environment": "test",
+  "service": "liferay-ai-data-microservice",
+  "version": "1.0.0",
+  "url": "/o/headless-commerce-admin-order/v1.0/orders?page=1&pageSize=200",
+  "params": {
+    "filter": null,
+    "page": 1,
+    "pageSize": 200
+  }
+}
+{
+  "timestamp": "2026-05-11T08:18:53.932Z",
+  "level": "DEBUG",
+  "message": "Liferay API Request",
+  "operation": "get-orders-bulk",
+  "environment": "test",
+  "service": "liferay-ai-data-microservice",
+  "version": "1.0.0",
+  "method": "GET",
+  "url": "/o/headless-commerce-admin-order/v1.0/orders?page=1&pageSize=200"
+}
+{
+  "timestamp": "2026-05-11T08:18:53.968Z",
+  "level": "DEBUG",
+  "message": "Liferay API Response",
+  "operation": "get-orders-bulk",
+  "environment": "test",
+  "service": "liferay-ai-data-microservice",
+  "version": "1.0.0",
+  "status": 200,
+  "itemCount": 1,
+  "totalCount": 1
+}
+{
+  "timestamp": "2026-05-11T08:18:54.000Z",
+  "level": "TRACE",
+  "message": "http:get",
+  "correlationId": "system",
+  "environment": "test",
+  "service": "liferay-ai-data-microservice",
+  "version": "1.0.0",
+  "url": "/o/headless-commerce-admin-catalog/v1.0/catalogs?page=1&pageSize=100",
+  "params": {
+    "page": 1,
+    "pageSize": 100
+  }
+}
+{
+  "timestamp": "2026-05-11T08:18:54.000Z",
+  "level": "DEBUG",
+  "message": "Liferay API Request",
+  "operation": "get-catalogs-bulk",
+  "environment": "test",
+  "service": "liferay-ai-data-microservice",
+  "version": "1.0.0",
+  "method": "GET",
+  "url": "/o/headless-commerce-admin-catalog/v1.0/catalogs?page=1&pageSize=100"
+}
+{
+  "timestamp": "2026-05-11T08:18:54.005Z",
+  "level": "DEBUG",
+  "message": "Liferay API Response",
+  "operation": "get-catalogs-bulk",
+  "environment": "test",
+  "service": "liferay-ai-data-microservice",
+  "version": "1.0.0",
+  "status": 200,
+  "itemCount": 1,
+  "totalCount": 1
+}
+{
+  "timestamp": "2026-05-11T08:18:54.005Z",
+  "level": "TRACE",
+  "message": "http:get",
+  "correlationId": "system",
+  "environment": "test",
+  "service": "liferay-ai-data-microservice",
+  "version": "1.0.0",
+  "url": "/o/headless-commerce-admin-pricing/v2.0/price-lists?pageSize=200"
+}
+{
+  "timestamp": "2026-05-11T08:18:54.006Z",
+  "level": "DEBUG",
+  "message": "Liferay API Request",
+  "operation": "get-price-lists",
+  "environment": "test",
+  "service": "liferay-ai-data-microservice",
+  "version": "1.0.0",
+  "method": "GET",
+  "url": "/o/headless-commerce-admin-pricing/v2.0/price-lists?pageSize=200"
+}
+{
+  "timestamp": "2026-05-11T08:18:54.009Z",
+  "level": "DEBUG",
+  "message": "Liferay API Response",
+  "operation": "get-price-lists",
+  "environment": "test",
+  "service": "liferay-ai-data-microservice",
+  "version": "1.0.0",
+  "status": 200,
+  "itemCount": 1,
+  "totalCount": 1
+}
+{
+  "timestamp": "2026-05-11T08:18:54.040Z",
+  "level": "TRACE",
+  "message": "http:get",
+  "correlationId": "system",
+  "environment": "test",
+  "service": "liferay-ai-data-microservice",
+  "version": "1.0.0",
+  "url": "/o/headless-commerce-admin-inventory/v1.0/warehouses?page=1&pageSize=200",
+  "params": {
+    "filter": null,
+    "page": 1,
+    "pageSize": 200
+  }
+}
+{
+  "timestamp": "2026-05-11T08:18:54.041Z",
+  "level": "DEBUG",
+  "message": "Liferay API Request",
+  "operation": "get-warehouses-bulk",
+  "environment": "test",
+  "service": "liferay-ai-data-microservice",
+  "version": "1.0.0",
+  "method": "GET",
+  "url": "/o/headless-commerce-admin-inventory/v1.0/warehouses?page=1&pageSize=200"
+}
+{
+  "timestamp": "2026-05-11T08:18:54.044Z",
+  "level": "DEBUG",
+  "message": "Liferay API Response",
+  "operation": "get-warehouses-bulk",
+  "environment": "test",
+  "service": "liferay-ai-data-microservice",
+  "version": "1.0.0",
+  "status": 200,
+  "itemCount": 1,
+  "totalCount": 1
+}
+{
+  "timestamp": "2026-05-11T08:18:54.077Z",
+  "level": "TRACE",
+  "message": "http:get",
+  "correlationId": "system",
+  "environment": "test",
+  "service": "liferay-ai-data-microservice",
+  "version": "1.0.0",
+  "url": "/o/headless-batch-engine/v1.0/import-task/9001"
+}
+{
+  "timestamp": "2026-05-11T08:18:54.077Z",
+  "level": "DEBUG",
+  "message": "Liferay API Request",
+  "operation": "import-task",
+  "environment": "test",
+  "service": "liferay-ai-data-microservice",
+  "version": "1.0.0",
+  "method": "GET",
+  "url": "/o/headless-batch-engine/v1.0/import-task/9001"
+}
+{
+  "timestamp": "2026-05-11T08:18:54.081Z",
+  "level": "DEBUG",
+  "message": "Liferay API Response",
+  "operation": "import-task",
+  "environment": "test",
+  "service": "liferay-ai-data-microservice",
+  "version": "1.0.0",
+  "status": 200,
+  "dataKeys": [
+    "id",
+    "status",
+    "executeStatus",
+    "processedItemsCount",
+    "totalItemsCount"
+  ]
+}
+{
+  "timestamp": "2026-05-11T08:18:54.119Z",
+  "level": "DEBUG",
+  "message": "Calculated Batch Cache TTL",
+  "correlationId": "system",
+  "environment": "test",
+  "service": "liferay-ai-data-microservice",
+  "version": "1.0.0",
+  "baseMs": 600000,
+  "overrideMs": null,
+  "rawMs": 1800000,
+  "finalTTLMs": 1800000
+}
+{
+  "timestamp": "2026-05-11T08:18:54.292Z",
+  "level": "TRACE",
+  "message": "http:get",
+  "correlationId": "system",
+  "environment": "test",
+  "service": "liferay-ai-data-microservice",
+  "version": "1.0.0",
+  "url": "/o/headless-commerce-admin-catalog/v1.0/catalogs?page=1&pageSize=100",
+  "params": {
+    "page": 1,
+    "pageSize": 100
+  }
+}
+{
+  "timestamp": "2026-05-11T08:18:54.292Z",
+  "level": "DEBUG",
+  "message": "Liferay API Request",
+  "operation": "get-catalogs-bulk",
+  "environment": "test",
+  "service": "liferay-ai-data-microservice",
+  "version": "1.0.0",
+  "method": "GET",
+  "url": "/o/headless-commerce-admin-catalog/v1.0/catalogs?page=1&pageSize=100"
+}
+{
+  "timestamp": "2026-05-11T08:18:54.294Z",
+  "level": "DEBUG",
+  "message": "Liferay API Response",
+  "operation": "get-catalogs-bulk",
+  "environment": "test",
+  "service": "liferay-ai-data-microservice",
+  "version": "1.0.0",
+  "status": 200,
+  "itemCount": 1,
+  "totalCount": 1
+}
+{
+  "timestamp": "2026-05-11T08:18:54.336Z",
+  "level": "TRACE",
+  "message": "http:get",
+  "correlationId": "system",
+  "environment": "test",
+  "service": "liferay-ai-data-microservice",
+  "version": "1.0.0",
+  "url": "/o/headless-commerce-admin-channel/v1.0/channels?page=1&pageSize=100",
+  "params": {
+    "page": 1,
+    "pageSize": 100
+  }
+}
+{
+  "timestamp": "2026-05-11T08:18:54.336Z",
+  "level": "DEBUG",
+  "message": "Liferay API Request",
+  "operation": "get-channels-bulk",
+  "environment": "test",
+  "service": "liferay-ai-data-microservice",
+  "version": "1.0.0",
+  "method": "GET",
+  "url": "/o/headless-commerce-admin-channel/v1.0/channels?page=1&pageSize=100"
+}
+{
+  "timestamp": "2026-05-11T08:18:54.342Z",
+  "level": "DEBUG",
+  "message": "Liferay API Response",
+  "operation": "get-channels-bulk",
+  "environment": "test",
+  "service": "liferay-ai-data-microservice",
+  "version": "1.0.0",
+  "status": 200,
+  "itemCount": 1,
+  "totalCount": 1
+}
+{
+  "timestamp": "2026-05-11T08:18:54.400Z",
+  "level": "TRACE",
+  "message": "http:get",
+  "correlationId": "system",
+  "environment": "test",
+  "service": "liferay-ai-data-microservice",
+  "version": "1.0.0",
+  "url": "/o/headless-commerce-admin-catalog/v1.0/currencies"
+}
+{
+  "timestamp": "2026-05-11T08:18:54.401Z",
+  "level": "DEBUG",
+  "message": "Liferay API Request",
+  "operation": "get-currencies",
+  "environment": "test",
+  "service": "liferay-ai-data-microservice",
+  "version": "1.0.0",
+  "method": "GET",
+  "url": "/o/headless-commerce-admin-catalog/v1.0/currencies"
+}
+{
+  "timestamp": "2026-05-11T08:18:54.407Z",
+  "level": "DEBUG",
+  "message": "Liferay API Response",
+  "operation": "get-currencies",
+  "environment": "test",
+  "service": "liferay-ai-data-microservice",
+  "version": "1.0.0",
+  "status": 200,
+  "itemCount": 1,
+  "totalCount": 1
+}
+{
+  "timestamp": "2026-05-11T08:19:30.972Z",
+  "level": "TRACE",
+  "message": "http:get",
+  "correlationId": "system",
+  "environment": "test",
+  "service": "liferay-ai-data-microservice",
+  "version": "1.0.0",
+  "url": "/o/headless-commerce-admin-catalog/v1.0/products?filter=catalogId+eq+123&page=1&pageSize=200",
+  "params": {
+    "filter": "catalogId eq 123",
+    "page": 1,
+    "pageSize": 200
+  }
+}
+{
+  "timestamp": "2026-05-11T08:19:30.975Z",
+  "level": "DEBUG",
+  "message": "Liferay API Request",
+  "operation": "get-products-bulk",
+  "environment": "test",
+  "service": "liferay-ai-data-microservice",
+  "version": "1.0.0",
+  "method": "GET",
+  "url": "/o/headless-commerce-admin-catalog/v1.0/products?filter=catalogId+eq+123&page=1&pageSize=200"
+}
+{
+  "timestamp": "2026-05-11T08:19:31.004Z",
+  "level": "DEBUG",
+  "message": "Liferay API Response",
+  "operation": "get-products-bulk",
+  "environment": "test",
+  "service": "liferay-ai-data-microservice",
+  "version": "1.0.0",
+  "status": 200,
+  "itemCount": 1,
+  "totalCount": 1
+}
+{
+  "timestamp": "2026-05-11T08:19:31.040Z",
+  "level": "TRACE",
+  "message": "http:get",
+  "correlationId": "system",
+  "environment": "test",
+  "service": "liferay-ai-data-microservice",
+  "version": "1.0.0",
+  "url": "/o/headless-admin-user/v1.0/accounts?page=1&pageSize=200",
+  "params": {
+    "page": 1,
+    "pageSize": 200
+  }
+}
+{
+  "timestamp": "2026-05-11T08:19:31.041Z",
+  "level": "DEBUG",
+  "message": "Liferay API Request",
+  "operation": "get-accounts-bulk",
+  "environment": "test",
+  "service": "liferay-ai-data-microservice",
+  "version": "1.0.0",
+  "method": "GET",
+  "url": "/o/headless-admin-user/v1.0/accounts?page=1&pageSize=200"
+}
+{
+  "timestamp": "2026-05-11T08:19:31.045Z",
+  "level": "DEBUG",
+  "message": "Liferay API Response",
+  "operation": "get-accounts-bulk",
+  "environment": "test",
+  "service": "liferay-ai-data-microservice",
+  "version": "1.0.0",
+  "status": 200,
+  "itemCount": 1,
+  "totalCount": 1
+}
+{
+  "timestamp": "2026-05-11T08:19:31.075Z",
+  "level": "TRACE",
+  "message": "http:get",
+  "correlationId": "system",
+  "environment": "test",
+  "service": "liferay-ai-data-microservice",
+  "version": "1.0.0",
+  "url": "/o/headless-commerce-admin-order/v1.0/orders?page=1&pageSize=200",
+  "params": {
+    "filter": null,
+    "page": 1,
+    "pageSize": 200
+  }
+}
+{
+  "timestamp": "2026-05-11T08:19:31.075Z",
+  "level": "DEBUG",
+  "message": "Liferay API Request",
+  "operation": "get-orders-bulk",
+  "environment": "test",
+  "service": "liferay-ai-data-microservice",
+  "version": "1.0.0",
+  "method": "GET",
+  "url": "/o/headless-commerce-admin-order/v1.0/orders?page=1&pageSize=200"
+}
+{
+  "timestamp": "2026-05-11T08:19:31.082Z",
+  "level": "DEBUG",
+  "message": "Liferay API Response",
+  "operation": "get-orders-bulk",
+  "environment": "test",
+  "service": "liferay-ai-data-microservice",
+  "version": "1.0.0",
+  "status": 200,
+  "itemCount": 1,
+  "totalCount": 1
+}
+{
+  "timestamp": "2026-05-11T08:19:31.117Z",
+  "level": "TRACE",
+  "message": "http:get",
+  "correlationId": "system",
+  "environment": "test",
+  "service": "liferay-ai-data-microservice",
+  "version": "1.0.0",
+  "url": "/o/headless-commerce-admin-catalog/v1.0/catalogs?page=1&pageSize=100",
+  "params": {
+    "page": 1,
+    "pageSize": 100
+  }
+}
+{
+  "timestamp": "2026-05-11T08:19:31.118Z",
+  "level": "DEBUG",
+  "message": "Liferay API Request",
+  "operation": "get-catalogs-bulk",
+  "environment": "test",
+  "service": "liferay-ai-data-microservice",
+  "version": "1.0.0",
+  "method": "GET",
+  "url": "/o/headless-commerce-admin-catalog/v1.0/catalogs?page=1&pageSize=100"
+}
+{
+  "timestamp": "2026-05-11T08:19:31.123Z",
+  "level": "DEBUG",
+  "message": "Liferay API Response",
+  "operation": "get-catalogs-bulk",
+  "environment": "test",
+  "service": "liferay-ai-data-microservice",
+  "version": "1.0.0",
+  "status": 200,
+  "itemCount": 1,
+  "totalCount": 1
+}
+{
+  "timestamp": "2026-05-11T08:19:31.123Z",
+  "level": "TRACE",
+  "message": "http:get",
+  "correlationId": "system",
+  "environment": "test",
+  "service": "liferay-ai-data-microservice",
+  "version": "1.0.0",
+  "url": "/o/headless-commerce-admin-pricing/v2.0/price-lists?pageSize=200"
+}
+{
+  "timestamp": "2026-05-11T08:19:31.127Z",
+  "level": "DEBUG",
+  "message": "Liferay API Request",
+  "operation": "get-price-lists",
+  "environment": "test",
+  "service": "liferay-ai-data-microservice",
+  "version": "1.0.0",
+  "method": "GET",
+  "url": "/o/headless-commerce-admin-pricing/v2.0/price-lists?pageSize=200"
+}
+{
+  "timestamp": "2026-05-11T08:19:31.132Z",
+  "level": "DEBUG",
+  "message": "Liferay API Response",
+  "operation": "get-price-lists",
+  "environment": "test",
+  "service": "liferay-ai-data-microservice",
+  "version": "1.0.0",
+  "status": 200,
+  "itemCount": 1,
+  "totalCount": 1
+}
+{
+  "timestamp": "2026-05-11T08:19:31.163Z",
+  "level": "TRACE",
+  "message": "http:get",
+  "correlationId": "system",
+  "environment": "test",
+  "service": "liferay-ai-data-microservice",
+  "version": "1.0.0",
+  "url": "/o/headless-commerce-admin-inventory/v1.0/warehouses?page=1&pageSize=200",
+  "params": {
+    "filter": null,
+    "page": 1,
+    "pageSize": 200
+  }
+}
+{
+  "timestamp": "2026-05-11T08:19:31.164Z",
+  "level": "DEBUG",
+  "message": "Liferay API Request",
+  "operation": "get-warehouses-bulk",
+  "environment": "test",
+  "service": "liferay-ai-data-microservice",
+  "version": "1.0.0",
+  "method": "GET",
+  "url": "/o/headless-commerce-admin-inventory/v1.0/warehouses?page=1&pageSize=200"
+}
+{
+  "timestamp": "2026-05-11T08:19:31.167Z",
+  "level": "DEBUG",
+  "message": "Liferay API Response",
+  "operation": "get-warehouses-bulk",
+  "environment": "test",
+  "service": "liferay-ai-data-microservice",
+  "version": "1.0.0",
+  "status": 200,
+  "itemCount": 1,
+  "totalCount": 1
+}
+{
+  "timestamp": "2026-05-11T08:19:31.204Z",
+  "level": "TRACE",
+  "message": "http:get",
+  "correlationId": "system",
+  "environment": "test",
+  "service": "liferay-ai-data-microservice",
+  "version": "1.0.0",
+  "url": "/o/headless-batch-engine/v1.0/import-task/9001"
+}
+{
+  "timestamp": "2026-05-11T08:19:31.204Z",
+  "level": "DEBUG",
+  "message": "Liferay API Request",
+  "operation": "import-task",
+  "environment": "test",
+  "service": "liferay-ai-data-microservice",
+  "version": "1.0.0",
+  "method": "GET",
+  "url": "/o/headless-batch-engine/v1.0/import-task/9001"
+}
+{
+  "timestamp": "2026-05-11T08:19:31.209Z",
+  "level": "DEBUG",
+  "message": "Liferay API Response",
+  "operation": "import-task",
+  "environment": "test",
+  "service": "liferay-ai-data-microservice",
+  "version": "1.0.0",
+  "status": 200,
+  "dataKeys": [
+    "id",
+    "status",
+    "executeStatus",
+    "processedItemsCount",
+    "totalItemsCount"
+  ]
+}
+{
+  "timestamp": "2026-05-11T08:19:31.243Z",
+  "level": "DEBUG",
+  "message": "Calculated Batch Cache TTL",
+  "correlationId": "system",
+  "environment": "test",
+  "service": "liferay-ai-data-microservice",
+  "version": "1.0.0",
+  "baseMs": 600000,
+  "overrideMs": null,
+  "rawMs": 1800000,
+  "finalTTLMs": 1800000
+}
+{
+  "timestamp": "2026-05-11T08:19:31.319Z",
+  "level": "TRACE",
+  "message": "http:get",
+  "correlationId": "system",
+  "environment": "test",
+  "service": "liferay-ai-data-microservice",
+  "version": "1.0.0",
+  "url": "/o/headless-commerce-admin-catalog/v1.0/catalogs?page=1&pageSize=100",
+  "params": {
+    "page": 1,
+    "pageSize": 100
+  }
+}
+{
+  "timestamp": "2026-05-11T08:19:31.320Z",
+  "level": "DEBUG",
+  "message": "Liferay API Request",
+  "operation": "get-catalogs-bulk",
+  "environment": "test",
+  "service": "liferay-ai-data-microservice",
+  "version": "1.0.0",
+  "method": "GET",
+  "url": "/o/headless-commerce-admin-catalog/v1.0/catalogs?page=1&pageSize=100"
+}
+{
+  "timestamp": "2026-05-11T08:19:31.323Z",
+  "level": "DEBUG",
+  "message": "Liferay API Response",
+  "operation": "get-catalogs-bulk",
+  "environment": "test",
+  "service": "liferay-ai-data-microservice",
+  "version": "1.0.0",
+  "status": 200,
+  "itemCount": 1,
+  "totalCount": 1
+}
+{
+  "timestamp": "2026-05-11T08:19:31.401Z",
+  "level": "TRACE",
+  "message": "http:get",
+  "correlationId": "system",
+  "environment": "test",
+  "service": "liferay-ai-data-microservice",
+  "version": "1.0.0",
+  "url": "/o/headless-commerce-admin-channel/v1.0/channels?page=1&pageSize=100",
+  "params": {
+    "page": 1,
+    "pageSize": 100
+  }
+}
+{
+  "timestamp": "2026-05-11T08:19:31.402Z",
+  "level": "DEBUG",
+  "message": "Liferay API Request",
+  "operation": "get-channels-bulk",
+  "environment": "test",
+  "service": "liferay-ai-data-microservice",
+  "version": "1.0.0",
+  "method": "GET",
+  "url": "/o/headless-commerce-admin-channel/v1.0/channels?page=1&pageSize=100"
+}
+{
+  "timestamp": "2026-05-11T08:19:31.406Z",
+  "level": "DEBUG",
+  "message": "Liferay API Response",
+  "operation": "get-channels-bulk",
+  "environment": "test",
+  "service": "liferay-ai-data-microservice",
+  "version": "1.0.0",
+  "status": 200,
+  "itemCount": 1,
+  "totalCount": 1
+}
+{
+  "timestamp": "2026-05-11T08:19:31.448Z",
+  "level": "TRACE",
+  "message": "http:get",
+  "correlationId": "system",
+  "environment": "test",
+  "service": "liferay-ai-data-microservice",
+  "version": "1.0.0",
+  "url": "/o/headless-commerce-admin-catalog/v1.0/currencies"
+}
+{
+  "timestamp": "2026-05-11T08:19:31.448Z",
+  "level": "DEBUG",
+  "message": "Liferay API Request",
+  "operation": "get-currencies",
+  "environment": "test",
+  "service": "liferay-ai-data-microservice",
+  "version": "1.0.0",
+  "method": "GET",
+  "url": "/o/headless-commerce-admin-catalog/v1.0/currencies"
+}
+{
+  "timestamp": "2026-05-11T08:19:31.454Z",
+  "level": "DEBUG",
+  "message": "Liferay API Response",
+  "operation": "get-currencies",
+  "environment": "test",
+  "service": "liferay-ai-data-microservice",
+  "version": "1.0.0",
+  "status": 200,
+  "itemCount": 1,
+  "totalCount": 1
+}
+{
+  "timestamp": "2026-05-11T08:20:19.950Z",
+  "level": "TRACE",
+  "message": "http:get",
+  "correlationId": "system",
+  "environment": "test",
+  "service": "liferay-ai-data-microservice",
+  "version": "1.0.0",
+  "url": "/o/headless-commerce-admin-catalog/v1.0/products?filter=catalogId+eq+123&page=1&pageSize=200",
+  "params": {
+    "filter": "catalogId eq 123",
+    "page": 1,
+    "pageSize": 200
+  }
+}
+{
+  "timestamp": "2026-05-11T08:20:19.953Z",
+  "level": "DEBUG",
+  "message": "Liferay API Request",
+  "operation": "get-products-bulk",
+  "environment": "test",
+  "service": "liferay-ai-data-microservice",
+  "version": "1.0.0",
+  "method": "GET",
+  "url": "/o/headless-commerce-admin-catalog/v1.0/products?filter=catalogId+eq+123&page=1&pageSize=200"
+}
+{
+  "timestamp": "2026-05-11T08:20:19.978Z",
+  "level": "DEBUG",
+  "message": "Liferay API Response",
+  "operation": "get-products-bulk",
+  "environment": "test",
+  "service": "liferay-ai-data-microservice",
+  "version": "1.0.0",
+  "status": 200,
+  "itemCount": 1,
+  "totalCount": 1
+}
+{
+  "timestamp": "2026-05-11T08:20:20.034Z",
+  "level": "TRACE",
+  "message": "http:get",
+  "correlationId": "system",
+  "environment": "test",
+  "service": "liferay-ai-data-microservice",
+  "version": "1.0.0",
+  "url": "/o/headless-admin-user/v1.0/accounts?page=1&pageSize=200",
+  "params": {
+    "page": 1,
+    "pageSize": 200
+  }
+}
+{
+  "timestamp": "2026-05-11T08:20:20.035Z",
+  "level": "DEBUG",
+  "message": "Liferay API Request",
+  "operation": "get-accounts-bulk",
+  "environment": "test",
+  "service": "liferay-ai-data-microservice",
+  "version": "1.0.0",
+  "method": "GET",
+  "url": "/o/headless-admin-user/v1.0/accounts?page=1&pageSize=200"
+}
+{
+  "timestamp": "2026-05-11T08:20:20.040Z",
+  "level": "DEBUG",
+  "message": "Liferay API Response",
+  "operation": "get-accounts-bulk",
+  "environment": "test",
+  "service": "liferay-ai-data-microservice",
+  "version": "1.0.0",
+  "status": 200,
+  "itemCount": 1,
+  "totalCount": 1
+}
+{
+  "timestamp": "2026-05-11T08:20:20.069Z",
+  "level": "TRACE",
+  "message": "http:get",
+  "correlationId": "system",
+  "environment": "test",
+  "service": "liferay-ai-data-microservice",
+  "version": "1.0.0",
+  "url": "/o/headless-commerce-admin-order/v1.0/orders?page=1&pageSize=200",
+  "params": {
+    "filter": null,
+    "page": 1,
+    "pageSize": 200
+  }
+}
+{
+  "timestamp": "2026-05-11T08:20:20.069Z",
+  "level": "DEBUG",
+  "message": "Liferay API Request",
+  "operation": "get-orders-bulk",
+  "environment": "test",
+  "service": "liferay-ai-data-microservice",
+  "version": "1.0.0",
+  "method": "GET",
+  "url": "/o/headless-commerce-admin-order/v1.0/orders?page=1&pageSize=200"
+}
+{
+  "timestamp": "2026-05-11T08:20:20.076Z",
+  "level": "DEBUG",
+  "message": "Liferay API Response",
+  "operation": "get-orders-bulk",
+  "environment": "test",
+  "service": "liferay-ai-data-microservice",
+  "version": "1.0.0",
+  "status": 200,
+  "itemCount": 1,
+  "totalCount": 1
+}
+{
+  "timestamp": "2026-05-11T08:20:20.107Z",
+  "level": "TRACE",
+  "message": "http:get",
+  "correlationId": "system",
+  "environment": "test",
+  "service": "liferay-ai-data-microservice",
+  "version": "1.0.0",
+  "url": "/o/headless-commerce-admin-catalog/v1.0/catalogs?page=1&pageSize=100",
+  "params": {
+    "page": 1,
+    "pageSize": 100
+  }
+}
+{
+  "timestamp": "2026-05-11T08:20:20.108Z",
+  "level": "DEBUG",
+  "message": "Liferay API Request",
+  "operation": "get-catalogs-bulk",
+  "environment": "test",
+  "service": "liferay-ai-data-microservice",
+  "version": "1.0.0",
+  "method": "GET",
+  "url": "/o/headless-commerce-admin-catalog/v1.0/catalogs?page=1&pageSize=100"
+}
+{
+  "timestamp": "2026-05-11T08:20:20.112Z",
+  "level": "DEBUG",
+  "message": "Liferay API Response",
+  "operation": "get-catalogs-bulk",
+  "environment": "test",
+  "service": "liferay-ai-data-microservice",
+  "version": "1.0.0",
+  "status": 200,
+  "itemCount": 1,
+  "totalCount": 1
+}
+{
+  "timestamp": "2026-05-11T08:20:20.113Z",
+  "level": "TRACE",
+  "message": "http:get",
+  "correlationId": "system",
+  "environment": "test",
+  "service": "liferay-ai-data-microservice",
+  "version": "1.0.0",
+  "url": "/o/headless-commerce-admin-pricing/v2.0/price-lists?pageSize=200"
+}
+{
+  "timestamp": "2026-05-11T08:20:20.114Z",
+  "level": "DEBUG",
+  "message": "Liferay API Request",
+  "operation": "get-price-lists",
+  "environment": "test",
+  "service": "liferay-ai-data-microservice",
+  "version": "1.0.0",
+  "method": "GET",
+  "url": "/o/headless-commerce-admin-pricing/v2.0/price-lists?pageSize=200"
+}
+{
+  "timestamp": "2026-05-11T08:20:20.118Z",
+  "level": "DEBUG",
+  "message": "Liferay API Response",
+  "operation": "get-price-lists",
+  "environment": "test",
+  "service": "liferay-ai-data-microservice",
+  "version": "1.0.0",
+  "status": 200,
+  "itemCount": 1,
+  "totalCount": 1
+}
+{
+  "timestamp": "2026-05-11T08:20:20.152Z",
+  "level": "TRACE",
+  "message": "http:get",
+  "correlationId": "system",
+  "environment": "test",
+  "service": "liferay-ai-data-microservice",
+  "version": "1.0.0",
+  "url": "/o/headless-commerce-admin-inventory/v1.0/warehouses?page=1&pageSize=200",
+  "params": {
+    "filter": null,
+    "page": 1,
+    "pageSize": 200
+  }
+}
+{
+  "timestamp": "2026-05-11T08:20:20.153Z",
+  "level": "DEBUG",
+  "message": "Liferay API Request",
+  "operation": "get-warehouses-bulk",
+  "environment": "test",
+  "service": "liferay-ai-data-microservice",
+  "version": "1.0.0",
+  "method": "GET",
+  "url": "/o/headless-commerce-admin-inventory/v1.0/warehouses?page=1&pageSize=200"
+}
+{
+  "timestamp": "2026-05-11T08:20:20.157Z",
+  "level": "DEBUG",
+  "message": "Liferay API Response",
+  "operation": "get-warehouses-bulk",
+  "environment": "test",
+  "service": "liferay-ai-data-microservice",
+  "version": "1.0.0",
+  "status": 200,
+  "itemCount": 1,
+  "totalCount": 1
+}
+{
+  "timestamp": "2026-05-11T08:20:20.187Z",
+  "level": "TRACE",
+  "message": "http:get",
+  "correlationId": "system",
+  "environment": "test",
+  "service": "liferay-ai-data-microservice",
+  "version": "1.0.0",
+  "url": "/o/headless-batch-engine/v1.0/import-task/9001"
+}
+{
+  "timestamp": "2026-05-11T08:20:20.187Z",
+  "level": "DEBUG",
+  "message": "Liferay API Request",
+  "operation": "import-task",
+  "environment": "test",
+  "service": "liferay-ai-data-microservice",
+  "version": "1.0.0",
+  "method": "GET",
+  "url": "/o/headless-batch-engine/v1.0/import-task/9001"
+}
+{
+  "timestamp": "2026-05-11T08:20:20.196Z",
+  "level": "DEBUG",
+  "message": "Liferay API Response",
+  "operation": "import-task",
+  "environment": "test",
+  "service": "liferay-ai-data-microservice",
+  "version": "1.0.0",
+  "status": 200,
+  "dataKeys": [
+    "id",
+    "status",
+    "executeStatus",
+    "processedItemsCount",
+    "totalItemsCount"
+  ]
+}
+{
+  "timestamp": "2026-05-11T08:20:20.231Z",
+  "level": "DEBUG",
+  "message": "Calculated Batch Cache TTL",
+  "correlationId": "system",
+  "environment": "test",
+  "service": "liferay-ai-data-microservice",
+  "version": "1.0.0",
+  "baseMs": 600000,
+  "overrideMs": null,
+  "rawMs": 1800000,
+  "finalTTLMs": 1800000
+}
+{
+  "timestamp": "2026-05-11T08:20:20.343Z",
+  "level": "TRACE",
+  "message": "http:get",
+  "correlationId": "system",
+  "environment": "test",
+  "service": "liferay-ai-data-microservice",
+  "version": "1.0.0",
+  "url": "/o/headless-commerce-admin-catalog/v1.0/catalogs?page=1&pageSize=100",
+  "params": {
+    "page": 1,
+    "pageSize": 100
+  }
+}
+{
+  "timestamp": "2026-05-11T08:20:20.343Z",
+  "level": "DEBUG",
+  "message": "Liferay API Request",
+  "operation": "get-catalogs-bulk",
+  "environment": "test",
+  "service": "liferay-ai-data-microservice",
+  "version": "1.0.0",
+  "method": "GET",
+  "url": "/o/headless-commerce-admin-catalog/v1.0/catalogs?page=1&pageSize=100"
+}
+{
+  "timestamp": "2026-05-11T08:20:20.347Z",
+  "level": "DEBUG",
+  "message": "Liferay API Response",
+  "operation": "get-catalogs-bulk",
+  "environment": "test",
+  "service": "liferay-ai-data-microservice",
+  "version": "1.0.0",
+  "status": 200,
+  "itemCount": 1,
+  "totalCount": 1
+}
+{
+  "timestamp": "2026-05-11T08:20:20.404Z",
+  "level": "TRACE",
+  "message": "http:get",
+  "correlationId": "system",
+  "environment": "test",
+  "service": "liferay-ai-data-microservice",
+  "version": "1.0.0",
+  "url": "/o/headless-commerce-admin-channel/v1.0/channels?page=1&pageSize=100",
+  "params": {
+    "page": 1,
+    "pageSize": 100
+  }
+}
+{
+  "timestamp": "2026-05-11T08:20:20.404Z",
+  "level": "DEBUG",
+  "message": "Liferay API Request",
+  "operation": "get-channels-bulk",
+  "environment": "test",
+  "service": "liferay-ai-data-microservice",
+  "version": "1.0.0",
+  "method": "GET",
+  "url": "/o/headless-commerce-admin-channel/v1.0/channels?page=1&pageSize=100"
+}
+{
+  "timestamp": "2026-05-11T08:20:20.409Z",
+  "level": "DEBUG",
+  "message": "Liferay API Response",
+  "operation": "get-channels-bulk",
+  "environment": "test",
+  "service": "liferay-ai-data-microservice",
+  "version": "1.0.0",
+  "status": 200,
+  "itemCount": 1,
+  "totalCount": 1
+}
+{
+  "timestamp": "2026-05-11T08:20:20.454Z",
+  "level": "TRACE",
+  "message": "http:get",
+  "correlationId": "system",
+  "environment": "test",
+  "service": "liferay-ai-data-microservice",
+  "version": "1.0.0",
+  "url": "/o/headless-commerce-admin-catalog/v1.0/currencies"
+}
+{
+  "timestamp": "2026-05-11T08:20:20.454Z",
+  "level": "DEBUG",
+  "message": "Liferay API Request",
+  "operation": "get-currencies",
+  "environment": "test",
+  "service": "liferay-ai-data-microservice",
+  "version": "1.0.0",
+  "method": "GET",
+  "url": "/o/headless-commerce-admin-catalog/v1.0/currencies"
+}
+{
+  "timestamp": "2026-05-11T08:20:20.458Z",
+  "level": "DEBUG",
+  "message": "Liferay API Response",
+  "operation": "get-currencies",
+  "environment": "test",
+  "service": "liferay-ai-data-microservice",
+  "version": "1.0.0",
+  "status": 200,
+  "itemCount": 1,
+  "totalCount": 1
+}
+{
+  "timestamp": "2026-05-11T08:21:58.614Z",
+  "level": "TRACE",
+  "message": "http:get",
+  "correlationId": "system",
+  "environment": "test",
+  "service": "liferay-ai-data-microservice",
+  "version": "1.0.0",
+  "url": "/o/headless-commerce-admin-catalog/v1.0/products?filter=catalogId+eq+123&page=1&pageSize=200",
+  "params": {
+    "filter": "catalogId eq 123",
+    "page": 1,
+    "pageSize": 200
+  }
+}
+{
+  "timestamp": "2026-05-11T08:21:58.617Z",
+  "level": "DEBUG",
+  "message": "Liferay API Request",
+  "operation": "get-products-bulk",
+  "environment": "test",
+  "service": "liferay-ai-data-microservice",
+  "version": "1.0.0",
+  "method": "GET",
+  "url": "/o/headless-commerce-admin-catalog/v1.0/products?filter=catalogId+eq+123&page=1&pageSize=200"
+}
+{
+  "timestamp": "2026-05-11T08:21:58.664Z",
+  "level": "DEBUG",
+  "message": "Liferay API Response",
+  "operation": "get-products-bulk",
+  "environment": "test",
+  "service": "liferay-ai-data-microservice",
+  "version": "1.0.0",
+  "status": 200,
+  "itemCount": 1,
+  "totalCount": 1
+}
+{
+  "timestamp": "2026-05-11T08:21:58.768Z",
+  "level": "TRACE",
+  "message": "http:get",
+  "correlationId": "system",
+  "environment": "test",
+  "service": "liferay-ai-data-microservice",
+  "version": "1.0.0",
+  "url": "/o/headless-admin-user/v1.0/accounts?page=1&pageSize=200",
+  "params": {
+    "page": 1,
+    "pageSize": 200
+  }
+}
+{
+  "timestamp": "2026-05-11T08:21:58.831Z",
+  "level": "DEBUG",
+  "message": "Liferay API Request",
+  "operation": "get-accounts-bulk",
+  "environment": "test",
+  "service": "liferay-ai-data-microservice",
+  "version": "1.0.0",
+  "method": "GET",
+  "url": "/o/headless-admin-user/v1.0/accounts?page=1&pageSize=200"
+}
+{
+  "timestamp": "2026-05-11T08:21:58.937Z",
+  "level": "DEBUG",
+  "message": "Liferay API Response",
+  "operation": "get-accounts-bulk",
+  "environment": "test",
+  "service": "liferay-ai-data-microservice",
+  "version": "1.0.0",
+  "status": 200,
+  "itemCount": 1,
+  "totalCount": 1
+}
+{
+  "timestamp": "2026-05-11T08:21:59.057Z",
+  "level": "TRACE",
+  "message": "http:get",
+  "correlationId": "system",
+  "environment": "test",
+  "service": "liferay-ai-data-microservice",
+  "version": "1.0.0",
+  "url": "/o/headless-commerce-admin-order/v1.0/orders?page=1&pageSize=200",
+  "params": {
+    "filter": null,
+    "page": 1,
+    "pageSize": 200
+  }
+}
+{
+  "timestamp": "2026-05-11T08:21:59.135Z",
+  "level": "DEBUG",
+  "message": "Liferay API Request",
+  "operation": "get-orders-bulk",
+  "environment": "test",
+  "service": "liferay-ai-data-microservice",
+  "version": "1.0.0",
+  "method": "GET",
+  "url": "/o/headless-commerce-admin-order/v1.0/orders?page=1&pageSize=200"
+}
+{
+  "timestamp": "2026-05-11T08:21:59.243Z",
+  "level": "DEBUG",
+  "message": "Liferay API Response",
+  "operation": "get-orders-bulk",
+  "environment": "test",
+  "service": "liferay-ai-data-microservice",
+  "version": "1.0.0",
+  "status": 200,
+  "itemCount": 1,
+  "totalCount": 1
+}
+{
+  "timestamp": "2026-05-11T08:21:59.375Z",
+  "level": "TRACE",
+  "message": "http:get",
+  "correlationId": "system",
+  "environment": "test",
+  "service": "liferay-ai-data-microservice",
+  "version": "1.0.0",
+  "url": "/o/headless-commerce-admin-catalog/v1.0/catalogs?page=1&pageSize=100",
+  "params": {
+    "page": 1,
+    "pageSize": 100
+  }
+}
+{
+  "timestamp": "2026-05-11T08:21:59.440Z",
+  "level": "DEBUG",
+  "message": "Liferay API Request",
+  "operation": "get-catalogs-bulk",
+  "environment": "test",
+  "service": "liferay-ai-data-microservice",
+  "version": "1.0.0",
+  "method": "GET",
+  "url": "/o/headless-commerce-admin-catalog/v1.0/catalogs?page=1&pageSize=100"
+}
+{
+  "timestamp": "2026-05-11T08:21:59.539Z",
+  "level": "DEBUG",
+  "message": "Liferay API Response",
+  "operation": "get-catalogs-bulk",
+  "environment": "test",
+  "service": "liferay-ai-data-microservice",
+  "version": "1.0.0",
+  "status": 200,
+  "itemCount": 1,
+  "totalCount": 1
+}
+{
+  "timestamp": "2026-05-11T08:21:59.634Z",
+  "level": "TRACE",
+  "message": "http:get",
+  "correlationId": "system",
+  "environment": "test",
+  "service": "liferay-ai-data-microservice",
+  "version": "1.0.0",
+  "url": "/o/headless-commerce-admin-pricing/v2.0/price-lists?pageSize=200"
+}
+{
+  "timestamp": "2026-05-11T08:21:59.740Z",
+  "level": "DEBUG",
+  "message": "Liferay API Request",
+  "operation": "get-price-lists",
+  "environment": "test",
+  "service": "liferay-ai-data-microservice",
+  "version": "1.0.0",
+  "method": "GET",
+  "url": "/o/headless-commerce-admin-pricing/v2.0/price-lists?pageSize=200"
+}
+{
+  "timestamp": "2026-05-11T08:21:59.843Z",
+  "level": "DEBUG",
+  "message": "Liferay API Response",
+  "operation": "get-price-lists",
+  "environment": "test",
+  "service": "liferay-ai-data-microservice",
+  "version": "1.0.0",
+  "status": 200,
+  "itemCount": 1,
+  "totalCount": 1
+}
+{
+  "timestamp": "2026-05-11T08:21:59.969Z",
+  "level": "TRACE",
+  "message": "http:get",
+  "correlationId": "system",
+  "environment": "test",
+  "service": "liferay-ai-data-microservice",
+  "version": "1.0.0",
+  "url": "/o/headless-commerce-admin-inventory/v1.0/warehouses?page=1&pageSize=200",
+  "params": {
+    "filter": null,
+    "page": 1,
+    "pageSize": 200
+  }
+}
+{
+  "timestamp": "2026-05-11T08:22:00.049Z",
+  "level": "DEBUG",
+  "message": "Liferay API Request",
+  "operation": "get-warehouses-bulk",
+  "environment": "test",
+  "service": "liferay-ai-data-microservice",
+  "version": "1.0.0",
+  "method": "GET",
+  "url": "/o/headless-commerce-admin-inventory/v1.0/warehouses?page=1&pageSize=200"
+}
+{
+  "timestamp": "2026-05-11T08:22:00.156Z",
+  "level": "DEBUG",
+  "message": "Liferay API Response",
+  "operation": "get-warehouses-bulk",
+  "environment": "test",
+  "service": "liferay-ai-data-microservice",
+  "version": "1.0.0",
+  "status": 200,
+  "itemCount": 1,
+  "totalCount": 1
+}
+{
+  "timestamp": "2026-05-11T08:22:00.291Z",
+  "level": "TRACE",
+  "message": "http:get",
+  "correlationId": "system",
+  "environment": "test",
+  "service": "liferay-ai-data-microservice",
+  "version": "1.0.0",
+  "url": "/o/headless-batch-engine/v1.0/import-task/9001"
+}
+{
+  "timestamp": "2026-05-11T08:22:00.355Z",
+  "level": "DEBUG",
+  "message": "Liferay API Request",
+  "operation": "import-task",
+  "environment": "test",
+  "service": "liferay-ai-data-microservice",
+  "version": "1.0.0",
+  "method": "GET",
+  "url": "/o/headless-batch-engine/v1.0/import-task/9001"
+}
+{
+  "timestamp": "2026-05-11T08:22:00.455Z",
+  "level": "DEBUG",
+  "message": "Liferay API Response",
+  "operation": "import-task",
+  "environment": "test",
+  "service": "liferay-ai-data-microservice",
+  "version": "1.0.0",
+  "status": 200,
+  "dataKeys": [
+    "id",
+    "status",
+    "executeStatus",
+    "processedItemsCount",
+    "totalItemsCount"
+  ]
+}
+{
+  "timestamp": "2026-05-11T08:22:00.588Z",
+  "level": "DEBUG",
+  "message": "Calculated Batch Cache TTL",
+  "correlationId": "system",
+  "environment": "test",
+  "service": "liferay-ai-data-microservice",
+  "version": "1.0.0",
+  "baseMs": 600000,
+  "overrideMs": null,
+  "rawMs": 1800000,
+  "finalTTLMs": 1800000
+}
+{
+  "timestamp": "2026-05-11T08:22:00.742Z",
+  "level": "TRACE",
+  "message": "http:get",
+  "correlationId": "system",
+  "environment": "test",
+  "service": "liferay-ai-data-microservice",
+  "version": "1.0.0",
+  "url": "/o/headless-commerce-admin-catalog/v1.0/catalogs?page=1&pageSize=100",
+  "params": {
+    "page": 1,
+    "pageSize": 100
+  }
+}
+{
+  "timestamp": "2026-05-11T08:22:00.756Z",
+  "level": "DEBUG",
+  "message": "Liferay API Request",
+  "operation": "get-catalogs-bulk",
+  "environment": "test",
+  "service": "liferay-ai-data-microservice",
+  "version": "1.0.0",
+  "method": "GET",
+  "url": "/o/headless-commerce-admin-catalog/v1.0/catalogs?page=1&pageSize=100"
+}
+{
+  "timestamp": "2026-05-11T08:22:00.855Z",
+  "level": "DEBUG",
+  "message": "Liferay API Response",
+  "operation": "get-catalogs-bulk",
+  "environment": "test",
+  "service": "liferay-ai-data-microservice",
+  "version": "1.0.0",
+  "status": 200,
+  "itemCount": 1,
+  "totalCount": 1
+}
+{
+  "timestamp": "2026-05-11T08:22:00.989Z",
+  "level": "TRACE",
+  "message": "http:get",
+  "correlationId": "system",
+  "environment": "test",
+  "service": "liferay-ai-data-microservice",
+  "version": "1.0.0",
+  "url": "/o/headless-commerce-admin-channel/v1.0/channels?page=1&pageSize=100",
+  "params": {
+    "page": 1,
+    "pageSize": 100
+  }
+}
+{
+  "timestamp": "2026-05-11T08:22:01.046Z",
+  "level": "DEBUG",
+  "message": "Liferay API Request",
+  "operation": "get-channels-bulk",
+  "environment": "test",
+  "service": "liferay-ai-data-microservice",
+  "version": "1.0.0",
+  "method": "GET",
+  "url": "/o/headless-commerce-admin-channel/v1.0/channels?page=1&pageSize=100"
+}
+{
+  "timestamp": "2026-05-11T08:22:01.146Z",
+  "level": "DEBUG",
+  "message": "Liferay API Response",
+  "operation": "get-channels-bulk",
+  "environment": "test",
+  "service": "liferay-ai-data-microservice",
+  "version": "1.0.0",
+  "status": 200,
+  "itemCount": 1,
+  "totalCount": 1
+}
+{
+  "timestamp": "2026-05-11T08:22:01.273Z",
+  "level": "TRACE",
+  "message": "http:get",
+  "correlationId": "system",
+  "environment": "test",
+  "service": "liferay-ai-data-microservice",
+  "version": "1.0.0",
+  "url": "/o/headless-commerce-admin-catalog/v1.0/currencies"
+}
+{
+  "timestamp": "2026-05-11T08:22:01.337Z",
+  "level": "DEBUG",
+  "message": "Liferay API Request",
+  "operation": "get-currencies",
+  "environment": "test",
+  "service": "liferay-ai-data-microservice",
+  "version": "1.0.0",
+  "method": "GET",
+  "url": "/o/headless-commerce-admin-catalog/v1.0/currencies"
+}
+{
+  "timestamp": "2026-05-11T08:22:01.435Z",
+  "level": "DEBUG",
+  "message": "Liferay API Response",
+  "operation": "get-currencies",
+  "environment": "test",
+  "service": "liferay-ai-data-microservice",
+  "version": "1.0.0",
+  "status": 200,
+  "itemCount": 1,
+  "totalCount": 1
+}
