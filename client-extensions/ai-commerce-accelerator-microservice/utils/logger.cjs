@@ -32,10 +32,7 @@ const COLORS = {
 
 class Logger {
   constructor() {
-    this.logFile = path.join(
-      logsDir,
-      `app-${new Date().toISOString().split('T')[0]}.log`
-    );
+    this.logFile = path.join(logsDir, 'app.log');
     this.loggingLevel = this.determineLoggingLevel(ENV.LOGGER_LEVEL);
   }
 
@@ -59,7 +56,7 @@ class Logger {
   }
 
   _normalizeMessage(message, spacer = ' ') {
-    let normalized = message
+    let normalized = (message || '')
       .replace(/"/g, "'")
       .replace(/\r\n/g, '\n')
       .replace(/\n\s*/g, spacer)
@@ -75,8 +72,8 @@ class Logger {
 
     Object.keys(meta).forEach((key) => {
       if (
-        key.toLowerCase() === 'correlationId' ||
-        key.toLowerCase() === 'userId' ||
+        key.toLowerCase() === 'correlationid' ||
+        key.toLowerCase() === 'userid' ||
         key.toLowerCase() === 'operation'
       ) {
         delete meta[key];
@@ -104,11 +101,8 @@ class Logger {
 
     let json = JSON.stringify(logEntry, null, 2);
 
-    // If we have a queryForGraphiQL field, we want to make it literal in the logs
-    // so it can be copy-pasted without escaped newlines or quotes around internal strings
     if (logEntry.queryForGraphiQL) {
       const escaped = JSON.stringify(logEntry.queryForGraphiQL);
-      // Remove surrounding quotes and replace escaped newlines with actual newlines
       const literal = logEntry.queryForGraphiQL;
       json = json.replace(escaped, '`' + literal.replace(/`/g, "'") + '`');
     }
@@ -126,7 +120,6 @@ class Logger {
         ? this._normalizeMessage(message, '\n')
         : util.inspect(message, { depth: 4, colors: true });
 
-    // Extract queryForGraphiQL to print it raw instead of letting util.inspect escape it
     const { queryForGraphiQL, ...otherMeta } = meta;
 
     const tailMeta =
@@ -172,6 +165,67 @@ class Logger {
           console.error('Logger write error:', err.message);
         }
       }
+    }
+  }
+
+  /**
+   * Cycles the current log file.
+   * Renames app.log to app-YYYY-MM-DD-HHmmss.log and starts a new app.log.
+   */
+  cycleLogs() {
+    if (!fs.existsSync(this.logFile)) return;
+
+    const timestamp = new Date()
+      .toISOString()
+      .replace(/:/g, '-')
+      .replace(/\./g, '-')
+      .split('T')
+      .join('-');
+    const archiveFile = path.join(logsDir, `app-${timestamp}.log`);
+
+    try {
+      fs.renameSync(this.logFile, archiveFile);
+      this.info(
+        `Logs cycled. Previous log archived to: ${path.basename(archiveFile)}`,
+        {
+          operation: 'log-cycle',
+          archiveFile: path.basename(archiveFile),
+        }
+      );
+    } catch (err) {
+      console.error('Failed to cycle logs:', err.message);
+    }
+  }
+
+  /**
+   * Prunes old log files based on retention count.
+   */
+  pruneLogs(retentionCount = 10) {
+    try {
+      const files = fs
+        .readdirSync(logsDir)
+        .filter((f) => f.startsWith('app-') && f.endsWith('.log'))
+        .sort((a, b) => {
+          // Sort by mtime descending (newest first)
+          return (
+            fs.statSync(path.join(logsDir, b)).mtimeMs -
+            fs.statSync(path.join(logsDir, a)).mtimeMs
+          );
+        });
+
+      if (files.length > retentionCount) {
+        const toDelete = files.slice(retentionCount);
+        toDelete.forEach((f) => {
+          fs.unlinkSync(path.join(logsDir, f));
+        });
+        this.info(`Pruned ${toDelete.length} old log files.`, {
+          operation: 'log-prune',
+          count: toDelete.length,
+          retentionLimit: retentionCount,
+        });
+      }
+    } catch (err) {
+      console.error('Failed to prune logs:', err.message);
     }
   }
 
@@ -277,8 +331,6 @@ class Logger {
   }
 
   async close() {
-    // Current implementation is synchronous, but we provide this for graceful shutdown
-    // and potential future async transitions.
     return Promise.resolve();
   }
 }

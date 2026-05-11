@@ -244,6 +244,10 @@ const gracefulShutdown = async (signal) => {
     configService,
   });
   require('./routes/export.cjs')(apiV1Router, { ...routeCtx, cacheService });
+  require('./routes/logs.cjs')(apiV1Router, {
+    ...routeCtx,
+    persistenceService,
+  });
   require('./routes/import.cjs')(apiV1Router, {
     ...routeCtx,
     batchCallbackService,
@@ -464,6 +468,33 @@ const gracefulShutdown = async (signal) => {
         error: err.message,
       });
     });
+
+    // LOG MANAGEMENT SCHEDULER (Automatic Cycling)
+    setInterval(async () => {
+      try {
+        const now = new Date();
+        const currentTime = `${String(now.getHours()).padStart(2, '0')}:${String(
+          now.getMinutes()
+        ).padStart(2, '0')}`;
+
+        const logConfig = configService.getLogManagementConfigCached();
+
+        if (
+          logConfig &&
+          logConfig.enabled &&
+          logConfig.autoCycleTime === currentTime
+        ) {
+          logger.info('Automatic log cycle triggered', {
+            operation: 'log-cycle-auto',
+            time: currentTime,
+          });
+          logger.cycleLogs();
+          logger.pruneLogs(logConfig.retentionCount);
+        }
+      } catch (err) {
+        // Silently catch to avoid interval crash
+      }
+    }, 60000); // Check every minute
 
     if (process.env.DRY_RUN === 'true') {
       logger.info('DRY_RUN enabled. Shutting down immediately.');

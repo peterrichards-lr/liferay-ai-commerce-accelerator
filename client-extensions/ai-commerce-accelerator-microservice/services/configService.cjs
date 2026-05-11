@@ -49,6 +49,9 @@ const QUEUE_CONFIG_KEY = 'queue-config';
 const WS_CONFIG_CACHE_KEY = 'WS_CONFIG_KEY';
 const WS_CONFIG_KEY = 'ws-config';
 
+const LOG_MANAGEMENT_CACHE_KEY = 'LOG_MANAGEMENT_KEY';
+const LOG_MANAGEMENT_CONFIG_KEY = 'log-management-config';
+
 const WORKFLOW_RESILIENCE_CONFIG_CACHE_KEY = 'WORKFLOW_RESILIENCE_CONFIG_KEY';
 const WORKFLOW_RESILIENCE_CONFIG_KEY = 'workflow-resilience-config';
 
@@ -883,6 +886,9 @@ class ConfigService {
         });
       }
     }
+
+    // 3. Seed Log Management Cache
+    await this.getLogManagementConfig({});
   }
 
   async checkHealth(requestConfig) {
@@ -959,6 +965,40 @@ class ConfigService {
       logger.error('Failed to check config health', { error: error.message });
       return health;
     }
+  }
+
+  async getLogManagementConfig(requestConfig) {
+    try {
+      const config = await this.getConfig(
+        requestConfig,
+        LOG_MANAGEMENT_CONFIG_KEY,
+        LOG_MANAGEMENT_CACHE_KEY
+      );
+
+      return {
+        retentionCount: config?.retentionCount ?? 10,
+        autoCycleTime: config?.autoCycleTime ?? '00:00',
+        enabled: config?.enabled ?? true,
+      };
+    } catch (error) {
+      this.logger.error('Failed to get log management config', {
+        error: error.message,
+      });
+      return { retentionCount: 10, autoCycleTime: '00:00', enabled: true };
+    }
+  }
+
+  getLogManagementConfigCached() {
+    return this.getConfigCached(LOG_MANAGEMENT_CACHE_KEY);
+  }
+
+  async saveLogManagementConfig(requestConfig, logConfig) {
+    return await this.saveConfig(
+      requestConfig,
+      LOG_MANAGEMENT_CONFIG_KEY,
+      logConfig,
+      LOG_MANAGEMENT_CACHE_KEY
+    );
   }
 
   clearCache() {

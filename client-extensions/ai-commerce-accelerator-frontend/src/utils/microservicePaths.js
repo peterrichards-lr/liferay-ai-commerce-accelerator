@@ -34,6 +34,12 @@ const WORKFLOW_STATUS = `${BASE_PATH}/workflows/sessions/:sessionId/status`;
 const WORKFLOW_EVENTS = `${BASE_PATH}/workflows/sessions/:sessionId/events`;
 const WORKFLOW_CLEAR_ALL = `${BASE_PATH}/workflows/clear-all`;
 
+const LOGS_DOWNLOAD = `${BASE_PATH}/logs/download`;
+const LOGS_CLEAR = `${BASE_PATH}/logs`;
+const LOGS_CYCLE = `${BASE_PATH}/logs/cycle`;
+const LOGS_SETTINGS = `${BASE_PATH}/logs/settings`;
+const LOGS_SESSION = `${BASE_PATH}/logs/session/:sessionId`;
+
 export {
   DELETE_COMMERCE_DATA,
   DELETE_SELECTED_COMMERCE_DATA,
@@ -60,4 +66,9 @@ export {
   WORKFLOW_STATUS,
   WORKFLOW_EVENTS,
   WORKFLOW_CLEAR_ALL,
+  LOGS_DOWNLOAD,
+  LOGS_CLEAR,
+  LOGS_CYCLE,
+  LOGS_SETTINGS,
+  LOGS_SESSION,
 };

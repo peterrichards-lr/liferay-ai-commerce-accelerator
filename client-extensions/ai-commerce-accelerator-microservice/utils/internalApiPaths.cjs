@@ -46,6 +46,11 @@ const INTERNAL_API_PATHS = {
   WORKFLOW_SESSION_CONTEXT: '/workflows/sessions/:sessionId/context',
   WORKFLOW_CLEAR_ALL: '/workflows/clear-all',
   WORKFLOW_CLEANUP: '/workflows/cleanup',
+  LOGS_DOWNLOAD: '/logs/download',
+  LOGS_CLEAR: '/logs',
+  LOGS_CYCLE: '/logs/cycle',
+  LOGS_SETTINGS: '/logs/settings',
+  LOGS_SESSION: '/logs/session/:sessionId',
 };
 
 module.exports = { INTERNAL_API_PATHS };

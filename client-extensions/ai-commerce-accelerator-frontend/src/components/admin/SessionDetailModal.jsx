@@ -3,13 +3,14 @@ import ClayButton from '@clayui/button';
 import ClayIcon from '@clayui/icon';
 import ClayCard from '@clayui/card';
 import { useApi } from '../../context/AppContext';
-import { WORKFLOW_EVENTS } from '../../utils/microservicePaths';
+import { WORKFLOW_EVENTS, LOGS_SESSION } from '../../utils/microservicePaths';
 import StatusBadge from './StatusBadge';
 
 function SessionDetailModal({ session, onClose }) {
   const api = useApi();
   const [events, setEvents] = useState([]);
   const [loadingEvents, setLoadingEvents] = useState(false);
+  const [downloadingLogs, setDownloadingLogs] = useState(false);
 
   const context = useMemo(() => {
     try {
@@ -42,6 +43,31 @@ function SessionDetailModal({ session, onClose }) {
     }
   }, [api, session.session_id]);
 
+  const handleDownloadSessionLogs = async () => {
+    setDownloadingLogs(true);
+    try {
+      const url = LOGS_SESSION.replace(':sessionId', session.session_id);
+      const res = await api.get(url, { responseType: 'blob' });
+      const blobUrl = window.URL.createObjectURL(new Blob([res]));
+      const link = document.createElement('a');
+      link.href = blobUrl;
+      link.setAttribute('download', `session-${session.session_id}.log`);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+    } catch (err) {
+      console.error('Failed to download session logs:', err);
+    } finally {
+      setDownloadingLogs(false);
+    }
+  };
+
+  const copyToClipboard = (text, type = 'Context') => {
+    navigator.clipboard.writeText(text);
+    // Minimal feedback via button state could be added, but for now we rely on the system
+    console.log(`${type} copied to clipboard`);
+  };
+
   return (
     <div
       className="confirm-dialog__backdrop"
@@ -59,11 +85,43 @@ function SessionDetailModal({ session, onClose }) {
           style={{ height: '100%' }}
         >
           <div className="p-4 border-bottom d-flex justify-content-between align-items-center bg-light">
-            <div>
-              <h3 className="mb-1">
-                {session.session_name || 'Session Details'}
-              </h3>
-              <div className="text-muted small">{session.session_id}</div>
+            <div className="d-flex align-items-center">
+              <div>
+                <h3 className="mb-1">
+                  {session.session_name || 'Session Details'}
+                </h3>
+                <div className="d-flex align-items-center text-muted small">
+                  {session.session_id}
+                  <ClayButton
+                    displayType="unstyled"
+                    size="sm"
+                    className="ml-2 p-0"
+                    onClick={() =>
+                      copyToClipboard(session.session_id, 'Session ID')
+                    }
+                    title="Copy Session ID"
+                  >
+                    <ClayIcon
+                      symbol="copy"
+                      style={{ width: '12px', height: '12px' }}
+                    />
+                  </ClayButton>
+                </div>
+              </div>
+              <ClayButton
+                displayType="secondary"
+                size="sm"
+                className="ml-4"
+                onClick={handleDownloadSessionLogs}
+                disabled={downloadingLogs}
+              >
+                {downloadingLogs ? (
+                  <span className="spinner-border spinner-border-sm mr-2" />
+                ) : (
+                  <ClayIcon symbol="download" className="mr-2" />
+                )}
+                Download Session Logs
+              </ClayButton>
             </div>
             <ClayButton
               displayType="unstyled"
@@ -119,13 +177,32 @@ function SessionDetailModal({ session, onClose }) {
             )}
 
             {/* EVENT LOG / AUDIT TRAIL */}
-            <h5 className="mb-3 font-weight-bold d-flex align-items-center">
-              <ClayIcon symbol="list" className="mr-2 text-primary" />
-              Audit Trail
-              {loadingEvents && (
-                <span className="spinner-border spinner-border-sm ml-2" />
-              )}
-            </h5>
+            <div className="d-flex justify-content-between align-items-center mb-3">
+              <h5 className="mb-0 font-weight-bold d-flex align-items-center">
+                <ClayIcon symbol="list" className="mr-2 text-primary" />
+                Audit Trail
+                {loadingEvents && (
+                  <span className="spinner-border spinner-border-sm ml-2" />
+                )}
+              </h5>
+              <ClayButton
+                displayType="secondary"
+                size="sm"
+                onClick={() => {
+                  const text = events
+                    .map(
+                      (e) =>
+                        `[${new Date(e.timestamp).toLocaleTimeString()}] ${e.status}: ${e.message}`
+                    )
+                    .join('\n');
+                  copyToClipboard(text, 'Audit Trail');
+                }}
+                disabled={events.length === 0}
+              >
+                <ClayIcon symbol="copy" className="mr-2" />
+                Copy Audit Trail
+              </ClayButton>
+            </div>
 
             <div
               className="mb-4 border rounded bg-white shadow-sm"
@@ -199,10 +276,33 @@ function SessionDetailModal({ session, onClose }) {
 
             {context && (
               <>
-                <h5 className="mb-3 font-weight-bold d-flex align-items-center">
-                  <ClayIcon symbol="info-circle" className="mr-2 text-info" />
-                  Workflow Configuration
-                </h5>
+                <div className="d-flex justify-content-between align-items-center mb-3">
+                  <h5 className="mb-0 font-weight-bold d-flex align-items-center">
+                    <ClayIcon symbol="info-circle" className="mr-2 text-info" />
+                    Workflow Configuration
+                  </h5>
+                  <ClayButton
+                    displayType="secondary"
+                    size="sm"
+                    onClick={() => {
+                      const clean = {
+                        options: context.options,
+                        config: {
+                          ...context.config,
+                          clientSecret: '[REDACTED]',
+                        },
+                        steps: context.steps,
+                      };
+                      copyToClipboard(
+                        JSON.stringify(clean, null, 2),
+                        'Configuration'
+                      );
+                    }}
+                  >
+                    <ClayIcon symbol="copy" className="mr-2" />
+                    Copy JSON
+                  </ClayButton>
+                </div>
 
                 <div className="mb-4">
                   <pre
