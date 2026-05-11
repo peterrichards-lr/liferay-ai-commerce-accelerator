@@ -72,6 +72,14 @@ export const PANELS = [
     ),
   },
   {
+    id: 'workflow-resilience',
+    label: 'Workflow Resilience',
+    icon: 'time',
+    component: lazy(
+      () => import('./components/panels/WorkflowResiliencePanel')
+    ),
+  },
+  {
     id: 'cache',
     label: 'Cache',
     icon: 'repository',

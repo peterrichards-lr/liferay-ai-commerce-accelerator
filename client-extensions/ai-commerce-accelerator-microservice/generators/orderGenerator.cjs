@@ -20,7 +20,17 @@ class OrderGenerator extends BaseGenerator {
       [S.CREATE_ORDERS]: this._runOrderCreationStep.bind(this),
       [S.SUBFLOW_ORDERS]: this._runSubflowOrdersStep.bind(this),
       [S.SYNC_DELAY_ORDERS]: (sId) =>
-        this._runInterServiceSyncDelayStep(sId, S.SYNC_DELAY_ORDERS),
+        this._runAdaptiveSyncDelayStep(
+          sId,
+          S.SYNC_DELAY_ORDERS,
+          async (config) => {
+            const res = await this.liferay.getProductsWithSkus(config, {
+              catalogId: config.catalogId,
+              pageSize: 1,
+            });
+            return (res.items || []).length > 0;
+          }
+        ),
     };
   }
 

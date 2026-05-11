@@ -21,6 +21,15 @@
       "externalReferenceCode": "BATCH-POLLING-CONFIG"
     },
     {
+      "configKey": "workflow-resilience-config",
+      "configStatus": {
+        "key": "Active"
+      },
+      "configValue": "{\"initialDelayMs\": 5000, \"maxRetries\": 5, \"multiplier\": 2}",
+      "description": "Workflow resilience settings: exponential backoff for sync delays and entity discovery",
+      "externalReferenceCode": "WORKFLOW-RESILIENCE-CONFIG"
+    },
+    {
       "configKey": "default-image",
       "configStatus": {
         "key": "Active"

@@ -102,6 +102,77 @@ class BaseGenerator extends BaseWorkflowService {
   }
 
   /**
+   * Adaptive Sync Delay with Exponential Backoff.
+   * Waits for a condition to be met (e.g., products indexed) before proceeding.
+   */
+  async _runAdaptiveSyncDelayStep(sessionId, stepKey, checkFn) {
+    const session = await this.persistence.getSession(sessionId);
+    const { config, correlationId } = session;
+
+    const resilience = this.ctx.config.getWorkflowResilienceConfigCached();
+    const {
+      initialDelayMs = 5000,
+      maxRetries = 5,
+      multiplier = 2,
+    } = resilience;
+
+    this.logger.info(`Starting adaptive sync delay for step: ${stepKey}`, {
+      sessionId,
+      correlationId,
+      maxRetries,
+    });
+
+    let attempt = 0;
+    let success = false;
+
+    while (attempt < maxRetries) {
+      if (attempt > 0) {
+        const waitMs = initialDelayMs * Math.pow(multiplier, attempt - 1);
+        this.logger.debug(
+          `Retry ${attempt}/${maxRetries} for ${stepKey} in ${waitMs}ms...`,
+          { sessionId, correlationId }
+        );
+        await delay(waitMs);
+      }
+
+      try {
+        success = await checkFn(config, session.context);
+        if (success) {
+          this.logger.info(
+            `Condition met for ${stepKey} on attempt ${attempt}`,
+            {
+              sessionId,
+              correlationId,
+            }
+          );
+          break;
+        }
+      } catch (err) {
+        this.logger.warn(`Check failed for ${stepKey}: ${err.message}`, {
+          sessionId,
+          correlationId,
+        });
+      }
+      attempt++;
+    }
+
+    if (!success) {
+      this.logger.warn(
+        `Adaptive sync delay for ${stepKey} finished without meeting condition. Proceeding anyway.`,
+        { sessionId, correlationId }
+      );
+    }
+
+    await this.completeSyncStep(
+      sessionId,
+      stepKey,
+      'SYNCHRONOUS',
+      success ? 1 : 0,
+      1
+    );
+  }
+
+  /**
    * Metadata Step: Load countries from Liferay.
    */
   async _runLoadCountriesStep(sessionId) {

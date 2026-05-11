@@ -49,6 +49,9 @@ const QUEUE_CONFIG_KEY = 'queue-config';
 const WS_CONFIG_CACHE_KEY = 'WS_CONFIG_KEY';
 const WS_CONFIG_KEY = 'ws-config';
 
+const WORKFLOW_RESILIENCE_CONFIG_CACHE_KEY = 'WORKFLOW_RESILIENCE_CONFIG_KEY';
+const WORKFLOW_RESILIENCE_CONFIG_KEY = 'workflow-resilience-config';
+
 const BATCH_SIZES_CONFIG_KEY = 'batch-sizes';
 const BATCH_SIZES_CACHE_KEY = 'BATCH_SIZES_KEY';
 
@@ -650,6 +653,26 @@ class ConfigService {
 
   getWSConfigCached() {
     return this.getConfigCached(WS_CONFIG_CACHE_KEY) || {};
+  }
+
+  async getWorkflowResilienceConfig(requestConfig) {
+    return this._getConfigWithFallback(
+      requestConfig,
+      WORKFLOW_RESILIENCE_CONFIG_CACHE_KEY,
+      WORKFLOW_RESILIENCE_CONFIG_KEY,
+      'get-workflow-resilience-config',
+      'Failed to get workflow resilience configuration'
+    );
+  }
+
+  getWorkflowResilienceConfigCached() {
+    return (
+      this.getConfigCached(WORKFLOW_RESILIENCE_CONFIG_CACHE_KEY) || {
+        initialDelayMs: 5000,
+        maxRetries: 5,
+        multiplier: 2,
+      }
+    );
   }
 
   async getBatchSizes(requestConfig) {

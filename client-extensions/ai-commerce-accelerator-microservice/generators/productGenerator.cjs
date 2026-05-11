@@ -35,7 +35,24 @@ class ProductGenerator extends BaseGenerator {
       [S.SYNC_DELAY_PRICING]: (sId) =>
         this._runInterServiceSyncDelayStep(sId, S.SYNC_DELAY_PRICING),
       [S.SYNC_DELAY_MEDIA]: (sId) =>
-        this._runInterServiceSyncDelayStep(sId, S.SYNC_DELAY_MEDIA),
+        this._runAdaptiveSyncDelayStep(
+          sId,
+          S.SYNC_DELAY_MEDIA,
+          async (config, context) => {
+            const ercs = (context.productDataList || [])
+              .map((p) => p.externalReferenceCode)
+              .filter(Boolean)
+              .slice(0, 5); // Just check a few samples
+
+            if (ercs.length === 0) return true;
+
+            const res = await this.liferay.getProductsByERC(config, ercs, [
+              'externalReferenceCode',
+            ]);
+            const foundCount = (res.items || res || []).length;
+            return foundCount > 0;
+          }
+        ),
       [S.GENERATE_PRICE_LISTS]: this._runGeneratePriceListsStep.bind(this),
       [S.UPDATE_CATALOG_CONFIG]:
         this._runUpdateCatalogConfigurationStep.bind(this),
