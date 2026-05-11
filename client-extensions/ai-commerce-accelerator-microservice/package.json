@@ -1,7 +1,7 @@
 {
   "author": "Peter Richards",
   "dependencies": {
-    "@ai-sdk/anthropic": "^3.0.74",
+    "@ai-sdk/anthropic": "^3.0.76",
     "@google-cloud/storage": "^7.17.0",
     "@google/generative-ai": "^0.24.1",
     "@liferay/accelerator-sdk": "*",
@@ -11,7 +11,7 @@
     "axios": "^1.12.2",
     "better-sqlite3": "^12.9.0",
     "cors": "^2.8.5",
-    "csv-parse": "^6.1.0",
+    "csv-parse": "^6.2.1",
     "dotenv": "^17.4.2",
     "express": "^5.1.0",
     "form-data": "^4.0.0",
@@ -23,9 +23,9 @@
     "multer": "^2.1.1",
     "node-fetch": "^3.3.2",
     "node-stream-zip": "^1.15.0",
-    "openai": "^6.35.0",
-    "ws": "^8.18.0",
-    "zod": "^3.25.76"
+    "openai": "^6.37.0",
+    "ws": "^8.20.0",
+    "zod": "^4.4.3"
   },
   "license": "GPL-3.0",
   "main": "server.cjs",
@@ -42,11 +42,11 @@
   },
   "version": "1.0.0",
   "devDependencies": {
-    "@eslint/js": "9.39.4",
-    "eslint": "9.39.4",
-    "graphql": "^16.9.0",
-    "msw": "^2.4.0",
-    "prettier": "^3.8.1",
+    "@eslint/js": "10.0.1",
+    "eslint": "10.3.0",
+    "graphql": "^16.14.0",
+    "msw": "^2.14.5",
+    "prettier": "^3.8.3",
     "vitest": "^4.1.5"
   }
 }
