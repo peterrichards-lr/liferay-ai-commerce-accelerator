@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import ClayButton from '@clayui/button';
 import ClayForm, { ClayInput, ClaySelect } from '@clayui/form';
 import ClayIcon from '@clayui/icon';
@@ -19,7 +19,9 @@ const DEFAULTS = {
   },
 };
 
-function MicroserviceLogManagementPanel() {
+function MicroserviceLogManagementPanel(props) {
+  const { liferayHosted, microserviceUrl: injectedMsUrl } = props;
+
   const {
     loading: loadingConfig,
     saving: savingConfig,
@@ -29,10 +31,22 @@ function MicroserviceLogManagementPanel() {
     dirty: dirtyMsConfig,
   } = useObjectStorage({
     keys: [MICROSERVICE_CONFIG_KEY],
-    defaults: DEFAULTS,
+    defaults: {
+      [MICROSERVICE_CONFIG_KEY]: {
+        url: injectedMsUrl || DEFAULTS[MICROSERVICE_CONFIG_KEY].url,
+      },
+    },
   });
 
-  const api = useApi(msConfig?.url);
+  // Determine the effective URL.
+  // Injected props (from custom element attributes) take priority, then persisted config.
+  const effectiveMsUrl = useMemo(() => {
+    return (
+      injectedMsUrl || msConfig?.url || DEFAULTS[MICROSERVICE_CONFIG_KEY].url
+    );
+  }, [injectedMsUrl, msConfig?.url]);
+
+  const api = useApi(effectiveMsUrl);
   const [loading, setLoading] = useState(false);
   const [savingLogs, setSavingLogs] = useState(false);
   const [cycling, setCycling] = useState(false);
@@ -43,7 +57,7 @@ function MicroserviceLogManagementPanel() {
   });
 
   const fetchSettings = useCallback(async () => {
-    if (!msConfig?.url) return;
+    if (!effectiveMsUrl) return;
     setLoading(true);
     try {
       const res = await api.post(LOGS_SETTINGS, {});
@@ -55,7 +69,7 @@ function MicroserviceLogManagementPanel() {
     } finally {
       setLoading(false);
     }
-  }, [api, msConfig?.url]);
+  }, [api, effectiveMsUrl]);
 
   useEffect(() => {
     if (!loadingConfig) {
@@ -146,7 +160,6 @@ function MicroserviceLogManagementPanel() {
         type: 'success',
       });
     } catch (err) {
-      console.error('Failed to clear logs:', err);
       Liferay?.Util?.openToast?.({
         message: 'Failed to clear logs',
         type: 'danger',
@@ -170,34 +183,50 @@ function MicroserviceLogManagementPanel() {
 
       <div className="sheet-section">
         <h3 className="sheet-subtitle">Connectivity</h3>
-        <ClayForm.Group>
-          <label htmlFor="ms-url">Microservice Base URL</label>
-          <div className="d-flex">
-            <ClayInput
-              id="ms-url"
-              type="url"
-              value={msConfig.url}
-              onChange={(e) =>
-                setMsConfigValue(MICROSERVICE_CONFIG_KEY, {
-                  ...msConfig,
-                  url: e.target.value,
-                })
-              }
-              placeholder="http://localhost:3001"
-            />
-            <ClayButton
-              displayType="primary"
-              className="ml-2"
-              onClick={handleSaveMsUrl}
-              disabled={!dirtyMsConfig || savingConfig}
-            >
-              Update
-            </ClayButton>
+
+        {liferayHosted ? (
+          <div className="alert alert-light border shadow-sm small mb-4">
+            <div className="d-flex align-items-center">
+              <ClayIcon symbol="info-circle" className="text-info mr-2" />
+              <div>
+                This extension is <strong>Liferay Hosted</strong>. Connectivity
+                to the microservice is managed automatically.
+              </div>
+            </div>
+            <div className="mt-2 text-muted">
+              Effective Endpoint: <code>{effectiveMsUrl}</code>
+            </div>
           </div>
-          <small className="form-text text-secondary">
-            Stored in Liferay as <code>{MICROSERVICE_CONFIG_KEY}</code>.
-          </small>
-        </ClayForm.Group>
+        ) : (
+          <ClayForm.Group>
+            <label htmlFor="ms-url">Microservice Base URL</label>
+            <div className="d-flex">
+              <ClayInput
+                id="ms-url"
+                type="url"
+                value={msConfig.url}
+                onChange={(e) =>
+                  setMsConfigValue(MICROSERVICE_CONFIG_KEY, {
+                    ...msConfig,
+                    url: e.target.value,
+                  })
+                }
+                placeholder="http://localhost:3001"
+              />
+              <ClayButton
+                displayType="primary"
+                className="ml-2"
+                onClick={handleSaveMsUrl}
+                disabled={!dirtyMsConfig || savingConfig}
+              >
+                Update
+              </ClayButton>
+            </div>
+            <small className="form-text text-secondary">
+              Stored in Liferay as <code>{MICROSERVICE_CONFIG_KEY}</code>.
+            </small>
+          </ClayForm.Group>
+        )}
       </div>
 
       <div className="sheet-section mt-4 border-top pt-4">
@@ -268,7 +297,7 @@ function MicroserviceLogManagementPanel() {
           <ClayButton
             displayType="primary"
             onClick={handleSaveLogsSettings}
-            disabled={savingLogs || !msConfig?.url}
+            disabled={savingLogs || !effectiveMsUrl}
           >
             {savingLogs && (
               <span className="spinner-border spinner-border-sm mr-2" />
@@ -284,7 +313,7 @@ function MicroserviceLogManagementPanel() {
           <ClayButton
             displayType="secondary"
             onClick={handleCycleNow}
-            disabled={cycling || !msConfig?.url}
+            disabled={cycling || !effectiveMsUrl}
             className="mr-2"
           >
             {cycling ? (
@@ -298,7 +327,7 @@ function MicroserviceLogManagementPanel() {
           <ClayButton
             displayType="secondary"
             onClick={handleDownloadLogs}
-            disabled={!msConfig?.url}
+            disabled={!effectiveMsUrl}
             className="mr-2"
           >
             <ClayIcon symbol="download" className="mr-2" />
@@ -308,7 +337,7 @@ function MicroserviceLogManagementPanel() {
           <ClayButton
             displayType="secondary"
             onClick={handleClearLogs}
-            disabled={!msConfig?.url}
+            disabled={!effectiveMsUrl}
             className="mr-2"
           >
             <ClayIcon symbol="hr-trash" className="mr-2" />

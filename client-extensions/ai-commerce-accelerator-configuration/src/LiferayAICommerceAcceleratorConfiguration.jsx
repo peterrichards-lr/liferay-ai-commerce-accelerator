@@ -7,7 +7,7 @@ import { PANELS } from './panels';
 const APP_NAME = 'Liferay Commerce AI Generator';
 const STORAGE_KEY = 'aica_config_active_tab';
 
-export default function LiferayAICommerceAcceleratorConfiguration() {
+export default function LiferayAICommerceAcceleratorConfiguration(props) {
   const initialFromHash =
     typeof window !== 'undefined' ? window.location.hash.replace('#', '') : '';
   const initialFromStorage =
@@ -81,7 +81,7 @@ export default function LiferayAICommerceAcceleratorConfiguration() {
           </h2>
           <section role="region" aria-labelledby={`tab-${activeId}`}>
             <Suspense fallback={<div aria-busy="true">Loading…</div>}>
-              <ActivePanel />
+              <ActivePanel {...props} />
             </Suspense>
           </section>
         </ClayLayout.Col>

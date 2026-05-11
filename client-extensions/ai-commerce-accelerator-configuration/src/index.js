@@ -6,6 +6,30 @@ import LiferayAICommerceAcceleratorConfiguration from './LiferayAICommerceAccele
 const ELEMENT_ID = 'liferay-ai-commerce-accelerator-configuration';
 const SPRITEMAP_FALLBACK = '/o/admin-theme/images/clay/icons.svg';
 
+const toCamel = (k) => k.replace(/-([a-z])/g, (_, c) => c.toUpperCase());
+
+const BOOLEAN_ATTRS = new Set(['liferay-hosted']);
+
+const coerce = (v, k) => {
+  if (BOOLEAN_ATTRS.has(k)) {
+    return v === '' || v === 'true';
+  }
+  return v;
+};
+
+function parsePropsFrom(el) {
+  const configFromAttrs = {};
+  for (const { name, value } of Array.from(el.attributes)) {
+    configFromAttrs[toCamel(name)] = coerce(value, name);
+  }
+
+  if (el.hasAttribute('spritemap')) {
+    configFromAttrs.spritemap = el.getAttribute('spritemap');
+  }
+
+  return { config: configFromAttrs };
+}
+
 class BaseComponent extends HTMLElement {
   constructor() {
     super();
@@ -39,23 +63,24 @@ class BaseComponent extends HTMLElement {
 
 class LiferayAICommerceAcceleratorConfigurationComponent extends BaseComponent {
   static get observedAttributes() {
-    return ['spritemap'];
+    return ['spritemap', 'liferay-hosted', 'microservice-url'];
   }
 
   attributeChangedCallback(name, oldValue, newValue) {
-    if (name === 'spritemap' && oldValue !== newValue) this.renderComponent();
+    if (oldValue !== newValue) this.renderComponent();
   }
 
   renderComponent() {
     if (!this.root) return;
+    const { config } = parsePropsFrom(this);
     const spritemap =
-      this.getAttribute('spritemap') ||
+      config.spritemap ||
       globalThis?.Liferay?.Icons?.spritemap ||
       SPRITEMAP_FALLBACK;
 
     this.root.render(
       <ClayIconSpriteContext.Provider value={spritemap}>
-        <LiferayAICommerceAcceleratorConfiguration />
+        <LiferayAICommerceAcceleratorConfiguration {...config} />
       </ClayIconSpriteContext.Provider>
     );
   }
