@@ -89,12 +89,28 @@ class DeleteCoordinatorService extends BaseGenerator {
 
   /**
    * Safe finalize override for deletion flows.
+   * Ensures that if any step failed (even if we continued), the final state reflects it.
    */
   async _finalizeSession(sessionId, correlationId) {
+    const batches = await this.persistence.getBatchesForSession(sessionId);
+    const failedBatch = batches.find((b) => b.status === 'FAILED');
+
+    if (failedBatch) {
+      this.logger.warn(
+        `Deletion session ${sessionId} completed with partial failures. Marking as FAILED for audit integrity.`,
+        { correlationId }
+      );
+      // Delegate to base implementation which handles detailed error message building
+      return await super._finalizeSession(sessionId, correlationId);
+    }
+
     if (await this.persistence.tryFinalizeSession(sessionId)) {
-      this.logger.info(`Deletion session completed: ${sessionId}`, {
-        correlationId,
-      });
+      this.logger.info(
+        `Deletion session completed successfully: ${sessionId}`,
+        {
+          correlationId,
+        }
+      );
       await this.progress.sessionCompleted({ sessionId, correlationId });
     }
   }
@@ -248,16 +264,22 @@ class DeleteCoordinatorService extends BaseGenerator {
           manifest.products.push(...catProducts);
 
           // Discovery price lists and promos for this specific catalog
+          // HARDENING: Only discover AICA-prefixed price lists and promos
           const { items: catPrices } = await this.liferay.getPriceLists(
             config,
             { catalogId: cat.id }
           );
-          manifest.priceLists.push(...catPrices);
+          manifest.priceLists.push(
+            ...catPrices.filter((p) => isAICA(p.externalReferenceCode))
+          );
+
           const { items: catPromos } = await this.liferay.getPromotions(
             config,
             { catalogId: cat.id }
           );
-          manifest.promotions.push(...catPromos);
+          manifest.promotions.push(
+            ...catPromos.filter((p) => isAICA(p.externalReferenceCode))
+          );
         } catch (err) {
           this.logger.warn(`Failed to crawl catalog ${cat.id}. Skipping.`, {
             sessionId,
