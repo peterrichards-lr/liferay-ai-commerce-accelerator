@@ -1406,7 +1406,7 @@ class LiferayRestService {
       entityName: "warehouse",
       items: warehousesData,
       externalReferenceCode: opts.externalReferenceCode,
-      itemERCKey: "name.en_US",
+      itemERCKey: "externalReferenceCode",
       op: "create-warehouses-batch",
       friendly: "Failed to create warehouses batch",
       path: PATH.WAREHOUSES_BATCH,
@@ -1817,6 +1817,34 @@ class LiferayRestService {
       ...results,
       skuCount: results.count,
     };
+  }
+
+  async createSpecificationsBatch(config, specificationsData, opts = {}) {
+    return await this._postBatch(config, {
+      entityName: "specification",
+      items: specificationsData,
+      externalReferenceCode: opts.externalReferenceCode,
+      itemERCKey: "externalReferenceCode",
+      op: "create-specifications-batch",
+      friendly: "Failed to create specifications batch",
+      path: PATH.SPECIFICATIONS_BATCH,
+      sessionId: opts.sessionId,
+      session: opts.session,
+    });
+  }
+
+  async createOptionsBatch(config, optionsData, opts = {}) {
+    return await this._postBatch(config, {
+      entityName: "option",
+      items: optionsData,
+      externalReferenceCode: opts.externalReferenceCode,
+      itemERCKey: "externalReferenceCode",
+      op: "create-options-batch",
+      friendly: "Failed to create options batch",
+      path: PATH.OPTIONS_BATCH,
+      sessionId: opts.sessionId,
+      session: opts.session,
+    });
   }
 
   async createAccountsBatch(config, accountsData, opts = {}) {

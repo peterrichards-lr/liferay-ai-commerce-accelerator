@@ -858,3 +858,22 @@
 
 **Issue**: WebSocket reconnection resets progress bars to zero.
 **Result**: **FIXED**. Implemented `WORKFLOW_STATUS` endpoint and updated `useRealtimeWebSocket` to hydrate progress state upon reconnection.
+
+---
+
+## 68. Warehouse Generation & Data Portability (May 12)
+
+### [x] Fix Warehouse ERC stripping (Validation)
+
+**Analysis**: `GenerationFacade` stripped ERCs from Warehouse and Pricing entities because the properties were missing from their respective AI schemas.
+**Result**: **FIXED**. Updated schemas and standardizer to preserve `externalReferenceCode`.
+
+### [x] Enhance Data Set Export Completeness
+
+**Analysis**: The export was missing critical dependencies like specifications, options, and asset metadata (images/PDFs), making replication difficult.
+**Result**: **FIXED**. Updated generators to persist all metadata in session context and expanded the export route to include all dependencies.
+
+### [x] Order-Aware Data Import
+
+**Analysis**: The backend import logic was too simple and didn't support the full range of generated entities.
+**Result**: **FIXED**. Expanded `routes/import.cjs` and the Liferay SDK to support batch creation of specifications, options, and warehouses in the correct dependency order.

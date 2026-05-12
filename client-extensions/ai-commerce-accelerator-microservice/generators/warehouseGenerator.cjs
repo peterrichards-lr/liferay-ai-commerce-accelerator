@@ -1,4 +1,5 @@
 const BaseGenerator = require('./baseGenerator.cjs');
+const { deepCleanIds } = require('../utils/payload-cleaner.cjs');
 const {
   createERC,
   fromI18n,
@@ -241,13 +242,20 @@ class WarehouseGenerator extends BaseGenerator {
 
       // HARDENING: Map 'country' to 'countryISOCode' and 'region' to 'regionISOCode'
       // if coming from AI generator which uses simplified fields.
-      const prepared = warehouseDataList.map((w) => {
-        const { country, region, ...rest } = w;
-        return {
-          ...rest,
-          countryISOCode: w.countryISOCode || country,
-          regionISOCode: w.regionISOCode || region,
-        };
+      const prepared = deepCleanIds(
+        warehouseDataList.map((w) => {
+          const { country, region, ...rest } = w;
+          return {
+            ...rest,
+            countryISOCode: w.countryISOCode || country,
+            regionISOCode: w.regionISOCode || region,
+          };
+        })
+      );
+
+      // Persist the prepared list so that RESOLVE step has the same objects
+      await this.persistence.updateSessionContext(sessionId, {
+        warehouseDataList: prepared,
       });
 
       await this.submitBatch(

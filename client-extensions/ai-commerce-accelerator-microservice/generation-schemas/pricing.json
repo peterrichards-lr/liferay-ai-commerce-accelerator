@@ -17,6 +17,10 @@
             "minimum": 0,
             "type": "number"
           },
+          "externalReferenceCode": {
+            "description": "Unique external reference for the price entry.",
+            "type": "string"
+          },
           "price": {
             "description": "The base price of the product.",
             "minimum": 0,

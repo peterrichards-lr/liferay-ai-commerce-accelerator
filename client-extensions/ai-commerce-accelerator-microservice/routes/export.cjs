@@ -6,55 +6,91 @@ module.exports = (app, { cacheService, logger, persistenceService }) => {
   app.get(INTERNAL_API_PATHS.EXPORT_COMMERCE_DATA, (req, res) => {
     try {
       const { sessionId } = req.query;
-      let products, accounts, orders;
-      let metadata = {};
+      let exportData = null;
 
       if (sessionId) {
         const session = persistenceService.getSession(sessionId);
         if (session && session.context) {
-          products = session.context.productDataList;
-          accounts = session.context.accountDataList;
-          orders = session.context.orderDataList;
-          metadata = {
-            source: 'session-db',
-            sessionId: session.session_id,
-            sessionName: session.session_name,
-            completedAt: session.updated_at,
+          const ctx = session.context;
+          exportData = {
+            metadata: {
+              source: 'session-db',
+              sessionId: session.session_id,
+              sessionName: session.session_name,
+              completedAt: session.updated_at,
+            },
+            products: ctx.productDataList || [],
+            accounts: ctx.accountDataList || [],
+            orders: ctx.orderDataList || [],
+            addresses: ctx.addressesToCreate || [],
+            warehouses: ctx.warehouseDataList || [],
+            specificationDefinitions: ctx.specificationDefinitions || [],
+            optionDefinitions: ctx.optionDefinitions || [],
+            defaultSpecificationCategory:
+              ctx.defaultSpecificationCategory || null,
+            images: ctx.createdImages || [],
+            pdfs: ctx.createdPdfs || [],
+            groundingMetadata: ctx.groundingMetadata || null,
+            exportedAt: new Date().toISOString(),
           };
         }
       }
 
       // Fallback to cache if no sessionId or session not found
-      if (!products && !accounts && !orders) {
-        products = cacheService.get('generated-data:products');
-        accounts = cacheService.get('generated-data:accounts');
-        orders = cacheService.get('generated-data:orders');
-        metadata = { source: 'cache' };
-      }
+      if (!exportData) {
+        const products = cacheService.get('generated-data:products');
+        const accounts = cacheService.get('generated-data:accounts');
+        const orders = cacheService.get('generated-data:orders');
 
-      // Final fallback to latest completed in DB
-      if (!products && !accounts && !orders) {
-        const latestSession = persistenceService.getLatestCompletedSession();
-        if (latestSession && latestSession.context) {
-          products = latestSession.context.productDataList;
-          accounts = latestSession.context.accountDataList;
-          orders = latestSession.context.orderDataList;
-          metadata = {
-            source: 'session-db-latest',
-            sessionId: latestSession.session_id,
-            sessionName: latestSession.session_name,
-            completedAt: latestSession.updated_at,
+        if (products || accounts || orders) {
+          exportData = {
+            metadata: { source: 'cache' },
+            products: products || [],
+            accounts: accounts || [],
+            orders: orders || [],
+            exportedAt: new Date().toISOString(),
           };
         }
       }
 
-      const exportData = {
-        metadata,
-        products: products || [],
-        accounts: accounts || [],
-        orders: orders || [],
-        exportedAt: new Date().toISOString(),
-      };
+      // Final fallback to latest completed in DB
+      if (!exportData) {
+        const latestSession = persistenceService.getLatestCompletedSession();
+        if (latestSession && latestSession.context) {
+          const ctx = latestSession.context;
+          exportData = {
+            metadata: {
+              source: 'session-db-latest',
+              sessionId: latestSession.session_id,
+              sessionName: latestSession.session_name,
+              completedAt: latestSession.updated_at,
+            },
+            products: ctx.productDataList || [],
+            accounts: ctx.accountDataList || [],
+            orders: ctx.orderDataList || [],
+            addresses: ctx.addressesToCreate || [],
+            warehouses: ctx.warehouseDataList || [],
+            specificationDefinitions: ctx.specificationDefinitions || [],
+            optionDefinitions: ctx.optionDefinitions || [],
+            defaultSpecificationCategory:
+              ctx.defaultSpecificationCategory || null,
+            images: ctx.createdImages || [],
+            pdfs: ctx.createdPdfs || [],
+            groundingMetadata: ctx.groundingMetadata || null,
+            exportedAt: new Date().toISOString(),
+          };
+        }
+      }
+
+      if (!exportData) {
+        exportData = {
+          metadata: { source: 'empty' },
+          products: [],
+          accounts: [],
+          orders: [],
+          exportedAt: new Date().toISOString(),
+        };
+      }
 
       res.setHeader(
         'Content-Disposition',

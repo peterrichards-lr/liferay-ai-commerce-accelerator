@@ -222,7 +222,11 @@ class GenerationFacade {
   _standardizeItem(item) {
     if (!item || typeof item !== 'object') return item;
 
-    // Ensure ERC exists
+    // Ensure ERC exists and is consistent
+    if (item.erc && !item.externalReferenceCode) {
+      item.externalReferenceCode = item.erc;
+    }
+
     if (!item.externalReferenceCode && !item.erc) {
       // Try to determine a prefix based on common properties or fallback to BATCH
       item.externalReferenceCode = createERC(ERC_PREFIX.BATCH);

@@ -18,6 +18,15 @@ The `ObjectStorageService` is **not** used for hosting assets for Liferay consum
 1.  **Data Preservation**: Storing generated AI payloads, images, and documents for offline analysis.
 2.  **Export/Import Support**: Enabling the "Replay" feature where a full generation run can be reconstructed without re-invoking AI models.
 
+### Dataset Portability & Replication
+
+To ensure environment parity and support the "Replay" feature, the system mandates comprehensive data preservation:
+
+1.  **Dependency Capture**: Generators MUST capture and store the full metadata of created foundation entities (Specification Categories, Specification Definitions, Option Definitions) in the session context.
+2.  **Asset Metadata**: Media generators return metadata for created images and PDFs (ERC links, titles) to be persisted in the session, allowing these relationships to be reconstructed in new environments.
+3.  **Ordered Import**: The backend import logic handles entities in their logical dependency order: Foundations (Warehouses, Specs, Options) followed by Primary Entities (Products, Accounts, Orders).
+4.  **ERC-First Replication**: All exported data uses External Reference Codes as the primary linking mechanism to ensure stability across different Liferay instances.
+
 ## Purpose
 
 Define a clear, race-safe, event-driven architecture for multi-step

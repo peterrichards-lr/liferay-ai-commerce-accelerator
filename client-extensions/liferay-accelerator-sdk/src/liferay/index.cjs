@@ -1528,6 +1528,18 @@ class LiferayService {
     );
   }
 
+  createSpecificationsBatch(config, specificationsData, opts) {
+    return this.rest.createSpecificationsBatch(
+      config,
+      specificationsData,
+      opts,
+    );
+  }
+
+  createOptionsBatch(config, optionsData, opts) {
+    return this.rest.createOptionsBatch(config, optionsData, opts);
+  }
+
   createAccountsBatch(config, accountsData, opts) {
     return this.rest.createAccountsBatch(config, accountsData, opts);
   }

@@ -316,6 +316,7 @@ class AccountGenerator extends BaseGenerator {
       }
 
       await this.persistence.updateSessionContext(sessionId, {
+        accountDataList: accountsToCreate,
         accountsToCreate: accountsToCreate,
         addressesToCreate: addressesToCreate,
       });

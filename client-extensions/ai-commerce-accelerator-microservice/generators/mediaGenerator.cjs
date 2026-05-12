@@ -305,6 +305,7 @@ class MediaGenerator {
     });
 
     let completedCount = 0;
+    const createdImages = [];
     for (const product of productsToProcess) {
       try {
         let imageSet = [];
@@ -386,6 +387,13 @@ class MediaGenerator {
               priority: imageData.priority || 1,
             }
           );
+
+          createdImages.push({
+            productERC: product.externalReferenceCode,
+            title: title,
+            contentType: contentType,
+            priority: imageData.priority || 1,
+          });
         }
         completedCount++;
       } catch (error) {
@@ -420,6 +428,8 @@ class MediaGenerator {
       sessionId,
       correlationId,
     });
+
+    return createdImages;
   }
 
   async createPdfs(config, products, options) {
@@ -466,6 +476,7 @@ class MediaGenerator {
     });
 
     let completedCount = 0;
+    const createdPdfs = [];
     for (const product of productsToProcess) {
       try {
         const sku = product.skus?.[0]?.sku || product.externalReferenceCode;
@@ -506,6 +517,14 @@ class MediaGenerator {
           }
         );
 
+        createdPdfs.push({
+          productERC: product.externalReferenceCode,
+          sku: sku,
+          title: { en_US: `${sku}_manual.pdf` },
+          contentType: 'application/pdf',
+          priority: 1,
+        });
+
         completedCount++;
       } catch (error) {
         logger.error(`Failed to create PDF for product ${product.id}`, {
@@ -536,6 +555,8 @@ class MediaGenerator {
       sessionId,
       correlationId,
     });
+
+    return createdPdfs;
   }
 
   validateConfig(config, options) {

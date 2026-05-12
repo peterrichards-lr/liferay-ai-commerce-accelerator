@@ -1074,6 +1074,7 @@ class ProductGenerator extends BaseGenerator {
       const updatedProductDataList = JSON.parse(
         JSON.stringify(productDataList)
       );
+      const specificationDefinitions = [];
 
       for (const key of uniqueKeys) {
         const spec = specMap.get(key);
@@ -1090,6 +1091,10 @@ class ProductGenerator extends BaseGenerator {
             optionCategory: defaultSpecificationCategory,
           }
         );
+
+        if (liferaySpec) {
+          specificationDefinitions.push(liferaySpec);
+        }
 
         // Update all products that use this specification with the real specificationId
         if (liferaySpec?.id) {
@@ -1112,6 +1117,7 @@ class ProductGenerator extends BaseGenerator {
       // Save the updated product data with specificationIds back to context
       await this.persistence.updateSessionContext(sessionId, {
         productDataList: updatedProductDataList,
+        specificationDefinitions,
       });
 
       await this.completeSyncStep(
@@ -1191,6 +1197,7 @@ class ProductGenerator extends BaseGenerator {
       const updatedProductDataList = JSON.parse(
         JSON.stringify(productDataList)
       );
+      const optionDefinitions = [];
 
       for (const key of uniqueKeys) {
         const sourceOpt = optionMap.get(key);
@@ -1236,6 +1243,10 @@ class ProductGenerator extends BaseGenerator {
           config,
           optionData
         );
+
+        if (liferayOption) {
+          optionDefinitions.push(liferayOption);
+        }
 
         // Map IDs back to productDataList
         if (liferayOption?.id) {
@@ -1284,6 +1295,7 @@ class ProductGenerator extends BaseGenerator {
       // Save the updated product data with optionIds back to context
       await this.persistence.updateSessionContext(sessionId, {
         productDataList: updatedProductDataList,
+        optionDefinitions,
       });
 
       await this.completeSyncStep(
@@ -1437,9 +1449,16 @@ class ProductGenerator extends BaseGenerator {
     const session = await this.persistence.getSession(sessionId);
     const { config, options, productDataList } = session.context;
     try {
-      await this.ctx.media.createImages(config, productDataList || [], {
-        ...options,
-        sessionId,
+      const createdImages = await this.ctx.media.createImages(
+        config,
+        productDataList || [],
+        {
+          ...options,
+          sessionId,
+        }
+      );
+      await this.persistence.updateSessionContext(sessionId, {
+        createdImages: createdImages || [],
       });
       await this.completeSyncStep(sessionId, S.ATTACH_IMAGES);
     } catch (error) {
@@ -1464,9 +1483,16 @@ class ProductGenerator extends BaseGenerator {
     const session = await this.persistence.getSession(sessionId);
     const { config, options, productDataList } = session.context;
     try {
-      await this.ctx.media.createPdfs(config, productDataList || [], {
-        ...options,
-        sessionId,
+      const createdPdfs = await this.ctx.media.createPdfs(
+        config,
+        productDataList || [],
+        {
+          ...options,
+          sessionId,
+        }
+      );
+      await this.persistence.updateSessionContext(sessionId, {
+        createdPdfs: createdPdfs || [],
       });
       await this.completeSyncStep(sessionId, S.ATTACH_PDFS);
     } catch (error) {

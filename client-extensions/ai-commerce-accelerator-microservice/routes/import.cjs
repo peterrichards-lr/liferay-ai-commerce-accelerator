@@ -26,16 +26,21 @@ module.exports = (app, { liferayService, logger }) => {
         const products = importData.products || [];
         const accounts = importData.accounts || [];
         const orders = importData.orders || [];
+        const warehouses = importData.warehouses || [];
+        const specificationDefinitions =
+          importData.specificationDefinitions || [];
+        const optionDefinitions = importData.optionDefinitions || [];
 
         if (
           products.length === 0 &&
           accounts.length === 0 &&
-          orders.length === 0
+          orders.length === 0 &&
+          warehouses.length === 0
         ) {
           return res.status(400).json({
             success: false,
             error:
-              'Invalid import file structure. The file must contain at least one of: products, accounts, or orders.',
+              'Invalid import file structure. The file must contain at least one of: products, accounts, orders, or warehouses.',
           });
         }
 
@@ -45,10 +50,39 @@ module.exports = (app, { liferayService, logger }) => {
           productCount: products.length,
           accountCount: accounts.length,
           orderCount: orders.length,
+          warehouseCount: warehouses.length,
+          specificationCount: specificationDefinitions.length,
+          optionCount: optionDefinitions.length,
         });
 
         const batchIds = [];
 
+        // 1. Import Foundations (Warehouses, Specs, Options)
+        if (warehouses.length > 0) {
+          const result = await liferayService.createWarehousesBatch(
+            config,
+            warehouses
+          );
+          batchIds.push(result.batchId);
+        }
+
+        if (specificationDefinitions.length > 0) {
+          const result = await liferayService.createSpecificationsBatch(
+            config,
+            specificationDefinitions
+          );
+          batchIds.push(result.batchId);
+        }
+
+        if (optionDefinitions.length > 0) {
+          const result = await liferayService.createOptionsBatch(
+            config,
+            optionDefinitions
+          );
+          batchIds.push(result.batchId);
+        }
+
+        // 2. Import Main Entities
         if (products && products.length > 0) {
           const result = await liferayService.createProductsBatch(
             config,
