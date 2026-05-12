@@ -6,32 +6,32 @@
  * any custom objects, dynamic APIs, or Liferay version upgrades.
  */
 
-const axios = require("axios");
-const fs = require("fs");
-const path = require("path");
+const axios = require('axios');
+const fs = require('fs');
+const path = require('path');
 
 // Target directory for schemas
-const SCHEMA_DIR = path.join(__dirname, "../api-schemas");
+const SCHEMA_DIR = path.join(__dirname, '../api-schemas');
 
 /**
  * Basic ENV loader for scripts
  */
 function loadEnv() {
-  const envPath = path.join(__dirname, "../../../.env");
+  const envPath = path.join(__dirname, '../../../.env');
   if (!fs.existsSync(envPath)) return;
 
-  const content = fs.readFileSync(envPath, "utf8");
-  content.split("\n").forEach((line) => {
+  const content = fs.readFileSync(envPath, 'utf8');
+  content.split('\n').forEach((line) => {
     const trimmed = line.trim();
-    if (!trimmed || trimmed.startsWith("#")) return;
-    const parts = trimmed.split("=");
+    if (!trimmed || trimmed.startsWith('#')) return;
+    const parts = trimmed.split('=');
     if (parts.length >= 2) {
       const key = parts[0].trim();
       const value = parts
         .slice(1)
-        .join("=")
+        .join('=')
         .trim()
-        .replace(/^"(.*)"$/, "$1");
+        .replace(/^"(.*)"$/, '$1');
       process.env[key] = value;
     }
   });
@@ -42,36 +42,36 @@ function loadEnv() {
  */
 const APIS = [
   {
-    name: "headless-admin-user-v1.0",
-    path: "/o/headless-admin-user/v1.0/openapi.json",
+    name: 'headless-admin-user-v1.0',
+    path: '/o/headless-admin-user/v1.0/openapi.json',
   },
   {
-    name: "headless-commerce-admin-catalog-v1.0",
-    path: "/o/headless-commerce-admin-catalog/v1.0/openapi.json",
+    name: 'headless-commerce-admin-catalog-v1.0',
+    path: '/o/headless-commerce-admin-catalog/v1.0/openapi.json',
   },
   {
-    name: "headless-commerce-admin-order-v1.0",
-    path: "/o/headless-commerce-admin-order/v1.0/openapi.json",
+    name: 'headless-commerce-admin-order-v1.0',
+    path: '/o/headless-commerce-admin-order/v1.0/openapi.json',
   },
   {
-    name: "headless-commerce-admin-pricing-v2.0",
-    path: "/o/headless-commerce-admin-pricing/v2.0/openapi.json",
+    name: 'headless-commerce-admin-pricing-v2.0',
+    path: '/o/headless-commerce-admin-pricing/v2.0/openapi.json',
   },
   {
-    name: "headless-commerce-admin-inventory-v1.0",
-    path: "/o/headless-commerce-admin-inventory/v1.0/openapi.json",
+    name: 'headless-commerce-admin-inventory-v1.0',
+    path: '/o/headless-commerce-admin-inventory/v1.0/openapi.json',
   },
   {
-    name: "headless-admin-address-v1.0",
-    path: "/o/headless-admin-address/v1.0/openapi.json",
+    name: 'headless-admin-address-v1.0',
+    path: '/o/headless-admin-address/v1.0/openapi.json',
   },
   {
-    name: "headless-delivery-v1.0",
-    path: "/o/headless-delivery/v1.0/openapi.json",
+    name: 'headless-delivery-v1.0',
+    path: '/o/headless-delivery/v1.0/openapi.json',
   },
   {
-    name: "headless-batch-engine-v1.0",
-    path: "/o/headless-batch-engine/v1.0/openapi.json",
+    name: 'headless-batch-engine-v1.0',
+    path: '/o/headless-batch-engine/v1.0/openapi.json',
   },
 ];
 
@@ -201,13 +201,13 @@ async function syncGraphQL(baseUrl, auth) {
     const response = await axios.post(
       url,
       { query: introspectionQuery },
-      { auth },
+      { auth }
     );
 
-    const filePath = path.join(SCHEMA_DIR, "liferay-graphql-schema.json");
+    const filePath = path.join(SCHEMA_DIR, 'liferay-graphql-schema.json');
     fs.writeFileSync(filePath, JSON.stringify(response.data, null, 2));
     console.log(
-      `✓ Saved GraphQL introspection result to liferay-graphql-schema.json`,
+      `✓ Saved GraphQL introspection result to liferay-graphql-schema.json`
     );
   } catch (error) {
     console.error(`✗ Failed to fetch GraphQL schema: ${error.message}`);
@@ -217,9 +217,9 @@ async function syncGraphQL(baseUrl, auth) {
 async function main() {
   loadEnv();
 
-  const baseUrl = process.env.LIFERAY_API_URL || "http://localhost:8080";
-  const username = process.env.LIFERAY_API_USERNAME || "test@liferay.com";
-  const password = process.env.LIFERAY_API_PASSWORD || "test";
+  const baseUrl = process.env.LIFERAY_API_URL || 'http://localhost:8080';
+  const username = process.env.LIFERAY_API_USERNAME || 'test@liferay.com';
+  const password = process.env.LIFERAY_API_PASSWORD || 'test';
 
   const auth = {
     username,
@@ -231,10 +231,10 @@ async function main() {
   await syncREST(baseUrl, auth);
   await syncGraphQL(baseUrl, auth);
 
-  console.log("\n--- Sync Complete ---");
+  console.log('\n--- Sync Complete ---');
 }
 
 main().catch((err) => {
-  console.error("Fatal error during sync:", err);
+  console.error('Fatal error during sync:', err);
   process.exit(1);
 });

@@ -57,35 +57,35 @@
   "lint-staged": {
     "client-extensions/ai-commerce-accelerator-microservice/**/*.{js,cjs}": [
       "eslint --fix --config client-extensions/ai-commerce-accelerator-microservice/eslint.config.mjs",
-      "prettier --write --config client-extensions/ai-commerce-accelerator-microservice/.prettierrc"
+      "prettier --write"
     ],
     "client-extensions/ai-commerce-accelerator-microservice/**/*.json": [
-      "prettier --write --config client-extensions/ai-commerce-accelerator-microservice/.prettierrc"
+      "prettier --write"
     ],
     "client-extensions/ai-commerce-accelerator-microservice/**/*.md": [
-      "prettier --write --config client-extensions/ai-commerce-accelerator-microservice/.prettierrc",
+      "prettier --write",
       "markdownlint"
     ],
     "client-extensions/ai-commerce-accelerator-configuration/**/*.{js,jsx}": [
       "eslint --fix --config client-extensions/ai-commerce-accelerator-configuration/eslint.config.js",
-      "prettier --write --config client-extensions/ai-commerce-accelerator-configuration/.prettierrc"
+      "prettier --write"
     ],
     "client-extensions/ai-commerce-accelerator-configuration/**/*.json": [
-      "prettier --write --config client-extensions/ai-commerce-accelerator-configuration/.prettierrc"
+      "prettier --write"
     ],
     "client-extensions/ai-commerce-accelerator-configuration/**/*.md": [
-      "prettier --write --config client-extensions/ai-commerce-accelerator-configuration/.prettierrc",
+      "prettier --write",
       "markdownlint"
     ],
     "client-extensions/ai-commerce-accelerator-frontend/**/*.{js,jsx}": [
       "eslint --fix --config client-extensions/ai-commerce-accelerator-frontend/eslint.config.js",
-      "prettier --write --config client-extensions/ai-commerce-accelerator-frontend/.prettierrc"
+      "prettier --write"
     ],
     "client-extensions/ai-commerce-accelerator-frontend/**/*.json": [
-      "prettier --write --config client-extensions/ai-commerce-accelerator-frontend/.prettierrc"
+      "prettier --write"
     ],
     "client-extensions/ai-commerce-accelerator-frontend/**/*.md": [
-      "prettier --write --config client-extensions/ai-commerce-accelerator-frontend/.prettierrc",
+      "prettier --write",
       "markdownlint"
     ],
     "*.{js,json,yaml,yml}": [

@@ -1,20 +1,20 @@
-const Database = require("better-sqlite3");
-const { Cache } = require("memory-cache");
-const path = require("path");
-const fs = require("fs");
+const Database = require('better-sqlite3');
+const { Cache } = require('memory-cache');
+const path = require('path');
+const fs = require('fs');
 
-const { ENV } = require("../utils/constants.cjs");
+const { ENV } = require('../utils/constants.cjs');
 
 class PersistenceService {
   constructor(ctx, dbPath) {
     this.ctx = ctx;
     this.logger = ctx?.logger;
 
-    const rawPath = dbPath || ENV.PERSISTENCE_DB_PATH || "./data/workflows.db";
-    const isMemory = rawPath === ":memory:";
+    const rawPath = dbPath || ENV.PERSISTENCE_DB_PATH || './data/workflows.db';
+    const isMemory = rawPath === ':memory:';
     const finalPath = isMemory
-      ? ":memory:"
-      : path.resolve(__dirname, "..", rawPath);
+      ? ':memory:'
+      : path.resolve(__dirname, '..', rawPath);
 
     try {
       if (!isMemory) {
@@ -25,23 +25,23 @@ class PersistenceService {
       }
 
       this.db = new Database(finalPath);
-      this.db.pragma("journal_mode = WAL");
-      this.db.pragma("synchronous = NORMAL");
+      this.db.pragma('journal_mode = WAL');
+      this.db.pragma('synchronous = NORMAL');
 
       this.cache = new Cache();
       this._initSchema();
 
       this.logger?.info(
-        `[PersistenceService] SUCCESS: Initialized SQLite database at: ${finalPath}`,
+        `[PersistenceService] SUCCESS: Initialized SQLite database at: ${finalPath}`
       );
     } catch (err) {
       if (this.logger) {
         this.logger.error(
-          `[PersistenceService] FATAL ERROR during initialization: ${err.message}`,
+          `[PersistenceService] FATAL ERROR during initialization: ${err.message}`
         );
       } else {
         console.error(
-          `[PersistenceService] FATAL ERROR during initialization: ${err.message}`,
+          `[PersistenceService] FATAL ERROR during initialization: ${err.message}`
         );
       }
       throw err;
@@ -66,26 +66,26 @@ class PersistenceService {
 
     // Migrations for existing databases
     const columns = this.db
-      .prepare("PRAGMA table_info(workflow_sessions)")
+      .prepare('PRAGMA table_info(workflow_sessions)')
       .all();
 
-    if (!columns.find((c) => c.name === "session_name")) {
+    if (!columns.find((c) => c.name === 'session_name')) {
       try {
         this.db.exec(
-          "ALTER TABLE workflow_sessions ADD COLUMN session_name TEXT;",
+          'ALTER TABLE workflow_sessions ADD COLUMN session_name TEXT;'
         );
       } catch (err) {
-        if (!err.message.includes("duplicate column name")) throw err;
+        if (!err.message.includes('duplicate column name')) throw err;
       }
     }
 
-    if (!columns.find((c) => c.name === "error_message")) {
+    if (!columns.find((c) => c.name === 'error_message')) {
       try {
         this.db.exec(
-          "ALTER TABLE workflow_sessions ADD COLUMN error_message TEXT;",
+          'ALTER TABLE workflow_sessions ADD COLUMN error_message TEXT;'
         );
       } catch (err) {
-        if (!err.message.includes("duplicate column name")) throw err;
+        if (!err.message.includes('duplicate column name')) throw err;
       }
     }
 
@@ -108,16 +108,16 @@ class PersistenceService {
 
     // Migration for workflow_batches
     const batchColumns = this.db
-      .prepare("PRAGMA table_info(workflow_batches)")
+      .prepare('PRAGMA table_info(workflow_batches)')
       .all();
 
-    if (!batchColumns.find((c) => c.name === "error_message")) {
+    if (!batchColumns.find((c) => c.name === 'error_message')) {
       try {
         this.db.exec(
-          "ALTER TABLE workflow_batches ADD COLUMN error_message TEXT;",
+          'ALTER TABLE workflow_batches ADD COLUMN error_message TEXT;'
         );
       } catch (err) {
-        if (!err.message.includes("duplicate column name")) throw err;
+        if (!err.message.includes('duplicate column name')) throw err;
       }
     }
 
@@ -172,7 +172,7 @@ class PersistenceService {
         attempts, max_attempts, run_at, created_at, updated_at, 
         result_json, error_message
       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `,
+    `
       )
       .run(
         job.id,
@@ -187,14 +187,14 @@ class PersistenceService {
         job.createdAt.toISOString(),
         job.updatedAt.toISOString(),
         job.result ? JSON.stringify(job.result) : null,
-        job.error,
+        job.error
       );
   }
 
   getPendingQueueJobs() {
     const rows = this.db
       .prepare(
-        "SELECT * FROM queue_jobs WHERE status = 'waiting' AND (run_at IS NULL OR run_at <= CURRENT_TIMESTAMP) ORDER BY priority DESC, created_at ASC",
+        "SELECT * FROM queue_jobs WHERE status = 'waiting' AND (run_at IS NULL OR run_at <= CURRENT_TIMESTAMP) ORDER BY priority DESC, created_at ASC"
       )
       .all();
 
@@ -216,13 +216,13 @@ class PersistenceService {
   }
 
   deleteQueueJob(jobId) {
-    this.db.prepare("DELETE FROM queue_jobs WHERE job_id = ?").run(jobId);
+    this.db.prepare('DELETE FROM queue_jobs WHERE job_id = ?').run(jobId);
   }
 
   getSystemSetting(key) {
     const row = this.db
       .prepare(
-        "SELECT setting_value FROM system_settings WHERE setting_key = ?",
+        'SELECT setting_value FROM system_settings WHERE setting_key = ?'
       )
       .get(key);
     return row ? row.setting_value : null;
@@ -231,7 +231,7 @@ class PersistenceService {
   saveSystemSetting(key, value) {
     this.db
       .prepare(
-        "INSERT OR REPLACE INTO system_settings (setting_key, setting_value, updated_at) VALUES (?, ?, CURRENT_TIMESTAMP)",
+        'INSERT OR REPLACE INTO system_settings (setting_key, setting_value, updated_at) VALUES (?, ?, CURRENT_TIMESTAMP)'
       )
       .run(key, value);
   }
@@ -261,7 +261,7 @@ class PersistenceService {
       correlationId || null,
       sessionName || null,
       now,
-      now,
+      now
     );
 
     this.cache.del(sessionId);
@@ -271,7 +271,7 @@ class PersistenceService {
   getCompletedSessions() {
     const rows = this.db
       .prepare(
-        "SELECT * FROM workflow_sessions WHERE status = 'COMPLETED' AND flow_type != 'delete' ORDER BY created_at DESC",
+        "SELECT * FROM workflow_sessions WHERE status = 'COMPLETED' AND flow_type != 'delete' ORDER BY created_at DESC"
       )
       .all();
     return rows.map((row) => this._parseSession(row));
@@ -280,7 +280,7 @@ class PersistenceService {
   getIncompleteSessions() {
     const rows = this.db
       .prepare(
-        "SELECT * FROM workflow_sessions WHERE status NOT IN ('COMPLETED', 'FAILED', 'CANCELLED') ORDER BY created_at DESC",
+        "SELECT * FROM workflow_sessions WHERE status NOT IN ('COMPLETED', 'FAILED', 'CANCELLED') ORDER BY created_at DESC"
       )
       .all();
     return rows.map((row) => this._parseSession(row));
@@ -291,7 +291,7 @@ class PersistenceService {
     if (cachedSession) return cachedSession;
 
     const row = this.db
-      .prepare("SELECT * FROM workflow_sessions WHERE session_id = ?")
+      .prepare('SELECT * FROM workflow_sessions WHERE session_id = ?')
       .get(sessionId);
 
     return row ? this._parseSession(row) : null;
@@ -300,7 +300,7 @@ class PersistenceService {
   getLatestSession() {
     const row = this.db
       .prepare(
-        "SELECT * FROM workflow_sessions ORDER BY created_at DESC LIMIT 1",
+        'SELECT * FROM workflow_sessions ORDER BY created_at DESC LIMIT 1'
       )
       .get();
 
@@ -310,7 +310,7 @@ class PersistenceService {
   getLatestCompletedSession() {
     const row = this.db
       .prepare(
-        "SELECT * FROM workflow_sessions WHERE status = 'COMPLETED' ORDER BY created_at DESC LIMIT 1",
+        "SELECT * FROM workflow_sessions WHERE status = 'COMPLETED' ORDER BY created_at DESC LIMIT 1"
       )
       .get();
 
@@ -337,7 +337,7 @@ class PersistenceService {
 
   getAllSessions() {
     const rows = this.db
-      .prepare("SELECT * FROM workflow_sessions ORDER BY created_at DESC")
+      .prepare('SELECT * FROM workflow_sessions ORDER BY created_at DESC')
       .all();
     return rows.map((row) => ({
       session_id: row.session_id,
@@ -358,7 +358,7 @@ class PersistenceService {
     const now = new Date().toISOString();
     this.db
       .prepare(
-        "UPDATE workflow_sessions SET status = ?, updated_at = ? WHERE session_id = ?",
+        'UPDATE workflow_sessions SET status = ?, updated_at = ? WHERE session_id = ?'
       )
       .run(status, now, sessionId);
     this.cache.del(sessionId);
@@ -369,7 +369,7 @@ class PersistenceService {
     const now = new Date().toISOString();
     this.db
       .prepare(
-        "UPDATE workflow_sessions SET current_steps_json = ?, updated_at = ? WHERE session_id = ?",
+        'UPDATE workflow_sessions SET current_steps_json = ?, updated_at = ? WHERE session_id = ?'
       )
       .run(JSON.stringify(currentSteps), now, sessionId);
     this.cache.del(sessionId);
@@ -385,7 +385,7 @@ class PersistenceService {
 
     this.db
       .prepare(
-        "UPDATE workflow_sessions SET context_json = ?, updated_at = ? WHERE session_id = ?",
+        'UPDATE workflow_sessions SET context_json = ?, updated_at = ? WHERE session_id = ?'
       )
       .run(JSON.stringify(mergedContext), now, sessionId);
     this.cache.del(sessionId);
@@ -394,34 +394,34 @@ class PersistenceService {
 
   updateSession(sessionId, { status, context, currentSteps, correlationId }) {
     const now = new Date().toISOString();
-    const sets = ["updated_at = ?"];
+    const sets = ['updated_at = ?'];
     const params = [now];
 
     const currentSession = this.getSession(sessionId);
     if (!currentSession) return null;
 
     if (status) {
-      sets.push("status = ?");
+      sets.push('status = ?');
       params.push(status);
     }
     if (context) {
       const mergedContext = { ...currentSession.context, ...context };
-      sets.push("context_json = ?");
+      sets.push('context_json = ?');
       params.push(JSON.stringify(mergedContext));
     }
     if (currentSteps) {
-      sets.push("current_steps_json = ?");
+      sets.push('current_steps_json = ?');
       params.push(JSON.stringify(currentSteps));
     }
     if (correlationId) {
-      sets.push("correlation_id = ?");
+      sets.push('correlation_id = ?');
       params.push(correlationId);
     }
 
     params.push(sessionId);
     this.db
       .prepare(
-        `UPDATE workflow_sessions SET ${sets.join(", ")} WHERE session_id = ?`,
+        `UPDATE workflow_sessions SET ${sets.join(', ')} WHERE session_id = ?`
       )
       .run(...params);
     this.cache.del(sessionId);
@@ -433,12 +433,12 @@ class PersistenceService {
     if (!batches || batches.length === 0) return false;
 
     const dependencyBatches = batches.filter(
-      (b) => b.step_key === dependencyStepKey,
+      (b) => b.step_key === dependencyStepKey
     );
     if (dependencyBatches.length === 0) return false;
 
     return dependencyBatches.every((b) =>
-      ["COMPLETED", "BYPASSED", "SYNCHRONOUS"].includes(b.status),
+      ['COMPLETED', 'BYPASSED', 'SYNCHRONOUS'].includes(b.status)
     );
   }
 
@@ -450,7 +450,7 @@ class PersistenceService {
       UPDATE workflow_sessions 
       SET status = 'COMPLETED', current_steps_json = '[]', updated_at = ?
       WHERE session_id = ? AND status NOT IN ('COMPLETED', 'FAILED')
-    `,
+    `
       )
       .run(now, sessionId);
 
@@ -469,7 +469,7 @@ class PersistenceService {
       UPDATE workflow_sessions 
       SET status = 'FAILED', error_message = ?, current_steps_json = '[]', updated_at = ?
       WHERE session_id = ? AND status NOT IN ('COMPLETED', 'FAILED')
-    `,
+    `
       )
       .run(errorMessage, now, sessionId);
 
@@ -488,7 +488,7 @@ class PersistenceService {
       UPDATE workflow_sessions 
       SET status = 'CANCELLED', current_steps_json = '[]', updated_at = ?
       WHERE session_id = ? AND status NOT IN ('COMPLETED', 'FAILED', 'CANCELLED')
-    `,
+    `
       )
       .run(now, sessionId);
 
@@ -519,7 +519,7 @@ class PersistenceService {
     if (cached) return cached;
 
     const row = this.db
-      .prepare("SELECT * FROM workflow_batches WHERE erc = ?")
+      .prepare('SELECT * FROM workflow_batches WHERE erc = ?')
       .get(erc);
     if (row) {
       this.cache.put(cacheKey, row, 60000);
@@ -534,7 +534,7 @@ class PersistenceService {
     if (cached) return cached;
 
     const rows = this.db
-      .prepare("SELECT * FROM workflow_batches WHERE session_id = ?")
+      .prepare('SELECT * FROM workflow_batches WHERE session_id = ?')
       .all(sessionId);
     this.cache.put(cacheKey, rows, 30000);
     return rows;
@@ -549,40 +549,40 @@ class PersistenceService {
       totalCount,
       errorCount,
       errorMessage,
-    },
+    }
   ) {
     const now = new Date().toISOString();
-    const sets = ["updated_at = ?"];
+    const sets = ['updated_at = ?'];
     const params = [now];
 
     if (status) {
-      sets.push("status = ?");
+      sets.push('status = ?');
       params.push(status);
     }
     if (downstreamBatchId !== undefined) {
-      sets.push("downstream_batch_id = ?");
+      sets.push('downstream_batch_id = ?');
       params.push(downstreamBatchId);
     }
     if (processedCount !== undefined) {
-      sets.push("processed_count = ?");
+      sets.push('processed_count = ?');
       params.push(processedCount);
     }
     if (totalCount !== undefined) {
-      sets.push("total_count = ?");
+      sets.push('total_count = ?');
       params.push(totalCount);
     }
     if (errorCount !== undefined) {
-      sets.push("error_count = ?");
+      sets.push('error_count = ?');
       params.push(errorCount);
     }
     if (errorMessage !== undefined) {
-      sets.push("error_message = ?");
+      sets.push('error_message = ?');
       params.push(errorMessage);
     }
 
     params.push(erc);
     this.db
-      .prepare(`UPDATE workflow_batches SET ${sets.join(", ")} WHERE erc = ?`)
+      .prepare(`UPDATE workflow_batches SET ${sets.join(', ')} WHERE erc = ?`)
       .run(...params);
 
     const batch = this.getBatch(erc);
@@ -595,14 +595,14 @@ class PersistenceService {
 
   getBatchByDownstreamId(downstreamBatchId) {
     return this.db
-      .prepare("SELECT * FROM workflow_batches WHERE downstream_batch_id = ?")
+      .prepare('SELECT * FROM workflow_batches WHERE downstream_batch_id = ?')
       .get(downstreamBatchId);
   }
 
   getEventsForSession(sessionId) {
     const rows = this.db
       .prepare(
-        "SELECT * FROM workflow_events WHERE session_id = ? ORDER BY timestamp ASC",
+        'SELECT * FROM workflow_events WHERE session_id = ? ORDER BY timestamp ASC'
       )
       .all(sessionId);
     return rows.map((row) => ({
@@ -623,27 +623,27 @@ class PersistenceService {
       batchId || null,
       status,
       message,
-      JSON.stringify(details || {}),
+      JSON.stringify(details || {})
     );
   }
 
   getWorkflowKPIs() {
     const totalSessions = this.db
-      .prepare("SELECT COUNT(*) as count FROM workflow_sessions")
+      .prepare('SELECT COUNT(*) as count FROM workflow_sessions')
       .get().count;
     const completedSessions = this.db
       .prepare(
-        "SELECT COUNT(*) as count FROM workflow_sessions WHERE status = 'COMPLETED'",
+        "SELECT COUNT(*) as count FROM workflow_sessions WHERE status = 'COMPLETED'"
       )
       .get().count;
     const failedSessions = this.db
       .prepare(
-        "SELECT COUNT(*) as count FROM workflow_sessions WHERE status = 'FAILED'",
+        "SELECT COUNT(*) as count FROM workflow_sessions WHERE status = 'FAILED'"
       )
       .get().count;
     const cancelledSessions = this.db
       .prepare(
-        "SELECT COUNT(*) as count FROM workflow_sessions WHERE status = 'CANCELLED'",
+        "SELECT COUNT(*) as count FROM workflow_sessions WHERE status = 'CANCELLED'"
       )
       .get().count;
 
@@ -658,21 +658,21 @@ class PersistenceService {
   }
 
   clearAll() {
-    this.db.prepare("DELETE FROM workflow_events").run();
-    this.db.prepare("DELETE FROM workflow_batches").run();
-    this.db.prepare("DELETE FROM workflow_sessions").run();
+    this.db.prepare('DELETE FROM workflow_events').run();
+    this.db.prepare('DELETE FROM workflow_batches').run();
+    this.db.prepare('DELETE FROM workflow_sessions').run();
     this.cache.clear();
   }
 
   cleanup(cutoffTimestamp) {
     this.db
-      .prepare("DELETE FROM workflow_events WHERE timestamp < ?")
+      .prepare('DELETE FROM workflow_events WHERE timestamp < ?')
       .run(cutoffTimestamp);
     this.db
-      .prepare("DELETE FROM workflow_batches WHERE created_at < ?")
+      .prepare('DELETE FROM workflow_batches WHERE created_at < ?')
       .run(cutoffTimestamp);
     this.db
-      .prepare("DELETE FROM workflow_sessions WHERE created_at < ?")
+      .prepare('DELETE FROM workflow_sessions WHERE created_at < ?')
       .run(cutoffTimestamp);
     this.cache.clear();
   }
@@ -680,11 +680,11 @@ class PersistenceService {
   ping() {
     if (!this.db) return false;
     try {
-      this.db.prepare("SELECT 1").get();
+      this.db.prepare('SELECT 1').get();
       return true;
     } catch (err) {
       this.logger?.error(
-        `[PersistenceService] Database ping failed: ${err.message}`,
+        `[PersistenceService] Database ping failed: ${err.message}`
       );
       return false;
     }

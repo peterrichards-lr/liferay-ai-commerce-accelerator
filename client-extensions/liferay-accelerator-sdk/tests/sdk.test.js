@@ -1,8 +1,8 @@
-import { vi, describe, it, expect } from "vitest";
+import { vi, describe, it, expect } from 'vitest';
 
 // We must use doMock because we are using require() in the SDK
 // and we need to ensure the mock is active before the first require.
-vi.doMock("@rotty3000/config-node", () => ({
+vi.doMock('@rotty3000/config-node', () => ({
   lxcConfig: {
     oauthApplication: vi.fn().mockReturnValue({}),
     userAgentApplication: vi.fn().mockReturnValue({}),
@@ -10,10 +10,10 @@ vi.doMock("@rotty3000/config-node", () => ({
   lookupConfig: vi.fn().mockReturnValue(null),
 }));
 
-const sdk = require("../src/index.js");
+const sdk = require('../src/index.js');
 
-describe("Liferay Accelerator SDK", () => {
-  it("should export the core services", () => {
+describe('Liferay Accelerator SDK', () => {
+  it('should export the core services', () => {
     expect(sdk.LiferayService).toBeDefined();
     expect(sdk.LiferayRestService).toBeDefined();
     expect(sdk.LiferayGraphQLService).toBeDefined();
@@ -22,7 +22,7 @@ describe("Liferay Accelerator SDK", () => {
     expect(sdk.ContractValidator).toBeDefined();
   });
 
-  it("should expose namespaced versioning in the generated client", () => {
+  it('should expose namespaced versioning in the generated client', () => {
     const mockRest = { _request: vi.fn() };
     const client = new sdk.GeneratedLiferayClient(mockRest);
 
@@ -34,7 +34,7 @@ describe("Liferay Accelerator SDK", () => {
     expect(client.headlessCommerceAdminCatalog.v1_0).toBeDefined();
   });
 
-  it("should expose utilities", () => {
+  it('should expose utilities', () => {
     expect(sdk.utils).toBeDefined();
     expect(sdk.utils.PATH).toBeDefined();
   });

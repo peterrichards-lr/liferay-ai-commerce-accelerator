@@ -1,6 +1,6 @@
-const crypto = require("crypto");
-const { ErrorHandler } = require("./errorHandler.cjs");
-const { ERC_PREFIX } = require("./constants.cjs");
+const crypto = require('crypto');
+const { ErrorHandler } = require('./errorHandler.cjs');
+const { ERC_PREFIX } = require('./constants.cjs');
 
 function getRandomInt(max) {
   return Math.floor(Math.random() * max);
@@ -15,14 +15,14 @@ function isoNow() {
 }
 
 function isoToday() {
-  return isoNow().split("T")[0];
+  return isoNow().split('T')[0];
 }
 
 function randomDateBetween(start, end) {
   const s = start instanceof Date ? start.getTime() : new Date(start).getTime();
   const e = end instanceof Date ? end.getTime() : new Date(end).getTime();
   if (!Number.isFinite(s) || !Number.isFinite(e)) {
-    throw new TypeError("randomDateBetween: invalid start/end date");
+    throw new TypeError('randomDateBetween: invalid start/end date');
   }
   const min = Math.min(s, e);
   const max = Math.max(s, e);
@@ -50,28 +50,28 @@ function elapsedMs(startTime) {
 
 function randomString(len = 5, uppercase = false) {
   const chars = uppercase
-    ? "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
-    : "abcdefghijklmnopqrstuvwxyz";
+    ? 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'
+    : 'abcdefghijklmnopqrstuvwxyz';
   const out = new Array(len);
   for (let i = 0; i < len; i++)
     out[i] = chars.charAt(getRandomInt(chars.length));
-  return out.join("");
+  return out.join('');
 }
 
 function toERCPart(str, max = 12) {
-  if (!str) return "NA";
+  if (!str) return 'NA';
   const cleaned = String(str)
     .toUpperCase()
-    .replace(/[^A-Z0-9]+/g, "");
-  return cleaned ? cleaned.slice(0, max) : "NA";
+    .replace(/[^A-Z0-9]+/g, '');
+  return cleaned ? cleaned.slice(0, max) : 'NA';
 }
 
 function sanitizeForERC(str, { max = 12, preserveUnderscore = false } = {}) {
-  if (!str) return "NA";
+  if (!str) return 'NA';
   const s = String(str).toUpperCase();
   const pattern = preserveUnderscore ? /[^A-Z0-9_]+/g : /[^A-Z0-9]+/g;
-  const cleaned = s.replace(pattern, "");
-  return cleaned ? cleaned.slice(0, max) : "NA";
+  const cleaned = s.replace(pattern, '');
+  return cleaned ? cleaned.slice(0, max) : 'NA';
 }
 
 function buildKeyedERC({
@@ -86,26 +86,26 @@ function buildKeyedERC({
   prefixIsCompound = false,
 } = {}) {
   const pfxParts = prefixIsCompound
-    ? String(prefix || "")
-        .split("-")
+    ? String(prefix || '')
+        .split('-')
         .map((p) => toERCPart(p, 12))
         .filter(Boolean)
     : [toERCPart(prefix, 12)];
   const cat = toERCPart(category, categoryLen);
-  let transformedKey = String(key || "");
-  if (preserveUnderscore) transformedKey = transformedKey.replace(/-/g, "_");
+  let transformedKey = String(key || '');
+  if (preserveUnderscore) transformedKey = transformedKey.replace(/-/g, '_');
   const k = sanitizeForERC(transformedKey, { max: keyLen, preserveUnderscore });
   const parts = [...pfxParts, cat, k];
   if (includeRandom) parts.push(randomString(randLen, true));
-  return parts.join("-");
+  return parts.join('-');
 }
 
 function buildCategoryERC(category, index, { prefixLen = 3, pad = 3 } = {}) {
-  if (!category) throw new Error("buildCategoryCode: category is required");
+  if (!category) throw new Error('buildCategoryCode: category is required');
   if (index == null || isNaN(index))
-    throw new Error("buildCategoryCode: index must be a number");
+    throw new Error('buildCategoryCode: index must be a number');
   const prefix = toERCPart(category, prefixLen);
-  const num = String(Number(index) + 1).padStart(pad, "0");
+  const num = String(Number(index) + 1).padStart(pad, '0');
   return `${prefix}-${num}`;
 }
 
@@ -121,23 +121,23 @@ function buildSpecCatERC(category, baseTitle, opts = {}) {
   const base = toERCPart(baseTitle, maxPartLen);
   const parts = [toERCPart(prefix, maxPartLen), cat, base];
   if (includeDate) {
-    parts.push(isoToday().replace(/[^0-9]/g, ""));
+    parts.push(isoToday().replace(/[^0-9]/g, ''));
   }
   if (randomSuffix) {
     parts.push(randomString(randLen, true));
   }
-  return parts.filter(Boolean).join("-");
+  return parts.filter(Boolean).join('-');
 }
 
 const delay = (ms = 1000) => new Promise((r) => setTimeout(r, ms));
 
 const delayCall = (fn, ms = 1000, thisArg = null, ...args) => {
-  if (typeof fn !== "function") return null;
+  if (typeof fn !== 'function') return null;
   return setTimeout(() => fn.apply(thisArg, args), ms);
 };
 
 const debounce = (fn, ms = 300) => {
-  if (typeof fn !== "function") return null;
+  if (typeof fn !== 'function') return null;
   let t;
   return (...args) => {
     clearTimeout(t);
@@ -160,7 +160,7 @@ async function processWithRetry(ctx, item, processingFunction, maxRetries = 3) {
       const retryDelay = 2000 * attempt;
       logger.warn(
         `Attempt ${attempt} failed, retrying in ${retryDelay}ms:`,
-        error.message,
+        error.message
       );
       await delay(retryDelay);
     }
@@ -186,14 +186,14 @@ function createERC(prefix) {
 }
 
 function resolveErrorReference(err) {
-  if (!err || typeof err !== "object") return null;
-  if (err.errorReference && typeof err.errorReference === "string") {
+  if (!err || typeof err !== 'object') return null;
+  if (err.errorReference && typeof err.errorReference === 'string') {
     return err.errorReference;
   }
-  if (err.errorRef && typeof err.errorRef === "string") {
+  if (err.errorRef && typeof err.errorRef === 'string') {
     return err.errorRef;
   }
-  if (err.erc && typeof err.erc === "string") {
+  if (err.erc && typeof err.erc === 'string') {
     return err.erc;
   }
   return null;
@@ -249,35 +249,35 @@ function ratioTrigger(ratio) {
 
 function parseDataUrl(
   input,
-  { defaultType = "application/octet-stream", acceptPlainBase64 = true } = {},
+  { defaultType = 'application/octet-stream', acceptPlainBase64 = true } = {}
 ) {
-  if (typeof input !== "string") {
-    throw new Error("parseDataUrl: input must be a string");
+  if (typeof input !== 'string') {
+    throw new Error('parseDataUrl: input must be a string');
   }
   const data = input.trim();
   if (!data) {
-    throw new Error("parseDataUrl: input is empty");
+    throw new Error('parseDataUrl: input is empty');
   }
   const hasBase64Param = (meta) =>
-    meta.split(";").some((p) => p.toLowerCase() === "base64");
+    meta.split(';').some((p) => p.toLowerCase() === 'base64');
   const looksLikeBase64 = (s) =>
-    /^[A-Za-z0-9+/=\s]+$/.test(s) && s.replace(/\s+/g, "").length >= 8;
+    /^[A-Za-z0-9+/=\s]+$/.test(s) && s.replace(/\s+/g, '').length >= 8;
   const normalizeBase64 = (s) => {
-    const stripped = s.replace(/\s+/g, "");
+    const stripped = s.replace(/\s+/g, '');
     const pad = stripped.length % 4;
-    return pad === 0 ? stripped : stripped + "===".slice(pad);
+    return pad === 0 ? stripped : stripped + '==='.slice(pad);
   };
-  if (data.startsWith("data:")) {
-    const commaIndex = data.indexOf(",");
+  if (data.startsWith('data:')) {
+    const commaIndex = data.indexOf(',');
     if (commaIndex === -1) {
-      throw new Error("parseDataUrl: malformed data URL (missing comma)");
+      throw new Error('parseDataUrl: malformed data URL (missing comma)');
     }
     const meta = data.slice(5, commaIndex);
     const payload = data.slice(commaIndex + 1).trim();
     if (!payload) {
-      throw new Error("parseDataUrl: missing payload after comma");
+      throw new Error('parseDataUrl: missing payload after comma');
     }
-    const [maybeType] = meta.split(";");
+    const [maybeType] = meta.split(';');
     const contentType = maybeType || defaultType;
     if (hasBase64Param(meta)) {
       return { contentType, base64: normalizeBase64(payload) };
@@ -286,20 +286,20 @@ function parseDataUrl(
       return { contentType, base64: normalizeBase64(payload) };
     }
     throw new Error(
-      `parseDataUrl: data URL is not base64 encoded (meta="${meta}")`,
+      `parseDataUrl: data URL is not base64 encoded (meta="${meta}")`
     );
   }
   if (acceptPlainBase64 && looksLikeBase64(data)) {
     return { contentType: defaultType, base64: normalizeBase64(data) };
   }
   throw new Error(
-    "parseDataUrl: input is not a valid base64 string or data URL",
+    'parseDataUrl: input is not a valid base64 string or data URL'
   );
 }
 
 function buildDataUrl({ contentType, base64 }) {
   if (!contentType || !base64) {
-    throw new Error("Both contentType and base64 are required");
+    throw new Error('Both contentType and base64 are required');
   }
   return `data:${contentType};base64,${base64}`;
 }
@@ -308,26 +308,26 @@ function safeJSON(obj) {
   try {
     return JSON.stringify(obj);
   } catch {
-    return "{}";
+    return '{}';
   }
 }
 
-function inferEntityTypeFromClassName(className = "") {
+function inferEntityTypeFromClassName(className = '') {
   const s = String(className).toLowerCase();
-  if (s.includes(".order")) return "orders";
-  if (s.includes(".account")) return "accounts";
-  if (s.includes(".product")) return "products";
-  return "unknown";
+  if (s.includes('.order')) return 'orders';
+  if (s.includes('.account')) return 'accounts';
+  if (s.includes('.product')) return 'products';
+  return 'unknown';
 }
 
 function resolvePhaseAndMode({
   useBatch = false,
   useConcurrent = false,
-  phase = "generate",
+  phase = 'generate',
 } = {}) {
-  const allowedPhases = ["init", "generate", "postprocess", "complete"];
-  const normalizedPhase = allowedPhases.includes(phase) ? phase : "generate";
-  const mode = useConcurrent ? "concurrent" : useBatch ? "batch" : "individual";
+  const allowedPhases = ['init', 'generate', 'postprocess', 'complete'];
+  const normalizedPhase = allowedPhases.includes(phase) ? phase : 'generate';
+  const mode = useConcurrent ? 'concurrent' : useBatch ? 'batch' : 'individual';
   return { mode, phase: normalizedPhase };
 }
 
@@ -335,8 +335,8 @@ function resolveOperation(entity, phase, subAction) {
   const parts = [];
   if (entity) parts.push(String(entity).trim());
   if (phase) parts.push(String(phase).trim());
-  const base = parts.join("/");
-  return subAction ? `${base}:${String(subAction).trim()}` : base || "generate";
+  const base = parts.join('/');
+  return subAction ? `${base}:${String(subAction).trim()}` : base || 'generate';
 }
 
 function normalizeNumber(value, { min, max, defaultValue = 0 } = {}) {
@@ -348,11 +348,11 @@ function normalizeNumber(value, { min, max, defaultValue = 0 } = {}) {
 }
 
 function isJSON(value) {
-  if (typeof value !== "string") return false;
+  if (typeof value !== 'string') return false;
   const trimmed = value.trim();
   const looksLikeObjectOrArray =
-    (trimmed.startsWith("{") && trimmed.endsWith("}")) ||
-    (trimmed.startsWith("[") && trimmed.endsWith("]"));
+    (trimmed.startsWith('{') && trimmed.endsWith('}')) ||
+    (trimmed.startsWith('[') && trimmed.endsWith(']'));
   if (!looksLikeObjectOrArray) return false;
   try {
     JSON.parse(trimmed);
@@ -374,7 +374,7 @@ function tryParseJSON(value) {
 }
 
 function isValidUrl(url) {
-  if (!url || typeof url !== "string") return false;
+  if (!url || typeof url !== 'string') return false;
   try {
     new URL(url);
     return true;
@@ -385,14 +385,14 @@ function isValidUrl(url) {
 
 const toI18n = (v, fallback) => {
   if (!v && !fallback) {
-    throw new Error("Both arguments cannot be empty");
+    throw new Error('Both arguments cannot be empty');
   }
-  return typeof v === "string" ? { en_US: v } : v || { en_US: fallback };
+  return typeof v === 'string' ? { en_US: v } : v || { en_US: fallback };
 };
 
-const fromI18n = (v, locale = "en_US") => {
+const fromI18n = (v, locale = 'en_US') => {
   if (!v) return null;
-  if (typeof v === "string") return v;
+  if (typeof v === 'string') return v;
   return v[locale] || Object.values(v)[0] || null;
 };
 
@@ -407,7 +407,7 @@ function getByValue(collection, searchValue) {
 function toTitleCase(str) {
   return str.replace(
     /\w\S*/g,
-    (text) => text.charAt(0).toUpperCase() + text.substring(1).toLowerCase(),
+    (text) => text.charAt(0).toUpperCase() + text.substring(1).toLowerCase()
   );
 }
 

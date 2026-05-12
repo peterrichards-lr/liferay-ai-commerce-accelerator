@@ -1,5 +1,5 @@
-const { createERC } = require("../utils/misc.cjs");
-const { ERC_PREFIX, WORKFLOW_STEPS } = require("../utils/constants.cjs");
+const { createERC } = require('../utils/misc.cjs');
+const { ERC_PREFIX, WORKFLOW_STEPS } = require('../utils/constants.cjs');
 
 /**
  * BaseWorkflowService - The foundational abstract class for all workflow-driven services.
@@ -41,7 +41,7 @@ class BaseWorkflowService {
   _ensureValidStep(stepKey) {
     if (!this.isValidStep(stepKey)) {
       throw new Error(
-        `Unregistered workflow step key: '${stepKey}'. Please add it to WORKFLOW_STEPS in constants.cjs`,
+        `Unregistered workflow step key: '${stepKey}'. Please add it to WORKFLOW_STEPS in constants.cjs`
       );
     }
   }
@@ -53,7 +53,7 @@ class BaseWorkflowService {
    */
   async verifyStepDependencies(sessionId, stepName, workflowSteps) {
     const stepConfig = workflowSteps.find((s) =>
-      typeof s === "string" ? s === stepName : s.name === stepName,
+      typeof s === 'string' ? s === stepName : s.name === stepName
     );
 
     if (stepConfig && stepConfig.dependsOn) {
@@ -63,12 +63,12 @@ class BaseWorkflowService {
       for (const dep of dependencies) {
         const isReady = await this.persistence.verifyDependencyReady(
           sessionId,
-          dep,
+          dep
         );
         if (!isReady) {
           this.logger.warn(
             `Dependency '${dep}' not ready for step '${stepName}'. Pausing execution.`,
-            { sessionId },
+            { sessionId }
           );
           return false;
         }
@@ -89,7 +89,7 @@ class BaseWorkflowService {
     entityType,
     operation,
     submitFn,
-    itemsCount,
+    itemsCount
   ) {
     this._ensureValidStep(stepKey);
     const session = await this.persistence.getSession(sessionId);
@@ -99,7 +99,7 @@ class BaseWorkflowService {
       erc: batchERC,
       sessionId,
       stepKey,
-      status: "PREPARED",
+      status: 'PREPARED',
       totalCount: itemsCount,
     });
 
@@ -108,7 +108,7 @@ class BaseWorkflowService {
 
       if (result && result.batchId) {
         await this.persistence.updateBatch(batchERC, {
-          status: "SUBMITTED",
+          status: 'SUBMITTED',
           downstreamBatchId: result.batchId,
         });
 
@@ -125,15 +125,15 @@ class BaseWorkflowService {
         return { batchERC, batchId: result.batchId };
       } else {
         throw new Error(
-          `Failed to obtain batchId from Liferay for step '${stepKey}'`,
+          `Failed to obtain batchId from Liferay for step '${stepKey}'`
         );
       }
     } catch (error) {
       this.logger.error(
         `Batch submission failed for step '${stepKey}': ${error.message}`,
-        { sessionId, batchERC },
+        { sessionId, batchERC }
       );
-      await this.persistence.updateBatch(batchERC, { status: "FAILED" });
+      await this.persistence.updateBatch(batchERC, { status: 'FAILED' });
       throw error;
     }
   }
@@ -164,59 +164,59 @@ class BaseWorkflowService {
     const S = WORKFLOW_STEPS;
     const map = {
       // Structural/Container Mappings (for session events)
-      "subflow-products": "products",
-      "subflow-accounts": "accounts",
-      "subflow-orders": "orders",
+      'subflow-products': 'products',
+      'subflow-accounts': 'accounts',
+      'subflow-orders': 'orders',
 
       // Primary Entity Creation (Counts directly against requested amounts)
-      [S.CREATE_PRODUCTS]: "products",
-      [S.CREATE_ACCOUNTS]: "accounts",
-      [S.CREATE_ORDERS]: "orders",
-      [S.CREATE_WAREHOUSES]: "warehouses",
-      [S.GENERATE_PRICE_LISTS]: "priceLists",
-      [S.GENERATE_BULK_PRICING]: "priceLists",
-      [S.GENERATE_TIER_PRICING]: "priceLists",
-      [S.ATTACH_IMAGES]: "images",
-      [S.ATTACH_PDFS]: "pdfs",
+      [S.CREATE_PRODUCTS]: 'products',
+      [S.CREATE_ACCOUNTS]: 'accounts',
+      [S.CREATE_ORDERS]: 'orders',
+      [S.CREATE_WAREHOUSES]: 'warehouses',
+      [S.GENERATE_PRICE_LISTS]: 'priceLists',
+      [S.GENERATE_BULK_PRICING]: 'priceLists',
+      [S.GENERATE_TIER_PRICING]: 'priceLists',
+      [S.ATTACH_IMAGES]: 'images',
+      [S.ATTACH_PDFS]: 'pdfs',
 
       // Auxiliary/Secondary Steps (Map to separate entities or leave as is)
-      [S.GENERATE_PRODUCT_DATA]: "data-generation",
-      [S.RESOLVE_PRODUCT_IDS]: "metadata",
-      [S.CREATE_PRODUCT_SKUS]: "skus",
-      [S.RESOLVE_SKU_IDS]: "metadata",
-      [S.LINK_PRODUCT_OPTIONS]: "options",
-      [S.SYNC_DELAY_PRICING]: "sync-delay",
-      [S.SYNC_DELAY_MEDIA]: "sync-delay",
-      [S.SYNC_DELAY_ORDERS]: "sync-delay",
-      [S.UPDATE_INVENTORY]: "inventory",
-      [S.UPDATE_CATALOG_CONFIG]: "config",
+      [S.GENERATE_PRODUCT_DATA]: 'data-generation',
+      [S.RESOLVE_PRODUCT_IDS]: 'metadata',
+      [S.CREATE_PRODUCT_SKUS]: 'skus',
+      [S.RESOLVE_SKU_IDS]: 'metadata',
+      [S.LINK_PRODUCT_OPTIONS]: 'options',
+      [S.SYNC_DELAY_PRICING]: 'sync-delay',
+      [S.SYNC_DELAY_MEDIA]: 'sync-delay',
+      [S.SYNC_DELAY_ORDERS]: 'sync-delay',
+      [S.UPDATE_INVENTORY]: 'inventory',
+      [S.UPDATE_CATALOG_CONFIG]: 'config',
 
-      [S.LOAD_COUNTRIES]: "metadata",
-      [S.GENERATE_ACCOUNT_DATA]: "data-generation",
-      [S.RESOLVE_ACCOUNT_IDS]: "metadata",
-      [S.CREATE_POSTAL_ADDRESSES]: "addresses",
-      [S.SET_ADDRESS_DEFAULTS]: "addresses",
+      [S.LOAD_COUNTRIES]: 'metadata',
+      [S.GENERATE_ACCOUNT_DATA]: 'data-generation',
+      [S.RESOLVE_ACCOUNT_IDS]: 'metadata',
+      [S.CREATE_POSTAL_ADDRESSES]: 'addresses',
+      [S.SET_ADDRESS_DEFAULTS]: 'addresses',
 
-      [S.GENERATE_ORDER_DATA]: "data-generation",
+      [S.GENERATE_ORDER_DATA]: 'data-generation',
 
-      [S.GENERATE_WAREHOUSE_DATA]: "data-generation",
-      [S.RESOLVE_WAREHOUSE_IDS]: "metadata",
-      [S.LINK_WAREHOUSE_CHANNELS]: "warehouses",
+      [S.GENERATE_WAREHOUSE_DATA]: 'data-generation',
+      [S.RESOLVE_WAREHOUSE_IDS]: 'metadata',
+      [S.LINK_WAREHOUSE_CHANNELS]: 'warehouses',
 
       // Deletion (Map back to primary entities so we see progress on the same bars)
-      [S.DELETE_PRODUCTS]: "products",
-      [S.DELETE_ACCOUNTS]: "accounts",
-      [S.DELETE_ORDERS]: "orders",
-      [S.DELETE_WAREHOUSES]: "warehouses",
-      [S.DELETE_WAREHOUSE_ITEMS]: "warehouses",
-      [S.DELETE_PRODUCT_SPECIFICATIONS]: "specifications",
-      [S.DELETE_PRODUCT_OPTIONS]: "options",
-      [S.DELETE_SPECIFICATIONS]: "specifications",
-      [S.DELETE_OPTIONS]: "options",
-      [S.DELETE_OPTION_CATEGORIES]: "options",
-      [S.DELETE_PRICE_LISTS]: "priceLists",
-      [S.DELETE_PROMOTIONS]: "promotions",
-      [S.RESET_CATALOG_CONFIG]: "products",
+      [S.DELETE_PRODUCTS]: 'products',
+      [S.DELETE_ACCOUNTS]: 'accounts',
+      [S.DELETE_ORDERS]: 'orders',
+      [S.DELETE_WAREHOUSES]: 'warehouses',
+      [S.DELETE_WAREHOUSE_ITEMS]: 'warehouses',
+      [S.DELETE_PRODUCT_SPECIFICATIONS]: 'specifications',
+      [S.DELETE_PRODUCT_OPTIONS]: 'options',
+      [S.DELETE_SPECIFICATIONS]: 'specifications',
+      [S.DELETE_OPTIONS]: 'options',
+      [S.DELETE_OPTION_CATEGORIES]: 'options',
+      [S.DELETE_PRICE_LISTS]: 'priceLists',
+      [S.DELETE_PROMOTIONS]: 'promotions',
+      [S.RESET_CATALOG_CONFIG]: 'products',
     };
 
     // If the step matches a known category, return it for grouping.

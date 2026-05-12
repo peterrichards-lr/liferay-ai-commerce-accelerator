@@ -2,38 +2,38 @@
  *  Constants
  * ----------------------------------------------*/
 const ACTION_IDS = {
-  ACCESS: "ACCESS",
-  ADD_DISCUSSION: "ADD_DISCUSSION",
-  ADD_DOCUMENT: "ADD_DOCUMENT",
-  ADD_SHORTCUT: "ADD_SHORTCUT",
-  ADD_SUBFOLDER: "ADD_SUBFOLDER",
-  DELETE_DISCUSSION: "DELETE_DISCUSSION",
-  DELETE: "DELETE",
-  DOWNLOAD: "DOWNLOAD",
-  OVERRIDE_CHECKOUT: "OVERRIDE_CHECKOUT",
-  PERMISSIONS: "PERMISSIONS",
-  SUBSCRIBE: "SUBSCRIBE",
-  UPDATE_DISCUSSION: "UPDATE_DISCUSSION",
-  UPDATE: "UPDATE",
-  VIEW: "VIEW",
+  ACCESS: 'ACCESS',
+  ADD_DISCUSSION: 'ADD_DISCUSSION',
+  ADD_DOCUMENT: 'ADD_DOCUMENT',
+  ADD_SHORTCUT: 'ADD_SHORTCUT',
+  ADD_SUBFOLDER: 'ADD_SUBFOLDER',
+  DELETE_DISCUSSION: 'DELETE_DISCUSSION',
+  DELETE: 'DELETE',
+  DOWNLOAD: 'DOWNLOAD',
+  OVERRIDE_CHECKOUT: 'OVERRIDE_CHECKOUT',
+  PERMISSIONS: 'PERMISSIONS',
+  SUBSCRIBE: 'SUBSCRIBE',
+  UPDATE_DISCUSSION: 'UPDATE_DISCUSSION',
+  UPDATE: 'UPDATE',
+  VIEW: 'VIEW',
 };
 
 const ROLE = {
-  GUEST: "Guest",
-  OWNER: "Owner",
-  SITE_MEMBER: "Site Member",
-  USER: "User",
+  GUEST: 'Guest',
+  OWNER: 'Owner',
+  SITE_MEMBER: 'Site Member',
+  USER: 'User',
 };
 
 const ASSET_TYPE = {
-  DOCUMENT_FOLDER: "document-folder",
-  DOCUMENT: "document",
+  DOCUMENT_FOLDER: 'document-folder',
+  DOCUMENT: 'document',
 };
 
 const VIEWABLE_BY = {
-  OWNER: "owner",
-  SITE_MEMBERS: "members",
-  ANYONE: "anyone",
+  OWNER: 'owner',
+  SITE_MEMBERS: 'members',
+  ANYONE: 'anyone',
 };
 
 /** ---------------------------------------------
@@ -175,7 +175,7 @@ function buildPermissionsItems({
   overrides = {},
   includeRoles = [ROLE.OWNER, ROLE.GUEST, ROLE.SITE_MEMBER],
 }) {
-  if (!ASSET_TYPE[assetType?.toUpperCase()?.replace("-", "_")]) {
+  if (!ASSET_TYPE[assetType?.toUpperCase()?.replace('-', '_')]) {
     throw new Error(`Unknown assetType: ${assetType}`);
   }
   if (!Object.values(VIEWABLE_BY).includes(viewableBy)) {

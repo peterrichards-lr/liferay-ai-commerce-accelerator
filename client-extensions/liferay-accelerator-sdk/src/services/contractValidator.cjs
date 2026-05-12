@@ -1,7 +1,7 @@
-const fs = require("fs");
-const path = require("path");
-const Ajv = require("ajv");
-const addFormats = require("ajv-formats");
+const fs = require('fs');
+const path = require('path');
+const Ajv = require('ajv');
+const addFormats = require('ajv-formats');
 
 class ContractValidator {
   constructor(ctx) {
@@ -23,13 +23,13 @@ class ContractValidator {
   }
 
   _loadSchemas() {
-    const apiSchemaDir = path.join(__dirname, "../../api-schemas");
+    const apiSchemaDir = path.join(__dirname, '../../api-schemas');
     try {
       const files = fs.readdirSync(apiSchemaDir);
       for (const file of files) {
-        if (file.endsWith("-openapi.json")) {
+        if (file.endsWith('-openapi.json')) {
           const spec = JSON.parse(
-            fs.readFileSync(path.join(apiSchemaDir, file), "utf8"),
+            fs.readFileSync(path.join(apiSchemaDir, file), 'utf8')
           );
           const fileName = path.basename(file);
 
@@ -49,13 +49,13 @@ class ContractValidator {
   }
 
   _handleOpenApiSpecifics(schema) {
-    if (!schema || typeof schema !== "object") return;
+    if (!schema || typeof schema !== 'object') return;
 
     // Handle OpenAPI 'exclusiveMinimum/Maximum'
-    if (typeof schema.exclusiveMinimum === "boolean") {
+    if (typeof schema.exclusiveMinimum === 'boolean') {
       if (
         schema.exclusiveMinimum === true &&
-        typeof schema.minimum === "number"
+        typeof schema.minimum === 'number'
       ) {
         schema.exclusiveMinimum = schema.minimum;
         delete schema.minimum;
@@ -63,10 +63,10 @@ class ContractValidator {
         delete schema.exclusiveMinimum;
       }
     }
-    if (typeof schema.exclusiveMaximum === "boolean") {
+    if (typeof schema.exclusiveMaximum === 'boolean') {
       if (
         schema.exclusiveMaximum === true &&
-        typeof schema.maximum === "number"
+        typeof schema.maximum === 'number'
       ) {
         schema.exclusiveMaximum = schema.maximum;
         delete schema.maximum;
@@ -78,18 +78,18 @@ class ContractValidator {
     // Convert OpenAPI 'nullable: true' to JSON Schema 'type: [..., "null"]'
     if (schema.nullable === true && schema.type) {
       if (Array.isArray(schema.type)) {
-        if (!schema.type.includes("null")) {
-          schema.type.push("null");
+        if (!schema.type.includes('null')) {
+          schema.type.push('null');
         }
       } else {
-        schema.type = [schema.type, "null"];
+        schema.type = [schema.type, 'null'];
       }
       delete schema.nullable;
     }
 
     // Recurse into everything
     for (const key in schema) {
-      if (typeof schema[key] === "object") {
+      if (typeof schema[key] === 'object') {
         this._handleOpenApiSpecifics(schema[key]);
       }
     }
@@ -122,14 +122,14 @@ class ContractValidator {
         `Contract violation for ${fullSchemaId}: ${errorsText}`,
         {
           errors: validator.errors,
-          data: this.ctx.DEBUG ? data : "[truncated]",
-        },
+          data: this.ctx.DEBUG ? data : '[truncated]',
+        }
       );
 
       const error = new Error(
-        `Data does not match Liferay API contract for ${schemaName}: ${errorsText}`,
+        `Data does not match Liferay API contract for ${schemaName}: ${errorsText}`
       );
-      error.name = "ContractViolationError";
+      error.name = 'ContractViolationError';
       error.errors = validator.errors;
       error.schemaId = fullSchemaId;
       throw error;
@@ -143,14 +143,14 @@ class ContractValidator {
    */
   validateArray(specFileName, schemaName, dataArray) {
     if (!Array.isArray(dataArray)) {
-      throw new Error("Data must be an array for validateArray");
+      throw new Error('Data must be an array for validateArray');
     }
     // We validate each item individually to provide better error messages
     for (let i = 0; i < dataArray.length; i++) {
       try {
         this.validate(specFileName, schemaName, dataArray[i]);
       } catch (err) {
-        if (err.name === "ContractViolationError") {
+        if (err.name === 'ContractViolationError') {
           err.message = `Item at index ${i} failed contract: ${err.message}`;
         }
         throw err;

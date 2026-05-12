@@ -1,7 +1,7 @@
-const { BaseGenerator, PersistenceService, utils } = require("../src/index.js");
+const { BaseGenerator, PersistenceService, utils } = require('../src/index.js');
 const { WORKFLOW_STEPS } = utils.constants;
 
-describe("BaseGenerator", () => {
+describe('BaseGenerator', () => {
   let generator;
   let mockCtx;
   let persistence;
@@ -9,7 +9,7 @@ describe("BaseGenerator", () => {
   beforeEach(() => {
     persistence = new PersistenceService(
       { logger: { info: vi.fn() } },
-      ":memory:",
+      ':memory:'
     );
 
     mockCtx = {
@@ -30,10 +30,10 @@ describe("BaseGenerator", () => {
         }),
       },
       liferay: {
-        getCountries: vi.fn().mockResolvedValue([{ id: 1, name: "US" }]),
+        getCountries: vi.fn().mockResolvedValue([{ id: 1, name: 'US' }]),
         getLanguages: vi
           .fn()
-          .mockResolvedValue([{ id: "en-US", markedAsDefault: true }]),
+          .mockResolvedValue([{ id: 'en-US', markedAsDefault: true }]),
         getTaxonomyVocabularies: vi.fn().mockResolvedValue([]),
       },
       progress: {
@@ -51,8 +51,8 @@ describe("BaseGenerator", () => {
     generator = new BaseGenerator(mockCtx);
   });
 
-  describe("runWorkflow", () => {
-    it("should initialize a session and report progress", async () => {
+  describe('runWorkflow', () => {
+    it('should initialize a session and report progress', async () => {
       const config = { catalogId: 123 };
       const options = { productCount: 10 };
       const totals = { products: 5 };
@@ -60,9 +60,9 @@ describe("BaseGenerator", () => {
       const result = await generator.runWorkflow(
         config,
         options,
-        "test-flow",
+        'test-flow',
         [],
-        { totals },
+        { totals }
       );
 
       expect(result).toBeDefined();
@@ -70,27 +70,27 @@ describe("BaseGenerator", () => {
       expect(mockCtx.progress.sessionStarted).toHaveBeenCalled();
     });
 
-    it("should fall back to default language if none provided", async () => {
+    it('should fall back to default language if none provided', async () => {
       const config = {};
       const options = {};
       const steps = [];
 
-      await generator.runWorkflow(config, options, "test-flow", steps, {});
+      await generator.runWorkflow(config, options, 'test-flow', steps, {});
 
       // SDK uses hyphenated locales by default
-      expect(options.selectedLanguages).toEqual(["en-US"]);
+      expect(options.selectedLanguages).toEqual(['en-US']);
     });
   });
 
-  describe("Metadata Steps", () => {
-    it("_runLoadCountriesStep should fetch and persist countries", async () => {
-      const sessionId = "test-session";
+  describe('Metadata Steps', () => {
+    it('_runLoadCountriesStep should fetch and persist countries', async () => {
+      const sessionId = 'test-session';
       persistence.createSession({
         sessionId,
-        flowType: "test",
-        status: "STARTED",
+        flowType: 'test',
+        status: 'STARTED',
         currentSteps: [],
-        correlationId: "cid",
+        correlationId: 'cid',
         context: { config: {} },
       });
 
@@ -101,14 +101,14 @@ describe("BaseGenerator", () => {
       expect(session.context.countries).toHaveLength(1);
     });
 
-    it("_runLoadLanguagesStep should fetch and persist languages", async () => {
-      const sessionId = "lang-session";
+    it('_runLoadLanguagesStep should fetch and persist languages', async () => {
+      const sessionId = 'lang-session';
       persistence.createSession({
         sessionId,
-        flowType: "test",
-        status: "STARTED",
+        flowType: 'test',
+        status: 'STARTED',
         currentSteps: [],
-        correlationId: "cid",
+        correlationId: 'cid',
         context: { config: {} },
       });
 
@@ -116,45 +116,45 @@ describe("BaseGenerator", () => {
 
       const session = persistence.getSession(sessionId);
       expect(session.context.languages).toBeDefined();
-      expect(session.context.languages[0].id).toBe("en-US");
+      expect(session.context.languages[0].id).toBe('en-US');
     });
   });
 
-  describe("Sync Delay", () => {
-    it("_runInterServiceSyncDelayStep should complete after delay", async () => {
-      const sessionId = "test-session";
+  describe('Sync Delay', () => {
+    it('_runInterServiceSyncDelayStep should complete after delay', async () => {
+      const sessionId = 'test-session';
       persistence.createSession({
         sessionId,
-        flowType: "test",
-        status: "STARTED",
+        flowType: 'test',
+        status: 'STARTED',
         currentSteps: [],
-        correlationId: "cid",
+        correlationId: 'cid',
         context: { config: {} },
       });
 
       // Spy on completeSyncStep
-      const spy = vi.spyOn(generator, "completeSyncStep").mockResolvedValue();
+      const spy = vi.spyOn(generator, 'completeSyncStep').mockResolvedValue();
 
       await generator._runInterServiceSyncDelayStep(
         sessionId,
-        WORKFLOW_STEPS.SYNC_DELAY,
+        WORKFLOW_STEPS.SYNC_DELAY
       );
 
       expect(spy).toHaveBeenCalledWith(sessionId, WORKFLOW_STEPS.SYNC_DELAY);
     });
 
-    it("_runAdaptiveSyncDelayStep should retry with backoff and complete on success", async () => {
-      const sessionId = "adaptive-session";
+    it('_runAdaptiveSyncDelayStep should retry with backoff and complete on success', async () => {
+      const sessionId = 'adaptive-session';
       persistence.createSession({
         sessionId,
-        flowType: "test",
-        status: "STARTED",
+        flowType: 'test',
+        status: 'STARTED',
         currentSteps: [],
-        correlationId: "cid",
+        correlationId: 'cid',
         context: { config: {} },
       });
 
-      const spy = vi.spyOn(generator, "completeSyncStep").mockResolvedValue();
+      const spy = vi.spyOn(generator, 'completeSyncStep').mockResolvedValue();
 
       let attempts = 0;
       const checkFn = vi.fn().mockImplementation(() => {
@@ -164,65 +164,65 @@ describe("BaseGenerator", () => {
 
       await generator._runAdaptiveSyncDelayStep(
         sessionId,
-        "test-step",
-        checkFn,
+        'test-step',
+        checkFn
       );
 
       expect(checkFn).toHaveBeenCalledTimes(2);
       expect(spy).toHaveBeenCalledWith(
         sessionId,
-        "test-step",
-        "SYNCHRONOUS",
+        'test-step',
+        'SYNCHRONOUS',
         1,
-        1,
+        1
       );
     });
 
-    it("_runAdaptiveSyncDelayStep should proceed even if max retries reached without success", async () => {
-      const sessionId = "fail-session";
+    it('_runAdaptiveSyncDelayStep should proceed even if max retries reached without success', async () => {
+      const sessionId = 'fail-session';
       persistence.createSession({
         sessionId,
-        flowType: "test",
-        status: "STARTED",
+        flowType: 'test',
+        status: 'STARTED',
         currentSteps: [],
-        correlationId: "cid",
+        correlationId: 'cid',
         context: { config: {} },
       });
 
-      const spy = vi.spyOn(generator, "completeSyncStep").mockResolvedValue();
+      const spy = vi.spyOn(generator, 'completeSyncStep').mockResolvedValue();
       const checkFn = vi.fn().mockResolvedValue(false); // Never succeeds
 
       await generator._runAdaptiveSyncDelayStep(
         sessionId,
-        "fail-step",
-        checkFn,
+        'fail-step',
+        checkFn
       );
 
       expect(checkFn).toHaveBeenCalledTimes(3); // Based on mock resilience config
       expect(spy).toHaveBeenCalledWith(
         sessionId,
-        "fail-step",
-        "SYNCHRONOUS",
+        'fail-step',
+        'SYNCHRONOUS',
         0,
-        1,
+        1
       );
     });
   });
 
-  describe("Verification", () => {
-    it("verifySteps should throw if a handler is missing", () => {
+  describe('Verification', () => {
+    it('verifySteps should throw if a handler is missing', () => {
       generator.steps = {
-        "invalid-step": null,
+        'invalid-step': null,
       };
 
       expect(() => generator.verifySteps()).toThrow(
-        "FATAL: Workflow Step 'invalid-step' in BaseGenerator has no valid method handler.",
+        "FATAL: Workflow Step 'invalid-step' in BaseGenerator has no valid method handler."
       );
     });
 
-    it("verifySteps should pass if all handlers exist", () => {
+    it('verifySteps should pass if all handlers exist', () => {
       generator.steps = {
-        "valid-step": () => {},
+        'valid-step': () => {},
       };
 
       expect(() => generator.verifySteps()).not.toThrow();

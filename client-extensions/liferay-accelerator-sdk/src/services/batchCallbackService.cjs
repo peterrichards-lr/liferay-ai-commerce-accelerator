@@ -26,11 +26,11 @@ class BatchCallbackService {
 
     // 2. Fallback to flow_type mapping
     const map = {
-      generate: "product",
-      accounts: "account",
-      orders: "order",
-      warehouses: "warehouse",
-      delete: "delete",
+      generate: 'product',
+      accounts: 'account',
+      orders: 'order',
+      warehouses: 'warehouse',
+      delete: 'delete',
     };
 
     const key = map[flowType] || flowType;
@@ -40,7 +40,7 @@ class BatchCallbackService {
   async getBatchStatus(batchId) {
     const { persistence } = this.ctx;
     const batch = await persistence.getBatchByDownstreamId(batchId);
-    if (!batch) return { status: "UNKNOWN" };
+    if (!batch) return { status: 'UNKNOWN' };
     return {
       status: batch.status,
       processedCount: batch.processed_count,
@@ -70,7 +70,7 @@ class BatchCallbackService {
       // 1. Find batches that might have finished while we were down
       const activeBatches = batches.filter(
         (b) =>
-          ["PENDING", "PROCESSING"].includes(b.status) && b.downstream_batch_id,
+          ['PENDING', 'PROCESSING'].includes(b.status) && b.downstream_batch_id
       );
 
       for (const b of activeBatches) {
@@ -82,34 +82,34 @@ class BatchCallbackService {
 
           const task = await liferay.getImportTask(
             session.context.config,
-            b.downstream_batch_id,
+            b.downstream_batch_id
           );
 
           if (
             task &&
-            ["COMPLETED", "FAILED"].includes(task.executeStatus || task.status)
+            ['COMPLETED', 'FAILED'].includes(task.executeStatus || task.status)
           ) {
             logger.success(
-              `Batch ${b.erc} completed while offline. Reconciling...`,
+              `Batch ${b.erc} completed while offline. Reconciling...`
             );
 
             // Map Liferay executeStatus to our status
             let status =
-              (task.executeStatus || task.status) === "COMPLETED"
-                ? "COMPLETED"
-                : "FAILED";
+              (task.executeStatus || task.status) === 'COMPLETED'
+                ? 'COMPLETED'
+                : 'FAILED';
 
             // HARDENING: Check for partial failures during recovery
             if (
-              status === "COMPLETED" &&
+              status === 'COMPLETED' &&
               (task.failedItems?.length > 0 ||
                 (task.processedItemsCount < task.totalItemsCount &&
                   task.totalItemsCount > 0))
             ) {
               logger.warn(
-                `Recovered batch ${b.erc} has partial failures. Marking as FAILED.`,
+                `Recovered batch ${b.erc} has partial failures. Marking as FAILED.`
               );
-              status = "FAILED";
+              status = 'FAILED';
             }
 
             await this.processCallbackInternal(
@@ -121,7 +121,7 @@ class BatchCallbackService {
                 totalItemsCount: task.totalItemsCount,
               },
               correlationId,
-              sessionId,
+              sessionId
             );
           }
         } catch (err) {
@@ -137,7 +137,7 @@ class BatchCallbackService {
       await this._checkSessionCompletion(sessionId, correlationId);
     }
 
-    logger.info("Orphaned session recovery complete.");
+    logger.info('Orphaned session recovery complete.');
   }
 
   /**
@@ -158,7 +158,7 @@ class BatchCallbackService {
         // Errors in the chain shouldn't kill the service
         this.ctx.logger.error(
           `Error in session lock chain for ${sessionId}: ${err.message}`,
-          { sessionId },
+          { sessionId }
         );
       })
       .finally(() => {
@@ -188,11 +188,11 @@ class BatchCallbackService {
         if (!session) {
           logger.warn(
             `No session found for ID ${sessionId}. Orchestrator cannot proceed.`,
-            { sessionId },
+            { sessionId }
           );
           break;
         }
-        if (session.status === "COMPLETED" || session.status === "FAILED") {
+        if (session.status === 'COMPLETED' || session.status === 'FAILED') {
           break;
         }
 
@@ -200,15 +200,15 @@ class BatchCallbackService {
         if (!generator) {
           logger.error(
             `No generator registered for flow type '${session.flow_type}'`,
-            { sessionId },
+            { sessionId }
           );
-          await persistence.updateSession(sessionId, { status: "FAILED" });
+          await persistence.updateSession(sessionId, { status: 'FAILED' });
           break;
         }
 
         try {
           this.ctx.logger.info(
-            `Advancing session ${sessionId} via ${generator.constructor.name}...`,
+            `Advancing session ${sessionId} via ${generator.constructor.name}...`
           );
           // Delegate step advancement to the specialized generator
           await generator.executeNextStep(sessionId);
@@ -219,7 +219,7 @@ class BatchCallbackService {
               sessionId,
               error: stepErr.message,
               stack: stepErr.stack,
-            },
+            }
           );
 
           // Propagate failure to the database
@@ -245,7 +245,7 @@ class BatchCallbackService {
     } catch (err) {
       logger.error(
         `Fatal error in _executeCheckWithLock for ${sessionId}: ${err.message}`,
-        { sessionId },
+        { sessionId }
       );
     }
   }
@@ -258,21 +258,21 @@ class BatchCallbackService {
     batchERC,
     payload,
     correlationId = null,
-    sessionId = null,
+    sessionId = null
   ) {
     const { logger, queue } = this.ctx;
-    const { JOB_TYPES, QUEUE_CONFIG } = require("../utils/constants.cjs");
+    const { JOB_TYPES, QUEUE_CONFIG } = require('../utils/constants.cjs');
 
-    logger.info("Enqueuing batch callback for processing", {
+    logger.info('Enqueuing batch callback for processing', {
       batchERC,
       correlationId,
       sessionId,
-      targetQueue: "batch-callback",
+      targetQueue: 'batch-callback',
     });
 
     try {
       await queue.add(
-        "batch-callback",
+        'batch-callback',
         JOB_TYPES.BATCH_CALLBACK_PROCESSING,
         {
           batchERC,
@@ -284,10 +284,10 @@ class BatchCallbackService {
           retries: QUEUE_CONFIG.CALLBACK_MAX_RETRIES,
           retryDelay: QUEUE_CONFIG.CALLBACK_RETRY_DELAY,
           correlationId,
-        },
+        }
       );
     } catch (error) {
-      logger.error("Failed to enqueue batch callback", {
+      logger.error('Failed to enqueue batch callback', {
         batchERC,
         correlationId,
         sessionId,
@@ -298,7 +298,7 @@ class BatchCallbackService {
         batchERC,
         payload,
         correlationId,
-        sessionId,
+        sessionId
       );
     }
   }
@@ -311,7 +311,7 @@ class BatchCallbackService {
     batchERC,
     payload,
     correlationId = null,
-    providedSessionId = null,
+    providedSessionId = null
   ) {
     const { logger, liferay, persistence, progress } = this.ctx;
 
@@ -321,14 +321,14 @@ class BatchCallbackService {
     if (!dbBatch) {
       // Throwing a specific message helps with log filtering and triggers queue retry
       throw new Error(
-        `[RETRYABLE] Batch record not yet persisted for ERC: ${batchERC}. Callback arrived too fast.`,
+        `[RETRYABLE] Batch record not yet persisted for ERC: ${batchERC}. Callback arrived too fast.`
       );
     }
 
     const sessionId = providedSessionId || dbBatch.session_id;
     const session = await persistence.getSession(sessionId);
     if (!session) {
-      logger.error("Orphaned batch detected - no session found", {
+      logger.error('Orphaned batch detected - no session found', {
         batchERC,
         sessionId: dbBatch.session_id,
       });
@@ -341,7 +341,7 @@ class BatchCallbackService {
 
     const batchId = Object.keys(payload)[0];
     if (!batchId) {
-      logger.error("Could not extract batchId from callback payload", {
+      logger.error('Could not extract batchId from callback payload', {
         batchERC,
       });
       return;
@@ -362,36 +362,36 @@ class BatchCallbackService {
 
       // Case A: Liferay says COMPLETED but processed 0 items out of N (Global Failure)
       if (
-        finalStatus === "COMPLETED" &&
+        finalStatus === 'COMPLETED' &&
         processedCount === 0 &&
         totalCount > 0
       ) {
         logger.error(
-          "Batch completed with 0 items processed - marking as FAILED",
+          'Batch completed with 0 items processed - marking as FAILED',
           {
             batchERC,
             batchId,
             totalCount,
             errorMessage: data.errorMessage,
             sessionId,
-          },
+          }
         );
-        finalStatus = "FAILED";
+        finalStatus = 'FAILED';
       }
 
       // Case B: Liferay says COMPLETED but there are partial failures
-      if (finalStatus === "COMPLETED" && errorCount > 0) {
+      if (finalStatus === 'COMPLETED' && errorCount > 0) {
         logger.error(
-          "Batch completed with partial failures - marking as FAILED for strict reliability",
+          'Batch completed with partial failures - marking as FAILED for strict reliability',
           {
             batchERC,
             batchId,
             errorCount,
             totalCount,
             sessionId,
-          },
+          }
         );
-        finalStatus = "FAILED";
+        finalStatus = 'FAILED';
       }
 
       // Fetch detailed errors if there are any failures or if processed < total
@@ -399,24 +399,24 @@ class BatchCallbackService {
         try {
           const failureReport = await liferay.getImportTaskFailedItemReport(
             config,
-            batchId,
+            batchId
           );
           if (failureReport && failureReport.length > 0) {
             const firstFailure = failureReport[0];
             const errorMessage =
               firstFailure.errorMessage ||
               firstFailure.error ||
-              "Unknown error";
+              'Unknown error';
 
-            logger.info("Detailed batch failure detected", {
+            logger.info('Detailed batch failure detected', {
               batchId,
               firstError: errorMessage,
               sessionId,
             });
 
             // CRITICAL: Log full raw content if error is unknown to help schema mapping
-            if (errorMessage.toLowerCase().includes("unknown error")) {
-              logger.error("Full failed item content for investigation:", {
+            if (errorMessage.toLowerCase().includes('unknown error')) {
+              logger.error('Full failed item content for investigation:', {
                 batchId,
                 rawContent: firstFailure.content || firstFailure,
                 sessionId,
@@ -440,7 +440,7 @@ class BatchCallbackService {
             persistence.logWorkflowEvent({
               sessionId: session.session_id,
               batchId,
-              status: "FAILED",
+              status: 'FAILED',
               message: `Batch ${batchId} for ${dbBatch.step_key} had ${errorCount} failures. First error: ${errorMessage}`,
               details: {
                 batchERC,
@@ -455,21 +455,21 @@ class BatchCallbackService {
             persistence.logWorkflowEvent({
               sessionId: session.session_id,
               batchId,
-              status: "FAILED",
+              status: 'FAILED',
               message: `Batch ${batchId} for ${dbBatch.step_key} is incomplete: processed ${processedCount} of ${totalCount} items, but no individual errors were reported by Liferay.`,
               details: {
                 batchERC,
                 stepKey: dbBatch.step_key,
                 processedCount,
                 totalCount,
-                liferayStatus: data.executeStatus || "UNKNOWN",
+                liferayStatus: data.executeStatus || 'UNKNOWN',
               },
             });
           }
         } catch (reportErr) {
           logger.warn(
-            "Failed to fetch detailed batch failure report for broadcast",
-            { batchId, error: reportErr.message },
+            'Failed to fetch detailed batch failure report for broadcast',
+            { batchId, error: reportErr.message }
           );
         }
       }
@@ -484,12 +484,12 @@ class BatchCallbackService {
       });
 
       // 4. Delegate Step-Specific Logic (Verification, etc.)
-      if (generator && finalStatus === "COMPLETED") {
+      if (generator && finalStatus === 'COMPLETED') {
         await generator.handleBatchCallback(session.session_id, batchERC);
       }
 
       // 5. Broadcast Progress
-      if (finalStatus === "FAILED") {
+      if (finalStatus === 'FAILED') {
         progress.batchFailed({
           entityType: generator
             ? generator._normalizeEntityType(dbBatch.step_key)
@@ -505,7 +505,7 @@ class BatchCallbackService {
           },
           correlationId: effectiveCorrelationId,
         });
-      } else if (finalStatus === "COMPLETED") {
+      } else if (finalStatus === 'COMPLETED') {
         progress.batchCompleted({
           entityType: generator
             ? generator._normalizeEntityType(dbBatch.step_key)
@@ -522,22 +522,22 @@ class BatchCallbackService {
 
       // 5.5 Broadcast Step Completed if all batches for this step are done
       const sessionBatches = await persistence.getBatchesForSession(
-        session.session_id,
+        session.session_id
       );
       const stepBatches = sessionBatches.filter(
-        (b) => b.step_key === dbBatch.step_key,
+        (b) => b.step_key === dbBatch.step_key
       );
       const isTerminal = (b) =>
-        ["COMPLETED", "FAILED", "BYPASSED", "SYNCHRONOUS"].includes(b.status);
+        ['COMPLETED', 'FAILED', 'BYPASSED', 'SYNCHRONOUS'].includes(b.status);
 
       if (
         stepBatches.length > 0 &&
         stepBatches.every(isTerminal) &&
-        !stepBatches.some((b) => b.status === "FAILED")
+        !stepBatches.some((b) => b.status === 'FAILED')
       ) {
         const totalStepCount = stepBatches.reduce(
           (sum, b) => sum + (b.total_count || 0),
-          0,
+          0
         );
         progress.stepCompleted({
           sessionId: session.session_id,
@@ -554,14 +554,14 @@ class BatchCallbackService {
       // 6. Trigger Advancement
       await this._checkSessionCompletion(
         session.session_id,
-        effectiveCorrelationId,
+        effectiveCorrelationId
       );
     } catch (error) {
-      logger.error("Error processing batch callback", {
+      logger.error('Error processing batch callback', {
         batchERC,
         error: error.message,
       });
-      await persistence.updateBatch(batchERC, { status: "FAILED" });
+      await persistence.updateBatch(batchERC, { status: 'FAILED' });
       progress.batchFailed({
         sessionId: session.session_id,
         batchERC,

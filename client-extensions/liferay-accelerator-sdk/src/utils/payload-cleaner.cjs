@@ -5,7 +5,7 @@
  */
 
 function deepCleanIds(obj) {
-  if (!obj || typeof obj !== "object") {
+  if (!obj || typeof obj !== 'object') {
     return obj;
   }
 
@@ -19,7 +19,7 @@ function deepCleanIds(obj) {
    * Rule 1: Always remove the root 'id' field.
    * Root IDs are system-generated and should never be sent in an UPSERT.
    */
-  if ("id" in cleaned) {
+  if ('id' in cleaned) {
     delete cleaned.id;
   }
 
@@ -29,13 +29,13 @@ function deepCleanIds(obj) {
    * it must be stripped to force Liferay to use the ERC.
    */
   const relationalIdFields = [
-    "productId",
-    "skuId",
-    "accountId",
-    "addressId",
-    "priceListId",
-    "defaultBillingAddressId",
-    "defaultShippingAddressId",
+    'productId',
+    'skuId',
+    'accountId',
+    'addressId',
+    'priceListId',
+    'defaultBillingAddressId',
+    'defaultShippingAddressId',
   ];
 
   for (const key of relationalIdFields) {
@@ -48,7 +48,7 @@ function deepCleanIds(obj) {
       value === 0 ||
       value === null ||
       value === undefined ||
-      (typeof value === "number" &&
+      (typeof value === 'number' &&
         ((value >= 10000 && value <= 19999) || // Mock Accounts
           (value >= 30000 && value <= 39999) || // Mock Products
           (value >= 40000 && value <= 59999))); // Mock SKUs/Variants
@@ -61,7 +61,7 @@ function deepCleanIds(obj) {
   // Recurse into nested objects
   for (const key in cleaned) {
     if (Object.prototype.hasOwnProperty.call(cleaned, key)) {
-      if (typeof cleaned[key] === "object" && cleaned[key] !== null) {
+      if (typeof cleaned[key] === 'object' && cleaned[key] !== null) {
         cleaned[key] = deepCleanIds(cleaned[key]);
 
         // Final Safety: If a nested object like 'sku: { id: 40000 }' resulted

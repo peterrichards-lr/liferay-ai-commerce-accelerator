@@ -3,26 +3,26 @@
  * Hardened foundation for Liferay accelerators.
  */
 
-const { LiferayService } = require("./liferay/index.cjs");
-const LiferayRestService = require("./liferay/rest.cjs");
-const LiferayGraphQLService = require("./liferay/graphql.cjs");
-const OAuthService = require("./liferay/oauth.cjs");
-const ContractValidator = require("./services/contractValidator.cjs");
-const GeneratedLiferayClient = require("./liferay/GeneratedLiferayClient.cjs");
+const { LiferayService } = require('./liferay/index.cjs');
+const LiferayRestService = require('./liferay/rest.cjs');
+const LiferayGraphQLService = require('./liferay/graphql.cjs');
+const OAuthService = require('./liferay/oauth.cjs');
+const ContractValidator = require('./services/contractValidator.cjs');
+const GeneratedLiferayClient = require('./liferay/GeneratedLiferayClient.cjs');
 
 // Workflow Engine
-const BaseWorkflowService = require("./workflow/baseWorkflowService.cjs");
-const BaseGenerator = require("./workflow/baseGenerator.cjs");
-const PersistenceService = require("./services/persistenceService.cjs");
-const BatchCallbackService = require("./services/batchCallbackService.cjs");
-const BatchProcessorService = require("./services/batchProcessorService.cjs");
+const BaseWorkflowService = require('./workflow/baseWorkflowService.cjs');
+const BaseGenerator = require('./workflow/baseGenerator.cjs');
+const PersistenceService = require('./services/persistenceService.cjs');
+const BatchCallbackService = require('./services/batchCallbackService.cjs');
+const BatchProcessorService = require('./services/batchProcessorService.cjs');
 
 // Utils
-const liferayPaths = require("./utils/liferayPaths.cjs");
-const liferayUtils = require("./utils/liferayUtils.cjs");
-const constants = require("./utils/constants.cjs");
-const misc = require("./utils/misc.cjs");
-const errorHandler = require("./utils/errorHandler.cjs");
+const liferayPaths = require('./utils/liferayPaths.cjs');
+const liferayUtils = require('./utils/liferayUtils.cjs');
+const constants = require('./utils/constants.cjs');
+const misc = require('./utils/misc.cjs');
+const errorHandler = require('./utils/errorHandler.cjs');
 
 module.exports = {
   LiferayService,
@@ -48,5 +48,5 @@ module.exports = {
     constants,
   },
 
-  version: "0.1.0",
+  version: '0.1.0',
 };

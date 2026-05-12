@@ -1,3 +1,3 @@
 module.exports = {
-  CORRELATION_ID_HEADER: "X-Correlation-ID",
+  CORRELATION_ID_HEADER: 'X-Correlation-ID',
 };

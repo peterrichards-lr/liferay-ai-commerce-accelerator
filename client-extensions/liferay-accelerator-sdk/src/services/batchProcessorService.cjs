@@ -1,5 +1,5 @@
-const { ErrorHandler } = require("../utils/errorHandler.cjs");
-const { delay, processWithRetry } = require("../utils/misc.cjs");
+const { ErrorHandler } = require('../utils/errorHandler.cjs');
+const { delay, processWithRetry } = require('../utils/misc.cjs');
 
 class BatchProcessorService {
   constructor(ctx) {
@@ -7,13 +7,13 @@ class BatchProcessorService {
   }
 
   normalizeBroadcastMeta(meta) {
-    if (!meta || typeof meta !== "object") return {};
+    if (!meta || typeof meta !== 'object') return {};
     return {
-      batchId: meta.batchId ?? "unknown",
-      entityType: meta.entityType ?? "unknown",
-      operation: meta.operation ?? "unknown",
-      phase: meta.phase ?? "unknown",
-      correlationId: meta.correlationId ?? "none",
+      batchId: meta.batchId ?? 'unknown',
+      entityType: meta.entityType ?? 'unknown',
+      operation: meta.operation ?? 'unknown',
+      phase: meta.phase ?? 'unknown',
+      correlationId: meta.correlationId ?? 'none',
     };
   }
 
@@ -34,8 +34,8 @@ class BatchProcessorService {
 
     logger.trace(
       `Processing ${items.length} items in batches of ${batchSize}${
-        operation ? ` [op=${operation}]` : ""
-      }`,
+        operation ? ` [op=${operation}]` : ''
+      }`
     );
 
     const results = {
@@ -55,12 +55,12 @@ class BatchProcessorService {
       logger.trace(
         `Processing batch ${Math.floor(i / actualBatchSize) + 1} (${
           batch.length
-        } items)${operation ? ` [op=${operation}]` : ""}`,
+        } items)${operation ? ` [op=${operation}]` : ''}`
       );
 
       const batchResults = await this.processBatchConcurrently(
         batch,
-        processingFunction,
+        processingFunction
       );
 
       results.successful.push(...batchResults.successful);
@@ -68,14 +68,14 @@ class BatchProcessorService {
       results.processed += batch.length;
       results.meta = this.getNormalizedMeta(
         broadcastMeta,
-        results.errors.length,
+        results.errors.length
       );
 
       if (ErrorHandler.shouldStopBatch(results.errors)) {
         logger.warn(
           `Stopping batch processing due to ${results.errors.length} errors${
-            operation ? ` [op=${operation}]` : ""
-          }`,
+            operation ? ` [op=${operation}]` : ''
+          }`
         );
         break;
       }
@@ -88,7 +88,7 @@ class BatchProcessorService {
     logger.trace(
       `Batch processing completed: ${results.successful.length} successful, ${
         results.errors.length
-      } errors${operation ? ` [op=${operation}]` : ""}`,
+      } errors${operation ? ` [op=${operation}]` : ''}`
     );
 
     return results;
@@ -103,7 +103,7 @@ class BatchProcessorService {
         const result = await processWithRetry(
           this.ctx,
           item,
-          processingFunction,
+          processingFunction
         );
         return { success: true, result, index };
       } catch (error) {
@@ -120,13 +120,13 @@ class BatchProcessorService {
     const settled = await Promise.allSettled(promises);
 
     settled.forEach((p) => {
-      if (p.status === "fulfilled") {
+      if (p.status === 'fulfilled') {
         const { success, result, error, index, item } = p.value;
         if (success) results.successful.push(result);
         else results.errors.push({ error, index, item });
       } else {
         results.errors.push({
-          error: p.reason?.message || "Unknown error",
+          error: p.reason?.message || 'Unknown error',
           index: -1,
           item: null,
         });
@@ -142,8 +142,8 @@ class BatchProcessorService {
 
     logger.trace(
       `Processing ${items.length} items sequentially${
-        operation ? ` [op=${operation}]` : ""
-      }`,
+        operation ? ` [op=${operation}]` : ''
+      }`
     );
 
     const results = {
@@ -162,13 +162,13 @@ class BatchProcessorService {
         const result = await processWithRetry(
           this.ctx,
           item,
-          processingFunction,
+          processingFunction
         );
         results.successful.push(result);
         logger.trace(
           `Processed item ${i + 1}/${items.length} successfully${
-            operation ? ` [op=${operation}]` : ""
-          }`,
+            operation ? ` [op=${operation}]` : ''
+          }`
         );
       } catch (error) {
         logger.error(`Failed to process item ${i + 1}/${items.length}:`, error);
@@ -182,7 +182,7 @@ class BatchProcessorService {
           logger.warn(
             `Stopping sequential processing due to ${
               results.errors.length
-            } errors${operation ? ` [op=${operation}]` : ""}`,
+            } errors${operation ? ` [op=${operation}]` : ''}`
           );
           break;
         }
@@ -191,7 +191,7 @@ class BatchProcessorService {
       results.processed++;
       results.meta = this.getNormalizedMeta(
         broadcastMeta,
-        results.errors.length,
+        results.errors.length
       );
 
       if (i < items.length - 1) {
@@ -203,8 +203,8 @@ class BatchProcessorService {
       `Sequential processing completed: ${
         results.successful.length
       } successful, ${results.errors.length} errors${
-        operation ? ` [op=${operation}]` : ""
-      }`,
+        operation ? ` [op=${operation}]` : ''
+      }`
     );
 
     return results;
@@ -223,15 +223,15 @@ class BatchProcessorService {
     processingFunction,
     batchSize,
     progressCallback,
-    options = {},
+    options = {}
   ) {
     const { logger } = this.ctx;
     const { operation, broadcastMeta } = options;
 
     logger.trace(
       `Processing ${items.length} items with progress tracking${
-        operation ? ` [op=${operation}]` : ""
-      }`,
+        operation ? ` [op=${operation}]` : ''
+      }`
     );
 
     const results = {
@@ -250,7 +250,7 @@ class BatchProcessorService {
 
       const batchResults = await this.processBatchConcurrently(
         batch,
-        processingFunction,
+        processingFunction
       );
 
       results.successful.push(...batchResults.successful);
@@ -258,10 +258,10 @@ class BatchProcessorService {
       results.processed += batch.length;
       results.meta = this.getNormalizedMeta(
         broadcastMeta,
-        results.errors.length,
+        results.errors.length
       );
 
-      if (progressCallback && typeof progressCallback === "function") {
+      if (progressCallback && typeof progressCallback === 'function') {
         progressCallback({
           operation: operation || undefined,
           processed: results.processed,

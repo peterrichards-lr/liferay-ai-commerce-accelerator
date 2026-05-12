@@ -1,33 +1,33 @@
-const { resolveErrorReference, createERC } = require("../utils/misc.cjs");
-const { ERC_PREFIX } = require("../utils/constants.cjs");
+const { resolveErrorReference, createERC } = require('../utils/misc.cjs');
+const { ERC_PREFIX } = require('../utils/constants.cjs');
 
 function handleError(res, logger, req, config, operation, error, extra = {}) {
   const rawMessage =
     (error && error.userMessage) ||
     (error && error.message) ||
-    (typeof error === "string" ? error : null) ||
-    "An unexpected error occurred. Please try again.";
+    (typeof error === 'string' ? error : null) ||
+    'An unexpected error occurred. Please try again.';
 
   const isValidationError =
-    rawMessage.includes("Not enough") ||
-    rawMessage.includes("required") ||
-    rawMessage.includes("No ") ||
-    rawMessage.includes("missing") ||
-    rawMessage.includes("invalid");
+    rawMessage.includes('Not enough') ||
+    rawMessage.includes('required') ||
+    rawMessage.includes('No ') ||
+    rawMessage.includes('missing') ||
+    rawMessage.includes('invalid');
 
-  const isAIKeyMissingError = rawMessage.includes("AI API key not configured");
+  const isAIKeyMissingError = rawMessage.includes('AI API key not configured');
 
   let statusCode = isValidationError ? 400 : 500;
   let userMessage = rawMessage;
 
   if (isAIKeyMissingError) {
     userMessage =
-      "AI service error: AI credentials not configured. Please set them in the AI Configuration object.";
+      'AI service error: AI credentials not configured. Please set them in the AI Configuration object.';
   }
 
   const errorRef = resolveErrorReference(error) || createERC(ERC_PREFIX.ERROR);
 
-  logger.error("Operation failed", {
+  logger.error('Operation failed', {
     correlationId: config?.correlationId,
     errorReference: errorRef,
     message: rawMessage,
@@ -37,7 +37,7 @@ function handleError(res, logger, req, config, operation, error, extra = {}) {
       method: req.method,
       url: req.url,
       ip: req.ip,
-      userAgent: req.get("User-Agent"),
+      userAgent: req.get('User-Agent'),
     },
     entityType: extra.entityType,
     ...extra,

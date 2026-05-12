@@ -1,9 +1,9 @@
-const LiferayRestService = require("./rest.cjs");
-const LiferayGraphQLService = require("./graphql.cjs");
-const GeneratedLiferayClient = require("./GeneratedLiferayClient.cjs");
-const { asItems } = require("../utils/liferayUtils.cjs");
-const { PATH } = require("../utils/liferayPaths.cjs");
-const { delay, fromI18n } = require("../utils/misc.cjs");
+const LiferayRestService = require('./rest.cjs');
+const LiferayGraphQLService = require('./graphql.cjs');
+const GeneratedLiferayClient = require('./GeneratedLiferayClient.cjs');
+const { asItems } = require('../utils/liferayUtils.cjs');
+const { PATH } = require('../utils/liferayPaths.cjs');
+const { delay, fromI18n } = require('../utils/misc.cjs');
 
 class LiferayService {
   constructor(ctx) {
@@ -12,7 +12,7 @@ class LiferayService {
     this.graphql = new LiferayGraphQLService(ctx);
     this.client = new GeneratedLiferayClient(this.rest);
     this.ctx.logger.debug(
-      "LiferayService: GraphQL and Fluent client initialized",
+      'LiferayService: GraphQL and Fluent client initialized'
     );
   }
 
@@ -50,14 +50,14 @@ class LiferayService {
       config,
       catalogId ? `catalogId eq ${catalogId}` : null,
       [
-        "id",
-        "externalReferenceCode",
-        "productId",
-        "name",
-        "productStatus",
-        "skus { sku purchasable price }",
+        'id',
+        'externalReferenceCode',
+        'productId',
+        'name',
+        'productStatus',
+        'skus { sku purchasable price }',
       ],
-      { page: 1, pageSize },
+      { page: 1, pageSize }
     );
     return { items, totalCount: items.length };
   }
@@ -67,17 +67,17 @@ class LiferayService {
     {
       catalogId,
       pageSize = 200,
-      fields = "productId",
+      fields = 'productId',
       filter: providedFilter,
-    } = {},
+    } = {}
   ) {
-    const exclusions = await this._getExclusions(config, "product");
+    const exclusions = await this._getExclusions(config, 'product');
 
     // HARDENING: Liferay's /products API throws 404 if no catalogId is provided.
     // If we want a "Global" search, we MUST iterate through all catalogs.
-    if (!catalogId && !providedFilter?.includes("catalogId")) {
+    if (!catalogId && !providedFilter?.includes('catalogId')) {
       this.ctx.logger.info(
-        "Performing multi-catalog product discovery sweep...",
+        'Performing multi-catalog product discovery sweep...'
       );
       const allCatalogs = await this.getCatalogs(config);
       const allItems = [];
@@ -92,7 +92,7 @@ class LiferayService {
           allItems.push(...items);
         } catch (err) {
           this.ctx.logger.warn(
-            `Skipping products for catalog ${cat.id}: ${err.message}`,
+            `Skipping products for catalog ${cat.id}: ${err.message}`
           );
         }
       }
@@ -113,26 +113,26 @@ class LiferayService {
     if (catalogId) filters.push(`catalogId eq ${catalogId}`);
     if (providedFilter) filters.push(providedFilter);
 
-    const filter = filters.length > 0 ? filters.join(" and ") : null;
+    const filter = filters.length > 0 ? filters.join(' and ') : null;
 
     const { items } = await this._collectAllItems(config, (cfg, p, size) =>
       this.rest._get(
         cfg,
         PATH.PRODUCTS,
-        "get-products-bulk",
-        "Get Products Bulk",
+        'get-products-bulk',
+        'Get Products Bulk',
         {
           params: {
             filter,
             page: p,
             pageSize: size,
           },
-        },
-      ),
+        }
+      )
     );
 
     const filteredItems = items.filter(
-      (it) => !this._shouldExclude(it, exclusions),
+      (it) => !this._shouldExclude(it, exclusions)
     );
 
     return {
@@ -146,12 +146,12 @@ class LiferayService {
     {
       channelId: _channelId,
       _pageSize = 200,
-      fields: _fields = "id",
+      fields: _fields = 'id',
       filter: providedFilter,
       search,
-    } = {},
+    } = {}
   ) {
-    const exclusions = await this._getExclusions(config, "account");
+    const exclusions = await this._getExclusions(config, 'account');
 
     // HARDENING: Fetch all accounts without OData filters
     // (Liferay's Account API rejects 'id' and 'name' filters in many environments)
@@ -159,15 +159,15 @@ class LiferayService {
       this.rest._get(
         cfg,
         PATH.ACCOUNTS,
-        "get-accounts-bulk",
-        "Get Accounts Bulk",
+        'get-accounts-bulk',
+        'Get Accounts Bulk',
         {
           params: {
             page: p,
             pageSize: size,
           },
-        },
-      ),
+        }
+      )
     );
 
     // Filter 1: Provided OData filter (Simulated in JS memory)
@@ -175,7 +175,7 @@ class LiferayService {
     if (providedFilter) {
       const idMatch = providedFilter.match(/id eq (\d+)/);
       const ercMatch = providedFilter.match(
-        /externalReferenceCode eq '([^']+)'/,
+        /externalReferenceCode eq '([^']+)'/
       );
 
       if (idMatch) {
@@ -189,7 +189,7 @@ class LiferayService {
 
     // Filter 2: Name Exclusions
     const filteredItems = items.filter(
-      (it) => !this._shouldExclude(it, exclusions),
+      (it) => !this._shouldExclude(it, exclusions)
     );
 
     // Filter 3: Search Term
@@ -199,7 +199,7 @@ class LiferayService {
             it.name?.toLowerCase().includes(search.toLowerCase()) ||
             it.externalReferenceCode
               ?.toLowerCase()
-              .includes(search.toLowerCase()),
+              .includes(search.toLowerCase())
         )
       : filteredItems;
 
@@ -214,18 +214,18 @@ class LiferayService {
     {
       page: _page = 1,
       pageSize: _pageSize = 200,
-      fields: _fields = "id",
+      fields: _fields = 'id',
       filter: providedFilter,
       ercPrefix,
-    } = {},
+    } = {}
   ) {
-    const exclusions = await this._getExclusions(config, "optionCategory");
+    const exclusions = await this._getExclusions(config, 'optionCategory');
 
     const filters = [];
     if (providedFilter) filters.push(providedFilter);
 
     // REMOVAL: Do not use OData for name exclusions (unreliable)
-    const filter = filters.length > 0 ? filters.join(" and ") : null;
+    const filter = filters.length > 0 ? filters.join(' and ') : null;
 
     const { items: allItems } = await this._collectAllItems(
       config,
@@ -233,16 +233,16 @@ class LiferayService {
         this.rest._get(
           cfg,
           PATH.OPTION_CATEGORIES,
-          "get-option-categories-bulk",
-          "Get Option Categories Bulk",
+          'get-option-categories-bulk',
+          'Get Option Categories Bulk',
           {
             params: {
               filter,
               page: p,
               pageSize: size,
             },
-          },
-        ),
+          }
+        )
     );
     let items = allItems;
 
@@ -251,13 +251,13 @@ class LiferayService {
       items = items.filter(
         (it) =>
           it.externalReferenceCode &&
-          it.externalReferenceCode.startsWith(ercPrefix),
+          it.externalReferenceCode.startsWith(ercPrefix)
       );
     }
 
     // HARDENING: Perform all exclusions in JS memory
     const filteredItems = items.filter(
-      (it) => !this._shouldExclude(it, exclusions),
+      (it) => !this._shouldExclude(it, exclusions)
     );
 
     return {
@@ -271,18 +271,18 @@ class LiferayService {
     {
       page: _page = 1,
       pageSize: _pageSize = 200,
-      fields: _fields = "id",
+      fields: _fields = 'id',
       filter: providedFilter,
       ercPrefix,
-    } = {},
+    } = {}
   ) {
-    const exclusions = await this._getExclusions(config, "specification");
+    const exclusions = await this._getExclusions(config, 'specification');
 
     const filters = [];
     if (providedFilter) filters.push(providedFilter);
 
     // REMOVAL: Do not use OData for name exclusions (unreliable)
-    const filter = filters.length > 0 ? filters.join(" and ") : null;
+    const filter = filters.length > 0 ? filters.join(' and ') : null;
 
     const { items: allItems } = await this._collectAllItems(
       config,
@@ -290,16 +290,16 @@ class LiferayService {
         this.rest._get(
           cfg,
           PATH.SPECIFICATIONS,
-          "get-specifications-bulk",
-          "Get Specifications Bulk",
+          'get-specifications-bulk',
+          'Get Specifications Bulk',
           {
             params: {
               filter,
               page: p,
               pageSize: size,
             },
-          },
-        ),
+          }
+        )
     );
 
     let items = allItems;
@@ -309,13 +309,13 @@ class LiferayService {
       items = items.filter(
         (it) =>
           it.externalReferenceCode &&
-          it.externalReferenceCode.startsWith(ercPrefix),
+          it.externalReferenceCode.startsWith(ercPrefix)
       );
     }
 
     // HARDENING: Perform all exclusions in JS memory
     const filteredItems = items.filter(
-      (it) => !this._shouldExclude(it, exclusions),
+      (it) => !this._shouldExclude(it, exclusions)
     );
 
     return {
@@ -329,18 +329,18 @@ class LiferayService {
     {
       page: _page = 1,
       pageSize: _pageSize = 200,
-      fields: _fields = "id",
+      fields: _fields = 'id',
       filter: providedFilter,
       ercPrefix,
-    } = {},
+    } = {}
   ) {
-    const exclusions = await this._getExclusions(config, "option");
+    const exclusions = await this._getExclusions(config, 'option');
 
     const filters = [];
     if (providedFilter) filters.push(providedFilter);
 
     // REMOVAL: Do not use OData for name exclusions (unreliable)
-    const filter = filters.length > 0 ? filters.join(" and ") : null;
+    const filter = filters.length > 0 ? filters.join(' and ') : null;
 
     const { items: allItems } = await this._collectAllItems(
       config,
@@ -348,16 +348,16 @@ class LiferayService {
         this.rest._get(
           cfg,
           PATH.OPTIONS,
-          "get-options-bulk",
-          "Get Options Bulk",
+          'get-options-bulk',
+          'Get Options Bulk',
           {
             params: {
               filter,
               page: p,
               pageSize: size,
             },
-          },
-        ),
+          }
+        )
     );
     let items = allItems;
 
@@ -366,13 +366,13 @@ class LiferayService {
       items = items.filter(
         (it) =>
           it.externalReferenceCode &&
-          it.externalReferenceCode.startsWith(ercPrefix),
+          it.externalReferenceCode.startsWith(ercPrefix)
       );
     }
 
     // HARDENING: Perform all exclusions in JS memory
     const filteredItems = items.filter(
-      (it) => !this._shouldExclude(it, exclusions),
+      (it) => !this._shouldExclude(it, exclusions)
     );
 
     return {
@@ -385,32 +385,32 @@ class LiferayService {
     config,
     {
       pageSize: _pageSize = 200,
-      fields: _fields = "id",
+      fields: _fields = 'id',
       filter: providedFilter,
-    } = {},
+    } = {}
   ) {
-    const exclusions = await this._getExclusions(config, "order");
+    const exclusions = await this._getExclusions(config, 'order');
 
     const filters = [];
     if (providedFilter) filters.push(providedFilter);
 
     // REMOVAL: Do not use OData for name/status exclusions (unreliable)
-    const filter = filters.length > 0 ? filters.join(" and ") : null;
+    const filter = filters.length > 0 ? filters.join(' and ') : null;
 
     // Brute force discovery
     const { items } = await this._collectAllItems(config, (cfg, p, size) =>
-      this.rest._get(cfg, PATH.ORDERS, "get-orders-bulk", "Get Orders Bulk", {
+      this.rest._get(cfg, PATH.ORDERS, 'get-orders-bulk', 'Get Orders Bulk', {
         params: {
           filter,
           page: p,
           pageSize: size,
         },
-      }),
+      })
     );
 
     // HARDENING: Perform all exclusions in JS memory
     const filteredItems = items.filter(
-      (it) => !this._shouldExclude(it, exclusions),
+      (it) => !this._shouldExclude(it, exclusions)
     );
 
     return {
@@ -423,38 +423,38 @@ class LiferayService {
     config,
     {
       pageSize: _pageSize = 200,
-      fields: _fields = "id",
+      fields: _fields = 'id',
       filter: providedFilter,
-    } = {},
+    } = {}
   ) {
-    const exclusions = await this._getExclusions(config, "warehouse");
+    const exclusions = await this._getExclusions(config, 'warehouse');
 
     const filters = [];
     if (providedFilter) filters.push(providedFilter);
 
     // REMOVAL: Do not use OData for name exclusions (unreliable)
-    const filter = filters.length > 0 ? filters.join(" and ") : null;
+    const filter = filters.length > 0 ? filters.join(' and ') : null;
 
     // Brute force discovery
     const { items } = await this._collectAllItems(config, (cfg, p, size) =>
       this.rest._get(
         cfg,
         PATH.WAREHOUSES,
-        "get-warehouses-bulk",
-        "Get Warehouses Bulk",
+        'get-warehouses-bulk',
+        'Get Warehouses Bulk',
         {
           params: {
             filter,
             page: p,
             pageSize: size,
           },
-        },
-      ),
+        }
+      )
     );
 
     // HARDENING: Perform all exclusions in JS memory
     const filteredItems = items.filter(
-      (it) => !this._shouldExclude(it, exclusions),
+      (it) => !this._shouldExclude(it, exclusions)
     );
 
     return {
@@ -465,7 +465,7 @@ class LiferayService {
 
   async getAllWarehouseItems(
     config,
-    { pageSize = 200, fields = "id", filter } = {},
+    { pageSize = 200, fields = 'id', filter } = {}
   ) {
     const warehouses = await this.getWarehouses(config, { pageSize: 1000 });
     const allItems = [];
@@ -473,18 +473,18 @@ class LiferayService {
 
     // Standardize requested fields for GraphQL
     const requestedFields = new Set([
-      "id",
-      "externalReferenceCode",
-      "sku",
-      "quantity",
+      'id',
+      'externalReferenceCode',
+      'sku',
+      'quantity',
     ]);
     if (fields) {
-      fields.split(",").forEach((f) => requestedFields.add(f.trim()));
+      fields.split(',').forEach((f) => requestedFields.add(f.trim()));
     }
 
     const filters = [];
     if (filter) filters.push(filter);
-    const combinedFilter = filters.length > 0 ? filters.join(" and ") : null;
+    const combinedFilter = filters.length > 0 ? filters.join(' and ') : null;
 
     for (const warehouse of warehouses.items) {
       try {
@@ -496,7 +496,7 @@ class LiferayService {
           {
             page: 1,
             pageSize,
-          },
+          }
         );
         let items = asItems(res);
 
@@ -505,7 +505,7 @@ class LiferayService {
       } catch (err) {
         this.ctx.logger.warn(
           `Failed to list warehouse items via GraphQL for ${warehouse.id}`,
-          { error: err.message },
+          { error: err.message }
         );
       }
 
@@ -517,15 +517,15 @@ class LiferayService {
 
   async getPriceLists(
     config,
-    { catalogId, pageSize = 200, filter: providedFilter } = {},
+    { catalogId, pageSize = 200, filter: providedFilter } = {}
   ) {
     // HARDENING: Pricing V2.0 GraphQL and REST filters are unstable in 2025.Q1.
     // Specifically, 'catalogId eq' triggers "Collection not allowed".
     // We permanently switch to Iterative REST Discovery with Memory Filtering.
 
-    if (!catalogId && !providedFilter?.includes("catalogId")) {
+    if (!catalogId && !providedFilter?.includes('catalogId')) {
       this.ctx.logger.info(
-        "Performing multi-catalog price list discovery sweep...",
+        'Performing multi-catalog price list discovery sweep...'
       );
       const allCatalogs = await this.getCatalogs(config);
       const allItems = [];
@@ -539,7 +539,7 @@ class LiferayService {
           allItems.push(...items);
         } catch (err) {
           this.ctx.logger.warn(
-            `Skipping price lists for catalog ${cat.id}: ${err.message}`,
+            `Skipping price lists for catalog ${cat.id}: ${err.message}`
           );
         }
       }
@@ -563,7 +563,7 @@ class LiferayService {
     });
 
     const filteredItems = items.filter(
-      (it) => !catalogId || Number(it.catalogId) === Number(catalogId),
+      (it) => !catalogId || Number(it.catalogId) === Number(catalogId)
     );
 
     return {
@@ -575,7 +575,7 @@ class LiferayService {
   async getPromotions(config, args = {}) {
     // HARDENING: Switch to memory filtering for promotions to avoid OData issues
     const { items } = await this.getPriceLists(config, args);
-    const filtered = items.filter((it) => it.type === "promotion");
+    const filtered = items.filter((it) => it.type === 'promotion');
 
     return {
       items: filtered,
@@ -595,7 +595,7 @@ class LiferayService {
       items: providedItems,
       channelId,
       ...rest
-    },
+    }
   ) {
     const { logger } = this.ctx;
 
@@ -603,20 +603,20 @@ class LiferayService {
 
     // Define discovery fields per entity to avoid GraphQL DataFetchingException
     const DISCOVERY_FIELDS = {
-      product: "productId,externalReferenceCode,name",
-      account: "id,externalReferenceCode,name",
-      warehouse: "id,externalReferenceCode,name",
-      warehouseItem: "id,externalReferenceCode,sku,quantity",
-      priceList: "id,externalReferenceCode,name,catalogBasePriceList",
-      promotion: "id,externalReferenceCode,name,catalogBasePriceList",
-      order: "id,externalReferenceCode",
-      specification: "id,externalReferenceCode,title,key",
-      option: "id,externalReferenceCode,name,key",
-      optionCategory: "id,externalReferenceCode,title,key",
+      product: 'productId,externalReferenceCode,name',
+      account: 'id,externalReferenceCode,name',
+      warehouse: 'id,externalReferenceCode,name',
+      warehouseItem: 'id,externalReferenceCode,sku,quantity',
+      priceList: 'id,externalReferenceCode,name,catalogBasePriceList',
+      promotion: 'id,externalReferenceCode,name,catalogBasePriceList',
+      order: 'id,externalReferenceCode',
+      specification: 'id,externalReferenceCode,title,key',
+      option: 'id,externalReferenceCode,name,key',
+      optionCategory: 'id,externalReferenceCode,title,key',
     };
 
     const fieldsParam =
-      DISCOVERY_FIELDS[entityName] || "id,externalReferenceCode,name";
+      DISCOVERY_FIELDS[entityName] || 'id,externalReferenceCode,name';
 
     let totalDeleted = 0;
     const batchRefs = [];
@@ -624,14 +624,14 @@ class LiferayService {
     let batchCount = 0;
     const processBatch = async (items) => {
       const filteredItems = items.filter(
-        (it) => !this._shouldExclude(it, exclusions),
+        (it) => !this._shouldExclude(it, exclusions)
       );
 
       const ids = filteredItems
         .map((it) =>
-          entityName === "product"
+          entityName === 'product'
             ? it.productId || it.id
-            : it.id || it.productId,
+            : it.id || it.productId
         )
         .filter(Boolean);
 
@@ -648,7 +648,7 @@ class LiferayService {
         result = await this.rest._deleteBatchNative(config, {
           entityName,
           ids,
-          idField: entityName === "product" ? "productId" : "id",
+          idField: entityName === 'product' ? 'productId' : 'id',
           ...rest,
           externalReferenceCode: currentErc,
         });
@@ -678,9 +678,9 @@ class LiferayService {
         // Use 'or' instead of 'in' for maximum compatibility
         const idFilter = idChunk
           .map((id) =>
-            entityName === "product" ? `productId eq ${id}` : `id eq ${id}`,
+            entityName === 'product' ? `productId eq ${id}` : `id eq ${id}`
           )
-          .join(" or ");
+          .join(' or ');
 
         try {
           const items = await this.rest._collectPagedItems(config, {
@@ -701,7 +701,7 @@ class LiferayService {
             {
               error: err.message,
               sessionId: rest.sessionId,
-            },
+            }
           );
           // If metadata fetch fails, we fallback to deleting the IDs directly to avoid stalling the workflow
           // Note: Exclusions won't be respected in this fallback case
@@ -719,63 +719,63 @@ class LiferayService {
 
       while (hasMore) {
         let res;
-        if (entityName === "account") {
+        if (entityName === 'account') {
           res = await this.getAccounts(config, {
             channelId,
             pageSize,
             fields: fieldsParam,
             filter,
           });
-        } else if (entityName === "priceList") {
+        } else if (entityName === 'priceList') {
           res = await this.getPriceLists(config, {
             pageSize,
             fields: fieldsParam,
             filter,
           });
-        } else if (entityName === "promotion") {
+        } else if (entityName === 'promotion') {
           res = await this.getPromotions(config, {
             pageSize,
             fields: fieldsParam,
             filter,
           });
-        } else if (entityName === "product") {
+        } else if (entityName === 'product') {
           res = await this.getProducts(config, {
             catalogId: rest.catalogId,
             pageSize,
             fields: fieldsParam,
             filter,
           });
-        } else if (entityName === "warehouseItem") {
+        } else if (entityName === 'warehouseItem') {
           res = await this.getAllWarehouseItems(config, {
             pageSize,
             fields: fieldsParam,
             filter,
           });
-        } else if (entityName === "specification") {
+        } else if (entityName === 'specification') {
           res = await this.getSpecifications(config, {
             pageSize,
             fields: fieldsParam,
             filter,
           });
-        } else if (entityName === "option") {
+        } else if (entityName === 'option') {
           res = await this.getOptions(config, {
             pageSize,
             fields: fieldsParam,
             filter,
           });
-        } else if (entityName === "optionCategory") {
+        } else if (entityName === 'optionCategory') {
           res = await this.getOptionCategories(config, {
             pageSize,
             fields: fieldsParam,
             filter,
           });
-        } else if (entityName === "order") {
+        } else if (entityName === 'order') {
           res = await this.getOrders(config, {
             pageSize,
             fields: fieldsParam,
             filter,
           });
-        } else if (entityName === "warehouse") {
+        } else if (entityName === 'warehouse') {
           res = await this.getWarehouses(config, {
             pageSize,
             fields: fieldsParam,
@@ -795,7 +795,7 @@ class LiferayService {
                 filter,
                 fields: fieldsParam,
               },
-            },
+            }
           );
         }
 
@@ -814,7 +814,7 @@ class LiferayService {
         }
 
         if (page > 1000) {
-          logger.warn("Safety break hit in deleteByFilter pagination", {
+          logger.warn('Safety break hit in deleteByFilter pagination', {
             entityName,
             sessionId: rest.sessionId,
           });
@@ -835,10 +835,10 @@ class LiferayService {
       dryRun = false,
       sessionId,
       items,
-    } = {},
+    } = {}
   ) {
     return this.deleteByFilter(config, {
-      entityName: "priceList",
+      entityName: 'priceList',
       filter,
       pageSize,
       externalReferenceCode: callbackBatchERC,
@@ -848,8 +848,8 @@ class LiferayService {
       path: PATH.PRICE_LISTS_BATCH,
       basePath: PATH.PRICE_LISTS,
       listUrl: PATH.PRICE_LISTS,
-      op: "pricelists:batch-delete",
-      friendly: "Delete price lists (batch)",
+      op: 'pricelists:batch-delete',
+      friendly: 'Delete price lists (batch)',
       items,
     });
   }
@@ -863,10 +863,10 @@ class LiferayService {
       dryRun = false,
       sessionId,
       items,
-    } = {},
+    } = {}
   ) {
     return this.deleteByFilter(config, {
-      entityName: "promotion",
+      entityName: 'promotion',
       filter,
       pageSize,
       externalReferenceCode: callbackBatchERC,
@@ -876,8 +876,8 @@ class LiferayService {
       path: PATH.PRICE_LISTS_BATCH,
       basePath: PATH.PRICE_LISTS,
       listUrl: PATH.PRICE_LISTS,
-      op: "promotions:batch-delete",
-      friendly: "Delete promotions (batch)",
+      op: 'promotions:batch-delete',
+      friendly: 'Delete promotions (batch)',
       items,
     });
   }
@@ -893,10 +893,10 @@ class LiferayService {
       dryRun = false,
       sessionId,
       items,
-    } = {},
+    } = {}
   ) {
     return this.deleteByFilter(config, {
-      entityName: "product",
+      entityName: 'product',
       filter: filter || (catalogId ? `catalogId eq ${catalogId}` : undefined),
       ids,
       pageSize,
@@ -907,8 +907,8 @@ class LiferayService {
       path: PATH.PRODUCTS_BATCH,
       basePath: PATH.PRODUCTS,
       listUrl: PATH.PRODUCTS,
-      op: "products:batch-delete",
-      friendly: "Delete products (batch)",
+      op: 'products:batch-delete',
+      friendly: 'Delete products (batch)',
       items,
       catalogId,
     });
@@ -925,10 +925,10 @@ class LiferayService {
       sessionId,
       items,
       channelId,
-    } = {},
+    } = {}
   ) {
     return this.deleteByFilter(config, {
-      entityName: "account",
+      entityName: 'account',
       filter,
       ids,
       pageSize,
@@ -939,8 +939,8 @@ class LiferayService {
       path: PATH.ACCOUNTS_BATCH,
       basePath: PATH.ACCOUNTS,
       listUrl: PATH.ACCOUNTS,
-      op: "accounts:batch-delete",
-      friendly: "Delete accounts (batch)",
+      op: 'accounts:batch-delete',
+      friendly: 'Delete accounts (batch)',
       items,
       channelId,
     });
@@ -956,10 +956,10 @@ class LiferayService {
       dryRun = false,
       sessionId,
       items,
-    } = {},
+    } = {}
   ) {
     return this.deleteByFilter(config, {
-      entityName: "order",
+      entityName: 'order',
       filter,
       ids,
       pageSize,
@@ -970,8 +970,8 @@ class LiferayService {
       path: PATH.ORDERS_BATCH,
       basePath: PATH.ORDERS,
       listUrl: PATH.ORDERS,
-      op: "orders:batch-delete",
-      friendly: "Delete orders (batch)",
+      op: 'orders:batch-delete',
+      friendly: 'Delete orders (batch)',
       items,
     });
   }
@@ -986,10 +986,10 @@ class LiferayService {
       dryRun = false,
       sessionId,
       items,
-    } = {},
+    } = {}
   ) {
     return this.deleteByFilter(config, {
-      entityName: "warehouse",
+      entityName: 'warehouse',
       filter,
       ids,
       pageSize,
@@ -999,8 +999,8 @@ class LiferayService {
       nativeBatch: false,
       basePath: PATH.WAREHOUSES,
       listUrl: PATH.WAREHOUSES,
-      op: "warehouses:batch-delete",
-      friendly: "Delete warehouses (batch)",
+      op: 'warehouses:batch-delete',
+      friendly: 'Delete warehouses (batch)',
       items,
       concurrency: 1,
     });
@@ -1016,14 +1016,14 @@ class LiferayService {
       dryRun = false,
       sessionId,
       items,
-    } = {},
+    } = {}
   ) {
-    const listUrl = PATH.WAREHOUSE_INVENTORIES_DELETE_BATCH("")
-      .split("?")[0]
-      .replace("/batch", "");
+    const listUrl = PATH.WAREHOUSE_INVENTORIES_DELETE_BATCH('')
+      .split('?')[0]
+      .replace('/batch', '');
 
     return this.deleteByFilter(config, {
-      entityName: "warehouseItem",
+      entityName: 'warehouseItem',
       filter,
       ids,
       pageSize,
@@ -1034,8 +1034,8 @@ class LiferayService {
       path: PATH.WAREHOUSE_INVENTORIES_DELETE_BATCH,
       basePath: listUrl,
       listUrl: listUrl,
-      op: "inventory:batch-delete",
-      friendly: "Delete inventory items (batch)",
+      op: 'inventory:batch-delete',
+      friendly: 'Delete inventory items (batch)',
       items,
     });
   }
@@ -1050,10 +1050,10 @@ class LiferayService {
       dryRun = false,
       sessionId,
       items,
-    } = {},
+    } = {}
   ) {
     return this.deleteByFilter(config, {
-      entityName: "specification",
+      entityName: 'specification',
       filter,
       ids,
       pageSize,
@@ -1064,8 +1064,8 @@ class LiferayService {
       path: PATH.SPECIFICATIONS_BATCH,
       basePath: PATH.SPECIFICATIONS,
       listUrl: PATH.SPECIFICATIONS,
-      op: "specifications:batch-delete",
-      friendly: "Delete specifications (batch)",
+      op: 'specifications:batch-delete',
+      friendly: 'Delete specifications (batch)',
       items,
     });
   }
@@ -1080,10 +1080,10 @@ class LiferayService {
       dryRun = false,
       sessionId,
       items,
-    } = {},
+    } = {}
   ) {
     return this.deleteByFilter(config, {
-      entityName: "option",
+      entityName: 'option',
       filter,
       ids,
       pageSize,
@@ -1094,8 +1094,8 @@ class LiferayService {
       path: PATH.OPTIONS_BATCH,
       basePath: PATH.OPTIONS,
       listUrl: PATH.OPTIONS,
-      op: "options:batch-delete",
-      friendly: "Delete options (batch)",
+      op: 'options:batch-delete',
+      friendly: 'Delete options (batch)',
       items,
     });
   }
@@ -1110,10 +1110,10 @@ class LiferayService {
       dryRun = false,
       sessionId,
       items,
-    } = {},
+    } = {}
   ) {
     return this.deleteByFilter(config, {
-      entityName: "optionCategory",
+      entityName: 'optionCategory',
       filter,
       ids,
       pageSize,
@@ -1124,21 +1124,21 @@ class LiferayService {
       path: PATH.OPTION_CATEGORIES_BATCH,
       basePath: PATH.OPTION_CATEGORIES,
       listUrl: PATH.OPTION_CATEGORIES,
-      op: "optionCategories:batch-delete",
-      friendly: "Delete option categories (batch)",
+      op: 'optionCategories:batch-delete',
+      friendly: 'Delete option categories (batch)',
       items,
     });
   }
 
   // --- Exclusion Helpers ---
 
-  _buildNameExclusionFilter(exclusions, fieldName = "name") {
+  _buildNameExclusionFilter(exclusions, fieldName = 'name') {
     if (!exclusions || exclusions.length === 0) return null;
     const names = exclusions
       .map((ex) => ex.name)
-      .filter((n) => n && typeof n === "string");
+      .filter((n) => n && typeof n === 'string');
     if (names.length === 0) return null;
-    return names.map((name) => `${fieldName} ne '${name}'`).join(" and ");
+    return names.map((name) => `${fieldName} ne '${name}'`).join(' and ');
   }
 
   async _getExclusions(config, entityName) {
@@ -1146,15 +1146,15 @@ class LiferayService {
     const excludeLists = await configService.getExcludeLists(config);
 
     const keyMap = {
-      account: "excludedAccounts",
-      product: "excludedProducts",
-      warehouse: "excludedWarehouses",
-      priceList: "excludedPriceLists",
-      promotion: "excludedPriceLists", // Promotions are in the PriceLists exclude list
-      order: "excludedOrders",
-      specification: "excludedSpecifications",
-      option: "excludedOptions",
-      optionCategory: "excludedOptionCategories",
+      account: 'excludedAccounts',
+      product: 'excludedProducts',
+      warehouse: 'excludedWarehouses',
+      priceList: 'excludedPriceLists',
+      promotion: 'excludedPriceLists', // Promotions are in the PriceLists exclude list
+      order: 'excludedOrders',
+      specification: 'excludedSpecifications',
+      option: 'excludedOptions',
+      optionCategory: 'excludedOptionCategories',
     };
 
     const configKey = keyMap[entityName];
@@ -1162,15 +1162,15 @@ class LiferayService {
   }
 
   _shouldExclude(item, exclusions) {
-    if (item.system === true || item.system === "true") return true;
+    if (item.system === true || item.system === 'true') return true;
 
     if (
       item.catalogBasePriceList === true ||
-      item.catalogBasePriceList === "true"
+      item.catalogBasePriceList === 'true'
     ) {
       if (
         !item.externalReferenceCode ||
-        !item.externalReferenceCode.startsWith("AICA-")
+        !item.externalReferenceCode.startsWith('AICA-')
       ) {
         return true;
       }
@@ -1188,7 +1188,7 @@ class LiferayService {
         ex.name &&
         (item.name === ex.name ||
           item.title === ex.name ||
-          (typeof item.name === "object" &&
+          (typeof item.name === 'object' &&
             Object.values(item.name).includes(ex.name)));
 
       return idMatch || ercMatch || nameMatch;
@@ -1203,32 +1203,32 @@ class LiferayService {
    */
   async waitForLiferay(maxAttempts = 12, delayMs = 5000) {
     const { logger } = this.ctx;
-    const { lookupConfig } = require("@rotty3000/config-node");
+    const { lookupConfig } = require('@rotty3000/config-node');
 
     // Use default environment credentials for the probe
     const config = {
       liferayUrl:
-        lookupConfig("com.liferay.lxc.dxp.main.domain") ||
-        lookupConfig("com.liferay.lxc.dxp.server.host") ||
+        lookupConfig('com.liferay.lxc.dxp.main.domain') ||
+        lookupConfig('com.liferay.lxc.dxp.server.host') ||
         process.env.LIFERAY_URL ||
-        "http://localhost:8080",
+        'http://localhost:8080',
     };
 
     logger.info(
       `Starting Liferay connectivity probe for ${config.liferayUrl}`,
       {
-        operation: "startup-probe-start",
+        operation: 'startup-probe-start',
         maxAttempts,
         delayMs,
-      },
+      }
     );
 
     for (let i = 1; i <= maxAttempts; i++) {
       try {
         const result = await this.testConnection(config);
-        if (result.status === "connected") {
-          logger.success("Liferay connectivity established.", {
-            operation: "startup-probe-success",
+        if (result.status === 'connected') {
+          logger.success('Liferay connectivity established.', {
+            operation: 'startup-probe-success',
             attempt: i,
           });
           return true;
@@ -1237,8 +1237,8 @@ class LiferayService {
         logger.debug(
           `Startup probe ${i}/${maxAttempts} failed: ${err.message}. Retrying in ${delayMs}ms...`,
           {
-            operation: "startup-probe-retry",
-          },
+            operation: 'startup-probe-retry',
+          }
         );
       }
       await delay(delayMs);
@@ -1247,8 +1247,8 @@ class LiferayService {
     logger.warn(
       `Liferay connectivity probe timed out after ${maxAttempts} attempts. Proceeding with caution.`,
       {
-        operation: "startup-probe-timeout",
-      },
+        operation: 'startup-probe-timeout',
+      }
     );
     return false;
   }
@@ -1297,11 +1297,11 @@ class LiferayService {
     const res = await this.rest._get(
       config,
       PATH.CATALOGS,
-      "get-catalogs-bulk",
-      "Get Catalogs Bulk",
+      'get-catalogs-bulk',
+      'Get Catalogs Bulk',
       {
         params: { page: 1, pageSize: 100 },
-      },
+      }
     );
     const items = asItems(res);
     return items.map((item) => ({
@@ -1322,11 +1322,11 @@ class LiferayService {
     const res = await this.rest._get(
       config,
       PATH.CHANNELS,
-      "get-channels-bulk",
-      "Get Channels Bulk",
+      'get-channels-bulk',
+      'Get Channels Bulk',
       {
         params: { page: 1, pageSize: 100 },
-      },
+      }
     );
     const items = asItems(res);
     return items.map((item) => ({
@@ -1340,7 +1340,7 @@ class LiferayService {
     try {
       if (!siteKey) {
         logger.warn(
-          "siteKey is missing for getLanguages, falling back to REST",
+          'siteKey is missing for getLanguages, falling back to REST'
         );
         return await this.rest.getLanguages(config, siteKey);
       }
@@ -1350,7 +1350,7 @@ class LiferayService {
 
       if (!items || items.length === 0) {
         logger.warn(
-          `GraphQL returned 0 languages for site ${siteKey}, falling back to REST`,
+          `GraphQL returned 0 languages for site ${siteKey}, falling back to REST`
         );
         return await this.rest.getLanguages(config, siteKey);
       }
@@ -1362,13 +1362,13 @@ class LiferayService {
       }));
     } catch (err) {
       logger.warn(
-        `Failed to fetch languages for site ${siteKey}: ${err.message}. Attempting REST fallback.`,
+        `Failed to fetch languages for site ${siteKey}: ${err.message}. Attempting REST fallback.`
       );
       try {
         return await this.rest.getLanguages(config, siteKey);
       } catch (restErr) {
         logger.error(
-          `Critical failure: Failed to fetch languages via GraphQL AND REST for site ${siteKey}.`,
+          `Critical failure: Failed to fetch languages via GraphQL AND REST for site ${siteKey}.`
         );
         throw restErr;
       }
@@ -1432,7 +1432,7 @@ class LiferayService {
       config,
       warehouseId,
       sku,
-      inventoryData,
+      inventoryData
     );
   }
 
@@ -1464,7 +1464,7 @@ class LiferayService {
     return this.rest.patchAccountByERC(
       config,
       externalReferenceCode,
-      accountData,
+      accountData
     );
   }
 
@@ -1478,7 +1478,7 @@ class LiferayService {
 
   async getCountries(config) {
     const { cache } = this.ctx;
-    const cacheKey = "LIFERAY_COUNTRIES";
+    const cacheKey = 'LIFERAY_COUNTRIES';
 
     let countries = cache.get(cacheKey);
     if (countries) {
@@ -1492,7 +1492,7 @@ class LiferayService {
       cache.set(cacheKey, countries, 900000);
     } else {
       this.ctx.logger.warn(
-        "Fetched 0 countries from Liferay. Not caching empty result.",
+        'Fetched 0 countries from Liferay. Not caching empty result.'
       );
     }
 
@@ -1524,7 +1524,7 @@ class LiferayService {
       config,
       accountId,
       addressesData,
-      opts,
+      opts
     );
   }
 
@@ -1532,7 +1532,7 @@ class LiferayService {
     return this.rest.createSpecificationsBatch(
       config,
       specificationsData,
-      opts,
+      opts
     );
   }
 
@@ -1581,7 +1581,7 @@ class LiferayService {
       config,
       priceListId,
       skuId,
-      priceEntryData,
+      priceEntryData
     );
   }
 
@@ -1597,7 +1597,7 @@ class LiferayService {
     return this.rest.addProductDocumentAttachment(
       config,
       productId,
-      attachment,
+      attachment
     );
   }
 
@@ -1609,7 +1609,7 @@ class LiferayService {
     return this.rest.addProductDocumentAttachmentByBase64(
       config,
       productERC,
-      attachment,
+      attachment
     );
   }
 
@@ -1621,7 +1621,7 @@ class LiferayService {
     return this.rest.addProductDocumentAttachmentMultipart(
       config,
       productId,
-      data,
+      data
     );
   }
 
@@ -1633,7 +1633,7 @@ class LiferayService {
     return this.rest.addProductDocumentAttachmentDocumentLibrary(
       config,
       productId,
-      data,
+      data
     );
   }
 
@@ -1642,7 +1642,7 @@ class LiferayService {
       config,
       productId,
       productOptions,
-      productERC,
+      productERC
     );
   }
 
@@ -1655,7 +1655,7 @@ class LiferayService {
       config,
       productId,
       channelIds,
-      productERC,
+      productERC
     );
   }
 
@@ -1671,7 +1671,7 @@ class LiferayService {
     return this.rest.deleteProductSpecification(
       config,
       productId,
-      productSpecificationId,
+      productSpecificationId
     );
   }
 
@@ -1707,7 +1707,7 @@ class LiferayService {
     return this.rest.getOptionValueByERC(
       config,
       optionId,
-      externalReferenceCode,
+      externalReferenceCode
     );
   }
 
@@ -1724,7 +1724,7 @@ class LiferayService {
       config,
       optionId,
       externalReferenceCode,
-      payload,
+      payload
     );
   }
 
@@ -1772,26 +1772,26 @@ class LiferayService {
     config,
     accountId,
     shippingAddressId,
-    billingAddressId,
+    billingAddressId
   ) {
     return this.rest.setBillingAndShippingAddresses(
       config,
       accountId,
       shippingAddressId,
-      billingAddressId,
+      billingAddressId
     );
   }
 
   // Resilient Resolution Utility
   async resolveByERCsWithRetry(config, ercs, resolverFn, options = {}) {
     const { logger } = this.ctx;
-    const label = options.label || "entities";
+    const label = options.label || 'entities';
     const maxRetries = options.maxRetries || 5;
     const initialDelay = options.initialDelay || 3000;
 
     logger.debug(
       `Starting resolution loop for ${ercs.length} ${label} (max ${maxRetries} retries)...`,
-      { correlationId: config.correlationId },
+      { correlationId: config.correlationId }
     );
 
     let currentErcs = [...ercs];
@@ -1806,7 +1806,7 @@ class LiferayService {
           {
             missing: currentErcs.length,
             correlationId: config.correlationId,
-          },
+          }
         );
         await delay(delayMs);
       }
@@ -1831,7 +1831,7 @@ class LiferayService {
         if (currentErcs.length < previousCount) {
           logger.debug(
             `Resolution progress: ${label} found ${previousCount - currentErcs.length} new items. ${currentErcs.length} remaining.`,
-            { correlationId: config.correlationId },
+            { correlationId: config.correlationId }
           );
         }
       } catch (error) {
@@ -1839,7 +1839,7 @@ class LiferayService {
           `Resolution attempt ${attempt} failed for ${label}: ${error.message}`,
           {
             correlationId: config.correlationId,
-          },
+          }
         );
       }
 
@@ -1847,12 +1847,12 @@ class LiferayService {
     }
 
     // FINAL HARDENING: REST Fallback for missing Accounts
-    if (currentErcs.length > 0 && label === "accounts") {
+    if (currentErcs.length > 0 && label === 'accounts') {
       logger.info(
         `Attempting REST fallback for ${currentErcs.length} missing accounts...`,
         {
           correlationId: config.correlationId,
-        },
+        }
       );
 
       for (const erc of currentErcs) {
@@ -1874,11 +1874,11 @@ class LiferayService {
       if (options.tolerateMissing) {
         logger.warn(
           errorMsg +
-            " Tolerating missing entities and proceeding with partial results.",
+            ' Tolerating missing entities and proceeding with partial results.',
           {
             missingERCs: currentErcs,
             correlationId: config.correlationId,
-          },
+          }
         );
       } else {
         logger.error(errorMsg, {
@@ -1902,7 +1902,7 @@ class LiferayService {
     return this.graphql.getSpecificationsByProductIds(
       config,
       productIds,
-      fields,
+      fields
     );
   }
 
@@ -1914,10 +1914,10 @@ class LiferayService {
     try {
       const results = await this.graphql.getAccountsByERC(config, ercs, fields);
       if (results && results.length > 0) return results;
-      throw new Error("GraphQL returned empty results");
+      throw new Error('GraphQL returned empty results');
     } catch (error) {
       this.ctx.logger.warn(
-        `GraphQL account resolution failed, falling back to REST: ${error.message}`,
+        `GraphQL account resolution failed, falling back to REST: ${error.message}`
       );
       const res = await this.getAccounts(config, { pageSize: 500 });
       const items = res.items || [];
@@ -1929,10 +1929,10 @@ class LiferayService {
     try {
       const results = await this.graphql.getProductsByERC(config, ercs, fields);
       if (results && results.length > 0) return results;
-      throw new Error("GraphQL returned empty results");
+      throw new Error('GraphQL returned empty results');
     } catch (error) {
       this.ctx.logger.warn(
-        `GraphQL product resolution failed, falling back to REST: ${error.message}`,
+        `GraphQL product resolution failed, falling back to REST: ${error.message}`
       );
       const res = await this.getProducts(config, { pageSize: 500 });
       const items = res.items || [];
@@ -1945,13 +1945,13 @@ class LiferayService {
       const results = await this.graphql.getWarehousesByERC(
         config,
         ercs,
-        fields,
+        fields
       );
       if (results && results.length > 0) return results;
-      throw new Error("GraphQL returned empty results");
+      throw new Error('GraphQL returned empty results');
     } catch (error) {
       this.ctx.logger.warn(
-        `GraphQL warehouse resolution failed, falling back to REST: ${error.message}`,
+        `GraphQL warehouse resolution failed, falling back to REST: ${error.message}`
       );
       const res = await this.getWarehouses(config, { pageSize: 500 });
       const items = res.items || [];

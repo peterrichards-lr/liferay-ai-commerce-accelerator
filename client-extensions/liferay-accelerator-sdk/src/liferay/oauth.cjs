@@ -1,14 +1,14 @@
-const { lxcConfig } = require("@rotty3000/config-node");
-const axios = require("axios");
-const { createERC, normalizeNumber, delay } = require("../utils/misc.cjs");
-const { APP_ERCS, ENV, ERC_PREFIX } = require("../utils/constants.cjs");
+const { lxcConfig } = require('@rotty3000/config-node');
+const axios = require('axios');
+const { createERC, normalizeNumber, delay } = require('../utils/misc.cjs');
+const { APP_ERCS, ENV, ERC_PREFIX } = require('../utils/constants.cjs');
 
 class OAuthService {
   constructor(ctx) {
     this.ctx = ctx;
 
     const serverOauthApp = lxcConfig.oauthApplication(
-      APP_ERCS.OAUTH_SERVER_EXTERNAL_REFERENCE_CODE,
+      APP_ERCS.OAUTH_SERVER_EXTERNAL_REFERENCE_CODE
     );
 
     const lxcDXPMainDomain = lxcConfig.dxpMainDomain();
@@ -89,11 +89,11 @@ class OAuthService {
       tokenSkewSec: Math.max(this.settings.tokenSkewSec, next.tokenSkewSec),
       tokenCacheTtlMs: Math.max(
         this.settings.tokenCacheTtlMs,
-        next.tokenCacheTtlMs,
+        next.tokenCacheTtlMs
       ),
     };
-    logger?.debug?.("OAuthService config applied", {
-      operation: "oauth-config-apply",
+    logger?.debug?.('OAuthService config applied', {
+      operation: 'oauth-config-apply',
       settings: this.settings,
     });
   }
@@ -105,8 +105,8 @@ class OAuthService {
       const remote = await configService.getOAuthConfig(config);
       this.applyConfig(remote);
     } catch (e) {
-      logger?.warn?.("OAuthService: failed to refresh config from remote", {
-        operation: "oauth-config-refresh",
+      logger?.warn?.('OAuthService: failed to refresh config from remote', {
+        operation: 'oauth-config-refresh',
         error: String(e?.message || e),
       });
     }
@@ -137,26 +137,26 @@ class OAuthService {
         token,
         expiresAt: Date.now() + finalTtl,
       },
-      finalTtl,
+      finalTtl
     );
   }
 
   async _createAccessTokenOnce(tokenUrl, clientId, clientSecret) {
     const { logger } = this.ctx;
     logger?.debug?.(
-      `Creating new access token for ${clientId} using ${tokenUrl}`,
+      `Creating new access token for ${clientId} using ${tokenUrl}`
     );
     const res = await axios.post(
       tokenUrl,
       new URLSearchParams({
-        grant_type: "client_credentials",
+        grant_type: 'client_credentials',
         client_id: clientId,
         client_secret: clientSecret,
       }),
       {
-        headers: { "Content-Type": "application/x-www-form-urlencoded" },
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
         timeout: this.settings.httpTimeoutMs,
-      },
+      }
     );
     return res;
   }
@@ -170,14 +170,14 @@ class OAuthService {
         return await this._createAccessTokenOnce(
           tokenUrl,
           clientId,
-          clientSecret,
+          clientSecret
         );
       } catch (err) {
         attempt++;
         const retriable =
           ![401, 403].includes(err?.response?.status) && attempt < maxA;
-        logger?.warn?.("OAuth token request failed", {
-          operation: "oauth-token-request",
+        logger?.warn?.('OAuth token request failed', {
+          operation: 'oauth-token-request',
           attempt,
           maxAttempts: maxA,
           status: err?.response?.status,
@@ -209,7 +209,7 @@ class OAuthService {
         const response = await this._createAccessTokenWithRetry(
           tokenUrl,
           clientId,
-          clientSecret,
+          clientSecret
         );
         const token = response.data.access_token;
         const expiresIn = response.data.expires_in || 3600;
@@ -239,17 +239,17 @@ class OAuthService {
     });
 
     let customError;
-    if (["ENOTFOUND", "ECONNREFUSED", "ETIMEDOUT"].includes(error?.code)) {
+    if (['ENOTFOUND', 'ECONNREFUSED', 'ETIMEDOUT'].includes(error?.code)) {
       customError = new Error(`Network connection failed: ${error.code}`);
       customError.statusCode = 0;
     } else if (
       error?.response?.status === 401 ||
       error?.response?.status === 403
     ) {
-      customError = new Error("OAuth authentication failed");
+      customError = new Error('OAuth authentication failed');
       customError.statusCode = error.response.status;
-      customError.errorType = "auth_error";
-      customError.field = "clientSecret";
+      customError.errorType = 'auth_error';
+      customError.field = 'clientSecret';
     } else {
       customError = new Error(`OAuth request failed: ${error?.message}`);
       customError.statusCode = error?.response?.status || 500;
@@ -271,13 +271,13 @@ class OAuthService {
       logger?.error?.(
         `OAuth Error [${errorRef}]: Unable to obtain LXC configuration`,
         {
-          liferayUrl: this.liferayUrl || "undefined",
-          clientId: clientId || "undefined",
-          clientSecret: clientSecret ? "[PROVIDED]" : "undefined",
+          liferayUrl: this.liferayUrl || 'undefined',
+          clientId: clientId || 'undefined',
+          clientSecret: clientSecret ? '[PROVIDED]' : 'undefined',
           timestamp: new Date().toISOString(),
-        },
+        }
       );
-      const customError = new Error("OAuth configuration not found");
+      const customError = new Error('OAuth configuration not found');
       customError.statusCode = 500;
       customError.errorReference = errorRef;
       throw customError;
@@ -287,7 +287,7 @@ class OAuthService {
       return await this._createOrGetAccessToken(
         this.liferayUrl,
         clientId,
-        clientSecret,
+        clientSecret
       );
     } catch (error) {
       this._handleException(error, this.liferayUrl, clientId);
@@ -301,13 +301,13 @@ class OAuthService {
       logger?.error?.(
         `OAuth Error [${errorRef}]: Missing required parameters`,
         {
-          liferayUrl: liferayUrl || "undefined",
-          clientId: clientId || "undefined",
-          clientSecret: clientSecret ? "[PROVIDED]" : "undefined",
+          liferayUrl: liferayUrl || 'undefined',
+          clientId: clientId || 'undefined',
+          clientSecret: clientSecret ? '[PROVIDED]' : 'undefined',
           timestamp: new Date().toISOString(),
-        },
+        }
       );
-      const customError = new Error("OAuth configuration missing");
+      const customError = new Error('OAuth configuration missing');
       customError.statusCode = 400;
       customError.errorReference = errorRef;
       throw customError;
@@ -317,7 +317,7 @@ class OAuthService {
       return await this._createOrGetAccessToken(
         liferayUrl,
         clientId,
-        clientSecret,
+        clientSecret
       );
     } catch (error) {
       this._handleException(error, liferayUrl, clientId);
@@ -335,35 +335,35 @@ class OAuthService {
     clientId,
     clientSecret,
     code,
-    redirectUri,
+    redirectUri
   ) {
     const { logger } = this.ctx;
     try {
       const response = await axios.post(
         this._getTokenUrl(liferayUrl),
         new URLSearchParams({
-          grant_type: "authorization_code",
+          grant_type: 'authorization_code',
           client_id: clientId,
           client_secret: clientSecret,
           code,
           redirect_uri: redirectUri,
         }),
         {
-          headers: { "Content-Type": "application/x-www-form-urlencoded" },
+          headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
           timeout: this.settings.httpTimeoutMs,
-        },
+        }
       );
       return response.data;
     } catch (error) {
       const errorRef = createERC(ERC_PREFIX.ERROR);
       logger?.error?.(
         `OAuth code exchange failed [${errorRef}]:`,
-        error?.response?.data || error?.message,
+        error?.response?.data || error?.message
       );
       const customError = new Error(
         `OAuth code exchange failed: ${
           error?.response?.data?.error_description || error?.message
-        }`,
+        }`
       );
       customError.statusCode = error?.response?.status || 500;
       customError.errorReference = errorRef;
@@ -373,13 +373,13 @@ class OAuthService {
 
   generateAuthUrl(liferayUrl, clientId, redirectUri, state = null) {
     const params = new URLSearchParams({
-      response_type: "code",
+      response_type: 'code',
       client_id: clientId,
       redirect_uri: redirectUri,
       scope:
-        "Liferay.Headless.Commerce.Admin.Catalog.everything Liferay.Headless.Commerce.Admin.Channel.everything Liferay.Headless.Commerce.Admin.Order.everything Liferay.Headless.Commerce.Admin.Pricing.everything Liferay.Headless.Commerce.Admin.Account.everything",
+        'Liferay.Headless.Commerce.Admin.Catalog.everything Liferay.Headless.Commerce.Admin.Channel.everything Liferay.Headless.Commerce.Admin.Order.everything Liferay.Headless.Commerce.Admin.Pricing.everything Liferay.Headless.Commerce.Admin.Account.everything',
     });
-    if (state) params.append("state", state);
+    if (state) params.append('state', state);
     return `${liferayUrl}/o/oauth2/authorize?${params.toString()}`;
   }
 
@@ -397,10 +397,10 @@ class OAuthService {
   }
 
   validateOAuthConfig(config) {
-    const required = ["liferayUrl", "clientId", "clientSecret"];
+    const required = ['liferayUrl', 'clientId', 'clientSecret'];
     const missing = required.filter((field) => !config[field]);
     if (missing.length > 0) {
-      throw new Error(`Missing OAuth configuration: ${missing.join(", ")}`);
+      throw new Error(`Missing OAuth configuration: ${missing.join(', ')}`);
     }
   }
 

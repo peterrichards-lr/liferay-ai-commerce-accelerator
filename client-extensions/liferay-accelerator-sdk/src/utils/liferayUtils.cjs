@@ -22,8 +22,8 @@ function asItems(data) {
  * @returns {number} The total count of items.
  */
 function asCount(data) {
-  if (typeof data?.totalCount === "number") return data.totalCount;
-  if (typeof data?.items?.totalCount === "number") return data.items.totalCount;
+  if (typeof data?.totalCount === 'number') return data.totalCount;
+  if (typeof data?.items?.totalCount === 'number') return data.items.totalCount;
   return asItems(data).length;
 }
 

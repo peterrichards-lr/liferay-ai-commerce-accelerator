@@ -1,1 +1,1 @@
-import "liferay-ai-commerce-accelerator-frontend";
+import 'liferay-ai-commerce-accelerator-frontend';

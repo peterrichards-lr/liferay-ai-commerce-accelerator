@@ -1,30 +1,30 @@
 const enc = encodeURIComponent;
 
-const byERC = (base, erc, variant = "camel") =>
+const byERC = (base, erc, variant = 'camel') =>
   `${base}/${
-    variant === "camel"
-      ? "by-externalReferenceCode"
-      : "by-external-reference-code"
+    variant === 'camel'
+      ? 'by-externalReferenceCode'
+      : 'by-external-reference-code'
   }/${enc(erc)}`;
 
 const q = (params = {}) => {
   const parts = Object.entries(params)
-    .filter(([, v]) => v !== undefined && v !== null && v !== "")
+    .filter(([, v]) => v !== undefined && v !== null && v !== '')
     .map(([k, v]) => `${enc(k)}=${enc(v)}`);
-  return parts.length ? `?${parts.join("&")}` : "";
+  return parts.length ? `?${parts.join('&')}` : '';
 };
 
 const API_ROOT = {
-  ADDRESS: "/o/headless-admin-address/v1.0",
-  BATCH: "/o/headless-batch-engine/v1.0",
-  CATALOG: "/o/headless-commerce-admin-catalog/v1.0",
-  CHANNEL: "/o/headless-commerce-admin-channel/v1.0",
-  DELIVERY: "/o/headless-delivery/v1.0",
-  INVENTORY: "/o/headless-commerce-admin-inventory/v1.0",
-  OBJECT: "/o/c",
-  ORDER: "/o/headless-commerce-admin-order/v1.0",
-  PRICING: "/o/headless-commerce-admin-pricing/v2.0",
-  USER: "/o/headless-admin-user/v1.0",
+  ADDRESS: '/o/headless-admin-address/v1.0',
+  BATCH: '/o/headless-batch-engine/v1.0',
+  CATALOG: '/o/headless-commerce-admin-catalog/v1.0',
+  CHANNEL: '/o/headless-commerce-admin-channel/v1.0',
+  DELIVERY: '/o/headless-delivery/v1.0',
+  INVENTORY: '/o/headless-commerce-admin-inventory/v1.0',
+  OBJECT: '/o/c',
+  ORDER: '/o/headless-commerce-admin-order/v1.0',
+  PRICING: '/o/headless-commerce-admin-pricing/v2.0',
+  USER: '/o/headless-admin-user/v1.0',
 };
 
 const BASE = {
@@ -56,16 +56,16 @@ const BASE = {
 };
 
 const VARIANT = {
-  optionCategories: "camel",
-  options: "camel",
-  postalAddresses: "kebab",
-  pricing: "camel",
-  products: "camel",
-  specifications: "kebab",
+  optionCategories: 'camel',
+  options: 'camel',
+  postalAddresses: 'kebab',
+  pricing: 'camel',
+  products: 'camel',
+  specifications: 'kebab',
 };
 
 const CUSTOM_OBJECTS = {
-  AICA_CONFIGS: "aicaconfigurations",
+  AICA_CONFIGS: 'aicaconfigurations',
 };
 
 const PATH = {
@@ -73,19 +73,19 @@ const PATH = {
   VARIANT,
   CUSTOM_OBJECTS,
 
-  API_EXPLORER: "/o/api",
+  API_EXPLORER: '/o/api',
 
   WAREHOUSES: `${BASE.INVENTORY_API}/warehouses`,
   WAREHOUSE_INVENTORIES: (warehouseId) =>
     `${BASE.INVENTORY_API}/warehouses/${warehouseId}/warehouseItems`,
   WAREHOUSE_INVENTORIES_BATCH: (callbackURL) =>
     `${BASE.INVENTORY_API}/warehouses/warehouseItems/batch${
-      callbackURL ? `?callbackURL=${enc(callbackURL)}` : ""
+      callbackURL ? `?callbackURL=${enc(callbackURL)}` : ''
     }`,
   WAREHOUSE_INVENTORY_BATCH_SCOPED: (
     warehouseId,
     warehouseERC,
-    callbackURL,
+    callbackURL
   ) => {
     const params = { callbackURL };
     if (warehouseERC) {
@@ -97,7 +97,7 @@ const PATH = {
   },
   WAREHOUSE_INVENTORIES_DELETE_BATCH: (callbackURL) =>
     `${BASE.INVENTORY_API}/warehouseItems/batch${
-      callbackURL ? `?callbackURL=${enc(callbackURL)}` : ""
+      callbackURL ? `?callbackURL=${enc(callbackURL)}` : ''
     }`,
 
   PRODUCTS: BASE.PRODUCTS,
@@ -106,15 +106,15 @@ const PATH = {
   PRICE_LIST: (priceListId) => `${BASE.PRICE_LISTS}/${priceListId}`,
   PRICE_LISTS_BATCH: (callbackURL) =>
     `${BASE.PRICE_LISTS}/batch${
-      callbackURL ? `?callbackURL=${enc(callbackURL)}` : ""
+      callbackURL ? `?callbackURL=${enc(callbackURL)}` : ''
     }`,
   PRICE_ENTRIES_BATCH: (callbackURL) =>
     `${BASE.PRICING_API}/price-entries/batch${
-      callbackURL ? `?callbackURL=${enc(callbackURL)}` : ""
+      callbackURL ? `?callbackURL=${enc(callbackURL)}` : ''
     }`,
   PRICE_ENTRIES_BATCH_POST: (callbackURL) =>
     `${BASE.PRICE_LISTS}/price-entries/batch${
-      callbackURL ? `?callbackURL=${enc(callbackURL)}` : ""
+      callbackURL ? `?callbackURL=${enc(callbackURL)}` : ''
     }`,
   PRICE_LIST_PRICE_ENTRIES_BATCH: (priceListERC, callbackURL) => {
     const params = { callbackURL };
@@ -125,11 +125,11 @@ const PATH = {
   },
   PRODUCTS_BATCH: (callbackURL) =>
     `${BASE.PRODUCTS}/batch${
-      callbackURL ? `?callbackURL=${enc(callbackURL)}` : ""
+      callbackURL ? `?callbackURL=${enc(callbackURL)}` : ''
     }`,
   PRODUCTS_SKUS_BATCH: (callbackURL) =>
     `${BASE.PRODUCTS}/skus/batch${
-      callbackURL ? `?callbackURL=${enc(callbackURL)}` : ""
+      callbackURL ? `?callbackURL=${enc(callbackURL)}` : ''
     }`,
   PRODUCT_SKUS_BATCH_SCOPED: (productId, productERC, callbackURL) => {
     const params = { callbackURL };
@@ -142,7 +142,7 @@ const PATH = {
   },
   WAREHOUSES_BATCH: (callbackURL) =>
     `${BASE.INVENTORY_API}/warehouses/batch${
-      callbackURL ? `?callbackURL=${enc(callbackURL)}` : ""
+      callbackURL ? `?callbackURL=${enc(callbackURL)}` : ''
     }`,
   WAREHOUSE_CHANNELS: (warehouseId) =>
     `${BASE.INVENTORY_API}/warehouses/${warehouseId}/warehouse-channels`,
@@ -150,7 +150,7 @@ const PATH = {
     `${BASE.INVENTORY_API}/warehouses/by-externalReferenceCode/${enc(erc)}/warehouse-channels`,
   WAREHOUSE_CHANNELS_BATCH: (callbackURL) =>
     `${BASE.INVENTORY_API}/warehouses/warehouse-channels/batch${
-      callbackURL ? `?callbackURL=${enc(callbackURL)}` : ""
+      callbackURL ? `?callbackURL=${enc(callbackURL)}` : ''
     }`,
   PRODUCT_SKUS: (productId) => `${BASE.PRODUCTS}/${productId}/skus`,
   SKU_BY_ERC: (erc) =>
@@ -195,7 +195,7 @@ const PATH = {
     `${BASE.OPTION_CATEGORIES}/${optionCategoryId}`,
   OPTION_CATEGORIES_BATCH: (callbackURL) =>
     `${BASE.OPTION_CATEGORIES}/batch${
-      callbackURL ? `?callbackURL=${enc(callbackURL)}` : ""
+      callbackURL ? `?callbackURL=${enc(callbackURL)}` : ''
     }`,
 
   OPTION_CATEGORY_BY_ERC: (erc) =>
@@ -203,13 +203,13 @@ const PATH = {
 
   OPTIONS_BATCH: (callbackURL) =>
     `${BASE.OPTIONS}/batch${
-      callbackURL ? `?callbackURL=${enc(callbackURL)}` : ""
+      callbackURL ? `?callbackURL=${enc(callbackURL)}` : ''
     }`,
 
   SPECIFICATION_CATEGORIES: BASE.OPTION_CATEGORIES,
   SPECIFICATION_CATEGORY: (id) => `${BASE.OPTION_CATEGORIES}/${id}`,
   SPECIFICATION_CATEGORY_BY_ERC: (erc) =>
-    byERC(BASE.OPTION_CATEGORIES, erc, "camel"),
+    byERC(BASE.OPTION_CATEGORIES, erc, 'camel'),
 
   SPECIFICATIONS: BASE.SPECIFICATIONS,
   SPECIFICATION_BY_ERC: (erc) =>
@@ -217,12 +217,12 @@ const PATH = {
 
   SPECIFICATIONS_BATCH: (callbackURL) =>
     `${BASE.SPECIFICATIONS}/batch${
-      callbackURL ? `?callbackURL=${enc(callbackURL)}` : ""
+      callbackURL ? `?callbackURL=${enc(callbackURL)}` : ''
     }`,
 
   ACCOUNTS: BASE.ACCOUNTS,
   ACCOUNT: (accountId) => `${BASE.ACCOUNTS}/${accountId}`,
-  ACCOUNT_BY_ERC: (erc) => byERC(BASE.ACCOUNTS, erc, "kebab"),
+  ACCOUNT_BY_ERC: (erc) => byERC(BASE.ACCOUNTS, erc, 'kebab'),
   ACCOUNT_ADDRESSES: (accountId) =>
     `${BASE.ACCOUNTS}/${accountId}/postal-addresses`,
   ACCOUNT_ADDRESSES_BATCH: (accountId, callbackURL) =>
@@ -243,7 +243,7 @@ const PATH = {
   ORDER_ITEM: (orderItemId) => `${BASE.ORDER_API}/orderItems/${orderItemId}`,
   ORDERS_BATCH: (callbackURL) =>
     `${BASE.ORDERS}/batch${
-      callbackURL ? `?callbackURL=${enc(callbackURL)}` : ""
+      callbackURL ? `?callbackURL=${enc(callbackURL)}` : ''
     }`,
 
   CATALOGS: BASE.CATALOGS,
@@ -277,13 +277,13 @@ const PATH = {
 
   PERMISSIONS_BY_ASSET: (assetType, id) => {
     switch (assetType) {
-      case "document-folder":
+      case 'document-folder':
         return `${BASE.DELIVERY}/document-folders/${id}/permissions`;
-      case "document":
+      case 'document':
         return `${BASE.DELIVERY}/documents/${id}/permissions`;
       default:
         throw new Error(
-          `PATH.PERMISSIONS_BY_ASSET: unsupported assetType "${assetType}"`,
+          `PATH.PERMISSIONS_BY_ASSET: unsupported assetType "${assetType}"`
         );
     }
   },
@@ -308,7 +308,7 @@ const PATH = {
     `${byERC(
       `${BASE.PRICING_API}/price-entries`,
       priceEntryERC,
-      VARIANT.pricing,
+      VARIANT.pricing
     )}/tier-prices`,
 
   PRICE_LIST_ACCOUNT_GROUPS: (priceListId) =>
@@ -317,7 +317,7 @@ const PATH = {
     `${byERC(
       BASE.PRICE_LISTS,
       priceListERC,
-      VARIANT.pricing,
+      VARIANT.pricing
     )}/price-list-account-groups`,
   PRICE_LIST_ACCOUNT_GROUP: (id) =>
     `${BASE.PRICING_API}/price-list-account-groups/${enc(id)}`,

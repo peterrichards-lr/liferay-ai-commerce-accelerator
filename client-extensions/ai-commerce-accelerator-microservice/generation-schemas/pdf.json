@@ -23,6 +23,10 @@
     "title": {
       "description": "The main title of the document.",
       "type": "string"
+    },
+    "externalReferenceCode": {
+      "description": "Unique external reference for the PDF content.",
+      "type": "string"
     }
   },
   "required": ["title", "sections"],

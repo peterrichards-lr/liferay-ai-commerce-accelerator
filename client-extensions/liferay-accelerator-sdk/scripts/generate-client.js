@@ -5,29 +5,29 @@
  * Supports Namespaced Versioning to allow multiple API versions concurrently.
  */
 
-const fs = require("fs");
-const path = require("path");
+const fs = require('fs');
+const path = require('path');
 
-const SCHEMA_DIR = path.join(__dirname, "../api-schemas");
+const SCHEMA_DIR = path.join(__dirname, '../api-schemas');
 const OUTPUT_FILE = path.join(
   __dirname,
-  "../src/liferay/GeneratedLiferayClient.cjs",
+  '../src/liferay/GeneratedLiferayClient.cjs'
 );
 
 function toCamelCase(str) {
   // Strip trailing version like -v1.0 or -v2.0
-  const clean = str.replace(/-v\d+\.\d+$/, "");
+  const clean = str.replace(/-v\d+\.\d+$/, '');
   return clean.replace(/[-.]([a-z0-9])/g, (g) => g[1].toUpperCase());
 }
 
 function toNamespaceVersion(v) {
   // Ensure we don't end up with 'vv1_0'
-  const clean = v.replace(/^v/, "");
-  return "v" + clean.replace(/\./g, "_");
+  const clean = v.replace(/^v/, '');
+  return 'v' + clean.replace(/\./g, '_');
 }
 
 function generate() {
-  console.log("--- Generating Namespaced Liferay Client ---");
+  console.log('--- Generating Namespaced Liferay Client ---');
 
   if (!fs.existsSync(SCHEMA_DIR)) {
     console.error('✗ No schemas found. Run "yarn sync" first.');
@@ -36,22 +36,22 @@ function generate() {
 
   const files = fs
     .readdirSync(SCHEMA_DIR)
-    .filter((f) => f.endsWith("-openapi.json"));
+    .filter((f) => f.endsWith('-openapi.json'));
   let methodImplementations = [];
   let namespaceInitStrings = [];
   let totalMethods = 0;
 
   for (const file of files) {
     const spec = JSON.parse(
-      fs.readFileSync(path.join(SCHEMA_DIR, file), "utf8"),
+      fs.readFileSync(path.join(SCHEMA_DIR, file), 'utf8')
     );
-    const apiName = file.replace("-openapi.json", "");
-    const apiVersion = spec.info?.version || "1.0";
+    const apiName = file.replace('-openapi.json', '');
+    const apiVersion = spec.info?.version || '1.0';
 
     const namespace = toCamelCase(apiName);
     const versionKey = toNamespaceVersion(apiVersion);
 
-    let apiRoot = spec.servers?.[0]?.url || "";
+    let apiRoot = spec.servers?.[0]?.url || '';
 
     console.log(`Processing ${apiName} (${apiVersion})...`);
 
@@ -75,14 +75,14 @@ function generate() {
         const internalName = `_${methodName}_${namespace}_${versionKey}`;
 
         // Construct clean full path
-        const fullPath = `${cleanRoot}${pathUrl}`.replace(/\/+/g, "/");
+        const fullPath = `${cleanRoot}${pathUrl}`.replace(/\/+/g, '/');
 
         // Extract parameters
         const pathParams = (op.parameters || [])
-          .filter((p) => p.in === "path")
+          .filter((p) => p.in === 'path')
           .map((p) => p.name);
 
-        const methodArgs = [...pathParams, "data", "opts = {}"].join(", ");
+        const methodArgs = [...pathParams, 'data', 'opts = {}'].join(', ');
 
         let templatePath = fullPath;
         pathParams.forEach((p) => {
@@ -107,7 +107,7 @@ function generate() {
 
         methodImplementations.push(methodImpl);
         apiMethods.push(
-          `        ${methodName}: this.${internalName}.bind(this)`,
+          `        ${methodName}: this.${internalName}.bind(this)`
         );
         totalMethods++;
       }
@@ -117,7 +117,7 @@ function generate() {
     // ${apiName} (${apiVersion})
     if (!this.${namespace}) this.${namespace} = {};
     this.${namespace}.${versionKey} = {
-${apiMethods.join(",\n")}
+${apiMethods.join(',\n')}
     };`;
 
     namespaceInitStrings.push(namespaceInit);
@@ -132,9 +132,9 @@ ${apiMethods.join(",\n")}
 class GeneratedLiferayClient {
   constructor(restService) {
     this.rest = restService;
-${namespaceInitStrings.join("\n")}
+${namespaceInitStrings.join('\n')}
   }
-${methodImplementations.join("\n")}
+${methodImplementations.join('\n')}
 }
 
 module.exports = GeneratedLiferayClient;
@@ -142,7 +142,7 @@ module.exports = GeneratedLiferayClient;
 
   fs.writeFileSync(OUTPUT_FILE, classTemplate);
   console.log(
-    `✓ Generated client with ${totalMethods} methods across ${files.length} APIs to ${OUTPUT_FILE}`,
+    `✓ Generated client with ${totalMethods} methods across ${files.length} APIs to ${OUTPUT_FILE}`
   );
 }
 

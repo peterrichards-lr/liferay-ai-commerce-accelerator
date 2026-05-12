@@ -1,6 +1,6 @@
-const BaseWorkflowService = require("./baseWorkflowService.cjs");
-const { delay, createERC } = require("../utils/misc.cjs");
-const { ERC_PREFIX, ENV, WORKFLOW_STEPS } = require("../utils/constants.cjs");
+const BaseWorkflowService = require('./baseWorkflowService.cjs');
+const { delay, createERC } = require('../utils/misc.cjs');
+const { ERC_PREFIX, ENV, WORKFLOW_STEPS } = require('../utils/constants.cjs');
 
 /**
  * BaseGenerator - Specialized orchestrator for data generation workflows.
@@ -29,7 +29,7 @@ class BaseGenerator extends BaseWorkflowService {
       const fallbackLanguage = config.defaultLanguageId || ENV.DEFAULT_LOCALE;
       this.logger.info(
         `No languages selected for generation. Falling back to: ${fallbackLanguage}`,
-        { sessionId },
+        { sessionId }
       );
       options.selectedLanguages = [fallbackLanguage];
     }
@@ -37,7 +37,7 @@ class BaseGenerator extends BaseWorkflowService {
     await this.persistence.createSession({
       sessionId,
       flowType,
-      status: "STARTED",
+      status: 'STARTED',
       currentSteps: [],
       correlationId: config.correlationId,
       context: {
@@ -59,7 +59,7 @@ class BaseGenerator extends BaseWorkflowService {
     // Check completion (in case session finished instantly)
     this.ctx.batchCallback._checkSessionCompletion(
       sessionId,
-      config.correlationId,
+      config.correlationId
     );
 
     this.logger.info(`${flowType} generation workflow started`, {
@@ -79,7 +79,7 @@ class BaseGenerator extends BaseWorkflowService {
    */
   async _runInterServiceSyncDelayStep(
     sessionId,
-    stepKey = WORKFLOW_STEPS.SYNC_DELAY,
+    stepKey = WORKFLOW_STEPS.SYNC_DELAY
   ) {
     const session = await this.persistence.getSession(sessionId);
     const { correlationId } = session;
@@ -88,14 +88,14 @@ class BaseGenerator extends BaseWorkflowService {
 
     this.logger.info(
       `Starting inter-service synchronization delay of ${delayMs}ms for step: ${stepKey}`,
-      { sessionId, correlationId },
+      { sessionId, correlationId }
     );
 
     await delay(delayMs);
 
     await this.completeSyncStep(sessionId, stepKey);
 
-    this.logger.info("Inter-service synchronization delay completed.", {
+    this.logger.info('Inter-service synchronization delay completed.', {
       sessionId,
       correlationId,
     });
@@ -130,7 +130,7 @@ class BaseGenerator extends BaseWorkflowService {
         const waitMs = initialDelayMs * Math.pow(multiplier, attempt - 1);
         this.logger.debug(
           `Retry ${attempt}/${maxRetries} for ${stepKey} in ${waitMs}ms...`,
-          { sessionId, correlationId },
+          { sessionId, correlationId }
         );
         await delay(waitMs);
       }
@@ -143,7 +143,7 @@ class BaseGenerator extends BaseWorkflowService {
             {
               sessionId,
               correlationId,
-            },
+            }
           );
           break;
         }
@@ -159,16 +159,16 @@ class BaseGenerator extends BaseWorkflowService {
     if (!success) {
       this.logger.warn(
         `Adaptive sync delay for ${stepKey} finished without meeting condition. Proceeding anyway.`,
-        { sessionId, correlationId },
+        { sessionId, correlationId }
       );
     }
 
     await this.completeSyncStep(
       sessionId,
       stepKey,
-      "SYNCHRONOUS",
+      'SYNCHRONOUS',
       success ? 1 : 0,
-      1,
+      1
     );
   }
 
@@ -179,7 +179,7 @@ class BaseGenerator extends BaseWorkflowService {
     const session = await this.persistence.getSession(sessionId);
     const { config } = session.context;
 
-    this.logger.info("Loading countries from Liferay...", { sessionId });
+    this.logger.info('Loading countries from Liferay...', { sessionId });
 
     const countries = await this.liferay.getCountries(config);
 
@@ -197,7 +197,7 @@ class BaseGenerator extends BaseWorkflowService {
     const session = await this.persistence.getSession(sessionId);
     const { config } = session.context;
 
-    this.logger.info("Loading active languages from Liferay...", { sessionId });
+    this.logger.info('Loading active languages from Liferay...', { sessionId });
 
     const languages = await this.liferay.getLanguages(config);
 
@@ -214,9 +214,9 @@ class BaseGenerator extends BaseWorkflowService {
    */
   verifySteps() {
     for (const [stepName, handler] of Object.entries(this.steps)) {
-      if (typeof handler !== "function") {
+      if (typeof handler !== 'function') {
         throw new Error(
-          `FATAL: Workflow Step '${stepName}' in ${this.constructor.name} has no valid method handler.`,
+          `FATAL: Workflow Step '${stepName}' in ${this.constructor.name} has no valid method handler.`
         );
       }
     }
@@ -232,21 +232,21 @@ class BaseGenerator extends BaseWorkflowService {
 
     const steps = session.context.steps || [];
     const stepConfig = steps.find((s) =>
-      typeof s === "string" ? s === stepName : s.name === stepName,
+      typeof s === 'string' ? s === stepName : s.name === stepName
     );
-    const stepType = stepConfig?.type || "sync";
+    const stepType = stepConfig?.type || 'sync';
 
     const stepHandler = this.steps[stepName];
     if (!stepHandler) {
       // Structural steps (parallel, sequence) don't have handlers; they are orchestrated in executeNextStep
-      if (["parallel", "sequence"].includes(stepType)) {
+      if (['parallel', 'sequence'].includes(stepType)) {
         return;
       }
 
       // HARDENING: Throw fatal error instead of silently bypassing.
       // This prevents "Ghost Steps" from causing downstream data corruption.
       throw new Error(
-        `FATAL: No handler found for workflow step '${stepName}' in ${this.constructor.name}. Register it in the constructor steps map.`,
+        `FATAL: No handler found for workflow step '${stepName}' in ${this.constructor.name}. Register it in the constructor steps map.`
       );
     }
 
@@ -254,7 +254,7 @@ class BaseGenerator extends BaseWorkflowService {
     const isReady = await this.verifyStepDependencies(
       sessionId,
       stepName,
-      session.context.steps,
+      session.context.steps
     );
     if (!isReady) return;
 
@@ -280,12 +280,12 @@ class BaseGenerator extends BaseWorkflowService {
       const updatedBatches =
         await this.persistence.getBatchesForSession(sessionId);
       const failedBatch = updatedBatches.find(
-        (b) => b.step_key === stepName && b.status === "FAILED",
+        (b) => b.step_key === stepName && b.status === 'FAILED'
       );
 
       if (failedBatch) {
         throw new Error(
-          `Step '${stepName}' handler completed but produced a FAILED batch.`,
+          `Step '${stepName}' handler completed but produced a FAILED batch.`
         );
       }
 
@@ -297,7 +297,7 @@ class BaseGenerator extends BaseWorkflowService {
           sessionId,
           correlationId,
           stack: error.stack,
-        },
+        }
       );
       throw error;
     }
@@ -310,9 +310,9 @@ class BaseGenerator extends BaseWorkflowService {
   async completeSyncStep(
     sessionId,
     stepKey,
-    status = "SYNCHRONOUS",
+    status = 'SYNCHRONOUS',
     processedCount = 1,
-    totalCount = 1,
+    totalCount = 1
   ) {
     const session = await this.persistence.getSession(sessionId);
     if (!session) return;
@@ -329,11 +329,11 @@ class BaseGenerator extends BaseWorkflowService {
 
     this.logger.debug(
       `Synchronous step '${stepKey}' marked as ${status}. Advancing...`,
-      { sessionId },
+      { sessionId }
     );
 
     // Broadcast step completion to the UI
-    if (this.progress && typeof this.progress.stepCompleted === "function") {
+    if (this.progress && typeof this.progress.stepCompleted === 'function') {
       await this.progress.stepCompleted({
         sessionId,
         step: stepKey,
@@ -363,14 +363,14 @@ class BaseGenerator extends BaseWorkflowService {
    * Liferay expects only ERCs for new items in a batch.
    */
   deepClean(obj) {
-    if (!obj || typeof obj !== "object") return obj;
+    if (!obj || typeof obj !== 'object') return obj;
 
     if (Array.isArray(obj)) {
       return obj.map((item) => this.deepClean(item));
     }
 
     const cleaned = { ...obj };
-    const forbidden = ["id", "productId", "accountId", "skuId"];
+    const forbidden = ['id', 'productId', 'accountId', 'skuId'];
 
     for (const key of forbidden) {
       delete cleaned[key];
@@ -378,7 +378,7 @@ class BaseGenerator extends BaseWorkflowService {
 
     // Recurse into nested objects
     for (const key in cleaned) {
-      if (typeof cleaned[key] === "object") {
+      if (typeof cleaned[key] === 'object') {
         cleaned[key] = this.deepClean(cleaned[key]);
       }
     }
@@ -395,12 +395,12 @@ class BaseGenerator extends BaseWorkflowService {
     this.logger.debug(`Advancing workflow for session ${sessionId}...`);
 
     while (continueAdvancing) {
-      let currentCorrelationId = "∅";
+      let currentCorrelationId = '∅';
       try {
         const session = await this.persistence.getSession(sessionId);
         if (
           !session ||
-          ["COMPLETED", "FAILED", "CANCELLED"].includes(session.status)
+          ['COMPLETED', 'FAILED', 'CANCELLED'].includes(session.status)
         ) {
           break;
         }
@@ -411,45 +411,45 @@ class BaseGenerator extends BaseWorkflowService {
         const batches = await this.persistence.getBatchesForSession(sessionId);
 
         const isTerminal = (b) =>
-          ["COMPLETED", "FAILED", "BYPASSED", "SYNCHRONOUS"].includes(b.status);
+          ['COMPLETED', 'FAILED', 'BYPASSED', 'SYNCHRONOUS'].includes(b.status);
 
         const stepStateMap = new Map();
         const allStepKeys = [...new Set(batches.map((b) => b.step_key))];
 
         for (const key of allStepKeys) {
           const stepBatches = batches.filter((b) => b.step_key === key);
-          if (stepBatches.some((b) => b.status === "FAILED")) {
-            stepStateMap.set(key, "FAILED");
+          if (stepBatches.some((b) => b.status === 'FAILED')) {
+            stepStateMap.set(key, 'FAILED');
           } else if (stepBatches.every(isTerminal)) {
-            stepStateMap.set(key, "COMPLETE");
+            stepStateMap.set(key, 'COMPLETE');
           } else {
-            stepStateMap.set(key, "RUNNING");
+            stepStateMap.set(key, 'RUNNING');
           }
         }
 
         const getStepState = (s) => {
-          const name = typeof s === "string" ? s : s.name;
-          const type = s.type || "sync";
+          const name = typeof s === 'string' ? s : s.name;
+          const type = s.type || 'sync';
 
-          if (type === "parallel") {
+          if (type === 'parallel') {
             const subStates = s.steps.map(getStepState);
-            if (subStates.some((st) => st === "FAILED")) return "FAILED";
-            if (subStates.every((st) => st === "COMPLETE")) return "COMPLETE";
-            if (subStates.some((st) => st === "RUNNING" || st === "COMPLETE"))
-              return "RUNNING";
-            return "PENDING";
+            if (subStates.some((st) => st === 'FAILED')) return 'FAILED';
+            if (subStates.every((st) => st === 'COMPLETE')) return 'COMPLETE';
+            if (subStates.some((st) => st === 'RUNNING' || st === 'COMPLETE'))
+              return 'RUNNING';
+            return 'PENDING';
           }
 
-          if (type === "sequence") {
+          if (type === 'sequence') {
             const subStates = s.steps.map(getStepState);
-            if (subStates.some((st) => st === "FAILED")) return "FAILED";
-            if (subStates.every((st) => st === "COMPLETE")) return "COMPLETE";
-            if (subStates.some((st) => st === "RUNNING" || st === "COMPLETE"))
-              return "RUNNING";
-            return "PENDING";
+            if (subStates.some((st) => st === 'FAILED')) return 'FAILED';
+            if (subStates.every((st) => st === 'COMPLETE')) return 'COMPLETE';
+            if (subStates.some((st) => st === 'RUNNING' || st === 'COMPLETE'))
+              return 'RUNNING';
+            return 'PENDING';
           }
 
-          return stepStateMap.get(name) || "PENDING";
+          return stepStateMap.get(name) || 'PENDING';
         };
 
         const newActiveSteps = [];
@@ -457,27 +457,27 @@ class BaseGenerator extends BaseWorkflowService {
         let executedAnySyncStep = false;
 
         const processStep = async (step) => {
-          const stepName = typeof step === "string" ? step : step.name;
-          const stepType = step.type || "sync";
+          const stepName = typeof step === 'string' ? step : step.name;
+          const stepType = step.type || 'sync';
           const state = getStepState(step);
 
-          if (state === "FAILED") {
+          if (state === 'FAILED') {
             const displayId = stepName || stepType;
             // ENHANCED OBSERVABILITY: Find the specific failed sub-step
-            let failedSubStep = "";
-            if (["parallel", "sequence"].includes(stepType)) {
+            let failedSubStep = '';
+            if (['parallel', 'sequence'].includes(stepType)) {
               const failedSteps = step.steps.filter(
-                (s) => getStepState(s) === "FAILED",
+                (s) => getStepState(s) === 'FAILED'
               );
               failedSubStep =
                 failedSteps.length > 0
-                  ? ` (Failed sub-steps: ${failedSteps.map((s) => s.name || "unnamed").join(", ")})`
-                  : "";
+                  ? ` (Failed sub-steps: ${failedSteps.map((s) => s.name || 'unnamed').join(', ')})`
+                  : '';
             }
 
             if (
-              session.flowType === "delete" ||
-              session.flow_type === "delete"
+              session.flowType === 'delete' ||
+              session.flow_type === 'delete'
             ) {
               this.logger.warn(
                 `Workflow step '${displayId}' failed${failedSubStep}. Try-Every-Step mode active for deletion. Continuing to next step...`,
@@ -486,7 +486,7 @@ class BaseGenerator extends BaseWorkflowService {
                   correlationId,
                   step: stepName,
                   type: stepType,
-                },
+                }
               );
               return true; // Treat as complete to unblock subsequent cleanup steps
             }
@@ -498,43 +498,43 @@ class BaseGenerator extends BaseWorkflowService {
                 correlationId,
                 step: stepName,
                 type: stepType,
-                state: "FAILED",
-              },
+                state: 'FAILED',
+              }
             );
             await this._finalizeSession(sessionId, correlationId);
             foundBlockingStep = true;
             return false;
           }
 
-          if (state === "COMPLETE") return true;
+          if (state === 'COMPLETE') return true;
 
-          if (stepType === "parallel") {
+          if (stepType === 'parallel') {
             await Promise.all(
-              step.steps.map((subStep) => processStep(subStep)),
+              step.steps.map((subStep) => processStep(subStep))
             );
 
             const subStates = step.steps.map(getStepState);
 
             // If any sub-step is still running or pending, we are NOT terminal
-            if (subStates.some((st) => ["RUNNING", "PENDING"].includes(st))) {
+            if (subStates.some((st) => ['RUNNING', 'PENDING'].includes(st))) {
               foundBlockingStep = true;
               return false;
             }
 
             // All sub-steps are terminal (COMPLETE or FAILED)
-            if (subStates.some((st) => st === "FAILED")) {
+            if (subStates.some((st) => st === 'FAILED')) {
               // HARDENING: We allow continuation if it's a parallel block,
               // but we mark the block itself as finished so the master sequence can move on.
               // This ensures that a failure in 'Products' doesn't prevent 'Account Defaults' from running.
               this.logger.warn(
-                `Parallel step '${stepName || "unnamed"}' finished with some sub-step failures. Continuing to next top-level step...`,
-                { sessionId },
+                `Parallel step '${stepName || 'unnamed'}' finished with some sub-step failures. Continuing to next top-level step...`,
+                { sessionId }
               );
               return true;
             }
 
             return true; // All sub-steps completed successfully
-          } else if (stepType === "sequence") {
+          } else if (stepType === 'sequence') {
             for (const subStep of step.steps) {
               const subState = await processStep(subStep);
               if (!subState) {
@@ -543,17 +543,17 @@ class BaseGenerator extends BaseWorkflowService {
               }
             }
             return true;
-          } else if (stepType === "async") {
-            if (state === "PENDING") {
+          } else if (stepType === 'async') {
+            if (state === 'PENDING') {
               await this.executeStep(sessionId, stepName);
             }
             return true;
           } else {
-            if (state === "PENDING") {
+            if (state === 'PENDING') {
               newActiveSteps.push(stepName);
               await this.persistence.updateSessionCurrentSteps(
                 sessionId,
-                newActiveSteps,
+                newActiveSteps
               );
 
               // HARDENING: If we are part of a coordinated flow, delegate execution
@@ -561,11 +561,11 @@ class BaseGenerator extends BaseWorkflowService {
               // Otherwise, we might throw a FATAL ERROR if the step belongs to another generator.
               if (
                 this.ctx.workflowCoordinator &&
-                this.constructor.name !== "WorkflowCoordinator"
+                this.constructor.name !== 'WorkflowCoordinator'
               ) {
                 await this.ctx.workflowCoordinator.executeStep(
                   sessionId,
-                  stepName,
+                  stepName
                 );
               } else {
                 await this.executeStep(sessionId, stepName);
@@ -586,7 +586,7 @@ class BaseGenerator extends BaseWorkflowService {
 
         if (!foundBlockingStep) {
           const allDone = workflowSteps.every(
-            (s) => getStepState(s) === "COMPLETE",
+            (s) => getStepState(s) === 'COMPLETE'
           );
           if (allDone) {
             await this._finalizeSession(sessionId, correlationId);
@@ -600,7 +600,7 @@ class BaseGenerator extends BaseWorkflowService {
           const freshBatches =
             await this.persistence.getBatchesForSession(sessionId);
           const activeBatches = freshBatches.filter(
-            (b) => newActiveSteps.includes(b.step_key) && !isTerminal(b),
+            (b) => newActiveSteps.includes(b.step_key) && !isTerminal(b)
           );
           if (activeBatches.length > 0) {
             continueAdvancing = false;
@@ -611,7 +611,7 @@ class BaseGenerator extends BaseWorkflowService {
 
         await this.persistence.updateSessionCurrentSteps(
           sessionId,
-          newActiveSteps,
+          newActiveSteps
         );
       } catch (err) {
         this.logger.error(
@@ -619,7 +619,7 @@ class BaseGenerator extends BaseWorkflowService {
           {
             sessionId,
             stack: err.stack,
-          },
+          }
         );
 
         // HARDENING: Persist the failure in the database so hydration works correctly
@@ -640,7 +640,7 @@ class BaseGenerator extends BaseWorkflowService {
   async _finalizeSession(sessionId, correlationId) {
     const batches = await this.persistence.getBatchesForSession(sessionId);
 
-    const failedBatch = batches.find((b) => b.status === "FAILED");
+    const failedBatch = batches.find((b) => b.status === 'FAILED');
     if (failedBatch) {
       let errorMsg = `Workflow failed at step: ${failedBatch.step_key}`;
 
@@ -670,7 +670,7 @@ class BaseGenerator extends BaseWorkflowService {
       });
       await this.progress.sessionCompleted({ sessionId, correlationId });
 
-      if (typeof this.onSessionComplete === "function") {
+      if (typeof this.onSessionComplete === 'function') {
         const session = await this.persistence.getSession(sessionId);
         this.onSessionComplete({ sessionId, correlationId, session });
       }
