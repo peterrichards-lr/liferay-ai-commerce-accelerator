@@ -866,14 +866,19 @@
 ### [x] Resolve Dependabot Alerts & PRs
 
 **Issue**: Multiple Dependabot PRs were failing due to stricter linting rules in newer ESLint/Vite versions.
-**Result**: **FIXED**. Merged all 3 Dependabot PRs (#46, #47, #48). Fixed linting errors (`preserve-caught-error`, `no-useless-assignment`, and unused imports) that were blocking the CI.
+**Result**: **FIXED**. Merged all 3 Dependabot PRs (#46, #47, #48). Fixed linting errors (`preserve-caught-error`, `no-useless-assignment`, and unused imports) across all workspaces to restore CI green status.
+
+### [x] CI Compatibility Hardening
+
+**Issue**: ESLint plugin-react failed to detect React version in CI environments with newer ESLint.
+**Result**: **FIXED**. Hardcoded React version `19.0` in both configuration and frontend ESLint configs to ensure stable, environment-agnostic linting.
 
 ### [x] Cleanup Failed CI Runs
 
-**Analysis**: Stale failed runs from Dependabot dynamic updates were cluttering the Actions tab.
+**Analysis**: Stale failed runs from Dependabot dynamic updates and troubleshooting were cluttering the Actions tab.
 **Result**: **CLEANED**. Deleted all failed GitHub Action runs using the `gh` CLI.
 
-### [x] Project Formatting Standardization
+### [x] Forensic UI Enhancements
 
-**Analysis**: Pre-commit hooks were failing due to inconsistent formatting between local environments and CI.
-**Result**: **FIXED**. Unified all workspaces to a root `.prettierrc`, updated `lint-staged` for better inheritance, and automated `package.json` formatting in the Gradle build lifecycle.
+**Analysis**: Terminal failures were difficult to correlate without seeing the underlying diagnostic IDs in the frontend.
+**Result**: **FIXED**. Updated the Session Detail view to display `errorReferenceCode` and `correlationId`. Added persistence support to capture and propagate these IDs throughout the workflow lifecycle.
