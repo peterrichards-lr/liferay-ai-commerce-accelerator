@@ -19,6 +19,21 @@ def findYarnExecutable() {
 	return 'yarn'
 }
 
+tasks.register('formatRootPackageJson') {
+	group = 'build'
+	description = 'Formats the root package.json with Prettier.'
+	doLast {
+		exec {
+			commandLine 'npx', 'prettier', '--write', "$rootDir/package.json"
+		}
+		logger.lifecycle("Formatted root package.json with Prettier")
+	}
+}
+
+tasks.named('yarnInstall') {
+	finalizedBy 'formatRootPackageJson'
+}
+
 task generateBatchFiles (type: DefaultTask)
 
 generateBatchFiles {
