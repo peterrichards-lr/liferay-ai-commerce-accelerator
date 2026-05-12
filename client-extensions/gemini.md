@@ -1,3 +1,14 @@
+## Liferay Build Environment Constraints
+
+- **Rationale**: The project requires modern frontend build tools (Vite 6, React 19) which are incompatible with the platform's default Node.js version. We have explicitly configured the environment to maintain parity with modern standards while adhering to Liferay Workspace limitations.
+- **Node.js**: Enforced at `v22.22.2` via `build.gradle` `nodeVersion` configuration.
+- **Build Infrastructure**: Standardized on Vite 6.0.0 and modern build dependencies across all client extensions to resolve native binary and ESM/CJS compatibility conflicts.
+- **Test Pipeline**: The test suite is executed during the automated build pipeline. The known environment-level ESM loading issues (`ERR_REQUIRE_ESM`) in the test runner have been resolved with the upgrade to Node v22.
+- **Guidance**: If build/deploy failures occur, always ensure the `.gradle/node` cache is cleared (`rm -rf .gradle/node`) before re-running the build to force synchronization with the project's enforced Node version.
+- **Dismissal of Alerts**: Any dependabot alerts recommending upgrades for build tools should be reviewed against these pinned versions before applying.
+
+---
+
 # Workflow State, Batch Correlation, and WebSocket Progress Specification
 
 ## Media Attachment Strategy

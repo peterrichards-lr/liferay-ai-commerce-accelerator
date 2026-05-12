@@ -20,7 +20,7 @@
   },
   "devDependencies": {
     "msw": "^2.14.6",
-    "vitest": "^4.1.6"
+    "vitest": "3.0.0"
   },
   "scripts": {
     "pretest": "node scripts/ensure-native-modules.cjs",

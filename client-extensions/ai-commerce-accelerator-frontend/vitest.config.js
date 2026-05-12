@@ -6,7 +6,7 @@ export default defineConfig({
   plugins: [react({ jsxRuntime: 'automatic' })],
   test: {
     globals: true,
-    environment: 'jsdom',
+    environment: 'happy-dom',
     setupFiles: ['./src/setupTests.js'],
     include: ['src/**/*.test.{js,jsx}'],
     reporters: ['default', 'junit'],

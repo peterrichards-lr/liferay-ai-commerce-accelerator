@@ -5,15 +5,13 @@ export default defineConfig({
   plugins: [react()],
   test: {
     globals: true,
-    environment: 'jsdom',
+    environment: 'happy-dom',
     setupFiles: ['./src/setupTests.js'],
     include: ['src/**/*.test.{js,jsx}'],
-    reporters: ['default', 'junit'],
-    outputFile: {
-      junit: './vitest-report-configuration.xml',
+    server: {
+      deps: {
+        inline: [/html-encoding-sniffer/, /@exodus\/bytes/, /whatwg-url/],
+      },
     },
-  },
-  esbuild: {
-    jsxInject: `import React from 'react'`,
   },
 });

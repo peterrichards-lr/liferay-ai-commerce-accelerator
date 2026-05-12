@@ -1,4 +1,4 @@
-const WebSocket = require('ws');
+const { WebSocket, WebSocketServer } = require('ws');
 const { tryParseJSON, createERC } = require('../utils/misc.cjs');
 const { ERC_PREFIX } = require('../utils/constants.cjs');
 
@@ -12,7 +12,7 @@ class WebSocketService {
 
   init(server) {
     const { logger } = this.ctx;
-    const wss = new WebSocket.Server({ noServer: true });
+    const wss = new WebSocketServer({ noServer: true });
 
     server.on('upgrade', (request, socket, head) => {
       wss.handleUpgrade(request, socket, head, (ws) => {

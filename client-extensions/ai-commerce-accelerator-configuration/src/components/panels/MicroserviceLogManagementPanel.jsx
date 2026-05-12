@@ -84,9 +84,9 @@ function MicroserviceLogManagementPanel(props) {
         message: 'Microservice URL updated.',
         type: 'success',
       });
-    } catch (err) {
+    } catch (_err) {
       Liferay?.Util?.openToast?.({
-        message: `Failed to update URL: ${err.message}`,
+        message: `Failed to update URL: ${_err.message}`,
         type: 'danger',
       });
     }
@@ -102,9 +102,9 @@ function MicroserviceLogManagementPanel(props) {
           type: 'success',
         });
       }
-    } catch (err) {
+    } catch (_err) {
       Liferay?.Util?.openToast?.({
-        message: `Failed to update log settings: ${err.message}`,
+        message: `Failed to update log settings: ${_err.message}`,
         type: 'danger',
       });
     } finally {
@@ -122,9 +122,9 @@ function MicroserviceLogManagementPanel(props) {
           type: 'success',
         });
       }
-    } catch (err) {
+    } catch (_err) {
       Liferay?.Util?.openToast?.({
-        message: `Failed to cycle logs: ${err.message}`,
+        message: `Failed to cycle logs: ${_err.message}`,
         type: 'danger',
       });
     } finally {
@@ -142,8 +142,8 @@ function MicroserviceLogManagementPanel(props) {
       document.body.appendChild(link);
       link.click();
       link.remove();
-    } catch (err) {
-      console.error('Failed to download logs:', err);
+    } catch (_err) {
+      console.error('Failed to download logs:', _err);
       Liferay?.Util?.openToast?.({
         message: 'Failed to download logs',
         type: 'danger',
@@ -159,7 +159,7 @@ function MicroserviceLogManagementPanel(props) {
         message: 'Logs cleared.',
         type: 'success',
       });
-    } catch (err) {
+    } catch (_err) {
       Liferay?.Util?.openToast?.({
         message: 'Failed to clear logs',
         type: 'danger',
