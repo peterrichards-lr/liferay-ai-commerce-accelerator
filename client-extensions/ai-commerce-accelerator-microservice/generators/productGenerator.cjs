@@ -7,12 +7,12 @@ const {
   fromI18n,
   buildKeyedERC,
   buildSpecificationERC,
+  buildStableERC,
   sanitizeForERC,
   resolveErrorReference,
 } = require('../utils/misc.cjs');
 const { ERC_PREFIX, WORKFLOW_STEPS } = require('../utils/constants.cjs');
 const { COMMERCE_CONSTRAINTS } = require('../utils/commerceConstants.cjs');
-const crypto = require('crypto');
 
 const S = WORKFLOW_STEPS;
 
@@ -353,7 +353,6 @@ class ProductGenerator extends BaseGenerator {
       for (const entry of product.priceEntries) {
         if (!filterFn(entry)) continue;
 
-        const baseErc = entry.externalReferenceCode || crypto.randomUUID();
         const skuERC =
           entry.skuExternalReferenceCode ||
           (typeof entry.sku === 'string' ? entry.sku : null);
@@ -391,7 +390,10 @@ class ProductGenerator extends BaseGenerator {
           price: entry.price,
           priceListId: targetListId,
           bulkPricing: stepKey === S.GENERATE_BULK_PRICING,
-          externalReferenceCode: `PE-${skuERC}-GEN-${sanitizeForERC(baseErc, { max: 40 })}`,
+          externalReferenceCode: buildStableERC('PE', [
+            skuERC,
+            targetList.externalReferenceCode || targetList.erc,
+          ]),
           active: true,
           // HARDENING: Pricing V2.0 strictly requires this boolean to be non-null
           discountDiscovery: false,
@@ -400,7 +402,11 @@ class ProductGenerator extends BaseGenerator {
           tierPrices: (entry.tierPrices || []).map((tp) => ({
             minimumQuantity: tp.minimumQuantity,
             price: tp.price,
-            externalReferenceCode: createERC(ERC_PREFIX.BATCH), // Add ERC for tier items
+            externalReferenceCode: buildStableERC('TP', [
+              skuERC,
+              targetList.externalReferenceCode || targetList.erc,
+              tp.minimumQuantity,
+            ]),
           })),
         };
 

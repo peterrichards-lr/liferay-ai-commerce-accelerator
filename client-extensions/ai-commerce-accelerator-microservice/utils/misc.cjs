@@ -417,6 +417,14 @@ function toTitleCase(str) {
   );
 }
 
+function buildStableERC(prefix, parts = []) {
+  const pfx = toERCPart(prefix, 10);
+  const cleanParts = parts
+    .map((p) => sanitizeForERC(p, { max: 20, preserveUnderscore: true }))
+    .filter(Boolean);
+  return [pfx, ...cleanParts].join('-').slice(0, 75);
+}
+
 module.exports = {
   buildCategoryERC,
   buildDataUrl,
@@ -424,6 +432,7 @@ module.exports = {
   buildOptionCategoryERC,
   buildSpecificationERC,
   buildSpecCatERC,
+  buildStableERC,
   createERC,
   debounce,
   delay,

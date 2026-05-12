@@ -26,8 +26,17 @@
             "minimum": 0,
             "type": "number"
           },
+          "promoPrice": {
+            "description": "An optional promotional price.",
+            "minimum": 0,
+            "type": ["number", "null"]
+          },
           "sku": {
             "description": "The SKU of the product.",
+            "type": "string"
+          },
+          "skuExternalReferenceCode": {
+            "description": "The external reference code for the SKU.",
             "type": "string"
           },
           "tierPrices": {

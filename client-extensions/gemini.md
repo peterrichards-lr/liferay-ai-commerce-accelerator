@@ -26,6 +26,7 @@ To ensure environment parity and support the "Replay" feature, the system mandat
 2.  **Asset Metadata**: Media generators return metadata for created images and PDFs (ERC links, titles) to be persisted in the session, allowing these relationships to be reconstructed in new environments.
 3.  **Ordered Import**: The backend import logic handles entities in their logical dependency order: Foundations (Warehouses, Specs, Options) followed by Primary Entities (Products, Accounts, Orders).
 4.  **ERC-First Replication**: All exported data uses External Reference Codes as the primary linking mechanism to ensure stability across different Liferay instances.
+5.  **Deterministic Child ERCs**: To prevent collisions and support iterative updates, child entities (Price Entries, Tier Prices, Inventory) MUST use deterministic ERCs built from their natural keys (e.g., `PE-{SKU}-{PRICELIST}`).
 
 ## Purpose
 

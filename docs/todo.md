@@ -868,6 +868,11 @@
 **Analysis**: `GenerationFacade` stripped ERCs from Warehouse and Pricing entities because the properties were missing from their respective AI schemas.
 **Result**: **FIXED**. Updated schemas and standardizer to preserve `externalReferenceCode`.
 
+### [x] Hardened ERC Generation Strategy
+
+**Issue**: Price Entry ERCs were excessively long (~73 chars) and non-deterministic, causing collisions and batch failures in Live Mode.
+**Result**: **FIXED**. Implemented `buildStableERC` utility. Price entries now use stable `PE-{SKU}-{PL}` format. Tier prices use `TP-{SKU}-{PL}-{QTY}`. Length reduced by ~40% and uniqueness is guaranteed per SKU/List.
+
 ### [x] Enhance Data Set Export Completeness
 
 **Analysis**: The export was missing critical dependencies like specifications, options, and asset metadata (images/PDFs), making replication difficult.
