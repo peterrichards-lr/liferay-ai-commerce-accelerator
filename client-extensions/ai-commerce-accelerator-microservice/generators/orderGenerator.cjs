@@ -485,7 +485,7 @@ class OrderGenerator extends BaseGenerator {
 
   async getProductsAndAccounts(config, context = {}) {
     let products = [];
-    let accounts = [];
+    let accounts;
     let attempts = 0;
     const maxAttempts = 3;
 
