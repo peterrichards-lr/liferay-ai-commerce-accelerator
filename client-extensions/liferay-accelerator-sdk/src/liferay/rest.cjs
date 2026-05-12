@@ -2382,7 +2382,8 @@ class LiferayRestService {
       const key = payload?.key;
       if (!key) {
         throw new Error(
-          'Conflict on createSpecification, but no key was provided to find existing.'
+          'Conflict on createSpecification, but no key was provided to find existing.',
+          { cause: e }
         );
       }
 
@@ -2390,7 +2391,8 @@ class LiferayRestService {
 
       if (!existing) {
         throw new Error(
-          `Conflict creating specification '${key}', but could not retrieve the existing one.`
+          `Conflict creating specification '${key}', but could not retrieve the existing one.`,
+          { cause: e }
         );
       }
 
@@ -2770,7 +2772,8 @@ class LiferayRestService {
       const key = payload?.key;
       if (!key) {
         throw new Error(
-          'Conflict on createOptionCategory, but no key was provided to find existing.'
+          'Conflict on createOptionCategory, but no key was provided to find existing.',
+          { cause: e }
         );
       }
 
@@ -2778,7 +2781,8 @@ class LiferayRestService {
 
       if (!existing) {
         throw new Error(
-          `Conflict creating option category '${key}', but could not retrieve the existing one.`
+          `Conflict creating option category '${key}', but could not retrieve the existing one.`,
+          { cause: e }
         );
       }
 
