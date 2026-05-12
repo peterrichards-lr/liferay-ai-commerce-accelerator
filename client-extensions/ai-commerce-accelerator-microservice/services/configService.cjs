@@ -350,7 +350,7 @@ class ConfigService {
         errorReference: erc,
         message: 'Failed to get default image from Liferay Object',
       });
-      throw new Error('Default image not configured.');
+      throw new Error('Default image not configured.', { cause: error });
     }
   }
 
@@ -373,7 +373,7 @@ class ConfigService {
         errorReference: erc,
         message: 'Failed to get default PDF from Liferay Object',
       });
-      throw new Error('Default PDF not configured.');
+      throw new Error('Default PDF not configured.', { cause: error });
     }
   }
 
@@ -423,7 +423,7 @@ class ConfigService {
         errorReference: erc,
         message: 'Failed to get AI key from Liferay Object',
       });
-      throw new Error('AI API key not configured.');
+      throw new Error('AI API key not configured.', { cause: error });
     }
   }
 
@@ -500,7 +500,7 @@ class ConfigService {
         errorReference: erc,
         message: 'Failed to get AI media key from Liferay Object',
       });
-      throw new Error('AI media key not configured.');
+      throw new Error('AI media key not configured.', { cause: error });
     }
   }
 

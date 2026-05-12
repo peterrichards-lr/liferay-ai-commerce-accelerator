@@ -15,12 +15,12 @@
     "jwk-to-pem": "^2.0.5",
     "lodash": "^4.18.1",
     "memory-cache": "^0.2.0",
-    "ws": "^8.18.0",
-    "zod": "^3.25.76"
+    "ws": "^8.20.0",
+    "zod": "^4.4.3"
   },
   "devDependencies": {
-    "msw": "^2.4.0",
-    "vitest": "^4.1.5"
+    "msw": "^2.14.6",
+    "vitest": "^4.1.6"
   },
   "scripts": {
     "pretest": "node scripts/ensure-native-modules.cjs",

@@ -491,7 +491,7 @@ const gracefulShutdown = async (signal) => {
           logger.cycleLogs();
           logger.pruneLogs(logConfig.retentionCount);
         }
-      } catch (err) {
+      } catch (_err) {
         // Silently catch to avoid interval crash
       }
     }, 60000); // Check every minute

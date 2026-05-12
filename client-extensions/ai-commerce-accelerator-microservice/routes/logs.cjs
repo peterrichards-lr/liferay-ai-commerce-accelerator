@@ -1,7 +1,5 @@
 const { INTERNAL_API_PATHS } = require('../utils/internalApiPaths.cjs');
 const fs = require('fs');
-const path = require('path');
-const readline = require('readline');
 
 module.exports = (app, { logger, persistenceService, configService }) => {
   /**
