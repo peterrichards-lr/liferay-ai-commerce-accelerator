@@ -27,7 +27,6 @@ class LiferayService {
       const items = asItems(res);
 
       if (items.length === 0) {
-        hasMore = false;
         break;
       }
 
@@ -801,7 +800,6 @@ class LiferayService {
 
         const items = asItems(res);
         if (items.length === 0) {
-          hasMore = false;
           break;
         }
 

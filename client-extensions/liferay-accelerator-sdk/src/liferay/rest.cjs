@@ -1662,7 +1662,9 @@ class LiferayRestService {
       return res;
     } catch (error) {
       if (error.response?.status === 404) return null;
-      throw new Error(`Failed to get account by ERC: ${error.message}`);
+      throw new Error(`Failed to get account by ERC: ${error.message}`, {
+        cause: error,
+      });
     }
   }
 
@@ -2239,7 +2241,8 @@ class LiferayRestService {
       return items.find((it) => it.key === key) || null;
     } catch (error) {
       throw new Error(
-        `Failed to get specification category by key: ${error.message}`
+        `Failed to get specification category by key: ${error.message}`,
+        { cause: error }
       );
     }
   }
@@ -2316,7 +2319,9 @@ class LiferayRestService {
       );
     } catch (error) {
       if (error.response?.status === 404) return null;
-      throw new Error(`Failed to get specification by ERC: ${error.message}`);
+      throw new Error(`Failed to get specification by ERC: ${error.message}`, {
+        cause: error,
+      });
     }
   }
 
@@ -2339,7 +2344,9 @@ class LiferayRestService {
       const items = asItems(res);
       return items.find((it) => it.key === key) || null;
     } catch (error) {
-      throw new Error(`Failed to get specification by key: ${error.message}`);
+      throw new Error(`Failed to get specification by key: ${error.message}`, {
+        cause: error,
+      });
     }
   }
 
@@ -2511,7 +2518,9 @@ class LiferayRestService {
       );
     } catch (error) {
       if (error.response?.status === 404) return null;
-      throw new Error(`Failed to get option by ERC: ${error.message}`);
+      throw new Error(`Failed to get option by ERC: ${error.message}`, {
+        cause: error,
+      });
     }
   }
 
@@ -2534,7 +2543,9 @@ class LiferayRestService {
       const items = asItems(res);
       return items.find((it) => it.key === key) || null;
     } catch (error) {
-      throw new Error(`Failed to get option by key: ${error.message}`);
+      throw new Error(`Failed to get option by key: ${error.message}`, {
+        cause: error,
+      });
     }
   }
 
@@ -2558,7 +2569,9 @@ class LiferayRestService {
       );
     } catch (error) {
       if (error.response?.status === 404) return null;
-      throw new Error(`Failed to get option value by ERC: ${error.message}`);
+      throw new Error(`Failed to get option value by ERC: ${error.message}`, {
+        cause: error,
+      });
     }
   }
 
@@ -2690,7 +2703,12 @@ class LiferayRestService {
       const items = asItems(res);
       return items.find((it) => it.key === key) || null;
     } catch (error) {
-      throw new Error(`Failed to get option category by key: ${error.message}`);
+      throw new Error(
+        `Failed to get option category by key: ${error.message}`,
+        {
+          cause: error,
+        }
+      );
     }
   }
 
@@ -2790,7 +2808,12 @@ class LiferayRestService {
       );
     } catch (error) {
       if (error.response?.status === 404) return null;
-      throw new Error(`Failed to get option category by ERC: ${error.message}`);
+      throw new Error(
+        `Failed to get option category by ERC: ${error.message}`,
+        {
+          cause: error,
+        }
+      );
     }
   }
 
@@ -2810,7 +2833,9 @@ class LiferayRestService {
       );
     } catch (error) {
       if (error.response?.status === 404) return null;
-      throw new Error(`Failed to get postal address by ERC: ${error.message}`);
+      throw new Error(`Failed to get postal address by ERC: ${error.message}`, {
+        cause: error,
+      });
     }
   }
 
