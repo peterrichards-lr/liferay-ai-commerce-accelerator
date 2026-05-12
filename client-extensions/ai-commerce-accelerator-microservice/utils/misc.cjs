@@ -418,7 +418,7 @@ function toTitleCase(str) {
 }
 
 function buildStableERC(prefix, parts = []) {
-  const pfx = toERCPart(prefix, 10);
+  const pfx = String(prefix || 'GEN').toUpperCase();
   const cleanParts = parts
     .map((p) => sanitizeForERC(p, { max: 20, preserveUnderscore: true }))
     .filter(Boolean);

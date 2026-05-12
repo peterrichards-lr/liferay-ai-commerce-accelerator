@@ -163,17 +163,8 @@
                 "priceListExternalReferenceCode": {
                   "type": "string"
                 },
-                "sku": {
-                  "properties": {
-                    "basePrice": {
-                      "type": "number"
-                    },
-                    "basePromoPrice": {
-                      "type": ["number", "null"]
-                    }
-                  },
-                  "required": ["basePrice"],
-                  "type": "object"
+                "promoPrice": {
+                  "type": ["number", "null"]
                 },
                 "skuExternalReferenceCode": {
                   "type": "string"
@@ -210,7 +201,12 @@
                   "type": "array"
                 }
               },
-              "required": ["price", "sku", "priceListExternalReferenceCode"],
+              "required": [
+                "price",
+                "skuExternalReferenceCode",
+                "priceListExternalReferenceCode",
+                "externalReferenceCode"
+              ],
               "type": "object"
             },
             "type": "array"
@@ -247,6 +243,10 @@
                   "description": "The specific option combination, keyed by option name.",
                   "minProperties": 1,
                   "type": "object"
+                },
+                "price": {
+                  "description": "The calculated price for this variant.",
+                  "type": "number"
                 },
                 "priceModifier": {
                   "description": "Percentage adjustment from base price, e.g. -0.15 to 0.3.",

@@ -46,7 +46,21 @@ class WarehouseGenerator extends BaseGenerator {
         );
       }
 
-      const ercs = warehouseDataList.map((w) => w.externalReferenceCode);
+      const ercs = (warehouseDataList || [])
+        .map((w) => w.externalReferenceCode)
+        .filter(Boolean);
+
+      if (ercs.length === 0 && warehouseDataList?.length > 0) {
+        throw new Error(
+          'Abort: All generated warehouses are missing externalReferenceCode. Check schema validation and standardizer.'
+        );
+      }
+
+      this.logger.info(`Resolving ${ercs.length} warehouse IDs...`, {
+        sessionId,
+        ercs,
+      });
+
       const warehouses = await this.liferay.resolveByERCsWithRetry(
         config,
         ercs,

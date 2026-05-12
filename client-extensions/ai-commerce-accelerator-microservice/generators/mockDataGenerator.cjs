@@ -248,6 +248,7 @@ class MockDataGenerator {
           for (const size of sizes) {
             const variantSku = `${sku}-${color.toUpperCase()}-${size.toUpperCase()}`;
             const variantPriceModifier = size === 'Medium' ? 0.1 : 0;
+            const variantPrice = basePrice * (1 + (variantPriceModifier || 0));
 
             productData.skuVariants.push({
               // HARDENING: Removed placeholder ID to force physical resolution
@@ -256,6 +257,7 @@ class MockDataGenerator {
                 Color: color,
                 Size: size,
               },
+              price: variantPrice,
               priceModifier: variantPriceModifier,
               inStock: true,
               externalReferenceCode: variantSku, // Ensure ERC is present for resolution
@@ -531,7 +533,10 @@ class MockDataGenerator {
 
     for (let i = 0; i < count; i++) {
       const warehouse = {
-        externalReferenceCode: createERC(ERC_PREFIX.WAREHOUSE),
+        externalReferenceCode: buildStableERC(ERC_PREFIX.WAREHOUSE, [
+          `Mock Warehouse ${i + 1}`,
+          'LA',
+        ]),
         name: {},
         description: {},
         city: 'Los Angeles',

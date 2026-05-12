@@ -171,6 +171,17 @@ function SessionDetailModal({ session, onClose }) {
                     <div style={{ wordBreak: 'break-word' }}>
                       {session.error_message}
                     </div>
+                    {session.errorReferenceCode && (
+                      <div className="mt-2 small opacity-70">
+                        <strong>Error Reference:</strong>{' '}
+                        {session.errorReferenceCode}
+                      </div>
+                    )}
+                    {session.correlationId && (
+                      <div className="small opacity-70">
+                        <strong>Correlation ID:</strong> {session.correlationId}
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>
@@ -185,23 +196,30 @@ function SessionDetailModal({ session, onClose }) {
                   <span className="spinner-border spinner-border-sm ml-2" />
                 )}
               </h5>
-              <ClayButton
-                displayType="secondary"
-                size="sm"
-                onClick={() => {
-                  const text = events
-                    .map(
-                      (e) =>
-                        `[${new Date(e.timestamp).toLocaleTimeString()}] ${e.status}: ${e.message}`
-                    )
-                    .join('\n');
-                  copyToClipboard(text, 'Audit Trail');
-                }}
-                disabled={events.length === 0}
-              >
-                <ClayIcon symbol="copy" className="mr-2" />
-                Copy Audit Trail
-              </ClayButton>
+              <div className="d-flex align-items-center">
+                {session.correlationId && (
+                  <span className="small text-muted mr-3">
+                    CID: {session.correlationId}
+                  </span>
+                )}
+                <ClayButton
+                  displayType="secondary"
+                  size="sm"
+                  onClick={() => {
+                    const text = events
+                      .map(
+                        (e) =>
+                          `[${new Date(e.timestamp).toLocaleTimeString()}] ${e.status}: ${e.message}`
+                      )
+                      .join('\n');
+                    copyToClipboard(text, 'Audit Trail');
+                  }}
+                  disabled={events.length === 0}
+                >
+                  <ClayIcon symbol="copy" className="mr-2" />
+                  Copy Audit Trail
+                </ClayButton>
+              </div>
             </div>
 
             <div

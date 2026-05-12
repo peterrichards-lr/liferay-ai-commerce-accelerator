@@ -70,7 +70,8 @@
           "zip",
           "latitude",
           "longitude",
-          "active"
+          "active",
+          "externalReferenceCode"
         ],
         "title": "Warehouse",
         "type": "object"

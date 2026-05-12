@@ -60,7 +60,12 @@
             "type": "array"
           }
         },
-        "required": ["sku", "price"],
+        "required": [
+          "sku",
+          "price",
+          "externalReferenceCode",
+          "skuExternalReferenceCode"
+        ],
         "type": "object"
       },
       "type": "array"

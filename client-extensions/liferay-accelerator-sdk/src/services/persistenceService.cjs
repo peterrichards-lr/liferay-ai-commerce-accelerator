@@ -59,6 +59,8 @@ class PersistenceService {
         correlation_id TEXT,
         session_name TEXT,
         version INTEGER DEFAULT 1,
+        error_message TEXT,
+        error_reference_code TEXT,
         created_at TEXT NOT NULL,
         updated_at TEXT NOT NULL
       );
@@ -68,6 +70,26 @@ class PersistenceService {
     const columns = this.db
       .prepare('PRAGMA table_info(workflow_sessions)')
       .all();
+
+    if (!columns.find((c) => c.name === 'error_reference_code')) {
+      try {
+        this.db.exec(
+          'ALTER TABLE workflow_sessions ADD COLUMN error_reference_code TEXT;'
+        );
+      } catch (err) {
+        if (!err.message.includes('duplicate column name')) throw err;
+      }
+    }
+
+    if (!columns.find((c) => c.name === 'correlation_id')) {
+      try {
+        this.db.exec(
+          'ALTER TABLE workflow_sessions ADD COLUMN correlation_id TEXT;'
+        );
+      } catch (err) {
+        if (!err.message.includes('duplicate column name')) throw err;
+      }
+    }
 
     if (!columns.find((c) => c.name === 'session_name')) {
       try {
@@ -324,6 +346,7 @@ class PersistenceService {
       status: row.status,
       session_name: row.session_name,
       error_message: row.error_message,
+      errorReferenceCode: row.error_reference_code,
       context: JSON.parse(row.context_json),
       currentSteps: JSON.parse(row.current_steps_json),
       correlationId: row.correlation_id,
@@ -345,6 +368,7 @@ class PersistenceService {
       status: row.status,
       session_name: row.session_name,
       error_message: row.error_message,
+      errorReferenceCode: row.error_reference_code,
       context: JSON.parse(row.context_json),
       currentSteps: JSON.parse(row.current_steps_json),
       correlationId: row.correlation_id,
@@ -461,17 +485,17 @@ class PersistenceService {
     return false;
   }
 
-  tryFailSession(sessionId, errorMessage = null) {
+  tryFailSession(sessionId, errorMessage = null, errorReferenceCode = null) {
     const now = new Date().toISOString();
     const result = this.db
       .prepare(
         `
       UPDATE workflow_sessions 
-      SET status = 'FAILED', error_message = ?, current_steps_json = '[]', updated_at = ?
+      SET status = 'FAILED', error_message = ?, error_reference_code = ?, current_steps_json = '[]', updated_at = ?
       WHERE session_id = ? AND status NOT IN ('COMPLETED', 'FAILED')
     `
       )
-      .run(errorMessage, now, sessionId);
+      .run(errorMessage, errorReferenceCode, now, sessionId);
 
     if (result.changes > 0) {
       this.cache.del(sessionId);

@@ -614,22 +614,30 @@ class BaseGenerator extends BaseWorkflowService {
           newActiveSteps
         );
       } catch (err) {
+        const errorReference =
+          err.errorReferenceCode || err.errorReference || null;
         this.logger.error(
           `Fatal error in executeNextStep for session ${sessionId}: ${err.message}`,
           {
             sessionId,
             stack: err.stack,
+            errorReference,
           }
         );
 
         // HARDENING: Persist the failure in the database so hydration works correctly
-        await this.persistence.tryFailSession(sessionId, err.message);
+        await this.persistence.tryFailSession(
+          sessionId,
+          err.message,
+          errorReference
+        );
 
         // Notify frontend of the failure so it doesn't hang in "Generating..." state
         await this.progress.sessionFailed({
           sessionId,
           error: err,
           correlationId: currentCorrelationId,
+          errorReference,
         });
 
         continueAdvancing = false;
@@ -652,13 +660,23 @@ class BaseGenerator extends BaseWorkflowService {
         errorMsg += ` (Incomplete batch: processed ${failedBatch.processed_count} of ${failedBatch.total_count})`;
       }
 
-      if (await this.persistence.tryFailSession(sessionId, errorMsg)) {
+      const errorReference =
+        failedBatch.error_reference_code || failedBatch.erc || null;
+
+      if (
+        await this.persistence.tryFailSession(
+          sessionId,
+          errorMsg,
+          errorReference
+        )
+      ) {
         await this.progress.sessionFailed({
           sessionId,
           correlationId,
           error: {
             message: errorMsg,
           },
+          errorReference,
         });
       }
       return;
