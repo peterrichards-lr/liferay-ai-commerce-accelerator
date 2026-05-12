@@ -33,7 +33,9 @@ class PromptService {
       return { mtimeMs: st.mtimeMs, size: st.size };
     } catch (e) {
       if (e && e.code === 'ENOENT')
-        throw new Error(`Prompt not found: ${path.basename(filePath, '.md')}`);
+        throw new Error(`Prompt not found: ${path.basename(filePath, '.md')}`, {
+          cause: e,
+        });
       throw e;
     }
   }
