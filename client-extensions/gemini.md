@@ -362,3 +362,36 @@ To ensure exact color parity between the DXP Stylebook and browser-rendered form
   - **The Pattern**: Use a combination of `overflow: hidden` on the input and a massive `box-shadow` on the thumb (`box-shadow: -100vw 0 0 100vw var(--aica-primary-authority) !important`).
   - **Vendor Hardening**: Explicitly style `::-webkit-slider-runnable-track` and `::-webkit-slider-thumb` to bypass Liferay's default global CSS.
 - **Spacing & Alignment**: Custom checkboxes (W3C pattern) should use `display: flex`, `align-items: flex-start`, and a minimum `gap: 1.5rem` to ensure high-end spacing and perfect vertical alignment with multi-line labels.
+
+---
+
+## Liferay v2.0 Pricing & Batch APIs (Engineering Rules)
+
+Extensive empirical testing against Liferay DXP (2025.Q1) revealed strict constraints regarding the `v2.0` Headless Pricing API and the Headless Batch Engine:
+
+### 1. Batch Endpoints: POST vs PUT
+
+- **Rule**: Liferay's Headless Batch Engine endpoints (e.g., `/v2.0/price-lists/price-entries/batch`) **strictly expect the HTTP `POST` method** for batch creation operations.
+- **The Pitfall**: Attempting to use `PUT` for UPSERT behavior on these endpoints will result in a `405 Method Not Allowed`.
+- **The Implication**: Since `POST` strictly performs a `CREATE` operation, sending a batch payload containing ERCs that already exist in the database will immediately trigger a `400 Bad Request` ("This external reference code is already in use"). You must clean/delete prior entries before generating new ones with the same ERCs.
+
+### 2. Batch Tracking Query Parameter Collision
+
+- **Rule**: When using a `/batch` endpoint, Liferay intercepts the `externalReferenceCode` URL query parameter and assigns it to the **Batch Import Task** itself (not the target entity).
+- **The Pitfall**: If you incorrectly pass a target entity ERC (like `AICA-PL-GENERAL` for a Price List) in the query string (`?externalReferenceCode=AICA-PL-GENERAL`), Liferay will attempt to assign the Price List's ERC to the newly created Batch Task. This causes an immediate `400 Bad Request` collision.
+- **The Pattern**: Always pass a dynamically generated, unique `batchERC` (e.g., `AICA-BATCH-12345`) in the query parameter to allow tracking via WebHooks, and define the target relationships strictly inside the JSON payload items.
+
+### 3. Strict Pricing DTO Schemas
+
+Liferay's Java deserializer for `PriceEntry` is extremely unforgiving. The JSON payload MUST exactly match the expected Object structure:
+
+- **Nested SKU Object**: The `sku` property MUST be a nested object wrapper (e.g., `"sku": { "externalReferenceCode": "..." }` or `"sku": { "id": 123 }`). Sending a flat string (e.g., `"sku": "SKU-123"`) will trigger a Java constructor exception (`no String-argument constructor/factory method to deserialize from String value`).
+- **Required Booleans**: The `hasTierPrice` boolean MUST be explicitly provided.
+- **Extraneous Fields**: Do NOT send internal microservice state flags (like `bulkPricing` or `discountDiscovery`) in the payload, as the strict DTO validation will reject unknown properties.
+
+### 4. Recursive ERC Deduplication
+
+Liferay evaluates batch payloads recursively. If a single payload contains nested arrays (like `tierPrices` inside `priceEntries`), all ERCs within that nested array must be mathematically unique across the entire payload.
+
+- **The Pitfall**: If the AI hallucinates two duplicate `tierPrices` (e.g., two entries for "minimum quantity: 10"), generating an identical `externalReferenceCode` for both, the entire batch will fail with "already in use", even on a clean database.
+- **The Pattern**: Aggressively deduplicate nested properties (e.g., using a `Set` on `minimumQuantity`) in memory _before_ assembling the Liferay DTO.

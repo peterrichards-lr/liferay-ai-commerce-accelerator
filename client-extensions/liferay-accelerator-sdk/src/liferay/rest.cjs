@@ -2030,6 +2030,7 @@ class LiferayRestService {
       itemERCKey: 'externalReferenceCode',
       op: 'create-price-entries-batch',
       friendly: 'Failed to create price entries batch',
+      method: 'POST',
       path: (callback) => {
         if (opts.priceListExternalReferenceCode || opts.priceListId) {
           return PATH.PRICE_LIST_PRICE_ENTRIES_BATCH(

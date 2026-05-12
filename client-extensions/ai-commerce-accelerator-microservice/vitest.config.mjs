@@ -19,6 +19,6 @@ export default defineConfig({
   },
   resolve: {
     mainFields: ['module', 'main'],
-    conditions: ['node', 'import', 'default'],
+    conditions: ['node', 'require'],
   },
 });

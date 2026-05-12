@@ -348,6 +348,8 @@ class ProductGenerator extends BaseGenerator {
     }
 
     let totalEntries = 0;
+    const seenPriceERCs = new Set();
+
     for (const product of productDataList) {
       if (!Array.isArray(product.priceEntries)) continue;
       for (const entry of product.priceEntries) {
@@ -380,48 +382,75 @@ class ProductGenerator extends BaseGenerator {
           continue;
         }
 
-        const targetList =
-          promotionsListId && entry.promoPrice
-            ? priceListTemplates[1]
-            : priceListTemplates[0];
-        const targetListId = targetList.id;
+        const generalList = priceListTemplates[0];
 
-        const basePriceEntry = {
-          price: entry.price,
-          priceListId: targetListId,
-          bulkPricing: stepKey === S.GENERATE_BULK_PRICING,
-          externalReferenceCode: buildStableERC('PE', [
+        const peERC_general = buildStableERC('PE', [
+          skuERC,
+          generalList.externalReferenceCode || generalList.erc,
+        ]);
+
+        if (!seenPriceERCs.has(peERC_general)) {
+          seenPriceERCs.add(peERC_general);
+          // Deduplicate tier prices by minimumQuantity to prevent internal ERC collisions
+          const uniqueTierPrices = [];
+          const seenTierQuantities = new Set();
+          for (const tp of entry.tierPrices || []) {
+            if (!seenTierQuantities.has(tp.minimumQuantity)) {
+              seenTierQuantities.add(tp.minimumQuantity);
+              uniqueTierPrices.push(tp);
+            }
+          }
+
+          const basePriceEntry = {
+            price: entry.price,
+            priceListId: generalList.id,
+            externalReferenceCode: peERC_general,
+            active: true,
+            hasTierPrice: uniqueTierPrices.length > 0,
+            skuExternalReferenceCode: skuERC,
+            skuId: parseInt(skuId, 10),
+            tierPrices: uniqueTierPrices.map((tp) => ({
+              minimumQuantity: tp.minimumQuantity,
+              price: tp.price,
+              externalReferenceCode: buildStableERC('TP', [
+                skuERC,
+                generalList.externalReferenceCode || generalList.erc,
+                tp.minimumQuantity,
+              ]),
+            })),
+          };
+
+          // Liferay strict DTOs often reject unknown fields.
+          // bulkPricing and discountDiscovery are not in the standard v2.0 PriceEntry DTO.
+          // Removed them to prevent 400 Bad Request.
+
+          generalList.priceEntries.push(basePriceEntry);
+          totalEntries++;
+        }
+
+        if (promotionsListId && entry.promoPrice) {
+          const promoList = priceListTemplates[1];
+          const peERC_promo = buildStableERC('PE', [
             skuERC,
-            targetList.externalReferenceCode || targetList.erc,
-          ]),
-          active: true,
-          // HARDENING: Pricing V2.0 strictly requires this boolean to be non-null
-          discountDiscovery: false,
-          // HARDENING: Always provide the ERC as the primary identifier
-          skuExternalReferenceCode: skuERC,
-          tierPrices: (entry.tierPrices || []).map((tp) => ({
-            minimumQuantity: tp.minimumQuantity,
-            price: tp.price,
-            externalReferenceCode: buildStableERC('TP', [
-              skuERC,
-              targetList.externalReferenceCode || targetList.erc,
-              tp.minimumQuantity,
-            ]),
-          })),
-        };
+            promoList.externalReferenceCode || promoList.erc,
+          ]);
 
-        if (skuId && skuId !== 40000 && skuId !== 50000) {
-          // HARDENING: Provide the physical ID if resolved as a secondary high-speed path
-          basePriceEntry.skuId = parseInt(skuId, 10);
-          basePriceEntry.sku = { id: parseInt(skuId, 10) };
+          if (!seenPriceERCs.has(peERC_promo)) {
+            seenPriceERCs.add(peERC_promo);
+            const promoPriceEntry = {
+              price: entry.promoPrice,
+              priceListId: promoList.id,
+              externalReferenceCode: peERC_promo,
+              active: true,
+              hasTierPrice: false,
+              skuExternalReferenceCode: skuERC,
+              skuId: parseInt(skuId, 10),
+            };
+
+            promoList.priceEntries.push(promoPriceEntry);
+            totalEntries++;
+          }
         }
-
-        if (entry.promoPrice) {
-          basePriceEntry.promoPrice = entry.promoPrice;
-        }
-
-        targetList.priceEntries.push(basePriceEntry);
-        totalEntries++;
       }
     }
 

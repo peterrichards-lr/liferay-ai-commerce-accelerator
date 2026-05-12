@@ -419,10 +419,28 @@ function toTitleCase(str) {
 
 function buildStableERC(prefix, parts = []) {
   const pfx = String(prefix || 'GEN').toUpperCase();
+
+  const rawString = parts.filter(Boolean).join('|');
+  const hash = crypto
+    .createHash('sha256')
+    .update(rawString)
+    .digest('hex')
+    .slice(0, 8);
+
+  const maxPartsLen = 75 - pfx.length - hash.length - 2; // -2 for hyphens
   const cleanParts = parts
     .map((p) => sanitizeForERC(p, { max: 20, preserveUnderscore: true }))
     .filter(Boolean);
-  return [pfx, ...cleanParts].join('-').slice(0, 75);
+
+  let joinedParts = cleanParts.join('-');
+  if (joinedParts.length > maxPartsLen) {
+    joinedParts = joinedParts.slice(0, maxPartsLen);
+    if (joinedParts.endsWith('-')) {
+      joinedParts = joinedParts.slice(0, -1);
+    }
+  }
+
+  return [pfx, joinedParts, hash].filter(Boolean).join('-');
 }
 
 module.exports = {
