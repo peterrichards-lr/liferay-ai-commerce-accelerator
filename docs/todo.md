@@ -861,24 +861,19 @@
 
 ---
 
-## 68. Warehouse Generation & Data Portability (May 12)
+## 69. Dependabot & CI Hardening (May 12)
 
-### [x] Fix Warehouse ERC stripping (Validation)
+### [x] Resolve Dependabot Alerts & PRs
 
-**Analysis**: `GenerationFacade` stripped ERCs from Warehouse and Pricing entities because the properties were missing from their respective AI schemas.
-**Result**: **FIXED**. Updated schemas and standardizer to preserve `externalReferenceCode`.
+**Issue**: Multiple Dependabot PRs were failing due to stricter linting rules in newer ESLint/Vite versions.
+**Result**: **FIXED**. Merged all 3 Dependabot PRs (#46, #47, #48). Fixed linting errors (`preserve-caught-error`, `no-useless-assignment`, and unused imports) that were blocking the CI.
 
-### [x] Hardened ERC Generation Strategy
+### [x] Cleanup Failed CI Runs
 
-**Issue**: Price Entry ERCs were excessively long (~73 chars) and non-deterministic, causing collisions and batch failures in Live Mode.
-**Result**: **FIXED**. Implemented `buildStableERC` utility. Price entries now use stable `PE-{SKU}-{PL}` format. Tier prices use `TP-{SKU}-{PL}-{QTY}`. Length reduced by ~40% and uniqueness is guaranteed per SKU/List.
+**Analysis**: Stale failed runs from Dependabot dynamic updates were cluttering the Actions tab.
+**Result**: **CLEANED**. Deleted all failed GitHub Action runs using the `gh` CLI.
 
-### [x] Enhance Data Set Export Completeness
+### [x] Project Formatting Standardization
 
-**Analysis**: The export was missing critical dependencies like specifications, options, and asset metadata (images/PDFs), making replication difficult.
-**Result**: **FIXED**. Updated generators to persist all metadata in session context and expanded the export route to include all dependencies.
-
-### [x] Order-Aware Data Import
-
-**Analysis**: The backend import logic was too simple and didn't support the full range of generated entities.
-**Result**: **FIXED**. Expanded `routes/import.cjs` and the Liferay SDK to support batch creation of specifications, options, and warehouses in the correct dependency order.
+**Analysis**: Pre-commit hooks were failing due to inconsistent formatting between local environments and CI.
+**Result**: **FIXED**. Unified all workspaces to a root `.prettierrc`, updated `lint-staged` for better inheritance, and automated `package.json` formatting in the Gradle build lifecycle.
