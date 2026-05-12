@@ -48,7 +48,7 @@ export default defineConfig(({ command }) => {
           'liferay-ai-commerce-accelerator-frontend.[hash].esm.js',
       },
       rollupOptions: {
-        external: local ? [] : ['react', 'react-dom'],
+        external: [],
       },
       sourcemap: true,
       minify: !isServe,
