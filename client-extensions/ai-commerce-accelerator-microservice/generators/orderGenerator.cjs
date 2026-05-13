@@ -522,10 +522,6 @@ class OrderGenerator extends BaseGenerator {
     // FALLBACK: If Liferay API returns 0 or incomplete SKUs (indexing delay),
     // use the productDataList from context which contains resolved IDs.
     if (context.productDataList && context.productDataList.length > 0) {
-      this.logger.debug(
-        `Merging ${context.productDataList.length} products from session context to ensure SKU availability.`
-      );
-
       const contextProducts = context.productDataList;
 
       // Create a map of existing products by ERC for easy lookup
@@ -542,15 +538,31 @@ class OrderGenerator extends BaseGenerator {
             cp.skus &&
             cp.skus.length > 0
           ) {
+            this.logger.debug(
+              `Merging SKUs for product ${cp.externalReferenceCode} from context.`
+            );
             ep.skus = cp.skus;
           }
         } else {
-          // Add products that Liferay missed entirely
+          // Add products that Liferay missed entirely (not yet in index)
+          this.logger.debug(
+            `Injecting product ${cp.externalReferenceCode} from context (missing in API).`
+          );
           products.push(cp);
         }
       }
     }
 
+    // FINAL CHECK: If we still have 0 SKUs, log a warning with the total products found
+    const allPurchasableSkusCheck = products.flatMap((p) =>
+      (p.skus || []).filter((s) => s.sku || s.externalReferenceCode)
+    );
+
+    if (allPurchasableSkusCheck.length === 0 && products.length > 0) {
+      this.logger.warn(
+        `Discovery yielded ${products.length} products but 0 SKUs. Check if create-skus step succeeded.`
+      );
+    }
     if (
       context.accountsToCreate &&
       context.accountsToCreate.length > 0 &&

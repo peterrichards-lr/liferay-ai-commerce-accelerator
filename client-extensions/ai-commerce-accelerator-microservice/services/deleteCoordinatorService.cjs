@@ -300,7 +300,8 @@ class DeleteCoordinatorService extends BaseGenerator {
       if (isTotal) {
         try {
           // Specs
-          const allSpecs = await this.liferay.getSpecifications(config);
+          const specsRes = await this.liferay.getSpecifications(config);
+          const allSpecs = specsRes.items || [];
           manifest.specifications.push(
             ...allSpecs.filter(
               (s) => isAICA(s.externalReferenceCode) || isAICA(s.erc)
@@ -308,7 +309,8 @@ class DeleteCoordinatorService extends BaseGenerator {
           );
 
           // Options
-          const allOpts = await this.liferay.getOptions(config);
+          const optsRes = await this.liferay.getOptions(config);
+          const allOpts = optsRes.items || [];
           manifest.options.push(
             ...allOpts.filter(
               (o) => isAICA(o.externalReferenceCode) || isAICA(o.erc)
@@ -316,7 +318,8 @@ class DeleteCoordinatorService extends BaseGenerator {
           );
 
           // Groups
-          const allCats = await this.liferay.getOptionCategories(config);
+          const catsRes = await this.liferay.getOptionCategories(config);
+          const allCats = catsRes.items || [];
           manifest.optionCategories.push(
             ...allCats.filter(
               (c) => isAICA(c.externalReferenceCode) || isAICA(c.erc)

@@ -62,7 +62,48 @@ echo "⚡ Starting Liferay container (Detached) with tag: $LIFERAY_TAG"
 # We use --detach so the script can proceed to Phase 2 (Build & Wait) in the next iteration.
 ldm run "$PROJECT_NAME" --tag "$LIFERAY_TAG" --detach
 
+# --- Phase 1: Environment Verification and Project Initialization ---
+# (Already implemented)
+# ... (rest of logic) ...
+
+# --- Phase 2: Build, Deploy and Wait ---
+
+echo "🔨 Phase 2: Building and Deploying AICA Client Extensions..."
+
+# Execute gradle build to produce latest artifacts
+./gradlew deploy
+
+# Sync artifacts to the running container
+echo "📦 Syncing artifacts to LDM project [$PROJECT_NAME]..."
+ldm deploy "$PROJECT_NAME"
+
+# Health Check Loop
+echo "⏳ Waiting for Liferay to be ready at https://$DEFAULT_HOST..."
+MAX_RETRIES=60
+RETRY_COUNT=0
+READY=0
+
+while [ $RETRY_COUNT -lt $MAX_RETRIES ]; do
+    # Use -k for insecure (mkcert) and check for 200/302 status
+    STATUS=$(curl -k -s -o /dev/null -w "%{http_code}" "https://$DEFAULT_HOST" || echo "000")
+    
+    if [ "$STATUS" == "200" ] || [ "$STATUS" == "302" ]; then
+        echo -e "\n✅ Liferay is UP and responding (Status: $STATUS)!"
+        READY=1
+        break
+    fi
+    
+    RETRY_COUNT=$((RETRY_COUNT + 1))
+    printf "."
+    sleep 10
+done
+
+if [ $READY -eq 0 ]; then
+    echo -e "\n❌ ERROR: Liferay failed to become ready within $((MAX_RETRIES * 10 / 60)) minutes."
+    ldm logs "$PROJECT_NAME" --tail 100
+    exit 1
+fi
+
 echo "-------------------------------------------------------"
-echo "✅ Phase 1 Complete: Environment verified and project is booting."
-echo "💡 Host: https://$DEFAULT_HOST"
+echo "✅ Phase 2 Complete: Artifacts deployed and host is ready."
 echo "-------------------------------------------------------"
