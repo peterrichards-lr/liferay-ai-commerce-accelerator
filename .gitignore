@@ -25,6 +25,7 @@
 /plugins-sdk/dist
 /plugins-sdk/lib
 test-results
+playwright-report
 .vscode
 client-extensions/ai-commerce-accelerator-site-initializer/site-initializer/fragments/**/*.css
 

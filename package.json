@@ -53,8 +53,8 @@
   "scripts": {
     "prepare": "husky || true",
     "test": "FORCE_COLOR=0 yarn workspaces run test",
-    "smoke": "playwright test tests/smoke",
-    "verification": "playwright test --config playwright-e2e.config.js",
+    "smoke": "playwright test --config playwright/playwright.config.js",
+    "verification": "playwright test --config playwright/playwright-e2e.config.js",
     "lint": "yarn workspaces run lint && yarn lint:md",
     "lint:md": "markdownlint '**/*.md' --ignore '**/node_modules/**' --ignore '**/build/**' --ignore '**/bundles/**' --ignore 'GETTING_STARTED.md'",
     "update-browser-data": "yarn add -D baseline-browser-mapping@latest -W && npx update-browserslist-db@latest -y"
