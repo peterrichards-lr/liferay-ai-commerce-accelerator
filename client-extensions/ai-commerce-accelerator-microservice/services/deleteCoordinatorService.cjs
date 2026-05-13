@@ -169,6 +169,7 @@ class DeleteCoordinatorService extends BaseGenerator {
       // --- 1. CHANNEL-BASED DISCOVERY (Orders & Linked Accounts) ---
       const activeChannels = [];
       if (isTotal) {
+        // SDK getChannels already handles pagination
         const allChannels = await this.liferay.getChannels(config);
         activeChannels.push(...allChannels);
       } else if (channelId) {
@@ -184,8 +185,8 @@ class DeleteCoordinatorService extends BaseGenerator {
             filter: `channelId eq ${chan.id}`,
           });
           // Filter only AICA orders to avoid deleting real data
-          const aicaOrders = chanOrders.filter((o) =>
-            isAICA(o.externalReferenceCode)
+          const aicaOrders = chanOrders.filter(
+            (o) => isAICA(o.externalReferenceCode) || isAICA(o.erc)
           );
           manifest.orders.push(...aicaOrders);
         } catch (err) {
@@ -197,22 +198,25 @@ class DeleteCoordinatorService extends BaseGenerator {
       }
 
       // --- 2. ACCOUNT DISCOVERY ---
-      // We look for accounts linked to discovered orders OR accounts with AICA prefix
+      // Look for accounts linked to discovered orders OR accounts with AICA prefix
       const accountIdsFromOrders = new Set(
         manifest.orders.map((o) => o.accountId).filter(Boolean)
       );
 
-      const { items: allAccounts } = await this.liferay.getAccounts(config, {
-        pageSize: 500,
-      });
+      // SDK getAccounts already handles pagination
+      const { items: allAccounts } = await this.liferay.getAccounts(config);
 
       manifest.accounts = allAccounts.filter(
-        (a) => accountIdsFromOrders.has(a.id) || isAICA(a.externalReferenceCode)
+        (a) =>
+          accountIdsFromOrders.has(a.id) ||
+          isAICA(a.externalReferenceCode) ||
+          isAICA(a.erc)
       );
 
       // --- 3. CATALOG-BASED DISCOVERY (Products, Specs, Options, Pricing) ---
       const activeCatalogs = [];
       if (isTotal) {
+        // SDK getCatalogs already handles pagination
         const allCatalogs = await this.liferay.getCatalogs(config);
         activeCatalogs.push(...allCatalogs);
       } else if (catalogId) {
@@ -223,17 +227,17 @@ class DeleteCoordinatorService extends BaseGenerator {
         try {
           this.logger.info(`Crawling catalog ${cat.id}...`, { sessionId });
 
-          // Products
+          // Products (SDK handles pagination)
           const { items: catProducts } = await this.liferay.getProducts(
             config,
             { catalogId: cat.id }
           );
-          const aicaProducts = catProducts.filter((p) =>
-            isAICA(p.externalReferenceCode)
+          const aicaProducts = catProducts.filter(
+            (p) => isAICA(p.externalReferenceCode) || isAICA(p.erc)
           );
           manifest.products.push(...aicaProducts);
 
-          // Pricing
+          // Pricing (SDK handles pagination)
           const { items: catPrices } = await this.liferay.getPriceLists(
             config,
             { catalogId: cat.id }
@@ -286,10 +290,45 @@ class DeleteCoordinatorService extends BaseGenerator {
       }
 
       // --- 4. WAREHOUSE DISCOVERY ---
+      // SDK getWarehouses already handles pagination
       const { items: warehouses } = await this.liferay.getWarehouses(config);
       manifest.warehouses = warehouses.filter(
         (w) => isAICA(w.externalReferenceCode) || isAICA(w.erc)
       );
+
+      // --- 5. GLOBAL ORPHAN SWEEP (Only in TOTAL mode) ---
+      if (isTotal) {
+        try {
+          // Specs
+          const allSpecs = await this.liferay.getSpecifications(config);
+          manifest.specifications.push(
+            ...allSpecs.filter(
+              (s) => isAICA(s.externalReferenceCode) || isAICA(s.erc)
+            )
+          );
+
+          // Options
+          const allOpts = await this.liferay.getOptions(config);
+          manifest.options.push(
+            ...allOpts.filter(
+              (o) => isAICA(o.externalReferenceCode) || isAICA(o.erc)
+            )
+          );
+
+          // Groups
+          const allCats = await this.liferay.getOptionCategories(config);
+          manifest.optionCategories.push(
+            ...allCats.filter(
+              (c) => isAICA(c.externalReferenceCode) || isAICA(c.erc)
+            )
+          );
+        } catch (err) {
+          this.logger.warn('Global orphan sweep failed. Continuing...', {
+            sessionId,
+            error: err.message,
+          });
+        }
+      }
 
       // --- Final deduplication ---
       manifest.orders = [

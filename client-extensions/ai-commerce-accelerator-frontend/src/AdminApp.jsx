@@ -506,7 +506,9 @@ function AdminUI() {
                                   <div className="font-weight-bold mr-2">
                                     {unescapeHtml(s.session_name) || 'Unnamed'}
                                   </div>
-                                  {s.flow_type !== 'delete' && (
+                                  {String(s.flow_type || '')
+                                    .toLowerCase()
+                                    .trim() !== 'delete' && (
                                     <ClayLabel
                                       displayType={
                                         isDemo ? 'secondary' : 'info'

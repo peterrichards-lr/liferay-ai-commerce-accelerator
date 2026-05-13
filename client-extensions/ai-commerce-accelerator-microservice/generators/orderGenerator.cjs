@@ -324,9 +324,7 @@ class OrderGenerator extends BaseGenerator {
     const itemCount = Math.floor(Math.random() * 3) + 1;
 
     const allPurchasableSkus = products.flatMap((p) =>
-      (p.skus || []).filter(
-        (s) => s.purchasable && s.sku && p.productStatus === 0
-      )
+      (p.skus || []).filter((s) => s.sku || s.externalReferenceCode)
     );
 
     this.logger.debug(
@@ -380,6 +378,7 @@ class OrderGenerator extends BaseGenerator {
     }
 
     return {
+      accountId: parseInt(account.id, 10),
       accountExternalReferenceCode: account.externalReferenceCode,
       channelId: parseInt(config.channelId, 10),
       currencyCode: config.currencyCode,
@@ -387,7 +386,7 @@ class OrderGenerator extends BaseGenerator {
       orderStatus: parseInt(orderStatus, 10),
       externalReferenceCode:
         orderData.externalReferenceCode || createERC(ERC_PREFIX.ORDER),
-      orderItems,
+      items: orderItems,
     };
   }
 
@@ -501,7 +500,7 @@ class OrderGenerator extends BaseGenerator {
     let products = [];
     let accounts;
     let attempts = 0;
-    const maxAttempts = 3;
+    const maxAttempts = 5;
 
     while (attempts < maxAttempts && products.length === 0) {
       if (attempts > 0) {
@@ -518,6 +517,38 @@ class OrderGenerator extends BaseGenerator {
       });
       products = productsRes.items || [];
       attempts++;
+    }
+
+    // FALLBACK: If Liferay API returns 0 or incomplete SKUs (indexing delay),
+    // use the productDataList from context which contains resolved IDs.
+    if (context.productDataList && context.productDataList.length > 0) {
+      this.logger.debug(
+        `Merging ${context.productDataList.length} products from session context to ensure SKU availability.`
+      );
+
+      const contextProducts = context.productDataList;
+
+      // Create a map of existing products by ERC for easy lookup
+      const existingMap = new Map(
+        products.map((p) => [p.externalReferenceCode, p])
+      );
+
+      for (const cp of contextProducts) {
+        if (existingMap.has(cp.externalReferenceCode)) {
+          const ep = existingMap.get(cp.externalReferenceCode);
+          // If the Liferay version is missing SKUs but context has them, merge
+          if (
+            (!ep.skus || ep.skus.length === 0) &&
+            cp.skus &&
+            cp.skus.length > 0
+          ) {
+            ep.skus = cp.skus;
+          }
+        } else {
+          // Add products that Liferay missed entirely
+          products.push(cp);
+        }
+      }
     }
 
     if (

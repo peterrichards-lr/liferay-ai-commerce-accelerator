@@ -414,11 +414,15 @@ class ProductGenerator extends BaseGenerator {
           const basePriceEntry = {
             price: entry.price,
             priceListId: generalList.id,
+            priceListExternalReferenceCode:
+              generalList.externalReferenceCode || generalList.erc,
             externalReferenceCode: peERC_general,
             active: true,
             hasTierPrice: uniqueTierPrices.length > 0,
-            skuExternalReferenceCode: skuERC,
-            skuId: parseInt(skuId, 10),
+            sku: {
+              externalReferenceCode: skuERC,
+              id: parseInt(skuId, 10),
+            },
             tierPrices: uniqueTierPrices.map((tp) => ({
               minimumQuantity: tp.minimumQuantity,
               price: tp.price,
@@ -450,11 +454,15 @@ class ProductGenerator extends BaseGenerator {
             const promoPriceEntry = {
               price: entry.promoPrice,
               priceListId: promoList.id,
+              priceListExternalReferenceCode:
+                promoList.externalReferenceCode || promoList.erc,
               externalReferenceCode: peERC_promo,
               active: true,
               hasTierPrice: false,
-              skuExternalReferenceCode: skuERC,
-              skuId: parseInt(skuId, 10),
+              sku: {
+                externalReferenceCode: skuERC,
+                id: parseInt(skuId, 10),
+              },
             };
 
             promoList.priceEntries.push(promoPriceEntry);

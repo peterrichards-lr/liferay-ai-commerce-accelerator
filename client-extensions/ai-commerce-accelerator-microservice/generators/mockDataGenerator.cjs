@@ -545,8 +545,12 @@ class MockDataGenerator {
           catalogId,
           'LA',
         ]),
-        name: {},
-        description: {},
+        name: {
+          en_US: `Mock Warehouse ${i + 1}`,
+        },
+        description: {
+          en_US: `Primary distribution center for en_US region.`,
+        },
         city: 'Los Angeles',
         street1: `${getRandomInt(100, 9999)} Commerce Blvd`,
         zip: '90001',
@@ -558,8 +562,8 @@ class MockDataGenerator {
       };
 
       for (const lang of languageCodes) {
-        warehouse.name[lang] =
-          `Mock Warehouse ${i + 1}${lang === 'en_US' ? '' : ` (${lang})`}`;
+        if (lang === 'en_US') continue;
+        warehouse.name[lang] = `Mock Warehouse ${i + 1} (${lang})`;
         warehouse.description[lang] =
           `Primary distribution center for ${lang} region.`;
       }

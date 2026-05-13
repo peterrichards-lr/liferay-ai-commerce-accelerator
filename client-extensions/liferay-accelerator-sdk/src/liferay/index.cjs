@@ -66,7 +66,7 @@ class LiferayService {
     {
       catalogId,
       pageSize = 200,
-      fields = 'productId',
+      fields = 'productId,externalReferenceCode,name',
       filter: providedFilter,
     } = {}
   ) {
@@ -145,7 +145,7 @@ class LiferayService {
     {
       channelId: _channelId,
       _pageSize = 200,
-      fields: _fields = 'id',
+      fields: _fields = 'id,externalReferenceCode,name',
       filter: providedFilter,
       search,
     } = {}
@@ -422,7 +422,7 @@ class LiferayService {
     config,
     {
       pageSize: _pageSize = 200,
-      fields: _fields = 'id',
+      fields: _fields = 'id,externalReferenceCode,name',
       filter: providedFilter,
     } = {}
   ) {
@@ -842,7 +842,7 @@ class LiferayService {
       externalReferenceCode: callbackBatchERC,
       dryRun,
       sessionId,
-      nativeBatch: false,
+      nativeBatch: true,
       path: PATH.PRICE_LISTS_BATCH,
       basePath: PATH.PRICE_LISTS,
       listUrl: PATH.PRICE_LISTS,
@@ -870,7 +870,7 @@ class LiferayService {
       externalReferenceCode: callbackBatchERC,
       dryRun,
       sessionId,
-      nativeBatch: false,
+      nativeBatch: true,
       path: PATH.PRICE_LISTS_BATCH,
       basePath: PATH.PRICE_LISTS,
       listUrl: PATH.PRICE_LISTS,
@@ -964,7 +964,7 @@ class LiferayService {
       externalReferenceCode: callbackBatchERC,
       dryRun,
       sessionId,
-      nativeBatch: true,
+      nativeBatch: false,
       path: PATH.ORDERS_BATCH,
       basePath: PATH.ORDERS,
       listUrl: PATH.ORDERS,
@@ -1028,7 +1028,7 @@ class LiferayService {
       externalReferenceCode: callbackBatchERC,
       dryRun,
       sessionId,
-      nativeBatch: true,
+      nativeBatch: false,
       path: PATH.WAREHOUSE_INVENTORIES_DELETE_BATCH,
       basePath: listUrl,
       listUrl: listUrl,
@@ -1058,7 +1058,7 @@ class LiferayService {
       externalReferenceCode: callbackBatchERC,
       dryRun,
       sessionId,
-      nativeBatch: true,
+      nativeBatch: false,
       path: PATH.SPECIFICATIONS_BATCH,
       basePath: PATH.SPECIFICATIONS,
       listUrl: PATH.SPECIFICATIONS,
@@ -1088,7 +1088,7 @@ class LiferayService {
       externalReferenceCode: callbackBatchERC,
       dryRun,
       sessionId,
-      nativeBatch: true,
+      nativeBatch: false,
       path: PATH.OPTIONS_BATCH,
       basePath: PATH.OPTIONS,
       listUrl: PATH.OPTIONS,
@@ -1118,7 +1118,7 @@ class LiferayService {
       externalReferenceCode: callbackBatchERC,
       dryRun,
       sessionId,
-      nativeBatch: true,
+      nativeBatch: false,
       path: PATH.OPTION_CATEGORIES_BATCH,
       basePath: PATH.OPTION_CATEGORIES,
       listUrl: PATH.OPTION_CATEGORIES,
