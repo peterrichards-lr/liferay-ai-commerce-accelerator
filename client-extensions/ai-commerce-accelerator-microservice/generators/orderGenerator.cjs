@@ -349,7 +349,19 @@ class OrderGenerator extends BaseGenerator {
     }
 
     for (let i = 0; i < itemCount; i++) {
-      const sku = allPurchasableSkus[i % allPurchasableSkus.length];
+      const orderDataItem =
+        orderData.items && orderData.items.length > 0
+          ? orderData.items[i % orderData.items.length]
+          : null;
+
+      const sku = orderDataItem
+        ? allPurchasableSkus.find(
+            (s) =>
+              s.sku === orderDataItem.sku ||
+              s.externalReferenceCode === orderDataItem.sku
+          ) || allPurchasableSkus[i % allPurchasableSkus.length]
+        : allPurchasableSkus[i % allPurchasableSkus.length];
+
       const warehouse =
         warehouses && warehouses.length > 0
           ? warehouses[Math.floor(Math.random() * warehouses.length)]
@@ -358,7 +370,7 @@ class OrderGenerator extends BaseGenerator {
       orderItems.push({
         sku: sku.sku,
         skuExternalReferenceCode: sku.sku,
-        quantity: Math.floor(Math.random() * 3) + 1,
+        quantity: orderDataItem?.quantity || Math.floor(Math.random() * 3) + 1,
         warehouseId: warehouse ? warehouse.id : undefined,
         price: sku.price, // Liferay expects 'price'
         unitPrice: sku.price, // Keep for backward compatibility
@@ -459,7 +471,7 @@ class OrderGenerator extends BaseGenerator {
 
   pickAccount(requestedId, accounts) {
     if (requestedId) {
-      const found = accounts.find((a) => a.id === requestedId);
+      const found = accounts.find((a) => String(a.id) === String(requestedId));
       if (found) return found;
     }
     if (accounts.length === 0)

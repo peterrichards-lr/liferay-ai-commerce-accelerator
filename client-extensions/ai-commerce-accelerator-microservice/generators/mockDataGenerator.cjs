@@ -317,13 +317,19 @@ class MockDataGenerator {
     options = {}
   ) {
     const entries = [];
+    const catalogId = options.catalogId;
+    const generalListERC =
+      options.priceListERC ||
+      (catalogId
+        ? buildStableERC(ERC_PREFIX.PRICE_LIST, ['GENERAL', catalogId])
+        : 'AICA-PL-GENERAL');
 
     const mainEntry = {
       price: basePrice,
       promoPrice: productIndex % 5 === 0 ? basePrice * 0.8 : null,
       skuExternalReferenceCode: baseSku,
-      priceListExternalReferenceCode: 'AICA-PL-GENERAL',
-      externalReferenceCode: buildStableERC('PE', [baseSku, 'AICA-PL-GENERAL']),
+      priceListExternalReferenceCode: generalListERC,
+      externalReferenceCode: buildStableERC('PE', [baseSku, generalListERC]),
       discountDiscovery: false,
     };
 
@@ -335,7 +341,7 @@ class MockDataGenerator {
           price: basePrice * 0.9,
           externalReferenceCode: buildStableERC('TP', [
             baseSku,
-            'AICA-PL-GENERAL',
+            generalListERC,
             '10',
           ]),
         },
@@ -344,7 +350,7 @@ class MockDataGenerator {
           price: basePrice * 0.8,
           externalReferenceCode: buildStableERC('TP', [
             baseSku,
-            'AICA-PL-GENERAL',
+            generalListERC,
             '50',
           ]),
         },
@@ -357,7 +363,7 @@ class MockDataGenerator {
           price: basePrice * 0.95,
           externalReferenceCode: buildStableERC('TP', [
             baseSku,
-            'AICA-PL-GENERAL',
+            generalListERC,
             '5',
           ]),
         },
@@ -366,7 +372,7 @@ class MockDataGenerator {
           price: basePrice * 0.85,
           externalReferenceCode: buildStableERC('TP', [
             baseSku,
-            'AICA-PL-GENERAL',
+            generalListERC,
             '20',
           ]),
         },
@@ -379,10 +385,10 @@ class MockDataGenerator {
       const vEntry = {
         price: variant.price || basePrice * (1 + (variant.priceModifier || 0)),
         skuExternalReferenceCode: variant.sku,
-        priceListExternalReferenceCode: 'AICA-PL-GENERAL',
+        priceListExternalReferenceCode: generalListERC,
         externalReferenceCode: buildStableERC('PE', [
           variant.sku,
-          'AICA-PL-GENERAL',
+          generalListERC,
         ]),
         discountDiscovery: false,
       };
@@ -504,10 +510,10 @@ class MockDataGenerator {
 
       orders.push({
         externalReferenceCode: createERC(ERC_PREFIX.ORDER),
-        accountId: account?.id || 10000 + i,
+        accountId: String(account?.id || 10000 + i),
         orderDate: randomPastDate(30).toISOString(),
         orderStatus: 0,
-        orderItems: [
+        items: [
           {
             sku: skuObj.sku,
             skuExternalReferenceCode: skuObj.sku,
@@ -531,10 +537,12 @@ class MockDataGenerator {
       lang.replace('-', '_')
     );
 
+    const catalogId = _config.catalogId || 'GLOBAL';
     for (let i = 0; i < count; i++) {
       const warehouse = {
         externalReferenceCode: buildStableERC(ERC_PREFIX.WAREHOUSE, [
           `Mock Warehouse ${i + 1}`,
+          catalogId,
           'LA',
         ]),
         name: {},

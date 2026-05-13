@@ -115,9 +115,9 @@ module.exports = (app, { deleteCoordinatorService, logger, configService }) => {
   );
 
   app.post(
-    INTERNAL_API_PATHS.DELETE_CHANNEL_COMMERCE_DATA,
+    INTERNAL_API_PATHS.DELETE_SELECTED_COMMERCE_DATA,
     inputValidationMiddleware(channelConnectionSchema),
-    (req, res, next) => {
+    async (req, res, next) => {
       req.config = buildConfigAndOptions(req).config;
       next();
     },
@@ -136,7 +136,7 @@ module.exports = (app, { deleteCoordinatorService, logger, configService }) => {
 
         res.status(200).json({
           success: true,
-          operation: 'delete-channel-commerce-data',
+          operation: 'delete-selected-commerce-data',
           correlationId: config.correlationId,
           summary,
           timestamp: new Date().toISOString(),
@@ -147,7 +147,7 @@ module.exports = (app, { deleteCoordinatorService, logger, configService }) => {
           logger,
           req,
           config,
-          'delete-channel-commerce-data',
+          'delete-selected-commerce-data',
           error,
           {
             sanitizeConfig: sanitizedObject(config),

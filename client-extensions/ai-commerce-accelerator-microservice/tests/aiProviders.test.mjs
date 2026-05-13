@@ -1,7 +1,8 @@
-const { http, HttpResponse } = require('msw');
-const { server } = require('./mocks/server.cjs');
-const OpenAIProvider = require('../services/ai-providers/openaiProvider.cjs');
-const GeminiProvider = require('../services/ai-providers/geminiProvider.cjs');
+import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { http, HttpResponse } from 'msw';
+import { server } from './setup.mjs';
+import OpenAIProvider from '../services/ai-providers/openaiProvider.cjs';
+import GeminiProvider from '../services/ai-providers/geminiProvider.cjs';
 
 describe('AI Providers', () => {
   beforeEach(() => {

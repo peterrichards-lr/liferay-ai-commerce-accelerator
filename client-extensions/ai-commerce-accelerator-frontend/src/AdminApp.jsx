@@ -526,20 +526,25 @@ function AdminUI() {
                                 {new Date(s.created_at).toLocaleString()}
                               </ClayTable.Cell>
                               <ClayTable.Cell className="text-right">
-                                <ClayButton
-                                  displayType="unstyled"
-                                  size="sm"
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    handleExport(s.session_id, s.session_name);
-                                  }}
-                                  title="Export dataset"
-                                >
-                                  <ClayIcon
-                                    symbol="download"
-                                    className="mr-1"
-                                  />
-                                </ClayButton>
+                                {s.flow_type !== 'delete' && (
+                                  <ClayButton
+                                    displayType="unstyled"
+                                    size="sm"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      handleExport(
+                                        s.session_id,
+                                        s.session_name
+                                      );
+                                    }}
+                                    title="Export dataset"
+                                  >
+                                    <ClayIcon
+                                      symbol="download"
+                                      className="mr-1"
+                                    />
+                                  </ClayButton>
+                                )}
                               </ClayTable.Cell>
                             </ClayTable.Row>
                           );

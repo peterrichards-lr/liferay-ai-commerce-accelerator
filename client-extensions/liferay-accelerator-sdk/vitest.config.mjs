@@ -5,6 +5,16 @@ export default defineConfig({
   test: {
     globals: true,
     environment: 'node',
-    setupFiles: [path.resolve(__dirname, './tests/setup.js')],
+    setupFiles: [path.resolve(__dirname, './tests/setup.mjs')],
+    pool: 'forks',
+    server: {
+      deps: {
+        inline: true,
+      },
+    },
+  },
+  resolve: {
+    mainFields: ['main', 'module'],
+    conditions: ['node', 'require'],
   },
 });

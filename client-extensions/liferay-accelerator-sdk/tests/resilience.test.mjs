@@ -1,6 +1,6 @@
 import { vi, describe, it, expect, beforeEach } from 'vitest';
-const { http, HttpResponse } = require('msw');
-const { server } = require('./mocks/server.cjs');
+import { http, HttpResponse } from 'msw';
+import { server } from './setup.mjs';
 
 // Set global process env for the SDK to pick up
 process.env.LIFERAY_RETRY_DELAY_MS = '1';
@@ -16,7 +16,7 @@ vi.doMock('@rotty3000/config-node', () => ({
   lookupConfig: vi.fn().mockReturnValue(null),
 }));
 
-const LiferayRestService = require('../src/liferay/rest.cjs');
+const LiferayRestService = (await import('../src/liferay/rest.cjs')).default;
 
 describe('SDK Resilience & Retry', () => {
   let restService;

@@ -226,12 +226,12 @@ class ProductGenerator extends BaseGenerator {
     try {
       const PRICE_LIST_CONFIGS = [
         {
-          erc: 'AICA-PL-GENERAL',
+          erc: buildStableERC(ERC_PREFIX.PRICE_LIST, ['GENERAL', catalogId]),
           label: 'Standard Price List',
           type: 'price-list',
         },
         {
-          erc: 'AICA-PL-PROMOTIONS',
+          erc: buildStableERC(ERC_PREFIX.PRICE_LIST, ['PROMOTIONS', catalogId]),
           label: 'Promotions List',
           type: 'promotion',
         },
@@ -304,6 +304,7 @@ class ProductGenerator extends BaseGenerator {
   async _runPricingStep(sessionId, stepKey, filterFn) {
     const session = await this.persistence.getSession(sessionId);
     const { config, options, productDataList } = session.context;
+    const catalogId = config.catalogId;
 
     if (!productDataList || productDataList.length === 0) {
       return await this.completeSyncStep(sessionId, stepKey, 'BYPASSED');
@@ -317,8 +318,17 @@ class ProductGenerator extends BaseGenerator {
       session.correlationId,
       options
     );
-    const generalListId = ercToIdMap.get('AICA-PL-GENERAL');
-    const promotionsListId = ercToIdMap.get('AICA-PL-PROMOTIONS');
+    const generalListERC = buildStableERC(ERC_PREFIX.PRICE_LIST, [
+      'GENERAL',
+      catalogId,
+    ]);
+    const promoListERC = buildStableERC(ERC_PREFIX.PRICE_LIST, [
+      'PROMOTIONS',
+      catalogId,
+    ]);
+
+    const generalListId = ercToIdMap.get(generalListERC);
+    const promotionsListId = ercToIdMap.get(promoListERC);
 
     if (!generalListId)
       throw new Error(`Failed to resolve target price list for ${stepKey}`);
@@ -326,8 +336,8 @@ class ProductGenerator extends BaseGenerator {
     const priceListTemplates = [
       {
         id: generalListId,
-        externalReferenceCode: 'AICA-PL-GENERAL',
-        name: 'AI Commerce Accelerator Price List',
+        externalReferenceCode: generalListERC,
+        name: `AICA - Standard Prices (${catalogId})`,
         type: 'price-list',
         catalogId: parseInt(config.catalogId, 10),
         currencyCode: config.currencyCode || 'USD',
@@ -338,8 +348,8 @@ class ProductGenerator extends BaseGenerator {
     if (promotionsListId) {
       priceListTemplates.push({
         id: promotionsListId,
-        externalReferenceCode: 'AICA-PL-PROMOTIONS',
-        name: 'AI Commerce Accelerator Promotions',
+        externalReferenceCode: promoListERC,
+        name: `AICA - Promotions (${catalogId})`,
         type: 'promotion',
         catalogId: parseInt(config.catalogId, 10),
         currencyCode: config.currencyCode || 'USD',
@@ -461,7 +471,7 @@ class ProductGenerator extends BaseGenerator {
       await this.submitBatch(
         sessionId,
         stepKey,
-        'products',
+        'priceLists',
         'generate',
         (batchERC) =>
           this.liferay.createPriceEntriesBatch(config, priceEntries, {
@@ -481,19 +491,20 @@ class ProductGenerator extends BaseGenerator {
   }
 
   async _ensurePriceLists(config, sessionId, correlationId, options = {}) {
+    const catalogId = config.catalogId;
     const generateNewLists = options.generatePriceLists;
     const ercToIdMap = new Map();
 
     const PRICE_LIST_TEMPLATES = [
       {
-        erc: 'AICA-PL-GENERAL',
-        name: 'AI Commerce Accelerator Price List',
+        erc: buildStableERC(ERC_PREFIX.PRICE_LIST, ['GENERAL', catalogId]),
+        name: `AICA - Standard Prices (${catalogId})`,
         priority: 1,
         type: 'price-list',
       },
       {
-        erc: 'AICA-PL-PROMOTIONS',
-        name: 'AI Commerce Accelerator Promotions',
+        erc: buildStableERC(ERC_PREFIX.PRICE_LIST, ['PROMOTIONS', catalogId]),
+        name: `AICA - Promotions (${catalogId})`,
         priority: 2,
         type: 'promotion',
       },
@@ -851,7 +862,7 @@ class ProductGenerator extends BaseGenerator {
           await this.submitBatch(
             sessionId,
             S.CREATE_PRODUCT_SKUS,
-            'products',
+            'skus',
             'generate',
             (erc) =>
               this.liferay.createProductsBatch(config, batch, {

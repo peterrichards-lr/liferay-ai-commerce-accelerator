@@ -4,8 +4,8 @@ export default defineConfig({
   test: {
     globals: true,
     environment: 'node',
-    include: ['tests/**/*.test.cjs'],
-    setupFiles: ['./tests/setup.cjs'],
+    include: ['tests/**/*.test.{cjs,mjs}'],
+    setupFiles: ['./tests/setup.mjs'],
     reporters: ['default', 'junit'],
     outputFile: {
       junit: './vitest-report-microservice.xml',
@@ -18,7 +18,7 @@ export default defineConfig({
     },
   },
   resolve: {
-    mainFields: ['module', 'main'],
+    mainFields: ['main', 'module'],
     conditions: ['node', 'require'],
   },
 });

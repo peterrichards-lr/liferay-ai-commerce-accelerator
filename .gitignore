@@ -43,3 +43,4 @@ package-lock.json
 .env
 activation-key-*.xml
 aica-logs-*.json
+aica-dataset-*.json

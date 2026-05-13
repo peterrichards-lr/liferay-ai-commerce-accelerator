@@ -234,6 +234,7 @@ module.exports = (app, { logger, persistenceService, progressService }) => {
           completed: 0,
           total: Number.parseInt(options.productCount, 10) || 0,
         },
+        skus: { completed: 0, total: 0 },
         accounts: {
           completed: 0,
           total: Number.parseInt(options.accountCount, 10) || 0,
@@ -242,6 +243,8 @@ module.exports = (app, { logger, persistenceService, progressService }) => {
           completed: 0,
           total: Number.parseInt(options.orderCount, 10) || 0,
         },
+        priceLists: { completed: 0, total: 0 },
+        promotions: { completed: 0, total: 0 },
         images: {
           completed: 0,
           total:
@@ -277,6 +280,7 @@ module.exports = (app, { logger, persistenceService, progressService }) => {
         // Only map primary creation/deletion steps to avoid inflating totals
         'create-products': 'products',
         'delete-products': 'products',
+        'create-skus': 'skus',
         'create-accounts': 'accounts',
         'delete-accounts': 'accounts',
         'create-orders': 'orders',
@@ -285,6 +289,8 @@ module.exports = (app, { logger, persistenceService, progressService }) => {
         'delete-warehouses': 'warehouses',
         'create-price-lists': 'priceLists',
         'delete-price-lists': 'priceLists',
+        'create-bulk-pricing': 'priceLists',
+        'create-tier-pricing': 'priceLists',
         'delete-promotions': 'promotions',
         'create-images': 'images',
         'create-pdfs': 'pdfs',
