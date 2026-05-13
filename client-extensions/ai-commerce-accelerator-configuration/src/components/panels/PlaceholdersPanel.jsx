@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import ClayPanel from '@clayui/panel';
+import ClayAlert from '@clayui/alert';
 import ClayButton from '@clayui/button';
 import ClayIcon from '@clayui/icon';
 import PlaceholderItem from '../common/PlaceholderItem';
@@ -10,6 +11,7 @@ import {
   normalizeToJsonPayload,
 } from '../../utils/api';
 import { useApi } from '../../hooks/useMicroserviceApi';
+import { useObjectStorage } from '../../hooks/useObjectStorage';
 import {
   MEDIA_PLACEHOLDERS,
   MEDIA_PLACEHOLDER_BASE64,
@@ -18,11 +20,39 @@ import {
 const PDF_PLACEHOLDER_KEY = 'default-pdf';
 const IMAGE_PLACEHOLDER_KEY = 'default-image';
 
-export default function PlaceholdersPanel({ microserviceUrl }) {
-  const api = useApi(microserviceUrl);
+const MICROSERVICE_CONFIG_KEY = 'microservice-config';
+const DEFAULTS = {
+  [MICROSERVICE_CONFIG_KEY]: {
+    url: 'http://localhost:3001',
+  },
+};
+
+export default function PlaceholdersPanel(props) {
+  const { microserviceUrl: injectedMsUrl } = props;
+
+  const {
+    loading: loadingConfig,
+    values: { [MICROSERVICE_CONFIG_KEY]: msConfig },
+  } = useObjectStorage({
+    keys: [MICROSERVICE_CONFIG_KEY],
+    defaults: {
+      [MICROSERVICE_CONFIG_KEY]: {
+        url: injectedMsUrl || DEFAULTS[MICROSERVICE_CONFIG_KEY].url,
+      },
+    },
+  });
+
+  const effectiveMsUrl = useMemo(() => {
+    const url =
+      injectedMsUrl || msConfig?.url || DEFAULTS[MICROSERVICE_CONFIG_KEY].url;
+    return url?.replace(/\/$/, '');
+  }, [injectedMsUrl, msConfig?.url]);
+
+  const api = useApi(effectiveMsUrl);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [galleryLoading, setGalleryLoading] = useState(false);
+  const [galleryError, setGalleryError] = useState(null);
 
   const [pdfBase64, setPdfBase64] = useState('');
   const [pdfMime, setPdfMime] = useState('application/pdf');
@@ -62,19 +92,23 @@ export default function PlaceholdersPanel({ microserviceUrl }) {
   );
 
   const fetchGallery = useCallback(async () => {
-    if (!microserviceUrl) return;
+    if (!effectiveMsUrl) return;
     try {
       setGalleryLoading(true);
+      setGalleryError(null);
       const res = await api.get(MEDIA_PLACEHOLDERS);
       if (res?.success) {
         setAvailablePlaceholders(res.placeholders || []);
+      } else {
+        setGalleryError(res?.error || 'Failed to fetch gallery');
       }
     } catch (err) {
       console.error('Failed to fetch gallery', err);
+      setGalleryError(err.message);
     } finally {
       setGalleryLoading(false);
     }
-  }, [api, microserviceUrl]);
+  }, [api, effectiveMsUrl]);
 
   const onSave = useCallback(async () => {
     if (saving) return;
@@ -204,12 +238,10 @@ export default function PlaceholdersPanel({ microserviceUrl }) {
   }, []);
 
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
     setPdfIssues(validateBase64(pdfBase64));
   }, [pdfBase64, validateBase64]);
 
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
     setImgIssues(validateBase64(imgBase64));
   }, [imgBase64, validateBase64]);
 
@@ -218,6 +250,7 @@ export default function PlaceholdersPanel({ microserviceUrl }) {
     abortRef.current = controller;
 
     (async () => {
+      if (loadingConfig) return;
       setLoading(true);
       try {
         const [rawPdf, rawImg] = await Promise.all([
@@ -263,7 +296,7 @@ export default function PlaceholdersPanel({ microserviceUrl }) {
     })();
 
     return () => controller.abort();
-  }, [fetchGallery]);
+  }, [fetchGallery, loadingConfig]);
 
   useEffect(() => {
     const handler = (e) => {
@@ -296,6 +329,10 @@ export default function PlaceholdersPanel({ microserviceUrl }) {
       </ul>
     ) : null;
 
+  if (loadingConfig) {
+    return <div className="p-5 text-center">Loading configuration...</div>;
+  }
+
   return (
     <div
       className="sheet sheet-lg"
@@ -318,7 +355,30 @@ export default function PlaceholdersPanel({ microserviceUrl }) {
       </div>
 
       <div className="sheet-section">
-        <ClayPanel displayTitle="PDF Placeholder" displayType="unstyled">
+        <div className="alert alert-info mb-4">
+          <div className="d-flex align-items-center mb-2">
+            <ClayIcon symbol="info-circle" className="mr-2" />
+            <span className="font-weight-bold">Workflow Tip:</span>
+          </div>
+          <ul className="mb-0 small">
+            <li>
+              <strong>Upload file:</strong> Local staging. Loads an image into
+              memory for immediate use. Only saved to Liferay when you click{' '}
+              <strong>Save</strong>.
+            </li>
+            <li>
+              <strong>Add to Gallery:</strong> Server persistence. Saves the
+              currently selected image permanently to the microservice storage
+              for reuse across sessions.
+            </li>
+          </ul>
+        </div>
+
+        <ClayPanel
+          header="PDF Placeholder"
+          displayType="unstyled"
+          className="mb-4"
+        >
           <div className="text-secondary small mb-3">
             Stored under <code>{PDF_PLACEHOLDER_KEY}</code> as JSON:{' '}
             <code>{'{ mimeType, base64 }'}</code> with{' '}
@@ -337,7 +397,7 @@ export default function PlaceholdersPanel({ microserviceUrl }) {
           {renderIssues(pdfIssues)}
         </ClayPanel>
 
-        <ClayPanel displayTitle="Image Placeholder" displayType="unstyled">
+        <ClayPanel header="Image Placeholder" displayType="unstyled">
           <div className="text-secondary small mb-3">
             Stored under <code>{IMAGE_PLACEHOLDER_KEY}</code> as JSON:{' '}
             <code>{'{ mimeType, base64 }'}</code> with an editable{' '}
@@ -345,35 +405,15 @@ export default function PlaceholdersPanel({ microserviceUrl }) {
             <code>image/jpeg</code>, <code>image/webp</code>).
           </div>
 
-          <div className="mb-4">
-            <div className="alert alert-info">
-              <div className="d-flex align-items-center mb-2">
-                <ClayIcon symbol="info-circle" className="mr-2" />
-                <span className="font-weight-bold">Workflow Tip:</span>
-              </div>
-              <ul className="mb-0 small">
-                <li>
-                  <strong>Upload file:</strong> Local staging. Loads an image
-                  into memory for immediate use. Only saved to Liferay when you
-                  click <strong>Save</strong>.
-                </li>
-                <li>
-                  <strong>Add to Gallery:</strong> Server persistence. Saves the
-                  currently selected image permanently to the microservice
-                  storage for reuse across sessions.
-                </li>
-              </ul>
-            </div>
-
-            <div className="d-flex align-items-center justify-content-between mb-2">
-              <span className="form-label font-weight-semi-bold mb-0">
-                Gallery Options
-              </span>
+          <div className="mb-4 border rounded p-3 bg-light">
+            <div className="d-flex align-items-center justify-content-between mb-3">
+              <span className="h4 mb-0">Gallery Options</span>
               <ClayButton
                 displayType="secondary"
                 size="sm"
                 onClick={fetchGallery}
                 disabled={galleryLoading}
+                title="Reload gallery"
               >
                 <ClayIcon
                   symbol="reload"
@@ -382,19 +422,24 @@ export default function PlaceholdersPanel({ microserviceUrl }) {
               </ClayButton>
             </div>
 
+            {galleryError && (
+              <ClayAlert displayType="danger" className="mb-3">
+                {galleryError}
+              </ClayAlert>
+            )}
+
             <div className="d-flex flex-wrap" style={{ gap: '1rem' }}>
               {availablePlaceholders.map((data) => {
-                const fullUrl = `${microserviceUrl?.replace(
-                  /\/$/,
-                  ''
-                )}${data.url}`;
+                const fullUrl = `${effectiveMsUrl}${data.url}`;
                 const isSelected = selectedFilename === data.filename;
 
                 return (
                   <div
                     key={data.filename}
-                    className={`p-2 border rounded text-center position-relative transition-all ${
-                      isSelected ? 'border-primary bg-light' : 'border-light'
+                    className={`p-2 border rounded text-center position-relative transition-all shadow-sm ${
+                      isSelected
+                        ? 'border-primary bg-white'
+                        : 'border-light bg-white'
                     }`}
                     style={{
                       width: '120px',
@@ -406,7 +451,7 @@ export default function PlaceholdersPanel({ microserviceUrl }) {
                     onClick={() => onSelectFromGallery(data)}
                   >
                     <div
-                      className="mb-2 d-flex align-items-center justify-content-center bg-white rounded overflow-hidden shadow-sm"
+                      className="mb-2 d-flex align-items-center justify-content-center bg-light rounded overflow-hidden"
                       style={{ height: '80px' }}
                     >
                       <img
@@ -417,9 +462,13 @@ export default function PlaceholdersPanel({ microserviceUrl }) {
                           maxHeight: '100%',
                           objectFit: 'contain',
                         }}
+                        onError={(e) => {
+                          e.target.src =
+                            'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyNCIgaGVpZ2h0PSIyNCIgdmlld0JveD0iMCAwIDI0IDI0IiBmaWxsPSJub25lIiBzdHJva2U9ImN1cnJlbnRDb2xvciIgc3Ryb2tlLXdpZHRoPSIyIiBzdHJva2UtbGluZWNhcD0icm91bmQiIHN0cm9rZS1saW5lam9pbj0icm91bmQiPjxyZWN0IHg9IjMiIHk9IjMiIHdpZHRoPSIxOCIgaGVpZ2h0PSIxOCIgcng9IjIiIHJ5PSIyIj48L3JlY3Q+PGNpcmNsZSBjeD0iOC41IiBjeT0iOC41IiByPSIxLjUiPjwvY2lyY2xlPjxwYXRoIGQ9Ik0yMSAxNWwtNS01TDUgMjEiPjwvcGF0aD48L3N2Zz4=';
+                        }}
                       />
                     </div>
-                    <div className="small font-weight-semi-bold text-truncate">
+                    <div className="small font-weight-semi-bold text-truncate px-1">
                       {data.label}
                     </div>
 
@@ -447,8 +496,16 @@ export default function PlaceholdersPanel({ microserviceUrl }) {
                   </div>
                 );
               })}
-              {availablePlaceholders.length === 0 && (
-                <div className="text-muted small">No images in gallery.</div>
+              {!galleryLoading && availablePlaceholders.length === 0 && (
+                <div className="text-muted small p-3 w-100 text-center border border-dashed rounded">
+                  No images in gallery. Use &quot;Add to Gallery&quot; to
+                  populate.
+                </div>
+              )}
+              {galleryLoading && (
+                <div className="w-100 text-center p-3">
+                  <span className="spinner-border spinner-border-sm text-primary" />
+                </div>
               )}
             </div>
           </div>
