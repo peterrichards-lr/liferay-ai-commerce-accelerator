@@ -239,13 +239,13 @@ function AppUI() {
   const handleResetStatus = useCallback(() => {
     dispatch({ type: 'RESET' });
     notifyUser('Workflow status reset.');
-  }, [notifyUser]);
+  }, []);
 
   const handleResetAll = useCallback(() => {
     dispatch({ type: 'RESET' });
     clearLogs();
     notifyUser('Dashboard status and logs reset.');
-  }, [clearLogs, notifyUser]);
+  }, [clearLogs]);
 
   const cancelWorkflow = useCallback(async () => {
     await baseCancelWorkflow();

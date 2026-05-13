@@ -3,8 +3,6 @@ import react from '@vitejs/plugin-react';
 import replace from '@rollup/plugin-replace';
 import path from 'path';
 
-const local = process.env.LOCAL_DEV === 'true';
-
 export default defineConfig(({ command }) => {
   const isServe = command === 'serve';
 

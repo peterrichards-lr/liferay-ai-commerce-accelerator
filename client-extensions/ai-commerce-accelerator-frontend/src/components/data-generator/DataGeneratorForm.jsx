@@ -11,7 +11,6 @@ import WarehousesToggle from './WarehousesToggle';
 import InventoryControls from './InventoryControls';
 import VisualAssetControls from './VisualAssetControls';
 import OrderDistributionControl from './OrderDistributionControl';
-import { getTotalProgress } from '../../state/progressSelectors';
 
 function hasErr(map, key, msgStartsWith) {
   const list = map?.[key] || [];
@@ -26,12 +25,10 @@ function DataGeneratorForm({
   onGenerate,
   onResetSettings,
   onCancel,
-  onResetProgress,
   disabled,
   isSubmitDisabled,
   disabledReason,
   isGenerating,
-  progress,
   aiKeyAvailable,
   validationErrors,
   scrollTargetRef,

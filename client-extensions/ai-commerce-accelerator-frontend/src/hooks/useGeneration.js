@@ -133,7 +133,6 @@ export default function useGeneration({
       forceDemoMode,
       generationConfig,
       mountedRef,
-      progress,
     ]
   );
 

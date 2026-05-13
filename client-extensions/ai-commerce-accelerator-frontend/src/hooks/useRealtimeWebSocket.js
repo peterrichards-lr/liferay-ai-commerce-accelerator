@@ -416,7 +416,6 @@ export default function useRealtimeWebSocket({
             });
             activeSessionIdRef.current = null;
           } else if (scope === WS_SCOPE.STEP) {
-            const isDelete = activeFlowTypeRef.current === 'delete';
             currentOnLog?.(
               `Step completed: ${
                 entityType.charAt(0).toUpperCase() + entityType.slice(1)

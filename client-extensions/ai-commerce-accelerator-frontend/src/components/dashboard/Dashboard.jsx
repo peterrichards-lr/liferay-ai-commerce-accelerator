@@ -60,8 +60,6 @@ function Dashboard({
   isGenerating,
   generationConfig,
   wsStatus = 'disabled',
-  batchErrors = [],
-  clearBatchErrors,
   onReconnect,
   connected,
   aiKeyAvailable,
@@ -79,12 +77,11 @@ function Dashboard({
   const [displayElapsedMs, setDisplayElapsedMs] = useState(0);
 
   useEffect(() => {
-    if (!startTime) {
-      setDisplayElapsedMs(0);
-      return;
-    }
-
     const update = () => {
+      if (!startTime) {
+        setDisplayElapsedMs(0);
+        return;
+      }
       const effectiveEnd = endTime ?? lastUpdateTime ?? Date.now();
       setDisplayElapsedMs(Math.max(0, effectiveEnd - startTime));
     };

@@ -159,7 +159,7 @@ function MicroserviceLogManagementPanel(props) {
         message: 'Logs cleared.',
         type: 'success',
       });
-    } catch (_err) {
+    } catch {
       Liferay?.Util?.openToast?.({
         message: 'Failed to clear logs',
         type: 'danger',
