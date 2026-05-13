@@ -1,7 +1,5 @@
 const fs = require('fs');
 const path = require('path');
-const { createERC } = require('../utils/misc.cjs');
-const { ERC_PREFIX } = require('../utils/constants.cjs');
 
 /**
  * Media routes for managing placeholder images.

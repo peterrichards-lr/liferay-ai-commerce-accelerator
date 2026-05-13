@@ -346,10 +346,29 @@ export default function PlaceholdersPanel({ microserviceUrl }) {
           </div>
 
           <div className="mb-4">
+            <div className="alert alert-info">
+              <div className="d-flex align-items-center mb-2">
+                <ClayIcon symbol="info-circle" className="mr-2" />
+                <span className="font-weight-bold">Workflow Tip:</span>
+              </div>
+              <ul className="mb-0 small">
+                <li>
+                  <strong>Upload file:</strong> Local staging. Loads an image
+                  into memory for immediate use. Only saved to Liferay when you
+                  click <strong>Save</strong>.
+                </li>
+                <li>
+                  <strong>Add to Gallery:</strong> Server persistence. Saves the
+                  currently selected image permanently to the microservice
+                  storage for reuse across sessions.
+                </li>
+              </ul>
+            </div>
+
             <div className="d-flex align-items-center justify-content-between mb-2">
-              <label className="form-label font-weight-semi-bold mb-0">
+              <span className="form-label font-weight-semi-bold mb-0">
                 Gallery Options
-              </label>
+              </span>
               <ClayButton
                 displayType="secondary"
                 size="sm"
@@ -435,9 +454,9 @@ export default function PlaceholdersPanel({ microserviceUrl }) {
           </div>
 
           <div className="d-flex align-items-center justify-content-between mb-2">
-            <label className="form-label font-weight-semi-bold mb-0">
+            <span className="form-label font-weight-semi-bold mb-0">
               Active Selection
-            </label>
+            </span>
             <ClayButton
               displayType="secondary"
               size="sm"

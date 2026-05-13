@@ -347,12 +347,18 @@ export default function PlaceholderItem({
             type="button"
             displayType="secondary"
             onClick={onPickFile}
+            size="sm"
             className="mr-2"
           >
             <ClayIcon symbol="upload" />
             <span className="ml-2">Upload file</span>
           </ClayButton>
-          <ClayButton type="button" displayType="secondary" onClick={onClear}>
+          <ClayButton
+            type="button"
+            displayType="secondary"
+            size="sm"
+            onClick={onClear}
+          >
             <ClayIcon symbol="times" />
             <span className="ml-2">Clear</span>
           </ClayButton>
@@ -438,7 +444,7 @@ export default function PlaceholderItem({
               <span>{uploadError}</span>
               {!!oversizeDataUrl && (
                 <ClayButton
-                  small
+                  size="sm"
                   displayType="secondary"
                   className="ml-3"
                   onClick={handleResizeToFit}

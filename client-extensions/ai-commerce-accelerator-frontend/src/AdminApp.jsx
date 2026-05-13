@@ -506,15 +506,19 @@ function AdminUI() {
                                   <div className="font-weight-bold mr-2">
                                     {unescapeHtml(s.session_name) || 'Unnamed'}
                                   </div>
-                                  <ClayLabel
-                                    displayType={isDemo ? 'secondary' : 'info'}
-                                    style={{
-                                      fontSize: '0.65rem',
-                                      padding: '0.1rem 0.4rem',
-                                    }}
-                                  >
-                                    {isDemo ? 'MOCK' : 'AI'}
-                                  </ClayLabel>
+                                  {s.flow_type !== 'delete' && (
+                                    <ClayLabel
+                                      displayType={
+                                        isDemo ? 'secondary' : 'info'
+                                      }
+                                      style={{
+                                        fontSize: '0.65rem',
+                                        padding: '0.1rem 0.4rem',
+                                      }}
+                                    >
+                                      {isDemo ? 'MOCK' : 'AI'}
+                                    </ClayLabel>
+                                  )}
                                 </div>
                                 <small className="text-muted">
                                   {s.session_id}

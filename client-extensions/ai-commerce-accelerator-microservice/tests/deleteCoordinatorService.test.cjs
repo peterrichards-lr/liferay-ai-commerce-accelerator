@@ -113,17 +113,13 @@ describe('DeleteCoordinatorService', () => {
 
     const session = persistence.getSession(sessionId);
     expect(session.context.manifest).toBeDefined();
-    expect(mockCtx.progress.stepProgress).toHaveBeenCalled();
 
-    // Verify implicit milestones were marked as completed
-    expect(mockCtx.progress.stepCompleted).toHaveBeenCalledWith(
-      expect.objectContaining({ entityType: 'addresses' })
+    // Verify totals were emitted for core entities
+    expect(mockCtx.progress.stepProgress).toHaveBeenCalledWith(
+      expect.objectContaining({ entityType: 'products', totalCount: 0 })
     );
-    expect(mockCtx.progress.stepCompleted).toHaveBeenCalledWith(
-      expect.objectContaining({ entityType: 'images' })
-    );
-    expect(mockCtx.progress.stepCompleted).toHaveBeenCalledWith(
-      expect.objectContaining({ entityType: 'pdfs' })
+    expect(mockCtx.progress.stepProgress).toHaveBeenCalledWith(
+      expect.objectContaining({ entityType: 'orders', totalCount: 0 })
     );
   });
 
