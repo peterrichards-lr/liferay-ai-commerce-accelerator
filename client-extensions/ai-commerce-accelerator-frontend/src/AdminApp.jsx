@@ -4,6 +4,7 @@ import ClayButton from '@clayui/button';
 import ClayIcon from '@clayui/icon';
 import ClayTable from '@clayui/table';
 import ClayCard from '@clayui/card';
+import ClayLabel from '@clayui/label';
 import { useApp, useApi, AppProvider } from './context/AppContext';
 import { ConfirmProvider, useConfirm } from './components/ConfirmProvider';
 import notifyUser from './utils/notifications';
@@ -89,6 +90,7 @@ function AdminUI() {
   }, [api, config.microserviceUrl]);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     fetchData();
   }, [fetchData]);
 
@@ -156,6 +158,7 @@ function AdminUI() {
 
   useEffect(() => {
     // Reset to first page when filters change
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setCurrentPage(1);
   }, [filters, pageSize]);
 
@@ -478,11 +481,13 @@ function AdminUI() {
                             if (typeof s.context === 'string') {
                               context = JSON.parse(s.context);
                             }
-                          } catch (_err) {
+                          } catch {
                             context = {};
                           }
 
                           const options = context?.options || {};
+                          const isDemo =
+                            options.demoMode === true || s.flow_type === 'demo';
                           const brandName = options.brandName || '---';
                           const region =
                             options.geographicContext?.countryTitle ||
@@ -497,8 +502,19 @@ function AdminUI() {
                               className="hover-row"
                             >
                               <ClayTable.Cell>
-                                <div className="font-weight-bold">
-                                  {unescapeHtml(s.session_name) || 'Unnamed'}
+                                <div className="d-flex align-items-center">
+                                  <div className="font-weight-bold mr-2">
+                                    {unescapeHtml(s.session_name) || 'Unnamed'}
+                                  </div>
+                                  <ClayLabel
+                                    displayType={isDemo ? 'secondary' : 'info'}
+                                    style={{
+                                      fontSize: '0.65rem',
+                                      padding: '0.1rem 0.4rem',
+                                    }}
+                                  >
+                                    {isDemo ? 'MOCK' : 'AI'}
+                                  </ClayLabel>
                                 </div>
                                 <small className="text-muted">
                                   {s.session_id}

@@ -40,6 +40,9 @@ const LOGS_CYCLE = `${BASE_PATH}/logs/cycle`;
 const LOGS_SETTINGS = `${BASE_PATH}/logs/settings`;
 const LOGS_SESSION = `${BASE_PATH}/logs/session/:sessionId`;
 
+const MEDIA_PLACEHOLDERS = `${BASE_PATH}/media/placeholders`;
+const MEDIA_PLACEHOLDER_BASE64 = `${BASE_PATH}/media/placeholders/:filename/base64`;
+
 export {
   DELETE_COMMERCE_DATA,
   DELETE_SELECTED_COMMERCE_DATA,
@@ -71,4 +74,6 @@ export {
   LOGS_CYCLE,
   LOGS_SETTINGS,
   LOGS_SESSION,
+  MEDIA_PLACEHOLDERS,
+  MEDIA_PLACEHOLDER_BASE64,
 };

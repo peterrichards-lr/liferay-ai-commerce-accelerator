@@ -121,6 +121,8 @@ class OrderGenerator extends BaseGenerator {
 
       await this.persistence.updateSessionContext(sessionId, {
         orderDataList,
+        products,
+        accounts,
       });
 
       this.logger.debug('Pre-selected dependencies for orders', {

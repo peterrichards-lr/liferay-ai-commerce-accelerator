@@ -199,7 +199,7 @@ const gracefulShutdown = async (signal) => {
   app.set('trust proxy', true);
 
   app.use(express.json({ limit: '25mb' }));
-  app.use(express.static(path.join(__dirname, '..')));
+  app.use(express.static(path.join(__dirname, 'public')));
 
   app.get('/', (req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'index.html'));
@@ -224,6 +224,8 @@ const gracefulShutdown = async (signal) => {
     persistenceService,
     progressService,
   };
+
+  require('./routes/media.cjs')(apiV1Router, routeCtx);
 
   require('./routes/batch.cjs')(apiV1Router, {
     ...routeCtx,

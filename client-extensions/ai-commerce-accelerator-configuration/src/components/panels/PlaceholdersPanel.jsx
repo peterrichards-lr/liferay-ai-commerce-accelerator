@@ -9,13 +9,20 @@ import {
   parsePlaceholderValue,
   normalizeToJsonPayload,
 } from '../../utils/api';
+import { useApi } from '../../hooks/useMicroserviceApi';
+import {
+  MEDIA_PLACEHOLDERS,
+  MEDIA_PLACEHOLDER_BASE64,
+} from '../../utils/microservicePaths';
 
 const PDF_PLACEHOLDER_KEY = 'default-pdf';
 const IMAGE_PLACEHOLDER_KEY = 'default-image';
 
-export default function PlaceholdersPanel() {
+export default function PlaceholdersPanel({ microserviceUrl }) {
+  const api = useApi(microserviceUrl);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [galleryLoading, setGalleryLoading] = useState(false);
 
   const [pdfBase64, setPdfBase64] = useState('');
   const [pdfMime, setPdfMime] = useState('application/pdf');
@@ -28,6 +35,9 @@ export default function PlaceholdersPanel() {
   const [lastImgBase64, setLastImgBase64] = useState('');
   const [lastImgMime, setLastImgMime] = useState('image/png');
   const [imgIssues, setImgIssues] = useState([]);
+
+  const [availablePlaceholders, setAvailablePlaceholders] = useState([]);
+  const [selectedFilename, setSelectedFilename] = useState(null);
 
   const abortRef = useRef(null);
 
@@ -50,6 +60,21 @@ export default function PlaceholdersPanel() {
       lastImgMime,
     ]
   );
+
+  const fetchGallery = useCallback(async () => {
+    if (!microserviceUrl) return;
+    try {
+      setGalleryLoading(true);
+      const res = await api.get(MEDIA_PLACEHOLDERS);
+      if (res?.success) {
+        setAvailablePlaceholders(res.placeholders || []);
+      }
+    } catch (err) {
+      console.error('Failed to fetch gallery', err);
+    } finally {
+      setGalleryLoading(false);
+    }
+  }, [api, microserviceUrl]);
 
   const onSave = useCallback(async () => {
     if (saving) return;
@@ -97,6 +122,78 @@ export default function PlaceholdersPanel() {
     setImgBase64(lastImgBase64);
     setImgMime(lastImgMime);
   }, [lastPdfBase64, lastPdfMime, lastImgBase64, lastImgMime]);
+
+  const onSelectFromGallery = useCallback(
+    async (placeholder) => {
+      try {
+        setGalleryLoading(true);
+        const path = MEDIA_PLACEHOLDER_BASE64.replace(
+          ':filename',
+          placeholder.filename
+        );
+        const res = await api.get(path);
+        if (res?.success) {
+          setImgBase64(res.base64);
+          setImgMime(res.mimeType || placeholder.mimeType);
+          setSelectedFilename(placeholder.filename);
+        }
+      } catch (err) {
+        console.error('Failed to select from gallery', err);
+      } finally {
+        setGalleryLoading(false);
+      }
+    },
+    [api]
+  );
+
+  const onAddToGallery = useCallback(async () => {
+    if (!imgBase64 || imgIssues.length > 0) return;
+    const label = prompt('Enter a label for this placeholder:', 'Custom');
+    if (!label) return;
+
+    try {
+      setGalleryLoading(true);
+      const res = await api.post(MEDIA_PLACEHOLDERS, {
+        label,
+        mimeType: imgMime,
+        base64: imgBase64,
+      });
+
+      if (res?.success) {
+        Liferay?.Util?.openToast?.({
+          message: 'Image added to gallery.',
+          type: 'success',
+        });
+        fetchGallery();
+      }
+    } catch (err) {
+      console.error('Failed to add to gallery', err);
+      Liferay?.Util?.openToast?.({
+        message: 'Failed to add image to gallery.',
+        type: 'danger',
+      });
+    } finally {
+      setGalleryLoading(false);
+    }
+  }, [api, imgBase64, imgIssues, imgMime, fetchGallery]);
+
+  const onDeleteFromGallery = useCallback(
+    async (filename) => {
+      if (!confirm('Are you sure you want to delete this placeholder?')) return;
+      try {
+        setGalleryLoading(true);
+        const res = await api.del(`${MEDIA_PLACEHOLDERS}/${filename}`);
+        if (res?.success) {
+          fetchGallery();
+        }
+      } catch (err) {
+        console.error('Failed to delete placeholder', err);
+      } finally {
+        setGalleryLoading(false);
+      }
+    },
+    [api, fetchGallery]
+  );
 
   const validateBase64 = useCallback((s) => {
     if (!s) return ['No data provided'];
@@ -153,6 +250,8 @@ export default function PlaceholdersPanel() {
         } catch {
           setImgIssues(['Failed to load image placeholder']);
         }
+
+        fetchGallery();
       } catch {
         Liferay?.Util?.openToast?.({
           message: 'Failed to load placeholders.',
@@ -164,7 +263,7 @@ export default function PlaceholdersPanel() {
     })();
 
     return () => controller.abort();
-  }, []);
+  }, [fetchGallery]);
 
   useEffect(() => {
     const handler = (e) => {
@@ -245,6 +344,111 @@ export default function PlaceholdersPanel() {
             <code>mimeType</code> (e.g. <code>image/png</code>,{' '}
             <code>image/jpeg</code>, <code>image/webp</code>).
           </div>
+
+          <div className="mb-4">
+            <div className="d-flex align-items-center justify-content-between mb-2">
+              <label className="form-label font-weight-semi-bold mb-0">
+                Gallery Options
+              </label>
+              <ClayButton
+                displayType="secondary"
+                size="sm"
+                onClick={fetchGallery}
+                disabled={galleryLoading}
+              >
+                <ClayIcon
+                  symbol="reload"
+                  className={galleryLoading ? 'ani-spin' : ''}
+                />
+              </ClayButton>
+            </div>
+
+            <div className="d-flex flex-wrap" style={{ gap: '1rem' }}>
+              {availablePlaceholders.map((data) => {
+                const fullUrl = `${microserviceUrl?.replace(
+                  /\/$/,
+                  ''
+                )}${data.url}`;
+                const isSelected = selectedFilename === data.filename;
+
+                return (
+                  <div
+                    key={data.filename}
+                    className={`p-2 border rounded text-center position-relative transition-all ${
+                      isSelected ? 'border-primary bg-light' : 'border-light'
+                    }`}
+                    style={{
+                      width: '120px',
+                      cursor: 'pointer',
+                      boxShadow: isSelected
+                        ? '0 0 0 2px var(--primary)'
+                        : 'none',
+                    }}
+                    onClick={() => onSelectFromGallery(data)}
+                  >
+                    <div
+                      className="mb-2 d-flex align-items-center justify-content-center bg-white rounded overflow-hidden shadow-sm"
+                      style={{ height: '80px' }}
+                    >
+                      <img
+                        src={fullUrl}
+                        alt={data.label}
+                        style={{
+                          maxWidth: '100%',
+                          maxHeight: '100%',
+                          objectFit: 'contain',
+                        }}
+                      />
+                    </div>
+                    <div className="small font-weight-semi-bold text-truncate">
+                      {data.label}
+                    </div>
+
+                    {![
+                      'liferay_product_default.webp',
+                      'blank.webp',
+                      'no_image_available.webp',
+                    ].includes(data.filename) && (
+                      <button
+                        type="button"
+                        className="btn btn-unstyled position-absolute"
+                        style={{ top: '2px', right: '2px', padding: '2px' }}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onDeleteFromGallery(data.filename);
+                        }}
+                        title="Remove from gallery"
+                      >
+                        <ClayIcon
+                          symbol="times-circle-full"
+                          className="text-danger"
+                        />
+                      </button>
+                    )}
+                  </div>
+                );
+              })}
+              {availablePlaceholders.length === 0 && (
+                <div className="text-muted small">No images in gallery.</div>
+              )}
+            </div>
+          </div>
+
+          <div className="d-flex align-items-center justify-content-between mb-2">
+            <label className="form-label font-weight-semi-bold mb-0">
+              Active Selection
+            </label>
+            <ClayButton
+              displayType="secondary"
+              size="sm"
+              disabled={!imgBase64 || imgIssues.length > 0 || galleryLoading}
+              onClick={onAddToGallery}
+            >
+              <ClayIcon symbol="plus" className="mr-1" />
+              Add to Gallery
+            </ClayButton>
+          </div>
+
           <PlaceholderItem
             prefix="img"
             value={{ base64Data: imgBase64, mimeType: imgMime }}
@@ -265,16 +469,19 @@ export default function PlaceholdersPanel() {
             className="mr-2"
             disabled={hasIssues || !dirty || saving}
             aria-disabled={hasIssues || !dirty || saving}
-            aria-label={saving ? 'Saving placeholders…' : 'Save placeholders'}
+            aria-label={
+              saving ? 'Saving placeholders…' : 'Save placeholders to Liferay'
+            }
           >
             <ClayIcon symbol={saving ? 'time' : 'disk'} />
             <span className="ml-2">{saving ? 'Saving…' : 'Save'}</span>
           </ClayButton>
+
           <ClayButton
             displayType="secondary"
             onClick={onCancel}
-            disabled={hasIssues || !dirty || saving}
-            aria-disabled={hasIssues || !dirty || saving}
+            disabled={!dirty || saving}
+            aria-disabled={!dirty || saving}
             aria-label="Cancel changes"
           >
             <ClayIcon symbol="restore" />

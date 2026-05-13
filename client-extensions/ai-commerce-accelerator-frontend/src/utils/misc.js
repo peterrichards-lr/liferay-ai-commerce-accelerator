@@ -12,18 +12,10 @@ function normalizeEntityType(t) {
     'resolve-sku-ids',
     'update-inventory',
     'inventory',
-    'generate-price-lists',
-    'update-catalog-configuration',
-    'generate-bulk-pricing',
-    'generate-tier-pricing',
     'delete-products',
     'delete-product-related',
-    'delete-price-lists',
-    'delete-promotions',
     'reset-catalog-configuration',
     'deleteproducts',
-    'deletepricelists',
-    'deletepromotions',
     'resetcatalogconfiguration',
   ];
 
@@ -49,6 +41,13 @@ function normalizeEntityType(t) {
     'deleteorders',
   ];
 
+  const skus = [
+    'skus',
+    'create-skus',
+    'resolve-sku-ids',
+    'create-product-skus',
+  ];
+
   const warehouses = [
     'warehouses',
     'generate-warehouse-data',
@@ -60,8 +59,8 @@ function normalizeEntityType(t) {
     'deletewarehouseitems',
   ];
 
-  const images = ['images', 'attach-images', 'process-images'];
-  const pdfs = ['pdfs', 'attach-pdfs', 'process-pdfs'];
+  const images = ['images', 'attach-images', 'process-images', 'create-images'];
+  const pdfs = ['pdfs', 'attach-pdfs', 'process-pdfs', 'create-pdfs'];
   const options = [
     'options',
     'link-product-options',
@@ -70,26 +69,41 @@ function normalizeEntityType(t) {
     'delete-product-options',
     'deleteoptions',
     'deleteproductoptions',
+    'ensure-options',
   ];
   const specifications = [
     'specifications',
     'delete-specifications',
     'delete-product-specifications',
     'deletespecifications',
+    'ensure-specifications',
+    'ensure-specification-categories',
   ];
 
   const priceLists = [
     'pricelists',
     'price-lists',
     'generate-price-lists',
+    'create-price-lists',
     'delete-price-lists',
+    'generate-bulk-pricing',
+    'generate-tier-pricing',
+    'create-bulk-pricing',
+    'create-tier-pricing',
+    'sync-delay-pricing',
   ];
 
-  const promotions = ['promotions', 'generate-promotions', 'delete-promotions'];
+  const promotions = [
+    'promotions',
+    'generate-promotions',
+    'create-promotions',
+    'delete-promotions',
+  ];
 
   if (products.includes(s)) return 'products';
   if (accounts.includes(s)) return 'accounts';
   if (orders.includes(s)) return 'orders';
+  if (skus.includes(s)) return 'skus';
   if (warehouses.includes(s)) return 'warehouses';
   if (images.includes(s)) return 'images';
   if (pdfs.includes(s)) return 'pdfs';
