@@ -4,6 +4,14 @@
 
 set -e
 
+# --- CI Check (Fail Fast/Quietly) ---
+# This script is computationally heavy and requires a Docker environment with high RAM.
+# We bypass it in CI/GitHub Actions to avoid blocking the pipeline.
+if [ "$CI" = "true" ] || [ "$GITHUB_ACTIONS" = "true" ]; then
+    echo "⏭️  SKIPPING LDM Orchestration: CI/GitHub Actions environment detected."
+    exit 0
+fi
+
 # --- Constants ---
 REQUIRED_LDM_VERSION="2.5.4"
 PROJECT_NAME="aica-e2e"
