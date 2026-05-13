@@ -67,43 +67,36 @@ ldm run "$PROJECT_NAME" --tag "$LIFERAY_TAG" --detach
 # ... (rest of logic) ...
 
 # --- Phase 2: Build, Deploy and Wait ---
+# (Already implemented)
 
-echo "🔨 Phase 2: Building and Deploying AICA Client Extensions..."
+# --- Phase 3: Test Execution & Teardown ---
 
-# Execute gradle build to produce latest artifacts
-./gradlew deploy
+echo "🎭 Phase 3: Running Playwright E2E tests..."
 
-# Sync artifacts to the running container
-echo "📦 Syncing artifacts to LDM project [$PROJECT_NAME]..."
-ldm deploy "$PROJECT_NAME"
+# Ensure we clean up even if the tests fail or the script is interrupted
+cleanup() {
+    echo -e "\n🧹 Cleaning up environment..."
+    # Using ldm rm --delete to remove the project and its associated volumes/data
+    ldm rm "$PROJECT_NAME" --delete || echo "⚠️ Warning: Cleanup failed or project already removed."
+    echo "✨ Done."
+}
 
-# Health Check Loop
-echo "⏳ Waiting for Liferay to be ready at https://$DEFAULT_HOST..."
-MAX_RETRIES=60
-RETRY_COUNT=0
-READY=0
+# Register the cleanup trap
+trap cleanup EXIT
 
-while [ $RETRY_COUNT -lt $MAX_RETRIES ]; do
-    # Use -k for insecure (mkcert) and check for 200/302 status
-    STATUS=$(curl -k -s -o /dev/null -w "%{http_code}" "https://$DEFAULT_HOST" || echo "000")
-    
-    if [ "$STATUS" == "200" ] || [ "$STATUS" == "302" ]; then
-        echo -e "\n✅ Liferay is UP and responding (Status: $STATUS)!"
-        READY=1
-        break
-    fi
-    
-    RETRY_COUNT=$((RETRY_COUNT + 1))
-    printf "."
-    sleep 10
-done
+# Set the base URL for Playwright
+export BASE_URL="https://$DEFAULT_HOST"
 
-if [ $READY -eq 0 ]; then
-    echo -e "\n❌ ERROR: Liferay failed to become ready within $((MAX_RETRIES * 10 / 60)) minutes."
-    ldm logs "$PROJECT_NAME" --tail 100
+# Execute the tests
+if yarn playwright test; then
+    echo "-------------------------------------------------------"
+    echo "🎉 SUCCESS: E2E Verification passed!"
+    echo "-------------------------------------------------------"
+else
+    echo "-------------------------------------------------------"
+    echo "❌ FAILURE: E2E Verification failed."
+    echo "-------------------------------------------------------"
+    # Capture short log burst for quick diagnosis before cleanup
+    ldm logs "$PROJECT_NAME" --tail 50 || true
     exit 1
 fi
-
-echo "-------------------------------------------------------"
-echo "✅ Phase 2 Complete: Artifacts deployed and host is ready."
-echo "-------------------------------------------------------"
