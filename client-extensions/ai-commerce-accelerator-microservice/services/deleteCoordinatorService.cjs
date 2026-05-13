@@ -780,12 +780,41 @@ class DeleteCoordinatorService extends BaseGenerator {
             deleteWarehouseItems: S.DELETE_WAREHOUSE_ITEMS,
             deleteAccounts: S.DELETE_ACCOUNTS,
             deleteProducts: S.DELETE_PRODUCTS,
+            deleteProductSpecifications: S.DELETE_PRODUCT_SPECIFICATIONS,
+            deleteProductOptions: S.DELETE_PRODUCT_OPTIONS,
             deletePriceLists: S.DELETE_PRICE_LISTS,
             deletePromotions: S.DELETE_PROMOTIONS,
+            deleteSpecifications: S.DELETE_SPECIFICATIONS,
+            deleteOptions: S.DELETE_OPTIONS,
+            deleteOptionCategories: S.DELETE_OPTION_CATEGORIES,
           };
           return { ...s, name: scopeMap[s.name] || s.name };
         })
       : [];
+
+    // HARDENING: If no explicit scope is provided but we have a channel/catalog,
+    // assume a full targeted cleanup for that scope.
+    if (steps.length === 0 && (channelId || catalogId)) {
+      this.logger.info(
+        'No explicit deleteScope provided for targeted deletion. Using default cleanup sequence.',
+        { sessionId, channelId, catalogId }
+      );
+      steps = [
+        { name: S.DELETE_ORDERS, type: 'sync' },
+        { name: S.DELETE_WAREHOUSE_ITEMS, type: 'sync' },
+        { name: S.DELETE_WAREHOUSES, type: 'sync' },
+        { name: S.DELETE_PRODUCT_SPECIFICATIONS, type: 'sync' },
+        { name: S.DELETE_PRODUCT_OPTIONS, type: 'sync' },
+        { name: S.DELETE_PRODUCTS, type: 'sync' },
+        { name: S.DELETE_ACCOUNTS, type: 'sync' },
+        { name: S.DELETE_PRICE_LISTS, type: 'sync' },
+        { name: S.DELETE_PROMOTIONS, type: 'sync' },
+        { name: S.DELETE_SPECIFICATIONS, type: 'sync' },
+        { name: S.DELETE_OPTIONS, type: 'sync' },
+        { name: S.DELETE_OPTION_CATEGORIES, type: 'sync' },
+        { name: S.RESET_CATALOG_CONFIG, type: 'sync' },
+      ];
+    }
 
     if (steps.length === 0)
       return { sessionId, message: 'No entities selected.' };
@@ -794,11 +823,13 @@ class DeleteCoordinatorService extends BaseGenerator {
       (s) => s.name === S.DELETE_PRICE_LISTS || s.name === S.DELETE_PROMOTIONS
     );
     if (hasPricing && !steps.some((s) => s.name === S.RESET_CATALOG_CONFIG)) {
-      steps.unshift({ name: S.RESET_CATALOG_CONFIG, type: 'sync' });
+      steps.push({ name: S.RESET_CATALOG_CONFIG, type: 'sync' });
     }
 
-    // Always add DISCOVER at the start
-    steps.unshift({ name: S.DISCOVER, type: 'sync' });
+    // Always add DISCOVER at the start to build the manifest based on selected channel/catalog
+    if (!steps.some((s) => s.name === S.DISCOVER)) {
+      steps.unshift({ name: S.DISCOVER, type: 'sync' });
+    }
 
     await this.persistence.createSession({
       sessionId,
