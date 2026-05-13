@@ -14,6 +14,23 @@ The **Liferay AI Commerce Accelerator** is a production-ready suite of client ex
 - **[Features & Capabilities](./docs/FEATURES.md)**: Details on AI generation, real-time monitoring, and visual assets.
 - **[Workflow Diagrams](./docs/workflow-diagrams.md)**: Visual guides to the data creation and deletion processes.
 
+## 🧪 Verification
+
+The accelerator includes a comprehensive "one command" verification suite using **Liferay Docker Manager (LDM)**. This ensures that changes can be tested against a clean, production-parity environment automatically.
+
+```bash
+./scripts/run-e2e-ldm.sh
+```
+
+This orchestrator will:
+
+1. Verify system dependencies (LDM >= 2.5.4, Docker, mkcert).
+2. Start a clean Liferay environment matched to `gradle.properties`.
+3. Build and deploy all Client Extensions.
+4. Execute Playwright E2E tests across multiple responsive states (Desktop, Mobile, Tablet).
+5. Generate visual snapshots in `test-results/` for manual verification.
+6. Automatically teardown the environment.
+
 ## ✨ Core Pillars
 
 ### 🧠 Intelligent Orchestration

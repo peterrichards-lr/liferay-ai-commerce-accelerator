@@ -37,6 +37,24 @@ For development purposes, you can deploy and run the microservice independently.
 (rm -f client-extensions/ai-commerce-accelerator-microservice/logs/*.log || true) && blade gw :client-extensions:ai-commerce-accelerator-microservice:clean :client-extensions:ai-commerce-accelerator-microservice:deploy :client-extensions:ai-commerce-accelerator-microservice:packageRunDebug
 ```
 
+## Automated Verification (Recommended)
+
+To verify the entire stack (Microservice, Frontend, and Liferay Integration) in a clean environment, use the provided LDM orchestrator:
+
+```bash
+./scripts/run-e2e-ldm.sh
+```
+
+### Requirements
+
+- **LDM >= 2.5.4**: [Installation Guide](https://github.com/peterrichards-lr/liferay-docker-manager)
+- **Docker Desktop**: Running with at least 8GB RAM.
+- **mkcert**: Required for local SSL.
+
+### Visual Verification
+
+After a successful run (or failure), you can find visual snapshots of each responsive state in the `test-results/` directory. This allows for manual auditing of component display on Desktop, iPhone, Pixel, and iPad devices.
+
 ## Initial Configuration
 
 Once deployed, follow these steps to configure the accelerator:

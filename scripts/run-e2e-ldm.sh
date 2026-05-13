@@ -88,15 +88,18 @@ trap cleanup EXIT
 export BASE_URL="https://$DEFAULT_HOST"
 
 # Execute the tests
-if yarn playwright test; then
+if yarn verification; then
     echo "-------------------------------------------------------"
     echo "🎉 SUCCESS: E2E Verification passed!"
     echo "-------------------------------------------------------"
+    echo "💡 Visual Snapshots: Check the 'test-results' directory"
+    echo "   to manually verify component display across devices."
 else
     echo "-------------------------------------------------------"
     echo "❌ FAILURE: E2E Verification failed."
     echo "-------------------------------------------------------"
     # Capture short log burst for quick diagnosis before cleanup
     ldm logs "$PROJECT_NAME" --tail 50 || true
+    echo "💡 Debugging: Check 'test-results' for failure snapshots."
     exit 1
 fi
