@@ -22,6 +22,15 @@ The accelerator includes a comprehensive "one command" verification suite using 
 ./scripts/run-e2e-ldm.sh
 ```
 
+### Advanced Usage
+
+You can customize the orchestrator using the following flags and environment variables:
+
+- `-p <project_name>` / `--project`: Target an **existing** LDM project instead of creating a fresh ephemeral one. (e.g. `./scripts/run-e2e-ldm.sh -p fragments-test`)
+- `-k` / `--keep`: Prevents the automated `ldm rm --delete` cleanup at the end of the script. Useful for logging in and debugging a failed test run.
+- `-v` / `--verbose`: Prints all realized `ldm`, `gradlew`, and `yarn` commands before they execute.
+- `LIFERAY_USER` / `LIFERAY_PASSWORD`: Override the default authentication credentials used by the Playwright tests.
+
 This orchestrator will:
 
 1. Verify system dependencies (LDM >= 2.5.4, Docker, mkcert).

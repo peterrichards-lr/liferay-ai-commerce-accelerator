@@ -45,6 +45,13 @@ To verify the entire stack (Microservice, Frontend, and Liferay Integration) in 
 ./scripts/run-e2e-ldm.sh
 ```
 
+### Advanced Orchestrator Flags
+
+- `-p <name>`: Target an existing project instead of creating a fresh one.
+- `-k`: Keep the environment running after the tests finish (bypasses automatic cleanup).
+- `-v`: Verbose mode to print all realized commands.
+- _Env Vars_: Prepend `LIFERAY_USER=... LIFERAY_PASSWORD=...` to use custom credentials.
+
 ### Requirements
 
 - **LDM >= 2.5.4**: [Installation Guide](https://github.com/peterrichards-lr/liferay-docker-manager)
