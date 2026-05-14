@@ -109,10 +109,10 @@ if [ $EXISTING_PROJECT -eq 0 ]; then
 
     LIFERAY_TAG=$(grep 'liferay.workspace.product=' "$GRADLE_PROPS" | cut -d'=' -f2 | xargs)
 
-    echo "📦 Initializing ephemeral LDM project [$PROJECT_NAME] (Hypersonic)..."
+    echo "📦 Initializing ephemeral LDM project [$PROJECT_NAME] (PostgreSQL)..."
     ldm_cmd init-from . "$PROJECT_NAME" \
         --host-name "$TARGET_HOST" \
-        --db hypersonic \
+        --db postgresql \
         --no-captcha \
         --non-interactive
 
