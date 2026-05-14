@@ -121,24 +121,29 @@ if [ $EXISTING_PROJECT -eq 0 ]; then
     fi
 
     LIFERAY_TAG=$(grep 'liferay.workspace.product=' "$GRADLE_PROPS" | cut -d'=' -f2 | xargs)
+echo "📦 Initializing ephemeral LDM project [$PROJECT_NAME] (PostgreSQL)..."
+# Corrected argument order for ldm 2.5.4
+ldm_cmd init-from . "$PROJECT_NAME" \
+    -y \
+    --host-name "$TARGET_HOST" \
+    --db postgresql \
+    --no-captcha
 
-    echo "📦 Initializing ephemeral LDM project [$PROJECT_NAME] (PostgreSQL)..."
-    # Corrected argument order for ldm 2.5.4
-    ldm_cmd init-from . "$PROJECT_NAME" \
-        -y \
-        --host-name "$TARGET_HOST" \
-        --db postgresql \
-        --no-captcha
+# FIX: Ensure world-writable permissions for all project folders.
+# This prevents 'Unable to create lock manager' and other permission errors
+# especially when the workspace is on an external drive.
+echo "🔓 Relaxing permissions for [$PROJECT_NAME] directories..."
+chmod -R 777 "$PROJECT_NAME"
 
-    echo "⚡ Starting Liferay container with tag [$LIFERAY_TAG] (Detached + Sidecar)..."
-    ldm_cmd run "$PROJECT_NAME" \
-        --tag "$LIFERAY_TAG" \
-        --detach \
-        --sidecar \
-        --no-captcha \
-        -y
+echo "⚡ Starting Liferay container with tag [$LIFERAY_TAG] (Detached + Sidecar)..."
+ldm_cmd run "$PROJECT_NAME" \
+    --tag "$LIFERAY_TAG" \
+    --detach \
+    --sidecar \
+    --no-captcha \
+    -y
 else
-    echo "⏭️  Skipping initialization/boot for existing project '$PROJECT_NAME'."
+echo "⏭️  Skipping initialization/boot for existing project '$PROJECT_NAME'."
 fi
 
 # --- Phase 4: Sync & Wait ---
@@ -148,22 +153,30 @@ echo "🚚 Syncing artifacts to container [$PROJECT_NAME]..."
 ldm_cmd deploy "$PROJECT_NAME" -y
 
 echo "⏳ Waiting for Liferay to be ready at https://$TARGET_HOST..."
-MAX_RETRIES=60
+MAX_RETRIES=100 # Increased timeout for slow external drives
 RETRY_COUNT=0
 READY=0
 
 while [ $RETRY_COUNT -lt $MAX_RETRIES ]; do
-    STATUS=$(curl -k -s -o /dev/null -w "%{http_code}" "https://$TARGET_HOST" || echo "000")
-    
-    if [ "$STATUS" == "200" ] || [ "$STATUS" == "302" ]; then
-        echo -e "\n✅ Liferay is UP and responding (Status: $STATUS)!"
-        READY=1
-        break
+# Use -k for insecure (mkcert) and check for 200/302 status
+STATUS=$(curl -k -s -o /dev/null -w "%{http_code}" "https://$TARGET_HOST" || echo "000")
+
+if [ "$STATUS" == "200" ] || [ "$STATUS" == "302" ]; then
+    echo -e "\n✅ Liferay is UP and responding (Status: $STATUS)!"
+    READY=1
+    break
+fi
+
+# Check for early failure in logs
+if [ $((RETRY_COUNT % 5)) -eq 0 ]; then
+    if docker logs "$PROJECT_NAME" 2>&1 | grep -q "ERROR"; then
+        echo -e "\n⚠️  LDM detected errors in the logs. Check: ldm logs -f $PROJECT_NAME"
     fi
-    
-    RETRY_COUNT=$((RETRY_COUNT + 1))
-    printf "."
-    sleep 10
+fi
+
+RETRY_COUNT=$((RETRY_COUNT + 1))
+printf "."
+sleep 10
 done
 
 if [ $READY -eq 0 ]; then
