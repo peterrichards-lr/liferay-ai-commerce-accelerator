@@ -105,7 +105,14 @@ if ! ldm_cmd doctor --skip-project > /dev/null; then
     exit 1
 fi
 
-# --- Phase 2: Project Init & Start ---
+# --- Phase 2: Build & Deployment Preparation ---
+
+# We build BEFORE initializing the project to ensure fresh LCP.json metadata is captured
+echo "🔨 Phase 2: Building AICA Client Extensions..."
+log_command "./gradlew deploy"
+./gradlew deploy
+
+# --- Phase 3: Project Init & Start ---
 
 if [ $EXISTING_PROJECT -eq 0 ]; then
     if [ ! -f "$GRADLE_PROPS" ]; then
@@ -116,11 +123,12 @@ if [ $EXISTING_PROJECT -eq 0 ]; then
     LIFERAY_TAG=$(grep 'liferay.workspace.product=' "$GRADLE_PROPS" | cut -d'=' -f2 | xargs)
 
     echo "📦 Initializing ephemeral LDM project [$PROJECT_NAME] (PostgreSQL)..."
+    # Corrected argument order for ldm 2.5.4
     ldm_cmd init-from . "$PROJECT_NAME" \
+        -y \
         --host-name "$TARGET_HOST" \
         --db postgresql \
-        --no-captcha \
-        --non-interactive
+        --no-captcha
 
     echo "⚡ Starting Liferay container with tag [$LIFERAY_TAG] (Detached + Sidecar)..."
     ldm_cmd run "$PROJECT_NAME" \
@@ -128,21 +136,16 @@ if [ $EXISTING_PROJECT -eq 0 ]; then
         --detach \
         --sidecar \
         --no-captcha \
-        --non-interactive
+        -y
 else
     echo "⏭️  Skipping initialization/boot for existing project '$PROJECT_NAME'."
 fi
 
-# --- Phase 3: Build & Deploy ---
+# --- Phase 4: Sync & Wait ---
 
-echo "🔨 Phase 3: Building AICA Client Extensions..."
-log_command "./gradlew deploy"
-./gradlew deploy
-
+# Ensure artifacts are synced to the container
 echo "🚚 Syncing artifacts to container [$PROJECT_NAME]..."
-ldm_cmd deploy "$PROJECT_NAME" --non-interactive
-
-# --- Phase 4: Wait for Ready ---
+ldm_cmd deploy "$PROJECT_NAME" -y
 
 echo "⏳ Waiting for Liferay to be ready at https://$TARGET_HOST..."
 MAX_RETRIES=60
@@ -180,7 +183,7 @@ cleanup() {
         echo -e "\n🛡️  Skipping cleanup: --keep flag was provided for '$PROJECT_NAME'."
     else
         echo -e "\n🧹 Cleaning up environment..."
-        ldm_cmd rm "$PROJECT_NAME" --delete --non-interactive || true
+        ldm_cmd rm "$PROJECT_NAME" --delete -y || true
         echo "✨ Done."
     fi
 }
