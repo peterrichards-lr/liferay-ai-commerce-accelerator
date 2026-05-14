@@ -95,7 +95,7 @@ fi
 if ! host "$TARGET_HOST" &> /dev/null && ! grep -q "$TARGET_HOST" /etc/hosts; then
     echo "❌ ERROR: Hostname '$TARGET_HOST' does not resolve."
     echo "💡 ACTION REQUIRED: Run the following command to fix your hosts file, then restart this script:"
-    echo "   sudo ldm fix-hosts $TARGET_HOST"
+    echo "   ldm fix-hosts $TARGET_HOST"
     exit 1
 fi
 
