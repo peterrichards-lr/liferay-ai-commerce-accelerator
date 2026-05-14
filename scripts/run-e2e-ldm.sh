@@ -5,16 +5,16 @@ set -e
 
 # --- Argument Parsing ---
 VERBOSE=0
-while getopts "v" opt; do
-  case ${opt} in
-    v )
-      VERBOSE=1
-      ;;
-    \? )
-      echo "Usage: $0 [-v]"
-      exit 1
-      ;;
-  esac
+PROJECT_NAME=""
+EXISTING_PROJECT=0
+
+while [[ "$#" -gt 0 ]]; do
+    case $1 in
+        -v|--verbose) VERBOSE=1 ;;
+        -p|--project) PROJECT_NAME="$2"; EXISTING_PROJECT=1; shift ;;
+        *) echo "Usage: $0 [-v] [-p <project_name>]"; exit 1 ;;
+    esac
+    shift
 done
 
 # If verbose mode is enabled, let the user know
@@ -22,9 +22,15 @@ if [ $VERBOSE -eq 1 ]; then
   echo "🛠️  Verbose mode enabled. Realized commands will be displayed with [CMD]."
 fi
 
+# If no project specified, use default ephemeral one
+if [ -z "$PROJECT_NAME" ]; then
+    PROJECT_NAME="aica-e2e"
+    EXISTING_PROJECT=0
+else
+    echo "🏗️  Using existing LDM project: $PROJECT_NAME"
+fi
+
 # --- CI Check (Fail Fast/Quietly) ---
-# This script is computationally heavy and requires a Docker environment with high RAM.
-# We bypass it in CI/GitHub Actions to avoid blocking the pipeline.
 if [ "$CI" = "true" ] || [ "$GITHUB_ACTIONS" = "true" ]; then
     echo "⏭️  SKIPPING LDM Orchestration: CI/GitHub Actions environment detected."
     exit 0
@@ -32,7 +38,6 @@ fi
 
 # --- Constants ---
 REQUIRED_LDM_VERSION="2.5.4"
-PROJECT_NAME="aica-e2e"
 DEFAULT_HOST="aica-e2e.local"
 GRADLE_PROPS="gradle.properties"
 
@@ -69,11 +74,22 @@ if ! version_ge "$REQUIRED_LDM_VERSION" "$CURRENT_LDM_VERSION"; then
     exit 1
 fi
 
-# Hostname Resolution Check (Fail Fast)
-if ! host "$DEFAULT_HOST" &> /dev/null && ! grep -q "$DEFAULT_HOST" /etc/hosts; then
-    echo "❌ ERROR: Hostname '$DEFAULT_HOST' does not resolve."
+# Determine the target host
+TARGET_HOST="$DEFAULT_HOST"
+if [ $EXISTING_PROJECT -eq 1 ]; then
+    # Try to resolve host from existing project config
+    TARGET_HOST=$(ldm list | grep "^$PROJECT_NAME " | awk '{print $3}' || echo "")
+    if [ -z "$TARGET_HOST" ]; then
+        echo "❌ ERROR: Could not find host name for project '$PROJECT_NAME'. Is it initialized?"
+        exit 1
+    fi
+fi
+
+# Hostname Resolution Check
+if ! host "$TARGET_HOST" &> /dev/null && ! grep -q "$TARGET_HOST" /etc/hosts; then
+    echo "❌ ERROR: Hostname '$TARGET_HOST' does not resolve."
     echo "💡 ACTION REQUIRED: Run the following command to fix your hosts file, then restart this script:"
-    echo "   sudo ldm fix-hosts $DEFAULT_HOST"
+    echo "   sudo ldm fix-hosts $TARGET_HOST"
     exit 1
 fi
 
@@ -85,28 +101,31 @@ fi
 
 # --- Phase 2: Project Init & Start ---
 
-if [ ! -f "$GRADLE_PROPS" ]; then
-    echo "❌ ERROR: $GRADLE_PROPS not found."
-    exit 1
+if [ $EXISTING_PROJECT -eq 0 ]; then
+    if [ ! -f "$GRADLE_PROPS" ]; then
+        echo "❌ ERROR: $GRADLE_PROPS not found."
+        exit 1
+    fi
+
+    LIFERAY_TAG=$(grep 'liferay.workspace.product=' "$GRADLE_PROPS" | cut -d'=' -f2 | xargs)
+
+    echo "📦 Initializing ephemeral LDM project [$PROJECT_NAME] (Hypersonic)..."
+    ldm_cmd init-from . "$PROJECT_NAME" \
+        --host-name "$TARGET_HOST" \
+        --db hypersonic \
+        --no-captcha \
+        --non-interactive
+
+    echo "⚡ Starting Liferay container with tag [$LIFERAY_TAG] (Detached + Sidecar)..."
+    ldm_cmd run "$PROJECT_NAME" \
+        --tag "$LIFERAY_TAG" \
+        --detach \
+        --sidecar \
+        --no-captcha \
+        --non-interactive
+else
+    echo "⏭️  Skipping initialization/boot for existing project '$PROJECT_NAME'."
 fi
-
-LIFERAY_TAG=$(grep 'liferay.workspace.product=' "$GRADLE_PROPS" | cut -d'=' -f2 | xargs)
-
-echo "📦 Initializing LDM project [$PROJECT_NAME] (Hypersonic)..."
-# init-from parameters: source project flags
-ldm_cmd init-from . "$PROJECT_NAME" \
-    --host-name "$DEFAULT_HOST" \
-    --db hypersonic \
-    --no-captcha \
-    --non-interactive
-
-echo "⚡ Starting Liferay container with tag [$LIFERAY_TAG] (Detached + Sidecar)..."
-ldm_cmd run "$PROJECT_NAME" \
-    --tag "$LIFERAY_TAG" \
-    --detach \
-    --sidecar \
-    --no-captcha \
-    --non-interactive
 
 # --- Phase 3: Build & Deploy ---
 
@@ -114,19 +133,18 @@ echo "🔨 Phase 3: Building AICA Client Extensions..."
 log_command "./gradlew deploy"
 ./gradlew deploy
 
-echo "🚚 Syncing artifacts to container..."
+echo "🚚 Syncing artifacts to container [$PROJECT_NAME]..."
 ldm_cmd deploy "$PROJECT_NAME" --non-interactive
 
 # --- Phase 4: Wait for Ready ---
 
-echo "⏳ Waiting for Liferay to be ready at https://$DEFAULT_HOST..."
+echo "⏳ Waiting for Liferay to be ready at https://$TARGET_HOST..."
 MAX_RETRIES=60
 RETRY_COUNT=0
 READY=0
 
 while [ $RETRY_COUNT -lt $MAX_RETRIES ]; do
-    # Use -k for insecure (mkcert) and check for 200/302 status
-    STATUS=$(curl -k -s -o /dev/null -w "%{http_code}" "https://$DEFAULT_HOST" || echo "000")
+    STATUS=$(curl -k -s -o /dev/null -w "%{http_code}" "https://$TARGET_HOST" || echo "000")
     
     if [ "$STATUS" == "200" ] || [ "$STATUS" == "302" ]; then
         echo -e "\n✅ Liferay is UP and responding (Status: $STATUS)!"
@@ -149,19 +167,22 @@ fi
 
 echo "🎭 Phase 5: Running Playwright E2E tests..."
 
-# Ensure we clean up even if the tests fail or the script is interrupted
 cleanup() {
-    echo -e "\n🧹 Cleaning up environment..."
-    # Using ldm rm --delete to remove the project and its associated volumes/data
-    ldm_cmd rm "$PROJECT_NAME" --delete --non-interactive || true
-    echo "✨ Done."
+    if [ $EXISTING_PROJECT -eq 0 ]; then
+        echo -e "\n🧹 Cleaning up environment..."
+        ldm_cmd rm "$PROJECT_NAME" --delete --non-interactive || true
+        echo "✨ Done."
+    else
+        echo -e "\n🛑 Skipping cleanup for existing project '$PROJECT_NAME'."
+    fi
 }
 
-# Register the cleanup trap
 trap cleanup EXIT
 
-# Set the base URL for Playwright
-export BASE_URL="https://$DEFAULT_HOST"
+# Set the environment variables for Playwright
+export BASE_URL="https://$TARGET_HOST"
+export LIFERAY_USER="${LIFERAY_USER:-test@liferay.com}"
+export LIFERAY_PASSWORD="${LIFERAY_PASSWORD:-L1feray$}"
 
 # Execute the tests using the root verification script
 log_command "yarn verification"
@@ -175,7 +196,6 @@ else
     echo "-------------------------------------------------------"
     echo "❌ FAILURE: E2E Verification failed."
     echo "-------------------------------------------------------"
-    # Capture short log burst for quick diagnosis before cleanup
     ldm_cmd logs "$PROJECT_NAME" --tail 50 || true
     echo "💡 Debugging: Check 'test-results' for failure snapshots."
     exit 1

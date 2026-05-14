@@ -4,12 +4,15 @@ import path from 'path';
 const STORAGE_STATE = path.join(__dirname, '../../playwright/.auth/user.json');
 
 setup('authenticate', async ({ page }) => {
-  // Navigate to Liferay login
-  await page.goto('http://localhost:8080/c/portal/login');
+  const user = process.env.LIFERAY_USER || 'test@liferay.com';
+  const password = process.env.LIFERAY_PASSWORD || 'L1feray$';
 
-  // Perform login (Standard dev credentials)
-  await page.getByLabel('Email Address').fill('test@liferay.com');
-  await page.getByLabel('Password').fill('L1feray$');
+  // Navigate to Liferay login
+  await page.goto('/c/portal/login');
+
+  // Perform login
+  await page.getByLabel('Email Address').fill(user);
+  await page.getByLabel('Password').fill(password);
   await page.getByRole('button', { name: 'Sign In' }).click();
 
   // Wait for landing page
