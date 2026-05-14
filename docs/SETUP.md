@@ -52,6 +52,14 @@ To verify the entire stack (Microservice, Frontend, and Liferay Integration) in 
 - `-v`: Verbose mode to print all realized commands.
 - _Env Vars_: Prepend `LIFERAY_USER=... LIFERAY_PASSWORD=...` to use custom credentials.
 
+### LDM Configuration
+
+When creating a fresh ephemeral environment (i.e. without the `-p` flag), the orchestrator uses the following specific LDM configurations:
+
+- `--db postgresql`: Bypasses the mandatory password reset prompt enforced by the default in-memory Hypersonic database on first login, allowing automated Playwright authentication to succeed without interruption.
+- `--sidecar`: Speeds up artifact synchronization and deployment monitoring.
+- `--no-captcha`: Disables CAPTCHA enforcement for administrative actions.
+
 ### Requirements
 
 - **LDM >= 2.5.4**: [Installation Guide](https://github.com/peterrichards-lr/liferay-docker-manager)
