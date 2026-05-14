@@ -7,12 +7,14 @@ set -e
 VERBOSE=0
 PROJECT_NAME=""
 EXISTING_PROJECT=0
+KEEP_PROJECT=0
 
 while [[ "$#" -gt 0 ]]; do
     case $1 in
         -v|--verbose) VERBOSE=1 ;;
         -p|--project) PROJECT_NAME="$2"; EXISTING_PROJECT=1; shift ;;
-        *) echo "Usage: $0 [-v] [-p <project_name>]"; exit 1 ;;
+        -k|--keep) KEEP_PROJECT=1 ;;
+        *) echo "Usage: $0 [-v] [-k] [-p <project_name>]"; exit 1 ;;
     esac
     shift
 done
@@ -20,6 +22,10 @@ done
 # If verbose mode is enabled, let the user know
 if [ $VERBOSE -eq 1 ]; then
   echo "🛠️  Verbose mode enabled. Realized commands will be displayed with [CMD]."
+fi
+
+if [ $KEEP_PROJECT -eq 1 ]; then
+  echo "🛡️  Keep mode enabled. Ephemeral project will NOT be deleted after tests."
 fi
 
 # If no project specified, use default ephemeral one
@@ -168,12 +174,14 @@ fi
 echo "🎭 Phase 5: Running Playwright E2E tests..."
 
 cleanup() {
-    if [ $EXISTING_PROJECT -eq 0 ]; then
+    if [ $EXISTING_PROJECT -eq 1 ]; then
+        echo -e "\n🛑 Skipping cleanup for existing project '$PROJECT_NAME'."
+    elif [ $KEEP_PROJECT -eq 1 ]; then
+        echo -e "\n🛡️  Skipping cleanup: --keep flag was provided for '$PROJECT_NAME'."
+    else
         echo -e "\n🧹 Cleaning up environment..."
         ldm_cmd rm "$PROJECT_NAME" --delete --non-interactive || true
         echo "✨ Done."
-    else
-        echo -e "\n🛑 Skipping cleanup for existing project '$PROJECT_NAME'."
     fi
 }
 
