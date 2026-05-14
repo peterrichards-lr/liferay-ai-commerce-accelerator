@@ -1,0 +1,14 @@
+{
+  "id": "aicommerceacceleratorconfiguration",
+  "kind": "Deployment",
+  "loadBalancer": {
+    "cdn": true,
+    "targetPort": 80
+  },
+  "ports": [
+    {
+      "port": 80,
+      "external": true
+    }
+  ]
+}
