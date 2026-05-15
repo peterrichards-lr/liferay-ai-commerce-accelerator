@@ -1,7 +1,7 @@
 {
   "author": "Peter Richards",
   "dependencies": {
-    "@ai-sdk/anthropic": "^3.0.76",
+    "@ai-sdk/anthropic": "^3.0.77",
     "@google-cloud/storage": "^7.17.0",
     "@google/generative-ai": "^0.24.1",
     "@liferay/accelerator-sdk": "*",
@@ -9,7 +9,7 @@
     "ajv": "^8.12.0",
     "ajv-formats": "^3.0.1",
     "axios": "^1.12.2",
-    "better-sqlite3": "^12.9.0",
+    "better-sqlite3": "^12.10.0",
     "cors": "^2.8.5",
     "csv-parse": "^6.2.1",
     "dotenv": "^17.4.2",
@@ -47,6 +47,6 @@
     "graphql": "^16.14.0",
     "msw": "^2.14.6",
     "prettier": "^3.8.3",
-    "vitest": "3.0.0"
+    "vitest": "4.1.6"
   }
 }
