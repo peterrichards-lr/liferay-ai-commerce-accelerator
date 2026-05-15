@@ -25,7 +25,7 @@
     "@types/codemirror": "^5.60.15",
     "@types/prop-types": "^15.7.15",
     "@vitejs/plugin-react": "4.3.4",
-    "@clayui/css": "^3.162.0",
+    "@clayui/css": "^3.163.0",
     "baseline-browser-mapping": "^2.10.29",
     "esbuild": "^0.28.0",
     "eslint": "10.3.0",
