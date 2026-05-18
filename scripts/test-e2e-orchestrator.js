@@ -108,13 +108,22 @@ async function main() {
     const exitCode = await runPlaywright();
 
     // Analyze logs for FATAL or ERROR
-    console.log('>>> Analyzing Microservice logs for errors...');
-    const logs = fs.readFileSync(MS_LOG_FILE, 'utf8');
-    const fatalMatch = logs.match(/FATAL|ERROR/i);
+    console.log('>>> Running Forensic Log Analysis...');
+    const analyzer = spawn(
+      'node',
+      ['scripts/analyze-e2e-logs.js', MS_LOG_FILE],
+      {
+        stdio: 'inherit',
+      }
+    );
 
-    if (fatalMatch) {
-      console.error('FAIL: Detected server-side errors in microservice logs!');
-      process.exit(1);
+    const analysisExitCode = await new Promise((resolve) => {
+      analyzer.on('exit', (code) => resolve(code));
+    });
+
+    if (analysisExitCode !== 0) {
+      console.error('FAIL: Forensic log analysis detected critical errors.');
+      process.exit(analysisExitCode);
     }
 
     if (exitCode !== 0) {

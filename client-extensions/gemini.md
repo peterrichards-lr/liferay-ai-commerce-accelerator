@@ -277,7 +277,8 @@ Analysis of the account deletion failure revealed a critical conflict between wo
 
 1.  **Sequencing Dependency**: `deleteOrders` must precede `deleteAccounts` due to Liferay referential integrity.
 2.  **Discovery Flaw**: `LiferayService.getAccounts` relies on querying existing orders when a `channelId` is provided. If orders are already deleted, discovery returns zero results.
-3.  **Corrective Pattern**: Deletion discovery for entities with complex or volatile relationships MUST prioritize stable identifiers and robust discovery methods. Use the `search` parameter where supported, or fetch larger result sets and perform **memory filtering** based on prefixes (e.g., `AICA-`).
+3.  **Corrective Pattern (Comprehensive Manifest)**: Deletion discovery MUST perform a complete sweep of all entities (**Orders, Products, Accounts, Warehouses, Price Lists, Promotions, Specifications, and Options**) _before_ any deletion begins. This captures volatile IDs and relationships while links are still valid.
+4.  **Property Resilience**: Discovery logic must check both `erc` and `externalReferenceCode` to account for variations in Liferay's Headless DTO property naming.
 
 ### Product Type Constraint (API Finding)
 
@@ -294,7 +295,12 @@ Investigation of product creation failures (`CPDefinitionProductTypeNameExceptio
 ### Batch Engine Verb Support (Unusual Behavior)
 
 - **Constraint**: Not all Liferay Batch Engine endpoints support the HTTP `DELETE` verb.
-- **Example**: For entity types that lack native batch deletion support, use **Simulated Batching** (sequential individual `DELETE` requests) or direct REST batch endpoints if available.
+- **Example (v1.0 Legacy)**: Older commerce entities (Warehouses, Orders, Accounts, Specs, Options) often fail or ignore global batch 'DELETE' strategies. For these types, use **Simulated Batch Deletion** (sequential individual `DELETE` requests) to ensure 100% cleanup reliability and accurate progress reporting.
+
+### Resilient Order Generation (Indexing Workaround)
+
+1.  **The Race Condition**: Immediately after creating products and SKUs, Liferay's search index may not be updated. Queries like `getProductsWithSkus` may return 0 SKUs, causing order generation to crash with "No purchasable SKUs found."
+2.  **The Solution (Context Merging)**: The generator now uses a **Session Context Fallback**. If the API returns incomplete data, the system automatically injects resolved SKU IDs directly from the persistent session memory (the `productDataList`).
 
 ### Security & History Hygiene (Operational Finding)
 
@@ -302,6 +308,45 @@ Investigation of product creation failures (`CPDefinitionProductTypeNameExceptio
 2.  **Resolution Lockdown**: Always use `resolutions` in root `package.json` to override nested vulnerabilities (e.g., `uuid`, `axios`, `braces`).
 3.  **Lock File Single Source**: Maintain only `yarn.lock`. Delete `package-lock.json` to prevent CI conflicts.
 4.  **CI Cleanup**: Delete any failed GitHub Action jobs (e.g., via `gh run delete`) to maintain a clean workflow history.
+
+---
+
+## E2E Verification & LDM Orchestration
+
+To ensure production-parity verification, the project includes an automated orchestrator using **Liferay Docker Manager (LDM)**.
+
+### 1. Environment Hardening
+
+- **Version Gate**: Minimum LDM version `2.5.4` is enforced.
+- **Fail-Fast**: The orchestrator runs `ldm doctor --skip-project` and verifies hostname resolution before attempting a boot, preventing wasted startup time on misconfigured hosts.
+
+### 2. Filesystem Resilience (The SanDisk Rule)
+
+Running Liferay Docker containers from external drives (common on macOS) often triggers fatal OSGi locking errors (`Unable to create lock manager`).
+
+- **The Strategy**: The orchestrator script automatically detects if the workspace is located on an external volume (`/Volumes/`).
+- **The Fix**: It dynamically patches the LDM-generated `docker-compose.yml` to remove bind-mounts for **`osgi/state`** and **`data`**. This forces Docker to use internal, high-performance **Anonymous Volumes** for these high-I/O directories, ensuring 100% boot stability regardless of the physical drive format.
+
+### 3. Automated Setup Optimization
+
+- **Database**: Standardized on **`postgresql`** for E2E tests to bypass the mandatory password reset prompt enforced by Hypersonic on first login.
+- **Boot Performance**: Uses `--sidecar` for faster deployment monitoring and `--no-captcha` to streamline automated authentication flows.
+
+### 4. Responsive Visual Auditing
+
+- **Device Profiles**: Playwright is configured to run tests across **Desktop Chrome**, **iPhone**, **Pixel**, and **iPad**.
+- **Visual Evidence**: Automated full-page snapshots are captured for every screen and responsive state, saved to the `test-results/` directory for manual verification.
+
+---
+
+## Dynamic Asset Management
+
+The microservice serves as the source of truth for product placeholders, moving away from heavy frontend-bundled Base64 strings.
+
+1.  **File-Based Storage**: Images are stored in `public/placeholders/` within the microservice.
+2.  **Lazy Conversion**: Assets remain binary on the server and are only converted to Base64 strings when a user selects them in the Configuration UI to update Liferay's global settings.
+3.  **Auto-Derived Labeling**: The UI gallery automatically generates professional titles (e.g., "Liferay Product Default") from filenames (`liferay_product_default.webp`), eliminating the need for a metadata database.
+4.  **Sanitized Custom Uploads**: User-uploaded images are sanitized to `snake_case` filenames and deduplicated with timestamps to ensure filesystem consistency.
 
 ---
 

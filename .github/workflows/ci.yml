@@ -55,3 +55,26 @@ jobs:
       # - name: Run Smoke Tests
       #   run: yarn smoke
       #   timeout-minutes: 10
+
+  # E2E Verification (Requires Liferay DXP)
+  # e2e-verification:
+  #   needs: build-and-test
+  #   runs-on: ubuntu-latest
+  #   steps:
+  #     - name: Checkout code
+  #       uses: actions/checkout@v4
+  #     - name: Setup Node.js
+  #       uses: actions/setup-node@v4
+  #       with:
+  #         node-version: '22'
+  #         cache: 'yarn'
+  #     - name: Install dependencies
+  #       run: yarn install --frozen-lockfile
+  #     - name: Install Playwright Browsers
+  #       run: npx playwright install --with-deps chromium
+  #     - name: Run E2E Verification
+  #       run: yarn verify
+  #       env:
+  #         LIFERAY_ADMIN_EMAIL: ${{ secrets.LIFERAY_ADMIN_EMAIL }}
+  #         LIFERAY_ADMIN_PASSWORD: ${{ secrets.LIFERAY_ADMIN_PASSWORD }}
+  #         LIFERAY_HOST: http://localhost:8080

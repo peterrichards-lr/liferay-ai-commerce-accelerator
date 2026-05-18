@@ -17,11 +17,11 @@
 
 ## Phase 3: Forensic Log Analysis
 
-- [ ] Implement `scripts/analyze-e2e-logs.js` utility.
-- [ ] Add post-test step to scan logs for `FATAL`/`ERROR` strings.
-- [ ] Fail the test suite if critical logs are found.
+- [x] Implement `scripts/analyze-e2e-logs.js` utility.
+- [x] Add post-test step to scan logs for `FATAL`/`ERROR` strings.
+- [x] Fail the test suite if critical logs are found.
 
 ## Phase 4: System Map & CI Integration
 
-- [ ] Update `SYSTEM_MAP.md` to include verification infrastructure.
-- [ ] Update `.github/workflows/ci.yml` to include the E2E verification step.
+- [x] Update `SYSTEM_MAP.md` to include verification infrastructure.
+- [x] Update `.github/workflows/ci.yml` to include the E2E verification step.

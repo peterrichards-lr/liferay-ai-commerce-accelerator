@@ -54,6 +54,7 @@
     "prepare": "husky || true",
     "test": "FORCE_COLOR=0 yarn workspaces run test",
     "smoke": "playwright test --config playwright/playwright.config.js",
+    "verify": "node scripts/test-e2e-orchestrator.js",
     "verification": "playwright test --config playwright/playwright-e2e.config.js",
     "lint": "yarn workspaces run lint && yarn lint:md",
     "lint:md": "markdownlint '**/*.md' --ignore '**/node_modules/**' --ignore '**/build/**' --ignore '**/bundles/**' --ignore 'GETTING_STARTED.md'",

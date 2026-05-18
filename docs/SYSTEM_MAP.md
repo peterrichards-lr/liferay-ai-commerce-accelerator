@@ -83,6 +83,10 @@ The project employs a tiered testing strategy to ensure reliability across all l
 - **Integration Tests**: Verifies multi-component flows (e.g., App -> Context -> Configuration Panel -> Connection Test).
 - **Smoke Tests**: Cross-component verification using Playwright (Server + UI).
 - **Schema Validation**: Authoritative AJV validation for all AI and Mock data payloads.
+- **E2E Verification**: End-to-end flow validation using Playwright and a dedicated log analyzer.
+  - `scripts/test-e2e-orchestrator.js`: Manages the lifecycle of the microservice and triggers the test suite.
+  - `scripts/analyze-e2e-logs.js`: Performs forensic analysis of microservice logs to detect silent failures (ERROR/FATAL).
+  - `playwright/playwright-e2e.config.js`: Configuration for the E2E verification suite.
 
 ---
 

@@ -121,29 +121,41 @@ if [ $EXISTING_PROJECT -eq 0 ]; then
     fi
 
     LIFERAY_TAG=$(grep 'liferay.workspace.product=' "$GRADLE_PROPS" | cut -d'=' -f2 | xargs)
-echo "📦 Initializing ephemeral LDM project [$PROJECT_NAME] (PostgreSQL)..."
-# Corrected argument order for ldm 2.5.4
-ldm_cmd init-from . "$PROJECT_NAME" \
-    -y \
-    --host-name "$TARGET_HOST" \
-    --db postgresql \
-    --no-captcha
 
-# FIX: Ensure world-writable permissions for all project folders.
-# This prevents 'Unable to create lock manager' and other permission errors
-# especially when the workspace is on an external drive.
-echo "🔓 Relaxing permissions for [$PROJECT_NAME] directories..."
-chmod -R 777 "$PROJECT_NAME"
+    echo "📦 Initializing ephemeral LDM project [$PROJECT_NAME] (PostgreSQL)..."
+    # init-from parameters: source project flags
+    ldm_cmd init-from . "$PROJECT_NAME" \
+        -y \
+        --host-name "$TARGET_HOST" \
+        --db postgresql \
+        --no-captcha
 
-echo "⚡ Starting Liferay container with tag [$LIFERAY_TAG] (Detached + Sidecar)..."
-ldm_cmd run "$PROJECT_NAME" \
-    --tag "$LIFERAY_TAG" \
-    --detach \
-    --sidecar \
-    --no-captcha \
-    -y
+    # FIX: Ensure world-writable permissions for all project folders.
+    echo "🔓 Relaxing permissions for [$PROJECT_NAME] directories..."
+    chmod -R 777 "$PROJECT_NAME"
+
+    # FIX: SanDisk/External Drive Workaround
+    # Bind mounts for osgi/state fail on external drives due to locking issues.
+    # We remove the bind mount from docker-compose.yml so Docker uses a fast internal volume.
+    if [[ "$PWD" == "/Volumes/"* ]]; then
+        echo "💾 External drive detected. Optimizing Docker filesystem mounts..."
+        if [ -f "$PROJECT_NAME/docker-compose.yml" ]; then
+            # Remove the osgi/state bind mount line
+            sed -i.bak '/osgi\/state:/d' "$PROJECT_NAME/docker-compose.yml"
+            # Remove the data bind mount line (optional but recommended for performance)
+            sed -i.bak '/\/data:/d' "$PROJECT_NAME/docker-compose.yml"
+        fi
+    fi
+
+    echo "⚡ Starting Liferay container with tag [$LIFERAY_TAG] (Detached + Sidecar)..."
+    ldm_cmd run "$PROJECT_NAME" \
+        --tag "$LIFERAY_TAG" \
+        --detach \
+        --sidecar \
+        --no-captcha \
+        -y
 else
-echo "⏭️  Skipping initialization/boot for existing project '$PROJECT_NAME'."
+    echo "⏭️  Skipping initialization/boot for existing project '$PROJECT_NAME'."
 fi
 
 # --- Phase 4: Sync & Wait ---
@@ -153,30 +165,31 @@ echo "🚚 Syncing artifacts to container [$PROJECT_NAME]..."
 ldm_cmd deploy "$PROJECT_NAME" -y
 
 echo "⏳ Waiting for Liferay to be ready at https://$TARGET_HOST..."
-MAX_RETRIES=100 # Increased timeout for slow external drives
+MAX_RETRIES=120 # Further increased for cold boots on external drives
 RETRY_COUNT=0
 READY=0
 
 while [ $RETRY_COUNT -lt $MAX_RETRIES ]; do
-# Use -k for insecure (mkcert) and check for 200/302 status
-STATUS=$(curl -k -s -o /dev/null -w "%{http_code}" "https://$TARGET_HOST" || echo "000")
-
-if [ "$STATUS" == "200" ] || [ "$STATUS" == "302" ]; then
-    echo -e "\n✅ Liferay is UP and responding (Status: $STATUS)!"
-    READY=1
-    break
-fi
-
-# Check for early failure in logs
-if [ $((RETRY_COUNT % 5)) -eq 0 ]; then
-    if docker logs "$PROJECT_NAME" 2>&1 | grep -q "ERROR"; then
-        echo -e "\n⚠️  LDM detected errors in the logs. Check: ldm logs -f $PROJECT_NAME"
+    # Use -k for insecure (mkcert) and check for 200/302 status
+    STATUS=$(curl -k -s -o /dev/null -w "%{http_code}" "https://$TARGET_HOST" || echo "000")
+    
+    if [ "$STATUS" == "200" ] || [ "$STATUS" == "302" ]; then
+        echo -e "\n✅ Liferay is UP and responding (Status: $STATUS)!"
+        READY=1
+        break
     fi
-fi
+    
+    # Periodic Log Check for fatal errors
+    if [ $((RETRY_COUNT % 6)) -eq 0 ]; then
+        if docker logs "$PROJECT_NAME" 2>&1 | grep -q "Unable to create lock manager"; then
+            echo -e "\n❌ FATAL: Filesystem locking error detected. Please check your drive format."
+            exit 1
+        fi
+    fi
 
-RETRY_COUNT=$((RETRY_COUNT + 1))
-printf "."
-sleep 10
+    RETRY_COUNT=$((RETRY_COUNT + 1))
+    printf "."
+    sleep 10
 done
 
 if [ $READY -eq 0 ]; then
