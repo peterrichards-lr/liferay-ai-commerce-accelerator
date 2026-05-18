@@ -137,6 +137,7 @@ class WebSocketService {
       scope: 'session',
       sessionId: session.id,
       error: error.message || error,
+      errorStack: error.stack || options.errorStack,
       correlationId: options.correlationId || session.correlationId,
     });
   }

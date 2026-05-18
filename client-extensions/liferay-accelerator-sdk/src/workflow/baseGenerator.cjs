@@ -629,7 +629,8 @@ class BaseGenerator extends BaseWorkflowService {
         await this.persistence.tryFailSession(
           sessionId,
           err.message,
-          errorReference
+          errorReference,
+          err.stack
         );
 
         // Notify frontend of the failure so it doesn't hang in "Generating..." state
@@ -638,6 +639,7 @@ class BaseGenerator extends BaseWorkflowService {
           error: err,
           correlationId: currentCorrelationId,
           errorReference,
+          errorStack: err.stack,
         });
 
         continueAdvancing = false;

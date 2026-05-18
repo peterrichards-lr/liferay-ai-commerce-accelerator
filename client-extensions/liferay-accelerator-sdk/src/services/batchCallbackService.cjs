@@ -223,12 +223,22 @@ class BatchCallbackService {
           );
 
           // Propagate failure to the database
-          if (await persistence.tryFailSession(sessionId)) {
+          if (
+            await persistence.tryFailSession(
+              sessionId,
+              stepErr.message,
+              null,
+              stepErr.stack
+            )
+          ) {
             const { correlationId: sessionCid } = session;
             await this.ctx.progress.sessionFailed({
               sessionId,
               correlationId: correlationId || sessionCid,
-              error: { message: stepErr.message },
+              error: {
+                message: stepErr.message,
+                stack: stepErr.stack,
+              },
             });
           }
 

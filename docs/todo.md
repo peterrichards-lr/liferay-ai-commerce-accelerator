@@ -146,9 +146,10 @@
 
 ## 67. Strategic Roadmap (Current)
 
-### [ ] 1. Detailed Failure Modal in Admin Dashboard
+### [x] 1. Detailed Failure Modal in Admin Dashboard
 
 **Rationale**: While the Admin Dashboard shows that a session failed, users need to see the exact stack trace or Liferay error response to self-serve a fix.
+**Result**: **FIXED**. Added `error_stack` support to `PersistenceService`, `ProgressService`, and `BaseGenerator`. Updated `SessionDetailModal` to show expandable stack traces and detailed Liferay error reports in the audit trail.
 
 ### [ ] 2. Dataset Import Logic (Server-side)
 

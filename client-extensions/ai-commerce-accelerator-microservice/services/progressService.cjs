@@ -61,7 +61,7 @@ class ProgressService {
     });
   }
 
-  async sessionFailed({ sessionId, error, correlationId }) {
+  async sessionFailed({ sessionId, error, correlationId, errorStack }) {
     const cid = correlationId;
     const session = await this.persistence.getSession(sessionId);
     const flowType = session?.flow_type;
@@ -73,6 +73,7 @@ class ProgressService {
         status: WEB_SOCKET_EVENTS.FAILED,
         scope: WS_SCOPE.SESSION,
         error: error.message,
+        errorStack: errorStack || error.stack,
         errorReference: error.errorReference,
         flowType,
       },
@@ -82,7 +83,12 @@ class ProgressService {
       sessionId,
       status: 'SESSION_FAILED',
       message: `Session ${sessionId} failed: ${error.message}`,
-      details: { error, correlationId: cid, flowType },
+      details: {
+        error,
+        correlationId: cid,
+        flowType,
+        errorStack: errorStack || error.stack,
+      },
     });
   }
 
@@ -428,13 +434,14 @@ class ProgressService {
     });
   }
 
-  emitError({ message, errorReference, correlationId, ...rest }) {
+  emitError({ message, errorReference, errorStack, correlationId, ...rest }) {
     const payload = {
       sessionId: rest.sessionId,
       batchId: rest.batchId,
       correlationId,
       message,
       errorReference,
+      errorStack,
       status: WEB_SOCKET_EVENTS.FAILED,
       scope: rest.scope || WS_SCOPE.SESSION,
       ...rest,

@@ -61,6 +61,7 @@ class PersistenceService {
         version INTEGER DEFAULT 1,
         error_message TEXT,
         error_reference_code TEXT,
+        error_stack TEXT,
         created_at TEXT NOT NULL,
         updated_at TEXT NOT NULL
       );
@@ -70,6 +71,16 @@ class PersistenceService {
     const columns = this.db
       .prepare('PRAGMA table_info(workflow_sessions)')
       .all();
+
+    if (!columns.find((c) => c.name === 'error_stack')) {
+      try {
+        this.db.exec(
+          'ALTER TABLE workflow_sessions ADD COLUMN error_stack TEXT;'
+        );
+      } catch (err) {
+        if (!err.message.includes('duplicate column name')) throw err;
+      }
+    }
 
     if (!columns.find((c) => c.name === 'error_reference_code')) {
       try {
@@ -346,6 +357,7 @@ class PersistenceService {
       status: row.status,
       session_name: row.session_name,
       error_message: row.error_message,
+      error_stack: row.error_stack,
       errorReferenceCode: row.error_reference_code,
       context: JSON.parse(row.context_json),
       currentSteps: JSON.parse(row.current_steps_json),
@@ -368,6 +380,7 @@ class PersistenceService {
       status: row.status,
       session_name: row.session_name,
       error_message: row.error_message,
+      error_stack: row.error_stack,
       errorReferenceCode: row.error_reference_code,
       context: JSON.parse(row.context_json),
       currentSteps: JSON.parse(row.current_steps_json),
@@ -485,17 +498,22 @@ class PersistenceService {
     return false;
   }
 
-  tryFailSession(sessionId, errorMessage = null, errorReferenceCode = null) {
+  tryFailSession(
+    sessionId,
+    errorMessage = null,
+    errorReferenceCode = null,
+    errorStack = null
+  ) {
     const now = new Date().toISOString();
     const result = this.db
       .prepare(
         `
       UPDATE workflow_sessions 
-      SET status = 'FAILED', error_message = ?, error_reference_code = ?, current_steps_json = '[]', updated_at = ?
+      SET status = 'FAILED', error_message = ?, error_reference_code = ?, error_stack = ?, current_steps_json = '[]', updated_at = ?
       WHERE session_id = ? AND status NOT IN ('COMPLETED', 'FAILED')
     `
       )
-      .run(errorMessage, errorReferenceCode, now, sessionId);
+      .run(errorMessage, errorReferenceCode, errorStack, now, sessionId);
 
     if (result.changes > 0) {
       this.cache.del(sessionId);

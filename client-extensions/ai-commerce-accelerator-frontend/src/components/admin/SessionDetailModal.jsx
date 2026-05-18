@@ -11,6 +11,7 @@ function SessionDetailModal({ session, onClose }) {
   const [events, setEvents] = useState([]);
   const [loadingEvents, setLoadingEvents] = useState(false);
   const [downloadingLogs, setDownloadingLogs] = useState(false);
+  const [showStack, setShowStack] = useState(false);
 
   const context = useMemo(() => {
     try {
@@ -182,6 +183,37 @@ function SessionDetailModal({ session, onClose }) {
                         <strong>Correlation ID:</strong> {session.correlationId}
                       </div>
                     )}
+                    {session.error_stack && (
+                      <div className="mt-3">
+                        <ClayButton
+                          displayType="unstyled"
+                          size="sm"
+                          className="p-0 text-danger font-weight-bold"
+                          onClick={() => setShowStack(!showStack)}
+                        >
+                          <ClayIcon
+                            symbol={showStack ? 'caret-bottom' : 'caret-right'}
+                            className="mr-1"
+                          />
+                          {showStack ? 'Hide' : 'View'} Stack Trace
+                        </ClayButton>
+                        {showStack && (
+                          <pre
+                            className="mt-2 p-3 bg-dark text-light rounded small border-0 shadow-sm"
+                            style={{
+                              maxHeight: '300px',
+                              overflow: 'auto',
+                              fontSize: '0.75rem',
+                              whiteSpace: 'pre-wrap',
+                              fontFamily: 'monospace',
+                              borderLeft: '4px solid #da1010',
+                            }}
+                          >
+                            {session.error_stack}
+                          </pre>
+                        )}
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>
@@ -281,6 +313,44 @@ function SessionDetailModal({ session, onClose }) {
                                 {typeof event.details.error === 'string'
                                   ? event.details.error
                                   : event.details.error.message}
+                              </div>
+                            )}
+                            {event.details?.failedItems && (
+                              <div className="mt-2">
+                                <div
+                                  className="text-muted mb-1"
+                                  style={{ fontSize: '0.7rem' }}
+                                >
+                                  <strong>Liferay Error Report:</strong>
+                                </div>
+                                <div
+                                  className="p-2 bg-light border rounded"
+                                  style={{
+                                    maxHeight: '150px',
+                                    overflow: 'auto',
+                                  }}
+                                >
+                                  {event.details.failedItems.map(
+                                    (item, idx) => (
+                                      <div
+                                        key={idx}
+                                        className="mb-2 pb-2 border-bottom last-child-no-border"
+                                        style={{ fontSize: '0.75rem' }}
+                                      >
+                                        <div className="text-danger font-weight-bold">
+                                          {item.errorMessage ||
+                                            item.error ||
+                                            'Unknown error'}
+                                        </div>
+                                        {item.externalReferenceCode && (
+                                          <div className="text-muted">
+                                            ERC: {item.externalReferenceCode}
+                                          </div>
+                                        )}
+                                      </div>
+                                    )
+                                  )}
+                                </div>
                               </div>
                             )}
                           </td>
