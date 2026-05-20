@@ -1,0 +1,62 @@
+name: Pre-Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      version_tag:
+        description: 'Pre-release tag (e.g., v1.0.0-beta.1)'
+        required: true
+        type: string
+      release_notes:
+        description: 'Brief notes for this pre-release'
+        required: false
+        type: string
+
+jobs:
+  build-and-prerelease:
+    runs-on: ubuntu-latest
+    env:
+      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: 'true'
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'yarn'
+
+      - name: Setup Java
+        uses: actions/setup-java@v3
+        with:
+          distribution: 'temurin'
+          java-version: '11'
+
+      - name: Install dependencies
+        run: yarn install --frozen-lockfile
+
+      - name: Build Liferay Artifacts
+        run: ./gradlew assemble
+
+      - name: Gather Artifacts
+        run: |
+          mkdir -p release-artifacts
+          find client-extensions -name "*.zip" -path "*/dist/*" -exec cp {} release-artifacts/ \;
+          ls -la release-artifacts/
+
+      - name: Create Pre-Release
+        uses: softprops/action-gh-release@v2
+        with:
+          name: Pre-release ${{ github.event.inputs.version_tag }}
+          tag_name: ${{ github.event.inputs.version_tag }}
+          body: |
+            This is a pre-release build for testing purposes.
+
+            ${{ github.event.inputs.release_notes }}
+          prerelease: true
+          draft: false
+          files: release-artifacts/*.zip
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
