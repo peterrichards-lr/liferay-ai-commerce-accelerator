@@ -27,7 +27,6 @@ fi
 if [ $KEEP_PROJECT -eq 1 ]; then
   echo "🛡️  Keep mode enabled. Ephemeral project will NOT be deleted after tests."
 fi
-
 # If no project specified, use default ephemeral one
 if [ -z "$PROJECT_NAME" ]; then
     PROJECT_NAME="aica-e2e"
@@ -36,15 +35,14 @@ else
     echo "🏗️  Using existing LDM project: $PROJECT_NAME"
 fi
 
-# --- CI Check (Fail Fast/Quietly) ---
-if [ "$CI" = "true" ] || [ "$GITHUB_ACTIONS" = "true" ]; then
-    echo "⏭️  SKIPPING LDM Orchestration: CI/GitHub Actions environment detected."
-    exit 0
-fi
-
 # --- Constants ---
 REQUIRED_LDM_VERSION="2.5.4"
 DEFAULT_HOST="aica-e2e.local"
+if [ "$CI" = "true" ] || [ "$GITHUB_ACTIONS" = "true" ]; then
+    # Use localhost in CI to avoid needing sudo for /etc/hosts modifications
+    DEFAULT_HOST="localhost"
+fi
+TARGET_HOST="${LIFERAY_HOST:-$DEFAULT_HOST}"
 GRADLE_PROPS="gradle.properties"
 
 # --- Logging Helpers ---
@@ -161,8 +159,27 @@ fi
 # --- Phase 4: Sync & Wait ---
 
 # Ensure artifacts are synced to the container
-echo "🚚 Syncing artifacts to container [$PROJECT_NAME]..."
-ldm_cmd deploy "$PROJECT_NAME" -y
+# HARDENING: We use the "Staging & Atomic Move" pattern instead of raw 'ldm deploy' 
+# to prevent race conditions with Liferay's auto-deployer (lchown failure).
+echo "🚚 Syncing artifacts to container [$PROJECT_NAME] using Atomic Move pattern..."
+STAGING_DIR="/tmp/aica-staging"
+docker exec "$PROJECT_NAME" mkdir -p "$STAGING_DIR"
+
+# Find all client extension ZIPs in dist folders
+ARTIFACTS=$(find client-extensions -name "*.zip" -path "*/dist/*")
+
+if [ -z "$ARTIFACTS" ]; then
+    echo "⚠️  WARNING: No artifacts found to deploy. Did the build fail?"
+fi
+
+for ARTIFACT in $ARTIFACTS; do
+    FILENAME=$(basename "$ARTIFACT")
+    echo "  -> Staging $FILENAME..."
+    docker cp "$ARTIFACT" "$PROJECT_NAME":"$STAGING_DIR/"
+    echo "  -> Deploying $FILENAME (Atomic Move)..."
+    # Use root (-u 0) to ensure move into /opt/liferay/deploy succeeds
+    docker exec -u 0 "$PROJECT_NAME" mv "$STAGING_DIR/$FILENAME" /opt/liferay/deploy/
+done
 
 echo "⏳ Waiting for Liferay to be ready at https://$TARGET_HOST..."
 MAX_RETRIES=120 # Further increased for cold boots on external drives
@@ -222,8 +239,8 @@ export LIFERAY_USER="${LIFERAY_USER:-test@liferay.com}"
 export LIFERAY_PASSWORD="${LIFERAY_PASSWORD:-L1feray$}"
 
 # Execute the tests using the root verification script
-log_command "yarn verification"
-if yarn verification; then
+log_command "yarn verify"
+if yarn verify; then
     echo "-------------------------------------------------------"
     echo "🎉 SUCCESS: E2E Verification passed!"
     echo "-------------------------------------------------------"

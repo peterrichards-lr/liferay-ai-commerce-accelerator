@@ -38,7 +38,7 @@ async function startMicroservice() {
     env: {
       ...process.env,
       NODE_ENV: 'test',
-      PORT: 3000,
+      PORT: 3001,
       PERSISTENCE_DB_PATH: ':memory:',
     },
   });
@@ -53,7 +53,7 @@ async function startMicroservice() {
 
   return new Promise((resolve, reject) => {
     const checkHealth = () => {
-      const req = http.get('http://localhost:3000/health', (res) => {
+      const req = http.get('http://localhost:3001/health', (res) => {
         if (res.statusCode === 200) {
           console.log('>>> Microservice is HEALTHY.');
           resolve();

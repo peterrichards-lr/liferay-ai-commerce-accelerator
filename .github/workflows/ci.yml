@@ -82,12 +82,14 @@ jobs:
       - name: Install Playwright Browsers
         run: npx playwright install --with-deps chromium
 
-      - name: Run E2E Verification
-        run: yarn verify
+      - name: Install mkcert & NSS (for LDM SSL)
+        run: sudo apt-get update && sudo apt-get install -y mkcert libnss3-tools
+
+      - name: Run E2E Verification (LDM)
+        run: bash scripts/run-e2e-ldm.sh
         env:
           LIFERAY_ADMIN_EMAIL: ${{ secrets.LIFERAY_ADMIN_EMAIL }}
           LIFERAY_ADMIN_PASSWORD: ${{ secrets.LIFERAY_ADMIN_PASSWORD }}
-          LIFERAY_HOST: http://localhost:8080
 
       - name: Upload E2E Logs on Failure
         uses: actions/upload-artifact@v4
