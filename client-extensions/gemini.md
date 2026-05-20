@@ -358,6 +358,39 @@ The microservice serves as the source of truth for product placeholders, moving 
 
 ---
 
+## The "Staging & Atomic Move" Deployment Pattern
+
+To prevent race conditions with Liferay's aggressive auto-deployers (e.g., `FragmentFileInstaller`), all automated Docker deployments MUST follow the Staging & Atomic Move pattern.
+
+### 1. The Problem: `docker cp` Race Condition
+
+When running `docker cp <local_file> <container>:/opt/liferay/deploy/`, Docker performs two steps:
+
+1.  **Stream Data**: Writes the file content.
+2.  **Finalize Metadata**: Sets ownership and permissions (`lchown`).
+
+If Liferay's watcher detects and moves the file after Step 1 but before Step 2, Docker fails with: `Error response from daemon: failed to Lchown ... no such file or directory`.
+
+### 2. The Solution: Implementation Steps
+
+- **Stage**: Copy the artifact to a non-watched temporary directory (e.g., `/tmp/aica-staging`).
+- **Atomic Move**: Use `docker exec` to move the file into the target directory in a single operation.
+
+```bash
+# Example
+docker exec <container> mkdir -p /tmp/aica-staging
+docker cp ./artifact.zip <container>:/tmp/aica-staging/
+docker exec -u 0 <container> mv /tmp/aica-staging/artifact.zip /opt/liferay/deploy/
+```
+
+### 3. Benefits
+
+- **Isolation**: Prevents Liferay from seeing partial or incomplete files.
+- **Atomicity**: The `mv` command within the same filesystem is atomic in Linux.
+- **Integrity**: Guarantees deterministic deployment success.
+
+---
+
 ## Liferay Stylebook Compatibility Patterns
 
 Empirical testing across DXP 2024.Qx and 2025.Q1 environments has revealed critical stability constraints for Stylebook client extensions:
