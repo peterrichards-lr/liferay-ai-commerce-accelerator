@@ -121,8 +121,8 @@ if [ $EXISTING_PROJECT -eq 0 ]; then
     LIFERAY_TAG=$(grep 'liferay.workspace.product=' "$GRADLE_PROPS" | cut -d'=' -f2 | xargs)
 
     echo "📦 Initializing ephemeral LDM project [$PROJECT_NAME] (PostgreSQL)..."
-    # init-from parameters: source project flags
-    ldm_cmd init-from . "$PROJECT_NAME" \
+    # import parameters: creates a one-time static import for testing
+    ldm_cmd import . "$PROJECT_NAME" \
         -y \
         --host-name "$TARGET_HOST" \
         --db postgresql \
