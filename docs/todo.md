@@ -151,9 +151,10 @@
 **Rationale**: While the Admin Dashboard shows that a session failed, users need to see the exact stack trace or Liferay error response to self-serve a fix.
 **Result**: **FIXED**. Added `error_stack` support to `PersistenceService`, `ProgressService`, and `BaseGenerator`. Updated `SessionDetailModal` to show expandable stack traces and detailed Liferay error reports in the audit trail.
 
-### [ ] 2. Dataset Import Logic (Server-side)
+### [x] 2. Dataset Import Logic (Server-side)
 
 **Rationale**: Currently, 'Import Dataset' is a client-side placeholder. Implementing the backend logic to ingest this JSON and trigger creation steps is the final piece of the environmental parity goal.
+**Result**: **FIXED**. Refactored `import.cjs` to use the `WorkflowCoordinator` and updated generators to support 'Import Mode'. Added unit tests and E2E verification.
 
 ---
 

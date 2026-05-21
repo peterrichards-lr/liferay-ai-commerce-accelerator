@@ -155,7 +155,37 @@ class WarehouseGenerator extends BaseGenerator {
 
   async _runWarehouseDataGenerationStep(sessionId) {
     const session = await this.persistence.getSession(sessionId);
-    const { config, options } = session.context;
+    const {
+      config,
+      options,
+      warehouseDataList: existingList,
+    } = session.context;
+
+    // IMPORT MODE: If data is already provided in the context, skip generation
+    if (existingList && existingList.length > 0) {
+      this.logger.info(
+        `Skipping warehouse data generation (Import Mode: ${existingList.length} items)`,
+        { sessionId }
+      );
+
+      const normalized = existingList.map((w) => ({
+        ...w,
+        externalReferenceCode:
+          w.externalReferenceCode || createERC(ERC_PREFIX.WAREHOUSE),
+      }));
+
+      await this.persistence.updateSessionContext(sessionId, {
+        warehouseDataList: normalized,
+      });
+
+      return await this.completeSyncStep(
+        sessionId,
+        S.GENERATE_WAREHOUSE_DATA,
+        'SYNCHRONOUS',
+        normalized.length,
+        normalized.length
+      );
+    }
 
     try {
       // HARDENING: If no geographic context provided, pick a random active one from Liferay

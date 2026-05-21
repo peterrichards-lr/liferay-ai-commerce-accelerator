@@ -103,8 +103,14 @@ jobs:
       - name: Run E2E Verification (LDM)
         run: bash scripts/run-e2e-ldm.sh
         env:
-          LIFERAY_ADMIN_EMAIL: ${{ secrets.LIFERAY_ADMIN_EMAIL }}
-          LIFERAY_ADMIN_PASSWORD: ${{ secrets.LIFERAY_ADMIN_PASSWORD }}
+          LIFERAY_USER: ${{ secrets.LIFERAY_USER }}
+          LIFERAY_PASSWORD: ${{ secrets.LIFERAY_PASSWORD }}
+          LIFERAY_OAUTH_CLIENT_ID: ${{ secrets.LIFERAY_OAUTH_CLIENT_ID }}
+          LIFERAY_OAUTH_CLIENT_SECRET: ${{ secrets.LIFERAY_OAUTH_CLIENT_SECRET }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          GOOGLE_API_KEY: ${{ secrets.GOOGLE_API_KEY }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
 
       - name: Upload E2E Logs on Failure
         uses: actions/upload-artifact@v4

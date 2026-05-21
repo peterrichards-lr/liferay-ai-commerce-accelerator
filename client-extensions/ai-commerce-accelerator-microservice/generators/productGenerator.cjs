@@ -975,7 +975,43 @@ class ProductGenerator extends BaseGenerator {
 
   async _runProductDataGenerationStep(sessionId) {
     const session = await this.persistence.getSession(sessionId);
-    const { config, options, groundingMetadata } = session.context;
+    const { config, options, groundingMetadata, productDataList } =
+      session.context;
+
+    // IMPORT MODE: If data is already provided in the context, skip generation
+    if (productDataList && productDataList.length > 0) {
+      this.logger.info(
+        `Skipping product data generation (Import Mode: ${productDataList.length} items)`,
+        { sessionId }
+      );
+
+      // Normalize ERCs for imported data if they are missing
+      const normalized = productDataList.map((p) => ({
+        ...p,
+        externalReferenceCode:
+          p.externalReferenceCode || createERC(ERC_PREFIX.PRODUCT),
+        skus: (p.skus || []).map((s) => ({
+          ...s,
+          externalReferenceCode: s.externalReferenceCode || s.sku,
+        })),
+        skuVariants: (p.skuVariants || []).map((v) => ({
+          ...v,
+          externalReferenceCode: v.externalReferenceCode || v.sku,
+        })),
+      }));
+
+      await this.persistence.updateSessionContext(sessionId, {
+        productDataList: normalized,
+      });
+
+      return await this.completeSyncStep(
+        sessionId,
+        S.GENERATE_PRODUCT_DATA,
+        'SYNCHRONOUS',
+        normalized.length,
+        normalized.length
+      );
+    }
 
     try {
       const allData = await this._generateProductData(

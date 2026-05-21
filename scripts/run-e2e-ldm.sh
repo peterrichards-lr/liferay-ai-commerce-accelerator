@@ -124,35 +124,34 @@ if [ $EXISTING_PROJECT -eq 0 ]; then
 
     LIFERAY_TAG=$(grep 'liferay.workspace.product=' "$GRADLE_PROPS" | cut -d'=' -f2 | xargs)
 
+    # FIX: SanDisk/External Drive Workaround
+    # Bind mounts for osgi/state fail on external drives due to locking issues.
+    # We use LDM's --internal-state flag which uses an internal volume instead.
+    INTERNAL_STATE_FLAG=""
+    if [[ "$PWD" == "/Volumes/"* ]]; then
+        echo "💾 External drive detected. Optimizing Docker filesystem mounts using --internal-state..."
+        INTERNAL_STATE_FLAG="--internal-state"
+    fi
+
     echo "📦 Initializing ephemeral LDM project [$PROJECT_NAME] (PostgreSQL)..."
     # import parameters: creates a one-time static import for testing
+    # shellcheck disable=SC2086
     ldm_cmd import . "$PROJECT_NAME" \
         -y \
         --host-name "$TARGET_HOST" \
         --db postgresql \
+        $INTERNAL_STATE_FLAG \
         --no-captcha
 
     # FIX: Ensure world-writable permissions for all project folders.
     echo "🔓 Relaxing permissions for [$PROJECT_NAME] directories..."
     chmod -R 777 "$PROJECT_NAME"
 
-    # FIX: SanDisk/External Drive Workaround
-    # Bind mounts for osgi/state fail on external drives due to locking issues.
-    # We remove the bind mount from docker-compose.yml so Docker uses a fast internal volume.
-    if [[ "$PWD" == "/Volumes/"* ]]; then
-        echo "💾 External drive detected. Optimizing Docker filesystem mounts..."
-        if [ -f "$PROJECT_NAME/docker-compose.yml" ]; then
-            # Remove the osgi/state bind mount line
-            sed -i.bak '/osgi\/state:/d' "$PROJECT_NAME/docker-compose.yml"
-            # Remove the data bind mount line (optional but recommended for performance)
-            sed -i.bak '/\/data:/d' "$PROJECT_NAME/docker-compose.yml"
-        fi
-    fi
-
     echo "⚡ Starting Liferay container with tag [$LIFERAY_TAG] (Detached + Sidecar)..."
+    # shellcheck disable=SC2086
     ldm_cmd run "$PROJECT_NAME" \
         --tag "$LIFERAY_TAG" \
-        --detach \
+        $INTERNAL_STATE_FLAG \
         --sidecar \
         --no-captcha \
         -y
@@ -237,10 +236,17 @@ cleanup() {
 
 trap cleanup EXIT
 
-# Set the environment variables for Playwright
+# Set the environment variables for Playwright and the Microservice
 export BASE_URL="https://$TARGET_HOST"
-export LIFERAY_USER="${LIFERAY_USER:-test@liferay.com}"
-export LIFERAY_PASSWORD="${LIFERAY_PASSWORD:-L1feray$}"
+export LIFERAY_API_URL="$BASE_URL"
+
+# Map CI secrets to standard AICA variables if provided
+export LIFERAY_USER="${LIFERAY_USER:-${LIFERAY_ADMIN_EMAIL:-test@liferay.com}}"
+export LIFERAY_PASSWORD="${LIFERAY_PASSWORD:-${LIFERAY_ADMIN_PASSWORD:-L1feray$}}"
+
+# Ensure microservice has access to these if they were passed via CI secrets
+export LIFERAY_API_USERNAME="$LIFERAY_USER"
+export LIFERAY_API_PASSWORD="$LIFERAY_PASSWORD"
 
 # Execute the tests using the root verification script
 log_command "yarn verify"

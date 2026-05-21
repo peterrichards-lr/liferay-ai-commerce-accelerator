@@ -70,6 +70,28 @@ When creating a fresh ephemeral environment (i.e. without the `-p` flag), the or
 
 After a successful run (or failure), you can find visual snapshots of each responsive state in the `test-results/` directory. This allows for manual auditing of component display on Desktop, iPhone, Pixel, and iPad devices.
 
+## Continuous Integration (GitHub Actions)
+
+The project includes a GitHub Actions workflow (`.github/workflows/ci.yml`) that automatically runs linting, unit tests, and E2E verification on every push and PR.
+
+### GitHub Secrets
+
+To allow the CI pipeline to perform full E2E verification with Liferay and AI generation, you must configure the following **GitHub Secrets** in your repository:
+
+| Secret Name                   | Description                              | Default (if unset) |
+| :---------------------------- | :--------------------------------------- | :----------------- |
+| `LIFERAY_USER`                | Admin email for the Liferay instance     | `test@liferay.com` |
+| `LIFERAY_PASSWORD`            | Admin password                           | `L1feray$`         |
+| `OPENAI_API_KEY`              | API Key for OpenAI generation            | (Disabled)         |
+| `GEMINI_API_KEY`              | API Key for Google Gemini generation     | (Disabled)         |
+| `ANTHROPIC_API_KEY`           | API Key for Anthropic Claude             | (Disabled)         |
+| `LIFERAY_OAUTH_CLIENT_ID`     | Custom OAuth2 Client ID for microservice | (Auto-resolved)    |
+| `LIFERAY_OAUTH_CLIENT_SECRET` | Custom OAuth2 Client Secret              | (Auto-resolved)    |
+
+### Skipping E2E in CI
+
+Since E2E verification is resource-intensive, you can skip it by including `[ldm-skip]` in your commit message or PR title. Unit tests and linting will still run.
+
 ## Initial Configuration
 
 Once deployed, follow these steps to configure the accelerator:

@@ -1,0 +1,64 @@
+{
+  "warehouses": [
+    {
+      "name": "Imported Central Warehouse",
+      "externalReferenceCode": "IMP-WH-CENTRAL",
+      "countryISOCode": "US",
+      "regionISOCode": "CA",
+      "addressLocality": "Los Angeles"
+    }
+  ],
+  "accounts": [
+    {
+      "name": "Imported Tech Solutions",
+      "externalReferenceCode": "IMP-ACC-TECH",
+      "type": "business",
+      "addresses": [
+        {
+          "addressType": "billing",
+          "streetAddressLine1": "123 Import St",
+          "addressLocality": "Los Angeles",
+          "addressRegion": "CA",
+          "postalCode": "90001",
+          "addressCountry": "United States"
+        }
+      ]
+    }
+  ],
+  "products": [
+    {
+      "name": { "en_US": "Imported Smart Phone" },
+      "externalReferenceCode": "IMP-PRD-PHONE",
+      "productStatus": 0,
+      "productType": "simple",
+      "skus": [
+        {
+          "sku": "IMP-SKU-PHONE-BLK",
+          "externalReferenceCode": "IMP-SKU-PHONE-BLK",
+          "price": 599.99
+        }
+      ],
+      "priceEntries": [
+        {
+          "skuExternalReferenceCode": "IMP-SKU-PHONE-BLK",
+          "price": 599.99
+        }
+      ]
+    }
+  ],
+  "orders": [
+    {
+      "externalReferenceCode": "IMP-ORD-001",
+      "accountExternalReferenceCode": "IMP-ACC-TECH",
+      "orderDate": "2024-05-21T10:00:00Z",
+      "orderStatus": 10,
+      "items": [
+        {
+          "sku": "IMP-SKU-PHONE-BLK",
+          "quantity": 2,
+          "price": 599.99
+        }
+      ]
+    }
+  ]
+}

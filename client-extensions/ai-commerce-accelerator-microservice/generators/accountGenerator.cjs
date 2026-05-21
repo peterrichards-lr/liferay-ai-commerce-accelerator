@@ -137,12 +137,64 @@ class AccountGenerator extends BaseGenerator {
 
   async _runAccountDataGenerationStep(sessionId) {
     const session = await this.persistence.getSession(sessionId);
-    const { config, options, countries, siteLanguages } = session.context;
+    const {
+      config,
+      options,
+      countries,
+      siteLanguages,
+      accountDataList: existingList,
+    } = session.context;
 
     this.logger.info('Starting account data generation step', {
       sessionId,
       correlationId: session.correlationId,
     });
+
+    // IMPORT MODE: If data is already provided in the context, skip generation
+    if (existingList && existingList.length > 0) {
+      this.logger.info(
+        `Skipping account data generation (Import Mode: ${existingList.length} items)`,
+        { sessionId }
+      );
+
+      const accountsToCreate = [];
+      const addressesToCreate = [];
+
+      for (const raw of existingList) {
+        const account = { ...raw };
+        account.externalReferenceCode =
+          account.externalReferenceCode || createERC(ERC_PREFIX.ACCOUNT);
+
+        // Normalize address structures for imported data
+        if (Array.isArray(account.addresses)) {
+          for (const addr of account.addresses) {
+            addressesToCreate.push({
+              ...addr,
+              externalReferenceCode:
+                addr.externalReferenceCode || createERC(ERC_PREFIX.ADDRESS),
+              accountERC: account.externalReferenceCode,
+            });
+          }
+          delete account.addresses;
+        }
+
+        accountsToCreate.push(account);
+      }
+
+      await this.persistence.updateSessionContext(sessionId, {
+        accountDataList: accountsToCreate,
+        accountsToCreate: accountsToCreate,
+        addressesToCreate: addressesToCreate,
+      });
+
+      return await this.completeSyncStep(
+        sessionId,
+        S.GENERATE_ACCOUNT_DATA,
+        'SYNCHRONOUS',
+        accountsToCreate.length,
+        accountsToCreate.length
+      );
+    }
 
     try {
       // GEOGRAPHIC CONTEXT: Pick a random active country from the list we already loaded

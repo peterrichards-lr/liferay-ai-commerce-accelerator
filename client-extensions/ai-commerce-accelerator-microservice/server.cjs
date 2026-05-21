@@ -151,6 +151,7 @@ const gracefulShutdown = async (signal) => {
     productGenerator,
     warehouseGenerator,
     oauthService,
+    workflowCoordinator,
   } = await require('./bootstrap.cjs')(ws);
 
   persistence = persistenceService;
@@ -255,6 +256,7 @@ const gracefulShutdown = async (signal) => {
     batchCallbackService,
     ws: ws,
     configService,
+    workflowCoordinator,
   });
 
   const generateCtx = {

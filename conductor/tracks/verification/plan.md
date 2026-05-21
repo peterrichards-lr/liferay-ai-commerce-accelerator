@@ -2,18 +2,18 @@
 
 ## Phase 1: Test Orchestration Scaffolding
 
-- [ ] Create `scripts/test-e2e-orchestrator.js`.
-- [ ] Implement microservice process management (spawn, pipe logs, wait for health).
-- [ ] Implement cleanup logic (kill microservice on exit).
-- [ ] Define environment variables for Liferay credentials.
+- [x] Create `scripts/test-e2e-orchestrator.js`.
+- [x] Implement microservice process management (spawn, pipe logs, wait for health).
+- [x] Implement cleanup logic (kill microservice on exit).
+- [x] Define environment variables for Liferay credentials.
 
 ## Phase 2: Playwright Logic (The "Puppeteer")
 
-- [ ] Implement `tests/e2e/auth.setup.js` for Liferay login.
-- [ ] Implement `tests/e2e/dashboard.spec.js`.
-- [ ] Create "Delete All Data" test case.
-- [ ] Create "Generation (Demo Mode)" test case.
-- [ ] Implement waiting logic for 100% progress.
+- [x] Implement `tests/e2e/auth.setup.js` for Liferay login.
+- [x] Implement `tests/e2e/dashboard.spec.js`.
+- [x] Create "Delete All Data" test case.
+- [x] Create "Generation (Demo Mode)" test case.
+- [x] Implement waiting logic for 100% progress.
 
 ## Phase 3: Forensic Log Analysis
 

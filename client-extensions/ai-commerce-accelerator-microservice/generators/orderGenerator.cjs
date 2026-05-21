@@ -92,12 +92,38 @@ class OrderGenerator extends BaseGenerator {
 
   async _runOrderDataGenerationStep(sessionId) {
     const session = await this.persistence.getSession(sessionId);
-    const { config, options } = session.context;
+    const { config, options, orderDataList: existingList } = session.context;
 
     this.logger.info('Starting order data generation step', {
       sessionId,
       correlationId: session.correlationId,
     });
+
+    // IMPORT MODE: If data is already provided in the context, skip generation
+    if (existingList && existingList.length > 0) {
+      this.logger.info(
+        `Skipping order data generation (Import Mode: ${existingList.length} items)`,
+        { sessionId }
+      );
+
+      const normalized = existingList.map((o) => ({
+        ...o,
+        externalReferenceCode:
+          o.externalReferenceCode || createERC(ERC_PREFIX.ORDER),
+      }));
+
+      await this.persistence.updateSessionContext(sessionId, {
+        orderDataList: normalized,
+      });
+
+      return await this.completeSyncStep(
+        sessionId,
+        S.GENERATE_ORDER_DATA,
+        'SYNCHRONOUS',
+        normalized.length,
+        normalized.length
+      );
+    }
 
     try {
       this.validateConfig(config);
@@ -317,11 +343,18 @@ class OrderGenerator extends BaseGenerator {
   }
 
   buildOrderPayload(config, orderData, accounts, products, warehouses) {
-    const account = this.pickAccount(orderData.accountId, accounts);
+    const account = this.pickAccount(
+      orderData.accountId,
+      accounts,
+      orderData.accountExternalReferenceCode
+    );
     const orderStatus = this.normalizeOrderStatus(orderData.orderStatus);
 
     const orderItems = [];
-    const itemCount = Math.floor(Math.random() * 3) + 1;
+    const itemCount =
+      orderData.items && orderData.items.length > 0
+        ? orderData.items.length
+        : Math.floor(Math.random() * 3) + 1;
 
     const allPurchasableSkus = products.flatMap((p) =>
       (p.skus || []).filter((s) => s.sku || s.externalReferenceCode)
@@ -351,14 +384,16 @@ class OrderGenerator extends BaseGenerator {
     for (let i = 0; i < itemCount; i++) {
       const orderDataItem =
         orderData.items && orderData.items.length > 0
-          ? orderData.items[i % orderData.items.length]
+          ? orderData.items[i]
           : null;
 
       const sku = orderDataItem
         ? allPurchasableSkus.find(
             (s) =>
               s.sku === orderDataItem.sku ||
-              s.externalReferenceCode === orderDataItem.sku
+              s.externalReferenceCode === orderDataItem.sku ||
+              s.sku === orderDataItem.skuExternalReferenceCode ||
+              s.externalReferenceCode === orderDataItem.skuExternalReferenceCode
           ) || allPurchasableSkus[i % allPurchasableSkus.length]
         : allPurchasableSkus[i % allPurchasableSkus.length];
 
@@ -369,11 +404,12 @@ class OrderGenerator extends BaseGenerator {
 
       orderItems.push({
         sku: sku.sku,
-        skuExternalReferenceCode: sku.sku,
+        skuExternalReferenceCode: sku.sku || sku.externalReferenceCode,
         quantity: orderDataItem?.quantity || Math.floor(Math.random() * 3) + 1,
         warehouseId: warehouse ? warehouse.id : undefined,
-        price: sku.price, // Liferay expects 'price'
-        unitPrice: sku.price, // Keep for backward compatibility
+        price: sku.price || orderDataItem?.price || orderDataItem?.unitPrice,
+        unitPrice:
+          sku.price || orderDataItem?.price || orderDataItem?.unitPrice,
       });
     }
 
@@ -470,7 +506,13 @@ class OrderGenerator extends BaseGenerator {
     };
   }
 
-  pickAccount(requestedId, accounts) {
+  pickAccount(requestedId, accounts, requestedERC) {
+    if (requestedERC) {
+      const found = accounts.find(
+        (a) => a.externalReferenceCode === requestedERC
+      );
+      if (found) return found;
+    }
     if (requestedId) {
       const found = accounts.find((a) => String(a.id) === String(requestedId));
       if (found) return found;
