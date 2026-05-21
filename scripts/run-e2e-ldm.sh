@@ -206,10 +206,10 @@ for ARTIFACT in $ARTIFACTS; do
     echo "  -> Staging $FILENAME..."
     docker cp "$ARTIFACT" "$PROJECT_NAME":"$STAGING_DIR/"
     echo "  -> Preparing $FILENAME (Ownership)..."
-    # Ensure correct ownership in staging so it's ready before hitting the auto-deploy scanner
-    docker exec -u 0 "$PROJECT_NAME" chown liferay:liferay "$STAGING_DIR/$FILENAME"
+    # Ensure correct ownership and permissions in staging so it's ready before hitting the auto-deploy scanner
+    docker exec -u 0 "$PROJECT_NAME" bash -c "chown liferay:liferay '$STAGING_DIR/$FILENAME' && chmod 666 '$STAGING_DIR/$FILENAME'"
     echo "  -> Deploying $FILENAME (Atomic Move)..."
-    # Move into the deployment folder - since it's already owned by liferay, the scanner can process it safely
+    # Move into the deployment folder - since it's already owned by liferay and writable, the scanner can process it safely
     docker exec -u 0 "$PROJECT_NAME" mv "$STAGING_DIR/$FILENAME" /opt/liferay/deploy/
 done
 
