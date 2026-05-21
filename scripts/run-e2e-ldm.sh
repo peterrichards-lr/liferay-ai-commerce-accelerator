@@ -156,7 +156,8 @@ if [ $EXISTING_PROJECT -eq 0 ]; then
         --host-name "$TARGET_HOST" \
         --db postgresql \
         $INTERNAL_STATE_FLAG \
-        --no-captcha
+        --no-captcha \
+        --no-run
 
     echo "⚡ Starting Liferay container with tag [$LIFERAY_TAG] (Detached + Sidecar)..."
     # shellcheck disable=SC2086
