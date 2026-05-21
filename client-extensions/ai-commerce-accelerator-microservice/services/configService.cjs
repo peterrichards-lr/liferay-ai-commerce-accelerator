@@ -813,13 +813,22 @@ class ConfigService {
     const { lookupConfig } = require('@rotty3000/config-node');
     const logger = this.logger;
 
-    // Resolve Core Key (Priority: AI_API_KEY > OPENAI_API_KEY > GEMINI_API_KEY > ANTHROPIC_API_KEY)
+    // Resolve Core Key & Provider
+    // Priority: AI_API_KEY > OPENAI_API_KEY > GEMINI_API_KEY > ANTHROPIC_API_KEY
     let coreApiKey = lookupConfig('AI_API_KEY');
+    let detectedProvider = null;
+
     if (!coreApiKey || String(coreApiKey).trim().length === 0) {
-      coreApiKey =
-        lookupConfig('OPENAI_API_KEY') ||
-        lookupConfig('GEMINI_API_KEY') ||
-        lookupConfig('ANTHROPIC_API_KEY');
+      if (lookupConfig('OPENAI_API_KEY')) {
+        coreApiKey = lookupConfig('OPENAI_API_KEY');
+        detectedProvider = 'openai';
+      } else if (lookupConfig('GEMINI_API_KEY')) {
+        coreApiKey = lookupConfig('GEMINI_API_KEY');
+        detectedProvider = 'gemini';
+      } else if (lookupConfig('ANTHROPIC_API_KEY')) {
+        coreApiKey = lookupConfig('ANTHROPIC_API_KEY');
+        detectedProvider = 'anthropic';
+      }
     }
 
     const mediaApiKey = lookupConfig('AI_MEDIA_API_KEY');
@@ -827,17 +836,51 @@ class ConfigService {
     logger?.debug?.('Startup key sync: Checking environment...', {
       foundAIKey: !!coreApiKey,
       foundMediaKey: !!mediaApiKey,
+      detectedProvider,
     });
 
-    // 1. Sync Core AI Key
+    // 1. Sync Core AI Key & Provider Configuration
     if (coreApiKey && String(coreApiKey).trim().length > 0) {
       const trimmedCoreKey = String(coreApiKey).trim();
-      logger?.info?.('Syncing AI API key from environment to Liferay...', {
-        operation: 'sync-env-keys',
-      });
+      logger?.info?.(
+        'Syncing AI API credentials from environment to Liferay...',
+        {
+          operation: 'sync-env-keys',
+        }
+      );
 
       try {
         await this.saveConfig({}, AI_CREDENTIALS_CONFIG_KEY, trimmedCoreKey);
+
+        // AUTO-PROVISION PROVIDER: If we detected a provider and Liferay has no config, set it.
+        const currentAIConfig = await this.getAIConfig({});
+        if (
+          detectedProvider &&
+          (!currentAIConfig || !currentAIConfig.provider)
+        ) {
+          logger?.info?.(
+            `Auto-configuring AI provider as '${detectedProvider}' based on environment variable.`,
+            {
+              operation: 'sync-env-keys',
+            }
+          );
+
+          const newConfig = {
+            provider: detectedProvider,
+            mediaProvider: 'inherit',
+            defaultModel:
+              detectedProvider === 'openai'
+                ? 'gpt-4o-mini'
+                : detectedProvider === 'gemini'
+                  ? 'gemini-1.5-flash'
+                  : 'claude-3-haiku',
+            temperature: 0.7,
+            maxTokens: 4000,
+            requestTimeoutMs: 60000,
+          };
+
+          await this.saveConfig({}, AI_CONFIG_KEY, newConfig);
+        }
 
         // HARDENING: If media key is missing from ENV, also sync core key to media credentials
         // to ensure "Same as Core" works consistently and is cached correctly.

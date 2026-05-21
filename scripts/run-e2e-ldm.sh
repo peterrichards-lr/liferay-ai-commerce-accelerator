@@ -8,13 +8,15 @@ VERBOSE=0
 PROJECT_NAME=""
 EXISTING_PROJECT=0
 KEEP_PROJECT=0
+INIT_ONLY=0
 
 while [[ "$#" -gt 0 ]]; do
     case $1 in
         -v|--verbose) VERBOSE=1 ;;
         -p|--project) PROJECT_NAME="$2"; EXISTING_PROJECT=1; shift ;;
         -k|--keep) KEEP_PROJECT=1 ;;
-        *) echo "Usage: $0 [-v] [-k] [-p <project_name>]"; exit 1 ;;
+        -i|--init|--init-only) INIT_ONLY=1 ;;
+        *) echo "Usage: $0 [-v] [-k] [-i] [-p <project_name>]"; exit 1 ;;
     esac
     shift
 done
@@ -22,6 +24,10 @@ done
 # If verbose mode is enabled, let the user know
 if [ $VERBOSE -eq 1 ]; then
   echo "🛠️  Verbose mode enabled. Realized commands will be displayed with [CMD]."
+fi
+
+if [ $INIT_ONLY -eq 1 ]; then
+  echo "🏗️  Init-only mode enabled. Script will stop after Liferay is ready."
 fi
 
 if [ $KEEP_PROJECT -eq 1 ]; then
@@ -154,6 +160,11 @@ if [ $EXISTING_PROJECT -eq 0 ]; then
         $INTERNAL_STATE_FLAG \
         --sidecar \
         --no-captcha \
+        --env OPENAI_API_KEY="$OPENAI_API_KEY" \
+        --env GEMINI_API_KEY="$GEMINI_API_KEY" \
+        --env ANTHROPIC_API_KEY="$ANTHROPIC_API_KEY" \
+        --env AI_API_KEY="$AI_API_KEY" \
+        --env AI_MEDIA_API_KEY="$AI_MEDIA_API_KEY" \
         -y
 else
     echo "⏭️  Skipping initialization/boot for existing project '$PROJECT_NAME'."
@@ -219,6 +230,12 @@ if [ $READY -eq 0 ]; then
 fi
 
 # --- Phase 5: Test Execution & Teardown ---
+
+if [ $INIT_ONLY -eq 1 ]; then
+    echo -e "\n✅ Environment prepopulated and ready at https://$TARGET_HOST"
+    echo "⏭️  Stopping early due to --init flag."
+    exit 0
+fi
 
 echo "🎭 Phase 5: Running Playwright E2E tests..."
 
