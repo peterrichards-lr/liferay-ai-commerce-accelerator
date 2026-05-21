@@ -812,7 +812,16 @@ class ConfigService {
   async syncEnvironmentKeys() {
     const { lookupConfig } = require('@rotty3000/config-node');
     const logger = this.logger;
-    const coreApiKey = lookupConfig('AI_API_KEY');
+
+    // Resolve Core Key (Priority: AI_API_KEY > OPENAI_API_KEY > GEMINI_API_KEY > ANTHROPIC_API_KEY)
+    let coreApiKey = lookupConfig('AI_API_KEY');
+    if (!coreApiKey || String(coreApiKey).trim().length === 0) {
+      coreApiKey =
+        lookupConfig('OPENAI_API_KEY') ||
+        lookupConfig('GEMINI_API_KEY') ||
+        lookupConfig('ANTHROPIC_API_KEY');
+    }
+
     const mediaApiKey = lookupConfig('AI_MEDIA_API_KEY');
 
     logger?.debug?.('Startup key sync: Checking environment...', {
@@ -823,7 +832,7 @@ class ConfigService {
     // 1. Sync Core AI Key
     if (coreApiKey && String(coreApiKey).trim().length > 0) {
       const trimmedCoreKey = String(coreApiKey).trim();
-      logger?.info?.('Syncing AI_API_KEY from environment to Liferay...', {
+      logger?.info?.('Syncing AI API key from environment to Liferay...', {
         operation: 'sync-env-keys',
       });
 
@@ -844,14 +853,17 @@ class ConfigService {
           );
         }
 
-        logger?.info?.('Successfully synced AI_API_KEY to Liferay.', {
+        logger?.info?.('Successfully synced AI API key to Liferay.', {
           operation: 'sync-env-keys',
         });
 
-        // SECURITY: Remove from process.env after sync
+        // SECURITY: Remove from process.env after sync to avoid leaks
         delete process.env.AI_API_KEY;
+        delete process.env.OPENAI_API_KEY;
+        delete process.env.GEMINI_API_KEY;
+        delete process.env.ANTHROPIC_API_KEY;
       } catch (error) {
-        logger?.error?.('Failed to sync AI_API_KEY to Liferay', {
+        logger?.error?.('Failed to sync AI API key to Liferay', {
           operation: 'sync-env-keys',
           error: error.message,
         });

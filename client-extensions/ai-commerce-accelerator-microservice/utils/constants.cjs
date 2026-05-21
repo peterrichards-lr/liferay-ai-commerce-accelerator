@@ -104,8 +104,11 @@ const ENV = {
   // AI Service configuration
   AI_MODEL: str('AI_MODEL', 'gpt-4o-mini'),
   AI_SERVICE_URL: str('AI_SERVICE_URL', 'https://api.openai.com/v1'),
+  AI_API_KEY: str('AI_API_KEY', ''),
+  AI_MEDIA_API_KEY: str('AI_MEDIA_API_KEY', ''),
   OPENAI_API_KEY: str('OPENAI_API_KEY', ''),
   GEMINI_API_KEY: str('GEMINI_API_KEY', ''),
+  ANTHROPIC_API_KEY: str('ANTHROPIC_API_KEY', ''),
 
   // Liferay connection
   LIFERAY_API_URL: str('LIFERAY_API_URL', ''),
