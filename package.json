@@ -5,6 +5,7 @@
   },
   "workspaces": {
     "packages": [
+      "aica-e2e/client-extensions/ai-commerce-accelerator-microservice",
       "client-extensions/ai-commerce-accelerator-microservice",
       "client-extensions/liferay-accelerator-sdk",
       "client-extensions/ai-commerce-accelerator-configuration",

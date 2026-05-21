@@ -158,10 +158,6 @@ if [ $EXISTING_PROJECT -eq 0 ]; then
         $INTERNAL_STATE_FLAG \
         --no-captcha
 
-    # FIX: Ensure world-writable permissions for all project folders.
-    echo "🔓 Relaxing permissions for [$PROJECT_NAME] directories..."
-    chmod -R 777 "$PROJECT_NAME"
-
     echo "⚡ Starting Liferay container with tag [$LIFERAY_TAG] (Detached + Sidecar)..."
     # shellcheck disable=SC2086
     ldm_cmd run "$PROJECT_NAME" \
