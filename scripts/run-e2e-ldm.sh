@@ -213,15 +213,20 @@ for ARTIFACT in $ARTIFACTS; do
     docker exec -u 0 "$PROJECT_NAME" mv "$STAGING_DIR/$FILENAME" /opt/liferay/deploy/
 done
 
-echo "⏳ Waiting for Liferay to be ready at https://$TARGET_HOST..."
-MAX_RETRIES=120 # Further increased for cold boots on external drives
+echo "⏳ Waiting for Liferay to be ready at https://$TARGET_HOST (and alternatives)..."
+MAX_RETRIES=180 # Increased to 30 minutes for slow CI boots
 RETRY_COUNT=0
 READY=0
 
 while [ $RETRY_COUNT -lt $MAX_RETRIES ]; do
-    # Use -k for insecure (mkcert) and check for 200/302 status
+    # Try HTTPS (standard LDM with sidecar)
     STATUS=$(curl -k -s -o /dev/null -w "%{http_code}" "https://$TARGET_HOST" || echo "000")
     
+    # Fallback to HTTP on 8080 if HTTPS fails (direct Liferay access)
+    if [ "$STATUS" == "000" ] || [ "$STATUS" == "404" ]; then
+        STATUS=$(curl -s -o /dev/null -w "%{http_code}" "http://localhost:8080" || echo "$STATUS")
+    fi
+
     if [ "$STATUS" == "200" ] || [ "$STATUS" == "302" ]; then
         echo -e "\n✅ Liferay is UP and responding (Status: $STATUS)!"
         READY=1
