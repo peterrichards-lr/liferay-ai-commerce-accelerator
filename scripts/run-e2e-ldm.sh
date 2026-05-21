@@ -72,7 +72,11 @@ if ! command -v ldm &> /dev/null; then
     exit 1
 fi
 
-CURRENT_LDM_VERSION=$(ldm --version | awk '{print $2}')
+# Output LDM version for diagnostics
+LDM_VERSION_OUTPUT=$(ldm --version)
+echo "📦 LDM Version: $LDM_VERSION_OUTPUT"
+
+CURRENT_LDM_VERSION=$(echo "$LDM_VERSION_OUTPUT" | awk '{print $2}')
 if ! version_ge "$REQUIRED_LDM_VERSION" "$CURRENT_LDM_VERSION"; then
     echo "❌ ERROR: LDM version $CURRENT_LDM_VERSION is too old. Need >= $REQUIRED_LDM_VERSION."
     exit 1
