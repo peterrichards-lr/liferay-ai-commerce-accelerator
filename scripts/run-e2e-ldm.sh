@@ -179,8 +179,17 @@ fi
 # --- Phase 4: Sync & Wait ---
 
 # Ensure artifacts are synced to the container
-# HARDENING: We use the "Staging & Atomic Move" pattern instead of raw 'ldm deploy' 
-# to prevent race conditions with Liferay's auto-deployer (lchown failure).
+# HARDENING: We use the "Staging & Atomic Move" pattern instead of raw 'ldm deploy'.
+# This approach is critical to prevent Liferay's AutoDeployScanner from picking up files 
+# while they are still being written or have incorrect permissions (root-owned).
+#
+# STRATEGY:
+# 1. Copy ZIP to a neutral staging directory (/tmp).
+# 2. Re-assign ownership to the 'liferay' user while still in staging.
+# 3. Use an atomic 'mv' to place the file in /opt/liferay/deploy.
+#
+# This ensures that the instant the scanner sees the file, it has the correct 
+# permissions and is complete, avoiding 'Unable to write' errors.
 echo "🚚 Syncing artifacts to container [$PROJECT_NAME] using Atomic Move pattern..."
 STAGING_DIR="/tmp/aica-staging"
 docker exec "$PROJECT_NAME" mkdir -p "$STAGING_DIR"
