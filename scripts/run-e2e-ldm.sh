@@ -70,6 +70,15 @@ version_ge() {
 
 echo "🚀 Starting AICA E2E Orchestration..."
 
+# --- Phase 0: Environment Loading ---
+
+# Load local .env if it exists (for local runs)
+if [ -f ".env" ]; then
+    echo "📄 Loading environment variables from .env..."
+    # shellcheck disable=SC2046
+    export $(grep -v '^#' .env | xargs)
+fi
+
 # --- Phase 1: Environment Verification ---
 
 if ! command -v ldm &> /dev/null; then
