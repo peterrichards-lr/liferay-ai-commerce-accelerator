@@ -197,8 +197,8 @@ for ARTIFACT in $ARTIFACTS; do
     echo "  -> Staging $FILENAME..."
     docker cp "$ARTIFACT" "$PROJECT_NAME":"$STAGING_DIR/"
     echo "  -> Deploying $FILENAME (Atomic Move)..."
-    # Use root (-u 0) to ensure move into /opt/liferay/deploy succeeds
-    docker exec -u 0 "$PROJECT_NAME" mv "$STAGING_DIR/$FILENAME" /opt/liferay/deploy/
+    # Use root (-u 0) to ensure move into /opt/liferay/deploy succeeds, then chown to liferay user
+    docker exec -u 0 "$PROJECT_NAME" bash -c "mv '$STAGING_DIR/$FILENAME' /opt/liferay/deploy/ && chown liferay:liferay '/opt/liferay/deploy/$FILENAME'"
 done
 
 echo "⏳ Waiting for Liferay to be ready at https://$TARGET_HOST..."
