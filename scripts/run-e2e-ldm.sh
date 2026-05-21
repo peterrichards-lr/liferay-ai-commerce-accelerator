@@ -196,9 +196,12 @@ for ARTIFACT in $ARTIFACTS; do
     FILENAME=$(basename "$ARTIFACT")
     echo "  -> Staging $FILENAME..."
     docker cp "$ARTIFACT" "$PROJECT_NAME":"$STAGING_DIR/"
+    echo "  -> Preparing $FILENAME (Ownership)..."
+    # Ensure correct ownership in staging so it's ready before hitting the auto-deploy scanner
+    docker exec -u 0 "$PROJECT_NAME" chown liferay:liferay "$STAGING_DIR/$FILENAME"
     echo "  -> Deploying $FILENAME (Atomic Move)..."
-    # Use root (-u 0) to ensure move into /opt/liferay/deploy succeeds, then chown to liferay user
-    docker exec -u 0 "$PROJECT_NAME" bash -c "mv '$STAGING_DIR/$FILENAME' /opt/liferay/deploy/ && chown liferay:liferay '/opt/liferay/deploy/$FILENAME'"
+    # Move into the deployment folder - since it's already owned by liferay, the scanner can process it safely
+    docker exec -u 0 "$PROJECT_NAME" mv "$STAGING_DIR/$FILENAME" /opt/liferay/deploy/
 done
 
 echo "⏳ Waiting for Liferay to be ready at https://$TARGET_HOST..."
