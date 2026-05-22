@@ -9,6 +9,12 @@ PROJECT_NAME=""
 EXISTING_PROJECT=0
 KEEP_PROJECT=0
 INIT_ONLY=0
+CI_MODE=0
+
+# Auto-detect CI environment
+if [ "$CI" = "true" ] || [ "$GITHUB_ACTIONS" = "true" ]; then
+    CI_MODE=1
+fi
 
 while [[ "$#" -gt 0 ]]; do
     case $1 in
@@ -16,7 +22,8 @@ while [[ "$#" -gt 0 ]]; do
         -p|--project) PROJECT_NAME="$2"; EXISTING_PROJECT=1; shift ;;
         -k|--keep) KEEP_PROJECT=1 ;;
         -i|--init|--init-only) INIT_ONLY=1 ;;
-        *) echo "Usage: $0 [-v] [-k] [-i] [-p <project_name>]"; exit 1 ;;
+        --ci) CI_MODE=1 ;;
+        *) echo "Usage: $0 [-v] [-k] [-i] [--ci] [-p <project_name>]"; exit 1 ;;
     esac
     shift
 done
@@ -42,12 +49,11 @@ else
 fi
 
 # --- Constants ---
-REQUIRED_LDM_VERSION="2.5.4"
+REQUIRED_LDM_VERSION="2.7.14"
 DEFAULT_HOST="aica-e2e.local"
-if [ "$CI" = "true" ] || [ "$GITHUB_ACTIONS" = "true" ]; then
-    # Use localhost in CI to avoid needing sudo for /etc/hosts modifications
-    DEFAULT_HOST="localhost"
-fi
+# LDM 2.7.14+ automatically forwards OPENAI_*, GEMINI_*, etc.
+# We explicitly add AI_ prefix to the passthrough list for AICA-specific keys.
+export LDM_FORWARD_PREFIXES="${LDM_FORWARD_PREFIXES:-AI_}"
 TARGET_HOST="${LIFERAY_HOST:-$DEFAULT_HOST}"
 GRADLE_PROPS="gradle.properties"
 
@@ -98,7 +104,6 @@ if ! version_ge "$REQUIRED_LDM_VERSION" "$CURRENT_LDM_VERSION"; then
 fi
 
 # Determine the target host
-TARGET_HOST="$DEFAULT_HOST"
 if [ $EXISTING_PROJECT -eq 1 ]; then
     # Try to resolve host from existing project config
     TARGET_HOST=$(ldm list | grep "^$PROJECT_NAME " | awk '{print $3}' || echo "")
@@ -106,14 +111,8 @@ if [ $EXISTING_PROJECT -eq 1 ]; then
         echo "❌ ERROR: Could not find host name for project '$PROJECT_NAME'. Is it initialized?"
         exit 1
     fi
-fi
-
-# Hostname Resolution Check
-if ! host "$TARGET_HOST" &> /dev/null && ! grep -q "$TARGET_HOST" /etc/hosts; then
-    echo "❌ ERROR: Hostname '$TARGET_HOST' does not resolve."
-    echo "💡 ACTION REQUIRED: Run the following command to fix your hosts file, then restart this script:"
-    echo "   ldm fix-hosts $TARGET_HOST"
-    exit 1
+else
+    TARGET_HOST="$DEFAULT_HOST"
 fi
 
 echo "🔍 Running LDM Doctor (Silent)..."
@@ -129,7 +128,7 @@ echo "🔨 Phase 2: Building AICA Client Extensions..."
 log_command "./gradlew deploy"
 ./gradlew deploy
 
-# --- Phase 3: Project Init & Start ---
+# --- Phase 3: Project Init, Host Setup & Start ---
 
 if [ $EXISTING_PROJECT -eq 0 ]; then
     if [ ! -f "$GRADLE_PROPS" ]; then
@@ -139,15 +138,6 @@ if [ $EXISTING_PROJECT -eq 0 ]; then
 
     LIFERAY_TAG=$(grep 'liferay.workspace.product=' "$GRADLE_PROPS" | cut -d'=' -f2 | xargs)
 
-    # FIX: SanDisk/External Drive Workaround
-    # Bind mounts for osgi/state fail on external drives due to locking issues.
-    # We use LDM's --internal-state flag which uses an internal volume instead.
-    INTERNAL_STATE_FLAG=""
-    if [[ "$PWD" == "/Volumes/"* ]]; then
-        echo "💾 External drive detected. Optimizing Docker filesystem mounts using --internal-state..."
-        INTERNAL_STATE_FLAG="--internal-state"
-    fi
-
     echo "📦 Initializing ephemeral LDM project [$PROJECT_NAME] (PostgreSQL)..."
     # import parameters: creates a one-time static import for testing
     # shellcheck disable=SC2086
@@ -155,22 +145,34 @@ if [ $EXISTING_PROJECT -eq 0 ]; then
         -y \
         --host-name "$TARGET_HOST" \
         --db postgresql \
-        $INTERNAL_STATE_FLAG \
         --no-captcha \
         --no-run
 
+    # Hostname Resolution & CI Setup (Post-Init)
+    if [ "$CI_MODE" -eq 1 ]; then
+        echo "🤖 CI Mode detected. Setting up project DNS tree via LDM..."
+        # LDM 2.7.11+ automatically handles all subdomains for the project non-interactively
+        ldm_cmd fix-hosts "$PROJECT_NAME" -y
+        echo "✅ Hostname setup complete."
+    else
+        # Local Hostname Resolution Check
+        if ! host "$TARGET_HOST" &> /dev/null && ! grep -q "$TARGET_HOST" /etc/hosts; then
+            echo "❌ ERROR: Hostname '$TARGET_HOST' does not resolve."
+            echo "💡 ACTION REQUIRED: Run the following command to fix your hosts file, then restart this script:"
+            echo "   ldm fix-hosts $PROJECT_NAME"
+            exit 1
+        fi
+    fi
+
     echo "⚡ Starting Liferay container with tag [$LIFERAY_TAG] (Detached + Sidecar)..."
+    # LDM 2.7.12+ automatically:
+    # 1. Detects and handles external volume locking (--internal-state)
+    # 2. Forwards AI environment variables (OPENAI_*, GEMINI_*, etc.)
     # shellcheck disable=SC2086
     ldm_cmd run "$PROJECT_NAME" \
         --tag "$LIFERAY_TAG" \
-        $INTERNAL_STATE_FLAG \
         --sidecar \
         --no-captcha \
-        --env OPENAI_API_KEY="$OPENAI_API_KEY" \
-        --env GEMINI_API_KEY="$GEMINI_API_KEY" \
-        --env ANTHROPIC_API_KEY="$ANTHROPIC_API_KEY" \
-        --env AI_API_KEY="$AI_API_KEY" \
-        --env AI_MEDIA_API_KEY="$AI_MEDIA_API_KEY" \
         -y
 else
     echo "⏭️  Skipping initialization/boot for existing project '$PROJECT_NAME'."
@@ -178,79 +180,29 @@ fi
 
 # --- Phase 4: Sync & Wait ---
 
-# Ensure artifacts are synced to the container
-# HARDENING: We use the "Staging & Atomic Move" pattern instead of raw 'ldm deploy'.
-# This approach is critical to prevent Liferay's AutoDeployScanner from picking up files 
-# while they are still being written or have incorrect permissions (root-owned).
-#
-# STRATEGY:
-# 1. Copy ZIP to a neutral staging directory (/tmp).
-# 2. Re-assign ownership to the 'liferay' user while still in staging.
-# 3. Use an atomic 'mv' to place the file in /opt/liferay/deploy.
-#
-# This ensures that the instant the scanner sees the file, it has the correct 
-# permissions and is complete, avoiding 'Unable to write' errors.
-echo "🚚 Syncing artifacts to container [$PROJECT_NAME] using Atomic Move pattern..."
-STAGING_DIR="/tmp/aica-staging"
-docker exec "$PROJECT_NAME" mkdir -p "$STAGING_DIR"
-
 # Find all client extension ZIPs in dist folders
 ARTIFACTS=$(find client-extensions -name "*.zip" -path "*/dist/*")
 
 if [ -z "$ARTIFACTS" ]; then
     echo "⚠️  WARNING: No artifacts found to deploy. Did the build fail?"
+else
+    echo "🚚 Syncing artifacts to container [$PROJECT_NAME] using native Atomic Move..."
+    # LDM deploy uses the 'Atomic Move' pattern by default since v2.7.6
+    # shellcheck disable=SC2086
+    ldm_cmd deploy "$PROJECT_NAME" $ARTIFACTS
 fi
 
-for ARTIFACT in $ARTIFACTS; do
-    FILENAME=$(basename "$ARTIFACT")
-    echo "  -> Staging $FILENAME..."
-    docker cp "$ARTIFACT" "$PROJECT_NAME":"$STAGING_DIR/"
-    echo "  -> Preparing $FILENAME (Ownership)..."
-    # Ensure correct ownership and permissions in staging so it's ready before hitting the auto-deploy scanner
-    docker exec -u 0 "$PROJECT_NAME" bash -c "chown liferay:liferay '$STAGING_DIR/$FILENAME' && chmod 666 '$STAGING_DIR/$FILENAME'"
-    echo "  -> Deploying $FILENAME (Atomic Move)..."
-    # Move into the deployment folder - since it's already owned by liferay and writable, the scanner can process it safely
-    docker exec -u 0 "$PROJECT_NAME" mv "$STAGING_DIR/$FILENAME" /opt/liferay/deploy/
-done
-
-echo "⏳ Waiting for Liferay to be ready at https://$TARGET_HOST (and alternatives)..."
-MAX_RETRIES=180 # Increased to 30 minutes for slow CI boots
-RETRY_COUNT=0
-READY=0
-
-while [ $RETRY_COUNT -lt $MAX_RETRIES ]; do
-    # Try HTTPS (standard LDM with sidecar)
-    STATUS=$(curl -k -s -o /dev/null -w "%{http_code}" "https://$TARGET_HOST" || echo "000")
-    
-    # Fallback to HTTP on 8080 if HTTPS fails (direct Liferay access)
-    if [ "$STATUS" == "000" ] || [ "$STATUS" == "404" ]; then
-        STATUS=$(curl -s -o /dev/null -w "%{http_code}" "http://localhost:8080" || echo "$STATUS")
-    fi
-
-    if [ "$STATUS" == "200" ] || [ "$STATUS" == "302" ]; then
-        echo -e "\n✅ Liferay is UP and responding (Status: $STATUS)!"
-        READY=1
-        break
-    fi
-    
-    # Periodic Log Check for fatal errors
-    if [ $((RETRY_COUNT % 6)) -eq 0 ]; then
-        if docker logs "$PROJECT_NAME" 2>&1 | grep -q "Unable to create lock manager"; then
-            echo -e "\n❌ FATAL: Filesystem locking error detected. Please check your drive format."
-            exit 1
-        fi
-    fi
-
-    RETRY_COUNT=$((RETRY_COUNT + 1))
-    printf "."
-    sleep 10
-done
-
-if [ $READY -eq 0 ]; then
-    echo -e "\n❌ ERROR: Liferay failed to become ready within $((MAX_RETRIES * 10 / 60)) minutes."
+echo "⏳ Waiting for Liferay to be ready at https://$TARGET_HOST..."
+# LDM 2.7.12+ wait command blocks until the HTTP layer is responsive
+if ! ldm_cmd wait "$PROJECT_NAME" --timeout 1800; then
+    echo -e "\n❌ ERROR: Liferay failed to become ready within 30 minutes."
     ldm_cmd logs "$PROJECT_NAME" --tail 100
     exit 1
 fi
+
+echo -e "\n✅ Liferay is UP and responding!"
+
+# --- Phase 5: Test Execution & Teardown ---
 
 # --- Phase 5: Test Execution & Teardown ---
 
