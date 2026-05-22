@@ -665,7 +665,17 @@ class LiferayRestService {
         throw new Error(`Invalid URL format: ${config.liferayUrl}`);
       }
 
-      if (!oauth.isLiferayRouteAvailable()) oauth.validateOAuthConfig(config);
+      // HARDENING: Only validate OAuth if we aren't using Basic Auth
+      const useBasic =
+        config.authMethod === 'basic' ||
+        ENV.LIFERAY_AUTH_METHOD === 'basic' ||
+        (!config.clientId &&
+          ENV.LIFERAY_API_USERNAME &&
+          ENV.LIFERAY_API_PASSWORD);
+
+      if (!useBasic && !oauth.isLiferayRouteAvailable()) {
+        oauth.validateOAuthConfig(config);
+      }
 
       await this._get(config, PATH.ME, 'test-connection');
 

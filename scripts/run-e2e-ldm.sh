@@ -33,6 +33,14 @@ if [ $VERBOSE -eq 1 ]; then
   echo "🛠️  Verbose mode enabled. Realized commands will be displayed with [CMD]."
 fi
 
+# Define LDM interactivity flag based on CI_MODE
+# In CI, we use -y to force non-interactive mode (sudo -n)
+# Locally, we omit it to allow OS-level password prompts
+LDM_Y_FLAG=""
+if [ $CI_MODE -eq 1 ]; then
+    LDM_Y_FLAG="-y"
+fi
+
 if [ $INIT_ONLY -eq 1 ]; then
   echo "🏗️  Init-only mode enabled. Script will stop after Liferay is ready."
 fi
@@ -44,12 +52,18 @@ fi
 if [ -z "$PROJECT_NAME" ]; then
     PROJECT_NAME="aica-e2e"
     EXISTING_PROJECT=0
+    # HARDENING: Proactively remove any existing project folder to prevent 
+    # Yarn workspace name collisions during Phase 2 (Building).
+    if [ -d "$PROJECT_NAME" ]; then
+        echo "🧹 Removing stale project directory '$PROJECT_NAME' before build..."
+        rm -rf "$PROJECT_NAME"
+    fi
 else
     echo "🏗️  Using existing LDM project: $PROJECT_NAME"
 fi
 
 # --- Constants ---
-REQUIRED_LDM_VERSION="2.7.14"
+REQUIRED_LDM_VERSION="2.7.19"
 DEFAULT_HOST="aica-e2e.local"
 # LDM 2.7.14+ automatically forwards OPENAI_*, GEMINI_*, etc.
 # We explicitly add AI_ prefix to the passthrough list for AICA-specific keys.
@@ -121,6 +135,10 @@ if ! ldm_cmd doctor --skip-project > /dev/null; then
     exit 1
 fi
 
+echo "🏗️  Ensuring LDM Shared Infrastructure is active..."
+# shellcheck disable=SC2086
+ldm_cmd infra-setup $LDM_Y_FLAG
+
 # --- Phase 2: Build & Deployment Preparation ---
 
 # We build BEFORE initializing the project to ensure fresh LCP.json metadata is captured
@@ -138,31 +156,43 @@ if [ $EXISTING_PROJECT -eq 0 ]; then
 
     LIFERAY_TAG=$(grep 'liferay.workspace.product=' "$GRADLE_PROPS" | cut -d'=' -f2 | xargs)
 
-    echo "📦 Initializing ephemeral LDM project [$PROJECT_NAME] (PostgreSQL)..."
-    # import parameters: creates a one-time static import for testing
-    # shellcheck disable=SC2086
-    ldm_cmd import . "$PROJECT_NAME" \
-        -y \
-        --host-name "$TARGET_HOST" \
-        --db postgresql \
-        --no-captcha \
-        --no-run
-
-    # Hostname Resolution & CI Setup (Post-Init)
+    # Hostname Resolution & CI Setup (Pre-Init)
     if [ "$CI_MODE" -eq 1 ]; then
-        echo "🤖 CI Mode detected. Setting up project DNS tree via LDM..."
-        # LDM 2.7.11+ automatically handles all subdomains for the project non-interactively
-        ldm_cmd fix-hosts "$PROJECT_NAME" -y
-        echo "✅ Hostname setup complete."
+        echo "🤖 CI Mode detected. Setting up project DNS tree via LDM (Pre-Init)..."
+        # In CI, we fix the main host first so import succeeds, then project tree after init
+        # shellcheck disable=SC2086
+        ldm_cmd fix-hosts "$TARGET_HOST" $LDM_Y_FLAG
     else
         # Local Hostname Resolution Check
         if ! host "$TARGET_HOST" &> /dev/null && ! grep -q "$TARGET_HOST" /etc/hosts; then
             echo "❌ ERROR: Hostname '$TARGET_HOST' does not resolve."
             echo "💡 ACTION REQUIRED: Run the following command to fix your hosts file, then restart this script:"
-            echo "   ldm fix-hosts $PROJECT_NAME"
+            echo "   ldm fix-hosts $TARGET_HOST"
             exit 1
         fi
     fi
+
+    echo "📦 Initializing ephemeral LDM project [$PROJECT_NAME] (PostgreSQL)..."
+    # import parameters: creates a one-time static import for testing
+    # shellcheck disable=SC2086
+    ldm_cmd import . "$PROJECT_NAME" \
+        $LDM_Y_FLAG \
+        --host-name "$TARGET_HOST" \
+        --db postgresql \
+        --no-seed \
+        $INTERNAL_STATE_FLAG \
+        --no-captcha \
+        --no-run
+
+    # Project-wide DNS Setup (CI only)
+    if [ "$CI_MODE" -eq 1 ]; then
+        echo "🤖 CI Mode detected. Finalizing project DNS tree via LDM..."
+        # LDM 2.7.11+ automatically handles all subdomains for the project non-interactively
+        # shellcheck disable=SC2086
+        ldm_cmd fix-hosts "$PROJECT_NAME" $LDM_Y_FLAG
+        echo "✅ Hostname setup complete."
+    fi
+
 
     echo "⚡ Starting Liferay container with tag [$LIFERAY_TAG] (Detached + Sidecar)..."
     # LDM 2.7.12+ automatically:
@@ -173,7 +203,7 @@ if [ $EXISTING_PROJECT -eq 0 ]; then
         --tag "$LIFERAY_TAG" \
         --sidecar \
         --no-captcha \
-        -y
+        $LDM_Y_FLAG
 else
     echo "⏭️  Skipping initialization/boot for existing project '$PROJECT_NAME'."
 fi
@@ -221,7 +251,8 @@ cleanup() {
         echo -e "\n🛡️  Skipping cleanup: --keep flag was provided for '$PROJECT_NAME'."
     else
         echo -e "\n🧹 Cleaning up environment..."
-        ldm_cmd rm "$PROJECT_NAME" --delete -y || true
+        # shellcheck disable=SC2086
+        ldm_cmd rm "$PROJECT_NAME" --delete $LDM_Y_FLAG || true
         echo "✨ Done."
     fi
 }
@@ -231,18 +262,38 @@ trap cleanup EXIT
 # Set the environment variables for Playwright and the Microservice
 export BASE_URL="https://$TARGET_HOST"
 export LIFERAY_API_URL="$BASE_URL"
+export LIFERAY_URL="$BASE_URL"
 
 # Map CI secrets to standard AICA variables if provided
 export LIFERAY_USER="${LIFERAY_USER:-${LIFERAY_ADMIN_EMAIL:-test@liferay.com}}"
-export LIFERAY_PASSWORD="${LIFERAY_PASSWORD:-${LIFERAY_ADMIN_PASSWORD:-L1feray$}}"
+export LIFERAY_PASSWORD="${LIFERAY_PASSWORD:-${LIFERAY_ADMIN_PASSWORD:-test}}"
 
 # Ensure microservice has access to these if they were passed via CI secrets
 export LIFERAY_API_USERNAME="$LIFERAY_USER"
 export LIFERAY_API_PASSWORD="$LIFERAY_PASSWORD"
 
+# HARDENING: Force Basic Auth fallback in E2E mode.
+# We unset OAuth credentials and set the auth method to 'basic'.
+export LIFERAY_OAUTH_CLIENT_ID=""
+export LIFERAY_OAUTH_CLIENT_SECRET=""
+export LIFERAY_AUTH_METHOD="basic"
+
+# Determine package manager command
+RUN_VERIFY=""
+if command -v yarn &> /dev/null; then
+    RUN_VERIFY="yarn verify"
+elif command -v npm &> /dev/null; then
+    RUN_VERIFY="npm run verify"
+fi
+
+if [ -z "$RUN_VERIFY" ]; then
+    echo "❌ ERROR: Neither 'yarn' nor 'npm' found in PATH."
+    exit 1
+fi
+
 # Execute the tests using the root verification script
-log_command "yarn verify"
-if yarn verify; then
+log_command "$RUN_VERIFY"
+if $RUN_VERIFY; then
     echo "-------------------------------------------------------"
     echo "🎉 SUCCESS: E2E Verification passed!"
     echo "-------------------------------------------------------"

@@ -6,9 +6,7 @@ test.describe('AICA End-to-End Verification', () => {
   test.beforeEach(async ({ page }) => {
     // Navigate to the dashboard page
     // Note: Adjust the path if the dashboard sits elsewhere in your specific DXP setup
-    await page.goto(
-      'http://localhost:8080/group/guest/ai-commerce-accelerator'
-    );
+    await page.goto('/group/guest/ai-commerce-accelerator');
   });
 
   test('should perform full data deletion flow', async ({ page }) => {

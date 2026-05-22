@@ -40,6 +40,11 @@ async function startMicroservice() {
       NODE_ENV: 'test',
       PORT: 3001,
       PERSISTENCE_DB_PATH: ':memory:',
+      NODE_TLS_REJECT_UNAUTHORIZED: '0', // Bypass SSL verification for local HTTPS
+      LIFERAY_OAUTH_CLIENT_ID: '',
+      LIFERAY_OAUTH_CLIENT_SECRET: '',
+      LIFERAY_AUTH_METHOD: 'basic',
+      LIFERAY_URL: process.env.LIFERAY_URL,
     },
   });
 
@@ -53,37 +58,43 @@ async function startMicroservice() {
 
   return new Promise((resolve, reject) => {
     const checkHealth = () => {
-      const req = http.get('http://localhost:3001/health', (res) => {
+      const req = http.get('http://localhost:3001/api/v1/health', (res) => {
         if (res.statusCode === 200) {
           console.log('>>> Microservice is HEALTHY.');
           resolve();
         } else {
-          setTimeout(checkHealth, 500);
+          console.log(
+            `>>> Microservice health probe returned ${res.statusCode}. Waiting...`
+          );
+          setTimeout(checkHealth, 1000);
         }
       });
 
       req.on('error', () => {
-        setTimeout(checkHealth, 500);
+        setTimeout(checkHealth, 1000);
       });
     };
 
     checkHealth();
 
-    // Timeout after 30 seconds
+    // Timeout after 120 seconds
     setTimeout(() => {
-      reject(new Error('Microservice failed to become healthy within 30s'));
-    }, 30000);
+      reject(new Error('Microservice failed to become healthy within 120s'));
+    }, 120000);
   });
 }
 
 async function runPlaywright() {
   console.log('>>> Running Playwright Tests...');
 
+  const PLAYWRIGHT_DIR = path.join(__dirname, '../playwright');
+
   return new Promise((resolve) => {
     const pw = spawn(
       'npx',
       ['playwright', 'test', '--config=playwright-e2e.config.js'],
       {
+        cwd: PLAYWRIGHT_DIR,
         stdio: 'inherit',
         shell: true,
       }

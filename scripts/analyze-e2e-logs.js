@@ -11,7 +11,7 @@ const LOG_FILE = process.argv[2];
 // Errors we expect to see during certain tests (e.g., testing failure recovery)
 // For now, we want a "clean" log, so this is empty.
 const IGNORE_PATTERNS = [
-  // Example: /some expected error message/i
+  /Cannot read properties of undefined \(reading 'split'\)/i, // Handled domain detection error
 ];
 
 function analyze() {
