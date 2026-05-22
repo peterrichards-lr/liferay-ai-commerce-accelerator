@@ -63,7 +63,7 @@ else
 fi
 
 # --- Constants ---
-REQUIRED_LDM_VERSION="2.7.24"
+REQUIRED_LDM_VERSION="2.8.0"
 DEFAULT_HOST="aica-e2e.local"
 
 # LDM 2.7.14+ automatically forwards OPENAI_*, GEMINI_*, etc.
@@ -204,7 +204,7 @@ if [ $EXISTING_PROJECT -eq 0 ]; then
         --tag "$LIFERAY_TAG" \
         --sidecar \
         --no-captcha \
-        $LDM_Y_FLAG
+        -y
 else
     echo "⏭️  Skipping initialization/boot for existing project '$PROJECT_NAME'."
 fi
