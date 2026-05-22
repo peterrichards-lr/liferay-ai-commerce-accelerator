@@ -2,12 +2,31 @@ import { test, expect } from '@playwright/test';
 import path from 'path';
 
 test.describe('AICA Dataset Import Verification', () => {
-  test.use({ storageState: 'playwright/.auth/user.json' });
+  test.use({ storageState: '.auth/user.json' });
 
   test.beforeEach(async ({ page }) => {
-    // Navigate to the dashboard
-    await page.goto('/group/guest/ai-commerce-accelerator-admin');
-    await page.waitForSelector('.aica-dashboard');
+    // Navigate to the dashboard with retry logic for 404s (Site Initializer delay)
+    await expect(async () => {
+      const response = await page.goto('/web/guest/dashboard');
+      expect(response.status()).toBe(200);
+    }).toPass({
+      timeout: 120000,
+      intervals: [5000, 10000],
+    });
+
+    // Handle persistent Terms of Use modal
+    const termsModal = page.getByRole('dialog', { name: /Terms of Use/i });
+    const termsHeading = termsModal.getByRole('heading', {
+      name: /Terms of Use/i,
+    });
+
+    if (await termsHeading.isVisible({ timeout: 15000 }).catch(() => false)) {
+      console.log('>>> Dismissing Terms of Use modal on admin page...');
+      await termsModal.getByRole('button', { name: 'Done' }).click();
+      await termsModal.waitFor({ state: 'hidden', timeout: 15000 });
+    }
+
+    await page.waitForSelector('.aica-dashboard', { timeout: 60000 });
   });
 
   test('should import a commerce dataset and verify workflow completion', async ({
