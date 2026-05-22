@@ -85,20 +85,19 @@ async function startMicroservice() {
 }
 
 async function runPlaywright() {
-  console.log('>>> Running Playwright Tests...');
-
   const PLAYWRIGHT_DIR = path.join(__dirname, '../playwright');
+  const CONFIG_PATH = 'playwright-e2e.config.js';
+
+  console.log('>>> Running Playwright Tests...');
+  console.log(`>>> Working Directory: ${PLAYWRIGHT_DIR}`);
+  console.log(`>>> Configuration: ${CONFIG_PATH}`);
 
   return new Promise((resolve) => {
-    const pw = spawn(
-      'npx',
-      ['playwright', 'test', '--config=playwright-e2e.config.js'],
-      {
-        cwd: PLAYWRIGHT_DIR,
-        stdio: 'inherit',
-        shell: true,
-      }
-    );
+    const pw = spawn('npx', ['playwright', 'test', `--config=${CONFIG_PATH}`], {
+      cwd: PLAYWRIGHT_DIR,
+      stdio: 'inherit',
+      shell: true,
+    });
 
     pw.on('exit', (code) => {
       resolve(code);

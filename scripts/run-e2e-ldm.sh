@@ -63,8 +63,9 @@ else
 fi
 
 # --- Constants ---
-REQUIRED_LDM_VERSION="2.7.19"
+REQUIRED_LDM_VERSION="2.7.24"
 DEFAULT_HOST="aica-e2e.local"
+
 # LDM 2.7.14+ automatically forwards OPENAI_*, GEMINI_*, etc.
 # We explicitly add AI_ prefix to the passthrough list for AICA-specific keys.
 export LDM_FORWARD_PREFIXES="${LDM_FORWARD_PREFIXES:-AI_}"
