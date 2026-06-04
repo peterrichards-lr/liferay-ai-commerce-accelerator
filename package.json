@@ -56,6 +56,7 @@
     "smoke": "playwright test --config playwright/playwright.config.js",
     "verify": "node scripts/test-e2e-orchestrator.js",
     "verification": "playwright test --config playwright/playwright-e2e.config.js",
+    "ldm:init": "bash scripts/run-e2e-ldm.sh --init-only -k -p fragments-test-env",
     "lint": "yarn workspaces run lint && yarn lint:md",
     "lint:md": "markdownlint '**/*.md' --ignore '**/node_modules/**' --ignore '**/build/**' --ignore '**/bundles/**' --ignore 'GETTING_STARTED.md'",
     "update-browser-data": "yarn add -D baseline-browser-mapping@latest -W && npx update-browserslist-db@latest -y"
