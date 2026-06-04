@@ -15,7 +15,7 @@
     "jwk-to-pem": "^2.0.5",
     "lodash": "^4.18.1",
     "memory-cache": "^0.2.0",
-    "ws": "^8.20.0",
+    "ws": "^8.20.1",
     "zod": "^4.4.3"
   },
   "devDependencies": {
