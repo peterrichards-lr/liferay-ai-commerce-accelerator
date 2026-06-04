@@ -57,6 +57,8 @@
     "verify": "node scripts/test-e2e-orchestrator.js",
     "verification": "playwright test --config playwright/playwright-e2e.config.js",
     "ldm:init": "bash scripts/run-e2e-ldm.sh --init-only -k",
+    "ldm:init-from": "ldm init-from . aica --db postgresql --no-captcha --fast-login --feature LPD-35443 --sidecar --host-name aica-e2e.local --build",
+    "ldm:monitor": "ldm monitor . -p aica",
     "lint": "yarn workspaces run lint && yarn lint:md",
     "lint:md": "markdownlint '**/*.md' --ignore '**/node_modules/**' --ignore '**/build/**' --ignore '**/bundles/**' --ignore 'GETTING_STARTED.md'",
     "update-browser-data": "yarn add -D baseline-browser-mapping@latest -W && npx update-browserslist-db@latest -y"

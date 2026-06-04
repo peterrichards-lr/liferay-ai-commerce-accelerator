@@ -34,6 +34,7 @@ Improve tracking and feedback loop of E2E tests, allowing the AI assistant to tr
 - Completed unit tests and fixed code styling/linting across all client extensions and configurations. All tests and lint checks are now passing successfully.
 - Adding a shortcut script `ldm:init` in package.json to make it easy to start the LDM environment in a single command.
 - Updated default LDM project name in scripts/run-e2e-ldm.sh to 'aica' and simplified the package.json script.
+- Adding `ldm:init-from` and `ldm:monitor` commands to package.json scripts for local development workspace replication and hot-rebuild tracking.
 
 ## LDM Reference Documentation
 
