@@ -1,6 +1,7 @@
 {
   "configurationPath": "configuration.json",
   "cssPath": "fragment.css",
+  "externalReferenceCode": "ai-commerce-accelerator",
   "htmlPath": "fragment.html",
   "icon": "magic",
   "jsPath": "fragment.js",

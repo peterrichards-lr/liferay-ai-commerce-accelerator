@@ -50,7 +50,7 @@ test.describe('AI Commerce Accelerator Foundations', () => {
   test('microservice connectivity check', async ({ page }) => {
     // Check if the microservice is reachable via the frontend proxy or direct URL
     const response = await page.request.get(
-      'http://localhost:8080/o/ai-commerce-accelerator-microservice/health'
+      '/o/ai-commerce-accelerator-microservice/api/v1/health'
     );
     if (response.ok()) {
       const body = await response.json();

@@ -56,6 +56,406 @@ class GeneratedLiferayClient {
         this._deleteRegionBatch_headlessAdminAddress_v1_0.bind(this),
     };
 
+    // headless-admin-site-v1.0 (v1.0)
+    if (!this.headlessAdminSite) this.headlessAdminSite = {};
+    this.headlessAdminSite.v1_0 = {
+      getSiteDisplayPageTemplateFolder:
+        this._getSiteDisplayPageTemplateFolder_headlessAdminSite_v1_0.bind(
+          this
+        ),
+      putSiteDisplayPageTemplateFolder:
+        this._putSiteDisplayPageTemplateFolder_headlessAdminSite_v1_0.bind(
+          this
+        ),
+      deleteSiteDisplayPageTemplateFolder:
+        this._deleteSiteDisplayPageTemplateFolder_headlessAdminSite_v1_0.bind(
+          this
+        ),
+      patchSiteDisplayPageTemplateFolder:
+        this._patchSiteDisplayPageTemplateFolder_headlessAdminSite_v1_0.bind(
+          this
+        ),
+      getSiteDisplayPageTemplateFolderPermissionsPage:
+        this._getSiteDisplayPageTemplateFolderPermissionsPage_headlessAdminSite_v1_0.bind(
+          this
+        ),
+      putSiteDisplayPageTemplateFolderPermissionsPage:
+        this._putSiteDisplayPageTemplateFolderPermissionsPage_headlessAdminSite_v1_0.bind(
+          this
+        ),
+      getSiteDisplayPageTemplateFoldersPage:
+        this._getSiteDisplayPageTemplateFoldersPage_headlessAdminSite_v1_0.bind(
+          this
+        ),
+      postSiteDisplayPageTemplateFolder:
+        this._postSiteDisplayPageTemplateFolder_headlessAdminSite_v1_0.bind(
+          this
+        ),
+      postSiteDisplayPageTemplateFolderBatch:
+        this._postSiteDisplayPageTemplateFolderBatch_headlessAdminSite_v1_0.bind(
+          this
+        ),
+      postSiteDisplayPageTemplateFoldersPageExportBatch:
+        this._postSiteDisplayPageTemplateFoldersPageExportBatch_headlessAdminSite_v1_0.bind(
+          this
+        ),
+      getSiteDisplayPageTemplate:
+        this._getSiteDisplayPageTemplate_headlessAdminSite_v1_0.bind(this),
+      putSiteDisplayPageTemplate:
+        this._putSiteDisplayPageTemplate_headlessAdminSite_v1_0.bind(this),
+      deleteSiteDisplayPageTemplate:
+        this._deleteSiteDisplayPageTemplate_headlessAdminSite_v1_0.bind(this),
+      patchSiteDisplayPageTemplate:
+        this._patchSiteDisplayPageTemplate_headlessAdminSite_v1_0.bind(this),
+      getSiteDisplayPageTemplateFolderDisplayPageTemplatesPage:
+        this._getSiteDisplayPageTemplateFolderDisplayPageTemplatesPage_headlessAdminSite_v1_0.bind(
+          this
+        ),
+      postSiteDisplayPageTemplateFolderDisplayPageTemplate:
+        this._postSiteDisplayPageTemplateFolderDisplayPageTemplate_headlessAdminSite_v1_0.bind(
+          this
+        ),
+      getSiteDisplayPageTemplatePermissionsPage:
+        this._getSiteDisplayPageTemplatePermissionsPage_headlessAdminSite_v1_0.bind(
+          this
+        ),
+      putSiteDisplayPageTemplatePermissionsPage:
+        this._putSiteDisplayPageTemplatePermissionsPage_headlessAdminSite_v1_0.bind(
+          this
+        ),
+      getSiteDisplayPageTemplatesPage:
+        this._getSiteDisplayPageTemplatesPage_headlessAdminSite_v1_0.bind(this),
+      postSiteDisplayPageTemplate:
+        this._postSiteDisplayPageTemplate_headlessAdminSite_v1_0.bind(this),
+      postSiteDisplayPageTemplateBatch:
+        this._postSiteDisplayPageTemplateBatch_headlessAdminSite_v1_0.bind(
+          this
+        ),
+      getSiteDisplayPageTemplatePageSpecificationsPage:
+        this._getSiteDisplayPageTemplatePageSpecificationsPage_headlessAdminSite_v1_0.bind(
+          this
+        ),
+      postSiteDisplayPageTemplatePageSpecification:
+        this._postSiteDisplayPageTemplatePageSpecification_headlessAdminSite_v1_0.bind(
+          this
+        ),
+      postSiteDisplayPageTemplatesPageExportBatch:
+        this._postSiteDisplayPageTemplatesPageExportBatch_headlessAdminSite_v1_0.bind(
+          this
+        ),
+      getSiteDisplayPageTemplateFriendlyUrlHistory:
+        this._getSiteDisplayPageTemplateFriendlyUrlHistory_headlessAdminSite_v1_0.bind(
+          this
+        ),
+      getSiteSitePageFriendlyUrlHistory:
+        this._getSiteSitePageFriendlyUrlHistory_headlessAdminSite_v1_0.bind(
+          this
+        ),
+      getSiteUtilityPageFriendlyUrlHistory:
+        this._getSiteUtilityPageFriendlyUrlHistory_headlessAdminSite_v1_0.bind(
+          this
+        ),
+      getSiteMasterPage:
+        this._getSiteMasterPage_headlessAdminSite_v1_0.bind(this),
+      putSiteMasterPage:
+        this._putSiteMasterPage_headlessAdminSite_v1_0.bind(this),
+      deleteSiteMasterPage:
+        this._deleteSiteMasterPage_headlessAdminSite_v1_0.bind(this),
+      patchSiteMasterPage:
+        this._patchSiteMasterPage_headlessAdminSite_v1_0.bind(this),
+      getSiteMasterPagePermissionsPage:
+        this._getSiteMasterPagePermissionsPage_headlessAdminSite_v1_0.bind(
+          this
+        ),
+      putSiteMasterPagePermissionsPage:
+        this._putSiteMasterPagePermissionsPage_headlessAdminSite_v1_0.bind(
+          this
+        ),
+      getSiteMasterPagesPage:
+        this._getSiteMasterPagesPage_headlessAdminSite_v1_0.bind(this),
+      postSiteMasterPage:
+        this._postSiteMasterPage_headlessAdminSite_v1_0.bind(this),
+      postSiteMasterPageBatch:
+        this._postSiteMasterPageBatch_headlessAdminSite_v1_0.bind(this),
+      getSiteMasterPagePageSpecificationsPage:
+        this._getSiteMasterPagePageSpecificationsPage_headlessAdminSite_v1_0.bind(
+          this
+        ),
+      postSiteMasterPagePageSpecification:
+        this._postSiteMasterPagePageSpecification_headlessAdminSite_v1_0.bind(
+          this
+        ),
+      postSiteMasterPagesPageExportBatch:
+        this._postSiteMasterPagesPageExportBatch_headlessAdminSite_v1_0.bind(
+          this
+        ),
+      getSiteNavigationMenu:
+        this._getSiteNavigationMenu_headlessAdminSite_v1_0.bind(this),
+      putSiteNavigationMenu:
+        this._putSiteNavigationMenu_headlessAdminSite_v1_0.bind(this),
+      deleteSiteNavigationMenu:
+        this._deleteSiteNavigationMenu_headlessAdminSite_v1_0.bind(this),
+      getSiteNavigationMenuPermissionsPage:
+        this._getSiteNavigationMenuPermissionsPage_headlessAdminSite_v1_0.bind(
+          this
+        ),
+      putSiteNavigationMenuPermissionsPage:
+        this._putSiteNavigationMenuPermissionsPage_headlessAdminSite_v1_0.bind(
+          this
+        ),
+      getSiteNavigationMenusPage:
+        this._getSiteNavigationMenusPage_headlessAdminSite_v1_0.bind(this),
+      postSiteNavigationMenu:
+        this._postSiteNavigationMenu_headlessAdminSite_v1_0.bind(this),
+      postSiteNavigationMenuBatch:
+        this._postSiteNavigationMenuBatch_headlessAdminSite_v1_0.bind(this),
+      postSiteNavigationMenusPageExportBatch:
+        this._postSiteNavigationMenusPageExportBatch_headlessAdminSite_v1_0.bind(
+          this
+        ),
+      getOpenAPI: this._getOpenAPI_headlessAdminSite_v1_0.bind(this),
+      getSitePageSpecificationPageExperiencePageElement:
+        this._getSitePageSpecificationPageExperiencePageElement_headlessAdminSite_v1_0.bind(
+          this
+        ),
+      putSitePageSpecificationPageExperiencePageElement:
+        this._putSitePageSpecificationPageExperiencePageElement_headlessAdminSite_v1_0.bind(
+          this
+        ),
+      deleteSitePageSpecificationPageExperiencePageElement:
+        this._deleteSitePageSpecificationPageExperiencePageElement_headlessAdminSite_v1_0.bind(
+          this
+        ),
+      patchSitePageSpecificationPageExperiencePageElement:
+        this._patchSitePageSpecificationPageExperiencePageElement_headlessAdminSite_v1_0.bind(
+          this
+        ),
+      getSitePageSpecificationPageExperiencePageElementPageElementsPage:
+        this._getSitePageSpecificationPageExperiencePageElementPageElementsPage_headlessAdminSite_v1_0.bind(
+          this
+        ),
+      getSitePageSpecificationPageExperiencePageElementsPage:
+        this._getSitePageSpecificationPageExperiencePageElementsPage_headlessAdminSite_v1_0.bind(
+          this
+        ),
+      postSitePageSpecificationPageExperiencePageElement:
+        this._postSitePageSpecificationPageExperiencePageElement_headlessAdminSite_v1_0.bind(
+          this
+        ),
+      getSitePageExperience:
+        this._getSitePageExperience_headlessAdminSite_v1_0.bind(this),
+      putSitePageExperience:
+        this._putSitePageExperience_headlessAdminSite_v1_0.bind(this),
+      deleteSitePageExperience:
+        this._deleteSitePageExperience_headlessAdminSite_v1_0.bind(this),
+      patchSitePageExperience:
+        this._patchSitePageExperience_headlessAdminSite_v1_0.bind(this),
+      getSitePageSpecificationPageExperiencesPage:
+        this._getSitePageSpecificationPageExperiencesPage_headlessAdminSite_v1_0.bind(
+          this
+        ),
+      postSitePageSpecificationPageExperience:
+        this._postSitePageSpecificationPageExperience_headlessAdminSite_v1_0.bind(
+          this
+        ),
+      getSitePageSpecification:
+        this._getSitePageSpecification_headlessAdminSite_v1_0.bind(this),
+      putSitePageSpecification:
+        this._putSitePageSpecification_headlessAdminSite_v1_0.bind(this),
+      deleteSitePageSpecification:
+        this._deleteSitePageSpecification_headlessAdminSite_v1_0.bind(this),
+      patchSitePageSpecification:
+        this._patchSitePageSpecification_headlessAdminSite_v1_0.bind(this),
+      getSitePageTemplatePageSpecificationsPage:
+        this._getSitePageTemplatePageSpecificationsPage_headlessAdminSite_v1_0.bind(
+          this
+        ),
+      postSitePageTemplatePageSpecification:
+        this._postSitePageTemplatePageSpecification_headlessAdminSite_v1_0.bind(
+          this
+        ),
+      getSiteSitePagePageSpecificationsPage:
+        this._getSiteSitePagePageSpecificationsPage_headlessAdminSite_v1_0.bind(
+          this
+        ),
+      postSiteSitePagePageSpecification:
+        this._postSiteSitePagePageSpecification_headlessAdminSite_v1_0.bind(
+          this
+        ),
+      getSiteUtilityPagePageSpecificationsPage:
+        this._getSiteUtilityPagePageSpecificationsPage_headlessAdminSite_v1_0.bind(
+          this
+        ),
+      postSiteUtilityPagePageSpecification:
+        this._postSiteUtilityPagePageSpecification_headlessAdminSite_v1_0.bind(
+          this
+        ),
+      postSitePageSpecificationPublish:
+        this._postSitePageSpecificationPublish_headlessAdminSite_v1_0.bind(
+          this
+        ),
+      getSitePageTemplate:
+        this._getSitePageTemplate_headlessAdminSite_v1_0.bind(this),
+      putSitePageTemplate:
+        this._putSitePageTemplate_headlessAdminSite_v1_0.bind(this),
+      deleteSitePageTemplate:
+        this._deleteSitePageTemplate_headlessAdminSite_v1_0.bind(this),
+      patchSitePageTemplate:
+        this._patchSitePageTemplate_headlessAdminSite_v1_0.bind(this),
+      getSitePageTemplatePermissionsPage:
+        this._getSitePageTemplatePermissionsPage_headlessAdminSite_v1_0.bind(
+          this
+        ),
+      putSitePageTemplatePermissionsPage:
+        this._putSitePageTemplatePermissionsPage_headlessAdminSite_v1_0.bind(
+          this
+        ),
+      getSitePageTemplateSetPageTemplatesPage:
+        this._getSitePageTemplateSetPageTemplatesPage_headlessAdminSite_v1_0.bind(
+          this
+        ),
+      postSitePageTemplateSetPageTemplate:
+        this._postSitePageTemplateSetPageTemplate_headlessAdminSite_v1_0.bind(
+          this
+        ),
+      getSitePageTemplatesPage:
+        this._getSitePageTemplatesPage_headlessAdminSite_v1_0.bind(this),
+      postSitePageTemplate:
+        this._postSitePageTemplate_headlessAdminSite_v1_0.bind(this),
+      postSitePageTemplateBatch:
+        this._postSitePageTemplateBatch_headlessAdminSite_v1_0.bind(this),
+      postSitePageTemplatesPageExportBatch:
+        this._postSitePageTemplatesPageExportBatch_headlessAdminSite_v1_0.bind(
+          this
+        ),
+      getSitePageTemplateSet:
+        this._getSitePageTemplateSet_headlessAdminSite_v1_0.bind(this),
+      putSitePageTemplateSet:
+        this._putSitePageTemplateSet_headlessAdminSite_v1_0.bind(this),
+      deleteSitePageTemplateSet:
+        this._deleteSitePageTemplateSet_headlessAdminSite_v1_0.bind(this),
+      patchSitePageTemplateSet:
+        this._patchSitePageTemplateSet_headlessAdminSite_v1_0.bind(this),
+      getSitePageTemplateSetPermissionsPage:
+        this._getSitePageTemplateSetPermissionsPage_headlessAdminSite_v1_0.bind(
+          this
+        ),
+      putSitePageTemplateSetPermissionsPage:
+        this._putSitePageTemplateSetPermissionsPage_headlessAdminSite_v1_0.bind(
+          this
+        ),
+      getSitePageTemplateSetsPage:
+        this._getSitePageTemplateSetsPage_headlessAdminSite_v1_0.bind(this),
+      postSitePageTemplateSet:
+        this._postSitePageTemplateSet_headlessAdminSite_v1_0.bind(this),
+      postSitePageTemplateSetBatch:
+        this._postSitePageTemplateSetBatch_headlessAdminSite_v1_0.bind(this),
+      postSitePageTemplateSetsPageExportBatch:
+        this._postSitePageTemplateSetsPageExportBatch_headlessAdminSite_v1_0.bind(
+          this
+        ),
+      getSiteSitePage: this._getSiteSitePage_headlessAdminSite_v1_0.bind(this),
+      putSiteSitePage: this._putSiteSitePage_headlessAdminSite_v1_0.bind(this),
+      deleteSiteSitePage:
+        this._deleteSiteSitePage_headlessAdminSite_v1_0.bind(this),
+      patchSiteSitePage:
+        this._patchSiteSitePage_headlessAdminSite_v1_0.bind(this),
+      getSiteSitePagePermissionsPage:
+        this._getSiteSitePagePermissionsPage_headlessAdminSite_v1_0.bind(this),
+      putSiteSitePagePermissionsPage:
+        this._putSiteSitePagePermissionsPage_headlessAdminSite_v1_0.bind(this),
+      getSiteSitePagesPage:
+        this._getSiteSitePagesPage_headlessAdminSite_v1_0.bind(this),
+      postSiteSitePage:
+        this._postSiteSitePage_headlessAdminSite_v1_0.bind(this),
+      postSiteSitePageBatch:
+        this._postSiteSitePageBatch_headlessAdminSite_v1_0.bind(this),
+      postSiteSitePagesPageExportBatch:
+        this._postSiteSitePagesPageExportBatch_headlessAdminSite_v1_0.bind(
+          this
+        ),
+      getSite: this._getSite_headlessAdminSite_v1_0.bind(this),
+      putSite: this._putSite_headlessAdminSite_v1_0.bind(this),
+      deleteSite: this._deleteSite_headlessAdminSite_v1_0.bind(this),
+      putSiteBatch: this._putSiteBatch_headlessAdminSite_v1_0.bind(this),
+      postSiteBatch: this._postSiteBatch_headlessAdminSite_v1_0.bind(this),
+      deleteSiteBatch: this._deleteSiteBatch_headlessAdminSite_v1_0.bind(this),
+      getSitePermissionsPage:
+        this._getSitePermissionsPage_headlessAdminSite_v1_0.bind(this),
+      putSitePermissionsPage:
+        this._putSitePermissionsPage_headlessAdminSite_v1_0.bind(this),
+      getSiteSiteInitializer:
+        this._getSiteSiteInitializer_headlessAdminSite_v1_0.bind(this),
+      putSiteSiteInitializer:
+        this._putSiteSiteInitializer_headlessAdminSite_v1_0.bind(this),
+      getSitesPage: this._getSitesPage_headlessAdminSite_v1_0.bind(this),
+      postSite: this._postSite_headlessAdminSite_v1_0.bind(this),
+      postSiteSiteInitializer:
+        this._postSiteSiteInitializer_headlessAdminSite_v1_0.bind(this),
+      postSitesPageExportBatch:
+        this._postSitesPageExportBatch_headlessAdminSite_v1_0.bind(this),
+      getSiteStyleBook:
+        this._getSiteStyleBook_headlessAdminSite_v1_0.bind(this),
+      putSiteStyleBook:
+        this._putSiteStyleBook_headlessAdminSite_v1_0.bind(this),
+      deleteSiteStyleBook:
+        this._deleteSiteStyleBook_headlessAdminSite_v1_0.bind(this),
+      patchSiteStyleBook:
+        this._patchSiteStyleBook_headlessAdminSite_v1_0.bind(this),
+      getSiteStyleBooksPage:
+        this._getSiteStyleBooksPage_headlessAdminSite_v1_0.bind(this),
+      postSiteStyleBook:
+        this._postSiteStyleBook_headlessAdminSite_v1_0.bind(this),
+      postSiteStyleBookBatch:
+        this._postSiteStyleBookBatch_headlessAdminSite_v1_0.bind(this),
+      postSiteStyleBooksPageExportBatch:
+        this._postSiteStyleBooksPageExportBatch_headlessAdminSite_v1_0.bind(
+          this
+        ),
+      getSiteUtilityPage:
+        this._getSiteUtilityPage_headlessAdminSite_v1_0.bind(this),
+      putSiteUtilityPage:
+        this._putSiteUtilityPage_headlessAdminSite_v1_0.bind(this),
+      deleteSiteUtilityPage:
+        this._deleteSiteUtilityPage_headlessAdminSite_v1_0.bind(this),
+      patchSiteUtilityPage:
+        this._patchSiteUtilityPage_headlessAdminSite_v1_0.bind(this),
+      getSiteUtilityPagePermissionsPage:
+        this._getSiteUtilityPagePermissionsPage_headlessAdminSite_v1_0.bind(
+          this
+        ),
+      putSiteUtilityPagePermissionsPage:
+        this._putSiteUtilityPagePermissionsPage_headlessAdminSite_v1_0.bind(
+          this
+        ),
+      getSiteUtilityPagesPage:
+        this._getSiteUtilityPagesPage_headlessAdminSite_v1_0.bind(this),
+      postSiteUtilityPage:
+        this._postSiteUtilityPage_headlessAdminSite_v1_0.bind(this),
+      postSiteUtilityPageBatch:
+        this._postSiteUtilityPageBatch_headlessAdminSite_v1_0.bind(this),
+      postSiteUtilityPagesPageExportBatch:
+        this._postSiteUtilityPagesPageExportBatch_headlessAdminSite_v1_0.bind(
+          this
+        ),
+      getSiteSitePageWidgetInstance:
+        this._getSiteSitePageWidgetInstance_headlessAdminSite_v1_0.bind(this),
+      putSiteSitePageWidgetInstance:
+        this._putSiteSitePageWidgetInstance_headlessAdminSite_v1_0.bind(this),
+      deleteSiteSitePageWidgetInstance:
+        this._deleteSiteSitePageWidgetInstance_headlessAdminSite_v1_0.bind(
+          this
+        ),
+      patchSiteSitePageWidgetInstance:
+        this._patchSiteSitePageWidgetInstance_headlessAdminSite_v1_0.bind(this),
+      getSiteSitePageWidgetInstancesPage:
+        this._getSiteSitePageWidgetInstancesPage_headlessAdminSite_v1_0.bind(
+          this
+        ),
+      postSiteSitePageWidgetInstance:
+        this._postSiteSitePageWidgetInstance_headlessAdminSite_v1_0.bind(this),
+    };
+
     // headless-admin-user-v1.0 (v1.0)
     if (!this.headlessAdminUser) this.headlessAdminUser = {};
     this.headlessAdminUser.v1_0 = {
@@ -5729,6 +6129,2969 @@ class GeneratedLiferayClient {
       data,
       op: 'deleteRegionBatch',
       friendly: 'Generated method deleteRegionBatch failed',
+      ...opts,
+    });
+  }
+
+  /**
+   * getSiteDisplayPageTemplateFolder
+   * API: headless-admin-site-v1.0 | Version: v1.0
+   */
+  async _getSiteDisplayPageTemplateFolder_headlessAdminSite_v1_0(
+    config,
+    siteExternalReferenceCode,
+    displayPageTemplateFolderExternalReferenceCode,
+    data,
+    opts = {}
+  ) {
+    return await this.rest._request(config, {
+      method: 'GET',
+      url: `/o/headless-admin-site/v1.0/sites/${siteExternalReferenceCode}/display-page-template-folders/${displayPageTemplateFolderExternalReferenceCode}`,
+      data,
+      op: 'getSiteDisplayPageTemplateFolder',
+      friendly: 'Generated method getSiteDisplayPageTemplateFolder failed',
+      ...opts,
+    });
+  }
+
+  /**
+   * putSiteDisplayPageTemplateFolder
+   * API: headless-admin-site-v1.0 | Version: v1.0
+   */
+  async _putSiteDisplayPageTemplateFolder_headlessAdminSite_v1_0(
+    config,
+    siteExternalReferenceCode,
+    displayPageTemplateFolderExternalReferenceCode,
+    data,
+    opts = {}
+  ) {
+    return await this.rest._request(config, {
+      method: 'PUT',
+      url: `/o/headless-admin-site/v1.0/sites/${siteExternalReferenceCode}/display-page-template-folders/${displayPageTemplateFolderExternalReferenceCode}`,
+      data,
+      op: 'putSiteDisplayPageTemplateFolder',
+      friendly: 'Generated method putSiteDisplayPageTemplateFolder failed',
+      ...opts,
+    });
+  }
+
+  /**
+   * deleteSiteDisplayPageTemplateFolder
+   * API: headless-admin-site-v1.0 | Version: v1.0
+   */
+  async _deleteSiteDisplayPageTemplateFolder_headlessAdminSite_v1_0(
+    config,
+    siteExternalReferenceCode,
+    displayPageTemplateFolderExternalReferenceCode,
+    data,
+    opts = {}
+  ) {
+    return await this.rest._request(config, {
+      method: 'DELETE',
+      url: `/o/headless-admin-site/v1.0/sites/${siteExternalReferenceCode}/display-page-template-folders/${displayPageTemplateFolderExternalReferenceCode}`,
+      data,
+      op: 'deleteSiteDisplayPageTemplateFolder',
+      friendly: 'Generated method deleteSiteDisplayPageTemplateFolder failed',
+      ...opts,
+    });
+  }
+
+  /**
+   * patchSiteDisplayPageTemplateFolder
+   * API: headless-admin-site-v1.0 | Version: v1.0
+   */
+  async _patchSiteDisplayPageTemplateFolder_headlessAdminSite_v1_0(
+    config,
+    siteExternalReferenceCode,
+    displayPageTemplateFolderExternalReferenceCode,
+    data,
+    opts = {}
+  ) {
+    return await this.rest._request(config, {
+      method: 'PATCH',
+      url: `/o/headless-admin-site/v1.0/sites/${siteExternalReferenceCode}/display-page-template-folders/${displayPageTemplateFolderExternalReferenceCode}`,
+      data,
+      op: 'patchSiteDisplayPageTemplateFolder',
+      friendly: 'Generated method patchSiteDisplayPageTemplateFolder failed',
+      ...opts,
+    });
+  }
+
+  /**
+   * getSiteDisplayPageTemplateFolderPermissionsPage
+   * API: headless-admin-site-v1.0 | Version: v1.0
+   */
+  async _getSiteDisplayPageTemplateFolderPermissionsPage_headlessAdminSite_v1_0(
+    config,
+    siteExternalReferenceCode,
+    displayPageTemplateFolderExternalReferenceCode,
+    data,
+    opts = {}
+  ) {
+    return await this.rest._request(config, {
+      method: 'GET',
+      url: `/o/headless-admin-site/v1.0/sites/${siteExternalReferenceCode}/display-page-template-folders/${displayPageTemplateFolderExternalReferenceCode}/permissions`,
+      data,
+      op: 'getSiteDisplayPageTemplateFolderPermissionsPage',
+      friendly:
+        'Generated method getSiteDisplayPageTemplateFolderPermissionsPage failed',
+      ...opts,
+    });
+  }
+
+  /**
+   * putSiteDisplayPageTemplateFolderPermissionsPage
+   * API: headless-admin-site-v1.0 | Version: v1.0
+   */
+  async _putSiteDisplayPageTemplateFolderPermissionsPage_headlessAdminSite_v1_0(
+    config,
+    siteExternalReferenceCode,
+    displayPageTemplateFolderExternalReferenceCode,
+    data,
+    opts = {}
+  ) {
+    return await this.rest._request(config, {
+      method: 'PUT',
+      url: `/o/headless-admin-site/v1.0/sites/${siteExternalReferenceCode}/display-page-template-folders/${displayPageTemplateFolderExternalReferenceCode}/permissions`,
+      data,
+      op: 'putSiteDisplayPageTemplateFolderPermissionsPage',
+      friendly:
+        'Generated method putSiteDisplayPageTemplateFolderPermissionsPage failed',
+      ...opts,
+    });
+  }
+
+  /**
+   * getSiteDisplayPageTemplateFoldersPage
+   * API: headless-admin-site-v1.0 | Version: v1.0
+   */
+  async _getSiteDisplayPageTemplateFoldersPage_headlessAdminSite_v1_0(
+    config,
+    siteExternalReferenceCode,
+    data,
+    opts = {}
+  ) {
+    return await this.rest._request(config, {
+      method: 'GET',
+      url: `/o/headless-admin-site/v1.0/sites/${siteExternalReferenceCode}/display-page-template-folders`,
+      data,
+      op: 'getSiteDisplayPageTemplateFoldersPage',
+      friendly: 'Generated method getSiteDisplayPageTemplateFoldersPage failed',
+      ...opts,
+    });
+  }
+
+  /**
+   * postSiteDisplayPageTemplateFolder
+   * API: headless-admin-site-v1.0 | Version: v1.0
+   */
+  async _postSiteDisplayPageTemplateFolder_headlessAdminSite_v1_0(
+    config,
+    siteExternalReferenceCode,
+    data,
+    opts = {}
+  ) {
+    return await this.rest._request(config, {
+      method: 'POST',
+      url: `/o/headless-admin-site/v1.0/sites/${siteExternalReferenceCode}/display-page-template-folders`,
+      data,
+      op: 'postSiteDisplayPageTemplateFolder',
+      friendly: 'Generated method postSiteDisplayPageTemplateFolder failed',
+      ...opts,
+    });
+  }
+
+  /**
+   * postSiteDisplayPageTemplateFolderBatch
+   * API: headless-admin-site-v1.0 | Version: v1.0
+   */
+  async _postSiteDisplayPageTemplateFolderBatch_headlessAdminSite_v1_0(
+    config,
+    siteExternalReferenceCode,
+    data,
+    opts = {}
+  ) {
+    return await this.rest._request(config, {
+      method: 'POST',
+      url: `/o/headless-admin-site/v1.0/sites/${siteExternalReferenceCode}/display-page-template-folders/batch`,
+      data,
+      op: 'postSiteDisplayPageTemplateFolderBatch',
+      friendly:
+        'Generated method postSiteDisplayPageTemplateFolderBatch failed',
+      ...opts,
+    });
+  }
+
+  /**
+   * postSiteDisplayPageTemplateFoldersPageExportBatch
+   * API: headless-admin-site-v1.0 | Version: v1.0
+   */
+  async _postSiteDisplayPageTemplateFoldersPageExportBatch_headlessAdminSite_v1_0(
+    config,
+    siteExternalReferenceCode,
+    data,
+    opts = {}
+  ) {
+    return await this.rest._request(config, {
+      method: 'POST',
+      url: `/o/headless-admin-site/v1.0/sites/${siteExternalReferenceCode}/display-page-template-folders/export-batch`,
+      data,
+      op: 'postSiteDisplayPageTemplateFoldersPageExportBatch',
+      friendly:
+        'Generated method postSiteDisplayPageTemplateFoldersPageExportBatch failed',
+      ...opts,
+    });
+  }
+
+  /**
+   * getSiteDisplayPageTemplate
+   * API: headless-admin-site-v1.0 | Version: v1.0
+   */
+  async _getSiteDisplayPageTemplate_headlessAdminSite_v1_0(
+    config,
+    siteExternalReferenceCode,
+    displayPageTemplateExternalReferenceCode,
+    data,
+    opts = {}
+  ) {
+    return await this.rest._request(config, {
+      method: 'GET',
+      url: `/o/headless-admin-site/v1.0/sites/${siteExternalReferenceCode}/display-page-templates/${displayPageTemplateExternalReferenceCode}`,
+      data,
+      op: 'getSiteDisplayPageTemplate',
+      friendly: 'Generated method getSiteDisplayPageTemplate failed',
+      ...opts,
+    });
+  }
+
+  /**
+   * putSiteDisplayPageTemplate
+   * API: headless-admin-site-v1.0 | Version: v1.0
+   */
+  async _putSiteDisplayPageTemplate_headlessAdminSite_v1_0(
+    config,
+    siteExternalReferenceCode,
+    displayPageTemplateExternalReferenceCode,
+    data,
+    opts = {}
+  ) {
+    return await this.rest._request(config, {
+      method: 'PUT',
+      url: `/o/headless-admin-site/v1.0/sites/${siteExternalReferenceCode}/display-page-templates/${displayPageTemplateExternalReferenceCode}`,
+      data,
+      op: 'putSiteDisplayPageTemplate',
+      friendly: 'Generated method putSiteDisplayPageTemplate failed',
+      ...opts,
+    });
+  }
+
+  /**
+   * deleteSiteDisplayPageTemplate
+   * API: headless-admin-site-v1.0 | Version: v1.0
+   */
+  async _deleteSiteDisplayPageTemplate_headlessAdminSite_v1_0(
+    config,
+    siteExternalReferenceCode,
+    displayPageTemplateExternalReferenceCode,
+    data,
+    opts = {}
+  ) {
+    return await this.rest._request(config, {
+      method: 'DELETE',
+      url: `/o/headless-admin-site/v1.0/sites/${siteExternalReferenceCode}/display-page-templates/${displayPageTemplateExternalReferenceCode}`,
+      data,
+      op: 'deleteSiteDisplayPageTemplate',
+      friendly: 'Generated method deleteSiteDisplayPageTemplate failed',
+      ...opts,
+    });
+  }
+
+  /**
+   * patchSiteDisplayPageTemplate
+   * API: headless-admin-site-v1.0 | Version: v1.0
+   */
+  async _patchSiteDisplayPageTemplate_headlessAdminSite_v1_0(
+    config,
+    siteExternalReferenceCode,
+    displayPageTemplateExternalReferenceCode,
+    data,
+    opts = {}
+  ) {
+    return await this.rest._request(config, {
+      method: 'PATCH',
+      url: `/o/headless-admin-site/v1.0/sites/${siteExternalReferenceCode}/display-page-templates/${displayPageTemplateExternalReferenceCode}`,
+      data,
+      op: 'patchSiteDisplayPageTemplate',
+      friendly: 'Generated method patchSiteDisplayPageTemplate failed',
+      ...opts,
+    });
+  }
+
+  /**
+   * getSiteDisplayPageTemplateFolderDisplayPageTemplatesPage
+   * API: headless-admin-site-v1.0 | Version: v1.0
+   */
+  async _getSiteDisplayPageTemplateFolderDisplayPageTemplatesPage_headlessAdminSite_v1_0(
+    config,
+    siteExternalReferenceCode,
+    displayPageTemplateFolderExternalReferenceCode,
+    data,
+    opts = {}
+  ) {
+    return await this.rest._request(config, {
+      method: 'GET',
+      url: `/o/headless-admin-site/v1.0/sites/${siteExternalReferenceCode}/display-page-template-folders/${displayPageTemplateFolderExternalReferenceCode}/display-page-templates`,
+      data,
+      op: 'getSiteDisplayPageTemplateFolderDisplayPageTemplatesPage',
+      friendly:
+        'Generated method getSiteDisplayPageTemplateFolderDisplayPageTemplatesPage failed',
+      ...opts,
+    });
+  }
+
+  /**
+   * postSiteDisplayPageTemplateFolderDisplayPageTemplate
+   * API: headless-admin-site-v1.0 | Version: v1.0
+   */
+  async _postSiteDisplayPageTemplateFolderDisplayPageTemplate_headlessAdminSite_v1_0(
+    config,
+    siteExternalReferenceCode,
+    displayPageTemplateFolderExternalReferenceCode,
+    data,
+    opts = {}
+  ) {
+    return await this.rest._request(config, {
+      method: 'POST',
+      url: `/o/headless-admin-site/v1.0/sites/${siteExternalReferenceCode}/display-page-template-folders/${displayPageTemplateFolderExternalReferenceCode}/display-page-templates`,
+      data,
+      op: 'postSiteDisplayPageTemplateFolderDisplayPageTemplate',
+      friendly:
+        'Generated method postSiteDisplayPageTemplateFolderDisplayPageTemplate failed',
+      ...opts,
+    });
+  }
+
+  /**
+   * getSiteDisplayPageTemplatePermissionsPage
+   * API: headless-admin-site-v1.0 | Version: v1.0
+   */
+  async _getSiteDisplayPageTemplatePermissionsPage_headlessAdminSite_v1_0(
+    config,
+    siteExternalReferenceCode,
+    displayPageTemplateExternalReferenceCode,
+    data,
+    opts = {}
+  ) {
+    return await this.rest._request(config, {
+      method: 'GET',
+      url: `/o/headless-admin-site/v1.0/sites/${siteExternalReferenceCode}/display-page-templates/${displayPageTemplateExternalReferenceCode}/permissions`,
+      data,
+      op: 'getSiteDisplayPageTemplatePermissionsPage',
+      friendly:
+        'Generated method getSiteDisplayPageTemplatePermissionsPage failed',
+      ...opts,
+    });
+  }
+
+  /**
+   * putSiteDisplayPageTemplatePermissionsPage
+   * API: headless-admin-site-v1.0 | Version: v1.0
+   */
+  async _putSiteDisplayPageTemplatePermissionsPage_headlessAdminSite_v1_0(
+    config,
+    siteExternalReferenceCode,
+    displayPageTemplateExternalReferenceCode,
+    data,
+    opts = {}
+  ) {
+    return await this.rest._request(config, {
+      method: 'PUT',
+      url: `/o/headless-admin-site/v1.0/sites/${siteExternalReferenceCode}/display-page-templates/${displayPageTemplateExternalReferenceCode}/permissions`,
+      data,
+      op: 'putSiteDisplayPageTemplatePermissionsPage',
+      friendly:
+        'Generated method putSiteDisplayPageTemplatePermissionsPage failed',
+      ...opts,
+    });
+  }
+
+  /**
+   * getSiteDisplayPageTemplatesPage
+   * API: headless-admin-site-v1.0 | Version: v1.0
+   */
+  async _getSiteDisplayPageTemplatesPage_headlessAdminSite_v1_0(
+    config,
+    siteExternalReferenceCode,
+    data,
+    opts = {}
+  ) {
+    return await this.rest._request(config, {
+      method: 'GET',
+      url: `/o/headless-admin-site/v1.0/sites/${siteExternalReferenceCode}/display-page-templates`,
+      data,
+      op: 'getSiteDisplayPageTemplatesPage',
+      friendly: 'Generated method getSiteDisplayPageTemplatesPage failed',
+      ...opts,
+    });
+  }
+
+  /**
+   * postSiteDisplayPageTemplate
+   * API: headless-admin-site-v1.0 | Version: v1.0
+   */
+  async _postSiteDisplayPageTemplate_headlessAdminSite_v1_0(
+    config,
+    siteExternalReferenceCode,
+    data,
+    opts = {}
+  ) {
+    return await this.rest._request(config, {
+      method: 'POST',
+      url: `/o/headless-admin-site/v1.0/sites/${siteExternalReferenceCode}/display-page-templates`,
+      data,
+      op: 'postSiteDisplayPageTemplate',
+      friendly: 'Generated method postSiteDisplayPageTemplate failed',
+      ...opts,
+    });
+  }
+
+  /**
+   * postSiteDisplayPageTemplateBatch
+   * API: headless-admin-site-v1.0 | Version: v1.0
+   */
+  async _postSiteDisplayPageTemplateBatch_headlessAdminSite_v1_0(
+    config,
+    siteExternalReferenceCode,
+    data,
+    opts = {}
+  ) {
+    return await this.rest._request(config, {
+      method: 'POST',
+      url: `/o/headless-admin-site/v1.0/sites/${siteExternalReferenceCode}/display-page-templates/batch`,
+      data,
+      op: 'postSiteDisplayPageTemplateBatch',
+      friendly: 'Generated method postSiteDisplayPageTemplateBatch failed',
+      ...opts,
+    });
+  }
+
+  /**
+   * getSiteDisplayPageTemplatePageSpecificationsPage
+   * API: headless-admin-site-v1.0 | Version: v1.0
+   */
+  async _getSiteDisplayPageTemplatePageSpecificationsPage_headlessAdminSite_v1_0(
+    config,
+    siteExternalReferenceCode,
+    displayPageTemplateExternalReferenceCode,
+    data,
+    opts = {}
+  ) {
+    return await this.rest._request(config, {
+      method: 'GET',
+      url: `/o/headless-admin-site/v1.0/sites/${siteExternalReferenceCode}/display-page-templates/${displayPageTemplateExternalReferenceCode}/page-specifications`,
+      data,
+      op: 'getSiteDisplayPageTemplatePageSpecificationsPage',
+      friendly:
+        'Generated method getSiteDisplayPageTemplatePageSpecificationsPage failed',
+      ...opts,
+    });
+  }
+
+  /**
+   * postSiteDisplayPageTemplatePageSpecification
+   * API: headless-admin-site-v1.0 | Version: v1.0
+   */
+  async _postSiteDisplayPageTemplatePageSpecification_headlessAdminSite_v1_0(
+    config,
+    siteExternalReferenceCode,
+    displayPageTemplateExternalReferenceCode,
+    data,
+    opts = {}
+  ) {
+    return await this.rest._request(config, {
+      method: 'POST',
+      url: `/o/headless-admin-site/v1.0/sites/${siteExternalReferenceCode}/display-page-templates/${displayPageTemplateExternalReferenceCode}/page-specifications`,
+      data,
+      op: 'postSiteDisplayPageTemplatePageSpecification',
+      friendly:
+        'Generated method postSiteDisplayPageTemplatePageSpecification failed',
+      ...opts,
+    });
+  }
+
+  /**
+   * postSiteDisplayPageTemplatesPageExportBatch
+   * API: headless-admin-site-v1.0 | Version: v1.0
+   */
+  async _postSiteDisplayPageTemplatesPageExportBatch_headlessAdminSite_v1_0(
+    config,
+    siteExternalReferenceCode,
+    data,
+    opts = {}
+  ) {
+    return await this.rest._request(config, {
+      method: 'POST',
+      url: `/o/headless-admin-site/v1.0/sites/${siteExternalReferenceCode}/display-page-templates/export-batch`,
+      data,
+      op: 'postSiteDisplayPageTemplatesPageExportBatch',
+      friendly:
+        'Generated method postSiteDisplayPageTemplatesPageExportBatch failed',
+      ...opts,
+    });
+  }
+
+  /**
+   * getSiteDisplayPageTemplateFriendlyUrlHistory
+   * API: headless-admin-site-v1.0 | Version: v1.0
+   */
+  async _getSiteDisplayPageTemplateFriendlyUrlHistory_headlessAdminSite_v1_0(
+    config,
+    siteExternalReferenceCode,
+    displayPageTemplateExternalReferenceCode,
+    data,
+    opts = {}
+  ) {
+    return await this.rest._request(config, {
+      method: 'GET',
+      url: `/o/headless-admin-site/v1.0/sites/${siteExternalReferenceCode}/display-page-templates/${displayPageTemplateExternalReferenceCode}/friendly-url-history`,
+      data,
+      op: 'getSiteDisplayPageTemplateFriendlyUrlHistory',
+      friendly:
+        'Generated method getSiteDisplayPageTemplateFriendlyUrlHistory failed',
+      ...opts,
+    });
+  }
+
+  /**
+   * getSiteSitePageFriendlyUrlHistory
+   * API: headless-admin-site-v1.0 | Version: v1.0
+   */
+  async _getSiteSitePageFriendlyUrlHistory_headlessAdminSite_v1_0(
+    config,
+    siteExternalReferenceCode,
+    sitePageExternalReferenceCode,
+    data,
+    opts = {}
+  ) {
+    return await this.rest._request(config, {
+      method: 'GET',
+      url: `/o/headless-admin-site/v1.0/sites/${siteExternalReferenceCode}/site-pages/${sitePageExternalReferenceCode}/friendly-url-history`,
+      data,
+      op: 'getSiteSitePageFriendlyUrlHistory',
+      friendly: 'Generated method getSiteSitePageFriendlyUrlHistory failed',
+      ...opts,
+    });
+  }
+
+  /**
+   * getSiteUtilityPageFriendlyUrlHistory
+   * API: headless-admin-site-v1.0 | Version: v1.0
+   */
+  async _getSiteUtilityPageFriendlyUrlHistory_headlessAdminSite_v1_0(
+    config,
+    siteExternalReferenceCode,
+    utilityPageExternalReferenceCode,
+    data,
+    opts = {}
+  ) {
+    return await this.rest._request(config, {
+      method: 'GET',
+      url: `/o/headless-admin-site/v1.0/sites/${siteExternalReferenceCode}/utility-pages/${utilityPageExternalReferenceCode}/friendly-url-history`,
+      data,
+      op: 'getSiteUtilityPageFriendlyUrlHistory',
+      friendly: 'Generated method getSiteUtilityPageFriendlyUrlHistory failed',
+      ...opts,
+    });
+  }
+
+  /**
+   * getSiteMasterPage
+   * API: headless-admin-site-v1.0 | Version: v1.0
+   */
+  async _getSiteMasterPage_headlessAdminSite_v1_0(
+    config,
+    siteExternalReferenceCode,
+    masterPageExternalReferenceCode,
+    data,
+    opts = {}
+  ) {
+    return await this.rest._request(config, {
+      method: 'GET',
+      url: `/o/headless-admin-site/v1.0/sites/${siteExternalReferenceCode}/master-pages/${masterPageExternalReferenceCode}`,
+      data,
+      op: 'getSiteMasterPage',
+      friendly: 'Generated method getSiteMasterPage failed',
+      ...opts,
+    });
+  }
+
+  /**
+   * putSiteMasterPage
+   * API: headless-admin-site-v1.0 | Version: v1.0
+   */
+  async _putSiteMasterPage_headlessAdminSite_v1_0(
+    config,
+    siteExternalReferenceCode,
+    masterPageExternalReferenceCode,
+    data,
+    opts = {}
+  ) {
+    return await this.rest._request(config, {
+      method: 'PUT',
+      url: `/o/headless-admin-site/v1.0/sites/${siteExternalReferenceCode}/master-pages/${masterPageExternalReferenceCode}`,
+      data,
+      op: 'putSiteMasterPage',
+      friendly: 'Generated method putSiteMasterPage failed',
+      ...opts,
+    });
+  }
+
+  /**
+   * deleteSiteMasterPage
+   * API: headless-admin-site-v1.0 | Version: v1.0
+   */
+  async _deleteSiteMasterPage_headlessAdminSite_v1_0(
+    config,
+    siteExternalReferenceCode,
+    masterPageExternalReferenceCode,
+    data,
+    opts = {}
+  ) {
+    return await this.rest._request(config, {
+      method: 'DELETE',
+      url: `/o/headless-admin-site/v1.0/sites/${siteExternalReferenceCode}/master-pages/${masterPageExternalReferenceCode}`,
+      data,
+      op: 'deleteSiteMasterPage',
+      friendly: 'Generated method deleteSiteMasterPage failed',
+      ...opts,
+    });
+  }
+
+  /**
+   * patchSiteMasterPage
+   * API: headless-admin-site-v1.0 | Version: v1.0
+   */
+  async _patchSiteMasterPage_headlessAdminSite_v1_0(
+    config,
+    siteExternalReferenceCode,
+    masterPageExternalReferenceCode,
+    data,
+    opts = {}
+  ) {
+    return await this.rest._request(config, {
+      method: 'PATCH',
+      url: `/o/headless-admin-site/v1.0/sites/${siteExternalReferenceCode}/master-pages/${masterPageExternalReferenceCode}`,
+      data,
+      op: 'patchSiteMasterPage',
+      friendly: 'Generated method patchSiteMasterPage failed',
+      ...opts,
+    });
+  }
+
+  /**
+   * getSiteMasterPagePermissionsPage
+   * API: headless-admin-site-v1.0 | Version: v1.0
+   */
+  async _getSiteMasterPagePermissionsPage_headlessAdminSite_v1_0(
+    config,
+    siteExternalReferenceCode,
+    masterPageExternalReferenceCode,
+    data,
+    opts = {}
+  ) {
+    return await this.rest._request(config, {
+      method: 'GET',
+      url: `/o/headless-admin-site/v1.0/sites/${siteExternalReferenceCode}/master-pages/${masterPageExternalReferenceCode}/permissions`,
+      data,
+      op: 'getSiteMasterPagePermissionsPage',
+      friendly: 'Generated method getSiteMasterPagePermissionsPage failed',
+      ...opts,
+    });
+  }
+
+  /**
+   * putSiteMasterPagePermissionsPage
+   * API: headless-admin-site-v1.0 | Version: v1.0
+   */
+  async _putSiteMasterPagePermissionsPage_headlessAdminSite_v1_0(
+    config,
+    siteExternalReferenceCode,
+    masterPageExternalReferenceCode,
+    data,
+    opts = {}
+  ) {
+    return await this.rest._request(config, {
+      method: 'PUT',
+      url: `/o/headless-admin-site/v1.0/sites/${siteExternalReferenceCode}/master-pages/${masterPageExternalReferenceCode}/permissions`,
+      data,
+      op: 'putSiteMasterPagePermissionsPage',
+      friendly: 'Generated method putSiteMasterPagePermissionsPage failed',
+      ...opts,
+    });
+  }
+
+  /**
+   * getSiteMasterPagesPage
+   * API: headless-admin-site-v1.0 | Version: v1.0
+   */
+  async _getSiteMasterPagesPage_headlessAdminSite_v1_0(
+    config,
+    siteExternalReferenceCode,
+    data,
+    opts = {}
+  ) {
+    return await this.rest._request(config, {
+      method: 'GET',
+      url: `/o/headless-admin-site/v1.0/sites/${siteExternalReferenceCode}/master-pages`,
+      data,
+      op: 'getSiteMasterPagesPage',
+      friendly: 'Generated method getSiteMasterPagesPage failed',
+      ...opts,
+    });
+  }
+
+  /**
+   * postSiteMasterPage
+   * API: headless-admin-site-v1.0 | Version: v1.0
+   */
+  async _postSiteMasterPage_headlessAdminSite_v1_0(
+    config,
+    siteExternalReferenceCode,
+    data,
+    opts = {}
+  ) {
+    return await this.rest._request(config, {
+      method: 'POST',
+      url: `/o/headless-admin-site/v1.0/sites/${siteExternalReferenceCode}/master-pages`,
+      data,
+      op: 'postSiteMasterPage',
+      friendly: 'Generated method postSiteMasterPage failed',
+      ...opts,
+    });
+  }
+
+  /**
+   * postSiteMasterPageBatch
+   * API: headless-admin-site-v1.0 | Version: v1.0
+   */
+  async _postSiteMasterPageBatch_headlessAdminSite_v1_0(
+    config,
+    siteExternalReferenceCode,
+    data,
+    opts = {}
+  ) {
+    return await this.rest._request(config, {
+      method: 'POST',
+      url: `/o/headless-admin-site/v1.0/sites/${siteExternalReferenceCode}/master-pages/batch`,
+      data,
+      op: 'postSiteMasterPageBatch',
+      friendly: 'Generated method postSiteMasterPageBatch failed',
+      ...opts,
+    });
+  }
+
+  /**
+   * getSiteMasterPagePageSpecificationsPage
+   * API: headless-admin-site-v1.0 | Version: v1.0
+   */
+  async _getSiteMasterPagePageSpecificationsPage_headlessAdminSite_v1_0(
+    config,
+    siteExternalReferenceCode,
+    masterPageExternalReferenceCode,
+    data,
+    opts = {}
+  ) {
+    return await this.rest._request(config, {
+      method: 'GET',
+      url: `/o/headless-admin-site/v1.0/sites/${siteExternalReferenceCode}/master-pages/${masterPageExternalReferenceCode}/page-specifications`,
+      data,
+      op: 'getSiteMasterPagePageSpecificationsPage',
+      friendly:
+        'Generated method getSiteMasterPagePageSpecificationsPage failed',
+      ...opts,
+    });
+  }
+
+  /**
+   * postSiteMasterPagePageSpecification
+   * API: headless-admin-site-v1.0 | Version: v1.0
+   */
+  async _postSiteMasterPagePageSpecification_headlessAdminSite_v1_0(
+    config,
+    siteExternalReferenceCode,
+    masterPageExternalReferenceCode,
+    data,
+    opts = {}
+  ) {
+    return await this.rest._request(config, {
+      method: 'POST',
+      url: `/o/headless-admin-site/v1.0/sites/${siteExternalReferenceCode}/master-pages/${masterPageExternalReferenceCode}/page-specifications`,
+      data,
+      op: 'postSiteMasterPagePageSpecification',
+      friendly: 'Generated method postSiteMasterPagePageSpecification failed',
+      ...opts,
+    });
+  }
+
+  /**
+   * postSiteMasterPagesPageExportBatch
+   * API: headless-admin-site-v1.0 | Version: v1.0
+   */
+  async _postSiteMasterPagesPageExportBatch_headlessAdminSite_v1_0(
+    config,
+    siteExternalReferenceCode,
+    data,
+    opts = {}
+  ) {
+    return await this.rest._request(config, {
+      method: 'POST',
+      url: `/o/headless-admin-site/v1.0/sites/${siteExternalReferenceCode}/master-pages/export-batch`,
+      data,
+      op: 'postSiteMasterPagesPageExportBatch',
+      friendly: 'Generated method postSiteMasterPagesPageExportBatch failed',
+      ...opts,
+    });
+  }
+
+  /**
+   * getSiteNavigationMenu
+   * API: headless-admin-site-v1.0 | Version: v1.0
+   */
+  async _getSiteNavigationMenu_headlessAdminSite_v1_0(
+    config,
+    siteExternalReferenceCode,
+    navigationMenuExternalReferenceCode,
+    data,
+    opts = {}
+  ) {
+    return await this.rest._request(config, {
+      method: 'GET',
+      url: `/o/headless-admin-site/v1.0/sites/${siteExternalReferenceCode}/navigation-menus/${navigationMenuExternalReferenceCode}`,
+      data,
+      op: 'getSiteNavigationMenu',
+      friendly: 'Generated method getSiteNavigationMenu failed',
+      ...opts,
+    });
+  }
+
+  /**
+   * putSiteNavigationMenu
+   * API: headless-admin-site-v1.0 | Version: v1.0
+   */
+  async _putSiteNavigationMenu_headlessAdminSite_v1_0(
+    config,
+    siteExternalReferenceCode,
+    navigationMenuExternalReferenceCode,
+    data,
+    opts = {}
+  ) {
+    return await this.rest._request(config, {
+      method: 'PUT',
+      url: `/o/headless-admin-site/v1.0/sites/${siteExternalReferenceCode}/navigation-menus/${navigationMenuExternalReferenceCode}`,
+      data,
+      op: 'putSiteNavigationMenu',
+      friendly: 'Generated method putSiteNavigationMenu failed',
+      ...opts,
+    });
+  }
+
+  /**
+   * deleteSiteNavigationMenu
+   * API: headless-admin-site-v1.0 | Version: v1.0
+   */
+  async _deleteSiteNavigationMenu_headlessAdminSite_v1_0(
+    config,
+    siteExternalReferenceCode,
+    navigationMenuExternalReferenceCode,
+    data,
+    opts = {}
+  ) {
+    return await this.rest._request(config, {
+      method: 'DELETE',
+      url: `/o/headless-admin-site/v1.0/sites/${siteExternalReferenceCode}/navigation-menus/${navigationMenuExternalReferenceCode}`,
+      data,
+      op: 'deleteSiteNavigationMenu',
+      friendly: 'Generated method deleteSiteNavigationMenu failed',
+      ...opts,
+    });
+  }
+
+  /**
+   * getSiteNavigationMenuPermissionsPage
+   * API: headless-admin-site-v1.0 | Version: v1.0
+   */
+  async _getSiteNavigationMenuPermissionsPage_headlessAdminSite_v1_0(
+    config,
+    siteExternalReferenceCode,
+    navigationMenuExternalReferenceCode,
+    data,
+    opts = {}
+  ) {
+    return await this.rest._request(config, {
+      method: 'GET',
+      url: `/o/headless-admin-site/v1.0/sites/${siteExternalReferenceCode}/navigation-menus/${navigationMenuExternalReferenceCode}/permissions`,
+      data,
+      op: 'getSiteNavigationMenuPermissionsPage',
+      friendly: 'Generated method getSiteNavigationMenuPermissionsPage failed',
+      ...opts,
+    });
+  }
+
+  /**
+   * putSiteNavigationMenuPermissionsPage
+   * API: headless-admin-site-v1.0 | Version: v1.0
+   */
+  async _putSiteNavigationMenuPermissionsPage_headlessAdminSite_v1_0(
+    config,
+    siteExternalReferenceCode,
+    navigationMenuExternalReferenceCode,
+    data,
+    opts = {}
+  ) {
+    return await this.rest._request(config, {
+      method: 'PUT',
+      url: `/o/headless-admin-site/v1.0/sites/${siteExternalReferenceCode}/navigation-menus/${navigationMenuExternalReferenceCode}/permissions`,
+      data,
+      op: 'putSiteNavigationMenuPermissionsPage',
+      friendly: 'Generated method putSiteNavigationMenuPermissionsPage failed',
+      ...opts,
+    });
+  }
+
+  /**
+   * getSiteNavigationMenusPage
+   * API: headless-admin-site-v1.0 | Version: v1.0
+   */
+  async _getSiteNavigationMenusPage_headlessAdminSite_v1_0(
+    config,
+    siteExternalReferenceCode,
+    data,
+    opts = {}
+  ) {
+    return await this.rest._request(config, {
+      method: 'GET',
+      url: `/o/headless-admin-site/v1.0/sites/${siteExternalReferenceCode}/navigation-menus`,
+      data,
+      op: 'getSiteNavigationMenusPage',
+      friendly: 'Generated method getSiteNavigationMenusPage failed',
+      ...opts,
+    });
+  }
+
+  /**
+   * postSiteNavigationMenu
+   * API: headless-admin-site-v1.0 | Version: v1.0
+   */
+  async _postSiteNavigationMenu_headlessAdminSite_v1_0(
+    config,
+    siteExternalReferenceCode,
+    data,
+    opts = {}
+  ) {
+    return await this.rest._request(config, {
+      method: 'POST',
+      url: `/o/headless-admin-site/v1.0/sites/${siteExternalReferenceCode}/navigation-menus`,
+      data,
+      op: 'postSiteNavigationMenu',
+      friendly: 'Generated method postSiteNavigationMenu failed',
+      ...opts,
+    });
+  }
+
+  /**
+   * postSiteNavigationMenuBatch
+   * API: headless-admin-site-v1.0 | Version: v1.0
+   */
+  async _postSiteNavigationMenuBatch_headlessAdminSite_v1_0(
+    config,
+    siteExternalReferenceCode,
+    data,
+    opts = {}
+  ) {
+    return await this.rest._request(config, {
+      method: 'POST',
+      url: `/o/headless-admin-site/v1.0/sites/${siteExternalReferenceCode}/navigation-menus/batch`,
+      data,
+      op: 'postSiteNavigationMenuBatch',
+      friendly: 'Generated method postSiteNavigationMenuBatch failed',
+      ...opts,
+    });
+  }
+
+  /**
+   * postSiteNavigationMenusPageExportBatch
+   * API: headless-admin-site-v1.0 | Version: v1.0
+   */
+  async _postSiteNavigationMenusPageExportBatch_headlessAdminSite_v1_0(
+    config,
+    siteExternalReferenceCode,
+    data,
+    opts = {}
+  ) {
+    return await this.rest._request(config, {
+      method: 'POST',
+      url: `/o/headless-admin-site/v1.0/sites/${siteExternalReferenceCode}/navigation-menus/export-batch`,
+      data,
+      op: 'postSiteNavigationMenusPageExportBatch',
+      friendly:
+        'Generated method postSiteNavigationMenusPageExportBatch failed',
+      ...opts,
+    });
+  }
+
+  /**
+   * getOpenAPI
+   * API: headless-admin-site-v1.0 | Version: v1.0
+   */
+  async _getOpenAPI_headlessAdminSite_v1_0(config, type, data, opts = {}) {
+    return await this.rest._request(config, {
+      method: 'GET',
+      url: `/o/headless-admin-site/v1.0/openapi.${type}`,
+      data,
+      op: 'getOpenAPI',
+      friendly: 'Generated method getOpenAPI failed',
+      ...opts,
+    });
+  }
+
+  /**
+   * getSitePageSpecificationPageExperiencePageElement
+   * API: headless-admin-site-v1.0 | Version: v1.0
+   */
+  async _getSitePageSpecificationPageExperiencePageElement_headlessAdminSite_v1_0(
+    config,
+    siteExternalReferenceCode,
+    pageSpecificationExternalReferenceCode,
+    pageExperienceExternalReferenceCode,
+    pageElementExternalReferenceCode,
+    data,
+    opts = {}
+  ) {
+    return await this.rest._request(config, {
+      method: 'GET',
+      url: `/o/headless-admin-site/v1.0/sites/${siteExternalReferenceCode}/page-specifications/${pageSpecificationExternalReferenceCode}/page-experiences/${pageExperienceExternalReferenceCode}/page-elements/${pageElementExternalReferenceCode}`,
+      data,
+      op: 'getSitePageSpecificationPageExperiencePageElement',
+      friendly:
+        'Generated method getSitePageSpecificationPageExperiencePageElement failed',
+      ...opts,
+    });
+  }
+
+  /**
+   * putSitePageSpecificationPageExperiencePageElement
+   * API: headless-admin-site-v1.0 | Version: v1.0
+   */
+  async _putSitePageSpecificationPageExperiencePageElement_headlessAdminSite_v1_0(
+    config,
+    siteExternalReferenceCode,
+    pageSpecificationExternalReferenceCode,
+    pageExperienceExternalReferenceCode,
+    pageElementExternalReferenceCode,
+    data,
+    opts = {}
+  ) {
+    return await this.rest._request(config, {
+      method: 'PUT',
+      url: `/o/headless-admin-site/v1.0/sites/${siteExternalReferenceCode}/page-specifications/${pageSpecificationExternalReferenceCode}/page-experiences/${pageExperienceExternalReferenceCode}/page-elements/${pageElementExternalReferenceCode}`,
+      data,
+      op: 'putSitePageSpecificationPageExperiencePageElement',
+      friendly:
+        'Generated method putSitePageSpecificationPageExperiencePageElement failed',
+      ...opts,
+    });
+  }
+
+  /**
+   * deleteSitePageSpecificationPageExperiencePageElement
+   * API: headless-admin-site-v1.0 | Version: v1.0
+   */
+  async _deleteSitePageSpecificationPageExperiencePageElement_headlessAdminSite_v1_0(
+    config,
+    siteExternalReferenceCode,
+    pageSpecificationExternalReferenceCode,
+    pageExperienceExternalReferenceCode,
+    pageElementExternalReferenceCode,
+    data,
+    opts = {}
+  ) {
+    return await this.rest._request(config, {
+      method: 'DELETE',
+      url: `/o/headless-admin-site/v1.0/sites/${siteExternalReferenceCode}/page-specifications/${pageSpecificationExternalReferenceCode}/page-experiences/${pageExperienceExternalReferenceCode}/page-elements/${pageElementExternalReferenceCode}`,
+      data,
+      op: 'deleteSitePageSpecificationPageExperiencePageElement',
+      friendly:
+        'Generated method deleteSitePageSpecificationPageExperiencePageElement failed',
+      ...opts,
+    });
+  }
+
+  /**
+   * patchSitePageSpecificationPageExperiencePageElement
+   * API: headless-admin-site-v1.0 | Version: v1.0
+   */
+  async _patchSitePageSpecificationPageExperiencePageElement_headlessAdminSite_v1_0(
+    config,
+    siteExternalReferenceCode,
+    pageSpecificationExternalReferenceCode,
+    pageExperienceExternalReferenceCode,
+    pageElementExternalReferenceCode,
+    data,
+    opts = {}
+  ) {
+    return await this.rest._request(config, {
+      method: 'PATCH',
+      url: `/o/headless-admin-site/v1.0/sites/${siteExternalReferenceCode}/page-specifications/${pageSpecificationExternalReferenceCode}/page-experiences/${pageExperienceExternalReferenceCode}/page-elements/${pageElementExternalReferenceCode}`,
+      data,
+      op: 'patchSitePageSpecificationPageExperiencePageElement',
+      friendly:
+        'Generated method patchSitePageSpecificationPageExperiencePageElement failed',
+      ...opts,
+    });
+  }
+
+  /**
+   * getSitePageSpecificationPageExperiencePageElementPageElementsPage
+   * API: headless-admin-site-v1.0 | Version: v1.0
+   */
+  async _getSitePageSpecificationPageExperiencePageElementPageElementsPage_headlessAdminSite_v1_0(
+    config,
+    siteExternalReferenceCode,
+    pageSpecificationExternalReferenceCode,
+    pageExperienceExternalReferenceCode,
+    pageElementExternalReferenceCode,
+    data,
+    opts = {}
+  ) {
+    return await this.rest._request(config, {
+      method: 'GET',
+      url: `/o/headless-admin-site/v1.0/sites/${siteExternalReferenceCode}/page-specifications/${pageSpecificationExternalReferenceCode}/page-experiences/${pageExperienceExternalReferenceCode}/page-elements/${pageElementExternalReferenceCode}/page-elements`,
+      data,
+      op: 'getSitePageSpecificationPageExperiencePageElementPageElementsPage',
+      friendly:
+        'Generated method getSitePageSpecificationPageExperiencePageElementPageElementsPage failed',
+      ...opts,
+    });
+  }
+
+  /**
+   * getSitePageSpecificationPageExperiencePageElementsPage
+   * API: headless-admin-site-v1.0 | Version: v1.0
+   */
+  async _getSitePageSpecificationPageExperiencePageElementsPage_headlessAdminSite_v1_0(
+    config,
+    siteExternalReferenceCode,
+    pageSpecificationExternalReferenceCode,
+    pageExperienceExternalReferenceCode,
+    data,
+    opts = {}
+  ) {
+    return await this.rest._request(config, {
+      method: 'GET',
+      url: `/o/headless-admin-site/v1.0/sites/${siteExternalReferenceCode}/page-specifications/${pageSpecificationExternalReferenceCode}/page-experiences/${pageExperienceExternalReferenceCode}/page-elements`,
+      data,
+      op: 'getSitePageSpecificationPageExperiencePageElementsPage',
+      friendly:
+        'Generated method getSitePageSpecificationPageExperiencePageElementsPage failed',
+      ...opts,
+    });
+  }
+
+  /**
+   * postSitePageSpecificationPageExperiencePageElement
+   * API: headless-admin-site-v1.0 | Version: v1.0
+   */
+  async _postSitePageSpecificationPageExperiencePageElement_headlessAdminSite_v1_0(
+    config,
+    siteExternalReferenceCode,
+    pageSpecificationExternalReferenceCode,
+    pageExperienceExternalReferenceCode,
+    data,
+    opts = {}
+  ) {
+    return await this.rest._request(config, {
+      method: 'POST',
+      url: `/o/headless-admin-site/v1.0/sites/${siteExternalReferenceCode}/page-specifications/${pageSpecificationExternalReferenceCode}/page-experiences/${pageExperienceExternalReferenceCode}/page-elements`,
+      data,
+      op: 'postSitePageSpecificationPageExperiencePageElement',
+      friendly:
+        'Generated method postSitePageSpecificationPageExperiencePageElement failed',
+      ...opts,
+    });
+  }
+
+  /**
+   * getSitePageExperience
+   * API: headless-admin-site-v1.0 | Version: v1.0
+   */
+  async _getSitePageExperience_headlessAdminSite_v1_0(
+    config,
+    siteExternalReferenceCode,
+    pageExperienceExternalReferenceCode,
+    data,
+    opts = {}
+  ) {
+    return await this.rest._request(config, {
+      method: 'GET',
+      url: `/o/headless-admin-site/v1.0/sites/${siteExternalReferenceCode}/page-experiences/${pageExperienceExternalReferenceCode}`,
+      data,
+      op: 'getSitePageExperience',
+      friendly: 'Generated method getSitePageExperience failed',
+      ...opts,
+    });
+  }
+
+  /**
+   * putSitePageExperience
+   * API: headless-admin-site-v1.0 | Version: v1.0
+   */
+  async _putSitePageExperience_headlessAdminSite_v1_0(
+    config,
+    siteExternalReferenceCode,
+    pageExperienceExternalReferenceCode,
+    data,
+    opts = {}
+  ) {
+    return await this.rest._request(config, {
+      method: 'PUT',
+      url: `/o/headless-admin-site/v1.0/sites/${siteExternalReferenceCode}/page-experiences/${pageExperienceExternalReferenceCode}`,
+      data,
+      op: 'putSitePageExperience',
+      friendly: 'Generated method putSitePageExperience failed',
+      ...opts,
+    });
+  }
+
+  /**
+   * deleteSitePageExperience
+   * API: headless-admin-site-v1.0 | Version: v1.0
+   */
+  async _deleteSitePageExperience_headlessAdminSite_v1_0(
+    config,
+    siteExternalReferenceCode,
+    pageExperienceExternalReferenceCode,
+    data,
+    opts = {}
+  ) {
+    return await this.rest._request(config, {
+      method: 'DELETE',
+      url: `/o/headless-admin-site/v1.0/sites/${siteExternalReferenceCode}/page-experiences/${pageExperienceExternalReferenceCode}`,
+      data,
+      op: 'deleteSitePageExperience',
+      friendly: 'Generated method deleteSitePageExperience failed',
+      ...opts,
+    });
+  }
+
+  /**
+   * patchSitePageExperience
+   * API: headless-admin-site-v1.0 | Version: v1.0
+   */
+  async _patchSitePageExperience_headlessAdminSite_v1_0(
+    config,
+    siteExternalReferenceCode,
+    pageExperienceExternalReferenceCode,
+    data,
+    opts = {}
+  ) {
+    return await this.rest._request(config, {
+      method: 'PATCH',
+      url: `/o/headless-admin-site/v1.0/sites/${siteExternalReferenceCode}/page-experiences/${pageExperienceExternalReferenceCode}`,
+      data,
+      op: 'patchSitePageExperience',
+      friendly: 'Generated method patchSitePageExperience failed',
+      ...opts,
+    });
+  }
+
+  /**
+   * getSitePageSpecificationPageExperiencesPage
+   * API: headless-admin-site-v1.0 | Version: v1.0
+   */
+  async _getSitePageSpecificationPageExperiencesPage_headlessAdminSite_v1_0(
+    config,
+    siteExternalReferenceCode,
+    pageSpecificationExternalReferenceCode,
+    data,
+    opts = {}
+  ) {
+    return await this.rest._request(config, {
+      method: 'GET',
+      url: `/o/headless-admin-site/v1.0/sites/${siteExternalReferenceCode}/page-specifications/${pageSpecificationExternalReferenceCode}/page-experiences`,
+      data,
+      op: 'getSitePageSpecificationPageExperiencesPage',
+      friendly:
+        'Generated method getSitePageSpecificationPageExperiencesPage failed',
+      ...opts,
+    });
+  }
+
+  /**
+   * postSitePageSpecificationPageExperience
+   * API: headless-admin-site-v1.0 | Version: v1.0
+   */
+  async _postSitePageSpecificationPageExperience_headlessAdminSite_v1_0(
+    config,
+    siteExternalReferenceCode,
+    pageSpecificationExternalReferenceCode,
+    data,
+    opts = {}
+  ) {
+    return await this.rest._request(config, {
+      method: 'POST',
+      url: `/o/headless-admin-site/v1.0/sites/${siteExternalReferenceCode}/page-specifications/${pageSpecificationExternalReferenceCode}/page-experiences`,
+      data,
+      op: 'postSitePageSpecificationPageExperience',
+      friendly:
+        'Generated method postSitePageSpecificationPageExperience failed',
+      ...opts,
+    });
+  }
+
+  /**
+   * getSitePageSpecification
+   * API: headless-admin-site-v1.0 | Version: v1.0
+   */
+  async _getSitePageSpecification_headlessAdminSite_v1_0(
+    config,
+    siteExternalReferenceCode,
+    pageSpecificationExternalReferenceCode,
+    data,
+    opts = {}
+  ) {
+    return await this.rest._request(config, {
+      method: 'GET',
+      url: `/o/headless-admin-site/v1.0/sites/${siteExternalReferenceCode}/page-specifications/${pageSpecificationExternalReferenceCode}`,
+      data,
+      op: 'getSitePageSpecification',
+      friendly: 'Generated method getSitePageSpecification failed',
+      ...opts,
+    });
+  }
+
+  /**
+   * putSitePageSpecification
+   * API: headless-admin-site-v1.0 | Version: v1.0
+   */
+  async _putSitePageSpecification_headlessAdminSite_v1_0(
+    config,
+    siteExternalReferenceCode,
+    pageSpecificationExternalReferenceCode,
+    data,
+    opts = {}
+  ) {
+    return await this.rest._request(config, {
+      method: 'PUT',
+      url: `/o/headless-admin-site/v1.0/sites/${siteExternalReferenceCode}/page-specifications/${pageSpecificationExternalReferenceCode}`,
+      data,
+      op: 'putSitePageSpecification',
+      friendly: 'Generated method putSitePageSpecification failed',
+      ...opts,
+    });
+  }
+
+  /**
+   * deleteSitePageSpecification
+   * API: headless-admin-site-v1.0 | Version: v1.0
+   */
+  async _deleteSitePageSpecification_headlessAdminSite_v1_0(
+    config,
+    siteExternalReferenceCode,
+    pageSpecificationExternalReferenceCode,
+    data,
+    opts = {}
+  ) {
+    return await this.rest._request(config, {
+      method: 'DELETE',
+      url: `/o/headless-admin-site/v1.0/sites/${siteExternalReferenceCode}/page-specifications/${pageSpecificationExternalReferenceCode}`,
+      data,
+      op: 'deleteSitePageSpecification',
+      friendly: 'Generated method deleteSitePageSpecification failed',
+      ...opts,
+    });
+  }
+
+  /**
+   * patchSitePageSpecification
+   * API: headless-admin-site-v1.0 | Version: v1.0
+   */
+  async _patchSitePageSpecification_headlessAdminSite_v1_0(
+    config,
+    siteExternalReferenceCode,
+    pageSpecificationExternalReferenceCode,
+    data,
+    opts = {}
+  ) {
+    return await this.rest._request(config, {
+      method: 'PATCH',
+      url: `/o/headless-admin-site/v1.0/sites/${siteExternalReferenceCode}/page-specifications/${pageSpecificationExternalReferenceCode}`,
+      data,
+      op: 'patchSitePageSpecification',
+      friendly: 'Generated method patchSitePageSpecification failed',
+      ...opts,
+    });
+  }
+
+  /**
+   * getSitePageTemplatePageSpecificationsPage
+   * API: headless-admin-site-v1.0 | Version: v1.0
+   */
+  async _getSitePageTemplatePageSpecificationsPage_headlessAdminSite_v1_0(
+    config,
+    siteExternalReferenceCode,
+    pageTemplateExternalReferenceCode,
+    data,
+    opts = {}
+  ) {
+    return await this.rest._request(config, {
+      method: 'GET',
+      url: `/o/headless-admin-site/v1.0/sites/${siteExternalReferenceCode}/page-templates/${pageTemplateExternalReferenceCode}/page-specifications`,
+      data,
+      op: 'getSitePageTemplatePageSpecificationsPage',
+      friendly:
+        'Generated method getSitePageTemplatePageSpecificationsPage failed',
+      ...opts,
+    });
+  }
+
+  /**
+   * postSitePageTemplatePageSpecification
+   * API: headless-admin-site-v1.0 | Version: v1.0
+   */
+  async _postSitePageTemplatePageSpecification_headlessAdminSite_v1_0(
+    config,
+    siteExternalReferenceCode,
+    pageTemplateExternalReferenceCode,
+    data,
+    opts = {}
+  ) {
+    return await this.rest._request(config, {
+      method: 'POST',
+      url: `/o/headless-admin-site/v1.0/sites/${siteExternalReferenceCode}/page-templates/${pageTemplateExternalReferenceCode}/page-specifications`,
+      data,
+      op: 'postSitePageTemplatePageSpecification',
+      friendly: 'Generated method postSitePageTemplatePageSpecification failed',
+      ...opts,
+    });
+  }
+
+  /**
+   * getSiteSitePagePageSpecificationsPage
+   * API: headless-admin-site-v1.0 | Version: v1.0
+   */
+  async _getSiteSitePagePageSpecificationsPage_headlessAdminSite_v1_0(
+    config,
+    siteExternalReferenceCode,
+    sitePageExternalReferenceCode,
+    data,
+    opts = {}
+  ) {
+    return await this.rest._request(config, {
+      method: 'GET',
+      url: `/o/headless-admin-site/v1.0/sites/${siteExternalReferenceCode}/site-pages/${sitePageExternalReferenceCode}/page-specifications`,
+      data,
+      op: 'getSiteSitePagePageSpecificationsPage',
+      friendly: 'Generated method getSiteSitePagePageSpecificationsPage failed',
+      ...opts,
+    });
+  }
+
+  /**
+   * postSiteSitePagePageSpecification
+   * API: headless-admin-site-v1.0 | Version: v1.0
+   */
+  async _postSiteSitePagePageSpecification_headlessAdminSite_v1_0(
+    config,
+    siteExternalReferenceCode,
+    sitePageExternalReferenceCode,
+    data,
+    opts = {}
+  ) {
+    return await this.rest._request(config, {
+      method: 'POST',
+      url: `/o/headless-admin-site/v1.0/sites/${siteExternalReferenceCode}/site-pages/${sitePageExternalReferenceCode}/page-specifications`,
+      data,
+      op: 'postSiteSitePagePageSpecification',
+      friendly: 'Generated method postSiteSitePagePageSpecification failed',
+      ...opts,
+    });
+  }
+
+  /**
+   * getSiteUtilityPagePageSpecificationsPage
+   * API: headless-admin-site-v1.0 | Version: v1.0
+   */
+  async _getSiteUtilityPagePageSpecificationsPage_headlessAdminSite_v1_0(
+    config,
+    siteExternalReferenceCode,
+    utilityPageExternalReferenceCode,
+    data,
+    opts = {}
+  ) {
+    return await this.rest._request(config, {
+      method: 'GET',
+      url: `/o/headless-admin-site/v1.0/sites/${siteExternalReferenceCode}/utility-pages/${utilityPageExternalReferenceCode}/page-specifications`,
+      data,
+      op: 'getSiteUtilityPagePageSpecificationsPage',
+      friendly:
+        'Generated method getSiteUtilityPagePageSpecificationsPage failed',
+      ...opts,
+    });
+  }
+
+  /**
+   * postSiteUtilityPagePageSpecification
+   * API: headless-admin-site-v1.0 | Version: v1.0
+   */
+  async _postSiteUtilityPagePageSpecification_headlessAdminSite_v1_0(
+    config,
+    siteExternalReferenceCode,
+    utilityPageExternalReferenceCode,
+    data,
+    opts = {}
+  ) {
+    return await this.rest._request(config, {
+      method: 'POST',
+      url: `/o/headless-admin-site/v1.0/sites/${siteExternalReferenceCode}/utility-pages/${utilityPageExternalReferenceCode}/page-specifications`,
+      data,
+      op: 'postSiteUtilityPagePageSpecification',
+      friendly: 'Generated method postSiteUtilityPagePageSpecification failed',
+      ...opts,
+    });
+  }
+
+  /**
+   * postSitePageSpecificationPublish
+   * API: headless-admin-site-v1.0 | Version: v1.0
+   */
+  async _postSitePageSpecificationPublish_headlessAdminSite_v1_0(
+    config,
+    siteExternalReferenceCode,
+    pageSpecificationExternalReferenceCode,
+    data,
+    opts = {}
+  ) {
+    return await this.rest._request(config, {
+      method: 'POST',
+      url: `/o/headless-admin-site/v1.0/sites/${siteExternalReferenceCode}/page-specifications/${pageSpecificationExternalReferenceCode}/publish`,
+      data,
+      op: 'postSitePageSpecificationPublish',
+      friendly: 'Generated method postSitePageSpecificationPublish failed',
+      ...opts,
+    });
+  }
+
+  /**
+   * getSitePageTemplate
+   * API: headless-admin-site-v1.0 | Version: v1.0
+   */
+  async _getSitePageTemplate_headlessAdminSite_v1_0(
+    config,
+    siteExternalReferenceCode,
+    pageTemplateExternalReferenceCode,
+    data,
+    opts = {}
+  ) {
+    return await this.rest._request(config, {
+      method: 'GET',
+      url: `/o/headless-admin-site/v1.0/sites/${siteExternalReferenceCode}/page-templates/${pageTemplateExternalReferenceCode}`,
+      data,
+      op: 'getSitePageTemplate',
+      friendly: 'Generated method getSitePageTemplate failed',
+      ...opts,
+    });
+  }
+
+  /**
+   * putSitePageTemplate
+   * API: headless-admin-site-v1.0 | Version: v1.0
+   */
+  async _putSitePageTemplate_headlessAdminSite_v1_0(
+    config,
+    siteExternalReferenceCode,
+    pageTemplateExternalReferenceCode,
+    data,
+    opts = {}
+  ) {
+    return await this.rest._request(config, {
+      method: 'PUT',
+      url: `/o/headless-admin-site/v1.0/sites/${siteExternalReferenceCode}/page-templates/${pageTemplateExternalReferenceCode}`,
+      data,
+      op: 'putSitePageTemplate',
+      friendly: 'Generated method putSitePageTemplate failed',
+      ...opts,
+    });
+  }
+
+  /**
+   * deleteSitePageTemplate
+   * API: headless-admin-site-v1.0 | Version: v1.0
+   */
+  async _deleteSitePageTemplate_headlessAdminSite_v1_0(
+    config,
+    siteExternalReferenceCode,
+    pageTemplateExternalReferenceCode,
+    data,
+    opts = {}
+  ) {
+    return await this.rest._request(config, {
+      method: 'DELETE',
+      url: `/o/headless-admin-site/v1.0/sites/${siteExternalReferenceCode}/page-templates/${pageTemplateExternalReferenceCode}`,
+      data,
+      op: 'deleteSitePageTemplate',
+      friendly: 'Generated method deleteSitePageTemplate failed',
+      ...opts,
+    });
+  }
+
+  /**
+   * patchSitePageTemplate
+   * API: headless-admin-site-v1.0 | Version: v1.0
+   */
+  async _patchSitePageTemplate_headlessAdminSite_v1_0(
+    config,
+    siteExternalReferenceCode,
+    pageTemplateExternalReferenceCode,
+    data,
+    opts = {}
+  ) {
+    return await this.rest._request(config, {
+      method: 'PATCH',
+      url: `/o/headless-admin-site/v1.0/sites/${siteExternalReferenceCode}/page-templates/${pageTemplateExternalReferenceCode}`,
+      data,
+      op: 'patchSitePageTemplate',
+      friendly: 'Generated method patchSitePageTemplate failed',
+      ...opts,
+    });
+  }
+
+  /**
+   * getSitePageTemplatePermissionsPage
+   * API: headless-admin-site-v1.0 | Version: v1.0
+   */
+  async _getSitePageTemplatePermissionsPage_headlessAdminSite_v1_0(
+    config,
+    siteExternalReferenceCode,
+    pageTemplateExternalReferenceCode,
+    data,
+    opts = {}
+  ) {
+    return await this.rest._request(config, {
+      method: 'GET',
+      url: `/o/headless-admin-site/v1.0/sites/${siteExternalReferenceCode}/page-templates/${pageTemplateExternalReferenceCode}/permissions`,
+      data,
+      op: 'getSitePageTemplatePermissionsPage',
+      friendly: 'Generated method getSitePageTemplatePermissionsPage failed',
+      ...opts,
+    });
+  }
+
+  /**
+   * putSitePageTemplatePermissionsPage
+   * API: headless-admin-site-v1.0 | Version: v1.0
+   */
+  async _putSitePageTemplatePermissionsPage_headlessAdminSite_v1_0(
+    config,
+    siteExternalReferenceCode,
+    pageTemplateExternalReferenceCode,
+    data,
+    opts = {}
+  ) {
+    return await this.rest._request(config, {
+      method: 'PUT',
+      url: `/o/headless-admin-site/v1.0/sites/${siteExternalReferenceCode}/page-templates/${pageTemplateExternalReferenceCode}/permissions`,
+      data,
+      op: 'putSitePageTemplatePermissionsPage',
+      friendly: 'Generated method putSitePageTemplatePermissionsPage failed',
+      ...opts,
+    });
+  }
+
+  /**
+   * getSitePageTemplateSetPageTemplatesPage
+   * API: headless-admin-site-v1.0 | Version: v1.0
+   */
+  async _getSitePageTemplateSetPageTemplatesPage_headlessAdminSite_v1_0(
+    config,
+    siteExternalReferenceCode,
+    pageTemplateSetExternalReferenceCode,
+    data,
+    opts = {}
+  ) {
+    return await this.rest._request(config, {
+      method: 'GET',
+      url: `/o/headless-admin-site/v1.0/sites/${siteExternalReferenceCode}/page-template-sets/${pageTemplateSetExternalReferenceCode}/page-templates`,
+      data,
+      op: 'getSitePageTemplateSetPageTemplatesPage',
+      friendly:
+        'Generated method getSitePageTemplateSetPageTemplatesPage failed',
+      ...opts,
+    });
+  }
+
+  /**
+   * postSitePageTemplateSetPageTemplate
+   * API: headless-admin-site-v1.0 | Version: v1.0
+   */
+  async _postSitePageTemplateSetPageTemplate_headlessAdminSite_v1_0(
+    config,
+    siteExternalReferenceCode,
+    pageTemplateSetExternalReferenceCode,
+    data,
+    opts = {}
+  ) {
+    return await this.rest._request(config, {
+      method: 'POST',
+      url: `/o/headless-admin-site/v1.0/sites/${siteExternalReferenceCode}/page-template-sets/${pageTemplateSetExternalReferenceCode}/page-templates`,
+      data,
+      op: 'postSitePageTemplateSetPageTemplate',
+      friendly: 'Generated method postSitePageTemplateSetPageTemplate failed',
+      ...opts,
+    });
+  }
+
+  /**
+   * getSitePageTemplatesPage
+   * API: headless-admin-site-v1.0 | Version: v1.0
+   */
+  async _getSitePageTemplatesPage_headlessAdminSite_v1_0(
+    config,
+    siteExternalReferenceCode,
+    data,
+    opts = {}
+  ) {
+    return await this.rest._request(config, {
+      method: 'GET',
+      url: `/o/headless-admin-site/v1.0/sites/${siteExternalReferenceCode}/page-templates`,
+      data,
+      op: 'getSitePageTemplatesPage',
+      friendly: 'Generated method getSitePageTemplatesPage failed',
+      ...opts,
+    });
+  }
+
+  /**
+   * postSitePageTemplate
+   * API: headless-admin-site-v1.0 | Version: v1.0
+   */
+  async _postSitePageTemplate_headlessAdminSite_v1_0(
+    config,
+    siteExternalReferenceCode,
+    data,
+    opts = {}
+  ) {
+    return await this.rest._request(config, {
+      method: 'POST',
+      url: `/o/headless-admin-site/v1.0/sites/${siteExternalReferenceCode}/page-templates`,
+      data,
+      op: 'postSitePageTemplate',
+      friendly: 'Generated method postSitePageTemplate failed',
+      ...opts,
+    });
+  }
+
+  /**
+   * postSitePageTemplateBatch
+   * API: headless-admin-site-v1.0 | Version: v1.0
+   */
+  async _postSitePageTemplateBatch_headlessAdminSite_v1_0(
+    config,
+    siteExternalReferenceCode,
+    data,
+    opts = {}
+  ) {
+    return await this.rest._request(config, {
+      method: 'POST',
+      url: `/o/headless-admin-site/v1.0/sites/${siteExternalReferenceCode}/page-templates/batch`,
+      data,
+      op: 'postSitePageTemplateBatch',
+      friendly: 'Generated method postSitePageTemplateBatch failed',
+      ...opts,
+    });
+  }
+
+  /**
+   * postSitePageTemplatesPageExportBatch
+   * API: headless-admin-site-v1.0 | Version: v1.0
+   */
+  async _postSitePageTemplatesPageExportBatch_headlessAdminSite_v1_0(
+    config,
+    siteExternalReferenceCode,
+    data,
+    opts = {}
+  ) {
+    return await this.rest._request(config, {
+      method: 'POST',
+      url: `/o/headless-admin-site/v1.0/sites/${siteExternalReferenceCode}/page-templates/export-batch`,
+      data,
+      op: 'postSitePageTemplatesPageExportBatch',
+      friendly: 'Generated method postSitePageTemplatesPageExportBatch failed',
+      ...opts,
+    });
+  }
+
+  /**
+   * getSitePageTemplateSet
+   * API: headless-admin-site-v1.0 | Version: v1.0
+   */
+  async _getSitePageTemplateSet_headlessAdminSite_v1_0(
+    config,
+    siteExternalReferenceCode,
+    pageTemplateSetExternalReferenceCode,
+    data,
+    opts = {}
+  ) {
+    return await this.rest._request(config, {
+      method: 'GET',
+      url: `/o/headless-admin-site/v1.0/sites/${siteExternalReferenceCode}/page-template-sets/${pageTemplateSetExternalReferenceCode}`,
+      data,
+      op: 'getSitePageTemplateSet',
+      friendly: 'Generated method getSitePageTemplateSet failed',
+      ...opts,
+    });
+  }
+
+  /**
+   * putSitePageTemplateSet
+   * API: headless-admin-site-v1.0 | Version: v1.0
+   */
+  async _putSitePageTemplateSet_headlessAdminSite_v1_0(
+    config,
+    siteExternalReferenceCode,
+    pageTemplateSetExternalReferenceCode,
+    data,
+    opts = {}
+  ) {
+    return await this.rest._request(config, {
+      method: 'PUT',
+      url: `/o/headless-admin-site/v1.0/sites/${siteExternalReferenceCode}/page-template-sets/${pageTemplateSetExternalReferenceCode}`,
+      data,
+      op: 'putSitePageTemplateSet',
+      friendly: 'Generated method putSitePageTemplateSet failed',
+      ...opts,
+    });
+  }
+
+  /**
+   * deleteSitePageTemplateSet
+   * API: headless-admin-site-v1.0 | Version: v1.0
+   */
+  async _deleteSitePageTemplateSet_headlessAdminSite_v1_0(
+    config,
+    siteExternalReferenceCode,
+    pageTemplateSetExternalReferenceCode,
+    data,
+    opts = {}
+  ) {
+    return await this.rest._request(config, {
+      method: 'DELETE',
+      url: `/o/headless-admin-site/v1.0/sites/${siteExternalReferenceCode}/page-template-sets/${pageTemplateSetExternalReferenceCode}`,
+      data,
+      op: 'deleteSitePageTemplateSet',
+      friendly: 'Generated method deleteSitePageTemplateSet failed',
+      ...opts,
+    });
+  }
+
+  /**
+   * patchSitePageTemplateSet
+   * API: headless-admin-site-v1.0 | Version: v1.0
+   */
+  async _patchSitePageTemplateSet_headlessAdminSite_v1_0(
+    config,
+    siteExternalReferenceCode,
+    pageTemplateSetExternalReferenceCode,
+    data,
+    opts = {}
+  ) {
+    return await this.rest._request(config, {
+      method: 'PATCH',
+      url: `/o/headless-admin-site/v1.0/sites/${siteExternalReferenceCode}/page-template-sets/${pageTemplateSetExternalReferenceCode}`,
+      data,
+      op: 'patchSitePageTemplateSet',
+      friendly: 'Generated method patchSitePageTemplateSet failed',
+      ...opts,
+    });
+  }
+
+  /**
+   * getSitePageTemplateSetPermissionsPage
+   * API: headless-admin-site-v1.0 | Version: v1.0
+   */
+  async _getSitePageTemplateSetPermissionsPage_headlessAdminSite_v1_0(
+    config,
+    siteExternalReferenceCode,
+    pageTemplateSetExternalReferenceCode,
+    data,
+    opts = {}
+  ) {
+    return await this.rest._request(config, {
+      method: 'GET',
+      url: `/o/headless-admin-site/v1.0/sites/${siteExternalReferenceCode}/page-template-sets/${pageTemplateSetExternalReferenceCode}/permissions`,
+      data,
+      op: 'getSitePageTemplateSetPermissionsPage',
+      friendly: 'Generated method getSitePageTemplateSetPermissionsPage failed',
+      ...opts,
+    });
+  }
+
+  /**
+   * putSitePageTemplateSetPermissionsPage
+   * API: headless-admin-site-v1.0 | Version: v1.0
+   */
+  async _putSitePageTemplateSetPermissionsPage_headlessAdminSite_v1_0(
+    config,
+    siteExternalReferenceCode,
+    pageTemplateSetExternalReferenceCode,
+    data,
+    opts = {}
+  ) {
+    return await this.rest._request(config, {
+      method: 'PUT',
+      url: `/o/headless-admin-site/v1.0/sites/${siteExternalReferenceCode}/page-template-sets/${pageTemplateSetExternalReferenceCode}/permissions`,
+      data,
+      op: 'putSitePageTemplateSetPermissionsPage',
+      friendly: 'Generated method putSitePageTemplateSetPermissionsPage failed',
+      ...opts,
+    });
+  }
+
+  /**
+   * getSitePageTemplateSetsPage
+   * API: headless-admin-site-v1.0 | Version: v1.0
+   */
+  async _getSitePageTemplateSetsPage_headlessAdminSite_v1_0(
+    config,
+    siteExternalReferenceCode,
+    data,
+    opts = {}
+  ) {
+    return await this.rest._request(config, {
+      method: 'GET',
+      url: `/o/headless-admin-site/v1.0/sites/${siteExternalReferenceCode}/page-template-sets`,
+      data,
+      op: 'getSitePageTemplateSetsPage',
+      friendly: 'Generated method getSitePageTemplateSetsPage failed',
+      ...opts,
+    });
+  }
+
+  /**
+   * postSitePageTemplateSet
+   * API: headless-admin-site-v1.0 | Version: v1.0
+   */
+  async _postSitePageTemplateSet_headlessAdminSite_v1_0(
+    config,
+    siteExternalReferenceCode,
+    data,
+    opts = {}
+  ) {
+    return await this.rest._request(config, {
+      method: 'POST',
+      url: `/o/headless-admin-site/v1.0/sites/${siteExternalReferenceCode}/page-template-sets`,
+      data,
+      op: 'postSitePageTemplateSet',
+      friendly: 'Generated method postSitePageTemplateSet failed',
+      ...opts,
+    });
+  }
+
+  /**
+   * postSitePageTemplateSetBatch
+   * API: headless-admin-site-v1.0 | Version: v1.0
+   */
+  async _postSitePageTemplateSetBatch_headlessAdminSite_v1_0(
+    config,
+    siteExternalReferenceCode,
+    data,
+    opts = {}
+  ) {
+    return await this.rest._request(config, {
+      method: 'POST',
+      url: `/o/headless-admin-site/v1.0/sites/${siteExternalReferenceCode}/page-template-sets/batch`,
+      data,
+      op: 'postSitePageTemplateSetBatch',
+      friendly: 'Generated method postSitePageTemplateSetBatch failed',
+      ...opts,
+    });
+  }
+
+  /**
+   * postSitePageTemplateSetsPageExportBatch
+   * API: headless-admin-site-v1.0 | Version: v1.0
+   */
+  async _postSitePageTemplateSetsPageExportBatch_headlessAdminSite_v1_0(
+    config,
+    siteExternalReferenceCode,
+    data,
+    opts = {}
+  ) {
+    return await this.rest._request(config, {
+      method: 'POST',
+      url: `/o/headless-admin-site/v1.0/sites/${siteExternalReferenceCode}/page-template-sets/export-batch`,
+      data,
+      op: 'postSitePageTemplateSetsPageExportBatch',
+      friendly:
+        'Generated method postSitePageTemplateSetsPageExportBatch failed',
+      ...opts,
+    });
+  }
+
+  /**
+   * getSiteSitePage
+   * API: headless-admin-site-v1.0 | Version: v1.0
+   */
+  async _getSiteSitePage_headlessAdminSite_v1_0(
+    config,
+    siteExternalReferenceCode,
+    sitePageExternalReferenceCode,
+    data,
+    opts = {}
+  ) {
+    return await this.rest._request(config, {
+      method: 'GET',
+      url: `/o/headless-admin-site/v1.0/sites/${siteExternalReferenceCode}/site-pages/${sitePageExternalReferenceCode}`,
+      data,
+      op: 'getSiteSitePage',
+      friendly: 'Generated method getSiteSitePage failed',
+      ...opts,
+    });
+  }
+
+  /**
+   * putSiteSitePage
+   * API: headless-admin-site-v1.0 | Version: v1.0
+   */
+  async _putSiteSitePage_headlessAdminSite_v1_0(
+    config,
+    siteExternalReferenceCode,
+    sitePageExternalReferenceCode,
+    data,
+    opts = {}
+  ) {
+    return await this.rest._request(config, {
+      method: 'PUT',
+      url: `/o/headless-admin-site/v1.0/sites/${siteExternalReferenceCode}/site-pages/${sitePageExternalReferenceCode}`,
+      data,
+      op: 'putSiteSitePage',
+      friendly: 'Generated method putSiteSitePage failed',
+      ...opts,
+    });
+  }
+
+  /**
+   * deleteSiteSitePage
+   * API: headless-admin-site-v1.0 | Version: v1.0
+   */
+  async _deleteSiteSitePage_headlessAdminSite_v1_0(
+    config,
+    siteExternalReferenceCode,
+    sitePageExternalReferenceCode,
+    data,
+    opts = {}
+  ) {
+    return await this.rest._request(config, {
+      method: 'DELETE',
+      url: `/o/headless-admin-site/v1.0/sites/${siteExternalReferenceCode}/site-pages/${sitePageExternalReferenceCode}`,
+      data,
+      op: 'deleteSiteSitePage',
+      friendly: 'Generated method deleteSiteSitePage failed',
+      ...opts,
+    });
+  }
+
+  /**
+   * patchSiteSitePage
+   * API: headless-admin-site-v1.0 | Version: v1.0
+   */
+  async _patchSiteSitePage_headlessAdminSite_v1_0(
+    config,
+    siteExternalReferenceCode,
+    sitePageExternalReferenceCode,
+    data,
+    opts = {}
+  ) {
+    return await this.rest._request(config, {
+      method: 'PATCH',
+      url: `/o/headless-admin-site/v1.0/sites/${siteExternalReferenceCode}/site-pages/${sitePageExternalReferenceCode}`,
+      data,
+      op: 'patchSiteSitePage',
+      friendly: 'Generated method patchSiteSitePage failed',
+      ...opts,
+    });
+  }
+
+  /**
+   * getSiteSitePagePermissionsPage
+   * API: headless-admin-site-v1.0 | Version: v1.0
+   */
+  async _getSiteSitePagePermissionsPage_headlessAdminSite_v1_0(
+    config,
+    siteExternalReferenceCode,
+    sitePageExternalReferenceCode,
+    data,
+    opts = {}
+  ) {
+    return await this.rest._request(config, {
+      method: 'GET',
+      url: `/o/headless-admin-site/v1.0/sites/${siteExternalReferenceCode}/site-pages/${sitePageExternalReferenceCode}/permissions`,
+      data,
+      op: 'getSiteSitePagePermissionsPage',
+      friendly: 'Generated method getSiteSitePagePermissionsPage failed',
+      ...opts,
+    });
+  }
+
+  /**
+   * putSiteSitePagePermissionsPage
+   * API: headless-admin-site-v1.0 | Version: v1.0
+   */
+  async _putSiteSitePagePermissionsPage_headlessAdminSite_v1_0(
+    config,
+    siteExternalReferenceCode,
+    sitePageExternalReferenceCode,
+    data,
+    opts = {}
+  ) {
+    return await this.rest._request(config, {
+      method: 'PUT',
+      url: `/o/headless-admin-site/v1.0/sites/${siteExternalReferenceCode}/site-pages/${sitePageExternalReferenceCode}/permissions`,
+      data,
+      op: 'putSiteSitePagePermissionsPage',
+      friendly: 'Generated method putSiteSitePagePermissionsPage failed',
+      ...opts,
+    });
+  }
+
+  /**
+   * getSiteSitePagesPage
+   * API: headless-admin-site-v1.0 | Version: v1.0
+   */
+  async _getSiteSitePagesPage_headlessAdminSite_v1_0(
+    config,
+    siteExternalReferenceCode,
+    data,
+    opts = {}
+  ) {
+    return await this.rest._request(config, {
+      method: 'GET',
+      url: `/o/headless-admin-site/v1.0/sites/${siteExternalReferenceCode}/site-pages`,
+      data,
+      op: 'getSiteSitePagesPage',
+      friendly: 'Generated method getSiteSitePagesPage failed',
+      ...opts,
+    });
+  }
+
+  /**
+   * postSiteSitePage
+   * API: headless-admin-site-v1.0 | Version: v1.0
+   */
+  async _postSiteSitePage_headlessAdminSite_v1_0(
+    config,
+    siteExternalReferenceCode,
+    data,
+    opts = {}
+  ) {
+    return await this.rest._request(config, {
+      method: 'POST',
+      url: `/o/headless-admin-site/v1.0/sites/${siteExternalReferenceCode}/site-pages`,
+      data,
+      op: 'postSiteSitePage',
+      friendly: 'Generated method postSiteSitePage failed',
+      ...opts,
+    });
+  }
+
+  /**
+   * postSiteSitePageBatch
+   * API: headless-admin-site-v1.0 | Version: v1.0
+   */
+  async _postSiteSitePageBatch_headlessAdminSite_v1_0(
+    config,
+    siteExternalReferenceCode,
+    data,
+    opts = {}
+  ) {
+    return await this.rest._request(config, {
+      method: 'POST',
+      url: `/o/headless-admin-site/v1.0/sites/${siteExternalReferenceCode}/site-pages/batch`,
+      data,
+      op: 'postSiteSitePageBatch',
+      friendly: 'Generated method postSiteSitePageBatch failed',
+      ...opts,
+    });
+  }
+
+  /**
+   * postSiteSitePagesPageExportBatch
+   * API: headless-admin-site-v1.0 | Version: v1.0
+   */
+  async _postSiteSitePagesPageExportBatch_headlessAdminSite_v1_0(
+    config,
+    siteExternalReferenceCode,
+    data,
+    opts = {}
+  ) {
+    return await this.rest._request(config, {
+      method: 'POST',
+      url: `/o/headless-admin-site/v1.0/sites/${siteExternalReferenceCode}/site-pages/export-batch`,
+      data,
+      op: 'postSiteSitePagesPageExportBatch',
+      friendly: 'Generated method postSiteSitePagesPageExportBatch failed',
+      ...opts,
+    });
+  }
+
+  /**
+   * getSite
+   * API: headless-admin-site-v1.0 | Version: v1.0
+   */
+  async _getSite_headlessAdminSite_v1_0(
+    config,
+    siteExternalReferenceCode,
+    data,
+    opts = {}
+  ) {
+    return await this.rest._request(config, {
+      method: 'GET',
+      url: `/o/headless-admin-site/v1.0/sites/${siteExternalReferenceCode}`,
+      data,
+      op: 'getSite',
+      friendly: 'Generated method getSite failed',
+      ...opts,
+    });
+  }
+
+  /**
+   * putSite
+   * API: headless-admin-site-v1.0 | Version: v1.0
+   */
+  async _putSite_headlessAdminSite_v1_0(
+    config,
+    siteExternalReferenceCode,
+    data,
+    opts = {}
+  ) {
+    return await this.rest._request(config, {
+      method: 'PUT',
+      url: `/o/headless-admin-site/v1.0/sites/${siteExternalReferenceCode}`,
+      data,
+      op: 'putSite',
+      friendly: 'Generated method putSite failed',
+      ...opts,
+    });
+  }
+
+  /**
+   * deleteSite
+   * API: headless-admin-site-v1.0 | Version: v1.0
+   */
+  async _deleteSite_headlessAdminSite_v1_0(
+    config,
+    siteExternalReferenceCode,
+    data,
+    opts = {}
+  ) {
+    return await this.rest._request(config, {
+      method: 'DELETE',
+      url: `/o/headless-admin-site/v1.0/sites/${siteExternalReferenceCode}`,
+      data,
+      op: 'deleteSite',
+      friendly: 'Generated method deleteSite failed',
+      ...opts,
+    });
+  }
+
+  /**
+   * putSiteBatch
+   * API: headless-admin-site-v1.0 | Version: v1.0
+   */
+  async _putSiteBatch_headlessAdminSite_v1_0(config, data, opts = {}) {
+    return await this.rest._request(config, {
+      method: 'PUT',
+      url: `/o/headless-admin-site/v1.0/sites/batch`,
+      data,
+      op: 'putSiteBatch',
+      friendly: 'Generated method putSiteBatch failed',
+      ...opts,
+    });
+  }
+
+  /**
+   * postSiteBatch
+   * API: headless-admin-site-v1.0 | Version: v1.0
+   */
+  async _postSiteBatch_headlessAdminSite_v1_0(config, data, opts = {}) {
+    return await this.rest._request(config, {
+      method: 'POST',
+      url: `/o/headless-admin-site/v1.0/sites/batch`,
+      data,
+      op: 'postSiteBatch',
+      friendly: 'Generated method postSiteBatch failed',
+      ...opts,
+    });
+  }
+
+  /**
+   * deleteSiteBatch
+   * API: headless-admin-site-v1.0 | Version: v1.0
+   */
+  async _deleteSiteBatch_headlessAdminSite_v1_0(config, data, opts = {}) {
+    return await this.rest._request(config, {
+      method: 'DELETE',
+      url: `/o/headless-admin-site/v1.0/sites/batch`,
+      data,
+      op: 'deleteSiteBatch',
+      friendly: 'Generated method deleteSiteBatch failed',
+      ...opts,
+    });
+  }
+
+  /**
+   * getSitePermissionsPage
+   * API: headless-admin-site-v1.0 | Version: v1.0
+   */
+  async _getSitePermissionsPage_headlessAdminSite_v1_0(
+    config,
+    siteExternalReferenceCode,
+    data,
+    opts = {}
+  ) {
+    return await this.rest._request(config, {
+      method: 'GET',
+      url: `/o/headless-admin-site/v1.0/sites/${siteExternalReferenceCode}/permissions`,
+      data,
+      op: 'getSitePermissionsPage',
+      friendly: 'Generated method getSitePermissionsPage failed',
+      ...opts,
+    });
+  }
+
+  /**
+   * putSitePermissionsPage
+   * API: headless-admin-site-v1.0 | Version: v1.0
+   */
+  async _putSitePermissionsPage_headlessAdminSite_v1_0(
+    config,
+    siteExternalReferenceCode,
+    data,
+    opts = {}
+  ) {
+    return await this.rest._request(config, {
+      method: 'PUT',
+      url: `/o/headless-admin-site/v1.0/sites/${siteExternalReferenceCode}/permissions`,
+      data,
+      op: 'putSitePermissionsPage',
+      friendly: 'Generated method putSitePermissionsPage failed',
+      ...opts,
+    });
+  }
+
+  /**
+   * getSiteSiteInitializer
+   * API: headless-admin-site-v1.0 | Version: v1.0
+   */
+  async _getSiteSiteInitializer_headlessAdminSite_v1_0(
+    config,
+    siteExternalReferenceCode,
+    data,
+    opts = {}
+  ) {
+    return await this.rest._request(config, {
+      method: 'GET',
+      url: `/o/headless-admin-site/v1.0/sites/${siteExternalReferenceCode}/site-initializer`,
+      data,
+      op: 'getSiteSiteInitializer',
+      friendly: 'Generated method getSiteSiteInitializer failed',
+      ...opts,
+    });
+  }
+
+  /**
+   * putSiteSiteInitializer
+   * API: headless-admin-site-v1.0 | Version: v1.0
+   */
+  async _putSiteSiteInitializer_headlessAdminSite_v1_0(
+    config,
+    siteExternalReferenceCode,
+    data,
+    opts = {}
+  ) {
+    return await this.rest._request(config, {
+      method: 'PUT',
+      url: `/o/headless-admin-site/v1.0/sites/${siteExternalReferenceCode}/site-initializer`,
+      data,
+      op: 'putSiteSiteInitializer',
+      friendly: 'Generated method putSiteSiteInitializer failed',
+      ...opts,
+    });
+  }
+
+  /**
+   * getSitesPage
+   * API: headless-admin-site-v1.0 | Version: v1.0
+   */
+  async _getSitesPage_headlessAdminSite_v1_0(config, data, opts = {}) {
+    return await this.rest._request(config, {
+      method: 'GET',
+      url: `/o/headless-admin-site/v1.0/sites`,
+      data,
+      op: 'getSitesPage',
+      friendly: 'Generated method getSitesPage failed',
+      ...opts,
+    });
+  }
+
+  /**
+   * postSite
+   * API: headless-admin-site-v1.0 | Version: v1.0
+   */
+  async _postSite_headlessAdminSite_v1_0(config, data, opts = {}) {
+    return await this.rest._request(config, {
+      method: 'POST',
+      url: `/o/headless-admin-site/v1.0/sites`,
+      data,
+      op: 'postSite',
+      friendly: 'Generated method postSite failed',
+      ...opts,
+    });
+  }
+
+  /**
+   * postSiteSiteInitializer
+   * API: headless-admin-site-v1.0 | Version: v1.0
+   */
+  async _postSiteSiteInitializer_headlessAdminSite_v1_0(
+    config,
+    data,
+    opts = {}
+  ) {
+    return await this.rest._request(config, {
+      method: 'POST',
+      url: `/o/headless-admin-site/v1.0/sites/site-initializer`,
+      data,
+      op: 'postSiteSiteInitializer',
+      friendly: 'Generated method postSiteSiteInitializer failed',
+      ...opts,
+    });
+  }
+
+  /**
+   * postSitesPageExportBatch
+   * API: headless-admin-site-v1.0 | Version: v1.0
+   */
+  async _postSitesPageExportBatch_headlessAdminSite_v1_0(
+    config,
+    data,
+    opts = {}
+  ) {
+    return await this.rest._request(config, {
+      method: 'POST',
+      url: `/o/headless-admin-site/v1.0/sites/export-batch`,
+      data,
+      op: 'postSitesPageExportBatch',
+      friendly: 'Generated method postSitesPageExportBatch failed',
+      ...opts,
+    });
+  }
+
+  /**
+   * getSiteStyleBook
+   * API: headless-admin-site-v1.0 | Version: v1.0
+   */
+  async _getSiteStyleBook_headlessAdminSite_v1_0(
+    config,
+    siteExternalReferenceCode,
+    styleBookExternalReferenceCode,
+    data,
+    opts = {}
+  ) {
+    return await this.rest._request(config, {
+      method: 'GET',
+      url: `/o/headless-admin-site/v1.0/sites/${siteExternalReferenceCode}/style-books/${styleBookExternalReferenceCode}`,
+      data,
+      op: 'getSiteStyleBook',
+      friendly: 'Generated method getSiteStyleBook failed',
+      ...opts,
+    });
+  }
+
+  /**
+   * putSiteStyleBook
+   * API: headless-admin-site-v1.0 | Version: v1.0
+   */
+  async _putSiteStyleBook_headlessAdminSite_v1_0(
+    config,
+    siteExternalReferenceCode,
+    styleBookExternalReferenceCode,
+    data,
+    opts = {}
+  ) {
+    return await this.rest._request(config, {
+      method: 'PUT',
+      url: `/o/headless-admin-site/v1.0/sites/${siteExternalReferenceCode}/style-books/${styleBookExternalReferenceCode}`,
+      data,
+      op: 'putSiteStyleBook',
+      friendly: 'Generated method putSiteStyleBook failed',
+      ...opts,
+    });
+  }
+
+  /**
+   * deleteSiteStyleBook
+   * API: headless-admin-site-v1.0 | Version: v1.0
+   */
+  async _deleteSiteStyleBook_headlessAdminSite_v1_0(
+    config,
+    siteExternalReferenceCode,
+    styleBookExternalReferenceCode,
+    data,
+    opts = {}
+  ) {
+    return await this.rest._request(config, {
+      method: 'DELETE',
+      url: `/o/headless-admin-site/v1.0/sites/${siteExternalReferenceCode}/style-books/${styleBookExternalReferenceCode}`,
+      data,
+      op: 'deleteSiteStyleBook',
+      friendly: 'Generated method deleteSiteStyleBook failed',
+      ...opts,
+    });
+  }
+
+  /**
+   * patchSiteStyleBook
+   * API: headless-admin-site-v1.0 | Version: v1.0
+   */
+  async _patchSiteStyleBook_headlessAdminSite_v1_0(
+    config,
+    siteExternalReferenceCode,
+    styleBookExternalReferenceCode,
+    data,
+    opts = {}
+  ) {
+    return await this.rest._request(config, {
+      method: 'PATCH',
+      url: `/o/headless-admin-site/v1.0/sites/${siteExternalReferenceCode}/style-books/${styleBookExternalReferenceCode}`,
+      data,
+      op: 'patchSiteStyleBook',
+      friendly: 'Generated method patchSiteStyleBook failed',
+      ...opts,
+    });
+  }
+
+  /**
+   * getSiteStyleBooksPage
+   * API: headless-admin-site-v1.0 | Version: v1.0
+   */
+  async _getSiteStyleBooksPage_headlessAdminSite_v1_0(
+    config,
+    siteExternalReferenceCode,
+    data,
+    opts = {}
+  ) {
+    return await this.rest._request(config, {
+      method: 'GET',
+      url: `/o/headless-admin-site/v1.0/sites/${siteExternalReferenceCode}/style-books`,
+      data,
+      op: 'getSiteStyleBooksPage',
+      friendly: 'Generated method getSiteStyleBooksPage failed',
+      ...opts,
+    });
+  }
+
+  /**
+   * postSiteStyleBook
+   * API: headless-admin-site-v1.0 | Version: v1.0
+   */
+  async _postSiteStyleBook_headlessAdminSite_v1_0(
+    config,
+    siteExternalReferenceCode,
+    data,
+    opts = {}
+  ) {
+    return await this.rest._request(config, {
+      method: 'POST',
+      url: `/o/headless-admin-site/v1.0/sites/${siteExternalReferenceCode}/style-books`,
+      data,
+      op: 'postSiteStyleBook',
+      friendly: 'Generated method postSiteStyleBook failed',
+      ...opts,
+    });
+  }
+
+  /**
+   * postSiteStyleBookBatch
+   * API: headless-admin-site-v1.0 | Version: v1.0
+   */
+  async _postSiteStyleBookBatch_headlessAdminSite_v1_0(
+    config,
+    siteExternalReferenceCode,
+    data,
+    opts = {}
+  ) {
+    return await this.rest._request(config, {
+      method: 'POST',
+      url: `/o/headless-admin-site/v1.0/sites/${siteExternalReferenceCode}/style-books/batch`,
+      data,
+      op: 'postSiteStyleBookBatch',
+      friendly: 'Generated method postSiteStyleBookBatch failed',
+      ...opts,
+    });
+  }
+
+  /**
+   * postSiteStyleBooksPageExportBatch
+   * API: headless-admin-site-v1.0 | Version: v1.0
+   */
+  async _postSiteStyleBooksPageExportBatch_headlessAdminSite_v1_0(
+    config,
+    siteExternalReferenceCode,
+    data,
+    opts = {}
+  ) {
+    return await this.rest._request(config, {
+      method: 'POST',
+      url: `/o/headless-admin-site/v1.0/sites/${siteExternalReferenceCode}/style-books/export-batch`,
+      data,
+      op: 'postSiteStyleBooksPageExportBatch',
+      friendly: 'Generated method postSiteStyleBooksPageExportBatch failed',
+      ...opts,
+    });
+  }
+
+  /**
+   * getSiteUtilityPage
+   * API: headless-admin-site-v1.0 | Version: v1.0
+   */
+  async _getSiteUtilityPage_headlessAdminSite_v1_0(
+    config,
+    siteExternalReferenceCode,
+    utilityPageExternalReferenceCode,
+    data,
+    opts = {}
+  ) {
+    return await this.rest._request(config, {
+      method: 'GET',
+      url: `/o/headless-admin-site/v1.0/sites/${siteExternalReferenceCode}/utility-pages/${utilityPageExternalReferenceCode}`,
+      data,
+      op: 'getSiteUtilityPage',
+      friendly: 'Generated method getSiteUtilityPage failed',
+      ...opts,
+    });
+  }
+
+  /**
+   * putSiteUtilityPage
+   * API: headless-admin-site-v1.0 | Version: v1.0
+   */
+  async _putSiteUtilityPage_headlessAdminSite_v1_0(
+    config,
+    siteExternalReferenceCode,
+    utilityPageExternalReferenceCode,
+    data,
+    opts = {}
+  ) {
+    return await this.rest._request(config, {
+      method: 'PUT',
+      url: `/o/headless-admin-site/v1.0/sites/${siteExternalReferenceCode}/utility-pages/${utilityPageExternalReferenceCode}`,
+      data,
+      op: 'putSiteUtilityPage',
+      friendly: 'Generated method putSiteUtilityPage failed',
+      ...opts,
+    });
+  }
+
+  /**
+   * deleteSiteUtilityPage
+   * API: headless-admin-site-v1.0 | Version: v1.0
+   */
+  async _deleteSiteUtilityPage_headlessAdminSite_v1_0(
+    config,
+    siteExternalReferenceCode,
+    utilityPageExternalReferenceCode,
+    data,
+    opts = {}
+  ) {
+    return await this.rest._request(config, {
+      method: 'DELETE',
+      url: `/o/headless-admin-site/v1.0/sites/${siteExternalReferenceCode}/utility-pages/${utilityPageExternalReferenceCode}`,
+      data,
+      op: 'deleteSiteUtilityPage',
+      friendly: 'Generated method deleteSiteUtilityPage failed',
+      ...opts,
+    });
+  }
+
+  /**
+   * patchSiteUtilityPage
+   * API: headless-admin-site-v1.0 | Version: v1.0
+   */
+  async _patchSiteUtilityPage_headlessAdminSite_v1_0(
+    config,
+    siteExternalReferenceCode,
+    utilityPageExternalReferenceCode,
+    data,
+    opts = {}
+  ) {
+    return await this.rest._request(config, {
+      method: 'PATCH',
+      url: `/o/headless-admin-site/v1.0/sites/${siteExternalReferenceCode}/utility-pages/${utilityPageExternalReferenceCode}`,
+      data,
+      op: 'patchSiteUtilityPage',
+      friendly: 'Generated method patchSiteUtilityPage failed',
+      ...opts,
+    });
+  }
+
+  /**
+   * getSiteUtilityPagePermissionsPage
+   * API: headless-admin-site-v1.0 | Version: v1.0
+   */
+  async _getSiteUtilityPagePermissionsPage_headlessAdminSite_v1_0(
+    config,
+    siteExternalReferenceCode,
+    utilityPageExternalReferenceCode,
+    data,
+    opts = {}
+  ) {
+    return await this.rest._request(config, {
+      method: 'GET',
+      url: `/o/headless-admin-site/v1.0/sites/${siteExternalReferenceCode}/utility-pages/${utilityPageExternalReferenceCode}/permissions`,
+      data,
+      op: 'getSiteUtilityPagePermissionsPage',
+      friendly: 'Generated method getSiteUtilityPagePermissionsPage failed',
+      ...opts,
+    });
+  }
+
+  /**
+   * putSiteUtilityPagePermissionsPage
+   * API: headless-admin-site-v1.0 | Version: v1.0
+   */
+  async _putSiteUtilityPagePermissionsPage_headlessAdminSite_v1_0(
+    config,
+    siteExternalReferenceCode,
+    utilityPageExternalReferenceCode,
+    data,
+    opts = {}
+  ) {
+    return await this.rest._request(config, {
+      method: 'PUT',
+      url: `/o/headless-admin-site/v1.0/sites/${siteExternalReferenceCode}/utility-pages/${utilityPageExternalReferenceCode}/permissions`,
+      data,
+      op: 'putSiteUtilityPagePermissionsPage',
+      friendly: 'Generated method putSiteUtilityPagePermissionsPage failed',
+      ...opts,
+    });
+  }
+
+  /**
+   * getSiteUtilityPagesPage
+   * API: headless-admin-site-v1.0 | Version: v1.0
+   */
+  async _getSiteUtilityPagesPage_headlessAdminSite_v1_0(
+    config,
+    siteExternalReferenceCode,
+    data,
+    opts = {}
+  ) {
+    return await this.rest._request(config, {
+      method: 'GET',
+      url: `/o/headless-admin-site/v1.0/sites/${siteExternalReferenceCode}/utility-pages`,
+      data,
+      op: 'getSiteUtilityPagesPage',
+      friendly: 'Generated method getSiteUtilityPagesPage failed',
+      ...opts,
+    });
+  }
+
+  /**
+   * postSiteUtilityPage
+   * API: headless-admin-site-v1.0 | Version: v1.0
+   */
+  async _postSiteUtilityPage_headlessAdminSite_v1_0(
+    config,
+    siteExternalReferenceCode,
+    data,
+    opts = {}
+  ) {
+    return await this.rest._request(config, {
+      method: 'POST',
+      url: `/o/headless-admin-site/v1.0/sites/${siteExternalReferenceCode}/utility-pages`,
+      data,
+      op: 'postSiteUtilityPage',
+      friendly: 'Generated method postSiteUtilityPage failed',
+      ...opts,
+    });
+  }
+
+  /**
+   * postSiteUtilityPageBatch
+   * API: headless-admin-site-v1.0 | Version: v1.0
+   */
+  async _postSiteUtilityPageBatch_headlessAdminSite_v1_0(
+    config,
+    siteExternalReferenceCode,
+    data,
+    opts = {}
+  ) {
+    return await this.rest._request(config, {
+      method: 'POST',
+      url: `/o/headless-admin-site/v1.0/sites/${siteExternalReferenceCode}/utility-pages/batch`,
+      data,
+      op: 'postSiteUtilityPageBatch',
+      friendly: 'Generated method postSiteUtilityPageBatch failed',
+      ...opts,
+    });
+  }
+
+  /**
+   * postSiteUtilityPagesPageExportBatch
+   * API: headless-admin-site-v1.0 | Version: v1.0
+   */
+  async _postSiteUtilityPagesPageExportBatch_headlessAdminSite_v1_0(
+    config,
+    siteExternalReferenceCode,
+    data,
+    opts = {}
+  ) {
+    return await this.rest._request(config, {
+      method: 'POST',
+      url: `/o/headless-admin-site/v1.0/sites/${siteExternalReferenceCode}/utility-pages/export-batch`,
+      data,
+      op: 'postSiteUtilityPagesPageExportBatch',
+      friendly: 'Generated method postSiteUtilityPagesPageExportBatch failed',
+      ...opts,
+    });
+  }
+
+  /**
+   * getSiteSitePageWidgetInstance
+   * API: headless-admin-site-v1.0 | Version: v1.0
+   */
+  async _getSiteSitePageWidgetInstance_headlessAdminSite_v1_0(
+    config,
+    siteExternalReferenceCode,
+    sitePageExternalReferenceCode,
+    widgetInstanceExternalReferenceCode,
+    data,
+    opts = {}
+  ) {
+    return await this.rest._request(config, {
+      method: 'GET',
+      url: `/o/headless-admin-site/v1.0/sites/${siteExternalReferenceCode}/site-pages/${sitePageExternalReferenceCode}/widget-instances/${widgetInstanceExternalReferenceCode}`,
+      data,
+      op: 'getSiteSitePageWidgetInstance',
+      friendly: 'Generated method getSiteSitePageWidgetInstance failed',
+      ...opts,
+    });
+  }
+
+  /**
+   * putSiteSitePageWidgetInstance
+   * API: headless-admin-site-v1.0 | Version: v1.0
+   */
+  async _putSiteSitePageWidgetInstance_headlessAdminSite_v1_0(
+    config,
+    siteExternalReferenceCode,
+    sitePageExternalReferenceCode,
+    widgetInstanceExternalReferenceCode,
+    data,
+    opts = {}
+  ) {
+    return await this.rest._request(config, {
+      method: 'PUT',
+      url: `/o/headless-admin-site/v1.0/sites/${siteExternalReferenceCode}/site-pages/${sitePageExternalReferenceCode}/widget-instances/${widgetInstanceExternalReferenceCode}`,
+      data,
+      op: 'putSiteSitePageWidgetInstance',
+      friendly: 'Generated method putSiteSitePageWidgetInstance failed',
+      ...opts,
+    });
+  }
+
+  /**
+   * deleteSiteSitePageWidgetInstance
+   * API: headless-admin-site-v1.0 | Version: v1.0
+   */
+  async _deleteSiteSitePageWidgetInstance_headlessAdminSite_v1_0(
+    config,
+    siteExternalReferenceCode,
+    sitePageExternalReferenceCode,
+    widgetInstanceExternalReferenceCode,
+    data,
+    opts = {}
+  ) {
+    return await this.rest._request(config, {
+      method: 'DELETE',
+      url: `/o/headless-admin-site/v1.0/sites/${siteExternalReferenceCode}/site-pages/${sitePageExternalReferenceCode}/widget-instances/${widgetInstanceExternalReferenceCode}`,
+      data,
+      op: 'deleteSiteSitePageWidgetInstance',
+      friendly: 'Generated method deleteSiteSitePageWidgetInstance failed',
+      ...opts,
+    });
+  }
+
+  /**
+   * patchSiteSitePageWidgetInstance
+   * API: headless-admin-site-v1.0 | Version: v1.0
+   */
+  async _patchSiteSitePageWidgetInstance_headlessAdminSite_v1_0(
+    config,
+    siteExternalReferenceCode,
+    sitePageExternalReferenceCode,
+    widgetInstanceExternalReferenceCode,
+    data,
+    opts = {}
+  ) {
+    return await this.rest._request(config, {
+      method: 'PATCH',
+      url: `/o/headless-admin-site/v1.0/sites/${siteExternalReferenceCode}/site-pages/${sitePageExternalReferenceCode}/widget-instances/${widgetInstanceExternalReferenceCode}`,
+      data,
+      op: 'patchSiteSitePageWidgetInstance',
+      friendly: 'Generated method patchSiteSitePageWidgetInstance failed',
+      ...opts,
+    });
+  }
+
+  /**
+   * getSiteSitePageWidgetInstancesPage
+   * API: headless-admin-site-v1.0 | Version: v1.0
+   */
+  async _getSiteSitePageWidgetInstancesPage_headlessAdminSite_v1_0(
+    config,
+    siteExternalReferenceCode,
+    sitePageExternalReferenceCode,
+    data,
+    opts = {}
+  ) {
+    return await this.rest._request(config, {
+      method: 'GET',
+      url: `/o/headless-admin-site/v1.0/sites/${siteExternalReferenceCode}/site-pages/${sitePageExternalReferenceCode}/widget-instances`,
+      data,
+      op: 'getSiteSitePageWidgetInstancesPage',
+      friendly: 'Generated method getSiteSitePageWidgetInstancesPage failed',
+      ...opts,
+    });
+  }
+
+  /**
+   * postSiteSitePageWidgetInstance
+   * API: headless-admin-site-v1.0 | Version: v1.0
+   */
+  async _postSiteSitePageWidgetInstance_headlessAdminSite_v1_0(
+    config,
+    siteExternalReferenceCode,
+    sitePageExternalReferenceCode,
+    data,
+    opts = {}
+  ) {
+    return await this.rest._request(config, {
+      method: 'POST',
+      url: `/o/headless-admin-site/v1.0/sites/${siteExternalReferenceCode}/site-pages/${sitePageExternalReferenceCode}/widget-instances`,
+      data,
+      op: 'postSiteSitePageWidgetInstance',
+      friendly: 'Generated method postSiteSitePageWidgetInstance failed',
       ...opts,
     });
   }

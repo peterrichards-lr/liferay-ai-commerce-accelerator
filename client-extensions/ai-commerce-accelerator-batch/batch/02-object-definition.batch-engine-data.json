@@ -111,7 +111,7 @@
           "objectFieldSettings": [],
           "readOnly": "false",
           "readOnlyConditionExpression": "",
-          "required": true,
+          "required": false,
           "state": false,
           "system": false,
           "type": "String",

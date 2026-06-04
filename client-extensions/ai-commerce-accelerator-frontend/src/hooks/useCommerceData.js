@@ -45,7 +45,7 @@ export default function useCommerceData({
 
         catalogId: config.catalogId,
         channelId: channel?.id != null ? String(channel.id) : config.channelId,
-        siteGroupId: channel?.siteGroupId ?? siteGroupId ?? config.siteGroupId,
+        siteGroupId: channel?.siteGroupId || siteGroupId || config.siteGroupId,
         currencyCode: config.currencyCode,
 
         aiModel: config.aiModel,

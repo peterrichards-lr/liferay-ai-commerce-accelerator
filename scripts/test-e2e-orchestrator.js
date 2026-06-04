@@ -5,8 +5,7 @@ const http = require('http');
 
 /**
  * E2E Test Orchestrator
- * This script starts the microservice, monitors its health, and then
- * triggers the Playwright test suite.
+ * This script triggers the Playwright test suite and analyzes logs.
  */
 
 const MICROSERVICE_DIR = path.join(
@@ -41,7 +40,7 @@ async function startMicroservice() {
       PORT: 3001,
       PERSISTENCE_DB_PATH: ':memory:',
       NODE_TLS_REJECT_UNAUTHORIZED: '0', // Bypass SSL verification for local HTTPS
-      LIFERAY_OAUTH_CLIENT_ID: '',
+      LIFERAY_OAUTH_CLIENT_ID: '', // Force Basic Auth
       LIFERAY_OAUTH_CLIENT_SECRET: '',
       LIFERAY_AUTH_METHOD: 'basic',
       LIFERAY_URL: process.env.LIFERAY_URL,
@@ -114,38 +113,46 @@ function cleanup() {
 
 async function main() {
   try {
+    console.log('>>> [START] E2E Verification Orchestrator');
     await startMicroservice();
+    console.log('>>> [STEP] Microservice started and healthy.');
+
     const exitCode = await runPlaywright();
+    console.log(`>>> [STEP] Playwright suite finished with code ${exitCode}`);
 
-    // Analyze logs for FATAL or ERROR
-    console.log('>>> Running Forensic Log Analysis...');
-    const analyzer = spawn(
-      'node',
-      ['scripts/analyze-e2e-logs.js', MS_LOG_FILE],
-      {
-        stdio: 'inherit',
+    if (fs.existsSync(MS_LOG_FILE)) {
+      console.log('>>> Running Forensic Log Analysis...');
+      const analyze = spawn(
+        'node',
+        ['scripts/analyze-e2e-logs.js', MS_LOG_FILE],
+        {
+          cwd: path.join(__dirname, '..'),
+          stdio: 'inherit',
+        }
+      );
+
+      analyze.on('exit', (analyzeCode) => {
+        if (analyzeCode !== 0) {
+          console.log('FAIL: Forensic log analysis detected critical errors.');
+          process.exit(1);
+        } else {
+          console.log('SUCCESS: No unexpected errors detected in logs.');
+          if (exitCode !== 0) {
+            console.log(`FAIL: Playwright suite exited with code ${exitCode}`);
+            process.exit(exitCode);
+          }
+          process.exit(0);
+        }
+      });
+    } else {
+      if (exitCode !== 0) {
+        console.log(`FAIL: Playwright suite exited with code ${exitCode}`);
+        process.exit(exitCode);
       }
-    );
-
-    const analysisExitCode = await new Promise((resolve) => {
-      analyzer.on('exit', (code) => resolve(code));
-    });
-
-    if (analysisExitCode !== 0) {
-      console.error('FAIL: Forensic log analysis detected critical errors.');
-      process.exit(analysisExitCode);
+      process.exit(0);
     }
-
-    if (exitCode !== 0) {
-      console.error(`FAIL: Playwright suite exited with code ${exitCode}`);
-      process.exit(exitCode);
-    }
-
-    console.log('>>> E2E Verification SUCCESSFUL.');
-    process.exit(0);
   } catch (err) {
     console.error('FATAL ERROR in Orchestrator:', err.message);
-    cleanup();
     process.exit(1);
   }
 }

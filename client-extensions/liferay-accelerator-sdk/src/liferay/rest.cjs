@@ -56,6 +56,10 @@ class LiferayRestService {
   }
 
   _getBaseCallbackUrl(config, session = null) {
+    if (process.env.LIFERAY_BATCH_CALLBACK_URL) {
+      return process.env.LIFERAY_BATCH_CALLBACK_URL;
+    }
+
     const url =
       config?.microserviceUrl ||
       session?.context?.config?.microserviceUrl ||
@@ -635,6 +639,8 @@ class LiferayRestService {
       authHeader = `Basic ${token}`;
       this.ctx.logger.debug('Using Basic Auth for Liferay connection', {
         user,
+        passLen: pass ? pass.length : 0,
+        liferayUrl: config.liferayUrl,
       });
     } else {
       const accessToken = await oauth.getAccessToken(
@@ -865,7 +871,7 @@ class LiferayRestService {
     if (!siteGroupId) {
       throw new Error('siteGroupId is required for getLanguages');
     }
-    const url = `/o/headless-admin-user/v1.0/sites/${siteGroupId}/languages`;
+    const url = PATH.SITE_LANGUAGES(siteGroupId);
     const data = await this._get(
       config,
       url,

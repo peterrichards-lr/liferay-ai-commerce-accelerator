@@ -6,23 +6,27 @@ function toNumber(v) {
   return Number.isFinite(n) ? n : NaN;
 }
 function num(key, def, min) {
-  const raw = lookupConfig(key);
+  let raw = process.env[key];
+  if (raw === undefined || raw === null || raw === '') raw = lookupConfig(key);
   const n = toNumber(raw);
   if (!Number.isFinite(n)) return def;
   return Math.max(n, min);
 }
 function str(key, def) {
-  const v = lookupConfig(key);
-  return v !== undefined && v !== null ? String(v) : def;
+  let v = process.env[key];
+  if (v === undefined || v === null || v === '') v = lookupConfig(key);
+  return v !== undefined && v !== null && v !== '' ? String(v) : def;
 }
 function bool(key, def) {
-  const v = lookupConfig(key);
+  let v = process.env[key];
+  if (v === undefined || v === null || v === '') v = lookupConfig(key);
   if (v === true || v === 'true' || v === '1') return true;
   if (v === false || v === 'false' || v === '0') return false;
   return def;
 }
 function list(key, def) {
-  const v = lookupConfig(key);
+  let v = process.env[key];
+  if (v === undefined || v === null || v === '') v = lookupConfig(key);
   if (!v) return def;
   if (Array.isArray(v)) return v;
   return String(v)
@@ -114,6 +118,7 @@ const ENV = {
   LIFERAY_COMPANY_ID: num('LIFERAY_COMPANY_ID', 20101),
   LIFERAY_OAUTH_CLIENT_ID: str('LIFERAY_OAUTH_CLIENT_ID', ''),
   LIFERAY_OAUTH_CLIENT_SECRET: str('LIFERAY_OAUTH_CLIENT_SECRET', ''),
+  LIFERAY_AUTH_METHOD: str('LIFERAY_AUTH_METHOD', ''),
 
   // Internal microservice configuration
   MICROSERVICE_URL: str('MICROSERVICE_URL', 'http://localhost:3001'),

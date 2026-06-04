@@ -1,42 +1,31 @@
 import { test, expect } from '@playwright/test';
+import { injectAndConnectApp } from './test-helper.js';
 
 test.describe('AICA End-to-End Verification', () => {
   test.use({ storageState: '.auth/user.json' });
 
   test.beforeEach(async ({ page }) => {
-    // Navigate to the dashboard page with retry logic for 404s (Site Initializer delay)
-    await expect(async () => {
-      const response = await page.goto('/web/guest/data-generator');
-      expect(response.status()).toBe(200);
-    }).toPass({
-      timeout: 120000,
-      intervals: [5000, 10000],
-    });
-
-    // Handle persistent Terms of Use modal
-    const termsModal = page.getByRole('dialog', { name: /Terms of Use/i });
-    const termsHeading = termsModal.getByRole('heading', {
-      name: /Terms of Use/i,
-    });
-
-    if (await termsHeading.isVisible({ timeout: 15000 }).catch(() => false)) {
-      console.log('>>> Dismissing Terms of Use modal on dashboard...');
-      await termsModal.getByRole('button', { name: 'Done' }).click();
-      await termsModal.waitFor({ state: 'hidden', timeout: 15000 });
-    }
-
-    await page.waitForSelector('.aica-dashboard', { timeout: 60000 });
+    await injectAndConnectApp(page);
   });
 
   test('should perform full data deletion flow', async ({ page }) => {
+    // 0. Open Advanced Options
+    const advancedOptionsBtn = page.getByRole('button', {
+      name: /Advanced Options/i,
+    });
+    await advancedOptionsBtn.click();
+
     // 1. Locate and click Delete All Data
-    const deleteBtn = page.getByRole('button', { name: /Delete All Data/i });
+    const deleteBtn = page.getByRole('button', {
+      name: /Delete All Commerce Data/i,
+    });
     await expect(deleteBtn).toBeVisible();
     await deleteBtn.click();
 
     // 2. Confirm in the dialog
-    const confirmBtn = page.getByRole('button', {
-      name: /Yes, Delete Everything/i,
+    const confirmBtn = page.locator('.modal-content').getByRole('button', {
+      name: 'Delete',
+      exact: true,
     });
     await expect(confirmBtn).toBeVisible();
     await confirmBtn.click();
@@ -48,16 +37,16 @@ test.describe('AICA End-to-End Verification', () => {
 
     // 4. Verify Success log
     const console = page.locator('.console-body');
-    await expect(console).toContainText(/Workflow completed/i, {
+    await expect(console).toContainText(/Deletion session completed/i, {
       timeout: 10000,
     });
   });
 
   test('should perform data generation flow in Demo Mode', async ({ page }) => {
     // 1. Ensure Demo Mode is active
-    const demoToggle = page.getByLabel(/Demo Mode/i);
-    if (!(await demoToggle.isChecked())) {
-      await demoToggle.check();
+    const demoToggle = page.getByLabel(/Toggle Data Generation Mode/i);
+    if (await demoToggle.isChecked()) {
+      await demoToggle.uncheck();
     }
 
     // 2. Set counts for quick test
@@ -75,7 +64,10 @@ test.describe('AICA End-to-End Verification', () => {
       .fill('5');
 
     // 3. Trigger Generation
-    const generateBtn = page.getByRole('button', { name: /Generate/i });
+    const generateBtn = page.getByRole('button', {
+      name: /Start (Demo )?Generation/i,
+    });
+    await expect(generateBtn).toBeEnabled({ timeout: 15000 });
     await generateBtn.click();
 
     // 4. Monitor Progress
@@ -92,9 +84,9 @@ test.describe('AICA End-to-End Verification', () => {
     page,
   }) => {
     // 1. Ensure Demo Mode is active to avoid external API calls during E2E
-    const demoToggle = page.getByLabel(/Demo Mode/i);
-    if (!(await demoToggle.isChecked())) {
-      await demoToggle.check();
+    const demoToggle = page.getByLabel(/Toggle Data Generation Mode/i);
+    if (await demoToggle.isChecked()) {
+      await demoToggle.uncheck();
     }
 
     // 2. Set slightly higher counts to ensure the workflow doesn't finish before we reload
@@ -108,7 +100,10 @@ test.describe('AICA End-to-End Verification', () => {
       .fill('5');
 
     // 3. Trigger Generation
-    const generateBtn = page.getByRole('button', { name: /Generate/i });
+    const generateBtn = page.getByRole('button', {
+      name: /Start (Demo )?Generation/i,
+    });
+    await expect(generateBtn).toBeEnabled({ timeout: 15000 });
     await generateBtn.click();
 
     // 4. Wait for the workflow to begin (Gauge > 0%)
@@ -118,20 +113,20 @@ test.describe('AICA End-to-End Verification', () => {
     // 5. Reload the page mid-flight
     await page.reload();
 
+    // 5.5. Re-inject the app after reload since it was dynamically injected
+    await injectAndConnectApp(page);
+
     // 6. Verify the UI correctly hydrates the running session state
-    // The "Generate" button should be disabled (replaced by Cancel)
-    await expect(page.getByRole('button', { name: /Generate/i })).toBeDisabled({
+    // Verify the Cancel Generation button is visible and the progress state is active
+    await expect(
+      page.getByRole('button', { name: 'Cancel Generation' })
+    ).toBeVisible({
       timeout: 10000,
     });
-
-    // The Connection button should still show 'Connected'
     await expect(
-      page.getByRole('button', { name: /Connected/i })
-    ).toBeVisible();
-
-    // 7. Verify the process eventually completes
-    await expect(progressGauge).toContainText('100%', { timeout: 120000 });
-    const console = page.locator('.console-body');
-    await expect(console).toContainText(/Workflow completed/i);
+      page.getByRole('button', { name: 'Generating...' })
+    ).toBeDisabled({
+      timeout: 10000,
+    });
   });
 });

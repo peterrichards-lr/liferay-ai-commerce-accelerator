@@ -1,5 +1,6 @@
 {
   "description": "Generate comprehensive Commerce data using AI and Liferay Headless APIs",
+  "externalReferenceCode": "ai-commerce-accelerator-fragments",
   "icon": "magic",
   "name": "AI Commerce Accelerator"
 }

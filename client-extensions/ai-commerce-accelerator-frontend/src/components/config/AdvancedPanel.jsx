@@ -170,7 +170,6 @@ export default function AdvancedPanel({
             onDeleteSelectedCommerceData={onDeleteSelectedCommerceData}
           />
           <ClearCommerceDataButton
-            disabled={!connected}
             onDeleteAllCommerceData={onDeleteAllCommerceData}
           />
           <div className="divider my-3"></div>

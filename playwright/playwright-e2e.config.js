@@ -12,13 +12,20 @@ export default defineConfig({
   reporter: [['list'], ['html', { open: 'never' }]],
   outputDir: '../test-results/',
   use: {
-    baseURL: process.env.BASE_URL || 'http://localhost:8080',
+    baseURL: process.env.BASE_URL || 'http://127.0.0.1:8080',
     ignoreHTTPSErrors: true,
     actionTimeout: 60000,
     navigationTimeout: 60000,
-    trace: 'on-first-retry',
+    trace: 'retain-on-failure',
     screenshot: 'on',
-    video: 'on-first-retry',
+    video: 'retain-on-failure',
+    launchOptions: {
+      args: [
+        '--allow-running-insecure-content',
+        '--disable-web-security',
+        '--disable-features=IsolateOrigins,site-per-process,BlockInsecurePrivateNetworkRequests',
+      ],
+    },
   },
   projects: [
     {
@@ -27,6 +34,7 @@ export default defineConfig({
     },
     {
       name: 'desktop-chrome',
+      testMatch: /.*\.spec\.js/,
       use: { ...devices['Desktop Chrome'] },
       dependencies: ['setup'],
     },

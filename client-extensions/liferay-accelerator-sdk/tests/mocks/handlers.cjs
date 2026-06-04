@@ -236,6 +236,168 @@ const handlers = [
       });
     }
   ),
+
+  // --- Page Management (LPD-35443) Mocks ---
+  http.get('*/o/headless-admin-site/v1.0/sites/:siteKey/site-pages', () => {
+    return HttpResponse.json({
+      items: [{ externalReferenceCode: 'PAGE-1', name: 'Test Page 1' }],
+      totalCount: 1,
+    });
+  }),
+  http.post(
+    '*/o/headless-admin-site/v1.0/sites/:siteKey/site-pages',
+    async ({ request }) => {
+      const data = await request.json();
+      return HttpResponse.json({
+        externalReferenceCode: data.externalReferenceCode || 'PAGE-1',
+        name: data.name || 'Test Page 1',
+      });
+    }
+  ),
+  http.get(
+    '*/o/headless-admin-site/v1.0/sites/:siteKey/site-pages/:pageKey',
+    ({ params }) => {
+      return HttpResponse.json({
+        externalReferenceCode: params.pageKey,
+        name: 'Test Page 1',
+      });
+    }
+  ),
+  http.put(
+    '*/o/headless-admin-site/v1.0/sites/:siteKey/site-pages/:pageKey',
+    async ({ params, request }) => {
+      const data = await request.json();
+      return HttpResponse.json({
+        externalReferenceCode: params.pageKey,
+        name: data.name || 'Updated Test Page 1',
+      });
+    }
+  ),
+  http.delete(
+    '*/o/headless-admin-site/v1.0/sites/:siteKey/site-pages/:pageKey',
+    () => {
+      return new HttpResponse(null, { status: 204 });
+    }
+  ),
+  http.patch(
+    '*/o/headless-admin-site/v1.0/sites/:siteKey/site-pages/:pageKey',
+    async ({ params, request }) => {
+      const data = await request.json();
+      return HttpResponse.json({
+        externalReferenceCode: params.pageKey,
+        name: data.name || 'Patched Test Page 1',
+      });
+    }
+  ),
+
+  // --- Page Template Mocks ---
+  http.get('*/o/headless-admin-site/v1.0/sites/:siteKey/page-templates', () => {
+    return HttpResponse.json({
+      items: [{ externalReferenceCode: 'TEMPLATE-1', name: 'Test Template 1' }],
+      totalCount: 1,
+    });
+  }),
+  http.post(
+    '*/o/headless-admin-site/v1.0/sites/:siteKey/page-templates',
+    async ({ request }) => {
+      const data = await request.json();
+      return HttpResponse.json({
+        externalReferenceCode: data.externalReferenceCode || 'TEMPLATE-1',
+        name: data.name || 'Test Template 1',
+      });
+    }
+  ),
+  http.get(
+    '*/o/headless-admin-site/v1.0/sites/:siteKey/page-templates/:templateKey',
+    ({ params }) => {
+      return HttpResponse.json({
+        externalReferenceCode: params.templateKey,
+        name: 'Test Template 1',
+      });
+    }
+  ),
+  http.put(
+    '*/o/headless-admin-site/v1.0/sites/:siteKey/page-templates/:templateKey',
+    async ({ params, request }) => {
+      const data = await request.json();
+      return HttpResponse.json({
+        externalReferenceCode: params.templateKey,
+        name: data.name || 'Updated Test Template 1',
+      });
+    }
+  ),
+  http.delete(
+    '*/o/headless-admin-site/v1.0/sites/:siteKey/page-templates/:templateKey',
+    () => {
+      return new HttpResponse(null, { status: 204 });
+    }
+  ),
+  http.patch(
+    '*/o/headless-admin-site/v1.0/sites/:siteKey/page-templates/:templateKey',
+    async ({ params, request }) => {
+      const data = await request.json();
+      return HttpResponse.json({
+        externalReferenceCode: params.templateKey,
+        name: data.name || 'Patched Test Template 1',
+      });
+    }
+  ),
+
+  // --- Page Template Set Mocks ---
+  http.get(
+    '*/o/headless-admin-site/v1.0/sites/:siteKey/page-template-sets',
+    () => {
+      return HttpResponse.json({
+        items: [{ externalReferenceCode: 'SET-1', name: 'Test Set 1' }],
+        totalCount: 1,
+      });
+    }
+  ),
+  http.post(
+    '*/o/headless-admin-site/v1.0/sites/:siteKey/page-template-sets',
+    async ({ request }) => {
+      const data = await request.json();
+      return HttpResponse.json({
+        externalReferenceCode: data.externalReferenceCode || 'SET-1',
+        name: data.name || 'Test Set 1',
+      });
+    }
+  ),
+  http.get(
+    '*/o/headless-admin-site/v1.0/sites/:siteKey/page-template-sets/:setKey',
+    ({ params }) => {
+      return HttpResponse.json({
+        externalReferenceCode: params.setKey,
+        name: 'Test Set 1',
+      });
+    }
+  ),
+  http.put(
+    '*/o/headless-admin-site/v1.0/sites/:siteKey/page-template-sets/:setKey',
+    async ({ params, request }) => {
+      const data = await request.json();
+      return HttpResponse.json({
+        externalReferenceCode: params.setKey,
+        name: data.name || 'Updated Test Set 1',
+      });
+    }
+  ),
+  http.delete(
+    '*/o/headless-admin-site/v1.0/sites/:siteKey/page-template-sets/:setKey',
+    () => {
+      return new HttpResponse(null, { status: 204 });
+    }
+  ),
+  http.patch(
+    '*/o/headless-admin-site/v1.0/sites/:siteKey/page-template-sets/:setKey',
+    async ({ params, request }) => {
+      const data = await request.json();
+      return HttpResponse.json({
+        externalReferenceCode: params.setKey,
+        name: data.name || 'Patched Test Set 1',
+      });
+    }
+  ),
 ];
 
 module.exports = { handlers };

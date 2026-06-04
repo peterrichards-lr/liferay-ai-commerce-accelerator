@@ -38,4 +38,11 @@ describe('Liferay Accelerator SDK', () => {
     expect(sdk.utils).toBeDefined();
     expect(sdk.utils.PATH).toBeDefined();
   });
+
+  it('should resolve callback URL from LIFERAY_BATCH_CALLBACK_URL override', () => {
+    const rest = new sdk.LiferayRestService({});
+    process.env.LIFERAY_BATCH_CALLBACK_URL = 'http://test-env-override/cb';
+    expect(rest._getBaseCallbackUrl({})).toBe('http://test-env-override/cb');
+    delete process.env.LIFERAY_BATCH_CALLBACK_URL;
+  });
 });

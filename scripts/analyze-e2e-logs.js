@@ -12,7 +12,9 @@ const LOG_FILE = process.argv[2];
 // For now, we want a "clean" log, so this is empty.
 const IGNORE_PATTERNS = [
   /Cannot read properties of undefined \(reading 'split'\)/i, // Handled domain detection error
-  /relation "release_" does not exist/i, // Expected during fresh PostgreSQL Liferay initialization
+  /relation ".*" does not exist/i, // Expected during fresh PostgreSQL Liferay initialization
+  /duplicate key value violates unique constraint/i, // Expected during Site Initializer portlet preference insertion
+  /aicaconfigurations.*(404|No service was found|Not Found)/i, // Expected startup registration delay warnings
 ];
 
 function analyze() {

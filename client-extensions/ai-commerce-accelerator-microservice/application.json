@@ -3,7 +3,8 @@
     "http://localhost:5173",
     "http://localhost:3000",
     "http://localhost:3001",
-    "http://localhost:8080"
+    "http://localhost:8080",
+    "https://aica-e2e.local"
   ],
   "com.liferay.lxc.dxp.server.protocol": "http",
   "config.node.config.trees": [

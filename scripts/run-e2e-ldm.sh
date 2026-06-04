@@ -118,16 +118,18 @@ if ! version_ge "$REQUIRED_LDM_VERSION" "$CURRENT_LDM_VERSION"; then
     exit 1
 fi
 
-# Determine the target host
+# Determine the target host and URL
 if [ $EXISTING_PROJECT -eq 1 ]; then
-    # Try to resolve host from existing project config
-    TARGET_HOST=$(ldm list | grep "^$PROJECT_NAME " | awk '{print $3}' || echo "")
-    if [ -z "$TARGET_HOST" ]; then
-        echo "❌ ERROR: Could not find host name for project '$PROJECT_NAME'. Is it initialized?"
+    # Try to resolve URL from existing project config
+    TARGET_URL=$(ldm list | grep "$PROJECT_NAME" | grep -oE 'https?://[a-zA-Z0-9./:-]+' | xargs || echo "")
+    if [ -z "$TARGET_URL" ]; then
+        echo "❌ ERROR: Could not find URL for project '$PROJECT_NAME'. Is it initialized?"
         exit 1
     fi
+    TARGET_HOST=$(echo "$TARGET_URL" | sed -E 's/https?:\/\///' | cut -d':' -f1)
 else
     TARGET_HOST="$DEFAULT_HOST"
+    TARGET_URL="https://$TARGET_HOST"
 fi
 
 echo "🔍 Running LDM Doctor (Silent)..."
@@ -144,8 +146,32 @@ ldm_cmd infra-setup $LDM_Y_FLAG
 
 # We build BEFORE initializing the project to ensure fresh LCP.json metadata is captured
 echo "🔨 Phase 2: Building AICA Client Extensions..."
+TEMP_MOVE=0
+if [ $EXISTING_PROJECT -eq 1 ] && [ -d "$PROJECT_NAME" ]; then
+    echo "📦 Temporarily moving project directory '$PROJECT_NAME' to prevent Yarn workspace duplicates..."
+    mv "$PROJECT_NAME" "../$PROJECT_NAME.tmp"
+    TEMP_MOVE=1
+fi
+
 log_command "./gradlew deploy"
-./gradlew deploy
+if ! ./gradlew deploy; then
+    if [ $TEMP_MOVE -eq 1 ]; then
+        mv "../$PROJECT_NAME.tmp" "$PROJECT_NAME"
+    fi
+    exit 1
+fi
+
+if [ $TEMP_MOVE -eq 1 ]; then
+    echo "📦 Restoring project directory '$PROJECT_NAME'..."
+    mv "../$PROJECT_NAME.tmp" "$PROJECT_NAME"
+fi
+
+# HARDENING: Ensure all generated zip files are visible to LDM in the expected locations
+for cx in client-extensions/*; do
+    if [ -d "$cx/dist" ]; then
+        cp "$cx/dist/"*.zip "$cx/" 2>/dev/null || true
+    fi
+done
 
 # --- Phase 3: Project Init, Host Setup & Start ---
 
@@ -157,54 +183,59 @@ if [ $EXISTING_PROJECT -eq 0 ]; then
 
     LIFERAY_TAG=$(grep 'liferay.workspace.product=' "$GRADLE_PROPS" | cut -d'=' -f2 | xargs)
 
-    # Hostname Resolution & CI Setup (Pre-Init)
-    if [ "$CI_MODE" -eq 1 ]; then
-        echo "🤖 CI Mode detected. Setting up project DNS tree via LDM (Pre-Init)..."
-        # In CI, we fix the main host first so import succeeds, then project tree after init
-        # shellcheck disable=SC2086
-        ldm_cmd fix-hosts "$TARGET_HOST" $LDM_Y_FLAG
-    else
-        # Local Hostname Resolution Check
-        if ! host "$TARGET_HOST" &> /dev/null && ! grep -q "$TARGET_HOST" /etc/hosts; then
-            echo "❌ ERROR: Hostname '$TARGET_HOST' does not resolve."
-            echo "💡 ACTION REQUIRED: Run the following command to fix your hosts file, then restart this script:"
-            echo "   ldm fix-hosts $TARGET_HOST"
-            exit 1
+    # Local Hostname Resolution Check
+    REQUIRED_HOSTS=(
+        "$TARGET_HOST"
+        "aicommerceacceleratorconfiguration.$TARGET_HOST"
+        "aicommerceacceleratorfrontend.$TARGET_HOST"
+    )
+
+    MISSING_HOSTS=()
+    for HOST in "${REQUIRED_HOSTS[@]}"; do
+        if ! ping -c 1 "$HOST" &> /dev/null && ! grep -q "$HOST" /etc/hosts; then
+            MISSING_HOSTS+=("$HOST")
         fi
+    done
+
+    if [ ${#MISSING_HOSTS[@]} -gt 0 ]; then
+        echo "❌ ERROR: The following required hostnames do not resolve:"
+        for HOST in "${MISSING_HOSTS[@]}"; do
+            echo "   - $HOST"
+        done
+        echo ""
+        echo "💡 ACTION REQUIRED: Run the following command to fix your hosts file, then restart this script:"
+        echo "   ldm system doctor --fix-hosts ${MISSING_HOSTS[*]}"
+        exit 1
     fi
 
     echo "📦 Initializing ephemeral LDM project [$PROJECT_NAME] (PostgreSQL)..."
     # import parameters: creates a one-time static import for testing
     # shellcheck disable=SC2086
     ldm_cmd import . "$PROJECT_NAME" \
-        $LDM_Y_FLAG \
+        -y \
         --host-name "$TARGET_HOST" \
         --db postgresql \
-        --no-seed \
         $INTERNAL_STATE_FLAG \
         --no-captcha \
         --no-run
 
-    # Project-wide DNS Setup (CI only)
-    if [ "$CI_MODE" -eq 1 ]; then
-        echo "🤖 CI Mode detected. Finalizing project DNS tree via LDM..."
-        # LDM 2.7.11+ automatically handles all subdomains for the project non-interactively
-        # shellcheck disable=SC2086
-        ldm_cmd fix-hosts "$PROJECT_NAME" $LDM_Y_FLAG
-        echo "✅ Hostname setup complete."
-    fi
 
 
     echo "⚡ Starting Liferay container with tag [$LIFERAY_TAG] (Detached + Sidecar)..."
     # LDM 2.7.12+ automatically:
     # 1. Detects and handles external volume locking (--internal-state)
     # 2. Forwards AI environment variables (OPENAI_*, GEMINI_*, etc.)
+    # LDM 2.8.0+ supports --lean for constrained environments.
     # shellcheck disable=SC2086
     ldm_cmd run "$PROJECT_NAME" \
         --tag "$LIFERAY_TAG" \
         --sidecar \
         --no-captcha \
+        --lean \
+        --fast-login \
+        --feature LPD-35443 \
         -y
+
 else
     echo "⏭️  Skipping initialization/boot for existing project '$PROJECT_NAME'."
 fi
@@ -223,7 +254,7 @@ else
     ldm_cmd deploy "$PROJECT_NAME" $ARTIFACTS
 fi
 
-echo "⏳ Waiting for Liferay to be ready at https://$TARGET_HOST..."
+echo "⏳ Waiting for Liferay to be ready at $TARGET_URL..."
 # LDM 2.7.12+ wait command blocks until the HTTP layer is responsive
 if ! ldm_cmd wait "$PROJECT_NAME" --timeout 1800; then
     echo -e "\n❌ ERROR: Liferay failed to become ready within 30 minutes."
@@ -238,7 +269,7 @@ echo -e "\n✅ Liferay is UP and responding!"
 # --- Phase 5: Test Execution & Teardown ---
 
 if [ $INIT_ONLY -eq 1 ]; then
-    echo -e "\n✅ Environment prepopulated and ready at https://$TARGET_HOST"
+    echo -e "\n✅ Environment prepopulated and ready at $TARGET_URL"
     echo "⏭️  Stopping early due to --init flag."
     exit 0
 fi
@@ -261,7 +292,7 @@ cleanup() {
 trap cleanup EXIT
 
 # Set the environment variables for Playwright and the Microservice
-export BASE_URL="https://$TARGET_HOST"
+export BASE_URL="$TARGET_URL"
 export LIFERAY_API_URL="$BASE_URL"
 export LIFERAY_URL="$BASE_URL"
 

@@ -123,4 +123,201 @@ describe('LiferayService', () => {
     const result = await liferayService.getCurrencies(config);
     expect(result[0].name).toBe('US Dollar');
   });
+
+  describe('Page Management (LPD-35443) APIs', () => {
+    const siteKey = 'test-site-key';
+
+    it('should get site pages', async () => {
+      const res = await liferayService.getSitePages(config, siteKey);
+      expect(res.items).toHaveLength(1);
+      expect(res.items[0].name).toBe('Test Page 1');
+      expect(res.items[0].externalReferenceCode).toBe('PAGE-1');
+    });
+
+    it('should create site page', async () => {
+      const pageData = { externalReferenceCode: 'NEW-PAGE', name: 'New Page' };
+      const res = await liferayService.createSitePage(
+        config,
+        siteKey,
+        pageData
+      );
+      expect(res.name).toBe('New Page');
+      expect(res.externalReferenceCode).toBe('NEW-PAGE');
+    });
+
+    it('should get specific site page', async () => {
+      const res = await liferayService.getSitePage(
+        config,
+        siteKey,
+        'MY-PAGE-1'
+      );
+      expect(res.externalReferenceCode).toBe('MY-PAGE-1');
+      expect(res.name).toBe('Test Page 1');
+    });
+
+    it('should update site page', async () => {
+      const pageData = { name: 'Updated Page' };
+      const res = await liferayService.updateSitePage(
+        config,
+        siteKey,
+        'MY-PAGE-1',
+        pageData
+      );
+      expect(res.name).toBe('Updated Page');
+      expect(res.externalReferenceCode).toBe('MY-PAGE-1');
+    });
+
+    it('should delete site page', async () => {
+      const res = await liferayService.deleteSitePage(
+        config,
+        siteKey,
+        'MY-PAGE-1',
+        { fullResponse: true }
+      );
+      expect(res.status).toBe(204);
+    });
+
+    it('should patch site page', async () => {
+      const pageData = { name: 'Patched Page' };
+      const res = await liferayService.patchSitePage(
+        config,
+        siteKey,
+        'MY-PAGE-1',
+        pageData
+      );
+      expect(res.name).toBe('Patched Page');
+      expect(res.externalReferenceCode).toBe('MY-PAGE-1');
+    });
+  });
+
+  describe('Page Template Management APIs', () => {
+    const siteKey = 'test-site-key';
+
+    it('should get page templates', async () => {
+      const res = await liferayService.getPageTemplates(config, siteKey);
+      expect(res.items).toHaveLength(1);
+      expect(res.items[0].name).toBe('Test Template 1');
+    });
+
+    it('should create page template', async () => {
+      const templateData = {
+        externalReferenceCode: 'NEW-TEMP',
+        name: 'New Temp',
+      };
+      const res = await liferayService.createPageTemplate(
+        config,
+        siteKey,
+        templateData
+      );
+      expect(res.name).toBe('New Temp');
+      expect(res.externalReferenceCode).toBe('NEW-TEMP');
+    });
+
+    it('should get specific page template', async () => {
+      const res = await liferayService.getPageTemplate(
+        config,
+        siteKey,
+        'MY-TEMP-1'
+      );
+      expect(res.externalReferenceCode).toBe('MY-TEMP-1');
+    });
+
+    it('should update page template', async () => {
+      const templateData = { name: 'Updated Temp' };
+      const res = await liferayService.updatePageTemplate(
+        config,
+        siteKey,
+        'MY-TEMP-1',
+        templateData
+      );
+      expect(res.name).toBe('Updated Temp');
+      expect(res.externalReferenceCode).toBe('MY-TEMP-1');
+    });
+
+    it('should delete page template', async () => {
+      const res = await liferayService.deletePageTemplate(
+        config,
+        siteKey,
+        'MY-TEMP-1',
+        { fullResponse: true }
+      );
+      expect(res.status).toBe(204);
+    });
+
+    it('should patch page template', async () => {
+      const templateData = { name: 'Patched Temp' };
+      const res = await liferayService.patchPageTemplate(
+        config,
+        siteKey,
+        'MY-TEMP-1',
+        templateData
+      );
+      expect(res.name).toBe('Patched Temp');
+      expect(res.externalReferenceCode).toBe('MY-TEMP-1');
+    });
+  });
+
+  describe('Page Template Set Management APIs', () => {
+    const siteKey = 'test-site-key';
+
+    it('should get page template sets', async () => {
+      const res = await liferayService.getPageTemplateSets(config, siteKey);
+      expect(res.items).toHaveLength(1);
+      expect(res.items[0].name).toBe('Test Set 1');
+    });
+
+    it('should create page template set', async () => {
+      const setData = { externalReferenceCode: 'NEW-SET', name: 'New Set' };
+      const res = await liferayService.createPageTemplateSet(
+        config,
+        siteKey,
+        setData
+      );
+      expect(res.name).toBe('New Set');
+      expect(res.externalReferenceCode).toBe('NEW-SET');
+    });
+
+    it('should get specific page template set', async () => {
+      const res = await liferayService.getPageTemplateSet(
+        config,
+        siteKey,
+        'MY-SET-1'
+      );
+      expect(res.externalReferenceCode).toBe('MY-SET-1');
+    });
+
+    it('should update page template set', async () => {
+      const setData = { name: 'Updated Set' };
+      const res = await liferayService.updatePageTemplateSet(
+        config,
+        siteKey,
+        'MY-SET-1',
+        setData
+      );
+      expect(res.name).toBe('Updated Set');
+      expect(res.externalReferenceCode).toBe('MY-SET-1');
+    });
+
+    it('should delete page template set', async () => {
+      const res = await liferayService.deletePageTemplateSet(
+        config,
+        siteKey,
+        'MY-SET-1',
+        { fullResponse: true }
+      );
+      expect(res.status).toBe(204);
+    });
+
+    it('should patch page template set', async () => {
+      const setData = { name: 'Patched Set' };
+      const res = await liferayService.patchPageTemplateSet(
+        config,
+        siteKey,
+        'MY-SET-1',
+        setData
+      );
+      expect(res.name).toBe('Patched Set');
+      expect(res.externalReferenceCode).toBe('MY-SET-1');
+    });
+  });
 });
