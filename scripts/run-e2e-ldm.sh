@@ -50,7 +50,7 @@ if [ $KEEP_PROJECT -eq 1 ]; then
 fi
 # If no project specified, use default ephemeral one
 if [ -z "$PROJECT_NAME" ]; then
-    PROJECT_NAME="aica-e2e"
+    PROJECT_NAME="aica"
     EXISTING_PROJECT=0
     # HARDENING: Proactively remove any existing project folder to prevent 
     # Yarn workspace name collisions during Phase 2 (Building).

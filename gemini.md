@@ -33,6 +33,7 @@ Improve tracking and feedback loop of E2E tests, allowing the AI assistant to tr
 - Next step: Update `_getBaseCallbackUrl` in `client-extensions/liferay-accelerator-sdk/src/liferay/rest.cjs` to support overriding via a new `LIFERAY_BATCH_CALLBACK_URL` environment variable, enabling us to set it to `http://host.docker.internal:3001/api/v1/batch/callback` for E2E tests.
 - Completed unit tests and fixed code styling/linting across all client extensions and configurations. All tests and lint checks are now passing successfully.
 - Adding a shortcut script `ldm:init` in package.json to make it easy to start the LDM environment in a single command.
+- Updated default LDM project name in scripts/run-e2e-ldm.sh to 'aica' and simplified the package.json script.
 
 ## LDM Reference Documentation
 
