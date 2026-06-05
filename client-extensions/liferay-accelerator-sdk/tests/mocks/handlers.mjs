@@ -113,6 +113,30 @@ const handlers = [
     });
   }),
 
+  // Mock Price List Detail for Contract Testing
+  http.get(
+    '*/o/headless-commerce-admin-pricing/v2.0/price-lists/PL-123',
+    () => {
+      return HttpResponse.json({
+        id: 12345,
+        externalReferenceCode: 'PL-123',
+        name: 'Excellent Test Price List',
+        catalogId: 100,
+        currencyCode: 'USD',
+        type: 'price-list',
+      });
+    }
+  ),
+  http.get(
+    '*/o/headless-commerce-admin-pricing/v2.0/price-lists/PL-BAD',
+    () => {
+      return HttpResponse.json({
+        id: 55555,
+        externalReferenceCode: 'PL-BAD',
+      });
+    }
+  ),
+
   // Mock Warehouses
   http.get('*/o/headless-commerce-admin-inventory/v1.0/warehouses', () => {
     return HttpResponse.json({

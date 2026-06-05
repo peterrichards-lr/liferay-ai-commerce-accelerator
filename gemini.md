@@ -51,6 +51,7 @@ Improve tracking and feedback loop of E2E tests, allowing the AI assistant to tr
 - Implemented **Commit Message Linting** via standard `@commitlint/config-conventional` and a `.husky/commit-msg` hook to guarantee neat, parseable commit history records.
 - Added **Security Audit Checks** in CI workflow (`ci.yml`) to automatically output dependency vulnerability summaries, ensuring high security awareness without introducing false-positive build failures.
 - Created and integrated a **Liferay Client Extension (CX) Schema Validator** (`scripts/validate-cx.js`) to parse and assert correct structure (assemblies, valid types, required properties, scope formatting, and serviceAddress warnings) across all workspace packages.
+- Implemented **Inbound response Contract-Driven Validation** inside `LiferayRestService` (`rest.cjs`) and mapped GET endpoints (`contractMappings.cjs`). Created a dedicated, highly robust unit test suite (`tests/contracts.test.js`) to catch platform schema drifts and protect against DXP volatility.
 - **Next step**: Run the fresh E2E verification test suite (`bash scripts/run-e2e-ldm.sh -v -k`) once quota/system resources are available.
 
 ## LDM Reference Documentation

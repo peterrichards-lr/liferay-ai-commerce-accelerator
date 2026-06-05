@@ -2,6 +2,7 @@
  * Maps Liferay API URL patterns to their authoritative OpenAPI schemas.
  */
 const CONTRACT_MAPPINGS = [
+  // --- OUTBOUND & BATCH CONTRACTS ---
   {
     pattern: /\/o\/headless-commerce-admin-catalog\/v1\.0\/products\/batch/,
     spec: 'headless-commerce-admin-catalog-v1.0-openapi.json',
@@ -64,6 +65,55 @@ const CONTRACT_MAPPINGS = [
     spec: 'headless-commerce-admin-catalog-v1.0-openapi.json',
     schema: 'ProductOption',
     isArray: true,
+  },
+
+  // --- INBOUND RESPONSE CONTRACTS (GET) ---
+  {
+    pattern:
+      /\/o\/headless-commerce-admin-catalog\/v1\.0\/products\/[a-zA-Z0-9-]+$/,
+    method: 'GET',
+    spec: 'headless-commerce-admin-catalog-v1.0-openapi.json',
+    schema: 'Product',
+    isInbound: true,
+  },
+  {
+    pattern: /\/o\/headless-commerce-admin-catalog\/v1\.0\/products$/,
+    method: 'GET',
+    spec: 'headless-commerce-admin-catalog-v1.0-openapi.json',
+    schema: 'Product',
+    isInbound: true,
+    isPage: true,
+  },
+  {
+    pattern: /\/o\/headless-admin-user\/v1\.0\/accounts\/[a-zA-Z0-9-]+$/,
+    method: 'GET',
+    spec: 'headless-admin-user-v1.0-openapi.json',
+    schema: 'Account',
+    isInbound: true,
+  },
+  {
+    pattern: /\/o\/headless-admin-user\/v1\.0\/accounts$/,
+    method: 'GET',
+    spec: 'headless-admin-user-v1.0-openapi.json',
+    schema: 'Account',
+    isInbound: true,
+    isPage: true,
+  },
+  {
+    pattern:
+      /\/o\/headless-commerce-admin-pricing\/v2\.0\/price-lists\/[a-zA-Z0-9-]+$/,
+    method: 'GET',
+    spec: 'headless-commerce-admin-pricing-v2.0-openapi.json',
+    schema: 'PriceList',
+    isInbound: true,
+  },
+  {
+    pattern: /\/o\/headless-commerce-admin-pricing\/v2\.0\/price-lists$/,
+    method: 'GET',
+    spec: 'headless-commerce-admin-pricing-v2.0-openapi.json',
+    schema: 'PriceList',
+    isInbound: true,
+    isPage: true,
   },
 ];
 

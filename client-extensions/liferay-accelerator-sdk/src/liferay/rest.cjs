@@ -228,6 +228,53 @@ class LiferayRestService {
           correlationId: config?.correlationId,
         });
 
+        // INBOUND RESPONSE CONTRACT VALIDATION
+        const shouldValidateInbound =
+          config.validateInboundResponse ||
+          (ENV.NODE_ENV === 'development' && !process.env.VITEST);
+
+        if (res.data && shouldValidateInbound) {
+          const contract = findContract(url, method);
+          if (contract && contract.isInbound && this.ctx.contractValidator) {
+            try {
+              if (contract.isPage) {
+                if (Array.isArray(res.data.items)) {
+                  this.ctx.contractValidator.validateArray(
+                    contract.spec,
+                    contract.schema,
+                    res.data.items
+                  );
+                }
+              } else {
+                this.ctx.contractValidator.validate(
+                  contract.spec,
+                  contract.schema,
+                  res.data
+                );
+              }
+              logger.debug(
+                `Inbound response from ${url} conforms to Liferay OpenAPI contract`,
+                {
+                  op,
+                  schema: contract.schema,
+                }
+              );
+            } catch (err) {
+              if (err.name === 'ContractViolationError') {
+                logger.error(
+                  `Inbound response from ${url} violates Liferay OpenAPI contract`,
+                  {
+                    op,
+                    schema: contract.schema,
+                    errors: err.errors,
+                  }
+                );
+                throw err;
+              }
+            }
+          }
+        }
+
         if (fullResponse) {
           return {
             data: res.data,
@@ -241,7 +288,9 @@ class LiferayRestService {
       } catch (err) {
         // Determine if we should retry
         const isRetryable =
-          ErrorHandler.isRetryableError(err) && attempt < maxRetries;
+          err.name !== 'ContractViolationError' &&
+          ErrorHandler.isRetryableError(err) &&
+          attempt < maxRetries;
 
         if (isRetryable) {
           const baseDelay =
