@@ -48,6 +48,10 @@ jobs:
         run: yarn lint:md
         timeout-minutes: 5
 
+      - name: Run Dependency Security Audit
+        run: 'yarn audit --summary || echo "⚠️ Warning - Security vulnerabilities detected. Please run ''yarn audit'' locally to inspect."'
+        timeout-minutes: 5
+
       - name: Run Unit Tests
         run: yarn test
         timeout-minutes: 15

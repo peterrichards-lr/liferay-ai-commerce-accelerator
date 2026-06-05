@@ -1,0 +1,39 @@
+#!/usr/bin/env bash
+
+# Add common binary paths that GUI apps often miss
+export PATH="$PATH:/usr/local/bin:/opt/homebrew/bin:$HOME/.local/bin"
+
+# Load NVM and other environment managers if they exist
+export NVM_DIR="$HOME/.nvm"
+[ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
+[ -s "$HOME/.nvm/nvm.sh" ] && . "$HOME/.nvm/nvm.sh"
+[ -s "/opt/homebrew/opt/nvm/nvm.sh" ] && . "/opt/homebrew/opt/nvm/nvm.sh"
+[ -f ~/.huskyrc ] && . ~/.huskyrc
+
+# Fallback: if yarn is still not found, try to find it via npm or as a last resort npx
+if ! command -v yarn >/dev/null 2>&1; then
+  if command -v npm >/dev/null 2>&1; then
+    YARN_PATH=$(npm config get prefix)/bin/yarn
+    if [ -f "$YARN_PATH" ]; then
+      export PATH="$PATH:$(npm config get prefix)/bin"
+    fi
+  fi
+fi
+
+echo "🚀 Running exhaustive pre-push verification..."
+
+echo "🧹 Running full project lint..."
+if command -v yarn >/dev/null 2>&1; then
+  yarn lint || exit 1
+else
+  npx yarn lint || exit 1
+fi
+
+echo "🧪 Running full unit test suite..."
+if command -v yarn >/dev/null 2>&1; then
+  yarn test || exit 1
+else
+  npx yarn test || exit 1
+fi
+
+echo "✅ Pre-push verification complete! Safe to push."

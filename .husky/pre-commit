@@ -1,45 +1,18 @@
+#!/usr/bin/env bash
+
 # Add common binary paths that GUI apps often miss
 export PATH="$PATH:/usr/local/bin:/opt/homebrew/bin:$HOME/.local/bin"
 
-# Load NVM if it exists
+# Load NVM and other environment managers if they exist
 export NVM_DIR="$HOME/.nvm"
 [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
-
-# Load other common environment managers
 [ -s "$HOME/.nvm/nvm.sh" ] && . "$HOME/.nvm/nvm.sh"
 [ -s "/opt/homebrew/opt/nvm/nvm.sh" ] && . "/opt/homebrew/opt/nvm/nvm.sh"
-
-# Load local huskyrc if it exists for user-specific PATH overrides
 [ -f ~/.huskyrc ] && . ~/.huskyrc
 
-# Fallback: if yarn is still not found, try to find it via npm or as a last resort npx
-if ! command -v yarn >/dev/null 2>&1; then
-  if command -v npm >/dev/null 2>&1; then
-    YARN_PATH=$(npm config get prefix)/bin/yarn
-    if [ -f "$YARN_PATH" ]; then
-      export PATH="$PATH:$(npm config get prefix)/bin"
-    fi
-  fi
-fi
+echo "🔍 Running fast pre-commit checks..."
 
-echo "🔍 Running pre-commit checks..."
-
-echo "⚡ Running lint-staged (auto-fixing)..."
+echo "⚡ Running lint-staged (auto-fixing & formatting modified files)..."
 npx lint-staged || exit 1
-
-echo "🧹 Running full project lint..."
-# Use npx as a wrapper if yarn is still not directly in path
-if command -v yarn >/dev/null 2>&1; then
-  yarn lint || exit 1
-else
-  npx yarn lint || exit 1
-fi
-
-echo "🧪 Running unit tests..."
-if command -v yarn >/dev/null 2>&1; then
-  yarn test || exit 1
-else
-  npx yarn test || exit 1
-fi
 
 echo "✅ Pre-commit checks passed!"

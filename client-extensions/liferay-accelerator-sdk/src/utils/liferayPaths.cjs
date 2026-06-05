@@ -118,8 +118,9 @@ const PATH = {
     }`,
   PRICE_LIST_PRICE_ENTRIES_BATCH: (priceListERC, callbackURL) => {
     const params = { callbackURL };
-    return `${BASE.PRICING_API}/price-entries/batch${q(params)}`;
+    return `${BASE.PRICE_LISTS}/price-entries/batch${q(params)}`;
   },
+
   PRODUCTS_BATCH: (callbackURL) =>
     `${BASE.PRODUCTS}/batch${
       callbackURL ? `?callbackURL=${enc(callbackURL)}` : ''
@@ -203,10 +204,10 @@ const PATH = {
       callbackURL ? `?callbackURL=${enc(callbackURL)}` : ''
     }`,
 
-  SPECIFICATION_CATEGORIES: BASE.OPTION_CATEGORIES,
-  SPECIFICATION_CATEGORY: (id) => `${BASE.OPTION_CATEGORIES}/${id}`,
+  SPECIFICATION_CATEGORIES: BASE.SPECIFICATION_CATEGORIES,
+  SPECIFICATION_CATEGORY: (id) => `${BASE.SPECIFICATION_CATEGORIES}/${id}`,
   SPECIFICATION_CATEGORY_BY_ERC: (erc) =>
-    byERC(BASE.OPTION_CATEGORIES, erc, 'camel'),
+    byERC(BASE.SPECIFICATION_CATEGORIES, erc, 'camel'),
 
   SPECIFICATIONS: BASE.SPECIFICATIONS,
   SPECIFICATION_BY_ERC: (erc) =>

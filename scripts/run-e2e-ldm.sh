@@ -295,6 +295,8 @@ trap cleanup EXIT
 export BASE_URL="$TARGET_URL"
 export LIFERAY_API_URL="$BASE_URL"
 export LIFERAY_URL="$BASE_URL"
+export LIFERAY_BATCH_CALLBACK_URL="http://host.docker.internal:3001/api/v1/batch/callback"
+
 
 # Map CI secrets to standard AICA variables if provided
 export LIFERAY_USER="${LIFERAY_USER:-${LIFERAY_ADMIN_EMAIL:-test@liferay.com}}"

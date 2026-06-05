@@ -35,6 +35,23 @@ Improve tracking and feedback loop of E2E tests, allowing the AI assistant to tr
 - Adding a shortcut script `ldm:init` in package.json to make it easy to start the LDM environment in a single command.
 - Updated default LDM project name in scripts/run-e2e-ldm.sh to 'aica' and simplified the package.json script.
 - Adding `ldm:init-from` and `ldm:monitor` commands to package.json scripts for local development workspace replication and hot-rebuild tracking.
+- Identified issue: E2E tests failed because data generation progress remained at 0%. Forensic logs showed Liferay container failed to post batch callbacks to the microservice (Connection refused on `localhost:3001`).
+  - **Fix Applied**: Exported `LIFERAY_BATCH_CALLBACK_URL="http://host.docker.internal:3001/api/v1/batch/callback"` inside `scripts/run-e2e-ldm.sh` to allow Liferay container to post batch callbacks back to the host machine.
+- Identified issue: Pricing batch import failed with a `405 Method Not Allowed` error because `PATH.PRICE_LIST_PRICE_ENTRIES_BATCH` in `liferayPaths.cjs` pointed to `/o/headless-commerce-admin-pricing/v2.0/price-entries/batch` (which only supports `DELETE`) using `BASE.PRICING_API` instead of `/o/headless-commerce-admin-pricing/v2.0/price-lists/price-entries/batch` (which supports `POST`) using `BASE.PRICE_LISTS`.
+  - **Fix Applied**: Updated `PRICE_LIST_PRICE_ENTRIES_BATCH` in `client-extensions/liferay-accelerator-sdk/src/utils/liferayPaths.cjs` to use `BASE.PRICE_LISTS`.
+- Identified issue: Price list deletion failed with `UnsupportedOperationException: Unable to delete by external reference code or ID` because Liferay's Pricing API does not support native batch deletes.
+  - **Fix Applied**: Updated `deletePriceListsBatch` and `deletePromotionsBatch` in `client-extensions/liferay-accelerator-sdk/src/liferay/index.cjs` to set `nativeBatch: false` (simulated batch deletes).
+- Identified issue: E2E tests failed with `Failed to create specification category` (400 Bad Request) because `PATH.SPECIFICATION_CATEGORIES` in `liferayPaths.cjs` was incorrectly mapped to `BASE.OPTION_CATEGORIES` (`/optionCategories`), which expects a `name` field, instead of `BASE.SPECIFICATION_CATEGORIES` (`/specification-categories`), which expects a `title` field.
+  - **Fix Applied**: Updated `SPECIFICATION_CATEGORIES`, `SPECIFICATION_CATEGORY`, and `SPECIFICATION_CATEGORY_BY_ERC` in `client-extensions/liferay-accelerator-sdk/src/utils/liferayPaths.cjs` to map to `BASE.SPECIFICATION_CATEGORIES`.
+- Completed unit tests and verified all tests pass.
+- Cleaned up duplicate/exited Docker containers to free up system memory and avoid OOM daemon container kills.
+- Optimized Husky git hooks to split pre-commit and pre-push duties:
+  - `pre-commit` now runs lightning-fast `lint-staged` targeting only staged changes.
+  - `pre-push` acts as a deep quality gate, executing full static linting and the entire unit test suite.
+- Implemented **Commit Message Linting** via standard `@commitlint/config-conventional` and a `.husky/commit-msg` hook to guarantee neat, parseable commit history records.
+- Added **Security Audit Checks** in CI workflow (`ci.yml`) to automatically output dependency vulnerability summaries, ensuring high security awareness without introducing false-positive build failures.
+- Created and integrated a **Liferay Client Extension (CX) Schema Validator** (`scripts/validate-cx.js`) to parse and assert correct structure (assemblies, valid types, required properties, scope formatting, and serviceAddress warnings) across all workspace packages.
+- **Next step**: Run the fresh E2E verification test suite (`bash scripts/run-e2e-ldm.sh -v -k`) once quota/system resources are available.
 
 ## LDM Reference Documentation
 

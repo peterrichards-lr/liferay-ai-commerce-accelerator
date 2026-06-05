@@ -1,0 +1,21 @@
+#!/usr/bin/env bash
+
+# Add common binary paths that GUI apps often miss
+export PATH="$PATH:/usr/local/bin:/opt/homebrew/bin:$HOME/.local/bin"
+
+# Load local environment overrides
+[ -f ~/.huskyrc ] && . ~/.huskyrc
+
+echo "📝 Validating commit message format..."
+
+# Validate the message in the temp file Git passes to the hook ($1)
+npx --no -- commitlint --edit "$1" || {
+  echo "❌ Error: Invalid commit message format!"
+  echo "💡 Please use Conventional Commits format, e.g.:"
+  echo "   feat(frontend): add new language dropdown"
+  echo "   fix(sdk): resolve bad api route"
+  echo "   docs: update README guide"
+  exit 1
+}
+
+echo "✅ Commit message format is valid!"

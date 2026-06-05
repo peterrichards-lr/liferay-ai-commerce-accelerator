@@ -12,6 +12,8 @@
     ]
   },
   "devDependencies": {
+    "@commitlint/cli": "^21.0.2",
+    "@commitlint/config-conventional": "^21.0.2",
     "@playwright/test": "^1.60.0",
     "@testing-library/dom": "^10.4.1",
     "baseline-browser-mapping": "^2.10.29",
@@ -19,7 +21,8 @@
     "husky": "^9.1.7",
     "lint-staged": "^17.0.4",
     "markdownlint-cli": "^0.48.0",
-    "prettier": "^3.8.3"
+    "prettier": "^3.8.3",
+    "yaml": "^2.9.0"
   },
   "resolutions": {
     "whatwg-url": "5.0.0",
@@ -59,8 +62,9 @@
     "ldm:init": "bash scripts/run-e2e-ldm.sh --init-only -k",
     "ldm:init-from": "ldm init-from . aica --db postgresql --no-captcha --fast-login --feature LPD-35443 --sidecar --host-name aica-e2e.local --build",
     "ldm:monitor": "ldm monitor . -p aica",
-    "lint": "yarn workspaces run lint && yarn lint:md",
+    "lint": "yarn workspaces run lint && yarn lint:md && yarn lint:cx",
     "lint:md": "markdownlint '**/*.md' --ignore '**/node_modules/**' --ignore '**/build/**' --ignore '**/bundles/**' --ignore 'GETTING_STARTED.md'",
+    "lint:cx": "node scripts/validate-cx.js",
     "update-browser-data": "yarn add -D baseline-browser-mapping@latest -W && npx update-browserslist-db@latest -y"
   },
   "lint-staged": {
