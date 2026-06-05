@@ -48,6 +48,12 @@ fi
 if [ $KEEP_PROJECT -eq 1 ]; then
   echo "🛡️  Keep mode enabled. Ephemeral project will NOT be deleted after tests."
 fi
+
+# --- Pre-flight Checks (Sentinel) ---
+if [ $CI_MODE -eq 0 ]; then
+  node scripts/preflight.mjs
+fi
+
 # If no project specified, use default ephemeral one
 if [ -z "$PROJECT_NAME" ]; then
     PROJECT_NAME="aica"
