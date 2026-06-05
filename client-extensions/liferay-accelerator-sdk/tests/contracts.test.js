@@ -57,7 +57,12 @@ describe('SDK Inbound Response Contract Validation', () => {
     );
 
     const data = await rest._request(
-      { liferayUrl: 'http://localhost', validateInboundResponse: true },
+      {
+        liferayUrl: 'http://localhost',
+        validateInboundResponse: true,
+        clientId: 'dummy-id',
+        clientSecret: 'dummy-secret',
+      },
       {
         url: '/o/headless-commerce-admin-pricing/v2.0/price-lists/PL-123',
         method: 'GET',
@@ -86,7 +91,12 @@ describe('SDK Inbound Response Contract Validation', () => {
 
     await expect(
       rest._request(
-        { liferayUrl: 'http://localhost', validateInboundResponse: true },
+        {
+          liferayUrl: 'http://localhost',
+          validateInboundResponse: true,
+          clientId: 'dummy-id',
+          clientSecret: 'dummy-secret',
+        },
         {
           url: '/o/headless-commerce-admin-pricing/v2.0/price-lists/PL-BAD',
           method: 'GET',
