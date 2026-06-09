@@ -45,3 +45,21 @@ package-lock.json
 activation-key-*.xml
 aica-logs-*.json
 aica-dataset-*.json
+
+# Local Sandbox and LDM Containers
+/aica/
+
+# Client Extension Build ZIP Binaries
+/client-extensions/**/*.zip
+
+# Environment Variable Backups
+.env.*
+!.env.example
+
+# Playwright Browser Authentication State
+/playwright/.auth/
+
+# Local Debugging Scratchpads
+debug-sites.js
+test-axios.js
+test-env.js
