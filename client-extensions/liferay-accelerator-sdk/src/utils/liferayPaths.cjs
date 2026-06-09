@@ -51,7 +51,7 @@ const BASE = {
   POSTAL_ADDRESSES: `${API_ROOT.USER}/postal-addresses`,
   PRICE_LISTS: `${API_ROOT.PRICING}/price-lists`,
   PRODUCTS: `${API_ROOT.CATALOG}/products`,
-  SPECIFICATION_CATEGORIES: `${API_ROOT.CATALOG}/specification-categories`,
+  SPECIFICATION_CATEGORIES: `${API_ROOT.CATALOG}/optionCategories`,
   SPECIFICATIONS: `${API_ROOT.CATALOG}/specifications`,
 };
 

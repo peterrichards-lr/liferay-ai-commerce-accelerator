@@ -1673,14 +1673,22 @@ class LiferayRestService {
       warehouseId: parseInt(cleanedWarehouseId, 10),
     };
 
-    const data = await this._post(
-      config,
-      PATH.WAREHOUSE_CHANNELS(cleanedWarehouseId),
-      payload,
-      'create-warehouse-channel',
-      'Failed to link warehouse to channel'
-    );
-    return data;
+    try {
+      const data = await this._post(
+        config,
+        PATH.WAREHOUSE_CHANNELS(cleanedWarehouseId),
+        payload,
+        'create-warehouse-channel',
+        'Failed to link warehouse to channel'
+      );
+      return data;
+    } catch (error) {
+      if (error.response?.status === 409 || error.status === 409) {
+        // Log a warning and bypass since the link relation already exists
+        return { status: 'ALREADY_EXISTS' };
+      }
+      throw error;
+    }
   }
 
   async createAccount(config, accountData) {
