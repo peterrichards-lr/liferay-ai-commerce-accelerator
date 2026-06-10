@@ -62,6 +62,11 @@ function deepCleanIds(obj) {
   for (const key in cleaned) {
     if (Object.prototype.hasOwnProperty.call(cleaned, key)) {
       if (typeof cleaned[key] === 'object' && cleaned[key] !== null) {
+        // Special case: Remove externalReferenceCode from nested 'sku' objects in PriceEntry payloads
+        if (key === 'sku' && 'skuExternalReferenceCode' in cleaned) {
+          delete cleaned[key].externalReferenceCode;
+        }
+
         cleaned[key] = deepCleanIds(cleaned[key]);
 
         // Final Safety: If a nested object like 'sku: { id: 40000 }' resulted

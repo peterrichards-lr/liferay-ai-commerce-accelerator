@@ -63,7 +63,7 @@ function deepCleanIds(obj) {
     if (Object.prototype.hasOwnProperty.call(cleaned, key)) {
       if (typeof cleaned[key] === 'object' && cleaned[key] !== null) {
         // Special case: Remove externalReferenceCode from nested 'sku' objects in PriceEntry payloads
-        if (key === 'sku') {
+        if (key === 'sku' && 'skuExternalReferenceCode' in cleaned) {
           delete cleaned[key].externalReferenceCode;
         }
 
