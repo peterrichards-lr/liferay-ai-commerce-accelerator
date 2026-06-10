@@ -19,3 +19,9 @@ client-extensions/**/mocks/*
 aica_activity_log
 externalReferenceCode
 LIFERAY_COUNTRIES
+
+# Build-specific Variables (False-positives in build.gradle)
+configKey
+def configKey
+ai-schema-
+ai-prompt-

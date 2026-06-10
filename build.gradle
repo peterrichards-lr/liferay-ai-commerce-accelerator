@@ -671,3 +671,15 @@ tasks.matching { it.name == 'deploy' }.configureEach {
 	dependsOn tasks.named('generateBatchFiles')
 	dependsOn tasks.named('buildConfigurationCX')
 }
+
+project(':client-extensions:ai-commerce-accelerator-microservice') {
+	afterEvaluate {
+		tasks.named('clean') {
+			doFirst {
+				logger.lifecycle("🧹 Purging microservice build and dist directories to prevent dependency caching...")
+			}
+			delete 'build'
+			delete 'dist'
+		}
+	}
+}
