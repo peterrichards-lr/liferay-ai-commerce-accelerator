@@ -17,3 +17,5 @@ client-extensions/**/mocks/*
 
 # Safe LocalStorage and State Keys
 aica_activity_log
+externalReferenceCode
+LIFERAY_COUNTRIES

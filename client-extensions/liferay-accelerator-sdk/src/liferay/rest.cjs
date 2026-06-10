@@ -2322,19 +2322,33 @@ class LiferayRestService {
   }
 
   async createSpecificationCategoryWithReuse(config, payload) {
+    const key = payload?.key;
+    if (key) {
+      try {
+        const existing = await this.getSpecificationCategoryByKey(config, key);
+        if (existing) {
+          return existing;
+        }
+      } catch (err) {
+        // Ignore pre-check lookup errors and fall back to creation
+      }
+    }
+
     try {
       return await this.createSpecificationCategory(config, payload);
     } catch (e) {
       const msg = String(e?.message || '').toLowerCase();
       const isConflict =
         e?.status === 409 ||
+        e?.status === 400 || // Match 400 duplicate/bad requests as conflicts
         e?.problem?.status === 'CONFLICT' ||
         msg.includes('409') ||
-        msg.includes('conflict');
+        msg.includes('conflict') ||
+        msg.includes('duplicate') ||
+        msg.includes('already exists');
 
       if (!isConflict) throw e;
 
-      const key = payload?.key;
       if (!key) throw e;
 
       const existing = await this.getSpecificationCategoryByKey(config, key);
