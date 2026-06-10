@@ -1,4 +1,4 @@
-export function getConnectionErrorsMap(cfg) {
+export function getConnectionErrorsMap(cfg, targetType) {
   const errors = {};
   if (
     !cfg.microserviceUrl ||
@@ -9,10 +9,26 @@ export function getConnectionErrorsMap(cfg) {
     );
   }
 
-  if (!cfg.liferayUrl || !/^https?:\/\/.+/.test(String(cfg.liferayUrl))) {
-    (errors.liferayUrl ??= []).push(
-      'Enter a valid Liferay URL (e.g., http://localhost:8080).'
-    );
+  // Strictly enforce required fields specifically and only when Target DXP is set to Custom Override ("remote")
+  if (targetType === 'remote') {
+    if (!cfg.liferayUrl || !/^https?:\/\/.+/.test(String(cfg.liferayUrl))) {
+      (errors.liferayUrl ??= []).push(
+        'Enter a valid Liferay URL (e.g., http://localhost:8080).'
+      );
+    }
+    if (!cfg.clientId || String(cfg.clientId).trim().length === 0) {
+      (errors.clientId ??= []).push('Client ID is required.');
+    }
+    if (!cfg.clientSecret || String(cfg.clientSecret).trim().length === 0) {
+      (errors.clientSecret ??= []).push('Client Secret is required.');
+    }
+  } else {
+    // Standard validation: Only check Liferay URL format if it was explicitly filled out
+    if (cfg.liferayUrl && !/^https?:\/\/.+/.test(String(cfg.liferayUrl))) {
+      (errors.liferayUrl ??= []).push(
+        'Enter a valid Liferay URL (e.g., http://localhost:8080).'
+      );
+    }
   }
 
   if (cfg.pollingDelay < 5000)
@@ -24,7 +40,7 @@ export function getConnectionErrorsMap(cfg) {
     (errors.localeCode ??= []).push('Locale code is required.');
   }
 
-  if (!cfg.liferayHosted) {
+  if (!cfg.liferayHosted && targetType !== 'remote') {
     if (!cfg.clientId || String(cfg.clientId).trim().length === 0) {
       (errors.clientId ??= []).push('Client ID is required.');
     }

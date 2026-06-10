@@ -30,7 +30,7 @@ export default function ConnectionAuthCard({
   const update = (patch) => {
     const next = { ...config, ...patch };
     setConfig(patch);
-    const map = getConnectionErrorsMap(next, isHosted);
+    const map = getConnectionErrorsMap(next, isHosted ? targetType : 'remote');
     onErrorsChange?.(map);
   };
 
@@ -49,7 +49,10 @@ export default function ConnectionAuthCard({
   };
 
   const handleBlur = () => {
-    const map = getConnectionErrorsMap(config);
+    const map = getConnectionErrorsMap(
+      config,
+      isHosted ? targetType : 'remote'
+    );
     onErrorsChange?.(map);
   };
 
