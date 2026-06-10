@@ -42,10 +42,23 @@ const SECRET_PATTERNS = [
 
 const IGNORE_PRAGMA = 'pragma: allowlist secret';
 
+// Custom .gitleaksignore parser supporting file wildcards and literal token exclusions
+function loadGitleaksIgnore() {
+  const ignorePath = path.resolve(ROOT_DIR, '.gitleaksignore');
+  if (!fs.existsSync(ignorePath)) return [];
+  const content = fs.readFileSync(ignorePath, 'utf8');
+  return content
+    .split('\n')
+    .map((line) => line.trim())
+    .filter((line) => line && !line.startsWith('#'));
+}
+
 function checkSecrets() {
   console.log(
     '🔒 Running Node-native Secrets Leak Detection check on staged files...'
   );
+
+  const ignoreRules = loadGitleaksIgnore();
 
   let stagedFilesText;
   try {
@@ -70,6 +83,23 @@ function checkSecrets() {
   let leaksFound = 0;
 
   files.forEach((file) => {
+    // 1. Check if the file itself is globally ignored by a path pattern in .gitleaksignore
+    const isFileIgnored = ignoreRules.some((rule) => {
+      if (rule.includes('/') || rule.includes('*')) {
+        const regexStr = rule
+          .replace(/\./g, '\\.')
+          .replace(/\*\*/g, '.*')
+          .replace(/\*/g, '[^/]*');
+        const regex = new RegExp(`^${regexStr}$`);
+        return regex.test(file);
+      }
+      return false;
+    });
+
+    if (isFileIgnored) {
+      return;
+    }
+
     // Skip binary files, lockfiles, or generator data templates
     if (
       file === 'yarn.lock' ||
@@ -81,7 +111,8 @@ function checkSecrets() {
       file.includes('mocks/') ||
       file.includes('tests/') ||
       file.includes('scripts/') || // Skip local scratchpads
-      file === '.secrets.baseline'
+      file === '.secrets.baseline' ||
+      file === '.gitleaksignore' // Skip the ignore file itself
     ) {
       return;
     }
@@ -92,8 +123,18 @@ function checkSecrets() {
     const lines = content.split('\n');
 
     lines.forEach((line, index) => {
-      // Check if line contains allowlist pragma
+      // Check if line contains inline allowlist pragma
       if (line.includes(IGNORE_PRAGMA)) return;
+
+      // Check if line contains any of the literal ignored mock tokens/secrets from .gitleaksignore
+      const isTokenIgnored = ignoreRules.some((rule) => {
+        if (!rule.includes('/') && !rule.includes('*')) {
+          return line.includes(rule);
+        }
+        return false;
+      });
+
+      if (isTokenIgnored) return;
 
       SECRET_PATTERNS.forEach((pattern) => {
         const match = line.match(pattern.regex);
@@ -116,6 +157,9 @@ function checkSecrets() {
           console.error(`   👉 \x1b[31m${trimmed}\x1b[0m`);
           console.error(
             `   💡 If this is a safe false-positive, append this comment at the end of the line: // ${IGNORE_PRAGMA}`
+          );
+          console.error(
+            `   💡 Or register the mock value globally inside '.gitleaksignore' to allow it repo-wide.`
           );
           leaksFound++;
         }

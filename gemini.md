@@ -74,13 +74,28 @@ To prevent accidental leakage of sensitive credentials, API keys, and private to
 
 ### 💡 How to Approve a False-Positive
 
-If the sentinel blocks a commit because it flags a safe false-positive (such as a mock variable or non-sensitive testing hash), developers can approve it directly inside their code by appending an inline comment at the end of the flagged line:
+If the sentinel blocks a commit because it flags a safe false-positive (such as a mock variable or non-sensitive testing hash), developers have two simple ways to approve it:
 
-```javascript
-const myMockApiKey = 'sk-proj-some-mock-key-value'; // pragma: allowlist secret
-```
+1. **Inline Pragma**: Append an inline comment at the end of the flagged line:
 
-This is a standard, easy-to-use pragma that the scanner natively respects, automatically bypassing the line during audits.
+   ```javascript
+   const myMockApiKey = 'sk-proj-some-mock-key-value'; // pragma: allowlist secret
+   ```
+
+2. **Global Ignore File (`.gitleaksignore`)**: Add specific mock token substrings or file/folder wildcards to `.gitleaksignore` at the root of the repository to ignore them repo-wide:
+
+   ```text
+   # Mock SE Client Token (used in examples, README.md, and local testing)
+   mock-se-client-token-12345
+
+   # Workspace Unit Test and Mock Files
+   client-extensions/**/*.test.js
+   client-extensions/**/*.test.cjs
+   client-extensions/**/*.test.mjs
+   client-extensions/**/mocks/*
+   ```
+
+This is a standard, easy-to-use setup that the scanner natively respects, automatically bypassing the lines or files during audits.
 
 ## LDM Reference Documentation
 

@@ -1,0 +1,16 @@
+# Gitleaks Ignore File
+# Add mock tokens, specific secrets, or file paths here to prevent them from blocking commits.
+
+# Mock SE Client Token (used in examples, README.md, and local testing)
+mock-se-client-token-12345
+aica-mock-api-key-999
+
+# Mock Client Credentials for E2E
+dummy-client-id
+dummy-client-secret
+
+# Workspace Unit Test and Mock Files
+client-extensions/**/*.test.js
+client-extensions/**/*.test.cjs
+client-extensions/**/*.test.mjs
+client-extensions/**/mocks/*
