@@ -2322,7 +2322,12 @@ class LiferayRestService {
         }
       );
       const items = asItems(res);
-      return items.find((it) => it.key === key) || null;
+      return (
+        items.find(
+          (it) =>
+            String(it.key || '').toLowerCase() === String(key).toLowerCase()
+        ) || null
+      );
     } catch (error) {
       throw new Error(
         `Failed to get specification category by key: ${error.message}`,
@@ -2439,7 +2444,12 @@ class LiferayRestService {
         }
       );
       const items = asItems(res);
-      return items.find((it) => it.key === key) || null;
+      return (
+        items.find(
+          (it) =>
+            String(it.key || '').toLowerCase() === String(key).toLowerCase()
+        ) || null
+      );
     } catch (error) {
       throw new Error(`Failed to get specification by key: ${error.message}`, {
         cause: error,
@@ -2717,7 +2727,12 @@ class LiferayRestService {
         }
       );
       const items = asItems(res);
-      return items.find((it) => it.key === key) || null;
+      return (
+        items.find(
+          (it) =>
+            String(it.key || '').toLowerCase() === String(key).toLowerCase()
+        ) || null
+      );
     } catch (error) {
       throw new Error(`Failed to get option by key: ${error.message}`, {
         cause: error,

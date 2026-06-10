@@ -29,8 +29,15 @@ export async function injectAndConnectApp(page) {
     }
   });
 
-  // 1. Go to the highly-stable default Guest Home page
-  await page.goto('/web/guest');
+  // 1. Go to the highly-stable default AICA page, or fallback to Guest Home page
+  console.log('>>> Navigating to AICA site page...');
+  const res = await page.goto('/web/aica').catch(() => null);
+  if (!res || res.status() >= 400) {
+    console.log(
+      '>>> AICA site page not found/unreachable. Falling back to Guest page...'
+    );
+    await page.goto('/web/guest');
+  }
 
   // Resolve Liferay URL dynamically from environment configuration
   const liferayUrl = process.env.BASE_URL || 'http://localhost:8080';
