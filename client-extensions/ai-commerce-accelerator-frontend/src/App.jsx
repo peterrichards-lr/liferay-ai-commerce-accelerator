@@ -87,6 +87,7 @@ function AppUI() {
   );
 
   const [connectionEstablished, setConnectionEstablished] = useState(false);
+  const [isCheckingConnection, setIsCheckingConnection] = useState(true);
   const [aiKeyAvailable, setAiKeyAvailable] = useState(false);
   const [aiMediaKeyAvailable, setAiMediaKeyAvailable] = useState(false);
   const [batchErrors, setBatchErrors] = useState([]);
@@ -227,11 +228,14 @@ function AppUI() {
       localStorage.getItem('aica_has_connected_once') === 'true';
 
     if (hasConnectedOnce && !connectionEstablished) {
-      testConnection({ silent: true }).catch(() => {
-        // Silently reset flag if even auto-probe fails repeatedly?
-        // Actually, let's keep it true so it tries next refresh too,
-        // or just let it be. The user's directive is to wait for them.
-      });
+      setIsCheckingConnection(true);
+      testConnection({ silent: true })
+        .catch(() => {})
+        .finally(() => {
+          setIsCheckingConnection(false);
+        });
+    } else {
+      setIsCheckingConnection(false);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -568,7 +572,7 @@ function AppUI() {
 
       {/* MAIN CONTENT AREA - Responsive Column Layout */}
       <div className="container-fluid mt-4">
-        {!connectionEstablished && (
+        {!isCheckingConnection && !connectionEstablished && (
           <div className="alert alert-warning shadow-sm mb-4" role="alert">
             <div className="container-fluid px-4 py-2">
               <div className="d-flex align-items-start">
