@@ -15,32 +15,8 @@ echo "🔍 Running fast pre-commit checks..."
 echo "⚡ Running lint-staged (auto-fixing & formatting modified files)..."
 npx lint-staged || exit 1
 
-# Locate Yelp detect-secrets-hook binary for credential leakage prevention
-DETECT_SECRETS_HOOK="detect-secrets-hook"
-if ! command -v "$DETECT_SECRETS_HOOK" >/dev/null 2>&1; then
-  USER_PYTHON_HOOKS=(/Users/*/Library/Python/*/bin/detect-secrets-hook)
-  if [ -f "${USER_PYTHON_HOOKS[0]}" ]; then
-    DETECT_SECRETS_HOOK="${USER_PYTHON_HOOKS[0]}"
-  fi
-fi
-
-if command -v "$DETECT_SECRETS_HOOK" >/dev/null 2>&1 || [ -x "$DETECT_SECRETS_HOOK" ]; then
-  echo "🔒 Running detect-secrets safety check on staged files..."
-  STAGED_FILES=$(git diff --cached --name-only --diff-filter=ACM)
-  if [ -n "$STAGED_FILES" ]; then
-    # Filter out deleted files and pipe to Yelp hook with baseline exceptions
-    echo "$STAGED_FILES" | xargs "$DETECT_SECRETS_HOOK" --baseline .secrets.baseline || {
-      echo "❌ Error: A potential secret leak was detected in your staged changes!"
-      echo "💡 If this is a false positive (e.g. a mock key), add it to your baseline exceptions using:"
-      echo "   detect-secrets scan --baseline .secrets.baseline"
-      exit 1
-    }
-  fi
-  echo "✅ No leaked secrets detected!"
-else
-  echo "⚠️ Warning: 'detect-secrets' is not installed locally on your system."
-  echo "   We highly recommend installing it to prevent accidental credential leaks:"
-  echo "   pip install detect-secrets  OR  brew install Yelp/detect-secrets/detect-secrets"
-fi
+# Run JS-native secrets sentinel (works universally on any machine without external dependencies)
+echo "🔒 Running JS-native secrets leakage prevention checks..."
+node scripts/detect-secrets.mjs || exit 1
 
 echo "✅ Pre-commit checks passed!"
