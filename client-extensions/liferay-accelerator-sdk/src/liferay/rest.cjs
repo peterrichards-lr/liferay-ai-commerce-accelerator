@@ -2306,7 +2306,6 @@ class LiferayRestService {
           params: {
             page: 1,
             pageSize: 250, // Fetch all to prevent OData filter failures on different DXP versions
-            fields: 'id,key,externalReferenceCode',
           },
         }
       );
@@ -2424,7 +2423,6 @@ class LiferayRestService {
           params: {
             page: 1,
             pageSize: 250, // Fetch all to prevent OData filter failures on different DXP versions
-            fields: 'id,key,externalReferenceCode',
           },
         }
       );
@@ -2703,7 +2701,6 @@ class LiferayRestService {
           params: {
             page: 1,
             pageSize: 250, // Fetch all to prevent OData filter failures on different DXP versions
-            fields: 'id,key,externalReferenceCode',
           },
         }
       );
