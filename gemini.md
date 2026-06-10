@@ -52,7 +52,35 @@ Improve tracking and feedback loop of E2E tests, allowing the AI assistant to tr
 - Added **Security Audit Checks** in CI workflow (`ci.yml`) to automatically output dependency vulnerability summaries, ensuring high security awareness without introducing false-positive build failures.
 - Created and integrated a **Liferay Client Extension (CX) Schema Validator** (`scripts/validate-cx.js`) to parse and assert correct structure (assemblies, valid types, required properties, scope formatting, and serviceAddress warnings) across all workspace packages.
 - Implemented **Inbound response Contract-Driven Validation** inside `LiferayRestService` (`rest.cjs`) and mapped GET endpoints (`contractMappings.cjs`). Created a dedicated, highly robust unit test suite (`tests/contracts.test.js`) to catch platform schema drifts and protect against DXP volatility.
+- Implemented **JS-Native Secrets Leak Prevention** sentinel (`scripts/detect-secrets.mjs`) inside `.husky/pre-commit` to prevent API keys, passwords, and private tokens from ever being committed to git across any developer's machine with zero external dependencies.
 - **Next step**: Run the fresh E2E verification test suite (`bash scripts/run-e2e-ldm.sh -v -k`) once quota/system resources are available.
+
+## Secrets Leak Prevention (JS-Native Sentinel)
+
+To prevent accidental leakage of sensitive credentials, API keys, and private tokens, this repository integrates a custom, zero-dependency **JS-Native Secrets Sentinel** (`scripts/detect-secrets.mjs`) directly into the Git pre-commit workflow.
+
+### 🛡️ How It Works
+
+- **Pre-commit Execution**: When a developer runs `git commit`, the `.husky/pre-commit` hook automatically executes the Node.js scanner on **Git staged files** (Added, Copied, Modified) in under 50ms.
+- **Universal Portability**: Because it runs on pure Node.js, it works out-of-the-box on macOS, Windows, Linux, and inside clean CI/CD containers without requiring Python, pip, or Homebrew.
+- **Target Patterns**: It matches and flags standard high-risk patterns:
+  - OpenAI API keys (`sk-...`)
+  - Gemini / Google API keys (`AIzaSy...`)
+  - Anthropic API keys (`sk-ant-...`)
+  - Private SSL/SSH keys (`-----BEGIN ... PRIVATE KEY-----`)
+  - AWS access/secret keys (`AKIA...`)
+  - GitHub Personal Access Tokens (`ghp_...`)
+  - Raw credential assignments (e.g. `LIFERAY_API_PASSWORD="xyz"`)
+
+### 💡 How to Approve a False-Positive
+
+If the sentinel blocks a commit because it flags a safe false-positive (such as a mock variable or non-sensitive testing hash), developers can approve it directly inside their code by appending an inline comment at the end of the flagged line:
+
+```javascript
+const myMockApiKey = 'sk-proj-some-mock-key-value'; // pragma: allowlist secret
+```
+
+This is a standard, easy-to-use pragma that the scanner natively respects, automatically bypassing the line during audits.
 
 ## LDM Reference Documentation
 
