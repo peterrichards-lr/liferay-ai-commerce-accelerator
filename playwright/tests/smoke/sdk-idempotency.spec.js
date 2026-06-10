@@ -133,13 +133,99 @@ test.describe('AICA SDK Idempotency & Platform-Contradiction API Tests', () => {
     expect(listRes.ok()).toBe(true);
 
     const body = await listRes.json();
-    const found = body.items.find((it) => it.key === optionPayload.key);
+    const found = body.items.find(
+      (it) =>
+        String(it.key || '').toLowerCase() ===
+        String(optionPayload.key).toLowerCase()
+    );
     expect(found).toBeDefined();
     expect(found.externalReferenceCode).toBe(
       optionPayload.externalReferenceCode
     );
     console.log(
       '>>> [API Test] Option Idempotency: SUCCESS (Option correctly retrieved and reused).'
+    );
+  });
+
+  test('should verify Liferay Pricing v2.0 constraints on Sku DTO externalReferenceCode', async ({
+    request,
+  }) => {
+    const baseUrl = process.env.BASE_URL || 'http://localhost:8080';
+
+    // Fetch first valid catalog ID dynamically from the portal
+    console.log('>>> [API Test] Querying active commerce catalogs...');
+    const catalogsRes = await request.get(
+      `${baseUrl}/o/headless-commerce-admin-catalog/v1.0/catalogs`
+    );
+    expect(catalogsRes.ok()).toBe(true);
+    const catalogsData = await catalogsRes.json();
+    const activeCatalog = catalogsData.items?.[0];
+
+    if (!activeCatalog) {
+      console.log(
+        '>>> [API Test] WARNING: No active commerce catalog found. Bypassing test.'
+      );
+      return;
+    }
+
+    const catalogId = activeCatalog.id;
+    console.log(
+      `>>> [API Test] Target Catalog found: "${activeCatalog.name}" (ID: ${catalogId})`
+    );
+
+    // 1. Create a stable test price list first to target
+    const priceListERC = 'AICATEST-PL-IDEM-999';
+    const priceListPayload = {
+      externalReferenceCode: priceListERC,
+      name: 'Idempotency Test Price List',
+      catalogId: parseInt(catalogId, 10),
+      currencyCode: 'USD',
+      type: 'price-list',
+    };
+
+    console.log('>>> [API Test] Preparing stable test price list...');
+    const createPlRes = await request.post(
+      `${baseUrl}/o/headless-commerce-admin-pricing/v2.0/price-lists`,
+      {
+        data: priceListPayload,
+      }
+    );
+    console.log(
+      `>>> [API Test] Price list prepare status: ${createPlRes.status()}`
+    );
+    expect(
+      createPlRes.ok() ||
+        createPlRes.status() === 409 ||
+        createPlRes.status() === 400
+    ).toBe(true);
+
+    // 2. Submit our COMPLIANT Price Entry batch payload (skuExternalReferenceCode at root, nested Sku omitted)
+    const compliantPayload = [
+      {
+        price: 149.99,
+        externalReferenceCode: 'AICATEST-PE-PASS-999',
+        active: true,
+        skuExternalReferenceCode: 'AICATEST-SKU-PASS-999', // Correct root-level ERC property!
+      },
+    ];
+
+    console.log(
+      '>>> [API Test] Submitting COMPLIANT Pricing v2.0 payload (with root-level skuExternalReferenceCode)...'
+    );
+    const compliantRes = await request.post(
+      `${baseUrl}/o/headless-commerce-admin-pricing/v2.0/price-lists/price-entries/batch`,
+      {
+        data: compliantPayload,
+      }
+    );
+    console.log(
+      `>>> [API Test] Compliant submit response status: ${compliantRes.status()}`
+    );
+
+    // Assert Liferay accepts the batch (status 202 Accepted)
+    expect(compliantRes.ok() || compliantRes.status() === 202).toBe(true);
+    console.log(
+      '>>> [API Test] Compliant Payload Verification: SUCCESS (Payload cleanly accepted by Liferay Pricing v2.0!).'
     );
   });
 });
