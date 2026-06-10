@@ -2451,15 +2451,56 @@ class LiferayRestService {
 
   async createSpecificationWithReuse(config, payload) {
     const { logger } = this.ctx;
+    const key = payload?.key;
+    const erc = payload?.externalReferenceCode;
+    let existing = null;
+
+    // 1. Try Lookup-First before posting to prevent duplicate key database crashes
+    if (erc) {
+      try {
+        existing = await this.getSpecificationByERC(config, erc);
+      } catch (err) {
+        // Ignore and try key
+      }
+    }
+    if (!existing && key) {
+      try {
+        existing = await this.getSpecificationByKey(config, key);
+      } catch (err) {
+        // Ignore and fall back to create
+      }
+    }
+
+    if (existing) {
+      // If found, update its ERC if mismatched and return it
+      if (erc && existing.externalReferenceCode !== erc) {
+        try {
+          await this.updateSpecificationById(config, existing.id, {
+            externalReferenceCode: erc,
+          });
+          existing.externalReferenceCode = erc;
+        } catch {
+          logger.warn(
+            `Failed to update ERC for existing specification '${key}'`
+          );
+        }
+      }
+      return existing;
+    }
+
+    // 2. Fall back to Creation
     try {
       return await this.createSpecification(config, payload);
     } catch (e) {
       const msg = String(e?.message || '').toLowerCase();
       const isConflict =
         e?.status === 409 ||
+        e?.status === 400 || // Match 400 bad requests as potential conflicts
         e?.problem?.status === 'CONFLICT' ||
         msg.includes('409') ||
-        msg.includes('conflict');
+        msg.includes('conflict') ||
+        msg.includes('duplicate') ||
+        msg.includes('already exists');
 
       if (!isConflict) throw e;
 
@@ -2467,7 +2508,6 @@ class LiferayRestService {
         `Conflict creating specification, attempting to fetch by key: ${payload.key}`
       );
 
-      const key = payload?.key;
       if (!key) {
         throw new Error(
           'Conflict on createSpecification, but no key was provided to find existing.',
@@ -2475,7 +2515,7 @@ class LiferayRestService {
         );
       }
 
-      const existing = await this.getSpecificationByKey(config, key);
+      existing = await this.getSpecificationByKey(config, key);
 
       if (!existing) {
         throw new Error(
@@ -2484,7 +2524,6 @@ class LiferayRestService {
         );
       }
 
-      const erc = payload?.externalReferenceCode;
       if (erc && existing.externalReferenceCode !== erc) {
         try {
           await this.updateSpecificationById(config, existing.id, {
