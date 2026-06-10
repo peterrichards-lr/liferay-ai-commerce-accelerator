@@ -82,8 +82,8 @@ export default function ConnectionAuthCard({
           <label className="form-label font-weight-bold d-block mb-2">
             Target DXP Instance
           </label>
-          <div className="d-flex align-items-center">
-            <div className="custom-control custom-radio custom-control-inline me-4">
+          <div className="d-flex align-items-start flex-column gap-2">
+            <div className="custom-control custom-radio mb-2">
               <input
                 checked={targetType === 'local'}
                 className="custom-control-input"
@@ -94,12 +94,16 @@ export default function ConnectionAuthCard({
                 disabled={disabled || loading}
               />
               <label className="custom-control-label" htmlFor="targetTypeLocal">
-                <span className="custom-control-label-text">
-                  This Liferay Instance (Local)
+                <span className="custom-control-label-text font-weight-bold">
+                  Preconfigured Server Default
                 </span>
+                <small className="form-text text-muted d-block mt-1">
+                  Connects automatically using the pre-configured .env
+                  parameters on the microservice server.
+                </small>
               </label>
             </div>
-            <div className="custom-control custom-radio custom-control-inline">
+            <div className="custom-control custom-radio">
               <input
                 checked={targetType === 'remote'}
                 className="custom-control-input"
@@ -113,9 +117,13 @@ export default function ConnectionAuthCard({
                 className="custom-control-label"
                 htmlFor="targetTypeRemote"
               >
-                <span className="custom-control-label-text">
-                  A Different Liferay Instance (Remote)
+                <span className="custom-control-label-text font-weight-bold">
+                  Custom Liferay Instance (Override)
                 </span>
+                <small className="form-text text-muted d-block mt-1">
+                  Target a different Liferay DXP server by explicitly providing
+                  its URL and OAuth credentials.
+                </small>
               </label>
             </div>
           </div>
@@ -127,7 +135,7 @@ export default function ConnectionAuthCard({
           {!isHosted && (
             <ClayForm.Group>
               <label htmlFor="microserviceUrl" className="form-label">
-                Microservice URL
+                Microservice URL <span className="text-danger">*</span>
               </label>
               <ClayInput
                 id="microserviceUrl"
@@ -149,7 +157,7 @@ export default function ConnectionAuthCard({
           >
             <ClayForm.Group>
               <label htmlFor="clientId" className="form-label">
-                Client ID {isHosted ? '' : '(temporary)'}
+                Client ID <span className="text-danger">*</span>
               </label>
               <ClayInput
                 id="clientId"
@@ -164,7 +172,7 @@ export default function ConnectionAuthCard({
             </ClayForm.Group>
             <ClayForm.Group>
               <label htmlFor="clientSecret" className="form-label">
-                Client Secret {isHosted ? '' : '(temporary)'}
+                Client Secret <span className="text-danger">*</span>
               </label>
               <ClayInput
                 id="clientSecret"
@@ -191,7 +199,7 @@ export default function ConnectionAuthCard({
               <>
                 <ClayForm.Group>
                   <label htmlFor="localeCode" className="form-label">
-                    Locale
+                    Locale <span className="text-danger">*</span>
                   </label>
                   <ClayInput
                     id="localeCode"
@@ -206,7 +214,7 @@ export default function ConnectionAuthCard({
                 </ClayForm.Group>
                 <ClayForm.Group>
                   <label htmlFor="pollingDelay" className="form-label">
-                    Polling Delay (ms)
+                    Polling Delay (ms) <span className="text-danger">*</span>
                   </label>
                   <ClayInput
                     id="pollingDelay"
@@ -232,7 +240,7 @@ export default function ConnectionAuthCard({
             )}
             <ClayForm.Group>
               <label htmlFor="liferayUrl" className="form-label">
-                Liferay URL
+                Liferay URL <span className="text-danger">*</span>
               </label>
               <ClayInput
                 id="liferayUrl"

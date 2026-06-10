@@ -568,6 +568,66 @@ function AppUI() {
 
       {/* MAIN CONTENT AREA - Responsive Column Layout */}
       <div className="container-fluid mt-4">
+        {!connectionEstablished && (
+          <div className="alert alert-warning shadow-sm mb-4" role="alert">
+            <div className="container-fluid px-4 py-2">
+              <div className="d-flex align-items-start">
+                <div className="alert-autofit-row w-100">
+                  <div className="autofit-col me-3">
+                    <div
+                      className="alert-indicator"
+                      style={{ fontSize: '1.5rem' }}
+                    >
+                      <ClayIcon symbol="warning-full" />
+                    </div>
+                  </div>
+                  <div className="autofit-col autofit-col-expand">
+                    <h4 className="alert-heading font-weight-bold mb-2">
+                      Microservice Offline
+                    </h4>
+                    <p className="mb-0">
+                      Unable to connect to the AI Commerce Accelerator
+                      Microservice. The dashboard cannot load active commerce
+                      catalogs or generate data.
+                    </p>
+                    <div className="mt-3 small text-secondary">
+                      Please check the following parameters:
+                      <ul className="mb-0 mt-2 pl-3">
+                        <li className="mb-1">
+                          <strong>Backend Status</strong>: Confirm the
+                          microservice server is up and running (default port is{' '}
+                          <code>3001</code>).
+                        </li>
+                        <li className="mb-1">
+                          <strong>Server Reachability</strong>: Ensure this
+                          client machine can reach your server IP or VPS domain
+                          (verify network firewalls).
+                        </li>
+                        <li>
+                          <strong>Widget Property</strong>: Check the{' '}
+                          <code>microservice-url</code> attribute configured in
+                          your Liferay custom element widget matches your
+                          server.
+                        </li>
+                      </ul>
+                    </div>
+                    <div className="mt-3">
+                      <button
+                        type="button"
+                        className="btn btn-warning btn-sm px-4"
+                        onClick={() => testConnection()}
+                        disabled={isGenerating}
+                      >
+                        Retry Connection
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
         <ClayLayout.Row>
           {/* COLUMN 1: CONFIGURATION & HELP (Top on Mobile/Tablet) */}
           <ClayLayout.Col lg={3} md={4} sm={12}>

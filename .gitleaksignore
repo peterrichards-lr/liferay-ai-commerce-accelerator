@@ -14,3 +14,6 @@ client-extensions/**/*.test.js
 client-extensions/**/*.test.cjs
 client-extensions/**/*.test.mjs
 client-extensions/**/mocks/*
+
+# Safe LocalStorage and State Keys
+aica_activity_log
