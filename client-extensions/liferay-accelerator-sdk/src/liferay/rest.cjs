@@ -2286,10 +2286,21 @@ class LiferayRestService {
   }
 
   async createSpecificationCategory(config, categoryData) {
+    const isOptionCategories = PATH.SPECIFICATION_CATEGORIES.includes('optionCategories');
+    let payload = { ...categoryData };
+
+    if (isOptionCategories) {
+      // Safely translate and sanitize the SpecificationCategory DTO into the legacy OptionCategory DTO
+      payload = {
+        externalReferenceCode: categoryData.externalReferenceCode,
+        name: categoryData.name || categoryData.title,
+      };
+    }
+
     return await this._post(
       config,
       PATH.SPECIFICATION_CATEGORIES,
-      categoryData,
+      payload,
       'create-specification-category',
       'Failed to create specification category'
     );
