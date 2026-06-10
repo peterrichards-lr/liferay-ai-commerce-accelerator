@@ -1,25 +1,10 @@
 {
   "externalReferenceCode": "ai-commerce-accelerator-data-generator",
   "friendlyURL": "/data-generator",
+  "masterPageExternalReferenceCode": "aica-master-page",
   "name": "Data Generator",
   "name_i18n": {
     "en_US": "Data Generator"
-  },
-  "pageDefinition": {
-    "pageElement": {
-      "pageElements": [
-        {
-          "definition": {
-            "fragment": {
-              "key": "ai-commerce-accelerator",
-              "siteKey": "[$GROUP_KEY$]"
-            }
-          },
-          "type": "Fragment"
-        }
-      ],
-      "type": "Root"
-    }
   },
   "parentLayoutExternalReferenceCode": "",
   "type": "Content"

@@ -1,25 +1,10 @@
 {
   "externalReferenceCode": "ai-commerce-accelerator-dashboard",
   "friendlyURL": "/dashboard",
+  "masterPageExternalReferenceCode": "aica-master-page",
   "name": "Dashboard",
   "name_i18n": {
     "en_US": "Dashboard"
-  },
-  "pageDefinition": {
-    "pageElement": {
-      "pageElements": [
-        {
-          "definition": {
-            "fragment": {
-              "key": "ai-commerce-accelerator-admin",
-              "siteKey": "[$GROUP_KEY$]"
-            }
-          },
-          "type": "Fragment"
-        }
-      ],
-      "type": "Root"
-    }
   },
   "parentLayoutExternalReferenceCode": "",
   "type": "Content"

@@ -1,0 +1,16 @@
+{
+  "pageElement": {
+    "pageElements": [
+      {
+        "definition": {
+          "fragment": {
+            "key": "ai-commerce-accelerator",
+            "siteKey": "[$GROUP_KEY$]"
+          }
+        },
+        "type": "Fragment"
+      }
+    ],
+    "type": "Root"
+  }
+}
