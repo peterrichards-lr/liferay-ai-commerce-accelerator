@@ -2536,28 +2536,67 @@ class LiferayRestService {
   }
 
   async createOptionWithReuse(config, optionData) {
+    const erc = optionData?.externalReferenceCode;
+    const key = optionData?.key;
+    let existing = null;
+
+    // 1. Try Lookup-First before posting to prevent duplicate key database crashes
+    if (erc) {
+      try {
+        existing = await this.getOptionByERC(config, erc);
+      } catch (err) {
+        // Ignore and try key
+      }
+    }
+    if (!existing && key) {
+      try {
+        existing = await this.getOptionByKey(config, key);
+      } catch (err) {
+        // Ignore and fall back to create
+      }
+    }
+
+    if (existing) {
+      // If found, update its ERC if mismatched and return it
+      if (
+        erc &&
+        existing.externalReferenceCode !== erc &&
+        typeof this.updateOptionById === 'function'
+      ) {
+        try {
+          await this.updateOptionById(config, existing.id, {
+            externalReferenceCode: erc,
+          });
+        } catch {
+          // Ignore
+        }
+      }
+      return existing;
+    }
+
+    // 2. Fall back to Creation
     try {
       return await this.createOption(config, optionData);
     } catch (e) {
       const msg = String(e?.message || '').toLowerCase();
       const isConflict =
         e?.status === 409 ||
+        e?.status === 400 || // Match 400 bad requests as potential conflicts
         e?.problem?.status === 'CONFLICT' ||
         msg.includes('409') ||
-        msg.includes('conflict');
+        msg.includes('conflict') ||
+        msg.includes('duplicate') ||
+        msg.includes('already exists');
+
       if (!isConflict) throw e;
 
-      let existing = null;
-      const erc = optionData?.externalReferenceCode;
-      const key = optionData?.key;
-
+      // Repeat lookup on conflict to ensure we retrieve it
       if (erc) {
         try {
-          // If this fails with 500, we still want to try looking up by key
           existing = await this.getOptionByERC(config, erc);
         } catch (ercError) {
           this.ctx.logger.debug(
-            `Failed lookup by ERC '${erc}' after conflict. Will try key lookup. Error: ${ercError.message}`
+            `Failed lookup by ERC '${erc}' after conflict. Error: ${ercError.message}`
           );
         }
       }
