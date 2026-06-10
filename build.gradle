@@ -676,10 +676,12 @@ project(':client-extensions:ai-commerce-accelerator-microservice') {
 	afterEvaluate {
 		tasks.named('clean') {
 			doFirst {
-				logger.lifecycle("🧹 Purging microservice build and dist directories to prevent dependency caching...")
+				logger.lifecycle("🧹 Purging microservice build, dist, and local workflows.db SQLite history to prevent dependency caching and stale session states...")
 			}
 			delete 'build'
 			delete 'dist'
+			delete 'data/workflows.db'
+			delete 'data/workflows.json'
 		}
 	}
 }
