@@ -1066,7 +1066,10 @@ class ProductGenerator extends BaseGenerator {
           key: 'general',
         }),
         key: 'general',
+        name: { en_US: 'General' },
+        name_i18n: { en_US: 'General' },
         title: { en_US: 'General' },
+        title_i18n: { en_US: 'General' },
         description: { en_US: 'Auto-generated general specification group' },
       };
 
