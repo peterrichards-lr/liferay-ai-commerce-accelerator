@@ -2286,7 +2286,8 @@ class LiferayRestService {
   }
 
   async createSpecificationCategory(config, categoryData) {
-    const isOptionCategories = PATH.SPECIFICATION_CATEGORIES.includes('optionCategories');
+    const isOptionCategories =
+      PATH.SPECIFICATION_CATEGORIES.includes('optionCategories');
     let payload = { ...categoryData };
 
     if (isOptionCategories) {
