@@ -2406,10 +2406,11 @@ class LiferayRestService {
         'get-specification-by-erc'
       );
     } catch (error) {
-      if (error.response?.status === 404) return null;
-      throw new Error(`Failed to get specification by ERC: ${error.message}`, {
-        cause: error,
-      });
+      // Safely return null on any error (404, 400, 500) to allow graceful fallback to key lookup
+      this.ctx.logger.debug(
+        `Failed to fetch specification by ERC '${externalReferenceCode}'. Bypassing. Error: ${error.message}`
+      );
+      return null;
     }
   }
 
@@ -2685,10 +2686,11 @@ class LiferayRestService {
         'get-option-by-erc'
       );
     } catch (error) {
-      if (error.response?.status === 404) return null;
-      throw new Error(`Failed to get option by ERC: ${error.message}`, {
-        cause: error,
-      });
+      // Safely return null on any error (404, 400, 500) to allow graceful fallback to key lookup
+      this.ctx.logger.debug(
+        `Failed to fetch option by ERC '${externalReferenceCode}'. Bypassing. Error: ${error.message}`
+      );
+      return null;
     }
   }
 
