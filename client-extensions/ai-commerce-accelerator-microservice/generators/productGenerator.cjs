@@ -419,10 +419,7 @@ class ProductGenerator extends BaseGenerator {
             externalReferenceCode: peERC_general,
             active: true,
             hasTierPrice: uniqueTierPrices.length > 0,
-            sku: {
-              externalReferenceCode: skuERC,
-              id: parseInt(skuId, 10),
-            },
+            skuExternalReferenceCode: skuERC,
             tierPrices: uniqueTierPrices.map((tp) => ({
               minimumQuantity: tp.minimumQuantity,
               price: tp.price,
@@ -459,10 +456,7 @@ class ProductGenerator extends BaseGenerator {
               externalReferenceCode: peERC_promo,
               active: true,
               hasTierPrice: false,
-              sku: {
-                externalReferenceCode: skuERC,
-                id: parseInt(skuId, 10),
-              },
+              skuExternalReferenceCode: skuERC,
             };
 
             promoList.priceEntries.push(promoPriceEntry);
