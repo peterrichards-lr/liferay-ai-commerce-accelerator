@@ -37,7 +37,7 @@ describe('App', () => {
 
     // Verify the connection button is present
     const testBtn = screen.getByRole('button', {
-      name: /(Test Connection & Load Data|Retry Connection)/i,
+      name: /Test Connection & Load Data/i,
     });
     expect(testBtn).toBeInTheDocument();
   });
@@ -68,7 +68,7 @@ describe('App', () => {
     render(<AppRoot config={config} />);
 
     const testBtn = screen.getByRole('button', {
-      name: /(Test Connection & Load Data|Retry Connection)/i,
+      name: /Test Connection & Load Data/i,
     });
     fireEvent.click(testBtn);
 
