@@ -2,6 +2,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import YAML from 'yaml';
+import os from 'node:os';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT_DIR = path.resolve(__dirname, '..');
@@ -32,7 +33,31 @@ function logWarning(file, block, message) {
   );
 }
 
+// Retrieve all project paths registered in LDM
+function getLdmProjectDirs() {
+  const ldmRegistryPath = path.join(os.homedir(), '.ldm', 'registry.json');
+  if (fs.existsSync(ldmRegistryPath)) {
+    try {
+      const registry = JSON.parse(fs.readFileSync(ldmRegistryPath, 'utf8'));
+      return Object.values(registry)
+        .map((proj) => proj && proj.path)
+        .filter(Boolean)
+        .map((p) => path.resolve(p));
+    } catch (err) {
+      // Ignore parsing/reading errors
+    }
+  }
+  return [];
+}
+
+const ldmDirs = getLdmProjectDirs();
+
 function findYamlFiles(dir, fileList = []) {
+  const resolvedDir = path.resolve(dir);
+  if (ldmDirs.includes(resolvedDir)) {
+    return fileList;
+  }
+
   const files = fs.readdirSync(dir);
   for (const file of files) {
     if (
