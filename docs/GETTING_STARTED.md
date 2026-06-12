@@ -74,13 +74,27 @@ npm run lint
 npm run lint:fix
 ```
 
-### Smoke Tests (E2E)
+### Playwright E2E & LDM Automated Testing Stack
 
-Cross-component verification using Playwright:
+The project integrates with the **Liferay Docker Manager (LDM)** stack to perform complete, automated, end-to-end (E2E) integration testing against a live DXP container instance in a single click.
+
+To start the local LDM DXP container, run the E2E verification test pipeline, and automatically tear down upon completion, execute:
 
 ```bash
-npx playwright test
+LIFERAY_API_PASSWORD=test LIFERAY_API_USERNAME=test@liferay.com bash scripts/run-e2e-ldm.sh -v -k
 ```
+
+#### 🚦 The Asynchronous State Coordinator (`.progress-signal`)
+
+To cleanly coordinate and decouple the async build, hot-deployment, and browser test runner phases across separate virtual container networks, the E2E orchestrator utilizes a local `.progress-signal` state file:
+
+- `BUILDING`: Staged during initial Yarn compilation and client extension bundles zip packaging.
+- `WAITING_HEALTHY`: Staged when bundle zips are deployed to Liferay's OSGi container, initiating a 25-second connection-pool warm-up delay.
+- `TESTING`: Staged when Playwright launches headless Chromium browsers and runs the automated tests sequentially.
+- `SUCCESS`: Exited and written upon passing all 11 E2E tests cleanly.
+- `FAILED`: Exited and written if any single test fails or times out.
+
+_(Note: `.progress-signal` and any local SQLite `.db` database binaries are strictly ignored by git under `.gitignore` to keep branch commits clean.)_
 
 ## 5. Liferay Object Configuration
 

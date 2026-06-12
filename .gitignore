@@ -63,3 +63,10 @@ aica-dataset-*.json
 debug-sites.js
 test-axios.js
 test-env.js
+
+# E2E Automation Signals and SQLite Database Files
+.progress-signal
+.process-signal
+*.db
+*.db-journal
+client-extensions/ai-commerce-accelerator-microservice/data/*.db
