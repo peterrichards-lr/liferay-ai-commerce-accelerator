@@ -13,6 +13,34 @@ The **Liferay AI Commerce Accelerator** is a production-ready suite of client ex
 - **[Architectural Overview](./docs/ARCHITECTURE.md)**: Deep dive into the stateful workflow engine and system map.
 - **[Features & Capabilities](./docs/FEATURES.md)**: Details on AI generation, real-time monitoring, and visual assets.
 - **[Workflow Diagrams](./docs/workflow-diagrams.md)**: Visual guides to the data creation and deletion processes.
+- **[E2E Verification & Test Report](./docs/TEST_REPORT.md)**: Full verification scorecard of the system.
+
+## 💻 Native CLI Command Suite (`aica`)
+
+AICA features a zero-dependency, native headless command line interface **`aica`** (linked via NPM binaries) to automate catalog seeding, teardowns, and dataset migrations directly from your scripts or CI/CD pipelines:
+
+```bash
+# Verify connection to local microservice and handshake with DXP
+aica connect
+
+# Seed a demo catalog of 10 Products, 10 B2B Accounts, and 50 Orders in <2 minutes!
+aica generate --demo --products 10 --accounts 10 --orders 50
+
+# Retrieve and pretty-print the current active configuration parameters
+aica config get
+
+# Set a single configuration parameter dynamically
+aica config set --key liferayUrl --value "https://my-custom-dxp.com"
+
+# Export a completed generation dataset to JSON for portability
+aica export AICA-SESSION-12345 ./my-saved-dataset.json
+
+# Import and re-scaffold a saved dataset on a new Liferay DXP instance in <1 minute!
+aica import ./my-saved-dataset.json
+
+# Wipe all generated commerce entities globally, leaving Liferay perfectly clean
+aica delete --all
+```
 
 ## 🧪 Verification
 
@@ -54,7 +82,15 @@ A modern, data-dense dashboard provides real-time progress tracking via WebSocke
 
 Switch between leading AI providers like **OpenAI**, **Google Gemini**, and **Anthropic** with zero code changes. Support for specialized media providers like **Nano Banana** ensures high-quality product visuals.
 
-### 🛡️ Secure & Scalable
+### 🧪 Zero-Cost Mock AI Sandbox
+
+Develop and run complete, data-rich E2E generation workflows at **exactly $0.00 cost** and zero network dependencies! Simply configure `GEMINI_API_KEY="mock-sandbox"` to trigger our schema-aware payload simulator. It generates fully compliant mock data arrays matching Liferay Commerce schemas on-the-fly.
+
+### 🛡️ Pre-flight Token Safety Guardrail
+
+Never worry about accidental billing leaks or API quota drains. AICA integrates a local, zero-dependency token count estimator. It analyzes prompt and template sizes before they reach the wire, force-aborting oversized requests (>15,000 tokens) unless explicitly bypassed via `ALLOW_LARGE_PROMPTS=true`!
+
+### 🔒 Secure & Scalable
 
 Hardened with strictly scoped External Reference Codes (AICA-\*) and comprehensive security headers. Built on a modular client extension architecture for seamless integration with Liferay Cloud or self-hosted environments.
 
