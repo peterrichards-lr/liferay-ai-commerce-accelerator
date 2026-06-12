@@ -1,5 +1,8 @@
 {
   "private": true,
+  "bin": {
+    "aica": "./scripts/aica-cli.cjs"
+  },
   "engines": {
     "node": ">=22.12.0"
   },
