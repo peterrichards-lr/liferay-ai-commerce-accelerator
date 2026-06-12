@@ -10,6 +10,7 @@ const {
 } = require('../utils/promptHelpers.cjs');
 const { createERC } = require('../utils/misc.cjs');
 const { ERC_PREFIX } = require('../utils/constants.cjs');
+const { estimateTokens } = require('../utils/tokenEstimator.cjs');
 
 class AIService {
   constructor(ctx) {
@@ -157,6 +158,27 @@ class AIService {
       const schema = schemaName
         ? await config.getAISchema(requestConfig, schemaName)
         : null;
+
+      // Pre-flight Token Estimator Guardrail
+      const systemInstruction = `You are an expert AI generator for ${task} data. Return only valid JSON.${
+        schema
+          ? `\n\nThe JSON output must conform to the following schema:\n\n${JSON.stringify(schema)}`
+          : ''
+      }`;
+      const fullPromptText = `${systemInstruction}\n\n${prompt}`;
+      const estimatedTokens = estimateTokens(fullPromptText);
+      const limit = parseInt(process.env.AICA_MAX_TOKEN_LIMIT, 10) || 15000;
+
+      if (
+        estimatedTokens > limit &&
+        process.env.ALLOW_LARGE_PROMPTS !== 'true'
+      ) {
+        const tokenErr = new Error(
+          `Pre-flight Guardrail Aborted: Estimated prompt token size (${estimatedTokens} tokens) exceeds the safety threshold limit of ${limit} tokens. Please reduce your generation sizes, or set ALLOW_LARGE_PROMPTS=true in your environment to bypass.`
+        );
+        tokenErr.statusCode = 400;
+        throw tokenErr;
+      }
 
       const parsed = await provider.generateJSON(
         task,

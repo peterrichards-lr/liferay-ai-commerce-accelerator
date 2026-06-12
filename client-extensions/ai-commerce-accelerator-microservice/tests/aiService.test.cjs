@@ -108,4 +108,21 @@ describe('AIService (Multi-Provider)', () => {
       expect.any(Object)
     );
   });
+
+  it('should abort and throw pre-flight guardrail error if token count exceeds safety limit', async () => {
+    process.env.AICA_MAX_TOKEN_LIMIT = '5';
+    process.env.ALLOW_LARGE_PROMPTS = 'false';
+
+    const provider = {
+      generateJSON: vi.fn().mockResolvedValue({}),
+    };
+    vi.spyOn(aiService, 'getAIProvider').mockResolvedValue(provider);
+
+    await expect(
+      aiService._chatJson('test', 'This prompt exceeds five tokens easily', {})
+    ).rejects.toThrow(/Pre-flight Guardrail Aborted/);
+
+    delete process.env.AICA_MAX_TOKEN_LIMIT;
+    delete process.env.ALLOW_LARGE_PROMPTS;
+  });
 });

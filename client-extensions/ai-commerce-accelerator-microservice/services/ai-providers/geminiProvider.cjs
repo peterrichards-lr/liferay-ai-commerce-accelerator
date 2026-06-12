@@ -9,8 +9,12 @@ class GeminiProvider extends BaseAIProvider {
   }
 
   async _getClient(credentials) {
-    const apiKey = credentials.apiKey;
+    const apiKey = credentials?.apiKey;
     if (!apiKey) throw new Error('Gemini API key missing');
+
+    if (apiKey === 'mock-sandbox') {
+      return null;
+    }
 
     if (!this.genAI || this.genAI.apiKey !== apiKey) {
       this.genAI = new GoogleGenerativeAI(apiKey);
@@ -19,6 +23,11 @@ class GeminiProvider extends BaseAIProvider {
   }
 
   async generateJSON(task, prompt, options, schema) {
+    const apiKey = options.credentials?.apiKey;
+    if (apiKey === 'mock-sandbox') {
+      return this._generateMockJSON(task, prompt, schema);
+    }
+
     const genAI = await this._getClient(options.credentials);
     const model = genAI.getGenerativeModel({
       model: options.model || 'gemini-1.5-flash',
@@ -43,12 +52,17 @@ class GeminiProvider extends BaseAIProvider {
   }
 
   async generateImage(_product, _options) {
-    // Note: Standard Gemini API doesn't do Image Gen (that's Vertex/Imagen)
-    // For now, we'll suggest a fallback or mark as not supported.
+    if (_options.credentials?.apiKey === 'mock-sandbox') {
+      return { url: 'http://localhost:3001/public/mock-image.png' };
+    }
     throw new Error('Image generation not supported yet for Gemini provider');
   }
 
   async validateCredentials(credentials) {
+    if (credentials?.apiKey === 'mock-sandbox') {
+      return true;
+    }
+
     try {
       const genAI = await this._getClient(credentials);
       const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
@@ -57,6 +71,158 @@ class GeminiProvider extends BaseAIProvider {
     } catch {
       return false;
     }
+  }
+
+  _generateMockJSON(task, prompt, schema) {
+    if (this.ctx.logger && typeof this.ctx.logger.info === 'function') {
+      this.ctx.logger.info(
+        `Zero-Cost AI Sandbox: Pre-rendering realistic schema mock for task "${task}"...`
+      );
+    }
+
+    const props = schema?.properties || {};
+
+    // 1. Products Schema
+    if (props.products) {
+      return {
+        products: [
+          {
+            name: { en_US: 'Premium Smart Watch' },
+            description: { en_US: 'High-fidelity smart wearable watch.' },
+            externalReferenceCode: 'PROD-SMARTWATCH-001',
+            sku: 'SKU-SMARTWATCH-001',
+            price: 299.99,
+            productType: 'simple',
+            categories: ['Electronics', 'Wearables'],
+          },
+          {
+            name: { en_US: 'Wireless Earbuds' },
+            description: { en_US: 'True wireless noise cancelling earbuds.' },
+            externalReferenceCode: 'PROD-EARBUDS-001',
+            sku: 'SKU-EARBUDS-001',
+            price: 149.99,
+            productType: 'simple',
+            categories: ['Electronics', 'Audio'],
+          },
+        ],
+      };
+    }
+
+    // 2. Accounts Schema
+    if (props.accounts) {
+      return {
+        accounts: [
+          {
+            name: 'Acme Electronics Corp',
+            externalReferenceCode: 'ACC-ACME-001',
+            type: 'business',
+            addresses: [
+              {
+                name: 'Acme HQ',
+                street: '100 Innovation Way',
+                city: 'San Jose',
+                zip: '95112',
+                country: 'United States',
+                region: 'California',
+              },
+            ],
+          },
+          {
+            name: 'Apex Global Retail',
+            externalReferenceCode: 'ACC-APEX-002',
+            type: 'business',
+            addresses: [
+              {
+                name: 'Apex Warehouse',
+                street: '450 Logistics Blvd',
+                city: 'Dallas',
+                zip: '75201',
+                country: 'United States',
+                region: 'Texas',
+              },
+            ],
+          },
+        ],
+      };
+    }
+
+    // 3. Orders Schema
+    if (props.orders) {
+      return {
+        orders: [
+          {
+            externalReferenceCode: 'ORD-MOCK-001',
+            accountExternalReferenceCode: 'ACC-ACME-001',
+            items: [
+              {
+                skuExternalReferenceCode: 'SKU-SMARTWATCH-001',
+                quantity: 5,
+                unitPrice: 299.99,
+              },
+            ],
+          },
+          {
+            externalReferenceCode: 'ORD-MOCK-002',
+            accountExternalReferenceCode: 'ACC-APEX-002',
+            items: [
+              {
+                skuExternalReferenceCode: 'SKU-EARBUDS-001',
+                quantity: 10,
+                unitPrice: 149.99,
+              },
+            ],
+          },
+        ],
+      };
+    }
+
+    // 4. Warehouses Schema
+    if (props.warehouses) {
+      return {
+        warehouses: [
+          {
+            name: 'Main Distribution Center',
+            externalReferenceCode: 'WH-MOCK-MAIN',
+            description: 'Primary fulfillment warehouse.',
+          },
+        ],
+      };
+    }
+
+    // 5. PDF blocks Schema
+    if (props.blocks) {
+      return {
+        title: 'Product Technical Manual',
+        blocks: [
+          {
+            type: 'heading',
+            text: 'Product Specification Sheet',
+          },
+          {
+            type: 'paragraph',
+            text: 'This document contains detailed compliance and technical parameters for the smart wearable hardware modules.',
+          },
+        ],
+      };
+    }
+
+    // Generic Schema Fallback: dynamic key extraction
+    const fallback = {};
+    for (const key of Object.keys(props)) {
+      if (props[key].type === 'array') {
+        fallback[key] = [];
+      } else if (props[key].type === 'object') {
+        fallback[key] = {};
+      } else if (
+        props[key].type === 'number' ||
+        props[key].type === 'integer'
+      ) {
+        fallback[key] = 0;
+      } else {
+        fallback[key] = 'mock_value';
+      }
+    }
+    return fallback;
   }
 }
 

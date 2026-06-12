@@ -157,6 +157,34 @@ describe('AI Providers', () => {
       ).rejects.toThrow('Image generation not supported');
     });
 
+    it('should support mock-sandbox for zero-cost image mock', async () => {
+      const result = await provider.generateImage(
+        {},
+        { credentials: { apiKey: 'mock-sandbox' } }
+      );
+      expect(result.url).toContain('mock-image.png');
+    });
+
+    it('should return true for validateCredentials when using mock-sandbox', async () => {
+      const result = await provider.validateCredentials({
+        apiKey: 'mock-sandbox',
+      });
+      expect(result).toBe(true);
+    });
+
+    it('should return schema-compliant pre-rendered mock JSON when generateJSON is called with mock-sandbox', async () => {
+      const schema = { properties: { products: { type: 'array' } } };
+      const result = await provider.generateJSON(
+        'products',
+        'prompt',
+        { credentials: { apiKey: 'mock-sandbox' } },
+        schema
+      );
+
+      expect(result.products).toHaveLength(2);
+      expect(result.products[0].name.en_US).toBe('Premium Smart Watch');
+    });
+
     it('should validate credentials successfully', async () => {
       server.use(
         http.post(
