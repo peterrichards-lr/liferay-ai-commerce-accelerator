@@ -44,6 +44,12 @@ function findYamlFiles(dir, fileList = []) {
       continue;
     const filePath = path.join(dir, file);
     if (fs.statSync(filePath).isDirectory()) {
+      if (
+        fs.existsSync(path.join(filePath, '.liferay-docker.deployed')) ||
+        fs.existsSync(path.join(filePath, 'docker-compose.yml'))
+      ) {
+        continue;
+      }
       findYamlFiles(filePath, fileList);
     } else if (file === 'client-extension.yaml') {
       fileList.push(filePath);

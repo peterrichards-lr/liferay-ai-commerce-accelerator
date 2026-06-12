@@ -22,6 +22,7 @@ You must return a JSON array that conforms to the provided JSON schema. Each ele
   - neverExpire: boolean.
   - externalReferenceCode: string. For all SKUs (base and variants), this MUST be the same as the "sku" field.
 - specifications: array of 3–5 realistic specification objects. Each spec object must have:
+  - specificationKey: string, unique alphanumeric uppercase key for the specification (e.g. "MATERIAL", "WEIGHT", "SCREEN_SIZE").
   - label: object of multilingual specification names keyed by language code (for example "Material", "Weight").
   - value: object of multilingual specification values keyed by language code ({{languageCodesCSV}}).
 - options: array of 2–3 product option objects that are contextually appropriate for {{category}} products. Each option object must have:

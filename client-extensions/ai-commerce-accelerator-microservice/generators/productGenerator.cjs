@@ -1098,20 +1098,41 @@ class ProductGenerator extends BaseGenerator {
         { sessionId }
       );
 
-      // Normalize ERCs for imported data if they are missing
-      const normalized = productDataList.map((p) => ({
-        ...p,
-        externalReferenceCode:
-          p.externalReferenceCode || createERC(ERC_PREFIX.PRODUCT),
-        skus: (p.skus || []).map((s) => ({
-          ...s,
-          externalReferenceCode: s.externalReferenceCode || s.sku,
-        })),
-        skuVariants: (p.skuVariants || []).map((v) => ({
-          ...v,
-          externalReferenceCode: v.externalReferenceCode || v.sku,
-        })),
-      }));
+      // Normalize ERCs and specifications for imported data if they are missing
+      const normalized = productDataList.map((p) => {
+        const specs = p.productSpecifications || p.specifications || [];
+        const normalizedSpecs = specs.map((spec) => {
+          const key =
+            spec.specificationKey ||
+            spec.key ||
+            sanitizeForERC(
+              spec.label?.en_US ||
+                spec.label?.[Object.keys(spec.label)[0]] ||
+                spec.title ||
+                spec.name ||
+                'SPEC'
+            );
+          return {
+            ...spec,
+            specificationKey: key,
+          };
+        });
+        return {
+          ...p,
+          externalReferenceCode:
+            p.externalReferenceCode || createERC(ERC_PREFIX.PRODUCT),
+          specifications: normalizedSpecs,
+          productSpecifications: normalizedSpecs,
+          skus: (p.skus || []).map((s) => ({
+            ...s,
+            externalReferenceCode: s.externalReferenceCode || s.sku,
+          })),
+          skuVariants: (p.skuVariants || []).map((v) => ({
+            ...v,
+            externalReferenceCode: v.externalReferenceCode || v.sku,
+          })),
+        };
+      });
 
       await this.persistence.updateSessionContext(sessionId, {
         productDataList: normalized,
@@ -1576,6 +1597,7 @@ class ProductGenerator extends BaseGenerator {
             const { externalReferenceCode: _erc, ...rest } = spec;
             return {
               ...rest,
+              specificationKey: spec.specificationKey,
               label:
                 spec.label || toI18n(spec.title || spec.value || spec.name),
               value: spec.value || spec.title || spec.name,
@@ -1877,21 +1899,41 @@ class ProductGenerator extends BaseGenerator {
       config,
       options
     );
-    return data.map((p) => ({
-      ...p,
-      // HARDENING: Always generate fresh ERCs for products
-      externalReferenceCode: createERC(ERC_PREFIX.PRODUCT),
-      // Liferay Commerce ignores nested SKU ERCs during product creation and uses the SKU code.
-      // We must use the SKU code as the ERC to ensure successful resolution later.
-      skus: (p.skus || []).map((s) => ({
-        ...s,
-        externalReferenceCode: s.externalReferenceCode || s.sku,
-      })),
-      skuVariants: (p.skuVariants || []).map((v) => ({
-        ...v,
-        externalReferenceCode: v.externalReferenceCode || v.sku,
-      })),
-    }));
+    return data.map((p) => {
+      const specs = p.productSpecifications || p.specifications || [];
+      const normalizedSpecs = specs.map((spec) => {
+        const key =
+          spec.specificationKey ||
+          spec.key ||
+          sanitizeForERC(
+            spec.label?.en_US ||
+              spec.label?.[Object.keys(spec.label)[0]] ||
+              spec.title ||
+              spec.name ||
+              'SPEC'
+          );
+        return {
+          ...spec,
+          specificationKey: key,
+        };
+      });
+      return {
+        ...p,
+        externalReferenceCode: createERC(ERC_PREFIX.PRODUCT),
+        specifications: normalizedSpecs,
+        productSpecifications: normalizedSpecs,
+        // Liferay Commerce ignores nested SKU ERCs during product creation and uses the SKU code.
+        // We must use the SKU code as the ERC to ensure successful resolution later.
+        skus: (p.skus || []).map((s) => ({
+          ...s,
+          externalReferenceCode: s.externalReferenceCode || s.sku,
+        })),
+        skuVariants: (p.skuVariants || []).map((v) => ({
+          ...v,
+          externalReferenceCode: v.externalReferenceCode || v.sku,
+        })),
+      };
+    });
   }
 
   _cleanProductForLiferay(product, options = {}) {

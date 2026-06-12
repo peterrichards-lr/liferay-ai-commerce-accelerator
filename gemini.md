@@ -2,17 +2,15 @@
 
 ## Current Goal
 
-Improve tracking and feedback loop of E2E tests, allowing the AI assistant to track and see issues first hand, and resolving the hardcoded Liferay URL in E2E tests (`aica-e2e.local` vs local running environment).
+Exclude the `./aica` folder from Yarn/NPM configuration, linter configs, and DXP Gradle workspace scanning to prevent build conflicts, duplicate project discovery, and redundant file validation.
 
 ## Plan
 
-1. **Prepare Persistent State**: Initialize `gemini.md`.
-2. **Refactor/Parameterize E2E Tests**:
-   - Extract/parameterize the `injectAndConnectApp` method or specifically the `liferay-url` custom element attribute inside `playwright/tests/e2e/dashboard.spec.js` and `playwright/tests/e2e/import.spec.js` using `process.env.BASE_URL` (passed via Playwright node process).
-3. **Optimize Playwright Settings for Traceability**:
-   - Set up Playwright to capture screenshots, videos, and trace files on failure (or always) to make test outcomes completely transparent and easy to debug.
-4. **Execute Verification**: Run the E2E verification test suite against the running LDM stack `fragments-test-env`.
-5. **Verify/Review Results**: Verify that the tests pass and trace logs/screenshots are generated correctly.
+1. **Prepare Persistent State**: Initialize `gemini.md` (completed).
+2. **Exclude `aica` from Markdown Lint**: Update `package.json`'s `lint:md` script to ignore files inside the `aica/` directory (completed).
+3. **Exclude `aica` from Client Extension Validator**: Update `scripts/validate-cx.js` to skip the `aica` directory when searching for client extension configuration files (completed).
+4. **Exclude `aica` from DXP Workspace Scanning**: Update `gradle.properties` to specify `liferay.workspace.dir.excludes.globs=**/aica` to prevent DXP workspace Gradle plugins from scanning it (completed).
+5. **Verify/Review Results**: Run validation and build commands to confirm that `./aica` is successfully ignored and does not cause conflicts (completed).
 
 ## Current Progress
 
@@ -54,6 +52,14 @@ Improve tracking and feedback loop of E2E tests, allowing the AI assistant to tr
 - Implemented **Inbound response Contract-Driven Validation** inside `LiferayRestService` (`rest.cjs`) and mapped GET endpoints (`contractMappings.cjs`). Created a dedicated, highly robust unit test suite (`tests/contracts.test.js`) to catch platform schema drifts and protect against DXP volatility.
 - Implemented **JS-Native Secrets Leak Prevention** sentinel (`scripts/detect-secrets.mjs`) inside `.husky/pre-commit` to prevent API keys, passwords, and private tokens from ever being committed to git across any developer's machine with zero external dependencies.
 - **Next step**: Run the fresh E2E verification test suite (`bash scripts/run-e2e-ldm.sh -v -k`) once quota/system resources are available.
+- **Current Goal Update**: Creating a quick live-run AI provider verification test script (`scripts/verify-live-ai.mjs`) to verify live generation workflows against real LLM APIs (Gemini, OpenAI, Anthropic) without manual browser steps.
+- **Identified Issue**: Live AI warehouse generation fails schema validation because `externalReferenceCode` is missing from the generated warehouse objects.
+  - The warehouse prompt (`prompts/warehouse.md`) lacks instructions for `externalReferenceCode`.
+  - The `_standardize` method in `generationFacade.cjs` fails to inject fallback ERCs for nested arrays within wrapped response objects.
+- **Plan**:
+  1. Add `externalReferenceCode` definition and example to `prompts/warehouse.md`.
+  2. Refactor `_standardize` in `generationFacade.cjs` to support wrapping structures and correctly standardize nested arrays.
+  3. Re-run live verification test.
 
 ## Secrets Leak Prevention (JS-Native Sentinel)
 

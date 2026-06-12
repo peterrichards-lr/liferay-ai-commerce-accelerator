@@ -123,7 +123,7 @@ class GenerationFacade {
     }
 
     // 1. Standardize/Normalize first (inject missing ERCs, etc)
-    const standardizedData = this._standardize(data);
+    const standardizedData = this._standardize(data, entityType);
 
     // 2. Validate against schema
     return this.validateAndNormalize(entityType, standardizedData, {
@@ -212,7 +212,27 @@ class GenerationFacade {
   /**
    * Ensures the data structure is standardized for BaseGenerator._normalize.
    */
-  _standardize(data) {
+  _standardize(data, entityType) {
+    if (!data) return data;
+
+    // If we have an entityType, check if it's a wrapped object containing the array,
+    // e.g. { warehouses: [...] } for entityType === 'warehouse'.
+    if (entityType) {
+      const mainPropertyName = entityType + 's';
+      if (
+        data &&
+        typeof data === 'object' &&
+        !Array.isArray(data) &&
+        data[mainPropertyName] &&
+        Array.isArray(data[mainPropertyName])
+      ) {
+        data[mainPropertyName] = data[mainPropertyName].map((item) =>
+          this._standardizeItem(item)
+        );
+        return data;
+      }
+    }
+
     if (!Array.isArray(data)) {
       return this._standardizeItem(data);
     }

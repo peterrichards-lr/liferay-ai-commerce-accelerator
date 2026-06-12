@@ -18,6 +18,7 @@ Each warehouse must include the following fields:
 - latitude: The decimal latitude of the location (e.g., 34.0522).
 - longitude: The decimal longitude of the location (e.g., -118.2437).
 - active: A boolean indicating if the warehouse is active.
+- externalReferenceCode: A unique external reference code for the warehouse. Must start with the prefix "AICA-WAREHOUSE-" followed by a unique uppercase string (e.g., AICA-WAREHOUSE-HAMBURG).
 
 CRITICAL: {% if geographicContext %}The 'country' MUST be "{{geographicContext.countryISOCode}}" and the 'region' MUST be "{{geographicContext.regionISOCode}}". Use these EXACT values.{% else %}The 'country' and 'region' fields MUST be exactly 2 uppercase letters. Failure to follow this format will break the system.{% endif %}
 
@@ -43,7 +44,8 @@ Example for 1 warehouse:
       "zip": "20095",
       "latitude": 53.5511,
       "longitude": 9.9937,
-      "active": true
+      "active": true,
+      "externalReferenceCode": "AICA-WAREHOUSE-HAMBURG"
     }
   ]
 }
