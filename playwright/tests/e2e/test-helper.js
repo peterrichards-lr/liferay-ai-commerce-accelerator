@@ -29,6 +29,30 @@ export async function injectAndConnectApp(page) {
     }
   });
 
+  // Force all microservice API traffic to hit our local test server, completely
+  // bypassing Browser Mixed Content and CORS restrictions.
+  await page.route('**/api/v1/**', async (route) => {
+    const request = route.request();
+    const originalUrl = request.url();
+
+    // Extract everything after /api/v1/ and build the localhost URL
+    const apiPath = originalUrl.substring(originalUrl.indexOf('/api/v1/'));
+    const proxyUrl = `http://localhost:3001${apiPath}`;
+
+    console.log(
+      `[Playwright Proxy] Intercepted: ${originalUrl} -> Forwarding to: ${proxyUrl}`
+    );
+
+    try {
+      const response = await route.fetch({ url: proxyUrl });
+      await route.fulfill({ response });
+      console.log(`[Playwright Proxy] Success: ${proxyUrl}`);
+    } catch (e) {
+      console.log(`[Playwright Proxy] Failed: ${e.message}`);
+      await route.abort('failed');
+    }
+  });
+
   // 1. Go to the highly-stable default AICA page, or fallback to Guest Home page
   console.log('>>> Navigating to AICA site page...');
   const res = await page.goto('/web/aica').catch(() => null);
@@ -45,49 +69,57 @@ export async function injectAndConnectApp(page) {
 
   // 2. Dynamically inject the Custom Element into the DOM.
   await page.evaluate(async (url) => {
-    // Only inject if it doesn't already exist from a previous test run on this page
-    if (!document.querySelector('liferay-ai-commerce-accelerator-frontend')) {
-      const el = document.createElement(
-        'liferay-ai-commerce-accelerator-frontend'
-      );
-      el.setAttribute('liferay-hosted', 'true');
-      el.setAttribute('liferay-url', url);
-      el.setAttribute('microservice-url', 'http://localhost:3001');
+    let existingEl = document.querySelector(
+      'liferay-ai-commerce-accelerator-frontend'
+    );
+    if (existingEl) {
+      existingEl.remove();
+    }
+
+    const el = document.createElement(
+      'liferay-ai-commerce-accelerator-frontend'
+    );
+
+    el.setAttribute('liferay-hosted', 'true');
+    el.setAttribute('liferay-url', url);
+    el.setAttribute(
+      'microservice-url',
+      url + '/o/ai-commerce-accelerator-microservice'
+    );
+    el.setAttribute(
+      'locale-code',
+      window.themeDisplay
+        ? window.themeDisplay.getLanguageId().replace('_', '-')
+        : 'en-US'
+    );
+    if (window.themeDisplay) {
       el.setAttribute(
-        'locale-code',
-        window.themeDisplay
-          ? window.themeDisplay.getLanguageId().replace('_', '-')
-          : 'en-US'
+        'site-group-id',
+        String(window.themeDisplay.getScopeGroupId())
       );
-      if (window.themeDisplay) {
-        el.setAttribute(
-          'site-group-id',
-          String(window.themeDisplay.getScopeGroupId())
-        );
-      }
+    }
 
-      // Force layout sizing so Playwright can interact with it
-      el.style.display = 'block';
-      el.style.minHeight = '800px';
-      el.style.width = '100%';
-      el.style.position = 'relative';
-      el.style.zIndex = '9999';
-      el.style.backgroundColor = '#fff';
+    // Force layout sizing so Playwright can interact with it
+    el.style.display = 'block';
+    el.style.minHeight = '800px';
+    el.style.width = '100%';
+    el.style.position = 'relative';
+    el.style.zIndex = '9999';
+    el.style.backgroundColor = '#fff';
 
-      document.body.prepend(el);
+    document.body.prepend(el);
 
-      // Force the browser to resolve and execute the React bundle from the import map
-      // Retry until Liferay's import map is fully injected
-      let retries = 50;
-      while (retries > 0) {
-        try {
-          await import('liferay-ai-commerce-accelerator-frontend');
-          break;
-        } catch (e) {
-          retries--;
-          await new Promise((r) => setTimeout(r, 100));
-          if (retries === 0) throw e;
-        }
+    // Force the browser to resolve and execute the React bundle from the import map
+    // Retry until Liferay's import map is fully injected
+    let retries = 50;
+    while (retries > 0) {
+      try {
+        await import('liferay-ai-commerce-accelerator-frontend');
+        break;
+      } catch (e) {
+        retries--;
+        await new Promise((r) => setTimeout(r, 100));
+        if (retries === 0) throw e;
       }
     }
   }, liferayUrl);
@@ -96,6 +128,18 @@ export async function injectAndConnectApp(page) {
   await expect(page.locator('.ai-commerce-dashboard')).toBeVisible({
     timeout: 15000,
   });
+
+  // 3.1 If the app is already actively generating (e.g. after a page reload mid-flight), bypass connection steps
+  const isGenerating = await page
+    .getByRole('button', { name: 'Cancel Generation' })
+    .isVisible()
+    .catch(() => false);
+  if (isGenerating) {
+    console.log(
+      '>>> React App is already connected and actively generating. Bypassing connection phase.'
+    );
+    return;
+  }
 
   // 3.5 Dismiss Liferay Enterprise Search modal if it appears
   const modalDoneBtn = page.getByRole('button', { name: 'Done', exact: true });
@@ -107,17 +151,34 @@ export async function injectAndConnectApp(page) {
   // 4. Click 'Test Connection' and retry if it fails (e.g., Liferay background re-indexing returning 401)
   let connected = false;
   for (let i = 0; i < 10; i++) {
-    const connectBtn = page.getByRole('button', {
-      name: /(Test Connection & Load Data|Retry Connection)/i,
-    });
-    if (await connectBtn.isVisible({ timeout: 2000 }).catch(() => false)) {
-      await connectBtn.click();
+    const connectBtn = page
+      .getByRole('button', {
+        name: /(Test Connection & Load Data|Retry Connection)/i,
+      })
+      .first();
+
+    let isBtnVisible = false;
+    try {
+      isBtnVisible = await connectBtn.isVisible({ timeout: 2000 });
+    } catch (e) {
+      console.log(
+        `>>> [Attempt ${i + 1}/10] Error checking visibility: ${e.message}`
+      );
+    }
+
+    if (isBtnVisible) {
+      console.log(
+        `>>> [Attempt ${i + 1}/10] Clicking Test Connection button...`
+      );
+      await connectBtn.click({ force: true });
+    } else {
+      console.log(`>>> [Attempt ${i + 1}/10] Button not visible yet.`);
     }
 
     // Wait for the UI to unlock by checking the button text!
     try {
       await expect(
-        page.getByRole('button', { name: /Connected/i })
+        page.getByRole('button', { name: /^Connected$/i })
       ).toBeVisible({ timeout: 5000 });
       connected = true;
       break;
@@ -133,7 +194,7 @@ export async function injectAndConnectApp(page) {
   // 4.5. Wait for the Channel dropdown to not display "No channels found"
   // Since Liferay Commerce channels may take 1-2 minutes to be created and indexed on startup.
   console.log('>>> Waiting for Channel dropdown to be populated...');
-  const channelDropdown = page.getByLabel('Channel', { exact: true });
+  const channelDropdown = page.locator('#channelId');
   await expect(channelDropdown).toBeVisible({ timeout: 15000 });
 
   for (let j = 0; j < 24; j++) {
@@ -150,7 +211,7 @@ export async function injectAndConnectApp(page) {
     if (await retryBtn.isVisible().catch(() => false)) {
       await retryBtn.click();
     } else {
-      const connectedBtn = page.getByRole('button', { name: /Connected/i });
+      const connectedBtn = page.getByRole('button', { name: /^Connected$/i });
       if (await connectedBtn.isVisible().catch(() => false)) {
         await connectedBtn.click();
       }
@@ -159,7 +220,7 @@ export async function injectAndConnectApp(page) {
   }
 
   await expect(channelDropdown).not.toContainText('No channels found', {
-    timeout: 30000,
+    timeout: 120000,
   });
 
   // 5. Clear any lingering workflow status from previous tests so the form isn't locked

@@ -47,16 +47,17 @@ setup('authenticate', async ({ page }) => {
   try {
     const newPasswordInput = page.locator('input[type="password"]').first();
     const confirmPasswordInput = page.locator('input[type="password"]').nth(1);
-    if (await newPasswordInput.isVisible({ timeout: 5000 })) {
+    const saveBtn = page.getByRole('button', { name: /Save|Submit/i }).first();
+    if (
+      (await newPasswordInput.isVisible({ timeout: 5000 })) &&
+      (await saveBtn.isVisible({ timeout: 1000 }))
+    ) {
       console.log(
         '>>> [Setup Wizard] Change Password page detected. Saving new password...'
       );
       await newPasswordInput.fill(password);
       await confirmPasswordInput.fill(password);
-      await page
-        .getByRole('button', { name: /Save|Submit/i })
-        .first()
-        .click();
+      await saveBtn.click();
       await page.waitForLoadState('load').catch(() => {});
     }
   } catch (e) {}
@@ -64,24 +65,28 @@ setup('authenticate', async ({ page }) => {
   // 3. Detect and bypass "Password Reminder Question" page
   try {
     const reminderInput = page.locator('input[type="text"]').first();
-    if (await reminderInput.isVisible({ timeout: 5000 })) {
+    const saveBtn = page.getByRole('button', { name: /Save|Submit/i }).first();
+    if (
+      (await reminderInput.isVisible({ timeout: 5000 })) &&
+      (await saveBtn.isVisible({ timeout: 1000 }))
+    ) {
       console.log(
         '>>> [Setup Wizard] Password Reminder page detected. Saving answer...'
       );
       await reminderInput.fill('testanswer');
-      await page
-        .getByRole('button', { name: /Save|Submit/i })
-        .first()
-        .click();
+      await saveBtn.click();
       await page.waitForLoadState('load').catch(() => {});
     }
   } catch (e) {}
 
   // Wait for landing page or user avatar to confirm login
   await expect(
-    page.locator(
-      '.user-avatar-image, .user-avatar-initials, .personal-menu-dropdown'
-    )
+    page
+      .locator(
+        '.user-avatar-image, .user-avatar-initials, .personal-menu-dropdown'
+      )
+      .or(page.getByRole('button', { name: /User Profile/i }))
+      .first()
   ).toBeVisible({ timeout: 30000 });
 
   console.log('>>> Authentication SUCCESSFUL.');

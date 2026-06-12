@@ -226,12 +226,20 @@ class ProductGenerator extends BaseGenerator {
     try {
       const PRICE_LIST_CONFIGS = [
         {
-          erc: buildStableERC(ERC_PREFIX.PRICE_LIST, ['GENERAL', catalogId]),
+          erc: buildStableERC(ERC_PREFIX.PRICE_LIST, [
+            'GENERAL',
+            catalogId,
+            sessionId,
+          ]),
           label: 'Standard Price List',
           type: 'price-list',
         },
         {
-          erc: buildStableERC(ERC_PREFIX.PRICE_LIST, ['PROMOTIONS', catalogId]),
+          erc: buildStableERC(ERC_PREFIX.PRICE_LIST, [
+            'PROMOTIONS',
+            catalogId,
+            sessionId,
+          ]),
           label: 'Promotions List',
           type: 'promotion',
         },
@@ -321,10 +329,12 @@ class ProductGenerator extends BaseGenerator {
     const generalListERC = buildStableERC(ERC_PREFIX.PRICE_LIST, [
       'GENERAL',
       catalogId,
+      sessionId,
     ]);
     const promoListERC = buildStableERC(ERC_PREFIX.PRICE_LIST, [
       'PROMOTIONS',
       catalogId,
+      sessionId,
     ]);
 
     const generalListId = ercToIdMap.get(generalListERC);
@@ -414,13 +424,14 @@ class ProductGenerator extends BaseGenerator {
           const basePriceEntry = {
             price: entry.price,
             priceListId: generalList.id,
-            priceListExternalReferenceCode:
-              generalList.externalReferenceCode || generalList.erc,
             externalReferenceCode: peERC_general,
             active: true,
             hasTierPrice: uniqueTierPrices.length > 0,
-            skuExternalReferenceCode: skuERC,
-            tierPrices: uniqueTierPrices.map((tp) => ({
+            skuId,
+          };
+
+          if (uniqueTierPrices.length > 0) {
+            basePriceEntry.tierPrices = uniqueTierPrices.map((tp) => ({
               minimumQuantity: tp.minimumQuantity,
               price: tp.price,
               externalReferenceCode: buildStableERC('TP', [
@@ -428,8 +439,8 @@ class ProductGenerator extends BaseGenerator {
                 generalList.externalReferenceCode || generalList.erc,
                 tp.minimumQuantity,
               ]),
-            })),
-          };
+            }));
+          }
 
           // Liferay strict DTOs often reject unknown fields.
           // bulkPricing and discountDiscovery are not in the standard v2.0 PriceEntry DTO.
@@ -451,12 +462,10 @@ class ProductGenerator extends BaseGenerator {
             const promoPriceEntry = {
               price: entry.promoPrice,
               priceListId: promoList.id,
-              priceListExternalReferenceCode:
-                promoList.externalReferenceCode || promoList.erc,
               externalReferenceCode: peERC_promo,
               active: true,
               hasTierPrice: false,
-              skuExternalReferenceCode: skuERC,
+              skuId,
             };
 
             promoList.priceEntries.push(promoPriceEntry);
@@ -475,14 +484,80 @@ class ProductGenerator extends BaseGenerator {
         stepKey,
         'priceLists',
         'generate',
-        (batchERC) =>
-          this.liferay.createPriceEntriesBatch(config, priceEntries, {
-            externalReferenceCode: batchERC,
-            priceListExternalReferenceCode: pl.externalReferenceCode,
-            priceListId: pl.id,
-            sessionId,
-            session,
-          }),
+        (_batchERC) => {
+          this.logger.info(
+            `Simulating batch creation of ${priceEntries.length} price entries for list ${pl.id} directly from ProductGenerator to bypass DXP platform bugs...`,
+            { sessionId }
+          );
+
+          const runSimulation = async () => {
+            const results = {
+              status: 'completed',
+              batchId: `simulated-price-batch-${Date.now()}`,
+              count: 0,
+              errors: [],
+            };
+
+            const concurrency = 5;
+            for (let i = 0; i < priceEntries.length; i += concurrency) {
+              const chunk = priceEntries.slice(i, i + concurrency);
+              await Promise.all(
+                chunk.map(async (entry) => {
+                  try {
+                    const { tierPrices, ...entryData } = entry;
+
+                    // 1. Create root price entry
+                    const result = await this.liferay.rest._post(
+                      config,
+                      `/o/headless-commerce-admin-pricing/v2.0/price-lists/${pl.id}/price-entries`,
+                      entryData,
+                      'create-price-entry',
+                      'Failed to create price entry'
+                    );
+
+                    // 2. Create tier prices sequentially if present
+                    if (
+                      tierPrices &&
+                      tierPrices.length > 0 &&
+                      result &&
+                      result.id
+                    ) {
+                      for (const tp of tierPrices) {
+                        await this.liferay.rest._post(
+                          config,
+                          `/o/headless-commerce-admin-pricing/v2.0/price-entries/${result.id}/tier-prices`,
+                          tp,
+                          'create-tier-price',
+                          'Failed to create tier price'
+                        );
+                      }
+                    }
+
+                    results.count++;
+                  } catch (err) {
+                    results.errors.push({
+                      skuId: entry.skuId,
+                      error: err.message,
+                    });
+                    this.logger.warn(
+                      `Failed to create simulated batch price entry for SKU ID ${entry.skuId}: ${err.message}`,
+                      { sessionId }
+                    );
+                  }
+                })
+              );
+            }
+
+            if (results.errors.length > 0) {
+              throw new Error(
+                `Failed to create ${results.errors.length} price entries during simulated batch`
+              );
+            }
+            return results;
+          };
+
+          return runSimulation();
+        },
         priceEntries.length
       );
     }
@@ -499,18 +574,62 @@ class ProductGenerator extends BaseGenerator {
 
     const PRICE_LIST_TEMPLATES = [
       {
-        erc: buildStableERC(ERC_PREFIX.PRICE_LIST, ['GENERAL', catalogId]),
+        erc: buildStableERC(ERC_PREFIX.PRICE_LIST, [
+          'GENERAL',
+          catalogId,
+          sessionId,
+        ]),
         name: `AICA - Standard Prices (${catalogId})`,
         priority: 1,
         type: 'price-list',
       },
       {
-        erc: buildStableERC(ERC_PREFIX.PRICE_LIST, ['PROMOTIONS', catalogId]),
+        erc: buildStableERC(ERC_PREFIX.PRICE_LIST, [
+          'PROMOTIONS',
+          catalogId,
+          sessionId,
+        ]),
         name: `AICA - Promotions (${catalogId})`,
         priority: 2,
         type: 'promotion',
       },
     ];
+
+    if (generateNewLists) {
+      try {
+        const { items: existingLists } = await this.liferay.getPriceLists(
+          config,
+          { catalogId }
+        );
+        for (const pl of existingLists || []) {
+          if (
+            pl.name === `AICA - Standard Prices (${catalogId})` ||
+            pl.name === `AICA - Promotions (${catalogId})`
+          ) {
+            try {
+              await this.liferay.rest._delete(
+                config,
+                `/o/headless-commerce-admin-pricing/v2.0/price-lists/${pl.id}`
+              );
+              this.logger.info(
+                `Deleted legacy/duplicate price list: ${pl.name} (${pl.id})`,
+                { sessionId }
+              );
+            } catch (err) {
+              this.logger.warn(
+                `Failed to delete legacy price list ${pl.id}: ${err.message}`,
+                { sessionId }
+              );
+            }
+          }
+        }
+      } catch (err) {
+        this.logger.warn(
+          `Failed to fetch existing price lists for cleanup: ${err.message}`,
+          { sessionId }
+        );
+      }
+    }
 
     for (const pl of PRICE_LIST_TEMPLATES) {
       let existing = await this.liferay.getPriceListByERC(config, pl.erc);
@@ -1669,23 +1788,64 @@ class ProductGenerator extends BaseGenerator {
 
         for (const wId of warehouseIds) {
           const items = byWarehouse[wId];
-          const warehouse = warehouses.find(
-            (w) => String(w.id) === String(wId)
-          );
 
           await this.submitBatch(
             sessionId,
             S.UPDATE_INVENTORY,
             'inventory',
             'generate',
-            (erc) =>
-              this.liferay.createWarehouseItemsBatch(config, items, {
-                externalReferenceCode: erc,
-                sessionId,
-                warehouseId: wId,
-                warehouseExternalReferenceCode:
-                  warehouse?.externalReferenceCode,
-              }),
+            (_erc) => {
+              this.logger.info(
+                `Simulating batch creation of ${items.length} inventory items for warehouse ${wId} directly from ProductGenerator to bypass DXP platform bugs...`,
+                { sessionId }
+              );
+
+              const runSimulation = async () => {
+                const results = {
+                  status: 'completed',
+                  batchId: `simulated-inventory-batch-${Date.now()}`,
+                  count: 0,
+                  errors: [],
+                };
+
+                const concurrency = 5;
+                for (let i = 0; i < items.length; i += concurrency) {
+                  const chunk = items.slice(i, i + concurrency);
+                  await Promise.all(
+                    chunk.map(async (item) => {
+                      try {
+                        await this.liferay.rest._post(
+                          config,
+                          `/o/headless-commerce-admin-inventory/v1.0/warehouses/${wId}/warehouseItems`,
+                          item,
+                          'create-warehouse-item',
+                          'Failed to create warehouse item'
+                        );
+                        results.count++;
+                      } catch (err) {
+                        results.errors.push({
+                          sku: item.sku,
+                          error: err.message,
+                        });
+                        this.logger.warn(
+                          `Failed to create simulated batch warehouse item for SKU ${item.sku}: ${err.message}`,
+                          { sessionId }
+                        );
+                      }
+                    })
+                  );
+                }
+
+                if (results.errors.length > 0) {
+                  throw new Error(
+                    `Failed to create ${results.errors.length} warehouse items during simulated batch`
+                  );
+                }
+                return results;
+              };
+
+              return runSimulation();
+            },
             items.length
           );
         }

@@ -58,9 +58,16 @@ fi
 if [ -z "$PROJECT_NAME" ]; then
     PROJECT_NAME="aica"
     EXISTING_PROJECT=0
-    # HARDENING: Proactively remove any existing project folder to prevent 
+
+    # Auto-detect if project is already running to bypass fresh import/boot
+    if ldm list | grep -q "$PROJECT_NAME"; then
+        echo "ℹ  Auto-detected that project '$PROJECT_NAME' is already running in LDM. Switching to update/deploy mode."
+        EXISTING_PROJECT=1
+    fi
+
+    # HARDENING: Proactively remove any existing project folder to prevent
     # Yarn workspace name collisions during Phase 2 (Building).
-    if [ -d "$PROJECT_NAME" ]; then
+    if [ $EXISTING_PROJECT -eq 0 ] && [ -d "$PROJECT_NAME" ]; then
         echo "🧹 Removing stale project directory '$PROJECT_NAME' before build..."
         rm -rf "$PROJECT_NAME"
     fi
@@ -78,6 +85,11 @@ export LDM_FORWARD_PREFIXES="${LDM_FORWARD_PREFIXES:-AI_}"
 TARGET_HOST="${LIFERAY_HOST:-$DEFAULT_HOST}"
 GRADLE_PROPS="gradle.properties"
 
+# Redefine ldm command to run with python3.13 to prevent python3.14 wheel conflicts on host
+ldm() {
+    /opt/homebrew/bin/python3.13 /usr/local/bin/ldm "$@"
+}
+
 # --- Logging Helpers ---
 log_command() {
    if [ "$VERBOSE" -eq 1 ]; then
@@ -91,11 +103,22 @@ ldm_cmd() {
     ldm "$@"
 }
 
+# Write a tiny progress state file on disk for fast AI monitoring and feedback loops
+write_signal() {
+    echo "$1" > .progress-signal
+    echo "📣 [SIGNAL] State changed to: $1"
+}
+
 version_ge() {
     [ "$(printf '%s\n' "$1" "$2" | sort -V | head -n1)" == "$1" ]
 }
 
 echo "🚀 Starting AICA E2E Orchestration..."
+
+# Truncate raw logs to prevent Forensic Log Analyzer false-positives from legacy runs
+mkdir -p logs
+rm -f logs/e2e-microservice.log
+touch logs/e2e-microservice.log
 
 # --- Phase 0: Environment Loading ---
 
@@ -151,6 +174,7 @@ ldm_cmd infra-setup $LDM_Y_FLAG
 # --- Phase 2: Build & Deployment Preparation ---
 
 # We build BEFORE initializing the project to ensure fresh LCP.json metadata is captured
+write_signal "BUILDING"
 echo "🔨 Phase 2: Building AICA Client Extensions..."
 TEMP_MOVE=0
 if [ $EXISTING_PROJECT -eq 1 ] && [ -d "$PROJECT_NAME" ]; then
@@ -214,6 +238,7 @@ if [ $EXISTING_PROJECT -eq 0 ]; then
         exit 1
     fi
 
+    write_signal "IMPORTING"
     echo "📦 Initializing ephemeral LDM project [$PROJECT_NAME] (PostgreSQL)..."
     # import parameters: creates a one-time static import for testing
     # shellcheck disable=SC2086
@@ -225,8 +250,7 @@ if [ $EXISTING_PROJECT -eq 0 ]; then
         --no-captcha \
         --no-run
 
-
-
+    write_signal "STARTING"
     echo "⚡ Starting Liferay container with tag [$LIFERAY_TAG] (Detached + Sidecar)..."
     # LDM 2.7.12+ automatically:
     # 1. Detects and handles external volume locking (--internal-state)
@@ -237,7 +261,7 @@ if [ $EXISTING_PROJECT -eq 0 ]; then
         --tag "$LIFERAY_TAG" \
         --sidecar \
         --no-captcha \
-        --lean \
+        --jvm-args="-XX:ReservedCodeCacheSize=512m" \
         --fast-login \
         --feature LPD-35443 \
         -y
@@ -258,8 +282,16 @@ else
     # LDM deploy uses the 'Atomic Move' pattern by default since v2.7.6
     # shellcheck disable=SC2086
     ldm_cmd deploy "$PROJECT_NAME" $ARTIFACTS
+    
+    # If the project was already running, give OSGi hot-deployer 25s to refresh import maps
+    if [ $EXISTING_PROJECT -eq 1 ]; then
+        write_signal "WAITING_HEALTHY"
+        echo "⏳ Hot-deploying changes... Waiting 25s for OSGi container to refresh import maps..."
+        sleep 25
+    fi
 fi
 
+write_signal "WAITING_HEALTHY"
 echo "⏳ Waiting for Liferay to be ready at $TARGET_URL..."
 # LDM 2.7.12+ wait command blocks until the HTTP layer is responsive
 if ! ldm_cmd wait "$PROJECT_NAME" --timeout 1800; then
@@ -269,6 +301,13 @@ if ! ldm_cmd wait "$PROJECT_NAME" --timeout 1800; then
 fi
 
 echo -e "\n✅ Liferay is UP and responding!"
+
+# Give Liferay's embedded Elasticsearch 45s of idle CPU time to finish startup indexing on cold boots
+if [ $EXISTING_PROJECT -eq 0 ]; then
+    write_signal "WAITING_HEALTHY"
+    echo "⏳ Pre-warming Liferay search indexers (45 seconds)..."
+    sleep 45
+fi
 
 # --- Phase 5: Test Execution & Teardown ---
 
@@ -283,6 +322,13 @@ fi
 echo "🎭 Phase 5: Running Playwright E2E tests..."
 
 cleanup() {
+    local exit_code=$?
+    if [ $exit_code -eq 0 ]; then
+        write_signal "SUCCESS"
+    else
+        write_signal "FAILED"
+    fi
+
     if [ $EXISTING_PROJECT -eq 1 ]; then
         echo -e "\n🛑 Skipping cleanup for existing project '$PROJECT_NAME'."
     elif [ $KEEP_PROJECT -eq 1 ]; then
@@ -332,6 +378,7 @@ if [ -z "$RUN_VERIFY" ]; then
 fi
 
 # Execute the tests using the root verification script
+write_signal "TESTING"
 log_command "$RUN_VERIFY"
 if $RUN_VERIFY; then
     echo "-------------------------------------------------------"

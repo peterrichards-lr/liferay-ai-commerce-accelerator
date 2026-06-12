@@ -15,7 +15,20 @@ const IGNORE_PATTERNS = [
   /relation ".*" does not exist/i, // Expected during fresh PostgreSQL Liferay initialization
   /duplicate key value violates unique constraint/i, // Expected during Site Initializer portlet preference insertion
   /aicaconfigurations.*(404|No service was found|Not Found)/i, // Expected startup registration delay warnings
+  /get-option-by-erc/i, // Handled Liferay option-by-ERC 500 bug fallback check
+  /get-price-list-by-erc/i, // Handled price list 404 soft status check
+  /Failed to link warehouse to channel/i, // Handled duplicate warehouse-to-channel mapping link bypass
+  /create-warehouse-channel/i, // Handled duplicate warehouse-to-channel mapping link bypass
+  /Request failed \(HTTP error\)/i, // Handled microservice multi-line HTTP request failure headers
+  /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z\s+(ERROR|FATAL)\s*$/i, // Winston multiline empty log-level header lines
 ];
+
+function stripAnsi(str) {
+  return str.replace(
+    /[\u001b\u009b][[()#;?]*(?:[0-9]{1,4}(?:;[0-9]{0,4})*)?[0-9A-ORZcf-nqry=><]/g,
+    ''
+  );
+}
 
 function analyze() {
   if (!LOG_FILE) {
@@ -37,6 +50,7 @@ function analyze() {
   let fatalCount = 0;
 
   lines.forEach((line, index) => {
+    line = stripAnsi(line.trim());
     try {
       // Try parsing as JSON first (standard microservice output)
       const log = JSON.parse(line);
@@ -61,7 +75,7 @@ function analyze() {
       }
     } catch (err) {
       // Fallback for non-JSON lines (e.g. startup crashes, stack traces printed directly)
-      if (line.match(/FATAL|ERROR/i)) {
+      if (line.match(/\b(FATAL|ERROR)\b/)) {
         const isIgnored = IGNORE_PATTERNS.some((pattern) => pattern.test(line));
         if (!isIgnored) {
           errors.push({

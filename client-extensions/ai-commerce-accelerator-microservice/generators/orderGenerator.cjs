@@ -102,15 +102,71 @@ class OrderGenerator extends BaseGenerator {
     // IMPORT MODE: If data is already provided in the context, skip generation
     if (existingList && existingList.length > 0) {
       this.logger.info(
-        `Skipping order data generation (Import Mode: ${existingList.length} items)`,
+        `Skipping order data generation (Import Mode: ${existingList.length} items). Self-healing SKU mappings...`,
         { sessionId }
       );
 
-      const normalized = existingList.map((o) => ({
-        ...o,
-        externalReferenceCode:
-          o.externalReferenceCode || createERC(ERC_PREFIX.ORDER),
-      }));
+      let normalized;
+      try {
+        // Synchronously fetch real-time SQL-consistent products and SKUs from Liferay
+        const { products } = await this.getProductsAndAccounts(
+          config,
+          session.context
+        );
+
+        normalized = existingList.map((o) => {
+          const orderItems = (o.orderItems || o.items || []).map((item) => {
+            const itemSkuCode = item.sku || item.skuExternalReferenceCode;
+
+            // Look for a product whose ERC matches the item SKU prefix or matches the product directly
+            const matchingProduct =
+              products.find((p) => {
+                const productERC = p.externalReferenceCode || '';
+                // Match SKU prefixes like 'SKU-ELE-001' with product ERCs containing 'SKU-ELE-001'
+                return (
+                  productERC.includes(itemSkuCode) ||
+                  itemSkuCode.includes(productERC)
+                );
+              }) || products[0];
+
+            let finalSku = itemSkuCode;
+            if (
+              matchingProduct &&
+              matchingProduct.skus &&
+              matchingProduct.skus.length > 0
+            ) {
+              // Find a purchasable SKU, or fallback to the first SKU
+              const purchasable =
+                matchingProduct.skus.find((s) => s.purchasable) ||
+                matchingProduct.skus[0];
+              finalSku = purchasable.sku || purchasable.externalReferenceCode;
+            }
+
+            return {
+              ...item,
+              sku: finalSku,
+              skuExternalReferenceCode: finalSku,
+            };
+          });
+
+          return {
+            ...o,
+            externalReferenceCode:
+              o.externalReferenceCode || createERC(ERC_PREFIX.ORDER),
+            orderItems,
+          };
+        });
+      } catch (err) {
+        this.logger.warn(
+          `Failed to self-heal SKU mappings: ${err.message}. Falling back to standard normalization.`,
+          { sessionId }
+        );
+        normalized = existingList.map((o) => ({
+          ...o,
+          externalReferenceCode:
+            o.externalReferenceCode || createERC(ERC_PREFIX.ORDER),
+        }));
+      }
 
       await this.persistence.updateSessionContext(sessionId, {
         orderDataList: normalized,
@@ -407,7 +463,6 @@ class OrderGenerator extends BaseGenerator {
         skuExternalReferenceCode: sku.sku || sku.externalReferenceCode,
         quantity: orderDataItem?.quantity || Math.floor(Math.random() * 3) + 1,
         warehouseId: warehouse ? warehouse.id : undefined,
-        price: sku.price || orderDataItem?.price || orderDataItem?.unitPrice,
         unitPrice:
           sku.price || orderDataItem?.price || orderDataItem?.unitPrice,
       });
@@ -422,7 +477,7 @@ class OrderGenerator extends BaseGenerator {
       orderStatus: parseInt(orderStatus, 10),
       externalReferenceCode:
         orderData.externalReferenceCode || createERC(ERC_PREFIX.ORDER),
-      items: orderItems,
+      orderItems: orderItems,
     };
   }
 
@@ -554,10 +609,66 @@ class OrderGenerator extends BaseGenerator {
         await new Promise((resolve) => setTimeout(resolve, retryDelayMs));
       }
 
-      const productsRes = await this.liferay.getProductsWithSkus(config, {
-        catalogId: config.catalogId,
-      });
-      products = productsRes.items || [];
+      try {
+        // A. Fetch all products from Catalog REST API
+        const productsRes = await this.liferay.getProducts(config, {
+          catalogId: config.catalogId,
+          pageSize: 200,
+        });
+        const fetchedProducts = productsRes.items || [];
+
+        // B. Fetch all SKUs globally from Liferay Catalog REST API synchronously
+        let allSkus = [];
+        try {
+          const res = await this.liferay.rest._get(
+            config,
+            '/o/headless-commerce-admin-catalog/v1.0/skus',
+            'get-skus-bulk',
+            'Get SKUs Bulk',
+            { params: { pageSize: 250 } }
+          );
+          // Standardize response items
+          allSkus = res?.items || (Array.isArray(res) ? res : []);
+        } catch (err) {
+          this.logger.warn(`Failed to fetch SKUs globally: ${err.message}`);
+        }
+
+        // C. Group SKUs by Product Name in memory to bypass ID mismatch (Catalog Entry ID vs Product Entity ID)
+        const skusByProductName = new Map();
+        for (const s of allSkus) {
+          const pName =
+            s.productName?.en_US || s.productName?.['en_US'] || s.productName;
+          if (pName) {
+            const normalizedName = String(pName).trim().toLowerCase();
+            if (!skusByProductName.has(normalizedName)) {
+              skusByProductName.set(normalizedName, []);
+            }
+            skusByProductName.get(normalizedName).push({
+              sku: s.sku,
+              purchasable: s.purchasable,
+              price: s.price,
+              externalReferenceCode: s.externalReferenceCode,
+            });
+          }
+        }
+
+        // D. Combine products with their grouped SKUs using Product Name
+        products = fetchedProducts.map((p) => {
+          const pName = p.name?.en_US || p.name?.['en_US'] || p.name;
+          const normalizedName = String(pName || '')
+            .trim()
+            .toLowerCase();
+          return {
+            ...p,
+            skus: skusByProductName.get(normalizedName) || [],
+          };
+        });
+      } catch (err) {
+        this.logger.warn(
+          `Failed during SQL-REST products/SKUs resolution: ${err.message}`
+        );
+      }
+
       attempts++;
     }
 

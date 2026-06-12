@@ -1,4 +1,5 @@
 import { vi, describe, it, expect, beforeEach } from 'vitest';
+import { server } from './setup.mjs';
 
 const { LiferayService } = require('../src/liferay/index.cjs');
 
@@ -117,6 +118,50 @@ describe('LiferayService', () => {
   it('should flatten localized names for channels', async () => {
     const result = await liferayService.getChannels(config);
     expect(result[0].name).toBe('Test Channel 1');
+  });
+
+  it('should auto-scaffold a Guest Web Store Channel if no channels exist and siteGroupId is valid', async () => {
+    const { http, HttpResponse } = require('msw');
+
+    let postPayload = null;
+
+    server.use(
+      http.get('*/o/headless-commerce-admin-channel/v1.0/channels', () => {
+        return HttpResponse.json({ items: [], totalCount: 0 });
+      }),
+      http.post(
+        '*/o/headless-commerce-admin-channel/v1.0/channels',
+        async ({ request }) => {
+          postPayload = await request.json();
+          return HttpResponse.json({
+            id: 999,
+            name: { en_US: 'Web Store' },
+            type: 'site',
+            siteGroupId: 20127,
+            externalReferenceCode: 'AICA-CH-GUEST-STORE-20127',
+          });
+        }
+      )
+    );
+
+    const result = await liferayService.getChannels({
+      ...config,
+      siteGroupId: 20127,
+      currencyCode: 'USD',
+      languageId: 'en_US',
+    });
+
+    expect(postPayload).toEqual({
+      name: { en_US: 'Web Store' },
+      type: 'site',
+      siteGroupId: 20127,
+      currencyCode: 'USD',
+      externalReferenceCode: 'AICA-CH-GUEST-STORE-20127',
+    });
+
+    expect(result).toHaveLength(1);
+    expect(result[0].id).toBe(999);
+    expect(result[0].name).toBe('Web Store');
   });
 
   it('should flatten localized names for currencies', async () => {

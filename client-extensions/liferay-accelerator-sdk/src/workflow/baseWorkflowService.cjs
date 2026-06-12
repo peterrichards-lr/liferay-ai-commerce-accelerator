@@ -41,7 +41,7 @@ class BaseWorkflowService {
   _ensureValidStep(stepKey) {
     if (!this.isValidStep(stepKey)) {
       throw new Error(
-        `Unregistered workflow step key: '${stepKey}'. Please add it to WORKFLOW_STEPS in constants.cjs`
+        `Unregistered workflow step key: '${stepKey}'. Please add it to WORKFLOW_STEPS in constants.cjs` // pragma: allowlist secret
       );
     }
   }
@@ -106,23 +106,55 @@ class BaseWorkflowService {
     try {
       const result = await submitFn(batchERC, session);
 
-      if (result && result.batchId) {
+      const isAlreadyCompleted =
+        result && result.status && result.status.toLowerCase() === 'completed';
+
+      if (isAlreadyCompleted || (result && result.batchId)) {
+        const batchId = result.batchId || 'simulated-batch';
+
         await this.persistence.updateBatch(batchERC, {
-          status: 'SUBMITTED',
-          downstreamBatchId: result.batchId,
+          status: isAlreadyCompleted ? 'COMPLETED' : 'SUBMITTED',
+          downstreamBatchId: batchId,
+          ...(isAlreadyCompleted && { completedCount: itemsCount }),
         });
 
         this.progress.batchStarted({
           sessionId,
           batchERC,
-          batchId: result.batchId,
+          batchId: batchId,
           totalItems: itemsCount,
           entityType,
           operation,
           correlationId: session.correlationId,
         });
 
-        return { batchERC, batchId: result.batchId };
+        if (isAlreadyCompleted) {
+          this.progress.batchCompleted({
+            sessionId,
+            batchERC,
+            correlationId: session.correlationId,
+          });
+          // Since we are in the SDK, we don't have direct access to batchCallback,
+          // but we can just use completeSyncStep to force the advancement!
+          setTimeout(() => {
+            this.completeSyncStep(sessionId, stepKey, 'COMPLETED')
+              .then(() => {
+                if (this.ctx.batchCallback) {
+                  this.ctx.batchCallback._checkSessionCompletion(
+                    sessionId,
+                    session.correlationId
+                  );
+                }
+              })
+              .catch((e) =>
+                this.logger.error(
+                  `Failed to auto-advance simulated batch: ${e.message}`
+                )
+              );
+          }, 500);
+        }
+
+        return { batchERC, batchId: batchId };
       } else {
         throw new Error(
           `Failed to obtain batchId from Liferay for step '${stepKey}'`

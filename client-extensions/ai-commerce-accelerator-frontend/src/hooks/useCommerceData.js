@@ -88,6 +88,12 @@ export default function useCommerceData({
 
   const testConnection = async (options = {}) => {
     const { silent = false } = options;
+    console.log(
+      '[DEBUG] testConnection started. silent:',
+      silent,
+      'config:',
+      config
+    );
 
     const errs = getConnectionErrorsMap(config);
     if (!silent) setConnectionErrors(errs);
@@ -100,6 +106,7 @@ export default function useCommerceData({
         const el = document.getElementById(`conn_${firstKey}`);
         if (el) el.focus();
       });
+      console.error('[DEBUG] testConnection validation failed:', errs);
       throw new Error('Fix the highlighted issues to continue.');
     }
 
@@ -131,6 +138,7 @@ export default function useCommerceData({
 
       return res;
     } catch (err) {
+      console.error('[DEBUG] testConnection error:', err.message, err);
       setConnectionEstablished(false);
       if (!silent) throw err;
     }
@@ -327,8 +335,15 @@ export default function useCommerceData({
     const res = await api.post(DELETE_COMMERCE_DATA, payload);
     if (res?.summary) {
       logDeletionSummary(res.summary);
+      if (addLog) addLog('Deletion session completed successfully.', 'success');
+      if (setProgress) {
+        setProgress({
+          type: 'SET_WORKFLOW_STATUS',
+          status: 'completed',
+        });
+      }
     }
-  }, [api, buildPayload, logDeletionSummary, setProgress]);
+  }, [api, buildPayload, logDeletionSummary, addLog, setProgress]);
 
   const handleDeleteSelectedCommerceData = useCallback(
     async (scope) => {
@@ -337,9 +352,17 @@ export default function useCommerceData({
       const res = await api.post(DELETE_SELECTED_COMMERCE_DATA, payload);
       if (res?.summary) {
         logDeletionSummary(res.summary);
+        if (addLog)
+          addLog('Deletion session completed successfully.', 'success');
+        if (setProgress) {
+          setProgress({
+            type: 'SET_WORKFLOW_STATUS',
+            status: 'completed',
+          });
+        }
       }
     },
-    [api, buildPayload, logDeletionSummary, setProgress]
+    [api, buildPayload, logDeletionSummary, addLog, setProgress]
   );
 
   return {

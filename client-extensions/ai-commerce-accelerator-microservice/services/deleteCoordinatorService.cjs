@@ -435,6 +435,12 @@ class DeleteCoordinatorService extends BaseGenerator {
     let totalCount = targetItems ? targetItems.length : 0;
     let hasItems = totalCount > 0;
 
+    // Special steps that do not rely on item arrays
+    if (stepName === S.RESET_CATALOG_CONFIG) {
+      hasItems = true;
+      totalCount = 1;
+    }
+
     // Only perform real-time checks if no manifest was generated (legacy/manual paths)
     if (!manifest) {
       const check = await this._checkIfEntitiesExist(
@@ -596,6 +602,7 @@ class DeleteCoordinatorService extends BaseGenerator {
 
     const steps = [
       { name: S.DISCOVER, type: 'sync' },
+      { name: S.RESET_CATALOG_CONFIG, type: 'sync' },
       { name: S.DELETE_ORDERS, type: 'sync' },
       { name: S.DELETE_WAREHOUSE_ITEMS, type: 'sync' },
       { name: S.DELETE_WAREHOUSES, type: 'sync' },
@@ -608,7 +615,6 @@ class DeleteCoordinatorService extends BaseGenerator {
       { name: S.DELETE_SPECIFICATIONS, type: 'sync' },
       { name: S.DELETE_OPTIONS, type: 'sync' },
       { name: S.DELETE_OPTION_CATEGORIES, type: 'sync' },
-      { name: S.RESET_CATALOG_CONFIG, type: 'sync' },
     ];
 
     this.persistence.createSession({
@@ -713,7 +719,7 @@ class DeleteCoordinatorService extends BaseGenerator {
       (s) => s.name === S.DELETE_PRICE_LISTS || s.name === S.DELETE_PROMOTIONS
     );
     if (hasPricing && !steps.some((s) => s.name === S.RESET_CATALOG_CONFIG)) {
-      steps.push({ name: S.RESET_CATALOG_CONFIG, type: 'sync' });
+      steps.unshift({ name: S.RESET_CATALOG_CONFIG, type: 'sync' });
     }
 
     // Always add DISCOVER at the start to build the manifest based on selected channel/catalog

@@ -190,8 +190,8 @@ const gracefulShutdown = async (signal) => {
 
   app.use(
     cors({
-      origin: allowList,
-      credentials: true,
+      origin: process.env.NODE_ENV === 'test' ? '*' : allowList,
+      credentials: process.env.NODE_ENV !== 'test', // Credentials cannot be true when origin is '*'
       optionsSuccessStatus: 200,
       exposedHeaders: ['X-Correlation-ID'],
     })

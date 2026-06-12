@@ -45,19 +45,53 @@ class LiferayService {
   // --- Discovery Methods (Standardized Entry Points with Exclusions) ---
 
   async getProductsWithSkus(config, { catalogId, pageSize = 200 } = {}) {
-    const { items } = await this.graphql.getProducts(
-      config,
-      catalogId ? `catalogId eq ${catalogId}` : null,
-      [
-        'id',
-        'externalReferenceCode',
-        'productId',
-        'name',
-        'productStatus',
-        'skus { sku purchasable price }',
-      ],
-      { page: 1, pageSize }
-    );
+    // 1. Fetch all products
+    const { items: products } = await this.getProducts(config, {
+      catalogId,
+      pageSize,
+    });
+
+    // 2. Fetch all SKUs globally from SQL to ensure real-time consistency
+    let allSkus = [];
+    try {
+      const res = await this.rest._get(
+        config,
+        PATH.SKUS,
+        'get-skus-bulk',
+        'Get SKUs Bulk',
+        { params: { pageSize: 250 } }
+      );
+      allSkus = asItems(res);
+    } catch (err) {
+      this.ctx.logger.warn(`Failed to fetch SKUs globally: ${err.message}`);
+    }
+
+    // 3. Map SKUs by productId in memory
+    const skusByProductId = new Map();
+    for (const s of allSkus) {
+      const pId = s.productId || s.product?.id;
+      if (pId) {
+        if (!skusByProductId.has(pId)) {
+          skusByProductId.set(pId, []);
+        }
+        skusByProductId.get(pId).push({
+          sku: s.sku,
+          purchasable: s.purchasable,
+          price: s.price,
+          externalReferenceCode: s.externalReferenceCode,
+        });
+      }
+    }
+
+    // 4. Associate SKUs to products
+    const items = products.map((p) => {
+      const targetId = p.productId || p.id;
+      return {
+        ...p,
+        skus: skusByProductId.get(targetId) || [],
+      };
+    });
+
     return { items, totalCount: items.length };
   }
 
@@ -1326,7 +1360,40 @@ class LiferayService {
         params: { page: 1, pageSize: 100 },
       }
     );
-    const items = asItems(res);
+    let items = asItems(res);
+
+    // Self-Healing: If there are no active Commerce Channels, auto-scaffold a Guest Web Store Channel
+    const siteGroupId = parseInt(config.siteGroupId, 10);
+    if (items.length === 0 && siteGroupId > 0) {
+      this.ctx.logger.info(
+        `No active Commerce channels discovered. Auto-scaffolding a Guest Web Store Channel...`,
+        { siteGroupId }
+      );
+      try {
+        const lang = config.languageId || 'en_US';
+        const newChannel = await this.rest._post(
+          config,
+          PATH.CHANNELS,
+          {
+            name: { [lang]: 'Web Store' },
+            type: 'site',
+            siteGroupId: siteGroupId,
+            currencyCode: config.currencyCode || 'USD',
+            externalReferenceCode: `AICA-CH-GUEST-STORE-${siteGroupId}`,
+          },
+          'create-channel',
+          'Failed to auto-scaffold Guest Web Store Channel'
+        );
+        if (newChannel) {
+          items.push(newChannel);
+        }
+      } catch (err) {
+        this.ctx.logger.warn(
+          `Self-healing Commerce Channel creation failed (handled): ${err.message}`
+        );
+      }
+    }
+
     return items.map((item) => ({
       ...item,
       name: fromI18n(item.name),

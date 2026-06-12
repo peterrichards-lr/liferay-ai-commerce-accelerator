@@ -26,9 +26,7 @@ export default function useRealtimeWebSocket({
 
   // Sync internal activeSessionIdRef with provided prop
   useEffect(() => {
-    if (providedSessionId && providedSessionId !== activeSessionIdRef.current) {
-      activeSessionIdRef.current = providedSessionId;
-    }
+    activeSessionIdRef.current = providedSessionId;
   }, [providedSessionId]);
 
   // Use refs for callbacks to prevent reconnection loops when they change identity
@@ -150,6 +148,35 @@ export default function useRealtimeWebSocket({
     },
     [logDebug, logError]
   );
+
+  // REST Polling Fallback when WebSocket is offline/unsupported
+  useEffect(() => {
+    let intervalId;
+    if (enabled && microserviceUrl && providedSessionId && !wsConnected) {
+      logInfo(
+        '🔌 WebSocket is offline. Activating REST polling fallback for session ' +
+          providedSessionId
+      );
+      intervalId = setInterval(() => {
+        if (activeSessionIdRef.current) {
+          hydrateSessionStatus(activeSessionIdRef.current);
+        }
+      }, 5000); // Poll every 5 seconds
+    }
+    return () => {
+      if (intervalId) {
+        clearInterval(intervalId);
+        logInfo('🔌 Deactivating REST polling fallback.');
+      }
+    };
+  }, [
+    enabled,
+    microserviceUrl,
+    providedSessionId,
+    wsConnected,
+    hydrateSessionStatus,
+    logInfo,
+  ]);
 
   const cleanupSocket = useCallback(() => {
     if (reconnectTimerRef.current) {

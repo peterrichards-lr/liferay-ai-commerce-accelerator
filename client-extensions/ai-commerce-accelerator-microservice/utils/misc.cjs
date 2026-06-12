@@ -3,8 +3,12 @@ const liferayConfig = require('../config/liferayConfig.cjs');
 const { ErrorHandler } = require('./errorHandler.cjs');
 const { ERC_PREFIX } = require('./constants.cjs');
 
-function getRandomInt(max) {
-  return Math.floor(Math.random() * max);
+function getRandomInt(min, max) {
+  if (max === undefined) {
+    max = min;
+    min = 0;
+  }
+  return Math.floor(Math.random() * (max - min)) + min;
 }
 
 function now() {

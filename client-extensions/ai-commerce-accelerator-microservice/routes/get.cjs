@@ -82,14 +82,7 @@ module.exports = (app, { liferayService, logger }) => {
     inputValidationMiddleware(connectionSchema),
     async (req, res) => {
       try {
-        const { liferayUrl, clientId, clientSecret, localeCode } = req.body;
-
-        const channels = await liferayService.getChannels({
-          liferayUrl,
-          clientId,
-          clientSecret,
-          localeCode,
-        });
+        const channels = await liferayService.getChannels(req.body);
 
         res.json({
           success: true,

@@ -703,6 +703,7 @@ class PersistenceService {
     this.db.prepare('DELETE FROM workflow_events').run();
     this.db.prepare('DELETE FROM workflow_batches').run();
     this.db.prepare('DELETE FROM workflow_sessions').run();
+    this.db.prepare('DELETE FROM queue_jobs').run();
     this.cache.clear();
   }
 
@@ -715,6 +716,9 @@ class PersistenceService {
       .run(cutoffTimestamp);
     this.db
       .prepare('DELETE FROM workflow_sessions WHERE created_at < ?')
+      .run(cutoffTimestamp);
+    this.db
+      .prepare('DELETE FROM queue_jobs WHERE created_at < ?')
       .run(cutoffTimestamp);
     this.cache.clear();
   }

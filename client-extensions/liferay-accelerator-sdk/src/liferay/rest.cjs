@@ -1144,7 +1144,7 @@ class LiferayRestService {
         }
       );
 
-      const url = path(callbackUrl);
+      const url = path(callbackUrl, currentERC);
       const currentBatchPayload = {
         ...batchPayload,
         batchExternalReferenceCode: currentERC,
@@ -1486,27 +1486,54 @@ class LiferayRestService {
   }
 
   async createWarehouseItemsBatch(config, itemsData, opts = {}) {
-    const warehouseERC = opts.warehouseExternalReferenceCode;
+    const { logger } = this.ctx;
     const warehouseId = opts.warehouseId;
+    logger.info(
+      `Simulating batch creation of ${itemsData.length} inventory items for warehouse ${warehouseId} to bypass Liferay DXP platform bug...`,
+      {
+        sessionId: opts.sessionId,
+      }
+    );
 
-    const results = await this._postBatch(config, {
-      entityName: 'inventory',
-      items: itemsData,
-      externalReferenceCode: opts.externalReferenceCode,
-      itemERCKey: 'externalReferenceCode',
-      op: 'create-inventory-batch',
-      friendly: 'Failed to create inventory batch',
-      path: (callback) =>
-        PATH.WAREHOUSE_INVENTORY_BATCH_SCOPED(
-          warehouseId,
-          warehouseERC,
-          callback
-        ),
-      sessionId: opts.sessionId,
-      session: opts.session,
-      createStrategy: 'UPSERT',
-      skipItemERC: true,
-    });
+    const results = {
+      status: 'completed',
+      batchId: `simulated-inventory-batch-${Date.now()}`,
+      count: 0,
+      batchExternalReferenceCode:
+        opts.externalReferenceCode || `AICA-BATCH-SIM-INV-${Date.now()}`,
+      errors: [],
+    };
+
+    // Process in smaller chunks concurrently
+    const concurrency = 5;
+    for (let i = 0; i < itemsData.length; i += concurrency) {
+      const chunk = itemsData.slice(i, i + concurrency);
+      await Promise.all(
+        chunk.map(async (entry) => {
+          try {
+            await this._post(
+              config,
+              PATH.WAREHOUSE_INVENTORIES(warehouseId),
+              entry,
+              'create-inventory-item',
+              'Failed to create inventory item'
+            );
+            results.count++;
+          } catch (err) {
+            results.errors.push({ sku: entry.sku, error: err.message });
+            logger.warn(
+              `Failed to create simulated batch inventory item for SKU ${entry.sku}: ${err.message}`
+            );
+          }
+        })
+      );
+    }
+
+    if (results.errors.length > 0) {
+      throw new Error(
+        `Failed to create ${results.errors.length} inventory items during simulated batch`
+      );
+    }
 
     return results;
   }
@@ -2096,38 +2123,78 @@ class LiferayRestService {
   }
 
   async createPriceEntriesBatch(config, priceEntriesData, opts = {}) {
-    const results = await this._postBatch(config, {
-      entityName: 'priceentry',
-      items: priceEntriesData,
-      externalReferenceCode: opts.externalReferenceCode,
-      itemERCKey: 'externalReferenceCode',
-      op: 'create-price-entries-batch',
-      friendly: 'Failed to create price entries batch',
-      method: 'POST',
-      path: (callback) => {
-        if (opts.priceListExternalReferenceCode || opts.priceListId) {
-          return PATH.PRICE_LIST_PRICE_ENTRIES_BATCH(
-            opts.priceListExternalReferenceCode,
-            callback
-          );
-        }
-        return PATH.PRICE_ENTRIES_BATCH_POST(callback);
-      },
-      sessionId: opts.sessionId,
-      session: opts.session,
-    });
+    const { logger } = this.ctx;
+    logger.info(
+      `Simulating batch creation of ${priceEntriesData.length} price entries to bypass Liferay DXP platform bug...`,
+      {
+        sessionId: opts.sessionId,
+      }
+    );
+
+    const results = {
+      status: 'completed',
+      batchId: `simulated-batch-${Date.now()}`,
+      count: 0,
+      batchExternalReferenceCode:
+        opts.externalReferenceCode || `AICA-BATCH-SIM-${Date.now()}`,
+      errors: [],
+    };
+
+    // Process in smaller chunks to avoid overwhelming the REST API
+    const concurrency = 5;
+    for (let i = 0; i < priceEntriesData.length; i += concurrency) {
+      const chunk = priceEntriesData.slice(i, i + concurrency);
+      await Promise.all(
+        chunk.map(async (entry) => {
+          try {
+            await this.createPriceEntry(config, entry.priceListId, entry);
+            results.count++;
+          } catch (err) {
+            results.errors.push({
+              sku: entry.skuExternalReferenceCode,
+              error: err.message,
+            });
+            logger.warn(
+              `Failed to create simulated batch price entry for SKU ${entry.skuExternalReferenceCode}: ${err.message}`
+            );
+          }
+        })
+      );
+    }
+
+    if (results.errors.length > 0) {
+      throw new Error(
+        `Failed to create ${results.errors.length} price entries during simulated batch`
+      );
+    }
 
     return results;
   }
 
   async createPriceEntry(config, priceListId, priceEntryData) {
-    return await this._post(
+    const { tierPrices, ...entryData } = priceEntryData;
+
+    const result = await this._post(
       config,
       PATH.PRICE_ENTRIES(priceListId),
-      priceEntryData,
+      entryData,
       'create-price-entry',
       'Failed to create price entry'
     );
+
+    if (tierPrices && tierPrices.length > 0 && result && result.id) {
+      for (const tp of tierPrices) {
+        await this._post(
+          config,
+          `${PATH.PRICE_ENTRY(result.id)}/tier-prices`,
+          tp,
+          'create-tier-price',
+          'Failed to create tier price'
+        );
+      }
+    }
+
+    return result;
   }
 
   async createSkuPriceEntry(config, priceListId, skuId, priceEntryData) {
@@ -2286,17 +2353,14 @@ class LiferayRestService {
   }
 
   async createSpecificationCategory(config, categoryData) {
-    const isOptionCategories =
-      PATH.SPECIFICATION_CATEGORIES.includes('optionCategories');
-    let payload = { ...categoryData };
-
-    if (isOptionCategories) {
-      // Safely translate and sanitize the SpecificationCategory DTO into the legacy OptionCategory DTO
-      payload = {
-        externalReferenceCode: categoryData.externalReferenceCode,
-        name: categoryData.name || categoryData.title,
-      };
-    }
+    // Both legacy and modern DXP endpoints use 'title' and 'key'.
+    // Do not attempt to map to 'name' as Jackson will strictly reject it.
+    const payload = {
+      externalReferenceCode: categoryData.externalReferenceCode,
+      title: categoryData.title,
+      description: categoryData.description,
+      key: categoryData.key,
+    };
 
     return await this._post(
       config,
@@ -2344,7 +2408,7 @@ class LiferayRestService {
         if (existing) {
           return existing;
         }
-      } catch (err) {
+      } catch (_err) {
         // Ignore pre-check lookup errors and fall back to creation
       }
     }
@@ -2478,14 +2542,14 @@ class LiferayRestService {
     if (erc) {
       try {
         existing = await this.getSpecificationByERC(config, erc);
-      } catch (err) {
+      } catch (_err) {
         // Ignore and try key
       }
     }
     if (!existing && key) {
       try {
         existing = await this.getSpecificationByKey(config, key);
-      } catch (err) {
+      } catch (_err) {
         // Ignore and fall back to create
       }
     }
@@ -2602,14 +2666,14 @@ class LiferayRestService {
     if (erc) {
       try {
         existing = await this.getOptionByERC(config, erc);
-      } catch (err) {
+      } catch (_err) {
         // Ignore and try key
       }
     }
     if (!existing && key) {
       try {
         existing = await this.getOptionByKey(config, key);
-      } catch (err) {
+      } catch (_err) {
         // Ignore and fall back to create
       }
     }

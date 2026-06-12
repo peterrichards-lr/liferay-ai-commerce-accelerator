@@ -111,9 +111,45 @@ function cleanup() {
   }
 }
 
+async function waitForLiferayObjects() {
+  process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0';
+  const liferayUrl = process.env.LIFERAY_URL || 'http://localhost:8080';
+  const username = process.env.LIFERAY_API_USERNAME || 'test@liferay.com';
+  const password = process.env.LIFERAY_API_PASSWORD || 'test';
+  const authHeader = `Basic ${Buffer.from(`${username}:${password}`).toString('base64')}`;
+
+  const checkUrl = `${liferayUrl}/o/c/aicaconfigurations`;
+  console.log(
+    `>>> Waiting for Liferay Custom Objects to be fully published at ${checkUrl}...`
+  );
+
+  const maxAttempts = 60; // 10 minutes (60 * 10s)
+  for (let i = 1; i <= maxAttempts; i++) {
+    try {
+      const res = await fetch(checkUrl, {
+        headers: { Authorization: authHeader },
+      });
+      if (res.ok) {
+        console.log('>>> Liferay Custom Objects are READY.');
+        return;
+      }
+      console.log(
+        `>>> Object API not ready (${res.status}). Waiting 10s... (Attempt ${i}/${maxAttempts})`
+      );
+    } catch (e) {
+      console.log(
+        `>>> Connection error (${e.message}). Waiting 10s... (Attempt ${i}/${maxAttempts})`
+      );
+    }
+    await new Promise((r) => setTimeout(r, 10000));
+  }
+  throw new Error('Liferay Custom Objects failed to publish within timeout.');
+}
+
 async function main() {
   try {
     console.log('>>> [START] E2E Verification Orchestrator');
+    await waitForLiferayObjects();
     await startMicroservice();
     console.log('>>> [STEP] Microservice started and healthy.');
 
