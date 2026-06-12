@@ -118,10 +118,10 @@ We enforce [Conventional Commits](https://www.conventionalcommits.org/). Commit 
 
 ## 📥 Submitting a Pull Request
 
-1. **Create a Branch**: Always branch from `master` (or `main`) and name it logically:
+1. **Create a Branch**: Always branch from `master` and name it logically matching the Conductor Track IDs:
 
    ```bash
-   git checkout -b feat/add-new-generator
+   git checkout -b feature/persona-orders
    ```
 
 2. **Commit Changes**: Ensure your commit messages are conventional and all linting/testing passes.
@@ -133,5 +133,46 @@ We enforce [Conventional Commits](https://www.conventionalcommits.org/). Commit 
    ```
 
 4. **Push & PR**: Push to your fork and submit a PR to the upstream repository. Ensure you describe **what** changed and **why** (include test logs or manual steps to verify).
+
+---
+
+## 🛡️ Repository Branching & PR Rulesets (Strict Gates)
+
+To maintain absolute code quality, stability, and a logical git history as the accelerator expands, this repository enforces the following strict engineering gates:
+
+### 1. Feature Branch Isolation
+
+- Direct pushes to the remote `master` branch are strictly prohibited for new roadmap items.
+- All new developments, refactoring, or track features MUST be developed on isolated branches named `feature/<track-id>` (matching active items in the [Conductor Tracks Registry](conductor/tracks.md), e.g., `feature/persona-orders`).
+
+### 2. Local Pre-flight Gatekeeper (`verify:all`)
+
+- Before pushing any branch or opening/updating a Pull Request, developers (and AI assistants) **MUST** execute the local E2E validation pipeline:
+
+  ```bash
+  LIFERAY_API_PASSWORD=test LIFERAY_API_USERNAME=test@liferay.com bash scripts/run-e2e-ldm.sh -v -k
+  ```
+
+  This validates static linting, schema validation, contract compliancy, all unit tests, and Playwright E2E suites. **PRs will not be approved unless the local run reports a perfect 100% green pass.**
+
+### 3. Squash and Merge Policy
+
+- All Pull Requests merged into `master` **MUST** be squashed into exactly **one** linear commit.
+- This keeps our master git log clean, logical, and highly parseable.
+
+### 4. Squash Message Conventional Spec
+
+- The final squashed commit message upon PR merge must follow conventional spec mapping to the track or component scope:
+
+  ```text
+  feat(<track-id>): brief summary of what was added
+
+  - Detail 1 of change
+  - Detail 2 of change
+  ```
+
+  _(e.g., `feat(persona-orders): implement intelligent AI persona order seeding`)_
+
+---
 
 Thank you for contributing!

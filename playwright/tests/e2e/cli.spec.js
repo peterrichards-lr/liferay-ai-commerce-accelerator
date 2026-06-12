@@ -48,7 +48,7 @@ test.describe('AICA Headless CLI Client E2E Verification', () => {
     // 2. Export dataset using the CLI
     const tempExportPath = path.resolve(
       __dirname,
-      `../../../test-results/cli-export-${sessionId}.json`
+      `../../../test-results/cli-export-latest.json`
     );
     const stdout = await runCliCommand(
       `${aicaBin} export ${sessionId} ${tempExportPath}`
@@ -63,6 +63,24 @@ test.describe('AICA Headless CLI Client E2E Verification', () => {
     const parsed = JSON.parse(dataContent);
     expect(parsed.products).toBeDefined();
     expect(parsed.accounts).toBeDefined();
+  });
+
+  test('should successfully import and re-scaffold a dataset using config import', async () => {
+    test.setTimeout(120000);
+
+    const tempExportPath = path.resolve(
+      __dirname,
+      `../../../test-results/cli-export-latest.json`
+    );
+    expect(fs.existsSync(tempExportPath)).toBe(true);
+
+    const stdout = await runCliCommand(`${aicaBin} import ${tempExportPath}`);
+
+    expect(stdout).toContain('Reading dataset from');
+    expect(stdout).toContain('Uploading dataset payload to target DXP');
+    expect(stdout).toContain('Import Scaffolding Started');
+    expect(stdout).toContain('Progress:');
+    expect(stdout).toContain('Success! Session successfully completed');
   });
 
   test('should successfully retrieve current configuration using config get', async () => {
