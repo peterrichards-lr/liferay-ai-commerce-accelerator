@@ -167,6 +167,10 @@ test.describe('AICA End-to-End Verification', () => {
       .getByLabel(/Accounts/i)
       .first()
       .fill('5');
+    await page
+      .getByLabel(/Orders/i)
+      .first()
+      .fill('5');
 
     // Ensure we create a fresh warehouse since database is clean
     const warehouseCheckbox = page.getByLabel(/Create Warehouses/i).first();
