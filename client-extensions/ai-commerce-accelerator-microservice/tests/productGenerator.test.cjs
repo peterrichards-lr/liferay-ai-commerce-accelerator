@@ -141,4 +141,52 @@ describe('ProductGenerator', () => {
     expect(batches.length).toBeGreaterThan(0);
     expect(mockCtx.liferay.createProductsBatch).toHaveBeenCalled();
   });
+
+  it('should run update inventory step and set backorders properties if enableBackorders is active', async () => {
+    const sessionId = 'test-inventory-session';
+    persistence.createSession({
+      sessionId,
+      flowType: 'generate',
+      status: 'STARTED',
+      context: {
+        config: { catalogId: '123' },
+        options: {
+          inventoryMin: 50,
+          inventoryMax: 100,
+          enableBackorders: true,
+          backorderAssignmentRatio: 100,
+        },
+        productDataList: [
+          {
+            name: 'Test Product',
+            skus: [{ sku: 'SKU-BACKORDER' }],
+          },
+        ],
+        warehouseDataList: [{ id: 'wh-1', name: 'Warehouse 1' }],
+      },
+    });
+
+    generator.submitBatch = vi.fn().mockResolvedValue({});
+    generator.liferay.getWarehouses = vi.fn().mockResolvedValue({
+      items: [{ id: 'wh-1', name: 'Warehouse 1' }],
+    });
+    generator.liferay.rest = {
+      _post: vi.fn().mockResolvedValue({}),
+    };
+
+    await generator._runUpdateInventoryStep(sessionId);
+
+    const submitBatchArgs = generator.submitBatch.mock.calls[0];
+    const callback = submitBatchArgs[4];
+    await callback('erc-test');
+
+    const postCalls = generator.liferay.rest._post.mock.calls;
+    expect(postCalls[0][2]).toEqual(
+      expect.objectContaining({
+        sku: 'SKU-BACKORDER',
+        backorderable: true,
+        backorderLimit: 100,
+      })
+    );
+  });
 });
