@@ -68,6 +68,7 @@ if (
     'delete',
     'export',
     'import',
+    'config',
     '--help',
     '-h',
   ].includes(command) === false
@@ -120,6 +121,9 @@ for (let i = 1; i < args.length; i++) {
         break;
       case 'import':
         await handleImport(args[1]);
+        break;
+      case 'config':
+        await handleConfig(args[1], args[2], args.slice(2));
         break;
     }
   } catch (err) {
@@ -261,6 +265,134 @@ async function handleImport(inputPath) {
   await pollProgress(res.sessionId);
 }
 
+async function handleConfig(subCommand, arg1, extraArgs) {
+  if (!subCommand || !['get', 'set'].includes(subCommand)) {
+    throw new Error(
+      'Usage: aica config <get | set> [filePath | --key <name> --value <val>]'
+    );
+  }
+
+  const credentials = buildConnectionPayload();
+
+  if (subCommand === 'get') {
+    console.log(
+      'Retrieving active configuration parameters from microservice...'
+    );
+
+    // 1. Fetch AI config & batch sizes in parallel
+    const [aiConfig, batchSizes] = await Promise.all([
+      nativePost(`${MICROSERVICE_URL}/api/v1/config/ai`, credentials),
+      nativePost(`${MICROSERVICE_URL}/api/v1/config/batch-sizes`, credentials),
+    ]);
+
+    const result = {
+      config: aiConfig.config || {},
+      generationConfig: aiConfig.generationConfig || {},
+      batchSizes: batchSizes.batchSizes || {},
+    };
+
+    console.log(JSON.stringify(result, null, 2));
+    return;
+  }
+
+  if (subCommand === 'set') {
+    if (!arg1) {
+      throw new Error(
+        'Please specify a configuration JSON file path, or --key <name> --value <val>'
+      );
+    }
+
+    let savePayload;
+
+    // A. Single Key Setter Flow: --key <name> --value <val>
+    if (arg1 === '--key') {
+      const keyIndex = extraArgs.indexOf('--key');
+      const valIndex = extraArgs.indexOf('--value');
+      const keyName = extraArgs[keyIndex + 1];
+      const valString = extraArgs[valIndex + 1];
+
+      if (!keyName || !valString) {
+        throw new Error('Usage: aica config set --key <name> --value <val>');
+      }
+
+      console.log(`Updating single property "${keyName}"...`);
+
+      // Retrieve current config first
+      const current = await nativePost(
+        `${MICROSERVICE_URL}/api/v1/config/ai`,
+        credentials
+      );
+      const config = current.config || {};
+      const genConfig = current.generationConfig || {};
+
+      // Parse primitive types dynamically
+      let typedVal = valString;
+      if (valString === 'true') typedVal = true;
+      else if (valString === 'false') typedVal = false;
+      else if (/^\d+$/.test(valString)) typedVal = parseInt(valString, 10);
+
+      // Determine where the key belongs (standard mapping)
+      const configKeys = [
+        'liferayUrl',
+        'clientId',
+        'clientSecret',
+        'localeCode',
+        'languageId',
+        'currencyCode',
+        'selectedLanguages',
+        'aiModel',
+        'batchSize',
+        'pollingDelay',
+        'pollingRetries',
+        'demoMode',
+      ];
+      if (configKeys.includes(keyName)) {
+        config[keyName] = typedVal;
+      } else {
+        genConfig[keyName] = typedVal;
+      }
+
+      savePayload = {
+        ...credentials,
+        config,
+        generationConfig: genConfig,
+      };
+    }
+    // B. Bulk Import/JSON File Setter Flow
+    else {
+      const filePath = path.resolve(process.cwd(), arg1);
+      if (!fs.existsSync(filePath)) {
+        throw new Error(`Configuration file not found at: ${filePath}`);
+      }
+
+      console.log(`Reading configuration from: ${filePath}...`);
+      const parsed = JSON.parse(fs.readFileSync(filePath, 'utf8'));
+
+      // Rehydrate required nested structure dynamically
+      savePayload = {
+        ...credentials,
+        config: parsed.config || parsed,
+        generationConfig: parsed.generationConfig || parsed,
+      };
+    }
+
+    // Save configuration parameters to microservice
+    const saveRes = await nativePost(
+      `${MICROSERVICE_URL}/api/v1/config/save`,
+      savePayload
+    );
+    if (!saveRes.success) {
+      throw new Error(
+        saveRes.error || 'Failed to save configuration parameters.'
+      );
+    }
+
+    console.log(
+      '\n🟢 Configuration updated successfully! Connection maintained.'
+    );
+  }
+}
+
 // --- 6. Helper APIs, Poller, and REST utilities ---
 
 function buildConnectionPayload() {
@@ -373,6 +505,9 @@ Commands:
   delete [--all | --selected]            Tear down and delete generated data
   export <sessionId> [outputPath]        Export completed dataset to a JSON file
   import <inputPath>                     Import a saved dataset onto the target
+  config get                             Retrieve active parameters from microservice
+  config set <filePath>                  Import parameters from a JSON configuration file
+  config set --key <name> --value <val>  Update a single configuration key dynamically
 
 Options:
   --demo                                 Use Mock Data instead of Gemini AI

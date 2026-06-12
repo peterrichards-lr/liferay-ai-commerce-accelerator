@@ -65,6 +65,55 @@ test.describe('AICA Headless CLI Client E2E Verification', () => {
     expect(parsed.accounts).toBeDefined();
   });
 
+  test('should successfully retrieve current configuration using config get', async () => {
+    const stdout = await runCliCommand(`${aicaBin} config get`);
+
+    expect(stdout).toContain('Retrieving active configuration parameters');
+
+    // Extract and parse JSON block
+    const jsonStart = stdout.indexOf('{');
+    const jsonStr = stdout.slice(jsonStart);
+    const parsed = JSON.parse(jsonStr);
+
+    expect(parsed.config).toBeDefined();
+    expect(parsed.generationConfig).toBeDefined();
+    expect(parsed.batchSizes).toBeDefined();
+  });
+
+  test('should successfully import bulk configuration using config set', async () => {
+    const configPath = path.resolve(
+      __dirname,
+      '../../../resources/sample-config-import.json'
+    );
+    expect(fs.existsSync(configPath)).toBe(true);
+
+    const setStdout = await runCliCommand(
+      `${aicaBin} config set ${configPath}`
+    );
+    expect(setStdout).toContain('Reading configuration from');
+    expect(setStdout).toContain('Configuration updated successfully');
+
+    // Retrieve and verify that products target count was updated to 10
+    const getStdout = await runCliCommand(`${aicaBin} config get`);
+    const jsonStart = getStdout.indexOf('{');
+    const parsed = JSON.parse(getStdout.slice(jsonStart));
+    expect(parsed.generationConfig.productCount).toBe(10);
+  });
+
+  test('should successfully update single key-value property using config set', async () => {
+    const setStdout = await runCliCommand(
+      `${aicaBin} config set --key productCount --value 15`
+    );
+    expect(setStdout).toContain('Updating single property "productCount"');
+    expect(setStdout).toContain('Configuration updated successfully');
+
+    // Retrieve and verify that products target count was updated to 15
+    const getStdout = await runCliCommand(`${aicaBin} config get`);
+    const jsonStart = getStdout.indexOf('{');
+    const parsed = JSON.parse(getStdout.slice(jsonStart));
+    expect(parsed.generationConfig.productCount).toBe(15);
+  });
+
   test('should execute aica delete --all to teardown generated data', async () => {
     test.setTimeout(120000);
 

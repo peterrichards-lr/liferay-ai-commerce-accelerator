@@ -1749,8 +1749,6 @@ class ProductGenerator extends BaseGenerator {
         inventoryMin = 10,
         inventoryMax = 100,
         inventoryAssignmentRatio = 100,
-        enableBackorders = false,
-        backorderAssignmentRatio = 50,
       } = options;
 
       for (const pd of productDataList) {
@@ -1765,18 +1763,12 @@ class ProductGenerator extends BaseGenerator {
           const warehouse =
             warehouses[Math.floor(Math.random() * warehouses.length)];
 
-          // Roll random dice to determine backorder eligibility based on configured ratio
-          const isBackorderable =
-            enableBackorders && Math.random() * 100 <= backorderAssignmentRatio;
-
           inventoryItems.push({
             sku: sku.sku,
             quantity:
               Math.floor(Math.random() * (inventoryMax - inventoryMin + 1)) +
               inventoryMin,
             warehouseId: warehouse.id,
-            backorderable: isBackorderable,
-            backorderLimit: isBackorderable ? 100 : 0,
           });
         }
       }
