@@ -12,7 +12,7 @@ const crypto = require('crypto');
 
 const { PATH, CUSTOM_OBJECTS, q } = require('../utils/liferayPaths.cjs');
 const { ASSET_TYPE } = require('../utils/liferayPermissions.cjs');
-const { ERC_PREFIX, OP_MAP, ENV } = require('../utils/constants.cjs');
+const { ERC_PREFIX, ENV } = require('../utils/constants.cjs');
 const { findContract } = require('../utils/contractMappings.cjs');
 const { delay, createERC } = require('../utils/misc.cjs');
 const { sanitizedERC } = require('../utils/normalize.cjs');
@@ -1956,7 +1956,7 @@ class LiferayRestService {
   }
 
   async createAccountsBatch(config, accountsData, opts = {}) {
-    const { logger, cache } = this.ctx;
+    const { logger } = this.ctx;
     const sessionId = opts.sessionId;
 
     if (!accountsData || accountsData.length === 0) {
@@ -2028,7 +2028,11 @@ class LiferayRestService {
       await Promise.all(
         toUpdate.map(async (acc) => {
           try {
-            await this.patchAccountByERC(config, acc.externalReferenceCode, acc);
+            await this.patchAccountByERC(
+              config,
+              acc.externalReferenceCode,
+              acc
+            );
           } catch (err) {
             if (logger) {
               logger.warn(

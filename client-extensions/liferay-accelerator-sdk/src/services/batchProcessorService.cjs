@@ -179,7 +179,12 @@ class BatchProcessorService {
           item,
         });
 
-        if (ErrorHandler.shouldStopBatch(results.errors, ENV.LIFERAY_MAX_BATCH_ERRORS || 3)) {
+        if (
+          ErrorHandler.shouldStopBatch(
+            results.errors,
+            ENV.LIFERAY_MAX_BATCH_ERRORS || 3
+          )
+        ) {
           logger.warn(
             `Stopping sequential processing due to ${
               results.errors.length
