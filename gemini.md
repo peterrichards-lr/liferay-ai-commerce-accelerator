@@ -2,66 +2,57 @@
 
 ## Current Goal
 
-Exclude the `./aica` folder from Yarn/NPM configuration, linter configs, and DXP Gradle workspace scanning to prevent build conflicts, duplicate project discovery, and redundant file validation.
+Ensure all E2E verification tests (`yarn verify` / `run-e2e-ldm.sh`) pass successfully, validating all AI data generation, deletion, and CLI control flows.
 
 ## Plan
 
-1. **Prepare Persistent State**: Initialize `gemini.md` (completed).
-2. **Exclude `aica` from Markdown Lint**: Update `package.json`'s `lint:md` script to ignore files inside the `aica/` directory (completed).
-3. **Exclude `aica` from Client Extension Validator**: Update `scripts/validate-cx.js` to skip the `aica` directory when searching for client extension configuration files (completed).
-4. **Exclude `aica` from DXP Workspace Scanning**: Update `gradle.properties` to specify `liferay.workspace.dir.excludes.globs=**/aica` to prevent DXP workspace Gradle plugins from scanning it (completed).
-5. **Verify/Review Results**: Run validation and build commands to confirm that `./aica` is successfully ignored and does not cause conflicts (completed).
+1. **Document Platform Bugs**: Create a `jira` directory at the project root and add detailed markdown bug reports for:
+   - Pricing v2.0 single POST `NotSupportedException` bug.
+   - GraphQL search index race condition / indexing lag.
+   - GraphQL "Collection not allowed" query permissions error.
+   - Warehouse Items batch endpoint mapping bug.
+2. **Fix CLI Deletion Session ID Resolution**: Update `handleDelete` in `scripts/aica-cli.cjs` to check `res.sessionId || res.summary?.sessionId` so that it doesn't fail when the microservice wraps the session details under the `summary` block.
+3. **Fix E2E Test Ordering**: Update `playwright/tests/e2e/cli.spec.js` to run the `delete --all` test _before_ `import`, ensuring a clean DXP instance that avoids duplicate entity/account entry errors. Add a final `delete --all` test as a post-test cleanup step.
+4. **Fix createAccountsBatch Unit Test**: Correct the batch count returned when all accounts exist in `createAccountsBatch` (rest.cjs) so that it returns 0 for batch count instead of duplicating `toUpdate.length`.
+5. **Add Coverage Checking**: Install `@vitest/coverage-v8` to analyze the exact SDK test coverage.
+6. **Create OAuth Unit Tests**: Write unit tests for the SDK `OAuthService` under `tests/oauth.test.js` to cover caching, error recovery, client configurations, token exchange, and retry settings. [Completed]
+7. **Create GraphQL Unit Tests**: Write unit tests for the SDK `LiferayGraphQLService` under `tests/graphql.test.js` to mock/validate queries, pagination, custom auth options, aliases, and error recovery. [Completed]
+8. **Fix Pricing Batch Idempotency Test Payload**: Add `priceListExternalReferenceCode` to the `compliantPayload` and resolve a valid SKU ERC from Liferay dynamically in `playwright/tests/smoke/sdk-idempotency.spec.js` so Liferay's batch task executor can resolve both PriceList and Sku. [Completed]
+9. **Resilient Product Batch Deletion**: Update `deleteProductsBatch` in `client-extensions/liferay-accelerator-sdk/src/liferay/index.cjs` to use `nativeBatch: false`. This aligns product deletion with all other entities, utilizing simulated batching which gracefully ignores missing products (404s) caused by Elasticsearch index lag. [Completed]
+10. **Execute E2E Verification**: Run `bash scripts/run-e2e-ldm.sh -v -k` to confirm everything passes. [Completed]
+11. **Fix CLI Import missing channelId/catalogId**: Destructure `liferayService` in `routes/import.cjs` and resolve missing `channelId` and `catalogId` from Liferay using the same fallback logic as `routes/generate.cjs` to support headless CLI imports. [Completed]
+12. **Enable generatePriceLists and generateSkuVariants during CLI Import**: Set `generatePriceLists: true` and `generateSkuVariants: true` in `routes/import.cjs` session context options to ensure the pricing engine and SKU engine correctly create and resolve target lists and variant SKUs in `importMode`. [Completed]
+13. **Increase E2E CLI Import Test Timeout**: Update the Playwright test `should successfully import and re-scaffold a dataset using config import` in `playwright/tests/e2e/cli.spec.js` timeout to 300000ms (5 minutes) to accommodate the additional scaffolding steps (price lists & SKUs creation). [Completed]
+14. **Harden Deletion HTTP Logging**: Add all batch delete operations to `SOFT_STATUS_BY_OP` in `rest.cjs` mapping to `[403, 404]`, so they are soft-resolved as `INFO` logs instead of system `ERROR` logs. [Completed]
+15. **Harden GraphQL Specification Query Logging**: Change GraphQL query exception logging in `graphql.cjs` from `error` to `warn` to prevent false-alarm alerts for handled queries. [Completed]
+16. **Configurable Request Retries**: Add `LIFERAY_API_MAX_RETRIES` to `constants.cjs` and use it in `_request` (rest.cjs) and `processWithRetry` (misc.cjs) to allow customizing the transient error retry threshold. [Completed]
+17. **Configurable Batch Deletion Threshold**: Add `LIFERAY_MAX_DELETION_ERRORS` to `constants.cjs` and enforce it in `_deleteByIds` (rest.cjs) to abort deletion flows if too many transient errors occur. [Completed]
+18. **Configurable Batch Processing Threshold**: Add `LIFERAY_MAX_BATCH_ERRORS` to `constants.cjs` and pass it to `shouldStopBatch` in `batchProcessorService.cjs` to stop sequential runs after a configurable number of failures. [Completed]
+19. **Unit Tests for Request Retries and Deletion Errors**: Add unit tests in `tests/resilience.test.mjs` to verify `LIFERAY_API_MAX_RETRIES` config override and `_deleteByIds` aborting when deletion errors meet threshold. [Completed]
+20. **Unit Tests for Batch Processor Threshold**: Add a unit test in `tests/batchProcessorService.test.js` to verify `LIFERAY_MAX_BATCH_ERRORS` limits sequential execution. [Completed]
+21. **Document Accounts Batch Upsert Limitation**: Create `jira/LPS-ACCOUNTS-BATCH-UPSERT.md` detailing why the Headless Admin User accounts batch API needs upsert support. [Completed]
+22. **Document Product Batch Delete Fragility**: Create `jira/LPS-PRODUCTS-BATCH-DELETE-RESILIENCE.md` explaining why native product batch deletion should be resilient to missing items (404s). [Completed]
+23. **Document Batch Delete Limitation**: Create `jira/LPS-COMMERCE-BATCH-DELETE-LIMITATION.md` detailing the lack of unified native batch delete endpoints for commerce and admin-user entities. [Completed]
+24. **Harden Account Batch Deletion soft statuses**: Add `400` to `SOFT_STATUS_BY_OP['accounts:batch-delete']` in `rest.cjs` to prevent default/system accounts deletion failures (which throw 400 Bad Request) from crashing the teardown flow. [Completed]
 
 ## Current Progress
 
-- `fragments-test-env` is running at `http://localhost:8080`.
-- Extracted `injectAndConnectApp` into `playwright/tests/e2e/test-helper.js` and parameterized the `liferay-url` attribute.
-- Configured Playwright settings to capture traces/videos on failure.
-- Identified strict-mode violation error: `button[type="submit"]` resolves to 3 buttons.
-- Fixed strict-mode violation by using a `getByRole` locator for the Start Generation button.
-- Identified new issue: `siteGroupId` is missing during dynamic custom element injection, preventing languages from being loaded and causing the button to be disabled.
-- Verified that `window.themeDisplay.getScopeGroupId()` returns `20127` and `window.themeDisplay.getLanguageId()` returns `en_US` successfully in page evaluate.
-- Removed diagnostic logging that crashed (`window.themeDisplay.getPathFriendlyURLPrivateGroup()`).
-- Next step: Run tests again with the cleaned-up `test-helper.js`.
-- Identified issue: The microservice's basic auth connection check failed with 401 because the root `.env` file specifies `LIFERAY_API_PASSWORD=L1feray$`, whereas the running local DXP container uses the default password `test`. Playwright succeeded because it defaulted to `test`.
-- Next step: Re-run verification tests passing `LIFERAY_API_PASSWORD=test` and `LIFERAY_API_USERNAME=test@liferay.com` in the environment.
-- Identified issue: Verification tests ran, but failed because the Channel dropdown auto-selection didn't fetch languages. Liferay Commerce returned `siteGroupId: 0` for the Web Store channel. The frontend hook `useCommerceData.js` used nullish coalescing `channel?.siteGroupId ?? siteGroupId ?? config.siteGroupId` which resolved to `0`, bypassing the correct site group ID `20127` in `config.siteGroupId`. Thus, fetching languages from `/o/headless-admin-user/v1.0/sites/0/languages` failed/was skipped.
-- Next step: Edit `client-extensions/ai-commerce-accelerator-frontend/src/hooks/useCommerceData.js` to change `??` to `||` for `siteGroupId` fallback, allowing `0` to fall back to the active page site group ID.
-- Identified issue: Verification tests failed because the SDK REST fallback for `getLanguages` used `/o/headless-admin-user/v1.0/sites/${siteGroupId}/languages` which returned 404. The correct endpoint is `/o/headless-delivery/v1.0/sites/${siteGroupId}/languages` (defined in `liferayPaths.cjs` as `PATH.SITE_LANGUAGES`).
-- Next step: Update `_getBaseCallbackUrl` in `client-extensions/liferay-accelerator-sdk/src/liferay/rest.cjs` to support overriding via a new `LIFERAY_BATCH_CALLBACK_URL` environment variable, enabling us to set it to `http://host.docker.internal:3001/api/v1/batch/callback` for E2E tests.
-- Completed unit tests and fixed code styling/linting across all client extensions and configurations. All tests and lint checks are now passing successfully.
-- Adding a shortcut script `ldm:init` in package.json to make it easy to start the LDM environment in a single command.
-- Updated default LDM project name in scripts/run-e2e-ldm.sh to 'aica' and simplified the package.json script.
-- Adding `ldm:init-from` and `ldm:monitor` commands to package.json scripts for local development workspace replication and hot-rebuild tracking.
-- Identified issue: E2E tests failed because data generation progress remained at 0%. Forensic logs showed Liferay container failed to post batch callbacks to the microservice (Connection refused on `localhost:3001`).
-  - **Fix Applied**: Exported `LIFERAY_BATCH_CALLBACK_URL="http://host.docker.internal:3001/api/v1/batch/callback"` inside `scripts/run-e2e-ldm.sh` to allow Liferay container to post batch callbacks back to the host machine.
-- Identified issue: Pricing batch import failed with a `405 Method Not Allowed` error because `PATH.PRICE_LIST_PRICE_ENTRIES_BATCH` in `liferayPaths.cjs` pointed to `/o/headless-commerce-admin-pricing/v2.0/price-entries/batch` (which only supports `DELETE`) using `BASE.PRICING_API` instead of `/o/headless-commerce-admin-pricing/v2.0/price-lists/price-entries/batch` (which supports `POST`) using `BASE.PRICE_LISTS`.
-  - **Fix Applied**: Updated `PRICE_LIST_PRICE_ENTRIES_BATCH` in `client-extensions/liferay-accelerator-sdk/src/utils/liferayPaths.cjs` to use `BASE.PRICE_LISTS`.
-- Identified issue: Price list deletion failed with `UnsupportedOperationException: Unable to delete by external reference code or ID` because Liferay's Pricing API does not support native batch deletes.
-  - **Fix Applied**: Updated `deletePriceListsBatch` and `deletePromotionsBatch` in `client-extensions/liferay-accelerator-sdk/src/liferay/index.cjs` to set `nativeBatch: false` (simulated batch deletes).
-- Identified issue: E2E tests failed with `Failed to create specification category` (400 Bad Request) because `PATH.SPECIFICATION_CATEGORIES` in `liferayPaths.cjs` was incorrectly mapped to `BASE.OPTION_CATEGORIES` (`/optionCategories`), which expects a `name` field, instead of `BASE.SPECIFICATION_CATEGORIES` (`/specification-categories`), which expects a `title` field.
-  - **Fix Applied**: Updated `SPECIFICATION_CATEGORIES`, `SPECIFICATION_CATEGORY`, and `SPECIFICATION_CATEGORY_BY_ERC` in `client-extensions/liferay-accelerator-sdk/src/utils/liferayPaths.cjs` to map to `BASE.SPECIFICATION_CATEGORIES`.
-- Completed unit tests and verified all tests pass.
-- Cleaned up duplicate/exited Docker containers to free up system memory and avoid OOM daemon container kills.
-- Optimized Husky git hooks to split pre-commit and pre-push duties:
-  - `pre-commit` now runs lightning-fast `lint-staged` targeting only staged changes.
-  - `pre-push` acts as a deep quality gate, executing full static linting and the entire unit test suite.
-- Implemented **Commit Message Linting** via standard `@commitlint/config-conventional` and a `.husky/commit-msg` hook to guarantee neat, parseable commit history records.
-- Added **Security Audit Checks** in CI workflow (`ci.yml`) to automatically output dependency vulnerability summaries, ensuring high security awareness without introducing false-positive build failures.
-- Created and integrated a **Liferay Client Extension (CX) Schema Validator** (`scripts/validate-cx.js`) to parse and assert correct structure (assemblies, valid types, required properties, scope formatting, and serviceAddress warnings) across all workspace packages.
-- Implemented **Inbound response Contract-Driven Validation** inside `LiferayRestService` (`rest.cjs`) and mapped GET endpoints (`contractMappings.cjs`). Created a dedicated, highly robust unit test suite (`tests/contracts.test.js`) to catch platform schema drifts and protect against DXP volatility.
-- Implemented **JS-Native Secrets Leak Prevention** sentinel (`scripts/detect-secrets.mjs`) inside `.husky/pre-commit` to prevent API keys, passwords, and private tokens from ever being committed to git across any developer's machine with zero external dependencies.
-- **Next step**: Run the fresh E2E verification test suite (`bash scripts/run-e2e-ldm.sh -v -k`) once quota/system resources are available.
-- **Current Goal Update**: Creating a quick live-run AI provider verification test script (`scripts/verify-live-ai.mjs`) to verify live generation workflows against real LLM APIs (Gemini, OpenAI, Anthropic) without manual browser steps.
-- **Identified Issue**: Live AI warehouse generation fails schema validation because `externalReferenceCode` is missing from the generated warehouse objects.
-  - The warehouse prompt (`prompts/warehouse.md`) lacks instructions for `externalReferenceCode`.
-  - The `_standardize` method in `generationFacade.cjs` fails to inject fallback ERCs for nested arrays within wrapped response objects.
-- **Plan**:
-  1. Add `externalReferenceCode` definition and example to `prompts/warehouse.md`.
-  2. Refactor `_standardize` in `generationFacade.cjs` to support wrapping structures and correctly standardize nested arrays.
-  3. Re-run live verification test.
+- Refactored `routes/config.cjs` to add POST handlers and created `tests/configRoutes.test.cjs` verifying local SQLite persistence (all 133 unit tests pass).
+- Identified that Liferay Commerce Pricing v2.0's single POST endpoint `/price-lists/{id}/price-entries` delegates internally to the Vulcan Batch Engine, but fails to propagate the parent `id` path parameter. This causes the task executor to crash with:
+  `jakarta.ws.rs.NotSupportedException: One of the following parameters must be specified: [externalReferenceCode]`
+- Verified that target price list templates in `productGenerator.cjs` have `externalReferenceCode` populated, allowing us to route requests to the ERC-scoped path `/price-lists/by-externalReferenceCode/{externalReferenceCode}/price-entries` which cleanly propagates the parameter.
+- Identified that `OrderGenerator.generateOrdersIndividually` invokes `ProgressService` progress logging methods (`batchStarted`, `batchProgress`, `batchCompleted`) without passing the required `sessionId`, which causes SQLite inserts to fail with `NOT NULL constraint failed: workflow_events.session_id`. Also, parameters for these calls were being passed in an obsolete two-argument format instead of a single object parameter.
+- Identified that `aica import` fails with duplicate account entry errors on persistent DXP environments because Liferay's `/o/headless-admin-user/v1.0/accounts/batch` endpoint doesn't support updates/upsert. Fix: execute `delete --all` first to clean the environment.
+- Identified that `aica delete --all` fails to submit because `routes/delete.cjs` returns the `sessionId` inside the `summary` property, whereas `scripts/aica-cli.cjs` expects it at the top level. Fix: fallback to checking `res.summary.sessionId`.
+- Ran a full E2E test run (task `task-2672`). Verified that the SDK idempotency, dashboard, and initial CLI tests passed. The failures were indeed the duplicate account error during import (due to DXP containing dirty data) and the delete command session ID extraction failure.
+- Fixed a bug in `createAccountsBatch` in [rest.cjs](file:///Volumes/SanDisk/repos/liferay-ai-commerce-accelerator/client-extensions/liferay-accelerator-sdk/src/liferay/rest.cjs#L2050) where it double-counted updated accounts, causing the unit test `should return completed status immediately if all accounts already exist` to fail. All 88 SDK tests now pass cleanly.
+- Installed `@vitest/coverage-v8` in the SDK and measured current statement coverage at **23.17%** (line coverage at **23.13%**).
+- Created a comprehensive test suite for `OAuthService` in [oauth.test.js](file:///Volumes/SanDisk/repos/liferay-ai-commerce-accelerator/client-extensions/liferay-accelerator-sdk/tests/oauth.test.js), achieving 52.44% statement coverage for oauth.cjs.
+- Ran background E2E test task `task-4112` which failed on the Playwright test `should successfully import and re-scaffold a dataset using config import` due to target price lists not being created on DXP during import.
+- Enabled `generatePriceLists: true` and `generateSkuVariants: true` during import sessions in `routes/import.cjs`.
+- Ran background E2E test task `task-4224` which failed because the import Playwright test timed out after 120s. Backend logs verified the import session successfully completed (in 136s) but exceeded the test's hard limit due to the extra scaffolding steps. Plan: increase test timeout to 300,000ms.
 
-## Secrets Leak Prevention (JS-Native Sentinel)
+## Secrets Leak Prevention (JS-Native Secrets Sentinel)
 
 To prevent accidental leakage of sensitive credentials, API keys, and private tokens, this repository integrates a custom, zero-dependency **JS-Native Secrets Sentinel** (`scripts/detect-secrets.mjs`) directly into the Git pre-commit workflow.
 

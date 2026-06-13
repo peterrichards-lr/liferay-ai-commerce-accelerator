@@ -365,4 +365,139 @@ describe('LiferayService', () => {
       expect(res.externalReferenceCode).toBe('MY-SET-1');
     });
   });
+
+  describe('createAccountsBatch with emulated UPSERT', () => {
+    it('should split accounts into new and existing, patching existing and batch-posting new', async () => {
+      const { http, HttpResponse } = require('msw');
+      let patchPayloads = [];
+      let postBatchPayload = null;
+
+      // Setup custom MSW handlers to capture and mock the emulated UPSERT calls
+      server.use(
+        http.post('*/o/graphql', () => {
+          return HttpResponse.json({
+            data: {
+              headlessAdminUser_v1_0: {
+                alias0: {
+                  id: 10,
+                  externalReferenceCode: 'ACC-EXISTING',
+                  name: 'Existing Account',
+                },
+                alias1: null,
+              },
+            },
+          });
+        }),
+        http.patch(
+          '*/o/headless-admin-user/v1.0/accounts/by-external-reference-code/:erc',
+          async ({ params, request }) => {
+            const data = await request.json();
+            patchPayloads.push({ erc: params.erc, data });
+            return HttpResponse.json({
+              id: 10,
+              externalReferenceCode: params.erc,
+              ...data,
+            });
+          }
+        ),
+        http.post(
+          '*/o/headless-admin-user/v1.0/accounts/batch',
+          async ({ request }) => {
+            postBatchPayload = await request.json();
+            return HttpResponse.json({
+              id: 9002,
+              status: 'INITIAL',
+            });
+          }
+        )
+      );
+
+      const accounts = [
+        { externalReferenceCode: 'ACC-EXISTING', name: 'Existing Account' },
+        { externalReferenceCode: 'ACC-NEW', name: 'New Account' },
+      ];
+
+      const results = await liferayService.createAccountsBatch(
+        config,
+        accounts,
+        {
+          sessionId: 'test-session-id',
+          externalReferenceCode: 'test-batch-erc',
+        }
+      );
+
+      // 1. Verify that patch was called for the existing account
+      expect(patchPayloads).toHaveLength(1);
+      expect(patchPayloads[0].erc).toBe('ACC-EXISTING');
+      expect(patchPayloads[0].data.name).toBe('Existing Account');
+
+      // 2. Verify that batch create was called for the new account
+      expect(postBatchPayload).not.toBeNull();
+      expect(postBatchPayload.createStrategy).toBe('UPSERT');
+      expect(postBatchPayload.items).toHaveLength(1);
+      expect(postBatchPayload.items[0].externalReferenceCode).toBe('ACC-NEW');
+
+      // 3. Verify final return count
+      expect(results.accountCount).toBe(2);
+      expect(results.batchId).toBe(9002);
+    });
+
+    it('should return completed status immediately if all accounts already exist', async () => {
+      const { http, HttpResponse } = require('msw');
+      let patchCount = 0;
+      let postBatchCalled = false;
+
+      server.use(
+        http.post('*/o/graphql', () => {
+          return HttpResponse.json({
+            data: {
+              headlessAdminUser_v1_0: {
+                alias0: {
+                  id: 10,
+                  externalReferenceCode: 'ACC-EXISTING-1',
+                  name: 'Existing 1',
+                },
+                alias1: {
+                  id: 11,
+                  externalReferenceCode: 'ACC-EXISTING-2',
+                  name: 'Existing 2',
+                },
+              },
+            },
+          });
+        }),
+        http.patch(
+          '*/o/headless-admin-user/v1.0/accounts/by-external-reference-code/:erc',
+          () => {
+            patchCount++;
+            return HttpResponse.json({ success: true });
+          }
+        ),
+        http.post('*/o/headless-admin-user/v1.0/accounts/batch', () => {
+          postBatchCalled = true;
+          return HttpResponse.json({ id: 9002 });
+        })
+      );
+
+      const accounts = [
+        { externalReferenceCode: 'ACC-EXISTING-1', name: 'Existing 1' },
+        { externalReferenceCode: 'ACC-EXISTING-2', name: 'Existing 2' },
+      ];
+
+      const results = await liferayService.createAccountsBatch(
+        config,
+        accounts,
+        {
+          sessionId: 'test-session-id',
+          externalReferenceCode: 'test-batch-erc',
+        }
+      );
+
+      expect(patchCount).toBe(2);
+      expect(postBatchCalled).toBe(false);
+      expect(results.status).toBe('completed');
+      expect(results.accountCount).toBe(2);
+      expect(results.batchId).toContain('batch-mock-');
+    });
+  });
 });

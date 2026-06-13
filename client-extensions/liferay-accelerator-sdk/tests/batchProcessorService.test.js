@@ -65,5 +65,29 @@ describe('BatchProcessorService', () => {
       await service.processSequentially(items, fn);
       expect(processed).toEqual([1, 2, 3]);
     });
+
+    it('should halt sequential processing when errors meet the configured threshold', async () => {
+      const items = [1, 2, 3, 4, 5];
+      const processed = [];
+      const fn = async (item) => {
+        processed.push(item);
+        const err = new Error(`Error on ${item}`);
+        err.response = { status: 400 };
+        throw err;
+      };
+
+      const { ENV } = require('../src/utils/constants.cjs');
+      const oldThreshold = ENV.LIFERAY_MAX_BATCH_ERRORS;
+      ENV.LIFERAY_MAX_BATCH_ERRORS = 2;
+
+      try {
+        const result = await service.processSequentially(items, fn);
+        expect(processed).toEqual([1, 2]);
+        expect(result.errors).toHaveLength(2);
+        expect(result.successful).toHaveLength(0);
+      } finally {
+        ENV.LIFERAY_MAX_BATCH_ERRORS = oldThreshold;
+      }
+    });
   });
 });

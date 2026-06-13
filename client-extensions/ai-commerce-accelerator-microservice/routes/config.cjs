@@ -43,8 +43,8 @@ function maskAIKey(rawKey) {
   return rawKey.slice(0, 4) + '********' + rawKey.slice(-4);
 }
 
-module.exports = (app, { logger, configService }) => {
-  app.get(INTERNAL_API_PATHS.CONFIG_AI, async (req, res) => {
+module.exports = (app, { logger, configService, persistenceService }) => {
+  const handleConfigAI = async (req, res) => {
     const { config } = buildConfigAndOptions(req);
 
     try {
@@ -76,9 +76,36 @@ module.exports = (app, { logger, configService }) => {
         maskedMediaApiKey: maskAIKey(mediaKeyRaw || ''),
       };
 
+      // Retrieve persisted cli_config and generationConfig from SQLite
+      let generationConfig = {};
+      const savedGenConfigRaw =
+        persistenceService?.getSystemSetting('generation_config');
+      if (savedGenConfigRaw) {
+        try {
+          generationConfig = JSON.parse(savedGenConfigRaw);
+        } catch {
+          generationConfig = {};
+        }
+      }
+
+      let savedCliConfig = {};
+      const savedCliConfigRaw =
+        persistenceService?.getSystemSetting('cli_config');
+      if (savedCliConfigRaw) {
+        try {
+          savedCliConfig = JSON.parse(savedCliConfigRaw);
+        } catch {
+          savedCliConfig = {};
+        }
+      }
+
       res.json({
         success: true,
-        config: body,
+        config: {
+          ...body,
+          ...savedCliConfig,
+        },
+        generationConfig,
         timestamp: new Date().toISOString(),
       });
     } catch (error) {
@@ -86,7 +113,10 @@ module.exports = (app, { logger, configService }) => {
         sanitizeConfig: sanitizedObject(config),
       });
     }
-  });
+  };
+
+  app.get(INTERNAL_API_PATHS.CONFIG_AI, handleConfigAI);
+  app.post(INTERNAL_API_PATHS.CONFIG_AI, handleConfigAI);
 
   app.get(INTERNAL_API_PATHS.CONFIG_CACHE, async (req, res) => {
     const { config } = buildConfigAndOptions(req);
@@ -269,7 +299,7 @@ module.exports = (app, { logger, configService }) => {
       });
     }
   });
-  app.get(INTERNAL_API_PATHS.CONFIG_BATCH_SIZES, async (req, res) => {
+  const handleBatchSizes = async (req, res) => {
     const { config } = buildConfigAndOptions(req);
 
     try {
@@ -282,6 +312,59 @@ module.exports = (app, { logger, configService }) => {
       });
     } catch (error) {
       sendSafeError(res, logger, req, error, 'get-batch-sizes', {
+        sanitizeConfig: sanitizedObject(config),
+      });
+    }
+  };
+
+  app.get(INTERNAL_API_PATHS.CONFIG_BATCH_SIZES, handleBatchSizes);
+  app.post(INTERNAL_API_PATHS.CONFIG_BATCH_SIZES, handleBatchSizes);
+
+  app.post('/config/save', async (req, res) => {
+    const { config } = buildConfigAndOptions(req);
+
+    try {
+      if (req.body.generationConfig) {
+        persistenceService?.saveSystemSetting(
+          'generation_config',
+          JSON.stringify(req.body.generationConfig)
+        );
+      }
+
+      if (req.body.config) {
+        persistenceService?.saveSystemSetting(
+          'cli_config',
+          JSON.stringify(req.body.config)
+        );
+
+        if (req.body.config.liferayUrl) {
+          persistenceService?.saveSystemSetting(
+            'active_liferay_url',
+            req.body.config.liferayUrl
+          );
+        }
+        if (req.body.config.clientId) {
+          persistenceService?.saveSystemSetting(
+            'active_client_id',
+            req.body.config.clientId
+          );
+        }
+        if (req.body.config.clientSecret) {
+          persistenceService?.saveSystemSetting(
+            'active_client_secret',
+            req.body.config.clientSecret
+          );
+        }
+      }
+
+      configService.clearCache();
+
+      res.json({
+        success: true,
+        timestamp: new Date().toISOString(),
+      });
+    } catch (error) {
+      sendSafeError(res, logger, req, error, 'save-config', {
         sanitizeConfig: sanitizedObject(config),
       });
     }

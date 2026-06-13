@@ -75,10 +75,11 @@ class LiferayGraphQLService {
     }
 
     let combinedResults = {};
+    let globalIndex = 0;
 
     for (const chunk of chunks) {
-      const queryParts = chunk.map((erc, index) => {
-        return `alias${index}: ${method}(externalReferenceCode: "${erc}") { ${fieldSelection} }`;
+      const queryParts = chunk.map((erc) => {
+        return `alias${globalIndex++}: ${method}(externalReferenceCode: "${erc}") { ${fieldSelection} }`;
       });
 
       const query = `
@@ -102,7 +103,7 @@ class LiferayGraphQLService {
           Object.assign(combinedResults, response.data.data[namespace]);
         }
       } catch (error) {
-        this.ctx.logger.error(`GraphQL fetch failed for ${method}`, {
+        this.ctx.logger.warn(`GraphQL fetch failed for ${method}`, {
           error: error.message,
         });
         throw error;
@@ -193,7 +194,7 @@ class LiferayGraphQLService {
         // Safety break
         if (currentPage > 1000) break;
       } catch (error) {
-        this.ctx.logger.error(
+        this.ctx.logger.warn(
           `GraphQL _fetchCollection failed for ${queryMethod}`,
           {
             error: error.message,
@@ -258,7 +259,7 @@ class LiferayGraphQLService {
       return response.data.data.headlessAdminTaxonomy_v1_0
         .taxonomyVocabularyTaxonomyCategories;
     } catch (error) {
-      this.ctx.logger.error(
+      this.ctx.logger.warn(
         `GraphQL getTaxonomyCategories failed for vocabulary ${vocabularyId}`,
         { error: error.message }
       );
@@ -322,7 +323,7 @@ class LiferayGraphQLService {
         throw new Error(JSON.stringify(response.data.errors));
       return response.data.data.headlessDelivery_v1_0.languages;
     } catch (error) {
-      this.ctx.logger.error(`GraphQL getLanguages failed for site ${siteKey}`, {
+      this.ctx.logger.warn(`GraphQL getLanguages failed for site ${siteKey}`, {
         error: error.message,
       });
       throw error;
@@ -352,7 +353,7 @@ class LiferayGraphQLService {
         throw new Error(JSON.stringify(response.data.errors));
       return response.data.data.headlessDelivery_v1_0.languages;
     } catch (error) {
-      this.ctx.logger.error(
+      this.ctx.logger.warn(
         `GraphQL getSiteLanguages failed for site ${siteKey}`,
         { error: error.message }
       );
@@ -384,7 +385,7 @@ class LiferayGraphQLService {
         throw new Error(JSON.stringify(response.data.errors));
       return response.data.data.headlessAdminAddress_v1_0.countryRegions;
     } catch (error) {
-      this.ctx.logger.error(
+      this.ctx.logger.warn(
         `GraphQL getCountryRegions failed for ${countryId}`,
         { error: error.message }
       );
@@ -541,7 +542,7 @@ class LiferayGraphQLService {
       return response.data.data.headlessCommerceAdminInventory_v1_0
         .warehouseIdWarehouseItems;
     } catch (error) {
-      this.ctx.logger.error(
+      this.ctx.logger.warn(
         `GraphQL getWarehouseItems failed for warehouse ${warehouseId}`,
         { error: error.message }
       );
@@ -660,7 +661,7 @@ class LiferayGraphQLService {
       const results = response.data.data.headlessCommerceAdminCatalog_v1_0;
       return Object.values(results).flatMap((p) => p?.productOptions || []);
     } catch (error) {
-      this.ctx.logger.error(`GraphQL getOptionsByProductIds failed`, {
+      this.ctx.logger.warn(`GraphQL getOptionsByProductIds failed`, {
         error: error.message,
       });
       throw error;
@@ -707,7 +708,7 @@ class LiferayGraphQLService {
         (p) => p?.productSpecifications || []
       );
     } catch (error) {
-      this.ctx.logger.error(`GraphQL getSpecificationsByProductIds failed`, {
+      this.ctx.logger.warn(`GraphQL getSpecificationsByProductIds failed`, {
         error: error.message,
       });
       throw error;
