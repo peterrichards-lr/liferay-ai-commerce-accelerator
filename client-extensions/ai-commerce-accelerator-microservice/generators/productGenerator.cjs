@@ -428,6 +428,7 @@ class ProductGenerator extends BaseGenerator {
             active: true,
             hasTierPrice: uniqueTierPrices.length > 0,
             skuId,
+            skuExternalReferenceCode: skuERC,
           };
 
           if (uniqueTierPrices.length > 0) {
@@ -466,6 +467,7 @@ class ProductGenerator extends BaseGenerator {
               active: true,
               hasTierPrice: false,
               skuId,
+              skuExternalReferenceCode: skuERC,
             };
 
             promoList.priceEntries.push(promoPriceEntry);
@@ -509,7 +511,7 @@ class ProductGenerator extends BaseGenerator {
                     // 1. Create root price entry
                     const result = await this.liferay.rest._post(
                       config,
-                      `/o/headless-commerce-admin-pricing/v2.0/price-lists/${pl.id}/price-entries`,
+                      `/o/headless-commerce-admin-pricing/v2.0/price-lists/by-externalReferenceCode/${pl.externalReferenceCode || pl.erc}/price-entries`,
                       entryData,
                       'create-price-entry',
                       'Failed to create price entry'
@@ -1845,14 +1847,30 @@ class ProductGenerator extends BaseGenerator {
                         );
                         results.count++;
                       } catch (err) {
-                        results.errors.push({
-                          sku: item.sku,
-                          error: err.message,
-                        });
-                        this.logger.warn(
-                          `Failed to create simulated batch warehouse item for SKU ${item.sku}: ${err.message}`,
-                          { sessionId }
-                        );
+                        const isDuplicate =
+                          err.message?.includes('Duplicated warehouse item') ||
+                          err.response?.data?.errorDescription ===
+                            'Duplicated warehouse item' ||
+                          JSON.stringify(err.response?.data || {}).includes(
+                            'Duplicated warehouse item'
+                          );
+
+                        if (isDuplicate) {
+                          this.logger.info(
+                            `Warehouse item for SKU ${item.sku} already exists in warehouse ${wId}. Bypassing creation.`,
+                            { sessionId }
+                          );
+                          results.count++;
+                        } else {
+                          results.errors.push({
+                            sku: item.sku,
+                            error: err.message,
+                          });
+                          this.logger.warn(
+                            `Failed to create simulated batch warehouse item for SKU ${item.sku}: ${err.message}`,
+                            { sessionId }
+                          );
+                        }
                       }
                     })
                   );

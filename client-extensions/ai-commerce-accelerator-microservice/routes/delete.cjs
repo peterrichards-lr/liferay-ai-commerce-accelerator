@@ -94,6 +94,7 @@ module.exports = (app, { deleteCoordinatorService, logger, configService }) => {
           success: true,
           operation: 'delete-commerce-data',
           correlationId: config.correlationId,
+          sessionId: summary.sessionId,
           summary,
           timestamp: new Date().toISOString(),
         });
@@ -138,6 +139,7 @@ module.exports = (app, { deleteCoordinatorService, logger, configService }) => {
           success: true,
           operation: 'delete-selected-commerce-data',
           correlationId: config.correlationId,
+          sessionId: summary.sessionId,
           summary,
           timestamp: new Date().toISOString(),
         });

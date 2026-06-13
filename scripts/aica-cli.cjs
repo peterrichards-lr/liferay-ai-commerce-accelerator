@@ -89,6 +89,9 @@ for (let i = 1; i < args.length; i++) {
   if (arg === '--demo') options.demoMode = true;
   if (arg === '--all') options.all = true;
   if (arg === '--selected') options.selected = true;
+  if (arg === '-y' || arg === '--yes' || arg === '--non-interactive') {
+    options.nonInteractive = true;
+  }
   if (arg === '--products' && args[i + 1]) {
     options.productCount = parseInt(args[i + 1], 10);
     i++;
@@ -99,6 +102,18 @@ for (let i = 1; i < args.length; i++) {
   }
   if (arg === '--orders' && args[i + 1]) {
     options.orderCount = parseInt(args[i + 1], 10);
+    i++;
+  }
+  if ((arg === '--channel-id' || arg === '--channel') && args[i + 1]) {
+    options.channelId = parseInt(args[i + 1], 10);
+    i++;
+  }
+  if ((arg === '--site-group-id' || arg === '--site-group') && args[i + 1]) {
+    options.siteGroupId = parseInt(args[i + 1], 10);
+    i++;
+  }
+  if ((arg === '--catalog-id' || arg === '--catalog') && args[i + 1]) {
+    options.catalogId = parseInt(args[i + 1], 10);
     i++;
   }
 }
@@ -152,8 +167,159 @@ async function handleConnect() {
   }
 }
 
+function toNumber(v) {
+  if (v === undefined || v === null || v === '') return undefined;
+  const n = parseInt(v, 10);
+  return isNaN(n) ? undefined : n;
+}
+
+async function askQuestion(query) {
+  const readline = require('readline');
+  const rl = readline.createInterface({
+    input: process.stdin,
+    output: process.stdout,
+  });
+  return new Promise((resolve) => rl.question(query, (ans) => {
+    rl.close();
+    resolve(ans.trim());
+  }));
+}
+
+async function resolveCommerceContext(opts) {
+  let channelId = opts.channelId || toNumber(process.env.AICA_CHANNEL_ID || process.env.LIFERAY_CHANNEL_ID);
+  let siteGroupId = opts.siteGroupId || toNumber(process.env.AICA_SITE_GROUP_ID || process.env.LIFERAY_SITE_GROUP_ID);
+  let catalogId = opts.catalogId || toNumber(process.env.AICA_CATALOG_ID || process.env.LIFERAY_CATALOG_ID);
+
+  const isNonInteractive = opts.nonInteractive || !process.stdout.isTTY || !process.stdin.isTTY;
+
+  if (channelId !== undefined && siteGroupId !== undefined && catalogId !== undefined) {
+    return { channelId, siteGroupId, catalogId };
+  }
+
+  console.log('Resolving commerce context (channels and catalogs) from Liferay...');
+
+  let channels = [];
+  let catalogs = [];
+  try {
+    const creds = buildConnectionPayload();
+    const channelsRes = await nativePost(`${MICROSERVICE_URL}/api/v1/get-channels`, creds);
+    if (channelsRes && channelsRes.success && Array.isArray(channelsRes.channels)) {
+      channels = channelsRes.channels;
+    }
+    const catalogsRes = await nativePost(`${MICROSERVICE_URL}/api/v1/get-catalogs`, creds);
+    if (catalogsRes && catalogsRes.success && Array.isArray(catalogsRes.catalogs)) {
+      catalogs = catalogsRes.catalogs;
+    }
+  } catch (err) {
+    console.warn(`⚠️ Warning: Failed to fetch active commerce context from microservice: ${err.message}`);
+  }
+
+  // A. Resolve channelId and siteGroupId
+  if (channelId === undefined) {
+    if (channels.length > 0) {
+      if (channels.length === 1 || isNonInteractive) {
+        channelId = parseInt(channels[0].id, 10);
+        if (siteGroupId === undefined) {
+          siteGroupId = parseInt(channels[0].siteGroupId, 10);
+        }
+        console.log(`Auto-selected Channel: ${channels[0].name} (ID: ${channelId})`);
+      } else {
+        console.log('\nAvailable Channels:');
+        channels.forEach((c, index) => {
+          console.log(`  ${index + 1}) ${c.name} (ID: ${c.id}, Site Group: ${c.siteGroupId})`);
+        });
+        const ans = await askQuestion(`Select a Channel (1-${channels.length}) or enter custom ID [1]: `);
+        const selIdx = parseInt(ans, 10) - 1;
+        if (!isNaN(selIdx) && selIdx >= 0 && selIdx < channels.length) {
+          channelId = parseInt(channels[selIdx].id, 10);
+          if (siteGroupId === undefined) {
+            siteGroupId = parseInt(channels[selIdx].siteGroupId, 10);
+          }
+        } else if (ans !== '') {
+          channelId = parseInt(ans, 10);
+        } else {
+          channelId = parseInt(channels[0].id, 10);
+          if (siteGroupId === undefined) {
+            siteGroupId = parseInt(channels[0].siteGroupId, 10);
+          }
+        }
+      }
+    }
+  } else if (siteGroupId === undefined) {
+    // If channelId was explicitly provided, try to find its matching siteGroupId
+    const matchingChannel = channels.find(c => Number(c.id) === Number(channelId));
+    if (matchingChannel) {
+      siteGroupId = parseInt(matchingChannel.siteGroupId, 10);
+    }
+  }
+
+  // B. Resolve catalogId
+  if (catalogId === undefined) {
+    if (catalogs.length > 0) {
+      if (catalogs.length === 1 || isNonInteractive) {
+        catalogId = parseInt(catalogs[0].id, 10);
+        console.log(`Auto-selected Catalog: ${catalogs[0].name} (ID: ${catalogId})`);
+      } else {
+        console.log('\nAvailable Catalogs:');
+        catalogs.forEach((c, index) => {
+          console.log(`  ${index + 1}) ${c.name} (ID: ${c.id})`);
+        });
+        const ans = await askQuestion(`Select a Catalog (1-${catalogs.length}) or enter custom ID [1]: `);
+        const selIdx = parseInt(ans, 10) - 1;
+        if (!isNaN(selIdx) && selIdx >= 0 && selIdx < catalogs.length) {
+          catalogId = parseInt(catalogs[selIdx].id, 10);
+        } else if (ans !== '') {
+          catalogId = parseInt(ans, 10);
+        } else {
+          catalogId = parseInt(catalogs[0].id, 10);
+        }
+      }
+    }
+  }
+
+  // C. Fallback interactive prompt if still missing and interactive
+  if (!isNonInteractive) {
+    if (channelId === undefined || isNaN(channelId)) {
+      const ans = await askQuestion('Enter Channel ID: ');
+      channelId = parseInt(ans, 10);
+    }
+    if (siteGroupId === undefined || isNaN(siteGroupId)) {
+      const ans = await askQuestion('Enter Site Group ID: ');
+      siteGroupId = parseInt(ans, 10);
+    }
+    if (catalogId === undefined || isNaN(catalogId)) {
+      const ans = await askQuestion('Enter Catalog ID: ');
+      catalogId = parseInt(ans, 10);
+    }
+  }
+
+  // D. Exit early in non-interactive if still missing
+  if (
+    channelId === undefined || isNaN(channelId) ||
+    siteGroupId === undefined || isNaN(siteGroupId) ||
+    catalogId === undefined || isNaN(catalogId)
+  ) {
+    console.error('\n❌ Error: Missing required commerce context settings.');
+    console.error('Please specify them via CLI flags or environment variables:');
+    if (channelId === undefined || isNaN(channelId)) {
+      console.error('  - Channel ID: --channel-id or AICA_CHANNEL_ID / LIFERAY_CHANNEL_ID');
+    }
+    if (siteGroupId === undefined || isNaN(siteGroupId)) {
+      console.error('  - Site Group ID: --site-group-id or AICA_SITE_GROUP_ID / LIFERAY_SITE_GROUP_ID');
+    }
+    if (catalogId === undefined || isNaN(catalogId)) {
+      console.error('  - Catalog ID: --catalog-id or AICA_CATALOG_ID / LIFERAY_CATALOG_ID');
+    }
+    process.exit(1);
+  }
+
+  return { channelId, siteGroupId, catalogId };
+}
+
 async function handleGenerate(opts) {
   console.log(`Initializing Data Generation...`);
+  const ctx = await resolveCommerceContext(opts);
+
   const payload = {
     ...buildConnectionPayload(),
     demoMode: opts.demoMode || false,
@@ -165,6 +331,9 @@ async function handleGenerate(opts) {
     generatePriceLists: true,
     generateSkuVariants: true,
     generateSpecifications: true,
+    channelId: ctx.channelId,
+    siteGroupId: ctx.siteGroupId,
+    catalogId: ctx.catalogId,
   };
 
   const res = await nativePost(
@@ -188,17 +357,28 @@ async function handleDelete(opts) {
     `Initializing ${isSelected ? 'Selected' : 'All'} Commerce Data Deletion...`
   );
 
-  const payload = buildConnectionPayload();
+  const payload = {
+    ...buildConnectionPayload(),
+  };
+
+  if (isSelected) {
+    const ctx = await resolveCommerceContext(opts);
+    payload.channelId = ctx.channelId;
+    payload.siteGroupId = ctx.siteGroupId;
+    payload.catalogId = ctx.catalogId;
+  }
+
   const res = await nativePost(
     `${MICROSERVICE_URL}/api/v1/${endpoint}`,
     payload
   );
-  if (!res.success || !res.sessionId) {
+  const sessionId = res.sessionId || res.summary?.sessionId;
+  if (!res.success || !sessionId) {
     throw new Error(res.error || 'Failed to submit deletion workflow.');
   }
 
-  console.log(`\n🛑 Deletion Workflow Started! Session ID: ${res.sessionId}`);
-  await pollProgress(res.sessionId);
+  console.log(`\n🛑 Deletion Workflow Started! Session ID: ${sessionId}`);
+  await pollProgress(sessionId);
 }
 
 async function handleExport(sessionId, outputPath) {
@@ -514,6 +694,10 @@ Options:
   --products N                           Specify product target volume
   --accounts N                           Specify business accounts volume
   --orders N                             Specify order target volume
+  --channel-id ID / --channel ID         Specify channel ID
+  --site-group-id ID / --site-group ID   Specify site group ID
+  --catalog-id ID / --catalog ID         Specify catalog ID
+  -y / --yes / --non-interactive         Bypass interactive prompts and exit on missing config
   --all                                  Perform global deletions
   --selected                             Perform selected channel deletions
 

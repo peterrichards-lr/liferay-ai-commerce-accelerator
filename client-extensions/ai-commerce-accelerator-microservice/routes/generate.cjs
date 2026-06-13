@@ -29,7 +29,13 @@ function emitRouteError(
 
 module.exports = (
   app,
-  { logger, progressService, persistenceService, batchCallbackService }
+  {
+    liferayService,
+    logger,
+    progressService,
+    persistenceService,
+    batchCallbackService,
+  }
 ) => {
   app.post(
     INTERNAL_API_PATHS.GENERATE_WORKFLOW,
@@ -37,6 +43,67 @@ module.exports = (
     async (req, res) => {
       const { config, options } = buildConfigAndOptions(req);
       config.demoMode = options.demoMode;
+
+      // Robust fallback: resolve missing channelId/siteGroupId and catalogId at backend API handler level
+      if (
+        !config.channelId ||
+        isNaN(config.channelId) ||
+        !config.siteGroupId ||
+        isNaN(config.siteGroupId)
+      ) {
+        try {
+          const channels = await liferayService.getChannels(config);
+          if (channels && channels.length > 0) {
+            let matchedChannel = null;
+            if (config.channelId && !isNaN(config.channelId)) {
+              matchedChannel = channels.find(
+                (c) => Number(c.id) === Number(config.channelId)
+              );
+            }
+            if (!matchedChannel) {
+              matchedChannel = channels[0];
+            }
+            if (!config.channelId || isNaN(config.channelId)) {
+              config.channelId = parseInt(matchedChannel.id, 10);
+            }
+            if (!config.siteGroupId || isNaN(config.siteGroupId)) {
+              config.siteGroupId = parseInt(matchedChannel.siteGroupId, 10);
+            }
+            logger.info(
+              `Resolved fallback commerce channelId: ${config.channelId}, siteGroupId: ${config.siteGroupId}`
+            );
+          } else {
+            logger.warn(
+              'No channels found in Liferay to resolve fallback channelId/siteGroupId'
+            );
+          }
+        } catch (err) {
+          logger.error(
+            'Failed to resolve fallback channelId/siteGroupId from Liferay',
+            { error: err.message }
+          );
+        }
+      }
+
+      if (!config.catalogId || isNaN(config.catalogId)) {
+        try {
+          const catalogs = await liferayService.getCatalogs(config);
+          if (catalogs && catalogs.length > 0) {
+            config.catalogId = parseInt(catalogs[0].id, 10);
+            logger.info(
+              `Resolved fallback commerce catalogId: ${config.catalogId}`
+            );
+          } else {
+            logger.warn(
+              'No catalogs found in Liferay to resolve fallback catalogId'
+            );
+          }
+        } catch (err) {
+          logger.error('Failed to resolve fallback catalogId from Liferay', {
+            error: err.message,
+          });
+        }
+      }
 
       try {
         const steps = [];

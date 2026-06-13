@@ -493,6 +493,7 @@ class OrderGenerator extends BaseGenerator {
     const batchERC = createERC(ERC_PREFIX.ORDER_BATCH);
 
     this.progress.batchStarted({
+      sessionId,
       batchId,
       batchERC,
       entityType: 'orders',
@@ -516,34 +517,32 @@ class OrderGenerator extends BaseGenerator {
         const createdOrder = await this.createSingleOrder(config, payload);
         created.push(createdOrder);
 
-        this.progress.batchProgress(
-          {
-            batchId,
-            batchERC,
-            entityType: 'orders',
-            completedCount: i + 1,
-            totalItems: orderDataList.length,
-            operation: 'generate',
-          },
-          { correlationId: config.correlationId }
-        );
+        this.progress.batchProgress({
+          sessionId,
+          batchId,
+          batchERC,
+          entityType: 'orders',
+          completedCount: i + 1,
+          totalItems: orderDataList.length,
+          operation: 'generate',
+          correlationId: config.correlationId,
+        });
       } catch (e) {
         errors.push({ index: i, error: e.message });
       }
     }
 
-    this.progress.batchCompleted(
-      {
-        batchId,
-        batchERC,
-        entityType: 'orders',
-        successCount: created.length,
-        failureCount: errors.length,
-        errors: errors,
-        operation: 'generate',
-      },
-      { correlationId: config.correlationId }
-    );
+    this.progress.batchCompleted({
+      sessionId,
+      batchId,
+      batchERC,
+      entityType: 'orders',
+      successCount: created.length,
+      failureCount: errors.length,
+      errors: errors,
+      operation: 'generate',
+      correlationId: config.correlationId,
+    });
 
     await this.completeSyncStep(
       sessionId,

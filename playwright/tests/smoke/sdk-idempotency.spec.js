@@ -199,13 +199,42 @@ test.describe('AICA SDK Idempotency & Platform-Contradiction API Tests', () => {
         createPlRes.status() === 400
     ).toBe(true);
 
+    // Fetch a valid product SKU ERC from Liferay to prevent NoSuchCPInstanceException in background batch processing
+    console.log(
+      '>>> [API Test] Querying active products to resolve a valid SKU ERC...'
+    );
+    const productsRes = await request.get(
+      `${baseUrl}/o/headless-commerce-admin-catalog/v1.0/products?pageSize=1`
+    );
+    expect(productsRes.ok()).toBe(true);
+    const productsData = await productsRes.json();
+    const product = productsData.items?.[0];
+
+    let skuERC = 'AICATEST-SKU-PASS-999'; // fallback
+    if (product) {
+      const skusRes = await request.get(
+        `${baseUrl}/o/headless-commerce-admin-catalog/v1.0/products/${product.id}/skus`
+      );
+      if (skusRes.ok()) {
+        const skusData = await skusRes.json();
+        const sku = skusData.items?.[0];
+        if (sku && sku.externalReferenceCode) {
+          skuERC = sku.externalReferenceCode;
+          console.log(
+            `>>> [API Test] Using resolved valid SKU ERC: "${skuERC}"`
+          );
+        }
+      }
+    }
+
     // 2. Submit our COMPLIANT Price Entry batch payload (skuExternalReferenceCode at root, nested Sku omitted)
     const compliantPayload = [
       {
         price: 149.99,
         externalReferenceCode: 'AICATEST-PE-PASS-999',
         active: true,
-        skuExternalReferenceCode: 'AICATEST-SKU-PASS-999', // Correct root-level ERC property!
+        skuExternalReferenceCode: skuERC, // Use resolved valid SKU ERC!
+        priceListExternalReferenceCode: priceListERC,
       },
     ];
 

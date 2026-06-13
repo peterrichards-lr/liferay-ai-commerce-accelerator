@@ -17,6 +17,8 @@ test.describe('AICA Headless CLI Client E2E Verification', () => {
     expect(stdout).toContain('Connected to Liferay');
   });
 
+  let latestSessionId;
+
   test('should execute aica generate --demo to completion', async () => {
     test.setTimeout(300000); // Allow up to 5 minutes for full generation and polling
 
@@ -29,19 +31,30 @@ test.describe('AICA Headless CLI Client E2E Verification', () => {
     // Non-TTY logs output single line "Progress" statements
     expect(stdout).toContain('Progress:');
     expect(stdout).toContain('Success! Session successfully completed');
+
+    const match = stdout.match(/Session ID:\s*(AICA-SESSION-[a-zA-Z0-9-]+)/);
+    if (match) {
+      latestSessionId = match[1];
+    }
   });
 
   test('should successfully export the latest dataset to JSON', async () => {
-    // 1. Get the sessionId from the logs/database
-    const dbPath = path.resolve(
-      __dirname,
-      '../../../client-extensions/ai-commerce-accelerator-microservice/data/aica.db'
-    );
-    expect(fs.existsSync(dbPath)).toBe(true);
-
-    // Read latest session from SQLite via quick child process query
-    const query = `sqlite3 ${dbPath} "SELECT session_id FROM sessions WHERE flow_type='generate' AND status='COMPLETED' ORDER BY updated_at DESC LIMIT 1;"`;
-    const sessionId = (await runCliCommand(query)).trim();
+    // 1. Get the sessionId from the logs/database or extracted variable
+    let sessionId = latestSessionId;
+    if (!sessionId) {
+      const dbPath = path.resolve(
+        __dirname,
+        '../../../client-extensions/ai-commerce-accelerator-microservice/data/aica.db'
+      );
+      if (fs.existsSync(dbPath)) {
+        try {
+          const query = `sqlite3 ${dbPath} "SELECT session_id FROM workflow_sessions WHERE flow_type='generate' AND status='COMPLETED' ORDER BY updated_at DESC LIMIT 1;"`;
+          sessionId = (await runCliCommand(query)).trim();
+        } catch (e) {
+          // ignore
+        }
+      }
+    }
     expect(sessionId).toBeDefined();
     expect(sessionId.startsWith('AICA-SESSION')).toBe(true);
 
@@ -65,8 +78,19 @@ test.describe('AICA Headless CLI Client E2E Verification', () => {
     expect(parsed.accounts).toBeDefined();
   });
 
-  test('should successfully import and re-scaffold a dataset using config import', async () => {
+  test('should execute aica delete --all to teardown generated data (pre-import clean)', async () => {
     test.setTimeout(120000);
+
+    const stdout = await runCliCommand(`${aicaBin} delete --all`);
+
+    expect(stdout).toContain('Initializing All Commerce Data Deletion');
+    expect(stdout).toContain('Deletion Workflow Started');
+    expect(stdout).toContain('Progress:');
+    expect(stdout).toContain('Success! Session successfully completed');
+  });
+
+  test('should successfully import and re-scaffold a dataset using config import', async () => {
+    test.setTimeout(300000);
 
     const tempExportPath = path.resolve(
       __dirname,
@@ -132,7 +156,7 @@ test.describe('AICA Headless CLI Client E2E Verification', () => {
     expect(parsed.generationConfig.productCount).toBe(15);
   });
 
-  test('should execute aica delete --all to teardown generated data', async () => {
+  test('should execute aica delete --all to teardown generated data (final cleanup)', async () => {
     test.setTimeout(120000);
 
     const stdout = await runCliCommand(`${aicaBin} delete --all`);

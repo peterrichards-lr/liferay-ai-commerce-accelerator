@@ -316,6 +316,28 @@ module.exports = (app, { logger, persistenceService, progressService }) => {
       const totalSteps = session.context?.steps?.length || 0;
       const completedSteps = session.currentSteps?.length || 0;
 
+      let overallProgress = 0;
+      if (session.status === 'COMPLETED') {
+        overallProgress = 100;
+      } else {
+        const totalItems = Object.values(progress).reduce(
+          (acc, curr) => acc + (curr.total || 0),
+          0
+        );
+        const completedItems = Object.values(progress).reduce(
+          (acc, curr) => acc + (curr.completed || 0),
+          0
+        );
+        overallProgress =
+          totalItems > 0 ? Math.round((completedItems / totalItems) * 100) : 0;
+      }
+
+      const activeStepKey =
+        session.status === 'COMPLETED'
+          ? 'completed'
+          : session.currentSteps?.[session.currentSteps.length - 1] ||
+            'polling';
+
       res.json({
         success: true,
         sessionId,
@@ -325,6 +347,13 @@ module.exports = (app, { logger, persistenceService, progressService }) => {
         completedSteps,
         progress,
         timestamp: new Date().toISOString(),
+        session: {
+          status: session.status,
+          overall_progress: overallProgress,
+          active_step_key: activeStepKey,
+          completed_products_count: progress.products?.completed || 0,
+          target_products_count: progress.products?.total || 0,
+        },
       });
     } catch (error) {
       safeErrorResponse({

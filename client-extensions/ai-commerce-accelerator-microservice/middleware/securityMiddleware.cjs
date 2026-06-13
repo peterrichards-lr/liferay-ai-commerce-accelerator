@@ -200,7 +200,14 @@ function getClientSecret(clientId, req) {
   return secret;
 }
 function sqlInjectionProtectionMiddleware(req, res, next) {
-  // Allow legitimate batch operations that contain SQL-like keywords
+  // Allow config and import routes that contain templates/arbitrary text/datasets
+  if (
+    req.path.includes('/config/') ||
+    req.path.includes('/import-commerce-data')
+  ) {
+    return next();
+  }
+
   const isCallback = req.path.includes('/batch/callback');
 
   const suspiciousPatterns = [

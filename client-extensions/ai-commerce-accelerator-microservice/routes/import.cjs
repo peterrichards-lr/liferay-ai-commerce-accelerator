@@ -15,6 +15,7 @@ module.exports = (
     progressService,
     _workflowCoordinator,
     batchCallbackService,
+    liferayService,
   }
 ) => {
   app.post(
@@ -24,15 +25,94 @@ module.exports = (
       const { config, options: baseOptions } = buildConfigAndOptions(req);
       const correlationId = config.correlationId;
 
-      if (!req.file) {
+      // Robust fallback: resolve missing channelId/siteGroupId and catalogId at backend API handler level
+      if (
+        !config.channelId ||
+        isNaN(config.channelId) ||
+        !config.siteGroupId ||
+        isNaN(config.siteGroupId)
+      ) {
+        try {
+          const channels = await liferayService.getChannels(config);
+          if (channels && channels.length > 0) {
+            let matchedChannel = null;
+            if (config.channelId && !isNaN(config.channelId)) {
+              matchedChannel = channels.find(
+                (c) => Number(c.id) === Number(config.channelId)
+              );
+            }
+            if (!matchedChannel) {
+              matchedChannel = channels[0];
+            }
+            if (!config.channelId || isNaN(config.channelId)) {
+              config.channelId = parseInt(matchedChannel.id, 10);
+            }
+            if (!config.siteGroupId || isNaN(config.siteGroupId)) {
+              config.siteGroupId = parseInt(matchedChannel.siteGroupId, 10);
+            }
+            logger.info(
+              `Resolved fallback commerce channelId: ${config.channelId}, siteGroupId: ${config.siteGroupId}`
+            );
+          } else {
+            logger.warn(
+              'No channels found in Liferay to resolve fallback channelId/siteGroupId'
+            );
+          }
+        } catch (err) {
+          logger.error(
+            'Failed to resolve fallback channelId/siteGroupId from Liferay',
+            { error: err.message }
+          );
+        }
+      }
+
+      if (!config.catalogId || isNaN(config.catalogId)) {
+        try {
+          const catalogs = await liferayService.getCatalogs(config);
+          if (catalogs && catalogs.length > 0) {
+            config.catalogId = parseInt(catalogs[0].id, 10);
+            logger.info(
+              `Resolved fallback commerce catalogId: ${config.catalogId}`
+            );
+          } else {
+            logger.warn(
+              'No catalogs found in Liferay to resolve fallback catalogId'
+            );
+          }
+        } catch (err) {
+          logger.error('Failed to resolve fallback catalogId from Liferay', {
+            error: err.message,
+          });
+        }
+      }
+
+      let importData;
+
+      try {
+        if (!req.file) {
+          if (req.body && req.body.dataset) {
+            importData =
+              typeof req.body.dataset === 'string'
+                ? JSON.parse(req.body.dataset)
+                : req.body.dataset;
+          } else {
+            return res
+              .status(400)
+              .json({ success: false, error: 'No file uploaded' });
+          }
+        } else {
+          importData = JSON.parse(req.file.buffer.toString());
+        }
+      } catch (e) {
         return res
           .status(400)
-          .json({ success: false, error: 'No file uploaded' });
+          .json({
+            success: false,
+            error: `Invalid JSON dataset: ${e.message}`,
+          });
       }
 
       try {
-        const importData = JSON.parse(req.file.buffer.toString());
-
         const products = importData.products || [];
         const accounts = importData.accounts || [];
         const orders = importData.orders || [];
@@ -156,6 +236,8 @@ module.exports = (
           options: {
             ...baseOptions,
             importMode: true,
+            generatePriceLists: true,
+            generateSkuVariants: true,
             productCount: products.length,
             accountCount: accounts.length,
             orderCount: orders.length,
