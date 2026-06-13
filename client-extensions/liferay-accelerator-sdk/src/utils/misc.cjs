@@ -1,6 +1,6 @@
 const crypto = require('crypto');
 const { ErrorHandler } = require('./errorHandler.cjs');
-const { ERC_PREFIX } = require('./constants.cjs');
+const { ERC_PREFIX, ENV } = require('./constants.cjs');
 
 function getRandomInt(max) {
   return Math.floor(Math.random() * max);
@@ -145,7 +145,7 @@ const debounce = (fn, ms = 300) => {
   };
 };
 
-async function processWithRetry(ctx, item, processingFunction, maxRetries = 3) {
+async function processWithRetry(ctx, item, processingFunction, maxRetries = ENV.LIFERAY_API_MAX_RETRIES || 3) {
   const { logger } = ctx;
   let lastError;
 

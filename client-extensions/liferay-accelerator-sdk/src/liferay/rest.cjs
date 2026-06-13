@@ -39,6 +39,16 @@ const SOFT_STATUS_BY_OP = {
   'optionCategories:list': [404],
   'warehouse:items': [404],
   'price-entries:list': [404],
+  'pricelists:batch-delete': [403, 404],
+  'promotions:batch-delete': [403, 404],
+  'products:batch-delete': [403, 404],
+  'accounts:batch-delete': [400, 403, 404],
+  'orders:batch-delete': [403, 404],
+  'warehouses:batch-delete': [403, 404],
+  'inventory:batch-delete': [403, 404],
+  'specifications:batch-delete': [403, 404],
+  'options:batch-delete': [403, 404],
+  'optionCategories:batch-delete': [403, 404],
 };
 
 class LiferayRestService {
@@ -87,24 +97,10 @@ class LiferayRestService {
     if (!baseUrl) return null;
     try {
       const u = new URL(baseUrl);
-      if (meta.entity) u.searchParams.set('entity', String(meta.entity));
-      if (meta.op) {
-        const raw = String(meta.op).toUpperCase();
-        const opCode = OP_MAP[raw] || 'X';
-        u.searchParams.set('opCode', opCode);
-      }
-
       const batchERC = meta.batchExternalReferenceCode || meta.batchERC;
       if (batchERC) {
-        u.searchParams.set('batchExternalReferenceCode', String(batchERC));
+        u.searchParams.set('batchERC', String(batchERC));
       }
-
-      if (meta.sessionId)
-        u.searchParams.set('sessionId', String(meta.sessionId));
-
-      if (meta.correlationId)
-        u.searchParams.set('correlationId', String(meta.correlationId));
-
       return u.toString();
     } catch {
       return baseUrl;
@@ -173,7 +169,7 @@ class LiferayRestService {
       }
     }
 
-    const maxRetries = 3;
+    const maxRetries = ENV.LIFERAY_API_MAX_RETRIES || 3;
 
     for (let attempt = 1; attempt <= maxRetries; attempt++) {
       try {
@@ -1372,6 +1368,7 @@ class LiferayRestService {
 
     let deletedCount = 0;
     const errors = [];
+    const maxErrors = ENV.LIFERAY_MAX_DELETION_ERRORS || 3;
 
     const chunks = this._chunkArray(ids, concurrency);
 
@@ -1398,6 +1395,15 @@ class LiferayRestService {
           }
         })
       );
+
+      if (errors.length >= maxErrors) {
+        logger.error(
+          `Stopping deletion loop: encountered ${errors.length} errors (threshold: ${maxErrors})`
+        );
+        throw new Error(
+          `Deletion failed: encountered ${errors.length} errors. Last error: ${errors[errors.length - 1].error}`
+        );
+      }
     }
 
     return {
@@ -1950,21 +1956,124 @@ class LiferayRestService {
   }
 
   async createAccountsBatch(config, accountsData, opts = {}) {
-    const results = await this._postBatch(config, {
-      entityName: 'account',
-      items: accountsData,
-      externalReferenceCode: opts.externalReferenceCode,
-      itemERCKey: 'name',
-      op: 'create-accounts-batch',
-      friendly: 'Failed to create accounts batch',
-      path: PATH.ACCOUNTS_BATCH,
-      sessionId: opts.sessionId,
-      session: opts.session,
+    const { logger, cache } = this.ctx;
+    const sessionId = opts.sessionId;
+
+    if (!accountsData || accountsData.length === 0) {
+      return {
+        batchId: `batch-empty-${Date.now()}`,
+        status: 'completed',
+        count: 0,
+        batchExternalReferenceCode: opts.externalReferenceCode || 'empty',
+        batchRefs: [],
+        accountCount: 0,
+      };
+    }
+
+    // 1. Resolve ERCs for all items using the same logic as _postBatch
+    const processedAccounts = accountsData.map((item) => {
+      const extERC = sanitizedERC(
+        item.externalReferenceCode || item.name || crypto.randomUUID()
+      );
+      return { ...item, externalReferenceCode: extERC };
     });
+
+    const itemERCs = processedAccounts.map((a) => a.externalReferenceCode);
+    const existingMap = new Map();
+
+    // 2. Query Liferay to find which accounts already exist via GraphQL direct database lookup
+    if (processedAccounts.length > 0) {
+      try {
+        const LiferayGraphQLService = require('./graphql.cjs');
+        const graphql = new LiferayGraphQLService(this.ctx);
+        const existingAccounts = await graphql.getAccountsByERC(
+          config,
+          itemERCs
+        );
+        for (const acc of existingAccounts) {
+          if (acc.externalReferenceCode) {
+            existingMap.set(acc.externalReferenceCode, acc);
+          }
+        }
+      } catch (err) {
+        if (logger) {
+          logger.warn(
+            `Failed to query existing accounts: ${err.message}. Emulating upsert via individual errors.`
+          );
+        }
+      }
+    }
+
+    // 3. Separate into existing (to patch) and new (to create)
+    const toCreate = [];
+    const toUpdate = [];
+
+    for (const acc of processedAccounts) {
+      if (existingMap.has(acc.externalReferenceCode)) {
+        toUpdate.push(acc);
+      } else {
+        toCreate.push(acc);
+      }
+    }
+
+    if (logger) {
+      logger.info(
+        `Accounts batch emulation: ${toCreate.length} to create, ${toUpdate.length} to update.`,
+        { sessionId }
+      );
+    }
+
+    // 4. Update existing accounts in parallel
+    if (toUpdate.length > 0) {
+      await Promise.all(
+        toUpdate.map(async (acc) => {
+          try {
+            await this.patchAccountByERC(config, acc.externalReferenceCode, acc);
+          } catch (err) {
+            if (logger) {
+              logger.warn(
+                `Failed to update existing account ${acc.externalReferenceCode}: ${err.message}`,
+                { sessionId }
+              );
+            }
+          }
+        })
+      );
+    }
+
+    // 5. Create new accounts using batch if any
+    let results;
+    if (toCreate.length > 0) {
+      results = await this._postBatch(config, {
+        entityName: 'account',
+        items: toCreate,
+        externalReferenceCode: opts.externalReferenceCode,
+        itemERCKey: 'name',
+        op: 'create-accounts-batch',
+        friendly: 'Failed to create accounts batch',
+        path: PATH.ACCOUNTS_BATCH,
+        sessionId: opts.sessionId,
+        session: opts.session,
+        skipItemERC: true, // We already resolved and sanitized ERCs
+      });
+    } else {
+      const mockERC =
+        opts.externalReferenceCode ||
+        createERC(ERC_PREFIX.ACCOUNT_BATCH || ERC_PREFIX.BATCH);
+      results = {
+        batchId: `batch-mock-${Date.now()}`,
+        status: 'completed',
+        count: 0,
+        batchExternalReferenceCode: mockERC,
+        batchRefs: [],
+      };
+      // Cache the item ERCs so progress tracking/monitors can resolve them
+      this._cacheItemERCs(mockERC, null, itemERCs, sessionId);
+    }
 
     return {
       ...results,
-      accountCount: results.count,
+      accountCount: results.count + toUpdate.length,
     };
   }
 

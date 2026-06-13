@@ -935,7 +935,7 @@ class LiferayService {
       externalReferenceCode: callbackBatchERC,
       dryRun,
       sessionId,
-      nativeBatch: true,
+      nativeBatch: false,
       path: PATH.PRODUCTS_BATCH,
       basePath: PATH.PRODUCTS,
       listUrl: PATH.PRODUCTS,

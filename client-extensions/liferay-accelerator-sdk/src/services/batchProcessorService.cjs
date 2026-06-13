@@ -1,5 +1,6 @@
 const { ErrorHandler } = require('../utils/errorHandler.cjs');
 const { delay, processWithRetry } = require('../utils/misc.cjs');
+const { ENV } = require('../utils/constants.cjs');
 
 class BatchProcessorService {
   constructor(ctx) {
@@ -178,7 +179,7 @@ class BatchProcessorService {
           item,
         });
 
-        if (ErrorHandler.shouldStopBatch(results.errors)) {
+        if (ErrorHandler.shouldStopBatch(results.errors, ENV.LIFERAY_MAX_BATCH_ERRORS || 3)) {
           logger.warn(
             `Stopping sequential processing due to ${
               results.errors.length
