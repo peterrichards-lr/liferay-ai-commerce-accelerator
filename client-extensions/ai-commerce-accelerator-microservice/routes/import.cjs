@@ -104,12 +104,10 @@ module.exports = (
           importData = JSON.parse(req.file.buffer.toString());
         }
       } catch (e) {
-        return res
-          .status(400)
-          .json({
-            success: false,
-            error: `Invalid JSON dataset: ${e.message}`,
-          });
+        return res.status(400).json({
+          success: false,
+          error: `Invalid JSON dataset: ${e.message}`,
+        });
       }
 
       try {
