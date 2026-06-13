@@ -24,9 +24,15 @@ const RED = `${ESC}[31m`;
 const BLUE = `${ESC}[34m`;
 const CYAN = `${ESC}[36m`;
 
-console.log(`\n${BOLD}${CYAN}========================================================================${RESET}`);
-console.log(`${BOLD}${CYAN}   Liferay AI Commerce Accelerator - Live AI Verification Runner${RESET}`);
-console.log(`${BOLD}${CYAN}========================================================================${RESET}\n`);
+console.log(
+  `\n${BOLD}${CYAN}========================================================================${RESET}`
+);
+console.log(
+  `${BOLD}${CYAN}   Liferay AI Commerce Accelerator - Live AI Verification Runner${RESET}`
+);
+console.log(
+  `${BOLD}${CYAN}========================================================================${RESET}\n`
+);
 
 // 1. Load local environment variables from root .env
 const rootDir = path.resolve(__dirname, '..');
@@ -55,12 +61,15 @@ if (fs.existsSync(envPath)) {
       }
     });
   } catch (err) {
-    console.warn(`${YELLOW}⚠️ Warning: Could not read .env: ${err.message}${RESET}`);
+    console.warn(
+      `${YELLOW}⚠️ Warning: Could not read .env: ${err.message}${RESET}`
+    );
   }
 }
 
 // 2. Resolve Active Target URL & Environment
-const targetUrl = envVars.BASE_URL || envVars.LIFERAY_PORTAL_URL || 'https://aica-e2e.local';
+const targetUrl =
+  envVars.BASE_URL || envVars.LIFERAY_PORTAL_URL || 'https://aica-e2e.local';
 console.log(`🌐 Target DXP URL: ${BOLD}${targetUrl}${RESET}`);
 
 // 3. Resolve AI Keys and Providers
@@ -68,7 +77,8 @@ let chosenProvider = null;
 let activeKey = null;
 
 const getProviderFromKey = (key) => {
-  if (!key || key === 'mock-sandbox' || String(key).trim().length === 0) return null;
+  if (!key || key === 'mock-sandbox' || String(key).trim().length === 0)
+    return null;
   const k = String(key).trim();
   if (k.startsWith('sk-proj-') || k.startsWith('sk-')) {
     if (k.startsWith('sk-ant-')) return 'anthropic';
@@ -81,10 +91,16 @@ const getProviderFromKey = (key) => {
 if (envVars.GEMINI_API_KEY && envVars.GEMINI_API_KEY !== 'mock-sandbox') {
   chosenProvider = 'gemini';
   activeKey = envVars.GEMINI_API_KEY;
-} else if (envVars.OPENAI_API_KEY && envVars.OPENAI_API_KEY !== 'mock-sandbox') {
+} else if (
+  envVars.OPENAI_API_KEY &&
+  envVars.OPENAI_API_KEY !== 'mock-sandbox'
+) {
   chosenProvider = 'openai';
   activeKey = envVars.OPENAI_API_KEY;
-} else if (envVars.ANTHROPIC_API_KEY && envVars.ANTHROPIC_API_KEY !== 'mock-sandbox') {
+} else if (
+  envVars.ANTHROPIC_API_KEY &&
+  envVars.ANTHROPIC_API_KEY !== 'mock-sandbox'
+) {
   chosenProvider = 'anthropic';
   activeKey = envVars.ANTHROPIC_API_KEY;
 } else if (envVars.AI_API_KEY && envVars.AI_API_KEY !== 'mock-sandbox') {
@@ -94,15 +110,21 @@ if (envVars.GEMINI_API_KEY && envVars.GEMINI_API_KEY !== 'mock-sandbox') {
 
 if (!chosenProvider || !activeKey) {
   console.error(`\n${RED}❌ Error: No live AI API keys detected.${RESET}`);
-  console.error(`Please set at least one of the following variables in your shell or ${BOLD}.env${RESET}:`);
+  console.error(
+    `Please set at least one of the following variables in your shell or ${BOLD}.env${RESET}:`
+  );
   console.error(`   - ${BOLD}GEMINI_API_KEY${RESET}`);
   console.error(`   - ${BOLD}OPENAI_API_KEY${RESET}`);
   console.error(`   - ${BOLD}ANTHROPIC_API_KEY${RESET}\n`);
   process.exit(1);
 }
 
-console.log(`🔑 Detected active provider: ${BOLD}${GREEN}${chosenProvider.toUpperCase()}${RESET}`);
-console.log(`🔑 API Key: ${BOLD}${activeKey.slice(0, 4)}...${activeKey.slice(-4)}${RESET}`);
+console.log(
+  `🔑 Detected active provider: ${BOLD}${GREEN}${chosenProvider.toUpperCase()}${RESET}`
+);
+console.log(
+  `🔑 API Key: ${BOLD}${activeKey.slice(0, 4)}...${activeKey.slice(-4)}${RESET}`
+);
 
 // 4. Resolve Microservice Execution & Lifecycle
 let msProcess = null;
@@ -133,8 +155,11 @@ async function checkHealth() {
 
 async function startMicroservice() {
   console.log(`🚀 Spawning microservice in the background on port 3001...`);
-  const microserviceDir = path.join(rootDir, 'client-extensions/ai-commerce-accelerator-microservice');
-  
+  const microserviceDir = path.join(
+    rootDir,
+    'client-extensions/ai-commerce-accelerator-microservice'
+  );
+
   const logDir = path.join(rootDir, 'logs');
   if (!fs.existsSync(logDir)) {
     fs.mkdirSync(logDir);
@@ -156,10 +181,14 @@ async function startMicroservice() {
     LIFERAY_AUTH_METHOD: 'basic',
     LIFERAY_URL: targetUrl,
     LIFERAY_API_URL: targetUrl,
-    LIFERAY_BATCH_CALLBACK_URL: 'http://host.docker.internal:3001/api/v1/batch/callback',
-    GEMINI_API_KEY: chosenProvider === 'gemini' ? activeKey : envVars.GEMINI_API_KEY,
-    OPENAI_API_KEY: chosenProvider === 'openai' ? activeKey : envVars.OPENAI_API_KEY,
-    ANTHROPIC_API_KEY: chosenProvider === 'anthropic' ? activeKey : envVars.ANTHROPIC_API_KEY,
+    LIFERAY_BATCH_CALLBACK_URL:
+      'http://host.docker.internal:3001/api/v1/batch/callback',
+    GEMINI_API_KEY:
+      chosenProvider === 'gemini' ? activeKey : envVars.GEMINI_API_KEY,
+    OPENAI_API_KEY:
+      chosenProvider === 'openai' ? activeKey : envVars.OPENAI_API_KEY,
+    ANTHROPIC_API_KEY:
+      chosenProvider === 'anthropic' ? activeKey : envVars.ANTHROPIC_API_KEY,
   };
 
   msProcess = spawn('node', ['server.cjs'], {
@@ -172,7 +201,9 @@ async function startMicroservice() {
   msProcess.stderr.pipe(logStream);
 
   msProcess.on('error', (err) => {
-    console.error(`${RED}❌ Failed to start microservice: ${err.message}${RESET}`);
+    console.error(
+      `${RED}❌ Failed to start microservice: ${err.message}${RESET}`
+    );
     process.exit(1);
   });
 
@@ -193,14 +224,20 @@ console.log(`\n🔍 Checking if AICA microservice is online...`);
 const isAlreadyOnline = await checkHealth();
 
 if (isAlreadyOnline) {
-  console.log(`${GREEN}🟢 Microservice is already running on port 3001.${RESET}`);
+  console.log(
+    `${GREEN}🟢 Microservice is already running on port 3001.${RESET}`
+  );
 } else {
   await startMicroservice();
 }
 
 // 5. Trigger E2E Live AI Playwright Run
-console.log(`\n🚀 Starting Playwright E2E verification test for ${BOLD}Live (AI) Mode${RESET}...`);
-console.log(`⏳ Running Live Mode test using ${BOLD}${chosenProvider.toUpperCase()}${RESET}. Please wait...`);
+console.log(
+  `\n🚀 Starting Playwright E2E verification test for ${BOLD}Live (AI) Mode${RESET}...`
+);
+console.log(
+  `⏳ Running Live Mode test using ${BOLD}${chosenProvider.toUpperCase()}${RESET}. Please wait...`
+);
 
 const args = [
   'playwright',
@@ -213,14 +250,18 @@ const args = [
 
 const runEnv = {
   ...envVars,
-  GEMINI_API_KEY: chosenProvider === 'gemini' ? activeKey : envVars.GEMINI_API_KEY,
-  OPENAI_API_KEY: chosenProvider === 'openai' ? activeKey : envVars.OPENAI_API_KEY,
-  ANTHROPIC_API_KEY: chosenProvider === 'anthropic' ? activeKey : envVars.ANTHROPIC_API_KEY,
+  GEMINI_API_KEY:
+    chosenProvider === 'gemini' ? activeKey : envVars.GEMINI_API_KEY,
+  OPENAI_API_KEY:
+    chosenProvider === 'openai' ? activeKey : envVars.OPENAI_API_KEY,
+  ANTHROPIC_API_KEY:
+    chosenProvider === 'anthropic' ? activeKey : envVars.ANTHROPIC_API_KEY,
   BASE_URL: targetUrl,
   LIFERAY_URL: targetUrl,
   LIFERAY_API_URL: targetUrl,
   LIFERAY_PORTAL_URL: targetUrl,
-  LIFERAY_BATCH_CALLBACK_URL: 'http://host.docker.internal:3001/api/v1/batch/callback',
+  LIFERAY_BATCH_CALLBACK_URL:
+    'http://host.docker.internal:3001/api/v1/batch/callback',
 };
 
 const child = spawn('npx', args, {
@@ -233,18 +274,36 @@ const child = spawn('npx', args, {
 child.on('close', (code) => {
   cleanup();
   if (code === 0) {
-    console.log(`\n${BOLD}${GREEN}========================================================================${RESET}`);
-    console.log(`${BOLD}${GREEN}🎉 SUCCESS: Live AI generation verification completed successfully!${RESET}`);
-    console.log(`${BOLD}${GREEN}========================================================================${RESET}\n`);
+    console.log(
+      `\n${BOLD}${GREEN}========================================================================${RESET}`
+    );
+    console.log(
+      `${BOLD}${GREEN}🎉 SUCCESS: Live AI generation verification completed successfully!${RESET}`
+    );
+    console.log(
+      `${BOLD}${GREEN}========================================================================${RESET}\n`
+    );
     process.exit(0);
   } else {
-    console.log(`\n${BOLD}${RED}========================================================================${RESET}`);
-    console.log(`${BOLD}${RED}❌ FAILURE: Live AI verification failed (Exit Code: ${code})${RESET}`);
-    console.log(`${BOLD}${RED}========================================================================${RESET}`);
+    console.log(
+      `\n${BOLD}${RED}========================================================================${RESET}`
+    );
+    console.log(
+      `${BOLD}${RED}❌ FAILURE: Live AI verification failed (Exit Code: ${code})${RESET}`
+    );
+    console.log(
+      `${BOLD}${RED}========================================================================${RESET}`
+    );
     console.log(`💡 Troubleshooting tips:`);
-    console.log(`   1. Verify your API credentials key in .env is active and has sufficient quota.`);
-    console.log(`   2. Run ${BOLD}yarn ldm:monitor${RESET} in another terminal to check microservice log tracebacks.`);
-    console.log(`   3. Check Playwright snapshots in the ${BOLD}test-results/${RESET} folder for browser error screenshots.\n`);
+    console.log(
+      `   1. Verify your API credentials key in .env is active and has sufficient quota.`
+    );
+    console.log(
+      `   2. Run ${BOLD}yarn ldm:monitor${RESET} in another terminal to check microservice log tracebacks.`
+    );
+    console.log(
+      `   3. Check Playwright snapshots in the ${BOLD}test-results/${RESET} folder for browser error screenshots.\n`
+    );
     process.exit(code);
   }
 });

@@ -179,39 +179,72 @@ async function askQuestion(query) {
     input: process.stdin,
     output: process.stdout,
   });
-  return new Promise((resolve) => rl.question(query, (ans) => {
-    rl.close();
-    resolve(ans.trim());
-  }));
+  return new Promise((resolve) =>
+    rl.question(query, (ans) => {
+      rl.close();
+      resolve(ans.trim());
+    })
+  );
 }
 
 async function resolveCommerceContext(opts) {
-  let channelId = opts.channelId || toNumber(process.env.AICA_CHANNEL_ID || process.env.LIFERAY_CHANNEL_ID);
-  let siteGroupId = opts.siteGroupId || toNumber(process.env.AICA_SITE_GROUP_ID || process.env.LIFERAY_SITE_GROUP_ID);
-  let catalogId = opts.catalogId || toNumber(process.env.AICA_CATALOG_ID || process.env.LIFERAY_CATALOG_ID);
+  let channelId =
+    opts.channelId ||
+    toNumber(process.env.AICA_CHANNEL_ID || process.env.LIFERAY_CHANNEL_ID);
+  let siteGroupId =
+    opts.siteGroupId ||
+    toNumber(
+      process.env.AICA_SITE_GROUP_ID || process.env.LIFERAY_SITE_GROUP_ID
+    );
+  let catalogId =
+    opts.catalogId ||
+    toNumber(process.env.AICA_CATALOG_ID || process.env.LIFERAY_CATALOG_ID);
 
-  const isNonInteractive = opts.nonInteractive || !process.stdout.isTTY || !process.stdin.isTTY;
+  const isNonInteractive =
+    opts.nonInteractive || !process.stdout.isTTY || !process.stdin.isTTY;
 
-  if (channelId !== undefined && siteGroupId !== undefined && catalogId !== undefined) {
+  if (
+    channelId !== undefined &&
+    siteGroupId !== undefined &&
+    catalogId !== undefined
+  ) {
     return { channelId, siteGroupId, catalogId };
   }
 
-  console.log('Resolving commerce context (channels and catalogs) from Liferay...');
+  console.log(
+    'Resolving commerce context (channels and catalogs) from Liferay...'
+  );
 
   let channels = [];
   let catalogs = [];
   try {
     const creds = buildConnectionPayload();
-    const channelsRes = await nativePost(`${MICROSERVICE_URL}/api/v1/get-channels`, creds);
-    if (channelsRes && channelsRes.success && Array.isArray(channelsRes.channels)) {
+    const channelsRes = await nativePost(
+      `${MICROSERVICE_URL}/api/v1/get-channels`,
+      creds
+    );
+    if (
+      channelsRes &&
+      channelsRes.success &&
+      Array.isArray(channelsRes.channels)
+    ) {
       channels = channelsRes.channels;
     }
-    const catalogsRes = await nativePost(`${MICROSERVICE_URL}/api/v1/get-catalogs`, creds);
-    if (catalogsRes && catalogsRes.success && Array.isArray(catalogsRes.catalogs)) {
+    const catalogsRes = await nativePost(
+      `${MICROSERVICE_URL}/api/v1/get-catalogs`,
+      creds
+    );
+    if (
+      catalogsRes &&
+      catalogsRes.success &&
+      Array.isArray(catalogsRes.catalogs)
+    ) {
       catalogs = catalogsRes.catalogs;
     }
   } catch (err) {
-    console.warn(`⚠️ Warning: Failed to fetch active commerce context from microservice: ${err.message}`);
+    console.warn(
+      `⚠️ Warning: Failed to fetch active commerce context from microservice: ${err.message}`
+    );
   }
 
   // A. Resolve channelId and siteGroupId
@@ -222,13 +255,19 @@ async function resolveCommerceContext(opts) {
         if (siteGroupId === undefined) {
           siteGroupId = parseInt(channels[0].siteGroupId, 10);
         }
-        console.log(`Auto-selected Channel: ${channels[0].name} (ID: ${channelId})`);
+        console.log(
+          `Auto-selected Channel: ${channels[0].name} (ID: ${channelId})`
+        );
       } else {
         console.log('\nAvailable Channels:');
         channels.forEach((c, index) => {
-          console.log(`  ${index + 1}) ${c.name} (ID: ${c.id}, Site Group: ${c.siteGroupId})`);
+          console.log(
+            `  ${index + 1}) ${c.name} (ID: ${c.id}, Site Group: ${c.siteGroupId})`
+          );
         });
-        const ans = await askQuestion(`Select a Channel (1-${channels.length}) or enter custom ID [1]: `);
+        const ans = await askQuestion(
+          `Select a Channel (1-${channels.length}) or enter custom ID [1]: `
+        );
         const selIdx = parseInt(ans, 10) - 1;
         if (!isNaN(selIdx) && selIdx >= 0 && selIdx < channels.length) {
           channelId = parseInt(channels[selIdx].id, 10);
@@ -247,7 +286,9 @@ async function resolveCommerceContext(opts) {
     }
   } else if (siteGroupId === undefined) {
     // If channelId was explicitly provided, try to find its matching siteGroupId
-    const matchingChannel = channels.find(c => Number(c.id) === Number(channelId));
+    const matchingChannel = channels.find(
+      (c) => Number(c.id) === Number(channelId)
+    );
     if (matchingChannel) {
       siteGroupId = parseInt(matchingChannel.siteGroupId, 10);
     }
@@ -258,13 +299,17 @@ async function resolveCommerceContext(opts) {
     if (catalogs.length > 0) {
       if (catalogs.length === 1 || isNonInteractive) {
         catalogId = parseInt(catalogs[0].id, 10);
-        console.log(`Auto-selected Catalog: ${catalogs[0].name} (ID: ${catalogId})`);
+        console.log(
+          `Auto-selected Catalog: ${catalogs[0].name} (ID: ${catalogId})`
+        );
       } else {
         console.log('\nAvailable Catalogs:');
         catalogs.forEach((c, index) => {
           console.log(`  ${index + 1}) ${c.name} (ID: ${c.id})`);
         });
-        const ans = await askQuestion(`Select a Catalog (1-${catalogs.length}) or enter custom ID [1]: `);
+        const ans = await askQuestion(
+          `Select a Catalog (1-${catalogs.length}) or enter custom ID [1]: `
+        );
         const selIdx = parseInt(ans, 10) - 1;
         if (!isNaN(selIdx) && selIdx >= 0 && selIdx < catalogs.length) {
           catalogId = parseInt(catalogs[selIdx].id, 10);
@@ -295,20 +340,31 @@ async function resolveCommerceContext(opts) {
 
   // D. Exit early in non-interactive if still missing
   if (
-    channelId === undefined || isNaN(channelId) ||
-    siteGroupId === undefined || isNaN(siteGroupId) ||
-    catalogId === undefined || isNaN(catalogId)
+    channelId === undefined ||
+    isNaN(channelId) ||
+    siteGroupId === undefined ||
+    isNaN(siteGroupId) ||
+    catalogId === undefined ||
+    isNaN(catalogId)
   ) {
     console.error('\n❌ Error: Missing required commerce context settings.');
-    console.error('Please specify them via CLI flags or environment variables:');
+    console.error(
+      'Please specify them via CLI flags or environment variables:'
+    );
     if (channelId === undefined || isNaN(channelId)) {
-      console.error('  - Channel ID: --channel-id or AICA_CHANNEL_ID / LIFERAY_CHANNEL_ID');
+      console.error(
+        '  - Channel ID: --channel-id or AICA_CHANNEL_ID / LIFERAY_CHANNEL_ID'
+      );
     }
     if (siteGroupId === undefined || isNaN(siteGroupId)) {
-      console.error('  - Site Group ID: --site-group-id or AICA_SITE_GROUP_ID / LIFERAY_SITE_GROUP_ID');
+      console.error(
+        '  - Site Group ID: --site-group-id or AICA_SITE_GROUP_ID / LIFERAY_SITE_GROUP_ID'
+      );
     }
     if (catalogId === undefined || isNaN(catalogId)) {
-      console.error('  - Catalog ID: --catalog-id or AICA_CATALOG_ID / LIFERAY_CATALOG_ID');
+      console.error(
+        '  - Catalog ID: --catalog-id or AICA_CATALOG_ID / LIFERAY_CATALOG_ID'
+      );
     }
     process.exit(1);
   }
