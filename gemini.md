@@ -112,3 +112,12 @@ This is a standard, easy-to-use setup that the scanner natively respects, automa
 - Environment Architecture & Routing Visuals: [LDM Architecture](https://github.com/peterrichards-lr/liferay-docker-manager/blob/master/docs/LDM_ARCHITECTURE.md)
 - DNS & Client Extension routing rules: [LDM Networking & DNS Guide](https://github.com/peterrichards-lr/liferay-docker-manager/blob/master/docs/guides/NETWORKING_DNS.md)
 - Replicating Cloud envs locally: [LDM PAAS Local Dev Guide](https://github.com/peterrichards-lr/liferay-docker-manager/blob/master/docs/guides/PAAS_LOCAL_DEV.md)
+
+## LDM Interactive Constraints
+
+When executing Liferay Docker Manager (LDM) commands or orchestration scripts (like `scripts/run-e2e-ldm.sh`) via the agent or in CI pipelines, you **MUST** ensure they run in non-interactive mode.
+
+Failure to provide these flags will cause the execution to silently hang while waiting for STDIN prompts (such as project selection or confirmation dialogues).
+
+- **For LDM commands:** Always append `-y` (e.g., `ldm down -y`, `ldm rm aica -y --delete`).
+- **For Orchestration Scripts:** Always append `--ci` (e.g., `bash scripts/run-e2e-ldm.sh -v -k --ci`) to instruct the script to bypass its own interactive prompts and pass `-y` to underlying LDM commands.
