@@ -311,25 +311,41 @@ class MediaGenerator {
         let imageSet = [];
 
         if (imageMode === 'ai' && !options.demoMode) {
-          const b64 = await ai.generateImageDataForProduct(product, {
+          const aiResult = await ai.generateImageDataForProduct(product, {
             ...options,
             correlationId,
           });
-          imageSet = [
-            {
-              title: {
-                en_US: `${product.name.en_US || product.name} AI Image`,
+          if (typeof aiResult === 'object' && aiResult.url) {
+            imageSet = [
+              {
+                title: {
+                  en_US: `${product.name.en_US || product.name} AI Image`,
+                },
+                src: aiResult.url,
+                priority: 1,
               },
-              base64: b64,
-              contentType: 'image/png',
-              priority: 1,
-            },
-          ];
+            ];
+          } else {
+            imageSet = [
+              {
+                title: {
+                  en_US: `${product.name.en_US || product.name} AI Image`,
+                },
+                base64: aiResult,
+                contentType: 'image/png',
+                priority: 1,
+              },
+            ];
+          }
         } else if (imageMode === 'picsum') {
           imageSet = this.generateProductImageSet(
             product.name.en_US || product.name
           );
-        } else if (imageMode === 'placeholder' || imageMode === 'default') {
+        } else if (
+          imageMode === 'placeholder' ||
+          imageMode === 'default' ||
+          (imageMode === 'ai' && options.demoMode)
+        ) {
           const placeholder = await this.getDefaultBase64Image(config);
           imageSet = [
             {

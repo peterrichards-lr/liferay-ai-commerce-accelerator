@@ -40,7 +40,8 @@ Ensure all E2E verification tests (`yarn verify` / `run-e2e-ldm.sh`) pass succes
 28. **Create non-technical interactive launcher script**: Add `start.sh` at the project root to provide an interactive, zero-dependency menu-driven bootstrap script for demo populating, UI launching, and diagnosing connectivity. [Completed]
 29. **Fix rolldown native bindings architecture mismatch**: Move `@rolldown/binding-darwin-*` bindings to `optionalDependencies` in the root `package.json` to support both Gradle (x64) and system (arm64) Node architectures during install. [Completed]
 30. **Document Feature Flags & Implement Boot Probe**: Document the required Page Management API Feature Flag (`LPD-35443`) in `docs/SETUP.md` and add a connection check in the microservice startup connection diagnostics (`testConnection`) to verify the flag is active on DXP. [Completed]
-31. **Environment Configuration Split**: Rename `.env` to `.env.e2e` for the LDM E2E suite, create a new local `.env` pointing to `localhost:8080` with Basic Auth, and update the E2E script to prioritize `.env.e2e`.
+31. **Environment Configuration Split**: Rename `.env` to `.env.e2e` for the LDM E2E suite, create a new local `.env` pointing to `localhost:8080` with Basic Auth, and update the E2E script to prioritize `.env.e2e`. [Completed]
+32. **Dashboard Failed Jobs Action Refactor**: Refactor list action button for failed jobs in System Administration Dashboard (`AdminApp.jsx`) to download session logs instead of exporting datasets.
 
 ## Current Progress
 

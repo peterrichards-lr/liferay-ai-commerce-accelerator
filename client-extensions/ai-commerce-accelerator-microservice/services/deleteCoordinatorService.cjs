@@ -696,6 +696,7 @@ class DeleteCoordinatorService extends BaseGenerator {
         { sessionId, channelId, catalogId }
       );
       steps = [
+        { name: S.RESET_CATALOG_CONFIG, type: 'sync' },
         { name: S.DELETE_ORDERS, type: 'sync' },
         { name: S.DELETE_WAREHOUSE_ITEMS, type: 'sync' },
         { name: S.DELETE_WAREHOUSES, type: 'sync' },
@@ -708,7 +709,6 @@ class DeleteCoordinatorService extends BaseGenerator {
         { name: S.DELETE_SPECIFICATIONS, type: 'sync' },
         { name: S.DELETE_OPTIONS, type: 'sync' },
         { name: S.DELETE_OPTION_CATEGORIES, type: 'sync' },
-        { name: S.RESET_CATALOG_CONFIG, type: 'sync' },
       ];
     }
 

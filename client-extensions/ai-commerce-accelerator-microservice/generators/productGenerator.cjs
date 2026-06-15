@@ -371,7 +371,48 @@ class ProductGenerator extends BaseGenerator {
     const seenPriceERCs = new Set();
 
     for (const product of productDataList) {
-      if (!Array.isArray(product.priceEntries)) continue;
+      if (!Array.isArray(product.priceEntries)) product.priceEntries = [];
+
+      // Auto-generate missing price entries for variants based on the base price entry
+      const baseEntry =
+        product.priceEntries.find(
+          (e) =>
+            e.skuExternalReferenceCode === product.baseSku ||
+            e.skuExternalReferenceCode === product.externalReferenceCode ||
+            e.skuExternalReferenceCode === product.skus?.[0]?.sku
+        ) || product.priceEntries[0]; // fallback to first entry
+
+      if (baseEntry && Array.isArray(product.skuVariants)) {
+        for (const variant of product.skuVariants) {
+          const variantSku = variant.externalReferenceCode || variant.sku;
+          const exists = product.priceEntries.some(
+            (e) => e.skuExternalReferenceCode === variantSku
+          );
+
+          if (!exists) {
+            // Synthesize price entry for variant
+            const modifier =
+              typeof variant.priceModifier === 'number'
+                ? variant.priceModifier
+                : 0;
+            const newPrice = Number(
+              (baseEntry.price * (1 + modifier)).toFixed(2)
+            );
+            const newPromo = baseEntry.promoPrice
+              ? Number((baseEntry.promoPrice * (1 + modifier)).toFixed(2))
+              : undefined;
+
+            product.priceEntries.push({
+              ...baseEntry,
+              skuExternalReferenceCode: variantSku,
+              price: newPrice > 0 ? newPrice : 0.01,
+              promoPrice: newPromo,
+              tierPrices: [],
+            });
+          }
+        }
+      }
+
       for (const entry of product.priceEntries) {
         if (!filterFn(entry)) continue;
 
@@ -865,13 +906,45 @@ class ProductGenerator extends BaseGenerator {
           return cleanOpt;
         });
 
-        await this.liferay.addProductOptions(
+        const createdOptions = await this.liferay.addProductOptions(
           config,
           product.id,
           cleanedOptions,
           product.externalReferenceCode // HARDENING: Pass ERC to bypass indexing race condition
         );
+
+        // Map the generated IDs back to the product context for SKU mapping
+        const createdArray = Array.isArray(createdOptions)
+          ? createdOptions
+          : createdOptions?.items || [];
+
+        const updatedOpts = sourceOptions.map((opt) => {
+          const name =
+            typeof opt.name === 'string' ? { en_US: opt.name } : opt.name;
+          const key = opt.key || sanitizeForERC(name?.en_US || name);
+
+          const createdOpt = createdArray.find((co) => co.key === key);
+          if (createdOpt) {
+            opt.optionId = createdOpt.id || createdOpt.productOptionId;
+            opt.optionValuesWithIds = (
+              createdOpt.productOptionValues || []
+            ).map((cv) => ({
+              optionValueId: cv.id || cv.productOptionValueId,
+              name: cv.name,
+              key: cv.key,
+            }));
+          }
+          return opt;
+        });
+
+        product.options = updatedOpts;
+        product.productOptions = updatedOpts;
       }
+
+      // We must explicitly save the mutated context to the database
+      await this.persistence.updateSessionContext(sessionId, {
+        productDataList,
+      });
       await this.completeSyncStep(
         sessionId,
         S.LINK_PRODUCT_OPTIONS,
@@ -1779,8 +1852,8 @@ class ProductGenerator extends BaseGenerator {
         // Roll dice for assignment ratio
         if (Math.random() * 100 > inventoryAssignmentRatio) continue;
 
-        const skus = pd.skus || [];
-        for (const sku of skus) {
+        const allSkus = [...(pd.skus || []), ...(pd.skuVariants || [])];
+        for (const sku of allSkus) {
           if (!sku.sku) continue;
 
           // Assign to a random warehouse

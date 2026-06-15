@@ -94,6 +94,32 @@ class GeminiProvider extends BaseAIProvider {
             price: 299.99,
             productType: 'simple',
             categories: ['Electronics', 'Wearables'],
+            priceEntries: [
+              {
+                price: 299.99,
+                skuExternalReferenceCode: 'SKU-SMARTWATCH-001',
+                priceListExternalReferenceCode: 'AICA-PL-GENERAL',
+                externalReferenceCode: 'PE-SKU-SMARTWATCH-001-AICA-PL-GENERAL',
+                discountDiscovery: false,
+                bulkPricing: false,
+                sku: {
+                  basePrice: 299.99,
+                  basePromoPrice: 249.99,
+                },
+                tierPrices: [
+                  {
+                    minimumQuantity: 5,
+                    price: 279.99,
+                    externalReferenceCode: 'TP-5-SKU-SMARTWATCH-001',
+                  },
+                  {
+                    minimumQuantity: 10,
+                    price: 259.99,
+                    externalReferenceCode: 'TP-10-SKU-SMARTWATCH-001',
+                  },
+                ],
+              },
+            ],
           },
           {
             name: { en_US: 'Wireless Earbuds' },
@@ -103,6 +129,20 @@ class GeminiProvider extends BaseAIProvider {
             price: 149.99,
             productType: 'simple',
             categories: ['Electronics', 'Audio'],
+            priceEntries: [
+              {
+                price: 149.99,
+                skuExternalReferenceCode: 'SKU-EARBUDS-001',
+                priceListExternalReferenceCode: 'AICA-PL-GENERAL',
+                externalReferenceCode: 'PE-SKU-EARBUDS-001-AICA-PL-GENERAL',
+                discountDiscovery: false,
+                bulkPricing: false,
+                sku: {
+                  basePrice: 149.99,
+                  basePromoPrice: null,
+                },
+              },
+            ],
           },
         ],
       };

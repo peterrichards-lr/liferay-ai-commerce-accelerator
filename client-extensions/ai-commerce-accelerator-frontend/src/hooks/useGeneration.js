@@ -60,8 +60,10 @@ export default function useGeneration({
 
         if (forceDemoMode) {
           payload.demoMode = true;
-          if (payload.imageMode === 'generate') payload.imageMode = 'default';
-          if (payload.pdfMode === 'generate') payload.pdfMode = 'default';
+          if (payload.imageMode === 'ai' || payload.imageMode === 'generate')
+            payload.imageMode = 'default';
+          if (payload.pdfMode === 'ai' || payload.pdfMode === 'generate')
+            payload.pdfMode = 'default';
         }
 
         const imageFile =
