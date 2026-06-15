@@ -37,6 +37,8 @@ Ensure all E2E verification tests (`yarn verify` / `run-e2e-ldm.sh`) pass succes
 25. **Fix CodeMirror Version Mismatch & Workspace Duplication**: Downgrade `codemirror` from `6.0.2` to `5.65.16` in package files, remove the duplicate `"aica/client-extensions/ai-commerce-accelerator-microservice"` workspace from the root `package.json`, and fix the Liferay Workspace excludes glob to `**/aica/**` in `gradle.properties` to resolve build failures. [Completed]
 26. **Fix Microservice Startup Probe URL Resolution**: Update `testConnection` in `rest.cjs` and `waitForLiferay` in `index.cjs` to resolve effective connection details so that raw environment variables or domain names (like `aica-e2e.local`) are parsed with valid protocol prefixes instead of causing `Invalid URL format` exceptions. [Completed]
 27. **Fix tomcat/temp deletion on clean**: Recreate `bundles/tomcat/temp` before `setUpYarn` runs to prevent `NoSuchFileException` during clean builds. [Completed]
+28. **Create non-technical interactive launcher script**: Add `start.sh` at the project root to provide an interactive, zero-dependency menu-driven bootstrap script for demo populating, UI launching, and diagnosing connectivity.
+29. **Fix rolldown native bindings architecture mismatch**: Move `@rolldown/binding-darwin-*` bindings to `optionalDependencies` in the root `package.json` to support both Gradle (x64) and system (arm64) Node architectures during install.
 
 ## Current Progress
 
