@@ -104,6 +104,16 @@ for (let i = 1; i < args.length; i++) {
     options.orderCount = parseInt(args[i + 1], 10);
     i++;
   }
+  if (arg === '--bulk-pricing') options.generateBulkPricing = true;
+  if (arg === '--no-bulk-pricing') options.generateBulkPricing = false;
+  if (arg === '--tier-pricing') options.generateTierPricing = true;
+  if (arg === '--no-tier-pricing') options.generateTierPricing = false;
+  if (arg === '--specifications') options.generateSpecifications = true;
+  if (arg === '--no-specifications') options.generateSpecifications = false;
+  if (arg === '--warehouses') options.createWarehouses = true;
+  if (arg === '--no-warehouses') options.createWarehouses = false;
+  if (arg === '--reuse-warehouses') options.reuseExistingWarehouses = true;
+  if (arg === '--no-reuse-warehouses') options.reuseExistingWarehouses = false;
   if ((arg === '--image-mode' || arg === '--images') && args[i + 1]) {
     options.imageMode = args[i + 1];
     i++;
@@ -392,11 +402,13 @@ async function handleGenerate(opts) {
     orderCount: opts.orderCount || 5,
     imageMode: opts.imageMode || 'default',
     pdfMode: opts.pdfMode || 'default',
-    createWarehouses: true,
-    reuseExistingWarehouses: true,
+    createWarehouses: opts.createWarehouses !== false,
+    reuseExistingWarehouses: opts.reuseExistingWarehouses !== false,
     generatePriceLists: true,
     generateSkuVariants: true,
-    generateSpecifications: true,
+    generateSpecifications: opts.generateSpecifications !== false,
+    generateBulkPricing: opts.generateBulkPricing !== false,
+    generateTierPricing: opts.generateTierPricing !== false,
     channelId: ctx.channelId,
     siteGroupId: ctx.siteGroupId,
     catalogId: ctx.catalogId,
@@ -762,6 +774,11 @@ Options:
   --orders N                             Specify order target volume
   --images <mode> / --image-mode <mode>  Specify image generation mode (none|default|picsum|ai) [default]
   --pdfs <mode> / --pdf-mode <mode>      Specify PDF generation mode (none|default|ai) [default]
+  --[no-]bulk-pricing                    Enable/disable bulk pricing generation [true]
+  --[no-]tier-pricing                    Enable/disable tier pricing generation [true]
+  --[no-]specifications                  Enable/disable specification generation [true]
+  --[no-]warehouses                      Enable/disable warehouse creation [true]
+  --[no-]reuse-warehouses                Enable/disable reusing existing warehouses [true]
   --channel-id ID / --channel ID         Specify channel ID
   --site-group-id ID / --site-group ID   Specify site group ID
   --catalog-id ID / --catalog ID         Specify catalog ID
