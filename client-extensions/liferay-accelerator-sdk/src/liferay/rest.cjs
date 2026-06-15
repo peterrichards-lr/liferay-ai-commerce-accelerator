@@ -708,27 +708,32 @@ class LiferayRestService {
   }
 
   async testConnection(config) {
-    const { logger, oauth } = this.ctx;
+    const { logger, oauth, persistence } = this.ctx;
     try {
+      const effective = {
+        ...config,
+        ...resolveEffectiveLiferayConnection(config, oauth, persistence),
+      };
+
       try {
-        new URL(config.liferayUrl);
+        new URL(effective.liferayUrl);
       } catch {
-        throw new Error(`Invalid URL format: ${config.liferayUrl}`);
+        throw new Error(`Invalid URL format: ${effective.liferayUrl}`);
       }
 
       // HARDENING: Only validate OAuth if we aren't using Basic Auth
       const useBasic =
-        config.authMethod === 'basic' ||
+        effective.authMethod === 'basic' ||
         ENV.LIFERAY_AUTH_METHOD === 'basic' ||
-        (!config.clientId &&
+        (!effective.clientId &&
           ENV.LIFERAY_API_USERNAME &&
           ENV.LIFERAY_API_PASSWORD);
 
       if (!useBasic && !oauth.isLiferayRouteAvailable()) {
-        oauth.validateOAuthConfig(config);
+        oauth.validateOAuthConfig(effective);
       }
 
-      await this._get(config, PATH.ME, 'test-connection');
+      await this._get(effective, PATH.ME, 'test-connection');
 
       return {
         status: 'connected',

@@ -2,7 +2,7 @@
 
 ## Current Goal
 
-Ensure all E2E verification tests (`yarn verify` / `run-e2e-ldm.sh`) pass successfully, validating all AI data generation, deletion, and CLI control flows.
+Ensure all E2E verification tests (`yarn verify` / `run-e2e-ldm.sh`) pass successfully, validating all AI data generation, deletion, and CLI control flows. Also, resolve local microservice startup connectivity issues when run outside LDM.
 
 ## Plan
 
@@ -34,6 +34,9 @@ Ensure all E2E verification tests (`yarn verify` / `run-e2e-ldm.sh`) pass succes
 22. **Document Product Batch Delete Fragility**: Create `jira/LPS-PRODUCTS-BATCH-DELETE-RESILIENCE.md` explaining why native product batch deletion should be resilient to missing items (404s). [Completed]
 23. **Document Batch Delete Limitation**: Create `jira/LPS-COMMERCE-BATCH-DELETE-LIMITATION.md` detailing the lack of unified native batch delete endpoints for commerce and admin-user entities. [Completed]
 24. **Harden Account Batch Deletion soft statuses**: Add `400` to `SOFT_STATUS_BY_OP['accounts:batch-delete']` in `rest.cjs` to prevent default/system accounts deletion failures (which throw 400 Bad Request) from crashing the teardown flow. [Completed]
+25. **Fix CodeMirror Version Mismatch & Workspace Duplication**: Downgrade `codemirror` from `6.0.2` to `5.65.16` in package files, remove the duplicate `"aica/client-extensions/ai-commerce-accelerator-microservice"` workspace from the root `package.json`, and fix the Liferay Workspace excludes glob to `**/aica/**` in `gradle.properties` to resolve build failures. [Completed]
+26. **Fix Microservice Startup Probe URL Resolution**: Update `testConnection` in `rest.cjs` and `waitForLiferay` in `index.cjs` to resolve effective connection details so that raw environment variables or domain names (like `aica-e2e.local`) are parsed with valid protocol prefixes instead of causing `Invalid URL format` exceptions. [Completed]
+27. **Fix tomcat/temp deletion on clean**: Recreate `bundles/tomcat/temp` before `setUpYarn` runs to prevent `NoSuchFileException` during clean builds. [Completed]
 
 ## Current Progress
 
@@ -51,6 +54,10 @@ Ensure all E2E verification tests (`yarn verify` / `run-e2e-ldm.sh`) pass succes
 - Ran background E2E test task `task-4112` which failed on the Playwright test `should successfully import and re-scaffold a dataset using config import` due to target price lists not being created on DXP during import.
 - Enabled `generatePriceLists: true` and `generateSkuVariants: true` during import sessions in `routes/import.cjs`.
 - Ran background E2E test task `task-4224` which failed because the import Playwright test timed out after 120s. Backend logs verified the import session successfully completed (in 136s) but exceeded the test's hard limit due to the extra scaffolding steps. Plan: increase test timeout to 300,000ms.
+- Identified that Dependabot upgraded `codemirror` from `5.65.16` to `6.0.2` in both root `package.json` and `client-extensions/ai-commerce-accelerator-configuration/package.json`. Because `react-codemirror2` (locked to `9.0.1`) requires CodeMirror 5, this caused compilation errors for classic CodeMirror imports (modes, addons, theme). Plan: Downgrade `codemirror` to `5.65.16`.
+- Identified that `package.json` contains a duplicate workspace path `"aica/client-extensions/ai-commerce-accelerator-microservice"`. Since LDM copies source files into the `./aica` folder, registering it as a workspace causes Yarn to fail with a duplicate workspace name error during build. Additionally, the glob pattern in `gradle.properties` was `**/aica` instead of `**/aica/**`, which failed to exclude nested directory packages from Liferay Workspace scans. Plan: Remove the `"aica/..."` workspace entry from `package.json` and change the excludes glob to `**/aica/**` in `gradle.properties`.
+- Fixed the `testConnection` and `waitForLiferay` logic to correctly resolve effective connection details including protocol matching.
+- Updated `docs/SETUP.md` to document and include the `NODE_TLS_REJECT_UNAUTHORIZED=0` prefix for local development outside LDM.
 
 ## Secrets Leak Prevention (JS-Native Secrets Sentinel)
 

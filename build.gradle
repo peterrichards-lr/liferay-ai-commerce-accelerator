@@ -26,6 +26,38 @@ def findYarnExecutable() {
 	return 'yarn'
 }
 
+tasks.register('createTomcatTempDir') {
+	doLast {
+		file("${rootDir}/bundles/tomcat/temp").mkdirs()
+	}
+}
+
+tasks.named('clean') {
+	doLast {
+		file("${rootDir}/bundles/tomcat/temp").mkdirs()
+	}
+}
+
+tasks.named('setUpYarn') {
+	dependsOn 'createTomcatTempDir'
+	doLast {
+		def packageJsonFile = file("${rootDir}/package.json")
+		if (packageJsonFile.exists()) {
+			def jsonSlurper = new JsonSlurper()
+			def packageJson = jsonSlurper.parse(packageJsonFile)
+			if (packageJson.workspaces && packageJson.workspaces.packages) {
+				def originalPackages = packageJson.workspaces.packages
+				def cleanPackages = originalPackages.findAll { !it.startsWith("aica/") && !it.startsWith("aica-e2e/") }
+				if (originalPackages.size() != cleanPackages.size()) {
+					packageJson.workspaces.packages = cleanPackages
+					packageJsonFile.write(JsonOutput.prettyPrint(JsonOutput.toJson(packageJson)))
+					logger.lifecycle("🧹 Removed duplicate aica workspaces from package.json in setUpYarn hook")
+				}
+			}
+		}
+	}
+}
+
 tasks.named('yarnInstall') {
 	doLast {
 		try {

@@ -33,8 +33,10 @@ This project includes a Gradle task called `generateBatchFiles` that automatical
 
 For development purposes, you can deploy and run the microservice independently. However, be aware that this will not deploy the other client extensions, and you may encounter errors if the object definitions in your Liferay instance are not up-to-date.
 
+When running locally outside of LDM (which normally configures secure environment proxy trust), you will need to bypass local self-signed SSL certificate checking by prepending `NODE_TLS_REJECT_UNAUTHORIZED=0`:
+
 ```bash
-(rm -f client-extensions/ai-commerce-accelerator-microservice/logs/*.log || true) && blade gw :client-extensions:ai-commerce-accelerator-microservice:clean :client-extensions:ai-commerce-accelerator-microservice:deploy :client-extensions:ai-commerce-accelerator-microservice:packageRunDebug
+(rm -f client-extensions/ai-commerce-accelerator-microservice/logs/*.log || true) && NODE_TLS_REJECT_UNAUTHORIZED=0 blade gw :client-extensions:ai-commerce-accelerator-microservice:clean :client-extensions:ai-commerce-accelerator-microservice:deploy :client-extensions:ai-commerce-accelerator-microservice:packageRunDebug
 ```
 
 ## Automated Verification (Recommended)

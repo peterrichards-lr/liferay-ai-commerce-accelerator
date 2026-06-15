@@ -1235,16 +1235,34 @@ class LiferayService {
    */
   async waitForLiferay(maxAttempts = 12, delayMs = 5000) {
     const { logger } = this.ctx;
-    const { lookupConfig } = require('@rotty3000/config-node');
+    const {
+      resolveEffectiveLiferayConnection,
+    } = require('../utils/liferayEnv.cjs');
 
     // Use default environment credentials for the probe
-    const config = {
-      liferayUrl:
+    let config;
+    try {
+      config = resolveEffectiveLiferayConnection(
+        {},
+        this.ctx.oauth,
+        this.ctx.persistence
+      );
+    } catch (_err) {
+      const { lookupConfig } = require('@rotty3000/config-node');
+      const rawUrl =
         lookupConfig('com.liferay.lxc.dxp.main.domain') ||
         lookupConfig('com.liferay.lxc.dxp.server.host') ||
         process.env.LIFERAY_URL ||
-        'http://localhost:8080',
-    };
+        'http://localhost:8080';
+
+      let liferayUrl = rawUrl;
+      if (rawUrl && !rawUrl.includes('://')) {
+        const protocol =
+          lookupConfig('com.liferay.lxc.dxp.server.protocol') || 'http';
+        liferayUrl = `${protocol}://${rawUrl}`;
+      }
+      config = { liferayUrl };
+    }
 
     logger.info(
       `Starting Liferay connectivity probe for ${config.liferayUrl}`,

@@ -18,6 +18,7 @@
     "@commitlint/cli": "^21.0.2",
     "@commitlint/config-conventional": "^21.0.2",
     "@playwright/test": "^1.60.0",
+    "@rolldown/binding-darwin-arm64": "^1.1.1",
     "@testing-library/dom": "^10.4.1",
     "baseline-browser-mapping": "^2.10.37",
     "happy-dom": "^20.10.3",
@@ -28,7 +29,7 @@
     "yaml": "^2.9.0"
   },
   "resolutions": {
-    "codemirror": "6.0.2",
+    "codemirror": "5.65.16",
     "uuid": "^11.1.1"
   },
   "optionalDependencies": {
@@ -100,7 +101,7 @@
     "@vitejs/plugin-react": "6.0.2",
     "ajv-formats": "3.0.1",
     "better-sqlite3": "12.10.0",
-    "codemirror": "6.0.2",
+    "codemirror": "5.65.16",
     "esbuild": "0.28.1",
     "eslint": "10.5.0",
     "immutable": "5.1.6",
