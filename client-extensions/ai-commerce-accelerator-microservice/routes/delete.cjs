@@ -51,19 +51,69 @@ function createLoadAppConfigMiddleware(configService, logger) {
     const { config } = req;
 
     try {
+      // Load critical configs required for basic operation (Auth, Cache)
       await Promise.all([
         configService.getCacheConfig(config),
-        configService.getQueueConfig(config),
-        configService.getAIConfig(config),
-        configService.getAIPromptsConfig(config),
         configService.getOAuthConfig(config),
-        configService.getObjectStorageConfig(config),
-        configService.getWSConfig(config),
       ]);
-      next();
     } catch (error) {
-      return handleError(res, logger, req, config, 'load-app-config', error);
+      return handleError(
+        res,
+        logger,
+        req,
+        config,
+        'load-app-config-critical',
+        error
+      );
     }
+
+    try {
+      // Load secondary configs (AI, Queues, etc.) gracefully.
+      // Teardown should not be blocked if the AI configuration is broken or missing.
+      await Promise.all([
+        configService
+          .getQueueConfig(config)
+          .catch((e) =>
+            logger.warn(
+              `Failed to load Queue config during delete middleware: ${e.message}`
+            )
+          ),
+        configService
+          .getAIConfig(config)
+          .catch((e) =>
+            logger.warn(
+              `Failed to load AI config during delete middleware: ${e.message}`
+            )
+          ),
+        configService
+          .getAIPromptsConfig(config)
+          .catch((e) =>
+            logger.warn(
+              `Failed to load AI Prompts config during delete middleware: ${e.message}`
+            )
+          ),
+        configService
+          .getObjectStorageConfig(config)
+          .catch((e) =>
+            logger.warn(
+              `Failed to load Object Storage config during delete middleware: ${e.message}`
+            )
+          ),
+        configService
+          .getWSConfig(config)
+          .catch((e) =>
+            logger.warn(
+              `Failed to load WS config during delete middleware: ${e.message}`
+            )
+          ),
+      ]);
+    } catch (error) {
+      logger.warn(
+        `Non-critical config load error during delete middleware: ${error.message}`
+      );
+    }
+
+    next();
   };
 }
 

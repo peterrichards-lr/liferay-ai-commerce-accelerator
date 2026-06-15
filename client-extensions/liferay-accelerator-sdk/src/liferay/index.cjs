@@ -623,6 +623,7 @@ class LiferayService {
     {
       entityName,
       filter,
+      search,
       nativeBatch,
       ids: providedIds,
       items: providedItems,
@@ -758,18 +759,21 @@ class LiferayService {
             pageSize,
             fields: fieldsParam,
             filter,
+            search,
           });
         } else if (entityName === 'priceList') {
           res = await this.getPriceLists(config, {
             pageSize,
             fields: fieldsParam,
             filter,
+            search,
           });
         } else if (entityName === 'promotion') {
           res = await this.getPromotions(config, {
             pageSize,
             fields: fieldsParam,
             filter,
+            search,
           });
         } else if (entityName === 'product') {
           res = await this.getProducts(config, {
@@ -777,42 +781,49 @@ class LiferayService {
             pageSize,
             fields: fieldsParam,
             filter,
+            search,
           });
         } else if (entityName === 'warehouseItem') {
           res = await this.getAllWarehouseItems(config, {
             pageSize,
             fields: fieldsParam,
             filter,
+            search,
           });
         } else if (entityName === 'specification') {
           res = await this.getSpecifications(config, {
             pageSize,
             fields: fieldsParam,
             filter,
+            search,
           });
         } else if (entityName === 'option') {
           res = await this.getOptions(config, {
             pageSize,
             fields: fieldsParam,
             filter,
+            search,
           });
         } else if (entityName === 'optionCategory') {
           res = await this.getOptionCategories(config, {
             pageSize,
             fields: fieldsParam,
             filter,
+            search,
           });
         } else if (entityName === 'order') {
           res = await this.getOrders(config, {
             pageSize,
             fields: fieldsParam,
             filter,
+            search,
           });
         } else if (entityName === 'warehouse') {
           res = await this.getWarehouses(config, {
             pageSize,
             fields: fieldsParam,
             filter,
+            search,
           });
         } else {
           // Absolute REST fallback for non-GraphQL entities
@@ -826,6 +837,7 @@ class LiferayService {
                 page,
                 pageSize,
                 filter,
+                search,
                 fields: fieldsParam,
               },
             }
@@ -951,6 +963,7 @@ class LiferayService {
     {
       pageSize = 200,
       filter,
+      search,
       ids,
       callbackBatchERC,
       dryRun = false,
@@ -962,6 +975,7 @@ class LiferayService {
     return this.deleteByFilter(config, {
       entityName: 'account',
       filter,
+      search,
       ids,
       pageSize,
       externalReferenceCode: callbackBatchERC,
