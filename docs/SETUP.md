@@ -9,6 +9,17 @@ This guide covers the necessary steps to deploy and run the Liferay AI Commerce 
 - Yarn 1.22+
 - Liferay Blade CLI
 
+### Required Feature Flags
+
+To support automated scaffolding of site pages and template linking, this project requires the following Feature Flag to be enabled in Liferay:
+
+- **LPD-35443 (Page Management API)**: Enables REST APIs to create, read, and manage pages and page templates via External Reference Codes (ERCs).
+
+How to enable it:
+
+- **Standalone Bundle**: Add `feature.flag.LPD-35443=true` to your `portal-ext.properties` file and restart Liferay.
+- **Liferay Docker Manager (LDM)**: Handled automatically on startup. If starting containers manually, use `ldm run --feature LPD-35443`.
+
 ## Deployment
 
 To ensure that the application functions correctly, it is critical to deploy all client extensions to your Liferay instance. This is especially important for the `ai-commerce-accelerator-batch` extension, which contains the necessary data definitions for the Liferay Objects used by the accelerator.

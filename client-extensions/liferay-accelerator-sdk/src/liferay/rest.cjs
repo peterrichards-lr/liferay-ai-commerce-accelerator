@@ -735,6 +735,34 @@ class LiferayRestService {
 
       await this._get(effective, PATH.ME, 'test-connection');
 
+      // Probe for LPD-35443 feature flag (Page Management API)
+      try {
+        await this._get(
+          effective,
+          '/o/headless-admin-site/v1.0/sites/0/site-pages',
+          'probe-feature-flag'
+        );
+      } catch (err) {
+        const status = err.response?.status;
+        const errMsg = err.response?.data?.error?.message;
+
+        // If the route is missing entirely, JAX-RS returns 404 "Not Found".
+        // If the route exists but site '0' is missing, it returns 404 "No Site exists...".
+        if (status === 404 && errMsg === 'Not Found') {
+          throw new Error(
+            'Liferay Page Management API feature flag (LPD-35443) is disabled. ' +
+              "Please add 'feature.flag.LPD-35443=true' to your portal-ext.properties file and restart Liferay.",
+            { cause: err }
+          );
+        }
+
+        // Log other acceptable status codes/messages (like 401/403 or detailed site error)
+        logger.debug('LPD-35443 feature flag probe complete', {
+          status,
+          message: errMsg,
+        });
+      }
+
       return {
         status: 'connected',
         message: 'Successfully connected to Liferay Commerce using OAuth 2',

@@ -122,8 +122,12 @@ touch logs/e2e-microservice.log
 
 # --- Phase 0: Environment Loading ---
 
-# Load local .env if it exists (for local runs)
-if [ -f ".env" ]; then
+# Load E2E or local .env if it exists (for local runs)
+if [ -f ".env.e2e" ]; then
+    echo "📄 Loading environment variables from .env.e2e..."
+    # shellcheck disable=SC2046
+    export $(grep -v '^#' .env.e2e | xargs)
+elif [ -f ".env" ]; then
     echo "📄 Loading environment variables from .env..."
     # shellcheck disable=SC2046
     export $(grep -v '^#' .env | xargs)

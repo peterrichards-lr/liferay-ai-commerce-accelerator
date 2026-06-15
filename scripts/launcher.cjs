@@ -25,12 +25,17 @@ const C_DIM = '\x1b[2m';
 
 const rl = readline.createInterface({
   input: process.stdin,
-  output: process.stdout
+  output: process.stdout,
 });
 
 const ROOT_DIR = path.resolve(__dirname, '..');
 const CLI_PATH = path.join(ROOT_DIR, 'scripts', 'aica-cli.cjs');
-const MICROSERVICE_SERVER = path.join(ROOT_DIR, 'client-extensions', 'ai-commerce-accelerator-microservice', 'server.cjs');
+const MICROSERVICE_SERVER = path.join(
+  ROOT_DIR,
+  'client-extensions',
+  'ai-commerce-accelerator-microservice',
+  'server.cjs'
+);
 
 // Ensure log directory exists
 const LOG_DIR = path.join(ROOT_DIR, 'logs');
@@ -51,7 +56,9 @@ function openBrowser(url) {
   }
   exec(cmd, (err) => {
     if (err) {
-      console.log(`${C_YELLOW}⚠️  Could not open browser automatically. Please visit ${url} manually.${C_RESET}`);
+      console.log(
+        `${C_YELLOW}⚠️  Could not open browser automatically. Please visit ${url} manually.${C_RESET}`
+      );
     }
   });
 }
@@ -76,20 +83,24 @@ function checkPort(port) {
 
 // Helper to execute CLI commands
 function runCli(args, callback) {
-  console.log(`\n${C_DIM}⚙️  Running: node scripts/aica-cli.cjs ${args.join(' ')}${C_RESET}\n`);
-  
+  console.log(
+    `\n${C_DIM}⚙️  Running: node scripts/aica-cli.cjs ${args.join(' ')}${C_RESET}\n`
+  );
+
   const env = { ...process.env, NODE_TLS_REJECT_UNAUTHORIZED: '0' };
   const child = spawn('node', [CLI_PATH, ...args], {
     cwd: ROOT_DIR,
     stdio: 'inherit',
-    env
+    env,
   });
 
   child.on('close', (code) => {
     if (code === 0) {
       console.log(`\n${C_GREEN}✅ Operation completed successfully!${C_RESET}`);
     } else {
-      console.log(`\n${C_RED}❌ Operation failed with exit code ${code}.${C_RESET}`);
+      console.log(
+        `\n${C_RED}❌ Operation failed with exit code ${code}.${C_RESET}`
+      );
     }
     if (callback) callback();
   });
@@ -101,15 +112,21 @@ async function startControlPanel(callback) {
   const isRunning = await checkPort(port);
 
   if (isRunning) {
-    console.log(`\n${C_GREEN}🚀 Admin Microservice is already running on port ${port}!${C_RESET}`);
+    console.log(
+      `\n${C_GREEN}🚀 Admin Microservice is already running on port ${port}!${C_RESET}`
+    );
     console.log(`${C_CYAN}🔗 Opening browser...${C_RESET}`);
     openBrowser(`http://localhost:${port}`);
     if (callback) callback();
     return;
   }
 
-  console.log(`\n${C_CYAN}🚀 Starting Liferay AI Commerce Accelerator Microservice...${C_RESET}`);
-  console.log(`${C_DIM}📝 Logs are being redirected to logs/microservice-run.log${C_RESET}`);
+  console.log(
+    `\n${C_CYAN}🚀 Starting Liferay AI Commerce Accelerator Microservice...${C_RESET}`
+  );
+  console.log(
+    `${C_DIM}📝 Logs are being redirected to logs/microservice-run.log${C_RESET}`
+  );
 
   const logFile = path.join(LOG_DIR, 'microservice-run.log');
   const out = fs.openSync(logFile, 'a');
@@ -120,7 +137,7 @@ async function startControlPanel(callback) {
     cwd: path.dirname(MICROSERVICE_SERVER),
     detached: true,
     stdio: ['ignore', out, err],
-    env
+    env,
   });
 
   server.unref();
@@ -133,13 +150,17 @@ async function startControlPanel(callback) {
     const active = await checkPort(port);
     if (active) {
       clearInterval(interval);
-      console.log(`\n${C_GREEN}✅ Server started successfully on port ${port}!${C_RESET}`);
+      console.log(
+        `\n${C_GREEN}✅ Server started successfully on port ${port}!${C_RESET}`
+      );
       console.log(`${C_CYAN}🔗 Opening Control Panel UI...${C_RESET}`);
       openBrowser(`http://localhost:${port}`);
       if (callback) callback();
     } else if (attempts >= maxAttempts) {
       clearInterval(interval);
-      console.log(`\n${C_YELLOW}⚠️  Server is taking longer than usual to boot. Please check logs at logs/microservice-run.log${C_RESET}`);
+      console.log(
+        `\n${C_YELLOW}⚠️  Server is taking longer than usual to boot. Please check logs at logs/microservice-run.log${C_RESET}`
+      );
       openBrowser(`http://localhost:${port}`);
       if (callback) callback();
     }
@@ -148,29 +169,54 @@ async function startControlPanel(callback) {
 
 function showHeader() {
   console.clear();
-  console.log(`${C_BOLD}${C_CYAN}======================================================================${C_RESET}`);
-  console.log(`${C_BOLD}${C_CYAN}         🌐  LIFERAY AI COMMERCE ACCELERATOR - CONTROL CENTER        ${C_RESET}`);
-  console.log(`${C_BOLD}${C_CYAN}======================================================================${C_RESET}`);
-  console.log(`${C_DIM}  Simplifying Liferay Commerce Demo Seeding & AI Generation${C_RESET}`);
-  console.log(`${C_CYAN}----------------------------------------------------------------------${C_RESET}`);
+  console.log(
+    `${C_BOLD}${C_CYAN}======================================================================${C_RESET}`
+  );
+  console.log(
+    `${C_BOLD}${C_CYAN}         🌐  LIFERAY AI COMMERCE ACCELERATOR - CONTROL CENTER        ${C_RESET}`
+  );
+  console.log(
+    `${C_BOLD}${C_CYAN}======================================================================${C_RESET}`
+  );
+  console.log(
+    `${C_DIM}  Simplifying Liferay Commerce Demo Seeding & AI Generation${C_RESET}`
+  );
+  console.log(
+    `${C_CYAN}----------------------------------------------------------------------${C_RESET}`
+  );
 }
 
 function mainMenu() {
   showHeader();
-  console.log(`  ${C_BOLD}${C_GREEN}[1] 🖥️  Start & Open Local Dashboard UI${C_RESET}`);
-  console.log(`  ${C_BOLD}${C_GREEN}[2] 📦 Populate DXP with Mock (Demo) Data (Instant/Offline)${C_RESET}`);
-  console.log(`  ${C_BOLD}${C_GREEN}[3] ✨ Populate DXP with Live AI Data (Gemini/OpenAI)${C_RESET}`);
-  console.log(`  ${C_BOLD}${C_YELLOW}[4] 🗑️  Clean / Teardown All Generated Data${C_RESET}`);
-  console.log(`  ${C_BOLD}${C_BLUE}[5] 🔌 Diagnose DXP Connection Status${C_RESET}`);
+  console.log(
+    `  ${C_BOLD}${C_GREEN}[1] 🖥️  Start & Open Local Dashboard UI${C_RESET}`
+  );
+  console.log(
+    `  ${C_BOLD}${C_GREEN}[2] 📦 Populate DXP with Mock (Demo) Data (Instant/Offline)${C_RESET}`
+  );
+  console.log(
+    `  ${C_BOLD}${C_GREEN}[3] ✨ Populate DXP with Live AI Data (Gemini/OpenAI)${C_RESET}`
+  );
+  console.log(
+    `  ${C_BOLD}${C_YELLOW}[4] 🗑️  Clean / Teardown All Generated Data${C_RESET}`
+  );
+  console.log(
+    `  ${C_BOLD}${C_BLUE}[5] 🔌 Diagnose DXP Connection Status${C_RESET}`
+  );
   console.log(`  ${C_BOLD}${C_RED}[6] ❌ Exit${C_RESET}`);
-  console.log(`${C_CYAN}----------------------------------------------------------------------${C_RESET}`);
+  console.log(
+    `${C_CYAN}----------------------------------------------------------------------${C_RESET}`
+  );
   rl.question(`${C_BOLD}👉 Select an option (1-6): ${C_RESET}`, handleChoice);
 }
 
 function waitAndReturn() {
-  rl.question(`\n${C_BOLD}Press Enter to return to main menu...${C_RESET}`, () => {
-    mainMenu();
-  });
+  rl.question(
+    `\n${C_BOLD}Press Enter to return to main menu...${C_RESET}`,
+    () => {
+      mainMenu();
+    }
+  );
 }
 
 function handleChoice(choice) {
@@ -182,31 +228,40 @@ function handleChoice(choice) {
       });
       break;
     case '2':
-      rl.question(`\n${C_BOLD}❓ Seeding with mock data. Proceed? (y/n): ${C_RESET}`, (ans) => {
-        if (ans.toLowerCase().startsWith('y')) {
-          runCli(['generate', '--demo'], waitAndReturn);
-        } else {
-          mainMenu();
+      rl.question(
+        `\n${C_BOLD}❓ Seeding with mock data. Proceed? (y/n): ${C_RESET}`,
+        (ans) => {
+          if (ans.toLowerCase().startsWith('y')) {
+            runCli(['generate', '--demo'], waitAndReturn);
+          } else {
+            mainMenu();
+          }
         }
-      });
+      );
       break;
     case '3':
-      rl.question(`\n${C_BOLD}❓ Seeding with AI data. Proceed? (y/n): ${C_RESET}`, (ans) => {
-        if (ans.toLowerCase().startsWith('y')) {
-          runCli(['generate'], waitAndReturn);
-        } else {
-          mainMenu();
+      rl.question(
+        `\n${C_BOLD}❓ Seeding with AI data. Proceed? (y/n): ${C_RESET}`,
+        (ans) => {
+          if (ans.toLowerCase().startsWith('y')) {
+            runCli(['generate'], waitAndReturn);
+          } else {
+            mainMenu();
+          }
         }
-      });
+      );
       break;
     case '4':
-      rl.question(`\n${C_BOLD}⚠️  This will delete all catalogs, accounts, and session data. Are you sure? (y/n): ${C_RESET}`, (ans) => {
-        if (ans.toLowerCase().startsWith('y')) {
-          runCli(['delete', '--all'], waitAndReturn);
-        } else {
-          mainMenu();
+      rl.question(
+        `\n${C_BOLD}⚠️  This will delete all catalogs, accounts, and session data. Are you sure? (y/n): ${C_RESET}`,
+        (ans) => {
+          if (ans.toLowerCase().startsWith('y')) {
+            runCli(['delete', '--all'], waitAndReturn);
+          } else {
+            mainMenu();
+          }
         }
-      });
+      );
       break;
     case '5':
       runCli(['connect'], waitAndReturn);
@@ -216,7 +271,9 @@ function handleChoice(choice) {
       process.exit(0);
       break;
     default:
-      console.log(`\n${C_RED}❌ Invalid selection. Please enter a number between 1 and 6.${C_RESET}`);
+      console.log(
+        `\n${C_RED}❌ Invalid selection. Please enter a number between 1 and 6.${C_RESET}`
+      );
       setTimeout(mainMenu, 1500);
       break;
   }
