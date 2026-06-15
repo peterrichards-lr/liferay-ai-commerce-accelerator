@@ -87,6 +87,12 @@ test.describe('AICA Headless CLI Client E2E Verification', () => {
     expect(stdout).toContain('Deletion Workflow Started');
     expect(stdout).toContain('Progress:');
     expect(stdout).toContain('Success! Session successfully completed');
+
+    // COOLDOWN: Wait 15 seconds to allow Liferay's Elasticsearch index queue to catch up
+    console.log(
+      '>>> [Cooldown] Waiting 15s for Elasticsearch index queue to clear after bulk delete...'
+    );
+    await new Promise((r) => setTimeout(r, 15000));
   });
 
   test('should successfully import and re-scaffold a dataset using config import', async () => {
