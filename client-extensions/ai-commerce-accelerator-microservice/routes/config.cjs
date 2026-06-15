@@ -49,7 +49,14 @@ module.exports = (app, { logger, configService, persistenceService }) => {
 
     try {
       const aiCfg = await configService.getAIConfig(config);
-      const promptsCfg = await configService.getAIPromptsConfig(config);
+      const promptsCfg = await (async () => {
+        try {
+          return await configService.getAIPromptsConfig(config);
+        } catch (e) {
+          logger.warn(`Failed to fetch AI Prompts Config: ${e.message}`);
+          return {};
+        }
+      })();
 
       const aiKeyRaw = await (async () => {
         try {
