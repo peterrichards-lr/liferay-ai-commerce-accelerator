@@ -44,19 +44,40 @@ test.describe('AICA Price List Teardown Locks E2E', () => {
     );
     expect(stdout).toContain('Success! Session successfully completed');
 
-    // 2. Verify that an AICA- prefixed price list is currently the catalog base
-    console.log('Verifying AICA Price List acquired catalogBasePriceList...');
-    let res = await request.get(
-      `${liferayUrl}/o/headless-commerce-admin-pricing/v2.0/price-lists`,
-      { headers: authHeader }
+    // 2. Verify that an AICA- prefixed price list is currently the catalog base (with polling for index lag)
+    console.log(
+      'Verifying AICA Price List acquired catalogBasePriceList (polling for index lag)...'
     );
-    expect(res.status()).toBe(200);
-    let data = await res.json();
+    let aicaBaseList;
+    const maxRetries = 15;
+    for (let i = 1; i <= maxRetries; i++) {
+      let res = await request.get(
+        `${liferayUrl}/o/headless-commerce-admin-pricing/v2.0/price-lists`,
+        { headers: authHeader }
+      );
+      expect(res.status()).toBe(200);
+      let data = await res.json();
 
-    let aicaBaseList = data.items.find(
-      (pl) =>
-        pl.catalogBasePriceList && pl.externalReferenceCode.startsWith('AICA-')
-    );
+      aicaBaseList = data.items.find(
+        (pl) =>
+          pl.catalogBasePriceList &&
+          pl.externalReferenceCode.startsWith('AICA-')
+      );
+      if (aicaBaseList) {
+        break;
+      }
+      console.log(
+        `[Attempt ${i}/${maxRetries}] Price list not indexed as base yet. Waiting 2s...`
+      );
+      if (i === maxRetries) {
+        console.log(
+          'Last Attempt Price Lists State:',
+          JSON.stringify(data.items, null, 2)
+        );
+      }
+      await new Promise((r) => setTimeout(r, 2000));
+    }
+
     expect(aicaBaseList).toBeDefined();
     console.log(`Locked Price List: ${aicaBaseList.externalReferenceCode}`);
 
