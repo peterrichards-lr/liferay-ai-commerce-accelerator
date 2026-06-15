@@ -104,6 +104,14 @@ for (let i = 1; i < args.length; i++) {
     options.orderCount = parseInt(args[i + 1], 10);
     i++;
   }
+  if ((arg === '--image-mode' || arg === '--images') && args[i + 1]) {
+    options.imageMode = args[i + 1];
+    i++;
+  }
+  if ((arg === '--pdf-mode' || arg === '--pdfs') && args[i + 1]) {
+    options.pdfMode = args[i + 1];
+    i++;
+  }
   if ((arg === '--channel-id' || arg === '--channel') && args[i + 1]) {
     options.channelId = parseInt(args[i + 1], 10);
     i++;
@@ -382,6 +390,8 @@ async function handleGenerate(opts) {
     productCount: opts.productCount || 2,
     accountCount: opts.accountCount || 2,
     orderCount: opts.orderCount || 5,
+    imageMode: opts.imageMode || 'default',
+    pdfMode: opts.pdfMode || 'default',
     createWarehouses: true,
     reuseExistingWarehouses: true,
     generatePriceLists: true,
@@ -750,6 +760,8 @@ Options:
   --products N                           Specify product target volume
   --accounts N                           Specify business accounts volume
   --orders N                             Specify order target volume
+  --images <mode> / --image-mode <mode>  Specify image generation mode (none|default|picsum|ai) [default]
+  --pdfs <mode> / --pdf-mode <mode>      Specify PDF generation mode (none|default|ai) [default]
   --channel-id ID / --channel ID         Specify channel ID
   --site-group-id ID / --site-group ID   Specify site group ID
   --catalog-id ID / --catalog ID         Specify catalog ID
