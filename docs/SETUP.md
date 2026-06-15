@@ -113,3 +113,25 @@ Once deployed, follow these steps to configure the accelerator:
 2.  Configure your **AI Provider Settings** (OpenAI, Gemini, or Nano Banana).
 3.  Ensure your **API Keys** are correctly set for both Text and Media generation.
 4.  Verify that the **Categories** and **AI Model Options** are populated.
+
+## Troubleshooting & Account Lockouts
+
+### 401 Unauthorized Loop (Account Lockout)
+
+Liferay DXP enforces a strict security policy that locks out user accounts (including administrators like `test@liferay.com`) after **5 failed login attempts**.
+
+During automated E2E testing or local hot-deployment, if the test runner or CLI polls Liferay before the authentication modules are fully active, those early connection attempts register as failed logins. This quickly locks out `test@liferay.com`, resulting in a perpetual `Object API not ready (401)` wait loop in the orchestrator console.
+
+#### 🛠️ Automated Recovery
+
+The E2E Test Orchestrator (`test-e2e-orchestrator.js`) has **built-in auto-recovery** logic. If it detects a `401 Unauthorized` response during its readiness poll, it will automatically attempt to execute a database query inside the `aica-db` Docker container to unlock the admin user.
+
+#### 🔧 Manual Recovery
+
+If you need to manually unlock the user (or are running outside the standard orchestrator), execute the following PostgreSQL query directly in the `aica-db` container:
+
+```bash
+docker exec -it -e PAGER=cat aica-db psql -U lportal -d lportal -c "UPDATE user_ SET lockout = false, lockoutDate = null, failedLoginAttempts = 0 WHERE emailaddress = 'test@liferay.com';"
+```
+
+If running against a standalone local Liferay bundle, execute the equivalent SQL query against your local database (e.g. Hypersonic, MySQL, or MariaDB).

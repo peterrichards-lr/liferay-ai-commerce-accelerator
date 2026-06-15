@@ -136,6 +136,26 @@ async function waitForLiferayObjects() {
       console.log(
         `>>> Object API not ready (${res.status}). Waiting 10s... (Attempt ${i}/${maxAttempts})`
       );
+
+      // AUTO-RECOVERY: Automatically unlock test@liferay.com in PostgreSQL if we detect 401 lockout
+      if (res.status === 401) {
+        console.log(
+          `>>> [AUTO-RECOVERY] 401 Unauthorized detected! Attempting to unlock '${username}' in aica-db container...`
+        );
+        const { execSync } = require('child_process');
+        try {
+          execSync(
+            `docker exec -e PAGER=cat aica-db psql -U lportal -d lportal -c "UPDATE user_ SET lockout = false, lockoutDate = null, failedLoginAttempts = 0 WHERE emailaddress = '${username}';"`
+          );
+          console.log(
+            '>>> [AUTO-RECOVERY] Successfully executed database user unlock query.'
+          );
+        } catch (dbErr) {
+          console.log(
+            `>>> [AUTO-RECOVERY] Database unlock bypassed (non-docker/local env or DB offline)`
+          );
+        }
+      }
     } catch (e) {
       console.log(
         `>>> Connection error (${e.message}). Waiting 10s... (Attempt ${i}/${maxAttempts})`
