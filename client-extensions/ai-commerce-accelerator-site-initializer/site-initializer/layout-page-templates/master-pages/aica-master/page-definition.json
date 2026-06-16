@@ -40,7 +40,7 @@
       "key": "classic-v1",
       "name": "AICA - Classic Electric"
     },
-    "themeName": "Classic",
+    "themeName": "Classic Theme",
     "themeSettings": {
       "lfr-theme:regular:show-footer": "false",
       "lfr-theme:regular:show-header": "false",
