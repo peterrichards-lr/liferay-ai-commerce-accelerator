@@ -1709,21 +1709,27 @@ class LiferayRestService {
     };
   }
 
-  async createWarehouseChannelsBatch(config, itemsData, opts = {}) {
-    const results = await this._postBatch(config, {
-      entityName: 'warehouse-channel',
-      items: itemsData,
-      externalReferenceCode: opts.externalReferenceCode,
-      op: 'create-warehouse-channels-batch',
-      friendly: 'Failed to create warehouse channels batch',
-      path: PATH.WAREHOUSE_CHANNELS_BATCH,
-      sessionId: opts.sessionId,
-      session: opts.session,
-      createStrategy: 'CREATE',
-      skipItemERC: true,
-    });
-
-    return results;
+  async createWarehouseChannelsBatch(config, itemsData, _opts = {}) {
+    this.logger.info(
+      `Linking ${itemsData.length} warehouse channels sequentially for idempotency...`
+    );
+    const results = [];
+    for (const item of itemsData) {
+      try {
+        const res = await this.createWarehouseChannel(
+          config,
+          item.warehouseId,
+          item.channelId
+        );
+        results.push({ ...item, status: res.status || 'SUCCESS' });
+      } catch (err) {
+        this.logger.error(
+          `Failed to link warehouse ${item.warehouseId} to channel ${item.channelId}: ${err.message}`
+        );
+        throw err;
+      }
+    }
+    return { success: true, count: itemsData.length, items: results };
   }
 
   async createWarehouseChannel(config, warehouseId, channelId) {
