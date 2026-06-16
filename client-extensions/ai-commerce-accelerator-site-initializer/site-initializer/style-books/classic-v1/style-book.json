@@ -1,6 +1,5 @@
 {
   "default": true,
   "frontendTokensValuesPath": "frontend-tokens-values.json",
-  "name": "AICA - Classic Electric",
-  "themeId": "classic"
+  "name": "AICA - Classic Electric"
 }
