@@ -118,6 +118,10 @@ module.exports = async function resetCatalogConfiguration(
           await liferay.patchPriceList(config, masterPriceListId, {
             catalogBasePriceList: true,
           });
+          // HARDENING: Force Catalog V1.0 API patch to instantly invalidate Catalog cache
+          await liferay.patchCatalog(config, catalogId, {
+            catalogBasePriceListId: parseInt(masterPriceListId, 10),
+          });
         } catch (err) {
           logger.warn(
             `Failed to restore master Price List ${masterPriceListId}: ${err.message}`
@@ -133,6 +137,10 @@ module.exports = async function resetCatalogConfiguration(
         try {
           await liferay.patchPriceList(config, masterPromotionId, {
             catalogBasePriceList: true,
+          });
+          // HARDENING: Force Catalog V1.0 API patch to instantly invalidate Catalog cache
+          await liferay.patchCatalog(config, catalogId, {
+            catalogBasePromotionId: parseInt(masterPromotionId, 10),
           });
         } catch (err) {
           logger.warn(
