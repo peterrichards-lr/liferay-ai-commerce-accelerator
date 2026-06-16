@@ -1883,7 +1883,7 @@ class LiferayService {
   async resolveByERCsWithRetry(config, ercs, resolverFn, options = {}) {
     const { logger } = this.ctx;
     const label = options.label || 'entities';
-    const maxRetries = options.maxRetries || 5;
+    const maxRetries = options.maxRetries || 8;
     const initialDelay = options.initialDelay || 3000;
 
     logger.debug(
