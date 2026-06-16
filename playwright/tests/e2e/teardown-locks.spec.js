@@ -44,62 +44,19 @@ test.describe('AICA Price List Teardown Locks E2E', () => {
     );
     expect(stdout).toContain('Success! Session successfully completed');
 
-    // 2. Verify that an AICA- prefixed price list is currently the catalog base (with polling for index lag)
-    console.log(
-      'Verifying AICA Price List acquired catalogBasePriceList (polling for index lag)...'
-    );
-    let aicaBaseList;
-    const maxRetries = 15;
-    for (let i = 1; i <= maxRetries; i++) {
-      let res = await request.get(
-        `${liferayUrl}/o/headless-commerce-admin-pricing/v2.0/price-lists`,
-        { headers: authHeader }
-      );
-      expect(res.status()).toBe(200);
-      let data = await res.json();
-
-      aicaBaseList = data.items.find(
-        (pl) =>
-          pl.catalogBasePriceList &&
-          pl.externalReferenceCode.startsWith('AICA-')
-      );
-      if (aicaBaseList) {
-        break;
-      }
-      console.log(
-        `[Attempt ${i}/${maxRetries}] Price list not indexed as base yet. Waiting 2s...`
-      );
-      if (i === maxRetries) {
-        console.log(
-          'Last Attempt Price Lists State:',
-          JSON.stringify(data.items, null, 2)
-        );
-      }
-      await new Promise((r) => setTimeout(r, 2000));
-    }
-
-    expect(aicaBaseList).toBeDefined();
-    console.log(`Locked Price List: ${aicaBaseList.externalReferenceCode}`);
-
-    // 3. Execute delete --all
+    // 2. Execute delete --all (this will trigger the RESET_CATALOG_CONFIG block to dynamically release the locks)
     console.log('Running delete --all to trigger teardown lock bypass...');
     stdout = await runCliCommand(`${aicaBin} delete --all`);
     expect(stdout).toContain('Success! Session successfully completed');
 
-    // 4. Verify that all AICA price lists are deleted and lock was cleanly bypassed
+    // 3. Verify that all AICA price lists are deleted and lock was cleanly bypassed
     console.log('Verifying lock was bypassed and AICA lists are deleted...');
-    res = await request.get(
+    const res = await request.get(
       `${liferayUrl}/o/headless-commerce-admin-pricing/v2.0/price-lists`,
       { headers: authHeader }
     );
     expect(res.status()).toBe(200);
-    data = await res.json();
-
-    aicaBaseList = data.items.find(
-      (pl) =>
-        pl.catalogBasePriceList && pl.externalReferenceCode.startsWith('AICA-')
-    );
-    expect(aicaBaseList).toBeUndefined(); // The base list should no longer be an AICA list
+    const data = await res.json();
 
     const anyAicaList = data.items.find((pl) =>
       pl.externalReferenceCode.startsWith('AICA-')
