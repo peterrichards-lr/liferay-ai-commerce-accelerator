@@ -1,4 +1,5 @@
 {
   "frontendTokensValuesPath": "frontend-tokens-values.json",
-  "name": "AICA - Modern Fresh"
+  "name": "AICA - Modern Fresh",
+  "themeId": "classic"
 }
