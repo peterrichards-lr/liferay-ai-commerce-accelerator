@@ -35,12 +35,10 @@
     "type": "Root"
   },
   "settings": {
-    "colorSchemeName": "01",
     "styleBook": {
       "key": "classic-v1",
       "name": "AICA - Classic Electric"
     },
-    "themeName": "Classic Theme",
     "themeSettings": {
       "lfr-theme:regular:show-footer": "false",
       "lfr-theme:regular:show-header": "false",
