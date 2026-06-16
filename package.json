@@ -97,6 +97,10 @@
       "markdownlint"
     ]
   },
+  "resolutions": {
+    "markdown-it": "^14.2.0",
+    "js-yaml": "^4.2.0"
+  },
   "dependencies": {
     "@eslint/js": "10.0.1",
     "@vitejs/plugin-react": "6.0.2",
