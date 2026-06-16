@@ -115,6 +115,7 @@ module.exports = (
         const accounts = importData.accounts || [];
         const orders = importData.orders || [];
         const warehouses = importData.warehouses || [];
+        const addresses = importData.addresses || [];
         const specificationDefinitions =
           importData.specificationDefinitions || [];
         const optionDefinitions = importData.optionDefinitions || [];
@@ -247,6 +248,7 @@ module.exports = (
           accountDataList: accounts,
           orderDataList: orders,
           warehouseDataList: warehouses,
+          addressesToCreate: addresses,
           // Foundations
           specificationDefinitions,
           optionDefinitions,
