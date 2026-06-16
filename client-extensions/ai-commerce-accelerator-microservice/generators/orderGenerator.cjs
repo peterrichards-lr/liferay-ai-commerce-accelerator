@@ -697,23 +697,23 @@ class OrderGenerator extends BaseGenerator {
       for (const cp of contextProducts) {
         if (existingMap.has(cp.externalReferenceCode)) {
           const ep = existingMap.get(cp.externalReferenceCode);
+          const fallbackSkus = cp.skus || cp.skuVariants || [];
+
           // If the Liferay version is missing SKUs but context has them, merge
-          if (
-            (!ep.skus || ep.skus.length === 0) &&
-            cp.skus &&
-            cp.skus.length > 0
-          ) {
+          if ((!ep.skus || ep.skus.length === 0) && fallbackSkus.length > 0) {
             this.logger.debug(
               `Merging SKUs for product ${cp.externalReferenceCode} from context.`
             );
-            ep.skus = cp.skus;
+            ep.skus = fallbackSkus;
           }
         } else {
           // Add products that Liferay missed entirely (not yet in index)
           this.logger.debug(
             `Injecting product ${cp.externalReferenceCode} from context (missing in API).`
           );
-          products.push(cp);
+          // Standardize sku property before injecting
+          const cpWithSkus = { ...cp, skus: cp.skus || cp.skuVariants || [] };
+          products.push(cpWithSkus);
         }
       }
     }
