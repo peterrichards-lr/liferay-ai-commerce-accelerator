@@ -12,5 +12,11 @@
       }
     ],
     "type": "Root"
-  }
+  },
+  "settings": {
+    "masterPage": {
+      "key": "aica-master"
+    }
+  },
+  "version": 1.1
 }
