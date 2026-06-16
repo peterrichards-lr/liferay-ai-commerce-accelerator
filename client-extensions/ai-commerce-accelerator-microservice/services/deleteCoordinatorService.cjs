@@ -449,8 +449,8 @@ class DeleteCoordinatorService extends BaseGenerator {
         stepName,
         { channelId, catalogId, options }
       );
-      hasItems = check.hasItems;
       totalCount = check.totalCount;
+      hasItems = totalCount > 0;
     }
 
     if (!hasItems) {
