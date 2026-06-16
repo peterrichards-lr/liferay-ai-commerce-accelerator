@@ -241,8 +241,12 @@ class OrderGenerator extends BaseGenerator {
 
   async _runOrderCreationStep(sessionId) {
     const session = await this.persistence.getSession(sessionId);
-    const { config, options, orderDataList, accounts, products, warehouses } =
-      session.context;
+    const {
+      config,
+      options,
+      orderDataList,
+      warehouses: contextWarehouses,
+    } = session.context;
 
     this.logger.info('Starting order creation step', {
       sessionId,
@@ -257,6 +261,15 @@ class OrderGenerator extends BaseGenerator {
           'BYPASSED'
         );
       }
+
+      // HARDENING: Resolve products, accounts, and SKUs robustly
+      const { products, accounts } = await this.getProductsAndAccounts(
+        config,
+        session.context
+      );
+
+      const warehouses =
+        contextWarehouses || session.context.warehouseDataList || [];
 
       if (config.orderDistribution) {
         const statuses = [];
