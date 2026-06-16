@@ -135,3 +135,17 @@ docker exec -it -e PAGER=cat aica-db psql -U lportal -d lportal -c "UPDATE user_
 ```
 
 If running against a standalone local Liferay bundle, execute the equivalent SQL query against your local database (e.g. Hypersonic, MySQL, or MariaDB).
+
+### Harmless `OptimisticLockException` / `StaleObjectStateException` Logs
+
+During initial boot or rapid CLI verification runs, you may notice the following exception block inside your Liferay Tomcat console or docker logs:
+
+```text
+com.liferay.portal.kernel.exception.SystemException: com.liferay.portal.kernel.dao.orm.ORMException: jakarta.persistence.OptimisticLockException: Row was updated or deleted by another transaction (or unsaved-value mapping was incorrect) : [com.liferay.portal.model.impl.UserImpl#20132]
+```
+
+#### 💡 Why This Happens (And Why It Is Safe)
+
+- **The Cause:** Every failed connection attempt before Liferay has finished hot-deploying the authentication configurations (or during credential mismatches) instructs Liferay to increment the `failedLoginAttempts` counter on the `test@liferay.com` database row to track security policies.
+- **The Race Condition:** Because our CLI, microservice, and Playwright tests poll concurrently, **multiple requests attempt to update this exact same User database row at the exact same millisecond**. One transaction commits first, incrementing Hibernate's version counter, causing the other parallel transaction to fail with an `OptimisticLockException` to prevent data collision.
+- **The Verdict:** **This exception is entirely harmless and expected.** It has no impact on Liferay's commerce, product, or account databases. Once the system has fully booted and authenticated, these exceptions will naturally stop, and our E2E self-healing orchestrator immediately clears any resulting lockouts from the database.
