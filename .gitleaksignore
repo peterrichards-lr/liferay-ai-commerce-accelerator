@@ -19,6 +19,12 @@ client-extensions/**/mocks/*
 aica_activity_log
 externalReferenceCode
 LIFERAY_COUNTRIES
+no-catalogs
+select-catalog
+no-channels
+default-channel
+no-currencies
+select-currency
 
 # Build-specific Variables (False-positives in build.gradle)
 configKey

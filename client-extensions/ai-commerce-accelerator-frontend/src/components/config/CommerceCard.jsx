@@ -14,6 +14,8 @@ export default function CommerceCard({
   connected = false,
   onSelectChannel,
   onSelectCatalog,
+  isCreatingChannel = false,
+  onCreateDefaultChannel,
   commerceConfigured,
   errors,
 }) {
@@ -181,10 +183,22 @@ export default function CommerceCard({
                   ]}
             </ClaySelect>
             {connected && channels.length === 0 && (
-              <small className="text-danger d-block mt-1">
-                No channels found. Please ensure you have at least one Channel
-                created in Liferay.
-              </small>
+              <div className="mt-2">
+                <small className="text-danger d-block mb-2">
+                  No channels found. Please ensure you have at least one Channel
+                  created in Liferay.
+                </small>
+                <button
+                  type="button"
+                  className="btn btn-sm btn-primary px-3"
+                  onClick={onCreateDefaultChannel}
+                  disabled={disabled || isCreatingChannel}
+                >
+                  {isCreatingChannel
+                    ? 'Creating Channel...'
+                    : 'Create Default Channel'}
+                </button>
+              </div>
             )}
             <FieldError errors={errors.channelId} />
           </ClayForm.Group>
