@@ -1,3 +1,4 @@
 {
-  "name": "AICA Minimal Master"
+  "name": "AICA Minimal Master",
+  "defaultTemplate": true
 }

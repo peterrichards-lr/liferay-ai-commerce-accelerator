@@ -1,5 +1,5 @@
 {
-  "default": true,
+  "defaultStyleBookEntry": true,
   "frontendTokensValuesPath": "frontend-tokens-values.json",
   "name": "AICA - Classic Electric",
   "themeId": "classic_WAR_classictheme"
