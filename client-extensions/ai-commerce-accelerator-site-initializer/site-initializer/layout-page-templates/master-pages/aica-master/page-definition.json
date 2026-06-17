@@ -9,24 +9,27 @@
         "pageElements": [
           {
             "definition": {
-              "cssClasses": ["flex-fill"],
-              "htmlProperties": {
-                "htmlTag": "Main"
-              },
-              "indexed": true,
-              "layout": {}
+              "indexed": true
             },
             "pageElements": [
               {
                 "definition": {
-                  "fragmentSettings": {
-                    "unallowedFragments": []
-                  }
+                  "size": 12
                 },
-                "type": "DropZone"
+                "pageElements": [
+                  {
+                    "definition": {
+                      "fragmentSettings": {
+                        "unallowedFragments": []
+                      }
+                    },
+                    "type": "DropZone"
+                  }
+                ],
+                "type": "Column"
               }
             ],
-            "type": "Section"
+            "type": "Row"
           }
         ],
         "type": "Section"
