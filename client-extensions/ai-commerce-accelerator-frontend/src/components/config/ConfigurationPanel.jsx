@@ -16,6 +16,7 @@ export default function ApplicationConfigPanel({
   currencies = [],
   onSelectChannel,
   onSelectCatalog,
+  onRefreshLists,
   isCreatingChannel = false,
   onCreateDefaultChannel,
   connectionErrors = [],
@@ -57,6 +58,7 @@ export default function ApplicationConfigPanel({
         onSelectCatalog={onSelectCatalog}
         isCreatingChannel={isCreatingChannel}
         onCreateDefaultChannel={onCreateDefaultChannel}
+        onRefresh={onRefreshLists}
         commerceConfigured={commerceConfigured}
         errors={commerceErrors}
       />
