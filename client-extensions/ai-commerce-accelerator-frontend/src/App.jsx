@@ -186,6 +186,7 @@ function AppUI() {
     selectChannel,
     selectCatalog,
     testConnection,
+    loadRootLists,
     isCreatingChannel,
     createDefaultChannel,
     handleDeleteAllCommerceData,
@@ -653,6 +654,7 @@ function AppUI() {
                     currencies={currencies}
                     onSelectChannel={selectChannel}
                     onSelectCatalog={selectCatalog}
+                    onRefreshLists={loadRootLists}
                     isCreatingChannel={isCreatingChannel}
                     onCreateDefaultChannel={createDefaultChannel}
                     connectionErrors={connectionErrors}
