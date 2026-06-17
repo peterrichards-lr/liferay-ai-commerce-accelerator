@@ -1,5 +1,6 @@
 {
+  "defaultStyleBookEntry": true,
   "frontendTokensValuesPath": "frontend-tokens-values.json",
   "name": "AICA - Modern Fresh",
-  "themeId": "classic"
+  "themeId": "classic_WAR_classictheme"
 }
