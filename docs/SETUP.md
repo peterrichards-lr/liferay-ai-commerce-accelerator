@@ -83,6 +83,64 @@ When creating a fresh ephemeral environment (i.e. without the `-p` flag), the or
 
 After a successful run (or failure), you can find visual snapshots of each responsive state in the `test-results/` directory. This allows for manual auditing of component display on Desktop, iPhone, Pixel, and iPad devices.
 
+## Packaging & Importing LDM Environments (.ldmp)
+
+Liferay Docker Manager Packages (`.ldmp`) allow you to distribute self-contained, lightweight, and fully-seeded development and demo environments.
+
+### 📦 Building a Local .ldmp Package
+
+To package the entire AICA suite—including your active PostgreSQL `aica-db` database state, dynamic document uploads, and configuration files—into a single `.ldmp` bundle (approx. 22MB), run the following automated script:
+
+```bash
+./scripts/package-ldmp.sh
+```
+
+This will output:
+
+- `liferay-ai-commerce-accelerator.ldmp`: The unified, compressed environment archive.
+- `liferay-ai-commerce-accelerator.ldmp.sha256`: The portable SHA-256 checksum file used to authenticate the package.
+
+_Note: These files are automatically ignored by git inside `.gitignore` so they won't contaminate your repository._
+
+### 📥 Importing and Launching a Local Package
+
+Once you have compiled or received a `liferay-ai-commerce-accelerator.ldmp` package:
+
+- **Import and boot the stack automatically:**
+
+  ```bash
+  ldm import /path/to/liferay-ai-commerce-accelerator.ldmp
+  ```
+
+- **Import without running (to inspect files or config first):**
+
+  ```bash
+  ldm import /path/to/liferay-ai-commerce-accelerator.ldmp --no-run
+  ```
+
+- **Starting the stack later:** If you imported with `--no-run` or stopped the container, spin it up using:
+
+  ```bash
+  ldm run liferay-ai-commerce-accelerator
+  ```
+
+### 🌐 Importing Directly from GitHub (Remote Extraction)
+
+LDM supports a robust, remote-cloning and extraction pipeline that queries a GitHub repository's latest Release, downloads the `.ldmp` package and its `.ldmp.sha256` signature, verifies the checksum, and boots the environment in a single command.
+
+To test this remote import logic:
+
+```bash
+ldm import https://github.com/peterrichards-lr/liferay-ai-commerce-accelerator
+```
+
+On execution, LDM will:
+
+1. Fetch and parse the latest release assets from the targeted GitHub repository.
+2. Download both the `.ldmp` package and the `.ldmp.sha256` signature.
+3. Validate the SHA-256 signature to guarantee complete package integrity.
+4. Extract the configuration, database, and volume assets, and launch the production-parity container stack!
+
 ## Continuous Integration (GitHub Actions)
 
 The project includes a GitHub Actions workflow (`.github/workflows/ci.yml`) that automatically runs linting, unit tests, and E2E verification on every push and PR.
