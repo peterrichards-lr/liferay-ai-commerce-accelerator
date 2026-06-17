@@ -186,6 +186,8 @@ function AppUI() {
     selectChannel,
     selectCatalog,
     testConnection,
+    isCreatingChannel,
+    createDefaultChannel,
     handleDeleteAllCommerceData,
     handleDeleteSelectedCommerceData,
   } = useCommerceData({
@@ -641,7 +643,7 @@ function AppUI() {
               <div className="row">
                 <div className="col-12">
                   <ConfigurationPanel
-                    disabled={isGenerating}
+                    disabled={isGenerating || isCreatingChannel}
                     onTestConnection={testConnection}
                     onConnectionStatusChange={setConnectionEstablished}
                     connected={connectionEstablished}
@@ -651,6 +653,8 @@ function AppUI() {
                     currencies={currencies}
                     onSelectChannel={selectChannel}
                     onSelectCatalog={selectCatalog}
+                    isCreatingChannel={isCreatingChannel}
+                    onCreateDefaultChannel={createDefaultChannel}
                     connectionErrors={connectionErrors}
                     onErrorsChange={setConnectionErrors}
                     onDeleteAllCommerceData={async () => {

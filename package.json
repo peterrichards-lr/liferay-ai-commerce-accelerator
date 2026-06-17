@@ -28,7 +28,8 @@
     "yaml": "^2.9.0"
   },
   "resolutions": {
-    "codemirror": "5.65.16",
+    "markdown-it": "^14.2.0",
+    "js-yaml": "^4.2.0",
     "uuid": "^11.1.1"
   },
   "optionalDependencies": {
@@ -96,11 +97,6 @@
       "prettier --write",
       "markdownlint"
     ]
-  },
-  "resolutions": {
-    "markdown-it": "^14.2.0",
-    "js-yaml": "^4.2.0",
-    "uuid": "^11.1.1"
   },
   "dependencies": {
     "@eslint/js": "10.0.1",
