@@ -1,5 +1,7 @@
 # Liferay DXP JIRA Feature Request / Bug: Lack of Unified REST Batch Delete Support for Core Commerce and Portal Entities
 
+LPD-95080 - https://liferay.atlassian.net/browse/LPD-95080
+
 ## Component
 
 - **Headless Commerce / Headless API**

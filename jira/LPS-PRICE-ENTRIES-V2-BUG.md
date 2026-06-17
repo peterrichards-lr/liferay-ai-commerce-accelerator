@@ -1,5 +1,7 @@
 # Liferay DXP JIRA Bug Report: Headless Commerce Pricing v2.0 Scoped PriceEntry POST Fails via Vulcan Batch Engine
 
+LPD-95083 - https://liferay.atlassian.net/browse/LPD-95083
+
 ## Component
 
 - **Headless Commerce / Headless API**
