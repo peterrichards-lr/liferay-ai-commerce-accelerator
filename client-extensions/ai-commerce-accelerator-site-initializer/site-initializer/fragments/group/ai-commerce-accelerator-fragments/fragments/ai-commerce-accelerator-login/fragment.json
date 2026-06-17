@@ -1,0 +1,8 @@
+{
+  "htmlPath": "fragment.html",
+  "cssPath": "fragment.css",
+  "jsPath": "fragment.js",
+  "icon": "user",
+  "name": "AI Commerce Accelerator Sign In",
+  "type": "component"
+}

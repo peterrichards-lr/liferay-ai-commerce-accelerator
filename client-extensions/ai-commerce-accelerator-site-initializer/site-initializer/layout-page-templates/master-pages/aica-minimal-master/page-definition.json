@@ -103,15 +103,16 @@
                 "pageElements": [
                   {
                     "definition": {
-                      "widgetInstance": {
-                        "widgetConfig": {
-                          "portletSetupPortletDecoratorId": "borderless"
-                        },
-                        "widgetName": "com_liferay_login_web_portlet_LoginPortlet"
-                      }
+                      "fragment": {
+                        "key": "ai-commerce-accelerator-login",
+                        "siteKey": "[$GROUP_KEY$]"
+                      },
+                      "fragmentConfig": {},
+                      "fragmentFields": [],
+                      "indexed": true
                     },
                     "id": "ab80783a-2fbb-83e0-b7c4-081ed75513fc",
-                    "type": "Widget"
+                    "type": "Fragment"
                   }
                 ],
                 "type": "Column"

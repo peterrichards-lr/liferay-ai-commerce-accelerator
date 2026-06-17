@@ -1,0 +1,14 @@
+<div class="aica-login-fragment d-flex align-items-center justify-content-end w-100 py-2">
+  [#if themeDisplay?? && themeDisplay.isSignedIn()]
+    <span class="user-name mr-3 text-muted font-weight-semi-bold" style="font-size: 0.9rem;">
+      Hello, ${themeDisplay.getUser().getFirstName()}
+    </span>
+    <a href="${themeDisplay.getURLSignOut()}" class="btn btn-sm btn-outline-primary px-3 font-weight-semi-bold">
+      Sign Out
+    </a>
+  [#else]
+    <a href="${themeDisplay?? ?then(themeDisplay.getURLSignIn(), '/c/portal/login')}" class="btn btn-sm btn-primary px-4 font-weight-semi-bold">
+      Sign In
+    </a>
+  [/#if]
+</div>
