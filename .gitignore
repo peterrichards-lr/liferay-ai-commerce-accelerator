@@ -41,6 +41,8 @@ package-lock.json
 /*.png
 *.xml
 *.heic
+*.ldmp
+*.ldmp.sha256
 .env
 activation-key-*.xml
 aica-logs-*.json
