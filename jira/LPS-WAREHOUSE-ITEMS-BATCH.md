@@ -1,5 +1,7 @@
 # Liferay DXP Bug Report: Scoped WarehouseItems Batch Endpoint Fails on Parent Scoping / ERC Query Parameter Collision
 
+LPD-95086 - https://liferay.atlassian.net/browse/LPD-95086
+
 ## Component
 
 - **Headless Commerce / Headless Inventory**

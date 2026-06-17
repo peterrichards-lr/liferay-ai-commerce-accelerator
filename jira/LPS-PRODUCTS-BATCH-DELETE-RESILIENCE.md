@@ -1,5 +1,7 @@
 # Liferay DXP JIRA Bug / Improvement: Headless Commerce Catalog Product Batch Delete Fails on Missing Items (404)
 
+LPD-95085 - https://liferay.atlassian.net/browse/LPD-95085
+
 ## Component
 
 - **Headless Commerce / Headless API / Catalog**

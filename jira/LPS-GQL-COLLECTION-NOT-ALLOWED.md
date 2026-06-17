@@ -1,5 +1,7 @@
 # Liferay DXP Bug Report: GraphQL Collection Queries Fail with "Collection Query Not Allowed" or Filtering Limits
 
+LPD-95081 - https://liferay.atlassian.net/browse/LPD-95081
+
 ## Component
 
 - **Headless API / GraphQL Engine**
