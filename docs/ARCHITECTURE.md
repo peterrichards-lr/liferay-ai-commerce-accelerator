@@ -71,3 +71,27 @@ The microservice and frontend communicate using a hierarchical **Scope/Status** 
 ### Critical Sync Rule
 
 Any change to the event emission logic in `ProgressService.cjs` MUST be matched by a corresponding update in the frontend `progressReducer.js`.
+
+## Elasticsearch Indexing Latency and Client-Side Resilience
+
+During the development of AICA, we identified and documented a platform-wide race condition (registered as JIRA **LPD-95082**) where subsequent automated list or GraphQL queries executed immediately after successful entity creation (e.g. Products or SKUs) fail to retrieve the new entities.
+
+### 🔍 The Core Platform Constraint
+
+Liferay's Headless list and GraphQL APIs query the search index (Elasticsearch) by design rather than hitting the relational database directly. Because Liferay's Batch Engine indexes records **asynchronously**—dispatching indexing tasks to a background queue that completes only after thread/transaction execution finishes—there is a latency window (typically 1 to 15 seconds depending on system load) where newly persisted entities exist in the database but are invisible to search queries.
+
+### ❌ Bypassed Platform-Side Workarounds
+
+Liferay's core product team proposed two platform-side configuration changes, which we evaluated and **rejected** for the following architectural reasons:
+
+1.  **Setting `IndexerRegistryConfiguration.buffered = false`:** This forces Liferay's indexer registry to bypass the background queue and synchronously refresh Elasticsearch on every write.
+    - _Why Rejected:_ Bypassing indexing buffers severely degrades DXP's write performance, leading to HTTP thread pool exhaustion during bulk seeder operations. Furthermore, this is a global, portal-level system setting that is strictly restricted and blocked by Cloud Operations in managed **Liferay Experience Cloud (SaaS)** environments.
+2.  **Introducing a programmatic "Creation ➔ Reindex ➔ Batch Discovery" workflow:** This triggers a search reindex job programmatically after each creation phase before querying.
+    - _Why Rejected:_ Triggering site-scoped reindexing takes minutes to complete. Inserting this step between our nested generation phases (e.g., after creating Products, SKUs, and Prices) would spike the Liferay JVM CPU/IO and inflate our seeding execution time from **2 minutes to over 30 minutes**, destroying the fast demo experience.
+
+### 🛡️ AICA's Zero-Configuration, SaaS-Native Solution
+
+To ensure AICA is completely plug-and-play on any vanilla, local, or managed SaaS Liferay environment without requiring system-level configuration changes or degrading index performance, we engineered a **Dual-Layer Client-Side Resilience Engine**:
+
+- **Layer 1 (Exponential Backoff Retries):** The SDK rest client includes an exponential backoff retry loop (`resolveByERCsWithRetry` over 8 cycles/3 minutes) that safely waits for Liferay's async indexing background thread to finish, absorbing indexing latency under moderate loads.
+- **Layer 2 (Local In-Memory Fallbacks):** During heavy, high-volume generation pipelines, AICA completely decouples itself from the search index. The Node.js seeder caches newly created variant schemas in-memory and performs a local **context-merge**. When downstream steps (like the Order Generator) require SKUs, AICA reads them directly from local Node.js memory instead of waiting for the search index to populate, completely immunizing the seeder against search latency.
