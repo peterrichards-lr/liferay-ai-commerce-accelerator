@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import ClayCard from '@clayui/card';
 import ClayForm, { ClaySelect } from '@clayui/form';
 import { useApp } from '../../context/AppContext';
@@ -14,10 +14,23 @@ export default function CommerceCard({
   connected = false,
   onSelectChannel,
   onSelectCatalog,
+  isCreatingChannel = false,
+  onCreateDefaultChannel,
+  onRefresh,
   commerceConfigured,
   errors,
 }) {
   const { config, setConfig } = useApp();
+  const [isRefreshing, setIsRefreshing] = useState(false);
+
+  const handleRefresh = async () => {
+    setIsRefreshing(true);
+    try {
+      await onRefresh?.();
+    } finally {
+      setIsRefreshing(false);
+    }
+  };
 
   // Auto-selection Effect: Monitors selectedCatalog AND the newly loaded availableLanguages.
   // When both are present, find the language in availableLanguages that matches
@@ -181,10 +194,32 @@ export default function CommerceCard({
                   ]}
             </ClaySelect>
             {connected && channels.length === 0 && (
-              <small className="text-danger d-block mt-1">
-                No channels found. Please ensure you have at least one Channel
-                created in Liferay.
-              </small>
+              <div className="mt-2">
+                <small className="text-danger d-block mb-2">
+                  No channels found. Please ensure you have at least one Channel
+                  created in Liferay.
+                </small>
+                <div className="d-flex align-items-center mt-2">
+                  <button
+                    type="button"
+                    className="btn btn-sm btn-secondary px-3 mr-2"
+                    onClick={handleRefresh}
+                    disabled={disabled || isRefreshing || isCreatingChannel}
+                  >
+                    {isRefreshing ? 'Refreshing...' : 'Refresh Dropdown'}
+                  </button>
+                  <button
+                    type="button"
+                    className="btn btn-sm btn-primary px-3"
+                    onClick={onCreateDefaultChannel}
+                    disabled={disabled || isRefreshing || isCreatingChannel}
+                  >
+                    {isCreatingChannel
+                      ? 'Creating Channel...'
+                      : 'Auto-Create Channel'}
+                  </button>
+                </div>
+              </div>
             )}
             <FieldError errors={errors.channelId} />
           </ClayForm.Group>

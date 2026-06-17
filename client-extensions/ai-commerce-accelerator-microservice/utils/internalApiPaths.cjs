@@ -24,6 +24,7 @@ const INTERNAL_API_PATHS = {
   GENERATE_WORKFLOW: '/generate/workflow',
   GET_CATALOGS: '/get-catalogs',
   GET_CHANNELS: '/get-channels',
+  CREATE_CHANNEL: '/create-channel',
   GET_CURRENCIES: '/get-currencies',
   GET_LANGUAGES: '/get-languages',
   GET_WAREHOUSES: '/get-warehouses',

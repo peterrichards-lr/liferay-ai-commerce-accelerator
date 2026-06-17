@@ -1,5 +1,7 @@
 # Liferay DXP Bug Report: GraphQL Queries Fail to Return Newly Created Entities Due to Search Index Lag
 
+LPD-95082 - https://liferay.atlassian.net/browse/LPD-95082
+
 ## Component
 
 - **Headless API / GraphQL Engine**

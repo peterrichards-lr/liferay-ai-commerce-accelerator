@@ -5,6 +5,7 @@ import { getConnectionErrorsMap, hasAnyErrors } from '../utils/validation';
 import {
   GET_CATALOGS,
   GET_CHANNELS,
+  CREATE_CHANNEL,
   GET_CATEGORIES,
   TEST_CONNECTION,
   DELETE_COMMERCE_DATA,
@@ -25,6 +26,7 @@ export default function useCommerceData({
   const [channels, setChannels] = useState([]);
   const [languages, setLanguages] = useState([]);
   const [currencies, setCurrencies] = useState([]);
+  const [isCreatingChannel, setIsCreatingChannel] = useState(false);
 
   const buildPayload = useCallback(
     (overrides = {}) => {
@@ -85,6 +87,33 @@ export default function useCommerceData({
 
     return { catalogs: cats, channels: chs };
   }, [api, buildPayload]);
+
+  const createDefaultChannel = useCallback(async () => {
+    setIsCreatingChannel(true);
+    try {
+      const payload = buildPayload();
+      const res = await api.post(CREATE_CHANNEL, payload);
+      if (res?.success && res?.channel) {
+        notifyUser('Default Commerce Channel created successfully!', 'success');
+        if (addLog) {
+          addLog(
+            `Created default channel: ${res.channel.name} (ID: ${res.channel.id})`,
+            'info'
+          );
+        }
+        await loadRootLists();
+      } else {
+        throw new Error(res?.error || 'Failed to create channel');
+      }
+    } catch (error) {
+      notifyUser(`Channel creation failed: ${error.message}`, 'danger');
+      if (addLog) {
+        addLog(`Failed to create default channel: ${error.message}`, 'error');
+      }
+    } finally {
+      setIsCreatingChannel(false);
+    }
+  }, [api, buildPayload, loadRootLists, addLog]);
 
   const testConnection = async (options = {}) => {
     const { silent = false } = options;
@@ -370,6 +399,8 @@ export default function useCommerceData({
     channels,
     languages,
     currencies,
+    isCreatingChannel,
+    createDefaultChannel,
     categories: getCategories,
     buildPayload,
     loadRootLists,

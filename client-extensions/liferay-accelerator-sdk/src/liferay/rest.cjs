@@ -945,6 +945,16 @@ class LiferayRestService {
     return asItems(data);
   }
 
+  async createChannel(config, channelData) {
+    return await this._post(
+      config,
+      PATH.CHANNELS,
+      channelData,
+      'create-channel',
+      'Failed to create default commerce channel'
+    );
+  }
+
   async getLanguages(config, siteGroupId) {
     if (!siteGroupId) {
       throw new Error('siteGroupId is required for getLanguages');

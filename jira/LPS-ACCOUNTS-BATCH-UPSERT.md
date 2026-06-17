@@ -1,5 +1,7 @@
 # Liferay DXP JIRA Feature Request / Bug: Headless Admin User Accounts Batch Endpoint Lacks Upsert / Update Support
 
+LPD-95079 - https://liferay.atlassian.net/browse/LPD-95079
+
 ## Component
 
 - **Headless Admin User / Accounts**

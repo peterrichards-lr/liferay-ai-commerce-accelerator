@@ -1432,6 +1432,10 @@ class LiferayService {
     }));
   }
 
+  async createChannel(config, channelData) {
+    return this.rest.createChannel(config, channelData);
+  }
+
   async getLanguages(config, siteKey) {
     const { logger } = this.ctx;
     try {

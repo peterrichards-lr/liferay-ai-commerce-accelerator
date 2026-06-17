@@ -98,6 +98,37 @@ module.exports = (app, { liferayService, logger }) => {
   );
 
   app.post(
+    INTERNAL_API_PATHS.CREATE_CHANNEL,
+    inputValidationMiddleware(connectionSchema),
+    async (req, res) => {
+      try {
+        const { liferayUrl, clientId, clientSecret, localeCode } = req.body;
+
+        const defaultChannelPayload = {
+          currencyCode: req.body.currencyCode || 'USD',
+          name: req.body.name || 'AI Commerce Storefront',
+          type: req.body.type || 'site',
+        };
+
+        const channel = await liferayService.createChannel(
+          { liferayUrl, clientId, clientSecret, localeCode },
+          defaultChannelPayload
+        );
+
+        res.json({
+          success: true,
+          channel,
+          timestamp: new Date().toISOString(),
+        });
+      } catch (error) {
+        handleError(res, logger, req, 'create-channel', error, {
+          requestBody: sanitizedObject(req.body),
+        });
+      }
+    }
+  );
+
+  app.post(
     INTERNAL_API_PATHS.GET_CURRENCIES,
     inputValidationMiddleware(connectionSchema),
     async (req, res) => {
