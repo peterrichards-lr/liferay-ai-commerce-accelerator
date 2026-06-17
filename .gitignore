@@ -38,7 +38,7 @@ client-extensions/ai-commerce-accelerator-site-initializer/site-initializer/frag
 **/logs/*.log
 /.gemini/settings.json
 package-lock.json
-*.png
+/*.png
 *.xml
 *.heic
 .env
