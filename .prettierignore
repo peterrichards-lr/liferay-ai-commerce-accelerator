@@ -1,0 +1,13 @@
+# Root Prettier Ignore File
+# Ignore external, build, and non-JS resources from Prettier formatting checks
+
+node_modules/
+build/
+bundles/
+.gradle/
+.vscode/
+test-results/
+
+# Ignore Site Initializer assets (Zips, raw Freemarker HTML, layouts, style books)
+client-extensions/ai-commerce-accelerator-site-initializer/site-initializer/
+client-extensions/ai-commerce-accelerator-batch/batch/
