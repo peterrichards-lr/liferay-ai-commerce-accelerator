@@ -1,0 +1,43 @@
+name: Release packager (.ldmp)
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  package:
+    name: Package LDM Environment
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Create empty volume folders (Safety fallback)
+        run: |
+          mkdir -p bundles/data/document_library
+
+      - name: Compile LDM Package
+        run: |
+          chmod +x scripts/package-ldmp.sh
+          ./scripts/package-ldmp.sh
+
+      - name: Create GitHub Release and Upload Assets
+        uses: softprops/action-gh-release@v1
+        with:
+          files: |
+            liferay-ai-commerce-accelerator.ldmp
+            liferay-ai-commerce-accelerator.ldmp.sha256
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
