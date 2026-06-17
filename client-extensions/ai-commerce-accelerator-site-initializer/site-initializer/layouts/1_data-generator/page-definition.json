@@ -15,7 +15,7 @@
   },
   "settings": {
     "masterPage": {
-      "key": "aica-master"
+      "key": "aica-minimal-master"
     }
   },
   "version": 1.1
