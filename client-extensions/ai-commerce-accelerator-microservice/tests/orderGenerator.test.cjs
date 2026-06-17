@@ -161,6 +161,18 @@ describe('OrderGenerator', () => {
       },
     });
 
+    generator.getProductsAndAccounts = vi.fn().mockResolvedValue({
+      products: [
+        {
+          id: 2001,
+          skus: [{ sku: 'S1', purchasable: true }],
+          productStatus: 0,
+          externalReferenceCode: 'P1',
+        },
+      ],
+      accounts: [{ id: 1001, externalReferenceCode: 'A1' }],
+    });
+
     await generator._runOrderCreationStep(sessionId);
 
     expect(mockCtx.liferay.createOrdersBatch).toHaveBeenCalled();
@@ -192,6 +204,18 @@ describe('OrderGenerator', () => {
         steps: [{ name: 'create-orders' }],
         orderDataList: [{ externalReferenceCode: 'O1', accountId: 1001 }],
       },
+    });
+
+    generator.getProductsAndAccounts = vi.fn().mockResolvedValue({
+      products: [
+        {
+          id: 2001,
+          skus: [{ sku: 'S1', purchasable: true }],
+          productStatus: 0,
+          externalReferenceCode: 'P1',
+        },
+      ],
+      accounts: [{ id: 1001, externalReferenceCode: 'A1' }],
     });
 
     await generator._runOrderCreationStep(sessionId);

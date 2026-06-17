@@ -7,6 +7,25 @@ Empowering Liferay Commerce with high-integrity, AI-orchestrated data.
 
 The **Liferay AI Commerce Accelerator** is a production-ready suite of client extensions designed to rapidly generate and deploy sophisticated commerce data into Liferay DXP using generative AI. It eliminates the manual effort of populating catalogs, accounts, and orders, allowing teams to focus on building and testing features.
 
+## 🖼️ User Interface & Visual Experience
+
+AICA features a beautifully designed, modern, and data-dense user interface inside Liferay DXP. Below are visual previews of the client extension views:
+
+### 1. AI Data Generator (Populating the Catalog)
+
+_Seed comprehensive commerce catalogs, pricing structures, and media assets in under 2 minutes._
+![AI Data Generator](./docs/images/data-generator.png)
+
+### 2. Live Monitoring & Session Administration Dashboard
+
+_Monitor active generation steps in real-time via WebSockets with detailed progress gauges, stats hydration, and logs analysis._
+![Monitoring Dashboard](./docs/images/dashboard-admin.png)
+
+### 3. Client Extension System Configuration
+
+_Configure AI provider keys, API endpoints, and DXP connectivity parameters dynamically directly in Liferay's Control Panel._
+![System Configuration](./docs/images/configuration-panel.png)
+
 ## 🚀 Quick Navigation
 
 - **[Setup & Deployment](./docs/SETUP.md)**: How to get the accelerator running in your environment.

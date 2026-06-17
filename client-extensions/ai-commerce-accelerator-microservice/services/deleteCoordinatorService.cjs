@@ -166,7 +166,15 @@ class DeleteCoordinatorService extends BaseGenerator {
     };
 
     try {
-      // --- 1. CHANNEL-BASED DISCOVERY (Orders & Linked Accounts) ---
+      // --- 1. ACCOUNT DISCOVERY (Run first so we can map orders by account ID) ---
+      this.logger.info('Crawling accounts for AICA prefix...', { sessionId });
+      const { items: allAccounts } = await this.liferay.getAccounts(config);
+      manifest.accounts = allAccounts.filter(
+        (a) => isAICA(a.externalReferenceCode) || isAICA(a.erc)
+      );
+      const aicaAccountIds = new Set(manifest.accounts.map((a) => a.id));
+
+      // --- 2. CHANNEL-BASED DISCOVERY (Orders mapped to AICA Accounts) ---
       const activeChannels = [];
       if (isTotal) {
         // SDK getChannels already handles pagination
@@ -184,9 +192,9 @@ class DeleteCoordinatorService extends BaseGenerator {
           const { items: chanOrders } = await this.liferay.getOrders(config, {
             filter: `channelId eq ${chan.id}`,
           });
-          // Filter only AICA orders to avoid deleting real data
-          const aicaOrders = chanOrders.filter(
-            (o) => isAICA(o.externalReferenceCode) || isAICA(o.erc)
+          // Filter orders that belong to our discovered AICA accounts
+          const aicaOrders = chanOrders.filter((o) =>
+            aicaAccountIds.has(o.accountId)
           );
           manifest.orders.push(...aicaOrders);
         } catch (err) {
@@ -196,22 +204,6 @@ class DeleteCoordinatorService extends BaseGenerator {
           });
         }
       }
-
-      // --- 2. ACCOUNT DISCOVERY ---
-      // Look for accounts linked to discovered orders OR accounts with AICA prefix
-      const accountIdsFromOrders = new Set(
-        manifest.orders.map((o) => o.accountId).filter(Boolean)
-      );
-
-      // SDK getAccounts already handles pagination
-      const { items: allAccounts } = await this.liferay.getAccounts(config);
-
-      manifest.accounts = allAccounts.filter(
-        (a) =>
-          accountIdsFromOrders.has(a.id) ||
-          isAICA(a.externalReferenceCode) ||
-          isAICA(a.erc)
-      );
 
       // --- 3. CATALOG-BASED DISCOVERY (Products, Specs, Options, Pricing) ---
       const activeCatalogs = [];

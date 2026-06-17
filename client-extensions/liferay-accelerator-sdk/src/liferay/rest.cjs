@@ -43,7 +43,7 @@ const SOFT_STATUS_BY_OP = {
   'promotions:batch-delete': [403, 404],
   'products:batch-delete': [403, 404],
   'accounts:batch-delete': [400, 403, 404],
-  'orders:batch-delete': [403, 404],
+  'orders:batch-delete': [400, 403, 404],
   'warehouses:batch-delete': [403, 404],
   'inventory:batch-delete': [403, 404],
   'specifications:batch-delete': [403, 404],
