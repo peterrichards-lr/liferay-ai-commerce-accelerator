@@ -37,17 +37,23 @@ Create the secure client credentials required by our SDK to authorize write requ
 
 While AICA can make _outbound_ API calls from your laptop to Liferay SaaS to seed data natively, **Liferay SaaS cannot automatically communicate _inbound_ back to your local laptop** to fetch custom element Javascript (the React UI) or trigger server-to-server webhook actions (like Object triggers hitting the Node.js microservice).
 
-To enable full bi-directional integration where Liferay SaaS can securely route traffic to your local development environment, you **MUST** utilize [`lfr-tunnel`](https://github.com/liferay/lfr-tunnel).
+To enable full bi-directional integration where Liferay SaaS can securely route traffic to your local development environment, you **MUST** utilize [`lfr-tunnel`](https://github.com/peterrichards-lr/lfr-tunnel).
 
 `lfr-tunnel` acts as a secure, public proxy that exposes your local `localhost:3000` (Frontend) and `localhost:3001` (Microservice) ports to public internet URLs (e.g., `https://my-aica-api.lfr.cool`) that Liferay SaaS can resolve.
 
 ### Activating the Tunnel
 
-**If using LDM (Liferay Docker Manager):**
+**1. Authentication Requirement (lfr-demo.se)**
+Before using the tunnel, you must register and generate an authentication token at the [lfr-demo.se Portal](https://lfr-demo.se/). This token authorizes your client to securely bind to the public `.lfr.cool` subdomains.
+
+**2. If using LDM (Liferay Docker Manager):**
 LDM natively orchestrates the tunnel for you. Ensure your LDM instance is actively running the tunnel container so that your local ports are securely exposed to the Liferay cloud environment.
 
-**If running Standalone:**
-You will need to manually download, install, and execute `lfr-tunnel` alongside your local Node.js servers. Please refer to the [official lfr-tunnel GitHub repository](https://github.com/liferay/lfr-tunnel) for installation instructions and tunneling commands.
+**3. If running Standalone:**
+You will need to manually download, install, and execute `lfr-tunnel` alongside your local Node.js servers.
+
+- **Download:** Grab the pre-compiled binary for your operating system from the [`lfr-tunnel` Latest Releases page](https://github.com/peterrichards-lr/lfr-tunnel/releases/latest). _(Note: Homebrew and Scoop support are planned for future releases)._
+- **Execute:** Pass your token and local ports to the tunnel binary to establish the connection.
 
 ---
 
