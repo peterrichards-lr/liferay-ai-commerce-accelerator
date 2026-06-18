@@ -44,16 +44,15 @@ To enable full bi-directional integration where Liferay SaaS can securely route 
 ### Activating the Tunnel
 
 **1. Authentication Requirement (lfr-demo.se)**
-Before using the tunnel, you must register and generate an authentication token at the [lfr-demo.se Portal](https://lfr-demo.se/). This token authorizes your client to securely bind to the public `.lfr.cool` subdomains.
+The recommended and most robust way to start using the tunnel is to register for an account at the [lfr-demo.se Portal](https://lfr-demo.se/). Once your account is approved and created, the portal will provide you with the correct installation links, operating instructions, and guide you through generating the specific authentication token your client needs to tunnel traffic through the server.
 
 **2. If using LDM (Liferay Docker Manager):**
 LDM natively orchestrates the tunnel for you. Ensure your LDM instance is actively running the tunnel container so that your local ports are securely exposed to the Liferay cloud environment.
 
 **3. If running Standalone:**
-You will need to manually download, install, and execute `lfr-tunnel` alongside your local Node.js servers.
+If you are running AICA natively on Node.js without Docker, you will need to manually download and execute `lfr-tunnel` alongside your local Node.js servers.
 
-- **Download:** Grab the pre-compiled binary for your operating system from the [`lfr-tunnel` Latest Releases page](https://github.com/peterrichards-lr/lfr-tunnel/releases/latest). _(Note: Homebrew and Scoop support are planned for future releases)._
-- **Execute:** Pass your token and local ports to the tunnel binary to establish the connection.
+- **Installation & Execution:** Follow the precise instructions provided to you inside your approved [lfr-demo.se](https://lfr-demo.se/) portal dashboard. This will walk you through downloading the correct binary from the [`lfr-tunnel` GitHub repository](https://github.com/peterrichards-lr/lfr-tunnel) and passing your secure token.
 
 ---
 
