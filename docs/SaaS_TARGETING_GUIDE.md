@@ -33,7 +33,25 @@ Create the secure client credentials required by our SDK to authorize write requ
 
 ---
 
-## Step 2: Launch the Local AICA Seeder
+## Step 2: Establish Bi-Directional Connectivity with `lfr-tunnel` (Crucial)
+
+While AICA can make _outbound_ API calls from your laptop to Liferay SaaS to seed data natively, **Liferay SaaS cannot automatically communicate _inbound_ back to your local laptop** to fetch custom element Javascript (the React UI) or trigger server-to-server webhook actions (like Object triggers hitting the Node.js microservice).
+
+To enable full bi-directional integration where Liferay SaaS can securely route traffic to your local development environment, you **MUST** utilize [`lfr-tunnel`](https://github.com/liferay/lfr-tunnel).
+
+`lfr-tunnel` acts as a secure, public proxy that exposes your local `localhost:3000` (Frontend) and `localhost:3001` (Microservice) ports to public internet URLs (e.g., `https://my-aica-api.lfr.cool`) that Liferay SaaS can resolve.
+
+### Activating the Tunnel
+
+**If using LDM (Liferay Docker Manager):**
+LDM natively orchestrates the tunnel for you. Ensure your LDM instance is actively running the tunnel container so that your local ports are securely exposed to the Liferay cloud environment.
+
+**If running Standalone:**
+You will need to manually download, install, and execute `lfr-tunnel` alongside your local Node.js servers. Please refer to the [official lfr-tunnel GitHub repository](https://github.com/liferay/lfr-tunnel) for installation instructions and tunneling commands.
+
+---
+
+## Step 3: Launch the Local AICA Seeder
 
 You can run the seeder panel locally either via **Liferay Docker Manager (LDM)** or as a **Standalone Node.js application**.
 
@@ -65,7 +83,7 @@ npm run dev
 
 ---
 
-## Step 3: Connect and Seed the SaaS Storefront
+## Step 4: Connect and Seed the SaaS Storefront
 
 Once your local dashboard is loaded in your browser (`http://aica.local` or `http://localhost:3000`):
 
@@ -85,7 +103,7 @@ Once your local dashboard is loaded in your browser (`http://aica.local` or `htt
 
 ---
 
-## Step 4: Monitor and Verify
+## Step 5: Monitor and Verify
 
 1. **Live Monitoring:** Watch the **Live Console** and **Progress Monitor** on your local dashboard. You will see real-time updates and WebSocket logs as the local Node.js seeder translates AI payloads and pushes them into your remote SaaS cloud instance.
 2. **SaaS Verification:** Once completed, open your remote Liferay SaaS storefront. You will find:
