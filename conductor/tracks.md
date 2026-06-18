@@ -9,6 +9,7 @@
 | docs               | Documentation & System Map       | COMPLETED |
 | verification       | End-to-End Verification          | COMPLETED |
 | imports            | Dataset Imports                  | COMPLETED |
+| ldk-extraction     | Agentic-Friendly LDK Refactoring | ACTIVE    |
 | persona-orders     | AI Persona Order Seeding         | PLANNED   |
 | multimodal-seeding | Multimodal Product Enrichment    | PLANNED   |
 | multi-catalog      | Multi-Catalog & Multi-Brand      | PLANNED   |
