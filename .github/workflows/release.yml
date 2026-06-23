@@ -51,6 +51,7 @@ jobs:
 
       - name: Package the Populated Workspace
         run: |
+          mkdir -p dist
           ldm package liferay-ai-commerce-accelerator --use-latest --output ./dist --repo peterrichards-lr/liferay-ai-commerce-accelerator
 
       - name: Create GitHub Release and Upload Assets
