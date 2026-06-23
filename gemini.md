@@ -43,7 +43,8 @@ Automate fully populated E2E `.ldmp` packaging in CI/CD using LDM, and ensure al
 31. **Environment Configuration Split**: Rename `.env` to `.env.e2e` for the LDM E2E suite, create a new local `.env` pointing to `localhost:8080` with Basic Auth, and update the E2E script to prioritize `.env.e2e`. [Completed]
 32. **Dashboard Failed Jobs Action Refactor**: Refactor list action button for failed jobs in System Administration Dashboard (`AdminApp.jsx`) to download session logs instead of exporting datasets.
 33. **Automate Fully Populated E2E Packaging in CI/CD**: Update AICA's GitHub Actions release workflow (`.github/workflows/release.yml`) to install LDM, initialize/boot the environment, wait for database readiness, and run `ldm package` to output a fully populated `.ldmp` package. [Completed]
-34. **Fix JDK version mismatch in release workflow**: Add Setup Java 21 step to `.github/workflows/release.yml` to resolve LDM requirements mismatch on the GitHub runner.
+34. **Fix JDK version mismatch in release workflow**: Add Setup Java 21 step to `.github/workflows/release.yml` to resolve LDM requirements mismatch on the GitHub runner. [Completed]
+35. **Fix release packaging directory creation issue**: Create the `dist` directory in `release.yml` before running `ldm package` to prevent FileNotFoundError.
 
 ## Current Progress
 
