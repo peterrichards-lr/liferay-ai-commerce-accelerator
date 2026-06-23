@@ -24,20 +24,34 @@ jobs:
         with:
           node-version: 22
 
-      - name: Create empty volume folders (Safety fallback)
+      - name: Install and Configure LDM
         run: |
-          mkdir -p bundles/data/document_library
+          sudo curl -L https://github.com/peterrichards-lr/liferay-docker-manager/releases/latest/download/ldm-linux -o /usr/local/bin/ldm
+          sudo chmod +x /usr/local/bin/ldm
+          ldm config set non_interactive true
 
-      - name: Compile LDM Package
+      - name: Initialize AICA via LDM
         run: |
-          chmod +x scripts/package-ldmp.sh
-          ./scripts/package-ldmp.sh
+          ldm import . liferay-ai-commerce-accelerator -y --db postgresql --no-run
+          ldm run liferay-ai-commerce-accelerator --sidecar --no-wait -y
+
+      - name: Verify Database Readiness
+        run: |
+          echo "Waiting for database container to be active..."
+          until docker ps | grep -E -q "aica-db|liferay-ai-commerce-accelerator-db"; do
+            sleep 2
+          done
+          echo "Database container is online. Waiting for connection readiness..."
+
+      - name: Package the Populated Workspace
+        run: |
+          ldm package liferay-ai-commerce-accelerator --use-latest --output ./dist --repo peterrichards-lr/liferay-ai-commerce-accelerator
 
       - name: Create GitHub Release and Upload Assets
         uses: softprops/action-gh-release@v1
         with:
           files: |
-            liferay-ai-commerce-accelerator.ldmp
-            liferay-ai-commerce-accelerator.ldmp.sha256
+            dist/liferay-ai-commerce-accelerator.ldmp
+            dist/liferay-ai-commerce-accelerator.ldmp.sha256
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
