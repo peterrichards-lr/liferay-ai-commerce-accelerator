@@ -24,6 +24,12 @@ jobs:
         with:
           node-version: 22
 
+      - name: Setup Java
+        uses: actions/setup-java@v3
+        with:
+          distribution: 'temurin'
+          java-version: '21'
+
       - name: Install and Configure LDM
         run: |
           sudo curl -L https://github.com/peterrichards-lr/liferay-docker-manager/releases/latest/download/ldm-linux -o /usr/local/bin/ldm

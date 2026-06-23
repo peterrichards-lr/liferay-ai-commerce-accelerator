@@ -51,6 +51,7 @@ Automate fully populated E2E `.ldmp` packaging in CI/CD using LDM, and ensure al
 39. **Resilient E2E Environment Verification**: Update `scripts/run-e2e-ldm.sh` to log a warning instead of exiting when `ldm doctor` returns a non-zero exit code due to non-blocking environmental configuration warnings (e.g. missing osxkeychain helper under Colima). [Completed]
 40. **Enforce JDK 11 Compatibility in E2E Script**: Configure `scripts/run-e2e-ldm.sh` to automatically detect and resolve `JAVA_HOME` to JDK 11 on macOS if available, avoiding compatibility failures with Gradle/Liferay workspace plugins when newer JVMs are active on the host. [Completed]
 41. **Automate Fully Populated E2E Packaging in CI/CD**: Update AICA's GitHub Actions release workflow (`.github/workflows/release.yml`) to install LDM, initialize/boot the environment, wait for database readiness, and run `ldm package` to output a fully populated `.ldmp` package. [Completed]
+42. **Fix JDK version mismatch in release workflow**: Add Setup Java 21 step to `.github/workflows/release.yml` to resolve LDM requirements mismatch on the GitHub runner. [Completed]
 
 - Refactored `routes/config.cjs` to add POST handlers and created `tests/configRoutes.test.cjs` verifying local SQLite persistence (all 133 unit tests pass).
 - Identified that Liferay Commerce Pricing v2.0's single POST endpoint `/price-lists/{id}/price-entries` delegates internally to the Vulcan Batch Engine, but fails to propagate the parent `id` path parameter. This causes the task executor to crash with:
