@@ -259,6 +259,8 @@ const gracefulShutdown = async (signal) => {
     workflowCoordinator,
   });
 
+  require('./routes/reindex.cjs')(apiV1Router, { ...routeCtx, configService });
+
   require('./routes/mcp.cjs')(apiV1Router, {
     ...routeCtx,
     healthService,

@@ -69,6 +69,7 @@ if (
     'export',
     'import',
     'config',
+    'reindex',
     '--help',
     '-h',
   ].includes(command) === false
@@ -134,6 +135,8 @@ for (let i = 1; i < args.length; i++) {
     options.catalogId = parseInt(args[i + 1], 10);
     i++;
   }
+  if (arg === '--docker') options.docker = true;
+  if (arg === '--api') options.api = true;
 }
 
 // --- 4. Main Command Routing Router ---
@@ -157,6 +160,9 @@ for (let i = 1; i < args.length; i++) {
         break;
       case 'config':
         await handleConfig(args[1], args[2], args.slice(2));
+        break;
+      case 'reindex':
+        await handleReindex(args[1], options);
         break;
     }
   } catch (err) {
@@ -749,6 +755,79 @@ async function nativeGet(url) {
   return res.json();
 }
 
+async function handleReindex(className, opts) {
+  if (opts.docker) {
+    await runDockerReindex(className);
+    return;
+  }
+
+  const endpoint = className ? `reindex/${className}` : 'reindex';
+  console.log(`Triggering search reindexing for: ${className || 'All'}`);
+
+  const payload = {
+    ...buildConnectionPayload(),
+  };
+
+  try {
+    const res = await nativePost(
+      `${MICROSERVICE_URL}/api/v1/${endpoint}`,
+      payload
+    );
+
+    if (!res.success) {
+      throw new Error(res.error || 'Failed to trigger reindexing.');
+    }
+
+    console.log(
+      `\n✅ Reindexing trigger successful! Response: ${res.message || 'Scheduled'}`
+    );
+  } catch (error) {
+    if (!opts.api) {
+      console.warn(
+        `⚠️ Microservice connection failed (${error.message}). Attempting local Docker fallback...`
+      );
+      await runDockerReindex(className);
+    } else {
+      throw error;
+    }
+  }
+}
+
+async function runDockerReindex(className) {
+  console.log(
+    `\n🐳 Executing Option 2: Local Docker Reindex for ${className || 'All'}...`
+  );
+  const { execSync } = require('child_process');
+  try {
+    execSync('docker ps', { stdio: 'ignore' });
+  } catch (e) {
+    throw new Error(
+      'Docker is not running or accessible in this environment. Cannot run Docker reindex.'
+    );
+  }
+
+  try {
+    const liferayContainer = execSync(
+      'docker ps --filter "name=liferay" --format "{{.Names}}"'
+    )
+      .toString()
+      .trim()
+      .split('\n')[0];
+    if (!liferayContainer) {
+      throw new Error('No active Liferay container found.');
+    }
+
+    console.log(`Found active Liferay container: ${liferayContainer}`);
+    console.log('Invoking Liferay Docker Manager (LDM) reindex controller...');
+    execSync('ldm reindex -y', { stdio: 'inherit' });
+    console.log(
+      '\n✅ Triggered reindex in LDM (immediate if container is running, otherwise scheduled for next startup).'
+    );
+  } catch (error) {
+    throw new Error(`Docker reindex execution failed: ${error.message}`);
+  }
+}
+
 function printHelp() {
   console.log(`
 ========================================================================
@@ -766,8 +845,11 @@ Commands:
   config get                             Retrieve active parameters from microservice
   config set <filePath>                  Import parameters from a JSON configuration file
   config set --key <name> --value <val>  Update a single configuration key dynamically
+  reindex [className]                    Trigger search reindexing (defaults to all)
 
 Options:
+  --docker                               Force Option 2: local Docker/LDM reindex trigger
+  --api                                  Force Option 1: REST API reindex trigger via microservice
   --demo                                 Use Mock Data instead of Gemini AI
   --products N                           Specify product target volume
   --accounts N                           Specify business accounts volume
