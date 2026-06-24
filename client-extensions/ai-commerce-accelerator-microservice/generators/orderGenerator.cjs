@@ -466,11 +466,6 @@ class OrderGenerator extends BaseGenerator {
           ) || allPurchasableSkus[i % allPurchasableSkus.length]
         : allPurchasableSkus[i % allPurchasableSkus.length];
 
-      const warehouse =
-        warehouses && warehouses.length > 0
-          ? warehouses[Math.floor(Math.random() * warehouses.length)]
-          : null;
-
       orderItems.push({
         sku: sku.sku,
         skuExternalReferenceCode: sku.sku || sku.externalReferenceCode,
