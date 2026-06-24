@@ -16,7 +16,7 @@ Because the microservice runs as a long-lived Express HTTP daemon, the MCP serve
 |   AI Agent        |--------------------->|   AICA Microservice               |
 |   (MCP Client)    |<---------------------|   (SSE MCP Server)                |
 |                   |   SSE Stream         |                                   |
-+-------------------+                      |   Port: 3000                      |
++-------------------+                      |   Port: 3001                      |
         |                                  |   Base Route: /api/v1/mcp         |
         |   POST /mcp/message              |                                   |
         +--------------------------------->|                                   |
@@ -64,7 +64,7 @@ To register AICA inside Claude Desktop, add the following to your `claude_deskto
       "command": "node",
       "args": [
         "-e",
-        "const { SSEClientTransport } = require('@modelcontextprotocol/sdk/client/sse.js'); const { Client } = require('@modelcontextprotocol/sdk/client/index.js'); const transport = new SSEClientTransport(new URL('http://localhost:3000/api/v1/mcp/sse')); const client = new Client({ name: 'claude-client', version: '1.0' }); client.connect(transport).then(() => console.log('Connected to AICA MCP Server!'));"
+        "const { SSEClientTransport } = require('@modelcontextprotocol/sdk/client/sse.js'); const { Client } = require('@modelcontextprotocol/sdk/client/index.js'); const transport = new SSEClientTransport(new URL('http://localhost:3001/api/v1/mcp/sse')); const client = new Client({ name: 'claude-client', version: '1.0' }); client.connect(transport).then(() => console.log('Connected to AICA MCP Server!'));"
       ]
     }
   }
@@ -80,7 +80,7 @@ import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { SSEClientTransport } from '@modelcontextprotocol/sdk/client/sse.js';
 
 const transport = new SSEClientTransport(
-  new URL('http://localhost:3000/api/v1/mcp/sse')
+  new URL('http://localhost:3001/api/v1/mcp/sse')
 );
 
 const client = new Client({
