@@ -50,6 +50,10 @@ Ensure all E2E verification tests (`yarn verify` / `run-e2e-ldm.sh`) pass succes
 38. **Create JIRA Tracker Skill**: Create `.agents/skills/jira_tracker/SKILL.md` to guide AI agents on documenting, naming, and categorizing upstream bugs/limitations in the repository. [Completed]
 39. **Resilient E2E Environment Verification**: Update `scripts/run-e2e-ldm.sh` to log a warning instead of exiting when `ldm doctor` returns a non-zero exit code due to non-blocking environmental configuration warnings (e.g. missing osxkeychain helper under Colima), and fix the project run status check to verify if the project is actually 'Running'. [Completed]
 40. **Enforce Dual-JDK Compatibility in E2E Script**: Configure `scripts/run-e2e-ldm.sh` to automatically detect and resolve `JAVA_HOME` to JDK 21 globally for LDM commands, and JDK 11 locally for Gradle builds, avoiding JVM mismatches on hosts with newer default JDKs. [Completed]
+41. **Install `@modelcontextprotocol/sdk`**: Add `@modelcontextprotocol/sdk` to the microservice using Yarn workspace commands. [Completed]
+42. **Implement SSE MCP Server**: Create the route handler `client-extensions/ai-commerce-accelerator-microservice/routes/mcp.cjs` with tool definitions (`aica_get_status`, `aica_list_sessions`, etc.). [In Progress]
+43. **Register MCP routes**: Register the new endpoints in `client-extensions/ai-commerce-accelerator-microservice/server.cjs`.
+44. **Document MCP setup**: Create `docs/MCP.md` documenting registration and tool usage.
 
 - Refactored `routes/config.cjs` to add POST handlers and created `tests/configRoutes.test.cjs` verifying local SQLite persistence (all 133 unit tests pass).
 - Identified that Liferay Commerce Pricing v2.0's single POST endpoint `/price-lists/{id}/price-entries` delegates internally to the Vulcan Batch Engine, but fails to propagate the parent `id` path parameter. This causes the task executor to crash with:

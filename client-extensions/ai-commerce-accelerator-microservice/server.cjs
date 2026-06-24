@@ -259,6 +259,14 @@ const gracefulShutdown = async (signal) => {
     workflowCoordinator,
   });
 
+  require('./routes/mcp.cjs')(apiV1Router, {
+    ...routeCtx,
+    healthService,
+    deleteCoordinatorService,
+    configService,
+    oauthService,
+  });
+
   const generateCtx = {
     liferayService,
     productGenerator,
