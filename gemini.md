@@ -47,6 +47,7 @@ Ensure all E2E verification tests (`yarn verify` / `run-e2e-ldm.sh`) pass succes
 35. **Update Documentation for SE Context and Test Coverage Target**: Document the SE bootstrap/hosting options, Site Initializer, `.ldmp` packages, and target 40% test coverage goals. [Completed]
 36. **Fix base64 length assertion in normalize.test.js**: Change `[REDACTED len=47]` to `[REDACTED len=50]` to pass tests. [Completed]
 37. **Enforce SDK Coverage Threshold**: Configure `vitest.config.mjs` to enforce 40% statement/line coverage thresholds. [Completed]
+38. **Create JIRA Tracker Skill**: Create `.agents/skills/jira_tracker/SKILL.md` to guide AI agents on documenting, naming, and categorizing upstream bugs/limitations in the repository. [Completed]
 
 ## Current Progress
 
