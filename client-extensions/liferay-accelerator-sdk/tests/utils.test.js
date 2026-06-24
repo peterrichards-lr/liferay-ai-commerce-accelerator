@@ -1,5 +1,7 @@
 import { describe, it, expect } from 'vitest';
 const misc = require('../src/utils/misc.cjs');
+const liferayUtils = require('../src/utils/liferayUtils.cjs');
+const constants = require('../src/utils/constants.cjs');
 
 describe('utils/misc', () => {
   describe('toERCPart', () => {
@@ -104,6 +106,68 @@ describe('utils/misc', () => {
 
     it('should return default value for non-numbers', () => {
       expect(misc.normalizeNumber('abc', { defaultValue: 5 })).toBe(5);
+    });
+  });
+
+  describe('liferayUtils', () => {
+    describe('asItems', () => {
+      it('should return array directly if input is an array', () => {
+        const arr = [1, 2, 3];
+        expect(liferayUtils.asItems(arr)).toBe(arr);
+      });
+
+      it('should return items property if it contains an array', () => {
+        const data = { items: [4, 5] };
+        expect(liferayUtils.asItems(data)).toEqual([4, 5]);
+      });
+
+      it('should return empty array for invalid inputs', () => {
+        expect(liferayUtils.asItems(null)).toEqual([]);
+        expect(liferayUtils.asItems({})).toEqual([]);
+      });
+    });
+
+    describe('asCount', () => {
+      it('should return totalCount if it is a number', () => {
+        expect(liferayUtils.asCount({ totalCount: 15 })).toBe(15);
+      });
+
+      it('should return items.totalCount if it is a number', () => {
+        expect(liferayUtils.asCount({ items: { totalCount: 22 } })).toBe(22);
+      });
+
+      it('should fallback to items array length', () => {
+        expect(liferayUtils.asCount([1, 2, 3, 4])).toBe(4);
+        expect(liferayUtils.asCount({ items: [1, 2] })).toBe(2);
+      });
+    });
+  });
+
+  describe('constants', () => {
+    it('should fall back to default boolean when environment/config variable is missing or invalid', () => {
+      process.env['logger.pretty'] = 'true';
+      delete require.cache[require.resolve('../src/utils/constants.cjs')];
+      const freshConstants = require('../src/utils/constants.cjs');
+      expect(freshConstants.ENV.LOGGER_PRETTY).toBe(true);
+
+      process.env['logger.pretty'] = 'invalid_bool';
+      delete require.cache[require.resolve('../src/utils/constants.cjs')];
+      const freshConstants2 = require('../src/utils/constants.cjs');
+      expect(freshConstants2.ENV.LOGGER_PRETTY).toBe(false);
+
+      delete process.env['logger.pretty'];
+    });
+
+    it('should parse comma-separated lists correctly', () => {
+      process.env.EXCLUDE_ACCOUNTS = 'AccountA,AccountB,,AccountC';
+      delete require.cache[require.resolve('../src/utils/constants.cjs')];
+      const freshConstants = require('../src/utils/constants.cjs');
+      expect(freshConstants.ENV.EXCLUDE_ACCOUNTS).toEqual([
+        'AccountA',
+        'AccountB',
+        'AccountC',
+      ]);
+      delete process.env.EXCLUDE_ACCOUNTS;
     });
   });
 });
