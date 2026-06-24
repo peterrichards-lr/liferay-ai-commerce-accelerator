@@ -22,6 +22,10 @@ export default defineConfig({
         '**/scripts/**',
         '**/GeneratedLiferayClient.cjs',
       ],
+      thresholds: {
+        statements: 40,
+        lines: 40,
+      },
     },
   },
   resolve: {
