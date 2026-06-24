@@ -49,5 +49,79 @@ describe('utils/ttl', () => {
       });
       expect(ttl.getSessionTTLms(mockConfig)).toBe(ttl.MIN(240));
     });
+
+    it('should use runtime config or default fallback if config is absent', () => {
+      mockConfig.getCacheConfigCached.mockReturnValue({});
+      expect(ttl.getSessionTTLms(mockConfig, { sessionTtlMinutes: 45 })).toBe(
+        ttl.MIN(45)
+      );
+      expect(ttl.getSessionTTLms(mockConfig, {})).toBe(ttl.MIN(30));
+    });
+  });
+
+  describe('getEphemeralTTLms', () => {
+    it('should use config value if present and clamp it', () => {
+      mockConfig.getCacheConfigCached.mockReturnValue({
+        ephemeralTTL: ttl.MIN(15),
+      });
+      expect(ttl.getEphemeralTTLms(mockConfig)).toBe(ttl.MIN(15));
+
+      mockConfig.getCacheConfigCached.mockReturnValue({
+        ephemeralTTL: ttl.SEC(30), // Too low (min 1 min)
+      });
+      expect(ttl.getEphemeralTTLms(mockConfig)).toBe(ttl.MIN(1));
+    });
+
+    it('should use runtime config or default fallback if config is absent', () => {
+      mockConfig.getCacheConfigCached.mockReturnValue({});
+      expect(
+        ttl.getEphemeralTTLms(mockConfig, { ephemeralTtlMinutes: 12 })
+      ).toBe(ttl.MIN(12));
+      expect(ttl.getEphemeralTTLms(mockConfig, {})).toBe(ttl.MIN(5));
+    });
+  });
+
+  describe('getUploadTTLms', () => {
+    it('should use config value if present and clamp it', () => {
+      mockConfig.getCacheConfigCached.mockReturnValue({
+        uploadTTL: ttl.MIN(40),
+      });
+      expect(ttl.getUploadTTLms(mockConfig)).toBe(ttl.MIN(40));
+
+      mockConfig.getCacheConfigCached.mockReturnValue({
+        uploadTTL: ttl.MIN(120), // Too high (max 60 min)
+      });
+      expect(ttl.getUploadTTLms(mockConfig)).toBe(ttl.MIN(60));
+    });
+
+    it('should use runtime config or default fallback if config is absent', () => {
+      mockConfig.getCacheConfigCached.mockReturnValue({});
+      expect(ttl.getUploadTTLms(mockConfig, { uploadTtlMinutes: 25 })).toBe(
+        ttl.MIN(25)
+      );
+      expect(ttl.getUploadTTLms(mockConfig, {})).toBe(ttl.MIN(15));
+    });
+  });
+
+  describe('getLongLivedTTLms', () => {
+    it('should use config value if present and clamp it', () => {
+      mockConfig.getCacheConfigCached.mockReturnValue({
+        ercConfigTTL: ttl.MIN(100),
+      });
+      expect(ttl.getLongLivedTTLms(mockConfig)).toBe(ttl.MIN(100));
+
+      mockConfig.getCacheConfigCached.mockReturnValue({
+        ercConfigTTL: ttl.MIN(200), // Too high (max 180 min)
+      });
+      expect(ttl.getLongLivedTTLms(mockConfig)).toBe(ttl.MIN(180));
+    });
+
+    it('should use runtime config or default fallback if config is absent', () => {
+      mockConfig.getCacheConfigCached.mockReturnValue({});
+      expect(
+        ttl.getLongLivedTTLms(mockConfig, { ercConfigTtlMinutes: 90 })
+      ).toBe(ttl.MIN(90));
+      expect(ttl.getLongLivedTTLms(mockConfig, {})).toBe(ttl.MIN(60));
+    });
   });
 });

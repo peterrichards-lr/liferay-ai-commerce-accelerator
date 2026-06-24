@@ -6,15 +6,15 @@ Ensure all E2E verification tests (`yarn verify` / `run-e2e-ldm.sh`) pass succes
 
 ## Plan
 
-1. **Document Platform Bugs**: Create a `jira` directory at the project root and add detailed markdown bug reports for:
+1. **Document Platform Bugs**: Create a `jira` directory at the project root and add detailed markdown bug reports for: [Completed]
    - Pricing v2.0 single POST `NotSupportedException` bug.
    - GraphQL search index race condition / indexing lag.
    - GraphQL "Collection not allowed" query permissions error.
    - Warehouse Items batch endpoint mapping bug.
-2. **Fix CLI Deletion Session ID Resolution**: Update `handleDelete` in `scripts/aica-cli.cjs` to check `res.sessionId || res.summary?.sessionId` so that it doesn't fail when the microservice wraps the session details under the `summary` block.
-3. **Fix E2E Test Ordering**: Update `playwright/tests/e2e/cli.spec.js` to run the `delete --all` test _before_ `import`, ensuring a clean DXP instance that avoids duplicate entity/account entry errors. Add a final `delete --all` test as a post-test cleanup step.
-4. **Fix createAccountsBatch Unit Test**: Correct the batch count returned when all accounts exist in `createAccountsBatch` (rest.cjs) so that it returns 0 for batch count instead of duplicating `toUpdate.length`.
-5. **Add Coverage Checking**: Install `@vitest/coverage-v8` to analyze the exact SDK test coverage.
+2. **Fix CLI Deletion Session ID Resolution**: Update `handleDelete` in `scripts/aica-cli.cjs` to check `res.sessionId || res.summary?.sessionId` so that it doesn't fail when the microservice wraps the session details under the `summary` block. [Completed]
+3. **Fix E2E Test Ordering**: Update `playwright/tests/e2e/cli.spec.js` to run the `delete --all` test _before_ `import`, ensuring a clean DXP instance that avoids duplicate entity/account entry errors. Add a final `delete --all` test as a post-test cleanup step. [Completed]
+4. **Fix createAccountsBatch Unit Test**: Correct the batch count returned when all accounts exist in `createAccountsBatch` (rest.cjs) so that it returns 0 for batch count instead of duplicating `toUpdate.length`. [Completed]
+5. **Add Coverage Checking**: Install `@vitest/coverage-v8` to analyze the exact SDK test coverage. [Completed]
 6. **Create OAuth Unit Tests**: Write unit tests for the SDK `OAuthService` under `tests/oauth.test.js` to cover caching, error recovery, client configurations, token exchange, and retry settings. [Completed]
 7. **Create GraphQL Unit Tests**: Write unit tests for the SDK `LiferayGraphQLService` under `tests/graphql.test.js` to mock/validate queries, pagination, custom auth options, aliases, and error recovery. [Completed]
 8. **Fix Pricing Batch Idempotency Test Payload**: Add `priceListExternalReferenceCode` to the `compliantPayload` and resolve a valid SKU ERC from Liferay dynamically in `playwright/tests/smoke/sdk-idempotency.spec.js` so Liferay's batch task executor can resolve both PriceList and Sku. [Completed]
@@ -30,9 +30,9 @@ Ensure all E2E verification tests (`yarn verify` / `run-e2e-ldm.sh`) pass succes
 18. **Configurable Batch Processing Threshold**: Add `LIFERAY_MAX_BATCH_ERRORS` to `constants.cjs` and pass it to `shouldStopBatch` in `batchProcessorService.cjs` to stop sequential runs after a configurable number of failures. [Completed]
 19. **Unit Tests for Request Retries and Deletion Errors**: Add unit tests in `tests/resilience.test.mjs` to verify `LIFERAY_API_MAX_RETRIES` config override and `_deleteByIds` aborting when deletion errors meet threshold. [Completed]
 20. **Unit Tests for Batch Processor Threshold**: Add a unit test in `tests/batchProcessorService.test.js` to verify `LIFERAY_MAX_BATCH_ERRORS` limits sequential execution. [Completed]
-21. **Document Accounts Batch Upsert Limitation**: Create `jira/LPS-ACCOUNTS-BATCH-UPSERT.md` detailing why the Headless Admin User accounts batch API needs upsert support. [Completed]
-22. **Document Product Batch Delete Fragility**: Create `jira/LPS-PRODUCTS-BATCH-DELETE-RESILIENCE.md` explaining why native product batch deletion should be resilient to missing items (404s). [Completed]
-23. **Document Batch Delete Limitation**: Create `jira/LPS-COMMERCE-BATCH-DELETE-LIMITATION.md` detailing the lack of unified native batch delete endpoints for commerce and admin-user entities. [Completed]
+21. **Document Accounts Batch Upsert Limitation**: Create `jira/open/LPD-95079-ACCOUNTS-BATCH-UPSERT.md` detailing why the Headless Admin User accounts batch API needs upsert support. [Completed]
+22. **Document Product Batch Delete Fragility**: Create `jira/open/LPD-95085-PRODUCTS-BATCH-DELETE-RESILIENCE.md` explaining why native product batch deletion should be resilient to missing items (404s). [Completed]
+23. **Document Batch Delete Limitation**: Create `jira/open/LPD-95080-COMMERCE-BATCH-DELETE-LIMITATION.md` detailing the lack of unified native batch delete endpoints for commerce and admin-user entities. [Completed]
 24. **Harden Account Batch Deletion soft statuses**: Add `400` to `SOFT_STATUS_BY_OP['accounts:batch-delete']` in `rest.cjs` to prevent default/system accounts deletion failures (which throw 400 Bad Request) from crashing the teardown flow. [Completed]
 25. **Fix CodeMirror Version Mismatch & Workspace Duplication**: Downgrade `codemirror` from `6.0.2` to `5.65.16` in package files, remove the duplicate `"aica/client-extensions/ai-commerce-accelerator-microservice"` workspace from the root `package.json`, and fix the Liferay Workspace excludes glob to `**/aica/**` in `gradle.properties` to resolve build failures. [Completed]
 26. **Fix Microservice Startup Probe URL Resolution**: Update `testConnection` in `rest.cjs` and `waitForLiferay` in `index.cjs` to resolve effective connection details so that raw environment variables or domain names (like `aica-e2e.local`) are parsed with valid protocol prefixes instead of causing `Invalid URL format` exceptions. [Completed]
@@ -41,11 +41,23 @@ Ensure all E2E verification tests (`yarn verify` / `run-e2e-ldm.sh`) pass succes
 29. **Fix rolldown native bindings architecture mismatch**: Move `@rolldown/binding-darwin-*` bindings to `optionalDependencies` in the root `package.json` to support both Gradle (x64) and system (arm64) Node architectures during install. [Completed]
 30. **Document Feature Flags & Implement Boot Probe**: Document the required Page Management API Feature Flag (`LPD-35443`) in `docs/SETUP.md` and add a connection check in the microservice startup connection diagnostics (`testConnection`) to verify the flag is active on DXP. [Completed]
 31. **Environment Configuration Split**: Rename `.env` to `.env.e2e` for the LDM E2E suite, create a new local `.env` pointing to `localhost:8080` with Basic Auth, and update the E2E script to prioritize `.env.e2e`. [Completed]
-32. **Dashboard Failed Jobs Action Refactor**: Refactor list action button for failed jobs in System Administration Dashboard (`AdminApp.jsx`) to download session logs instead of exporting datasets.
-
-## Current Progress
+32. **Dashboard Failed Jobs Action Refactor**: Refactor list action button for failed jobs in System Administration Dashboard (`AdminApp.jsx`) to download session logs instead of exporting datasets. [Completed]
+33. **Create AICA Developer Skill**: Create `.agents/skills/aica_developer/SKILL.md` to guide AI agents on standard scripts, environment constraints, and workflow commands. [Completed]
+34. **Implement Unified Project Management & Automation Playbook**: Save `docs/PLAYBOOK.md`, add project-scoped rule to `.agents/AGENTS.md`, copy/implement `prioritize_issues.py` and `prioritize-issues.yml`, and create `bug_report.yml` and `feature_request.yml` issue templates. [Completed]
+35. **Update Documentation for SE Context and Test Coverage Target**: Document the SE bootstrap/hosting options, Site Initializer, `.ldmp` packages, and target 40% test coverage goals. [Completed]
+36. **Fix base64 length assertion in normalize.test.js**: Change `[REDACTED len=47]` to `[REDACTED len=50]` to pass tests. [Completed]
+37. **Enforce SDK Coverage Threshold**: Configure `vitest.config.mjs` to enforce 40% statement/line coverage thresholds. [Completed]
+38. **Create JIRA Tracker Skill**: Create `.agents/skills/jira_tracker/SKILL.md` to guide AI agents on documenting, naming, and categorizing upstream bugs/limitations in the repository. [Completed]
+39. **Resilient E2E Environment Verification**: Update `scripts/run-e2e-ldm.sh` to log a warning instead of exiting when `ldm doctor` returns a non-zero exit code due to non-blocking environmental configuration warnings (e.g. missing osxkeychain helper under Colima), and fix the project run status check to verify if the project is actually 'Running'. [Completed]
+40. **Enforce Dual-JDK Compatibility in E2E Script**: Configure `scripts/run-e2e-ldm.sh` to automatically detect and resolve `JAVA_HOME` to JDK 21 globally for LDM commands, and JDK 11 locally for Gradle builds, avoiding JVM mismatches on hosts with newer default JDKs. [Completed]
+41. **Install `@modelcontextprotocol/sdk`**: Add `@modelcontextprotocol/sdk` to the microservice using Yarn workspace commands. [Completed]
+42. **Implement SSE MCP Server**: Create the route handler `client-extensions/ai-commerce-accelerator-microservice/routes/mcp.cjs` with tool definitions (`aica_get_status`, `aica_list_sessions`, etc.). [Completed]
+43. **Register MCP routes**: Register the new endpoints in `client-extensions/ai-commerce-accelerator-microservice/server.cjs`. [Completed]
+44. **Document MCP setup**: Create `docs/MCP.md` documenting registration and tool usage. [Completed]
+45. **Resolve Grouped Dependabot Updates**: Merge the grouped Dependabot updates branch, revert the incompatible `codemirror` version bump back to `5.65.16` to prevent frontend runtime/build crashes, and verify all tests pass. [Completed]
 
 - Refactored `routes/config.cjs` to add POST handlers and created `tests/configRoutes.test.cjs` verifying local SQLite persistence (all 133 unit tests pass).
+- Ran a full E2E verification on `feature/dependabot-updates` branch (`task-1859`). All Playwright and integration tests successfully passed (27 passed, 1 skipped).
 - Identified that Liferay Commerce Pricing v2.0's single POST endpoint `/price-lists/{id}/price-entries` delegates internally to the Vulcan Batch Engine, but fails to propagate the parent `id` path parameter. This causes the task executor to crash with:
   `jakarta.ws.rs.NotSupportedException: One of the following parameters must be specified: [externalReferenceCode]`
 - Verified that target price list templates in `productGenerator.cjs` have `externalReferenceCode` populated, allowing us to route requests to the ERC-scoped path `/price-lists/by-externalReferenceCode/{externalReferenceCode}/price-entries` which cleanly propagates the parameter.
@@ -63,6 +75,11 @@ Ensure all E2E verification tests (`yarn verify` / `run-e2e-ldm.sh`) pass succes
 - Identified that `package.json` contains a duplicate workspace path `"aica/client-extensions/ai-commerce-accelerator-microservice"`. Since LDM copies source files into the `./aica` folder, registering it as a workspace causes Yarn to fail with a duplicate workspace name error during build. Additionally, the glob pattern in `gradle.properties` was `**/aica` instead of `**/aica/**`, which failed to exclude nested directory packages from Liferay Workspace scans. Plan: Remove the `"aica/..."` workspace entry from `package.json` and change the excludes glob to `**/aica/**` in `gradle.properties`.
 - Fixed the `testConnection` and `waitForLiferay` logic to correctly resolve effective connection details including protocol matching.
 - Updated `docs/SETUP.md` to document and include the `NODE_TLS_REJECT_UNAUTHORIZED=0` prefix for local development outside LDM.
+- Identified that `tryBuildColocatedLiferayUrl` unit test failed due to `lookupConfig` mock returning `null` instead of the expected `'https'` protocol under test. Fixing by correctly mocking `lookupConfig` mock implementation inside `tests/utils.test.js`. [Completed]
+- Identified that pre-push hook linting fails because the `coverage/` directory generated during local vitest coverage runs is not ignored by Prettier, causing style warnings on auto-generated HTML/CSS files. Fixing by adding `coverage/` to `.prettierignore` at the root. [Completed]
+- Exclude the autogenerated Liferay client `GeneratedLiferayClient.cjs` from the Vitest unit test coverage report via `vitest.config.mjs`.
+- Identified that the test `should sanitize nested objects and handle arrays` in `tests/normalize.test.js` fails because the mock base64 data URL string length is `50` characters, but the assertion expects `47`. Fixing it to expect `50`. [Completed]
+- Achieved SDK statement coverage of **40.76%** (line coverage **40.91%**). Currently configuring `vitest.config.mjs` to enforce a 40% statement coverage threshold minimum.
 
 ## Secrets Leak Prevention (JS-Native Secrets Sentinel)
 

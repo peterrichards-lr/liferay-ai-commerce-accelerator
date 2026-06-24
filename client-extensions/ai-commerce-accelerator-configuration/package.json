@@ -26,7 +26,7 @@
     "@types/prop-types": "^15.7.15",
     "@vitejs/plugin-react": "6.0.2",
     "@clayui/css": "^3.165.0",
-    "baseline-browser-mapping": "^2.10.37",
+    "baseline-browser-mapping": "^2.10.38",
     "esbuild": "^0.28.1",
     "eslint": "10.5.0",
     "eslint-plugin-react": "^7.37.5",
@@ -35,7 +35,7 @@
     "jsdom": "^29.1.1",
     "prettier": "^3.8.4",
     "vite": "8.0.16",
-    "vitest": "4.1.8"
+    "vitest": "4.1.9"
   },
   "name": "@liferay/liferay-ai-commerce-accelerator-configuration",
   "private": true,

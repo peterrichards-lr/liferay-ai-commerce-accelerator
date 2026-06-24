@@ -12,6 +12,21 @@ export default defineConfig({
         inline: true,
       },
     },
+    coverage: {
+      provider: 'v8',
+      exclude: [
+        '**/node_modules/**',
+        '**/dist/**',
+        '**/tests/**',
+        '**/mocks/**',
+        '**/scripts/**',
+        '**/GeneratedLiferayClient.cjs',
+      ],
+      thresholds: {
+        statements: 40,
+        lines: 40,
+      },
+    },
   },
   resolve: {
     mainFields: ['main', 'module'],

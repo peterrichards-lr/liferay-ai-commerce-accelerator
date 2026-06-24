@@ -388,6 +388,40 @@ describe('LiferayGraphQLService', () => {
       expect(result.items).toEqual([{ id: 1, name: 'Category 1' }]);
     });
 
+    it('should throw and log warning when GraphQL returns error for taxonomy categories query', async () => {
+      graphqlResponseMock = () => {
+        return HttpResponse.json({
+          errors: [{ message: 'Access denied' }],
+        });
+      };
+
+      await expect(
+        graphqlService.getTaxonomyCategories(config, 1234)
+      ).rejects.toThrow('Access denied');
+    });
+
+    it('should fetch taxonomy vocabularies by siteKey', async () => {
+      graphqlResponseMock = (body) => {
+        expect(body.query).toContain('taxonomyVocabularies');
+        return HttpResponse.json({
+          data: {
+            headlessAdminTaxonomy_v1_0: {
+              taxonomyVocabularies: {
+                items: [{ id: 'vocab-1', name: 'Vocab 1' }],
+                totalCount: 1,
+              },
+            },
+          },
+        });
+      };
+
+      const result = await graphqlService.getTaxonomyVocabularies(
+        config,
+        'site-1'
+      );
+      expect(result.items).toEqual([{ id: 'vocab-1', name: 'Vocab 1' }]);
+    });
+
     it('should fetch languages by siteKey', async () => {
       graphqlResponseMock = (body) => {
         expect(body.query).toContain('languages(siteKey: "site-1")');
@@ -405,6 +439,18 @@ describe('LiferayGraphQLService', () => {
 
       const result = await graphqlService.getLanguages(config, 'site-1');
       expect(result.items).toEqual([{ id: 'en-US', name: 'English' }]);
+    });
+
+    it('should throw and log warning when GraphQL returns error for languages query', async () => {
+      graphqlResponseMock = () => {
+        return HttpResponse.json({
+          errors: [{ message: 'Access denied' }],
+        });
+      };
+
+      await expect(
+        graphqlService.getLanguages(config, 'site-1')
+      ).rejects.toThrow('Access denied');
     });
 
     it('should fetch site languages by siteKey', async () => {
@@ -426,6 +472,18 @@ describe('LiferayGraphQLService', () => {
       expect(result.items).toEqual([{ id: 'es-ES', name: 'Spanish' }]);
     });
 
+    it('should throw and log warning when GraphQL returns error for site languages query', async () => {
+      graphqlResponseMock = () => {
+        return HttpResponse.json({
+          errors: [{ message: 'Access denied' }],
+        });
+      };
+
+      await expect(
+        graphqlService.getSiteLanguages(config, 'site-2')
+      ).rejects.toThrow('Access denied');
+    });
+
     it('should fetch country regions by countryId', async () => {
       graphqlResponseMock = (body) => {
         expect(body.query).toContain('countryRegions(countryId: 5678)');
@@ -443,6 +501,18 @@ describe('LiferayGraphQLService', () => {
 
       const result = await graphqlService.getCountryRegions(config, 5678);
       expect(result.items).toEqual([{ id: 9, name: 'Region 9' }]);
+    });
+
+    it('should throw and log warning when GraphQL returns error for country regions query', async () => {
+      graphqlResponseMock = () => {
+        return HttpResponse.json({
+          errors: [{ message: 'Access denied' }],
+        });
+      };
+
+      await expect(
+        graphqlService.getCountryRegions(config, 5678)
+      ).rejects.toThrow('Access denied');
     });
 
     it('should fetch warehouse items', async () => {
@@ -469,6 +539,18 @@ describe('LiferayGraphQLService', () => {
         ['sku', 'quantity']
       );
       expect(result.items).toEqual([{ sku: 'SKU-1', quantity: 100 }]);
+    });
+
+    it('should throw and log warning when GraphQL returns error for warehouse items query', async () => {
+      graphqlResponseMock = () => {
+        return HttpResponse.json({
+          errors: [{ message: 'Access denied' }],
+        });
+      };
+
+      await expect(
+        graphqlService.getWarehouseItems(config, 1111, null, ['sku'])
+      ).rejects.toThrow('Access denied');
     });
 
     it('should get options by product IDs', async () => {
@@ -504,6 +586,18 @@ describe('LiferayGraphQLService', () => {
       expect(result).toEqual([]);
     });
 
+    it('should throw and log warning when GraphQL returns error for options query', async () => {
+      graphqlResponseMock = () => {
+        return HttpResponse.json({
+          errors: [{ message: 'Access denied' }],
+        });
+      };
+
+      await expect(
+        graphqlService.getOptionsByProductIds(config, [101])
+      ).rejects.toThrow('Access denied');
+    });
+
     it('should get specifications by product IDs', async () => {
       graphqlResponseMock = (body) => {
         expect(body.query).toContain('p0: product(id: 201)');
@@ -531,6 +625,18 @@ describe('LiferayGraphQLService', () => {
         []
       );
       expect(result).toEqual([]);
+    });
+
+    it('should throw and log warning when GraphQL returns error for specifications query', async () => {
+      graphqlResponseMock = () => {
+        return HttpResponse.json({
+          errors: [{ message: 'Access denied' }],
+        });
+      };
+
+      await expect(
+        graphqlService.getSpecificationsByProductIds(config, [201])
+      ).rejects.toThrow('Access denied');
     });
   });
 

@@ -11,6 +11,7 @@
 **/node_modules
 **/node_modules_cache
 **/test-coverage
+**/coverage
 **/tmp
 **/.web_bundle_build
 .gradle

@@ -59,4 +59,24 @@ describe('payload-cleaner', () => {
     expect(output).toEqual({ name: 'Product' });
     expect(output.sku).toBeUndefined();
   });
+
+  it('should return primitive inputs unchanged', () => {
+    expect(deepCleanIds('string')).toBe('string');
+    expect(deepCleanIds(123)).toBe(123);
+    expect(deepCleanIds(null)).toBeNull();
+    expect(deepCleanIds(undefined)).toBeUndefined();
+  });
+
+  it('should remove externalReferenceCode from nested sku object in price entry payload if skuExternalReferenceCode is present', () => {
+    const input = {
+      skuExternalReferenceCode: 'SKU-ERC-123',
+      sku: {
+        externalReferenceCode: 'SKU-ERC-123',
+        otherProp: 'keep',
+      },
+    };
+    const output = deepCleanIds(input);
+    expect(output.skuExternalReferenceCode).toBe('SKU-ERC-123');
+    expect(output.sku).toEqual({ otherProp: 'keep' });
+  });
 });

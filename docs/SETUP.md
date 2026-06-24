@@ -1,6 +1,24 @@
 # Setup & Deployment Guide
 
-This guide covers the necessary steps to deploy and run the Liferay AI Commerce Accelerator.
+This guide covers the deployment, configuration, and execution of the **Liferay AI Commerce Accelerator (AICA)**.
+
+---
+
+## 🎭 Sales Engineering (SE) Demo Context & Hosting Choices
+
+AICA is designed specifically as a Sales Engineering (SE) demonstration tool. To support diverse demonstration requirements, it is built to be turnkey and highly portable across any hosting mechanism the SE chooses:
+
+1. **Liferay Docker Manager (LDM) Project**: The recommended developer/demo setup. SEs can spin up a fully configured local DXP instance and AICA microservice stack instantly.
+2. **Liferay Experience Cloud / PaaS (LCP)**: Deploys the microservice, configuration dashboards, and custom widgets directly to Liferay's cloud environment.
+3. **Standalone Liferay Tomcat Bundle**: Runs locally on a zip Tomcat bundle.
+4. **Liferay Docker Image**: Runs on a raw, standalone Docker container.
+
+### 📦 Turnkey Demo Bootstrapping Features
+
+- **Liferay Workspace Package (`.ldmp`)**: The project compiles a self-contained database snapshot and asset package (`.ldmp`) of a working demo environment. SEs can download or import this package into LDM to launch a pre-populated instance in seconds (see [Packaging & Importing LDM Environments](#packaging--importing-ldm-environments-ldmp)).
+- **Site Initializer**: The project includes a dedicated site initializer client extension. When deployed, it automatically creates a fully configured demo storefront site, pages, templates, and dashboard screens. This eliminates manual configuration so the SE has a working demo instantly.
+
+---
 
 ## Prerequisites
 
