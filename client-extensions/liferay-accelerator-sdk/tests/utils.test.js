@@ -1,7 +1,6 @@
 import { describe, it, expect } from 'vitest';
 const misc = require('../src/utils/misc.cjs');
 const liferayUtils = require('../src/utils/liferayUtils.cjs');
-const constants = require('../src/utils/constants.cjs');
 
 describe('utils/misc', () => {
   describe('toERCPart', () => {
