@@ -95,3 +95,12 @@ To ensure AICA is completely plug-and-play on any vanilla, local, or managed Saa
 
 - **Layer 1 (Exponential Backoff Retries):** The SDK rest client includes an exponential backoff retry loop (`resolveByERCsWithRetry` over 8 cycles/3 minutes) that safely waits for Liferay's async indexing background thread to finish, absorbing indexing latency under moderate loads.
 - **Layer 2 (Local In-Memory Fallbacks):** During heavy, high-volume generation pipelines, AICA completely decouples itself from the search index. The Node.js seeder caches newly created variant schemas in-memory and performs a local **context-merge**. When downstream steps (like the Order Generator) require SKUs, AICA reads them directly from local Node.js memory instead of waiting for the search index to populate, completely immunizing the seeder against search latency.
+
+### 🔄 Programmatic Search Reindexing
+
+To resolve long-term indexing synchronization issues and eliminate search lag for storefront inspection, AICA integrates a programmatic search reindexing trigger executed at session boundaries:
+
+- **Option 1: JAX-RS REST Endpoint (`/o/aica-reindex`)**: A lightweight Java OSGi module (`modules/aica-reindex-endpoint`) deployed to Liferay DXP that exposes a secure REST API `/o/aica-reindex/reindex/{className}` (restricted to Omniadmins). This is facaded by the JS SDK (`triggerReindex()`) and automatically invoked:
+  - **Post-Seeding / Import**: Automatically triggers a targeted reindex for Commerce Products (`com.liferay.commerce.product.model.CPDefinition`) when a generation or dataset import workflow successfully completes.
+  - **Post-Deletion**: Triggers a global search reindex at the end of the `delete --all` teardown flow to purge any stale, lingering entries from Elasticsearch.
+- **Option 2: LDM Runtime Trigger (`ldm reindex`)**: LDM implements an immediate reindexing controller. If LDM detects the container is active, it routes a script directly to the JVM via the Gogo telnet console (`11311`) to execute immediate reindexing at the runtime layer, falling back to boot-time scheduling if offline.

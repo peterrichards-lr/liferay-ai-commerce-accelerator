@@ -3403,6 +3403,19 @@ class LiferayRestService {
     );
   }
 
+  async triggerReindex(config, className = null) {
+    const url = className
+      ? `/o/aica-reindex/reindex/${className}`
+      : '/o/aica-reindex/reindex/all';
+    return await this._post(
+      config,
+      url,
+      null,
+      'trigger-reindex',
+      'Failed to trigger search reindexing'
+    );
+  }
+
   async setBillingAndShippingAddresses(
     config,
     accountId,

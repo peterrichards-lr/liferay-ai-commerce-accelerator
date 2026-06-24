@@ -52,6 +52,8 @@ const INTERNAL_API_PATHS = {
   LOGS_CYCLE: '/logs/cycle',
   LOGS_SETTINGS: '/logs/settings',
   LOGS_SESSION: '/logs/session/:sessionId',
+  REINDEX: '/reindex',
+  REINDEX_CLASS: '/reindex/:className',
 };
 
 module.exports = { INTERNAL_API_PATHS };

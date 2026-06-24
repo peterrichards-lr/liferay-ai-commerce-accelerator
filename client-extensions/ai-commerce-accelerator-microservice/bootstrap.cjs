@@ -88,6 +88,35 @@ module.exports = (ws) => {
   ctx.workflowCoordinator = new WorkflowCoordinator(ctx);
   ctx.deleteCoordinator = new DeleteCoordinatorService(ctx);
 
+  // Trigger search reindexing after successful workflow completion (Generation or Import)
+  ctx.workflowCoordinator.onSessionComplete = async ({
+    sessionId,
+    correlationId,
+    session,
+  }) => {
+    try {
+      if (session && session.context && session.context.config) {
+        // Trigger reindex for CPDefinition (Commerce Catalog Products)
+        await ctx.liferay.rest.triggerReindex(
+          session.context.config,
+          'com.liferay.commerce.product.model.CPDefinition'
+        );
+        logger.info(
+          `Search reindexing triggered after workflow session completed: ${sessionId}`,
+          { correlationId }
+        );
+      }
+    } catch (reindexErr) {
+      logger.warn(
+        `Failed to trigger search reindexing after workflow session ${sessionId}`,
+        {
+          correlationId,
+          error: reindexErr.message,
+        }
+      );
+    }
+  };
+
   // Register generators with the master coordinator
   ctx.workflowCoordinator.registerGenerator(
     'warehouse',

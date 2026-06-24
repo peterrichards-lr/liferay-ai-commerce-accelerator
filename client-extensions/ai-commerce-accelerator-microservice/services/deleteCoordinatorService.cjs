@@ -111,6 +111,27 @@ class DeleteCoordinatorService extends BaseGenerator {
           correlationId,
         }
       );
+
+      // Trigger search reindexing to clean up deleted entries from index
+      try {
+        const session = await this.persistence.getSession(sessionId);
+        if (session && session.context && session.context.config) {
+          await this.liferay.rest.triggerReindex(session.context.config);
+          this.logger.info(
+            `Search reindexing triggered after deletion session completed: ${sessionId}`,
+            { correlationId }
+          );
+        }
+      } catch (reindexErr) {
+        this.logger.warn(
+          `Failed to trigger search reindexing after deletion session ${sessionId}`,
+          {
+            correlationId,
+            error: reindexErr.message,
+          }
+        );
+      }
+
       await this.progress.sessionCompleted({ sessionId, correlationId });
     }
   }

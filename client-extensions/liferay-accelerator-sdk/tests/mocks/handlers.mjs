@@ -422,6 +422,21 @@ const handlers = [
       });
     }
   ),
+
+  // Mock AICA Reindex endpoints
+  http.post('*/o/aica-reindex/reindex/all', () => {
+    return HttpResponse.json({
+      status: 'success',
+      message: 'All indexes scheduled for reindexing',
+    });
+  }),
+  http.post('*/o/aica-reindex/reindex/:className', ({ params }) => {
+    return HttpResponse.json({
+      status: 'success',
+      className: params.className,
+      message: `Reindex scheduled for ${params.className}`,
+    });
+  }),
 ];
 
 export { handlers };

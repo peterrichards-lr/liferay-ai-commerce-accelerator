@@ -500,4 +500,21 @@ describe('LiferayService', () => {
       expect(results.batchId).toContain('batch-mock-');
     });
   });
+
+  describe('triggerReindex', () => {
+    it('should successfully trigger a full search reindex (all)', async () => {
+      const res = await liferayService.rest.triggerReindex(config);
+      expect(res.status).toBe('success');
+      expect(res.message).toBe('All indexes scheduled for reindexing');
+    });
+
+    it('should successfully trigger a class-specific search reindex', async () => {
+      const res = await liferayService.rest.triggerReindex(
+        config,
+        'com.liferay.portal.kernel.model.User'
+      );
+      expect(res.status).toBe('success');
+      expect(res.className).toBe('com.liferay.portal.kernel.model.User');
+    });
+  });
 });
