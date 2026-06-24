@@ -6,15 +6,15 @@ Ensure all E2E verification tests (`yarn verify` / `run-e2e-ldm.sh`) pass succes
 
 ## Plan
 
-1. **Document Platform Bugs**: Create a `jira` directory at the project root and add detailed markdown bug reports for:
+1. **Document Platform Bugs**: Create a `jira` directory at the project root and add detailed markdown bug reports for: [Completed]
    - Pricing v2.0 single POST `NotSupportedException` bug.
    - GraphQL search index race condition / indexing lag.
    - GraphQL "Collection not allowed" query permissions error.
    - Warehouse Items batch endpoint mapping bug.
-2. **Fix CLI Deletion Session ID Resolution**: Update `handleDelete` in `scripts/aica-cli.cjs` to check `res.sessionId || res.summary?.sessionId` so that it doesn't fail when the microservice wraps the session details under the `summary` block.
-3. **Fix E2E Test Ordering**: Update `playwright/tests/e2e/cli.spec.js` to run the `delete --all` test _before_ `import`, ensuring a clean DXP instance that avoids duplicate entity/account entry errors. Add a final `delete --all` test as a post-test cleanup step.
-4. **Fix createAccountsBatch Unit Test**: Correct the batch count returned when all accounts exist in `createAccountsBatch` (rest.cjs) so that it returns 0 for batch count instead of duplicating `toUpdate.length`.
-5. **Add Coverage Checking**: Install `@vitest/coverage-v8` to analyze the exact SDK test coverage.
+2. **Fix CLI Deletion Session ID Resolution**: Update `handleDelete` in `scripts/aica-cli.cjs` to check `res.sessionId || res.summary?.sessionId` so that it doesn't fail when the microservice wraps the session details under the `summary` block. [Completed]
+3. **Fix E2E Test Ordering**: Update `playwright/tests/e2e/cli.spec.js` to run the `delete --all` test _before_ `import`, ensuring a clean DXP instance that avoids duplicate entity/account entry errors. Add a final `delete --all` test as a post-test cleanup step. [Completed]
+4. **Fix createAccountsBatch Unit Test**: Correct the batch count returned when all accounts exist in `createAccountsBatch` (rest.cjs) so that it returns 0 for batch count instead of duplicating `toUpdate.length`. [Completed]
+5. **Add Coverage Checking**: Install `@vitest/coverage-v8` to analyze the exact SDK test coverage. [Completed]
 6. **Create OAuth Unit Tests**: Write unit tests for the SDK `OAuthService` under `tests/oauth.test.js` to cover caching, error recovery, client configurations, token exchange, and retry settings. [Completed]
 7. **Create GraphQL Unit Tests**: Write unit tests for the SDK `LiferayGraphQLService` under `tests/graphql.test.js` to mock/validate queries, pagination, custom auth options, aliases, and error recovery. [Completed]
 8. **Fix Pricing Batch Idempotency Test Payload**: Add `priceListExternalReferenceCode` to the `compliantPayload` and resolve a valid SKU ERC from Liferay dynamically in `playwright/tests/smoke/sdk-idempotency.spec.js` so Liferay's batch task executor can resolve both PriceList and Sku. [Completed]
@@ -41,7 +41,10 @@ Ensure all E2E verification tests (`yarn verify` / `run-e2e-ldm.sh`) pass succes
 29. **Fix rolldown native bindings architecture mismatch**: Move `@rolldown/binding-darwin-*` bindings to `optionalDependencies` in the root `package.json` to support both Gradle (x64) and system (arm64) Node architectures during install. [Completed]
 30. **Document Feature Flags & Implement Boot Probe**: Document the required Page Management API Feature Flag (`LPD-35443`) in `docs/SETUP.md` and add a connection check in the microservice startup connection diagnostics (`testConnection`) to verify the flag is active on DXP. [Completed]
 31. **Environment Configuration Split**: Rename `.env` to `.env.e2e` for the LDM E2E suite, create a new local `.env` pointing to `localhost:8080` with Basic Auth, and update the E2E script to prioritize `.env.e2e`. [Completed]
-32. **Dashboard Failed Jobs Action Refactor**: Refactor list action button for failed jobs in System Administration Dashboard (`AdminApp.jsx`) to download session logs instead of exporting datasets.
+32. **Dashboard Failed Jobs Action Refactor**: Refactor list action button for failed jobs in System Administration Dashboard (`AdminApp.jsx`) to download session logs instead of exporting datasets. [Completed]
+33. **Create AICA Developer Skill**: Create `.agents/skills/aica_developer/SKILL.md` to guide AI agents on standard scripts, environment constraints, and workflow commands. [Completed]
+34. **Implement Unified Project Management & Automation Playbook**: Save `docs/PLAYBOOK.md`, add project-scoped rule to `.agents/AGENTS.md`, copy/implement `prioritize_issues.py` and `prioritize-issues.yml`, and create `bug_report.yml` and `feature_request.yml` issue templates. [Completed]
+35. **Update Documentation for SE Context and Test Coverage Target**: Document the SE bootstrap/hosting options, Site Initializer, `.ldmp` packages, and target 40% test coverage goals. [Completed]
 
 ## Current Progress
 

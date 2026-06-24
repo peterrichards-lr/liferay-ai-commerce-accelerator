@@ -62,6 +62,24 @@ npm test
 
 Or individually within each component directory using `npm test`.
 
+#### 📊 Test Coverage Targets
+
+We target a minimum of **40% statement coverage** across the SDK and microservice codebases.
+To run tests and analyze the current coverage reports locally:
+
+- **SDK Coverage Report**:
+  ```bash
+  cd client-extensions/liferay-accelerator-sdk
+  npm run test -- --coverage
+  ```
+- **Microservice Coverage Report**:
+  ```bash
+  cd client-extensions/ai-commerce-accelerator-microservice
+  npm run test -- --coverage
+  ```
+
+_(Note: Coverage thresholds are not currently enforced as hard blocking gates in the CI/CD pipeline to allow incremental progress. However, all new features and helpers are expected to include comprehensive unit tests aiming to raise overall coverage towards the 40% milestone.)_
+
 ### Linting & Formatting
 
 The project enforces strict style rules using ESLint and Prettier.
