@@ -57,6 +57,7 @@ Ensure all E2E verification tests (`yarn verify` / `run-e2e-ldm.sh`) pass succes
 45. **Resolve Grouped Dependabot Updates**: Merge the grouped Dependabot updates branch, revert the incompatible `codemirror` version bump back to `5.65.16` to prevent frontend runtime/build crashes, and verify all tests pass. [Completed]
 
 - Refactored `routes/config.cjs` to add POST handlers and created `tests/configRoutes.test.cjs` verifying local SQLite persistence (all 133 unit tests pass).
+- Ran a full E2E verification on `feature/dependabot-updates` branch (`task-1859`). All Playwright and integration tests successfully passed (27 passed, 1 skipped).
 - Identified that Liferay Commerce Pricing v2.0's single POST endpoint `/price-lists/{id}/price-entries` delegates internally to the Vulcan Batch Engine, but fails to propagate the parent `id` path parameter. This causes the task executor to crash with:
   `jakarta.ws.rs.NotSupportedException: One of the following parameters must be specified: [externalReferenceCode]`
 - Verified that target price list templates in `productGenerator.cjs` have `externalReferenceCode` populated, allowing us to route requests to the ERC-scoped path `/price-lists/by-externalReferenceCode/{externalReferenceCode}/price-entries` which cleanly propagates the parameter.
