@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 const misc = require('../src/utils/misc.cjs');
 const liferayUtils = require('../src/utils/liferayUtils.cjs');
+const liferayEnv = require('../src/utils/liferayEnv.cjs');
 
 describe('utils/misc', () => {
   describe('toERCPart', () => {
@@ -167,6 +168,131 @@ describe('utils/misc', () => {
         'AccountC',
       ]);
       delete process.env.EXCLUDE_ACCOUNTS;
+    });
+  });
+
+  describe('liferayEnv', () => {
+    describe('isValidAbsoluteUrl', () => {
+      it('should validate absolute URLs correctly', () => {
+        expect(liferayEnv.isValidAbsoluteUrl('http://localhost:8080')).toBe(
+          true
+        );
+        expect(liferayEnv.isValidAbsoluteUrl('https://example.com/api')).toBe(
+          true
+        );
+        expect(liferayEnv.isValidAbsoluteUrl('not-a-url')).toBe(false);
+        expect(liferayEnv.isValidAbsoluteUrl('')).toBe(false);
+        expect(liferayEnv.isValidAbsoluteUrl(null)).toBe(false);
+      });
+    });
+
+    describe('tryBuildColocatedLiferayUrl', () => {
+      it('should return null when parsing throws or fails', () => {
+        const { lxcConfig } = require('@rotty3000/config-node');
+        const originalDxpMainDomain = lxcConfig.dxpMainDomain;
+        lxcConfig.dxpMainDomain = () => {
+          throw new Error('fail');
+        };
+        expect(liferayEnv.tryBuildColocatedLiferayUrl()).toBeNull();
+        lxcConfig.dxpMainDomain = originalDxpMainDomain;
+      });
+    });
+
+    describe('resolveEffectiveLiferayConnection', () => {
+      it('should throw error when URL is missing or invalid', () => {
+        const { lxcConfig } = require('@rotty3000/config-node');
+        const originalDxpMainDomain = lxcConfig.dxpMainDomain;
+        lxcConfig.dxpMainDomain = () => {
+          throw new Error('fail');
+        };
+        expect(() => {
+          liferayEnv.resolveEffectiveLiferayConnection({}, {}, {});
+        }).toThrow(/Liferay URL is not configured/);
+        lxcConfig.dxpMainDomain = originalDxpMainDomain;
+      });
+
+      it('should throw error when authentication details are missing in standalone mode', () => {
+        expect(() => {
+          liferayEnv.resolveEffectiveLiferayConnection(
+            { liferayUrl: 'http://localhost:8080' },
+            { isLiferayRouteAvailable: () => false },
+            {}
+          );
+        }).toThrow(/Liferay authentication is not configured/);
+      });
+
+      it('should resolve correctly when auth method is basic authentication via environment variables', () => {
+        process.env.LIFERAY_API_USERNAME = 'test-user';
+        process.env.LIFERAY_API_PASSWORD = 'test-password';
+
+        // Bust require cache to pick up the username/password
+        delete require.cache[require.resolve('../src/utils/constants.cjs')];
+        delete require.cache[require.resolve('../src/utils/liferayEnv.cjs')];
+        const freshLiferayEnv = require('../src/utils/liferayEnv.cjs');
+
+        const connection = freshLiferayEnv.resolveEffectiveLiferayConnection(
+          { liferayUrl: 'http://localhost:8080' },
+          { isLiferayRouteAvailable: () => false },
+          {}
+        );
+
+        expect(connection.liferayUrl).toBe('http://localhost:8080');
+        expect(connection.isColocated).toBe(false);
+
+        delete process.env.LIFERAY_API_USERNAME;
+        delete process.env.LIFERAY_API_PASSWORD;
+      });
+
+      it('should resolve correctly in colocated mode using default values from oauthService', () => {
+        const mockOauthService = {
+          isLiferayRouteAvailable: () => true,
+          getDefaultLiferayUrl: () => 'http://colocated:8080',
+          getDefaultClientId: () => 'default-client',
+          getDefaultClientSecret: () => 'default-secret',
+        };
+
+        const connection = liferayEnv.resolveEffectiveLiferayConnection(
+          {},
+          mockOauthService,
+          {}
+        );
+
+        expect(connection.liferayUrl).toBe('http://colocated:8080');
+        expect(connection.clientId).toBe('default-client');
+        expect(connection.clientSecret).toBe('default-secret');
+        expect(connection.isColocated).toBe(true);
+      });
+
+      it('should resolve correctly in colocated mode using colocated URL fallback when getDefaultLiferayUrl is missing', () => {
+        const { lxcConfig, clearCache } = require('@rotty3000/config-node');
+        const originalDxpMainDomain = lxcConfig.dxpMainDomain;
+        lxcConfig.dxpMainDomain = () => 'colocated.domain';
+        process.env.COM_LIFERAY_LXC_DXP_SERVER_PROTOCOL = 'https';
+
+        // Clear the config-node cache so it reads process.env fresh
+        clearCache();
+
+        const mockOauthService = {
+          isLiferayRouteAvailable: () => true,
+          getDefaultClientId: () => 'default-client',
+          getDefaultClientSecret: () => 'default-secret',
+        };
+
+        const connection = liferayEnv.resolveEffectiveLiferayConnection(
+          {},
+          mockOauthService,
+          {}
+        );
+
+        expect(connection.liferayUrl).toBe('https://colocated.domain');
+        expect(connection.clientId).toBe('default-client');
+        expect(connection.clientSecret).toBe('default-secret');
+        expect(connection.isColocated).toBe(true);
+
+        lxcConfig.dxpMainDomain = originalDxpMainDomain;
+        delete process.env.COM_LIFERAY_LXC_DXP_SERVER_PROTOCOL;
+        clearCache();
+      });
     });
   });
 });

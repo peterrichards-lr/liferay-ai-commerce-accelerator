@@ -66,6 +66,7 @@ Ensure all E2E verification tests (`yarn verify` / `run-e2e-ldm.sh`) pass succes
 - Identified that `package.json` contains a duplicate workspace path `"aica/client-extensions/ai-commerce-accelerator-microservice"`. Since LDM copies source files into the `./aica` folder, registering it as a workspace causes Yarn to fail with a duplicate workspace name error during build. Additionally, the glob pattern in `gradle.properties` was `**/aica` instead of `**/aica/**`, which failed to exclude nested directory packages from Liferay Workspace scans. Plan: Remove the `"aica/..."` workspace entry from `package.json` and change the excludes glob to `**/aica/**` in `gradle.properties`.
 - Fixed the `testConnection` and `waitForLiferay` logic to correctly resolve effective connection details including protocol matching.
 - Updated `docs/SETUP.md` to document and include the `NODE_TLS_REJECT_UNAUTHORIZED=0` prefix for local development outside LDM.
+- Identified that `tryBuildColocatedLiferayUrl` unit test failed due to `lookupConfig` mock returning `null` instead of the expected `'https'` protocol under test. Fixing by correctly mocking `lookupConfig` mock implementation inside `tests/utils.test.js`.
 
 ## Secrets Leak Prevention (JS-Native Secrets Sentinel)
 
