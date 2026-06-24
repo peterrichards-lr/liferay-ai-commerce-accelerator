@@ -51,16 +51,29 @@ test.describe('AICA Price List Teardown Locks E2E', () => {
 
     // 3. Verify that all AICA price lists are deleted and lock was cleanly bypassed
     console.log('Verifying lock was bypassed and AICA lists are deleted...');
-    const res = await request.get(
-      `${liferayUrl}/o/headless-commerce-admin-pricing/v2.0/price-lists`,
-      { headers: authHeader }
-    );
-    expect(res.status()).toBe(200);
-    const data = await res.json();
 
-    const anyAicaList = data.items.find((pl) =>
-      pl.externalReferenceCode.startsWith('AICA-')
-    );
+    // Poll up to 30 seconds for Elasticsearch index lag to clear
+    let anyAicaList;
+    for (let attempt = 0; attempt < 6; attempt++) {
+      const res = await request.get(
+        `${liferayUrl}/o/headless-commerce-admin-pricing/v2.0/price-lists`,
+        { headers: authHeader }
+      );
+      expect(res.status()).toBe(200);
+      const data = await res.json();
+
+      anyAicaList = data.items.find((pl) =>
+        pl.externalReferenceCode.startsWith('AICA-')
+      );
+      if (!anyAicaList) {
+        break;
+      }
+      console.log(
+        `[Teardown Locks] AICA price lists still visible in search index (attempt ${attempt + 1}/6), waiting 5s...`
+      );
+      await new Promise((resolve) => setTimeout(resolve, 5000));
+    }
+
     expect(anyAicaList).toBeUndefined(); // All AICA lists should be cleanly deleted
   });
 });

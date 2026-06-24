@@ -475,7 +475,6 @@ class OrderGenerator extends BaseGenerator {
         sku: sku.sku,
         skuExternalReferenceCode: sku.sku || sku.externalReferenceCode,
         quantity: orderDataItem?.quantity || Math.floor(Math.random() * 3) + 1,
-        warehouseId: warehouse ? warehouse.id : undefined,
         unitPrice:
           sku.price || orderDataItem?.price || orderDataItem?.unitPrice,
       });
