@@ -64,6 +64,7 @@ Resolve empty/vanilla `.ldmp` package issue in release pipeline by updating the 
 51. **Document MCP setup**: Create `docs/MCP.md` documenting registration and tool usage. [Completed]
 52. **Resolve Grouped Dependabot Updates**: Merge the grouped Dependabot updates branch, revert the incompatible `codemirror` version bump back to `5.65.16` to prevent frontend runtime/build crashes, and verify all tests pass. [Completed]
 53. **Fix Microservice Port Bind and Health Check in Release Workflow**: Update `server.cjs` to respect `process.env.PORT` and use `curl -f -s` in `release.yml` to correctly wait for the microservice to be healthy before seeding data. [Completed]
+54. **Fix CLI generate Missing Commerce Context**: Update `client-extensions/liferay-accelerator-sdk/src/liferay/index.cjs` `getChannels(config)` to programmatically resolve a default `siteGroupId` from Liferay (`/o/headless-admin-site/v1.0/sites`) if `config.siteGroupId` is not specified, enabling auto-scaffolding of the Guest Web Store Channel during release workflows and preventing CLI generation context crashes. [In Progress]
 
 - Refactored `routes/config.cjs` to add POST handlers and created `tests/configRoutes.test.cjs` verifying local SQLite persistence (all 133 unit tests pass).
 - Ran a full E2E verification on `feature/dependabot-updates` branch (`task-1859`). All Playwright and integration tests successfully passed (27 passed, 1 skipped).
