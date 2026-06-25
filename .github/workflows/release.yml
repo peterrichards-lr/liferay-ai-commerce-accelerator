@@ -45,7 +45,7 @@ jobs:
 
       - name: Configure local hosts file
         run: |
-          sudo ldm system doctor --fix-hosts aica-e2e.local aicommerceacceleratorconfiguration.aica-e2e.local aicommerceacceleratorfrontend.aica-e2e.local
+          echo "127.0.0.1 aica-e2e.local aicommerceacceleratorconfiguration.aica-e2e.local aicommerceacceleratorfrontend.aica-e2e.local" | sudo tee -a /etc/hosts
 
       - name: Start Liferay LDM Stack
         run: bash scripts/run-e2e-ldm.sh -i -k --ci
