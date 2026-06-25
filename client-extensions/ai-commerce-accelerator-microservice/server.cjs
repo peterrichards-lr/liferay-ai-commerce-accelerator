@@ -483,6 +483,20 @@ const gracefulShutdown = async (signal) => {
       });
     });
 
+    // POLLING SCHEDULER: Continually poll for orphaned sessions as a resilient fallback
+    // for when Liferay webhooks fail to reach the microservice (e.g. Docker networking issues)
+    setInterval(async () => {
+      try {
+        if (batchCallbackService?.recoverOrphanedSessions) {
+          await batchCallbackService.recoverOrphanedSessions();
+        }
+      } catch (err) {
+        logger.error('Background orphaned session polling failed', {
+          error: err.message,
+        });
+      }
+    }, 10000); // Poll every 10 seconds
+
     // LOG MANAGEMENT SCHEDULER (Automatic Cycling)
     setInterval(async () => {
       try {

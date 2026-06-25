@@ -52,7 +52,11 @@ loadEnv();
 // --- 2. Environment Configurations & Defaults ---
 const MICROSERVICE_URL =
   process.env.AICA_MICROSERVICE_URL || 'http://localhost:3001';
-const LIFERAY_URL = process.env.LIFERAY_PORTAL_URL || 'https://aica-e2e.local';
+const LIFERAY_URL =
+  process.env.LIFERAY_PORTAL_URL ||
+  process.env.LIFERAY_URL ||
+  process.env.LIFERAY_API_URL ||
+  'https://aica-e2e.local';
 const LIFERAY_USERNAME = process.env.LIFERAY_API_USERNAME || 'test@liferay.com';
 const LIFERAY_PASSWORD = process.env.LIFERAY_API_PASSWORD || 'test';
 
@@ -243,17 +247,27 @@ async function resolveCommerceContext(opts) {
   let catalogs = [];
   try {
     const creds = buildConnectionPayload();
-    const channelsRes = await nativePost(
-      `${MICROSERVICE_URL}/api/v1/get-channels`,
-      creds
-    );
-    if (
-      channelsRes &&
-      channelsRes.success &&
-      Array.isArray(channelsRes.channels)
-    ) {
-      channels = channelsRes.channels;
+    
+    // Retry channel resolution up to 15 times (30 seconds) to allow Liferay to finish creating default sites during boot
+    let attempt = 0;
+    while (attempt < 15) {
+      const channelsRes = await nativePost(
+        `${MICROSERVICE_URL}/api/v1/get-channels`,
+        creds
+      );
+      if (
+        channelsRes &&
+        channelsRes.success &&
+        Array.isArray(channelsRes.channels) &&
+        channelsRes.channels.length > 0
+      ) {
+        channels = channelsRes.channels;
+        break;
+      }
+      attempt++;
+      if (attempt < 15) await new Promise((resolve) => setTimeout(resolve, 2000));
     }
+    
     const catalogsRes = await nativePost(
       `${MICROSERVICE_URL}/api/v1/get-catalogs`,
       creds

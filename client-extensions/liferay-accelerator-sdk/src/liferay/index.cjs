@@ -1428,12 +1428,11 @@ class LiferayService {
         { siteGroupId }
       );
       try {
-        const lang = config.languageId || 'en_US';
         const newChannel = await this.rest._post(
           config,
           PATH.CHANNELS,
           {
-            name: { [lang]: 'Web Store' },
+            name: { en_US: 'Web Store' },
             type: 'site',
             siteGroupId: siteGroupId,
             currencyCode: config.currencyCode || 'USD',

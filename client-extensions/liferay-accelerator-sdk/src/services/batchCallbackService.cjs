@@ -70,7 +70,8 @@ class BatchCallbackService {
       // 1. Find batches that might have finished while we were down
       const activeBatches = batches.filter(
         (b) =>
-          ['PENDING', 'PROCESSING'].includes(b.status) && b.downstream_batch_id
+          ['SUBMITTED', 'PENDING', 'PROCESSING'].includes(b.status) &&
+          b.downstream_batch_id
       );
 
       for (const b of activeBatches) {
