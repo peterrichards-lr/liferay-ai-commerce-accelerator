@@ -55,7 +55,7 @@ jobs:
           PORT=3001 NODE_ENV=production NODE_TLS_REJECT_UNAUTHORIZED=0 LIFERAY_URL=https://aica-e2e.local LIFERAY_AUTH_METHOD=basic LIFERAY_API_USERNAME=test@liferay.com LIFERAY_API_PASSWORD=test node client-extensions/ai-commerce-accelerator-microservice/server.cjs &
           echo "Waiting for microservice health check..."
           for i in {1..30}; do
-            curl -s http://localhost:3001/api/v1/health && break
+            curl -f -s http://localhost:3001/api/v1/health && break
             sleep 2
           done
           echo "Populating database using AICA CLI generate command..."

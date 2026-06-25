@@ -156,7 +156,7 @@ const gracefulShutdown = async (signal) => {
 
   persistence = persistenceService;
 
-  const PORT = lookupConfig('server.port') || 3000;
+  const PORT = process.env.PORT || lookupConfig('server.port') || 3000;
 
   const lxcDXPServerProtocol = lookupConfig(
     'com.liferay.lxc.dxp.server.protocol'
