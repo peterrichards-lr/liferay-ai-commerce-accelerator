@@ -71,7 +71,11 @@ public class ReindexResource {
 		PermissionChecker permissionChecker = PermissionThreadLocal.getPermissionChecker();
 
 		if (permissionChecker == null || !permissionChecker.isOmniadmin()) {
-			throw new PrincipalException.MustBeOmniadmin();
+			if (permissionChecker == null) {
+				throw new PrincipalException.MustBeOmniadmin(0L);
+			}
+
+			throw new PrincipalException.MustBeOmniadmin(permissionChecker);
 		}
 	}
 

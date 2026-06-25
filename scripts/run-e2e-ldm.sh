@@ -201,7 +201,13 @@ fi
 log_command "./gradlew deploy"
 GRADLE_JAVA_HOME=""
 if [ "$(uname)" == "Darwin" ] && command -v /usr/libexec/java_home &> /dev/null; then
-    if /usr/libexec/java_home -v 11 &> /dev/null; then
+    if /usr/libexec/java_home -v 17 &> /dev/null; then
+        GRADLE_JAVA_HOME=$(/usr/libexec/java_home -v 17)
+        echo "☕ Using JDK 17 for Gradle build: $GRADLE_JAVA_HOME"
+    elif /usr/libexec/java_home -v 21 &> /dev/null; then
+        GRADLE_JAVA_HOME=$(/usr/libexec/java_home -v 21)
+        echo "☕ Using JDK 21 for Gradle build: $GRADLE_JAVA_HOME"
+    elif /usr/libexec/java_home -v 11 &> /dev/null; then
         GRADLE_JAVA_HOME=$(/usr/libexec/java_home -v 11)
         echo "☕ Using JDK 11 for Gradle build: $GRADLE_JAVA_HOME"
     fi
