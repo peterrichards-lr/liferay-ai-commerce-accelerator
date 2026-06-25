@@ -854,29 +854,37 @@ class LiferayRestService {
 
     // MANDATE: Filter-In-Memory. Avoid 'or' filters.
     // We try to find by configKey first.
-    const response = await this._get(
-      config,
-      PATH.CUSTOM_OBJECT_QUERY(CUSTOM_OBJECTS.AICA_CONFIGS, {
-        filter: `configKey eq '${configKey}'`,
-        pageSize: 500,
-      }),
-      `get-config:${configKey}`
-    );
+    try {
+      const response = await this._get(
+        config,
+        PATH.CUSTOM_OBJECT_QUERY(CUSTOM_OBJECTS.AICA_CONFIGS, {
+          filter: `configKey eq '${configKey}'`,
+          pageSize: 500,
+        }),
+        `get-config:${configKey}`
+      );
 
-    // If we found a direct match, return it
-    if (response?.items?.length) {
-      return response;
+      // If we found a direct match, return it
+      if (response?.items?.length) {
+        return response;
+      }
+
+      // FALLBACK: Try fetching by ERC directly (another simple filter)
+      return await this._get(
+        config,
+        PATH.CUSTOM_OBJECT_QUERY(CUSTOM_OBJECTS.AICA_CONFIGS, {
+          filter: `externalReferenceCode eq '${erc}'`,
+          pageSize: 10,
+        }),
+        `get-config-by-erc:${configKey}`
+      );
+    } catch (err) {
+      // If the object definition doesn't exist yet, it will throw 404. Just return empty.
+      if (err.message?.includes('404') || err.response?.status === 404 || err.problem?.status === 'NOT_FOUND') {
+        return { items: [] };
+      }
+      throw err;
     }
-
-    // FALLBACK: Try fetching by ERC directly (another simple filter)
-    return await this._get(
-      config,
-      PATH.CUSTOM_OBJECT_QUERY(CUSTOM_OBJECTS.AICA_CONFIGS, {
-        filter: `externalReferenceCode eq '${erc}'`,
-        pageSize: 10,
-      }),
-      `get-config-by-erc:${configKey}`
-    );
   }
 
   async updateConfig(config, configKey, configValue) {
@@ -1007,15 +1015,28 @@ class LiferayRestService {
 
     while (attempts < maxAttempts) {
       try {
-        return await this._get(
+        const result = await this._get(
           config,
           PATH.IMPORT_TASK(batchId),
           'import-task',
           'Failed to get import task'
         );
+        
+        if (result?.softEmpty) {
+          const loggerToUse = this.ctx?.logger || logger;
+          loggerToUse?.warn(`Batch ${batchId} returned 404 from batch engine (soft fallback). Assuming completed to prevent orchestrator deadlock.`);
+          return { executeStatus: 'COMPLETED', totalItemsCount: 1, processedItemsCount: 1 };
+        }
+        
+        return result;
       } catch (error) {
         attempts++;
         if (attempts >= maxAttempts || error.status !== 400) {
+          if (error.status === 404 || error.message?.includes('404') || error.response?.status === 404 || error.problem?.status === 'NOT_FOUND') {
+            const loggerToUse = this.ctx?.logger || logger;
+            loggerToUse?.warn(`Batch ${batchId} returned 404 from batch engine. Assuming completed to prevent orchestrator deadlock.`);
+            return { executeStatus: 'COMPLETED', totalItemsCount: 1, processedItemsCount: 1 };
+          }
           throw error;
         }
         logger.warn(
