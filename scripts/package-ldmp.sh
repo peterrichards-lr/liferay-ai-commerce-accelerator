@@ -39,12 +39,43 @@ includes_client_extensions=true
 EOF
 
 # 3. Dump your Database state from the running postgres container
-echo "💾 Dumping PostgreSQL database 'aica-db' state..."
-if docker ps | grep -q "aica-db"; then
-  docker exec aica-db pg_dump -U lportal lportal > "${STAGING_DIR}/database.sql"
+echo "💾 Dumping PostgreSQL database state..."
+DB_CONTAINER=""
+LIFERAY_CONTAINER=""
+
+if docker ps --format '{{.Names}}' | grep -q "^aica-db$"; then
+  DB_CONTAINER="aica-db"
+elif docker ps --format '{{.Names}}' | grep -q "^liferay-ai-commerce-accelerator-db$"; then
+  DB_CONTAINER="liferay-ai-commerce-accelerator-db"
+else
+  DB_CONTAINER=$(docker ps --format '{{.Names}}' | grep -E "aica.*-db|liferay-ai-commerce-accelerator.*-db" | head -n 1)
+fi
+
+if docker ps --format '{{.Names}}' | grep -q "^aica$"; then
+  LIFERAY_CONTAINER="aica"
+elif docker ps --format '{{.Names}}' | grep -q "^liferay-ai-commerce-accelerator$"; then
+  LIFERAY_CONTAINER="liferay-ai-commerce-accelerator"
+else
+  LIFERAY_CONTAINER=$(docker ps --format '{{.Names}}' | grep -E "^aica$|^liferay-ai-commerce-accelerator$" | head -n 1)
+fi
+
+# Copy document library from running container if available
+if [ -n "$LIFERAY_CONTAINER" ]; then
+  echo "📥 Copying document_library from running container: ${LIFERAY_CONTAINER}..."
+  mkdir -p bundles/data
+  rm -rf bundles/data/document_library
+  docker cp "${LIFERAY_CONTAINER}:/opt/liferay/data/document_library" bundles/data/
+  echo "✅ Copied document_library successfully."
+else
+  echo "⚠️  WARNING: Running Liferay container not found. Skipping docker cp."
+fi
+
+if [ -n "$DB_CONTAINER" ]; then
+  echo "🔌 Using database container: ${DB_CONTAINER}"
+  docker exec "$DB_CONTAINER" pg_dump -U lportal lportal > "${STAGING_DIR}/database.sql"
   echo "✅ Database dump completed successfully."
 else
-  echo "⚠️  WARNING: Running 'aica-db' container not found. Including a blank SQL file."
+  echo "⚠️  WARNING: Running database container not found. Including a blank SQL file."
   touch "${STAGING_DIR}/database.sql"
 fi
 
