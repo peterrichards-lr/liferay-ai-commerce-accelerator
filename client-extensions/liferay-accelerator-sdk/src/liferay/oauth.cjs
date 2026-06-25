@@ -7,9 +7,18 @@ class OAuthService {
   constructor(ctx) {
     this.ctx = ctx;
 
-    const serverOauthApp = lxcConfig.oauthApplication(
-      APP_ERCS.OAUTH_SERVER_EXTERNAL_REFERENCE_CODE
-    );
+    let serverOauthApp = null;
+    try {
+      serverOauthApp = lxcConfig.oauthApplication(
+        APP_ERCS.OAUTH_SERVER_EXTERNAL_REFERENCE_CODE
+      );
+    } catch (e) {
+      if (ctx?.logger?.warn) {
+        ctx.logger.warn(
+          `Could not resolve OAuth application config from LXC environment: ${e.message}`
+        );
+      }
+    }
 
     const lxcDXPMainDomain = lxcConfig.dxpMainDomain();
     const lxcDXPServerProtocol = lxcConfig.dxpProtocol();
