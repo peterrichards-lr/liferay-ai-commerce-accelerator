@@ -85,9 +85,13 @@ export LDM_FORWARD_PREFIXES="${LDM_FORWARD_PREFIXES:-AI_}"
 TARGET_HOST="${LIFERAY_HOST:-$DEFAULT_HOST}"
 GRADLE_PROPS="gradle.properties"
 
-# Redefine ldm command to run with python3.13 to prevent python3.14 wheel conflicts on host
+# Redefine ldm command to run with python3.13 if present (prevents python3.14 conflicts on macOS host)
 ldm() {
-    /opt/homebrew/bin/python3.13 /usr/local/bin/ldm "$@"
+    if [ -x "/opt/homebrew/bin/python3.13" ]; then
+        /opt/homebrew/bin/python3.13 /usr/local/bin/ldm "$@"
+    else
+        command ldm "$@"
+    fi
 }
 
 # --- Logging Helpers ---
