@@ -152,7 +152,7 @@ describe('LiferayService', () => {
     });
 
     expect(postPayload).toEqual({
-      name: { en_US: 'Web Store' },
+      name: 'Web Store',
       type: 'site',
       siteGroupId: 20127,
       currencyCode: 'USD',

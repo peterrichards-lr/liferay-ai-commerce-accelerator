@@ -1432,7 +1432,7 @@ class LiferayService {
           config,
           PATH.CHANNELS,
           {
-            name: { en_US: 'Web Store' },
+            name: 'Web Store',
             type: 'site',
             siteGroupId: siteGroupId,
             currencyCode: config.currencyCode || 'USD',
