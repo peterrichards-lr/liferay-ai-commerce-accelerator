@@ -12,7 +12,7 @@ Resolve empty/vanilla `.ldmp` package issue in release pipeline by updating the 
 4. **Local Verification**: Run linting and test scripts locally to confirm formatting is correct. [Completed]
 5. **Address Dependabot Alerts**: Upgrade `undici` to `^7.28.0` and `dompurify` to `^3.4.11` via Yarn `resolutions` in root `package.json` to resolve open vulnerabilities. [Completed]
 6. **Fix E2E Python Path**: Update `scripts/run-e2e-ldm.sh` to dynamically detect python3.13 and avoid path errors on Ubuntu/CI. [Completed]
-7. **Fix Reindex Resource Compilation & Gradle JDK**: Fix constructor invocation for `PrincipalException.MustBeOmniadmin` in `ReindexResource.java`, update `scripts/run-e2e-ldm.sh` to resolve JDK 17/21 for Gradle builds, and tag `v3.3.5` to trigger a clean release.
+7. **Fix Reindex Resource Compilation & Gradle JDK**: Fix constructor invocation for `PrincipalException.MustBeOmniadmin` in `ReindexResource.java`, update `scripts/run-e2e-ldm.sh` to resolve JDK 17/21 for Gradle builds, and fix the `oauthApplication` crash in `oauth.cjs` when running on the host runner without LXC config volumes. [Completed]
 
 8. **Document Platform Bugs**: Create a `jira` directory at the project root and add detailed markdown bug reports for: [Completed]
    - Pricing v2.0 single POST `NotSupportedException` bug.
