@@ -1393,21 +1393,46 @@ class LiferayService {
       }
     );
     let items = asItems(res);
-
     // Self-Healing: If there are no active Commerce Channels, auto-scaffold a Guest Web Store Channel
-    const siteGroupId = parseInt(config.siteGroupId, 10);
+    let siteGroupId = parseInt(config.siteGroupId, 10);
+    if (items.length === 0 && (!siteGroupId || isNaN(siteGroupId))) {
+      try {
+        const sitesRes = await this.rest._get(
+          config,
+          '/o/headless-admin-site/v1.0/sites',
+          'get-sites'
+        );
+        const sites = asItems(sitesRes);
+        if (sites && sites.length > 0) {
+          const guestSite = sites.find(
+            (s) =>
+              s.friendlyUrlPath === '/guest' ||
+              s.name?.toLowerCase() === 'guest'
+          );
+          const targetSite = guestSite || sites[0];
+          siteGroupId = parseInt(targetSite.id, 10);
+          this.ctx.logger.info(
+            `Resolved fallback siteGroupId from Liferay: ${siteGroupId} (${targetSite.name})`
+          );
+        }
+      } catch (err) {
+        this.ctx.logger.warn(
+          `Failed to resolve fallback siteGroupId from Liferay (handled): ${err.message}`
+        );
+      }
+    }
+
     if (items.length === 0 && siteGroupId > 0) {
       this.ctx.logger.info(
         `No active Commerce channels discovered. Auto-scaffolding a Guest Web Store Channel...`,
         { siteGroupId }
       );
       try {
-        const lang = config.languageId || 'en_US';
         const newChannel = await this.rest._post(
           config,
           PATH.CHANNELS,
           {
-            name: { [lang]: 'Web Store' },
+            name: { en_US: 'Web Store' },
             type: 'site',
             siteGroupId: siteGroupId,
             currencyCode: config.currencyCode || 'USD',
