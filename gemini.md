@@ -11,8 +11,8 @@ Resolve empty/vanilla `.ldmp` package issue in release pipeline by updating the 
 3. **Update Release Workflow**: Modify `.github/workflows/release.yml` to install Java, Node, LDM, and SSL cert tools; boot the DXP stack; run the microservice; seed demo commerce data using the CLI; execute the packaging script; and teardown the environment. [Completed]
 4. **Local Verification**: Run linting and test scripts locally to confirm formatting is correct. [Completed]
 5. **Address Dependabot Alerts**: Upgrade `undici` to `^7.28.0` and `dompurify` to `^3.4.11` via Yarn `resolutions` in root `package.json` to resolve open vulnerabilities. [Completed]
-6. **Fix E2E Python Path**: Update `scripts/run-e2e-ldm.sh` to dynamically detect python3.13 and avoid path errors on Ubuntu/CI.
-7. **Tag v3.3.4 Release**: Merge the fix PR, and tag `v3.3.4` to trigger a clean, hydrated package release.
+6. **Fix E2E Python Path**: Update `scripts/run-e2e-ldm.sh` to dynamically detect python3.13 and avoid path errors on Ubuntu/CI. [Completed]
+7. **Fix Reindex Resource Compilation & Gradle JDK**: Fix constructor invocation for `PrincipalException.MustBeOmniadmin` in `ReindexResource.java`, update `scripts/run-e2e-ldm.sh` to resolve JDK 17/21 for Gradle builds, and tag `v3.3.5` to trigger a clean release.
 
 8. **Document Platform Bugs**: Create a `jira` directory at the project root and add detailed markdown bug reports for: [Completed]
    - Pricing v2.0 single POST `NotSupportedException` bug.
