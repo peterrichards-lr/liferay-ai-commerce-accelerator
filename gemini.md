@@ -70,6 +70,7 @@ Resolve empty/vanilla `.ldmp` package issue in release pipeline by updating the 
 57. **Release v3.3.10**: Merge the payload fix PR #158 and push the `v3.3.10` tag, successfully completing the GitHub `Release packager (.ldmp)` workflow and generating the fully hydrated database snapshot. [Completed]
 58. **Support --no-ssl flag in E2E/packaging script**: Add a `--no-ssl` option to `scripts/run-e2e-ldm.sh` to prevent `mkcert` execution and run the container stack over HTTP instead of HTTPS, resolving certificate creation errors. [Completed]
 59. **Support custom manual release tag target for packaging workflow**: Add a `release_tag` input option to the `package-ldmp.yml` workflow's `workflow_dispatch` trigger, and configure `softprops/action-gh-release` to upload assets targeting that tag if specified, allowing overwriting assets on existing releases. [Completed]
+60. **Enforce plain HTTP/--no-ssl in package release workflow**: Update `package-ldmp.yml` to run the LDM stack with the `--no-ssl` option, remove the `mkcert` and `nss` installation steps, and configure microservice/scaffolding URLs to use plain `http://`, bypassing certificate generation in CI entirely. [In Progress]
 
 - Refactored `routes/config.cjs` to add POST handlers and created `tests/configRoutes.test.cjs` verifying local SQLite persistence (all 133 unit tests pass).
 - Ran a full E2E verification on `feature/dependabot-updates` branch (`task-1859`). All Playwright and integration tests successfully passed (27 passed, 1 skipped).
