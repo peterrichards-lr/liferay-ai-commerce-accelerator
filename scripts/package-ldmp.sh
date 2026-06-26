@@ -85,6 +85,7 @@ echo "📂 Archiving volume assets and deployments..."
 FILES_STAGING="${STAGING_DIR}/files_staging"
 mkdir -p "${FILES_STAGING}/deploy"
 mkdir -p "${FILES_STAGING}/data"
+mkdir -p "${FILES_STAGING}/client-extensions"
 
 # Copy document library
 if [ -d "bundles/data/document_library" ]; then
@@ -95,11 +96,11 @@ else
 fi
 
 # Copy compiled client extensions and modules
-find client-extensions -name "*.zip" -path "*/dist/*" -exec cp {} "${FILES_STAGING}/deploy/" \; 2>/dev/null || true
+find client-extensions -name "*.zip" -path "*/dist/*" -exec cp {} "${FILES_STAGING}/client-extensions/" \; 2>/dev/null || true
 find modules -name "*.jar" -path "*/build/libs/*" -exec cp {} "${FILES_STAGING}/deploy/" \; 2>/dev/null || true
 
 # Archive files_staging into files.tar.gz
-if [ -d "${FILES_STAGING}/data/document_library" ] || [ "$(ls -A "${FILES_STAGING}/deploy")" ]; then
+if [ -d "${FILES_STAGING}/data/document_library" ] || [ "$(ls -A "${FILES_STAGING}/deploy" 2>/dev/null)" ] || [ "$(ls -A "${FILES_STAGING}/client-extensions" 2>/dev/null)" ]; then
   tar -czf "${STAGING_DIR}/files.tar.gz" -C "${FILES_STAGING}" .
   files_sha=$(calculate_sha256 "${STAGING_DIR}/files.tar.gz")
   echo "${files_sha}" > "${STAGING_DIR}/files.tar.gz.sha256"
