@@ -15,14 +15,14 @@
     ]
   },
   "devDependencies": {
-    "@commitlint/cli": "^21.0.2",
+    "@commitlint/cli": "^21.1.0",
     "@commitlint/config-conventional": "^21.0.2",
     "@playwright/test": "^1.61.0",
     "@testing-library/dom": "^10.4.1",
-    "baseline-browser-mapping": "^2.10.38",
+    "baseline-browser-mapping": "^2.10.40",
     "happy-dom": "^20.10.6",
     "husky": "^9.1.7",
-    "lint-staged": "^17.0.7",
+    "lint-staged": "^17.0.8",
     "markdownlint-cli": "^0.49.0",
     "prettier": "^3.8.4",
     "yaml": "^2.9.0"
@@ -37,9 +37,9 @@
   "optionalDependencies": {
     "@rolldown/binding-darwin-arm64": "^1.1.2",
     "@rolldown/binding-darwin-x64": "^1.1.2",
-    "@rollup/rollup-darwin-arm64": "4.62.0",
-    "@rollup/rollup-darwin-x64": "4.62.0",
-    "@rollup/rollup-linux-x64-gnu": "4.62.0"
+    "@rollup/rollup-darwin-arm64": "4.62.2",
+    "@rollup/rollup-darwin-x64": "4.62.2",
+    "@rollup/rollup-linux-x64-gnu": "4.62.2"
   },
   "scripts": {
     "prepare": "husky || true",
@@ -112,17 +112,17 @@
   },
   "dependencies": {
     "@eslint/js": "10.0.1",
-    "@vitejs/plugin-react": "6.0.2",
+    "@vitejs/plugin-react": "6.0.3",
     "ajv-formats": "3.0.1",
     "better-sqlite3": "12.11.1",
-    "codemirror": "5.65.16",
+    "codemirror": "6.0.2",
     "esbuild": "0.28.1",
     "eslint": "10.5.0",
-    "immutable": "5.1.6",
+    "immutable": "5.1.8",
     "jsdom": "^29.1.1",
-    "openai": "6.44.0",
+    "openai": "6.45.0",
     "react-codemirror2": "9.0.1",
-    "rollup": "4.62.0",
-    "vite": "8.0.16"
+    "rollup": "4.62.2",
+    "vite": "8.1.0"
   }
 }
