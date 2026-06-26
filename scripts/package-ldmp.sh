@@ -36,6 +36,7 @@ github_repository=${GIT_REPO}
 includes_database=true
 includes_volume_assets=true
 includes_client_extensions=true
+includes_osgi_modules=true
 EOF
 
 # 3. Dump your Database state from the running postgres container
@@ -79,18 +80,36 @@ else
   touch "${STAGING_DIR}/database.sql"
 fi
 
-# 4. Package directory assets (document_library)
-echo "📂 Archiving volume assets (document_library)..."
+# 4. Package directory assets (document_library) and compiled code
+echo "📂 Archiving volume assets and deployments..."
+FILES_STAGING="${STAGING_DIR}/files_staging"
+mkdir -p "${FILES_STAGING}/deploy"
+mkdir -p "${FILES_STAGING}/data"
+
+# Copy document library
 if [ -d "bundles/data/document_library" ]; then
-  tar -czf "${STAGING_DIR}/files.tar.gz" -C bundles/data document_library
+  cp -r "bundles/data/document_library" "${FILES_STAGING}/data/"
+  echo "✅ Copied document_library to staging."
+else
+  echo "⚠️  WARNING: 'bundles/data/document_library' not found."
+fi
+
+# Copy compiled client extensions and modules
+find client-extensions -name "*.zip" -path "*/dist/*" -exec cp {} "${FILES_STAGING}/deploy/" \; 2>/dev/null || true
+find modules -name "*.jar" -path "*/build/libs/*" -exec cp {} "${FILES_STAGING}/deploy/" \; 2>/dev/null || true
+
+# Archive files_staging into files.tar.gz
+if [ -d "${FILES_STAGING}/data/document_library" ] || [ "$(ls -A "${FILES_STAGING}/deploy")" ]; then
+  tar -czf "${STAGING_DIR}/files.tar.gz" -C "${FILES_STAGING}" .
   files_sha=$(calculate_sha256 "${STAGING_DIR}/files.tar.gz")
   echo "${files_sha}" > "${STAGING_DIR}/files.tar.gz.sha256"
-  echo "✅ Volume assets archived successfully."
+  echo "✅ Staged files archived successfully."
 else
-  echo "⚠️  WARNING: 'bundles/data/document_library' not found. Creating empty volume assets."
+  echo "⚠️  WARNING: No staged assets found. Creating empty volume assets."
   touch "${STAGING_DIR}/files.tar.gz"
   echo "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855" > "${STAGING_DIR}/files.tar.gz.sha256"
 fi
+rm -rf "${FILES_STAGING}"
 
 # 5. Compress the staging directory into the final .ldmp package
 echo "📦 Compressing staging directory into ${PROJECT_ID}.ldmp..."
