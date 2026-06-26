@@ -16,6 +16,8 @@ if [ "$CI" = "true" ] || [ "$GITHUB_ACTIONS" = "true" ]; then
     CI_MODE=1
 fi
 
+NO_SSL=0
+
 while [[ "$#" -gt 0 ]]; do
     case $1 in
         -v|--verbose) VERBOSE=1 ;;
@@ -23,7 +25,8 @@ while [[ "$#" -gt 0 ]]; do
         -k|--keep) KEEP_PROJECT=1 ;;
         -i|--init|--init-only) INIT_ONLY=1 ;;
         --ci) CI_MODE=1 ;;
-        *) echo "Usage: $0 [-v] [-k] [-i] [--ci] [-p <project_name>]"; exit 1 ;;
+        --no-ssl) NO_SSL=1 ;;
+        *) echo "Usage: $0 [-v] [-k] [-i] [--ci] [--no-ssl] [-p <project_name>]"; exit 1 ;;
     esac
     shift
 done
@@ -174,7 +177,16 @@ if [ $EXISTING_PROJECT -eq 1 ]; then
     TARGET_HOST=$(echo "$TARGET_URL" | sed -E 's/https?:\/\///' | cut -d':' -f1)
 else
     TARGET_HOST="$DEFAULT_HOST"
-    TARGET_URL="https://$TARGET_HOST"
+    if [ $NO_SSL -eq 1 ]; then
+        TARGET_URL="http://$TARGET_HOST"
+    else
+        TARGET_URL="https://$TARGET_HOST"
+    fi
+fi
+
+LDM_SSL_FLAG=""
+if [ $NO_SSL -eq 1 ]; then
+    LDM_SSL_FLAG="--no-ssl"
 fi
 
 echo "🔍 Running LDM Doctor (Silent)..."
@@ -286,7 +298,8 @@ if [ $EXISTING_PROJECT -eq 0 ]; then
         --db postgresql \
         $INTERNAL_STATE_FLAG \
         --no-captcha \
-        --no-run
+        --no-run \
+        $LDM_SSL_FLAG
 
     write_signal "STARTING"
     echo "⚡ Starting Liferay container with tag [$LIFERAY_TAG] (Detached + Sidecar)..."
@@ -302,7 +315,8 @@ if [ $EXISTING_PROJECT -eq 0 ]; then
         --jvm-args="-XX:ReservedCodeCacheSize=512m" \
         --fast-login \
         --feature LPD-35443 \
-        -y
+        -y \
+        $LDM_SSL_FLAG
 
 else
     echo "⏭️  Skipping initialization/boot for existing project '$PROJECT_NAME'."
