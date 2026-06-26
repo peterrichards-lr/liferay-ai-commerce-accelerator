@@ -68,7 +68,7 @@ Resolve empty/vanilla `.ldmp` package issue in release pipeline by updating the 
 55. **Fix Commerce Channel Scaffolding Payload Error**: Revert `name` field in Commerce Channel auto-scaffold payload back to a primitive string instead of a localized object to resolve `Unable to map JSON path: name` API errors during GitHub release action. [Completed]
 56. **Enforce Local E2E Verification Rule**: Append a rule to `.agents/AGENTS.md` to strictly enforce running the E2E test suite locally (`bash scripts/run-e2e-ldm.sh -v -k --ci`) before any feature or bugfix can be considered code complete. [Completed]
 57. **Release v3.3.10**: Merge the payload fix PR #158 and push the `v3.3.10` tag, successfully completing the GitHub `Release packager (.ldmp)` workflow and generating the fully hydrated database snapshot. [Completed]
-58. **Support --no-ssl flag in E2E/packaging script**: Add a `--no-ssl` option to `scripts/run-e2e-ldm.sh` to prevent `mkcert` execution and run the container stack over HTTP instead of HTTPS, resolving certificate creation errors. [In Progress]
+58. **Support --no-ssl flag in E2E/packaging script**: Add a `--no-ssl` option to `scripts/run-e2e-ldm.sh` to prevent `mkcert` execution and run the container stack over HTTP instead of HTTPS, resolving certificate creation errors. [Completed]
 
 - Refactored `routes/config.cjs` to add POST handlers and created `tests/configRoutes.test.cjs` verifying local SQLite persistence (all 133 unit tests pass).
 - Ran a full E2E verification on `feature/dependabot-updates` branch (`task-1859`). All Playwright and integration tests successfully passed (27 passed, 1 skipped).
