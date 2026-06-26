@@ -72,6 +72,7 @@ Resolve empty/vanilla `.ldmp` package issue in release pipeline by updating the 
 59. **Support custom manual release tag target for packaging workflow**: Add a `release_tag` input option to the `package-ldmp.yml` workflow's `workflow_dispatch` trigger, and configure `softprops/action-gh-release` to upload assets targeting that tag if specified, allowing overwriting assets on existing releases. [Completed]
 60. **Enforce plain HTTP/--no-ssl in package release workflow**: Update `package-ldmp.yml` to run the LDM stack with the `--no-ssl` option, remove the `mkcert` and `nss` installation steps, and configure microservice/scaffolding URLs to use plain `http://`, bypassing certificate generation in CI entirely. [Completed]
 61. **Correct client extension staging directory in LDM package**: Update `scripts/package-ldmp.sh` to copy built client extension ZIPs to `client-extensions/` inside `files_staging` (instead of `deploy/`) to enable auto-discovery and container instantiation in LDM. [In Progress]
+62. **Fix release workflow Liferay connection URL**: Change `LIFERAY_URL` and `LIFERAY_PORTAL_URL` in `package-ldmp.yml` from `http://aica-e2e.local` to `http://localhost:8080` to bypass Traefik plain-HTTP routing restrictions. [In Progress]
 
 - Refactored `routes/config.cjs` to add POST handlers and created `tests/configRoutes.test.cjs` verifying local SQLite persistence (all 133 unit tests pass).
 - Ran a full E2E verification on `feature/dependabot-updates` branch (`task-1859`). All Playwright and integration tests successfully passed (27 passed, 1 skipped).
