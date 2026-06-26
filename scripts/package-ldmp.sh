@@ -27,17 +27,7 @@ STAGING_DIR="./ldm_staging"
 rm -rf "$STAGING_DIR"
 mkdir -p "$STAGING_DIR"
 
-# 2. Write the manifest meta file
-echo "📄 Generating manifest 'meta' file..."
-cat <<EOF > "${STAGING_DIR}/meta"
-tag=${LIFERAY_TAG}
-db_type=${DB_TYPE}
-github_repository=${GIT_REPO}
-includes_database=true
-includes_volume_assets=true
-includes_client_extensions=true
-includes_osgi_modules=true
-EOF
+# 2. Manifest generation is deferred until staging files are collected.
 
 # 3. Dump your Database state from the running postgres container
 echo "💾 Dumping PostgreSQL database state..."
@@ -110,6 +100,45 @@ else
   touch "${STAGING_DIR}/files.tar.gz"
   echo "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855" > "${STAGING_DIR}/files.tar.gz.sha256"
 fi
+
+# 4.5. Generate manifest 'meta' file with dynamic metadata
+echo "📄 Generating manifest 'meta' file..."
+cx_list=""
+if [ -d "${FILES_STAGING}/client-extensions" ]; then
+  for f in "${FILES_STAGING}/client-extensions"/*; do
+    if [ -f "$f" ]; then
+      cx_list="${cx_list:+${cx_list},}$(basename "$f")"
+    fi
+  done
+fi
+
+modules_list=""
+if [ -d "${FILES_STAGING}/deploy" ]; then
+  for f in "${FILES_STAGING}/deploy"/*; do
+    if [ -f "$f" ]; then
+      modules_list="${modules_list:+${modules_list},}$(basename "$f")"
+    fi
+  done
+fi
+
+active_services="liferay"
+if [ -n "${DB_CONTAINER}" ]; then
+  active_services="liferay,${DB_CONTAINER}"
+fi
+
+cat <<EOF > "${STAGING_DIR}/meta"
+tag=${LIFERAY_TAG}
+db_type=${DB_TYPE}
+github_repository=${GIT_REPO}
+includes_database=true
+includes_volume_assets=true
+includes_client_extensions=true
+includes_osgi_modules=true
+client_extensions=${cx_list}
+osgi_modules=${modules_list}
+active_services=${active_services}
+EOF
+
 rm -rf "${FILES_STAGING}"
 
 # 5. Compress the staging directory into the final .ldmp package
