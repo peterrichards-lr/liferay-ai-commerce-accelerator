@@ -1,7 +1,7 @@
 {
   "author": "Peter Richards",
   "dependencies": {
-    "@ai-sdk/anthropic": "^3.0.85",
+    "@ai-sdk/anthropic": "^4.0.0",
     "@google-cloud/storage": "^7.21.0",
     "@google/generative-ai": "^0.24.1",
     "@liferay/accelerator-sdk": "*",
