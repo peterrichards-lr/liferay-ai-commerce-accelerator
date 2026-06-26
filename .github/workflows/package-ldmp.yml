@@ -1,9 +1,10 @@
-name: Release packager (.ldmp)
+name: LDM Package Release (.ldmp)
 
 on:
   push:
     tags:
       - 'v*'
+  workflow_dispatch:
 
 permissions:
   contents: write
@@ -71,7 +72,7 @@ jobs:
         run: ldm rm aica --delete -y || true
 
       - name: Create GitHub Release and Upload Assets
-        uses: softprops/action-gh-release@v1
+        uses: softprops/action-gh-release@v2
         with:
           files: |
             liferay-ai-commerce-accelerator.ldmp
