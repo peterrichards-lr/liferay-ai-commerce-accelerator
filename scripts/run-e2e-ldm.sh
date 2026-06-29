@@ -130,9 +130,21 @@ touch logs/e2e-microservice.log
 # --- Phase 0: Environment Loading ---
 
 # Force JDK 21 on macOS to ensure Liferay Docker Manager (LDM) compatibility
-if [ "$(uname)" == "Darwin" ] && command -v /usr/libexec/java_home &> /dev/null; then
-    if /usr/libexec/java_home -v 21 &> /dev/null; then
-        export JAVA_HOME=$(/usr/libexec/java_home -v 21)
+GRADLE_JAVA_21=""
+if [ "$(uname)" == "Darwin" ]; then
+    if [ -d "/opt/homebrew/opt/openjdk@21" ]; then
+        GRADLE_JAVA_21="/opt/homebrew/opt/openjdk@21/libexec/openjdk.jdk/Contents/Home"
+    elif command -v /usr/libexec/java_home &> /dev/null; then
+        if /usr/libexec/java_home -v 21 &> /dev/null; then
+            GRADLE_JAVA_21=$(/usr/libexec/java_home -v 21)
+        fi
+    fi
+fi
+
+if [ -n "$GRADLE_JAVA_21" ]; then
+    major_ver=$("$GRADLE_JAVA_21/bin/java" -version 2>&1 | head -n 1 | cut -d'"' -f2 | cut -d'.' -f1)
+    if [ "$major_ver" -lt 25 ] 2>/dev/null; then
+        export JAVA_HOME="$GRADLE_JAVA_21"
         echo "☕ Force-configured global JAVA_HOME to JDK 21: $JAVA_HOME"
     fi
 fi
@@ -212,16 +224,32 @@ fi
 
 log_command "./gradlew deploy"
 GRADLE_JAVA_HOME=""
-if [ "$(uname)" == "Darwin" ] && command -v /usr/libexec/java_home &> /dev/null; then
-    if /usr/libexec/java_home -v 17 &> /dev/null; then
-        GRADLE_JAVA_HOME=$(/usr/libexec/java_home -v 17)
-        echo "☕ Using JDK 17 for Gradle build: $GRADLE_JAVA_HOME"
-    elif /usr/libexec/java_home -v 21 &> /dev/null; then
-        GRADLE_JAVA_HOME=$(/usr/libexec/java_home -v 21)
-        echo "☕ Using JDK 21 for Gradle build: $GRADLE_JAVA_HOME"
-    elif /usr/libexec/java_home -v 11 &> /dev/null; then
-        GRADLE_JAVA_HOME=$(/usr/libexec/java_home -v 11)
-        echo "☕ Using JDK 11 for Gradle build: $GRADLE_JAVA_HOME"
+if [ "$(uname)" == "Darwin" ]; then
+    is_valid_jdk() {
+        local path=$1
+        [ -n "$path" ] && [ -x "$path/bin/java" ] || return 1
+        "$path/bin/java" -version &>/dev/null || return 1
+        local major_ver
+        major_ver=$("$path/bin/java" -version 2>&1 | head -n 1 | cut -d'"' -f2 | cut -d'.' -f1)
+        [ "$major_ver" -lt 25 ] 2>/dev/null || return 1
+        return 0
+    }
+
+    if [ -d "/opt/homebrew/opt/openjdk@21" ] && is_valid_jdk "/opt/homebrew/opt/openjdk@21/libexec/openjdk.jdk/Contents/Home"; then
+        GRADLE_JAVA_HOME="/opt/homebrew/opt/openjdk@21/libexec/openjdk.jdk/Contents/Home"
+        echo "☕ Using Homebrew openjdk@21: $GRADLE_JAVA_HOME"
+    elif [ -d "/opt/homebrew/opt/openjdk@17" ] && is_valid_jdk "/opt/homebrew/opt/openjdk@17/libexec/openjdk.jdk/Contents/Home"; then
+        GRADLE_JAVA_HOME="/opt/homebrew/opt/openjdk@17/libexec/openjdk.jdk/Contents/Home"
+        echo "☕ Using Homebrew openjdk@17: $GRADLE_JAVA_HOME"
+    elif command -v /usr/libexec/java_home &> /dev/null; then
+        for ver in 21 17 11; do
+            candidate=$(/usr/libexec/java_home -v $ver 2>/dev/null || true)
+            if is_valid_jdk "$candidate"; then
+                GRADLE_JAVA_HOME="$candidate"
+                echo "☕ Using JDK $ver for Gradle build: $GRADLE_JAVA_HOME"
+                break
+            fi
+        done
     fi
 fi
 

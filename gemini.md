@@ -2,7 +2,7 @@
 
 ## Current Goal
 
-Resolve empty/vanilla `.ldmp` package issue in release pipeline by updating the GitHub Actions release workflow to spin up the DXP container stack, generate/hydrate the database with demo/seed data, copy volume assets from the running container, and package/attach the fully hydrated `.ldmp` package to the release.
+Resolve CodeMirror version mismatch in `ai-commerce-accelerator-configuration` (reverting to `^5.65.16` compatibility) to fix compilation errors during the build step and ensure the CI build passes.
 
 ## Plan
 
@@ -73,6 +73,7 @@ Resolve empty/vanilla `.ldmp` package issue in release pipeline by updating the 
 60. **Enforce plain HTTP/--no-ssl in package release workflow**: Update `package-ldmp.yml` to run the LDM stack with the `--no-ssl` option, remove the `mkcert` and `nss` installation steps, and configure microservice/scaffolding URLs to use plain `http://`, bypassing certificate generation in CI entirely. [Completed]
 61. **Correct client extension staging directory in LDM package**: Update `scripts/package-ldmp.sh` to copy built client extension ZIPs to `client-extensions/` inside `files_staging` (instead of `deploy/`) to enable auto-discovery and container instantiation in LDM. [In Progress]
 62. **Fix release workflow Liferay connection URL**: Change `LIFERAY_URL` and `LIFERAY_PORTAL_URL` in `package-ldmp.yml` from `http://aica-e2e.local` to `http://localhost:8080` to bypass Traefik plain-HTTP routing restrictions. [In Progress]
+63. **Fix CodeMirror dependency mismatch in configuration client extension**: Downgrade `codemirror` dependency in `client-extensions/ai-commerce-accelerator-configuration/package.json` to `^5.65.16` and update `yarn.lock` to fix the Gradle build error. [Completed]
 
 - Refactored `routes/config.cjs` to add POST handlers and created `tests/configRoutes.test.cjs` verifying local SQLite persistence (all 133 unit tests pass).
 - Ran a full E2E verification on `feature/dependabot-updates` branch (`task-1859`). All Playwright and integration tests successfully passed (27 passed, 1 skipped).
