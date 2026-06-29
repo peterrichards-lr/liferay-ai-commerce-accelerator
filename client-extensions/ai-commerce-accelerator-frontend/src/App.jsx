@@ -29,6 +29,7 @@ import HelpSection from './components/dashboard/HelpSection';
 import Dashboard from './components/dashboard/Dashboard';
 import ActivityLog from './components/dashboard/ActivityLog';
 import SessionSelectorModal from './components/ui/SessionSelectorModal';
+import LogConsole from './components/data-generator/LogConsole';
 
 import useAppConfigIO from './hooks/useAppConfigIO';
 import useLogExport from './hooks/useLogExport';
@@ -162,6 +163,27 @@ function AppUI() {
     } else if (arg && arg.type) {
       dispatch(arg);
     }
+  }, []);
+
+  const [logEntries, setLogEntries] = useState([]);
+
+  useEffect(() => {
+    const handleWSEvent = (event) => {
+      const data = event.detail;
+      if (data && data.type === 'LOG_ENTRY' && data.logEntry) {
+        setLogEntries((prev) => {
+          const next = [...prev, data.logEntry];
+          if (next.length > 500) {
+            return next.slice(next.length - 500);
+          }
+          return next;
+        });
+      }
+    };
+    window.addEventListener('liferay-ai-ws-event', handleWSEvent);
+    return () => {
+      window.removeEventListener('liferay-ai-ws-event', handleWSEvent);
+    };
   }, []);
 
   const onBatchErrorDetails = useCallback((details) => {
@@ -699,14 +721,16 @@ function AppUI() {
               <div className="divider my-4"></div>
 
               {/* Live Console - Moved from sidebar to center bottom */}
-              <div
-                className="live-console-container"
-                style={{ minHeight: '300px' }}
-              >
+              <div className="live-console-container">
                 <ActivityLog
                   onClearLogs={clearLogs}
                   logs={logs}
                   isGenerating={isGenerating}
+                />
+
+                <LogConsole
+                  logEntries={logEntries}
+                  onClear={() => setLogEntries([])}
                 />
               </div>
             </div>
