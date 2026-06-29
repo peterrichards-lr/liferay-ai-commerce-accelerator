@@ -129,6 +129,16 @@ const gracefulShutdown = async (signal) => {
   try {
     ws = createWebSocketService({ server, logger });
     ws.init(server);
+
+    logger.on('log', (logEntry) => {
+      if (ws) {
+        ws.broadcast({
+          type: 'LOG_ENTRY',
+          scope: 'log',
+          logEntry,
+        });
+      }
+    });
   } catch (error) {
     logger.errorWithStack(error, {
       operation: 'websocket-init',
