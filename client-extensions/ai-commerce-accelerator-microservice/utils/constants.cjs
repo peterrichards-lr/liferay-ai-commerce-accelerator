@@ -215,6 +215,8 @@ const ERC_PREFIX = {
   ADDRESS: 'AICA-ADDR',
   TIER_PRICE: 'AICA-TP',
   ERROR: 'AICA-ERR',
+  USER_SEGMENT: 'AICA-SEG',
+  PROMOTION: 'AICA-PROMO',
 };
 
 const IMAGE_BATCH_ID = crypto.randomUUID();
@@ -330,6 +332,11 @@ const WORKFLOW_STEPS = {
   CREATE_ORDERS: 'create-orders',
   SYNC_DELAY: 'sync-delay',
 
+  // Promotions & User Segments Subflow Steps
+  GENERATE_PROMO_DATA: 'generate-promo-data',
+  CREATE_USER_SEGMENTS: 'create-user-segments',
+  CREATE_PROMOTIONS: 'create-promotions',
+
   // Subflow Steps
   SUBFLOW_ACCOUNTS: 'subflow-accounts',
   SUBFLOW_PRODUCTS: 'subflow-products',
@@ -346,6 +353,7 @@ const WORKFLOW_STEPS = {
   DELETE_PRODUCT_SPECIFICATIONS: 'delete-product-specifications',
   DELETE_PRICE_LISTS: 'delete-price-lists',
   DELETE_PROMOTIONS: 'delete-promotions',
+  DELETE_ACCOUNT_GROUPS: 'delete-account-groups',
   DELETE_SPECIFICATIONS: 'delete-specifications',
   DELETE_OPTIONS: 'delete-options',
   DELETE_OPTION_CATEGORIES: 'delete-option-categories',

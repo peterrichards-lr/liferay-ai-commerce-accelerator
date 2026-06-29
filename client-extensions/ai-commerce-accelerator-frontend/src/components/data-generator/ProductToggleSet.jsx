@@ -68,6 +68,16 @@ export default function ProductToggleSet({
             muted={isMuted}
           />
         </div>
+        <div className="mb-3">
+          <CheckboxField
+            id="dataGeneration_generatePromotions"
+            checked={values.generatePromotions}
+            onChange={(v) => onChange('generatePromotions', v)}
+            disabled={disabled || isMuted}
+            label="Generate Promotions & B2B Segments"
+            muted={isMuted}
+          />
+        </div>
       </div>
     </div>
   );

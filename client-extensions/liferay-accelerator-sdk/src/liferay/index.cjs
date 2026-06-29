@@ -174,6 +174,66 @@ class LiferayService {
     };
   }
 
+  async getAccountGroups(
+    config,
+    {
+      pageSize = 200,
+      fields = 'id,externalReferenceCode,name',
+      filter: providedFilter,
+      search,
+    } = {}
+  ) {
+    const exclusions = await this._getExclusions(config, 'account-group');
+
+    let { items } = await this._collectAllItems(config, (cfg, p, size) =>
+      this.rest._get(
+        cfg,
+        PATH.ACCOUNT_GROUPS,
+        'get-account-groups-bulk',
+        'Get Account Groups Bulk',
+        {
+          params: {
+            page: p,
+            pageSize: size,
+          },
+        }
+      )
+    );
+
+    if (providedFilter) {
+      const idMatch = providedFilter.match(/id eq (\d+)/);
+      const ercMatch = providedFilter.match(
+        /externalReferenceCode eq '([^']+)'/
+      );
+
+      if (idMatch) {
+        const targetId = parseInt(idMatch[1], 10);
+        items = items.filter((it) => it.id === targetId);
+      } else if (ercMatch) {
+        const targetErc = ercMatch[1];
+        items = items.filter((it) => it.externalReferenceCode === targetErc);
+      }
+    }
+
+    if (search) {
+      const query = search.toLowerCase();
+      items = items.filter(
+        (it) =>
+          it.name?.toLowerCase().includes(query) ||
+          it.externalReferenceCode?.toLowerCase().includes(query)
+      );
+    }
+
+    const filteredItems = items.filter(
+      (it) => !this._shouldExclude(it, exclusions)
+    );
+
+    return {
+      items: filteredItems,
+      totalCount: filteredItems.length,
+    };
+  }
+
   async getAccounts(
     config,
     {
@@ -639,6 +699,7 @@ class LiferayService {
     const DISCOVERY_FIELDS = {
       product: 'productId,externalReferenceCode,name',
       account: 'id,externalReferenceCode,name',
+      'account-group': 'id,externalReferenceCode,name',
       warehouse: 'id,externalReferenceCode,name',
       warehouseItem: 'id,externalReferenceCode,sku,quantity',
       priceList: 'id,externalReferenceCode,name,catalogBasePriceList',
@@ -756,6 +817,13 @@ class LiferayService {
         if (entityName === 'account') {
           res = await this.getAccounts(config, {
             channelId,
+            pageSize,
+            fields: fieldsParam,
+            filter,
+            search,
+          });
+        } else if (entityName === 'account-group') {
+          res = await this.getAccountGroups(config, {
             pageSize,
             fields: fieldsParam,
             filter,
@@ -989,6 +1057,37 @@ class LiferayService {
       friendly: 'Delete accounts (batch)',
       items,
       channelId,
+    });
+  }
+
+  async deleteAccountGroupsBatch(
+    config,
+    {
+      pageSize = 200,
+      filter,
+      search,
+      ids,
+      callbackBatchERC,
+      dryRun = false,
+      sessionId,
+      items,
+    } = {}
+  ) {
+    return this.deleteByFilter(config, {
+      entityName: 'account-group',
+      filter,
+      search,
+      ids,
+      pageSize,
+      externalReferenceCode: callbackBatchERC,
+      dryRun,
+      sessionId,
+      nativeBatch: false,
+      basePath: PATH.ACCOUNT_GROUPS,
+      listUrl: PATH.ACCOUNT_GROUPS,
+      op: 'account-groups:batch-delete',
+      friendly: 'Delete account groups (batch)',
+      items,
     });
   }
 
@@ -1676,6 +1775,22 @@ class LiferayService {
 
   createOrder(config, orderData) {
     return this.rest.createOrder(config, orderData);
+  }
+
+  createAccountGroup(config, accountGroupData) {
+    return this.rest.createAccountGroup(config, accountGroupData);
+  }
+
+  getAccountGroupByERC(config, externalReferenceCode) {
+    return this.rest.getAccountGroupByERC(config, externalReferenceCode);
+  }
+
+  assignAccountToGroup(config, groupERC, accountERC) {
+    return this.rest.assignAccountToGroup(config, groupERC, accountERC);
+  }
+
+  createPriceListAccountGroup(config, priceListERC, payload) {
+    return this.rest.createPriceListAccountGroup(config, priceListERC, payload);
   }
 
   createPriceList(config, priceListData) {

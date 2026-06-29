@@ -2,7 +2,7 @@
 
 ## Current Goal
 
-Resolve CodeMirror version mismatch in `ai-commerce-accelerator-configuration` (reverting to `^5.65.16` compatibility) to fix compilation errors during the build step and ensure the CI build passes.
+Implement smart B2B commerce promotions and segments rules generator (Issue #142) to enable targeted AI promotions seeding.
 
 ## Plan
 
@@ -74,6 +74,8 @@ Resolve CodeMirror version mismatch in `ai-commerce-accelerator-configuration` (
 61. **Correct client extension staging directory in LDM package**: Update `scripts/package-ldmp.sh` to copy built client extension ZIPs to `client-extensions/` inside `files_staging` (instead of `deploy/`) to enable auto-discovery and container instantiation in LDM. [Completed]
 62. **Fix release workflow Liferay connection URL**: Change `LIFERAY_URL` and `LIFERAY_PORTAL_URL` in `package-ldmp.yml` from `http://aica-e2e.local` to `http://localhost:8080` to bypass Traefik plain-HTTP routing restrictions. [Completed]
 63. **Fix CodeMirror dependency mismatch in configuration client extension**: Downgrade `codemirror` dependency in `client-extensions/ai-commerce-accelerator-configuration/package.json` to `^5.65.16` and update `yarn.lock` to fix the Gradle build error. [Completed]
+64. **Implement smart B2B commerce promotions and segments rules generator**: Define prompts and JSON schemas, create PromoGenerator to register account groups (segments) and promotion price lists (promotions) in Liferay Commerce, associate accounts, add optional frontend toggles, and pass all unit tests. [Completed]
+65. **Implement clean up of Account Groups (user segments) during data deletion flow**: Add getAccountGroups and deleteAccountGroupsBatch to the SDK, update deleteCoordinatorService to discover and delete account groups, register the deleteAccountGroups batch step, and verify E2E tests pass. [Completed]
 
 - Refactored `routes/config.cjs` to add POST handlers and created `tests/configRoutes.test.cjs` verifying local SQLite persistence (all 133 unit tests pass).
 - Ran a full E2E verification on `feature/dependabot-updates` branch (`task-1859`). All Playwright and integration tests successfully passed (27 passed, 1 skipped).
@@ -103,6 +105,11 @@ Resolve CodeMirror version mismatch in `ai-commerce-accelerator-configuration` (
 - Identified that the health check loop in `release.yml` checks health with `curl -s` without `--fail`, meaning it incorrectly breaks on the first connection response (which is a 503 Service Unavailable status) before the microservice is fully ready, leading to downstream CLI generation errors. [Completed]
 - Plan to fix: Update `server.cjs` to support `process.env.PORT` and update `release.yml` health check loop to use `curl -f -s`. [Completed]
 - Plan registered for Issue #138 (Log Stream Panel) and Issue #142 (Promo & Segment Generator) as comments on GitHub. [Completed]
+- Identified that Liferay DXP's Pricing v2.0 `PriceListAccountGroup` DTO enforces validation requiring `priceListId` and `accountGroupId` in the payload even when using the ERC-based relationship endpoint. Added `getAccountGroupByERC` to resolve user segments by ERC, stored references to created price list IDs, and updated the payload to link them safely. [Completed]
+- Identified that Liferay DXP's Pricing v2.0 `PriceEntry` DTO does not support the `catalogId` property, causing validation failures (400 Bad Request) during promotion price entry creation. Removed `catalogId` from the promotional price entry payload in `PromoGenerator.cjs`. [Completed]
+- Identified that Liferay DXP's Pricing v2.0 `PriceEntry` DTO enforces validation requiring `priceListId` and `skuId` in the payload. Updated `PromoGenerator.cjs` to resolve and include those fields in each promotion price entry payload, with robust fallbacks to support both runtime DXP execution and unit test mock structures. [Completed]
+- Identified that including `priceListId` in the `PriceEntry` payload caused `createPriceEntriesBatch` to resolve `keyToUse` to the numeric ID instead of the parent ERC, triggering Liferay's bugged ID-based `/price-lists/{id}/price-entries` endpoint. Fixed by updating `rest.cjs` to prioritize `externalReferenceCode` over `priceListId` for path key resolution. [Completed]
+- Identified that when `generateSkuVariants` is `true`, Liferay resolves database IDs only for variant SKUs (not the base root SKU). Updated `PromoGenerator.cjs` to iterate over all active, resolved SKUs (correctly creating promotional price entries for each generated variant SKU) with robust product-root fallbacks for unit tests. [Completed]
 
 ## Secrets Leak Prevention (JS-Native Secrets Sentinel)
 

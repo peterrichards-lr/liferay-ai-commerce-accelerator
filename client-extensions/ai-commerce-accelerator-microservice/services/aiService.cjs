@@ -645,6 +645,61 @@ class AIService {
       throw wrapped;
     }
   }
+
+  async generatePromoData(
+    products = [],
+    accounts = [],
+    _options = {},
+    requestConfig = {}
+  ) {
+    const { logger, prompt } = this.ctx;
+    const correlationId = requestConfig.correlationId || 'system';
+
+    try {
+      const productList = products.map((p) => ({
+        name: p.name?.en_US || p.name,
+        sku: p.sku || p.externalReferenceCode,
+        id: p.id,
+      }));
+
+      const accountList = accounts.map((a) => ({
+        name: a.name,
+        externalReferenceCode: a.externalReferenceCode,
+        id: a.id,
+      }));
+
+      const vars = {
+        productListJSON: JSON.stringify(productList, null, 2),
+        accountListJSON: JSON.stringify(accountList, null, 2),
+      };
+
+      const promptContent = await prompt.render('promo', vars, requestConfig);
+      return await this._chatJson(
+        'promo',
+        promptContent,
+        requestConfig,
+        undefined,
+        'promo'
+      );
+    } catch (error) {
+      const errorReference =
+        error.errorReference || createERC(ERC_PREFIX.ERROR);
+
+      logger?.error?.('AIService.generatePromoData failed', {
+        correlationId,
+        errorReference,
+        message: error?.message,
+        name: error?.name,
+        stack: error?.stack,
+      });
+
+      const wrapped = new Error(
+        `AI service error: ${error.message || 'Failed to generate promo data'}`
+      );
+      wrapped.errorReference = errorReference;
+      throw wrapped;
+    }
+  }
 }
 
 module.exports = { AIService };

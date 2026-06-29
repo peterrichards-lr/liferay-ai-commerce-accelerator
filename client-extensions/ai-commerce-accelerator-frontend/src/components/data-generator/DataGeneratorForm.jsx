@@ -505,6 +505,7 @@ function DataGeneratorForm({
                     generatePriceLists: generationConfig.generatePriceLists,
                     generateBulkPricing: generationConfig.generateBulkPricing,
                     generateTierPricing: generationConfig.generateTierPricing,
+                    generatePromotions: generationConfig.generatePromotions,
                   }}
                   productCount={generationConfig.productCount}
                   onChange={handleConfigChange}

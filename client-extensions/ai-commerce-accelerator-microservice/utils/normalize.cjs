@@ -90,6 +90,7 @@ function buildConfigAndOptions(req) {
     backorderAssignmentRatio,
     generateBulkPricing,
     generatePriceLists,
+    generatePromotions,
     generateSkuVariants,
     generateSpecifications,
     generateTierPricing,
@@ -212,6 +213,7 @@ function buildConfigAndOptions(req) {
   options.categories = categories;
   options.generateBulkPricing = toBoolean(generateBulkPricing);
   options.generatePriceLists = toBoolean(generatePriceLists);
+  options.generatePromotions = toBoolean(generatePromotions);
   options.generateSkuVariants = toBoolean(generateSkuVariants);
   options.generateSpecifications = toBoolean(generateSpecifications);
   options.generateTierPricing = toBoolean(generateTierPricing);
@@ -387,9 +389,9 @@ function sanitizeCacheEntry(entry) {
 
 function sanitizedObject(obj) {
   const sanitizedObj = { ...obj };
-  if (sanitizedObj.clientSecret) sanitizedObj.clientSecret = '[REDACTED]';
+  if (sanitizedObj.clientSecret) sanitizedObj.clientSecret = '[REDACTED]'; // pragma: allowlist secret
   if (sanitizedObj.Authorization) sanitizedObj.Authorization = '[REDACTED]';
-  if (sanitizedObj.openaiApiKey) sanitizedObj.openaiApiKey = '[REDACTED]';
+  if (sanitizedObj.openaiApiKey) sanitizedObj.openaiApiKey = '[REDACTED]'; // pragma: allowlist secret
 
   if (sanitizedObj.customImageFile)
     sanitizedObj.customImageFile = {

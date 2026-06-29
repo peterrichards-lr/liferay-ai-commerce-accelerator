@@ -3,6 +3,7 @@ const ProductGenerator = require('../generators/productGenerator.cjs');
 const OrderGenerator = require('../generators/orderGenerator.cjs');
 const WarehouseGenerator = require('../generators/warehouseGenerator.cjs');
 const DeleteCoordinatorService = require('../services/deleteCoordinatorService.cjs');
+const { PromoGenerator } = require('../generators/PromoGenerator.cjs');
 
 describe('Generator Interface Parity', () => {
   const mockCtx = {
@@ -34,6 +35,7 @@ describe('Generator Interface Parity', () => {
     { name: 'ProductGenerator', instance: new ProductGenerator(mockCtx) },
     { name: 'OrderGenerator', instance: new OrderGenerator(mockCtx) },
     { name: 'WarehouseGenerator', instance: new WarehouseGenerator(mockCtx) },
+    { name: 'PromoGenerator', instance: new PromoGenerator(mockCtx) },
     {
       name: 'DeleteCoordinator',
       instance: new DeleteCoordinatorService(mockCtx),
@@ -78,6 +80,7 @@ describe('Generator Interface Parity', () => {
       'productGenerator.cjs',
       'orderGenerator.cjs',
       'warehouseGenerator.cjs',
+      'PromoGenerator.cjs',
       'baseGenerator.cjs',
     ];
 
