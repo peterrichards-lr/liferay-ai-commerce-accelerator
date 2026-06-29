@@ -70,6 +70,10 @@ export function getCommerceErrorsMap(cfg) {
 export function getGenerationErrorsMap(gc, liferayConnected = true, limits) {
   const errors = {};
 
+  if (gc.seedPack) {
+    return errors;
+  }
+
   const maxProducts = limits?.maxProducts || 100;
   const maxAccounts = limits?.maxAccounts || 50;
   const maxOrders = limits?.maxOrders || 200;

@@ -1,0 +1,135 @@
+{
+  "warehouses": [
+    {
+      "name": "Outdoor Northwest Depot",
+      "externalReferenceCode": "WH-OUT-NORTHWEST",
+      "countryISOCode": "US",
+      "regionISOCode": "WA",
+      "addressLocality": "Seattle"
+    }
+  ],
+  "accounts": [
+    {
+      "name": "Cascade Climbing School",
+      "externalReferenceCode": "ACC-CASCADE-CLIMB",
+      "type": "business",
+      "addresses": [
+        {
+          "addressType": "billing",
+          "streetAddressLine1": "100 Pine St",
+          "addressLocality": "Seattle",
+          "addressRegion": "WA",
+          "postalCode": "98101",
+          "addressCountry": "United States"
+        }
+      ]
+    },
+    {
+      "name": "Rainier Tours & Expeditions",
+      "externalReferenceCode": "ACC-RAINIER-TOURS",
+      "type": "business",
+      "addresses": [
+        {
+          "addressType": "billing",
+          "streetAddressLine1": "200 Rainier Ave",
+          "addressLocality": "Seattle",
+          "addressRegion": "WA",
+          "postalCode": "98102",
+          "addressCountry": "United States"
+        }
+      ]
+    }
+  ],
+  "products": [
+    {
+      "name": { "en_US": "4-Person Waterproof Camping Tent" },
+      "externalReferenceCode": "PRD-CAMPING-TENT",
+      "productStatus": 0,
+      "productType": "simple",
+      "skus": [
+        {
+          "sku": "SKU-CAMPING-TENT-4P",
+          "externalReferenceCode": "SKU-CAMPING-TENT-4P",
+          "price": 189.99
+        }
+      ],
+      "priceEntries": [
+        {
+          "skuExternalReferenceCode": "SKU-CAMPING-TENT-4P",
+          "price": 189.99
+        }
+      ]
+    },
+    {
+      "name": { "en_US": "Cold-Weather Sleeping Bag -10C" },
+      "externalReferenceCode": "PRD-SLEEPING-BAG",
+      "productStatus": 0,
+      "productType": "simple",
+      "skus": [
+        {
+          "sku": "SKU-SLEEPING-BAG-10C",
+          "externalReferenceCode": "SKU-SLEEPING-BAG-10C",
+          "price": 79.99
+        }
+      ],
+      "priceEntries": [
+        {
+          "skuExternalReferenceCode": "SKU-SLEEPING-BAG-10C",
+          "price": 79.99
+        }
+      ]
+    },
+    {
+      "name": { "en_US": "Lightweight Aluminum Trekking Poles" },
+      "externalReferenceCode": "PRD-TREK-POLES",
+      "productStatus": 0,
+      "productType": "simple",
+      "skus": [
+        {
+          "sku": "SKU-TREK-POLES-AL",
+          "externalReferenceCode": "SKU-TREK-POLES-AL",
+          "price": 49.99
+        }
+      ],
+      "priceEntries": [
+        {
+          "skuExternalReferenceCode": "SKU-TREK-POLES-AL",
+          "price": 49.99
+        }
+      ]
+    }
+  ],
+  "orders": [
+    {
+      "externalReferenceCode": "ORD-OUT-001",
+      "accountExternalReferenceCode": "ACC-CASCADE-CLIMB",
+      "orderDate": "2026-06-22T10:00:00Z",
+      "orderStatus": 10,
+      "items": [
+        {
+          "sku": "SKU-CAMPING-TENT-4P",
+          "quantity": 3,
+          "price": 189.99
+        },
+        {
+          "sku": "SKU-TREK-POLES-AL",
+          "quantity": 6,
+          "price": 49.99
+        }
+      ]
+    },
+    {
+      "externalReferenceCode": "ORD-OUT-002",
+      "accountExternalReferenceCode": "ACC-RAINIER-TOURS",
+      "orderDate": "2026-06-23T14:15:00Z",
+      "orderStatus": 10,
+      "items": [
+        {
+          "sku": "SKU-SLEEPING-BAG-10C",
+          "quantity": 5,
+          "price": 79.99
+        }
+      ]
+    }
+  ]
+}
