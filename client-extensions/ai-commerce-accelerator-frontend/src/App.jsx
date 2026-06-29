@@ -43,6 +43,7 @@ import {
 const initialGenerationConfig = {
   sessionName: '',
   brandName: '',
+  seedPack: '',
   productCount: 10,
   accountCount: 10,
   orderCount: 50,

@@ -47,10 +47,14 @@ export default function useGeneration({
         values: { images, pdfs },
       });
 
-      addLog(
-        `Submitting generation workflow: ${activeConfig.productCount} products, ${activeConfig.accountCount} accounts, ${activeConfig.orderCount} orders`,
-        'info'
-      );
+      if (activeConfig.seedPack) {
+        addLog(`Submitting seed pack: ${activeConfig.seedPack}`, 'info');
+      } else {
+        addLog(
+          `Submitting generation workflow: ${activeConfig.productCount} products, ${activeConfig.accountCount} accounts, ${activeConfig.orderCount} orders`,
+          'info'
+        );
+      }
 
       try {
         const payload = {

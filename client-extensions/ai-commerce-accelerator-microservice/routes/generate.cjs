@@ -35,6 +35,7 @@ module.exports = (
     progressService,
     persistenceService,
     batchCallbackService,
+    configService,
   }
 ) => {
   app.post(
@@ -43,6 +44,194 @@ module.exports = (
     async (req, res) => {
       const { config, options } = buildConfigAndOptions(req);
       config.demoMode = options.demoMode;
+
+      // Check if OpenAI key is available, if not fallback to seed pack!
+      let openAiKeyAvailable = false;
+      try {
+        const aiCfg = await configService.getAIConfig(config);
+        openAiKeyAvailable = !!(
+          aiCfg?.apiKey ||
+          aiCfg?.openAiKey ||
+          process.env.OPENAI_API_KEY
+        );
+      } catch (err) {
+        logger.warn(
+          'Failed to verify OpenAI key availability via configService',
+          { error: err.message }
+        );
+      }
+
+      if (!options.demoMode && !openAiKeyAvailable) {
+        logger.warn(
+          'OpenAI key is not configured or unavailable. Automatically falling back to "industrial-power-tools" seed pack.'
+        );
+        options.seedPack = 'industrial-power-tools';
+        options.demoMode = true;
+      }
+
+      if (options.seedPack) {
+        const fs = require('fs');
+        const path = require('path');
+        const seedPackPath = path.join(
+          __dirname,
+          `../resources/seed-packs/${options.seedPack}.json`
+        );
+        if (!fs.existsSync(seedPackPath)) {
+          return res.status(400).json({
+            success: false,
+            error: `Seed pack not found: ${options.seedPack}`,
+          });
+        }
+        const seedData = JSON.parse(fs.readFileSync(seedPackPath, 'utf8'));
+        const products = seedData.products || [];
+        const accounts = seedData.accounts || [];
+        const orders = seedData.orders || [];
+        const warehouses = seedData.warehouses || [];
+        const addresses = seedData.addresses || [];
+        const specificationDefinitions =
+          seedData.specificationDefinitions || [];
+        const optionDefinitions = seedData.optionDefinitions || [];
+
+        const steps = [];
+        const productSteps = [];
+        const accountSteps = [];
+        const orderSteps = [];
+
+        if (warehouses.length > 0) {
+          productSteps.push({ name: S.GENERATE_WAREHOUSE_DATA, type: 'sync' });
+          productSteps.push({ name: S.CREATE_WAREHOUSES, type: 'sync' });
+          productSteps.push({ name: S.RESOLVE_WAREHOUSE_IDS, type: 'sync' });
+          productSteps.push({ name: S.LINK_WAREHOUSE_CHANNELS, type: 'sync' });
+        }
+
+        if (products.length > 0) {
+          productSteps.push({ name: S.GENERATE_PRODUCT_DATA, type: 'sync' });
+          productSteps.push({
+            name: S.ENSURE_SPECIFICATION_CATEGORIES,
+            type: 'sync',
+          });
+          productSteps.push({ name: S.ENSURE_SPECIFICATIONS, type: 'sync' });
+          productSteps.push({ name: S.ENSURE_OPTIONS, type: 'sync' });
+          productSteps.push({ name: S.CREATE_PRODUCTS, type: 'sync' });
+          productSteps.push({ name: S.RESOLVE_PRODUCT_IDS, type: 'sync' });
+          productSteps.push({ name: S.LINK_PRODUCT_OPTIONS, type: 'sync' });
+          productSteps.push({ name: S.CREATE_PRODUCT_SKUS, type: 'sync' });
+          productSteps.push({ name: S.RESOLVE_SKU_IDS, type: 'sync' });
+          productSteps.push({ name: S.SYNC_DELAY_PRICING, type: 'sync' });
+          productSteps.push({ name: S.GENERATE_PRICE_LISTS, type: 'sync' });
+          productSteps.push({ name: S.UPDATE_CATALOG_CONFIG, type: 'sync' });
+          productSteps.push({ name: S.UPDATE_INVENTORY, type: 'sync' });
+        }
+
+        if (accounts.length > 0) {
+          accountSteps.push({ name: S.LOAD_COUNTRIES, type: 'sync' });
+          accountSteps.push({ name: S.GENERATE_ACCOUNT_DATA, type: 'sync' });
+          accountSteps.push({ name: S.CREATE_ACCOUNTS, type: 'sync' });
+          accountSteps.push({ name: S.RESOLVE_ACCOUNT_IDS, type: 'sync' });
+          accountSteps.push({ name: S.CREATE_POSTAL_ADDRESSES, type: 'sync' });
+          accountSteps.push({ name: S.SET_ADDRESS_DEFAULTS, type: 'sync' });
+        }
+
+        if (orders.length > 0) {
+          orderSteps.push({ name: S.SYNC_DELAY_ORDERS, type: 'sync' });
+          orderSteps.push({ name: S.GENERATE_ORDER_DATA, type: 'sync' });
+          orderSteps.push({ name: S.CREATE_ORDERS, type: 'sync' });
+        }
+
+        if (productSteps.length > 0 || accountSteps.length > 0) {
+          steps.push({
+            type: 'parallel',
+            steps: [
+              ...(productSteps.length > 0
+                ? [
+                    {
+                      name: 'subflow-products',
+                      type: 'sequence',
+                      steps: productSteps,
+                    },
+                  ]
+                : []),
+              ...(accountSteps.length > 0
+                ? [
+                    {
+                      name: 'subflow-accounts',
+                      type: 'sequence',
+                      steps: accountSteps,
+                    },
+                  ]
+                : []),
+            ],
+          });
+        }
+
+        if (orderSteps.length > 0) {
+          steps.push({
+            name: 'subflow-orders',
+            type: 'sequence',
+            steps: orderSteps,
+          });
+        }
+
+        const sessionId = createERC(ERC_PREFIX.BATCH_SESSION);
+
+        const context = {
+          config,
+          options: {
+            ...options,
+            importMode: true,
+            generatePriceLists: true,
+            generateSkuVariants: true,
+            productCount: products.length,
+            accountCount: accounts.length,
+            orderCount: orders.length,
+            warehouseCount: warehouses.length,
+          },
+          steps,
+          generator: 'unified',
+          productDataList: products,
+          accountDataList: accounts,
+          orderDataList: orders,
+          warehouseDataList: warehouses,
+          addressesToCreate: addresses,
+          specificationDefinitions,
+          optionDefinitions,
+        };
+
+        await persistenceService.createSession({
+          sessionId,
+          flowType: 'generate',
+          status: 'STARTED',
+          currentSteps: [],
+          correlationId: config.correlationId,
+          sessionName: options.sessionName || `Seed Pack: ${options.seedPack}`,
+          context,
+        });
+
+        progressService.sessionStarted({
+          sessionId,
+          flowType: 'generate',
+          correlationId: config.correlationId,
+        });
+
+        batchCallbackService._checkSessionCompletion(
+          sessionId,
+          config.correlationId
+        );
+
+        logger.info('Seed pack generation workflow started', {
+          correlationId: config.correlationId,
+          sessionId,
+          seedPack: options.seedPack,
+        });
+
+        return res.json({
+          success: true,
+          sessionId,
+          message: 'Seed pack generation workflow started successfully.',
+          correlationId: config.correlationId,
+          timestamp: new Date().toISOString(),
+        });
+      }
 
       // Robust fallback: resolve missing channelId/siteGroupId and catalogId at backend API handler level
       if (
