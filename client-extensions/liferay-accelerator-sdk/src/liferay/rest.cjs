@@ -43,6 +43,7 @@ const SOFT_STATUS_BY_OP = {
   'promotions:batch-delete': [403, 404],
   'products:batch-delete': [403, 404],
   'accounts:batch-delete': [400, 403, 404],
+  'account-groups:batch-delete': [400, 403, 404],
   'orders:batch-delete': [400, 403, 404],
   'warehouses:batch-delete': [403, 404],
   'inventory:batch-delete': [403, 404],
@@ -2243,6 +2244,53 @@ class LiferayRestService {
     );
   }
 
+  async createAccountGroup(config, accountGroupData) {
+    return await this._post(
+      config,
+      '/o/headless-admin-user/v1.0/account-groups',
+      accountGroupData,
+      'create-account-group',
+      'Failed to create account group'
+    );
+  }
+
+  async getAccountGroupByERC(config, externalReferenceCode) {
+    try {
+      const res = await this._get(
+        config,
+        `/o/headless-admin-user/v1.0/account-groups/by-external-reference-code/${encodeURIComponent(externalReferenceCode)}`,
+        'get-account-group-by-erc'
+      );
+      if (res && res.softEmpty) return null;
+      return res;
+    } catch (error) {
+      if (error.response?.status === 404) return null;
+      throw error;
+    }
+  }
+
+  async assignAccountToGroup(config, groupERC, accountERC) {
+    // WORKAROUND: Liferay's REST endpoint internally swaps the parameters:
+    // the first placeholder maps to account ERC, and the second maps to group ERC.
+    return await this._post(
+      config,
+      `/o/headless-admin-user/v1.0/account-groups/by-external-reference-code/${encodeURIComponent(accountERC)}/accounts/by-external-reference-code/${encodeURIComponent(groupERC)}`,
+      null,
+      'assign-account-to-group',
+      'Failed to assign account to group'
+    );
+  }
+
+  async createPriceListAccountGroup(config, priceListERC, payload) {
+    return await this._post(
+      config,
+      PATH.PRICE_LIST_ACCOUNT_GROUPS_BY_ERC(priceListERC),
+      payload,
+      'create-price-list-account-group',
+      'Failed to link account group to price list'
+    );
+  }
+
   async createPriceList(config, priceListData) {
     return await this._post(
       config,
@@ -2344,6 +2392,9 @@ class LiferayRestService {
       errors: [],
     };
 
+    const priceListKey =
+      opts.priceListExternalReferenceCode || opts.priceListId;
+
     // Process in smaller chunks to avoid overwhelming the REST API
     const concurrency = 5;
     for (let i = 0; i < priceEntriesData.length; i += concurrency) {
@@ -2351,7 +2402,8 @@ class LiferayRestService {
       await Promise.all(
         chunk.map(async (entry) => {
           try {
-            await this.createPriceEntry(config, entry.priceListId, entry);
+            const keyToUse = priceListKey || entry.priceListId;
+            await this.createPriceEntry(config, keyToUse, entry);
             results.count++;
           } catch (err) {
             results.errors.push({
@@ -2375,12 +2427,25 @@ class LiferayRestService {
     return results;
   }
 
-  async createPriceEntry(config, priceListId, priceEntryData) {
+  async createPriceEntry(config, priceListIdOrERC, priceEntryData) {
     const { tierPrices, ...entryData } = priceEntryData;
+
+    const isERC =
+      typeof priceListIdOrERC === 'string' && isNaN(Number(priceListIdOrERC));
+    const urlPath = isERC
+      ? PATH.PRICE_ENTRIES_BY_ERC(priceListIdOrERC)
+      : PATH.PRICE_ENTRIES(priceListIdOrERC);
+
+    // Clean up priceListId from entryData since we specify it in the URL path,
+    // to avoid Liferay matching/validation conflicts on ID-scoped endpoints.
+    // ERC-scoped endpoints require priceListId in the body due to a platform validation bug.
+    if (!isERC) {
+      delete entryData.priceListId;
+    }
 
     const result = await this._post(
       config,
-      PATH.PRICE_ENTRIES(priceListId),
+      urlPath,
       entryData,
       'create-price-entry',
       'Failed to create price entry'

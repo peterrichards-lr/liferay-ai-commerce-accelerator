@@ -53,6 +53,7 @@ const initialGenerationConfig = {
   generatePriceLists: true,
   generateBulkPricing: true,
   generateTierPricing: true,
+  generatePromotions: true,
   generateSpecifications: true,
   generateSkuVariants: true,
   imageMode: 'placeholder',

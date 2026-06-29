@@ -21,6 +21,9 @@ describe('DeleteCoordinatorService', () => {
       liferay: {
         getOrders: vi.fn().mockResolvedValue({ items: [], totalCount: 0 }),
         getAccounts: vi.fn().mockResolvedValue({ items: [], totalCount: 0 }),
+        getAccountGroups: vi
+          .fn()
+          .mockResolvedValue({ items: [], totalCount: 0 }),
         getProducts: vi.fn().mockResolvedValue({ items: [], totalCount: 0 }),
         getWarehouses: vi.fn().mockResolvedValue({ items: [], totalCount: 0 }),
         getAllWarehouseItems: vi
@@ -40,6 +43,7 @@ describe('DeleteCoordinatorService', () => {
         _collectAllItems: vi.fn().mockResolvedValue({ items: [] }),
         deleteOrdersBatch: vi.fn().mockResolvedValue({ success: true }),
         deleteAccountsBatch: vi.fn().mockResolvedValue({ success: true }),
+        deleteAccountGroupsBatch: vi.fn().mockResolvedValue({ success: true }),
         deleteProductsBatch: vi.fn().mockResolvedValue({ success: true }),
       },
       progress: {

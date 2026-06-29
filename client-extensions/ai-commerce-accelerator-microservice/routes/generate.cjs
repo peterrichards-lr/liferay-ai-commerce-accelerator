@@ -392,6 +392,21 @@ module.exports = (
           });
         }
 
+        const promoSteps = [];
+        if (options.generatePromotions && options.productCount > 0) {
+          promoSteps.push({ name: S.GENERATE_PROMO_DATA, type: 'sync' });
+          promoSteps.push({ name: S.CREATE_USER_SEGMENTS, type: 'sync' });
+          promoSteps.push({ name: S.CREATE_PROMOTIONS, type: 'sync' });
+        }
+
+        if (promoSteps.length > 0) {
+          steps.push({
+            name: 'subflow-promotions',
+            type: 'sequence',
+            steps: promoSteps,
+          });
+        }
+
         // Orders only start after products and accounts subflows are terminal
         if (orderSteps.length > 0) {
           steps.push({

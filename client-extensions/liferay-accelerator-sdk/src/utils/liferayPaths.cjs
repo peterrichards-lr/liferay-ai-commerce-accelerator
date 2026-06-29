@@ -40,6 +40,7 @@ const BASE = {
   USER_ADMIN_API: API_ROOT.USER,
 
   ACCOUNTS: `${API_ROOT.USER}/accounts`,
+  ACCOUNT_GROUPS: `${API_ROOT.USER}/account-groups`,
   CATALOGS: `${API_ROOT.CATALOG}/catalogs`,
   CHANNELS: `${API_ROOT.CHANNEL}/channels`,
   CURRENCIES: `${API_ROOT.CATALOG}/currencies`,
@@ -234,6 +235,12 @@ const PATH = {
   ACCOUNT_USERS: (accountId) => `${BASE.ACCOUNTS}/${accountId}/user-accounts`,
   ACCOUNTS_BATCH: (callbackURL) =>
     `${BASE.ACCOUNTS}/batch?callbackURL=${enc(callbackURL)}`,
+
+  ACCOUNT_GROUPS: BASE.ACCOUNT_GROUPS,
+  ACCOUNT_GROUP: (groupId) => `${BASE.ACCOUNT_GROUPS}/${groupId}`,
+  ACCOUNT_GROUP_BY_ERC: (erc) => byERC(BASE.ACCOUNT_GROUPS, erc, 'kebab'),
+  ACCOUNT_GROUPS_BATCH: (callbackURL) =>
+    `${BASE.ACCOUNT_GROUPS}/batch?callbackURL=${enc(callbackURL)}`,
 
   POSTAL_ADDRESSES: BASE.POSTAL_ADDRESSES,
   POSTAL_ADDRESS: (postalAddressId) =>

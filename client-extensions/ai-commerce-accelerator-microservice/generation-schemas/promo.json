@@ -1,0 +1,69 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "description": "A schema for generating commerce user segments and promotions.",
+  "properties": {
+    "userSegments": {
+      "description": "An array of logical user segments targeted for personalization.",
+      "items": {
+        "properties": {
+          "description": {
+            "description": "A detailed description of who belongs to this segment.",
+            "type": "string"
+          },
+          "externalReferenceCode": {
+            "description": "Unique external reference code for the user segment.",
+            "type": "string"
+          },
+          "name": {
+            "description": "The name of the user segment.",
+            "type": "string"
+          }
+        },
+        "required": ["name", "description", "externalReferenceCode"],
+        "type": "object"
+      },
+      "type": "array"
+    },
+    "promotions": {
+      "description": "An array of commerce promotions targeted at specific segments.",
+      "items": {
+        "properties": {
+          "description": {
+            "description": "Detailed description of the promotion.",
+            "type": "string"
+          },
+          "discountPercentage": {
+            "description": "The percentage discount for the promotion.",
+            "maximum": 100,
+            "minimum": 1,
+            "type": "integer"
+          },
+          "externalReferenceCode": {
+            "description": "Unique external reference code for the promotion.",
+            "type": "string"
+          },
+          "name": {
+            "description": "The name of the promotion.",
+            "type": "string"
+          },
+          "targetSegmentName": {
+            "description": "The name of the user segment this promotion targets.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "description",
+          "discountPercentage",
+          "targetSegmentName",
+          "externalReferenceCode"
+        ],
+        "type": "object"
+      },
+      "type": "array"
+    }
+  },
+  "required": ["userSegments", "promotions"],
+  "title": "Promo",
+  "type": "object"
+}
