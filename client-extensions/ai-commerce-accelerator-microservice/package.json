@@ -1,7 +1,7 @@
 {
   "author": "Peter Richards",
   "dependencies": {
-    "@ai-sdk/anthropic": "^4.0.0",
+    "@ai-sdk/anthropic": "^4.0.1",
     "@google-cloud/storage": "^7.21.0",
     "@google/generative-ai": "^0.24.1",
     "@liferay/accelerator-sdk": "*",
@@ -44,10 +44,10 @@
   "version": "1.0.0",
   "devDependencies": {
     "@eslint/js": "10.0.1",
-    "eslint": "10.5.0",
+    "eslint": "10.6.0",
     "graphql": "^17.0.1",
     "msw": "^2.14.6",
-    "prettier": "^3.8.5",
+    "prettier": "^3.9.1",
     "vitest": "4.1.9"
   }
 }
