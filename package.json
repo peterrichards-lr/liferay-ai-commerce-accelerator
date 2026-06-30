@@ -9,7 +9,6 @@
   "workspaces": {
     "packages": [
       "client-extensions/ai-commerce-accelerator-microservice",
-      "client-extensions/liferay-accelerator-sdk",
       "client-extensions/ai-commerce-accelerator-configuration",
       "client-extensions/ai-commerce-accelerator-frontend"
     ]

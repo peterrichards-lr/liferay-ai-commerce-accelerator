@@ -35,7 +35,6 @@ jobs:
       - name: Rebuild native modules
         run: |
           yarn workspace @liferay/liferay-ai-commerce-accelerator-microservice run pretest
-          yarn workspace @liferay/accelerator-sdk run pretest
 
       - name: Run Prettier Check
         run: yarn prettier --check .
