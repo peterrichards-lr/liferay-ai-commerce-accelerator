@@ -2,7 +2,7 @@
 
 ## Current Goal
 
-Implement smart B2B commerce promotions and segments rules generator (Issue #142) to enable targeted AI promotions seeding.
+Migrate Reindex OSGi module to JAX-RS 3.x (jakarta.ws.rs) for DXP 2026.q1 (Issue #203).
 
 ## Plan
 
@@ -78,6 +78,7 @@ Implement smart B2B commerce promotions and segments rules generator (Issue #142
 65. **Implement clean up of Account Groups (user segments) during data deletion flow**: Add getAccountGroups and deleteAccountGroupsBatch to the SDK, update deleteCoordinatorService to discover and delete account groups, register the deleteAccountGroups batch step, and verify E2E tests pass. [Completed]
 66. **Dynamic Catalog Adapter Layer and Auto-Discovery for Standalone Liferay PIM**: Defined base `LiferayCatalogAdapter`, created `LegacyProductFirstAdapter` routing paths through config profiles, and implemented dynamic capability probing factory `CatalogAdapterFactory`. Re-routed all catalog API calls in SDK `index.cjs` dynamically per connection context, and validated SDK and microservice test suites pass cleanly. [Completed]
 67. **Support multi-language catalog localized metadata translations**: Update the AI prompt `product.md` and schema `product.json` to handle multilingual `category` objects, add `createTaxonomyCategory` REST support in `@liferay/accelerator-sdk`, implement category auto-creation/reuse step `_runEnsureCategoriesStep` in `productGenerator.cjs`, link categories dynamically to DXP taxonomy, and pass all unit tests. [Completed]
+68. **Migrate Reindex OSGi module to Jakarta JAX-RS**: Replace javax.ws.rs JAX-RS 2.x API dependency and imports with jakarta.ws.rs JAX-RS 3.x API in build.gradle, ReindexResource.java, and ReindexApplication.java. [In Progress]
 
 - Refactored `routes/config.cjs` to add POST handlers and created `tests/configRoutes.test.cjs` verifying local SQLite persistence (all 133 unit tests pass).
 - Ran a full E2E verification on `feature/dependabot-updates` branch (`task-1859`). All Playwright and integration tests successfully passed (27 passed, 1 skipped).
