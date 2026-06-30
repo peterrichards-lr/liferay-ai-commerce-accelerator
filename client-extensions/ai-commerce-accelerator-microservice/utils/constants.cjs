@@ -308,6 +308,7 @@ const WORKFLOW_STEPS = {
   RESOLVE_WAREHOUSE_IDS: 'resolve-warehouse-ids',
   GENERATE_WAREHOUSE_DATA: 'generate-warehouse-data',
   GENERATE_PRODUCT_DATA: 'generate-product-data',
+  ENSURE_CATEGORIES: 'ensure-categories',
   ENSURE_SPECIFICATION_CATEGORIES: 'ensure-specification-categories',
   ENSURE_SPECIFICATIONS: 'ensure-specifications',
   ENSURE_OPTIONS: 'ensure-options',

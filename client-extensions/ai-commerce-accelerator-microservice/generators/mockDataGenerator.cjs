@@ -177,7 +177,7 @@ class MockDataGenerator {
         productType: 'simple',
         active: true,
         catalogId: config.catalogId,
-        category: category,
+        category: {},
         baseSku: sku,
         productStatus: 0, // Published
       };
@@ -186,6 +186,7 @@ class MockDataGenerator {
         const suffix = localeSuffixMap[lang] || '';
         const name = `${adj} ${category} ${i + 1}`;
         productData.name[lang] = `${name}${suffix}`;
+        productData.category[lang] = `${category}${suffix}`;
         productData.description[lang] =
           `The ${name} is a ${feat.toLowerCase()} solution designed for ${category.toLowerCase()} professionals. It offers reliability and performance in any environment.${suffix}`;
         productData.shortDescription[lang] =
@@ -273,7 +274,7 @@ class MockDataGenerator {
           value: { en_US: 'AICA Elite' },
         },
         {
-          specificationKey: 'material',
+          specificationKey: 'material', // pragma: allowlist secret
           value: { en_US: 'Industrial Grade' },
         },
       ];

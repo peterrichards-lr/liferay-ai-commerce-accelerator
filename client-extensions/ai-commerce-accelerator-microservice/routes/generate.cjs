@@ -106,6 +106,7 @@ module.exports = (
 
         if (products.length > 0) {
           productSteps.push({ name: S.GENERATE_PRODUCT_DATA, type: 'sync' });
+          productSteps.push({ name: S.ENSURE_CATEGORIES, type: 'sync' });
           productSteps.push({
             name: S.ENSURE_SPECIFICATION_CATEGORIES,
             type: 'sync',
@@ -315,6 +316,7 @@ module.exports = (
           productSteps.push({ name: S.RESOLVE_WAREHOUSE_IDS, type: 'sync' });
           productSteps.push({ name: S.LINK_WAREHOUSE_CHANNELS, type: 'sync' });
           productSteps.push({ name: S.GENERATE_PRODUCT_DATA, type: 'sync' });
+          productSteps.push({ name: S.ENSURE_CATEGORIES, type: 'sync' });
           productSteps.push({
             name: S.ENSURE_SPECIFICATION_CATEGORIES,
             type: 'sync',
