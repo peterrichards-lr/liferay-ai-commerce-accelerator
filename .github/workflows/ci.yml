@@ -59,3 +59,65 @@ jobs:
       - name: Run Unit Tests
         run: yarn test
         timeout-minutes: 15
+
+  e2e-verification:
+    name: CI/e2e-verification
+    runs-on: ubuntu-latest
+    env:
+      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: 'true'
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Java
+        uses: actions/setup-java@v3
+        with:
+          distribution: 'temurin'
+          java-version: '21'
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'yarn'
+
+      - name: Install dependencies
+        run: yarn install --frozen-lockfile
+
+      - name: Install Liferay Docker Manager (LDM)
+        run: |
+          wget https://github.com/peterrichards-lr/liferay-docker-manager/releases/latest/download/ldm-linux -O ldm
+          chmod +x ldm
+          sudo mv ldm /usr/local/bin/
+
+      - name: Configure local hosts file
+        run: |
+          echo "127.0.0.1 aica-e2e.local aicommerceacceleratorconfiguration.aica-e2e.local aicommerceacceleratorfrontend.aica-e2e.local" | sudo tee -a /etc/hosts
+
+      - name: Install Playwright Browsers
+        run: npx playwright install --with-deps chromium
+
+      - name: Run E2E Verification (LDM)
+        run: bash scripts/run-e2e-ldm.sh --ci --no-ssl
+        env:
+          LIFERAY_USER: ${{ secrets.LIFERAY_USER }}
+          LIFERAY_PASSWORD: ${{ secrets.LIFERAY_PASSWORD }}
+          LIFERAY_OAUTH_CLIENT_ID: ${{ secrets.LIFERAY_OAUTH_CLIENT_ID }}
+          LIFERAY_OAUTH_CLIENT_SECRET: ${{ secrets.LIFERAY_OAUTH_CLIENT_SECRET }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          GOOGLE_API_KEY: ${{ secrets.GOOGLE_API_KEY }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+
+      - name: Upload E2E Logs on Failure
+        uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: e2e-logs
+          path: |
+            logs/
+            client-extensions/*/logs/
+            test-results/
+            playwright-report/
+          retention-days: 7
