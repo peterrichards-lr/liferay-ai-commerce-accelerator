@@ -4,10 +4,8 @@ const { logger } = require('../utils/logger.cjs');
 
 describe('Schema Alignment (Drift Detection)', () => {
   const generationSchemasDir = path.join(__dirname, '../generation-schemas');
-  const apiSchemasDir = path.join(
-    __dirname,
-    '../../liferay-accelerator-sdk/api-schemas'
-  );
+  const sdkPkgPath = require.resolve('@liferay/accelerator-sdk/package.json');
+  const apiSchemasDir = path.join(path.dirname(sdkPkgPath), 'api-schemas');
 
   const generationSchemas = fs
     .readdirSync(generationSchemasDir)
