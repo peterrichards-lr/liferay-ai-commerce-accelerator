@@ -1049,7 +1049,7 @@
 
 "@liferay/accelerator-sdk@git+https://github.com/peterrichards-lr/liferay-accelerator-sdk.git#main":
   version "0.1.0"
-  resolved "git+https://github.com/peterrichards-lr/liferay-accelerator-sdk.git#15d4ace55141de0f221daf618e88a43a9f9f26b4"
+  resolved "git+https://github.com/peterrichards-lr/liferay-accelerator-sdk.git#b2116d6e87c61b548a38708a0efb15a79d205055"
   dependencies:
     "@rotty3000/config-node" "^0.4.1"
     ajv "^8.12.0"
