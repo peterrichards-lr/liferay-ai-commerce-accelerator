@@ -1,5 +1,5 @@
 {
-  "id": "aicommerceacceleratormicroservice",
+  "id": "ai-commerce-accelerator-microservice",
   "kind": "Deployment",
   "memory": 1024,
   "cpu": 1,
