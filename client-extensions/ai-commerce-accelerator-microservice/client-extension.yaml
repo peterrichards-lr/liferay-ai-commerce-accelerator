@@ -1,3 +1,7 @@
+ai-commerce-accelerator-microservice:
+  name: AI Commerce Accelerator Microservice
+  type: microservice
+
 assemble:
   - include:
       - '**/*.cjs'
