@@ -284,6 +284,7 @@ module.exports = (router, routeCtx) => {
               type: 'sync',
             });
             productSteps.push({ name: S.GENERATE_PRODUCT_DATA, type: 'sync' });
+            productSteps.push({ name: S.ENSURE_CATEGORIES, type: 'sync' });
             productSteps.push({
               name: S.ENSURE_SPECIFICATION_CATEGORIES,
               type: 'sync',

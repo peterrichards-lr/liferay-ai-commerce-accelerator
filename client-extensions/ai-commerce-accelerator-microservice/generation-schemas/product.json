@@ -31,8 +31,11 @@
             "type": "integer"
           },
           "category": {
-            "description": "The category name for the product (e.g. 'Electronics', 'Home & Garden').",
-            "type": "string"
+            "additionalProperties": {
+              "type": "string"
+            },
+            "description": "Multilingual category names keyed by language code (e.g. {'en_US': 'Electronics', 'es_ES': 'Electrónica'}).",
+            "type": "object"
           },
           "description": {
             "additionalProperties": {

@@ -1,0 +1,135 @@
+{
+  "warehouses": [
+    {
+      "name": "Industrial Midwest Hub",
+      "externalReferenceCode": "WH-IND-MIDWEST",
+      "countryISOCode": "US",
+      "regionISOCode": "IL",
+      "addressLocality": "Chicago"
+    }
+  ],
+  "accounts": [
+    {
+      "name": "Apex Manufacturing",
+      "externalReferenceCode": "ACC-APEX-MANUF",
+      "type": "business",
+      "addresses": [
+        {
+          "addressType": "billing",
+          "streetAddressLine1": "456 Factory Rd",
+          "addressLocality": "Chicago",
+          "addressRegion": "IL",
+          "postalCode": "60601",
+          "addressCountry": "United States"
+        }
+      ]
+    },
+    {
+      "name": "Midwest Construction Group",
+      "externalReferenceCode": "ACC-MIDWEST-CONST",
+      "type": "business",
+      "addresses": [
+        {
+          "addressType": "billing",
+          "streetAddressLine1": "789 Builder Way",
+          "addressLocality": "Chicago",
+          "addressRegion": "IL",
+          "postalCode": "60602",
+          "addressCountry": "United States"
+        }
+      ]
+    }
+  ],
+  "products": [
+    {
+      "name": { "en_US": "Heavy-Duty Rotary Hammer Drill" },
+      "externalReferenceCode": "PRD-ROTARY-DRILL",
+      "productStatus": 0,
+      "productType": "simple",
+      "skus": [
+        {
+          "sku": "SKU-ROTARY-DRILL-18V",
+          "externalReferenceCode": "SKU-ROTARY-DRILL-18V",
+          "price": 249.99
+        }
+      ],
+      "priceEntries": [
+        {
+          "skuExternalReferenceCode": "SKU-ROTARY-DRILL-18V",
+          "price": 249.99
+        }
+      ]
+    },
+    {
+      "name": { "en_US": "Professional Belt Sander" },
+      "externalReferenceCode": "PRD-BELT-SANDER",
+      "productStatus": 0,
+      "productType": "simple",
+      "skus": [
+        {
+          "sku": "SKU-BELT-SANDER-3IN",
+          "externalReferenceCode": "SKU-BELT-SANDER-3IN",
+          "price": 129.99
+        }
+      ],
+      "priceEntries": [
+        {
+          "skuExternalReferenceCode": "SKU-BELT-SANDER-3IN",
+          "price": 129.99
+        }
+      ]
+    },
+    {
+      "name": { "en_US": "Lithium-Ion Battery Pack 18V 5Ah" },
+      "externalReferenceCode": "PRD-BATTERY-18V",
+      "productStatus": 0,
+      "productType": "simple",
+      "skus": [
+        {
+          "sku": "SKU-BATTERY-18V-5AH",
+          "externalReferenceCode": "SKU-BATTERY-18V-5AH",
+          "price": 89.99
+        }
+      ],
+      "priceEntries": [
+        {
+          "skuExternalReferenceCode": "SKU-BATTERY-18V-5AH",
+          "price": 89.99
+        }
+      ]
+    }
+  ],
+  "orders": [
+    {
+      "externalReferenceCode": "ORD-IND-001",
+      "accountExternalReferenceCode": "ACC-APEX-MANUF",
+      "orderDate": "2026-06-20T10:00:00Z",
+      "orderStatus": 10,
+      "items": [
+        {
+          "sku": "SKU-ROTARY-DRILL-18V",
+          "quantity": 5,
+          "price": 249.99
+        },
+        {
+          "sku": "SKU-BATTERY-18V-5AH",
+          "quantity": 10,
+          "price": 89.99
+        }
+      ]
+    },
+    {
+      "externalReferenceCode": "ORD-IND-002",
+      "accountExternalReferenceCode": "ACC-MIDWEST-CONST",
+      "orderDate": "2026-06-21T11:30:00Z",
+      "orderStatus": 10,
+      "items": [
+        {
+          "sku": "SKU-BELT-SANDER-3IN",
+          "quantity": 2,
+          "price": 129.99
+        }
+      ]
+    }
+  ]
+}

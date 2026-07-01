@@ -717,3 +717,12 @@ project(':client-extensions:ai-commerce-accelerator-microservice') {
 		}
 	}
 }
+
+allprojects {
+	plugins.withId("com.liferay.node") {
+		node {
+			nodeVersion = "22.22.2"
+			npmVersion = "10.9.7"
+		}
+	}
+}

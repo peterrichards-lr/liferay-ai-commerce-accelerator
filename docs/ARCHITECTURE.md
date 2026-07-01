@@ -17,9 +17,9 @@ graph TD
 
 ## System Modularization
 
-To ensure scalability and reusability, the Liferay integration logic is isolated into a standalone module: **`@liferay/accelerator-sdk`**.
+To ensure scalability and reusability, the Liferay integration logic is isolated into its own dedicated repository: **`@liferay/accelerator-sdk`** (hosted at `https://github.com/peterrichards-lr/liferay-accelerator-sdk`).
 
-- **Liferay Protocol Layer (SDK)**: Handles OAuth2 token management, automatic retries with exponential backoff, and fluent API access (REST, GraphQL, Batch). It is version-aware and stays in sync with Liferay via an automated schema sync utility.
+- **Liferay Protocol Layer (SDK)**: Extracted into a standalone repository and imported as a private Git dependency in `package.json`. It handles OAuth2 token management, automatic retries with exponential backoff, dynamic capability detection (PIM vs. Legacy Commerce adapters), and fluent API access (REST, GraphQL, Batch).
 - **Domain Orchestration Layer (Microservice)**: Contains the specific commerce logic, data generators, and state management for complex multi-step workflows.
 
 ## Data Generation Workflow

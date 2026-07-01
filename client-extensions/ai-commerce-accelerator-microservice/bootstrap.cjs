@@ -24,6 +24,7 @@ const MockDataGenerator = require('./generators/mockDataGenerator.cjs');
 const OrderGenerator = require('./generators/orderGenerator.cjs');
 const ProductGenerator = require('./generators/productGenerator.cjs');
 const WarehouseGenerator = require('./generators/warehouseGenerator.cjs');
+const { PromoGenerator } = require('./generators/PromoGenerator.cjs');
 const WorkflowCoordinator = require('./generators/workflowCoordinator.cjs');
 
 const registerDataGenerationWorkers = require('./workers/dataGenerationWorkers.cjs');
@@ -85,6 +86,7 @@ module.exports = (ws) => {
   ctx.accountGenerator = new AccountGenerator(ctx);
   ctx.orderGenerator = new OrderGenerator(ctx);
   ctx.productGenerator = new ProductGenerator(ctx);
+  ctx.promoGenerator = new PromoGenerator(ctx);
   ctx.workflowCoordinator = new WorkflowCoordinator(ctx);
   ctx.deleteCoordinator = new DeleteCoordinatorService(ctx);
 
@@ -125,6 +127,7 @@ module.exports = (ws) => {
   ctx.workflowCoordinator.registerGenerator('account', ctx.accountGenerator);
   ctx.workflowCoordinator.registerGenerator('order', ctx.orderGenerator);
   ctx.workflowCoordinator.registerGenerator('product', ctx.productGenerator);
+  ctx.workflowCoordinator.registerGenerator('promo', ctx.promoGenerator);
   ctx.workflowCoordinator.registerGenerator('delete', ctx.deleteCoordinator);
 
   // Register generators with the callback dispatcher
@@ -132,6 +135,7 @@ module.exports = (ws) => {
   ctx.batchCallback.registerGenerator('account', ctx.accountGenerator);
   ctx.batchCallback.registerGenerator('order', ctx.orderGenerator);
   ctx.batchCallback.registerGenerator('product', ctx.productGenerator);
+  ctx.batchCallback.registerGenerator('promo', ctx.promoGenerator);
   ctx.batchCallback.registerGenerator('delete', ctx.deleteCoordinator);
   ctx.batchCallback.registerGenerator('unified', ctx.workflowCoordinator);
 
@@ -141,6 +145,7 @@ module.exports = (ws) => {
   ctx.accountGenerator.verifySteps();
   ctx.orderGenerator.verifySteps();
   ctx.productGenerator.verifySteps();
+  ctx.promoGenerator.verifySteps();
   ctx.deleteCoordinator.verifySteps();
 
   ctx.queue = new QueueService({
@@ -183,6 +188,7 @@ module.exports = (ws) => {
     progressService: ctx.progress,
     promptService: ctx.prompt,
     queueService: ctx.queue,
+    promoGenerator: ctx.promoGenerator,
     warehouseGenerator: ctx.warehouseGenerator,
     workflowCoordinator: ctx.workflowCoordinator,
   };

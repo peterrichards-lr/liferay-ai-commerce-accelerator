@@ -64,6 +64,12 @@ class DeleteCoordinatorService extends BaseGenerator {
           sid,
           S.DELETE_PROMOTIONS
         ),
+      [S.DELETE_ACCOUNT_GROUPS]: (sid) =>
+        this._runGenericDeletionStep(
+          'deleteAccountGroups',
+          sid,
+          S.DELETE_ACCOUNT_GROUPS
+        ),
       [S.DELETE_SPECIFICATIONS]: (sid) =>
         this._runGenericDeletionStep(
           'deleteSpecifications',
@@ -164,6 +170,7 @@ class DeleteCoordinatorService extends BaseGenerator {
     const manifest = {
       orders: [],
       accounts: [],
+      accountGroups: [],
       warehouses: [],
       warehouseItems: [],
       products: [],
@@ -194,6 +201,19 @@ class DeleteCoordinatorService extends BaseGenerator {
         (a) => isAICA(a.externalReferenceCode) || isAICA(a.erc)
       );
       const aicaAccountIds = new Set(manifest.accounts.map((a) => a.id));
+
+      // --- 1.5. ACCOUNT GROUP DISCOVERY ---
+      this.logger.info('Crawling account groups for AICA prefix...', {
+        sessionId,
+      });
+      const { items: allGroups } = await this.liferay.getAccountGroups(config);
+      manifest.accountGroups = allGroups.filter(
+        (g) =>
+          isAICA(g.externalReferenceCode) ||
+          isAICA(g.erc) ||
+          (g.externalReferenceCode &&
+            g.externalReferenceCode.startsWith('SEG-'))
+      );
 
       // --- 2. CHANNEL-BASED DISCOVERY (Orders mapped to AICA Accounts) ---
       const activeChannels = [];
@@ -370,6 +390,9 @@ class DeleteCoordinatorService extends BaseGenerator {
       manifest.promotions = [
         ...new Map(manifest.promotions.map((i) => [i.id, i])).values(),
       ];
+      manifest.accountGroups = [
+        ...new Map(manifest.accountGroups.map((i) => [i.id, i])).values(),
+      ];
       manifest.warehouses = [
         ...new Map(manifest.warehouses.map((i) => [i.id, i])).values(),
       ];
@@ -387,6 +410,7 @@ class DeleteCoordinatorService extends BaseGenerator {
         { type: 'options', count: manifest.options.length },
         { type: 'priceLists', count: manifest.priceLists.length },
         { type: 'promotions', count: manifest.promotions.length },
+        { type: 'accountGroups', count: manifest.accountGroups.length },
       ];
 
       for (const { type, count } of progressToEmit) {
@@ -441,6 +465,7 @@ class DeleteCoordinatorService extends BaseGenerator {
       [S.DELETE_PRODUCT_OPTIONS]: manifest?.options,
       [S.DELETE_PRICE_LISTS]: manifest?.priceLists,
       [S.DELETE_PROMOTIONS]: manifest?.promotions,
+      [S.DELETE_ACCOUNT_GROUPS]: manifest?.accountGroups,
       [S.DELETE_OPTION_CATEGORIES]: manifest?.optionCategories,
     };
 
@@ -597,6 +622,10 @@ class DeleteCoordinatorService extends BaseGenerator {
         const res = await liferay.getPromotions(config, { catalogId });
         return { totalCount: res.totalCount };
       },
+      [S.DELETE_ACCOUNT_GROUPS]: async () => {
+        const res = await liferay.getAccountGroups(config);
+        return { totalCount: res.totalCount };
+      },
       [S.RESET_CATALOG_CONFIG]: async () => ({ hasItems: true, totalCount: 1 }),
     };
 
@@ -625,6 +654,7 @@ class DeleteCoordinatorService extends BaseGenerator {
       { name: S.DELETE_ACCOUNTS, type: 'sync' },
       { name: S.DELETE_PRICE_LISTS, type: 'sync' },
       { name: S.DELETE_PROMOTIONS, type: 'sync' },
+      { name: S.DELETE_ACCOUNT_GROUPS, type: 'sync' },
       { name: S.DELETE_SPECIFICATIONS, type: 'sync' },
       { name: S.DELETE_OPTIONS, type: 'sync' },
       { name: S.DELETE_OPTION_CATEGORIES, type: 'sync' },
@@ -693,6 +723,7 @@ class DeleteCoordinatorService extends BaseGenerator {
             deleteProductOptions: S.DELETE_PRODUCT_OPTIONS,
             deletePriceLists: S.DELETE_PRICE_LISTS,
             deletePromotions: S.DELETE_PROMOTIONS,
+            deleteAccountGroups: S.DELETE_ACCOUNT_GROUPS,
             deleteSpecifications: S.DELETE_SPECIFICATIONS,
             deleteOptions: S.DELETE_OPTIONS,
             deleteOptionCategories: S.DELETE_OPTION_CATEGORIES,
@@ -719,6 +750,7 @@ class DeleteCoordinatorService extends BaseGenerator {
         { name: S.DELETE_ACCOUNTS, type: 'sync' },
         { name: S.DELETE_PRICE_LISTS, type: 'sync' },
         { name: S.DELETE_PROMOTIONS, type: 'sync' },
+        { name: S.DELETE_ACCOUNT_GROUPS, type: 'sync' },
         { name: S.DELETE_SPECIFICATIONS, type: 'sync' },
         { name: S.DELETE_OPTIONS, type: 'sync' },
         { name: S.DELETE_OPTION_CATEGORIES, type: 'sync' },
@@ -729,7 +761,10 @@ class DeleteCoordinatorService extends BaseGenerator {
       return { sessionId, message: 'No entities selected.' };
 
     const hasPricing = steps.some(
-      (s) => s.name === S.DELETE_PRICE_LISTS || s.name === S.DELETE_PROMOTIONS
+      (s) =>
+        s.name === S.DELETE_PRICE_LISTS ||
+        s.name === S.DELETE_PROMOTIONS ||
+        s.name === S.DELETE_ACCOUNT_GROUPS
     );
     if (hasPricing && !steps.some((s) => s.name === S.RESET_CATALOG_CONFIG)) {
       steps.unshift({ name: S.RESET_CATALOG_CONFIG, type: 'sync' });

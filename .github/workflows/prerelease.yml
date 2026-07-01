@@ -43,7 +43,7 @@ jobs:
       - name: Gather Artifacts
         run: |
           mkdir -p release-artifacts
-          find client-extensions -name "*.zip" -path "*/dist/*" -exec cp {} release-artifacts/ \;
+          find client-extensions -name "*.zip" \( -path "*/dist/*" -o -path "*/build/*" \) -exec cp {} release-artifacts/ \;
           ls -la release-artifacts/
 
       - name: Create Pre-Release

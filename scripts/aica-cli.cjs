@@ -247,7 +247,7 @@ async function resolveCommerceContext(opts) {
   let catalogs = [];
   try {
     const creds = buildConnectionPayload();
-    
+
     // Retry channel resolution up to 15 times (30 seconds) to allow Liferay to finish creating default sites during boot
     let attempt = 0;
     while (attempt < 15) {
@@ -265,9 +265,10 @@ async function resolveCommerceContext(opts) {
         break;
       }
       attempt++;
-      if (attempt < 15) await new Promise((resolve) => setTimeout(resolve, 2000));
+      if (attempt < 15)
+        await new Promise((resolve) => setTimeout(resolve, 2000));
     }
-    
+
     const catalogsRes = await nativePost(
       `${MICROSERVICE_URL}/api/v1/get-catalogs`,
       creds

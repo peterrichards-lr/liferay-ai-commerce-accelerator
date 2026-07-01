@@ -16,6 +16,8 @@ if [ "$CI" = "true" ] || [ "$GITHUB_ACTIONS" = "true" ]; then
     CI_MODE=1
 fi
 
+NO_SSL=0
+
 while [[ "$#" -gt 0 ]]; do
     case $1 in
         -v|--verbose) VERBOSE=1 ;;
@@ -23,7 +25,8 @@ while [[ "$#" -gt 0 ]]; do
         -k|--keep) KEEP_PROJECT=1 ;;
         -i|--init|--init-only) INIT_ONLY=1 ;;
         --ci) CI_MODE=1 ;;
-        *) echo "Usage: $0 [-v] [-k] [-i] [--ci] [-p <project_name>]"; exit 1 ;;
+        --no-ssl) NO_SSL=1 ;;
+        *) echo "Usage: $0 [-v] [-k] [-i] [--ci] [--no-ssl] [-p <project_name>]"; exit 1 ;;
     esac
     shift
 done
@@ -127,9 +130,21 @@ touch logs/e2e-microservice.log
 # --- Phase 0: Environment Loading ---
 
 # Force JDK 21 on macOS to ensure Liferay Docker Manager (LDM) compatibility
-if [ "$(uname)" == "Darwin" ] && command -v /usr/libexec/java_home &> /dev/null; then
-    if /usr/libexec/java_home -v 21 &> /dev/null; then
-        export JAVA_HOME=$(/usr/libexec/java_home -v 21)
+GRADLE_JAVA_21=""
+if [ "$(uname)" == "Darwin" ]; then
+    if [ -d "/opt/homebrew/opt/openjdk@21" ]; then
+        GRADLE_JAVA_21="/opt/homebrew/opt/openjdk@21/libexec/openjdk.jdk/Contents/Home"
+    elif command -v /usr/libexec/java_home &> /dev/null; then
+        if /usr/libexec/java_home -v 21 &> /dev/null; then
+            GRADLE_JAVA_21=$(/usr/libexec/java_home -v 21)
+        fi
+    fi
+fi
+
+if [ -n "$GRADLE_JAVA_21" ]; then
+    major_ver=$("$GRADLE_JAVA_21/bin/java" -version 2>&1 | head -n 1 | cut -d'"' -f2 | cut -d'.' -f1)
+    if [ "$major_ver" -lt 25 ] 2>/dev/null; then
+        export JAVA_HOME="$GRADLE_JAVA_21"
         echo "☕ Force-configured global JAVA_HOME to JDK 21: $JAVA_HOME"
     fi
 fi
@@ -174,7 +189,16 @@ if [ $EXISTING_PROJECT -eq 1 ]; then
     TARGET_HOST=$(echo "$TARGET_URL" | sed -E 's/https?:\/\///' | cut -d':' -f1)
 else
     TARGET_HOST="$DEFAULT_HOST"
-    TARGET_URL="https://$TARGET_HOST"
+    if [ $NO_SSL -eq 1 ]; then
+        TARGET_URL="http://$TARGET_HOST"
+    else
+        TARGET_URL="https://$TARGET_HOST"
+    fi
+fi
+
+LDM_SSL_FLAG=""
+if [ $NO_SSL -eq 1 ]; then
+    LDM_SSL_FLAG="--no-ssl"
 fi
 
 echo "🔍 Running LDM Doctor (Silent)..."
@@ -200,16 +224,32 @@ fi
 
 log_command "./gradlew deploy"
 GRADLE_JAVA_HOME=""
-if [ "$(uname)" == "Darwin" ] && command -v /usr/libexec/java_home &> /dev/null; then
-    if /usr/libexec/java_home -v 17 &> /dev/null; then
-        GRADLE_JAVA_HOME=$(/usr/libexec/java_home -v 17)
-        echo "☕ Using JDK 17 for Gradle build: $GRADLE_JAVA_HOME"
-    elif /usr/libexec/java_home -v 21 &> /dev/null; then
-        GRADLE_JAVA_HOME=$(/usr/libexec/java_home -v 21)
-        echo "☕ Using JDK 21 for Gradle build: $GRADLE_JAVA_HOME"
-    elif /usr/libexec/java_home -v 11 &> /dev/null; then
-        GRADLE_JAVA_HOME=$(/usr/libexec/java_home -v 11)
-        echo "☕ Using JDK 11 for Gradle build: $GRADLE_JAVA_HOME"
+if [ "$(uname)" == "Darwin" ]; then
+    is_valid_jdk() {
+        local path=$1
+        [ -n "$path" ] && [ -x "$path/bin/java" ] || return 1
+        "$path/bin/java" -version &>/dev/null || return 1
+        local major_ver
+        major_ver=$("$path/bin/java" -version 2>&1 | head -n 1 | cut -d'"' -f2 | cut -d'.' -f1)
+        [ "$major_ver" -lt 25 ] 2>/dev/null || return 1
+        return 0
+    }
+
+    if [ -d "/opt/homebrew/opt/openjdk@21" ] && is_valid_jdk "/opt/homebrew/opt/openjdk@21/libexec/openjdk.jdk/Contents/Home"; then
+        GRADLE_JAVA_HOME="/opt/homebrew/opt/openjdk@21/libexec/openjdk.jdk/Contents/Home"
+        echo "☕ Using Homebrew openjdk@21: $GRADLE_JAVA_HOME"
+    elif [ -d "/opt/homebrew/opt/openjdk@17" ] && is_valid_jdk "/opt/homebrew/opt/openjdk@17/libexec/openjdk.jdk/Contents/Home"; then
+        GRADLE_JAVA_HOME="/opt/homebrew/opt/openjdk@17/libexec/openjdk.jdk/Contents/Home"
+        echo "☕ Using Homebrew openjdk@17: $GRADLE_JAVA_HOME"
+    elif command -v /usr/libexec/java_home &> /dev/null; then
+        for ver in 21 17 11; do
+            candidate=$(/usr/libexec/java_home -v $ver 2>/dev/null || true)
+            if is_valid_jdk "$candidate"; then
+                GRADLE_JAVA_HOME="$candidate"
+                echo "☕ Using JDK $ver for Gradle build: $GRADLE_JAVA_HOME"
+                break
+            fi
+        done
     fi
 fi
 
@@ -286,7 +326,23 @@ if [ $EXISTING_PROJECT -eq 0 ]; then
         --db postgresql \
         $INTERNAL_STATE_FLAG \
         --no-captcha \
-        --no-run
+        --no-run \
+        $LDM_SSL_FLAG
+
+    # Sync OSGi modules built by Gradle into the LDM staging directory
+    if [ -d "bundles/osgi/modules" ]; then
+        echo "🔄 Syncing built OSGi modules to LDM modules directory..."
+        mkdir -p "$PROJECT_NAME/osgi/modules"
+        cp bundles/osgi/modules/*.jar "$PROJECT_NAME/osgi/modules/" 2>/dev/null || true
+        # Remove the legacy JAX-RS 2.x reindex endpoint bundle to prevent conflicts
+        rm -f "$PROJECT_NAME/osgi/modules/com.liferay.accelerator.reindex.endpoint-1.0.0.jar"
+    fi
+
+    # Sync client extensions built by Gradle/yarn into the LDM staging directory
+    echo "🔄 Syncing built client extensions to LDM staging directory..."
+    mkdir -p "$PROJECT_NAME/osgi/client-extensions"
+    find client-extensions -name "*.zip" \( -path "*/dist/*" -o -path "*/build/*" \) -exec cp {} "$PROJECT_NAME/osgi/client-extensions/" \; 2>/dev/null || true
+    chmod -R 777 "$PROJECT_NAME" 2>/dev/null || true
 
     write_signal "STARTING"
     echo "⚡ Starting Liferay container with tag [$LIFERAY_TAG] (Detached + Sidecar)..."
@@ -302,16 +358,32 @@ if [ $EXISTING_PROJECT -eq 0 ]; then
         --jvm-args="-XX:ReservedCodeCacheSize=512m" \
         --fast-login \
         --feature LPD-35443 \
-        -y
+        -y \
+        $LDM_SSL_FLAG
 
 else
     echo "⏭️  Skipping initialization/boot for existing project '$PROJECT_NAME'."
+
+    # Sync OSGi modules to the LDM staging directory for hot-deploy
+    if [ -d "bundles/osgi/modules" ]; then
+        echo "🔄 Syncing built OSGi modules to LDM modules directory for hot-deploy..."
+        mkdir -p "$PROJECT_NAME/osgi/modules"
+        cp bundles/osgi/modules/*.jar "$PROJECT_NAME/osgi/modules/" 2>/dev/null || true
+        # Remove the legacy JAX-RS 2.x reindex endpoint bundle to prevent conflicts
+        rm -f "$PROJECT_NAME/osgi/modules/com.liferay.accelerator.reindex.endpoint-1.0.0.jar"
+    fi
+
+    # Sync client extensions to the LDM staging directory for hot-deploy
+    echo "🔄 Syncing built client extensions to LDM staging directory for hot-deploy..."
+    mkdir -p "$PROJECT_NAME/osgi/client-extensions"
+    find client-extensions -name "*.zip" \( -path "*/dist/*" -o -path "*/build/*" \) -exec cp {} "$PROJECT_NAME/osgi/client-extensions/" \; 2>/dev/null || true
+    chmod -R 777 "$PROJECT_NAME" 2>/dev/null || true
 fi
 
 # --- Phase 4: Sync & Wait ---
 
-# Find all client extension ZIPs in dist folders
-ARTIFACTS=$(find client-extensions -name "*.zip" -path "*/dist/*")
+# Find all client extension ZIPs in dist or build/libs folders
+ARTIFACTS=$(find client-extensions -name "*.zip" \( -path "*/dist/*" -o -path "*/build/*" \) 2>/dev/null)
 
 if [ -z "$ARTIFACTS" ]; then
     echo "⚠️  WARNING: No artifacts found to deploy. Did the build fail?"
@@ -320,6 +392,22 @@ else
     # LDM deploy uses the 'Atomic Move' pattern by default since v2.7.6
     # shellcheck disable=SC2086
     ldm_cmd deploy "$PROJECT_NAME" $ARTIFACTS
+    
+    # Fix client extension permissions inside the container on Linux host/CI runners
+    if [ "$CI_MODE" -eq 1 ] || [ "$(uname)" == "Linux" ]; then
+        echo "🔧 Fixing client extension file permissions inside the container..."
+        # Set 777 permissions on the host directories to bypass UID mapping limitations
+        chmod -R 777 "$PROJECT_NAME" 2>/dev/null || true
+        docker exec -u 0 "$PROJECT_NAME" chown -R liferay:liferay /opt/liferay/osgi/client-extensions /opt/liferay/deploy || true
+        docker exec -u 0 "$PROJECT_NAME" chmod -R 777 /opt/liferay/osgi/client-extensions /opt/liferay/deploy || true
+        # Force Liferay's OSGi file install/deployer to re-process files after permissions update.
+        # We use 'touch -c' (no-create) to avoid creating empty literal files if they do not exist.
+        for art in $ARTIFACTS; do
+            basename_art=$(basename "$art")
+            docker exec -u 0 "$PROJECT_NAME" touch -c "/opt/liferay/osgi/client-extensions/$basename_art" 2>/dev/null || true
+            docker exec -u 0 "$PROJECT_NAME" touch -c "/opt/liferay/deploy/$basename_art" 2>/dev/null || true
+        done
+    fi
     
     # If the project was already running, give OSGi hot-deployer 25s to refresh import maps
     if [ $EXISTING_PROJECT -eq 1 ]; then
@@ -332,7 +420,7 @@ fi
 write_signal "WAITING_HEALTHY"
 echo "⏳ Waiting for Liferay to be ready at $TARGET_URL..."
 # LDM 2.7.12+ wait command blocks until the HTTP layer is responsive
-if ! ldm_cmd wait "$PROJECT_NAME" --timeout 1800; then
+if ! ldm_cmd wait "$PROJECT_NAME" -d --timeout 1800; then
     echo -e "\n❌ ERROR: Liferay failed to become ready within 30 minutes."
     ldm_cmd logs "$PROJECT_NAME" --tail 100
     exit 1

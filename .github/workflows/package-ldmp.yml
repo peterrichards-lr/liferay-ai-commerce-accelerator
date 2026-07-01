@@ -1,0 +1,88 @@
+name: LDM Package Release (.ldmp)
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      release_tag:
+        description: 'Existing Git tag to attach/overwrite the packaged .ldmp to (e.g. v3.3.10)'
+        required: false
+        type: string
+
+permissions:
+  contents: write
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  package:
+    name: Package LDM Environment
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '21'
+
+      - name: Install Liferay Docker Manager (LDM)
+        run: |
+          wget https://github.com/peterrichards-lr/liferay-docker-manager/releases/latest/download/ldm-linux -O ldm
+          chmod +x ldm
+          sudo mv ldm /usr/local/bin/
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'yarn'
+
+      - name: Install dependencies
+        run: yarn install --frozen-lockfile
+
+      - name: Configure local hosts file
+        run: |
+          echo "127.0.0.1 aica-e2e.local aicommerceacceleratorconfiguration.aica-e2e.local aicommerceacceleratorfrontend.aica-e2e.local" | sudo tee -a /etc/hosts
+
+      - name: Start Liferay LDM Stack
+        run: bash scripts/run-e2e-ldm.sh -i -k --ci --no-ssl
+
+      - name: Start Microservice and Seed Demo Data
+        run: |
+          PORT=3001 NODE_ENV=production NODE_TLS_REJECT_UNAUTHORIZED=0 LIFERAY_URL=http://localhost:8080 LIFERAY_AUTH_METHOD=basic LIFERAY_API_USERNAME=test@liferay.com LIFERAY_API_PASSWORD=test node client-extensions/ai-commerce-accelerator-microservice/server.cjs &
+          echo "Waiting for microservice health check..."
+          for i in {1..30}; do
+            curl -f -s http://localhost:3001/api/v1/health && break
+            sleep 2
+          done
+          echo "Populating database using AICA CLI generate command..."
+          AICA_MICROSERVICE_URL=http://localhost:3001 LIFERAY_PORTAL_URL=http://localhost:8080 LIFERAY_API_USERNAME=test@liferay.com LIFERAY_API_PASSWORD=test node scripts/aica-cli.cjs generate --demo --products 10 --accounts 5 --orders 2 --non-interactive
+
+      - name: Compile LDM Package
+        run: |
+          chmod +x scripts/package-ldmp.sh
+          ./scripts/package-ldmp.sh
+
+      - name: Teardown LDM Stack
+        if: always()
+        run: ldm rm aica --delete -y || true
+
+      - name: Create GitHub Release and Upload Assets
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.event.inputs.release_tag || github.ref_name }}
+          files: |
+            liferay-ai-commerce-accelerator.ldmp
+            liferay-ai-commerce-accelerator.ldmp.sha256
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

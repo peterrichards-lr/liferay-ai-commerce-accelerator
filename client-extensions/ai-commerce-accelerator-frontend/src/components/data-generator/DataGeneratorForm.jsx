@@ -218,7 +218,12 @@ function DataGeneratorForm({
             <ClayToggle
               id="dataGeneration_demoMode"
               toggled={!generationConfig.demoMode && aiKeyAvailable}
-              onToggle={(val) => handleConfigChange('demoMode', !val)}
+              onToggle={(val) => {
+                handleConfigChange('demoMode', !val);
+                if (val) {
+                  handleConfigChange('seedPack', '');
+                }
+              }}
               disabled={lockFields || !aiKeyAvailable}
               aria-label="Toggle Data Generation Mode"
             />
@@ -234,261 +239,362 @@ function DataGeneratorForm({
           </span>
         </div>
 
-        <div className="form-group mb-4">
-          <label
-            htmlFor="dataGeneration_brandName"
-            className="font-weight-semi-bold"
-          >
-            Brand / Context{' '}
-            <span
-              className="text-secondary font-weight-normal"
-              style={{ fontSize: '0.8em' }}
+        {generationConfig.demoMode && (
+          <div className="form-group mb-4">
+            <label
+              htmlFor="dataGeneration_seedPack"
+              className="font-weight-semi-bold"
             >
-              (Used by LLM for thematic generation)
-            </span>
-          </label>
-          <textarea
-            id="dataGeneration_brandName"
-            className="form-control"
-            rows="2"
-            placeholder="e.g., A premium outdoor gear brand focusing on sustainability..."
-            value={generationConfig.brandName || ''}
-            onChange={(e) => handleConfigChange('brandName', e.target.value)}
-            disabled={lockFields}
-          ></textarea>
-        </div>
-
-        <h3 className="sheet-title mt-5 mb-3" style={{ fontSize: '1rem' }}>
-          Data Volumes
-        </h3>
-        <div className="row mb-4">
-          <div className="col-md-4">
-            <div
-              className={`form-group ${hasErr(validationErrors, 'productCount') ? 'has-error' : ''}`}
+              Demo Dataset Template
+            </label>
+            <select
+              id="dataGeneration_seedPack"
+              className="form-control"
+              value={generationConfig.seedPack || ''}
+              onChange={(e) => handleConfigChange('seedPack', e.target.value)}
+              disabled={lockFields}
             >
-              <label htmlFor="dataGeneration_productCount">Products</label>
-              <ClayInput.Group>
-                <ClayInput.GroupItem>
-                  <ClayInput
-                    id="dataGeneration_productCount"
-                    type="number"
-                    min="0"
-                    max={maxProducts}
-                    value={generationConfig.productCount}
-                    onChange={(e) =>
-                      handleConfigChange(
-                        'productCount',
-                        parseInt(e.target.value)
-                      )
-                    }
-                    disabled={lockFields}
-                  />
-                </ClayInput.GroupItem>
-                <ClayInput.GroupItem shrink>
-                  <ClayInput.GroupText>items</ClayInput.GroupText>
-                </ClayInput.GroupItem>
-              </ClayInput.Group>
-              {hasErr(validationErrors, 'productCount') && (
-                <FieldError errors={validationErrors.productCount} />
-              )}
-            </div>
+              <option value="">Dynamic Random Generation</option>
+              <option value="industrial-power-tools">
+                Industrial Power Tools (Pre-packaged Seed Pack)
+              </option>
+              <option value="outdoor-adventure-gear">
+                Outdoor Adventure Gear (Pre-packaged Seed Pack)
+              </option>
+            </select>
+            <p className="text-secondary mt-1" style={{ fontSize: '0.85em' }}>
+              {generationConfig.seedPack === 'industrial-power-tools' &&
+                'Includes: 3 products, 2 accounts, 2 orders, 1 warehouse, plus pricing and variants.'}
+              {generationConfig.seedPack === 'outdoor-adventure-gear' &&
+                'Includes: 3 products, 2 accounts, 2 orders, 1 warehouse, plus pricing and variants.'}
+              {!generationConfig.seedPack &&
+                'Generates randomized mock data on-the-fly locally based on selected counts below.'}
+            </p>
           </div>
-
-          <div className="col-md-4">
-            <div
-              className={`form-group ${hasErr(validationErrors, 'accountCount') ? 'has-error' : ''}`}
-            >
-              <label htmlFor="dataGeneration_accountCount">B2B Accounts</label>
-              <ClayInput.Group>
-                <ClayInput.GroupItem>
-                  <ClayInput
-                    id="dataGeneration_accountCount"
-                    type="number"
-                    min="0"
-                    max={maxAccounts}
-                    value={generationConfig.accountCount}
-                    onChange={(e) =>
-                      handleConfigChange(
-                        'accountCount',
-                        parseInt(e.target.value)
-                      )
-                    }
-                    disabled={lockFields}
-                  />
-                </ClayInput.GroupItem>
-                <ClayInput.GroupItem shrink>
-                  <ClayInput.GroupText>accounts</ClayInput.GroupText>
-                </ClayInput.GroupItem>
-              </ClayInput.Group>
-              {hasErr(validationErrors, 'accountCount') && (
-                <FieldError errors={validationErrors.accountCount} />
-              )}
-            </div>
-          </div>
-
-          <div className="col-md-4">
-            <div
-              className={`form-group ${hasErr(validationErrors, 'orderCount') ? 'has-error' : ''}`}
-            >
-              <label htmlFor="dataGeneration_orderCount">Orders</label>
-              <ClayInput.Group>
-                <ClayInput.GroupItem>
-                  <ClayInput
-                    id="dataGeneration_orderCount"
-                    type="number"
-                    min="0"
-                    max={maxOrders}
-                    value={generationConfig.orderCount}
-                    onChange={(e) =>
-                      handleConfigChange('orderCount', parseInt(e.target.value))
-                    }
-                    disabled={lockFields}
-                  />
-                </ClayInput.GroupItem>
-                <ClayInput.GroupItem shrink>
-                  <ClayInput.GroupText>orders</ClayInput.GroupText>
-                </ClayInput.GroupItem>
-              </ClayInput.Group>
-              {hasErr(validationErrors, 'orderCount') && (
-                <FieldError errors={validationErrors.orderCount} />
-              )}
-            </div>
-          </div>
-        </div>
-
-        {generationConfig.orderCount > 0 && (
-          <OrderDistributionControl
-            totalOrders={generationConfig.orderCount}
-            distribution={
-              generationConfig.orderDistribution || {
-                open: 0,
-                processing: 0,
-                shipped: 0,
-                completed: 0,
-              }
-            }
-            onChange={(dist) => handleConfigChange('orderDistribution', dist)}
-            disabled={lockFields}
-          />
         )}
 
-        <fieldset className="form-group mb-4 mt-5">
-          <legend
-            className="font-weight-semi-bold"
-            style={{ fontSize: '1rem' }}
-          >
-            Target Categories
-          </legend>
-          <CategoriesSelector
-            availableCategories={availableCategories}
-            selectedCategories={generationConfig.categories}
-            onToggleCategory={handleCategoryChange}
-            disabled={lockFields}
-            connected={liferayConnected}
-            error={hasErr(validationErrors, 'categories')}
-          />
-          {hasErr(validationErrors, 'categories') && (
-            <FieldError errors={validationErrors.categories} />
-          )}
-        </fieldset>
-
-        <div className="row mt-5 gx-5">
-          <div className="col-lg-6 pr-lg-5 border-right-lg">
-            <h3 className="sheet-title mb-4" style={{ fontSize: '1rem' }}>
-              Architecture Features
-            </h3>
-            <ProductToggleSet
-              values={{
-                generateSpecifications: generationConfig.generateSpecifications,
-                generateSkuVariants: generationConfig.generateSkuVariants,
-                generatePriceLists: generationConfig.generatePriceLists,
-                generateBulkPricing: generationConfig.generateBulkPricing,
-                generateTierPricing: generationConfig.generateTierPricing,
-              }}
-              productCount={generationConfig.productCount}
-              onChange={handleConfigChange}
-              disabled={lockFields || generationConfig.productCount === 0}
-              errors={validationErrors}
-            />
-
-            <div className="mt-4">
-              <VisualAssetControls
-                values={{
-                  imageMode: generationConfig.imageMode,
-                  imageRatio: generationConfig.imageRatio,
-                  imageStyle: generationConfig.imageStyle,
-                  pdfMode: generationConfig.pdfMode,
-                  pdfRatio: generationConfig.pdfRatio,
-                  pdfContentType: generationConfig.pdfContentType,
-                }}
-                onChange={handleConfigChange}
-                disabled={lockFields || generationConfig.productCount === 0}
-                aiKeyAvailable={aiKeyAvailable}
-              />
+        {generationConfig.seedPack ? (
+          <div className="card my-5 border-primary bg-light">
+            <div className="card-body">
+              <h5 className="card-title text-primary font-weight-bold">
+                <ClayIcon symbol="info-circle-o" className="mr-2" />
+                Seed Pack Active:{' '}
+                {generationConfig.seedPack === 'industrial-power-tools'
+                  ? 'Industrial Power Tools'
+                  : 'Outdoor Adventure Gear'}
+              </h5>
+              <p className="card-text text-secondary mt-3">
+                This seed pack contains a pre-compiled, production-ready dataset
+                optimized for instant seeding on DXP:
+              </p>
+              <ul className="list-group list-group-flush bg-transparent">
+                <li className="list-group-item bg-transparent pl-0 border-0">
+                  <strong>📦 3 Products:</strong>{' '}
+                  {generationConfig.seedPack === 'industrial-power-tools'
+                    ? 'Rotary Hammer Drill, Belt Sander, and Li-Ion Battery Pack'
+                    : 'Waterproof Camping Tent, Cold-Weather Sleeping Bag, and Trekking Poles'}
+                  .
+                </li>
+                <li className="list-group-item bg-transparent pl-0 border-0">
+                  <strong>🏢 2 B2B Accounts:</strong>{' '}
+                  {generationConfig.seedPack === 'industrial-power-tools'
+                    ? 'Apex Manufacturing and Midwest Construction Group'
+                    : 'Cascade Climbing School and Rainier Tours & Expeditions'}
+                  .
+                </li>
+                <li className="list-group-item bg-transparent pl-0 border-0">
+                  <strong>📂 1 Warehouse:</strong>{' '}
+                  {generationConfig.seedPack === 'industrial-power-tools'
+                    ? 'Industrial Midwest Hub (Chicago, IL)'
+                    : 'Outdoor Northwest Depot (Seattle, WA)'}
+                  .
+                </li>
+                <li className="list-group-item bg-transparent pl-0 border-0">
+                  <strong>🛒 2 Orders:</strong> Simulating real historical B2B
+                  purchases with pricing and variants.
+                </li>
+              </ul>
+              <div
+                className="alert alert-info mt-4 mb-0 py-2 font-weight-semi-bold"
+                style={{ fontSize: '0.9em' }}
+              >
+                💡 Seeding runs fully locally. No OpenAI API calls, zero credit
+                costs, and zero network dependency.
+              </div>
             </div>
           </div>
+        ) : (
+          <>
+            <div className="form-group mb-4">
+              <label
+                htmlFor="dataGeneration_brandName"
+                className="font-weight-semi-bold"
+              >
+                Brand / Context{' '}
+                <span
+                  className="text-secondary font-weight-normal"
+                  style={{ fontSize: '0.8em' }}
+                >
+                  (Used by LLM for thematic generation)
+                </span>
+              </label>
+              <textarea
+                id="dataGeneration_brandName"
+                className="form-control"
+                rows="2"
+                placeholder="e.g., A premium outdoor gear brand focusing on sustainability..."
+                value={generationConfig.brandName || ''}
+                onChange={(e) =>
+                  handleConfigChange('brandName', e.target.value)
+                }
+                disabled={lockFields}
+              ></textarea>
+            </div>
 
-          <div className="col-lg-6 pl-lg-5">
-            <h3
-              className={`sheet-title mb-4 ${generationConfig.productCount === 0 ? 'text-muted' : ''}`}
-              style={{ fontSize: '1rem' }}
-            >
-              Inventory Strategy
+            <h3 className="sheet-title mt-5 mb-3" style={{ fontSize: '1rem' }}>
+              Data Volumes
             </h3>
-            <WarehousesToggle
-              productCount={generationConfig.productCount}
-              values={{
-                createWarehouses: generationConfig.createWarehouses,
-                reuseExistingWarehouses:
-                  generationConfig.reuseExistingWarehouses,
-                warehouseCount: generationConfig.warehouseCount,
-              }}
-              onChange={handleConfigChange}
-              disabled={lockFields || generationConfig.productCount === 0}
-            />
+            <div className="row mb-4">
+              <div className="col-md-4">
+                <div
+                  className={`form-group ${hasErr(validationErrors, 'productCount') ? 'has-error' : ''}`}
+                >
+                  <label htmlFor="dataGeneration_productCount">Products</label>
+                  <ClayInput.Group>
+                    <ClayInput.GroupItem>
+                      <ClayInput
+                        id="dataGeneration_productCount"
+                        type="number"
+                        min="0"
+                        max={maxProducts}
+                        value={generationConfig.productCount}
+                        onChange={(e) =>
+                          handleConfigChange(
+                            'productCount',
+                            parseInt(e.target.value)
+                          )
+                        }
+                        disabled={lockFields}
+                      />
+                    </ClayInput.GroupItem>
+                    <ClayInput.GroupItem shrink>
+                      <ClayInput.GroupText>items</ClayInput.GroupText>
+                    </ClayInput.GroupItem>
+                  </ClayInput.Group>
+                  {hasErr(validationErrors, 'productCount') && (
+                    <FieldError errors={validationErrors.productCount} />
+                  )}
+                </div>
+              </div>
 
-            {generationConfig.createWarehouses && (
-              <div className="mt-3">
-                <InventoryControls
+              <div className="col-md-4">
+                <div
+                  className={`form-group ${hasErr(validationErrors, 'accountCount') ? 'has-error' : ''}`}
+                >
+                  <label htmlFor="dataGeneration_accountCount">
+                    B2B Accounts
+                  </label>
+                  <ClayInput.Group>
+                    <ClayInput.GroupItem>
+                      <ClayInput
+                        id="dataGeneration_accountCount"
+                        type="number"
+                        min="0"
+                        max={maxAccounts}
+                        value={generationConfig.accountCount}
+                        onChange={(e) =>
+                          handleConfigChange(
+                            'accountCount',
+                            parseInt(e.target.value)
+                          )
+                        }
+                        disabled={lockFields}
+                      />
+                    </ClayInput.GroupItem>
+                    <ClayInput.GroupItem shrink>
+                      <ClayInput.GroupText>accounts</ClayInput.GroupText>
+                    </ClayInput.GroupItem>
+                  </ClayInput.Group>
+                  {hasErr(validationErrors, 'accountCount') && (
+                    <FieldError errors={validationErrors.accountCount} />
+                  )}
+                </div>
+              </div>
+
+              <div className="col-md-4">
+                <div
+                  className={`form-group ${hasErr(validationErrors, 'orderCount') ? 'has-error' : ''}`}
+                >
+                  <label htmlFor="dataGeneration_orderCount">Orders</label>
+                  <ClayInput.Group>
+                    <ClayInput.GroupItem>
+                      <ClayInput
+                        id="dataGeneration_orderCount"
+                        type="number"
+                        min="0"
+                        max={maxOrders}
+                        value={generationConfig.orderCount}
+                        onChange={(e) =>
+                          handleConfigChange(
+                            'orderCount',
+                            parseInt(e.target.value)
+                          )
+                        }
+                        disabled={lockFields}
+                      />
+                    </ClayInput.GroupItem>
+                    <ClayInput.GroupItem shrink>
+                      <ClayInput.GroupText>orders</ClayInput.GroupText>
+                    </ClayInput.GroupItem>
+                  </ClayInput.Group>
+                  {hasErr(validationErrors, 'orderCount') && (
+                    <FieldError errors={validationErrors.orderCount} />
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {generationConfig.orderCount > 0 && (
+              <OrderDistributionControl
+                totalOrders={generationConfig.orderCount}
+                distribution={
+                  generationConfig.orderDistribution || {
+                    open: 0,
+                    processing: 0,
+                    shipped: 0,
+                    completed: 0,
+                  }
+                }
+                onChange={(dist) =>
+                  handleConfigChange('orderDistribution', dist)
+                }
+                disabled={lockFields}
+              />
+            )}
+
+            <fieldset className="form-group mb-4 mt-5">
+              <legend
+                className="font-weight-semi-bold"
+                style={{ fontSize: '1rem' }}
+              >
+                Target Categories
+              </legend>
+              <CategoriesSelector
+                availableCategories={availableCategories}
+                selectedCategories={generationConfig.categories}
+                onToggleCategory={handleCategoryChange}
+                disabled={lockFields}
+                connected={liferayConnected}
+                error={hasErr(validationErrors, 'categories')}
+              />
+              {hasErr(validationErrors, 'categories') && (
+                <FieldError errors={validationErrors.categories} />
+              )}
+            </fieldset>
+
+            <div className="row mt-5 gx-5">
+              <div className="col-lg-6 pr-lg-5 border-right-lg">
+                <h3 className="sheet-title mb-4" style={{ fontSize: '1rem' }}>
+                  Architecture Features
+                </h3>
+                <ProductToggleSet
+                  values={{
+                    generateSpecifications:
+                      generationConfig.generateSpecifications,
+                    generateSkuVariants: generationConfig.generateSkuVariants,
+                    generatePriceLists: generationConfig.generatePriceLists,
+                    generateBulkPricing: generationConfig.generateBulkPricing,
+                    generateTierPricing: generationConfig.generateTierPricing,
+                    generatePromotions: generationConfig.generatePromotions,
+                  }}
                   productCount={generationConfig.productCount}
-                  inventoryMin={generationConfig.inventoryMin}
-                  inventoryMax={generationConfig.inventoryMax}
-                  inventoryAssignmentRatio={
-                    generationConfig.inventoryAssignmentRatio
-                  }
-                  enableBackorders={generationConfig.enableBackorders}
-                  backorderAssignmentRatio={
-                    generationConfig.backorderAssignmentRatio
-                  }
                   onChange={handleConfigChange}
                   disabled={lockFields || generationConfig.productCount === 0}
-                  validationErrors={validationErrors}
+                  errors={validationErrors}
                 />
+
+                <div className="mt-4">
+                  <VisualAssetControls
+                    values={{
+                      imageMode: generationConfig.imageMode,
+                      imageRatio: generationConfig.imageRatio,
+                      imageStyle: generationConfig.imageStyle,
+                      pdfMode: generationConfig.pdfMode,
+                      pdfRatio: generationConfig.pdfRatio,
+                      pdfContentType: generationConfig.pdfContentType,
+                    }}
+                    onChange={handleConfigChange}
+                    disabled={lockFields || generationConfig.productCount === 0}
+                    aiKeyAvailable={aiKeyAvailable}
+                  />
+                </div>
+              </div>
+
+              <div className="col-lg-6 pl-lg-5">
+                <h3
+                  className={`sheet-title mb-4 ${generationConfig.productCount === 0 ? 'text-muted' : ''}`}
+                  style={{ fontSize: '1rem' }}
+                >
+                  Inventory Strategy
+                </h3>
+                <WarehousesToggle
+                  productCount={generationConfig.productCount}
+                  values={{
+                    createWarehouses: generationConfig.createWarehouses,
+                    reuseExistingWarehouses:
+                      generationConfig.reuseExistingWarehouses,
+                    warehouseCount: generationConfig.warehouseCount,
+                  }}
+                  onChange={handleConfigChange}
+                  disabled={lockFields || generationConfig.productCount === 0}
+                />
+
+                {generationConfig.createWarehouses && (
+                  <div className="mt-3">
+                    <InventoryControls
+                      productCount={generationConfig.productCount}
+                      inventoryMin={generationConfig.inventoryMin}
+                      inventoryMax={generationConfig.inventoryMax}
+                      inventoryAssignmentRatio={
+                        generationConfig.inventoryAssignmentRatio
+                      }
+                      enableBackorders={generationConfig.enableBackorders}
+                      backorderAssignmentRatio={
+                        generationConfig.backorderAssignmentRatio
+                      }
+                      onChange={handleConfigChange}
+                      disabled={
+                        lockFields || generationConfig.productCount === 0
+                      }
+                      validationErrors={validationErrors}
+                    />
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {!generationConfig.demoMode && (
+              <div className="mt-4 p-3 bg-light rounded d-flex justify-content-between align-items-center">
+                <span className="font-weight-semi-bold">
+                  <ClayIcon symbol="coin" className="mr-2 text-warning" />
+                  Estimated Generation Cost
+                </span>
+                <div className="text-right">
+                  <span className="h4 mb-0 d-block">
+                    ${estimatedCost.total.toFixed(2)}
+                  </span>
+                  {estimatedCost.breakdown.length > 0 && (
+                    <small
+                      className="text-muted d-block"
+                      style={{ fontSize: '0.75rem' }}
+                    >
+                      {estimatedCost.breakdown.join(' | ')}
+                    </small>
+                  )}
+                </div>
               </div>
             )}
-          </div>
-        </div>
-
-        {!generationConfig.demoMode && (
-          <div className="mt-4 p-3 bg-light rounded d-flex justify-content-between align-items-center">
-            <span className="font-weight-semi-bold">
-              <ClayIcon symbol="coin" className="mr-2 text-warning" />
-              Estimated Generation Cost
-            </span>
-            <div className="text-right">
-              <span className="h4 mb-0 d-block">
-                ${estimatedCost.total.toFixed(2)}
-              </span>
-              {estimatedCost.breakdown.length > 0 && (
-                <small
-                  className="text-muted d-block"
-                  style={{ fontSize: '0.75rem' }}
-                >
-                  {estimatedCost.breakdown.join(' | ')}
-                </small>
-              )}
-            </div>
-          </div>
+          </>
         )}
 
         <div className="mt-4">

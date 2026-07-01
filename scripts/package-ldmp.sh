@@ -27,16 +27,7 @@ STAGING_DIR="./ldm_staging"
 rm -rf "$STAGING_DIR"
 mkdir -p "$STAGING_DIR"
 
-# 2. Write the manifest meta file
-echo "📄 Generating manifest 'meta' file..."
-cat <<EOF > "${STAGING_DIR}/meta"
-tag=${LIFERAY_TAG}
-db_type=${DB_TYPE}
-github_repository=${GIT_REPO}
-includes_database=true
-includes_volume_assets=true
-includes_client_extensions=true
-EOF
+# 2. Manifest generation is deferred until staging files are collected.
 
 # 3. Dump your Database state from the running postgres container
 echo "💾 Dumping PostgreSQL database state..."
@@ -79,18 +70,76 @@ else
   touch "${STAGING_DIR}/database.sql"
 fi
 
-# 4. Package directory assets (document_library)
-echo "📂 Archiving volume assets (document_library)..."
+# 4. Package directory assets (document_library) and compiled code
+echo "📂 Archiving volume assets and deployments..."
+FILES_STAGING="${STAGING_DIR}/files_staging"
+mkdir -p "${FILES_STAGING}/deploy"
+mkdir -p "${FILES_STAGING}/data"
+mkdir -p "${FILES_STAGING}/client-extensions"
+
+# Copy document library
 if [ -d "bundles/data/document_library" ]; then
-  tar -czf "${STAGING_DIR}/files.tar.gz" -C bundles/data document_library
+  cp -r "bundles/data/document_library" "${FILES_STAGING}/data/"
+  echo "✅ Copied document_library to staging."
+else
+  echo "⚠️  WARNING: 'bundles/data/document_library' not found."
+fi
+
+# Copy compiled client extensions and modules
+find client-extensions -name "*.zip" \( -path "*/dist/*" -o -path "*/build/*" \) -exec cp {} "${FILES_STAGING}/client-extensions/" \; 2>/dev/null || true
+find modules -name "*.jar" -path "*/build/libs/*" -exec cp {} "${FILES_STAGING}/deploy/" \; 2>/dev/null || true
+
+# Archive files_staging into files.tar.gz
+if [ -d "${FILES_STAGING}/data/document_library" ] || [ "$(ls -A "${FILES_STAGING}/deploy" 2>/dev/null)" ] || [ "$(ls -A "${FILES_STAGING}/client-extensions" 2>/dev/null)" ]; then
+  tar -czf "${STAGING_DIR}/files.tar.gz" -C "${FILES_STAGING}" .
   files_sha=$(calculate_sha256 "${STAGING_DIR}/files.tar.gz")
   echo "${files_sha}" > "${STAGING_DIR}/files.tar.gz.sha256"
-  echo "✅ Volume assets archived successfully."
+  echo "✅ Staged files archived successfully."
 else
-  echo "⚠️  WARNING: 'bundles/data/document_library' not found. Creating empty volume assets."
+  echo "⚠️  WARNING: No staged assets found. Creating empty volume assets."
   touch "${STAGING_DIR}/files.tar.gz"
   echo "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855" > "${STAGING_DIR}/files.tar.gz.sha256"
 fi
+
+# 4.5. Generate manifest 'meta' file with dynamic metadata
+echo "📄 Generating manifest 'meta' file..."
+cx_list=""
+if [ -d "${FILES_STAGING}/client-extensions" ]; then
+  for f in "${FILES_STAGING}/client-extensions"/*; do
+    if [ -f "$f" ]; then
+      cx_list="${cx_list:+${cx_list},}$(basename "$f")"
+    fi
+  done
+fi
+
+modules_list=""
+if [ -d "${FILES_STAGING}/deploy" ]; then
+  for f in "${FILES_STAGING}/deploy"/*; do
+    if [ -f "$f" ]; then
+      modules_list="${modules_list:+${modules_list},}$(basename "$f")"
+    fi
+  done
+fi
+
+active_services="liferay"
+if [ -n "${DB_CONTAINER}" ]; then
+  active_services="liferay,${DB_CONTAINER}"
+fi
+
+cat <<EOF > "${STAGING_DIR}/meta"
+tag=${LIFERAY_TAG}
+db_type=${DB_TYPE}
+github_repository=${GIT_REPO}
+includes_database=true
+includes_volume_assets=true
+includes_client_extensions=true
+includes_osgi_modules=true
+client_extensions=${cx_list}
+osgi_modules=${modules_list}
+active_services=${active_services}
+EOF
+
+rm -rf "${FILES_STAGING}"
 
 # 5. Compress the staging directory into the final .ldmp package
 echo "📦 Compressing staging directory into ${PROJECT_ID}.ldmp..."

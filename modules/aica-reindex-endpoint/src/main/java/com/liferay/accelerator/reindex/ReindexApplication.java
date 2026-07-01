@@ -3,7 +3,7 @@ package com.liferay.accelerator.reindex;
 import java.util.Collections;
 import java.util.Set;
 
-import javax.ws.rs.core.Application;
+import jakarta.ws.rs.core.Application;
 
 import org.osgi.service.component.annotations.Component;
 import org.osgi.service.jaxrs.whiteboard.JaxrsWhiteboardConstants;

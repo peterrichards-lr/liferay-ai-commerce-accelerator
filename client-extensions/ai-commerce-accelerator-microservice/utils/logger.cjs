@@ -1,6 +1,7 @@
 const fs = require('fs');
 const path = require('path');
 const util = require('util');
+const EventEmitter = require('events');
 
 const { ENV } = require('./constants.cjs');
 
@@ -30,8 +31,9 @@ const COLORS = {
   RESET: '\x1b[0m', // Reset
 };
 
-class Logger {
+class Logger extends EventEmitter {
   constructor() {
+    super();
     this.logFile = path.join(logsDir, 'app.log');
     this.loggingLevel = this.determineLoggingLevel(ENV.LOGGER_LEVEL);
   }
@@ -149,6 +151,17 @@ class Logger {
     const timestamp = this._nowIso();
     const jsonLine = this._asJsonLine(level, message, timestamp, meta);
     this._writeToFile(jsonLine);
+
+    try {
+      this.emit('log', {
+        level: level.toUpperCase(),
+        message: typeof message === 'string' ? message : util.inspect(message),
+        timestamp,
+        correlationId: meta.correlationId || 'system',
+      });
+    } catch (emitError) {
+      console.error('Failed to emit log event:', emitError.message);
+    }
 
     const out =
       level === 'ERROR' || level === 'WARN' ? process.stderr : process.stdout;
