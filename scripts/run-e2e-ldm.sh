@@ -397,7 +397,11 @@ else
         docker exec -u 0 "$PROJECT_NAME" chown -R liferay:liferay /opt/liferay/osgi/client-extensions /opt/liferay/deploy || true
         docker exec -u 0 "$PROJECT_NAME" chmod -R 755 /opt/liferay/osgi/client-extensions /opt/liferay/deploy || true
         # Force Liferay's OSGi file install/deployer to re-process files after permissions update
-        docker exec -u 0 "$PROJECT_NAME" touch /opt/liferay/osgi/client-extensions/*.zip /opt/liferay/deploy/*.zip 2>/dev/null || true
+        for art in $ARTIFACTS; do
+            basename_art=$(basename "$art")
+            docker exec -u 0 "$PROJECT_NAME" touch "/opt/liferay/osgi/client-extensions/$basename_art" 2>/dev/null || true
+            docker exec -u 0 "$PROJECT_NAME" touch "/opt/liferay/deploy/$basename_art" 2>/dev/null || true
+        done
     fi
     
     # If the project was already running, give OSGi hot-deployer 25s to refresh import maps
