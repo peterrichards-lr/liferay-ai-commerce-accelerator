@@ -381,6 +381,13 @@ else
     # shellcheck disable=SC2086
     ldm_cmd deploy "$PROJECT_NAME" $ARTIFACTS
     
+    # Fix client extension permissions inside the container on Linux host/CI runners
+    if [ "$CI_MODE" -eq 1 ] || [ "$(uname)" == "Linux" ]; then
+        echo "🔧 Fixing client extension file permissions inside the container..."
+        docker exec -u 0 "$PROJECT_NAME" chown -R liferay:liferay /opt/liferay/osgi/client-extensions /opt/liferay/deploy || true
+        docker exec -u 0 "$PROJECT_NAME" chmod -R 755 /opt/liferay/osgi/client-extensions /opt/liferay/deploy || true
+    fi
+    
     # If the project was already running, give OSGi hot-deployer 25s to refresh import maps
     if [ $EXISTING_PROJECT -eq 1 ]; then
         write_signal "WAITING_HEALTHY"
