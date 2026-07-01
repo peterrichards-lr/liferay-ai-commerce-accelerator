@@ -1054,7 +1054,7 @@
 
 "@liferay/accelerator-sdk@git+https://github.com/peterrichards-lr/liferay-accelerator-sdk.git#main":
   version "0.1.0"
-  resolved "git+https://github.com/peterrichards-lr/liferay-accelerator-sdk.git#b2116d6e87c61b548a38708a0efb15a79d205055"
+  resolved "git+https://github.com/peterrichards-lr/liferay-accelerator-sdk.git#6acbfbc84dd38d055f37dfa1326e43e34271b0f1"
   dependencies:
     "@modelcontextprotocol/sdk" "^1.29.0"
     "@rotty3000/config-node" "^0.4.1"
@@ -2545,6 +2545,11 @@ csstype@^3.0.2, csstype@^3.2.2:
   version "3.2.3"
   resolved "https://registry.npmjs.org/csstype/-/csstype-3.2.3.tgz"
   integrity sha512-z1HGKcYy2xA8AGQfwrn0PAy+PB7X/GSj3UVJW9qKyn43xWa+gl5nXmU4qqLMRzWVLFC8KusUX8T/0kCiOYpAIQ==
+
+csv-parse@^5.5.6:
+  version "5.6.0"
+  resolved "https://registry.yarnpkg.com/csv-parse/-/csv-parse-5.6.0.tgz#219beace2a3e9f28929999d2aa417d3fb3071c7f"
+  integrity sha512-l3nz3euub2QMg5ouu5U09Ew9Wf6/wQ8I++ch1loQ0ljmzhmfZYrH9fflS22i/PQEvsPvxCwxgz5q7UB8K1JO4Q==
 
 csv-parse@^7.0.0:
   version "7.0.0"

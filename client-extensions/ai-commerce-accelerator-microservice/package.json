@@ -44,11 +44,11 @@
   "version": "1.0.0",
   "devDependencies": {
     "@eslint/js": "10.0.1",
+    "@vitest/coverage-v8": "4.1.9",
     "eslint": "10.6.0",
     "graphql": "^17.0.1",
     "msw": "^2.14.6",
     "prettier": "^3.9.1",
-    "vitest": "4.1.9",
-    "@vitest/coverage-v8": "4.1.9"
+    "vitest": "4.1.9"
   }
 }

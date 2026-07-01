@@ -189,11 +189,10 @@ if [ $EXISTING_PROJECT -eq 1 ]; then
     TARGET_HOST=$(echo "$TARGET_URL" | sed -E 's/https?:\/\///' | cut -d':' -f1)
 else
     TARGET_HOST="$DEFAULT_HOST"
-    if [ $NO_SSL -eq 1 ]; then
-        TARGET_URL="http://$TARGET_HOST"
-    else
-        TARGET_URL="https://$TARGET_HOST"
-    fi
+    # Even if NO_SSL is set, Traefik proxy still listens on port 443 using self-signed fallback
+    # certificates, and Liferay database configuration requires/enforces HTTPS protocol.
+    # Therefore, TARGET_URL must always use HTTPS.
+    TARGET_URL="https://$TARGET_HOST"
 fi
 
 LDM_SSL_FLAG=""
@@ -329,6 +328,15 @@ if [ $EXISTING_PROJECT -eq 0 ]; then
         --no-run \
         $LDM_SSL_FLAG
 
+    # Sync OSGi modules built by Gradle into the LDM staging directory
+    if [ -d "bundles/osgi/modules" ]; then
+        echo "🔄 Syncing built OSGi modules to LDM modules directory..."
+        mkdir -p "$PROJECT_NAME/osgi/modules"
+        cp bundles/osgi/modules/*.jar "$PROJECT_NAME/osgi/modules/" 2>/dev/null || true
+        # Remove the legacy JAX-RS 2.x reindex endpoint bundle to prevent conflicts
+        rm -f "$PROJECT_NAME/osgi/modules/com.liferay.accelerator.reindex.endpoint-1.0.0.jar"
+    fi
+
     write_signal "STARTING"
     echo "⚡ Starting Liferay container with tag [$LIFERAY_TAG] (Detached + Sidecar)..."
     # LDM 2.7.12+ automatically:
@@ -348,6 +356,15 @@ if [ $EXISTING_PROJECT -eq 0 ]; then
 
 else
     echo "⏭️  Skipping initialization/boot for existing project '$PROJECT_NAME'."
+
+    # Sync OSGi modules to the LDM staging directory for hot-deploy
+    if [ -d "bundles/osgi/modules" ]; then
+        echo "🔄 Syncing built OSGi modules to LDM modules directory for hot-deploy..."
+        mkdir -p "$PROJECT_NAME/osgi/modules"
+        cp bundles/osgi/modules/*.jar "$PROJECT_NAME/osgi/modules/" 2>/dev/null || true
+        # Remove the legacy JAX-RS 2.x reindex endpoint bundle to prevent conflicts
+        rm -f "$PROJECT_NAME/osgi/modules/com.liferay.accelerator.reindex.endpoint-1.0.0.jar"
+    fi
 fi
 
 # --- Phase 4: Sync & Wait ---
