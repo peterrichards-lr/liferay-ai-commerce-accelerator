@@ -4,6 +4,12 @@
   "memory": 1024,
   "cpu": 1,
   "scale": 1,
+  "ports": [
+    {
+      "port": 3001,
+      "external": true
+    }
+  ],
   "livenessProbe": {
     "httpGet": {
       "path": "/api/v1/health",
