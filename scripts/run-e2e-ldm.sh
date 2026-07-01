@@ -342,6 +342,7 @@ if [ $EXISTING_PROJECT -eq 0 ]; then
     echo "🔄 Syncing built client extensions to LDM staging directory..."
     mkdir -p "$PROJECT_NAME/osgi/client-extensions"
     find client-extensions -name "*.zip" -path "*/dist/*" -exec cp {} "$PROJECT_NAME/osgi/client-extensions/" \; 2>/dev/null || true
+    chmod -R 777 "$PROJECT_NAME" 2>/dev/null || true
 
     write_signal "STARTING"
     echo "⚡ Starting Liferay container with tag [$LIFERAY_TAG] (Detached + Sidecar)..."
@@ -376,6 +377,7 @@ else
     echo "🔄 Syncing built client extensions to LDM staging directory for hot-deploy..."
     mkdir -p "$PROJECT_NAME/osgi/client-extensions"
     find client-extensions -name "*.zip" -path "*/dist/*" -exec cp {} "$PROJECT_NAME/osgi/client-extensions/" \; 2>/dev/null || true
+    chmod -R 777 "$PROJECT_NAME" 2>/dev/null || true
 fi
 
 # --- Phase 4: Sync & Wait ---
@@ -394,13 +396,16 @@ else
     # Fix client extension permissions inside the container on Linux host/CI runners
     if [ "$CI_MODE" -eq 1 ] || [ "$(uname)" == "Linux" ]; then
         echo "🔧 Fixing client extension file permissions inside the container..."
+        # Set 777 permissions on the host directories to bypass UID mapping limitations
+        chmod -R 777 "$PROJECT_NAME" 2>/dev/null || true
         docker exec -u 0 "$PROJECT_NAME" chown -R liferay:liferay /opt/liferay/osgi/client-extensions /opt/liferay/deploy || true
-        docker exec -u 0 "$PROJECT_NAME" chmod -R 755 /opt/liferay/osgi/client-extensions /opt/liferay/deploy || true
-        # Force Liferay's OSGi file install/deployer to re-process files after permissions update
+        docker exec -u 0 "$PROJECT_NAME" chmod -R 777 /opt/liferay/osgi/client-extensions /opt/liferay/deploy || true
+        # Force Liferay's OSGi file install/deployer to re-process files after permissions update.
+        # We use 'touch -c' (no-create) to avoid creating empty literal files if they do not exist.
         for art in $ARTIFACTS; do
             basename_art=$(basename "$art")
-            docker exec -u 0 "$PROJECT_NAME" touch "/opt/liferay/osgi/client-extensions/$basename_art" 2>/dev/null || true
-            docker exec -u 0 "$PROJECT_NAME" touch "/opt/liferay/deploy/$basename_art" 2>/dev/null || true
+            docker exec -u 0 "$PROJECT_NAME" touch -c "/opt/liferay/osgi/client-extensions/$basename_art" 2>/dev/null || true
+            docker exec -u 0 "$PROJECT_NAME" touch -c "/opt/liferay/deploy/$basename_art" 2>/dev/null || true
         done
     fi
     
