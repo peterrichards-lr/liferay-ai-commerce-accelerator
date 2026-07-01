@@ -125,6 +125,9 @@ Migrate Reindex OSGi module to JAX-RS 3.x (jakarta.ws.rs) for DXP 2026.q1 (Issue
 - Identified that the E2E verification workflow run in GitHub Actions failed at the Custom Objects publication wait because the E2E script was recently changed to force `TARGET_URL` to `https` even when `--no-ssl` is passed. Without SSL/TLS certificates configured on the Ubuntu runner, Traefik doesn't set up the HTTPS entry point, resulting in immediate 404s for the custom objects check. [Completed]
 - Configured the E2E script to utilize the new `ldm wait -d` (--wait-for-deployables) option. This blocks the boot process until Liferay has successfully registered and activated all local workspace OSGi modules and client extensions (including the custom objects batch files), providing a second layer of safety before E2E testing starts. [Completed]
 - Identified that on Linux/CI host environments, artifacts deployed using `ldm deploy` (which runs `docker cp`) are copied into the container with root ownership and owner-only permissions. Since Liferay runs as the `liferay` user (UID 1000), it lacks read permissions to access the deployed client extension zip files, causing deployments to be silently ignored. Added post-deployment permissions fix (`chown` and `chmod` via `docker exec`) to ensure Liferay can read and process the extensions. [Completed]
+- Aligned LCP.json ID with folder name `ai-commerce-accelerator-microservice` and updated classification type to `customElement` to bypass configuration validation warnings. [Completed]
+- Installed `git` and `build-essential` package inside Dockerfile via apt-get to enable Node runner image to build C++ native modules like `better-sqlite3` and fetch Git dependencies. [Completed]
+- Created and pushed Git tag `v3.3.13` from `feat/metadata-and-contracts` branch to trigger LDM Package Release (.ldmp) pipeline. [Completed]
 
 ## Secrets Leak Prevention (JS-Native Secrets Sentinel)
 
