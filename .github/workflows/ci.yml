@@ -98,8 +98,11 @@ jobs:
       - name: Install Playwright Browsers
         run: npx playwright install --with-deps chromium
 
+      - name: Install mkcert & NSS (for LDM SSL)
+        run: sudo apt-get update && sudo apt-get install -y mkcert libnss3-tools
+
       - name: Run E2E Verification (LDM)
-        run: bash scripts/run-e2e-ldm.sh --ci --no-ssl
+        run: bash scripts/run-e2e-ldm.sh --ci
         env:
           LIFERAY_USER: ${{ secrets.LIFERAY_USER }}
           LIFERAY_PASSWORD: ${{ secrets.LIFERAY_PASSWORD }}
