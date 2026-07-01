@@ -108,6 +108,10 @@ jobs:
       - name: Install Playwright Browsers
         run: npx playwright install --with-deps chromium
 
+      - name: Rebuild native modules
+        run: |
+          yarn workspace @liferay/liferay-ai-commerce-accelerator-microservice run pretest
+
       - name: Install mkcert & NSS (for LDM SSL)
         run: sudo apt-get update && sudo apt-get install -y mkcert libnss3-tools
 
