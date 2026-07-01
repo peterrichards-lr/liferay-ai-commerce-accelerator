@@ -86,10 +86,7 @@ else
 fi
 
 # Copy compiled client extensions and modules
-if [ -d "bundles/osgi/client-extensions" ]; then
-  find bundles/osgi/client-extensions -name "*.zip" -exec cp {} "${FILES_STAGING}/client-extensions/" \; 2>/dev/null || true
-fi
-find client-extensions -name "*.zip" -maxdepth 2 -exec cp {} "${FILES_STAGING}/client-extensions/" \; 2>/dev/null || true
+find client-extensions -name "*.zip" \( -path "*/dist/*" -o -path "*/build/libs/*" \) -exec cp {} "${FILES_STAGING}/client-extensions/" \; 2>/dev/null || true
 find modules -name "*.jar" -path "*/build/libs/*" -exec cp {} "${FILES_STAGING}/deploy/" \; 2>/dev/null || true
 
 # Archive files_staging into files.tar.gz
