@@ -43,6 +43,9 @@ jobs:
       - name: Gather Artifacts
         run: |
           mkdir -p release-artifacts
+          if [ -d "bundles/osgi/client-extensions" ]; then
+            find bundles/osgi/client-extensions -name "*.zip" -exec cp {} release-artifacts/ \;
+          fi
           find client-extensions -name "*.zip" -maxdepth 2 -exec cp {} release-artifacts/ \;
           ls -la release-artifacts/
 
