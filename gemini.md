@@ -186,3 +186,24 @@ Failure to provide these flags will cause the execution to silently hang while w
 
 - **For LDM commands:** Always append `-y` (e.g., `ldm down -y`, `ldm rm aica -y --delete`).
 - **For Orchestration Scripts:** Always append `--ci` (e.g., `bash scripts/run-e2e-ldm.sh -v -k --ci`) to instruct the script to bypass its own interactive prompts and pass `-y` to underlying LDM commands.
+
+## Findings and Lessons Learned
+
+### 1. Client Extension Build Output Directories
+
+- **Finding:** Liferay client extensions in a Liferay Workspace can compile their packaged zip files to different destination folders. Vite/Node client extensions output to `dist/`, whereas Java/OSGi-based client extensions (like `ai-commerce-accelerator-site-initializer` and `ai-commerce-accelerator-batch`) output to `build/distributions/`, `build/liferay-client-extension-build/`, or `build/libs/`.
+- **Lesson:** Restrictive search paths like `build/libs/*` will fail to discover essential extensions (such as the Site Initializer). Always use a broad path filter like `*/build/*` or `*/dist/*` to capture all built client extensions in the workspace:
+
+  ```bash
+  find client-extensions -name "*.zip" \( -path "*/dist/*" -o -path "*/build/*" \)
+  ```
+
+### 2. Subdomain Cross-Origin Session & OAuth Cookies
+
+- **Finding:** Frontend custom element and configuration client extensions are hosted on independent subdomains (e.g., `aicommerceacceleratorfrontend.aica-e2e.local`). Under plain HTTP (`--no-ssl`), session cookies, CORS headers, and OAuth token exchanges between Liferay DXP and subdomains are blocked or rejected.
+- **Lesson:** E2E verification test suites verifying custom element extensions across subdomains **must** run over HTTPS. Ensure the runner installs `mkcert` and `libnss3-tools` and runs LDM without `--no-ssl` to configure proper SSL certificates:
+
+  ```yaml
+  - name: Install mkcert & NSS (for LDM SSL)
+    run: sudo apt-get update && sudo apt-get install -y mkcert libnss3-tools
+  ```
