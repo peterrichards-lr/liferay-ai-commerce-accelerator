@@ -341,7 +341,7 @@ if [ $EXISTING_PROJECT -eq 0 ]; then
     # Sync client extensions built by Gradle/yarn into the LDM staging directory
     echo "🔄 Syncing built client extensions to LDM staging directory..."
     mkdir -p "$PROJECT_NAME/osgi/client-extensions"
-    find client-extensions -name "*.zip" \( -path "*/dist/*" -o -path "*/build/libs/*" \) -exec cp {} "$PROJECT_NAME/osgi/client-extensions/" \; 2>/dev/null || true
+    find client-extensions -name "*.zip" \( -path "*/dist/*" -o -path "*/build/*" \) -exec cp {} "$PROJECT_NAME/osgi/client-extensions/" \; 2>/dev/null || true
     chmod -R 777 "$PROJECT_NAME" 2>/dev/null || true
 
     write_signal "STARTING"
@@ -376,14 +376,14 @@ else
     # Sync client extensions to the LDM staging directory for hot-deploy
     echo "🔄 Syncing built client extensions to LDM staging directory for hot-deploy..."
     mkdir -p "$PROJECT_NAME/osgi/client-extensions"
-    find client-extensions -name "*.zip" \( -path "*/dist/*" -o -path "*/build/libs/*" \) -exec cp {} "$PROJECT_NAME/osgi/client-extensions/" \; 2>/dev/null || true
+    find client-extensions -name "*.zip" \( -path "*/dist/*" -o -path "*/build/*" \) -exec cp {} "$PROJECT_NAME/osgi/client-extensions/" \; 2>/dev/null || true
     chmod -R 777 "$PROJECT_NAME" 2>/dev/null || true
 fi
 
 # --- Phase 4: Sync & Wait ---
 
 # Find all client extension ZIPs in dist or build/libs folders
-ARTIFACTS=$(find client-extensions -name "*.zip" \( -path "*/dist/*" -o -path "*/build/libs/*" \) 2>/dev/null)
+ARTIFACTS=$(find client-extensions -name "*.zip" \( -path "*/dist/*" -o -path "*/build/*" \) 2>/dev/null)
 
 if [ -z "$ARTIFACTS" ]; then
     echo "⚠️  WARNING: No artifacts found to deploy. Did the build fail?"
