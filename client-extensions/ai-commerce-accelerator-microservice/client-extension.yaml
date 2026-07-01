@@ -1,13 +1,9 @@
-ai-commerce-accelerator-microservice:
-  name: AI Commerce Accelerator Microservice
-  type: microservice
-
 assemble:
   - include:
       - '**/*.cjs'
       - package.json
 liferay-ai-commerce-accelerator-microservice-oauth-application-headless-server:
-  .serviceAddress: aicommerceacceleratormicroservice:3001
+  .serviceAddress: localhost:3001
   .serviceScheme: http
   name: Liferay AI Commerce Accelerator OAuth Application Headless Server
   scopes:
