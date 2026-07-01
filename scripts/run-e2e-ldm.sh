@@ -392,7 +392,7 @@ fi
 write_signal "WAITING_HEALTHY"
 echo "⏳ Waiting for Liferay to be ready at $TARGET_URL..."
 # LDM 2.7.12+ wait command blocks until the HTTP layer is responsive
-if ! ldm_cmd wait "$PROJECT_NAME" --timeout 1800; then
+if ! ldm_cmd wait "$PROJECT_NAME" -d --timeout 1800; then
     echo -e "\n❌ ERROR: Liferay failed to become ready within 30 minutes."
     ldm_cmd logs "$PROJECT_NAME" --tail 100
     exit 1
