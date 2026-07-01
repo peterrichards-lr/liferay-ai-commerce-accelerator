@@ -67,7 +67,6 @@ log(`Referencing commit: ${commitHash}`, 'info');
 
 // Create Epic
 log(`\nCreating Epic: "${config.title}"...`, 'info');
-let epicUrl = 'https://github.com/mock/issue/123';
 let epicNumber = '123';
 
 const epicLabels = (config.labels || []).map((l) => `--label "${l}"`).join(' ');
@@ -77,7 +76,7 @@ const epicCommand =
 if (dryRun) {
   log(`[DRY RUN] Would execute: ${epicCommand}`, 'success');
 } else {
-  epicUrl = execSync(epicCommand, { encoding: 'utf8' }).trim();
+  const epicUrl = execSync(epicCommand, { encoding: 'utf8' }).trim();
   epicNumber = epicUrl.split('/').pop();
   log(
     `Epic created successfully: Issue #${epicNumber} (${epicUrl})`,
@@ -99,17 +98,14 @@ if (config.issues && config.issues.length > 0) {
     const issueCommand =
       `gh issue create --title "${issue.title}" --body "${bodyText}" ${issueLabels}`.trim();
 
-    let subIssueUrl = 'https://github.com/mock/issue/456';
-    let subIssueNumber = '456';
-
     if (dryRun) {
       log(`[DRY RUN] Would execute: ${issueCommand}`, 'success');
       if (issue.completed) {
         log(`[DRY RUN] Would comment and close sub-issue.`, 'success');
       }
     } else {
-      subIssueUrl = execSync(issueCommand, { encoding: 'utf8' }).trim();
-      subIssueNumber = subIssueUrl.split('/').pop();
+      const subIssueUrl = execSync(issueCommand, { encoding: 'utf8' }).trim();
+      const subIssueNumber = subIssueUrl.split('/').pop();
       log(
         `Sub-issue created: Issue #${subIssueNumber} (${subIssueUrl})`,
         'success'

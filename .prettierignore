@@ -11,4 +11,4 @@ test-results/
 # Ignore Site Initializer assets (Zips, raw Freemarker HTML, layouts, style books)
 client-extensions/ai-commerce-accelerator-site-initializer/site-initializer/
 client-extensions/ai-commerce-accelerator-batch/batch/
-coverage/
+**/coverage/

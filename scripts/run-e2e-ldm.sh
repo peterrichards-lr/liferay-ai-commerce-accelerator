@@ -329,6 +329,21 @@ if [ $EXISTING_PROJECT -eq 0 ]; then
         --no-run \
         $LDM_SSL_FLAG
 
+    # Sync OSGi modules built by Gradle into the LDM staging directory
+    if [ -d "bundles/osgi/modules" ]; then
+        echo "🔄 Syncing built OSGi modules to LDM modules directory..."
+        mkdir -p "$PROJECT_NAME/osgi/modules"
+        cp bundles/osgi/modules/*.jar "$PROJECT_NAME/osgi/modules/" 2>/dev/null || true
+        # Remove the legacy JAX-RS 2.x reindex endpoint bundle to prevent conflicts
+        rm -f "$PROJECT_NAME/osgi/modules/com.liferay.accelerator.reindex.endpoint-1.0.0.jar"
+    fi
+
+    # Sync client extensions built by Gradle/yarn into the LDM staging directory
+    echo "🔄 Syncing built client extensions to LDM staging directory..."
+    mkdir -p "$PROJECT_NAME/osgi/client-extensions"
+    find client-extensions -name "*.zip" \( -path "*/dist/*" -o -path "*/build/*" \) -exec cp {} "$PROJECT_NAME/osgi/client-extensions/" \; 2>/dev/null || true
+    chmod -R 777 "$PROJECT_NAME" 2>/dev/null || true
+
     write_signal "STARTING"
     echo "⚡ Starting Liferay container with tag [$LIFERAY_TAG] (Detached + Sidecar)..."
     # LDM 2.7.12+ automatically:
@@ -348,12 +363,27 @@ if [ $EXISTING_PROJECT -eq 0 ]; then
 
 else
     echo "⏭️  Skipping initialization/boot for existing project '$PROJECT_NAME'."
+
+    # Sync OSGi modules to the LDM staging directory for hot-deploy
+    if [ -d "bundles/osgi/modules" ]; then
+        echo "🔄 Syncing built OSGi modules to LDM modules directory for hot-deploy..."
+        mkdir -p "$PROJECT_NAME/osgi/modules"
+        cp bundles/osgi/modules/*.jar "$PROJECT_NAME/osgi/modules/" 2>/dev/null || true
+        # Remove the legacy JAX-RS 2.x reindex endpoint bundle to prevent conflicts
+        rm -f "$PROJECT_NAME/osgi/modules/com.liferay.accelerator.reindex.endpoint-1.0.0.jar"
+    fi
+
+    # Sync client extensions to the LDM staging directory for hot-deploy
+    echo "🔄 Syncing built client extensions to LDM staging directory for hot-deploy..."
+    mkdir -p "$PROJECT_NAME/osgi/client-extensions"
+    find client-extensions -name "*.zip" \( -path "*/dist/*" -o -path "*/build/*" \) -exec cp {} "$PROJECT_NAME/osgi/client-extensions/" \; 2>/dev/null || true
+    chmod -R 777 "$PROJECT_NAME" 2>/dev/null || true
 fi
 
 # --- Phase 4: Sync & Wait ---
 
-# Find all client extension ZIPs in dist folders
-ARTIFACTS=$(find client-extensions -name "*.zip" -path "*/dist/*")
+# Find all client extension ZIPs in dist or build/libs folders
+ARTIFACTS=$(find client-extensions -name "*.zip" \( -path "*/dist/*" -o -path "*/build/*" \) 2>/dev/null)
 
 if [ -z "$ARTIFACTS" ]; then
     echo "⚠️  WARNING: No artifacts found to deploy. Did the build fail?"
@@ -362,6 +392,22 @@ else
     # LDM deploy uses the 'Atomic Move' pattern by default since v2.7.6
     # shellcheck disable=SC2086
     ldm_cmd deploy "$PROJECT_NAME" $ARTIFACTS
+    
+    # Fix client extension permissions inside the container on Linux host/CI runners
+    if [ "$CI_MODE" -eq 1 ] || [ "$(uname)" == "Linux" ]; then
+        echo "🔧 Fixing client extension file permissions inside the container..."
+        # Set 777 permissions on the host directories to bypass UID mapping limitations
+        chmod -R 777 "$PROJECT_NAME" 2>/dev/null || true
+        docker exec -u 0 "$PROJECT_NAME" chown -R liferay:liferay /opt/liferay/osgi/client-extensions /opt/liferay/deploy || true
+        docker exec -u 0 "$PROJECT_NAME" chmod -R 777 /opt/liferay/osgi/client-extensions /opt/liferay/deploy || true
+        # Force Liferay's OSGi file install/deployer to re-process files after permissions update.
+        # We use 'touch -c' (no-create) to avoid creating empty literal files if they do not exist.
+        for art in $ARTIFACTS; do
+            basename_art=$(basename "$art")
+            docker exec -u 0 "$PROJECT_NAME" touch -c "/opt/liferay/osgi/client-extensions/$basename_art" 2>/dev/null || true
+            docker exec -u 0 "$PROJECT_NAME" touch -c "/opt/liferay/deploy/$basename_art" 2>/dev/null || true
+        done
+    fi
     
     # If the project was already running, give OSGi hot-deployer 25s to refresh import maps
     if [ $EXISTING_PROJECT -eq 1 ]; then
@@ -374,7 +420,7 @@ fi
 write_signal "WAITING_HEALTHY"
 echo "⏳ Waiting for Liferay to be ready at $TARGET_URL..."
 # LDM 2.7.12+ wait command blocks until the HTTP layer is responsive
-if ! ldm_cmd wait "$PROJECT_NAME" --timeout 1800; then
+if ! ldm_cmd wait "$PROJECT_NAME" -d --timeout 1800; then
     echo -e "\n❌ ERROR: Liferay failed to become ready within 30 minutes."
     ldm_cmd logs "$PROJECT_NAME" --tail 100
     exit 1

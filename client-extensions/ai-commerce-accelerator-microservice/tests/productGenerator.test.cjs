@@ -42,6 +42,21 @@ describe('ProductGenerator', () => {
         getImportTask: vi
           .fn()
           .mockResolvedValue({ executeStatus: 'COMPLETED' }),
+        getTaxonomyVocabularies: vi
+          .fn()
+          .mockResolvedValue([{ id: 101, name: 'Category' }]),
+        getTaxonomyCategories: vi.fn().mockResolvedValue([
+          {
+            id: 201,
+            name: 'Electronics',
+            externalReferenceCode: 'CAT-ELECTRONICS',
+          },
+        ]),
+        createTaxonomyCategory: vi.fn().mockResolvedValue({
+          id: 202,
+          name: 'Books',
+          externalReferenceCode: 'CAT-BOOKS',
+        }),
       },
       progress: {
         sessionStarted: vi.fn(),
@@ -140,5 +155,39 @@ describe('ProductGenerator', () => {
     const batches = persistence.getBatchesForSession(sessionId);
     expect(batches.length).toBeGreaterThan(0);
     expect(mockCtx.liferay.createProductsBatch).toHaveBeenCalled();
+  });
+
+  it('should handle ensure categories step', async () => {
+    const sessionId = 'test-session-categories';
+    persistence.createSession({
+      sessionId,
+      flowType: 'generate',
+      status: 'STARTED',
+      context: {
+        config: { catalogId: '123', siteGroupId: '456', localeCode: 'en-US' },
+        options: { productCount: 2 },
+        productDataList: [
+          {
+            name: 'Test Product',
+            category: { en_US: 'Books' },
+            externalReferenceCode: 'T1',
+          },
+          {
+            name: 'Another Product',
+            category: { en_US: 'Electronics' },
+            externalReferenceCode: 'T2',
+          },
+        ],
+      },
+    });
+
+    await generator._runEnsureCategoriesStep(sessionId);
+
+    const session = persistence.getSession(sessionId);
+    const pdList = session.context.productDataList;
+
+    expect(pdList[0].categories).toEqual([202]); // Created category 'Books' (mock returns 202)
+    expect(pdList[1].categories).toEqual([201]); // Reused category 'Electronics' (mock returns 201)
+    expect(mockCtx.liferay.createTaxonomyCategory).toHaveBeenCalled();
   });
 });
