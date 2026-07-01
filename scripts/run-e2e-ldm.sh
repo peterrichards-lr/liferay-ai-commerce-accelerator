@@ -189,10 +189,11 @@ if [ $EXISTING_PROJECT -eq 1 ]; then
     TARGET_HOST=$(echo "$TARGET_URL" | sed -E 's/https?:\/\///' | cut -d':' -f1)
 else
     TARGET_HOST="$DEFAULT_HOST"
-    # Even if NO_SSL is set, Traefik proxy still listens on port 443 using self-signed fallback
-    # certificates, and Liferay database configuration requires/enforces HTTPS protocol.
-    # Therefore, TARGET_URL must always use HTTPS.
-    TARGET_URL="https://$TARGET_HOST"
+    if [ $NO_SSL -eq 1 ]; then
+        TARGET_URL="http://$TARGET_HOST"
+    else
+        TARGET_URL="https://$TARGET_HOST"
+    fi
 fi
 
 LDM_SSL_FLAG=""
