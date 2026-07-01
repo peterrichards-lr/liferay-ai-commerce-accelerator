@@ -85,6 +85,8 @@ Migrate Reindex OSGi module to JAX-RS 3.x (jakarta.ws.rs) for DXP 2026.q1 (Issue
 72. **Resolve Reindex OSGi module 404/resolution failure**: Sync compiled OSGi jar files to the LDM staging directory ($PROJECT_NAME/osgi/modules) and remove the legacy JAX-RS 2.x endpoint bundle restored from the seed database template. [Completed]
 73. **Resolve JAX-RS Pricing v2.0 Promotion PriceEntry crash**: Reverted incorrect promotions endpoint routing in PromoGenerator to use standard price-lists endpoints as Promotions are managed under price-lists in the REST API. [Completed]
 74. **Execute E2E Verification**: Run `bash scripts/run-e2e-ldm.sh -v -k` to confirm everything passes. [Completed]
+75. **Fix GitHub Actions Docker Build 254 Crash**: Added `.dockerignore` to the microservice to prevent CI `yarn` hoisted `node_modules` and host-native binaries from being copied into the Liferay Node 20 runner container, preventing segmentation faults during `npm install`. [Completed]
+76. **Restore E2E SSL for Custom Objects Stability**: Restored `SSL` in the E2E script `run-e2e-ldm.sh` for the `ci.yml` pipeline, preventing `404 Not Found` timeouts on `aicaconfigurations` caused by Traefik plain-HTTP routing constraints on `aica-e2e.local`. [Completed]
 
 - Refactored `routes/config.cjs` to add POST handlers and created `tests/configRoutes.test.cjs` verifying local SQLite persistence (all 133 unit tests pass).
 - Ran a full E2E verification on `feature/dependabot-updates` branch (`task-1859`). All Playwright and integration tests successfully passed (27 passed, 1 skipped).
