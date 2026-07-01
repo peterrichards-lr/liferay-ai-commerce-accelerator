@@ -1,6 +1,6 @@
 ai-commerce-accelerator-microservice:
   name: AI Commerce Accelerator Microservice
-  type: customElement
+  type: objectAction
 
 assemble:
   - include:
