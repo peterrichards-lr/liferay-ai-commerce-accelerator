@@ -207,3 +207,8 @@ Failure to provide these flags will cause the execution to silently hang while w
   - name: Install mkcert & NSS (for LDM SSL)
     run: sudo apt-get update && sudo apt-get install -y mkcert libnss3-tools
   ```
+
+### 3. Transient `/web/undefined` 404 Requests during E2E Page Reload
+
+- **Finding:** During E2E verification reloading tests, a transient `404` and `net::ERR_ABORTED` error for `https://aica-e2e.local/web/undefined` is observed in the Playwright browser console logs.
+- **Lesson:** This is a non-blocking race condition within Liferay's core theme/navigation JavaScript files executing mid-transition when the page reloads extremely quickly. Liferay concatenates `Liferay.ThemeDisplay.getPathFriendlyURLPublic()` (`/web`) with `Liferay.ThemeDisplay.getSiteGroupFriendlyURL()` before the latter is resolved and initialized, producing `/web/undefined`. The request is immediately aborted by the browser once DOM rendering completes, and it does not affect test outcomes.
