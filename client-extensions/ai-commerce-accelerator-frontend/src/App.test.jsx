@@ -77,10 +77,12 @@ describe('App', () => {
     });
   });
 
-  it('renders the main sections', () => {
+  it('renders the main sections', async () => {
     render(<AppRoot />);
 
-    expect(screen.getByTestId('generator-form')).toBeInTheDocument();
+    await waitFor(() => {
+      expect(screen.getByTestId('generator-form')).toBeInTheDocument();
+    });
     expect(screen.getByTestId('dashboard')).toBeInTheDocument();
   });
 });
