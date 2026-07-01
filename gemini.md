@@ -87,6 +87,8 @@ Migrate Reindex OSGi module to JAX-RS 3.x (jakarta.ws.rs) for DXP 2026.q1 (Issue
 74. **Execute E2E Verification**: Run `bash scripts/run-e2e-ldm.sh -v -k` to confirm everything passes. [Completed]
 75. **Fix GitHub Actions Docker Build 254 Crash**: Added `.dockerignore` to the microservice to prevent CI `yarn` hoisted `node_modules` and host-native binaries from being copied into the Liferay Node 20 runner container, preventing segmentation faults during `npm install`. [Completed]
 76. **Restore E2E SSL for Custom Objects Stability**: Restored `SSL` in the E2E script `run-e2e-ldm.sh` for the `ci.yml` pipeline, preventing `404 Not Found` timeouts on `aicaconfigurations` caused by Traefik plain-HTTP routing constraints on `aica-e2e.local`. [Completed]
+77. **Fix E2E ECONNREFUSED Errors**: Renamed OAuth ERC to match LDM container ID for port mapping, fixed `App.test.jsx` floating promises, and updated orchestrator `process.env` resolution. [Completed]
+78. **Clarify GitHub CLI & Issue Capabilities**: Documented in `AGENTS.md` that agents _do_ have full `gh` access to create/manage GitHub issues and pull requests, provided they request the proper `gh.write` permissions via the Antigravity wrapper. [Completed]
 
 - Refactored `routes/config.cjs` to add POST handlers and created `tests/configRoutes.test.cjs` verifying local SQLite persistence (all 133 unit tests pass).
 - Ran a full E2E verification on `feature/dependabot-updates` branch (`task-1859`). All Playwright and integration tests successfully passed (27 passed, 1 skipped).
@@ -214,3 +216,5 @@ Failure to provide these flags will cause the execution to silently hang while w
 
 - **Finding:** During E2E verification reloading tests, a transient `404` and `net::ERR_ABORTED` error for `https://aica-e2e.local/web/undefined` is observed in the Playwright browser console logs.
 - **Lesson:** This is a non-blocking race condition within Liferay's core theme/navigation JavaScript files executing mid-transition when the page reloads extremely quickly. Liferay concatenates `Liferay.ThemeDisplay.getPathFriendlyURLPublic()` (`/web`) with `Liferay.ThemeDisplay.getSiteGroupFriendlyURL()` before the latter is resolved and initialized, producing `/web/undefined`. The request is immediately aborted by the browser once DOM rendering completes, and it does not affect test outcomes.
+- Created PR #209 `fix/ci-e2e-native-modules` to fix the `CI/e2e-verification` job failure by adding the `Rebuild native modules` step before `run-e2e-ldm.sh --ci`, resolving the `better-sqlite3` native module mismatch that was causing `gradlew deploy` to fail in 95 seconds.
+- Checked the existing branches mentioned by the user and confirmed they were already squash-merged into `master` without being deleted (hence PR creation failed with `No commits between master and branch`).
