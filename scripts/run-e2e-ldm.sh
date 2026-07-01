@@ -338,6 +338,11 @@ if [ $EXISTING_PROJECT -eq 0 ]; then
         rm -f "$PROJECT_NAME/osgi/modules/com.liferay.accelerator.reindex.endpoint-1.0.0.jar"
     fi
 
+    # Sync client extensions built by Gradle/yarn into the LDM staging directory
+    echo "🔄 Syncing built client extensions to LDM staging directory..."
+    mkdir -p "$PROJECT_NAME/osgi/client-extensions"
+    find client-extensions -name "*.zip" -path "*/dist/*" -exec cp {} "$PROJECT_NAME/osgi/client-extensions/" \; 2>/dev/null || true
+
     write_signal "STARTING"
     echo "⚡ Starting Liferay container with tag [$LIFERAY_TAG] (Detached + Sidecar)..."
     # LDM 2.7.12+ automatically:
@@ -366,6 +371,11 @@ else
         # Remove the legacy JAX-RS 2.x reindex endpoint bundle to prevent conflicts
         rm -f "$PROJECT_NAME/osgi/modules/com.liferay.accelerator.reindex.endpoint-1.0.0.jar"
     fi
+
+    # Sync client extensions to the LDM staging directory for hot-deploy
+    echo "🔄 Syncing built client extensions to LDM staging directory for hot-deploy..."
+    mkdir -p "$PROJECT_NAME/osgi/client-extensions"
+    find client-extensions -name "*.zip" -path "*/dist/*" -exec cp {} "$PROJECT_NAME/osgi/client-extensions/" \; 2>/dev/null || true
 fi
 
 # --- Phase 4: Sync & Wait ---
@@ -386,6 +396,8 @@ else
         echo "🔧 Fixing client extension file permissions inside the container..."
         docker exec -u 0 "$PROJECT_NAME" chown -R liferay:liferay /opt/liferay/osgi/client-extensions /opt/liferay/deploy || true
         docker exec -u 0 "$PROJECT_NAME" chmod -R 755 /opt/liferay/osgi/client-extensions /opt/liferay/deploy || true
+        # Force Liferay's OSGi file install/deployer to re-process files after permissions update
+        docker exec -u 0 "$PROJECT_NAME" touch /opt/liferay/osgi/client-extensions/*.zip /opt/liferay/deploy/*.zip 2>/dev/null || true
     fi
     
     # If the project was already running, give OSGi hot-deployer 25s to refresh import maps
