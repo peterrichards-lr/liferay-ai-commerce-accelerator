@@ -223,6 +223,7 @@ if ! ldm_cmd doctor --skip-project > /dev/null; then
 fi
 
 echo "🏗️  Ensuring LDM Shared Infrastructure is active..."
+ldm_cmd config set database_mode shared
 # shellcheck disable=SC2086
 ldm_cmd infra-setup $LDM_Y_FLAG
 
