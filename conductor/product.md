@@ -18,3 +18,9 @@ To provide a reference implementation for accelerating Liferay Commerce adoption
 - **Frontend UI**: User interface for triggering and monitoring workflows.
 - **Configuration UI**: Administrative interface for managing accelerator settings.
 - **Batch CX**: Defines the structure of data sent to Liferay.
+
+<!-- markdownlint-disable MD049 -->
+
+---
+
+_Last Updated: 2026-07-02_ | _Last Reviewed: 2026-07-02_

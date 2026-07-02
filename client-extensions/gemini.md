@@ -572,3 +572,9 @@ Liferay evaluates batch payloads recursively. If a single payload contains neste
 - **Environment Architecture & Routing Details**: [LDM Architecture](https://github.com/peterrichards-lr/liferay-docker-manager/blob/master/docs/LDM_ARCHITECTURE.md)
 - **Client Extension Routing & SSL Setup**: [LDM Networking & DNS Guide](https://github.com/peterrichards-lr/liferay-docker-manager/blob/master/docs/guides/NETWORKING_DNS.md)
 - **Local Replication of Cloud Environments**: [LDM PAAS Local Dev Guide](https://github.com/peterrichards-lr/liferay-docker-manager/blob/master/docs/guides/PAAS_LOCAL_DEV.md)
+
+<!-- markdownlint-disable MD049 -->
+
+---
+
+_Last Updated: 2026-07-02_ | _Last Reviewed: 2026-07-02_

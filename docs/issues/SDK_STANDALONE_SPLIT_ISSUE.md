@@ -57,3 +57,9 @@ To enable reusing this SDK across other Liferay accelerator projects (such as CM
   1. Install `@modelcontextprotocol/sdk` as a dependency in the new SDK repository.
   2. Create `bin/mcp-server.cjs` exposing the SDK's REST and GraphQL methods as MCP tools (`liferay_get_products`, `liferay_get_accounts`, etc.).
   3. Register a command-line launcher bin script in `package.json` to allow starting the server instantly with `npx @liferay/accelerator-sdk mcp`.
+
+<!-- markdownlint-disable MD049 -->
+
+---
+
+_Last Updated: 2026-07-02_ | _Last Reviewed: 2026-07-02_

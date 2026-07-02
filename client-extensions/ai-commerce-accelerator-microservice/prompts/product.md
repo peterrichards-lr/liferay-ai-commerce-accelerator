@@ -72,3 +72,9 @@ IMPORTANT rules:
 - Do NOT include explanations, comments, markdown, or backticks. Return raw JSON only.
 - SKU Activation: For a SKU to be "Active" in Liferay, it MUST have an assigned value for EVERY option that is defined on the product. Ensure "skuVariants" objects include all options.
 - Option Values: Predefined values ("productOptionValues" array) are only for "select", "radio", "checkbox", "checkbox_multiple", and "select_date". Do not provide them for "numeric", "text", or "date".
+
+<!-- markdownlint-disable MD049 -->
+
+---
+
+_Last Updated: 2026-07-02_ | _Last Reviewed: 2026-07-02_

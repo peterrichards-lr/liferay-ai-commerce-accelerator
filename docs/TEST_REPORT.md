@@ -83,3 +83,9 @@ This report documents the exhaustive verification and hardening of the Liferay A
 2.  **Husky Hooks:**
     - **Pre-commit:** Scans staged changes for secret assignments (with `// pragma: allowlist secret` bypasses) and formats with Prettier.
     - **Pre-push:** Runs conventional commit checks, schema checks, full ESLint checks, and the entire `126 + 86 + 49 = 261` unit test suite.
+
+<!-- markdownlint-disable MD049 -->
+
+---
+
+_Last Updated: 2026-07-02_ | _Last Reviewed: 2026-07-02_

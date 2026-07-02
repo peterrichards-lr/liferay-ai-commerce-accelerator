@@ -51,3 +51,9 @@ The batch engine imports the items under the target warehouse without database c
 
 Avoid using the scoped batch endpoint. Instead, perform simulated batch creation by issuing parallel single `POST` requests directly to the scoped warehouse items endpoint:
 `POST /o/headless-commerce-admin-inventory/v1.0/warehouses/{warehouseId}/warehouseItems`
+
+<!-- markdownlint-disable MD049 -->
+
+---
+
+_Last Updated: 2026-07-02_ | _Last Reviewed: 2026-07-02_

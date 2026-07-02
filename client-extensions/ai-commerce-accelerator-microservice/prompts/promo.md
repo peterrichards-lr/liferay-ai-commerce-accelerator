@@ -30,3 +30,9 @@ Provide:
 - Ensure `targetSegmentName` exactly references the `name` of one of the generated `userSegments`.
 
 The response must be a single JSON object that conforms to the provided JSON schema.
+
+<!-- markdownlint-disable MD049 -->
+
+---
+
+_Last Updated: 2026-07-02_ | _Last Reviewed: 2026-07-02_

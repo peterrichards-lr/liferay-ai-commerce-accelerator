@@ -16,3 +16,9 @@
 
 - [x] Update `GETTING_STARTED.md` with current installation and test commands.
 - [x] Add a "Troubleshooting" section for common dev environment issues.
+
+<!-- markdownlint-disable MD049 -->
+
+---
+
+_Last Updated: 2026-07-02_ | _Last Reviewed: 2026-07-02_

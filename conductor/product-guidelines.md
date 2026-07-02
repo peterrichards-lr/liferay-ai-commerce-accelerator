@@ -16,3 +16,9 @@
 - **Validation**: All API calls must be validated against `api-schemas/`.
 - **GraphQL Preference**: Prefer GraphQL for data retrieval; REST for mutations/batch.
 - **Resilience**: Implement retries with exponential backoff for search indexing lag.
+
+<!-- markdownlint-disable MD049 -->
+
+---
+
+_Last Updated: 2026-07-02_ | _Last Reviewed: 2026-07-02_

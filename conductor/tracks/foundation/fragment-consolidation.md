@@ -42,3 +42,9 @@
 - Fragments only appear within the "AI Commerce Accelerator" site.
 - No "AI Commerce Accelerator" fragment set exists in Global fragments.
 - Styles are correctly applied to both site fragments.
+
+<!-- markdownlint-disable MD049 -->
+
+---
+
+_Last Updated: 2026-07-02_ | _Last Reviewed: 2026-07-02_

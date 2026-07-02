@@ -40,3 +40,9 @@
 - The "Done" badge for an entity only appears AFTER the `STEP_COMPLETED` WebSocket message is received.
 - The overall "Workflow Status" header only shows `COMPLETED` when the session is actually finished.
 - UI provides clear feedback during the gap between batch completion and step verification.
+
+<!-- markdownlint-disable MD049 -->
+
+---
+
+_Last Updated: 2026-07-02_ | _Last Reviewed: 2026-07-02_

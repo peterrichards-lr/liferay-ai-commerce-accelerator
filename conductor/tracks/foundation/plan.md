@@ -57,3 +57,9 @@
   - Fragments are rendered on the pages.
   - Theme/Master Page styling is applied.
   - Warehouse-Channel linkage completes without error.
+
+<!-- markdownlint-disable MD049 -->
+
+---
+
+_Last Updated: 2026-07-02_ | _Last Reviewed: 2026-07-02_

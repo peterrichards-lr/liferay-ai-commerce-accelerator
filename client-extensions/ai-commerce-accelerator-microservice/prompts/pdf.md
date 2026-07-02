@@ -29,3 +29,9 @@ Example structure:
 Ensure the content is high-quality, professional, and category-appropriate for {{category}} products.
 
 The response must be a single JSON object that conforms to the provided JSON schema.
+
+<!-- markdownlint-disable MD049 -->
+
+---
+
+_Last Updated: 2026-07-02_ | _Last Reviewed: 2026-07-02_

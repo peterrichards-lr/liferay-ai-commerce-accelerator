@@ -115,3 +115,9 @@ Once your local dashboard is loaded in your browser (`http://aica.local` or `htt
    - A fully seeded product catalog with prices, specifications, and stock levels.
    - Fully constructed business accounts, addresses, and transaction histories.
    - The custom **Dashboard** and **Data Generator** pages, fully styled in Modern Fresh blue!
+
+<!-- markdownlint-disable MD049 -->
+
+---
+
+_Last Updated: 2026-07-02_ | _Last Reviewed: 2026-07-02_

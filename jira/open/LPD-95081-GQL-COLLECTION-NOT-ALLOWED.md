@@ -60,3 +60,9 @@ Any entity that supports list fetching via the REST API should support collectio
 
 Fetch the entire collection using the REST endpoint and perform the necessary lookup/filtering in memory on the client side:
 `GET /o/headless-commerce-admin-catalog/v1.0/optionCategories?pageSize=250`
+
+<!-- markdownlint-disable MD049 -->
+
+---
+
+_Last Updated: 2026-07-02_ | _Last Reviewed: 2026-07-02_

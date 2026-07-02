@@ -101,3 +101,9 @@ Integrators must bypass the ID-scoped single POST endpoint and use the ERC-scope
 `POST /o/headless-commerce-admin-pricing/v2.0/price-lists/by-externalReferenceCode/{priceListExternalReferenceCode}/price-entries`
 
 When executing against this path, the path parameter is `externalReferenceCode` (the ERC of the parent Price List). The JAX-RS Vulcan framework correctly parses and propagates this parameter to the Batch Engine's internal task parameters map, allowing the adaptor to resolve the parent scope successfully and import the entry.
+
+<!-- markdownlint-disable MD049 -->
+
+---
+
+_Last Updated: 2026-07-02_ | _Last Reviewed: 2026-07-02_

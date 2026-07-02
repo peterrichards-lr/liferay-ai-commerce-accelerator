@@ -90,3 +90,9 @@ const apiSchemasDir = path.join(path.dirname(sdkPkgPath), 'api-schemas');
 1. **Local Modifying**: Developers should clone the SDK repository separately to make changes.
 2. **Testing**: Run `yarn test` in the SDK repository to execute local Vitest suites.
 3. **Integration**: Update the target commit/branch tag in the monorepo's `package.json` to lock down version releases.
+
+<!-- markdownlint-disable MD049 -->
+
+---
+
+_Last Updated: 2026-07-02_ | _Last Reviewed: 2026-07-02_

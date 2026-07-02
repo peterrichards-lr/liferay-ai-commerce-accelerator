@@ -16,3 +16,9 @@ Establish a solid foundation for testing, mocking, and consistent development ac
 - `npm test` runs successfully in the microservice and frontend.
 - MSW is integrated and can intercept a sample request.
 - All code follows the established formatting rules.
+
+<!-- markdownlint-disable MD049 -->
+
+---
+
+_Last Updated: 2026-07-02_ | _Last Reviewed: 2026-07-02_

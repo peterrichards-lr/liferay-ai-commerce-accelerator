@@ -85,3 +85,7 @@ When a page definition references a fragment defined within the same site initia
 
 - `[$GROUP_KEY$]`: Resolves to the site being initialized.
 - `[$FRAGMENT_CLASS$]`: Injected into fragment CSS/HTML to ensure unique styling encapsulation.
+
+<!-- markdownlint-disable MD049 -->
+---
+*Last Updated: 2026-07-02* | *Last Reviewed: 2026-07-02*

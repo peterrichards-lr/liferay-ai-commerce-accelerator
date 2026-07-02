@@ -20,3 +20,9 @@ A base64-encoded fallback PDF document. This is used by the **MediaGenerator** a
 
 - **Do not manually edit `workflows.json`** while the service is running, as it may cause state corruption or be overwritten by the active process.
 - The mock files are static resources and should only be updated if the default placeholder assets need to be changed.
+
+<!-- markdownlint-disable MD049 -->
+
+---
+
+_Last Updated: 2026-07-02_ | _Last Reviewed: 2026-07-02_

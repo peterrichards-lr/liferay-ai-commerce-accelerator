@@ -14,3 +14,9 @@ Refactor the tightly-coupled `@liferay/accelerator-sdk` into a decoupled, platfo
 ## 3. Scope
 
 This track focuses entirely on the internal structural refactoring of the SDK package. It does not include new features or publishing the package to NPM (which will happen in a later phase when it moves to its own repo).
+
+<!-- markdownlint-disable MD049 -->
+
+---
+
+_Last Updated: 2026-07-02_ | _Last Reviewed: 2026-07-02_
