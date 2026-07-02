@@ -59,9 +59,13 @@ fi
 
 # If no project specified, use default ephemeral one
 if [ -z "$PROJECT_NAME" ]; then
-    # Make project name unique per-user/environment to prevent conflicts
-    UNIQUE_ID="${USER:-$(id -un 2>/dev/null || echo 'ci')}"
-    PROJECT_NAME="aica-e2e-$UNIQUE_ID"
+    if [ $CI_MODE -eq 1 ]; then
+        PROJECT_NAME="aica-e2e"
+    else
+        # Make project name unique per-user/environment to prevent conflicts locally
+        UNIQUE_ID="${USER:-$(id -un 2>/dev/null || echo 'local')}"
+        PROJECT_NAME="aica-e2e-$UNIQUE_ID"
+    fi
     EXISTING_PROJECT=0
     if ldm list | grep "$PROJECT_NAME" | grep -q "Running"; then
         echo "ℹ  Auto-detected that project '$PROJECT_NAME' is already running in LDM. Switching to update/deploy mode."
