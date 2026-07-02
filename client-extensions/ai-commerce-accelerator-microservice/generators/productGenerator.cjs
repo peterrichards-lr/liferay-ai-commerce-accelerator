@@ -550,6 +550,10 @@ class ProductGenerator extends BaseGenerator {
                   try {
                     const { tierPrices, ...entryData } = entry;
 
+                    if (!entryData.externalReferenceCode) {
+                      entryData.externalReferenceCode = `AICA-PE-${pl.externalReferenceCode || pl.erc}-${entryData.sku}`;
+                    }
+
                     // 1. Create root price entry
                     const result = await this.liferay.rest._post(
                       config,
@@ -566,7 +570,15 @@ class ProductGenerator extends BaseGenerator {
                       result &&
                       result.id
                     ) {
-                      for (const tp of tierPrices) {
+                      for (
+                        let tierIdx = 0;
+                        tierIdx < tierPrices.length;
+                        tierIdx++
+                      ) {
+                        const tp = tierPrices[tierIdx];
+                        if (!tp.externalReferenceCode) {
+                          tp.externalReferenceCode = `AICA-TP-${result.id}-${tierIdx}`;
+                        }
                         await this.liferay.rest._post(
                           config,
                           `/o/headless-commerce-admin-pricing/v2.0/price-entries/${result.id}/tier-prices`,
@@ -2155,40 +2167,75 @@ class ProductGenerator extends BaseGenerator {
                   const chunk = items.slice(i, i + concurrency);
                   await Promise.all(
                     chunk.map(async (item) => {
-                      try {
-                        await this.liferay.rest._post(
-                          config,
-                          `/o/headless-commerce-admin-inventory/v1.0/warehouses/${wId}/warehouseItems`,
-                          item,
-                          'create-warehouse-item',
-                          'Failed to create warehouse item'
-                        );
-                        results.count++;
-                      } catch (err) {
-                        const isDuplicate =
-                          err.message?.includes('Duplicated warehouse item') ||
-                          err.response?.data?.errorDescription ===
-                            'Duplicated warehouse item' ||
-                          JSON.stringify(err.response?.data || {}).includes(
-                            'Duplicated warehouse item'
-                          );
+                      let retryCount = 0;
+                      let success = false;
+                      let lastErr = null;
 
-                        if (isDuplicate) {
-                          this.logger.info(
-                            `Warehouse item for SKU ${item.sku} already exists in warehouse ${wId}. Bypassing creation.`,
-                            { sessionId }
+                      while (retryCount < 5 && !success) {
+                        try {
+                          await this.liferay.rest._post(
+                            config,
+                            `/o/headless-commerce-admin-inventory/v1.0/warehouses/${wId}/warehouseItems`,
+                            item,
+                            'create-warehouse-item',
+                            'Failed to create warehouse item'
                           );
+                          success = true;
                           results.count++;
-                        } else {
-                          results.errors.push({
-                            sku: item.sku,
-                            error: err.message,
-                          });
-                          this.logger.warn(
-                            `Failed to create simulated batch warehouse item for SKU ${item.sku}: ${err.message}`,
-                            { sessionId }
-                          );
+                        } catch (err) {
+                          lastErr = err;
+                          const isServiceParamError =
+                            err.message?.includes(
+                              'The service parameter was not provided by this object'
+                            ) ||
+                            JSON.stringify(err.response?.data || {}).includes(
+                              'The service parameter was not provided by this object'
+                            );
+
+                          const isDuplicate =
+                            err.message?.includes(
+                              'Duplicated warehouse item'
+                            ) ||
+                            err.response?.data?.errorDescription ===
+                              'Duplicated warehouse item' ||
+                            JSON.stringify(err.response?.data || {}).includes(
+                              'Duplicated warehouse item'
+                            );
+
+                          if (isServiceParamError) {
+                            retryCount++;
+                            if (retryCount < 5) {
+                              this.logger.warn(
+                                `Indexing lag detected for warehouse item SKU ${item.sku}. Retrying in 2000ms... (Attempt ${retryCount}/5)`,
+                                { sessionId }
+                              );
+                              await delay(2000);
+                            } else {
+                              break; // exhausted retries
+                            }
+                          } else if (isDuplicate) {
+                            this.logger.info(
+                              `Warehouse item for SKU ${item.sku} already exists in warehouse ${wId}. Bypassing creation.`,
+                              { sessionId }
+                            );
+                            success = true;
+                            results.count++;
+                            break; // success via duplicate handling
+                          } else {
+                            break; // other unknown error, break to throw/log
+                          }
                         }
+                      }
+
+                      if (!success && lastErr) {
+                        results.errors.push({
+                          sku: item.sku,
+                          error: lastErr.message,
+                        });
+                        this.logger.warn(
+                          `Failed to create simulated batch warehouse item for SKU ${item.sku}: ${lastErr.message}`,
+                          { sessionId }
+                        );
                       }
                     })
                   );
