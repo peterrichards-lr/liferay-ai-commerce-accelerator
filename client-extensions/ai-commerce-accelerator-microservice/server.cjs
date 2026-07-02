@@ -477,7 +477,8 @@ const gracefulShutdown = async (signal) => {
     // STARTUP TASKS (Background): Wait for Liferay and then sync keys
     (async () => {
       if (liferayService?.waitForLiferay) {
-        await liferayService.waitForLiferay();
+        // Wait up to 300 seconds (60 attempts * 5000ms) for Liferay to boot
+        await liferayService.waitForLiferay(60, 5000);
       }
 
       if (configService?.syncEnvironmentKeys) {

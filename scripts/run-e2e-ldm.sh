@@ -358,6 +358,10 @@ if [ $EXISTING_PROJECT -eq 0 ]; then
     # Sync client extensions built by Gradle/yarn into the LDM staging directory
     echo "🔄 Syncing built client extensions to LDM staging directory..."
     mkdir -p "$PROJECT_NAME/osgi/client-extensions"
+    if [ -d "bundles/osgi/client-extensions" ]; then
+        cp bundles/osgi/client-extensions/*.zip "$PROJECT_NAME/osgi/client-extensions/" 2>/dev/null || true
+    fi
+    # Fallback to source dist/build folders if standalone build was used
     find client-extensions -name "*.zip" \( -path "*/dist/*" -o -path "*/build/*" \) -exec cp {} "$PROJECT_NAME/osgi/client-extensions/" \; 2>/dev/null || true
     chmod -R 777 "$PROJECT_NAME" 2>/dev/null || true
 
