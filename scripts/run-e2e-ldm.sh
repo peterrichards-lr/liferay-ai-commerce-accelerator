@@ -59,7 +59,7 @@ fi
 
 # If no project specified, use default ephemeral one
 if [ -z "$PROJECT_NAME" ]; then
-    PROJECT_NAME="aica"
+    PROJECT_NAME="aica-e2e"
     EXISTING_PROJECT=0
 
     # Auto-detect if project is already running to bypass fresh import/boot
