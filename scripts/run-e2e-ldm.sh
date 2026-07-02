@@ -296,6 +296,7 @@ if [ $EXISTING_PROJECT -eq 0 ]; then
         "$TARGET_HOST"
         "aicommerceacceleratorconfiguration.$TARGET_HOST"
         "aicommerceacceleratorfrontend.$TARGET_HOST"
+        "ai-commerce-accelerator-microservice.$TARGET_HOST"
     )
 
     MISSING_HOSTS=()
