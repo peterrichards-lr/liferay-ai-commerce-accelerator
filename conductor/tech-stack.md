@@ -25,3 +25,9 @@
 - **Unit/Integration**: Vitest
 - **API Mocking**: Mock Service Worker (MSW)
 - **E2E**: Playwright or Cypress
+
+<!-- markdownlint-disable MD049 -->
+
+---
+
+_Last Updated: 2026-07-02_ | _Last Reviewed: 2026-07-02_

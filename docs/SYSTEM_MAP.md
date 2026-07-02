@@ -145,3 +145,9 @@ Any change to the event emission logic in `ProgressService.cjs` (Server) MUST be
 - **`PROGRESS` (batch/step)**: Triggers `SET_COMPLETED` using `processedCount`.
 - **`COMPLETED` (step)**: Marks the `entityType` as 100% complete.
 - **`FAILED`**: Propagates errors to the `ADD_ERRORS` action for UI display.
+
+<!-- markdownlint-disable MD049 -->
+
+---
+
+_Last Updated: 2026-07-02_ | _Last Reviewed: 2026-07-02_

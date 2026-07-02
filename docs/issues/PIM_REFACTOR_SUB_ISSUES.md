@@ -219,3 +219,9 @@ Currently, [productGenerator.cjs](file:///Volumes/SanDisk/repos/liferay-ai-comme
 - Introduce standard **Catalog DTOs** (e.g. `AicaProduct` and `AicaSku` structures) that the generator passes to the adapter.
 - In the legacy adapter, `createProductsBatch` and `createSkusBatch` will perform the two separate standard Vulcan requests, simulating the existing step sequence.
 - In the PIM adapter, `createProductsBatch` will simply register base parent nodes, and `createSkusBatch` will submit standard SKU items referencing the parent nodes as ancestors, completely skipping the legacy option linking step.
+
+<!-- markdownlint-disable MD049 -->
+
+---
+
+_Last Updated: 2026-07-02_ | _Last Reviewed: 2026-07-02_

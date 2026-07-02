@@ -131,3 +131,9 @@ The accelerator uses a Liferay Object called `AI Commerce Accelerator Configurat
 ---
 
 _For architectural details, refer to the [System Map](./SYSTEM_MAP.md)._
+
+<!-- markdownlint-disable MD049 -->
+
+---
+
+_Last Updated: 2026-07-02_ | _Last Reviewed: 2026-07-02_

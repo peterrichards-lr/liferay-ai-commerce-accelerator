@@ -18,3 +18,9 @@ BRAND CONTEXT: These accounts are potential customers or business partners for t
 - billingAddress: Billing address object containing addressCountry, addressLocality, addressRegion, postalCode, streetAddressLine1 (object, optional)
 - shippingAddress: Shipping address object containing addressCountry, addressLocality, addressRegion, postalCode, streetAddressLine1 (object, optional)
   Return as a JSON array that conforms to the provided JSON schema.
+
+<!-- markdownlint-disable MD049 -->
+
+---
+
+_Last Updated: 2026-07-02_ | _Last Reviewed: 2026-07-02_

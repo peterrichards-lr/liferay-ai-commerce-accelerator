@@ -40,3 +40,9 @@ To support both modes dynamically and ensure backward compatibility, we will ref
 - **Sub-Issue #5**: [Develop PimSkuFirstAdapter (upon OpenAPI specification release)](file:///Volumes/SanDisk/repos/liferay-ai-commerce-accelerator/docs/issues/PIM_REFACTOR_SUB_ISSUES.md#sub-issue-5-develop-pimskufirstadapter-upon-openapi-specification-release) (Implementation Phase)
 - **Sub-Issue #6**: [Update AI Generation Prompts & Schemas for Tree Formats](file:///Volumes/SanDisk/repos/liferay-ai-commerce-accelerator/docs/issues/PIM_REFACTOR_SUB_ISSUES.md#sub-issue-6-update-ai-generation-prompts-&-schemas-for-tree-formats) (Implementation Phase)
 - **Sub-Issue #7**: [End-to-End Test and Validation Suite](file:///Volumes/SanDisk/repos/liferay-ai-commerce-accelerator/docs/issues/PIM_REFACTOR_SUB_ISSUES.md#sub-issue-7-end-to-end-test-and-validation-suite) (Verification Phase)
+
+<!-- markdownlint-disable MD049 -->
+
+---
+
+_Last Updated: 2026-07-02_ | _Last Reviewed: 2026-07-02_

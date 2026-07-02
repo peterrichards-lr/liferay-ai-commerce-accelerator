@@ -31,3 +31,9 @@
 - [x] Configure `lint` scripts to run both ESLint and Prettier.
 - [x] Setup Playwright for cross-component Smoke Tests.
 - [x] Implement a "Happy Path" smoke test: Server Start -> UI Render -> Trigger Generation (Mocked).
+
+<!-- markdownlint-disable MD049 -->
+
+---
+
+_Last Updated: 2026-07-02_ | _Last Reviewed: 2026-07-02_

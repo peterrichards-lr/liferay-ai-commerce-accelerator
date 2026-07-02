@@ -223,3 +223,9 @@ Failure to provide these flags will cause the execution to silently hang while w
 - Resolved markdownlint errors in `jira/open/LPD-XXXXX-WAREHOUSE-ITEM-INDEXING-LAG.md` that caused Husky pre-push hooks to fail, and appended the global review footer.
 - Identified that Liferay DXP rejects `ProductOption` linking (with `Option value sku ID is invalid`) if a product already has a base SKU and the option has `skuContributor: true`, but no `skuId` mapping is provided. Fixed `productGenerator.cjs` to force `skuContributor: false` when `options.generateSkuVariants` is `false`, resolving the `aica generate --demo` backend error that blocked E2E testing on PRs.
 - Updated `scripts/run-e2e-ldm.sh` to make the LDM `PROJECT_NAME` unique per-user (`aica-e2e-$USER`) and dynamically override `.env.e2e` `LIFERAY_URL` and `LIFERAY_API_URL` to match the unique `TARGET_HOST` to prevent environment conflicts on shared host machines.
+
+<!-- markdownlint-disable MD049 -->
+
+---
+
+_Last Updated: 2026-07-02_ | _Last Reviewed: 2026-07-02_

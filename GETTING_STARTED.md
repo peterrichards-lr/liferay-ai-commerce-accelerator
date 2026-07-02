@@ -396,3 +396,9 @@ This allows for easy review of test results across all project components in a s
 **Microservice Environment:**
 
 - The microservice, running in its own Docker container, is not subject to these Liferay build constraints. It can and should utilize a modern Node.js version (e.g., Node.js 24 LTS) independently to leverage up-to-date tooling, security, and features.
+
+<!-- markdownlint-disable MD049 -->
+
+---
+
+_Last Updated: 2026-07-02_ | _Last Reviewed: 2026-07-02_

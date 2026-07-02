@@ -89,3 +89,9 @@ To work around this, client integrations must query all accounts manually, find 
 ### Proposed Fix
 
 Align the Headless Admin User accounts batch API behavior with standard Headless Commerce APIs, allowing the underlying batch delegate to check for existing `externalReferenceCode` matches and route to updates (upserts) automatically.
+
+<!-- markdownlint-disable MD049 -->
+
+---
+
+_Last Updated: 2026-07-02_ | _Last Reviewed: 2026-07-02_
