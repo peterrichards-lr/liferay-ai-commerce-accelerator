@@ -891,6 +891,9 @@ class ProductGenerator extends BaseGenerator {
             typeof opt.name === 'string' ? { en_US: opt.name } : opt.name;
           const key = opt.key || sanitizeForERC(name?.en_US || name);
 
+          const isGenerateVariants =
+            session.context?.options?.generateSkuVariants;
+
           // HARDENING: Strict DTO Mapping (No Ghost Properties)
           const cleanOpt = {
             optionId: opt.optionId,
@@ -898,7 +901,10 @@ class ProductGenerator extends BaseGenerator {
             name: name,
             fieldType: opt.fieldType,
             required: opt.required || false,
-            skuContributor: opt.skuContributor || false,
+            skuContributor:
+              isGenerateVariants === false
+                ? false
+                : opt.skuContributor || false,
           };
 
           // Liferay Headless Commerce API (v1.0) expects 'productOptionValues'

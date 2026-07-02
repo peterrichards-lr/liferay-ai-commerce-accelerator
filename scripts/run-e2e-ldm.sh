@@ -59,7 +59,9 @@ fi
 
 # If no project specified, use default ephemeral one
 if [ -z "$PROJECT_NAME" ]; then
-    PROJECT_NAME="aica-e2e"
+    # Make project name unique per-user/environment to prevent conflicts
+    UNIQUE_ID="${USER:-$(id -un 2>/dev/null || echo 'ci')}"
+    PROJECT_NAME="aica-e2e-$UNIQUE_ID"
     EXISTING_PROJECT=0
     if ldm list | grep "$PROJECT_NAME" | grep -q "Running"; then
         echo "ℹ  Auto-detected that project '$PROJECT_NAME' is already running in LDM. Switching to update/deploy mode."
@@ -78,7 +80,7 @@ fi
 
 # --- Constants ---
 REQUIRED_LDM_VERSION="2.8.0"
-DEFAULT_HOST="aica-e2e.local"
+DEFAULT_HOST="${PROJECT_NAME}.local"
 
 # LDM 2.7.14+ automatically forwards OPENAI_*, GEMINI_*, etc.
 # We explicitly add AI_ prefix to the passthrough list for AICA-specific keys.
@@ -157,6 +159,18 @@ elif [ -f ".env" ]; then
     # shellcheck disable=SC2046
     export $(grep -v '^#' .env | xargs)
 fi
+
+# Dynamically override the URLs to match the unique TARGET_HOST
+if [ $NO_SSL -eq 1 ]; then
+    export LIFERAY_URL="http://$TARGET_HOST"
+    export LIFERAY_API_URL="http://$TARGET_HOST"
+    export COM_LIFERAY_LXC_DXP_SERVER_PROTOCOL="http"
+else
+    export LIFERAY_URL="https://$TARGET_HOST"
+    export LIFERAY_API_URL="https://$TARGET_HOST"
+    export COM_LIFERAY_LXC_DXP_SERVER_PROTOCOL="https"
+fi
+export COM_LIFERAY_LXC_DXP_MAIN_DOMAIN="$TARGET_HOST"
 
 # --- Phase 1: Environment Verification ---
 
