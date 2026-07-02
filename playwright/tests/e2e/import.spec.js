@@ -2,7 +2,7 @@ import { test, expect } from '@playwright/test';
 import path from 'path';
 import { injectAndConnectApp } from './test-helper.js';
 
-test.describe('AICA Import & Export Verification', () => {
+test.describe.serial('AICA Import & Export Verification', () => {
   test.use({ storageState: '.auth/user.json' });
 
   test.beforeEach(async ({ page }) => {

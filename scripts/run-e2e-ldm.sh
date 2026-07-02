@@ -61,8 +61,6 @@ fi
 if [ -z "$PROJECT_NAME" ]; then
     PROJECT_NAME="aica-e2e"
     EXISTING_PROJECT=0
-
-    # Auto-detect if project is already running to bypass fresh import/boot
     if ldm list | grep "$PROJECT_NAME" | grep -q "Running"; then
         echo "ℹ  Auto-detected that project '$PROJECT_NAME' is already running in LDM. Switching to update/deploy mode."
         EXISTING_PROJECT=1
@@ -357,7 +355,7 @@ if [ $EXISTING_PROJECT -eq 0 ]; then
         --tag "$LIFERAY_TAG" \
         --sidecar \
         --no-captcha \
-        --jvm-args="-XX:ReservedCodeCacheSize=512m" \
+        --jvm-args="-Xmx2560m -XX:ReservedCodeCacheSize=512m" \
         --fast-login \
         --feature LPD-35443 \
         -y \
