@@ -353,6 +353,7 @@ if [ $EXISTING_PROJECT -eq 0 ]; then
     # LDM 2.8.0+ supports --lean for constrained environments.
     # shellcheck disable=SC2086
     ldm_cmd run "$PROJECT_NAME" \
+        --host-name "$TARGET_HOST" \
         --tag "$LIFERAY_TAG" \
         --sidecar \
         --no-captcha \
