@@ -82,3 +82,9 @@ This has been implemented in the Liferay Commerce AI Accelerator SDK to work aro
 ## Proposed Fix
 
 Introduce native batch/bulk delete capabilities across all JAX-RS Headless resources using the Vulcan Batch Engine, matching the existing batch import architecture.
+
+<!-- markdownlint-disable MD049 -->
+
+---
+
+_Last Updated: 2026-07-02_ | _Last Reviewed: 2026-07-02_

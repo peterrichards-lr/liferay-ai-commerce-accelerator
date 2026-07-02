@@ -44,6 +44,9 @@ async function startMicroservice() {
       LIFERAY_OAUTH_CLIENT_SECRET: '',
       LIFERAY_AUTH_METHOD: 'basic',
       LIFERAY_URL: process.env.LIFERAY_URL,
+      LIFERAY_API_USERNAME:
+        process.env.LIFERAY_API_USERNAME || 'test@liferay.com',
+      LIFERAY_API_PASSWORD: process.env.LIFERAY_API_PASSWORD || 'test',
     },
   });
 

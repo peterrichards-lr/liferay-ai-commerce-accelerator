@@ -53,6 +53,19 @@ export async function injectAndConnectApp(page) {
     }
   });
 
+  // Proxy WebSocket connections to the local microservice
+  await page.routeWebSocket(
+    '**/o/ai-commerce-accelerator-microservice*',
+    (ws) => {
+      const originalUrl = new URL(ws.url());
+      const proxyWsUrl = `ws://localhost:3001${originalUrl.search}`;
+      console.log(
+        `[Playwright Proxy] Intercepted WS: ${originalUrl.href} -> Forwarding to: ${proxyWsUrl}`
+      );
+      ws.connectToServer(proxyWsUrl);
+    }
+  );
+
   // 1. Go to the highly-stable default AICA page, or fallback to Guest Home page
   console.log('>>> Navigating to AICA site page...');
   const res = await page.goto('/web/aica').catch(() => null);

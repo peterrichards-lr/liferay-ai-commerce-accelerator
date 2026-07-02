@@ -45,3 +45,9 @@
 - [ ] Ensure `yarn lint` passes with zero warnings.
 - [ ] Run `tests/serviceParity.test.cjs` (if implemented) or existing unit tests to ensure no regression.
 - [ ] Deploy site initializer and verify all fragments still function with their configurations.
+
+<!-- markdownlint-disable MD049 -->
+
+---
+
+_Last Updated: 2026-07-02_ | _Last Reviewed: 2026-07-02_

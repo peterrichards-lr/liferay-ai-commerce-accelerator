@@ -377,7 +377,7 @@ async function resolveCommerceContext(opts) {
     }
   }
 
-  // D. Exit early in non-interactive if still missing
+  // D. Delegate to backend if still missing
   if (
     channelId === undefined ||
     isNaN(channelId) ||
@@ -386,26 +386,9 @@ async function resolveCommerceContext(opts) {
     catalogId === undefined ||
     isNaN(catalogId)
   ) {
-    console.error('\n❌ Error: Missing required commerce context settings.');
-    console.error(
-      'Please specify them via CLI flags or environment variables:'
+    console.warn(
+      '\n⚠️ Warning: Missing some commerce context settings locally. Delegating resolution to the backend.'
     );
-    if (channelId === undefined || isNaN(channelId)) {
-      console.error(
-        '  - Channel ID: --channel-id or AICA_CHANNEL_ID / LIFERAY_CHANNEL_ID'
-      );
-    }
-    if (siteGroupId === undefined || isNaN(siteGroupId)) {
-      console.error(
-        '  - Site Group ID: --site-group-id or AICA_SITE_GROUP_ID / LIFERAY_SITE_GROUP_ID'
-      );
-    }
-    if (catalogId === undefined || isNaN(catalogId)) {
-      console.error(
-        '  - Catalog ID: --catalog-id or AICA_CATALOG_ID / LIFERAY_CATALOG_ID'
-      );
-    }
-    process.exit(1);
   }
 
   return { channelId, siteGroupId, catalogId };

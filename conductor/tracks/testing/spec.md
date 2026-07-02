@@ -16,3 +16,9 @@ Implement comprehensive unit and integration tests for the microservice, leverag
 - Test coverage for all discovery methods in `LiferayService`.
 - Generators are tested for success and failure paths.
 - Mocking accurately reflects Liferay's async batch engine behavior (callbacks).
+
+<!-- markdownlint-disable MD049 -->
+
+---
+
+_Last Updated: 2026-07-02_ | _Last Reviewed: 2026-07-02_

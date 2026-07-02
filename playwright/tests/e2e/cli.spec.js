@@ -3,7 +3,7 @@ import { exec } from 'child_process';
 import path from 'path';
 import fs from 'fs';
 
-test.describe('AICA Headless CLI Client E2E Verification', () => {
+test.describe.serial('AICA Headless CLI Client E2E Verification', () => {
   // Leverage the same authenticated context or credentials
   test.use({ storageState: '.auth/user.json' });
 

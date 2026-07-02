@@ -75,3 +75,9 @@ To ensure a resilient cleanup, integrations must switch to simulated batching, w
 ### Proposed Fix
 
 Update the batch delete delegate for products (and other commerce entities) to catch `NotFoundException` (or general 404 status codes) at the item processing level, allowing them to be soft-resolved/ignored so that the rest of the batch task can complete successfully.
+
+<!-- markdownlint-disable MD049 -->
+
+---
+
+_Last Updated: 2026-07-02_ | _Last Reviewed: 2026-07-02_

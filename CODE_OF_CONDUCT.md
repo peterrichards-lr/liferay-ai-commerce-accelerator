@@ -75,3 +75,9 @@ Feedback can be directed to the official [Contributor Covenant FAQ][faq].
 [homepage]: https://www.contributor-covenant.org
 [version]: https://www.contributor-covenant.org/version/2/1/code_of_conduct.html
 [faq]: https://www.contributor-covenant.org/faq
+
+<!-- markdownlint-disable MD049 -->
+
+---
+
+_Last Updated: 2026-07-02_ | _Last Reviewed: 2026-07-02_

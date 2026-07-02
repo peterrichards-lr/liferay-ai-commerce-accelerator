@@ -103,7 +103,7 @@ jobs:
 
       - name: Configure local hosts file
         run: |
-          echo "127.0.0.1 aica-e2e.local aicommerceacceleratorconfiguration.aica-e2e.local aicommerceacceleratorfrontend.aica-e2e.local" | sudo tee -a /etc/hosts
+          echo "127.0.0.1 aica-e2e.local aicommerceacceleratorconfiguration.aica-e2e.local aicommerceacceleratorfrontend.aica-e2e.local ai-commerce-accelerator-microservice.aica-e2e.local" | sudo tee -a /etc/hosts
 
       - name: Install Playwright Browsers
         run: npx playwright install --with-deps chromium
@@ -113,7 +113,11 @@ jobs:
           yarn workspace @liferay/liferay-ai-commerce-accelerator-microservice run pretest
 
       - name: Install mkcert & NSS (for LDM SSL)
-        run: sudo apt-get update && sudo apt-get install -y mkcert libnss3-tools
+        run: |
+          sudo apt-get update && sudo apt-get install -y mkcert libnss3-tools
+          mkcert -install
+          mkdir -p /home/runner/liferay-docker-certs
+          chmod 777 /home/runner/liferay-docker-certs
 
       - name: Run E2E Verification (LDM)
         run: bash scripts/run-e2e-ldm.sh --ci

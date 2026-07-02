@@ -59,10 +59,14 @@ fi
 
 # If no project specified, use default ephemeral one
 if [ -z "$PROJECT_NAME" ]; then
-    PROJECT_NAME="aica"
+    if [ $CI_MODE -eq 1 ]; then
+        PROJECT_NAME="aica-e2e"
+    else
+        # Make project name unique per-user/environment to prevent conflicts locally
+        UNIQUE_ID="${USER:-$(id -un 2>/dev/null || echo 'local')}"
+        PROJECT_NAME="aica-e2e-$UNIQUE_ID"
+    fi
     EXISTING_PROJECT=0
-
-    # Auto-detect if project is already running to bypass fresh import/boot
     if ldm list | grep "$PROJECT_NAME" | grep -q "Running"; then
         echo "ℹ  Auto-detected that project '$PROJECT_NAME' is already running in LDM. Switching to update/deploy mode."
         EXISTING_PROJECT=1
@@ -80,7 +84,7 @@ fi
 
 # --- Constants ---
 REQUIRED_LDM_VERSION="2.8.0"
-DEFAULT_HOST="aica-e2e.local"
+DEFAULT_HOST="${PROJECT_NAME}.local"
 
 # LDM 2.7.14+ automatically forwards OPENAI_*, GEMINI_*, etc.
 # We explicitly add AI_ prefix to the passthrough list for AICA-specific keys.
@@ -160,6 +164,18 @@ elif [ -f ".env" ]; then
     export $(grep -v '^#' .env | xargs)
 fi
 
+# Dynamically override the URLs to match the unique TARGET_HOST
+if [ $NO_SSL -eq 1 ]; then
+    export LIFERAY_URL="http://$TARGET_HOST"
+    export LIFERAY_API_URL="http://$TARGET_HOST"
+    export COM_LIFERAY_LXC_DXP_SERVER_PROTOCOL="http"
+else
+    export LIFERAY_URL="https://$TARGET_HOST"
+    export LIFERAY_API_URL="https://$TARGET_HOST"
+    export COM_LIFERAY_LXC_DXP_SERVER_PROTOCOL="https"
+fi
+export COM_LIFERAY_LXC_DXP_MAIN_DOMAIN="$TARGET_HOST"
+
 # --- Phase 1: Environment Verification ---
 
 if ! command -v ldm &> /dev/null; then
@@ -209,6 +225,9 @@ fi
 echo "🏗️  Ensuring LDM Shared Infrastructure is active..."
 # shellcheck disable=SC2086
 ldm_cmd infra-setup $LDM_Y_FLAG
+
+echo "⏳ Giving Shared Infrastructure (Traefik/PostgreSQL) 15s to become healthy..."
+sleep 15
 
 # --- Phase 2: Build & Deployment Preparation ---
 
@@ -296,6 +315,7 @@ if [ $EXISTING_PROJECT -eq 0 ]; then
         "$TARGET_HOST"
         "aicommerceacceleratorconfiguration.$TARGET_HOST"
         "aicommerceacceleratorfrontend.$TARGET_HOST"
+        "ai-commerce-accelerator-microservice.$TARGET_HOST"
     )
 
     MISSING_HOSTS=()
@@ -341,6 +361,10 @@ if [ $EXISTING_PROJECT -eq 0 ]; then
     # Sync client extensions built by Gradle/yarn into the LDM staging directory
     echo "🔄 Syncing built client extensions to LDM staging directory..."
     mkdir -p "$PROJECT_NAME/osgi/client-extensions"
+    if [ -d "bundles/osgi/client-extensions" ]; then
+        cp bundles/osgi/client-extensions/*.zip "$PROJECT_NAME/osgi/client-extensions/" 2>/dev/null || true
+    fi
+    # Fallback to source dist/build folders if standalone build was used
     find client-extensions -name "*.zip" \( -path "*/dist/*" -o -path "*/build/*" \) -exec cp {} "$PROJECT_NAME/osgi/client-extensions/" \; 2>/dev/null || true
     chmod -R 777 "$PROJECT_NAME" 2>/dev/null || true
 
@@ -352,10 +376,11 @@ if [ $EXISTING_PROJECT -eq 0 ]; then
     # LDM 2.8.0+ supports --lean for constrained environments.
     # shellcheck disable=SC2086
     ldm_cmd run "$PROJECT_NAME" \
+        --host-name "$TARGET_HOST" \
         --tag "$LIFERAY_TAG" \
         --sidecar \
         --no-captcha \
-        --jvm-args="-XX:ReservedCodeCacheSize=512m" \
+        --jvm-args="-Xmx2560m -XX:ReservedCodeCacheSize=512m" \
         --fast-login \
         --feature LPD-35443 \
         -y \

@@ -44,3 +44,9 @@ Empirically verify the end-to-end "Delete" and "Generate" flows using Playwright
 - Both Delete and Generate flows are fully exercised.
 - Any server-side error detected during the test causes the test to fail.
 - CI pipeline executes these tests on every push to master.
+
+<!-- markdownlint-disable MD049 -->
+
+---
+
+_Last Updated: 2026-07-02_ | _Last Reviewed: 2026-07-02_

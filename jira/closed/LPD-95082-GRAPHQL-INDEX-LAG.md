@@ -65,3 +65,9 @@ Integrators must bypass GraphQL and use database-backed REST endpoints for immed
 `GET /o/headless-commerce-admin-catalog/v1.0/products/by-externalReferenceCode/API-TEST-INDEX-LAG-001`
 
 REST calls scoped by `externalReferenceCode` bypass search index indexation queues and look up the entity directly in the database.
+
+<!-- markdownlint-disable MD049 -->
+
+---
+
+_Last Updated: 2026-07-02_ | _Last Reviewed: 2026-07-02_

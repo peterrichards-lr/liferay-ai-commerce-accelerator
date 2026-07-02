@@ -49,3 +49,9 @@ The import file should follow the same structure as the internal `SessionContext
 ### 3. Orchestration
 
 - Use the `WorkflowCoordinator` to handle multi-entity dependencies (e.g., Accounts before Orders).
+
+<!-- markdownlint-disable MD049 -->
+
+---
+
+_Last Updated: 2026-07-02_ | _Last Reviewed: 2026-07-02_

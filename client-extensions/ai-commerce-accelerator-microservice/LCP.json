@@ -25,5 +25,8 @@
   "env": {
     "PORT": "3001",
     "NODE_ENV": "production"
+  },
+  "loadBalancer": {
+    "targetPort": 3001
   }
 }

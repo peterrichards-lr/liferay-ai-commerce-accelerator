@@ -18,3 +18,9 @@
 
 - Build as Client Extensions using Gradle.
 - Configured via `client-extension.yaml` in each component.
+
+<!-- markdownlint-disable MD049 -->
+
+---
+
+_Last Updated: 2026-07-02_ | _Last Reviewed: 2026-07-02_

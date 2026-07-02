@@ -21,3 +21,9 @@
 - [x] Create a sample import dataset.
 - [x] Implement an E2E test for "Import Dataset" in `playwright/tests/e2e/import.spec.js`.
 - [x] Verify that linking (Options, SKUs, Inventory) works correctly for imported data.
+
+<!-- markdownlint-disable MD049 -->
+
+---
+
+_Last Updated: 2026-07-02_ | _Last Reviewed: 2026-07-02_

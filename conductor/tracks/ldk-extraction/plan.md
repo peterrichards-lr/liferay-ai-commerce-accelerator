@@ -22,3 +22,9 @@
 1. **Update Microservice Usage:** Refactor the AICA microservice (`ai-commerce-accelerator-microservice`) to consume the newly namespaced SDK (e.g., `liferayService.commerce.createProduct(...)` instead of `liferayService.createProduct(...)`).
 2. **Update Unit Tests:** Refactor all SDK and microservice Vitest tests to accommodate the new directory structure and JSDoc signatures.
 3. **Validate:** Run the entire test suite (`./gradlew testAllCX`) to ensure 100% parity and safety.
+
+<!-- markdownlint-disable MD049 -->
+
+---
+
+_Last Updated: 2026-07-02_ | _Last Reviewed: 2026-07-02_

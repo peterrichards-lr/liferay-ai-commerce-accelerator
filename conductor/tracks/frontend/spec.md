@@ -19,3 +19,9 @@ Enhance the frontend's reliability, testability, and user experience through com
 - Frontend test suite runs independently of the microservice.
 - 100% coverage for the `progressReducer`.
 - Core interactive flows (Configuration -> Generation -> Progress) are verified through component tests.
+
+<!-- markdownlint-disable MD049 -->
+
+---
+
+_Last Updated: 2026-07-02_ | _Last Reviewed: 2026-07-02_

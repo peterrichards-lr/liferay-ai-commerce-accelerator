@@ -45,3 +45,9 @@
 - Total generation time for a standard dataset is reduced by at least 30%.
 - No visible "stalls" in the UI where the bar doesn't move for > 5 seconds.
 - System remains stable under increased concurrency.
+
+<!-- markdownlint-disable MD049 -->
+
+---
+
+_Last Updated: 2026-07-02_ | _Last Reviewed: 2026-07-02_

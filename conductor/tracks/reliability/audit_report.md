@@ -170,3 +170,9 @@ By analyzing real Liferay responses (`reference-specifications.json`), we've ref
 **Discovery**: During the "Delete All" run, any non-trivial filter passed to the `headlessAdminUser` namespace in GraphQL (e.g., querying accounts by an OR-joined list of IDs) triggered a fatal `Exception while fetching data : null` (500 error).
 
 **Action**: Refactored all core discovery methods in `LiferayService` to use **REST** instead of GraphQL for list retrieval. GraphQL is now strictly reserved for high-performance aliased retrieval of known entities by ERC.
+
+<!-- markdownlint-disable MD049 -->
+
+---
+
+_Last Updated: 2026-07-02_ | _Last Reviewed: 2026-07-02_

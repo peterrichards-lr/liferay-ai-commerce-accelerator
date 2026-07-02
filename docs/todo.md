@@ -884,3 +884,9 @@
 
 **Analysis**: Terminal failures were difficult to correlate without seeing the underlying diagnostic IDs in the frontend.
 **Result**: **FIXED**. Updated the Session Detail view to display `errorReferenceCode` and `correlationId`. Added persistence support to capture and propagate these IDs throughout the workflow lifecycle.
+
+<!-- markdownlint-disable MD049 -->
+
+---
+
+_Last Updated: 2026-07-02_ | _Last Reviewed: 2026-07-02_
