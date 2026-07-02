@@ -226,9 +226,6 @@ echo "🏗️  Ensuring LDM Shared Infrastructure is active..."
 # shellcheck disable=SC2086
 ldm_cmd infra-setup $LDM_Y_FLAG
 
-echo "⏳ Giving Shared Infrastructure (Traefik/PostgreSQL) 15s to become healthy..."
-sleep 15
-
 # --- Phase 2: Build & Deployment Preparation ---
 
 # We build BEFORE initializing the project to ensure fresh LCP.json metadata is captured
