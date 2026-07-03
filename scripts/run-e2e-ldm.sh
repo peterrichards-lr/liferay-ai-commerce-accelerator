@@ -394,8 +394,6 @@ else
         echo "🔄 Syncing built OSGi modules to LDM modules directory for hot-deploy..."
         mkdir -p "$PROJECT_NAME/osgi/modules"
         cp bundles/osgi/modules/*.jar "$PROJECT_NAME/osgi/modules/" 2>/dev/null || true
-        # Remove the legacy JAX-RS 2.x reindex endpoint bundle to prevent conflicts
-        rm -f "$PROJECT_NAME/osgi/modules/com.liferay.accelerator.reindex.endpoint-1.0.0.jar"
     fi
 
     # Sync client extensions to the LDM staging directory for hot-deploy
