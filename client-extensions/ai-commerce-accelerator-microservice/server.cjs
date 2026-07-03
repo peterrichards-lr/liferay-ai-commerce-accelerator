@@ -404,7 +404,7 @@ const gracefulShutdown = async (signal) => {
             const statusData = JSON.parse(fs.readFileSync(statusPath, 'utf8'));
             bootMilestone = statusData.latest_milestone;
           }
-        } catch (e) {
+        } catch (_e) {
           // Ignore
         }
 
