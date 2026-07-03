@@ -227,10 +227,14 @@ Failure to provide these flags will cause the execution to silently hang while w
 - Identified that `PromoGenerator.cjs` triggers the Liferay Commerce Pricing v2.0 Vulcan Batch Engine `NotSupportedException` bug when using the SDK `createPriceEntriesBatch` method.
 - Replaced the SDK call in `PromoGenerator.cjs` with a sequential loop of direct POST requests to the ERC-scoped endpoint, perfectly mirroring the successful workaround implemented earlier in `ProductGenerator.cjs`.
 - Kicked off a fresh E2E verification (`task-13616`) to confirm the fix resolves the dashboard data generation flow timeout.
-- The session was concluded while waiting for E2E verification (`task-13616`) to complete.
+- Identified that the GitHub Actions CI workflow was hanging and failing due to Liferay crashing on boot with `java.net.UnknownHostException: liferay-db-global`.
+- Discovered that the `.ldmp` seed used for E2E testing (`postgresql-shared-v2`) had the shared database container name (`liferay-db-global`) hardcoded in `portal-ext.properties`, which Liferay attempts to connect to during startup.
+- Fixed the issue in `scripts/run-e2e-ldm.sh` by instructing LDM to use an isolated database in CI (`ldm config database-mode isolated --global`) and adding a dynamic `sed` rewrite step to replace `liferay-db-global` with the isolated container name (`${PROJECT_NAME}-db`) in the extracted seed's `portal-ext.properties`.
+- Pushed the fix to branch `fix/vulcan-batch-engine-promo-crash`.
+- The session was concluded while waiting for the user to trigger the updated GitHub Actions CI run.
 
 <!-- markdownlint-disable MD049 -->
 
 ---
 
-_Last Updated: 2026-07-02_ | _Last Reviewed: 2026-07-02_
+_Last Updated: 2026-07-03_ | _Last Reviewed: 2026-07-03_
