@@ -88,7 +88,7 @@ DEFAULT_HOST="${PROJECT_NAME}.local"
 
 # LDM 2.7.14+ automatically forwards OPENAI_*, GEMINI_*, etc.
 # We explicitly add AI_ prefix to the passthrough list for AICA-specific keys.
-export LDM_FORWARD_PREFIXES="${LDM_FORWARD_PREFIXES:-AI_}"
+export LDM_FORWARD_PREFIXES="AI_,LIFERAY_"
 TARGET_HOST="${LIFERAY_HOST:-$DEFAULT_HOST}"
 GRADLE_PROPS="gradle.properties"
 

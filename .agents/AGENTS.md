@@ -9,3 +9,9 @@ Before any feature, bugfix, or issue can be considered "code complete", the agen
 ## Client Extension Routing Rules
 
 When modifying `client-extension.yaml` files, **NEVER change or remove `.serviceAddress: localhost:3001` or `.serviceScheme`** manually to fix Docker or LDM routing issues. Liferay automatically updates the shared routes context with the correct internal endpoint when the generated `.zip` file is copied to the Liferay `osgi/client-extensions` deploy folder. Modifying these properties will override the auto-registration and break the deployment.
+
+## Liferay Commerce Pricing v2.0 Constraints
+
+When working with Liferay Commerce Pricing v2.0 (`/o/headless-commerce-admin-pricing/v2.0/`), **NEVER** use the SDK's `createPriceEntriesBatch` method or attempt to batch Price Entries directly.
+The Pricing v2.0 single POST endpoint `/price-lists/by-externalReferenceCode/{erc}/price-entries` delegates internally to the Vulcan Batch Engine. However, a platform bug in Liferay DXP 2026.q1 causes the Vulcan Batch Engine to fail to propagate the `externalReferenceCode` path parameter properly when `priceListExternalReferenceCode` or `priceListId` are mixed into the JSON payload during batch simulation, resulting in a `jakarta.ws.rs.NotSupportedException`.
+**Constraint**: All price entries must be created via a sequential loop making direct HTTP POST requests to `this.liferay.rest._post`, omitting the `priceListId` from the URL or payload if using the ERC-scoped endpoint. Mimic the workaround in `ProductGenerator.cjs`.

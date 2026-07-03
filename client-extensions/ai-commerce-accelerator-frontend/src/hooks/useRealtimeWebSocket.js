@@ -216,6 +216,15 @@ export default function useRealtimeWebSocket({
     const wsUrl = trimmed.replace(/^http/, 'ws');
     const cid = getCorrelationId?.();
 
+    // Liferay Platform Limitation: Tomcat's client extension ingress (/o/) drops
+    // WebSocket Upgrade headers. Prevent the 404 error by skipping WS entirely.
+    if (trimmed.includes('/o/')) {
+      logInfo(
+        'Liferay ingress detected. Bypassing WebSocket and activating REST polling.'
+      );
+      return;
+    }
+
     const url = new URL(wsUrl);
     if (cid) url.searchParams.set(CORRELATION_ID_HEADER, cid);
 
