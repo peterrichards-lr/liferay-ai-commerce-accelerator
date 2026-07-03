@@ -445,14 +445,19 @@ fi
 write_signal "WAITING_HEALTHY"
 echo "⏳ Waiting for Liferay to be ready at $TARGET_URL..."
 
+# Reverting to manual bash log streaming to bypass Python/LDM subprocess buffering in CI
+ldm_cmd logs -f "$PROJECT_NAME" &
+LOG_PID=$!
+
 # LDM wait command blocks until the HTTP layer is responsive.
-# We use the native --stream-logs feature from LDM v2.11.85 to print real-time container output.
-if ! ldm_cmd wait "$PROJECT_NAME" -d --stream-logs --timeout 1800; then
+if ! ldm_cmd wait "$PROJECT_NAME" -d --timeout 1800; then
     write_signal "UNHEALTHY"
     echo -e "\n❌ ERROR: Liferay failed to become ready within 30 minutes."
+    kill $LOG_PID 2>/dev/null || true
     exit 1
 fi
 
+kill $LOG_PID 2>/dev/null || true
 echo -e "\n✅ Liferay is UP and responding!"
 write_signal "HEALTHY"
 
