@@ -398,18 +398,31 @@ class PromoGenerator extends BaseGenerator {
             }
           }
 
-          // Create the price entries on the promotion price list
+          // Create the price entries on the promotion price list sequentially to bypass DXP platform bugs
           this.logger.debug(
             `Submitting ${promoEntries.length} promotional price entries...`,
             { sessionId }
           );
-          await this._runWithRetry(
-            () =>
-              this.liferay.createPriceEntriesBatch(config, promoEntries, {
-                priceListExternalReferenceCode: promo.externalReferenceCode,
-              }),
-            `create-price-entries:${promo.name}`
-          );
+
+          for (const entry of promoEntries) {
+            // Keep priceListId and add priceListExternalReferenceCode to ensure Vulcan Batch Engine can map it
+            const entryData = {
+              ...entry,
+              priceListExternalReferenceCode: promo.externalReferenceCode,
+            };
+
+            await this._runWithRetry(
+              () =>
+                this.liferay.rest._post(
+                  config,
+                  `/o/headless-commerce-admin-pricing/v2.0/price-lists/by-externalReferenceCode/${promo.externalReferenceCode}/price-entries`,
+                  entryData,
+                  'create-price-entry',
+                  'Failed to create promotional price entry'
+                ),
+              `create-price-entries:${promo.name}`
+            );
+          }
         }
       }
 

@@ -224,6 +224,11 @@ Failure to provide these flags will cause the execution to silently hang while w
 - Identified that Liferay DXP rejects `ProductOption` linking (with `Option value sku ID is invalid`) if a product already has a base SKU and the option has `skuContributor: true`, but no `skuId` mapping is provided. Fixed `productGenerator.cjs` to force `skuContributor: false` when `options.generateSkuVariants` is `false`, resolving the `aica generate --demo` backend error that blocked E2E testing on PRs.
 - Updated `scripts/run-e2e-ldm.sh` to make the LDM `PROJECT_NAME` unique per-user (`aica-e2e-$USER`) and dynamically override `.env.e2e` `LIFERAY_URL` and `LIFERAY_API_URL` to match the unique `TARGET_HOST` to prevent environment conflicts on shared host machines.
 
+- Identified that `PromoGenerator.cjs` triggers the Liferay Commerce Pricing v2.0 Vulcan Batch Engine `NotSupportedException` bug when using the SDK `createPriceEntriesBatch` method.
+- Replaced the SDK call in `PromoGenerator.cjs` with a sequential loop of direct POST requests to the ERC-scoped endpoint, perfectly mirroring the successful workaround implemented earlier in `ProductGenerator.cjs`.
+- Kicked off a fresh E2E verification (`task-13616`) to confirm the fix resolves the dashboard data generation flow timeout.
+- The session was concluded while waiting for E2E verification (`task-13616`) to complete.
+
 <!-- markdownlint-disable MD049 -->
 
 ---
