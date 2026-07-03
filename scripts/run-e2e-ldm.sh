@@ -222,6 +222,9 @@ if ! ldm_cmd doctor --skip-project > /dev/null; then
     echo "⚠️  WARNING: LDM Doctor reported environment warnings. Continuing..."
 fi
 
+echo "🔧 Enforcing isolated database mode..."
+ldm config database-mode isolated --global
+
 echo "🏗️  Ensuring LDM Shared Infrastructure is active..."
 # shellcheck disable=SC2086
 ldm_cmd infra-setup $LDM_Y_FLAG
@@ -348,6 +351,13 @@ if [ $EXISTING_PROJECT -eq 0 ]; then
         --no-captcha \
         --no-run \
         $LDM_SSL_FLAG
+
+    # The .ldmp seed was packaged with 'shared' DB mode, so its portal-ext.properties hardcodes liferay-db-global.
+    # We must dynamically rewrite it to use the isolated project DB before booting.
+    if [ -f "$PROJECT_NAME/files/portal-ext.properties" ]; then
+        echo "🔧 Rewriting database host in portal-ext.properties for isolated DB mode..."
+        sed -i.bak "s/liferay-db-global/${PROJECT_NAME}-db/g" "$PROJECT_NAME/files/portal-ext.properties"
+    fi
 
     # Sync OSGi modules built by Gradle into the LDM staging directory
     if [ -d "bundles/osgi/modules" ]; then
