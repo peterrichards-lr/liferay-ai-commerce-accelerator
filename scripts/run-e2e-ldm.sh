@@ -444,8 +444,23 @@ fi
 
 write_signal "WAITING_HEALTHY"
 echo "⏳ Waiting for Liferay to be ready at $TARGET_URL..."
+echo "ℹ️  NOTE: Liferay can take 3-5 minutes to initialize. Transient errors (like 'BeanLocator is null') in the container logs are normal during this OSGi lifecycle phase."
+
 # LDM 2.7.12+ wait command blocks until the HTTP layer is responsive
-if ! ldm_cmd wait "$PROJECT_NAME" -d --timeout 1800; then
+ldm_cmd wait "$PROJECT_NAME" -d --timeout 1800 &
+WAIT_PID=$!
+
+WAIT_COUNT=0
+while kill -0 $WAIT_PID 2>/dev/null; do
+    sleep 15
+    WAIT_COUNT=$((WAIT_COUNT + 15))
+    if kill -0 $WAIT_PID 2>/dev/null; then
+        echo "⏳ Still waiting... ($WAIT_COUNT seconds elapsed)"
+    fi
+done
+
+wait $WAIT_PID
+if [ $? -ne 0 ]; then
     echo -e "\n❌ ERROR: Liferay failed to become ready within 30 minutes."
     ldm_cmd logs "$PROJECT_NAME" --tail 100
     exit 1
