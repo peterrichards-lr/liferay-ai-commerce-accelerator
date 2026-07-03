@@ -38,6 +38,7 @@ describe('PromoGenerator', () => {
         }),
       },
       liferay: {
+        rest: { _post: vi.fn().mockResolvedValue({}) },
         getProducts: vi.fn().mockResolvedValue({
           items: [{ name: 'Hammer', sku: 'SKU-HAMMER', id: 100 }],
         }),
