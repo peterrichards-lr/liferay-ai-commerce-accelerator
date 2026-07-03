@@ -405,18 +405,15 @@ class PromoGenerator extends BaseGenerator {
           );
 
           for (const entry of promoEntries) {
-            // Must omit priceListId and priceListExternalReferenceCode to bypass Vulcan Batch Engine NotSupportedException
             const entryData = {
               ...entry,
             };
-            delete entryData.priceListId;
-            delete entryData.priceListExternalReferenceCode;
 
             await this._runWithRetry(
               () =>
                 this.liferay.rest._post(
                   config,
-                  `/o/headless-commerce-admin-pricing/v2.0/price-lists/by-externalReferenceCode/${promo.externalReferenceCode}/price-entries`,
+                  `/o/headless-commerce-admin-pricing/v2.0/price-lists/${liferayPriceList.id}/price-entries`,
                   entryData,
                   'create-price-entry',
                   'Failed to create promotional price entry'

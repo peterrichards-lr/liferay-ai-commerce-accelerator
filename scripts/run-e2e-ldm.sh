@@ -413,6 +413,7 @@ if [ -z "$ARTIFACTS" ]; then
     echo "⚠️  WARNING: No artifacts found to deploy. Did the build fail?"
 else
     echo "🚚 Syncing artifacts to container [$PROJECT_NAME] using native Atomic Move..."
+    write_signal "DEPLOYING"
     # LDM deploy uses the 'Atomic Move' pattern by default since v2.7.6
     # shellcheck disable=SC2086
     ldm_cmd deploy "$PROJECT_NAME" $ARTIFACTS
@@ -445,16 +446,18 @@ write_signal "WAITING_HEALTHY"
 echo "⏳ Waiting for Liferay to be ready at $TARGET_URL..."
 # LDM wait command blocks until the HTTP layer is responsive and streams boot milestones
 if ! ldm_cmd wait "$PROJECT_NAME" -d --stream-status --timeout 1800; then
+    write_signal "UNHEALTHY"
     echo -e "\n❌ ERROR: Liferay failed to become ready within 30 minutes."
     ldm_cmd logs "$PROJECT_NAME" --tail 100
     exit 1
 fi
 
 echo -e "\n✅ Liferay is UP and responding!"
+write_signal "HEALTHY"
 
 # Give Liferay's embedded Elasticsearch 45s of idle CPU time to finish startup indexing on cold boots
 if [ $EXISTING_PROJECT -eq 0 ]; then
-    write_signal "WAITING_HEALTHY"
+    write_signal "INDEXING"
     echo "⏳ Pre-warming Liferay search indexers (45 seconds)..."
     sleep 45
 fi
