@@ -453,7 +453,20 @@ while kill -0 $WAIT_PID 2>/dev/null; do
     sleep 15
     WAIT_COUNT=$((WAIT_COUNT + 15))
     if kill -0 $WAIT_PID 2>/dev/null; then
-        echo "⏳ Still waiting... ($WAIT_COUNT seconds elapsed)"
+        MILESTONE=""
+        if [ -f ".liferay-docker/startup-status.json" ]; then
+            if command -v jq >/dev/null 2>&1; then
+                MILESTONE=$(jq -r '.latest_milestone' .liferay-docker/startup-status.json 2>/dev/null)
+            else
+                MILESTONE=$(grep -o '"latest_milestone": *"[^"]*"' .liferay-docker/startup-status.json | sed 's/"latest_milestone": *"//;s/"//')
+            fi
+        fi
+        
+        if [ -n "$MILESTONE" ] && [ "$MILESTONE" != "null" ]; then
+            echo "⏳ Still waiting... ($WAIT_COUNT seconds elapsed) [Phase: $MILESTONE]"
+        else
+            echo "⏳ Still waiting... ($WAIT_COUNT seconds elapsed)"
+        fi
     fi
 done
 
