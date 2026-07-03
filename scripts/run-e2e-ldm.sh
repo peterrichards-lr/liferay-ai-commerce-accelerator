@@ -380,6 +380,7 @@ if [ $EXISTING_PROJECT -eq 0 ]; then
         --tag "$LIFERAY_TAG" \
         --sidecar \
         --no-captcha \
+        --no-wait \
         --jvm-args="-Xmx2560m -XX:ReservedCodeCacheSize=512m" \
         --fast-login \
         --feature LPD-35443 \
