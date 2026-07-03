@@ -376,6 +376,7 @@ class PromoGenerator extends BaseGenerator {
               const skuERC = product.sku || product.externalReferenceCode;
               promoEntries.push({
                 price: discountedPrice,
+                priceListId: liferayPriceList.id,
                 skuId,
                 skuExternalReferenceCode: skuERC,
                 externalReferenceCode: `${promo.externalReferenceCode}-PE-${skuERC}`,
@@ -387,6 +388,7 @@ class PromoGenerator extends BaseGenerator {
                 const skuERC = sku.externalReferenceCode || sku.sku;
                 promoEntries.push({
                   price: discountedPrice,
+                  priceListId: liferayPriceList.id,
                   skuId,
                   skuExternalReferenceCode: skuERC,
                   externalReferenceCode: `${promo.externalReferenceCode}-PE-${skuERC}`,
