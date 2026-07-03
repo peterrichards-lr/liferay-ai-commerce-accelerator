@@ -76,6 +76,7 @@ FILES_STAGING="${STAGING_DIR}/files_staging"
 mkdir -p "${FILES_STAGING}/deploy"
 mkdir -p "${FILES_STAGING}/data"
 mkdir -p "${FILES_STAGING}/client-extensions"
+mkdir -p "${FILES_STAGING}/configs"
 
 # Copy document library
 if [ -d "bundles/data/document_library" ]; then
@@ -89,8 +90,14 @@ fi
 find client-extensions -name "*.zip" \( -path "*/dist/*" -o -path "*/build/*" \) -exec cp {} "${FILES_STAGING}/client-extensions/" \; 2>/dev/null || true
 find modules -name "*.jar" -path "*/build/libs/*" -exec cp {} "${FILES_STAGING}/deploy/" \; 2>/dev/null || true
 
+# Copy configs
+if [ -d "configs" ]; then
+  cp -r "configs/"* "${FILES_STAGING}/configs/" 2>/dev/null || true
+  echo "✅ Copied configs to staging."
+fi
+
 # Archive files_staging into files.tar.gz
-if [ -d "${FILES_STAGING}/data/document_library" ] || [ "$(ls -A "${FILES_STAGING}/deploy" 2>/dev/null)" ] || [ "$(ls -A "${FILES_STAGING}/client-extensions" 2>/dev/null)" ]; then
+if [ -d "${FILES_STAGING}/data/document_library" ] || [ "$(ls -A "${FILES_STAGING}/deploy" 2>/dev/null)" ] || [ "$(ls -A "${FILES_STAGING}/client-extensions" 2>/dev/null)" ] || [ "$(ls -A "${FILES_STAGING}/configs" 2>/dev/null)" ]; then
   tar -czf "${STAGING_DIR}/files.tar.gz" -C "${FILES_STAGING}" .
   files_sha=$(calculate_sha256 "${STAGING_DIR}/files.tar.gz")
   echo "${files_sha}" > "${STAGING_DIR}/files.tar.gz.sha256"
