@@ -376,7 +376,6 @@ class PromoGenerator extends BaseGenerator {
               const skuERC = product.sku || product.externalReferenceCode;
               promoEntries.push({
                 price: discountedPrice,
-                priceListId: liferayPriceList.id,
                 skuId,
                 skuExternalReferenceCode: skuERC,
                 externalReferenceCode: `${promo.externalReferenceCode}-PE-${skuERC}`,
@@ -388,7 +387,6 @@ class PromoGenerator extends BaseGenerator {
                 const skuERC = sku.externalReferenceCode || sku.sku;
                 promoEntries.push({
                   price: discountedPrice,
-                  priceListId: liferayPriceList.id,
                   skuId,
                   skuExternalReferenceCode: skuERC,
                   externalReferenceCode: `${promo.externalReferenceCode}-PE-${skuERC}`,
@@ -405,10 +403,9 @@ class PromoGenerator extends BaseGenerator {
           );
 
           for (const entry of promoEntries) {
-            // Keep priceListId and add priceListExternalReferenceCode to ensure Vulcan Batch Engine can map it
+            // Must omit priceListId and priceListExternalReferenceCode to bypass Vulcan Batch Engine NotSupportedException
             const entryData = {
               ...entry,
-              priceListExternalReferenceCode: promo.externalReferenceCode,
             };
 
             await this._runWithRetry(
