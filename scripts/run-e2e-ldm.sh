@@ -83,7 +83,7 @@ else
 fi
 
 # --- Constants ---
-REQUIRED_LDM_VERSION="2.8.0"
+REQUIRED_LDM_VERSION="2.11.85"
 DEFAULT_HOST="${PROJECT_NAME}.local"
 
 # LDM 2.7.14+ automatically forwards OPENAI_*, GEMINI_*, etc.
@@ -445,20 +445,14 @@ fi
 write_signal "WAITING_HEALTHY"
 echo "⏳ Waiting for Liferay to be ready at $TARGET_URL..."
 
-# For maximum CI insight, stream the raw container logs in the background while waiting
-ldm_cmd logs -f "$PROJECT_NAME" &
-LOG_PID=$!
-
-# LDM wait command blocks until the HTTP layer is responsive and streams boot milestones
-if ! ldm_cmd wait "$PROJECT_NAME" -d --stream-status --timeout 1800; then
+# LDM wait command blocks until the HTTP layer is responsive.
+# We use the native --stream-logs feature from LDM v2.11.85 to print real-time container output.
+if ! ldm_cmd wait "$PROJECT_NAME" -d --stream-logs --timeout 1800; then
     write_signal "UNHEALTHY"
     echo -e "\n❌ ERROR: Liferay failed to become ready within 30 minutes."
-    kill $LOG_PID 2>/dev/null || true
-    ldm_cmd logs "$PROJECT_NAME" --tail 100
     exit 1
 fi
 
-kill $LOG_PID 2>/dev/null || true
 echo -e "\n✅ Liferay is UP and responding!"
 write_signal "HEALTHY"
 
