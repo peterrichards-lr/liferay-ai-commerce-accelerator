@@ -19,7 +19,7 @@ concurrency:
 jobs:
   build-and-test:
     name: CI/build-and-test
-    runs-on: self-hosted
+    runs-on: ubuntu-latest
     env:
       FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: 'true'
 
@@ -72,7 +72,7 @@ jobs:
 
   e2e-verification:
     name: CI/e2e-verification
-    runs-on: self-hosted
+    runs-on: ubuntu-latest
     env:
       FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: 'true'
 
