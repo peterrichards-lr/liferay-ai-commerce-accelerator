@@ -409,6 +409,8 @@ class PromoGenerator extends BaseGenerator {
             const entryData = {
               ...entry,
             };
+            delete entryData.priceListId;
+            delete entryData.priceListExternalReferenceCode;
 
             await this._runWithRetry(
               () =>

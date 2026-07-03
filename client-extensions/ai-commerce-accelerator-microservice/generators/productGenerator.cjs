@@ -549,6 +549,8 @@ class ProductGenerator extends BaseGenerator {
                 chunk.map(async (entry) => {
                   try {
                     const { tierPrices, ...entryData } = entry;
+                    delete entryData.priceListId;
+                    delete entryData.priceListExternalReferenceCode;
 
                     if (!entryData.externalReferenceCode) {
                       entryData.externalReferenceCode = `AICA-PE-${pl.externalReferenceCode || pl.erc}-${entryData.sku}`;
