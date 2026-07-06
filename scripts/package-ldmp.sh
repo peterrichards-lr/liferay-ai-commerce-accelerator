@@ -161,3 +161,11 @@ echo "--------------------------------------------------"
 echo "✅ Package created successfully:"
 echo "👉 ${PROJECT_ID}.ldmp"
 echo "👉 ${PROJECT_ID}.ldmp.sha256"
+
+# 7. Validate package contents
+echo "🔍 Validating package payload..."
+if ! tar -tzf "${PROJECT_ID}.ldmp" | grep -q "^\./\.ldm/"; then
+  echo "❌ ERROR: .ldm configuration directory is missing from the .ldmp package!"
+  exit 1
+fi
+echo "✅ Package validation passed."
