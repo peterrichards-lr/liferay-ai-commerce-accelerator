@@ -255,14 +255,17 @@ function AppUI() {
       localStorage.getItem('aica_has_connected_once') === 'true';
 
     if (hasConnectedOnce && !connectionEstablished) {
-      setIsCheckingConnection(true);
-      testConnection({ silent: true })
-        .catch(() => {})
-        .finally(() => {
-          setIsCheckingConnection(false);
-        });
+      const checkConn = async () => {
+        setIsCheckingConnection(true);
+        testConnection({ silent: true })
+          .catch(() => {})
+          .finally(() => {
+            setIsCheckingConnection(false);
+          });
+      };
+      checkConn();
     } else {
-      setIsCheckingConnection(false);
+      setTimeout(() => setIsCheckingConnection(false), 0);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);

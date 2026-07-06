@@ -1,0 +1,11 @@
+name: Runner Verification
+
+on:
+  workflow_dispatch: # Allows you to trigger this manually from the GitHub UI
+
+jobs:
+  verify-docker:
+    runs-on: self-hosted
+    steps:
+      - name: Check Docker access
+        run: docker info
