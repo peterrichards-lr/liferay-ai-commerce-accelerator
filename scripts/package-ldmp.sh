@@ -27,6 +27,11 @@ STAGING_DIR="./ldm_staging"
 rm -rf "$STAGING_DIR"
 mkdir -p "$STAGING_DIR"
 
+if [ -d ".ldm" ]; then
+  echo "📂 Copying LDM configuration (.ldm) to staging..."
+  cp -r ".ldm" "${STAGING_DIR}/"
+fi
+
 # 2. Manifest generation is deferred until staging files are collected.
 
 # 3. Dump your Database state from the running postgres container
