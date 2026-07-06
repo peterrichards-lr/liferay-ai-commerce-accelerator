@@ -401,6 +401,8 @@ class PromoGenerator extends BaseGenerator {
           await this.liferay.createPriceEntriesBatch(config, promoEntries, {
             sessionId,
             externalReferenceCode: liferayPriceList.externalReferenceCode,
+            priceListExternalReferenceCode:
+              liferayPriceList.externalReferenceCode,
             isPromotion: true,
           });
         }

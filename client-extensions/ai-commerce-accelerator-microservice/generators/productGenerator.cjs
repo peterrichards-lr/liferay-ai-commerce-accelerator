@@ -539,6 +539,8 @@ class ProductGenerator extends BaseGenerator {
             {
               sessionId,
               externalReferenceCode: pl.externalReferenceCode || pl.erc,
+              priceListExternalReferenceCode:
+                pl.externalReferenceCode || pl.erc,
             }
           );
         },
