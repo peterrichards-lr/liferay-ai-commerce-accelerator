@@ -61,10 +61,11 @@ describe('PromoGenerator', () => {
         getPriceListByERC: vi.fn().mockResolvedValue(null),
         assignAccountToGroup: vi.fn().mockResolvedValue({}),
         createPriceList: vi.fn().mockResolvedValue({ id: 500 }),
+        createPriceEntriesBatch: vi.fn().mockResolvedValue({ count: 1 }),
         createPriceListAccountGroup: vi.fn().mockResolvedValue({}),
-        createPriceEntriesBatch: vi
-          .fn()
-          .mockResolvedValue({ batchId: 'batch-1' }),
+        rest: {
+          _post: vi.fn().mockResolvedValue({ id: 1000 }),
+        },
       },
       progress: {
         sessionStarted: vi.fn(),

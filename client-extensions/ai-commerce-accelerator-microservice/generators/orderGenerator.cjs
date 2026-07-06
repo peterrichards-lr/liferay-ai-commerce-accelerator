@@ -411,7 +411,7 @@ class OrderGenerator extends BaseGenerator {
     }
   }
 
-  buildOrderPayload(config, orderData, accounts, products, warehouses) {
+  buildOrderPayload(config, orderData, accounts, products, _warehouses) {
     const account = this.pickAccount(
       orderData.accountId,
       accounts,

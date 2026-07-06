@@ -72,4 +72,4 @@ test-env.js
 .process-signal
 *.db
 *.db-journal
-client-extensions/ai-commerce-accelerator-microservice/data/*.db
+client-extensions/ai-commerce-accelerator-microservice/data/*.dbaica-e2e/

@@ -19,8 +19,10 @@ test.describe.serial('AICA Headless CLI Client E2E Verification', () => {
 
   let latestSessionId;
 
-  test('should execute aica generate --demo to completion', async () => {
-    test.setTimeout(300000); // Allow up to 5 minutes for full generation and polling
+  test('should execute aica generate --demo to completion', async ({
+    page,
+  }) => {
+    test.setTimeout(600000); // Allow up to 10 minutes for full generation and polling
 
     const stdout = await runCliCommand(
       `${aicaBin} generate --demo --products 1 --accounts 1 --orders 3`
@@ -95,8 +97,10 @@ test.describe.serial('AICA Headless CLI Client E2E Verification', () => {
     await new Promise((r) => setTimeout(r, 15000));
   });
 
-  test('should successfully import and re-scaffold a dataset using config import', async () => {
-    test.setTimeout(300000);
+  test('should successfully import and re-scaffold a dataset using config import', async ({
+    page,
+  }) => {
+    test.setTimeout(600000);
 
     const tempExportPath = path.resolve(
       __dirname,

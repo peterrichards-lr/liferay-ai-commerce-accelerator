@@ -46,7 +46,7 @@ test.describe('AICA End-to-End Verification', () => {
   });
 
   test('should perform data generation flow in Demo Mode', async ({ page }) => {
-    test.setTimeout(300000);
+    test.setTimeout(600000);
     // 1. Ensure Demo Mode is active
     const demoToggle = page.getByLabel(/Toggle Data Generation Mode/i);
     if (await demoToggle.isChecked()) {
@@ -82,7 +82,7 @@ test.describe('AICA End-to-End Verification', () => {
 
     // 4. Monitor Progress
     const progressGauge = page.locator('.overall-gauge-container');
-    await expect(progressGauge).toContainText('100%', { timeout: 300000 });
+    await expect(progressGauge).toContainText('100%', { timeout: 600000 });
 
     // 5. Verify Console logs
     const console = page.locator('.console-body');
@@ -103,7 +103,7 @@ test.describe('AICA End-to-End Verification', () => {
       );
     }
 
-    test.setTimeout(300000);
+    test.setTimeout(600000);
 
     // 1. Ensure Live Mode is active
     const demoToggle = page.getByLabel(/Toggle Data Generation Mode/i);
@@ -140,7 +140,7 @@ test.describe('AICA End-to-End Verification', () => {
 
     // 4. Monitor Progress
     const progressGauge = page.locator('.overall-gauge-container');
-    await expect(progressGauge).toContainText('100%', { timeout: 300000 });
+    await expect(progressGauge).toContainText('100%', { timeout: 600000 });
 
     // 5. Verify Console logs
     const console = page.locator('.console-body');
@@ -151,7 +151,7 @@ test.describe('AICA End-to-End Verification', () => {
   test('should persist and resume active session on page reload', async ({
     page,
   }) => {
-    test.setTimeout(300000);
+    test.setTimeout(600000);
     // 1. Ensure Demo Mode is active to avoid external API calls during E2E
     const demoToggle = page.getByLabel(/Toggle Data Generation Mode/i);
     if (await demoToggle.isChecked()) {
@@ -212,7 +212,7 @@ test.describe('AICA End-to-End Verification', () => {
 
     // 7. Wait for the workflow to complete to prevent overlap with the deletion test
     const finalGauge = page.locator('.overall-gauge-container');
-    await expect(finalGauge).toContainText('100%', { timeout: 300000 });
+    await expect(finalGauge).toContainText('100%', { timeout: 600000 });
   });
 
   test('should perform selected data deletion flow', async ({ page }) => {

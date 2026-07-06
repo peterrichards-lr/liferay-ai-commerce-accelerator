@@ -394,15 +394,30 @@ const gracefulShutdown = async (signal) => {
           error: error.message,
         });
 
+        let bootMilestone = null;
+        try {
+          const statusPath = path.resolve(
+            __dirname,
+            '../../.liferay-docker/startup-status.json'
+          );
+          if (fs.existsSync(statusPath)) {
+            const statusData = JSON.parse(fs.readFileSync(statusPath, 'utf8'));
+            bootMilestone = statusData.latest_milestone;
+          }
+        } catch (_e) {
+          // Ignore
+        }
+
         if (error.response && error.response.data) {
           return res
             .status(error.response.status || 400)
-            .json(error.response.data);
+            .json({ ...error.response.data, bootMilestone });
         }
 
-        return res.status(400).json({
+        return res.status(500).json({
           success: false,
           message: error.message || 'Connection failed',
+          bootMilestone,
         });
       }
     }
