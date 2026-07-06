@@ -533,15 +533,12 @@ class ProductGenerator extends BaseGenerator {
             `Simulating batch creation of ${priceEntries.length} price entries for list ${pl.id} directly from ProductGenerator to bypass DXP platform bugs...`,
             { sessionId }
           );
-          // Use the SDK method, which will simulate the batch by default (simulateBatch: true)
-          // to bypass the Vulcan Batch Engine mapping bug until Liferay releases a fix.
           return await this.liferay.createPriceEntriesBatch(
             config,
             priceEntries,
             {
               sessionId,
               externalReferenceCode: pl.externalReferenceCode || pl.erc,
-              simulateBatch: true, // TODO: Remove this flag once Liferay DXP platform bug is patched
             }
           );
         },

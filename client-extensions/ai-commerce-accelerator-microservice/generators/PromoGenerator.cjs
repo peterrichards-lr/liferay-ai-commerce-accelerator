@@ -398,12 +398,9 @@ class PromoGenerator extends BaseGenerator {
             }
           }
 
-          // Use the SDK method, which will simulate the batch by default (simulateBatch: true)
-          // to bypass the Vulcan Batch Engine mapping bug until Liferay releases a fix.
           await this.liferay.createPriceEntriesBatch(config, promoEntries, {
             sessionId,
             externalReferenceCode: liferayPriceList.externalReferenceCode,
-            simulateBatch: true, // TODO: Remove this flag once Liferay DXP platform bug is patched
             isPromotion: true,
           });
         }
