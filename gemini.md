@@ -233,8 +233,14 @@ Failure to provide these flags will cause the execution to silently hang while w
 - Pushed the fix to branch `fix/vulcan-batch-engine-promo-crash`.
 - The session was concluded while waiting for the user to trigger the updated GitHub Actions CI run.
 
+### 4. Site Initializer NullPointerException (DXP 2026.q1)
+
+- **Finding:** If a Site Initializer Client Extension (e.g., `ai-commerce-accelerator-site-initializer`) is deployed to the `osgi/client-extensions` directory _before_ Liferay core has fully booted, it is processed during startup. This causes Liferay's `SiteInitializerClientExtension.activate` to invoke `putSiteByExternalReferenceCode`. However, since Liferay's portal contexts (layouts and virtual hosts) are not fully initialized, this call crashes with a `NullPointerException` in `PortalImpl.getCanonicalURL` (because `layout` is null). This crash prevents the AICA site and dependent configurations from being created, causing cascading 404 errors downstream.
+- **Lesson:** Client extensions must NOT be copied into `osgi/client-extensions` prior to Liferay's HTTP health check (`ldm wait --timeout 1800`) returning successfully. The orchestration script `run-e2e-ldm.sh` must be configured to wait for Liferay to become completely healthy _before_ executing `ldm deploy`. I have updated Phase 4 to wait for Liferay's HTTP layer first, then deploy the artifacts, and finally run `ldm wait -d` to block until Liferay has successfully processed them.
+- **Action:** Created JIRA draft `LPS-DRAFT-SITE-INITIALIZER-NPE-BEFORE-HTTP.md` to document this race condition upstream.
+
 <!-- markdownlint-disable MD049 -->
 
 ---
 
-_Last Updated: 2026-07-03_ | _Last Reviewed: 2026-07-03_
+_Last Updated: 2026-07-06_ | _Last Reviewed: 2026-07-06_

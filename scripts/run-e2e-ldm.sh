@@ -76,6 +76,7 @@ if [ -z "$PROJECT_NAME" ]; then
     # Yarn workspace name collisions during Phase 2 (Building).
     if [ $EXISTING_PROJECT -eq 0 ] && [ -d "$PROJECT_NAME" ]; then
         echo "🧹 Removing stale project directory '$PROJECT_NAME' before build..."
+        ldm rm "$PROJECT_NAME" --delete -y 2>/dev/null || true
         rm -rf "$PROJECT_NAME"
     fi
 else
@@ -369,10 +370,22 @@ if [ $EXISTING_PROJECT -eq 0 ]; then
     fi
 
     # Sync client extensions built by Gradle/yarn into the LDM staging directory
-    # NOTE: We DO NOT copy the ZIPs here anymore. If they are copied before Liferay boots, 
-    # they are processed during startup, which causes NPEs in the SiteInitializerClientExtension 
-    # because Liferay's default layouts and portal contexts are not yet fully initialized.
-    # We will deploy them using `ldm deploy` AFTER Liferay is healthy.
+    # NOTE: We copy all ZIPs EXCEPT the Site Initializer here. 
+    # If the Site Initializer is copied before Liferay boots, it is processed during startup, 
+    # which causes NPEs in the SiteInitializerClientExtension because Liferay's default 
+    # layouts and portal contexts are not yet fully initialized.
+    # However, the OAuth client extension MUST be present so LDM can generate credentials.
+    echo "🔄 Syncing built client extensions to LDM staging directory (excluding Site Initializer)..."
+    mkdir -p "$PROJECT_NAME/osgi/client-extensions"
+    if [ -d "bundles/osgi/client-extensions" ]; then
+        for zip in bundles/osgi/client-extensions/*.zip; do
+            if [[ -f "$zip" && ! "$zip" == *"site-initializer"* ]]; then
+                cp "$zip" "$PROJECT_NAME/osgi/client-extensions/" 2>/dev/null || true
+            fi
+        done
+    fi
+    # Fallback to source dist/build folders if standalone build was used
+    find client-extensions -name "*.zip" \( -path "*/dist/*" -o -path "*/build/*" \) ! -name "*site-initializer*" -exec cp {} "$PROJECT_NAME/osgi/client-extensions/" \; 2>/dev/null || true
     chmod -R 777 "$PROJECT_NAME" 2>/dev/null || true
 
     write_signal "STARTING"
