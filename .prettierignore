@@ -12,3 +12,4 @@ test-results/
 client-extensions/ai-commerce-accelerator-site-initializer/site-initializer/
 client-extensions/ai-commerce-accelerator-batch/batch/
 **/coverage/
+aica-e2e/

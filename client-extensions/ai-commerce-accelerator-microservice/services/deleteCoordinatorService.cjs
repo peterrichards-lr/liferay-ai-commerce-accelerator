@@ -301,25 +301,40 @@ class DeleteCoordinatorService extends BaseGenerator {
       // RELATIONAL CRAWL: Fetch Specs/Options linked to discovered products
       if (manifest.products.length > 0) {
         const productIds = manifest.products.map((p) => p.productId || p.id);
-        const specs = await this.liferay.getSpecificationsByProductIds(
-          config,
-          productIds
-        );
-        manifest.specifications.push(
-          ...specs.filter(
-            (s) => isAICA(s.externalReferenceCode) || isAICA(s.erc)
-          )
-        );
 
-        const opts = await this.liferay.getOptionsByProductIds(
-          config,
-          productIds
-        );
-        manifest.options.push(
-          ...opts.filter(
-            (o) => isAICA(o.externalReferenceCode) || isAICA(o.erc)
-          )
-        );
+        try {
+          const specs = await this.liferay.getSpecificationsByProductIds(
+            config,
+            productIds
+          );
+          manifest.specifications.push(
+            ...specs.filter(
+              (s) => isAICA(s.externalReferenceCode) || isAICA(s.erc)
+            )
+          );
+        } catch (err) {
+          this.logger.warn(
+            `Failed to fetch specifications for discovered products: ${err.message}`,
+            { sessionId }
+          );
+        }
+
+        try {
+          const opts = await this.liferay.getOptionsByProductIds(
+            config,
+            productIds
+          );
+          manifest.options.push(
+            ...opts.filter(
+              (o) => isAICA(o.externalReferenceCode) || isAICA(o.erc)
+            )
+          );
+        } catch (err) {
+          this.logger.warn(
+            `Failed to fetch options for discovered products: ${err.message}`,
+            { sessionId }
+          );
+        }
       }
 
       // --- 4. WAREHOUSE DISCOVERY ---
