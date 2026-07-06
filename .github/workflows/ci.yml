@@ -3,21 +3,32 @@ name: CI
 on:
   push:
     branches: [main, master]
-    paths-ignore:
-      - '**/*.md'
-      - 'docs/**'
   pull_request:
     branches: [main, master]
-    paths-ignore:
-      - '**/*.md'
-      - 'docs/**'
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
+  filter:
+    runs-on: ubuntu-latest
+    outputs:
+      code: ${{ steps.changes.outputs.code }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dorny/paths-filter@v3
+        id: changes
+        with:
+          filters: |
+            code:
+              - '**'
+              - '!**/*.md'
+              - '!docs/**'
+
   build-and-test:
+    needs: filter
+    if: needs.filter.outputs.code == 'true'
     name: CI/build-and-test
     runs-on: ubuntu-latest
     env:
@@ -69,3 +80,11 @@ jobs:
       - name: Run Unit Tests
         run: yarn test
         timeout-minutes: 15
+
+  build-and-test-skip:
+    needs: filter
+    if: needs.filter.outputs.code != 'true'
+    name: CI/build-and-test
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo "Skipped heavy testing for docs-only change to satisfy required status check."
