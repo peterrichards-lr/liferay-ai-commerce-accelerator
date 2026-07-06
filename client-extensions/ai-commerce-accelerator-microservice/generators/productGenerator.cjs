@@ -550,6 +550,9 @@ class ProductGenerator extends BaseGenerator {
                   try {
                     const { tierPrices, ...entryData } = entry;
 
+                    delete entryData.priceListId;
+                    delete entryData.priceListExternalReferenceCode;
+
                     if (!entryData.externalReferenceCode) {
                       entryData.externalReferenceCode = `AICA-PE-${pl.externalReferenceCode || pl.erc}-${entryData.sku}`;
                     }
@@ -557,7 +560,7 @@ class ProductGenerator extends BaseGenerator {
                     // 1. Create root price entry
                     const result = await this.liferay.rest._post(
                       config,
-                      `/o/headless-commerce-admin-pricing/v2.0/price-lists/${pl.id}/price-entries`,
+                      `/o/headless-commerce-admin-pricing/v2.0/price-lists/by-externalReferenceCode/${pl.externalReferenceCode || pl.erc}/price-entries`,
                       entryData,
                       'create-price-entry',
                       'Failed to create price entry'
