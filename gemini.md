@@ -89,6 +89,7 @@ Migrate Reindex OSGi module to JAX-RS 3.x (jakarta.ws.rs) for DXP 2026.q1 (Issue
 76. **Restore E2E SSL for Custom Objects Stability**: Restored `SSL` in the E2E script `run-e2e-ldm.sh` for the `ci.yml` pipeline, preventing `404 Not Found` timeouts on `aicaconfigurations` caused by Traefik plain-HTTP routing constraints on `aica-e2e.local`. [Completed]
 77. **Fix E2E ECONNREFUSED Errors**: Renamed OAuth ERC to match LDM container ID for port mapping, fixed `App.test.jsx` floating promises, and updated orchestrator `process.env` resolution. [Completed]
 78. **Clarify GitHub CLI & Issue Capabilities**: Documented in `AGENTS.md` that agents _do_ have full `gh` access to create/manage GitHub issues and pull requests, provided they request the proper `gh.write` permissions via the Antigravity wrapper. [Completed]
+79. **Fix LDM Fragment Overrides Packaging**: Update `scripts/package-ldmp.sh` to package the `.ldm` configuration directory into `.ldmp` payloads, allowing LDM to dynamically execute `fragment-overrides.json` at deploy time, and added a hard assertion test to prevent regressions (Issue #240, PR #239). [Completed]
 
 - Refactored `routes/config.cjs` to add POST handlers and created `tests/configRoutes.test.cjs` verifying local SQLite persistence (all 133 unit tests pass).
 - Ran a full E2E verification on `feature/dependabot-updates` branch (`task-1859`). All Playwright and integration tests successfully passed (27 passed, 1 skipped).
