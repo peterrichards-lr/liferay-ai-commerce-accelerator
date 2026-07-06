@@ -76,6 +76,7 @@ if [ -z "$PROJECT_NAME" ]; then
     # Yarn workspace name collisions during Phase 2 (Building).
     if [ $EXISTING_PROJECT -eq 0 ] && [ -d "$PROJECT_NAME" ]; then
         echo "🧹 Removing stale project directory '$PROJECT_NAME' before build..."
+        ldm rm "$PROJECT_NAME" --delete -y 2>/dev/null || true
         rm -rf "$PROJECT_NAME"
     fi
 else
@@ -83,12 +84,12 @@ else
 fi
 
 # --- Constants ---
-REQUIRED_LDM_VERSION="2.8.0"
+REQUIRED_LDM_VERSION="2.11.85"
 DEFAULT_HOST="${PROJECT_NAME}.local"
 
 # LDM 2.7.14+ automatically forwards OPENAI_*, GEMINI_*, etc.
 # We explicitly add AI_ prefix to the passthrough list for AICA-specific keys.
-export LDM_FORWARD_PREFIXES="${LDM_FORWARD_PREFIXES:-AI_}"
+export LDM_FORWARD_PREFIXES="AI_,LIFERAY_"
 TARGET_HOST="${LIFERAY_HOST:-$DEFAULT_HOST}"
 GRADLE_PROPS="gradle.properties"
 
@@ -222,13 +223,13 @@ if ! ldm_cmd doctor --skip-project > /dev/null; then
     echo "⚠️  WARNING: LDM Doctor reported environment warnings. Continuing..."
 fi
 
+echo "🔧 Enforcing isolated database mode..."
+ldm config database-mode isolated --global
+
 echo "🏗️  Ensuring LDM Shared Infrastructure is active..."
 ldm_cmd config set database_mode shared
 # shellcheck disable=SC2086
 ldm_cmd infra-setup $LDM_Y_FLAG
-
-echo "⏳ Giving Shared Infrastructure (Traefik/PostgreSQL) 15s to become healthy..."
-sleep 15
 
 # --- Phase 2: Build & Deployment Preparation ---
 
@@ -350,6 +351,13 @@ if [ $EXISTING_PROJECT -eq 0 ]; then
         --no-run \
         $LDM_SSL_FLAG
 
+    # The .ldmp seed was packaged with 'shared' DB mode, so its portal-ext.properties hardcodes liferay-db-global.
+    # We must dynamically rewrite it to use the isolated project DB before booting.
+    if [ -f "$PROJECT_NAME/files/portal-ext.properties" ]; then
+        echo "🔧 Rewriting database host in portal-ext.properties for isolated DB mode..."
+        sed -i.bak "s/liferay-db-global/${PROJECT_NAME}-db/g" "$PROJECT_NAME/files/portal-ext.properties"
+    fi
+
     # Sync OSGi modules built by Gradle into the LDM staging directory
     if [ -d "bundles/osgi/modules" ]; then
         echo "🔄 Syncing built OSGi modules to LDM modules directory..."
@@ -360,13 +368,22 @@ if [ $EXISTING_PROJECT -eq 0 ]; then
     fi
 
     # Sync client extensions built by Gradle/yarn into the LDM staging directory
-    echo "🔄 Syncing built client extensions to LDM staging directory..."
+    # NOTE: We copy all ZIPs EXCEPT the Site Initializer here. 
+    # If the Site Initializer is copied before Liferay boots, it is processed during startup, 
+    # which causes NPEs in the SiteInitializerClientExtension because Liferay's default 
+    # layouts and portal contexts are not yet fully initialized.
+    # However, the OAuth client extension MUST be present so LDM can generate credentials.
+    echo "🔄 Syncing built client extensions to LDM staging directory (excluding Site Initializer)..."
     mkdir -p "$PROJECT_NAME/osgi/client-extensions"
     if [ -d "bundles/osgi/client-extensions" ]; then
-        cp bundles/osgi/client-extensions/*.zip "$PROJECT_NAME/osgi/client-extensions/" 2>/dev/null || true
+        for zip in bundles/osgi/client-extensions/*.zip; do
+            if [[ -f "$zip" && ! "$zip" == *"site-initializer"* ]]; then
+                cp "$zip" "$PROJECT_NAME/osgi/client-extensions/" 2>/dev/null || true
+            fi
+        done
     fi
     # Fallback to source dist/build folders if standalone build was used
-    find client-extensions -name "*.zip" \( -path "*/dist/*" -o -path "*/build/*" \) -exec cp {} "$PROJECT_NAME/osgi/client-extensions/" \; 2>/dev/null || true
+    find client-extensions -name "*.zip" \( -path "*/dist/*" -o -path "*/build/*" \) ! -name "*site-initializer*" -exec cp {} "$PROJECT_NAME/osgi/client-extensions/" \; 2>/dev/null || true
     chmod -R 777 "$PROJECT_NAME" 2>/dev/null || true
 
     write_signal "STARTING"
@@ -381,6 +398,7 @@ if [ $EXISTING_PROJECT -eq 0 ]; then
         --tag "$LIFERAY_TAG" \
         --sidecar \
         --no-captcha \
+        --no-wait \
         --jvm-args="-Xmx2560m -XX:ReservedCodeCacheSize=512m" \
         --fast-login \
         --feature LPD-35443 \
@@ -395,8 +413,6 @@ else
         echo "🔄 Syncing built OSGi modules to LDM modules directory for hot-deploy..."
         mkdir -p "$PROJECT_NAME/osgi/modules"
         cp bundles/osgi/modules/*.jar "$PROJECT_NAME/osgi/modules/" 2>/dev/null || true
-        # Remove the legacy JAX-RS 2.x reindex endpoint bundle to prevent conflicts
-        rm -f "$PROJECT_NAME/osgi/modules/com.liferay.accelerator.reindex.endpoint-1.0.0.jar"
     fi
 
     # Sync client extensions to the LDM staging directory for hot-deploy
@@ -408,13 +424,31 @@ fi
 
 # --- Phase 4: Sync & Wait ---
 
-# Find all client extension ZIPs in dist or build/libs folders
+write_signal "WAITING_HEALTHY"
+echo "⏳ Waiting for Liferay HTTP layer to be ready at $TARGET_URL..."
+
+# Reverting to manual bash log streaming to bypass Python/LDM subprocess buffering in CI
+ldm_cmd logs -f "$PROJECT_NAME" &
+LOG_PID=$!
+
+# Wait for Liferay HTTP layer to become healthy FIRST
+if ! ldm_cmd wait "$PROJECT_NAME" --timeout 1800; then
+    write_signal "UNHEALTHY"
+    echo -e "\n❌ ERROR: Liferay failed to become ready within 30 minutes."
+    kill $LOG_PID 2>/dev/null || true
+    exit 1
+fi
+
+echo -e "\n✅ Liferay Core is UP! Proceeding to deploy client extensions..."
+
+# Now deploy the artifacts
 ARTIFACTS=$(find client-extensions -name "*.zip" \( -path "*/dist/*" -o -path "*/build/*" \) 2>/dev/null)
 
 if [ -z "$ARTIFACTS" ]; then
     echo "⚠️  WARNING: No artifacts found to deploy. Did the build fail?"
 else
     echo "🚚 Syncing artifacts to container [$PROJECT_NAME] using native Atomic Move..."
+    write_signal "DEPLOYING"
     # LDM deploy uses the 'Atomic Move' pattern by default since v2.7.6
     # shellcheck disable=SC2086
     ldm_cmd deploy "$PROJECT_NAME" $ARTIFACTS
@@ -434,29 +468,24 @@ else
             docker exec -u 0 "$PROJECT_NAME" touch -c "/opt/liferay/deploy/$basename_art" 2>/dev/null || true
         done
     fi
-    
-    # If the project was already running, give OSGi hot-deployer 25s to refresh import maps
-    if [ $EXISTING_PROJECT -eq 1 ]; then
-        write_signal "WAITING_HEALTHY"
-        echo "⏳ Hot-deploying changes... Waiting 25s for OSGi container to refresh import maps..."
-        sleep 25
-    fi
 fi
 
-write_signal "WAITING_HEALTHY"
-echo "⏳ Waiting for Liferay to be ready at $TARGET_URL..."
-# LDM 2.7.12+ wait command blocks until the HTTP layer is responsive
-if ! ldm_cmd wait "$PROJECT_NAME" -d --timeout 1800; then
-    echo -e "\n❌ ERROR: Liferay failed to become ready within 30 minutes."
-    ldm_cmd logs "$PROJECT_NAME" --tail 100
+# Finally wait for deployables to be processed (Custom Objects, OAuth apps, Site Initializer, etc)
+echo "⏳ Waiting for Liferay Client Extensions (deployables) to be processed..."
+if ! ldm_cmd wait "$PROJECT_NAME" -d --timeout 300; then
+    write_signal "UNHEALTHY"
+    echo -e "\n❌ ERROR: Liferay failed to process deployables within 5 minutes."
+    kill $LOG_PID 2>/dev/null || true
     exit 1
 fi
 
+kill $LOG_PID 2>/dev/null || true
 echo -e "\n✅ Liferay is UP and responding!"
+write_signal "HEALTHY"
 
 # Give Liferay's embedded Elasticsearch 45s of idle CPU time to finish startup indexing on cold boots
 if [ $EXISTING_PROJECT -eq 0 ]; then
-    write_signal "WAITING_HEALTHY"
+    write_signal "INDEXING"
     echo "⏳ Pre-warming Liferay search indexers (45 seconds)..."
     sleep 45
 fi
