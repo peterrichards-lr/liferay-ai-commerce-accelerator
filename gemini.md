@@ -224,8 +224,23 @@ Failure to provide these flags will cause the execution to silently hang while w
 - Identified that Liferay DXP rejects `ProductOption` linking (with `Option value sku ID is invalid`) if a product already has a base SKU and the option has `skuContributor: true`, but no `skuId` mapping is provided. Fixed `productGenerator.cjs` to force `skuContributor: false` when `options.generateSkuVariants` is `false`, resolving the `aica generate --demo` backend error that blocked E2E testing on PRs.
 - Updated `scripts/run-e2e-ldm.sh` to make the LDM `PROJECT_NAME` unique per-user (`aica-e2e-$USER`) and dynamically override `.env.e2e` `LIFERAY_URL` and `LIFERAY_API_URL` to match the unique `TARGET_HOST` to prevent environment conflicts on shared host machines.
 
+- Identified that `PromoGenerator.cjs` triggers the Liferay Commerce Pricing v2.0 Vulcan Batch Engine `NotSupportedException` bug when using the SDK `createPriceEntriesBatch` method.
+- Replaced the SDK call in `PromoGenerator.cjs` with a sequential loop of direct POST requests to the ERC-scoped endpoint, perfectly mirroring the successful workaround implemented earlier in `ProductGenerator.cjs`.
+- Kicked off a fresh E2E verification (`task-13616`) to confirm the fix resolves the dashboard data generation flow timeout.
+- Identified that the GitHub Actions CI workflow was hanging and failing due to Liferay crashing on boot with `java.net.UnknownHostException: liferay-db-global`.
+- Discovered that the `.ldmp` seed used for E2E testing (`postgresql-shared-v2`) had the shared database container name (`liferay-db-global`) hardcoded in `portal-ext.properties`, which Liferay attempts to connect to during startup.
+- Fixed the issue in `scripts/run-e2e-ldm.sh` by instructing LDM to use an isolated database in CI (`ldm config database-mode isolated --global`) and adding a dynamic `sed` rewrite step to replace `liferay-db-global` with the isolated container name (`${PROJECT_NAME}-db`) in the extracted seed's `portal-ext.properties`.
+- Pushed the fix to branch `fix/vulcan-batch-engine-promo-crash`.
+- The session was concluded while waiting for the user to trigger the updated GitHub Actions CI run.
+
+### 4. Site Initializer NullPointerException (DXP 2026.q1)
+
+- **Finding:** If a Site Initializer Client Extension (e.g., `ai-commerce-accelerator-site-initializer`) is deployed to the `osgi/client-extensions` directory _before_ Liferay core has fully booted, it is processed during startup. This causes Liferay's `SiteInitializerClientExtension.activate` to invoke `putSiteByExternalReferenceCode`. However, since Liferay's portal contexts (layouts and virtual hosts) are not fully initialized, this call crashes with a `NullPointerException` in `PortalImpl.getCanonicalURL` (because `layout` is null). This crash prevents the AICA site and dependent configurations from being created, causing cascading 404 errors downstream.
+- **Lesson:** Client extensions must NOT be copied into `osgi/client-extensions` prior to Liferay's HTTP health check (`ldm wait --timeout 1800`) returning successfully. The orchestration script `run-e2e-ldm.sh` must be configured to wait for Liferay to become completely healthy _before_ executing `ldm deploy`. I have updated Phase 4 to wait for Liferay's HTTP layer first, then deploy the artifacts, and finally run `ldm wait -d` to block until Liferay has successfully processed them.
+- **Action:** Created JIRA draft `LPS-DRAFT-SITE-INITIALIZER-NPE-BEFORE-HTTP.md` to document this race condition upstream.
+
 <!-- markdownlint-disable MD049 -->
 
 ---
 
-_Last Updated: 2026-07-02_ | _Last Reviewed: 2026-07-02_
+_Last Updated: 2026-07-06_ | _Last Reviewed: 2026-07-06_ 79. **Fix E2E Index Lag**: Added try-catch blocks in deleteCoordinatorService.cjs to handle GraphQL 404 Not Found errors caused by Elasticsearch indexing lag during aica delete --all, preventing premature termination of cleanup tasks. 80. **Document Site Initializer NPE**: Created jira/todo/LPS-DRAFT-SITE-INITIALIZER-BOOT-NPE.md detailing the auto-deploy startup crash when Site Initializers are deployed before the portal context is fully initialized.

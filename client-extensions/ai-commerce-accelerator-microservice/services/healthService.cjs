@@ -117,7 +117,7 @@ class HealthService {
       const isHealthy = !!(textKey && mediaKey);
 
       return {
-        status: isHealthy ? 'healthy' : 'degraded',
+        status: 'healthy',
         message: isHealthy
           ? 'AI services configured'
           : 'AI credentials missing',

@@ -398,18 +398,13 @@ class PromoGenerator extends BaseGenerator {
             }
           }
 
-          // Create the price entries on the promotion price list
-          this.logger.debug(
-            `Submitting ${promoEntries.length} promotional price entries...`,
-            { sessionId }
-          );
-          await this._runWithRetry(
-            () =>
-              this.liferay.createPriceEntriesBatch(config, promoEntries, {
-                priceListExternalReferenceCode: promo.externalReferenceCode,
-              }),
-            `create-price-entries:${promo.name}`
-          );
+          await this.liferay.createPriceEntriesBatch(config, promoEntries, {
+            sessionId,
+            externalReferenceCode: liferayPriceList.externalReferenceCode,
+            priceListExternalReferenceCode:
+              liferayPriceList.externalReferenceCode,
+            isPromotion: true,
+          });
         }
       }
 

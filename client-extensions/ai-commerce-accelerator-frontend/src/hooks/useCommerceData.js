@@ -169,6 +169,12 @@ export default function useCommerceData({
     } catch (err) {
       console.error('[DEBUG] testConnection error:', err.message, err);
       setConnectionEstablished(false);
+
+      const milestone = err.response?.data?.bootMilestone || err?.bootMilestone;
+      if (milestone) {
+        err.message = `Liferay is booting (${milestone})...`;
+      }
+
       if (!silent) throw err;
     }
   };
