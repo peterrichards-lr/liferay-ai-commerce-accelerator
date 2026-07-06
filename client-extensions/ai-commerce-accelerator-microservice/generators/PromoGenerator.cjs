@@ -398,29 +398,14 @@ class PromoGenerator extends BaseGenerator {
             }
           }
 
-          // Create the price entries on the promotion price list sequentially to bypass DXP platform bugs
-          this.logger.debug(
-            `Submitting ${promoEntries.length} promotional price entries...`,
-            { sessionId }
-          );
-
-          for (const entry of promoEntries) {
-            const entryData = {
-              ...entry,
-            };
-
-            await this._runWithRetry(
-              () =>
-                this.liferay.rest._post(
-                  config,
-                  `/o/headless-commerce-admin-pricing/v2.0/price-lists/${liferayPriceList.id}/price-entries`,
-                  entryData,
-                  'create-price-entry',
-                  'Failed to create promotional price entry'
-                ),
-              `create-price-entries:${promo.name}`
-            );
-          }
+          // Use the SDK method, which will simulate the batch by default (simulateBatch: true)
+          // to bypass the Vulcan Batch Engine mapping bug until Liferay releases a fix.
+          await this.liferay.createPriceEntriesBatch(config, promoEntries, {
+            sessionId,
+            externalReferenceCode: liferayPriceList.externalReferenceCode,
+            simulateBatch: true, // TODO: Remove this flag once Liferay DXP platform bug is patched
+            isPromotion: true,
+          });
         }
       }
 

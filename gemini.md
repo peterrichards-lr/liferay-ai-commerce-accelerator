@@ -243,4 +243,4 @@ Failure to provide these flags will cause the execution to silently hang while w
 
 ---
 
-_Last Updated: 2026-07-06_ | _Last Reviewed: 2026-07-06_
+_Last Updated: 2026-07-06_ | _Last Reviewed: 2026-07-06_ 79. **Fix E2E Index Lag**: Added try-catch blocks in deleteCoordinatorService.cjs to handle GraphQL 404 Not Found errors caused by Elasticsearch indexing lag during aica delete --all, preventing premature termination of cleanup tasks. 80. **Document Site Initializer NPE**: Created jira/todo/LPS-DRAFT-SITE-INITIALIZER-BOOT-NPE.md detailing the auto-deploy startup crash when Site Initializers are deployed before the portal context is fully initialized.

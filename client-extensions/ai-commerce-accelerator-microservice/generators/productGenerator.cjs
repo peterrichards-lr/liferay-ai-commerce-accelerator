@@ -528,91 +528,22 @@ class ProductGenerator extends BaseGenerator {
         stepKey,
         'priceLists',
         'generate',
-        (_batchERC) => {
+        async (_batchERC) => {
           this.logger.info(
             `Simulating batch creation of ${priceEntries.length} price entries for list ${pl.id} directly from ProductGenerator to bypass DXP platform bugs...`,
             { sessionId }
           );
-
-          const runSimulation = async () => {
-            const results = {
-              status: 'completed',
-              batchId: `simulated-price-batch-${Date.now()}`,
-              count: 0,
-              errors: [],
-            };
-
-            const concurrency = 5;
-            for (let i = 0; i < priceEntries.length; i += concurrency) {
-              const chunk = priceEntries.slice(i, i + concurrency);
-              await Promise.all(
-                chunk.map(async (entry) => {
-                  try {
-                    const { tierPrices, ...entryData } = entry;
-
-                    if (!entryData.externalReferenceCode) {
-                      entryData.externalReferenceCode = `AICA-PE-${pl.externalReferenceCode || pl.erc}-${entryData.sku}`;
-                    }
-
-                    // 1. Create root price entry
-                    const result = await this.liferay.rest._post(
-                      config,
-                      `/o/headless-commerce-admin-pricing/v2.0/price-lists/${pl.id}/price-entries`,
-                      entryData,
-                      'create-price-entry',
-                      'Failed to create price entry'
-                    );
-
-                    // 2. Create tier prices sequentially if present
-                    if (
-                      tierPrices &&
-                      tierPrices.length > 0 &&
-                      result &&
-                      result.id
-                    ) {
-                      for (
-                        let tierIdx = 0;
-                        tierIdx < tierPrices.length;
-                        tierIdx++
-                      ) {
-                        const tp = tierPrices[tierIdx];
-                        if (!tp.externalReferenceCode) {
-                          tp.externalReferenceCode = `AICA-TP-${result.id}-${tierIdx}`;
-                        }
-                        await this.liferay.rest._post(
-                          config,
-                          `/o/headless-commerce-admin-pricing/v2.0/price-entries/${result.id}/tier-prices`,
-                          tp,
-                          'create-tier-price',
-                          'Failed to create tier price'
-                        );
-                      }
-                    }
-
-                    results.count++;
-                  } catch (err) {
-                    results.errors.push({
-                      skuId: entry.skuId,
-                      error: err.message,
-                    });
-                    this.logger.warn(
-                      `Failed to create simulated batch price entry for SKU ID ${entry.skuId}: ${err.message}`,
-                      { sessionId }
-                    );
-                  }
-                })
-              );
+          // Use the SDK method, which will simulate the batch by default (simulateBatch: true)
+          // to bypass the Vulcan Batch Engine mapping bug until Liferay releases a fix.
+          return await this.liferay.createPriceEntriesBatch(
+            config,
+            priceEntries,
+            {
+              sessionId,
+              externalReferenceCode: pl.externalReferenceCode || pl.erc,
+              simulateBatch: true, // TODO: Remove this flag once Liferay DXP platform bug is patched
             }
-
-            if (results.errors.length > 0) {
-              throw new Error(
-                `Failed to create ${results.errors.length} price entries during simulated batch`
-              );
-            }
-            return results;
-          };
-
-          return runSimulation();
+          );
         },
         priceEntries.length
       );
