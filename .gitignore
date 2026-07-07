@@ -73,3 +73,6 @@ test-env.js
 *.db
 *.db-journal
 client-extensions/ai-commerce-accelerator-microservice/data/*.dbaica-e2e/
+
+# LDM Staging
+ldm_staging/
