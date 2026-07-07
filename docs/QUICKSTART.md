@@ -26,7 +26,7 @@ _(For Windows, Linux, or Intel Macs, refer to the [Official LDM Repository](http
 Run the following command to automatically download the latest pre-compiled database snapshot and launch the DXP container stack:
 
 ```bash
-ldm import https://github.com/peterrichards-lr/liferay-ai-commerce-accelerator
+ldm quickstart aica
 ```
 
 That's it! LDM will boot the database, Liferay, and the Microservice. Once booted, the Site Initializer will automatically build your demo storefront.
