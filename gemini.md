@@ -253,6 +253,10 @@ Failure to provide these flags will cause the execution to silently hang while w
 - Merged the final dependabot PR (#236).
 - Created and pushed release tag `v3.3.17`.
 - Created and applied `JIRA` label to upstream bug issues (#220 - #226) for tracking purposes.
+
+86. **Fix Fragment Override URL Variable**: Replaced the internal `/o/` proxy variable `${LIFERAY_ROUTES_CLIENT_EXTENSION_...}` with the correct LDM external routing variable `${LIFERAY_EXTERNAL_URL_CLIENT_EXTENSION_...}` in `ldm_staging/.ldm/fragment-overrides.json` to properly expose the Node microservice URL to the React frontend.
+87. **Release v3.3.18**: Merged the quickstart documentation and fragment override fixes, and cut release `v3.3.18` to generate the updated `.ldmp` snapshot.
+
 - The `package-ldmp.yml` GitHub Action completed successfully, generating the `v3.3.17` `.ldmp` snapshot payload.
 
 <!-- markdownlint-disable MD049 -->
