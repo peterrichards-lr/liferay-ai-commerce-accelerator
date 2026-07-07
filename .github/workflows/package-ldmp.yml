@@ -73,7 +73,7 @@ jobs:
 
       - name: Compile LDM Package
         run: |
-          ldm package aica-e2e -y
+          ldm package aica-e2e --repo ${{ github.repository }} -y
           mv *.ldmp liferay-ai-commerce-accelerator.ldmp
           sha256sum liferay-ai-commerce-accelerator.ldmp | awk '{print $1}' > liferay-ai-commerce-accelerator.ldmp.sha256
 
