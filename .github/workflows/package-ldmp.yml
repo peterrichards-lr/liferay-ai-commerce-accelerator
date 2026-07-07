@@ -73,8 +73,9 @@ jobs:
 
       - name: Compile LDM Package
         run: |
-          chmod +x scripts/package-ldmp.sh
-          ./scripts/package-ldmp.sh
+          ldm package aica-e2e -y
+          mv *.ldmp liferay-ai-commerce-accelerator.ldmp
+          sha256sum liferay-ai-commerce-accelerator.ldmp | awk '{print $1}' > liferay-ai-commerce-accelerator.ldmp.sha256
 
       - name: Teardown LDM Stack
         if: always()
