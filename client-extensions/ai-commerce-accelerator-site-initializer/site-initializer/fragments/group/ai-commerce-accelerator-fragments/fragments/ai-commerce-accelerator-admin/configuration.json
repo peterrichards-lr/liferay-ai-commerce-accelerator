@@ -3,7 +3,7 @@
     {
       "fields": [
         {
-          "defaultValue": "/o/ai-commerce-accelerator-microservice",
+          "defaultValue": "http://localhost:3001",
           "label": "microservice-url",
           "name": "microserviceUrl",
           "type": "text"
