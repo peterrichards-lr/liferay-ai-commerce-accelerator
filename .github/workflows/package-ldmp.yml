@@ -62,14 +62,14 @@ jobs:
 
       - name: Start Microservice and Seed Demo Data
         run: |
-          PORT=3001 NODE_ENV=production NODE_TLS_REJECT_UNAUTHORIZED=0 LIFERAY_URL=http://localhost:8080 LIFERAY_AUTH_METHOD=basic LIFERAY_API_USERNAME=test@liferay.com LIFERAY_API_PASSWORD=test node client-extensions/ai-commerce-accelerator-microservice/server.cjs &
+          PORT=3002 NODE_ENV=production NODE_TLS_REJECT_UNAUTHORIZED=0 LIFERAY_URL=http://localhost:8080 LIFERAY_AUTH_METHOD=basic LIFERAY_API_USERNAME=test@liferay.com LIFERAY_API_PASSWORD=test node client-extensions/ai-commerce-accelerator-microservice/server.cjs &
           echo "Waiting for microservice health check..."
           for i in {1..30}; do
-            curl -f -s http://localhost:3001/api/v1/health && break
+            curl -f -s http://localhost:3002/api/v1/health && break
             sleep 2
           done
           echo "Populating database using AICA CLI generate command..."
-          AICA_MICROSERVICE_URL=http://localhost:3001 LIFERAY_PORTAL_URL=http://localhost:8080 LIFERAY_API_USERNAME=test@liferay.com LIFERAY_API_PASSWORD=test node scripts/aica-cli.cjs generate --demo --products 10 --accounts 5 --orders 2 --non-interactive
+          AICA_MICROSERVICE_URL=http://localhost:3002 LIFERAY_PORTAL_URL=http://localhost:8080 LIFERAY_API_USERNAME=test@liferay.com LIFERAY_API_PASSWORD=test node scripts/aica-cli.cjs generate --demo --products 10 --accounts 5 --orders 2 --non-interactive
 
       - name: Compile LDM Package
         run: |
