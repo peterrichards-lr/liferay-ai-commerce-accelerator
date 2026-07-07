@@ -84,7 +84,7 @@ else
 fi
 
 # --- Constants ---
-REQUIRED_LDM_VERSION="2.15.2"
+REQUIRED_LDM_VERSION="2.15.3"
 DEFAULT_HOST="${PROJECT_NAME}.local"
 
 # LDM 2.7.14+ automatically forwards OPENAI_*, GEMINI_*, etc.
