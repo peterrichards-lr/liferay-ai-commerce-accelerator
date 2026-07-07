@@ -14,7 +14,7 @@ The **Liferay AI Commerce Accelerator (AICA)** is a production-ready suite of cl
 If you are a Sales Engineer or developer using Liferay Docker Manager (LDM), you can import a fully-populated demonstration environment with a single command:
 
 ```bash
-ldm import https://github.com/peterrichards-lr/liferay-ai-commerce-accelerator
+ldm quickstart aica
 ```
 
 For manual developer setup, prerequisites, and instructions, please read our **[Quick Start Guide](./docs/QUICKSTART.md)**.
