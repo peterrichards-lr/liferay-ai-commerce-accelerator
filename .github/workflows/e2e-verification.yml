@@ -59,7 +59,10 @@ jobs:
           mkdir -p /home/runner/liferay-docker-certs
           chmod 777 /home/runner/liferay-docker-certs
 
-      - name: Run E2E Verification (LDM)
+      - name: Free ports 80 and 443
+        run: sudo fuser -k 80/tcp 443/tcp || true
+
+      - name: Start LDM and run tests
         run: bash scripts/run-e2e-ldm.sh --ci
         env:
           LIFERAY_USER: ${{ secrets.LIFERAY_USER }}
