@@ -1,3 +1,5 @@
+<!-- markdownlint-disable MD029 -->
+
 # Gemini Task State
 
 ## Current Goal
@@ -246,6 +248,7 @@ Failure to provide these flags will cause the execution to silently hang while w
 82. **Fix configuration client extension routing**: Reverted `configuration.json` routing back to `http://localhost:3001` to ensure LDM fragment overrides handle subdomain assignment correctly (Issue #240). [Completed]
 83. **Release v3.3.17**: Tagged and released `v3.3.17` containing the fragment overrides packaging fix and configuration routing reversion, generating the new `.ldmp` snapshot. [Completed]
 84. **AICA Clean Up**: Removed accidental scratch files (`.diff` artifacts) from the `master` branch via PR #243. [Completed]
+85. **Documentation Restructure**: Consolidated redundant guides into docs/QUICKSTART.md, converted root README.md into an index hub, and moved project management tracking files into internal/ directory to drastically improve onboarding clarity for SEs. [Completed]
 
 - Merged the final dependabot PR (#236).
 - Created and pushed release tag `v3.3.17`.
@@ -253,5 +256,7 @@ Failure to provide these flags will cause the execution to silently hang while w
 - The `package-ldmp.yml` GitHub Action completed successfully, generating the `v3.3.17` `.ldmp` snapshot payload.
 
 <!-- markdownlint-disable MD049 -->
+
 ---
-*Last Updated: 2026-07-07* | *Last Reviewed: 2026-07-07*
+
+_Last Updated: 2026-07-07_ | _Last Reviewed: 2026-07-07_
