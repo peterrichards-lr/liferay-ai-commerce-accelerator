@@ -167,7 +167,7 @@ echo "👉 ${PROJECT_ID}.ldmp.sha256"
 
 # 7. Validate package contents
 echo "🔍 Validating package payload..."
-if ! tar -xzf "${PROJECT_ID}.ldmp" -O files.tar.gz | tar -tz | grep -q "^\./\.ldm/"; then
+if ! (tar -xzf "${PROJECT_ID}.ldmp" -O files.tar.gz 2>/dev/null || tar -xzf "${PROJECT_ID}.ldmp" -O ./files.tar.gz 2>/dev/null) | tar -tz 2>/dev/null | grep -E -q "^\.?/?\.ldm/"; then
   echo "❌ ERROR: .ldm configuration directory is missing from the files.tar.gz payload inside the .ldmp package!"
   exit 1
 fi
