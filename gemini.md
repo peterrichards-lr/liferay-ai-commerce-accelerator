@@ -263,4 +263,6 @@ Failure to provide these flags will cause the execution to silently hang while w
 
 ---
 
+- Identified that the .ldmp packaging script `scripts/package-ldmp.sh` cleans out `ldm_staging` and then copies the `.ldm` folder from the repository root, but `.ldm/fragment-overrides.json` contained the old internal proxy URL. Updated `.ldm/fragment-overrides.json` with the external URL variable, untracked the `ldm_staging` directory from git, added it to `.gitignore`, and raised PR #248 to fix LDM fragment override packaging.
+
 _Last Updated: 2026-07-07_ | _Last Reviewed: 2026-07-07_
