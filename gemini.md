@@ -240,13 +240,18 @@ Failure to provide these flags will cause the execution to silently hang while w
 - **Lesson:** Client extensions must NOT be copied into `osgi/client-extensions` prior to Liferay's HTTP health check (`ldm wait --timeout 1800`) returning successfully. The orchestration script `run-e2e-ldm.sh` must be configured to wait for Liferay to become completely healthy _before_ executing `ldm deploy`. I have updated Phase 4 to wait for Liferay's HTTP layer first, then deploy the artifacts, and finally run `ldm wait -d` to block until Liferay has successfully processed them.
 - **Action:** Created JIRA draft `LPS-DRAFT-SITE-INITIALIZER-NPE-BEFORE-HTTP.md` to document this race condition upstream.
 
-<!-- markdownlint-disable MD049 -->
-
----
-
-_Last Updated: 2026-07-06_ | _Last Reviewed: 2026-07-06_ 79. **Fix E2E Index Lag**: Added try-catch blocks in deleteCoordinatorService.cjs to handle GraphQL 404 Not Found errors caused by Elasticsearch indexing lag during aica delete --all, preventing premature termination of cleanup tasks. 80. **Document Site Initializer NPE**: Created jira/todo/LPS-DRAFT-SITE-INITIALIZER-BOOT-NPE.md detailing the auto-deploy startup crash when Site Initializers are deployed before the portal context is fully initialized.
+79. **Fix E2E Index Lag**: Added try-catch blocks in deleteCoordinatorService.cjs to handle GraphQL 404 Not Found errors caused by Elasticsearch indexing lag during aica delete --all, preventing premature termination of cleanup tasks. [Completed]
+80. **Document Site Initializer NPE**: Created jira/todo/LPS-DRAFT-SITE-INITIALIZER-BOOT-NPE.md detailing the auto-deploy startup crash when Site Initializers are deployed before the portal context is fully initialized. [Completed]
+81. **Fix LDM Fragment Overrides Packaging**: Update `scripts/package-ldmp.sh` to package the `.ldm` configuration directory into `.ldmp` payloads, allowing LDM to dynamically execute `fragment-overrides.json` at deploy time, and added a hard assertion test to prevent regressions (Issue #240, PR #239). [Completed]
+82. **Fix configuration client extension routing**: Reverted `configuration.json` routing back to `http://localhost:3001` to ensure LDM fragment overrides handle subdomain assignment correctly (Issue #240). [Completed]
+83. **Release v3.3.17**: Tagged and released `v3.3.17` containing the fragment overrides packaging fix and configuration routing reversion, generating the new `.ldmp` snapshot. [Completed]
+84. **AICA Clean Up**: Removed accidental scratch files (`.diff` artifacts) from the `master` branch via PR #243. [Completed]
 
 - Merged the final dependabot PR (#236).
-- Created and pushed release tag `v3.3.15`.
+- Created and pushed release tag `v3.3.17`.
 - Created and applied `JIRA` label to upstream bug issues (#220 - #226) for tracking purposes.
-- The `package-ldmp.yml` GitHub Action completed successfully, generating the `v3.3.15` `.ldmp` snapshot payload.
+- The `package-ldmp.yml` GitHub Action completed successfully, generating the `v3.3.17` `.ldmp` snapshot payload.
+
+<!-- markdownlint-disable MD049 -->
+---
+*Last Updated: 2026-07-07* | *Last Reviewed: 2026-07-07*
