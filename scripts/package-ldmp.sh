@@ -27,9 +27,12 @@ STAGING_DIR="./ldm_staging"
 rm -rf "$STAGING_DIR"
 mkdir -p "$STAGING_DIR"
 
+FILES_STAGING="${STAGING_DIR}/files_staging"
+mkdir -p "${FILES_STAGING}"
+
 if [ -d ".ldm" ]; then
   echo "📂 Copying LDM configuration (.ldm) to staging..."
-  cp -r ".ldm" "${STAGING_DIR}/"
+  cp -r ".ldm" "${FILES_STAGING}/"
 fi
 
 # 2. Manifest generation is deferred until staging files are collected.
@@ -95,7 +98,7 @@ find client-extensions -name "*.zip" \( -path "*/dist/*" -o -path "*/build/*" \)
 find modules -name "*.jar" -path "*/build/libs/*" -exec cp {} "${FILES_STAGING}/deploy/" \; 2>/dev/null || true
 
 # Archive files_staging into files.tar.gz
-if [ -d "${FILES_STAGING}/data/document_library" ] || [ "$(ls -A "${FILES_STAGING}/deploy" 2>/dev/null)" ] || [ "$(ls -A "${FILES_STAGING}/client-extensions" 2>/dev/null)" ]; then
+if [ -d "${FILES_STAGING}/data/document_library" ] || [ "$(ls -A "${FILES_STAGING}/deploy" 2>/dev/null)" ] || [ "$(ls -A "${FILES_STAGING}/client-extensions" 2>/dev/null)" ] || [ -d "${FILES_STAGING}/.ldm" ]; then
   tar -czf "${STAGING_DIR}/files.tar.gz" -C "${FILES_STAGING}" .
   files_sha=$(calculate_sha256 "${STAGING_DIR}/files.tar.gz")
   echo "${files_sha}" > "${STAGING_DIR}/files.tar.gz.sha256"
@@ -164,8 +167,8 @@ echo "👉 ${PROJECT_ID}.ldmp.sha256"
 
 # 7. Validate package contents
 echo "🔍 Validating package payload..."
-if ! tar -tzf "${PROJECT_ID}.ldmp" | grep -q "^\./\.ldm/"; then
-  echo "❌ ERROR: .ldm configuration directory is missing from the .ldmp package!"
+if ! tar -xzf "${PROJECT_ID}.ldmp" -O files.tar.gz | tar -tz | grep -q "^\./\.ldm/"; then
+  echo "❌ ERROR: .ldm configuration directory is missing from the files.tar.gz payload inside the .ldmp package!"
   exit 1
 fi
 echo "✅ Package validation passed."
