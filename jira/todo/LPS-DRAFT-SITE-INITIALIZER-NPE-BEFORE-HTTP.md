@@ -63,3 +63,9 @@ _Last Updated: 2026-07-06_ | _Last Reviewed: 2026-07-06_
 ---
 
 _Last Updated: 2026-07-08_ | _Last Reviewed: 2026-07-08_
+
+<!-- markdownlint-disable MD049 -->
+
+---
+
+_Last Updated: 2026-07-08_ | _Last Reviewed: 2026-07-08_

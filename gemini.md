@@ -265,7 +265,13 @@ Failure to provide these flags will cause the execution to silently hang while w
 
 - Identified that the .ldmp packaging script `scripts/package-ldmp.sh` cleans out `ldm_staging` and then copies the `.ldm` folder from the repository root, but `.ldm/fragment-overrides.json` contained the old internal proxy URL. Updated `.ldm/fragment-overrides.json` with the external URL variable, untracked the `ldm_staging` directory from git, added it to `.gitignore`, and raised PR #248 to fix LDM fragment override packaging.
 
-_Last Updated: 2026-07-07_ | _Last Reviewed: 2026-07-07_ 88. **Diagnose and Fix LDM Packaging Pipeline**: Diagnosed the LDM packaging pipeline failure to an upstream Python bug in `liferay-docker-manager` CLI (`v2.15.12`) where `fragment-overrides.json` patches crashed the container startup. Coordinated with upstream to release LDM `v2.15.14` and bumped `REQUIRED_LDM_VERSION` in `scripts/run-e2e-ldm.sh` to fix the packaging GitHub Action.
+88. **Diagnose and Fix LDM Packaging Pipeline**: Diagnosed the LDM packaging pipeline failure to an upstream Python bug in `liferay-docker-manager` CLI (`v2.15.12`) where `fragment-overrides.json` patches crashed the container startup. Coordinated with upstream to release LDM `v2.15.14` and bumped `REQUIRED_LDM_VERSION` in `scripts/run-e2e-ldm.sh` to fix the packaging GitHub Action.
+
+<!-- markdownlint-disable MD049 -->
+
+---
+
+_Last Updated: 2026-07-08_ | _Last Reviewed: 2026-07-08_ 89. **Document LDM Traefik Headless Patch Bug**: Identified that `ldm import` fails to apply `fragment-overrides.json` when Traefik SSL is active locally, because `ldm` tries to hit `127.0.0.1:8080` (which is not exposed to the host). Documented in `jira/todo/LPD-DRAFT-LDM-CLI-TRAEFIK-HEADLESS-PATCH-BUG.md` with a workaround to import using `--no-ssl` first.
 
 <!-- markdownlint-disable MD049 -->
 
