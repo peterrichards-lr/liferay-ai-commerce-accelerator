@@ -1,11 +1,10 @@
-name: Runner Verification
-
-on:
-  workflow_dispatch: # Allows you to trigger this manually from the GitHub UI
-
+name: Fetch Logs
+on: workflow_dispatch
 jobs:
-  verify-docker:
-    runs-on: self-hosted
+  fetch:
+    runs-on: ubuntu-latest
     steps:
-      - name: Check Docker access
-        run: docker info
+      - name: Fetch Logs
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gh run view 28950981266 --log-failed
