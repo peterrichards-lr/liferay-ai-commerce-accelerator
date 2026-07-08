@@ -53,3 +53,9 @@ This guarantees the Site Initializer only runs after Liferay is fully initialize
 ---
 
 _Last Updated: 2026-07-06_ | _Last Reviewed: 2026-07-06_
+
+<!-- markdownlint-disable MD049 -->
+
+---
+
+_Last Updated: 2026-07-08_ | _Last Reviewed: 2026-07-08_
