@@ -57,8 +57,15 @@ jobs:
       - name: Free ports 80 and 443
         run: sudo fuser -k 80/tcp 443/tcp || true
 
+      - name: Install mkcert & NSS (for LDM SSL)
+        run: |
+          sudo apt-get update && sudo apt-get install -y mkcert libnss3-tools
+          mkcert -install
+          mkdir -p /home/runner/liferay-docker-certs
+          chmod 777 /home/runner/liferay-docker-certs
+
       - name: Start Liferay LDM Stack
-        run: bash scripts/run-e2e-ldm.sh -i -k --ci --no-ssl
+        run: bash scripts/run-e2e-ldm.sh -i -k --ci
 
       - name: Start Microservice and Seed Demo Data
         run: |
