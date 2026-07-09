@@ -1,3 +1,4 @@
+const fs = require('fs/promises');
 const { ENV } = require('../utils/constants.cjs');
 
 class HealthService {
@@ -147,8 +148,22 @@ class HealthService {
   }
 
   async checkLiferay() {
+    const { liferay, config: configService } = this.ctx;
     const start = Date.now();
     try {
+      const requestConfig = {};
+      let oauthConfig = {};
+      try {
+        oauthConfig = await configService.getOAuthConfig(requestConfig);
+      } catch (err) {
+        oauthConfig = {
+          liferayUrl: process.env.LIFERAY_URL || 'http://localhost:8080',
+          clientId: process.env.LIFERAY_CLIENT_ID,
+          clientSecret: process.env.LIFERAY_CLIENT_SECRET,
+        };
+      }
+
+      await liferay.rest.testConnection(oauthConfig);
       const responseTime = Date.now() - start;
 
       return {
@@ -159,7 +174,7 @@ class HealthService {
     } catch (error) {
       return {
         status: 'unhealthy',
-        message: error.message,
+        message: `Liferay service check failed: ${error.message}`,
         responseTime: Date.now() - start,
       };
     }
@@ -192,12 +207,42 @@ class HealthService {
     });
   }
 
-  checkDiskSpace() {
-    return Promise.resolve({
-      status: 'healthy',
-      message: 'Disk space sufficient',
-      responseTime: 1,
-    });
+  async checkDiskSpace() {
+    const start = Date.now();
+    try {
+      const rootPath = process.platform === 'win32' ? 'C:\\' : '/';
+      const stats = await fs.statfs(rootPath);
+
+      const totalBytes = stats.blocks * stats.bsize;
+      const freeBytes = stats.bfree * stats.bsize;
+      const freePercent = (freeBytes / totalBytes) * 100;
+
+      const status =
+        freePercent < 10
+          ? 'unhealthy'
+          : freePercent < 15
+            ? 'degraded'
+            : 'healthy';
+
+      return {
+        status,
+        message: `Disk space: ${freePercent.toFixed(2)}% free (${Math.round(
+          freeBytes / 1024 / 1024 / 1024
+        )}GB of ${Math.round(totalBytes / 1024 / 1024 / 1024)}GB)`,
+        responseTime: Date.now() - start,
+        details: {
+          freeBytes,
+          totalBytes,
+          freePercent: Math.round(freePercent),
+        },
+      };
+    } catch (error) {
+      return {
+        status: 'degraded',
+        message: `Disk space check failed: ${error.message}`,
+        responseTime: Date.now() - start,
+      };
+    }
   }
 
   async runHealthCheck(name) {
