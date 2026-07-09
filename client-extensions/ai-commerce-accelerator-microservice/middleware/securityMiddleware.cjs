@@ -111,7 +111,25 @@ function requestSigningMiddleware(req, res, next) {
   const clientId = req.get('X-Client-ID');
 
   if (!signature || !timestamp || !clientId) {
-    return next();
+    // Health probe endpoints do not require signatures (except health shutdown).
+    const isHealthProbe =
+      req.path.startsWith('/health') && req.path !== '/health/shutdown';
+    const isV1HealthProbe =
+      req.path.startsWith('/api/v1/health') &&
+      req.path !== '/api/v1/health/shutdown';
+    if (isHealthProbe || isV1HealthProbe) {
+      return next();
+    }
+
+    logger.warn('Unsigned request rejected', {
+      path: req.path,
+      correlationId: req.correlationId,
+    });
+    return res.status(401).json({
+      success: false,
+      error: 'Missing required request-signing headers',
+      timestamp: new Date().toISOString(),
+    });
   }
 
   const now = Date.now();

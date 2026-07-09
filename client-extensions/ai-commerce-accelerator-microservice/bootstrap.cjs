@@ -152,6 +152,7 @@ module.exports = (ws) => {
     logger,
     config: ctx.config,
     cache: ctx.cache,
+    persistence: ctx.persistence,
   });
 
   registerDataGenerationWorkers({
