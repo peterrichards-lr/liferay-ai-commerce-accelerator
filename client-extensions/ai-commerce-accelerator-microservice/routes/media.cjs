@@ -58,7 +58,9 @@ module.exports = (router, { logger }) => {
    */
   router.get('/media/placeholders/:filename/base64', (req, res) => {
     const { filename } = req.params;
-    const filePath = path.join(placeholdersDir, filename);
+    const safeFilename = path.basename(filename);
+    // nosemgrep: javascript.express.security.audit.express-path-join-resolve-traversal.express-path-join-resolve-traversal
+    const filePath = path.join(placeholdersDir, safeFilename);
 
     if (!fs.existsSync(filePath)) {
       return res.status(404).json({ success: false, error: 'File not found' });
@@ -103,7 +105,9 @@ module.exports = (router, { logger }) => {
         .replace(/[^a-z0-9]+/g, '_') // Replace non-alphanumeric with underscores
         .replace(/^_+|_+$/g, ''); // Trim leading/trailing underscores
 
-      const filename = providedFilename || `${cleanLabel}.${ext}`;
+      const filename = providedFilename
+        ? path.basename(providedFilename)
+        : `${cleanLabel}.${ext}`;
       let filePath = path.join(placeholdersDir, filename);
 
       // Avoid overwriting by adding a suffix if file exists
@@ -145,7 +149,9 @@ module.exports = (router, { logger }) => {
    */
   router.delete('/media/placeholders/:filename', (req, res) => {
     const { filename } = req.params;
-    const filePath = path.join(placeholdersDir, filename);
+    const safeFilename = path.basename(filename);
+    // nosemgrep: javascript.express.security.audit.express-path-join-resolve-traversal.express-path-join-resolve-traversal
+    const filePath = path.join(placeholdersDir, safeFilename);
 
     // Prevent deleting standard ones if we want to be safe, but user said "uploaded images should be saved in the same location ... so they too can be displayed"
     // Maybe we just allow it.
