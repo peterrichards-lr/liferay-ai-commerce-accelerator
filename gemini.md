@@ -265,10 +265,18 @@ Failure to provide these flags will cause the execution to silently hang while w
 
 - Identified that the .ldmp packaging script `scripts/package-ldmp.sh` cleans out `ldm_staging` and then copies the `.ldm` folder from the repository root, but `.ldm/fragment-overrides.json` contained the old internal proxy URL. Updated `.ldm/fragment-overrides.json` with the external URL variable, untracked the `ldm_staging` directory from git, added it to `.gitignore`, and raised PR #248 to fix LDM fragment override packaging.
 
-_Last Updated: 2026-07-07_ | _Last Reviewed: 2026-07-07_ 88. **Diagnose and Fix LDM Packaging Pipeline**: Diagnosed the LDM packaging pipeline failure to an upstream Python bug in `liferay-docker-manager` CLI (`v2.15.12`) where `fragment-overrides.json` patches crashed the container startup. Coordinated with upstream to release LDM `v2.15.14` and bumped `REQUIRED_LDM_VERSION` in `scripts/run-e2e-ldm.sh` to fix the packaging GitHub Action.
+88. **Diagnose and Fix LDM Packaging Pipeline**: Diagnosed the LDM packaging pipeline failure to an upstream Python bug in `liferay-docker-manager` CLI (`v2.15.12`) where `fragment-overrides.json` patches crashed the container startup. Coordinated with upstream to release LDM `v2.15.14` and bumped `REQUIRED_LDM_VERSION` in `scripts/run-e2e-ldm.sh` to fix the packaging GitHub Action.
 
 <!-- markdownlint-disable MD049 -->
 
 ---
 
-_Last Updated: 2026-07-08_ | _Last Reviewed: 2026-07-08_
+_Last Updated: 2026-07-09_ | _Last Reviewed: 2026-07-09_
+
+90. **Migrate fragment overrides to dictionary format**: Migrate `.ldm/fragment-overrides.json` from JSON list to JSON dictionary format to resolve AICA silent skips under updated LDM versions (Issue #266). [Completed]
+
+<!-- markdownlint-disable MD049 -->
+
+---
+
+_Last Updated: 2026-07-09_ | _Last Reviewed: 2026-07-09_
