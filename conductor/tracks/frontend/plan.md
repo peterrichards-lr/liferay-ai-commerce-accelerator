@@ -26,7 +26,5 @@
 - [ ] Ensure all components handle "loading" and "empty" states gracefully.
 
 <!-- markdownlint-disable MD049 -->
-
 ---
-
-_Last Updated: 2026-07-08_ | _Last Reviewed: 2026-07-08_
+*Last Updated: 2026-07-08* | *Last Reviewed: 2026-07-08*

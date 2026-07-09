@@ -20,7 +20,5 @@ BRAND CONTEXT: These accounts are potential customers or business partners for t
   Return as a JSON array that conforms to the provided JSON schema.
 
 <!-- markdownlint-disable MD049 -->
-
 ---
-
-_Last Updated: 2026-07-08_ | _Last Reviewed: 2026-07-08_
+*Last Updated: 2026-07-08* | *Last Reviewed: 2026-07-08*

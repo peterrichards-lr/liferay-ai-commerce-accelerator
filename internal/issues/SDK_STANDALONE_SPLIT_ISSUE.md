@@ -59,7 +59,5 @@ To enable reusing this SDK across other Liferay accelerator projects (such as CM
   3. Register a command-line launcher bin script in `package.json` to allow starting the server instantly with `npx @liferay/accelerator-sdk mcp`.
 
 <!-- markdownlint-disable MD049 -->
-
 ---
-
-_Last Updated: 2026-07-08_ | _Last Reviewed: 2026-07-08_
+*Last Updated: 2026-07-08* | *Last Reviewed: 2026-07-08*

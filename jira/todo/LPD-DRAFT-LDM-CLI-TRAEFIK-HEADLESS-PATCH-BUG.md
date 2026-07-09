@@ -39,7 +39,5 @@ Fragment overrides are skipped, causing Client Extension routing configurations 
 2. Once the environment is running and patched, re-enable SSL with `ldm config ssl true` and restart the stack.
 
 <!-- markdownlint-disable MD049 -->
-
 ---
-
-_Last Updated: 2026-07-08_ | _Last Reviewed: 2026-07-08_
+*Last Updated: 2026-07-08* | *Last Reviewed: 2026-07-08*

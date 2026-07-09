@@ -16,7 +16,5 @@ Update the project documentation to accurately reflect the newly established arc
 - Documentation accurately describes how to run and extend tests.
 
 <!-- markdownlint-disable MD049 -->
-
 ---
-
-_Last Updated: 2026-07-08_ | _Last Reviewed: 2026-07-08_
+*Last Updated: 2026-07-08* | *Last Reviewed: 2026-07-08*

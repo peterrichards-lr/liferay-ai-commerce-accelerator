@@ -108,11 +108,13 @@ module.exports = (router, { logger }) => {
       const filename = providedFilename
         ? path.basename(providedFilename)
         : `${cleanLabel}.${ext}`;
+      // nosemgrep: javascript.express.security.audit.express-path-join-resolve-traversal.express-path-join-resolve-traversal
       let filePath = path.join(placeholdersDir, filename);
 
       // Avoid overwriting by adding a suffix if file exists
       if (fs.existsSync(filePath)) {
         const uniqueFilename = `${cleanLabel}_${Date.now()}.${ext}`;
+        // nosemgrep: javascript.express.security.audit.express-path-join-resolve-traversal.express-path-join-resolve-traversal
         filePath = path.join(placeholdersDir, uniqueFilename);
       }
 

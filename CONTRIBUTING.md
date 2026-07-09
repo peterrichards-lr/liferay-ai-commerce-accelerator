@@ -178,7 +178,5 @@ To maintain absolute code quality, stability, and a logical git history as the a
 Thank you for contributing!
 
 <!-- markdownlint-disable MD049 -->
-
 ---
-
-_Last Updated: 2026-07-08_ | _Last Reviewed: 2026-07-08_
+*Last Updated: 2026-07-08* | *Last Reviewed: 2026-07-08*

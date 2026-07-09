@@ -106,7 +106,5 @@ To resolve long-term indexing synchronization issues and eliminate search lag fo
 - **Option 2: LDM Runtime Trigger (`ldm reindex`)**: LDM implements an immediate reindexing controller. If LDM detects the container is active, it routes a script directly to the JVM via the Gogo telnet console (`11311`) to execute immediate reindexing at the runtime layer, falling back to boot-time scheduling if offline.
 
 <!-- markdownlint-disable MD049 -->
-
 ---
-
-_Last Updated: 2026-07-08_ | _Last Reviewed: 2026-07-08_
+*Last Updated: 2026-07-08* | *Last Reviewed: 2026-07-08*

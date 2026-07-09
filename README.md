@@ -86,7 +86,5 @@ _Configure AI provider keys, API endpoints, and DXP connectivity parameters dyna
 - **Provider Agnostic**: Switch between OpenAI, Google Gemini, and Anthropic Claude with zero code changes.
 
 <!-- markdownlint-disable MD049 -->
-
 ---
-
-_Last Updated: 2026-07-08_ | _Last Reviewed: 2026-07-08_
+*Last Updated: 2026-07-08* | *Last Reviewed: 2026-07-08*

@@ -22,7 +22,5 @@ Ensure realistic purchasing patterns (related products, reasonable quantities).
 Return as a JSON array that conforms to the provided JSON schema.
 
 <!-- markdownlint-disable MD049 -->
-
 ---
-
-_Last Updated: 2026-07-08_ | _Last Reviewed: 2026-07-08_
+*Last Updated: 2026-07-08* | *Last Reviewed: 2026-07-08*

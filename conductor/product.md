@@ -20,7 +20,5 @@ To provide a reference implementation for accelerating Liferay Commerce adoption
 - **Batch CX**: Defines the structure of data sent to Liferay.
 
 <!-- markdownlint-disable MD049 -->
-
 ---
-
-_Last Updated: 2026-07-08_ | _Last Reviewed: 2026-07-08_
+*Last Updated: 2026-07-08* | *Last Reviewed: 2026-07-08*

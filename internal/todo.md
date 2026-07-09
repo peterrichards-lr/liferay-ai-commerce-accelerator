@@ -886,7 +886,5 @@
 **Result**: **FIXED**. Updated the Session Detail view to display `errorReferenceCode` and `correlationId`. Added persistence support to capture and propagate these IDs throughout the workflow lifecycle.
 
 <!-- markdownlint-disable MD049 -->
-
 ---
-
-_Last Updated: 2026-07-08_ | _Last Reviewed: 2026-07-08_
+*Last Updated: 2026-07-08* | *Last Reviewed: 2026-07-08*

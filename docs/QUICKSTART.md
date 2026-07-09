@@ -142,7 +142,5 @@ UPDATE user_ SET lockout = false, lockoutDate = null, failedLoginAttempts = 0 WH
 During initial boot, you may see `OptimisticLockException` for `UserImpl`. This is caused by parallel connections competing to increment the `failedLoginAttempts` counter. **This exception is entirely harmless and expected.**
 
 <!-- markdownlint-disable MD049 -->
-
 ---
-
-_Last Updated: 2026-07-08_ | _Last Reviewed: 2026-07-08_
+*Last Updated: 2026-07-08* | *Last Reviewed: 2026-07-08*

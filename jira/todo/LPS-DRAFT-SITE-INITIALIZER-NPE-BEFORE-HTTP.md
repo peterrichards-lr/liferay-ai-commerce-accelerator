@@ -54,7 +54,5 @@ The headless API for site creation (`putSiteByExternalReferenceCode`) should eit
 In environments (like CI/CD or Liferay Docker Manager scripts), we must delay the copy/deployment of the Site Initializer Client Extension `.zip` file into `osgi/client-extensions` or `/opt/liferay/deploy` until **after** an HTTP request has been sent to Liferay (e.g. using `ldm wait` or `curl`) to force the Welcome site scaffolding to complete. Once the HTTP layer responds with 200 OK, the `.zip` file can be safely deployed and processed.
 
 <!-- markdownlint-disable MD049 -->
-
 ---
-
-_Last Updated: 2026-07-08_ | _Last Reviewed: 2026-07-08_
+*Last Updated: 2026-07-08* | *Last Reviewed: 2026-07-08*
