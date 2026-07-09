@@ -7,6 +7,9 @@ class HealthService {
     this.startTime = Date.now();
     this.healthChecks = new Map();
     this.lastHealthCheck = null;
+    this._liferayCachedResult = null;
+    this._liferayCachedAt = 0;
+    this._liferayCacheTtlMs = 20000; // 20 seconds
 
     this.registerHealthCheck('database', this.checkDatabase.bind(this));
     this.registerHealthCheck('ai', this.checkAI.bind(this));
@@ -148,6 +151,14 @@ class HealthService {
   }
 
   async checkLiferay() {
+    const now = Date.now();
+    if (
+      this._liferayCachedResult &&
+      now - this._liferayCachedAt < this._liferayCacheTtlMs
+    ) {
+      return this._liferayCachedResult;
+    }
+
     const { liferay, config: configService } = this.ctx;
     const start = Date.now();
     try {
@@ -155,7 +166,7 @@ class HealthService {
       let oauthConfig = {};
       try {
         oauthConfig = await configService.getOAuthConfig(requestConfig);
-      } catch (err) {
+      } catch (_err) {
         oauthConfig = {
           liferayUrl: process.env.LIFERAY_URL || 'http://localhost:8080',
           clientId: process.env.LIFERAY_CLIENT_ID,
@@ -166,17 +177,22 @@ class HealthService {
       await liferay.rest.testConnection(oauthConfig);
       const responseTime = Date.now() - start;
 
-      return {
+      const result = {
         status: 'healthy',
         message: 'Liferay service available',
         responseTime,
       };
+      this._liferayCachedResult = result;
+      this._liferayCachedAt = Date.now();
+      return result;
     } catch (error) {
-      return {
+      const result = {
         status: 'unhealthy',
         message: `Liferay service check failed: ${error.message}`,
         responseTime: Date.now() - start,
       };
+      // Don't cache unhealthy results — allow immediate retry on next probe
+      return result;
     }
   }
 

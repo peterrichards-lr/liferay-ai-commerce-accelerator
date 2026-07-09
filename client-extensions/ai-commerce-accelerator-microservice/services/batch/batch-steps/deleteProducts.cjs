@@ -1,4 +1,5 @@
 const { asItems } = require('../../../utils/liferayUtils.cjs');
+const { runWithConcurrencyLimit } = require('../../../utils/misc.cjs');
 
 module.exports = async function deleteProducts(
   { liferay, logger, config: configService },
@@ -22,43 +23,38 @@ module.exports = async function deleteProducts(
       `Clearing associations for ${items.length} products before deletion (concurrency: ${concurrency})`
     );
 
-    for (let i = 0; i < items.length; i += concurrency) {
-      const chunk = items.slice(i, i + concurrency);
-      await Promise.all(
-        chunk.map(async (product) => {
-          const productId = product.productId || product.id;
-          if (!productId) return;
+    await runWithConcurrencyLimit(items, concurrency, async (product) => {
+      const productId = product.productId || product.id;
+      if (!productId) return;
 
-          try {
-            // Clear options
-            const productOptions = await liferay.getProductOptions(
-              config,
-              productId
-            );
-            await Promise.all(
-              productOptions.map((po) =>
-                liferay.deleteProductOption(config, productId, po.id)
-              )
-            );
+      try {
+        // Clear options
+        const productOptions = await liferay.getProductOptions(
+          config,
+          productId
+        );
+        await Promise.all(
+          productOptions.map((po) =>
+            liferay.deleteProductOption(config, productId, po.id)
+          )
+        );
 
-            // Clear specifications
-            const productSpecs = await liferay.getProductSpecifications(
-              config,
-              productId
-            );
-            await Promise.all(
-              productSpecs.map((ps) =>
-                liferay.deleteProductSpecification(config, productId, ps.id)
-              )
-            );
-          } catch (err) {
-            logger.warn(
-              `Failed to clear associations for product ${productId}: ${err.message}`
-            );
-          }
-        })
-      );
-    }
+        // Clear specifications
+        const productSpecs = await liferay.getProductSpecifications(
+          config,
+          productId
+        );
+        await Promise.all(
+          productSpecs.map((ps) =>
+            liferay.deleteProductSpecification(config, productId, ps.id)
+          )
+        );
+      } catch (err) {
+        logger.warn(
+          `Failed to clear associations for product ${productId}: ${err.message}`
+        );
+      }
+    });
   }
 
   const result = await liferay.deleteProductsBatch(config, {

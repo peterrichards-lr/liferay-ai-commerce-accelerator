@@ -5,16 +5,24 @@ const axios = require('axios');
 const { logger } = require('../utils/logger.cjs');
 const { CORRELATION_ID_HEADER } = require('../utils/sharedConstants.cjs');
 
-let cachedJwks = null;
+const JWKS_CACHE_TTL_MS = 24 * 60 * 60 * 1000; // 24 hours
+let jwksCache = { data: null, fetchedAt: 0 };
 
-async function fetchLiferayJwks(liferayUrl) {
-  if (cachedJwks) return cachedJwks;
+async function fetchLiferayJwks(liferayUrl, forceRefresh = false) {
+  const now = Date.now();
+  if (
+    !forceRefresh &&
+    jwksCache.data &&
+    now - jwksCache.fetchedAt < JWKS_CACHE_TTL_MS
+  ) {
+    return jwksCache.data;
+  }
   const baseUrl = liferayUrl.startsWith('http')
     ? liferayUrl
     : `http://${liferayUrl}`;
   const response = await axios.get(`${baseUrl}/o/oauth2/jwks`);
-  cachedJwks = response.data;
-  return cachedJwks;
+  jwksCache = { data: response.data, fetchedAt: Date.now() };
+  return jwksCache.data;
 }
 
 function correlationIdMiddleware(req, res, next) {
@@ -98,10 +106,24 @@ function userContextMiddleware(req, res, next) {
     process.env.LIFERAY_URL ||
     'http://localhost:8080';
 
+  const verifyWithJwks = (jwks) => {
+    const key = jwks.keys.find((k) => k.kid === kid);
+    return key ? key : null;
+  };
+
   fetchLiferayJwks(liferayUrl)
-    .then((jwks) => {
-      const key = jwks.keys.find((k) => k.kid === kid);
-      if (!key) throw new Error('Key ID not found in JWKS');
+    .then(async (jwks) => {
+      let key = verifyWithJwks(jwks);
+      // Key rotation: if kid not found, force a JWKS refresh once
+      if (!key) {
+        logger.info(
+          'kid not found in JWKS cache, forcing refresh for key rotation',
+          { kid }
+        );
+        const refreshed = await fetchLiferayJwks(liferayUrl, true);
+        key = verifyWithJwks(refreshed);
+      }
+      if (!key) throw new Error('Key ID not found in JWKS after refresh');
       const pem = jwkToPem(key);
 
       jwt.verify(

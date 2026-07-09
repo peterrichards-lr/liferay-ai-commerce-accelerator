@@ -52,8 +52,17 @@ const server = http.createServer(app);
 
 let ws;
 let persistence;
+let isShuttingDown = false;
 
 const gracefulShutdown = async (signal) => {
+  if (isShuttingDown) {
+    console.info(
+      `${signal} received during shutdown — ignoring duplicate signal.`
+    );
+    return;
+  }
+  isShuttingDown = true;
+
   // Use console.info to ensure immediate visibility regardless of logger state
   console.info(`\n${signal} received, shutting down gracefully...`);
 
