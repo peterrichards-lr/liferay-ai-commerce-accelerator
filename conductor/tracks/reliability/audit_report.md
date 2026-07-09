@@ -175,16 +175,4 @@ By analyzing real Liferay responses (`reference-specifications.json`), we've ref
 
 ---
 
-_Last Updated: 2026-07-02_ | _Last Reviewed: 2026-07-02_
-
-<!-- markdownlint-disable MD049 -->
-
----
-
-_Last Updated: 2026-07-08_ | _Last Reviewed: 2026-07-08_
-
-<!-- markdownlint-disable MD049 -->
-
----
-
 _Last Updated: 2026-07-08_ | _Last Reviewed: 2026-07-08_
