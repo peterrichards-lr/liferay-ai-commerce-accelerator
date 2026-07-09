@@ -59,6 +59,7 @@ module.exports = (router, { logger }) => {
   router.get('/media/placeholders/:filename/base64', (req, res) => {
     const { filename } = req.params;
     const safeFilename = path.basename(filename);
+    // nosemgrep: javascript.express.security.audit.express-path-join-resolve-traversal.express-path-join-resolve-traversal
     const filePath = path.join(placeholdersDir, safeFilename);
 
     if (!fs.existsSync(filePath)) {
@@ -149,6 +150,7 @@ module.exports = (router, { logger }) => {
   router.delete('/media/placeholders/:filename', (req, res) => {
     const { filename } = req.params;
     const safeFilename = path.basename(filename);
+    // nosemgrep: javascript.express.security.audit.express-path-join-resolve-traversal.express-path-join-resolve-traversal
     const filePath = path.join(placeholdersDir, safeFilename);
 
     // Prevent deleting standard ones if we want to be safe, but user said "uploaded images should be saved in the same location ... so they too can be displayed"

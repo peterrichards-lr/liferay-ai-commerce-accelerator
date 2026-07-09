@@ -5,7 +5,8 @@ const options = {
   port: 443,
   path: '/api/jsonws/group/get-user-sites',
   method: 'GET',
-  rejectUnauthorized: false, // nosemgrep
+  // nosemgrep: problem-based-packs.insecure-transport.js-node.bypass-tls-verification.bypass-tls-verification
+  rejectUnauthorized: false,
   headers: {
     Authorization:
       'Basic ' + Buffer.from('test@liferay.com:test').toString('base64'),
