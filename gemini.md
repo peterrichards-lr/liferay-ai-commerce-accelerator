@@ -279,6 +279,7 @@ Failure to provide these flags will cause the execution to silently hang while w
 98. **Fix Blocking Semgrep SAST Scan Findings**: Addressed security warnings identified in CI Semgrep checks. (a) Added `path.basename` sanitization to filename parameter and body parsing values in `media.cjs` to eliminate `express-path-join-resolve-traversal` vulnerabilities. (b) Added a `// nosemgrep` comment to ignore `rejectUnauthorized: false` TLS verification bypass in developer script `scripts/find-sites.js`. [Completed]
 99. **Fix Remaining Semgrep Path Traversal Findings**: Addressed remaining Semgrep `express-path-join-resolve-traversal` warnings on lines 111 and 116 of `media.cjs` by adding `// nosemgrep` inline comments to ignore false positives. [Completed]
 100.  **Document System Architecture with Mermaid Diagrams**: Enhanced `docs/ARCHITECTURE.md` by introducing detailed visual layouts including (a) the asynchronous batch generation and correlation callback flow, (b) the signature/JWKS key rotation security authorization pipeline, and (c) the CI/CD pipeline verification gates (Semgrep, ESLint, Vitest, Playwright, Autocannon). (Issue #298). [Completed]
+101.  **Clean up Redundant Comments**: Reviewed recently modified files and removed redundant inline code comments that did not provide substantial context or architectural rationale (e.g. removing basic operation headers in `deleteProducts.cjs`). [Completed]
 
 <!-- markdownlint-disable MD049 -->
 
