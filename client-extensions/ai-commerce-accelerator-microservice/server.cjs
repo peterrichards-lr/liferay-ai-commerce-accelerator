@@ -114,8 +114,12 @@ const gracefulShutdown = async (signal) => {
     });
 
     // Give the event loop and buffers a moment to flush
+    const exitCode =
+      signal === 'UNCAUGHT_EXCEPTION' || signal === 'UNHANDLED_REJECTION'
+        ? 1
+        : 0;
     setTimeout(() => {
-      process.exit(0);
+      process.exit(exitCode);
     }, 500);
   } catch (error) {
     console.error('Error during graceful shutdown', error);
@@ -559,5 +563,37 @@ const gracefulShutdown = async (signal) => {
 
 process.once('SIGTERM', () => gracefulShutdown('SIGTERM'));
 process.once('SIGINT', () => gracefulShutdown('SIGINT'));
+
+process.on('uncaughtException', (error) => {
+  logger.error('Uncaught Exception occurred', {
+    operation: 'uncaught-exception',
+    error: error.message,
+    stack: error.stack,
+  });
+  gracefulShutdown('UNCAUGHT_EXCEPTION').catch((err) => {
+    console.error(
+      'Failed to shut down gracefully after uncaught exception:',
+      err
+    );
+    process.exit(1);
+  });
+});
+
+process.on('unhandledRejection', (reason) => {
+  const message = reason instanceof Error ? reason.message : String(reason);
+  const stack = reason instanceof Error ? reason.stack : undefined;
+  logger.error('Unhandled Rejection occurred', {
+    operation: 'unhandled-rejection',
+    error: message,
+    stack,
+  });
+  gracefulShutdown('UNHANDLED_REJECTION').catch((err) => {
+    console.error(
+      'Failed to shut down gracefully after unhandled rejection:',
+      err
+    );
+    process.exit(1);
+  });
+});
 
 module.exports = app;
