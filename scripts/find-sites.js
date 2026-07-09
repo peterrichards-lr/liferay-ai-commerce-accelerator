@@ -5,7 +5,7 @@ const options = {
   port: 443,
   path: '/api/jsonws/group/get-user-sites',
   method: 'GET',
-  // nosemgrep: problem-based-packs.insecure-transport.js-node.bypass-tls-verification.bypass-tls-verification
+  // nosemgrep
   rejectUnauthorized: false,
   headers: {
     Authorization:
