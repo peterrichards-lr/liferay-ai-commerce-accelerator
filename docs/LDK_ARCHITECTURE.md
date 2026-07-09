@@ -95,16 +95,4 @@ const apiSchemasDir = path.join(path.dirname(sdkPkgPath), 'api-schemas');
 
 ---
 
-_Last Updated: 2026-07-02_ | _Last Reviewed: 2026-07-02_
-
-<!-- markdownlint-disable MD049 -->
-
----
-
-_Last Updated: 2026-07-08_ | _Last Reviewed: 2026-07-08_
-
-<!-- markdownlint-disable MD049 -->
-
----
-
 _Last Updated: 2026-07-08_ | _Last Reviewed: 2026-07-08_
