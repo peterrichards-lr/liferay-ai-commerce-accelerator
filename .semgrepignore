@@ -6,3 +6,4 @@ bundles/
 aica/
 *.xml
 *.lock
+scripts/find-sites.js
