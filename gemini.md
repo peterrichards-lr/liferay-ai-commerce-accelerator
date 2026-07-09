@@ -274,6 +274,7 @@ Failure to provide these flags will cause the execution to silently hang while w
 _Last Updated: 2026-07-09_ | _Last Reviewed: 2026-07-09_
 
 90. **Migrate fragment overrides to dictionary format**: Migrate `.ldm/fragment-overrides.json` from JSON list to JSON dictionary format to resolve AICA silent skips under updated LDM versions (Issue #266). [Completed]
+91. **Technical Debt Audit & GitHub Issue Sync**: Conducted a comprehensive technical debt audit of the AICA microservice, identifying request-signing/JWT bearer auth bypass vulnerabilities, queue persistence bootstrap bugs, O(N) cache eviction, cache stampedes, mock health check probes, and monorepo SDK dependencies. Refactored `scripts/gh-issue-sync.cjs` to use `execFileSync` to avoid shell command injections/substitutions, and synced the Technical Debt Epic (Issue #269) and 8 sub-issues (#270 - #277) to GitHub. [Completed]
 
 <!-- markdownlint-disable MD049 -->
 

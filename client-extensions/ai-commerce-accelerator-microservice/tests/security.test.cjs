@@ -155,8 +155,21 @@ describe('Security Middleware - Request Signing', () => {
     next = vi.fn();
   });
 
-  it('should skip validation if headers are missing', () => {
+  it('should reject requests if headers are missing and path is not a health check', () => {
     req.get.mockReturnValue(null);
+    requestSigningMiddleware(req, res, next);
+    expect(res.status).toHaveBeenCalledWith(401);
+    expect(res.json).toHaveBeenCalledWith(
+      expect.objectContaining({
+        error: 'Missing required request-signing headers',
+      })
+    );
+    expect(next).not.toHaveBeenCalled();
+  });
+
+  it('should skip validation if headers are missing but path is a health check endpoint', () => {
+    req.get.mockReturnValue(null);
+    req.path = '/api/v1/health/ready';
     requestSigningMiddleware(req, res, next);
     expect(next).toHaveBeenCalled();
   });

@@ -133,10 +133,12 @@ class QueueService {
         });
 
         pending.forEach((job) => {
-          const queue = this.queues.get(job.queue);
-          if (queue) {
-            queue.jobs.push(job);
-            this.jobs.set(job.id, job);
+          if (!this.jobs.has(job.id)) {
+            const queue = this.queues.get(job.queue);
+            if (queue) {
+              queue.jobs.push(job);
+              this.jobs.set(job.id, job);
+            }
           }
         });
 
