@@ -42,5 +42,7 @@ To support both modes dynamically and ensure backward compatibility, we will ref
 - **Sub-Issue #7**: [End-to-End Test and Validation Suite](file:///Volumes/SanDisk/repos/liferay-ai-commerce-accelerator/docs/issues/PIM_REFACTOR_SUB_ISSUES.md#sub-issue-7-end-to-end-test-and-validation-suite) (Verification Phase)
 
 <!-- markdownlint-disable MD049 -->
+
 ---
-*Last Updated: 2026-07-08* | *Last Reviewed: 2026-07-08*
+
+_Last Updated: 2026-07-08_ | _Last Reviewed: 2026-07-08_

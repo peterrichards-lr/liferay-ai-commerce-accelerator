@@ -85,5 +85,7 @@ This report documents the exhaustive verification and hardening of the Liferay A
     - **Pre-push:** Runs conventional commit checks, schema checks, full ESLint checks, and the entire `126 + 86 + 49 = 261` unit test suite.
 
 <!-- markdownlint-disable MD049 -->
+
 ---
-*Last Updated: 2026-07-08* | *Last Reviewed: 2026-07-08*
+
+_Last Updated: 2026-07-08_ | _Last Reviewed: 2026-07-08_

@@ -87,5 +87,7 @@ When a page definition references a fragment defined within the same site initia
 - `[$FRAGMENT_CLASS$]`: Injected into fragment CSS/HTML to ensure unique styling encapsulation.
 
 <!-- markdownlint-disable MD049 -->
+
 ---
-*Last Updated: 2026-07-02* | *Last Reviewed: 2026-07-02*
+
+_Last Updated: 2026-07-02_ | _Last Reviewed: 2026-07-02_

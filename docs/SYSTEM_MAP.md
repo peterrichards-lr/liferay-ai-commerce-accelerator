@@ -147,5 +147,7 @@ Any change to the event emission logic in `ProgressService.cjs` (Server) MUST be
 - **`FAILED`**: Propagates errors to the `ADD_ERRORS` action for UI display.
 
 <!-- markdownlint-disable MD049 -->
+
 ---
-*Last Updated: 2026-07-08* | *Last Reviewed: 2026-07-08*
+
+_Last Updated: 2026-07-08_ | _Last Reviewed: 2026-07-08_

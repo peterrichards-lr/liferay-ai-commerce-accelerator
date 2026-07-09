@@ -17,5 +17,7 @@ Ensure all generated data (AI and Mock) strictly adheres to authoritative schema
 - Schema alignment with internal system data structures.
 
 <!-- markdownlint-disable MD049 -->
+
 ---
-*Last Updated: 2026-07-08* | *Last Reviewed: 2026-07-08*
+
+_Last Updated: 2026-07-08_ | _Last Reviewed: 2026-07-08_

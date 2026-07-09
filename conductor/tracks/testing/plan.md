@@ -33,5 +33,7 @@
 - [x] Implement a "Happy Path" smoke test: Server Start -> UI Render -> Trigger Generation (Mocked).
 
 <!-- markdownlint-disable MD049 -->
+
 ---
-*Last Updated: 2026-07-08* | *Last Reviewed: 2026-07-08*
+
+_Last Updated: 2026-07-08_ | _Last Reviewed: 2026-07-08_

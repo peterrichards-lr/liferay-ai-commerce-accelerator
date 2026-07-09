@@ -172,5 +172,7 @@ By analyzing real Liferay responses (`reference-specifications.json`), we've ref
 **Action**: Refactored all core discovery methods in `LiferayService` to use **REST** instead of GraphQL for list retrieval. GraphQL is now strictly reserved for high-performance aliased retrieval of known entities by ERC.
 
 <!-- markdownlint-disable MD049 -->
+
 ---
-*Last Updated: 2026-07-08* | *Last Reviewed: 2026-07-08*
+
+_Last Updated: 2026-07-08_ | _Last Reviewed: 2026-07-08_

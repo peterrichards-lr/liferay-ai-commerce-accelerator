@@ -117,5 +117,7 @@ Once your local dashboard is loaded in your browser (`http://aica.local` or `htt
    - The custom **Dashboard** and **Data Generator** pages, fully styled in Modern Fresh blue!
 
 <!-- markdownlint-disable MD049 -->
+
 ---
-*Last Updated: 2026-07-08* | *Last Reviewed: 2026-07-08*
+
+_Last Updated: 2026-07-08_ | _Last Reviewed: 2026-07-08_

@@ -114,5 +114,7 @@ If you find a gap where a JSONWS call is needed:
 3. Add a comment explaining why a standard Headless API could not be used.
 
 <!-- markdownlint-disable MD049 -->
+
 ---
-*Last Updated: 2026-07-08* | *Last Reviewed: 2026-07-08*
+
+_Last Updated: 2026-07-08_ | _Last Reviewed: 2026-07-08_

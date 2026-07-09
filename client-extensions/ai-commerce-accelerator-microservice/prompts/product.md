@@ -74,5 +74,7 @@ IMPORTANT rules:
 - Option Values: Predefined values ("productOptionValues" array) are only for "select", "radio", "checkbox", "checkbox_multiple", and "select_date". Do not provide them for "numeric", "text", or "date".
 
 <!-- markdownlint-disable MD049 -->
+
 ---
-*Last Updated: 2026-07-08* | *Last Reviewed: 2026-07-08*
+
+_Last Updated: 2026-07-08_ | _Last Reviewed: 2026-07-08_

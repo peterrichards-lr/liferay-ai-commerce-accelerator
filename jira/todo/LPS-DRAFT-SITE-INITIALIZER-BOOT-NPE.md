@@ -49,5 +49,7 @@ In our environment, we implemented a custom startup synchronization script (`scr
 This guarantees the Site Initializer only runs after Liferay is fully initialized, successfully bypassing the NPE crash.
 
 <!-- markdownlint-disable MD049 -->
+
 ---
-*Last Updated: 2026-07-08* | *Last Reviewed: 2026-07-08*
+
+_Last Updated: 2026-07-08_ | _Last Reviewed: 2026-07-08_

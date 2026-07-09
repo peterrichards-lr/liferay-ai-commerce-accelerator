@@ -31,5 +31,7 @@ Ensure the content is high-quality, professional, and category-appropriate for {
 The response must be a single JSON object that conforms to the provided JSON schema.
 
 <!-- markdownlint-disable MD049 -->
+
 ---
-*Last Updated: 2026-07-08* | *Last Reviewed: 2026-07-08*
+
+_Last Updated: 2026-07-08_ | _Last Reviewed: 2026-07-08_

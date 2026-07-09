@@ -22,5 +22,7 @@ A base64-encoded fallback PDF document. This is used by the **MediaGenerator** a
 - The mock files are static resources and should only be updated if the default placeholder assets need to be changed.
 
 <!-- markdownlint-disable MD049 -->
+
 ---
-*Last Updated: 2026-07-08* | *Last Reviewed: 2026-07-08*
+
+_Last Updated: 2026-07-08_ | _Last Reviewed: 2026-07-08_

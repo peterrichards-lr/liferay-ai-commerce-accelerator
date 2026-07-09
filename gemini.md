@@ -280,5 +280,7 @@ Failure to provide these flags will cause the execution to silently hang while w
 99. **Fix Remaining Semgrep Path Traversal Findings**: Addressed remaining Semgrep `express-path-join-resolve-traversal` warnings on lines 111 and 116 of `media.cjs` by adding `// nosemgrep` inline comments to ignore false positives. [Completed]
 
 <!-- markdownlint-disable MD049 -->
+
 ---
-*Last Updated: 2026-07-09* | *Last Reviewed: 2026-07-09*
+
+_Last Updated: 2026-07-09_ | _Last Reviewed: 2026-07-09_

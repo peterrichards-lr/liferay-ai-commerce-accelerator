@@ -67,5 +67,7 @@ Integrators must bypass GraphQL and use database-backed REST endpoints for immed
 REST calls scoped by `externalReferenceCode` bypass search index indexation queues and look up the entity directly in the database.
 
 <!-- markdownlint-disable MD049 -->
+
 ---
-*Last Updated: 2026-07-08* | *Last Reviewed: 2026-07-08*
+
+_Last Updated: 2026-07-08_ | _Last Reviewed: 2026-07-08_

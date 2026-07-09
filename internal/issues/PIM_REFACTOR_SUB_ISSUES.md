@@ -221,5 +221,7 @@ Currently, [productGenerator.cjs](file:///Volumes/SanDisk/repos/liferay-ai-comme
 - In the PIM adapter, `createProductsBatch` will simply register base parent nodes, and `createSkusBatch` will submit standard SKU items referencing the parent nodes as ancestors, completely skipping the legacy option linking step.
 
 <!-- markdownlint-disable MD049 -->
+
 ---
-*Last Updated: 2026-07-08* | *Last Reviewed: 2026-07-08*
+
+_Last Updated: 2026-07-08_ | _Last Reviewed: 2026-07-08_

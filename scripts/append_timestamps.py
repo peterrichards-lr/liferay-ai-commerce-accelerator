@@ -3,7 +3,7 @@ import re
 from pathlib import Path
 from datetime import datetime
 
-IGNORE_DIRS = {'.venv', 'node_modules', '.smoke_venv', '.git', 'build', 'dist', '.agents', 'bundles', 'aica-e2e', 'test-pkg', 'test-project', 'test_tar'}
+IGNORE_DIRS = {'.venv', 'node_modules', '.smoke_venv', '.git', 'build', 'dist', '.agents', 'bundles', 'aica-e2e', 'test-pkg', 'test-project', 'test_tar', 'test-results', 'e2e-logs'}
 
 # Regex to parse the dates from any variant of the footer pattern
 FOOTER_REGEX = re.compile(
@@ -18,7 +18,7 @@ REMOVE_REGEX = re.compile(
 )
 
 def get_standard_footer(updated_date, reviewed_date):
-    return f"\n\n<!-- markdownlint-disable MD049 -->\n---\n*Last Updated: {updated_date}* | *Last Reviewed: {reviewed_date}*\n"
+    return f"\n\n<!-- markdownlint-disable MD049 -->\n\n---\n\n_Last Updated: {updated_date}_ | _Last Reviewed: {reviewed_date}_\n"
 
 def append_timestamps_to_md_files(root_dir):
     today = datetime.now().strftime("%Y-%m-%d")

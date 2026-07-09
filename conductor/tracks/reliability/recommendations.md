@@ -88,5 +88,7 @@ Currently, validation occurs in two disconnected silos:
 The project has a strong architectural foundation. By bridging the gap between "what we generate" and "what Liferay specified" via **automated contract verification**, we can transform the current fragility into a "rock solid" reliability model.
 
 <!-- markdownlint-disable MD049 -->
+
 ---
-*Last Updated: 2026-07-08* | *Last Reviewed: 2026-07-08*
+
+_Last Updated: 2026-07-08_ | _Last Reviewed: 2026-07-08_
