@@ -447,7 +447,24 @@ function buildStableERC(prefix, parts = []) {
   return [pfx, joinedParts, hash].filter(Boolean).join('-');
 }
 
+async function runWithConcurrencyLimit(items, limit, taskFn) {
+  const results = [];
+  const executing = new Set();
+  for (const item of items) {
+    const promise = Promise.resolve().then(() => taskFn(item));
+    results.push(promise);
+    executing.add(promise);
+    const clean = () => executing.delete(promise);
+    promise.then(clean, clean);
+    if (executing.size >= limit) {
+      await Promise.race(executing);
+    }
+  }
+  return Promise.all(results);
+}
+
 module.exports = {
+  runWithConcurrencyLimit,
   buildCategoryERC,
   buildDataUrl,
   buildProductSkuRoot,

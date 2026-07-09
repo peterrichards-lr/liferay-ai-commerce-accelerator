@@ -1,0 +1,31 @@
+{
+  "title": "[Epic] Technical Debt Audit Feedback & Microservice Hardening",
+  "body": "This epic tracks follow-up hardening items, caching optimizations, and resiliency improvements arising from the initial Technical Debt Audit remediations.",
+  "labels": ["enhancement"],
+  "issues": [
+    {
+      "title": "[Security] Implement JWKS Cache Expiration and Key Rotation Support",
+      "body": "**Description:**\nThe current implementation of `fetchLiferayJwks` in `loggingMiddleware.cjs` caches Liferay's JWKS key set indefinitely in memory. \n\n**Technical Impact:**\nIf Liferay rotates its signing keys, the microservice will continue validating against the stale cached JWKS, causing all subsequent API requests to fail with `Invalid JWT` errors until manual restart.\n\n**Proposed Remediation:**\nIntroduce a Cache TTL (e.g. 24 hours) for the JWKS or check if the token's `kid` is missing from the cache, forcing a refresh of the key set.\n\n(Follow-up to #271)",
+      "completed": true,
+      "labels": ["bug"]
+    },
+    {
+      "title": "[Refactor] Implement Connection Probe Caching in HealthService",
+      "body": "**Description:**\n`HealthService.checkLiferay()` executes a live Liferay connection check (`liferay.rest.testConnection`) on every execution of the health check endpoint.\n\n**Technical Impact:**\nHigh polling frequency by external orchestrators/load-balancers will flood Liferay with connection test requests, causing unnecessary server load and API rate-limiting risks.\n\n**Proposed Remediation:**\nCache the Liferay connection health status for 15-30 seconds to bypass live network calls on rapid consecutive probes.\n\n(Follow-up to #276)",
+      "completed": true,
+      "labels": ["enhancement"]
+    },
+    {
+      "title": "[Refactor] Add Re-entrancy Guard to Server Graceful Shutdown",
+      "body": "**Description:**\n`gracefulShutdown()` in `server.cjs` is invoked on uncaughtExceptions and unhandledRejections but does not check if a shutdown is already in progress.\n\n**Technical Impact:**\nExceptions thrown during the shutdown process itself will trigger recursive calls to `gracefulShutdown`, causing infinite crash loops and leaving SQLite files locked/corrupted.\n\n**Proposed Remediation:**\nAdd a boolean guard flag (`isShuttingDown`) to return immediately if shutdown is already active.\n\n(Follow-up to #277)",
+      "completed": true,
+      "labels": ["bug"]
+    },
+    {
+      "title": "[Refactor] Replace Static Concurrency Chunking with Sliding-Window Queue",
+      "body": "**Description:**\n`deleteProducts.cjs` processes parallel deletions by dividing the array into static chunks (e.g., of size 5) and waiting for all items in the chunk to finish before launching the next batch.\n\n**Technical Impact:**\nHead-of-line blocking. If a single item in a chunk takes 3 seconds and others take 0.1 seconds, the queue is blocked from processing new items, reducing throughput.\n\n**Proposed Remediation:**\nUse a sliding-window concurrency queue (e.g., using `p-limit` or a custom sliding queue) that launches a new deletion task immediately as soon as any active task completes.\n\n(Follow-up to #273)",
+      "completed": true,
+      "labels": ["enhancement"]
+    }
+  ]
+}
