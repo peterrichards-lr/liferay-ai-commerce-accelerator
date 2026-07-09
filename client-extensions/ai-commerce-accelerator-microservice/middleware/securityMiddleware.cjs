@@ -106,6 +106,22 @@ function validateInput(data, schema) {
 }
 
 function requestSigningMiddleware(req, res, next) {
+  // 1. JWT authenticated requests bypass CLI request signing
+  if (req.user) {
+    return next();
+  }
+
+  // 2. Localhost loopback connections (CLI scripts, tests, probes) bypass request signing
+  const clientIP =
+    req.ip || req.connection?.remoteAddress || req.socket?.remoteAddress;
+  if (
+    clientIP === '127.0.0.1' ||
+    clientIP === '::1' ||
+    clientIP === '::ffff:127.0.0.1'
+  ) {
+    return next();
+  }
+
   const signature = req.get('X-Request-Signature');
   const timestamp = req.get('X-Request-Timestamp');
   const clientId = req.get('X-Client-ID');
