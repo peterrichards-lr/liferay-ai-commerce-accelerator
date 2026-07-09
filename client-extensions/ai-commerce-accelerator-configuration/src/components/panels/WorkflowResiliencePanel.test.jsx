@@ -13,6 +13,7 @@ vi.mock('../../hooks', () => ({
         initialDelayMs: 5000,
         maxRetries: 5,
         multiplier: 2,
+        deletionConcurrency: 5,
       },
     },
     dirty: false,
@@ -40,9 +41,11 @@ describe('WorkflowResiliencePanel', () => {
     expect(screen.getByText('Initial Delay (ms)')).toBeInTheDocument();
     expect(screen.getByText('Maximum Retries')).toBeInTheDocument();
     expect(screen.getByText('Backoff Multiplier')).toBeInTheDocument();
+    expect(screen.getByText('Deletion Concurrency')).toBeInTheDocument();
 
     // Verify initial values
     expect(screen.getByLabelText(/Maximum Retries/i)).toHaveValue(5);
     expect(screen.getByLabelText(/Backoff Multiplier/i)).toHaveValue(2);
+    expect(screen.getByLabelText(/Deletion Concurrency/i)).toHaveValue(5);
   });
 });

@@ -1,6 +1,21 @@
 const crypto = require('crypto');
+const jwt = require('jsonwebtoken');
+const jwkToPem = require('jwk-to-pem');
+const axios = require('axios');
 const { logger } = require('../utils/logger.cjs');
 const { CORRELATION_ID_HEADER } = require('../utils/sharedConstants.cjs');
+
+let cachedJwks = null;
+
+async function fetchLiferayJwks(liferayUrl) {
+  if (cachedJwks) return cachedJwks;
+  const baseUrl = liferayUrl.startsWith('http')
+    ? liferayUrl
+    : `http://${liferayUrl}`;
+  const response = await axios.get(`${baseUrl}/o/oauth2/jwks`);
+  cachedJwks = response.data;
+  return cachedJwks;
+}
 
 function correlationIdMiddleware(req, res, next) {
   req.correlationId =
@@ -28,12 +43,15 @@ function requestLoggingMiddleware(req, res, next) {
     httpAuthorization: sanitizedAuth,
   });
 
-  const originalJson = res.json;
-  res.json = function (data) {
+  res.on('finish', () => {
     const duration = Date.now() - startTime;
-    logger.httpRequest(req, res, duration);
-    return originalJson.call(this, data);
-  };
+    logger.info('HTTP Request finished', {
+      correlationId: req.correlationId,
+      operation: `${req.method} ${req.path}`,
+      httpStatus: res.statusCode,
+      durationMs: duration,
+    });
+  });
 
   next();
 }
@@ -64,27 +82,47 @@ function securityHeadersMiddleware(req, res, next) {
 
 function userContextMiddleware(req, res, next) {
   const authHeader = req.get('Authorization');
-  if (authHeader && authHeader.startsWith('Bearer ')) {
-    const token = authHeader.substring(7);
-
-    try {
-      req.user = {
-        token,
-        claims: {
-          sub: 'user-id-placeholder',
-          email: 'user@example.com',
-        },
-      };
-    } catch (error) {
-      logger.warn('Invalid authorization token', {
-        correlationId: req.correlationId,
-        operation: 'token-validation',
-        error: error.message,
-      });
-    }
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    return next();
   }
 
-  next();
+  const token = authHeader.substring(7);
+  const decoded = jwt.decode(token, { complete: true });
+  if (!decoded) {
+    return res.status(401).json({ error: 'Malformed authorization token' });
+  }
+
+  const { kid } = decoded.header;
+  const liferayUrl =
+    req.config?.liferayUrl ||
+    process.env.LIFERAY_URL ||
+    'http://localhost:8080';
+
+  fetchLiferayJwks(liferayUrl)
+    .then((jwks) => {
+      const key = jwks.keys.find((k) => k.kid === kid);
+      if (!key) throw new Error('Key ID not found in JWKS');
+      const pem = jwkToPem(key);
+
+      jwt.verify(
+        token,
+        pem,
+        { algorithms: ['RS256'] },
+        (err, verifiedClaims) => {
+          if (err) {
+            return res
+              .status(401)
+              .json({ error: `Invalid JWT: ${err.message}` });
+          }
+          req.user = { token, claims: verifiedClaims };
+          next();
+        }
+      );
+    })
+    .catch((err) => {
+      logger.error('JWT Verification Failed', { error: err.message });
+      res.status(500).json({ error: 'Internal identity verification failure' });
+    });
 }
 
 function basicRateLimitMiddleware(maxRequests = 100, windowMs = 60000) {

@@ -14,6 +14,7 @@ const DEFAULTS = {
     initialDelayMs: 5000,
     maxRetries: 5,
     multiplier: 2,
+    deletionConcurrency: 5,
   },
 };
 
@@ -48,7 +49,8 @@ export default function WorkflowResiliencePanel() {
   // Validation
   useEffect(() => {
     const found = [];
-    const { initialDelayMs, maxRetries, multiplier } = values;
+    const { initialDelayMs, maxRetries, multiplier, deletionConcurrency } =
+      values;
 
     if (!Number.isFinite(initialDelayMs) || initialDelayMs < 0)
       found.push('Initial delay must be a non-negative number (ms).');
@@ -56,6 +58,8 @@ export default function WorkflowResiliencePanel() {
       found.push('Max retries must be at least 1.');
     if (!Number.isFinite(multiplier) || multiplier < 1)
       found.push('Backoff multiplier must be at least 1.');
+    if (!Number.isFinite(deletionConcurrency) || deletionConcurrency < 1)
+      found.push('Deletion concurrency must be at least 1.');
 
     setIssues(found);
   }, [values]);
@@ -130,6 +134,28 @@ export default function WorkflowResiliencePanel() {
           <small className="form-text text-secondary">
             Factor by which the delay increases after each failed attempt (e.g.,
             2 = double the wait).
+          </small>
+        </ClayForm.Group>
+
+        <ClayForm.Group>
+          <label
+            htmlFor="deletion-concurrency"
+            className="font-weight-semi-bold"
+          >
+            Deletion Concurrency
+          </label>
+          <ClayInput
+            id="deletion-concurrency"
+            type="number"
+            min={1}
+            max={50}
+            step={1}
+            value={values.deletionConcurrency || 5}
+            onChange={onNumberChange('deletionConcurrency')}
+          />
+          <small className="form-text text-secondary">
+            Maximum number of concurrent requests to clear option/spec
+            associations on product deletion.
           </small>
         </ClayForm.Group>
       </div>

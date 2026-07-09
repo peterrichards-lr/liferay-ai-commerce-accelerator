@@ -669,13 +669,14 @@ class ConfigService {
   }
 
   getWorkflowResilienceConfigCached() {
-    return (
-      this.getConfigCached(WORKFLOW_RESILIENCE_CONFIG_CACHE_KEY) || {
-        initialDelayMs: 5000,
-        maxRetries: 5,
-        multiplier: 2,
-      }
-    );
+    const config =
+      this.getConfigCached(WORKFLOW_RESILIENCE_CONFIG_CACHE_KEY) || {};
+    return {
+      initialDelayMs: config.initialDelayMs ?? 5000,
+      maxRetries: config.maxRetries ?? 5,
+      multiplier: config.multiplier ?? 2,
+      deletionConcurrency: config.deletionConcurrency ?? 5,
+    };
   }
 
   async getBatchSizes(requestConfig) {

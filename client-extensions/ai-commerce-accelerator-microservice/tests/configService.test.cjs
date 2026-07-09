@@ -71,6 +71,7 @@ describe('ConfigService', () => {
       initialDelayMs: 5000,
       maxRetries: 5,
       multiplier: 2,
+      deletionConcurrency: 5,
     });
   });
 

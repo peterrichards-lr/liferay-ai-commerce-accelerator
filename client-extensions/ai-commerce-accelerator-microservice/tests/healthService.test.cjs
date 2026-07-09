@@ -13,9 +13,19 @@ describe('HealthService', () => {
           provider: 'openai',
           mediaProvider: 'inherit',
         }),
+        getOAuthConfig: vi.fn().mockResolvedValue({
+          liferayUrl: 'http://localhost:8080',
+          clientId: 'mock-id',
+          clientSecret: 'mock-secret',
+        }),
       },
       persistence: {
         ping: vi.fn().mockReturnValue(true),
+      },
+      liferay: {
+        rest: {
+          testConnection: vi.fn().mockResolvedValue(true),
+        },
       },
       logger: {
         info: vi.fn(),
