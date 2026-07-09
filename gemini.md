@@ -271,10 +271,12 @@ Failure to provide these flags will cause the execution to silently hang while w
 
 ---
 
-_Last Updated: 2026-07-08_ | _Last Reviewed: 2026-07-08_ 89. **Document LDM Traefik Headless Patch Bug**: Identified that `ldm import` fails to apply `fragment-overrides.json` when Traefik SSL is active locally, because `ldm` tries to hit `127.0.0.1:8080` (which is not exposed to the host). Documented in `jira/todo/LPD-DRAFT-LDM-CLI-TRAEFIK-HEADLESS-PATCH-BUG.md` with a workaround to import using `--no-ssl` first.
+_Last Updated: 2026-07-09_ | _Last Reviewed: 2026-07-09_
+
+90. **Migrate fragment overrides to dictionary format**: Migrate `.ldm/fragment-overrides.json` from JSON list to JSON dictionary format to resolve AICA silent skips under updated LDM versions (Issue #266). [Completed]
 
 <!-- markdownlint-disable MD049 -->
 
 ---
 
-_Last Updated: 2026-07-08_ | _Last Reviewed: 2026-07-08_
+_Last Updated: 2026-07-09_ | _Last Reviewed: 2026-07-09_
