@@ -39,16 +39,22 @@
     "dry-run": "DRY_RUN=true node server.cjs",
     "start": "node server.cjs",
     "test": "vitest run",
-    "lint": "eslint . && prettier --check ."
+    "coverage": "vitest run --coverage",
+    "lint": "eslint . && prettier --check .",
+    "benchmark": "node ../../scripts/benchmark.cjs"
   },
   "version": "1.0.0",
   "devDependencies": {
     "@eslint/js": "10.0.1",
     "@vitest/coverage-v8": "4.1.10",
+    "autocannon": "^8.0.0",
     "eslint": "10.6.0",
+    "eslint-plugin-promise": "^7.2.1",
+    "eslint-plugin-security": "^4.0.1",
     "graphql": "^17.0.2",
     "msw": "^2.14.6",
     "prettier": "^3.9.4",
+    "supertest": "^7.0.0",
     "vitest": "4.1.10"
   }
 }

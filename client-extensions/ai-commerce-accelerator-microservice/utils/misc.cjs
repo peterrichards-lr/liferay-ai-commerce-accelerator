@@ -134,7 +134,7 @@ function buildSpecCatERC(category, baseTitle, opts = {}) {
   return parts.filter(Boolean).join('-');
 }
 
-const delay = (ms = 1000) => new Promise((r) => setTimeout(r, ms));
+const delay = (ms = 1000) => new Promise((resolve) => setTimeout(resolve, ms));
 
 const delayCall = (fn, ms = 1000, thisArg = null, ...args) => {
   if (typeof fn !== 'function') return null;
