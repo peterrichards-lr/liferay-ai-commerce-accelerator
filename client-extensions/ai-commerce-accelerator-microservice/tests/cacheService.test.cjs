@@ -76,6 +76,25 @@ describe('CacheService', () => {
     expect(fetcher).toHaveBeenCalledTimes(1);
   });
 
+  it('should prevent cache stampede by returning the same promise for concurrent remember calls', async () => {
+    let callCount = 0;
+    const fetcher = () =>
+      new Promise((resolve) => {
+        callCount++;
+        setTimeout(() => resolve('stampede-resolved'), 50);
+      });
+
+    const promise1 = cacheService.remember('stampede-key', fetcher);
+    const promise2 = cacheService.remember('stampede-key', fetcher);
+
+    expect(promise1).toBe(promise2);
+
+    const [val1, val2] = await Promise.all([promise1, promise2]);
+    expect(val1).toBe('stampede-resolved');
+    expect(val2).toBe('stampede-resolved');
+    expect(callCount).toBe(1);
+  });
+
   it('should return stats', () => {
     cacheService.set('a', { val: 1 });
     const stats = cacheService.getStats();

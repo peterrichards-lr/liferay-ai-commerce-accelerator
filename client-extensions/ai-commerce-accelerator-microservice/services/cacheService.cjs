@@ -13,6 +13,7 @@ class CacheService {
     this.ctx = ctx;
     this.cache = new Map();
     this.ttlMap = new Map();
+    this.pendingPromises = new Map();
     this.maxSize = normalizeNumber(ENV.CACHE_MAX_SIZE, {
       min: 100,
       defaultValue: 10000,
@@ -358,22 +359,14 @@ class CacheService {
     try {
       if (this.cache.size === 0) return;
 
-      let oldestKey = null;
-      let oldestTime = Date.now();
-
-      for (const [key, entry] of this.cache.entries()) {
-        if (entry.timestamp < oldestTime) {
-          oldestTime = entry.timestamp;
-          oldestKey = key;
-        }
-      }
+      const oldestKey = this.cache.keys().next().value;
 
       if (oldestKey) {
         this.delete(oldestKey);
         logger?.debug?.('Cache entry evicted', {
           operation: 'cache-evict',
           key: oldestKey,
-          reason: 'size-limit',
+          reason: 'size-limit-lru',
         });
       }
     } catch (error) {
@@ -458,12 +451,18 @@ class CacheService {
     const cached = this.get(key);
     if (cached !== null) return Promise.resolve(cached);
 
-    return asyncFunction()
+    if (this.pendingPromises.has(key)) {
+      return this.pendingPromises.get(key);
+    }
+
+    const promise = asyncFunction()
       .then((result) => {
         this.set(key, result, ttl);
+        this.pendingPromises.delete(key);
         return result;
       })
       .catch((error) => {
+        this.pendingPromises.delete(key);
         const { logger } = this.ctx;
         const errorReference =
           error.errorReference || createERC(ERC_PREFIX.ERROR);
@@ -476,6 +475,9 @@ class CacheService {
         });
         throw Object.assign(error, { errorReference });
       });
+
+    this.pendingPromises.set(key, promise);
+    return promise;
   }
 
   cacheConfig(key, value, ttl = this.defaultTTL) {
