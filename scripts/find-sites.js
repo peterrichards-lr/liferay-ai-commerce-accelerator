@@ -5,8 +5,7 @@ const options = {
   port: 443,
   path: '/api/jsonws/group/get-user-sites',
   method: 'GET',
-  // nosemgrep
-  rejectUnauthorized: false,
+  rejectUnauthorized: false, // nosemgrep
   headers: {
     Authorization:
       'Basic ' + Buffer.from('test@liferay.com:test').toString('base64'),
