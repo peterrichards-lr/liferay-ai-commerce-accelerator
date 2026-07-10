@@ -18,7 +18,7 @@
     {
       "title": "[Test] Expand Unit Testing for configService and errorHandler Utility",
       "body": "**Description:**\n`configService.cjs` (21.69%) and `errorHandler.cjs` (9.85%) manage configuration profile parsing and global error boundaries.\n\n**Technical Impact:**\nFragile parsing of complex config overrides or failure to sanitize/log transient REST exceptions.\n\n**Proposed Remediation:**\nWrite dedicated unit tests in `tests/configService.test.cjs` and `tests/errorHandler.test.cjs` to cover fallback configurations, environment property priority, and error reference creation.",
-      "completed": false,
+      "completed": true,
       "labels": ["enhancement"]
     },
     {
