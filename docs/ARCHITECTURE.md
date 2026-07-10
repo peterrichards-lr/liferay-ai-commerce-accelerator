@@ -105,8 +105,119 @@ To resolve long-term indexing synchronization issues and eliminate search lag fo
   - **Post-Deletion**: Triggers a global search reindex at the end of the `delete --all` teardown flow to purge any stale, lingering entries from Elasticsearch.
 - **Option 2: LDM Runtime Trigger (`ldm reindex`)**: LDM implements an immediate reindexing controller. If LDM detects the container is active, it routes a script directly to the JVM via the Gogo telnet console (`11311`) to execute immediate reindexing at the runtime layer, falling back to boot-time scheduling if offline.
 
+## Detailed Security & Execution Flows
+
+### 1. Asynchronous Batch Callback & State Machine Flow
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant FE as React Frontend
+    participant MS as Node.js Microservice
+    participant DB as SQLite DB
+    participant L as Liferay DXP
+
+    FE->>MS: Post /api/v1/generate (start session)
+    activate MS
+    MS->>DB: Insert Session (Status: STARTED)
+    MS-->>FE: Return Session ID (asynchronous workflow begins)
+    deactivate MS
+
+    MS->>MS: Resolve step dependencies (e.g. Products first)
+    MS->>L: Post Batch Import (Products payload)
+    activate L
+    L-->>MS: Return Batch ID (Status: SUBMITTED)
+    deactivate L
+
+    MS->>DB: Insert Batch State (batchERC, status: SUBMITTED)
+
+    Note over L: Liferay processes batch async
+
+    L->>MS: Post Callback /api/v1/batch/callback/{batchERC}
+    activate MS
+    MS->>DB: Query Session & Step details by batchERC
+    MS->>DB: Update Batch/Step State (status: COMPLETED)
+    MS->>FE: Broadcast event via WebSocket (status: PROGRESS)
+    MS->>MS: Trigger next workflow step (e.g. SKUs, Prices)
+    MS-->>L: Return 200 OK
+    deactivate MS
+```
+
+### 2. Request Signing & JWKS Verification Flow
+
+```mermaid
+flowchart TD
+    A[Incoming Request] --> B{Is Health Probe Route?}
+    B -->|Yes| C{Is /health/shutdown?}
+    C -->|No| D[Allow Request - Bypass Auth]
+    C -->|Yes| E{Is Request from Localhost Loopback?}
+
+    B -->|No| F{Is Request from Localhost Loopback?}
+    F -->|Yes| D
+    F -->|No| G{Are Request-Signing Headers Present?}
+
+    G -->|No| H{Does Request have Valid JWT User session?}
+    H -->|Yes| D
+    H -->|No| I[Reject Request - 401 Unauthorized]
+
+    G -->|Yes| J[Validate Client ID / Timestamp / Signature]
+    J -->|Valid| D
+    J -->|Invalid| I
+
+    E -->|Yes| D
+    E -->|No| G
+```
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant C as Caller (External)
+    participant M as userContextMiddleware
+    participant K as JWKS Cache (24h TTL)
+    participant L as Liferay JWKS Endpoints
+
+    C->>M: Request with Authorization: Bearer {JWT}
+    activate M
+    M->>M: Decode JWT and extract key ID (kid)
+    M->>K: Look up kid in JWKS cache
+    alt Cache hit & TTL valid
+        K-->>M: Return PEM key
+    else Cache miss / expired
+        M->>L: GET /o/oauth2/jwks
+        L-->>M: Return JWKS Keys
+        M->>K: Cache keys with fetched timestamp
+    end
+
+    alt kid still missing (Rotation check)
+        M->>L: Force GET /o/oauth2/jwks (refresh)
+        L-->>M: Return refreshed Keys
+        M->>K: Update Cache
+    end
+
+    M->>M: Verify token signature (RS256)
+    alt Signature Valid
+        M->>M: Set req.user context
+        M-->>C: Forward request (next)
+    else Signature Invalid
+        M-->>C: Return 401 Unauthorized
+    end
+    deactivate M
+```
+
+### 3. CI/CD Quality Gates & DevSecOps Pipeline
+
+```mermaid
+flowchart LR
+    A[Code Push / PR] --> B[Linting & Formatting Gate]
+    B -->|ESLint + security/promise| C[Static Analysis SAST Gate]
+    C -->|Semgrep Scan| D[Unit Test Gate]
+    D -->|Vitest / Jest| E[E2E Verification Gate]
+    E -->|ldm containers + Playwright| F[Performance Gate]
+    F -->|autocannon benchmark| G[Pass / Deploy Ready]
+```
+
 <!-- markdownlint-disable MD049 -->
 
 ---
 
-_Last Updated: 2026-07-08_ | _Last Reviewed: 2026-07-08_
+_Last Updated: 2026-07-09_ | _Last Reviewed: 2026-07-09_

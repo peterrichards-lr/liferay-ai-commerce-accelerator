@@ -28,7 +28,6 @@ module.exports = async function deleteProducts(
       if (!productId) return;
 
       try {
-        // Clear options
         const productOptions = await liferay.getProductOptions(
           config,
           productId
@@ -39,7 +38,6 @@ module.exports = async function deleteProducts(
           )
         );
 
-        // Clear specifications
         const productSpecs = await liferay.getProductSpecifications(
           config,
           productId
