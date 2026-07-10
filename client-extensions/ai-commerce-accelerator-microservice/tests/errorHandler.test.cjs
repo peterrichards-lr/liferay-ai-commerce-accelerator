@@ -1,20 +1,21 @@
 const { ErrorHandler, errorMiddleware } = require('../utils/errorHandler.cjs');
-const logger = require('../utils/logger.cjs');
-
-vi.mock('../utils/logger.cjs', () => ({
-  error: vi.fn(),
-  info: vi.fn(),
-  warn: vi.fn(),
-  debug: vi.fn(),
-}));
+const { logger } = require('../utils/logger.cjs');
 
 describe('ErrorHandler', () => {
   let req;
   let res;
   let next;
+  let spies;
 
   beforeEach(() => {
     vi.clearAllMocks();
+
+    spies = {
+      error: vi.spyOn(logger, 'error').mockImplementation(() => {}),
+      warn: vi.spyOn(logger, 'warn').mockImplementation(() => {}),
+      info: vi.spyOn(logger, 'info').mockImplementation(() => {}),
+      debug: vi.spyOn(logger, 'debug').mockImplementation(() => {}),
+    };
 
     req = {
       method: 'POST',
@@ -36,9 +37,15 @@ describe('ErrorHandler', () => {
     next = vi.fn();
   });
 
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
   describe('handleError & middleware', () => {
     it('should handle standard Axios response error shapes', () => {
       const error = {
+        statusCode: 400,
+        message: 'Bad Input Data',
         response: {
           status: 400,
           data: { title: 'Bad Input Data' },
