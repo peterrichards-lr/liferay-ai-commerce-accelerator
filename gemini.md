@@ -278,9 +278,10 @@ Failure to provide these flags will cause the execution to silently hang while w
 97. **Implement Epic #286 CI/CD Quality Gates & DevSecOps Tooling**: Implemented all four sub-issues — (a) Semgrep SAST workflow `.github/workflows/semgrep.yml` scanning p/javascript+p/nodejs+p/secrets (#287), (b) `eslint-plugin-promise` + `eslint-plugin-security@4` integrated into flat ESLint config, 0 errors, 174 warnings (#288), (c) `tests/authGate.test.cjs` — 13 auth-gate contract tests covering all bypass/rejection scenarios for `requestSigningMiddleware` (#289), (d) `scripts/benchmark.cjs` autocannon gate with throughput/latency/error-rate thresholds (#290). 170 unit tests pass. PR #292 created and all sub-issues closed. [Completed]
 98. **Fix Blocking Semgrep SAST Scan Findings**: Addressed security warnings identified in CI Semgrep checks. (a) Added `path.basename` sanitization to filename parameter and body parsing values in `media.cjs` to eliminate `express-path-join-resolve-traversal` vulnerabilities. (b) Added a `// nosemgrep` comment to ignore `rejectUnauthorized: false` TLS verification bypass in developer script `scripts/find-sites.js`. [Completed]
 99. **Fix Remaining Semgrep Path Traversal Findings**: Addressed remaining Semgrep `express-path-join-resolve-traversal` warnings on lines 111 and 116 of `media.cjs` by adding `// nosemgrep` inline comments to ignore false positives. [Completed]
+100.  **Test Coverage Backlog & Epics Sync**: Measured microservice test coverage (Statements: 41.18%, Lines: 41.72%) and logged a new Epic (#300) with four sub-issues (#301-#304) on GitHub to expand unit and mock coverage targets for high-risk modules (QueueService, ProductGenerator, configService, and errorHandler) and enforce a 45% coverage gate in vitest config. [Completed]
 
 <!-- markdownlint-disable MD049 -->
 
 ---
 
-_Last Updated: 2026-07-09_ | _Last Reviewed: 2026-07-09_
+_Last Updated: 2026-07-10_ | _Last Reviewed: 2026-07-10_

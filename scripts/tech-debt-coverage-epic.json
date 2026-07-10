@@ -1,0 +1,31 @@
+{
+  "title": "[Epic] Expand Test Coverage & Quality Gates for Core Microservice Domain Layers",
+  "body": "This epic tracks tasks to increase statement, branch, and functional test coverage for critical business logic modules in the AICA microservice, focusing on complex state generators, queue processors, and batch steps.",
+  "labels": ["enhancement"],
+  "issues": [
+    {
+      "title": "[Test] Implement Comprehensive Unit & Service Tests for QueueService",
+      "body": "**Description:**\n`QueueService` handles background worker loops, DB serialization, and active job management, but currently has low statement coverage (27.19%).\n\n**Technical Impact:**\nSilent failures, task crashes, or race conditions in job scheduling could slip into production without being detected by unit tests.\n\n**Proposed Remediation:**\nAdd tests in `tests/queueService.test.cjs` covering:\n1. Persisted job loading and priority sorting.\n2. Worker loop pause/resume transitions.\n3. Graceful job cancelations and error handling.",
+      "completed": false,
+      "labels": ["enhancement"]
+    },
+    {
+      "title": "[Test] Implement Service and Mock Tests for ProductGenerator and Commerce Batch Steps",
+      "body": "**Description:**\n`productGenerator.cjs` (15.02%) and batch steps (9.78%) handle core product seeds, option associations, and catalog operations, but are currently under-tested.\n\n**Technical Impact:**\nAPI mutations or Liferay payload format changes can break seeding workflows unnoticed.\n\n**Proposed Remediation:**\nAdd mock API tests using MSW in `tests/productGenerator.test.cjs` and `tests/batchSteps.test.cjs` to validate entity dependency mapping, parallel deletion triggers, and localized metadata handling.",
+      "completed": false,
+      "labels": ["enhancement"]
+    },
+    {
+      "title": "[Test] Expand Unit Testing for configService and errorHandler Utility",
+      "body": "**Description:**\n`configService.cjs` (21.69%) and `errorHandler.cjs` (9.85%) manage configuration profile parsing and global error boundaries.\n\n**Technical Impact:**\nFragile parsing of complex config overrides or failure to sanitize/log transient REST exceptions.\n\n**Proposed Remediation:**\nWrite dedicated unit tests in `tests/configService.test.cjs` and `tests/errorHandler.test.cjs` to cover fallback configurations, environment property priority, and error reference creation.",
+      "completed": false,
+      "labels": ["enhancement"]
+    },
+    {
+      "title": "[Test] Enforce 45% Statement Coverage Gate in Microservice vitest.config.mjs",
+      "body": "**Description:**\nThe microservice currently lacks an enforced test coverage gate, unlike the SDK.\n\n**Technical Impact:**\nFuture code contributions can introduce large amounts of untested code, dragging down project quality and resilience.\n\n**Proposed Remediation:**\nConfigure the `coverage` block in `vitest.config.mjs` to require a minimum threshold of 45% statement and line coverage as a blocking gate.",
+      "completed": false,
+      "labels": ["enhancement"]
+    }
+  ]
+}
