@@ -6,7 +6,7 @@
     {
       "title": "[Test] Implement Comprehensive Unit & Service Tests for QueueService",
       "body": "**Description:**\n`QueueService` handles background worker loops, DB serialization, and active job management, but currently has low statement coverage (27.19%).\n\n**Technical Impact:**\nSilent failures, task crashes, or race conditions in job scheduling could slip into production without being detected by unit tests.\n\n**Proposed Remediation:**\nAdd tests in `tests/queueService.test.cjs` covering:\n1. Persisted job loading and priority sorting.\n2. Worker loop pause/resume transitions.\n3. Graceful job cancelations and error handling.",
-      "completed": false,
+      "completed": true,
       "labels": ["enhancement"]
     },
     {
@@ -24,7 +24,7 @@
     {
       "title": "[Test] Enforce 45% Statement Coverage Gate in Microservice vitest.config.mjs",
       "body": "**Description:**\nThe microservice currently lacks an enforced test coverage gate, unlike the SDK.\n\n**Technical Impact:**\nFuture code contributions can introduce large amounts of untested code, dragging down project quality and resilience.\n\n**Proposed Remediation:**\nConfigure the `coverage` block in `vitest.config.mjs` to require a minimum threshold of 45% statement and line coverage as a blocking gate.",
-      "completed": false,
+      "completed": true,
       "labels": ["enhancement"]
     }
   ]
