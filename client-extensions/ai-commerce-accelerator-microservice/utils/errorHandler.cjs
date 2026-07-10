@@ -1,5 +1,5 @@
 const liferayConfig = require('../config/liferayConfig.cjs');
-const logger = require('./logger.cjs');
+const { logger } = require('./logger.cjs');
 
 class ErrorHandler {
   static handleError(error, req, res, _) {
