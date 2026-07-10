@@ -134,6 +134,15 @@ We enforce [Conventional Commits](https://www.conventionalcommits.org/). Commit 
 
 4. **Push & PR**: Push to your fork and submit a PR to the upstream repository. Ensure you describe **what** changed and **why** (include test logs or manual steps to verify).
 
+### 📋 Issue-Driven & Peer-Review Flow (Strict Requirements)
+
+This repository enforces a strict process for all contributors (humans and agents alike):
+
+- **GitHub Issues for Recording**: All tasks (bugs, enhancements, feature requests, documentation, tooling) MUST be recorded in a GitHub issue before any code changes are made.
+- **Impact Analysis & Plan**: For every issue, the contributor must analyze the issue details against the codebase and write out a detailed implementation plan.
+- **PR-Issue Linkage**: All Pull Requests must link back to their originating GitHub issue using conventional keywords in the description (e.g. `Closes #123`, `Resolves #123`, or `Follows up on #123`).
+- **Peer Review Required**: All Pull Requests must be reviewed and approved by another contributor (human developer or peer AI agent) before they can be merged. Self-merging without a review sign-off is prohibited.
+
 ---
 
 ## 🛡️ Repository Branching & PR Rulesets (Strict Gates)
