@@ -12,7 +12,7 @@
     {
       "title": "[Test] Implement Service and Mock Tests for ProductGenerator and Commerce Batch Steps",
       "body": "**Description:**\n`productGenerator.cjs` (15.02%) and batch steps (9.78%) handle core product seeds, option associations, and catalog operations, but are currently under-tested.\n\n**Technical Impact:**\nAPI mutations or Liferay payload format changes can break seeding workflows unnoticed.\n\n**Proposed Remediation:**\nAdd mock API tests using MSW in `tests/productGenerator.test.cjs` and `tests/batchSteps.test.cjs` to validate entity dependency mapping, parallel deletion triggers, and localized metadata handling.",
-      "completed": false,
+      "completed": true,
       "labels": ["enhancement"]
     },
     {

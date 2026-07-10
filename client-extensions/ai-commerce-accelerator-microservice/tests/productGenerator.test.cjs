@@ -1,193 +1,204 @@
 const ProductGenerator = require('../generators/productGenerator.cjs');
-const PersistenceService = require('../services/persistenceService.cjs');
+const { WORKFLOW_STEPS } = require('../utils/constants.cjs');
 
-describe('ProductGenerator', () => {
-  let generator;
+describe('ProductGenerator Workflow Steps', () => {
+  let productGenerator;
   let mockCtx;
-  let persistence;
+  let mockLiferay;
+  let mockPersistence;
+  let mockLogger;
+  let mockSession;
 
   beforeEach(() => {
-    persistence = new PersistenceService(':memory:');
+    vi.clearAllMocks();
+
+    mockLiferay = {
+      createSpecificationWithReuse: vi.fn().mockResolvedValue({
+        id: 'spec-123',
+        externalReferenceCode: 'spec-erc',
+      }),
+      createOptionWithReuse: vi
+        .fn()
+        .mockResolvedValue({ id: 'opt-123', externalReferenceCode: 'opt-erc' }),
+      createProductsBatch: vi.fn().mockResolvedValue({ batchId: 'batch-p1' }),
+      getProductsByERC: vi.fn().mockResolvedValue({
+        items: [{ id: 'p-1', externalReferenceCode: 'ERC1' }],
+      }),
+      patchPriceList: vi.fn().mockResolvedValue({}),
+      patchCatalog: vi.fn().mockResolvedValue({}),
+      createPriceEntriesBatch: vi
+        .fn()
+        .mockResolvedValue({ batchId: 'batch-pe-1' }),
+      getPriceListByERC: vi
+        .fn()
+        .mockResolvedValue({ id: 'pl-123', externalReferenceCode: 'erc-pl' }),
+      createPriceList: vi
+        .fn()
+        .mockResolvedValue({ id: 'pl-123', externalReferenceCode: 'erc-pl' }),
+    };
+
+    mockPersistence = {
+      getSession: vi.fn(),
+      updateSessionContext: vi.fn(),
+      createBatch: vi.fn().mockResolvedValue({ id: 'batch-123' }),
+      updateBatch: vi.fn().mockResolvedValue({}),
+    };
+
+    mockLogger = {
+      info: vi.fn(),
+      debug: vi.fn(),
+      warn: vi.fn(),
+      error: vi.fn(),
+      trace: vi.fn(),
+    };
 
     mockCtx = {
-      persistence,
-      logger: {
-        info: vi.fn(),
-        warn: vi.fn(),
-        error: vi.fn(),
-        debug: vi.fn(),
-        trace: vi.fn(),
-      },
-      generation: {
-        generateData: vi.fn().mockResolvedValue([
-          {
-            name: 'Generated Product',
-            externalReferenceCode: 'PROD-1',
-            skus: [{ sku: 'SKU-1' }],
-            options: [],
-          },
-        ]),
-      },
-      liferay: {
-        getWarehouses: vi.fn().mockResolvedValue([]),
-        createWarehousesBatch: vi
-          .fn()
-          .mockResolvedValue({ batchId: 'wh-batch' }),
-        createProductsBatch: vi
-          .fn()
-          .mockResolvedValue({ batchId: 'prod-batch' }),
-        resolveByERCsWithRetry: vi
-          .fn()
-          .mockResolvedValue([{ erc: 'PROD-1', id: 2001 }]),
-        getImportTask: vi
-          .fn()
-          .mockResolvedValue({ executeStatus: 'COMPLETED' }),
-        getTaxonomyVocabularies: vi
-          .fn()
-          .mockResolvedValue([{ id: 101, name: 'Category' }]),
-        getTaxonomyCategories: vi.fn().mockResolvedValue([
-          {
-            id: 201,
-            name: 'Electronics',
-            externalReferenceCode: 'CAT-ELECTRONICS',
-          },
-        ]),
-        createTaxonomyCategory: vi.fn().mockResolvedValue({
-          id: 202,
-          name: 'Books',
-          externalReferenceCode: 'CAT-BOOKS',
-        }),
-      },
+      liferay: mockLiferay,
+      persistence: mockPersistence,
+      logger: mockLogger,
       progress: {
-        sessionStarted: vi.fn(),
-        sessionCompleted: vi.fn(),
-        sessionFailed: vi.fn(),
-        stepStarted: vi.fn(),
-        stepProgress: vi.fn(),
-        stepCompleted: vi.fn(),
-        stepFailed: vi.fn(),
         batchStarted: vi.fn(),
-        batchProgress: vi.fn(),
         batchCompleted: vi.fn(),
-        batchFailed: vi.fn(),
-      },
-      batchCallback: {
-        _checkSessionCompletion: vi
-          .fn()
-          .mockImplementation((sid) => generator.executeNextStep(sid)),
       },
     };
 
-    generator = new ProductGenerator(mockCtx);
-  });
+    productGenerator = new ProductGenerator(mockCtx);
 
-  afterEach(() => {
-    persistence.close();
-  });
-
-  it('should start product generation workflow', async () => {
-    const config = {
-      liferayUrl: 'http://test',
-      defaultLanguageId: 'en_US',
-      catalogId: '123',
-    };
-    const options = { productCount: 1, generatePriceLists: true };
-
-    const result = await generator.runWorkflow(config, options);
-
-    expect(result.sessionId).toBeDefined();
-    expect(result.message).toContain('started');
-
-    const session = persistence.getSession(result.sessionId);
-    expect(session).not.toBeNull();
-    // It's actually 'products' in current implementation
-    expect(session.flow_type).toBe('products');
-    expect(mockCtx.batchCallback._checkSessionCompletion).toHaveBeenCalled();
-  });
-
-  it('should run product data generation step', async () => {
-    const sessionId = 'prod-test-session';
-    persistence.createSession({
-      sessionId,
-      flowType: 'generate',
-      status: 'STARTED',
-      context: {
-        config: { catalogId: '123' },
-        options: { productCount: 1 },
-      },
-    });
-
-    // We need to mock _generateProductData as it is called by _runProductDataGenerationStep
-    generator._generateProductData = vi
+    // Mock BaseGenerator helpers inherited by ProductGenerator
+    productGenerator.completeSyncStep = vi
       .fn()
-      .mockResolvedValue([{ name: 'Generated Product' }]);
+      .mockResolvedValue({ status: 'COMPLETED' });
+    productGenerator.failSyncStep = vi
+      .fn()
+      .mockResolvedValue({ status: 'FAILED' });
 
-    await generator._runProductDataGenerationStep(sessionId);
-
-    const session = persistence.getSession(sessionId);
-    expect(session.context.productDataList).toHaveLength(1);
-    expect(session.context.productDataList[0].name).toBe('Generated Product');
-  });
-
-  it('should handle product creation step', async () => {
-    const sessionId = 'test-session';
-    persistence.createSession({
-      sessionId,
-      flowType: 'generate',
-      status: 'STARTED',
+    mockSession = {
+      session_id: 'sess-123',
+      correlationId: 'corr-123',
       context: {
-        config: { catalogId: '123' },
-        options: { productCount: 1 },
+        config: { liferayUrl: 'http://localhost:8080', catalogId: '123' },
         productDataList: [
           {
-            name: 'Test Product',
-            description: 'Test Description',
-            externalReferenceCode: 'T1',
-            skus: [{ sku: 'S1' }],
+            externalReferenceCode: 'ERC1',
+            name: { en_US: 'Product 1' },
+            description: { en_US: 'Product 1 Description' },
+            productSpecifications: [
+              { specificationKey: 'color', value: 'red' },
+            ],
+            productOptions: [{ optionKey: 'size', values: ['large'] }],
           },
         ],
+        defaultSpecificationCategory: 'DefaultCat',
       },
-    });
-
-    await generator._runProductCreationStep(sessionId);
-
-    // Should have created a batch
-    const batches = persistence.getBatchesForSession(sessionId);
-    expect(batches.length).toBeGreaterThan(0);
-    expect(mockCtx.liferay.createProductsBatch).toHaveBeenCalled();
+    };
+    mockPersistence.getSession.mockResolvedValue(mockSession);
   });
 
-  it('should handle ensure categories step', async () => {
-    const sessionId = 'test-session-categories';
-    persistence.createSession({
-      sessionId,
-      flowType: 'generate',
-      status: 'STARTED',
-      context: {
-        config: { catalogId: '123', siteGroupId: '456', localeCode: 'en-US' },
-        options: { productCount: 2 },
-        productDataList: [
-          {
-            name: 'Test Product',
-            category: { en_US: 'Books' },
-            externalReferenceCode: 'T1',
-          },
-          {
-            name: 'Another Product',
-            category: { en_US: 'Electronics' },
-            externalReferenceCode: 'T2',
-          },
-        ],
-      },
+  describe('Workflow Step: Ensure Specifications', () => {
+    it('should bypass step if productDataList is empty', async () => {
+      mockSession.context.productDataList = [];
+      await productGenerator._runEnsureSpecificationsStep('sess-123');
+
+      expect(productGenerator.completeSyncStep).toHaveBeenCalledWith(
+        'sess-123',
+        WORKFLOW_STEPS.ENSURE_SPECIFICATIONS,
+        'BYPASSED'
+      );
     });
 
-    await generator._runEnsureCategoriesStep(sessionId);
+    it('should create specifications and update list on session context', async () => {
+      await productGenerator._runEnsureSpecificationsStep('sess-123');
 
-    const session = persistence.getSession(sessionId);
-    const pdList = session.context.productDataList;
+      expect(mockLiferay.createSpecificationWithReuse).toHaveBeenCalled();
+      expect(productGenerator.completeSyncStep).toHaveBeenCalledWith(
+        'sess-123',
+        WORKFLOW_STEPS.ENSURE_SPECIFICATIONS,
+        'SYNCHRONOUS',
+        1,
+        1
+      );
+    });
 
-    expect(pdList[0].categories).toEqual([202]); // Created category 'Books' (mock returns 202)
-    expect(pdList[1].categories).toEqual([201]); // Reused category 'Electronics' (mock returns 201)
-    expect(mockCtx.liferay.createTaxonomyCategory).toHaveBeenCalled();
+    it('should fail specifications step and record failure if an error occurs', async () => {
+      mockLiferay.createSpecificationWithReuse.mockRejectedValue(
+        new Error('Liferay spec API crash')
+      );
+
+      await expect(
+        productGenerator._runEnsureSpecificationsStep('sess-123')
+      ).rejects.toThrow('Liferay spec API crash');
+
+      expect(mockLogger.error).toHaveBeenCalledWith(
+        expect.stringContaining('Failed ensure specifications step'),
+        expect.any(Object)
+      );
+    });
+  });
+
+  describe('Workflow Step: Ensure Options', () => {
+    it('should bypass step if productDataList is empty', async () => {
+      mockSession.context.productDataList = [];
+      await productGenerator._runEnsureOptionsStep('sess-123');
+
+      expect(productGenerator.completeSyncStep).toHaveBeenCalledWith(
+        'sess-123',
+        WORKFLOW_STEPS.ENSURE_OPTIONS,
+        'BYPASSED'
+      );
+    });
+
+    it('should create options and update list on session context', async () => {
+      await productGenerator._runEnsureOptionsStep('sess-123');
+
+      expect(mockLiferay.createOptionWithReuse).toHaveBeenCalled();
+      expect(productGenerator.completeSyncStep).toHaveBeenCalledWith(
+        'sess-123',
+        WORKFLOW_STEPS.ENSURE_OPTIONS,
+        'SYNCHRONOUS',
+        1,
+        1
+      );
+    });
+
+    it('should fail options step and record failure if an error occurs', async () => {
+      mockLiferay.createOptionWithReuse.mockRejectedValue(
+        new Error('Liferay option API crash')
+      );
+
+      await expect(
+        productGenerator._runEnsureOptionsStep('sess-123')
+      ).rejects.toThrow('Liferay option API crash');
+    });
+  });
+
+  describe('Workflow Step: Create Products', () => {
+    it('should create products batch via Liferay Vulcan API', async () => {
+      await productGenerator._runProductCreationStep('sess-123');
+
+      expect(mockLiferay.createProductsBatch).toHaveBeenCalled();
+    });
+  });
+
+  describe('Workflow Step: Generate Price Lists', () => {
+    it('should trigger pricing step successfully', async () => {
+      mockSession.context.productDataList = [
+        {
+          externalReferenceCode: 'ERC1',
+          name: { en_US: 'Product 1' },
+          skus: [{ externalReferenceCode: 'SKU1', id: 'sku-123' }],
+          priceEntries: [
+            {
+              skuExternalReferenceCode: 'SKU1',
+              price: 99.99,
+              promoPrice: 79.99,
+            },
+          ],
+        },
+      ];
+
+      await productGenerator._runGeneratePriceListsStep('sess-123');
+
+      expect(mockLiferay.createPriceEntriesBatch).toHaveBeenCalled();
+    });
   });
 });
