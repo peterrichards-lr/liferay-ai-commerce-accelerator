@@ -16,6 +16,20 @@ export default defineConfig({
         inline: true,
       },
     },
+    coverage: {
+      provider: 'v8',
+      exclude: [
+        '**/node_modules/**',
+        '**/dist/**',
+        '**/tests/**',
+        '**/mocks/**',
+        '**/scripts/**',
+      ],
+      thresholds: {
+        statements: 45,
+        lines: 45,
+      },
+    },
   },
   resolve: {
     mainFields: ['main', 'module'],
