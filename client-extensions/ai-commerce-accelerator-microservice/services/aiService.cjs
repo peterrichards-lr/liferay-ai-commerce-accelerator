@@ -184,7 +184,7 @@ class AIService {
           : ''
       }`;
       const fullPromptText = `${systemInstruction}\n\n${prompt}`;
-      const estimatedTokens = estimateTokens(fullPromptText);
+      const estimatedTokens = estimateTokens(fullPromptText, runtime.model);
       const limit = parseInt(process.env.AICA_MAX_TOKEN_LIMIT, 10) || 15000;
 
       if (

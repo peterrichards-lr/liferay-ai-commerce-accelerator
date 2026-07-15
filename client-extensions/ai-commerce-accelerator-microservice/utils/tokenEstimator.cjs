@@ -1,33 +1,31 @@
-const { getEncoding } = require('js-tiktoken');
+const { encodingForModel } = require('js-tiktoken');
 
-let encoder = null;
-
-function getEncoder() {
-  if (!encoder) {
-    encoder = getEncoding('cl100k_base');
-  }
-  return encoder;
+function estimateTokensHeuristic(text) {
+  if (!text || typeof text !== 'string') return 0;
+  const charBased = Math.ceil(text.length / 4.0);
+  const wordCount = text.split(/\s+/).length;
+  const wordBased = Math.ceil(wordCount * 1.3);
+  return Math.max(charBased, wordBased);
 }
 
 /**
- * Exact token estimator using js-tiktoken BPE tokenizer.
+ * Pre-flight Token Estimator utility utilizing js-tiktoken BPE tokenization,
+ * with a fallback heuristic on errors or unsupported models.
  */
-function estimateTokens(text) {
+function estimateTokens(text, model = 'gpt-4o-mini') {
   if (!text || typeof text !== 'string') return 0;
+
   try {
-    return getEncoder().encode(text).length;
+    let targetModel = model;
+    if (model.startsWith('gemini') || model.startsWith('mock')) {
+      targetModel = 'gpt-4o-mini';
+    }
+    const encoder = encodingForModel(targetModel);
+    const tokens = encoder.encode(text);
+    return tokens.length;
   } catch (err) {
-    // Fallback to the classic heuristic if encoding fails
-    const charBased = Math.ceil(text.length / 4.0);
-    const wordCount = text.split(/\s+/).length;
-    const wordBased = Math.ceil(wordCount * 1.3);
-    return Math.max(charBased, wordBased);
+    return estimateTokensHeuristic(text);
   }
 }
 
-module.exports = {
-  estimateTokens,
-  _setEncoder: (val) => {
-    encoder = val;
-  },
-};
+module.exports = { estimateTokens };
