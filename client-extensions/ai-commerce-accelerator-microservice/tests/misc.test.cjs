@@ -1,4 +1,5 @@
 const { createERC } = require('../utils/misc.cjs');
+const { estimateTokens } = require('../utils/tokenEstimator.cjs');
 
 describe('Misc Utilities', () => {
   describe('createERC', () => {
@@ -25,6 +26,26 @@ describe('Misc Utilities', () => {
       }
 
       expect(ercs.size).toBe(count);
+    });
+  });
+
+  describe('estimateTokens', () => {
+    it('should calculate tokens exactly using js-tiktoken for gpt models', () => {
+      const text = 'hello world';
+      const count = estimateTokens(text, 'gpt-4');
+      expect(count).toBe(2);
+    });
+
+    it('should map gemini models to gpt-4o-mini and calculate successfully', () => {
+      const text = 'hello world';
+      const count = estimateTokens(text, 'gemini-1.5-pro');
+      expect(count).toBe(2);
+    });
+
+    it('should fall back to heuristic estimation for unsupported models or errors', () => {
+      const text = 'hello world standard estimation fallback';
+      const count = estimateTokens(text, 'invalid-unsupported-model-name');
+      expect(count).toBe(10);
     });
   });
 });
