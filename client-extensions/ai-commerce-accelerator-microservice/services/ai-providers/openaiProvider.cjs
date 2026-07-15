@@ -1,3 +1,4 @@
+const crypto = require('crypto');
 const OpenAI = require('openai');
 const BaseAIProvider = require('./baseProvider.cjs');
 const { tryParseJSON } = require('../../utils/misc.cjs');
@@ -5,17 +6,52 @@ const { tryParseJSON } = require('../../utils/misc.cjs');
 class OpenAIProvider extends BaseAIProvider {
   constructor(ctx) {
     super(ctx);
-    this.client = null;
+    this.clientRegistry = new Map();
   }
 
   async _getClient(credentials) {
     const apiKey = credentials.apiKey;
     if (!apiKey) throw new Error('OpenAI API key missing');
 
-    if (!this.client || this.client.apiKey !== apiKey) {
-      this.client = new OpenAI({ apiKey });
+    const hash = crypto.createHash('sha256').update(apiKey).digest('hex');
+    const now = Date.now();
+
+    if (this.clientRegistry.has(hash)) {
+      const entry = this.clientRegistry.get(hash);
+      entry.lastAccessed = now;
+      return entry.client;
     }
-    return this.client;
+
+    const MAX_CLIENTS = 10;
+    if (this.clientRegistry.size >= MAX_CLIENTS) {
+      let oldestHash = null;
+      let oldestTime = Infinity;
+      for (const [key, val] of this.clientRegistry.entries()) {
+        if (val.lastAccessed < oldestTime) {
+          oldestTime = val.lastAccessed;
+          oldestHash = key;
+        }
+      }
+      if (oldestHash) {
+        const evicted = this.clientRegistry.get(oldestHash);
+        this.clientRegistry.delete(oldestHash);
+        if (
+          evicted.client &&
+          evicted.client.httpAgent &&
+          typeof evicted.client.httpAgent.destroy === 'function'
+        ) {
+          evicted.client.httpAgent.destroy();
+        }
+        this.ctx?.logger?.info?.(
+          `[OpenAIProvider] Evicted oldest tenant client to prevent memory leak`,
+          { hash: oldestHash }
+        );
+      }
+    }
+
+    const client = new OpenAI({ apiKey });
+    this.clientRegistry.set(hash, { client, lastAccessed: now });
+    return client;
   }
 
   async generateJSON(task, prompt, options, schema) {

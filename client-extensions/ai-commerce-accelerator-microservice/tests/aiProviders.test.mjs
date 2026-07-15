@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { http, HttpResponse } from 'msw';
+import crypto from 'crypto';
 import { server } from './setup.mjs';
 import OpenAIProvider from '../services/ai-providers/openaiProvider.cjs';
 import GeminiProvider from '../services/ai-providers/geminiProvider.cjs';
@@ -103,6 +104,37 @@ describe('AI Providers', () => {
 
       const result = await provider.validateCredentials({ apiKey: 'key' });
       expect(result).toBe(false);
+    });
+
+    it('should scope client cache registry by apiKey hash and enforce LRU eviction with resource cleanup', async () => {
+      const client1 = await provider._getClient({ apiKey: 'key1' });
+      const client2 = await provider._getClient({ apiKey: 'key2' });
+      expect(client1).not.toBe(client2);
+
+      const client1Copy = await provider._getClient({ apiKey: 'key1' });
+      expect(client1).toBe(client1Copy);
+
+      const clients = [];
+      for (let i = 0; i < 10; i++) {
+        clients.push(await provider._getClient({ apiKey: `key-${i}` }));
+      }
+      expect(provider.clientRegistry.size).toBe(10);
+
+      const mockAgent = { destroy: vi.fn() };
+      const key0Hash = crypto
+        .createHash('sha256')
+        .update('key-0')
+        .digest('hex');
+      provider.clientRegistry.get(key0Hash).client.httpAgent = mockAgent;
+
+      for (let i = 1; i < 10; i++) {
+        await provider._getClient({ apiKey: `key-${i}` });
+      }
+
+      const client10 = await provider._getClient({ apiKey: 'key-10' });
+      expect(provider.clientRegistry.size).toBe(10);
+      expect(provider.clientRegistry.has(key0Hash)).toBe(false);
+      expect(mockAgent.destroy).toHaveBeenCalled();
     });
   });
 
