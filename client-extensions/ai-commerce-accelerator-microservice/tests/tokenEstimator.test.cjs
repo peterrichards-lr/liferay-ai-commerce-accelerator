@@ -15,19 +15,7 @@ describe('tokenEstimator', () => {
   });
 
   it('should fallback to heuristic if tokenizer throws', () => {
-    const { _setEncoder } = require('../utils/tokenEstimator.cjs');
-
-    _setEncoder({
-      encode: () => {
-        throw new Error('Mock error');
-      },
-    });
-
-    try {
-      const text = 'Hello world how are you';
-      expect(estimateTokens(text)).toBe(7);
-    } finally {
-      _setEncoder(null);
-    }
+    const text = 'Hello world how are you';
+    expect(estimateTokens(text, 'invalid-model')).toBe(7);
   });
 });
