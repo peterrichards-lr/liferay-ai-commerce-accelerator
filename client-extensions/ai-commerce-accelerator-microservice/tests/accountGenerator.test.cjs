@@ -76,14 +76,14 @@ describe('AccountGenerator', () => {
     expect(result.sessionId).toBeDefined();
     expect(result.message).toContain('started');
 
-    const session = persistence.getSession(result.sessionId);
+    const session = await persistence.getSession(result.sessionId);
     expect(session).not.toBeNull();
     expect(session.flow_type).toBe('accounts');
     expect(mockCtx.batchCallback._checkSessionCompletion).toHaveBeenCalled();
   });
   it('should run load countries step', async () => {
     const sessionId = `test-session-${Date.now()}`;
-    persistence.createSession({
+    await persistence.createSession({
       sessionId,
       flowType: 'accounts',
       status: 'STARTED',
@@ -93,7 +93,7 @@ describe('AccountGenerator', () => {
     await generator._runLoadCountriesStep(sessionId);
     await generator.executeNextStep(sessionId);
 
-    const session = persistence.getSession(sessionId);
+    const session = await persistence.getSession(sessionId);
     expect(session.context.countries).toHaveLength(1);
     expect(session.status).toBe('COMPLETED');
     expect(mockCtx.liferay.getCountries).toHaveBeenCalled();
@@ -101,7 +101,7 @@ describe('AccountGenerator', () => {
 
   it('should run data generation step', async () => {
     const sessionId = `acc-test-session-${Date.now()}`;
-    persistence.createSession({
+    await persistence.createSession({
       sessionId,
       flowType: 'accounts',
       status: 'STARTED',
@@ -115,7 +115,7 @@ describe('AccountGenerator', () => {
 
     await generator._runAccountDataGenerationStep(sessionId);
 
-    const session = persistence.getSession(sessionId);
+    const session = await persistence.getSession(sessionId);
     expect(session.context.accountsToCreate).toHaveLength(1);
     expect(session.context.accountsToCreate[0].name).toBe('Generated Account');
     expect(mockCtx.generation.generateData).toHaveBeenCalled();
@@ -206,7 +206,7 @@ describe('AccountGenerator', () => {
 
     mockCtx.liferay.getCountryRegions.mockResolvedValue(regions);
 
-    persistence.createSession({
+    await persistence.createSession({
       sessionId,
       flowType: 'accounts',
       status: 'STARTED',
@@ -220,7 +220,7 @@ describe('AccountGenerator', () => {
 
     await generator._runAccountDataGenerationStep(sessionId);
 
-    const session = persistence.getSession(sessionId);
+    const session = await persistence.getSession(sessionId);
     // Verify that geographicContext was stored with titles inside options
     expect(session.context.options.geographicContext).toMatchObject({
       countryTitle: 'Uzbekistan',

@@ -60,6 +60,7 @@ module.exports = async (ws) => {
     config: ctx.config,
     persistence: ctx.persistence,
     logger,
+    liferay: ctx.liferay,
   });
   ctx.ai = new AIService({
     config: ctx.config,
@@ -67,7 +68,7 @@ module.exports = async (ws) => {
     prompt: ctx.prompt,
     ENV,
   });
-  await ctx.ai.initializeSchemas();
+  ctx.ai.initializeSchemas();
   ctx.batchProcessor = new BatchProcessorService({ logger });
   ctx.batchCallback = new BatchCallbackService(ctx);
   ctx.mockDataGenerator = new MockDataGenerator({

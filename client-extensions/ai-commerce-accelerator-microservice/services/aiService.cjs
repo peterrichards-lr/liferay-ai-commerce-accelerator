@@ -56,28 +56,7 @@ class AIService {
   _validateResponse(data, schemaName) {
     if (!schemaName) return data;
 
-    let validator = this.localSchemas[schemaName];
-    if (!validator) {
-      const schemaPath = path.join(
-        __dirname,
-        `../generation-schemas/${schemaName}.json`
-      );
-      try {
-        if (fs.existsSync(schemaPath)) {
-          this.ctx.logger?.warn(
-            `[AIService] Validation schema "${schemaName}" compiled lazily at runtime`
-          );
-          const schema = JSON.parse(fs.readFileSync(schemaPath, 'utf8'));
-          validator = this.ajv.compile(schema);
-          this.localSchemas[schemaName] = validator;
-        }
-      } catch (err) {
-        this.ctx.logger?.error(
-          `[AIService] Failed to lazily compile schema "${schemaName}": ${err.message}`
-        );
-      }
-    }
-
+    const validator = this.localSchemas[schemaName];
     if (validator) {
       const isValid = validator(data);
       if (!isValid) {

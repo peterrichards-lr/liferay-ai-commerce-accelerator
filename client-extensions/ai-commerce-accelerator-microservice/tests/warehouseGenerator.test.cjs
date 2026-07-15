@@ -89,14 +89,14 @@ describe('WarehouseGenerator', () => {
     expect(result.sessionId).toBeDefined();
     expect(result.message).toContain('started');
 
-    const session = persistence.getSession(result.sessionId);
+    const session = await persistence.getSession(result.sessionId);
     expect(session).not.toBeNull();
     expect(session.flow_type).toBe('warehouses');
   });
 
   it('should store geographicContext with ISO codes in _runWarehouseDataGenerationStep', async () => {
     const sessionId = `wh-test-session-${Date.now()}`;
-    persistence.createSession({
+    await persistence.createSession({
       sessionId,
       flowType: 'warehouses',
       status: 'STARTED',
@@ -109,7 +109,7 @@ describe('WarehouseGenerator', () => {
 
     await generator._runWarehouseDataGenerationStep(sessionId);
 
-    const session = persistence.getSession(sessionId);
+    const session = await persistence.getSession(sessionId);
     expect(session.context.options.geographicContext).toMatchObject({
       countryISOCode: 'UZ',
       regionISOCode: 'TOS',
@@ -129,7 +129,7 @@ describe('WarehouseGenerator', () => {
       },
     ];
 
-    persistence.createSession({
+    await persistence.createSession({
       sessionId,
       flowType: 'warehouses',
       status: 'STARTED',

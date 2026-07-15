@@ -8,11 +8,11 @@ Address Technical Debt & Security Remediation (Epic #330) including synchronous 
 
 ## Plan
 
-1. **Optimize AIService JSON Schema Compilation (Issue #331)**: Pre-compile schemas asynchronously at startup.
-2. **Optimize SQLite Persistence with worker_threads (Issue #332)**: Offload SQLite database transactions to worker threads in SDK.
-3. **Refactor Multi-Tenant Credential Scoping (Issue #333)**: Implement client registries scoped by API key hash.
-4. **Integrate js-tiktoken for Precise Token counts (Issue #334)**: Implement exact BPE tokenization.
-5. **Harden DevOps E2E Ports (Issue #335)**: Dynamically resolve ports in E2E scripts.
+1. **Optimize AIService JSON Schema Compilation (Issue #331)**: Pre-compile schemas asynchronously at startup. [Completed]
+2. **Optimize SQLite Persistence with worker_threads (Issue #332)**: Offload SQLite database transactions to worker threads in SDK. [Completed]
+3. **Refactor Multi-Tenant Credential Scoping (Issue #333)**: Implement client registries scoped by API key hash. [Completed]
+4. **Integrate js-tiktoken for Precise Token counts (Issue #334)**: Implement exact BPE tokenization. [Completed]
+5. **Harden DevOps E2E Ports (Issue #335)**: Dynamically resolve ports in E2E scripts. [Completed]
 
 6. **Document Platform Bugs**: Create a `jira` directory at the project root and add detailed markdown bug reports for: [Completed]
    - Pricing v2.0 single POST `NotSupportedException` bug.

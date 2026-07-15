@@ -90,14 +90,14 @@ describe('OrderGenerator', () => {
     expect(result.sessionId).toBeDefined();
     expect(result.message).toContain('started');
 
-    const session = persistence.getSession(result.sessionId);
+    const session = await persistence.getSession(result.sessionId);
     expect(session).not.toBeNull();
     expect(session.flow_type).toBe('orders');
   });
 
   it('should run order data generation step', async () => {
     const sessionId = 'order-test-session';
-    persistence.createSession({
+    await persistence.createSession({
       sessionId,
       flowType: 'orders',
       status: 'STARTED',
@@ -126,13 +126,13 @@ describe('OrderGenerator', () => {
 
     await generator._runOrderDataGenerationStep(sessionId);
 
-    const session = persistence.getSession(sessionId);
+    const session = await persistence.getSession(sessionId);
     expect(session.context.orderDataList).toHaveLength(1);
   });
 
   it('should handle order creation step (batch mode)', async () => {
     const sessionId = 'test-session-batch';
-    persistence.createSession({
+    await persistence.createSession({
       sessionId,
       flowType: 'orders',
       status: 'STARTED',
@@ -180,7 +180,7 @@ describe('OrderGenerator', () => {
 
   it('should handle order creation step (individual mode)', async () => {
     const sessionId = 'test-session-individual';
-    persistence.createSession({
+    await persistence.createSession({
       sessionId,
       flowType: 'orders',
       status: 'STARTED',

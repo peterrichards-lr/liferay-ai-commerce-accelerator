@@ -3,6 +3,16 @@
 
 set -e
 
+# Exit early if executed inside the Docker container (as Liferay entrypoint runs all scripts in /mnt/liferay/scripts)
+if [ -f /.dockerenv ] || [ -n "$LIFERAY_HOME" ]; then
+    echo "ℹ  Exiting early: run-e2e-ldm.sh is a host-side orchestrator, not meant to be run inside the Liferay container."
+    if [ "${BASH_SOURCE[0]}" != "$0" ]; then
+        return 0 2>/dev/null || exit 0
+    else
+        exit 0
+    fi
+fi
+
 # --- Argument Parsing ---
 VERBOSE=0
 PROJECT_NAME=""
@@ -134,6 +144,17 @@ touch logs/e2e-microservice.log
 
 # --- Phase 0: Environment Loading ---
 
+# Save original global database mode to prevent configuration pollution
+ACTIVE_MODE_LINE=$(ldm config database-mode 2>/dev/null || echo "")
+if [[ "$ACTIVE_MODE_LINE" == *"shared"* ]]; then
+    ORIGINAL_DB_MODE="shared"
+elif [[ "$ACTIVE_MODE_LINE" == *"isolated"* ]]; then
+    ORIGINAL_DB_MODE="isolated"
+else
+    ORIGINAL_DB_MODE=""
+fi
+
+
 # Force JDK 21 on macOS to ensure Liferay Docker Manager (LDM) compatibility
 GRADLE_JAVA_21=""
 if [ "$(uname)" == "Darwin" ]; then
@@ -154,6 +175,28 @@ if [ -n "$GRADLE_JAVA_21" ]; then
     fi
 fi
 
+# Helper function to check if a port is free
+is_port_free() {
+    local port=$1
+    if command -v nc &>/dev/null; then
+        ! nc -z localhost "$port" &>/dev/null
+    elif command -v lsof &>/dev/null; then
+        ! lsof -i:"$port" &>/dev/null
+    else
+        (echo >/dev/tcp/localhost/"$port") &>/dev/null
+        return $?
+    fi
+}
+
+find_free_port() {
+    local start_port=$1
+    local port=$start_port
+    while ! is_port_free "$port"; do
+        port=$((port + 1))
+    done
+    echo "$port"
+}
+
 # Load E2E or local .env if it exists (for local runs)
 if [ -f ".env.e2e" ]; then
     echo "📄 Loading environment variables from .env.e2e..."
@@ -165,15 +208,56 @@ elif [ -f ".env" ]; then
     export $(grep -v '^#' .env | xargs)
 fi
 
-# Dynamically override the URLs to match the unique TARGET_HOST
-if [ $NO_SSL -eq 1 ]; then
-    export LIFERAY_URL="http://$TARGET_HOST"
-    export LIFERAY_API_URL="http://$TARGET_HOST"
+# Determine the target host and URL
+if [ $EXISTING_PROJECT -eq 1 ]; then
+    # Try to resolve URL from existing project config
+    TARGET_URL=$(ldm list | grep "$PROJECT_NAME" | grep -oE 'https?://[a-zA-Z0-9./:-]+' | xargs || echo "")
+    if [ -z "$TARGET_URL" ]; then
+        echo "❌ ERROR: Could not find URL for project '$PROJECT_NAME'. Is it initialized?"
+        exit 1
+    fi
+    TARGET_HOST=$(echo "$TARGET_URL" | sed -E 's/https?:\/\///' | cut -d':' -f1)
+else
+    TARGET_HOST="$DEFAULT_HOST"
+    if [ $NO_SSL -eq 1 ]; then
+        TARGET_URL="http://$TARGET_HOST"
+    else
+        TARGET_URL="https://$TARGET_HOST"
+    fi
+fi
+
+# Check if target host resolves. If it doesn't, resolve mapped tomcat port and fall back to localhost
+if ! getent hosts "$TARGET_HOST" &>/dev/null && ! nslookup "$TARGET_HOST" &>/dev/null && ! ping -c 1 -W 1 "$TARGET_HOST" &>/dev/null; then
+    echo "⚠️  Host '$TARGET_HOST' is not resolvable. Falling back to localhost..."
+    if [ $EXISTING_PROJECT -eq 1 ]; then
+        PORT_BINDING=$(docker port "$PROJECT_NAME" 8080 2>/dev/null || echo "")
+        if [ -n "$PORT_BINDING" ]; then
+            RESOLVED_PORT=$(echo "$PORT_BINDING" | head -n 1 | cut -d':' -f2)
+        else
+            RESOLVED_PORT="8080"
+        fi
+        TARGET_URL="http://localhost:$RESOLVED_PORT"
+        echo "ℹ  Resolved fallback URL: $TARGET_URL"
+    fi
+else
+    echo "ℹ  Host '$TARGET_HOST' is resolvable. Using: $TARGET_URL"
+fi
+
+# Dynamically override the URLs to match the unique TARGET_HOST / fallback
+if [[ "$TARGET_URL" == *localhost* ]]; then
+    export LIFERAY_URL="$TARGET_URL"
+    export LIFERAY_API_URL="$TARGET_URL"
     export COM_LIFERAY_LXC_DXP_SERVER_PROTOCOL="http"
 else
-    export LIFERAY_URL="https://$TARGET_HOST"
-    export LIFERAY_API_URL="https://$TARGET_HOST"
-    export COM_LIFERAY_LXC_DXP_SERVER_PROTOCOL="https"
+    if [ $NO_SSL -eq 1 ]; then
+        export LIFERAY_URL="http://$TARGET_HOST"
+        export LIFERAY_API_URL="http://$TARGET_HOST"
+        export COM_LIFERAY_LXC_DXP_SERVER_PROTOCOL="http"
+    else
+        export LIFERAY_URL="https://$TARGET_HOST"
+        export LIFERAY_API_URL="https://$TARGET_HOST"
+        export COM_LIFERAY_LXC_DXP_SERVER_PROTOCOL="https"
+    fi
 fi
 export COM_LIFERAY_LXC_DXP_MAIN_DOMAIN="$TARGET_HOST"
 
@@ -193,24 +277,6 @@ CURRENT_LDM_VERSION=$(echo "$LDM_VERSION_OUTPUT" | awk '{print $2}')
 if ! version_ge "$REQUIRED_LDM_VERSION" "$CURRENT_LDM_VERSION"; then
     echo "❌ ERROR: LDM version $CURRENT_LDM_VERSION is too old. Need >= $REQUIRED_LDM_VERSION."
     exit 1
-fi
-
-# Determine the target host and URL
-if [ $EXISTING_PROJECT -eq 1 ]; then
-    # Try to resolve URL from existing project config
-    TARGET_URL=$(ldm list | grep "$PROJECT_NAME" | grep -oE 'https?://[a-zA-Z0-9./:-]+' | xargs || echo "")
-    if [ -z "$TARGET_URL" ]; then
-        echo "❌ ERROR: Could not find URL for project '$PROJECT_NAME'. Is it initialized?"
-        exit 1
-    fi
-    TARGET_HOST=$(echo "$TARGET_URL" | sed -E 's/https?:\/\///' | cut -d':' -f1)
-else
-    TARGET_HOST="$DEFAULT_HOST"
-    if [ $NO_SSL -eq 1 ]; then
-        TARGET_URL="http://$TARGET_HOST"
-    else
-        TARGET_URL="https://$TARGET_HOST"
-    fi
 fi
 
 LDM_SSL_FLAG=""
@@ -445,6 +511,16 @@ else
     chmod -R 777 "$PROJECT_NAME" 2>/dev/null || true
 fi
 
+# Resolve fallback URL if host is not resolvable (dynamic port resolution)
+if ! getent hosts "$TARGET_HOST" &>/dev/null && ! nslookup "$TARGET_HOST" &>/dev/null && ! ping -c 1 -W 1 "$TARGET_HOST" &>/dev/null; then
+    PORT_BINDING=$(docker port "$PROJECT_NAME" 8080 2>/dev/null || echo "")
+    if [ -n "$PORT_BINDING" ]; then
+        RESOLVED_PORT=$(echo "$PORT_BINDING" | head -n 1 | cut -d':' -f2)
+        TARGET_URL="http://localhost:$RESOLVED_PORT"
+        echo "ℹ  Updated fallback URL to: $TARGET_URL"
+    fi
+fi
+
 # --- Phase 4: Sync & Wait ---
 
 write_signal "WAITING_HEALTHY"
@@ -543,15 +619,29 @@ cleanup() {
         ldm_cmd rm "$PROJECT_NAME" --delete $LDM_Y_FLAG || true
         echo "✨ Done."
     fi
+    if [ -n "$ORIGINAL_DB_MODE" ]; then
+        echo -e "\n🔄 Restoring global database mode to '$ORIGINAL_DB_MODE'..."
+        ldm config database-mode "$ORIGINAL_DB_MODE" --global &>/dev/null || true
+    fi
 }
 
 trap cleanup EXIT
+
+# Dynamically resolve mapped host port for the microservice sidecar container
+SIDECAR_PORT_BINDING=$(docker port "${PROJECT_NAME}-sidecar" 3001 2>/dev/null || echo "")
+if [ -n "$SIDECAR_PORT_BINDING" ]; then
+    RESOLVED_SIDECAR_PORT=$(echo "$SIDECAR_PORT_BINDING" | head -n 1 | cut -d':' -f2)
+else
+    RESOLVED_SIDECAR_PORT=$(find_free_port 3001)
+fi
+echo "ℹ  Resolved sidecar port: $RESOLVED_SIDECAR_PORT"
 
 # Set the environment variables for Playwright and the Microservice
 export BASE_URL="$TARGET_URL"
 export LIFERAY_API_URL="$BASE_URL"
 export LIFERAY_URL="$BASE_URL"
-export LIFERAY_BATCH_CALLBACK_URL="http://host.docker.internal:3001/api/v1/batch/callback"
+export LIFERAY_BATCH_CALLBACK_URL="http://host.docker.internal:${RESOLVED_SIDECAR_PORT}/api/v1/batch/callback"
+export AICA_MICROSERVICE_URL="http://localhost:${RESOLVED_SIDECAR_PORT}"
 
 
 # Map CI secrets to standard AICA variables if provided
