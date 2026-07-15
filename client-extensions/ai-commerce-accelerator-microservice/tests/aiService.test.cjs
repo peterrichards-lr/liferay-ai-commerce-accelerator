@@ -4,7 +4,7 @@ describe('AIService (Multi-Provider)', () => {
   let aiService;
   let mockCtx;
 
-  beforeEach(() => {
+  beforeEach(async () => {
     mockCtx = {
       config: {
         getAIConfig: vi.fn().mockResolvedValue({
@@ -31,6 +31,7 @@ describe('AIService (Multi-Provider)', () => {
     };
 
     aiService = new AIService(mockCtx);
+    await aiService.initializeSchemas();
   });
 
   it('should resolve different providers for text and media', async () => {
