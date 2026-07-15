@@ -1,0 +1,37 @@
+{
+  "title": "[Epic] Architectural Refactoring & Technical Debt Remediation (AICA & SDK)",
+  "body": "This epic tracks refactoring tasks to address synchronous I/O, database lock contention, multi-tenant credential safety, precise token estimation, and DevOps pipeline hardening across AICA and the SDK.",
+  "labels": ["tech debt", "enhancement"],
+  "issues": [
+    {
+      "title": "[Refactor] Migrate Synchronous Schema Reads to Async Caching",
+      "body": "Optimize AIService JSON schema compilation by removing synchronous filesystem calls inside the asynchronous validation path.",
+      "completed": false,
+      "labels": ["tech debt", "enhancement"]
+    },
+    {
+      "title": "[Performance] Decouple SQLite Persistence with Async Worker Thread Offloading",
+      "body": "Prevent main thread blockages by offloading synchronous better-sqlite3 writes from the SDK's PersistenceService.",
+      "completed": false,
+      "labels": ["tech debt", "enhancement"]
+    },
+    {
+      "title": "[Security] Refactor Multi-Tenant Credential Scoping in AI Provider Instances",
+      "body": "Harden AI provider caching registry to securely isolate tenant API keys and prevent memory fragmentation.",
+      "completed": false,
+      "labels": ["tech debt", "enhancement"]
+    },
+    {
+      "title": "[Refactor] Integrate tiktoken-node for Precise Pre-Flight Token Guardrails",
+      "body": "Replace heuristic-based token estimator with exact BPE tokenizer checks to protect API quotas.",
+      "completed": false,
+      "labels": ["tech debt", "enhancement"]
+    },
+    {
+      "title": "[DevOps] Eliminate Global State Pollution and Hardcoded Ports in E2E Pipeline",
+      "body": "Refactor E2E script run-e2e-ldm.sh to support dynamic port discovery and prevent global developer configuration modifications.",
+      "completed": false,
+      "labels": ["tech debt", "enhancement"]
+    }
+  ]
+}
