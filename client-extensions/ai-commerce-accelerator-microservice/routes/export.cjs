@@ -3,13 +3,13 @@ const { createERC } = require('../utils/misc.cjs');
 const { ERC_PREFIX } = require('../utils/constants.cjs');
 
 module.exports = (app, { cacheService, logger, persistenceService }) => {
-  app.get(INTERNAL_API_PATHS.EXPORT_COMMERCE_DATA, (req, res) => {
+  app.get(INTERNAL_API_PATHS.EXPORT_COMMERCE_DATA, async (req, res) => {
     try {
       const { sessionId } = req.query;
       let exportData = null;
 
       if (sessionId) {
-        const session = persistenceService.getSession(sessionId);
+        const session = await persistenceService.getSession(sessionId);
         if (session && session.context) {
           const ctx = session.context;
           exportData = {
@@ -55,7 +55,8 @@ module.exports = (app, { cacheService, logger, persistenceService }) => {
 
       // Final fallback to latest completed in DB
       if (!exportData) {
-        const latestSession = persistenceService.getLatestCompletedSession();
+        const latestSession =
+          await persistenceService.getLatestCompletedSession();
         if (latestSession && latestSession.context) {
           const ctx = latestSession.context;
           exportData = {

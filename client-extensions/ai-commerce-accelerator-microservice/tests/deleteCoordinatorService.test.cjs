@@ -70,10 +70,10 @@ describe('DeleteCoordinatorService', () => {
     const config = { correlationId: 'test-cid' };
     const options = {};
 
-    const result = coordinator.runDeleteAndMonitor(config, options);
+    const result = await coordinator.runDeleteAndMonitor(config, options);
 
     expect(result.sessionId).toBeDefined();
-    const session = persistence.getSession(result.sessionId);
+    const session = await persistence.getSession(result.sessionId);
     expect(session.flow_type).toBe('delete');
     expect(session.session_name).toBe('Delete All Commerce Data');
     expect(session.context.generator).toBe('delete');
@@ -93,14 +93,14 @@ describe('DeleteCoordinatorService', () => {
     );
 
     expect(result.sessionId).toBeDefined();
-    const session = persistence.getSession(result.sessionId);
+    const session = await persistence.getSession(result.sessionId);
     expect(session.flow_type).toBe('delete');
     expect(session.session_name).toBe('Delete Selected Commerce Data');
   });
 
   it('should run discovery step', async () => {
     const sessionId = 'delete-test-session';
-    persistence.createSession({
+    await persistence.createSession({
       sessionId,
       flowType: 'delete',
       status: 'STARTED',
@@ -115,7 +115,7 @@ describe('DeleteCoordinatorService', () => {
 
     await coordinator._runDiscoveryStep(sessionId);
 
-    const session = persistence.getSession(sessionId);
+    const session = await persistence.getSession(sessionId);
     expect(session.context.manifest).toBeDefined();
 
     // Verify totals were emitted for core entities
@@ -129,7 +129,7 @@ describe('DeleteCoordinatorService', () => {
 
   it('should handle order deletion step', async () => {
     const sessionId = 'test-session';
-    persistence.createSession({
+    await persistence.createSession({
       sessionId,
       flowType: 'delete',
       status: 'STARTED',

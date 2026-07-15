@@ -86,22 +86,22 @@ module.exports = (app, { logger, configService, persistenceService }) => {
       // Retrieve persisted cli_config and generationConfig from SQLite
       let generationConfig = {};
       const savedGenConfigRaw =
-        persistenceService?.getSystemSetting('generation_config');
+        await persistenceService?.getSystemSetting('generation_config');
       if (savedGenConfigRaw) {
         try {
           generationConfig = JSON.parse(savedGenConfigRaw);
-        } catch {
+        } catch (e) {
           generationConfig = {};
         }
       }
 
       let savedCliConfig = {};
       const savedCliConfigRaw =
-        persistenceService?.getSystemSetting('cli_config');
+        await persistenceService?.getSystemSetting('cli_config');
       if (savedCliConfigRaw) {
         try {
           savedCliConfig = JSON.parse(savedCliConfigRaw);
-        } catch {
+        } catch (e) {
           savedCliConfig = {};
         }
       }
@@ -332,32 +332,32 @@ module.exports = (app, { logger, configService, persistenceService }) => {
 
     try {
       if (req.body.generationConfig) {
-        persistenceService?.saveSystemSetting(
+        await persistenceService?.saveSystemSetting(
           'generation_config',
           JSON.stringify(req.body.generationConfig)
         );
       }
 
       if (req.body.config) {
-        persistenceService?.saveSystemSetting(
+        await persistenceService?.saveSystemSetting(
           'cli_config',
           JSON.stringify(req.body.config)
         );
 
         if (req.body.config.liferayUrl) {
-          persistenceService?.saveSystemSetting(
+          await persistenceService?.saveSystemSetting(
             'active_liferay_url',
             req.body.config.liferayUrl
           );
         }
         if (req.body.config.clientId) {
-          persistenceService?.saveSystemSetting(
+          await persistenceService?.saveSystemSetting(
             'active_client_id',
             req.body.config.clientId
           );
         }
         if (req.body.config.clientSecret) {
-          persistenceService?.saveSystemSetting(
+          await persistenceService?.saveSystemSetting(
             'active_client_secret',
             req.body.config.clientSecret
           );

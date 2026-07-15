@@ -32,12 +32,14 @@ let msProcess = null;
 async function startMicroservice() {
   console.log('>>> Starting Microservice in E2E mode...');
 
+  const port = process.env.PORT || process.env.RESOLVED_SIDECAR_PORT || 3001;
+
   msProcess = spawn('node', ['server.cjs'], {
     cwd: MICROSERVICE_DIR,
     env: {
       ...process.env,
       NODE_ENV: 'test',
-      PORT: 3001,
+      PORT: port,
       PERSISTENCE_DB_PATH: ':memory:',
       NODE_TLS_REJECT_UNAUTHORIZED: '0', // Bypass SSL verification for local HTTPS
       LIFERAY_OAUTH_CLIENT_ID: '', // Force Basic Auth
@@ -60,16 +62,22 @@ async function startMicroservice() {
 
   return new Promise((resolve, reject) => {
     const checkHealth = () => {
-      const req = http.get('http://localhost:3001/api/v1/health', (res) => {
-        if (res.statusCode === 200) {
-          console.log('>>> Microservice is HEALTHY.');
-          resolve();
-        } else {
-          console.log(
-            `>>> Microservice health probe returned ${res.statusCode}. Waiting...`
-          );
-          setTimeout(checkHealth, 1000);
-        }
+      const req = http.get(`http://localhost:${port}/api/v1/health`, (res) => {
+        let body = '';
+        res.on('data', (chunk) => {
+          body += chunk;
+        });
+        res.on('end', () => {
+          if (res.statusCode === 200) {
+            console.log('>>> Microservice is HEALTHY.');
+            resolve();
+          } else {
+            console.log(
+              `>>> Microservice health probe returned ${res.statusCode}. Body: ${body.trim()}`
+            );
+            setTimeout(checkHealth, 1000);
+          }
+        });
       });
 
       req.on('error', () => {

@@ -37,7 +37,9 @@ export async function injectAndConnectApp(page) {
 
     // Extract everything after /api/v1/ and build the localhost URL
     const apiPath = originalUrl.substring(originalUrl.indexOf('/api/v1/'));
-    const proxyUrl = `http://localhost:3001${apiPath}`;
+    const microserviceUrl =
+      process.env.AICA_MICROSERVICE_URL || 'http://localhost:3001';
+    const proxyUrl = `${microserviceUrl}${apiPath}`;
 
     console.log(
       `[Playwright Proxy] Intercepted: ${originalUrl} -> Forwarding to: ${proxyUrl}`
@@ -166,25 +168,59 @@ export async function injectAndConnectApp(page) {
       );
     }
 
-    if (isBtnVisible) {
+    if (!isBtnVisible) {
+      // Check if we are already connected
+      const connectedBtn = page
+        .getByRole('button', { name: /^Connected$/i })
+        .first();
+      if (await connectedBtn.isVisible()) {
+        connected = true;
+        break;
+      }
       console.log(
-        `>>> [Attempt ${i + 1}/10] Clicking Test Connection button...`
+        `>>> [Attempt ${i + 1}/10] Connection button not visible (possibly loading), waiting...`
       );
-      await connectBtn.click({ force: true });
-    } else {
-      console.log(`>>> [Attempt ${i + 1}/10] Button not visible yet.`);
+      await page.waitForTimeout(2000);
+      continue;
     }
 
-    // Wait for the UI to unlock by checking the button text!
+    console.log(`>>> [Attempt ${i + 1}/10] Clicking Test Connection button...`);
+    await connectBtn.click({ force: true });
+
+    // Wait for the state to settle to either success (Connected) or failure (Retry Connection or Test Connection & Load Data)
     try {
-      await expect(
-        page.getByRole('button', { name: /^Connected$/i })
-      ).toBeVisible({ timeout: 5000 });
+      await Promise.race([
+        page.waitForSelector('button:has-text("Connected")', {
+          state: 'visible',
+          timeout: 15000,
+        }),
+        page.waitForSelector('button:has-text("Retry Connection")', {
+          state: 'visible',
+          timeout: 15000,
+        }),
+        page.waitForSelector('button:has-text("Test Connection & Load Data")', {
+          state: 'visible',
+          timeout: 15000,
+        }),
+      ]);
+    } catch (e) {
+      console.log(
+        `>>> [Attempt ${i + 1}/10] Settle wait exception: ${e.message}`
+      );
+    }
+
+    const connectedBtn = page
+      .getByRole('button', { name: /^Connected$/i })
+      .first();
+    if (await connectedBtn.isVisible()) {
       connected = true;
       break;
-    } catch (e) {
-      // Failed to connect this attempt, loop and retry
     }
+
+    console.log(
+      `>>> [Attempt ${i + 1}/10] Connection failed or still loading, waiting before retry...`
+    );
+    await page.waitForTimeout(3000);
   }
 
   if (!connected) {

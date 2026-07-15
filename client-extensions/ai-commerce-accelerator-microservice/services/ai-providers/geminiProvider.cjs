@@ -1,11 +1,12 @@
 const { GoogleGenerativeAI } = require('@google/generative-ai');
+const crypto = require('crypto');
 const BaseAIProvider = require('./baseProvider.cjs');
 const { tryParseJSON } = require('../../utils/misc.cjs');
 
 class GeminiProvider extends BaseAIProvider {
   constructor(ctx) {
     super(ctx);
-    this.genAI = null;
+    this.clients = new Map();
   }
 
   async _getClient(credentials) {
@@ -16,10 +17,11 @@ class GeminiProvider extends BaseAIProvider {
       return null;
     }
 
-    if (!this.genAI || this.genAI.apiKey !== apiKey) {
-      this.genAI = new GoogleGenerativeAI(apiKey);
+    const keyHash = crypto.createHash('sha256').update(apiKey).digest('hex');
+    if (!this.clients.has(keyHash)) {
+      this.clients.set(keyHash, new GoogleGenerativeAI(apiKey));
     }
-    return this.genAI;
+    return this.clients.get(keyHash);
   }
 
   async generateJSON(task, prompt, options, schema) {

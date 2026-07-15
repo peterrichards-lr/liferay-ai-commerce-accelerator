@@ -4,6 +4,16 @@
 
 set -e
 
+# Exit early if executed inside the Docker container (as Liferay entrypoint runs all scripts in /mnt/liferay/scripts)
+if [ -f /.dockerenv ] || [ -n "$LIFERAY_HOME" ]; then
+    echo "ℹ  Exiting early: sync-github-issues.sh is a host-side script, not meant to be run inside the Liferay container."
+    if [ "${BASH_SOURCE[0]}" != "$0" ]; then
+        return 0 2>/dev/null || exit 0
+    else
+        exit 0
+    fi
+fi
+
 # Color definitions
 GREEN='\033[0;32m'
 BLUE='\033[0;34m'

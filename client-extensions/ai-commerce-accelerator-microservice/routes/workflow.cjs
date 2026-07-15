@@ -70,7 +70,7 @@ module.exports = (app, { logger, persistenceService, progressService }) => {
 
   app.get(INTERNAL_API_PATHS.COMPLETED_WORKFLOW_SESSIONS, async (req, res) => {
     try {
-      const sessions = persistenceService.getCompletedSessions();
+      const sessions = await persistenceService.getCompletedSessions();
 
       // Return a concise list for the selector modal
       const mapped = sessions.map((s) => ({
@@ -100,7 +100,7 @@ module.exports = (app, { logger, persistenceService, progressService }) => {
 
   app.get(INTERNAL_API_PATHS.WORKFLOW_KPIS, async (req, res) => {
     try {
-      const kpis = persistenceService.getWorkflowKPIs();
+      const kpis = await persistenceService.getWorkflowKPIs();
       res.json({ success: true, kpis });
     } catch (error) {
       safeErrorResponse({
@@ -477,7 +477,7 @@ module.exports = (app, { logger, persistenceService, progressService }) => {
 
   app.delete(INTERNAL_API_PATHS.WORKFLOW_CLEAR_ALL, async (req, res) => {
     try {
-      persistenceService.clearAll();
+      await persistenceService.clearAll();
       res.json({
         success: true,
         message: 'All workflow data cleared successfully',
@@ -507,7 +507,7 @@ module.exports = (app, { logger, persistenceService, progressService }) => {
         cutoff = midnight.toISOString();
       }
 
-      persistenceService.cleanup(cutoff);
+      await persistenceService.cleanup(cutoff);
 
       res.json({
         success: true,

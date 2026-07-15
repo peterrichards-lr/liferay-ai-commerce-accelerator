@@ -1,21 +1,23 @@
 const OpenAI = require('openai');
+const crypto = require('crypto');
 const BaseAIProvider = require('./baseProvider.cjs');
 const { tryParseJSON } = require('../../utils/misc.cjs');
 
 class OpenAIProvider extends BaseAIProvider {
   constructor(ctx) {
     super(ctx);
-    this.client = null;
+    this.clients = new Map();
   }
 
   async _getClient(credentials) {
     const apiKey = credentials.apiKey;
     if (!apiKey) throw new Error('OpenAI API key missing');
 
-    if (!this.client || this.client.apiKey !== apiKey) {
-      this.client = new OpenAI({ apiKey });
+    const keyHash = crypto.createHash('sha256').update(apiKey).digest('hex');
+    if (!this.clients.has(keyHash)) {
+      this.clients.set(keyHash, new OpenAI({ apiKey }));
     }
-    return this.client;
+    return this.clients.get(keyHash);
   }
 
   async generateJSON(task, prompt, options, schema) {

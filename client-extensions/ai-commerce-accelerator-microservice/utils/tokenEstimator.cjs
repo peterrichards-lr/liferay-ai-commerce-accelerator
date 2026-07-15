@@ -1,18 +1,33 @@
+const { getEncoding } = require('js-tiktoken');
+
+let encoder = null;
+
+function getEncoder() {
+  if (!encoder) {
+    encoder = getEncoding('cl100k_base');
+  }
+  return encoder;
+}
+
 /**
- * Zero-dependency pre-flight Token Estimator utility for prompt safety gatekeeping.
+ * Exact token estimator using js-tiktoken BPE tokenizer.
  */
 function estimateTokens(text) {
   if (!text || typeof text !== 'string') return 0;
-
-  // Standard GPT/Gemini heuristic: ~4 characters per token for English text/JSON payloads
-  const charBased = Math.ceil(text.length / 4.0);
-
-  // Word-based BPE fallback estimation (usually matches BPE subwords within 10% tolerance)
-  const wordCount = text.split(/\s+/).length;
-  const wordBased = Math.ceil(wordCount * 1.3);
-
-  // Take the safer, larger bound for conservative guardrailing
-  return Math.max(charBased, wordBased);
+  try {
+    return getEncoder().encode(text).length;
+  } catch (err) {
+    // Fallback to the classic heuristic if encoding fails
+    const charBased = Math.ceil(text.length / 4.0);
+    const wordCount = text.split(/\s+/).length;
+    const wordBased = Math.ceil(wordCount * 1.3);
+    return Math.max(charBased, wordBased);
+  }
 }
 
-module.exports = { estimateTokens };
+module.exports = {
+  estimateTokens,
+  _setEncoder: (val) => {
+    encoder = val;
+  },
+};
