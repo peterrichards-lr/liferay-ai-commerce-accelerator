@@ -27,6 +27,32 @@ class AIService {
     this.localSchemas = {};
   }
 
+  async initializeSchemas() {
+    const schemasDir = path.join(__dirname, '../generation-schemas');
+    try {
+      if (!fs.existsSync(schemasDir)) {
+        return;
+      }
+      const files = await fs.promises.readdir(schemasDir);
+      for (const file of files) {
+        if (file.endsWith('.json')) {
+          const schemaName = path.basename(file, '.json');
+          const schemaPath = path.join(schemasDir, file);
+          const content = await fs.promises.readFile(schemaPath, 'utf8');
+          const schema = JSON.parse(content);
+          this.localSchemas[schemaName] = this.ajv.compile(schema);
+        }
+      }
+      this.ctx.logger?.info(
+        '[AIService] SUCCESS: Pre-compiled all validation schemas'
+      );
+    } catch (err) {
+      this.ctx.logger?.error(
+        `[AIService] Failed to initialize schemas: ${err.message}`
+      );
+    }
+  }
+
   _validateResponse(data, schemaName) {
     if (!schemaName) return data;
 
@@ -36,10 +62,19 @@ class AIService {
         __dirname,
         `../generation-schemas/${schemaName}.json`
       );
-      if (fs.existsSync(schemaPath)) {
-        const schema = JSON.parse(fs.readFileSync(schemaPath, 'utf8'));
-        validator = this.ajv.compile(schema);
-        this.localSchemas[schemaName] = validator;
+      try {
+        if (fs.existsSync(schemaPath)) {
+          this.ctx.logger?.warn(
+            `[AIService] Validation schema "${schemaName}" compiled lazily at runtime`
+          );
+          const schema = JSON.parse(fs.readFileSync(schemaPath, 'utf8'));
+          validator = this.ajv.compile(schema);
+          this.localSchemas[schemaName] = validator;
+        }
+      } catch (err) {
+        this.ctx.logger?.error(
+          `[AIService] Failed to lazily compile schema "${schemaName}": ${err.message}`
+        );
       }
     }
 
@@ -53,6 +88,10 @@ class AIService {
           }
         );
       }
+    } else {
+      this.ctx.logger?.warn(
+        `[AIService] Validation schema "${schemaName}" not found or not pre-compiled`
+      );
     }
     return data;
   }

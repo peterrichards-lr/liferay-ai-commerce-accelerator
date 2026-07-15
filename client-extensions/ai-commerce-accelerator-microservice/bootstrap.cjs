@@ -30,7 +30,7 @@ const WorkflowCoordinator = require('./generators/workflowCoordinator.cjs');
 const registerDataGenerationWorkers = require('./workers/dataGenerationWorkers.cjs');
 const registerBatchWorkers = require('./workers/registerBatchWorkers.cjs');
 
-module.exports = (ws) => {
+module.exports = async (ws) => {
   const ctx = { logger, ws };
 
   ctx.cache = new CacheService(ctx);
@@ -67,6 +67,7 @@ module.exports = (ws) => {
     prompt: ctx.prompt,
     ENV,
   });
+  await ctx.ai.initializeSchemas();
   ctx.batchProcessor = new BatchProcessorService({ logger });
   ctx.batchCallback = new BatchCallbackService(ctx);
   ctx.mockDataGenerator = new MockDataGenerator({
