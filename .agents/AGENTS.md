@@ -9,6 +9,7 @@ Before any feature, bugfix, or issue can be considered "code complete", the agen
 ## Client Extension Routing Rules
 
 When modifying `client-extension.yaml` files, **NEVER change or remove `.serviceAddress: localhost:3001` or `.serviceScheme`** manually to fix Docker or LDM routing issues. Liferay automatically updates the shared routes context with the correct internal endpoint when the generated `.zip` file is copied to the Liferay `osgi/client-extensions` deploy folder. Modifying these properties will override the auto-registration and break the deployment.
+
 ## Liferay Build Environment Constraints
 
 - **Rationale**: The project requires modern frontend build tools (Vite 6, React 19) which are incompatible with the platform's default Node.js version. We have explicitly configured the environment to maintain parity with modern standards while adhering to Liferay Workspace limitations.
