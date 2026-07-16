@@ -1,5 +1,9 @@
 # Liferay AI Commerce Accelerator - Conductor Index
 
+> **NOTICE: Architectural Scope**  
+> The `conductor/` directory is strictly reserved for high-level architectural guidelines, product definitions, and development tracking references.  
+> **It is NOT a task/issue tracker.** All actionable work, epics, bugs, and backlog items must be managed exclusively via GitHub Issues.
+
 ## Core Documentation
 
 - [Product Definition](./product.md)
