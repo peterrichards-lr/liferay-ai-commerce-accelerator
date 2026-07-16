@@ -1,5 +1,7 @@
 # Liferay DXP Bug Report: Site Initializer NullPointerException (getCanonicalURL) before Welcome Site Initialization
 
+**Status:** DRAFT (PENDING SUBMISSION)
+
 [JIRA-KEY] - https://liferay.atlassian.net/browse/[JIRA-KEY]
 
 ## Component

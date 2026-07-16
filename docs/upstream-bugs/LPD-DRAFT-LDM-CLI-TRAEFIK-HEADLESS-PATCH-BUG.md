@@ -1,5 +1,7 @@
 # LDM CLI fails to patch fragment overrides via Headless API when SSL (Traefik) is active
 
+**Status:** DRAFT (PENDING SUBMISSION)
+
 ## Environment
 
 - LDM CLI: 2.15.14

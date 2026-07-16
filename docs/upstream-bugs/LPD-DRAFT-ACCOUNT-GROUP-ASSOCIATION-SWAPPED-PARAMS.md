@@ -1,5 +1,7 @@
 # Liferay DXP Bug Report: Account Group Association Endpoint Parameter Swapping
 
+**Status:** DRAFT (PENDING SUBMISSION)
+
 LPD-DRAFT - (Not yet submitted to Liferay JIRA)
 
 ## Component
