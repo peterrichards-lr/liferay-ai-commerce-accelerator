@@ -1,5 +1,7 @@
 # Liferay DXP Bug Report: Site Initializer NullPointerException (getCanonicalURL) before Welcome Site Initialization
 
+**Status:** DRAFT (PENDING SUBMISSION)
+
 [JIRA-KEY] - https://liferay.atlassian.net/browse/[JIRA-KEY]
 
 ## Component
@@ -57,4 +59,4 @@ In environments (like CI/CD or Liferay Docker Manager scripts), we must delay th
 
 ---
 
-_Last Updated: 2026-07-08_ | _Last Reviewed: 2026-08-14_
+_Last Updated: 2026-09-13_ | _Last Reviewed: 2026-09-13_
