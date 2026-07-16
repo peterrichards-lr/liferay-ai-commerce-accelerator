@@ -96,10 +96,10 @@
     "scripts/**/*.{js,cjs,mjs}": [
       "prettier --write"
     ],
-    "*.{js,cjs,mjs,json,yaml,yml}": [
+    "**/*.{js,cjs,mjs,json,yaml,yml}": [
       "prettier --write"
     ],
-    "*.md": [
+    "**/*.md": [
       "prettier --write",
       "markdownlint"
     ]

@@ -13,7 +13,7 @@ export NVM_DIR="$HOME/.nvm"
 echo "🔍 Running fast pre-commit checks..."
 
 echo "⚡ Running lint-staged (auto-fixing & formatting modified files)..."
-npx lint-staged || exit 1
+yarn lint-staged || exit 1
 
 # Run JS-native secrets sentinel (works universally on any machine without external dependencies)
 echo "🔒 Running JS-native secrets leakage prevention checks..."
