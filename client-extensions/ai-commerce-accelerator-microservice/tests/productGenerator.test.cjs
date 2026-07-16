@@ -97,7 +97,9 @@ describe('ProductGenerator Workflow Steps', () => {
   describe('Workflow Step: Ensure Specifications', () => {
     it('should bypass step if productDataList is empty', async () => {
       mockSession.context.productDataList = [];
-      await productGenerator.steps[WORKFLOW_STEPS.ENSURE_SPECIFICATIONS]('sess-123');
+      await productGenerator.steps[WORKFLOW_STEPS.ENSURE_SPECIFICATIONS](
+        'sess-123'
+      );
 
       expect(productGenerator.completeSyncStep).toHaveBeenCalledWith(
         'sess-123',
@@ -107,7 +109,9 @@ describe('ProductGenerator Workflow Steps', () => {
     });
 
     it('should create specifications and update list on session context', async () => {
-      await productGenerator.steps[WORKFLOW_STEPS.ENSURE_SPECIFICATIONS]('sess-123');
+      await productGenerator.steps[WORKFLOW_STEPS.ENSURE_SPECIFICATIONS](
+        'sess-123'
+      );
 
       expect(mockLiferay.createSpecificationWithReuse).toHaveBeenCalled();
       expect(productGenerator.completeSyncStep).toHaveBeenCalledWith(
@@ -196,7 +200,9 @@ describe('ProductGenerator Workflow Steps', () => {
         },
       ];
 
-      await productGenerator.steps[WORKFLOW_STEPS.GENERATE_PRICE_LISTS]('sess-123');
+      await productGenerator.steps[WORKFLOW_STEPS.GENERATE_PRICE_LISTS](
+        'sess-123'
+      );
 
       expect(mockLiferay.createPriceEntriesBatch).toHaveBeenCalled();
     });
