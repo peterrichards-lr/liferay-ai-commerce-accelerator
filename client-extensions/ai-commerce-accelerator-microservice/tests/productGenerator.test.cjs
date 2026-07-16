@@ -97,7 +97,7 @@ describe('ProductGenerator Workflow Steps', () => {
   describe('Workflow Step: Ensure Specifications', () => {
     it('should bypass step if productDataList is empty', async () => {
       mockSession.context.productDataList = [];
-      await productGenerator._runEnsureSpecificationsStep('sess-123');
+      await productGenerator.steps[WORKFLOW_STEPS.ENSURE_SPECIFICATIONS]('sess-123');
 
       expect(productGenerator.completeSyncStep).toHaveBeenCalledWith(
         'sess-123',
@@ -107,7 +107,7 @@ describe('ProductGenerator Workflow Steps', () => {
     });
 
     it('should create specifications and update list on session context', async () => {
-      await productGenerator._runEnsureSpecificationsStep('sess-123');
+      await productGenerator.steps[WORKFLOW_STEPS.ENSURE_SPECIFICATIONS]('sess-123');
 
       expect(mockLiferay.createSpecificationWithReuse).toHaveBeenCalled();
       expect(productGenerator.completeSyncStep).toHaveBeenCalledWith(
@@ -125,7 +125,7 @@ describe('ProductGenerator Workflow Steps', () => {
       );
 
       await expect(
-        productGenerator._runEnsureSpecificationsStep('sess-123')
+        productGenerator.steps[WORKFLOW_STEPS.ENSURE_SPECIFICATIONS]('sess-123')
       ).rejects.toThrow('Liferay spec API crash');
 
       expect(mockLogger.error).toHaveBeenCalledWith(
@@ -138,7 +138,7 @@ describe('ProductGenerator Workflow Steps', () => {
   describe('Workflow Step: Ensure Options', () => {
     it('should bypass step if productDataList is empty', async () => {
       mockSession.context.productDataList = [];
-      await productGenerator._runEnsureOptionsStep('sess-123');
+      await productGenerator.steps[WORKFLOW_STEPS.ENSURE_OPTIONS]('sess-123');
 
       expect(productGenerator.completeSyncStep).toHaveBeenCalledWith(
         'sess-123',
@@ -148,7 +148,7 @@ describe('ProductGenerator Workflow Steps', () => {
     });
 
     it('should create options and update list on session context', async () => {
-      await productGenerator._runEnsureOptionsStep('sess-123');
+      await productGenerator.steps[WORKFLOW_STEPS.ENSURE_OPTIONS]('sess-123');
 
       expect(mockLiferay.createOptionWithReuse).toHaveBeenCalled();
       expect(productGenerator.completeSyncStep).toHaveBeenCalledWith(
@@ -166,14 +166,14 @@ describe('ProductGenerator Workflow Steps', () => {
       );
 
       await expect(
-        productGenerator._runEnsureOptionsStep('sess-123')
+        productGenerator.steps[WORKFLOW_STEPS.ENSURE_OPTIONS]('sess-123')
       ).rejects.toThrow('Liferay option API crash');
     });
   });
 
   describe('Workflow Step: Create Products', () => {
     it('should create products batch via Liferay Vulcan API', async () => {
-      await productGenerator._runProductCreationStep('sess-123');
+      await productGenerator.steps[WORKFLOW_STEPS.CREATE_PRODUCTS]('sess-123');
 
       expect(mockLiferay.createProductsBatch).toHaveBeenCalled();
     });
@@ -196,7 +196,7 @@ describe('ProductGenerator Workflow Steps', () => {
         },
       ];
 
-      await productGenerator._runGeneratePriceListsStep('sess-123');
+      await productGenerator.steps[WORKFLOW_STEPS.GENERATE_PRICE_LISTS]('sess-123');
 
       expect(mockLiferay.createPriceEntriesBatch).toHaveBeenCalled();
     });
