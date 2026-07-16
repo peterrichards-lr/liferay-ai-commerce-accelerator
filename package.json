@@ -51,21 +51,15 @@
     "ldm:init": "yarn preflight && bash scripts/run-e2e-ldm.sh --init-only -k",
     "ldm:init-from": "ldm init-from . aica --db postgresql --no-captcha --fast-login --feature LPD-35443 --sidecar --host-name aica-e2e.local --build",
     "ldm:monitor": "ldm monitor . -p aica",
-    "lint": "yarn workspaces run lint && yarn lint:md && yarn lint:cx",
+    "lint": "yarn workspaces run lint && yarn lint:md && yarn lint:cx && yarn lint:json",
     "verify:all": "npm run lint && npm test && bash scripts/run-e2e-ldm.sh -v -k",
     "verify:live": "node scripts/verify-live-ai.mjs",
+    "lint:json": "node scripts/check-duplicate-json-keys.cjs",
     "lint:md": "markdownlint '**/*.md' --ignore '**/node_modules/**' --ignore '**/build/**' --ignore '**/bundles/**' --ignore '**/aica/**' --ignore 'GETTING_STARTED.md'",
     "lint:cx": "node scripts/validate-cx.js",
     "update-browser-data": "yarn add -D baseline-browser-mapping@latest -W && npx update-browserslist-db@latest -y"
   },
   "lint-staged": {
-    "client-extensions/liferay-accelerator-sdk/**/*.{js,cjs}": [
-      "eslint --fix --config client-extensions/liferay-accelerator-sdk/eslint.config.mjs",
-      "prettier --write"
-    ],
-    "client-extensions/liferay-accelerator-sdk/**/*.json": [
-      "prettier --write"
-    ],
     "client-extensions/ai-commerce-accelerator-microservice/**/*.{js,cjs}": [
       "eslint --fix --config client-extensions/ai-commerce-accelerator-microservice/eslint.config.mjs",
       "prettier --write"

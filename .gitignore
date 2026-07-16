@@ -32,7 +32,6 @@ client-extensions/ai-commerce-accelerator-site-initializer/site-initializer/frag
 
 /client-extensions/ai-commerce-accelerator-microservice/logs
 /client-extensions/ai-commerce-accelerator-frontend/logs
-/client-extensions/liferay-accelerator-sdk/src/logs
 *.log
 **/test-workflows*.db*
 **/workflows.db*
@@ -45,6 +44,8 @@ package-lock.json
 *.ldmp
 *.ldmp.sha256
 .env
+style-book-*.zip
+resources/output.html
 activation-key-*.xml
 aica-logs-*.json
 aica-dataset-*.json
@@ -72,7 +73,8 @@ test-env.js
 .process-signal
 *.db
 *.db-journal
-client-extensions/ai-commerce-accelerator-microservice/data/*.dbaica-e2e/
+client-extensions/ai-commerce-accelerator-microservice/data/*.db
+aica-e2e/
 
 # LDM Staging
 ldm_staging/
