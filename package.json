@@ -60,7 +60,6 @@
     "update-browser-data": "yarn add -D baseline-browser-mapping@latest -W && npx update-browserslist-db@latest -y"
   },
   "lint-staged": {
-
     "client-extensions/ai-commerce-accelerator-microservice/**/*.{js,cjs}": [
       "eslint --fix --config client-extensions/ai-commerce-accelerator-microservice/eslint.config.mjs",
       "prettier --write"
