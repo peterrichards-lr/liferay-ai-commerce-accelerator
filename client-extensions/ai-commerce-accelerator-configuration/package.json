@@ -26,7 +26,7 @@
     "@types/prop-types": "^15.7.15",
     "@vitejs/plugin-react": "6.0.3",
     "@clayui/css": "^3.165.0",
-    "baseline-browser-mapping": "^2.10.42",
+    "baseline-browser-mapping": "^2.10.43",
     "esbuild": "^0.28.1",
     "eslint": "10.7.0",
     "eslint-plugin-react": "^7.37.5",

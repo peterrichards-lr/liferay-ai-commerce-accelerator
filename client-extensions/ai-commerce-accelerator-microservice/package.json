@@ -1,7 +1,7 @@
 {
   "author": "Peter Richards",
   "dependencies": {
-    "@ai-sdk/anthropic": "^4.0.11",
+    "@ai-sdk/anthropic": "^4.0.15",
     "@google-cloud/storage": "^7.21.0",
     "@google/generative-ai": "^0.24.1",
     "@liferay/accelerator-sdk": "git+https://github.com/peterrichards-lr/liferay-accelerator-sdk.git#f5130e12e791fb133cc862cc1108f307c80408de",
@@ -25,8 +25,8 @@
     "multer": "^2.2.0",
     "node-fetch": "^3.3.2",
     "node-stream-zip": "^1.15.0",
-    "openai": "^6.46.0",
-    "ws": "^8.20.0",
+    "openai": "^6.48.0",
+    "ws": "^8.21.1",
     "zod": "^4.4.3"
   },
   "license": "GPL-3.0",
