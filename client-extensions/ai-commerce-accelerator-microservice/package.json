@@ -49,7 +49,7 @@
     "@eslint/js": "10.0.1",
     "@vitest/coverage-v8": "4.1.10",
     "autocannon": "^8.0.0",
-    "eslint": "10.6.0",
+    "eslint": "10.7.0",
     "eslint-plugin-promise": "^7.2.1",
     "eslint-plugin-security": "^4.0.1",
     "graphql": "^17.0.2",
