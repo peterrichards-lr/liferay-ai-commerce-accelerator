@@ -1067,7 +1067,7 @@
     "@jridgewell/resolve-uri" "^3.1.0"
     "@jridgewell/sourcemap-codec" "^1.4.14"
 
-"@liferay/accelerator-sdk@git+https://github.com/peterrichards-lr/liferay-accelerator-sdk.git#f5130e12e791fb133cc862cc1108f307c80408de":
+"@liferay/accelerator-sdk@git+https://github.com/peterrichards-lr/liferay-accelerator-sdk.git#3e456dfa37dd8a0a77a25dc833c0ad5aff170fe3", "@liferay/accelerator-sdk@git+https://github.com/peterrichards-lr/liferay-accelerator-sdk.git#f5130e12e791fb133cc862cc1108f307c80408de":
   version "0.4.2"
   resolved "git+https://github.com/peterrichards-lr/liferay-accelerator-sdk.git#f5130e12e791fb133cc862cc1108f307c80408de"
   dependencies:
