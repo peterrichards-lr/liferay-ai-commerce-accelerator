@@ -31,8 +31,23 @@ The AI agent **should**:
 - **Eliminate `uuid` Dependency**: To reduce security surface area and avoid CommonJS/ESM compatibility friction, **DO NOT** use the `uuid` npm package in the microservice.
 - **Authority**: Use Node.js's built-in **`crypto.randomUUID()`** for all random identifier generation (ERCs, correlation IDs, task IDs).
 
+## 4. Technical Debt Tracking
+
+- **Detect & Record**: If you identify code changes that fall into any of the following 10 technical debt categories, you must raise a GitHub issue with the `tech debt` label:
+  1. **Code Smells** (poor design patterns, unreadable logic)
+  2. **Duplication** (identical/similar code blocks, helper repetition)
+  3. **Over-Complexity** (monolithic functions, hard-to-maintain flows)
+  4. **Fragile Coupling** (tightly bound packages, direct database or internal layer bypasses)
+  5. **Missing Safety Guards** (lacking exception handling, missing null/undefined pointer checks)
+  6. **Missing Tests** (uncovered code branches, lack of unit or integration testing coverage)
+  7. **Security Hygiene** (hardcoded secrets, unvalidated user input, dangerous dependencies)
+  8. **Deprecated Patterns** (using outdated APIs or legacy library functions)
+  9. **Config Drift** (inconsistencies between configuration profiles or docker environments)
+  10. **Documentation Debt** (outdated markdown guides, missing timestamp footers, lack of setup instructions)
+- **Immediate Resolution**: You do not need to resolve the technical debt immediately. However, if it can be resolved quickly without significant deviation or effort from the primary task, you may do so. The primary requirement is to ensure it is recorded.
+
 <!-- markdownlint-disable MD049 -->
 
 ---
 
-_Last Updated: 2026-07-19_ | _Last Reviewed: 2026-07-19_
+_Last Updated: 2026-07-20_ | _Last Reviewed: 2026-07-20_
