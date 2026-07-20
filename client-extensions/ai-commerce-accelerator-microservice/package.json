@@ -4,7 +4,7 @@
     "@ai-sdk/anthropic": "^4.0.15",
     "@google-cloud/storage": "^7.21.0",
     "@google/generative-ai": "^0.24.1",
-    "@liferay/accelerator-sdk": "git+https://github.com/peterrichards-lr/liferay-accelerator-sdk.git#f5130e12e791fb133cc862cc1108f307c80408de",
+    "@liferay/accelerator-sdk": "git+https://github.com/peterrichards-lr/liferay-accelerator-sdk.git#3e456dfa37dd8a0a77a25dc833c0ad5aff170fe3",
     "@modelcontextprotocol/sdk": "^1.29.0",
     "@rotty3000/config-node": "^0.4.1",
     "ajv": "^8.12.0",
