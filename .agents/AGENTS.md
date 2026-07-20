@@ -14,6 +14,7 @@ Please reference the specific skill file based on the context of your task:
 | **[coding-standards](file:///.agents/skills/coding-standards/SKILL.md)**                 | [.agents/skills/coding-standards/SKILL.md](file:///.agents/skills/coding-standards/SKILL.md)                 | When writing or refactoring microservice/SDK source code.        | Defines self-documenting code style, dry-run profiling, and native identifier practices.     |
 | **[quality-guardrails](file:///.agents/skills/quality-guardrails/SKILL.md)**             | [.agents/skills/quality-guardrails/SKILL.md](file:///.agents/skills/quality-guardrails/SKILL.md)             | When modifying service layers or preparing to commit changes.    | Verifies service parity, bootstrap verifySteps checks, and Husky pre-commit setups.          |
 | **[platform-findings](file:///.agents/skills/platform-findings/SKILL.md)**               | [.agents/skills/platform-findings/SKILL.md](file:///.agents/skills/platform-findings/SKILL.md)               | When troubleshooting API errors or seeding database engines.     | Outlines quirks on sequencing, productType constraints, SKU active rules, and indexing.      |
+| **[documentation](file:///.agents/skills/documentation/SKILL.md)**                       | [.agents/skills/documentation/SKILL.md](file:///.agents/skills/documentation/SKILL.md)                       | After implementing any code changes.                             | Details active documentation review, creation, and timestamp hygiene rules.                  |
 
 ---
 
@@ -31,4 +32,4 @@ Please refer to the following documentation in `docs/architecture/` for detailed
 
 ---
 
-_Last Updated: 2026-07-19_ | _Last Reviewed: 2026-07-19_
+_Last Updated: 2026-07-20_ | _Last Reviewed: 2026-07-20_
