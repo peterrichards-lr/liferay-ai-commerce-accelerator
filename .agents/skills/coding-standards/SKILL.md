@@ -25,6 +25,7 @@ The AI agent **should**:
 - perform dry code analysis.
 - reason about control flow, concurrency, idempotency, and failure paths.
 - surface likely bugs or race conditions early.
+- **No Assumptions (Anti-Hallucination Rule)**: Any technical statement, explanation, or conclusion you make MUST be strictly based on actual, referenceable code or documentation in this repository. You are expressly forbidden from making blind assumptions about how systems (like edge nodes or routing logic) behave without verifying them via search, reading the code, or consulting `AGENTS.md`/`GEMINI.md`. When the resources are available to you, use them before you speak.
 
 ## 3. Native Identifier Strategy
 
