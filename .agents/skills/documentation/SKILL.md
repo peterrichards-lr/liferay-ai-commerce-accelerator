@@ -9,7 +9,7 @@ To prevent documentation decay and ensure system configuration and architectural
 
 ## 1. Proactive Documentation Review
 
-After implementing any code change, the agent MUST review the project's documentation (e.g., markdown files under the root or subdirectories) to see if updates are required.
+After implementing any code change and before declaring a task finished, you MUST execute `grep_search` or `list_dir` to identify relevant documentation, execute `view_file` to read the identified files, and END your turn to analyze their contents. You are FORBIDDEN from reporting task completion until this context is loaded and timestamp footers are updated.
 
 - **If no changes are needed**: The agent must still update the `*Last Reviewed: YYYY-MM-DD*` footer timestamp in the reviewed document to the current date.
 - **If updates are required**: The agent must update the documentation content and change both `*Last Updated: YYYY-MM-DD*` and `*Last Reviewed: YYYY-MM-DD*` footer timestamps to the current date.
