@@ -17,7 +17,7 @@ All code contributions must follow these clean coding standards:
 
 The AI agent must **not**:
 
-- make source control changes (commits, reverts, rebases, etc.) autonomously.
+- **Source Control Changes**: Before making any source control changes (commits, reverts, rebases), you MUST first execute the `write_to_file` tool to draft an implementation plan, request user approval by setting `RequestFeedback` to true, and END your turn. You are FORBIDDEN from executing these `git` commands until the user explicitly approves the plan.
 - bypass verification gates.
 
 The AI agent **should**:
@@ -25,7 +25,7 @@ The AI agent **should**:
 - perform dry code analysis.
 - reason about control flow, concurrency, idempotency, and failure paths.
 - surface likely bugs or race conditions early.
-- **No Assumptions (Anti-Hallucination Rule)**: Any technical statement, explanation, or conclusion you make MUST be strictly based on actual, referenceable code or documentation in this repository. You are expressly forbidden from making blind assumptions about how systems (like edge nodes or routing logic) behave without verifying them via search, reading the code, or consulting `AGENTS.md`/`GEMINI.md`. When the resources are available to you, use them before you speak.
+- **No Assumptions (Anti-Hallucination Rule)**: Before generating any technical statement, explanation, or conclusion about how systems (like edge nodes or routing logic) behave, you MUST first explicitly state your intent to verify the codebase, execute `grep_search`, `view_file`, or `run_command` to fetch the relevant source code or documentation, and then END your turn. You are FORBIDDEN from formulating your answer until the subsequent turn, after the required context is loaded.
 
 ## 3. Native Identifier Strategy
 
@@ -34,7 +34,7 @@ The AI agent **should**:
 
 ## 4. Technical Debt Tracking
 
-- **Detect & Record**: If you identify code changes that fall into any of the following 10 technical debt categories, you must raise a GitHub issue with the `tech debt` label:
+- **Detect & Record**: If you identify code changes that fall into the 10 technical debt categories, before ending your task, you MUST execute `run_command` to invoke the `scripts/gh-issue-sync.cjs` script to raise a GitHub issue with the `tech debt` label, and END your turn to wait for the command output. You are FORBIDDEN from continuing until the issue is recorded.
   1. **Code Smells** (poor design patterns, unreadable logic)
   2. **Duplication** (identical/similar code blocks, helper repetition)
   3. **Over-Complexity** (monolithic functions, hard-to-maintain flows)
