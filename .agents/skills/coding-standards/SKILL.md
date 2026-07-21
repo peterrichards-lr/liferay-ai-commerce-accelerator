@@ -18,7 +18,7 @@ All code contributions must follow these clean coding standards:
 The AI agent must **not**:
 
 - **Source Control Changes**: Before making any source control changes (commits, reverts, rebases), you MUST first execute the `write_to_file` tool to draft an implementation plan, request user approval by setting `RequestFeedback` to true, and END your turn. You are FORBIDDEN from executing these `git` commands until the user explicitly approves the plan.
-- **Pull Request Creation**: Before creating a Pull Request, you MUST execute `run_command` to run `git fetch origin` and verify your feature branch is up to date with the remote `master` branch, and END your turn. You are FORBIDDEN from executing `gh pr create` until you have verified the branch is up to date and rebased if necessary.
+- **Pull Request Creation Requirements**: Before executing `gh pr create`, you MUST execute `run_command` to invoke `gh issue view <issue-number>` and `git fetch origin`, and then END your turn to verify that: 1) the target issue exists and contains a description, resolution analysis, and an implementation plan, and 2) your feature branch is fully up to date with the remote `master` branch. You are FORBIDDEN from opening the PR until these checks are validated. When creating the PR, it MUST explicitly close or resolve the targeted issue(s).
 - bypass verification gates.
 
 The AI agent **should**:
