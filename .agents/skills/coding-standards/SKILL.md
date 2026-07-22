@@ -11,6 +11,7 @@ All code contributions must follow these clean coding standards:
 
 - **No Comments**: All code must be **self-documenting** and contain **no comments**.
 - **Zero Warning Mandate**: The codebase must be free of lint warnings and formatting errors.
+- **Workspace-wide Formatting**: When applying formatting fixes using Prettier, you MUST execute `prettier --write .` across the entire workspace root. You are FORBIDDEN from formatting files individually or at a directory level, as this causes PR checks to fail due to unformatted peripheral files.
 - **Intentional Omissions**: Use the **`_` (underscore)** prefix for any intentionally unused parameters, variables, or caught errors (e.g., `const { unused: _unused } = obj`, `catch (_err) {}`). The ESLint config is hardened to support this pattern without warnings.
 
 ## 2. Agent Constraints
