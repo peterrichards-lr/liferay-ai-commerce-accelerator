@@ -75,6 +75,7 @@ jobs:
         run: |
           cat << 'EOF' >> aica-e2e/meta
           admin_email=test@liferay.com
+          banner_notes=["🚀 Welcome to the Liferay AI Commerce Accelerator!", " ", "💡 The AI Configuration panel is available via the Applications menu in the Global Site.", "📚 For full documentation and setup instructions, visit the GitHub repository.", " "]
           credentials=[{"type": "admin", "email": "test@liferay.com", "password": "test", "description": "Primary Administrator Account"}]
           EOF
           ldm package aica-e2e --repo ${{ github.repository }} --host-name aica.demo --ssl -y
