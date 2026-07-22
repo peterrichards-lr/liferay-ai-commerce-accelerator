@@ -37,6 +37,7 @@ When implementing sequential multi-agent pipelines (where agents operate one aft
 - **Pipeline Setup**: You MUST pass output artifacts (e.g., `implementation_plan.md` or `research_notes.md`) as input context to the next subagent in the sequence.
 - **Role Handoffs**: When an agent completes its task, it MUST explicitly define how the next agent should resume work, ensuring a seamless handoff (e.g., "The Planner has finished the design; the Implementer should now execute the code modifications").
 - **Workspace Sharing**: Sequential subagents MUST use `Workspace="share"` or `Workspace="inherit"` during invocation to ensure they can access and modify the previous agent's file system changes.
+
 <!-- markdownlint-disable MD049 -->
 
 ---
