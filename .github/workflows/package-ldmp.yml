@@ -73,6 +73,10 @@ jobs:
 
       - name: Compile LDM Package
         run: |
+          cat << 'EOF' >> aica-e2e/meta
+          admin_email=test@liferay.com
+          banner_notes=["👤  test@liferay.com / \u001b[8mtest\u001b[0m", "    \u001b[2m(password hidden, highlight to copy or use 'ldm info --credentials')\u001b[0m"]
+          EOF
           ldm package aica-e2e --repo ${{ github.repository }} --host-name aica.demo --ssl -y
           mv *.ldmp liferay-ai-commerce-accelerator.ldmp
           sha256sum liferay-ai-commerce-accelerator.ldmp | awk '{print $1}' > liferay-ai-commerce-accelerator.ldmp.sha256
