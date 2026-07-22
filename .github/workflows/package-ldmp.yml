@@ -37,7 +37,7 @@ jobs:
 
       - name: Install Liferay Docker Manager (LDM)
         run: |
-          wget https://github.com/peterrichards-lr/liferay-docker-manager/releases/download/v2.15.17/ldm-linux -O ldm
+          wget https://github.com/peterrichards-lr/liferay-docker-manager/releases/download/v2.15.19/ldm-linux -O ldm
           chmod +x ldm
           sudo mv ldm /usr/local/bin/
 
@@ -75,7 +75,7 @@ jobs:
         run: |
           cat << 'EOF' >> aica-e2e/meta
           admin_email=test@liferay.com
-          banner_notes=["👤  test@liferay.com / \u001b[8mtest\u001b[0m", "    \u001b[2m(password hidden, highlight to copy or use 'ldm info --credentials')\u001b[0m"]
+          credentials=[{"type": "admin", "email": "test@liferay.com", "password": "test", "description": "Primary Administrator Account"}]
           EOF
           ldm package aica-e2e --repo ${{ github.repository }} --host-name aica.demo --ssl -y
           mv *.ldmp liferay-ai-commerce-accelerator.ldmp
