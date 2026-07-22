@@ -37,7 +37,7 @@ jobs:
 
       - name: Install Liferay Docker Manager (LDM)
         run: |
-          wget https://github.com/peterrichards-lr/liferay-docker-manager/releases/download/v2.15.19/ldm-linux -O ldm
+          wget https://github.com/peterrichards-lr/liferay-docker-manager/releases/latest/download/ldm-linux -O ldm
           chmod +x ldm
           sudo mv ldm /usr/local/bin/
 
