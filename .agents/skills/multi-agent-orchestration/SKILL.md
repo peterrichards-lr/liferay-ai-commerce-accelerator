@@ -30,6 +30,14 @@ The AI agent MUST adhere to the following Active Structural Constraints when man
 - **Subagent Invocation**: Before performing time-consuming, parallelizable tasks (e.g., broad codebase research, running a full test suite while writing code), you MUST explicitly execute `invoke_subagent` to spawn the appropriate profile (`Codebase Researcher`, `Test Specialist`, or `Documentation Auditor`), assign them a clear objective, and END your turn. You are FORBIDDEN from performing these specialized tasks sequentially if they can be delegated.
 - **Asynchronous Synchronization**: After invoking a subagent, you MUST NOT use loop-polling to wait for completion. You MUST proceed with other parallelizable work or END your turn to yield to the system until you receive an asynchronous message containing the subagent's result.
 
+## 3. Sequential Workflows
+
+When implementing sequential multi-agent pipelines (where agents operate one after another), the AI agent MUST adhere to the following Active Structural Constraints:
+
+- **Pipeline Setup**: You MUST pass output artifacts (e.g., `implementation_plan.md` or `research_notes.md`) as input context to the next subagent in the sequence.
+- **Role Handoffs**: When an agent completes its task, it MUST explicitly define how the next agent should resume work, ensuring a seamless handoff (e.g., "The Planner has finished the design; the Implementer should now execute the code modifications").
+- **Workspace Sharing**: Sequential subagents MUST use `Workspace="share"` or `Workspace="inherit"` during invocation to ensure they can access and modify the previous agent's file system changes.
+
 <!-- markdownlint-disable MD049 -->
 
 ---
