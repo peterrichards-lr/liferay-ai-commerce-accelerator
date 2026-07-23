@@ -73,10 +73,18 @@ jobs:
 
       - name: Compile LDM Package
         run: |
+          mkdir -p .liferay-docker
+          cat << 'EOF' > .liferay-docker/ldmp-portal-ext.properties
+          # AICA Layer 2 Package Feature Flags
+          feature.flag.ui.visible[dev]=true
+          feature.flag.LPS-178642=true
+          feature.flag.LPS-168340=true
+          EOF
           cat << 'EOF' >> aica-e2e/meta
           admin_email=test@liferay.com
           banner_notes=["🚀 Welcome to the Liferay AI Commerce Accelerator!", " ", "💡 The AI Configuration panel is available via the Applications menu in the Global Site.", "📚 For full documentation and setup instructions, visit the GitHub repository.", " "]
           credentials=[{"type": "admin", "email": "test@liferay.com", "password": "test", "description": "Primary Administrator Account"}]
+          feature_flags={"LPS-178642": true, "LPS-168340": true}
           EOF
           ldm package aica-e2e --repo ${{ github.repository }} --host-name aica.demo --ssl -y
           mv *.ldmp liferay-ai-commerce-accelerator.ldmp
