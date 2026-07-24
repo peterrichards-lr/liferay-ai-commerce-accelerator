@@ -10,7 +10,7 @@
     "ajv": "^8.12.0",
     "ajv-formats": "^3.0.1",
     "axios": "^1.18.0",
-    "better-sqlite3": "^12.11.1",
+    "better-sqlite3": "^13.0.1",
     "cors": "^2.8.5",
     "csv-parse": "^7.0.1",
     "dotenv": "^17.4.2",
