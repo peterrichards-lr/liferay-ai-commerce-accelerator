@@ -24,7 +24,7 @@
     "@testing-library/dom": "^10.0.0",
     "@types/codemirror": "^5.60.15",
     "@types/prop-types": "^15.7.15",
-    "@vitejs/plugin-react": "6.0.3",
+    "@vitejs/plugin-react": "6.0.4",
     "@clayui/css": "^3.165.0",
     "baseline-browser-mapping": "^2.10.43",
     "esbuild": "^0.28.1",
