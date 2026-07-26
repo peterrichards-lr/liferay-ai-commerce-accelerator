@@ -644,7 +644,23 @@ export LIFERAY_BATCH_CALLBACK_URL="http://host.docker.internal:${RESOLVED_SIDECA
 export AICA_MICROSERVICE_URL="http://localhost:${RESOLVED_SIDECAR_PORT}"
 
 
-# Map CI secrets to standard AICA variables if provided
+# Attempt to fetch dynamic credentials from LDM
+echo "🔑 Attempting to extract dynamic LDM credentials..."
+LDM_CREDS=$(ldm info "$PROJECT_NAME" --credentials --json 2>/dev/null || echo "")
+
+if [ -n "$LDM_CREDS" ] && [ "$LDM_CREDS" != "[]" ]; then
+    # Use Node.js to safely parse the JSON array and extract the 'admin' credential
+    DYNAMIC_USER=$(node -e "try { const creds = JSON.parse(process.argv[1]); const admin = creds.find(c => c.type === 'admin'); if (admin) console.log(admin.email); } catch(e) {}" "$LDM_CREDS" 2>/dev/null)
+    DYNAMIC_PASS=$(node -e "try { const creds = JSON.parse(process.argv[1]); const admin = creds.find(c => c.type === 'admin'); if (admin) console.log(admin.password); } catch(e) {}" "$LDM_CREDS" 2>/dev/null)
+    
+    if [ -n "$DYNAMIC_USER" ] && [ -n "$DYNAMIC_PASS" ]; then
+        export LIFERAY_USER="$DYNAMIC_USER"
+        export LIFERAY_PASSWORD="$DYNAMIC_PASS"
+        echo "✅ Successfully loaded dynamic admin credentials from LDM."
+    fi
+fi
+
+# Map CI secrets to standard AICA variables if provided (with dynamic LDM creds taking precedence if set)
 export LIFERAY_USER="${LIFERAY_USER:-${LIFERAY_ADMIN_EMAIL:-test@liferay.com}}"
 export LIFERAY_PASSWORD="${LIFERAY_PASSWORD:-${LIFERAY_ADMIN_PASSWORD:-test}}"
 
