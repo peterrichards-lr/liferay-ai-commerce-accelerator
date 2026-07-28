@@ -1,0 +1,30 @@
+{
+    "active_services": "db,liferay",
+    "client_extensions": "",
+    "custom_env": {
+        "LIFERAY_ELASTICSEARCH_PERIOD_CONNECTION_PERIOD_URL": "http://liferay-search-global:9200",
+        "LIFERAY_ELASTICSEARCH_PERIOD_INDEX_PERIOD_NAME_PERIOD_PREFIX": "ldm-aica-e2e-",
+        "LIFERAY_ELASTICSEARCH_PERIOD_OPERATION_PERIOD_MODE": "EMBEDDED",
+        "LIFERAY_ELASTICSEARCH_PERIOD_PRODUCTION_PERIOD_MODE_PERIOD_ENABLED": "true",
+        "LIFERAY_ELASTICSEARCH_PERIOD_SIDECAR_PERIOD_ENABLED": "false",
+        "LIFERAY_INDEX_PERIOD_ON_PERIOD_STARTUP": "true",
+        "LIFERAY_INDEX_PERIOD_ON_PERIOD_STARTUP_PERIOD_DELAY": "30",
+        "LIFERAY_LOG4J2_CONFIGURATION_FILE": "/opt/liferay/osgi/log4j/portal-log4j-ext.xml",
+        "LIFERAY_ROUTES_CLIENT_EXTENSION_AI_COMMERCE_ACCELERATOR_MICROSERVICE": "http://aica-e2e-ai-commerce-accelerator-microservice:3001"
+    },
+    "db_type": "postgresql",
+    "github_repository": "peterrichards-lr/liferay-ai-commerce-accelerator",
+    "host_name": "aica.demo",
+    "includes_client_extensions": true,
+    "includes_database": true,
+    "includes_osgi_modules": true,
+    "includes_volume_assets": true,
+    "name": "Auto-snapshot 2026-07-15 08:51",
+    "osgi_modules": "com.liferay.accelerator.reindex.endpoint.jar",
+    "ssl": true,
+    "target_sites": [
+        "ai-commerce-accelerator"
+    ],
+    "tag": "2026.q1.7-lts",
+    "timestamp": "20260715_085115"
+}
