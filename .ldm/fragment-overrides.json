@@ -1,8 +1,10 @@
 {
   "ai-commerce-accelerator": {
+    "siteKey": "ai-commerce-accelerator",
     "microserviceUrl": "${LIFERAY_EXTERNAL_URL_CLIENT_EXTENSION_AI_COMMERCE_ACCELERATOR_MICROSERVICE}"
   },
   "ai-commerce-accelerator-admin": {
+    "siteKey": "ai-commerce-accelerator",
     "microserviceUrl": "${LIFERAY_EXTERNAL_URL_CLIENT_EXTENSION_AI_COMMERCE_ACCELERATOR_MICROSERVICE}"
   }
 }
