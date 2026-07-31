@@ -18,7 +18,7 @@
     "@commitlint/config-conventional": "^21.0.2",
     "@playwright/test": "^1.62.0",
     "@testing-library/dom": "^10.4.1",
-    "baseline-browser-mapping": "^2.11.3",
+    "baseline-browser-mapping": "^2.11.5",
     "happy-dom": "^20.11.1",
     "husky": "^9.1.7",
     "lint-staged": "^17.2.0",
@@ -37,9 +37,9 @@
   "optionalDependencies": {
     "@rolldown/binding-darwin-arm64": "^1.2.0",
     "@rolldown/binding-darwin-x64": "^1.2.0",
-    "@rollup/rollup-darwin-arm64": "4.62.2",
-    "@rollup/rollup-darwin-x64": "4.62.2",
-    "@rollup/rollup-linux-x64-gnu": "4.62.2"
+    "@rollup/rollup-darwin-arm64": "4.62.3",
+    "@rollup/rollup-darwin-x64": "4.62.3",
+    "@rollup/rollup-linux-x64-gnu": "4.62.3"
   },
   "scripts": {
     "prepare": "husky || true",
@@ -113,10 +113,10 @@
     "esbuild": "0.28.1",
     "eslint": "10.8.0",
     "immutable": "5.1.9",
-    "jsdom": "^29.1.1",
-    "openai": "6.49.0",
+    "jsdom": "^30.0.0",
+    "openai": "7.0.0",
     "react-codemirror2": "9.0.1",
-    "rollup": "4.62.2",
+    "rollup": "4.62.3",
     "vite": "8.1.5"
   },
   "version": "0.0.1"
