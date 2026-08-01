@@ -8,8 +8,6 @@ function normalizeEntityType(t) {
     'product-data-generation',
     'create-products',
     'resolve-product-ids',
-    'create-product-skus',
-    'resolve-sku-ids',
     'update-inventory',
     'inventory',
     'delete-products',
@@ -41,12 +39,7 @@ function normalizeEntityType(t) {
     'deleteorders',
   ];
 
-  const skus = [
-    'skus',
-    'create-skus',
-    'resolve-sku-ids',
-    'create-product-skus',
-  ];
+  const skus = ['skus', 'create-skus', 'resolve-sku-ids'];
 
   const warehouses = [
     'warehouses',

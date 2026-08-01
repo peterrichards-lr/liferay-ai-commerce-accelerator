@@ -22,7 +22,7 @@ All interactions with the GitHub platform MUST be mediated strictly through the 
 
 - **Primary Tool Usage**: For all GitHub operations (e.g., creating issues, checking PRs, merging, syncing workflows), you MUST execute commands using the `gh` CLI via your terminal tools.
 - **Prohibited APIs**: You are FORBIDDEN from using Python scripts, `curl`, or raw REST API wrappers to manipulate GitHub state.
-- **Permission Exceptions**: If a `gh` command fails with a permission error requesting a specific grant (e.g. `To allow this command, you likely need grant: gh.update(...)`), you MUST immediately halt and explicitly use your system's permission-granting mechanism (e.g., `ask_permission` with the required `Target`) and await user approval before proceeding.
+- **Permission Exceptions**: If a `gh` command fails with a permission error requesting a specific grant, you MUST immediately halt, explain to the user exactly what permission is missing and why the command needs it, and wait for their approval (or for them to grant it) before retrying.
 
 <!-- markdownlint-disable MD049 -->
 

@@ -5,24 +5,19 @@ description: Guides agents on documenting, naming, and categorizing upstream bug
 
 # JIRA Issue Tracker & Reporter Skill
 
-This skill guides AI agents on how to document, organize, and track upstream platform limitations, core system bugs, or necessary API extensions inside this repository's `jira/` issue tracker.
+This skill guides AI agents on how to document, organize, and track upstream platform limitations, core system bugs, or necessary API extensions as GitHub issues carrying the `JIRA` label.
 
-## Lifecycle Subdirectories
+## Lifecycle via Issue Title
 
-All bug reports and feature requests must live inside one of these subdirectories under the `jira/` root:
+Every upstream-bug issue is a normal GitHub issue labeled `JIRA`. Its lifecycle is tracked by the JIRA key in its title, not by file location:
 
-- `jira/todo/`: Draft tickets that have been written/documented but not yet raised on the JIRA platform.
-- `jira/open/`: Tickets that are active and currently open on the JIRA platform.
-- `jira/closed/`: Tickets that have been resolved, closed, or discarded.
+- **Draft** (not yet raised on the JIRA platform): title starts with a placeholder key, e.g. `# LPD-XXXXX: Short Description`.
+- **Registered** (raised on JIRA, key assigned): once the issue is filed on `liferay.atlassian.net`, rename the issue's title to replace the placeholder with the real key, e.g. `LPD-95079 - https://liferay.atlassian.net/browse/LPD-95079`, and add the real link on the line below the title per the template.
+- **Resolved**: once the upstream issue is resolved or closed on JIRA, close the GitHub issue.
 
-## Naming Conventions
+## Standard Issue Body Template
 
-- **In `jira/todo/`**: Use the pattern `LPS-DRAFT-[DESCRIPTION].md` or a descriptive name.
-- **In `jira/open/` or `jira/closed/`**: Use the pattern `[JIRA-KEY]-[DESCRIPTION].md` (e.g. `LPD-95079-ACCOUNTS-BATCH-UPSERT.md`).
-
-## Standard Markdown Template
-
-Every issue file must use the following template to guarantee high-quality, reproducible bug reports:
+Every issue must use the following template in its body to guarantee high-quality, reproducible bug reports:
 
 ````markdown
 # Liferay DXP Bug Report: [Short, Descriptive Title]
@@ -72,7 +67,7 @@ Every issue file must use the following template to guarantee high-quality, repr
 
 When you discover an upstream bug or platform limitation:
 
-1. **Create Draft**: Write a draft bug report following the template and save it to `jira/todo/`.
-2. **Implement Workaround**: Implement the necessary resilient logic or configuration workaround in the codebase, documenting it in the file.
-3. **Register JIRA Key**: When the issue is raised on JIRA, use `git mv` to rename the file to include the JIRA Key and move it to `jira/open/`. Update the JIRA link inside the file.
-4. **Audit Statuses**: Periodically audit the open tickets. If a ticket has been resolved or closed on JIRA, move it to `jira/closed/`.
+1. **Create Draft**: Write a draft bug report following the template and file it with `gh issue create --label JIRA`, using a placeholder key (`LPD-XXXXX`) in the title.
+2. **Implement Workaround**: Implement the necessary resilient logic or configuration workaround in the codebase, documenting it in the issue body.
+3. **Register JIRA Key**: When the issue is raised on JIRA, use `gh issue edit <number> --title "..."` to replace the placeholder with the real key, and update the JIRA link in the body.
+4. **Audit Statuses**: Periodically audit open `JIRA`-labeled issues (`gh issue list --label JIRA`). If one has been resolved or closed on JIRA, close the GitHub issue.

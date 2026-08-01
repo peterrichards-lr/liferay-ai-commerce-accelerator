@@ -141,7 +141,7 @@ This repository enforces a strict process for all contributors (humans and agent
 - **GitHub Issues for Recording**: All tasks (bugs, enhancements, feature requests, documentation, tooling) MUST be recorded in a GitHub issue before any code changes are made.
 - **Impact Analysis & Plan**: For every issue, the contributor must analyze the issue details against the codebase and write out a detailed implementation plan.
 - **PR-Issue Linkage**: All Pull Requests must link back to their originating GitHub issue using conventional keywords in the description (e.g. `Closes #123`, `Resolves #123`, or `Follows up on #123`).
-- **Peer Review Required**: All Pull Requests must be reviewed and approved by another contributor (human developer or peer AI agent) before they can be merged. Self-merging without a review sign-off is prohibited.
+- **Peer Review**: A review from another contributor (human developer or peer AI agent) is encouraged before merging whenever a second contributor is available. This repository is not currently branch-protection-enforced for review count (`required_approving_review_count: 0`), since it's presently solo-maintained — merging still requires a PR with a passing `CI/build-and-test` check, just not a second approver.
 
 ---
 

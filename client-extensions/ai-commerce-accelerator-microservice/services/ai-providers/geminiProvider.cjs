@@ -104,10 +104,7 @@ class GeminiProvider extends BaseAIProvider {
                 externalReferenceCode: 'PE-SKU-SMARTWATCH-001-AICA-PL-GENERAL',
                 discountDiscovery: false,
                 bulkPricing: false,
-                sku: {
-                  basePrice: 299.99,
-                  basePromoPrice: 249.99,
-                },
+                promoPrice: 249.99,
                 tierPrices: [
                   {
                     minimumQuantity: 5,
@@ -139,10 +136,7 @@ class GeminiProvider extends BaseAIProvider {
                 externalReferenceCode: 'PE-SKU-EARBUDS-001-AICA-PL-GENERAL',
                 discountDiscovery: false,
                 bulkPricing: false,
-                sku: {
-                  basePrice: 149.99,
-                  basePromoPrice: null,
-                },
+                promoPrice: null,
               },
             ],
           },

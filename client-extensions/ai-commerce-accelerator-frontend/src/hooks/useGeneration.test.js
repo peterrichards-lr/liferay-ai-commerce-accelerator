@@ -157,6 +157,49 @@ describe('useGeneration hook', () => {
     );
   });
 
+  it('should ignore a second generateData call while a submission is already in flight', async () => {
+    let resolvePost;
+    mockApi.post = vi.fn(
+      () =>
+        new Promise((resolve) => {
+          resolvePost = resolve;
+        })
+    );
+
+    const { result } = renderHook(() =>
+      useGeneration({
+        addLog: mockAddLog,
+        buildPayload: mockBuildPayload,
+        api: mockApi,
+        dispatch: mockDispatch,
+        forceDemoMode: false,
+        generationConfig: { productCount: 1 },
+        mountedRef: { current: true },
+        progress: mockProgress,
+        connectionEstablished: true,
+      })
+    );
+
+    act(() => {
+      result.current.generateData({ imageMode: 'default', pdfMode: 'default' });
+    });
+
+    expect(result.current.isSubmitting).toBe(true);
+
+    await act(async () => {
+      await result.current.generateData({
+        imageMode: 'default',
+        pdfMode: 'default',
+      });
+    });
+
+    expect(mockApi.post).toHaveBeenCalledTimes(1);
+
+    await act(async () => {
+      resolvePost({ sessionId: 'session-123' });
+    });
+  });
+
   it('should handle cancel workflow correctly', async () => {
     mockProgress.activeSessionId = 'session-123';
 

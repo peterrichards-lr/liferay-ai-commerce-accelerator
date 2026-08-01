@@ -339,9 +339,7 @@ class AIService {
             - priceListExternalReferenceCode (string): Always use "AICA-PL-GENERAL".
             - externalReferenceCode (string): Unique identifier for this entry.
             - discountDiscovery (boolean): Always set to false.
-            - sku (object): A nested object containing:
-              - basePrice (number): The same value as the top-level price.
-              - basePromoPrice (number or null): The promotional price for this SKU. Generate this for approximately 20% of products.
+            - promoPrice (number or null): The promotional price for this entry. Generate this for approximately 20% of products, otherwise null.
             ${
               options.generateBulkPricing || options.generateTierPricing
                 ? `

@@ -114,9 +114,11 @@ class PromoGenerator extends BaseGenerator {
       });
 
       const sanitizedPromotions = promotions.map((promo) => {
-        // Find matching segment ERC
         const matchingSeg = sanitizedSegments.find(
-          (s) => s.name.toLowerCase() === promo.targetSegmentName.toLowerCase()
+          (s) =>
+            s.name &&
+            promo.targetSegmentName &&
+            s.name.toLowerCase() === promo.targetSegmentName.toLowerCase()
         );
         const rawPromoErc =
           promo.externalReferenceCode || createERC(ERC_PREFIX.PROMOTION);

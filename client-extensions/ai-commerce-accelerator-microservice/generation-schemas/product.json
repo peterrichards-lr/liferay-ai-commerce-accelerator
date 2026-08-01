@@ -335,6 +335,10 @@
             "items": {
               "additionalProperties": false,
               "properties": {
+                "specificationKey": {
+                  "description": "Unique alphanumeric uppercase key for the specification (e.g. 'MATERIAL', 'WEIGHT').",
+                  "type": "string"
+                },
                 "label": {
                   "additionalProperties": {
                     "type": "string"

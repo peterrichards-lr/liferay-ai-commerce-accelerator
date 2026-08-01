@@ -46,6 +46,21 @@ describe('progressReducer', () => {
     expect(state.products.total).toBe(35); // 20 + 15
   });
 
+  it('should handle INCR_COMPLETED by adding to the existing completed count', () => {
+    let state = progressReducer(initialProgress, {
+      type: 'SET_COMPLETED',
+      entity: 'skus',
+      completed: 10,
+    });
+    state = progressReducer(state, {
+      type: 'INCR_COMPLETED',
+      entity: 'skus',
+      amount: 5,
+    });
+
+    expect(state.skus.completed).toBe(15);
+  });
+
   it('should handle RESET_ALL', () => {
     const initialState = {
       ...initialProgress,
