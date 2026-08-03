@@ -27,6 +27,8 @@ if [ "$CI" = "true" ] || [ "$GITHUB_ACTIONS" = "true" ]; then
 fi
 
 NO_SSL=0
+SSL_PORT=""
+ALLOW_CONCURRENT=0
 
 while [[ "$#" -gt 0 ]]; do
     case $1 in
@@ -36,7 +38,9 @@ while [[ "$#" -gt 0 ]]; do
         -i|--init|--init-only) INIT_ONLY=1 ;;
         --ci) CI_MODE=1 ;;
         --no-ssl) NO_SSL=1 ;;
-        *) echo "Usage: $0 [-v] [-k] [-i] [--ci] [--no-ssl] [-p <project_name>]"; exit 1 ;;
+        --ssl-port) SSL_PORT="$2"; shift ;;
+        --allow-concurrent) ALLOW_CONCURRENT=1 ;;
+        *) echo "Usage: $0 [-v] [-k] [-i] [--ci] [--no-ssl] [--ssl-port <port>] [--allow-concurrent] [-p <project_name>]"; exit 1 ;;
     esac
     shift
 done
@@ -44,6 +48,15 @@ done
 # If verbose mode is enabled, let the user know
 if [ $VERBOSE -eq 1 ]; then
   echo "🛠️  Verbose mode enabled. Realized commands will be displayed with [CMD]."
+fi
+
+# The shared LDM proxy (Traefik) normally binds SSL on :443. --ssl-port remaps
+# it via LDM_SSL_PORT for hosts where 443 is already held by something unrelated
+# to LDM (e.g. a local SSH tunnel) - see AICA issue #445 investigation.
+SSL_PORT_SUFFIX=""
+if [ -n "$SSL_PORT" ]; then
+    echo "🔌 Custom SSL port requested: $SSL_PORT (shared LDM proxy will be remapped)"
+    SSL_PORT_SUFFIX=":$SSL_PORT"
 fi
 
 # Define LDM interactivity flag based on CI_MODE
@@ -135,6 +148,20 @@ version_ge() {
     [ "$(printf '%s\n' "$1" "$2" | sort -V | head -n1)" == "$1" ]
 }
 
+# Lists LDM projects (besides ours) currently in the "Running" state, one per line.
+# Used both to avoid resource contention when running the heavy E2E suite alongside
+# other active projects, and to gate whether it's safe to remap the shared proxy's
+# SSL port (other running projects depend on its current port).
+other_running_ldm_projects() {
+    ldm list --no-color 2>/dev/null | awk -F'│' -v proj="$PROJECT_NAME" '
+        NF >= 6 {
+            gsub(/^[ \t]+|[ \t]+$/, "", $2); name = $2
+            gsub(/^[ \t]+|[ \t]+$/, "", $5); status = $5
+            if (name != "" && name != "Project" && name != proj && status == "Running") print name
+        }
+    '
+}
+
 echo "🚀 Starting AICA E2E Orchestration..."
 
 # Truncate raw logs to prevent Forensic Log Analyzer false-positives from legacy runs
@@ -222,7 +249,7 @@ else
     if [ $NO_SSL -eq 1 ]; then
         TARGET_URL="http://$TARGET_HOST"
     else
-        TARGET_URL="https://$TARGET_HOST"
+        TARGET_URL="https://$TARGET_HOST$SSL_PORT_SUFFIX"
     fi
 fi
 
@@ -254,8 +281,8 @@ else
         export LIFERAY_API_URL="http://$TARGET_HOST"
         export COM_LIFERAY_LXC_DXP_SERVER_PROTOCOL="http"
     else
-        export LIFERAY_URL="https://$TARGET_HOST"
-        export LIFERAY_API_URL="https://$TARGET_HOST"
+        export LIFERAY_URL="https://$TARGET_HOST$SSL_PORT_SUFFIX"
+        export LIFERAY_API_URL="https://$TARGET_HOST$SSL_PORT_SUFFIX"
         export COM_LIFERAY_LXC_DXP_SERVER_PROTOCOL="https"
     fi
 fi
@@ -284,6 +311,29 @@ if [ $NO_SSL -eq 1 ]; then
     LDM_SSL_FLAG="--no-ssl"
 fi
 
+# --- Concurrency Safety Check ---
+# The heavy generation/import flows in this suite are resource-intensive; running
+# them alongside other active LDM projects risks contention that's hard to tell
+# apart from real regressions (see AICA issue #445). If we're also remapping the
+# shared proxy's SSL port, other running projects would lose HTTPS access entirely,
+# so that's never allowed regardless of --allow-concurrent.
+OTHER_RUNNING=$(other_running_ldm_projects)
+if [ -n "$OTHER_RUNNING" ]; then
+    echo "⚠️  Other LDM project(s) currently running: $(echo "$OTHER_RUNNING" | tr '\n' ' ')"
+    if [ -n "$SSL_PORT" ]; then
+        echo "❌ ERROR: --ssl-port cannot be used while other LDM projects are running -"
+        echo "   remapping the shared proxy's SSL port would break their HTTPS access."
+        echo "   Stop them first (ldm rm <project> --delete)."
+        exit 1
+    fi
+    if [ $ALLOW_CONCURRENT -eq 0 ]; then
+        echo "❌ ERROR: Refusing to start the E2E suite alongside other running LDM projects."
+        echo "   Stop them first (ldm rm <project> --delete), or pass --allow-concurrent to override."
+        exit 1
+    fi
+    echo "🔓 --allow-concurrent set; proceeding despite other running project(s)."
+fi
+
 echo "🔍 Running LDM Doctor (Silent)..."
 if ! ldm_cmd doctor --skip-project > /dev/null; then
     echo "⚠️  WARNING: LDM Doctor reported environment warnings. Continuing..."
@@ -292,10 +342,17 @@ fi
 echo "🔧 Enforcing isolated database mode..."
 ldm config database-mode isolated --global
 
+INFRA_SETUP_ARGS=()
+if [ -n "$SSL_PORT" ]; then
+    # --force-recreate is required even on a fresh proxy container: infra setup
+    # otherwise preserves whatever port an already-running proxy is bound to.
+    INFRA_SETUP_ARGS+=(--ssl-port "$SSL_PORT" --force-recreate)
+fi
+
 echo "🏗️  Ensuring LDM Shared Infrastructure is active..."
 ldm_cmd config set database_mode shared
 # shellcheck disable=SC2086
-ldm_cmd infra-setup $LDM_Y_FLAG
+ldm_cmd infra-setup $LDM_Y_FLAG "${INFRA_SETUP_ARGS[@]}"
 
 # --- Phase 2: Build & Deployment Preparation ---
 
