@@ -34,6 +34,8 @@ class ProductGenerator extends BaseGenerator {
       [S.LINK_PRODUCT_OPTIONS]: skus.runLinkProductOptionsStep.bind(this),
       [S.CREATE_PRODUCT_SKUS]: skus.runProductSkusStep.bind(this),
       [S.RESOLVE_SKU_IDS]: skus.runResolveSkuIdsStep.bind(this),
+      [S.SYNC_DELAY_PRICING]: (sId) =>
+        this._runInterServiceSyncDelayStep(sId, S.SYNC_DELAY_PRICING),
       [S.UPDATE_CATALOG_CONFIG]:
         pricing.runUpdateCatalogConfigurationStep.bind(this),
       [S.GENERATE_PRICE_LISTS]: pricing.runGeneratePriceListsStep.bind(this),
