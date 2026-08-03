@@ -4,36 +4,59 @@ on:
   release:
     types: [published]
   workflow_dispatch:
-  pull_request:
-    branches: [main, master]
+  schedule:
+    # Nightly. Skipped automatically (see check-for-changes below) if
+    # nothing has landed on the default branch since the last successful run,
+    # so we're not burning ~1.5h of runner time verifying unchanged code.
+    - cron: '0 2 * * *'
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
-  # Only meaningful for pull_request: release/workflow_dispatch runs always
-  # execute the full suite regardless of what paths-filter reports, since
-  # there's no PR base ref for it to diff against.
-  filter:
-    if: github.event_name == 'pull_request'
+  # Only meaningful for the nightly schedule: release/workflow_dispatch are
+  # explicit requests to verify, so they always run the full suite.
+  check-for-changes:
+    if: github.event_name == 'schedule'
     runs-on: ubuntu-latest
     outputs:
-      code: ${{ steps.changes.outputs.code }}
+      should_run: ${{ steps.check.outputs.should_run }}
+    permissions:
+      contents: read
+      actions: read
     steps:
       - uses: actions/checkout@v4
-      - uses: dorny/paths-filter@v3
-        id: changes
         with:
-          filters: |
-            code:
-              - '**'
-              - '!**/*.md'
-              - '!docs/**'
+          fetch-depth: 0
+
+      - name: Check for commits since the last successful E2E run
+        id: check
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          LAST_SHA=$(gh run list --workflow=e2e-verification.yml --status=success --branch="${{ github.ref_name }}" --limit=1 --json headSha --jq '.[0].headSha // empty')
+
+          if [ -z "$LAST_SHA" ]; then
+            echo "No prior successful run found; running E2E."
+            echo "should_run=true" >> "$GITHUB_OUTPUT"
+          elif ! git cat-file -e "$LAST_SHA" 2>/dev/null; then
+            echo "Last successful run's commit ($LAST_SHA) isn't reachable from this checkout; running E2E to be safe."
+            echo "should_run=true" >> "$GITHUB_OUTPUT"
+          else
+            CHANGED=$(git rev-list "$LAST_SHA"..HEAD --count)
+            if [ "$CHANGED" -eq 0 ]; then
+              echo "No commits since last successful run ($LAST_SHA); skipping."
+              echo "should_run=false" >> "$GITHUB_OUTPUT"
+            else
+              echo "$CHANGED commit(s) since last successful run ($LAST_SHA); running E2E."
+              echo "should_run=true" >> "$GITHUB_OUTPUT"
+            fi
+          fi
 
   e2e-verification:
-    needs: filter
-    if: always() && !cancelled() && (github.event_name != 'pull_request' || needs.filter.outputs.code == 'true')
+    needs: check-for-changes
+    if: always() && !cancelled() && (github.event_name != 'schedule' || needs.check-for-changes.outputs.should_run == 'true')
     name: CI/e2e-verification
     runs-on: ubuntu-latest
     env:
@@ -108,11 +131,3 @@ jobs:
             test-results/
             playwright-report/
           retention-days: 7
-
-  e2e-verification-skip:
-    needs: filter
-    if: github.event_name == 'pull_request' && needs.filter.outputs.code != 'true'
-    name: CI/e2e-verification
-    runs-on: ubuntu-latest
-    steps:
-      - run: echo "Skipped E2E suite for docs-only change to satisfy required status check."
