@@ -50,7 +50,7 @@ public class ReindexResource {
 
 			long[] companyIds = PortalUtil.getCompanyIds();
 			for (long companyId : companyIds) {
-				IndexWriterHelperUtil.reindex(0, className, new long[]{companyId}, null);
+				IndexWriterHelperUtil.reindex(0, "reindex", new long[]{companyId}, className, null);
 			}
 
 			return Response.ok("{\"status\":\"success\", \"className\":\"" + className + "\", \"message\":\"Reindex scheduled for " + className + "\"}").build();

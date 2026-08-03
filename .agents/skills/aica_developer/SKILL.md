@@ -26,7 +26,7 @@ Always execute these scripts from the repository root:
 
 ### A. Headless CLI Client (`aica`)
 
-The CLI client is a zero-dependency entrypoint ([aica-cli.cjs](file:///Volumes/SanDisk/repos/liferay-ai-commerce-accelerator/scripts/aica-cli.cjs)) used for seeding, deleting, exporting, and importing configurations.
+The CLI client is a zero-dependency entrypoint ([aica-cli.cjs](../../../scripts/aica-cli.cjs)) used for seeding, deleting, exporting, and importing configurations.
 
 - **Handshake Connection**:
 
@@ -62,7 +62,7 @@ The CLI client is a zero-dependency entrypoint ([aica-cli.cjs](file:///Volumes/S
 
 ### B. E2E Run Orchestrator (`run-e2e-ldm.sh`)
 
-This script ([run-e2e-ldm.sh](file:///Volumes/SanDisk/repos/liferay-ai-commerce-accelerator/scripts/run-e2e-ldm.sh)) handles initializing LDM, starting Liferay DXP, deploying client extensions, and booting the microservice.
+This script ([run-e2e-ldm.sh](../../../scripts/run-e2e-ldm.sh)) handles initializing LDM, starting Liferay DXP, deploying client extensions, and booting the microservice.
 
 - **Non-Interactive Mandate**: When running this script programmatically, you **MUST** pass the `--ci` flag to bypass interactive developer prompts:
 
@@ -90,7 +90,7 @@ node scripts/preflight.mjs
 
 Executes locally in Huskies' pre-commit hooks to prevent leaking sensitive API keys (OpenAI, Google Gemini, Anthropic, etc.).
 
-- **Bypassing false-positives**: If a mock token or test hash is flagged, append `// pragma: allowlist secret` at the end of the line, or add the substring / file glob pattern to [.gitleaksignore](file:///Volumes/SanDisk/repos/liferay-ai-commerce-accelerator/.gitleaksignore).
+- **Bypassing false-positives**: If a mock token or test hash is flagged, append `// pragma: allowlist secret` at the end of the line, or add the substring / file glob pattern to [.gitleaksignore](../../../.gitleaksignore).
 
 ---
 
@@ -98,8 +98,10 @@ Executes locally in Huskies' pre-commit hooks to prevent leaking sensitive API k
 
 ### Running Unit Tests
 
-- **SDK tests**: Run `npm run test` inside [client-extensions/liferay-accelerator-sdk](file:///Volumes/SanDisk/repos/liferay-ai-commerce-accelerator/client-extensions/liferay-accelerator-sdk).
-- **Microservice tests**: Run `npm run test` inside [client-extensions/ai-commerce-accelerator-microservice](file:///Volumes/SanDisk/repos/liferay-ai-commerce-accelerator/client-extensions/ai-commerce-accelerator-microservice).
+- **Microservice tests**: Run `yarn test` inside [client-extensions/ai-commerce-accelerator-microservice](../../../client-extensions/ai-commerce-accelerator-microservice).
+- **Frontend tests**: Run `yarn test` inside [client-extensions/ai-commerce-accelerator-frontend](../../../client-extensions/ai-commerce-accelerator-frontend).
+
+  > The SDK (`liferay-accelerator-sdk`) was extracted into its own repository (#198) and is no longer part of this monorepo's workspaces.
 
 ### Running Playwright E2E/Smoke Tests
 
@@ -109,5 +111,5 @@ Executes locally in Huskies' pre-commit hooks to prevent leaking sensitive API k
 ### Linting and Checks
 
 - **Code Linting**: `yarn lint` at root.
-- **Client Extension Validation**: `yarn lint:cx` (runs [validate-cx.js](file:///Volumes/SanDisk/repos/liferay-ai-commerce-accelerator/scripts/validate-cx.js) to check schema alignment with `client-extension.yaml`).
+- **Client Extension Validation**: `yarn lint:cx` (runs [validate-cx.js](../../../scripts/validate-cx.js) to check schema alignment with `client-extension.yaml`).
 - **Markdown Linting**: `yarn lint:md`.

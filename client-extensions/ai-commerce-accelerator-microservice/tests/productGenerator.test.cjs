@@ -183,6 +183,22 @@ describe('ProductGenerator Workflow Steps', () => {
     });
   });
 
+  describe('Workflow Step: Sync Delay Pricing', () => {
+    it('registers a handler that delegates to the inherited inter-service sync delay step', async () => {
+      productGenerator._runInterServiceSyncDelayStep = vi
+        .fn()
+        .mockResolvedValue();
+
+      await productGenerator.steps[WORKFLOW_STEPS.SYNC_DELAY_PRICING](
+        'sess-123'
+      );
+
+      expect(
+        productGenerator._runInterServiceSyncDelayStep
+      ).toHaveBeenCalledWith('sess-123', WORKFLOW_STEPS.SYNC_DELAY_PRICING);
+    });
+  });
+
   describe('Workflow Step: Generate Price Lists', () => {
     it('should trigger pricing step successfully', async () => {
       mockSession.context.productDataList = [

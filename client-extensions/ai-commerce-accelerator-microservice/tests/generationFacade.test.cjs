@@ -100,4 +100,31 @@ describe('GenerationFacade', () => {
     expect(result[0].externalReferenceCode).toBeDefined();
     expect(result[0].externalReferenceCode).toMatch(/^AICA-BATCH-/);
   });
+
+  it('should preserve the AI-generated specificationKey instead of stripping it (Ajv removeAdditional)', async () => {
+    const options = { demoMode: true };
+    const requestConfig = {};
+
+    mockCtx.mockDataGenerator.generateProductData.mockResolvedValue([
+      {
+        ...MINIMAL_VALID_PRODUCT,
+        specifications: [
+          {
+            specificationKey: 'MATERIAL',
+            label: { en_US: 'Material' },
+            value: { en_US: 'Stainless Steel' },
+          },
+        ],
+      },
+    ]);
+
+    const result = await facade.generateData(
+      'product',
+      1,
+      requestConfig,
+      options
+    );
+
+    expect(result[0].specifications[0].specificationKey).toBe('MATERIAL');
+  });
 });

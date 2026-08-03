@@ -15,7 +15,7 @@ Run the local E2E Playwright test suite against a real Liferay DXP container:
 bash scripts/run-e2e-ldm.sh -v -k --ci
 ```
 
-Before declaring any feature or bugfix 'code complete', you MUST execute `run_command` to invoke the command above, and END your turn. You are FORBIDDEN from declaring the task finished or pushing PRs until you receive the output confirming the E2E verification succeeded.
+Before declaring any feature or bugfix 'code complete', you MUST run the command above and check its output. You are FORBIDDEN from declaring the task finished or pushing PRs until that output confirms the E2E verification succeeded.
 
 ## 2. Post-Completion "Definition of Done"
 

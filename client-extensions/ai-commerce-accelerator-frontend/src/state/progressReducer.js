@@ -163,6 +163,22 @@ export function progressReducer(state, action) {
       };
     }
 
+    case 'INCR_COMPLETED': {
+      const { entity, amount } = action;
+      const cur = state[entity] || {
+        total: 0,
+        completed: 0,
+        errors: [],
+        batches: {},
+      };
+
+      return {
+        ...state,
+        [entity]: { ...cur, completed: cur.completed + (amount || 0) },
+        lastUpdateTime: now,
+      };
+    }
+
     case 'SET_COMPLETED_TO_TOTAL': {
       const { entity } = action;
       const cur = state[entity] || {

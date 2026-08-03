@@ -18,6 +18,8 @@ export default function useGeneration({
 
   const generateData = useCallback(
     async (finalConfig) => {
+      if (isSubmitting) return;
+
       const activeConfig = finalConfig || generationConfig;
 
       if (!connectionEstablished) {
@@ -138,6 +140,7 @@ export default function useGeneration({
       dispatch,
       forceDemoMode,
       generationConfig,
+      isSubmitting,
       mountedRef,
     ]
   );

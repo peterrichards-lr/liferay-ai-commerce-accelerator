@@ -146,4 +146,54 @@ describe('PromoGenerator', () => {
       }
     );
   });
+
+  it('does not crash when the AI returns a segment/promotion with no name', async () => {
+    mockCtx.ai.generatePromoData.mockResolvedValue({
+      userSegments: [
+        {
+          name: '',
+          description: 'Unnamed segment',
+          externalReferenceCode: 'SEG-UNNAMED',
+        },
+      ],
+      promotions: [
+        {
+          name: '10% Off Everything',
+          description: 'Promo with no target segment name',
+          discountPercentage: 10,
+          targetSegmentName: undefined,
+          externalReferenceCode: 'PROMO-UNNAMED',
+        },
+      ],
+    });
+
+    const sessionId = 'session-456';
+    await persistence.createSession({
+      sessionId,
+      flowType: 'generate',
+      status: 'STARTED',
+      currentSteps: [],
+      context: {
+        config: { siteGroupId: 123 },
+        options: { generatePromotions: true, productCount: 1, accountCount: 1 },
+        accountDataList: [
+          {
+            name: 'Wholesale Inc',
+            externalReferenceCode: 'ACC-WHOLESALE',
+            id: 200,
+          },
+        ],
+        productDataList: [{ name: 'Hammer', sku: 'SKU-HAMMER', id: 100 }],
+      },
+    });
+
+    await expect(
+      generator._runPromoDataGenerationStep(sessionId)
+    ).resolves.not.toThrow();
+
+    const session = await persistence.getSession(sessionId);
+    expect(session.context.promotionsDataList[0].targetSegmentERC).toBe(
+      'SEG-UNNAMED'
+    );
+  });
 });

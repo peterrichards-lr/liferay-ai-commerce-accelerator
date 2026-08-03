@@ -11,8 +11,8 @@ To ensure thoughtful decision-making and robust implementations, the AI agent MU
 
 Before making structural modifications or editing logic blocks larger than 10 lines across any files, you MUST outline your approach using a formalized implementation plan.
 
-- **Artifact Creation**: You MUST explicitly output an implementation plan using an `implementation_plan.md` artifact.
-- **Approval Gate**: You MUST set `request_feedback=true` on the artifact, stop calling tools, and END your turn to await user approval.
+- **Plan Presentation**: You MUST present the implementation plan to the user (as chat output, or via plan mode where available) before touching any files.
+- **Approval Gate**: You MUST wait for the user's explicit approval before proceeding.
 - **Prohibited Execution**: You are FORBIDDEN from executing any code modifications using your file edit tools until the user responds explicitly with "Proceed" or approves the implementation plan.
 
 ## 2. Predictive Failure Analysis
