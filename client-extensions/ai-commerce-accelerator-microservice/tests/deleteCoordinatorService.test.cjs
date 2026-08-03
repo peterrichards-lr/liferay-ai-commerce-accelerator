@@ -62,7 +62,16 @@ describe('DeleteCoordinatorService', () => {
     coordinator = new DeleteCoordinatorService(mockCtx);
   });
 
-  afterEach(() => {
+  afterEach(async () => {
+    // runDeleteAndMonitor intentionally fires its session-creation write without
+    // awaiting it (the whole point is to return the sessionId immediately while
+    // the workflow continues in the background). Wait for it to actually drain
+    // before closing - a fixed setImmediate/tick delay isn't reliable once other
+    // test files' worker threads are competing for CPU.
+    const deadline = Date.now() + 2000;
+    while (persistence.pendingRequests.size > 0 && Date.now() < deadline) {
+      await new Promise((resolve) => setTimeout(resolve, 5));
+    }
     persistence.close();
   });
 

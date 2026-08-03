@@ -1051,12 +1051,11 @@
     "@jridgewell/resolve-uri" "^3.1.0"
     "@jridgewell/sourcemap-codec" "^1.4.14"
 
-"@liferay/accelerator-sdk@git+https://github.com/peterrichards-lr/liferay-accelerator-sdk.git#3e456dfa37dd8a0a77a25dc833c0ad5aff170fe3", "@liferay/accelerator-sdk@git+https://github.com/peterrichards-lr/liferay-accelerator-sdk.git#b56bb18ae4d2160a91e57df7258376ec9b935512":
-  version "0.4.3"
-  uid b56bb18ae4d2160a91e57df7258376ec9b935512
-  resolved "git+https://github.com/peterrichards-lr/liferay-accelerator-sdk.git#b56bb18ae4d2160a91e57df7258376ec9b935512"
+"@liferay/accelerator-sdk@git+https://github.com/peterrichards-lr/liferay-accelerator-sdk.git#d39540e71b3f5bebf9d72cb804bc8ea4e7607955":
+  version "0.5.0"
+  resolved "git+https://github.com/peterrichards-lr/liferay-accelerator-sdk.git#d39540e71b3f5bebf9d72cb804bc8ea4e7607955"
   dependencies:
-    "@modelcontextprotocol/sdk" "^1.29.0"
+    "@modelcontextprotocol/sdk" "^1.30.0"
     "@rotty3000/config-node" "^0.4.1"
     ajv "^8.12.0"
     ajv-formats "^3.0.1"
@@ -1077,7 +1076,7 @@
   dependencies:
     minimist "^1.1.0"
 
-"@modelcontextprotocol/sdk@^1.29.0", "@modelcontextprotocol/sdk@^1.30.0":
+"@modelcontextprotocol/sdk@^1.30.0":
   version "1.30.0"
   resolved "https://registry.yarnpkg.com/@modelcontextprotocol/sdk/-/sdk-1.30.0.tgz#dfa8a48347ec2d2c0d47917d7dc57f754e37f5ff"
   integrity sha512-xKd8OIzlqNzcqcNumGAa6g+PW2kjD5vrpcKOnfldAUPP3j7lnqMPwlTXQm8gF+UwH72z0lqaRbjr9hqGz0eITA==
