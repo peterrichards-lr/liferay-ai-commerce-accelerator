@@ -163,15 +163,21 @@ class HealthService {
     const start = Date.now();
     try {
       const requestConfig = {};
-      let oauthConfig = {};
-      try {
-        oauthConfig = await configService.getOAuthConfig(requestConfig);
-      } catch (_err) {
-        oauthConfig = {
-          liferayUrl: process.env.LIFERAY_URL || 'http://localhost:8080',
-          clientId: process.env.LIFERAY_CLIENT_ID,
-          clientSecret: process.env.LIFERAY_CLIENT_SECRET,
-        };
+      // getOAuthConfig() falls back to {} on any failure rather than
+      // throwing (e.g. no persisted OAuth config custom-object yet, or
+      // OAuth intentionally disabled in favor of basic auth), so the env
+      // fallback below must be unconditional rather than a catch handler.
+      const oauthConfig =
+        (await configService.getOAuthConfig(requestConfig)) || {};
+      if (!oauthConfig.liferayUrl) {
+        oauthConfig.liferayUrl =
+          process.env.LIFERAY_URL || 'http://localhost:8080';
+      }
+      if (!oauthConfig.clientId) {
+        oauthConfig.clientId = process.env.LIFERAY_CLIENT_ID;
+      }
+      if (!oauthConfig.clientSecret) {
+        oauthConfig.clientSecret = process.env.LIFERAY_CLIENT_SECRET;
       }
 
       await liferay.rest.testConnection(oauthConfig);

@@ -59,6 +59,33 @@ describe('HealthService', () => {
     expect(report.checks.ai.status).toBe('healthy');
   });
 
+  it('should fall back to LIFERAY_URL/LIFERAY_CLIENT_ID/LIFERAY_CLIENT_SECRET when getOAuthConfig resolves an empty config', async () => {
+    // getOAuthConfig() falls back to {} on failure rather than throwing (e.g.
+    // no persisted OAuth config yet, or OAuth intentionally disabled in favor
+    // of basic auth) - the env var fallback must apply even though nothing
+    // actually threw.
+    mockCtx.config.getOAuthConfig.mockResolvedValue({});
+    const originalUrl = process.env.LIFERAY_URL;
+    const originalClientId = process.env.LIFERAY_CLIENT_ID;
+    const originalClientSecret = process.env.LIFERAY_CLIENT_SECRET;
+    process.env.LIFERAY_URL = 'https://aica-e2e.local';
+    process.env.LIFERAY_CLIENT_ID = 'env-client-id';
+    process.env.LIFERAY_CLIENT_SECRET = 'env-client-secret';
+
+    const result = await healthService.runHealthCheck('liferay');
+
+    expect(result.status).toBe('healthy');
+    expect(mockCtx.liferay.rest.testConnection).toHaveBeenCalledWith({
+      liferayUrl: 'https://aica-e2e.local',
+      clientId: 'env-client-id',
+      clientSecret: 'env-client-secret',
+    });
+
+    process.env.LIFERAY_URL = originalUrl;
+    process.env.LIFERAY_CLIENT_ID = originalClientId;
+    process.env.LIFERAY_CLIENT_SECRET = originalClientSecret;
+  });
+
   it('should return unhealthy if memory check fails', async () => {
     // Force unhealthy memory status by mocking process.memoryUsage
     const originalMemoryUsage = process.memoryUsage;
