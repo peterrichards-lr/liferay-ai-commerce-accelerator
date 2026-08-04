@@ -3,6 +3,7 @@ import path from 'node:path';
 import net from 'node:net';
 import http from 'node:http';
 import https from 'node:https';
+import { execSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -95,6 +96,37 @@ function checkLiferay(url) {
   });
 }
 
+// Checks whether Playwright's browser binaries (chromium + headless shell)
+// are actually downloaded, not just whether the @playwright/test package is
+// installed. A missing binary only surfaces as a launch failure deep into
+// Phase 5 of the E2E run - after the full build/boot/deploy cycle - so it's
+// worth catching here instead.
+function checkPlaywrightBrowsers() {
+  try {
+    const output = execSync('npx playwright install chromium --dry-run', {
+      cwd: ROOT_DIR,
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'pipe'],
+    });
+    const installLocations = [
+      ...output.matchAll(/Install location:\s+(.+)/g),
+    ].map((match) => match[1].trim());
+
+    if (installLocations.length === 0) {
+      // Couldn't parse expected output format - don't block on something we
+      // can't verify, but let the caller know we didn't actually check.
+      return { checked: false, missing: [] };
+    }
+
+    const missing = installLocations.filter(
+      (location) => !fs.existsSync(location)
+    );
+    return { checked: true, missing };
+  } catch (_err) {
+    return { checked: false, missing: [] };
+  }
+}
+
 async function runPreflight() {
   console.log(
     `${BOLD}🛡️  Liferay AI Commerce Accelerator Sentinel — Pre-flight Checks${RESET}\n`
@@ -183,6 +215,30 @@ async function runPreflight() {
     );
   } else {
     console.log(`   ✅ Liferay connection succeeded!`);
+  }
+
+  console.log();
+
+  // 4. Validate Playwright browser binaries are actually downloaded
+  console.log('🎭 Checking Playwright browser binaries...');
+  const { checked, missing } = checkPlaywrightBrowsers();
+  if (!checked) {
+    console.warn(
+      `   ${YELLOW}⚠️ Warning: Could not verify Playwright browser installation - continuing anyway.${RESET}`
+    );
+  } else if (missing.length > 0) {
+    console.error(
+      `❌ [${RED}ERROR${RESET}] Playwright browser binaries are missing:`
+    );
+    for (const location of missing) {
+      console.error(`          - ${location}`);
+    }
+    console.error(
+      `          Run ${BOLD}npx playwright install --with-deps chromium${RESET} before starting.`
+    );
+    hasCriticalFailure = true;
+  } else {
+    console.log('   ✅ Playwright browser binaries are installed');
   }
 
   console.log('\n----------------------------------------');
