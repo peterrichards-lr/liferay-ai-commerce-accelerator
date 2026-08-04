@@ -117,12 +117,6 @@ export default function useCommerceData({
 
   const testConnection = async (options = {}) => {
     const { silent = false } = options;
-    console.log(
-      '[DEBUG] testConnection started. silent:',
-      silent,
-      'config:',
-      config
-    );
 
     const errs = getConnectionErrorsMap(config);
     if (!silent) setConnectionErrors(errs);

@@ -10,6 +10,7 @@ const {
 const {
   inputValidationMiddleware,
 } = require('../middleware/securityMiddleware.cjs');
+const { requireAdmin } = require('../middleware/authorizationMiddleware.cjs');
 const { createERC, resolveErrorReference } = require('../utils/misc.cjs');
 const { ERC_PREFIX } = require('../utils/constants.cjs');
 
@@ -125,6 +126,7 @@ module.exports = (app, { deleteCoordinatorService, logger, configService }) => {
 
   app.post(
     INTERNAL_API_PATHS.DELETE_COMMERCE_DATA,
+    requireAdmin,
     inputValidationMiddleware(connectionSchema),
     (req, res, next) => {
       req.config = buildConfigAndOptions(req).config;
@@ -167,6 +169,7 @@ module.exports = (app, { deleteCoordinatorService, logger, configService }) => {
 
   app.post(
     INTERNAL_API_PATHS.DELETE_SELECTED_COMMERCE_DATA,
+    requireAdmin,
     inputValidationMiddleware(channelConnectionSchema),
     async (req, res, next) => {
       req.config = buildConfigAndOptions(req).config;
