@@ -227,8 +227,21 @@ export default function useRealtimeWebSocket({
 
     const url = new URL(wsUrl);
     if (cid) url.searchParams.set(CORRELATION_ID_HEADER, cid);
+    // Browsers can't set a custom Authorization header on a WebSocket
+    // handshake, so the auth token travels as a query param instead -- the
+    // server (services/webSocketService.cjs) verifies it the same way it
+    // verifies the Bearer header on regular API requests.
+    if (typeof Liferay !== 'undefined' && Liferay.authToken) {
+      url.searchParams.set('token', Liferay.authToken);
+    }
 
-    logDebug('🔗 Preparing WebSocket connection', { url: url.toString() });
+    const redactedUrlForLogging = new URL(url.toString());
+    if (redactedUrlForLogging.searchParams.has('token')) {
+      redactedUrlForLogging.searchParams.set('token', '[REDACTED]');
+    }
+    logDebug('🔗 Preparing WebSocket connection', {
+      url: redactedUrlForLogging.toString(),
+    });
     const { onLog: currentOnLog } = callbacksRef.current;
 
     if (loggingLevel === 'debug') {

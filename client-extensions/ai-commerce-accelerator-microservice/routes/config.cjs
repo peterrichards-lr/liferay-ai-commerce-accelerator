@@ -5,6 +5,7 @@ const {
 } = require('../utils/normalize.cjs');
 const { createERC, resolveErrorReference } = require('../utils/misc.cjs');
 const { ERC_PREFIX } = require('../utils/constants.cjs');
+const { requireAdmin } = require('../middleware/authorizationMiddleware.cjs');
 
 function sendSafeError(res, logger, req, error, operation, meta = {}) {
   const existingRef = resolveErrorReference(error);
@@ -327,7 +328,7 @@ module.exports = (app, { logger, configService, persistenceService }) => {
   app.get(INTERNAL_API_PATHS.CONFIG_BATCH_SIZES, handleBatchSizes);
   app.post(INTERNAL_API_PATHS.CONFIG_BATCH_SIZES, handleBatchSizes);
 
-  app.post('/config/save', async (req, res) => {
+  app.post('/config/save', requireAdmin, async (req, res) => {
     const { config } = buildConfigAndOptions(req);
 
     try {

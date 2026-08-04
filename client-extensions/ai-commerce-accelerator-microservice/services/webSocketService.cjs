@@ -1,6 +1,17 @@
+const { URL } = require('url');
 const { WebSocket, WebSocketServer } = require('ws');
 const { tryParseJSON, createERC } = require('../utils/misc.cjs');
 const { ERC_PREFIX } = require('../utils/constants.cjs');
+
+const LOOPBACK_ADDRESSES = new Set(['127.0.0.1', '::1', '::ffff:127.0.0.1']);
+
+// Mirrors requestSigningMiddleware's loopback bypass (securityMiddleware.cjs)
+// -- local CLI scripts/tests connecting to the WS endpoint from the same
+// host don't carry a Liferay JWT.
+function isLoopbackSocket(socket) {
+  const addr = socket?.remoteAddress;
+  return LOOPBACK_ADDRESSES.has(addr);
+}
 
 class WebSocketService {
   constructor(ctx) {
@@ -11,10 +22,46 @@ class WebSocketService {
   }
 
   init(server) {
-    const { logger } = this.ctx;
+    const { logger, verifyBearerToken, resolveLiferayUrl } = this.ctx;
     const wss = new WebSocketServer({ noServer: true });
 
-    server.on('upgrade', (request, socket, head) => {
+    server.on('upgrade', async (request, socket, head) => {
+      // Browser WebSocket clients cannot set a custom Authorization header on
+      // the handshake, so the frontend sends its Liferay JWT as a query
+      // param instead (see useRealtimeWebSocket.js). Loopback connections
+      // (local CLI scripts/tests) are exempt, matching
+      // requestSigningMiddleware's existing bypass for the same case.
+      if (!isLoopbackSocket(socket)) {
+        let token;
+        try {
+          const url = new URL(request.url, 'http://internal');
+          token = url.searchParams.get('token');
+        } catch {
+          token = null;
+        }
+
+        if (!token) {
+          logger.warn('WebSocket upgrade rejected: no auth token supplied', {
+            remoteAddress: socket.remoteAddress,
+          });
+          socket.write('HTTP/1.1 401 Unauthorized\r\n\r\n');
+          socket.destroy();
+          return;
+        }
+
+        try {
+          await verifyBearerToken(token, resolveLiferayUrl());
+        } catch (err) {
+          logger.warn('WebSocket upgrade rejected: invalid auth token', {
+            remoteAddress: socket.remoteAddress,
+            error: err.message,
+          });
+          socket.write('HTTP/1.1 401 Unauthorized\r\n\r\n');
+          socket.destroy();
+          return;
+        }
+      }
+
       wss.handleUpgrade(request, socket, head, (ws) => {
         wss.emit('connection', ws, request);
       });

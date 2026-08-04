@@ -13,11 +13,15 @@ describe('Config Routes', () => {
     registeredRoutes.post = {};
 
     appMock = {
-      get: vi.fn((path, handler) => {
-        registeredRoutes.get[path] = handler;
+      // Routes may be registered with one or more middlewares before the
+      // final handler (e.g. requireAdmin on /config/save) -- the last
+      // argument is always the terminal handler, matching how Express
+      // itself resolves app.post(path, ...middlewares, handler).
+      get: vi.fn((path, ...handlers) => {
+        registeredRoutes.get[path] = handlers[handlers.length - 1];
       }),
-      post: vi.fn((path, handler) => {
-        registeredRoutes.post[path] = handler;
+      post: vi.fn((path, ...handlers) => {
+        registeredRoutes.post[path] = handlers[handlers.length - 1];
       }),
     };
 
@@ -70,8 +74,12 @@ describe('Config Routes', () => {
       expect.any(Function)
     );
 
+    // /config/save is now gated behind requireAdmin (see
+    // middleware/authorizationMiddleware.cjs), so it registers with an
+    // extra middleware argument ahead of the terminal handler.
     expect(appMock.post).toHaveBeenCalledWith(
       '/config/save',
+      expect.any(Function),
       expect.any(Function)
     );
   });

@@ -13,6 +13,7 @@ const {
   resolveEffectiveLiferayConnection,
 } = require('../utils/liferayEnv.cjs');
 const { createERC } = require('../utils/misc.cjs');
+const { requireAdmin } = require('../middleware/authorizationMiddleware.cjs');
 
 const S = WORKFLOW_STEPS;
 
@@ -519,13 +520,23 @@ module.exports = (router, routeCtx) => {
   // SSE Connections Map & Routes
   let activeTransport = null;
 
-  router.get('/mcp/sse', async (req, res) => {
+  // The MCP server instance (and its tool-dispatch switch above) is shared
+  // across every SSE connection, with no per-connection/per-request context
+  // available inside it to check who's calling a given tool -- so
+  // authorization is enforced here, at the two Express routes that do have
+  // req.user, rather than inside the dispatch switch. This gates the whole
+  // MCP tool surface (including aica_teardown_all) behind an admin check,
+  // not just the single most dangerous tool -- broader than strictly
+  // necessary, but the architecture doesn't cleanly support anything
+  // narrower without a larger refactor to make the MCP server
+  // connection-scoped.
+  router.get('/mcp/sse', requireAdmin, async (req, res) => {
     logger.info('Establish connection to SSE MCP transport endpoint');
     activeTransport = new SSEServerTransport('/api/v1/mcp/message', res);
     await mcpServer.connect(activeTransport);
   });
 
-  router.post('/mcp/message', async (req, res) => {
+  router.post('/mcp/message', requireAdmin, async (req, res) => {
     if (!activeTransport) {
       return res.status(400).send('No active SSE connection found');
     }

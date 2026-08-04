@@ -88,6 +88,70 @@ function securityHeadersMiddleware(req, res, next) {
   next();
 }
 
+// Shared JWT verification, used by both the HTTP middleware below and the
+// WebSocket upgrade handshake (services/webSocketService.cjs) -- neither one
+// should re-implement or diverge from this logic. Returns verified claims,
+// or throws with a `.status` hint (401 for bad/invalid tokens, 500 for
+// infrastructure failures fetching the JWKS) for the caller to translate.
+async function verifyBearerToken(token, liferayUrl) {
+  const decoded = jwt.decode(token, { complete: true });
+  if (!decoded) {
+    const err = new Error('Malformed authorization token');
+    err.status = 401;
+    throw err;
+  }
+
+  const { kid } = decoded.header;
+  const verifyWithJwks = (jwks) => {
+    const key = jwks.keys.find((k) => k.kid === kid);
+    return key ? key : null;
+  };
+
+  let key;
+  try {
+    const jwks = await fetchLiferayJwks(liferayUrl);
+    key = verifyWithJwks(jwks);
+    if (!key) {
+      logger.info(
+        'kid not found in JWKS cache, forcing refresh for key rotation',
+        { kid }
+      );
+      const refreshed = await fetchLiferayJwks(liferayUrl, true);
+      key = verifyWithJwks(refreshed);
+    }
+  } catch (err) {
+    logger.error('JWT Verification Failed', { error: err.message });
+    const wrapped = new Error('Internal identity verification failure');
+    wrapped.status = 500;
+    throw wrapped;
+  }
+  if (!key) {
+    const err = new Error('Key ID not found in JWKS after refresh');
+    err.status = 401;
+    throw err;
+  }
+
+  const pem = jwkToPem(key);
+  return new Promise((resolve, reject) => {
+    jwt.verify(token, pem, { algorithms: ['RS256'] }, (err, verifiedClaims) => {
+      if (err) {
+        const wrapped = new Error(`Invalid JWT: ${err.message}`);
+        wrapped.status = 401;
+        return reject(wrapped);
+      }
+      resolve(verifiedClaims);
+    });
+  });
+}
+
+function resolveLiferayUrl(req) {
+  return (
+    req?.config?.liferayUrl ||
+    process.env.LIFERAY_URL ||
+    'http://localhost:8080'
+  );
+}
+
 function userContextMiddleware(req, res, next) {
   const authHeader = req.get('Authorization');
   if (!authHeader || !authHeader.startsWith('Bearer ')) {
@@ -95,59 +159,13 @@ function userContextMiddleware(req, res, next) {
   }
 
   const token = authHeader.substring(7);
-  const decoded = jwt.decode(token, { complete: true });
-  if (!decoded) {
-    if (process.env.NODE_ENV === 'test') {
-      req.user = { token, claims: { email: 'test@liferay.com', sub: '20132' } };
-      return next();
-    }
-    return res.status(401).json({ error: 'Malformed authorization token' });
-  }
-
-  const { kid } = decoded.header;
-  const liferayUrl =
-    req.config?.liferayUrl ||
-    process.env.LIFERAY_URL ||
-    'http://localhost:8080';
-
-  const verifyWithJwks = (jwks) => {
-    const key = jwks.keys.find((k) => k.kid === kid);
-    return key ? key : null;
-  };
-
-  fetchLiferayJwks(liferayUrl)
-    .then(async (jwks) => {
-      let key = verifyWithJwks(jwks);
-      // Key rotation: if kid not found, force a JWKS refresh once
-      if (!key) {
-        logger.info(
-          'kid not found in JWKS cache, forcing refresh for key rotation',
-          { kid }
-        );
-        const refreshed = await fetchLiferayJwks(liferayUrl, true);
-        key = verifyWithJwks(refreshed);
-      }
-      if (!key) throw new Error('Key ID not found in JWKS after refresh');
-      const pem = jwkToPem(key);
-
-      jwt.verify(
-        token,
-        pem,
-        { algorithms: ['RS256'] },
-        (err, verifiedClaims) => {
-          if (err) {
-            return res
-              .status(401)
-              .json({ error: `Invalid JWT: ${err.message}` });
-          }
-          req.user = { token, claims: verifiedClaims };
-          next();
-        }
-      );
+  verifyBearerToken(token, resolveLiferayUrl(req))
+    .then((verifiedClaims) => {
+      req.user = { token, claims: verifiedClaims };
+      next();
     })
     .catch((err) => {
-      logger.error('JWT Verification Failed', { error: err.message });
-      res.status(500).json({ error: 'Internal identity verification failure' });
+      res.status(err.status || 500).json({ error: err.message });
     });
 }
 
@@ -205,4 +223,6 @@ module.exports = {
   securityHeadersMiddleware,
   userContextMiddleware,
   basicRateLimitMiddleware,
+  verifyBearerToken,
+  resolveLiferayUrl,
 };

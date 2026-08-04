@@ -34,6 +34,8 @@ const {
   requestLoggingMiddleware,
   securityHeadersMiddleware,
   userContextMiddleware,
+  verifyBearerToken,
+  resolveLiferayUrl,
 } = require('./middleware/loggingMiddleware.cjs');
 const {
   inputValidationMiddleware,
@@ -140,7 +142,12 @@ const gracefulShutdown = async (signal) => {
 
 (async () => {
   try {
-    ws = createWebSocketService({ server, logger });
+    ws = createWebSocketService({
+      server,
+      logger,
+      verifyBearerToken,
+      resolveLiferayUrl,
+    });
     ws.init(server);
 
     logger.on('log', (logEntry) => {
