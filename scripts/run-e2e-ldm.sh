@@ -108,7 +108,10 @@ fi
 
 # --- Constants ---
 REQUIRED_LDM_VERSION="2.15.14"
-DEFAULT_HOST="${PROJECT_NAME}.local"
+# .demo rather than .local: .local is a reserved mDNS/Bonjour TLD on macOS,
+# where getaddrinfo() can be slow regardless of a matching /etc/hosts entry
+# (see liferay-docker-manager#967/#969).
+DEFAULT_HOST="${PROJECT_NAME}.demo"
 
 # LDM 2.7.14+ automatically forwards OPENAI_*, GEMINI_*, etc.
 # We explicitly add AI_ prefix to the passthrough list for AICA-specific keys.

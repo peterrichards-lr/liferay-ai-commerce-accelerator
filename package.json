@@ -49,7 +49,7 @@
     "verification": "playwright test --config playwright/playwright-e2e.config.js",
     "preflight": "node scripts/preflight.mjs",
     "ldm:init": "yarn preflight && bash scripts/run-e2e-ldm.sh --init-only -k",
-    "ldm:init-from": "ldm init-from . aica --db postgresql --no-captcha --fast-login --feature LPD-35443 --sidecar --host-name aica-e2e.local --build",
+    "ldm:init-from": "ldm init-from . aica --db postgresql --no-captcha --fast-login --feature LPD-35443 --sidecar --host-name aica-e2e.demo --build",
     "ldm:monitor": "ldm monitor . -p aica",
     "lint": "yarn workspaces run lint && yarn lint:md && yarn lint:cx && yarn lint:json",
     "verify:all": "npm run lint && npm test && bash scripts/run-e2e-ldm.sh -v -k",

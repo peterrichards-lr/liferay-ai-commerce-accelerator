@@ -56,7 +56,7 @@ const LIFERAY_URL =
   process.env.LIFERAY_PORTAL_URL ||
   process.env.LIFERAY_URL ||
   process.env.LIFERAY_API_URL ||
-  'https://aica-e2e.local';
+  'https://aica-e2e.demo';
 const LIFERAY_USERNAME = process.env.LIFERAY_API_USERNAME || 'test@liferay.com';
 const LIFERAY_PASSWORD = process.env.LIFERAY_API_PASSWORD || 'test';
 
