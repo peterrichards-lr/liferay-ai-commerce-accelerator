@@ -52,7 +52,7 @@ jobs:
 
       - name: Configure local hosts file
         run: |
-          echo "127.0.0.1 aica-e2e.local aicommerceacceleratorconfiguration.aica-e2e.local aicommerceacceleratorfrontend.aica-e2e.local ai-commerce-accelerator-microservice.aica-e2e.local" | sudo tee -a /etc/hosts
+          echo "127.0.0.1 aica-e2e.demo aicommerceacceleratorconfiguration.aica-e2e.demo aicommerceacceleratorfrontend.aica-e2e.demo ai-commerce-accelerator-microservice.aica-e2e.demo" | sudo tee -a /etc/hosts
 
       - name: Free ports 80 and 443
         run: sudo fuser -k 80/tcp 443/tcp || true

@@ -69,7 +69,7 @@ if (fs.existsSync(envPath)) {
 
 // 2. Resolve Active Target URL & Environment
 const targetUrl =
-  envVars.BASE_URL || envVars.LIFERAY_PORTAL_URL || 'https://aica-e2e.local';
+  envVars.BASE_URL || envVars.LIFERAY_PORTAL_URL || 'https://aica-e2e.demo';
 console.log(`🌐 Target DXP URL: ${BOLD}${targetUrl}${RESET}`);
 
 // 3. Resolve AI Keys and Providers

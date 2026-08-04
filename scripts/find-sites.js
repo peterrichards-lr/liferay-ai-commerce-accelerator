@@ -1,7 +1,7 @@
 const https = require('https');
 
 const options = {
-  hostname: 'aica-e2e.local',
+  hostname: 'aica-e2e.demo',
   port: 443,
   path: '/api/jsonws/group/get-user-sites',
   method: 'GET',
