@@ -17,13 +17,15 @@ To prevent regression and ensure 100% architectural integrity, the following aut
 - **Rule**: Every workflow step registered in a Generator (e.g., `[S.CREATE_PRODUCTS]`) MUST be mapped to a valid class method.
 - **Enforcement**: The `BaseGenerator.verifySteps()` method is called at boot time in `bootstrap.cjs`. The microservice will fail to start if any mapping is broken.
 
-## 3. Pre-Commit Verification
+## 3. Pre-Commit & Pre-Push Verification
 
-- **Rule**: All code and documentation must be free of syntax errors, undefined references, and lint violations.
-- **Enforcement**: Husky and `lint-staged` run `eslint --fix`, `vitest run`, and `markdownlint` on every commit. This catches `ReferenceError`, `SyntaxError`, and documentation drift before they reach the repository.
+- **Rule**: All code and documentation must be free of syntax errors, undefined references, and lint violations before they reach the repository.
+- **Enforcement**: This is split across two Husky hooks with different scope, so that fast, iterative commits aren't blocked on the full test suite:
+  - **`.husky/pre-commit`**: Runs `lint-staged` (`eslint --fix`, `prettier`, `markdownlint` on staged files only) plus `scripts/detect-secrets.mjs`. This catches `ReferenceError`, `SyntaxError`, and documentation drift on every commit.
+  - **`.husky/pre-push`**: Runs the full project lint (`yarn lint`) and the full unit test suite (`yarn test`, i.e. `vitest run`) before code leaves the machine.
 
 <!-- markdownlint-disable MD049 -->
 
 ---
 
-_Last Updated: 2026-07-19_ | _Last Reviewed: 2026-07-19_
+_Last Updated: 2026-08-06_ | _Last Reviewed: 2026-08-06_

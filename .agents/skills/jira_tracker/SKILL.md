@@ -71,3 +71,9 @@ When you discover an upstream bug or platform limitation:
 2. **Implement Workaround**: Implement the necessary resilient logic or configuration workaround in the codebase, documenting it in the issue body.
 3. **Register JIRA Key**: When the issue is raised on JIRA, use `gh issue edit <number> --title "..."` to replace the placeholder with the real key, and update the JIRA link in the body.
 4. **Audit Statuses**: Periodically audit open `JIRA`-labeled issues (`gh issue list --label JIRA`). If one has been resolved or closed on JIRA, close the GitHub issue.
+
+<!-- markdownlint-disable MD049 -->
+
+---
+
+_Last Updated: 2026-08-03_ | _Last Reviewed: 2026-08-03_
