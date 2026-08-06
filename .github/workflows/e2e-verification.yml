@@ -108,6 +108,25 @@ jobs:
       - name: Free ports 80 and 443
         run: sudo fuser -k 80/tcp 443/tcp || true
 
+      # Lightweight resource logging so a future failure (e.g. #445's cascading
+      # connectivity failures ~50min into the run) comes with actual CPU/memory/
+      # disk data instead of requiring another blind log-forensics pass.
+      - name: Start background resource monitor
+        run: |
+          (
+            while true; do
+              {
+                date -u +"%Y-%m-%dT%H:%M:%SZ"
+                free -m
+                docker stats --no-stream --format "table {{.Name}}\t{{.CPUPerc}}\t{{.MemUsage}}\t{{.NetIO}}\t{{.BlockIO}}" 2>/dev/null || true
+                df -h /
+                echo "---"
+              } >> resource-monitor.log
+              sleep 60
+            done
+          ) &
+          echo "$!" > resource-monitor.pid
+
       - name: Start LDM and run tests
         run: bash scripts/run-e2e-ldm.sh --ci
         env:
@@ -119,6 +138,18 @@ jobs:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
           GOOGLE_API_KEY: ${{ secrets.GOOGLE_API_KEY }}
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+
+      - name: Stop background resource monitor
+        if: always()
+        run: kill "$(cat resource-monitor.pid)" 2>/dev/null || true
+
+      - name: Upload resource monitor log
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: resource-monitor-log
+          path: resource-monitor.log
+          retention-days: 7
 
       - name: Upload E2E Logs on Failure
         uses: actions/upload-artifact@v4
