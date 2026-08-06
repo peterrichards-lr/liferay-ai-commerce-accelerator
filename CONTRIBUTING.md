@@ -156,13 +156,13 @@ To maintain absolute code quality, stability, and a logical git history as the a
 
 ### 2. Local Pre-flight Gatekeeper (`verify:all`)
 
-- Before pushing any branch or opening/updating a Pull Request, developers (and AI assistants) **MUST** execute the local E2E validation pipeline:
+- Before pushing any branch or opening/updating a Pull Request, developers (and AI assistants) **MUST** ensure the required `CI/build-and-test` check passes: Prettier, ESLint, markdownlint, a Gradle build, and the full unit test suite (`yarn test`). This runs automatically on every PR via `.github/workflows/ci.yml`; run it locally first (`yarn prettier --check . && yarn workspaces run eslint . && yarn lint:md && ./gradlew build -x test && yarn test`) to catch failures before pushing.
+- The full Playwright E2E suite is **not** a per-PR gate — against a real Liferay DXP container it takes on the order of 1.5 hours, which is untenable to run on every PR. It instead runs nightly via `.github/workflows/e2e-verification.yml` (schedule-only, and skips itself automatically if nothing has landed on `master` since the last successful run), plus on-demand via `workflow_dispatch` or `release: published`.
+- Still, run it yourself before opening a PR that touches generator/workflow logic, LDM integration, or anything else the Playwright suite exercises — a regression there won't be caught until the next nightly run otherwise:
 
   ```bash
   LIFERAY_API_PASSWORD=test LIFERAY_API_USERNAME=test@liferay.com bash scripts/run-e2e-ldm.sh -v -k
   ```
-
-  This validates static linting, schema validation, contract compliancy, all unit tests, and Playwright E2E suites. **PRs will not be approved unless the local run reports a perfect 100% green pass.**
 
 ### 3. Squash and Merge Policy
 
@@ -190,4 +190,4 @@ Thank you for contributing!
 
 ---
 
-_Last Updated: 2026-08-03_ | _Last Reviewed: 2026-08-03_
+_Last Updated: 2026-08-06_ | _Last Reviewed: 2026-08-06_

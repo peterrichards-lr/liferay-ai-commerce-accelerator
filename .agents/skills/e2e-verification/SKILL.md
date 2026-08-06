@@ -9,13 +9,12 @@ Before any feature, bugfix, or issue can be considered "code complete", the agen
 
 ## 1. Automated E2E Testing
 
-Run the local E2E Playwright test suite against a real Liferay DXP container:
+- **Always required, and enforced by the required `CI/build-and-test` PR check**: lint (`yarn lint`) and the full unit test suite (`yarn test`). Run these locally before pushing.
+- **Not a per-PR gate, but run it yourself when relevant**: the full Playwright E2E suite against a real Liferay DXP container takes ~1.5h, so it is intentionally NOT wired into PR CI — it runs nightly via `.github/workflows/e2e-verification.yml` (schedule-only, skips itself if nothing landed since the last successful run) instead. If your change touches generator/workflow logic, LDM integration, OSGi/client-extension deployment, or anything else this suite exercises, run it locally before declaring the task complete, since a regression there won't surface until the next nightly run otherwise:
 
-```bash
-bash scripts/run-e2e-ldm.sh -v -k --ci
-```
-
-Before declaring any feature or bugfix 'code complete', you MUST run the command above and check its output. You are FORBIDDEN from declaring the task finished or pushing PRs until that output confirms the E2E verification succeeded.
+  ```bash
+  bash scripts/run-e2e-ldm.sh -v -k --ci
+  ```
 
 ## 2. Post-Completion "Definition of Done"
 
@@ -29,4 +28,4 @@ Before declaring any feature or bugfix 'code complete', you MUST run the command
 
 ---
 
-_Last Updated: 2026-08-03_ | _Last Reviewed: 2026-08-03_
+_Last Updated: 2026-08-06_ | _Last Reviewed: 2026-08-06_
