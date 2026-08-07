@@ -1,7 +1,7 @@
 {
   "author": "Peter Richards",
   "dependencies": {
-    "@ai-sdk/anthropic": "^4.0.23",
+    "@ai-sdk/anthropic": "^4.0.29",
     "@google-cloud/storage": "^7.21.0",
     "@google/generative-ai": "^0.24.1",
     "@liferay/accelerator-sdk": "git+https://github.com/peterrichards-lr/liferay-accelerator-sdk.git#d39540e71b3f5bebf9d72cb804bc8ea4e7607955",
@@ -9,10 +9,10 @@
     "@rotty3000/config-node": "^0.4.1",
     "ajv": "^8.12.0",
     "ajv-formats": "^3.0.1",
-    "axios": "^1.18.0",
-    "better-sqlite3": "^13.0.1",
+    "axios": "^1.19.0",
+    "better-sqlite3": "^13.0.2",
     "cors": "^2.8.5",
-    "csv-parse": "^7.0.1",
+    "csv-parse": "^7.0.2",
     "dotenv": "^17.4.2",
     "express": "^5.1.0",
     "form-data": "^4.0.6",
@@ -25,8 +25,8 @@
     "multer": "^2.2.0",
     "node-fetch": "^3.3.2",
     "node-stream-zip": "^1.16.0",
-    "openai": "^7.0.0",
-    "ws": "^8.21.1",
+    "openai": "^7.4.0",
+    "ws": "^8.21.2",
     "zod": "^4.4.3"
   },
   "license": "GPL-3.0",
