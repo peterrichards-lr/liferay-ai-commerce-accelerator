@@ -22,6 +22,7 @@ export const normalizeGenerationConfig = (config) => {
     'productCount',
     'accountCount',
     'orderCount',
+    'orderDateRangeDays',
     'inventoryMin',
     'inventoryMax',
     'inventoryAssignmentRatio',

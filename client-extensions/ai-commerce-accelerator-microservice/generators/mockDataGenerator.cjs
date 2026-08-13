@@ -425,22 +425,34 @@ class MockDataGenerator {
     _config = {},
     _model = null,
     _categories = [],
-    _selectedLanguages = ['en-US']
+    _selectedLanguages = ['en-US'],
+    options = {}
   ) {
     const accounts = [];
+    const accountType = options.accountType || 'business';
 
     for (let i = 0; i < count; i++) {
       const baseErc = createERC(ERC_PREFIX.ACCOUNT);
       const suffix = randomString(4);
-      const accountName = `Mock Account ${i + 1} (${suffix})`;
-      const email = `contact-${suffix.toLowerCase()}@example.com`;
+      // 'mixed' alternates between business and person so both types are
+      // represented; 'person'/'business' pin every account to that type.
+      const isPerson =
+        accountType === 'person' || (accountType === 'mixed' && i % 2 === 1);
+      const accountName = isPerson
+        ? `Mock Rider ${i + 1} (${suffix})`
+        : `Mock Account ${i + 1} (${suffix})`;
+      const email = isPerson
+        ? `rider-${suffix.toLowerCase()}@example.com`
+        : `contact-${suffix.toLowerCase()}@example.com`;
 
       const accountData = {
         // HARDENING: Removed placeholder ID to force physical resolution
         externalReferenceCode: baseErc,
         name: accountName,
-        type: 'business',
-        description: `Generated mock business account for ${accountName}.`,
+        type: isPerson ? 'person' : 'business',
+        description: isPerson
+          ? `Generated mock individual account for ${accountName}.`
+          : `Generated mock business account for ${accountName}.`,
         domains: [`${suffix.toLowerCase()}.example.com`],
         accountContactInformation: {
           emailAddresses: [
@@ -489,9 +501,11 @@ class MockDataGenerator {
     count = 1,
     _config = {},
     _model = null,
-    _selectedLanguages = ['en-US']
+    _selectedLanguages = ['en-US'],
+    options = {}
   ) {
     const orders = [];
+    const orderDateRangeDays = Number(options.orderDateRangeDays) || 30;
 
     // Safety fallback for Demo Mode if arrays are empty
     const poolAccounts =
@@ -512,7 +526,7 @@ class MockDataGenerator {
       orders.push({
         externalReferenceCode: createERC(ERC_PREFIX.ORDER),
         accountId: String(account?.id || 10000 + i),
-        orderDate: randomPastDate(30).toISOString(),
+        orderDate: randomPastDate(orderDateRangeDays).toISOString(),
         orderStatus: 0,
         items: [
           {

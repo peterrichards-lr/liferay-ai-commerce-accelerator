@@ -110,6 +110,60 @@ describe('AIService (Multi-Provider)', () => {
     );
   });
 
+  it('should default accountType to "business" when not specified', async () => {
+    vi.spyOn(aiService, '_chatJson').mockResolvedValue([
+      { name: 'AI Account' },
+    ]);
+
+    await aiService.generateAccountData(1, {}, 'gpt-4o', [], ['en-US'], {});
+
+    expect(mockCtx.prompt.render).toHaveBeenCalledWith(
+      'account',
+      expect.objectContaining({ accountType: 'business' }),
+      expect.any(Object)
+    );
+  });
+
+  it('should pass through an explicit accountType to the account prompt', async () => {
+    vi.spyOn(aiService, '_chatJson').mockResolvedValue([{ name: 'AI Rider' }]);
+
+    await aiService.generateAccountData(1, {}, 'gpt-4o', [], ['en-US'], {
+      accountType: 'person',
+    });
+
+    expect(mockCtx.prompt.render).toHaveBeenCalledWith(
+      'account',
+      expect.objectContaining({ accountType: 'person' }),
+      expect.any(Object)
+    );
+  });
+
+  it('should default orderDateRangeDays to 0 (today only) when not specified', async () => {
+    vi.spyOn(aiService, '_chatJson').mockResolvedValue([{ accountId: '1' }]);
+
+    await aiService.generateOrderData([], [], 1, {}, 'gpt-4o', ['en-US'], {});
+
+    expect(mockCtx.prompt.render).toHaveBeenCalledWith(
+      'order',
+      expect.objectContaining({ orderDateRangeDays: 0 }),
+      expect.any(Object)
+    );
+  });
+
+  it('should pass through an explicit orderDateRangeDays to the order prompt', async () => {
+    vi.spyOn(aiService, '_chatJson').mockResolvedValue([{ accountId: '1' }]);
+
+    await aiService.generateOrderData([], [], 1, {}, 'gpt-4o', ['en-US'], {
+      orderDateRangeDays: 90,
+    });
+
+    expect(mockCtx.prompt.render).toHaveBeenCalledWith(
+      'order',
+      expect.objectContaining({ orderDateRangeDays: 90 }),
+      expect.any(Object)
+    );
+  });
+
   it('should abort and throw pre-flight guardrail error if token count exceeds safety limit', async () => {
     process.env.AICA_MAX_TOKEN_LIMIT = '5';
     process.env.ALLOW_LARGE_PROMPTS = 'false';

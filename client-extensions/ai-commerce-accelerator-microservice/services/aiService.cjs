@@ -408,6 +408,7 @@ class AIService {
         languageCodesCSV: languageCodes.join(', '),
         geographicContext: options.geographicContext || null,
         groundingMetadata: options.groundingMetadata || null,
+        accountType: options.accountType || 'business',
       };
 
       const promptContent = await prompt.render('account', vars, requestConfig);
@@ -483,6 +484,7 @@ class AIService {
         languageList: joinList(langs),
         languageCodesCSV: languageCodes.join(', '),
         groundingMetadata: options.groundingMetadata || null,
+        orderDateRangeDays: Number(options.orderDateRangeDays) || 0,
       };
 
       const promptContent = await prompt.render('order', vars, requestConfig);
