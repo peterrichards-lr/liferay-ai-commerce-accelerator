@@ -391,9 +391,7 @@ function DataGeneratorForm({
                 <div
                   className={`form-group ${hasErr(validationErrors, 'accountCount') ? 'has-error' : ''}`}
                 >
-                  <label htmlFor="dataGeneration_accountCount">
-                    B2B Accounts
-                  </label>
+                  <label htmlFor="dataGeneration_accountCount">Accounts</label>
                   <ClayInput.Group>
                     <ClayInput.GroupItem>
                       <ClayInput
@@ -418,6 +416,36 @@ function DataGeneratorForm({
                   {hasErr(validationErrors, 'accountCount') && (
                     <FieldError errors={validationErrors.accountCount} />
                   )}
+                  <label htmlFor="dataGeneration_accountType" className="mt-2">
+                    Account Type
+                  </label>
+                  <select
+                    id="dataGeneration_accountType"
+                    className="form-control"
+                    value={generationConfig.accountType || 'business'}
+                    onChange={(e) =>
+                      handleConfigChange('accountType', e.target.value)
+                    }
+                    disabled={lockFields}
+                  >
+                    <option value="business">
+                      Business (B2B — dealers, distributors, companies)
+                    </option>
+                    <option value="person">
+                      Individual (B2C — direct consumer accounts)
+                    </option>
+                    <option value="mixed">
+                      Mixed (both business and individual)
+                    </option>
+                  </select>
+                  <p
+                    className="text-secondary mt-1 mb-0"
+                    style={{ fontSize: '0.8em' }}
+                  >
+                    Choose based on the commerce channel this data is for — B2B
+                    storefronts typically need business accounts, B2C
+                    storefronts need individual accounts.
+                  </p>
                 </div>
               </div>
 
@@ -453,6 +481,50 @@ function DataGeneratorForm({
                 </div>
               </div>
             </div>
+
+            {generationConfig.orderCount > 0 && (
+              <div className="form-group mb-4">
+                <label htmlFor="dataGeneration_orderDateRangeDays">
+                  Order History Spread
+                </label>
+                <ClayInput.Group>
+                  <ClayInput.GroupItem shrink>
+                    <ClayInput.GroupText>
+                      Spread orders across the last
+                    </ClayInput.GroupText>
+                  </ClayInput.GroupItem>
+                  <ClayInput.GroupItem>
+                    <ClayInput
+                      id="dataGeneration_orderDateRangeDays"
+                      type="number"
+                      min="0"
+                      max="1095"
+                      value={generationConfig.orderDateRangeDays}
+                      onChange={(e) =>
+                        handleConfigChange(
+                          'orderDateRangeDays',
+                          parseInt(e.target.value)
+                        )
+                      }
+                      disabled={lockFields}
+                    />
+                  </ClayInput.GroupItem>
+                  <ClayInput.GroupItem shrink>
+                    <ClayInput.GroupText>days</ClayInput.GroupText>
+                  </ClayInput.GroupItem>
+                </ClayInput.Group>
+                <p
+                  className="text-secondary mt-1 mb-0"
+                  style={{ fontSize: '0.8em' }}
+                >
+                  Set to 0 to date every order as right now. A larger range
+                  produces realistic order history over time — needed for
+                  reorder-frequency, lifecycle, or revenue-trend scenarios — and
+                  some accounts will place more than one order across that
+                  window to simulate genuine repeat customers.
+                </p>
+              </div>
+            )}
 
             {generationConfig.orderCount > 0 && (
               <OrderDistributionControl

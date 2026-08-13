@@ -36,6 +36,11 @@
           "orderStatus": {
             "description": "The numeric status of the order (e.g., 0 for pending, 1 for processing).",
             "type": "number"
+          },
+          "orderDate": {
+            "description": "The ISO 8601 date-time the order was placed, distributed realistically within the requested date range.",
+            "type": "string",
+            "format": "date-time"
           }
         },
         "required": ["accountId", "items", "externalReferenceCode"],

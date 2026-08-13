@@ -166,7 +166,8 @@
             "type": "string"
           },
           "type": {
-            "description": "The type of account, e.g., 'business'.",
+            "description": "The type of account: 'business' for a company/dealer account, or 'person' for an individual/consumer account.",
+            "enum": ["business", "person"],
             "type": "string"
           }
         },

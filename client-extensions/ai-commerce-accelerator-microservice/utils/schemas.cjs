@@ -47,7 +47,13 @@ const generateDataSchema = (aiModelOptions = [], batchSizes = []) => ({
   categories: { type: 'array', required: false },
   productCount: { type: 'number', min: 0, max: 100, integer: true },
   accountCount: { type: 'number', min: 0, max: 50, integer: true },
+  accountType: {
+    type: 'string',
+    enum: ['business', 'person', 'mixed'],
+    required: false,
+  },
   orderCount: { type: 'number', min: 0, max: 100, integer: true },
+  orderDateRangeDays: { type: 'number', min: 0, max: 1095, required: false },
 });
 
 const generateOrdersSchema = (aiModelOptions = [], batchSizes = []) => ({
@@ -66,6 +72,7 @@ const generateOrdersSchema = (aiModelOptions = [], batchSizes = []) => ({
   channelId: { type: 'number', required: true, integer: true },
   currencyCode: { type: 'string', required: true },
   orderCount: { type: 'number', min: 0, max: 100, integer: true },
+  orderDateRangeDays: { type: 'number', min: 0, max: 1095, required: false },
 });
 
 const generateAccountsSchema = (aiModelOptions = [], batchSizes = []) => ({
@@ -82,6 +89,11 @@ const generateAccountsSchema = (aiModelOptions = [], batchSizes = []) => ({
     required: true,
   },
   accountCount: { type: 'number', min: 0, max: 100, integer: true },
+  accountType: {
+    type: 'string',
+    enum: ['business', 'person', 'mixed'],
+    required: false,
+  },
 });
 
 module.exports = {
