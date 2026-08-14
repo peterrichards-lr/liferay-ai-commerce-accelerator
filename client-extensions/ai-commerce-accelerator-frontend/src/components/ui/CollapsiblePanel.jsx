@@ -26,14 +26,14 @@ function CollapsiblePanel({
 
   useEffect(() => {
     if (autoCollapseWhen) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- sync collapsed state when parent trigger changes
       setOpen(false);
     }
   }, [autoCollapseWhen]);
 
   useEffect(() => {
     if (expandSignal !== null && expandSignal !== undefined) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- sync expanded state when parent signal pulses
       setOpen(true);
     }
   }, [expandSignal]);

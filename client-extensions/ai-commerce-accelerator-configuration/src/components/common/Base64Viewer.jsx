@@ -46,7 +46,7 @@ export default function Base64Viewer({
     if (!allowDownload || !valid) return;
     const blob = b64ToBlob(base64Data, mimeType);
     const url = URL.createObjectURL(blob);
-    // eslint-disable-next-line react-hooks/set-state-in-effect
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- manage object URL lifecycle and sync download href with blob creation
     setDownloadHref(url);
     return () => URL.revokeObjectURL(url);
   }, [allowDownload, valid, base64Data, mimeType]);

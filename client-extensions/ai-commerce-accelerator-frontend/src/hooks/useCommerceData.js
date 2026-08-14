@@ -320,7 +320,7 @@ export default function useCommerceData({
         (c) => String(c.id) === String(config.channelId)
       );
       if (chObj && chObj.siteGroupId) {
-        // eslint-disable-next-line react-hooks/set-state-in-effect
+        // eslint-disable-next-line react-hooks/set-state-in-effect -- load channel dependent entities (languages/catalogs) when channel is resolved
         loadChannelDependent(chObj);
       }
     }

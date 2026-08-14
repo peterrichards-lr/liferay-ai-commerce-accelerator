@@ -59,7 +59,7 @@ export function AppProvider({
   }, []);
 
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- sync initial config prop into context state on mount or prop change
     if (initialConfig) updateConfig(initialConfig);
   }, [initialConfig, updateConfig]);
 

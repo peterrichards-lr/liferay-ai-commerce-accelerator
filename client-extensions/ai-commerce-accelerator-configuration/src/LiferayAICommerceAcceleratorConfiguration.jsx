@@ -33,7 +33,7 @@ export default function LiferayAICommerceAcceleratorConfiguration(props) {
   useEffect(() => {
     const id = validIds.has(activeId) ? activeId : defaultId;
     if (id !== activeId) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- clamp invalid active tab ID to defaultId when tab list changes
       setActiveId(defaultId);
     }
     try {
