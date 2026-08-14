@@ -89,11 +89,7 @@ if [ -z "$PROJECT_NAME" ]; then
         UNIQUE_ID="${USER:-$(id -un 2>/dev/null || echo 'local')}"
         PROJECT_NAME="aica-e2e-$UNIQUE_ID"
     fi
-    EXISTING_PROJECT=0
-    if ldm list | grep "$PROJECT_NAME" | grep -q "Running"; then
-        echo "ℹ  Auto-detected that project '$PROJECT_NAME' is already running in LDM. Switching to update/deploy mode."
-        EXISTING_PROJECT=1
-    fi
+
 
     # HARDENING: Proactively remove any existing project folder to prevent
     # Yarn workspace name collisions during Phase 2 (Building).
@@ -135,35 +131,7 @@ log_command() {
    fi
 }
 
-# Log and run LDM commands for replication visibility
-ldm_cmd() {
-    log_command "ldm $*"
-    ldm "$@"
-}
 
-# Write a tiny progress state file on disk for fast AI monitoring and feedback loops
-write_signal() {
-    echo "$1" > .progress-signal
-    echo "📣 [SIGNAL] State changed to: $1"
-}
-
-version_ge() {
-    [ "$(printf '%s\n' "$1" "$2" | sort -V | head -n1)" == "$1" ]
-}
-
-# Lists LDM projects (besides ours) currently in the "Running" state, one per line.
-# Used both to avoid resource contention when running the heavy E2E suite alongside
-# other active projects, and to gate whether it's safe to remap the shared proxy's
-# SSL port (other running projects depend on its current port).
-other_running_ldm_projects() {
-    ldm list --no-color 2>/dev/null | awk -F'│' -v proj="$PROJECT_NAME" '
-        NF >= 6 {
-            gsub(/^[ \t]+|[ \t]+$/, "", $2); name = $2
-            gsub(/^[ \t]+|[ \t]+$/, "", $5); status = $5
-            if (name != "" && name != "Project" && name != proj && status == "Running") print name
-        }
-    '
-}
 
 echo "🚀 Starting AICA E2E Orchestration..."
 
@@ -238,23 +206,7 @@ elif [ -f ".env" ]; then
     export $(grep -v '^#' .env | xargs)
 fi
 
-# Determine the target host and URL
-if [ $EXISTING_PROJECT -eq 1 ]; then
-    # Try to resolve URL from existing project config
-    TARGET_URL=$(ldm list | grep "$PROJECT_NAME" | grep -oE 'https?://[a-zA-Z0-9./:-]+' | xargs || echo "")
-    if [ -z "$TARGET_URL" ]; then
-        echo "❌ ERROR: Could not find URL for project '$PROJECT_NAME'. Is it initialized?"
-        exit 1
-    fi
-    TARGET_HOST=$(echo "$TARGET_URL" | sed -E 's/https?:\/\///' | cut -d':' -f1)
-else
-    TARGET_HOST="$DEFAULT_HOST"
-    if [ $NO_SSL -eq 1 ]; then
-        TARGET_URL="http://$TARGET_HOST"
-    else
-        TARGET_URL="https://$TARGET_HOST$SSL_PORT_SUFFIX"
-    fi
-fi
+
 
 # Check if target host resolves. If it doesn't, resolve mapped tomcat port and fall back to localhost
 if ! getent hosts "$TARGET_HOST" &>/dev/null && ! nslookup "$TARGET_HOST" &>/dev/null && ! ping -c 1 -W 1 "$TARGET_HOST" &>/dev/null; then
