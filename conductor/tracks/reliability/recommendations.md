@@ -2,7 +2,7 @@
 
 This document outlines strategic recommendations to address data mismatches and ensure the system is "rock solid" for production use.
 
-> **Status as of 2026-08-14**: Recommendations #1 and #2 below are now implemented (see `services/contractValidator.cjs`, `tests/contractValidator.test.cjs`, `tests/schemaAlignment.test.cjs`, `tests/contractCompliance.test.cjs` — all passing). #3 is substantially implemented via `utils/payload-cleaner.cjs`'s `deepCleanIds`. #4 and #5 remain open, tracked as GitHub issues [#485](https://github.com/peterrichards-lr/liferay-ai-commerce-accelerator/issues/485) and [#484](https://github.com/peterrichards-lr/liferay-ai-commerce-accelerator/issues/484) respectively.
+> **Status as of 2026-08-14**: Recommendations #1 and #2 below are now implemented (see `services/contractValidator.cjs`, `tests/contractValidator.test.cjs`, `tests/schemaAlignment.test.cjs`, `tests/contractCompliance.test.cjs` — all passing). #3 is substantially implemented via `utils/payload-cleaner.cjs`'s `deepCleanIds`. #4 and #5 are tracked upstream on the SDK repository as [liferay-accelerator-sdk#124](https://github.com/peterrichards-lr/liferay-accelerator-sdk/issues/124) and [liferay-accelerator-sdk#123](https://github.com/peterrichards-lr/liferay-accelerator-sdk/issues/123).
 
 ## The Core Problem: The Validation Gap
 
@@ -56,7 +56,7 @@ Currently, validation occurs in two disconnected silos:
 
 ---
 
-## 4. Enhanced Batch Failure Observability — 🔲 Open (tracked as [#485](https://github.com/peterrichards-lr/liferay-ai-commerce-accelerator/issues/485))
+## 4. Enhanced Batch Failure Observability — 🔲 Tracked Upstream ([liferay-accelerator-sdk#124](https://github.com/peterrichards-lr/liferay-accelerator-sdk/issues/124))
 
 **Recommendation**: Automatically correlate Liferay "Import Task" failures with the original source data and schema definitions.
 
@@ -69,7 +69,7 @@ Currently, validation occurs in two disconnected silos:
 
 ---
 
-## 5. GraphQL Query Integrity — 🔲 Open (tracked as [#484](https://github.com/peterrichards-lr/liferay-ai-commerce-accelerator/issues/484))
+## 5. GraphQL Query Integrity — 🔲 Tracked Upstream ([liferay-accelerator-sdk#123](https://github.com/peterrichards-lr/liferay-accelerator-sdk/issues/123))
 
 **Recommendation**: Validate all GraphQL queries in `liferay/graphql.cjs` against `liferay_schema.graphql`.
 
