@@ -57,12 +57,11 @@ Detailed architectural specifications are maintained in [`docs/architecture/`](d
 
 ## 4. Current Work State
 
-- **Active State**:
-  - Consolidated AI agent context into canonical `AGENTS.md` (PR [#478](https://github.com/peterrichards-lr/liferay-ai-commerce-accelerator/pull/478) raised).
-  - Evaluated LDM pre-release `v2.15.28-pre.1` and submitted feedback on remote `--node` compose bind paths (#1090), HTTP readiness probing (#1091), `ldm stop` warning formatting (#1092), and fragment DB fallback patcher (#1084).
-- **Immediate Next Steps**:
-  1. Await next LDM release addressing remote `--node` compose bind paths and HTTP readiness probes.
-  2. Integrate `--json` schema (`ldm status/list`) and exit code `5` into AICA E2E/CI test suites once available.
+Active, in-flight task state and intra-task scratchpad context are maintained locally in [`.agent-state.md`](./.agent-state.md) (gitignored).
+
+- **On Session Startup**: If [`.agent-state.md`](./.agent-state.md) exists, read it to discover active objectives and resume in-flight work without lost context across AI provider switches.
+- **During Execution**: Update [`.agent-state.md`](./.agent-state.md) when making progress, encountering blockers, or pausing a workflow.
+- **On Feature Completion**: Clear/reset [`.agent-state.md`](./.agent-state.md) once all objectives and DoD verifications are met.
 
 <!-- markdownlint-disable MD049 -->
 
