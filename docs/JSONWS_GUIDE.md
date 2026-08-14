@@ -109,7 +109,7 @@ Currently, the AI Commerce Accelerator does **not** rely on JSONWS. All data gen
 
 If you find a gap where a JSONWS call is needed:
 
-1. Document the requirement in `docs/todo.md`.
+1. Document the requirement by filing a GitHub issue describing the gap.
 2. Wrap the JSONWS call in a new method within `LiferayRestService` in the SDK.
 3. Add a comment explaining why a standard Headless API could not be used.
 
@@ -117,4 +117,4 @@ If you find a gap where a JSONWS call is needed:
 
 ---
 
-_Last Updated: 2026-07-08_ | _Last Reviewed: 2026-08-14_
+_Last Updated: 2026-08-14_ | _Last Reviewed: 2026-08-14_

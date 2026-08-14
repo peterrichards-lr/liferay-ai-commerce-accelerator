@@ -106,19 +106,19 @@ You can run tests for all components from the root:
 npm test
 ```
 
-The project implements an enforced testing strategy. The `deploy` task is dependent on `testAllCX`, meaning **client extensions will only be deployed if all tests pass**. We target a minimum of **40% statement coverage** across the SDK and microservice codebases.
+The project implements an enforced testing strategy. The `deploy` task is dependent on `testAllCX`, meaning **client extensions will only be deployed if all tests pass**. We target a minimum of **45% statement coverage** across the SDK and microservice codebases (`vitest.config.mjs`).
 
 ---
 
 ## 📦 Packaging (.ldmp)
 
-To package the entire AICA suite—including your active PostgreSQL database state, dynamic document uploads, and configuration files—into a single `.ldmp` bundle for distribution:
+To package the entire AICA suite—including your active PostgreSQL database state, dynamic document uploads, and configuration files—into a single `.ldmp` bundle for distribution, use LDM's own packaging command directly (the standalone `scripts/package-ldmp.sh` wrapper was removed — see `.github/workflows/package-ldmp.yml` for the CI invocation):
 
 ```bash
-./scripts/package-ldmp.sh
+ldm package aica-e2e --repo <your-github-repository> --host-name aica.demo --ssl -y
 ```
 
-This outputs `liferay-ai-commerce-accelerator.ldmp` and a SHA-256 checksum file.
+This outputs a `.ldmp` bundle and a SHA-256 checksum file.
 
 ---
 
@@ -126,7 +126,7 @@ This outputs `liferay-ai-commerce-accelerator.ldmp` and a SHA-256 checksum file.
 
 ### Node.js Versioning Constraint
 
-**Liferay's internal build process enforces Node.js 20.12.2**. Attempts to override this with newer Node.js versions via Gradle properties conflict with Liferay's build requirements. We utilize Vite `^8.0.10` and `@vitejs/plugin-react` `^6.0.1` to maintain compatibility with this older build environment. The microservice itself, running in Docker, is immune to this and uses modern Node.js.
+**Liferay's internal build process enforces Node.js 22.22.2** (pinned via `nodeVersion` in `build.gradle`). Attempts to override this with newer Node.js versions via Gradle properties conflict with Liferay's build requirements. The microservice itself, running in Docker, is immune to this and uses whatever modern Node.js version its own Dockerfile specifies.
 
 ### 401 Unauthorized Loop (Account Lockout)
 
@@ -145,4 +145,4 @@ During initial boot, you may see `OptimisticLockException` for `UserImpl`. This 
 
 ---
 
-_Last Updated: 2026-07-08_ | _Last Reviewed: 2026-08-14_
+_Last Updated: 2026-08-14_ | _Last Reviewed: 2026-08-14_

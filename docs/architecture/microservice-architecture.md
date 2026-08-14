@@ -20,7 +20,7 @@ To ensure architectural high-integrity and promote reusability across multiple a
 - **Components**:
   - **Data Generators**: Specialized logic (Product, Account, Order).
   - **AI Integration**: Prompt engineering and provider management.
-  - **Infrastructure**: Queue management (BullMQ) and WebSocket streaming.
+  - **Infrastructure**: Queue management (a self-contained `worker_threads`-based queue in `services/queueService.cjs` — not Redis-backed BullMQ) and WebSocket streaming.
 
 ---## Storage strategy
 

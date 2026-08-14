@@ -36,6 +36,17 @@ The base URL for MCP endpoints under the microservice is `/api/v1/mcp`.
 
 ---
 
+## Authentication (Required)
+
+Both endpoints are protected by `requireAdmin` (`middleware/authorizationMiddleware.cjs`) — since the MCP tools include destructive operations (`aica_teardown_all`, `aica_delete_session`), an authenticated request alone is not enough:
+
+1. The request must carry a valid Liferay JWT (`Authorization: Bearer <token>`), verified by the existing `userContextMiddleware`.
+2. The JWT's caller email must additionally appear in the **`AICA_ADMIN_EMAILS`** environment variable — a comma-separated allowlist configured on the microservice.
+
+Without a valid JWT you'll get `401`; if `AICA_ADMIN_EMAILS` isn't configured on the service at all, every request is denied with `503` (fails closed by design); if the caller's email isn't on the allowlist, `403`. The client integration examples below will need a valid Bearer token and a configured `AICA_ADMIN_EMAILS` on the service to work as written; they are shown without auth headers purely for brevity.
+
+---
+
 ## Available MCP Tools
 
 Once connected, AICA registers the following tools for the agent:
@@ -106,4 +117,4 @@ console.log('AICA status:', status.content[0].text);
 
 ---
 
-_Last Updated: 2026-07-08_ | _Last Reviewed: 2026-08-14_
+_Last Updated: 2026-08-14_ | _Last Reviewed: 2026-08-14_
