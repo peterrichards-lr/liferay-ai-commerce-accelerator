@@ -78,4 +78,6 @@ aica-e2e/
 
 # LDM Staging
 ldm_staging/
-gemini.md
+
+# AI Agent ephemeral scratchpad state
+.agent-state.md
