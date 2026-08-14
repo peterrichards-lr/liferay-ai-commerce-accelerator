@@ -7,5 +7,7 @@
 > **Do not duplicate context here.** Read and follow `AGENTS.md` instead. This keeps the project AI-provider agnostic and avoids maintaining state in multiple locations.
 
 <!-- markdownlint-disable MD049 -->
+
 ---
-*Last Updated: 2026-08-14* | *Last Reviewed: 2026-08-14*
+
+_Last Updated: 2026-08-14_ | _Last Reviewed: 2026-08-14_
