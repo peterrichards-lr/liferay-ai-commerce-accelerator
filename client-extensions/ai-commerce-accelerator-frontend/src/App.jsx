@@ -269,7 +269,7 @@ function AppUI() {
     } else {
       setTimeout(() => setIsCheckingConnection(false), 0);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- intentionally runs only once on mount to perform initial reconnect probe
   }, []);
 
   const handleResetStatus = useCallback(() => {
@@ -427,8 +427,7 @@ function AppUI() {
         // Silently fail
       }
     })();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [connectionEstablished, api]);
+  }, [connectionEstablished, api, fetchCategories]);
 
   const clearBatchErrors = useCallback(() => {
     setBatchErrors([]);
