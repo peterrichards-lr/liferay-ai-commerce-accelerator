@@ -66,3 +66,9 @@ Liferay evaluates batch payloads recursively. If a single payload contains neste
 - **The Pattern**: Aggressively deduplicate nested properties (e.g., using a `Set` on `minimumQuantity`) in memory _before_ assembling the Liferay DTO.
 
 ---
+
+<!-- markdownlint-disable MD049 -->
+
+---
+
+_Last Updated: 2026-08-14_ | _Last Reviewed: 2026-08-14_

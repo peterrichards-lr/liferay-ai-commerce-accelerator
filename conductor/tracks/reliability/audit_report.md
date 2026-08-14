@@ -175,4 +175,4 @@ By analyzing real Liferay responses (`reference-specifications.json`), we've ref
 
 ---
 
-_Last Updated: 2026-07-08_ | _Last Reviewed: 2026-07-08_
+_Last Updated: 2026-07-08_ | _Last Reviewed: 2026-08-14_

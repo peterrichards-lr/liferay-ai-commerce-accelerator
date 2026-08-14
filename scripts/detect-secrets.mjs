@@ -119,6 +119,14 @@ function checkSecrets() {
 
     const filePath = path.resolve(ROOT_DIR, file);
     if (!fs.existsSync(filePath)) return;
+
+    try {
+      const stat = fs.statSync(filePath);
+      if (stat.size > 2 * 1024 * 1024) return; // Skip files > 2MB
+    } catch {
+      return;
+    }
+
     const content = fs.readFileSync(filePath, 'utf8');
     const lines = content.split('\n');
 

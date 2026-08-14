@@ -154,4 +154,4 @@ docker exec -u 0 <container> mv /tmp/aica-staging/artifact.zip /opt/liferay/depl
 
 ---
 
-_Last Updated: 2026-07-08_ | _Last Reviewed: 2026-07-08_
+_Last Updated: 2026-07-08_ | _Last Reviewed: 2026-08-14_

@@ -39,3 +39,9 @@ coupling
 
 This specification is intended to be used as **AI context** when
 building or refactoring the system.
+
+<!-- markdownlint-disable MD049 -->
+
+---
+
+_Last Updated: 2026-08-14_ | _Last Reviewed: 2026-08-14_

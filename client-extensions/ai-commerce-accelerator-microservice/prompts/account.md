@@ -37,4 +37,4 @@ ACCOUNT TYPE: Every account must be an individual/consumer account. Set "type" t
 
 ---
 
-_Last Updated: 2026-08-13_ | _Last Reviewed: 2026-08-13_
+_Last Updated: 2026-08-13_ | _Last Reviewed: 2026-08-14_

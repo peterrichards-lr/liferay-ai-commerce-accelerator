@@ -5,7 +5,7 @@ import sys
 from pathlib import Path
 from datetime import datetime
 
-IGNORE_DIRS = {'.venv', 'node_modules', '.smoke_venv', '.git', 'build', 'dist', '.agents', 'bundles', 'aica-e2e', 'test-pkg', 'test-project', 'test_tar', 'test-results', 'e2e-logs'}
+IGNORE_DIRS = {'.venv', 'node_modules', '.smoke_venv', '.git', 'build', 'dist', '.agents', 'bundles', 'aica-e2e', 'test-pkg', 'test-project', 'test_tar', 'test-results', 'e2e-logs', 'playwright-report'}
 FOOTER_REGEX = re.compile(r"[\*_]Last Updated: ([\d\-]+)[\*_] \| [\*_]Last Reviewed: ([\d\-]+)[\*_]")
 
 def check_docs_review(root_dir, max_review_days, max_update_days, max_gap_days):
@@ -15,6 +15,8 @@ def check_docs_review(root_dir, max_review_days, max_update_days, max_gap_days):
     root_path = Path(root_dir)
     for md_file in root_path.rglob('*.md'):
         if any(ignored in md_file.parts for ignored in IGNORE_DIRS):
+            continue
+        if any(part.startswith('aica-e2e') for part in md_file.parts):
             continue
             
         try:
