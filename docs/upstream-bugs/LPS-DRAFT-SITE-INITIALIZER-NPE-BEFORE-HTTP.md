@@ -57,4 +57,4 @@ In environments (like CI/CD or Liferay Docker Manager scripts), we must delay th
 
 ---
 
-_Last Updated: 2026-07-08_ | _Last Reviewed: 2026-07-08_
+_Last Updated: 2026-07-08_ | _Last Reviewed: 2026-08-14_

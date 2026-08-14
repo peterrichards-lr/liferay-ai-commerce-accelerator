@@ -58,3 +58,9 @@ To ensure exact color parity between the DXP Stylebook and browser-rendered form
 - **Spacing & Alignment**: Custom checkboxes (W3C pattern) should use `display: flex`, `align-items: flex-start`, and a minimum `gap: 1.5rem` to ensure high-end spacing and perfect vertical alignment with multi-line labels.
 
 ---
+
+<!-- markdownlint-disable MD049 -->
+
+---
+
+_Last Updated: 2026-08-14_ | _Last Reviewed: 2026-08-14_
