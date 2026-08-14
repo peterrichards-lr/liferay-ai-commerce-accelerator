@@ -57,11 +57,12 @@ Detailed architectural specifications are maintained in [`docs/architecture/`](d
 
 ## 4. Current Work State
 
-- **Active Task**: Consolidating AI agent context files into a provider-agnostic structure with a canonical `AGENTS.md`.
+- **Active State**:
+  - Consolidated AI agent context into canonical `AGENTS.md` (PR [#478](https://github.com/peterrichards-lr/liferay-ai-commerce-accelerator/pull/478) raised).
+  - Evaluated LDM pre-release `v2.15.28-pre.1` and submitted feedback on remote `--node` compose bind paths (#1090), HTTP readiness probing (#1091), `ldm stop` warning formatting (#1092), and fragment DB fallback patcher (#1084).
 - **Immediate Next Steps**:
-  1. Configure thin redirect stubs (`gemini.md`, `CLAUDE.md`, `.cursorrules`, `.windsurfrules`).
-  2. Remove redundant `.agents/AGENTS.md`.
-  3. Validate markdown links and timestamp footers.
+  1. Await next LDM release addressing remote `--node` compose bind paths and HTTP readiness probes.
+  2. Integrate `--json` schema (`ldm status/list`) and exit code `5` into AICA E2E/CI test suites once available.
 
 <!-- markdownlint-disable MD049 -->
 
