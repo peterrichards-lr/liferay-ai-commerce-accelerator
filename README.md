@@ -83,10 +83,10 @@ _Configure AI provider keys, API endpoints, and DXP connectivity parameters dyna
 - **Intelligent Orchestration**: A stateful microservice manages complex entity dependencies, ensuring 100% data integrity even across server restarts.
 - **Zero-Cost Mock AI Sandbox**: Develop E2E workflows at exactly $0.00 cost by using `GEMINI_API_KEY="mock-sandbox"`.
 - **Pre-flight Token Safety Guardrail**: Integrates a local, zero-dependency token count estimator that blocks oversized requests (>15,000 tokens) from draining your billing quotas.
-- **Provider Agnostic**: Switch between OpenAI, Google Gemini, and Anthropic Claude with zero code changes.
+- **Provider Agnostic**: Switch between OpenAI and Google Gemini with zero code changes (Anthropic Claude support is scaffolded but not yet implemented — see [#482](https://github.com/peterrichards-lr/liferay-ai-commerce-accelerator/issues/482)).
 
 <!-- markdownlint-disable MD049 -->
 
 ---
 
-_Last Updated: 2026-07-08_ | _Last Reviewed: 2026-08-14_
+_Last Updated: 2026-08-14_ | _Last Reviewed: 2026-08-14_

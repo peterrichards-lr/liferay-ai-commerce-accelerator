@@ -20,7 +20,9 @@ export default function AiSettingsPanel({
   const textProviders = [
     { label: 'OpenAI (GPT)', value: 'openai' },
     { label: 'Google Gemini', value: 'gemini' },
-    { label: 'Anthropic Claude', value: 'anthropic' },
+    // Anthropic Claude is scaffolded (ANTHROPIC_API_KEY in .env.example) but
+    // not yet implemented in providerFactory.cjs -- selecting it throws at
+    // runtime. Re-add once a real anthropicProvider.cjs exists. See #482.
   ];
 
   const mediaProviders = [

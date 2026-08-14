@@ -17,11 +17,11 @@ The project is a multi-module Liferay Workspace using a headless-first architect
 - **Responsibilities**: Workflow execution, AI integration (multi-provider), Liferay Headless API coordination, and real-time state broadcasting via WebSockets.
 - **AI Integration**: Support for multiple providers including OpenAI (GPT) and Google Gemini via a unified driver architecture.
 - **Core Directories**:
-  - `generators/`: Defines the business logic and step sequences for entity creation/deletion (e.g., `ProductGenerator.cjs`).
-  - `services/`: Core logic providers like `BatchCallbackService.cjs` (state machine), `LiferayService` (API facade), and `PersistenceService.cjs` (SQLite manager).
+  - `generators/`: Defines the business logic and step sequences for entity creation/deletion (e.g., `productGenerator.cjs`).
+  - `services/`: Core logic providers like `persistenceService.cjs` (SQLite manager), `liferay/` (API facade), and `services/batch/callback.cjs` (a thin re-export of `BatchCallbackService` — the state-machine logic itself now lives in the external `@liferay/accelerator-sdk` package, not this repo).
   - `routes/`: Express endpoints for initiating workflows and receiving Liferay batch callbacks.
   - `utils/`: Shared constants (`constants.cjs`) and API path helpers (`liferayPaths.cjs`).
-  - `data/`: Location of `workflows.json` (SQLite database).
+  - `data/`: Location of `aica.db` (SQLite database).
 - **Stack**: Node.js (Express), SQLite (better-sqlite3).
 - **Testing**: Vitest with MSW (Mock Service Worker) for Liferay API isolation.
 
@@ -34,7 +34,7 @@ The project is a multi-module Liferay Workspace using a headless-first architect
   - `src/components/`: Modular UI elements like `ProgressBar`, `StatusIndicator`, and `ControlPanel`.
   - `src/hooks/`: Custom React hooks for WebSocket communication (`useRealtimeWebSocket`), session management, and configuration IO (`useAppConfigIO`).
   - `src/state/`: Centralized state management using `progressReducer`.
-- **Integration**: Embedded into Liferay via the `fragments/` wrapper.
+- **Integration**: Embedded into Liferay via the site initializer's `fragments/` wrapper (see §3).
 - **Stack**: React, Vite.
 - **Testing**: Vitest + React Testing Library + MSW for microservice API mocking.
 
@@ -53,7 +53,7 @@ The project is a multi-module Liferay Workspace using a headless-first architect
 - **Responsibilities**: Defining the Liferay Object folders, definitions, and entries required for the system's own configuration and auditing.
 - **Key Files**: `batch/*.json` (Batch Engine descriptors for system entities).
 
-### 🏗️ Site Initializer Subsystem (`ai-commerce-accelerator-site-initialiser`)
+### 🏗️ Site Initializer Subsystem (`ai-commerce-accelerator-site-initializer`)
 
 **Role**: Environment bootstrapping.
 
@@ -63,14 +63,13 @@ The project is a multi-module Liferay Workspace using a headless-first architect
 
 ## 3. Shared Resources
 
-### `/fragments`
+### Fragments (`ai-commerce-accelerator-site-initializer/site-initializer/fragments`)
 
-- **Fragment Wrapper**: A Liferay Page Fragment that hosts the Frontend UI, ensuring CSS/JS scoping and Liferay theme compatibility.
+- **Fragment Wrapper**: A Liferay Page Fragment that hosts the Frontend UI, ensuring CSS/JS scoping and Liferay theme compatibility. Nested under the site initializer subsystem, not a top-level directory.
 
-### Schemas (`/api-schemas` & `/generation-schemas`)
+### Schemas (`generation-schemas/`)
 
-- **`api-schemas/`**: Authoritative OpenAPI and GraphQL definitions from Liferay, used for request validation and SDK generation.
-- **`generation-schemas/`**: JSON schemas that define the data contract between AI models and the microservice generators.
+- **`ai-commerce-accelerator-microservice/generation-schemas/`**: JSON schemas that define the data contract between AI models and the microservice generators, nested under the microservice subsystem, not a top-level directory. Authoritative OpenAPI/GraphQL definitions from Liferay now live in the external `@liferay/accelerator-sdk` package rather than a repo-local `api-schemas/` directory.
 
 ---
 
@@ -150,4 +149,4 @@ Any change to the event emission logic in `ProgressService.cjs` (Server) MUST be
 
 ---
 
-_Last Updated: 2026-07-08_ | _Last Reviewed: 2026-08-14_
+_Last Updated: 2026-08-14_ | _Last Reviewed: 2026-08-14_

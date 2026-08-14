@@ -39,7 +39,7 @@ While AICA can make _outbound_ API calls from your laptop to Liferay SaaS to see
 
 To enable full bi-directional integration where Liferay SaaS can securely route traffic to your local development environment, you **MUST** utilize [`lfr-tunnel`](https://github.com/peterrichards-lr/lfr-tunnel).
 
-`lfr-tunnel` acts as a secure, public proxy that exposes your local `localhost:3000` (Frontend) and `localhost:3001` (Microservice) ports to public internet URLs (e.g., `https://my-aica-api.lfr.cool`) that Liferay SaaS can resolve.
+`lfr-tunnel` acts as a secure, public proxy that exposes your local `localhost:5173` (Frontend) and `localhost:3001` (Microservice) ports to public internet URLs (e.g., `https://my-aica-api.lfr.cool`) that Liferay SaaS can resolve.
 
 ### Activating the Tunnel
 
@@ -79,7 +79,7 @@ If you don't have Docker installed, you can boot the Node.js services directly o
 ```bash
 # 1. Start the Microservice (in one terminal tab)
 cd client-extensions/ai-commerce-accelerator-microservice
-npm run dev
+npm start
 
 # 2. Start the React Frontend (in a second terminal tab)
 cd ../ai-commerce-accelerator-frontend
@@ -90,7 +90,7 @@ npm run dev
 
 ## Step 4: Connect and Seed the SaaS Storefront
 
-Once your local dashboard is loaded in your browser (`http://aica.local` or `http://localhost:3000`):
+Once your local dashboard is loaded in your browser (`http://aica.local` or `http://localhost:5173`, the Vite dev server default — the microservice itself runs on `:3001`):
 
 1. **Enter Connection Details:** In the **Connection & Authentication** card, enter:
    - **Liferay URL:** The full HTTPS URL of your SaaS instance (e.g., `https://my-saas-store.liferay.cloud`).
@@ -120,4 +120,4 @@ Once your local dashboard is loaded in your browser (`http://aica.local` or `htt
 
 ---
 
-_Last Updated: 2026-07-08_ | _Last Reviewed: 2026-08-14_
+_Last Updated: 2026-08-14_ | _Last Reviewed: 2026-08-14_

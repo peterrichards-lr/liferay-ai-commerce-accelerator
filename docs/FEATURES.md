@@ -32,7 +32,7 @@ The **Dashboard** provides granular feedback on every generation session.
 
 Everything is manageable via the **AI Commerce Accelerator Configuration** UI.
 
-- **Provider Agnosticism**: Switch between OpenAI, Google Gemini, and Anthropic for text generation.
+- **Provider Agnosticism**: Switch between OpenAI and Google Gemini for text generation (Anthropic support is scaffolded but not yet implemented — see [#482](https://github.com/peterrichards-lr/liferay-ai-commerce-accelerator/issues/482)).
 - **Dedicated Media Keys**: Configure separate credentials for image generation (e.g., Nano Banana).
 - **Custom Prompts & Schemas**: Tailor the AI's output by editing the templates directly in the browser with a built-in CodeMirror editor.
 - **Exclude Lists**: Protect system data by specifying items that should never be modified or deleted.
@@ -69,4 +69,4 @@ A dedicated **Admin Dashboard** provides high-level oversight and diagnostic too
 
 ---
 
-_Last Updated: 2026-07-08_ | _Last Reviewed: 2026-08-14_
+_Last Updated: 2026-08-14_ | _Last Reviewed: 2026-08-14_

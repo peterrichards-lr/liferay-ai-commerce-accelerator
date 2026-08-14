@@ -2,6 +2,8 @@
 
 This document outlines strategic recommendations to address data mismatches and ensure the system is "rock solid" for production use.
 
+> **Status as of 2026-08-14**: Recommendations #1 and #2 below are now implemented (see `services/contractValidator.cjs`, `tests/contractValidator.test.cjs`, `tests/schemaAlignment.test.cjs`, `tests/contractCompliance.test.cjs` — all passing). #3 is substantially implemented via `utils/payload-cleaner.cjs`'s `deepCleanIds`. #4 and #5 remain open, tracked as GitHub issues [#485](https://github.com/peterrichards-lr/liferay-ai-commerce-accelerator/issues/485) and [#484](https://github.com/peterrichards-lr/liferay-ai-commerce-accelerator/issues/484) respectively.
+
 ## The Core Problem: The Validation Gap
 
 Currently, validation occurs in two disconnected silos:
@@ -13,7 +15,7 @@ Currently, validation occurs in two disconnected silos:
 
 ---
 
-## 1. Implement Authoritative Contract Validation
+## 1. Implement Authoritative Contract Validation — ✅ Implemented
 
 **Recommendation**: Every outbound request to Liferay must be validated against the `api-schemas/` specs at runtime (in development/test) and during unit tests.
 
@@ -29,7 +31,7 @@ Currently, validation occurs in two disconnected silos:
 
 ---
 
-## 2. Automate Schema Alignment (Drift Detection)
+## 2. Automate Schema Alignment (Drift Detection) — ✅ Implemented
 
 **Recommendation**: Ensure `generation-schemas` are always a valid subset of the Liferay `api-schemas`.
 
@@ -43,7 +45,7 @@ Currently, validation occurs in two disconnected silos:
 
 ---
 
-## 3. Centralized Payload Normalization
+## 3. Centralized Payload Normalization — ✅ Substantially implemented
 
 **Recommendation**: Move away from manual object construction in every generator step.
 
@@ -54,7 +56,7 @@ Currently, validation occurs in two disconnected silos:
 
 ---
 
-## 4. Enhanced Batch Failure Observability
+## 4. Enhanced Batch Failure Observability — 🔲 Open (tracked as [#485](https://github.com/peterrichards-lr/liferay-ai-commerce-accelerator/issues/485))
 
 **Recommendation**: Automatically correlate Liferay "Import Task" failures with the original source data and schema definitions.
 
@@ -67,7 +69,7 @@ Currently, validation occurs in two disconnected silos:
 
 ---
 
-## 5. GraphQL Query Integrity
+## 5. GraphQL Query Integrity — 🔲 Open (tracked as [#484](https://github.com/peterrichards-lr/liferay-ai-commerce-accelerator/issues/484))
 
 **Recommendation**: Validate all GraphQL queries in `liferay/graphql.cjs` against `liferay_schema.graphql`.
 
@@ -80,7 +82,7 @@ Currently, validation occurs in two disconnected silos:
 ## Identified Contradictions & Risks
 
 1.  **`productType` Constraint**: `gemini.md` states `productType: 'simple'` is mandatory for creation, but OpenAPI implies other values might be possible. The code currently follows the mandatory 'simple' rule, which is correct based on experience but contradictory to a "pure" schema-driven approach.
-2.  **`title` vs `label`**: In `ProductSpecification`, the generator uses `title`, while OpenAPI says `label`. This is a confirmed mismatch that needs resolution.
+2.  **`title` vs `label`**: ~~In `ProductSpecification`, the generator uses `title`, while OpenAPI says `label`. This is a confirmed mismatch that needs resolution.~~ Re-checked 2026-08-14: `generators/product-steps/specifications.cjs` correctly uses `title` for the Specification Definition entity (line ~143) and `label` for the nested ProductSpecificationValue entity (line ~162) — these are two distinct Liferay entities with genuinely different field names, not a mismatch. `schemaAlignment.test.cjs` passes for `product.json`, which covers this. No longer believed to be an open issue.
 3.  **ERC Priority**: The system is inconsistent in prioritizing numeric IDs over ERCs. Some steps use one, some the other. We need a strict "Numeric ID First" policy once IDs are resolved.
 
 ## Conclusion
@@ -91,4 +93,4 @@ The project has a strong architectural foundation. By bridging the gap between "
 
 ---
 
-_Last Updated: 2026-07-08_ | _Last Reviewed: 2026-08-14_
+_Last Updated: 2026-08-14_ | _Last Reviewed: 2026-08-14_
