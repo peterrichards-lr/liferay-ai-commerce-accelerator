@@ -815,7 +815,11 @@ class ConfigService {
     const logger = this.logger;
 
     // Resolve Core Key & Provider
-    // Priority: AI_API_KEY > OPENAI_API_KEY > GEMINI_API_KEY > ANTHROPIC_API_KEY
+    // Priority: AI_API_KEY > OPENAI_API_KEY > GEMINI_API_KEY
+    // NOTE: ANTHROPIC_API_KEY is intentionally not auto-detected here --
+    // providerFactory.cjs has no working 'anthropic' provider yet, so
+    // auto-selecting it would guarantee a runtime "Unsupported AI provider"
+    // failure on the very next generation call. See #482.
     let coreApiKey = lookupConfig('AI_API_KEY');
     let detectedProvider = null;
 
@@ -826,9 +830,6 @@ class ConfigService {
       } else if (lookupConfig('GEMINI_API_KEY')) {
         coreApiKey = lookupConfig('GEMINI_API_KEY');
         detectedProvider = 'gemini';
-      } else if (lookupConfig('ANTHROPIC_API_KEY')) {
-        coreApiKey = lookupConfig('ANTHROPIC_API_KEY');
-        detectedProvider = 'anthropic';
       }
     }
 
@@ -872,9 +873,7 @@ class ConfigService {
             defaultModel:
               detectedProvider === 'openai'
                 ? 'gpt-4o-mini'
-                : detectedProvider === 'gemini'
-                  ? 'gemini-1.5-flash'
-                  : 'claude-3-haiku',
+                : 'gemini-1.5-flash',
             temperature: 0.7,
             maxTokens: 4000,
             requestTimeoutMs: 60000,

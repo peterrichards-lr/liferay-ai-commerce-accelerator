@@ -24,9 +24,9 @@ To ensure scalability and reusability, the Liferay integration logic is isolated
 
 ## Data Generation Workflow
 
-At its core, the system is a state machine orchestrated by `batchCallbackService.cjs`.
+At its core, the system is a state machine orchestrated by `BatchCallbackService` — the state-machine logic itself now lives in the external `@liferay/accelerator-sdk` package; this repo's `services/batch/callback.cjs` is a thin re-export.
 
-- **Stateful Workflow Engine**: Uses a local **SQLite** database (`workflows.db`) to track the state of every generation job. This makes the process resilient to server restarts.
+- **Stateful Workflow Engine**: Uses a local **SQLite** database (`data/aica.db`) to track the state of every generation job. This makes the process resilient to server restarts.
 - **Asynchronous Batch Processing**: Designed around the limitations of Liferay's Headless Batch APIs.
   1.  **Stateless Callbacks**: Liferay's batch engine callback does not contain context about the original request.
   2.  **`batchERC` for Correlation**: The microservice generates a unique identifier (`batchERC`) for each batch. This ERC is appended to the callback URL.
@@ -70,7 +70,7 @@ The microservice and frontend communicate using a hierarchical **Scope/Status** 
 
 ### Critical Sync Rule
 
-Any change to the event emission logic in `ProgressService.cjs` MUST be matched by a corresponding update in the frontend `progressReducer.js`.
+Any change to the event emission logic in `progressService.cjs` MUST be matched by a corresponding update in the frontend `progressReducer.js`.
 
 ## Elasticsearch Indexing Latency and Client-Side Resilience
 
@@ -220,4 +220,4 @@ flowchart LR
 
 ---
 
-_Last Updated: 2026-07-09_ | _Last Reviewed: 2026-08-14_
+_Last Updated: 2026-08-14_ | _Last Reviewed: 2026-08-14_

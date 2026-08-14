@@ -86,10 +86,12 @@ The discrepancies confirm why the system is "fragile". The generators are perfor
 
 **Immediate Actions:**
 
-1.  Update `ProductGenerator` to map `value` -> `label` for specifications.
-2.  Update `ProductGenerator` to map `productOptionValues` (strings) to `ProductOptionValue` objects.
-3.  Update `WarehouseGenerator` to map address fields to Liferay-specific names.
-4.  Implement `ContractValidator` in `rest.cjs` to catch these at runtime.
+1.  ~~Update `ProductGenerator` to map `value` -> `label` for specifications.~~ ✅ Done (`generators/product-steps/specifications.cjs`).
+2.  ~~Update `ProductGenerator` to map `productOptionValues` (strings) to `ProductOptionValue` objects.~~ ✅ Done (`generators/product-steps/skus.cjs`, `specifications.cjs`).
+3.  ~~Update `WarehouseGenerator` to map address fields to Liferay-specific names.~~ ✅ Done (`generators/warehouseGenerator.cjs` maps to `countryISOCode`/`regionISOCode`).
+4.  ~~Implement `ContractValidator` in `rest.cjs` to catch these at runtime.~~ ✅ Done (`services/contractValidator.cjs`).
+
+_All four action items above were re-verified as implemented on 2026-08-14; this action plan is now historical._
 
 ## API Field Requirement Discrepancies
 
@@ -175,4 +177,4 @@ By analyzing real Liferay responses (`reference-specifications.json`), we've ref
 
 ---
 
-_Last Updated: 2026-07-08_ | _Last Reviewed: 2026-08-14_
+_Last Updated: 2026-08-14_ | _Last Reviewed: 2026-08-14_

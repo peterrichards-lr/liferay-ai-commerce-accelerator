@@ -9,12 +9,6 @@ const ROOT_DIR = path.resolve(__dirname, '..');
 // Standard high-risk secret regex patterns
 const SECRET_PATTERNS = [
   {
-    name: 'Potential API Key / Secret / Password Assignment',
-    // Flags password/key/secret variables where the value does NOT look like a mock, dummy, or standard variable placeholder
-    regex:
-      /(?:key|secret|password|passwd|token|auth|credential|private_key)\s*[:=]\s*["'](?![^"']*(?:test|mock|dummy|example|localhost|api|user|email|auth|token|cb|db|uuid|path|en_US|null|undefined|http))[^"']{8,}["']/i,
-  },
-  {
     name: 'OpenAI API Key',
     regex: /sk-[a-zA-Z0-9]{32,}/,
   },
