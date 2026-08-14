@@ -8,7 +8,7 @@ export default function GlobalDisclaimer({
   const [dismissed, setDismissed] = useState(false);
   useEffect(() => {
     try {
-      // eslint-disable-next-line react-hooks/set-state-in-effect
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- sync dismissal state from localStorage on component mount
       setDismissed(localStorage.getItem(localStorageKey) === '1');
     } catch {
       // Ignore storage errors

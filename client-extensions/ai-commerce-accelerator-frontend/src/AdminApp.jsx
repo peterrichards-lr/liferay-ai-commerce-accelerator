@@ -90,7 +90,7 @@ function AdminUI() {
   }, [api, config.microserviceUrl]);
 
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- fetch initial dashboard data on component mount or config update
     fetchData();
   }, [fetchData]);
 
@@ -158,7 +158,7 @@ function AdminUI() {
 
   useEffect(() => {
     // Reset to first page when filters change
-    // eslint-disable-next-line react-hooks/set-state-in-effect
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- reset pagination page index to 1 when filters or page size change
     setCurrentPage(1);
   }, [filters, pageSize]);
 

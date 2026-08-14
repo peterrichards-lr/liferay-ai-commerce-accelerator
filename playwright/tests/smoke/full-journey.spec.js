@@ -19,42 +19,37 @@ test.describe('AI Commerce Accelerator Foundations', () => {
   });
 
   test('can access configuration UI', async ({ page }) => {
-    // Assuming standard Liferay navigation to the Configuration CX
-    // This is a placeholder for the actual navigation path in a live instance
+    // Navigate to Instance Settings portlet
     await page.goto(
       '/group/control_panel/manage?p_p_id=com_liferay_configuration_admin_web_portlet_InstanceSettingsPortlet'
     );
 
-    // Verify the accelerator section exists (placeholder selector)
-    const acceleratorLink = page.locator('text="AI Commerce Accelerator"');
-    if (await acceleratorLink.isVisible()) {
-      await acceleratorLink.click();
-      await expect(page).toHaveURL(/ai-commerce-accelerator/);
-    }
+    // Verify the accelerator section link exists and is clickable
+    const acceleratorLink = page.getByRole('link', {
+      name: /AI Commerce Accelerator/i,
+    });
+    await expect(acceleratorLink).toBeVisible({ timeout: 10000 });
+    await acceleratorLink.click();
+    await expect(page).toHaveURL(/ai-commerce-accelerator/);
   });
 
   test('frontend extension renders generator status', async ({ page }) => {
     // Direct navigation to the page containing the Frontend CX fragment
     await page.goto('/web/guest/ai-generator');
 
-    // Verify specific high-fidelity components from the spec
-    await expect(page.locator('.generator-status-card'))
-      .toBeVisible({ timeout: 5000 })
-      .catch(() => {
-        console.log(
-          'Generator status card not found. Ensure fragment is deployed.'
-        );
-      });
+    // Verify generator status component is visible on page
+    await expect(page.locator('.generator-status-card')).toBeVisible({
+      timeout: 10000,
+    });
   });
 
   test('microservice connectivity check', async ({ page }) => {
-    // Check if the microservice is reachable via the frontend proxy or direct URL
+    // Check if the microservice health endpoint is reachable and UP
     const response = await page.request.get(
       '/o/ai-commerce-accelerator-microservice/api/v1/health'
     );
-    if (response.ok()) {
-      const body = await response.json();
-      expect(body.status).toBe('UP');
-    }
+    expect(response.ok()).toBeTruthy();
+    const body = await response.json();
+    expect(body.status).toBe('UP');
   });
 });

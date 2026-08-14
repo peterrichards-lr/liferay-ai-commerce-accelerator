@@ -85,7 +85,7 @@ export default function QueueConfigPanel() {
       found.push('Default max retries cannot be negative.');
     if (!Number.isFinite(defaults.retryDelay) || defaults.retryDelay < 0)
       found.push('Default retry delay must be positive.');
-    // eslint-disable-next-line react-hooks/set-state-in-effect
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- validate form values and sync issues list whenever form state changes
     setIssues(found);
   }, [values]);
 
