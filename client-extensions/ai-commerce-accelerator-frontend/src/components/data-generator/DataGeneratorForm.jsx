@@ -57,9 +57,12 @@ function DataGeneratorForm({
   const maxAccounts = generationLimits?.maxAccounts || 50;
   const maxOrders = generationLimits?.maxOrders || 200;
 
-  const handleConfigChange = (field, value) => {
-    setGenerationConfig((prev) => ({ ...prev, [field]: value }));
-  };
+  const handleConfigChange = useCallback(
+    (field, value) => {
+      setGenerationConfig((prev) => ({ ...prev, [field]: value }));
+    },
+    [setGenerationConfig]
+  );
 
   const handleCategoryChange = (category, checked) => {
     setGenerationConfig((prev) => ({
@@ -141,8 +144,7 @@ function DataGeneratorForm({
     if (!aiKeyAvailable && !generationConfig.demoMode) {
       handleConfigChange('demoMode', true);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [aiKeyAvailable, generationConfig.demoMode]);
+  }, [aiKeyAvailable, generationConfig.demoMode, handleConfigChange]);
 
   return (
     <CollapsiblePanel
