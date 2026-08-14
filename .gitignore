@@ -52,6 +52,23 @@ aica-dataset-*.json
 
 # Local Sandbox and LDM Containers
 /aica/
+/aica-e2e*/
+/.ldm_temp/
+/.liferay-docker/
+/.liferay-docker.deployed
+/.progress-signal
+/docker-compose.yml
+/files/
+/osgi/
+
+# Local SQLite Database Files
+*.db
+*.db-shm
+*.db-wal
+**/data/*.db
+
+# Ephemeral AI Agent Intra-Task Scratchpad
+.agent-state.md
 
 # Client Extension Build ZIP Binaries
 /client-extensions/**/*.zip
