@@ -68,16 +68,4 @@ debug-sites.js
 test-axios.js
 test-env.js
 
-# E2E Automation Signals and SQLite Database Files
-.progress-signal
-.process-signal
-*.db
-*.db-journal
-client-extensions/ai-commerce-accelerator-microservice/data/*.db
-aica-e2e/
 
-# LDM Staging
-ldm_staging/
-
-# AI Agent ephemeral scratchpad state
-.agent-state.md

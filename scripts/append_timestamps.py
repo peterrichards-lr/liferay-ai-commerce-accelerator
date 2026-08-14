@@ -1,9 +1,10 @@
 import os
 import re
+import argparse
 from pathlib import Path
 from datetime import datetime
 
-IGNORE_DIRS = {'.venv', 'node_modules', '.smoke_venv', '.git', 'build', 'dist', '.agents', 'bundles', 'aica-e2e', 'test-pkg', 'test-project', 'test_tar', 'test-results', 'e2e-logs'}
+IGNORE_DIRS = {'.venv', 'node_modules', '.smoke_venv', '.git', 'build', 'dist', '.agents', 'bundles', 'aica-e2e', 'test-pkg', 'test-project', 'test_tar', 'test-results', 'e2e-logs', 'playwright-report'}
 
 # Regex to parse the dates from any variant of the footer pattern
 FOOTER_REGEX = re.compile(
@@ -20,12 +21,14 @@ REMOVE_REGEX = re.compile(
 def get_standard_footer(updated_date, reviewed_date):
     return f"\n\n<!-- markdownlint-disable MD049 -->\n\n---\n\n_Last Updated: {updated_date}_ | _Last Reviewed: {reviewed_date}_\n"
 
-def append_timestamps_to_md_files(root_dir):
+def append_timestamps_to_md_files(root_dir, touch_reviewed=False):
     today = datetime.now().strftime("%Y-%m-%d")
     root_path = Path(root_dir)
     
     for md_file in root_path.rglob('*.md'):
         if any(ignored in md_file.parts for ignored in IGNORE_DIRS):
+            continue
+        if any(part.startswith('aica-e2e') for part in md_file.parts):
             continue
             
         try:
@@ -49,7 +52,7 @@ def append_timestamps_to_md_files(root_dir):
                     reviewed_dates.append(r)
                 
                 latest_updated = max(updated_dates)
-                latest_reviewed = max(reviewed_dates)
+                latest_reviewed = today if touch_reviewed else max(reviewed_dates)
                 
                 # Strip all footer blocks from the content using the removal regex
                 cleaned_content = REMOVE_REGEX.sub("", content).rstrip()
@@ -71,4 +74,8 @@ def append_timestamps_to_md_files(root_dir):
             print(f"Failed to process {md_file}: {e}")
 
 if __name__ == "__main__":
-    append_timestamps_to_md_files('.')
+    parser = argparse.ArgumentParser(description="Append or update documentation timestamps")
+    parser.add_argument('--dir', type=str, default='.', help='Directory to scan')
+    parser.add_argument('--touch-reviewed', action='store_true', help='Update reviewed date to today')
+    args = parser.parse_args()
+    append_timestamps_to_md_files(args.dir, touch_reviewed=args.touch_reviewed)

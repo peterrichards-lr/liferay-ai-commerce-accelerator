@@ -80,4 +80,4 @@ Feedback can be directed to the official [Contributor Covenant FAQ][faq].
 
 ---
 
-_Last Updated: 2026-07-08_ | _Last Reviewed: 2026-07-08_
+_Last Updated: 2026-07-08_ | _Last Reviewed: 2026-08-14_
