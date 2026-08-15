@@ -70,11 +70,11 @@ In `client-extensions/ai-commerce-accelerator-microservice/package.json`:
 
 ```json
 "dependencies": {
-  "@liferay/accelerator-sdk": "git+https://github.com/peterrichards-lr/liferay-accelerator-sdk.git#d39540e71b3f5bebf9d72cb804bc8ea4e7607955"
+  "@liferay/accelerator-sdk": "git+https://github.com/peterrichards-lr/liferay-accelerator-sdk.git#v0.6.0"
 }
 ```
 
-The pin is always a specific commit SHA, never a floating branch ref like `#main` — this is what "lock down version releases" in §4 below refers to.
+The pin is always a specific release tag (e.g., `#v0.6.0`) or commit SHA, never a floating branch ref like `#main` — this is what "lock down version releases" in §4 below refers to.
 
 ### Dynamic Schema Alignment
 
@@ -97,4 +97,4 @@ const apiSchemasDir = path.join(path.dirname(sdkPkgPath), 'api-schemas');
 
 ---
 
-_Last Updated: 2026-08-14_ | _Last Reviewed: 2026-08-14_
+_Last Updated: 2026-08-15_ | _Last Reviewed: 2026-08-15_
