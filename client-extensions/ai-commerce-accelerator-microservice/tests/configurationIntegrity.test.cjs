@@ -29,8 +29,8 @@ describe('Microservice Configuration Integrity', () => {
       'optionCategories:list',
       'get-sku-by-erc',
       'get-account-by-erc',
-      'get-product-by-erc',
-      'get-warehouse-by-erc',
+      'get-price-list-by-erc',
+      'warehouse:items',
     ];
 
     // Read the static property from the service class
