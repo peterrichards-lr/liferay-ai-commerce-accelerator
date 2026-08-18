@@ -82,7 +82,7 @@ fi
 
 # If no project specified, use default ephemeral one
 if [ -z "$PROJECT_NAME" ]; then
-    if [ $CI_MODE -eq 1 ]; then
+    if [ "$GITHUB_ACTIONS" = "true" ]; then
         PROJECT_NAME="aica-e2e"
     else
         # Make project name unique per-user/environment to prevent conflicts locally
@@ -101,6 +101,45 @@ if [ -z "$PROJECT_NAME" ]; then
 else
     echo "🏗️  Using existing LDM project: $PROJECT_NAME"
 fi
+
+# --- Helper Functions ---
+version_ge() {
+    # Returns 0 (true) if $2 (current) is greater than or equal to $1 (required)
+    [ "$(printf '%s\n%s' "$1" "$2" | sort -V | head -n1)" = "$1" ]
+}
+
+ldm_cmd() {
+    log_command "ldm $*"
+    ldm "$@"
+}
+
+other_running_ldm_projects() {
+    ldm list --json 2>/dev/null | node -e '
+      try {
+        const input = JSON.parse(require("fs").readFileSync(0, "utf-8"));
+        const currentProject = process.env.PROJECT_NAME || "";
+        const running = input
+          .filter(p => p.status === "Running" && p.project !== currentProject)
+          .map(p => p.project);
+        if (running.length > 0) {
+          console.log(running.join("\n"));
+        }
+      } catch (e) {}
+    ' || true
+}
+
+write_signal() {
+    local status="$1"
+    local timestamp
+    timestamp=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+    cat <<EOF > .e2e-status.json
+{
+  "status": "$status",
+  "timestamp": "$timestamp",
+  "project": "${PROJECT_NAME:-aica-e2e}"
+}
+EOF
+}
 
 # --- Constants ---
 REQUIRED_LDM_VERSION="2.15.14"
@@ -207,6 +246,16 @@ elif [ -f ".env" ]; then
 fi
 
 
+
+# If project directory is on a secondary volume (e.g. /Volumes/), set TMPDIR to a temp folder on that volume
+# to prevent Python os.rename [Errno 18] Cross-device link errors in LDM packaging.
+PROJECT_DIR_REAL=$(pwd -P)
+if [[ "$PROJECT_DIR_REAL" == /Volumes/* ]]; then
+    VOLUME_ROOT=$(echo "$PROJECT_DIR_REAL" | cut -d'/' -f1-3)
+    mkdir -p "$VOLUME_ROOT/tmp" 2>/dev/null || true
+    export TMPDIR="$VOLUME_ROOT/tmp"
+    echo "📁 Secondary volume detected ($VOLUME_ROOT); set TMPDIR=$TMPDIR for LDM cross-device safety."
+fi
 
 # Check if target host resolves. If it doesn't, resolve mapped tomcat port and fall back to localhost
 if ! getent hosts "$TARGET_HOST" &>/dev/null && ! nslookup "$TARGET_HOST" &>/dev/null && ! ping -c 1 -W 1 "$TARGET_HOST" &>/dev/null; then
@@ -581,11 +630,14 @@ else
     fi
 fi
 
+# Export LDM_FRAGMENT_PATCH_TIMEOUT to give OSGi JAX-RS / Site Initializer processing adequate headroom (LDM #1021)
+export LDM_FRAGMENT_PATCH_TIMEOUT="${LDM_FRAGMENT_PATCH_TIMEOUT:-900}"
+
 # Finally wait for deployables to be processed (Custom Objects, OAuth apps, Site Initializer, etc)
 echo "⏳ Waiting for Liferay Client Extensions (deployables) to be processed..."
-if ! ldm_cmd wait "$PROJECT_NAME" -d --timeout 300; then
+if ! ldm_cmd wait "$PROJECT_NAME" -d --timeout 900; then
     write_signal "UNHEALTHY"
-    echo -e "\n❌ ERROR: Liferay failed to process deployables within 5 minutes."
+    echo -e "\n❌ ERROR: Liferay failed to process deployables within 15 minutes."
     kill $LOG_PID 2>/dev/null || true
     exit 1
 fi
