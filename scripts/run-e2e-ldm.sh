@@ -355,6 +355,7 @@ fi
 
 echo "🏗️  Ensuring LDM Shared Infrastructure is active..."
 ldm_cmd config set database_mode shared
+docker rm -f liferay-docker-proxy liferay-proxy-global 2>/dev/null || true
 # shellcheck disable=SC2086
 ldm_cmd infra-setup $LDM_Y_FLAG "${INFRA_SETUP_ARGS[@]}"
 
@@ -528,18 +529,23 @@ if [ $EXISTING_PROJECT -eq 0 ]; then
     # 1. Detects and handles external volume locking (--internal-state)
     # 2. Forwards AI environment variables (OPENAI_*, GEMINI_*, etc.)
     # LDM 2.8.0+ supports --lean for constrained environments.
-    # shellcheck disable=SC2086
-    ldm_cmd run "$PROJECT_NAME" \
-        --host-name "$TARGET_HOST" \
-        --tag "$LIFERAY_TAG" \
-        --sidecar \
-        --no-captcha \
-        --no-wait \
-        --jvm-args="-Xmx2560m -XX:ReservedCodeCacheSize=512m" \
-        --fast-login \
-        --feature LPD-35443 \
-        -y \
-        $LDM_SSL_FLAG
+    RUN_ARGS=(
+        run "$PROJECT_NAME"
+        --host-name "$TARGET_HOST"
+        --tag "$LIFERAY_TAG"
+        --sidecar
+        --no-captcha
+        --no-wait
+        --jvm-args=-Xmx2560m
+        --fast-login
+        --feature LPD-35443
+        -y
+    )
+    if [ -n "$LDM_SSL_FLAG" ]; then
+        RUN_ARGS+=("$LDM_SSL_FLAG")
+    fi
+    docker rm -f liferay-docker-proxy 2>/dev/null || true
+    ldm_cmd "${RUN_ARGS[@]}"
 
 else
     echo "⏭️  Skipping initialization/boot for existing project '$PROJECT_NAME'."
