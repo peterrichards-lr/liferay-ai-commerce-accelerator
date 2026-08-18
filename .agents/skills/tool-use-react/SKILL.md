@@ -16,7 +16,11 @@ Before executing any tool call, you MUST output an explicit reasoning block outl
   2. Why the selected tool is the most specific and appropriate mechanism.
   3. Any potential side-effects or edge-cases of the invocation.
 
-## 2. GitHub API Boundaries
+## 2. Command Execution
+
+- **Non-Interactive Execution**: Always pass non-interactive flags (`-y`, `--non-interactive`) when running developer tools or CLI scripts. A command that stops for a prompt hangs the agent loop with no indication of why.
+
+## 3. GitHub API Boundaries
 
 All interactions with the GitHub platform MUST be mediated strictly through the native `gh` CLI.
 
@@ -28,4 +32,4 @@ All interactions with the GitHub platform MUST be mediated strictly through the 
 
 ---
 
-_Last Updated: 2026-08-03_ | _Last Reviewed: 2026-08-03_
+_Last Updated: 2026-08-18_ | _Last Reviewed: 2026-08-18_

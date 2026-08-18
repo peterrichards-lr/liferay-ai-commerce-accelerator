@@ -47,11 +47,16 @@ Detailed architectural specifications are maintained in [`docs/architecture/`](d
 
 ## 3. Global Directives
 
-1. **Single Source of Truth**: All AI agents (Gemini, Claude, Cursor, Windsurf, Copilot, etc.) must follow `AGENTS.md`. Do not duplicate context into provider-specific discovery files.
-2. **Mandatory Documentation Timestamps**: Every created or modified `.md` file must conclude with the standard timestamp footer (`<!-- markdownlint-disable MD049 -->` followed by `*Last Updated: YYYY-MM-DD* | *Last Reviewed: YYYY-MM-DD*`).
-3. **No Hardcoded Credentials**: Use `Liferay.authToken` and environment configuration for credentials. Never commit secrets.
-4. **Non-Interactive Execution**: Always pass non-interactive flags (`-y`, `--non-interactive`) when running developer tools or CLI scripts.
-5. **Deduplication & DRY**: Inspect existing utility modules and skills before creating new helpers.
+**Single Source of Truth**: All AI agents (Gemini, Claude, Cursor, Windsurf, Copilot, etc.) must follow `AGENTS.md`. Do not duplicate context into the provider discovery files (`GEMINI.md`, `CLAUDE.md`), which exist only so each tool finds this one and redirect straight back here.
+
+That is the only directive this file owns. The rest live with the skill that owns the concern, so each rule has exactly one home to read and one place to change:
+
+| Directive                                  | Owning skill                                                     |
+| :----------------------------------------- | :--------------------------------------------------------------- |
+| Documentation timestamps and footer format | [`documentation`](./.agents/skills/documentation/SKILL.md)       |
+| No hardcoded credentials                   | [`coding-standards`](./.agents/skills/coding-standards/SKILL.md) |
+| Deduplication and DRY                      | [`coding-standards`](./.agents/skills/coding-standards/SKILL.md) |
+| Non-interactive execution                  | [`tool-use-react`](./.agents/skills/tool-use-react/SKILL.md)     |
 
 ---
 
@@ -67,4 +72,4 @@ Active, in-flight task state and intra-task scratchpad context are maintained lo
 
 ---
 
-_Last Updated: 2026-08-14_ | _Last Reviewed: 2026-08-14_
+_Last Updated: 2026-08-18_ | _Last Reviewed: 2026-08-18_
