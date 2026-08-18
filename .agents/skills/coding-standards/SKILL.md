@@ -13,6 +13,8 @@ All code contributions must follow these clean coding standards:
 - **Zero Warning Mandate**: The codebase must be free of lint warnings and formatting errors.
 - **Workspace-wide Formatting**: When applying formatting fixes using Prettier, you MUST execute `prettier --write .` across the entire workspace root. You are FORBIDDEN from formatting files individually or at a directory level, as this causes PR checks to fail due to unformatted peripheral files.
 - **Intentional Omissions**: Use the **`_` (underscore)** prefix for any intentionally unused parameters, variables, or caught errors (e.g., `const { unused: _unused } = obj`, `catch (_err) {}`). The ESLint config is hardened to support this pattern without warnings.
+- **No Hardcoded Credentials**: Use `Liferay.authToken` and environment configuration for credentials. Never commit secrets. `scripts/detect-secrets.mjs` runs in the pre-commit hook, but the hook is a backstop, not permission to try.
+- **Deduplication & DRY**: Inspect existing utility modules and skills before creating new helpers. A near-duplicate helper is technical debt category 2 (see section 4).
 
 ## 2. Agent Constraints
 
@@ -54,4 +56,4 @@ The AI agent **should**:
 
 ---
 
-_Last Updated: 2026-08-03_ | _Last Reviewed: 2026-08-03_
+_Last Updated: 2026-08-18_ | _Last Reviewed: 2026-08-18_
