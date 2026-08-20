@@ -184,7 +184,32 @@ def power_on_node(node_name: str, config: dict) -> bool:
         print(f"▶ Booting AWS EC2 instance '{ec2_id}' for target node '{node_name}'...")
         res = subprocess.run(cmd, capture_output=True, text=True)
         if res.returncode == 0:
-            print(f"✅ Target node '{node_name}' successfully powered on.")
+            print(f"⏳ Waiting for '{node_name}' ({ec2_id}) to reach RUNNING state and resolve public IP...")
+            import time
+            for attempt in range(1, 13):
+                time.sleep(5)
+                ip_cmd = [
+                    "aws",
+                    "ec2",
+                    "describe-instances",
+                    "--instance-ids",
+                    ec2_id,
+                    "--query",
+                    "Reservations[0].Instances[0].[State.Name,PublicIpAddress]",
+                    "--output",
+                    "text",
+                ] + region_flags
+                ip_res = subprocess.run(ip_cmd, capture_output=True, text=True)
+                if ip_res.returncode == 0:
+                    parts = ip_res.stdout.strip().split()
+                    st = parts[0].lower() if parts else ""
+                    ip = parts[1] if len(parts) > 1 else ""
+                    if st == "running":
+                        print(
+                            f"✅ Target node '{node_name}' powered ON and RUNNING at IP: {ip or 'N/A'}"
+                        )
+                        return True
+            print(f"✅ Target node '{node_name}' boot command issued.")
             return True
         print(f"⚠️ AWS CLI error for '{node_name}': {res.stderr.strip()}")
         return False
