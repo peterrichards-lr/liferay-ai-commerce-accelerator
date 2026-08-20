@@ -44,14 +44,25 @@ def load_target_nodes() -> dict:
 
     # Auto-sync central config if missing locally
     if not CONFIG_FILE.exists():
-        try:
-            import os
-            import urllib.request
+        import os
+        import urllib.request
 
-            target_url = os.getenv("NODE_POWER_CONFIG_URL", CONFIG_URL)
-            urllib.request.urlretrieve(target_url, CONFIG_FILE)
-        except Exception:
-            pass
+        urls_to_try = [
+            os.getenv("NODE_POWER_CONFIG_URL"),
+            "https://raw.githubusercontent.com/peterrichards-lr/liferay-docker-manager/master/.node-power-config.json",
+            "https://raw.githubusercontent.com/peterrichards-lr/liferay-docker-manager/main/.node-power-config.json",
+            "https://raw.githubusercontent.com/peterrichards-lr/liferay-docker-manager/release/v2.15.30/.node-power-config.json",
+        ]
+        for url in urls_to_try:
+            if not url:
+                continue
+            try:
+                urllib.request.urlretrieve(url, CONFIG_FILE)
+                if CONFIG_FILE.exists() and CONFIG_FILE.stat().st_size > 20:
+                    print(f"✅ Auto-synced central target node config from {url}")
+                    break
+            except Exception:
+                pass
 
     # Override from ~/.ldmrc if present
     if LDMRC_FILE.exists():
