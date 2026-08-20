@@ -142,6 +142,18 @@ jobs:
           ) &
           echo "$!" > resource-monitor.pid
 
+      - name: Wake remote target node (if requested)
+        run: |
+          TARGET_NODE="${{ github.event.inputs.node_target || vars.LDM_NODE_TARGET || secrets.LDM_NODE_TARGET || 'local' }}"
+          if [ "$TARGET_NODE" != "local" ] && [ -n "$TARGET_NODE" ] && [ -f "./scripts/node_power.sh" ]; then
+            echo "⚡ Waking remote target node '$TARGET_NODE'..."
+            ./scripts/node_power.sh wake "$TARGET_NODE" 2h || true
+          fi
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: ${{ secrets.AWS_REGION || vars.AWS_REGION || 'eu-north-1' }}
+
       - name: Start LDM and run tests
         run: |
           NODE_FLAG=""
@@ -183,3 +195,16 @@ jobs:
             test-results/
             playwright-report/
           retention-days: 7
+
+      - name: Sleep remote target node (mandatory cleanup)
+        if: always()
+        run: |
+          TARGET_NODE="${{ github.event.inputs.node_target || vars.LDM_NODE_TARGET || secrets.LDM_NODE_TARGET || 'local' }}"
+          if [ "$TARGET_NODE" != "local" ] && [ -n "$TARGET_NODE" ] && [ -f "./scripts/node_power.sh" ]; then
+            echo "💤 Returning remote target node '$TARGET_NODE' to sleep..."
+            ./scripts/node_power.sh sleep "$TARGET_NODE" || true
+          fi
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: ${{ secrets.AWS_REGION || vars.AWS_REGION || 'eu-north-1' }}
