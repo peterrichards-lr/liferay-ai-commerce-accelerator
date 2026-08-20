@@ -353,7 +353,15 @@ def cmd_enforce(args: argparse.Namespace) -> None:
                 "shutdown_at": now.isoformat(),
             }
         else:
-            print(f"  • Node '{name}': Outside shutdown window. Node active.")
+            print(
+                f"  • Node '{name}': Business hours active (schedule: {schedule}). Ensuring node is powered ON."
+            )
+            ok = power_on_node(name, config)
+            state[name] = {
+                "status": "active" if ok else "error",
+                "wake_until": "",
+                "powered_on_at": now.isoformat(),
+            }
 
     save_state(state)
 
