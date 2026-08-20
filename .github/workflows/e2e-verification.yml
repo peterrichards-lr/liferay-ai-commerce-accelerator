@@ -141,6 +141,23 @@ jobs:
           ) &
           echo "$!" > resource-monitor.pid
 
+      - name: Configure SSH Key for Remote Target Node
+        run: |
+          TARGET_NODE="${{ github.event.inputs.node_target || vars.LDM_NODE_TARGET || secrets.LDM_NODE_TARGET || 'local' }}"
+          if [ "$TARGET_NODE" != "local" ] && [ -n "$TARGET_NODE" ]; then
+            mkdir -p ~/.ssh
+            chmod 700 ~/.ssh
+            if [ -n "$SSH_KEY_DATA" ]; then
+              echo "$SSH_KEY_DATA" > ~/.ssh/aws-key.pem
+              chmod 600 ~/.ssh/aws-key.pem
+              echo "🔑 SSH key configured at ~/.ssh/aws-key.pem"
+            else
+              echo "⚠️ No EC2_SSH_KEY secret found in repository."
+            fi
+          fi
+        env:
+          SSH_KEY_DATA: ${{ secrets.EC2_SSH_KEY || secrets.LDM_SSH_KEY || secrets.AWS_SSH_KEY }}
+
       - name: Wake remote target node (if requested)
         run: |
           TARGET_NODE="${{ github.event.inputs.node_target || vars.LDM_NODE_TARGET || secrets.LDM_NODE_TARGET || 'local' }}"
