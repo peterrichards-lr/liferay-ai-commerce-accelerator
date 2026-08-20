@@ -97,9 +97,17 @@ jobs:
 
       - name: Install Liferay Docker Manager (LDM)
         run: |
-          wget https://github.com/peterrichards-lr/liferay-docker-manager/releases/latest/download/ldm-linux -O ldm
+          LDM_VER="${{ vars.LDM_VERSION || env.LDM_VERSION || 'latest' }}"
+          if [ "$LDM_VER" = "latest" ]; then
+            DOWNLOAD_URL="https://github.com/peterrichards-lr/liferay-docker-manager/releases/latest/download/ldm-linux"
+          else
+            DOWNLOAD_URL="https://github.com/peterrichards-lr/liferay-docker-manager/releases/download/${LDM_VER}/ldm-linux"
+          fi
+          echo "📥 Downloading LDM binary version '${LDM_VER}' from ${DOWNLOAD_URL}..."
+          wget -q "$DOWNLOAD_URL" -O ldm
           chmod +x ldm
           sudo mv ldm /usr/local/bin/
+          ldm --version
 
       - name: Configure local hosts file
         run: |
