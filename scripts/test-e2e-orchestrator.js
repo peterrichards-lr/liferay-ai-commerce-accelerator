@@ -103,7 +103,12 @@ async function runPlaywright() {
   console.log(`>>> Configuration: ${CONFIG_PATH}`);
 
   return new Promise((resolve) => {
-    const pw = spawn('npx', ['playwright', 'test', `--config=${CONFIG_PATH}`], {
+    const args = ['playwright', 'test', `--config=${CONFIG_PATH}`];
+    if (process.env.PLAYWRIGHT_SHARD) {
+      args.push(`--shard=${process.env.PLAYWRIGHT_SHARD}`);
+      console.log(`>>> Shard: ${process.env.PLAYWRIGHT_SHARD}`);
+    }
+    const pw = spawn('npx', args, {
       cwd: PLAYWRIGHT_DIR,
       stdio: 'inherit',
       shell: true,

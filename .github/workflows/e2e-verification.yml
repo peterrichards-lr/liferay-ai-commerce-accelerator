@@ -4,6 +4,16 @@ on:
   release:
     types: [published]
   workflow_dispatch:
+    inputs:
+      node_target:
+        description: 'LDM Target Node (local, aws-1, aws-2)'
+        required: false
+        default: 'local'
+        type: choice
+        options:
+          - local
+          - aws-1
+          - aws-2
   schedule:
     # Nightly. Skipped automatically (see check-for-changes below) if
     # nothing has landed on the default branch since the last successful run,
@@ -11,7 +21,7 @@ on:
     - cron: '0 2 * * *'
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
+  group: ${{ github.workflow }}-${{ github.ref }}-${{ matrix.shardIndex }}
   cancel-in-progress: true
 
 jobs:
@@ -57,8 +67,13 @@ jobs:
   e2e-verification:
     needs: check-for-changes
     if: always() && !cancelled() && (github.event_name != 'schedule' || needs.check-for-changes.outputs.should_run == 'true')
-    name: CI/e2e-verification
+    name: CI/e2e-verification (${{ matrix.shardIndex }}/${{ matrix.shardTotal }})
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        shardIndex: [1, 2, 3]
+        shardTotal: [3]
     env:
       FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: 'true'
 
@@ -128,7 +143,13 @@ jobs:
           echo "$!" > resource-monitor.pid
 
       - name: Start LDM and run tests
-        run: bash scripts/run-e2e-ldm.sh --ci
+        run: |
+          NODE_FLAG=""
+          TARGET_NODE="${{ github.event.inputs.node_target || vars.LDM_NODE_TARGET || secrets.LDM_NODE_TARGET || 'local' }}"
+          if [ "$TARGET_NODE" != "local" ] && [ -n "$TARGET_NODE" ]; then
+            NODE_FLAG="--node $TARGET_NODE"
+          fi
+          bash scripts/run-e2e-ldm.sh --ci $NODE_FLAG --shard "${{ matrix.shardIndex }}/${{ matrix.shardTotal }}"
         env:
           LIFERAY_USER: ${{ secrets.LIFERAY_USER }}
           LIFERAY_PASSWORD: ${{ secrets.LIFERAY_PASSWORD }}
@@ -147,7 +168,7 @@ jobs:
         uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: resource-monitor-log
+          name: resource-monitor-log-shard-${{ matrix.shardIndex }}
           path: resource-monitor.log
           retention-days: 7
 
@@ -155,7 +176,7 @@ jobs:
         uses: actions/upload-artifact@v4
         if: failure()
         with:
-          name: e2e-logs
+          name: e2e-logs-shard-${{ matrix.shardIndex }}
           path: |
             logs/
             client-extensions/*/logs/
