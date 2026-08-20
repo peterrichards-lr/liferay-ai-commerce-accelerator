@@ -21,19 +21,21 @@ LDMRC_FILE = Path.home() / ".ldmrc"
 
 
 def load_target_nodes() -> dict:
-    """Loads target node definitions from .node-power-config.json or ~/.ldmrc fallback."""
+    """Loads target node definitions from .node-power-config.json, ~/.ldmrc, or environment overrides."""
     nodes = {
         "aws-1": {
             "name": "aws-1",
             "schedule": "auto",
-            "ec2_instance_id": "",
+            "ec2_instance_id": os.environ.get("AWS_EC2_INSTANCE_ID_AWS_1", ""),
+            "region": os.environ.get("AWS_REGION_AWS_1", ""),
             "host": "",
             "user": "ubuntu",
         },
         "aws-2": {
             "name": "aws-2",
             "schedule": "auto",
-            "ec2_instance_id": "",
+            "ec2_instance_id": os.environ.get("AWS_EC2_INSTANCE_ID_AWS_2", ""),
+            "region": os.environ.get("AWS_REGION_AWS_2", ""),
             "host": "",
             "user": "ubuntu",
         },
@@ -49,6 +51,7 @@ def load_target_nodes() -> dict:
                         "name": name,
                         "schedule": "auto",
                         "ec2_instance_id": node_info.get("ec2_instance_id", ""),
+                        "region": node_info.get("region", ""),
                         "host": node_info.get("host", ""),
                         "user": node_info.get("user", "ubuntu"),
                     }
@@ -57,6 +60,8 @@ def load_target_nodes() -> dict:
                     nodes[name]["user"] = node_info.get("user", nodes[name]["user"])
                     if node_info.get("ec2_instance_id"):
                         nodes[name]["ec2_instance_id"] = node_info["ec2_instance_id"]
+                    if node_info.get("region"):
+                        nodes[name]["region"] = node_info["region"]
         except Exception:
             pass
 
@@ -69,6 +74,21 @@ def load_target_nodes() -> dict:
                     nodes[name].update(cfg)
                 else:
                     nodes[name] = cfg
+        except Exception:
+            pass
+
+    # Override from AWS_NODE_CONFIG_JSON environment variable if set
+    env_json = os.environ.get("AWS_NODE_CONFIG_JSON")
+    if env_json:
+        try:
+            custom_data = json.loads(env_json)
+            nodes_data = custom_data.get("nodes", custom_data)
+            for name, cfg in nodes_data.items():
+                if isinstance(cfg, dict):
+                    if name in nodes:
+                        nodes[name].update(cfg)
+                    else:
+                        nodes[name] = cfg
         except Exception:
             pass
 
@@ -135,6 +155,9 @@ def is_in_shutdown_window(dt: datetime, schedule: str) -> bool:
 def power_on_node(node_name: str, config: dict) -> bool:
     """Boots or resumes the specified target node using AWS CLI or SSH."""
     ec2_id = config.get("ec2_instance_id")
+    region = config.get("region")
+    region_flags = ["--region", region] if region else []
+
     if ec2_id:
         # Check if instance is already running to avoid unnecessary API calls
         check_cmd = [
@@ -147,7 +170,7 @@ def power_on_node(node_name: str, config: dict) -> bool:
             "Reservations[*].Instances[*].State.Name",
             "--output",
             "text",
-        ]
+        ] + region_flags
         check_res = subprocess.run(check_cmd, capture_output=True, text=True)
         if check_res.returncode == 0:
             instance_state = check_res.stdout.strip().lower()
@@ -157,7 +180,7 @@ def power_on_node(node_name: str, config: dict) -> bool:
                 )
                 return True
 
-        cmd = ["aws", "ec2", "start-instances", "--instance-ids", ec2_id]
+        cmd = ["aws", "ec2", "start-instances", "--instance-ids", ec2_id] + region_flags
         print(f"▶ Booting AWS EC2 instance '{ec2_id}' for target node '{node_name}'...")
         res = subprocess.run(cmd, capture_output=True, text=True)
         if res.returncode == 0:
@@ -174,8 +197,11 @@ def power_on_node(node_name: str, config: dict) -> bool:
 def power_off_node(node_name: str, config: dict) -> bool:
     """Shuts down or stops the specified target node using AWS CLI or SSH."""
     ec2_id = config.get("ec2_instance_id")
+    region = config.get("region")
+    region_flags = ["--region", region] if region else []
+
     if ec2_id:
-        cmd = ["aws", "ec2", "stop-instances", "--instance-ids", ec2_id]
+        cmd = ["aws", "ec2", "stop-instances", "--instance-ids", ec2_id] + region_flags
         print(
             f"▶ Stopping AWS EC2 instance '{ec2_id}' for target node '{node_name}'..."
         )
