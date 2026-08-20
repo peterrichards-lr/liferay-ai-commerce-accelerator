@@ -40,7 +40,9 @@ while [[ "$#" -gt 0 ]]; do
         --no-ssl) NO_SSL=1 ;;
         --ssl-port) SSL_PORT="$2"; shift ;;
         --allow-concurrent) ALLOW_CONCURRENT=1 ;;
-        *) echo "Usage: $0 [-v] [-k] [-i] [--ci] [--no-ssl] [--ssl-port <port>] [--allow-concurrent] [-p <project_name>]"; exit 1 ;;
+        --shard) export PLAYWRIGHT_SHARD="$2"; shift ;;
+        --node) export LDM_NODE_TARGET="$2"; shift ;;
+        *) echo "Usage: $0 [-v] [-k] [-i] [--ci] [--no-ssl] [--ssl-port <port>] [--allow-concurrent] [--shard <index/total>] [--node <target>] [-p <project_name>]"; exit 1 ;;
     esac
     shift
 done
