@@ -52,6 +52,12 @@ if [ $VERBOSE -eq 1 ]; then
   echo "🛠️  Verbose mode enabled. Realized commands will be displayed with [CMD]."
 fi
 
+# Wake remote target node if targeting AWS compute (aws-1, aws-2)
+if [ -n "$LDM_NODE_TARGET" ] && [ "$LDM_NODE_TARGET" != "local" ] && [ -f "./scripts/node_power.sh" ]; then
+    echo "⚡ Waking remote target node '$LDM_NODE_TARGET' for 2-hour E2E execution window..."
+    ./scripts/node_power.sh wake "$LDM_NODE_TARGET" 2h || true
+fi
+
 # The shared LDM proxy (Traefik) normally binds SSL on :443. --ssl-port remaps
 # it via LDM_SSL_PORT for hosts where 443 is already held by something unrelated
 # to LDM (e.g. a local SSH tunnel) - see AICA issue #445 investigation.
@@ -691,6 +697,11 @@ cleanup() {
     if [ -n "$ORIGINAL_DB_MODE" ]; then
         echo -e "\n🔄 Restoring global database mode to '$ORIGINAL_DB_MODE'..."
         ldm config database-mode "$ORIGINAL_DB_MODE" --global &>/dev/null || true
+    fi
+
+    if [ -n "$LDM_NODE_TARGET" ] && [ "$LDM_NODE_TARGET" != "local" ] && [ -f "./scripts/node_power.sh" ]; then
+        echo -e "\n💤 Returning remote target node '$LDM_NODE_TARGET' to sleep..."
+        ./scripts/node_power.sh sleep "$LDM_NODE_TARGET" || true
     fi
 }
 
