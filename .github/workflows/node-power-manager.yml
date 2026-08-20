@@ -55,6 +55,10 @@ jobs:
 
       - name: Execute Node Power Command
         run: |
+          TARGET_NODE="${{ secrets.LDM_NODE_TARGET }}"
+          TARGET_NODE="${TARGET_NODE:-${{ inputs.node }}}"
+          TARGET_NODE="${TARGET_NODE:-aws-1}"
+
           if [ "${{ github.event_name }}" = "schedule" ]; then
             python3 scripts/manage_target_nodes.py enforce
           else
@@ -63,10 +67,10 @@ jobs:
                 python3 scripts/manage_target_nodes.py status
                 ;;
               wake)
-                python3 scripts/manage_target_nodes.py wake "${{ inputs.node }}" --ttl "${{ inputs.ttl }}"
+                python3 scripts/manage_target_nodes.py wake "$TARGET_NODE" --ttl "${{ inputs.ttl }}"
                 ;;
               sleep)
-                python3 scripts/manage_target_nodes.py sleep "${{ inputs.node }}"
+                python3 scripts/manage_target_nodes.py sleep "$TARGET_NODE"
                 ;;
               enforce)
                 python3 scripts/manage_target_nodes.py enforce
