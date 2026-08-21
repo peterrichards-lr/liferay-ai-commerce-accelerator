@@ -14,11 +14,11 @@
     ]
   },
   "devDependencies": {
-    "@commitlint/cli": "^21.2.1",
+    "@commitlint/cli": "^21.2.2",
     "@commitlint/config-conventional": "^21.0.2",
     "@playwright/test": "^1.62.1",
     "@testing-library/dom": "^10.4.1",
-    "baseline-browser-mapping": "^2.11.13",
+    "baseline-browser-mapping": "^2.11.15",
     "happy-dom": "^20.11.2",
     "husky": "^9.1.7",
     "lint-staged": "^17.3.0",
@@ -35,8 +35,8 @@
     "@liferay/accelerator-sdk": "git+https://github.com/peterrichards-lr/liferay-accelerator-sdk.git#v0.8.1"
   },
   "optionalDependencies": {
-    "@rolldown/binding-darwin-arm64": "^1.2.3",
-    "@rolldown/binding-darwin-x64": "^1.2.3",
+    "@rolldown/binding-darwin-arm64": "^1.2.4",
+    "@rolldown/binding-darwin-x64": "^1.2.4",
     "@rollup/rollup-darwin-arm64": "4.62.4",
     "@rollup/rollup-darwin-x64": "4.62.4",
     "@rollup/rollup-linux-x64-gnu": "4.62.4"
@@ -114,7 +114,7 @@
     "eslint": "10.8.1",
     "immutable": "5.1.9",
     "jsdom": "^30.0.1",
-    "openai": "7.4.0",
+    "openai": "7.5.0",
     "react-codemirror2": "9.0.1",
     "rollup": "4.62.4",
     "vite": "8.2.1"
