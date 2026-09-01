@@ -60,6 +60,7 @@ aica-dataset-*.json
 /docker-compose.yml
 /files/
 /osgi/
+/snapshots/
 
 # Local SQLite Database Files
 *.db
@@ -85,4 +86,10 @@ debug-sites.js
 test-axios.js
 test-env.js
 
+# Python Bytecode Cache
+__pycache__/
+*.py[cod]
 
+# Centrally Auto-Synced Node Power Control State
+/.node-power-config.json
+/.node-power-state.json
