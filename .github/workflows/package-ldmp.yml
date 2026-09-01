@@ -69,12 +69,37 @@ jobs:
           feature.flag.LPS-178642=true
           feature.flag.LPS-168340=true
           EOF
-          cat << 'EOF' >> aica-e2e/meta
-          admin_email=test@liferay.com
-          banner_notes=["🚀 Welcome to the Liferay AI Commerce Accelerator!", " ", "💡 The AI Configuration panel is available via the Applications menu in the Global Site.", "📚 For full documentation and setup instructions, visit the GitHub repository.", " "]
-          credentials=[{"type": "admin", "email": "test@liferay.com", "password": "test", "description": "Primary Administrator Account"}]
-          feature_flags={"LPS-178642": true, "LPS-168340": true}
-          EOF
+          # `meta` is a JSON document written by LDM. Appending key=value lines to it
+          # produces invalid JSON, which makes every key unreadable - including the
+          # `tag` LDM records for the Liferay version the package was built against.
+          # Merge into the parsed document instead.
+          python3 - <<'PY'
+          import json, pathlib
+
+          path = pathlib.Path('aica-e2e/meta')
+          meta = json.loads(path.read_text())
+          meta.update({
+              "admin_email": "test@liferay.com",
+              "banner_notes": [
+                  "🚀 Welcome to the Liferay AI Commerce Accelerator!",
+                  " ",
+                  "💡 The AI Configuration panel is available via the Applications menu in the Global Site.",
+                  "📚 For full documentation and setup instructions, visit the GitHub repository.",
+                  " ",
+              ],
+              "credentials": [
+                  {
+                      "type": "admin",
+                      "email": "test@liferay.com",
+                      "password": "test",
+                      "description": "Primary Administrator Account",
+                  }
+              ],
+              "feature_flags": {"LPS-178642": True, "LPS-168340": True},
+          })
+          path.write_text(json.dumps(meta, indent=4, ensure_ascii=False) + "\n")
+          print("Enriched meta; Liferay tag =", meta.get("tag"))
+          PY
           # Package from a files-only snapshot so the release asset ships the client
           # extensions, OSGi modules and site initializer WITHOUT a database dump.
           # AICA installs against vanilla DXP: every component creates what it needs on
@@ -84,6 +109,25 @@ jobs:
           ldm package aica-e2e --snapshot aica-release --repo ${{ github.repository }} --host-name aica.demo --ssl -y
           mv *.ldmp liferay-ai-commerce-accelerator.ldmp
           sha256sum liferay-ai-commerce-accelerator.ldmp | awk '{print $1}' > liferay-ai-commerce-accelerator.ldmp.sha256
+
+      - name: Verify packaged metadata
+        run: |
+          # Fail the release rather than publish a package whose meta cannot be
+          # parsed, or one that lost keys on the way through `ldm package --snapshot`.
+          python3 - <<'PY'
+          import json, subprocess
+
+          raw = subprocess.run(
+              ["tar", "xzOf", "liferay-ai-commerce-accelerator.ldmp", "meta"],
+              capture_output=True, check=True,
+          ).stdout
+          meta = json.loads(raw)
+          required = ("tag", "admin_email", "banner_notes", "credentials", "feature_flags")
+          missing = [key for key in required if key not in meta]
+          if missing:
+              raise SystemExit(f"Packaged meta is missing required keys: {missing}")
+          print("Packaged meta is valid JSON; Liferay tag =", meta["tag"])
+          PY
 
       - name: Teardown LDM Stack
         if: always()
