@@ -3,12 +3,18 @@
 # Add common binary paths that GUI apps often miss
 export PATH="$PATH:/usr/local/bin:/opt/homebrew/bin:$HOME/.local/bin"
 
-# Load NVM and other environment managers if they exist
+# Load NVM and other environment managers if they exist.
+# Husky runs hooks as `sh -e`. A failing `[ test ]` is exempt from set -e as the
+# non-final command of an && list, so an absent file is harmless - but when the
+# file exists and the `.` source returns non-zero, that source IS the final
+# command and set -e aborts the hook. nvm.sh does exactly that when nvm's
+# default alias points at a missing version. Without `|| true` the hook then
+# dies before its first echo, reporting only an opaque exit code.
 export NVM_DIR="$HOME/.nvm"
-[ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
-[ -s "$HOME/.nvm/nvm.sh" ] && . "$HOME/.nvm/nvm.sh"
-[ -s "/opt/homebrew/opt/nvm/nvm.sh" ] && . "/opt/homebrew/opt/nvm/nvm.sh"
-[ -f ~/.huskyrc ] && . ~/.huskyrc
+[ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh" || true
+[ -s "$HOME/.nvm/nvm.sh" ] && . "$HOME/.nvm/nvm.sh" || true
+[ -s "/opt/homebrew/opt/nvm/nvm.sh" ] && . "/opt/homebrew/opt/nvm/nvm.sh" || true
+[ -f ~/.huskyrc ] && . ~/.huskyrc || true
 
 echo "🔍 Running fast pre-commit checks..."
 
