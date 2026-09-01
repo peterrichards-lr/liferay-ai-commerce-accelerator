@@ -76,7 +76,7 @@ module.exports = async (ws) => {
     liferay: ctx.liferay,
   });
   ctx.objectStorage = new ObjectStorageService({
-    config: ctx.config,
+    configService: ctx.config,
     logger,
   });
   ctx.media = new MediaGenerator(ctx);
