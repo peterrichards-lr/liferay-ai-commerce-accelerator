@@ -7,13 +7,20 @@ import { PANELS } from './panels';
 const APP_NAME = 'Liferay Commerce AI Generator';
 const STORAGE_KEY = 'aica_config_active_tab';
 
+const readStoredTab = () => {
+  try {
+    return typeof window !== 'undefined'
+      ? window.localStorage?.getItem(STORAGE_KEY) || ''
+      : '';
+  } catch {
+    return '';
+  }
+};
+
 export default function LiferayAICommerceAcceleratorConfiguration(props) {
   const initialFromHash =
     typeof window !== 'undefined' ? window.location.hash.replace('#', '') : '';
-  const initialFromStorage =
-    typeof window !== 'undefined'
-      ? localStorage.getItem(STORAGE_KEY) || ''
-      : '';
+  const initialFromStorage = readStoredTab();
 
   const validIds = useMemo(() => new Set(PANELS.map((p) => p.id)), []);
   const defaultId = PANELS[0].id;
