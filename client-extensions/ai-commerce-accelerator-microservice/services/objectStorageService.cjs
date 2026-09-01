@@ -1,4 +1,3 @@
-const { Storage } = require('@google-cloud/storage');
 const { randomUUID } = require('crypto');
 const { ENV } = require('../utils/constants.cjs');
 const {
@@ -112,14 +111,27 @@ class ObjectStorageService {
       .replace(/^\/+|\/+$/g, '')
       .trim();
 
-    this.client = this.buildClient();
+    this._client = null;
 
     const cachedCfg =
       this.configService?.getObjectStorageConfigCached?.() || {};
     this.applyConfig(cachedCfg);
   }
 
+  get client() {
+    if (!this._client) {
+      this._client = this.buildClient();
+    }
+    return this._client;
+  }
+
   buildClient() {
+    // Required here rather than at module scope so the SDK - 1.8 MB plus a
+    // transitive Google stack - is only loaded if something actually reaches
+    // for the client. Nothing does today: every operation goes through the
+    // sidecar over fetch.
+    const { Storage } = require('@google-cloud/storage');
+
     return new Storage({
       credentials: {
         audience: 'replit',
@@ -161,7 +173,7 @@ class ObjectStorageService {
       this.uploadPrefix = cfg.uploadPrefix.replace(/^\/+|\/+$/g, '').trim();
     }
 
-    this.client = this.buildClient();
+    this._client = null;
 
     this.logger?.debug?.('ObjectStorageService config applied', {
       operation: 'object-storage-config-apply',
