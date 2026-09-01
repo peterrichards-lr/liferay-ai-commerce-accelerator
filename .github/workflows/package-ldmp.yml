@@ -69,6 +69,15 @@ jobs:
           feature.flag.LPS-178642=true
           feature.flag.LPS-168340=true
           EOF
+          # Stop the stack first: LDM decides whether to bundle a database purely by
+          # probing whether the DB container is RUNNING (snapshot/database.py uses
+          # `docker ps -q -f name=^<db>$`). The `--files-only` flag is registered in
+          # its CLI but read by no code path, so it cannot be used for this. See #551.
+          ldm stop -p aica-e2e -y
+
+          # Take the snapshot explicitly so its meta can be enriched before packaging.
+          ldm snapshot -p aica-e2e -y
+
           # `meta` is a JSON document written by LDM. Appending key=value lines to it
           # produces invalid JSON, which makes every key unreadable - including the
           # `tag` LDM records for the Liferay version the package was built against.
@@ -76,7 +85,16 @@ jobs:
           python3 - <<'PY'
           import json, pathlib
 
-          path = pathlib.Path('aica-e2e/meta')
+          # ldm package reads the meta from the SNAPSHOT directory, not the project
+          # directory - handlers/snapshot.py step 3 does read_meta(latest_snap_dir).
+          # Enriching aica-e2e/meta therefore never reaches the package. See #546.
+          snapshots = sorted(
+              d for d in pathlib.Path('aica-e2e/snapshots').iterdir() if d.is_dir()
+          )
+          if not snapshots:
+              raise SystemExit('No snapshot directory found to enrich.')
+
+          path = snapshots[-1] / 'meta'
           meta = json.loads(path.read_text())
           meta.update({
               "admin_email": "test@liferay.com",
@@ -100,16 +118,12 @@ jobs:
           path.write_text(json.dumps(meta, indent=4, ensure_ascii=False) + "\n")
           print("Enriched meta; Liferay tag =", meta.get("tag"))
           PY
-          # Stop the stack before packaging. LDM decides whether to include a
-          # database purely by probing whether the DB container is RUNNING
-          # (snapshot/database.py: `docker ps -q -f name=^<db>$`) - the
-          # `--files-only` flag is registered in its CLI but read by no code path,
-          # so it cannot be used for this. With the containers down there is
-          # nothing to dump, and the archive is still built from the project
-          # directory on disk, so the client extensions, OSGi modules and site
-          # initializer are all captured. See #551.
-          ldm stop -p aica-e2e -y
-          ldm package aica-e2e --repo ${{ github.repository }} --host-name aica.demo --ssl -y
+          # --use-latest packages the snapshot enriched above. It resolves via
+          # backups[-1] from _list_backups, which sorts snapshot directories by name,
+          # so timestamp names make it reliably the newest. Do not use
+          # `--snapshot <name>`: that lookup compares against the directory name only,
+          # so it can never match a meta name. See #551.
+          ldm package aica-e2e --use-latest --repo ${{ github.repository }} --host-name aica.demo --ssl -y
           mv *.ldmp liferay-ai-commerce-accelerator.ldmp
           sha256sum liferay-ai-commerce-accelerator.ldmp | awk '{print $1}' > liferay-ai-commerce-accelerator.ldmp.sha256
 
