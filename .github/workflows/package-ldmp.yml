@@ -75,6 +75,18 @@ jobs:
           # its CLI but read by no code path, so it cannot be used for this. See #551.
           ldm stop -p aica-e2e -y
 
+          # Drop Liferay's data and state before snapshotting. cmd_snapshot calls
+          # _dehydrate_named_volumes, which copies the <project>-data and
+          # <project>-state Docker volumes back onto the host, and _create_archive
+          # then tars `data` and `osgi/state` into files.tar.gz. That is what kept
+          # v3.3.48 at ~1 GB despite carrying no database. Neither is needed: the
+          # document library is meaningless without the database we deliberately
+          # exclude, and OSGi state is rebuilt on first boot. `client-extensions`,
+          # `osgi/modules`, `configs` and `files` are separate archive entries and
+          # are unaffected. See #551.
+          docker volume rm -f aica-e2e-data aica-e2e-state 2>/dev/null || true
+          rm -rf aica-e2e/data aica-e2e/osgi/state
+
           # Take the snapshot explicitly so its meta can be enriched before packaging.
           ldm snapshot -p aica-e2e -y
 
@@ -132,7 +144,7 @@ jobs:
           # Fail the release rather than publish a package whose meta cannot be
           # parsed, or one that lost keys on the way through `ldm package --snapshot`.
           python3 - <<'PY'
-          import json, subprocess
+          import json, pathlib, subprocess
 
           raw = subprocess.run(
               ["tar", "xzOf", "liferay-ai-commerce-accelerator.ldmp", "meta"],
@@ -152,15 +164,29 @@ jobs:
                   " the stack was not stopped before packaging."
               )
 
+          if str(meta.get("includes_volume_assets", "")).lower() not in ("false", "none", ""):
+              raise SystemExit(
+                  f"Packaged meta reports includes_volume_assets={meta.get('includes_volume_assets')!r};"
+                  " Liferay data/state were captured into the archive."
+              )
+
           members = subprocess.run(
               ["tar", "tzf", "liferay-ai-commerce-accelerator.ldmp"],
               capture_output=True, check=True, text=True,
           ).stdout.split()
-          if "database.sql" in members:
-              raise SystemExit("Package contains database.sql; expected a database-free release asset.")
+          for unwanted in ("database.sql", "database.gz"):
+              if unwanted in members:
+                  raise SystemExit(f"Package contains {unwanted}; expected a database-free release asset.")
+
+          # Guard the actual goal, not just its proxies. A database-free,
+          # volume-free package is ~12 MB; anything approaching a gigabyte means
+          # something bulky was captured that these assertions did not name.
+          size = pathlib.Path("liferay-ai-commerce-accelerator.ldmp").stat().st_size
+          if size > 250 * 1024 * 1024:
+              raise SystemExit(f"Package is {size / 1024 / 1024:.0f} MB; expected well under 250 MB.")
 
           print("Packaged meta is valid JSON; Liferay tag =", meta["tag"])
-          print("No database in package; members:", ", ".join(members))
+          print(f"Package is {size / 1024 / 1024:.1f} MB; members:", ", ".join(members))
           PY
 
       - name: Teardown LDM Stack
