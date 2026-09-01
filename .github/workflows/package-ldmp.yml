@@ -60,17 +60,6 @@ jobs:
       - name: Start Liferay LDM Stack
         run: bash scripts/run-e2e-ldm.sh -i -k --ci --no-ssl
 
-      - name: Start Microservice and Seed Demo Data
-        run: |
-          PORT=3002 NODE_ENV=production NODE_TLS_REJECT_UNAUTHORIZED=0 LIFERAY_URL=http://localhost:8080 LIFERAY_AUTH_METHOD=basic LIFERAY_API_USERNAME=test@liferay.com LIFERAY_API_PASSWORD=test node client-extensions/ai-commerce-accelerator-microservice/server.cjs &
-          echo "Waiting for microservice health check..."
-          for i in {1..30}; do
-            curl -f -s http://localhost:3002/api/v1/health && break
-            sleep 2
-          done
-          echo "Populating database using AICA CLI generate command..."
-          AICA_MICROSERVICE_URL=http://localhost:3002 LIFERAY_PORTAL_URL=http://localhost:8080 LIFERAY_API_USERNAME=test@liferay.com LIFERAY_API_PASSWORD=test node scripts/aica-cli.cjs generate --demo --products 10 --accounts 5 --orders 2 --non-interactive
-
       - name: Compile LDM Package
         run: |
           mkdir -p .liferay-docker
@@ -86,13 +75,19 @@ jobs:
           credentials=[{"type": "admin", "email": "test@liferay.com", "password": "test", "description": "Primary Administrator Account"}]
           feature_flags={"LPS-178642": true, "LPS-168340": true}
           EOF
-          ldm package aica-e2e --repo ${{ github.repository }} --host-name aica.demo --ssl -y
+          # Package from a files-only snapshot so the release asset ships the client
+          # extensions, OSGi modules and site initializer WITHOUT a database dump.
+          # AICA installs against vanilla DXP: every component creates what it needs on
+          # setup, so a bundled database.sql only ships pre-seeded demo data that goes
+          # stale and inflates the asset from ~12 MB to ~1 GB.
+          ldm snapshot -p aica-e2e --files-only -n aica-release -y
+          ldm package aica-e2e --snapshot aica-release --repo ${{ github.repository }} --host-name aica.demo --ssl -y
           mv *.ldmp liferay-ai-commerce-accelerator.ldmp
           sha256sum liferay-ai-commerce-accelerator.ldmp | awk '{print $1}' > liferay-ai-commerce-accelerator.ldmp.sha256
 
       - name: Teardown LDM Stack
         if: always()
-        run: ldm rm aica --delete -y || true
+        run: ldm rm aica-e2e --delete -y || true
 
       - name: Create GitHub Release and Upload Assets
         uses: softprops/action-gh-release@v2

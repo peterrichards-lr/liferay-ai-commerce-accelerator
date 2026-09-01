@@ -70,13 +70,15 @@ This script ([run-e2e-ldm.sh](../../../scripts/run-e2e-ldm.sh)) handles initiali
   bash scripts/run-e2e-ldm.sh -v -k --ci
   ```
 
-### C. Snapshot Packager (`package-ldmp.sh`)
+### C. Snapshot Packaging (`ldm package`)
 
-Packs the current Liferay Workspace database and assets into a portable snapshot `.ldmp` package:
+Packs the current Liferay Workspace assets and configuration into a portable snapshot `.ldmp` package. The standalone `scripts/package-ldmp.sh` wrapper was removed — invoke LDM directly:
 
 ```bash
-bash scripts/package-ldmp.sh
+ldm package aica-e2e --repo <your-github-repository> --host-name aica.demo --ssl -y
 ```
+
+Release packages are built from scratch by [package-ldmp.yml](../../../.github/workflows/package-ldmp.yml) on every `v*` tag and attached to the GitHub Release, so there is never a need to keep a `.ldmp` in the working tree (`*.ldmp` is gitignored). AICA installs against vanilla DXP — the client extensions, OSGi modules, and site initializer create everything they need on setup — so a packaged `database.sql` is a demo-seeding convenience, not an install requirement.
 
 ### D. Preflight Network Probe (`preflight.mjs`)
 
@@ -113,3 +115,9 @@ Executes locally in Huskies' pre-commit hooks to prevent leaking sensitive API k
 - **Code Linting**: `yarn lint` at root.
 - **Client Extension Validation**: `yarn lint:cx` (runs [validate-cx.js](../../../scripts/validate-cx.js) to check schema alignment with `client-extension.yaml`).
 - **Markdown Linting**: `yarn lint:md`.
+
+<!-- markdownlint-disable MD049 -->
+
+---
+
+_Last Updated: 2026-09-01_ | _Last Reviewed: 2026-09-01_
