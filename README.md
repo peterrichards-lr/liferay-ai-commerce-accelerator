@@ -9,7 +9,7 @@ The **Liferay AI Commerce Accelerator (AICA)** is a production-ready suite of cl
 
 ---
 
-For all installation instructions, including the **1-Minute Sales Engineering Demo (LDM)** and manual developer setup, please read our **[Quick Start Guide](./docs/QUICKSTART.md)**.
+For all installation instructions, including the **Sales Engineering Demo (LDM)** and manual developer setup, please read our **[Quick Start Guide](./docs/QUICKSTART.md)**.
 
 ---
 
@@ -89,4 +89,4 @@ _Configure AI provider keys, API endpoints, and DXP connectivity parameters dyna
 
 ---
 
-_Last Updated: 2026-08-14_ | _Last Reviewed: 2026-08-14_
+_Last Updated: 2026-09-01_ | _Last Reviewed: 2026-09-01_

@@ -4,7 +4,7 @@ This guide covers the deployment, configuration, and execution of the **Liferay 
 
 ---
 
-## 🎭 The 1-Minute Sales Engineering Demo
+## 🎭 The Sales Engineering Demo
 
 AICA is designed specifically as a Sales Engineering (SE) demonstration tool. To support diverse demonstration requirements, it is built to be turnkey and highly portable.
 
@@ -23,13 +23,21 @@ _(For Windows, Linux, or Intel Macs, refer to the [Official LDM Repository](http
 
 ### 2. Import & Launch AICA
 
-Run the following command to automatically download the latest pre-compiled database snapshot and launch the DXP container stack:
+Run the following command to automatically download the latest release package and launch the DXP container stack:
 
 ```bash
 ldm quickstart aica
 ```
 
-That's it! LDM will boot the database, Liferay, and the Microservice. Once booted, the Site Initializer will automatically build your demo storefront.
+LDM will boot the database, Liferay, and the Microservice. Once booted, the Site Initializer automatically builds your demo storefront.
+
+The release package ships the client extensions, OSGi modules, and site initializer — **not** a database dump. AICA installs against vanilla DXP and every component creates what it needs on setup, so the package stays around 12 MB rather than 1 GB and never carries stale pre-seeded data. Populate the catalog yourself once the stack is up, which takes about two minutes:
+
+```bash
+aica generate --demo --products 10 --accounts 10 --orders 50
+```
+
+Or use the **AI Data Generator** screen in Liferay, described in [Features & Capabilities](./FEATURES.md).
 
 ---
 
@@ -112,13 +120,17 @@ The project implements an enforced testing strategy. The `deploy` task is depend
 
 ## 📦 Packaging (.ldmp)
 
-To package the entire AICA suite—including your active PostgreSQL database state, dynamic document uploads, and configuration files—into a single `.ldmp` bundle for distribution, use LDM's own packaging command directly (the standalone `scripts/package-ldmp.sh` wrapper was removed — see `.github/workflows/package-ldmp.yml` for the CI invocation):
+To package the AICA suite into a single `.ldmp` bundle for distribution, use LDM's own packaging command directly (the standalone `scripts/package-ldmp.sh` wrapper was removed — see `.github/workflows/package-ldmp.yml` for the CI invocation):
 
 ```bash
-ldm package aica-e2e --repo <your-github-repository> --host-name aica.demo --ssl -y
+# Files only - client extensions, OSGi modules and configuration, no database
+ldm snapshot -p aica-e2e --files-only -n aica-release -y
+ldm package aica-e2e --snapshot aica-release --repo <your-github-repository> --host-name aica.demo --ssl -y
 ```
 
-This outputs a `.ldmp` bundle and a SHA-256 checksum file.
+This outputs a `.ldmp` bundle and a SHA-256 checksum file. This is what the release workflow publishes.
+
+Omitting `--snapshot` packages the live environment instead, which includes a dump of your active PostgreSQL database. That is useful for capturing a specific local state to hand to a colleague, but it is deliberately **not** what ships in releases: the dump inflates the bundle from roughly 12 MB to over 1 GB and freezes demo data that the generator recreates in about two minutes.
 
 ---
 
@@ -145,4 +157,4 @@ During initial boot, you may see `OptimisticLockException` for `UserImpl`. This 
 
 ---
 
-_Last Updated: 2026-08-14_ | _Last Reviewed: 2026-08-14_
+_Last Updated: 2026-09-01_ | _Last Reviewed: 2026-09-01_
