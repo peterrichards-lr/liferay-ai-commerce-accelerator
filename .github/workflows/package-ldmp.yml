@@ -87,7 +87,7 @@ jobs:
 
       - name: Teardown LDM Stack
         if: always()
-        run: ldm rm aica --delete -y || true
+        run: ldm rm aica-e2e --delete -y || true
 
       - name: Create GitHub Release and Upload Assets
         uses: softprops/action-gh-release@v2
