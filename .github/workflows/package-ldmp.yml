@@ -84,8 +84,25 @@ jobs:
           # exclude, and OSGi state is rebuilt on first boot. `client-extensions`,
           # `osgi/modules`, `configs` and `files` are separate archive entries and
           # are unaffected. See #551.
-          docker volume rm -f aica-e2e-data aica-e2e-state 2>/dev/null || true
+          # Empty the volumes IN PLACE rather than removing them. `docker volume rm`
+          # refuses while any container still references them, and `ldm stop` stops
+          # containers without removing them - so the removal silently failed in
+          # v3.3.49, dehydration repopulated `data`, and includes_volume_assets came
+          # back true. Emptying via a throwaway mount has no such constraint.
+          CNAME=$(python3 -c "import json; print(json.load(open('aica-e2e/meta')).get('container_name') or 'aica-e2e')")
+          echo "Project container name: $CNAME"
+          for target in data state; do
+            vol="${CNAME}-${target}"
+            if docker volume inspect "$vol" >/dev/null 2>&1; then
+              echo "Emptying volume $vol"
+              docker run --rm -v "$vol":/v alpine sh -c 'rm -rf /v/..?* /v/.[!.]* /v/* 2>/dev/null; true'
+            else
+              echo "Volume $vol not present"
+            fi
+          done
           rm -rf aica-e2e/data aica-e2e/osgi/state
+          echo "--- host dirs after cleanup ---"
+          du -sh aica-e2e/data aica-e2e/osgi/state 2>&1 || true
 
           # Take the snapshot explicitly so its meta can be enriched before packaging.
           ldm snapshot -p aica-e2e -y
@@ -146,47 +163,61 @@ jobs:
           python3 - <<'PY'
           import json, pathlib, subprocess
 
+          package = pathlib.Path("liferay-ai-commerce-accelerator.ldmp")
           raw = subprocess.run(
-              ["tar", "xzOf", "liferay-ai-commerce-accelerator.ldmp", "meta"],
-              capture_output=True, check=True,
+              ["tar", "xzOf", str(package), "meta"], capture_output=True, check=True,
           ).stdout
           meta = json.loads(raw)
+          members = subprocess.run(
+              ["tar", "tzf", str(package)], capture_output=True, check=True, text=True,
+          ).stdout.split()
+          size_mb = package.stat().st_size / 1024 / 1024
           required = ("tag", "admin_email", "banner_notes", "credentials", "feature_flags")
+
+          # Report everything BEFORE asserting anything. A run that trips one
+          # assertion should still tell us the surrounding facts - v3.3.49 died on
+          # includes_volume_assets without ever printing the package size, which left
+          # us unable to say whether the exclusion had partly worked. See #551.
+          print(f"  package size           : {size_mb:.1f} MB")
+          print(f"  archive members        : {', '.join(members)}")
+          print(f"  tag                    : {meta.get('tag')!r}")
+          print(f"  db_type                : {meta.get('db_type')!r}")
+          print(f"  includes_database      : {meta.get('includes_database')!r}")
+          print(f"  includes_volume_assets : {meta.get('includes_volume_assets')!r}")
+          print(f"  enrichment keys present: {[k for k in required if k in meta]}")
+
+          def truthy(value):
+              return str(value).lower() not in ("false", "none", "")
+
+          problems = []
           missing = [key for key in required if key not in meta]
           if missing:
-              raise SystemExit(f"Packaged meta is missing required keys: {missing}")
-
-          # A truthy includes_database means the stack was still up when packaging
-          # ran and a ~1 GB dump was bundled. Fail rather than publish it. See #551.
-          if str(meta.get("includes_database", "")).lower() not in ("false", "none", ""):
-              raise SystemExit(
-                  f"Packaged meta reports includes_database={meta.get('includes_database')!r};"
-                  " the stack was not stopped before packaging."
+              problems.append(f"meta is missing required keys: {missing}")
+          if truthy(meta.get("includes_database", "")):
+              problems.append(
+                  f"includes_database={meta.get('includes_database')!r};"
+                  " the stack was not stopped before packaging"
               )
-
-          if str(meta.get("includes_volume_assets", "")).lower() not in ("false", "none", ""):
-              raise SystemExit(
-                  f"Packaged meta reports includes_volume_assets={meta.get('includes_volume_assets')!r};"
-                  " Liferay data/state were captured into the archive."
+          if truthy(meta.get("includes_volume_assets", "")):
+              problems.append(
+                  f"includes_volume_assets={meta.get('includes_volume_assets')!r};"
+                  " Liferay data/state were captured into the archive"
               )
-
-          members = subprocess.run(
-              ["tar", "tzf", "liferay-ai-commerce-accelerator.ldmp"],
-              capture_output=True, check=True, text=True,
-          ).stdout.split()
           for unwanted in ("database.sql", "database.gz"):
               if unwanted in members:
-                  raise SystemExit(f"Package contains {unwanted}; expected a database-free release asset.")
+                  problems.append(f"package contains {unwanted}")
+          if size_mb > 250:
+              problems.append(f"package is {size_mb:.0f} MB; expected well under 250 MB")
 
-          # Guard the actual goal, not just its proxies. A database-free,
-          # volume-free package is ~12 MB; anything approaching a gigabyte means
-          # something bulky was captured that these assertions did not name.
-          size = pathlib.Path("liferay-ai-commerce-accelerator.ldmp").stat().st_size
-          if size > 250 * 1024 * 1024:
-              raise SystemExit(f"Package is {size / 1024 / 1024:.0f} MB; expected well under 250 MB.")
+          if problems:
+              raise SystemExit(
+                  "Refusing to publish. "
+                  + str(len(problems))
+                  + " problem(s):\n  - "
+                  + "\n  - ".join(problems)
+              )
 
-          print("Packaged meta is valid JSON; Liferay tag =", meta["tag"])
-          print(f"Package is {size / 1024 / 1024:.1f} MB; members:", ", ".join(members))
+          print("Package verified; safe to publish.")
           PY
 
       - name: Teardown LDM Stack
