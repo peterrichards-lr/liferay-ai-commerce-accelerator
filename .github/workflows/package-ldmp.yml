@@ -100,13 +100,16 @@ jobs:
           path.write_text(json.dumps(meta, indent=4, ensure_ascii=False) + "\n")
           print("Enriched meta; Liferay tag =", meta.get("tag"))
           PY
-          # Package from a files-only snapshot so the release asset ships the client
-          # extensions, OSGi modules and site initializer WITHOUT a database dump.
-          # AICA installs against vanilla DXP: every component creates what it needs on
-          # setup, so a bundled database.sql only ships pre-seeded demo data that goes
-          # stale and inflates the asset from ~12 MB to ~1 GB.
-          ldm snapshot -p aica-e2e --files-only -n aica-release -y
-          ldm package aica-e2e --snapshot aica-release --repo ${{ github.repository }} --host-name aica.demo --ssl -y
+          # Stop the stack before packaging. LDM decides whether to include a
+          # database purely by probing whether the DB container is RUNNING
+          # (snapshot/database.py: `docker ps -q -f name=^<db>$`) - the
+          # `--files-only` flag is registered in its CLI but read by no code path,
+          # so it cannot be used for this. With the containers down there is
+          # nothing to dump, and the archive is still built from the project
+          # directory on disk, so the client extensions, OSGi modules and site
+          # initializer are all captured. See #551.
+          ldm stop -p aica-e2e -y
+          ldm package aica-e2e --repo ${{ github.repository }} --host-name aica.demo --ssl -y
           mv *.ldmp liferay-ai-commerce-accelerator.ldmp
           sha256sum liferay-ai-commerce-accelerator.ldmp | awk '{print $1}' > liferay-ai-commerce-accelerator.ldmp.sha256
 
@@ -126,7 +129,24 @@ jobs:
           missing = [key for key in required if key not in meta]
           if missing:
               raise SystemExit(f"Packaged meta is missing required keys: {missing}")
+
+          # A truthy includes_database means the stack was still up when packaging
+          # ran and a ~1 GB dump was bundled. Fail rather than publish it. See #551.
+          if str(meta.get("includes_database", "")).lower() not in ("false", "none", ""):
+              raise SystemExit(
+                  f"Packaged meta reports includes_database={meta.get('includes_database')!r};"
+                  " the stack was not stopped before packaging."
+              )
+
+          members = subprocess.run(
+              ["tar", "tzf", "liferay-ai-commerce-accelerator.ldmp"],
+              capture_output=True, check=True, text=True,
+          ).stdout.split()
+          if "database.sql" in members:
+              raise SystemExit("Package contains database.sql; expected a database-free release asset.")
+
           print("Packaged meta is valid JSON; Liferay tag =", meta["tag"])
+          print("No database in package; members:", ", ".join(members))
           PY
 
       - name: Teardown LDM Stack
