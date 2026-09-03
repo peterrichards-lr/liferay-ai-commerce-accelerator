@@ -15,6 +15,7 @@ const ENTITY_CONFIGS = [
     title: 'Warehouse Prompt',
     configKey: 'ai-prompt-warehouse',
   },
+  { id: 'promo', title: 'Promotion Prompt', configKey: 'ai-prompt-promo' },
 ];
 
 const { keys, defaults } = ENTITY_CONFIGS.reduce(

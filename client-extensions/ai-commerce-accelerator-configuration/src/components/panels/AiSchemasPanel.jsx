@@ -16,6 +16,7 @@ const ENTITY_CONFIGS = [
     title: 'Warehouse Schema',
     configKey: 'ai-schema-warehouse',
   },
+  { id: 'promo', title: 'Promotion Schema', configKey: 'ai-schema-promo' },
 ];
 
 const { keys, defaults } = ENTITY_CONFIGS.reduce(
