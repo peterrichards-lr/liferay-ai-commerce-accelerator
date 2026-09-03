@@ -123,8 +123,33 @@ jobs:
           if not snapshots:
               raise SystemExit('No snapshot directory found to enrich.')
 
-          path = snapshots[-1] / 'meta'
+          snapshot_dir = snapshots[-1]
+          path = snapshot_dir / 'meta'
           meta = json.loads(path.read_text())
+
+          # LDM leaves client_extensions empty while includes_client_extensions is
+          # true: _generate_snapshot_metadata derives has_cx from cx/, deploy/ and
+          # the build dir, but cx_list from the build dir alone. run-e2e-ldm.sh puts
+          # the zips in osgi/client-extensions, which only the first scan sees. Derive
+          # the list from what files.tar.gz actually holds, so the manifest can never
+          # claim an archive it does not ship. See #556.
+          import tarfile
+
+          def cx_zips(names):
+              # tar member names appear with or without a leading './' depending on how
+              # the archive was created; normalise rather than depend on the form.
+              out = set()
+              for name in names:
+                  clean = name[2:] if name.startswith('./') else name
+                  if clean.startswith('osgi/client-extensions/') and clean.endswith('.zip'):
+                      out.add(pathlib.PurePosixPath(clean).name)
+              return sorted(out)
+
+          with tarfile.open(snapshot_dir / 'files.tar.gz', 'r:gz') as archive:
+              shipped = cx_zips(archive.getnames())
+          if not shipped:
+              raise SystemExit('No client extension zips found in files.tar.gz.')
+          print('Client extensions in archive:', ', '.join(shipped))
           meta.update({
               # `ldm package --host-name/--ssl` are accepted by the CLI and read by
               # no code path - cmd_package takes only project_id, output_dir, repo,
@@ -134,6 +159,8 @@ jobs:
               # published values here instead. See #556.
               "host_name": "aica.demo",
               "ssl": "true",
+              "client_extensions": ",".join(shipped),
+              "includes_client_extensions": "true",
               "admin_email": "test@liferay.com",
               "banner_notes": [
                   "🚀 Welcome to the Liferay AI Commerce Accelerator!",
@@ -194,6 +221,7 @@ jobs:
           print(f"  includes_volume_assets : {meta.get('includes_volume_assets')!r}")
           print(f"  host_name              : {meta.get('host_name')!r}")
           print(f"  ssl                    : {meta.get('ssl')!r}")
+          print(f"  client_extensions      : {meta.get('client_extensions')!r}")
           print(f"  enrichment keys present: {[k for k in required if k in meta]}")
 
           def truthy(value):
@@ -222,6 +250,27 @@ jobs:
               problems.append(
                   f"host_name={meta.get('host_name')!r}; expected 'aica.demo'."
                   " The CI harness's own host has leaked into the published package"
+              )
+          declared = [c for c in str(meta.get("client_extensions", "")).split(",") if c]
+          inner = subprocess.run(
+              ["tar", "xzOf", str(package), "files.tar.gz"], capture_output=True, check=True,
+          ).stdout
+          inner_names = subprocess.run(
+              ["tar", "tzf", "-"], input=inner, capture_output=True, check=True, text=False,
+          ).stdout.decode().split()
+          shipped = sorted({
+              clean.rsplit("/", 1)[-1]
+              for clean in (n[2:] if n.startswith("./") else n for n in inner_names)
+              if clean.startswith("osgi/client-extensions/") and clean.endswith(".zip")
+          })
+          if sorted(declared) != shipped:
+              problems.append(
+                  f"client_extensions declares {sorted(declared)} but the archive ships"
+                  f" {shipped}"
+              )
+          if truthy(meta.get("includes_client_extensions")) and not declared:
+              problems.append(
+                  "includes_client_extensions is true but client_extensions is empty"
               )
           if not truthy(meta.get("ssl")):
               problems.append(
