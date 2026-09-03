@@ -285,17 +285,34 @@ class WarehouseGenerator extends BaseGenerator {
         );
       }
 
-      // HARDENING: Map 'country' to 'countryISOCode' and 'region' to 'regionISOCode'
-      // if coming from AI generator which uses simplified fields.
+      // HARDENING: Map address and schema fields to exact Liferay Warehouse contract
       const prepared = deepCleanIds(
         warehouseDataList.map((w) => {
-          const { country, region, ...rest } = w;
+          const {
+            country,
+            region,
+            addressLocality,
+            postalCode,
+            streetAddressLine1,
+            streetAddressLine2,
+            ...rest
+          } = w;
           return {
             ...rest,
             name: toI18n(w.name, 'Main Warehouse'),
             ...(w.description ? { description: toI18n(w.description) } : {}),
             countryISOCode: w.countryISOCode || country,
             regionISOCode: w.regionISOCode || region,
+            ...(w.city || addressLocality
+              ? { city: w.city || addressLocality }
+              : {}),
+            ...(w.zip || postalCode ? { zip: w.zip || postalCode } : {}),
+            ...(w.street1 || streetAddressLine1
+              ? { street1: w.street1 || streetAddressLine1 }
+              : {}),
+            ...(w.street2 || streetAddressLine2
+              ? { street2: w.street2 || streetAddressLine2 }
+              : {}),
           };
         })
       );
