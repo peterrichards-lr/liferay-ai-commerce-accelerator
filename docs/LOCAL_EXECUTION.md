@@ -177,24 +177,110 @@ _(To run an offline mock test without consuming live AI tokens, add the `--demo`
 
 1. Navigate to `http://localhost:3001` in your browser.
 2. In the **Data Generator** form:
-   - **Brand / Context**:
+   - **Brand / Context**: Provide the name and domain description of the catalog to seed, e.g.:
 
      ```text
-     Solara Moto Gear — Premium motorcycle luggage systems, aluminum side panniers, top cases, bike-specific mounting hardware, and technical riding accessories.
+     Acme Industrial Supplies — Commercial power tools, heavy-duty safety gear, and industrial shop equipment.
      ```
 
-   - **Product Count**: `30`
-   - **Account Count**: `4`
-   - **Order Count**: `10`
-3. If using custom persona and ordering rules, update the prompt templates in the **Configuration Panel**:
-   - `ai-prompt-product`: Luggage lines, bike-specific mounting kits, and specifications (FITMENT, CAPACITY, INSTALL_TIME, MATERIAL).
-   - `ai-prompt-account`: B2C personas ("Adventure Alex", "Touring Tina") and B2B dealers ("MotoPro Outfitters Inc.", "Apex EuroDistributors Ltd.").
-   - `ai-prompt-order`: B2B cross-sell rule (MotoPro orders restricted to TR500 luggage).
+   - **Product Count**: Target product volume (e.g. `30`).
+   - **Account Count**: Target account volume for B2B/B2C entities (e.g. `4`).
+   - **Order Count**: Target historical order volume (e.g. `10`).
+3. If using custom persona and ordering rules, customize the prompt templates in the **Configuration Panel**:
+   - `ai-prompt-product`: Define category lines, option matrices (colors, sizes), and key-value technical specifications (e.g. MATERIAL, CAPACITY, COMPATIBILITY).
+   - `ai-prompt-account`: Define customer persona types, regional distribution, and B2B dealer profiles with contact roles.
+   - `ai-prompt-order`: Define purchase behaviors, date distribution ranges, and targeted cross-sell / upsell purchasing patterns across accounts.
 4. Click **Generate Data**. The progress bars track real-time batch creation, option linking, and taxonomy grounding via WebSockets.
 
 ---
 
-## 7. Step 5: Teardown & Reset Operations
+## 7. Targeting Remote Liferay Instances (PaaS / SaaS / Cloud Environments)
+
+When populating commerce data for a remote Liferay PaaS (LCP) or Experience Cloud environment, you run the AICA microservice and CLI locally while executing outbound API requests directly against the remote portal URL. Because requests originate server-to-server from the Node.js daemon, **browser CORS constraints are completely bypassed**.
+
+### Remote Instance Prerequisites
+
+1. **Enable Feature Flag**: In your remote Liferay instance, go to **Control Panel -> System Settings -> Platform -> Feature Flags** and enable `LPD-35443` (Page Management API).
+2. **Deploy Object Definitions**: Ensure the `ai-commerce-accelerator-batch` client extension is deployed to the remote instance so the required Liferay Object definitions (`c_aicaconfiguration`, etc.) are active.
+3. **Authentication Profile**:
+   Create an OAuth2 Headless Server profile in the remote Liferay Cloud portal:
+   - Go to **Global Menu ➔ Control Panel ➔ Security ➔ OAuth 2 Administration**.
+   - Click the **Add (+)** button.
+   - Configure:
+     - **Application Name**: `AICA Microservice Remote Seeder`
+     - **Client Profile**: `Headless Server`
+     - **Allowed Grant Types**: Check `Client Credentials`
+   - Click **Save**, then copy the generated **Client ID** and **Client Secret**.
+   - Open the **Scopes** tab and enable the following scopes:
+     - `Liferay.Headless.Commerce.Admin.Catalog.everything`
+     - `Liferay.Headless.Commerce.Admin.Channel.everything`
+     - `Liferay.Headless.Commerce.Admin.Inventory.everything`
+     - `Liferay.Headless.Commerce.Admin.Order.everything`
+     - `Liferay.Headless.Commerce.Admin.Pricing.everything`
+     - `Liferay.Headless.Delivery.everything`
+     - `Liferay.Headless.Admin.User.everything`
+     - `Liferay.Headless.Admin.Address.everything`
+     - `Liferay.Headless.Batch.Engine.everything`
+     - `c_aicaconfiguration.everything`
+   - Click **Save**.
+
+### Configure Remote `.env`
+
+Point your local [`.env`](file:///Users/peterrichards/dev/repos/liferay-ai-commerce-accelerator/.env) to the remote PaaS hostname:
+
+```env
+# Remote Liferay PaaS / Cloud URL
+LIFERAY_API_URL=https://webserver-myproject-prd.lfr.cloud
+LIFERAY_URL=https://webserver-myproject-prd.lfr.cloud
+COM_LIFERAY_LXC_DXP_MAIN_DOMAIN=webserver-myproject-prd.lfr.cloud
+COM_LIFERAY_LXC_DXP_SERVER_PROTOCOL=https
+
+# Basic Auth Credentials (Optional Fallback)
+LIFERAY_API_USERNAME=admin@example.com
+LIFERAY_API_PASSWORD=your-remote-password
+
+# OAuth2 Client Credentials Flow (Recommended)
+LIFERAY_OAUTH_CLIENT_ID=your-client-id
+LIFERAY_OAUTH_CLIENT_SECRET=your-client-secret
+
+# AI Provider Key
+AI_API_KEY=sk-...
+```
+
+### Execute Against Remote Instance
+
+#### Option A: Interactive Local UI (Targeting Remote Cloud)
+
+1. Launch the local microservice via `./start.sh` (Option **[1]**) or `yarn start`.
+2. Open `http://localhost:3001` in your browser.
+3. In the **Connection & Authentication** card, enter:
+   - **Liferay URL**: `https://webserver-myproject-prd.lfr.cloud`
+   - **Microservice URL**: `http://localhost:3001`
+   - **Client ID**: Your remote OAuth2 Client ID
+   - **Client Secret**: Your remote OAuth2 Client Secret
+4. Click **Test Connection** / **Connect**. Once the status indicator turns green, use the **Data Generator** form to trigger seeding. The local microservice executes all requests server-to-server directly into your remote PaaS instance.
+
+#### Option B: Headless CLI
+
+1. **Test Remote Handshake & Channel Inspection**:
+
+   ```bash
+   node scripts/aica-cli.cjs connect
+   ```
+
+   AICA will query the remote instance's live channels, sites, and currency settings.
+
+2. **Trigger Seeding**:
+
+   ```bash
+   node scripts/aica-cli.cjs generate --products 30 --accounts 4 --orders 10
+   ```
+
+   _(For full bi-directional communication with custom element microfrontends or webhook callbacks on remote SaaS instances, see [`docs/SaaS_TARGETING_GUIDE.md`](file:///Users/peterrichards/dev/repos/liferay-ai-commerce-accelerator/docs/SaaS_TARGETING_GUIDE.md))._
+
+---
+
+## 8. Step 5: Teardown & Reset Operations
 
 To delete all generated products, accounts, catalogs, and reset the local microservice session state:
 
@@ -206,7 +292,7 @@ _(Or select **[4] Clean / Teardown All Generated Data** in `./start.sh`)._
 
 ---
 
-## 8. Operational Troubleshooting
+## 9. Operational Troubleshooting
 
 ### 401 Account Lockout Loop
 
