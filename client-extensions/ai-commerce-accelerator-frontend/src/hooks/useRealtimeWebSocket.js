@@ -7,6 +7,7 @@ import {
 } from '../utils/sharedConstants';
 import { normalizeEntityType } from '../utils/misc';
 import { WORKFLOW_STATUS } from '../utils/microservicePaths';
+import { getOAuth2AccessToken } from '../services/oauth2Service';
 
 export default function useRealtimeWebSocket({
   enabled,
@@ -202,7 +203,7 @@ export default function useRealtimeWebSocket({
     setWsConnected(false);
   }, []);
 
-  const connect = useCallback(() => {
+  const connect = useCallback(async () => {
     if (!enabled || !microserviceUrl) return;
     if (
       wsRef.current &&
@@ -227,12 +228,12 @@ export default function useRealtimeWebSocket({
 
     const url = new URL(wsUrl);
     if (cid) url.searchParams.set(CORRELATION_ID_HEADER, cid);
-    // Browsers can't set a custom Authorization header on a WebSocket
-    // handshake, so the auth token travels as a query param instead -- the
-    // server (services/webSocketService.cjs) verifies it the same way it
-    // verifies the Bearer header on regular API requests.
-    if (typeof Liferay !== 'undefined' && Liferay.authToken) {
-      url.searchParams.set('token', Liferay.authToken);
+
+    if (typeof Liferay !== 'undefined') {
+      const oauthToken = await getOAuth2AccessToken();
+      if (oauthToken) {
+        url.searchParams.set('token', oauthToken);
+      }
     }
 
     const redactedUrlForLogging = new URL(url.toString());

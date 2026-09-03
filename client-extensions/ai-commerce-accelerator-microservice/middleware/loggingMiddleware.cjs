@@ -103,8 +103,18 @@ async function verifyBearerToken(token, liferayUrl) {
 
   const { kid } = decoded.header;
   const verifyWithJwks = (jwks) => {
-    const key = jwks.keys.find((k) => k.kid === kid);
-    return key ? key : null;
+    if (!jwks?.keys || !Array.isArray(jwks.keys) || jwks.keys.length === 0) {
+      return null;
+    }
+    if (kid) {
+      const match = jwks.keys.find((k) => k.kid === kid);
+      if (match) return match;
+    }
+    // Fallback: If JWT header has no kid or JWKS only has one key (standard Liferay authServer key)
+    if (!kid || jwks.keys.length === 1) {
+      return jwks.keys[0];
+    }
+    return null;
   };
 
   let key;

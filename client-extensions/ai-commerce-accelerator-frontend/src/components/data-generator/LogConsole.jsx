@@ -6,11 +6,12 @@ function LogConsole({ logEntries = [], onClear }) {
   const [searchQuery, setSearchQuery] = useState('');
   const [autoScroll, setAutoScroll] = useState(true);
   const [isOpen, setIsOpen] = useState(true);
-  const terminalEndRef = useRef(null);
+  const scrollContainerRef = useRef(null);
 
   useEffect(() => {
-    if (autoScroll && terminalEndRef.current) {
-      terminalEndRef.current.scrollIntoView({ behavior: 'smooth' });
+    if (autoScroll && scrollContainerRef.current) {
+      scrollContainerRef.current.scrollTop =
+        scrollContainerRef.current.scrollHeight;
     }
   }, [logEntries, autoScroll]);
 
@@ -241,6 +242,7 @@ function LogConsole({ logEntries = [], onClear }) {
 
           {/* Logs Output Area */}
           <div
+            ref={scrollContainerRef}
             style={{
               height: '240px',
               overflowY: 'auto',
@@ -313,7 +315,6 @@ function LogConsole({ logEntries = [], onClear }) {
                 );
               })
             )}
-            <div ref={terminalEndRef} />
           </div>
         </>
       )}

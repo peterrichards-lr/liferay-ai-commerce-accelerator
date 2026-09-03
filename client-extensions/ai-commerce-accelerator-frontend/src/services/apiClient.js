@@ -1,4 +1,5 @@
 import { CORRELATION_ID_HEADER } from '../utils/sharedConstants';
+import { getOAuth2AccessToken } from './oauth2Service';
 
 export function createApiClient({
   baseUrl,
@@ -32,17 +33,15 @@ export function createApiClient({
             sessionStorage.getItem('correlationId')) ||
           null;
 
+    const oauthToken = await getOAuth2AccessToken();
+
     const h = {
       Accept: 'application/json, */*;q=0.1',
+      ...(oauthToken ? { Authorization: `Bearer ${oauthToken}` } : {}),
       ...(!isFormData && body ? { 'Content-Type': 'application/json' } : {}),
       ...(headers || {}),
       ...(cid ? { [CORRELATION_ID_HEADER]: cid } : {}),
     };
-
-    // Automatically include Liferay Auth Token if available
-    if (typeof Liferay !== 'undefined' && Liferay.authToken) {
-      h['Authorization'] = `Bearer ${Liferay.authToken}`;
-    }
 
     const res = await fetch(url, {
       method,
