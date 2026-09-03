@@ -180,4 +180,33 @@ describe('AIService (Multi-Provider)', () => {
     delete process.env.AICA_MAX_TOKEN_LIMIT;
     delete process.env.ALLOW_LARGE_PROMPTS;
   });
+
+  it('should chunk product generation when count exceeds chunkSize', async () => {
+    vi.spyOn(aiService, 'getRuntimeAIConfig').mockResolvedValue({
+      chunkSize: 10,
+    });
+
+    const chatJsonSpy = vi
+      .spyOn(aiService, '_chatJson')
+      .mockImplementation(async (task, prompt, cfg, model, schema) => {
+        // Return dummy products matching prompt request
+        return [
+          { name: { en_US: 'Product A' }, externalReferenceCode: 'PROD-A' },
+          { name: { en_US: 'Product B' }, externalReferenceCode: 'PROD-B' },
+        ];
+      });
+
+    const result = await aiService.generateProductData(
+      'Electronics',
+      25,
+      {},
+      'gpt-4o',
+      ['en-US'],
+      { categories: ['Laptops', 'Phones'] }
+    );
+
+    // 25 items with chunkSize 10 should produce 3 chunks (10, 10, 5)
+    expect(chatJsonSpy).toHaveBeenCalledTimes(3);
+    expect(result.length).toBe(6); // 2 items per mock call * 3 calls
+  });
 });

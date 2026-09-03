@@ -58,7 +58,11 @@ class AIService {
 
     const validator = this.localSchemas[schemaName];
     if (validator) {
-      const isValid = validator(data);
+      const mainPropertyName = schemaName + 's';
+      const toValidate = Array.isArray(data)
+        ? { [mainPropertyName]: data }
+        : data;
+      const isValid = validator(toValidate);
       if (!isValid) {
         this.ctx.logger.error(
           `AI generated data for ${schemaName} violates internal schema`,
@@ -208,9 +212,9 @@ class AIService {
         schema
       );
 
-      if (parsed === null) {
+      if (parsed === null || typeof parsed !== 'object') {
         throw new Error(
-          `AIService._chatJson received non-JSON response for task "${task}"`
+          `AIService._chatJson received non-JSON or unparseable response for task "${task}"`
         );
       }
 
@@ -304,6 +308,62 @@ class AIService {
           : ['en-US'];
 
       const languageCodes = langs.map((l) => l.replace('-', '_'));
+
+      const runtime = await this.getRuntimeAIConfig(requestConfig);
+      const effectiveChunkSize = Math.max(
+        1,
+        Math.min(50, runtime?.chunkSize || 10)
+      );
+
+      if (count > effectiveChunkSize) {
+        const chunks = [];
+        let remaining = count;
+        while (remaining > 0) {
+          chunks.push(Math.min(remaining, effectiveChunkSize));
+          remaining -= effectiveChunkSize;
+        }
+
+        logger?.info?.(
+          `[AIService] Chunking product generation: ${count} products into ${chunks.length} chunks (chunkSize: ${effectiveChunkSize})`,
+          { count, chunksCount: chunks.length, correlationId }
+        );
+
+        const allProducts = [];
+        const categoriesList =
+          Array.isArray(options.categories) && options.categories.length > 0
+            ? options.categories
+            : [category || 'General'];
+
+        for (let i = 0; i < chunks.length; i++) {
+          const chunkCount = chunks[i];
+          const chunkCategory = categoriesList[i % categoriesList.length];
+          logger?.info?.(
+            `[AIService] Generating product chunk ${i + 1}/${chunks.length} (${chunkCount} items, category: ${chunkCategory})...`,
+            {
+              chunkIndex: i + 1,
+              totalChunks: chunks.length,
+              chunkCount,
+              correlationId,
+            }
+          );
+
+          const chunkResult = await this.generateProductData(
+            chunkCategory,
+            chunkCount,
+            requestConfig,
+            model,
+            selectedLanguages,
+            { ...options, categories: [chunkCategory] }
+          );
+
+          const chunkItems = Array.isArray(chunkResult)
+            ? chunkResult
+            : chunkResult?.products || [];
+          allProducts.push(...chunkItems);
+        }
+
+        return allProducts;
+      }
 
       const vars = {
         brandName: options.brandName || '',

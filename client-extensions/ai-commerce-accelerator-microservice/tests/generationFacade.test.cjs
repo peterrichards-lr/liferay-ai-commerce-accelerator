@@ -127,4 +127,12 @@ describe('GenerationFacade', () => {
 
     expect(result[0].specifications[0].specificationKey).toBe('MATERIAL');
   });
+
+  it('should throw ValidationError when count > 0 but 0 valid items are produced', async () => {
+    mockCtx.mockDataGenerator.generateProductData.mockResolvedValue([]);
+
+    await expect(
+      facade.generateData('product', 5, {}, { demoMode: true })
+    ).rejects.toThrow(/produced 0 valid product items/i);
+  });
 });

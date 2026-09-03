@@ -594,6 +594,12 @@ class ConfigService {
       if (resp?.items?.length) {
         const raw = resp.items[0].configValue;
         const parsed = typeof raw === 'string' ? tryParseJSON(raw, {}) : raw;
+        if (typeof parsed === 'object' && parsed !== null) {
+          parsed.chunkSize =
+            Number.isInteger(parsed.chunkSize) && parsed.chunkSize > 0
+              ? parsed.chunkSize
+              : 10;
+        }
         const apiKey = await this.getAIKey(requestConfig);
         if (typeof apiKey === 'string' && apiKey.trim().length > 0) {
           parsed.apiKey = apiKey.trim();
@@ -606,6 +612,7 @@ class ConfigService {
         const fallback = {
           provider: 'openai',
           defaultModel: 'gpt-4o',
+          chunkSize: 10,
           apiKey: apiKey.trim(),
         };
         cache.set(AI_CONFIG_CACHE_KEY, fallback, this.getConfigTTL());
