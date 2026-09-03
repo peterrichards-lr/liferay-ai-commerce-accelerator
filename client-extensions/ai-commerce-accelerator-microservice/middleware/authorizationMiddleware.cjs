@@ -25,14 +25,16 @@ function requireAdmin(req, res, next) {
     });
   }
 
-  const allowlist = (process.env.AICA_ADMIN_EMAILS || '')
+  const rawAdmins =
+    process.env.AICA_ADMINS || process.env.AICA_ADMIN_EMAILS || '';
+  const allowlist = rawAdmins
     .split(',')
     .map((e) => e.trim().toLowerCase())
     .filter(Boolean);
 
   if (allowlist.length === 0) {
     logger.error(
-      'requireAdmin: AICA_ADMIN_EMAILS is not configured -- denying all requests to this route by default',
+      'requireAdmin: AICA_ADMINS is not configured -- denying all requests to this route by default',
       {
         correlationId: req.correlationId,
         operation: `${req.method} ${req.path}`,
@@ -40,14 +42,20 @@ function requireAdmin(req, res, next) {
     );
     return res.status(503).json({
       success: false,
-      error:
-        'This action requires AICA_ADMIN_EMAILS to be configured on the service',
+      error: 'This action requires AICA_ADMINS to be configured on the service',
       timestamp: new Date().toISOString(),
     });
   }
 
   const callerEmail = (req.user.claims.email || '').toLowerCase();
-  if (!callerEmail || !allowlist.includes(callerEmail)) {
+  const callerId = String(req.user.claims.sub || '')
+    .trim()
+    .toLowerCase();
+  const isAllowed =
+    (callerEmail && allowlist.includes(callerEmail)) ||
+    (callerId && allowlist.includes(callerId));
+
+  if (!isAllowed) {
     logger.warn('requireAdmin: rejected non-admin caller', {
       correlationId: req.correlationId,
       operation: `${req.method} ${req.path}`,

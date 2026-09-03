@@ -1,21 +1,69 @@
 import React, { useEffect, useRef, useState } from 'react';
 import ClayIcon from '@clayui/icon';
 
-function LogConsole({ logEntries = [], onClear }) {
+function LogConsole({ logEntries: externalEntries, onClear }) {
   const [filterLevel, setFilterLevel] = useState('ALL');
   const [searchQuery, setSearchQuery] = useState('');
   const [autoScroll, setAutoScroll] = useState(true);
-  const [isOpen, setIsOpen] = useState(true);
+  const [isOpen, setIsOpen] = useState(false);
+  const [renderedLogs, setRenderedLogs] = useState([]);
+  const logBufferRef = useRef([]);
+  const isOpenRef = useRef(false);
   const scrollContainerRef = useRef(null);
+
+  useEffect(() => {
+    isOpenRef.current = isOpen;
+    if (isOpen) {
+      setRenderedLogs([...logBufferRef.current]);
+    }
+  }, [isOpen]);
+
+  useEffect(() => {
+    if (Array.isArray(externalEntries) && externalEntries.length > 0) {
+      logBufferRef.current = externalEntries.slice(-500);
+      if (isOpenRef.current) {
+        setRenderedLogs([...logBufferRef.current]);
+      }
+    }
+  }, [externalEntries]);
+
+  useEffect(() => {
+    const handleWSEvent = (event) => {
+      const data = event.detail;
+      if (data && data.type === 'LOG_ENTRY' && data.logEntry) {
+        const next = [...logBufferRef.current, data.logEntry];
+        if (next.length > 500) {
+          next.splice(0, next.length - 500);
+        }
+        logBufferRef.current = next;
+
+        if (isOpenRef.current) {
+          setRenderedLogs([...next]);
+        }
+      }
+    };
+    window.addEventListener('liferay-ai-ws-event', handleWSEvent);
+    return () => {
+      window.removeEventListener('liferay-ai-ws-event', handleWSEvent);
+    };
+  }, []);
+
+  const handleClear = () => {
+    logBufferRef.current = [];
+    setRenderedLogs([]);
+    if (typeof onClear === 'function') {
+      onClear();
+    }
+  };
 
   useEffect(() => {
     if (autoScroll && scrollContainerRef.current) {
       scrollContainerRef.current.scrollTop =
         scrollContainerRef.current.scrollHeight;
     }
-  }, [logEntries, autoScroll]);
+  }, [renderedLogs, autoScroll]);
 
-  const filteredLogs = logEntries.filter((log) => {
+  const filteredLogs = renderedLogs.filter((log) => {
     const matchesLevel =
       filterLevel === 'ALL' ||
       (filterLevel === 'WARN_ERROR' &&
@@ -111,6 +159,20 @@ function LogConsole({ logEntries = [], onClear }) {
           >
             AICA Seeder Console log stream
           </span>
+          {isOpen && (
+            <span
+              style={{
+                fontSize: '0.7rem',
+                background: '#374151',
+                color: '#9CA3AF',
+                borderRadius: '9999px',
+                padding: '1px 8px',
+                marginLeft: '8px',
+              }}
+            >
+              {`${filteredLogs.length} logs`}
+            </span>
+          )}
         </div>
 
         <div
@@ -212,7 +274,7 @@ function LogConsole({ logEntries = [], onClear }) {
 
             {/* Clear */}
             <button
-              onClick={onClear}
+              onClick={handleClear}
               style={{
                 background: 'transparent',
                 border: 'none',
