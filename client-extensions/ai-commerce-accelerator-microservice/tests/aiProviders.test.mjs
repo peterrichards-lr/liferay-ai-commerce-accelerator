@@ -58,6 +58,48 @@ describe('AI Providers', () => {
       expect(requestBody.messages[1].content).toBe('test-prompt');
     });
 
+    it('should throw explicit error when output is truncated due to length', async () => {
+      server.use(
+        http.post('https://api.openai.com/v1/chat/completions', () => {
+          return HttpResponse.json({
+            choices: [
+              {
+                finish_reason: 'length',
+                message: { content: '{"partial":' },
+              },
+            ],
+          });
+        })
+      );
+
+      await expect(
+        provider.generateJSON('test-task', 'prompt', {
+          credentials: { apiKey: 'key' },
+        })
+      ).rejects.toThrow(/token limit reached/i);
+    });
+
+    it('should throw explicit error when response is invalid JSON', async () => {
+      server.use(
+        http.post('https://api.openai.com/v1/chat/completions', () => {
+          return HttpResponse.json({
+            choices: [
+              {
+                finish_reason: 'stop',
+                message: { content: 'This is not json at all' },
+              },
+            ],
+          });
+        })
+      );
+
+      await expect(
+        provider.generateJSON('test-task', 'prompt', {
+          credentials: { apiKey: 'key' },
+        })
+      ).rejects.toThrow(/unparseable JSON/i);
+    });
+
     it('should generate an image using dall-e-3', async () => {
       let requestBody;
       server.use(

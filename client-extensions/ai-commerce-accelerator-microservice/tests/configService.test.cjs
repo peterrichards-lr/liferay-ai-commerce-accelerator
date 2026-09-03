@@ -97,6 +97,7 @@ describe('ConfigService', () => {
         method: 'getAIConfig',
         key: 'ai-config',
         value: { model: 'gpt-4' },
+        expected: { model: 'gpt-4', chunkSize: 10 },
       },
       {
         name: 'OAuthConfig',

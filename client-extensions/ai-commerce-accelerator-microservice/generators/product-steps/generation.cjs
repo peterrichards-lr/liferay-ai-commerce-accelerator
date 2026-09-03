@@ -76,6 +76,11 @@ async function runProductDataGenerationStep(sessionId) {
       sessionId,
       session.correlationId
     );
+    if (options.productCount > 0 && (!allData || allData.length === 0)) {
+      throw new Error(
+        `Product generation returned 0 products for requested count of ${options.productCount}.`
+      );
+    }
     await this.persistence.updateSessionContext(sessionId, {
       productDataList: allData,
     });

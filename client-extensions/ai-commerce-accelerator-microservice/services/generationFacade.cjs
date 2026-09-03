@@ -204,6 +204,15 @@ class GenerationFacade {
         );
         data = data.slice(0, count);
       }
+
+      if (count > 0 && Array.isArray(data) && data.length === 0) {
+        const emptyErr = new Error(
+          `AI generation produced 0 valid ${schemaName} items for requested count of ${count}.`
+        );
+        emptyErr.name = 'ValidationError';
+        emptyErr.errorReference = createERC(ERC_PREFIX.ERROR);
+        throw emptyErr;
+      }
     }
 
     return data;

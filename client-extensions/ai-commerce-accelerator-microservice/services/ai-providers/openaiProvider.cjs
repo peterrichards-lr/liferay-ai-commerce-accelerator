@@ -79,11 +79,24 @@ class OpenAIProvider extends BaseAIProvider {
       messages,
       response_format: { type: 'json_object' },
       temperature: options.temperature || 0.7,
-      max_tokens: options.maxTokens || 4000,
+      max_tokens: options.maxTokens || 16384,
     });
 
-    const content = response.choices[0].message.content;
-    return tryParseJSON(content);
+    const choice = response.choices?.[0];
+    if (choice?.finish_reason === 'length') {
+      throw new Error(
+        'AI provider response truncated: output token limit reached (finish_reason: length). Please reduce chunk size or product count.'
+      );
+    }
+
+    const content = choice?.message?.content;
+    const parsed = tryParseJSON(content);
+    if (typeof parsed === 'string') {
+      throw new Error(
+        'AI provider returned invalid or unparseable JSON content.'
+      );
+    }
+    return parsed;
   }
 
   async generateImage(product, options) {
