@@ -1,7 +1,7 @@
 {
   "warehouses": [
     {
-      "name": "Industrial Midwest Hub",
+      "name": { "en_US": "Industrial Midwest Hub" },
       "externalReferenceCode": "WH-IND-MIDWEST",
       "countryISOCode": "US",
       "regionISOCode": "IL",

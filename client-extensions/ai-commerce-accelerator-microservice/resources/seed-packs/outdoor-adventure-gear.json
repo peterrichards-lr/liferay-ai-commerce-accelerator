@@ -1,7 +1,7 @@
 {
   "warehouses": [
     {
-      "name": "Outdoor Northwest Depot",
+      "name": { "en_US": "Outdoor Northwest Depot" },
       "externalReferenceCode": "WH-OUT-NORTHWEST",
       "countryISOCode": "US",
       "regionISOCode": "WA",

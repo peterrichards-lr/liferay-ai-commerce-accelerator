@@ -4,6 +4,7 @@ const {
   createERC,
   fromI18n,
   resolveErrorReference,
+  toI18n,
 } = require('../utils/misc.cjs');
 const { ERC_PREFIX, WORKFLOW_STEPS } = require('../utils/constants.cjs');
 
@@ -291,6 +292,8 @@ class WarehouseGenerator extends BaseGenerator {
           const { country, region, ...rest } = w;
           return {
             ...rest,
+            name: toI18n(w.name, 'Main Warehouse'),
+            ...(w.description ? { description: toI18n(w.description) } : {}),
             countryISOCode: w.countryISOCode || country,
             regionISOCode: w.regionISOCode || region,
           };
