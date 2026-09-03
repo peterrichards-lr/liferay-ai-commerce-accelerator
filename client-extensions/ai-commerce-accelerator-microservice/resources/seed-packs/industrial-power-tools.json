@@ -5,7 +5,12 @@
       "externalReferenceCode": "WH-IND-MIDWEST",
       "countryISOCode": "US",
       "regionISOCode": "IL",
-      "city": "Chicago"
+      "city": "Chicago",
+      "street1": "100 Industrial Pkwy",
+      "zip": "60601",
+      "latitude": 41.8781,
+      "longitude": -87.6298,
+      "active": true
     }
   ],
   "accounts": [

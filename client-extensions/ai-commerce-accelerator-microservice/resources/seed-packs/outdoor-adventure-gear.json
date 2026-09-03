@@ -5,7 +5,12 @@
       "externalReferenceCode": "WH-OUT-NORTHWEST",
       "countryISOCode": "US",
       "regionISOCode": "WA",
-      "city": "Seattle"
+      "city": "Seattle",
+      "street1": "500 Pike St",
+      "zip": "98101",
+      "latitude": 47.6062,
+      "longitude": -122.3321,
+      "active": true
     }
   ],
   "accounts": [

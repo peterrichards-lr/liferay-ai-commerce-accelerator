@@ -307,12 +307,19 @@ class WarehouseGenerator extends BaseGenerator {
               ? { city: w.city || addressLocality }
               : {}),
             ...(w.zip || postalCode ? { zip: w.zip || postalCode } : {}),
-            ...(w.street1 || streetAddressLine1
-              ? { street1: w.street1 || streetAddressLine1 }
-              : {}),
+            street1: w.street1 || streetAddressLine1 || '100 Main St',
             ...(w.street2 || streetAddressLine2
               ? { street2: w.street2 || streetAddressLine2 }
               : {}),
+            latitude:
+              typeof w.latitude === 'number'
+                ? w.latitude
+                : parseFloat(w.latitude) || 41.8781,
+            longitude:
+              typeof w.longitude === 'number'
+                ? w.longitude
+                : parseFloat(w.longitude) || -87.6298,
+            active: w.active !== undefined ? Boolean(w.active) : true,
           };
         })
       );
