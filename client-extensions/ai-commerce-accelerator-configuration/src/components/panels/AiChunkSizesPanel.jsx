@@ -107,7 +107,7 @@ export default function AiChunkSizesPanel() {
             onClick={handleReset}
             disabled={saving}
           >
-            Reset to Defaults
+            Defaults
           </ClayButton>
           <ClayButton
             displayType="secondary"
