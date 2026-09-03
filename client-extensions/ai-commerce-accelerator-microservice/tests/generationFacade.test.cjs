@@ -136,3 +136,120 @@ describe('GenerationFacade', () => {
     ).rejects.toThrow(/produced 0 valid product items/i);
   });
 });
+
+describe('GenerationFacade null-optional repair', () => {
+  const Ajv = require('ajv');
+  const addFormats = require('ajv-formats');
+  const fs = require('fs');
+  const path = require('path');
+  const {
+    dropNullTypeViolations,
+    describeOffendingValues,
+  } = require('../services/generationFacade.cjs');
+
+  const compile = (name) => {
+    const ajv = new Ajv({ allErrors: true, strict: false });
+    addFormats(ajv);
+    return ajv.compile(
+      JSON.parse(
+        fs.readFileSync(
+          path.join(__dirname, '..', 'generation-schemas', name),
+          'utf8'
+        )
+      )
+    );
+  };
+
+  const personAccount = () => ({
+    accounts: [
+      {
+        name: 'Alex Vance',
+        type: 'person',
+        externalReferenceCode: 'ACC-ALEX-VANCE',
+        accountContactInformation: {
+          emailAddresses: [
+            {
+              emailAddress: 'alex.vance@example.com',
+              primary: true,
+              type: 'personal',
+            },
+          ],
+        },
+        taxId: null,
+        billingAddress: null,
+        shippingAddress: null,
+        headOfficeAddress: null,
+      },
+    ],
+  });
+
+  it('drops null optional fields so a payload that only failed on nulls validates', () => {
+    const validate = compile('account.json');
+    const payload = personAccount();
+
+    expect(validate(payload)).toBe(false);
+
+    const dropped = dropNullTypeViolations(payload, validate.errors);
+
+    expect(dropped.sort()).toEqual([
+      '/accounts/0/billingAddress',
+      '/accounts/0/headOfficeAddress',
+      '/accounts/0/shippingAddress',
+      '/accounts/0/taxId',
+    ]);
+    expect(validate(payload)).toBe(true);
+  });
+
+  it('leaves populated fields untouched while dropping the nulls', () => {
+    const validate = compile('account.json');
+    const payload = personAccount();
+    validate(payload);
+    dropNullTypeViolations(payload, validate.errors);
+
+    const account = payload.accounts[0];
+    expect(account.name).toBe('Alex Vance');
+    expect(account.externalReferenceCode).toBe('ACC-ALEX-VANCE');
+    expect('taxId' in account).toBe(false);
+  });
+
+  it('never drops a null the schema explicitly permits', () => {
+    const validate = compile('pricing.json');
+    const payload = {
+      priceListName: 'Base',
+      priceEntries: [
+        {
+          sku: 'S1',
+          price: 10,
+          externalReferenceCode: 'P1',
+          skuExternalReferenceCode: 'S1',
+          promoPrice: null,
+        },
+      ],
+    };
+
+    expect(validate(payload)).toBe(true);
+    expect(dropNullTypeViolations(payload, validate.errors || [])).toEqual([]);
+    expect(payload.priceEntries[0].promoPrice).toBeNull();
+  });
+
+  it('reports the offending value alongside the failing path', () => {
+    const validate = compile('account.json');
+    const payload = personAccount();
+    validate(payload);
+
+    const described = describeOffendingValues(payload, validate.errors);
+
+    expect(described['/accounts/0/taxId']).toBe('null');
+    expect(described['/accounts/0/billingAddress']).toBe('null');
+  });
+
+  it('truncates oversized offending values', () => {
+    const payload = { accounts: [{ name: 'x'.repeat(500) }] };
+    const described = describeOffendingValues(payload, [
+      { instancePath: '/accounts/0/name', keyword: 'type' },
+    ]);
+
+    expect(described['/accounts/0/name'].endsWith('...')).toBe(true);
+    expect(described['/accounts/0/name'].length).toBeLessThan(260);
+  });
+});

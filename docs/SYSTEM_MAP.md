@@ -71,6 +71,10 @@ The project is a multi-module Liferay Workspace using a headless-first architect
 
 - **`ai-commerce-accelerator-microservice/generation-schemas/`**: JSON schemas that define the data contract between AI models and the microservice generators, nested under the microservice subsystem, not a top-level directory. Authoritative OpenAPI/GraphQL definitions from Liferay now live in the external `@liferay/accelerator-sdk` package rather than a repo-local `api-schemas/` directory.
 
+Generated payloads are validated against these schemas in `GenerationFacade.validateAndNormalize`. Models frequently emit `null` for an optional field rather than omitting it, which fails as a type error even though the field was never required; such nulls are dropped and the payload revalidated once before the run is failed. The repair is driven by the validator's own errors rather than by walking the schema, so a value a schema explicitly permits to be null — `promoPrice` is currently the only one — is never removed. When validation still fails, the offending values are logged alongside the failing paths, because a path alone does not say what the model actually produced.
+
+Note that a **customised prompt stored in Liferay overrides the file in `prompts/`** entirely (`PromptService` resolves the configured prompt first). A customisation that stops describing a field's shape can therefore break validation without any code change.
+
 ---
 
 ## 4. Testing Strategy
@@ -149,4 +153,4 @@ Any change to the event emission logic in `ProgressService.cjs` (Server) MUST be
 
 ---
 
-_Last Updated: 2026-08-14_ | _Last Reviewed: 2026-08-14_
+_Last Updated: 2026-09-03_ | _Last Reviewed: 2026-09-03_
