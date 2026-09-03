@@ -150,6 +150,25 @@ jobs:
           if not shipped:
               raise SystemExit('No client extension zips found in files.tar.gz.')
           print('Client extensions in archive:', ', '.join(shipped))
+          # The snapshot captures the Liferay service's environment into custom_env,
+          # which IS propagated to consumers on import. That includes the CI harness's
+          # own container hostname:
+          #     LIFERAY_ROUTES_CLIENT_EXTENSION_..._MICROSERVICE
+          #         = http://aica-e2e-ai-commerce-accelerator-microservice:3001
+          # which resolves nowhere on a consumer's machine. Drop the pin so Liferay
+          # auto-registers the route for whatever the project is actually called when
+          # the client extension zip is deployed. See #563.
+          custom_env = meta.get("custom_env")
+          was_string = isinstance(custom_env, str)
+          if was_string:
+              custom_env = json.loads(custom_env) if custom_env.strip() else {}
+          if isinstance(custom_env, dict):
+              pinned = [k for k in custom_env if k.startswith("LIFERAY_ROUTES_CLIENT_EXTENSION_")]
+              for key in pinned:
+                  print(f"Dropping pinned route from custom_env: {key}={custom_env[key]}")
+                  del custom_env[key]
+              meta["custom_env"] = json.dumps(custom_env) if was_string else custom_env
+
           meta.update({
               # `ldm package --host-name/--ssl` are accepted by the CLI and read by
               # no code path - cmd_package takes only project_id, output_dir, repo,
@@ -251,6 +270,19 @@ jobs:
                   f"host_name={meta.get('host_name')!r}; expected 'aica.demo'."
                   " The CI harness's own host has leaked into the published package"
               )
+          packaged_env = meta.get("custom_env")
+          if isinstance(packaged_env, str):
+              packaged_env = json.loads(packaged_env) if packaged_env.strip() else {}
+          pinned_routes = sorted(
+              k for k in (packaged_env or {}) if k.startswith("LIFERAY_ROUTES_CLIENT_EXTENSION_")
+          )
+          print(f"  pinned routes          : {pinned_routes or 'none'}")
+          if pinned_routes:
+              problems.append(
+                  f"custom_env pins {pinned_routes}; these carry the build environment's"
+                  " container hostnames and resolve nowhere on a consumer's machine"
+              )
+
           declared = [c for c in str(meta.get("client_extensions", "")).split(",") if c]
           inner = subprocess.run(
               ["tar", "xzOf", str(package), "files.tar.gz"], capture_output=True, check=True,
