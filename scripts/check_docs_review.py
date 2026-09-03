@@ -5,7 +5,24 @@ import sys
 from pathlib import Path
 from datetime import datetime
 
-IGNORE_DIRS = {'.venv', 'node_modules', '.smoke_venv', '.git', 'build', 'dist', '.agents', 'bundles', 'aica-e2e', 'test-pkg', 'test-project', 'test_tar', 'test-results', 'e2e-logs', 'playwright-report'}
+IGNORE_DIRS = {
+    '.venv',
+    'node_modules',
+    '.smoke_venv',
+    '.git',
+    'build',
+    'dist',
+    '.agents',
+    'bundles',
+    'aica-e2e',
+    'test-pkg',
+    'test-project',
+    'test_tar',
+    'test-results',
+    'e2e-logs',
+    'playwright-report',
+    'prompts',
+}
 FOOTER_REGEX = re.compile(r"[\*_]Last Updated: ([\d\-]+)[\*_] \| [\*_]Last Reviewed: ([\d\-]+)[\*_]")
 
 def check_docs_review(root_dir, max_review_days, max_update_days, max_gap_days):

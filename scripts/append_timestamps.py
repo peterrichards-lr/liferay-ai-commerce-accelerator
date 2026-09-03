@@ -4,7 +4,24 @@ import argparse
 from pathlib import Path
 from datetime import datetime
 
-IGNORE_DIRS = {'.venv', 'node_modules', '.smoke_venv', '.git', 'build', 'dist', '.agents', 'bundles', 'aica-e2e', 'test-pkg', 'test-project', 'test_tar', 'test-results', 'e2e-logs', 'playwright-report'}
+IGNORE_DIRS = {
+    '.venv',
+    'node_modules',
+    '.smoke_venv',
+    '.git',
+    'build',
+    'dist',
+    '.agents',
+    'bundles',
+    'aica-e2e',
+    'test-pkg',
+    'test-project',
+    'test_tar',
+    'test-results',
+    'e2e-logs',
+    'playwright-report',
+    'prompts',
+}
 
 # Regex to parse the dates from any variant of the footer pattern
 FOOTER_REGEX = re.compile(
