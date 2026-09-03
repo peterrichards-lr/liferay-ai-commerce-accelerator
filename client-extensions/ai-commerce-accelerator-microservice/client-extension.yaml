@@ -18,3 +18,20 @@ ai-commerce-accelerator-microservice:
     - Liferay.Headless.Delivery.everything
     - c_aicaconfiguration.everything
   type: oAuthApplicationHeadlessServer
+
+ai-commerce-accelerator-microservice-user-agent:
+  .serviceAddress: localhost:3001
+  .serviceScheme: http
+  name: Liferay AI Commerce Accelerator OAuth Application User Agent
+  scopes:
+    - Liferay.Headless.Admin.User.everything
+    - Liferay.Headless.Batch.Engine.everything.read
+    - Liferay.Headless.Admin.Address.everything
+    - Liferay.Headless.Commerce.Admin.Catalog.everything
+    - Liferay.Headless.Commerce.Admin.Channel.everything
+    - Liferay.Headless.Commerce.Admin.Inventory.everything
+    - Liferay.Headless.Commerce.Admin.Order.everything
+    - Liferay.Headless.Commerce.Admin.Pricing.everything
+    - Liferay.Headless.Delivery.everything
+    - c_aicaconfiguration.everything
+  type: oAuthApplicationUserAgent

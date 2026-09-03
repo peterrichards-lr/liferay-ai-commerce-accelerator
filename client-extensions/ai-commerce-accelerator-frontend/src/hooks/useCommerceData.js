@@ -31,7 +31,7 @@ export default function useCommerceData({
   const buildPayload = useCallback(
     (overrides = {}) => {
       const {
-        includeCredentials = !config.liferayHosted,
+        includeCredentials = true,
         channel,
         siteGroupId,
         ...rest
