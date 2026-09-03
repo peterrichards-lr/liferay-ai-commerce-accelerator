@@ -105,8 +105,8 @@ describe('requireAdmin', () => {
     expect(next).toHaveBeenCalledTimes(1);
   });
 
-  it('rejects an authenticated caller with no email claim, even with an allowlist configured', () => {
-    process.env.AICA_ADMIN_EMAILS = 'admin@liferay.com';
+  it('rejects an authenticated caller with no email claim when their sub is not in the allowlist', () => {
+    process.env.AICA_ADMINS = 'admin@liferay.com';
     const req = mockReq({ user: { claims: { sub: '5' } } });
     const res = mockRes();
     const next = vi.fn();
@@ -115,5 +115,30 @@ describe('requireAdmin', () => {
 
     expect(res.status).toHaveBeenCalledWith(403);
     expect(next).not.toHaveBeenCalled();
+  });
+
+  it('allows an authenticated caller whose user id (sub) is in AICA_ADMINS', () => {
+    process.env.AICA_ADMINS = '20132, admin@liferay.com';
+    const req = mockReq({ user: { claims: { sub: '20132' } } });
+    const res = mockRes();
+    const next = vi.fn();
+
+    requireAdmin(req, res, next);
+
+    expect(next).toHaveBeenCalledTimes(1);
+    expect(res.status).not.toHaveBeenCalled();
+  });
+
+  it('falls back to AICA_ADMIN_EMAILS if AICA_ADMINS is not set', () => {
+    delete process.env.AICA_ADMINS;
+    process.env.AICA_ADMIN_EMAILS = '20132';
+    const req = mockReq({ user: { claims: { sub: '20132' } } });
+    const res = mockRes();
+    const next = vi.fn();
+
+    requireAdmin(req, res, next);
+
+    expect(next).toHaveBeenCalledTimes(1);
+    expect(res.status).not.toHaveBeenCalled();
   });
 });

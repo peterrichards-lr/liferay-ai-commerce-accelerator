@@ -168,27 +168,6 @@ function AppUI() {
     }
   }, []);
 
-  const [logEntries, setLogEntries] = useState([]);
-
-  useEffect(() => {
-    const handleWSEvent = (event) => {
-      const data = event.detail;
-      if (data && data.type === 'LOG_ENTRY' && data.logEntry) {
-        setLogEntries((prev) => {
-          const next = [...prev, data.logEntry];
-          if (next.length > 500) {
-            return next.slice(next.length - 500);
-          }
-          return next;
-        });
-      }
-    };
-    window.addEventListener('liferay-ai-ws-event', handleWSEvent);
-    return () => {
-      window.removeEventListener('liferay-ai-ws-event', handleWSEvent);
-    };
-  }, []);
-
   const onBatchErrorDetails = useCallback((details) => {
     setBatchErrors((prev) => [...prev, details]);
   }, []);
@@ -733,10 +712,7 @@ function AppUI() {
                   isGenerating={isGenerating}
                 />
 
-                <LogConsole
-                  logEntries={logEntries}
-                  onClear={() => setLogEntries([])}
-                />
+                <LogConsole />
               </div>
             </div>
           </ClayLayout.Col>
