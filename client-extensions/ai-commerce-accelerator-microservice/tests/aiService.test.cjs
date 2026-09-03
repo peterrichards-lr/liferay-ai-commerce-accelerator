@@ -209,4 +209,79 @@ describe('AIService (Multi-Provider)', () => {
     expect(chatJsonSpy).toHaveBeenCalledTimes(3);
     expect(result.length).toBe(6); // 2 items per mock call * 3 calls
   });
+
+  it('should chunk account generation when count exceeds chunkSizes.account', async () => {
+    vi.spyOn(aiService, 'getRuntimeAIConfig').mockResolvedValue({
+      chunkSizes: { account: 10 },
+    });
+
+    const chatJsonSpy = vi
+      .spyOn(aiService, '_chatJson')
+      .mockImplementation(async () => {
+        return [
+          { name: 'Acme Corp', externalReferenceCode: 'ACME' },
+          { name: 'Beta Ltd', externalReferenceCode: 'BETA' },
+        ];
+      });
+
+    const result = await aiService.generateAccountData(
+      25,
+      {},
+      'gpt-4o',
+      ['Industrial'],
+      ['en-US']
+    );
+
+    expect(chatJsonSpy).toHaveBeenCalledTimes(3);
+    expect(result.length).toBe(6);
+  });
+
+  it('should chunk order generation when count exceeds chunkSizes.order', async () => {
+    vi.spyOn(aiService, 'getRuntimeAIConfig').mockResolvedValue({
+      chunkSizes: { order: 10 },
+    });
+
+    const chatJsonSpy = vi
+      .spyOn(aiService, '_chatJson')
+      .mockImplementation(async () => {
+        return [
+          { externalReferenceCode: 'ORD-1', accountId: '101', items: [] },
+          { externalReferenceCode: 'ORD-2', accountId: '102', items: [] },
+        ];
+      });
+
+    const result = await aiService.generateOrderData(
+      [{ id: '1', name: 'Item', sku: 'SKU1' }],
+      [{ id: '101', name: 'Acme' }],
+      25,
+      {},
+      'gpt-4o',
+      ['en-US']
+    );
+
+    expect(chatJsonSpy).toHaveBeenCalledTimes(3);
+    expect(result.length).toBe(6);
+  });
+
+  it('should chunk warehouse generation when count exceeds chunkSizes.warehouse', async () => {
+    vi.spyOn(aiService, 'getRuntimeAIConfig').mockResolvedValue({
+      chunkSizes: { warehouse: 10 },
+    });
+
+    const chatJsonSpy = vi
+      .spyOn(aiService, '_chatJson')
+      .mockImplementation(async () => {
+        return [
+          { externalReferenceCode: 'WH-1', name: { en_US: 'Warehouse 1' } },
+          { externalReferenceCode: 'WH-2', name: { en_US: 'Warehouse 2' } },
+        ];
+      });
+
+    const result = await aiService.generateWarehouseData(25, {}, 'gpt-4o', [
+      'en-US',
+    ]);
+
+    expect(chatJsonSpy).toHaveBeenCalledTimes(3);
+    expect(result.length).toBe(6);
+  });
 });

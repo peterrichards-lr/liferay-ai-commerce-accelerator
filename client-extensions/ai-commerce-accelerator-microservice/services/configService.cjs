@@ -67,6 +67,9 @@ const EXCLUDE_LISTS_CACHE_KEY = 'EXCLUDE_LISTS_KEY';
 const GENERATION_LIMITS_CONFIG_KEY = 'generation-limits';
 const GENERATION_LIMITS_CACHE_KEY = 'GENERATION_LIMITS_KEY';
 
+const AI_CHUNK_SIZES_CONFIG_KEY = 'ai-chunk-sizes';
+const AI_CHUNK_SIZES_CACHE_KEY = 'AI_CHUNK_SIZES_KEY';
+
 class ConfigService {
   constructor(ctx) {
     this.cache = ctx.cache;
@@ -332,6 +335,51 @@ class ConfigService {
         maxProducts: 10000,
       }
     );
+  }
+
+  async getAIChunkSizes(requestConfig) {
+    const logger = this.logger;
+    try {
+      const chunkSizes = await this.getConfig(
+        requestConfig,
+        AI_CHUNK_SIZES_CACHE_KEY,
+        AI_CHUNK_SIZES_CONFIG_KEY
+      );
+      if (chunkSizes && typeof chunkSizes === 'object') {
+        const sanitize = (val) =>
+          Number.isInteger(val) && val >= 1 && val <= 50 ? val : 10;
+        return {
+          product: sanitize(chunkSizes.product),
+          account: sanitize(chunkSizes.account),
+          order: sanitize(chunkSizes.order),
+          warehouse: sanitize(chunkSizes.warehouse),
+        };
+      }
+    } catch (error) {
+      logger?.debug?.(
+        'Failed to get ai-chunk-sizes from Liferay Object, falling back',
+        { error: error?.message }
+      );
+    }
+
+    // Graceful fallback to aiConfig if ai-chunk-sizes is not yet seeded
+    try {
+      const aiConfig = await this.getAIConfig(requestConfig);
+      const fallback = aiConfig?.chunkSize || 10;
+      return {
+        product: aiConfig?.chunkSizes?.product || fallback,
+        account: aiConfig?.chunkSizes?.account || fallback,
+        order: aiConfig?.chunkSizes?.order || fallback,
+        warehouse: aiConfig?.chunkSizes?.warehouse || fallback,
+      };
+    } catch {
+      return { product: 10, account: 10, order: 10, warehouse: 10 };
+    }
+  }
+
+  getAIChunkSizesCached() {
+    const cached = this.getConfigCached(AI_CHUNK_SIZES_CACHE_KEY);
+    return cached || { product: 10, account: 10, order: 10, warehouse: 10 };
   }
 
   async getDefaultImage(requestConfig) {
@@ -827,6 +875,8 @@ class ConfigService {
       this.cache.delete(AI_MEDIA_API_CACHE_KEY);
     } else if (configKey === AI_CONFIG_KEY) {
       this.cache.delete(AI_CONFIG_CACHE_KEY);
+    } else if (configKey === AI_CHUNK_SIZES_CONFIG_KEY) {
+      this.cache.delete(AI_CHUNK_SIZES_CACHE_KEY);
     }
 
     return result;
