@@ -126,6 +126,14 @@ jobs:
           path = snapshots[-1] / 'meta'
           meta = json.loads(path.read_text())
           meta.update({
+              # `ldm package --host-name/--ssl` are accepted by the CLI and read by
+              # no code path - cmd_package takes only project_id, output_dir, repo,
+              # use_latest and snapshot. Left to itself the package therefore
+              # inherits the CI harness's own settings, which run-e2e-ldm.sh creates
+              # as aica-e2e.demo with SSL off via --no-ssl. Declare the intended
+              # published values here instead. See #556.
+              "host_name": "aica.demo",
+              "ssl": "true",
               "admin_email": "test@liferay.com",
               "banner_notes": [
                   "🚀 Welcome to the Liferay AI Commerce Accelerator!",
@@ -152,7 +160,7 @@ jobs:
           # so timestamp names make it reliably the newest. Do not use
           # `--snapshot <name>`: that lookup compares against the directory name only,
           # so it can never match a meta name. See #551.
-          ldm package aica-e2e --use-latest --repo ${{ github.repository }} --host-name aica.demo --ssl -y
+          ldm package aica-e2e --use-latest --repo ${{ github.repository }} -y
           mv *.ldmp liferay-ai-commerce-accelerator.ldmp
           sha256sum liferay-ai-commerce-accelerator.ldmp | awk '{print $1}' > liferay-ai-commerce-accelerator.ldmp.sha256
 
@@ -184,6 +192,8 @@ jobs:
           print(f"  db_type                : {meta.get('db_type')!r}")
           print(f"  includes_database      : {meta.get('includes_database')!r}")
           print(f"  includes_volume_assets : {meta.get('includes_volume_assets')!r}")
+          print(f"  host_name              : {meta.get('host_name')!r}")
+          print(f"  ssl                    : {meta.get('ssl')!r}")
           print(f"  enrichment keys present: {[k for k in required if k in meta]}")
 
           def truthy(value):
@@ -208,6 +218,17 @@ jobs:
                   problems.append(f"package contains {unwanted}")
           if size_mb > 250:
               problems.append(f"package is {size_mb:.0f} MB; expected well under 250 MB")
+          if meta.get("host_name") != "aica.demo":
+              problems.append(
+                  f"host_name={meta.get('host_name')!r}; expected 'aica.demo'."
+                  " The CI harness's own host has leaked into the published package"
+              )
+          if not truthy(meta.get("ssl")):
+              problems.append(
+                  f"ssl={meta.get('ssl')!r}; expected a truthy value. Without it LDM"
+                  " starts no proxy, so the Headless call fails and fragment"
+                  " overrides are skipped"
+              )
 
           if problems:
               raise SystemExit(

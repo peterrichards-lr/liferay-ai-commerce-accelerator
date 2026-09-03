@@ -123,14 +123,26 @@ The project implements an enforced testing strategy. The `deploy` task is depend
 To package the AICA suite into a single `.ldmp` bundle for distribution, use LDM's own packaging command directly (the standalone `scripts/package-ldmp.sh` wrapper was removed — see `.github/workflows/package-ldmp.yml` for the CI invocation):
 
 ```bash
-# Files only - client extensions, OSGi modules and configuration, no database
-ldm snapshot -p aica-e2e --files-only -n aica-release -y
-ldm package aica-e2e --snapshot aica-release --repo <your-github-repository> --host-name aica.demo --ssl -y
+# Stop the stack, then empty Liferay's data and state volumes
+ldm stop -p aica-e2e -y
+docker run --rm -v aica-e2e-data:/v alpine sh -c 'rm -rf /v/..?* /v/.[!.]* /v/* 2>/dev/null; true'
+docker run --rm -v aica-e2e-state:/v alpine sh -c 'rm -rf /v/..?* /v/.[!.]* /v/* 2>/dev/null; true'
+rm -rf aica-e2e/data aica-e2e/osgi/state
+
+# Snapshot, then package that snapshot
+ldm snapshot -p aica-e2e -y
+ldm package aica-e2e --use-latest --repo <your-github-repository> -y
 ```
 
-This outputs a `.ldmp` bundle and a SHA-256 checksum file. This is what the release workflow publishes.
+This outputs a `.ldmp` bundle and a SHA-256 checksum file, around 2.3 MB. See `.github/workflows/package-ldmp.yml` for the exact release invocation.
 
-Omitting `--snapshot` packages the live environment instead, which includes a dump of your active PostgreSQL database. That is useful for capturing a specific local state to hand to a colleague, but it is deliberately **not** what ships in releases: the dump inflates the bundle from roughly 12 MB to over 1 GB and freezes demo data that the generator recreates in about two minutes.
+Three things about this sequence are not obvious, and each cost a failed release to learn:
+
+- **The database is excluded by stopping the stack, not by a flag.** LDM decides whether to bundle a dump purely by probing whether the database container is running. `ldm snapshot --files-only` is accepted by the CLI but read by no code path, so it has no effect.
+- **Emptying the volumes matters as much as stopping.** Snapshotting dehydrates the `data` and `state` Docker volumes back onto the host and archives them, which keeps the bundle near 1 GB even with no database. Empty them through a throwaway mount rather than `docker volume rm`, which refuses while a stopped container still references them.
+- **`--host-name` and `--ssl` on `ldm package` do nothing.** `cmd_package` takes no such parameters. The published values come from the snapshot's `meta`, which the release workflow rewrites directly. Left alone, the package inherits whatever the build environment used.
+
+To capture a specific local state including your PostgreSQL data — useful for handing an environment to a colleague — package while the stack is running and skip the volume cleanup. That is deliberately not what ships in releases.
 
 ---
 
@@ -157,4 +169,4 @@ During initial boot, you may see `OptimisticLockException` for `UserImpl`. This 
 
 ---
 
-_Last Updated: 2026-09-01_ | _Last Reviewed: 2026-09-01_
+_Last Updated: 2026-09-02_ | _Last Reviewed: 2026-09-02_

@@ -75,8 +75,10 @@ This script ([run-e2e-ldm.sh](../../../scripts/run-e2e-ldm.sh)) handles initiali
 Packs the current Liferay Workspace assets and configuration into a portable snapshot `.ldmp` package. The standalone `scripts/package-ldmp.sh` wrapper was removed — invoke LDM directly:
 
 ```bash
-ldm package aica-e2e --repo <your-github-repository> --host-name aica.demo --ssl -y
+ldm package aica-e2e --use-latest --repo <your-github-repository> -y
 ```
+
+Note that `--host-name` and `--ssl` are accepted by the CLI but read by no code path — `cmd_package` takes only `project_id`, `output_dir`, `repo`, `use_latest` and `snapshot`. The published host and scheme come from the snapshot's `meta`. See [QUICKSTART](../../../docs/QUICKSTART.md) for the full sequence, including why the database is excluded by stopping the stack rather than by a flag.
 
 Release packages are built from scratch by [package-ldmp.yml](../../../.github/workflows/package-ldmp.yml) on every `v*` tag and attached to the GitHub Release, so there is never a need to keep a `.ldmp` in the working tree (`*.ldmp` is gitignored). AICA installs against vanilla DXP — the client extensions, OSGi modules, and site initializer create everything they need on setup — so a packaged `database.sql` is a demo-seeding convenience, not an install requirement.
 
@@ -120,4 +122,4 @@ Executes locally in Huskies' pre-commit hooks to prevent leaking sensitive API k
 
 ---
 
-_Last Updated: 2026-09-01_ | _Last Reviewed: 2026-09-01_
+_Last Updated: 2026-09-02_ | _Last Reviewed: 2026-09-02_
