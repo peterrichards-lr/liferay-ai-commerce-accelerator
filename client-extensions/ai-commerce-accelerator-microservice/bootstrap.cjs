@@ -46,6 +46,7 @@ module.exports = async (ws) => {
     cache: ctx.cache,
     logger,
   });
+  ctx.configService = ctx.config;
 
   ctx.liferay = new LiferayService({
     oauth: ctx.oauth,

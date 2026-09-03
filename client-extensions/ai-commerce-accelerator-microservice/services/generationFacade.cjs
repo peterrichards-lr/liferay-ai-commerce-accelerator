@@ -236,19 +236,19 @@ class GenerationFacade {
         Array.isArray(data[mainPropertyName])
       ) {
         data[mainPropertyName] = data[mainPropertyName].map((item) =>
-          this._standardizeItem(item)
+          this._standardizeItem(item, entityType)
         );
         return data;
       }
     }
 
     if (!Array.isArray(data)) {
-      return this._standardizeItem(data);
+      return this._standardizeItem(data, entityType);
     }
-    return data.map((item) => this._standardizeItem(item));
+    return data.map((item) => this._standardizeItem(item, entityType));
   }
 
-  _standardizeItem(item) {
+  _standardizeItem(item, entityType) {
     if (!item || typeof item !== 'object') return item;
 
     // Ensure ERC exists and is consistent
@@ -259,6 +259,58 @@ class GenerationFacade {
     if (!item.externalReferenceCode && !item.erc) {
       // Try to determine a prefix based on common properties or fallback to BATCH
       item.externalReferenceCode = createERC(ERC_PREFIX.BATCH);
+    }
+
+    if (entityType === 'product') {
+      if (!item.productType) {
+        item.productType = 'simple';
+      }
+      if (!item.baseSku) {
+        item.baseSku = item.skus?.[0]?.sku || item.externalReferenceCode;
+      }
+      if (!Array.isArray(item.skus) || item.skus.length === 0) {
+        item.skus = [
+          {
+            sku: item.baseSku,
+            externalReferenceCode: item.baseSku,
+            price: typeof item.price === 'number' ? item.price : 100,
+            cost: typeof item.cost === 'number' ? item.cost : 50,
+            inventoryLevel:
+              typeof item.inventoryLevel === 'number'
+                ? item.inventoryLevel
+                : 100,
+            published: true,
+            purchasable: true,
+            neverExpire: true,
+          },
+        ];
+      }
+      if (!item.shortDescription) {
+        if (item.description && typeof item.description === 'object') {
+          item.shortDescription = {};
+          for (const [lang, desc] of Object.entries(item.description)) {
+            item.shortDescription[lang] = String(desc).substring(0, 200);
+          }
+        } else {
+          item.shortDescription =
+            item.name && typeof item.name === 'object'
+              ? { ...item.name }
+              : { en_US: String(item.name || 'Product summary') };
+        }
+      }
+      if (!item.urls) {
+        item.urls = {};
+        if (item.name && typeof item.name === 'object') {
+          for (const [lang, name] of Object.entries(item.name)) {
+            item.urls[lang] = String(name)
+              .toLowerCase()
+              .replace(/[^a-z0-9]+/g, '-')
+              .replace(/^-+|-+$/g, '');
+          }
+        } else {
+          item.urls = { en_US: 'product' };
+        }
+      }
     }
 
     return item;
