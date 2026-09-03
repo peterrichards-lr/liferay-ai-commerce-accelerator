@@ -4,6 +4,7 @@ const {
   createERC,
   fromI18n,
   resolveErrorReference,
+  toI18n,
 } = require('../utils/misc.cjs');
 const { ERC_PREFIX, WORKFLOW_STEPS } = require('../utils/constants.cjs');
 
@@ -284,15 +285,41 @@ class WarehouseGenerator extends BaseGenerator {
         );
       }
 
-      // HARDENING: Map 'country' to 'countryISOCode' and 'region' to 'regionISOCode'
-      // if coming from AI generator which uses simplified fields.
+      // HARDENING: Map address and schema fields to exact Liferay Warehouse contract
       const prepared = deepCleanIds(
         warehouseDataList.map((w) => {
-          const { country, region, ...rest } = w;
+          const {
+            country,
+            region,
+            addressLocality,
+            postalCode,
+            streetAddressLine1,
+            streetAddressLine2,
+            ...rest
+          } = w;
           return {
             ...rest,
+            name: toI18n(w.name, 'Main Warehouse'),
+            ...(w.description ? { description: toI18n(w.description) } : {}),
             countryISOCode: w.countryISOCode || country,
             regionISOCode: w.regionISOCode || region,
+            ...(w.city || addressLocality
+              ? { city: w.city || addressLocality }
+              : {}),
+            ...(w.zip || postalCode ? { zip: w.zip || postalCode } : {}),
+            street1: w.street1 || streetAddressLine1 || '100 Main St',
+            ...(w.street2 || streetAddressLine2
+              ? { street2: w.street2 || streetAddressLine2 }
+              : {}),
+            latitude:
+              typeof w.latitude === 'number'
+                ? w.latitude
+                : parseFloat(w.latitude) || 41.8781,
+            longitude:
+              typeof w.longitude === 'number'
+                ? w.longitude
+                : parseFloat(w.longitude) || -87.6298,
+            active: w.active !== undefined ? Boolean(w.active) : true,
           };
         })
       );

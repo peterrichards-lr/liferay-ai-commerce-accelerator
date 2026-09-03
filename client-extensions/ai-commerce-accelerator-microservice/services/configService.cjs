@@ -594,8 +594,22 @@ class ConfigService {
       if (resp?.items?.length) {
         const raw = resp.items[0].configValue;
         const parsed = typeof raw === 'string' ? tryParseJSON(raw, {}) : raw;
+        const apiKey = await this.getAIKey(requestConfig);
+        if (typeof apiKey === 'string' && apiKey.trim().length > 0) {
+          parsed.apiKey = apiKey.trim();
+        }
         cache.set(AI_CONFIG_CACHE_KEY, parsed, this.getConfigTTL());
         return parsed;
+      }
+      const apiKey = await this.getAIKey(requestConfig);
+      if (typeof apiKey === 'string' && apiKey.trim().length > 0) {
+        const fallback = {
+          provider: 'openai',
+          defaultModel: 'gpt-4o',
+          apiKey: apiKey.trim(),
+        };
+        cache.set(AI_CONFIG_CACHE_KEY, fallback, this.getConfigTTL());
+        return fallback;
       }
       return null;
     } catch (error) {
@@ -801,6 +815,7 @@ class ConfigService {
     // Clear cache
     if (configKey === AI_CREDENTIALS_CONFIG_KEY) {
       this.cache.delete(AI_API_CACHE_KEY);
+      this.cache.delete(AI_CONFIG_CACHE_KEY);
     } else if (configKey === AI_MEDIA_CREDENTIALS_CONFIG_KEY) {
       this.cache.delete(AI_MEDIA_API_CACHE_KEY);
     } else if (configKey === AI_CONFIG_KEY) {

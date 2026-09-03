@@ -1,11 +1,16 @@
 {
   "warehouses": [
     {
-      "name": "Industrial Midwest Hub",
+      "name": { "en_US": "Industrial Midwest Hub" },
       "externalReferenceCode": "WH-IND-MIDWEST",
       "countryISOCode": "US",
       "regionISOCode": "IL",
-      "addressLocality": "Chicago"
+      "city": "Chicago",
+      "street1": "100 Industrial Pkwy",
+      "zip": "60601",
+      "latitude": 41.8781,
+      "longitude": -87.6298,
+      "active": true
     }
   ],
   "accounts": [

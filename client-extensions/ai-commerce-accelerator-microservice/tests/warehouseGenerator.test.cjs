@@ -157,5 +157,8 @@ describe('WarehouseGenerator', () => {
     const callArgs = mockCtx.liferay.createWarehousesBatch.mock.calls[0][1];
     expect(callArgs[0]).not.toHaveProperty('country');
     expect(callArgs[0]).not.toHaveProperty('region');
+
+    // Verify that string names are defensively normalized to localized i18n objects
+    expect(callArgs[0].name).toEqual({ en_US: 'Test Warehouse' });
   });
 });

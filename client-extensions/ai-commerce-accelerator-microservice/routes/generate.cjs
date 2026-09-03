@@ -45,25 +45,28 @@ module.exports = (
       const { config, options } = buildConfigAndOptions(req);
       config.demoMode = options.demoMode;
 
-      // Check if OpenAI key is available, if not fallback to seed pack!
-      let openAiKeyAvailable = false;
+      // Check if AI API key is available, if not fallback to seed pack!
+      let aiKeyAvailable = false;
       try {
         const aiCfg = await configService.getAIConfig(config);
-        openAiKeyAvailable = !!(
+        const directKey = await configService.getAIKey(config);
+        aiKeyAvailable = !!(
           aiCfg?.apiKey ||
-          aiCfg?.openAiKey ||
-          process.env.OPENAI_API_KEY
+          directKey ||
+          req.body?.aiApiKey ||
+          process.env.AI_API_KEY ||
+          process.env.OPENAI_API_KEY ||
+          process.env.GEMINI_API_KEY
         );
       } catch (err) {
-        logger.warn(
-          'Failed to verify OpenAI key availability via configService',
-          { error: err.message }
-        );
+        logger.warn('Failed to verify AI key availability via configService', {
+          error: err.message,
+        });
       }
 
-      if (!options.demoMode && !openAiKeyAvailable) {
+      if (!options.demoMode && !aiKeyAvailable) {
         logger.warn(
-          'OpenAI key is not configured or unavailable. Automatically falling back to "industrial-power-tools" seed pack.'
+          'AI API key is not configured or unavailable. Automatically falling back to "industrial-power-tools" seed pack.'
         );
         options.seedPack = 'industrial-power-tools';
         options.demoMode = true;
