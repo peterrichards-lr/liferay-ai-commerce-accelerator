@@ -20,6 +20,12 @@ export const PANELS = [
     component: lazy(() => import('./components/panels/AiSchemasPanel')),
   },
   {
+    id: 'ai-chunk-sizes',
+    label: 'AI Chunk Sizes',
+    icon: 'grid',
+    component: lazy(() => import('./components/panels/AiChunkSizesPanel')),
+  },
+  {
     id: 'generation-limits',
     label: 'Generation Limits',
     icon: 'code',

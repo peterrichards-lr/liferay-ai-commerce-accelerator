@@ -88,7 +88,8 @@ generateBatchFiles {
 				    file.name.contains("-object-entry-ai-prompt-") ||
 				    file.name.contains("-object-entry-ai-categories") ||
 				    file.name.contains("-object-entry-ai-model-options") ||
-				    file.name.contains("-object-entry-batch-sizes")) {
+				    file.name.contains("-object-entry-batch-sizes") ||
+				    file.name.contains("-object-entry-ai-chunk-sizes")) {
 					logger.debug("Deleting ${file.name}")
 					file.delete()
 				}
@@ -312,6 +313,46 @@ generateBatchFiles {
 						configValue: minifyJsonString(content),
 						description: "Batch Sizes",
 						externalReferenceCode: "BATCH-SIZES"
+					]
+				]
+			]
+
+			def fileName = String.format("%02d-object-entry-%s.batch-engine-data.json", fileIndex++, configKey)
+			def outputFile = new File(batchDir, fileName)
+			outputFile.withWriter('UTF-8') {
+				writer ->
+				writer.write(JsonOutput.prettyPrint(JsonOutput.toJson(batchJson)))
+
+			}
+			logger.lifecycle("Generated batch file: ${outputFile.name}")
+
+		}
+
+		// --- AI Chunk Sizes ---
+		def aiChunkSizesFile = file("$frontendConfigDir/ai-chunk-sizes.json")
+		if (aiChunkSizesFile.exists()) {
+			def content = aiChunkSizesFile.text
+			def configKey = "ai-chunk-sizes"
+
+			def batchJson = [
+				configuration: [
+					className: "com.liferay.object.rest.dto.v1_0.ObjectEntry",
+					parameters: [
+						containsHeaders: "true",
+						createStrategy: "UPSERT",
+						onErrorFail: "false",
+						taskItemDelegateName: "C_AICAConfiguration",
+						updateStrategy: "UPDATE"
+					],
+					taskItemDelegateName: "C_AICAConfiguration"
+				],
+				items: [
+					[
+						configKey: configKey,
+						configStatus: [ key: "Active" ],
+						configValue: minifyJsonString(content),
+						description: "AI Chunk Sizes",
+						externalReferenceCode: "AI-CHUNK-SIZES"
 					]
 				]
 			]

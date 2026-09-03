@@ -252,12 +252,6 @@ export default function AiConfigPanel() {
       aiConfig.requestTimeoutMs < 1000
     )
       found.push('Request timeout must be at least 1000 ms.');
-    if (
-      aiConfig.chunkSize !== undefined &&
-      (aiConfig.chunkSize < 1 || aiConfig.chunkSize > 50)
-    ) {
-      found.push('AI Product Chunk Size must be between 1 and 50.');
-    }
     setIssues(found);
   }, [aiConfig]);
 
@@ -344,25 +338,6 @@ export default function AiConfigPanel() {
 
           <small className="form-text text-secondary">
             Controls randomness: 0 = deterministic, higher = more creative.
-          </small>
-        </ClayForm.Group>
-
-        <ClayForm.Group>
-          <label htmlFor="ai-chunk-size">AI Product Chunk Size</label>
-
-          <ClayInput
-            id="ai-chunk-size"
-            type="number"
-            min={1}
-            max={50}
-            value={aiConfig.chunkSize ?? 10}
-            onChange={(e) => updateAi('chunkSize', toInt(e.target.value, 10))}
-          />
-
-          <small className="form-text text-secondary">
-            Number of products generated per AI call. Smaller chunks (5–10)
-            prevent output token truncation and allow generating hundreds of
-            products reliably.
           </small>
         </ClayForm.Group>
 
