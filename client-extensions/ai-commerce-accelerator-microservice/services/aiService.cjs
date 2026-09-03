@@ -202,11 +202,15 @@ class AIService {
         throw tokenErr;
       }
 
+      const effectiveMaxTokens =
+        runtime.maxTokens === 4000 ? 16384 : runtime.maxTokens || 16384;
+
       const parsed = await provider.generateJSON(
         task,
         prompt,
         {
           ...runtime,
+          maxTokens: effectiveMaxTokens,
           model: model || runtime.model,
         },
         schema
@@ -312,7 +316,7 @@ class AIService {
       const runtime = await this.getRuntimeAIConfig(requestConfig);
       const effectiveChunkSize = Math.max(
         1,
-        Math.min(50, runtime?.chunkSize || 10)
+        Math.min(50, runtime?.chunkSize || 5)
       );
 
       if (count > effectiveChunkSize) {
