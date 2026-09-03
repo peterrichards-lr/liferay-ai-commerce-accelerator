@@ -229,7 +229,7 @@
           "skuVariants": {
             "description": "SKU variants generated from option combinations.",
             "items": {
-              "additionalProperties": false,
+              "additionalProperties": true,
               "properties": {
                 "id": {
                   "description": "Internal numeric ID (optional, used in Demo Mode).",
