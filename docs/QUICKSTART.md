@@ -148,6 +148,28 @@ To capture a specific local state including your PostgreSQL data — useful for 
 
 ---
 
+## ♻️ Resetting a Local Bundle
+
+The Liferay Workspace plugin has no bundle reset task — `clean` removes only the build directory, and the `clean*` family it adds leaves `bundles/` untouched. Two tasks fill that gap:
+
+```bash
+# Light: database, OSGi state and Tomcat work. Deployed artifacts and logs are kept.
+./gradlew resetBundleState
+
+# Full: the above, plus client extensions, OSGi modules, pending deployments and logs.
+./gradlew resetBundleFull
+```
+
+`resetBundleFull` **preserves the activation key** (`osgi/modules/*.xml`); removing it would mean re-licensing the bundle.
+
+Logs are cleared only by the full reset. A light reset is often run to reproduce a problem, and the logs are the record of what was just seen.
+
+Both refuse to run while anything is listening on port 8080, because deleting `bundles/data` under a live Tomcat corrupts the database rather than resetting it. Stop Liferay first.
+
+After a full reset, redeploy with `blade gw deploy`.
+
+---
+
 ## ⚠️ Known Issues & Troubleshooting
 
 ### Node.js Versioning Constraint
@@ -171,4 +193,4 @@ During initial boot, you may see `OptimisticLockException` for `UserImpl`. This 
 
 ---
 
-_Last Updated: 2026-09-03_ | _Last Reviewed: 2026-09-03_
+_Last Updated: 2026-09-04_ | _Last Reviewed: 2026-09-04_
