@@ -23,6 +23,13 @@ ai-commerce-accelerator-microservice:
     # 403 before it reaches the module. The endpoint is POST-only, so the write
     # scope is sufficient. See #626.
     - AICA.Reindex.everything.write
+    # Read a commerce channel's B2B/B2C/B2X site type, provided by the
+    # commerce-site-type module from liferay-custom-osgi-modules. The endpoint
+    # is GET-only, so the read scope is sufficient. Derived from the
+    # application's osgi.jaxrs.name, Custom.Commerce.Site.Type - confirm it
+    # against OAuth2 Administration if calls return 403 with an empty body,
+    # which is how a missing scope presents. See #610.
+    - Custom.Commerce.Site.Type.everything.read
   type: oAuthApplicationHeadlessServer
 
 ai-commerce-accelerator-microservice-user-agent:
