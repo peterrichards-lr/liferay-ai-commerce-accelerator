@@ -33,7 +33,16 @@ function resolveEffectiveLiferayConnection(
 ) {
   const errorReference = createERC(ERC_PREFIX.ERROR);
 
-  const isColocated =
+  // Named for what it actually tests: whether the OAuth application was
+  // resolved from the routes tree Liferay writes, which requires
+  // LIFERAY_ROUTES_CLIENT_EXTENSION and LIFERAY_ROUTES_DXP to point at it.
+  //
+  // This used to be called isColocated, which conflated two questions and made
+  // a discovery failure look like a deployment topology. See
+  // accelerator-sdk#159 - while the SDK looked up the wrong external reference
+  // code, this was always false, and the standalone branch below silently
+  // became the only path.
+  const hasRouteCredentials =
     typeof oauthService?.isLiferayRouteAvailable === 'function' &&
     oauthService.isLiferayRouteAvailable();
 
@@ -54,7 +63,7 @@ function resolveEffectiveLiferayConnection(
   }
 
   // 2. Resolve Credentials based on location
-  if (isColocated) {
+  if (hasRouteCredentials) {
     if (!clientId && typeof oauthService?.getDefaultClientId === 'function') {
       clientId = oauthService.getDefaultClientId();
     }
@@ -100,7 +109,7 @@ function resolveEffectiveLiferayConnection(
   const hasOAuth = clientId && clientSecret;
   const hasBasic = ENV.LIFERAY_API_USERNAME && ENV.LIFERAY_API_PASSWORD;
 
-  if (!isColocated && !hasOAuth && !hasBasic) {
+  if (!hasRouteCredentials && !hasOAuth && !hasBasic) {
     const e = new Error('Liferay authentication is not configured');
     e.name = 'LiferayRequestError';
     e.operation = 'liferay-auth-resolution';
@@ -115,7 +124,13 @@ function resolveEffectiveLiferayConnection(
     throw e;
   }
 
-  return { liferayUrl, clientId, clientSecret, isColocated };
+  // Field name kept for callers; see the comment above on what it means.
+  return {
+    liferayUrl,
+    clientId,
+    clientSecret,
+    isColocated: hasRouteCredentials,
+  };
 }
 
 module.exports = {

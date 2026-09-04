@@ -1,5 +1,5 @@
 const { logger } = require('./utils/logger.cjs');
-const { ENV } = require('./utils/constants.cjs');
+const { APP_ERCS, ENV } = require('./utils/constants.cjs');
 const {
   recordReindexFailure,
   recordReindexSuccess,
@@ -45,7 +45,18 @@ module.exports = async (ws) => {
     logger,
     persistence: ctx.persistence,
   });
-  ctx.oauth = new OAuthService({ cache: ctx.cache, logger });
+  // The OAuth application's external reference code is ours, not the SDK's:
+  // Liferay registers it under the name in our client-extension.yaml, and a
+  // shared library cannot know that. Supplying it here lets the SDK resolve the
+  // client id and secret from the routes tree Liferay writes - the mechanism
+  // that reads LIFERAY_ROUTES_CLIENT_EXTENSION and LIFERAY_ROUTES_DXP - once,
+  // at construction. See accelerator-sdk#159.
+  ctx.oauth = new OAuthService({
+    cache: ctx.cache,
+    logger,
+    oauthApplicationExternalReferenceCode:
+      APP_ERCS.OAUTH_SERVER_EXTERNAL_REFERENCE_CODE,
+  });
   ctx.config = new ConfigService({
     cache: ctx.cache,
     logger,
