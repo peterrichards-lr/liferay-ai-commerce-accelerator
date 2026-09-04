@@ -199,6 +199,13 @@ export default function CommerceCard({
                   No channels found. Please ensure you have at least one Channel
                   created in Liferay.
                 </small>
+                <small className="text-secondary d-block mb-2">
+                  Auto-Create makes a channel that can generate data, but it has
+                  no site and no commerce site type (B2B, B2C or B2X) — neither
+                  can be set through the API. If your demo depends on B2B or B2C
+                  behaviour, create the channel in Liferay under Commerce →
+                  Channels instead, where the site type can be chosen.
+                </small>
                 <div className="d-flex align-items-center mt-2">
                   <button
                     type="button"

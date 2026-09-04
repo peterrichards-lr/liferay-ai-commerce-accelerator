@@ -78,4 +78,33 @@ describe('CommerceCard', () => {
     expect(screen.getByText('No channels found')).toBeInTheDocument();
     expect(screen.getByText('No currencies found')).toBeInTheDocument();
   });
+
+  it('says what Auto-Create Channel actually produces', () => {
+    // The payload sends only currencyCode, name and type: 'site' - the channel
+    // type, not B2B/B2C/B2X - so the channel has no site association and no
+    // commerce site type, and neither is settable through the API. Without
+    // saying so, the button reads as equivalent to creating one in Liferay.
+    // See #624.
+    useApp.mockReturnValue({
+      config: {},
+      setConfig: vi.fn(),
+    });
+
+    render(
+      <CommerceCard
+        connected={true}
+        catalogs={[]}
+        channels={[]}
+        currencies={[]}
+        errors={{}}
+      />
+    );
+
+    expect(screen.getByText('Auto-Create Channel')).toBeInTheDocument();
+
+    const caveat = screen.getByText(/no site and no commerce site type/i);
+    expect(caveat).toBeInTheDocument();
+    expect(caveat.textContent).toMatch(/B2B, B2C or B2X/);
+    expect(caveat.textContent).toMatch(/Commerce . Channels/);
+  });
 });
