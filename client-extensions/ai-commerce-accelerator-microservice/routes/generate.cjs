@@ -7,6 +7,10 @@ const {
 const { handleError } = require('../utils/handleErrorHelper.cjs');
 const { ERC_PREFIX, WORKFLOW_STEPS } = require('../utils/constants.cjs');
 const { resolveErrorReference, createERC } = require('../utils/misc.cjs');
+const {
+  resolveValidationContext,
+  validateGenerationRequest,
+} = require('../utils/validateGenerationRequest.cjs');
 
 const S = WORKFLOW_STEPS;
 
@@ -44,6 +48,33 @@ module.exports = (
     async (req, res) => {
       const { config, options } = buildConfigAndOptions(req);
       config.demoMode = options.demoMode;
+
+      // Validated here rather than as route middleware: the route is multipart,
+      // so every field is still a string until buildConfigAndOptions coerces it.
+      const validationContext = await resolveValidationContext(
+        configService,
+        config
+      );
+      const problems = validateGenerationRequest(
+        'data',
+        { config, options },
+        validationContext
+      );
+
+      if (problems.length > 0) {
+        logger.warn('Generation request rejected', {
+          correlationId: req.correlationId,
+          operation: 'generate-workflow',
+          errors: problems,
+        });
+
+        return res.status(400).json({
+          success: false,
+          error: `Input validation failed: ${problems.join(', ')}`,
+          details: problems,
+          timestamp: new Date().toISOString(),
+        });
+      }
 
       // Check if AI API key is available, if not fallback to seed pack!
       let aiKeyAvailable = false;

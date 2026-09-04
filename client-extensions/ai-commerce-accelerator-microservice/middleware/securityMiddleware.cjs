@@ -74,14 +74,22 @@ function validateInput(data, schema) {
     }
 
     if (rules.type === 'number') {
-      if (rules.min && value < rules.min) {
+      // Compared against undefined rather than truthiness: `min: 0` is the
+      // common case for a count, and `if (rules.min && ...)` silently skipped
+      // it, so a negative count passed validation.
+      if (rules.min !== undefined && value < rules.min) {
         errors.push(`${field} must be at least ${rules.min}`);
       }
-      if (rules.max && value > rules.max) {
+      if (rules.max !== undefined && value > rules.max) {
         errors.push(`${field} must be at most ${rules.max}`);
       }
       if (rules.integer && !Number.isInteger(value)) {
         errors.push(`${field} must be an integer`);
+      }
+      // enum was previously only checked for strings, so a numeric enum such as
+      // batchSize declared one and enforced nothing.
+      if (rules.enum && !rules.enum.includes(value)) {
+        errors.push(`${field} must be one of: ${rules.enum.join(', ')}`);
       }
     }
 

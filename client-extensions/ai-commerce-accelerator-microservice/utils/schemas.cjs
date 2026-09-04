@@ -9,15 +9,30 @@ const channelConnectionSchema = {
   channelId: { type: 'number', required: true, integer: true },
 };
 
+// The values the UI offers are none/placeholder/ai (VisualAssetControls.jsx).
+// mediaGenerator additionally handles picsum, default and custom, and
+// useGeneration.js treats 'generate' as a legacy alias of 'ai'. The previous
+// enum listed none/generate/custom/default, which would have rejected 'ai' -
+// the primary case - had it ever been applied.
+const MEDIA_MODES = [
+  'none',
+  'placeholder',
+  'ai',
+  'picsum',
+  'default',
+  'custom',
+  'generate',
+];
+
 const modeSchema = {
   imageMode: {
     type: 'string',
-    enum: ['none', 'generate', 'custom', 'default'],
+    enum: MEDIA_MODES,
     required: true,
   },
   pdfMode: {
     type: 'string',
-    enum: ['none', 'generate', 'custom', 'default'],
+    enum: MEDIA_MODES,
     required: true,
   },
 };
@@ -31,7 +46,25 @@ const commerceSchema = {
   demoMode: { type: 'boolean', required: false },
 };
 
-const generateDataSchema = (aiModelOptions = [], batchSizes = []) => ({
+/**
+ * Ceilings are runtime configuration (`generation-limits` in AICAConfiguration),
+ * not schema constants. The hardcoded values these replaced were 100/50/100
+ * against configured limits of 10000/5000/50000, so enforcing them would have
+ * rejected runs the product explicitly permits.
+ */
+const countRule = (max) => ({
+  type: 'number',
+  min: 0,
+  max,
+  integer: true,
+  required: false,
+});
+
+const generateDataSchema = (
+  aiModelOptions = [],
+  batchSizes = [],
+  limits = {}
+) => ({
   ...modeSchema,
   ...commerceSchema,
   batchSize: {
@@ -45,8 +78,8 @@ const generateDataSchema = (aiModelOptions = [], batchSizes = []) => ({
     required: true,
   },
   categories: { type: 'array', required: false },
-  productCount: { type: 'number', min: 0, max: 100, integer: true },
-  accountCount: { type: 'number', min: 0, max: 50, integer: true },
+  productCount: countRule(limits.maxProducts),
+  accountCount: countRule(limits.maxAccounts),
   accountType: {
     type: 'string',
     enum: ['business', 'person', 'mixed'],
@@ -58,11 +91,15 @@ const generateDataSchema = (aiModelOptions = [], batchSizes = []) => ({
     max: 1,
     required: false,
   },
-  orderCount: { type: 'number', min: 0, max: 100, integer: true },
+  orderCount: countRule(limits.maxOrders),
   orderDateRangeDays: { type: 'number', min: 0, max: 1095, required: false },
 });
 
-const generateOrdersSchema = (aiModelOptions = [], batchSizes = []) => ({
+const generateOrdersSchema = (
+  aiModelOptions = [],
+  batchSizes = [],
+  limits = {}
+) => ({
   ...connectionSchema,
   ...commerceSchema,
   batchSize: {
@@ -77,7 +114,7 @@ const generateOrdersSchema = (aiModelOptions = [], batchSizes = []) => ({
   },
   channelId: { type: 'number', required: true, integer: true },
   currencyCode: { type: 'string', required: true },
-  orderCount: { type: 'number', min: 0, max: 100, integer: true },
+  orderCount: countRule(limits.maxOrders),
   orderDateRangeDays: { type: 'number', min: 0, max: 1095, required: false },
   // Which existing accounts may receive orders. 'any' means either kind of
   // customer; guest and supplier accounts are never eligible. See #611.
@@ -88,7 +125,11 @@ const generateOrdersSchema = (aiModelOptions = [], batchSizes = []) => ({
   },
 });
 
-const generateAccountsSchema = (aiModelOptions = [], batchSizes = []) => ({
+const generateAccountsSchema = (
+  aiModelOptions = [],
+  batchSizes = [],
+  limits = {}
+) => ({
   ...connectionSchema,
   ...commerceSchema,
   batchSize: {
@@ -101,7 +142,7 @@ const generateAccountsSchema = (aiModelOptions = [], batchSizes = []) => ({
     enum: aiModelOptions.map((opt) => opt.value),
     required: true,
   },
-  accountCount: { type: 'number', min: 0, max: 100, integer: true },
+  accountCount: countRule(limits.maxAccounts),
   accountType: {
     type: 'string',
     enum: ['business', 'person', 'mixed'],
@@ -116,6 +157,7 @@ const generateAccountsSchema = (aiModelOptions = [], batchSizes = []) => ({
 });
 
 module.exports = {
+  MEDIA_MODES,
   connectionSchema,
   channelConnectionSchema,
   modeSchema,
