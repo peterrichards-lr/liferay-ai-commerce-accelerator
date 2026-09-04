@@ -124,7 +124,7 @@ COM_LIFERAY_LXC_DXP_SERVER_PROTOCOL=http
 LIFERAY_API_USERNAME=test@liferay.com
 LIFERAY_API_PASSWORD=test
 
-# AI Provider API Key (OpenAI or Gemini; Anthropic is not yet implemented - see #577)
+# AI Provider API Key (OpenAI, Gemini, or Anthropic)
 AI_API_KEY=sk-...
 ```
 
