@@ -4,6 +4,10 @@ const {
   EMPTY_PLACEHOLDER,
   ENV,
 } = require('../utils/constants.cjs');
+const {
+  DEFAULT_MODEL_OPTIONS,
+  defaultModelForProvider,
+} = require('../utils/modelCatalog.cjs');
 const fs = require('fs');
 const path = require('path');
 
@@ -805,22 +809,19 @@ class ConfigService {
       const resolvedOptions =
         Array.isArray(options) && options.length > 0
           ? options
-          : [
-              { label: 'GPT-4o Mini', value: 'gpt-4o-mini' },
-              { label: 'GPT-4o', value: 'gpt-4o' },
-              { label: 'GPT-4.1 Mini', value: 'gpt-4.1-mini' },
-            ];
+          : DEFAULT_MODEL_OPTIONS;
 
-      let defaultModel = aiConfig?.defaultModel || null;
-      const defaultModelExists = resolvedOptions.some(
-        (opt) => opt.value === defaultModel
+      // Resolved against the configured provider, so a provider switch cannot
+      // leave a foreign model selected.
+      const defaultModel = defaultModelForProvider(
+        resolvedOptions,
+        aiConfig?.provider,
+        aiConfig?.defaultModel
       );
 
-      if (!defaultModel || !defaultModelExists) {
-        defaultModel =
-          resolvedOptions.length > 0 ? resolvedOptions[0].value : null;
+      if (defaultModel !== aiConfig?.defaultModel) {
         logger?.warn?.(
-          `Default AI model '${aiConfig?.defaultModel}' not found in available options. Setting default to '${defaultModel}'.`,
+          `Default AI model '${aiConfig?.defaultModel}' is not an available option for provider '${aiConfig?.provider}'. Setting default to '${defaultModel}'.`,
           {
             operation: 'get-ai-model-options-fallback',
           }
@@ -839,12 +840,11 @@ class ConfigService {
         }
       );
       return {
-        aiModelOptions: [
-          { label: 'GPT-4o Mini', value: 'gpt-4o-mini' },
-          { label: 'GPT-4o', value: 'gpt-4o' },
-          { label: 'GPT-4.1 Mini', value: 'gpt-4.1-mini' },
-        ],
-        defaultModel: 'gpt-4o-mini',
+        aiModelOptions: DEFAULT_MODEL_OPTIONS,
+        defaultModel: defaultModelForProvider(
+          DEFAULT_MODEL_OPTIONS,
+          this.getAIConfigCached()?.provider
+        ),
       };
     }
   }
@@ -856,21 +856,13 @@ class ConfigService {
     const resolvedOptions =
       Array.isArray(cached) && cached.length > 0
         ? cached
-        : [
-            { label: 'GPT-4o Mini', value: 'gpt-4o-mini' },
-            { label: 'GPT-4o', value: 'gpt-4o' },
-            { label: 'GPT-4.1 Mini', value: 'gpt-4.1-mini' },
-          ];
+        : DEFAULT_MODEL_OPTIONS;
 
-    let defaultModel = cachedAIConfig?.defaultModel || null;
-    const defaultModelExists = resolvedOptions.some(
-      (opt) => opt.value === defaultModel
+    const defaultModel = defaultModelForProvider(
+      resolvedOptions,
+      cachedAIConfig?.provider,
+      cachedAIConfig?.defaultModel
     );
-
-    if (!defaultModel || !defaultModelExists) {
-      defaultModel =
-        resolvedOptions.length > 0 ? resolvedOptions[0].value : null;
-    }
 
     return { aiModelOptions: resolvedOptions, defaultModel };
   }
