@@ -393,3 +393,107 @@ describe('AIService pricing chunking', () => {
     expect(calls).toHaveLength(3);
   });
 });
+
+describe('AIService mixed account ratio', () => {
+  const { AIService } = require('../services/aiService.cjs');
+
+  const buildService = (chunkSize = 100) => {
+    const requests = [];
+    const service = new AIService({
+      logger: { info: vi.fn(), debug: vi.fn(), error: vi.fn(), trace: vi.fn() },
+      prompt: {
+        render: vi.fn(async (_name, vars) => {
+          requests.push({ count: vars.count, accountType: vars.accountType });
+          return 'rendered';
+        }),
+      },
+    });
+
+    service.getRuntimeAIConfig = vi
+      .fn()
+      .mockResolvedValue({ chunkSizes: { account: chunkSize } });
+
+    service._chatJson = vi.fn(async () => ({ accounts: [{ name: 'acct' }] }));
+
+    return { service, requests };
+  };
+
+  const generate = (service, count, options) =>
+    service.generateAccountData(
+      count,
+      { correlationId: 'c1' },
+      'gpt-test',
+      [],
+      ['en-US'],
+      options
+    );
+
+  it('splits the count by the ratio and asks for each type separately', async () => {
+    const { service, requests } = buildService();
+
+    await generate(service, 10, {
+      accountType: 'mixed',
+      businessAccountRatio: 0.7,
+    });
+
+    expect(requests).toEqual([
+      { count: 7, accountType: 'business' },
+      { count: 3, accountType: 'person' },
+    ]);
+  });
+
+  it('keeps the split exact rather than letting chunk rounding drift', async () => {
+    // Chunk size 4 against 10 accounts: the ratio must still yield 7/3 overall,
+    // not a per-chunk rounding of the ratio.
+    const { service, requests } = buildService(4);
+
+    await generate(service, 10, {
+      accountType: 'mixed',
+      businessAccountRatio: 0.7,
+    });
+
+    const business = requests
+      .filter((r) => r.accountType === 'business')
+      .reduce((sum, r) => sum + r.count, 0);
+    const person = requests
+      .filter((r) => r.accountType === 'person')
+      .reduce((sum, r) => sum + r.count, 0);
+
+    expect(business).toBe(7);
+    expect(person).toBe(3);
+    // 7 business chunks into 4+3 and 3 person fits one chunk.
+    expect(requests).toHaveLength(3);
+  });
+
+  it('skips a portion entirely at the extremes of the range', async () => {
+    const { service, requests } = buildService();
+
+    await generate(service, 5, {
+      accountType: 'mixed',
+      businessAccountRatio: 1,
+    });
+
+    expect(requests).toEqual([{ count: 5, accountType: 'business' }]);
+  });
+
+  it('leaves the prompt to decide when no ratio is supplied', async () => {
+    const { service, requests } = buildService();
+
+    await generate(service, 6, { accountType: 'mixed' });
+
+    // One request, still typed mixed, so the prompt's own mixed branch applies
+    // exactly as it did before this feature.
+    expect(requests).toEqual([{ count: 6, accountType: 'mixed' }]);
+  });
+
+  it('ignores the ratio for non-mixed account types', async () => {
+    const { service, requests } = buildService();
+
+    await generate(service, 4, {
+      accountType: 'person',
+      businessAccountRatio: 0.7,
+    });
+
+    expect(requests).toEqual([{ count: 4, accountType: 'person' }]);
+  });
+});

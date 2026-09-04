@@ -52,6 +52,12 @@ const generateDataSchema = (aiModelOptions = [], batchSizes = []) => ({
     enum: ['business', 'person', 'mixed'],
     required: false,
   },
+  businessAccountRatio: {
+    type: 'number',
+    min: 0,
+    max: 1,
+    required: false,
+  },
   orderCount: { type: 'number', min: 0, max: 100, integer: true },
   orderDateRangeDays: { type: 'number', min: 0, max: 1095, required: false },
 });
@@ -92,6 +98,12 @@ const generateAccountsSchema = (aiModelOptions = [], batchSizes = []) => ({
   accountType: {
     type: 'string',
     enum: ['business', 'person', 'mixed'],
+    required: false,
+  },
+  businessAccountRatio: {
+    type: 'number',
+    min: 0,
+    max: 1,
     required: false,
   },
 });
