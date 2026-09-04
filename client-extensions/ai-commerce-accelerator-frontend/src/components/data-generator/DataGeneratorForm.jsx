@@ -581,6 +581,41 @@ function DataGeneratorForm({
               </div>
             )}
 
+            {generationConfig.orderCount > 0 &&
+              !generationConfig.accountCount && (
+                <div className="form-group mb-4">
+                  <label htmlFor="dataGeneration_orderAccountType">
+                    Order Account Type
+                  </label>
+                  <select
+                    id="dataGeneration_orderAccountType"
+                    className="form-control"
+                    value={generationConfig.orderAccountType || 'any'}
+                    onChange={(e) =>
+                      handleConfigChange('orderAccountType', e.target.value)
+                    }
+                    disabled={lockFields}
+                  >
+                    <option value="any">Any customer account</option>
+                    <option value="business">
+                      Business only (B2B — dealers, distributors, companies)
+                    </option>
+                    <option value="person">
+                      Individual only (B2C — direct consumer accounts)
+                    </option>
+                  </select>
+                  <p
+                    className="text-secondary mt-1 mb-0"
+                    style={{ fontSize: '0.8em' }}
+                  >
+                    Orders are assigned to existing accounts of this type. Guest
+                    and supplier accounts are never used. Choose the type that
+                    matches the selected commerce channel — a B2B channel needs
+                    business accounts, a B2C channel needs individual ones.
+                  </p>
+                </div>
+              )}
+
             {generationConfig.orderCount > 0 && (
               <OrderDistributionControl
                 totalOrders={generationConfig.orderCount}

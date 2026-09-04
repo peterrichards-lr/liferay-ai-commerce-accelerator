@@ -222,4 +222,93 @@ describe('OrderGenerator', () => {
 
     expect(mockCtx.liferay.createOrder).toHaveBeenCalled();
   });
+
+  describe('account eligibility for orders', () => {
+    const config = { channelId: 44207, catalogId: 1, currencyCode: 'USD' };
+
+    beforeEach(() => {
+      // getProductsAndAccounts fetches products via getProducts and SKUs via
+      // rest._get, and retries 5 times with a 5s delay while products is empty.
+      mockCtx.liferay.getProducts = vi.fn().mockResolvedValue({
+        items: [{ id: 2001, externalReferenceCode: 'P-1', name: 'Widget' }],
+      });
+      mockCtx.liferay.rest = {
+        _get: vi.fn().mockResolvedValue({
+          items: [
+            {
+              sku: 'SKU-1',
+              purchasable: true,
+              productName: { en_US: 'Widget' },
+            },
+          ],
+        }),
+      };
+    });
+
+    const withAccounts = (items) => {
+      mockCtx.liferay.getAccounts = vi.fn().mockResolvedValue({ items });
+    };
+
+    it('never assigns orders to guest or supplier accounts', async () => {
+      withAccounts([
+        { id: 1, externalReferenceCode: 'A1', type: 'business' },
+        { id: 2, externalReferenceCode: 'A2', type: 'guest' },
+        { id: 3, externalReferenceCode: 'A3', type: 'supplier' },
+      ]);
+
+      const { accounts } = await generator.getProductsAndAccounts(config, {
+        options: {},
+      });
+
+      expect(accounts.map((a) => a.id)).toEqual([1]);
+    });
+
+    it('narrows to the requested account type', async () => {
+      withAccounts([
+        { id: 1, externalReferenceCode: 'A1', type: 'business' },
+        { id: 2, externalReferenceCode: 'A2', type: 'person' },
+      ]);
+
+      const { accounts } = await generator.getProductsAndAccounts(config, {
+        options: { orderAccountType: 'person' },
+      });
+
+      expect(accounts.map((a) => a.id)).toEqual([2]);
+    });
+
+    it('requests the type field so the filter has something to act on', async () => {
+      withAccounts([{ id: 1, externalReferenceCode: 'A1', type: 'business' }]);
+
+      await generator.getProductsAndAccounts(config, { options: {} });
+
+      const [, filter, fields] = mockCtx.liferay.getAccounts.mock.calls[0];
+      expect(fields).toContain('type');
+      // The old { channelId } object was silently coerced to an empty filter.
+      expect(filter).toBeNull();
+    });
+
+    it('fails with a 400 naming the type when none are eligible', async () => {
+      withAccounts([{ id: 2, externalReferenceCode: 'A2', type: 'person' }]);
+
+      await expect(
+        generator.getProductsAndAccounts(config, {
+          options: { orderAccountType: 'business' },
+        })
+      ).rejects.toThrow(/No business accounts/);
+    });
+
+    it('still uses newly created accounts without filtering them', async () => {
+      // The combined flow creates accounts of the configured type already, so
+      // the eligibility filter must not second-guess them.
+      const created = [{ id: 9, externalReferenceCode: 'NEW-1' }];
+
+      const { accounts } = await generator.getProductsAndAccounts(config, {
+        accountsToCreate: created,
+        options: { orderAccountType: 'business' },
+      });
+
+      expect(accounts).toEqual(created);
+      expect(mockCtx.liferay.getAccounts).not.toHaveBeenCalled();
+    });
+  });
 });
