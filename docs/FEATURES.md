@@ -51,7 +51,7 @@ The **Dashboard** provides granular feedback on every generation session.
 
 Everything is manageable via the **AI Commerce Accelerator Configuration** UI.
 
-- **Provider Agnosticism**: Switch between OpenAI and Google Gemini for text generation (Anthropic support is scaffolded but not yet implemented — see [#482](https://github.com/peterrichards-lr/liferay-ai-commerce-accelerator/issues/482)).
+- **Provider Agnosticism**: Switch between OpenAI, Google Gemini, and Anthropic Claude for text generation. Claude has no image capability, so a dedicated media provider is required alongside it when generating images.
 - **Dedicated Media Keys**: Configure separate credentials for image generation (e.g., Nano Banana).
 - **Custom Prompts & Schemas**: Tailor the AI's output by editing the templates directly in the browser with a built-in CodeMirror editor.
 - **Exclude Lists**: Protect system data by specifying items that should never be modified or deleted.

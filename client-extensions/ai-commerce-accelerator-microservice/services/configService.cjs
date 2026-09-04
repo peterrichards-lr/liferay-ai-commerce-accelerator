@@ -903,11 +903,10 @@ class ConfigService {
     const logger = this.logger;
 
     // Resolve Core Key & Provider
-    // Priority: AI_API_KEY > OPENAI_API_KEY > GEMINI_API_KEY
-    // NOTE: ANTHROPIC_API_KEY is intentionally not auto-detected here --
-    // providerFactory.cjs has no working 'anthropic' provider yet, so
-    // auto-selecting it would guarantee a runtime "Unsupported AI provider"
-    // failure on the very next generation call. See #482.
+    // Priority: AI_API_KEY > OPENAI_API_KEY > GEMINI_API_KEY > ANTHROPIC_API_KEY
+    // Anthropic is detected last because it cannot generate images: a project
+    // that sets several keys is better defaulted to a provider that covers both
+    // data and media. See #577.
     let coreApiKey = lookupConfig('AI_API_KEY');
     let detectedProvider = null;
 
@@ -918,6 +917,9 @@ class ConfigService {
       } else if (lookupConfig('GEMINI_API_KEY')) {
         coreApiKey = lookupConfig('GEMINI_API_KEY');
         detectedProvider = 'gemini';
+      } else if (lookupConfig('ANTHROPIC_API_KEY')) {
+        coreApiKey = lookupConfig('ANTHROPIC_API_KEY');
+        detectedProvider = 'anthropic';
       }
     }
 
