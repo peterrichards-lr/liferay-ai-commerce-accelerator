@@ -469,6 +469,56 @@ class AIService {
 
       const languageCodes = langs.map((l) => l.replace('-', '_'));
 
+      const accountType = options.accountType || 'business';
+      const ratio = options.businessAccountRatio;
+
+      // Split by ratio BEFORE chunking, not within each chunk. Splitting inside
+      // the chunk loop would round separately per chunk, so the totals would
+      // drift from the requested ratio; doing it once here keeps the split exact.
+      // Each portion then recurses with a concrete accountType, which picks up
+      // chunking on the way through rather than reimplementing it.
+      if (
+        accountType === 'mixed' &&
+        typeof ratio === 'number' &&
+        Number.isFinite(ratio) &&
+        count > 0
+      ) {
+        const businessCount = Math.round(count * ratio);
+        const personCount = count - businessCount;
+
+        logger?.info?.(
+          `[AIService] Splitting mixed accounts by ratio ${ratio}: ${businessCount} business, ${personCount} person`,
+          { count, businessCount, personCount, correlationId }
+        );
+
+        const splitResults = [];
+        for (const [portionType, portionCount] of [
+          ['business', businessCount],
+          ['person', personCount],
+        ]) {
+          if (portionCount <= 0) continue;
+
+          const portion = await this.generateAccountData(
+            portionCount,
+            requestConfig,
+            model,
+            categories,
+            selectedLanguages,
+            {
+              ...options,
+              accountType: portionType,
+              businessAccountRatio: undefined,
+            }
+          );
+
+          splitResults.push(
+            ...(Array.isArray(portion) ? portion : portion?.accounts || [])
+          );
+        }
+
+        return splitResults;
+      }
+
       const runtime = await this.getRuntimeAIConfig(requestConfig);
       const effectiveChunkSize = Math.max(
         1,
@@ -528,7 +578,7 @@ class AIService {
         languageCodesCSV: languageCodes.join(', '),
         geographicContext: options.geographicContext || null,
         groundingMetadata: options.groundingMetadata || null,
-        accountType: options.accountType || 'business',
+        accountType,
       };
 
       const promptContent = await prompt.render('account', vars, requestConfig);

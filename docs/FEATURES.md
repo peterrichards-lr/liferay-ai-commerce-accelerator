@@ -9,7 +9,7 @@ Rapidly create high-quality commerce entities using state-of-the-art generative 
 ### Supported Entities
 
 - **Products**: Generates localized names, descriptions, and specifications.
-- **Accounts**: Creates realistic business accounts with multiple addresses (Billing, Shipping, Head Office).
+- **Accounts**: Creates realistic business accounts with multiple addresses (Billing, Shipping, Head Office). Choose Business, Individual, or Mixed — and with Mixed, set the business/individual split explicitly rather than leaving the proportion to the model.
 - **Orders**: Generates historical order data linked to products and accounts.
 - **Warehouses**: Creates inventory locations and manages stock distribution.
 

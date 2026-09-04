@@ -67,6 +67,48 @@ describe('Data Normalization', () => {
     });
   });
 
+  describe('buildConfigAndOptions account type wiring', () => {
+    const build = (body) =>
+      buildConfigAndOptions({
+        headers: {},
+        body: {
+          liferayUrl: 'http://test.com',
+          clientId: 'test',
+          clientSecret: 'test',
+          ...body,
+        },
+      });
+
+    it('carries accountType into options', () => {
+      // It was validated by the request schema but never read here, so the
+      // Account Type control had no effect at all. See #587.
+      expect(build({ accountType: 'mixed' }).options.accountType).toBe('mixed');
+    });
+
+    it('defaults accountType to business when absent', () => {
+      expect(build({}).options.accountType).toBe('business');
+    });
+
+    it('carries and normalises businessAccountRatio', () => {
+      expect(
+        build({ businessAccountRatio: '0.7' }).options.businessAccountRatio
+      ).toBe(0.7);
+    });
+
+    it('clamps the ratio into 0..1', () => {
+      expect(
+        build({ businessAccountRatio: '5' }).options.businessAccountRatio
+      ).toBe(1);
+      expect(
+        build({ businessAccountRatio: '-2' }).options.businessAccountRatio
+      ).toBe(0);
+    });
+
+    it('leaves the ratio undefined when absent so prior behaviour is preserved', () => {
+      expect(build({}).options.businessAccountRatio).toBeUndefined();
+    });
+  });
+
   describe('buildConfigAndOptions', () => {
     it('should construct microserviceUrl correctly from request headers if not provided', () => {
       const req = {

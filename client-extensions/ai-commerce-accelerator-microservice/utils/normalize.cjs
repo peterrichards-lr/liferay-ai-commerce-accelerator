@@ -74,6 +74,7 @@ function getCustomFile(file, defaultMimeType, defaultFilename) {
 function buildConfigAndOptions(req) {
   const {
     accountCount,
+    accountType,
     aiModel,
     authMethod,
     batchSize,
@@ -88,6 +89,7 @@ function buildConfigAndOptions(req) {
     demoMode,
     enableBackorders,
     backorderAssignmentRatio,
+    businessAccountRatio,
     generateBulkPricing,
     generatePriceLists,
     generatePromotions,
@@ -232,6 +234,18 @@ function buildConfigAndOptions(req) {
   options.customPdfFile = getCustomPdf(req, options.pdfMode);
   options.orderCount = toNumber(orderCount);
   options.accountCount = toNumber(accountCount);
+
+  // accountType was validated by the request schema but never carried into
+  // options, so aiService always fell back to 'business' and the Account Type
+  // control had no effect. See #587.
+  options.accountType = accountType || 'business';
+
+  // Only meaningful for the mixed type. Left undefined when absent so the
+  // prompt's own mixed branch keeps deciding the split, as it did before.
+  const parsedRatio = toNumber(businessAccountRatio);
+  options.businessAccountRatio = Number.isFinite(parsedRatio)
+    ? Math.min(1, Math.max(0, parsedRatio))
+    : undefined;
   options.inventoryMin = toNumber(inventoryMin);
   options.inventoryMax = toNumber(inventoryMax);
   options.inventoryAssignmentRatio = toNumber(inventoryAssignmentRatio);
