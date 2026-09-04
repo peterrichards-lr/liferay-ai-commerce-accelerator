@@ -2,6 +2,11 @@ const { INTERNAL_API_PATHS } = require('../utils/internalApiPaths.cjs');
 const { buildConfigAndOptions } = require('../utils/normalize.cjs');
 const { createERC, resolveErrorReference } = require('../utils/misc.cjs');
 const { ERC_PREFIX } = require('../utils/constants.cjs');
+const {
+  ENDPOINT_MISSING,
+  recordReindexFailure,
+  recordReindexSuccess,
+} = require('../utils/reindexStatus.cjs');
 
 function handleError(res, logger, req, config, operation, error) {
   const errorRef = resolveErrorReference(error) || createERC(ERC_PREFIX.ERROR);
@@ -27,11 +32,27 @@ module.exports = (app, { logger, liferayService, configService }) => {
     try {
       ({ config } = await buildConfigAndOptions(req, configService));
       const result = await liferayService.rest.triggerReindex(config);
+      recordReindexSuccess();
+
       return res.json({
         success: true,
         ...result,
       });
     } catch (error) {
+      // An explicit reindex already reports its own failure, unlike the
+      // best-effort calls after a workflow - but recording it keeps /health
+      // accurate whichever path triggered it, and a 404 deserves better than
+      // "Request failed with status code 404". See #618.
+      const outcome = recordReindexFailure(error);
+
+      if (outcome.state === ENDPOINT_MISSING) {
+        return res.status(503).json({
+          success: false,
+          error: outcome.message,
+          timestamp: new Date().toISOString(),
+        });
+      }
+
       return handleError(
         res,
         logger,
@@ -52,11 +73,27 @@ module.exports = (app, { logger, liferayService, configService }) => {
         config,
         className
       );
+      recordReindexSuccess();
+
       return res.json({
         success: true,
         ...result,
       });
     } catch (error) {
+      // An explicit reindex already reports its own failure, unlike the
+      // best-effort calls after a workflow - but recording it keeps /health
+      // accurate whichever path triggered it, and a 404 deserves better than
+      // "Request failed with status code 404". See #618.
+      const outcome = recordReindexFailure(error);
+
+      if (outcome.state === ENDPOINT_MISSING) {
+        return res.status(503).json({
+          success: false,
+          error: outcome.message,
+          timestamp: new Date().toISOString(),
+        });
+      }
+
       return handleError(
         res,
         logger,

@@ -1,5 +1,9 @@
 const BaseGenerator = require('../generators/baseGenerator.cjs');
 const { createERC } = require('../utils/misc.cjs');
+const {
+  recordReindexFailure,
+  recordReindexSuccess,
+} = require('../utils/reindexStatus.cjs');
 const { ERC_PREFIX, WORKFLOW_STEPS } = require('../utils/constants.cjs');
 const BATCH_STEP_HANDLERS = require('./batch/batch-steps/index.cjs');
 
@@ -123,19 +127,23 @@ class DeleteCoordinatorService extends BaseGenerator {
         const session = await this.persistence.getSession(sessionId);
         if (session && session.context && session.context.config) {
           await this.liferay.rest.triggerReindex(session.context.config);
+          recordReindexSuccess({ sessionId });
           this.logger.info(
             `Search reindexing triggered after deletion session completed: ${sessionId}`,
             { correlationId }
           );
         }
       } catch (reindexErr) {
-        this.logger.warn(
-          `Failed to trigger search reindexing after deletion session ${sessionId}`,
-          {
-            correlationId,
-            error: reindexErr.message,
-          }
-        );
+        // Non-fatal, but recorded so /health reports it rather than the
+        // failure existing only in a log line. See #618.
+        const outcome = recordReindexFailure(reindexErr, { sessionId });
+
+        this.logger.warn(outcome.message, {
+          correlationId,
+          operation: 'trigger-reindex',
+          reindexState: outcome.state,
+          error: reindexErr.message,
+        });
       }
 
       await this.progress.sessionCompleted({ sessionId, correlationId });

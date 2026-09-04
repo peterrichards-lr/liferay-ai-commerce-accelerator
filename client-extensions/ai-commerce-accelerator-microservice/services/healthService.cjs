@@ -1,5 +1,6 @@
 const fs = require('fs/promises');
 const { ENV } = require('../utils/constants.cjs');
+const { reindexHealth } = require('../utils/reindexStatus.cjs');
 
 class HealthService {
   constructor(ctx) {
@@ -16,6 +17,7 @@ class HealthService {
     this.registerHealthCheck('liferay', this.checkLiferay.bind(this));
     this.registerHealthCheck('memory', this.checkMemory.bind(this));
     this.registerHealthCheck('disk', this.checkDiskSpace.bind(this));
+    this.registerHealthCheck('reindex', this.checkReindex.bind(this));
   }
 
   registerHealthCheck(name, checkFunction) {
@@ -148,6 +150,22 @@ class HealthService {
         timestamp: new Date().toISOString(),
       };
     }
+  }
+
+  /**
+   * Reports the outcome of the last search reindex attempt.
+   *
+   * Not a probe: nothing is triggered to find out, because triggering a reindex
+   * to check whether reindexing works would be a side effect. Reported as
+   * `degraded` on failure so it is visible in /health without turning a
+   * readiness probe into a 503 - the service is working and the data is
+   * correct, only the indexing is not. See #618.
+   */
+  async checkReindex() {
+    const start = Date.now();
+    const { status, message } = reindexHealth();
+
+    return { status, message, responseTime: Date.now() - start };
   }
 
   async checkLiferay() {
