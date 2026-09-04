@@ -145,6 +145,37 @@ cd client-extensions/ai-commerce-accelerator-microservice
 yarn start
 ```
 
+#### Starting via Gradle, so OAuth credentials are discovered
+
+Prefer the Gradle task when the client extensions are deployed to a local
+bundle:
+
+```bash
+./gradlew :client-extensions:ai-commerce-accelerator-microservice:packageRunStart
+```
+
+Use `packageRunDebug` instead to attach a debugger.
+
+The `packageRun*` tasks are not merely a wrapper around `yarn start`. The
+Liferay Workspace plugin sets `LIFERAY_ROUTES_CLIENT_EXTENSION` and
+`LIFERAY_ROUTES_DXP` on them, pointing at the configuration Liferay writes when
+a client extension is deployed:
+
+```text
+bundles/routes/default/ai-commerce-accelerator-microservice
+bundles/routes/default/dxp
+```
+
+That directory holds the OAuth client id and secret, so the microservice
+authenticates without any credentials in `.env`. Starting with `yarn start` or
+`node server.cjs` bypasses the injection, leaving nothing for OAuth discovery
+to read — which presents as an authentication failure that looks like a wrong
+client secret.
+
+If you must start it outside Gradle, either set those two variables yourself
+(see `.env.example`) or set `LIFERAY_AUTH_METHOD=basic` to use
+`LIFERAY_API_USERNAME` and `LIFERAY_API_PASSWORD` instead.
+
 ---
 
 ## 6. Step 4: Execute Data Generation
