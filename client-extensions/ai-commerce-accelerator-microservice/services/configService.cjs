@@ -8,6 +8,7 @@ const {
   DEFAULT_MODEL_OPTIONS,
   defaultModelForProvider,
 } = require('../utils/modelCatalog.cjs');
+const { providerEnvVar, resolveCoreKey } = require('../utils/apiKeys.cjs');
 const fs = require('fs');
 const path = require('path');
 
@@ -449,7 +450,14 @@ class ConfigService {
     return this.getConfigCached(DEFAULT_PDF_CACHE_KEY);
   }
 
-  async getAIKey(requestConfig) {
+  /**
+   * `provider` is passed in rather than looked up: getAIConfig calls this
+   * method, so fetching the config here would recurse. Callers that know the
+   * provider should supply it; otherwise the cached config is consulted, which
+   * is synchronous and cycle-free but may be cold on the first call. A key that
+   * ends up mismatched is still caught before it is sent - see apiKeys.cjs.
+   */
+  async getAIKey(requestConfig, provider) {
     const logger = this.logger;
     try {
       const key = await this.getConfig(
@@ -461,7 +469,23 @@ class ConfigService {
         return key;
       }
 
-      // FALLBACK: Use environment variable if Liferay Object is missing/empty
+      // FALLBACK: environment variables. The provider-specific variable is
+      // preferred over the generic AI_API_KEY, because AI_API_KEY cannot say
+      // which service it belongs to and handing it to the wrong provider
+      // discloses it. See apiKeys.cjs.
+      const effectiveProvider =
+        provider || this.getAIConfigCached()?.provider || null;
+      const envVar = providerEnvVar(effectiveProvider);
+      const scopedKey = envVar ? ENV[envVar] : null;
+
+      if (scopedKey && scopedKey.trim().length > 0) {
+        logger?.debug?.('AI key not found in Liferay, using provider ENV', {
+          operation: 'get-ai-key-fallback',
+          envVar,
+        });
+        return scopedKey.trim();
+      }
+
       if (ENV.AI_API_KEY && ENV.AI_API_KEY.trim().length > 0) {
         logger?.debug?.('AI key not found in Liferay, falling back to ENV', {
           operation: 'get-ai-key-fallback',
@@ -515,7 +539,7 @@ class ConfigService {
       // 1. Check if media provider is INHERIT
       const aiConfig = await this.getAIConfig(requestConfig);
       if (aiConfig?.mediaProvider === 'inherit') {
-        const key = await this.getAIKey(requestConfig);
+        const key = await this.getAIKey(requestConfig, aiConfig?.provider);
 
         // HARDENING: Populate the media cache key with the core key
         // to ensure getAIMediaKeyCached returns the correct value
@@ -895,25 +919,19 @@ class ConfigService {
     const logger = this.logger;
 
     // Resolve Core Key & Provider
-    // Priority: AI_API_KEY > OPENAI_API_KEY > GEMINI_API_KEY > ANTHROPIC_API_KEY
-    // Anthropic is detected last because it cannot generate images: a project
-    // that sets several keys is better defaulted to a provider that covers both
-    // data and media. See #577.
-    let coreApiKey = lookupConfig('AI_API_KEY');
-    let detectedProvider = null;
-
-    if (!coreApiKey || String(coreApiKey).trim().length === 0) {
-      if (lookupConfig('OPENAI_API_KEY')) {
-        coreApiKey = lookupConfig('OPENAI_API_KEY');
-        detectedProvider = 'openai';
-      } else if (lookupConfig('GEMINI_API_KEY')) {
-        coreApiKey = lookupConfig('GEMINI_API_KEY');
-        detectedProvider = 'gemini';
-      } else if (lookupConfig('ANTHROPIC_API_KEY')) {
-        coreApiKey = lookupConfig('ANTHROPIC_API_KEY');
-        detectedProvider = 'anthropic';
-      }
-    }
+    // Priority: OPENAI_API_KEY > GEMINI_API_KEY > ANTHROPIC_API_KEY > AI_API_KEY
+    // Anthropic is preferred last among the specific keys because it cannot
+    // generate images: a project that sets several is better defaulted to a
+    // provider that covers both data and media. See #577.
+    //
+    // The generic AI_API_KEY is now considered last, not first. It says nothing
+    // about which service it belongs to, and this method *persists* the key it
+    // picks into the ai-credentials object - so preferring it meant an
+    // ambiguous credential outlived the environment variable it came from. When
+    // it is the only key available, the provider is inferred from its prefix so
+    // it can at least be attributed rather than left unconfigured.
+    const { apiKey: coreApiKey, provider: detectedProvider } =
+      resolveCoreKey(lookupConfig);
 
     const mediaApiKey = lookupConfig('AI_MEDIA_API_KEY');
 
@@ -952,10 +970,14 @@ class ConfigService {
           const newConfig = {
             provider: detectedProvider,
             mediaProvider: 'inherit',
-            defaultModel:
-              detectedProvider === 'openai'
-                ? 'gpt-4o-mini'
-                : 'gemini-1.5-flash',
+            // Taken from the shipped model catalogue rather than a ternary.
+            // The previous expression had no anthropic branch, so detecting
+            // Anthropic configured gemini-1.5-flash - a pairing aiService now
+            // rejects outright, and a model no longer in the shipped list.
+            defaultModel: defaultModelForProvider(
+              DEFAULT_MODEL_OPTIONS,
+              detectedProvider
+            ),
             temperature: 0.7,
             maxTokens: 4000,
             requestTimeoutMs: 60000,

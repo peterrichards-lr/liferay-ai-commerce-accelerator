@@ -104,6 +104,44 @@ describe('AIService (Multi-Provider)', () => {
     expect(runtime.model).toBe('my-self-hosted-llm');
   });
 
+  it('should refuse to send a key that belongs to another provider', async () => {
+    // The key is resolved generically, so nothing else stopped an OpenAI key
+    // being transmitted to api.anthropic.com and disclosed there.
+    mockCtx.config.getAIConfig.mockResolvedValue({
+      provider: 'anthropic',
+      defaultModel: 'claude-opus-5',
+    });
+    mockCtx.config.getAIKey.mockResolvedValue('sk-proj-SUPERSECRET');
+
+    await expect(aiService.getRuntimeAIConfig({})).rejects.toThrow(
+      /looks like OpenAI credentials/
+    );
+  });
+
+  it('should not put the key in the error it raises', async () => {
+    mockCtx.config.getAIConfig.mockResolvedValue({
+      provider: 'anthropic',
+      defaultModel: 'claude-opus-5',
+    });
+    mockCtx.config.getAIKey.mockResolvedValue('sk-proj-SUPERSECRET');
+
+    const error = await aiService.getRuntimeAIConfig({}).catch((e) => e);
+    expect(error.message).not.toContain('SUPERSECRET');
+    expect(error.statusCode).toBe(400);
+  });
+
+  it('should allow an unrecognised key rather than blocking a proxy', async () => {
+    mockCtx.config.getAIConfig.mockResolvedValue({
+      provider: 'anthropic',
+      defaultModel: 'claude-opus-5',
+    });
+    mockCtx.config.getAIKey.mockResolvedValue('my-gateway-token');
+    mockCtx.config.getAIMediaKey.mockResolvedValue('my-gateway-token');
+
+    const runtime = await aiService.getRuntimeAIConfig({});
+    expect(runtime.credentials.apiKey).toBe('my-gateway-token');
+  });
+
   it('should extract actual data from different response shapes', () => {
     const schemaName = 'product';
 
