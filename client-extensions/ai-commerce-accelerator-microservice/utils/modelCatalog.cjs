@@ -92,8 +92,8 @@ function modelProviderIssue(provider, modelId, options = []) {
  * The list shipped with this build, used when the AICAConfiguration entry is
  * missing or unreadable.
  *
- * Kept in step with the batch seed
- * (19-object-entry-ai-model-options.batch-engine-data.json) by
+ * Kept in step with ai-models.json in the frontend client extension - the file
+ * the Gradle generateBatchFiles task builds the batch seed from - by
  * tests/modelCatalog.test.cjs, so the two cannot drift apart silently.
  */
 const DEFAULT_MODEL_OPTIONS = [

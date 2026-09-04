@@ -71,10 +71,10 @@ describe('modelCatalog', () => {
     );
   });
 
-  it('matches the batch seed', () => {
-    const seed = require('../../../ai-commerce-accelerator-batch/batch/19-object-entry-ai-model-options.batch-engine-data.json');
-    expect(JSON.parse(seed.items[0].configValue)).toEqual(
-      DEFAULT_MODEL_OPTIONS
-    );
+  it('matches ai-models.json, the batch generation source', () => {
+    // Gradle generateBatchFiles builds the batch seed from this file, so it is
+    // the source of truth rather than the generated batch entry.
+    const source = require('../../../ai-commerce-accelerator-frontend/src/config/ai-models.json');
+    expect(source).toEqual(DEFAULT_MODEL_OPTIONS);
   });
 });

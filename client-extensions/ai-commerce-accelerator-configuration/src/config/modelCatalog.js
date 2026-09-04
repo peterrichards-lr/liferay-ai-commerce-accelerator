@@ -24,8 +24,8 @@ export const PROVIDER_PATTERNS = [
 
 /**
  * The list shipped with this build, used when the AICAConfiguration entry is
- * missing. Mirrors the batch seed
- * (19-object-entry-ai-model-options.batch-engine-data.json).
+ * missing. Mirrors ai-models.json in the frontend client extension, which the
+ * Gradle generateBatchFiles task builds the batch seed from.
  */
 export const DEFAULT_MODEL_OPTIONS = [
   { label: 'GPT-4o Mini', value: 'gpt-4o-mini', provider: 'openai' },

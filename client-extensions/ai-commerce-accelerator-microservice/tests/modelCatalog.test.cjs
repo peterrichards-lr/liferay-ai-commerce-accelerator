@@ -10,9 +10,12 @@ const {
   modelsForProvider,
 } = require('../utils/modelCatalog.cjs');
 
-const SEED_PATH = path.join(
+// The generation source, not the generated batch file: the Gradle
+// generateBatchFiles task deletes 19-object-entry-ai-model-options before
+// recreating it from this, so the batch file is absent partway through a build.
+const SOURCE_PATH = path.join(
   __dirname,
-  '../../ai-commerce-accelerator-batch/batch/19-object-entry-ai-model-options.batch-engine-data.json'
+  '../../ai-commerce-accelerator-frontend/src/config/ai-models.json'
 );
 
 const expectStrictEqual = (actual, expected) => expect(actual).toBe(expected);
@@ -133,10 +136,9 @@ describe('modelCatalog', () => {
   });
 
   describe('the shipped list', () => {
-    it('matches the batch seed, so the two cannot drift apart', () => {
-      const seed = JSON.parse(fs.readFileSync(SEED_PATH, 'utf8'));
-      const seeded = JSON.parse(seed.items[0].configValue);
-      expectDeepEqual(seeded, DEFAULT_MODEL_OPTIONS);
+    it('matches ai-models.json, the batch generation source', () => {
+      const source = JSON.parse(fs.readFileSync(SOURCE_PATH, 'utf8'));
+      expectDeepEqual(source, DEFAULT_MODEL_OPTIONS);
     });
 
     it('covers every provider that can generate text', () => {
