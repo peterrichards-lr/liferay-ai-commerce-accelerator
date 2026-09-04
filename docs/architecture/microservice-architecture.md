@@ -56,6 +56,27 @@ To provide maximum flexibility and cost optimization, the microservice supports 
 3.  **Intelligent Fallback**: Media tasks will automatically fall back to the Core AI provider if no dedicated media key is provided, ensuring seamless operation for single-provider setups.
 4.  **Provider Factory**: All AI interactions must go through `providerFactory.cjs` to ensure consistent error handling and model normalization.
 
+### Provider Capability Matrix
+
+| Provider         | Core data (products, accounts, orders) | Media (images)       |
+| :--------------- | :------------------------------------- | :------------------- |
+| OpenAI           | ✅                                     | ✅ DALL·E            |
+| Google Gemini    | ✅                                     | ✅                   |
+| Anthropic Claude | ✅                                     | ❌ **not supported** |
+| Nano Banana      | —                                      | ✅                   |
+
+Claude generates data only. The "intelligent fallback" above — media inheriting the core provider when no dedicated media key is set — therefore cannot work when the core provider is Claude, because there is nothing to fall back to.
+
+That combination is checked in three places, all sharing one message so the fix reads identically wherever it is met:
+
+1. **Configuration panel** — a warning appears against the Media Provider when the effective provider cannot produce images. This is the earliest point, and the only one where the user is already looking at the setting that fixes it.
+2. **Startup** — a warning is logged when the persisted configuration has the same combination. Configuration can be changed directly in the Liferay object or restored from a `.ldmp` without passing through the panel, so the panel cannot be the only guard. A warning rather than a failure, since an instance that never generates images is still usable.
+3. **Generation time** — an error before any product is processed, when `imageMode` is `ai` and the effective provider cannot produce images. This catches configuration changed after startup, and fails before the loop so no products are left half-processed.
+
+The other image modes — `placeholder`, `picsum`, `default`, `custom`, and `ai` under demo mode — call no provider, so the constraint does not apply to them.
+
+The logic lives in `utils/providerCapabilities.cjs` and its counterpart in the configuration client extension, deliberately parallel so the wording cannot drift between the UI and a failed run.
+
 ---## Dynamic Asset Management
 
 The microservice serves as the source of truth for product placeholders, moving away from heavy frontend-bundled Base64 strings.
@@ -89,4 +110,4 @@ Identifier for correlating user-visible errors and server logs.
 
 ---
 
-_Last Updated: 2026-08-14_ | _Last Reviewed: 2026-08-14_
+_Last Updated: 2026-09-04_ | _Last Reviewed: 2026-09-04_

@@ -23,6 +23,7 @@ checkAndRebuild();
 const { connectionSchema } = require('./utils/schemas.cjs');
 const { ENV } = require('./utils/constants.cjs');
 const { INTERNAL_API_PATHS } = require('./utils/internalApiPaths.cjs');
+const { mediaProviderIssue } = require('./utils/providerCapabilities.cjs');
 const { createWebSocketService } = require('./services/webSocketService.cjs');
 
 const { lookupConfig, lxcConfig } = require('@rotty3000/config-node');
@@ -518,6 +519,33 @@ const gracefulShutdown = async (signal) => {
 
       if (configService?.syncEnvironmentKeys) {
         await configService.syncEnvironmentKeys();
+      }
+
+      // Layer 2 of the media-provider guard. Configuration can be changed
+      // directly in the Liferay object or restored from a .ldmp without passing
+      // through the configuration panel, so the panel's check cannot be the
+      // only one. A warning rather than a failure: an instance that never
+      // generates images is perfectly usable in this state.
+      try {
+        const startupAiConfig = await configService?.getAIConfig?.();
+        const issue = mediaProviderIssue(
+          startupAiConfig?.provider,
+          startupAiConfig?.mediaProvider
+        );
+        if (issue) {
+          logger.warn(`Media provider configuration: ${issue}`, {
+            coreProvider: startupAiConfig?.provider,
+            mediaProvider: startupAiConfig?.mediaProvider,
+            operation: 'startup-media-provider-check',
+          });
+        }
+      } catch (error) {
+        logger.debug?.(
+          'Could not check media provider configuration at startup',
+          {
+            error: error?.message,
+          }
+        );
       }
 
       if (batchCallbackService?.recoverOrphanedSessions) {
