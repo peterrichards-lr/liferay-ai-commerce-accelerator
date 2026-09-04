@@ -10,6 +10,10 @@ const {
 } = require('@modelcontextprotocol/sdk/types.js');
 const { WORKFLOW_STEPS, ERC_PREFIX } = require('../utils/constants.cjs');
 const {
+  resolveValidationContext,
+  validateGenerationRequest,
+} = require('../utils/validateGenerationRequest.cjs');
+const {
   resolveEffectiveLiferayConnection,
 } = require('../utils/liferayEnv.cjs');
 const { createERC } = require('../utils/misc.cjs');
@@ -27,6 +31,7 @@ module.exports = (router, routeCtx) => {
     deleteCoordinatorService,
     healthService,
     oauthService,
+    configService,
   } = routeCtx;
 
   // Initialize MCP Server
@@ -251,6 +256,20 @@ module.exports = (router, routeCtx) => {
 
         case 'aica_trigger_generation': {
           const { config, options } = getEffectiveConfigAndOptions(args);
+
+          // MCP reaches generation by its own normalisation path, so the HTTP
+          // route's validation would not cover a tool call.
+          const mcpProblems = validateGenerationRequest(
+            'data',
+            { config, options },
+            await resolveValidationContext(configService, config)
+          );
+
+          if (mcpProblems.length > 0) {
+            throw new Error(
+              `Input validation failed: ${mcpProblems.join(', ')}`
+            );
+          }
 
           // Resolve channel/catalog fallback
           if (!config.channelId || isNaN(config.channelId)) {
