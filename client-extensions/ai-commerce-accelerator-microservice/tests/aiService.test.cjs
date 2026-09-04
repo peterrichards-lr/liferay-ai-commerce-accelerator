@@ -285,3 +285,111 @@ describe('AIService (Multi-Provider)', () => {
     expect(result.length).toBe(6);
   });
 });
+
+describe('AIService pricing chunking', () => {
+  const { AIService } = require('../services/aiService.cjs');
+
+  const makeProducts = (n) =>
+    Array.from({ length: n }, (_, i) => ({
+      id: i + 1,
+      name: `Product ${i + 1}`,
+      sku: `SKU-${i + 1}`,
+    }));
+
+  const buildService = (chunkSize) => {
+    const calls = [];
+    const service = new AIService({
+      logger: { info: vi.fn(), debug: vi.fn(), error: vi.fn(), trace: vi.fn() },
+      prompt: { render: vi.fn().mockResolvedValue('rendered prompt') },
+    });
+
+    service.getRuntimeAIConfig = vi
+      .fn()
+      .mockResolvedValue({ chunkSizes: { pricing: chunkSize } });
+
+    service._chatJson = vi.fn().mockImplementation(async () => {
+      const index = calls.length;
+      calls.push(index);
+      return {
+        priceListName: index === 0 ? 'Base Price List' : `Chunk ${index}`,
+        priceEntries: [
+          { sku: `entry-${index}-a` },
+          { sku: `entry-${index}-b` },
+        ],
+      };
+    });
+
+    return { service, calls };
+  };
+
+  it('splits the product list into chunks and merges the entries', async () => {
+    const { service, calls } = buildService(2);
+
+    const result = await service.generatePricingData(
+      makeProducts(5),
+      'standard',
+      { correlationId: 'c1' },
+      'gpt-test'
+    );
+
+    // 5 products at a chunk size of 2 is three calls: 2, 2, 1.
+    expect(calls).toHaveLength(3);
+    expect(result.priceEntries).toHaveLength(6);
+  });
+
+  it('keeps the first priceListName, which the schema requires at the root', async () => {
+    const { service } = buildService(2);
+
+    const result = await service.generatePricingData(
+      makeProducts(5),
+      'standard',
+      { correlationId: 'c1' },
+      'gpt-test'
+    );
+
+    expect(result.priceListName).toBe('Base Price List');
+  });
+
+  it('does not chunk when the product list fits in one call', async () => {
+    const { service, calls } = buildService(10);
+
+    await service.generatePricingData(
+      makeProducts(4),
+      'standard',
+      { correlationId: 'c1' },
+      'gpt-test'
+    );
+
+    expect(calls).toHaveLength(1);
+  });
+
+  it('falls back to the default when the configured size is unusable', async () => {
+    const { service, calls } = buildService(0);
+
+    await service.generatePricingData(
+      makeProducts(3),
+      'standard',
+      { correlationId: 'c1' },
+      'gpt-test'
+    );
+
+    // 0 is falsy, so it falls through to the default of 10 rather than
+    // producing a zero-width slice and an infinite loop. configService also
+    // sanitises out-of-range values before they reach here.
+    expect(calls).toHaveLength(1);
+  });
+
+  it('caps the chunk size at 50 however large the configured value', async () => {
+    const { service, calls } = buildService(999);
+
+    await service.generatePricingData(
+      makeProducts(120),
+      'standard',
+      { correlationId: 'c1' },
+      'gpt-test'
+    );
+
+    // 120 products capped at 50 per call is three chunks: 50, 50, 20.
+    expect(calls).toHaveLength(3);
+  });
+});

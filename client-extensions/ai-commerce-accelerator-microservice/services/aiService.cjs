@@ -840,6 +840,67 @@ class AIService {
     const { logger, prompt } = this.ctx;
     const correlationId = requestConfig?.correlationId;
     try {
+      // Pricing is driven by the size of the product list rather than by a
+      // requested count, so it chunks the INPUT rather than splitting an output
+      // total the way product/account/order/warehouse do. A large catalogue
+      // otherwise produces one enormous productListJSON and the response is
+      // truncated.
+      const runtime = await this.getRuntimeAIConfig(requestConfig);
+      const effectiveChunkSize = Math.max(
+        1,
+        Math.min(50, runtime?.chunkSizes?.pricing || runtime?.chunkSize || 10)
+      );
+
+      if (Array.isArray(products) && products.length > effectiveChunkSize) {
+        const batches = [];
+        for (let i = 0; i < products.length; i += effectiveChunkSize) {
+          batches.push(products.slice(i, i + effectiveChunkSize));
+        }
+
+        logger?.info?.(
+          `[AIService] Chunking pricing generation: ${products.length} products into ${batches.length} chunks (chunkSize: ${effectiveChunkSize})`,
+          { count: products.length, chunksCount: batches.length, correlationId }
+        );
+
+        const allEntries = [];
+        let priceListName;
+
+        for (let i = 0; i < batches.length; i++) {
+          logger?.info?.(
+            `[AIService] Generating pricing chunk ${i + 1}/${batches.length} (${batches[i].length} products)...`,
+            {
+              chunkIndex: i + 1,
+              totalChunks: batches.length,
+              chunkCount: batches[i].length,
+              correlationId,
+            }
+          );
+
+          const chunkResult = await this.generatePricingData(
+            batches[i],
+            pricingType,
+            requestConfig,
+            model,
+            _selectedLanguages,
+            options
+          );
+
+          const entries = Array.isArray(chunkResult)
+            ? chunkResult
+            : chunkResult?.priceEntries || [];
+          allEntries.push(...entries);
+
+          // priceListName is a property of the list as a whole, not of a chunk;
+          // keep the first non-empty one so the merged result stays valid
+          // against the schema, which requires it.
+          if (!priceListName && chunkResult?.priceListName) {
+            priceListName = chunkResult.priceListName;
+          }
+        }
+
+        return { priceEntries: allEntries, priceListName };
+      }
+
       const productList = products.map((p) => ({
         name: p.name?.en_US || p.name,
         sku: p.sku,

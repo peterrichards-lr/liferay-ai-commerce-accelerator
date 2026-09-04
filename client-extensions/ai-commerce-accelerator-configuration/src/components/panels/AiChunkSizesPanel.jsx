@@ -12,6 +12,7 @@ const DEFAULTS = {
     account: 10,
     order: 10,
     warehouse: 10,
+    pricing: 10,
   },
 };
 
@@ -39,6 +40,12 @@ const ENTITY_CONFIG = [
     label: 'Warehouse Chunk Size',
     helper:
       'Number of warehouses generated per AI call. Chunks of 10–20 ensure geographic address and coordinate data generate reliably without truncation.',
+  },
+  {
+    key: 'pricing',
+    label: 'Pricing Chunk Size',
+    description:
+      'Number of products priced per AI call. Unlike the others this splits the input list rather than a requested count, so a large catalogue does not produce one oversized prompt and a truncated response.',
   },
 ];
 

@@ -353,6 +353,7 @@ class ConfigService {
           account: sanitize(chunkSizes.account),
           order: sanitize(chunkSizes.order),
           warehouse: sanitize(chunkSizes.warehouse),
+          pricing: sanitize(chunkSizes.pricing),
         };
       }
     } catch (error) {
@@ -371,15 +372,30 @@ class ConfigService {
         account: aiConfig?.chunkSizes?.account || fallback,
         order: aiConfig?.chunkSizes?.order || fallback,
         warehouse: aiConfig?.chunkSizes?.warehouse || fallback,
+        pricing: aiConfig?.chunkSizes?.pricing || fallback,
       };
     } catch {
-      return { product: 10, account: 10, order: 10, warehouse: 10 };
+      return {
+        product: 10,
+        account: 10,
+        order: 10,
+        warehouse: 10,
+        pricing: 10,
+      };
     }
   }
 
   getAIChunkSizesCached() {
     const cached = this.getConfigCached(AI_CHUNK_SIZES_CACHE_KEY);
-    return cached || { product: 10, account: 10, order: 10, warehouse: 10 };
+    return (
+      cached || {
+        product: 10,
+        account: 10,
+        order: 10,
+        warehouse: 10,
+        pricing: 10,
+      }
+    );
   }
 
   async getDefaultImage(requestConfig) {

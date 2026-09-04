@@ -13,6 +13,16 @@ Rapidly create high-quality commerce entities using state-of-the-art generative 
 - **Orders**: Generates historical order data linked to products and accounts.
 - **Warehouses**: Creates inventory locations and manages stock distribution.
 
+### Chunked Generation
+
+Large requests are split across multiple AI calls rather than asking for everything at once, which is what stops responses being truncated mid-schema when generating hundreds of entities.
+
+- **Products, Accounts, Orders, Warehouses** split the requested **count**: ask for 200 products at a chunk size of 10 and the service makes 20 calls and concatenates the results.
+- **Pricing** splits the **input list** instead, because it is driven by how many products it has been given rather than by a requested total. Its `priceListName` belongs to the list as a whole, so the first one is kept when the chunks are merged.
+- Chunk sizes are configurable per entity in the **AI Chunk Sizes** panel of the Configuration client extension, clamped to 1–50 with a default of 10.
+
+Promotions are deliberately **not** chunked: they generate user segments alongside promotions from the whole catalogue, and splitting the input would fragment those segments across calls.
+
 ### Visual Assets & Media
 
 - **AI Images**: Generates product visuals using DALL-E or Nano Banana.
@@ -69,4 +79,4 @@ A dedicated **Admin Dashboard** provides high-level oversight and diagnostic too
 
 ---
 
-_Last Updated: 2026-08-14_ | _Last Reviewed: 2026-08-14_
+_Last Updated: 2026-09-04_ | _Last Reviewed: 2026-09-04_
