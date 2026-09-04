@@ -448,6 +448,59 @@ function DataGeneratorForm({
                     storefronts typically need business accounts, B2C
                     storefronts need individual accounts.
                   </p>
+                  {generationConfig.accountType === 'mixed' && (
+                    <div className="mt-3">
+                      <label htmlFor="dataGeneration_businessAccountRatio">
+                        Business / Individual Split
+                      </label>
+                      <div className="d-flex align-items-center">
+                        <input
+                          id="dataGeneration_businessAccountRatio"
+                          type="range"
+                          className="form-control-range flex-grow-1"
+                          min="0"
+                          max="100"
+                          step="5"
+                          value={Math.round(
+                            (generationConfig.businessAccountRatio ?? 0.7) * 100
+                          )}
+                          onChange={(e) =>
+                            handleConfigChange(
+                              'businessAccountRatio',
+                              Number(e.target.value) / 100
+                            )
+                          }
+                          disabled={lockFields}
+                        />
+                        <span
+                          className="ml-3 text-nowrap font-weight-semi-bold"
+                          style={{ minWidth: '9.5em' }}
+                        >
+                          {`${Math.round(
+                            (generationConfig.businessAccountRatio ?? 0.7) * 100
+                          )}% business`}
+                        </span>
+                      </div>
+                      <p
+                        className="text-secondary mt-1 mb-0"
+                        style={{ fontSize: '0.8em' }}
+                      >
+                        {(() => {
+                          const total =
+                            Number(generationConfig.accountCount) || 0;
+                          const business = Math.round(
+                            total *
+                              (generationConfig.businessAccountRatio ?? 0.7)
+                          );
+                          return total > 0
+                            ? `Of ${total} accounts: ${business} business, ${
+                                total - business
+                              } individual.`
+                            : 'Set an account count to see how the split resolves.';
+                        })()}
+                      </p>
+                    </div>
+                  )}
                 </div>
               </div>
 
