@@ -26,6 +26,7 @@ The **Dashboard** provides granular feedback on every generation session.
 - **Overall Progress Gauge**: A striking visual summary of the entire workflow.
 - **System Health Strip**: Real-time status of Liferay connectivity, WebSockets, and AI providers.
 - **Activity Log**: Detailed audit trail of all microservice operations.
+- **Unified Consoles**: The Live Console and the Seeder Console are the same component, so both offer level filtering, real-time search, auto-scroll, clear, and copy-to-clipboard of whatever the filters currently show — useful for pasting a failure into an issue.
 - **Batch Error Tracking**: Specialized view for diagnosing failures at the External Reference Code (ERC) level.
 
 ## Dynamic Configuration
@@ -69,4 +70,4 @@ A dedicated **Admin Dashboard** provides high-level oversight and diagnostic too
 
 ---
 
-_Last Updated: 2026-08-14_ | _Last Reviewed: 2026-08-14_
+_Last Updated: 2026-09-04_ | _Last Reviewed: 2026-09-04_
