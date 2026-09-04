@@ -9,6 +9,7 @@ const {
   joinList,
 } = require('../utils/promptHelpers.cjs');
 const { createERC } = require('../utils/misc.cjs');
+const { modelProviderIssue } = require('../utils/modelCatalog.cjs');
 const { ERC_PREFIX } = require('../utils/constants.cjs');
 const { estimateTokens } = require('../utils/tokenEstimator.cjs');
 
@@ -143,6 +144,25 @@ class AIService {
     }
 
     const model = aiCfg.defaultModel;
+
+    // The model list is runtime data and the provider is chosen separately, so
+    // the two can disagree. Reported here, where both are known, rather than
+    // left to the provider: openaiProvider would 404 midway through a run and
+    // anthropicProvider would silently substitute its own default.
+    // Optional, matching getAIChunkSizes below. Without the list the check
+    // falls back to inferring the provider from the model id, which still
+    // catches every model this build ships.
+    const modelOptions =
+      typeof config.getAIModelOptions === 'function'
+        ? (await config.getAIModelOptions(requestConfig))?.aiModelOptions
+        : null;
+    const mismatch = modelProviderIssue(provider, model, modelOptions || []);
+
+    if (mismatch) {
+      const err = new Error(mismatch);
+      err.statusCode = 400;
+      throw err;
+    }
     const temperature =
       typeof aiCfg.temperature === 'number' ? aiCfg.temperature : 0.7;
     const maxTokens =
