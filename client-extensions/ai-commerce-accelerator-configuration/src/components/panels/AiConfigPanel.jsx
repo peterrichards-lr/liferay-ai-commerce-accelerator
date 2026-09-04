@@ -297,6 +297,7 @@ export default function AiConfigPanel() {
         }
         providerValue={aiConfig.mediaProvider || 'inherit'}
         setProviderValue={(value) => updateAi('mediaProvider', value)}
+        coreProviderValue={aiConfig.provider || 'openai'}
       />
 
       {!!issues.length && (

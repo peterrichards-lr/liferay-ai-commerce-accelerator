@@ -4,6 +4,7 @@ import ClayButton from '@clayui/button';
 import ClayForm, { ClayInput, ClaySelect } from '@clayui/form';
 import ClayIcon from '@clayui/icon';
 import ClayLayout from '@clayui/layout';
+import { mediaProviderIssue } from '../../config/providerCapabilities';
 
 export default function AiSettingsPanel({
   keyValue,
@@ -11,6 +12,7 @@ export default function AiSettingsPanel({
   providerValue,
   setProviderValue,
   type = 'text',
+  coreProviderValue,
   title = 'AI Provider Settings',
   helpText = 'AI credentials are used by the microservice to generate mock data. In production, prefer environment variables over database storage.',
 }) {
@@ -20,9 +22,7 @@ export default function AiSettingsPanel({
   const textProviders = [
     { label: 'OpenAI (GPT)', value: 'openai' },
     { label: 'Google Gemini', value: 'gemini' },
-    // Anthropic Claude is scaffolded (ANTHROPIC_API_KEY in .env.example) but
-    // not yet implemented in providerFactory.cjs -- selecting it throws at
-    // runtime. Re-add once a real anthropicProvider.cjs exists. See #482.
+    { label: 'Anthropic Claude', value: 'anthropic' },
   ];
 
   const mediaProviders = [
@@ -61,6 +61,13 @@ export default function AiSettingsPanel({
   const onClear = useCallback(() => setKeyValue(''), [setKeyValue]);
 
   const isInherited = type === 'media' && providerValue === 'inherit';
+
+  // Only the media panel can judge this, and only because it is told what the
+  // core provider is - the combination is what fails, not either setting alone.
+  const mediaIssue =
+    type === 'media'
+      ? mediaProviderIssue(coreProviderValue, providerValue)
+      : null;
 
   return (
     <ClayLayout.SheetSection className="mt-4">
@@ -107,6 +114,16 @@ export default function AiSettingsPanel({
             ))}
           </ClaySelect>
         </ClayForm.Group>
+
+        {mediaIssue && (
+          <ClayAlert
+            displayType="warning"
+            title="Images cannot be generated"
+            role="alert"
+          >
+            {mediaIssue}
+          </ClayAlert>
+        )}
 
         {!isInherited && (
           <ClayForm.Group>

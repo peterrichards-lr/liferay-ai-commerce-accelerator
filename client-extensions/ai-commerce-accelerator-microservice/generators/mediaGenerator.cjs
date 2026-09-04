@@ -1,3 +1,7 @@
+const {
+  aiImagesRequested,
+  mediaProviderIssue,
+} = require('../utils/providerCapabilities.cjs');
 const { jsPDF } = require('jspdf');
 const axios = require('axios');
 const {
@@ -303,6 +307,29 @@ class MediaGenerator {
       sessionId,
       correlationId,
     });
+
+    // Layer 3 of the media-provider guard: fail before the loop rather than
+    // partway through it, so no products are half-processed and the message
+    // names the fix rather than surfacing a provider's internal error.
+    if (aiImagesRequested(imageMode, options.demoMode)) {
+      const aiConfig =
+        (await this.ctx?.config?.getAIConfig?.(options.requestConfig)) || {};
+      const issue = mediaProviderIssue(
+        aiConfig.provider,
+        aiConfig.mediaProvider
+      );
+      if (issue) {
+        const error = new Error(`Cannot generate product images: ${issue}`);
+        error.errorReference = createERC(ERC_PREFIX.ERROR);
+        logger.error('Image generation blocked by provider capability', {
+          correlationId,
+          coreProvider: aiConfig.provider,
+          mediaProvider: aiConfig.mediaProvider,
+          errorReference: error.errorReference,
+        });
+        throw error;
+      }
+    }
 
     let completedCount = 0;
     const createdImages = [];
