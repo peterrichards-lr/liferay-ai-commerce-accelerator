@@ -29,6 +29,14 @@ Promotions are deliberately **not** chunked: they generate user segments alongsi
 - **AI PDFs**: Creates detailed documentation like User Guides, Technical Specs, or Compliance sheets.
 - **Placeholder Mode**: Use lightweight mock assets for rapid prototyping without AI costs.
 
+### Prompt and Schema Portability
+
+The Configuration client extension can move prompts and schemas between environments without touching the database.
+
+- **Export All / Import All** writes and reads a versioned JSON bundle, so a tuned set can be carried from a local instance to a demo one.
+- **Copy All** puts the same payload on the clipboard, for pasting into an issue or a review.
+- Imported **schemas are compiled before being accepted**. One that does not compile is rejected individually with the error shown against that entity, and the valid schemas in the same file still import — a bad schema would otherwise break generation for that entity.
+
 ## Real-time Monitoring
 
 The **Dashboard** provides granular feedback on every generation session.
