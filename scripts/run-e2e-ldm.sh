@@ -242,6 +242,16 @@ find_free_port() {
     echo "$port"
 }
 
+# Reads Bundle-SymbolicName from a jar's manifest, or nothing when it cannot be
+# read. The header may carry directives (com.example;singleton:=true), which are
+# stripped, and manifests use CRLF line endings.
+bundle_symbolic_name() {
+    local jar="$1"
+    unzip -p "$jar" META-INF/MANIFEST.MF 2>/dev/null \
+        | tr -d '\r' \
+        | awk -F': *' 'tolower($1) == "bundle-symbolicname" { split($2, a, ";"); print a[1]; exit }'
+}
+
 # Sync OSGi module jars built by Gradle into the LDM staging directory.
 #
 # This lives in one place because it previously existed twice - once on the
@@ -254,13 +264,13 @@ find_free_port() {
 # triggerReindex callers only log a warning, the resulting 404 was silent.
 # See #614.
 #
-# Deliberately does not prune the destination. The .ldmp package also ships
-# osgi/modules, so a project restored from one can hold jars that did not come
-# from bundles/, and deleting those would be worse than the staleness it would
-# prevent. Stale jars are a versioning problem: bnd.bnd pins Bundle-Version to
-# 1.0.0, so every build emits the same filename and a copy overwrites in place.
-# Once versions are real, pruning becomes necessary - and must then match on
-# Bundle-SymbolicName rather than on a filename.
+# Prunes by Bundle-SymbolicName, never by filename. Modules now carry real
+# versions, so a version bump changes the filename and a plain copy would leave
+# both jars behind - two bundles with the same symbolic name, which OSGi treats
+# as a duplicate. Only a jar whose symbolic name is being replaced is removed,
+# so anything the .ldmp package shipped into osgi/modules under a different
+# name is left alone. Matching on a filename is what made the old exclusion
+# unable to tell a stale bundle from the current one. See #614.
 sync_osgi_modules() {
     local context="${1:-}"
 
@@ -279,11 +289,54 @@ sync_osgi_modules() {
         return 0
     fi
 
+    # Gradle's output directory is never cleaned, so after a version bump it
+    # holds both jars. Keep the most recently built one per symbolic name -
+    # sorting by filename would pick 1.10.0 before 1.9.0 - and say which was
+    # skipped rather than dropping it silently.
+    local newest=()
+    local candidate candidate_bsn other other_bsn superseded
+    for candidate in "${jars[@]}"; do
+        candidate_bsn="$(bundle_symbolic_name "$candidate")"
+        superseded=""
+
+        if [ -n "$candidate_bsn" ]; then
+            for other in "${jars[@]}"; do
+                [ "$other" = "$candidate" ] && continue
+                other_bsn="$(bundle_symbolic_name "$other")"
+                if [ "$other_bsn" = "$candidate_bsn" ] && [ "$other" -nt "$candidate" ]; then
+                    superseded="$other"
+                    break
+                fi
+            done
+        fi
+
+        if [ -n "$superseded" ]; then
+            echo "   ! skipping $(basename "$candidate"); $(basename "$superseded") is newer"
+        else
+            newest+=("$candidate")
+        fi
+    done
+    jars=("${newest[@]}")
+
     echo "Syncing ${#jars[@]} OSGi module(s) to LDM modules directory${context}..."
     mkdir -p "$PROJECT_NAME/osgi/modules"
 
-    local jar
+    local jar bsn existing
     for jar in "${jars[@]}"; do
+        bsn="$(bundle_symbolic_name "$jar")"
+
+        if [ -n "$bsn" ]; then
+            while IFS= read -r existing; do
+                [ "$(basename "$existing")" = "$(basename "$jar")" ] && continue
+                if [ "$(bundle_symbolic_name "$existing")" = "$bsn" ]; then
+                    echo "   - removing superseded $(basename "$existing")"
+                    rm -f "$existing"
+                fi
+            done < <(find "$PROJECT_NAME/osgi/modules" -maxdepth 1 -name '*.jar' -type f)
+        else
+            echo "   ! $(basename "$jar") has no Bundle-SymbolicName; copying without pruning"
+        fi
+
         cp "$jar" "$PROJECT_NAME/osgi/modules/"
         echo "   - $(basename "$jar")"
     done

@@ -1,3 +1,10 @@
+// The version lives here rather than in bnd.bnd. A hardcoded Bundle-Version
+// silently overrides every Gradle mechanism, so a bump appears to do nothing -
+// and because the filename never changed, a stale jar and the current one were
+// indistinguishable, which is what made the old filename-based exclusion in
+// run-e2e-ldm.sh delete the wrong bundle. See #614.
+version = "1.0.0"
+
 dependencies {
 	compileOnly group: "com.liferay.portal", name: "com.liferay.portal.kernel"
 	compileOnly group: "jakarta.ws.rs", name: "jakarta.ws.rs-api", version: "3.1.0"
