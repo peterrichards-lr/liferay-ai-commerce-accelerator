@@ -71,6 +71,104 @@ tasks.named('yarnInstall') {
 	}
 }
 
+// Bundles consumed from the shared OSGi modules repository. Named by
+// Bundle-SymbolicName so that superseded versions can be pruned: two jars with
+// the same symbolic name and different versions is a duplicate-bundle conflict,
+// and the deploy directory is never cleaned on our behalf.
+ext.sharedOsgiBundles = [
+	"com.liferay.custom.commerce.site.type",
+]
+
+task downloadSharedOsgiModules (type: DefaultTask)
+
+downloadSharedOsgiModules {
+	group = "build"
+	description = "Downloads pinned shared OSGi bundles into bundles/osgi/modules, verifying checksums."
+
+	doLast {
+		def repo = project.findProperty("aica.shared.osgi.repo")
+		def version = project.findProperty("aica.shared.osgi.version")
+		def dxpLine = project.findProperty("aica.shared.osgi.dxp.line")
+
+		if (!repo || !version || !dxpLine) {
+			throw new GradleException(
+				"aica.shared.osgi.{repo,version,dxp.line} must all be set in gradle.properties")
+		}
+
+		def targetDir = file("$rootDir/bundles/osgi/modules")
+		targetDir.mkdirs()
+
+		sharedOsgiBundles.each {
+			bundleName ->
+
+			def fileName = "${bundleName}-${version}-${dxpLine}.jar"
+			def target = new File(targetDir, fileName)
+			def base = "https://github.com/${repo}/releases/download/v${version}"
+
+			// The checksum is fetched first and always: it is what lets an
+			// already-present jar be trusted without downloading it again, and
+			// what catches a truncated or tampered download.
+			def expected
+			try {
+				expected = new URL("${base}/${fileName}.sha256").text.trim().split(/\s+/)[0]
+			}
+			catch (Exception e) {
+				throw new GradleException(
+					"Could not fetch ${fileName}.sha256 from ${base}. Is ${version} published?", e)
+			}
+
+			def digestOf = {
+				File f ->
+				def md = java.security.MessageDigest.getInstance("SHA-256")
+				f.eachByte(64 * 1024) {
+					buf, len ->
+					md.update(buf, 0, len)
+				}
+				md.digest().collect { String.format("%02x", it) }.join()
+			}
+
+			if (target.exists() && digestOf(target) == expected) {
+				logger.lifecycle("Shared OSGi bundle already present and verified: ${fileName}")
+			}
+			else {
+				logger.lifecycle("Downloading ${fileName}")
+				target.withOutputStream {
+					out ->
+					new URL("${base}/${fileName}").withInputStream {
+						into ->
+						out << into
+					}
+				}
+
+				def actual = digestOf(target)
+
+				if (actual != expected) {
+					target.delete()
+					throw new GradleException(
+						"Checksum mismatch for ${fileName}: expected ${expected}, got ${actual}")
+				}
+
+				logger.lifecycle("Verified ${fileName}")
+			}
+
+			// Remove other versions of the same bundle. Liferay resolves by
+			// Bundle-SymbolicName, so leaving an older jar behind deploys two
+			// bundles that claim the same name.
+			targetDir.listFiles().each {
+				existing ->
+
+				if (existing.name.endsWith(".jar") &&
+					existing.name.startsWith("${bundleName}-") &&
+					existing.name != fileName) {
+
+					logger.lifecycle("Removing superseded ${existing.name}")
+					existing.delete()
+				}
+			}
+		}
+	}
+}
+
 task generateBatchFiles (type: DefaultTask)
 
 generateBatchFiles {
@@ -739,6 +837,7 @@ tasks.matching { it.name == 'deploy' }.configureEach {
 	dependsOn tasks.named('testAllCX')
 	dependsOn tasks.named('generateBatchFiles')
 	dependsOn tasks.named('buildConfigurationCX')
+	dependsOn tasks.named('downloadSharedOsgiModules')
 }
 
 project(':client-extensions:ai-commerce-accelerator-microservice') {

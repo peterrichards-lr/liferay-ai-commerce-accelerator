@@ -89,6 +89,39 @@ feature.flag.LPD-35443=true
 
 ---
 
+### Shared OSGi modules
+
+Some capabilities are provided by OSGi modules from
+[`liferay-custom-osgi-modules`](https://github.com/peterrichards-lr/liferay-custom-osgi-modules),
+because no Headless API exposes them. They are consumed as published release
+artifacts rather than built here:
+
+```bash
+./gradlew downloadSharedOsgiModules
+```
+
+`./gradlew deploy` runs this for you. The task downloads the version pinned in
+`gradle.properties`, verifies it against the published `.sha256`, and removes
+any other version of the same bundle from `bundles/osgi/modules` — two jars
+sharing a `Bundle-SymbolicName` is a duplicate-bundle conflict.
+
+The pinned artifacts are built against `dxp-2026.q1.12-lts`, which is not the
+line this workspace pins. That is expected: these modules import only
+`com.liferay.portal.kernel.*`, whose package majors are stable across those
+lines. `commerce-site-type` 1.0.0 was verified to resolve and register on a
+`dxp-2026.q1.7-lts` instance. If a future module imports application packages,
+that will not hold and it will need an artifact matching this line.
+
+A bundle that fails to resolve does so **silently** — the endpoint simply
+returns 404 rather than logging an error. To check one is live:
+
+```bash
+curl -s -o /dev/null -w "%{http_code}\n" http://localhost:8080/o/commerce-site-type/status
+```
+
+`404` means the bundle is not resolved. `403` means it is registered and
+rejected the unauthenticated request, which is the expected response.
+
 ## 4. Step 2: Build & Deploy Client Extensions to DXP
 
 All client extensions (including the `ai-commerce-accelerator-batch` extension that defines the Liferay Objects and prompts) must be deployed to the running Liferay instance:
