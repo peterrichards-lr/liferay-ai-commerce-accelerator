@@ -16,6 +16,12 @@ describe('AIService (Multi-Provider)', () => {
         getAIKey: vi.fn().mockResolvedValue('test-text-key'),
         getAIMediaKey: vi.fn().mockResolvedValue('test-media-key'),
         getAISchema: vi.fn().mockResolvedValue({ type: 'object' }),
+        getAIModelOptions: vi.fn().mockResolvedValue({
+          aiModelOptions: [
+            { label: 'GPT-4o Mini', value: 'gpt-4o-mini', provider: 'openai' },
+          ],
+          defaultModel: 'gpt-4o-mini',
+        }),
         getAIKeyCached: vi.fn().mockResolvedValue('test-text-key'),
         getAIMediaKeyCached: vi.fn().mockResolvedValue('test-media-key'),
       },
@@ -62,6 +68,40 @@ describe('AIService (Multi-Provider)', () => {
 
     const provider = await aiService.getAIProvider({}, 'text');
     expect(provider.constructor.name).toBe('GeminiProvider');
+  });
+
+  it('should reject a model belonging to another provider', async () => {
+    // Previously this reached the provider: openai would 404 midway through a
+    // run and anthropic would silently substitute its own default model.
+    mockCtx.config.getAIConfig.mockResolvedValue({
+      provider: 'anthropic',
+      defaultModel: 'gpt-4o-mini',
+    });
+
+    await expect(aiService.getRuntimeAIConfig({})).rejects.toThrow(
+      /Anthropic Claude cannot run the model "gpt-4o-mini"/
+    );
+  });
+
+  it('should attach a 400 to a provider/model mismatch', async () => {
+    mockCtx.config.getAIConfig.mockResolvedValue({
+      provider: 'gemini',
+      defaultModel: 'claude-opus-5',
+    });
+
+    await expect(
+      aiService.getRuntimeAIConfig({}).catch((e) => e.statusCode)
+    ).resolves.toBe(400);
+  });
+
+  it('should allow an unrecognised model rather than blocking a custom one', async () => {
+    mockCtx.config.getAIConfig.mockResolvedValue({
+      provider: 'anthropic',
+      defaultModel: 'my-self-hosted-llm',
+    });
+
+    const runtime = await aiService.getRuntimeAIConfig({});
+    expect(runtime.model).toBe('my-self-hosted-llm');
   });
 
   it('should extract actual data from different response shapes', () => {
