@@ -79,6 +79,13 @@ const generateOrdersSchema = (aiModelOptions = [], batchSizes = []) => ({
   currencyCode: { type: 'string', required: true },
   orderCount: { type: 'number', min: 0, max: 100, integer: true },
   orderDateRangeDays: { type: 'number', min: 0, max: 1095, required: false },
+  // Which existing accounts may receive orders. 'any' means either kind of
+  // customer; guest and supplier accounts are never eligible. See #611.
+  orderAccountType: {
+    type: 'string',
+    enum: ['any', 'business', 'person'],
+    required: false,
+  },
 });
 
 const generateAccountsSchema = (aiModelOptions = [], batchSizes = []) => ({

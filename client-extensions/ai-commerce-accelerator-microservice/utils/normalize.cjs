@@ -75,6 +75,7 @@ function buildConfigAndOptions(req) {
   const {
     accountCount,
     accountType,
+    orderAccountType,
     aiModel,
     authMethod,
     batchSize,
@@ -239,6 +240,13 @@ function buildConfigAndOptions(req) {
   // options, so aiService always fell back to 'business' and the Account Type
   // control had no effect. See #587.
   options.accountType = accountType || 'business';
+
+  // Which existing accounts standalone order runs may draw from. Deliberately
+  // separate from accountType, which defaults to 'business' for account
+  // generation - reusing it would silently stop order runs from using existing
+  // individual accounts. Left undefined when absent so any customer account
+  // qualifies, as it did before. See #611.
+  options.orderAccountType = orderAccountType || undefined;
 
   // Only meaningful for the mixed type. Left undefined when absent so the
   // prompt's own mixed branch keeps deciding the split, as it did before.

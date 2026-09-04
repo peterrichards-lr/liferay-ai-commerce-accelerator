@@ -48,6 +48,7 @@ const initialGenerationConfig = {
   productCount: 10,
   accountCount: 10,
   accountType: 'business',
+  orderAccountType: 'any',
   orderCount: 50,
   orderDateRangeDays: 90,
   orderDistribution: { open: 10, processing: 10, shipped: 20, completed: 60 },

@@ -5,6 +5,11 @@ const {
   resolveErrorReference,
 } = require('../utils/misc.cjs');
 const { ERC_PREFIX, WORKFLOW_STEPS } = require('../utils/constants.cjs');
+const {
+  ANY,
+  eligibleOrderAccounts,
+  noEligibleAccountsMessage,
+} = require('../utils/accountTypes.cjs');
 
 const S = WORKFLOW_STEPS;
 
@@ -735,11 +740,36 @@ class OrderGenerator extends BaseGenerator {
       this.logger.debug(
         'Fetching existing accounts from Liferay for order assignment...'
       );
-      const accountsRes = await this.liferay.getAccounts(config, {
-        channelId: config.channelId,
-      });
-      accounts = accountsRes.items || [];
-      this.logger.debug(`Found ${accounts.length} existing accounts.`);
+      // No channel filter: getAccounts takes an OData filter *string* and
+      // _fetchCollection coerces anything else to '', so the { channelId }
+      // object passed here previously was silently discarded. Accounts are not
+      // channel-scoped on this endpoint in any case - membership is a separate
+      // ChannelAccount resource - so do not reinstate it as a filter string.
+      // See #610.
+      const accountsRes = await this.liferay.getAccounts(config, null, [
+        'id',
+        'externalReferenceCode',
+        'name',
+        'type',
+      ]);
+      const existing = accountsRes.items || [];
+      accounts = eligibleOrderAccounts(
+        existing,
+        context.options?.orderAccountType
+      );
+
+      this.logger.debug(
+        `Found ${existing.length} existing accounts, ${accounts.length} eligible for orders.`,
+        { requestedAccountType: context.options?.orderAccountType || ANY }
+      );
+
+      if (accounts.length === 0) {
+        const err = new Error(
+          noEligibleAccountsMessage(context.options?.orderAccountType, existing)
+        );
+        err.statusCode = 400;
+        throw err;
+      }
     }
 
     return { products, accounts };

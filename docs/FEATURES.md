@@ -10,7 +10,7 @@ Rapidly create high-quality commerce entities using state-of-the-art generative 
 
 - **Products**: Generates localized names, descriptions, and specifications.
 - **Accounts**: Creates realistic business accounts with multiple addresses (Billing, Shipping, Head Office). Choose Business, Individual, or Mixed — and with Mixed, set the business/individual split explicitly rather than leaving the proportion to the model.
-- **Orders**: Generates historical order data linked to products and accounts.
+- **Orders**: Generates historical order data linked to products and accounts. When generating orders against existing data you can choose which accounts receive them — any customer, business only, or individual only. Guest and supplier accounts are never used: guest exists for anonymous checkout, and a supplier sells to the business rather than buying from it.
 - **Warehouses**: Creates inventory locations and manages stock distribution.
 
 ### Chunked Generation
