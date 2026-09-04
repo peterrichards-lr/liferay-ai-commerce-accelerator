@@ -242,6 +242,53 @@ find_free_port() {
     echo "$port"
 }
 
+# Sync OSGi module jars built by Gradle into the LDM staging directory.
+#
+# This lives in one place because it previously existed twice - once on the
+# fresh-init path and once for hot-deploy - and the two disagreed. The
+# fresh-init copy also deleted
+# com.liferay.accelerator.reindex.endpoint-1.0.0.jar, described as "the legacy
+# JAX-RS 2.x reindex endpoint bundle". That module was already jakarta when the
+# delete was added, so the name matched the current bundle instead: fresh-init
+# environments shipped without the reindex endpoint, and because both
+# triggerReindex callers only log a warning, the resulting 404 was silent.
+# See #614.
+#
+# Deliberately does not prune the destination. The .ldmp package also ships
+# osgi/modules, so a project restored from one can hold jars that did not come
+# from bundles/, and deleting those would be worse than the staleness it would
+# prevent. Stale jars are a versioning problem: bnd.bnd pins Bundle-Version to
+# 1.0.0, so every build emits the same filename and a copy overwrites in place.
+# Once versions are real, pruning becomes necessary - and must then match on
+# Bundle-SymbolicName rather than on a filename.
+sync_osgi_modules() {
+    local context="${1:-}"
+
+    if [ ! -d "bundles/osgi/modules" ]; then
+        echo "No bundles/osgi/modules directory; skipping OSGi module sync${context}."
+        return 0
+    fi
+
+    local jars=()
+    while IFS= read -r jar; do
+        jars+=("$jar")
+    done < <(find bundles/osgi/modules -maxdepth 1 -name '*.jar' -type f | sort)
+
+    if [ ${#jars[@]} -eq 0 ]; then
+        echo "No built OSGi modules found to sync${context}."
+        return 0
+    fi
+
+    echo "Syncing ${#jars[@]} OSGi module(s) to LDM modules directory${context}..."
+    mkdir -p "$PROJECT_NAME/osgi/modules"
+
+    local jar
+    for jar in "${jars[@]}"; do
+        cp "$jar" "$PROJECT_NAME/osgi/modules/"
+        echo "   - $(basename "$jar")"
+    done
+}
+
 # Load E2E or local .env if it exists (for local runs)
 if [ -f ".env.e2e" ]; then
     echo "📄 Loading environment variables from .env.e2e..."
@@ -502,14 +549,7 @@ if [ $EXISTING_PROJECT -eq 0 ]; then
         sed -i.bak "s/liferay-db-global/${PROJECT_NAME}-db/g" "$PROJECT_NAME/files/portal-ext.properties"
     fi
 
-    # Sync OSGi modules built by Gradle into the LDM staging directory
-    if [ -d "bundles/osgi/modules" ]; then
-        echo "🔄 Syncing built OSGi modules to LDM modules directory..."
-        mkdir -p "$PROJECT_NAME/osgi/modules"
-        cp bundles/osgi/modules/*.jar "$PROJECT_NAME/osgi/modules/" 2>/dev/null || true
-        # Remove the legacy JAX-RS 2.x reindex endpoint bundle to prevent conflicts
-        rm -f "$PROJECT_NAME/osgi/modules/com.liferay.accelerator.reindex.endpoint-1.0.0.jar"
-    fi
+    sync_osgi_modules
 
     # Sync client extensions built by Gradle/yarn into the LDM staging directory
     # NOTE: We copy all ZIPs EXCEPT the Site Initializer here. 
@@ -558,12 +598,7 @@ if [ $EXISTING_PROJECT -eq 0 ]; then
 else
     echo "⏭️  Skipping initialization/boot for existing project '$PROJECT_NAME'."
 
-    # Sync OSGi modules to the LDM staging directory for hot-deploy
-    if [ -d "bundles/osgi/modules" ]; then
-        echo "🔄 Syncing built OSGi modules to LDM modules directory for hot-deploy..."
-        mkdir -p "$PROJECT_NAME/osgi/modules"
-        cp bundles/osgi/modules/*.jar "$PROJECT_NAME/osgi/modules/" 2>/dev/null || true
-    fi
+    sync_osgi_modules " for hot-deploy"
 
     # Sync client extensions to the LDM staging directory for hot-deploy
     echo "🔄 Syncing built client extensions to LDM staging directory for hot-deploy..."
