@@ -107,4 +107,58 @@ describe('CommerceCard', () => {
     expect(caveat.textContent).toMatch(/B2B, B2C or B2X/);
     expect(caveat.textContent).toMatch(/Commerce . Channels/);
   });
+
+  it('links to the channels screen on the configured instance', () => {
+    // Built from config.liferayUrl so it works for a remote instance as well
+    // as localhost. Portal-scoped, so there is no site segment.
+    useApp.mockReturnValue({
+      config: { liferayUrl: 'https://acme.lfr.cloud' },
+      setConfig: vi.fn(),
+    });
+
+    render(
+      <CommerceCard
+        connected={true}
+        catalogs={[]}
+        channels={[]}
+        currencies={[]}
+        errors={{}}
+      />
+    );
+
+    const link = screen.getByRole('link', { name: /Commerce . Channels/ });
+    expect(link).toHaveAttribute(
+      'href',
+      expect.stringContaining(
+        'https://acme.lfr.cloud/group/control_panel/manage'
+      )
+    );
+    expect(link).toHaveAttribute('target', '_blank');
+    expect(link).toHaveAttribute('rel', expect.stringContaining('noopener'));
+  });
+
+  it('renders plain text when there is no usable instance URL', () => {
+    // A dead link is worse than none.
+    useApp.mockReturnValue({
+      config: { liferayUrl: '' },
+      setConfig: vi.fn(),
+    });
+
+    render(
+      <CommerceCard
+        connected={true}
+        catalogs={[]}
+        channels={[]}
+        currencies={[]}
+        errors={{}}
+      />
+    );
+
+    expect(
+      screen.queryByRole('link', { name: /Commerce . Channels/ })
+    ).not.toBeInTheDocument();
+    expect(
+      screen.getByText(/Liferay under Commerce . Channels/)
+    ).toBeInTheDocument();
+  });
 });
