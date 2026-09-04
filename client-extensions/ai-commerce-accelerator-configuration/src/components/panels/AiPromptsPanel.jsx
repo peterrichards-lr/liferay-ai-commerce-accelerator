@@ -1,4 +1,4 @@
-import React, { useRef, useCallback } from 'react';
+import React, { useCallback, useRef, useState } from 'react';
 import ClayButton from '@clayui/button';
 import ClayIcon from '@clayui/icon';
 import PromptEditor from './PromptEditor';
@@ -48,6 +48,29 @@ export default function AiPromptsPanel() {
   useForm({ dirty, onSave });
 
   const fileInputRef = useRef(null);
+  const [copied, setCopied] = useState(false);
+
+  const handleCopyAll = useCallback(async () => {
+    const payload = JSON.stringify(
+      {
+        version: '1.0.0',
+        exportedAt: new Date().toISOString(),
+        prompts,
+      },
+      null,
+      2
+    );
+
+    try {
+      // Absent in insecure contexts; failing quietly is better than throwing
+      // inside a click handler and leaving the panel unusable.
+      await navigator?.clipboard?.writeText(payload);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      setCopied(false);
+    }
+  }, [prompts]);
 
   const handleExportAll = useCallback(() => {
     const exportData = {
@@ -118,6 +141,16 @@ export default function AiPromptsPanel() {
           >
             <ClayIcon symbol="upload" />
             <span className="ml-2">Import All</span>
+          </ClayButton>
+          <ClayButton
+            displayType="secondary"
+            onClick={handleCopyAll}
+            title="Copy all prompts to the clipboard"
+            className="mr-2"
+            aria-label="Copy all prompts"
+          >
+            <ClayIcon symbol={copied ? 'check' : 'paste'} />
+            <span className="ml-2">{copied ? 'Copied' : 'Copy All'}</span>
           </ClayButton>
           <ClayButton
             displayType="secondary"
