@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { channelOptionLabel } from '../../config/channelSiteType';
 import ClayCard from '@clayui/card';
 import ClayForm, { ClaySelect } from '@clayui/form';
 import { useApp } from '../../context/AppContext';
@@ -191,11 +192,15 @@ export default function CommerceCard({
                       value=""
                       label="Select a channel…"
                     />,
+                    // Labelled with the site type, so the choice of channel
+                    // and the choice of account type can be made together
+                    // rather than one being corrected after the other. See
+                    // #610.
                     ...channels.map((c) => (
                       <ClaySelect.Option
                         key={c.id}
                         value={c.id}
-                        label={c.name}
+                        label={channelOptionLabel(c)}
                       />
                     )),
                   ]}

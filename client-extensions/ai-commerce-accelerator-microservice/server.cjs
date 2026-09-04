@@ -172,6 +172,7 @@ const gracefulShutdown = async (signal) => {
     accountGenerator,
     batchCallbackService,
     cacheService,
+    commerceSiteTypeService,
     configService,
     deleteCoordinatorService,
     healthService,
@@ -268,7 +269,10 @@ const gracefulShutdown = async (signal) => {
   });
   require('./routes/cache.cjs')(apiV1Router, { ...routeCtx, cacheService });
   require('./routes/config.cjs')(apiV1Router, { ...routeCtx, configService });
-  require('./routes/get.cjs')(apiV1Router, routeCtx);
+  require('./routes/get.cjs')(apiV1Router, {
+    ...routeCtx,
+    commerceSiteTypeService,
+  });
   require('./routes/health.cjs')(apiV1Router, { ...routeCtx, healthService });
   require('./routes/queue.cjs')(apiV1Router, routeCtx);
   require('./routes/workflow.cjs')(apiV1Router, routeCtx);
@@ -296,6 +300,7 @@ const gracefulShutdown = async (signal) => {
     ...routeCtx,
     healthService,
     deleteCoordinatorService,
+    commerceSiteTypeService,
     configService,
     oauthService,
   });
@@ -308,6 +313,7 @@ const gracefulShutdown = async (signal) => {
     warehouseGenerator,
     configService,
     cacheService,
+    commerceSiteTypeService,
     logger,
     progressService,
     persistenceService,

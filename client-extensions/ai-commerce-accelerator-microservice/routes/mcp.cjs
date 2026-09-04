@@ -13,6 +13,7 @@ const {
   resolveValidationContext,
   validateGenerationRequest,
 } = require('../utils/validateGenerationRequest.cjs');
+const { evaluateGenerationRun } = require('../utils/channelSiteType.cjs');
 const {
   resolveEffectiveLiferayConnection,
 } = require('../utils/liferayEnv.cjs');
@@ -32,6 +33,7 @@ module.exports = (router, routeCtx) => {
     healthService,
     oauthService,
     configService,
+    commerceSiteTypeService,
   } = routeCtx;
 
   // Initialize MCP Server
@@ -283,6 +285,30 @@ module.exports = (router, routeCtx) => {
             const catalogs = await liferayService.getCatalogs(config);
             if (catalogs && catalogs.length > 0) {
               config.catalogId = parseInt(catalogs[0].id, 10);
+            }
+          }
+
+          // Checked after the fallback above, not alongside the validation:
+          // a tool call that names no channel is given one here, and that is
+          // the channel the run would generate into. See #610.
+          if (config.channelId) {
+            const verdict = evaluateGenerationRun(
+              options,
+              await commerceSiteTypeService?.getChannelSiteType(
+                config,
+                config.channelId
+              )
+            );
+
+            if (verdict.outcome === 'block') {
+              throw new Error(verdict.message);
+            }
+
+            if (verdict.outcome === 'warn') {
+              logger.warn(verdict.message, {
+                operation: 'aica_trigger_generation',
+                channelId: config.channelId,
+              });
             }
           }
 

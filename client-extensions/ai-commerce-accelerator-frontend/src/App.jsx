@@ -269,6 +269,12 @@ function AppUI() {
 
   const isGenerating = isSubmitting || !!progress.activeSessionId;
 
+  // The channel the run will generate into, annotated with its commerce site
+  // type by the get-channels route. See #610.
+  const selectedChannel = channels.find(
+    (channel) => String(channel.id) === String(config.channelId)
+  );
+
   const commerceConfigured =
     !!config.catalogId &&
     !!config.channelId &&
@@ -701,6 +707,7 @@ function AppUI() {
                 availableCategories={availableCategories}
                 liferayConnected={connectionEstablished}
                 generationLimits={generationLimits}
+                selectedChannel={selectedChannel}
               />
 
               <div className="divider my-4"></div>
