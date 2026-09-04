@@ -5,6 +5,94 @@ const addFormats = require('ajv-formats');
 const { createERC } = require('../utils/misc.cjs');
 const { ERC_PREFIX } = require('../utils/constants.cjs');
 
+const POINTER_UNESCAPE = [
+  [/~1/g, '/'],
+  [/~0/g, '~'],
+];
+
+function pointerTokens(pointer) {
+  if (!pointer || pointer === '/') return [];
+  return pointer
+    .split('/')
+    .slice(1)
+    .map((token) =>
+      POINTER_UNESCAPE.reduce(
+        (acc, [pattern, replacement]) => acc.replace(pattern, replacement),
+        token
+      )
+    );
+}
+
+function resolvePointerParent(root, pointer) {
+  const tokens = pointerTokens(pointer);
+  if (tokens.length === 0) return null;
+
+  let node = root;
+  for (const token of tokens.slice(0, -1)) {
+    if (node == null || typeof node !== 'object') return null;
+    node = Array.isArray(node) ? node[Number(token)] : node[token];
+  }
+  if (node == null || typeof node !== 'object') return null;
+
+  return { parent: node, key: tokens[tokens.length - 1] };
+}
+
+function valueAtPointer(root, pointer) {
+  const resolved = resolvePointerParent(root, pointer);
+  if (!resolved) return undefined;
+  const { parent, key } = resolved;
+  return Array.isArray(parent) ? parent[Number(key)] : parent[key];
+}
+
+/**
+ * Removes properties that are null where the schema does not allow null,
+ * identified from ajv's own type errors. Returns the pointers dropped.
+ */
+function dropNullTypeViolations(payload, errors) {
+  const dropped = [];
+
+  for (const error of errors || []) {
+    if (error.keyword !== 'type') continue;
+    if (valueAtPointer(payload, error.instancePath) !== null) continue;
+
+    const resolved = resolvePointerParent(payload, error.instancePath);
+    if (!resolved) continue;
+
+    const { parent, key } = resolved;
+    if (Array.isArray(parent)) continue;
+
+    delete parent[key];
+    dropped.push(error.instancePath);
+  }
+
+  return dropped;
+}
+
+const OFFENDING_VALUE_MAX_LENGTH = 200;
+
+function describeOffendingValues(payload, errors) {
+  const seen = new Map();
+
+  for (const error of (errors || []).slice(0, 20)) {
+    if (seen.has(error.instancePath)) continue;
+
+    let rendered;
+    try {
+      rendered = JSON.stringify(valueAtPointer(payload, error.instancePath));
+    } catch {
+      rendered = '<unserializable>';
+    }
+    if (rendered === undefined) rendered = '<absent>';
+    if (rendered.length > OFFENDING_VALUE_MAX_LENGTH) {
+      rendered = `${rendered.slice(0, OFFENDING_VALUE_MAX_LENGTH)}...`;
+    }
+
+    seen.set(error.instancePath, rendered);
+  }
+
+  return Object.fromEntries(seen);
+}
+
 class GenerationFacade {
   constructor(ctx) {
     this.ctx = ctx;
@@ -172,10 +260,31 @@ class GenerationFacade {
         payload = { [mainPropertyName]: dataArr };
       }
 
-      const isValid = validator(payload);
+      let isValid = validator(payload);
+
+      // Models routinely emit `null` for optional fields instead of omitting
+      // them, which fails as "must be string"/"must be object" even though the
+      // field was never required. Drop those and revalidate once. Driven by
+      // ajv's own errors rather than by walking the schema, so a value the
+      // schema genuinely permits to be null - promoPrice is the only one - is
+      // never touched, because ajv does not flag it.
+      if (!isValid) {
+        const dropped = dropNullTypeViolations(payload, validator.errors);
+        if (dropped.length > 0) {
+          isValid = validator(payload);
+          this.logger.debug?.(
+            `${schemaName} payload had null optional fields; dropped and revalidated`,
+            { dropped, revalidated: isValid, correlationId }
+          );
+        }
+      }
+
       if (!isValid) {
         this.logger.error(`${schemaName} generation failed schema validation`, {
           errors: validator.errors,
+          // Without the offending values a failure says which path was wrong
+          // but not what arrived, which turns a glance into an investigation.
+          offendingValues: describeOffendingValues(payload, validator.errors),
           correlationId,
         });
 
@@ -265,4 +374,8 @@ class GenerationFacade {
   }
 }
 
-module.exports = { GenerationFacade };
+module.exports = {
+  GenerationFacade,
+  dropNullTypeViolations,
+  describeOffendingValues,
+};
