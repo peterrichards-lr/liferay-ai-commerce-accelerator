@@ -5,6 +5,7 @@ import ClayForm, { ClayInput, ClaySelect } from '@clayui/form';
 import ClayIcon from '@clayui/icon';
 import ClayLayout from '@clayui/layout';
 import { mediaProviderIssue } from '../../config/providerCapabilities';
+import { apiKeyIssue } from '../../config/apiKeys';
 
 export default function AiSettingsPanel({
   keyValue,
@@ -68,6 +69,22 @@ export default function AiSettingsPanel({
     type === 'media'
       ? mediaProviderIssue(coreProviderValue, providerValue)
       : null;
+
+  // Checked here as well as in the microservice, so the mistake is caught while
+  // the key is being pasted rather than when a run fails. Inspected locally by
+  // prefix; the key is never sent anywhere to validate it. A media provider set
+  // to inherit uses the core provider's key, so there is nothing separate to
+  // judge.
+  const keyIssue = useMemo(() => {
+    const effectiveProvider =
+      type === 'media' && providerValue === 'inherit'
+        ? coreProviderValue
+        : providerValue;
+
+    if (type === 'media' && providerValue === 'inherit') return null;
+
+    return apiKeyIssue(effectiveProvider, keyValue);
+  }, [type, providerValue, coreProviderValue, keyValue]);
 
   return (
     <ClayLayout.SheetSection className="mt-4">
@@ -200,6 +217,16 @@ export default function AiSettingsPanel({
               The key is stored in Liferay as plain text. Ensure the correct key
               format for the selected provider.
             </small>
+            {keyIssue && (
+              <ClayAlert
+                displayType="danger"
+                title="Key does not match the provider"
+                role="alert"
+                className="mt-2"
+              >
+                {keyIssue}
+              </ClayAlert>
+            )}
             {keyValue && !show && (
               <div className="text-secondary small mt-1" aria-hidden="true">
                 Preview: <code>{masked}</code>

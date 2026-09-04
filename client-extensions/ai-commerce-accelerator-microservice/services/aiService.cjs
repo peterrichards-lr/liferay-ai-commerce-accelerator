@@ -10,6 +10,7 @@ const {
 } = require('../utils/promptHelpers.cjs');
 const { createERC } = require('../utils/misc.cjs');
 const { modelProviderIssue } = require('../utils/modelCatalog.cjs');
+const { apiKeyIssue } = require('../utils/apiKeys.cjs');
 const { ERC_PREFIX } = require('../utils/constants.cjs');
 const { estimateTokens } = require('../utils/tokenEstimator.cjs');
 
@@ -123,7 +124,8 @@ class AIService {
     const mediaProvider = aiCfg.mediaProvider || provider;
 
     const apiKey =
-      requestConfig?.aiApiKey || (await config.getAIKey(requestConfig));
+      requestConfig?.aiApiKey ||
+      (await config.getAIKey(requestConfig, provider));
 
     let mediaApiKey = requestConfig?.aiMediaApiKey;
 
@@ -160,6 +162,29 @@ class AIService {
 
     if (mismatch) {
       const err = new Error(mismatch);
+      err.statusCode = 400;
+      throw err;
+    }
+
+    // Refuse before the credential leaves the process. The key is resolved
+    // generically, so nothing else stops an OpenAI key being sent to
+    // api.anthropic.com, where it would be disclosed to a third party and come
+    // back as an ordinary authentication error.
+    const keyIssue = apiKeyIssue(provider, apiKey);
+
+    if (keyIssue) {
+      const err = new Error(keyIssue);
+      err.statusCode = 400;
+      throw err;
+    }
+
+    const mediaKeyIssue = apiKeyIssue(
+      mediaProvider === 'inherit' ? provider : mediaProvider,
+      mediaApiKey
+    );
+
+    if (mediaKeyIssue) {
+      const err = new Error(mediaKeyIssue);
       err.statusCode = 400;
       throw err;
     }
