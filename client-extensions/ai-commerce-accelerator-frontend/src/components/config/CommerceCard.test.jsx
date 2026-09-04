@@ -78,4 +78,87 @@ describe('CommerceCard', () => {
     expect(screen.getByText('No channels found')).toBeInTheDocument();
     expect(screen.getByText('No currencies found')).toBeInTheDocument();
   });
+
+  it('says what Auto-Create Channel actually produces', () => {
+    // The payload sends only currencyCode, name and type: 'site' - the channel
+    // type, not B2B/B2C/B2X - so the channel has no site association and no
+    // commerce site type, and neither is settable through the API. Without
+    // saying so, the button reads as equivalent to creating one in Liferay.
+    // See #624.
+    useApp.mockReturnValue({
+      config: {},
+      setConfig: vi.fn(),
+    });
+
+    render(
+      <CommerceCard
+        connected={true}
+        catalogs={[]}
+        channels={[]}
+        currencies={[]}
+        errors={{}}
+      />
+    );
+
+    expect(screen.getByText('Auto-Create Channel')).toBeInTheDocument();
+
+    const caveat = screen.getByText(/no site and no commerce site type/i);
+    expect(caveat).toBeInTheDocument();
+    expect(caveat.textContent).toMatch(/B2B, B2C or B2X/);
+    expect(caveat.textContent).toMatch(/Commerce . Channels/);
+  });
+
+  it('links to the channels screen on the configured instance', () => {
+    // Built from config.liferayUrl so it works for a remote instance as well
+    // as localhost. Portal-scoped, so there is no site segment.
+    useApp.mockReturnValue({
+      config: { liferayUrl: 'https://acme.lfr.cloud' },
+      setConfig: vi.fn(),
+    });
+
+    render(
+      <CommerceCard
+        connected={true}
+        catalogs={[]}
+        channels={[]}
+        currencies={[]}
+        errors={{}}
+      />
+    );
+
+    const link = screen.getByRole('link', { name: /Commerce . Channels/ });
+    expect(link).toHaveAttribute(
+      'href',
+      expect.stringContaining(
+        'https://acme.lfr.cloud/group/control_panel/manage'
+      )
+    );
+    expect(link).toHaveAttribute('target', '_blank');
+    expect(link).toHaveAttribute('rel', expect.stringContaining('noopener'));
+  });
+
+  it('renders plain text when there is no usable instance URL', () => {
+    // A dead link is worse than none.
+    useApp.mockReturnValue({
+      config: { liferayUrl: '' },
+      setConfig: vi.fn(),
+    });
+
+    render(
+      <CommerceCard
+        connected={true}
+        catalogs={[]}
+        channels={[]}
+        currencies={[]}
+        errors={{}}
+      />
+    );
+
+    expect(
+      screen.queryByRole('link', { name: /Commerce . Channels/ })
+    ).not.toBeInTheDocument();
+    expect(
+      screen.getByText(/Liferay under Commerce . Channels/)
+    ).toBeInTheDocument();
+  });
 });

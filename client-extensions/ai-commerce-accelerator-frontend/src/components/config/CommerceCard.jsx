@@ -4,6 +4,7 @@ import ClayForm, { ClaySelect } from '@clayui/form';
 import { useApp } from '../../context/AppContext';
 import FieldError from '../ui/FieldError';
 import CheckboxField from '../ui/CheckboxField';
+import { commerceChannelsUrl } from '../../utils/liferayLinks';
 
 export default function CommerceCard({
   disabled,
@@ -22,6 +23,12 @@ export default function CommerceCard({
 }) {
   const { config, setConfig } = useApp();
   const [isRefreshing, setIsRefreshing] = useState(false);
+
+  // Portal-scoped, so no site to resolve. Null when the configured base URL is
+  // unusable, in which case the caveat below renders as plain text rather than
+  // a dead link. A specific channel's edit screen cannot be linked: it needs
+  // p_auth, a per-session token.
+  const channelsUrl = commerceChannelsUrl(config?.liferayUrl);
 
   const handleRefresh = async () => {
     setIsRefreshing(true);
@@ -198,6 +205,24 @@ export default function CommerceCard({
                 <small className="text-danger d-block mb-2">
                   No channels found. Please ensure you have at least one Channel
                   created in Liferay.
+                </small>
+                <small className="text-secondary d-block mb-2">
+                  Auto-Create makes a channel that can generate data, but it has
+                  no site and no commerce site type (B2B, B2C or B2X) — neither
+                  can be set through the API. If your demo depends on B2B or B2C
+                  behaviour, create the channel in{' '}
+                  {channelsUrl ? (
+                    <a
+                      href={channelsUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                    >
+                      Commerce → Channels
+                    </a>
+                  ) : (
+                    'Liferay under Commerce → Channels'
+                  )}{' '}
+                  instead, where the site type can be chosen.
                 </small>
                 <div className="d-flex align-items-center mt-2">
                   <button
