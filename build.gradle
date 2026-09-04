@@ -726,3 +726,112 @@ allprojects {
 		}
 	}
 }
+// ---------------------------------------------------------------------------
+// Bundle reset tasks
+//
+// The Liferay Workspace plugin ships no way to reset a local bundle: `clean`
+// removes only the build directory, and the clean* family it adds
+// (cleanNPM, cleanDockerImage, cleanEclipse) leaves bundles/ untouched. That
+// left "delete the right directories by hand" as the only option, which is easy
+// to get wrong - bundles/osgi/modules holds the activation key alongside
+// deployed jars, and removing it costs a re-licence.
+// ---------------------------------------------------------------------------
+
+def bundleHome = { -> file(providers.gradleProperty('liferay.home').getOrElse("$rootDir/bundles")) }
+
+// Deleting bundles/data under a live Tomcat corrupts the database rather than
+// resetting it, and the failure surfaces later as unexplained startup errors.
+def assertLiferayStopped = { ->
+	def socket = null
+	try {
+		socket = new Socket()
+		socket.connect(new InetSocketAddress('127.0.0.1', 8080), 500)
+		throw new GradleException(
+			'Liferay appears to be running on port 8080. Stop it before resetting the bundle, ' +
+			'otherwise the database is corrupted rather than reset.'
+		)
+	}
+	catch (IOException ignored) {
+		// Nothing listening, which is what we want.
+	}
+	finally {
+		try { socket?.close() } catch (IOException ignored) { }
+	}
+}
+
+def deleteDirectoryContents = { File dir, Closure<Boolean> keep ->
+	if (!dir.isDirectory()) {
+		return 0
+	}
+
+	def removed = 0
+	dir.listFiles().each { File entry ->
+		if (keep != null && keep(entry)) {
+			logger.lifecycle("  keeping  ${entry.name}")
+			return
+		}
+		delete(entry)
+		logger.lifecycle("  removed  ${entry.name}")
+		removed++
+	}
+	return removed
+}
+
+tasks.register('resetBundleState') {
+	group = 'liferay bundle'
+	description = 'Deletes the running state of the local bundle (database, OSGi state, Tomcat work) so Liferay reinitialises on next start. Deployed artifacts are kept.'
+
+	doLast {
+		assertLiferayStopped()
+
+		def home = bundleHome()
+		['data', 'osgi/state', 'work'].each { String relative ->
+			def target = new File(home, relative)
+			if (target.exists()) {
+				delete(target)
+				logger.lifecycle("Removed ${target}")
+			}
+			else {
+				logger.lifecycle("Absent  ${target}")
+			}
+		}
+
+		// clean recreates this on every run; keep the two consistent.
+		new File(home, 'tomcat/temp').mkdirs()
+
+		logger.lifecycle('Bundle state reset. Deployed client extensions and modules were left in place.')
+	}
+}
+
+tasks.register('resetBundleFull') {
+	group = 'liferay bundle'
+	description = 'Everything resetBundleState does, and additionally clears deployed client extensions, OSGi modules, pending deployments and logs. The activation key (*.xml) is preserved.'
+
+	dependsOn tasks.named('resetBundleState')
+
+	doLast {
+		def home = bundleHome()
+
+		logger.lifecycle('Clearing osgi/client-extensions')
+		deleteDirectoryContents(new File(home, 'osgi/client-extensions'), null)
+
+		// The activation key lives alongside deployed jars in osgi/modules.
+		// Removing it means re-licensing the bundle, so it is always kept.
+		logger.lifecycle('Clearing osgi/modules (keeping *.xml)')
+		deleteDirectoryContents(new File(home, 'osgi/modules')) { File entry ->
+			entry.name.toLowerCase().endsWith('.xml')
+		}
+
+		logger.lifecycle('Clearing deploy')
+		deleteDirectoryContents(new File(home, 'deploy'), null)
+
+		// Logs are deliberately NOT cleared by resetBundleState: a light reset is
+		// often run to reproduce something, and the logs are the record of what
+		// was just seen. A full reset should leave nothing behind.
+		logger.lifecycle('Clearing logs')
+		deleteDirectoryContents(new File(home, 'logs'), null)
+		deleteDirectoryContents(new File(home, 'tomcat/logs'), null)
+
+		logger.lifecycle('Full bundle reset complete. Redeploy with: blade gw deploy')
+	}
+}
