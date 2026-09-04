@@ -1032,10 +1032,9 @@
     "@jridgewell/resolve-uri" "^3.1.0"
     "@jridgewell/sourcemap-codec" "^1.4.14"
 
-"@liferay/accelerator-sdk@git+https://github.com/peterrichards-lr/liferay-accelerator-sdk.git#v0.8.1", "@liferay/accelerator-sdk@git+https://github.com/peterrichards-lr/liferay-accelerator-sdk.git#v0.8.2":
-  version "0.8.2"
-  uid "65d2f8c548da7a88083d2085cd9838d21037fe09"
-  resolved "git+https://github.com/peterrichards-lr/liferay-accelerator-sdk.git#65d2f8c548da7a88083d2085cd9838d21037fe09"
+"@liferay/accelerator-sdk@git+https://github.com/peterrichards-lr/liferay-accelerator-sdk.git#v0.8.3":
+  version "0.8.3"
+  resolved "git+https://github.com/peterrichards-lr/liferay-accelerator-sdk.git#a8ac2999415de118eb7f441731044a0e7b33f183"
   dependencies:
     "@modelcontextprotocol/sdk" "^1.30.0"
     "@rotty3000/config-node" "^0.4.1"
