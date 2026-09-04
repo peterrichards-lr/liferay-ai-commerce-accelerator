@@ -49,7 +49,7 @@ function handleError(res, logger, req, operation, error, opts = {}) {
   });
 }
 
-module.exports = (app, { liferayService, logger }) => {
+module.exports = (app, { commerceSiteTypeService, liferayService, logger }) => {
   app.post(
     INTERNAL_API_PATHS.GET_CATALOGS,
     inputValidationMiddleware(connectionSchema),
@@ -84,9 +84,17 @@ module.exports = (app, { liferayService, logger }) => {
       try {
         const channels = await liferayService.getChannels(req.body);
 
+        // Annotated rather than filtered: a channel whose site type does not
+        // suit the current account type is still selectable, because changing
+        // the account type is as valid a response as changing the channel.
+        // See #610.
+        const annotated = commerceSiteTypeService
+          ? await commerceSiteTypeService.annotateChannels(req.body, channels)
+          : channels;
+
         res.json({
           success: true,
-          channels,
+          channels: annotated,
           timestamp: new Date().toISOString(),
         });
       } catch (error) {

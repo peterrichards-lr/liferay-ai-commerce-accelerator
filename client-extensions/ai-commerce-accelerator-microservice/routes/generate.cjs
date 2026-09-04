@@ -11,6 +11,7 @@ const {
   resolveValidationContext,
   validateGenerationRequest,
 } = require('../utils/validateGenerationRequest.cjs');
+const { evaluateGenerationRun } = require('../utils/channelSiteType.cjs');
 
 const S = WORKFLOW_STEPS;
 
@@ -40,6 +41,7 @@ module.exports = (
     persistenceService,
     batchCallbackService,
     configService,
+    commerceSiteTypeService,
   }
 ) => {
   app.post(
@@ -74,6 +76,48 @@ module.exports = (
           details: problems,
           timestamp: new Date().toISOString(),
         });
+      }
+
+      // A commerce channel only accepts the account types its site type allows,
+      // so generating business accounts into a B2C channel produces data
+      // Liferay will not let anyone order with. Only a site type the module
+      // reports as CONFIGURED can rule a run out; everything else - unset,
+      // unrecognised, module not deployed - warns and proceeds, because an
+      // unconfigured channel is the normal state for one created through the
+      // API. See #610.
+      if (config.channelId) {
+        const siteTypeInfo = await commerceSiteTypeService?.getChannelSiteType(
+          config,
+          config.channelId
+        );
+        const verdict = evaluateGenerationRun(options, siteTypeInfo);
+
+        if (verdict.outcome === 'block') {
+          logger.warn('Generation request rejected: channel site type', {
+            correlationId: req.correlationId,
+            operation: 'generate-workflow',
+            channelId: config.channelId,
+            siteType: siteTypeInfo?.siteTypeLabel,
+            accountType: options.accountType,
+            orderAccountType: options.orderAccountType,
+          });
+
+          return res.status(400).json({
+            success: false,
+            error: verdict.message,
+            details: [verdict.message],
+            timestamp: new Date().toISOString(),
+          });
+        }
+
+        if (verdict.outcome === 'warn') {
+          logger.warn(verdict.message, {
+            correlationId: req.correlationId,
+            operation: 'generate-workflow',
+            channelId: config.channelId,
+            siteTypeStatus: siteTypeInfo?.siteTypeStatus,
+          });
+        }
       }
 
       // Check if AI API key is available, if not fallback to seed pack!

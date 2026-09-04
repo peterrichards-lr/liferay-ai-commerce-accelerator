@@ -9,7 +9,7 @@ Rapidly create high-quality commerce entities using state-of-the-art generative 
 ### Supported Entities
 
 - **Products**: Generates localized names, descriptions, and specifications.
-- **Accounts**: Creates realistic business accounts with multiple addresses (Billing, Shipping, Head Office). Choose Business, Individual, or Mixed — and with Mixed, set the business/individual split explicitly rather than leaving the proportion to the model.
+- **Accounts**: Creates realistic business accounts with multiple addresses (Billing, Shipping, Head Office). Choose Business, Individual, or Mixed — and with Mixed, set the business/individual split explicitly rather than leaving the proportion to the model. The channel dropdown shows each channel's commerce site type, and a run that would put business accounts into a B2C channel — or individual accounts into a B2B one — is refused rather than generating data Liferay will not let anyone order with. A channel whose site type has not been set is flagged but still allowed, since that is the normal state for one created through the API.
 - **Orders**: Generates historical order data linked to products and accounts. When generating orders against existing data you can choose which accounts receive them — any customer, business only, or individual only. Guest and supplier accounts are never used: guest exists for anonymous checkout, and a supplier sells to the business rather than buying from it.
 - **Warehouses**: Creates inventory locations and manages stock distribution.
 

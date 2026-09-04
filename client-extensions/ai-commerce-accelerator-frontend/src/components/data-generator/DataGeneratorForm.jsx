@@ -11,6 +11,7 @@ import WarehousesToggle from './WarehousesToggle';
 import InventoryControls from './InventoryControls';
 import VisualAssetControls from './VisualAssetControls';
 import OrderDistributionControl from './OrderDistributionControl';
+import { evaluateAccountType } from '../../config/channelSiteType';
 
 function hasErr(map, key, msgStartsWith) {
   const list = map?.[key] || [];
@@ -35,8 +36,21 @@ function DataGeneratorForm({
   availableCategories,
   liferayConnected,
   generationLimits,
+  selectedChannel,
 }) {
   const [expandSignal, setExpandSignal] = useState(0);
+
+  // What the selected channel makes of the chosen account type. The
+  // microservice refuses a confirmed mismatch outright; saying so here means
+  // the operator finds out while choosing rather than on submitting.
+  const accountTypeVerdict = useMemo(
+    () =>
+      evaluateAccountType(
+        generationConfig.accountType || 'business',
+        selectedChannel
+      ),
+    [generationConfig.accountType, selectedChannel]
+  );
 
   const defaultSessionName = useMemo(() => {
     return new Date()
@@ -440,14 +454,27 @@ function DataGeneratorForm({
                       Mixed (both business and individual)
                     </option>
                   </select>
-                  <p
-                    className="text-secondary mt-1 mb-0"
-                    style={{ fontSize: '0.8em' }}
-                  >
-                    Choose based on the commerce channel this data is for — B2B
-                    storefronts typically need business accounts, B2C
-                    storefronts need individual accounts.
-                  </p>
+                  {accountTypeVerdict.outcome === 'ok' ? (
+                    <p
+                      className="text-secondary mt-1 mb-0"
+                      style={{ fontSize: '0.8em' }}
+                    >
+                      Choose based on the commerce channel this data is for —
+                      B2B storefronts typically need business accounts, B2C
+                      storefronts need individual accounts.
+                    </p>
+                  ) : (
+                    <p
+                      className={
+                        accountTypeVerdict.outcome === 'block'
+                          ? 'text-danger mt-1 mb-0'
+                          : 'text-warning mt-1 mb-0'
+                      }
+                      style={{ fontSize: '0.8em' }}
+                    >
+                      {accountTypeVerdict.message}
+                    </p>
+                  )}
                   {generationConfig.accountType === 'mixed' && (
                     <div className="mt-3">
                       <label htmlFor="dataGeneration_businessAccountRatio">
