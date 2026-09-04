@@ -28,9 +28,3 @@ REORDER PATTERNS: Some accounts should place more than one order across this dat
 
 Ensure realistic purchasing patterns (related products, reasonable quantities).
 Return as a JSON array that conforms to the provided JSON schema.
-
-<!-- markdownlint-disable MD049 -->
-
----
-
-_Last Updated: 2026-08-13_ | _Last Reviewed: 2026-08-14_

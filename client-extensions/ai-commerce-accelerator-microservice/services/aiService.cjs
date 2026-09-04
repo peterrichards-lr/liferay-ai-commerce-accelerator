@@ -152,6 +152,11 @@ class AIService {
         ? aiCfg.requestTimeoutMs
         : 60000;
 
+    const chunkSizes =
+      typeof config.getAIChunkSizes === 'function'
+        ? await config.getAIChunkSizes(requestConfig)
+        : { product: 10, account: 10, order: 10, warehouse: 10 };
+
     return {
       provider,
       mediaProvider,
@@ -161,6 +166,7 @@ class AIService {
       temperature,
       maxTokens,
       requestTimeoutMs,
+      chunkSizes,
     };
   }
 
@@ -316,7 +322,7 @@ class AIService {
       const runtime = await this.getRuntimeAIConfig(requestConfig);
       const effectiveChunkSize = Math.max(
         1,
-        Math.min(50, runtime?.chunkSize || 5)
+        Math.min(50, runtime?.chunkSizes?.product || runtime?.chunkSize || 5)
       );
 
       if (count > effectiveChunkSize) {
@@ -463,6 +469,56 @@ class AIService {
 
       const languageCodes = langs.map((l) => l.replace('-', '_'));
 
+      const runtime = await this.getRuntimeAIConfig(requestConfig);
+      const effectiveChunkSize = Math.max(
+        1,
+        Math.min(50, runtime?.chunkSizes?.account || runtime?.chunkSize || 10)
+      );
+
+      if (count > effectiveChunkSize) {
+        const chunks = [];
+        let remaining = count;
+        while (remaining > 0) {
+          chunks.push(Math.min(remaining, effectiveChunkSize));
+          remaining -= effectiveChunkSize;
+        }
+
+        logger?.info?.(
+          `[AIService] Chunking account generation: ${count} accounts into ${chunks.length} chunks (chunkSize: ${effectiveChunkSize})`,
+          { count, chunksCount: chunks.length, correlationId }
+        );
+
+        const allAccounts = [];
+        for (let i = 0; i < chunks.length; i++) {
+          const chunkCount = chunks[i];
+          logger?.info?.(
+            `[AIService] Generating account chunk ${i + 1}/${chunks.length} (${chunkCount} items)...`,
+            {
+              chunkIndex: i + 1,
+              totalChunks: chunks.length,
+              chunkCount,
+              correlationId,
+            }
+          );
+
+          const chunkResult = await this.generateAccountData(
+            chunkCount,
+            requestConfig,
+            model,
+            categories,
+            selectedLanguages,
+            options
+          );
+
+          const items = Array.isArray(chunkResult)
+            ? chunkResult
+            : chunkResult?.accounts || [];
+          allAccounts.push(...items);
+        }
+
+        return allAccounts;
+      }
+
       const vars = {
         brandName: options.brandName || '',
         count,
@@ -523,6 +579,57 @@ class AIService {
           : ['en-US'];
 
       const languageCodes = langs.map((l) => l.replace('-', '_'));
+
+      const runtime = await this.getRuntimeAIConfig(requestConfig);
+      const effectiveChunkSize = Math.max(
+        1,
+        Math.min(50, runtime?.chunkSizes?.order || runtime?.chunkSize || 10)
+      );
+
+      if (count > effectiveChunkSize) {
+        const chunks = [];
+        let remaining = count;
+        while (remaining > 0) {
+          chunks.push(Math.min(remaining, effectiveChunkSize));
+          remaining -= effectiveChunkSize;
+        }
+
+        logger?.info?.(
+          `[AIService] Chunking order generation: ${count} orders into ${chunks.length} chunks (chunkSize: ${effectiveChunkSize})`,
+          { count, chunksCount: chunks.length, correlationId }
+        );
+
+        const allOrders = [];
+        for (let i = 0; i < chunks.length; i++) {
+          const chunkCount = chunks[i];
+          logger?.info?.(
+            `[AIService] Generating order chunk ${i + 1}/${chunks.length} (${chunkCount} items)...`,
+            {
+              chunkIndex: i + 1,
+              totalChunks: chunks.length,
+              chunkCount,
+              correlationId,
+            }
+          );
+
+          const chunkResult = await this.generateOrderData(
+            products,
+            accounts,
+            chunkCount,
+            requestConfig,
+            model,
+            selectedLanguages,
+            options
+          );
+
+          const items = Array.isArray(chunkResult)
+            ? chunkResult
+            : chunkResult?.orders || [];
+          allOrders.push(...items);
+        }
+
+        return allOrders;
+      }
 
       const productList = products
         .map((p) => ({
@@ -595,6 +702,55 @@ class AIService {
           : ['en-US'];
 
       const languageCodes = langs.map((l) => l.replace('-', '_'));
+
+      const runtime = await this.getRuntimeAIConfig(requestConfig);
+      const effectiveChunkSize = Math.max(
+        1,
+        Math.min(50, runtime?.chunkSizes?.warehouse || runtime?.chunkSize || 10)
+      );
+
+      if (count > effectiveChunkSize) {
+        const chunks = [];
+        let remaining = count;
+        while (remaining > 0) {
+          chunks.push(Math.min(remaining, effectiveChunkSize));
+          remaining -= effectiveChunkSize;
+        }
+
+        logger?.info?.(
+          `[AIService] Chunking warehouse generation: ${count} warehouses into ${chunks.length} chunks (chunkSize: ${effectiveChunkSize})`,
+          { count, chunksCount: chunks.length, correlationId }
+        );
+
+        const allWarehouses = [];
+        for (let i = 0; i < chunks.length; i++) {
+          const chunkCount = chunks[i];
+          logger?.info?.(
+            `[AIService] Generating warehouse chunk ${i + 1}/${chunks.length} (${chunkCount} items)...`,
+            {
+              chunkIndex: i + 1,
+              totalChunks: chunks.length,
+              chunkCount,
+              correlationId,
+            }
+          );
+
+          const chunkResult = await this.generateWarehouseData(
+            chunkCount,
+            requestConfig,
+            model,
+            selectedLanguages,
+            options
+          );
+
+          const items = Array.isArray(chunkResult)
+            ? chunkResult
+            : chunkResult?.warehouses || [];
+          allWarehouses.push(...items);
+        }
+
+        return allWarehouses;
+      }
 
       const vars = {
         brandName: options.brandName || '',
@@ -684,6 +840,67 @@ class AIService {
     const { logger, prompt } = this.ctx;
     const correlationId = requestConfig?.correlationId;
     try {
+      // Pricing is driven by the size of the product list rather than by a
+      // requested count, so it chunks the INPUT rather than splitting an output
+      // total the way product/account/order/warehouse do. A large catalogue
+      // otherwise produces one enormous productListJSON and the response is
+      // truncated.
+      const runtime = await this.getRuntimeAIConfig(requestConfig);
+      const effectiveChunkSize = Math.max(
+        1,
+        Math.min(50, runtime?.chunkSizes?.pricing || runtime?.chunkSize || 10)
+      );
+
+      if (Array.isArray(products) && products.length > effectiveChunkSize) {
+        const batches = [];
+        for (let i = 0; i < products.length; i += effectiveChunkSize) {
+          batches.push(products.slice(i, i + effectiveChunkSize));
+        }
+
+        logger?.info?.(
+          `[AIService] Chunking pricing generation: ${products.length} products into ${batches.length} chunks (chunkSize: ${effectiveChunkSize})`,
+          { count: products.length, chunksCount: batches.length, correlationId }
+        );
+
+        const allEntries = [];
+        let priceListName;
+
+        for (let i = 0; i < batches.length; i++) {
+          logger?.info?.(
+            `[AIService] Generating pricing chunk ${i + 1}/${batches.length} (${batches[i].length} products)...`,
+            {
+              chunkIndex: i + 1,
+              totalChunks: batches.length,
+              chunkCount: batches[i].length,
+              correlationId,
+            }
+          );
+
+          const chunkResult = await this.generatePricingData(
+            batches[i],
+            pricingType,
+            requestConfig,
+            model,
+            _selectedLanguages,
+            options
+          );
+
+          const entries = Array.isArray(chunkResult)
+            ? chunkResult
+            : chunkResult?.priceEntries || [];
+          allEntries.push(...entries);
+
+          // priceListName is a property of the list as a whole, not of a chunk;
+          // keep the first non-empty one so the merged result stays valid
+          // against the schema, which requires it.
+          if (!priceListName && chunkResult?.priceListName) {
+            priceListName = chunkResult.priceListName;
+          }
+        }
+
+        return { priceEntries: allEntries, priceListName };
+      }
+
       const productList = products.map((p) => ({
         name: p.name?.en_US || p.name,
         sku: p.sku,

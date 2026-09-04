@@ -5,8 +5,9 @@ const { ENV } = require('../utils/constants.cjs');
 class PromptService {
   constructor(ctx) {
     this.ctx = ctx;
+    const configService = this.ctx?.configService || this.ctx?.config;
     const envDir = ENV.PROMPTS_DIR;
-    const cfgDir = this.ctx?.configService?.getAIConfigCached?.()?.promptsDir;
+    const cfgDir = configService?.getAIConfigCached?.()?.promptsDir;
     this.baseDir = path.resolve(process.cwd(), envDir || cfgDir || 'prompts');
     this.cacheTTL =
       Number(ENV.PROMPT_CACHE_TTL) > 0
@@ -73,7 +74,8 @@ class PromptService {
     const safe = this._safeName(name);
 
     if (requestConfig) {
-      const remotePrompt = await this.ctx?.configService?.getAIPrompt?.(
+      const configService = this.ctx?.configService || this.ctx?.config;
+      const remotePrompt = await configService?.getAIPrompt?.(
         requestConfig,
         safe
       );

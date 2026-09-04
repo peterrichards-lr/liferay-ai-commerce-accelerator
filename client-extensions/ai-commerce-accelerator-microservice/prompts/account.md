@@ -32,9 +32,3 @@ ACCOUNT TYPE: Every account must be an individual/consumer account. Set "type" t
 - billingAddress: Billing address object containing addressCountry, addressLocality, addressRegion, postalCode, streetAddressLine1 (object, optional)
 - shippingAddress: Shipping address object containing addressCountry, addressLocality, addressRegion, postalCode, streetAddressLine1 (object, optional)
   Return as a JSON array that conforms to the provided JSON schema.
-
-<!-- markdownlint-disable MD049 -->
-
----
-
-_Last Updated: 2026-08-13_ | _Last Reviewed: 2026-08-14_
