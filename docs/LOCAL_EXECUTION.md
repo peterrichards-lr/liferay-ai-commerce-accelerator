@@ -124,7 +124,7 @@ COM_LIFERAY_LXC_DXP_SERVER_PROTOCOL=http
 LIFERAY_API_USERNAME=test@liferay.com
 LIFERAY_API_PASSWORD=test
 
-# AI Provider API Key (OpenAI, Gemini, or Anthropic)
+# AI Provider API Key (OpenAI or Gemini; Anthropic is not yet implemented - see #577)
 AI_API_KEY=sk-...
 ```
 
@@ -316,4 +316,4 @@ _(Or in DXP: **Control Panel -> Search -> Index Actions -> Reindex All**)._
 
 ---
 
-_Last Updated: 2026-09-03_ | _Last Reviewed: 2026-09-03_
+_Last Updated: 2026-09-04_ | _Last Reviewed: 2026-09-04_
