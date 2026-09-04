@@ -1,5 +1,9 @@
 const { logger } = require('./utils/logger.cjs');
 const { ENV } = require('./utils/constants.cjs');
+const {
+  recordReindexFailure,
+  recordReindexSuccess,
+} = require('./utils/reindexStatus.cjs');
 
 const { AIService } = require('./services/aiService.cjs');
 const BatchCallbackService = require('./services/batch/callback.cjs');
@@ -106,19 +110,24 @@ module.exports = async (ws) => {
           session.context.config,
           'com.liferay.commerce.product.model.CPDefinition'
         );
+        recordReindexSuccess({ sessionId });
         logger.info(
           `Search reindexing triggered after workflow session completed: ${sessionId}`,
           { correlationId }
         );
       }
     } catch (reindexErr) {
-      logger.warn(
-        `Failed to trigger search reindexing after workflow session ${sessionId}`,
-        {
-          correlationId,
-          error: reindexErr.message,
-        }
-      );
+      // Still non-fatal - the generated data is correct and usable - but the
+      // outcome is recorded so /health reports it and the operator is not left
+      // with silently unindexed content. See #618.
+      const outcome = recordReindexFailure(reindexErr, { sessionId });
+
+      logger.warn(outcome.message, {
+        correlationId,
+        operation: 'trigger-reindex',
+        reindexState: outcome.state,
+        error: reindexErr.message,
+      });
     }
   };
 

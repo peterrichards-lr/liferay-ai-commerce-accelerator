@@ -42,7 +42,7 @@ The Configuration client extension can move prompts and schemas between environm
 The **Dashboard** provides granular feedback on every generation session.
 
 - **Overall Progress Gauge**: A striking visual summary of the entire workflow.
-- **System Health Strip**: Real-time status of Liferay connectivity, WebSockets, and AI providers.
+- **System Health Strip**: Real-time status of Liferay connectivity, WebSockets, and AI providers. The `/health` endpoint also reports the last search reindex outcome, so content that was generated but never indexed is visible rather than silent.
 - **Activity Log**: Detailed audit trail of all microservice operations.
 - **Unified Consoles**: The Live Console and the Seeder Console are the same component, so both offer level filtering, real-time search, auto-scroll, clear, and copy-to-clipboard of whatever the filters currently show — useful for pasting a failure into an issue.
 - **Batch Error Tracking**: Specialized view for diagnosing failures at the External Reference Code (ERC) level.
