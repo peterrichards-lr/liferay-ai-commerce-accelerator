@@ -52,6 +52,7 @@ The **Dashboard** provides granular feedback on every generation session.
 Everything is manageable via the **AI Commerce Accelerator Configuration** UI.
 
 - **Provider Agnosticism**: Switch between OpenAI, Google Gemini, and Anthropic Claude for text generation. Claude has no image capability, so a dedicated media provider is required alongside it when generating images.
+- **Provider-Aware Models**: The default model list shows only the models the selected provider can actually run, so an OpenAI model can never be left selected against Anthropic Claude. A model added by hand that the build does not recognise stays selectable, and a mismatched pairing is rejected before a run starts rather than partway through it.
 - **Dedicated Media Keys**: Configure separate credentials for image generation (e.g., Nano Banana).
 - **Custom Prompts & Schemas**: Tailor the AI's output by editing the templates directly in the browser with a built-in CodeMirror editor.
 - **Exclude Lists**: Protect system data by specifying items that should never be modified or deleted.

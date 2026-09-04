@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import ClayForm, { ClayInput } from '@clayui/form';
+import ClayForm, { ClayInput, ClaySelect } from '@clayui/form';
 import ClayAlert from '@clayui/alert';
 import ClayButton from '@clayui/button';
 import ClayIcon from '@clayui/icon';
@@ -9,6 +9,13 @@ import SchemaEditor from './SchemaEditor';
 import { useForm, useObjectStorage } from '../../hooks';
 import MillisecondsInput from '../common/MillisecondsInput';
 import AiSettingsPanel from './AiSettingsPanel';
+import {
+  DEFAULT_MODEL_OPTIONS,
+  modelProvider,
+  modelProviderIssue,
+  modelsForProvider,
+} from '../../config/modelCatalog';
+import { providerLabel } from '../../config/providerCapabilities';
 
 const AI_CREDENTIALS_KEY = 'ai-credentials';
 const AI_MEDIA_CREDENTIALS_KEY = 'ai-media-credentials';
@@ -48,14 +55,6 @@ const DEFAULTS = {
 };
 
 const AI_MODEL_OPTIONS_CONFIG_KEY = 'ai-model-options';
-const AI_MODEL_OPTIONS_DEFAULTS = [
-  { label: 'GPT-4o Mini', value: 'gpt-4o-mini' },
-  { label: 'GPT-4o', value: 'gpt-4o' },
-  { label: 'Gemini 1.5 Flash', value: 'gemini-1.5-flash' },
-  { label: 'Gemini 1.5 Pro', value: 'gemini-1.5-pro' },
-  { label: 'Claude 3.5 Sonnet', value: 'claude-3-5-sonnet-20240620' },
-];
-
 const ENTITY_CONFIGS = [
   {
     id: 'ai-model-options',
@@ -154,7 +153,7 @@ export default function AiConfigPanel() {
       ENTITY_CONFIGS.reduce(
         (acc, { configKey }) => ({
           ...acc,
-          [configKey]: AI_MODEL_OPTIONS_DEFAULTS,
+          [configKey]: DEFAULT_MODEL_OPTIONS,
         }),
         {}
       ),
@@ -237,6 +236,33 @@ export default function AiConfigPanel() {
     }
   };
 
+  // Only the models the selected provider can actually run. An unrecognised
+  // model already in the configuration is appended rather than dropped, so a
+  // custom entry is never silently replaced by opening this screen.
+  const modelChoices = useMemo(() => {
+    const all = aiModelOptions?.[AI_MODEL_OPTIONS_CONFIG_KEY];
+    const list = Array.isArray(all) ? all : DEFAULT_MODEL_OPTIONS;
+    const available = modelsForProvider(list, aiConfig.provider);
+    const current = aiConfig.defaultModel;
+
+    if (current && !available.some((option) => option?.value === current)) {
+      const listed = list.find((option) => option?.value === current);
+      const owner = modelProvider(listed || { value: current });
+
+      return [
+        ...available,
+        {
+          label: owner
+            ? `${current} (belongs to ${providerLabel(owner)})`
+            : `${current} (custom)`,
+          value: current,
+        },
+      ];
+    }
+
+    return available;
+  }, [aiModelOptions, aiConfig.provider, aiConfig.defaultModel]);
+
   const hasErrors = useMemo(
     () => Object.values(errors).some((e) => e.length > 0),
     [errors]
@@ -245,6 +271,14 @@ export default function AiConfigPanel() {
   useEffect(() => {
     const found = [];
     if (!aiConfig.defaultModel) found.push('Default model cannot be empty.');
+
+    // The microservice rejects this pairing at run time; report it here first.
+    const mismatch = modelProviderIssue(
+      aiConfig.provider,
+      aiConfig.defaultModel,
+      aiModelOptions?.[AI_MODEL_OPTIONS_CONFIG_KEY] || DEFAULT_MODEL_OPTIONS
+    );
+    if (mismatch) found.push(mismatch);
     if (aiConfig.temperature < 0 || aiConfig.temperature > 2)
       found.push('Temperature must be between 0 and 2.');
     if (
@@ -253,7 +287,7 @@ export default function AiConfigPanel() {
     )
       found.push('Request timeout must be at least 1000 ms.');
     setIssues(found);
-  }, [aiConfig]);
+  }, [aiConfig, aiModelOptions]);
 
   const updateAi = (key, value) =>
     setAiValue(AI_CONFIG_KEY, { ...aiConfig, [key]: value });
@@ -314,12 +348,24 @@ export default function AiConfigPanel() {
         <ClayForm.Group>
           <label htmlFor="default-model">Default model</label>
 
-          <ClayInput
+          <ClaySelect
             id="default-model"
-            type="text"
-            value={aiConfig.defaultModel}
+            value={aiConfig.defaultModel || ''}
             onChange={(e) => updateAi('defaultModel', e.target.value)}
-          />
+          >
+            {modelChoices.map((option) => (
+              <ClaySelect.Option
+                key={option.value}
+                label={option.label || option.value}
+                value={option.value}
+              />
+            ))}
+          </ClaySelect>
+
+          <small className="form-text text-secondary">
+            Showing models available for the selected Core AI Provider. Edit AI
+            Model Options below to add more.
+          </small>
         </ClayForm.Group>
 
         <ClayForm.Group>
