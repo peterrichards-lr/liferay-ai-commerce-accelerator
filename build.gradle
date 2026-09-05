@@ -87,45 +87,100 @@ downloadSharedOsgiModules {
 
 	doLast {
 		def repo = project.findProperty("aica.shared.osgi.repo")
-		def version = project.findProperty("aica.shared.osgi.version")
-		def dxpLine = project.findProperty("aica.shared.osgi.dxp.line")
+		def release = project.findProperty("aica.shared.osgi.release")
+		def expectedDxpLine = project.findProperty("aica.shared.osgi.dxp.line")
 
-		if (!repo || !version || !dxpLine) {
+		if (!repo || !release || !expectedDxpLine) {
 			throw new GradleException(
-				"aica.shared.osgi.{repo,version,dxp.line} must all be set in gradle.properties")
+				"aica.shared.osgi.{repo,release,dxp.line} must all be set in gradle.properties")
 		}
 
 		def targetDir = file("$rootDir/bundles/osgi/modules")
 		targetDir.mkdirs()
 
+		def base = "https://github.com/${repo}/releases/download/${release}"
+
+		def digestOf = {
+			File f ->
+			def md = java.security.MessageDigest.getInstance("SHA-256")
+			f.eachByte(64 * 1024) {
+				buf, len ->
+				md.update(buf, 0, len)
+			}
+			md.digest().collect { String.format("%02x", it) }.join()
+		}
+
+		// One fetch resolves every bundle: its version, its asset name and its
+		// checksum. Before the release manifest existed this was a .sha256
+		// request per bundle, and the version and DXP line had to be assembled
+		// into a filename here - which meant this file encoded naming rules
+		// owned by another repository.
+		def manifestText
+		try {
+			manifestText = new URL("${base}/modules.json").text
+		}
+		catch (Exception e) {
+			throw new GradleException(
+				"Could not fetch modules.json from ${base}. Is ${release} published, and does it " +
+				"carry a release manifest? Releases before v3.0.0 do not.", e)
+		}
+
+		// The manifest's own checksum is same-origin, so it proves the download
+		// arrived intact rather than that it is authentic. The per-bundle
+		// digests below are the values worth trusting.
+		def manifestExpected = new URL("${base}/modules.json.sha256").text.trim().split(/\s+/)[0]
+		def manifestActual = java.security.MessageDigest.getInstance("SHA-256")
+			.digest(manifestText.getBytes("UTF-8"))
+			.collect { String.format("%02x", it) }.join()
+
+		if (manifestExpected != manifestActual) {
+			throw new GradleException(
+				"modules.json failed its own checksum: expected ${manifestExpected}, got ${manifestActual}")
+		}
+
+		def manifest = new JsonSlurper().parseText(manifestText)
+
+		// Refuse a schema this task was not written against rather than reading
+		// fields that may have moved. See liferay-custom-osgi-modules#22.
+		if (manifest.schemaVersion != 1) {
+			throw new GradleException(
+				"modules.json declares schemaVersion ${manifest.schemaVersion}; this build understands 1")
+		}
+
+		def retired = [] as Set
+
 		sharedOsgiBundles.each {
 			bundleName ->
 
-			def fileName = "${bundleName}-${version}-${dxpLine}.jar"
-			def target = new File(targetDir, fileName)
-			def base = "https://github.com/${repo}/releases/download/v${version}"
+			def entry = manifest.bundles?.get(bundleName)
 
-			// The checksum is fetched first and always: it is what lets an
-			// already-present jar be trusted without downloading it again, and
-			// what catches a truncated or tampered download.
-			def expected
-			try {
-				expected = new URL("${base}/${fileName}.sha256").text.trim().split(/\s+/)[0]
-			}
-			catch (Exception e) {
+			if (!entry) {
 				throw new GradleException(
-					"Could not fetch ${fileName}.sha256 from ${base}. Is ${version} published?", e)
+					"Release ${release} does not contain bundle ${bundleName}. " +
+					"It publishes: ${manifest.bundles?.keySet()?.sort()?.join(', ')}")
 			}
 
-			def digestOf = {
-				File f ->
-				def md = java.security.MessageDigest.getInstance("SHA-256")
-				f.eachByte(64 * 1024) {
-					buf, len ->
-					md.update(buf, 0, len)
-				}
-				md.digest().collect { String.format("%02x", it) }.join()
+			// A bundle built against a different DXP line resolves silently -
+			// the endpoint simply 404s - so a mismatch is caught here rather
+			// than at runtime. The manifest reports this per bundle, so a
+			// release that builds one module differently is visible.
+			if (entry.dxpLine != expectedDxpLine) {
+				throw new GradleException(
+					"${bundleName} in ${release} was built against ${entry.dxpLine}, " +
+					"but aica.shared.osgi.dxp.line is ${expectedDxpLine}")
 			}
+
+			// Bundles this one supersedes. Liferay resolves by symbolic name,
+			// so a renamed bundle is a *different* bundle and its old jar is
+			// never overwritten or pruned by version - it simply stays, and
+			// both register their endpoints. Collected from the manifest so
+			// that a rename in the shared repository does not require a list
+			// maintained by hand here.
+			retired.addAll(entry.replaces ?: [])
+
+			def fileName = entry.asset
+			def target = new File(targetDir, fileName)
+			def expected = entry.sha256
 
 			if (target.exists() && digestOf(target) == expected) {
 				logger.lifecycle("Shared OSGi bundle already present and verified: ${fileName}")
@@ -166,6 +221,35 @@ downloadSharedOsgiModules {
 				}
 			}
 		}
+
+		// Remove bundles that the consumed ones replace. Only the predecessors
+		// of bundles we actually deploy are pruned: another adopter's rename is
+		// none of our business, and deleting a jar we never installed would be
+		// guesswork.
+		retired.each {
+			retiredBsn ->
+
+			targetDir.listFiles().each {
+				existing ->
+
+				if (existing.name.endsWith(".jar") &&
+					existing.name.startsWith("${retiredBsn}-")) {
+
+					logger.lifecycle("Removing retired ${existing.name}, superseded by a renamed bundle")
+					existing.delete()
+				}
+			}
+
+			// Liferay strips the version from a deployed jar, so the retired
+			// bundle may also be sitting in the deploy directory under a bare
+			// symbolic name.
+			def deployed = new File(targetDir, "${retiredBsn}.jar")
+
+			if (deployed.exists()) {
+				logger.lifecycle("Removing retired ${deployed.name}, superseded by a renamed bundle")
+				deployed.delete()
+			}
+		}
 	}
 }
 
@@ -198,7 +282,7 @@ generateBatchFiles {
 	doLast {
 		def minifyJsonString = {
 			jsonString ->
-			def jsonObject = new groovy.json.JsonSlurper().parseText(jsonString)
+			def jsonObject = new JsonSlurper().parseText(jsonString)
 			return groovy.json.JsonOutput.toJson(jsonObject)
 		}
 
