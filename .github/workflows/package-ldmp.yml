@@ -283,22 +283,69 @@ jobs:
                   " container hostnames and resolve nowhere on a consumer's machine"
               )
 
-          declared = [c for c in str(meta.get("client_extensions", "")).split(",") if c]
           inner = subprocess.run(
               ["tar", "xzOf", str(package), "files.tar.gz"], capture_output=True, check=True,
           ).stdout
           inner_names = subprocess.run(
               ["tar", "tzf", "-"], input=inner, capture_output=True, check=True, text=False,
           ).stdout.decode().split()
+          cleaned = [n[2:] if n.startswith("./") else n for n in inner_names]
+
+          declared = [c for c in str(meta.get("client_extensions", "")).split(",") if c]
           shipped = sorted({
               clean.rsplit("/", 1)[-1]
-              for clean in (n[2:] if n.startswith("./") else n for n in inner_names)
+              for clean in cleaned
               if clean.startswith("osgi/client-extensions/") and clean.endswith(".zip")
           })
           if sorted(declared) != shipped:
               problems.append(
                   f"client_extensions declares {sorted(declared)} but the archive ships"
                   f" {shipped}"
+              )
+
+          # OSGi bundles get the same treatment as client extensions, and for the
+          # same reason: a package that quietly ships without one is not visibly
+          # broken. `/o/commerce-site-type` simply 404s, and the microservice
+          # deliberately degrades that to a warning (#610), so a demo would run
+          # with channel/account-type validation silently inert. The reindex
+          # endpoint fails the same way. Nothing else in this pipeline would
+          # notice, which is exactly why v3.3.53 shipped with no shared bundle
+          # and verified clean.
+          #
+          # Compared by filename rather than Bundle-SymbolicName: sync_osgi_modules
+          # copies these jars verbatim into the project directory, so the names
+          # are the ones LDM archives, and reading a symbolic name back out would
+          # mean unzipping each jar from inside the tar to learn nothing more.
+          staged_dir = pathlib.Path("bundles/osgi/modules")
+          staged_jars = sorted(f.name for f in staged_dir.glob("*.jar")) if staged_dir.is_dir() else []
+          packaged_jars = sorted({
+              clean.rsplit("/", 1)[-1]
+              for clean in cleaned
+              if clean.startswith("osgi/modules/") and clean.endswith(".jar")
+          })
+          print(f"  osgi modules staged    : {staged_jars or 'none'}")
+          print(f"  osgi modules packaged  : {packaged_jars or 'none'}")
+
+          if not staged_dir.is_dir():
+              # Distinguished from a mismatch: every packaged jar would otherwise
+              # be reported as unexpected, blaming the package for a check that
+              # could not run. The directory is populated by `./gradlew deploy`
+              # earlier in this job, so its absence means the build changed shape,
+              # not that the package is wrong.
+              problems.append(
+                  f"{staged_dir} does not exist, so osgi/modules cannot be verified"
+              )
+          elif staged_jars != packaged_jars:
+              only_staged = [j for j in staged_jars if j not in packaged_jars]
+              only_packaged = [j for j in packaged_jars if j not in staged_jars]
+              detail = []
+              if only_staged:
+                  detail.append(f"built but not shipped: {only_staged}")
+              if only_packaged:
+                  detail.append(f"shipped but not built: {only_packaged}")
+              problems.append(
+                  "osgi/modules disagrees with bundles/osgi/modules; "
+                  + "; ".join(detail)
               )
           if truthy(meta.get("includes_client_extensions")) and not declared:
               problems.append(
