@@ -6,6 +6,16 @@
 #   ./scripts/node_power.sh status
 #   ./scripts/node_power.sh enforce
 
+# Exit early if executed inside the Docker container (as Liferay entrypoint runs all scripts in /mnt/liferay/scripts)
+if [ -f /.dockerenv ] || [ -n "$LIFERAY_HOME" ]; then
+    echo "ℹ  Exiting early: node_power.sh controls host-side target node power, not meant to be run inside the Liferay container."
+    if [ "${BASH_SOURCE[0]}" != "$0" ]; then
+        return 0 2>/dev/null || exit 0
+    else
+        exit 0
+    fi
+fi
+
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PYTHON_BIN="python3"
 
