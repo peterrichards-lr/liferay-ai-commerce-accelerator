@@ -100,17 +100,30 @@ artifacts rather than built here:
 ./gradlew downloadSharedOsgiModules
 ```
 
-`./gradlew deploy` runs this for you. The task downloads the version pinned in
-`gradle.properties`, verifies it against the published `.sha256`, and removes
-any other version of the same bundle from `bundles/osgi/modules` — two jars
-sharing a `Bundle-SymbolicName` is a duplicate-bundle conflict.
+`./gradlew deploy` runs this for you. `gradle.properties` pins a **release**
+(`aica.shared.osgi.release`) rather than a bundle version. Each release
+publishes a `modules.json` naming every bundle's version, asset and checksum,
+so one request resolves them all and this build never has to assemble a
+filename from naming rules owned by another repository. Requires `v3.0.0` or
+later; earlier releases have no manifest.
 
-The pinned artifacts are built against `dxp-2026.q1.12-lts`, which is not the
+Two jars sharing a `Bundle-SymbolicName` is a duplicate-bundle conflict, so the
+task removes any other version of a consumed bundle. It also removes bundles a
+consumed one **replaces** — the manifest records renames, and a renamed bundle
+is a different bundle to Liferay, so its old jar would otherwise sit alongside
+the new one with both registering the same endpoints. Only predecessors of
+bundles listed in `sharedOsgiBundles` are pruned; another adopter's rename is
+not this workspace's business.
+
+The published artifacts are built against `dxp-2026.q1.12-lts`, which is not the
 line this workspace pins. That is expected: these modules import only
 `com.liferay.portal.kernel.*`, whose package majors are stable across those
-lines. `commerce-site-type` 1.0.0 was verified to resolve and register on a
+lines. `commerce-site-type` was verified to resolve and register on a
 `dxp-2026.q1.7-lts` instance. If a future module imports application packages,
 that will not hold and it will need an artifact matching this line.
+`aica.shared.osgi.dxp.line` is asserted against the manifest, so a release built
+against a different line fails the build instead of failing to resolve at
+runtime.
 
 A bundle that fails to resolve does so **silently** — the endpoint simply
 returns 404 rather than logging an error. To check one is live:
