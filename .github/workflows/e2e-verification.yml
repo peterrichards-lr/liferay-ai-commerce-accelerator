@@ -167,11 +167,29 @@ jobs:
           SSH_KEY_DATA: ${{ secrets.EC2_SSH_KEY || secrets.LDM_SSH_KEY || secrets.AWS_SSH_KEY }}
 
       - name: Wake remote target node (if requested)
+        # A failure here is fatal rather than advisory. The run that prompted
+        # this change swallowed a power-on failure, then spent two hours
+        # testing against a switched-off host and reported it as
+        # "Liferay authentication is not configured" - an error that says
+        # nothing about the actual cause.
         run: |
           TARGET_NODE="${{ github.event.inputs.node_target || vars.LDM_NODE_TARGET || secrets.LDM_NODE_TARGET || 'local' }}"
-          if [ "$TARGET_NODE" != "local" ] && [ -n "$TARGET_NODE" ] && [ -f "./scripts/node_power.sh" ]; then
-            echo "⚡ Waking remote target node '$TARGET_NODE'..."
-            ./scripts/node_power.sh wake "$TARGET_NODE" 2h || true
+
+          if [ "$TARGET_NODE" = "local" ] || [ -z "$TARGET_NODE" ]; then
+            echo "Running against a local environment; no target node to wake."
+            exit 0
+          fi
+
+          if [ ! -f "./scripts/node_power.sh" ]; then
+            echo "::error::Target node '$TARGET_NODE' was requested but scripts/node_power.sh is missing, so it cannot be powered on."
+            exit 1
+          fi
+
+          echo "⚡ Waking remote target node '$TARGET_NODE'..."
+
+          if ! ./scripts/node_power.sh wake "$TARGET_NODE" 2h; then
+            echo "::error::Could not power on target node '$TARGET_NODE'. Failing now rather than running the suite against an unreachable host."
+            exit 1
           fi
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
@@ -224,7 +242,12 @@ jobs:
         run: |
           TARGET_NODE="${{ github.event.inputs.node_target || vars.LDM_NODE_TARGET || env.LDM_NODE_TARGET || 'aws-1' }}"
           if [ "$TARGET_NODE" != "local" ] && [ -n "$TARGET_NODE" ]; then
-            ./scripts/node_power.sh sleep "$TARGET_NODE" || true
+            # Still never fails the job - cleanup must run even when the suite
+            # has already failed - but a node that will not power off keeps
+            # costing money, so say so loudly instead of discarding it.
+            if ! ./scripts/node_power.sh sleep "$TARGET_NODE"; then
+              echo "::warning::Could not power off target node '$TARGET_NODE'. It may still be running and billable."
+            fi
           fi
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
