@@ -4,6 +4,12 @@ const Ajv = require('ajv');
 const addFormats = require('ajv-formats');
 const { createERC } = require('../utils/misc.cjs');
 const { ERC_PREFIX } = require('../utils/constants.cjs');
+const { validationFeedback } = require('../utils/validationFeedback.cjs');
+
+// One retry. A second malformed response after being shown its own errors
+// indicates a prompt or schema problem rather than a bad roll, and each
+// attempt costs a full generation call.
+const SCHEMA_RETRY_ATTEMPTS = 2;
 
 const POINTER_UNESCAPE = [
   [/~1/g, '/'],
@@ -160,8 +166,81 @@ class GenerationFacade {
       }
     );
 
-    let data;
     const selectedLanguages = options.selectedLanguages || ['en-US'];
+
+    // A malformed response used to end the session. `demoMode` never calls a
+    // model, so retrying it would only repeat a deterministic result.
+    const maxAttempts = demoMode ? 1 : SCHEMA_RETRY_ATTEMPTS;
+    let attempt = 0;
+    let feedback = '';
+
+    while (true) {
+      attempt += 1;
+      const attemptConfig = feedback
+        ? { ...requestConfig, validationFeedback: feedback }
+        : requestConfig;
+
+      try {
+        const data = await this._generateFor(
+          entityType,
+          generator,
+          count,
+          attemptConfig,
+          selectedLanguages,
+          options
+        );
+
+        const standardizedData = this._standardize(data, entityType);
+
+        return this.validateAndNormalize(entityType, standardizedData, {
+          ...options,
+          count,
+        });
+      } catch (error) {
+        const retryable =
+          error?.name === 'ValidationError' && attempt < maxAttempts;
+
+        if (!retryable) {
+          throw error;
+        }
+
+        // Logged rather than silent: a retry that always fires points at a
+        // prompt or schema problem, and hiding it behind extra latency and
+        // cost is how that goes unnoticed.
+        this.logger.warn(
+          `${entityType} generation failed schema validation; retrying with the errors fed back`,
+          {
+            attempt,
+            maxAttempts,
+            correlationId,
+            errorCount: error?.errors?.length,
+          }
+        );
+
+        feedback = validationFeedback(error?.errors);
+
+        // Nothing useful to tell the model, so a retry would be the same
+        // request again.
+        if (!feedback) {
+          throw error;
+        }
+      }
+    }
+  }
+
+  /**
+   * Dispatches one generation call. Extracted so the retry above has a single
+   * thing to repeat.
+   */
+  async _generateFor(
+    entityType,
+    generator,
+    count,
+    requestConfig,
+    selectedLanguages,
+    options
+  ) {
+    let data;
 
     if (entityType === 'product') {
       data = await generator.generateProductData(
@@ -210,14 +289,7 @@ class GenerationFacade {
       );
     }
 
-    // 1. Standardize/Normalize first (inject missing ERCs, etc)
-    const standardizedData = this._standardize(data, entityType);
-
-    // 2. Validate against schema
-    return this.validateAndNormalize(entityType, standardizedData, {
-      ...options,
-      count,
-    });
+    return data;
   }
 
   validateAndNormalize(schemaName, data, options = {}) {

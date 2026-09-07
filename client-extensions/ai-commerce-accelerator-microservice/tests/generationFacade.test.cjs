@@ -135,6 +135,111 @@ describe('GenerationFacade', () => {
       facade.generateData('product', 5, {}, { demoMode: true })
     ).rejects.toThrow(/produced 0 valid product items/i);
   });
+
+  describe('retrying a response that fails schema validation', () => {
+    // 2026-09-07: a run died because the model returned valid JSON with the
+    // whole product body nested inside `description`, a locale-to-string map.
+    // There was no retry, so one bad response in five product calls lost the
+    // work already done. See #633.
+    const NESTED_IN_DESCRIPTION = {
+      ...MINIMAL_VALID_PRODUCT,
+      description: {
+        shortDescription: { en_US: 'Short' },
+        skus: [{ sku: 'PROD-1' }],
+        urls: { en_US: 'valid-product' },
+      },
+    };
+
+    it('retries once and succeeds when the model corrects itself', async () => {
+      mockCtx.ai.generateProductData = vi
+        .fn()
+        .mockResolvedValueOnce([NESTED_IN_DESCRIPTION])
+        .mockResolvedValueOnce([MINIMAL_VALID_PRODUCT]);
+
+      const result = await facade.generateData(
+        'product',
+        1,
+        { aiModel: 'gpt-4o' },
+        { demoMode: false }
+      );
+
+      expect(mockCtx.ai.generateProductData).toHaveBeenCalledTimes(2);
+      expect(result[0].name.en_US).toBe('Valid Product');
+    });
+
+    it('feeds the validation errors back into the retry', async () => {
+      // A retry that repeats the identical request is just a slower failure.
+      mockCtx.ai.generateProductData = vi
+        .fn()
+        .mockResolvedValueOnce([NESTED_IN_DESCRIPTION])
+        .mockResolvedValueOnce([MINIMAL_VALID_PRODUCT]);
+
+      await facade.generateData(
+        'product',
+        1,
+        { aiModel: 'gpt-4o' },
+        { demoMode: false }
+      );
+
+      const firstConfig = mockCtx.ai.generateProductData.mock.calls[0][2];
+      const retryConfig = mockCtx.ai.generateProductData.mock.calls[1][2];
+
+      expect(firstConfig.validationFeedback).toBeUndefined();
+      expect(retryConfig.validationFeedback).toContain(
+        'YOUR PREVIOUS RESPONSE WAS REJECTED'
+      );
+    });
+
+    it('gives up after the retry rather than looping', async () => {
+      mockCtx.ai.generateProductData = vi
+        .fn()
+        .mockResolvedValue([NESTED_IN_DESCRIPTION]);
+
+      await expect(
+        facade.generateData(
+          'product',
+          1,
+          { aiModel: 'gpt-4o' },
+          { demoMode: false }
+        )
+      ).rejects.toThrow(/failed schema validation/i);
+
+      expect(mockCtx.ai.generateProductData).toHaveBeenCalledTimes(2);
+    });
+
+    it('does not retry demo mode, which never calls a model', async () => {
+      mockCtx.mockDataGenerator.generateProductData = vi
+        .fn()
+        .mockResolvedValue([NESTED_IN_DESCRIPTION]);
+
+      await expect(
+        facade.generateData('product', 1, {}, { demoMode: true })
+      ).rejects.toThrow(/failed schema validation/i);
+
+      expect(
+        mockCtx.mockDataGenerator.generateProductData
+      ).toHaveBeenCalledTimes(1);
+    });
+
+    it('logs the retry rather than hiding it behind latency', async () => {
+      mockCtx.ai.generateProductData = vi
+        .fn()
+        .mockResolvedValueOnce([NESTED_IN_DESCRIPTION])
+        .mockResolvedValueOnce([MINIMAL_VALID_PRODUCT]);
+
+      await facade.generateData(
+        'product',
+        1,
+        { aiModel: 'gpt-4o' },
+        { demoMode: false }
+      );
+
+      expect(mockCtx.logger.warn).toHaveBeenCalledWith(
+        expect.stringContaining('retrying with the errors fed back'),
+        expect.objectContaining({ attempt: 1 })
+      );
+    });
+  });
 });
 
 describe('GenerationFacade null-optional repair', () => {

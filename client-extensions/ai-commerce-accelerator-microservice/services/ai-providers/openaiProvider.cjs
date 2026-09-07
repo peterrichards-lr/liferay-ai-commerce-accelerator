@@ -3,6 +3,48 @@ const OpenAI = require('openai');
 const BaseAIProvider = require('./baseProvider.cjs');
 const { tryParseJSON } = require('../../utils/misc.cjs');
 
+/**
+ * The image model. Verified against /v1/models rather than chosen from memory:
+ * `dall-e-3` and `dall-e-2` are gone from the catalogue entirely, and of what
+ * remains only gpt-image-2 carries no shutdown_date - gpt-image-1 retires
+ * 2026-10-23, gpt-image-1.5 and chatgpt-image-latest on 2026-12-01. Offering a
+ * model that is about to be withdrawn buys a working demo now and a broken one
+ * later, with nothing in between to warn anybody.
+ */
+const IMAGE_MODEL = 'gpt-image-2';
+
+// The gpt-image family accepts low, medium, high and auto. `standard` and `hd`
+// are dall-e values, and `standard` is what normalize.cjs still defaults to, so
+// an unmapped value would have failed every run rather than an unusual one.
+const IMAGE_QUALITY = new Map([
+  ['auto', 'auto'],
+  ['hd', 'high'],
+  ['high', 'high'],
+  ['low', 'low'],
+  ['medium', 'medium'],
+  ['standard', 'medium'],
+]);
+
+function imageQuality(requested) {
+  const key = String(requested || '').toLowerCase();
+  // 'auto' rather than a fixed tier for anything unrecognised: it lets the
+  // provider choose instead of this silently downgrading somebody's request.
+  return IMAGE_QUALITY.get(key) || 'auto';
+}
+
+/**
+ * Both dimensions must be divisible by 16 - the API rejects anything else -
+ * and the caller's width and height are free-form numbers.
+ */
+function imageSize(width, height) {
+  const round = (value, fallback) => {
+    const n = Number(value) || fallback;
+    return Math.max(256, Math.round(n / 16) * 16);
+  };
+
+  return `${round(width, 1024)}x${round(height, 1024)}`;
+}
+
 class OpenAIProvider extends BaseAIProvider {
   constructor(ctx) {
     super(ctx);
@@ -102,17 +144,26 @@ class OpenAIProvider extends BaseAIProvider {
   async generateImage(product, options) {
     const client = await this._getClient(options.credentials);
 
-    const prompt = `A high-quality, professional product photograph of a ${
-      product.name?.en_US || product.name
-    }. Style: ${options.imageStyle || 'photographic'} on a clean background.`;
+    // Rendered by aiService from prompts/image.md, so an operator can edit it
+    // and so brand context reaches images the way it reaches every other
+    // generator. The fallback covers a caller that has not been updated -
+    // notably the MCP path and any direct provider use in tests - rather than
+    // failing a run over a missing prompt.
+    const prompt =
+      options.prompt ||
+      `A high-quality, professional product photograph of a ${
+        product.name?.en_US || product.name
+      }. Style: ${options.imageStyle || 'photographic'} on a clean background.`;
 
     const response = await client.images.generate({
-      model: 'dall-e-3',
+      model: IMAGE_MODEL,
       prompt,
       n: 1,
-      size: `${options.imageWidth || 1024}x${options.imageHeight || 1024}`,
-      quality: options.imageQuality || 'standard',
-      response_format: 'b64_json',
+      size: imageSize(options.imageWidth, options.imageHeight),
+      quality: imageQuality(options.imageQuality),
+      // No response_format. The gpt-image family rejects it outright -
+      // "Unknown parameter: 'response_format'" - and returns base64 by
+      // default, which is what this method wants. It was a dall-e parameter.
     });
 
     return response.data[0].b64_json;
