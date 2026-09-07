@@ -11,6 +11,7 @@ const {
 const { createERC } = require('../utils/misc.cjs');
 const { modelProviderIssue } = require('../utils/modelCatalog.cjs');
 const { apiKeyIssue } = require('../utils/apiKeys.cjs');
+const { resolveMediaProvider } = require('../utils/providerCapabilities.cjs');
 const { ERC_PREFIX } = require('../utils/constants.cjs');
 const { estimateTokens } = require('../utils/tokenEstimator.cjs');
 const {
@@ -126,7 +127,14 @@ class AIService {
     const aiCfg = (await config.getAIConfig(requestConfig)) || {};
 
     const provider = aiCfg.provider || 'openai';
+    // Raw value, kept because 'inherit' also means "reuse the core API key".
     const mediaProvider = aiCfg.mediaProvider || provider;
+    // The provider actually asked for images. 'inherit' is a configuration
+    // sentinel, not a provider name, so it must never reach the factory.
+    const effectiveMediaProvider = resolveMediaProvider(
+      provider,
+      aiCfg.mediaProvider
+    );
 
     const apiKey =
       requestConfig?.aiApiKey ||
@@ -183,10 +191,7 @@ class AIService {
       throw err;
     }
 
-    const mediaKeyIssue = apiKeyIssue(
-      mediaProvider === 'inherit' ? provider : mediaProvider,
-      mediaApiKey
-    );
+    const mediaKeyIssue = apiKeyIssue(effectiveMediaProvider, mediaApiKey);
 
     if (mediaKeyIssue) {
       const err = new Error(mediaKeyIssue);
@@ -209,7 +214,7 @@ class AIService {
 
     return {
       provider,
-      mediaProvider,
+      mediaProvider: effectiveMediaProvider,
       credentials: { apiKey },
       mediaCredentials: { apiKey: mediaApiKey },
       model,

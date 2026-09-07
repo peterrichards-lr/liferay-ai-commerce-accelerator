@@ -575,3 +575,76 @@ describe('AIService mixed account ratio', () => {
     expect(requests).toEqual([{ count: 4, accountType: 'person' }]);
   });
 });
+
+describe("AIService media provider 'inherit'", () => {
+  // 'inherit' is a configuration sentinel meaning "use the core provider".
+  // Leaving it unresolved reached providerFactory and failed every image with
+  // "Unsupported AI provider: inherit" - after the products had been created.
+  const buildCtx = (aiConfig, mediaKey = 'sk-media-key') => ({
+    config: {
+      getAIConfig: vi.fn().mockResolvedValue(aiConfig),
+      getAIKey: vi.fn().mockResolvedValue('sk-core-key'),
+      getAIMediaKey: vi.fn().mockResolvedValue(mediaKey),
+      getAISchema: vi.fn().mockResolvedValue({ type: 'object' }),
+      getAIModelOptions: vi.fn().mockResolvedValue({ aiModelOptions: [] }),
+    },
+    logger: {
+      info: vi.fn(),
+      debug: vi.fn(),
+      error: vi.fn(),
+      trace: vi.fn(),
+      warn: vi.fn(),
+    },
+    prompt: { render: vi.fn() },
+  });
+
+  const runtimeFor = async (aiConfig, mediaKey) => {
+    const service = new AIService(buildCtx(aiConfig, mediaKey));
+    return service.getRuntimeAIConfig({});
+  };
+
+  it('resolves inherit to the core provider', async () => {
+    const runtime = await runtimeFor({
+      provider: 'openai',
+      mediaProvider: 'inherit',
+      defaultModel: 'gpt-4o',
+    });
+
+    expect(runtime.mediaProvider).toBe('openai');
+    expect(runtime.mediaProvider).not.toBe('inherit');
+  });
+
+  it('reuses the core API key when the media provider is inherited', async () => {
+    const runtime = await runtimeFor({
+      provider: 'openai',
+      mediaProvider: 'inherit',
+      defaultModel: 'gpt-4o',
+    });
+
+    expect(runtime.mediaCredentials.apiKey).toBe('sk-core-key');
+  });
+
+  it('keeps an explicitly chosen media provider', async () => {
+    // Nano Banana is in the Google key family, so it needs a Google-shaped
+    // key - apiKeyIssue would otherwise refuse to send an sk- key to it.
+    const runtime = await runtimeFor(
+      {
+        provider: 'openai',
+        mediaProvider: 'nanobanana',
+        defaultModel: 'gpt-4o',
+      },
+      'AIzaSyTestMediaKey'
+    );
+
+    expect(runtime.mediaProvider).toBe('nanobanana');
+  });
+
+  it('defaults to the core provider when none is configured', async () => {
+    const runtime = await runtimeFor({
+      provider: 'openai',
+      defaultModel: 'gpt-4o',
+    });
+
+    expect(runtime.mediaProvider).toBe('openai');
+  });
+});
