@@ -19,6 +19,7 @@ vi.mock('../state/progressSelectors', () => ({
 
 vi.mock('../utils/microservicePaths', () => ({
   GENERATE_WORKFLOW: '/api/v1/generate',
+  WORKFLOW_CANCEL: '/api/v1/workflows/sessions/:sessionId/cancel',
 }));
 
 describe('useGeneration hook', () => {
@@ -215,8 +216,11 @@ describe('useGeneration hook', () => {
       await result.current.cancelWorkflow();
     });
 
+    // Must carry the /api/v1 prefix: the microservice mounts every route under
+    // it, so a hand-built path without it returns "Cannot GET
+    // /workflows/sessions/.../cancel" and the run cannot be stopped.
     expect(mockApi.get).toHaveBeenCalledWith(
-      '/workflows/sessions/session-123/cancel'
+      '/api/v1/workflows/sessions/session-123/cancel'
     );
     expect(mockAddLog).toHaveBeenCalledWith(
       '✓ Workflow cancellation confirmed by server.',

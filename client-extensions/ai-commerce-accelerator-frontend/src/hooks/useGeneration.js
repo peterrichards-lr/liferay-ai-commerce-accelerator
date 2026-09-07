@@ -1,7 +1,7 @@
 import { useState, useCallback } from 'react';
 import { toFormData } from '../utils/formData';
 import { computeTotalsFromConfig } from '../state/progressSelectors';
-import { GENERATE_WORKFLOW } from '../utils/microservicePaths';
+import { GENERATE_WORKFLOW, WORKFLOW_CANCEL } from '../utils/microservicePaths';
 
 export default function useGeneration({
   addLog,
@@ -151,7 +151,7 @@ export default function useGeneration({
     try {
       addLog('Cancellation requested...', 'warning');
       const res = await api.get(
-        `/workflows/sessions/${progress.activeSessionId}/cancel`
+        WORKFLOW_CANCEL.replace(':sessionId', progress.activeSessionId)
       );
 
       if (res?.success) {
