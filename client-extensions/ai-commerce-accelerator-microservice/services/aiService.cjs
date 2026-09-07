@@ -892,17 +892,67 @@ class AIService {
   }
 
   async generateImageDataForProduct(product, options) {
-    const { logger } = this.ctx;
+    const { logger, prompt } = this.ctx;
     const correlationId = options?.correlationId;
 
     try {
       const provider = await this.getAIProvider(options, 'media');
       const runtime = await this.getRuntimeAIConfig(options);
 
+      // Rendered here rather than assembled inside the provider, for the same
+      // reason every other generator renders here: the prompt is a
+      // configuration item an operator can edit, and one built by string
+      // concatenation in a provider is the only prompt they cannot see. It is
+      // also the only place `brandName` is available, which images need as
+      // much as the PDF and product prompts do.
+      //
+      // `noBrand` is passed rather than inferred in the template so the
+      // template stays declarative. The two branches are deliberately
+      // exclusive: with a brand configured the images should carry that brand,
+      // and only without one should they be brand-free. A blanket "no brand
+      // names" instruction would strip the operator's own brand from their
+      // own catalogue.
+      // Composed here rather than branched in the template. promptService
+      // supports only {{var}} and {{=json:var}} - there is no conditional - so
+      // a `{% if %}` in a prompt file is inert and leaks its markers into the
+      // text along with both branches. See #643.
+      //
+      // The two cases are exclusive on purpose. With brand context supplied the
+      // images should carry that brand; only without it should they be
+      // brand-free. A blanket "no brand names" would strip an operator's own
+      // brand from their own catalogue - and the field is free text, labelled
+      // "Brand / Context" in the UI, so it may be a description rather than a
+      // name and must not be quoted as one.
+      const brandContext = String(options.brandName || '').trim();
+      const brandGuidance = brandContext
+        ? `BRAND CONTEXT: ${brandContext}\n\nLet that shape the product's ` +
+          'appearance, materials and finish. Any branding visible on the ' +
+          'product must be consistent with the description above, and must ' +
+          "not show any other company's logo, name or marks."
+        : 'The product must be generic and unbranded: no logos, no brand ' +
+          'names, no visible text, lettering or numbering on the product or ' +
+          'the background.';
+
+      const category = String(options.category || '').trim();
+
+      const promptContent = await prompt.render(
+        'image',
+        {
+          brandGuidance,
+          categoryGuidance: category
+            ? `The product is in the ${category} category and should look plausible for it.`
+            : '',
+          imageStyle: options.imageStyle || 'photographic',
+          productName: product.name?.en_US || product.name,
+        },
+        options
+      );
+
       return await provider.generateImage(product, {
         ...runtime,
         credentials: runtime.mediaCredentials, // USE MEDIA CREDENTIALS
         ...options,
+        prompt: promptContent,
       });
     } catch (error) {
       const errorReference =
