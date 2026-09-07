@@ -23,7 +23,7 @@ async function runProductCreationStep(sessionId) {
   }
 
   try {
-    const prepared = productDataList.map((pd) => {
+    const prepared = productDataList.map((pd, productIndex) => {
       // Liferay Headless Commerce API (v1.0) requires all products to be 'simple' during initial creation.
       const productType = 'simple';
 
@@ -35,12 +35,34 @@ async function runProductCreationStep(sessionId) {
         productType,
         productStatus: 0, // Published
         active: true,
-        productConfiguration: {
-          productTaxConfiguration: {
-            taxCategory: 'Standard',
-            taxable: true,
-          },
-        },
+        // Sent on the first product only, and deliberately so.
+        //
+        // Liferay applies this to the definition's MASTER configuration entry
+        // (ProductResourceImpl._updateNestedResources), and
+        // CPConfigurationEntrySetting has no classNameId or classPK - it is
+        // keyed by CPConfigurationEntryId, company and group. So this is one
+        // shared row, not a per-product setting, and sending it with every
+        // product updated the same row once per item.
+        //
+        // Liferay's batch engine runs import tasks concurrently, so those
+        // updates raced: "Batch update returned unexpected row count from
+        // update [1]; actual row count: 0; expected: 1" - an optimistic-lock
+        // failure that discarded a whole batch and stopped the workflow. It
+        // appeared only once runs grew past a single import task, and raising
+        // the batch size so everything fitted in one task merely moved the
+        // threshold rather than removing it.
+        //
+        // One write applies the same value with no second writer to race.
+        ...(productIndex === 0
+          ? {
+              productConfiguration: {
+                productTaxConfiguration: {
+                  taxCategory: 'Standard',
+                  taxable: true,
+                },
+              },
+            }
+          : {}),
         externalReferenceCode: pd.externalReferenceCode,
         // `{ id: undefined }` serialises to `{}`, which Liferay rejects for the
         // whole product - "/categories/0 must have required property 'id'" - so

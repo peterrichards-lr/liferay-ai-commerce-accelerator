@@ -155,4 +155,68 @@ describe('DeleteCoordinatorService', () => {
 
     expect(mockCtx.liferay.deleteOrdersBatch).toHaveBeenCalled();
   });
+
+  describe('association steps receive products (regression)', () => {
+    // delete-product-specifications and delete-product-options detach a
+    // PRODUCT's associations, so they iterate products and call
+    // getProductSpecifications / getProductOptions with a product id. They
+    // were handed the specification and option definition lists instead, so
+    // every lookup 404'd and the step reported COMPLETED having detached
+    // nothing. The symptom was a run of warnings naming "products" whose ids
+    // were actually specification and option ids.
+    const seedSession = async (sessionId, step) => {
+      await persistence.createSession({
+        sessionId,
+        flowType: 'delete',
+        status: 'STARTED',
+        currentSteps: [step],
+        context: {
+          config: {},
+          options: {},
+          steps: [{ name: step }],
+          manifest: {
+            products: [{ id: 5001 }, { id: 5002 }],
+            specifications: [{ id: 44487 }, { id: 44488 }],
+            options: [{ id: 44504 }],
+          },
+        },
+      });
+    };
+
+    it('clears specifications using product ids, not specification ids', async () => {
+      await seedSession('sess-spec', 'delete-product-specifications');
+
+      await coordinator._runGenericDeletionStep(
+        'deleteProductSpecifications',
+        'sess-spec'
+      );
+
+      const ids = (
+        mockCtx.liferay.getProductSpecifications?.mock?.calls || []
+      ).map(([, id]) => id);
+
+      if (ids.length) {
+        expect(ids).toEqual(expect.arrayContaining([5001, 5002]));
+        expect(ids).not.toEqual(expect.arrayContaining([44487]));
+      }
+    });
+
+    it('clears options using product ids, not option ids', async () => {
+      await seedSession('sess-opt', 'delete-product-options');
+
+      await coordinator._runGenericDeletionStep(
+        'deleteProductOptions',
+        'sess-opt'
+      );
+
+      const ids = (mockCtx.liferay.getProductOptions?.mock?.calls || []).map(
+        ([, id]) => id
+      );
+
+      if (ids.length) {
+        expect(ids).toEqual(expect.arrayContaining([5001, 5002]));
+        expect(ids).not.toEqual(expect.arrayContaining([44504]));
+      }
+    });
+  });
 });

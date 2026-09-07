@@ -489,9 +489,18 @@ class DeleteCoordinatorService extends BaseGenerator {
       [S.DELETE_WAREHOUSE_ITEMS]: manifest?.warehouseItems,
       [S.DELETE_PRODUCTS]: manifest?.products,
       [S.DELETE_SPECIFICATIONS]: manifest?.specifications,
-      [S.DELETE_PRODUCT_SPECIFICATIONS]: manifest?.specifications,
+      // These two detach a product's specification and option ASSOCIATIONS
+      // before the definitions themselves are removed, so they iterate
+      // products - `product.productId || product.id`, then
+      // getProductSpecifications / getProductOptions with that id. They were
+      // handed the definition lists instead, so every id was a specification
+      // or option id, every lookup 404'd, and the step reported COMPLETED
+      // having detached nothing. It showed up as a run of warnings naming
+      // "products" whose ids were consecutive - specifications - or spaced by
+      // three or four - options and their values.
+      [S.DELETE_PRODUCT_SPECIFICATIONS]: manifest?.products,
       [S.DELETE_OPTIONS]: manifest?.options,
-      [S.DELETE_PRODUCT_OPTIONS]: manifest?.options,
+      [S.DELETE_PRODUCT_OPTIONS]: manifest?.products,
       [S.DELETE_PRICE_LISTS]: manifest?.priceLists,
       [S.DELETE_PROMOTIONS]: manifest?.promotions,
       [S.DELETE_ACCOUNT_GROUPS]: manifest?.accountGroups,

@@ -1,4 +1,5 @@
 const ProductGenerator = require('../generators/productGenerator.cjs');
+const { COMMERCE_CONSTRAINTS } = require('../utils/commerceConstants.cjs');
 const { WORKFLOW_STEPS } = require('../utils/constants.cjs');
 
 describe('ProductGenerator Workflow Steps', () => {
@@ -221,6 +222,160 @@ describe('ProductGenerator Workflow Steps', () => {
       );
 
       expect(mockLiferay.createPriceEntriesBatch).toHaveBeenCalled();
+    });
+  });
+
+  describe('shared product configuration (regression)', () => {
+    // Liferay applies productConfiguration to the definition's MASTER
+    // configuration entry, and CPConfigurationEntrySetting is keyed by
+    // configuration entry, company and group - it has no classNameId or
+    // classPK, so it is one shared row rather than a per-product setting.
+    // Sending it with every product made every item update that row, and
+    // because Liferay's batch engine runs import tasks concurrently those
+    // updates raced: "Batch update returned unexpected row count from update
+    // [1]; actual row count: 0" discarded an entire batch and halted the
+    // workflow. Raising the batch size so everything fitted in one task only
+    // moved the threshold; sending it once removes the second writer.
+    const productFixture = (i) => ({
+      externalReferenceCode: `ERC${i}`,
+      name: { en_US: `Product ${i}` },
+      description: { en_US: `Description ${i}` },
+    });
+
+    const sentPayloads = () =>
+      mockLiferay.createProductsBatch.mock.calls.flatMap(([, chunk]) => chunk);
+
+    it('sends the shared configuration on exactly one product', async () => {
+      mockSession.context.productDataList = Array.from({ length: 5 }, (_, i) =>
+        productFixture(i)
+      );
+
+      await productGenerator.steps[WORKFLOW_STEPS.CREATE_PRODUCTS]('sess-123');
+
+      const payloads = sentPayloads();
+      expect(payloads).toHaveLength(5);
+
+      const carrying = payloads.filter((p) => p.productConfiguration);
+      expect(carrying).toHaveLength(1);
+      expect(carrying[0].productConfiguration).toEqual({
+        productTaxConfiguration: { taxCategory: 'Standard', taxable: true },
+      });
+    });
+
+    it('still sends it when there is only one product', async () => {
+      mockSession.context.productDataList = [productFixture(0)];
+
+      await productGenerator.steps[WORKFLOW_STEPS.CREATE_PRODUCTS]('sess-123');
+
+      expect(sentPayloads().filter((p) => p.productConfiguration)).toHaveLength(
+        1
+      );
+    });
+
+    it('does not depend on how the products are split into batches', async () => {
+      // The guarantee has to hold per run, not per batch: two batches each
+      // carrying the configuration would race exactly as before.
+      mockSession.context.config.batchSize = 2;
+      mockSession.context.productDataList = Array.from({ length: 7 }, (_, i) =>
+        productFixture(i)
+      );
+
+      await productGenerator.steps[WORKFLOW_STEPS.CREATE_PRODUCTS]('sess-123');
+
+      expect(mockLiferay.createProductsBatch.mock.calls.length).toBeGreaterThan(
+        1
+      );
+      expect(sentPayloads().filter((p) => p.productConfiguration)).toHaveLength(
+        1
+      );
+    });
+  });
+
+  describe("Liferay's SKU contributor rule (regression)", () => {
+    // CPOptionLocalServiceImpl._validateCommerceOptionTypeKey swaps in
+    // CPConstants.PRODUCT_OPTION_SKU_CONTRIBUTOR_FIELD_TYPES - select,
+    // select_date, radio - whenever skuContributor is set, and throws
+    // CPOptionSKUContributorException for anything else. That surfaces as a
+    // bare "Failed to create option" and took the whole step down. Our own
+    // constant wrongly included checkbox and checkbox_multiple, and nothing
+    // compared the field type against the flag in any case.
+    const optionFrom = (option) => {
+      mockSession.context.productDataList = [
+        {
+          externalReferenceCode: 'ERC1',
+          name: { en_US: 'Product 1' },
+          description: { en_US: 'd' },
+          productOptions: [option],
+        },
+      ];
+    };
+
+    const sentOption = () =>
+      mockLiferay.createOptionWithReuse.mock.calls.at(-1)?.[1];
+
+    it('corrects a contributing option the platform would reject', async () => {
+      optionFrom({
+        key: 'size',
+        name: 'Size',
+        fieldType: 'checkbox',
+        skuContributor: true,
+        values: ['S', 'M'],
+      });
+
+      await productGenerator.steps[WORKFLOW_STEPS.ENSURE_OPTIONS]('sess-123');
+
+      const sent = sentOption();
+      expect(sent.skuContributor).toBe(true);
+      expect(COMMERCE_CONSTRAINTS.SKU_CONTRIBUTOR_FIELD_TYPES).toContain(
+        sent.fieldType
+      );
+    });
+
+    it('leaves an already valid contributing option alone', async () => {
+      optionFrom({
+        key: 'colour',
+        name: 'Colour',
+        fieldType: 'radio',
+        skuContributor: true,
+        values: ['Red'],
+      });
+
+      await productGenerator.steps[WORKFLOW_STEPS.ENSURE_OPTIONS]('sess-123');
+
+      expect(sentOption().fieldType).toBe('radio');
+      expect(sentOption().skuContributor).toBe(true);
+    });
+
+    it('stops an option with no values from claiming to define variants', async () => {
+      // Nothing to vary on, so the flag cannot be honoured whatever the type.
+      optionFrom({
+        key: 'engraving',
+        name: 'Engraving',
+        fieldType: 'text',
+        skuContributor: true,
+        values: [],
+      });
+
+      await productGenerator.steps[WORKFLOW_STEPS.ENSURE_OPTIONS]('sess-123');
+
+      expect(sentOption().skuContributor).toBe(false);
+      expect(sentOption().fieldType).toBe('text');
+    });
+
+    it('never sends a field type outside the OpenAPI list', async () => {
+      optionFrom({
+        key: 'mystery',
+        name: 'Mystery',
+        fieldType: 'not_a_real_type',
+        skuContributor: false,
+        values: [],
+      });
+
+      await productGenerator.steps[WORKFLOW_STEPS.ENSURE_OPTIONS]('sess-123');
+
+      expect(COMMERCE_CONSTRAINTS.VALID_FIELD_TYPES).toContain(
+        sentOption().fieldType
+      );
     });
   });
 });
