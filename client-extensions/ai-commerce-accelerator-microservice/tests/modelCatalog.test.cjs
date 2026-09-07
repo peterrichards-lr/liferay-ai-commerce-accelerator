@@ -10,6 +10,26 @@ const {
   modelsForProvider,
 } = require('../utils/modelCatalog.cjs');
 
+// A fixed list for testing the functions themselves.
+//
+// Behaviour tests used to run against DEFAULT_MODEL_OPTIONS, which made them
+// assertions about whichever models happened to ship. The scheduled refresh
+// then failed for doing its job: it added gemini-3.x entries and the suite
+// broke, because a test expected gemini's first option to be gemini-2.5-pro.
+// Nothing was wrong with the code or with the new models.
+//
+// So the two kinds of assertion are now separate. Function behaviour is tested
+// against this fixture and cannot be disturbed by a refresh; the shipped list
+// is tested for its invariants - well-formed entries, every provider
+// represented, the mirrors agreeing - which stay true whatever the models are.
+const FIXTURE = [
+  { label: 'Alpha One', value: 'gpt-alpha-1', provider: 'openai' },
+  { label: 'Alpha Mini', value: 'gpt-alpha-1-mini', provider: 'openai' },
+  { label: 'Beta One', value: 'claude-beta-1', provider: 'anthropic' },
+  { label: 'Gamma Pro', value: 'gemini-gamma-pro', provider: 'gemini' },
+  { label: 'Gamma Flash', value: 'gemini-gamma-flash', provider: 'gemini' },
+];
+
 // The generation source, not the generated batch file: the Gradle
 // generateBatchFiles task deletes 19-object-entry-ai-model-options before
 // recreating it from this, so the batch file is absent partway through a build.
@@ -57,13 +77,13 @@ describe('modelCatalog', () => {
   describe('modelsForProvider', () => {
     it('returns only that provider models', () => {
       expectDeepEqual(
-        modelsForProvider(DEFAULT_MODEL_OPTIONS, 'gemini').map((m) => m.value),
-        ['gemini-2.5-pro', 'gemini-2.5-flash']
+        modelsForProvider(FIXTURE, 'gemini').map((m) => m.value),
+        ['gemini-gamma-pro', 'gemini-gamma-flash']
       );
     });
 
     it('keeps unattributable custom entries visible', () => {
-      const options = [...DEFAULT_MODEL_OPTIONS, { value: 'custom-llm' }];
+      const options = [...FIXTURE, { value: 'custom-llm' }];
       expectOk(
         modelsForProvider(options, 'anthropic').some(
           (m) => m.value === 'custom-llm'
@@ -72,28 +92,21 @@ describe('modelCatalog', () => {
     });
 
     it('returns everything when no provider is given', () => {
-      expectStrictEqual(
-        modelsForProvider(DEFAULT_MODEL_OPTIONS, '').length,
-        DEFAULT_MODEL_OPTIONS.length
-      );
+      expectStrictEqual(modelsForProvider(FIXTURE, '').length, FIXTURE.length);
     });
   });
 
   describe('modelProviderIssue', () => {
     it('reports a cross-provider pairing', () => {
-      const issue = modelProviderIssue(
-        'anthropic',
-        'gpt-4o-mini',
-        DEFAULT_MODEL_OPTIONS
-      );
+      const issue = modelProviderIssue('anthropic', 'gpt-alpha-1', FIXTURE);
       expectMatch(issue, /Anthropic Claude cannot run/);
-      expectMatch(issue, /gpt-4o-mini/);
+      expectMatch(issue, /gpt-alpha-1/);
       expectMatch(issue, /OpenAI/);
     });
 
     it('stays silent on a matching pairing', () => {
       expectStrictEqual(
-        modelProviderIssue('anthropic', 'claude-opus-5', DEFAULT_MODEL_OPTIONS),
+        modelProviderIssue('anthropic', 'claude-beta-1', FIXTURE),
         null
       );
     });
@@ -115,23 +128,20 @@ describe('modelCatalog', () => {
   describe('defaultModelForProvider', () => {
     it('keeps a model that already belongs to the provider', () => {
       expectStrictEqual(
-        defaultModelForProvider(DEFAULT_MODEL_OPTIONS, 'openai', 'gpt-4o'),
-        'gpt-4o'
+        defaultModelForProvider(FIXTURE, 'openai', 'gpt-alpha-1-mini'),
+        'gpt-alpha-1-mini'
       );
     });
 
     it('replaces a model belonging to another provider', () => {
       expectStrictEqual(
-        defaultModelForProvider(DEFAULT_MODEL_OPTIONS, 'gemini', 'gpt-4o'),
-        'gemini-2.5-pro'
+        defaultModelForProvider(FIXTURE, 'gemini', 'gpt-alpha-1'),
+        'gemini-gamma-pro'
       );
     });
 
     it('returns null when the provider has no models', () => {
-      expectStrictEqual(
-        defaultModelForProvider(DEFAULT_MODEL_OPTIONS, 'nanobanana'),
-        null
-      );
+      expectStrictEqual(defaultModelForProvider(FIXTURE, 'nanobanana'), null);
     });
   });
 

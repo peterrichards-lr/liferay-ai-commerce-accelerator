@@ -9,12 +9,18 @@ name: Refresh AI Models
 # became `thinking: {type: "adaptive"}` - so a new family needs a human to confirm
 # the existing call shape still works before it is offered to operators.
 #
-# Requires the repository secrets OPENAI_API_KEY, ANTHROPIC_API_KEY and
-# GEMINI_API_KEY. Listing models costs nothing, but the endpoints require
+# Uses whichever of OPENAI_API_KEY, ANTHROPIC_API_KEY and GEMINI_API_KEY are set
+# as repository secrets. Listing models costs nothing, but the endpoints require
 # authentication. A provider whose secret is absent, expired or unreachable keeps
 # its existing entries rather than being emptied, so a partially configured
-# repository still refreshes the providers it can. Because the secrets are
-# required, this cannot run from a fork.
+# repository still refreshes the providers it can. Because secrets are involved,
+# this cannot run from a fork.
+#
+# Not every key can live here. A personal key that must not be shared with CI
+# refreshes its provider from a developer's machine instead - see the script's
+# docstring - and this workflow leaves that provider's entries untouched. So a
+# provider missing below is not an oversight to be fixed by adding a secret; it
+# may be a deliberate choice about where that credential is allowed to exist.
 
 on:
   schedule:
