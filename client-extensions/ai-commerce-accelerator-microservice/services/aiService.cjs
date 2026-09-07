@@ -492,16 +492,19 @@ class AIService {
           attempt++
         ) {
           const shortfall = count - allProducts.length;
+          // Never ask for more than one chunk: a larger request re-enters this
+          // same chunking branch, which tops up again, and the rounds multiply.
+          const ask = Math.min(shortfall, effectiveChunkSize);
 
           logger?.info?.(
-            `[AIService] Topping up ${shortfall} product${shortfall === 1 ? '' : 's'} (attempt ${attempt}/${TOPUP_ATTEMPTS})`,
+            `[AIService] Topping up ${ask} of ${shortfall} missing product${shortfall === 1 ? '' : 's'} (attempt ${attempt}/${TOPUP_ATTEMPTS})`,
             { requested: count, have: allProducts.length, correlationId }
           );
 
           const topUpCategory = categoriesList[attempt % categoriesList.length];
           const topUpResult = await this.generateProductData(
             topUpCategory,
-            shortfall,
+            ask,
             requestConfig,
             model,
             selectedLanguages,
