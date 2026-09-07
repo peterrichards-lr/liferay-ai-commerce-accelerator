@@ -11,6 +11,9 @@ const {
 const { ERC_PREFIX, WORKFLOW_STEPS } = require('../../utils/constants.cjs');
 const { COMMERCE_CONSTRAINTS } = require('../../utils/commerceConstants.cjs');
 const { toOptionValues } = require('../../utils/optionValues.cjs');
+const {
+  reconcileOptionFieldType,
+} = require('../../utils/optionFieldTypes.cjs');
 
 const S = WORKFLOW_STEPS;
 
@@ -286,52 +289,26 @@ async function runEnsureOptionsStep(sessionId) {
       const sourceValues =
         sourceOpt.productOptionValues || sourceOpt.values || [];
 
-      // Liferay validates the field type against the option's SKU-contributor
-      // flag and rejects the pair outright with
-      // CPOptionSKUContributorException, which arrives as a bare "Failed to
-      // create option" and takes the step down with it. A contributor must be
-      // one of select, select_date or radio; the model is free to ask for
-      // text, numeric or checkbox, and did.
-      //
-      // An option with values is a select in all but name, so the type is
-      // corrected rather than the intent discarded - dropping skuContributor
-      // instead would silently cost the run its SKU variants. An option with
-      // no values cannot define a variant at all, so there the flag goes.
-      const requestedFieldType = String(
-        sourceOpt.fieldType || 'select'
-      ).toLowerCase();
-      const wantsSkuContribution =
-        sourceOpt.skuContributor !== undefined
-          ? Boolean(sourceOpt.skuContributor)
-          : true;
+      // Shared with link-product-options, which must satisfy the same rule
+      // against CPDefinitionOptionRel. Keeping one implementation is the point:
+      // the first version of this fix lived only here, and the other site went
+      // on sending what Liferay rejects.
+      const reconciled = reconcileOptionFieldType({
+        fieldType: sourceOpt.fieldType,
+        skuContributor: sourceOpt.skuContributor,
+        valueCount: sourceValues.length,
+      });
 
-      let fieldType = requestedFieldType;
-      let skuContributor = wantsSkuContribution;
+      const fieldType = reconciled.fieldType;
+      const skuContributor = reconciled.skuContributor;
 
-      if (skuContributor && sourceValues.length === 0) {
-        skuContributor = false;
-      } else if (
-        skuContributor &&
-        !COMMERCE_CONSTRAINTS.SKU_CONTRIBUTOR_FIELD_TYPES.includes(fieldType)
-      ) {
-        fieldType = COMMERCE_CONSTRAINTS.DEFAULT_SKU_CONTRIBUTOR_FIELD_TYPE;
-      }
-
-      if (!COMMERCE_CONSTRAINTS.VALID_FIELD_TYPES.includes(fieldType)) {
-        fieldType = 'select';
-      }
-
-      if (
-        fieldType !== requestedFieldType ||
-        skuContributor !== wantsSkuContribution
-      ) {
+      if (reconciled.adjusted) {
         this.logger.debug(
           `Adjusted option '${key}' to satisfy Liferay's SKU contributor rule`,
           {
             sessionId,
-            requestedFieldType,
+            requestedFieldType: sourceOpt.fieldType,
             fieldType,
-            requestedSkuContributor: wantsSkuContribution,
             skuContributor,
             valueCount: sourceValues.length,
           }
