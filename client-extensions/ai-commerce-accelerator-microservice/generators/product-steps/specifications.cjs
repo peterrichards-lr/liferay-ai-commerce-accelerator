@@ -278,13 +278,37 @@ async function runEnsureOptionsStep(sessionId) {
           optionData.fieldType?.toLowerCase()
         )
       ) {
-        optionData.optionValues = sourceValues.map((v) => {
-          const vName = typeof v.name === 'string' ? { en_US: v.name } : v.name;
-          return {
-            key: v.key || sanitizeForERC(vName?.en_US || vName || v),
-            name: vName,
-          };
-        });
+        // The prompt asks for `productOptionValues` as an array of plain
+        // strings - `["Black", "Silver"]` - while this read `v.name`, which is
+        // undefined for a string. Liferay then rejects the whole option with
+        // 400 "optionValues[0].name must not be null", and the run dies at
+        // ensure-options. Both shapes are accepted now, because the prompt is
+        // editable and an operator may well supply objects. See #648.
+        optionData.optionValues = sourceValues
+          .map((value) => {
+            const label =
+              typeof value === 'string'
+                ? value
+                : value?.name?.en_US || value?.name || value?.key || '';
+
+            const name =
+              typeof label === 'string' ? { en_US: label } : label || null;
+
+            // A value with no label cannot be named, and Liferay requires a
+            // name - so drop it rather than sending a null and losing every
+            // other value on the option with it.
+            if (!name || !name.en_US) {
+              return null;
+            }
+
+            return {
+              key:
+                (typeof value === 'object' && value?.key) ||
+                sanitizeForERC(name.en_US),
+              name,
+            };
+          })
+          .filter(Boolean);
       }
 
       const liferayOption = await this.liferay.createOptionWithReuse(
