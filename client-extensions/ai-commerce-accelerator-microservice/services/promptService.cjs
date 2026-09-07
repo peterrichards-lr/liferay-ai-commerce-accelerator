@@ -105,15 +105,20 @@ class PromptService {
         .split('.')
         .reduce((a, k) => (a && a[k] !== undefined ? a[k] : ''), vars);
 
-    return String(tpl || '')
-      .replace(/\{\{=json:([\w.[\]]+)\}\}/g, (_, p) => {
-        try {
-          return JSON.stringify(get(p));
-        } catch {
-          return 'null';
-        }
-      })
-      .replace(/\{\{([\w.[\]]+)\}\}/g, (_, p) => String(get(p)));
+    return (
+      String(tpl || '')
+        .replace(/\{\{=json:([\w.[\]]+)\}\}/g, (_, p) => {
+          try {
+            return JSON.stringify(get(p));
+          } catch {
+            return 'null';
+          }
+        })
+        .replace(/\{\{([\w.[\]]+)\}\}/g, (_, p) => String(get(p)))
+        // An optional block that resolves to '' leaves its blank line behind,
+        // and several in a row open a gap in the prompt. Collapse them.
+        .replace(/\n{3,}/g, '\n\n')
+    );
   }
 
   async render(name, vars = {}, requestConfig) {

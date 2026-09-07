@@ -15,9 +15,14 @@ const { resolveMediaProvider } = require('../utils/providerCapabilities.cjs');
 const { ERC_PREFIX } = require('../utils/constants.cjs');
 const { estimateTokens } = require('../utils/tokenEstimator.cjs');
 const {
+  accountGeography,
+  accountTypeGuidance,
   brandGuidance,
   currencyGuidance,
+  languageGuidance,
+  orderDateGuidance,
   vocabularyGuidance,
+  warehouseGeography,
 } = require('../utils/promptContext.cjs');
 
 class AIService {
@@ -333,6 +338,10 @@ class AIService {
           2
         ),
         groundingMetadata: options.groundingMetadata || null,
+        brandGuidance: brandGuidance(
+          options.brandName,
+          "The generated document should reflect this brand's voice and style."
+        ),
       };
 
       const promptContent = await prompt.render('pdf', vars, requestConfig);
@@ -521,6 +530,7 @@ class AIService {
         // were inert and leaked into the prompt. See #643.
         brandGuidance: brandGuidance(options.brandName),
         currencyGuidance: currencyGuidance(options.groundingMetadata),
+        languageGuidance: languageGuidance(options.groundingMetadata),
         vocabularyGuidance: vocabularyGuidance(options.groundingMetadata),
       };
 
@@ -681,6 +691,19 @@ class AIService {
         languageCodesCSV: languageCodes.join(', '),
         geographicContext: options.geographicContext || null,
         groundingMetadata: options.groundingMetadata || null,
+        languageGuidance: languageGuidance(options.groundingMetadata),
+        brandGuidance: brandGuidance(
+          options.brandName,
+          'These accounts are potential customers or business partners for ' +
+            'this brand.'
+        ),
+        accountTypeGuidance: accountTypeGuidance({
+          accountType: options.accountType,
+          categories: categories.join(', '),
+          count,
+          pluralSuffix: pluralize(count),
+        }),
+        ...accountGeography(options.geographicContext),
         accountType,
       };
 
@@ -809,6 +832,12 @@ class AIService {
         languageCodesCSV: languageCodes.join(', '),
         groundingMetadata: options.groundingMetadata || null,
         orderDateRangeDays: Number(options.orderDateRangeDays) || 0,
+        languageGuidance: languageGuidance(options.groundingMetadata),
+        brandGuidance: brandGuidance(
+          options.brandName,
+          'These orders represent business transactions with this brand.'
+        ),
+        orderDateGuidance: orderDateGuidance(options.orderDateRangeDays),
       };
 
       const promptContent = await prompt.render('order', vars, requestConfig);
@@ -913,6 +942,8 @@ class AIService {
         languageCodesCSV: languageCodes.join(', '),
         geographicContext: options.geographicContext || null,
         groundingMetadata: options.groundingMetadata || null,
+        languageGuidance: languageGuidance(options.groundingMetadata),
+        ...warehouseGeography(options.geographicContext),
       };
 
       const promptContent = await prompt.render(
@@ -1116,6 +1147,11 @@ class AIService {
         productListJSON: JSON.stringify(productList, null, 2),
         ...pricingHints(pricingType),
         groundingMetadata: options.groundingMetadata || null,
+        brandGuidance: brandGuidance(
+          options.brandName,
+          'This price list is for products belonging to this brand.'
+        ),
+        currencyGuidance: currencyGuidance(options.groundingMetadata),
       };
 
       const promptContent = await prompt.render('pricing', vars, requestConfig);
