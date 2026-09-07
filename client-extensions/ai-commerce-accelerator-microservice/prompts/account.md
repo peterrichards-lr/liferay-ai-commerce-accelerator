@@ -5,6 +5,7 @@ Generate {{count}} realistic account{{pluralSuffix}} with the following properti
 {{brandGuidance}}
 
 {{accountTypeGuidance}}
+
 - type: Account type as instructed above, either "business" or "person" (string, required)
 - externalReferenceCode: Unique identifier (string, required)
 - headOfficeAddress: Head office address object. REQUIRED for every account - must contain addressCountry (full country name), addressLocality (city), addressRegion, postalCode and streetAddressLine1 (object, required)
