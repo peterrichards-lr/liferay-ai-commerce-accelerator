@@ -8,6 +8,7 @@ import ClayLabel from '@clayui/label';
 import { useApp, useApi, AppProvider } from './context/AppContext';
 import { ConfirmProvider, useConfirm } from './components/ConfirmProvider';
 import notifyUser from './utils/notifications';
+import { isCancellable } from './utils/sessionStatus';
 import { buildFilename, exportJsonFile } from './utils/fileHelper';
 import {
   WORKFLOW_SESSIONS,
@@ -15,6 +16,7 @@ import {
   CONFIG_HEALTH,
   HEALTH_DETAILED,
   EXPORT_COMMERCE_DATA,
+  WORKFLOW_CANCEL,
   WORKFLOW_CLEAR_ALL,
 } from './utils/microservicePaths';
 
@@ -115,6 +117,39 @@ function AdminUI() {
       notifyUser('Failed to purge history', 'danger');
     } finally {
       setPurging(false);
+    }
+  };
+
+  const handleCancel = async (sessionId, name) => {
+    const ok = await confirm({
+      title: 'Cancel this session?',
+      message: `Session "${name || sessionId}" will be marked as cancelled. Work already written to Liferay is not undone - use Delete Commerce Data for that.`,
+      confirmText: 'Cancel Session',
+      destructive: true,
+    });
+
+    if (!ok) return;
+
+    try {
+      const res = await api.get(
+        WORKFLOW_CANCEL.replace(':sessionId', sessionId)
+      );
+
+      if (res?.success) {
+        notifyUser('Session cancelled');
+      } else {
+        // tryCancelSession changes nothing when the session already finished,
+        // which is worth saying rather than reporting a success.
+        notifyUser(
+          res?.error || 'Session could not be cancelled - it may have finished',
+          'warning'
+        );
+      }
+
+      fetchData();
+    } catch (err) {
+      console.error('Failed to cancel session:', err);
+      notifyUser('Failed to cancel session', 'danger');
     }
   };
 
@@ -548,6 +583,25 @@ function AdminUI() {
                                 {new Date(s.created_at).toLocaleString()}
                               </ClayTable.Cell>
                               <ClayTable.Cell className="text-right">
+                                {isCancellable(s.status) && (
+                                  <ClayButton
+                                    displayType="unstyled"
+                                    size="sm"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      handleCancel(
+                                        s.session_id,
+                                        unescapeHtml(s.session_name)
+                                      );
+                                    }}
+                                    title="Cancel session"
+                                  >
+                                    <ClayIcon
+                                      symbol="times-circle"
+                                      className="mr-1 text-danger"
+                                    />
+                                  </ClayButton>
+                                )}
                                 {s.flow_type !== 'delete' && (
                                   <ClayButton
                                     displayType="unstyled"
