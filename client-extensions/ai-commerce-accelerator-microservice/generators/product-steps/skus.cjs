@@ -8,6 +8,9 @@ const {
 } = require('../../utils/misc.cjs');
 const { ERC_PREFIX, WORKFLOW_STEPS } = require('../../utils/constants.cjs');
 const { toOptionValues } = require('../../utils/optionValues.cjs');
+const {
+  reconcileOptionFieldType,
+} = require('../../utils/optionFieldTypes.cjs');
 
 /**
  * Liferay's Sku.price / promoPrice / cost accept any number >= 0. The AI
@@ -160,19 +163,44 @@ async function runLinkProductOptionsStep(sessionId) {
         const isGenerateVariants =
           session.context?.options?.generateSkuVariants;
 
+        // Liferay Headless Commerce API (v1.0) expects 'productOptionValues'
+        const sourceValues = opt.productOptionValues || opt.values || [];
+
+        // The same rule ensure-options satisfies applies again here, against
+        // CPDefinitionOptionRel rather than CPOption, and is enforced by a
+        // different exception: CPDefinitionOptionSKUContributorException. It
+        // reaches us as a bare 500 - Liferay answers
+        // {"status":"INTERNAL_SERVER_ERROR"} and keeps the reason in its own
+        // log - so the pair has to be right before it is sent.
+        const reconciled = reconcileOptionFieldType({
+          fieldType: opt.fieldType,
+          skuContributor: opt.skuContributor,
+          valueCount: sourceValues.length,
+          allowSkuContribution: isGenerateVariants !== false,
+        });
+
+        if (reconciled.adjusted) {
+          this.logger.debug(
+            `Adjusted option '${key}' to satisfy Liferay's SKU contributor rule`,
+            {
+              sessionId,
+              requestedFieldType: opt.fieldType,
+              fieldType: reconciled.fieldType,
+              skuContributor: reconciled.skuContributor,
+              valueCount: sourceValues.length,
+            }
+          );
+        }
+
         // HARDENING: Strict DTO Mapping (No Ghost Properties)
         const cleanOpt = {
           optionId: opt.optionId,
           key: key,
           name: name,
-          fieldType: opt.fieldType,
+          fieldType: reconciled.fieldType,
           required: opt.required || false,
-          skuContributor:
-            isGenerateVariants === false ? false : opt.skuContributor || false,
+          skuContributor: reconciled.skuContributor,
         };
-
-        // Liferay Headless Commerce API (v1.0) expects 'productOptionValues'
-        const sourceValues = opt.productOptionValues || opt.values || [];
 
         if (sourceValues.length > 0) {
           // Shared with ensure-options: the AI sends plain strings, Liferay
