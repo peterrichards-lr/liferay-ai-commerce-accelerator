@@ -100,7 +100,7 @@ describe('AI Providers', () => {
       ).rejects.toThrow(/unparseable JSON/i);
     });
 
-    it('should generate an image using dall-e-3', async () => {
+    it('should generate an image with the current image model', async () => {
       let requestBody;
       server.use(
         http.post(
@@ -121,9 +121,83 @@ describe('AI Providers', () => {
       );
 
       expect(result).toBe('base64image');
-      expect(requestBody.model).toBe('dall-e-3');
+      expect(requestBody.model).toBe('gpt-image-2');
       expect(requestBody.prompt).toContain('Product');
       expect(requestBody.prompt).toContain('cartoon');
+
+      // The gpt-image family rejects this parameter outright, on the new
+      // models and on the retired dall-e ones alike: 400 "Unknown parameter:
+      // 'response_format'". Sending it failed every image run, not an
+      // unusual one.
+      expect(requestBody.response_format).toBeUndefined();
+    });
+
+    it('maps a dall-e quality onto one the image model accepts', async () => {
+      let requestBody;
+      server.use(
+        http.post(
+          'https://api.openai.com/v1/images/generations',
+          async ({ request }) => {
+            requestBody = await request.json();
+            return HttpResponse.json({ data: [{ b64_json: 'base64image' }] });
+          }
+        )
+      );
+
+      // 'standard' is what normalize.cjs defaults to, and the image model
+      // accepts only low, medium, high and auto - so the default itself was
+      // invalid.
+      await provider.generateImage(
+        { name: { en_US: 'Product' } },
+        { credentials: { apiKey: 'key' }, imageQuality: 'standard' }
+      );
+
+      expect(requestBody.quality).toBe('medium');
+    });
+
+    it('leaves an unrecognised quality to the provider rather than downgrading it', async () => {
+      let requestBody;
+      server.use(
+        http.post(
+          'https://api.openai.com/v1/images/generations',
+          async ({ request }) => {
+            requestBody = await request.json();
+            return HttpResponse.json({ data: [{ b64_json: 'base64image' }] });
+          }
+        )
+      );
+
+      await provider.generateImage(
+        { name: { en_US: 'Product' } },
+        { credentials: { apiKey: 'key' }, imageQuality: 'ultra-fancy' }
+      );
+
+      expect(requestBody.quality).toBe('auto');
+    });
+
+    it('rounds the requested size to something the API will accept', async () => {
+      let requestBody;
+      server.use(
+        http.post(
+          'https://api.openai.com/v1/images/generations',
+          async ({ request }) => {
+            requestBody = await request.json();
+            return HttpResponse.json({ data: [{ b64_json: 'base64image' }] });
+          }
+        )
+      );
+
+      // Both dimensions must be divisible by 16 or the API returns 400.
+      await provider.generateImage(
+        { name: { en_US: 'Product' } },
+        {
+          credentials: { apiKey: 'key' },
+          imageWidth: 1000,
+          imageHeight: 700,
+        }
+      );
+
+      expect(requestBody.size).toBe('1008x704');
     });
 
     it('should validate credentials successfully', async () => {
