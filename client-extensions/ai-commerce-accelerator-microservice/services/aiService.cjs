@@ -431,7 +431,41 @@ class AIService {
           const chunkItems = Array.isArray(chunkResult)
             ? chunkResult
             : chunkResult?.products || [];
+
+          // A chunk whose response has an unexpected shape falls through to []
+          // and silently loses every item in it - 50 requested arriving as 40
+          // with nothing in the log to say so. Report what each chunk actually
+          // returned, and say plainly when it is short.
+          if (chunkItems.length !== chunkCount) {
+            logger?.warn?.(
+              `[AIService] Product chunk ${i + 1}/${chunks.length} returned ${chunkItems.length} of ${chunkCount} requested items`,
+              {
+                chunkIndex: i + 1,
+                requested: chunkCount,
+                received: chunkItems.length,
+                resultShape: Array.isArray(chunkResult)
+                  ? 'array'
+                  : chunkResult && typeof chunkResult === 'object'
+                    ? Object.keys(chunkResult).join(',') || 'empty-object'
+                    : typeof chunkResult,
+                correlationId,
+              }
+            );
+          }
+
           allProducts.push(...chunkItems);
+        }
+
+        if (allProducts.length !== count) {
+          logger?.warn?.(
+            `[AIService] Product generation delivered ${allProducts.length} of ${count} requested products`,
+            {
+              requested: count,
+              delivered: allProducts.length,
+              shortfall: count - allProducts.length,
+              correlationId,
+            }
+          );
         }
 
         return allProducts;
