@@ -25,9 +25,9 @@ You must return a JSON object that conforms to the provided JSON schema: a singl
   - value: object of multilingual specification values keyed by language code ({{languageCodesCSV}}).
 - options: array of 2–3 product option objects that are contextually appropriate for {{category}} products. Each option object must have:
   - name: string option name (for example "Color", "Size").
-  - fieldType: string, one of: "checkbox", "checkbox_multiple", "date", "numeric", "radio", "select", "select_date", "text".
+  - fieldType: string, one of: "checkbox", "checkbox_multiple", "numeric", "radio", "select", "text". Do NOT use "date" or "select_date".
   - skuContributor: boolean, set to true ONLY for options that define unique physical variants (e.g. Color, Size).
-  - productOptionValues: array of string values (for example ["Black", "Silver"]). IMPORTANT: This array must be EMPTY for "numeric", "text", and "date" field types. For "select_date", values should be date strings (e.g. "2026-05-01").
+  - productOptionValues: array of string values (for example ["Black", "Silver"]). IMPORTANT: This array must be EMPTY for the "numeric" and "text" field types.
 - skuVariants: array of variant SKU objects generated from meaningful combinations of the options. Limit to 8–12 variants per product. Each variant object must have:
   - sku: string composed from baseSku plus variant codes (for example "PRODUCT-001-BLK-L").
   - options: object mapping option names to selected values (for example {"color": "Black", "size": "Large"}). IMPORTANT: You MUST provide a value for EVERY option defined in the "options" array, even if it is not a skuContributor.
@@ -60,4 +60,4 @@ IMPORTANT rules:
 - Return the array inside the "products" property of a single top-level object, exactly as the provided JSON schema requires. Do not return a bare array, and do not add any other top-level property.
 - Do NOT include explanations, comments, markdown, or backticks. Return raw JSON only.
 - SKU Activation: For a SKU to be "Active" in Liferay, it MUST have an assigned value for EVERY option that is defined on the product. Ensure "skuVariants" objects include all options.
-- Option Values: Predefined values ("productOptionValues" array) are only for "select", "radio", "checkbox", "checkbox_multiple", and "select_date". Do not provide them for "numeric", "text", or "date".
+- Option Values: Predefined values ("productOptionValues" array) are only for "select", "radio", "checkbox" and "checkbox_multiple". Do not provide them for "numeric" or "text".
