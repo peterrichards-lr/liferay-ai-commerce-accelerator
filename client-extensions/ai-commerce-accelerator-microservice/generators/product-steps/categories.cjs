@@ -215,7 +215,23 @@ async function runEnsureCategoriesStep(sessionId) {
         }
       }
 
-      pd.categories = [categoryId];
+      // Assigned only when it resolved. Assigning an undefined id put
+      // `[undefined]` on the product, which became `[{}]` in the payload and
+      // cost the whole item. See #651.
+      if (
+        categoryId === null ||
+        categoryId === undefined ||
+        categoryId === ''
+      ) {
+        this.logger.warn(
+          `Could not resolve a Liferay category for '${categoryName}'; the product will be created without one`,
+          { sessionId, productERC: pd.externalReferenceCode }
+        );
+        pd.categories = [];
+      } else {
+        pd.categories = [categoryId];
+      }
+
       processedCount++;
     }
 

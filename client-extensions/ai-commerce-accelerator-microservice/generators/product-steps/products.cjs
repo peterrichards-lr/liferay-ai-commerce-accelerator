@@ -41,7 +41,18 @@ async function runProductCreationStep(sessionId) {
           },
         },
         externalReferenceCode: pd.externalReferenceCode,
-        categories: (pd.categories || []).map((catId) => ({ id: catId })),
+        // `{ id: undefined }` serialises to `{}`, which Liferay rejects for the
+        // whole product - "/categories/0 must have required property 'id'".
+        // One unresolved category therefore lost the entire item, and the
+        // error Liferay reported was DuplicateCPSpecificationOptionKeyException,
+        // which pointed somewhere else entirely. A product with no category is
+        // worth more than no product. See #651.
+        categories: (pd.categories || [])
+          .map((category) =>
+            category && typeof category === 'object' ? category.id : category
+          )
+          .filter((id) => id !== null && id !== undefined && id !== '')
+          .map((id) => ({ id })),
         // HARDENING: Establishing indirect channel relationship at creation
         productChannels: [
           {
