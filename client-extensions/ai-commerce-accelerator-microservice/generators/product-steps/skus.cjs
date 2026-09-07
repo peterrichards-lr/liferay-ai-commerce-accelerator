@@ -1,6 +1,7 @@
 const {
   delay,
   createERC,
+  fromI18n,
   sanitizeForERC,
   toI18n,
   resolveErrorReference,
@@ -288,26 +289,58 @@ async function runProductSkusStep(sessionId) {
             };
 
             if (v.options) {
+              // A name may arrive as a plain string or as an i18n object, and
+              // String({en_US: 'Black'}) sanitises to nothing useful, so both
+              // sides go through fromI18n before they are compared.
+              const label = (value) =>
+                sanitizeForERC(
+                  typeof value === 'string' ? value : fromI18n(value) || ''
+                );
+
+              const unresolved = [];
+
               sku.skuOptions = Object.entries(v.options)
                 .map(([optName, valName]) => {
                   const optMeta = (pd.productOptions || pd.options || []).find(
-                    (o) =>
-                      sanitizeForERC(o.name) === sanitizeForERC(optName) ||
-                      o.key === optName
+                    (o) => label(o.name) === label(optName) || o.key === optName
                   );
 
                   const valMeta = (optMeta?.optionValuesWithIds || []).find(
-                    (vMeta) =>
-                      sanitizeForERC(vMeta.name) ===
-                      sanitizeForERC(String(valName))
+                    (vMeta) => label(vMeta.name) === label(valName)
                   );
 
                   return {
                     optionId: optMeta?.optionId || 0,
                     optionValueId: valMeta?.optionValueId || 0,
+                    _requested: `${optName}=${String(valName)}`,
                   };
                 })
-                .filter((o) => o.optionId > 0);
+                .filter((o) => {
+                  // The filter used to test optionId alone, so an entry whose
+                  // value had not resolved went out as optionValueId 0. There
+                  // is no option value 0: Liferay rejected the insert with
+                  // ConstraintViolationException and lost the whole batch of
+                  // SKUs. A SKU without one option link is worth more than no
+                  // SKU at all.
+                  const usable = o.optionId > 0 && o.optionValueId > 0;
+
+                  if (!usable) {
+                    unresolved.push(o._requested);
+                  }
+
+                  return usable;
+                })
+                .map(({ optionId, optionValueId }) => ({
+                  optionId,
+                  optionValueId,
+                }));
+
+              if (unresolved.length > 0) {
+                this.logger.warn(
+                  `SKU ${v.sku}: dropped ${unresolved.length} option link${unresolved.length === 1 ? '' : 's'} that did not resolve to a Liferay option value`,
+                  { sessionId, sku: v.sku, unresolved }
+                );
+              }
             }
             return sku;
           });
