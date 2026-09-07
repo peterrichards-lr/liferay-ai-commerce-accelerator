@@ -2,7 +2,7 @@ Generate realistic product data for {{count}} {{category}} products with multili
 
 {{brandGuidance}}
 
-You must return a JSON array that conforms to the provided JSON schema. Each element in the array must be one product object with exactly the following properties:
+You must return a JSON object that conforms to the provided JSON schema: a single "products" property whose value is an array. Each element of that array must be one product object with exactly the following properties:
 
 - name: object of multilingual product names keyed by language code ({{languageCodesCSV}}). Example structure: {{languageCodesNamePairs}}. Values are human-friendly product names.
 - description: object of multilingual, detailed marketing descriptions keyed by language code.
@@ -57,7 +57,7 @@ IMPORTANT rules:
 - For urls, derive each value from the corresponding name: lowercase, spaces replaced by hyphens, remove characters that are not URL-friendly.
 - Do NOT include any properties on the product objects other than:
   name, description, shortDescription, urls, baseSku, productType, skus, specifications, options, skuVariants, images, attachments, metaDescription, metaKeyword, metaTitle, externalReferenceCode, priceEntries, category, allowBackOrder, active.
-- Do NOT wrap the array in an outer object (no "products" property). Return a JSON array only.
+- Return the array inside the "products" property of a single top-level object, exactly as the provided JSON schema requires. Do not return a bare array, and do not add any other top-level property.
 - Do NOT include explanations, comments, markdown, or backticks. Return raw JSON only.
 - SKU Activation: For a SKU to be "Active" in Liferay, it MUST have an assigned value for EVERY option that is defined on the product. Ensure "skuVariants" objects include all options.
 - Option Values: Predefined values ("productOptionValues" array) are only for "select", "radio", "checkbox", "checkbox_multiple", and "select_date". Do not provide them for "numeric", "text", or "date".
