@@ -5,6 +5,8 @@ import ClayCard from '@clayui/card';
 import { useApi } from '../../context/AppContext';
 import { WORKFLOW_EVENTS, LOGS_SESSION } from '../../utils/microservicePaths';
 import StatusBadge from './StatusBadge';
+import { formatDuration, sessionDurationMs } from '../../utils/sessionDuration';
+import { isCancellable } from '../../utils/sessionStatus';
 
 function SessionDetailModal({ session, onClose }) {
   const api = useApi();
@@ -159,6 +161,32 @@ function SessionDetailModal({ session, onClose }) {
                 </div>
                 <div className="font-weight-semi-bold">
                   {new Date(session.created_at).toLocaleString()}
+                </div>
+              </div>
+            </div>
+
+            <div className="row mb-4">
+              <div className="col-md-4">
+                <div className="small text-secondary font-weight-bold mb-1 text-uppercase">
+                  {isCancellable(session.status) ? 'RUNNING FOR' : 'DURATION'}
+                </div>
+                <div className="font-weight-semi-bold">
+                  {formatDuration(sessionDurationMs(session))}
+                </div>
+              </div>
+              <div className="col-md-8">
+                <div className="small text-secondary font-weight-bold mb-1 text-uppercase">
+                  {isCancellable(session.status) ? 'LAST ACTIVITY' : 'ENDED'}
+                </div>
+                <div
+                  className="font-weight-semi-bold"
+                  // No end timestamp is recorded, so a finished session's last
+                  // write stands in for when it ended. See utils/sessionDuration.
+                  title="Derived from the session's last update; no explicit end timestamp is recorded"
+                >
+                  {session.updated_at
+                    ? new Date(session.updated_at).toLocaleString()
+                    : '—'}
                 </div>
               </div>
             </div>
