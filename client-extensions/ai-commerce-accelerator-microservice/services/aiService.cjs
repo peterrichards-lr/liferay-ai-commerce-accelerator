@@ -243,7 +243,14 @@ class AIService {
           ? `\n\nThe JSON output must conform to the following schema:\n\n${JSON.stringify(schema)}`
           : ''
       }`;
-      const fullPromptText = `${systemInstruction}\n\n${prompt}`;
+
+      // Appended when a previous attempt failed schema validation, so a retry
+      // is a correction rather than the same request sent again. Placed after
+      // the prompt so it is the last thing the model reads. See #633.
+      const feedback = requestConfig?.validationFeedback;
+      const effectivePrompt = feedback ? `${prompt}\n\n${feedback}` : prompt;
+
+      const fullPromptText = `${systemInstruction}\n\n${effectivePrompt}`;
       const estimatedTokens = estimateTokens(fullPromptText, runtime.model);
       const limit = parseInt(process.env.AICA_MAX_TOKEN_LIMIT, 10) || 15000;
 
@@ -263,7 +270,7 @@ class AIService {
 
       const parsed = await provider.generateJSON(
         task,
-        prompt,
+        effectivePrompt,
         {
           ...runtime,
           maxTokens: effectiveMaxTokens,
