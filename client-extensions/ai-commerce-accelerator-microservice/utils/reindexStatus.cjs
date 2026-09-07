@@ -21,12 +21,12 @@ const OK = 'OK';
 const ENDPOINT_MISSING = 'ENDPOINT_MISSING';
 const FAILED = 'FAILED';
 
-const ENDPOINT_PATH = '/o/aica-reindex';
+const ENDPOINT_PATH = '/o/search-reindex';
 
 const MISSING_MESSAGE =
   `The reindex endpoint (${ENDPOINT_PATH}) is not available, so generated ` +
   'content has not been indexed and may not appear in the storefront. The ' +
-  'aica-reindex OSGi module is probably not deployed.';
+  'search-reindex OSGi module is probably not deployed.';
 
 let last = { state: NOT_ATTEMPTED, message: null, at: null, detail: null };
 

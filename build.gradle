@@ -76,7 +76,9 @@ tasks.named('yarnInstall') {
 // the same symbolic name and different versions is a duplicate-bundle conflict,
 // and the deploy directory is never cleaned on our behalf.
 ext.sharedOsgiBundles = [
+	"com.liferay.custom.client.extension.entry",
 	"com.liferay.custom.commerce.site.type",
+	"com.liferay.custom.search.reindex",
 ]
 
 task downloadSharedOsgiModules (type: DefaultTask)

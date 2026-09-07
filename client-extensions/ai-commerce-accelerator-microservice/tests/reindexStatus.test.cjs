@@ -78,7 +78,7 @@ describe('reindex status', () => {
 
       expect(message).toMatch(/not available/);
       expect(message).toMatch(/may not appear in the storefront/);
-      expect(message).toMatch(/aica-reindex OSGi module/);
+      expect(message).toMatch(/search-reindex OSGi module/);
     });
 
     it('returns to healthy after a success', () => {

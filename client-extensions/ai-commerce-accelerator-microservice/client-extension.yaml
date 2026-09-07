@@ -22,12 +22,27 @@ ai-commerce-accelerator-microservice:
     - Liferay.Headless.Commerce.Admin.Pricing.everything
     - Liferay.Headless.Delivery.everything
     - c_aicaconfiguration.everything
-    # Needed to call the reindex endpoint provided by the aica-reindex OSGi
+    # Needed to call the reindex endpoint provided by the search-reindex OSGi
     # module. Liferay scope-checks any JAX-RS application that declares no
     # oauth2.scope.checker.type, so without this the call is rejected with a
     # 403 before it reaches the module. The endpoint is POST-only, so the write
     # scope is sufficient. See #626.
-    - AICA.Reindex.everything.write
+    #
+    # Formerly AICA.Reindex.everything.write. The module moved out of AICA into
+    # the shared modules repository and its names were made generic, so the
+    # scope follows osgi.jaxrs.name Custom.Search.Reindex.
+    - Custom.Search.Reindex.everything.write
+    # Read the portlet id Liferay composes for a client extension, provided by
+    # the client-extension-entry module. No Liferay API outside the portal JVM
+    # publishes it: GraphQL's ClientExtension type carries only
+    # clientExtensionConfig and externalReferenceCode, and the id is assembled
+    # at deploy time rather than stored. GET only, so the read scope is enough.
+    # Derived from osgi.jaxrs.name Custom.Client.Extension.Entry.
+    #
+    # A missing grant here presents as a 403 with an empty body; a 403 with a
+    # JSON body means the scope is fine and the caller lacks the Liferay
+    # permission instead. See #660.
+    - Custom.Client.Extension.Entry.everything.read
     # Read a commerce channel's B2B/B2C/B2X site type, provided by the
     # commerce-site-type module from liferay-custom-osgi-modules. The endpoint
     # is GET-only, so the read scope is sufficient. Derived from the
