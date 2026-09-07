@@ -6,6 +6,7 @@ const {
   resolveErrorReference,
 } = require('../../utils/misc.cjs');
 const { ERC_PREFIX, WORKFLOW_STEPS } = require('../../utils/constants.cjs');
+const { toOptionValues } = require('../../utils/optionValues.cjs');
 
 const S = WORKFLOW_STEPS;
 
@@ -148,14 +149,14 @@ async function runLinkProductOptionsStep(sessionId) {
         const sourceValues = opt.productOptionValues || opt.values || [];
 
         if (sourceValues.length > 0) {
-          cleanOpt.productOptionValues = sourceValues.map((val) => {
-            const valName =
-              typeof val.name === 'string' ? { en_US: val.name } : val.name;
-            return {
-              key: val.key || sanitizeForERC(valName?.en_US || valName || val),
-              name: valName,
-            };
-          });
+          // Shared with ensure-options: the AI sends plain strings, Liferay
+          // requires { key, name }. Reading `val.name` gave undefined for a
+          // string, so Liferay rejected the whole option with
+          // "productOptionValues[0].name must not be null". See #653.
+          cleanOpt.productOptionValues = toOptionValues(
+            sourceValues,
+            sanitizeForERC
+          );
         }
 
         return cleanOpt;

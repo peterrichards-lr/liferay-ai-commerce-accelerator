@@ -9,6 +9,7 @@ const {
 } = require('../../utils/misc.cjs');
 const { ERC_PREFIX, WORKFLOW_STEPS } = require('../../utils/constants.cjs');
 const { COMMERCE_CONSTRAINTS } = require('../../utils/commerceConstants.cjs');
+const { toOptionValues } = require('../../utils/optionValues.cjs');
 
 const S = WORKFLOW_STEPS;
 
@@ -284,31 +285,8 @@ async function runEnsureOptionsStep(sessionId) {
         // 400 "optionValues[0].name must not be null", and the run dies at
         // ensure-options. Both shapes are accepted now, because the prompt is
         // editable and an operator may well supply objects. See #648.
-        optionData.optionValues = sourceValues
-          .map((value) => {
-            const label =
-              typeof value === 'string'
-                ? value
-                : value?.name?.en_US || value?.name || value?.key || '';
-
-            const name =
-              typeof label === 'string' ? { en_US: label } : label || null;
-
-            // A value with no label cannot be named, and Liferay requires a
-            // name - so drop it rather than sending a null and losing every
-            // other value on the option with it.
-            if (!name || !name.en_US) {
-              return null;
-            }
-
-            return {
-              key:
-                (typeof value === 'object' && value?.key) ||
-                sanitizeForERC(name.en_US),
-              name,
-            };
-          })
-          .filter(Boolean);
+        // Shared with link-product-options, so the two cannot drift.
+        optionData.optionValues = toOptionValues(sourceValues, sanitizeForERC);
       }
 
       const liferayOption = await this.liferay.createOptionWithReuse(
