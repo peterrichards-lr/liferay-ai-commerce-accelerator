@@ -144,9 +144,17 @@ class OpenAIProvider extends BaseAIProvider {
   async generateImage(product, options) {
     const client = await this._getClient(options.credentials);
 
+    // Asked only for a professional product photograph, the model reproduces
+    // what those look like - which is branded. A verification image for a
+    // torque wrench came back with TEKTON stamped on the shaft and plausible
+    // spec markings. This output becomes demo data in a customer-facing
+    // instance and in .ldmp packages, so the brand has to be excluded here
+    // rather than noticed later. See #641.
     const prompt = `A high-quality, professional product photograph of a ${
       product.name?.en_US || product.name
-    }. Style: ${options.imageStyle || 'photographic'} on a clean background.`;
+    }. Style: ${
+      options.imageStyle || 'photographic'
+    } on a clean background. The product must be generic and unbranded: no logos, no brand names, no visible text, lettering or numbering of any kind on the product or the background.`;
 
     const response = await client.images.generate({
       model: IMAGE_MODEL,
