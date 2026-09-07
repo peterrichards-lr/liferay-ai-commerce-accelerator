@@ -187,17 +187,65 @@ describe('AI Providers', () => {
         )
       );
 
-      // Both dimensions must be divisible by 16 or the API returns 400.
+      // Both dimensions must be divisible by 16 or the API returns 400, and
+      // neither may fall below the model's minimum pixel budget.
       await provider.generateImage(
         { name: { en_US: 'Product' } },
         {
           credentials: { apiKey: 'key' },
-          imageWidth: 1000,
-          imageHeight: 700,
+          imageWidth: 2000,
+          imageHeight: 1500,
         }
       );
 
-      expect(requestBody.size).toBe('1008x704');
+      expect(requestBody.size).toBe('2000x1504');
+    });
+
+    it('raises a size below the minimum pixel budget to the floor', async () => {
+      // The configuration UI defaults both dimensions to 512, which gpt-image-2
+      // rejects with "Requested resolution is below the current minimum pixel
+      // budget" - so the default configuration produced no images at all.
+      let requestBody;
+      server.use(
+        http.post(
+          'https://api.openai.com/v1/images/generations',
+          async ({ request }) => {
+            requestBody = await request.json();
+            return HttpResponse.json({ data: [{ b64_json: 'base64image' }] });
+          }
+        )
+      );
+
+      await provider.generateImage(
+        { name: { en_US: 'Product' } },
+        {
+          credentials: { apiKey: 'key' },
+          imageWidth: 512,
+          imageHeight: 512,
+        }
+      );
+
+      expect(requestBody.size).toBe('1024x1024');
+    });
+
+    it('falls back to the minimum when no size is given', async () => {
+      let requestBody;
+      server.use(
+        http.post(
+          'https://api.openai.com/v1/images/generations',
+          async ({ request }) => {
+            requestBody = await request.json();
+            return HttpResponse.json({ data: [{ b64_json: 'base64image' }] });
+          }
+        )
+      );
+
+      await provider.generateImage(
+        { name: { en_US: 'Product' } },
+        { credentials: { apiKey: 'key' } }
+      );
+
+      expect(requestBody.size).toBe('1024x1024');
     });
 
     it('should validate credentials successfully', async () => {

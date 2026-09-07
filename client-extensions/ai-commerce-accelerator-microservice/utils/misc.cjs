@@ -71,6 +71,25 @@ function toERCPart(str, max = 12) {
   return cleaned ? cleaned.slice(0, max) : 'NA';
 }
 
+/**
+ * Produces a specification key that survives Liferay's own lookup.
+ *
+ * Liferay resolves an existing specification with
+ * `FriendlyURLNormalizerUtil.normalize(specificationKey)` but persists the key
+ * verbatim when it creates one (ProductSpecificationUtil). A key that is not
+ * already normalized is therefore stored raw, never matched on the next lookup,
+ * and re-created - which fails with DuplicateCPSpecificationOptionKeyException.
+ * Emitting an already-normalized key makes the normalize step a no-op.
+ */
+function normalizeSpecificationKey(str) {
+  if (!str) return 'spec';
+  const normalized = String(str)
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '');
+  return normalized || 'spec';
+}
+
 function sanitizeForERC(str, { max = 12, preserveUnderscore = false } = {}) {
   if (!str) return 'NA';
   const s = String(str).toUpperCase();
@@ -485,6 +504,7 @@ module.exports = {
   isoToday,
   isValidUrl,
   normalizeNumber,
+  normalizeSpecificationKey,
   now,
   parseDataUrl,
   randomDateBetween,

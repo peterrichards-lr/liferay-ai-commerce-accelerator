@@ -1,4 +1,9 @@
-const { createERC } = require('../utils/misc.cjs');
+const {
+  buildKeyedERC,
+  createERC,
+  normalizeSpecificationKey,
+} = require('../utils/misc.cjs');
+const { ERC_PREFIX } = require('../utils/constants.cjs');
 const { estimateTokens } = require('../utils/tokenEstimator.cjs');
 
 describe('Misc Utilities', () => {
@@ -46,6 +51,93 @@ describe('Misc Utilities', () => {
       const text = 'hello world standard estimation fallback';
       const count = estimateTokens(text, 'invalid-unsupported-model-name');
       expect(count).toBe(10);
+    });
+  });
+
+  describe('normalizeSpecificationKey', () => {
+    // Liferay looks a specification up by
+    // FriendlyURLNormalizerUtil.normalize(specificationKey) but stores the key
+    // verbatim when it creates one, so an un-normalized key is created raw,
+    // never matched again, and re-created - which fails with
+    // DuplicateCPSpecificationOptionKeyException.
+    it("produces keys that are stable under Liferay's normalization", () => {
+      const normalizeLikeLiferay = (value) =>
+        String(value)
+          .toLowerCase()
+          .replace(/[^a-z0-9]+/g, '-')
+          .replace(/^-+|-+$/g, '');
+
+      for (const input of [
+        'Frame_Material',
+        'frameMaterial',
+        'FRAMEMATERIAL',
+        'Brand Name',
+        'weight (kg)',
+        'Screen  Size--',
+      ]) {
+        const key = normalizeSpecificationKey(input);
+        expect(normalizeLikeLiferay(key)).toBe(key);
+      }
+    });
+
+    it('is idempotent', () => {
+      const once = normalizeSpecificationKey('Frame_Material');
+      expect(normalizeSpecificationKey(once)).toBe(once);
+      expect(once).toBe('frame-material');
+    });
+
+    it('falls back to a usable key for empty input', () => {
+      expect(normalizeSpecificationKey('')).toBe('spec');
+      expect(normalizeSpecificationKey(undefined)).toBe('spec');
+      expect(normalizeSpecificationKey('!!!')).toBe('spec');
+    });
+  });
+
+  describe('buildKeyedERC compound prefixes (regression)', () => {
+    // sanitizeForERC strips non-alphanumerics, so a hyphenated prefix has to
+    // be declared compound or it is silently welded together. An option ERC of
+    // 'AICAOPT-...' no longer matches the 'AICA-' prefix the deletion crawl
+    // filters on, so the record could never be discovered or deleted and
+    // accumulated on every run.
+    it('keeps the hyphen in a compound prefix', () => {
+      const erc = buildKeyedERC({
+        prefix: ERC_PREFIX.OPTION,
+        category: 'OPT',
+        key: 'SIZE',
+        prefixIsCompound: true,
+      });
+
+      expect(erc.startsWith('AICA-OPT-')).toBe(true);
+      expect(erc.startsWith('AICA-')).toBe(true);
+    });
+
+    it('welds a compound prefix when not told, which is the bug', () => {
+      const erc = buildKeyedERC({
+        prefix: ERC_PREFIX.OPTION,
+        category: 'OPT',
+        key: 'SIZE',
+      });
+
+      expect(erc.startsWith('AICAOPT')).toBe(true);
+      expect(erc.startsWith('AICA-')).toBe(false);
+    });
+
+    it('every AICA prefix stays discoverable when declared compound', () => {
+      for (const prefix of [
+        ERC_PREFIX.OPTION,
+        ERC_PREFIX.OPTION_CATEGORY,
+        ERC_PREFIX.SPECIFICATION,
+        ERC_PREFIX.SPECIFICATION_CATEGORY,
+      ]) {
+        const erc = buildKeyedERC({
+          prefix,
+          category: 'CAT',
+          key: 'KEY',
+          prefixIsCompound: true,
+        });
+
+        expect(erc.startsWith('AICA-')).toBe(true);
+      }
     });
   });
 });

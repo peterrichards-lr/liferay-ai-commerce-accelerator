@@ -402,8 +402,54 @@ class GenerationFacade {
   /**
    * Ensures the data structure is standardized for BaseGenerator._normalize.
    */
+  /**
+   * Warns when generated data arrives in Liferay's shape rather than the AI's.
+   *
+   * `options`/`specifications` are what the generation schemas declare and the
+   * prompts ask for; `productOptions`/`productSpecifications` are what
+   * Liferay's API takes, produced downstream by the product step. Thirteen
+   * read sites accept either name, which is how the mock generator emitted the
+   * translated shape for a long time without anyone noticing - and because
+   * `productOptions` is not a schema property and the product item permits
+   * additional properties, the whole field passed unvalidated.
+   *
+   * Detected in one place rather than by rewriting all thirteen reads, which
+   * would be a large change for no behavioural gain. This only makes the
+   * divergence audible. See #652.
+   */
+  _warnOnTranslatedShape(data, entityType) {
+    if (entityType !== 'product') {
+      return;
+    }
+
+    const items = Array.isArray(data) ? data : data?.products;
+
+    if (!Array.isArray(items)) {
+      return;
+    }
+
+    const legacy = ['productOptions', 'productSpecifications'].filter((field) =>
+      items.some((item) => item && item[field] !== undefined)
+    );
+
+    if (legacy.length > 0) {
+      this.logger.warn(
+        'Generated product data uses Liferay field names rather than the ' +
+          'generation schema names; these are not schema-validated',
+        {
+          expected: legacy.map((field) =>
+            field === 'productOptions' ? 'options' : 'specifications'
+          ),
+          found: legacy,
+        }
+      );
+    }
+  }
+
   _standardize(data, entityType) {
     if (!data) return data;
+
+    this._warnOnTranslatedShape(data, entityType);
 
     // If we have an entityType, check if it's a wrapped object containing the array,
     // e.g. { warehouses: [...] } for entityType === 'warehouse'.

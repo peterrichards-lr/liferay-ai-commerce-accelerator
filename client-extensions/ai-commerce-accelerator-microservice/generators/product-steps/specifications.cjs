@@ -2,6 +2,7 @@ const {
   createERC,
   buildKeyedERC,
   buildSpecificationERC,
+  normalizeSpecificationKey,
   sanitizeForERC,
   toI18n,
   fromI18n,
@@ -9,6 +10,7 @@ const {
 } = require('../../utils/misc.cjs');
 const { ERC_PREFIX, WORKFLOW_STEPS } = require('../../utils/constants.cjs');
 const { COMMERCE_CONSTRAINTS } = require('../../utils/commerceConstants.cjs');
+const { toOptionValues } = require('../../utils/optionValues.cjs');
 
 const S = WORKFLOW_STEPS;
 
@@ -24,10 +26,15 @@ async function runEnsureSpecificationCategoriesStep(sessionId) {
   try {
     // For now, we ensure a default "General" specification category exists
     const defaultCategory = {
+      // prefixIsCompound keeps the hyphen in 'AICA-OPT-CAT'. Without it
+      // sanitizeForERC strips it to 'AICAOPTCAT', which no longer matches the
+      // 'AICA-' prefix the deletion crawl looks for, so the record becomes
+      // undeletable and accumulates on every run.
       externalReferenceCode: buildKeyedERC({
         prefix: ERC_PREFIX.OPTION_CATEGORY,
         category: 'SPC',
         key: 'general',
+        prefixIsCompound: true,
       }),
       key: 'general',
       name: { en_US: 'General' },
@@ -104,7 +111,9 @@ async function runEnsureSpecificationsStep(sessionId) {
         product.productSpecifications || product.specifications || [];
       for (const spec of specs) {
         if (spec.specificationKey) {
-          specMap.set(spec.specificationKey, spec);
+          // Defensive: keys are normalized at generation time, but any other
+          // route into this step must agree with what Liferay will look up.
+          specMap.set(normalizeSpecificationKey(spec.specificationKey), spec);
         }
       }
     }
@@ -157,11 +166,18 @@ async function runEnsureSpecificationsStep(sessionId) {
           const productSpecs =
             product.productSpecifications || product.specifications || [];
           for (const pSpec of productSpecs) {
-            const pKey =
-              pSpec.specificationKey ||
-              sanitizeForERC(pSpec.label?.en_US || pSpec.label);
+            const pKey = normalizeSpecificationKey(
+              pSpec.specificationKey || pSpec.label?.en_US || pSpec.label
+            );
             if (pKey === key) {
+              pSpec.specificationKey = key;
               pSpec.specificationId = liferaySpec.id;
+              // Liferay's key lookup is unreliable (it normalizes on read and
+              // stores raw on write); the ERC lookup it falls back to is not.
+              if (liferaySpec.externalReferenceCode) {
+                pSpec.specificationExternalReferenceCode =
+                  liferaySpec.externalReferenceCode;
+              }
             }
           }
         }
@@ -252,10 +268,13 @@ async function runEnsureOptionsStep(sessionId) {
       const sourceOpt = optionMap.get(key);
 
       const optionData = {
+        // See the note above: 'AICA-OPT' must survive as 'AICA-OPT', not
+        // 'AICAOPT', or the option cannot be discovered for deletion.
         externalReferenceCode: buildKeyedERC({
           prefix: ERC_PREFIX.OPTION,
           category: 'OPT',
           key: key,
+          prefixIsCompound: true,
         }),
         key: key,
         name:
@@ -278,13 +297,14 @@ async function runEnsureOptionsStep(sessionId) {
           optionData.fieldType?.toLowerCase()
         )
       ) {
-        optionData.optionValues = sourceValues.map((v) => {
-          const vName = typeof v.name === 'string' ? { en_US: v.name } : v.name;
-          return {
-            key: v.key || sanitizeForERC(vName?.en_US || vName || v),
-            name: vName,
-          };
-        });
+        // The prompt asks for `productOptionValues` as an array of plain
+        // strings - `["Black", "Silver"]` - while this read `v.name`, which is
+        // undefined for a string. Liferay then rejects the whole option with
+        // 400 "optionValues[0].name must not be null", and the run dies at
+        // ensure-options. Both shapes are accepted now, because the prompt is
+        // editable and an operator may well supply objects. See #648.
+        // Shared with link-product-options, so the two cannot drift.
+        optionData.optionValues = toOptionValues(sourceValues, sanitizeForERC);
       }
 
       const liferayOption = await this.liferay.createOptionWithReuse(

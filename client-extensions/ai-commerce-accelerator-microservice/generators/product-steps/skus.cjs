@@ -6,6 +6,32 @@ const {
   resolveErrorReference,
 } = require('../../utils/misc.cjs');
 const { ERC_PREFIX, WORKFLOW_STEPS } = require('../../utils/constants.cjs');
+const { toOptionValues } = require('../../utils/optionValues.cjs');
+
+/**
+ * Liferay's Sku.price / promoPrice / cost accept any number >= 0. The AI
+ * generates skus[].price and skuVariants[].price, but the payload used to drop
+ * them, so every SKU was created with no price at all. That left the catalog's
+ * base price list showing 0.00 and, because order items resolve
+ * `sku.price || ...`, every order total came out as zero.
+ */
+function priceFields(source = {}, fallback = {}) {
+  const fields = {};
+
+  for (const name of ['price', 'promoPrice', 'cost']) {
+    const value = Number(
+      source[name] !== undefined && source[name] !== null
+        ? source[name]
+        : fallback[name]
+    );
+
+    if (Number.isFinite(value) && value >= 0) {
+      fields[name] = value;
+    }
+  }
+
+  return fields;
+}
 
 const S = WORKFLOW_STEPS;
 
@@ -148,14 +174,14 @@ async function runLinkProductOptionsStep(sessionId) {
         const sourceValues = opt.productOptionValues || opt.values || [];
 
         if (sourceValues.length > 0) {
-          cleanOpt.productOptionValues = sourceValues.map((val) => {
-            const valName =
-              typeof val.name === 'string' ? { en_US: val.name } : val.name;
-            return {
-              key: val.key || sanitizeForERC(valName?.en_US || valName || val),
-              name: valName,
-            };
-          });
+          // Shared with ensure-options: the AI sends plain strings, Liferay
+          // requires { key, name }. Reading `val.name` gave undefined for a
+          // string, so Liferay rejected the whole option with
+          // "productOptionValues[0].name must not be null". See #653.
+          cleanOpt.productOptionValues = toOptionValues(
+            sourceValues,
+            sanitizeForERC
+          );
         }
 
         return cleanOpt;
@@ -258,6 +284,7 @@ async function runProductSkusStep(sessionId) {
               published: true,
               purchasable: true,
               skuOptions: [],
+              ...priceFields(v, (pd.skus || [])[0] || {}),
             };
 
             if (v.options) {
@@ -291,6 +318,7 @@ async function runProductSkusStep(sessionId) {
             externalReferenceCode: s.externalReferenceCode || s.sku,
             published: true,
             purchasable: true,
+            ...priceFields(s),
           }));
         }
 

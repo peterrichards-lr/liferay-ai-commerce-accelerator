@@ -2,12 +2,11 @@ Generate {{pricingType}} pricing data for the provided products.
 
 Products: {{=json:productListJSON}}
 
+{{brandGuidance}}
+
 Return a single JSON object with the following structure:
 {
 "priceListName": "A descriptive name for the price list",
-{% if brandName %}
-LIFERAY CONTEXT: This price list is for products belonging to the brand "{{brandName}}".
-{% endif %}
 "priceEntries": [
 {
 "sku": "The product SKU",
@@ -25,9 +24,7 @@ LIFERAY CONTEXT: This price list is for products belonging to the brand "{{brand
 
 For {{pricingType}} pricing, generate:
 
-{% if groundingMetadata and groundingMetadata.currencies %}
-LIFERAY CONTEXT: Please use the following active currency for all price entries: {{ groundingMetadata.currencies | map(attribute='code') | join(', ') }}.
-{% endif %}
+{{currencyGuidance}}
 
 - A descriptive `priceListName`.
 - A `priceEntries` array for each product SKU.

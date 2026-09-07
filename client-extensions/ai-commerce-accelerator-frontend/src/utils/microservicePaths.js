@@ -33,6 +33,7 @@ const WORKFLOW_KPIS = `${BASE_PATH}/workflows/kpis`;
 const WORKFLOW_BATCHES = `${BASE_PATH}/workflows/batches/:sessionId`;
 const WORKFLOW_STATUS = `${BASE_PATH}/workflows/sessions/:sessionId/status`;
 const WORKFLOW_EVENTS = `${BASE_PATH}/workflows/sessions/:sessionId/events`;
+const WORKFLOW_CANCEL = `${BASE_PATH}/workflows/sessions/:sessionId/cancel`;
 const WORKFLOW_CLEAR_ALL = `${BASE_PATH}/workflows/clear-all`;
 
 const LOGS_DOWNLOAD = `${BASE_PATH}/logs/download`;
@@ -61,6 +62,7 @@ export {
   HEALTH,
   HEALTH_DETAILED,
   GENERATE_WORKFLOW,
+  WORKFLOW_CANCEL,
   WORKFLOW_SESSIONS,
   COMPLETED_WORKFLOW_SESSIONS,
   WORKFLOW_KPIS,

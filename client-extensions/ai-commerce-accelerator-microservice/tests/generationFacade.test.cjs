@@ -302,6 +302,39 @@ describe('GenerationFacade null-optional repair', () => {
       '/accounts/0/shippingAddress',
       '/accounts/0/taxId',
     ]);
+
+    // taxId is genuinely optional, so dropping its null is the whole repair.
+    // The addresses are required - complete demo data needs them - so removing
+    // their nulls leaves the account short rather than valid, and the run
+    // retries instead of shipping accounts with no address.
+    expect(validate(payload)).toBe(false);
+    expect(
+      validate.errors.map((e) => e.params?.missingProperty).filter(Boolean)
+    ).toEqual(
+      expect.arrayContaining([
+        'headOfficeAddress',
+        'billingAddress',
+        'shippingAddress',
+      ])
+    );
+  });
+
+  it('validates an account once its addresses are populated', () => {
+    const validate = compile('account.json');
+    const payload = personAccount();
+    const address = {
+      addressCountry: 'Spain',
+      addressLocality: 'Madrid',
+      addressRegion: 'Madrid',
+      postalCode: '28001',
+      streetAddressLine1: 'Calle de Alcala 1',
+    };
+
+    delete payload.accounts[0].taxId;
+    payload.accounts[0].headOfficeAddress = { ...address };
+    payload.accounts[0].billingAddress = { ...address };
+    payload.accounts[0].shippingAddress = { ...address };
+
     expect(validate(payload)).toBe(true);
   });
 

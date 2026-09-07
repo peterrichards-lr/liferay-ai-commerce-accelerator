@@ -1,5 +1,7 @@
 Generate logical user segments and target commerce promotions for the provided products and B2B accounts.
 
+{{brandGuidance}}
+
 Products: {{=json:productListJSON}}
 Accounts: {{=json:accountListJSON}}
 

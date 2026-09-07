@@ -11,12 +11,22 @@ const {
 const { createERC } = require('../utils/misc.cjs');
 const { modelProviderIssue } = require('../utils/modelCatalog.cjs');
 const { apiKeyIssue } = require('../utils/apiKeys.cjs');
+
+// Extra generation rounds allowed to close a shortfall. Two is enough for the
+// nine-instead-of-ten case without turning a stubborn model into a cost sink.
+const TOPUP_ATTEMPTS = 2;
+const { resolveMediaProvider } = require('../utils/providerCapabilities.cjs');
 const { ERC_PREFIX } = require('../utils/constants.cjs');
 const { estimateTokens } = require('../utils/tokenEstimator.cjs');
 const {
+  accountGeography,
+  accountTypeGuidance,
   brandGuidance,
   currencyGuidance,
+  languageGuidance,
+  orderDateGuidance,
   vocabularyGuidance,
+  warehouseGeography,
 } = require('../utils/promptContext.cjs');
 
 class AIService {
@@ -126,7 +136,14 @@ class AIService {
     const aiCfg = (await config.getAIConfig(requestConfig)) || {};
 
     const provider = aiCfg.provider || 'openai';
+    // Raw value, kept because 'inherit' also means "reuse the core API key".
     const mediaProvider = aiCfg.mediaProvider || provider;
+    // The provider actually asked for images. 'inherit' is a configuration
+    // sentinel, not a provider name, so it must never reach the factory.
+    const effectiveMediaProvider = resolveMediaProvider(
+      provider,
+      aiCfg.mediaProvider
+    );
 
     const apiKey =
       requestConfig?.aiApiKey ||
@@ -183,10 +200,7 @@ class AIService {
       throw err;
     }
 
-    const mediaKeyIssue = apiKeyIssue(
-      mediaProvider === 'inherit' ? provider : mediaProvider,
-      mediaApiKey
-    );
+    const mediaKeyIssue = apiKeyIssue(effectiveMediaProvider, mediaApiKey);
 
     if (mediaKeyIssue) {
       const err = new Error(mediaKeyIssue);
@@ -209,7 +223,7 @@ class AIService {
 
     return {
       provider,
-      mediaProvider,
+      mediaProvider: effectiveMediaProvider,
       credentials: { apiKey },
       mediaCredentials: { apiKey: mediaApiKey },
       model,
@@ -328,6 +342,10 @@ class AIService {
           2
         ),
         groundingMetadata: options.groundingMetadata || null,
+        brandGuidance: brandGuidance(
+          options.brandName,
+          "The generated document should reflect this brand's voice and style."
+        ),
       };
 
       const promptContent = await prompt.render('pdf', vars, requestConfig);
@@ -426,10 +444,114 @@ class AIService {
           const chunkItems = Array.isArray(chunkResult)
             ? chunkResult
             : chunkResult?.products || [];
+
+          // A chunk whose response has an unexpected shape falls through to []
+          // and silently loses every item in it - 50 requested arriving as 40
+          // with nothing in the log to say so. Report what each chunk actually
+          // returned, and say plainly when it is short.
+          if (chunkItems.length !== chunkCount) {
+            logger?.warn?.(
+              `[AIService] Product chunk ${i + 1}/${chunks.length} returned ${chunkItems.length} of ${chunkCount} requested items`,
+              {
+                chunkIndex: i + 1,
+                requested: chunkCount,
+                received: chunkItems.length,
+                resultShape: Array.isArray(chunkResult)
+                  ? 'array'
+                  : chunkResult && typeof chunkResult === 'object'
+                    ? Object.keys(chunkResult).join(',') || 'empty-object'
+                    : typeof chunkResult,
+                correlationId,
+              }
+            );
+          }
+
           allProducts.push(...chunkItems);
         }
 
-        return allProducts;
+        // The model routinely returns nine when asked for ten, so a chunked
+        // run lands short however firmly the prompt insists. Ask again for
+        // just the shortfall rather than accepting it: a request for fifty
+        // products should produce fifty.
+        const productKey = (product) =>
+          String(
+            product?.baseSku ||
+              product?.externalReferenceCode ||
+              product?.name?.en_US ||
+              product?.name ||
+              ''
+          )
+            .trim()
+            .toLowerCase();
+
+        const seenProducts = new Set(allProducts.map(productKey));
+
+        for (
+          let attempt = 1;
+          allProducts.length < count && attempt <= TOPUP_ATTEMPTS;
+          attempt++
+        ) {
+          const shortfall = count - allProducts.length;
+          // Never ask for more than one chunk: a larger request re-enters this
+          // same chunking branch, which tops up again, and the rounds multiply.
+          const ask = Math.min(shortfall, effectiveChunkSize);
+
+          logger?.info?.(
+            `[AIService] Topping up ${ask} of ${shortfall} missing product${shortfall === 1 ? '' : 's'} (attempt ${attempt}/${TOPUP_ATTEMPTS})`,
+            { requested: count, have: allProducts.length, correlationId }
+          );
+
+          const topUpCategory = categoriesList[attempt % categoriesList.length];
+          const topUpResult = await this.generateProductData(
+            topUpCategory,
+            ask,
+            requestConfig,
+            model,
+            selectedLanguages,
+            { ...options, categories: [topUpCategory] }
+          );
+
+          const topUpItems = Array.isArray(topUpResult)
+            ? topUpResult
+            : topUpResult?.products || [];
+
+          // A repeat of something already generated is worse than a shortfall:
+          // duplicate names and base SKUs collide on import.
+          let added = 0;
+
+          for (const product of topUpItems) {
+            if (allProducts.length >= count) break;
+
+            const key = productKey(product);
+
+            if (!key || seenProducts.has(key)) continue;
+
+            seenProducts.add(key);
+            allProducts.push(product);
+            added++;
+          }
+
+          logger?.debug?.(
+            `[AIService] Top-up attempt ${attempt} added ${added} of ${topUpItems.length} returned`,
+            { correlationId }
+          );
+
+          if (added === 0) break;
+        }
+
+        if (allProducts.length !== count) {
+          logger?.warn?.(
+            `[AIService] Product generation delivered ${allProducts.length} of ${count} requested products`,
+            {
+              requested: count,
+              delivered: allProducts.length,
+              shortfall: count - allProducts.length,
+              correlationId,
+            }
+          );
+        }
+
+        return allProducts.slice(0, count);
       }
 
       const vars = {
@@ -482,6 +604,7 @@ class AIService {
         // were inert and leaked into the prompt. See #643.
         brandGuidance: brandGuidance(options.brandName),
         currencyGuidance: currencyGuidance(options.groundingMetadata),
+        languageGuidance: languageGuidance(options.groundingMetadata),
         vocabularyGuidance: vocabularyGuidance(options.groundingMetadata),
       };
 
@@ -642,6 +765,19 @@ class AIService {
         languageCodesCSV: languageCodes.join(', '),
         geographicContext: options.geographicContext || null,
         groundingMetadata: options.groundingMetadata || null,
+        languageGuidance: languageGuidance(options.groundingMetadata),
+        brandGuidance: brandGuidance(
+          options.brandName,
+          'These accounts are potential customers or business partners for ' +
+            'this brand.'
+        ),
+        accountTypeGuidance: accountTypeGuidance({
+          accountType: options.accountType,
+          categories: categories.join(', '),
+          count,
+          pluralSuffix: pluralize(count),
+        }),
+        ...accountGeography(options.geographicContext),
         accountType,
       };
 
@@ -770,6 +906,12 @@ class AIService {
         languageCodesCSV: languageCodes.join(', '),
         groundingMetadata: options.groundingMetadata || null,
         orderDateRangeDays: Number(options.orderDateRangeDays) || 0,
+        languageGuidance: languageGuidance(options.groundingMetadata),
+        brandGuidance: brandGuidance(
+          options.brandName,
+          'These orders represent business transactions with this brand.'
+        ),
+        orderDateGuidance: orderDateGuidance(options.orderDateRangeDays),
       };
 
       const promptContent = await prompt.render('order', vars, requestConfig);
@@ -874,6 +1016,8 @@ class AIService {
         languageCodesCSV: languageCodes.join(', '),
         geographicContext: options.geographicContext || null,
         groundingMetadata: options.groundingMetadata || null,
+        languageGuidance: languageGuidance(options.groundingMetadata),
+        ...warehouseGeography(options.geographicContext),
       };
 
       const promptContent = await prompt.render(
@@ -1077,6 +1221,11 @@ class AIService {
         productListJSON: JSON.stringify(productList, null, 2),
         ...pricingHints(pricingType),
         groundingMetadata: options.groundingMetadata || null,
+        brandGuidance: brandGuidance(
+          options.brandName,
+          'This price list is for products belonging to this brand.'
+        ),
+        currencyGuidance: currencyGuidance(options.groundingMetadata),
       };
 
       const promptContent = await prompt.render('pricing', vars, requestConfig);
@@ -1112,7 +1261,7 @@ class AIService {
   async generatePromoData(
     products = [],
     accounts = [],
-    _options = {},
+    options = {},
     requestConfig = {}
   ) {
     const { logger, prompt } = this.ctx;
@@ -1132,8 +1281,17 @@ class AIService {
       }));
 
       const vars = {
+        brandName: options.brandName || '',
         productListJSON: JSON.stringify(productList, null, 2),
         accountListJSON: JSON.stringify(accountList, null, 2),
+        // The promo prompt received no brand context at all - the options were
+        // passed in and discarded - so segment and promotion names had nothing
+        // to anchor to.
+        brandGuidance: brandGuidance(
+          options.brandName,
+          'Ensure segment descriptions, promotion names and targeting logic ' +
+            'reflect this brand.'
+        ),
       };
 
       const promptContent = await prompt.render('promo', vars, requestConfig);

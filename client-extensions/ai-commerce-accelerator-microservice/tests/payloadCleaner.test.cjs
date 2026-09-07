@@ -85,4 +85,39 @@ describe('Payload Cleaner (Strict ID Guard)', () => {
     expect(result[1]).not.toHaveProperty('productId');
     expect(result[2].productId).toBe(888);
   });
+
+  describe('category references (regression)', () => {
+    it('keeps the id on nested category references', () => {
+      // Liferay resolves categories by id alone and rejects the whole product
+      // with "categories/0 must have required property 'id'" without it.
+      const result = deepCleanIds({
+        externalReferenceCode: 'AICA-PRD-1',
+        id: 999,
+        categories: [{ id: 34236 }],
+      });
+      expect(result).not.toHaveProperty('id');
+      expect(result.categories).toEqual([{ id: 34236 }]);
+    });
+
+    it('drops category references whose id was never resolved', () => {
+      const result = deepCleanIds({
+        categories: [{ id: 34236 }, { id: 0 }, { id: null }, {}],
+      });
+      expect(result.categories).toEqual([{ id: 34236 }]);
+    });
+
+    it('still strips ids from other nested objects', () => {
+      const result = deepCleanIds({
+        categories: [{ id: 34236 }],
+        skus: [{ id: 40000, sku: 'S1' }],
+      });
+      expect(result.categories).toEqual([{ id: 34236 }]);
+      expect(result.skus).toEqual([{ sku: 'S1' }]);
+    });
+
+    it('does not leave empty objects in arrays', () => {
+      const result = deepCleanIds({ skus: [{ id: 40000 }, { sku: 'S1' }] });
+      expect(result.skus).toEqual([{ sku: 'S1' }]);
+    });
+  });
 });

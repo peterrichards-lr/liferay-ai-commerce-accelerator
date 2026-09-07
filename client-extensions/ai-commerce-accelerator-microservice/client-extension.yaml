@@ -8,6 +8,11 @@ ai-commerce-accelerator-microservice:
   name: Liferay AI Commerce Accelerator OAuth Application Headless Server
   scopes:
     - Liferay.Headless.Admin.User.everything
+    # The ensure-categories step reads vocabularies and creates categories, so
+    # the write scope is required rather than read. Without it the step fails
+    # with "GraphQL Errors in taxonomyVocabularies ... HTTP 403 Forbidden" and
+    # the session dies before any product is generated. See #646.
+    - Liferay.Headless.Admin.Taxonomy.everything
     - Liferay.Headless.Batch.Engine.everything.read
     - Liferay.Headless.Admin.Address.everything
     - Liferay.Headless.Commerce.Admin.Catalog.everything
@@ -38,6 +43,11 @@ ai-commerce-accelerator-microservice-user-agent:
   name: Liferay AI Commerce Accelerator OAuth Application User Agent
   scopes:
     - Liferay.Headless.Admin.User.everything
+    # The ensure-categories step reads vocabularies and creates categories, so
+    # the write scope is required rather than read. Without it the step fails
+    # with "GraphQL Errors in taxonomyVocabularies ... HTTP 403 Forbidden" and
+    # the session dies before any product is generated. See #646.
+    - Liferay.Headless.Admin.Taxonomy.everything
     - Liferay.Headless.Batch.Engine.everything.read
     - Liferay.Headless.Admin.Address.everything
     - Liferay.Headless.Commerce.Admin.Catalog.everything

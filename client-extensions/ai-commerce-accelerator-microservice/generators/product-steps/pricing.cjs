@@ -453,12 +453,31 @@ async function _ensurePriceLists(
   ];
 
   if (generateNewLists) {
+    // This cleanup exists to remove lists left by EARLIER runs. It matches on
+    // name, but every pricing step calls _ensurePriceLists, so matching on name
+    // alone also matched the list the previous step created moments ago -
+    // create-bulk-pricing deleted create-price-lists' list, then
+    // create-tier-pricing deleted create-bulk-pricing's, each taking its price
+    // entries with it. Only the last step's entries survived, which is why base
+    // prices were missing while promotions (linked to account groups) were fine.
+    // The templates' ERCs encode the sessionId, so they identify this run's own
+    // lists exactly.
+    const ownERCs = new Set(PRICE_LIST_TEMPLATES.map((t) => t.erc));
+
     try {
       const { items: existingLists } = await this.liferay.getPriceLists(
         config,
         { catalogId }
       );
       for (const pl of existingLists || []) {
+        if (ownERCs.has(pl.externalReferenceCode)) {
+          this.logger.debug(
+            `Reusing this session's price list: ${pl.name} (${pl.id})`,
+            { sessionId }
+          );
+          continue;
+        }
+
         if (
           pl.name === `AICA - Standard Prices (${catalogId})` ||
           pl.name === `AICA - Promotions (${catalogId})`

@@ -283,9 +283,74 @@ describe('AIService (Multi-Provider)', () => {
       { categories: ['Laptops', 'Phones'] }
     );
 
-    // 25 items with chunkSize 10 should produce 3 chunks (10, 10, 5)
+    // 25 items with chunkSize 10 should produce 3 chunks (10, 10, 5), then one
+    // top-up round for the shortfall - capped at a single chunk, so it cannot
+    // recurse back into chunking. The mock returns the same two products every
+    // call, so the top-up finds nothing new and stops rather than spending a
+    // second attempt.
+    expect(chatJsonSpy).toHaveBeenCalledTimes(4);
+    expect(result.length).toBe(6); // 2 items per mock call * 3 chunk calls
+  });
+
+  it('tops up a short product run with the missing items', async () => {
+    vi.spyOn(aiService, 'getRuntimeAIConfig').mockResolvedValue({
+      chunkSize: 10,
+    });
+
+    let call = 0;
+    const chatJsonSpy = vi
+      .spyOn(aiService, '_chatJson')
+      .mockImplementation(async () => {
+        call++;
+        // Nine where ten were asked for, which is what the model actually does.
+        return Array.from({ length: 9 }, (_, i) => ({
+          name: { en_US: `Product ${call}-${i}` },
+          baseSku: `SKU-${call}-${i}`,
+        }));
+      });
+
+    const result = await aiService.generateProductData(
+      'Electronics',
+      20,
+      {},
+      'gpt-4o',
+      ['en-US'],
+      { categories: ['Laptops'] }
+    );
+
+    // Two chunks of nine is eighteen, so a top-up round runs and the result is
+    // trimmed to exactly what was asked for.
     expect(chatJsonSpy).toHaveBeenCalledTimes(3);
-    expect(result.length).toBe(6); // 2 items per mock call * 3 calls
+    expect(result.length).toBe(20);
+
+    const keys = result.map((p) => p.baseSku);
+    expect(new Set(keys).size).toBe(20);
+  });
+
+  it('does not exceed the requested count when the model is generous', async () => {
+    vi.spyOn(aiService, 'getRuntimeAIConfig').mockResolvedValue({
+      chunkSize: 10,
+    });
+
+    let call = 0;
+    vi.spyOn(aiService, '_chatJson').mockImplementation(async () => {
+      call++;
+      return Array.from({ length: 15 }, (_, i) => ({
+        name: { en_US: `Product ${call}-${i}` },
+        baseSku: `SKU-${call}-${i}`,
+      }));
+    });
+
+    const result = await aiService.generateProductData(
+      'Electronics',
+      20,
+      {},
+      'gpt-4o',
+      ['en-US'],
+      { categories: ['Laptops'] }
+    );
+
+    expect(result.length).toBe(20);
   });
 
   it('should chunk account generation when count exceeds chunkSizes.account', async () => {
@@ -573,5 +638,78 @@ describe('AIService mixed account ratio', () => {
     });
 
     expect(requests).toEqual([{ count: 4, accountType: 'person' }]);
+  });
+});
+
+describe("AIService media provider 'inherit'", () => {
+  // 'inherit' is a configuration sentinel meaning "use the core provider".
+  // Leaving it unresolved reached providerFactory and failed every image with
+  // "Unsupported AI provider: inherit" - after the products had been created.
+  const buildCtx = (aiConfig, mediaKey = 'sk-media-key') => ({
+    config: {
+      getAIConfig: vi.fn().mockResolvedValue(aiConfig),
+      getAIKey: vi.fn().mockResolvedValue('sk-core-key'),
+      getAIMediaKey: vi.fn().mockResolvedValue(mediaKey),
+      getAISchema: vi.fn().mockResolvedValue({ type: 'object' }),
+      getAIModelOptions: vi.fn().mockResolvedValue({ aiModelOptions: [] }),
+    },
+    logger: {
+      info: vi.fn(),
+      debug: vi.fn(),
+      error: vi.fn(),
+      trace: vi.fn(),
+      warn: vi.fn(),
+    },
+    prompt: { render: vi.fn() },
+  });
+
+  const runtimeFor = async (aiConfig, mediaKey) => {
+    const service = new AIService(buildCtx(aiConfig, mediaKey));
+    return service.getRuntimeAIConfig({});
+  };
+
+  it('resolves inherit to the core provider', async () => {
+    const runtime = await runtimeFor({
+      provider: 'openai',
+      mediaProvider: 'inherit',
+      defaultModel: 'gpt-4o',
+    });
+
+    expect(runtime.mediaProvider).toBe('openai');
+    expect(runtime.mediaProvider).not.toBe('inherit');
+  });
+
+  it('reuses the core API key when the media provider is inherited', async () => {
+    const runtime = await runtimeFor({
+      provider: 'openai',
+      mediaProvider: 'inherit',
+      defaultModel: 'gpt-4o',
+    });
+
+    expect(runtime.mediaCredentials.apiKey).toBe('sk-core-key');
+  });
+
+  it('keeps an explicitly chosen media provider', async () => {
+    // Nano Banana is in the Google key family, so it needs a Google-shaped
+    // key - apiKeyIssue would otherwise refuse to send an sk- key to it.
+    const runtime = await runtimeFor(
+      {
+        provider: 'openai',
+        mediaProvider: 'nanobanana',
+        defaultModel: 'gpt-4o',
+      },
+      'AIzaSyTestMediaKey'
+    );
+
+    expect(runtime.mediaProvider).toBe('nanobanana');
+  });
+
+  it('defaults to the core provider when none is configured', async () => {
+    const runtime = await runtimeFor({
+      provider: 'openai',
+      defaultModel: 'gpt-4o',
+    });
+
+    expect(runtime.mediaProvider).toBe('openai');
   });
 });

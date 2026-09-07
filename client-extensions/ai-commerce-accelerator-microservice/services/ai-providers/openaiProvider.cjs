@@ -32,6 +32,13 @@ function imageQuality(requested) {
   return IMAGE_QUALITY.get(key) || 'auto';
 }
 
+// gpt-image-2 rejects anything below its minimum pixel budget with
+// "400 Invalid size '512x512'. Requested resolution is below the current
+// minimum pixel budget." The configuration UI defaults to 512 (see
+// utils/normalize.cjs), so the floor has to be enforced here rather than
+// trusting the caller.
+const MIN_IMAGE_DIMENSION = 1024;
+
 /**
  * Both dimensions must be divisible by 16 - the API rejects anything else -
  * and the caller's width and height are free-form numbers.
@@ -39,10 +46,10 @@ function imageQuality(requested) {
 function imageSize(width, height) {
   const round = (value, fallback) => {
     const n = Number(value) || fallback;
-    return Math.max(256, Math.round(n / 16) * 16);
+    return Math.max(MIN_IMAGE_DIMENSION, Math.round(n / 16) * 16);
   };
 
-  return `${round(width, 1024)}x${round(height, 1024)}`;
+  return `${round(width, MIN_IMAGE_DIMENSION)}x${round(height, MIN_IMAGE_DIMENSION)}`;
 }
 
 class OpenAIProvider extends BaseAIProvider {

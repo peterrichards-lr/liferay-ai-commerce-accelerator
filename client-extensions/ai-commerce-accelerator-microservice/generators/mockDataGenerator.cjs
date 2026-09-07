@@ -595,10 +595,30 @@ class MockDataGenerator {
     _model = null,
     _selectedLanguages = ['en-US']
   ) {
-    return products.map((p) => ({
-      skuExternalReferenceCode: p.sku || p.skus?.[0]?.sku,
-      price: getRandomInt(10, 1000),
-    }));
+    // generation-schemas/pricing.json declares an object with required
+    // `priceListName` and `priceEntries`, each entry requiring sku, price,
+    // externalReferenceCode and skuExternalReferenceCode. This returned a bare
+    // array of two fields, satisfying none of it. The drift went unnoticed
+    // because nothing validated mock output against the generation schemas.
+    // See #652.
+    const priceEntries = products.map((product) => {
+      const sku = product.sku || product.skus?.[0]?.sku || 'AICA-SKU';
+      const price = getRandomInt(10, 1000);
+
+      return {
+        cost: Math.round(price * 0.6 * 100) / 100,
+        externalReferenceCode: `AICA-PE-${sku}`,
+        price,
+        promoPrice: null,
+        sku,
+        skuExternalReferenceCode: sku,
+      };
+    });
+
+    return {
+      priceEntries,
+      priceListName: 'AICA General Price List',
+    };
   }
 }
 

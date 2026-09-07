@@ -1,8 +1,6 @@
 Generate comprehensive PDF content for a {{category}} product named "{{productName}}".
 
-{% if brandName %}
-BRAND CONTEXT: This product belongs to the brand/company "{{brandName}}". The generated document should reflect this brand's voice and style.
-{% endif %}
+{{brandGuidance}}
 
 The focus of this document is: {{contentTypeLabel}}.
 
