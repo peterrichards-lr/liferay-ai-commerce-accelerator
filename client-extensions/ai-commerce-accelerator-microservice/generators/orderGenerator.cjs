@@ -5,37 +5,10 @@ const {
   resolveErrorReference,
 } = require('../utils/misc.cjs');
 const { ERC_PREFIX, WORKFLOW_STEPS } = require('../utils/constants.cjs');
-
-/**
- * Orders keep the external reference code the model supplied only when it is
- * usable and unique.
- *
- * The prompts illustrate the field with an example - "e.g. ORDER-SOLARA-001" -
- * and the model has been observed copying that example verbatim onto every
- * order. Liferay then rejects the whole batch with
- * `ConstraintViolationException: could not execute batch`, and the failure
- * names the constraint rather than the duplicate, so it reads as a platform
- * fault. Products avoid this by always generating their own code; orders have
- * to keep a supplied one so a re-import preserves identity, hence the
- * de-duplication rather than a blanket override.
- */
-function uniqueOrderERC(supplied, seen) {
-  const candidate = String(supplied || '').trim();
-
-  if (candidate && !seen.has(candidate)) {
-    seen.add(candidate);
-    return candidate;
-  }
-
-  let erc = createERC(ERC_PREFIX.ORDER);
-
-  while (seen.has(erc)) {
-    erc = createERC(ERC_PREFIX.ORDER);
-  }
-
-  seen.add(erc);
-  return erc;
-}
+const {
+  uniqueOrderERC,
+  withUniqueOrderERCs,
+} = require('../utils/orderErc.cjs');
 
 const {
   ANY,
@@ -234,7 +207,7 @@ class OrderGenerator extends BaseGenerator {
         session.context
       );
 
-      const orderDataList = await this.ctx.generation.generateData(
+      const generatedOrders = await this.ctx.generation.generateData(
         'order',
         options.orderCount,
         config,
@@ -244,6 +217,13 @@ class OrderGenerator extends BaseGenerator {
           accounts,
         }
       );
+
+      // The model is given an example - "e.g. ORD-001" - and has been observed
+      // copying it onto every order. Liferay then rejects the batch with
+      // ConstraintViolationException, which names the constraint rather than
+      // the duplicate. De-duplication was applied to the import path when that
+      // was found; this is the path a generated run actually takes.
+      const orderDataList = withUniqueOrderERCs(generatedOrders);
 
       await this.persistence.updateSessionContext(sessionId, {
         orderDataList,
