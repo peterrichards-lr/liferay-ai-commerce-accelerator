@@ -13,6 +13,11 @@ const { modelProviderIssue } = require('../utils/modelCatalog.cjs');
 const { apiKeyIssue } = require('../utils/apiKeys.cjs');
 const { ERC_PREFIX } = require('../utils/constants.cjs');
 const { estimateTokens } = require('../utils/tokenEstimator.cjs');
+const {
+  brandGuidance,
+  currencyGuidance,
+  vocabularyGuidance,
+} = require('../utils/promptContext.cjs');
 
 class AIService {
   constructor(ctx) {
@@ -464,6 +469,13 @@ class AIService {
             }`
             : '',
         groundingMetadata: options.groundingMetadata || null,
+
+        // Composed rather than branched in the template: promptService has no
+        // conditional or loop, so the `{% if %}` and `{% for %}` these replace
+        // were inert and leaked into the prompt. See #643.
+        brandGuidance: brandGuidance(options.brandName),
+        currencyGuidance: currencyGuidance(options.groundingMetadata),
+        vocabularyGuidance: vocabularyGuidance(options.groundingMetadata),
       };
 
       const promptContent = await prompt.render('product', vars, requestConfig);

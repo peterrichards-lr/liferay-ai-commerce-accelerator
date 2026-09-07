@@ -1,8 +1,6 @@
 Generate realistic product data for {{count}} {{category}} products with multilingual content for these languages: {{languageList}}.
 
-{% if brandName %}
-BRAND CONTEXT: These products are for the brand/company "{{brandName}}". Ensure that product names, descriptions, marketing copy, and specifications reflect this brand's identity and tone.
-{% endif %}
+{{brandGuidance}}
 
 You must return a JSON array that conforms to the provided JSON schema. Each element in the array must be one product object with exactly the following properties:
 
@@ -47,18 +45,9 @@ You must return a JSON array that conforms to the provided JSON schema. Each ele
 - metaKeyword: object of multilingual SEO keyword strings keyed by language code (comma-separated keywords per language).
 - metaTitle: object of multilingual SEO titles keyed by language code.
 - category: object of multilingual category names keyed by language code (for example {"en_US": "Electronics", "es_ES": "Electrónica"}).
-  {% if groundingMetadata and groundingMetadata.vocabularies %}
-  LIFERAY CONTEXT: You MUST categorize these products using the following existing Liferay vocabularies and categories:
-  {% for vocab in groundingMetadata.vocabularies %}
+  {{vocabularyGuidance}}
 
-- Vocabulary: "{{vocab.name}}"
-  Categories: {{ vocab.categories | map(attribute='name') | join(', ') }}
-  {% endfor %}
-  {% endif %}
-
-{% if groundingMetadata and groundingMetadata.currencies %}
-LIFERAY CONTEXT: When generating prices, please use one of the following active currencies: {{ groundingMetadata.currencies | map(attribute='code') | join(', ') }}.
-{% endif %}
+{{currencyGuidance}}
 
 - externalReferenceCode: string unique identifier for the product (for example "PRODUCT-001-1234567890").
 
