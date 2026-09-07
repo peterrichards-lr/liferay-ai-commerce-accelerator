@@ -1187,7 +1187,7 @@ class AIService {
   async generatePromoData(
     products = [],
     accounts = [],
-    _options = {},
+    options = {},
     requestConfig = {}
   ) {
     const { logger, prompt } = this.ctx;
@@ -1207,8 +1207,17 @@ class AIService {
       }));
 
       const vars = {
+        brandName: options.brandName || '',
         productListJSON: JSON.stringify(productList, null, 2),
         accountListJSON: JSON.stringify(accountList, null, 2),
+        // The promo prompt received no brand context at all - the options were
+        // passed in and discarded - so segment and promotion names had nothing
+        // to anchor to.
+        brandGuidance: brandGuidance(
+          options.brandName,
+          'Ensure segment descriptions, promotion names and targeting logic ' +
+            'reflect this brand.'
+        ),
       };
 
       const promptContent = await prompt.render('promo', vars, requestConfig);
