@@ -11,6 +11,10 @@ const {
 const { createERC } = require('../utils/misc.cjs');
 const { modelProviderIssue } = require('../utils/modelCatalog.cjs');
 const { apiKeyIssue } = require('../utils/apiKeys.cjs');
+
+// Extra generation rounds allowed to close a shortfall. Two is enough for the
+// nine-instead-of-ten case without turning a stubborn model into a cost sink.
+const TOPUP_ATTEMPTS = 2;
 const { resolveMediaProvider } = require('../utils/providerCapabilities.cjs');
 const { ERC_PREFIX } = require('../utils/constants.cjs');
 const { estimateTokens } = require('../utils/tokenEstimator.cjs');
@@ -465,6 +469,73 @@ class AIService {
           allProducts.push(...chunkItems);
         }
 
+        // The model routinely returns nine when asked for ten, so a chunked
+        // run lands short however firmly the prompt insists. Ask again for
+        // just the shortfall rather than accepting it: a request for fifty
+        // products should produce fifty.
+        const productKey = (product) =>
+          String(
+            product?.baseSku ||
+              product?.externalReferenceCode ||
+              product?.name?.en_US ||
+              product?.name ||
+              ''
+          )
+            .trim()
+            .toLowerCase();
+
+        const seenProducts = new Set(allProducts.map(productKey));
+
+        for (
+          let attempt = 1;
+          allProducts.length < count && attempt <= TOPUP_ATTEMPTS;
+          attempt++
+        ) {
+          const shortfall = count - allProducts.length;
+
+          logger?.info?.(
+            `[AIService] Topping up ${shortfall} product${shortfall === 1 ? '' : 's'} (attempt ${attempt}/${TOPUP_ATTEMPTS})`,
+            { requested: count, have: allProducts.length, correlationId }
+          );
+
+          const topUpCategory = categoriesList[attempt % categoriesList.length];
+          const topUpResult = await this.generateProductData(
+            topUpCategory,
+            shortfall,
+            requestConfig,
+            model,
+            selectedLanguages,
+            { ...options, categories: [topUpCategory] }
+          );
+
+          const topUpItems = Array.isArray(topUpResult)
+            ? topUpResult
+            : topUpResult?.products || [];
+
+          // A repeat of something already generated is worse than a shortfall:
+          // duplicate names and base SKUs collide on import.
+          let added = 0;
+
+          for (const product of topUpItems) {
+            if (allProducts.length >= count) break;
+
+            const key = productKey(product);
+
+            if (!key || seenProducts.has(key)) continue;
+
+            seenProducts.add(key);
+            allProducts.push(product);
+            added++;
+          }
+
+          logger?.debug?.(
+            `[AIService] Top-up attempt ${attempt} added ${added} of ${topUpItems.length} returned`,
+            { correlationId }
+          );
+
+          if (added === 0) break;
+        }
+
         if (allProducts.length !== count) {
           logger?.warn?.(
             `[AIService] Product generation delivered ${allProducts.length} of ${count} requested products`,
@@ -477,7 +548,7 @@ class AIService {
           );
         }
 
-        return allProducts;
+        return allProducts.slice(0, count);
       }
 
       const vars = {
