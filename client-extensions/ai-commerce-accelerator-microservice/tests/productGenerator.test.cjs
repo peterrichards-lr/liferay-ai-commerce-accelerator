@@ -1,4 +1,5 @@
 const ProductGenerator = require('../generators/productGenerator.cjs');
+const { COMMERCE_CONSTRAINTS } = require('../utils/commerceConstants.cjs');
 const { WORKFLOW_STEPS } = require('../utils/constants.cjs');
 
 describe('ProductGenerator Workflow Steps', () => {
@@ -286,6 +287,94 @@ describe('ProductGenerator Workflow Steps', () => {
       );
       expect(sentPayloads().filter((p) => p.productConfiguration)).toHaveLength(
         1
+      );
+    });
+  });
+
+  describe("Liferay's SKU contributor rule (regression)", () => {
+    // CPOptionLocalServiceImpl._validateCommerceOptionTypeKey swaps in
+    // CPConstants.PRODUCT_OPTION_SKU_CONTRIBUTOR_FIELD_TYPES - select,
+    // select_date, radio - whenever skuContributor is set, and throws
+    // CPOptionSKUContributorException for anything else. That surfaces as a
+    // bare "Failed to create option" and took the whole step down. Our own
+    // constant wrongly included checkbox and checkbox_multiple, and nothing
+    // compared the field type against the flag in any case.
+    const optionFrom = (option) => {
+      mockSession.context.productDataList = [
+        {
+          externalReferenceCode: 'ERC1',
+          name: { en_US: 'Product 1' },
+          description: { en_US: 'd' },
+          productOptions: [option],
+        },
+      ];
+    };
+
+    const sentOption = () =>
+      mockLiferay.createOptionWithReuse.mock.calls.at(-1)?.[1];
+
+    it('corrects a contributing option the platform would reject', async () => {
+      optionFrom({
+        key: 'size',
+        name: 'Size',
+        fieldType: 'checkbox',
+        skuContributor: true,
+        values: ['S', 'M'],
+      });
+
+      await productGenerator.steps[WORKFLOW_STEPS.ENSURE_OPTIONS]('sess-123');
+
+      const sent = sentOption();
+      expect(sent.skuContributor).toBe(true);
+      expect(COMMERCE_CONSTRAINTS.SKU_CONTRIBUTOR_FIELD_TYPES).toContain(
+        sent.fieldType
+      );
+    });
+
+    it('leaves an already valid contributing option alone', async () => {
+      optionFrom({
+        key: 'colour',
+        name: 'Colour',
+        fieldType: 'radio',
+        skuContributor: true,
+        values: ['Red'],
+      });
+
+      await productGenerator.steps[WORKFLOW_STEPS.ENSURE_OPTIONS]('sess-123');
+
+      expect(sentOption().fieldType).toBe('radio');
+      expect(sentOption().skuContributor).toBe(true);
+    });
+
+    it('stops an option with no values from claiming to define variants', async () => {
+      // Nothing to vary on, so the flag cannot be honoured whatever the type.
+      optionFrom({
+        key: 'engraving',
+        name: 'Engraving',
+        fieldType: 'text',
+        skuContributor: true,
+        values: [],
+      });
+
+      await productGenerator.steps[WORKFLOW_STEPS.ENSURE_OPTIONS]('sess-123');
+
+      expect(sentOption().skuContributor).toBe(false);
+      expect(sentOption().fieldType).toBe('text');
+    });
+
+    it('never sends a field type outside the OpenAPI list', async () => {
+      optionFrom({
+        key: 'mystery',
+        name: 'Mystery',
+        fieldType: 'not_a_real_type',
+        skuContributor: false,
+        values: [],
+      });
+
+      await productGenerator.steps[WORKFLOW_STEPS.ENSURE_OPTIONS]('sess-123');
+
+      expect(COMMERCE_CONSTRAINTS.VALID_FIELD_TYPES).toContain(
+        sentOption().fieldType
       );
     });
   });
