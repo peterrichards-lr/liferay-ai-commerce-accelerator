@@ -251,20 +251,28 @@ function accountTypeGuidance({
  * The order-date block. Without a range the model is told to use the current
  * date; with one it is asked to spread dates and include reorders.
  */
-function orderDateGuidance(orderDateRangeDays) {
+function orderDateGuidance(orderDateRangeDays, now = new Date()) {
   const days = Number(orderDateRangeDays) || 0;
+  const today = now.toISOString().slice(0, 10);
 
   if (days <= 0) {
     return (
       '- orderDate (ISO 8601 date-time string). Use the current date/time ' +
-      'for all orders.'
+      `for all orders. Today is ${today}.`
     );
   }
 
+  // The model has no idea what "now" is: asked for "the last 90 days" it has
+  // been observed returning 2023 dates. State the window explicitly.
+  const from = new Date(now.getTime() - days * 24 * 60 * 60 * 1000)
+    .toISOString()
+    .slice(0, 10);
+
   return [
     '- orderDate (ISO 8601 date-time string). Distribute order dates ' +
-      `realistically across the last ${days} days (from now back to ${days} ` +
-      'days ago) rather than clustering them all on the same date. Older ' +
+      `realistically across the last ${days} days - that is, between ` +
+      `${from} and ${today} inclusive, and never outside that window - ` +
+      'rather than clustering them all on the same date. Older ' +
       'orders should skew toward earlier in that window and more recent ' +
       'activity toward the end, so the set reads as genuine order history ' +
       'over time.',

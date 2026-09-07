@@ -5,6 +5,38 @@ const {
   resolveErrorReference,
 } = require('../utils/misc.cjs');
 const { ERC_PREFIX, WORKFLOW_STEPS } = require('../utils/constants.cjs');
+
+/**
+ * Orders keep the external reference code the model supplied only when it is
+ * usable and unique.
+ *
+ * The prompts illustrate the field with an example - "e.g. ORDER-SOLARA-001" -
+ * and the model has been observed copying that example verbatim onto every
+ * order. Liferay then rejects the whole batch with
+ * `ConstraintViolationException: could not execute batch`, and the failure
+ * names the constraint rather than the duplicate, so it reads as a platform
+ * fault. Products avoid this by always generating their own code; orders have
+ * to keep a supplied one so a re-import preserves identity, hence the
+ * de-duplication rather than a blanket override.
+ */
+function uniqueOrderERC(supplied, seen) {
+  const candidate = String(supplied || '').trim();
+
+  if (candidate && !seen.has(candidate)) {
+    seen.add(candidate);
+    return candidate;
+  }
+
+  let erc = createERC(ERC_PREFIX.ORDER);
+
+  while (seen.has(erc)) {
+    erc = createERC(ERC_PREFIX.ORDER);
+  }
+
+  seen.add(erc);
+  return erc;
+}
+
 const {
   ANY,
   eligibleOrderAccounts,
@@ -112,6 +144,9 @@ class OrderGenerator extends BaseGenerator {
       );
 
       let normalized;
+      // One registry for both the self-healing path and its fallback, so a
+      // duplicate cannot slip through whichever branch runs.
+      const seenOrderERCs = new Set();
       try {
         // Synchronously fetch real-time SQL-consistent products and SKUs from Liferay
         const { products } = await this.getProductsAndAccounts(
@@ -156,8 +191,10 @@ class OrderGenerator extends BaseGenerator {
 
           return {
             ...o,
-            externalReferenceCode:
-              o.externalReferenceCode || createERC(ERC_PREFIX.ORDER),
+            externalReferenceCode: uniqueOrderERC(
+              o.externalReferenceCode,
+              seenOrderERCs
+            ),
             orderItems,
           };
         });
@@ -168,8 +205,10 @@ class OrderGenerator extends BaseGenerator {
         );
         normalized = existingList.map((o) => ({
           ...o,
-          externalReferenceCode:
-            o.externalReferenceCode || createERC(ERC_PREFIX.ORDER),
+          externalReferenceCode: uniqueOrderERC(
+            o.externalReferenceCode,
+            seenOrderERCs
+          ),
         }));
       }
 
