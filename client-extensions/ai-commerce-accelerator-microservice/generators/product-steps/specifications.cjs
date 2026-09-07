@@ -26,10 +26,15 @@ async function runEnsureSpecificationCategoriesStep(sessionId) {
   try {
     // For now, we ensure a default "General" specification category exists
     const defaultCategory = {
+      // prefixIsCompound keeps the hyphen in 'AICA-OPT-CAT'. Without it
+      // sanitizeForERC strips it to 'AICAOPTCAT', which no longer matches the
+      // 'AICA-' prefix the deletion crawl looks for, so the record becomes
+      // undeletable and accumulates on every run.
       externalReferenceCode: buildKeyedERC({
         prefix: ERC_PREFIX.OPTION_CATEGORY,
         category: 'SPC',
         key: 'general',
+        prefixIsCompound: true,
       }),
       key: 'general',
       name: { en_US: 'General' },
@@ -263,10 +268,13 @@ async function runEnsureOptionsStep(sessionId) {
       const sourceOpt = optionMap.get(key);
 
       const optionData = {
+        // See the note above: 'AICA-OPT' must survive as 'AICA-OPT', not
+        // 'AICAOPT', or the option cannot be discovered for deletion.
         externalReferenceCode: buildKeyedERC({
           prefix: ERC_PREFIX.OPTION,
           category: 'OPT',
           key: key,
+          prefixIsCompound: true,
         }),
         key: key,
         name:

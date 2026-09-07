@@ -1,4 +1,9 @@
-const { createERC, normalizeSpecificationKey } = require('../utils/misc.cjs');
+const {
+  buildKeyedERC,
+  createERC,
+  normalizeSpecificationKey,
+} = require('../utils/misc.cjs');
+const { ERC_PREFIX } = require('../utils/constants.cjs');
 const { estimateTokens } = require('../utils/tokenEstimator.cjs');
 
 describe('Misc Utilities', () => {
@@ -85,6 +90,54 @@ describe('Misc Utilities', () => {
       expect(normalizeSpecificationKey('')).toBe('spec');
       expect(normalizeSpecificationKey(undefined)).toBe('spec');
       expect(normalizeSpecificationKey('!!!')).toBe('spec');
+    });
+  });
+
+  describe('buildKeyedERC compound prefixes (regression)', () => {
+    // sanitizeForERC strips non-alphanumerics, so a hyphenated prefix has to
+    // be declared compound or it is silently welded together. An option ERC of
+    // 'AICAOPT-...' no longer matches the 'AICA-' prefix the deletion crawl
+    // filters on, so the record could never be discovered or deleted and
+    // accumulated on every run.
+    it('keeps the hyphen in a compound prefix', () => {
+      const erc = buildKeyedERC({
+        prefix: ERC_PREFIX.OPTION,
+        category: 'OPT',
+        key: 'SIZE',
+        prefixIsCompound: true,
+      });
+
+      expect(erc.startsWith('AICA-OPT-')).toBe(true);
+      expect(erc.startsWith('AICA-')).toBe(true);
+    });
+
+    it('welds a compound prefix when not told, which is the bug', () => {
+      const erc = buildKeyedERC({
+        prefix: ERC_PREFIX.OPTION,
+        category: 'OPT',
+        key: 'SIZE',
+      });
+
+      expect(erc.startsWith('AICAOPT')).toBe(true);
+      expect(erc.startsWith('AICA-')).toBe(false);
+    });
+
+    it('every AICA prefix stays discoverable when declared compound', () => {
+      for (const prefix of [
+        ERC_PREFIX.OPTION,
+        ERC_PREFIX.OPTION_CATEGORY,
+        ERC_PREFIX.SPECIFICATION,
+        ERC_PREFIX.SPECIFICATION_CATEGORY,
+      ]) {
+        const erc = buildKeyedERC({
+          prefix,
+          category: 'CAT',
+          key: 'KEY',
+          prefixIsCompound: true,
+        });
+
+        expect(erc.startsWith('AICA-')).toBe(true);
+      }
     });
   });
 });

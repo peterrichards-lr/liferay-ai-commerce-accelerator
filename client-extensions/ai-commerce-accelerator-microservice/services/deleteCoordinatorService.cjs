@@ -194,6 +194,12 @@ class DeleteCoordinatorService extends BaseGenerator {
       // HARDENING: Match explicit AICA prefix OR stable generated prefixes
       return (
         erc.startsWith('AICA-') ||
+        // Options and option categories built before the prefix was marked
+        // compound lost the hyphen from 'AICA-OPT' and 'AICA-OPT-CAT', so they
+        // read as 'AICAOPT...' and no crawl could see them. They were
+        // therefore never deleted and accumulated on every run. Match the
+        // mangled form so the records already in an instance can be removed.
+        erc.startsWith('AICAOPT') ||
         erc.startsWith('PL-GENERAL') ||
         erc.startsWith('PL-PROMO') ||
         erc.startsWith('WH-') ||
