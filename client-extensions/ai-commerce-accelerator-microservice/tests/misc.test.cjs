@@ -1,4 +1,4 @@
-const { createERC } = require('../utils/misc.cjs');
+const { createERC, normalizeSpecificationKey } = require('../utils/misc.cjs');
 const { estimateTokens } = require('../utils/tokenEstimator.cjs');
 
 describe('Misc Utilities', () => {
@@ -46,6 +46,45 @@ describe('Misc Utilities', () => {
       const text = 'hello world standard estimation fallback';
       const count = estimateTokens(text, 'invalid-unsupported-model-name');
       expect(count).toBe(10);
+    });
+  });
+
+  describe('normalizeSpecificationKey', () => {
+    // Liferay looks a specification up by
+    // FriendlyURLNormalizerUtil.normalize(specificationKey) but stores the key
+    // verbatim when it creates one, so an un-normalized key is created raw,
+    // never matched again, and re-created - which fails with
+    // DuplicateCPSpecificationOptionKeyException.
+    it("produces keys that are stable under Liferay's normalization", () => {
+      const normalizeLikeLiferay = (value) =>
+        String(value)
+          .toLowerCase()
+          .replace(/[^a-z0-9]+/g, '-')
+          .replace(/^-+|-+$/g, '');
+
+      for (const input of [
+        'Frame_Material',
+        'frameMaterial',
+        'FRAMEMATERIAL',
+        'Brand Name',
+        'weight (kg)',
+        'Screen  Size--',
+      ]) {
+        const key = normalizeSpecificationKey(input);
+        expect(normalizeLikeLiferay(key)).toBe(key);
+      }
+    });
+
+    it('is idempotent', () => {
+      const once = normalizeSpecificationKey('Frame_Material');
+      expect(normalizeSpecificationKey(once)).toBe(once);
+      expect(once).toBe('frame-material');
+    });
+
+    it('falls back to a usable key for empty input', () => {
+      expect(normalizeSpecificationKey('')).toBe('spec');
+      expect(normalizeSpecificationKey(undefined)).toBe('spec');
+      expect(normalizeSpecificationKey('!!!')).toBe('spec');
     });
   });
 });

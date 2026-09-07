@@ -2,6 +2,7 @@ const {
   createERC,
   buildKeyedERC,
   buildSpecificationERC,
+  normalizeSpecificationKey,
   sanitizeForERC,
   toI18n,
   fromI18n,
@@ -105,7 +106,9 @@ async function runEnsureSpecificationsStep(sessionId) {
         product.productSpecifications || product.specifications || [];
       for (const spec of specs) {
         if (spec.specificationKey) {
-          specMap.set(spec.specificationKey, spec);
+          // Defensive: keys are normalized at generation time, but any other
+          // route into this step must agree with what Liferay will look up.
+          specMap.set(normalizeSpecificationKey(spec.specificationKey), spec);
         }
       }
     }
@@ -158,11 +161,18 @@ async function runEnsureSpecificationsStep(sessionId) {
           const productSpecs =
             product.productSpecifications || product.specifications || [];
           for (const pSpec of productSpecs) {
-            const pKey =
-              pSpec.specificationKey ||
-              sanitizeForERC(pSpec.label?.en_US || pSpec.label);
+            const pKey = normalizeSpecificationKey(
+              pSpec.specificationKey || pSpec.label?.en_US || pSpec.label
+            );
             if (pKey === key) {
+              pSpec.specificationKey = key;
               pSpec.specificationId = liferaySpec.id;
+              // Liferay's key lookup is unreliable (it normalizes on read and
+              // stores raw on write); the ERC lookup it falls back to is not.
+              if (liferaySpec.externalReferenceCode) {
+                pSpec.specificationExternalReferenceCode =
+                  liferaySpec.externalReferenceCode;
+              }
             }
           }
         }

@@ -1,6 +1,7 @@
 const { deepCleanIds } = require('../../utils/payload-cleaner.cjs');
 const {
   createERC,
+  normalizeSpecificationKey,
   resolveErrorReference,
   toI18n,
 } = require('../../utils/misc.cjs');
@@ -42,16 +43,18 @@ async function runProductCreationStep(sessionId) {
         },
         externalReferenceCode: pd.externalReferenceCode,
         // `{ id: undefined }` serialises to `{}`, which Liferay rejects for the
-        // whole product - "/categories/0 must have required property 'id'".
-        // One unresolved category therefore lost the entire item, and the
-        // error Liferay reported was DuplicateCPSpecificationOptionKeyException,
-        // which pointed somewhere else entirely. A product with no category is
-        // worth more than no product. See #651.
+        // whole product - "/categories/0 must have required property 'id'" - so
+        // one unresolved category loses the entire item. A product with no
+        // category is worth more than no product. See #651.
+        // Note the id must also survive deepCleanIds, which used to strip 'id'
+        // from every nested object; ID_REQUIRED_NESTED_KEYS now exempts this one.
         categories: (pd.categories || [])
           .map((category) =>
             category && typeof category === 'object' ? category.id : category
           )
-          .filter((id) => id !== null && id !== undefined && id !== '')
+          .filter(
+            (id) => id !== null && id !== undefined && id !== '' && id !== 0
+          )
           .map((id) => ({ id })),
         // HARDENING: Establishing indirect channel relationship at creation
         productChannels: [
@@ -67,7 +70,17 @@ async function runProductCreationStep(sessionId) {
           const { externalReferenceCode: _erc, ...rest } = spec;
           return {
             ...rest,
-            specificationKey: spec.specificationKey,
+            // Must match the key ensure-specifications stored, and must already
+            // be normalized - Liferay normalizes only on lookup, not on write.
+            specificationKey: normalizeSpecificationKey(spec.specificationKey),
+            // Liferay ignores specificationId here and resolves by key, then by
+            // this ERC; the ERC is the reliable half.
+            ...(spec.specificationExternalReferenceCode
+              ? {
+                  specificationExternalReferenceCode:
+                    spec.specificationExternalReferenceCode,
+                }
+              : {}),
             label: spec.label || toI18n(spec.title || spec.value || spec.name),
             value: spec.value || spec.title || spec.name,
             optionCategoryId: defaultSpecificationCategoryId,

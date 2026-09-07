@@ -4,13 +4,33 @@
  * unless they were explicitly returned by Liferay (Resolved).
  */
 
-function deepCleanIds(obj) {
+/**
+ * Nested references Liferay resolves by 'id' and nothing else. Stripping the id
+ * leaves '{}', which Liferay rejects outright
+ * ("categories/0 must have required property 'id'").
+ */
+const ID_REQUIRED_NESTED_KEYS = new Set(['categories']);
+
+function isEmptyObject(value) {
+  return (
+    value &&
+    typeof value === 'object' &&
+    !Array.isArray(value) &&
+    Object.keys(value).length === 0
+  );
+}
+
+function deepCleanIds(obj, { preserveId = false } = {}) {
   if (!obj || typeof obj !== 'object') {
     return obj;
   }
 
   if (Array.isArray(obj)) {
-    return obj.map(deepCleanIds);
+    // An element that cleans down to '{}' carries no information and would only
+    // trip Liferay's required-property validation, so drop it.
+    return obj
+      .map((item) => deepCleanIds(item, { preserveId }))
+      .filter((item) => !isEmptyObject(item));
   }
 
   const cleaned = { ...obj };
@@ -19,7 +39,14 @@ function deepCleanIds(obj) {
    * Rule 1: Always remove the root 'id' field.
    * Root IDs are system-generated and should never be sent in an UPSERT.
    */
-  if ('id' in cleaned) {
+  if ('id' in cleaned && !preserveId) {
+    delete cleaned.id;
+  } else if (
+    preserveId &&
+    (cleaned.id === 0 || cleaned.id === null || cleaned.id === undefined)
+  ) {
+    // A preserved id that was never resolved is worthless - drop it so the
+    // reference collapses to '{}' and is filtered out above.
     delete cleaned.id;
   }
 
@@ -67,7 +94,9 @@ function deepCleanIds(obj) {
           delete cleaned[key].externalReferenceCode;
         }
 
-        cleaned[key] = deepCleanIds(cleaned[key]);
+        cleaned[key] = deepCleanIds(cleaned[key], {
+          preserveId: ID_REQUIRED_NESTED_KEYS.has(key),
+        });
 
         // Final Safety: If a nested object like 'sku: { id: 40000 }' resulted
         // in an empty object 'sku: {}', remove the parent key entirely.

@@ -1,6 +1,6 @@
 const {
   createERC,
-  sanitizeForERC,
+  normalizeSpecificationKey,
   resolveErrorReference,
 } = require('../../utils/misc.cjs');
 const { ERC_PREFIX, WORKFLOW_STEPS } = require('../../utils/constants.cjs');
@@ -23,16 +23,16 @@ async function runProductDataGenerationStep(sessionId) {
     const normalized = productDataList.map((p) => {
       const specs = p.productSpecifications || p.specifications || [];
       const normalizedSpecs = specs.map((spec) => {
-        const key =
+        // Liferay looks specifications up by the normalized key but stores it
+        // verbatim, so emit a key that is already normalized.
+        const key = normalizeSpecificationKey(
           spec.specificationKey ||
-          spec.key ||
-          sanitizeForERC(
+            spec.key ||
             spec.label?.en_US ||
-              spec.label?.[Object.keys(spec.label)[0]] ||
-              spec.title ||
-              spec.name ||
-              'SPEC'
-          );
+            spec.label?.[Object.keys(spec.label || {})[0]] ||
+            spec.title ||
+            spec.name
+        );
         return {
           ...spec,
           specificationKey: key,
@@ -124,16 +124,16 @@ async function generateProductData(
   return data.map((p) => {
     const specs = p.productSpecifications || p.specifications || [];
     const normalizedSpecs = specs.map((spec) => {
-      const key =
+      // Liferay looks specifications up by the normalized key but stores it
+      // verbatim, so emit a key that is already normalized.
+      const key = normalizeSpecificationKey(
         spec.specificationKey ||
-        spec.key ||
-        sanitizeForERC(
+          spec.key ||
           spec.label?.en_US ||
-            spec.label?.[Object.keys(spec.label)[0]] ||
-            spec.title ||
-            spec.name ||
-            'SPEC'
-        );
+          spec.label?.[Object.keys(spec.label || {})[0]] ||
+          spec.title ||
+          spec.name
+      );
       return {
         ...spec,
         specificationKey: key,
