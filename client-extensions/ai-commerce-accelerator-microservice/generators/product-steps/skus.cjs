@@ -8,6 +8,31 @@ const {
 const { ERC_PREFIX, WORKFLOW_STEPS } = require('../../utils/constants.cjs');
 const { toOptionValues } = require('../../utils/optionValues.cjs');
 
+/**
+ * Liferay's Sku.price / promoPrice / cost accept any number >= 0. The AI
+ * generates skus[].price and skuVariants[].price, but the payload used to drop
+ * them, so every SKU was created with no price at all. That left the catalog's
+ * base price list showing 0.00 and, because order items resolve
+ * `sku.price || ...`, every order total came out as zero.
+ */
+function priceFields(source = {}, fallback = {}) {
+  const fields = {};
+
+  for (const name of ['price', 'promoPrice', 'cost']) {
+    const value = Number(
+      source[name] !== undefined && source[name] !== null
+        ? source[name]
+        : fallback[name]
+    );
+
+    if (Number.isFinite(value) && value >= 0) {
+      fields[name] = value;
+    }
+  }
+
+  return fields;
+}
+
 const S = WORKFLOW_STEPS;
 
 async function runResolveSkuIdsStep(sessionId) {
@@ -259,6 +284,7 @@ async function runProductSkusStep(sessionId) {
               published: true,
               purchasable: true,
               skuOptions: [],
+              ...priceFields(v, (pd.skus || [])[0] || {}),
             };
 
             if (v.options) {
@@ -292,6 +318,7 @@ async function runProductSkusStep(sessionId) {
             externalReferenceCode: s.externalReferenceCode || s.sku,
             published: true,
             purchasable: true,
+            ...priceFields(s),
           }));
         }
 
