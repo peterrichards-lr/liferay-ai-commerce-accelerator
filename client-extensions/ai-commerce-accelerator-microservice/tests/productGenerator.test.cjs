@@ -223,4 +223,70 @@ describe('ProductGenerator Workflow Steps', () => {
       expect(mockLiferay.createPriceEntriesBatch).toHaveBeenCalled();
     });
   });
+
+  describe('shared product configuration (regression)', () => {
+    // Liferay applies productConfiguration to the definition's MASTER
+    // configuration entry, and CPConfigurationEntrySetting is keyed by
+    // configuration entry, company and group - it has no classNameId or
+    // classPK, so it is one shared row rather than a per-product setting.
+    // Sending it with every product made every item update that row, and
+    // because Liferay's batch engine runs import tasks concurrently those
+    // updates raced: "Batch update returned unexpected row count from update
+    // [1]; actual row count: 0" discarded an entire batch and halted the
+    // workflow. Raising the batch size so everything fitted in one task only
+    // moved the threshold; sending it once removes the second writer.
+    const productFixture = (i) => ({
+      externalReferenceCode: `ERC${i}`,
+      name: { en_US: `Product ${i}` },
+      description: { en_US: `Description ${i}` },
+    });
+
+    const sentPayloads = () =>
+      mockLiferay.createProductsBatch.mock.calls.flatMap(([, chunk]) => chunk);
+
+    it('sends the shared configuration on exactly one product', async () => {
+      mockSession.context.productDataList = Array.from({ length: 5 }, (_, i) =>
+        productFixture(i)
+      );
+
+      await productGenerator.steps[WORKFLOW_STEPS.CREATE_PRODUCTS]('sess-123');
+
+      const payloads = sentPayloads();
+      expect(payloads).toHaveLength(5);
+
+      const carrying = payloads.filter((p) => p.productConfiguration);
+      expect(carrying).toHaveLength(1);
+      expect(carrying[0].productConfiguration).toEqual({
+        productTaxConfiguration: { taxCategory: 'Standard', taxable: true },
+      });
+    });
+
+    it('still sends it when there is only one product', async () => {
+      mockSession.context.productDataList = [productFixture(0)];
+
+      await productGenerator.steps[WORKFLOW_STEPS.CREATE_PRODUCTS]('sess-123');
+
+      expect(sentPayloads().filter((p) => p.productConfiguration)).toHaveLength(
+        1
+      );
+    });
+
+    it('does not depend on how the products are split into batches', async () => {
+      // The guarantee has to hold per run, not per batch: two batches each
+      // carrying the configuration would race exactly as before.
+      mockSession.context.config.batchSize = 2;
+      mockSession.context.productDataList = Array.from({ length: 7 }, (_, i) =>
+        productFixture(i)
+      );
+
+      await productGenerator.steps[WORKFLOW_STEPS.CREATE_PRODUCTS]('sess-123');
+
+      expect(mockLiferay.createProductsBatch.mock.calls.length).toBeGreaterThan(
+        1
+      );
+      expect(sentPayloads().filter((p) => p.productConfiguration)).toHaveLength(
+        1
+      );
+    });
+  });
 });
