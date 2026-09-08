@@ -5,6 +5,55 @@ import { server } from './setup.mjs';
 import OpenAIProvider from '../services/ai-providers/openaiProvider.cjs';
 import GeminiProvider from '../services/ai-providers/geminiProvider.cjs';
 
+// A generation schema small enough to assert on, carrying the locale map that
+// a whole entity body was once nested inside, an optional property, and a
+// numeric bound the providers differ over. See #633.
+const WAREHOUSE_SCHEMA = {
+  properties: {
+    warehouses: {
+      items: {
+        properties: {
+          active: { type: 'boolean' },
+          latitude: { maximum: 90, minimum: -90, type: 'number' },
+          name: {
+            additionalProperties: { type: 'string' },
+            minProperties: 1,
+            type: 'object',
+          },
+        },
+        required: ['name', 'latitude'],
+        type: 'object',
+      },
+      type: 'array',
+    },
+  },
+  required: ['warehouses'],
+  type: 'object',
+};
+
+// product.json's skuVariants[].options is keyed by option name, so its keys
+// cannot be written out and no provider can enforce the schema.
+const UNENFORCEABLE_SCHEMA = {
+  properties: {
+    products: {
+      items: {
+        properties: {
+          name: { additionalProperties: { type: 'string' }, type: 'object' },
+          options: {
+            additionalProperties: { type: 'string' },
+            type: 'object',
+          },
+        },
+        required: ['name', 'options'],
+        type: 'object',
+      },
+      type: 'array',
+    },
+  },
+  required: ['products'],
+  type: 'object',
+};
+
 describe('AI Providers', () => {
   beforeEach(() => {
     // Clear any previous handlers
@@ -300,6 +349,202 @@ describe('AI Providers', () => {
       expect(provider.clientRegistry.has(key0Hash)).toBe(false);
       expect(mockAgent.destroy).toHaveBeenCalled();
     });
+
+    describe('structured output', () => {
+      const captureCompletion = () => {
+        const captured = {};
+        server.use(
+          http.post(
+            'https://api.openai.com/v1/chat/completions',
+            async ({ request }) => {
+              captured.body = await request.json();
+              return HttpResponse.json({
+                choices: [{ message: { content: '{"status":"ok"}' } }],
+              });
+            }
+          )
+        );
+        return captured;
+      };
+
+      it('sends an enforced json_schema, not the schema as prose', async () => {
+        const captured = captureCompletion();
+
+        await provider.generateJSON(
+          'warehouse',
+          'prompt',
+          {
+            credentials: { apiKey: 'key' },
+            languages: ['en-US', 'es-ES'],
+            model: 'gpt-4o-mini',
+          },
+          WAREHOUSE_SCHEMA
+        );
+
+        const format = captured.body.response_format;
+
+        expect(format.type).toBe('json_schema');
+        expect(format.json_schema.name).toBe('warehouse_response');
+        expect(format.json_schema.strict).toBe(true);
+
+        const items = format.json_schema.schema.properties.warehouses.items;
+
+        // The locale map is written out, so nesting an entity inside it is no
+        // longer expressible.
+        expect(Object.keys(items.properties.name.properties)).toEqual([
+          'en_US',
+          'es_ES',
+        ]);
+        expect(items.properties.name.additionalProperties).toBe(false);
+        expect(items.properties.name.minProperties).toBeUndefined();
+
+        // Strict mode requires every property in `required`, so the optional
+        // one is a union with null instead.
+        expect(items.required.sort()).toEqual(['active', 'latitude', 'name']);
+        expect(items.properties.active.type).toEqual(['boolean', 'null']);
+        expect(items.properties.latitude.type).toBe('number');
+
+        // OpenAI does support numeric bounds in strict mode.
+        expect(items.properties.latitude.minimum).toBe(-90);
+
+        expect(captured.body.messages[0].content).not.toContain(
+          'conform to the following schema'
+        );
+      });
+
+      it('sends an unenforced json_schema when strict mode cannot express the schema', async () => {
+        const captured = captureCompletion();
+
+        await provider.generateJSON(
+          'product',
+          'prompt',
+          {
+            credentials: { apiKey: 'key' },
+            languages: ['en-US'],
+            model: 'gpt-4o-mini',
+          },
+          UNENFORCEABLE_SCHEMA
+        );
+
+        const format = captured.body.response_format;
+
+        expect(format.type).toBe('json_schema');
+        expect(format.json_schema.strict).toBe(false);
+
+        const items = format.json_schema.schema.properties.products.items;
+
+        // The locale map is still written out - the part that matters here.
+        expect(Object.keys(items.properties.name.properties)).toEqual([
+          'en_US',
+        ]);
+        // The map whose keys the model invents is left open.
+        expect(items.properties.options.additionalProperties).toEqual({
+          type: 'string',
+        });
+        // Nothing is enforced, so nothing is forced into `required` either.
+        expect(items.required.sort()).toEqual(['name', 'options']);
+      });
+
+      it('uses plain JSON mode for a model that predates json_schema', async () => {
+        const captured = captureCompletion();
+
+        await provider.generateJSON(
+          'warehouse',
+          'prompt',
+          { credentials: { apiKey: 'key' }, model: 'gpt-4-turbo' },
+          WAREHOUSE_SCHEMA
+        );
+
+        expect(captured.body.response_format).toEqual({ type: 'json_object' });
+        expect(captured.body.messages[0].content).toContain(
+          'conform to the following schema'
+        );
+      });
+
+      it('names the locale keys in the prose fallback', async () => {
+        const captured = captureCompletion();
+
+        await provider.generateJSON(
+          'warehouse',
+          'prompt',
+          {
+            credentials: { apiKey: 'key' },
+            languages: ['en-US', 'fr-FR'],
+            model: 'gpt-3.5-turbo',
+          },
+          WAREHOUSE_SCHEMA
+        );
+
+        const system = captured.body.messages[0].content;
+
+        expect(system).toContain('"fr_FR"');
+        // The prose copy keeps the value constraints, which only the model
+        // reads.
+        expect(system).toContain('"minimum":-90');
+      });
+
+      it('degrades to plain JSON mode when the schema is rejected', async () => {
+        const bodies = [];
+        server.use(
+          http.post(
+            'https://api.openai.com/v1/chat/completions',
+            async ({ request }) => {
+              bodies.push(await request.json());
+
+              if (bodies.length === 1) {
+                return HttpResponse.json(
+                  {
+                    error: {
+                      message:
+                        "Invalid schema for response_format 'warehouse_response'",
+                      type: 'invalid_request_error',
+                    },
+                  },
+                  { status: 400 }
+                );
+              }
+
+              return HttpResponse.json({
+                choices: [{ message: { content: '{"status":"ok"}' } }],
+              });
+            }
+          )
+        );
+
+        const result = await provider.generateJSON(
+          'warehouse',
+          'prompt',
+          { credentials: { apiKey: 'key' }, model: 'gpt-4o-mini' },
+          WAREHOUSE_SCHEMA
+        );
+
+        expect(result).toEqual({ status: 'ok' });
+        expect(bodies).toHaveLength(2);
+        expect(bodies[1].response_format).toEqual({ type: 'json_object' });
+        expect(bodies[1].messages[0].content).toContain(
+          'conform to the following schema'
+        );
+      });
+
+      it('reports a refusal rather than an unparseable-JSON error', async () => {
+        server.use(
+          http.post('https://api.openai.com/v1/chat/completions', () =>
+            HttpResponse.json({
+              choices: [
+                { finish_reason: 'stop', message: { refusal: 'I cannot' } },
+              ],
+            })
+          )
+        );
+
+        await expect(
+          provider.generateJSON('warehouse', 'prompt', {
+            credentials: { apiKey: 'key' },
+            model: 'gpt-4o-mini',
+          })
+        ).rejects.toThrow(/declined to generate/i);
+      });
+    });
   });
 
   describe('GeminiProvider', () => {
@@ -409,6 +654,130 @@ describe('AI Providers', () => {
 
       const result = await provider.validateCredentials({ apiKey: 'key' });
       expect(result).toBe(false);
+    });
+
+    describe('structured output', () => {
+      const GENERATE_URL =
+        'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent';
+
+      const captureGeneration = () => {
+        const captured = {};
+        server.use(
+          http.post(GENERATE_URL, async ({ request }) => {
+            captured.body = await request.json();
+            return HttpResponse.json({
+              candidates: [
+                { content: { parts: [{ text: '{"status":"ok"}' }] } },
+              ],
+            });
+          })
+        );
+        return captured;
+      };
+
+      it('sends a responseSchema in the subset the SDK accepts', async () => {
+        const captured = captureGeneration();
+
+        await provider.generateJSON(
+          'warehouse',
+          'prompt',
+          {
+            credentials: { apiKey: 'key' },
+            languages: ['en-US', 'es-ES'],
+            model: 'gemini-2.5-flash',
+          },
+          WAREHOUSE_SCHEMA
+        );
+
+        const config = captured.body.generationConfig;
+
+        expect(config.responseMimeType).toBe('application/json');
+
+        const items = config.responseSchema.properties.warehouses.items;
+
+        expect(Object.keys(items.properties.name.properties)).toEqual([
+          'en_US',
+          'es_ES',
+        ]);
+        // responseSchema has no additionalProperties field at all.
+        expect('additionalProperties' in items).toBe(false);
+        expect('additionalProperties' in items.properties.name).toBe(false);
+        // Nor minProperties, nor numeric bounds.
+        expect(items.properties.name.minProperties).toBeUndefined();
+        expect(items.properties.latitude.minimum).toBeUndefined();
+        // Optional properties stay optional here.
+        expect(items.required.sort()).toEqual(['latitude', 'name']);
+
+        expect(captured.body.contents[0].parts[0].text).not.toContain(
+          'conform to the following schema'
+        );
+      });
+
+      it('describes the schema in the prompt when it cannot be projected', async () => {
+        const captured = captureGeneration();
+
+        await provider.generateJSON(
+          'product',
+          'prompt',
+          {
+            credentials: { apiKey: 'key' },
+            languages: ['en-US'],
+            model: 'gemini-2.5-flash',
+          },
+          UNENFORCEABLE_SCHEMA
+        );
+
+        expect(captured.body.generationConfig.responseSchema).toBeUndefined();
+
+        const content = captured.body.contents[0].parts[0].text;
+
+        expect(content).toContain('conform to the following schema');
+        // Even in prose, the locale keys are named rather than left open.
+        expect(content).toContain('"en_US"');
+      });
+
+      it('degrades to the prose path when the responseSchema is rejected', async () => {
+        const bodies = [];
+        server.use(
+          http.post(GENERATE_URL, async ({ request }) => {
+            bodies.push(await request.json());
+
+            if (bodies.length === 1) {
+              return HttpResponse.json(
+                {
+                  error: {
+                    code: 400,
+                    message:
+                      'Invalid JSON payload received. Unknown name "responseSchema"',
+                    status: 'INVALID_ARGUMENT',
+                  },
+                },
+                { status: 400 }
+              );
+            }
+
+            return HttpResponse.json({
+              candidates: [
+                { content: { parts: [{ text: '{"status":"ok"}' }] } },
+              ],
+            });
+          })
+        );
+
+        const result = await provider.generateJSON(
+          'warehouse',
+          'prompt',
+          { credentials: { apiKey: 'key' }, model: 'gemini-2.5-flash' },
+          WAREHOUSE_SCHEMA
+        );
+
+        expect(result).toEqual({ status: 'ok' });
+        expect(bodies).toHaveLength(2);
+        expect(bodies[1].generationConfig.responseSchema).toBeUndefined();
+        expect(bodies[1].contents[0].parts[0].text).toContain(
+          'conform to the following schema'
+        );
+      });
     });
   });
 });

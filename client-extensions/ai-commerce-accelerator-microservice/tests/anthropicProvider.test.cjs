@@ -1,18 +1,42 @@
 const AnthropicProvider = require('../services/ai-providers/anthropicProvider.cjs');
 
-function buildProvider(createImpl) {
+function buildProvider(createImpl, { capabilities } = {}) {
   const provider = new AnthropicProvider({
-    logger: { info: vi.fn(), debug: vi.fn(), error: vi.fn() },
+    logger: { info: vi.fn(), debug: vi.fn(), error: vi.fn(), warn: vi.fn() },
   });
 
   const create = vi.fn(createImpl);
-  provider._getClient = vi.fn().mockResolvedValue({
-    messages: { create },
-    models: { list: vi.fn().mockResolvedValue({ data: [] }) },
+  const retrieve = vi.fn().mockResolvedValue({
+    capabilities: capabilities ?? { structured_outputs: { supported: true } },
   });
 
-  return { provider, create };
+  provider._getClient = vi.fn().mockResolvedValue({
+    messages: { create },
+    models: { list: vi.fn().mockResolvedValue({ data: [] }), retrieve },
+  });
+
+  return { create, provider, retrieve };
 }
+
+// A generation schema small enough to assert on, with the locale map that a
+// whole entity body was once nested inside. See #633.
+const WAREHOUSE_SCHEMA = {
+  properties: {
+    warehouses: {
+      items: {
+        properties: {
+          latitude: { maximum: 90, minimum: -90, type: 'number' },
+          name: { additionalProperties: { type: 'string' }, type: 'object' },
+        },
+        required: ['name'],
+        type: 'object',
+      },
+      type: 'array',
+    },
+  },
+  required: ['warehouses'],
+  type: 'object',
+};
 
 const textResponse = (text, extra = {}) => ({
   stop_reason: 'end_turn',
@@ -93,22 +117,176 @@ describe('AnthropicProvider', () => {
       expect(create.mock.calls[0][0].model).toBe('claude-haiku-4-5');
     });
 
-    it('puts the schema in the system prompt when one is supplied', async () => {
+    it('sends the schema as output_config.format rather than as prose', async () => {
       const { provider, create } = buildProvider(async () =>
         textResponse('{"ok":true}')
       );
 
       await provider.generateJSON(
+        'warehouse',
+        'p',
+        { credentials: { apiKey: 'sk-test' }, languages: ['en-US', 'es-ES'] },
+        WAREHOUSE_SCHEMA
+      );
+
+      const request = create.mock.calls[0][0];
+
+      // output_config.format, not the deprecated output_format parameter.
+      expect(request.output_format).toBeUndefined();
+      expect(request.output_config.format.type).toBe('json_schema');
+
+      const items =
+        request.output_config.format.schema.properties.warehouses.items;
+
+      expect(Object.keys(items.properties.name.properties)).toEqual([
+        'en_US',
+        'es_ES',
+      ]);
+      expect(items.properties.name.additionalProperties).toBe(false);
+      // Rejected by the structured-output subset; ajv still enforces it.
+      expect(items.properties.latitude.minimum).toBeUndefined();
+
+      expect(request.system).not.toContain('conform to the following schema');
+    });
+
+    it('describes the schema in the prompt when it cannot be projected', async () => {
+      const { provider, create } = buildProvider(async () =>
+        textResponse('{"ok":true}')
+      );
+
+      // An object whose keys are not described cannot be expressed: every
+      // object in a structured output must be closed.
+      await provider.generateJSON(
         'account',
         'p',
         { credentials: { apiKey: 'sk-test' } },
-        { type: 'object', properties: { name: { type: 'string' } } }
+        { properties: { extras: { type: 'object' } }, required: ['extras'] }
       );
 
-      expect(create.mock.calls[0][0].system).toContain(
+      const request = create.mock.calls[0][0];
+
+      expect(request.output_config).toBeUndefined();
+      expect(request.system).toContain('conform to the following schema');
+    });
+
+    it('names the locale keys in the prose fallback', async () => {
+      const { provider, create } = buildProvider(
+        async () => textResponse('{"ok":true}'),
+        { capabilities: { structured_outputs: { supported: false } } }
+      );
+
+      await provider.generateJSON(
+        'warehouse',
+        'p',
+        { credentials: { apiKey: 'sk-test' }, languages: ['en-US', 'fr-FR'] },
+        WAREHOUSE_SCHEMA
+      );
+
+      const { system } = create.mock.calls[0][0];
+
+      expect(system).toContain('conform to the following schema');
+      expect(system).toContain('"fr_FR"');
+      // The prose copy keeps the value constraints, which only the model reads.
+      expect(system).toContain('"minimum":-90');
+    });
+
+    it('withholds structured output when the model says it cannot do it', async () => {
+      const { provider, create, retrieve } = buildProvider(
+        async () => textResponse('{"ok":true}'),
+        { capabilities: { structured_outputs: { supported: false } } }
+      );
+
+      await provider.generateJSON(
+        'warehouse',
+        'p',
+        { credentials: { apiKey: 'sk-test' } },
+        WAREHOUSE_SCHEMA
+      );
+
+      expect(retrieve).toHaveBeenCalledWith('claude-opus-5');
+      expect(create.mock.calls[0][0].output_config).toBeUndefined();
+    });
+
+    it('asks the models endpoint once per model', async () => {
+      const { provider, retrieve } = buildProvider(async () =>
+        textResponse('{"ok":true}')
+      );
+
+      const options = { credentials: { apiKey: 'sk-test' } };
+      await provider.generateJSON('warehouse', 'p', options, WAREHOUSE_SCHEMA);
+      await provider.generateJSON('warehouse', 'p', options, WAREHOUSE_SCHEMA);
+
+      expect(retrieve).toHaveBeenCalledTimes(1);
+    });
+
+    it('sends the schema anyway when the capability lookup fails', async () => {
+      const { provider, create } = buildProvider(async () =>
+        textResponse('{"ok":true}')
+      );
+
+      provider._getClient = vi.fn().mockResolvedValue({
+        messages: { create },
+        models: {
+          retrieve: vi.fn().mockRejectedValue(new Error('network down')),
+        },
+      });
+
+      await provider.generateJSON(
+        'warehouse',
+        'p',
+        { credentials: { apiKey: 'sk-test' } },
+        WAREHOUSE_SCHEMA
+      );
+
+      expect(create.mock.calls[0][0].output_config).toBeDefined();
+    });
+
+    it('degrades to the prose path when the schema is rejected', async () => {
+      let attempt = 0;
+      const { provider, create } = buildProvider(async () => {
+        attempt += 1;
+        if (attempt === 1) {
+          const error = new Error(
+            'output_config.format: unsupported keyword "minItems"'
+          );
+          error.status = 400;
+          throw error;
+        }
+        return textResponse('{"ok":true}');
+      });
+
+      const result = await provider.generateJSON(
+        'warehouse',
+        'p',
+        { credentials: { apiKey: 'sk-test' } },
+        WAREHOUSE_SCHEMA
+      );
+
+      expect(result).toEqual({ ok: true });
+      expect(create).toHaveBeenCalledTimes(2);
+      expect(create.mock.calls[1][0].output_config).toBeUndefined();
+      expect(create.mock.calls[1][0].system).toContain(
         'conform to the following schema'
       );
-      expect(create.mock.calls[0][0].system).toContain('"name"');
+    });
+
+    it('does not retry an error that is not about the schema', async () => {
+      const { provider, create } = buildProvider(async () => {
+        const error = new Error('rate limit exceeded');
+        error.status = 429;
+        throw error;
+      });
+
+      await expect(
+        provider.generateJSON(
+          'warehouse',
+          'p',
+          { credentials: { apiKey: 'sk-test' } },
+          WAREHOUSE_SCHEMA
+        )
+      ).rejects.toThrow(/rate limit/);
+
+      expect(create).toHaveBeenCalledTimes(1);
     });
 
     it('ignores thinking blocks and reads only the text', async () => {

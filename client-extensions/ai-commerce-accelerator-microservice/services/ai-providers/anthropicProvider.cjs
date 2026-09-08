@@ -2,6 +2,11 @@ const crypto = require('crypto');
 const Anthropic = require('@anthropic-ai/sdk');
 const BaseAIProvider = require('./baseProvider.cjs');
 const { tryParseJSON } = require('../../utils/misc.cjs');
+const {
+  expandLocaleMapsForPrompt,
+  looksLikeSchemaRejection,
+  projectGenerationSchema,
+} = require('../../utils/schemaProjection.cjs');
 
 const DEFAULT_MODEL = 'claude-opus-5';
 const DEFAULT_MAX_TOKENS = 16384;
@@ -14,6 +19,7 @@ class AnthropicProvider extends BaseAIProvider {
   constructor(ctx) {
     super(ctx);
     this.clientRegistry = new Map();
+    this.structuredOutputRegistry = new Map();
   }
 
   async _getClient(credentials) {
@@ -52,20 +58,40 @@ class AnthropicProvider extends BaseAIProvider {
     return client;
   }
 
+  /**
+   * Whether this model will accept output_config.format, taken from the models
+   * endpoint rather than assumed.
+   *
+   * Cached per model for the life of the process: the answer is a property of
+   * the model, and one extra GET is not worth repeating per generation call.
+   * A lookup that fails is treated as capable, because the alternative is
+   * withholding a working feature over a transient error - a model that turns
+   * out not to support it is caught by the rejection fallback below.
+   */
+  async _supportsStructuredOutput(client, model) {
+    if (this.structuredOutputRegistry.has(model)) {
+      return this.structuredOutputRegistry.get(model);
+    }
+
+    let supported = true;
+
+    try {
+      const described = await client.models.retrieve(model);
+      const reported = described?.capabilities?.structured_outputs?.supported;
+      if (reported === false) supported = false;
+    } catch (error) {
+      this.ctx?.logger?.debug?.(
+        `[AnthropicProvider] Could not read structured-output capability for ${model}`,
+        { message: error.message, model }
+      );
+    }
+
+    this.structuredOutputRegistry.set(model, supported);
+    return supported;
+  }
+
   async generateJSON(task, prompt, options, schema) {
     const client = await this._getClient(options.credentials);
-
-    // The schema is described in the prompt rather than enforced through
-    // output_config.format: that requires additionalProperties:false on every
-    // object and rejects the minimum/maximum keywords our generation-schemas
-    // use, so the schemas would have to be rewritten first. Ajv still validates
-    // the result downstream in GenerationFacade.validateAndNormalize.
-    let system = `You are an expert AI generator for ${task} data. Return only valid JSON, with no markdown fences and no commentary.`;
-    if (schema) {
-      system += `\n\nThe JSON output must conform to the following schema:\n\n${JSON.stringify(
-        schema
-      )}`;
-    }
 
     // The model list is shared across providers, so a session configured for
     // OpenAI and switched to Anthropic can arrive here carrying a GPT model,
@@ -83,7 +109,72 @@ class AnthropicProvider extends BaseAIProvider {
       );
     }
 
-    const response = await client.messages.create({
+    // The generation-schemas are not rewritten to suit the structured-output
+    // subset - they are the ajv gate and legitimately need minimum/maximum and
+    // open locale maps - so a provider-acceptable schema is projected from them
+    // here instead. Ajv still validates the values downstream in
+    // GenerationFacade.validateAndNormalize. See #633.
+    const projection = schema
+      ? projectGenerationSchema(schema, {
+          languages: options.languages,
+          provider: 'anthropic',
+        })
+      : { blockers: [], schema: null };
+
+    if (schema && !projection.schema) {
+      this.ctx?.logger?.debug?.(
+        `[AnthropicProvider] ${task} schema cannot be expressed as a structured output; describing it in the prompt`,
+        { blockers: projection.blockers, model }
+      );
+    }
+
+    const outputSchema =
+      projection.schema && (await this._supportsStructuredOutput(client, model))
+        ? projection.schema
+        : null;
+
+    try {
+      return await this._message(client, task, prompt, options, {
+        model,
+        outputSchema,
+        schema,
+      });
+    } catch (error) {
+      if (!outputSchema || !looksLikeSchemaRejection(error)) {
+        throw error;
+      }
+
+      this.ctx?.logger?.warn?.(
+        `[AnthropicProvider] ${model} rejected the ${task} output schema; retrying with the schema in the prompt`,
+        { message: error.message, model }
+      );
+
+      return await this._message(client, task, prompt, options, {
+        model,
+        outputSchema: null,
+        schema,
+      });
+    }
+  }
+
+  async _message(
+    client,
+    task,
+    prompt,
+    options,
+    { model, outputSchema, schema }
+  ) {
+    let system = `You are an expert AI generator for ${task} data. Return only valid JSON, with no markdown fences and no commentary.`;
+
+    // Described in the prompt only when it is not being sent as a schema:
+    // stating it twice doubles the schema's tokens for no added constraint.
+    if (schema && !outputSchema) {
+      system += `\n\nThe JSON output must conform to the following schema:\n\n${JSON.stringify(
+        expandLocaleMapsForPrompt(schema, options.languages)
+      )}`;
+    }
+
+    const request = {
       model,
       max_tokens: options.maxTokens || DEFAULT_MAX_TOKENS,
       system,
@@ -91,7 +182,16 @@ class AnthropicProvider extends BaseAIProvider {
       // from the shared options is deliberately not forwarded.
       thinking: { type: 'adaptive' },
       messages: [{ role: 'user', content: prompt }],
-    });
+    };
+
+    if (outputSchema) {
+      // output_config.format, not the deprecated output_format parameter.
+      request.output_config = {
+        format: { schema: outputSchema, type: 'json_schema' },
+      };
+    }
+
+    const response = await client.messages.create(request);
 
     if (response.stop_reason === 'max_tokens') {
       throw new Error(

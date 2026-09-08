@@ -2,6 +2,13 @@ const { GoogleGenerativeAI } = require('@google/generative-ai');
 const crypto = require('crypto');
 const BaseAIProvider = require('./baseProvider.cjs');
 const { tryParseJSON } = require('../../utils/misc.cjs');
+const {
+  expandLocaleMapsForPrompt,
+  looksLikeSchemaRejection,
+  projectGenerationSchema,
+} = require('../../utils/schemaProjection.cjs');
+
+const DEFAULT_MODEL = 'gemini-1.5-flash';
 
 class GeminiProvider extends BaseAIProvider {
   constructor(ctx) {
@@ -31,26 +38,83 @@ class GeminiProvider extends BaseAIProvider {
     }
 
     const genAI = await this._getClient(options.credentials);
-    const model = genAI.getGenerativeModel({
-      model: options.model || 'gemini-1.5-flash',
-      generationConfig: {
-        responseMimeType: 'application/json',
-      },
+    const modelId = options.model || DEFAULT_MODEL;
+
+    // responseMimeType alone guarantees only that the response parses. The
+    // generation-schemas cannot be sent as they are - responseSchema is an
+    // OpenAPI subset with no additionalProperties, no minimum/maximum and no
+    // union types - so a provider-acceptable schema is projected from them,
+    // leaving the ajv gate untouched. See #633.
+    const projection = schema
+      ? projectGenerationSchema(schema, {
+          languages: options.languages,
+          provider: 'gemini',
+        })
+      : { blockers: [], schema: null };
+
+    if (schema && !projection.schema) {
+      this.ctx?.logger?.debug?.(
+        `[GeminiProvider] ${task} schema cannot be expressed as a responseSchema; describing it in the prompt`,
+        { blockers: projection.blockers, model: modelId }
+      );
+    }
+
+    try {
+      return await this._generate(genAI, task, prompt, {
+        languages: options.languages,
+        model: modelId,
+        responseSchema: projection.schema,
+        schema,
+      });
+    } catch (error) {
+      if (!projection.schema || !looksLikeSchemaRejection(error)) {
+        throw error;
+      }
+
+      this.ctx?.logger?.warn?.(
+        `[GeminiProvider] ${modelId} rejected the ${task} responseSchema; retrying with the schema in the prompt`,
+        { message: error.message, model: modelId }
+      );
+
+      return await this._generate(genAI, task, prompt, {
+        languages: options.languages,
+        model: modelId,
+        responseSchema: null,
+        schema,
+      });
+    }
+  }
+
+  async _generate(
+    genAI,
+    task,
+    prompt,
+    { languages, model, responseSchema, schema }
+  ) {
+    const generationConfig = { responseMimeType: 'application/json' };
+    if (responseSchema) generationConfig.responseSchema = responseSchema;
+
+    const generativeModel = genAI.getGenerativeModel({
+      model,
+      generationConfig,
     });
 
+    // Described in the prompt only when it is not being sent as a schema:
+    // stating it twice doubles the schema's tokens for no added constraint.
     const systemInstruction = `You are an expert AI generator for ${task} data. Return only valid JSON.${
-      schema
-        ? `\n\nThe JSON output must conform to the following schema:\n\n${JSON.stringify(schema)}`
+      schema && !responseSchema
+        ? `\n\nThe JSON output must conform to the following schema:\n\n${JSON.stringify(
+            expandLocaleMapsForPrompt(schema, languages)
+          )}`
         : ''
     }`;
 
-    const result = await model.generateContent(
+    const result = await generativeModel.generateContent(
       `${systemInstruction}\n\n${prompt}`
     );
     const response = await result.response;
-    const content = response.text();
 
-    return tryParseJSON(content);
+    return tryParseJSON(response.text());
   }
 
   async generateImage(_product, _options) {
@@ -67,7 +131,7 @@ class GeminiProvider extends BaseAIProvider {
 
     try {
       const genAI = await this._getClient(credentials);
-      const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
+      const model = genAI.getGenerativeModel({ model: DEFAULT_MODEL });
       await model.generateContent('ping');
       return true;
     } catch {
