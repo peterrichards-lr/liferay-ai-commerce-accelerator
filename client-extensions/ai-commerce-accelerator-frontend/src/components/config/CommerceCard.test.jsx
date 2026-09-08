@@ -16,6 +16,61 @@ describe('CommerceCard', () => {
     vi.clearAllMocks();
   });
 
+  // Languages come from the channel's site, not the channel, and a channel can
+  // exist without one. The empty list used to read "No languages found", which
+  // is true and says nothing about why. See #639.
+  describe('an empty language list explains itself', () => {
+    const renderWith = ({ channelId, channels }) => {
+      useApp.mockReturnValue({
+        config: { channelId, selectedLanguages: [] },
+        setConfig: vi.fn(),
+      });
+
+      render(
+        <CommerceCard
+          channels={channels}
+          connected={true}
+          errors={{}}
+          languages={[]}
+        />
+      );
+    };
+
+    it('says the channel has no site when that is why', () => {
+      renderWith({
+        channelId: '456',
+        channels: [{ id: 456, name: 'No Site Channel' }],
+      });
+
+      expect(screen.getByText(/this channel has none/i)).toBeInTheDocument();
+    });
+
+    it('does not blame a missing site when the channel has one', () => {
+      // Then an empty list is genuinely unexplained, and saying the channel has
+      // no site would send the operator after a setting that is already right.
+      renderWith({
+        channelId: '456',
+        channels: [{ id: 456, name: 'Sited Channel', siteGroupId: 789 }],
+      });
+
+      expect(screen.getByText('No languages found')).toBeInTheDocument();
+    });
+
+    it('asks for a channel first when none is selected', () => {
+      renderWith({ channelId: null, channels: [] });
+
+      expect(screen.getByText(/Select a channel first/i)).toBeInTheDocument();
+    });
+
+    it('does not guess when the selected channel is not in the list', () => {
+      // Mid-refresh, the id can outlive the list. Nothing is known about the
+      // channel then, so the generic message is the honest one.
+      renderWith({ channelId: '999', channels: [{ id: 456, name: 'Other' }] });
+
+      expect(screen.getByText('No languages found')).toBeInTheDocument();
+    });
+  });
+
   it('renders currency names as strings, not objects', () => {
     useApp.mockReturnValue({
       config: { channelId: '123' },
