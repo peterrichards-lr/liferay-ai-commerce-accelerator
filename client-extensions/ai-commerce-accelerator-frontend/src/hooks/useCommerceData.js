@@ -218,8 +218,13 @@ export default function useCommerceData({
     [channels, loadRootLists, buildPayload, getLanguages, getCurrencies]
   );
 
+  // `preferences` lets a caller state the languages and currency the channel
+  // should be selected with - an import knows what the exported configuration
+  // asked for. They are still filtered against what the channel actually
+  // offers, so a preference for something the channel does not have falls back
+  // to the channel's own defaults.
   const selectChannel = useCallback(
-    async (channelId) => {
+    async (channelId, preferences = {}) => {
       if (!channelId) {
         setConfig((prev) => ({
           ...prev,
@@ -236,13 +241,18 @@ export default function useCommerceData({
       const result = await loadChannelDependent(channelId);
       if (!result) return;
 
-      const { chObj, langs } = result;
+      const { chObj, langs, currs } = result;
 
       setConfig((prev) => {
         const availableIds = new Set(langs.map((l) => l.id));
 
-        // Keep previous selected languages if they are still valid for the new channel
-        const filteredLangs = (prev.selectedLanguages || []).filter((id) =>
+        // Preferred languages when the caller named some, otherwise the ones
+        // already selected - either way only those the new channel still offers
+        const requestedLangs = Array.isArray(preferences.selectedLanguages)
+          ? preferences.selectedLanguages
+          : prev.selectedLanguages;
+
+        const filteredLangs = (requestedLangs || []).filter((id) =>
           availableIds.has(id)
         );
 
@@ -257,12 +267,20 @@ export default function useCommerceData({
           nextLangs = [langs[0].id];
         }
 
+        const availableCurrencies = new Set(currs.map((c) => c.code));
+        const preferredCurrency = availableCurrencies.has(
+          preferences.currencyCode
+        )
+          ? preferences.currencyCode
+          : null;
+
         return {
           ...prev,
           channelId: chObj.id,
           siteGroupId: chObj.siteGroupId,
           selectedLanguages: nextLangs,
-          currencyCode: chObj.currencyCode || prev.currencyCode || '',
+          currencyCode:
+            preferredCurrency || chObj.currencyCode || prev.currencyCode || '',
         };
       });
     },

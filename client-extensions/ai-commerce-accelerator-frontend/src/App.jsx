@@ -323,6 +323,8 @@ function AppUI() {
     setOpenAiKeyAvailable: setAiKeyAvailable,
     setAiMediaKeyAvailable,
     availableCategories,
+    catalogs,
+    channels,
     mountedRef,
     selectChannel,
   });
