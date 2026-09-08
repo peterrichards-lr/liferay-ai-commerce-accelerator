@@ -107,8 +107,6 @@ function buildConfigAndOptions(req) {
     createWarehouses,
     currencyCode,
     demoMode,
-    enableBackorders,
-    backorderAssignmentRatio,
     businessAccountRatio,
     generateBulkPricing,
     generatePriceLists,
@@ -278,8 +276,6 @@ function buildConfigAndOptions(req) {
   options.inventoryMin = toNumber(inventoryMin);
   options.inventoryMax = toNumber(inventoryMax);
   options.inventoryAssignmentRatio = toNumber(inventoryAssignmentRatio);
-  options.enableBackorders = toBoolean(enableBackorders);
-  options.backorderAssignmentRatio = toNumber(backorderAssignmentRatio);
 
   logger.info('options after switch in buildConfigAndOptions:', options);
 
