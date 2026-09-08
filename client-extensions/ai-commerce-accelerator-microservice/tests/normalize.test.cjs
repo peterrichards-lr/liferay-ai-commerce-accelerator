@@ -128,6 +128,63 @@ describe('Data Normalization', () => {
   // createWarehouses covers "use only what is there" but not "create only the
   // shortfall", which is the state an operator asking for five warehouses on
   // an instance holding two actually wants.
+  // The mode is the switch - 'none' already means off - so a mode that is on
+  // with no ratio means everything. It used to mean nothing: the mode gate
+  // opened, the absent ratio emptied the share, and a CLI run that sends a
+  // mode and no ratio produced no media at all. See #736.
+  describe('buildConfigAndOptions media mode implies a share', () => {
+    const build = (body) =>
+      buildConfigAndOptions({
+        headers: {},
+        body: {
+          clientId: 'test',
+          clientSecret: 'test',
+          liferayUrl: 'http://test.com',
+          ...body,
+        },
+      });
+
+    it('gives a mode with no ratio the whole catalogue', () => {
+      // Exactly what the CLI sends.
+      expect(build({ imageMode: 'default' }).options.imageRatio).toBe(100);
+      expect(build({ pdfMode: 'default' }).options.pdfRatio).toBe(100);
+    });
+
+    it('respects an explicit zero, which is a coherent request', () => {
+      expect(build({ imageMode: 'ai', imageRatio: 0 }).options.imageRatio).toBe(
+        0
+      );
+      expect(build({ pdfMode: 'ai', pdfRatio: 0 }).options.pdfRatio).toBe(0);
+    });
+
+    it('respects an explicit share', () => {
+      expect(
+        build({ imageMode: 'ai', imageRatio: 40 }).options.imageRatio
+      ).toBe(40);
+    });
+
+    it('is zero when the mode is off, whatever the ratio says', () => {
+      expect(
+        build({ imageMode: 'none', imageRatio: 100 }).options.imageRatio
+      ).toBe(0);
+      expect(build({ pdfMode: 'none', pdfRatio: 100 }).options.pdfRatio).toBe(
+        0
+      );
+    });
+
+    it('is zero when no mode was given at all', () => {
+      expect(build({}).options.imageRatio).toBe(0);
+      expect(build({}).options.pdfRatio).toBe(0);
+    });
+
+    it('still reads a fraction as the percentage it must have been', () => {
+      // #711's trap, unchanged by this.
+      expect(
+        build({ imageMode: 'ai', imageRatio: 0.5 }).options.imageRatio
+      ).toBe(50);
+    });
+  });
+
   describe('buildConfigAndOptions warehouse reuse wiring', () => {
     const build = (body) =>
       buildConfigAndOptions({

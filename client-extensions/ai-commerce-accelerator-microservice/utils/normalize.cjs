@@ -66,6 +66,29 @@ function bufferToDataUrl(buffer, mime, fallback = 'application/octet-stream') {
   return `data:${m};base64,${b64}`;
 }
 
+/**
+ * How much media a run wants, given the mode it asked for.
+ *
+ * The mode is the switch - `'none'` already means off - so a mode that is on
+ * with no ratio means everything, not nothing. It used to mean nothing: an
+ * absent ratio read as 0, the mode gate opened, the share came back empty and
+ * the step returned having done no work. A CLI run sends `imageMode` and no
+ * ratio, so `aica generate` produced no images at all and the E2E spec that
+ * asserts on stdout passed anyway. See #736.
+ *
+ * An *explicit* zero still means none. "Generate no images" is a coherent
+ * request and must not be overridden by the mode being on.
+ */
+function mediaShare(ratio, mode, field) {
+  if (!mode || mode === 'none') {
+    return 0;
+  }
+
+  const percentage = toPercentage(ratio, { field, logger });
+
+  return percentage === undefined ? 100 : percentage;
+}
+
 function getCustomImage(req, imageMode) {
   if (imageMode === 'custom') {
     const file = (req.files?.customImageFile || [])[0];
@@ -249,13 +272,12 @@ function buildConfigAndOptions(req) {
   options.imageHeight = toNumber(imageHeight) || 512;
   options.imageMode = imageMode || 'none';
   options.imageQuality = imageQuality || 'standard';
-  options.imageRatio =
-    toPercentage(imageRatio, { field: 'imageRatio', logger }) || 0;
+  options.imageRatio = mediaShare(imageRatio, options.imageMode, 'imageRatio');
   options.imageStyle = imageStyle || 'photographic';
   options.imageWidth = toNumber(imageWidth) || 512;
   options.pdfMode = pdfMode || 'none';
   options.pdfContentType = pdfContentType;
-  options.pdfRatio = toPercentage(pdfRatio, { field: 'pdfRatio', logger }) || 0;
+  options.pdfRatio = mediaShare(pdfRatio, options.pdfMode, 'pdfRatio');
   options.seedPack = seedPack || undefined;
   options.createWarehouses = toBoolean(createWarehouses);
   // Restored in #730. Removed as redundant in #692 on the grounds that
