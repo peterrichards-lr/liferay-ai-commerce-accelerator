@@ -544,9 +544,6 @@ class GenerationFacade {
               typeof item.inventoryLevel === 'number'
                 ? item.inventoryLevel
                 : 100,
-            published: true,
-            purchasable: true,
-            neverExpire: true,
           },
         ];
       }
