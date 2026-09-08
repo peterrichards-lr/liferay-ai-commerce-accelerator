@@ -5,6 +5,7 @@ const {
   recordReindexSuccess,
 } = require('../utils/reindexStatus.cjs');
 const { ERC_PREFIX, WORKFLOW_STEPS } = require('../utils/constants.cjs');
+const { deletionTargetIdOf } = require('../utils/productIdentity.cjs');
 const BATCH_STEP_HANDLERS = require('./batch/batch-steps/index.cjs');
 
 const S = WORKFLOW_STEPS;
@@ -339,7 +340,11 @@ class DeleteCoordinatorService extends BaseGenerator {
 
       // RELATIONAL CRAWL: Fetch Specs/Options linked to discovered products
       if (manifest.products.length > 0) {
-        const productIds = manifest.products.map((p) => p.productId || p.id);
+        // Crawled Liferay DTOs, so the CPDefinition id is `productId`. Both
+        // of the calls below are product-scoped and take that one.
+        const productIds = manifest.products
+          .map(deletionTargetIdOf)
+          .filter(Boolean);
 
         try {
           const specs = await this.liferay.getSpecificationsByProductIds(
@@ -429,7 +434,7 @@ class DeleteCoordinatorService extends BaseGenerator {
       ];
       manifest.products = [
         ...new Map(
-          manifest.products.map((i) => [i.productId || i.id, i])
+          manifest.products.map((i) => [deletionTargetIdOf(i), i])
         ).values(),
       ];
       manifest.specifications = [
@@ -517,7 +522,7 @@ class DeleteCoordinatorService extends BaseGenerator {
       [S.DELETE_SPECIFICATIONS]: manifest?.specifications,
       // These two detach a product's specification and option ASSOCIATIONS
       // before the definitions themselves are removed, so they iterate
-      // products - `product.productId || product.id`, then
+      // products - taking each one's definition id, then
       // getProductSpecifications / getProductOptions with that id. They were
       // handed the definition lists instead, so every id was a specification
       // or option id, every lookup 404'd, and the step reported COMPLETED

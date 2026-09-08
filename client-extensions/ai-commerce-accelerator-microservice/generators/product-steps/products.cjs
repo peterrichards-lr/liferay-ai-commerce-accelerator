@@ -262,7 +262,7 @@ async function runResolveProductIdsStep(sessionId) {
     });
 
     const missingDefinition = updatedList.filter(
-      (p) => p.id && !p.cpDefinitionId
+      (p) => p.cProductId && !p.cpDefinitionId
     );
 
     if (missingDefinition.length > 0) {

@@ -1,5 +1,6 @@
 const {
   definitionIdOf,
+  deletionTargetIdOf,
   productIdentity,
 } = require('../utils/productIdentity.cjs');
 
@@ -70,5 +71,30 @@ describe('definitionIdOf', () => {
     expect(definitionIdOf({ cProductId: 41289 })).toBeUndefined();
     expect(definitionIdOf({})).toBeUndefined();
     expect(definitionIdOf(undefined)).toBeUndefined();
+  });
+});
+
+describe('deletionTargetIdOf', () => {
+  // The delete manifest is built from crawled `Product` DTOs, not from
+  // productDataList, so it carries Liferay's own field names. The association
+  // sweeps address `/products/{x}/productOptions` and
+  // `/products/{x}/productSpecifications` with whatever this returns.
+  it('reads the definition id from the DTO Liferay returned', () => {
+    expect(deletionTargetIdOf(RESOLVED)).toBe(41290);
+    expect(deletionTargetIdOf(RESOLVED)).not.toBe(RESOLVED.id);
+  });
+
+  it('falls back to the CProduct id, as the delete path always has', () => {
+    // A shape carrying only `id` predates the distinction. The fallback
+    // cannot detach another product's associations - a CProduct id 404s on
+    // every product-scoped path - so it clears nothing rather than the wrong
+    // thing.
+    expect(deletionTargetIdOf({ id: 41289 })).toBe(41289);
+  });
+
+  it('gives nothing when neither id is usable', () => {
+    expect(deletionTargetIdOf({ productId: 0, id: -1 })).toBeUndefined();
+    expect(deletionTargetIdOf({})).toBeUndefined();
+    expect(deletionTargetIdOf(undefined)).toBeUndefined();
   });
 });
