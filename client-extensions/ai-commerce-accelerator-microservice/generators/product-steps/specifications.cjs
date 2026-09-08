@@ -5,7 +5,6 @@ const {
   normalizeSpecificationKey,
   sanitizeForERC,
   toI18n,
-  fromI18n,
   resolveErrorReference,
 } = require('../../utils/misc.cjs');
 const { ERC_PREFIX, WORKFLOW_STEPS } = require('../../utils/constants.cjs');
@@ -345,19 +344,16 @@ async function runEnsureOptionsStep(sessionId) {
       }
 
       // Map IDs back to productDataList
+      //
+      // Only the global option id, deliberately. The global option value ids
+      // are the wrong entity for Sku.skuOptions, which addresses the product
+      // definition's value relationships, and this step cannot know those - the
+      // definition does not exist yet. link-product-options resolves them and
+      // records them separately. Mapping them here is what let a global id
+      // reach a SKU looking plausible while the value id stayed at zero, and
+      // the map was empty anyway: Liferay's option responses do not expand
+      // optionValues. See #662.
       if (liferayOption?.id) {
-        const valueNameToIdMap = new Map();
-        if (Array.isArray(liferayOption.optionValues)) {
-          liferayOption.optionValues.forEach((v) => {
-            // Normalize name for matching
-            const vName =
-              typeof v.name === 'string'
-                ? v.name
-                : fromI18n(v.name_i18n || v.name);
-            if (vName) valueNameToIdMap.set(vName.toLowerCase(), v.id);
-          });
-        }
-
         for (const product of updatedProductDataList) {
           const productOpts = product.productOptions || product.options || [];
           for (const pOpt of productOpts) {
@@ -366,21 +362,6 @@ async function runEnsureOptionsStep(sessionId) {
             if (pKey === key) {
               pOpt.optionId = liferayOption.id;
               pOpt.key = key;
-
-              // Also map value IDs if they exist
-              const pValues = pOpt.productOptionValues || pOpt.values || [];
-              pOpt.optionValuesWithIds = pValues.map((val) => {
-                const valName =
-                  typeof val === 'string'
-                    ? val
-                    : fromI18n(val.name_i18n || val.name || val);
-                return {
-                  name: valName,
-                  optionValueId: valName
-                    ? valueNameToIdMap.get(valName.toLowerCase())
-                    : null,
-                };
-              });
             }
           }
         }
