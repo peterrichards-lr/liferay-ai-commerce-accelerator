@@ -489,12 +489,12 @@ function DataGeneratorForm({
                           max="100"
                           step="5"
                           value={Math.round(
-                            (generationConfig.businessAccountRatio ?? 0.7) * 100
+                            generationConfig.businessAccountRatio ?? 70
                           )}
                           onChange={(e) =>
                             handleConfigChange(
                               'businessAccountRatio',
-                              Number(e.target.value) / 100
+                              Number(e.target.value)
                             )
                           }
                           disabled={lockFields}
@@ -504,7 +504,7 @@ function DataGeneratorForm({
                           style={{ minWidth: '9.5em' }}
                         >
                           {`${Math.round(
-                            (generationConfig.businessAccountRatio ?? 0.7) * 100
+                            generationConfig.businessAccountRatio ?? 70
                           )}% business`}
                         </span>
                       </div>
@@ -516,8 +516,9 @@ function DataGeneratorForm({
                           const total =
                             Number(generationConfig.accountCount) || 0;
                           const business = Math.round(
-                            total *
-                              (generationConfig.businessAccountRatio ?? 0.7)
+                            (total *
+                              (generationConfig.businessAccountRatio ?? 70)) /
+                              100
                           );
                           return total > 0
                             ? `Of ${total} accounts: ${business} business, ${

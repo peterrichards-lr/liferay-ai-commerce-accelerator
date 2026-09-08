@@ -13,6 +13,7 @@ const {
   isValidUrl,
 } = require('../utils/misc.cjs');
 const { ERC_PREFIX } = require('../utils/constants.cjs');
+const { SELECTION_KEYS, selectShare } = require('../utils/shareSelection.cjs');
 
 class MediaGenerator {
   constructor(ctx) {
@@ -241,18 +242,20 @@ class MediaGenerator {
     }
   }
 
+  // Both were the same function under two names, and both shuffled with
+  // `sort(() => Math.random() - 0.5)` - a biased shuffle that also meant the
+  // same catalogue could not be given the same media twice. A ratio above 100
+  // returned nothing rather than everything. See #729.
   selectProductsForPDFs(products, ratio) {
-    if (ratio <= 0 || ratio > 100) return [];
-    const count = Math.ceil(products.length * (ratio / 100));
-    const shuffled = [...products].sort(() => Math.random() - 0.5);
-    return shuffled.slice(0, count);
+    return selectShare(products, ratio, SELECTION_KEYS.PDFS, {
+      logger: this.ctx?.logger,
+    });
   }
 
   selectProductsForImages(products, ratio) {
-    if (ratio <= 0 || ratio > 100) return [];
-    const count = Math.ceil(products.length * (ratio / 100));
-    const shuffled = [...products].sort(() => Math.random() - 0.5);
-    return shuffled.slice(0, count);
+    return selectShare(products, ratio, SELECTION_KEYS.IMAGES, {
+      logger: this.ctx?.logger,
+    });
   }
 
   generateProductImageSet(baseName, variants = ['main', 'thumb', 'alt']) {

@@ -1,4 +1,5 @@
 const { logger } = require('./logger.cjs');
+const { toPercentage } = require('./shareSelection.cjs');
 const crypto = require('crypto');
 const { resolveEffectiveLiferayConnection } = require('./liferayEnv.cjs');
 
@@ -247,12 +248,13 @@ function buildConfigAndOptions(req) {
   options.imageHeight = toNumber(imageHeight) || 512;
   options.imageMode = imageMode || 'none';
   options.imageQuality = imageQuality || 'standard';
-  options.imageRatio = toNumber(imageRatio) || 0;
+  options.imageRatio =
+    toPercentage(imageRatio, { field: 'imageRatio', logger }) || 0;
   options.imageStyle = imageStyle || 'photographic';
   options.imageWidth = toNumber(imageWidth) || 512;
   options.pdfMode = pdfMode || 'none';
   options.pdfContentType = pdfContentType;
-  options.pdfRatio = toNumber(pdfRatio) || 0;
+  options.pdfRatio = toPercentage(pdfRatio, { field: 'pdfRatio', logger }) || 0;
   options.seedPack = seedPack || undefined;
   options.createWarehouses = toBoolean(createWarehouses);
   options.warehouseCount = toNumber(warehouseCount);
@@ -279,13 +281,21 @@ function buildConfigAndOptions(req) {
 
   // Only meaningful for the mixed type. Left undefined when absent so the
   // prompt's own mixed branch keeps deciding the split, as it did before.
-  const parsedRatio = toNumber(businessAccountRatio);
-  options.businessAccountRatio = Number.isFinite(parsedRatio)
-    ? Math.min(1, Math.max(0, parsedRatio))
-    : undefined;
+  // Was stored 0-1 while every other ratio was 0-100, which is the condition
+  // that produced #711. It is a percentage now, and `legacyFraction` takes a
+  // saved 0.7 as 70% rather than reading it as 0.7% - for this field alone a
+  // stored 1 means "all", because that was the old maximum (#729).
+  options.businessAccountRatio = toPercentage(businessAccountRatio, {
+    field: 'businessAccountRatio',
+    legacyFraction: true,
+    logger,
+  });
   options.inventoryMin = toNumber(inventoryMin);
   options.inventoryMax = toNumber(inventoryMax);
-  options.inventoryAssignmentRatio = toNumber(inventoryAssignmentRatio);
+  options.inventoryAssignmentRatio = toPercentage(inventoryAssignmentRatio, {
+    field: 'inventoryAssignmentRatio',
+    logger,
+  });
 
   logger.info('options after switch in buildConfigAndOptions:', options);
 

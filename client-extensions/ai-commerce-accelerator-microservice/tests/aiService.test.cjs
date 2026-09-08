@@ -576,7 +576,7 @@ describe('AIService mixed account ratio', () => {
 
     await generate(service, 10, {
       accountType: 'mixed',
-      businessAccountRatio: 0.7,
+      businessAccountRatio: 70,
     });
 
     expect(requests).toEqual([
@@ -592,7 +592,7 @@ describe('AIService mixed account ratio', () => {
 
     await generate(service, 10, {
       accountType: 'mixed',
-      businessAccountRatio: 0.7,
+      businessAccountRatio: 70,
     });
 
     const business = requests
@@ -613,7 +613,7 @@ describe('AIService mixed account ratio', () => {
 
     await generate(service, 5, {
       accountType: 'mixed',
-      businessAccountRatio: 1,
+      businessAccountRatio: 100,
     });
 
     expect(requests).toEqual([{ count: 5, accountType: 'business' }]);
@@ -634,7 +634,7 @@ describe('AIService mixed account ratio', () => {
 
     await generate(service, 4, {
       accountType: 'person',
-      businessAccountRatio: 0.7,
+      businessAccountRatio: 70,
     });
 
     expect(requests).toEqual([{ count: 4, accountType: 'person' }]);

@@ -127,9 +127,11 @@ const generateDataSchema = (
     required: false,
   },
   businessAccountRatio: {
+    // A percentage like every other ratio since #729. Was 0-1, which is how
+    // #711 happened.
     type: 'number',
     min: 0,
-    max: 1,
+    max: 100,
     required: false,
   },
   orderCount: countRule(limits.maxOrders),
@@ -193,9 +195,11 @@ const generateAccountsSchema = (
     required: false,
   },
   businessAccountRatio: {
+    // A percentage like every other ratio since #729. Was 0-1, which is how
+    // #711 happened.
     type: 'number',
     min: 0,
-    max: 1,
+    max: 100,
     required: false,
   },
 });
