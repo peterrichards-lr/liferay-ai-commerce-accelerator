@@ -142,6 +142,14 @@ docker exec -u 0 <container> mv /tmp/aica-staging/artifact.zip /opt/liferay/depl
 
 ---
 
+## `TARGET_URL` Is the Only Source of Truth for the Target URL
+
+- **The Issue**: `TARGET_URL` was assigned only inside the two "host is not resolvable" fallback branches of `scripts/run-e2e-ldm.sh`, while the correct URL for a resolvable host was derived separately into `LIFERAY_URL`. In CI the workflow writes the host into `/etc/hosts`, so the host always resolves, `TARGET_URL` was always empty, and the export block near the end of the script (`BASE_URL="$TARGET_URL"`, then `LIFERAY_URL="$BASE_URL"`) overwrote the correct value with an empty one. Every consumer then took its own silent default — the orchestrator `http://localhost:8080`, Playwright `http://127.0.0.1:8080`, the microservice "Liferay URL is not configured" — so the run failed 1h53m later as a Liferay startup timeout that named nothing. Forty consecutive nightly runs failed this way and the Playwright suite never started (#707).
+- **The Fix**: `TARGET_URL` is derived once, unconditionally, before any consumer reads it: `target_host_url()` owns the protocol/host/port decision (`NO_SSL`, `SSL_PORT_SUFFIX`, `TARGET_HOST`) and `mapped_container_url()` owns the unresolvable-host fallback to the container's mapped Tomcat port. `export_target_urls()` re-derives `BASE_URL`, `LIFERAY_URL`, `LIFERAY_API_URL` and the `COM_LIFERAY_LXC_DXP_*` pair from it and is called at every point where `TARGET_URL` can change, so no consumer is left holding a URL the resolution has moved on from.
+- **The Guard**: `assert_target_url` aborts with a message naming the variable if `TARGET_URL` is ever empty. The cost of this bug was not the wrong URL but the silence: the run continued for nearly two hours and reported a symptom unrelated to the cause. Any future URL-resolution change must fail at the point of derivation, not at the first consumer that times out.
+
+---
+
 ## LDM Reference Documentation
 
 - **Documentation Repository**: [peterrichards-lr/liferay-docker-manager](https://github.com/peterrichards-lr/liferay-docker-manager)
@@ -154,4 +162,4 @@ docker exec -u 0 <container> mv /tmp/aica-staging/artifact.zip /opt/liferay/depl
 
 ---
 
-_Last Updated: 2026-07-08_ | _Last Reviewed: 2026-08-14_
+_Last Updated: 2026-09-08_ | _Last Reviewed: 2026-09-08_
