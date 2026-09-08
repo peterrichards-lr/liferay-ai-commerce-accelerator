@@ -84,7 +84,7 @@ feature.flag.LPD-35443=true
     -e LIFERAY_DEFAULT_PERIOD_ADMIN_PERIOD_PASSWORD=test \
     -e LIFERAY_FEATURE_PERIOD_FLAG_PERIOD__UPPERCASEL__UPPERCASEP__UPPERCASED__MINUS__35443=true \
     -v "$(pwd)/bundles/osgi/client-extensions:/opt/liferay/osgi/client-extensions" \
-    liferay/dxp:2026.q1.7-lts
+    liferay/dxp:2026.q1.12-lts
   ```
 
 ---
@@ -115,15 +115,20 @@ the new one with both registering the same endpoints. Only predecessors of
 bundles listed in `sharedOsgiBundles` are pruned; another adopter's rename is
 not this workspace's business.
 
-The published artifacts are built against `dxp-2026.q1.12-lts`, which is not the
-line this workspace pins. That is expected: these modules import only
-`com.liferay.portal.kernel.*`, whose package majors are stable across those
-lines. `commerce-site-type` was verified to resolve and register on a
-`dxp-2026.q1.7-lts` instance. If a future module imports application packages,
-that will not hold and it will need an artifact matching this line.
-`aica.shared.osgi.dxp.line` is asserted against the manifest, so a release built
-against a different line fails the build instead of failing to resolve at
-runtime.
+The published artifacts are built against `dxp-2026.q1.12-lts`, which is the
+line this workspace now pins. The two were apart for a while - the workspace on
+`dxp-2026.q1.7-lts` - and that was expected to hold, because these modules
+import only `com.liferay.portal.kernel.*`, whose package majors are stable
+across those lines, and `commerce-site-type` was verified to resolve and
+register on a `q1.7` instance.
+
+They are together now, and keeping them together is worth preferring even
+though the gap was survivable. An unresolved bundle 404s silently rather than
+failing, so a version mismatch is invisible until something probes for it, and
+a future module importing application packages would not have the kernel-only
+guarantee to fall back on. `aica.shared.osgi.dxp.line` is asserted against the
+manifest, so a release built against a different line fails the build instead
+of failing to resolve at runtime.
 
 A bundle that fails to resolve does so **silently** — the endpoint simply
 returns 404 rather than logging an error. To check one is live:
