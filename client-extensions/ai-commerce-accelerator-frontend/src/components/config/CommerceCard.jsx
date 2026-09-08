@@ -62,6 +62,26 @@ export default function CommerceCard({
   // p_auth, a per-session token.
   const channelsUrl = commerceChannelsUrl(config?.liferayUrl);
 
+  // Languages come from the channel's *site*, not from the channel, and a
+  // channel can exist without one - `get-languages` requires a siteGroupId and
+  // throws without it, and the retry effect never even attempts the load. The
+  // result was an empty list reading "No languages found", which is true and
+  // says nothing about why (#639).
+  //
+  // Note this is a different group from the one the commerce site type is read
+  // on: that is the channel's own group, which always exists, which is why the
+  // site type resolves while languages do not.
+  const selectedChannel = channels.find(
+    (channel) => String(channel.id) === String(config.channelId)
+  );
+
+  // Absent only counts once a channel is actually selected and found. Liferay
+  // may report 0 or omit the field for a channel created without a site, so
+  // both read as absent.
+  const channelHasNoSite = Boolean(
+    config.channelId && selectedChannel && !selectedChannel.siteGroupId
+  );
+
   const handleRefresh = async () => {
     setIsRefreshing(true);
     try {
@@ -355,7 +375,9 @@ export default function CommerceCard({
                   <small className="text-muted d-block p-1">
                     {!config.channelId
                       ? 'Select a channel first to load available languages'
-                      : 'No languages found'}
+                      : channelHasNoSite
+                        ? 'Languages come from the channel\u2019s site, and this channel has none. Attach it to a site in Commerce, or choose a channel that has one.'
+                        : 'No languages found'}
                   </small>
                 )}
               </div>
