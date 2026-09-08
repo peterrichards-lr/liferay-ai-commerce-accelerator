@@ -135,6 +135,14 @@ docker exec -u 0 <container> mv /tmp/aica-staging/artifact.zip /opt/liferay/depl
 
 ---
 
+## Remote Target Node Power: One Name, Credentials Everywhere, No Silent Failures
+
+- **The Issue**: `.github/workflows/e2e-verification.yml` re-derived the target node name in every step that needed it, and the chains disagreed. Wake read `github.event.inputs.node_target || vars.LDM_NODE_TARGET || secrets.LDM_NODE_TARGET || 'local'`; the mandatory cleanup read `... || env.LDM_NODE_TARGET || 'aws-1'`, which never consults `secrets`. The nightly's node name comes from `secrets.LDM_NODE_TARGET`, so the cleanup fell through to the literal `aws-1` and stopped an instance the suite had never used, while the instance it did use stayed up and billable. Compounding it, the `Start LDM and run tests` step passed no AWS credentials, so both `node_power.sh` calls `scripts/run-e2e-ldm.sh` makes for itself — the wake at the top and the `sleep` in its `EXIT` trap — died at the AWS CLI with `NoCredentials`, and `|| true` on the wake discarded that for weeks (#718).
+- **The Fix**: The node name is resolved once into the job-level `E2E_TARGET_NODE`, and `Configure SSH Key`, `Wake remote target node`, `Start LDM and run tests` and `Sleep remote target node` all read that one value, so they cannot name different nodes. `AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS_KEY` are on the step that runs the orchestrator as well as the wake and sleep steps. The env var is deliberately not called `LDM_NODE_TARGET`: that is the orchestrator's own variable, set by its `--node` flag, and a job-level env of that name would enter every step's environment.
+- **Why the Script Still Wakes**: `scripts/run-e2e-ldm.sh` keeps its own wake even though CI wakes the node a step earlier, because on a local run against a remote node it is the only wake there is. It is fatal now rather than `|| true` — a power-on failure stops the run wherever it happens. The `sleep` in the `EXIT` trap stays non-fatal, since exiting non-zero from the trap would replace the run's own exit code, but it prints a warning naming the node instead of discarding the failure; the workflow's mandatory sleep step is the backstop, and it raises a workflow error annotation without failing the job.
+
+---
+
 ## LDM URL Resolution and Protocol Support
 
 - **The Issue**: When running E2E tests against an existing project instance (e.g. `fragments-test-env` running at `http://localhost:8080`), the test orchestrator extracts the domain name without its protocol or port and prepends `https://`. This leads to network timeouts because it attempts to query plain HTTP ports using HTTPS. Additionally, LDM list outputs can contain ANSI color escape sequences that contaminate the parsed URL.

@@ -52,10 +52,18 @@ if [ $VERBOSE -eq 1 ]; then
   echo "🛠️  Verbose mode enabled. Realized commands will be displayed with [CMD]."
 fi
 
-# Wake remote target node if targeting AWS compute (aws-1, aws-2)
+# Wake remote target node if targeting AWS compute (aws-1, aws-2). CI wakes the
+# same node in its own step first, but this is the only wake on a local run
+# against a remote node, so it stays - and it is fatal. As `|| true` it hid a
+# credentials failure for weeks: the suite then spent two hours testing a host
+# that may as well have been switched off, and reported anything but that (#718).
 if [ -n "$LDM_NODE_TARGET" ] && [ "$LDM_NODE_TARGET" != "local" ] && [ -f "./scripts/node_power.sh" ]; then
     echo "⚡ Waking remote target node '$LDM_NODE_TARGET' for 2-hour E2E execution window..."
-    ./scripts/node_power.sh wake "$LDM_NODE_TARGET" 2h || true
+    if ! ./scripts/node_power.sh wake "$LDM_NODE_TARGET" 2h; then
+        echo "❌ ERROR: Could not power on target node '$LDM_NODE_TARGET'."
+        echo "   Refusing to run the suite against a host that may be powered off."
+        exit 1
+    fi
 fi
 
 # The shared LDM proxy (Traefik) normally binds SSL on :443. --ssl-port remaps
@@ -829,7 +837,13 @@ cleanup() {
 
     if [ -n "$LDM_NODE_TARGET" ] && [ "$LDM_NODE_TARGET" != "local" ] && [ -f "./scripts/node_power.sh" ]; then
         echo -e "\n💤 Returning remote target node '$LDM_NODE_TARGET' to sleep..."
-        ./scripts/node_power.sh sleep "$LDM_NODE_TARGET" || true
+        # Not fatal - this runs from the EXIT trap, and exiting non-zero here
+        # would replace the run's own exit code - but never silent either: a
+        # node that will not power off keeps costing money until something
+        # notices. In CI the workflow's mandatory sleep step is the backstop.
+        if ! ./scripts/node_power.sh sleep "$LDM_NODE_TARGET"; then
+            echo "⚠️  WARNING: Could not power off target node '$LDM_NODE_TARGET'. It may still be running and billable."
+        fi
     fi
 }
 

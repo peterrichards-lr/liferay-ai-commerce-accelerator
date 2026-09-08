@@ -75,6 +75,13 @@ jobs:
         shardTotal: [3]
     env:
       FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: 'true'
+      # Resolved once for the whole job so wake, run and sleep are incapable of
+      # naming different nodes. They previously each re-derived it, and the
+      # sleep step's chain omitted secrets.LDM_NODE_TARGET - the one the nightly
+      # actually uses - so it fell through to a literal 'aws-1' and powered off
+      # an instance the suite had never touched, leaving the instance it did use
+      # running and billable every night (#718).
+      E2E_TARGET_NODE: ${{ github.event.inputs.node_target || vars.LDM_NODE_TARGET || secrets.LDM_NODE_TARGET || 'local' }}
 
     steps:
       - name: Checkout code
@@ -151,8 +158,7 @@ jobs:
 
       - name: Configure SSH Key for Remote Target Node
         run: |
-          TARGET_NODE="${{ github.event.inputs.node_target || vars.LDM_NODE_TARGET || secrets.LDM_NODE_TARGET || 'local' }}"
-          if [ "$TARGET_NODE" != "local" ] && [ -n "$TARGET_NODE" ]; then
+          if [ "$E2E_TARGET_NODE" != "local" ] && [ -n "$E2E_TARGET_NODE" ]; then
             mkdir -p ~/.ssh
             chmod 700 ~/.ssh
             if [ -n "$SSH_KEY_DATA" ]; then
@@ -173,22 +179,20 @@ jobs:
         # "Liferay authentication is not configured" - an error that says
         # nothing about the actual cause.
         run: |
-          TARGET_NODE="${{ github.event.inputs.node_target || vars.LDM_NODE_TARGET || secrets.LDM_NODE_TARGET || 'local' }}"
-
-          if [ "$TARGET_NODE" = "local" ] || [ -z "$TARGET_NODE" ]; then
+          if [ "$E2E_TARGET_NODE" = "local" ] || [ -z "$E2E_TARGET_NODE" ]; then
             echo "Running against a local environment; no target node to wake."
             exit 0
           fi
 
           if [ ! -f "./scripts/node_power.sh" ]; then
-            echo "::error::Target node '$TARGET_NODE' was requested but scripts/node_power.sh is missing, so it cannot be powered on."
+            echo "::error::Target node '$E2E_TARGET_NODE' was requested but scripts/node_power.sh is missing, so it cannot be powered on."
             exit 1
           fi
 
-          echo "⚡ Waking remote target node '$TARGET_NODE'..."
+          echo "⚡ Waking remote target node '$E2E_TARGET_NODE'..."
 
-          if ! ./scripts/node_power.sh wake "$TARGET_NODE" 2h; then
-            echo "::error::Could not power on target node '$TARGET_NODE'. Failing now rather than running the suite against an unreachable host."
+          if ! ./scripts/node_power.sh wake "$E2E_TARGET_NODE" 2h; then
+            echo "::error::Could not power on target node '$E2E_TARGET_NODE'. Failing now rather than running the suite against an unreachable host."
             exit 1
           fi
         env:
@@ -198,12 +202,17 @@ jobs:
       - name: Start LDM and run tests
         run: |
           NODE_FLAG=""
-          TARGET_NODE="${{ github.event.inputs.node_target || vars.LDM_NODE_TARGET || secrets.LDM_NODE_TARGET || 'local' }}"
-          if [ "$TARGET_NODE" != "local" ] && [ -n "$TARGET_NODE" ]; then
-            NODE_FLAG="--node $TARGET_NODE"
+          if [ "$E2E_TARGET_NODE" != "local" ] && [ -n "$E2E_TARGET_NODE" ]; then
+            NODE_FLAG="--node $E2E_TARGET_NODE"
           fi
           bash scripts/run-e2e-ldm.sh --ci $NODE_FLAG --shard "${{ matrix.shardIndex }}/${{ matrix.shardTotal }}"
         env:
+          # run-e2e-ldm.sh makes its own node_power.sh calls (a fatal wake, and
+          # the sleep in its EXIT trap). Without these they fail at the AWS CLI
+          # with "Unable to locate credentials" - which is what the run in #718
+          # did, twice per shard, every night.
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           LIFERAY_USER: ${{ secrets.LIFERAY_USER }}
           LIFERAY_PASSWORD: ${{ secrets.LIFERAY_PASSWORD }}
           LIFERAY_OAUTH_CLIENT_ID: ${{ secrets.LIFERAY_OAUTH_CLIENT_ID }}
@@ -240,13 +249,13 @@ jobs:
       - name: Sleep remote target node (mandatory cleanup)
         if: always()
         run: |
-          TARGET_NODE="${{ github.event.inputs.node_target || vars.LDM_NODE_TARGET || env.LDM_NODE_TARGET || 'aws-1' }}"
-          if [ "$TARGET_NODE" != "local" ] && [ -n "$TARGET_NODE" ]; then
+          if [ "$E2E_TARGET_NODE" != "local" ] && [ -n "$E2E_TARGET_NODE" ]; then
             # Still never fails the job - cleanup must run even when the suite
-            # has already failed - but a node that will not power off keeps
-            # costing money, so say so loudly instead of discarding it.
-            if ! ./scripts/node_power.sh sleep "$TARGET_NODE"; then
-              echo "::warning::Could not power off target node '$TARGET_NODE'. It may still be running and billable."
+            # has already failed, and an error annotation does not change the
+            # job's conclusion - but a node that will not power off keeps
+            # costing money, so surface it instead of discarding it.
+            if ! ./scripts/node_power.sh sleep "$E2E_TARGET_NODE"; then
+              echo "::error::Could not power off target node '$E2E_TARGET_NODE'. It may still be running and billable."
             fi
           fi
         env:
