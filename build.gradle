@@ -291,101 +291,109 @@ generateBatchFiles {
 		def microserviceDir = file("$rootDir/client-extensions/ai-commerce-accelerator-microservice")
 		def batchDir = file("$rootDir/client-extensions/ai-commerce-accelerator-batch/batch")
 
-		def entities = ['account', 'order', 'pdf', 'pricing', 'product', 'promo', 'warehouse'].sort()
+		// The directories are the source of truth for what gets seeded: a
+		// hand-maintained list silently drops any file added to them, which is
+		// how prompts/image.md ended up unseeded. The two sets differ on
+		// purpose - image generation has a prompt but returns no structured
+		// output, so there is no generation-schemas/image.json.
+		def entitiesIn = {
+			dir, extension ->
+			if (!dir.exists()) {
+				return []
+			}
+
+			return dir.listFiles().findAll {
+				it.isFile() && it.name.endsWith(extension)
+			}.collect {
+				it.name.substring(0, it.name.length() - extension.length())
+			}.sort()
+		}
+
+		def entityLabel = {
+			entity ->
+			(entity == 'promo') ? 'Promotion' : entity.capitalize()
+		}
+
 		int fileIndex = 4
 
 		// --- Schemas ---
 		def schemaDir = file("$microserviceDir/generation-schemas")
-		if (schemaDir.exists()) {
-			entities.each {
-				entity ->
-				def inputFile = file("$schemaDir/${entity}.json")
+		entitiesIn(schemaDir, '.json').each {
+			entity ->
+			def inputFile = file("$schemaDir/${entity}.json")
+			def entityName = entityLabel(entity)
+			def content = inputFile.text
 
-				if (inputFile.exists()) {
-					def entityName = (entity == 'promo') ? 'Promotion' : entity.capitalize()
-					def content = inputFile.text
-
-					def batchJson = [
-						configuration: [
-							className: "com.liferay.object.rest.dto.v1_0.ObjectEntry",
-							parameters: [
-								containsHeaders: "true",
-								createStrategy: "UPSERT",
-								onErrorFail: "false",
-								taskItemDelegateName: "C_AICAConfiguration",
-								updateStrategy: "UPDATE"
-							],
-							taskItemDelegateName: "C_AICAConfiguration"
-						],
-						items: [
-							[
-								configKey: "ai-schema-${entity}",
-								configStatus: [ key: "Active" ],
-								configValue: minifyJsonString(content),
-								description: "AI Schema for ${entityName}",
-								externalReferenceCode: "AI-SCHEMA-${entity.toUpperCase()}"
-							]
-						]
+			def batchJson = [
+				configuration: [
+					className: "com.liferay.object.rest.dto.v1_0.ObjectEntry",
+					parameters: [
+						containsHeaders: "true",
+						createStrategy: "UPSERT",
+						onErrorFail: "false",
+						taskItemDelegateName: "C_AICAConfiguration",
+						updateStrategy: "UPDATE"
+					],
+					taskItemDelegateName: "C_AICAConfiguration"
+				],
+				items: [
+					[
+						configKey: "ai-schema-${entity}",
+						configStatus: [ key: "Active" ],
+						configValue: minifyJsonString(content),
+						description: "AI Schema for ${entityName}",
+						externalReferenceCode: "AI-SCHEMA-${entity.toUpperCase()}"
 					]
+				]
+			]
 
-					def fileName = String.format("%02d-object-entry-ai-schema-%s.batch-engine-data.json", fileIndex++, entity)
-					def outputFile = new File(batchDir, fileName)
-					outputFile.withWriter('UTF-8') {
-						writer ->
-						writer.write(JsonOutput.prettyPrint(JsonOutput.toJson(batchJson)))
-					}
-					logger.lifecycle("Generated batch file: ${outputFile.name}")
-				}
+			def fileName = String.format("%02d-object-entry-ai-schema-%s.batch-engine-data.json", fileIndex++, entity)
+			def outputFile = new File(batchDir, fileName)
+			outputFile.withWriter('UTF-8') {
+				writer ->
+				writer.write(JsonOutput.prettyPrint(JsonOutput.toJson(batchJson)))
 			}
+			logger.lifecycle("Generated batch file: ${outputFile.name}")
 		}
 
 		// --- Prompts ---
 		def promptDir = file("$microserviceDir/prompts")
-		if (promptDir.exists()) {
-			entities.each {
-				entity ->
-				def inputFile = file("$promptDir/${entity}.md")
+		entitiesIn(promptDir, '.md').each {
+			entity ->
+			def inputFile = file("$promptDir/${entity}.md")
+			def entityName = entityLabel(entity)
+			def content = inputFile.text
 
-				if (inputFile.exists()) {
-					def entityName = (entity == 'promo') ? 'Promotion' : entity.capitalize()
-					def content = inputFile.text
-
-					def batchJson = [
-						configuration: [
-							className: "com.liferay.object.rest.dto.v1_0.ObjectEntry",
-							parameters: [
-								containsHeaders: "true",
-								createStrategy: "UPSERT",
-								onErrorFail: "false",
-								taskItemDelegateName: "C_AICAConfiguration",
-								updateStrategy: "UPDATE"
-							],
-							taskItemDelegateName: "C_AICAConfiguration"
-						],
-						items: [
-							[
-								configKey: "ai-prompt-${entity}",
-								configStatus: [ key: "Active" ],
-								configValue: content,
-								description: "AI Prompt for ${entityName}",
-								externalReferenceCode: "AI-PROMPT-${entity.toUpperCase()}"
-							]
-						]
+			def batchJson = [
+				configuration: [
+					className: "com.liferay.object.rest.dto.v1_0.ObjectEntry",
+					parameters: [
+						containsHeaders: "true",
+						createStrategy: "UPSERT",
+						onErrorFail: "false",
+						taskItemDelegateName: "C_AICAConfiguration",
+						updateStrategy: "UPDATE"
+					],
+					taskItemDelegateName: "C_AICAConfiguration"
+				],
+				items: [
+					[
+						configKey: "ai-prompt-${entity}",
+						configStatus: [ key: "Active" ],
+						configValue: content,
+						description: "AI Prompt for ${entityName}",
+						externalReferenceCode: "AI-PROMPT-${entity.toUpperCase()}"
 					]
+				]
+			]
 
-					def fileName = String.format("%02d-object-entry-ai-prompt-%s.batch-engine-data.json", fileIndex++, entity)
-					def outputFile = new File(batchDir, fileName)
-					outputFile.withWriter('UTF-8') {
-						writer ->
-						writer.write(JsonOutput.prettyPrint(JsonOutput.toJson(batchJson)))
-
-					}
-					logger.lifecycle("Generated batch file: ${outputFile.name}")
-
-				}
-
+			def fileName = String.format("%02d-object-entry-ai-prompt-%s.batch-engine-data.json", fileIndex++, entity)
+			def outputFile = new File(batchDir, fileName)
+			outputFile.withWriter('UTF-8') {
+				writer ->
+				writer.write(JsonOutput.prettyPrint(JsonOutput.toJson(batchJson)))
 			}
-
+			logger.lifecycle("Generated batch file: ${outputFile.name}")
 		}
 
 		// --- Categories ---

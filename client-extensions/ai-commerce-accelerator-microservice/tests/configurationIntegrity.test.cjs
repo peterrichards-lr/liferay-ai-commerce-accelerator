@@ -1,4 +1,26 @@
 const LiferayRestService = require('../services/liferay/rest.cjs');
+const fs = require('fs');
+const path = require('path');
+const {
+  listPromptNames,
+  listSchemaNames,
+} = require('../utils/configurationAssets.cjs');
+
+const BATCH_DIR = path.join(
+  __dirname,
+  '../../ai-commerce-accelerator-batch/batch'
+);
+
+function seededConfigKeys(infix) {
+  return fs
+    .readdirSync(BATCH_DIR)
+    .filter((fileName) => fileName.includes(`-object-entry-${infix}-`))
+    .map((fileName) =>
+      JSON.parse(fs.readFileSync(path.join(BATCH_DIR, fileName), 'utf8'))
+    )
+    .flatMap((batch) => batch.items.map((item) => item.configKey))
+    .sort();
+}
 
 describe('Microservice Configuration Integrity', () => {
   let _restService;
@@ -54,5 +76,28 @@ describe('Microservice Configuration Integrity', () => {
     const service = new LiferayService(mockCtx);
 
     expect(typeof service.createWarehouseChannel).toBe('function');
+  });
+
+  // The image prompt shipped unseeded for several releases because three
+  // hardcoded entity lists had to be updated by hand and none of them was.
+  // These two assertions fail the build instead.
+  it('should seed one ai-prompt config entry per prompt file', () => {
+    const promptNames = listPromptNames();
+
+    expect(promptNames).toContain('image');
+    expect(seededConfigKeys('ai-prompt')).toEqual(
+      promptNames.map((name) => `ai-prompt-${name}`)
+    );
+  });
+
+  it('should seed one ai-schema config entry per generation schema file', () => {
+    const schemaNames = listSchemaNames();
+
+    // Image generation returns an image, not structured output, so it has a
+    // prompt with no schema behind it. The two sets are not interchangeable.
+    expect(schemaNames).not.toContain('image');
+    expect(seededConfigKeys('ai-schema')).toEqual(
+      schemaNames.map((name) => `ai-schema-${name}`)
+    );
   });
 });
