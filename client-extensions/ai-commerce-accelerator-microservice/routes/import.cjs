@@ -4,6 +4,10 @@ const { createERC } = require('../utils/misc.cjs');
 const { ERC_PREFIX, WORKFLOW_STEPS } = require('../utils/constants.cjs');
 const { buildConfigAndOptions } = require('../utils/normalize.cjs');
 const { channelBackfillSteps } = require('../utils/runChannels.cjs');
+const {
+  logCommerceSelection,
+  resolveRunCommerceSelection,
+} = require('../utils/commerceSelection.cjs');
 
 const S = WORKFLOW_STEPS;
 const upload = multer({ storage: multer.memoryStorage() });
@@ -26,65 +30,30 @@ module.exports = (
       const { config, options: baseOptions } = buildConfigAndOptions(req);
       const correlationId = config.correlationId;
 
-      // Robust fallback: resolve missing channelId/siteGroupId and catalogId at backend API handler level
-      if (
-        !config.channelId ||
-        isNaN(config.channelId) ||
-        !config.siteGroupId ||
-        isNaN(config.siteGroupId)
-      ) {
-        try {
-          const channels = await liferayService.getChannels(config);
-          if (channels && channels.length > 0) {
-            let matchedChannel = null;
-            if (config.channelId && !isNaN(config.channelId)) {
-              matchedChannel = channels.find(
-                (c) => Number(c.id) === Number(config.channelId)
-              );
-            }
-            if (!matchedChannel) {
-              matchedChannel = channels[0];
-            }
-            if (!config.channelId || isNaN(config.channelId)) {
-              config.channelId = parseInt(matchedChannel.id, 10);
-            }
-            if (!config.siteGroupId || isNaN(config.siteGroupId)) {
-              config.siteGroupId = parseInt(matchedChannel.siteGroupId, 10);
-            }
-            logger.info(
-              `Resolved fallback commerce channelId: ${config.channelId}, siteGroupId: ${config.siteGroupId}`
-            );
-          } else {
-            logger.warn(
-              'No channels found in Liferay to resolve fallback channelId/siteGroupId'
-            );
-          }
-        } catch (err) {
-          logger.error(
-            'Failed to resolve fallback channelId/siteGroupId from Liferay',
-            { error: err.message }
-          );
-        }
-      }
+      // An imported dataset lands in a catalog and a channel exactly as a
+      // generated one does, so it is resolved by the same rules. See #680.
+      const commerceSelection = await resolveRunCommerceSelection({
+        config,
+        correlationId,
+        liferayService,
+        logger,
+        operation: 'import-commerce-data',
+      });
 
-      if (!config.catalogId || isNaN(config.catalogId)) {
-        try {
-          const catalogs = await liferayService.getCatalogs(config);
-          if (catalogs && catalogs.length > 0) {
-            config.catalogId = parseInt(catalogs[0].id, 10);
-            logger.info(
-              `Resolved fallback commerce catalogId: ${config.catalogId}`
-            );
-          } else {
-            logger.warn(
-              'No catalogs found in Liferay to resolve fallback catalogId'
-            );
-          }
-        } catch (err) {
-          logger.error('Failed to resolve fallback catalogId from Liferay', {
-            error: err.message,
-          });
-        }
+      logCommerceSelection({
+        correlationId,
+        logs: commerceSelection.logs,
+        logger,
+        operation: 'import-commerce-data',
+      });
+
+      if (commerceSelection.rejection) {
+        return res.status(400).json({
+          success: false,
+          error: commerceSelection.rejection,
+          details: commerceSelection.rejections,
+          timestamp: new Date().toISOString(),
+        });
       }
 
       let importData;
@@ -286,6 +255,7 @@ module.exports = (
           success: true,
           sessionId,
           message: 'Commerce data import workflow started.',
+          commerce: commerceSelection.summary,
           correlationId,
           timestamp: new Date().toISOString(),
         });

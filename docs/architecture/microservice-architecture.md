@@ -104,9 +104,11 @@ That makes an undeclared property in the mock demo-only data, and any pipeline b
 
 `generation-schemas/` remains the single authority. Where the mock and the schema disagree, the mock is wrong.
 
-### Where the substitution does not happen
+### Every text generator goes through the facade
 
-`PromoGenerator` calls `ctx.ai.generatePromoData` directly rather than through the facade, so promotion generation has no demo-mode substitution and no mock behind it. `mediaGenerator` does check `options.demoMode` for both images and PDFs, and skips the provider.
+Product, account, order, warehouse, pricing and promo all route through `GenerationFacade.generateData`, which is what makes the substitution — and the schema validation behind it — apply uniformly. A generator that calls `ctx.ai` directly bypasses both: `PromoGenerator` did, so a demo run with promotions enabled still called a model, and its response was never schema-checked.
+
+Media is the deliberate exception. `mediaGenerator` checks `options.demoMode` itself and skips the provider for both images and PDFs, substituting placeholders rather than generated content, so `pdf` has a generation schema with no mock behind it.
 
 ---## Dynamic Asset Management
 

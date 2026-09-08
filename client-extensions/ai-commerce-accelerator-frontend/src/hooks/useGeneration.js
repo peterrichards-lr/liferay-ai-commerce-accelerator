@@ -3,6 +3,23 @@ import { toFormData } from '../utils/formData';
 import { computeTotalsFromConfig } from '../state/progressSelectors';
 import { GENERATE_WORKFLOW, WORKFLOW_CANCEL } from '../utils/microservicePaths';
 
+const describeTarget = (label, id, name) => {
+  if (!id) return `${label}: none`;
+  return name ? `${label}: ${name} (id ${id})` : `${label}: id ${id}`;
+};
+
+const describeRunTargets = ({
+  catalogId,
+  catalogName,
+  channelId,
+  channelName,
+}) =>
+  `Generating into ${describeTarget(
+    'catalog',
+    catalogId,
+    catalogName
+  )}, ${describeTarget('channel', channelId, channelName)}`;
+
 export default function useGeneration({
   addLog,
   buildPayload,
@@ -91,6 +108,13 @@ export default function useGeneration({
         }
 
         if (response.sessionId) {
+          // The run names its own targets. A run that ended up somewhere
+          // unexpected used to be invisible until someone went looking in
+          // Liferay for the products. See #680.
+          if (response.commerce) {
+            addLog(describeRunTargets(response.commerce), 'info');
+          }
+
           dispatch({
             type: 'SET_ACTIVE_SESSION',
             sessionId: response.sessionId,

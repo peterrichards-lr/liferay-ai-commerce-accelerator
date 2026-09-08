@@ -88,12 +88,23 @@ class PromoGenerator extends BaseGenerator {
         );
       }
 
-      // Query AI service to generate segment and promotion rules
-      const promoData = await this.ctx.ai.generatePromoData(
-        products,
-        accounts,
-        session.context.options || {},
-        { correlationId: sessionId }
+      // Through the facade, not straight at `ctx.ai`. This was the one
+      // generation path with no demo-mode substitution, so a run in the mode
+      // that exists to cost nothing still called a model - failing the step on
+      // an instance with no key, and spending money on one with a key. Going
+      // through the facade also validates the response against
+      // generation-schemas/promo.json and retries once with the errors fed
+      // back, which this path never did. See #697.
+      const promoData = await this.ctx.generation.generateData(
+        'promo',
+        0,
+        config,
+        {
+          ...(session.context.options || {}),
+          accounts,
+          correlationId: sessionId,
+          products,
+        }
       );
 
       const userSegments = promoData?.userSegments || [];
