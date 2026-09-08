@@ -189,6 +189,7 @@ function AppUI() {
     channels,
     languages,
     currencies,
+    warehouseCount: existingWarehouseCount,
     categories: fetchCategories,
     selectChannel,
     selectCatalog,
@@ -718,6 +719,7 @@ function AppUI() {
           <ClayLayout.Col lg={6} md={8} sm={12}>
             <div className="sheet sheet-lg mb-4">
               <DataGeneratorForm
+                existingWarehouseCount={existingWarehouseCount}
                 generationConfig={generationConfig}
                 setGenerationConfig={setGenerationConfig}
                 onGenerate={generateData}

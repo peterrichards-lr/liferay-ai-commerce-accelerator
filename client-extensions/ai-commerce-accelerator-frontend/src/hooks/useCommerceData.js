@@ -5,6 +5,7 @@ import { getConnectionErrorsMap, hasAnyErrors } from '../utils/validation';
 import {
   GET_CATALOGS,
   GET_CHANNELS,
+  GET_WAREHOUSES,
   CREATE_CHANNEL,
   GET_CATEGORIES,
   TEST_CONNECTION,
@@ -26,6 +27,8 @@ export default function useCommerceData({
   const [channels, setChannels] = useState([]);
   const [languages, setLanguages] = useState([]);
   const [currencies, setCurrencies] = useState([]);
+  // null means not known, which is different from zero. See loadRootLists.
+  const [warehouseCount, setWarehouseCount] = useState(null);
   const [isCreatingChannel, setIsCreatingChannel] = useState(false);
 
   const buildPayload = useCallback(
@@ -74,18 +77,29 @@ export default function useCommerceData({
   const loadRootLists = useCallback(async () => {
     const payload = buildPayload();
 
-    const [cat, ch] = await Promise.all([
+    // The warehouse count comes along for the ride so the generator form can
+    // say what "top up to five" will actually create, and rule out "use only
+    // the ones already there" when there are none. A failure here must not
+    // cost the catalogs and channels, which the form cannot work without, so
+    // it settles to null - "not known" - rather than to zero, which would
+    // wrongly read as "none exist" and disable a valid option (#730).
+    const [cat, ch, wh] = await Promise.all([
       api.post(GET_CATALOGS, payload),
       api.post(GET_CHANNELS, payload),
+      api.post(GET_WAREHOUSES, payload).catch(() => null),
     ]);
 
     const cats = Array.isArray(cat?.catalogs) ? cat.catalogs : [];
     const chs = Array.isArray(ch?.channels) ? ch.channels : [];
+    const warehouseTotal = Array.isArray(wh?.warehouses)
+      ? wh.warehouses.length
+      : null;
 
     setCatalogs(cats);
     setChannels(chs);
+    setWarehouseCount(warehouseTotal);
 
-    return { catalogs: cats, channels: chs };
+    return { catalogs: cats, channels: chs, warehouseCount: warehouseTotal };
   }, [api, buildPayload]);
 
   const createDefaultChannel = useCallback(async () => {
@@ -417,6 +431,7 @@ export default function useCommerceData({
     channels,
     languages,
     currencies,
+    warehouseCount,
     isCreatingChannel,
     createDefaultChannel,
     categories: getCategories,
