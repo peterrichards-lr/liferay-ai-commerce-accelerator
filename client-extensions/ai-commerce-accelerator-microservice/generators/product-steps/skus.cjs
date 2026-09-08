@@ -284,13 +284,14 @@ async function runLinkProductOptionsStep(sessionId) {
         }
       }
 
-      const unlinked = [];
+      const withoutOption = [];
+      const withoutValues = [];
 
       const updatedOpts = sourceOptions.map((opt, index) => {
         const linked = linkedIds[index];
 
         if (!linked) {
-          unlinked.push(optionKeys[index]);
+          withoutOption.push(optionKeys[index]);
           return opt;
         }
 
@@ -304,16 +305,26 @@ async function runLinkProductOptionsStep(sessionId) {
           linked[LINKED_OPTION_VALUES].length === 0 &&
           (cleanedOptions[index].productOptionValues || []).length > 0
         ) {
-          unlinked.push(optionKeys[index]);
+          withoutValues.push(optionKeys[index]);
         }
 
         return opt;
       });
 
-      if (unlinked.length > 0) {
+      // Distinct failures worth telling apart when a run is being read back:
+      // the first says the option never reached the product definition, the
+      // second that it did but its values did not come with it.
+      if (withoutOption.length > 0) {
         this.logger.warn(
-          `Product ${product.externalReferenceCode}: Liferay reported no option value relationships for ${unlinked.join(', ')}; SKU variants will lose those options`,
-          { sessionId, options: unlinked }
+          `Product ${product.externalReferenceCode}: Liferay linked no product option for ${withoutOption.join(', ')}; SKU variants will lose those options`,
+          { sessionId, options: withoutOption }
+        );
+      }
+
+      if (withoutValues.length > 0) {
+        this.logger.warn(
+          `Product ${product.externalReferenceCode}: Liferay reported no option value relationships for ${withoutValues.join(', ')}; SKU variants will lose those options`,
+          { sessionId, options: withoutValues }
         );
       }
 

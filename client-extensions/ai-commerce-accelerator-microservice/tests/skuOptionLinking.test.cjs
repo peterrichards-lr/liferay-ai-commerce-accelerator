@@ -204,4 +204,17 @@ describe('SKU option links', () => {
       expect.objectContaining({ options: ['COLOR'] })
     );
   });
+
+  it('tells a missing link apart from a link missing its values', async () => {
+    liferay.addProductOptions.mockResolvedValue({ items: [] });
+    liferay.getProductOptions.mockResolvedValue([]);
+
+    await generator.steps[S.ENSURE_OPTIONS]('sess-1');
+    await generator.steps[S.LINK_PRODUCT_OPTIONS]('sess-1');
+
+    expect(logger.warn).toHaveBeenCalledWith(
+      expect.stringContaining('linked no product option'),
+      expect.objectContaining({ options: ['COLOR'] })
+    );
+  });
 });
