@@ -98,6 +98,13 @@ function DataGeneratorForm({
       sessionName: generationConfig.sessionName || defaultSessionName,
     };
 
+    // Keep the resolved name in the config too. The default is applied here and
+    // nowhere else, so without this the state still reads empty and a log
+    // export cannot say which run it describes.
+    if (finalConfig.sessionName !== generationConfig.sessionName) {
+      handleConfigChange('sessionName', finalConfig.sessionName);
+    }
+
     const node = scrollTargetRef?.current;
     if (node?.scrollIntoView)
       node.scrollIntoView({ behavior: 'smooth', block: 'start' });

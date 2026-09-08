@@ -1,6 +1,7 @@
 import { useCallback } from 'react';
 import notifyUser from '../utils/notifications';
-import { buildFilename, exportJsonFile } from '../utils/fileHelper';
+import { exportJsonFile } from '../utils/fileHelper';
+import { sessionExportFilename } from '../utils/sessionFilename';
 
 /**
  * Hook for managing log and system state exports.
@@ -15,12 +16,14 @@ export default function useLogExport({
   const exportLogs = useCallback(() => {
     try {
       const isDelete = progress.activeFlowType === 'delete';
+      const sessionName = generationConfig?.sessionName;
 
       const exportData = {
         summary: {
           timestamp: new Date().toISOString(),
           version: '1.0.0',
           activeSessionId: progress.activeSessionId,
+          sessionName: sessionName || null,
           flowType: progress.activeFlowType || 'generate',
           workflowStatus: progress.workflowStatus,
         },
@@ -79,8 +82,9 @@ export default function useLogExport({
         })),
       };
 
-      const filename = buildFilename(
-        `aica-logs-${progress.activeFlowType || 'generate'}`
+      const filename = sessionExportFilename(
+        `aica-logs-${progress.activeFlowType || 'generate'}`,
+        sessionName
       );
       exportJsonFile(exportData, filename);
 
