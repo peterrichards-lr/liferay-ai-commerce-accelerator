@@ -1,3 +1,42 @@
+/**
+ * A bar has three numbers, and they answer three different questions.
+ *
+ *   - `requested` is what the operator asked for. It is seeded when a run
+ *     starts and nothing the run reports may lower it.
+ *   - `total` is the largest amount known to be in play. It starts at
+ *     `requested` and only grows, because every later number arrives from the
+ *     run itself: ask for 50 products, have the AI deliver 16, and a total
+ *     taken from the steps that follow drops to 16 and reads 100% (#756).
+ *   - `completed` is what actually happened, and `isDone` is whether the step
+ *     finished. They are independent: a step can be finished and short, which
+ *     is the state worth showing and the one the reducer used to overwrite
+ *     (#761).
+ */
+const emptyEntity = () => ({
+  total: 0,
+  requested: 0,
+  completed: 0,
+  errors: [],
+  batches: {},
+  isDone: false,
+});
+
+const entityState = (state, entity) => state[entity] || emptyEntity();
+
+const seededEntity = (cur, total) => ({
+  ...cur,
+  total,
+  requested: total,
+  completed: 0,
+  errors: [],
+  batches: {},
+  isDone: false,
+});
+
+/** Totals may rise above the request, never fall below it. */
+const withRequestFloor = (cur, ...totals) =>
+  Math.max(cur.requested || 0, ...totals.map((t) => t || 0));
+
 export const initialProgress = {
   activeSessionId: null,
   activeFlowType: null, // generate, delete, etc.
@@ -7,21 +46,21 @@ export const initialProgress = {
   endTime: null,
   totalSteps: 0,
   completedSteps: 0,
-  products: { total: 0, completed: 0, errors: [], batches: {} },
+  products: emptyEntity(),
   // Seeded here rather than conjured by the first batch that mentions them, so
   // a bar that never receives an event reads 0 rather than not existing (#752).
-  skus: { total: 0, completed: 0, errors: [], batches: {} },
-  inventory: { total: 0, completed: 0, errors: [], batches: {} },
-  accounts: { total: 0, completed: 0, errors: [], batches: {} },
-  addresses: { total: 0, completed: 0, errors: [], batches: {} },
-  orders: { total: 0, completed: 0, errors: [], batches: {} },
-  images: { expected: 0, total: 0, completed: 0, errors: [], batches: {} },
-  pdfs: { expected: 0, total: 0, completed: 0, errors: [], batches: {} },
-  warehouses: { total: 0, completed: 0, errors: [], batches: {} },
-  specifications: { total: 0, completed: 0, errors: [], batches: {} },
-  options: { total: 0, completed: 0, errors: [], batches: {} },
-  priceLists: { total: 0, completed: 0, errors: [], batches: {} },
-  promotions: { total: 0, completed: 0, errors: [], batches: {} },
+  skus: emptyEntity(),
+  inventory: emptyEntity(),
+  accounts: emptyEntity(),
+  addresses: emptyEntity(),
+  orders: emptyEntity(),
+  images: { ...emptyEntity(), expected: 0 },
+  pdfs: { ...emptyEntity(), expected: 0 },
+  warehouses: emptyEntity(),
+  specifications: emptyEntity(),
+  options: emptyEntity(),
+  priceLists: emptyEntity(),
+  promotions: emptyEntity(),
 };
 
 export function progressReducer(state, action) {
@@ -34,8 +73,12 @@ export function progressReducer(state, action) {
     case 'RESET_ALL': {
       const next = { ...initialProgress, lastUpdateTime: now };
       if (action.totals) {
-        Object.entries(action.totals).forEach(([k, v]) => {
-          if (next[k]) next[k].total = v;
+        Object.entries(action.totals).forEach(([entity, total]) => {
+          // A replacement rather than an assignment into next[entity]:
+          // spreading initialProgress copies references to its entity objects,
+          // so writing through one would leave this run's total sitting in the
+          // module constant for the next run to inherit.
+          if (next[entity]) next[entity] = seededEntity(next[entity], total);
         });
       }
       return next;
@@ -64,14 +107,7 @@ export function progressReducer(state, action) {
       if (isNewSession && action.totals) {
         Object.entries(action.totals).forEach(([entity, total]) => {
           if (nextState[entity]) {
-            nextState[entity] = {
-              ...nextState[entity],
-              total,
-              completed: 0,
-              errors: [],
-              batches: {},
-              isDone: false,
-            };
+            nextState[entity] = seededEntity(nextState[entity], total);
           }
         });
       }
@@ -110,15 +146,10 @@ export function progressReducer(state, action) {
 
     case 'SET_TOTAL': {
       const { entity, total } = action;
-      const cur = state[entity] || {
-        total: 0,
-        completed: 0,
-        errors: [],
-        batches: {},
-      };
+      const cur = entityState(state, entity);
       return {
         ...state,
-        [entity]: { ...cur, total },
+        [entity]: { ...cur, total: withRequestFloor(cur, total) },
         lastUpdateTime: now,
       };
     }
@@ -126,13 +157,8 @@ export function progressReducer(state, action) {
     case 'SET_TOTALS': {
       const next = { ...state, lastUpdateTime: now };
       Object.entries(action.totals).forEach(([entity, total]) => {
-        const cur = next[entity] || {
-          total: 0,
-          completed: 0,
-          errors: [],
-          batches: {},
-        };
-        next[entity] = { ...cur, total };
+        const cur = entityState(next, entity);
+        next[entity] = { ...cur, total: withRequestFloor(cur, total) };
       });
       return next;
     }
@@ -140,25 +166,14 @@ export function progressReducer(state, action) {
     case 'SET_EXPECTED_VALUES': {
       const next = { ...state, lastUpdateTime: now };
       Object.entries(action.values).forEach(([entity, expected]) => {
-        const cur = next[entity] || {
-          total: 0,
-          completed: 0,
-          errors: [],
-          batches: {},
-        };
-        next[entity] = { ...cur, expected };
+        next[entity] = { ...entityState(next, entity), expected };
       });
       return next;
     }
 
     case 'SET_COMPLETED': {
       const { entity, completed } = action;
-      const cur = state[entity] || {
-        total: 0,
-        completed: 0,
-        errors: [],
-        batches: {},
-      };
+      const cur = entityState(state, entity);
 
       return {
         ...state,
@@ -169,12 +184,7 @@ export function progressReducer(state, action) {
 
     case 'INCR_COMPLETED': {
       const { entity, amount } = action;
-      const cur = state[entity] || {
-        total: 0,
-        completed: 0,
-        errors: [],
-        batches: {},
-      };
+      const cur = entityState(state, entity);
 
       return {
         ...state,
@@ -183,31 +193,32 @@ export function progressReducer(state, action) {
       };
     }
 
-    case 'SET_COMPLETED_TO_TOTAL': {
-      const { entity } = action;
-      const cur = state[entity] || {
-        total: 0,
-        completed: 0,
-        errors: [],
-        batches: {},
-        isDone: false,
-      };
-      // Mark as done explicitly. Completed count should match total.
+    case 'MARK_DONE': {
+      const { entity, completed } = action;
+      const cur = entityState(state, entity);
+
+      // The count the step reports is kept, not replaced by its total. Forcing
+      // the two together is what made a run that delivered 16 of 50 products
+      // display "50 / 50, done" while the database recorded 16/50 (#761).
+      //
+      // A count is only taken against a total, and only a step that reports
+      // one moves the number: a bypassed step still broadcasts a completion,
+      // and the count it carries defaults to 1, which against an entity
+      // nothing was asked of would report an item that never existed.
+      // Otherwise the count already gathered from the step's batches stands.
+      const reported =
+        Number.isFinite(completed) && cur.total > 0 ? completed : cur.completed;
+
       return {
         ...state,
-        [entity]: { ...cur, completed: cur.total, isDone: true },
+        [entity]: { ...cur, completed: reported, isDone: true },
         lastUpdateTime: now,
       };
     }
 
     case 'UPDATE_BATCH': {
       const { entity, batchId, completed, total } = action;
-      const cur = state[entity] || {
-        total: 0,
-        completed: 0,
-        errors: [],
-        batches: {},
-      };
+      const cur = entityState(state, entity);
 
       const nextBatches = {
         ...cur.batches,
@@ -224,15 +235,13 @@ export function progressReducer(state, action) {
         0
       );
 
-      const summedTotal = Math.max(cur.total, summedBatchTotals);
-
       return {
         ...state,
         [entity]: {
           ...cur,
           batches: nextBatches,
           completed: summedCompleted,
-          total: summedTotal,
+          total: withRequestFloor(cur, cur.total, summedBatchTotals),
         },
         lastUpdateTime: now,
       };
@@ -240,12 +249,7 @@ export function progressReducer(state, action) {
 
     case 'ADD_ERRORS': {
       const { entity, errors } = action;
-      const cur = state[entity] || {
-        total: 0,
-        completed: 0,
-        errors: [],
-        batches: {},
-      };
+      const cur = entityState(state, entity);
       const newErrors = Array.isArray(errors) ? errors : [errors];
       return {
         ...state,
@@ -275,7 +279,7 @@ export const ACTIONS = {
     entity,
     completed,
   }),
-  setCompletedToTotal: (entity) => ({ type: 'SET_COMPLETED_TO_TOTAL', entity }),
+  markDone: (entity, completed) => ({ type: 'MARK_DONE', entity, completed }),
   updateBatch: (entity, batchId, completed, total) => ({
     type: 'UPDATE_BATCH',
     entity,
