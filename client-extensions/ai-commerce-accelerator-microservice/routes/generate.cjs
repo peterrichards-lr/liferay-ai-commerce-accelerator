@@ -18,6 +18,10 @@ const {
   specificationSteps,
   warehouseCreationSteps,
 } = require('../utils/productSubflow.cjs');
+const {
+  logCommerceSelection,
+  resolveRunCommerceSelection,
+} = require('../utils/commerceSelection.cjs');
 
 const S = WORKFLOW_STEPS;
 
@@ -80,6 +84,34 @@ module.exports = (
           success: false,
           error: `Input validation failed: ${problems.join(', ')}`,
           details: problems,
+          timestamp: new Date().toISOString(),
+        });
+      }
+
+      // Resolved before anything else reads the ids - the seed pack branch
+      // below returns without ever reaching the old fallback, and the site type
+      // check reads config.channelId. A stale id is refused here rather than
+      // quietly swapped, so no run relocates without saying so. See #680.
+      const commerceSelection = await resolveRunCommerceSelection({
+        config,
+        correlationId: req.correlationId,
+        liferayService,
+        logger,
+        operation: 'generate-workflow',
+      });
+
+      logCommerceSelection({
+        correlationId: req.correlationId,
+        logs: commerceSelection.logs,
+        logger,
+        operation: 'generate-workflow',
+      });
+
+      if (commerceSelection.rejection) {
+        return res.status(400).json({
+          success: false,
+          error: commerceSelection.rejection,
+          details: commerceSelection.rejections,
           timestamp: new Date().toISOString(),
         });
       }
@@ -319,6 +351,7 @@ module.exports = (
         );
 
         logger.info('Seed pack generation workflow started', {
+          commerce: commerceSelection.summary,
           correlationId: config.correlationId,
           sessionId,
           seedPack: options.seedPack,
@@ -328,70 +361,10 @@ module.exports = (
           success: true,
           sessionId,
           message: 'Seed pack generation workflow started successfully.',
+          commerce: commerceSelection.summary,
           correlationId: config.correlationId,
           timestamp: new Date().toISOString(),
         });
-      }
-
-      // Robust fallback: resolve missing channelId/siteGroupId and catalogId at backend API handler level
-      if (
-        !config.channelId ||
-        isNaN(config.channelId) ||
-        !config.siteGroupId ||
-        isNaN(config.siteGroupId)
-      ) {
-        try {
-          const channels = await liferayService.getChannels(config);
-          if (channels && channels.length > 0) {
-            let matchedChannel = null;
-            if (config.channelId && !isNaN(config.channelId)) {
-              matchedChannel = channels.find(
-                (c) => Number(c.id) === Number(config.channelId)
-              );
-            }
-            if (!matchedChannel) {
-              matchedChannel = channels[0];
-            }
-            if (!config.channelId || isNaN(config.channelId)) {
-              config.channelId = parseInt(matchedChannel.id, 10);
-            }
-            if (!config.siteGroupId || isNaN(config.siteGroupId)) {
-              config.siteGroupId = parseInt(matchedChannel.siteGroupId, 10);
-            }
-            logger.info(
-              `Resolved fallback commerce channelId: ${config.channelId}, siteGroupId: ${config.siteGroupId}`
-            );
-          } else {
-            logger.warn(
-              'No channels found in Liferay to resolve fallback channelId/siteGroupId'
-            );
-          }
-        } catch (err) {
-          logger.error(
-            'Failed to resolve fallback channelId/siteGroupId from Liferay',
-            { error: err.message }
-          );
-        }
-      }
-
-      if (!config.catalogId || isNaN(config.catalogId)) {
-        try {
-          const catalogs = await liferayService.getCatalogs(config);
-          if (catalogs && catalogs.length > 0) {
-            config.catalogId = parseInt(catalogs[0].id, 10);
-            logger.info(
-              `Resolved fallback commerce catalogId: ${config.catalogId}`
-            );
-          } else {
-            logger.warn(
-              'No catalogs found in Liferay to resolve fallback catalogId'
-            );
-          }
-        } catch (err) {
-          logger.error('Failed to resolve fallback catalogId from Liferay', {
-            error: err.message,
-          });
-        }
       }
 
       try {
@@ -559,6 +532,7 @@ module.exports = (
         );
 
         logger.info('Generation workflow started', {
+          commerce: commerceSelection.summary,
           correlationId: config.correlationId,
           sessionId,
         });
@@ -567,6 +541,7 @@ module.exports = (
           success: true,
           sessionId,
           message: 'Generation workflow started successfully.',
+          commerce: commerceSelection.summary,
           correlationId: config.correlationId,
           timestamp: new Date().toISOString(),
         });
