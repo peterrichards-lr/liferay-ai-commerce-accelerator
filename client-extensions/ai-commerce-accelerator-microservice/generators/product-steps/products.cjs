@@ -1,4 +1,5 @@
 const { deepCleanIds } = require('../../utils/payload-cleaner.cjs');
+const { productIdentity } = require('../../utils/productIdentity.cjs');
 const {
   createERC,
   normalizeSpecificationKey,
@@ -234,17 +235,50 @@ async function runResolveProductIdsStep(sessionId) {
       config,
       ercs,
       (cfg, e) =>
-        this.liferay.getProductsByERC(cfg, e, ['id', 'externalReferenceCode']),
+        this.liferay.getProductsByERC(cfg, e, [
+          'id',
+          'productId',
+          'externalReferenceCode',
+        ]),
       { label: 'products' }
     );
 
     const normalized = this._normalize(resolvedItems);
+    const byErc = new Map(
+      resolvedItems
+        .filter((item) => item?.externalReferenceCode)
+        .map((item) => [item.externalReferenceCode, item])
+    );
     const ercToIdMap = new Map(normalized.map((item) => [item.erc, item.id]));
 
-    const updatedList = productDataList.map((p) => ({
-      ...p,
-      id: ercToIdMap.get(p.externalReferenceCode),
-    }));
+    const updatedList = productDataList.map((p) => {
+      const resolved = byErc.get(p.externalReferenceCode);
+
+      return {
+        ...p,
+        ...productIdentity(resolved),
+        id: ercToIdMap.get(p.externalReferenceCode),
+      };
+    });
+
+    const missingDefinition = updatedList.filter(
+      (p) => p.id && !p.cpDefinitionId
+    );
+
+    if (missingDefinition.length > 0) {
+      // Every product-scoped catalog path takes the definition id, so without
+      // it the next steps would read an empty or missing product rather than
+      // fail. Say so here, where the cause is still visible.
+      this.logger.warn(
+        `Resolved ${missingDefinition.length} of ${updatedList.length} products without a definition id; their options and specifications cannot be read back`,
+        {
+          sessionId,
+          externalReferenceCodes: missingDefinition
+            .slice(0, 5)
+            .map((p) => p.externalReferenceCode),
+        }
+      );
+    }
 
     await this.persistence.updateSessionContext(sessionId, {
       productDataList: updatedList,
