@@ -112,6 +112,36 @@ downloadSharedOsgiModules {
 			md.digest().collect { String.format("%02x", it) }.join()
 		}
 
+		// A transient failure on one asset used to abort this task, and with it
+		// every deploy and build in the workspace (#726).
+		def fetchBytes = {
+			String url ->
+			def attempts = 3
+			def lastFailure = null
+
+			for (int attempt = 1; attempt <= attempts; attempt++) {
+				try {
+					return new URL(url).withInputStream { it.bytes }
+				}
+				catch (Exception e) {
+					lastFailure = e
+
+					if (attempt < attempts) {
+						logger.lifecycle(
+							"Fetch of ${url} failed (${e.message}); retrying")
+						Thread.sleep(1000L * attempt)
+					}
+				}
+			}
+
+			throw lastFailure
+		}
+
+		def fetchText = {
+			String url ->
+			new String(fetchBytes(url), "UTF-8")
+		}
+
 		// One fetch resolves every bundle: its version, its asset name and its
 		// checksum. Before the release manifest existed this was a .sha256
 		// request per bundle, and the version and DXP line had to be assembled
@@ -119,7 +149,7 @@ downloadSharedOsgiModules {
 		// owned by another repository.
 		def manifestText
 		try {
-			manifestText = new URL("${base}/modules.json").text
+			manifestText = fetchText("${base}/modules.json")
 		}
 		catch (Exception e) {
 			throw new GradleException(
@@ -130,12 +160,28 @@ downloadSharedOsgiModules {
 		// The manifest's own checksum is same-origin, so it proves the download
 		// arrived intact rather than that it is authentic. The per-bundle
 		// digests below are the values worth trusting.
-		def manifestExpected = new URL("${base}/modules.json.sha256").text.trim().split(/\s+/)[0]
 		def manifestActual = java.security.MessageDigest.getInstance("SHA-256")
 			.digest(manifestText.getBytes("UTF-8"))
 			.collect { String.format("%02x", it) }.join()
 
-		if (manifestExpected != manifestActual) {
+		// Which is why an unreachable one warns rather than stopping every build
+		// in the workspace - GitHub served a persistent 500 for this single asset
+		// while every other asset in the release was fine (#726). A checksum that
+		// is present and *disagrees* still fails: that is corruption, which an
+		// unreachable file is not.
+		def manifestExpected = null
+
+		try {
+			manifestExpected = fetchText("${base}/modules.json.sha256").trim().split(/\s+/)[0]
+		}
+		catch (Exception e) {
+			logger.warn(
+				"Could not fetch modules.json.sha256 from ${base} (${e.message}). Continuing " +
+				"without the manifest's own checksum; the per-bundle digests it carries are " +
+				"still enforced.")
+		}
+
+		if (manifestExpected != null && manifestExpected != manifestActual) {
 			throw new GradleException(
 				"modules.json failed its own checksum: expected ${manifestExpected}, got ${manifestActual}")
 		}
@@ -189,13 +235,7 @@ downloadSharedOsgiModules {
 			}
 			else {
 				logger.lifecycle("Downloading ${fileName}")
-				target.withOutputStream {
-					out ->
-					new URL("${base}/${fileName}").withInputStream {
-						into ->
-						out << into
-					}
-				}
+				target.bytes = fetchBytes("${base}/${fileName}")
 
 				def actual = digestOf(target)
 
