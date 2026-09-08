@@ -223,6 +223,60 @@ describe('OrderGenerator', () => {
     expect(mockCtx.liferay.createOrder).toHaveBeenCalled();
   });
 
+  // The split was read off `config`, which nothing ever put it on, so every
+  // order took the default status regardless of what the operator set. See #696.
+  it('applies the operator order status distribution from options', async () => {
+    const sessionId = 'test-session-distribution';
+    const orderDataList = Array.from({ length: 10 }, (_unused, index) => ({
+      externalReferenceCode: `O${index}`,
+      accountId: 1001,
+    }));
+
+    await persistence.createSession({
+      sessionId,
+      flowType: 'orders',
+      status: 'STARTED',
+      context: {
+        config: {
+          channelId: '44207',
+          catalogId: '32693',
+          currencyCode: 'USD',
+          batchSize: 10,
+        },
+        options: {
+          orderCount: 10,
+          orderDistribution: { open: 40, completed: 60 },
+        },
+        products: [],
+        accounts: [{ id: 1001, externalReferenceCode: 'A1' }],
+        steps: [{ name: 'create-orders' }],
+        orderDataList,
+      },
+    });
+
+    generator.getProductsAndAccounts = vi.fn().mockResolvedValue({
+      products: [
+        {
+          id: 2001,
+          skus: [{ sku: 'S1', purchasable: true }],
+          productStatus: 0,
+          externalReferenceCode: 'P1',
+        },
+      ],
+      accounts: [{ id: 1001, externalReferenceCode: 'A1' }],
+    });
+
+    await generator._runOrderCreationStep(sessionId);
+
+    const session = await persistence.getSession(sessionId);
+    const statuses = session.context.orderDataList.map(
+      (order) => order.orderStatus
+    );
+
+    expect(statuses.filter((status) => status === 0)).toHaveLength(4);
+    expect(statuses.filter((status) => status === 10)).toHaveLength(6);
+  });
+
   describe('account eligibility for orders', () => {
     const config = { channelId: 44207, catalogId: 1, currencyCode: 'USD' };
 
