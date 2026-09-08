@@ -730,15 +730,13 @@ function DataGeneratorForm({
                   productCount={generationConfig.productCount}
                   values={{
                     createWarehouses: generationConfig.createWarehouses,
-                    reuseExistingWarehouses:
-                      generationConfig.reuseExistingWarehouses,
                     warehouseCount: generationConfig.warehouseCount,
                   }}
                   onChange={handleConfigChange}
                   disabled={lockFields || generationConfig.productCount === 0}
                 />
 
-                {generationConfig.createWarehouses && (
+                {generationConfig.productCount > 0 && (
                   <div className="mt-3">
                     <InventoryControls
                       productCount={generationConfig.productCount}

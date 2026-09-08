@@ -16,6 +16,10 @@ const {
 const { evaluateGenerationRun } = require('../utils/channelSiteType.cjs');
 const { channelBackfillSteps } = require('../utils/runChannels.cjs');
 const {
+  specificationSteps,
+  warehouseCreationSteps,
+} = require('../utils/productSubflow.cjs');
+const {
   resolveEffectiveLiferayConnection,
 } = require('../utils/liferayEnv.cjs');
 const { createERC } = require('../utils/misc.cjs');
@@ -99,6 +103,20 @@ module.exports = (router, routeCtx) => {
                 type: 'boolean',
                 description: 'Whether to generate SKU variants dynamically',
               },
+              generateSpecifications: {
+                type: 'boolean',
+                description:
+                  'Whether to register specifications for the generated products',
+              },
+              createWarehouses: {
+                type: 'boolean',
+                description:
+                  'Whether to create warehouses; when false the warehouses already in the instance are used',
+              },
+              warehouseCount: {
+                type: 'integer',
+                description: 'Number of warehouses to create',
+              },
             },
           },
         },
@@ -163,11 +181,10 @@ module.exports = (router, routeCtx) => {
       generateBulkPricing: false,
       generatePriceLists: args.generatePriceLists !== false,
       generateSkuVariants: args.generateSkuVariants !== false,
-      generateSpecifications: true,
+      generateSpecifications: args.generateSpecifications !== false,
       generateTierPricing: false,
-      createWarehouses: true,
-      reuseExistingWarehouses: true,
-      warehouseCount: 1,
+      createWarehouses: args.createWarehouses !== false,
+      warehouseCount: parseInt(args.warehouseCount, 10) || 1,
       inventoryMin: 10,
       inventoryMax: 100,
       inventoryAssignmentRatio: 1.0,
@@ -321,23 +338,14 @@ module.exports = (router, routeCtx) => {
           const orderSteps = [];
 
           if (options.productCount > 0) {
-            productSteps.push({
-              name: S.GENERATE_WAREHOUSE_DATA,
-              type: 'sync',
-            });
-            productSteps.push({ name: S.CREATE_WAREHOUSES, type: 'sync' });
-            productSteps.push({ name: S.RESOLVE_WAREHOUSE_IDS, type: 'sync' });
+            productSteps.push(...warehouseCreationSteps(options));
             productSteps.push({
               name: S.LINK_WAREHOUSE_CHANNELS,
               type: 'sync',
             });
             productSteps.push({ name: S.GENERATE_PRODUCT_DATA, type: 'sync' });
             productSteps.push({ name: S.ENSURE_CATEGORIES, type: 'sync' });
-            productSteps.push({
-              name: S.ENSURE_SPECIFICATION_CATEGORIES,
-              type: 'sync',
-            });
-            productSteps.push({ name: S.ENSURE_SPECIFICATIONS, type: 'sync' });
+            productSteps.push(...specificationSteps(options));
             productSteps.push({ name: S.ENSURE_OPTIONS, type: 'sync' });
             productSteps.push({ name: S.CREATE_PRODUCTS, type: 'sync' });
             productSteps.push({ name: S.RESOLVE_PRODUCT_IDS, type: 'sync' });

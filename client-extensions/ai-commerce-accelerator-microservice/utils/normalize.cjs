@@ -136,7 +136,6 @@ function buildConfigAndOptions(req) {
     pollingDelay,
     pollingRetries,
     productCount,
-    reuseExistingWarehouses,
     selectedLanguages,
     sessionName,
     siteGroupId,
@@ -252,7 +251,6 @@ function buildConfigAndOptions(req) {
   options.pdfMode = pdfMode || 'none';
   options.pdfRatio = toNumber(pdfRatio) || 0;
   options.createWarehouses = toBoolean(createWarehouses);
-  options.reuseExistingWarehouses = toBoolean(reuseExistingWarehouses);
   options.warehouseCount = toNumber(warehouseCount);
   options.customImageFile = getCustomImage(req, options.imageMode);
   options.customPdfFile = getCustomPdf(req, options.pdfMode);

@@ -28,7 +28,6 @@ const initialGenerationConfig = {
   enableBackorders: true,
   backorderAssignmentRatio: 50,
   createWarehouses: true,
-  reuseExistingWarehouses: true,
   warehouseCount: 5,
   customPDFFile: null,
 };
