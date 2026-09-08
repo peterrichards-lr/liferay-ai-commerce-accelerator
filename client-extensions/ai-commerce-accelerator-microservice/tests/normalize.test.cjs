@@ -89,16 +89,27 @@ describe('Data Normalization', () => {
       expect(build({}).options.accountType).toBe('business');
     });
 
-    it('carries and normalises businessAccountRatio', () => {
+    it('takes businessAccountRatio as a percentage', () => {
       expect(
-        build({ businessAccountRatio: '0.7' }).options.businessAccountRatio
-      ).toBe(0.7);
+        build({ businessAccountRatio: '70' }).options.businessAccountRatio
+      ).toBe(70);
     });
 
-    it('clamps the ratio into 0..1', () => {
+    // The stored format was 0-1 until #729. A saved 0.7 has to keep meaning
+    // "70% business" rather than becoming 0.7%, which is #711's failure.
+    it('reads a legacy fraction as the percentage it meant', () => {
       expect(
-        build({ businessAccountRatio: '5' }).options.businessAccountRatio
-      ).toBe(1);
+        build({ businessAccountRatio: '0.7' }).options.businessAccountRatio
+      ).toBe(70);
+      expect(
+        build({ businessAccountRatio: '1' }).options.businessAccountRatio
+      ).toBe(100);
+    });
+
+    it('clamps the ratio into 0..100', () => {
+      expect(
+        build({ businessAccountRatio: '150' }).options.businessAccountRatio
+      ).toBe(100);
       expect(
         build({ businessAccountRatio: '-2' }).options.businessAccountRatio
       ).toBe(0);

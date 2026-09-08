@@ -4,6 +4,10 @@ const {
   resolveErrorReference,
 } = require('../../utils/misc.cjs');
 const { ERC_PREFIX, WORKFLOW_STEPS } = require('../../utils/constants.cjs');
+const {
+  SELECTION_KEYS,
+  selectShare,
+} = require('../../utils/shareSelection.cjs');
 
 const S = WORKFLOW_STEPS;
 
@@ -39,10 +43,23 @@ async function runUpdateInventoryStep(sessionId) {
       inventoryAssignmentRatio = 100,
     } = options;
 
-    for (const pd of productDataList) {
-      // Roll dice for assignment ratio
-      if (Math.random() * 100 > inventoryAssignmentRatio) continue;
+    // A dice roll per product made even the count vary: at 50% over 50
+    // products, anywhere from roughly 18 to 32, and a different set every run.
+    // The share is now an exact count, drawn independently of the image and
+    // PDF shares so the same products do not carry everything (#729).
+    const stockedProducts = selectShare(
+      productDataList,
+      inventoryAssignmentRatio,
+      SELECTION_KEYS.INVENTORY,
+      { logger: this.logger }
+    );
 
+    this.logger.info(
+      `Assigning inventory to ${stockedProducts.length} of ${productDataList.length} products (${inventoryAssignmentRatio}%)`,
+      { sessionId }
+    );
+
+    for (const pd of stockedProducts) {
       const allSkus = [...(pd.skus || []), ...(pd.skuVariants || [])];
       for (const sku of allSkus) {
         if (!sku.sku) continue;

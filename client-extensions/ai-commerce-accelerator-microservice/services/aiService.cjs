@@ -19,6 +19,7 @@ const TOPUP_ATTEMPTS = 2;
 const { resolveMediaProvider } = require('../utils/providerCapabilities.cjs');
 const { ERC_PREFIX } = require('../utils/constants.cjs');
 const { estimateTokens } = require('../utils/tokenEstimator.cjs');
+const { shareCount } = require('../utils/shareSelection.cjs');
 const {
   accountGeography,
   accountTypeGuidance,
@@ -685,11 +686,11 @@ class AIService {
         Number.isFinite(ratio) &&
         count > 0
       ) {
-        const businessCount = Math.round(count * ratio);
+        const businessCount = shareCount(count, ratio);
         const personCount = count - businessCount;
 
         logger?.info?.(
-          `[AIService] Splitting mixed accounts by ratio ${ratio}: ${businessCount} business, ${personCount} person`,
+          `[AIService] Splitting mixed accounts by ratio ${ratio}%: ${businessCount} business, ${personCount} person`,
           { count, businessCount, personCount, correlationId }
         );
 
