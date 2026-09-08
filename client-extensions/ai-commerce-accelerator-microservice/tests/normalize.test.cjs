@@ -124,6 +124,46 @@ describe('Data Normalization', () => {
   // they were validated (in orderDateRangeDays' case) and then discarded. The
   // demo dataset took the model's choice of order dates, status split, PDF
   // content type and generation path instead of the operator's. See #696.
+  // Removed as redundant in #692, restored in #730: unchecking
+  // createWarehouses covers "use only what is there" but not "create only the
+  // shortfall", which is the state an operator asking for five warehouses on
+  // an instance holding two actually wants.
+  describe('buildConfigAndOptions warehouse reuse wiring', () => {
+    const build = (body) =>
+      buildConfigAndOptions({
+        headers: {},
+        body: {
+          clientId: 'test',
+          clientSecret: 'test',
+          liferayUrl: 'http://test.com',
+          ...body,
+        },
+      });
+
+    it('defaults to reusing, which is the non-duplicating choice', () => {
+      // Its original default was true; the CLI read `!== false`.
+      expect(build({}).options.reuseExistingWarehouses).toBe(true);
+    });
+
+    it('carries an explicit false', () => {
+      expect(
+        build({ reuseExistingWarehouses: false }).options
+          .reuseExistingWarehouses
+      ).toBe(false);
+    });
+
+    it('carries the string a form sends, since a multipart body is all strings', () => {
+      expect(
+        build({ reuseExistingWarehouses: 'false' }).options
+          .reuseExistingWarehouses
+      ).toBe(false);
+      expect(
+        build({ reuseExistingWarehouses: 'true' }).options
+          .reuseExistingWarehouses
+      ).toBe(true);
+    });
+  });
+
   describe('buildConfigAndOptions order, media and seed pack wiring', () => {
     const build = (body) =>
       buildConfigAndOptions({

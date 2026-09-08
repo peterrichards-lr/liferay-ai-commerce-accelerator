@@ -68,6 +68,7 @@ const initialGenerationConfig = {
   pdfRatio: 100,
   pdfContentType: 'product_info',
   createWarehouses: true,
+  reuseExistingWarehouses: true,
   warehouseCount: 5,
   inventoryMin: 0,
   inventoryMax: 1000,

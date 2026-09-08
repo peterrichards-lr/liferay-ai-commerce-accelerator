@@ -185,6 +185,39 @@ class WarehouseGenerator extends BaseGenerator {
     }
   }
 
+  /**
+   * The warehouses already in the instance, in the shape the run's own list
+   * uses.
+   *
+   * Their ids come straight from the query, so an adopted warehouse is
+   * addressable without being re-resolved - `_runResolveWarehouseIdsStep`
+   * keeps `w.id` when it cannot match a reference code, which is what lets a
+   * warehouse created by hand be adopted alongside ones we made.
+   *
+   * A list that cannot be read is treated as empty rather than fatal: the run
+   * then creates its full count, which is the safe direction to be wrong in -
+   * too many warehouses is untidy, too few means products with no stock.
+   */
+  async _readExistingWarehouses(config) {
+    try {
+      const response = await this.liferay.getWarehouses(config, {
+        pageSize: WAREHOUSE_PAGE_SIZE,
+      });
+
+      const items =
+        response?.items || (Array.isArray(response) ? response : []);
+
+      return items.filter((warehouse) => warehouse?.id);
+    } catch (error) {
+      this.logger.warn(
+        'Could not read the existing warehouses, so none are being reused.',
+        { message: error?.message }
+      );
+
+      return [];
+    }
+  }
+
   async _runWarehouseDataGenerationStep(sessionId) {
     const session = await this.persistence.getSession(sessionId);
     const {
@@ -278,20 +311,46 @@ class WarehouseGenerator extends BaseGenerator {
       // Re-read context to get updated options
       const updatedSession = await this.persistence.getSession(sessionId);
 
-      const generated = await this.ctx.generation.generateData(
-        'warehouse',
-        options.warehouseCount,
-        config,
-        updatedSession.context.options
-      );
+      // What `warehouseCount` counts depends on the choice the operator made.
+      //
+      // Reusing, it is a target total: asked for five with two already in the
+      // instance, this run creates three and adopts the two, so inventory can
+      // be placed in all five. Not reusing, it is a number to create: five new
+      // ones beside the two, and only the five belong to this run. See #730.
+      const adopted = options.reuseExistingWarehouses
+        ? await this._readExistingWarehouses(config)
+        : [];
 
-      // Assigned here rather than asked of the model: identity has to be the
-      // same for the same place on every run, or nothing can tell whether a
-      // warehouse already exists (#730). After generation, so the schema the
-      // provider is given never declares the field.
-      const warehouseDataList = assignWarehouseERCs(generated, {
-        logger: this.logger,
-      });
+      const target = Number(options.warehouseCount) || 0;
+      const shortfall = Math.max(0, target - adopted.length);
+
+      if (adopted.length > 0) {
+        this.logger.info(
+          `Reusing ${adopted.length} existing warehouse(s); creating ${shortfall} to reach ${target}.`,
+          { sessionId }
+        );
+      }
+
+      const generated =
+        shortfall > 0
+          ? await this.ctx.generation.generateData(
+              'warehouse',
+              shortfall,
+              config,
+              updatedSession.context.options
+            )
+          : [];
+
+      // Assigned here rather than asked of the model, and after generation so
+      // the schema the provider is given never declares the field (#730).
+      //
+      // The adopted warehouses keep the codes and ids they already have, so
+      // resolve-warehouse-ids leaves them alone and inventory can address
+      // them. They go first, so the run's own additions read as additions.
+      const warehouseDataList = [
+        ...adopted,
+        ...assignWarehouseERCs(generated, { logger: this.logger }),
+      ];
 
       await this.persistence.updateSessionContext(sessionId, {
         warehouseDataList,
@@ -318,17 +377,32 @@ class WarehouseGenerator extends BaseGenerator {
     const { config, warehouseDataList } = session.context;
 
     try {
-      if (!warehouseDataList || warehouseDataList.length === 0) {
+      // Only the ones this run is making. An adopted warehouse already carries
+      // the id it was read with, and re-submitting it would upsert a warehouse
+      // this run did not create - pointless at best, and it would overwrite
+      // whatever an operator had set on it by hand (#730).
+      const toCreate = (warehouseDataList || []).filter(
+        (warehouse) => !warehouse?.id
+      );
+
+      if (toCreate.length === 0) {
+        const adopted = (warehouseDataList || []).length;
+
         return await this.completeSyncStep(
           sessionId,
           S.CREATE_WAREHOUSES,
-          'BYPASSED'
+          'BYPASSED',
+          0,
+          0,
+          adopted > 0
+            ? `The requested count is already met by ${adopted} existing warehouse(s), so none were created.`
+            : 'No warehouses to create.'
         );
       }
 
       // HARDENING: Map address and schema fields to exact Liferay Warehouse contract
       const prepared = deepCleanIds(
-        warehouseDataList.map((w) => {
+        toCreate.map((w) => {
           const {
             country,
             region,
@@ -365,9 +439,18 @@ class WarehouseGenerator extends BaseGenerator {
         })
       );
 
-      // Persist the prepared list so that RESOLVE step has the same objects
+      // Persist the prepared list so that RESOLVE step has the same objects.
+      //
+      // The adopted warehouses are carried through rather than replaced: this
+      // list is the run's whole warehouse set, and inventory places stock in
+      // all of it. Writing only the prepared ones would have quietly reduced a
+      // reuse run to stocking just the warehouses it happened to create.
+      const adopted = (warehouseDataList || []).filter(
+        (warehouse) => warehouse?.id
+      );
+
       await this.persistence.updateSessionContext(sessionId, {
-        warehouseDataList: prepared,
+        warehouseDataList: [...adopted, ...prepared],
       });
 
       await this.submitBatch(
