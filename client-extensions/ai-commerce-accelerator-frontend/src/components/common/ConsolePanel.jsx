@@ -88,6 +88,7 @@ function ConsolePanel({
   collapsible = false,
   defaultOpen = true,
   fillHeight = false,
+  newestFirst = false,
   busy = false,
   busyLabel = 'Processing...',
   emptyMessage = 'No log entries to display.',
@@ -106,12 +107,16 @@ function ConsolePanel({
     [entries, filterLevel, searchQuery]
   );
 
+  // The two consoles order their entries oppositely - the seeder stream
+  // appends, the activity log prepends so it can keep the newest when it
+  // truncates - so following "new" means following opposite ends. The consumer
+  // states which end that is rather than the panel inferring it.
   useEffect(() => {
-    if (autoScroll && scrollContainerRef.current) {
-      scrollContainerRef.current.scrollTop =
-        scrollContainerRef.current.scrollHeight;
-    }
-  }, [visibleEntries, autoScroll]);
+    const container = scrollContainerRef.current;
+    if (!autoScroll || !container) return;
+
+    container.scrollTop = newestFirst ? 0 : container.scrollHeight;
+  }, [visibleEntries, autoScroll, newestFirst]);
 
   useEffect(() => {
     if (!copied) return undefined;
