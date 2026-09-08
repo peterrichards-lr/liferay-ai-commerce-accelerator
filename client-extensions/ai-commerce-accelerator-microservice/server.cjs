@@ -172,6 +172,7 @@ const gracefulShutdown = async (signal) => {
     accountGenerator,
     batchCallbackService,
     cacheService,
+    clientExtensionEntryService,
     commerceSiteTypeService,
     configService,
     deleteCoordinatorService,
@@ -268,7 +269,11 @@ const gracefulShutdown = async (signal) => {
     ws: ws,
   });
   require('./routes/cache.cjs')(apiV1Router, { ...routeCtx, cacheService });
-  require('./routes/config.cjs')(apiV1Router, { ...routeCtx, configService });
+  require('./routes/config.cjs')(apiV1Router, {
+    ...routeCtx,
+    clientExtensionEntryService,
+    configService,
+  });
   require('./routes/get.cjs')(apiV1Router, {
     ...routeCtx,
     commerceSiteTypeService,

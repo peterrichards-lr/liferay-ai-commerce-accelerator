@@ -1,9 +1,14 @@
 import { render, screen } from '@testing-library/react';
 import CommerceCard from './CommerceCard';
 import { useApp } from '../../context/AppContext';
+import notifyUser from '../../utils/notifications';
 
 vi.mock('../../context/AppContext', () => ({
   useApp: vi.fn(),
+}));
+
+vi.mock('../../utils/notifications', () => ({
+  default: vi.fn(),
 }));
 
 describe('CommerceCard', () => {
@@ -160,5 +165,75 @@ describe('CommerceCard', () => {
     expect(
       screen.getByText(/Liferay under Commerce . Channels/)
     ).toBeInTheDocument();
+  });
+
+  // A selection the instance does not have used to be replaced by the first
+  // entry in the list without a word, which is how a run ends up in a catalog
+  // nobody chose. See #680.
+  describe('auto-selection', () => {
+    const catalogs = [
+      { id: 102, name: 'Spare Parts' },
+      { id: 205, name: 'Accessories' },
+    ];
+    const channels = [{ id: 301, name: 'Web Store' }];
+
+    const renderCard = (config, handlers = {}) => {
+      useApp.mockReturnValue({ config, setConfig: vi.fn() });
+
+      return render(
+        <CommerceCard
+          connected={true}
+          catalogs={catalogs}
+          channels={channels}
+          errors={{}}
+          {...handlers}
+        />
+      );
+    };
+
+    it('defaults quietly when nothing has been selected', () => {
+      const onSelectCatalog = vi.fn();
+
+      renderCard({}, { onSelectCatalog });
+
+      expect(onSelectCatalog).toHaveBeenCalledWith('102');
+      expect(notifyUser).not.toHaveBeenCalled();
+    });
+
+    it('leaves a selection the instance has alone', () => {
+      const onSelectCatalog = vi.fn();
+
+      renderCard({ catalogId: 205, channelId: 301 }, { onSelectCatalog });
+
+      expect(onSelectCatalog).not.toHaveBeenCalled();
+      expect(notifyUser).not.toHaveBeenCalled();
+    });
+
+    it('says so when it replaces a catalog the instance does not have', () => {
+      const onSelectCatalog = vi.fn();
+
+      renderCard({ catalogId: 34205, channelId: 301 }, { onSelectCatalog });
+
+      expect(onSelectCatalog).toHaveBeenCalledWith('102');
+      expect(notifyUser).toHaveBeenCalledWith(
+        expect.stringContaining('Catalog id 34205 is not on this instance'),
+        'warning'
+      );
+      expect(notifyUser.mock.calls[0][0]).toContain(
+        "Switched to 'Spare Parts' (id 102)"
+      );
+    });
+
+    it('says so when it replaces a channel the instance does not have', () => {
+      const onSelectChannel = vi.fn();
+
+      renderCard({ catalogId: 102, channelId: 34907 }, { onSelectChannel });
+
+      expect(onSelectChannel).toHaveBeenCalledWith('301');
+      expect(notifyUser).toHaveBeenCalledWith(
+        expect.stringContaining('Channel id 34907 is not on this instance'),
+        'warning'
+      );
+    });
   });
 });

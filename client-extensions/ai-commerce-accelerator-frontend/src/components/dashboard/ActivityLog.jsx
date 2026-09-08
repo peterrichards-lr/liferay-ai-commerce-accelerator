@@ -20,6 +20,9 @@ export function toConsoleEntries(logs = []) {
   }));
 }
 
+// `newestFirst` because useActivityLog prepends - it truncates with
+// `slice(0, maxEntries)` to keep the newest - so the arriving entry is at the
+// top and auto-scroll has to follow the top rather than the bottom.
 function ActivityLog({ logs = [], onClearLogs, isGenerating }) {
   const entries = useMemo(() => toConsoleEntries(logs), [logs]);
 
@@ -30,6 +33,7 @@ function ActivityLog({ logs = [], onClearLogs, isGenerating }) {
       emptyMessage="Waiting for activity..."
       entries={entries}
       fillHeight
+      newestFirst
       onClear={onClearLogs}
       title="Live Console"
     />

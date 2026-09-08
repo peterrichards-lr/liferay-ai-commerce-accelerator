@@ -27,6 +27,11 @@ To ensure environment parity and support the "Replay" feature, the system mandat
 3.  **Ordered Import**: The backend import logic handles entities in their logical dependency order: Foundations (Warehouses, Specs, Options) followed by Primary Entities (Products, Accounts, Orders).
 4.  **ERC-First Replication**: All exported data uses External Reference Codes as the primary linking mechanism to ensure stability across different Liferay instances.
 5.  **Deterministic Child ERCs**: To prevent collisions and support iterative updates, child entities (Price Entries, Tier Prices, Inventory) MUST use deterministic ERCs built from their natural keys (e.g., `PE-{SKU}-{PRICELIST}`).
+6.  **Verified Commerce Targets**: `catalogId`, `channelId` and `siteGroupId` are instance-specific and do not travel, so every run route (`routes/generate.cjs`, `routes/import.cjs`, the MCP `aica_trigger_generation` tool) resolves them through `utils/commerceSelection.cjs` before any step is composed. Two rules apply, and both exist because a run that quietly relocates costs more to find than one that stops (#680):
+    - A **substitution** happens only when no id was requested, and the run reports which entity it filled in - in the logs, in the `commerce` block of the response, and in the console panel.
+    - A **refusal** (HTTP 400) happens only on positive evidence that a requested id is absent: it is missing from the list _and_ a by-id read does not find it. Lists that cannot be read prove nothing, so the supplied ids are used exactly as given.
+
+    `siteGroupId` is always taken from the resolved channel rather than trusted from the request, because the channel record is authoritative about which site it belongs to.
 
 ## Purpose
 
@@ -44,4 +49,4 @@ building or refactoring the system.
 
 ---
 
-_Last Updated: 2026-08-14_ | _Last Reviewed: 2026-08-14_
+_Last Updated: 2026-09-08_ | _Last Reviewed: 2026-09-08_

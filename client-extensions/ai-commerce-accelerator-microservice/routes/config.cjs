@@ -44,7 +44,10 @@ function maskAIKey(rawKey) {
   return rawKey.slice(0, 4) + '********' + rawKey.slice(-4);
 }
 
-module.exports = (app, { logger, configService, persistenceService }) => {
+module.exports = (
+  app,
+  { logger, clientExtensionEntryService, configService, persistenceService }
+) => {
   const handleConfigAI = async (req, res) => {
     const { config } = buildConfigAndOptions(req);
 
@@ -296,6 +299,18 @@ module.exports = (app, { logger, configService, persistenceService }) => {
     const { config } = buildConfigAndOptions(req);
     try {
       const health = await configService.checkHealth(config);
+
+      // Reported alongside the rest of the doctor's checks rather than from a
+      // second endpoint, because the panel needs it on exactly the render it
+      // already fetches health for. Absent only when the service was not
+      // wired, which is what the older tests construct. See #660.
+      if (clientExtensionEntryService) {
+        health.configurationExtension =
+          await clientExtensionEntryService.describeConfigurationExtension(
+            config
+          );
+      }
+
       res.status(200).json({
         success: true,
         health,

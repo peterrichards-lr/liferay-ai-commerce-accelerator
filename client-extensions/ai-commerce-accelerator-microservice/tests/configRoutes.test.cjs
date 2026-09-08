@@ -55,6 +55,62 @@ describe('Config Routes', () => {
     });
   });
 
+  describe('config health', () => {
+    const HEALTH = { liferay: { status: 'CONNECTED' } };
+    const REPORT = {
+      status: 'RESOLVED',
+      message: 'Configuration screen resolved for this instance.',
+      externalReferenceCode:
+        'LXC:liferay-ai-commerce-accelerator-configuration',
+      portletId: 'com_liferay_..._ClientExtensionEntryPortlet_1_LXC_x',
+    };
+
+    const invokeHealth = async (clientExtensionEntryService) => {
+      mockConfigService.checkHealth = vi.fn().mockResolvedValue({ ...HEALTH });
+
+      configRoute(appMock, {
+        logger: mockLogger,
+        clientExtensionEntryService,
+        configService: mockConfigService,
+        persistenceService: mockPersistenceService,
+      });
+
+      const res = { json: vi.fn(), status: vi.fn().mockReturnThis() };
+      await registeredRoutes.get[INTERNAL_API_PATHS.CONFIG_HEALTH](
+        {
+          body: {
+            liferayUrl: 'http://localhost:8080',
+            clientId: 'mock-id',
+            clientSecret: 'mock-secret',
+          },
+          headers: {},
+          app: {},
+        },
+        res
+      );
+
+      return res.json.mock.calls[0][0].health;
+    };
+
+    // The Configuration Doctor reads this off the health payload it already
+    // fetches, so the portlet id has to arrive on the same render. See #660.
+    it('reports the configuration extension alongside the other checks', async () => {
+      const health = await invokeHealth({
+        describeConfigurationExtension: vi.fn().mockResolvedValue(REPORT),
+      });
+
+      expect(health.configurationExtension).toEqual(REPORT);
+      expect(health.liferay).toEqual(HEALTH.liferay);
+    });
+
+    it('still answers when no client extension entry service is wired', async () => {
+      const health = await invokeHealth(undefined);
+
+      expect(health.configurationExtension).toBeUndefined();
+      expect(health.liferay).toEqual(HEALTH.liferay);
+    });
+  });
+
   it('should register both GET and POST routes for AI config and batch sizes', () => {
     expect(appMock.get).toHaveBeenCalledWith(
       INTERNAL_API_PATHS.CONFIG_AI,
