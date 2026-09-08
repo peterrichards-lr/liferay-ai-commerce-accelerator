@@ -26,6 +26,7 @@ To handle Liferay Headless API constraints and environment-specific behaviors co
 - **SKU Property Constraints**: The `Sku` DTO does not recognize an `active` property. Including it will cause import failure.
 - **SKU Option Activation**: A SKU linked to a product with SKU-contributing options is active only if it has an explicit `skuOption` entry for **every** contributing option.
 - **SKU Expiry Default**: An omitted `neverExpire` means "never expires" on a `Product` but "expires in one month" on a `Sku` (`SkuUtil:232` defaults it to `false`; `ProductResourceImpl:739` defaults it to `true`). Always send it explicitly, on creates and on updates, or generated SKUs turn `EXPIRED` about thirty days after the run. See [Liferay API Constraints](../../../docs/architecture/liferay-api-constraints.md).
+- **SKU Prices Are Price Entries**: `Sku.price` and `Sku.promoPrice` are filed by `SkuUtil.updateCommercePriceEntries` into the catalog's base price list and base promotion — the lists flagged `catalogBasePriceList`, which Liferay creates with every catalog. It fires on every product and SKU write, whether or not a price is sent. Never stand up a rival standard price list; adopt the catalog's own, and reconcile with `priceEntryId` because the entry Liferay writes has no ERC. See [Liferay API Constraints](../../../docs/architecture/liferay-api-constraints.md).
 
 ## 4. Batch Engine Verb Support
 

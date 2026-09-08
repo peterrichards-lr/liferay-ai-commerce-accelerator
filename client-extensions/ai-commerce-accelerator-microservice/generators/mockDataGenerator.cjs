@@ -8,6 +8,30 @@ const {
 } = require('../utils/misc.cjs');
 const { ERC_PREFIX } = require('../utils/constants.cjs');
 
+/**
+ * Stands in for `aiService`, not for Liferay.
+ *
+ * `GenerationFacade.generateData` picks this class instead of `this.ctx.ai`
+ * when `demoMode` is set and then runs the identical standardise -> validate ->
+ * product-steps -> import pipeline, validating what comes back against the same
+ * `generation-schemas` entry. So the contract is settled by the code that runs:
+ * every method here must return what the AI is asked to return, and the
+ * translation into Liferay's DTOs belongs downstream, where live mode does it.
+ *
+ * Two consequences that are easy to get wrong:
+ *
+ * - A property the generation schema does not declare cannot be produced in
+ *   live mode at all. Since #690 the provider schema is projected from these
+ *   files with objects closed, so an undeclared property is demo-only data, and
+ *   any pipeline behaviour that depends on it is untested where it matters.
+ * - Names matter even where ajv would tolerate the alternative. `options` and
+ *   `specifications` are the generation schema's; `productOptions` and
+ *   `productSpecifications` are Liferay's, produced later by the product steps.
+ *   Emitting the latter here let demo mode take a different branch through
+ *   thirteen dual reads than live mode takes.
+ *
+ * `tests/mockMatchesGenerationSchemas.test.cjs` enforces both. See #652.
+ */
 class MockDataGenerator {
   constructor(ctx) {
     this.ctx = ctx;
@@ -24,6 +48,7 @@ class MockDataGenerator {
       order: 'generateOrderData',
       warehouse: 'generateWarehouseData',
       pricing: 'generatePricingData',
+      promo: 'generatePromoData',
     };
 
     const methodName = methodMap[entityType];
@@ -70,6 +95,15 @@ class MockDataGenerator {
         config,
         null,
         selectedLanguages
+      );
+    } else if (entityType === 'promo') {
+      return this.generatePromoData(
+        options.products || [],
+        options.accounts || [],
+        config,
+        null,
+        selectedLanguages,
+        options
       );
     }
   }
@@ -142,6 +176,10 @@ class MockDataGenerator {
     const localeSuffixMap = Object.fromEntries(
       languageCodes.map((lc) => [lc, lc === 'en_US' ? '' : ` (${lc})`])
     );
+    const localize = (text) =>
+      Object.fromEntries(
+        languageCodes.map((lc) => [lc, `${text}${localeSuffixMap[lc] || ''}`])
+      );
 
     // Realistic content templates
     const adjectives = [
@@ -179,7 +217,6 @@ class MockDataGenerator {
         catalogId: config.catalogId,
         category: {},
         baseSku: sku,
-        productStatus: 0, // Published
       };
 
       for (const lang of languageCodes) {
@@ -217,26 +254,23 @@ class MockDataGenerator {
       }
 
       if (generateSkuVariants) {
-        productData.productOptions = [
+        // The generation schema's shape, not Liferay's: a plain `name` and
+        // plain string values. `toOptionValues` turns those into the
+        // `{ key, name }` pairs Liferay requires, at ensure-options and again
+        // at link-product-options - which is the translation live mode goes
+        // through, and so the one demo mode has to go through too.
+        productData.options = [
           {
-            name: { en_US: 'Color' },
+            name: 'Color',
             fieldType: 'select',
             skuContributor: true,
-            productOptionValues: [
-              { name: { en_US: 'Red' }, key: 'red' },
-              { name: { en_US: 'Blue' }, key: 'blue' },
-              { name: { en_US: 'Green' }, key: 'green' },
-            ],
+            productOptionValues: ['Red', 'Blue', 'Green'],
           },
           {
-            name: { en_US: 'Size' },
+            name: 'Size',
             fieldType: 'select',
             skuContributor: true,
-            productOptionValues: [
-              { name: { en_US: 'Small' }, key: 'small' },
-              { name: { en_US: 'Medium' }, key: 'medium' },
-              { name: { en_US: 'Large' }, key: 'large' },
-            ],
+            productOptionValues: ['Small', 'Medium', 'Large'],
           },
         ];
 
@@ -267,17 +301,19 @@ class MockDataGenerator {
         }
       }
 
-      // Add mock specifications
-      productData.productSpecifications = [
-        {
-          specificationKey: 'brand',
-          value: { en_US: 'AICA Elite' },
-        },
-        {
-          specificationKey: 'material', // pragma: allowlist secret
-          value: { en_US: 'Industrial Grade' },
-        },
-      ];
+      // `specifications` with a `label`, because that is what the schema
+      // requires and the prompt asks for. Emitted as `productSpecifications`
+      // with no label, this satisfied Liferay's DTO but never the contract the
+      // facade validates, and skipped the normalisation live mode depends on.
+      productData.specifications = [
+        { key: 'BRAND', label: 'Brand', value: 'AICA Elite' },
+        // pragma: allowlist secret
+        { key: 'MATERIAL', label: 'Material', value: 'Industrial Grade' },
+      ].map((template) => ({
+        specificationKey: template.key,
+        label: localize(template.label),
+        value: localize(template.value),
+      }));
 
       // Every product must have at least one SKU object in the 'skus' array
       productData.skus = [
@@ -453,7 +489,6 @@ class MockDataGenerator {
         description: isPerson
           ? `Generated mock individual account for ${accountName}.`
           : `Generated mock business account for ${accountName}.`,
-        domains: [`${suffix.toLowerCase()}.example.com`],
         accountContactInformation: {
           emailAddresses: [
             {
@@ -521,8 +556,13 @@ class MockDataGenerator {
       const skuObj =
         product.skus && product.skus.length > 0
           ? product.skus[0]
-          : { sku: 'MOCK-SKU', price: 100 };
+          : { sku: 'MOCK-SKU' };
 
+      // `sku` and `quantity` only, which is all order.json declares and all the
+      // prompt asks for. `skuExternalReferenceCode` and `unitPrice` used to be
+      // supplied here as well; OrderGenerator resolves the SKU against
+      // Liferay's purchasable SKUs and takes the price from there, so the extra
+      // fields only gave demo mode a shortcut live mode never has.
       orders.push({
         externalReferenceCode: createERC(ERC_PREFIX.ORDER),
         accountId: String(account?.id || 10000 + i),
@@ -531,9 +571,7 @@ class MockDataGenerator {
         items: [
           {
             sku: skuObj.sku,
-            skuExternalReferenceCode: skuObj.sku,
             quantity: getRandomInt(1, 5),
-            unitPrice: skuObj.price || 100,
           },
         ],
       });
@@ -619,6 +657,63 @@ class MockDataGenerator {
       priceEntries,
       priceListName: 'AICA General Price List',
     };
+  }
+
+  /**
+   * `promo.json` declares an object with required `userSegments` and
+   * `promotions`, and every promotion's `targetSegmentName` has to match a
+   * segment `name` exactly - PromoGenerator pairs them by name, and an
+   * unmatched promotion is created without a segment.
+   *
+   * ERCs are AICA-prefixed rather than the `SEG-`/`PROMO-` forms the prompt
+   * suggests, because deletion discovery only manifests entities whose ERC
+   * starts `AICA-`. That is a value, not a shape: the schema constrains
+   * neither, and demo data that cannot be deleted is worse than demo data that
+   * looks slightly different from a model's.
+   */
+  generatePromoData(
+    products = [],
+    accounts = [],
+    _config = {},
+    _model = null,
+    _selectedLanguages = ['en-US'],
+    _options = {}
+  ) {
+    const anchorAccount = accounts[0]?.name || 'established trade accounts';
+    const anchorProduct =
+      products[0]?.name?.en_US || products[0]?.name || 'the catalog';
+
+    const userSegments = [
+      {
+        description: `Repeat buyers such as ${anchorAccount}, ordering across the catalog on a regular cycle.`,
+        name: 'Frequent Buyers',
+      },
+      {
+        description: `Trade accounts buying ${anchorProduct} and similar lines in bulk for on-site work.`,
+        name: 'Volume Contractors',
+      },
+    ].map((segment) => ({
+      ...segment,
+      externalReferenceCode: buildStableERC(ERC_PREFIX.USER_SEGMENT, [
+        segment.name,
+      ]),
+    }));
+
+    const promotions = [
+      { discountPercentage: 10, targetSegmentName: 'Frequent Buyers' },
+      { discountPercentage: 20, targetSegmentName: 'Volume Contractors' },
+    ].map(({ discountPercentage, targetSegmentName }) => ({
+      description: `${discountPercentage}% off for ${targetSegmentName.toLowerCase()} across the generated catalog.`,
+      discountPercentage,
+      externalReferenceCode: buildStableERC(ERC_PREFIX.PROMOTION, [
+        targetSegmentName,
+        String(discountPercentage),
+      ]),
+      name: `${discountPercentage}% off for ${targetSegmentName}`,
+      targetSegmentName,
+    }));
+
+    return { promotions, userSegments };
   }
 }
 

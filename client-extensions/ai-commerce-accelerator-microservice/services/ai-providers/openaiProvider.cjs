@@ -3,7 +3,7 @@ const OpenAI = require('openai');
 const BaseAIProvider = require('./baseProvider.cjs');
 const { tryParseJSON } = require('../../utils/misc.cjs');
 const {
-  expandLocaleMapsForPrompt,
+  expandOpenMapsForPrompt,
   looksLikeSchemaRejection,
   projectGenerationSchema,
 } = require('../../utils/schemaProjection.cjs');
@@ -155,11 +155,12 @@ class OpenAIProvider extends BaseAIProvider {
       };
     }
 
-    // Strict mode requires every object to be closed, so a map whose keys the
-    // model invents in the same response - skuVariants[].options - cannot be
-    // expressed. Sending the same schema unenforced still gives the model the
-    // expanded locale maps as a schema rather than as prose, which is the part
-    // that matters here; ajv and the retry remain the actual gate.
+    // Strict mode requires every object to be closed, so a map whose keys are
+    // not known at the call site cannot be expressed. No shipped generation
+    // schema has one any more - #691 gave the last of them, skuVariants[]
+    // .options, a pair-array wire form - but a schema an administrator adds
+    // still can, and sending it unenforced gives the model the expanded locale
+    // maps as a schema rather than as prose. ajv and the retry remain the gate.
     const advisory = projectGenerationSchema(schema, {
       ...projectionOptions,
       mode: 'advisory',
@@ -241,7 +242,7 @@ class OpenAIProvider extends BaseAIProvider {
     // two statements of the same thing to reconcile.
     if (schema && responseFormat.type === 'json_object') {
       messages[0].content += `\n\nThe JSON output must conform to the following schema:\n\n${JSON.stringify(
-        expandLocaleMapsForPrompt(schema, options.languages)
+        expandOpenMapsForPrompt(schema, options.languages)
       )}`;
     }
 

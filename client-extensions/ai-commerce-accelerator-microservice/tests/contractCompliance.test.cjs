@@ -56,9 +56,20 @@ describe('Liferay API Contract Compliance', () => {
       validator.validateArray(spec, 'Product', products);
     });
 
+    // The mock now emits `specifications`, the generation schema's name, rather
+    // than Liferay's `productSpecifications`: demo mode feeds it to the same
+    // ajv gate as AI output, so it has to be AI-shaped. See #652.
+    //
+    // This assertion survives that move because `ProductSpecification` happens
+    // to declare `specificationKey`, `label` and `value` - the same three
+    // properties the generation schema requires - so the generated shape is
+    // already DTO-valid before the product step adds `optionCategoryId` and
+    // the resolved `specificationId`. It is not, however, a test of that step:
+    // what `products.cjs` sends is still only asserted through the mock that
+    // feeds it.
     it('should generate product specifications that match the DTO', async () => {
       const products = mockData.generateProductData('Electronics', 1);
-      const specs = products[0].productSpecifications;
+      const specs = products[0].specifications;
 
       // REGRESSION CHECK: Ensure 'externalReferenceCode' is NOT in nested specs (as fixed recently)
       specs.forEach((s) => {

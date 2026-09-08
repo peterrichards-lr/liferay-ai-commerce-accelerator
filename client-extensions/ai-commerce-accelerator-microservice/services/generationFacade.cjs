@@ -5,6 +5,7 @@ const addFormats = require('ajv-formats');
 const { createERC } = require('../utils/misc.cjs');
 const { ERC_PREFIX } = require('../utils/constants.cjs');
 const { validationFeedback } = require('../utils/validationFeedback.cjs');
+const { optionPairsToMap } = require('../utils/schemaProjection.cjs');
 
 // One retry. A second malformed response after being shown its own errors
 // indicates a prompt or schema problem rather than a bad roll, and each
@@ -134,6 +135,17 @@ class GenerationFacade {
   }
 
   /**
+   * Whether the entity's schema describes a list of items under `<entity>s`
+   * rather than a single object. Everything that wraps, unwraps or truncates a
+   * payload applies only to the first kind.
+   */
+  _isCollectionSchema(entityType) {
+    return Boolean(
+      this.validators[entityType]?.schema?.properties?.[`${entityType}s`]
+    );
+  }
+
+  /**
    * Primary entry point for routing and validating all generated data.
    */
   async generateData(entityType, count, requestConfig, options = {}) {
@@ -151,6 +163,7 @@ class GenerationFacade {
       order: 'generateOrderData',
       warehouse: 'generateWarehouseData',
       pricing: 'generatePricingData',
+      promo: 'generatePromoData',
     };
 
     const methodName = methodMap[entityType];
@@ -287,6 +300,15 @@ class GenerationFacade {
         selectedLanguages,
         options
       );
+    } else if (entityType === 'promo') {
+      data = await generator.generatePromoData(
+        options.products || [],
+        options.accounts || [],
+        requestConfig,
+        requestConfig.aiModel,
+        selectedLanguages,
+        options
+      );
     }
 
     return data;
@@ -302,7 +324,16 @@ class GenerationFacade {
       const mainPropertyName = schemaName + 's';
       let payload;
 
-      if (
+      if (!this._isCollectionSchema(schemaName)) {
+        // `pricing.json` is not a list of pricings: it declares `priceListName`
+        // and `priceEntries` at the root. Wrapping its object into
+        // `{ pricings: [...] }` produced a payload missing both required
+        // properties, so the entity could never have validated. It went unseen
+        // because nothing in production calls generateData('pricing') - the
+        // price entries a run imports are generated alongside the products.
+        // See #652.
+        payload = data;
+      } else if (
         data &&
         typeof data === 'object' &&
         !Array.isArray(data) &&
@@ -451,6 +482,13 @@ class GenerationFacade {
 
     this._warnOnTranslatedShape(data, entityType);
 
+    // A non-collection payload is not an entity, so stamping it with an ERC and
+    // filling in product defaults would only add properties its schema never
+    // declared. `pricing` is the only one today.
+    if (entityType && !this._isCollectionSchema(entityType)) {
+      return data;
+    }
+
     // If we have an entityType, check if it's a wrapped object containing the array,
     // e.g. { warehouses: [...] } for entityType === 'warehouse'.
     if (entityType) {
@@ -523,6 +561,18 @@ class GenerationFacade {
             item.name && typeof item.name === 'object'
               ? { ...item.name }
               : { en_US: String(item.name || 'Product summary') };
+        }
+      }
+      // The provider is asked for `skuVariants[].options` as an array of
+      // name/value pairs, because a map keyed by names the model invents in the
+      // same response cannot be expressed in any provider's structured-output
+      // subset. Converted back here, before ajv, so the generation schema and
+      // every downstream consumer still see the map. See #691.
+      if (Array.isArray(item.skuVariants)) {
+        for (const variant of item.skuVariants) {
+          if (variant && typeof variant === 'object') {
+            variant.options = optionPairsToMap(variant.options);
+          }
         }
       }
       if (!item.urls) {
