@@ -7,6 +7,7 @@ export const WEB_SOCKET_EVENTS = {
   PROGRESS: 'PROGRESS',
   COMPLETED: 'COMPLETED',
   FAILED: 'FAILED',
+  WARNING: 'WARNING',
 
   // Legacy (Keep for backwards compatibility during migration)
   BATCH_COMPLETED: 'batch_completed',
