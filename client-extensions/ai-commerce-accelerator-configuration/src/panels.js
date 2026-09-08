@@ -32,6 +32,12 @@ export const PANELS = [
     component: lazy(() => import('./components/panels/GenerationLimitsPanel')),
   },
   {
+    id: 'catalog-expiry',
+    label: 'Catalog Expiry',
+    icon: 'time',
+    component: lazy(() => import('./components/panels/CatalogExpiryPanel')),
+  },
+  {
     id: 'categories',
     label: 'Categories',
     icon: 'categories',

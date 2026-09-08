@@ -10,6 +10,7 @@ const { toOptionValues } = require('../../utils/optionValues.cjs');
 const {
   reconcileOptionFieldType,
 } = require('../../utils/optionFieldTypes.cjs');
+const { readCatalogExpiryFields } = require('../../utils/catalogExpiry.cjs');
 const {
   LINKED_OPTION_ID,
   LINKED_OPTION_VALUES,
@@ -366,6 +367,13 @@ async function runProductSkusStep(sessionId) {
   const { config, productDataList, options } = session.context;
 
   try {
+    // Read once, so every SKU a run creates expires at the same moment rather
+    // than drifting with however long the step takes.
+    const expiryFields = await readCatalogExpiryFields(
+      this.ctx?.config,
+      config
+    );
+
     const preparedProducts = (productDataList || [])
       .map((pd) => {
         const lp = {
@@ -373,6 +381,11 @@ async function runProductSkusStep(sessionId) {
           name: toI18n(pd.name),
           productType: pd.productType || 'simple',
           externalReferenceCode: pd.externalReferenceCode,
+          // This is an upsert against a product create-products already made,
+          // and the update path reads an omitted neverExpire as true
+          // (ProductResourceImpl:739). Sending the same pair here is what stops
+          // this step silently un-expiring a product that is meant to expire.
+          ...expiryFields,
         };
 
         const hasSkuContributingOptions = (
@@ -395,6 +408,7 @@ async function runProductSkusStep(sessionId) {
               purchasable: true,
               skuOptions: [],
               ...priceFields(v, (pd.skus || [])[0] || {}),
+              ...expiryFields,
             };
 
             if (v.options) {
@@ -435,6 +449,7 @@ async function runProductSkusStep(sessionId) {
             published: true,
             purchasable: true,
             ...priceFields(s),
+            ...expiryFields,
           }));
         }
 
