@@ -1,7 +1,6 @@
 const {
   delay,
   createERC,
-  fromI18n,
   sanitizeForERC,
   toI18n,
   resolveErrorReference,
@@ -11,6 +10,13 @@ const { toOptionValues } = require('../../utils/optionValues.cjs');
 const {
   reconcileOptionFieldType,
 } = require('../../utils/optionFieldTypes.cjs');
+const {
+  LINKED_OPTION_ID,
+  LINKED_OPTION_VALUES,
+  findLinkedOption,
+  readLinkedOption,
+  resolveSkuOptionLink,
+} = require('../../utils/productOptionLinks.cjs');
 
 /**
  * Liferay's Sku.price / promoPrice / cost accept any number >= 0. The AI
@@ -224,28 +230,103 @@ async function runLinkProductOptionsStep(sessionId) {
       );
 
       // Map the generated IDs back to the product context for SKU mapping
-      const createdArray = Array.isArray(createdOptions)
-        ? createdOptions
-        : createdOptions?.items || [];
+      const asLinkedOptions = (response) =>
+        Array.isArray(response) ? response : response?.items || [];
 
-      const updatedOpts = sourceOptions.map((opt) => {
-        const name =
-          typeof opt.name === 'string' ? { en_US: opt.name } : opt.name;
-        const key = opt.key || sanitizeForERC(name?.en_US || name);
+      let linkedOptions = asLinkedOptions(createdOptions);
 
-        const createdOpt = createdArray.find((co) => co.key === key);
-        if (createdOpt) {
-          opt.optionId = createdOpt.id || createdOpt.productOptionId;
-          opt.optionValuesWithIds = (createdOpt.productOptionValues || []).map(
-            (cv) => ({
-              optionValueId: cv.id || cv.productOptionValueId,
-              name: cv.name,
-              key: cv.key,
+      const optionKeys = sourceOptions.map(
+        (opt) =>
+          opt.key ||
+          sanitizeForERC(
+            (typeof opt.name === 'string' ? opt.name : opt.name?.en_US) ||
+              opt.name
+          )
+      );
+
+      const readLinkedIds = () =>
+        optionKeys.map((key, index) =>
+          readLinkedOption(
+            findLinkedOption(linkedOptions, {
+              key,
+              optionId: sourceOptions[index].optionId,
             })
+          )
+        );
+
+      let linkedIds = readLinkedIds();
+
+      // Nothing obliges the POST response to expand productOptionValues, and
+      // create-skus cannot resolve a variant without those ids. Rather than
+      // rely on the write answering with them, read the definition back when
+      // any option we sent values for came back without them. See #662.
+      const needsReadBack = linkedIds.some(
+        (linked, index) =>
+          !linked ||
+          (linked[LINKED_OPTION_VALUES].length === 0 &&
+            (cleanedOptions[index].productOptionValues || []).length > 0)
+      );
+
+      if (
+        needsReadBack &&
+        typeof this.liferay.getProductOptions === 'function'
+      ) {
+        try {
+          linkedOptions = asLinkedOptions(
+            await this.liferay.getProductOptions(config, product.id)
+          );
+          linkedIds = readLinkedIds();
+        } catch (readBackError) {
+          this.logger.warn(
+            `Could not read back the linked options for product ${product.externalReferenceCode}; SKU variants may lose their options`,
+            { sessionId, error: readBackError.message }
           );
         }
+      }
+
+      const withoutOption = [];
+      const withoutValues = [];
+
+      const updatedOpts = sourceOptions.map((opt, index) => {
+        const linked = linkedIds[index];
+
+        if (!linked) {
+          withoutOption.push(optionKeys[index]);
+          return opt;
+        }
+
+        // opt.optionId stays the global option id ensure-options resolved: it
+        // is what this step has to send as ProductOption.optionId, so a rerun
+        // must not find a relationship id in its place.
+        opt[LINKED_OPTION_ID] = linked[LINKED_OPTION_ID];
+        opt[LINKED_OPTION_VALUES] = linked[LINKED_OPTION_VALUES];
+
+        if (
+          linked[LINKED_OPTION_VALUES].length === 0 &&
+          (cleanedOptions[index].productOptionValues || []).length > 0
+        ) {
+          withoutValues.push(optionKeys[index]);
+        }
+
         return opt;
       });
+
+      // Distinct failures worth telling apart when a run is being read back:
+      // the first says the option never reached the product definition, the
+      // second that it did but its values did not come with it.
+      if (withoutOption.length > 0) {
+        this.logger.warn(
+          `Product ${product.externalReferenceCode}: Liferay linked no product option for ${withoutOption.join(', ')}; SKU variants will lose those options`,
+          { sessionId, options: withoutOption }
+        );
+      }
+
+      if (withoutValues.length > 0) {
+        this.logger.warn(
+          `Product ${product.externalReferenceCode}: Liferay reported no option value relationships for ${withoutValues.join(', ')}; SKU variants will lose those options`,
+          { sessionId, options: withoutValues }
+        );
+      }
 
       product.options = updatedOpts;
       product.productOptions = updatedOpts;
@@ -317,51 +398,25 @@ async function runProductSkusStep(sessionId) {
             };
 
             if (v.options) {
-              // A name may arrive as a plain string or as an i18n object, and
-              // String({en_US: 'Black'}) sanitises to nothing useful, so both
-              // sides go through fromI18n before they are compared.
-              const label = (value) =>
-                sanitizeForERC(
-                  typeof value === 'string' ? value : fromI18n(value) || ''
-                );
-
+              const productOptions = pd.productOptions || pd.options || [];
               const unresolved = [];
 
-              sku.skuOptions = Object.entries(v.options)
-                .map(([optName, valName]) => {
-                  const optMeta = (pd.productOptions || pd.options || []).find(
-                    (o) => label(o.name) === label(optName) || o.key === optName
-                  );
+              // The ids come from the product definition's option and value
+              // relationships, which only link-product-options can supply. A
+              // pair is only ever sent complete: there is no option value 0,
+              // and Liferay answers an insert carrying one with
+              // ConstraintViolationException, discarding the whole batch of
+              // SKUs. A SKU missing one option link is worth more than no SKU.
+              for (const [optName, valName] of Object.entries(v.options)) {
+                const { optionId, optionValueId, reason } =
+                  resolveSkuOptionLink(productOptions, optName, valName);
 
-                  const valMeta = (optMeta?.optionValuesWithIds || []).find(
-                    (vMeta) => label(vMeta.name) === label(valName)
-                  );
-
-                  return {
-                    optionId: optMeta?.optionId || 0,
-                    optionValueId: valMeta?.optionValueId || 0,
-                    _requested: `${optName}=${String(valName)}`,
-                  };
-                })
-                .filter((o) => {
-                  // The filter used to test optionId alone, so an entry whose
-                  // value had not resolved went out as optionValueId 0. There
-                  // is no option value 0: Liferay rejected the insert with
-                  // ConstraintViolationException and lost the whole batch of
-                  // SKUs. A SKU without one option link is worth more than no
-                  // SKU at all.
-                  const usable = o.optionId > 0 && o.optionValueId > 0;
-
-                  if (!usable) {
-                    unresolved.push(o._requested);
-                  }
-
-                  return usable;
-                })
-                .map(({ optionId, optionValueId }) => ({
-                  optionId,
-                  optionValueId,
-                }));
+                if (optionId && optionValueId) {
+                  sku.skuOptions.push({ optionId, optionValueId });
+                } else {
+                  unresolved.push(`${optName}=${String(valName)} (${reason})`);
+                }
+              }
 
               if (unresolved.length > 0) {
                 this.logger.warn(
