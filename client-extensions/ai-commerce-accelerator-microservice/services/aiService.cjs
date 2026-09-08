@@ -11,7 +11,7 @@ const {
 const { createERC } = require('../utils/misc.cjs');
 const { modelProviderIssue } = require('../utils/modelCatalog.cjs');
 const { apiKeyIssue } = require('../utils/apiKeys.cjs');
-const { expandLocaleMapsForPrompt } = require('../utils/schemaProjection.cjs');
+const { expandOpenMapsForPrompt } = require('../utils/schemaProjection.cjs');
 
 // Extra generation rounds allowed to close a shortfall. Two is enough for the
 // nine-instead-of-ten case without turning a stubborn model into a cost sink.
@@ -266,7 +266,7 @@ class AIService {
       const systemInstruction = `You are an expert AI generator for ${task} data. Return only valid JSON.${
         schema
           ? `\n\nThe JSON output must conform to the following schema:\n\n${JSON.stringify(
-              expandLocaleMapsForPrompt(schema, languages)
+              expandOpenMapsForPrompt(schema, languages)
             )}`
           : ''
       }`;
@@ -1276,14 +1276,23 @@ class AIService {
     }
   }
 
+  /**
+   * The parameter order matches every other generator here so GenerationFacade
+   * can dispatch to it. It used to take `options` third and a bare
+   * `{ correlationId }` fourth, which meant the run's provider, model and key
+   * never reached `_chatJson` - it resolved them from persisted configuration
+   * instead, silently ignoring whatever the run asked for. See #697.
+   */
   async generatePromoData(
     products = [],
     accounts = [],
-    options = {},
-    requestConfig = {}
+    requestConfig = {},
+    model = null,
+    _selectedLanguages = ['en-US'],
+    options = {}
   ) {
     const { logger, prompt } = this.ctx;
-    const correlationId = requestConfig.correlationId || 'system';
+    const correlationId = requestConfig?.correlationId || 'system';
 
     try {
       const productList = products.map((p) => ({
@@ -1317,7 +1326,7 @@ class AIService {
         'promo',
         promptContent,
         requestConfig,
-        undefined,
+        model,
         'promo'
       );
     } catch (error) {

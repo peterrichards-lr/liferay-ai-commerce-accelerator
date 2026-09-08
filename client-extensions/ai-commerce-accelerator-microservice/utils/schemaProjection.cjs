@@ -28,11 +28,9 @@
  * Matched by property name because the source schemas carry no marker for it,
  * and an unrecognised name is left open rather than guessed at: expanding a map
  * that is not locale-keyed would silently rewrite it into the wrong shape.
- * `skuVariants[].options` is keyed by option name - names the model invents in
- * the same response - and is the one open map that cannot be expanded.
  * tests/schemaProjection.test.cjs asserts that every open map in every
- * generation schema is either in this set or is that one, so a new one cannot
- * appear unnoticed.
+ * generation schema is classified here or in PAIR_KEYED_PROPERTIES, so a new
+ * one cannot appear unnoticed.
  */
 const LOCALE_KEYED_PROPERTIES = new Set([
   'category',
@@ -46,6 +44,34 @@ const LOCALE_KEYED_PROPERTIES = new Set([
   'title',
   'urls',
   'value',
+]);
+
+/**
+ * Open string maps whose keys the model invents in the same response, and which
+ * are therefore asked for as an array of name/value pairs instead.
+ *
+ * `skuVariants[].options` is the only one. Its keys are the option names the
+ * model chooses for the product it is describing, so unlike a locale map they
+ * are not known at the call site and cannot be written out - and every provider
+ * here requires an object's keys to be enumerated. Left as a map it made the
+ * whole of `product` inexpressible, which is the schema the bug in #633 was
+ * reported against.
+ *
+ * The pair array is the wire format only. GenerationFacade._standardize calls
+ * `optionPairsToMap` below before ajv sees the response, so
+ * generation-schemas/product.json and every downstream consumer are unchanged.
+ * The two halves live in this file so they cannot drift apart. See #691.
+ *
+ * The value carries the description the projected array should use: the source
+ * one describes a map, and a description that contradicts the shape is how a
+ * field comes to carry two meanings.
+ */
+const PAIR_KEYED_PROPERTIES = new Map([
+  [
+    'options',
+    'The specific option combination: one entry for every option defined on ' +
+      'the product, giving the option name and the value selected for it.',
+  ],
 ]);
 
 const NUMERIC_KEYWORDS = [
@@ -301,6 +327,42 @@ function closeObject(out, profile, required) {
   return out;
 }
 
+/**
+ * Projects an open map named in PAIR_KEYED_PROPERTIES as an array of
+ * name/value pairs, which every provider can express.
+ *
+ * The map's value schema becomes the pair's `value`. It is projected under an
+ * empty name so it cannot itself be matched against either registry: this
+ * rewrite is defined for a map of scalars, and a map of maps would need a
+ * decision rather than a default.
+ */
+function projectPairArray(node, openValues, pointer, context, out) {
+  const { profile } = context;
+
+  const item = closeObject(
+    {
+      properties: {
+        name: {
+          description: 'The name of the option this entry gives a value for.',
+          type: 'string',
+        },
+        value: projectNode(openValues, '', `${pointer}/value`, true, context),
+      },
+    },
+    profile,
+    ['name', 'value']
+  );
+
+  const projected = { ...out, items: item, type: 'array' };
+
+  // `minProperties: 1` on the map says the same thing `minItems: 1` says here.
+  if (node.minProperties >= 1) {
+    projectArrayBounds({ minItems: 1 }, profile, projected);
+  }
+
+  return projected;
+}
+
 function projectObject(node, name, pointer, context) {
   const { profile } = context;
   const out = {};
@@ -326,6 +388,13 @@ function projectObject(node, name, pointer, context) {
         ])
       );
       return closeObject(out, profile, [...context.locales]);
+    }
+
+    if (PAIR_KEYED_PROPERTIES.has(name)) {
+      return projectPairArray(node, openValues, pointer, context, {
+        ...out,
+        description: PAIR_KEYED_PROPERTIES.get(name),
+      });
     }
 
     context.blockers.push(pointer);
@@ -489,27 +558,30 @@ function projectGenerationSchema(source, options = {}) {
 }
 
 /**
- * The source schema with its locale maps written out as named properties, for
- * the prompt to describe when structured output is unavailable.
+ * The source schema with its open maps closed, for the prompt to describe when
+ * structured output is unavailable.
  *
  * Nothing else is changed, so every value constraint the model was told about
  * before is still there. What changes is the one thing the model misread: an
  * `additionalProperties: { type: 'string' }` map reads as "an object, contents
  * unspecified", which is how an entire product body came to be nested inside
- * `description`. Written out, the only keys it may have are named.
+ * `description`. A locale map is written out so the only keys it may have are
+ * named; a pair-keyed map becomes the same array of name/value pairs the
+ * enforced projection asks for, so the prose path and the schema path ask for
+ * one shape rather than two.
  */
-function expandLocaleMapsForPrompt(source, languages) {
+function expandOpenMapsForPrompt(source, languages) {
   const locales = localeCodes(languages);
 
   const rewrite = (node, name) => {
     if (Array.isArray(node)) return node.map((entry) => rewrite(entry, name));
     if (!isPlainObject(node)) return node;
 
-    if (
+    const openMap =
       isPlainObject(node.additionalProperties) &&
-      !isPlainObject(node.properties) &&
-      LOCALE_KEYED_PROPERTIES.has(name)
-    ) {
+      !isPlainObject(node.properties);
+
+    if (openMap && LOCALE_KEYED_PROPERTIES.has(name)) {
       const {
         additionalProperties,
         minProperties: _minProperties,
@@ -527,12 +599,79 @@ function expandLocaleMapsForPrompt(source, languages) {
       };
     }
 
+    if (openMap && PAIR_KEYED_PROPERTIES.has(name)) {
+      const {
+        additionalProperties,
+        minProperties,
+        type: _type,
+        ...rest
+      } = node;
+
+      return {
+        ...rest,
+        description: PAIR_KEYED_PROPERTIES.get(name),
+        items: {
+          additionalProperties: false,
+          properties: {
+            name: {
+              description:
+                'The name of the option this entry gives a value for.',
+              type: 'string',
+            },
+            value: additionalProperties,
+          },
+          required: ['name', 'value'],
+          type: 'object',
+        },
+        ...(minProperties >= 1 ? { minItems: 1 } : {}),
+        type: 'array',
+      };
+    }
+
     return Object.fromEntries(
       Object.entries(node).map(([key, value]) => [key, rewrite(value, key)])
     );
   };
 
   return rewrite(source, '');
+}
+
+/**
+ * Converts a pair array back to the map the generation schemas declare.
+ *
+ * The inverse of the pair-array rewrite above, and deliberately beside it: a
+ * change to the wire format that forgets this would produce a response ajv
+ * rejects on every product, in every run.
+ *
+ * Tolerant by design. Demo mode's mock generator, an older response and a model
+ * that ignored the instruction all send the map already, so a map passes
+ * through untouched and only an array is converted.
+ */
+function optionPairsToMap(value) {
+  if (!Array.isArray(value)) return value;
+
+  const map = {};
+
+  for (const pair of value) {
+    // A pair with no usable name has nowhere to go in the map. Returning the
+    // array unchanged lets ajv report the type it expected and the retry loop
+    // feed that back, rather than dropping an option silently: a SKU without a
+    // value for every option its product defines is INACTIVE in Liferay.
+    if (
+      !isPlainObject(pair) ||
+      typeof pair.name !== 'string' ||
+      !pair.name.trim()
+    ) {
+      return value;
+    }
+
+    // The value is passed through as it arrived. Coercing a missing one to an
+    // empty string would satisfy the schema while giving Liferay an option
+    // value that means nothing.
+    map[pair.name.trim()] = pair.value;
+  }
+
+  return map;
 }
 
 /**
@@ -573,7 +712,9 @@ function looksLikeSchemaRejection(error) {
 
 module.exports = {
   LOCALE_KEYED_PROPERTIES,
-  expandLocaleMapsForPrompt,
+  PAIR_KEYED_PROPERTIES,
+  expandOpenMapsForPrompt,
   looksLikeSchemaRejection,
+  optionPairsToMap,
   projectGenerationSchema,
 };

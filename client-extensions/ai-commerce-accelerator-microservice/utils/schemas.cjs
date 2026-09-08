@@ -24,6 +24,16 @@ const MEDIA_MODES = [
   'generate',
 ];
 
+// The four the PDF prompt knows how to label (aiService.generatePDFContent).
+// Anything else silently became 'product_info', so the selector could appear to
+// work while producing the default document.
+const PDF_CONTENT_TYPES = [
+  'product_info',
+  'user_guide',
+  'compliance',
+  'technical_specs',
+];
+
 const modeSchema = {
   imageMode: {
     type: 'string',
@@ -35,6 +45,34 @@ const modeSchema = {
     enum: MEDIA_MODES,
     required: true,
   },
+  pdfContentType: {
+    type: 'string',
+    enum: PDF_CONTENT_TYPES,
+    required: false,
+  },
+};
+
+/**
+ * How the run's orders are spread across order statuses, as percentages keyed
+ * by status name. Declared so the input is validated rather than merely
+ * tolerated; orderGenerator ignores keys it does not recognise, so the shape
+ * check is the only thing standing between a typo and a run of orders that all
+ * take the default status.
+ */
+const orderDistributionRule = {
+  type: 'object',
+  required: false,
+};
+
+/**
+ * Names one of the JSON files in resources/seed-packs. Constrained to a bare
+ * name because the route interpolates it into a path; routes/generate.cjs takes
+ * the basename as well, so neither check alone is load-bearing.
+ */
+const seedPackRule = {
+  type: 'string',
+  required: false,
+  pattern: /^[A-Za-z0-9_-]+$/,
 };
 
 const commerceSchema = {
@@ -96,6 +134,8 @@ const generateDataSchema = (
   },
   orderCount: countRule(limits.maxOrders),
   orderDateRangeDays: { type: 'number', min: 0, max: 1095, required: false },
+  orderDistribution: orderDistributionRule,
+  seedPack: seedPackRule,
 });
 
 const generateOrdersSchema = (
@@ -119,6 +159,7 @@ const generateOrdersSchema = (
   currencyCode: { type: 'string', required: true },
   orderCount: countRule(limits.maxOrders),
   orderDateRangeDays: { type: 'number', min: 0, max: 1095, required: false },
+  orderDistribution: orderDistributionRule,
   // Which existing accounts may receive orders. 'any' means either kind of
   // customer; guest and supplier accounts are never eligible. See #611.
   orderAccountType: {
@@ -161,6 +202,7 @@ const generateAccountsSchema = (
 
 module.exports = {
   MEDIA_MODES,
+  PDF_CONTENT_TYPES,
   connectionSchema,
   channelConnectionSchema,
   modeSchema,

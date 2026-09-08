@@ -31,20 +31,23 @@ const WAREHOUSE_SCHEMA = {
   type: 'object',
 };
 
-// product.json's skuVariants[].options is keyed by option name, so its keys
-// cannot be written out and no provider can enforce the schema.
+// An open map that schemaProjection classifies as neither locale-keyed nor
+// pair-keyed, so its keys cannot be written out and no provider can enforce the
+// schema. No shipped generation schema is in this state since #691 gave
+// skuVariants[].options a pair-array wire form, but a schema an administrator
+// adds still can be, and these tests cover the degradation that answers it.
 const UNENFORCEABLE_SCHEMA = {
   properties: {
     products: {
       items: {
         properties: {
-          name: { additionalProperties: { type: 'string' }, type: 'object' },
-          options: {
+          attributes: {
             additionalProperties: { type: 'string' },
             type: 'object',
           },
+          name: { additionalProperties: { type: 'string' }, type: 'object' },
         },
-        required: ['name', 'options'],
+        required: ['attributes', 'name'],
         type: 'object',
       },
       type: 'array',
@@ -437,12 +440,12 @@ describe('AI Providers', () => {
         expect(Object.keys(items.properties.name.properties)).toEqual([
           'en_US',
         ]);
-        // The map whose keys the model invents is left open.
-        expect(items.properties.options.additionalProperties).toEqual({
+        // The map that cannot be classified is left open.
+        expect(items.properties.attributes.additionalProperties).toEqual({
           type: 'string',
         });
         // Nothing is enforced, so nothing is forced into `required` either.
-        expect(items.required.sort()).toEqual(['name', 'options']);
+        expect(items.required.sort()).toEqual(['attributes', 'name']);
       });
 
       it('uses plain JSON mode for a model that predates json_schema', async () => {

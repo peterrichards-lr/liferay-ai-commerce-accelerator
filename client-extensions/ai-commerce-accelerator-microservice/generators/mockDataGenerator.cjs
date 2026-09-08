@@ -48,6 +48,7 @@ class MockDataGenerator {
       order: 'generateOrderData',
       warehouse: 'generateWarehouseData',
       pricing: 'generatePricingData',
+      promo: 'generatePromoData',
     };
 
     const methodName = methodMap[entityType];
@@ -94,6 +95,15 @@ class MockDataGenerator {
         config,
         null,
         selectedLanguages
+      );
+    } else if (entityType === 'promo') {
+      return this.generatePromoData(
+        options.products || [],
+        options.accounts || [],
+        config,
+        null,
+        selectedLanguages,
+        options
       );
     }
   }
@@ -647,6 +657,63 @@ class MockDataGenerator {
       priceEntries,
       priceListName: 'AICA General Price List',
     };
+  }
+
+  /**
+   * `promo.json` declares an object with required `userSegments` and
+   * `promotions`, and every promotion's `targetSegmentName` has to match a
+   * segment `name` exactly - PromoGenerator pairs them by name, and an
+   * unmatched promotion is created without a segment.
+   *
+   * ERCs are AICA-prefixed rather than the `SEG-`/`PROMO-` forms the prompt
+   * suggests, because deletion discovery only manifests entities whose ERC
+   * starts `AICA-`. That is a value, not a shape: the schema constrains
+   * neither, and demo data that cannot be deleted is worse than demo data that
+   * looks slightly different from a model's.
+   */
+  generatePromoData(
+    products = [],
+    accounts = [],
+    _config = {},
+    _model = null,
+    _selectedLanguages = ['en-US'],
+    _options = {}
+  ) {
+    const anchorAccount = accounts[0]?.name || 'established trade accounts';
+    const anchorProduct =
+      products[0]?.name?.en_US || products[0]?.name || 'the catalog';
+
+    const userSegments = [
+      {
+        description: `Repeat buyers such as ${anchorAccount}, ordering across the catalog on a regular cycle.`,
+        name: 'Frequent Buyers',
+      },
+      {
+        description: `Trade accounts buying ${anchorProduct} and similar lines in bulk for on-site work.`,
+        name: 'Volume Contractors',
+      },
+    ].map((segment) => ({
+      ...segment,
+      externalReferenceCode: buildStableERC(ERC_PREFIX.USER_SEGMENT, [
+        segment.name,
+      ]),
+    }));
+
+    const promotions = [
+      { discountPercentage: 10, targetSegmentName: 'Frequent Buyers' },
+      { discountPercentage: 20, targetSegmentName: 'Volume Contractors' },
+    ].map(({ discountPercentage, targetSegmentName }) => ({
+      description: `${discountPercentage}% off for ${targetSegmentName.toLowerCase()} across the generated catalog.`,
+      discountPercentage,
+      externalReferenceCode: buildStableERC(ERC_PREFIX.PROMOTION, [
+        targetSegmentName,
+        String(discountPercentage),
+      ]),
+      name: `${discountPercentage}% off for ${targetSegmentName}`,
+      targetSegmentName,
+    }));
+
+    return { promotions, userSegments };
   }
 }
 

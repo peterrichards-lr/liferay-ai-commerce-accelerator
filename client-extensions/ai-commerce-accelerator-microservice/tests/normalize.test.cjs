@@ -109,6 +109,73 @@ describe('Data Normalization', () => {
     });
   });
 
+  // Four options the form has always sent and the whitelist never named, so
+  // they were validated (in orderDateRangeDays' case) and then discarded. The
+  // demo dataset took the model's choice of order dates, status split, PDF
+  // content type and generation path instead of the operator's. See #696.
+  describe('buildConfigAndOptions order, media and seed pack wiring', () => {
+    const build = (body) =>
+      buildConfigAndOptions({
+        headers: {},
+        body: {
+          liferayUrl: 'http://test.com',
+          clientId: 'test',
+          clientSecret: 'test',
+          ...body,
+        },
+      });
+
+    it('carries orderDateRangeDays as a number', () => {
+      expect(
+        build({ orderDateRangeDays: '90' }).options.orderDateRangeDays
+      ).toBe(90);
+      expect(build({ orderDateRangeDays: 90 }).options.orderDateRangeDays).toBe(
+        90
+      );
+    });
+
+    it('leaves orderDateRangeDays undefined when absent, so the reader keeps its own default', () => {
+      expect(build({}).options.orderDateRangeDays).toBeUndefined();
+    });
+
+    it.each([
+      [
+        'a real object',
+        { open: 10, processing: 10, shipped: 20, completed: 60 },
+      ],
+      [
+        'the JSON string the multipart path sends',
+        '{"open":10,"processing":10,"shipped":20,"completed":60}',
+      ],
+    ])('carries orderDistribution sent as %s', (_label, orderDistribution) => {
+      expect(build({ orderDistribution }).options.orderDistribution).toEqual({
+        open: 10,
+        processing: 10,
+        shipped: 20,
+        completed: 60,
+      });
+    });
+
+    it('carries pdfContentType', () => {
+      expect(
+        build({ pdfContentType: 'user_guide' }).options.pdfContentType
+      ).toBe('user_guide');
+    });
+
+    it('carries seedPack, which selected a pack the backend never saw', () => {
+      expect(
+        build({ seedPack: 'outdoor-adventure-gear' }).options.seedPack
+      ).toBe('outdoor-adventure-gear');
+    });
+
+    it('treats an unselected seed pack as no seed pack', () => {
+      // The form's default is the empty string, and the route branches on
+      // truthiness - carrying '' would send every run down the seed-pack path.
+      expect(build({ seedPack: '' }).options.seedPack).toBeUndefined();
+      expect(build({}).options.seedPack).toBeUndefined();
+    });
+  });
+
   describe('buildConfigAndOptions', () => {
     it('should construct microserviceUrl correctly from request headers if not provided', () => {
       const req = {

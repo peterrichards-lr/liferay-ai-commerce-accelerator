@@ -146,19 +146,28 @@ module.exports = (
       }
 
       if (!options.demoMode && !aiKeyAvailable) {
+        // Falls back only when the operator picked no pack of their own. Until
+        // #696 seedPack never survived normalisation, so this was the sole
+        // producer and could assign unconditionally; doing that now would
+        // silently swap the chosen pack for this one.
+        options.seedPack = options.seedPack || 'industrial-power-tools';
         logger.warn(
-          'AI API key is not configured or unavailable. Automatically falling back to "industrial-power-tools" seed pack.'
+          `AI API key is not configured or unavailable. Falling back to the "${options.seedPack}" seed pack.`
         );
-        options.seedPack = 'industrial-power-tools';
         options.demoMode = true;
       }
 
       if (options.seedPack) {
         const fs = require('fs');
         const path = require('path');
+        // The name is caller-supplied and interpolated into a path. The schema
+        // constrains it to a bare name; taking the basename here means a
+        // traversal attempt cannot escape the directory even if that rule is
+        // ever relaxed. See #696.
         const seedPackPath = path.join(
           __dirname,
-          `../resources/seed-packs/${options.seedPack}.json`
+          '../resources/seed-packs',
+          `${path.basename(options.seedPack)}.json`
         );
         if (!fs.existsSync(seedPackPath)) {
           return res.status(400).json({
