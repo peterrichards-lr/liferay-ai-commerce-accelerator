@@ -25,8 +25,4 @@ const importJsonFile = (filename) => {
   if (!filename) return;
 };
 
-const buildFilename = (prefix) => {
-  return `${prefix}-${new Date().toISOString().split('T')[0]}.json`;
-};
-
-export { exportJsonFile, importJsonFile, buildFilename };
+export { exportJsonFile, importJsonFile };

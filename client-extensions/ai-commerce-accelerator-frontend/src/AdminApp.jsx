@@ -9,7 +9,8 @@ import { useApp, useApi, AppProvider } from './context/AppContext';
 import { ConfirmProvider, useConfirm } from './components/ConfirmProvider';
 import notifyUser from './utils/notifications';
 import { isCancellable } from './utils/sessionStatus';
-import { buildFilename, exportJsonFile } from './utils/fileHelper';
+import { exportJsonFile } from './utils/fileHelper';
+import { sessionExportFilename } from './utils/sessionFilename';
 import {
   WORKFLOW_SESSIONS,
   WORKFLOW_KPIS,
@@ -158,7 +159,7 @@ function AdminUI() {
       const res = await api.get(
         `${EXPORT_COMMERCE_DATA}?sessionId=${sessionId}`
       );
-      const filename = buildFilename(`aica-dataset-${name || sessionId}`);
+      const filename = sessionExportFilename('aica-dataset', name || sessionId);
       exportJsonFile(res, filename);
       notifyUser('Dataset exported successfully');
     } catch {
