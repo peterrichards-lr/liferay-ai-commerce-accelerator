@@ -9,6 +9,10 @@ const {
   defaultModelForProvider,
 } = require('../utils/modelCatalog.cjs');
 const { providerEnvVar, resolveCoreKey } = require('../utils/apiKeys.cjs');
+const {
+  listPromptNames,
+  listSchemaNames,
+} = require('../utils/configurationAssets.cjs');
 const fs = require('fs');
 const path = require('path');
 
@@ -207,11 +211,10 @@ class ConfigService {
   }
 
   async getAIPromptsConfig(requestConfig) {
-    const promptNames = ['account', 'order', 'pdf', 'pricing', 'product'];
     const prompts = {};
 
-    for (const name of promptNames) {
-      prompts[name] = await this.getAIPrompt(requestConfig, name);
+    for (const promptName of listPromptNames()) {
+      prompts[promptName] = await this.getAIPrompt(requestConfig, promptName);
     }
     return prompts;
   }
@@ -1104,18 +1107,19 @@ class ConfigService {
         health.aiMedia.status = mediaKey ? 'CONFIGURED' : 'MISSING';
       }
 
-      // Check Propmts (existence check)
-      const entities = ['product', 'account', 'order', 'warehouse'];
-      for (const entity of entities) {
-        const prompt = await this.getAIPrompt(requestConfig, entity);
+      for (const promptName of listPromptNames()) {
+        const prompt = await this.getAIPrompt(requestConfig, promptName);
         if (!prompt) {
           health.prompts.status = 'WARNING';
-          health.prompts.missing.push(entity);
+          health.prompts.missing.push(promptName);
         }
-        const schema = await this.getAISchema(requestConfig, entity);
+      }
+
+      for (const schemaName of listSchemaNames()) {
+        const schema = await this.getAISchema(requestConfig, schemaName);
         if (!schema) {
           health.schemas.status = 'WARNING';
-          health.schemas.missing.push(entity);
+          health.schemas.missing.push(schemaName);
         }
       }
 

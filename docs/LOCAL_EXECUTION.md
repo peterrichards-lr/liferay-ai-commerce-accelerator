@@ -267,6 +267,7 @@ _(To run an offline mock test without consuming live AI tokens, add the `--demo`
    - `ai-prompt-product`: Define category lines, option matrices (colors, sizes), and key-value technical specifications (e.g. MATERIAL, CAPACITY, COMPATIBILITY).
    - `ai-prompt-account`: Define customer persona types, regional distribution, and B2B dealer profiles with contact roles.
    - `ai-prompt-order`: Define purchase behaviors, date distribution ranges, and targeted cross-sell / upsell purchasing patterns across accounts.
+   - `ai-prompt-image`: Define the photographic style, framing, and background treatment applied to generated product imagery.
 4. Click **Generate Data**. The progress bars track real-time batch creation, option linking, and taxonomy grounding via WebSockets.
 
 ---
@@ -393,4 +394,4 @@ _(Or in DXP: **Control Panel -> Search -> Index Actions -> Reindex All**)._
 
 ---
 
-_Last Updated: 2026-09-04_ | _Last Reviewed: 2026-09-04_
+_Last Updated: 2026-09-08_ | _Last Reviewed: 2026-09-08_

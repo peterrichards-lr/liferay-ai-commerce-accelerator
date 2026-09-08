@@ -1,4 +1,8 @@
 const ConfigService = require('../services/configService.cjs');
+const {
+  listPromptNames,
+  listSchemaNames,
+} = require('../utils/configurationAssets.cjs');
 
 describe('ConfigService', () => {
   let configService;
@@ -351,6 +355,35 @@ describe('ConfigService', () => {
         configService.getConfig(null, 'cacheKey', 'configKey')
       ).rejects.toThrow('OAuth configuration required');
       expect(mockCtx.logger.errorWithStack).toHaveBeenCalled();
+    });
+  });
+
+  describe('Configuration asset coverage', () => {
+    it('should expose every prompt that ships, not a hardcoded subset', async () => {
+      configService.liferay.getConfig.mockResolvedValue({ items: [] });
+
+      const prompts = await configService.getAIPromptsConfig(requestConfig);
+
+      expect(Object.keys(prompts).sort()).toEqual(listPromptNames());
+      expect(prompts).toHaveProperty('image');
+    });
+
+    it('should health check every prompt and only the schemas that exist', async () => {
+      configService.liferay.getChannels = vi
+        .fn()
+        .mockResolvedValue({ items: [] });
+      configService.liferay.getConfig.mockResolvedValue({ items: [] });
+
+      const health = await configService.checkHealth(requestConfig);
+
+      expect(health.prompts.missing).toEqual(listPromptNames());
+
+      // getAISchema falls back to the file on disk, so nothing is missing -
+      // the point is that 'image' is never asked for, since there is no
+      // generation-schemas/image.json to seed.
+      expect(listSchemaNames()).not.toContain('image');
+      expect(health.schemas.missing).toEqual([]);
+      expect(health.schemas.status).toBe('OK');
     });
   });
 });
