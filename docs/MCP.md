@@ -60,6 +60,21 @@ Once connected, AICA registers the following tools for the agent:
 | `aica_delete_session`     | `sessionId` (string, required)                                                                                            | Performs targeted teardown of DXP objects and local database entries for a specific session ID. |
 | `aica_teardown_all`       | None                                                                                                                      | Wipes all generated AICA commerce data from the DXP instance and resets the database.           |
 
+### Commerce targets on `aica_trigger_generation`
+
+An agent works from a configuration it was handed rather than from a list it
+just loaded, so a `catalogId` or `channelId` that no longer exists on the
+instance is a realistic input. The tool resolves both before starting a run:
+
+- If neither is supplied, the first catalog and channel are used and the tool
+  says which ones in its reply.
+- If one is supplied and the instance does not have it, the tool **fails** with
+  the id that could not be found, rather than generating a whole dataset into
+  whichever entity happened to sort first. See #680.
+
+The reply always names the catalog and channel the run is using, so a
+misdirected run is visible without querying Liferay.
+
 ---
 
 ## Client Integration Examples
@@ -117,4 +132,4 @@ console.log('AICA status:', status.content[0].text);
 
 ---
 
-_Last Updated: 2026-08-14_ | _Last Reviewed: 2026-08-14_
+_Last Updated: 2026-09-08_ | _Last Reviewed: 2026-09-08_

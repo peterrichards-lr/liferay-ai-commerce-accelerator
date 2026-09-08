@@ -20,6 +20,10 @@ const {
   warehouseCreationSteps,
 } = require('../utils/productSubflow.cjs');
 const {
+  logCommerceSelection,
+  resolveRunCommerceSelection,
+} = require('../utils/commerceSelection.cjs');
+const {
   resolveEffectiveLiferayConnection,
 } = require('../utils/liferayEnv.cjs');
 const { createERC } = require('../utils/misc.cjs');
@@ -294,19 +298,28 @@ module.exports = (router, routeCtx) => {
             );
           }
 
-          // Resolve channel/catalog fallback
-          if (!config.channelId || isNaN(config.channelId)) {
-            const channels = await liferayService.getChannels(config);
-            if (channels && channels.length > 0) {
-              config.channelId = parseInt(channels[0].id, 10);
-              config.siteGroupId = parseInt(channels[0].siteGroupId, 10);
-            }
-          }
-          if (!config.catalogId || isNaN(config.catalogId)) {
-            const catalogs = await liferayService.getCatalogs(config);
-            if (catalogs && catalogs.length > 0) {
-              config.catalogId = parseInt(catalogs[0].id, 10);
-            }
+          // A tool call is the likeliest source of an id that no longer means
+          // what the caller thinks: an agent works from a config it was handed
+          // rather than from a list it just loaded. Same rules as the HTTP
+          // route - default only when nothing was asked for, refuse on positive
+          // evidence that what was asked for is gone. See #680.
+          const commerceSelection = await resolveRunCommerceSelection({
+            config,
+            correlationId: config.correlationId,
+            liferayService,
+            logger,
+            operation: 'aica_trigger_generation',
+          });
+
+          logCommerceSelection({
+            correlationId: config.correlationId,
+            logs: commerceSelection.logs,
+            logger,
+            operation: 'aica_trigger_generation',
+          });
+
+          if (commerceSelection.rejection) {
+            throw new Error(commerceSelection.rejection);
           }
 
           // Checked after the fallback above, not alongside the validation:
@@ -470,7 +483,7 @@ module.exports = (router, routeCtx) => {
             content: [
               {
                 type: 'text',
-                text: `Generation workflow successfully triggered. Session ID: ${sessionId}`,
+                text: `Generation workflow successfully triggered. Session ID: ${sessionId}. ${commerceSelection.channel.message} ${commerceSelection.catalog.message}`,
               },
             ],
           };

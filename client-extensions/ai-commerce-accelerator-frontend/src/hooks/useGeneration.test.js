@@ -201,6 +201,75 @@ describe('useGeneration hook', () => {
     });
   });
 
+  // A run that quietly relocated used to be invisible until someone went
+  // looking in Liferay for the products. See #680.
+  it('logs the catalog and channel the run actually used', async () => {
+    mockApi.post = vi.fn().mockResolvedValue({
+      commerce: {
+        catalogId: 205,
+        catalogName: 'Accessories',
+        channelId: 402,
+        channelName: 'Trade Counter',
+        siteGroupId: 901,
+      },
+      sessionId: 'session-123',
+    });
+
+    const { result } = renderHook(() =>
+      useGeneration({
+        addLog: mockAddLog,
+        buildPayload: mockBuildPayload,
+        api: mockApi,
+        dispatch: mockDispatch,
+        forceDemoMode: false,
+        generationConfig: { productCount: 1 },
+        mountedRef: { current: true },
+        progress: mockProgress,
+        connectionEstablished: true,
+      })
+    );
+
+    await act(async () => {
+      await result.current.generateData({
+        imageMode: 'default',
+        pdfMode: 'default',
+      });
+    });
+
+    expect(mockAddLog).toHaveBeenCalledWith(
+      'Generating into catalog: Accessories (id 205), channel: Trade Counter (id 402)',
+      'info'
+    );
+  });
+
+  it('says nothing about targets when the response carries none', async () => {
+    const { result } = renderHook(() =>
+      useGeneration({
+        addLog: mockAddLog,
+        buildPayload: mockBuildPayload,
+        api: mockApi,
+        dispatch: mockDispatch,
+        forceDemoMode: false,
+        generationConfig: { productCount: 1 },
+        mountedRef: { current: true },
+        progress: mockProgress,
+        connectionEstablished: true,
+      })
+    );
+
+    await act(async () => {
+      await result.current.generateData({
+        imageMode: 'default',
+        pdfMode: 'default',
+      });
+    });
+
+    expect(mockAddLog).not.toHaveBeenCalledWith(
+      expect.stringContaining('Generating into'),
+      expect.anything()
+    );
+  });
+
   it('should handle cancel workflow correctly', async () => {
     mockProgress.activeSessionId = 'session-123';
 
