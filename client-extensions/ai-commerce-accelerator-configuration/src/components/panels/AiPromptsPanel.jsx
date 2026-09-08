@@ -4,8 +4,14 @@ import ClayIcon from '@clayui/icon';
 import PromptEditor from './PromptEditor';
 import { useForm, useObjectStorage } from '../../hooks';
 
-const ENTITY_CONFIGS = [
+// Exported so a test can hold this list against the microservice's
+// prompts/ directory. The batch and the microservice both derive their
+// prompt lists from that directory; a browser bundle cannot, so this is
+// the one list that stays hand-maintained and the test is what stops it
+// drifting again - omitting image here is what left it unreachable (#650).
+export const ENTITY_CONFIGS = [
   { id: 'product', title: 'Product Prompt', configKey: 'ai-prompt-product' },
+  { id: 'image', title: 'Image Prompt', configKey: 'ai-prompt-image' },
   { id: 'account', title: 'Account Prompt', configKey: 'ai-prompt-account' },
   { id: 'order', title: 'Order Prompt', configKey: 'ai-prompt-order' },
   { id: 'pricing', title: 'Pricing Prompt', configKey: 'ai-prompt-pricing' },
