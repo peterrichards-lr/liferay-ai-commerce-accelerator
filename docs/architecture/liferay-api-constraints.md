@@ -58,6 +58,24 @@ Liferay's newer Headless APIs (2024.Qx+) enforce strict metadata validation for 
 - **Indexing Heartbeats**: Implement a **2-3 second delay** between linking a child to a parent (e.g., Options to Product) and performing dependent operations (e.g., creating SKUs or Inventory). This allows Liferay's internal relationship mapping to settle.
 - **Pricing Resilience**: Pricing V2.0 strictly requires the **`discountDiscovery`** boolean in the `PriceEntry` DTO. Omitting it will cause a backend `NullPointerException`.
 
+### `neverExpire` defaults the opposite way for products and SKUs
+
+An omitted `neverExpire` does not mean the same thing on both halves of a product payload, and the SKU half is the dangerous one:
+
+| Payload   | Read as                                                                             | Effect of omitting it                                                                                                     |
+| :-------- | :---------------------------------------------------------------------------------- | :------------------------------------------------------------------------------------------------------------------------ |
+| `Product` | `GetterUtil.getBoolean(product.getNeverExpire(), true)` (`ProductResourceImpl:739`) | Never expires.                                                                                                            |
+| `Sku`     | `GetterUtil.get(sku.getNeverExpire(), false)` (`SkuUtil:232`)                       | Expires. With no `expirationDate` alongside it, `DateConfig.toExpirationDateConfig` sets one exactly **one month** ahead. |
+
+The SKU is Approved and purchasable on the day it is created — `expirationDate.before(date)` is false, so nothing is visibly wrong. About thirty days later `CheckCPInstanceSchedulerJobConfiguration` runs `_checkCPInstancesByExpirationDate` (`CPInstanceLocalServiceImpl:1617-1641`), the SKU becomes `STATUS_EXPIRED`, and the storefront stops listing it (`SkuResourceImpl:213-222` only reads Approved instances) while the product above it stays Approved and complete-looking.
+
+- **The rule**: send `neverExpire` explicitly on **every** `Product` and `Sku` payload. `neverExpire: true` leaves the column null (`CPInstanceLocalServiceImpl:159-164` and `:1052-1057` only compute an expiry when `!neverExpire`), and a null expiry can never match the sweeper's finder.
+- **Updates do not merge it.** Both resources read the field from the payload with the same defaults on update as on create, so a PATCH or UPSERT that omits `neverExpire` resets it — a product meant to expire is silently un-expired by any later write that leaves the field out.
+- **It is write-only.** `SkuDTOConverter` never sets `neverExpire` on read, so a GET will not echo it back. Read `expirationDate` instead: null means it never expires.
+- **Configured, not hardcoded**: the `catalog-expiry-config` entry (`neverExpire`, `expiryDays`) decides this per environment; a missing entry resolves to `neverExpire: true`. See `utils/catalogExpiry.cjs`.
+
+Verified against `liferay-portal` 7.4.3.141 (`cb125431de`).
+
 ---## Liferay v2.0 Pricing & Batch APIs (Engineering Rules)
 
 Extensive empirical testing against Liferay DXP (2025.Q1) revealed strict constraints regarding the `v2.0` Headless Pricing API and the Headless Batch Engine:
