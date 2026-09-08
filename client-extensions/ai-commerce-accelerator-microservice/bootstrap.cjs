@@ -19,6 +19,9 @@ const ContractValidator = require('./services/contractValidator.cjs');
 const OAuthService = require('./services/liferay/oauth.cjs');
 const HealthService = require('./services/healthService.cjs');
 const {
+  ClientExtensionEntryService,
+} = require('./services/clientExtensionEntryService.cjs');
+const {
   CommerceSiteTypeService,
 } = require('./services/commerceSiteTypeService.cjs');
 const { PromptService } = require('./services/promptService.cjs');
@@ -74,6 +77,10 @@ module.exports = async (ws) => {
   });
 
   ctx.config.setLiferayService(ctx.liferay);
+  ctx.clientExtensionEntry = new ClientExtensionEntryService({
+    liferayService: ctx.liferay,
+    logger,
+  });
   ctx.commerceSiteType = new CommerceSiteTypeService({
     liferayService: ctx.liferay,
     logger,
@@ -205,6 +212,7 @@ module.exports = async (ws) => {
     aiService: ctx.ai,
     batchCallbackService: ctx.batchCallback,
     cacheService: ctx.cache,
+    clientExtensionEntryService: ctx.clientExtensionEntry,
     commerceSiteTypeService: ctx.commerceSiteType,
     configService: ctx.config,
     deleteCoordinatorService: ctx.deleteCoordinator,

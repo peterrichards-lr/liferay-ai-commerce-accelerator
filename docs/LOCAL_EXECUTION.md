@@ -135,6 +135,23 @@ curl -s -o /dev/null -w "%{http_code}\n" http://localhost:8080/o/commerce-site-t
 `404` means the bundle is not resolved. `403` means it is registered and
 rejected the unauthenticated request, which is the expected response.
 
+`client-extension-entry` has the same probe at
+`/o/client-extension-entry/status`. It backs the Dashboard's **Adjust
+Configuration** button: the button's URL needs the portlet id Liferay composes
+for the configuration client extension, and that id embeds the **company id**,
+which Liferay assigns per database and no API outside the portal JVM publishes.
+The microservice reads it through this module rather than carrying a literal id
+that is only correct on the instance it was copied from. Without the module the
+Configuration Doctor says so and the button falls back to the Client Extensions
+listing, so nothing breaks — the reader just needs one more click. See #660.
+
+Unlike `commerce-site-type`, this module imports
+`com.liferay.client.extension.*` application packages rather than only
+`com.liferay.portal.kernel.*`, so its package version ranges are not
+line-agnostic. It is published against `dxp-2026.q1.12-lts`; on a different
+line, confirm the probe returns `403` rather than `404` before assuming it
+resolved.
+
 ## 4. Step 2: Build & Deploy Client Extensions to DXP
 
 All client extensions (including the `ai-commerce-accelerator-batch` extension that defines the Liferay Objects and prompts) must be deployed to the running Liferay instance:
