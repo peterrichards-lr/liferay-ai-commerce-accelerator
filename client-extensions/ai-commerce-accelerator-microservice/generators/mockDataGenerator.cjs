@@ -275,14 +275,20 @@ class MockDataGenerator {
         ];
 
         productData.skuVariants = [];
-        // Generate a subset of combinations for realism
-        const colors = ['Red', 'Blue'];
-        const sizes = ['Small', 'Medium'];
+
+        // Derived from the declaration above rather than listed again, so a
+        // declared value cannot end up with no SKU behind it (#751). A
+        // storefront offers every value the product declares, so a value with
+        // nothing to sell reads as a broken store rather than a partial
+        // catalogue.
+        const [colorOption, sizeOption] = productData.options;
+        const colors = colorOption.productOptionValues;
+        const sizes = sizeOption.productOptionValues;
 
         for (const color of colors) {
           for (const size of sizes) {
             const variantSku = `${sku}-${color.toUpperCase()}-${size.toUpperCase()}`;
-            const variantPriceModifier = size === 'Medium' ? 0.1 : 0;
+            const variantPriceModifier = sizes.indexOf(size) * 0.1;
             const variantPrice = basePrice * (1 + (variantPriceModifier || 0));
 
             productData.skuVariants.push({

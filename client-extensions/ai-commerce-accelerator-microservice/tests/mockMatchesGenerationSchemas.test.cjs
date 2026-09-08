@@ -251,6 +251,31 @@ describe('mock generator output satisfies the generation schemas', () => {
     }
   });
 
+  it('puts a SKU behind every option value it declares', () => {
+    // A storefront offers whatever the product declares, so a value with no
+    // variant behind it looks like a broken store rather than a partial
+    // catalogue (#751). The general form of this - holding both generators to
+    // the invariant - is #754.
+    const [product] = mock.generateProductData(
+      'Electronics',
+      1,
+      REQUEST_CONFIG,
+      null,
+      SELECTED_LANGUAGES,
+      { generateSkuVariants: true }
+    );
+
+    for (const option of product.options) {
+      const covered = new Set(
+        product.skuVariants.map((variant) => variant.options[option.name])
+      );
+
+      for (const value of option.productOptionValues) {
+        expect(covered).toContain(value);
+      }
+    }
+  });
+
   it('targets every promotion at a segment that exists', () => {
     // PromoGenerator pairs the two by name, and a promotion whose target does
     // not match is created with no segment behind it. The schema cannot say
