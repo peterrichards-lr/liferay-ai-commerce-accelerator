@@ -8,6 +8,9 @@ const {
   SELECTION_KEYS,
   selectShare,
 } = require('../../utils/shareSelection.cjs');
+const {
+  runRequestsInventory,
+} = require('../../utils/inventoryFeasibility.cjs');
 
 const S = WORKFLOW_STEPS;
 
@@ -19,10 +22,30 @@ async function runUpdateInventoryStep(sessionId) {
   const { items: warehouses } = await this.liferay.getWarehouses(config);
 
   if (!warehouses || warehouses.length === 0) {
+    // BYPASSED means a live query confirmed there was nothing to do (#699).
+    // Here a live query confirmed there is nothing to do it *with*, while the
+    // work was asked for - so it is BLOCKED, which does not count towards a
+    // successful run and carries the reason (#732). The run should have been
+    // refused up front; reaching this point means the instance changed under
+    // it, or the request did not come through the generate route.
+    // The route asks this of `options.productCount`, because the products do
+    // not exist yet. Here they do, so the real list is the honest input - a
+    // run reaching this step with products in hand asked for stock whatever
+    // the original count said.
+    const requested = runRequestsInventory({
+      ...options,
+      productCount: (productDataList || []).length,
+    });
+
     return await this.completeSyncStep(
       sessionId,
       S.UPDATE_INVENTORY,
-      'BYPASSED'
+      requested ? 'BLOCKED' : 'BYPASSED',
+      0,
+      0,
+      requested
+        ? 'No warehouse exists to hold inventory, and this run did not create one.'
+        : 'No stock was requested for this run.'
     );
   }
 
