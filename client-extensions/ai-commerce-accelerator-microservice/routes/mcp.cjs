@@ -14,6 +14,7 @@ const {
   validateGenerationRequest,
 } = require('../utils/validateGenerationRequest.cjs');
 const { evaluateGenerationRun } = require('../utils/channelSiteType.cjs');
+const { channelBackfillSteps } = require('../utils/runChannels.cjs');
 const {
   resolveEffectiveLiferayConnection,
 } = require('../utils/liferayEnv.cjs');
@@ -367,6 +368,7 @@ module.exports = (router, routeCtx) => {
           }
 
           if (options.orderCount > 0) {
+            orderSteps.push(...channelBackfillSteps(options));
             orderSteps.push({ name: S.GENERATE_ORDER_DATA, type: 'sync' });
             orderSteps.push({ name: S.CREATE_ORDERS, type: 'sync' });
           }

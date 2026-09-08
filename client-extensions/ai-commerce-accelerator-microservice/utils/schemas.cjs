@@ -40,6 +40,9 @@ const modeSchema = {
 const commerceSchema = {
   catalogId: { type: 'number', required: true, integer: true },
   channelId: { type: 'number', required: false, integer: true },
+  // Additional channels the run's products and warehouses should be available
+  // in, alongside channelId. See #664.
+  channelIds: { type: 'array', required: false },
   currencyCode: { type: 'string', required: false },
   localeCode: { type: 'string', required: false },
   selectedLanguages: { type: 'array', required: false },
