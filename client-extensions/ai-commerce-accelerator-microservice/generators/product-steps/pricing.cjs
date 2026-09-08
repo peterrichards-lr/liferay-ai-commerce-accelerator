@@ -8,6 +8,25 @@ const { ERC_PREFIX, WORKFLOW_STEPS } = require('../../utils/constants.cjs');
 
 const S = WORKFLOW_STEPS;
 
+const AICA_ERC_PREFIX = 'AICA-';
+
+/**
+ * Liferay creates one base price list and one base promotion per catalog
+ * (CommerceBasePriceListHelper.addCatalogBaseCommercePriceList) and resolves
+ * "the catalog's base list" by the catalogBasePriceList flag plus the type
+ * (CommercePriceListLocalServiceImpl.fetchCatalogBaseCommercePriceListByType
+ * -> fetchByG_C_T(groupId, true, type)), never by name. Posting a Sku with a
+ * price writes a price entry into whichever list currently carries that flag -
+ * SkuUtil.updateCommercePriceEntries, called unconditionally from
+ * ProductResourceImpl and SkuResourceImpl - so a list AICA creates alongside
+ * Liferay's is a second home for the same prices, and neither ends up holding
+ * the whole picture. There is one list per purpose; AICA adopts it.
+ */
+const PRICE_LIST_PURPOSES = [
+  { key: 'GENERAL', label: 'Standard Prices', priority: 1, type: 'price-list' },
+  { key: 'PROMOTIONS', label: 'Promotions', priority: 2, type: 'promotion' },
+];
+
 async function runGeneratePriceListsStep(sessionId) {
   try {
     return await _runPricingStep.call(
@@ -94,48 +113,18 @@ async function runUpdateCatalogConfigurationStep(sessionId) {
   });
 
   try {
-    const PRICE_LIST_CONFIGS = [
-      {
-        erc: buildStableERC(ERC_PREFIX.PRICE_LIST, [
-          'GENERAL',
-          catalogId,
-          sessionId,
-        ]),
-        label: 'Standard Price List',
-        type: 'price-list',
-      },
-      {
-        erc: buildStableERC(ERC_PREFIX.PRICE_LIST, [
-          'PROMOTIONS',
-          catalogId,
-          sessionId,
-        ]),
-        label: 'Promotions List',
-        type: 'promotion',
-      },
-    ];
-
-    const aicaLists = [];
-    for (const item of PRICE_LIST_CONFIGS) {
-      const pl = await this.liferay.getPriceListByERC(config, item.erc);
-      if (pl) {
-        aicaLists.push({ ...item, id: pl.id });
-      }
-    }
-
-    // HARDENING: Pricing V2.0 strictly forbids 'catalogId eq' filters in 2025.Q1.
-    // We fetch all and filter in memory to bypass "Collection not allowed" errors.
-    const res = await this.liferay.getPriceLists(config, {
-      ignoreExclusions: true,
-      pageSize: 1000,
-    });
-
-    const items = (res.items || []).filter(
-      (it) => !catalogId || Number(it.catalogId) === Number(catalogId)
+    const { targets, catalogLists } = await _resolvePriceListTargets.call(
+      this,
+      config,
+      sessionId,
+      { create: false }
     );
-    for (const pl of items) {
-      const isTarget = aicaLists.some((aica) => aica.id === pl.id);
-      if (pl.catalogBasePriceList && !isTarget) {
+
+    const resolved = targets.filter((target) => target.id);
+    const targetIds = new Set(resolved.map((target) => String(target.id)));
+
+    for (const pl of catalogLists) {
+      if (pl.catalogBasePriceList && !targetIds.has(String(pl.id))) {
         await this.liferay.patchPriceList(config, pl.id, {
           catalogBasePriceList: false,
         });
@@ -144,11 +133,22 @@ async function runUpdateCatalogConfigurationStep(sessionId) {
     }
 
     let updateCount = 0;
-    for (const pl of aicaLists) {
-      await this.liferay.patchPriceList(config, pl.id, {
+    for (const target of resolved) {
+      updateCount++;
+
+      // An adopted list already carries the flag, so re-asserting it would only
+      // spend a request and 2s of the step's budget on a value that cannot change.
+      if (target.catalogBasePriceList) {
+        this.logger.debug(
+          `Price list ${target.id} (${target.name}) is already the catalog base ${target.type} for catalog ${catalogId}`,
+          { sessionId }
+        );
+        continue;
+      }
+
+      await this.liferay.patchPriceList(config, target.id, {
         catalogBasePriceList: true,
       });
-      updateCount++;
       await delay(2000);
     }
 
@@ -157,7 +157,7 @@ async function runUpdateCatalogConfigurationStep(sessionId) {
       S.UPDATE_CATALOG_CONFIG,
       'SYNCHRONOUS',
       updateCount,
-      PRICE_LIST_CONFIGS.length
+      PRICE_LIST_PURPOSES.length
     );
   } catch (err) {
     const errorReferenceCode =
@@ -181,8 +181,7 @@ async function runUpdateCatalogConfigurationStep(sessionId) {
 
 async function _runPricingStep(sessionId, stepKey, filterFn) {
   const session = await this.persistence.getSession(sessionId);
-  const { config, options, productDataList } = session.context;
-  const catalogId = config.catalogId;
+  const { config, options = {}, productDataList } = session.context;
 
   if (!productDataList || productDataList.length === 0) {
     return await this.completeSyncStep(sessionId, stepKey, 'BYPASSED');
@@ -190,52 +189,31 @@ async function _runPricingStep(sessionId, stepKey, filterFn) {
 
   this.logger.info(`Starting ${stepKey} step`, { sessionId });
 
-  const ercToIdMap = await _ensurePriceLists.call(
+  const { targets } = await _resolvePriceListTargets.call(
     this,
     config,
     sessionId,
-    session.correlationId,
-    options
+    { create: options.generatePriceLists }
   );
-  const generalListERC = buildStableERC(ERC_PREFIX.PRICE_LIST, [
-    'GENERAL',
-    catalogId,
-    sessionId,
-  ]);
-  const promoListERC = buildStableERC(ERC_PREFIX.PRICE_LIST, [
-    'PROMOTIONS',
-    catalogId,
-    sessionId,
-  ]);
 
-  const generalListId = ercToIdMap.get(generalListERC);
-  const promotionsListId = ercToIdMap.get(promoListERC);
+  const priceListTemplates = targets
+    .filter((target) => target.id)
+    .map((target) => ({ ...target, priceEntries: [] }));
 
-  if (!generalListId)
+  const generalList = priceListTemplates.find((pl) => pl.key === 'GENERAL');
+  const promotionsList = priceListTemplates.find(
+    (pl) => pl.key === 'PROMOTIONS'
+  );
+
+  if (!generalList)
     throw new Error(`Failed to resolve target price list for ${stepKey}`);
 
-  const priceListTemplates = [
-    {
-      id: generalListId,
-      externalReferenceCode: generalListERC,
-      name: `AICA - Standard Prices (${catalogId})`,
-      type: 'price-list',
-      catalogId: parseInt(config.catalogId, 10),
-      currencyCode: config.currencyCode || 'USD',
-      priceEntries: [],
-    },
-  ];
-
-  if (promotionsListId) {
-    priceListTemplates.push({
-      id: promotionsListId,
-      externalReferenceCode: promoListERC,
-      name: `AICA - Promotions (${catalogId})`,
-      type: 'promotion',
-      catalogId: parseInt(config.catalogId, 10),
-      currencyCode: config.currencyCode || 'USD',
-      priceEntries: [],
-    });
+  const existingEntriesByList = new Map();
+  for (const pl of priceListTemplates) {
+    existingEntriesByList.set(
+      pl.key,
+      await _indexPriceEntriesBySku.call(this, config, pl, sessionId)
+    );
   }
 
   let totalEntries = 0;
@@ -311,12 +289,7 @@ async function _runPricingStep(sessionId, stepKey, filterFn) {
         continue;
       }
 
-      const generalList = priceListTemplates[0];
-
-      const peERC_general = buildStableERC('PE', [
-        skuERC,
-        generalList.externalReferenceCode || generalList.erc,
-      ]);
+      const peERC_general = buildStableERC('PE', [skuERC, generalList.ercKey]);
 
       if (!seenPriceERCs.has(peERC_general)) {
         seenPriceERCs.add(peERC_general);
@@ -330,15 +303,18 @@ async function _runPricingStep(sessionId, stepKey, filterFn) {
           }
         }
 
-        const basePriceEntry = {
-          price: entry.price,
-          priceListId: generalList.id,
-          externalReferenceCode: peERC_general,
-          active: true,
-          hasTierPrice: uniqueTierPrices.length > 0,
-          skuId,
-          skuExternalReferenceCode: skuERC,
-        };
+        const basePriceEntry = _withExistingPriceEntry(
+          {
+            price: entry.price,
+            priceListId: generalList.id,
+            externalReferenceCode: peERC_general,
+            active: true,
+            hasTierPrice: uniqueTierPrices.length > 0,
+            skuId,
+            skuExternalReferenceCode: skuERC,
+          },
+          existingEntriesByList.get(generalList.key)
+        );
 
         if (uniqueTierPrices.length > 0) {
           basePriceEntry.tierPrices = uniqueTierPrices.map((tp) => ({
@@ -346,7 +322,7 @@ async function _runPricingStep(sessionId, stepKey, filterFn) {
             price: tp.price,
             externalReferenceCode: buildStableERC('TP', [
               skuERC,
-              generalList.externalReferenceCode || generalList.erc,
+              generalList.ercKey,
               tp.minimumQuantity,
             ]),
           }));
@@ -360,26 +336,28 @@ async function _runPricingStep(sessionId, stepKey, filterFn) {
         totalEntries++;
       }
 
-      if (promotionsListId && entry.promoPrice) {
-        const promoList = priceListTemplates[1];
+      if (promotionsList && entry.promoPrice) {
         const peERC_promo = buildStableERC('PE', [
           skuERC,
-          promoList.externalReferenceCode || promoList.erc,
+          promotionsList.ercKey,
         ]);
 
         if (!seenPriceERCs.has(peERC_promo)) {
           seenPriceERCs.add(peERC_promo);
-          const promoPriceEntry = {
-            price: entry.promoPrice,
-            priceListId: promoList.id,
-            externalReferenceCode: peERC_promo,
-            active: true,
-            hasTierPrice: false,
-            skuId,
-            skuExternalReferenceCode: skuERC,
-          };
+          const promoPriceEntry = _withExistingPriceEntry(
+            {
+              price: entry.promoPrice,
+              priceListId: promotionsList.id,
+              externalReferenceCode: peERC_promo,
+              active: true,
+              hasTierPrice: false,
+              skuId,
+              skuExternalReferenceCode: skuERC,
+            },
+            existingEntriesByList.get(promotionsList.key)
+          );
 
-          promoList.priceEntries.push(promoPriceEntry);
+          promotionsList.priceEntries.push(promoPriceEntry);
           totalEntries++;
         }
       }
@@ -400,13 +378,16 @@ async function _runPricingStep(sessionId, stepKey, filterFn) {
           `Simulating batch creation of ${priceEntries.length} price entries for list ${pl.id} directly from ProductGenerator to bypass DXP platform bugs...`,
           { sessionId }
         );
+        // A catalog's own base list is created by Liferay without an external
+        // reference code, so the entries have to be addressed by list id.
         return await this.liferay.createPriceEntriesBatch(
           config,
           priceEntries,
           {
             sessionId,
-            externalReferenceCode: pl.externalReferenceCode || pl.erc,
-            priceListExternalReferenceCode: pl.externalReferenceCode || pl.erc,
+            externalReferenceCode: pl.externalReferenceCode || pl.ercKey,
+            priceListExternalReferenceCode: pl.externalReferenceCode,
+            priceListId: pl.id,
           }
         );
       },
@@ -419,112 +400,216 @@ async function _runPricingStep(sessionId, stepKey, filterFn) {
   }
 }
 
-async function _ensurePriceLists(
+function _isAicaPriceList(priceList) {
+  return String(priceList?.externalReferenceCode || '').startsWith(
+    AICA_ERC_PREFIX
+  );
+}
+
+async function _readCatalogPriceLists(config, sessionId) {
+  const catalogId = config.catalogId;
+
+  try {
+    // HARDENING: Pricing V2.0 strictly forbids 'catalogId eq' filters in 2025.Q1.
+    // We fetch all and filter in memory to bypass "Collection not allowed" errors.
+    const res = await this.liferay.getPriceLists(config, {
+      catalogId,
+      ignoreExclusions: true,
+      pageSize: 1000,
+    });
+
+    return (res?.items || []).filter(
+      (pl) => !catalogId || Number(pl.catalogId) === Number(catalogId)
+    );
+  } catch (err) {
+    this.logger.warn(`Failed to read catalog price lists: ${err.message}`, {
+      sessionId,
+    });
+    return [];
+  }
+}
+
+async function _deleteStalePriceLists(
   config,
-  sessionId,
-  correlationId,
-  options = {}
+  catalogLists,
+  ownERCs,
+  sessionId
 ) {
   const catalogId = config.catalogId;
-  const generateNewLists = options.generatePriceLists;
-  const ercToIdMap = new Map();
 
-  const PRICE_LIST_TEMPLATES = [
-    {
-      erc: buildStableERC(ERC_PREFIX.PRICE_LIST, [
-        'GENERAL',
-        catalogId,
-        sessionId,
-      ]),
-      name: `AICA - Standard Prices (${catalogId})`,
-      priority: 1,
-      type: 'price-list',
-    },
-    {
-      erc: buildStableERC(ERC_PREFIX.PRICE_LIST, [
-        'PROMOTIONS',
-        catalogId,
-        sessionId,
-      ]),
-      name: `AICA - Promotions (${catalogId})`,
-      priority: 2,
-      type: 'promotion',
-    },
-  ];
+  // This cleanup removes lists left by EARLIER runs whose flag was never reset;
+  // leaving one flagged would make it the list Liferay files Sku.price into.
+  // It matches on name, but every pricing step resolves its targets, so matching
+  // on name alone also matched the list the previous step created moments ago -
+  // create-bulk-pricing deleted create-price-lists' list, then
+  // create-tier-pricing deleted create-bulk-pricing's, each taking its price
+  // entries with it. The ERCs encode the sessionId, so they identify this run's
+  // own lists exactly.
+  const stale = catalogLists.filter(
+    (pl) =>
+      !ownERCs.has(pl.externalReferenceCode) &&
+      (pl.name === `AICA - Standard Prices (${catalogId})` ||
+        pl.name === `AICA - Promotions (${catalogId})`)
+  );
 
-  if (generateNewLists) {
-    // This cleanup exists to remove lists left by EARLIER runs. It matches on
-    // name, but every pricing step calls _ensurePriceLists, so matching on name
-    // alone also matched the list the previous step created moments ago -
-    // create-bulk-pricing deleted create-price-lists' list, then
-    // create-tier-pricing deleted create-bulk-pricing's, each taking its price
-    // entries with it. Only the last step's entries survived, which is why base
-    // prices were missing while promotions (linked to account groups) were fine.
-    // The templates' ERCs encode the sessionId, so they identify this run's own
-    // lists exactly.
-    const ownERCs = new Set(PRICE_LIST_TEMPLATES.map((t) => t.erc));
-
+  for (const pl of stale) {
     try {
-      const { items: existingLists } = await this.liferay.getPriceLists(
+      await this.liferay.rest._delete(
         config,
-        { catalogId }
+        `/o/headless-commerce-admin-pricing/v2.0/price-lists/${pl.id}`
       );
-      for (const pl of existingLists || []) {
-        if (ownERCs.has(pl.externalReferenceCode)) {
-          this.logger.debug(
-            `Reusing this session's price list: ${pl.name} (${pl.id})`,
-            { sessionId }
-          );
-          continue;
-        }
-
-        if (
-          pl.name === `AICA - Standard Prices (${catalogId})` ||
-          pl.name === `AICA - Promotions (${catalogId})`
-        ) {
-          try {
-            await this.liferay.rest._delete(
-              config,
-              `/o/headless-commerce-admin-pricing/v2.0/price-lists/${pl.id}`
-            );
-            this.logger.info(
-              `Deleted legacy/duplicate price list: ${pl.name} (${pl.id})`,
-              { sessionId }
-            );
-          } catch (err) {
-            this.logger.warn(
-              `Failed to delete legacy price list ${pl.id}: ${err.message}`,
-              { sessionId }
-            );
-          }
-        }
-      }
+      this.logger.info(
+        `Deleted legacy/duplicate price list: ${pl.name} (${pl.id})`,
+        { sessionId }
+      );
     } catch (err) {
       this.logger.warn(
-        `Failed to fetch existing price lists for cleanup: ${err.message}`,
+        `Failed to delete legacy price list ${pl.id}: ${err.message}`,
         { sessionId }
       );
     }
   }
 
-  for (const pl of PRICE_LIST_TEMPLATES) {
-    let existing = await this.liferay.getPriceListByERC(config, pl.erc);
-    if (!existing && generateNewLists) {
+  return catalogLists.filter((pl) => !stale.includes(pl));
+}
+
+async function _resolvePriceListTargets(config, sessionId, { create } = {}) {
+  const catalogId = config.catalogId;
+
+  const ownERCs = new Map(
+    PRICE_LIST_PURPOSES.map((purpose) => [
+      purpose.key,
+      buildStableERC(ERC_PREFIX.PRICE_LIST, [
+        purpose.key,
+        catalogId,
+        sessionId,
+      ]),
+    ])
+  );
+
+  let catalogLists = await _readCatalogPriceLists.call(this, config, sessionId);
+
+  if (create) {
+    catalogLists = await _deleteStalePriceLists.call(
+      this,
+      config,
+      catalogLists,
+      new Set(ownERCs.values()),
+      sessionId
+    );
+  }
+
+  const targets = [];
+
+  for (const purpose of PRICE_LIST_PURPOSES) {
+    const ownedByLiferay = catalogLists.filter(
+      (pl) => pl.type === purpose.type && !_isAicaPriceList(pl)
+    );
+    // The flag is the authority. The single-candidate fallback covers a catalog
+    // whose flag an earlier AICA run moved away and never put back (#657).
+    const adopted =
+      ownedByLiferay.find((pl) => pl.catalogBasePriceList) ||
+      (ownedByLiferay.length === 1 ? ownedByLiferay[0] : null);
+
+    if (adopted) {
+      targets.push({
+        ...purpose,
+        adopted: true,
+        catalogBasePriceList: Boolean(adopted.catalogBasePriceList),
+        catalogId: parseInt(catalogId, 10),
+        currencyCode: config.currencyCode || 'USD',
+        // Liferay's own lists have no external reference code, so price entry
+        // ERCs are keyed on the catalog and purpose. They stay stable across
+        // runs, which turns a rerun into an update rather than a collision.
+        ercKey: buildStableERC(ERC_PREFIX.PRICE_LIST, [purpose.key, catalogId]),
+        externalReferenceCode: adopted.externalReferenceCode || null,
+        id: adopted.id,
+        name: adopted.name,
+      });
+      continue;
+    }
+
+    const erc = ownERCs.get(purpose.key);
+    const name = `AICA - ${purpose.label} (${catalogId})`;
+
+    let existing = await this.liferay.getPriceListByERC(config, erc);
+    let created = false;
+
+    if (!existing && create) {
+      created = true;
       existing = await this.liferay.createPriceList(config, {
-        externalReferenceCode: pl.erc,
-        name: pl.name,
+        externalReferenceCode: erc,
+        name,
         currencyCode: config.currencyCode || 'USD',
         active: true,
-        priority: pl.priority,
-        catalogId: config.catalogId,
-        type: pl.type,
+        priority: purpose.priority,
+        catalogId,
+        type: purpose.type,
         catalogBasePriceList: false,
+        // Deliberate: an expired price list leaves the catalogue unpriced and
+        // nothing re-creates it. See PR #688.
         neverExpire: true,
       });
     }
-    if (existing?.id) ercToIdMap.set(pl.erc, existing.id);
+
+    targets.push({
+      ...purpose,
+      adopted: false,
+      catalogBasePriceList: Boolean(existing?.catalogBasePriceList),
+      catalogId: parseInt(catalogId, 10),
+      created,
+      currencyCode: config.currencyCode || 'USD',
+      ercKey: erc,
+      externalReferenceCode: erc,
+      id: existing?.id,
+      name,
+    });
   }
-  return ercToIdMap;
+
+  return { catalogLists, targets };
+}
+
+/**
+ * Liferay files Sku.price into the catalog's base list as an upsert keyed on
+ * (price list, SKU, unit of measure), while the pricing API matches on the
+ * external reference code alone - so posting AICA's entry into a list that
+ * already holds Liferay's ERC-less one would leave two rows for one SKU.
+ * PriceEntryResourceImpl honours priceEntryId ahead of the ERC, so naming the
+ * row AICA is replacing keeps the list to one entry per SKU.
+ */
+async function _indexPriceEntriesBySku(config, priceList, sessionId) {
+  const bySku = new Map();
+
+  if (priceList.created) return bySku;
+
+  try {
+    const res = await this.liferay.getPriceEntries(config, priceList.id, {
+      pageSize: 1000,
+    });
+
+    for (const entry of res?.items || []) {
+      if (!entry.priceEntryId) continue;
+      if (entry.skuExternalReferenceCode)
+        bySku.set(entry.skuExternalReferenceCode, entry.priceEntryId);
+      if (entry.skuId != null)
+        bySku.set(String(entry.skuId), entry.priceEntryId);
+    }
+  } catch (err) {
+    this.logger.warn(
+      `Failed to read existing price entries for list ${priceList.id}: ${err.message}`,
+      { sessionId }
+    );
+  }
+
+  return bySku;
+}
+
+function _withExistingPriceEntry(priceEntry, bySku) {
+  const priceEntryId =
+    bySku?.get(priceEntry.skuExternalReferenceCode) ??
+    bySku?.get(String(priceEntry.skuId));
+
+  return priceEntryId ? { ...priceEntry, priceEntryId } : priceEntry;
 }
 
 module.exports = {

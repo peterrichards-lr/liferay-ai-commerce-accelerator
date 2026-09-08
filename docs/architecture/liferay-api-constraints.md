@@ -107,6 +107,24 @@ Liferay evaluates batch payloads recursively. If a single payload contains neste
 - **The Pitfall**: If the AI hallucinates two duplicate `tierPrices` (e.g., two entries for "minimum quantity: 10"), generating an identical `externalReferenceCode` for both, the entire batch will fail with "already in use", even on a clean database.
 - **The Pattern**: Aggressively deduplicate nested properties (e.g., using a `Set` on `minimumQuantity`) in memory _before_ assembling the Liferay DTO.
 
+### 5. `Sku.price` is a price entry in the catalog's base price list
+
+A catalog is never priceless and never has room for a second standard list. Creating one runs `CommerceBasePriceListHelper.addCatalogBaseCommercePriceList`, which adds `<catalog> Base Price List` (type `price-list`) and `<catalog> Base Promotion` (type `promotion`). Liferay resolves "the catalog's base list" by flag and type, never by name — `CommercePriceListLocalServiceImpl.fetchCatalogBaseCommercePriceListByType` is `fetchByG_C_T(groupId, catalogBasePriceList = true, type)`.
+
+`Sku.price` is not a column that sits quietly on the SKU:
+
+- `ProductResourceImpl` (nested `skus`) and `SkuResourceImpl` both call `SkuUtil.updateCommercePriceEntries` after writing the `CPInstance`.
+- Under pricing calculation V2.0 that writes `price` into the base **price-list** and `promoPrice` into the base **promotion**, as an upsert keyed on (price list, `CPInstanceUuid`, unit of measure).
+- It fires **unconditionally**. Omitting `price` does not skip it; `GetterUtil.get(sku.getPrice(), cpInstance.getPrice())` just files the SKU's current value instead. There is no payload that leaves the base list untouched.
+
+- **The consequence**: a price list AICA creates for standard prices is always a _second_ home for prices Liferay has already filed elsewhere, and neither list then holds the whole picture. Adopt the catalog's base list per type instead of creating a competing pair.
+- **The duplicate trap**: the entry `SkuUtil` creates has **no external reference code**, and `PriceEntryResourceImpl._addOrUpdateCommercePriceEntry` matches on `priceEntryId` first and the ERC second — never on (list, SKU). Posting an ERC-bearing entry for a SKU that already has Liferay's ERC-less one therefore adds a **second row in the same list**; there is no unique index to stop it. Read the list's entries, and send `priceEntryId` for a SKU that already has one.
+- **The read is index-backed**: `GET /price-lists/{id}/price-entries` goes through `SearchUtil.search`, so it inherits the usual indexing lag. Reconciliation must degrade to "post a new entry" rather than fail.
+
+`CommercePriceEntry` read DTOs carry `priceEntryId`, `skuId` and `skuExternalReferenceCode`, which is enough to index a list by SKU.
+
+Verified against `liferay-portal` `modules/apps/commerce` (`commerce-price-list-service`, `headless-commerce-admin-catalog-impl`, `headless-commerce-admin-pricing-impl`).
+
 ---
 
 <!-- markdownlint-disable MD049 -->
