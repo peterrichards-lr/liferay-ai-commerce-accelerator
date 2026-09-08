@@ -38,6 +38,44 @@ const ACCOUNT_TYPE_LABELS = new Map([
   ['person', 'individual'],
 ]);
 
+/**
+ * What an unset site type actually means.
+ *
+ * `CommerceSiteTypeResource` separates two things: `siteType` is read through
+ * `FallbackKeysSettingsUtil` and defaults to "0", so it is the **effective**
+ * value Liferay will use; `configured` records only whether anyone set it
+ * explicitly. A brand-new channel is therefore NOT_CONFIGURED with an
+ * effective site type of 0 - and 0 is B2C, which is what the UI shows and how
+ * Liferay behaves.
+ *
+ * So "unset" is not "unknown". Warning and proceeding let business accounts be
+ * generated into a channel that behaves as B2C, producing exactly the unusable
+ * data this check exists to prevent (#640).
+ *
+ * Only the default is encoded here. The module supplies `allowedAccountTypes`
+ * for a CONFIGURED type, so no numeric mapping for the other values belongs in
+ * this repo - and an unset type can only ever be the default one.
+ */
+const DEFAULT_SITE_TYPE = '0';
+const DEFAULT_SITE_TYPE_LABEL = 'B2C';
+const DEFAULT_SITE_TYPE_ALLOWS = ['person'];
+
+function isDefaultedToB2C(info) {
+  if (String(info?.siteTypeStatus || '').toUpperCase() !== 'NOT_CONFIGURED') {
+    return false;
+  }
+
+  // Absent reads as the default, since that is what the fallback produces. A
+  // NOT_CONFIGURED status reporting some *other* value contradicts the
+  // fallback, and a contradiction is not something to act on.
+  const effective =
+    info?.siteType === undefined || info?.siteType === null
+      ? DEFAULT_SITE_TYPE
+      : String(info.siteType);
+
+  return effective === DEFAULT_SITE_TYPE;
+}
+
 function normalizeAccountType(accountType) {
   const value = String(accountType || '')
     .trim()
@@ -99,6 +137,30 @@ function evaluateChannelSiteType(accountType, info) {
   // Populated only for CONFIGURED, by the module's own contract. Treating an
   // empty list as "nothing is allowed" would block every unconfigured channel.
   if (allowed.length === 0) {
+    if (isDefaultedToB2C(info)) {
+      const missingByDefault = REQUIRED_BY_ACCOUNT_TYPE.get(selection).filter(
+        (required) => !DEFAULT_SITE_TYPE_ALLOWS.includes(required)
+      );
+
+      if (missingByDefault.length === 0) {
+        return { outcome: 'ok', message: null };
+      }
+
+      // Worded as a default rather than a choice: an operator told the channel
+      // "is B2C" goes looking for the setting someone picked and finds
+      // nothing. What they need to know is that nobody picked one.
+      return {
+        outcome: 'block',
+        message:
+          `This channel has no commerce site type set, so Liferay defaults it ` +
+          `to ${DEFAULT_SITE_TYPE_LABEL}, which does not accept ` +
+          `${missingByDefault.join(' or ')} accounts - and the run is set to ` +
+          `generate ${ACCOUNT_TYPE_LABELS.get(selection)} accounts. Set the ` +
+          'site type in Commerce → Channels, or choose a different account ' +
+          'type.',
+      };
+    }
+
     return { outcome: 'warn', message: unavailableReason(info) };
   }
 

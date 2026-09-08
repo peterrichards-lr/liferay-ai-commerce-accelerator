@@ -81,14 +81,48 @@ describe('channel site type', () => {
       expect(message).toContain('business');
     });
 
-    it('warns rather than blocks when the site type is unset', () => {
-      // The decisive case: an unset site type reports the label 'B2C', which
-      // would block every business run if the label were trusted over the
-      // status. A channel created through the API is unset by default.
+    // An unset site type is not an unknown one. `siteType` comes through
+    // FallbackKeysSettingsUtil and defaults to 0, so the effective value is
+    // B2C and Liferay behaves that way - warning and proceeding produced
+    // exactly the unusable data this check exists to prevent (#640).
+    it('blocks business accounts against an unset site type, which defaults to B2C', () => {
       const { message, outcome } = evaluateChannelSiteType('business', UNSET);
 
-      expect(outcome).toBe('warn');
+      expect(outcome).toBe('block');
+      // Worded as a default, not a choice: an operator told the channel "is
+      // B2C" goes looking for a setting nobody made.
       expect(message).toContain('no commerce site type set');
+      expect(message).toContain('defaults it to B2C');
+      expect(message).toContain('business');
+    });
+
+    it('accepts person accounts against an unset site type, since B2C takes them', () => {
+      expect(evaluateChannelSiteType('person', UNSET).outcome).toBe('ok');
+    });
+
+    it('blocks mixed accounts against an unset site type', () => {
+      // Mixed needs business as well as person.
+      expect(evaluateChannelSiteType('mixed', UNSET).outcome).toBe('block');
+    });
+
+    it('warns rather than assuming when an unset type reports a value that is not the default', () => {
+      // NOT_CONFIGURED with a non-zero site type contradicts the fallback, and
+      // a contradiction is not something to act on.
+      const { outcome } = evaluateChannelSiteType('business', {
+        ...UNSET,
+        siteType: 1,
+      });
+
+      expect(outcome).toBe('warn');
+    });
+
+    it('treats an absent site type as the default it falls back to', () => {
+      const { outcome } = evaluateChannelSiteType('business', {
+        ...UNSET,
+        siteType: undefined,
+      });
+
+      expect(outcome).toBe('block');
     });
 
     it('warns when the site type is not one it recognises', () => {
@@ -154,10 +188,16 @@ describe('channel site type', () => {
       expect(evaluateGenerationRun(run, partial).outcome).toBe('block');
     });
 
-    it('warns when neither setting can be judged', () => {
+    it('blocks a run whose accounts an unset, B2C-defaulted channel cannot hold', () => {
       const run = { accountType: 'business', orderAccountType: 'person' };
 
-      expect(evaluateGenerationRun(run, UNSET).outcome).toBe('warn');
+      expect(evaluateGenerationRun(run, UNSET).outcome).toBe('block');
+    });
+
+    it('passes a run an unset, B2C-defaulted channel can hold', () => {
+      const run = { accountType: 'person', orderAccountType: 'person' };
+
+      expect(evaluateGenerationRun(run, UNSET).outcome).toBe('ok');
     });
 
     it('passes a run with no account settings at all', () => {
