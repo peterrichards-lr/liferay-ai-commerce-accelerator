@@ -295,7 +295,11 @@ class OrderGenerator extends BaseGenerator {
       const warehouses =
         contextWarehouses || session.context.warehouseDataList || [];
 
-      if (config.orderDistribution) {
+      // Read from options, not config: config describes the Liferay instance
+      // this run targets, options describe what the operator asked for. Nothing
+      // has ever put orderDistribution on config, so the split the operator set
+      // was never applied and every order took the default status. See #696.
+      if (options.orderDistribution) {
         const statuses = [];
         const statusMap = {
           open: 0,
@@ -303,7 +307,7 @@ class OrderGenerator extends BaseGenerator {
           shipped: 2,
           completed: 10,
         };
-        for (const [key, pct] of Object.entries(config.orderDistribution)) {
+        for (const [key, pct] of Object.entries(options.orderDistribution)) {
           const statusId = statusMap[key];
           if (statusId !== undefined) {
             const count = Math.round((pct / 100) * orderDataList.length);

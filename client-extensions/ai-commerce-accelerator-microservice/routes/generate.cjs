@@ -18,6 +18,10 @@ const {
   specificationSteps,
   warehouseCreationSteps,
 } = require('../utils/productSubflow.cjs');
+const {
+  logCommerceSelection,
+  resolveRunCommerceSelection,
+} = require('../utils/commerceSelection.cjs');
 
 const S = WORKFLOW_STEPS;
 
@@ -84,6 +88,34 @@ module.exports = (
         });
       }
 
+      // Resolved before anything else reads the ids - the seed pack branch
+      // below returns without ever reaching the old fallback, and the site type
+      // check reads config.channelId. A stale id is refused here rather than
+      // quietly swapped, so no run relocates without saying so. See #680.
+      const commerceSelection = await resolveRunCommerceSelection({
+        config,
+        correlationId: req.correlationId,
+        liferayService,
+        logger,
+        operation: 'generate-workflow',
+      });
+
+      logCommerceSelection({
+        correlationId: req.correlationId,
+        logs: commerceSelection.logs,
+        logger,
+        operation: 'generate-workflow',
+      });
+
+      if (commerceSelection.rejection) {
+        return res.status(400).json({
+          success: false,
+          error: commerceSelection.rejection,
+          details: commerceSelection.rejections,
+          timestamp: new Date().toISOString(),
+        });
+      }
+
       // A commerce channel only accepts the account types its site type allows,
       // so generating business accounts into a B2C channel produces data
       // Liferay will not let anyone order with. Only a site type the module
@@ -146,19 +178,28 @@ module.exports = (
       }
 
       if (!options.demoMode && !aiKeyAvailable) {
+        // Falls back only when the operator picked no pack of their own. Until
+        // #696 seedPack never survived normalisation, so this was the sole
+        // producer and could assign unconditionally; doing that now would
+        // silently swap the chosen pack for this one.
+        options.seedPack = options.seedPack || 'industrial-power-tools';
         logger.warn(
-          'AI API key is not configured or unavailable. Automatically falling back to "industrial-power-tools" seed pack.'
+          `AI API key is not configured or unavailable. Falling back to the "${options.seedPack}" seed pack.`
         );
-        options.seedPack = 'industrial-power-tools';
         options.demoMode = true;
       }
 
       if (options.seedPack) {
         const fs = require('fs');
         const path = require('path');
+        // The name is caller-supplied and interpolated into a path. The schema
+        // constrains it to a bare name; taking the basename here means a
+        // traversal attempt cannot escape the directory even if that rule is
+        // ever relaxed. See #696.
         const seedPackPath = path.join(
           __dirname,
-          `../resources/seed-packs/${options.seedPack}.json`
+          '../resources/seed-packs',
+          `${path.basename(options.seedPack)}.json`
         );
         if (!fs.existsSync(seedPackPath)) {
           return res.status(400).json({
@@ -310,6 +351,7 @@ module.exports = (
         );
 
         logger.info('Seed pack generation workflow started', {
+          commerce: commerceSelection.summary,
           correlationId: config.correlationId,
           sessionId,
           seedPack: options.seedPack,
@@ -319,70 +361,10 @@ module.exports = (
           success: true,
           sessionId,
           message: 'Seed pack generation workflow started successfully.',
+          commerce: commerceSelection.summary,
           correlationId: config.correlationId,
           timestamp: new Date().toISOString(),
         });
-      }
-
-      // Robust fallback: resolve missing channelId/siteGroupId and catalogId at backend API handler level
-      if (
-        !config.channelId ||
-        isNaN(config.channelId) ||
-        !config.siteGroupId ||
-        isNaN(config.siteGroupId)
-      ) {
-        try {
-          const channels = await liferayService.getChannels(config);
-          if (channels && channels.length > 0) {
-            let matchedChannel = null;
-            if (config.channelId && !isNaN(config.channelId)) {
-              matchedChannel = channels.find(
-                (c) => Number(c.id) === Number(config.channelId)
-              );
-            }
-            if (!matchedChannel) {
-              matchedChannel = channels[0];
-            }
-            if (!config.channelId || isNaN(config.channelId)) {
-              config.channelId = parseInt(matchedChannel.id, 10);
-            }
-            if (!config.siteGroupId || isNaN(config.siteGroupId)) {
-              config.siteGroupId = parseInt(matchedChannel.siteGroupId, 10);
-            }
-            logger.info(
-              `Resolved fallback commerce channelId: ${config.channelId}, siteGroupId: ${config.siteGroupId}`
-            );
-          } else {
-            logger.warn(
-              'No channels found in Liferay to resolve fallback channelId/siteGroupId'
-            );
-          }
-        } catch (err) {
-          logger.error(
-            'Failed to resolve fallback channelId/siteGroupId from Liferay',
-            { error: err.message }
-          );
-        }
-      }
-
-      if (!config.catalogId || isNaN(config.catalogId)) {
-        try {
-          const catalogs = await liferayService.getCatalogs(config);
-          if (catalogs && catalogs.length > 0) {
-            config.catalogId = parseInt(catalogs[0].id, 10);
-            logger.info(
-              `Resolved fallback commerce catalogId: ${config.catalogId}`
-            );
-          } else {
-            logger.warn(
-              'No catalogs found in Liferay to resolve fallback catalogId'
-            );
-          }
-        } catch (err) {
-          logger.error('Failed to resolve fallback catalogId from Liferay', {
-            error: err.message,
-          });
-        }
       }
 
       try {
@@ -550,6 +532,7 @@ module.exports = (
         );
 
         logger.info('Generation workflow started', {
+          commerce: commerceSelection.summary,
           correlationId: config.correlationId,
           sessionId,
         });
@@ -558,6 +541,7 @@ module.exports = (
           success: true,
           sessionId,
           message: 'Generation workflow started successfully.',
+          commerce: commerceSelection.summary,
           correlationId: config.correlationId,
           timestamp: new Date().toISOString(),
         });

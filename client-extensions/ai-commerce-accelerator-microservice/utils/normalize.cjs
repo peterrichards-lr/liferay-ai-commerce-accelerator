@@ -131,11 +131,15 @@ function buildConfigAndOptions(req) {
     localeCode,
     microserviceUrl,
     orderCount,
+    orderDateRangeDays,
+    orderDistribution,
+    pdfContentType,
     pdfMode,
     pdfRatio,
     pollingDelay,
     pollingRetries,
     productCount,
+    seedPack,
     selectedLanguages,
     sessionName,
     siteGroupId,
@@ -249,12 +253,18 @@ function buildConfigAndOptions(req) {
   options.imageStyle = imageStyle || 'photographic';
   options.imageWidth = toNumber(imageWidth) || 512;
   options.pdfMode = pdfMode || 'none';
+  options.pdfContentType = pdfContentType;
   options.pdfRatio = toNumber(pdfRatio) || 0;
+  options.seedPack = seedPack || undefined;
   options.createWarehouses = toBoolean(createWarehouses);
   options.warehouseCount = toNumber(warehouseCount);
   options.customImageFile = getCustomImage(req, options.imageMode);
   options.customPdfFile = getCustomPdf(req, options.pdfMode);
   options.orderCount = toNumber(orderCount);
+  options.orderDateRangeDays = toNumber(orderDateRangeDays);
+  // Sent as a JSON string on the multipart path, since toFormData stringifies
+  // any object it is given; parseMaybeJSON accepts both that and a real object.
+  options.orderDistribution = parseMaybeJSON(orderDistribution);
   options.accountCount = toNumber(accountCount);
 
   // accountType was validated by the request schema but never carried into

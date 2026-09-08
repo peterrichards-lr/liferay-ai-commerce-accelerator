@@ -6,6 +6,37 @@ import { useApp } from '../../context/AppContext';
 import FieldError from '../ui/FieldError';
 import CheckboxField from '../ui/CheckboxField';
 import { commerceChannelsUrl } from '../../utils/liferayLinks';
+import notifyUser from '../../utils/notifications';
+
+/**
+ * Fills in a catalog or channel once the lists are loaded.
+ *
+ * Two cases, and they are not the same. Nothing selected is a convenience
+ * default and stays quiet. A selection that the instance does not have - an
+ * imported config, or an id left behind by a database reset - is a signal that
+ * the user's view is out of date, and replacing it without a word is how a
+ * generation run ends up in a catalog nobody chose. That one is announced. See
+ * #680.
+ */
+function autoSelect({ items, label, onSelect, selectedId, skip }) {
+  if (skip || items.length === 0) return;
+
+  if (!selectedId) {
+    onSelect?.(String(items[0].id));
+    return;
+  }
+
+  if (items.some((item) => String(item.id) === String(selectedId))) return;
+
+  const replacement = items[0];
+
+  notifyUser(
+    `${label} id ${selectedId} is not on this instance. Switched to '${replacement.name}' (id ${replacement.id}) - check this is what you want before generating.`,
+    'warning'
+  );
+
+  onSelect?.(String(replacement.id));
+}
 
 export default function CommerceCard({
   disabled,
@@ -77,29 +108,23 @@ export default function CommerceCard({
   ]);
 
   useEffect(() => {
-    if (!connected || catalogs.length === 0) return;
-
-    const currentCatalogId = config.catalogId ? String(config.catalogId) : null;
-    const isCurrentValid = catalogs.some(
-      (c) => String(c.id) === currentCatalogId
-    );
-
-    if (!isCurrentValid || (!config.catalogId && catalogs.length === 1)) {
-      onSelectCatalog?.(String(catalogs[0].id));
-    }
+    autoSelect({
+      label: 'Catalog',
+      items: catalogs,
+      onSelect: onSelectCatalog,
+      selectedId: config.catalogId,
+      skip: !connected,
+    });
   }, [connected, catalogs, config.catalogId, onSelectCatalog]);
 
   useEffect(() => {
-    if (!connected || channels.length === 0) return;
-
-    const currentChannelId = config.channelId ? String(config.channelId) : null;
-    const isCurrentValid = channels.some(
-      (c) => String(c.id) === currentChannelId
-    );
-
-    if (!isCurrentValid || (!config.channelId && channels.length === 1)) {
-      onSelectChannel?.(String(channels[0].id));
-    }
+    autoSelect({
+      label: 'Channel',
+      items: channels,
+      onSelect: onSelectChannel,
+      selectedId: config.channelId,
+      skip: !connected,
+    });
   }, [connected, channels, config.channelId, onSelectChannel]);
 
   return (
