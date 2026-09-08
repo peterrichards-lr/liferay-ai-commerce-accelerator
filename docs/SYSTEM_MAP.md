@@ -112,6 +112,8 @@ The project employs a tiered testing strategy to ensure reliability across all l
 3. **Execution**: The service executes a dependency-aware sequence:
    _DISCOVER -> Reset Config -> Orders -> Warehouse Items -> Warehouses -> Accounts -> Options -> Specifications -> Products -> Pricing._
 4. **Resilience**: Deletions are performed using the metadata in the manifest, bypassing the need for redundant API calls during the deletion phase and ensuring OData compatibility by using `OR` filters instead of `IN` filters.
+5. **Discovery Fallback**: A manifest entry that is empty is not treated as proof that Liferay holds nothing of that type — it only records what the crawl recognised. Any step whose manifest entry is empty queries Liferay for itself before deciding. A total run then targets everything the query returns; a run scoped to one channel or catalog targets only entities carrying an AICA reference code. Liferay's own base price list and base promotion for a catalog are never targeted.
+6. **Honest Reporting**: `BYPASSED` means the live query confirmed there is nothing to delete. A step that cannot reach Liferay to establish its targets, or that reports removing none of the targets it was given, is marked `FAILED`, which fails the session rather than letting a partial delete report success.
 
 ---
 
@@ -153,4 +155,4 @@ Any change to the event emission logic in `ProgressService.cjs` (Server) MUST be
 
 ---
 
-_Last Updated: 2026-09-03_ | _Last Reviewed: 2026-09-03_
+_Last Updated: 2026-09-08_ | _Last Reviewed: 2026-09-08_

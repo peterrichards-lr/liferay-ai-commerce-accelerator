@@ -77,6 +77,37 @@ The other image modes — `placeholder`, `picsum`, `default`, `custom`, and `ai`
 
 The logic lives in `utils/providerCapabilities.cjs` and its counterpart in the configuration client extension, deliberately parallel so the wording cannot drift between the UI and a failed run.
 
+---## Demo mode and the generation contract
+
+Demo mode exists so a run costs nothing, on the understanding that it proves the same pipeline live mode uses. That only holds if the mock stands in for the same thing the model does, so the contract is fixed rather than a matter of taste.
+
+### The mock stands in for `aiService`, not for Liferay
+
+`GenerationFacade.generateData` selects `ctx.mockDataGenerator` in place of `ctx.ai` when `demoMode` is set, and everything after that point is identical: the same standardise pass, the same ajv validation against `generation-schemas/<entity>.json`, the same product steps, the same import.
+
+So **mock output must be what the AI is asked to return**. Translating into Liferay's DTOs is the product steps' job, and doing it early in the mock does not save that work — it skips it, and with it the only coverage those steps get without a model call.
+
+Concretely, `generators/mockDataGenerator.cjs` emits `options` and `specifications`, not `productOptions` and `productSpecifications`. Those are not two names for one thing: in Liferay an `Option` is a definition with its own endpoint, while a `ProductOption` is the relationship between an option and a product. The generation schemas describe the first; the product steps derive the second. Five files read either name at thirteen sites, so emitting the translated shape did not fail — it simply sent demo mode down a different branch than live mode takes.
+
+### A property the schema does not declare cannot exist in live mode
+
+The schema sent to the provider is projected from the generation schema by `utils/schemaProjection.cjs`, with objects closed. A property the generation schema does not declare therefore cannot come back from a model at all.
+
+That makes an undeclared property in the mock demo-only data, and any pipeline behaviour depending on it untested where it matters. Ajv will not catch it either, because the product item permits additional properties.
+
+### Enforcement
+
+`tests/mockMatchesGenerationSchemas.test.cjs` asserts both halves for every entity `MockDataGenerator` produces, and derives the entity list from `generation-schemas/` so a new schema cannot be added without a decision being recorded:
+
+1. The payload survives the real `GenerationFacade` with `demoMode: true` — the gate a demo run puts it through, not a schema compiled in isolation.
+2. Every property it emits is declared by that schema.
+
+`generation-schemas/` remains the single authority. Where the mock and the schema disagree, the mock is wrong.
+
+### Where the substitution does not happen
+
+`PromoGenerator` calls `ctx.ai.generatePromoData` directly rather than through the facade, so promotion generation has no demo-mode substitution and no mock behind it. `mediaGenerator` does check `options.demoMode` for both images and PDFs, and skips the provider.
+
 ---## Dynamic Asset Management
 
 The microservice serves as the source of truth for product placeholders, moving away from heavy frontend-bundled Base64 strings.
@@ -110,4 +141,4 @@ Identifier for correlating user-visible errors and server logs.
 
 ---
 
-_Last Updated: 2026-09-04_ | _Last Reviewed: 2026-09-04_
+_Last Updated: 2026-09-08_ | _Last Reviewed: 2026-09-08_
