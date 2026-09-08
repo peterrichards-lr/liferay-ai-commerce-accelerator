@@ -150,6 +150,16 @@ function ProgressMonitor({ progress, onErrorsClick, isDelete }) {
         explicitIsDone={progress.warehouses.isDone}
       />
       <MiniProgressItem
+        title="Inventory"
+        completed={progress.inventory?.completed || 0}
+        total={progress.inventory?.total || 0}
+        errors={progress.inventory?.errors || []}
+        onErrorsClick={() => onErrorsClick(5, 'inventory')}
+        isDelete={isDelete}
+        workflowStatus={progress.workflowStatus}
+        explicitIsDone={progress.inventory?.isDone}
+      />
+      <MiniProgressItem
         title="Addresses"
         completed={progress.addresses?.completed || 0}
         total={progress.addresses?.total || 0}

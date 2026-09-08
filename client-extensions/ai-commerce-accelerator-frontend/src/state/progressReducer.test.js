@@ -1,4 +1,4 @@
-import { progressReducer, initialProgress } from './progressReducer';
+import { progressReducer, initialProgress, ACTIONS } from './progressReducer';
 
 describe('progressReducer', () => {
   it('should return provided state for unknown action', () => {
@@ -71,5 +71,44 @@ describe('progressReducer', () => {
 
     expect(state.products.completed).toBe(0);
     expect(state.accounts.total).toBe(20);
+  });
+});
+
+describe('entity totals stay separate (#752)', () => {
+  // The reducer grows a total to the sum of the batches it has seen, so an
+  // entity that absorbs another entity's batches reports a number the operator
+  // never asked for. Products and inventory must not share a bucket.
+  it('does not add inventory batches to the product total', () => {
+    let state = initialProgress;
+
+    state = progressReducer(state, ACTIONS.setTotal('products', 50));
+    state = progressReducer(
+      state,
+      ACTIONS.updateBatch('products', 'batch-products', 50, 50)
+    );
+    state = progressReducer(
+      state,
+      ACTIONS.updateBatch('inventory', 'batch-inventory', 200, 200)
+    );
+
+    expect(state.products.total).toBe(50);
+    expect(state.products.completed).toBe(50);
+    expect(state.inventory.total).toBe(200);
+    expect(state.inventory.completed).toBe(200);
+  });
+
+  it('starts skus and inventory at zero rather than undefined', () => {
+    expect(initialProgress.skus).toEqual({
+      total: 0,
+      completed: 0,
+      errors: [],
+      batches: {},
+    });
+    expect(initialProgress.inventory).toEqual({
+      total: 0,
+      completed: 0,
+      errors: [],
+      batches: {},
+    });
   });
 });

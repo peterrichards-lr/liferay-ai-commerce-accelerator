@@ -8,6 +8,10 @@ export const initialProgress = {
   totalSteps: 0,
   completedSteps: 0,
   products: { total: 0, completed: 0, errors: [], batches: {} },
+  // Seeded here rather than conjured by the first batch that mentions them, so
+  // a bar that never receives an event reads 0 rather than not existing (#752).
+  skus: { total: 0, completed: 0, errors: [], batches: {} },
+  inventory: { total: 0, completed: 0, errors: [], batches: {} },
   accounts: { total: 0, completed: 0, errors: [], batches: {} },
   addresses: { total: 0, completed: 0, errors: [], batches: {} },
   orders: { total: 0, completed: 0, errors: [], batches: {} },
