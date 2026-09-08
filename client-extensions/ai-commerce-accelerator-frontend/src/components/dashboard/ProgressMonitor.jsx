@@ -16,6 +16,12 @@ function MiniProgressItem({
   // STRICT COMPLETION: Only mark as done if server explicitly confirmed or whole workflow is finished
   const isDone = explicitIsDone || workflowStatus === 'completed';
 
+  // A step can be finished and still have done less than it was asked to do.
+  // The count beside the badge already said 16 / 50; a plain "Done" beside it
+  // is what let a short run read as a whole one (#761). Deletions are excluded
+  // because their total is not a request - it is whatever was found to delete.
+  const isShort = isDone && !isDelete && total > 0 && completed < total;
+
   // VERIFYING STATE: Batch reached 100% but server hasn't sent Step Completed yet
   const isVerifying = !isDone && !hasErrors && total > 0 && completed >= total;
 
@@ -45,7 +51,10 @@ function MiniProgressItem({
             <ClayBadge displayType="danger" label={`${errors.length} Err`} />
           </button>
         ) : isDone ? (
-          <ClayBadge displayType="success" label="Done" />
+          <ClayBadge
+            displayType={isShort ? 'warning' : 'success'}
+            label={isShort ? 'Done, short' : 'Done'}
+          />
         ) : isVerifying ? (
           <span
             className="text-primary font-weight-semi-bold"
