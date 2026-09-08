@@ -177,6 +177,42 @@ class ProgressService {
     });
   }
 
+  /**
+   * A step finished without doing its job, in a flow where that is not fatal.
+   * Distinct from stepFailed, which reports a step whose failure stops the run.
+   */
+  stepWarning({
+    sessionId,
+    step,
+    entityType,
+    operation,
+    message,
+    errorReference,
+    correlationId,
+  }) {
+    const cid = correlationId;
+    this.ws.emitProgress(
+      {
+        sessionId,
+        correlationId: cid,
+        status: WEB_SOCKET_EVENTS.WARNING,
+        scope: WS_SCOPE.STEP,
+        entityType,
+        operation,
+        step,
+        message,
+        errorReference,
+      },
+      { correlationId: cid }
+    );
+    this.persistence.logWorkflowEvent({
+      sessionId,
+      status: 'STEP_WARNING',
+      message,
+      details: { step, entityType, errorReference, correlationId: cid },
+    });
+  }
+
   stepFailed({ sessionId, stepKey, entityType, error, correlationId }) {
     const cid = correlationId;
     this.ws.emitProgress(
