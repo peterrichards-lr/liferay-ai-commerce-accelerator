@@ -190,11 +190,12 @@ describe('Data Generation Reliability', () => {
         expect(w.externalReferenceCode).toMatch(/^AICA-WH-/);
       });
 
-      // Same places, same codes - which is what lets a second run land on the
-      // warehouses the first one made instead of duplicating them.
+      // A fresh code each time, so a generated warehouse is never mistaken
+      // for one already in the instance. Whether to create one at all is
+      // reuseExistingWarehouses' decision, not the code's (#730).
       expect(
         assignWarehouseERCs(warehouses).map((w) => w.externalReferenceCode)
-      ).toEqual(assigned.map((w) => w.externalReferenceCode));
+      ).not.toEqual(assigned.map((w) => w.externalReferenceCode));
     });
   });
 

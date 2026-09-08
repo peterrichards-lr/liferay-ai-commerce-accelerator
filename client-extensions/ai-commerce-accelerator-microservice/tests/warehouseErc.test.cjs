@@ -15,36 +15,29 @@ describe('warehouseERC', () => {
   it('uses the prefix the code already declared', () => {
     // ERC_PREFIX.WAREHOUSE was 'AICA-WH' while the prompt asked the model for
     // 'AICA-WAREHOUSE-'. Even the prefix disagreed.
-    expect(warehouseERC(hamburg)).toMatch(/^AICA-WH-/);
+    expect(warehouseERC()).toMatch(/^AICA-WH-/);
   });
 
-  it('gives the same place the same code every time', () => {
-    expect(warehouseERC(hamburg)).toBe(warehouseERC(hamburg));
+  // Deliberately not derived from the warehouse's location. A code hashed from
+  // country and city would give a newly generated warehouse in an existing
+  // warehouse's city the same code, so the create would become an upsert and a
+  // run asked for five would end with four - silently.
+  it('is a new code every time, so a new warehouse is never an existing one', () => {
+    expect(warehouseERC()).not.toBe(warehouseERC());
   });
 
-  it('gives different places different codes', () => {
-    expect(warehouseERC(hamburg)).not.toBe(warehouseERC(munich));
-    expect(warehouseERC(hamburg)).not.toBe(warehouseERC(sanJose));
-  });
+  it('is unique across runs, not merely within one', () => {
+    // An index-based code would make a second run's first warehouse upsert
+    // onto the first run's - the same hazard inverted.
+    const codes = new Set(Array.from({ length: 200 }, () => warehouseERC()));
 
-  it('does not depend on the name, which is prose the model may rephrase', () => {
-    expect(warehouseERC({ ...hamburg, name: { en_US: 'Hamburg Hub' } })).toBe(
-      warehouseERC({ ...hamburg, name: { en_US: 'Northern Distribution' } })
-    );
-  });
-
-  it('separates a second warehouse in the same city', () => {
-    expect(warehouseERC(hamburg, 2)).not.toBe(warehouseERC(hamburg));
-  });
-
-  it('survives a warehouse with no location at all', () => {
-    expect(warehouseERC({})).toMatch(/^AICA-WH-/);
+    expect(codes.size).toBe(200);
   });
 });
 
 describe('isAssignedWarehouseERC', () => {
   it('recognises a code we assigned', () => {
-    expect(isAssignedWarehouseERC(warehouseERC(hamburg))).toBe(true);
+    expect(isAssignedWarehouseERC(warehouseERC())).toBe(true);
   });
 
   it('rejects the shape the prompt used to ask the model for', () => {
@@ -66,18 +59,14 @@ describe('assignWarehouseERCs', () => {
     codes(assigned).forEach((erc) => expect(erc).toMatch(/^AICA-WH-/));
   });
 
-  it('produces the same codes for the same catalogue on a second run', () => {
-    // The whole point: a repeat run has to land on the warehouses the first
-    // run created rather than making a second set beside them (#730).
-    expect(codes(assignWarehouseERCs([hamburg, munich]))).toEqual(
-      codes(assignWarehouseERCs([hamburg, munich]))
-    );
-  });
+  it('never reuses a code between runs, so a top-up cannot silently upsert', () => {
+    // Whether a warehouse already exists is answered by counting what is in
+    // the instance, not by recognising a place - so two runs over the same
+    // catalogue must produce different codes (#730).
+    const first = codes(assignWarehouseERCs([hamburg, munich]));
+    const second = codes(assignWarehouseERCs([hamburg, munich]));
 
-  it('does not depend on the order the warehouses arrive in', () => {
-    expect(codes(assignWarehouseERCs([hamburg, munich])).sort()).toEqual(
-      codes(assignWarehouseERCs([munich, hamburg])).sort()
-    );
+    expect(first.some((erc) => second.includes(erc))).toBe(false);
   });
 
   it('replaces a code the model supplied', () => {
@@ -94,7 +83,7 @@ describe('assignWarehouseERCs', () => {
   });
 
   it('keeps a code we assigned before, so a re-import preserves identity', () => {
-    const original = warehouseERC(hamburg);
+    const original = warehouseERC();
     const assigned = assignWarehouseERCs([
       { ...hamburg, externalReferenceCode: original },
     ]);
@@ -110,7 +99,7 @@ describe('assignWarehouseERCs', () => {
   });
 
   it('de-duplicates a repeated code that was previously ours', () => {
-    const original = warehouseERC(hamburg);
+    const original = warehouseERC();
     const assigned = assignWarehouseERCs([
       { ...hamburg, externalReferenceCode: original },
       { ...hamburg, externalReferenceCode: original },
