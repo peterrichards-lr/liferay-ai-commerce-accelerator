@@ -127,6 +127,15 @@
       "configValue": "{\"heartbeatIntervalMs\": 30000, \"maxRetries\": 3, \"retryIntervalMs\": 500}",
       "description": "WebSocket delivery config (milliseconds for heartbeat and retry interval; integer for max retries)",
       "externalReferenceCode": "WS-CONFIG"
+    },
+    {
+      "configKey": "catalog-expiry-config",
+      "configStatus": {
+        "key": "Active"
+      },
+      "configValue": "{\"expiryDays\": 30, \"neverExpire\": true}",
+      "description": "Generated catalog expiry: whether generated products and SKUs expire at all (neverExpire), and how many days they remain available when they do (expiryDays)",
+      "externalReferenceCode": "CATALOG-EXPIRY-CONFIG"
     }
   ]
 }

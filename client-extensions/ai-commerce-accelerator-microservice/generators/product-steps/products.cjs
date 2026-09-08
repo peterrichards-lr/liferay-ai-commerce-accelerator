@@ -8,6 +8,7 @@ const {
 const { ERC_PREFIX, WORKFLOW_STEPS } = require('../../utils/constants.cjs');
 const { PATH, byERC } = require('../../utils/liferayPaths.cjs');
 const { resolveRunChannelIds } = require('../../utils/runChannels.cjs');
+const { readCatalogExpiryFields } = require('../../utils/catalogExpiry.cjs');
 
 const S = WORKFLOW_STEPS;
 
@@ -29,6 +30,13 @@ async function runProductCreationStep(sessionId) {
 
   try {
     const runChannelIds = resolveRunChannelIds(config);
+    // Read once, so every product a run creates expires at the same moment
+    // rather than drifting with however long the step takes.
+    const expiryFields = await readCatalogExpiryFields(
+      this.ctx?.config,
+      config
+    );
+
     const prepared = productDataList.map((pd, productIndex) => {
       // Liferay Headless Commerce API (v1.0) requires all products to be 'simple' during initial creation.
       const productType = 'simple';
@@ -39,8 +47,13 @@ async function runProductCreationStep(sessionId) {
         shortDescription: toI18n(pd.shortDescription || pd.description),
         description: toI18n(pd.description),
         productType,
-        productStatus: 0, // Published
+        productStatus: 0, // WorkflowConstants.STATUS_APPROVED
         active: true,
+        // Liferay already defaults a product to never expiring, so this is only
+        // load-bearing when expiry is configured. It is sent unconditionally
+        // anyway: the SKU path defaults the same field the other way, and
+        // leaving either side to a platform default is how #681 happened.
+        ...expiryFields,
         // Sent on the first product only, and deliberately so.
         //
         // Liferay applies this to the definition's MASTER configuration entry
@@ -136,6 +149,7 @@ async function runProductCreationStep(sessionId) {
             externalReferenceCode: s.externalReferenceCode || s.sku,
             published: true,
             purchasable: true,
+            ...expiryFields,
           }));
         }
       }

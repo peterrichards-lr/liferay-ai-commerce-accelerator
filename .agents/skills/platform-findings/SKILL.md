@@ -25,6 +25,7 @@ To handle Liferay Headless API constraints and environment-specific behaviors co
 - **Product Type Constraint**: The Liferay Headless Commerce API requires the `productType` field to be `simple` for all products during initial creation. All generator logic, AI prompts, and schemas must strictly use `productType: 'simple'`.
 - **SKU Property Constraints**: The `Sku` DTO does not recognize an `active` property. Including it will cause import failure.
 - **SKU Option Activation**: A SKU linked to a product with SKU-contributing options is active only if it has an explicit `skuOption` entry for **every** contributing option.
+- **SKU Expiry Default**: An omitted `neverExpire` means "never expires" on a `Product` but "expires in one month" on a `Sku` (`SkuUtil:232` defaults it to `false`; `ProductResourceImpl:739` defaults it to `true`). Always send it explicitly, on creates and on updates, or generated SKUs turn `EXPIRED` about thirty days after the run. See [Liferay API Constraints](../../../docs/architecture/liferay-api-constraints.md).
 
 ## 4. Batch Engine Verb Support
 
@@ -46,4 +47,4 @@ To handle Liferay Headless API constraints and environment-specific behaviors co
 
 ---
 
-_Last Updated: 2026-07-19_ | _Last Reviewed: 2026-07-19_
+_Last Updated: 2026-09-08_ | _Last Reviewed: 2026-09-08_
