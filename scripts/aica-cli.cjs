@@ -117,8 +117,10 @@ for (let i = 1; i < args.length; i++) {
   if (arg === '--no-specifications') options.generateSpecifications = false;
   if (arg === '--warehouses') options.createWarehouses = true;
   if (arg === '--no-warehouses') options.createWarehouses = false;
-  if (arg === '--reuse-warehouses') options.reuseExistingWarehouses = true;
-  if (arg === '--no-reuse-warehouses') options.reuseExistingWarehouses = false;
+  if (arg === '--warehouse-count' && args[i + 1]) {
+    options.warehouseCount = parseInt(args[i + 1], 10);
+    i++;
+  }
   if ((arg === '--image-mode' || arg === '--images') && args[i + 1]) {
     options.imageMode = args[i + 1];
     i++;
@@ -407,7 +409,7 @@ async function handleGenerate(opts) {
     imageMode: opts.imageMode || 'default',
     pdfMode: opts.pdfMode || 'default',
     createWarehouses: opts.createWarehouses !== false,
-    reuseExistingWarehouses: opts.reuseExistingWarehouses !== false,
+    warehouseCount: opts.warehouseCount || 1,
     generatePriceLists: true,
     generateSkuVariants: true,
     generateSpecifications: opts.generateSpecifications !== false,
@@ -858,7 +860,7 @@ Options:
   --[no-]tier-pricing                    Enable/disable tier pricing generation [true]
   --[no-]specifications                  Enable/disable specification generation [true]
   --[no-]warehouses                      Enable/disable warehouse creation [true]
-  --[no-]reuse-warehouses                Enable/disable reusing existing warehouses [true]
+  --warehouse-count N                    Specify how many warehouses to create [1]
   --channel-id ID / --channel ID         Specify channel ID
   --site-group-id ID / --site-group ID   Specify site group ID
   --catalog-id ID / --catalog ID         Specify catalog ID

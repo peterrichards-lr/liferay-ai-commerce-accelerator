@@ -9,6 +9,53 @@ const BATCH_STEP_HANDLERS = require('./batch/batch-steps/index.cjs');
 
 const S = WORKFLOW_STEPS;
 
+const isAICAOwned = (erc) => {
+  if (!erc) return false;
+  // HARDENING: Match explicit AICA prefix OR stable generated prefixes
+  return (
+    erc.startsWith('AICA-') ||
+    // Options and option categories built before the prefix was marked
+    // compound lost the hyphen from 'AICA-OPT' and 'AICA-OPT-CAT', so they
+    // read as 'AICAOPT...' and no crawl could see them. They were therefore
+    // never deleted and accumulated on every run. Match the mangled form so
+    // the records already in an instance can be removed.
+    erc.startsWith('AICAOPT') ||
+    erc.startsWith('PL-GENERAL') ||
+    erc.startsWith('PL-PROMO') ||
+    erc.startsWith('SEG-') ||
+    erc.startsWith('WH-') ||
+    erc.startsWith('PE-')
+  );
+};
+
+// Liferay creates a base price list and a base promotion with every catalog.
+// The SDK refuses to delete them unless they carry an AICA ERC, so counting
+// them as targets would leave a step claiming it deleted more than it did.
+const isCatalogOwnedList = (item) =>
+  (item.catalogBasePriceList === true ||
+    item.catalogBasePriceList === 'true') &&
+  !String(item.externalReferenceCode || item.erc || '').startsWith('AICA-');
+
+const isSystemEntity = (item) => item.system === true || item.system === 'true';
+
+// Steps whose targets ARE the entities being removed, so a reported deletion
+// count of zero means the data is still there. The association steps are
+// deliberately absent: they are handed products and remove the product's
+// links, so zero cleared links is a legitimate outcome.
+const ENTITY_DELETION_STEPS = new Set([
+  S.DELETE_ACCOUNTS,
+  S.DELETE_ACCOUNT_GROUPS,
+  S.DELETE_ORDERS,
+  S.DELETE_OPTIONS,
+  S.DELETE_OPTION_CATEGORIES,
+  S.DELETE_PRICE_LISTS,
+  S.DELETE_PRODUCTS,
+  S.DELETE_PROMOTIONS,
+  S.DELETE_SPECIFICATIONS,
+  S.DELETE_WAREHOUSES,
+  S.DELETE_WAREHOUSE_ITEMS,
+]);
+
 /**
  * DeleteCoordinatorService - Orchestrates the safe, dependency-aware deletion of AICA data.
  * Inherits from BaseGenerator to leverage the standardized loop-based orchestration.
@@ -189,30 +236,12 @@ class DeleteCoordinatorService extends BaseGenerator {
       promotions: [],
     };
 
-    const isAICA = (erc) => {
-      if (!erc) return false;
-      // HARDENING: Match explicit AICA prefix OR stable generated prefixes
-      return (
-        erc.startsWith('AICA-') ||
-        // Options and option categories built before the prefix was marked
-        // compound lost the hyphen from 'AICA-OPT' and 'AICA-OPT-CAT', so they
-        // read as 'AICAOPT...' and no crawl could see them. They were
-        // therefore never deleted and accumulated on every run. Match the
-        // mangled form so the records already in an instance can be removed.
-        erc.startsWith('AICAOPT') ||
-        erc.startsWith('PL-GENERAL') ||
-        erc.startsWith('PL-PROMO') ||
-        erc.startsWith('WH-') ||
-        erc.startsWith('PE-')
-      );
-    };
-
     try {
       // --- 1. ACCOUNT DISCOVERY (Run first so we can map orders by account ID) ---
       this.logger.info('Crawling accounts for AICA prefix...', { sessionId });
       const { items: allAccounts } = await this.liferay.getAccounts(config);
       manifest.accounts = allAccounts.filter(
-        (a) => isAICA(a.externalReferenceCode) || isAICA(a.erc)
+        (a) => isAICAOwned(a.externalReferenceCode) || isAICAOwned(a.erc)
       );
       const aicaAccountIds = new Set(manifest.accounts.map((a) => a.id));
 
@@ -222,11 +251,7 @@ class DeleteCoordinatorService extends BaseGenerator {
       });
       const { items: allGroups } = await this.liferay.getAccountGroups(config);
       manifest.accountGroups = allGroups.filter(
-        (g) =>
-          isAICA(g.externalReferenceCode) ||
-          isAICA(g.erc) ||
-          (g.externalReferenceCode &&
-            g.externalReferenceCode.startsWith('SEG-'))
+        (g) => isAICAOwned(g.externalReferenceCode) || isAICAOwned(g.erc)
       );
 
       // --- 2. CHANNEL-BASED DISCOVERY (Orders mapped to AICA Accounts) ---
@@ -280,7 +305,7 @@ class DeleteCoordinatorService extends BaseGenerator {
             { catalogId: cat.id }
           );
           const aicaProducts = catProducts.filter(
-            (p) => isAICA(p.externalReferenceCode) || isAICA(p.erc)
+            (p) => isAICAOwned(p.externalReferenceCode) || isAICAOwned(p.erc)
           );
           manifest.products.push(...aicaProducts);
 
@@ -291,7 +316,7 @@ class DeleteCoordinatorService extends BaseGenerator {
           );
           manifest.priceLists.push(
             ...catPrices.filter(
-              (p) => isAICA(p.externalReferenceCode) || isAICA(p.erc)
+              (p) => isAICAOwned(p.externalReferenceCode) || isAICAOwned(p.erc)
             )
           );
 
@@ -301,7 +326,7 @@ class DeleteCoordinatorService extends BaseGenerator {
           );
           manifest.promotions.push(
             ...catPromos.filter(
-              (p) => isAICA(p.externalReferenceCode) || isAICA(p.erc)
+              (p) => isAICAOwned(p.externalReferenceCode) || isAICAOwned(p.erc)
             )
           );
         } catch (err) {
@@ -323,7 +348,7 @@ class DeleteCoordinatorService extends BaseGenerator {
           );
           manifest.specifications.push(
             ...specs.filter(
-              (s) => isAICA(s.externalReferenceCode) || isAICA(s.erc)
+              (s) => isAICAOwned(s.externalReferenceCode) || isAICAOwned(s.erc)
             )
           );
         } catch (err) {
@@ -340,7 +365,7 @@ class DeleteCoordinatorService extends BaseGenerator {
           );
           manifest.options.push(
             ...opts.filter(
-              (o) => isAICA(o.externalReferenceCode) || isAICA(o.erc)
+              (o) => isAICAOwned(o.externalReferenceCode) || isAICAOwned(o.erc)
             )
           );
         } catch (err) {
@@ -355,7 +380,7 @@ class DeleteCoordinatorService extends BaseGenerator {
       // SDK getWarehouses already handles pagination
       const { items: warehouses } = await this.liferay.getWarehouses(config);
       manifest.warehouses = warehouses.filter(
-        (w) => isAICA(w.externalReferenceCode) || isAICA(w.erc)
+        (w) => isAICAOwned(w.externalReferenceCode) || isAICAOwned(w.erc)
       );
 
       // --- 5. GLOBAL ORPHAN SWEEP (Only in TOTAL mode) ---
@@ -366,7 +391,7 @@ class DeleteCoordinatorService extends BaseGenerator {
           const allSpecs = specsRes.items || [];
           manifest.specifications.push(
             ...allSpecs.filter(
-              (s) => isAICA(s.externalReferenceCode) || isAICA(s.erc)
+              (s) => isAICAOwned(s.externalReferenceCode) || isAICAOwned(s.erc)
             )
           );
 
@@ -375,7 +400,7 @@ class DeleteCoordinatorService extends BaseGenerator {
           const allOpts = optsRes.items || [];
           manifest.options.push(
             ...allOpts.filter(
-              (o) => isAICA(o.externalReferenceCode) || isAICA(o.erc)
+              (o) => isAICAOwned(o.externalReferenceCode) || isAICAOwned(o.erc)
             )
           );
 
@@ -384,7 +409,7 @@ class DeleteCoordinatorService extends BaseGenerator {
           const allCats = catsRes.items || [];
           manifest.optionCategories.push(
             ...allCats.filter(
-              (c) => isAICA(c.externalReferenceCode) || isAICA(c.erc)
+              (c) => isAICAOwned(c.externalReferenceCode) || isAICAOwned(c.erc)
             )
           );
         } catch (err) {
@@ -471,7 +496,8 @@ class DeleteCoordinatorService extends BaseGenerator {
     const session = await this.persistence.getSession(sessionId);
     if (!session) return;
 
-    const { config, options, channelId, catalogId, manifest } = session.context;
+    const { config, options, channelId, catalogId, manifest, isTotal } =
+      session.context;
     const { correlationId } = session;
 
     // Use passed stepKey or fallback to session state
@@ -515,23 +541,49 @@ class DeleteCoordinatorService extends BaseGenerator {
     if (stepName === S.RESET_CATALOG_CONFIG) {
       hasItems = true;
       totalCount = 1;
-    }
+    } else if (!hasItems) {
+      // An empty manifest entry is not evidence that Liferay holds nothing of
+      // this type. It only says the crawl did not recognise anything: a
+      // promotion whose ERC came from the model, an option adopted by key from
+      // an earlier run, or an entity type the crawl never visits at all. Ask
+      // Liferay before declaring the step unnecessary. See #657.
+      let discovered;
+      try {
+        discovered = await this._discoverEntities(stepName, config, {
+          channelId,
+          catalogId,
+          isTotal,
+        });
+      } catch (error) {
+        this.logger.error(
+          `Could not establish what '${stepName}' has to delete: ${error.message}. Failing the step - data may remain.`,
+          { sessionId, correlationId }
+        );
+        return await this.completeSyncStep(sessionId, stepName, 'FAILED', 0, 0);
+      }
 
-    // Only perform real-time checks if no manifest was generated (legacy/manual paths)
-    if (!manifest) {
-      const check = await this._checkIfEntitiesExist(
-        this.liferay,
-        config,
-        stepName,
-        { channelId, catalogId, options }
-      );
-      totalCount = check.totalCount;
-      hasItems = totalCount > 0;
+      if (discovered.supported) {
+        targetItems = discovered.items;
+        totalCount = targetItems.length;
+        hasItems = totalCount > 0;
+
+        if (hasItems) {
+          this.logger.warn(
+            `Manifest recorded nothing for ${stepName}, but discovery found ${totalCount} item(s) in Liferay. Deleting those instead of bypassing.`,
+            { sessionId, correlationId }
+          );
+        } else if (discovered.withheldCount > 0) {
+          this.logger.warn(
+            `${stepName} left ${discovered.withheldCount} item(s) in place: they are not attributable to AICA and this run is scoped to a channel or catalog.`,
+            { sessionId, correlationId }
+          );
+        }
+      }
     }
 
     if (!hasItems) {
       this.logger.info(
-        `No items found for ${stepName} in manifest, bypassing.`,
+        `No items found for ${stepName} in the manifest or in Liferay, bypassing.`,
         {
           sessionId,
           correlationId,
@@ -562,7 +614,8 @@ class DeleteCoordinatorService extends BaseGenerator {
         totalCount,
         batchERC,
         correlationId,
-        // Pass manifest items to handler if available
+        // Manifest items when the crawl recorded any, otherwise whatever
+        // discovery found for this step
         items: targetItems,
       });
 
@@ -583,17 +636,34 @@ class DeleteCoordinatorService extends BaseGenerator {
           correlationId,
         });
       } else {
+        // The simulated (non-native) batch paths delete synchronously and
+        // report how many rows they actually removed. Taking totalCount on
+        // trust is what let a step that removed nothing - every target
+        // withheld by an exclusion rule - report a full success. See #657.
+        const reportedCount = Number.isFinite(result?.count)
+          ? result.count
+          : totalCount;
+        const deletedNothing =
+          reportedCount === 0 && ENTITY_DELETION_STEPS.has(stepName);
+
+        if (deletedNothing) {
+          this.logger.error(
+            `Step '${stepName}' removed nothing while ${totalCount} item(s) were targeted. They remain in Liferay.`,
+            { sessionId, batchERC, correlationId }
+          );
+        }
+
         await this.persistence.updateBatch(batchERC, {
-          status: 'COMPLETED',
-          processedCount: totalCount,
-          errorCount: 0,
+          status: deletedNothing ? 'FAILED' : 'COMPLETED',
+          processedCount: reportedCount,
+          errorCount: deletedNothing ? totalCount : 0,
         });
 
         await this.completeSyncStep(
           sessionId,
           stepName,
-          'COMPLETED',
-          totalCount,
+          deletedNothing ? 'FAILED' : 'COMPLETED',
+          reportedCount,
           totalCount
         );
       }
@@ -607,72 +677,87 @@ class DeleteCoordinatorService extends BaseGenerator {
     }
   }
 
-  async _checkIfEntitiesExist(liferay, config, stepKey, context) {
-    const { channelId, catalogId } = context;
+  /**
+   * Live discovery for a single deletion step.
+   *
+   * The manifest is a record of what the crawl recognised, not a census of
+   * the instance. A promotion whose ERC came from the model, an option
+   * adopted by key from an earlier run, and every warehouse item (the crawl
+   * never collects them) are all absent from it while present in Liferay.
+   * A step whose manifest entry is empty asks here before concluding there
+   * is nothing to do. See #657.
+   *
+   * A total run deletes whatever the query returns. A run scoped to one
+   * channel or catalog keeps only what AICA can be shown to own, because the
+   * option, specification and warehouse-item endpoints have no scope to
+   * narrow by and the user asked about one channel, not the instance.
+   */
+  async _discoverEntities(stepName, config, { channelId, catalogId, isTotal }) {
+    const products = () => this.liferay.getProducts(config, { catalogId });
 
-    const checkMap = {
-      [S.DELETE_ACCOUNTS]: async () => {
-        const res = await liferay.getAccounts(config, { channelId });
-        return { totalCount: res.totalCount };
-      },
-      [S.DELETE_PRODUCTS]: async () => {
-        const res = await liferay.getProducts(config, { catalogId });
-        return { totalCount: res.totalCount };
-      },
-      [S.DELETE_ORDERS]: async () => {
-        try {
-          // Use REST for reliable global checking
-          const res = await liferay.rest._get(
+    const queries = new Map([
+      [
+        S.DELETE_ACCOUNTS,
+        () => this.liferay.getAccounts(config, { channelId }),
+      ],
+      [S.DELETE_ACCOUNT_GROUPS, () => this.liferay.getAccountGroups(config)],
+      [
+        S.DELETE_ORDERS,
+        () =>
+          this.liferay.getOrders(
             config,
-            '/o/headless-commerce-admin-order/v1.0/orders',
-            'check-orders',
-            'Check Orders',
-            {
-              params: {
-                filter: channelId ? `channelId eq ${channelId}` : undefined,
-                page: 1,
-                pageSize: 1,
-              },
-            }
-          );
-          return {
-            totalCount: res.totalCount || (res.items && res.items.length) || 0,
-          };
-        } catch (err) {
-          this.logger.warn(
-            `Failed to check if orders exist for deletion: ${err.message}. Skipping to avoid crash.`,
-            {
-              stepKey,
-            }
-          );
-          return { totalCount: 0 };
-        }
-      },
-      [S.DELETE_WAREHOUSES]: async () => {
-        const res = await liferay.getWarehouses(config);
-        return { totalCount: res.totalCount };
-      },
-      [S.DELETE_PRICE_LISTS]: async () => {
-        const res = await liferay.getPriceLists(config, { catalogId });
-        return { totalCount: res.totalCount };
-      },
-      [S.DELETE_PROMOTIONS]: async () => {
-        const res = await liferay.getPromotions(config, { catalogId });
-        return { totalCount: res.totalCount };
-      },
-      [S.DELETE_ACCOUNT_GROUPS]: async () => {
-        const res = await liferay.getAccountGroups(config);
-        return { totalCount: res.totalCount };
-      },
-      [S.RESET_CATALOG_CONFIG]: async () => ({ hasItems: true, totalCount: 1 }),
-    };
+            channelId ? { filter: `channelId eq ${channelId}` } : {}
+          ),
+      ],
+      [S.DELETE_OPTIONS, () => this.liferay.getOptions(config)],
+      [
+        S.DELETE_OPTION_CATEGORIES,
+        () => this.liferay.getOptionCategories(config),
+      ],
+      [
+        S.DELETE_PRICE_LISTS,
+        () => this.liferay.getPriceLists(config, { catalogId }),
+      ],
+      [S.DELETE_PRODUCTS, products],
+      // Both association steps iterate products and clear the product's own
+      // links, so products are what they need discovering.
+      [S.DELETE_PRODUCT_OPTIONS, products],
+      [S.DELETE_PRODUCT_SPECIFICATIONS, products],
+      [
+        S.DELETE_PROMOTIONS,
+        () => this.liferay.getPromotions(config, { catalogId }),
+      ],
+      [S.DELETE_SPECIFICATIONS, () => this.liferay.getSpecifications(config)],
+      [S.DELETE_WAREHOUSES, () => this.liferay.getWarehouses(config)],
+      // getAllWarehouseItems stops once pageSize items are collected, so this
+      // is a best effort. Warehouse deletion, which follows in every flow,
+      // takes the remainder with the warehouse.
+      [
+        S.DELETE_WAREHOUSE_ITEMS,
+        () => this.liferay.getAllWarehouseItems(config, { pageSize: 1000 }),
+      ],
+    ]);
 
-    if (!checkMap[stepKey]) return { hasItems: true, totalCount: 0 };
+    const query = queries.get(stepName);
+    if (!query) {
+      return { supported: false, items: [], withheldCount: 0 };
+    }
 
-    const result = await checkMap[stepKey]();
+    const result = await query();
+    const candidates = (result?.items || []).filter(
+      (item) => !isSystemEntity(item) && !isCatalogOwnedList(item)
+    );
+    const items = isTotal
+      ? candidates
+      : candidates.filter(
+          (item) =>
+            isAICAOwned(item.externalReferenceCode) || isAICAOwned(item.erc)
+        );
+
     return {
-      hasItems: (result.totalCount || 0) > 0 || !!result.hasItems,
-      totalCount: result.totalCount || 0,
+      supported: true,
+      items,
+      withheldCount: candidates.length - items.length,
     };
   }
 
