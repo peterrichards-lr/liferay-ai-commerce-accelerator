@@ -1,5 +1,7 @@
 const { PromoGenerator } = require('../generators/PromoGenerator.cjs');
+const MockDataGenerator = require('../generators/mockDataGenerator.cjs');
 const PersistenceService = require('../services/persistenceService.cjs');
+const { GenerationFacade } = require('../services/generationFacade.cjs');
 
 describe('PromoGenerator', () => {
   let generator;
@@ -17,8 +19,10 @@ describe('PromoGenerator', () => {
         error: vi.fn(),
         debug: vi.fn(),
       },
-      ai: {
-        generatePromoData: vi.fn().mockResolvedValue({
+      // Promo generation goes through GenerationFacade like every other
+      // entity, so demo mode can substitute the mock for the model. See #697.
+      generation: {
+        generateData: vi.fn().mockResolvedValue({
           userSegments: [
             {
               name: 'Gold B2B Customers',
@@ -148,7 +152,7 @@ describe('PromoGenerator', () => {
   });
 
   it('does not crash when the AI returns a segment/promotion with no name', async () => {
-    mockCtx.ai.generatePromoData.mockResolvedValue({
+    mockCtx.generation.generateData.mockResolvedValue({
       userSegments: [
         {
           name: '',
@@ -195,5 +199,52 @@ describe('PromoGenerator', () => {
     expect(session.context.promotionsDataList[0].targetSegmentERC).toBe(
       'SEG-UNNAMED'
     );
+  });
+
+  // This was the one generation path with no demo-mode substitution: it called
+  // `ctx.ai` directly, so the mode that exists to cost nothing still made a
+  // model call. A real facade rather than a stub, because the substitution is
+  // the facade's job and stubbing it would assert nothing. See #697.
+  it('never reaches the AI service in demo mode', async () => {
+    const ai = new Proxy(
+      {},
+      {
+        get(_target, property) {
+          throw new Error(
+            `demo mode called the AI service: ${String(property)}`
+          );
+        },
+      }
+    );
+
+    mockCtx.ai = ai;
+    mockCtx.mockDataGenerator = new MockDataGenerator(mockCtx);
+    mockCtx.generation = new GenerationFacade(mockCtx);
+
+    const sessionId = 'session-789';
+    await persistence.createSession({
+      sessionId,
+      flowType: 'generate',
+      status: 'STARTED',
+      currentSteps: [],
+      context: {
+        config: { siteGroupId: 123 },
+        options: { demoMode: true, generatePromotions: true },
+        accountDataList: [
+          {
+            name: 'Wholesale Inc',
+            externalReferenceCode: 'ACC-WHOLESALE',
+            id: 200,
+          },
+        ],
+        productDataList: [{ name: 'Hammer', sku: 'SKU-HAMMER', id: 100 }],
+      },
+    });
+
+    await generator._runPromoDataGenerationStep(sessionId);
+
+    const session = await persistence.getSession(sessionId);
+    expect(session.context.userSegmentsDataList.length).toBeGreaterThan(0);
+    expect(session.context.promotionsDataList.length).toBeGreaterThan(0);
   });
 });
