@@ -100,7 +100,10 @@ describe('update-inventory payloads', () => {
     vi.useRealTimers();
   });
 
-  it('bypasses the step when the instance has no warehouses', async () => {
+  // BYPASSED means a live query confirmed there was nothing to do (#699).
+  // Stock was asked for here and cannot be delivered, which is a different
+  // outcome and must not count towards a successful run (#732).
+  it('blocks the step, with a reason, when stock was asked for and no warehouse exists', async () => {
     liferay.getWarehouses.mockResolvedValue({ items: [] });
 
     await runStep();
@@ -109,7 +112,28 @@ describe('update-inventory payloads', () => {
     expect(generator.completeSyncStep).toHaveBeenCalledWith(
       'sess-1',
       S.UPDATE_INVENTORY,
-      'BYPASSED'
+      'BLOCKED',
+      0,
+      0,
+      expect.stringContaining('No warehouse exists')
+    );
+  });
+
+  it('bypasses rather than blocks when no stock was asked for', async () => {
+    // Nothing was requested, so nothing missing: a genuine nothing-to-do.
+    liferay.getWarehouses.mockResolvedValue({ items: [] });
+    session.context.options.inventoryAssignmentRatio = 0;
+
+    await runStep();
+
+    expect(generator.submitBatch).not.toHaveBeenCalled();
+    expect(generator.completeSyncStep).toHaveBeenCalledWith(
+      'sess-1',
+      S.UPDATE_INVENTORY,
+      'BYPASSED',
+      0,
+      0,
+      expect.stringContaining('No stock was requested')
     );
   });
 
