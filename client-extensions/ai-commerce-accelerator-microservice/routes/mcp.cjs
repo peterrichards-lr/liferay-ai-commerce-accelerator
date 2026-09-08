@@ -191,9 +191,11 @@ module.exports = (router, routeCtx) => {
       warehouseCount: parseInt(args.warehouseCount, 10) || 1,
       inventoryMin: 10,
       inventoryMax: 100,
-      inventoryAssignmentRatio: 1.0,
-      enableBackorders: false,
-      backorderAssignmentRatio: 0.0,
+      // A percentage, not a fraction: runUpdateInventoryStep rolls
+      // `Math.random() * 100 > inventoryAssignmentRatio`, so the 1.0 this used
+      // to send gave every MCP run inventory on about one product in a
+      // hundred. See #711.
+      inventoryAssignmentRatio: 100,
       imageMode: 'none',
       pdfMode: 'none',
     };

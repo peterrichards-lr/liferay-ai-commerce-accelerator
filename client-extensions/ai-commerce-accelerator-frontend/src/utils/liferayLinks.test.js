@@ -1,6 +1,12 @@
 import { describe, expect, it } from 'vitest';
 
-import { CHANNELS_PORTLET_ID, commerceChannelsUrl } from './liferayLinks';
+import {
+  CHANNELS_PORTLET_ID,
+  CLIENT_EXTENSIONS_PORTLET_ID,
+  clientExtensionPortletUrl,
+  clientExtensionsUrl,
+  commerceChannelsUrl,
+} from './liferayLinks';
 
 describe('commerceChannelsUrl', () => {
   it('builds a portal-scoped URL from the configured base', () => {
@@ -42,5 +48,42 @@ describe('commerceChannelsUrl', () => {
   it('rejects a non-http scheme', () => {
     expect(commerceChannelsUrl('ftp://example.com')).toBeNull();
     expect(commerceChannelsUrl('javascript:alert(1)')).toBeNull();
+  });
+});
+
+describe('client extension links', () => {
+  const PORTLET_ID =
+    'com_liferay_client_extension_web_internal_portlet_' +
+    'ClientExtensionEntryPortlet_99367122642203_' +
+    'LXC_liferay_ai_commerce_accelerator_configuration';
+
+  it('builds a client extension screen from a supplied portlet id', () => {
+    const url = clientExtensionPortletUrl(
+      'http://localhost:8080',
+      PORTLET_ID,
+      '#ai-config'
+    );
+
+    expect(url).toBe(
+      `http://localhost:8080/group/control_panel/manage?p_p_id=${PORTLET_ID}` +
+        '&p_p_lifecycle=0&p_p_state=maximized#ai-config'
+    );
+  });
+
+  it('returns null without a portlet id, so the caller falls back', () => {
+    // The id embeds the company id, which only the instance can report.
+    expect(clientExtensionPortletUrl('http://localhost:8080', null)).toBeNull();
+    expect(clientExtensionPortletUrl('http://localhost:8080', '')).toBeNull();
+  });
+
+  it('builds the Client Extensions listing, which needs no per-instance id', () => {
+    expect(clientExtensionsUrl('http://localhost:8080')).toContain(
+      `p_p_id=${CLIENT_EXTENSIONS_PORTLET_ID}`
+    );
+  });
+
+  it('returns null when there is nothing usable to build from', () => {
+    expect(clientExtensionsUrl('')).toBeNull();
+    expect(clientExtensionPortletUrl('not-a-url', PORTLET_ID)).toBeNull();
   });
 });

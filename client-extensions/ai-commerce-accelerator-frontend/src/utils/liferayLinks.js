@@ -13,6 +13,16 @@
 const CHANNELS_PORTLET_ID =
   'com_liferay_commerce_channel_web_internal_portlet_CommerceChannelsPortlet';
 
+/**
+ * The Client Extensions listing in the Control Panel.
+ *
+ * Its portlet id carries no instance-specific segment, unlike the per-entry
+ * portlet ids, so this link always resolves. It is the fallback whenever the
+ * configuration extension's own portlet id cannot be read - see #660.
+ */
+const CLIENT_EXTENSIONS_PORTLET_ID =
+  'com_liferay_client_extension_web_internal_portlet_ClientExtensionAdminPortlet';
+
 const CONTROL_PANEL_PATH = '/group/control_panel/manage';
 
 function normalizeBase(liferayUrl) {
@@ -29,6 +39,19 @@ function normalizeBase(liferayUrl) {
   }
 }
 
+function controlPanelUrl(liferayUrl, portletId, hash = '') {
+  const base = normalizeBase(liferayUrl);
+  if (!base || !portletId) return null;
+
+  const params = new URLSearchParams({
+    p_p_id: portletId,
+    p_p_lifecycle: '0',
+    p_p_state: 'maximized',
+  });
+
+  return `${base}${CONTROL_PANEL_PATH}?${params.toString()}${hash}`;
+}
+
 /**
  * Returns an absolute URL to the Commerce Channels screen, or null when the
  * configured base URL is missing or unusable.
@@ -36,16 +59,32 @@ function normalizeBase(liferayUrl) {
  * Callers should render plain text rather than a dead link when this is null.
  */
 export function commerceChannelsUrl(liferayUrl) {
-  const base = normalizeBase(liferayUrl);
-  if (!base) return null;
-
-  const params = new URLSearchParams({
-    p_p_id: CHANNELS_PORTLET_ID,
-    p_p_lifecycle: '0',
-    p_p_state: 'maximized',
-  });
-
-  return `${base}${CONTROL_PANEL_PATH}?${params.toString()}`;
+  return controlPanelUrl(liferayUrl, CHANNELS_PORTLET_ID);
 }
 
-export { CHANNELS_PORTLET_ID, CONTROL_PANEL_PATH };
+/**
+ * Returns an absolute URL to a client extension's own Control Panel screen.
+ *
+ * The portlet id has to be supplied because it embeds the company id, which
+ * Liferay assigns per database and publishes nowhere a browser can read. The
+ * microservice reads it from the `client-extension-entry` module and reports
+ * it on the config health payload; null here means it could not be read, and
+ * the caller falls back to `clientExtensionsUrl`.
+ */
+export function clientExtensionPortletUrl(liferayUrl, portletId, hash = '') {
+  return controlPanelUrl(liferayUrl, portletId, hash);
+}
+
+/**
+ * Returns an absolute URL to the Client Extensions listing, which resolves on
+ * every instance because its portlet id carries no per-instance segment.
+ */
+export function clientExtensionsUrl(liferayUrl) {
+  return controlPanelUrl(liferayUrl, CLIENT_EXTENSIONS_PORTLET_ID);
+}
+
+export {
+  CHANNELS_PORTLET_ID,
+  CLIENT_EXTENSIONS_PORTLET_ID,
+  CONTROL_PANEL_PATH,
+};

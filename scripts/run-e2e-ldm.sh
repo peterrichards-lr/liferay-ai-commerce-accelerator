@@ -373,40 +373,83 @@ if [[ "$PROJECT_DIR_REAL" == /Volumes/* ]]; then
     echo "📁 Secondary volume detected ($VOLUME_ROOT); set TMPDIR=$TMPDIR for LDM cross-device safety."
 fi
 
-# Check if target host resolves. If it doesn't, resolve mapped tomcat port and fall back to localhost
-if ! getent hosts "$TARGET_HOST" &>/dev/null && ! nslookup "$TARGET_HOST" &>/dev/null && ! ping -c 1 -W 1 "$TARGET_HOST" &>/dev/null; then
-    echo "⚠️  Host '$TARGET_HOST' is not resolvable. Falling back to localhost..."
-    if [ $EXISTING_PROJECT -eq 1 ]; then
-        PORT_BINDING=$(docker port "$PROJECT_NAME" 8080 2>/dev/null || echo "")
-        if [ -n "$PORT_BINDING" ]; then
-            RESOLVED_PORT=$(echo "$PORT_BINDING" | head -n 1 | cut -d':' -f2)
-        else
-            RESOLVED_PORT="8080"
-        fi
-        TARGET_URL="http://localhost:$RESOLVED_PORT"
-        echo "ℹ  Resolved fallback URL: $TARGET_URL"
-    fi
-else
-    echo "ℹ  Host '$TARGET_HOST' is resolvable. Using: $TARGET_URL"
-fi
+host_is_resolvable() {
+    getent hosts "$TARGET_HOST" &>/dev/null \
+        || nslookup "$TARGET_HOST" &>/dev/null \
+        || ping -c 1 -W 1 "$TARGET_HOST" &>/dev/null
+}
 
-# Dynamically override the URLs to match the unique TARGET_HOST / fallback
-if [[ "$TARGET_URL" == *localhost* ]]; then
+# The URL of the target host itself. This is the one place the protocol/port
+# decision is made; LIFERAY_URL, LIFERAY_API_URL and BASE_URL are all derived
+# from its result rather than repeating it.
+target_host_url() {
+    if [ $NO_SSL -eq 1 ]; then
+        echo "http://$TARGET_HOST"
+    else
+        echo "https://$TARGET_HOST$SSL_PORT_SUFFIX"
+    fi
+}
+
+# The fallback for an unresolvable host: Tomcat on whichever host port docker
+# mapped 8080 to, which is only knowable once the container exists.
+mapped_container_url() {
+    local port_binding resolved_port
+    port_binding=$(docker port "$PROJECT_NAME" 8080 2>/dev/null || echo "")
+    if [ -n "$port_binding" ]; then
+        resolved_port=$(echo "$port_binding" | head -n 1 | cut -d':' -f2)
+    else
+        resolved_port="8080"
+    fi
+    echo "http://localhost:$resolved_port"
+}
+
+# TARGET_URL must never be empty: everything downstream is derived from it, and
+# every one of those consumers has its own silent localhost:8080 default. When
+# it was assigned only on the unresolvable path, CI - where /etc/hosts always
+# makes the host resolvable - ran for 1h53m against a port nothing listens on
+# and reported it as a Liferay startup timeout, 40 nightly runs in a row. Name
+# the variable and stop. See #707.
+assert_target_url() {
+    if [ -n "$TARGET_URL" ]; then
+        return 0
+    fi
+    echo "❌ ERROR: TARGET_URL is empty after $1."
+    echo "   Every downstream consumer (BASE_URL, LIFERAY_URL, LIFERAY_API_URL,"
+    echo "   Playwright and the microservice) derives from TARGET_URL, and each"
+    echo "   silently falls back to localhost:8080 when it is unset."
+    exit 1
+}
+
+# Everything the rest of the run - and the containers it starts - reads for the
+# Liferay under test. Called again wherever TARGET_URL changes, so no consumer
+# can be left holding a URL the resolution has since moved on from.
+export_target_urls() {
+    assert_target_url "$1"
+    export BASE_URL="$TARGET_URL"
     export LIFERAY_URL="$TARGET_URL"
     export LIFERAY_API_URL="$TARGET_URL"
-    export COM_LIFERAY_LXC_DXP_SERVER_PROTOCOL="http"
+    export COM_LIFERAY_LXC_DXP_SERVER_PROTOCOL="${TARGET_URL%%:*}"
+    export COM_LIFERAY_LXC_DXP_MAIN_DOMAIN="$TARGET_HOST"
+    echo "🎯 Target resolved after $1: TARGET_URL=$TARGET_URL (protocol=$COM_LIFERAY_LXC_DXP_SERVER_PROTOCOL, domain=$COM_LIFERAY_LXC_DXP_MAIN_DOMAIN)"
+}
+
+# TARGET_URL starts as the target host's own URL and is only replaced by the
+# localhost fallback when the host cannot be resolved. Assigning it in one
+# branch and reading it in another is precisely the bug in #707.
+TARGET_URL="$(target_host_url)"
+if host_is_resolvable; then
+    echo "ℹ  Host '$TARGET_HOST' is resolvable. Using: $TARGET_URL"
 else
-    if [ $NO_SSL -eq 1 ]; then
-        export LIFERAY_URL="http://$TARGET_HOST"
-        export LIFERAY_API_URL="http://$TARGET_HOST"
-        export COM_LIFERAY_LXC_DXP_SERVER_PROTOCOL="http"
+    echo "⚠️  Host '$TARGET_HOST' is not resolvable."
+    if [ $EXISTING_PROJECT -eq 1 ]; then
+        TARGET_URL="$(mapped_container_url)"
+        echo "ℹ  Falling back to the container's mapped port: $TARGET_URL"
     else
-        export LIFERAY_URL="https://$TARGET_HOST$SSL_PORT_SUFFIX"
-        export LIFERAY_API_URL="https://$TARGET_HOST$SSL_PORT_SUFFIX"
-        export COM_LIFERAY_LXC_DXP_SERVER_PROTOCOL="https"
+        echo "ℹ  Keeping $TARGET_URL until the project exists and its mapped port can be read."
     fi
 fi
-export COM_LIFERAY_LXC_DXP_MAIN_DOMAIN="$TARGET_HOST"
+
+export_target_urls "host resolution"
 
 # --- Phase 1: Environment Verification ---
 
@@ -682,14 +725,11 @@ else
     chmod -R 777 "$PROJECT_NAME" 2>/dev/null || true
 fi
 
-# Resolve fallback URL if host is not resolvable (dynamic port resolution)
-if ! getent hosts "$TARGET_HOST" &>/dev/null && ! nslookup "$TARGET_HOST" &>/dev/null && ! ping -c 1 -W 1 "$TARGET_HOST" &>/dev/null; then
-    PORT_BINDING=$(docker port "$PROJECT_NAME" 8080 2>/dev/null || echo "")
-    if [ -n "$PORT_BINDING" ]; then
-        RESOLVED_PORT=$(echo "$PORT_BINDING" | head -n 1 | cut -d':' -f2)
-        TARGET_URL="http://localhost:$RESOLVED_PORT"
-        echo "ℹ  Updated fallback URL to: $TARGET_URL"
-    fi
+# Re-resolve the fallback URL now the container exists: on a fresh project the
+# mapped Tomcat port was unknowable the first time round.
+if ! host_is_resolvable && docker port "$PROJECT_NAME" 8080 &>/dev/null; then
+    TARGET_URL="$(mapped_container_url)"
+    export_target_urls "the container's mapped port became readable"
 fi
 
 # --- Phase 4: Sync & Wait ---
@@ -819,9 +859,7 @@ fi
 echo "ℹ  Resolved sidecar port: $RESOLVED_SIDECAR_PORT"
 
 # Set the environment variables for Playwright and the Microservice
-export BASE_URL="$TARGET_URL"
-export LIFERAY_API_URL="$BASE_URL"
-export LIFERAY_URL="$BASE_URL"
+export_target_urls "the environment became ready"
 export LIFERAY_BATCH_CALLBACK_URL="http://host.docker.internal:${RESOLVED_SIDECAR_PORT}/api/v1/batch/callback"
 export AICA_MICROSERVICE_URL="http://localhost:${RESOLVED_SIDECAR_PORT}"
 
