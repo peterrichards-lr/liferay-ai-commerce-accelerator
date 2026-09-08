@@ -10,12 +10,12 @@ Return a single JSON object with the following structure:
 "priceEntries": [
 {
 "sku": "The product SKU",
-"price": "The base price for the SKU",
-"cost": "The cost for the SKU",
+"price": 149.99,
+"cost": 87.50,
 "tierPrices": [
 {
-"minQuantity": "The minimum quantity for the tier",
-"price": "The price for the tier"
+"minQuantity": 10,
+"price": 134.99
 }
 ]
 }
@@ -28,7 +28,11 @@ For {{pricingType}} pricing, generate:
 
 - A descriptive `priceListName`.
 - A `priceEntries` array for each product SKU.
-- Each entry should have a `price` and `cost`.
+- Each entry should have a `price` (the base price for the SKU) and a `cost`
+  (what the SKU costs to supply). Both are numbers, not strings: write `149.99`,
+  not `"149.99"`.
+- Each `tierPrices` entry should have a whole-number `minQuantity` and the
+  `price` that applies at that quantity, both unquoted numbers.
 - {{bulkHint}}
 - {{tierHint}}
 - {{promoHint}}
