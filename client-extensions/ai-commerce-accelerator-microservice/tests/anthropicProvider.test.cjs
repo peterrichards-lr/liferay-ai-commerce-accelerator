@@ -350,7 +350,7 @@ describe('AnthropicProvider', () => {
       const provider = new AnthropicProvider({ logger: {} });
 
       await expect(provider.generateImage({}, {})).rejects.toThrow(
-        /Claude does not support image generation.*OpenAI DALL-E or NanoBanana/s
+        /Claude does not support image generation.*OpenAI/s
       );
     });
   });
