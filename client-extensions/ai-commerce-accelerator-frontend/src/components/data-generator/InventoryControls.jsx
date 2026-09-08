@@ -2,15 +2,12 @@ import React from 'react';
 import ClayIcon from '@clayui/icon';
 import ClayForm, { ClayInput } from '@clayui/form';
 import FieldError from '../ui/FieldError';
-import CheckboxField from '../ui/CheckboxField';
 
 function InventoryControls({
   productCount,
   inventoryMin,
   inventoryMax,
   inventoryAssignmentRatio,
-  enableBackorders,
-  backorderAssignmentRatio,
   onChange,
   disabled,
   validationErrors,
@@ -23,7 +20,7 @@ function InventoryControls({
         className={`config-section-title mb-4 ${productCount === 0 ? 'muted' : ''}`}
       >
         <ClayIcon symbol="box-container" />
-        Inventory & Backorders
+        Inventory
       </h6>
 
       <div className="form-row gx-4 gy-4">
@@ -105,56 +102,11 @@ function InventoryControls({
         </div>
       </div>
 
-      <div className="mt-4">
-        <CheckboxField
-          id="dg_enableBackorders"
-          label="Enable Backorders"
-          checked={!!enableBackorders}
-          onChange={(val) => onChange('enableBackorders', val)}
-          disabled={disabled || productCount === 0}
-        />
-      </div>
-
-      {enableBackorders && (
-        <div className="form-row mt-3">
-          <div className="form-col">
-            <div className="form-group mb-0">
-              <label
-                htmlFor="dg_backorderAssignmentRatio"
-                className="form-label font-weight-semi-bold"
-              >
-                Apply Backorders To ({backorderAssignmentRatio ?? 0}%)
-              </label>
-              <input
-                id="dg_backorderAssignmentRatio"
-                type="range"
-                className="form-control-range"
-                min="0"
-                max="100"
-                step="10"
-                value={backorderAssignmentRatio ?? 0}
-                onChange={(e) =>
-                  onChange('backorderAssignmentRatio', parseInt(e.target.value))
-                }
-                disabled={disabled || productCount === 0}
-              />
-              {hasErr('backorderAssignmentRatio') && (
-                <FieldError
-                  errors={validationErrors.backorderAssignmentRatio}
-                />
-              )}
-              <small className="help-text">
-                Randomly enables backorders on this percentage of products.
-              </small>
-            </div>
-          </div>
-        </div>
-      )}
-
       <div className="mt-3">
         <small className="help-text text-muted">
-          Inventory values will be split across warehouses. If none exist, they
-          will be created first.
+          Each SKU of a selected product is given a random quantity between Min
+          and Max in one of the run&apos;s warehouses. Products are left with no
+          inventory when the instance has no warehouses.
         </small>
       </div>
     </div>

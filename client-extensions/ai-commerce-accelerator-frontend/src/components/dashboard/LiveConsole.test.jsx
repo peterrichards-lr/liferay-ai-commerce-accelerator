@@ -1,6 +1,7 @@
 import React from 'react';
 import { render, screen } from '@testing-library/react';
 import ActivityLog from './ActivityLog';
+import { stubScrollMetrics } from '../../testUtils/scrollMetrics';
 
 describe('ActivityLog', () => {
   const mockLogs = [
@@ -41,5 +42,40 @@ describe('ActivityLog', () => {
     render(<ActivityLog logs={[]} onClearLogs={vi.fn()} isGenerating={true} />);
 
     expect(screen.getByText(/Processing/i)).toBeInTheDocument();
+  });
+
+  it('keeps the newest entry in view, which useActivityLog prepends', () => {
+    const scroll = stubScrollMetrics();
+
+    try {
+      const { rerender } = render(
+        <ActivityLog
+          logs={mockLogs}
+          onClearLogs={vi.fn()}
+          isGenerating={true}
+        />
+      );
+
+      rerender(
+        <ActivityLog
+          logs={[
+            {
+              id: 3,
+              message: 'Step 3 started',
+              type: 'info',
+              timestamp: '12:02:00',
+            },
+            ...mockLogs,
+          ]}
+          onClearLogs={vi.fn()}
+          isGenerating={true}
+        />
+      );
+
+      expect(screen.getByText(/Step 3 started/i)).toBeInTheDocument();
+      expect(scroll.lastPosition()).toBe(0);
+    } finally {
+      scroll.restore();
+    }
   });
 });
