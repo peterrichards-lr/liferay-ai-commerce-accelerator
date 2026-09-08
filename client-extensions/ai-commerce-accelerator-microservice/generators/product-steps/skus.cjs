@@ -362,6 +362,13 @@ async function runLinkProductOptionsStep(sessionId) {
   }
 }
 
+function countSkusIn(products) {
+  return products.reduce(
+    (total, product) => total + (product.skus || []).length,
+    0
+  );
+}
+
 async function runProductSkusStep(sessionId) {
   const session = await this.persistence.getSession(sessionId);
   const { config, productDataList, options } = session.context;
@@ -476,7 +483,10 @@ async function runProductSkusStep(sessionId) {
               sessionId,
               session,
             }),
-          batch.length
+          // SKUs, not the products carrying them. This is a product upsert, so
+          // a batch of ten products can write forty SKUs; reporting the batch
+          // length made a bar labelled "SKUs" count products (#752).
+          countSkusIn(batch)
         );
       }
     } else {

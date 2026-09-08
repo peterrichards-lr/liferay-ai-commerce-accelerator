@@ -32,6 +32,7 @@ function DataGeneratorForm({
   disabledReason,
   isGenerating,
   aiKeyAvailable,
+  aiMediaKeyAvailable,
   validationErrors,
   scrollTargetRef,
   availableCategories,
@@ -160,6 +161,27 @@ function DataGeneratorForm({
       handleConfigChange('demoMode', true);
     }
   }, [aiKeyAvailable, generationConfig.demoMode, handleConfigChange]);
+
+  // A config saved or imported with AI media can arrive when media is not
+  // available, which would leave 'ai' selected on a button the user can no
+  // longer press. Fall back to the defaults rather than submitting a choice
+  // that gets silently downgraded (#753).
+  const aiMediaUnavailable = !aiMediaKeyAvailable || generationConfig.demoMode;
+
+  useEffect(() => {
+    if (!aiMediaUnavailable) return;
+    if (generationConfig.imageMode === 'ai') {
+      handleConfigChange('imageMode', 'placeholder');
+    }
+    if (generationConfig.pdfMode === 'ai') {
+      handleConfigChange('pdfMode', 'placeholder');
+    }
+  }, [
+    aiMediaUnavailable,
+    generationConfig.imageMode,
+    generationConfig.pdfMode,
+    handleConfigChange,
+  ]);
 
   return (
     <CollapsiblePanel
@@ -716,7 +738,8 @@ function DataGeneratorForm({
                     }}
                     onChange={handleConfigChange}
                     disabled={lockFields || generationConfig.productCount === 0}
-                    aiKeyAvailable={aiKeyAvailable}
+                    aiMediaKeyAvailable={aiMediaKeyAvailable}
+                    demoMode={generationConfig.demoMode}
                   />
                 </div>
               </div>

@@ -8,8 +8,6 @@ function normalizeEntityType(t) {
     'product-data-generation',
     'create-products',
     'resolve-product-ids',
-    'update-inventory',
-    'inventory',
     'delete-products',
     'delete-product-related',
     'reset-catalog-configuration',
@@ -40,6 +38,12 @@ function normalizeEntityType(t) {
   ];
 
   const skus = ['skus', 'create-skus', 'resolve-sku-ids'];
+
+  // Inventory is one item per SKU-warehouse pair, so folding it into products
+  // grew the product total to the sum of both: a 50-product run reported
+  // "Products 250/250" (#752). It gets its own bar rather than none, so the
+  // work stays visible.
+  const inventory = ['inventory', 'update-inventory'];
 
   const warehouses = [
     'warehouses',
@@ -97,6 +101,7 @@ function normalizeEntityType(t) {
   if (accounts.includes(s)) return 'accounts';
   if (orders.includes(s)) return 'orders';
   if (skus.includes(s)) return 'skus';
+  if (inventory.includes(s)) return 'inventory';
   if (warehouses.includes(s)) return 'warehouses';
   if (images.includes(s)) return 'images';
   if (pdfs.includes(s)) return 'pdfs';

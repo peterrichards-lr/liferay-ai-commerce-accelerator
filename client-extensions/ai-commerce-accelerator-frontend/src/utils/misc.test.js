@@ -12,4 +12,12 @@ describe('normalizeEntityType', () => {
   it('still classifies create-products as products', () => {
     expect(normalizeEntityType('create-products')).toBe('products');
   });
+
+  // Inventory submits one item per SKU-warehouse pair. Counted as products it
+  // grew the product total to the sum of both, so a 50-product run with 200
+  // SKUs reported "Products 250/250" (#752).
+  it('classifies inventory as its own entity, not as products', () => {
+    expect(normalizeEntityType('update-inventory')).toBe('inventory');
+    expect(normalizeEntityType('inventory')).toBe('inventory');
+  });
 });

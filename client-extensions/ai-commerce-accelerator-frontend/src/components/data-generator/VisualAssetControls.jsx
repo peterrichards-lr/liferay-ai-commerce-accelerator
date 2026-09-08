@@ -19,6 +19,7 @@ function AssetToggle({ label, icon, value, onChange, disabled, options }) {
             }`}
             onClick={() => onChange(opt.value)}
             disabled={disabled || opt.disabled}
+            title={opt.disabled ? opt.title : undefined}
             style={{ flex: 1 }}
           >
             {opt.label}
@@ -55,18 +56,36 @@ export default function VisualAssetControls({
   values,
   onChange,
   disabled,
-  aiKeyAvailable,
+  aiMediaKeyAvailable,
+  demoMode,
 }) {
+  // Images and PDFs go to the media provider, so the media key is what decides
+  // whether they can be generated. This was gated on the text key, which meant
+  // AI Gen stayed selectable with no media key at all and the request was then
+  // silently downgraded to placeholders on submit (#753).
+  const aiUnavailableReason = demoMode
+    ? 'Not available for generated demo data'
+    : !aiMediaKeyAvailable
+      ? 'No media API key is configured'
+      : null;
+
+  const aiOption = {
+    label: 'AI Gen',
+    value: 'ai',
+    disabled: Boolean(aiUnavailableReason),
+    title: aiUnavailableReason,
+  };
+
   const imageOptions = [
     { label: 'None', value: 'none' },
     { label: 'Placeholder', value: 'placeholder' },
-    { label: 'AI Gen', value: 'ai', disabled: !aiKeyAvailable },
+    aiOption,
   ];
 
   const pdfOptions = [
     { label: 'None', value: 'none' },
     { label: 'Placeholder', value: 'placeholder' },
-    { label: 'AI Gen', value: 'ai', disabled: !aiKeyAvailable },
+    aiOption,
   ];
 
   return (
