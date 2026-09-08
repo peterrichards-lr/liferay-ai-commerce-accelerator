@@ -566,6 +566,13 @@ export default function useRealtimeWebSocket({
           break;
         }
 
+        case E.WARNING:
+          currentOnLog?.(
+            data.message || `${scope} finished with a warning`,
+            'warning'
+          );
+          break;
+
         case E.BATCH_ERROR_DETAILS:
           if (currentOnBatchErrorDetails) {
             currentOnBatchErrorDetails(data);

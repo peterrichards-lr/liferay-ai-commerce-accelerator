@@ -239,6 +239,7 @@ const WEB_SOCKET_EVENTS = {
   PROGRESS: 'PROGRESS',
   COMPLETED: 'COMPLETED',
   FAILED: 'FAILED',
+  WARNING: 'WARNING',
 
   // Legacy Event Types (keeping for transition)
   BATCH_COMPLETED: 'batch_completed',

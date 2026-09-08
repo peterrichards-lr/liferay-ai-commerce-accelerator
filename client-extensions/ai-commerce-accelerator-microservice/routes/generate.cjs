@@ -12,6 +12,7 @@ const {
   validateGenerationRequest,
 } = require('../utils/validateGenerationRequest.cjs');
 const { evaluateGenerationRun } = require('../utils/channelSiteType.cjs');
+const { buildMediaSubflow } = require('../utils/mediaSubflow.cjs');
 
 const S = WORKFLOW_STEPS;
 
@@ -421,14 +422,7 @@ module.exports = (
             productSteps.push({ name: S.GENERATE_TIER_PRICING, type: 'sync' });
           }
 
-          productSteps.push({
-            type: 'parallel',
-            steps: [
-              { name: S.ATTACH_IMAGES, type: 'sync' },
-              { name: S.ATTACH_PDFS, type: 'sync' },
-              { name: S.UPDATE_INVENTORY, type: 'sync' },
-            ],
-          });
+          productSteps.push({ name: S.UPDATE_INVENTORY, type: 'sync' });
         }
 
         if (options.accountCount > 0) {
@@ -494,6 +488,10 @@ module.exports = (
             type: 'sequence',
             steps: orderSteps,
           });
+        }
+
+        if (options.productCount > 0) {
+          steps.push(buildMediaSubflow());
         }
 
         if (
