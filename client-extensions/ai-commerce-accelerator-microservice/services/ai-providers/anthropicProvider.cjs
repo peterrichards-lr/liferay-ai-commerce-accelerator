@@ -13,7 +13,7 @@ const DEFAULT_MAX_TOKENS = 16384;
 const MAX_CLIENTS = 10;
 
 const IMAGE_UNSUPPORTED_MESSAGE =
-  'Claude does not support image generation. Please configure a dedicated Media Provider (OpenAI DALL-E or NanoBanana).';
+  'Claude does not support image generation. Please configure a dedicated Media Provider (OpenAI).';
 
 class AnthropicProvider extends BaseAIProvider {
   constructor(ctx) {

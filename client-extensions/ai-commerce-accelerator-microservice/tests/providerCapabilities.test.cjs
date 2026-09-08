@@ -8,9 +8,18 @@ const {
 
 describe('provider capabilities', () => {
   describe('canGenerateImages', () => {
-    it.each(['openai', 'gemini', 'nanobanana', 'OpenAI'])(
-      'accepts %s',
-      (provider) => expect(canGenerateImages(provider)).toBe(true)
+    it.each(['openai', 'OpenAI'])('accepts %s', (provider) =>
+      expect(canGenerateImages(provider)).toBe(true)
+    );
+
+    // A provider belongs on the list when its generateImage returns an image,
+    // not when its vendor has a model that could. Both of these were listed
+    // and neither can: nanobanana returned the literal string
+    // BASE64_PLACEHOLDER_FOR_NANOBANANA and gemini throws 'not supported yet'.
+    // See #642.
+    it.each(['gemini', 'nanobanana'])(
+      'rejects %s, whose generateImage does not produce an image',
+      (provider) => expect(canGenerateImages(provider)).toBe(false)
     );
 
     it.each(['anthropic', 'Anthropic', undefined, ''])(
@@ -39,17 +48,40 @@ describe('provider capabilities', () => {
     it('flags Claude inheriting media, which cannot produce images', () => {
       const issue = mediaProviderIssue('anthropic', 'inherit');
       expect(issue).toMatch(/Anthropic Claude cannot generate images/);
-      expect(issue).toMatch(/OpenAI DALL-E or Nano Banana/);
+      expect(issue).toMatch(/OpenAI/);
     });
 
-    it('accepts Claude with a dedicated media provider', () => {
+    // It used to recommend "OpenAI DALL-E or Nano Banana": a retired model,
+    // and a provider that returns a placeholder string. Recommending
+    // something unusable is worse than saying nothing.
+    it('recommends nothing it cannot deliver', () => {
+      const issue = mediaProviderIssue('anthropic', 'inherit');
+      expect(issue).not.toMatch(/DALL/i);
+      expect(issue).not.toMatch(/Nano Banana/i);
+      expect(issue).not.toMatch(/Gemini/i);
+    });
+
+    it('accepts Claude with a dedicated media provider that works', () => {
       expect(mediaProviderIssue('anthropic', 'openai')).toBeNull();
-      expect(mediaProviderIssue('anthropic', 'nanobanana')).toBeNull();
+    });
+
+    it('flags Claude pointed at a provider that cannot generate images', () => {
+      expect(mediaProviderIssue('anthropic', 'nanobanana')).toMatch(
+        /cannot generate images/
+      );
+      expect(mediaProviderIssue('anthropic', 'gemini')).toMatch(
+        /cannot generate images/
+      );
     });
 
     it('accepts an image-capable core provider inheriting', () => {
       expect(mediaProviderIssue('openai', 'inherit')).toBeNull();
-      expect(mediaProviderIssue('gemini', 'inherit')).toBeNull();
+    });
+
+    it('flags a core provider that cannot generate images inheriting', () => {
+      expect(mediaProviderIssue('gemini', 'inherit')).toMatch(
+        /cannot generate images/
+      );
     });
   });
 

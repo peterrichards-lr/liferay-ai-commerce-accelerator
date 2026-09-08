@@ -10,8 +10,20 @@ describe('configuration provider capabilities', () => {
     expect(issue).toMatch(/Anthropic Claude cannot generate images/);
   });
 
-  it('accepts Claude with a dedicated media provider', () => {
-    expect(mediaProviderIssue('anthropic', 'nanobanana')).toBeNull();
+  it('accepts Claude with a dedicated media provider that works', () => {
+    expect(mediaProviderIssue('anthropic', 'openai')).toBeNull();
+  });
+
+  // Both were advertised as image-capable and neither produces an image:
+  // nanobanana returned a placeholder string, gemini throws 'not supported
+  // yet'. See #642.
+  it('flags a dedicated media provider that cannot generate images', () => {
+    expect(mediaProviderIssue('anthropic', 'nanobanana')).toMatch(
+      /cannot generate images/
+    );
+    expect(mediaProviderIssue('anthropic', 'gemini')).toMatch(
+      /cannot generate images/
+    );
   });
 
   it('accepts an image-capable core provider inheriting', () => {

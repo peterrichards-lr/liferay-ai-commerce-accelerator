@@ -26,10 +26,13 @@ export default function AiSettingsPanel({
     { label: 'Anthropic Claude', value: 'anthropic' },
   ];
 
+  // Only providers that actually generate an image. Nano Banana returned a
+  // placeholder string and Gemini throws 'not supported yet', so offering
+  // either lost the operator a run (#642). DALL-E is retired; the OpenAI path
+  // uses gpt-image-2.
   const mediaProviders = [
     { label: 'Same as Core AI', value: 'inherit' },
-    { label: 'OpenAI (DALL·E)', value: 'openai' },
-    { label: 'Nano Banana', value: 'nanobanana' },
+    { label: 'OpenAI', value: 'openai' },
   ];
 
   const providers = type === 'media' ? mediaProviders : textProviders;
