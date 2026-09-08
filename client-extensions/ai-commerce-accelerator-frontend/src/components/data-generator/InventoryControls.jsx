@@ -2,12 +2,15 @@ import React from 'react';
 import ClayIcon from '@clayui/icon';
 import ClayForm, { ClayInput } from '@clayui/form';
 import FieldError from '../ui/FieldError';
+import CheckboxField from '../ui/CheckboxField';
 
 function InventoryControls({
   productCount,
   inventoryMin,
   inventoryMax,
   inventoryAssignmentRatio,
+  enableBackorders,
+  backorderAssignmentRatio,
   onChange,
   disabled,
   validationErrors,
@@ -102,12 +105,64 @@ function InventoryControls({
         </div>
       </div>
 
+      <div className="form-row gx-4 gy-4 mt-3">
+        <div className="form-col">
+          <CheckboxField
+            id="dg_enableBackorders"
+            checked={enableBackorders !== false}
+            onChange={(v) => onChange('enableBackorders', v)}
+            disabled={disabled || productCount === 0}
+            label="Enable Backorders"
+            muted={productCount === 0}
+          />
+        </div>
+
+        {enableBackorders !== false && (
+          <div className="form-col">
+            <div className="form-group mb-0">
+              <label
+                htmlFor="dg_backorderAssignmentRatio"
+                className="form-label font-weight-semi-bold"
+              >
+                Allow Backorders On ({backorderAssignmentRatio ?? 0}%)
+              </label>
+              <input
+                id="dg_backorderAssignmentRatio"
+                type="range"
+                className="form-control-range"
+                min="0"
+                max="100"
+                step="10"
+                value={backorderAssignmentRatio ?? 0}
+                onChange={(e) =>
+                  onChange('backorderAssignmentRatio', parseInt(e.target.value))
+                }
+                disabled={disabled || productCount === 0}
+              />
+              {hasErr('backorderAssignmentRatio') && (
+                <FieldError
+                  errors={validationErrors.backorderAssignmentRatio}
+                />
+              )}
+            </div>
+          </div>
+        )}
+      </div>
+
       <div className="mt-3">
         <small className="help-text text-muted">
           Each SKU of a selected product is given a random quantity between Min
           and Max in one of the run&apos;s warehouses. Products are left with no
           inventory when the instance has no warehouses.
         </small>
+        {enableBackorders !== false && (backorderAssignmentRatio ?? 0) > 0 && (
+          <small className="help-text text-muted d-block mt-2">
+            Products allowing backorders are stocked low on purpose, and one is
+            left at zero, so the backorder can actually be seen. A
+            backorder-enabled product holding hundreds of units never
+            demonstrates one.
+          </small>
+        )}
       </div>
     </div>
   );

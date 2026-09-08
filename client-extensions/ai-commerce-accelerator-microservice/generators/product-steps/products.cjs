@@ -54,7 +54,8 @@ async function runProductCreationStep(sessionId) {
         // anyway: the SKU path defaults the same field the other way, and
         // leaving either side to a platform default is how #681 happened.
         ...expiryFields,
-        // Sent on the first product only, and deliberately so.
+        // The tax configuration below is sent on the first product only, and
+        // deliberately so.
         //
         // Liferay applies this to the definition's MASTER configuration entry
         // (ProductResourceImpl._updateNestedResources), and
@@ -72,16 +73,33 @@ async function runProductCreationStep(sessionId) {
         // threshold rather than removing it.
         //
         // One write applies the same value with no second writer to race.
-        ...(productIndex === 0
-          ? {
-              productConfiguration: {
+        //
+        // `allowBackOrder` goes on every product; the tax configuration still
+        // goes on the first alone. They live in the same object and are stored
+        // quite differently, which is the whole point:
+        //
+        //   GET .../products/{id}?nestedFields=productConfiguration
+        //     allowBackOrder              true / false, independently per product
+        //     id                          34962 / 34980  - its own persisted row
+        //     entityExternalReferenceCode the product's own ERC
+        //     productTaxConfiguration.id  0 on both - no per-product row
+        //
+        // Read off two products in a live instance. The flat fields are keyed
+        // to the product, so fifty concurrent writes touch fifty rows and have
+        // nothing to contend on. The nested tax configuration is the shared
+        // CPConfigurationEntrySetting the comment above describes, so it keeps
+        // the one-write guard (#695, #667).
+        productConfiguration: {
+          allowBackOrder: pd.allowBackOrder === true,
+          ...(productIndex === 0
+            ? {
                 productTaxConfiguration: {
                   taxCategory: 'Standard',
                   taxable: true,
                 },
-              },
-            }
-          : {}),
+              }
+            : {}),
+        },
         externalReferenceCode: pd.externalReferenceCode,
         // `{ id: undefined }` serialises to `{}`, which Liferay rejects for the
         // whole product - "/categories/0 must have required property 'id'" - so

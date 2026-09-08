@@ -4,6 +4,7 @@ const {
   resolveErrorReference,
 } = require('../../utils/misc.cjs');
 const { ERC_PREFIX, WORKFLOW_STEPS } = require('../../utils/constants.cjs');
+const { markBackorderShare } = require('../../utils/backorderShare.cjs');
 
 const S = WORKFLOW_STEPS;
 
@@ -81,8 +82,14 @@ async function runProductDataGenerationStep(sessionId) {
         `Product generation returned 0 products for requested count of ${options.productCount}.`
       );
     }
+    // Marked once, here, where the list is first assembled. The product step
+    // sends the flag and the inventory step caps the stock of the products
+    // carrying it; recomputing the share in either would agree only while the
+    // rule, the list and the ratio stayed identical in both places (#695).
     await this.persistence.updateSessionContext(sessionId, {
-      productDataList: allData,
+      productDataList: markBackorderShare(allData, options, {
+        logger: this.logger,
+      }),
     });
     await this.completeSyncStep(
       sessionId,

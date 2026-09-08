@@ -750,6 +750,10 @@ function DataGeneratorForm({
                       inventoryAssignmentRatio={
                         generationConfig.inventoryAssignmentRatio
                       }
+                      enableBackorders={generationConfig.enableBackorders}
+                      backorderAssignmentRatio={
+                        generationConfig.backorderAssignmentRatio
+                      }
                       onChange={handleConfigChange}
                       disabled={
                         lockFields || generationConfig.productCount === 0

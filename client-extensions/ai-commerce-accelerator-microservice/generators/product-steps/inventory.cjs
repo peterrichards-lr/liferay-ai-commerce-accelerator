@@ -11,6 +11,7 @@ const {
 const {
   runRequestsInventory,
 } = require('../../utils/inventoryFeasibility.cjs');
+const { inventoryBoundsFor } = require('../../utils/backorderShare.cjs');
 
 const S = WORKFLOW_STEPS;
 
@@ -78,11 +79,7 @@ async function runUpdateInventoryStep(sessionId) {
     await delay(3000);
 
     const inventoryItems = [];
-    const {
-      inventoryMin = 10,
-      inventoryMax = 100,
-      inventoryAssignmentRatio = 100,
-    } = options;
+    const { inventoryAssignmentRatio = 100 } = options;
 
     // A dice roll per product made even the count vary: at 50% over 50
     // products, anywhere from roughly 18 to 32, and a different set every run.
@@ -100,8 +97,24 @@ async function runUpdateInventoryStep(sessionId) {
       { sessionId }
     );
 
+    // A backorder-enabled product holding a thousand units never demonstrates
+    // a backorder, so the products carrying allowBackOrder are capped - and
+    // the first of them is put at zero, so the state is always there to see
+    // rather than dependent on a random draw (#695). The flag is read off the
+    // product data rather than recomputed, so it is the same decision the
+    // product step sent to Liferay.
+    let seenBackorder = false;
+
     for (const pd of stockedProducts) {
+      const isFirstBackorder = Boolean(pd.allowBackOrder) && !seenBackorder;
+
+      if (pd.allowBackOrder) {
+        seenBackorder = true;
+      }
+
+      const bounds = inventoryBoundsFor(pd, options, { isFirstBackorder });
       const allSkus = [...(pd.skus || []), ...(pd.skuVariants || [])];
+
       for (const sku of allSkus) {
         if (!sku.sku) continue;
 
@@ -112,8 +125,8 @@ async function runUpdateInventoryStep(sessionId) {
         inventoryItems.push({
           sku: sku.sku,
           quantity:
-            Math.floor(Math.random() * (inventoryMax - inventoryMin + 1)) +
-            inventoryMin,
+            Math.floor(Math.random() * (bounds.max - bounds.min + 1)) +
+            bounds.min,
           warehouseId: warehouse.id,
         });
       }

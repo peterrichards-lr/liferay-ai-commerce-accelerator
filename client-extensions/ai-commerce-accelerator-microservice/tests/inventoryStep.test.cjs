@@ -150,6 +150,50 @@ describe('update-inventory payloads', () => {
     );
   });
 
+  // The helper is unit-tested; this proves the cap reaches the payload Liferay
+  // is actually sent, which is the part that matters (#695).
+  describe('a backorder product is stocked low enough to demonstrate one', () => {
+    it('caps the quantity of a product allowing backorders', async () => {
+      session.context.options.inventoryMin = 500;
+      session.context.options.inventoryMax = 1000;
+      session.context.productDataList = [
+        {
+          allowBackOrder: false,
+          externalReferenceCode: 'ERC-PLAIN',
+          name: { en_US: 'Plain' },
+          skus: [{ sku: 'PLAIN-1' }],
+        },
+        {
+          allowBackOrder: true,
+          externalReferenceCode: 'ERC-BACKORDER',
+          name: { en_US: 'Backorder' },
+          skus: [{ sku: 'BACKORDER-1' }],
+        },
+        {
+          allowBackOrder: true,
+          externalReferenceCode: 'ERC-BACKORDER-2',
+          name: { en_US: 'Backorder 2' },
+          skus: [{ sku: 'BACKORDER-2' }],
+        },
+      ];
+
+      await runStep();
+
+      const bySku = Object.fromEntries(
+        posted.map(({ item }) => [item.sku, item.quantity])
+      );
+
+      // Left on the configured range.
+      expect(bySku['PLAIN-1']).toBeGreaterThanOrEqual(500);
+
+      // The first backorder product is zero, so the state is always visible.
+      expect(bySku['BACKORDER-1']).toBe(0);
+
+      // The rest are capped rather than zeroed.
+      expect(bySku['BACKORDER-2']).toBeLessThanOrEqual(5);
+    });
+  });
+
   it('writes one item per base SKU and per variant of a selected product', async () => {
     await runStep();
 

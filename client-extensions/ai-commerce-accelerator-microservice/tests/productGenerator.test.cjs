@@ -245,7 +245,19 @@ describe('ProductGenerator Workflow Steps', () => {
     const sentPayloads = () =>
       mockLiferay.createProductsBatch.mock.calls.flatMap(([, chunk]) => chunk);
 
-    it('sends the shared configuration on exactly one product', async () => {
+    // The guard is aimed at the *shared row*, not at productConfiguration as a
+    // whole. Read off two products in a live instance: the flat fields are
+    // keyed to the product - distinct configuration ids, allowBackOrder true on
+    // one and false on the other - while productTaxConfiguration comes back
+    // with id 0 on both, no per-product row. So the flat fields can be sent
+    // fifty times to fifty rows, and the tax configuration is the one that
+    // must be written once. See #695.
+    const taxCarrying = () =>
+      sentPayloads().filter(
+        (p) => p.productConfiguration?.productTaxConfiguration
+      );
+
+    it('sends the shared tax configuration on exactly one product', async () => {
       mockSession.context.productDataList = Array.from({ length: 5 }, (_, i) =>
         productFixture(i)
       );
@@ -255,26 +267,48 @@ describe('ProductGenerator Workflow Steps', () => {
       const payloads = sentPayloads();
       expect(payloads).toHaveLength(5);
 
-      const carrying = payloads.filter((p) => p.productConfiguration);
+      const carrying = taxCarrying();
       expect(carrying).toHaveLength(1);
-      expect(carrying[0].productConfiguration).toEqual({
-        productTaxConfiguration: { taxCategory: 'Standard', taxable: true },
+      expect(carrying[0].productConfiguration.productTaxConfiguration).toEqual({
+        taxCategory: 'Standard',
+        taxable: true,
       });
     });
 
-    it('still sends it when there is only one product', async () => {
+    it('sends the per-product fields on every product', async () => {
+      // Not the shared row, so withholding these would leave 49 products
+      // without a setting the run asked for.
+      mockSession.context.productDataList = Array.from({ length: 5 }, (_, i) =>
+        productFixture(i)
+      );
+
+      await productGenerator.steps[WORKFLOW_STEPS.CREATE_PRODUCTS]('sess-123');
+
+      const payloads = sentPayloads();
+
+      expect(payloads.filter((p) => p.productConfiguration)).toHaveLength(5);
+      payloads.forEach((p) =>
+        expect(p.productConfiguration.allowBackOrder).toBe(false)
+      );
+      // Only the first carries the shared half.
+      payloads
+        .slice(1)
+        .forEach((p) =>
+          expect(p.productConfiguration.productTaxConfiguration).toBeUndefined()
+        );
+    });
+
+    it('still sends the tax configuration when there is only one product', async () => {
       mockSession.context.productDataList = [productFixture(0)];
 
       await productGenerator.steps[WORKFLOW_STEPS.CREATE_PRODUCTS]('sess-123');
 
-      expect(sentPayloads().filter((p) => p.productConfiguration)).toHaveLength(
-        1
-      );
+      expect(taxCarrying()).toHaveLength(1);
     });
 
     it('does not depend on how the products are split into batches', async () => {
       // The guarantee has to hold per run, not per batch: two batches each
-      // carrying the configuration would race exactly as before.
+      // carrying the shared configuration would race exactly as before.
       mockSession.context.config.batchSize = 2;
       mockSession.context.productDataList = Array.from({ length: 7 }, (_, i) =>
         productFixture(i)
@@ -285,9 +319,7 @@ describe('ProductGenerator Workflow Steps', () => {
       expect(mockLiferay.createProductsBatch.mock.calls.length).toBeGreaterThan(
         1
       );
-      expect(sentPayloads().filter((p) => p.productConfiguration)).toHaveLength(
-        1
-      );
+      expect(taxCarrying()).toHaveLength(1);
     });
   });
 
