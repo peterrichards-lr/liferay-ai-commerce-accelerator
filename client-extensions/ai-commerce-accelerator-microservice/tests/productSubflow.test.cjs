@@ -4,6 +4,7 @@ const generateRoute = require('../routes/generate.cjs');
 const ProductGenerator = require('../generators/productGenerator.cjs');
 const { WORKFLOW_STEPS } = require('../utils/constants.cjs');
 const {
+  pricingSteps,
   specificationSteps,
   warehouseCreationSteps,
 } = require('../utils/productSubflow.cjs');
@@ -58,6 +59,63 @@ describe('specificationSteps', () => {
     ['nothing was said at all', {}],
   ])('registers none when %s', (_label, options) => {
     expect(specificationSteps(options)).toEqual([]);
+  });
+});
+
+describe('pricingSteps', () => {
+  it('writes prices only when the toggle is on', () => {
+    expect(pricingSteps({ generatePriceLists: true })).toEqual([
+      { name: S.GENERATE_PRICE_LISTS, type: 'sync' },
+      { name: S.UPDATE_CATALOG_CONFIG, type: 'sync' },
+    ]);
+  });
+
+  it.each([
+    ['the toggle is off', { generatePriceLists: false }],
+    ['nothing was said at all', {}],
+  ])('writes no price entries when %s', (_label, options) => {
+    expect(pricingSteps(options)).not.toContainEqual({
+      name: S.GENERATE_PRICE_LISTS,
+      type: 'sync',
+    });
+  });
+
+  it('adds the bulk and tier steps the form nests under the toggle', () => {
+    expect(
+      pricingSteps({
+        generatePriceLists: true,
+        generateBulkPricing: true,
+        generateTierPricing: true,
+      })
+    ).toEqual([
+      { name: S.GENERATE_PRICE_LISTS, type: 'sync' },
+      { name: S.UPDATE_CATALOG_CONFIG, type: 'sync' },
+      { name: S.GENERATE_BULK_PRICING, type: 'sync' },
+      { name: S.GENERATE_TIER_PRICING, type: 'sync' },
+    ]);
+  });
+
+  it('drops the nested bulk and tier steps with their parent', () => {
+    expect(
+      pricingSteps({
+        generatePriceLists: false,
+        generateBulkPricing: true,
+        generateTierPricing: true,
+      })
+    ).toEqual([{ name: S.UPDATE_CATALOG_CONFIG, type: 'sync' }]);
+  });
+
+  it('always keeps the catalog pointed at its own base price list', () => {
+    for (const options of [
+      { generatePriceLists: true },
+      { generatePriceLists: false },
+      {},
+    ]) {
+      expect(pricingSteps(options)).toContainEqual({
+        name: S.UPDATE_CATALOG_CONFIG,
+        type: 'sync',
+      });
+    }
   });
 });
 
@@ -164,6 +222,35 @@ describe('Generation toggles gate the steps they name', () => {
     expect(off).toContain(S.ENSURE_OPTIONS);
   });
 
+  it('writes price entries only when asked to', async () => {
+    expect(
+      await runRoute({
+        ...allOn,
+        generatePriceLists: 'true',
+        generateBulkPricing: 'true',
+        generateTierPricing: 'true',
+      })
+    ).toEqual(
+      expect.arrayContaining([
+        S.GENERATE_PRICE_LISTS,
+        S.GENERATE_BULK_PRICING,
+        S.GENERATE_TIER_PRICING,
+      ])
+    );
+
+    const off = await runRoute({
+      ...allOn,
+      generatePriceLists: 'false',
+      generateBulkPricing: 'true',
+      generateTierPricing: 'true',
+    });
+
+    expect(off).not.toContain(S.GENERATE_PRICE_LISTS);
+    expect(off).not.toContain(S.GENERATE_BULK_PRICING);
+    expect(off).not.toContain(S.GENERATE_TIER_PRICING);
+    expect(off).toContain(S.UPDATE_CATALOG_CONFIG);
+  });
+
   it('leaves the rest of the product subflow alone when everything is off', async () => {
     const off = await runRoute({
       ...allOn,
@@ -182,7 +269,7 @@ describe('Generation toggles gate the steps they name', () => {
       S.CREATE_PRODUCT_SKUS,
       S.RESOLVE_SKU_IDS,
       S.SYNC_DELAY_PRICING,
-      S.GENERATE_PRICE_LISTS,
+      S.UPDATE_CATALOG_CONFIG,
       S.UPDATE_INVENTORY,
       S.ATTACH_IMAGES,
       S.ATTACH_PDFS,
