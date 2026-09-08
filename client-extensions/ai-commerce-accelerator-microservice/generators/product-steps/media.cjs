@@ -7,20 +7,31 @@ const { ERC_PREFIX, WORKFLOW_STEPS } = require('../../utils/constants.cjs');
 
 const S = WORKFLOW_STEPS;
 
-const MEDIA_STEPS = {
-  [S.ATTACH_IMAGES]: {
-    entityType: 'images',
-    contextKey: 'createdImages',
-    attach: (media, config, productDataList, options) =>
-      media.createImages(config, productDataList, options),
-  },
-  [S.ATTACH_PDFS]: {
-    entityType: 'pdfs',
-    contextKey: 'createdPdfs',
-    attach: (media, config, productDataList, options) =>
-      media.createPdfs(config, productDataList, options),
-  },
-};
+// A media-only run (#676) narrows each step to the products actually missing
+// that kind of media, which is not the same set for images and PDFs. Absent
+// those keys the step covers every product, as the generate flow expects.
+const MEDIA_STEPS = new Map([
+  [
+    S.ATTACH_IMAGES,
+    {
+      entityType: 'images',
+      contextKey: 'createdImages',
+      scopedProducts: (context) => context.imageProductDataList,
+      attach: (media, config, products, options) =>
+        media.createImages(config, products, options),
+    },
+  ],
+  [
+    S.ATTACH_PDFS,
+    {
+      entityType: 'pdfs',
+      contextKey: 'createdPdfs',
+      scopedProducts: (context) => context.pdfProductDataList,
+      attach: (media, config, products, options) =>
+        media.createPdfs(config, products, options),
+    },
+  ],
+]);
 
 /**
  * Media is decoration: nothing downstream reads what it produces, and #676 adds
@@ -31,20 +42,17 @@ const MEDIA_STEPS = {
  * rather than failing the whole session.
  */
 async function runMediaStep(sessionId, stepKey) {
-  const { entityType, contextKey, attach } = MEDIA_STEPS[stepKey];
+  const { entityType, contextKey, scopedProducts, attach } =
+    MEDIA_STEPS.get(stepKey);
   const session = await this.persistence.getSession(sessionId);
   const { config, options, productDataList } = session.context;
+  const products = scopedProducts(session.context) || productDataList || [];
 
   try {
-    const created = await attach(
-      this.ctx.media,
-      config,
-      productDataList || [],
-      {
-        ...options,
-        sessionId,
-      }
-    );
+    const created = await attach(this.ctx.media, config, products, {
+      ...options,
+      sessionId,
+    });
 
     await this.persistence.updateSessionContext(sessionId, {
       [contextKey]: created || [],

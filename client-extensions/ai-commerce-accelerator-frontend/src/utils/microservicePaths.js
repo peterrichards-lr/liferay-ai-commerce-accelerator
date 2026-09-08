@@ -26,6 +26,7 @@ const GET_CATEGORIES = `${CONFIG_PATH}/categories`;
 
 const WORKFLOW = 'workflow';
 const GENERATE_WORKFLOW = `${GENERATE_PATH}/${WORKFLOW}`;
+const GENERATE_MEDIA = `${GENERATE_PATH}/media`;
 
 const WORKFLOW_SESSIONS = `${BASE_PATH}/workflows/sessions`;
 const COMPLETED_WORKFLOW_SESSIONS = `${BASE_PATH}/workflows/sessions/completed`;
@@ -61,6 +62,7 @@ export {
   CONFIG_HEALTH,
   HEALTH,
   HEALTH_DETAILED,
+  GENERATE_MEDIA,
   GENERATE_WORKFLOW,
   WORKFLOW_CANCEL,
   WORKFLOW_SESSIONS,

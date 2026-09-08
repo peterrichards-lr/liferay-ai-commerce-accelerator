@@ -21,6 +21,7 @@ const INTERNAL_API_PATHS = {
   DELETE_COMMERCE_DATA: '/delete-commerce-data',
   DELETE_SELECTED_COMMERCE_DATA: '/delete-selected-commerce-data',
   EXPORT_COMMERCE_DATA: '/export-commerce-data',
+  GENERATE_MEDIA: '/generate/media',
   GENERATE_WORKFLOW: '/generate/workflow',
   GET_CATALOGS: '/get-catalogs',
   GET_CHANNELS: '/get-channels',
