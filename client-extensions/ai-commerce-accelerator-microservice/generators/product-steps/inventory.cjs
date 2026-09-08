@@ -18,8 +18,26 @@ async function runUpdateInventoryStep(sessionId) {
   const session = await this.persistence.getSession(sessionId);
   const { config, options, productDataList } = session.context;
 
-  // Hard-resolving warehouses to ensure we have IDs and ERCs
-  const { items: warehouses } = await this.liferay.getWarehouses(config);
+  // The warehouses this run is entitled to stock, which is not the same as
+  // every warehouse in the instance.
+  //
+  // `warehouseDataList` is the run's own set: the ones it created, plus the
+  // ones it adopted when reusing. Turning reuse off means the existing
+  // warehouses were deliberately not adopted, so stock must not be scattered
+  // into them - a run asked for a fresh set of five wants its inventory in
+  // those five, not spread over the seven that now exist (#730).
+  //
+  // An empty set falls back to the instance, which is the case where the run
+  // created no warehouses at all: "use only the ones already there". That is
+  // the behaviour #664 and #692 added deliberately, so an order-only run
+  // against a second channel still finds availability behind its products.
+  const runWarehouses = (session.context.warehouseDataList || []).filter(
+    (warehouse) => warehouse?.id
+  );
+
+  const warehouses = runWarehouses.length
+    ? runWarehouses
+    : (await this.liferay.getWarehouses(config))?.items;
 
   if (!warehouses || warehouses.length === 0) {
     // BYPASSED means a live query confirmed there was nothing to do (#699).

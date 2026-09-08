@@ -731,6 +731,8 @@ function DataGeneratorForm({
                   productCount={generationConfig.productCount}
                   values={{
                     createWarehouses: generationConfig.createWarehouses,
+                    reuseExistingWarehouses:
+                      generationConfig.reuseExistingWarehouses,
                     warehouseCount: generationConfig.warehouseCount,
                   }}
                   onChange={handleConfigChange}

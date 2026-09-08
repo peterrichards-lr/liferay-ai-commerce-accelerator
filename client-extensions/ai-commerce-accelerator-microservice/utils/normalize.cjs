@@ -106,6 +106,7 @@ function buildConfigAndOptions(req) {
     clientId,
     clientSecret,
     createWarehouses,
+    reuseExistingWarehouses,
     currencyCode,
     demoMode,
     businessAccountRatio,
@@ -257,6 +258,15 @@ function buildConfigAndOptions(req) {
   options.pdfRatio = toPercentage(pdfRatio, { field: 'pdfRatio', logger }) || 0;
   options.seedPack = seedPack || undefined;
   options.createWarehouses = toBoolean(createWarehouses);
+  // Restored in #730. Removed as redundant in #692 on the grounds that
+  // unchecking createWarehouses *is* "reuse existing", which is true for two
+  // of the three states an operator needs and silently loses the third:
+  // create only the shortfall. Its original default was true - the CLI read
+  // `opts.reuseExistingWarehouses !== false` - and true is the
+  // non-duplicating choice, so absent keeps meaning true.
+  options.reuseExistingWarehouses =
+    reuseExistingWarehouses !== false &&
+    String(reuseExistingWarehouses) !== 'false';
   options.warehouseCount = toNumber(warehouseCount);
   options.customImageFile = getCustomImage(req, options.imageMode);
   options.customPdfFile = getCustomPdf(req, options.pdfMode);
