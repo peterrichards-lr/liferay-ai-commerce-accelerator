@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   channelOptionLabel,
   channelSiteTypeSuffix,
+  defaultAccountTypeFor,
   evaluateAccountType,
 } from './channelSiteType';
 
@@ -125,5 +126,71 @@ describe('evaluateAccountType', () => {
 
   it('says nothing when the channel was not annotated', () => {
     expect(evaluateAccountType('business', UNANNOTATED).outcome).toBe('ok');
+  });
+});
+
+describe('defaultAccountTypeFor', () => {
+  // The app defaulted to 'business' whatever the channel, and an unconfigured
+  // channel defaults to B2C — so the form opened on a pair the microservice
+  // refuses. The default has to come from the channel (#640).
+  it('gives person for a channel with no site type set, which Liferay treats as B2C', () => {
+    expect(defaultAccountTypeFor({ siteTypeStatus: 'NOT_CONFIGURED' })).toBe(
+      'person'
+    );
+  });
+
+  it('gives business for a B2B channel', () => {
+    expect(
+      defaultAccountTypeFor({
+        siteTypeStatus: 'CONFIGURED',
+        allowedAccountTypes: ['business'],
+      })
+    ).toBe('business');
+  });
+
+  it('gives person for a B2C channel', () => {
+    expect(
+      defaultAccountTypeFor({
+        siteTypeStatus: 'CONFIGURED',
+        allowedAccountTypes: ['person'],
+      })
+    ).toBe('person');
+  });
+
+  it('gives mixed for a channel that holds both', () => {
+    expect(
+      defaultAccountTypeFor({
+        siteTypeStatus: 'CONFIGURED',
+        allowedAccountTypes: ['business', 'person'],
+      })
+    ).toBe('mixed');
+  });
+
+  // Nothing is claimed about an unreadable site type anywhere else in this
+  // module, and guessing here would replace a deliberate choice with a coin
+  // toss.
+  it('proposes nothing when the site type could not be read', () => {
+    expect(
+      defaultAccountTypeFor({ siteTypeStatus: 'UNRECOGNISED' })
+    ).toBeNull();
+    expect(defaultAccountTypeFor({})).toBeNull();
+    expect(defaultAccountTypeFor(null)).toBeNull();
+  });
+
+  // Whatever it proposes must survive the check that runs next to it.
+  it.each([
+    [{ siteTypeStatus: 'NOT_CONFIGURED' }],
+    [{ siteTypeStatus: 'CONFIGURED', allowedAccountTypes: ['business'] }],
+    [{ siteTypeStatus: 'CONFIGURED', allowedAccountTypes: ['person'] }],
+    [
+      {
+        siteTypeStatus: 'CONFIGURED',
+        allowedAccountTypes: ['business', 'person'],
+      },
+    ],
+  ])('proposes an account type the same channel accepts: %j', (channel) => {
+    const proposed = defaultAccountTypeFor(channel);
+
+    expect(evaluateAccountType(proposed, channel).outcome).toBe('ok');
   });
 });
