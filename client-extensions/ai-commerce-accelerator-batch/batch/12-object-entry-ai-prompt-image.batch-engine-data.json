@@ -1,0 +1,24 @@
+{
+    "configuration": {
+        "className": "com.liferay.object.rest.dto.v1_0.ObjectEntry",
+        "parameters": {
+            "containsHeaders": "true",
+            "createStrategy": "UPSERT",
+            "onErrorFail": "false",
+            "taskItemDelegateName": "C_AICAConfiguration",
+            "updateStrategy": "UPDATE"
+        },
+        "taskItemDelegateName": "C_AICAConfiguration"
+    },
+    "items": [
+        {
+            "configKey": "ai-prompt-image",
+            "configStatus": {
+                "key": "Active"
+            },
+            "configValue": "A high-quality, professional product photograph of a {{productName}}.\n\nStyle: {{imageStyle}} on a clean, uncluttered background.\n\n{{brandGuidance}}\n\n{{categoryGuidance}}\n",
+            "description": "AI Prompt for Image",
+            "externalReferenceCode": "AI-PROMPT-IMAGE"
+        }
+    ]
+}
