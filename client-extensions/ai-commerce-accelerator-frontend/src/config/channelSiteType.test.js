@@ -84,13 +84,39 @@ describe('evaluateAccountType', () => {
     expect(message).toContain('person');
   });
 
-  it('warns rather than flags when the site type is unset', () => {
-    // Decisive: UNSET reports the label 'B2C', so trusting the label over the
-    // status would flag every business run against a freshly created channel.
+  // An unset site type is not unknown: siteType comes through Liferay's
+  // fallback and defaults to 0, so the effective type is B2C and Liferay
+  // behaves that way. Warning and proceeding produced exactly the unusable
+  // data this check exists to prevent (#640).
+  it('flags business accounts against an unset site type, which defaults to B2C', () => {
     const { message, outcome } = evaluateAccountType('business', UNSET);
 
-    expect(outcome).toBe('warn');
+    expect(outcome).toBe('block');
+    // Worded as a default, not a choice.
     expect(message).toContain('no commerce site type set');
+    expect(message).toContain('defaults it to B2C');
+    expect(message).toContain('business');
+  });
+
+  it('accepts person accounts against an unset site type, since B2C takes them', () => {
+    expect(evaluateAccountType('person', UNSET).outcome).toBe('ok');
+  });
+
+  it('flags mixed accounts against an unset site type', () => {
+    expect(evaluateAccountType('mixed', UNSET).outcome).toBe('block');
+  });
+
+  it('says nothing when an unset type reports a value that is not the default', () => {
+    // A contradiction is not something to act on.
+    expect(
+      evaluateAccountType('business', { ...UNSET, siteType: 1 }).outcome
+    ).toBe('ok');
+  });
+
+  it('treats an absent site type as the default it falls back to', () => {
+    expect(
+      evaluateAccountType('business', { ...UNSET, siteType: undefined }).outcome
+    ).toBe('block');
   });
 
   it('says nothing when no channel is selected', () => {

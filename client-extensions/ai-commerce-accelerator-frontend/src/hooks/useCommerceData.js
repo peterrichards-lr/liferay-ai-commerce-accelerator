@@ -114,6 +114,17 @@ export default function useCommerceData({
             `Created default channel: ${res.channel.name} (ID: ${res.channel.id})`,
             'info'
           );
+          // Nothing in Headless can set the commerce site type - that is #622,
+          // and the reason the commerce-site-type module exists to *read* it.
+          // So a channel created here is always unset, which Liferay defaults
+          // to B2C, and business or mixed account runs against it are refused
+          // (#640). Better said now than discovered when a run is refused.
+          addLog(
+            'This channel has no commerce site type set, so Liferay treats it as B2C. ' +
+              'To generate business accounts against it, set the site type in ' +
+              'Commerce → Channels first.',
+            'warning'
+          );
         }
         await loadRootLists();
       } else {
