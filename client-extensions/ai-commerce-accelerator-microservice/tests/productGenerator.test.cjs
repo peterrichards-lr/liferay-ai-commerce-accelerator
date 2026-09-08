@@ -25,6 +25,12 @@ describe('ProductGenerator Workflow Steps', () => {
       getProductsByERC: vi.fn().mockResolvedValue({
         items: [{ id: 'p-1', externalReferenceCode: 'ERC1' }],
       }),
+      resolveByERCsWithRetry: vi
+        .fn()
+        .mockImplementation(async (cfg, ercs, fetcher) => {
+          const res = await fetcher(cfg, ercs);
+          return res?.items || res || [];
+        }),
       patchPriceList: vi.fn().mockResolvedValue({}),
       patchCatalog: vi.fn().mockResolvedValue({}),
       createPriceEntriesBatch: vi
@@ -93,6 +99,57 @@ describe('ProductGenerator Workflow Steps', () => {
       },
     };
     mockPersistence.getSession.mockResolvedValue(mockSession);
+  });
+
+  describe('Workflow Step: Resolve Product IDs', () => {
+    // A Liferay product carries two ids: `id` is the CProduct, `productId` the
+    // CPDefinition. Every product-scoped path takes the definition id, and
+    // this step used to ask for `id` alone - so the definition id was never
+    // fetched, the option read-back 404ed, and every SKU came out inactive
+    // (#748).
+    const resolveIds = () =>
+      productGenerator.steps[WORKFLOW_STEPS.RESOLVE_PRODUCT_IDS]('sess-123');
+
+    beforeEach(() => {
+      mockLiferay.getProductsByERC.mockResolvedValue({
+        items: [{ id: 41289, productId: 41290, externalReferenceCode: 'ERC1' }],
+      });
+    });
+
+    it('asks Liferay for the definition id, not just the CProduct id', async () => {
+      await resolveIds();
+
+      expect(mockLiferay.getProductsByERC).toHaveBeenCalledWith(
+        expect.anything(),
+        expect.anything(),
+        expect.arrayContaining(['id', 'productId', 'externalReferenceCode'])
+      );
+    });
+
+    it('stores both ids under names that say which is which', async () => {
+      await resolveIds();
+
+      const [[, patch]] = mockPersistence.updateSessionContext.mock.calls;
+      const [product] = patch.productDataList;
+
+      expect(product.cProductId).toBe(41289);
+      expect(product.cpDefinitionId).toBe(41290);
+    });
+
+    it('warns when Liferay resolved a product without a definition id', async () => {
+      // Without it the next steps read an empty or missing product rather than
+      // failing, so the cause has to be reported where it is still visible.
+      mockLiferay.getProductsByERC.mockResolvedValue({
+        items: [{ id: 41289, externalReferenceCode: 'ERC1' }],
+      });
+
+      await resolveIds();
+
+      expect(mockLogger.warn).toHaveBeenCalledWith(
+        expect.stringContaining('without a definition id'),
+        expect.anything()
+      );
+    });
   });
 
   describe('Workflow Step: Ensure Specifications', () => {

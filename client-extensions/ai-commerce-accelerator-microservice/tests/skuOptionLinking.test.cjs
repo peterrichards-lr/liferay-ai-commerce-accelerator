@@ -18,7 +18,12 @@ describe('SKU option links', () => {
   let submitted;
 
   const product = () => ({
+    // Liferay reports both: `id` is the CProduct, `productId` the
+    // CPDefinition. Only the definition id addresses a product-scoped path,
+    // and resolve-product-ids stores both under explicit names (#748).
     id: 71551,
+    cProductId: 71551,
+    cpDefinitionId: 71552,
     externalReferenceCode: 'ERC1',
     name: { en_US: 'Trail Runner 500' },
     options: [
@@ -141,11 +146,45 @@ describe('SKU option links', () => {
 
     await runToSkus();
 
+    // The definition id, not the CProduct id. This assertion previously named
+    // 71551 and so encoded the bug: in production that id 404s on every
+    // product-scoped path, the read-back never returned, and every SKU came
+    // out inactive (#748).
     expect(liferay.getProductOptions).toHaveBeenCalledWith(
+      session.context.config,
+      71552
+    );
+    expect(skuOptionsOf()).toEqual([{ optionId: 71565, optionValueId: 71566 }]);
+  });
+
+  it('does not read back with the CProduct id, which silently reads empty', async () => {
+    liferay.addProductOptions.mockResolvedValue({ items: [linkedColour()] });
+
+    await runToSkus();
+
+    expect(liferay.getProductOptions).not.toHaveBeenCalledWith(
       session.context.config,
       71551
     );
-    expect(skuOptionsOf()).toEqual([{ optionId: 71565, optionValueId: 71566 }]);
+  });
+
+  it('says so, loudly, when there is no definition id to read back with', async () => {
+    // An unresolved definition id guarantees inactive SKUs and a failure three
+    // steps later at create-orders. The run has to show that here.
+    liferay.addProductOptions.mockResolvedValue({ items: [linkedColour()] });
+    session.context.productDataList[0].cpDefinitionId = undefined;
+
+    await runToSkus();
+
+    expect(liferay.getProductOptions).not.toHaveBeenCalled();
+    expect(logger.warn).toHaveBeenCalledWith(
+      expect.stringContaining('No definition id for product ERC1'),
+      expect.anything()
+    );
+    expect(logger.error).toHaveBeenCalledWith(
+      expect.stringContaining('Option linking incomplete'),
+      expect.anything()
+    );
   });
 
   it('never seeds the SKU ids from ensure-options', async () => {

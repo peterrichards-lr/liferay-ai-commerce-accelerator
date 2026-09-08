@@ -18,6 +18,7 @@ const {
   readLinkedOption,
   resolveSkuOptionLink,
 } = require('../../utils/productOptionLinks.cjs');
+const { definitionIdOf } = require('../../utils/productIdentity.cjs');
 
 /**
  * Liferay's Sku.price / promoPrice / cost accept any number >= 0. The AI
@@ -156,6 +157,13 @@ async function runLinkProductOptionsStep(sessionId) {
       return p.id && Array.isArray(opts) && opts.length > 0;
     });
 
+    // Accumulated across products so the step can report once, at a level the
+    // run actually shows. These warnings existed before and reached nothing
+    // the operator could see: a run whose option linking failed ten times out
+    // of ten still displayed "Step completed: Options" (#748).
+    const readBackFailures = [];
+    const productsWithoutValues = [];
+
     for (const product of productsWithOpts) {
       this.logger.debug(
         `Linking options for product ${product.externalReferenceCode} (ID: ${product.id})`,
@@ -272,16 +280,31 @@ async function runLinkProductOptionsStep(sessionId) {
         needsReadBack &&
         typeof this.liferay.getProductOptions === 'function'
       ) {
-        try {
-          linkedOptions = asLinkedOptions(
-            await this.liferay.getProductOptions(config, product.id)
-          );
-          linkedIds = readLinkedIds();
-        } catch (readBackError) {
+        // The definition id, not product.id. Every product-scoped path takes
+        // it, and this call was passing the CProduct id: it 404ed for every
+        // product, the values were never read, and all 90 SKUs came out
+        // inactive (#748). The write above survives on the ERC path instead.
+        const definitionId = definitionIdOf(product);
+
+        if (!definitionId) {
+          readBackFailures.push(product.externalReferenceCode);
           this.logger.warn(
-            `Could not read back the linked options for product ${product.externalReferenceCode}; SKU variants may lose their options`,
-            { sessionId, error: readBackError.message }
+            `No definition id for product ${product.externalReferenceCode}; cannot read back its linked options, so its SKU variants will lose their options`,
+            { sessionId }
           );
+        } else {
+          try {
+            linkedOptions = asLinkedOptions(
+              await this.liferay.getProductOptions(config, definitionId)
+            );
+            linkedIds = readLinkedIds();
+          } catch (readBackError) {
+            readBackFailures.push(product.externalReferenceCode);
+            this.logger.warn(
+              `Could not read back the linked options for product ${product.externalReferenceCode}; SKU variants may lose their options`,
+              { sessionId, error: readBackError.message }
+            );
+          }
         }
       }
 
@@ -323,6 +346,7 @@ async function runLinkProductOptionsStep(sessionId) {
       }
 
       if (withoutValues.length > 0) {
+        productsWithoutValues.push(product.externalReferenceCode);
         this.logger.warn(
           `Product ${product.externalReferenceCode}: Liferay reported no option value relationships for ${withoutValues.join(', ')}; SKU variants will lose those options`,
           { sessionId, options: withoutValues }
@@ -337,13 +361,39 @@ async function runLinkProductOptionsStep(sessionId) {
     await this.persistence.updateSessionContext(sessionId, {
       productDataList,
     });
-    await this.completeSyncStep(
-      sessionId,
-      S.LINK_PRODUCT_OPTIONS,
-      'SYNCHRONOUS',
-      productsWithOpts.length,
-      productsWithOpts.length
-    );
+
+    // A product that declared option values and ended without them will get
+    // SKUs Liferay marks inactive, and the run fails several steps later at
+    // create-orders with CPDefinitionOptionRelException. Reporting it here
+    // names the cause where it happened rather than leaving the operator to
+    // work back from an exception three steps downstream.
+    const failed = new Set([...readBackFailures, ...productsWithoutValues]);
+
+    if (failed.size > 0) {
+      const reason = `${failed.size} of ${productsWithOpts.length} products have option values that could not be linked; their SKUs will be inactive`;
+
+      this.logger.error(`Option linking incomplete: ${reason}`, {
+        sessionId,
+        externalReferenceCodes: [...failed].slice(0, 10),
+      });
+
+      await this.completeSyncStep(
+        sessionId,
+        S.LINK_PRODUCT_OPTIONS,
+        'COMPLETED',
+        productsWithOpts.length - failed.size,
+        productsWithOpts.length,
+        reason
+      );
+    } else {
+      await this.completeSyncStep(
+        sessionId,
+        S.LINK_PRODUCT_OPTIONS,
+        'SYNCHRONOUS',
+        productsWithOpts.length,
+        productsWithOpts.length
+      );
+    }
   } catch (error) {
     const errorReferenceCode =
       resolveErrorReference(error) || createERC(ERC_PREFIX.ERROR);
@@ -360,13 +410,6 @@ async function runLinkProductOptionsStep(sessionId) {
     });
     throw error;
   }
-}
-
-function countSkusIn(products) {
-  return products.reduce(
-    (total, product) => total + (product.skus || []).length,
-    0
-  );
 }
 
 async function runProductSkusStep(sessionId) {
@@ -483,10 +526,12 @@ async function runProductSkusStep(sessionId) {
               sessionId,
               session,
             }),
-          // SKUs, not the products carrying them. This is a product upsert, so
-          // a batch of ten products can write forty SKUs; reporting the batch
-          // length made a bar labelled "SKUs" count products (#752).
-          countSkusIn(batch)
+          // Products, because that is what Liferay's batch reports back: this
+          // is a product upsert carrying SKUs, and the callback completes the
+          // batch with the number of products it processed. Counting SKUs here
+          // made the batch start at 90 and complete at 10. The bar labelled
+          // "SKUs" therefore still counts products - see #756.
+          batch.length
         );
       }
     } else {
