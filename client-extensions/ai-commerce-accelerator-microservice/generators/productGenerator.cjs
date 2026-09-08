@@ -31,6 +31,7 @@ class ProductGenerator extends BaseGenerator {
       [S.ENSURE_OPTIONS]: specifications.runEnsureOptionsStep.bind(this),
       [S.CREATE_PRODUCTS]: products.runProductCreationStep.bind(this),
       [S.RESOLVE_PRODUCT_IDS]: products.runResolveProductIdsStep.bind(this),
+      [S.LINK_PRODUCT_CHANNELS]: products.runLinkProductChannelsStep.bind(this),
       [S.LINK_PRODUCT_OPTIONS]: skus.runLinkProductOptionsStep.bind(this),
       [S.CREATE_PRODUCT_SKUS]: skus.runProductSkusStep.bind(this),
       [S.RESOLVE_SKU_IDS]: skus.runResolveSkuIdsStep.bind(this),
