@@ -5,6 +5,7 @@ const {
   resolveErrorReference,
 } = require('../utils/misc.cjs');
 const { ERC_PREFIX, WORKFLOW_STEPS } = require('../utils/constants.cjs');
+const { orderableSkus } = require('../utils/orderableSkus.cjs');
 const {
   uniqueOrderERC,
   withUniqueOrderERCs,
@@ -453,9 +454,12 @@ class OrderGenerator extends BaseGenerator {
         ? orderData.items.length
         : Math.floor(Math.random() * 3) + 1;
 
-    const allPurchasableSkus = products.flatMap((p) =>
-      (p.skus || []).filter((s) => s.sku || s.externalReferenceCode)
-    );
+    // `p.skus` alone is the base SKU, which Liferay does not create for a
+    // product with SKU-contributing options - so every order item named a SKU
+    // that did not exist and the run died at create-orders (#747).
+    const allPurchasableSkus = orderableSkus(products, {
+      logger: this.logger,
+    });
 
     this.logger.debug(
       `Found ${allPurchasableSkus.length} purchasable SKUs across ${products.length} products.`,

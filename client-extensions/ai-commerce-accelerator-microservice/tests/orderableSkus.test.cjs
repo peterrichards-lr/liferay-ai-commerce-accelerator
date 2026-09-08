@@ -1,0 +1,150 @@
+const {
+  hasSkuContributingOptions,
+  orderableSkus,
+  orderableSkusFor,
+} = require('../utils/orderableSkus.cjs');
+
+const withOptions = {
+  externalReferenceCode: 'AICA-PRD-0001',
+  options: [
+    {
+      name: 'Color',
+      productOptionValues: ['Red', 'Blue'],
+      skuContributor: true,
+    },
+    { name: 'Size', productOptionValues: ['S', 'M'], skuContributor: true },
+  ],
+  skus: [{ sku: 'BASE-1' }],
+  skuVariants: [
+    { options: { Color: 'Red', Size: 'S' }, sku: 'BASE-1-RED-S' },
+    { options: { Color: 'Blue', Size: 'M' }, sku: 'BASE-1-BLUE-M' },
+  ],
+};
+
+const withoutOptions = {
+  externalReferenceCode: 'AICA-PRD-0002',
+  options: [{ name: 'Note', fieldType: 'text', skuContributor: false }],
+  skus: [{ sku: 'BASE-2' }],
+  skuVariants: [],
+};
+
+const codes = (skus) => skus.map((s) => s.sku);
+
+describe('hasSkuContributingOptions', () => {
+  it('is true when any option contributes to the SKU', () => {
+    expect(hasSkuContributingOptions(withOptions)).toBe(true);
+  });
+
+  it('is false when none do', () => {
+    expect(hasSkuContributingOptions(withoutOptions)).toBe(false);
+  });
+
+  it('reads productOptions as well as options, since the link step sets both', () => {
+    expect(
+      hasSkuContributingOptions({ productOptions: withOptions.options })
+    ).toBe(true);
+  });
+
+  it('is false for a product with no options at all', () => {
+    expect(hasSkuContributingOptions({})).toBe(false);
+    expect(hasSkuContributingOptions(undefined)).toBe(false);
+  });
+});
+
+describe('orderableSkusFor', () => {
+  // Liferay activates a SKU only with a value for every SKU-contributing
+  // option, and products.cjs does not create the base SKU for such a product -
+  // so naming it in an order references something that does not exist (#747).
+  it('uses the variants, not the base SKU, when options contribute', () => {
+    expect(codes(orderableSkusFor(withOptions))).toEqual([
+      'BASE-1-RED-S',
+      'BASE-1-BLUE-M',
+    ]);
+  });
+
+  it('uses the base SKU when no option contributes', () => {
+    expect(codes(orderableSkusFor(withoutOptions))).toEqual(['BASE-2']);
+  });
+
+  it('returns nothing rather than falling back to an uncreated base SKU', () => {
+    // A fallback here would put the run back where it started: an order naming
+    // a SKU Liferay never created.
+    const noVariants = { ...withOptions, skuVariants: [] };
+
+    expect(orderableSkusFor(noVariants)).toEqual([]);
+  });
+
+  it('includes both when a product has variants and no contributing options', () => {
+    const both = {
+      ...withoutOptions,
+      skuVariants: [{ sku: 'BASE-2-EXTRA' }],
+    };
+
+    expect(codes(orderableSkusFor(both))).toEqual(['BASE-2', 'BASE-2-EXTRA']);
+  });
+
+  it('skips a SKU that cannot be named', () => {
+    const nameless = {
+      ...withoutOptions,
+      skus: [{ price: 10 }, { sku: 'BASE-2' }],
+    };
+
+    expect(codes(orderableSkusFor(nameless))).toEqual(['BASE-2']);
+  });
+
+  it('accepts a SKU identified only by reference code', () => {
+    const ercOnly = {
+      ...withoutOptions,
+      skus: [{ externalReferenceCode: 'ERC-ONLY' }],
+    };
+
+    expect(orderableSkusFor(ercOnly)).toHaveLength(1);
+  });
+
+  // purchasable is a Liferay flag the generator sets true on everything it
+  // creates. Filtering on it would silently drop SKUs the moment a generator
+  // stopped setting it - the failure mode this file exists to prevent.
+  it('does not filter on purchasable', () => {
+    const unmarked = {
+      ...withoutOptions,
+      skus: [{ purchasable: false, sku: 'BASE-2' }],
+    };
+
+    expect(codes(orderableSkusFor(unmarked))).toEqual(['BASE-2']);
+  });
+
+  it('survives a product with nothing on it', () => {
+    expect(orderableSkusFor({})).toEqual([]);
+    expect(orderableSkusFor(undefined)).toEqual([]);
+  });
+});
+
+describe('orderableSkus', () => {
+  it('collects across products, mixing both kinds', () => {
+    expect(codes(orderableSkus([withOptions, withoutOptions]))).toEqual([
+      'BASE-1-RED-S',
+      'BASE-1-BLUE-M',
+      'BASE-2',
+    ]);
+  });
+
+  it('reports what it found', () => {
+    const logger = { debug: vi.fn(), info: vi.fn() };
+
+    orderableSkus([withOptions, withoutOptions], { logger });
+
+    expect(logger.info).toHaveBeenCalledWith(
+      expect.stringContaining('3 orderable SKU(s) across 2 product(s)')
+    );
+    // The stranded base SKUs are worth a line: they exist in the run's data
+    // and not in Liferay, which is confusing without an explanation.
+    expect(logger.debug).toHaveBeenCalledWith(
+      expect.stringContaining('base SKU that Liferay does not create')
+    );
+  });
+
+  it('survives an empty or missing list', () => {
+    expect(orderableSkus([])).toEqual([]);
+    expect(orderableSkus(undefined)).toEqual([]);
+  });
+});
