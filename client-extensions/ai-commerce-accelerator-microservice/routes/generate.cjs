@@ -15,6 +15,7 @@ const { evaluateGenerationRun } = require('../utils/channelSiteType.cjs');
 const { buildMediaSubflow } = require('../utils/mediaSubflow.cjs');
 const { channelBackfillSteps } = require('../utils/runChannels.cjs');
 const {
+  pricingSteps,
   specificationSteps,
   warehouseCreationSteps,
 } = require('../utils/productSubflow.cjs');
@@ -395,19 +396,7 @@ module.exports = (
           productSteps.push({ name: S.CREATE_PRODUCT_SKUS, type: 'sync' });
           productSteps.push({ name: S.RESOLVE_SKU_IDS, type: 'sync' });
           productSteps.push({ name: S.SYNC_DELAY_PRICING, type: 'sync' });
-          productSteps.push({ name: S.GENERATE_PRICE_LISTS, type: 'sync' });
-
-          if (options.generatePriceLists) {
-            productSteps.push({ name: S.UPDATE_CATALOG_CONFIG, type: 'sync' });
-          }
-
-          if (options.generateBulkPricing) {
-            productSteps.push({ name: S.GENERATE_BULK_PRICING, type: 'sync' });
-          }
-
-          if (options.generateTierPricing) {
-            productSteps.push({ name: S.GENERATE_TIER_PRICING, type: 'sync' });
-          }
+          productSteps.push(...pricingSteps(options));
 
           productSteps.push({ name: S.UPDATE_INVENTORY, type: 'sync' });
         }
