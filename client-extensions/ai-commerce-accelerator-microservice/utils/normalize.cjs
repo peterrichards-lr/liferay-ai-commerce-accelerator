@@ -29,6 +29,24 @@ function toNumber(v) {
   return Number.isFinite(n) ? n : undefined;
 }
 
+/**
+ * Accepts the shapes a multipart or JSON caller can express a list of ids in:
+ * a real array, a JSON array, a comma-separated string or a lone id. Returns
+ * undefined when nothing usable was supplied, so a request that never mentions
+ * the field leaves the config exactly as it was.
+ */
+function toNumberList(v) {
+  if (v === undefined || v === null || v === '') return undefined;
+
+  const parsed = typeof v === 'string' ? parseMaybeJSON(v) : v;
+  const candidates = Array.isArray(parsed) ? parsed : String(parsed).split(',');
+  const numbers = candidates
+    .map(toNumber)
+    .filter((n) => n !== undefined && Number.isInteger(n));
+
+  return numbers.length > 0 ? [...new Set(numbers)] : undefined;
+}
+
 function parseMaybeJSON(v) {
   if (v == null) return undefined;
   if (typeof v !== 'string') return v;
@@ -83,6 +101,7 @@ function buildConfigAndOptions(req) {
     catalogId,
     categories,
     channelId,
+    channelIds,
     clientId,
     clientSecret,
     createWarehouses,
@@ -162,6 +181,10 @@ function buildConfigAndOptions(req) {
     batchSize: toNumber(batchSize),
     catalogId: toNumber(catalogId),
     channelId: toNumber(channelId),
+    // Every channel this run should make its products and warehouses
+    // available in. channelId remains the run's primary channel - the one
+    // orders, pricing and inventory are written against. See #664.
+    channelIds: toNumberList(channelIds),
     clientId: clientId === null ? null : clientId,
     clientSecret: clientSecret === null ? null : clientSecret,
     currencyCode:
